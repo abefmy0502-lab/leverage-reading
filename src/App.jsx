@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 const STAR = "★";
 const EMPTY_STAR = "☆";
@@ -78,132 +79,54 @@ async function searchBooksAPI(q) {
   } catch { return []; }
 }
 
-// ==================== Barcode Scanner ====================
-function BarcodeScanner({ onDetect, onClose }) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const streamRef = useRef(null);
-  const intervalRef = useRef(null);
-  const fileRef = useRef(null);
-  const [mode, setMode] = useState("init");
-  const [status, setStatus] = useState("カメラ起動中...");
-  const [manual, setManual] = useState("");
-
-  const detect = useCallback(async (src) => {
-    if ("BarcodeDetector" in window) {
-      try {
-        const d = new BarcodeDetector({ formats: ["ean_13", "ean_8"] });
-        const b = await d.detect(src);
-        if (b.length) return b[0].rawValue;
-      } catch {}
-    }
-    return null;
-  }, []);
-
-  useEffect(() => {
-    let dead = false;
-    (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-        });
-        if (dead) { stream.getTracks().forEach((t) => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
-        setMode("live");
-        setStatus("バーコードをかざしてください");
-        intervalRef.current = setInterval(async () => {
-          if (!videoRef.current || videoRef.current.readyState < 2) return;
-          const c = canvasRef.current;
-          if (!c) return;
-          const ctx = c.getContext("2d");
-          c.width = videoRef.current.videoWidth;
-          c.height = videoRef.current.videoHeight;
-          ctx.drawImage(videoRef.current, 0, 0);
-          const isbn = await detect(c);
-          if (isbn) { cleanup(); onDetect(isbn); }
-        }, 400);
-      } catch {
-        if (!dead) { setMode("manual"); setStatus("カメラ利用不可"); }
-      }
-    })();
-    return () => { dead = true; cleanup(); };
-  }, [detect, onDetect]);
-
-  const cleanup = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
-  };
-
-  const handlePhoto = async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setStatus("解析中...");
-    try {
-      const bm = await createImageBitmap(f);
-      const isbn = await detect(bm);
-      if (isbn) { cleanup(); onDetect(isbn); }
-      else setStatus("検出できませんでした");
-    } catch { setStatus("失敗"); }
-  };
-
-  const doManual = () => {
-    const c = manual.replace(/[-\s]/g, "");
-    if (c.length >= 10) { cleanup(); onDetect(c); }
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h3 style={{ fontSize: 16, fontWeight: 500, color: "#3d362c" }}>📷 バーコード</h3>
-        <button onClick={() => { cleanup(); onClose(); }} style={{ background: "none", border: "none", fontSize: 20, color: "#8a7e6b", cursor: "pointer" }}>×</button>
-      </div>
-      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: "#1a1a1a", aspectRatio: "4/3" }}>
-        <video ref={videoRef} playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover", display: mode === "live" ? "block" : "none" }} />
-        <canvas ref={canvasRef} style={{ display: "none" }} />
-        {mode !== "live" && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 160 }}>
-            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{mode === "init" ? "起動中..." : "カメラ利用不可"}</p>
-          </div>
-        )}
-        {mode === "live" && (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-            <div style={{ width: "75%", height: 3, background: "rgba(212,160,64,0.7)", borderRadius: 2, animation: "scanLine 2s ease-in-out infinite" }} />
-          </div>
-        )}
-      </div>
-      <p style={{ fontSize: 12, color: "#8a7e6b", textAlign: "center" }}>{status}</p>
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: "none" }} />
-      <button onClick={() => fileRef.current?.click()} style={{ ...btnO }}>📸 写真で読み取る</button>
-      <div style={{ borderTop: "1px solid #e0d8c8", paddingTop: 10 }}>
-        <p style={{ fontSize: 11, color: "#a89e8c", marginBottom: 4 }}>ISBN入力</p>
-        <div style={{ display: "flex", gap: 6 }}>
-          <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="978-..." style={{ ...inp, flex: 1 }} onKeyDown={(e) => e.key === "Enter" && doManual()} />
-          <button onClick={doManual} style={{ ...btnS, padding: "8px 14px", fontSize: 12 }}>検索</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ==================== Book Search Modal ====================
+// ==================== Book Search Modal (with ISBN) ====================
 function BookSearchModal({ onSelect, onClose }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const doSearch = async () => { if (!q.trim()) return; setSearching(true); setResults(await searchBooksAPI(q)); setSearching(false); };
+  const [notFound, setNotFound] = useState(false);
+
+  const isISBN = (str) => /^[\d\-]{10,}$/.test(str.replace(/\s/g, ""));
+
+  const doSearch = async () => {
+    if (!q.trim()) return;
+    setSearching(true);
+    setNotFound(false);
+    setResults([]);
+    const cleaned = q.replace(/[-\s]/g, "");
+
+    // ISBN search
+    if (isISBN(cleaned)) {
+      const info = await lookupISBN(cleaned);
+      if (info && info.title) {
+        setResults([{ title: info.title, author: info.author, cover: info.cover, pages: 0 }]);
+      } else {
+        setNotFound(true);
+      }
+      setSearching(false);
+      return;
+    }
+
+    // Title/Author search
+    const res = await searchBooksAPI(q);
+    setResults(res);
+    if (res.length === 0) setNotFound(true);
+    setSearching(false);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h3 style={{ fontSize: 16, fontWeight: 500, color: "#3d362c" }}>🔍 検索</h3>
+        <h3 style={{ fontSize: 16, fontWeight: 500, color: "#3d362c" }}>🔍 本を検索</h3>
         <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, color: "#8a7e6b", cursor: "pointer" }}>×</button>
       </div>
+      <p style={{ fontSize: 11, color: "#a89e8c", lineHeight: 1.5 }}>タイトル・著者名・ISBN（本の裏の数字）で検索できます</p>
       <div style={{ display: "flex", gap: 6 }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="タイトル/著者" style={{ ...inp, flex: 1 }} onKeyDown={(e) => e.key === "Enter" && doSearch()} autoFocus />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="タイトル、著者名、またはISBN" style={{ ...inp, flex: 1 }} onKeyDown={(e) => e.key === "Enter" && doSearch()} autoFocus />
         <button onClick={doSearch} style={{ ...btnS, padding: "8px 14px", fontSize: 12 }}>検索</button>
       </div>
       {searching && <Dots />}
+      {notFound && <p style={{ fontSize: 12, color: "#a05040", textAlign: "center", padding: 16 }}>見つかりませんでした。別のキーワードで試してください。</p>}
       {results.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 300, overflowY: "auto" }}>
           {results.map((b, i) => (
@@ -576,9 +499,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [scannerOpen, setScannerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [lookingUp, setLookingUp] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiStep, setAiStep] = useState(0);
 
@@ -605,7 +526,6 @@ export default function App() {
   };
 
   const handleDelete = () => { persist({ books: books.filter((b) => b.id !== current.id) }); setDeleteConfirm(false); goList(); };
-  const handleBarcode = async (isbn) => { setScannerOpen(false); setLookingUp(true); const info = await lookupISBN(isbn); setLookingUp(false); if (info) setForm((f) => ({ ...f, title: info.title || f.title, author: info.author || f.author, cover: info.cover || f.cover })); else alert("見つかりませんでした"); };
   const handleBookSelect = (b) => { setSearchOpen(false); setForm((f) => ({ ...f, title: b.title || f.title, author: b.author || f.author, cover: b.cover || f.cover, totalPages: b.pages || f.totalPages })); };
   const runS1 = async () => { if (!form.title.trim()) return; setAiLoading(true); const r = await callClaude(AI_SYS, S1P(form.title, form.author)); setForm((f) => ({ ...f, aiAnalysis: r })); setAiStep(1); setAiLoading(false); };
   const runS2 = async () => { if (!form.investPurpose?.trim()) return; setAiLoading(true); const r = await callClaude(AI_SYS, S2P(form.title, form.author, form.aiAnalysis, form.investPurpose)); setForm((f) => ({ ...f, aiStrategy: r })); setAiLoading(false); };
@@ -713,12 +633,8 @@ export default function App() {
           <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c", marginTop: 10, marginBottom: 16 }}>{current ? "編集" : "本を追加"}</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {!current && (
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => setScannerOpen(true)} style={{ ...btnO, flex: 1, padding: "12px 0", borderStyle: "dashed", fontSize: 13 }}>📷 バーコード</button>
-                <button onClick={() => setSearchOpen(true)} style={{ ...btnO, flex: 1, padding: "12px 0", borderStyle: "dashed", fontSize: 13 }}>🔍 検索</button>
-              </div>
+              <button onClick={() => setSearchOpen(true)} style={{ ...btnO, padding: "12px 0", borderStyle: "dashed", fontSize: 13, width: "100%" }}>🔍 タイトル・ISBNで検索して登録</button>
             )}
-            {lookingUp && <Dots />}
             <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
               {form.cover && <img src={form.cover} alt="" style={{ width: 48, height: 68, objectFit: "cover", borderRadius: 5, border: "1px solid #e0d8c8", flexShrink: 0 }} />}
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -728,7 +644,7 @@ export default function App() {
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <div style={{ flex: 1 }}><Field label="日付"><input type="date" value={form.date || ""} onChange={(e) => setForm({ ...form, date: e.target.value })} style={inp} /></Field></div>
-              <div style={{ flex: 1 }}><Field label="評価"><Stars r={form.rating} onChange={(r) => setForm({ ...form, rating: r })} size={22} /></Field></div>
+              <div style={{ flex: 1 }}><Field label="評価"><div style={{ padding: "9px 0", display: "flex", alignItems: "center" }}><Stars r={form.rating} onChange={(r) => setForm({ ...form, rating: r })} size={24} /></div></Field></div>
             </div>
             <Field label="ステータス"><StatusPicker value={form.status} onChange={(s) => setForm({ ...form, status: s })} /></Field>
             <Field label="進捗">
@@ -780,7 +696,6 @@ export default function App() {
             <button onClick={handleSave} disabled={!form.title.trim()} style={{ ...btnS, flex: 1, opacity: form.title.trim() ? 1 : 0.5 }}>保存</button>
           </div>
         </div>
-        <Modal open={scannerOpen} onClose={() => setScannerOpen(false)}><BarcodeScanner onDetect={handleBarcode} onClose={() => setScannerOpen(false)} /></Modal>
         <Modal open={searchOpen} onClose={() => setSearchOpen(false)}><BookSearchModal onSelect={handleBookSelect} onClose={() => setSearchOpen(false)} /></Modal>
       </Shell>
     );
@@ -861,7 +776,6 @@ function Shell({ children }) {
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
         @keyframes pulse { 0%, 100% { opacity: .2 } 50% { opacity: 1 } }
-        @keyframes scanLine { 0%, 100% { transform: translateY(-30px); opacity: .5 } 50% { transform: translateY(30px); opacity: 1 } }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         input, textarea, select { font-family: inherit; }
         ::placeholder { color: #b5aa96; }
