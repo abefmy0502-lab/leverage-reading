@@ -1420,11 +1420,11 @@ const persist = useCallback((updates) => {
   return (
     <Shell>
    <header style={{ padding: "24px 20px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ fontSize: 18, fontWeight: 500, color: "#3d362c", letterSpacing: 2 }}>📚 レバレッジ読書ログ</h1>
-        <button onClick={signOut} style={{ background: "none", border: "none", fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>
-          ログアウト
-        </button>
-      </header>
+  <h1 style={{ fontSize: 18, fontWeight: 500, color: "#3d362c", letterSpacing: 2 }}>📚 レバレッジ読書ログ</h1>
+  <button onClick={signOut} style={{ background: "none", border: "none", fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>
+    ログアウト
+  </button>
+</header>
 
       <div style={{ paddingBottom: 80 }}>
         {tab === "today" && <TodayTab books={books} />}
