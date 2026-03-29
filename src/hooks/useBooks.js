@@ -101,24 +101,21 @@ export function useBooks() {
         roi_summary: book.roiSummary || null,
       };
 
-      // 既存の本かチェック
-      const { data: existingBook } = await supabase
-        .from('books')
-        .select('id')
-        .eq('id', book.id)
-        .single();
+     let savedBookId;
 
-      let savedBookId = book.id;
+      // UUIDフォーマットかチェック（既存の本はUUID形式）
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(book.id);
 
-      if (existingBook) {
-        // 更新
+      if (isUUID) {
+        // 既存の本を更新
         const { error } = await supabase
           .from('books')
           .update(bookData)
           .eq('id', book.id);
         if (error) throw error;
+        savedBookId = book.id;
       } else {
-        // 新規追加
+        // 新規追加（SupabaseがUUIDを自動生成）
         const { data, error } = await supabase
           .from('books')
           .insert([bookData])
