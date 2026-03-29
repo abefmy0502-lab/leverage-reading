@@ -1,3 +1,4 @@
+import { useAuth } from './hooks/useAuth';
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 const STAR = "★";
@@ -1067,6 +1068,37 @@ function Shell({ children }) {
 
 /* ========== MAIN APP ========== */
 export default function App() {
+  const { user, loading, signInWithGoogle, signOut } = useAuth();
+
+  // ローディング中
+  if (loading) {
+    return (
+      <Shell>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          <Dots />
+        </div>
+      </Shell>
+    );
+  }
+
+  // 未ログイン：ログイン画面
+  if (!user) {
+    return (
+      <Shell>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px' }}>
+          <h1 style={{ fontSize: 24, fontWeight: 500, color: '#3d362c', marginBottom: 12 }}>📚 レバレッジ読書ログ</h1>
+          <p style={{ fontSize: 14, color: '#8a7e6b', marginBottom: 32, textAlign: 'center' }}>
+            読書を投資に変える。<br />ROIを最大化する読書管理アプリ。
+          </p>
+          <button onClick={signInWithGoogle} style={{ ...btnS, padding: '14px 28px', fontSize: 15 }}>
+            🔐 Googleでログイン
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  // ここから既存のコード（ログイン済みユーザー向け）
   const [data, setData] = useState(() => loadData());
   const books = data.books;
   const collections = data.collections;
@@ -1354,8 +1386,11 @@ export default function App() {
   // ===== TAB CONTENT =====
   return (
     <Shell>
-      <header style={{ padding: "24px 20px 10px" }}>
+   <header style={{ padding: "24px 20px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1 style={{ fontSize: 18, fontWeight: 500, color: "#3d362c", letterSpacing: 2 }}>📚 レバレッジ読書ログ</h1>
+        <button onClick={signOut} style={{ background: "none", border: "none", fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>
+          ログアウト
+        </button>
       </header>
 
       <div style={{ paddingBottom: 80 }}>
