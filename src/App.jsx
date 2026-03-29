@@ -1163,25 +1163,32 @@ const persist = useCallback((updates) => {
   };
 
   const addFromAdvisor = async (rec) => {
-    const newBook = { ...emptyBook(), id: Date.now().toString(), title: rec.title, author: rec.author, status: "want" };
+    const newBook = { ...emptyBook(), title: rec.title, author: rec.author, status: "want" };
     // Try to get cover from Google Books
     try {
       const results = await searchBooksAPI(rec.title + " " + rec.author);
       if (results.length > 0) { newBook.cover = results[0].cover || ""; newBook.totalPages = results[0].pages || 0; }
     } catch {}
-    persist({ books: [newBook, ...books] });
+    try {
+      await saveBook(newBook);
+    } catch (error) {
+      alert('本の追加に失敗しました');
+    }
   };
 
-  // Status transitions
-  const advanceStatus = (book, newStatus) => {
+// Status transitions
+  const advanceStatus = async (book, newStatus) => {
     const updated = { ...book, status: newStatus };
     if (newStatus === "before" && !updated.startDate) updated.startDate = new Date().toISOString().slice(0, 10);
     if (newStatus === "done" && !updated.doneDate) updated.doneDate = new Date().toISOString().slice(0, 10);
-    const next = books.map((b) => (b.id === book.id ? updated : b));
-    persist({ books: next });
-    setCurrent(updated);
-    setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
-    setView("edit");
+    try {
+      await saveBook(updated);
+      setCurrent(updated);
+      setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
+      setView("edit");
+    } catch (error) {
+      alert('ステータス変更に失敗しました');
+    }
   };
 
   // Share
@@ -1246,14 +1253,19 @@ const persist = useCallback((updates) => {
     setAiLoading(false);
   };
 
-  const toggleAction = (bookId, actionIdx) => {
-    const next = books.map((b) => {
-      if (b.id !== bookId) return b;
-      const acts = [...(b.actions || [])];
-      acts[actionIdx] = { ...acts[actionIdx], done: !acts[actionIdx].done };
-      return { ...b, actions: acts };
-    });
-    persist({ books: next });
+  const toggleAction = async (bookId, actionIdx) => {
+    const book = books.find((b) => b.id === bookId);
+    if (!book) return;
+    
+    const acts = [...(book.actions || [])];
+    acts[actionIdx] = { ...acts[actionIdx], done: !acts[actionIdx].done };
+    const updated = { ...book, actions: acts };
+    
+    try {
+      await saveBook(updated);
+    } catch (error) {
+      alert('行動の更新に失敗しました');
+    }
   };
 
   const filtered = useMemo(() => {
