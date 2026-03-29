@@ -91,10 +91,25 @@ async function lookupISBN(isbn) {
 }
 
 async function searchBooksAPI(q) {
+  // Try OpenBD first for Japanese books
   try {
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=8&langRestrict=ja`);
+    const r = await fetch(`https://api.openbd.jp/v1/get?isbn=${encodeURIComponent(q)}`);
     const d = await r.json();
-    return (d.items || []).map((i) => { const v = i.volumeInfo; return { title: v.title || "", author: (v.authors || []).join(", "), cover: v.imageLinks?.thumbnail || "", pages: v.pageCount || 0 }; });
+    if (d?.[0]?.summary?.title) {
+      const s = d[0].summary;
+      return [{ title: s.title, author: s.author || "", cover: s.cover || "", pages: 0 }];
+    }
+  } catch {}
+  // Google Books without langRestrict (it blocks too many Japanese results)
+  try {
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10`);
+    if (!r.ok) throw new Error("API error");
+    const d = await r.json();
+    if (!d.items || d.items.length === 0) return [];
+    return d.items.map((i) => {
+      const v = i.volumeInfo;
+      return { title: v.title || "", author: (v.authors || []).join(", "), cover: v.imageLinks?.thumbnail || "", pages: v.pageCount || 0 };
+    });
   } catch { return []; }
 }
 
@@ -221,9 +236,10 @@ function BookIcon() {
   );
 }
 
-function TagInput({ tags, onChange }) {
+function TagInput({ tags, onChange, allTags }) {
   const [input, setInput] = useState("");
-  const add = () => { const t = input.trim(); if (t && !tags.includes(t)) onChange([...tags, t]); setInput(""); };
+  const add = (t) => { const tag = (t || input).trim(); if (tag && !tags.includes(tag)) onChange([...tags, tag]); setInput(""); };
+  const suggestions = (allTags || []).filter((t) => !tags.includes(t));
   return (
     <div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: tags.length ? 6 : 0 }}>
@@ -234,9 +250,17 @@ function TagInput({ tags, onChange }) {
           </span>
         ))}
       </div>
+      {suggestions.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+          <span style={{ fontSize: 10, color: "#b5aa96", lineHeight: "22px" }}>過去のタグ:</span>
+          {suggestions.map((t) => (
+            <button key={t} onClick={() => add(t)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, border: "1px dashed #d4ccbe", background: "transparent", color: "#8a7e6b", cursor: "pointer", fontFamily: "inherit" }}>+ {t}</button>
+          ))}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 6 }}>
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="タグを追加" style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
-        <button onClick={add} style={{ ...btnO, padding: "6px 12px", fontSize: 12 }}>追加</button>
+        <button onClick={() => add()} style={{ ...btnO, padding: "6px 12px", fontSize: 12 }}>追加</button>
       </div>
     </div>
   );
@@ -262,7 +286,7 @@ const emptyBook = () => ({
 /* ========== Phase Screens ========== */
 
 // Phase 1: 読みたい → just register
-function WantPhase({ form, setForm, onSave, onSearchOpen }) {
+function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
   return (
     <div>
       <p style={phaseDesc}>📖 読みたい本を登録しましょう</p>
@@ -277,7 +301,7 @@ function WantPhase({ form, setForm, onSave, onSearchOpen }) {
         </div>
       </div>
       <Field label="タグ">
-        <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} />
+        <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
       </Field>
       <button onClick={onSave} disabled={!form.title.trim()} style={{ ...btnS, width: "100%", marginTop: 8, opacity: form.title.trim() ? 1 : 0.5 }}>
         保存
@@ -325,7 +349,7 @@ function BeforePhase({ form, setForm, onSave, aiLoading, onRunAnalysis, onRunStr
 }
 
 // Phase 3: 読書中（インプット）
-function ReadingPhase({ form, setForm, onSave }) {
+function ReadingPhase({ form, setForm, onSave, allTags }) {
   const pct = form.totalPages > 0 ? Math.min(Math.round((form.currentPage / form.totalPages) * 100), 100) : 0;
   return (
     <div>
@@ -362,13 +386,17 @@ function ReadingPhase({ form, setForm, onSave }) {
           placeholder={"・印象に残ったフレーズ\n・すぐ使えるノウハウ\n・考え方の転換点"} rows={8} style={ta} />
       </Field>
 
+      <Field label="タグ">
+        <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
+      </Field>
+
       <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 8 }}>保存</button>
     </div>
   );
 }
 
 // Phase 4: 読了（投資回収）
-function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary }) {
+function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) {
   const addAction = () => setForm({ ...form, actions: [...(form.actions || []), { text: "", deadline: "", done: false }] });
   const updateAction = (i, key, val) => {
     const a = [...(form.actions || [])];
@@ -428,6 +456,10 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary }) {
 
       <Field label="ROI一言まとめ" sub="この本の投資リターンを一言で">
         <input value={form.roiSummary || ""} onChange={(e) => setForm({ ...form, roiSummary: e.target.value })} placeholder="例：意思決定スピードが2倍になる思考法を得た" style={inp} />
+      </Field>
+
+      <Field label="タグ">
+        <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
       </Field>
 
       <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 8 }}>保存</button>
@@ -1184,6 +1216,7 @@ export default function App() {
   const stats = { total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length };
   const actionCount = books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0);
   const actionDone = books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0);
+  const allTags = useMemo(() => { const s = new Set(); books.forEach((b) => (b.tags || []).forEach((t) => s.add(t))); return [...s]; }, [books]);
 
   // ===== DETAIL =====
   if (view === "detail" && current) {
@@ -1297,16 +1330,16 @@ export default function App() {
           </div>
 
           {(form.status === "want" || !current) && (
-            <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={() => setSearchOpen(true)} />
+            <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={() => setSearchOpen(true)} allTags={allTags} />
           )}
           {form.status === "before" && current && (
             <BeforePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunAnalysis={runAnalysis} onRunStrategy={runStrategy} />
           )}
           {form.status === "reading" && current && (
-            <ReadingPhase form={form} setForm={setForm} onSave={handleSave} />
+            <ReadingPhase form={form} setForm={setForm} onSave={handleSave} allTags={allTags} />
           )}
           {form.status === "done" && current && (
-            <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} />
+            <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} allTags={allTags} />
           )}
         </div>
 
