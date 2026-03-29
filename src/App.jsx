@@ -1,4 +1,5 @@
 import { useAuth } from './hooks/useAuth';
+import { useBooks } from './hooks/useBooks';
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 const STAR = "★";
@@ -1098,9 +1099,14 @@ export default function App() {
     );
   }
 
-  // ここから既存のコード（ログイン済みユーザー向け）
-  const [data, setData] = useState(() => loadData());
-  const books = data.books;
+// ここから既存のコード（ログイン済みユーザー向け）
+  const { books, loading: booksLoading, saveBook, deleteBook } = useBooks();
+  
+  // collections と readingPlans は一旦localStorageのまま
+  const [data, setData] = useState(() => {
+    const d = loadData();
+    return { collections: d.collections || [], readingPlans: d.readingPlans || {} };
+  });
   const collections = data.collections;
   const readingPlans = data.readingPlans || {};
 
@@ -1116,8 +1122,13 @@ export default function App() {
   const [advisorOpen, setAdvisorOpen] = useState(false);
   const [capitalOpen, setCapitalOpen] = useState(false);
 
-  const persist = useCallback((updates) => {
-    setData((prev) => { const next = { ...prev, ...updates }; saveData(next); return next; });
+const persist = useCallback((updates) => {
+    setData((prev) => { 
+      const next = { ...prev, ...updates };
+      // booksはSupabaseで管理するのでlocalStorageには保存しない
+      saveData({ collections: next.collections, readingPlans: next.readingPlans });
+      return next;
+    });
   }, []);
 
   const openAdd = () => { setForm({ ...emptyBook(), id: Date.now().toString() }); setView("edit"); setCurrent(null); setTab("books"); };
@@ -1125,16 +1136,26 @@ export default function App() {
   const openEdit = (b) => { setForm({ ...emptyBook(), ...b, tags: b.tags || [], actions: b.actions || [] }); setCurrent(b); setView("edit"); };
   const goList = () => { setView("list"); setCurrent(null); };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) return;
-    const ex = books.find((b) => b.id === form.id);
-    const next = ex ? books.map((b) => (b.id === form.id ? { ...form } : b)) : [{ ...form }, ...books];
-    persist({ books: next });
-    setCurrent({ ...form });
-    setView("detail");
+    try {
+      await saveBook(form);
+      setCurrent({ ...form });
+      setView("detail");
+    } catch (error) {
+      alert('保存に失敗しました');
+    }
   };
 
-  const handleDelete = () => { persist({ books: books.filter((b) => b.id !== current.id) }); setDeleteConfirm(false); goList(); };
+  const handleDelete = async () => { 
+    try {
+      await deleteBook(current.id);
+      setDeleteConfirm(false);
+      goList();
+    } catch (error) {
+      alert('削除に失敗しました');
+    }
+  };
 
   const handleBookSelect = (b) => {
     setSearchOpen(false);
