@@ -1,0 +1,190 @@
+import { useState } from 'react';
+import { useAuth } from '../../hooks/useAuth';
+import { isSupabaseConfigured } from '../../lib/supabase';
+
+const btnPrimary = {
+  padding: '14px 28px',
+  fontSize: 15,
+  background: '#5c5043',
+  color: '#faf6f0',
+  border: 'none',
+  borderRadius: 10,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  width: '100%',
+};
+
+const btnLink = {
+  background: 'none',
+  border: 'none',
+  fontSize: 12,
+  color: '#8a7e6b',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  padding: 4,
+};
+
+const inp = {
+  width: '100%',
+  padding: '12px 14px',
+  fontSize: 14,
+  border: '1px solid #d4ccbe',
+  borderRadius: 8,
+  fontFamily: 'inherit',
+  background: '#faf6f0',
+  color: '#3d362c',
+  marginBottom: 10,
+  boxSizing: 'border-box',
+};
+
+function humanizeError(err) {
+  const msg = (err?.message || '').toLowerCase();
+  if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+    return 'メールアドレスまたはパスワードが正しくありません。';
+  }
+  if (msg.includes('user already registered')) {
+    return 'このメールアドレスは既に登録されています。';
+  }
+  if (msg.includes('password should be') || msg.includes('password length')) {
+    return 'パスワードは6文字以上で入力してください。';
+  }
+  if (msg.includes('email') && (msg.includes('invalid') || msg.includes('format'))) {
+    return 'メールアドレスの形式が正しくありません。';
+  }
+  if (msg.includes('rate limit') || msg.includes('too many')) {
+    return 'リクエストが多すぎます。しばらく経ってから再度お試しください。';
+  }
+  if (msg.includes('email not confirmed')) {
+    return 'メール確認が完了していません。確認メールをご確認ください。';
+  }
+  if (msg.includes('not configured')) {
+    return 'アプリの設定が未完了です。管理者にお問い合わせください。';
+  }
+  return err?.message || '予期せぬエラーが発生しました。';
+}
+
+export default function AuthScreen() {
+  const { signInWithEmail, signUpWithEmail, sendPasswordResetEmail } = useAuth();
+  const [mode, setMode] = useState('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    setLoading(true);
+    try {
+      if (mode === 'signin') {
+        await signInWithEmail(email.trim(), password);
+      } else if (mode === 'signup') {
+        await signUpWithEmail(email.trim(), password, displayName.trim());
+        setInfo('確認メールを送信しました。メール内のリンクをクリックして登録を完了してください。');
+      } else if (mode === 'reset') {
+        await sendPasswordResetEmail(email.trim());
+        setInfo('パスワードリセット用のメールを送信しました。');
+      }
+    } catch (err) {
+      setError(humanizeError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchMode = (m) => {
+    setMode(m);
+    setError('');
+    setInfo('');
+  };
+
+  const title = mode === 'signin' ? 'ログイン' : mode === 'signup' ? '新規登録' : 'パスワードリセット';
+  const submitLabel = loading
+    ? '処理中...'
+    : mode === 'signin'
+    ? 'ログイン'
+    : mode === 'signup'
+    ? '登録する'
+    : 'リセットメールを送信';
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: 20, color: '#3d362c', marginBottom: 12 }}>⚠️ 設定が未完了です</h1>
+        <p style={{ fontSize: 13, color: '#8a7e6b', lineHeight: 1.8, maxWidth: 360 }}>
+          Supabase の環境変数が設定されていません。<br />
+          <code style={{ fontSize: 11 }}>VITE_SUPABASE_URL</code> と{' '}
+          <code style={{ fontSize: 11 }}>VITE_SUPABASE_ANON_KEY</code> を設定してください。
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px' }}>
+      <h1 style={{ fontSize: 24, fontWeight: 500, color: '#3d362c', marginBottom: 12 }}>📚 レバレッジ読書ログ</h1>
+      <p style={{ fontSize: 14, color: '#8a7e6b', marginBottom: 28, textAlign: 'center' }}>
+        読書を投資に変える。<br />ROIを最大化する読書管理アプリ。
+      </p>
+      <form onSubmit={submit} style={{ width: '100%', maxWidth: 340 }}>
+        <h2 style={{ fontSize: 16, color: '#3d362c', marginBottom: 16, textAlign: 'center', fontWeight: 500 }}>{title}</h2>
+        {mode === 'signup' && (
+          <input
+            style={inp}
+            type="text"
+            placeholder="表示名（任意）"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            autoComplete="name"
+          />
+        )}
+        <input
+          style={inp}
+          type="email"
+          placeholder="メールアドレス"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+        />
+        {mode !== 'reset' && (
+          <input
+            style={inp}
+            type="password"
+            placeholder="パスワード（6文字以上）"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+          />
+        )}
+        {error && <p style={{ color: '#b75050', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
+        {info && <p style={{ color: '#5a7a48', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
+        <button type="submit" style={{ ...btnPrimary, opacity: loading ? 0.6 : 1 }} disabled={loading}>
+          {submitLabel}
+        </button>
+      </form>
+      <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 6, width: '100%', maxWidth: 340, alignItems: 'center' }}>
+        {mode !== 'signin' && (
+          <button type="button" onClick={() => switchMode('signin')} style={btnLink}>
+            ← ログインに戻る
+          </button>
+        )}
+        {mode === 'signin' && (
+          <>
+            <button type="button" onClick={() => switchMode('signup')} style={btnLink}>
+              アカウントをお持ちでない方はこちら
+            </button>
+            <button type="button" onClick={() => switchMode('reset')} style={btnLink}>
+              パスワードをお忘れの方
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

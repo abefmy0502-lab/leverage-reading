@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 初回：現在のセッションを取得
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -21,25 +24,47 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+  const signUpWithEmail = async (email, password, displayName) => {
+    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
       options: {
-        redirectTo: window.location.origin,
+        data: displayName ? { display_name: displayName } : undefined,
+        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
       },
     });
-    if (error) console.error('ログインエラー:', error);
+    if (error) throw error;
+    return data;
+  };
+
+  const signInWithEmail = async (email, password) => {
+    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
+  };
+
+  const sendPasswordResetEmail = async (email) => {
+    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+    });
+    if (error) throw error;
   };
 
   const signOut = async () => {
+    if (!isSupabaseConfigured) return;
     const { error } = await supabase.auth.signOut();
-    if (error) console.error('ログアウトエラー:', error);
+    if (error) throw error;
   };
 
   return {
     user,
     loading,
-    signInWithGoogle,
+    signUpWithEmail,
+    signInWithEmail,
+    sendPasswordResetEmail,
     signOut,
   };
 }

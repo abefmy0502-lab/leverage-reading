@@ -1,5 +1,7 @@
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
+import { callClaude } from './lib/ai';
+import AuthScreen from './components/auth/AuthScreen';
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 const STAR = "★";
@@ -24,19 +26,6 @@ function saveData(data) {
 }
 
 /* ========== AI ========== */
-async function callClaude(sys, usr) {
-  try {
-    const r = await fetch("/api/claude", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: sys, messages: [{ role: "user", content: usr }] }),
-    });
-    const d = await r.json();
-    if (d.error) return "AI機能を使うにはAPIキーの設定が必要です。";
-    return d.content?.map((b) => b.text || "").join("\n") || "エラー";
-  } catch { return "通信エラー"; }
-}
-
 const AI_SYS = "レバレッジ・リーディング専門メンター。本田直之氏の哲学に基づき読書ROIを最大化。本は投資、重要20%で80%成果、目的なき読書はしない、行動が全て。マークダウン不使用、見出しは【】で囲む。日本語で回答。";
 
 const ANALYSIS_PROMPT = (t, a) =>
@@ -487,6 +476,7 @@ function TodayTab({ books }) {
   const [touchStart, setTouchStart] = useState(null);
   const next = () => setIdx((i) => (i + 1) % cards.length);
   const prev = () => setIdx((i) => (i - 1 + cards.length) % cards.length);
+  const safeIdx = Math.min(idx, Math.max(0, cards.length - 1));
 
   if (!cards.length) {
     return (
@@ -498,7 +488,7 @@ function TodayTab({ books }) {
     );
   }
 
-  const c = cards[idx];
+  const c = cards[safeIdx];
   const typeLabel = { memo: "メモ", summary: "要約", roi: "ROI", action: "行動" };
   const typeBg = { memo: "#f0e8d8", summary: "#e2ecd8", roi: "#f0e8d8", action: "#dde8f0" };
   const typeColor = { memo: "#8a7040", summary: "#5a7a48", roi: "#8a7040", action: "#4a6e8a" };
@@ -509,9 +499,9 @@ function TodayTab({ books }) {
       onTouchEnd={(e) => { if (touchStart === null) return; const diff = e.changedTouches[0].clientX - touchStart; if (Math.abs(diff) > 50) { diff < 0 ? next() : prev(); } setTouchStart(null); }}>
       <div style={{ textAlign: "center", marginBottom: 16 }}>
         <p style={{ fontSize: 11, color: "#a89e8c", letterSpacing: 3, fontWeight: 500 }}>TODAY'S LEVERAGE</p>
-        <p style={{ fontSize: 11, color: "#c4b8a6", marginTop: 2 }}>{idx + 1} / {cards.length}</p>
+        <p style={{ fontSize: 11, color: "#c4b8a6", marginTop: 2 }}>{safeIdx + 1} / {cards.length}</p>
       </div>
-      <div key={idx} style={{ background: "#faf6f0", borderRadius: 16, padding: "20px 18px", border: "1px solid #e4ddd0", minHeight: 160, animation: "fadeIn .3s" }}>
+      <div key={safeIdx} style={{ background: "#faf6f0", borderRadius: 16, padding: "20px 18px", border: "1px solid #e4ddd0", minHeight: 160, animation: "fadeIn .3s" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
           {c.cover && <img src={c.cover} alt="" style={{ width: 28, height: 40, objectFit: "cover", borderRadius: 4 }} />}
           <div>
@@ -1069,7 +1059,7 @@ function Shell({ children }) {
 
 /* ========== MAIN APP ========== */
 export default function App() {
-  const { user, loading, signInWithGoogle, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
 
   // ローディング中
   if (loading) {
@@ -1082,19 +1072,11 @@ export default function App() {
     );
   }
 
-  // 未ログイン：ログイン画面
+  // 未ログイン：認証画面（ログイン／新規登録／パスワードリセット）
   if (!user) {
     return (
       <Shell>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px' }}>
-          <h1 style={{ fontSize: 24, fontWeight: 500, color: '#3d362c', marginBottom: 12 }}>📚 レバレッジ読書ログ</h1>
-          <p style={{ fontSize: 14, color: '#8a7e6b', marginBottom: 32, textAlign: 'center' }}>
-            読書を投資に変える。<br />ROIを最大化する読書管理アプリ。
-          </p>
-          <button onClick={signInWithGoogle} style={{ ...btnS, padding: '14px 28px', fontSize: 15 }}>
-            🔐 Googleでログイン
-          </button>
-        </div>
+        <AuthScreen />
       </Shell>
     );
   }
@@ -1139,8 +1121,18 @@ const persist = useCallback((updates) => {
   const handleSave = async () => {
     if (!form.title.trim()) return;
     try {
-      await saveBook(form);
-      setCurrent({ ...form });
+      const normalizedTags = Array.from(
+        new Set(
+          (form.tags || [])
+            .map((t) => (typeof t === 'string' ? t.trim().toLowerCase() : ''))
+            .filter(Boolean)
+        )
+      );
+      const payload = { ...form, tags: normalizedTags };
+      const saved = await saveBook(payload);
+      const next = saved || payload;
+      setCurrent(next);
+      setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
       setView("detail");
     } catch (error) {
       alert('保存に失敗しました');

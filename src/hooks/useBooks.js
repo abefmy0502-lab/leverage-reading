@@ -1,13 +1,61 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const toHttps = (url) => {
+  if (!url || typeof url !== 'string') return url;
+  return url.startsWith('http://') ? 'https://' + url.slice(7) : url;
+};
+
+const transformBook = (book) => ({
+  ...book,
+  cover: toHttps(book.cover),
+  tags: (book.book_tags || []).map((t) => t.tag_name),
+  actions: [...(book.actions || [])].sort((a, b) =>
+    (a.created_at || '').localeCompare(b.created_at || '')
+  ),
+  startDate: book.start_date,
+  doneDate: book.done_date,
+  currentPage: book.current_page,
+  totalPages: book.total_pages,
+  investPurpose: book.invest_purpose,
+  aiAnalysis: book.ai_analysis,
+  aiStrategy: book.ai_strategy,
+  leverageMemo: book.leverage_memo,
+  aiSummary: book.ai_summary,
+  roiSummary: book.roi_summary,
+});
 
 export function useBooks() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  // 初回ロード
+  const fetchBooks = useCallback(async () => {
+    if (!user || !isSupabaseConfigured) {
+      setBooks([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('books')
+        .select('*, book_tags(tag_name), actions(*)')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      setBooks((data || []).map(transformBook));
+    } catch (error) {
+      console.error('本の取得エラー:', error);
+      setBooks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (user) {
       fetchBooks();
@@ -15,78 +63,17 @@ export function useBooks() {
       setBooks([]);
       setLoading(false);
     }
-  }, [user]);
+  }, [user, fetchBooks]);
 
-  // 本の一覧を取得（tags と actions を結合）
-  const fetchBooks = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      // 1. booksテーブルから取得
-      const { data: booksData, error: booksError } = await supabase
-        .from('books')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-
-      if (booksError) throw booksError;
-
-      // 2. 各bookのtagsとactionsを取得
-      const booksWithRelations = await Promise.all(
-        (booksData || []).map(async (book) => {
-          // tags取得
-          const { data: tagsData } = await supabase
-            .from('book_tags')
-            .select('tag_name')
-            .eq('book_id', book.id);
-
-          // actions取得
-          const { data: actionsData } = await supabase
-            .from('actions')
-            .select('*')
-            .eq('book_id', book.id)
-            .order('created_at', { ascending: true });
-
-          return {
-            ...book,
-            tags: (tagsData || []).map(t => t.tag_name),
-            actions: actionsData || [],
-            // Snake_caseをcamelCaseに変換
-            startDate: book.start_date,
-            doneDate: book.done_date,
-            currentPage: book.current_page,
-            totalPages: book.total_pages,
-            investPurpose: book.invest_purpose,
-            aiAnalysis: book.ai_analysis,
-            aiStrategy: book.ai_strategy,
-            leverageMemo: book.leverage_memo,
-            aiSummary: book.ai_summary,
-            roiSummary: book.roi_summary,
-          };
-        })
-      );
-
-      setBooks(booksWithRelations);
-    } catch (error) {
-      console.error('本の取得エラー:', error);
-      setBooks([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 本を保存（新規追加または更新）
   const saveBook = async (book) => {
-    if (!user) return;
+    if (!user || !isSupabaseConfigured) return null;
 
     try {
-      // camelCase → snake_case 変換
       const bookData = {
         user_id: user.id,
         title: book.title,
         author: book.author || null,
-        cover: book.cover || null,
+        cover: toHttps(book.cover) || null,
         status: book.status,
         rating: book.rating || 0,
         start_date: book.startDate || null,
@@ -101,21 +88,14 @@ export function useBooks() {
         roi_summary: book.roiSummary || null,
       };
 
-     let savedBookId;
-
-      // UUIDフォーマットかチェック（既存の本はUUID形式）
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(book.id);
+      let savedBookId;
+      const isUUID = UUID_RE.test(book.id || '');
 
       if (isUUID) {
-        // 既存の本を更新
-        const { error } = await supabase
-          .from('books')
-          .update(bookData)
-          .eq('id', book.id);
+        const { error } = await supabase.from('books').update(bookData).eq('id', book.id);
         if (error) throw error;
         savedBookId = book.id;
       } else {
-        // 新規追加（SupabaseがUUIDを自動生成）
         const { data, error } = await supabase
           .from('books')
           .insert([bookData])
@@ -125,53 +105,73 @@ export function useBooks() {
         savedBookId = data.id;
       }
 
-      // タグを更新（既存削除→新規追加）
+      // Tags: delete + re-insert (no stable client-side ids)
       await supabase.from('book_tags').delete().eq('book_id', savedBookId);
-      
       if (book.tags && book.tags.length > 0) {
-        const tagInserts = book.tags.map(tag => ({
+        const tagInserts = book.tags.map((tag) => ({
           book_id: savedBookId,
           user_id: user.id,
           tag_name: tag,
         }));
-        await supabase.from('book_tags').insert(tagInserts);
+        const { error } = await supabase.from('book_tags').insert(tagInserts);
+        if (error) throw error;
       }
 
-      // アクションを更新（既存削除→新規追加）
-      await supabase.from('actions').delete().eq('book_id', savedBookId);
-      
-      if (book.actions && book.actions.length > 0) {
-        const actionInserts = book.actions.map(action => ({
-          book_id: savedBookId,
-          user_id: user.id,
-          text: action.text,
-          deadline: action.deadline || null,
-          done: action.done || false,
-        }));
-        await supabase.from('actions').insert(actionInserts);
+      // Actions: upsert by id, then delete removed rows
+      const incoming = book.actions || [];
+      const existingIds = incoming
+        .map((a) => a.id)
+        .filter((id) => typeof id === 'string' && UUID_RE.test(id));
+
+      if (existingIds.length === 0) {
+        await supabase.from('actions').delete().eq('book_id', savedBookId);
+      } else {
+        await supabase
+          .from('actions')
+          .delete()
+          .eq('book_id', savedBookId)
+          .not('id', 'in', `(${existingIds.join(',')})`);
       }
 
-      // 再取得
+      if (incoming.length > 0) {
+        const actionsPayload = incoming.map((a) => {
+          const base = {
+            book_id: savedBookId,
+            user_id: user.id,
+            text: a.text,
+            deadline: a.deadline || null,
+            done: a.done || false,
+          };
+          return a.id && UUID_RE.test(a.id) ? { id: a.id, ...base } : base;
+        });
+        const { error } = await supabase
+          .from('actions')
+          .upsert(actionsPayload, { onConflict: 'id' });
+        if (error) throw error;
+      }
+
+      // Fetch fresh row with relations to return
+      const { data: freshRow, error: freshErr } = await supabase
+        .from('books')
+        .select('*, book_tags(tag_name), actions(*)')
+        .eq('id', savedBookId)
+        .single();
+      if (freshErr) throw freshErr;
+
+      const savedBook = transformBook(freshRow);
       await fetchBooks();
+      return savedBook;
     } catch (error) {
       console.error('本の保存エラー:', error);
       throw error;
     }
   };
 
-  // 本を削除
   const deleteBook = async (bookId) => {
-    if (!user) return;
-
+    if (!user || !isSupabaseConfigured) return;
     try {
-      const { error } = await supabase
-        .from('books')
-        .delete()
-        .eq('id', bookId);
-
+      const { error } = await supabase.from('books').delete().eq('id', bookId);
       if (error) throw error;
-
-      // 再取得
       await fetchBooks();
     } catch (error) {
       console.error('本の削除エラー:', error);
