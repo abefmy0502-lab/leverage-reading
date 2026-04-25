@@ -124,7 +124,10 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 
 | キー | 対応画面 |
 |---|---|
-| `bookList` | 本棚画面 |
+| `bookList` | 本棚画面（下部ナビ: 本棚） |
+| `todayLearning` | 今日の学びタブ（下部ナビ: 今日の学び） |
+| `memos` | メモタブ（下部ナビ: メモ — 横断検索 / コレクション） |
+| `actions` | 行動タブ（下部ナビ: 行動 — 横断アクションリスト） |
 | `bookDetailWant` | 「読みたい」状態の本詳細 |
 | `bookDetailBefore` | 「読書前」状態の本詳細 |
 | `bookDetailReading` | 「読書中」状態の本詳細 |

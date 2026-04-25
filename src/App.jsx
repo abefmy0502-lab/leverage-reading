@@ -1154,8 +1154,10 @@ const persist = useCallback((updates) => {
   }, []);
 
   // Resolve the help key for whatever screen the user is currently looking at.
-  // Modal contexts (advisor, quick memo, full editor) win over base view because
-  // they overlay it.
+  // Priority order:
+  //   1. Open modal contexts (advisor / quick memo / full editor) — they overlay everything
+  //   2. Book detail / edit view — map by status
+  //   3. Bottom-nav tabs (list view) — today / books / memos / actions
   const getCurrentHelpKey = () => {
     if (advisorOpen) return 'aiAdvisor';
     if (quickMemoOpen || fullEditorPrefill) return 'memoEditor';
@@ -1166,6 +1168,9 @@ const persist = useCallback((updates) => {
       if (status === 'reading') return 'bookDetailReading';
       if (status === 'done') return 'bookDetailDone';
     }
+    if (tab === 'today') return 'todayLearning';
+    if (tab === 'memos') return 'memos';
+    if (tab === 'actions') return 'actions';
     return 'bookList';
   };
 
