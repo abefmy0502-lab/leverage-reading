@@ -249,6 +249,33 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
     writeBoth(rawMemos.filter((m) => m.id !== memoId));
   };
 
+  // Re-INSERT a previously-deleted memo from a snapshot (used by Undo).
+  // The Storage photo is already gone (delete is non-reversible), so we restore
+  // with photo_path: null. Caller is expected to surface that to the user.
+  const restoreMemoFromSnapshot = async (snapshot) => {
+    if (!snapshot || !user || !isSupabaseConfigured) return null;
+    const payload = {
+      id: snapshot.id,
+      book_id: snapshot.bookId || bookId,
+      user_id: user.id,
+      page_number: Number.isFinite(snapshot.pageNumber) ? snapshot.pageNumber : null,
+      text: snapshot.text || '',
+      photo_path: null,
+      tags: snapshot.tags || [],
+    };
+    if (snapshot.createdAt) payload.created_at = snapshot.createdAt;
+
+    const { data, error: insErr } = await supabase
+      .from('book_memos')
+      .insert([payload])
+      .select()
+      .single();
+    if (insErr) throw insErr;
+    const inserted = transformMemo(data);
+    writeBoth([...rawMemos, inserted]);
+    return inserted;
+  };
+
   // Pre-warm signed URLs for any memo with a photo so cards render the image
   // without a per-card round trip. Background only — no error surfacing.
   useEffect(() => {
@@ -267,5 +294,6 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
     createMemo,
     updateMemo,
     deleteMemo,
+    restoreMemoFromSnapshot,
   };
 }

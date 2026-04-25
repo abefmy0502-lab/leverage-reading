@@ -1068,7 +1068,14 @@ function Shell({ children }) {
 /* ========== MAIN APP ========== */
 function AuthedApp() {
   const { signOut } = useAuth();
-  const { books: rawBooks, loading: booksLoading, saveBook, deleteBook } = useBooks();
+  const {
+    books: rawBooks,
+    loading: booksLoading,
+    saveBook,
+    deleteBook,
+    captureBookSnapshot,
+    restoreBookFromSnapshot,
+  } = useBooks();
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -1091,7 +1098,6 @@ function AuthedApp() {
   const [aiLoading, setAiLoading] = useState(false);
   const [advisorOpen, setAdvisorOpen] = useState(false);
   const [capitalOpen, setCapitalOpen] = useState(false);
-  const [pendingDeletes, setPendingDeletes] = useState(() => new Set());
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
@@ -1101,21 +1107,20 @@ function AuthedApp() {
   // Always called so hook order stays stable; isUsableBookId guards inside the hook.
   const currentMemoOps = useBookMemos(current?.id, { sortBy: 'page' });
 
-  // Hide books that are queued for soft-delete from every view.
-  const books = useMemo(
-    () => rawBooks.filter((b) => !pendingDeletes.has(b.id)),
-    [rawBooks, pendingDeletes]
-  );
+  // Books are now committed to DB on delete (no soft-delete state to filter).
+  const books = rawBooks;
 
-  // First-run onboarding: show once when the user has no books and hasn't dismissed it.
+  // First-run onboarding: show once per user/device until they dismiss it.
+  // The completion flag is the single source of truth — the book count is
+  // intentionally NOT part of the predicate, so users who clear data or
+  // re-install only see it again if they explicitly reset via the help button.
   useEffect(() => {
     if (booksLoading) return;
     if (onboardingTriggeredRef.current) return;
-    if (rawBooks.length > 0) return;
     if (isOnboardingCompleted()) return;
     onboardingTriggeredRef.current = true;
     setShowOnboarding(true);
-  }, [booksLoading, rawBooks.length]);
+  }, [booksLoading]);
 
 const persist = useCallback((updates) => {
     setData((prev) => { 
@@ -1184,6 +1189,9 @@ const persist = useCallback((updates) => {
     }
   };
 
+  // Immediate-delete with restore-on-undo. The DB DELETE is fired right away
+  // so closing the app within the 5s undo window cannot resurrect the book.
+  // Undo re-INSERTs from the in-memory snapshot (photos are non-recoverable).
   const requestDeleteBook = async (book) => {
     if (!book) return;
     const ok = await confirm({
@@ -1195,44 +1203,35 @@ const persist = useCallback((updates) => {
     });
     if (!ok) return;
 
-    setPendingDeletes((prev) => {
-      const next = new Set(prev);
-      next.add(book.id);
-      return next;
+    // Snapshot first (must read relations BEFORE the delete cascades them away).
+    const snapshot = await captureBookSnapshot(book.id);
+    if (!snapshot) {
+      toast.error('本のデータを取得できませんでした。削除を中止します。');
+      return;
+    }
+
+    // Fire DB delete immediately. Capture the promise so Undo waits for it
+    // before re-inserting (avoids any DELETE↔INSERT race).
+    const deletionPromise = deleteBook(book.id).catch((error) => {
+      toast.error(toMessage(error, '削除に失敗しました。'));
+      throw error;
     });
+
     goList();
 
-    let undone = false;
+    const hasPhotos = (snapshot.book_memos || []).some((m) => m.photo_path);
     toast.undo({
-      message: `「${book.title}」を削除しました。`,
-      onUndo: () => {
-        undone = true;
-        setPendingDeletes((prev) => {
-          const next = new Set(prev);
-          next.delete(book.id);
-          return next;
-        });
-        toast.info('削除を取り消しました。');
-      },
-      onExpire: async () => {
-        if (undone) return;
+      message: hasPhotos
+        ? `「${book.title}」を削除しました。\n※写真は復元できません。`
+        : `「${book.title}」を削除しました。`,
+      onUndo: async () => {
         try {
-          await deleteBook(book.id);
+          await deletionPromise.catch(() => {}); // wait until DB DELETE settles
+          await restoreBookFromSnapshot(snapshot);
+          toast.info('削除を取り消しました');
         } catch (error) {
-          toast.error(toMessage(error, '削除に失敗しました。'));
-          // Roll back: restore visibility so user knows it wasn't deleted.
-          setPendingDeletes((prev) => {
-            const next = new Set(prev);
-            next.delete(book.id);
-            return next;
-          });
-          return;
+          toast.error(toMessage(error, '復元に失敗しました。'));
         }
-        setPendingDeletes((prev) => {
-          const next = new Set(prev);
-          next.delete(book.id);
-          return next;
-        });
       },
     });
   };

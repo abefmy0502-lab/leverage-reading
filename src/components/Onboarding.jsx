@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
@@ -29,7 +29,10 @@ export function isOnboardingCompleted() {
   if (typeof window === 'undefined') return true;
   try {
     return window.localStorage.getItem(STORAGE_KEY) === 'true';
-  } catch {
+  } catch (e) {
+    console.warn('localStorage read failed (onboarding):', e);
+    // Be conservative: pretend completed so we don't loop the modal in private
+    // browsing or storage-disabled contexts where writes also fail.
     return true;
   }
 }
@@ -38,8 +41,8 @@ export function markOnboardingCompleted() {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(STORAGE_KEY, 'true');
-  } catch {
-    /* ignore quota */
+  } catch (e) {
+    console.warn('localStorage write failed (onboarding):', e);
   }
 }
 
@@ -47,8 +50,8 @@ export function clearOnboardingCompletion() {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* ignore */
+  } catch (e) {
+    console.warn('localStorage remove failed (onboarding):', e);
   }
 }
 
@@ -133,24 +136,32 @@ export default function Onboarding({ onClose }) {
   const slide = slides[step];
   const isLast = step === slides.length - 1;
 
-  const finish = () => {
+  // Every dismissal path marks the onboarding as completed.
+  // The user can re-trigger it explicitly via the "ヘルプ" button
+  // (which calls clearOnboardingCompletion before reopening).
+  const dismiss = () => {
     markOnboardingCompleted();
     onClose?.();
   };
 
-  // Allow Escape to dismiss (treats as "あとで")
+  // Track the latest dismiss in a ref so the Escape-key effect doesn't need to
+  // re-bind when callbacks change.
+  const dismissRef = useRef(dismiss);
+  dismissRef.current = dismiss;
+
+  // Allow Escape to dismiss
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      if (e.key === 'Escape') dismissRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, []);
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true">
       <div style={{ ...cardStyle, position: 'relative' }}>
-        <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="あとで">
+        <button type="button" style={closeBtnStyle} onClick={dismiss} aria-label="閉じる">
           ×
         </button>
 
@@ -207,7 +218,7 @@ export default function Onboarding({ onClose }) {
               ← 戻る
             </button>
           ) : (
-            <button type="button" style={btnGhost} onClick={onClose}>
+            <button type="button" style={btnGhost} onClick={dismiss}>
               あとで
             </button>
           )}
@@ -216,7 +227,7 @@ export default function Onboarding({ onClose }) {
               次へ →
             </button>
           ) : (
-            <button type="button" style={btnPrimary} onClick={finish}>
+            <button type="button" style={btnPrimary} onClick={dismiss}>
               始める
             </button>
           )}

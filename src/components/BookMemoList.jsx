@@ -170,15 +170,17 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
   const [sortBy, setSortBy] = useState('page');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState(null);
-  const [pendingDeletes, setPendingDeletes] = useState(() => new Set());
   const toast = useToast();
   const confirm = useConfirm();
-  const { memos: allMemos, loading, isUsableBookId, createMemo, updateMemo, deleteMemo } = useBookMemos(bookId, { sortBy });
-
-  const memos = useMemo(
-    () => allMemos.filter((m) => !pendingDeletes.has(m.id)),
-    [allMemos, pendingDeletes]
-  );
+  const {
+    memos,
+    loading,
+    isUsableBookId,
+    createMemo,
+    updateMemo,
+    deleteMemo,
+    restoreMemoFromSnapshot,
+  } = useBookMemos(bookId, { sortBy });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -226,52 +228,38 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
     return result;
   };
 
+  // Immediate-delete with restore-on-undo. Photo (if any) is removed from
+  // Storage by deleteMemo and is non-recoverable; restored memo has photo_path null.
   const handleDelete = async (memo) => {
     const ok = await confirm({
       title: 'このメモを削除しますか？',
-      message: memo.photoPath ? '写真も Storage から削除されます。' : '元に戻せません。',
+      message: memo.photoPath
+        ? '写真も Storage から削除されます。\n（取消した場合、本文は復元されますが写真は戻りません）'
+        : '元に戻すには取消ボタンを押してください。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
     });
     if (!ok) return;
 
-    setPendingDeletes((prev) => {
-      const next = new Set(prev);
-      next.add(memo.id);
-      return next;
+    const snapshot = { ...memo };
+    const deletionPromise = deleteMemo(memo.id).catch((e) => {
+      toast.error(toMessage(e, 'メモの削除に失敗しました。'));
+      throw e;
     });
 
-    let undone = false;
     toast.undo({
-      message: 'メモを削除しました',
-      onUndo: () => {
-        undone = true;
-        setPendingDeletes((prev) => {
-          const next = new Set(prev);
-          next.delete(memo.id);
-          return next;
-        });
-        toast.info('削除を取り消しました');
-      },
-      onExpire: async () => {
-        if (undone) return;
+      message: snapshot.photoPath
+        ? 'メモを削除しました\n※写真は復元できません'
+        : 'メモを削除しました',
+      onUndo: async () => {
         try {
-          await deleteMemo(memo.id);
+          await deletionPromise.catch(() => {});
+          await restoreMemoFromSnapshot(snapshot);
+          toast.info('削除を取り消しました');
         } catch (e) {
-          toast.error(toMessage(e, 'メモの削除に失敗しました。'));
-          setPendingDeletes((prev) => {
-            const next = new Set(prev);
-            next.delete(memo.id);
-            return next;
-          });
-          return;
+          toast.error(toMessage(e, '復元に失敗しました。'));
         }
-        setPendingDeletes((prev) => {
-          const next = new Set(prev);
-          next.delete(memo.id);
-          return next;
-        });
       },
     });
   };

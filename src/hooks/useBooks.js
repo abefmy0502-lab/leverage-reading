@@ -179,11 +179,70 @@ export function useBooks() {
     }
   };
 
+  // Snapshot a book + all its related rows (tags / actions / memos) so we can
+  // re-INSERT them after a true DB delete. Returns the raw rows; relation
+  // arrays are nested under their relation name (book_tags, actions, book_memos).
+  const captureBookSnapshot = async (bookId) => {
+    if (!user || !isSupabaseConfigured || !bookId) return null;
+    try {
+      const { data, error } = await supabase
+        .from('books')
+        .select('*, book_tags(*), actions(*), book_memos(*)')
+        .eq('id', bookId)
+        .eq('user_id', user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('本のスナップショット取得エラー:', error);
+      return null;
+    }
+  };
+
+  // Re-INSERT a book + its relations from a snapshot (used by Undo).
+  // Photos in book_memos are gone (Storage delete is non-undoable), so memos
+  // are restored with photo_path: null. Caller is expected to surface that.
+  const restoreBookFromSnapshot = async (snapshot) => {
+    if (!snapshot || !user || !isSupabaseConfigured) return;
+    const { book_tags = [], actions = [], book_memos = [], ...bookRow } = snapshot;
+    // Reset updated_at so the restored row floats to the top of "更新順".
+    const bookPayload = { ...bookRow, updated_at: new Date().toISOString() };
+
+    const { error: bErr } = await supabase.from('books').insert([bookPayload]);
+    if (bErr) throw bErr;
+
+    if (book_tags.length > 0) {
+      const tagRows = book_tags.map((t) => ({
+        book_id: snapshot.id,
+        user_id: user.id,
+        tag_name: t.tag_name,
+      }));
+      const { error: tErr } = await supabase.from('book_tags').insert(tagRows);
+      if (tErr) console.warn('タグ復元の一部失敗:', tErr);
+    }
+
+    if (actions.length > 0) {
+      const actionRows = actions.map((a) => ({ ...a }));
+      const { error: aErr } = await supabase.from('actions').insert(actionRows);
+      if (aErr) console.warn('行動リスト復元の一部失敗:', aErr);
+    }
+
+    if (book_memos.length > 0) {
+      const memoRows = book_memos.map((m) => ({ ...m, photo_path: null }));
+      const { error: mErr } = await supabase.from('book_memos').insert(memoRows);
+      if (mErr) console.warn('メモ復元の一部失敗:', mErr);
+    }
+
+    await fetchBooks();
+  };
+
   return {
     books,
     loading,
     saveBook,
     deleteBook,
+    captureBookSnapshot,
+    restoreBookFromSnapshot,
     refreshBooks: fetchBooks,
   };
 }
