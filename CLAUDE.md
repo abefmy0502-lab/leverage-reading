@@ -134,6 +134,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `bookDetailDone` | 「読了」状態の本詳細 |
 | `aiAdvisor` | AI 選書アドバイザー |
 | `memoEditor` | メモ入力画面（カード式 + クイックメモ + まとめ） |
+| `personalCapital` | パーソナルキャピタル（投資成果サマリー + 知識マップ / ROI / 計画 / 成長） |
 
 新しい画面を追加した場合、上の表にも追記し、`HELP_CONTENT` にもキーを追加すること。
 

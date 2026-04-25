@@ -8,6 +8,7 @@ import BookMemoEditor from './components/BookMemoEditor';
 import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import HelpModal from './components/HelpModal';
+import CapitalDashboard from './components/CapitalDashboard';
 import Spinner from './components/Spinner';
 import { BookListSkeleton } from './components/Skeleton';
 import { useToast } from './components/Toast';
@@ -715,192 +716,6 @@ function ActionsTab({ books, onToggleAction }) {
   );
 }
 
-/* ========== Personal Capital Dashboard ========== */
-function CapitalDashboard({ books, readingPlans, onUpdatePlans, onClose }) {
-  const [subTab, setSubTab] = useState("map");
-  const [editingTheme, setEditingTheme] = useState(null);
-  const [targetInput, setTargetInput] = useState("");
-  const scrollRef = useRef(null);
-
-  // Modal has its own scroll container — reset it on sub-tab change.
-  useEffect(() => {
-    scrollRef.current?.scrollTo?.({ top: 0, behavior: 'auto' });
-  }, [subTab]);
-
-  // Aggregate data by tag
-  const themeData = useMemo(() => {
-    const themes = {};
-    books.forEach((b) => {
-      const tags = (b.tags || []).length > 0 ? b.tags : ["未分類"];
-      tags.forEach((tag) => {
-        if (!themes[tag]) themes[tag] = { total: 0, done: 0, reading: 0, want: 0, ratings: [], memoCount: 0, actionsDone: 0, actionsTotal: 0 };
-        themes[tag].total++;
-        if (b.status === "done") { themes[tag].done++; if (b.rating) themes[tag].ratings.push(b.rating); }
-        if (b.status === "reading") themes[tag].reading++;
-        if (b.status === "want" || b.status === "before") themes[tag].want++;
-        if (b.leverageMemo?.trim()) themes[tag].memoCount += b.leverageMemo.split("\n").filter((l) => l.trim()).length;
-        (b.actions || []).forEach((a) => { if (a.text?.trim()) { themes[tag].actionsTotal++; if (a.done) themes[tag].actionsDone++; } });
-      });
-    });
-    return Object.entries(themes)
-      .map(([name, d]) => ({
-        name, ...d,
-        avgRoi: d.ratings.length ? (d.ratings.reduce((s, r) => s + r, 0) / d.ratings.length) : 0,
-        target: readingPlans[name] || 0,
-      }))
-      .sort((a, b) => b.total - a.total);
-  }, [books, readingPlans]);
-
-  const maxTotal = Math.max(...themeData.map((t) => t.total), 1);
-  const maxMemos = Math.max(...themeData.map((t) => t.memoCount), 1);
-
-  const setTarget = (theme) => {
-    const val = parseInt(targetInput) || 0;
-    onUpdatePlans({ ...readingPlans, [theme]: val });
-    setEditingTheme(null);
-    setTargetInput("");
-  };
-
-  return (
-    <div ref={scrollRef} style={{ maxHeight: "80vh", overflowY: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottom: "1px solid #e0d8c8", marginBottom: 12 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 500, color: "#3d362c" }}>📊 パーソナルキャピタル</h3>
-        <button onClick={onClose} style={closeBtn}>×</button>
-      </div>
-
-      {/* Sub tabs */}
-      <div style={{ display: "flex", marginBottom: 16, borderBottom: "1px solid #e0d8c8" }}>
-        {[{ k: "map", l: "🗺️ 知識マップ" }, { k: "roi", l: "📈 ROI分析" }, { k: "plan", l: "🎯 読書計画" }].map((t) => (
-          <button key={t.k} onClick={() => setSubTab(t.k)} style={{ flex: 1, padding: "10px 0", fontSize: 12, fontFamily: "inherit", cursor: "pointer", background: "none", border: "none", borderBottom: subTab === t.k ? "2px solid #5c5043" : "2px solid transparent", color: subTab === t.k ? "#3d362c" : "#a89e8c", fontWeight: subTab === t.k ? 500 : 400 }}>{t.l}</button>
-        ))}
-      </div>
-
-      {themeData.length === 0 && (
-        <p style={{ textAlign: "center", padding: 30, color: "#b5aa96", fontSize: 13 }}>本にタグを追加すると知識マップが表示されます</p>
-      )}
-
-      {/* ===== Knowledge Map ===== */}
-      {subTab === "map" && themeData.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <p style={{ fontSize: 11, color: "#a89e8c", lineHeight: 1.5, marginBottom: 4 }}>分野別の知識蓄積。バーが太いほど資本が厚い。</p>
-          {themeData.map((t) => {
-            const capitalScore = t.done * 3 + t.memoCount * 0.5 + t.actionsDone * 2;
-            const maxScore = Math.max(...themeData.map((x) => x.done * 3 + x.memoCount * 0.5 + x.actionsDone * 2), 1);
-            const pct = Math.round((capitalScore / maxScore) * 100);
-            return (
-              <div key={t.name} style={{ background: "#faf6f0", borderRadius: 12, padding: "12px 14px", border: "1px solid #e4ddd0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 500, color: "#3d362c" }}>#{t.name}</span>
-                  <span style={{ fontSize: 11, color: "#8a7e6b" }}>{t.total}冊</span>
-                </div>
-                <div style={{ height: 10, background: "#e0d8c8", borderRadius: 5, marginBottom: 8 }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: pct >= 70 ? "#5a7a48" : pct >= 40 ? "#d4a040" : "#4a6e8a", borderRadius: 5, transition: "width .4s" }} />
-                </div>
-                <div style={{ display: "flex", gap: 12, fontSize: 10, color: "#9a8e7a" }}>
-                  <span>✅ 読了 {t.done}</span>
-                  <span>📖 読書中 {t.reading}</span>
-                  <span>📝 メモ {t.memoCount}件</span>
-                  <span>⚡ 行動 {t.actionsDone}/{t.actionsTotal}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ===== ROI Analysis ===== */}
-      {subTab === "roi" && themeData.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <p style={{ fontSize: 11, color: "#a89e8c", lineHeight: 1.5, marginBottom: 4 }}>どの分野の読書が自分にとって投資効果が高いか。</p>
-          {[...themeData].filter((t) => t.avgRoi > 0).sort((a, b) => b.avgRoi - a.avgRoi).map((t) => {
-            const actionRate = t.actionsTotal > 0 ? Math.round((t.actionsDone / t.actionsTotal) * 100) : 0;
-            return (
-              <div key={t.name} style={{ background: "#faf6f0", borderRadius: 12, padding: "12px 14px", border: "1px solid #e4ddd0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 14, fontWeight: 500, color: "#3d362c" }}>#{t.name}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontSize: 18, fontWeight: 600, color: t.avgRoi >= 4 ? "#5a7a48" : t.avgRoi >= 3 ? "#d4a040" : "#a05040" }}>{t.avgRoi.toFixed(1)}</span>
-                    <span style={{ fontSize: 11, color: "#9a8e7a" }}>/ 5.0</span>
-                  </div>
-                </div>
-                {/* ROI bar */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, color: "#9a8e7a", minWidth: 60 }}>平均ROI</span>
-                  <div style={{ flex: 1, height: 6, background: "#e0d8c8", borderRadius: 3 }}>
-                    <div style={{ height: "100%", width: `${(t.avgRoi / 5) * 100}%`, background: t.avgRoi >= 4 ? "#5a7a48" : t.avgRoi >= 3 ? "#d4a040" : "#a05040", borderRadius: 3 }} />
-                  </div>
-                </div>
-                {/* Action rate bar */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: 10, color: "#9a8e7a", minWidth: 60 }}>行動実行率</span>
-                  <div style={{ flex: 1, height: 6, background: "#e0d8c8", borderRadius: 3 }}>
-                    <div style={{ height: "100%", width: `${actionRate}%`, background: actionRate >= 70 ? "#5a7a48" : actionRate >= 40 ? "#d4a040" : "#4a6e8a", borderRadius: 3 }} />
-                  </div>
-                  <span style={{ fontSize: 10, color: "#8a7e6b", minWidth: 32, textAlign: "right" }}>{actionRate}%</span>
-                </div>
-                <div style={{ display: "flex", gap: 10, fontSize: 10, color: "#9a8e7a", marginTop: 6 }}>
-                  <span>{t.done}冊読了</span>
-                  <span>メモ{t.memoCount}件</span>
-                </div>
-              </div>
-            );
-          })}
-          {themeData.filter((t) => t.avgRoi > 0).length === 0 && (
-            <p style={{ textAlign: "center", padding: 20, color: "#b5aa96", fontSize: 12 }}>読了した本に評価をつけるとROI分析が表示されます</p>
-          )}
-        </div>
-      )}
-
-      {/* ===== Reading Plan ===== */}
-      {subTab === "plan" && themeData.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <p style={{ fontSize: 11, color: "#a89e8c", lineHeight: 1.5, marginBottom: 4 }}>テーマ別に目標冊数を設定。同じテーマを集中的に読むと知識資本が一気に厚くなる。</p>
-          {themeData.map((t) => {
-            const progress = t.target > 0 ? Math.min(Math.round((t.done / t.target) * 100), 100) : 0;
-            return (
-              <div key={t.name} style={{ background: "#faf6f0", borderRadius: 12, padding: "12px 14px", border: "1px solid #e4ddd0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 500, color: "#3d362c" }}>#{t.name}</span>
-                  {editingTheme === t.name ? (
-                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                      <input type="number" value={targetInput} onChange={(e) => setTargetInput(e.target.value)} placeholder="目標" style={{ ...inp, width: 60, padding: "4px 8px", textAlign: "center" }} autoFocus />
-                      <span style={{ fontSize: 10, color: "#9a8e7a" }}>冊</span>
-                      <button onClick={() => setTarget(t.name)} style={{ ...btnS, padding: "4px 10px", fontSize: 10 }}>設定</button>
-                      <button onClick={() => setEditingTheme(null)} style={{ background: "none", border: "none", fontSize: 14, color: "#a89e8c", cursor: "pointer" }}>×</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => { setEditingTheme(t.name); setTargetInput(String(t.target || "")); }} style={{ fontSize: 11, color: "#4a6e8a", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>
-                      {t.target > 0 ? `目標: ${t.target}冊` : "目標を設定"}
-                    </button>
-                  )}
-                </div>
-                {t.target > 0 && (
-                  <>
-                    <div style={{ height: 8, background: "#e0d8c8", borderRadius: 4, marginBottom: 4 }}>
-                      <div style={{ height: "100%", width: `${progress}%`, background: progress >= 100 ? "#5a7a48" : "#d4a040", borderRadius: 4, transition: "width .4s" }} />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9a8e7a" }}>
-                      <span>{t.done} / {t.target} 冊読了{progress >= 100 ? " 🎉" : ""}</span>
-                      <span>{progress}%</span>
-                    </div>
-                  </>
-                )}
-                {t.target === 0 && (
-                  <div style={{ display: "flex", gap: 10, fontSize: 10, color: "#9a8e7a" }}>
-                    <span>全{t.total}冊</span>
-                    <span>読了{t.done}</span>
-                    <span>読書中{t.reading}</span>
-                    <span>待機{t.want}</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ========== AI Book Advisor ========== */
 function BookAdvisor({ onAddBook, onClose }) {
@@ -1159,6 +974,7 @@ const persist = useCallback((updates) => {
   //   2. Book detail / edit view — map by status
   //   3. Bottom-nav tabs (list view) — today / books / memos / actions
   const getCurrentHelpKey = () => {
+    if (capitalOpen) return 'personalCapital';
     if (advisorOpen) return 'aiAdvisor';
     if (quickMemoOpen || fullEditorPrefill) return 'memoEditor';
     if (view === 'detail' || view === 'edit') {
