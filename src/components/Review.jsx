@@ -7,7 +7,7 @@
 // Display is read-only here. Tapping a memo opens its book in the book detail
 // view, where the user can edit/delete via the existing BookMemoList flow.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
@@ -150,6 +150,8 @@ export default function Review({ books = [], onOpenBook }) {
   const [memos, setMemos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [randomSeed, setRandomSeed] = useState(0);
+  const [flipping, setFlipping] = useState(false);
+  const flipTimerRef = useRef(null);
   const [expanded, setExpanded] = useState(() => new Set());
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -236,6 +238,26 @@ export default function Review({ books = [], onOpenBook }) {
     return Array.from(groups.entries()).sort(([a], [b]) => b.localeCompare(a));
   }, [memos]);
 
+  // Flip the random-memo card and swap its content at the back-facing midpoint.
+  const reroll = () => {
+    if (memos.length <= 1) {
+      setRandomSeed((s) => s + 1);
+      return;
+    }
+    setFlipping(true);
+    if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
+    // Swap at the midpoint of the 0.6s flip animation
+    flipTimerRef.current = setTimeout(() => {
+      setRandomSeed((s) => s + 1);
+    }, 280);
+    // Clear the flip class after the animation completes
+    setTimeout(() => setFlipping(false), 620);
+  };
+
+  useEffect(() => () => {
+    if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
+  }, []);
+
   const toggleMonth = (key) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -279,17 +301,25 @@ export default function Review({ books = [], onOpenBook }) {
       <section>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h2 style={sectionTitle}>🎲 今日の振り返り</h2>
-          <button type="button" style={btnGhost} onClick={() => setRandomSeed((s) => s + 1)}>
+          <button type="button" style={btnGhost} onClick={reroll} disabled={flipping}>
             ↻ 別のメモを見る
           </button>
         </div>
         {randomMemo && (
-          <ReviewMemoCard
-            memo={randomMemo}
-            book={booksById.get(randomMemo.bookId)}
-            onOpenBook={onOpenBook}
-            showRelative
-          />
+          <div
+            style={{
+              animation: flipping ? 'leverage-card-flip .6s ease-in-out both' : undefined,
+              transformStyle: 'preserve-3d',
+              backfaceVisibility: 'hidden',
+            }}
+          >
+            <ReviewMemoCard
+              memo={randomMemo}
+              book={booksById.get(randomMemo.bookId)}
+              onOpenBook={onOpenBook}
+              showRelative
+            />
+          </div>
         )}
         <p style={{ fontSize: 10, color: '#a89e8c', marginTop: 6, lineHeight: 1.6 }}>
           忘れかけていた気づきを思い出す習慣で、本の内容が定着します。

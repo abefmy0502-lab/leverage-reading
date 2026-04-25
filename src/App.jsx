@@ -9,8 +9,10 @@ import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import HelpModal from './components/HelpModal';
 import Review from './components/Review';
+import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import { BookListSkeleton } from './components/Skeleton';
+import { fireConfetti } from './lib/confetti';
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
@@ -228,7 +230,7 @@ function Card({ label, text, bg }) {
 function StatusBadge({ status }) {
   const s = getSt(status);
   return (
-    <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 8, background: s.bg, color: s.color, fontWeight: 500 }}>
+    <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 999, background: s.bg, color: s.color, fontWeight: 600, letterSpacing: 0.3, display: "inline-flex", alignItems: "center", gap: 3 }}>
       {s.emoji} {s.label}
     </span>
   );
@@ -921,6 +923,8 @@ function AuthedApp() {
   // Personal Capital UI is removed; data layer (CapitalDashboard component
   // file) is retained for potential future re-enablement.
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [recentlyDoneId, setRecentlyDoneId] = useState(null);
+  const recentlyDoneTimerRef = useRef(null);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
@@ -1157,20 +1161,38 @@ const persist = useCallback((updates) => {
     });
 
     const labels = { want: '読みたい', before: '読書前', reading: '読書中', done: '読了' };
-    toast.undo({
-      message: `「${labels[newStatus] || newStatus}」に変更しました`,
-      onUndo: async () => {
-        const reverted = { ...book, ...prev };
-        setCurrent(reverted);
-        setForm({ ...emptyBook(), ...reverted, tags: reverted.tags || [], actions: reverted.actions || [] });
-        setView("edit");
-        try {
-          await saveBook(reverted);
-        } catch (error) {
-          toast.error(toMessage(error, 'ステータス変更の取り消しに失敗しました。'));
-        }
-      },
-    });
+    const revert = async () => {
+      const reverted = { ...book, ...prev };
+      setCurrent(reverted);
+      setForm({ ...emptyBook(), ...reverted, tags: reverted.tags || [], actions: reverted.actions || [] });
+      setView("edit");
+      try {
+        await saveBook(reverted);
+      } catch (error) {
+        toast.error(toMessage(error, 'ステータス変更の取り消しに失敗しました。'));
+      }
+    };
+
+    const becomingDone = newStatus === 'done' && prev.status !== 'done';
+    if (becomingDone) {
+      // Light up the matching card on the books list so when the user navigates
+      // back, they see the freshly-completed book glowing.
+      if (recentlyDoneTimerRef.current) clearTimeout(recentlyDoneTimerRef.current);
+      setRecentlyDoneId(book.id);
+      recentlyDoneTimerRef.current = setTimeout(() => setRecentlyDoneId(null), 8000);
+      try { fireConfetti(); } catch { /* non-critical */ }
+      toast.show({
+        type: 'success',
+        message: '🎉 1 冊読了！お疲れ様でした',
+        duration: 5000,
+        action: { label: '取消', onClick: revert },
+      });
+    } else {
+      toast.undo({
+        message: `「${labels[newStatus] || newStatus}」に変更しました`,
+        onUndo: revert,
+      });
+    }
   };
 
   // Share
@@ -1595,31 +1617,52 @@ const persist = useCallback((updates) => {
       <div style={{ paddingBottom: 80 }}>
         {tab === "books" && (
           <>
-            <div style={{ display: "flex", gap: 2, padding: "8px 20px", borderTop: "1px solid #e8e2d6", borderBottom: "1px solid #e8e2d6" }}>
-              {[{ l: "全て", v: stats.total, c: "#4a4036" }, { l: "読みたい", v: stats.want, c: "#8a7040" }, { l: "読書前", v: stats.before, c: "#7a5080" }, { l: "読書中", v: stats.reading, c: "#4a6e8a" }, { l: "読了", v: stats.done, c: "#5a7a48" }].map((s) => (
-                <div key={s.l} style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: s.c }}>{s.v}</div>
-                  <div style={{ fontSize: 8, color: "#9a8e7a" }}>{s.l}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: "10px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ display: "flex", gap: 6 }}>
-                <input
-                  placeholder="🔍 タイトル・著者・タグで検索"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                  style={{ ...inp, flex: 1, background: "#faf6f0" }}
-                />
-                <button onClick={openAdd} style={{ ...btnS, padding: "8px 16px", fontSize: 12 }} aria-label="本を追加">＋</button>
-              </div>
-              <div style={{ display: "flex", gap: 3 }}>
-                {[{ key: "all", label: "全て" }, ...STATUSES].map((s) => (
-                  <button key={s.key} onClick={() => setStatusFilter(s.key)} style={{ flex: 1, padding: "4px 0", fontSize: 9, borderRadius: 12, fontFamily: "inherit", cursor: "pointer", border: statusFilter === s.key ? `1.5px solid ${s.color || "#8a7e6b"}` : "1px solid #d4ccbe", background: statusFilter === s.key ? (s.bg || "#e8e0d2") : "transparent", color: statusFilter === s.key ? (s.color || "#3d362c") : "#8a7e6b" }}>
-                    {s.emoji ? s.emoji + " " : ""}{s.label}
-                  </button>
-                ))}
+            <div style={{ padding: "10px 20px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #e8e2d6" }}>
+              <input
+                placeholder="🔍 タイトル・著者・タグで検索"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
+                style={{ ...inp, background: "#faf6f0" }}
+              />
+              {/* Pill filters — hide statuses with zero books to keep the bar tight. */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {[
+                  { key: "all", label: "全て", count: stats.total, color: "#4a4036", bg: "#e8e0d2" },
+                  ...STATUSES.map((s) => ({
+                    key: s.key,
+                    label: s.label,
+                    emoji: s.emoji,
+                    color: s.color,
+                    bg: s.bg,
+                    count: stats[s.key] || 0,
+                  })),
+                ]
+                  .filter((s) => s.key === "all" || s.count > 0 || statusFilter === s.key)
+                  .map((s) => {
+                    const active = statusFilter === s.key;
+                    return (
+                      <button
+                        key={s.key}
+                        onClick={() => setStatusFilter(s.key)}
+                        style={{
+                          padding: "6px 12px",
+                          minHeight: 30,
+                          fontSize: 11,
+                          borderRadius: 999,
+                          fontFamily: "inherit",
+                          cursor: "pointer",
+                          border: active ? `1.5px solid ${s.color}` : "1px solid #d4ccbe",
+                          background: active ? s.bg : "transparent",
+                          color: active ? s.color : "#8a7e6b",
+                          fontWeight: active ? 600 : 400,
+                          transition: "background .15s, color .15s",
+                        }}
+                      >
+                        {s.emoji ? `${s.emoji} ` : ""}{s.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>({s.count})</span>
+                      </button>
+                    );
+                  })}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: "#8a7e6b" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1639,7 +1682,7 @@ const persist = useCallback((updates) => {
               </div>
             </div>
             <div style={{ padding: "0 20px" }}>
-              {recentBooks.length > 0 && !search && statusFilter === "all" && (
+              {recentBooks.length > 0 && rawBooks.length >= 3 && !search && statusFilter === "all" && (
                 <div style={{ marginBottom: 14 }}>
                   <p style={{ fontSize: 11, color: "#8a7040", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>
                   <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
@@ -1695,28 +1738,81 @@ const persist = useCallback((updates) => {
                   </div>
                 )
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {filtered.map((b, i) => (
-                    <div key={b.id} onClick={() => openDetail(b)} style={{ background: "#faf6f0", borderRadius: 12, padding: "10px 12px", border: "1px solid #e4ddd0", cursor: "pointer", animation: `slideUp .3s ease ${i * 0.02}s both` }}>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        {b.cover ? <img src={b.cover} alt="" style={{ width: 34, height: 48, objectFit: "cover", borderRadius: 4, border: "1px solid #e0d8c8", flexShrink: 0 }} /> : <BookIcon />}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: "#3d362c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                            {b.author && <span style={{ fontSize: 11, color: "#9a8e7a", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.author}</span>}
-                            {b.rating > 0 && <Stars r={b.rating} size={10} />}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {filtered.map((b, i) => {
+                    const justDone = recentlyDoneId === b.id;
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => openDetail(b)}
+                        style={{
+                          background: "#faf6f0",
+                          borderRadius: 14,
+                          padding: "12px 14px",
+                          border: "1px solid #e4ddd0",
+                          boxShadow: justDone
+                            ? "0 0 18px rgba(212,160,64,0.55), 0 2px 8px rgba(30,25,20,0.08)"
+                            : "0 2px 6px rgba(30,25,20,0.06)",
+                          cursor: "pointer",
+                          transition: "background .12s ease, box-shadow .35s ease, transform .12s ease",
+                          animation: justDone
+                            ? "leverage-card-celebrate 2.4s ease both"
+                            : `slideUp .3s ease ${i * 0.02}s both`,
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                          {b.cover ? (
+                            <img
+                              src={b.cover}
+                              alt=""
+                              style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid #e0d8c8", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
+                            />
+                          ) : (
+                            <BookIcon />
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: "#3d362c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: 0.2 }}>{b.title}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                              {b.author && <span style={{ fontSize: 11, color: "#a89e8c", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.author}</span>}
+                              {b.rating > 0 && <Stars r={b.rating} size={11} />}
+                            </div>
+                            <div style={{ marginTop: 6 }}>
+                              <StatusBadge status={b.status} />
+                            </div>
                           </div>
-                          <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
-                            <StatusBadge status={b.status} />
-                          </div>
+                          <span style={{ fontSize: 14, color: "#c4b8a6" }}>›</span>
                         </div>
-                        <span style={{ fontSize: 13, color: "#c4b8a6" }}>›</span>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
+            {/* Floating "本を追加" FAB — books tab only, sits above bottom nav. */}
+            <button
+              type="button"
+              onClick={openAdd}
+              aria-label="本を追加"
+              style={{
+                position: "fixed",
+                right: 18,
+                bottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                border: "none",
+                background: "#5c5043",
+                color: "#faf6f0",
+                fontSize: 28,
+                lineHeight: 1,
+                cursor: "pointer",
+                boxShadow: "0 6px 16px rgba(30,25,20,0.28)",
+                zIndex: 600,
+                fontFamily: "inherit",
+              }}
+            >
+              ＋
+            </button>
           </>
         )}
 
@@ -1782,11 +1878,15 @@ function AppShell() {
 
 export default function App() {
   const [authCallbackActive, setAuthCallbackActive] = useState(hashHasAuthParams);
+  const [showSplash, setShowSplash] = useState(true);
   const exitAuthCallback = useCallback(() => setAuthCallbackActive(false), []);
-  if (authCallbackActive) {
-    return <AuthCallback onDone={exitAuthCallback} />;
-  }
-  return <AppShell />;
+
+  return (
+    <>
+      {showSplash && <SplashScreen onDismiss={() => setShowSplash(false)} />}
+      {authCallbackActive ? <AuthCallback onDone={exitAuthCallback} /> : <AppShell />}
+    </>
+  );
 }
 
 /* ========== Styles ========== */
