@@ -905,18 +905,11 @@ function BookAdvisor({ onAddBook, onClose }) {
     setChatHistory(newHistory);
 
     try {
-      const r = await fetch("/api/claude", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: ADVISOR_SYSTEM,
-          messages: newHistory,
-        }),
+      const aiText = await callClaude(newHistory, {
+        system: ADVISOR_SYSTEM,
+        max_tokens: 4096,
+        model: "claude-sonnet-4-20250514",
       });
-      const d = await r.json();
-      const aiText = d.content?.map((b) => b.text || "").join("\n") || "エラーが発生しました。";
 
       const recs = parseRecommendations(aiText);
       if (recs) {
