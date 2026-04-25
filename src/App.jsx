@@ -546,6 +546,12 @@ function MemosTab({ books, collections, onUpdateCollections }) {
   const [newColName, setNewColName] = useState("");
   const [editCol, setEditCol] = useState(null);
 
+  // Reset scroll when switching sub-tabs.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [subTab]);
+
   const allMemos = useMemo(() => {
     const memos = [];
     books.forEach((b) => {
@@ -713,6 +719,12 @@ function CapitalDashboard({ books, readingPlans, onUpdatePlans, onClose }) {
   const [subTab, setSubTab] = useState("map");
   const [editingTheme, setEditingTheme] = useState(null);
   const [targetInput, setTargetInput] = useState("");
+  const scrollRef = useRef(null);
+
+  // Modal has its own scroll container — reset it on sub-tab change.
+  useEffect(() => {
+    scrollRef.current?.scrollTo?.({ top: 0, behavior: 'auto' });
+  }, [subTab]);
 
   // Aggregate data by tag
   const themeData = useMemo(() => {
@@ -749,7 +761,7 @@ function CapitalDashboard({ books, readingPlans, onUpdatePlans, onClose }) {
   };
 
   return (
-    <div style={{ maxHeight: "80vh", overflowY: "auto" }}>
+    <div ref={scrollRef} style={{ maxHeight: "80vh", overflowY: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottom: "1px solid #e0d8c8", marginBottom: 12 }}>
         <h3 style={{ fontSize: 16, fontWeight: 500, color: "#3d362c" }}>📊 パーソナルキャピタル</h3>
         <button onClick={onClose} style={closeBtn}>×</button>
@@ -1109,6 +1121,14 @@ function AuthedApp() {
 
   // Books are now committed to DB on delete (no soft-delete state to filter).
   const books = rawBooks;
+
+  // Scroll to top on every top-level tab/view change so the new content
+  // always starts at the top of the screen instead of inheriting the previous
+  // scroll position. `behavior: 'auto'` for instant snap (no smooth animation).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [tab, view]);
 
   // First-run onboarding: show once per user/device until they dismiss it.
   // The completion flag is the single source of truth — the book count is

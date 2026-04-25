@@ -191,6 +191,20 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
     }
   }, [mode]);
 
+  // Scroll the BookMemoList into view on tab change so the new tab's content
+  // starts at the top of the viewport. We use scrollIntoView (not window
+  // scrollTo 0) because the BookMemoList sits inside the page below the book
+  // header — jumping to absolute top would hide context the user expects.
+  const rootRef = useRef(null);
+  const isFirstModeRender = useRef(true);
+  useEffect(() => {
+    if (isFirstModeRender.current) {
+      isFirstModeRender.current = false;
+      return;
+    }
+    rootRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }, [mode]);
+
   const allTags = useMemo(() => {
     const s = new Set();
     memos.forEach((m) => (m.tags || []).forEach((t) => s.add(t)));
@@ -336,7 +350,7 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', gap: 4, padding: 4, background: '#eae3d6', borderRadius: 10 }}>
         <button type="button" style={modeTab(mode === 'card')} onClick={() => setMode('card')}>
           📇 カード
