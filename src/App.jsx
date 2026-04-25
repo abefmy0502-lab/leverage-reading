@@ -7,6 +7,7 @@ import BookMemoList from './components/BookMemoList';
 import BookMemoEditor from './components/BookMemoEditor';
 import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
+import HelpModal from './components/HelpModal';
 import Spinner from './components/Spinner';
 import { BookListSkeleton } from './components/Skeleton';
 import { useToast } from './components/Toast';
@@ -1111,6 +1112,7 @@ function AuthedApp() {
   const [advisorOpen, setAdvisorOpen] = useState(false);
   const [capitalOpen, setCapitalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
   const onboardingTriggeredRef = useRef(false);
@@ -1150,6 +1152,24 @@ const persist = useCallback((updates) => {
       return next;
     });
   }, []);
+
+  // Resolve the help key for whatever screen the user is currently looking at.
+  // Modal contexts (advisor, quick memo, full editor) win over base view because
+  // they overlay it.
+  const getCurrentHelpKey = () => {
+    if (advisorOpen) return 'aiAdvisor';
+    if (quickMemoOpen || fullEditorPrefill) return 'memoEditor';
+    if (view === 'detail' || view === 'edit') {
+      const status = current?.status || form?.status;
+      if (status === 'want') return 'bookDetailWant';
+      if (status === 'before') return 'bookDetailBefore';
+      if (status === 'reading') return 'bookDetailReading';
+      if (status === 'done') return 'bookDetailDone';
+    }
+    return 'bookList';
+  };
+
+  const openHelp = () => setHelpModalOpen(true);
 
   const openAdd = () => { setForm({ ...emptyBook(), id: Date.now().toString() }); setView("edit"); setCurrent(null); setTab("books"); };
   const openDetail = (b) => { setCurrent(b); setView("detail"); };
@@ -1463,7 +1483,16 @@ const persist = useCallback((updates) => {
     return (
       <Shell>
         <div style={{ padding: "20px 20px 80px" }}>
-          <button onClick={goList} style={lnk}>← 一覧</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <button onClick={goList} style={lnk}>← 一覧</button>
+            <button
+              onClick={openHelp}
+              style={{ background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 11, color: "#8a7e6b", cursor: "pointer", padding: "4px 10px", fontFamily: "inherit" }}
+              aria-label="この画面のヘルプを見る"
+            >
+              ？ ヘルプ
+            </button>
+          </div>
 
           {/* Book header */}
           <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
@@ -1637,6 +1666,18 @@ const persist = useCallback((updates) => {
           />
         )}
 
+        {helpModalOpen && (
+          <HelpModal
+            helpKey={getCurrentHelpKey()}
+            onClose={() => setHelpModalOpen(false)}
+            onShowOnboarding={() => {
+              setHelpModalOpen(false);
+              clearOnboardingCompletion();
+              setShowOnboarding(true);
+            }}
+          />
+        )}
+
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} actionDone={actionDone} actionCount={actionCount} />
       </Shell>
     );
@@ -1647,7 +1688,16 @@ const persist = useCallback((updates) => {
     return (
       <Shell>
         <div style={{ padding: "20px 20px 80px" }}>
-          <button onClick={current ? () => setView("detail") : goList} style={lnk}>← 戻る</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <button onClick={current ? () => setView("detail") : goList} style={lnk}>← 戻る</button>
+            <button
+              onClick={openHelp}
+              style={{ background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 11, color: "#8a7e6b", cursor: "pointer", padding: "4px 10px", fontFamily: "inherit" }}
+              aria-label="この画面のヘルプを見る"
+            >
+              ？ ヘルプ
+            </button>
+          </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, marginBottom: 16 }}>
             <StatusBadge status={form.status} />
@@ -1673,6 +1723,17 @@ const persist = useCallback((updates) => {
         <Modal open={searchOpen} onClose={() => setSearchOpen(false)}>
           <BookSearchModal onSelect={handleBookSelect} onClose={() => setSearchOpen(false)} />
         </Modal>
+        {helpModalOpen && (
+          <HelpModal
+            helpKey={getCurrentHelpKey()}
+            onClose={() => setHelpModalOpen(false)}
+            onShowOnboarding={() => {
+              setHelpModalOpen(false);
+              clearOnboardingCompletion();
+              setShowOnboarding(true);
+            }}
+          />
+        )}
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} actionDone={actionDone} actionCount={actionCount} />
       </Shell>
     );
@@ -1685,9 +1746,9 @@ const persist = useCallback((updates) => {
   <h1 style={{ fontSize: 18, fontWeight: 500, color: "#3d362c", letterSpacing: 2 }}>📚 レバレッジ読書ログ</h1>
   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
     <button
-      onClick={() => { clearOnboardingCompletion(); setShowOnboarding(true); }}
+      onClick={openHelp}
       style={{ background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 11, color: "#8a7e6b", cursor: "pointer", padding: "4px 10px", fontFamily: "inherit" }}
-      aria-label="使い方ガイド"
+      aria-label="この画面のヘルプを見る"
     >
       ？ ヘルプ
     </button>
@@ -1854,6 +1915,18 @@ const persist = useCallback((updates) => {
       </Modal>
 
       {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
+
+      {helpModalOpen && (
+        <HelpModal
+          helpKey={getCurrentHelpKey()}
+          onClose={() => setHelpModalOpen(false)}
+          onShowOnboarding={() => {
+            setHelpModalOpen(false);
+            clearOnboardingCompletion();
+            setShowOnboarding(true);
+          }}
+        />
+      )}
 
       <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} actionDone={actionDone} actionCount={actionCount} />
     </Shell>

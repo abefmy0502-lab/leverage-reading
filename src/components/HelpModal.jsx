@@ -68,6 +68,21 @@ const footerStyle = {
   textAlign: 'center',
 };
 
+const onboardingLinkStyle = {
+  display: 'block',
+  margin: '12px 0 6px',
+  padding: '10px 12px',
+  background: '#f0ebe2',
+  border: '1px solid #e4ddd0',
+  borderRadius: 10,
+  fontSize: 13,
+  color: '#5c5043',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  width: '100%',
+  textAlign: 'left',
+};
+
 const sectionWrap = { marginBottom: 14 };
 const sectionHeading = {
   fontSize: 13,
@@ -89,7 +104,7 @@ const itemList = {
   margin: 0,
 };
 
-export default function HelpModal({ helpKey, onClose }) {
+export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
   const entry = getHelp(helpKey);
 
   useEffect(() => {
@@ -112,6 +127,15 @@ export default function HelpModal({ helpKey, onClose }) {
             <p style={{ fontSize: 13, color: '#a89e8c', margin: 0, lineHeight: 1.8 }}>
               この画面のヘルプはまだ用意されていません。
             </p>
+            {onShowOnboarding && (
+              <button
+                type="button"
+                style={onboardingLinkStyle}
+                onClick={() => onShowOnboarding()}
+              >
+                📖 アプリ全体の使い方を最初から見る →
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -138,7 +162,7 @@ export default function HelpModal({ helpKey, onClose }) {
           {(entry.sections || []).map((s, i) => (
             <section key={i} style={sectionWrap}>
               <h3 style={sectionHeading}>{s.heading}</h3>
-              {s.body && <p style={sectionBody}>{s.body}</p>}
+              {s.body && <p style={{ ...sectionBody, whiteSpace: 'pre-line' }}>{s.body}</p>}
               {s.items?.length > 0 && (
                 <ul style={itemList}>
                   {s.items.map((item, j) => (
@@ -148,6 +172,18 @@ export default function HelpModal({ helpKey, onClose }) {
               )}
             </section>
           ))}
+
+          {onShowOnboarding && (
+            <button
+              type="button"
+              style={onboardingLinkStyle}
+              onClick={() => {
+                onShowOnboarding();
+              }}
+            >
+              📖 アプリ全体の使い方を最初から見る →
+            </button>
+          )}
         </div>
 
         {entry.lastUpdated && (
