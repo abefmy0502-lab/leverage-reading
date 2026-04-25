@@ -2,6 +2,7 @@ import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
 import { callClaude } from './lib/ai';
 import AuthScreen from './components/auth/AuthScreen';
+import AuthCallback from './components/auth/AuthCallback';
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 const STAR = "★";
@@ -1058,30 +1059,8 @@ function Shell({ children }) {
 }
 
 /* ========== MAIN APP ========== */
-export default function App() {
-  const { user, loading, signOut } = useAuth();
-
-  // ローディング中
-  if (loading) {
-    return (
-      <Shell>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-          <Dots />
-        </div>
-      </Shell>
-    );
-  }
-
-  // 未ログイン：認証画面（ログイン／新規登録／パスワードリセット）
-  if (!user) {
-    return (
-      <Shell>
-        <AuthScreen />
-      </Shell>
-    );
-  }
-
-// ここから既存のコード（ログイン済みユーザー向け）
+function AuthedApp() {
+  const { signOut } = useAuth();
   const { books, loading: booksLoading, saveBook, deleteBook } = useBooks();
   
   // collections と readingPlans は一旦localStorageのまま
@@ -1502,6 +1481,42 @@ const persist = useCallback((updates) => {
       <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} actionDone={actionDone} actionCount={actionCount} />
     </Shell>
   );
+}
+
+function hashHasAuthParams() {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hash || '';
+  return h.includes('error=') || h.includes('access_token=');
+}
+
+function AppShell() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <Shell>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          <Dots />
+        </div>
+      </Shell>
+    );
+  }
+  if (!user) {
+    return (
+      <Shell>
+        <AuthScreen />
+      </Shell>
+    );
+  }
+  return <AuthedApp />;
+}
+
+export default function App() {
+  const [authCallbackActive, setAuthCallbackActive] = useState(hashHasAuthParams);
+  const exitAuthCallback = useCallback(() => setAuthCallbackActive(false), []);
+  if (authCallbackActive) {
+    return <AuthCallback onDone={exitAuthCallback} />;
+  }
+  return <AppShell />;
 }
 
 /* ========== Styles ========== */
