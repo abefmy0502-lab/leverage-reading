@@ -342,7 +342,7 @@ function BeforePhase({ form, setForm, onSave, aiLoading, onRunAnalysis, onRunStr
 }
 
 // Phase 3: 読書中（インプット）
-function ReadingPhase({ form, setForm, onSave, allTags }) {
+function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
   const pct = form.totalPages > 0 ? Math.min(Math.round((form.currentPage / form.totalPages) * 100), 100) : 0;
   return (
     <div>
@@ -374,17 +374,14 @@ function ReadingPhase({ form, setForm, onSave, allTags }) {
         )}
       </Field>
 
-      <Field label="レバレッジメモ" sub="1メモ=1カードで管理できます。ページ番号・写真・タグも添付可。">
-        <BookMemoList bookId={form.id} bookTitle={form.title} />
+      <Field label="レバレッジメモ" sub="📇 カード式（1メモ=1カード、ページ番号・写真・タグ）と 📝 まとめ式（1冊1テキスト）をタブで切替。">
+        <BookMemoList
+          bookId={form.id}
+          bookTitle={form.title}
+          summaryText={form.leverageMemo || ""}
+          onSaveSummary={onSaveSummary}
+        />
       </Field>
-
-      {form.leverageMemo?.trim() && (
-        <details style={{ marginBottom: 12, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "8px 12px" }}>
-          <summary style={{ fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>旧形式のメモ（テキスト）を表示・編集</summary>
-          <textarea value={form.leverageMemo || ""} onChange={(e) => setForm({ ...form, leverageMemo: e.target.value })}
-            placeholder={"・印象に残ったフレーズ\n・すぐ使えるノウハウ\n・考え方の転換点"} rows={8} style={{ ...ta, marginTop: 8 }} />
-        </details>
-      )}
 
       <Field label="タグ">
         <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
@@ -1119,6 +1116,26 @@ const persist = useCallback((updates) => {
     }
   };
 
+  const handleSaveSummaryFromForm = async (text) => {
+    if (!form?.id) return;
+    const merged = { ...form, leverageMemo: text };
+    const saved = await saveBook(merged);
+    const next = saved || merged;
+    setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
+    if (current && current.id === next.id) setCurrent(next);
+  };
+
+  const handleSaveSummaryFromCurrent = async (text) => {
+    if (!current?.id) return;
+    const merged = { ...current, leverageMemo: text };
+    const saved = await saveBook(merged);
+    const next = saved || merged;
+    setCurrent(next);
+    if (form && form.id === next.id) {
+      setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
+    }
+  };
+
   const handleDelete = async () => { 
     try {
       await deleteBook(current.id);
@@ -1307,16 +1324,13 @@ const persist = useCallback((updates) => {
 
           <div style={{ marginTop: 12 }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>📝 レバレッジメモ</p>
-            <BookMemoList bookId={current.id} bookTitle={current.title} />
+            <BookMemoList
+              bookId={current.id}
+              bookTitle={current.title}
+              summaryText={current.leverageMemo || ""}
+              onSaveSummary={handleSaveSummaryFromCurrent}
+            />
           </div>
-          {current.leverageMemo?.trim() && (
-            <details style={{ marginTop: 8, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "8px 12px" }}>
-              <summary style={{ fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>旧形式のメモ（テキスト）を表示</summary>
-              <p style={{ fontSize: 13, color: "#4a4036", lineHeight: 1.8, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: "8px 0 0" }}>
-                {current.leverageMemo}
-              </p>
-            </details>
-          )}
           {current.aiSummary && <Card label="🤖 AI要約" text={current.aiSummary} bg="#e2ecd8" />}
 
           {(current.actions || []).filter((a) => a.text?.trim()).length > 0 && (
@@ -1384,7 +1398,7 @@ const persist = useCallback((updates) => {
             <BeforePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunAnalysis={runAnalysis} onRunStrategy={runStrategy} />
           )}
           {form.status === "reading" && current && (
-            <ReadingPhase form={form} setForm={setForm} onSave={handleSave} allTags={allTags} />
+            <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} allTags={allTags} />
           )}
           {form.status === "done" && current && (
             <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} allTags={allTags} />
