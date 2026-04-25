@@ -36,8 +36,13 @@
     *, *::before, *::after { box-sizing: border-box; }
     img, video, iframe { max-width: 100%; }
 
-    /* iOS Safari zooms inputs whose font-size is < 16px on focus. */
+    /* iOS Safari zooms inputs whose font-size is < 16px on focus.
+       The desktop default is 16px; the mobile media query enforces it with
+       !important to override any inline style that sneaks in below 16px. */
     input, textarea, select { font-size: 16px; }
+    @media (max-width: 768px) {
+      input, textarea, select { font-size: 16px !important; }
+    }
 
     /* Visual feedback on press — iOS has no :hover, so :active matters. */
     button, [role="button"], a, summary {

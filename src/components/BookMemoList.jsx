@@ -55,7 +55,7 @@ const summaryTextarea = {
   minHeight: 300,
   maxHeight: 600,
   padding: '12px 14px',
-  fontSize: 14,
+  fontSize: 16,
   border: '1px solid #d4ccbe',
   borderRadius: 10,
   background: '#fff',

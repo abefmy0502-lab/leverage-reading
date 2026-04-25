@@ -53,7 +53,7 @@ const footer = {
 const inp = {
   width: '100%',
   padding: '10px 12px',
-  fontSize: 14,
+  fontSize: 16,
   border: '1px solid #d4ccbe',
   borderRadius: 10,
   background: '#fff',

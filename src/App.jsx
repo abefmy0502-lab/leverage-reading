@@ -453,7 +453,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <span style={{ fontSize: 11, color: "#9a8e7a" }}>期限:</span>
-              <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...inp, flex: 1, fontSize: 12 }} />
+              <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...inp, flex: 1 }} />
             </div>
           </div>
         ))}
@@ -603,7 +603,7 @@ function MemosTab({ books, collections, onUpdateCollections }) {
                   <span style={{ fontSize: 10, color: "#9a8e7a" }}>📕 {m.title}</span>
                   {m.tags.map((t, j) => (<span key={j} style={{ fontSize: 9, background: "#eae3d6", color: "#7a6e58", padding: "1px 5px", borderRadius: 6 }}>#{t}</span>))}
                   {collections.length > 0 && (
-                    <select onChange={(e) => { if (e.target.value) toggleMemoInCol(e.target.value, m.text); e.target.value = ""; }} style={{ fontSize: 10, border: "1px solid #d4ccbe", borderRadius: 6, padding: "2px 4px", color: "#8a7e6b", background: "transparent", fontFamily: "inherit", marginLeft: "auto" }} defaultValue="">
+                    <select onChange={(e) => { if (e.target.value) toggleMemoInCol(e.target.value, m.text); e.target.value = ""; }} style={{ fontSize: 16, border: "1px solid #d4ccbe", borderRadius: 6, padding: "2px 4px", color: "#8a7e6b", background: "transparent", fontFamily: "inherit", marginLeft: "auto" }} defaultValue="">
                       <option value="">+📂</option>
                       {collections.map((c) => (<option key={c.id} value={c.id}>{c.memoTexts.includes(m.text) ? "✓ " : ""}{c.name}</option>))}
                     </select>
@@ -850,7 +850,7 @@ function CapitalDashboard({ books, readingPlans, onUpdatePlans, onClose }) {
                   <span style={{ fontSize: 14, fontWeight: 500, color: "#3d362c" }}>#{t.name}</span>
                   {editingTheme === t.name ? (
                     <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                      <input type="number" value={targetInput} onChange={(e) => setTargetInput(e.target.value)} placeholder="目標" style={{ ...inp, width: 60, padding: "4px 8px", fontSize: 12, textAlign: "center" }} autoFocus />
+                      <input type="number" value={targetInput} onChange={(e) => setTargetInput(e.target.value)} placeholder="目標" style={{ ...inp, width: 60, padding: "4px 8px", textAlign: "center" }} autoFocus />
                       <span style={{ fontSize: 10, color: "#9a8e7a" }}>冊</span>
                       <button onClick={() => setTarget(t.name)} style={{ ...btnS, padding: "4px 10px", fontSize: 10 }}>設定</button>
                       <button onClick={() => setEditingTheme(null)} style={{ background: "none", border: "none", fontSize: 14, color: "#a89e8c", cursor: "pointer" }}>×</button>
@@ -1689,7 +1689,7 @@ const persist = useCallback((updates) => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                  style={{ ...inp, flex: 1, background: "#faf6f0", fontSize: 13 }}
+                  style={{ ...inp, flex: 1, background: "#faf6f0" }}
                 />
                 <button onClick={openAdd} style={{ ...btnS, padding: "8px 16px", fontSize: 12 }} aria-label="本を追加">＋</button>
               </div>
@@ -1855,7 +1855,7 @@ export default function App() {
 }
 
 /* ========== Styles ========== */
-const inp = { width: "100%", padding: "10px 12px", fontSize: 14, border: "1px solid #d4ccbe", borderRadius: 10, background: "#fff", outline: "none", color: "#3d362c", fontFamily: "inherit" };
+const inp = { width: "100%", padding: "10px 12px", fontSize: 16, border: "1px solid #d4ccbe", borderRadius: 10, background: "#fff", outline: "none", color: "#3d362c", fontFamily: "inherit" };
 const ta = { ...inp, resize: "vertical", lineHeight: 1.7 };
 const lnk = { background: "none", border: "none", color: "#8a7e6b", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0 };
 const btnS = { padding: "10px 0", borderRadius: 10, border: "none", background: "#5c5043", color: "#faf6f0", cursor: "pointer", fontFamily: "inherit", fontSize: 14, letterSpacing: 1 };

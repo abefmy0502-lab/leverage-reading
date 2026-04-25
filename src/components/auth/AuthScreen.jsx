@@ -27,7 +27,7 @@ const btnLink = {
 const inp = {
   width: '100%',
   padding: '12px 14px',
-  fontSize: 14,
+  fontSize: 16,
   border: '1px solid #d4ccbe',
   borderRadius: 8,
   fontFamily: 'inherit',
