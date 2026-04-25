@@ -3,6 +3,7 @@ import { useBooks } from './hooks/useBooks';
 import { callClaude } from './lib/ai';
 import AuthScreen from './components/auth/AuthScreen';
 import AuthCallback from './components/auth/AuthCallback';
+import BookMemoList from './components/BookMemoList';
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 const STAR = "★";
@@ -373,10 +374,17 @@ function ReadingPhase({ form, setForm, onSave, allTags }) {
         )}
       </Field>
 
-      <Field label="レバレッジメモ" sub="気づき・フレーズ・ノウハウを自由にメモ。1行1つの学び。">
-        <textarea value={form.leverageMemo || ""} onChange={(e) => setForm({ ...form, leverageMemo: e.target.value })}
-          placeholder={"・印象に残ったフレーズ\n・すぐ使えるノウハウ\n・考え方の転換点"} rows={8} style={ta} />
+      <Field label="レバレッジメモ" sub="1メモ=1カードで管理できます。ページ番号・写真・タグも添付可。">
+        <BookMemoList bookId={form.id} bookTitle={form.title} />
       </Field>
+
+      {form.leverageMemo?.trim() && (
+        <details style={{ marginBottom: 12, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "8px 12px" }}>
+          <summary style={{ fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>旧形式のメモ（テキスト）を表示・編集</summary>
+          <textarea value={form.leverageMemo || ""} onChange={(e) => setForm({ ...form, leverageMemo: e.target.value })}
+            placeholder={"・印象に残ったフレーズ\n・すぐ使えるノウハウ\n・考え方の転換点"} rows={8} style={{ ...ta, marginTop: 8 }} />
+        </details>
+      )}
 
       <Field label="タグ">
         <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
@@ -1297,7 +1305,18 @@ const persist = useCallback((updates) => {
             </div>
           )}
 
-          {current.leverageMemo && <Card label="📝 レバレッジメモ" text={current.leverageMemo} />}
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>📝 レバレッジメモ</p>
+            <BookMemoList bookId={current.id} bookTitle={current.title} />
+          </div>
+          {current.leverageMemo?.trim() && (
+            <details style={{ marginTop: 8, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "8px 12px" }}>
+              <summary style={{ fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>旧形式のメモ（テキスト）を表示</summary>
+              <p style={{ fontSize: 13, color: "#4a4036", lineHeight: 1.8, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: "8px 0 0" }}>
+                {current.leverageMemo}
+              </p>
+            </details>
+          )}
           {current.aiSummary && <Card label="🤖 AI要約" text={current.aiSummary} bg="#e2ecd8" />}
 
           {(current.actions || []).filter((a) => a.text?.trim()).length > 0 && (

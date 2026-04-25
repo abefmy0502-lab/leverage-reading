@@ -1,0 +1,223 @@
+import { useEffect, useState } from 'react';
+import { getMemoPhotoUrl } from '../hooks/useBookMemos';
+
+const cardWrap = {
+  position: 'relative',
+  background: '#faf6f0',
+  border: '1px solid #e4ddd0',
+  borderRadius: 12,
+  padding: '12px 14px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+};
+
+const pageBadge = {
+  alignSelf: 'flex-start',
+  fontSize: 11,
+  padding: '2px 8px',
+  borderRadius: 8,
+  background: '#eae3d6',
+  color: '#7a6e58',
+  fontWeight: 600,
+};
+
+const tagPill = {
+  fontSize: 10,
+  padding: '2px 8px',
+  borderRadius: 10,
+  background: '#f0ebe2',
+  color: '#7a6e58',
+};
+
+const kebabBtn = {
+  position: 'absolute',
+  top: 8,
+  right: 10,
+  background: 'none',
+  border: 'none',
+  fontSize: 18,
+  color: '#a89e8c',
+  cursor: 'pointer',
+  padding: '2px 6px',
+  lineHeight: 1,
+};
+
+const menuStyle = {
+  position: 'absolute',
+  top: 32,
+  right: 8,
+  background: '#fff',
+  border: '1px solid #e4ddd0',
+  borderRadius: 8,
+  boxShadow: '0 4px 14px rgba(30,25,20,0.12)',
+  zIndex: 5,
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: 110,
+  overflow: 'hidden',
+};
+
+const menuItem = {
+  background: 'none',
+  border: 'none',
+  padding: '10px 14px',
+  fontSize: 13,
+  textAlign: 'left',
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+  color: '#3d362c',
+};
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export default function BookMemoCard({ memo, onEdit, onDelete }) {
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [zoom, setZoom] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!memo.photoPath) {
+      setPhotoUrl(null);
+      return undefined;
+    }
+    getMemoPhotoUrl(memo.photoPath).then((url) => {
+      if (!cancelled) setPhotoUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [memo.photoPath]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const close = () => setMenuOpen(false);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [menuOpen]);
+
+  return (
+    <div style={cardWrap}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setMenuOpen((v) => !v);
+        }}
+        style={kebabBtn}
+        aria-label="メニュー"
+      >
+        ⋮
+      </button>
+      {menuOpen && (
+        <div style={menuStyle} onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            style={menuItem}
+            onClick={() => {
+              setMenuOpen(false);
+              onEdit?.(memo);
+            }}
+          >
+            編集
+          </button>
+          <button
+            type="button"
+            style={{ ...menuItem, color: '#a05040' }}
+            onClick={() => {
+              setMenuOpen(false);
+              if (window.confirm('このメモを削除しますか？')) onDelete?.(memo);
+            }}
+          >
+            削除
+          </button>
+        </div>
+      )}
+
+      {memo.pageNumber != null && <span style={pageBadge}>P.{memo.pageNumber}</span>}
+
+      {photoUrl && (
+        <button
+          type="button"
+          onClick={() => setZoom(true)}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'zoom-in',
+            alignSelf: 'flex-start',
+            width: '80%',
+          }}
+        >
+          <img
+            src={photoUrl}
+            alt="memo"
+            style={{
+              width: '100%',
+              height: 'auto',
+              borderRadius: 8,
+              border: '1px solid #e4ddd0',
+              display: 'block',
+            }}
+          />
+        </button>
+      )}
+
+      {memo.text && (
+        <p
+          style={{
+            fontSize: 13,
+            color: '#4a4036',
+            lineHeight: 1.8,
+            whiteSpace: 'pre-wrap',
+            margin: 0,
+            maxHeight: 400,
+            overflowY: 'auto',
+            paddingRight: 8,
+          }}
+        >
+          {memo.text}
+        </p>
+      )}
+
+      {memo.tags?.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {memo.tags.map((t) => (
+            <span key={t} style={tagPill}>#{t}</span>
+          ))}
+        </div>
+      )}
+
+      <p style={{ fontSize: 10, color: '#b5aa96', margin: 0 }}>{formatDate(memo.createdAt)}</p>
+
+      {zoom && photoUrl && (
+        <div
+          onClick={() => setZoom(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 400,
+            background: 'rgba(20,16,12,0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={photoUrl}
+            alt="memo enlarged"
+            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

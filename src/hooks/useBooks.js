@@ -83,10 +83,16 @@ export function useBooks() {
         invest_purpose: book.investPurpose || null,
         ai_analysis: book.aiAnalysis || null,
         ai_strategy: book.aiStrategy || null,
-        leverage_memo: book.leverageMemo || null,
         ai_summary: book.aiSummary || null,
         roi_summary: book.roiSummary || null,
       };
+
+      // Preserve legacy leverage_memo: only write when caller actually provided a value.
+      const hasLeverageMemo =
+        typeof book.leverageMemo === 'string' && book.leverageMemo.trim().length > 0;
+      if (hasLeverageMemo) {
+        bookData.leverage_memo = book.leverageMemo;
+      }
 
       let savedBookId;
       const isUUID = UUID_RE.test(book.id || '');
@@ -96,9 +102,10 @@ export function useBooks() {
         if (error) throw error;
         savedBookId = book.id;
       } else {
+        const insertPayload = hasLeverageMemo ? bookData : { ...bookData, leverage_memo: null };
         const { data, error } = await supabase
           .from('books')
-          .insert([bookData])
+          .insert([insertPayload])
           .select()
           .single();
         if (error) throw error;
