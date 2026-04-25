@@ -1,25 +1,31 @@
 {
   "name": "レバレッジ読書ログ",
   "short_name": "読書ログ",
-  "description": "本は消費ではなく投資。レバレッジ・リーディングで100倍のリターンを。",
+  "description": "読書を投資に変える、ROIを最大化する読書管理アプリ",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f0e8",
-  "theme_color": "#f5f0e8",
+  "background_color": "#EDE0CA",
+  "theme_color": "#8A7040",
   "orientation": "portrait",
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
