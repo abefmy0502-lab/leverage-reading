@@ -8,7 +8,7 @@ import BookMemoEditor from './components/BookMemoEditor';
 import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import HelpModal from './components/HelpModal';
-import CapitalDashboard from './components/CapitalDashboard';
+import Review from './components/Review';
 import Spinner from './components/Spinner';
 import { BookListSkeleton } from './components/Skeleton';
 import { useToast } from './components/Toast';
@@ -848,25 +848,19 @@ function BookAdvisor({ onAddBook, onClose }) {
 }
 
 /* ========== Bottom Nav ========== */
-function BottomNav({ tab, setTab, actionDone, actionCount }) {
+function BottomNav({ tab, setTab }) {
   const tabs = [
-    { key: "today", icon: "💡", label: "今日の学び" },
     { key: "books", icon: "📚", label: "本棚" },
-    { key: "memos", icon: "🔍", label: "メモ" },
-    { key: "actions", icon: "✅", label: "行動" },
+    { key: "review", icon: "🔄", label: "振り返り" },
+    { key: "advisor", icon: "🤖", label: "AI 選書" },
   ];
   return (
     <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#faf6f0", borderTop: "1px solid #e0d8c8", display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom)" }}>
       {tabs.map((t) => (
-        <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, padding: "8px 0 6px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, position: "relative" }}>
-          <span style={{ fontSize: 20 }}>{t.icon}</span>
-          <span style={{ fontSize: 9, color: tab === t.key ? "#3d362c" : "#b5aa96", fontWeight: tab === t.key ? 600 : 400 }}>{t.label}</span>
-          {tab === t.key && <div style={{ position: "absolute", top: 0, left: "30%", right: "30%", height: 2, background: "#d4a040", borderRadius: 1 }} />}
-          {t.key === "actions" && actionCount > 0 && (
-            <span style={{ position: "absolute", top: 4, right: "20%", fontSize: 8, background: actionDone === actionCount ? "#5a7a48" : "#d4a040", color: "#fff", padding: "1px 4px", borderRadius: 6, minWidth: 14, textAlign: "center" }}>
-              {actionDone}/{actionCount}
-            </span>
-          )}
+        <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, padding: "10px 0 8px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, position: "relative", minHeight: 56 }}>
+          <span style={{ fontSize: 22 }}>{t.icon}</span>
+          <span style={{ fontSize: 10, color: tab === t.key ? "#3d362c" : "#b5aa96", fontWeight: tab === t.key ? 600 : 400 }}>{t.label}</span>
+          {tab === t.key && <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 2, background: "#d4a040", borderRadius: 1 }} />}
         </button>
       ))}
     </div>
@@ -915,7 +909,7 @@ function AuthedApp() {
   const collections = data.collections;
   const readingPlans = data.readingPlans || {};
 
-  const [tab, setTab] = useState("today");
+  const [tab, setTab] = useState("books");
   const [view, setView] = useState("list"); // list | detail | edit
   const [current, setCurrent] = useState(null);
   const [form, setForm] = useState(emptyBook());
@@ -924,8 +918,8 @@ function AuthedApp() {
   const [sortBy, setSortBy] = useState("updated"); // updated | created | title | rating
   const [searchOpen, setSearchOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [advisorOpen, setAdvisorOpen] = useState(false);
-  const [capitalOpen, setCapitalOpen] = useState(false);
+  // Personal Capital UI is removed; data layer (CapitalDashboard component
+  // file) is retained for potential future re-enablement.
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
@@ -974,8 +968,6 @@ const persist = useCallback((updates) => {
   //   2. Book detail / edit view — map by status
   //   3. Bottom-nav tabs (list view) — today / books / memos / actions
   const getCurrentHelpKey = () => {
-    if (capitalOpen) return 'personalCapital';
-    if (advisorOpen) return 'aiAdvisor';
     if (quickMemoOpen || fullEditorPrefill) return 'memoEditor';
     if (view === 'detail' || view === 'edit') {
       const status = current?.status || form?.status;
@@ -984,9 +976,8 @@ const persist = useCallback((updates) => {
       if (status === 'reading') return 'bookDetailReading';
       if (status === 'done') return 'bookDetailDone';
     }
-    if (tab === 'today') return 'todayLearning';
-    if (tab === 'memos') return 'memos';
-    if (tab === 'actions') return 'actions';
+    if (tab === 'review') return 'review';
+    if (tab === 'advisor') return 'aiAdvisor';
     return 'bookList';
   };
 
@@ -1115,6 +1106,28 @@ const persist = useCallback((updates) => {
     } catch (error) {
       toast.error(toMessage(error, '本の追加に失敗しました。'));
     }
+  };
+
+  // Used by CapitalDashboard's "学習プラン" → bulk-add. Throws on failure so
+  // the dashboard can count successes/failures across the plan's book list.
+  const addBookFromPlan = async ({ title, author = '', tags = [] }) => {
+    const newBook = {
+      ...emptyBook(),
+      title,
+      author: author || '',
+      status: 'want',
+      tags: Array.isArray(tags) ? tags : [],
+    };
+    try {
+      const results = await searchBooksAPI(`${title} ${author || ''}`.trim());
+      if (results.length > 0) {
+        newBook.cover = results[0].cover || '';
+        newBook.totalPages = results[0].pages || 0;
+      }
+    } catch {
+      /* cover is best-effort; ignore */
+    }
+    await saveBook(newBook);
   };
 
 // Status transitions — optimistic UI with undo toast.
@@ -1499,7 +1512,7 @@ const persist = useCallback((updates) => {
           />
         )}
 
-        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} actionDone={actionDone} actionCount={actionCount} />
+        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
       </Shell>
     );
   }
@@ -1555,7 +1568,7 @@ const persist = useCallback((updates) => {
             }}
           />
         )}
-        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} actionDone={actionDone} actionCount={actionCount} />
+        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
       </Shell>
     );
   }
@@ -1580,8 +1593,6 @@ const persist = useCallback((updates) => {
 </header>
 
       <div style={{ paddingBottom: 80 }}>
-        {tab === "today" && <TodayTab books={books} />}
-
         {tab === "books" && (
           <>
             <div style={{ display: "flex", gap: 2, padding: "8px 20px", borderTop: "1px solid #e8e2d6", borderBottom: "1px solid #e8e2d6" }}>
@@ -1593,20 +1604,6 @@ const persist = useCallback((updates) => {
               ))}
             </div>
             <div style={{ padding: "10px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
-              <button onClick={() => setAdvisorOpen(true)} style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid #e0d8c8", background: "linear-gradient(135deg,#faf6f0,#f0ebe2)", cursor: "pointer", fontFamily: "inherit", textAlign: "left", display: "flex", alignItems: "center", gap: 10, paddingLeft: 14, paddingRight: 14 }}>
-                <span style={{ fontSize: 22 }}>🤖</span>
-                <div>
-                  <span style={{ fontSize: 13, color: "#3d362c", fontWeight: 500 }}>AIに選書してもらう</span>
-                  <span style={{ fontSize: 10, color: "#a89e8c", display: "block", marginTop: 1 }}>課題・悩みからあなたに最適な一冊を提案</span>
-                </div>
-              </button>
-              <button onClick={() => setCapitalOpen(true)} style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid #e0d8c8", background: "linear-gradient(135deg,#faf6f0,#e8f0e8)", cursor: "pointer", fontFamily: "inherit", textAlign: "left", display: "flex", alignItems: "center", gap: 10, paddingLeft: 14, paddingRight: 14 }}>
-                <span style={{ fontSize: 22 }}>📊</span>
-                <div>
-                  <span style={{ fontSize: 13, color: "#3d362c", fontWeight: 500 }}>パーソナルキャピタル</span>
-                  <span style={{ fontSize: 10, color: "#a89e8c", display: "block", marginTop: 1 }}>知識マップ・ROI分析・読書計画</span>
-                </div>
-              </button>
               <div style={{ display: "flex", gap: 6 }}>
                 <input
                   placeholder="🔍 タイトル・著者・タグで検索"
@@ -1723,17 +1720,19 @@ const persist = useCallback((updates) => {
           </>
         )}
 
-        {tab === "memos" && <MemosTab books={books} collections={collections} onUpdateCollections={(c) => persist({ collections: c })} />}
-        {tab === "actions" && <ActionsTab books={books} onToggleAction={(bid, aidx) => toggleAction(bid, aidx)} />}
+        {tab === "review" && (
+          <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+        )}
+
+        {tab === "advisor" && (
+          <div style={{ padding: "12px 16px 24px" }}>
+            <BookAdvisor
+              onAddBook={(rec) => { addFromAdvisor(rec); }}
+              onClose={() => setTab("books")}
+            />
+          </div>
+        )}
       </div>
-
-      <Modal open={advisorOpen} onClose={() => setAdvisorOpen(false)}>
-        <BookAdvisor onAddBook={(rec) => { addFromAdvisor(rec); }} onClose={() => setAdvisorOpen(false)} />
-      </Modal>
-
-      <Modal open={capitalOpen} onClose={() => setCapitalOpen(false)}>
-        <CapitalDashboard books={books} readingPlans={readingPlans} onUpdatePlans={(p) => persist({ readingPlans: p })} onClose={() => setCapitalOpen(false)} />
-      </Modal>
 
       {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
 
@@ -1749,7 +1748,7 @@ const persist = useCallback((updates) => {
         />
       )}
 
-      <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} actionDone={actionDone} actionCount={actionCount} />
+      <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} />
     </Shell>
   );
 }

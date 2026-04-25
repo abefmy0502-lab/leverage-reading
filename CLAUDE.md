@@ -2,13 +2,33 @@
 
 ## プロジェクト概要
 
-読書を「投資」として捉え、AI 連携で ROI 最大化を目指す読書管理 PWA。
+「読んだ本の内容を、後から再現できる」シンプルな読書管理 PWA。
+本を読みっぱなしにせず、気づきを定期的に呼び戻すことに特化しています。
 
 - **フロント**: React 18 + Vite 6
 - **バックエンド**: Supabase (PostgreSQL + Auth + Storage)
 - **AI**: Anthropic Claude API（`api/claude.js` 経由のサーバーサイド中継）
 - **ホスティング**: Vercel
-- **主要機能**: 本管理、4 ステータス遷移、AI 選書アドバイザー、カード/まとめ 2 モードメモ、写真添付、PWA インストール
+- **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🤖 AI 選書アドバイザー、PWA インストール
+
+### ナビゲーション構造
+
+下部ナビは 3 タブのみ：
+- 📚 **本棚** — 本一覧（検索 / フィルタ / ソート / 続きから）
+- 🔄 **振り返り** — ランダムメモ想起 / 月別タイムライン / 全メモ横断検索
+- 🤖 **AI 選書** — 課題ヒアリング → 推薦
+
+### Removed Features（UI からは削除、コードは保持）
+
+これらは UI 導線が消えていますが、関連コンポーネントとロジックは将来再有効化のため残しています。
+
+| 機能 | 関連ファイル | 状態 |
+|---|---|---|
+| パーソナルキャピタル（投資成果サマリー / 知識マップ / ROI / 計画 / 成長 / AI 分析 / 学習プラン） | `src/components/CapitalDashboard.jsx`, `src/components/AIInsight.jsx` | App.jsx から import を外し未参照 |
+| 今日の学びタブ（TodayTab） | `src/App.jsx` 内の `function TodayTab` | 関数定義残置・呼び出し削除 |
+| クロスブック メモタブ（MemosTab） | `src/App.jsx` 内の `function MemosTab` | 関数定義残置・呼び出し削除 |
+| クロスブック 行動タブ（ActionsTab） | `src/App.jsx` 内の `function ActionsTab` | 関数定義残置・呼び出し削除 |
+| バッジ / 連続日数 / レベルシステム | `CapitalDashboard.jsx` 内 | 上記と同じく未参照に |
 
 ## ディレクトリ構造
 
@@ -125,16 +145,15 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | キー | 対応画面 |
 |---|---|
 | `bookList` | 本棚画面（下部ナビ: 本棚） |
-| `todayLearning` | 今日の学びタブ（下部ナビ: 今日の学び） |
-| `memos` | メモタブ（下部ナビ: メモ — 横断検索 / コレクション） |
-| `actions` | 行動タブ（下部ナビ: 行動 — 横断アクションリスト） |
+| `review` | 振り返りタブ（ランダム想起 / タイムライン / 横断検索） |
 | `bookDetailWant` | 「読みたい」状態の本詳細 |
 | `bookDetailBefore` | 「読書前」状態の本詳細 |
 | `bookDetailReading` | 「読書中」状態の本詳細 |
 | `bookDetailDone` | 「読了」状態の本詳細 |
-| `aiAdvisor` | AI 選書アドバイザー |
+| `aiAdvisor` | AI 選書アドバイザー（下部ナビ: AI 選書） |
 | `memoEditor` | メモ入力画面（カード式 + クイックメモ + まとめ） |
-| `personalCapital` | パーソナルキャピタル（投資成果サマリー + 知識マップ / ROI / 計画 / 成長） |
+| `personalCapital` | （廃止予定）パーソナルキャピタル — UI 導線なし |
+| `todayLearning` / `memos` / `actions` | （未使用）旧ボトムナビタブ用、現在は到達不可 |
 
 新しい画面を追加した場合、上の表にも追記し、`HELP_CONTENT` にもキーを追加すること。
 

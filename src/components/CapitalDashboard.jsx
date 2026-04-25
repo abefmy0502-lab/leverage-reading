@@ -11,9 +11,13 @@
 // AI-generated insights are deferred to a future iteration; the structure leaves
 // room to drop them in per tab.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { callClaude } from '../lib/ai';
+import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
+import AIInsight from './AIInsight';
 
 const closeBtn = { background: 'none', border: 'none', fontSize: 22, color: '#8a7e6b', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontFamily: 'inherit' };
 const inp = { width: '100%', padding: '8px 10px', fontSize: 16, border: '1px solid #d4ccbe', borderRadius: 8, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
@@ -125,6 +129,14 @@ function computeBadges({ doneCount, memoCount, actionsDone, streak, distinctTags
     { id: 'diversity-5', icon: '📐', label: '多様性', earned: distinctTagsDone >= 5, hint: '5 ジャンル以上で読了' },
   ];
   return all;
+}
+
+// Stable, dependency-free hash for cache keys.
+function makeHash(obj) {
+  const str = JSON.stringify(obj);
+  let h = 0;
+  for (let i = 0; i < str.length; i += 1) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  return Math.abs(h).toString(36);
 }
 
 // ===== Pure-SVG components =====
@@ -259,8 +271,243 @@ function StatTile({ icon, label, value, sub }) {
   );
 }
 
+// ===== Learning Plans (AI-generated) =====
+const PLANS_TTL_MS = 24 * 60 * 60 * 1000; // 1 day
+
+function readPlansCache(userId) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(`aiPlans_${userId || 'anon'}`);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj?.plans || !Array.isArray(obj.plans)) return null;
+    if (typeof obj.savedAt !== 'number') return null;
+    if (Date.now() - obj.savedAt > PLANS_TTL_MS) return null;
+    return obj.plans;
+  } catch {
+    return null;
+  }
+}
+
+function writePlansCache(userId, plans) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      `aiPlans_${userId || 'anon'}`,
+      JSON.stringify({ plans, savedAt: Date.now() })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+function parsePlans(text) {
+  if (typeof text !== 'string') return [];
+  const m = text.match(/PLANS_START\s*([\s\S]*?)\s*PLANS_END/);
+  const blob = m ? m[1] : text;
+  // Try to extract a JSON array even if the model wrapped it loosely.
+  const start = blob.indexOf('[');
+  const end = blob.lastIndexOf(']');
+  if (start === -1 || end === -1 || end <= start) return [];
+  try {
+    const arr = JSON.parse(blob.slice(start, end + 1));
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(
+      (p) => p && typeof p.title === 'string' && Array.isArray(p.books) && p.books.length > 0
+    );
+  } catch {
+    return [];
+  }
+}
+
+function LearningPlans({ userId, books, allTags, onAddBookFromPlan }) {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [plans, setPlans] = useState(() => readPlansCache(userId) || []);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [adding, setAdding] = useState(null); // plan title currently being added
+
+  const generate = useCallback(
+    async ({ force = false } = {}) => {
+      if (!force) {
+        const cached = readPlansCache(userId);
+        if (cached?.length) {
+          setPlans(cached);
+          return;
+        }
+      }
+      setLoading(true);
+      setErrorMsg(null);
+      try {
+        const doneBooks = books.filter((b) => b.status === 'done');
+        const topRated = [...doneBooks]
+          .filter((b) => (b.rating || 0) >= 4)
+          .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+          .slice(0, 5)
+          .map((b) => `「${b.title}」(★${b.rating})`)
+          .join('、');
+        const tagSummary = allTags.slice(0, 8).join('、') || 'なし';
+
+        const system =
+          'あなたは読書プランナーです。ユーザーの読書傾向から、テーマ別の学習プランを 3 つ提案します。実在する日本語で読める本のみを推薦してください。';
+        const user =
+          `以下のユーザー情報から、おすすめの学習プランを 3 つ JSON 形式で提案してください。\n\n` +
+          `【ユーザー情報】\n` +
+          `- 既存タグ: ${tagSummary}\n` +
+          `- 読了済み: ${doneBooks.length} 冊\n` +
+          `- 評価が高かった本: ${topRated || 'まだなし'}\n\n` +
+          `以下の形式で必ず 3 プラン返してください。JSON 以外のテキストは含めないでください:\n\n` +
+          `PLANS_START\n` +
+          `[\n` +
+          `  {"title": "プラン名", "description": "説明 (2-3 文)", "duration": "期間目安", "tags": ["関連タグ"], "books": ["本1", "本2", "本3", "本4", "本5"], "rationale": "なぜこのプランか (1-2 文)"}\n` +
+          `]\n` +
+          `PLANS_END\n\n` +
+          `各プランの books は実在する日本語で読める本のタイトルを 5 冊。ユーザーの今のレベルから一歩進める内容で。`;
+
+        const result = await callClaude(system, user, { max_tokens: 2000 });
+        const parsed = parsePlans(result);
+        if (parsed.length === 0) {
+          setErrorMsg('学習プランの生成に失敗しました。少し時間をおいて再度お試しください。');
+          return;
+        }
+        setPlans(parsed);
+        writePlansCache(userId, parsed);
+      } catch {
+        setErrorMsg('学習プランの生成に失敗しました。少し時間をおいて再度お試しください。');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [userId, books, allTags]
+  );
+
+  useEffect(() => {
+    if (plans.length === 0) generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const handleAdd = async (plan) => {
+    if (!onAddBookFromPlan) {
+      toast.error('本の追加機能が利用できません。');
+      return;
+    }
+    const ok = await confirm({
+      title: 'このプランで読みますか？',
+      message: `「${plan.title}」の ${plan.books.length} 冊を「読みたい」リストに追加します。`,
+      confirmLabel: '追加する',
+      cancelLabel: 'キャンセル',
+    });
+    if (!ok) return;
+    setAdding(plan.title);
+    let added = 0;
+    let failed = 0;
+    for (const bookTitle of plan.books) {
+      try {
+        await onAddBookFromPlan({ title: bookTitle, author: '', tags: plan.tags || [] });
+        added += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setAdding(null);
+    if (added > 0 && failed === 0) toast.success(`${added} 冊を「読みたい」に追加しました`);
+    else if (added > 0 && failed > 0) toast.info(`${added} 冊追加 / ${failed} 冊失敗`);
+    else toast.error('追加に失敗しました。少し待って再試行してください。');
+  };
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <p style={{ fontSize: 13, color: '#5c5043', fontWeight: 600, margin: 0 }}>
+          📚 おすすめ学習プラン
+        </p>
+        <button
+          type="button"
+          onClick={() => generate({ force: true })}
+          disabled={loading}
+          style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', minHeight: 28, opacity: loading ? 0.5 : 1 }}
+        >
+          {loading ? '生成中...' : '↻ 再生成'}
+        </button>
+      </div>
+
+      {loading && plans.length === 0 && (
+        <div style={cardBase}>
+          <p style={{ fontSize: 12, color: '#a89e8c', margin: 0 }}>AI がプランを生成しています...</p>
+        </div>
+      )}
+
+      {!loading && plans.length === 0 && errorMsg && (
+        <div style={{ ...cardBase, background: '#f9eae6' }}>
+          <p style={{ fontSize: 12, color: '#a05040', margin: 0, lineHeight: 1.7 }}>{errorMsg}</p>
+        </div>
+      )}
+
+      {plans.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {plans.map((plan) => {
+            const isAdding = adding === plan.title;
+            return (
+              <div key={plan.title} style={cardBase}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+                  <p style={{ fontSize: 14, color: '#3d362c', fontWeight: 600, margin: 0 }}>{plan.title}</p>
+                  <span style={{ fontSize: 10, color: '#8a7e6b', whiteSpace: 'nowrap' }}>
+                    {plan.duration || ''} · {plan.books.length} 冊
+                  </span>
+                </div>
+                {plan.description && (
+                  <p style={{ fontSize: 12, color: '#5c5548', margin: '0 0 6px', lineHeight: 1.7 }}>
+                    {plan.description}
+                  </p>
+                )}
+                {plan.tags?.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                    {plan.tags.map((t) => (
+                      <span key={t} style={{ fontSize: 10, padding: '2px 6px', background: '#eae3d6', color: '#7a6e58', borderRadius: 8 }}>#{t}</span>
+                    ))}
+                  </div>
+                )}
+                <details style={{ marginBottom: 8 }}>
+                  <summary style={{ fontSize: 11, color: '#8a7e6b', cursor: 'pointer' }}>
+                    収録予定の {plan.books.length} 冊を表示
+                  </summary>
+                  <ul style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.8, margin: '6px 0 0', paddingLeft: 18 }}>
+                    {plan.books.map((b, i) => (
+                      <li key={`${b}-${i}`}>{b}</li>
+                    ))}
+                  </ul>
+                </details>
+                {plan.rationale && (
+                  <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.6, fontStyle: 'italic' }}>
+                    💡 {plan.rationale}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleAdd(plan)}
+                  disabled={isAdding}
+                  style={{ ...btnS, width: '100%', padding: '10px 0', fontSize: 13, opacity: isAdding ? 0.6 : 1 }}
+                >
+                  {isAdding ? '追加中...' : '📚 このプランで読む'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {plans.length > 0 && (
+        <p style={{ fontSize: 10, color: '#a89e8c', marginTop: 8, lineHeight: 1.5 }}>
+          学習プランは 1 日キャッシュされます。新しい提案がほしい時は「再生成」をタップ。
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ===== Main component =====
-export default function CapitalDashboard({ books, readingPlans, onUpdatePlans, onClose, onOpenBook }) {
+export default function CapitalDashboard({ books, readingPlans, onUpdatePlans, onClose, onAddBookFromPlan }) {
   const { user } = useAuth();
   const [subTab, setSubTab] = useState('map');
   const [editingTheme, setEditingTheme] = useState(null);
@@ -520,6 +767,25 @@ export default function CapitalDashboard({ books, readingPlans, onUpdatePlans, o
                 );
               })}
             </div>
+
+            <AIInsight
+              tabKey="map"
+              title="🤖 あなたの読書傾向"
+              contextHash={makeHash({
+                tags: themeData.slice(0, 8).map((t) => [t.name, t.done, t.reading, t.memoCount]),
+                memoCount: totals.memoCount,
+                doneCount: totals.doneCount,
+              })}
+              systemPrompt="あなたは温かい敬語で語りかける読書投資アドバイザーです。"
+              userPrompt={
+                `以下のユーザーの読書履歴から、その人の読書傾向を 3 行程度で分析してください。\n\n` +
+                `【データ】\n` +
+                `- 累計読了: ${totals.doneCount} 冊\n` +
+                `- 累計メモ: ${totals.memoCount} 件\n` +
+                `- 上位ジャンル(タグ): ${themeData.slice(0, 6).map((t) => `#${t.name}(読了${t.done}/メモ${t.memoCount})`).join('、') || 'なし'}\n\n` +
+                `親しみやすい敬語で、強み 1 点 + 次のおすすめ 1 点 を含めて、合計 3 行程度で。`
+              }
+            />
           </div>
         )
       )}
@@ -593,6 +859,29 @@ export default function CapitalDashboard({ books, readingPlans, onUpdatePlans, o
                 読了した本に評価をつけると ROI 分析が表示されます。
               </p>
             )}
+
+            <AIInsight
+              tabKey="roi"
+              title="🤖 投資効率を上げるヒント"
+              contextHash={makeHash({
+                roi: totals.roiScore,
+                rate: totals.actionsRate,
+                avg: Math.round(totals.avgRating * 10),
+                done: totals.doneCount,
+                memos: totals.memoCount,
+              })}
+              systemPrompt="あなたは読書投資の効率化を支援する実用派アドバイザーです。"
+              userPrompt={
+                `以下の読書 ROI 指標から、投資効率を上げる具体的アドバイスを 3 行程度で。\n\n` +
+                `【データ】\n` +
+                `- 投資効率スコア: ${totals.roiScore} / 100\n` +
+                `- アクション完了率: ${totals.actionsRate}% (${totals.actionsDone}/${totals.actionsTotal})\n` +
+                `- 平均評価: ${totals.avgRating.toFixed(1)} / 5.0\n` +
+                `- 累計読了: ${totals.doneCount} 冊\n` +
+                `- メモ件数: ${totals.memoCount} 件\n\n` +
+                `具体的な行動提案を含めて、合計 3 行程度で。`
+              }
+            />
           </div>
         )
       )}
@@ -653,6 +942,13 @@ export default function CapitalDashboard({ books, readingPlans, onUpdatePlans, o
                 </div>
               );
             })}
+
+            <LearningPlans
+              userId={user?.id}
+              books={books}
+              allTags={themeData.map((t) => t.name)}
+              onAddBookFromPlan={onAddBookFromPlan}
+            />
           </div>
         )
       )}
@@ -735,6 +1031,28 @@ export default function CapitalDashboard({ books, readingPlans, onUpdatePlans, o
               バッジをホバー / タップすると獲得条件が表示されます。
             </p>
           </div>
+
+          <AIInsight
+            tabKey="growth"
+            title="🤖 次の一歩"
+            contextHash={makeHash({
+              streak: totals.streak,
+              level: levelInfo.level,
+              done: totals.doneCount,
+              earnedBadges: badges.filter((b) => b.earned).map((b) => b.id),
+            })}
+            systemPrompt="あなたは読書習慣の継続を励ますポジティブなコーチです。"
+            userPrompt={
+              `以下の成長記録から、次に取り組むと良いことを 3 行程度で。\n\n` +
+              `【データ】\n` +
+              `- 連続記録: ${totals.streak} 日\n` +
+              `- レベル: Lv.${levelInfo.level}${levelInfo.next ? ` (次まで ${levelInfo.remaining} 冊)` : ' (最高)'}\n` +
+              `- 累計読了: ${totals.doneCount} 冊\n` +
+              `- 獲得バッジ: ${badges.filter((b) => b.earned).map((b) => b.label).join('、') || 'なし'}\n` +
+              `- 未獲得バッジ: ${badges.filter((b) => !b.earned).slice(0, 3).map((b) => `${b.label}(${b.hint})`).join('、') || 'すべて獲得済み'}\n\n` +
+              `励ましのトーンで、具体的な小さな目標を含めて、合計 3 行程度で。`
+            }
+          />
         </div>
       )}
     </div>

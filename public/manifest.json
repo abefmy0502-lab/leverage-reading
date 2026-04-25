@@ -1,7 +1,7 @@
 {
   "name": "レバレッジ読書ログ",
   "short_name": "読書ログ",
-  "description": "読書を投資に変える、ROIを最大化する読書管理アプリ",
+  "description": "読書を投資に変える、本の内容を再現できる読書管理アプリ",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
