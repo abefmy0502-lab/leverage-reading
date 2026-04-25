@@ -208,7 +208,7 @@ function Card({ label, text, bg }) {
   return (
     <div style={{ background: bg || "#f7f3ec", borderRadius: 10, padding: "10px 12px", marginTop: 8 }}>
       <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>{label}</p>
-      <p style={{ fontSize: 13, color: "#4a4036", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{text}</p>
+      <p style={{ fontSize: 13, color: "#4a4036", lineHeight: 1.8, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: 0 }}>{text}</p>
     </div>
   );
 }
@@ -350,8 +350,8 @@ function ReadingPhase({ form, setForm, onSave, allTags }) {
       {form.aiStrategy && (
         <div style={{ background: "#f0ebe2", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
           <p style={{ fontSize: 11, fontWeight: 600, color: "#7a5080", marginBottom: 4 }}>📋 セットアップシート要約</p>
-          <p style={{ fontSize: 12, color: "#5c5548", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 120, overflow: "hidden" }}>
-            {form.aiStrategy.slice(0, 300)}{form.aiStrategy.length > 300 ? "..." : ""}
+          <p style={{ fontSize: 12, color: "#5c5548", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: 0 }}>
+            {form.aiStrategy}
           </p>
         </div>
       )}

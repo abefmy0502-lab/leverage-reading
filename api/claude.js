@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
-const MAX_TOKENS_DEFAULT = 1024;
-const MAX_TOKENS_HARD_CAP = 2048;
+const MAX_TOKENS_DEFAULT = 4096;
+const MAX_TOKENS_HARD_CAP = 8192;
 
 // In-memory rate limit (per serverless instance — sufficient for low volume).
 const rateLimitStore = new Map();
