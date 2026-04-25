@@ -62,7 +62,14 @@ const transformRow = (m) => ({
   photoPath: m.photo_path || null,
   tags: Array.isArray(m.tags) ? m.tags : [],
   createdAt: m.created_at,
+  sourceType: m.source_type || (m.book_id ? 'book' : 'personal'),
 });
+
+function pickCategory(tags) {
+  if (!Array.isArray(tags)) return null;
+  const cat = tags.find((t) => typeof t === 'string' && t.startsWith('@'));
+  return cat ? cat.slice(1) : null;
+}
 
 function MemoPhoto({ path }) {
   const cache = useAppDataCache();
@@ -97,24 +104,41 @@ function MemoPhoto({ path }) {
 }
 
 function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false }) {
+  const isPersonal = memo.sourceType === 'personal' || (!book && !memo.bookId);
+  const category = isPersonal ? pickCategory(memo.tags) : null;
+  const visibleTags = isPersonal
+    ? (memo.tags || []).filter((t) => !t.startsWith('@'))
+    : memo.tags || [];
+
   return (
     <div style={cardBase}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-        <button
-          type="button"
-          onClick={() => book && onOpenBook?.(book)}
-          style={{ background: 'none', border: 'none', padding: 0, fontSize: 13, fontWeight: 500, color: '#3d362c', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        >
-          📖 {book?.title || '（本のデータが見つかりません）'}
-        </button>
+        {isPersonal ? (
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: '#f5e6c8', color: '#8a7040', fontWeight: 600 }}>
+              💡 学びログ
+            </span>
+            {category && (
+              <span style={{ fontSize: 11, color: '#5c5548' }}>・{category}</span>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => book && onOpenBook?.(book)}
+            style={{ background: 'none', border: 'none', padding: 0, fontSize: 13, fontWeight: 500, color: '#3d362c', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            📖 {book?.title || '（本のデータが見つかりません）'}
+          </button>
+        )}
         <span style={{ fontSize: 10, color: '#a89e8c', whiteSpace: 'nowrap' }}>
           {showRelative ? relativeJa(memo.createdAt) : fmtDate(memo.createdAt)}
         </span>
       </div>
-      {book?.author && (
+      {!isPersonal && book?.author && (
         <p style={{ fontSize: 11, color: '#9a8e7a', margin: '2px 0 6px' }}>{book.author}</p>
       )}
-      {memo.pageNumber != null && (
+      {memo.pageNumber != null && !isPersonal && (
         <span style={{ ...pill, display: 'inline-block', marginBottom: 6 }}>P.{memo.pageNumber}</span>
       )}
       {memo.text && (
@@ -134,9 +158,9 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false }) {
         </p>
       )}
       {memo.photoPath && <MemoPhoto path={memo.photoPath} />}
-      {memo.tags?.length > 0 && (
+      {visibleTags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-          {memo.tags.map((t) => (
+          {visibleTags.map((t) => (
             <span key={t} style={pill}>#{t}</span>
           ))}
         </div>

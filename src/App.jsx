@@ -9,6 +9,7 @@ import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import HelpModal from './components/HelpModal';
 import Review from './components/Review';
+import MyBookBrain from './components/MyBookBrain';
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import { BookListSkeleton } from './components/Skeleton';
@@ -854,6 +855,7 @@ function BottomNav({ tab, setTab }) {
   const tabs = [
     { key: "books", icon: "📚", label: "本棚" },
     { key: "review", icon: "🔄", label: "振り返り" },
+    { key: "brain", icon: "🧠", label: "読書脳" },
     { key: "advisor", icon: "🤖", label: "AI 選書" },
   ];
   return (
@@ -982,6 +984,7 @@ const persist = useCallback((updates) => {
     }
     if (tab === 'review') return 'review';
     if (tab === 'advisor') return 'aiAdvisor';
+    if (tab === 'brain') return 'myBookBrain';
     return 'bookList';
   };
 
@@ -1818,6 +1821,10 @@ const persist = useCallback((updates) => {
 
         {tab === "review" && (
           <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+        )}
+
+        {tab === "brain" && (
+          <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
         )}
 
         {tab === "advisor" && (
