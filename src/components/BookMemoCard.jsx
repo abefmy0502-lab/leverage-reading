@@ -132,7 +132,7 @@ export default function BookMemoCard({ memo, onEdit, onDelete }) {
             style={{ ...menuItem, color: '#a05040' }}
             onClick={() => {
               setMenuOpen(false);
-              if (window.confirm('このメモを削除しますか？')) onDelete?.(memo);
+              onDelete?.(memo);
             }}
           >
             削除

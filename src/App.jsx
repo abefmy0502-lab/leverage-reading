@@ -4,7 +4,12 @@ import { callClaude } from './lib/ai';
 import AuthScreen from './components/auth/AuthScreen';
 import AuthCallback from './components/auth/AuthCallback';
 import BookMemoList from './components/BookMemoList';
-import { useState, useEffect, useCallback, useMemo } from "react";
+import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
+import Spinner from './components/Spinner';
+import { useToast } from './components/Toast';
+import { useConfirm } from './components/ConfirmDialog';
+import { toMessage, fieldRequiredMessage } from './lib/errors';
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 const STAR = "★";
 const EMPTY_STAR = "☆";
@@ -1059,8 +1064,10 @@ function Shell({ children }) {
 /* ========== MAIN APP ========== */
 function AuthedApp() {
   const { signOut } = useAuth();
-  const { books, loading: booksLoading, saveBook, deleteBook } = useBooks();
-  
+  const { books: rawBooks, loading: booksLoading, saveBook, deleteBook } = useBooks();
+  const toast = useToast();
+  const confirm = useConfirm();
+
   // collections と readingPlans は一旦localStorageのまま
   const [data, setData] = useState(() => {
     const d = loadData();
@@ -1075,11 +1082,30 @@ function AuthedApp() {
   const [form, setForm] = useState(emptyBook());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [sortBy, setSortBy] = useState("updated"); // updated | created | title | rating
   const [searchOpen, setSearchOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [advisorOpen, setAdvisorOpen] = useState(false);
   const [capitalOpen, setCapitalOpen] = useState(false);
+  const [pendingDeletes, setPendingDeletes] = useState(() => new Set());
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const onboardingTriggeredRef = useRef(false);
+
+  // Hide books that are queued for soft-delete from every view.
+  const books = useMemo(
+    () => rawBooks.filter((b) => !pendingDeletes.has(b.id)),
+    [rawBooks, pendingDeletes]
+  );
+
+  // First-run onboarding: show once when the user has no books and hasn't dismissed it.
+  useEffect(() => {
+    if (booksLoading) return;
+    if (onboardingTriggeredRef.current) return;
+    if (rawBooks.length > 0) return;
+    if (isOnboardingCompleted()) return;
+    onboardingTriggeredRef.current = true;
+    setShowOnboarding(true);
+  }, [booksLoading, rawBooks.length]);
 
 const persist = useCallback((updates) => {
     setData((prev) => { 
@@ -1096,7 +1122,10 @@ const persist = useCallback((updates) => {
   const goList = () => { setView("list"); setCurrent(null); };
 
   const handleSave = async () => {
-    if (!form.title.trim()) return;
+    if (!form.title.trim()) {
+      toast.error(fieldRequiredMessage('タイトル'));
+      return;
+    }
     try {
       const normalizedTags = Array.from(
         new Set(
@@ -1111,39 +1140,91 @@ const persist = useCallback((updates) => {
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
       setView("detail");
+      toast.success('保存しました');
     } catch (error) {
-      alert('保存に失敗しました');
+      toast.error(toMessage(error, '保存に失敗しました。もう一度お試しください。'));
     }
   };
 
   const handleSaveSummaryFromForm = async (text) => {
     if (!form?.id) return;
     const merged = { ...form, leverageMemo: text };
-    const saved = await saveBook(merged);
-    const next = saved || merged;
-    setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
-    if (current && current.id === next.id) setCurrent(next);
+    try {
+      const saved = await saveBook(merged);
+      const next = saved || merged;
+      setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
+      if (current && current.id === next.id) setCurrent(next);
+    } catch (error) {
+      throw new Error(toMessage(error, 'まとめメモの保存に失敗しました。'));
+    }
   };
 
   const handleSaveSummaryFromCurrent = async (text) => {
     if (!current?.id) return;
     const merged = { ...current, leverageMemo: text };
-    const saved = await saveBook(merged);
-    const next = saved || merged;
-    setCurrent(next);
-    if (form && form.id === next.id) {
-      setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
+    try {
+      const saved = await saveBook(merged);
+      const next = saved || merged;
+      setCurrent(next);
+      if (form && form.id === next.id) {
+        setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
+      }
+    } catch (error) {
+      throw new Error(toMessage(error, 'まとめメモの保存に失敗しました。'));
     }
   };
 
-  const handleDelete = async () => { 
-    try {
-      await deleteBook(current.id);
-      setDeleteConfirm(false);
-      goList();
-    } catch (error) {
-      alert('削除に失敗しました');
-    }
+  const requestDeleteBook = async (book) => {
+    if (!book) return;
+    const ok = await confirm({
+      title: 'この本を削除しますか？',
+      message: `「${book.title}」のメモ・写真・行動リストもすべて削除されます。`,
+      confirmLabel: '削除する',
+      cancelLabel: 'キャンセル',
+      danger: true,
+    });
+    if (!ok) return;
+
+    setPendingDeletes((prev) => {
+      const next = new Set(prev);
+      next.add(book.id);
+      return next;
+    });
+    goList();
+
+    let undone = false;
+    toast.undo({
+      message: `「${book.title}」を削除しました。`,
+      onUndo: () => {
+        undone = true;
+        setPendingDeletes((prev) => {
+          const next = new Set(prev);
+          next.delete(book.id);
+          return next;
+        });
+        toast.info('削除を取り消しました。');
+      },
+      onExpire: async () => {
+        if (undone) return;
+        try {
+          await deleteBook(book.id);
+        } catch (error) {
+          toast.error(toMessage(error, '削除に失敗しました。'));
+          // Roll back: restore visibility so user knows it wasn't deleted.
+          setPendingDeletes((prev) => {
+            const next = new Set(prev);
+            next.delete(book.id);
+            return next;
+          });
+          return;
+        }
+        setPendingDeletes((prev) => {
+          const next = new Set(prev);
+          next.delete(book.id);
+          return next;
+        });
+      },
+    });
   };
 
   const handleBookSelect = (b) => {
@@ -1160,8 +1241,9 @@ const persist = useCallback((updates) => {
     } catch {}
     try {
       await saveBook(newBook);
+      toast.success(`「${rec.title}」を「読みたい」に追加しました`);
     } catch (error) {
-      alert('本の追加に失敗しました');
+      toast.error(toMessage(error, '本の追加に失敗しました。'));
     }
   };
 
@@ -1175,8 +1257,10 @@ const persist = useCallback((updates) => {
       setCurrent(updated);
       setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
       setView("edit");
+      const labels = { want: '読みたい', before: '読書前', reading: '読書中', done: '読了' };
+      toast.success(`「${labels[newStatus] || newStatus}」に変更しました`);
     } catch (error) {
-      alert('ステータス変更に失敗しました');
+      toast.error(toMessage(error, 'ステータス変更に失敗しました。'));
     }
   };
 
@@ -1215,7 +1299,7 @@ const persist = useCallback((updates) => {
     // Fallback: copy to clipboard
     try {
       await navigator.clipboard.writeText(text);
-      alert("共有テキストをコピーしました！");
+      toast.success('共有テキストをコピーしました');
     } catch {
       // Last resort
       prompt("共有テキストをコピーしてください：", text);
@@ -1225,47 +1309,90 @@ const persist = useCallback((updates) => {
   // AI
   const runAnalysis = async () => {
     setAiLoading(true);
-    const r = await callClaude(AI_SYS, ANALYSIS_PROMPT(form.title, form.author));
-    setForm((f) => ({ ...f, aiAnalysis: r }));
-    setAiLoading(false);
+    try {
+      const r = await callClaude(AI_SYS, ANALYSIS_PROMPT(form.title, form.author));
+      setForm((f) => ({ ...f, aiAnalysis: r }));
+    } catch (error) {
+      toast.error(toMessage(error, 'AI解析に失敗しました。'));
+    } finally {
+      setAiLoading(false);
+    }
   };
   const runStrategy = async () => {
     setAiLoading(true);
-    const r = await callClaude(AI_SYS, STRATEGY_PROMPT(form.title, form.author, form.aiAnalysis, form.investPurpose));
-    setForm((f) => ({ ...f, aiStrategy: r }));
-    setAiLoading(false);
+    try {
+      const r = await callClaude(AI_SYS, STRATEGY_PROMPT(form.title, form.author, form.aiAnalysis, form.investPurpose));
+      setForm((f) => ({ ...f, aiStrategy: r }));
+    } catch (error) {
+      toast.error(toMessage(error, 'AI戦略の生成に失敗しました。'));
+    } finally {
+      setAiLoading(false);
+    }
   };
   const runSummary = async () => {
     setAiLoading(true);
-    const r = await callClaude(AI_SYS, SUMMARY_PROMPT(form.title, form.leverageMemo));
-    setForm((f) => ({ ...f, aiSummary: r }));
-    setAiLoading(false);
+    try {
+      const r = await callClaude(AI_SYS, SUMMARY_PROMPT(form.title, form.leverageMemo));
+      setForm((f) => ({ ...f, aiSummary: r }));
+    } catch (error) {
+      toast.error(toMessage(error, 'AI要約に失敗しました。'));
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const toggleAction = async (bookId, actionIdx) => {
     const book = books.find((b) => b.id === bookId);
     if (!book) return;
-    
+
     const acts = [...(book.actions || [])];
     acts[actionIdx] = { ...acts[actionIdx], done: !acts[actionIdx].done };
     const updated = { ...book, actions: acts };
-    
+
     try {
       await saveBook(updated);
     } catch (error) {
-      alert('行動の更新に失敗しました');
+      toast.error(toMessage(error, '行動の更新に失敗しました。'));
     }
   };
 
   const filtered = useMemo(() => {
-    let list = books.filter((b) => {
+    const q = search.trim().toLowerCase();
+    const list = books.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
-      if (search) { const q = search.toLowerCase(); return b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q) || (b.tags || []).some((t) => t.toLowerCase().includes(q)); }
-      return true;
+      if (!q) return true;
+      const title = (b.title || '').toLowerCase();
+      const author = (b.author || '').toLowerCase();
+      const tagsHit = (b.tags || []).some((t) => (t || '').toLowerCase().includes(q));
+      return title.includes(q) || author.includes(q) || tagsHit;
     });
-    list.sort((a, b) => ((b.startDate || b.doneDate || "") || "").localeCompare((a.startDate || a.doneDate || "") || ""));
-    return list;
-  }, [books, statusFilter, search]);
+
+    const titleKey = (b) => (b.title || '').toLowerCase();
+    const created = (b) => b.created_at || b.startDate || '';
+    const updated = (b) => b.updated_at || b.startDate || b.doneDate || '';
+
+    const sorted = [...list];
+    if (sortBy === 'title') {
+      sorted.sort((a, b) => titleKey(a).localeCompare(titleKey(b), 'ja'));
+    } else if (sortBy === 'rating') {
+      sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0) || updated(b).localeCompare(updated(a)));
+    } else if (sortBy === 'created') {
+      sorted.sort((a, b) => created(b).localeCompare(created(a)));
+    } else {
+      sorted.sort((a, b) => updated(b).localeCompare(updated(a)));
+    }
+    return sorted;
+  }, [books, statusFilter, search, sortBy]);
+
+  const recentBooks = useMemo(() => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return books
+      .filter((b) => {
+        const stamp = b.updated_at ? Date.parse(b.updated_at) : NaN;
+        return Number.isFinite(stamp) && stamp >= cutoff;
+      })
+      .slice(0, 3);
+  }, [books]);
 
   const stats = { total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length };
   const actionCount = books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0);
@@ -1360,18 +1487,11 @@ const persist = useCallback((updates) => {
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => openEdit(current)} style={{ ...btnO, flex: 1 }}>編集</button>
               <button onClick={() => shareBook(current)} style={{ ...btnO, flex: 0, padding: "10px 18px", color: "#4a6e8a", borderColor: "#b8d0e0" }}>📤 共有</button>
-              <button onClick={() => setDeleteConfirm(true)} style={{ ...btnO, flex: 0, padding: "10px 14px", borderColor: "#c4a0a0", color: "#a05040" }}>削除</button>
+              <button onClick={() => requestDeleteBook(current)} style={{ ...btnO, flex: 0, padding: "10px 14px", borderColor: "#c4a0a0", color: "#a05040" }}>削除</button>
             </div>
           </div>
         </div>
 
-        <Modal open={deleteConfirm} onClose={() => setDeleteConfirm(false)}>
-          <p style={{ fontSize: 15, color: "#3d362c", textAlign: "center", marginBottom: 20 }}>この本を削除しますか？</p>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setDeleteConfirm(false)} style={{ ...btnO, flex: 1 }}>キャンセル</button>
-            <button onClick={handleDelete} style={{ ...btnS, flex: 1, background: "#a05040" }}>削除</button>
-          </div>
-        </Modal>
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} actionDone={actionDone} actionCount={actionCount} />
       </Shell>
     );
@@ -1418,9 +1538,18 @@ const persist = useCallback((updates) => {
     <Shell>
    <header style={{ padding: "24px 20px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
   <h1 style={{ fontSize: 18, fontWeight: 500, color: "#3d362c", letterSpacing: 2 }}>📚 レバレッジ読書ログ</h1>
-  <button onClick={signOut} style={{ background: "none", border: "none", fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>
-    ログアウト
-  </button>
+  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <button
+      onClick={() => { clearOnboardingCompletion(); setShowOnboarding(true); }}
+      style={{ background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 11, color: "#8a7e6b", cursor: "pointer", padding: "4px 10px", fontFamily: "inherit" }}
+      aria-label="使い方ガイド"
+    >
+      ？ ヘルプ
+    </button>
+    <button onClick={signOut} style={{ background: "none", border: "none", fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>
+      ログアウト
+    </button>
+  </div>
 </header>
 
       <div style={{ paddingBottom: 80 }}>
@@ -1452,8 +1581,14 @@ const persist = useCallback((updates) => {
                 </div>
               </button>
               <div style={{ display: "flex", gap: 6 }}>
-                <input placeholder="検索..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inp, flex: 1, background: "#faf6f0", fontSize: 13 }} />
-                <button onClick={openAdd} style={{ ...btnS, padding: "8px 16px", fontSize: 12 }}>＋</button>
+                <input
+                  placeholder="🔍 タイトル・著者・タグで検索"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
+                  style={{ ...inp, flex: 1, background: "#faf6f0", fontSize: 13 }}
+                />
+                <button onClick={openAdd} style={{ ...btnS, padding: "8px 16px", fontSize: 12 }} aria-label="本を追加">＋</button>
               </div>
               <div style={{ display: "flex", gap: 3 }}>
                 {[{ key: "all", label: "全て" }, ...STATUSES].map((s) => (
@@ -1462,10 +1597,79 @@ const persist = useCallback((updates) => {
                   </button>
                 ))}
               </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: "#8a7e6b" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>並び順</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    style={{ fontSize: 12, padding: "4px 8px", borderRadius: 8, border: "1px solid #d4ccbe", background: "#faf6f0", color: "#3d362c", fontFamily: "inherit" }}
+                  >
+                    <option value="updated">更新順</option>
+                    <option value="created">登録順</option>
+                    <option value="title">タイトル順</option>
+                    <option value="rating">評価順</option>
+                  </select>
+                </div>
+                <span>{filtered.length}件</span>
+              </div>
             </div>
             <div style={{ padding: "0 20px" }}>
-              {filtered.length === 0 ? (
-                <p style={{ textAlign: "center", padding: "40px 20px", color: "#b5aa96", fontSize: 13 }}>{books.length === 0 ? "最初の一冊を投資しよう" : "該当なし"}</p>
+              {recentBooks.length > 0 && !search && statusFilter === "all" && (
+                <div style={{ marginBottom: 14 }}>
+                  <p style={{ fontSize: 11, color: "#8a7040", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>
+                  <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+                    {recentBooks.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => openDetail(b)}
+                        style={{
+                          flex: "0 0 auto",
+                          width: 132,
+                          background: "#faf6f0",
+                          border: "1px solid #e4ddd0",
+                          borderRadius: 10,
+                          padding: 10,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          textAlign: "left",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
+                        {b.cover ? (
+                          <img src={b.cover} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
+                        ) : (
+                          <div style={{ width: "100%", height: 90, background: "#eae3d6", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📕</div>
+                        )}
+                        <div style={{ fontSize: 12, color: "#3d362c", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
+                        <div><StatusBadge status={b.status} /></div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {booksLoading && rawBooks.length === 0 ? (
+                <Spinner message="読み込み中..." />
+              ) : filtered.length === 0 ? (
+                rawBooks.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "40px 20px", color: "#5c5548" }}>
+                    <div style={{ fontSize: 56, marginBottom: 8 }}>📚</div>
+                    <p style={{ fontSize: 15, fontWeight: 500, color: "#3d362c", margin: "0 0 6px" }}>まだ本がありません</p>
+                    <p style={{ fontSize: 12, color: "#8a7e6b", margin: "0 0 18px", lineHeight: 1.7 }}>
+                      読みたい本を追加して、<br />読書投資を始めましょう。
+                    </p>
+                    <button onClick={openAdd} style={{ ...btnS, padding: "12px 28px", fontSize: 14 }}>＋ 最初の本を追加</button>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "32px 20px", color: "#8a7e6b" }}>
+                    <div style={{ fontSize: 36, marginBottom: 6 }}>🔍</div>
+                    <p style={{ fontSize: 13, color: "#5c5548", margin: 0, lineHeight: 1.7 }}>該当する本が見つかりませんでした。</p>
+                    <p style={{ fontSize: 11, color: "#a89e8c", margin: "6px 0 0" }}>検索ワードやフィルタを変えてみてください。</p>
+                  </div>
+                )
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {filtered.map((b, i) => (
@@ -1503,6 +1707,8 @@ const persist = useCallback((updates) => {
       <Modal open={capitalOpen} onClose={() => setCapitalOpen(false)}>
         <CapitalDashboard books={books} readingPlans={readingPlans} onUpdatePlans={(p) => persist({ readingPlans: p })} onClose={() => setCapitalOpen(false)} />
       </Modal>
+
+      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
 
       <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} actionDone={actionDone} actionCount={actionCount} />
     </Shell>

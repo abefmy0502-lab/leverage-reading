@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBookMemos } from '../hooks/useBookMemos';
+import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
+import { toMessage } from '../lib/errors';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 
@@ -166,7 +169,15 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
   const [sortBy, setSortBy] = useState('page');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState(null);
-  const { memos, loading, isUsableBookId, createMemo, updateMemo, deleteMemo } = useBookMemos(bookId, { sortBy });
+  const [pendingDeletes, setPendingDeletes] = useState(() => new Set());
+  const toast = useToast();
+  const confirm = useConfirm();
+  const { memos: allMemos, loading, isUsableBookId, createMemo, updateMemo, deleteMemo } = useBookMemos(bookId, { sortBy });
+
+  const memos = useMemo(
+    () => allMemos.filter((m) => !pendingDeletes.has(m.id)),
+    [allMemos, pendingDeletes]
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -200,6 +211,68 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
   const closeEditor = () => {
     setEditorOpen(false);
     setEditingMemo(null);
+  };
+
+  const handleCreate = async (payload) => {
+    const result = await createMemo(payload);
+    toast.success('メモを保存しました');
+    return result;
+  };
+
+  const handleUpdate = async (memoId, payload) => {
+    const result = await updateMemo(memoId, payload);
+    toast.success('メモを更新しました');
+    return result;
+  };
+
+  const handleDelete = async (memo) => {
+    const ok = await confirm({
+      title: 'このメモを削除しますか？',
+      message: memo.photoPath ? '写真も Storage から削除されます。' : '元に戻せません。',
+      confirmLabel: '削除する',
+      cancelLabel: 'キャンセル',
+      danger: true,
+    });
+    if (!ok) return;
+
+    setPendingDeletes((prev) => {
+      const next = new Set(prev);
+      next.add(memo.id);
+      return next;
+    });
+
+    let undone = false;
+    toast.undo({
+      message: 'メモを削除しました',
+      onUndo: () => {
+        undone = true;
+        setPendingDeletes((prev) => {
+          const next = new Set(prev);
+          next.delete(memo.id);
+          return next;
+        });
+        toast.info('削除を取り消しました');
+      },
+      onExpire: async () => {
+        if (undone) return;
+        try {
+          await deleteMemo(memo.id);
+        } catch (e) {
+          toast.error(toMessage(e, 'メモの削除に失敗しました。'));
+          setPendingDeletes((prev) => {
+            const next = new Set(prev);
+            next.delete(memo.id);
+            return next;
+          });
+          return;
+        }
+        setPendingDeletes((prev) => {
+          const next = new Set(prev);
+          next.delete(memo.id);
+          return next;
+        });
+      },
+    });
   };
 
   const cardSection = !isUsableBookId ? (
@@ -242,14 +315,18 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
       )}
 
       {!loading && memos.length === 0 && (
-        <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: '20px 0', lineHeight: 1.7 }}>
-          まだメモがありません。<br />「＋ 新しいメモ」から最初の1件を追加しましょう。
-        </p>
+        <div style={{ textAlign: 'center', padding: '28px 16px', color: '#5c5548' }}>
+          <div style={{ fontSize: 36, marginBottom: 6 }}>📝</div>
+          <p style={{ fontSize: 13, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>まだメモがありません。</p>
+          <p style={{ fontSize: 11, color: '#a89e8c', margin: '6px 0 0', lineHeight: 1.7 }}>
+            「＋ 新しいメモ」から最初の1件を追加しましょう。
+          </p>
+        </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {memos.map((m) => (
-          <BookMemoCard key={m.id} memo={m} onEdit={openEdit} onDelete={(memo) => deleteMemo(memo.id)} />
+          <BookMemoCard key={m.id} memo={m} onEdit={openEdit} onDelete={handleDelete} />
         ))}
       </div>
     </div>
@@ -297,8 +374,8 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
           }
           allTags={allTags}
           onClose={closeEditor}
-          onCreate={createMemo}
-          onUpdate={updateMemo}
+          onCreate={handleCreate}
+          onUpdate={handleUpdate}
         />
       )}
     </div>

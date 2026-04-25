@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getMemoPhotoUrl } from '../hooks/useBookMemos';
+import { toMessage } from '../lib/errors';
 
 const overlay = {
   position: 'fixed',
@@ -239,7 +240,7 @@ export default function BookMemoEditor({
       }
     } catch (e) {
       console.error('memo save error', e);
-      setErrorMsg(e?.message || 'メモの保存に失敗しました。');
+      setErrorMsg(toMessage(e, 'メモの保存に失敗しました。'));
     } finally {
       setBusy(false);
     }

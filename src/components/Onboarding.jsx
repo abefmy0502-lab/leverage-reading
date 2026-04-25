@@ -1,0 +1,227 @@
+import { useEffect, useState } from 'react';
+
+const STORAGE_KEY = 'onboardingCompleted';
+
+const slides = [
+  {
+    icon: '📚',
+    title: 'ようこそ！',
+    body: '読書を「投資」に変えるアプリです。\n本を読みっぱなしにせず、気づきを記録して行動に変えていきましょう。',
+  },
+  {
+    icon: '＋',
+    title: '本を追加してみよう',
+    body: '画面上部の検索ボックス横にある「＋」ボタンから、最初の一冊を登録できます。\nタイトル・著者・ISBN で検索できます。',
+  },
+  {
+    icon: '🔄',
+    title: '4 つのステータスで読書を進める',
+    body: '🔖 読みたい → 📐 読書前（投資設計） → 📖 読書中 → ✅ 読了\n\n各フェーズに応じた入力ができ、AI があなたの読書 ROI を高めます。',
+  },
+  {
+    icon: '📝',
+    title: 'メモは 2 モードから選べる',
+    body: '📇 カード式：1 メモ＝1 カード。ページ番号・写真・タグも添付可。\n📝 まとめ式：本全体の感想を 1 つの文書で。\n\nお好みのスタイルで読書ログを残せます。',
+  },
+];
+
+export function isOnboardingCompleted() {
+  if (typeof window === 'undefined') return true;
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function markOnboardingCompleted() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, 'true');
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export function clearOnboardingCompletion() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+const overlayStyle = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 800,
+  background: 'rgba(30,25,20,0.55)',
+  backdropFilter: 'blur(4px)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 20,
+};
+
+const cardStyle = {
+  background: '#faf6f0',
+  borderRadius: 16,
+  width: 'min(420px, 100%)',
+  padding: '24px 22px 18px',
+  boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
+  fontFamily: "'Noto Serif JP', Georgia, serif",
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 14,
+};
+
+const dotsRow = {
+  display: 'flex',
+  justifyContent: 'center',
+  gap: 6,
+  marginTop: 4,
+};
+
+const dot = (active) => ({
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  background: active ? '#5c5043' : '#d4ccbe',
+  transition: 'background .15s',
+});
+
+const btnPrimary = {
+  flex: 1,
+  padding: '12px 0',
+  borderRadius: 10,
+  border: 'none',
+  background: '#5c5043',
+  color: '#faf6f0',
+  fontSize: 14,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  letterSpacing: 1,
+};
+
+const btnGhost = {
+  flex: 1,
+  padding: '12px 0',
+  borderRadius: 10,
+  border: '1px solid #d4ccbe',
+  background: 'transparent',
+  color: '#5c5548',
+  fontSize: 14,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+
+const closeBtnStyle = {
+  position: 'absolute',
+  top: 8,
+  right: 12,
+  background: 'none',
+  border: 'none',
+  fontSize: 22,
+  color: '#a89e8c',
+  cursor: 'pointer',
+  padding: 4,
+};
+
+export default function Onboarding({ onClose }) {
+  const [step, setStep] = useState(0);
+  const slide = slides[step];
+  const isLast = step === slides.length - 1;
+
+  const finish = () => {
+    markOnboardingCompleted();
+    onClose?.();
+  };
+
+  // Allow Escape to dismiss (treats as "あとで")
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div style={overlayStyle} role="dialog" aria-modal="true">
+      <div style={{ ...cardStyle, position: 'relative' }}>
+        <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="あとで">
+          ×
+        </button>
+
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 10,
+            paddingTop: 6,
+          }}
+        >
+          <div
+            style={{
+              width: 78,
+              height: 78,
+              borderRadius: '50%',
+              background: '#eae3d6',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 36,
+              color: '#5c5043',
+            }}
+          >
+            {slide.icon}
+          </div>
+          <h2 style={{ fontSize: 18, color: '#3d362c', margin: '6px 0 0', fontWeight: 500 }}>
+            {slide.title}
+          </h2>
+          <p
+            style={{
+              fontSize: 13,
+              color: '#5c5548',
+              lineHeight: 1.8,
+              textAlign: 'center',
+              margin: 0,
+              whiteSpace: 'pre-line',
+            }}
+          >
+            {slide.body}
+          </p>
+        </div>
+
+        <div style={dotsRow}>
+          {slides.map((_, i) => (
+            <span key={i} style={dot(i === step)} />
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+          {step > 0 ? (
+            <button type="button" style={btnGhost} onClick={() => setStep((s) => Math.max(0, s - 1))}>
+              ← 戻る
+            </button>
+          ) : (
+            <button type="button" style={btnGhost} onClick={onClose}>
+              あとで
+            </button>
+          )}
+          {!isLast ? (
+            <button type="button" style={btnPrimary} onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}>
+              次へ →
+            </button>
+          ) : (
+            <button type="button" style={btnPrimary} onClick={finish}>
+              始める
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
