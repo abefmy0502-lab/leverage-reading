@@ -4,11 +4,15 @@ import { callClaude } from './lib/ai';
 import AuthScreen from './components/auth/AuthScreen';
 import AuthCallback from './components/auth/AuthCallback';
 import BookMemoList from './components/BookMemoList';
+import BookMemoEditor from './components/BookMemoEditor';
+import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import Spinner from './components/Spinner';
+import { BookListSkeleton } from './components/Skeleton';
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
+import { useBookMemos } from './hooks/useBookMemos';
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 const STAR = "★";
@@ -1089,7 +1093,13 @@ function AuthedApp() {
   const [capitalOpen, setCapitalOpen] = useState(false);
   const [pendingDeletes, setPendingDeletes] = useState(() => new Set());
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [quickMemoOpen, setQuickMemoOpen] = useState(false);
+  const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
   const onboardingTriggeredRef = useRef(false);
+
+  // Memo ops for the currently-open book (FAB / quick sheet / full editor handoff).
+  // Always called so hook order stays stable; isUsableBookId guards inside the hook.
+  const currentMemoOps = useBookMemos(current?.id, { sortBy: 'page' });
 
   // Hide books that are queued for soft-delete from every view.
   const books = useMemo(
@@ -1247,21 +1257,47 @@ const persist = useCallback((updates) => {
     }
   };
 
-// Status transitions
-  const advanceStatus = async (book, newStatus) => {
+// Status transitions — optimistic UI with undo toast.
+  const advanceStatus = (book, newStatus) => {
+    if (!book) return;
+    const prev = {
+      status: book.status,
+      startDate: book.startDate,
+      doneDate: book.doneDate,
+    };
     const updated = { ...book, status: newStatus };
     if (newStatus === "before" && !updated.startDate) updated.startDate = new Date().toISOString().slice(0, 10);
     if (newStatus === "done" && !updated.doneDate) updated.doneDate = new Date().toISOString().slice(0, 10);
-    try {
-      await saveBook(updated);
-      setCurrent(updated);
-      setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
-      setView("edit");
-      const labels = { want: '読みたい', before: '読書前', reading: '読書中', done: '読了' };
-      toast.success(`「${labels[newStatus] || newStatus}」に変更しました`);
-    } catch (error) {
+
+    // Optimistic update — switch to edit view immediately.
+    setCurrent(updated);
+    setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
+    setView("edit");
+
+    // Persist in background; roll back on failure.
+    saveBook(updated).catch((error) => {
       toast.error(toMessage(error, 'ステータス変更に失敗しました。'));
-    }
+      const restored = { ...book, ...prev };
+      setCurrent(restored);
+      setForm({ ...emptyBook(), ...restored, tags: restored.tags || [], actions: restored.actions || [] });
+      setView("edit");
+    });
+
+    const labels = { want: '読みたい', before: '読書前', reading: '読書中', done: '読了' };
+    toast.undo({
+      message: `「${labels[newStatus] || newStatus}」に変更しました`,
+      onUndo: async () => {
+        const reverted = { ...book, ...prev };
+        setCurrent(reverted);
+        setForm({ ...emptyBook(), ...reverted, tags: reverted.tags || [], actions: reverted.actions || [] });
+        setView("edit");
+        try {
+          await saveBook(reverted);
+        } catch (error) {
+          toast.error(toMessage(error, 'ステータス変更の取り消しに失敗しました。'));
+        }
+      },
+    });
   };
 
   // Share
@@ -1492,6 +1528,74 @@ const persist = useCallback((updates) => {
           </div>
         </div>
 
+        {/* Floating "+ memo" FAB — anchored above bottom nav + safe area */}
+        <button
+          type="button"
+          onClick={() => setQuickMemoOpen(true)}
+          aria-label="クイックメモを追加"
+          style={{
+            position: "fixed",
+            right: 18,
+            bottom: "calc(76px + env(safe-area-inset-bottom, 0px))",
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            border: "none",
+            background: "#5c5043",
+            color: "#faf6f0",
+            fontSize: 28,
+            lineHeight: 1,
+            cursor: "pointer",
+            boxShadow: "0 6px 16px rgba(30,25,20,0.28)",
+            zIndex: 600,
+            fontFamily: "inherit",
+          }}
+        >
+          ＋
+        </button>
+
+        {quickMemoOpen && (
+          <QuickMemoSheet
+            bookTitle={current.title}
+            defaultPageNumber={
+              (() => {
+                const nums = (currentMemoOps.memos || [])
+                  .map((m) => m.pageNumber)
+                  .filter((n) => Number.isFinite(n));
+                return nums.length ? Math.max(...nums) + 1 : '';
+              })()
+            }
+            onClose={() => setQuickMemoOpen(false)}
+            onCreate={async (payload) => {
+              await currentMemoOps.createMemo(payload);
+              toast.success('メモを保存しました');
+            }}
+            onOpenFullEditor={(prefill) => {
+              setQuickMemoOpen(false);
+              setFullEditorPrefill(prefill);
+            }}
+          />
+        )}
+
+        {fullEditorPrefill && (
+          <BookMemoEditor
+            bookTitle={current.title}
+            initial={null}
+            defaultPageNumber={fullEditorPrefill.pageNumber ?? ''}
+            defaultText={fullEditorPrefill.text || ''}
+            allTags={allTags}
+            onClose={() => setFullEditorPrefill(null)}
+            onCreate={async (payload) => {
+              await currentMemoOps.createMemo(payload);
+              toast.success('メモを保存しました');
+            }}
+            onUpdate={async (memoId, payload) => {
+              await currentMemoOps.updateMemo(memoId, payload);
+              toast.success('メモを更新しました');
+            }}
+          />
+        )}
+
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} actionDone={actionDone} actionCount={actionCount} />
       </Shell>
     );
@@ -1652,7 +1756,7 @@ const persist = useCallback((updates) => {
                 </div>
               )}
               {booksLoading && rawBooks.length === 0 ? (
-                <Spinner message="読み込み中..." />
+                <BookListSkeleton rows={4} />
               ) : filtered.length === 0 ? (
                 rawBooks.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "40px 20px", color: "#5c5548" }}>

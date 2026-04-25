@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import imageCompression from 'browser-image-compression';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
+import { useAppDataCache } from '../state/AppDataCache';
 
 const BUCKET = 'book-memo-photos';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -56,6 +57,8 @@ async function removePhoto(path) {
   }
 }
 
+// Legacy export — direct fetch without cache. Prefer the cache via
+// useAppDataCache().fetchPhotoUrl in new code.
 export async function getMemoPhotoUrl(path) {
   if (!path || !isSupabaseConfigured) return null;
   try {
@@ -69,52 +72,99 @@ export async function getMemoPhotoUrl(path) {
   }
 }
 
+function applySort(list, sortBy) {
+  const arr = [...list];
+  if (sortBy === 'page') {
+    arr.sort((a, b) => {
+      const ap = Number.isFinite(a.pageNumber);
+      const bp = Number.isFinite(b.pageNumber);
+      if (ap && !bp) return -1;
+      if (!ap && bp) return 1;
+      if (ap && bp && a.pageNumber !== b.pageNumber) return a.pageNumber - b.pageNumber;
+      return (a.createdAt || '').localeCompare(b.createdAt || '');
+    });
+  } else {
+    arr.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }
+  return arr;
+}
+
 export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
   const { user } = useAuth();
-  const [memos, setMemos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
+  const cache = useAppDataCache();
   const isUsableBookId = Boolean(bookId) && UUID_RE.test(bookId);
 
-  const fetchMemos = useCallback(async () => {
-    if (!user || !isSupabaseConfigured || !isUsableBookId) {
-      setMemos([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      let query = supabase
-        .from('book_memos')
-        .select('*')
-        .eq('book_id', bookId)
-        .eq('user_id', user.id);
+  // Seed from cache so navigation feels instant.
+  const initialFromCache = isUsableBookId ? cache.getMemos(bookId) : null;
+  const [rawMemos, setRawMemos] = useState(initialFromCache || []);
+  const [loading, setLoading] = useState(!initialFromCache && isUsableBookId);
+  const [error, setError] = useState(null);
+  const aliveRef = useRef(true);
 
-      if (sortBy === 'page') {
-        query = query
-          .order('page_number', { ascending: true, nullsFirst: false })
-          .order('created_at', { ascending: true });
-      } else {
-        query = query.order('created_at', { ascending: false });
+  useEffect(() => () => {
+    aliveRef.current = false;
+  }, []);
+
+  const writeBoth = useCallback(
+    (next) => {
+      setRawMemos(next);
+      if (isUsableBookId) cache.setMemos(bookId, next);
+    },
+    [bookId, isUsableBookId, cache]
+  );
+
+  const fetchMemos = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!user || !isSupabaseConfigured || !isUsableBookId) {
+        writeBoth([]);
+        setLoading(false);
+        return;
       }
+      if (!silent) setLoading(true);
+      try {
+        const { data, error: qErr } = await supabase
+          .from('book_memos')
+          .select('*')
+          .eq('book_id', bookId)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true });
+        if (qErr) throw qErr;
+        const fresh = (data || []).map(transformMemo);
+        if (aliveRef.current) {
+          writeBoth(fresh);
+          setError(null);
+        } else {
+          // Component unmounted during fetch — still update the cache so the
+          // next mount sees fresh data.
+          if (isUsableBookId) cache.setMemos(bookId, fresh);
+        }
+      } catch (e) {
+        console.error('book_memos fetch error', e);
+        if (aliveRef.current) setError(e);
+      } finally {
+        if (aliveRef.current) setLoading(false);
+      }
+    },
+    [user, bookId, isUsableBookId, cache, writeBoth]
+  );
 
-      const { data, error: qErr } = await query;
-      if (qErr) throw qErr;
-      setMemos((data || []).map(transformMemo));
-      setError(null);
-    } catch (e) {
-      console.error('book_memos fetch error', e);
-      setError(e);
-      setMemos([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, bookId, sortBy, isUsableBookId]);
-
+  // Refetch when bookId/user changes; if cache hit was already shown, refresh silently.
   useEffect(() => {
-    fetchMemos();
-  }, [fetchMemos]);
+    fetchMemos({ silent: Boolean(initialFromCache) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, bookId]);
 
+  // Stay in sync with mutations from other useBookMemos instances or cache writes.
+  useEffect(() => {
+    if (!isUsableBookId) return undefined;
+    return cache.subscribeMemos(bookId, (next) => {
+      setRawMemos(next);
+    });
+  }, [bookId, isUsableBookId, cache]);
+
+  const memos = useMemo(() => applySort(rawMemos, sortBy), [rawMemos, sortBy]);
+
+  // ===== Mutations =====
   const createMemo = async ({ pageNumber, text, photoFile, tags }) => {
     if (!user || !isUsableBookId || !isSupabaseConfigured) {
       throw new Error('メモを保存できません（本が未保存の可能性があります）');
@@ -137,8 +187,9 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
         .select()
         .single();
       if (insErr) throw insErr;
-      await fetchMemos();
-      return transformMemo(data);
+      const inserted = transformMemo(data);
+      writeBoth([...rawMemos, inserted]);
+      return inserted;
     } catch (e) {
       if (photoPath) await removePhoto(photoPath);
       throw e;
@@ -147,14 +198,8 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
 
   const updateMemo = async (memoId, { pageNumber, text, photoFile, tags, removePhotoFlag }) => {
     if (!user || !isSupabaseConfigured) throw new Error('Supabase 未接続');
-    const { data: existing, error: gErr } = await supabase
-      .from('book_memos')
-      .select('photo_path')
-      .eq('id', memoId)
-      .single();
-    if (gErr) throw gErr;
-
-    let photoPath = existing?.photo_path || null;
+    const existing = rawMemos.find((m) => m.id === memoId);
+    let photoPath = existing?.photoPath || null;
     let oldToDelete = null;
 
     if (photoFile) {
@@ -179,27 +224,39 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
       .select()
       .single();
     if (upErr) {
-      if (photoFile && photoPath && photoPath !== existing?.photo_path) await removePhoto(photoPath);
+      if (photoFile && photoPath && photoPath !== existing?.photoPath) await removePhoto(photoPath);
       throw upErr;
     }
 
-    if (oldToDelete) await removePhoto(oldToDelete);
-    await fetchMemos();
-    return transformMemo(data);
+    if (oldToDelete) {
+      await removePhoto(oldToDelete);
+      cache.invalidatePhotoUrl(oldToDelete);
+    }
+    const updated = transformMemo(data);
+    writeBoth(rawMemos.map((m) => (m.id === memoId ? updated : m)));
+    return updated;
   };
 
   const deleteMemo = async (memoId) => {
     if (!user || !isSupabaseConfigured) return;
-    const { data: existing } = await supabase
-      .from('book_memos')
-      .select('photo_path')
-      .eq('id', memoId)
-      .single();
+    const target = rawMemos.find((m) => m.id === memoId);
     const { error: delErr } = await supabase.from('book_memos').delete().eq('id', memoId);
     if (delErr) throw delErr;
-    if (existing?.photo_path) await removePhoto(existing.photo_path);
-    await fetchMemos();
+    if (target?.photoPath) {
+      await removePhoto(target.photoPath);
+      cache.invalidatePhotoUrl(target.photoPath);
+    }
+    writeBoth(rawMemos.filter((m) => m.id !== memoId));
   };
+
+  // Pre-warm signed URLs for any memo with a photo so cards render the image
+  // without a per-card round trip. Background only — no error surfacing.
+  useEffect(() => {
+    if (!isUsableBookId) return;
+    const paths = rawMemos.map((m) => m.photoPath).filter(Boolean);
+    if (paths.length === 0) return;
+    cache.fetchPhotoUrlsBatch(paths).catch(() => {});
+  }, [rawMemos, isUsableBookId, cache]);
 
   return {
     memos,

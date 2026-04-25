@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getMemoPhotoUrl } from '../hooks/useBookMemos';
+import { useAppDataCache } from '../state/AppDataCache';
 
 const cardWrap = {
   position: 'relative',
@@ -77,7 +77,10 @@ function formatDate(iso) {
 }
 
 export default function BookMemoCard({ memo, onEdit, onDelete }) {
-  const [photoUrl, setPhotoUrl] = useState(null);
+  const cache = useAppDataCache();
+  // Synchronous cache hit → render the image immediately on first paint.
+  const initialUrl = memo.photoPath ? cache.getCachedPhotoUrl(memo.photoPath) : null;
+  const [photoUrl, setPhotoUrl] = useState(initialUrl);
   const [zoom, setZoom] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -87,13 +90,18 @@ export default function BookMemoCard({ memo, onEdit, onDelete }) {
       setPhotoUrl(null);
       return undefined;
     }
-    getMemoPhotoUrl(memo.photoPath).then((url) => {
+    const cached = cache.getCachedPhotoUrl(memo.photoPath);
+    if (cached) {
+      setPhotoUrl(cached);
+      return undefined;
+    }
+    cache.fetchPhotoUrl(memo.photoPath).then((url) => {
       if (!cancelled) setPhotoUrl(url);
     });
     return () => {
       cancelled = true;
     };
-  }, [memo.photoPath]);
+  }, [memo.photoPath, cache]);
 
   useEffect(() => {
     if (!menuOpen) return undefined;

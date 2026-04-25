@@ -1,16 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
-import { getMemoPhotoUrl } from '../hooks/useBookMemos';
+import { useAppDataCache } from '../state/AppDataCache';
 import { toMessage } from '../lib/errors';
 
+// Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
+// Older browsers without dvh support gracefully ignore the property.
+// 100dvh respects iOS Safari's dynamic URL bar; modern targets all support it.
+// We also bind height to visualViewport via JS below for on-screen-keyboard fitting.
 const overlay = {
   position: 'fixed',
-  inset: 0,
+  left: 0,
+  right: 0,
+  top: 0,
+  bottom: 0,
+  height: '100dvh',
   zIndex: 300,
   background: '#f5f0e8',
   display: 'flex',
   flexDirection: 'column',
   fontFamily: "'Noto Serif JP', Georgia, serif",
   color: '#3d362c',
+  paddingTop: 'env(safe-area-inset-top, 0px)',
 };
 
 const headerBar = {
@@ -121,6 +130,7 @@ export default function BookMemoEditor({
   bookTitle,
   initial,
   defaultPageNumber = '',
+  defaultText = '',
   allTags = [],
   onClose,
   onCreate,
@@ -130,7 +140,7 @@ export default function BookMemoEditor({
   const [pageNumber, setPageNumber] = useState(
     initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '')
   );
-  const [text, setText] = useState(initial?.text || '');
+  const [text, setText] = useState(initial?.text || defaultText || '');
   const [tags, setTags] = useState(initial?.tags || []);
   const [tagInput, setTagInput] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
@@ -140,6 +150,25 @@ export default function BookMemoEditor({
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
+  const overlayRef = useRef(null);
+
+  // Keyboard push-up: clamp the editor's height to visualViewport so the
+  // bottom action bar stays visible when the on-screen keyboard appears.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return undefined;
+    const apply = () => {
+      if (!overlayRef.current) return;
+      overlayRef.current.style.height = `${vv.height}px`;
+    };
+    apply();
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    return () => {
+      vv.removeEventListener('resize', apply);
+      vv.removeEventListener('scroll', apply);
+    };
+  }, []);
 
   // Generate preview URL from selected file
   useEffect(() => {
@@ -152,21 +181,29 @@ export default function BookMemoEditor({
     return () => URL.revokeObjectURL(url);
   }, [photoFile]);
 
-  // For edit mode: load signed URL of existing photo
-  const [existingPhotoUrl, setExistingPhotoUrl] = useState(null);
+  // For edit mode: load signed URL of existing photo (via cache)
+  const cache = useAppDataCache();
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState(() =>
+    existingPhotoPath ? cache.getCachedPhotoUrl(existingPhotoPath) : null
+  );
   useEffect(() => {
     let cancelled = false;
     if (!existingPhotoPath || removePhotoFlag) {
       setExistingPhotoUrl(null);
       return undefined;
     }
-    getMemoPhotoUrl(existingPhotoPath).then((url) => {
+    const cached = cache.getCachedPhotoUrl(existingPhotoPath);
+    if (cached) {
+      setExistingPhotoUrl(cached);
+      return undefined;
+    }
+    cache.fetchPhotoUrl(existingPhotoPath).then((url) => {
       if (!cancelled) setExistingPhotoUrl(url);
     });
     return () => {
       cancelled = true;
     };
-  }, [existingPhotoPath, removePhotoFlag]);
+  }, [existingPhotoPath, removePhotoFlag, cache]);
 
   const addTag = (raw) => {
     const t = (raw || tagInput).trim();
@@ -267,7 +304,7 @@ export default function BookMemoEditor({
   const shownPreview = previewUrl || existingPhotoUrl;
 
   return (
-    <div style={overlay} role="dialog" aria-modal="true">
+    <div ref={overlayRef} style={overlay} role="dialog" aria-modal="true">
       <div style={headerBar}>
         <button
           type="button"

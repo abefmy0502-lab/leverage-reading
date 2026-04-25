@@ -3,6 +3,7 @@ import { useBookMemos } from '../hooks/useBookMemos';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
+import { MemoListSkeleton } from './Skeleton';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 
@@ -308,11 +309,7 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
         ＋ 新しいメモ
       </button>
 
-      {loading && memos.length === 0 && (
-        <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: '12px 0' }}>
-          読み込み中...
-        </p>
-      )}
+      {loading && memos.length === 0 && <MemoListSkeleton rows={3} />}
 
       {!loading && memos.length === 0 && (
         <div style={{ textAlign: 'center', padding: '28px 16px', color: '#5c5548' }}>
