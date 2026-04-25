@@ -1504,15 +1504,34 @@ const persist = useCallback((updates) => {
             </div>
           )}
 
-          <div style={{ marginTop: 12 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>📝 レバレッジメモ</p>
-            <BookMemoList
-              bookId={current.id}
-              bookTitle={current.title}
-              summaryText={current.leverageMemo || ""}
-              onSaveSummary={handleSaveSummaryFromCurrent}
-            />
-          </div>
+          {(current.status === "reading" || current.status === "done") ? (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>📝 レバレッジメモ</p>
+              <BookMemoList
+                bookId={current.id}
+                bookTitle={current.title}
+                summaryText={current.leverageMemo || ""}
+                onSaveSummary={handleSaveSummaryFromCurrent}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                marginTop: 12,
+                padding: "14px 16px",
+                background: "#faf6f0",
+                border: "1px dashed #d4ccbe",
+                borderRadius: 10,
+                fontSize: 12,
+                color: "#a89e8c",
+                lineHeight: 1.7,
+              }}
+            >
+              {current.status === "want"
+                ? "📚 読み始めたら、ここにメモが書けるようになります。"
+                : "🎯 今は投資戦略を立てる段階です。読書中になるとここにメモが表示されます。"}
+            </div>
+          )}
           {current.aiSummary && <Card label="🤖 AI要約" text={current.aiSummary} bg="#e2ecd8" />}
 
           {(current.actions || []).filter((a) => a.text?.trim()).length > 0 && (
@@ -1547,33 +1566,36 @@ const persist = useCallback((updates) => {
           </div>
         </div>
 
-        {/* Floating "+ memo" FAB — anchored above bottom nav + safe area */}
-        <button
-          type="button"
-          onClick={() => setQuickMemoOpen(true)}
-          aria-label="クイックメモを追加"
-          style={{
-            position: "fixed",
-            right: 18,
-            bottom: "calc(76px + env(safe-area-inset-bottom, 0px))",
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            border: "none",
-            background: "#5c5043",
-            color: "#faf6f0",
-            fontSize: 28,
-            lineHeight: 1,
-            cursor: "pointer",
-            boxShadow: "0 6px 16px rgba(30,25,20,0.28)",
-            zIndex: 600,
-            fontFamily: "inherit",
-          }}
-        >
-          ＋
-        </button>
+        {/* Floating "+ memo" FAB — only for reading/done so we don't lure
+            users into creating memos that the section above hides. */}
+        {(current.status === "reading" || current.status === "done") && (
+          <button
+            type="button"
+            onClick={() => setQuickMemoOpen(true)}
+            aria-label="クイックメモを追加"
+            style={{
+              position: "fixed",
+              right: 18,
+              bottom: "calc(76px + env(safe-area-inset-bottom, 0px))",
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              border: "none",
+              background: "#5c5043",
+              color: "#faf6f0",
+              fontSize: 28,
+              lineHeight: 1,
+              cursor: "pointer",
+              boxShadow: "0 6px 16px rgba(30,25,20,0.28)",
+              zIndex: 600,
+              fontFamily: "inherit",
+            }}
+          >
+            ＋
+          </button>
+        )}
 
-        {quickMemoOpen && (
+        {quickMemoOpen && (current.status === "reading" || current.status === "done") && (
           <QuickMemoSheet
             bookTitle={current.title}
             defaultPageNumber={
