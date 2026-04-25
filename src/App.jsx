@@ -138,7 +138,7 @@ function BookSearchModal({ onSelect, onClose }) {
       </div>
       <p style={{ fontSize: 11, color: "#a89e8c", lineHeight: 1.5 }}>タイトル・著者名・ISBNで検索できます</p>
       <div style={{ display: "flex", gap: 6 }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="タイトル、著者名、ISBN" style={{ ...inp, flex: 1 }} onKeyDown={(e) => e.key === "Enter" && doSearch()} autoFocus />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="タイトル、著者名、ISBN" style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); doSearch(); } }} autoFocus />
         <button onClick={doSearch} style={{ ...btnS, padding: "8px 14px", fontSize: 12 }}>検索</button>
       </div>
       {searching && <Dots />}
@@ -251,7 +251,7 @@ function TagInput({ tags, onChange, allTags }) {
         </div>
       )}
       <div style={{ display: "flex", gap: 6 }}>
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="タグを追加" style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="タグを追加" style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
         <button onClick={() => add()} style={{ ...btnO, padding: "6px 12px", fontSize: 12 }}>追加</button>
       </div>
     </div>
@@ -604,7 +604,7 @@ function MemosTab({ books, collections, onUpdateCollections }) {
       {subTab === "collections" && (
         <>
           <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-            <input value={newColName} onChange={(e) => setNewColName(e.target.value)} placeholder="新しいコレクション名" style={{ ...inp, flex: 1 }} onKeyDown={(e) => e.key === "Enter" && addCollection()} />
+            <input value={newColName} onChange={(e) => setNewColName(e.target.value)} placeholder="新しいコレクション名" style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); addCollection(); } }} />
             <button onClick={addCollection} style={{ ...btnS, padding: "8px 14px", fontSize: 12 }}>作成</button>
           </div>
           {collections.length === 0 ? (
@@ -996,7 +996,7 @@ function BookAdvisor({ onAddBook, onClose }) {
       {!recommendations && (
         <div style={{ display: "flex", gap: 6, paddingTop: 12, borderTop: "1px solid #e0d8c8", marginTop: 8, flexShrink: 0 }}>
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="課題や悩みを入力..."
-            style={{ ...inp, flex: 1 }} onKeyDown={(e) => e.key === "Enter" && sendMessage()} disabled={loading} />
+            style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendMessage(); } }} disabled={loading} />
           <button onClick={sendMessage} disabled={!input.trim() || loading}
             style={{ ...btnS, padding: "8px 16px", fontSize: 12, opacity: !input.trim() || loading ? 0.5 : 1 }}>送信</button>
         </div>

@@ -101,6 +101,12 @@ export default function AuthScreen() {
     setInfo('');
   };
 
+  const blockEnterWhileComposing = (e) => {
+    if (e.key === 'Enter' && e.nativeEvent.isComposing) {
+      e.preventDefault();
+    }
+  };
+
   const title = mode === 'signin' ? 'ログイン' : mode === 'signup' ? '新規登録' : 'パスワードリセット';
   const submitLabel = loading
     ? '処理中...'
@@ -138,6 +144,7 @@ export default function AuthScreen() {
             placeholder="表示名（任意）"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
+            onKeyDown={blockEnterWhileComposing}
             autoComplete="name"
           />
         )}
@@ -147,6 +154,7 @@ export default function AuthScreen() {
           placeholder="メールアドレス"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={blockEnterWhileComposing}
           required
           autoComplete="email"
         />
@@ -157,6 +165,7 @@ export default function AuthScreen() {
             placeholder="パスワード（6文字以上）"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={blockEnterWhileComposing}
             required
             minLength={6}
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
