@@ -18,6 +18,7 @@ import { toMessage } from '../lib/errors';
 import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
+import { getRandomFromCategory } from '../lib/quotes';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
@@ -193,6 +194,10 @@ export default function Review({ books = [], onOpenBook }) {
   const [randomSeed, setRandomSeed] = useState(0);
   const [flipping, setFlipping] = useState(false);
   const flipTimerRef = useRef(null);
+  // Lazy initializer — runs once on first render, not on module load.
+  const [todayQuote, setTodayQuote] = useState(() =>
+    getRandomFromCategory('reviewAndMemory')
+  );
   const [expanded, setExpanded] = useState(() => new Set());
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -345,6 +350,8 @@ export default function Review({ books = [], onOpenBook }) {
 
   // Flip the random-memo card and swap its content at the back-facing midpoint.
   const reroll = () => {
+    // Always rotate the inspirational quote alongside the memo swap.
+    setTodayQuote(getRandomFromCategory('reviewAndMemory'));
     if (memos.length <= 1) {
       setRandomSeed((s) => s + 1);
       return;
@@ -444,6 +451,20 @@ export default function Review({ books = [], onOpenBook }) {
         )}
         <p style={{ fontSize: 10, color: '#a89e8c', marginTop: 6, lineHeight: 1.6 }}>
           忘れかけていた気づきを思い出す習慣で、本の内容が定着します。
+        </p>
+        <p
+          style={{
+            fontSize: 12,
+            color: '#8a7e6b',
+            fontStyle: 'italic',
+            textAlign: 'center',
+            marginTop: 12,
+            lineHeight: 1.7,
+          }}
+        >
+          💭 “{todayQuote.text}”
+          <br />
+          <span style={{ fontSize: 10, opacity: 0.75 }}>— {todayQuote.author}</span>
         </p>
       </section>
 

@@ -5,6 +5,7 @@
 // so it appears even before Auth state resolves.
 
 import { useEffect, useState } from 'react';
+import { getRandomQuote } from '../lib/quotes';
 
 const KEYFRAMES_ID = '__leverage-splash-keyframes';
 function ensureKeyframes() {
@@ -33,6 +34,10 @@ function ensureKeyframes() {
 export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
   ensureKeyframes();
   const [fading, setFading] = useState(false);
+  // Lazy initializer — runs exactly once on first render, never on module load.
+  const [quote] = useState(() =>
+    getRandomQuote(['reading', 'selfInvestment', 'wisdom', 'encouragement'])
+  );
 
   useEffect(() => {
     const fadeTimer = setTimeout(() => setFading(true), durationMs - 220);
@@ -88,6 +93,25 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
         <p style={{ fontSize: 13, color: '#8a7e6b', margin: 0, letterSpacing: 1 }}>
           読書を投資に変える
         </p>
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 'calc(40px + env(safe-area-inset-bottom, 0px))',
+          left: 20,
+          right: 20,
+          textAlign: 'center',
+          color: '#8a7e6b',
+          opacity: 0.85,
+          animation: 'leverage-splash-pop .55s cubic-bezier(0.2,0.9,0.3,1) both',
+          animationDelay: '.15s',
+          fontFamily: "'Noto Serif JP', Georgia, serif",
+        }}
+      >
+        <p style={{ fontSize: 13, lineHeight: 1.7, fontStyle: 'italic', margin: 0 }}>
+          “{quote.text}”
+        </p>
+        <p style={{ fontSize: 11, opacity: 0.75, margin: '4px 0 0' }}>— {quote.author}</p>
       </div>
     </div>
   );

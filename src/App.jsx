@@ -28,6 +28,7 @@ import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
 import { LIMITS } from './lib/limits';
 import { ensureHttps } from './lib/url';
+import { getRandomFromCategory } from './lib/quotes';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
@@ -1306,10 +1307,12 @@ const persist = useCallback((updates) => {
       recentlyDoneTimerRef.current = setTimeout(() => setRecentlyDoneId(null), 8000);
       try { fireConfetti(); } catch { /* non-critical */ }
       try { haptic.success(); } catch { /* non-critical */ }
+      // Pick a celebration quote at click time (never at module load).
+      const celebrationQuote = getRandomFromCategory('achievement');
       toast.show({
         type: 'success',
-        message: '🎉 1 冊読了！お疲れ様でした',
-        duration: 5000,
+        message: `🎉 1 冊読了！お疲れ様でした\n“${celebrationQuote.text}”\n— ${celebrationQuote.author}`,
+        duration: 6500,
         action: { label: '取消', onClick: revert },
       });
     } else {

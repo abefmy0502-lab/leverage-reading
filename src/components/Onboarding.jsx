@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getRandomFromCategory } from '../lib/quotes';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
@@ -135,6 +136,8 @@ export default function Onboarding({ onClose }) {
   const [step, setStep] = useState(0);
   const slide = slides[step];
   const isLast = step === slides.length - 1;
+  // Lazy initializer — runs once on first render, never on module load.
+  const [welcomeQuote] = useState(() => getRandomFromCategory('encouragement'));
 
   // Every dismissal path marks the onboarding as completed.
   // The user can re-trigger it explicitly via the "ヘルプ" button
@@ -204,6 +207,23 @@ export default function Onboarding({ onClose }) {
           >
             {slide.body}
           </p>
+          {step === 0 && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: '10px 14px',
+                background: '#f5efde',
+                border: '1px solid #e0d0a8',
+                borderRadius: 10,
+                textAlign: 'center',
+              }}
+            >
+              <p style={{ fontSize: 12, color: '#5c5548', fontStyle: 'italic', lineHeight: 1.7, margin: 0 }}>
+                “{welcomeQuote.text}”
+              </p>
+              <p style={{ fontSize: 10, color: '#8a7e6b', margin: '4px 0 0' }}>— {welcomeQuote.author}</p>
+            </div>
+          )}
         </div>
 
         <div style={dotsRow}>
