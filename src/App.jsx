@@ -19,6 +19,7 @@ import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
 import { LIMITS } from './lib/limits';
+import { ensureHttps } from './lib/url';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
@@ -164,7 +165,7 @@ function BookSearchModal({ onSelect, onClose }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 300, overflowY: "auto" }}>
           {results.map((b, i) => (
             <button key={i} onClick={() => onSelect(b)} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 10px", borderRadius: 10, border: "1px solid #e4ddd0", background: "#faf6f0", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
-              {b.cover ? <img src={b.cover} alt="" style={{ width: 32, height: 44, objectFit: "cover", borderRadius: 4 }} /> : <BookIcon />}
+              {b.cover ? <img src={ensureHttps(b.cover)} alt="" style={{ width: 32, height: 44, objectFit: "cover", borderRadius: 4 }} /> : <BookIcon />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#3d362c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
                 {b.author && <div style={{ fontSize: 11, color: "#9a8e7a" }}>{b.author}</div>}
@@ -303,7 +304,7 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
         🔍 タイトル・ISBNで検索して登録
       </button>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 }}>
-        {form.cover && <img src={form.cover} alt="" style={{ width: 50, height: 70, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8", flexShrink: 0 }} />}
+        {form.cover && <img src={ensureHttps(form.cover)} alt="" style={{ width: 50, height: 70, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8", flexShrink: 0 }} />}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="タイトル *" style={inp} maxLength={LIMITS.bookTitle} />
           <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" style={inp} maxLength={LIMITS.bookAuthor} />
@@ -525,7 +526,7 @@ function TodayTab({ books }) {
       </div>
       <div key={safeIdx} style={{ background: "#faf6f0", borderRadius: 16, padding: "20px 18px", border: "1px solid #e4ddd0", minHeight: 160, animation: "fadeIn .3s" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          {c.cover && <img src={c.cover} alt="" style={{ width: 28, height: 40, objectFit: "cover", borderRadius: 4 }} />}
+          {c.cover && <img src={ensureHttps(c.cover)} alt="" style={{ width: 28, height: 40, objectFit: "cover", borderRadius: 4 }} />}
           <div>
             <p style={{ fontSize: 13, fontWeight: 500, color: "#3d362c" }}>{c.title}</p>
             {c.author && <p style={{ fontSize: 11, color: "#9a8e7a" }}>{c.author}</p>}
@@ -1358,7 +1359,7 @@ const persist = useCallback((updates) => {
 
           {/* Book header */}
           <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
-            {current.cover && <img src={current.cover} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />}
+            {current.cover && <img src={ensureHttps(current.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />}
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c", lineHeight: 1.4 }}>{current.title}</h2>
               {current.author && <p style={{ fontSize: 12, color: "#8a7e6b", marginTop: 3 }}>{current.author}</p>}
@@ -1717,7 +1718,7 @@ const persist = useCallback((updates) => {
                         }}
                       >
                         {b.cover ? (
-                          <img src={b.cover} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
+                          <img src={ensureHttps(b.cover)} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
                         ) : (
                           <div style={{ width: "100%", height: 90, background: "#eae3d6", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📕</div>
                         )}
@@ -1773,7 +1774,7 @@ const persist = useCallback((updates) => {
                         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                           {b.cover ? (
                             <img
-                              src={b.cover}
+                              src={ensureHttps(b.cover)}
                               alt=""
                               style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid #e0d8c8", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
                             />

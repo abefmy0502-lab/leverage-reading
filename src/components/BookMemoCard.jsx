@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppDataCache } from '../state/AppDataCache';
+import { ensureHttps } from '../lib/url';
 
 const cardWrap = {
   position: 'relative',
@@ -164,7 +165,7 @@ export default function BookMemoCard({ memo, onEdit, onDelete }) {
           }}
         >
           <img
-            src={photoUrl}
+            src={ensureHttps(photoUrl)}
             alt="memo"
             style={{
               width: '100%',
@@ -220,7 +221,7 @@ export default function BookMemoCard({ memo, onEdit, onDelete }) {
           }}
         >
           <img
-            src={photoUrl}
+            src={ensureHttps(photoUrl)}
             alt="memo enlarged"
             style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }}
           />

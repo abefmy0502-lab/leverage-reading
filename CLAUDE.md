@@ -168,6 +168,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_migration_memo_texts.sql` | （旧）`book_memos` の text 関連カラム整理 |
 | `supabase_chat_messages.sql` | 🧠 マイ読書脳用 — `chat_messages` 新規 + `book_memos.book_id` nullable + `book_memos.source_type` 列追加 |
 | `supabase_account_deletion.sql` | アカウント削除リクエスト — `account_deletion_requests` 新規（管理者が auth.users を最終削除する用） |
+| `supabase_normalize_urls.sql` | 既存 `books.cover` の `http://` を `https://` に一括書き換え（Mixed Content 警告解消・既存本がない環境では不要） |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppDataCache } from '../state/AppDataCache';
 import { toMessage } from '../lib/errors';
 import { LIMITS, validateImageFile } from '../lib/limits';
+import { ensureHttps } from '../lib/url';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -395,7 +396,7 @@ export default function BookMemoEditor({
           {shownPreview && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
               <img
-                src={shownPreview}
+                src={ensureHttps(shownPreview)}
                 alt="preview"
                 style={{
                   maxWidth: '100%',

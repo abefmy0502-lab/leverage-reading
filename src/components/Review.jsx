@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
+import { ensureHttps } from '../lib/url';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
@@ -96,7 +97,7 @@ function MemoPhoto({ path }) {
   if (!url) return null;
   return (
     <img
-      src={url}
+      src={ensureHttps(url)}
       alt="memo"
       style={{ width: '70%', maxHeight: 240, objectFit: 'cover', borderRadius: 8, border: '1px solid #e4ddd0', marginTop: 6 }}
     />
