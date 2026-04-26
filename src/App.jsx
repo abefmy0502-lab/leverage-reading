@@ -1,6 +1,8 @@
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
 import { callClaude } from './lib/ai';
+import { PROMPTS } from './lib/prompts';
+import MarkdownSections from './components/MarkdownSections';
 import AuthScreen from './components/auth/AuthScreen';
 import AuthCallback from './components/auth/AuthCallback';
 import BookMemoList from './components/BookMemoList';
@@ -51,16 +53,8 @@ function saveData(data) {
 }
 
 /* ========== AI ========== */
-const AI_SYS = "レバレッジ・リーディング専門メンター。本田直之氏の哲学に基づき読書ROIを最大化。本は投資、重要20%で80%成果、目的なき読書はしない、行動が全て。マークダウン不使用、見出しは【】で囲む。日本語で回答。";
-
-const ANALYSIS_PROMPT = (t, a) =>
-  `「${t}」（${a || "著者不明"}）を分析してください。\n\n【本の核心】この本が伝える最も重要なメッセージを1行で。\n【パラダイムシフト】この本が覆そうとしている古い常識。\n【著者のポジション】著者の強み・偏り・立場。\n【構造マップ】全体の論理展開。重要な20%がどこに集中しているかの示唆を含めて。`;
-
-const STRATEGY_PROMPT = (t, a, analysis, purpose) =>
-  `本：「${t}」（${a || "著者不明"}）\n\n【本の解析結果】\n${analysis}\n\n【読者の投資目的・課題・仮説】\n${purpose}\n\nレバレッジ・リーディングの原則に基づいた読書戦略を作成してください。\n\n【投資戦略】この読書で得るべきリターンの再定義。重点的に読む箇所（20%）と流し読みでよい箇所。\n【検証すべき3つの問い】読みながら答えを探す、投資回収に直結する問い。\n【事前インストール】読む前に頭に入れておくべき概念（3〜5個）。\n【回収ゴール】読了後「誰に何をどう説明できれば投資成功か」を1文で。`;
-
-const SUMMARY_PROMPT = (t, memos) =>
-  `「${t}」のレバレッジメモを要約・整理してください。重複を省き、3〜5個の重要ポイントに凝縮してください。\n\n【レバレッジメモ（原文）】\n${memos}`;
+// AI prompts now live in src/lib/prompts.js — single source of truth for
+// every generative flow. Do not re-introduce inline prompts here.
 
 // Amazon affiliate tag - ここにあなたのAmazonアソシエイトIDを入れてください
 const AMAZON_TAG = "leveragereadi-22";
@@ -70,25 +64,7 @@ function amazonLink(title, author) {
   return `https://www.amazon.co.jp/s?k=${q}&tag=${AMAZON_TAG}`;
 }
 
-const ADVISOR_SYSTEM = `あなたは「読書投資アドバイザー」です。ユーザーの課題・目標・悩みをヒアリングし、最適な本を選書します。
-
-あなたの役割：
-1. まずユーザーの状況を理解するために1〜2回質問する（いきなり本を推薦しない）
-2. 状況が把握できたら、3冊の本を推薦する
-3. 推薦する時は必ず以下のJSON形式で出力する
-
-ヒアリング中は自然な日本語で会話してください。
-推薦する準備ができたら、以下の形式で回答してください（他のテキストは含めない）：
-
-RECOMMENDATIONS_START
-[
-  {"title": "本のタイトル", "author": "著者名", "reason": "この本を推薦する理由（2〜3文）"},
-  {"title": "本のタイトル", "author": "著者名", "reason": "この本を推薦する理由（2〜3文）"},
-  {"title": "本のタイトル", "author": "著者名", "reason": "この本を推薦する理由（2〜3文）"}
-]
-RECOMMENDATIONS_END
-
-推薦する本は実在する本のみ。架空の本は絶対に推薦しない。日本語で読める本を優先する。`;
+// ADVISOR_SYSTEM lives in src/lib/prompts.js as PROMPTS.bookAdvisor.system
 
 
 /* ========== ISBN / Search ========== */
@@ -396,7 +372,12 @@ function BeforePhase({ form, setForm, onSave, aiLoading, onRunAnalysis, onRunStr
         {aiLoading && !form.aiAnalysis ? "分析中..." : "🔍 AIで本を解析する"}
       </button>
       {aiLoading && !form.aiAnalysis && <Dots />}
-      {form.aiAnalysis && <Card label="解析結果" text={form.aiAnalysis} />}
+      {form.aiAnalysis && (
+        <div style={{ marginTop: 8 }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>解析結果</p>
+          <MarkdownSections text={form.aiAnalysis} />
+        </div>
+      )}
 
       {form.aiAnalysis && (
         <>
@@ -409,7 +390,12 @@ function BeforePhase({ form, setForm, onSave, aiLoading, onRunAnalysis, onRunStr
             {aiLoading && form.aiAnalysis ? "作成中..." : "🗺️ セットアップシートを作成"}
           </button>
           {aiLoading && form.aiAnalysis && !form.aiStrategy && <Dots />}
-          {form.aiStrategy && <Card label="読書前セットアップシート" text={form.aiStrategy} />}
+          {form.aiStrategy && (
+            <div style={{ marginTop: 8 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>読書前セットアップシート</p>
+              <MarkdownSections text={form.aiStrategy} />
+            </div>
+          )}
         </>
       )}
 
@@ -501,7 +487,12 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
             {aiLoading ? "要約中..." : "🤖 AIでメモを要約・整理"}
           </button>
           {aiLoading && <Dots />}
-          {form.aiSummary && <Card label="要約結果" text={form.aiSummary} bg="#e2ecd8" />}
+          {form.aiSummary && (
+            <div style={{ marginTop: 8 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#5a7a48", marginBottom: 4 }}>要約結果（ROI レポート）</p>
+              <MarkdownSections text={form.aiSummary} />
+            </div>
+          )}
           {form.aiSummary && (
             <Field label="要約の編集" sub="AIの要約を自由に修正できます">
               <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={5} style={ta} />
@@ -794,12 +785,24 @@ function BookAdvisor({ onAddBook, onClose }) {
   const [chatHistory, setChatHistory] = useState([]);
   const messagesEndRef = (el) => { if (el) el.scrollIntoView({ behavior: "smooth" }); };
 
-  const parseRecommendations = (text) => {
+  // Parse the new richer response: leading prose + JSON recs + trailing prose.
+  const parseAdvisorResponse = (text) => {
     const match = text.match(/RECOMMENDATIONS_START\s*([\s\S]*?)\s*RECOMMENDATIONS_END/);
-    if (match) {
-      try { return JSON.parse(match[1]); } catch { return null; }
-    }
-    return null;
+    if (!match) return { recs: null, prose: text };
+    let recs = null;
+    try {
+      const arr = JSON.parse(match[1]);
+      if (Array.isArray(arr)) {
+        recs = arr.filter((r) => r && typeof r.title === 'string');
+      }
+    } catch { /* keep recs null */ }
+    if (!recs || recs.length === 0) return { recs: null, prose: text };
+    const before = text.slice(0, match.index).trim();
+    const after = text.slice(match.index + match[0].length).trim();
+    return {
+      recs,
+      prose: { before, after },
+    };
   };
 
   const sendMessage = async () => {
@@ -814,15 +817,15 @@ function BookAdvisor({ onAddBook, onClose }) {
 
     try {
       const aiText = await callClaude(newHistory, {
-        system: ADVISOR_SYSTEM,
-        max_tokens: 4096,
+        system: PROMPTS.bookAdvisor.system,
+        max_tokens: 2048,
         model: "claude-sonnet-4-20250514",
       });
 
-      const recs = parseRecommendations(aiText);
+      const { recs, prose } = parseAdvisorResponse(aiText);
       if (recs) {
-        setRecommendations(recs);
-        setMessages((prev) => [...prev, { role: "assistant", text: "あなたの状況を踏まえて、3冊選びました！" }]);
+        setRecommendations({ items: recs, before: prose?.before || '', after: prose?.after || '' });
+        setMessages((prev) => [...prev, { role: "assistant", text: prose?.before || 'あなたの状況に合った本を選びました。' }]);
       } else {
         setMessages((prev) => [...prev, { role: "assistant", text: aiText }]);
         setChatHistory([...newHistory, { role: "assistant", content: aiText }]);
@@ -866,30 +869,56 @@ function BookAdvisor({ onAddBook, onClose }) {
           </div>
         )}
 
-        {/* Recommendations */}
+        {/* Recommendations — richer per-book card with reasoning */}
         {recommendations && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, animation: "fadeIn .3s" }}>
-            {recommendations.map((rec, i) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeIn .3s" }}>
+            {recommendations.items.map((rec, i) => (
               <div key={i} style={{ background: "#faf6f0", borderRadius: 12, border: "1px solid #e4ddd0", padding: "14px 14px", overflow: "hidden" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 14, fontWeight: 500, color: "#3d362c" }}>{rec.title}</p>
+                    <p style={{ fontSize: 11, color: "#a89e8c", margin: 0, fontWeight: 600 }}>#{i + 1}</p>
+                    <p style={{ fontSize: 15, fontWeight: 600, color: "#3d362c", margin: '2px 0 0' }}>『{rec.title}』</p>
                     <p style={{ fontSize: 12, color: "#8a7e6b", marginTop: 2 }}>{rec.author}</p>
                   </div>
                   <span style={{ fontSize: 18, flexShrink: 0 }}>📕</span>
                 </div>
-                <p style={{ fontSize: 12, color: "#5c5548", lineHeight: 1.6, marginTop: 8 }}>{rec.reason}</p>
-                <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                {rec.why && (
+                  <div style={{ marginTop: 10, padding: '8px 10px', background: '#f5efde', borderRadius: 8, border: '1px solid #e0d0a8' }}>
+                    <p style={{ fontSize: 11, color: '#8a7040', fontWeight: 600, margin: 0 }}>🎯 なぜあなたに必要か</p>
+                    <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: '4px 0 0' }}>{rec.why}</p>
+                  </div>
+                )}
+                {rec.core && (
+                  <div style={{ marginTop: 8 }}>
+                    <p style={{ fontSize: 11, color: '#5c5043', fontWeight: 600, margin: 0 }}>💡 この本の核心</p>
+                    <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: '2px 0 0' }}>{rec.core}</p>
+                  </div>
+                )}
+                {rec.focus && (
+                  <div style={{ marginTop: 8 }}>
+                    <p style={{ fontSize: 11, color: '#5c5043', fontWeight: 600, margin: 0 }}>📍 注目すべきポイント</p>
+                    <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: '2px 0 0' }}>{rec.focus}</p>
+                  </div>
+                )}
+                {rec.duration && (
+                  <p style={{ fontSize: 11, color: '#a89e8c', margin: '8px 0 0' }}>⏱️ {rec.duration}</p>
+                )}
+                <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
                   <a href={amazonLink(rec.title, rec.author)} target="_blank" rel="noopener noreferrer"
-                    style={{ flex: 1, padding: "8px 0", borderRadius: 8, background: "#f0970e", color: "#fff", fontSize: 12, fontFamily: "inherit", textAlign: "center", textDecoration: "none", fontWeight: 500 }}>
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#f0970e", color: "#fff", fontSize: 12, fontFamily: "inherit", textAlign: "center", textDecoration: "none", fontWeight: 600, minHeight: 36 }}>
                     Amazonで見る
                   </a>
-                  <button onClick={() => onAddBook(rec)} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: "transparent", color: "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: "pointer" }}>
+                  <button onClick={() => onAddBook(rec)} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: "transparent", color: "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: "pointer", fontWeight: 500, minHeight: 36 }}>
                     📚 読みたいに追加
                   </button>
                 </div>
               </div>
             ))}
+            {recommendations.after && (
+              <div style={{ background: '#f0ebe2', borderRadius: 12, padding: '12px 14px', border: '1px solid #e4ddd0' }}>
+                <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap' }}>{recommendations.after}</p>
+              </div>
+            )}
             <button onClick={() => { setRecommendations(null); setMessages((prev) => [...prev, { role: "assistant", text: "他にお探しの本のジャンルや悩みはありますか？" }]); }}
               style={{ ...btnO, padding: "10px 0", fontSize: 12 }}>
               🔄 別の条件で探す
@@ -1345,11 +1374,17 @@ const persist = useCallback((updates) => {
     }
   };
 
-  // AI
+  // ===== AI (prompts in src/lib/prompts.js) =====
+  const topUserTagsForAI = useMemo(() => allTags.slice(0, 3), [allTags]);
+
   const runAnalysis = async () => {
     setAiLoading(true);
     try {
-      const r = await callClaude(AI_SYS, ANALYSIS_PROMPT(form.title, form.author));
+      const r = await callClaude(
+        PROMPTS.bookAnalysis.system,
+        PROMPTS.bookAnalysis.user({ title: form.title, author: form.author }),
+        { max_tokens: 2048 }
+      );
       setForm((f) => ({ ...f, aiAnalysis: r }));
     } catch (error) {
       toast.error(toMessage(error, 'AI解析に失敗しました。'));
@@ -1360,7 +1395,17 @@ const persist = useCallback((updates) => {
   const runStrategy = async () => {
     setAiLoading(true);
     try {
-      const r = await callClaude(AI_SYS, STRATEGY_PROMPT(form.title, form.author, form.aiAnalysis, form.investPurpose));
+      const r = await callClaude(
+        PROMPTS.setupSheet.system,
+        PROMPTS.setupSheet.user({
+          title: form.title,
+          author: form.author,
+          analysis: form.aiAnalysis,
+          purpose: form.investPurpose,
+          topTags: topUserTagsForAI,
+        }),
+        { max_tokens: 2048 }
+      );
       setForm((f) => ({ ...f, aiStrategy: r }));
     } catch (error) {
       toast.error(toMessage(error, 'AI戦略の生成に失敗しました。'));
@@ -1371,7 +1416,23 @@ const persist = useCallback((updates) => {
   const runSummary = async () => {
     setAiLoading(true);
     try {
-      const r = await callClaude(AI_SYS, SUMMARY_PROMPT(form.title, form.leverageMemo));
+      const memoCorpus = [
+        form.leverageMemo || '',
+        // (Card-style memos already get sent via aiAnalysis flow context;
+        //  here we keep summary scope tight to leverage_memo for compatibility.)
+      ].join('\n\n');
+      const hours = form.totalPages > 0 ? Math.round((form.totalPages * 2) / 60) : null;
+      const r = await callClaude(
+        PROMPTS.roiSummary.system,
+        PROMPTS.roiSummary.user({
+          title: form.title,
+          author: form.author,
+          memos: memoCorpus,
+          purpose: form.investPurpose,
+          hours,
+        }),
+        { max_tokens: 2048 }
+      );
       setForm((f) => ({ ...f, aiSummary: r }));
     } catch (error) {
       toast.error(toMessage(error, 'AI要約に失敗しました。'));
@@ -1481,9 +1542,19 @@ const persist = useCallback((updates) => {
           {current.startDate && <p style={{ fontSize: 11, color: "#9a8e7a", marginTop: 10 }}>📅 開始: {current.startDate}</p>}
           {current.doneDate && <p style={{ fontSize: 11, color: "#9a8e7a", marginTop: 2 }}>📅 完了: {current.doneDate}</p>}
 
-          {current.aiAnalysis && <Card label="🔍 AI本の解析" text={current.aiAnalysis} />}
+          {current.aiAnalysis && (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🔍 AI 本の解析</p>
+              <MarkdownSections text={current.aiAnalysis} />
+            </div>
+          )}
           {current.investPurpose && <Card label="目的・課題・仮説" text={current.investPurpose} />}
-          {current.aiStrategy && <Card label="🗺️ セットアップシート" text={current.aiStrategy} />}
+          {current.aiStrategy && (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🗺️ セットアップシート</p>
+              <MarkdownSections text={current.aiStrategy} />
+            </div>
+          )}
 
           {current.totalPages > 0 && (
             <div style={{ marginTop: 12, background: "#f7f3ec", borderRadius: 10, padding: "8px 12px" }}>
@@ -1525,7 +1596,12 @@ const persist = useCallback((updates) => {
                 : "🎯 今は投資戦略を立てる段階です。読書中になるとここにメモが表示されます。"}
             </div>
           )}
-          {current.aiSummary && <Card label="🤖 AI要約" text={current.aiSummary} bg="#e2ecd8" />}
+          {current.aiSummary && (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#5a7a48", marginBottom: 6 }}>🤖 AI 要約 (ROI)</p>
+              <MarkdownSections text={current.aiSummary} />
+            </div>
+          )}
 
           {(current.actions || []).filter((a) => a.text?.trim()).length > 0 && (
             <div style={{ marginTop: 12 }}>

@@ -233,6 +233,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 - **キャッシュ整合性**: `useBookMemos` の mutation は `AppDataCache` の `subscribeMemos` 経由で全インスタンスへ自動反映。新規データソースを追加するときは同様の subscribe パターンを検討
 - **写真は `book-memo-photos` private バケット**: 表示時は `useAppDataCache().fetchPhotoUrl(path)` で署名 URL（50 分キャッシュ）を取得。直接 `getPublicUrl` は使わない
 - **iOS HIG 準拠を心がける**: フォント・色・動きは `src/index.css` で定義した CSS 変数（`--type-*` / `--color-*` / `--ease-*` / `--duration-*` / `--shadow-*`）を使い、ハードコードを避ける。新規ボタンは `min-height: 44px+`、ボトムシートには `lvg-sheet-handle`（細いドラッグハンドル）と `backdrop-filter: blur(8px)` を付ける。スプリングアニメは `var(--ease-spring)` + `var(--duration-base)` を組み合わせる
+- **AI プロンプトは `src/lib/prompts.js` で一元管理**: `bookAnalysis` / `setupSheet` / `roiSummary` / `bookAdvisor` / `myBookBrain` の 5 種。各エントリは `{ system, user(args) }`。プロンプトを変えたいときはこのファイルだけを編集する（App.jsx や ai.js にインライン定義してはいけない）。出力は基本 Markdown（`## <emoji> <heading>`）で、`<MarkdownSections>` でレンダリング。`bookAdvisor` だけは `RECOMMENDATIONS_START ... _END` の JSON ブロックも同梱する設計（リッチカードのデータ用）。max_tokens は 2048 が標準
 - **ジェスチャー基盤**（Phase B 完了済み・全 surface に展開済み）: 以下のフック/コンポーネントを使うとネイティブ感が出る — 新画面でも同じ仕組みを再利用できる
   - 適用済み: 本棚カード（swipe + long-press + PTR + edge-swipe back）/ メモカード `BookMemoCard` `BookMemoList`（swipe + long-press）/ 振り返りタブ `Review`（swipe + long-press + PTR）/ 知識管理 `KnowledgeManager`（swipe + long-press + PTR、まとめは🧹クリア表示）/ マイ読書脳の履歴ビュー（PTR）
   - `useHaptic()` — `light/medium/heavy/success/warning/error` を返す。重要操作には `haptic.light()`、削除確定時に `haptic.medium()`、読了など達成時に `haptic.success()`
