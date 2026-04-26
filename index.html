@@ -14,71 +14,13 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
   <title>レバレッジ読書ログ</title>
+  <!--
+    Global styles, design tokens, and animation keyframes live in
+    src/index.css (loaded by main.jsx). This block intentionally minimal.
+  -->
   <style>
-    /* ===== Global mobile-safe baseline ===== */
-    html {
-      -webkit-text-size-adjust: 100%;
-      text-size-adjust: 100%;
-      overflow-x: hidden;
-    }
-    body {
-      margin: 0;
-      font-family: 'Noto Serif JP', Georgia, serif;
-      background: #f5f0e8;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
-      max-width: 100vw;
-      box-sizing: border-box;
-      /* Honour iOS notch/home indicator for the entire app surface */
-      padding-top: env(safe-area-inset-top, 0px);
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-    *, *::before, *::after { box-sizing: border-box; }
-    img, video, iframe { max-width: 100%; }
-
-    /* iOS Safari zooms inputs whose font-size is < 16px on focus.
-       The desktop default is 16px; the mobile media query enforces it with
-       !important to override any inline style that sneaks in below 16px. */
-    input, textarea, select { font-size: 16px; }
-    @media (max-width: 768px) {
-      input, textarea, select { font-size: 16px !important; }
-    }
-
-    /* Visual feedback on press — iOS has no :hover, so :active matters. */
-    button, [role="button"], a, summary {
-      transition: transform .1s ease, opacity .1s ease;
-      -webkit-tap-highlight-color: transparent;
-    }
-    button:active, [role="button"]:active, a:active, summary:active {
-      transform: scale(0.97);
-      opacity: 0.85;
-    }
-    button:disabled:active { transform: none; opacity: 0.6; }
-
-    /* Momentum scrolling for any horizontal-scroll containers */
-    .h-scroll, [data-h-scroll] {
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior-x: contain;
-    }
-
-    /* Glow animation used after a "読了" status transition. */
-    @keyframes leverage-card-celebrate {
-      0%   { box-shadow: 0 0 0 rgba(212,160,64,0); transform: scale(1); }
-      30%  { box-shadow: 0 0 28px rgba(212,160,64,0.7); transform: scale(1.015); }
-      100% { box-shadow: 0 0 0 rgba(212,160,64,0); transform: scale(1); }
-    }
-
-    /* Card flip used in 振り返り → 「別のメモを見る」 */
-    @keyframes leverage-card-flip {
-      0%   { transform: perspective(800px) rotateY(0deg); opacity: 1; }
-      50%  { transform: perspective(800px) rotateY(180deg); opacity: 0.25; }
-      100% { transform: perspective(800px) rotateY(360deg); opacity: 1; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      @keyframes leverage-card-celebrate { 0%,100% { box-shadow: 0 2px 6px rgba(30,25,20,0.06); transform: none; } }
-      @keyframes leverage-card-flip { 0%,100% { transform: none; opacity: 1; } }
-    }
+    /* Pre-Vite paint: avoid white flash before the bundled CSS arrives. */
+    body { margin: 0; background: #f5f0e8; }
   </style>
 </head>
 <body>

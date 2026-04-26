@@ -931,6 +931,27 @@ function AuthedApp() {
   const [recentlyDoneId, setRecentlyDoneId] = useState(null);
   const recentlyDoneTimerRef = useRef(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // iOS-style "Large Title" shrink-on-scroll for the main header.
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    let raf = 0;
+    const update = () => {
+      const y = window.scrollY || 0;
+      setHeaderCollapsed(y > 40);
+      raf = 0;
+    };
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(update);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    update();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, []);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
@@ -1605,8 +1626,8 @@ const persist = useCallback((updates) => {
   // ===== TAB CONTENT =====
   return (
     <Shell>
-   <header style={{ padding: "24px 20px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-  <h1 style={{ fontSize: 18, fontWeight: 500, color: "#3d362c", letterSpacing: 2 }}>📚 レバレッジ読書ログ</h1>
+   <header style={{ padding: headerCollapsed ? "10px 20px 6px" : "20px 20px 8px", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "padding 250ms cubic-bezier(0.25,1,0.5,1)" }}>
+  <h1 className={"lvg-large-title" + (headerCollapsed ? " is-collapsed" : "")} style={{ letterSpacing: headerCollapsed ? 1 : -0.5 }}>📚 レバレッジ読書ログ</h1>
   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
     <button
       onClick={openHelp}
@@ -1625,7 +1646,7 @@ const persist = useCallback((updates) => {
   </div>
 </header>
 
-      <div style={{ paddingBottom: 80 }}>
+      <div key={tab} className="lvg-page" style={{ paddingBottom: 80 }}>
         {tab === "books" && (
           <>
             <div style={{ padding: "10px 20px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #e8e2d6" }}>

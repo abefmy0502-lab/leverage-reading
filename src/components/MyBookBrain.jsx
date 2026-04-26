@@ -149,7 +149,7 @@ function LearningSheet({ onClose, onSaved }) {
     <>
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(30,25,20,0.4)', zIndex: 700 }}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(30,25,20,0.4)', zIndex: 700, WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)' }}
       />
       <div
         ref={sheetRef}
@@ -162,9 +162,9 @@ function LearningSheet({ onClose, onSaved }) {
           bottom: 0,
           zIndex: 701,
           background: '#faf6f0',
-          borderTopLeftRadius: 18,
-          borderTopRightRadius: 18,
-          boxShadow: '0 -10px 30px rgba(30,25,20,0.18)',
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          boxShadow: '0 -4px 20px rgba(0,0,0,0.10)',
           display: 'flex',
           flexDirection: 'column',
           maxHeight: '85vh',
@@ -172,7 +172,8 @@ function LearningSheet({ onClose, onSaved }) {
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid #e4ddd0' }}>
+        <div className="lvg-sheet-handle" aria-hidden="true" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px 14px', borderBottom: '1px solid #e4ddd0' }}>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: '#5c5043', cursor: 'pointer', width: 44, height: 44, padding: 0 }} aria-label="閉じる">
             ✕
           </button>

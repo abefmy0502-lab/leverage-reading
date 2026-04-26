@@ -232,3 +232,4 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 - **セーフエリア対応**: ヘッダー / フローティング要素は `env(safe-area-inset-*)` で iPhone のノッチ・ホームインジケータに被らないよう配慮
 - **キャッシュ整合性**: `useBookMemos` の mutation は `AppDataCache` の `subscribeMemos` 経由で全インスタンスへ自動反映。新規データソースを追加するときは同様の subscribe パターンを検討
 - **写真は `book-memo-photos` private バケット**: 表示時は `useAppDataCache().fetchPhotoUrl(path)` で署名 URL（50 分キャッシュ）を取得。直接 `getPublicUrl` は使わない
+- **iOS HIG 準拠を心がける**: フォント・色・動きは `src/index.css` で定義した CSS 変数（`--type-*` / `--color-*` / `--ease-*` / `--duration-*` / `--shadow-*`）を使い、ハードコードを避ける。新規ボタンは `min-height: 44px+`、ボトムシートには `lvg-sheet-handle`（細いドラッグハンドル）と `backdrop-filter: blur(8px)` を付ける。スプリングアニメは `var(--ease-spring)` + `var(--duration-base)` を組み合わせる

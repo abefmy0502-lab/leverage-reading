@@ -25,6 +25,8 @@ const backdrop = {
   background: 'rgba(30,25,20,0.4)',
   zIndex: 700,
   animation: 'leverage-fade-in .15s ease',
+  WebkitBackdropFilter: 'blur(8px)',
+  backdropFilter: 'blur(8px)',
 };
 
 const sheetWrap = {
@@ -228,6 +230,7 @@ export default function QuickMemoSheet({
     <>
       <div style={backdrop} onClick={onClose} aria-hidden="true" />
       <div ref={sheetRef} style={sheetWrap} role="dialog" aria-modal="true">
+        <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
           <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる">
             ✕
