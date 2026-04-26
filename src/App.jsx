@@ -1835,14 +1835,53 @@ const persist = useCallback((updates) => {
       <div key={tab} className="lvg-page" style={{ paddingBottom: 80 }}>
         {tab === "books" && (
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
-            <div style={{ padding: "10px 20px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #e8e2d6" }}>
-              <input
-                placeholder="🔍 タイトル・著者・タグで検索"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                style={{ ...inp, background: "#faf6f0" }}
-              />
+            <div
+              style={{
+                padding: "10px 20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                borderTop: "1px solid #e8e2d6",
+                position: "sticky",
+                top: 0,
+                background: "var(--color-bg, #f5f0e8)",
+                zIndex: 10,
+              }}
+            >
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  placeholder="🔍 タイトル・著者・タグで検索"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
+                  style={{ ...inp, flex: 1, background: "#faf6f0" }}
+                />
+                <button
+                  type="button"
+                  onClick={openAdd}
+                  aria-label="本を追加"
+                  title="本を追加"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    flexShrink: 0,
+                    borderRadius: 12,
+                    border: "none",
+                    background: "#5c5043",
+                    color: "#faf6f0",
+                    fontSize: 24,
+                    lineHeight: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 6px rgba(30,25,20,0.18)",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  ＋
+                </button>
+              </div>
               {/* Pill filters — hide statuses with zero books to keep the bar tight. */}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {[
@@ -1976,31 +2015,6 @@ const persist = useCallback((updates) => {
                 </div>
               )}
             </div>
-            {/* Floating "本を追加" FAB — books tab only, sits above bottom nav. */}
-            <button
-              type="button"
-              onClick={openAdd}
-              aria-label="本を追加"
-              style={{
-                position: "fixed",
-                right: 18,
-                bottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                border: "none",
-                background: "#5c5043",
-                color: "#faf6f0",
-                fontSize: 28,
-                lineHeight: 1,
-                cursor: "pointer",
-                boxShadow: "0 6px 16px rgba(30,25,20,0.28)",
-                zIndex: 600,
-                fontFamily: "inherit",
-              }}
-            >
-              ＋
-            </button>
           </PullToRefresh>
         )}
 
