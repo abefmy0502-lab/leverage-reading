@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured } from '../../lib/supabase';
+import { LIMITS, validatePassword } from '../../lib/limits';
 
 const btnPrimary = {
   padding: '14px 28px',
@@ -72,11 +73,26 @@ export default function AuthScreen() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
     setError('');
     setInfo('');
+
+    // Signup: enforce policy + ToS agreement client-side.
+    if (mode === 'signup') {
+      if (!agreed) {
+        setError('利用規約とプライバシーポリシーへの同意が必要です。');
+        return;
+      }
+      const pwErr = validatePassword(password);
+      if (pwErr) {
+        setError(pwErr);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       if (mode === 'signin') {
@@ -146,6 +162,7 @@ export default function AuthScreen() {
             onChange={(e) => setDisplayName(e.target.value)}
             onKeyDown={blockEnterWhileComposing}
             autoComplete="name"
+            maxLength={LIMITS.displayName}
           />
         )}
         <input
@@ -157,23 +174,45 @@ export default function AuthScreen() {
           onKeyDown={blockEnterWhileComposing}
           required
           autoComplete="email"
+          maxLength={LIMITS.email}
         />
         {mode !== 'reset' && (
           <input
             style={inp}
             type="password"
-            placeholder="パスワード（6文字以上）"
+            placeholder={mode === 'signup' ? 'パスワード（8文字以上、英字＋数字）' : 'パスワード'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={blockEnterWhileComposing}
             required
-            minLength={6}
+            minLength={mode === 'signup' ? 8 : 6}
+            maxLength={128}
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
           />
         )}
+        {mode === 'signup' && (
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: '#5c5548', lineHeight: 1.6, marginBottom: 12, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              style={{ marginTop: 3, flexShrink: 0 }}
+            />
+            <span>
+              <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: '#5c5043' }}>利用規約</a>
+              {' '}と{' '}
+              <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#5c5043' }}>プライバシーポリシー</a>
+              {' '}に同意します
+            </span>
+          </label>
+        )}
         {error && <p style={{ color: '#b75050', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
         {info && <p style={{ color: '#5a7a48', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
-        <button type="submit" style={{ ...btnPrimary, opacity: loading ? 0.6 : 1 }} disabled={loading}>
+        <button
+          type="submit"
+          style={{ ...btnPrimary, opacity: loading || (mode === 'signup' && !agreed) ? 0.6 : 1 }}
+          disabled={loading || (mode === 'signup' && !agreed)}
+        >
           {submitLabel}
         </button>
       </form>

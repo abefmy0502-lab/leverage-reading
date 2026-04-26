@@ -4,6 +4,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { MemoListSkeleton } from './Skeleton';
+import { LIMITS } from '../lib/limits';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 
@@ -149,6 +150,7 @@ function SummarySection({ bookId, summaryText, onSaveSummary }) {
         }}
         placeholder={'本を読んで得た学び・全体の感想・行動につなげたいポイントなど。'}
         style={summaryTextarea}
+        maxLength={LIMITS.summaryMemo}
       />
       {errorMsg && (
         <p style={{ color: '#a05040', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>

@@ -10,6 +10,7 @@ import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './
 import HelpModal from './components/HelpModal';
 import Review from './components/Review';
 import MyBookBrain from './components/MyBookBrain';
+import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import { BookListSkeleton } from './components/Skeleton';
@@ -17,6 +18,7 @@ import { fireConfetti } from './lib/confetti';
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
+import { LIMITS } from './lib/limits';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
@@ -266,7 +268,7 @@ function TagInput({ tags, onChange, allTags }) {
         </div>
       )}
       <div style={{ display: "flex", gap: 6 }}>
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="タグを追加" style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="タグを追加" style={{ ...inp, flex: 1 }} maxLength={LIMITS.tag} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
         <button onClick={() => add()} style={{ ...btnO, padding: "6px 12px", fontSize: 12 }}>追加</button>
       </div>
     </div>
@@ -303,8 +305,8 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 }}>
         {form.cover && <img src={form.cover} alt="" style={{ width: 50, height: 70, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8", flexShrink: 0 }} />}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="タイトル *" style={inp} />
-          <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" style={inp} />
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="タイトル *" style={inp} maxLength={LIMITS.bookTitle} />
+          <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" style={inp} maxLength={LIMITS.bookAuthor} />
         </div>
       </div>
       <Field label="タグ">
@@ -340,7 +342,7 @@ function BeforePhase({ form, setForm, onSave, aiLoading, onRunAnalysis, onRunStr
           <SectionHeader icon="🗺️" title="読書戦略の作成" />
           <Field label="投資目的・現在の課題・仮説" sub="この本に何を期待するか？">
             <textarea value={form.investPurpose || ""} onChange={(e) => setForm({ ...form, investPurpose: e.target.value })}
-              placeholder={"・目的：\n・課題：\n・仮説："} rows={4} style={ta} />
+              placeholder={"・目的：\n・課題：\n・仮説："} rows={4} style={ta} maxLength={LIMITS.memoText} />
           </Field>
           <button onClick={onRunStrategy} disabled={!form.investPurpose?.trim() || aiLoading} style={{ ...aiB, opacity: !form.investPurpose?.trim() || aiLoading ? 0.5 : 1 }}>
             {aiLoading && form.aiAnalysis ? "作成中..." : "🗺️ セットアップシートを作成"}
@@ -466,7 +468,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
       </div>
 
       <Field label="ROI一言まとめ" sub="この本の投資リターンを一言で">
-        <input value={form.roiSummary || ""} onChange={(e) => setForm({ ...form, roiSummary: e.target.value })} placeholder="例：意思決定スピードが2倍になる思考法を得た" style={inp} />
+        <input value={form.roiSummary || ""} onChange={(e) => setForm({ ...form, roiSummary: e.target.value })} placeholder="例：意思決定スピードが2倍になる思考法を得た" style={inp} maxLength={LIMITS.memoText} />
       </Field>
 
       <Field label="タグ">
@@ -927,6 +929,7 @@ function AuthedApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [recentlyDoneId, setRecentlyDoneId] = useState(null);
   const recentlyDoneTimerRef = useRef(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
@@ -1611,8 +1614,12 @@ const persist = useCallback((updates) => {
     >
       ？ ヘルプ
     </button>
-    <button onClick={signOut} style={{ background: "none", border: "none", fontSize: 12, color: "#8a7e6b", cursor: "pointer" }}>
-      ログアウト
+    <button
+      onClick={() => setSettingsOpen(true)}
+      style={{ background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 11, color: "#8a7e6b", cursor: "pointer", padding: "4px 10px", fontFamily: "inherit" }}
+      aria-label="アカウント設定"
+    >
+      ⚙️ 設定
     </button>
   </div>
 </header>
@@ -1838,6 +1845,13 @@ const persist = useCallback((updates) => {
       </div>
 
       {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
+
+      {settingsOpen && (
+        <AccountSettings
+          onClose={() => setSettingsOpen(false)}
+          onAfterDelete={() => setSettingsOpen(false)}
+        />
+      )}
 
       {helpModalOpen && (
         <HelpModal

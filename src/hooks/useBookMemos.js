@@ -3,6 +3,7 @@ import imageCompression from 'browser-image-compression';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
+import { validateImageFile, ALLOWED_IMAGE_EXT } from '../lib/limits';
 
 const BUCKET = 'book-memo-photos';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,8 +38,14 @@ async function compressForUpload(file) {
 }
 
 async function uploadPhoto(file, userId, bookId) {
+  // Defense-in-depth: re-validate at the storage boundary even though the
+  // editor already checked. Cheap, prevents bypass via direct hook callers.
+  const validationError = validateImageFile(file);
+  if (validationError) throw new Error(validationError);
+
   const compressed = await compressForUpload(file);
-  const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const rawExt = (file.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const ext = ALLOWED_IMAGE_EXT.includes(rawExt) ? rawExt : 'jpg';
   const path = `${userId}/${bookId}/${newId()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, compressed, {
     upsert: false,

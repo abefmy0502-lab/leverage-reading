@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { toMessage } from '../lib/errors';
+import { LIMITS } from '../lib/limits';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
@@ -280,6 +281,7 @@ export default function QuickMemoSheet({
               }}
               placeholder={'・印象に残ったフレーズ\n・すぐ使えるノウハウ\n・考え方の転換点'}
               style={ta}
+              maxLength={LIMITS.memoText}
             />
           </div>
           {errorMsg && (

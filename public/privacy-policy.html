@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>プライバシーポリシー — レバレッジ読書ログ</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Noto Serif JP', Georgia, serif;
+      background: #f5f0e8;
+      color: #3d362c;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+      padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+    }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 22px 64px; }
+    h1 { font-size: 22px; font-weight: 500; margin: 0 0 6px; letter-spacing: 1px; }
+    .meta { font-size: 12px; color: #8a7e6b; margin: 0 0 24px; }
+    h2 { font-size: 16px; font-weight: 600; margin: 28px 0 8px; color: #5c5043; }
+    p, li { font-size: 14px; line-height: 1.9; color: #4a4036; }
+    ul { padding-left: 22px; margin: 6px 0 0; }
+    a { color: #5c5043; }
+    .back { display: inline-block; margin-top: 32px; padding: 10px 18px; border: 1px solid #d4ccbe; border-radius: 8px; text-decoration: none; color: #5c5043; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>プライバシーポリシー</h1>
+    <p class="meta">最終更新: 2026 年 4 月 26 日</p>
+
+    <p>
+      「レバレッジ読書ログ」(以下「本サービス」) は、利用者の個人情報の取り扱いについて、本ポリシーに従って適切に保護します。
+    </p>
+
+    <h2>1. 取得する情報</h2>
+    <ul>
+      <li>メールアドレス、表示名（アカウント登録時）</li>
+      <li>本のタイトル、著者、ステータス、評価、進捗、タグなど (ユーザーが入力)</li>
+      <li>メモテキスト、写真、ページ番号、まとめメモ (ユーザーが作成)</li>
+      <li>マイ読書脳との対話履歴 (ユーザーが質問・AI が回答)</li>
+      <li>サービス利用に伴う技術的情報 (IP アドレス、ブラウザ情報、エラーログ等)</li>
+    </ul>
+
+    <h2>2. 利用目的</h2>
+    <ul>
+      <li>本サービスの機能提供 (本管理、メモ管理、振り返り、AI 機能)</li>
+      <li>ユーザーのリクエストに応じた AI による解析・選書・要約</li>
+      <li>サービスの不具合対応・改善</li>
+      <li>不正利用の検出と対応</li>
+    </ul>
+
+    <h2>3. 第三者提供</h2>
+    <p>以下のサービス・事業者にデータの一部を提供します:</p>
+    <ul>
+      <li><strong>Anthropic Claude API</strong>: AI 分析・要約・対話のため、メモ・質問内容を送信します。Anthropic は API 経由で受け取ったデータをモデル学習には使用しないことを公表しています。</li>
+      <li><strong>Supabase</strong>: ホスティング・データベース・認証・ストレージのため、すべてのアカウントデータを保管します。</li>
+      <li><strong>Vercel</strong>: アプリケーションのホスティング。</li>
+      <li><strong>Google Books API / openBD</strong>: 本の検索・表紙画像取得のため、検索クエリを送信します。</li>
+    </ul>
+    <p>上記以外の第三者には、法令に基づく場合またはユーザーの同意がある場合を除き提供しません。</p>
+
+    <h2>4. データの保管期間</h2>
+    <p>アカウントが有効な間は無期限に保管されます。アカウント削除時には、関連するすべてのデータ (本、メモ、写真、対話履歴) が削除されます。</p>
+
+    <h2>5. 利用者の権利</h2>
+    <ul>
+      <li>アカウント設定からデータを JSON 形式でエクスポートできます。</li>
+      <li>アカウント設定からアカウントの削除をリクエストできます (関連データもすべて削除されます)。</li>
+      <li>個別データの修正・削除はアプリ内で随時可能です。</li>
+    </ul>
+
+    <h2>6. Cookie / ローカルストレージ</h2>
+    <p>
+      本サービスは認証セッションの維持・ユーザー設定 (ヘルプ表示状態、メモモード等) の保存のため、ブラウザの localStorage / IndexedDB を使用します。トラッキング目的の Cookie は使用しません。
+    </p>
+
+    <h2>7. セキュリティ</h2>
+    <p>
+      通信は HTTPS で暗号化されます。データベースへのアクセスは Row Level Security により利用者本人のみに制限されます。本のメモに添付された写真は非公開ストレージに保管され、署名付き URL でのみ閲覧可能です。
+    </p>
+
+    <h2>8. 改定について</h2>
+    <p>
+      本ポリシーは予告なく改定される場合があります。重要な変更がある場合はアプリ内で通知します。
+    </p>
+
+    <h2>9. お問い合わせ</h2>
+    <p>
+      本ポリシーに関するお問い合わせは、サービス内のサポート窓口までご連絡ください。
+    </p>
+
+    <a class="back" href="/">← アプリに戻る</a>
+  </main>
+</body>
+</html>

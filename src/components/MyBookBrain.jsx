@@ -15,6 +15,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { callMyBookBrain } from '../lib/ai';
+import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
@@ -219,6 +220,7 @@ function LearningSheet({ onClose, onSaved }) {
               }}
               placeholder={'例:\n・先輩との会話で「相手の関心軸を聞く」が刺さった\n・上司の指摘で「結論ファースト」の重要性を再認識'}
               style={ta}
+              maxLength={LIMITS.memoText}
             />
           </div>
 
@@ -244,6 +246,7 @@ function LearningSheet({ onClose, onSaved }) {
                 }}
                 placeholder="タグを追加"
                 style={{ ...inp, flex: 1 }}
+                maxLength={LIMITS.tag}
               />
               <button type="button" onClick={addTag} style={btnGhost}>追加</button>
             </div>
@@ -534,6 +537,7 @@ export default function MyBookBrain({ onOpenBook }) {
               placeholder="質問を入力（Enter で送信、Shift+Enter で改行）"
               rows={2}
               disabled={busy}
+              maxLength={LIMITS.aiQuestion}
               style={{ ...ta, minHeight: 56, flex: 1 }}
             />
             <button

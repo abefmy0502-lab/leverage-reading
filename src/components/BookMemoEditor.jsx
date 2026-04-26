@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppDataCache } from '../state/AppDataCache';
 import { toMessage } from '../lib/errors';
+import { LIMITS, validateImageFile } from '../lib/limits';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -286,6 +287,14 @@ export default function BookMemoEditor({
   const onFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    const err = validateImageFile(f);
+    if (err) {
+      setErrorMsg(err);
+      // Reset the input so the user can pick again
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    setErrorMsg('');
     setPhotoFile(f);
     setRemovePhotoFlag(false);
     setExistingPhotoPath(null);
@@ -352,6 +361,7 @@ export default function BookMemoEditor({
             onChange={(e) => setText(e.target.value)}
             placeholder={'・印象に残ったフレーズ\n・すぐ使えるノウハウ\n・考え方の転換点'}
             style={ta}
+            maxLength={LIMITS.memoText}
           />
         </div>
 
@@ -467,6 +477,7 @@ export default function BookMemoEditor({
               onChange={(e) => setTagInput(e.target.value)}
               placeholder="タグを追加"
               style={{ ...inp, flex: 1 }}
+              maxLength={LIMITS.tag}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                   e.preventDefault();
