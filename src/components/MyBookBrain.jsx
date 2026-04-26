@@ -17,6 +17,7 @@ import { toMessage } from '../lib/errors';
 import { callMyBookBrain } from '../lib/ai';
 import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
+import KnowledgeManager from './KnowledgeManager';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
 const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
@@ -273,13 +274,14 @@ export default function MyBookBrain({ onOpenBook }) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
-  const [view, setView] = useState('chat'); // 'chat' | 'history'
+  const [view, setView] = useState('chat'); // 'chat' | 'history' | 'knowledge'
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [learningOpen, setLearningOpen] = useState(false);
-  const [memoStats, setMemoStats] = useState({ count: 0 });
+  const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
+  const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
 
   // Load history once.
@@ -309,21 +311,40 @@ export default function MyBookBrain({ onOpenBook }) {
     };
   }, [user]);
 
-  // Memo count for the empty-state hint.
+  // Knowledge counts for the header (cards / summaries / personal).
   useEffect(() => {
     if (!user || !isSupabaseConfigured) return undefined;
     let cancelled = false;
     (async () => {
-      const { count } = await supabase
-        .from('book_memos')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      if (!cancelled) setMemoStats({ count: count || 0 });
+      const [cardsRes, personalRes, summariesRes] = await Promise.all([
+        supabase
+          .from('book_memos')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .neq('source_type', 'personal'),
+        supabase
+          .from('book_memos')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('source_type', 'personal'),
+        supabase
+          .from('books')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .not('leverage_memo', 'is', null)
+          .neq('leverage_memo', ''),
+      ]);
+      if (cancelled) return;
+      setMemoStats({
+        cards: cardsRes.count || 0,
+        personal: personalRes.count || 0,
+        summaries: summariesRes.count || 0,
+      });
     })();
     return () => {
       cancelled = true;
     };
-  }, [user, learningOpen, messages.length]);
+  }, [user, learningOpen, messages.length, statsTick]);
 
   // Auto-scroll on new messages.
   useEffect(() => {
@@ -365,12 +386,13 @@ export default function MyBookBrain({ onOpenBook }) {
     }
 
     try {
-      const { body, refs, memoCount, memoTotal } = await callMyBookBrain({
+      const { body, refs, memoCount, memoTotal, cardCount, summaryCount, personalCount } = await callMyBookBrain({
         userId: user.id,
         question: q,
       });
+      const breakdown = `カード ${cardCount || 0} / まとめ ${summaryCount || 0} / 学び ${personalCount || 0}`;
       const assistantContent = memoTotal > memoCount && memoCount > 0
-        ? `${body}\n\n（参照したメモ: ${memoCount}/${memoTotal} 件）`
+        ? `${body}\n\n（参照: ${memoCount}/${memoTotal} 件、内訳: ${breakdown}）`
         : body;
       const { data, error } = await supabase
         .from('chat_messages')
@@ -432,15 +454,19 @@ export default function MyBookBrain({ onOpenBook }) {
       <div style={{ ...card, background: 'linear-gradient(135deg, #faf6f0 0%, #f0ebe2 100%)' }}>
         <p style={{ fontSize: 16, fontWeight: 600, color: '#3d362c', margin: 0 }}>🧠 マイ読書脳</p>
         <p style={{ fontSize: 11, color: '#8a7e6b', margin: '4px 0 0', lineHeight: 1.7 }}>
-          過去に読んだ本の知恵があなたに答えます。{memoStats.count > 0 && <>（メモ {memoStats.count} 件を参照可能）</>}
+          過去に読んだ本の知恵があなたに答えます。
+          {(memoStats.cards + memoStats.summaries + memoStats.personal) > 0 && (
+            <>（メモ {memoStats.cards} 件 + まとめ {memoStats.summaries} 冊 + 学び {memoStats.personal} 件 を参照可能）</>
+          )}
         </p>
       </div>
 
       {/* Action pills */}
-      <div style={{ display: 'flex', gap: 4, padding: 4, background: '#eae3d6', borderRadius: 10 }}>
+      <div style={{ display: 'flex', gap: 4, padding: 4, background: '#eae3d6', borderRadius: 10, flexWrap: 'wrap' }}>
         <button type="button" style={pill(view === 'chat')} onClick={() => setView('chat')}>💬 質問する</button>
         <button type="button" style={pill(false)} onClick={() => setLearningOpen(true)}>💡 学びを追加</button>
         <button type="button" style={pill(view === 'history')} onClick={() => setView('history')}>📜 履歴</button>
+        <button type="button" style={pill(view === 'knowledge')} onClick={() => setView('knowledge')}>📚 知識管理</button>
       </div>
 
       {/* History view */}
@@ -464,6 +490,11 @@ export default function MyBookBrain({ onOpenBook }) {
             <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} />
           ))}
         </div>
+      )}
+
+      {/* Knowledge management view */}
+      {view === 'knowledge' && (
+        <KnowledgeManager onChanged={() => setStatsTick((t) => t + 1)} />
       )}
 
       {/* Chat view */}

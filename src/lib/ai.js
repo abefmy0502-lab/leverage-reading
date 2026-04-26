@@ -113,7 +113,10 @@ function memoPriority(memo) {
   const rating = memo.book?.rating || 0;
   const ratingScore = rating * 8;
   const personalBoost = memo.source_type === 'personal' ? 6 : 0;
-  return recencyScore + ratingScore + personalBoost;
+  // Summaries condense the entire book — give them a stronger weight so they
+  // make it into the truncated context even when the user has many memos.
+  const summaryBoost = memo.source_type === 'summary' ? 12 : 0;
+  return recencyScore + ratingScore + personalBoost + summaryBoost;
 }
 
 function pickCategory(tags) {
@@ -124,15 +127,30 @@ function pickCategory(tags) {
 
 function formatMemo(memo) {
   // Sanitize and clamp every user-supplied piece before embedding into the prompt.
-  const safeText = clamp(sanitizeForPrompt(memo.text || ''), LIMITS.promptMemoExcerpt);
-  if (memo.source_type === 'personal' || !memo.book) {
+  const rawText = memo.text || '';
+  const safeText = clamp(sanitizeForPrompt(rawText), LIMITS.promptMemoExcerpt);
+  const truncated = rawText.length > LIMITS.promptMemoExcerpt ? '\n…（以下省略）' : '';
+
+  // Personal learning ("学びログ")
+  if (memo.source_type === 'personal' || (!memo.book && !memo.book_id)) {
     const date = memo.created_at?.slice(0, 10) || '';
     const cat = sanitizeForPrompt(pickCategory(memo.tags) || 'その他').slice(0, 32);
-    return `【自分の学び: ${date} / ${cat}】${safeText}`;
+    return `【自分の学び: ${date} / ${cat}】${safeText}${truncated}`;
   }
-  const b = memo.book;
+
+  const b = memo.book || {};
   const safeTitle = sanitizeForPrompt(b.title || '').slice(0, 200);
   const safeAuthor = sanitizeForPrompt(b.author || '').slice(0, 100);
+
+  // Summary memo (books.leverage_memo) — synthesised, no DB row
+  if (memo.source_type === 'summary') {
+    const parts = [`本: ${safeTitle}`];
+    if (safeAuthor) parts.push(`著者: ${safeAuthor}`);
+    parts.push('種別: まとめメモ');
+    return `【${parts.join(' / ')}】${safeText}${truncated}`;
+  }
+
+  // Card memo (book_memos with book_id)
   const parts = [`本: ${safeTitle}`];
   if (safeAuthor) parts.push(`著者: ${safeAuthor}`);
   if (Number.isFinite(memo.page_number)) parts.push(`P.${memo.page_number}`);
@@ -141,7 +159,7 @@ function formatMemo(memo) {
     .map((t) => `#${sanitizeForPrompt(t).slice(0, 30)}`)
     .join(' ');
   if (tagText) parts.push(`タグ: ${tagText}`);
-  return `【${parts.join(' / ')}】${safeText}`;
+  return `【${parts.join(' / ')}】${safeText}${truncated}`;
 }
 
 const BRAIN_SYSTEM = `あなたはユーザーの過去の読書メモと自分の学びを基にアドバイスする「マイ読書脳」です。
@@ -160,6 +178,7 @@ const BRAIN_SYSTEM = `あなたはユーザーの過去の読書メモと自分�
 - 末尾に参照したメモのリストを以下の形式で示す:
   REFS_START
   - 📚 著者『本のタイトル』P.◯◯
+  - 📖 著者『本のタイトル』まとめメモ
   - 💡 自分の学び (YYYY-MM-DD / カテゴリ)
   REFS_END
 - 該当するメモがない時は正直に「まだ関連するメモがないので、◯◯のような本を読むと参考になるかもしれません」と答える`;
@@ -201,20 +220,53 @@ export async function callMyBookBrain({ userId, question }) {
   if (!safeQuestion) {
     throw new Error('質問を入力してください。');
   }
-  const { data, error } = await supabase
-    .from('book_memos')
-    .select('*, book:books(id, title, author, rating)')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
 
-  const all = data || [];
+  // Pull both card/personal memos AND books with non-empty leverage_memo
+  // (= "まとめメモ"). Summaries are synthesised into the same memo shape so
+  // the existing ranking + format pipeline picks them up uniformly.
+  const [memosRes, booksRes] = await Promise.all([
+    supabase
+      .from('book_memos')
+      .select('*, book:books(id, title, author, rating)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('books')
+      .select('id, title, author, rating, leverage_memo, updated_at, created_at')
+      .eq('user_id', userId)
+      .not('leverage_memo', 'is', null)
+      .neq('leverage_memo', ''),
+  ]);
+  if (memosRes.error) throw memosRes.error;
+  if (booksRes.error) throw booksRes.error;
+
+  const memoRows = memosRes.data || [];
+  const summaryRows = (booksRes.data || []).map((b) => ({
+    id: `summary-${b.id}`,
+    book_id: b.id,
+    user_id: userId,
+    source_type: 'summary',
+    text: b.leverage_memo,
+    page_number: null,
+    tags: [],
+    photo_path: null,
+    created_at: b.updated_at || b.created_at,
+    book: { id: b.id, title: b.title, author: b.author, rating: b.rating },
+  }));
+
+  const all = [...memoRows, ...summaryRows];
+
   // Priority-rank, then preserve original recency order for the slice.
   const ranked = [...all]
     .map((m, i) => ({ memo: m, score: memoPriority(m) - i * 0.01 }))
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_MEMOS)
     .map((x) => x.memo);
+
+  // Per-source counts for UI display
+  const cardCount = memoRows.filter((m) => m.source_type !== 'personal').length;
+  const personalCount = memoRows.filter((m) => m.source_type === 'personal').length;
+  const summaryCount = summaryRows.length;
 
   if (ranked.length === 0) {
     return {
@@ -223,6 +275,9 @@ export async function callMyBookBrain({ userId, question }) {
       refs: [],
       memoCount: 0,
       memoTotal: 0,
+      cardCount: 0,
+      personalCount: 0,
+      summaryCount: 0,
     };
   }
 
@@ -238,7 +293,15 @@ export async function callMyBookBrain({ userId, question }) {
   // callClaude returns string for both success and known errors. Treat error
   // strings as plain content but with no refs.
   if (typeof result !== 'string' || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')) {
-    return { body: result || 'エラー', refs: [], memoCount: ranked.length, memoTotal: all.length };
+    return {
+      body: result || 'エラー',
+      refs: [],
+      memoCount: ranked.length,
+      memoTotal: all.length,
+      cardCount,
+      personalCount,
+      summaryCount,
+    };
   }
 
   if (isSuspiciousOutput(result)) {
@@ -248,6 +311,9 @@ export async function callMyBookBrain({ userId, question }) {
       refs: [],
       memoCount: ranked.length,
       memoTotal: all.length,
+      cardCount,
+      personalCount,
+      summaryCount,
     };
   }
 
@@ -257,6 +323,9 @@ export async function callMyBookBrain({ userId, question }) {
     refs: parsed.refs,
     memoCount: ranked.length,
     memoTotal: all.length,
+    cardCount,
+    personalCount,
+    summaryCount,
   };
 }
 
