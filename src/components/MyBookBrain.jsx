@@ -27,9 +27,12 @@ const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
 const btnPrimary = { padding: '12px 20px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#faf6f0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
 const btnGhost = { padding: '8px 12px', borderRadius: 8, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 };
 const pill = (active) => ({
-  flex: 1,
+  // Sized to content so labels never wrap; row scrolls horizontally on
+  // narrow phones via the parent's overflow-x: auto + lvg-no-scrollbar.
+  flex: '0 0 auto',
+  whiteSpace: 'nowrap',
   minHeight: 40,
-  padding: '8px 0',
+  padding: '8px 14px',
   border: 'none',
   background: active ? '#5c5043' : 'transparent',
   color: active ? '#faf6f0' : '#5c5548',
@@ -468,8 +471,21 @@ export default function MyBookBrain({ onOpenBook }) {
         </p>
       </div>
 
-      {/* Action pills */}
-      <div style={{ display: 'flex', gap: 4, padding: 4, background: '#eae3d6', borderRadius: 10, flexWrap: 'wrap' }}>
+      {/* Action pills — horizontally scroll on narrow phones, no text wrap. */}
+      <div
+        className="lvg-no-scrollbar"
+        style={{
+          display: 'flex',
+          gap: 4,
+          padding: 4,
+          background: '#eae3d6',
+          borderRadius: 10,
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehaviorX: 'contain',
+        }}
+      >
         <button type="button" style={pill(view === 'chat')} onClick={() => setView('chat')}>💬 質問する</button>
         <button type="button" style={pill(false)} onClick={() => setLearningOpen(true)}>💡 学びを追加</button>
         <button type="button" style={pill(view === 'history')} onClick={() => setView('history')}>📜 履歴</button>

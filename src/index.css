@@ -163,6 +163,18 @@ button:disabled:active {
   overscroll-behavior: contain;
 }
 
+/* Hide scrollbars on rows that scroll horizontally for overflow gracefulness
+   (e.g. pill rows that may not fit on narrow phones). */
+.lvg-no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.lvg-no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* ========================================================================== */
 /* Reusable utility classes (opt-in)                                          */
 /* ========================================================================== */
