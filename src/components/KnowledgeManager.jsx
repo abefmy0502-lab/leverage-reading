@@ -201,7 +201,7 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
     return (
       <SwipeableCard
         onDelete={() => onSwipeDelete(item)}
-        actionLabel={isSummary ? '🧹 クリア' : '🗑️ 削除'}
+        actionLabel={isSummary ? '🧹 クリア' : undefined}
       >
         {inner}
       </SwipeableCard>

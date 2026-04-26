@@ -29,6 +29,17 @@ import { toMessage, fieldRequiredMessage } from './lib/errors';
 import { LIMITS } from './lib/limits';
 import { ensureHttps } from './lib/url';
 import { getRandomFromCategory } from './lib/quotes';
+import {
+  BookOpen,
+  RotateCcw,
+  Brain,
+  Sparkles,
+  Bookmark,
+  PenSquare,
+  CheckCircle,
+  HelpCircle,
+  Settings as SettingsIcon,
+} from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
@@ -37,10 +48,10 @@ const EMPTY_STAR = "☆";
 const STORAGE_KEY = "leverage-reading-data";
 
 const STATUSES = [
-  { key: "want", label: "読みたい", emoji: "🔖", bg: "#f0e8d8", color: "#8a7040" },
-  { key: "before", label: "読書前", emoji: "📐", bg: "#f0e0f0", color: "#7a5080" },
-  { key: "reading", label: "読書中", emoji: "📖", bg: "#dde8f0", color: "#4a6e8a" },
-  { key: "done", label: "読了", emoji: "✅", bg: "#e2ecd8", color: "#5a7a48" },
+  { key: "want", label: "読みたい", emoji: "🔖", Icon: Bookmark, bg: "#f0e8d8", color: "#8a7040" },
+  { key: "before", label: "読書前", emoji: "📐", Icon: PenSquare, bg: "#f0e0f0", color: "#7a5080" },
+  { key: "reading", label: "読書中", emoji: "📖", Icon: BookOpen, bg: "#dde8f0", color: "#4a6e8a" },
+  { key: "done", label: "読了", emoji: "✅", Icon: CheckCircle, bg: "#e2ecd8", color: "#5a7a48" },
 ];
 const getSt = (k) => STATUSES.find((s) => s.key === k) || STATUSES[0];
 
@@ -216,9 +227,11 @@ function Card({ label, text, bg }) {
 
 function StatusBadge({ status }) {
   const s = getSt(status);
+  const Icon = s.Icon;
   return (
-    <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 999, background: s.bg, color: s.color, fontWeight: 600, letterSpacing: 0.3, display: "inline-flex", alignItems: "center", gap: 3 }}>
-      {s.emoji} {s.label}
+    <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 999, background: s.bg, color: s.color, fontWeight: 600, letterSpacing: 0.3, display: "inline-flex", alignItems: "center", gap: 4 }}>
+      {Icon && <Icon size={12} strokeWidth={1.75} aria-hidden="true" />}
+      {s.label}
     </span>
   );
 }
@@ -956,20 +969,30 @@ function BookAdvisor({ onAddBook, onClose }) {
 /* ========== Bottom Nav ========== */
 function BottomNav({ tab, setTab }) {
   const tabs = [
-    { key: "books", icon: "📚", label: "本棚" },
-    { key: "review", icon: "🔄", label: "振り返り" },
-    { key: "brain", icon: "🧠", label: "読書脳" },
-    { key: "advisor", icon: "🤖", label: "AI 選書" },
+    { key: "books", Icon: BookOpen, label: "本棚" },
+    { key: "review", Icon: RotateCcw, label: "振り返り" },
+    { key: "brain", Icon: Brain, label: "読書脳" },
+    { key: "advisor", Icon: Sparkles, label: "AI 選書" },
   ];
   return (
     <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#faf6f0", borderTop: "1px solid #e0d8c8", display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom)" }}>
-      {tabs.map((t) => (
-        <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, padding: "10px 0 8px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, position: "relative", minHeight: 56 }}>
-          <span style={{ fontSize: 22 }}>{t.icon}</span>
-          <span style={{ fontSize: 10, color: tab === t.key ? "#3d362c" : "#b5aa96", fontWeight: tab === t.key ? 600 : 400 }}>{t.label}</span>
-          {tab === t.key && <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 2, background: "#d4a040", borderRadius: 1 }} />}
-        </button>
-      ))}
+      {tabs.map((t) => {
+        const active = tab === t.key;
+        const Icon = t.Icon;
+        return (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            aria-label={t.label}
+            aria-current={active ? "page" : undefined}
+            style={{ flex: 1, padding: "10px 0 8px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, position: "relative", minHeight: 56, color: active ? "#3d362c" : "#b5aa96" }}
+          >
+            <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
+            <span style={{ fontSize: 10, fontWeight: active ? 600 : 400 }}>{t.label}</span>
+            {active && <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 2, background: "#d4a040", borderRadius: 1 }} />}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1506,10 +1529,11 @@ const persist = useCallback((updates) => {
             <button onClick={goList} style={lnk}>← 一覧</button>
             <button
               onClick={openHelp}
-              style={{ background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 11, color: "#8a7e6b", cursor: "pointer", padding: "4px 10px", fontFamily: "inherit" }}
+              style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#8a7e6b", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
               aria-label="この画面のヘルプを見る"
+              title="ヘルプ"
             >
-              ？ ヘルプ
+              <HelpCircle size={18} strokeWidth={1.75} aria-hidden="true" />
             </button>
           </div>
 
@@ -1726,10 +1750,11 @@ const persist = useCallback((updates) => {
             <button onClick={current ? () => setView("detail") : goList} style={lnk}>← 戻る</button>
             <button
               onClick={openHelp}
-              style={{ background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 11, color: "#8a7e6b", cursor: "pointer", padding: "4px 10px", fontFamily: "inherit" }}
+              style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#8a7e6b", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
               aria-label="この画面のヘルプを見る"
+              title="ヘルプ"
             >
-              ？ ヘルプ
+              <HelpCircle size={18} strokeWidth={1.75} aria-hidden="true" />
             </button>
           </div>
 
@@ -1790,19 +1815,19 @@ const persist = useCallback((updates) => {
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <button
         onClick={openHelp}
-        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 18, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="この画面のヘルプを開く"
         title="ヘルプ"
       >
-        ？
+        <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
       </button>
       <button
         onClick={() => setSettingsOpen(true)}
-        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 18, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="アカウント設定を開く"
         title="設定"
       >
-        ⚙️
+        <SettingsIcon size={20} strokeWidth={1.75} aria-hidden="true" />
       </button>
     </div>
   </header>
@@ -1821,11 +1846,11 @@ const persist = useCallback((updates) => {
               {/* Pill filters — hide statuses with zero books to keep the bar tight. */}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {[
-                  { key: "all", label: "全て", count: stats.total, color: "#4a4036", bg: "#e8e0d2" },
+                  { key: "all", label: "全て", count: stats.total, color: "#4a4036", bg: "#e8e0d2", Icon: null },
                   ...STATUSES.map((s) => ({
                     key: s.key,
                     label: s.label,
-                    emoji: s.emoji,
+                    Icon: s.Icon,
                     color: s.color,
                     bg: s.bg,
                     count: stats[s.key] || 0,
@@ -1834,6 +1859,7 @@ const persist = useCallback((updates) => {
                   .filter((s) => s.key === "all" || s.count > 0 || statusFilter === s.key)
                   .map((s) => {
                     const active = statusFilter === s.key;
+                    const Icon = s.Icon;
                     return (
                       <button
                         key={s.key}
@@ -1850,9 +1876,13 @@ const persist = useCallback((updates) => {
                           color: active ? s.color : "#8a7e6b",
                           fontWeight: active ? 600 : 400,
                           transition: "background .15s, color .15s",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
                         }}
                       >
-                        {s.emoji ? `${s.emoji} ` : ""}{s.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>({s.count})</span>
+                        {Icon && <Icon size={12} strokeWidth={1.75} aria-hidden="true" />}
+                        {s.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>({s.count})</span>
                       </button>
                     );
                   })}

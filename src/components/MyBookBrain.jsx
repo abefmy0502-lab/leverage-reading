@@ -19,6 +19,7 @@ import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
+import { MessageCircle, Lightbulb, History, BookOpenCheck } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
 const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
@@ -486,10 +487,18 @@ export default function MyBookBrain({ onOpenBook }) {
           overscrollBehaviorX: 'contain',
         }}
       >
-        <button type="button" style={pill(view === 'chat')} onClick={() => setView('chat')}>💬 質問する</button>
-        <button type="button" style={pill(false)} onClick={() => setLearningOpen(true)}>💡 学びを追加</button>
-        <button type="button" style={pill(view === 'history')} onClick={() => setView('history')}>📜 履歴</button>
-        <button type="button" style={pill(view === 'knowledge')} onClick={() => setView('knowledge')}>📚 知識管理</button>
+        <button type="button" style={{ ...pill(view === 'chat'), display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setView('chat')}>
+          <MessageCircle size={14} strokeWidth={1.75} aria-hidden="true" />質問する
+        </button>
+        <button type="button" style={{ ...pill(false), display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setLearningOpen(true)}>
+          <Lightbulb size={14} strokeWidth={1.75} aria-hidden="true" />学びを追加
+        </button>
+        <button type="button" style={{ ...pill(view === 'history'), display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setView('history')}>
+          <History size={14} strokeWidth={1.75} aria-hidden="true" />履歴
+        </button>
+        <button type="button" style={{ ...pill(view === 'knowledge'), display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setView('knowledge')}>
+          <BookOpenCheck size={14} strokeWidth={1.75} aria-hidden="true" />知識管理
+        </button>
       </div>
 
       {/* History view */}

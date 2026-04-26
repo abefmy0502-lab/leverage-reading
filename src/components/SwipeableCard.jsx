@@ -8,6 +8,7 @@
 import { useEffect } from 'react';
 import { useSwipeToDelete } from '../hooks/useSwipeToDelete';
 import { useHaptic } from '../hooks/useHaptic';
+import { Trash2 } from 'lucide-react';
 
 const ACTION_WIDTH = 200;
 
@@ -16,8 +17,15 @@ export default function SwipeableCard({
   onDelete,
   threshold = 80,
   disabled = false,
-  actionLabel = '🗑️ 削除',
+  actionLabel,
 }) {
+  // Default label uses a Lucide icon; callers can override with a string or JSX.
+  const resolvedLabel = actionLabel ?? (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />
+      削除
+    </span>
+  );
   const haptic = useHaptic();
   const { offset, armed, isDeleting, bind } = useSwipeToDelete({
     threshold,
@@ -74,7 +82,7 @@ export default function SwipeableCard({
           transition: 'transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
       >
-        {actionLabel}
+        {resolvedLabel}
       </div>
 
       {/* Foreground content */}

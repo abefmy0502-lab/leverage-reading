@@ -3,6 +3,7 @@ import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
 import SwipeableCard from './SwipeableCard';
+import { MoreVertical } from 'lucide-react';
 
 const cardWrap = {
   position: 'relative',
@@ -127,10 +128,10 @@ export default function BookMemoCard({ memo, onEdit, onDelete, onSwipeDelete, on
           e.stopPropagation();
           setMenuOpen((v) => !v);
         }}
-        style={kebabBtn}
-        aria-label="メニュー"
+        style={{ ...kebabBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        aria-label="メニューを開く"
       >
-        ⋮
+        <MoreVertical size={18} strokeWidth={1.75} aria-hidden="true" />
       </button>
       {menuOpen && (
         <div style={menuStyle} onClick={(e) => e.stopPropagation()}>
