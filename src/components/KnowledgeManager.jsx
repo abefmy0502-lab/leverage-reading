@@ -25,6 +25,10 @@ import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
 import BookMemoEditor from './BookMemoEditor';
+import SwipeableCard from './SwipeableCard';
+import ContextMenu from './ContextMenu';
+import PullToRefresh from './PullToRefresh';
+import { useLongPress } from '../hooks/useLongPress';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
 const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
@@ -141,7 +145,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
 // ============================================================================
 // Knowledge card (display-only; parent provides handlers)
 // ============================================================================
-function KnowledgeCard({ item, onEdit, onDelete }) {
+function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
   const meta = KIND_META[item.kind];
   const isPersonal = item.kind === 'personal';
   const isSummary = item.kind === 'summary';
@@ -150,9 +154,12 @@ function KnowledgeCard({ item, onEdit, onDelete }) {
   const visibleTags = isPersonal
     ? (item.tags || []).filter((t) => !t.startsWith('@'))
     : item.tags || [];
+  const longPress = useLongPress({
+    onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, item }),
+  });
 
-  return (
-    <div style={card}>
+  const inner = (
+    <div style={card} {...(onLongPress ? longPress.bind : {})}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: isSummary ? '#eae3d6' : isPersonal ? '#f5e6c8' : '#e2ecd8', color: isSummary ? '#5c5043' : isPersonal ? '#8a7040' : '#5a7a48', fontWeight: 600 }}>
           {meta.icon} {meta.label}
@@ -189,6 +196,18 @@ function KnowledgeCard({ item, onEdit, onDelete }) {
       </div>
     </div>
   );
+
+  if (onSwipeDelete) {
+    return (
+      <SwipeableCard
+        onDelete={() => onSwipeDelete(item)}
+        actionLabel={isSummary ? '🧹 クリア' : '🗑️ 削除'}
+      >
+        {inner}
+      </SwipeableCard>
+    );
+  }
+  return inner;
 }
 
 // ============================================================================
@@ -354,35 +373,16 @@ export default function KnowledgeManager({ onChanged }) {
   };
 
   // ===== Delete handlers (with Undo) =====
-  const handleDelete = async (item) => {
-    if (item.kind === 'summary') {
-      await deleteSummary(item);
-    } else {
-      await deleteMemo(item);
-    }
-  };
-
-  const deleteMemo = async (item) => {
-    const ok = await confirm({
-      title: 'この知識を削除しますか？',
-      message: 'AI の参照対象から除外されます。\n5 秒以内なら「取消」で復元できます。',
-      confirmLabel: '削除する',
-      cancelLabel: 'キャンセル',
-      danger: true,
-    });
-    if (!ok) return;
-
+  // Inner delete: row + photo + Undo. Used by both confirm-fronted and swipe.
+  const performDeleteMemo = (item) => {
     const snapshot = { ...item };
-    // Fire delete immediately
     const promise = (async () => {
-      // Delete row
       const { error } = await supabase
         .from('book_memos')
         .delete()
         .eq('id', item.id)
         .eq('user_id', user.id);
       if (error) throw error;
-      // Best-effort photo delete for card memos
       if (item.kind === 'card' && item.photo_path) {
         try {
           await supabase.storage.from('book-memo-photos').remove([item.photo_path]);
@@ -424,16 +424,7 @@ export default function KnowledgeManager({ onChanged }) {
     });
   };
 
-  const deleteSummary = async (item) => {
-    const ok = await confirm({
-      title: 'まとめメモをクリアしますか？',
-      message: '本自体は残ります。AI の参照対象からは外れます。\n5 秒以内なら「取消」で復元できます。',
-      confirmLabel: 'クリアする',
-      cancelLabel: 'キャンセル',
-      danger: true,
-    });
-    if (!ok) return;
-
+  const performClearSummary = (item) => {
     const previousText = item.text || '';
     const promise = supabase
       .from('books')
@@ -470,8 +461,59 @@ export default function KnowledgeManager({ onChanged }) {
     });
   };
 
+  // Tap-driven (kebab "削除/クリア" button or long-press menu): confirm first.
+  const handleDelete = async (item) => {
+    if (item.kind === 'summary') {
+      const ok = await confirm({
+        title: 'まとめメモをクリアしますか？',
+        message: '本自体は残ります。AI の参照対象からは外れます。\n5 秒以内なら「取消」で復元できます。',
+        confirmLabel: 'クリアする',
+        cancelLabel: 'キャンセル',
+        danger: true,
+      });
+      if (!ok) return;
+      performClearSummary(item);
+    } else {
+      const ok = await confirm({
+        title: 'この知識を削除しますか？',
+        message: 'AI の参照対象から除外されます。\n5 秒以内なら「取消」で復元できます。',
+        confirmLabel: '削除する',
+        cancelLabel: 'キャンセル',
+        danger: true,
+      });
+      if (!ok) return;
+      performDeleteMemo(item);
+    }
+  };
+
+  // Swipe-driven (gesture itself = intent, no confirm).
+  const handleSwipeDelete = (item) => {
+    if (item.kind === 'summary') performClearSummary(item);
+    else performDeleteMemo(item);
+  };
+
+  // Long-press menu state
+  const [itemMenu, setItemMenu] = useState(null); // { x, y, item }
+
   return (
+    <PullToRefresh onRefresh={async () => { refresh(); }}>
     <div style={wrap}>
+      {itemMenu && (
+        <ContextMenu
+          x={itemMenu.x}
+          y={itemMenu.y}
+          onClose={() => setItemMenu(null)}
+          items={[
+            { label: '編集', icon: '✏️', onClick: () => handleEdit(itemMenu.item) },
+            {
+              label: itemMenu.item.kind === 'summary' ? 'クリア' : '削除',
+              icon: itemMenu.item.kind === 'summary' ? '🧹' : '🗑️',
+              destructive: true,
+              onClick: () => handleDelete(itemMenu.item),
+            },
+          ]}
+        />
+      )}
       {/* Hero */}
       <div style={card}>
         <p style={{ fontSize: 14, fontWeight: 600, color: '#3d362c', margin: 0 }}>📚 マイ読書脳の知識ベース</p>
@@ -528,6 +570,8 @@ export default function KnowledgeManager({ onChanged }) {
               item={it}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onSwipeDelete={handleSwipeDelete}
+              onLongPress={(payload) => setItemMenu(payload)}
             />
           ))}
         </div>
@@ -565,5 +609,6 @@ export default function KnowledgeManager({ onChanged }) {
         />
       )}
     </div>
+    </PullToRefresh>
   );
 }

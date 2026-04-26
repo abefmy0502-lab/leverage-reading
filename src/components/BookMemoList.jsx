@@ -5,6 +5,7 @@ import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { MemoListSkeleton } from './Skeleton';
 import { LIMITS } from '../lib/limits';
+import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 
@@ -244,26 +245,14 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
     return result;
   };
 
-  // Immediate-delete with restore-on-undo. Photo (if any) is removed from
-  // Storage by deleteMemo and is non-recoverable; restored memo has photo_path null.
-  const handleDelete = async (memo) => {
-    const ok = await confirm({
-      title: 'このメモを削除しますか？',
-      message: memo.photoPath
-        ? '写真も Storage から削除されます。\n（取消した場合、本文は復元されますが写真は戻りません）'
-        : '元に戻すには取消ボタンを押してください。',
-      confirmLabel: '削除する',
-      cancelLabel: 'キャンセル',
-      danger: true,
-    });
-    if (!ok) return;
-
+  // Inner delete: snapshot, fire delete, show Undo toast. Used by both the
+  // confirm-fronted handler (kebab/long-press menu) and the swipe gesture.
+  const performDelete = (memo) => {
     const snapshot = { ...memo };
     const deletionPromise = deleteMemo(memo.id).catch((e) => {
       toast.error(toMessage(e, 'メモの削除に失敗しました。'));
       throw e;
     });
-
     toast.undo({
       message: snapshot.photoPath
         ? 'メモを削除しました\n※写真は復元できません'
@@ -279,6 +268,27 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
       },
     });
   };
+
+  // Confirmed delete (kebab "⋮" → 削除 / long-press menu → 削除).
+  const handleDelete = async (memo) => {
+    const ok = await confirm({
+      title: 'このメモを削除しますか？',
+      message: memo.photoPath
+        ? '写真も Storage から削除されます。\n（取消した場合、本文は復元されますが写真は戻りません）'
+        : '元に戻すには取消ボタンを押してください。',
+      confirmLabel: '削除する',
+      cancelLabel: 'キャンセル',
+      danger: true,
+    });
+    if (!ok) return;
+    performDelete(memo);
+  };
+
+  // Swipe-driven delete (gesture itself = intent, no confirm modal).
+  const handleSwipeDelete = (memo) => performDelete(memo);
+
+  // Long-press → ContextMenu state
+  const [memoMenu, setMemoMenu] = useState(null); // { x, y, memo }
 
   const cardSection = !isUsableBookId ? (
     <div
@@ -327,7 +337,14 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {memos.map((m) => (
-          <BookMemoCard key={m.id} memo={m} onEdit={openEdit} onDelete={handleDelete} />
+          <BookMemoCard
+            key={m.id}
+            memo={m}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+            onSwipeDelete={handleSwipeDelete}
+            onLongPress={(payload) => setMemoMenu(payload)}
+          />
         ))}
       </div>
     </div>
@@ -365,6 +382,18 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
       {/* Both sections stay mounted so unsaved typing is preserved across tab switches. */}
       <div style={{ display: mode === 'card' ? 'block' : 'none' }}>{cardSection}</div>
       <div style={{ display: mode === 'summary' ? 'block' : 'none' }}>{summarySection}</div>
+
+      {memoMenu && (
+        <ContextMenu
+          x={memoMenu.x}
+          y={memoMenu.y}
+          onClose={() => setMemoMenu(null)}
+          items={[
+            { label: '編集', icon: '✏️', onClick: () => openEdit(memoMenu.memo) },
+            { label: '削除', icon: '🗑️', destructive: true, onClick: () => handleDelete(memoMenu.memo) },
+          ]}
+        />
+      )}
 
       {editorOpen && (
         <BookMemoEditor

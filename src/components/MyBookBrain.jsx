@@ -8,7 +8,7 @@
 // chat_messages live in Supabase; book_memos with source_type='personal'
 // are written for personal learnings and surface in the Review tab too.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -18,6 +18,7 @@ import { callMyBookBrain } from '../lib/ai';
 import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
+import PullToRefresh from './PullToRefresh';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
 const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
@@ -285,32 +286,29 @@ export default function MyBookBrain({ onOpenBook }) {
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
 
-  // Load history once.
-  useEffect(() => {
+  const fetchHistory = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
       setHistoryLoaded(true);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-      if (cancelled) return;
-      if (error) {
-        console.warn('chat history fetch error:', error);
-        setMessages([]);
-      } else {
-        setMessages((data || []).map(transformMessage));
-      }
-      setHistoryLoaded(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.warn('chat history fetch error:', error);
+      setMessages([]);
+    } else {
+      setMessages((data || []).map(transformMessage));
+    }
+    setHistoryLoaded(true);
   }, [user]);
+
+  // Load history once on user change.
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
 
   // Knowledge counts for the header (cards / summaries / personal).
   useEffect(() => {
@@ -472,25 +470,27 @@ export default function MyBookBrain({ onOpenBook }) {
 
       {/* History view */}
       {view === 'history' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0 }}>会話 {messages.length} 件</p>
-            {messages.length > 0 && (
-              <button type="button" style={{ ...btnGhost, color: '#a05040', borderColor: '#c4a0a0' }} onClick={clearHistory}>
-                すべて削除
-              </button>
+        <PullToRefresh onRefresh={fetchHistory}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0 }}>会話 {messages.length} 件</p>
+              {messages.length > 0 && (
+                <button type="button" style={{ ...btnGhost, color: '#a05040', borderColor: '#c4a0a0' }} onClick={clearHistory}>
+                  すべて削除
+                </button>
+              )}
+            </div>
+            {!historyLoaded && <Spinner message="読み込み中…" />}
+            {historyLoaded && messages.length === 0 && (
+              <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: '20px 0' }}>
+                まだ会話がありません。「💬 質問する」から始めましょう。
+              </p>
             )}
+            {messages.map((m) => (
+              <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} />
+            ))}
           </div>
-          {!historyLoaded && <Spinner message="読み込み中…" />}
-          {historyLoaded && messages.length === 0 && (
-            <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: '20px 0' }}>
-              まだ会話がありません。「💬 質問する」から始めましょう。
-            </p>
-          )}
-          {messages.map((m) => (
-            <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} />
-          ))}
-        </div>
+        </PullToRefresh>
       )}
 
       {/* Knowledge management view */}

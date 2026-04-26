@@ -7,11 +7,17 @@
 // Display is read-only here. Tapping a memo opens its book in the book detail
 // view, where the user can edit/delete via the existing BookMemoList flow.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
+import { useLongPress } from '../hooks/useLongPress';
+import { useToast } from './Toast';
+import { toMessage } from '../lib/errors';
+import SwipeableCard from './SwipeableCard';
+import ContextMenu from './ContextMenu';
+import PullToRefresh from './PullToRefresh';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
@@ -104,15 +110,18 @@ function MemoPhoto({ path }) {
   );
 }
 
-function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false }) {
+function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeDelete, onLongPress }) {
   const isPersonal = memo.sourceType === 'personal' || (!book && !memo.bookId);
   const category = isPersonal ? pickCategory(memo.tags) : null;
   const visibleTags = isPersonal
     ? (memo.tags || []).filter((t) => !t.startsWith('@'))
     : memo.tags || [];
+  const longPress = useLongPress({
+    onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, memo, book }),
+  });
 
-  return (
-    <div style={cardBase}>
+  const inner = (
+    <div style={cardBase} {...(onLongPress ? longPress.bind : {})}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
         {isPersonal ? (
           <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -168,11 +177,18 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false }) {
       )}
     </div>
   );
+
+  if (onSwipeDelete) {
+    return <SwipeableCard onDelete={() => onSwipeDelete(memo)}>{inner}</SwipeableCard>;
+  }
+  return inner;
 }
 
 export default function Review({ books = [], onOpenBook }) {
   const { user } = useAuth();
+  const toast = useToast();
   const [memos, setMemos] = useState([]);
+  const [memoMenu, setMemoMenu] = useState(null);
   const [loading, setLoading] = useState(true);
   const [randomSeed, setRandomSeed] = useState(0);
   const [flipping, setFlipping] = useState(false);
@@ -182,34 +198,98 @@ export default function Review({ books = [], onOpenBook }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('');
 
-  // Fetch all memos for the current user (one-shot per mount).
-  useEffect(() => {
+  const fetchMemos = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
       setMemos([]);
       setLoading(false);
-      return undefined;
+      return;
     }
-    let cancelled = false;
     setLoading(true);
-    (async () => {
-      const { data, error } = await supabase
-        .from('book_memos')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      if (cancelled) return;
-      if (error) {
-        console.error('review memos fetch error:', error);
-        setMemos([]);
-      } else {
-        setMemos((data || []).map(transformRow));
-      }
-      setLoading(false);
-    })();
+    const { data, error } = await supabase
+      .from('book_memos')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('review memos fetch error:', error);
+      setMemos([]);
+    } else {
+      setMemos((data || []).map(transformRow));
+    }
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchMemos();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Pull-to-refresh handler — refetch + re-roll random.
+  const handleRefresh = useCallback(async () => {
+    await fetchMemos();
+    setRandomSeed((s) => s + 1);
+  }, [fetchMemos]);
+
+  // Swipe-driven delete (no confirm — gesture is intent). DB DELETE fires
+  // immediately + Undo toast can re-INSERT from snapshot (photo lost).
+  const handleSwipeDelete = useCallback(
+    (memo) => {
+      if (!user || !isSupabaseConfigured) return;
+      const snapshot = { ...memo };
+      // Optimistic: remove from list now
+      setMemos((arr) => arr.filter((m) => m.id !== snapshot.id));
+      const promise = (async () => {
+        const { error } = await supabase
+          .from('book_memos')
+          .delete()
+          .eq('id', snapshot.id)
+          .eq('user_id', user.id);
+        if (error) throw error;
+        if (snapshot.photoPath) {
+          try {
+            await supabase.storage.from('book-memo-photos').remove([snapshot.photoPath]);
+          } catch { /* ignore */ }
+        }
+      })().catch((e) => {
+        toast.error(toMessage(e, 'メモの削除に失敗しました。'));
+        // Restore in UI on failure
+        setMemos((arr) => [snapshot, ...arr]);
+        throw e;
+      });
+      toast.undo({
+        message: snapshot.photoPath
+          ? 'メモを削除しました\n※写真は復元できません'
+          : 'メモを削除しました',
+        onUndo: async () => {
+          try {
+            await promise.catch(() => {});
+            const payload = {
+              id: snapshot.id,
+              book_id: snapshot.bookId || null,
+              user_id: user.id,
+              page_number: snapshot.pageNumber ?? null,
+              text: snapshot.text || '',
+              tags: snapshot.tags || [],
+              photo_path: null,
+              source_type: snapshot.sourceType === 'personal' ? 'personal' : 'book',
+            };
+            if (snapshot.createdAt) payload.created_at = snapshot.createdAt;
+            const { error } = await supabase.from('book_memos').insert([payload]);
+            if (error) throw error;
+            toast.info('削除を取り消しました');
+            fetchMemos();
+          } catch (e) {
+            toast.error(toMessage(e, '復元に失敗しました。'));
+          }
+        },
+      });
+    },
+    [user, fetchMemos, toast]
+  );
 
   const booksById = useMemo(() => {
     const m = new Map();
@@ -321,7 +401,21 @@ export default function Review({ books = [], onOpenBook }) {
   }
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div style={wrap}>
+      {memoMenu && (
+        <ContextMenu
+          x={memoMenu.x}
+          y={memoMenu.y}
+          onClose={() => setMemoMenu(null)}
+          items={[
+            ...(memoMenu.book
+              ? [{ label: '本を開く', icon: '📖', onClick: () => onOpenBook?.(memoMenu.book) }]
+              : []),
+            { label: '削除', icon: '🗑️', destructive: true, onClick: () => handleSwipeDelete(memoMenu.memo) },
+          ]}
+        />
+      )}
       {/* ===== 1. 今日の振り返り (random) ===== */}
       <section>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -342,6 +436,8 @@ export default function Review({ books = [], onOpenBook }) {
               memo={randomMemo}
               book={booksById.get(randomMemo.bookId)}
               onOpenBook={onOpenBook}
+              onSwipeDelete={handleSwipeDelete}
+              onLongPress={(payload) => setMemoMenu(payload)}
               showRelative
             />
           </div>
@@ -389,6 +485,8 @@ export default function Review({ books = [], onOpenBook }) {
                         memo={m}
                         book={booksById.get(m.bookId)}
                         onOpenBook={onOpenBook}
+                        onSwipeDelete={handleSwipeDelete}
+                        onLongPress={(payload) => setMemoMenu(payload)}
                       />
                     ))}
                   </div>
@@ -469,11 +567,14 @@ export default function Review({ books = [], onOpenBook }) {
                 memo={m}
                 book={booksById.get(m.bookId)}
                 onOpenBook={onOpenBook}
+                onSwipeDelete={handleSwipeDelete}
+                onLongPress={(payload) => setMemoMenu(payload)}
               />
             ))}
           </div>
         )}
       </section>
     </div>
+    </PullToRefresh>
   );
 }

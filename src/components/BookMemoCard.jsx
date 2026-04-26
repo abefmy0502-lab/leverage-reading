@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
+import { useLongPress } from '../hooks/useLongPress';
+import SwipeableCard from './SwipeableCard';
 
 const cardWrap = {
   position: 'relative',
@@ -77,13 +79,17 @@ function formatDate(iso) {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function BookMemoCard({ memo, onEdit, onDelete }) {
+export default function BookMemoCard({ memo, onEdit, onDelete, onSwipeDelete, onLongPress }) {
   const cache = useAppDataCache();
   // Synchronous cache hit → render the image immediately on first paint.
   const initialUrl = memo.photoPath ? cache.getCachedPhotoUrl(memo.photoPath) : null;
   const [photoUrl, setPhotoUrl] = useState(initialUrl);
   const [zoom, setZoom] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const longPress = useLongPress({
+    onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, memo }),
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -111,8 +117,10 @@ export default function BookMemoCard({ memo, onEdit, onDelete }) {
     return () => window.removeEventListener('click', close);
   }, [menuOpen]);
 
-  return (
-    <div style={cardWrap}>
+  const swipeEnabled = Boolean(onSwipeDelete);
+
+  const cardInner = (
+    <div style={cardWrap} {...(onLongPress ? longPress.bind : {})}>
       <button
         type="button"
         onClick={(e) => {
@@ -229,4 +237,13 @@ export default function BookMemoCard({ memo, onEdit, onDelete }) {
       )}
     </div>
   );
+
+  if (swipeEnabled) {
+    return (
+      <SwipeableCard onDelete={() => onSwipeDelete?.(memo)}>
+        {cardInner}
+      </SwipeableCard>
+    );
+  }
+  return cardInner;
 }
