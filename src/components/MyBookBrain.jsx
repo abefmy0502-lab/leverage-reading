@@ -345,11 +345,19 @@ export default function MyBookBrain({ onOpenBook }) {
     };
   }, [user, learningOpen, messages.length, statsTick]);
 
-  // Auto-scroll on new messages.
+  // Auto-scroll only when a NEW message is appended — not on tab open or on
+  // history load. Otherwise opening the brain tab with prior history would
+  // jump the page down to the latest message.
+  const prevMsgCountRef = useRef(0);
   useEffect(() => {
-    if (view === 'chat') {
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 30);
-    }
+    const prev = prevMsgCountRef.current;
+    prevMsgCountRef.current = messages.length;
+    if (view !== 'chat') return;
+    if (messages.length <= prev) return; // initial load or shrink → don't scroll
+    setTimeout(
+      () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }),
+      30
+    );
   }, [messages, view]);
 
   const ask = async (questionText) => {

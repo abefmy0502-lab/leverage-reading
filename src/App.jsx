@@ -783,7 +783,17 @@ function BookAdvisor({ onAddBook, onClose }) {
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
-  const messagesEndRef = (el) => { if (el) el.scrollIntoView({ behavior: "smooth" }); };
+  // Use a regular ref + effect (not a callback ref) so the bottom anchor
+  // doesn't auto-scroll on every mount/re-render. Only scroll when the
+  // message count actually grew (= new message arrived).
+  const messagesEndRef = useRef(null);
+  const prevMsgCountRef = useRef(messages.length);
+  useEffect(() => {
+    const prev = prevMsgCountRef.current;
+    prevMsgCountRef.current = messages.length;
+    if (messages.length <= prev) return;
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 30);
+  }, [messages]);
 
   // Parse the new richer response: leading prose + JSON recs + trailing prose.
   const parseAdvisorResponse = (text) => {
@@ -1024,9 +1034,6 @@ function AuthedApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Long-press context menu (book cards on bookshelf)
   const [bookContextMenu, setBookContextMenu] = useState(null); // { x, y, book }
-  // iOS-style "Large Title" shrink-on-scroll for the main header.
-  const [headerCollapsed, setHeaderCollapsed] = useState(false);
-
   // Edge-swipe back: only listens while we're on a detail or edit view.
   useEdgeSwipeBack({
     enabled: view === 'detail' || view === 'edit',
@@ -1035,25 +1042,6 @@ function AuthedApp() {
       else goList();
     },
   });
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    let raf = 0;
-    const update = () => {
-      const y = window.scrollY || 0;
-      setHeaderCollapsed(y > 40);
-      raf = 0;
-    };
-    const onScroll = () => {
-      if (raf) return;
-      raf = window.requestAnimationFrame(update);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    update();
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      if (raf) window.cancelAnimationFrame(raf);
-    };
-  }, []);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
@@ -1785,25 +1773,36 @@ const persist = useCallback((updates) => {
   // ===== TAB CONTENT =====
   return (
     <Shell>
-   <header style={{ padding: headerCollapsed ? "10px 20px 6px" : "20px 20px 8px", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "padding 250ms cubic-bezier(0.25,1,0.5,1)" }}>
-  <h1 className={"lvg-large-title" + (headerCollapsed ? " is-collapsed" : "")} style={{ letterSpacing: headerCollapsed ? 1 : -0.5 }}>📚 レバレッジ読書ログ</h1>
-  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-    <button
-      onClick={openHelp}
-      style={{ background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 11, color: "#8a7e6b", cursor: "pointer", padding: "4px 10px", fontFamily: "inherit" }}
-      aria-label="この画面のヘルプを見る"
-    >
-      ？ ヘルプ
-    </button>
-    <button
-      onClick={() => setSettingsOpen(true)}
-      style={{ background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 11, color: "#8a7e6b", cursor: "pointer", padding: "4px 10px", fontFamily: "inherit" }}
-      aria-label="アカウント設定"
-    >
-      ⚙️ 設定
-    </button>
-  </div>
-</header>
+   <header
+     style={{
+       padding: "max(env(safe-area-inset-top, 12px), 12px) 16px 8px",
+       minHeight: 48,
+       display: "flex",
+       justifyContent: "space-between",
+       alignItems: "center",
+       gap: 8,
+     }}
+   >
+    <span aria-hidden="true" style={{ fontSize: 26, lineHeight: 1, padding: "4px 6px" }}>📚</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <button
+        onClick={openHelp}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 18, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        aria-label="この画面のヘルプを開く"
+        title="ヘルプ"
+      >
+        ？
+      </button>
+      <button
+        onClick={() => setSettingsOpen(true)}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, fontSize: 18, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        aria-label="アカウント設定を開く"
+        title="設定"
+      >
+        ⚙️
+      </button>
+    </div>
+  </header>
 
       <div key={tab} className="lvg-page" style={{ paddingBottom: 80 }}>
         {tab === "books" && (
