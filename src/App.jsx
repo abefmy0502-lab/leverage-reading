@@ -12,6 +12,7 @@ import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './
 import HelpModal from './components/HelpModal';
 import Review from './components/Review';
 import MyBookBrain from './components/MyBookBrain';
+import ActionList from './components/ActionList';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
@@ -39,6 +40,7 @@ import {
   CheckCircle,
   HelpCircle,
   Settings as SettingsIcon,
+  Target,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -971,6 +973,7 @@ function BottomNav({ tab, setTab }) {
   const tabs = [
     { key: "books", Icon: BookOpen, label: "本棚" },
     { key: "review", Icon: RotateCcw, label: "振り返り" },
+    { key: "action", Icon: Target, label: "行動" },
     { key: "brain", Icon: Brain, label: "読書脳" },
     { key: "advisor", Icon: Sparkles, label: "AI 選書" },
   ];
@@ -1122,6 +1125,7 @@ const persist = useCallback((updates) => {
       if (status === 'done') return 'bookDetailDone';
     }
     if (tab === 'review') return 'review';
+    if (tab === 'action') return 'actionList';
     if (tab === 'advisor') return 'aiAdvisor';
     if (tab === 'brain') return 'myBookBrain';
     return 'bookList';
@@ -1466,10 +1470,26 @@ const persist = useCallback((updates) => {
     acts[actionIdx] = { ...acts[actionIdx], done: !acts[actionIdx].done };
     const updated = { ...book, actions: acts };
 
+    haptic.light();
     try {
       await saveBook(updated);
     } catch (error) {
       toast.error(toMessage(error, '行動の更新に失敗しました。'));
+    }
+  };
+
+  const deleteActionFromBook = async (bookId, actionIdx) => {
+    const book = books.find((b) => b.id === bookId);
+    if (!book) return;
+    const acts = [...(book.actions || [])];
+    if (actionIdx < 0 || actionIdx >= acts.length) return;
+    acts.splice(actionIdx, 1);
+    const updated = { ...book, actions: acts };
+    try {
+      await saveBook(updated);
+      toast.success('行動を削除しました');
+    } catch (error) {
+      toast.error(toMessage(error, '行動の削除に失敗しました。'));
     }
   };
 
@@ -2020,6 +2040,15 @@ const persist = useCallback((updates) => {
 
         {tab === "review" && (
           <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+        )}
+
+        {tab === "action" && (
+          <ActionList
+            books={books}
+            onToggleAction={toggleAction}
+            onDeleteAction={deleteActionFromBook}
+            onOpenBook={(b) => { openDetail(b); setTab("books"); }}
+          />
         )}
 
         {tab === "brain" && (

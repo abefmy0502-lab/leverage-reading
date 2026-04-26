@@ -9,13 +9,14 @@
 - **バックエンド**: Supabase (PostgreSQL + Auth + Storage)
 - **AI**: Anthropic Claude API（`api/claude.js` 経由のサーバーサイド中継）
 - **ホスティング**: Vercel
-- **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🧠 マイ読書脳（自分のメモを根拠にする AI Q&A + 本以外の学びログ）、🤖 AI 選書アドバイザー、PWA インストール
+- **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🎯 行動リスト（本横断 + 完了率 + 期限管理）、🧠 マイ読書脳（自分のメモを根拠にする AI Q&A + 本以外の学びログ）、🤖 AI 選書アドバイザー、PWA インストール
 
 ### ナビゲーション構造
 
-下部ナビは 4 タブ：
+下部ナビは 5 タブ：
 - 📚 **本棚** — 本一覧（検索 / フィルタ / ソート / 続きから）
 - 🔄 **振り返り** — ランダムメモ想起 / 月別タイムライン / 全メモ横断検索（学びログも混在表示）
+- 🎯 **行動** — 本横断アクション一覧（完了率 / フィルタ / 並び順 / 期限色分け）
 - 🧠 **読書脳** — マイ読書脳（メモを根拠にした AI Q&A + 学びログ追加 + チャット履歴）
 - 🤖 **AI 選書** — 課題ヒアリング → 推薦
 
@@ -28,7 +29,7 @@
 | パーソナルキャピタル（投資成果サマリー / 知識マップ / ROI / 計画 / 成長 / AI 分析 / 学習プラン） | `src/components/CapitalDashboard.jsx`, `src/components/AIInsight.jsx` | App.jsx から import を外し未参照 |
 | 今日の学びタブ（TodayTab） | `src/App.jsx` 内の `function TodayTab` | 関数定義残置・呼び出し削除 |
 | クロスブック メモタブ（MemosTab） | `src/App.jsx` 内の `function MemosTab` | 関数定義残置・呼び出し削除 |
-| クロスブック 行動タブ（ActionsTab） | `src/App.jsx` 内の `function ActionsTab` | 関数定義残置・呼び出し削除 |
+| クロスブック 行動タブ（ActionsTab）— 旧実装 | `src/App.jsx` 内の `function ActionsTab` | 2026-04-25 に独立コンポーネント `src/components/ActionList.jsx` で再実装。旧 ActionsTab は未参照のまま残置 |
 | バッジ / 連続日数 / レベルシステム | `CapitalDashboard.jsx` 内 | 上記と同じく未参照に |
 
 ## ディレクトリ構造
@@ -147,6 +148,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 |---|---|
 | `bookList` | 本棚画面（下部ナビ: 本棚） |
 | `review` | 振り返りタブ（ランダム想起 / タイムライン / 横断検索） |
+| `actionList` | 行動リストタブ（本横断 + 完了率 + 期限色分け、`ActionList.jsx`） |
 | `myBookBrain` | マイ読書脳（メモ根拠の AI Q&A + 学びログ + 履歴） |
 | `bookDetailWant` | 「読みたい」状態の本詳細 |
 | `bookDetailBefore` | 「読書前」状態の本詳細 |
@@ -155,7 +157,8 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `aiAdvisor` | AI 選書アドバイザー（下部ナビ: AI 選書） |
 | `memoEditor` | メモ入力画面（カード式 + クイックメモ + まとめ） |
 | `personalCapital` | （廃止予定）パーソナルキャピタル — UI 導線なし |
-| `todayLearning` / `memos` / `actions` | （未使用）旧ボトムナビタブ用、現在は到達不可 |
+| `todayLearning` / `memos` | （未使用）旧ボトムナビタブ用、現在は到達不可 |
+| `actions` | （内部用）本詳細フォーム内の行動リスト編集セクション。新しい横断行動タブは `actionList` 参照 |
 
 新しい画面を追加した場合、上の表にも追記し、`HELP_CONTENT` にもキーを追加すること。
 
