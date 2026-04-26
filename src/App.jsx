@@ -1375,7 +1375,10 @@ const persist = useCallback((updates) => {
   };
 
   // ===== AI (prompts in src/lib/prompts.js) =====
-  const topUserTagsForAI = useMemo(() => allTags.slice(0, 3), [allTags]);
+  // NOTE: don't pull a useMemo from `allTags` here — `allTags` is declared
+  // later in this component's body, and the deps array is evaluated
+  // immediately, which would TDZ. Read `allTags.slice(0, 3)` lazily inside
+  // the async handler (runs after the full body has initialized).
 
   const runAnalysis = async () => {
     setAiLoading(true);
@@ -1402,7 +1405,7 @@ const persist = useCallback((updates) => {
           author: form.author,
           analysis: form.aiAnalysis,
           purpose: form.investPurpose,
-          topTags: topUserTagsForAI,
+          topTags: allTags.slice(0, 3),
         }),
         { max_tokens: 2048 }
       );
