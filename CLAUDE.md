@@ -233,3 +233,11 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 - **キャッシュ整合性**: `useBookMemos` の mutation は `AppDataCache` の `subscribeMemos` 経由で全インスタンスへ自動反映。新規データソースを追加するときは同様の subscribe パターンを検討
 - **写真は `book-memo-photos` private バケット**: 表示時は `useAppDataCache().fetchPhotoUrl(path)` で署名 URL（50 分キャッシュ）を取得。直接 `getPublicUrl` は使わない
 - **iOS HIG 準拠を心がける**: フォント・色・動きは `src/index.css` で定義した CSS 変数（`--type-*` / `--color-*` / `--ease-*` / `--duration-*` / `--shadow-*`）を使い、ハードコードを避ける。新規ボタンは `min-height: 44px+`、ボトムシートには `lvg-sheet-handle`（細いドラッグハンドル）と `backdrop-filter: blur(8px)` を付ける。スプリングアニメは `var(--ease-spring)` + `var(--duration-base)` を組み合わせる
+- **ジェスチャー基盤**（Phase B 完了済み）: 以下のフック/コンポーネントを使うとネイティブ感が出る — 新画面でも同じ仕組みを再利用できる
+  - `useHaptic()` — `light/medium/heavy/success/warning/error` を返す。重要操作には `haptic.light()`、削除確定時に `haptic.medium()`、読了など達成時に `haptic.success()`
+  - `useLongPress({ onLongPress })` — 500ms 押下＋8px 以下の動きで発火。`onLongPress` のコールバックは `clientX/Y` を受け取るので `<ContextMenu>` の位置決めに使える
+  - `useSwipeToDelete({ onDelete })` + `<SwipeableCard>` — リスト項目を左スワイプで削除。閾値超えで armed 状態 → ハプティクス → 離して削除実行
+  - `usePullToRefresh({ onRefresh })` + `<PullToRefresh>` — スクロール最上部で下に引っ張ると円形プログレス → リフレッシュ → ✓
+  - `useEdgeSwipeBack({ onBack, enabled })` — 画面左端 24px から右スワイプで `onBack` 発火。enabled で画面ごとに有効/無効を切替
+  - `<ContextMenu items=[{label, icon, onClick, destructive?}] />` — 長押しから出る iOS 風フローティングメニュー
+  - スワイプ削除は「ジェスチャー＝意図」とみなして確認モーダル無し（Undo トーストでフォロー）。タップで「⋮」→「削除」は従来通り確認モーダル

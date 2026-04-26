@@ -15,6 +15,12 @@ import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import { BookListSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
+import SwipeableCard from './components/SwipeableCard';
+import ContextMenu from './components/ContextMenu';
+import PullToRefresh from './components/PullToRefresh';
+import { useHaptic } from './hooks/useHaptic';
+import { useLongPress } from './hooks/useLongPress';
+import { useEdgeSwipeBack } from './hooks/useEdgeSwipeBack';
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
@@ -243,6 +249,60 @@ function StatusBadge({ status }) {
 function BookIcon() {
   return (
     <div style={{ width: 32, height: 44, background: "#e8e2d6", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>📕</div>
+  );
+}
+
+// Swipeable + long-pressable book row used on the bookshelf list.
+// Defined at top level (not inside AuthedApp) so the per-card hooks
+// (useLongPress) follow Rules of Hooks.
+function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress }) {
+  const longPress = useLongPress({
+    onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
+  });
+  return (
+    <SwipeableCard onDelete={() => onSwipeDelete?.(book)}>
+      <div
+        onClick={() => onOpen?.(book)}
+        {...longPress.bind}
+        style={{
+          background: "#faf6f0",
+          borderRadius: 14,
+          padding: "12px 14px",
+          border: "1px solid #e4ddd0",
+          boxShadow: isJustDone
+            ? "0 0 18px rgba(212,160,64,0.55), 0 2px 8px rgba(30,25,20,0.08)"
+            : "0 2px 6px rgba(30,25,20,0.06)",
+          cursor: "pointer",
+          transition: "background .12s ease, box-shadow .35s ease, transform .12s ease",
+          animation: isJustDone
+            ? "leverage-card-celebrate 2.4s ease both"
+            : `slideUp .3s ease ${index * 0.02}s both`,
+        }}
+      >
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {book.cover ? (
+            <img
+              src={ensureHttps(book.cover)}
+              alt=""
+              style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid #e0d8c8", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
+            />
+          ) : (
+            <BookIcon />
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#3d362c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: 0.2 }}>{book.title}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+              {book.author && <span style={{ fontSize: 11, color: "#a89e8c", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.author}</span>}
+              {book.rating > 0 && <Stars r={book.rating} size={11} />}
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <StatusBadge status={book.status} />
+            </div>
+          </div>
+          <span style={{ fontSize: 14, color: "#c4b8a6" }}>›</span>
+        </div>
+      </div>
+    </SwipeableCard>
   );
 }
 
@@ -904,7 +964,9 @@ function AuthedApp() {
     deleteBook,
     captureBookSnapshot,
     restoreBookFromSnapshot,
+    refreshBooks,
   } = useBooks();
+  const haptic = useHaptic();
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -931,8 +993,19 @@ function AuthedApp() {
   const [recentlyDoneId, setRecentlyDoneId] = useState(null);
   const recentlyDoneTimerRef = useRef(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Long-press context menu (book cards on bookshelf)
+  const [bookContextMenu, setBookContextMenu] = useState(null); // { x, y, book }
   // iOS-style "Large Title" shrink-on-scroll for the main header.
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
+
+  // Edge-swipe back: only listens while we're on a detail or edit view.
+  useEdgeSwipeBack({
+    enabled: view === 'detail' || view === 'edit',
+    onBack: () => {
+      if (view === 'edit' && current) setView('detail');
+      else goList();
+    },
+  });
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     let raf = 0;
@@ -1073,9 +1146,40 @@ const persist = useCallback((updates) => {
     }
   };
 
-  // Immediate-delete with restore-on-undo. The DB DELETE is fired right away
-  // so closing the app within the 5s undo window cannot resurrect the book.
-  // Undo re-INSERTs from the in-memory snapshot (photos are non-recoverable).
+  // Inner delete flow: snapshot, fire delete, show Undo toast. Used by both
+  // the kebab "削除" button (with confirm) and the swipe-delete gesture
+  // (which is already an explicit user intent, no confirm).
+  const performBookDelete = async (book, { fromList = false } = {}) => {
+    const snapshot = await captureBookSnapshot(book.id);
+    if (!snapshot) {
+      toast.error('本のデータを取得できませんでした。削除を中止します。');
+      return;
+    }
+    const deletionPromise = deleteBook(book.id).catch((error) => {
+      toast.error(toMessage(error, '削除に失敗しました。'));
+      throw error;
+    });
+    if (!fromList) goList();
+    haptic.medium();
+
+    const hasPhotos = (snapshot.book_memos || []).some((m) => m.photo_path);
+    toast.undo({
+      message: hasPhotos
+        ? `「${book.title}」を削除しました。\n※写真は復元できません。`
+        : `「${book.title}」を削除しました。`,
+      onUndo: async () => {
+        try {
+          await deletionPromise.catch(() => {});
+          await restoreBookFromSnapshot(snapshot);
+          toast.info('削除を取り消しました');
+        } catch (error) {
+          toast.error(toMessage(error, '復元に失敗しました。'));
+        }
+      },
+    });
+  };
+
+  // Tap-driven delete (kebab / detail view "削除" button) — confirm dialog first.
   const requestDeleteBook = async (book) => {
     if (!book) return;
     const ok = await confirm({
@@ -1086,38 +1190,13 @@ const persist = useCallback((updates) => {
       danger: true,
     });
     if (!ok) return;
+    await performBookDelete(book);
+  };
 
-    // Snapshot first (must read relations BEFORE the delete cascades them away).
-    const snapshot = await captureBookSnapshot(book.id);
-    if (!snapshot) {
-      toast.error('本のデータを取得できませんでした。削除を中止します。');
-      return;
-    }
-
-    // Fire DB delete immediately. Capture the promise so Undo waits for it
-    // before re-inserting (avoids any DELETE↔INSERT race).
-    const deletionPromise = deleteBook(book.id).catch((error) => {
-      toast.error(toMessage(error, '削除に失敗しました。'));
-      throw error;
-    });
-
-    goList();
-
-    const hasPhotos = (snapshot.book_memos || []).some((m) => m.photo_path);
-    toast.undo({
-      message: hasPhotos
-        ? `「${book.title}」を削除しました。\n※写真は復元できません。`
-        : `「${book.title}」を削除しました。`,
-      onUndo: async () => {
-        try {
-          await deletionPromise.catch(() => {}); // wait until DB DELETE settles
-          await restoreBookFromSnapshot(snapshot);
-          toast.info('削除を取り消しました');
-        } catch (error) {
-          toast.error(toMessage(error, '復元に失敗しました。'));
-        }
-      },
-    });
+  // Swipe-driven delete from the list — gesture itself counts as confirmation.
+  const swipeDeleteBook = (book) => {
+    if (!book) return;
+    performBookDelete(book, { fromList: true });
   };
 
   const handleBookSelect = (b) => {
@@ -1209,6 +1288,7 @@ const persist = useCallback((updates) => {
       setRecentlyDoneId(book.id);
       recentlyDoneTimerRef.current = setTimeout(() => setRecentlyDoneId(null), 8000);
       try { fireConfetti(); } catch { /* non-critical */ }
+      try { haptic.success(); } catch { /* non-critical */ }
       toast.show({
         type: 'success',
         message: '🎉 1 冊読了！お疲れ様でした',
@@ -1648,7 +1728,7 @@ const persist = useCallback((updates) => {
 
       <div key={tab} className="lvg-page" style={{ paddingBottom: 80 }}>
         {tab === "books" && (
-          <>
+          <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <div style={{ padding: "10px 20px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #e8e2d6" }}>
               <input
                 placeholder="🔍 タイトル・著者・タグで検索"
@@ -1771,52 +1851,17 @@ const persist = useCallback((updates) => {
                 )
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {filtered.map((b, i) => {
-                    const justDone = recentlyDoneId === b.id;
-                    return (
-                      <div
-                        key={b.id}
-                        onClick={() => openDetail(b)}
-                        style={{
-                          background: "#faf6f0",
-                          borderRadius: 14,
-                          padding: "12px 14px",
-                          border: "1px solid #e4ddd0",
-                          boxShadow: justDone
-                            ? "0 0 18px rgba(212,160,64,0.55), 0 2px 8px rgba(30,25,20,0.08)"
-                            : "0 2px 6px rgba(30,25,20,0.06)",
-                          cursor: "pointer",
-                          transition: "background .12s ease, box-shadow .35s ease, transform .12s ease",
-                          animation: justDone
-                            ? "leverage-card-celebrate 2.4s ease both"
-                            : `slideUp .3s ease ${i * 0.02}s both`,
-                        }}
-                      >
-                        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                          {b.cover ? (
-                            <img
-                              src={ensureHttps(b.cover)}
-                              alt=""
-                              style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid #e0d8c8", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
-                            />
-                          ) : (
-                            <BookIcon />
-                          )}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: "#3d362c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: 0.2 }}>{b.title}</div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                              {b.author && <span style={{ fontSize: 11, color: "#a89e8c", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.author}</span>}
-                              {b.rating > 0 && <Stars r={b.rating} size={11} />}
-                            </div>
-                            <div style={{ marginTop: 6 }}>
-                              <StatusBadge status={b.status} />
-                            </div>
-                          </div>
-                          <span style={{ fontSize: 14, color: "#c4b8a6" }}>›</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {filtered.map((b, i) => (
+                    <SwipeableBookCard
+                      key={b.id}
+                      book={b}
+                      index={i}
+                      isJustDone={recentlyDoneId === b.id}
+                      onOpen={openDetail}
+                      onSwipeDelete={swipeDeleteBook}
+                      onLongPress={(payload) => setBookContextMenu(payload)}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -1845,7 +1890,7 @@ const persist = useCallback((updates) => {
             >
               ＋
             </button>
-          </>
+          </PullToRefresh>
         )}
 
         {tab === "review" && (
@@ -1867,6 +1912,37 @@ const persist = useCallback((updates) => {
       </div>
 
       {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
+
+      {bookContextMenu && (
+        <ContextMenu
+          x={bookContextMenu.x}
+          y={bookContextMenu.y}
+          onClose={() => setBookContextMenu(null)}
+          items={[
+            {
+              label: '詳細を開く',
+              icon: '📖',
+              onClick: () => openDetail(bookContextMenu.book),
+            },
+            {
+              label: '編集',
+              icon: '✏️',
+              onClick: () => openEdit(bookContextMenu.book),
+            },
+            {
+              label: '共有',
+              icon: '📤',
+              onClick: () => shareBook(bookContextMenu.book),
+            },
+            {
+              label: '削除',
+              icon: '🗑️',
+              destructive: true,
+              onClick: () => requestDeleteBook(bookContextMenu.book),
+            },
+          ]}
+        />
+      )}
 
       {settingsOpen && (
         <AccountSettings
