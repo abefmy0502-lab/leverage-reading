@@ -15,6 +15,10 @@ import MyBookBrain from './components/MyBookBrain';
 import ActionList from './components/ActionList';
 import AddBookModal from './components/AddBookModal';
 import { useBookCover } from './hooks/useBookCover';
+import {
+  searchBooks as searchBooksAPI,
+  searchBooksFlat as searchBooksAPIFlat,
+} from './lib/bookSearch';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
@@ -84,112 +88,9 @@ function amazonLink(title, author) {
 
 
 /* ========== ISBN / Search ==========
- *
- * Search returns a structured result so the UI can distinguish
- * "no results" from "API failure" — silently swallowing errors here was
- * the cause of the long-standing "search appears broken" bug.
- *
- *   { ok: true,  results: [...]  }   normal hit (results may be [])
- *   { ok: false, error: 'message' }  any source failed terminally
+ * Lives in src/lib/bookSearch.js — NDL → openBD → Google Books pipeline
+ * with localStorage cache. Don't add a fetch call here; extend the lib.
  */
-async function lookupISBN(isbn) {
-  // openBD first — it covers Japanese books well, returns 200 with [null] on miss
-  try {
-    const r = await fetch(`https://api.openbd.jp/v1/get?isbn=${isbn}`);
-    if (r.ok) {
-      const d = await r.json();
-      if (d?.[0]?.summary) {
-        const s = d[0].summary;
-        return { title: s.title || "", author: s.author || "", cover: s.cover || "" };
-      }
-    }
-  } catch (e) {
-    // Network error — fall through to Google Books before giving up
-    console.warn('openBD lookupISBN failed:', e?.message || e);
-  }
-  try {
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-    if (r.ok) {
-      const d = await r.json();
-      if (d.items?.[0]?.volumeInfo) {
-        const v = d.items[0].volumeInfo;
-        return { title: v.title || "", author: (v.authors || []).join(", "), cover: v.imageLinks?.thumbnail || "" };
-      }
-    }
-  } catch (e) {
-    console.warn('Google Books lookupISBN failed:', e?.message || e);
-  }
-  return null;
-}
-
-async function searchBooksAPI(q) {
-  // Try OpenBD first for Japanese books — only useful for ISBN-shaped queries.
-  // openBD doesn't support title search, so we shortcut on a clean ISBN.
-  const cleaned = (q || '').replace(/[-\s]/g, '');
-  const isISBN = /^\d{10,13}$/.test(cleaned);
-  if (isISBN) {
-    try {
-      const r = await fetch(`https://api.openbd.jp/v1/get?isbn=${encodeURIComponent(cleaned)}`);
-      if (r.ok) {
-        const d = await r.json();
-        if (d?.[0]?.summary?.title) {
-          const s = d[0].summary;
-          return { ok: true, results: [{ title: s.title, author: s.author || "", cover: s.cover || "", pages: 0 }] };
-        }
-      }
-    } catch (e) {
-      console.warn('openBD searchBooksAPI failed:', e?.message || e);
-      // Fall through — Google Books may still find it
-    }
-  }
-
-  // Google Books — primary source for title/author keyword search.
-  // No API key needed for low-volume use; quota errors return 429.
-  try {
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20`);
-    if (!r.ok) {
-      const detail = r.status === 429
-        ? '検索の利用回数が一時的に上限に達しました。しばらくしてから再度お試しください。'
-        : `Google Books の応答が異常です (HTTP ${r.status})`;
-      return { ok: false, error: detail };
-    }
-    const d = await r.json();
-    const items = d?.items || [];
-    const results = items
-      .map((i) => {
-        const v = i.volumeInfo || {};
-        return {
-          title: v.title || '',
-          author: (v.authors || []).join(', '),
-          cover: v.imageLinks?.thumbnail || '',
-          pages: v.pageCount || 0,
-          isbn:
-            (v.industryIdentifiers || []).find((x) => x.type === 'ISBN_13')?.identifier ||
-            (v.industryIdentifiers || []).find((x) => x.type === 'ISBN_10')?.identifier ||
-            '',
-        };
-      })
-      .filter((b) => b.title);
-    return { ok: true, results };
-  } catch (e) {
-    console.warn('Google Books searchBooksAPI failed:', e);
-    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-    return {
-      ok: false,
-      error: isOffline
-        ? 'インターネットに接続されていないようです。接続を確認してください。'
-        : '検索でネットワークエラーが発生しました。時間をおいて再度お試しください。',
-    };
-  }
-}
-
-// Compatibility helper: callers that just want "best-effort cover" results
-// (e.g. AI advisor / learning plan auto-add) still want a flat array. Keep
-// the old shape behind this thin wrapper so we don't churn those sites.
-async function searchBooksAPIFlat(q) {
-  const r = await searchBooksAPI(q);
-  return r.ok ? r.results : [];
-}
 
 /* ========== Book Search Modal ========== */
 function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
@@ -201,27 +102,18 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState(null);
   const [lastQuery, setLastQuery] = useState('');
-
-  const isISBN = (str) => /^[\d]{10,13}$/.test(str);
+  // True when the result was served from the localStorage cache. Flagged in
+  // the UI as a quiet "（キャッシュ）" so the user knows zero API calls fired.
+  const [cached, setCached] = useState(false);
 
   const doSearch = async (queryOverride) => {
     const query = (queryOverride ?? q).trim();
     if (!query) return;
-    setSearching(true); setNotFound(false); setError(null); setResults([]);
+    setSearching(true); setNotFound(false); setError(null); setResults([]); setCached(false);
     setLastQuery(query);
 
-    const cleaned = query.replace(/[-\s]/g, '');
-    if (isISBN(cleaned)) {
-      const info = await lookupISBN(cleaned);
-      if (info && info.title) {
-        setResults([{ title: info.title, author: info.author, cover: info.cover, pages: 0, isbn: cleaned }]);
-      } else {
-        setNotFound(true);
-      }
-      setSearching(false);
-      return;
-    }
-
+    // searchBooksAPI handles ISBN routing internally (openBD → Google Books)
+    // so the modal doesn't need to branch on input shape anymore.
     const res = await searchBooksAPI(query);
     if (!res.ok) {
       setError(res.error || '検索でエラーが発生しました。');
@@ -229,6 +121,7 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
       setNotFound(true);
     } else {
       setResults(res.results);
+      if (res.cached) setCached(true);
     }
     setSearching(false);
   };
@@ -289,6 +182,12 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
             別のキーワードや、ISBN（10/13 桁）で試してみてください
           </p>
         </div>
+      )}
+
+      {results.length > 0 && cached && (
+        <p style={{ fontSize: 10, color: '#9a8e7a', margin: '0 2px', fontStyle: 'italic' }}>
+          ⚡ キャッシュから即時表示しました（最後の検索から 24 時間以内）
+        </p>
       )}
 
       {results.length > 0 && (
