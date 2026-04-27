@@ -26,6 +26,8 @@ const transformBook = (book) => ({
   leverageMemo: book.leverage_memo,
   aiSummary: book.ai_summary,
   roiSummary: book.roi_summary,
+  // Default to 'search' for legacy rows that pre-date the column.
+  addedVia: book.added_via || 'search',
 });
 
 export function useBooks() {
@@ -86,6 +88,7 @@ export function useBooks() {
         leverage_memo: typeof book.leverageMemo === 'string' ? book.leverageMemo : null,
         ai_summary: book.aiSummary || null,
         roi_summary: book.roiSummary || null,
+        added_via: book.addedVia === 'manual' ? 'manual' : 'search',
       };
 
       let savedBookId;

@@ -13,6 +13,8 @@ import HelpModal from './components/HelpModal';
 import Review from './components/Review';
 import MyBookBrain from './components/MyBookBrain';
 import ActionList from './components/ActionList';
+import AddBookModal from './components/AddBookModal';
+import { useBookCover } from './hooks/useBookCover';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
@@ -81,68 +83,164 @@ function amazonLink(title, author) {
 // ADVISOR_SYSTEM lives in src/lib/prompts.js as PROMPTS.bookAdvisor.system
 
 
-/* ========== ISBN / Search ========== */
+/* ========== ISBN / Search ==========
+ *
+ * Search returns a structured result so the UI can distinguish
+ * "no results" from "API failure" — silently swallowing errors here was
+ * the cause of the long-standing "search appears broken" bug.
+ *
+ *   { ok: true,  results: [...]  }   normal hit (results may be [])
+ *   { ok: false, error: 'message' }  any source failed terminally
+ */
 async function lookupISBN(isbn) {
+  // openBD first — it covers Japanese books well, returns 200 with [null] on miss
   try {
     const r = await fetch(`https://api.openbd.jp/v1/get?isbn=${isbn}`);
-    const d = await r.json();
-    if (d?.[0]?.summary) { const s = d[0].summary; return { title: s.title || "", author: s.author || "", cover: s.cover || "" }; }
-  } catch {}
+    if (r.ok) {
+      const d = await r.json();
+      if (d?.[0]?.summary) {
+        const s = d[0].summary;
+        return { title: s.title || "", author: s.author || "", cover: s.cover || "" };
+      }
+    }
+  } catch (e) {
+    // Network error — fall through to Google Books before giving up
+    console.warn('openBD lookupISBN failed:', e?.message || e);
+  }
   try {
     const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-    const d = await r.json();
-    if (d.items?.[0]?.volumeInfo) { const v = d.items[0].volumeInfo; return { title: v.title || "", author: (v.authors || []).join(", "), cover: v.imageLinks?.thumbnail || "" }; }
-  } catch {}
+    if (r.ok) {
+      const d = await r.json();
+      if (d.items?.[0]?.volumeInfo) {
+        const v = d.items[0].volumeInfo;
+        return { title: v.title || "", author: (v.authors || []).join(", "), cover: v.imageLinks?.thumbnail || "" };
+      }
+    }
+  } catch (e) {
+    console.warn('Google Books lookupISBN failed:', e?.message || e);
+  }
   return null;
 }
 
 async function searchBooksAPI(q) {
-  // Try OpenBD first for Japanese books
-  try {
-    const r = await fetch(`https://api.openbd.jp/v1/get?isbn=${encodeURIComponent(q)}`);
-    const d = await r.json();
-    if (d?.[0]?.summary?.title) {
-      const s = d[0].summary;
-      return [{ title: s.title, author: s.author || "", cover: s.cover || "", pages: 0 }];
+  // Try OpenBD first for Japanese books — only useful for ISBN-shaped queries.
+  // openBD doesn't support title search, so we shortcut on a clean ISBN.
+  const cleaned = (q || '').replace(/[-\s]/g, '');
+  const isISBN = /^\d{10,13}$/.test(cleaned);
+  if (isISBN) {
+    try {
+      const r = await fetch(`https://api.openbd.jp/v1/get?isbn=${encodeURIComponent(cleaned)}`);
+      if (r.ok) {
+        const d = await r.json();
+        if (d?.[0]?.summary?.title) {
+          const s = d[0].summary;
+          return { ok: true, results: [{ title: s.title, author: s.author || "", cover: s.cover || "", pages: 0 }] };
+        }
+      }
+    } catch (e) {
+      console.warn('openBD searchBooksAPI failed:', e?.message || e);
+      // Fall through — Google Books may still find it
     }
-  } catch {}
-  // Google Books without langRestrict (it blocks too many Japanese results)
+  }
+
+  // Google Books — primary source for title/author keyword search.
+  // No API key needed for low-volume use; quota errors return 429.
   try {
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10`);
-    if (!r.ok) throw new Error("API error");
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20`);
+    if (!r.ok) {
+      const detail = r.status === 429
+        ? '検索の利用回数が一時的に上限に達しました。しばらくしてから再度お試しください。'
+        : `Google Books の応答が異常です (HTTP ${r.status})`;
+      return { ok: false, error: detail };
+    }
     const d = await r.json();
-    if (!d.items || d.items.length === 0) return [];
-    return d.items.map((i) => {
-      const v = i.volumeInfo;
-      return { title: v.title || "", author: (v.authors || []).join(", "), cover: v.imageLinks?.thumbnail || "", pages: v.pageCount || 0 };
-    });
-  } catch { return []; }
+    const items = d?.items || [];
+    const results = items
+      .map((i) => {
+        const v = i.volumeInfo || {};
+        return {
+          title: v.title || '',
+          author: (v.authors || []).join(', '),
+          cover: v.imageLinks?.thumbnail || '',
+          pages: v.pageCount || 0,
+          isbn:
+            (v.industryIdentifiers || []).find((x) => x.type === 'ISBN_13')?.identifier ||
+            (v.industryIdentifiers || []).find((x) => x.type === 'ISBN_10')?.identifier ||
+            '',
+        };
+      })
+      .filter((b) => b.title);
+    return { ok: true, results };
+  } catch (e) {
+    console.warn('Google Books searchBooksAPI failed:', e);
+    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    return {
+      ok: false,
+      error: isOffline
+        ? 'インターネットに接続されていないようです。接続を確認してください。'
+        : '検索でネットワークエラーが発生しました。時間をおいて再度お試しください。',
+    };
+  }
+}
+
+// Compatibility helper: callers that just want "best-effort cover" results
+// (e.g. AI advisor / learning plan auto-add) still want a flat array. Keep
+// the old shape behind this thin wrapper so we don't churn those sites.
+async function searchBooksAPIFlat(q) {
+  const r = await searchBooksAPI(q);
+  return r.ok ? r.results : [];
 }
 
 /* ========== Book Search Modal ========== */
-function BookSearchModal({ onSelect, onClose }) {
-  const [q, setQ] = useState("");
+function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
+  const [q, setQ] = useState(initialQuery);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  // notFound = empty 0-results page; error = API/network failure with message.
+  // Distinguishing the two is the point of the recent search refactor.
   const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastQuery, setLastQuery] = useState('');
 
   const isISBN = (str) => /^[\d]{10,13}$/.test(str);
 
-  const doSearch = async () => {
-    if (!q.trim()) return;
-    setSearching(true); setNotFound(false); setResults([]);
-    const cleaned = q.replace(/[-\s]/g, "");
+  const doSearch = async (queryOverride) => {
+    const query = (queryOverride ?? q).trim();
+    if (!query) return;
+    setSearching(true); setNotFound(false); setError(null); setResults([]);
+    setLastQuery(query);
+
+    const cleaned = query.replace(/[-\s]/g, '');
     if (isISBN(cleaned)) {
       const info = await lookupISBN(cleaned);
-      if (info && info.title) { setResults([{ title: info.title, author: info.author, cover: info.cover, pages: 0 }]); }
-      else { setNotFound(true); }
-      setSearching(false); return;
+      if (info && info.title) {
+        setResults([{ title: info.title, author: info.author, cover: info.cover, pages: 0, isbn: cleaned }]);
+      } else {
+        setNotFound(true);
+      }
+      setSearching(false);
+      return;
     }
-    const res = await searchBooksAPI(q);
-    setResults(res);
-    if (res.length === 0) setNotFound(true);
+
+    const res = await searchBooksAPI(query);
+    if (!res.ok) {
+      setError(res.error || '検索でエラーが発生しました。');
+    } else if (res.results.length === 0) {
+      setNotFound(true);
+    } else {
+      setResults(res.results);
+    }
     setSearching(false);
   };
+
+  // Auto-search if a prefilled query was supplied (e.g. carried over from
+  // the AddBookModal's initial input).
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim()) doSearch(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const retry = () => doSearch(lastQuery || q);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -152,19 +250,56 @@ function BookSearchModal({ onSelect, onClose }) {
       </div>
       <p style={{ fontSize: 11, color: "#a89e8c", lineHeight: 1.5 }}>タイトル・著者名・ISBNで検索できます</p>
       <div style={{ display: "flex", gap: 6 }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="タイトル、著者名、ISBN" style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); doSearch(); } }} autoFocus />
-        <button onClick={doSearch} style={{ ...btnS, padding: "8px 14px", fontSize: 12 }}>検索</button>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="タイトル、著者名、ISBN"
+          style={{ ...inp, flex: 1 }}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); doSearch(); } }}
+          autoFocus
+        />
+        <button onClick={() => doSearch()} disabled={searching} style={{ ...btnS, padding: "8px 14px", fontSize: 12, opacity: searching ? 0.6 : 1 }}>検索</button>
       </div>
       {searching && <Dots />}
-      {notFound && <p style={{ fontSize: 12, color: "#a05040", textAlign: "center", padding: 16 }}>見つかりませんでした</p>}
+
+      {error && !searching && (
+        <div style={{ background: '#fdf0ed', border: '1px solid #e0b0a0', borderRadius: 10, padding: 14 }}>
+          <p style={{ fontSize: 13, color: '#a05040', margin: 0, lineHeight: 1.7, fontWeight: 500 }}>
+            ⚠️ 検索でエラーが発生しました
+          </p>
+          <p style={{ fontSize: 12, color: '#7a4030', margin: '4px 0 10px', lineHeight: 1.7 }}>
+            {error}
+          </p>
+          <button
+            type="button"
+            onClick={retry}
+            style={{ ...btnS, padding: '8px 14px', fontSize: 12, background: '#a05040' }}
+          >
+            ↻ もう一度試す
+          </button>
+        </div>
+      )}
+
+      {notFound && !searching && (
+        <div style={{ textAlign: 'center', padding: 18 }}>
+          <p style={{ fontSize: 13, color: '#5c5043', margin: 0, lineHeight: 1.7 }}>
+            「{lastQuery}」に一致する本が見つかりません
+          </p>
+          <p style={{ fontSize: 11, color: '#a89e8c', margin: '6px 0 0' }}>
+            別のキーワードや、ISBN（10/13 桁）で試してみてください
+          </p>
+        </div>
+      )}
+
       {results.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 300, overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
           {results.map((b, i) => (
             <button key={i} onClick={() => onSelect(b)} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 10px", borderRadius: 10, border: "1px solid #e4ddd0", background: "#faf6f0", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
               {b.cover ? <img src={ensureHttps(b.cover)} alt="" style={{ width: 32, height: 44, objectFit: "cover", borderRadius: 4 }} /> : <BookIcon />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#3d362c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
-                {b.author && <div style={{ fontSize: 11, color: "#9a8e7a" }}>{b.author}</div>}
+                {b.author && <div style={{ fontSize: 11, color: "#9a8e7a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.author}</div>}
+                {b.isbn && <div style={{ fontSize: 10, color: "#b5aa96", marginTop: 2 }}>ISBN: {b.isbn}</div>}
               </div>
             </button>
           ))}
@@ -343,12 +478,38 @@ const emptyBook = () => ({
   investPurpose: "", aiAnalysis: "", aiStrategy: "",
   leverageMemo: "", aiSummary: "",
   actions: [], roiSummary: "",
+  // Tracks how the book entered the bookshelf so AI features can lean into
+  // search-derived metadata or stay basic for manually-typed entries.
+  // Persisted as books.added_via (see supabase_added_via.sql).
+  addedVia: "search",
 });
 
 /* ========== Phase Screens ========== */
 
 // Phase 1: 読みたい → just register
 function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
+  const fileInputRef = useRef(null);
+  const { uploadCover } = useBookCover();
+  const toast = useToast();
+  const [uploading, setUploading] = useState(false);
+
+  const onPickCover = async (e) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadCover(file);
+      if (url) setForm({ ...form, cover: url });
+    } catch (err) {
+      toast.error(err?.message || '画像のアップロードに失敗しました');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const clearCover = () => setForm({ ...form, cover: '' });
+
   return (
     <div>
       <p style={phaseDesc}>📖 読みたい本を登録しましょう</p>
@@ -356,7 +517,64 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
         🔍 タイトル・ISBNで検索して登録
       </button>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 }}>
-        {form.cover && <img src={ensureHttps(form.cover)} alt="" style={{ width: 50, height: 70, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8", flexShrink: 0 }} />}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {form.cover ? (
+            <img src={ensureHttps(form.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              style={{
+                width: 60,
+                height: 84,
+                borderRadius: 6,
+                border: '1px dashed #c4b8a6',
+                background: '#f5efde',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontSize: 11,
+                color: '#8a7e6b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1.3,
+                padding: 4,
+                textAlign: 'center',
+              }}
+              aria-label="表紙写真をアップロード"
+            >
+              {uploading ? '...' : '📷\n表紙'}
+            </button>
+          )}
+          {form.cover && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                style={{ background: 'none', border: 'none', fontSize: 10, color: '#8a7040', cursor: 'pointer', padding: 2, fontFamily: 'inherit' }}
+              >
+                変更
+              </button>
+              <button
+                type="button"
+                onClick={clearCover}
+                style={{ background: 'none', border: 'none', fontSize: 10, color: '#a05040', cursor: 'pointer', padding: 2, fontFamily: 'inherit' }}
+              >
+                削除
+              </button>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={onPickCover}
+            style={{ display: 'none' }}
+          />
+        </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="タイトル *" style={inp} maxLength={LIMITS.bookTitle} />
           <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" style={inp} maxLength={LIMITS.bookAuthor} />
@@ -1052,6 +1270,12 @@ function AuthedApp() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("updated"); // updated | created | title | rating
   const [searchOpen, setSearchOpen] = useState(false);
+  // The "+" button opens this first; from here the user picks the
+  // search path (default) or jumps to manual entry.
+  const [addBookModalOpen, setAddBookModalOpen] = useState(false);
+  // Carries an initial query from AddBookModal → BookSearchModal so a search
+  // typed there auto-runs without re-typing.
+  const [searchInitialQuery, setSearchInitialQuery] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   // Personal Capital UI is removed; data layer (CapitalDashboard component
   // file) is retained for potential future re-enablement.
@@ -1133,7 +1357,32 @@ const persist = useCallback((updates) => {
 
   const openHelp = () => setHelpModalOpen(true);
 
-  const openAdd = () => { setForm({ ...emptyBook(), id: Date.now().toString() }); setView("edit"); setCurrent(null); setTab("books"); };
+  // Tapping "+" no longer drops the user straight into a blank form — the
+  // search-first AddBookModal opens so they're nudged toward the path that
+  // produces clean metadata for AI features.
+  const openAdd = () => {
+    setTab("books");
+    setAddBookModalOpen(true);
+  };
+
+  // From AddBookModal → 検索. Open BookSearchModal seeded with whatever the
+  // user typed so the search auto-runs.
+  const openSearchFromAdd = (query) => {
+    setAddBookModalOpen(false);
+    setForm({ ...emptyBook(), id: Date.now().toString(), addedVia: 'search' });
+    setCurrent(null);
+    setView('edit');
+    setSearchInitialQuery(query || '');
+    setSearchOpen(true);
+  };
+
+  // From AddBookModal → 手動入力. Skip the search step entirely.
+  const openManualFromAdd = () => {
+    setAddBookModalOpen(false);
+    setForm({ ...emptyBook(), id: Date.now().toString(), addedVia: 'manual' });
+    setCurrent(null);
+    setView('edit');
+  };
   const openDetail = (b) => { setCurrent(b); setView("detail"); };
   const openEdit = (b) => { setForm({ ...emptyBook(), ...b, tags: b.tags || [], actions: b.actions || [] }); setCurrent(b); setView("edit"); };
   const goList = () => { setView("list"); setCurrent(null); };
@@ -1246,14 +1495,24 @@ const persist = useCallback((updates) => {
 
   const handleBookSelect = (b) => {
     setSearchOpen(false);
-    setForm((f) => ({ ...f, title: b.title || f.title, author: b.author || f.author, cover: b.cover || f.cover, totalPages: b.pages || f.totalPages }));
+    setSearchInitialQuery('');
+    // A successful pick from BookSearchModal always implies the search path,
+    // even if the user manually opened the modal from inside an existing form.
+    setForm((f) => ({
+      ...f,
+      title: b.title || f.title,
+      author: b.author || f.author,
+      cover: b.cover || f.cover,
+      totalPages: b.pages || f.totalPages,
+      addedVia: 'search',
+    }));
   };
 
   const addFromAdvisor = async (rec) => {
-    const newBook = { ...emptyBook(), title: rec.title, author: rec.author, status: "want" };
-    // Try to get cover from Google Books
+    const newBook = { ...emptyBook(), title: rec.title, author: rec.author, status: "want", addedVia: 'search' };
+    // Try to get cover from Google Books — best-effort, ignore failures.
     try {
-      const results = await searchBooksAPI(rec.title + " " + rec.author);
+      const results = await searchBooksAPIFlat(rec.title + " " + rec.author);
       if (results.length > 0) { newBook.cover = results[0].cover || ""; newBook.totalPages = results[0].pages || 0; }
     } catch {}
     try {
@@ -1273,9 +1532,10 @@ const persist = useCallback((updates) => {
       author: author || '',
       status: 'want',
       tags: Array.isArray(tags) ? tags : [],
+      addedVia: 'search',
     };
     try {
-      const results = await searchBooksAPI(`${title} ${author || ''}`.trim());
+      const results = await searchBooksAPIFlat(`${title} ${author || ''}`.trim());
       if (results.length > 0) {
         newBook.cover = results[0].cover || '';
         newBook.totalPages = results[0].pages || 0;
@@ -1756,6 +2016,12 @@ const persist = useCallback((updates) => {
           />
         )}
 
+        {/* Onboarding must be mounted in every view, not just the list view —
+            otherwise tapping "アプリ全体の使い方を最初から見る" from the help
+            modal here looks like nothing happens until the user navigates
+            back to the bookshelf. */}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
+
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
       </Shell>
     );
@@ -1799,8 +2065,12 @@ const persist = useCallback((updates) => {
           )}
         </div>
 
-        <Modal open={searchOpen} onClose={() => setSearchOpen(false)}>
-          <BookSearchModal onSelect={handleBookSelect} onClose={() => setSearchOpen(false)} />
+        <Modal open={searchOpen} onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); }}>
+          <BookSearchModal
+            onSelect={handleBookSelect}
+            onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); }}
+            initialQuery={searchInitialQuery}
+          />
         </Modal>
         {helpModalOpen && (
           <HelpModal
@@ -1813,6 +2083,9 @@ const persist = useCallback((updates) => {
             }}
           />
         )}
+        {/* Same reason as in the detail view — keep onboarding reachable
+            from the edit-screen help modal without requiring a tab switch. */}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
       </Shell>
     );
@@ -2102,6 +2375,14 @@ const persist = useCallback((updates) => {
         <AccountSettings
           onClose={() => setSettingsOpen(false)}
           onAfterDelete={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {addBookModalOpen && (
+        <AddBookModal
+          onClose={() => setAddBookModalOpen(false)}
+          onSearch={openSearchFromAdd}
+          onManual={openManualFromAdd}
         />
       )}
 

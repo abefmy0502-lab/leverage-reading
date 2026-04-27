@@ -599,7 +599,7 @@ export default function MyBookBrain({ onOpenBook }) {
                   ask();
                 }
               }}
-              placeholder="質問を入力（Enter で送信、Shift+Enter で改行）"
+              placeholder="質問を入力..."
               rows={2}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}
