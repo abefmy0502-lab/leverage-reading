@@ -28,6 +28,10 @@ const transformBook = (book) => ({
   roiSummary: book.roi_summary,
   // Default to 'search' for legacy rows that pre-date the column.
   addedVia: book.added_via || 'search',
+  // ISBN/ASIN power Amazon Associate links (lib/amazonLink.js). They're
+  // optional — links fall back to a title search when missing.
+  isbn: book.isbn || '',
+  asin: book.asin || '',
 });
 
 export function useBooks() {
@@ -89,6 +93,8 @@ export function useBooks() {
         ai_summary: book.aiSummary || null,
         roi_summary: book.roiSummary || null,
         added_via: book.addedVia === 'manual' ? 'manual' : 'search',
+        isbn: book.isbn ? String(book.isbn).replace(/[-\s]/g, '') : null,
+        asin: book.asin ? String(book.asin).trim() : null,
       };
 
       let savedBookId;

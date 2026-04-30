@@ -7,6 +7,11 @@
 // Lists (`- ` or `1. ` etc) are rendered as a styled <ul> / <ol>.
 
 import { useMemo } from 'react';
+import {
+  getAmazonSearchLink,
+  AMAZON_DISCLOSURE_TEXT,
+  AMAZON_LINK_REL,
+} from '../lib/amazonLink';
 
 const wrap = { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 };
 const sectionStyle = {
@@ -225,7 +230,7 @@ const relatedCardStyle = {
   gap: 6,
 };
 const relatedAddBtn = {
-  alignSelf: 'flex-start',
+  flex: 1,
   padding: '8px 14px',
   borderRadius: 999,
   border: '1px solid #d4ccbe',
@@ -237,8 +242,25 @@ const relatedAddBtn = {
   fontFamily: 'inherit',
   minHeight: 36,
 };
+const relatedAmazonBtn = {
+  flex: 1,
+  padding: '8px 14px',
+  borderRadius: 999,
+  background: '#FF9900',
+  color: '#000',
+  fontSize: 12,
+  fontWeight: 600,
+  textDecoration: 'none',
+  fontFamily: 'inherit',
+  minHeight: 36,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 4,
+};
 
 function RelatedBookCard({ book, description, onAdd, isAdding }) {
+  const amazonHref = getAmazonSearchLink(book.title, book.author);
   return (
     <div style={relatedCardStyle}>
       <p style={{ fontSize: 13, fontWeight: 600, color: '#3d362c', margin: 0, lineHeight: 1.5 }}>
@@ -250,15 +272,26 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           {description}
         </p>
       )}
-      <button
-        type="button"
-        onClick={onAdd}
-        disabled={isAdding}
-        aria-label={`『${book.title}』を読みたいに追加`}
-        style={{ ...relatedAddBtn, opacity: isAdding ? 0.6 : 1 }}
-      >
-        {isAdding ? '追加中…' : '📚 読みたいに追加'}
-      </button>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={isAdding}
+          aria-label={`『${book.title}』を読みたいに追加`}
+          style={{ ...relatedAddBtn, opacity: isAdding ? 0.6 : 1 }}
+        >
+          {isAdding ? '追加中…' : '📚 読みたいに追加'}
+        </button>
+        <a
+          href={amazonHref}
+          target="_blank"
+          rel={AMAZON_LINK_REL}
+          aria-label={`Amazon で『${book.title}』を購入（外部リンク）`}
+          style={relatedAmazonBtn}
+        >
+          🛒 Amazon で買う
+        </a>
+      </div>
     </div>
   );
 }
@@ -309,6 +342,11 @@ export default function MarkdownSections({ text, density = 'normal', onAddRelate
           <section key={i} style={styles}>
             {s.heading && <h3 style={headingStyle}>{s.heading}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
+            {related && (
+              <small style={{ display: 'block', fontSize: 10, color: '#a89e8c', lineHeight: 1.6, marginTop: 8 }}>
+                {AMAZON_DISCLOSURE_TEXT}
+              </small>
+            )}
           </section>
         );
       })}

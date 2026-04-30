@@ -35,6 +35,12 @@ import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
 import { LIMITS } from './lib/limits';
 import { ensureHttps } from './lib/url';
+import {
+  getAmazonLink,
+  getAmazonSearchLink,
+  AMAZON_DISCLOSURE_TEXT,
+  AMAZON_LINK_REL,
+} from './lib/amazonLink';
 import { getRandomFromCategory } from './lib/quotes';
 import {
   BookOpen,
@@ -101,13 +107,8 @@ function clearStrategyHistory(bookId) {
 // AI prompts now live in src/lib/prompts.js — single source of truth for
 // every generative flow. Do not re-introduce inline prompts here.
 
-// Amazon affiliate tag - ここにあなたのAmazonアソシエイトIDを入れてください
-const AMAZON_TAG = "leveragereadi-22";
-
-function amazonLink(title, author) {
-  const q = encodeURIComponent(`${title} ${author}`.trim());
-  return `https://www.amazon.co.jp/s?k=${q}&tag=${AMAZON_TAG}`;
-}
+// Amazon Associate links live in src/lib/amazonLink.js — the tag and
+// URL-priority logic (ASIN > ISBN > title) belong there, not inline.
 
 // ADVISOR_SYSTEM lives in src/lib/prompts.js as PROMPTS.bookAdvisor.system
 
@@ -406,6 +407,10 @@ const emptyBook = () => ({
   // search-derived metadata or stay basic for manually-typed entries.
   // Persisted as books.added_via (see supabase_added_via.sql).
   addedVia: "search",
+  // Persisted via supabase_books_isbn.sql — used by the Amazon Associate
+  // link helper to route to the product page when available.
+  isbn: "",
+  asin: "",
 });
 
 /* ========== Phase Screens ========== */
@@ -1161,9 +1166,14 @@ function BookAdvisor({ onAddBook, onClose }) {
                   <p style={{ fontSize: 11, color: '#a89e8c', margin: '8px 0 0' }}>⏱️ {rec.duration}</p>
                 )}
                 <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-                  <a href={amazonLink(rec.title, rec.author)} target="_blank" rel="noopener noreferrer"
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#f0970e", color: "#fff", fontSize: 12, fontFamily: "inherit", textAlign: "center", textDecoration: "none", fontWeight: 600, minHeight: 36 }}>
-                    Amazonで見る
+                  <a
+                    href={getAmazonSearchLink(rec.title, rec.author)}
+                    target="_blank"
+                    rel={AMAZON_LINK_REL}
+                    aria-label={`Amazon で『${rec.title}』を購入（外部リンク）`}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#FF9900", color: "#000", fontSize: 12, fontFamily: "inherit", textAlign: "center", textDecoration: "none", fontWeight: 600, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+                  >
+                    🛒 Amazon で買う
                   </a>
                   <button onClick={() => onAddBook(rec)} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: "transparent", color: "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: "pointer", fontWeight: 500, minHeight: 36 }}>
                     📚 読みたいに追加
@@ -1176,6 +1186,9 @@ function BookAdvisor({ onAddBook, onClose }) {
                 <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap' }}>{recommendations.after}</p>
               </div>
             )}
+            <small style={{ fontSize: 10, color: '#a89e8c', lineHeight: 1.6, padding: '0 4px' }}>
+              {AMAZON_DISCLOSURE_TEXT}
+            </small>
             <button onClick={() => { setRecommendations(null); setMessages((prev) => [...prev, { role: "assistant", text: "他にお探しの本のジャンルや悩みはありますか？" }]); }}
               style={{ ...btnO, padding: "10px 0", fontSize: 12 }}>
               🔄 別の条件で探す
@@ -1547,6 +1560,8 @@ const persist = useCallback((updates) => {
       cover: b.cover || f.cover,
       totalPages: b.pages || f.totalPages,
       addedVia: 'search',
+      // Capture ISBN so Amazon Associate links can hit the product page.
+      isbn: b.isbn || f.isbn,
     }));
   };
 
@@ -1555,7 +1570,11 @@ const persist = useCallback((updates) => {
     // Try to get cover from Google Books — best-effort, ignore failures.
     try {
       const results = await searchBooksAPIFlat(rec.title + " " + rec.author);
-      if (results.length > 0) { newBook.cover = results[0].cover || ""; newBook.totalPages = results[0].pages || 0; }
+      if (results.length > 0) {
+        newBook.cover = results[0].cover || "";
+        newBook.totalPages = results[0].pages || 0;
+        newBook.isbn = results[0].isbn || '';
+      }
     } catch {}
     try {
       await saveBook(newBook);
@@ -1581,6 +1600,7 @@ const persist = useCallback((updates) => {
       if (results.length > 0) {
         newBook.cover = results[0].cover || '';
         newBook.totalPages = results[0].pages || 0;
+        newBook.isbn = results[0].isbn || '';
       }
     } catch {
       /* cover is best-effort; ignore */
@@ -1664,7 +1684,7 @@ const persist = useCallback((updates) => {
       reason = book.leverageMemo.split("\n").filter((l) => l.trim())[0] || "";
     }
 
-    const link = amazonLink(book.title, book.author);
+    const link = getAmazonLink(book);
     const lines = [
       `📚 おすすめの本`,
       ``,
@@ -1802,6 +1822,7 @@ const persist = useCallback((updates) => {
         if (results.length > 0) {
           newBook.cover = results[0].cover || '';
           newBook.totalPages = results[0].pages || 0;
+          newBook.isbn = results[0].isbn || '';
           // Upgrade author if AI said 不明 / blank but search has it.
           if (!newBook.author && results[0].author) newBook.author = results[0].author;
         } else {
@@ -2058,6 +2079,34 @@ const persist = useCallback((updates) => {
                 {nextLabel[current.status]}
               </button>
             )}
+            <a
+              href={getAmazonLink(current)}
+              target="_blank"
+              rel={AMAZON_LINK_REL}
+              aria-label={`Amazon で『${current.title}』を購入（外部リンク）`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                width: "100%",
+                padding: "12px 16px",
+                background: "#FF9900",
+                color: "#000",
+                borderRadius: 10,
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: 14,
+                fontFamily: "inherit",
+                minHeight: 44,
+                boxSizing: "border-box",
+              }}
+            >
+              📚 Amazon で買う
+            </a>
+            <small style={{ fontSize: 10, color: "#a89e8c", lineHeight: 1.6, textAlign: "center" }}>
+              {AMAZON_DISCLOSURE_TEXT}
+            </small>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => openEdit(current)} style={{ ...btnO, flex: 1 }}>編集</button>
               <button onClick={() => shareBook(current)} style={{ ...btnO, flex: 0, padding: "10px 18px", color: "#4a6e8a", borderColor: "#b8d0e0" }}>📤 共有</button>
