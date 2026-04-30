@@ -174,6 +174,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_normalize_urls.sql` | 既存 `books.cover` の `http://` を `https://` に一括書き換え（Mixed Content 警告解消・既存本がない環境では不要） |
 | `supabase_added_via.sql` | 検索ファースト追加フロー — `books.added_via` カラム新設（`'search'` / `'manual'`）+ `book-covers` public バケット作成（手動入力時の表紙画像アップロード用） |
 | `supabase_books_isbn.sql` | Amazon アソシエイトリンク用に `books.isbn` / `books.asin` カラム新設（任意、リンクは ASIN > ISBN > タイトル の順でフォールバック） |
+| `supabase_feedback.sql` | 📩 ユーザーフィードバック・要望の保存先 — `feedback` テーブル新規 + RLS（自分の投稿のみ SELECT 可能、UPDATE/DELETE は管理者のみ） |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 
@@ -227,6 +228,31 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 2. `npm run build` でエラーチェック
 3. `git add -A && git commit -m "..." && git push origin main`
 4. Vercel が `main` ブランチを自動でデプロイ
+
+## 運用 — フィードバック確認
+
+`📩 フィードバック・要望` で送信された内容は `public.feedback` テーブルに RLS 保護で保存される（一般ユーザーは自分の投稿しか SELECT できない）。管理者は **Supabase ダッシュボード → SQL Editor** （service_role 権限）で確認・トリアージする。
+
+**週 1 回程度** 未対応分をチェックする想定:
+
+```sql
+-- 未対応の新着フィードバック
+select created_at, category, content, name, email, status
+from feedback
+where status = 'open'
+order by created_at desc;
+```
+
+対応が済んだら status を更新:
+
+```sql
+update feedback
+   set status = 'resolved',
+       admin_note = '○○ で対応 (commit a1b2c3d)'
+ where id = '<該当ID>';
+```
+
+`status` の有効値: `open` / `in_progress` / `resolved` / `wont_fix`。一般ユーザーから UPDATE / DELETE はできない（ポリシー未定義のため）ので、改ざんの心配なしに監査履歴として残せる。
 
 ## 開発時の注意
 

@@ -14,6 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
+import FeedbackForm from './FeedbackForm';
 
 const overlayStyle = {
   position: 'fixed',
@@ -150,6 +151,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   const [deleting, setDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -305,6 +307,19 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             <p style={{ fontSize: 14, color: '#3d362c', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
           </div>
 
+          {/* Feedback */}
+          <section style={sectionStyle}>
+            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+              📩 フィードバック・要望を送る
+            </p>
+            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+              バグ報告 / 機能要望 / 感想など、開発者へ直接届きます。
+            </p>
+            <button type="button" style={btnPrimary} onClick={() => setFeedbackOpen(true)}>
+              📩 フィードバックを送る
+            </button>
+          </section>
+
           {/* Export */}
           <section style={sectionStyle}>
             <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
@@ -379,6 +394,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
           </div>
         </div>
       </div>
+
+      {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
     </div>
   );
 }

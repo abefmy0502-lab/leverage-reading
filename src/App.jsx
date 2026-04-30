@@ -18,6 +18,8 @@ import { useBookCover } from './hooks/useBookCover';
 import {
   searchBooks as searchBooksAPI,
   searchBooksFlat as searchBooksAPIFlat,
+  searchBooksAdvanced as searchBooksAPIAdvanced,
+  pickSuggestions,
 } from './lib/bookSearch';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
@@ -119,8 +121,64 @@ function clearStrategyHistory(bookId) {
  */
 
 /* ========== Book Search Modal ========== */
+//
+// Two modes (simple / advanced) backed by separate API entry points in
+// lib/bookSearch.js. Both feed the same render path (suggestions card,
+// many-results warning, sort, improved cards).
+function BookResultCard({ book, onSelect }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(book)}
+      aria-label={`『${book.title}』を選択`}
+      style={{
+        display: 'flex',
+        gap: 10,
+        alignItems: 'flex-start',
+        padding: '10px 12px',
+        borderRadius: 10,
+        border: '1px solid #e4ddd0',
+        background: '#faf6f0',
+        cursor: 'pointer',
+        textAlign: 'left',
+        fontFamily: 'inherit',
+        width: '100%',
+      }}
+    >
+      {book.cover ? (
+        <img
+          src={ensureHttps(book.cover)}
+          alt=""
+          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid #e0d8c8' }}
+        />
+      ) : (
+        <div style={{ width: 44, height: 60, background: '#e8e2d6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📕</div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#3d362c', lineHeight: 1.4, marginBottom: 2 }}>{book.title}</div>
+        {book.author && <div style={{ fontSize: 11, color: '#8a7e6b' }}>✍️ {book.author}</div>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+          {book.publisher && <span style={{ fontSize: 10, color: '#9a8e7a' }}>🏢 {book.publisher}</span>}
+          {book.pubYear && <span style={{ fontSize: 10, color: '#9a8e7a' }}>📅 {book.pubYear}</span>}
+        </div>
+        {book.isbn && <div style={{ fontSize: 10, color: '#b5aa96', marginTop: 3 }}>🔢 ISBN: {book.isbn}</div>}
+      </div>
+      <span style={{ fontSize: 11, color: '#5c5043', alignSelf: 'center', whiteSpace: 'nowrap', padding: '4px 8px', border: '1px solid #d4ccbe', borderRadius: 6 }}>
+        📚 これを追加
+      </span>
+    </button>
+  );
+}
+
 function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
+  // Mode: 'simple' (single input) or 'advanced' (title + author + isbn).
+  const [mode, setMode] = useState('simple');
   const [q, setQ] = useState(initialQuery);
+  // Advanced-mode fields kept separately so switching back-and-forth doesn't
+  // clobber a half-typed query in the other mode.
+  const [advTitle, setAdvTitle] = useState('');
+  const [advAuthor, setAdvAuthor] = useState('');
+  const [advIsbn, setAdvIsbn] = useState('');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   // notFound = empty 0-results page; error = API/network failure with message.
@@ -128,19 +186,39 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState(null);
   const [lastQuery, setLastQuery] = useState('');
-  // True when the result was served from the localStorage cache. Flagged in
-  // the UI as a quiet "（キャッシュ）" so the user knows zero API calls fired.
+  // True when the result was served from the localStorage cache.
   const [cached, setCached] = useState(false);
+  // Sort: 'relevance' (preserve API order) | 'year-desc' | 'title'.
+  const [sortBy, setSortBy] = useState('relevance');
 
-  const doSearch = async (queryOverride) => {
+  const runSimple = async (queryOverride) => {
     const query = (queryOverride ?? q).trim();
     if (!query) return;
     setSearching(true); setNotFound(false); setError(null); setResults([]); setCached(false);
     setLastQuery(query);
-
-    // searchBooksAPI handles ISBN routing internally (openBD → Google Books)
-    // so the modal doesn't need to branch on input shape anymore.
     const res = await searchBooksAPI(query);
+    if (!res.ok) {
+      setError(res.error || '検索でエラーが発生しました。');
+    } else if (res.results.length === 0) {
+      setNotFound(true);
+    } else {
+      setResults(res.results);
+      if (res.cached) setCached(true);
+    }
+    setSearching(false);
+  };
+
+  const runAdvanced = async () => {
+    const t = advTitle.trim();
+    const a = advAuthor.trim();
+    const i = advIsbn.trim();
+    if (!t && !a && !i) {
+      setError('タイトル / 著者 / ISBN のいずれかを入力してください。');
+      return;
+    }
+    setSearching(true); setNotFound(false); setError(null); setResults([]); setCached(false);
+    setLastQuery([t, a, i].filter(Boolean).join(' / '));
+    const res = await searchBooksAPIAdvanced({ title: t, author: a, isbn: i });
     if (!res.ok) {
       setError(res.error || '検索でエラーが発生しました。');
     } else if (res.results.length === 0) {
@@ -155,30 +233,161 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
   // Auto-search if a prefilled query was supplied (e.g. carried over from
   // the AddBookModal's initial input).
   useEffect(() => {
-    if (initialQuery && initialQuery.trim()) doSearch(initialQuery);
+    if (initialQuery && initialQuery.trim()) runSimple(initialQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const retry = () => doSearch(lastQuery || q);
+  const retry = () => {
+    if (mode === 'advanced') runAdvanced();
+    else runSimple(lastQuery || q);
+  };
+
+  // Apply sort over a stable copy. Empty pubYear sorts to the bottom.
+  const sortedResults = useMemo(() => {
+    if (!results.length) return results;
+    const arr = [...results];
+    if (sortBy === 'year-desc') {
+      arr.sort((a, b) => {
+        const ay = parseInt(a.pubYear || '0', 10);
+        const by = parseInt(b.pubYear || '0', 10);
+        return by - ay;
+      });
+    } else if (sortBy === 'title') {
+      arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ja'));
+    }
+    return arr;
+  }, [results, sortBy]);
+
+  const suggestions = useMemo(() => {
+    // Only surface the suggest section if there's enough noise to wade
+    // through. Below that, the regular list already serves as the answer.
+    if (results.length < 5) return [];
+    return pickSuggestions(results, 3);
+  }, [results]);
+
+  const tooMany = results.length >= 20;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h3 style={{ fontSize: 16, fontWeight: 500, color: "#3d362c" }}>🔍 本を検索</h3>
-        <button onClick={onClose} style={closeBtn}>×</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ fontSize: 16, fontWeight: 500, color: '#3d362c' }}>🔍 本を検索</h3>
+        <button onClick={onClose} style={closeBtn} aria-label="閉じる">×</button>
       </div>
-      <p style={{ fontSize: 11, color: "#a89e8c", lineHeight: 1.5 }}>タイトル・著者名・ISBNで検索できます</p>
-      <div style={{ display: "flex", gap: 6 }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="タイトル、著者名、ISBN"
-          style={{ ...inp, flex: 1 }}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); doSearch(); } }}
-          autoFocus
-        />
-        <button onClick={() => doSearch()} disabled={searching} style={{ ...btnS, padding: "8px 14px", fontSize: 12, opacity: searching ? 0.6 : 1 }}>検索</button>
+
+      {/* Mode toggle */}
+      <div role="tablist" aria-label="検索モード" style={{ display: 'flex', gap: 4, padding: 4, background: '#eae3d6', borderRadius: 10 }}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'simple'}
+          onClick={() => setMode('simple')}
+          style={{
+            flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
+            background: mode === 'simple' ? '#5c5043' : 'transparent',
+            color: mode === 'simple' ? '#faf6f0' : '#5c5548',
+            fontSize: 13, fontWeight: mode === 'simple' ? 600 : 500,
+            cursor: 'pointer', fontFamily: 'inherit', minHeight: 36,
+          }}
+        >
+          🔍 シンプル検索
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'advanced'}
+          onClick={() => setMode('advanced')}
+          style={{
+            flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
+            background: mode === 'advanced' ? '#5c5043' : 'transparent',
+            color: mode === 'advanced' ? '#faf6f0' : '#5c5548',
+            fontSize: 13, fontWeight: mode === 'advanced' ? 600 : 500,
+            cursor: 'pointer', fontFamily: 'inherit', minHeight: 36,
+          }}
+        >
+          📋 詳細検索
+        </button>
       </div>
+
+      {mode === 'simple' && (
+        <>
+          <p style={{ fontSize: 11, color: '#a89e8c', lineHeight: 1.5 }}>タイトル・著者名・ISBN で検索できます</p>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="タイトル、著者名、ISBN"
+              style={{ ...inp, flex: 1 }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSimple(); } }}
+              autoFocus
+              aria-label="検索キーワード"
+            />
+            <button onClick={() => runSimple()} disabled={searching} style={{ ...btnS, padding: '8px 14px', fontSize: 12, opacity: searching ? 0.6 : 1, minHeight: 44 }}>検索</button>
+          </div>
+        </>
+      )}
+
+      {mode === 'advanced' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <p style={{ fontSize: 11, color: '#a89e8c', lineHeight: 1.5 }}>
+            タイトル + 著者で AND 絞り込み。ISBN を入れると最優先で検索します。
+          </p>
+          <div>
+            <label htmlFor="adv-title" style={{ fontSize: 11, fontWeight: 600, color: '#5c5043', display: 'block', marginBottom: 4 }}>📖 タイトル</label>
+            <input
+              id="adv-title"
+              value={advTitle}
+              onChange={(e) => setAdvTitle(e.target.value)}
+              placeholder="例：レバレッジ・リーディング"
+              style={inp}
+              maxLength={LIMITS.bookTitle}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runAdvanced(); } }}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label htmlFor="adv-author" style={{ fontSize: 11, fontWeight: 600, color: '#5c5043', display: 'block', marginBottom: 4 }}>✍️ 著者名</label>
+            <input
+              id="adv-author"
+              value={advAuthor}
+              onChange={(e) => setAdvAuthor(e.target.value)}
+              placeholder="例：本田 直之"
+              style={inp}
+              maxLength={LIMITS.bookAuthor}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runAdvanced(); } }}
+            />
+          </div>
+          <div>
+            <label htmlFor="adv-isbn" style={{ fontSize: 11, fontWeight: 600, color: '#5c5043', display: 'block', marginBottom: 4 }}>🔢 ISBN <span style={{ fontWeight: 400, color: '#a89e8c' }}>（任意）</span></label>
+            <input
+              id="adv-isbn"
+              value={advIsbn}
+              onChange={(e) => setAdvIsbn(e.target.value)}
+              placeholder="例: 978-4-7631-9742-3 / 4763197428"
+              style={inp}
+              inputMode="numeric"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runAdvanced(); } }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={runAdvanced}
+            disabled={searching || (!advTitle.trim() && !advAuthor.trim() && !advIsbn.trim())}
+            style={{
+              ...btnS,
+              padding: '12px 14px',
+              fontSize: 13,
+              minHeight: 44,
+              opacity: searching || (!advTitle.trim() && !advAuthor.trim() && !advIsbn.trim()) ? 0.5 : 1,
+            }}
+          >
+            🔍 詳細検索
+          </button>
+        </div>
+      )}
+
       {searching && <Dots />}
 
       {error && !searching && (
@@ -207,6 +416,15 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
           <p style={{ fontSize: 11, color: '#a89e8c', margin: '6px 0 0' }}>
             別のキーワードや、ISBN（10/13 桁）で試してみてください
           </p>
+          {mode === 'simple' && (
+            <button
+              type="button"
+              onClick={() => setMode('advanced')}
+              style={{ ...btnO, marginTop: 10, padding: '8px 14px', fontSize: 12 }}
+            >
+              📋 詳細検索に切替
+            </button>
+          )}
         </div>
       )}
 
@@ -216,19 +434,55 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
         </p>
       )}
 
-      {results.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
-          {results.map((b, i) => (
-            <button key={i} onClick={() => onSelect(b)} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 10px", borderRadius: 10, border: "1px solid #e4ddd0", background: "#faf6f0", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
-              {b.cover ? <img src={ensureHttps(b.cover)} alt="" style={{ width: 32, height: 44, objectFit: "cover", borderRadius: 4 }} /> : <BookIcon />}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "#3d362c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
-                {b.author && <div style={{ fontSize: 11, color: "#9a8e7a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.author}</div>}
-                {b.isbn && <div style={{ fontSize: 10, color: "#b5aa96", marginTop: 2 }}>ISBN: {b.isbn}</div>}
-              </div>
+      {tooMany && !searching && (
+        <div style={{ background: '#f5efde', border: '1px solid #e0d0a8', borderRadius: 10, padding: '10px 12px' }}>
+          <p style={{ fontSize: 12, color: '#8a7040', margin: 0, lineHeight: 1.7, fontWeight: 500 }}>
+            💡 結果が {results.length} 件あります。タイトルや著者を追加して絞り込めます。
+          </p>
+          {mode === 'simple' && (
+            <button
+              type="button"
+              onClick={() => setMode('advanced')}
+              style={{ ...btnO, marginTop: 6, padding: '6px 12px', fontSize: 11 }}
+            >
+              📋 詳細検索に切替
             </button>
-          ))}
+          )}
         </div>
+      )}
+
+      {suggestions.length > 0 && !searching && (
+        <div style={{ background: '#f0ebe2', border: '1px solid #e4ddd0', borderRadius: 10, padding: '10px 12px' }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: '#5c5043', margin: '0 0 6px' }}>💡 もしかしてこの本？</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {suggestions.map((b, i) => (
+              <BookResultCard key={`sug-${i}`} book={b} onSelect={onSelect} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0 }}>{results.length} 件ヒット</p>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ ...inp, width: 'auto', padding: '6px 8px', fontSize: 12 }}
+              aria-label="並び順"
+            >
+              <option value="relevance">関連度順</option>
+              <option value="year-desc">出版年が新しい順</option>
+              <option value="title">タイトル順</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
+            {sortedResults.map((b, i) => (
+              <BookResultCard key={`r-${i}`} book={b} onSelect={onSelect} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

@@ -146,8 +146,38 @@ function ndlThumbnailUrl(isbn) {
   return `https://ndlsearch.ndl.go.jp/thumbnail/${isbn}.jpg`;
 }
 
-async function searchNDL(query) {
-  const url = `https://ndlsearch.ndl.go.jp/api/opensearch?title=${encodeURIComponent(query)}&cnt=20`;
+// Pull the publication year from <dc:date> / <pubDate>. NDL is inconsistent —
+// some entries use ISO ("2014-09"), others "2014", others a long date. We
+// keep just the 4-digit year for sorting / display.
+function pubYearFromNdl(item) {
+  const tags = ['date', 'pubDate', 'issued'];
+  for (const tag of tags) {
+    const els = Array.from(item.getElementsByTagName('*')).filter((el) => el.localName === tag);
+    for (const el of els) {
+      const t = (el.textContent || '').trim();
+      const m = t.match(/(\d{4})/);
+      if (m) return m[1];
+    }
+  }
+  return '';
+}
+
+// Build the NDL OpenSearch URL. NDL supports separate `title` / `creator` /
+// `isbn` query params — combining them gives AND semantics, which is exactly
+// what the詳細検索 form wants.
+function buildNdlUrl({ title, author, isbn, q } = {}) {
+  const params = [];
+  if (title) params.push(`title=${encodeURIComponent(title)}`);
+  if (author) params.push(`creator=${encodeURIComponent(author)}`);
+  if (isbn) params.push(`isbn=${encodeURIComponent(isbn)}`);
+  // Free-text fallback (single-input mode).
+  if (!params.length && q) params.push(`title=${encodeURIComponent(q)}`);
+  params.push('cnt=20');
+  return `https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`;
+}
+
+async function searchNDLRaw(urlParams) {
+  const url = buildNdlUrl(urlParams);
   const r = await fetch(url);
   if (!r.ok) {
     const e = new Error(`NDL HTTP ${r.status}`);
@@ -172,12 +202,17 @@ async function searchNDL(query) {
           item.getElementsByTagName('title')[0]?.textContent?.trim() || '',
         author: authorFromNdl(item),
         publisher: publisherFromNdl(item),
+        pubYear: pubYearFromNdl(item),
         isbn,
         cover: ndlThumbnailUrl(isbn),
         pages: 0,
       };
     })
     .filter((b) => b.title);
+}
+
+async function searchNDL(query) {
+  return searchNDLRaw({ q: query });
 }
 
 async function batchOpenBD(isbns) {
@@ -239,10 +274,12 @@ async function searchGoogleBooks(query) {
         ids.find((x) => x.type === 'ISBN_13')?.identifier ||
         ids.find((x) => x.type === 'ISBN_10')?.identifier ||
         '';
+      const pubMatch = (v.publishedDate || '').match(/(\d{4})/);
       return {
         title: v.title || '',
         author: (v.authors || []).join(', '),
         publisher: v.publisher || '',
+        pubYear: pubMatch ? pubMatch[1] : '',
         cover: v.imageLinks?.thumbnail || '',
         pages: v.pageCount || 0,
         isbn,
@@ -289,6 +326,7 @@ function mergeResults(primary, secondary) {
         existing.pages = existing.pages || b.pages;
         existing.author = existing.author || b.author;
         existing.isbn = existing.isbn || b.isbn;
+        existing.pubYear = existing.pubYear || b.pubYear || '';
       }
     }
   };
@@ -428,6 +466,134 @@ export async function searchBooks(query) {
 export async function searchBooksFlat(query) {
   const r = await searchBooks(query);
   return r.ok ? r.results : [];
+}
+
+// 詳細検索 (advanced search) — accepts any combination of title / author /
+// isbn. AND semantics on the NDL side. ISBN takes the fast openBD path
+// when supplied alone (search ボックス と同じ shortcut).
+export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }) {
+  const t = (title || '').trim();
+  const a = (author || '').trim();
+  const i = cleanIsbn(isbn);
+
+  if (!t && !a && !i) return { ok: true, results: [] };
+
+  // Pure-ISBN path: single API trip via openBD, identical to the keyword-mode
+  // ISBN shortcut. Cache key includes the ISBN so it's shared with any prior
+  // single-input ISBN search.
+  if (i && !t && !a) {
+    const cacheKey = `isbn:${i}`;
+    const cached = getCached(cacheKey);
+    if (cached) return { ok: true, results: cached, cached: true };
+    try {
+      const r = await lookupISBNopenBD(i);
+      if (r) {
+        const results = [r];
+        setCached(cacheKey, results);
+        return { ok: true, results };
+      }
+    } catch (e) {
+      console.warn('openBD ISBN lookup failed:', e?.message || e);
+    }
+    try {
+      const r = await lookupISBNGoogle(i);
+      if (r) {
+        const results = [r];
+        setCached(cacheKey, results);
+        return { ok: true, results };
+      }
+    } catch (e) {
+      console.warn('Google Books ISBN lookup failed:', e?.message || e);
+    }
+    setCached(cacheKey, []);
+    return { ok: true, results: [] };
+  }
+
+  // NDL with structured params for AND semantics. ISBN narrows the most.
+  const cacheKey = `adv:t=${t}|a=${a}|i=${i}`;
+  const cached = getCached(cacheKey);
+  if (cached) return { ok: true, results: cached, cached: true };
+
+  let ndlError = null;
+  let results = [];
+  try {
+    results = await searchNDLRaw({ title: t, author: a, isbn: i });
+  } catch (e) {
+    ndlError = e;
+    console.warn('NDL advanced search failed:', e?.message || e);
+  }
+
+  // Enrich with openBD covers (best-effort).
+  if (results.length > 0) {
+    try {
+      const isbns = results.map((r) => r.isbn).filter(Boolean);
+      if (isbns.length > 0) {
+        const map = await batchOpenBD(isbns);
+        results = results.map((r) => {
+          const e = r.isbn ? map[r.isbn] : null;
+          if (!e) return r;
+          return {
+            ...r,
+            cover: e.cover || r.cover,
+            author: r.author || e.author,
+            publisher: r.publisher || e.publisher,
+          };
+        });
+      }
+    } catch (e) {
+      console.warn('openBD enrichment failed (non-fatal):', e?.message || e);
+    }
+  }
+
+  // No NDL hits → Google Books with title + author concatenated.
+  if (results.length === 0 && (t || a)) {
+    try {
+      const g = await searchGoogleBooks(`${t} ${a}`.trim());
+      // Filter manually since Google Books doesn't support strict AND.
+      results = g.filter((b) => {
+        const titleHit = !t || (b.title || '').toLowerCase().includes(t.toLowerCase());
+        const authorHit = !a || (b.author || '').toLowerCase().includes(a.toLowerCase());
+        return titleHit && authorHit;
+      });
+    } catch (e) {
+      console.warn('Google Books fallback failed:', e?.message || e);
+    }
+  }
+
+  if (results.length > 0) {
+    setCached(cacheKey, results);
+    return { ok: true, results };
+  }
+
+  if (ndlError && ndlError.status === 429) {
+    return {
+      ok: false,
+      error: '検索の利用回数が一時的に上限に達しました。\n5〜10 分後に再度お試しください。',
+    };
+  }
+  setCached(cacheKey, []);
+  return { ok: true, results: [] };
+}
+
+// Suggest 3 best-bet results from a result list — used to highlight likely
+// matches when a search returns many books. Heuristic: prefer entries that
+// have a cover + ISBN + publisher (looks more "complete"), then take the
+// first 3 in result order.
+export function pickSuggestions(results, limit = 3) {
+  if (!Array.isArray(results) || results.length === 0) return [];
+  const scored = results.map((r, i) => {
+    let score = 0;
+    if (r.cover) score += 3;
+    if (r.isbn) score += 2;
+    if (r.publisher) score += 1;
+    if (r.pubYear) score += 1;
+    // Older results in the list slightly preferred (NDL ranks roughly
+    // by relevance) — penalise long titles by index.
+    score -= i * 0.1;
+    return { r, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.r);
 }
 
 // ISBN-only lookup used by BookSearchModal when a clean ISBN is typed.
