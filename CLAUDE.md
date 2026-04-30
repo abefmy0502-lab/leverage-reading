@@ -41,6 +41,10 @@
 ├── scripts/generate-icons.js           # PWA アイコン生成 (`npm run icons`)
 ├── src/
 │   ├── App.jsx                         # メインルーティング、状態管理、画面切替
+│   ├── index.css                       # ベース reset + 既存 .lvg-* 互換クラス（tokens / components を import）
+│   ├── styles/
+│   │   ├── tokens.css                  # ⭐ Phase 1: デザイントークン唯一の真実（color / type / space / radius / shadow / motion）+ ダークモード
+│   │   └── components.css              # .btn / .card / .input ユーティリティ（Phase 1 のオプトイン）
 │   ├── main.jsx                        # ProvidersChain (ErrorBoundary > Cache > Toast > Confirm > App)
 │   ├── components/
 │   │   ├── auth/                       # AuthScreen, AuthCallback
@@ -263,7 +267,9 @@ update feedback
 - **セーフエリア対応**: ヘッダー / フローティング要素は `env(safe-area-inset-*)` で iPhone のノッチ・ホームインジケータに被らないよう配慮
 - **キャッシュ整合性**: `useBookMemos` の mutation は `AppDataCache` の `subscribeMemos` 経由で全インスタンスへ自動反映。新規データソースを追加するときは同様の subscribe パターンを検討
 - **写真は `book-memo-photos` private バケット**: 表示時は `useAppDataCache().fetchPhotoUrl(path)` で署名 URL（50 分キャッシュ）を取得。直接 `getPublicUrl` は使わない
-- **iOS HIG 準拠を心がける**: フォント・色・動きは `src/index.css` で定義した CSS 変数（`--type-*` / `--color-*` / `--ease-*` / `--duration-*` / `--shadow-*`）を使い、ハードコードを避ける。新規ボタンは `min-height: 44px+`、ボトムシートには `lvg-sheet-handle`（細いドラッグハンドル）と `backdrop-filter: blur(8px)` を付ける。スプリングアニメは `var(--ease-spring)` + `var(--duration-base)` を組み合わせる
+- **iOS HIG 準拠を心がける**: フォント・色・動きは **`src/styles/tokens.css`** のデザイントークン（`--type-*` / `--color-*-primary|secondary|tertiary` / `--color-accent*` / `--space-*` / `--radius-*` / `--shadow-1〜5` / `--ease-*` / `--duration-*`）を使い、ハードコードを避ける。新規ボタンは `min-height: 44px+`、ボトムシートには `lvg-sheet-handle`（細いドラッグハンドル）と `backdrop-filter: blur(8px)` を付ける。スプリングアニメは `var(--ease-spring)` + `var(--duration-base)` を組み合わせる
+- **デザインシステム Phase 1 完了**: トークンは `src/styles/tokens.css` 一極集中。`.btn` / `.card` / `.input` ユーティリティは `src/styles/components.css`（オプトイン）。旧トークン名（`--color-bg` / `--color-surface` / `--shadow-card` 等）は新トークンへのエイリアスとして残置済み — 既存インラインスタイルは触らずに済む。新規コードは新トークンを使うこと
+- **ダークモード**: `tokens.css` 内 `@media (prefers-color-scheme: dark)` で新トークンのみ再定義済み。旧エイリアスは敢えて light のまま（インラインの hex リテラルとの破綻を避けるため）。完全なダークモード移行は将来フェーズの仕事
 - **AI プロンプトは `src/lib/prompts.js` で一元管理**: `bookAnalysis` / `setupSheet` / `roiSummary` / `bookAdvisor` / `myBookBrain` の 5 種。各エントリは `{ system, user(args) }`。プロンプトを変えたいときはこのファイルだけを編集する（App.jsx や ai.js にインライン定義してはいけない）。出力は基本 Markdown（`## <emoji> <heading>`）で、`<MarkdownSections>` でレンダリング。`bookAdvisor` だけは `RECOMMENDATIONS_START ... _END` の JSON ブロックも同梱する設計（リッチカードのデータ用）。max_tokens は 2048 が標準
 - **ジェスチャー基盤**（Phase B 完了済み・全 surface に展開済み）: 以下のフック/コンポーネントを使うとネイティブ感が出る — 新画面でも同じ仕組みを再利用できる
   - 適用済み: 本棚カード（swipe + long-press + PTR + edge-swipe back）/ メモカード `BookMemoCard` `BookMemoList`（swipe + long-press）/ 振り返りタブ `Review`（swipe + long-press + PTR）/ 知識管理 `KnowledgeManager`（swipe + long-press + PTR、まとめは🧹クリア表示）/ マイ読書脳の履歴ビュー（PTR）

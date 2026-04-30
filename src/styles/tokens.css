@@ -1,0 +1,212 @@
+/* =========================================================================
+ * Design Tokens (Phase 1 of 4)
+ *
+ * Single source of truth for color / type / spacing / radius / shadow /
+ * motion. All NEW components and inline styles should consume these via
+ * `var(--token-name)`.
+ *
+ * Backward compatibility:
+ *   The original token names (--color-bg / --color-surface / --shadow-card
+ *   / --type-large-title / etc.) are preserved as aliases at the bottom of
+ *   :root so the existing utility classes in index.css and any inline
+ *   styles continue to work unchanged. New code should use the canonical
+ *   names defined first.
+ *
+ * Dark mode:
+ *   Defined for the NEW tokens only. Old aliases intentionally stay light
+ *   so that hard-coded hex literals in legacy inline styles don't visually
+ *   tear when the system flips. Full dark-mode rollout is a later phase.
+ * ========================================================================= */
+
+:root {
+  /* === 色: ベース ============================================================ */
+  --color-bg-primary: #faf7f2;        /* メイン背景（暖色ベージュ） */
+  --color-bg-secondary: #ffffff;      /* カード背景 */
+  --color-bg-elevated: #ffffff;       /* 浮いた要素 */
+  --color-bg-hover: #f5f1ea;          /* ホバー */
+
+  /* === 色: テキスト ========================================================== */
+  --color-text-primary: #1f1f1f;
+  --color-text-secondary: #595959;
+  --color-text-tertiary: #8c8c8c;
+  --color-text-quaternary: #bfbfbf;
+  --color-text-inverse: #ffffff;
+
+  /* === 色: アクセント ======================================================== */
+  --color-accent: #8a7040;            /* 既存ブランドカラーを維持 */
+  --color-accent-hover: #6b5630;
+  --color-accent-soft: #f4efe3;
+  --color-accent-strong: #5d4a28;
+
+  /* === 色: 状態 ============================================================== */
+  --color-success: #34c759;
+  --color-success-soft: #e8f5e9;
+  --color-warning: #ff9500;
+  --color-warning-soft: #fff8e1;
+  --color-error: #ff3b30;
+  --color-error-soft: #ffebee;
+  --color-info: #007aff;
+  --color-info-soft: #e3f2fd;
+
+  /* === 色: 構造 ============================================================== */
+  --color-separator: #e5e5e7;
+  --color-border-light: #f0f0f0;
+  --color-border: #d1d1d6;
+  --color-border-strong: #8c8c8c;
+
+  /* === タイポグラフィ ======================================================== */
+  /* Default = system font (iOS / Android / Windows). The brand serif font
+     (Noto Serif JP) is opted-in by the <Shell> wrapper so the brand feel is
+     preserved on user-facing surfaces while system controls / forms stay
+     fast and crisp. */
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Hiragino Sans", "Yu Gothic", "Helvetica Neue", sans-serif;
+  --font-rounded: -apple-system-ui-rounded, "SF Pro Rounded", "Hiragino Sans", sans-serif;
+  --font-mono: "SF Mono", "Menlo", "Monaco", "Courier New", monospace;
+  --font-serif: "Noto Serif JP", Georgia, serif;
+
+  /* === タイポスケール ======================================================== */
+  --type-display: 34px;
+  --type-title-1: 28px;
+  --type-title-2: 22px;
+  --type-title-3: 20px;
+  --type-headline: 17px;
+  --type-body: 17px;
+  --type-callout: 15px;
+  --type-caption: 12px;
+
+  /* === ウェイト ============================================================== */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* === 行送り ================================================================ */
+  --leading-tight: 1.2;
+  --leading-base: 1.5;
+  --leading-relaxed: 1.7;
+
+  /* === 余白（4px ベース） ==================================================== */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* === 角丸 ================================================================== */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* === 影（エレベーション） ================================================== */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-3: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-4: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-5: 0 16px 40px rgba(0, 0, 0, 0.16), 0 8px 16px rgba(0, 0, 0, 0.08);
+
+  /* === アニメーション ======================================================== */
+  --duration-instant: 100ms;
+  --duration-fast: 200ms;
+  --duration-base: 300ms;
+  --duration-slow: 500ms;
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Legacy aliases referenced from index.css / inline styles. */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-in-out-cubic: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* === ブレークポイント ====================================================== */
+  --bp-mobile: 480px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+
+  /* ============================================================================
+   * Backward-compatibility aliases.
+   *
+   * These names are referenced by:
+   *   - index.css utility classes (.lvg-card / .lvg-btn-primary / .lvg-sheet)
+   *   - Inline `var(--color-tertiary)` etc in some components
+   *
+   * Don't remove until every reference is migrated. Each alias points at the
+   * canonical token above so changing the canonical value flows everywhere.
+   * ========================================================================== */
+
+  /* Brand background was a slightly cooler beige in the original palette. We
+     keep the legacy --color-bg name for components that opt-in to the warmer
+     brand surface (e.g. <Shell>'s gradient). */
+  --color-bg: #f5f0e8;
+  --color-surface: #faf6f0;
+  --color-surface-2: #f0ebe2;
+
+  --color-label: var(--color-text-primary);
+  --color-secondary: var(--color-text-secondary);
+  --color-tertiary: var(--color-text-tertiary);
+  --color-quaternary: var(--color-text-quaternary);
+
+  --color-accent-deep: var(--color-accent-strong);
+
+  --type-large-title: var(--type-display);
+  --type-subhead: 15px;
+  --type-footnote: 13px;
+
+  --shadow-card: var(--shadow-2);
+  --shadow-card-active: var(--shadow-1);
+  --shadow-fab: var(--shadow-3);
+  --shadow-sheet: 0 -4px 20px rgba(0, 0, 0, 0.10);
+
+  --radius-card: var(--radius-md);
+  --radius-button: var(--radius-md);
+  --radius-pill: var(--radius-full);
+}
+
+/* =========================================================================
+ * Dark mode — new tokens only.
+ *
+ * Legacy aliases (--color-bg / --color-surface / etc) intentionally stay in
+ * the light palette: hard-coded hex literals throughout the codebase
+ * already define a light-mode look, and partial dark-mode would tear the
+ * UI. Components migrated to the new tokens get full dark-mode for free.
+ * ========================================================================= */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-primary: #000000;
+    --color-bg-secondary: #1c1c1e;
+    --color-bg-elevated: #2c2c2e;
+    --color-bg-hover: #3a3a3c;
+
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #ebebf5;
+    --color-text-tertiary: rgba(235, 235, 245, 0.6);
+    --color-text-quaternary: rgba(235, 235, 245, 0.3);
+
+    --color-accent: #b8956a;
+    --color-accent-hover: #c9a87f;
+    --color-accent-soft: #2a2520;
+    --color-accent-strong: #d4b48a;
+
+    --color-separator: #38383a;
+    --color-border-light: #38383a;
+    --color-border: #48484a;
+    --color-border-strong: #8e8e93;
+
+    /* Shadows lose contrast on dark surfaces — boost their alpha. */
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.40);
+    --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-3: 0 4px 12px rgba(0, 0, 0, 0.50), 0 2px 4px rgba(0, 0, 0, 0.35);
+    --shadow-4: 0 8px 24px rgba(0, 0, 0, 0.55), 0 4px 8px rgba(0, 0, 0, 0.40);
+    --shadow-5: 0 16px 40px rgba(0, 0, 0, 0.60), 0 8px 16px rgba(0, 0, 0, 0.40);
+  }
+}

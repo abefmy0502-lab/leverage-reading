@@ -1498,7 +1498,20 @@ function BottomNav({ tab, setTab }) {
     { key: "advisor", Icon: Sparkles, label: "AI 選書" },
   ];
   return (
-    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#faf6f0", borderTop: "1px solid #e0d8c8", display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <div
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: "var(--color-surface)",
+        borderTop: "1px solid var(--color-separator)",
+        boxShadow: "var(--shadow-1)",
+        display: "flex",
+        zIndex: 100,
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
       {tabs.map((t) => {
         const active = tab === t.key;
         const Icon = t.Icon;
@@ -1508,11 +1521,26 @@ function BottomNav({ tab, setTab }) {
             onClick={() => setTab(t.key)}
             aria-label={t.label}
             aria-current={active ? "page" : undefined}
-            style={{ flex: 1, padding: "10px 0 8px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, position: "relative", minHeight: 56, color: active ? "#3d362c" : "#b5aa96" }}
+            style={{
+              flex: 1,
+              padding: "var(--space-3) 0 var(--space-2)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "var(--space-1)",
+              position: "relative",
+              minHeight: 56,
+              color: active ? "var(--color-accent-strong)" : "var(--color-text-tertiary)",
+              transition: "color var(--duration-fast) var(--ease-out)",
+            }}
           >
             <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
-            <span style={{ fontSize: 10, fontWeight: active ? 600 : 400 }}>{t.label}</span>
-            {active && <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 2, background: "#d4a040", borderRadius: 1 }} />}
+            <span style={{ fontSize: "var(--type-caption)", fontWeight: active ? "var(--weight-semibold)" : "var(--weight-regular)" }}>{t.label}</span>
+            {active && <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 2, background: "var(--color-accent)", borderRadius: 1 }} />}
           </button>
         );
       })}
@@ -1523,17 +1551,21 @@ function BottomNav({ tab, setTab }) {
 /* ========== Shell ========== */
 function Shell({ children }) {
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#f5f0e8,#ebe4d8)", fontFamily: "'Noto Serif JP',Georgia,serif" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(160deg, var(--color-bg), #ebe4d8)",
+        fontFamily: "var(--font-serif)",
+        color: "var(--color-label)",
+      }}
+    >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;600&display=swap');
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
         @keyframes pulse { 0%, 100% { opacity: .2 } 50% { opacity: 1 } }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        input, textarea, select { font-family: inherit; }
-        ::placeholder { color: #b5aa96; }
         ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: #c8bfb0; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: var(--color-quaternary); border-radius: 2px; }
       `}</style>
       {children}
     </div>
@@ -2378,18 +2410,18 @@ const persist = useCallback((updates) => {
             aria-label="クイックメモを追加"
             style={{
               position: "fixed",
-              right: 18,
+              right: "var(--space-5)",
               bottom: "calc(76px + env(safe-area-inset-bottom, 0px))",
               width: 56,
               height: 56,
-              borderRadius: 28,
+              borderRadius: "var(--radius-full)",
               border: "none",
-              background: "#5c5043",
-              color: "#faf6f0",
+              background: "var(--color-accent-strong)",
+              color: "var(--color-text-inverse)",
               fontSize: 28,
               lineHeight: 1,
               cursor: "pointer",
-              boxShadow: "0 6px 16px rgba(30,25,20,0.28)",
+              boxShadow: "var(--shadow-fab)",
               zIndex: 600,
               fontFamily: "inherit",
             }}
@@ -2897,15 +2929,19 @@ export default function App() {
   );
 }
 
-/* ========== Styles ========== */
-const inp = { width: "100%", padding: "10px 12px", fontSize: 16, border: "1px solid #d4ccbe", borderRadius: 10, background: "#fff", outline: "none", color: "#3d362c", fontFamily: "inherit" };
-const ta = { ...inp, resize: "vertical", lineHeight: 1.7 };
-const lnk = { background: "none", border: "none", color: "#8a7e6b", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0 };
-const btnS = { padding: "10px 0", borderRadius: 10, border: "none", background: "#5c5043", color: "#faf6f0", cursor: "pointer", fontFamily: "inherit", fontSize: 14, letterSpacing: 1 };
-const btnO = { padding: "10px 0", borderRadius: 10, border: "1px solid #d4ccbe", background: "transparent", color: "#8a7e6b", cursor: "pointer", fontFamily: "inherit", fontSize: 14 };
-const aiB = { width: "100%", padding: "10px 0", borderRadius: 10, border: "1px dashed #c4b8a6", background: "#f7f3ec", color: "#6b5d4f", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 500 };
-const navBtn = { padding: "10px 24px", borderRadius: 10, border: "1px solid #d4ccbe", background: "transparent", color: "#5c5548", cursor: "pointer", fontFamily: "inherit", fontSize: 13 };
-const closeBtn = { background: "none", border: "none", fontSize: 20, color: "#8a7e6b", cursor: "pointer" };
-const phaseDesc = { fontSize: 12, color: "#8a7e6b", marginBottom: 16, lineHeight: 1.6 };
-const tagBtn = { fontSize: 10, padding: "3px 10px", borderRadius: 12, border: "1px solid #d4ccbe", background: "transparent", color: "#8a7e6b", cursor: "pointer", fontFamily: "inherit" };
-const tagBtnActive = { border: "1.5px solid #8a7e6b", background: "#e8e0d2", color: "#3d362c" };
+/* ========== Styles ==========
+ * Shared inline-style objects. Phase 1 of the design-system rollout:
+ * literals replaced with tokens from styles/tokens.css. The shape is kept
+ * identical so every consumer site picks up the new values for free.
+ */
+const inp = { width: "100%", padding: "10px 12px", fontSize: 16, border: "1px solid var(--color-separator)", borderRadius: "var(--radius-sm)", background: "var(--color-bg-secondary)", outline: "none", color: "var(--color-label)", fontFamily: "inherit" };
+const ta = { ...inp, resize: "vertical", lineHeight: "var(--leading-relaxed)" };
+const lnk = { background: "none", border: "none", color: "var(--color-tertiary)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0 };
+const btnS = { padding: "10px 0", borderRadius: "var(--radius-sm)", border: "none", background: "var(--color-accent-strong)", color: "var(--color-text-inverse)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, letterSpacing: 1 };
+const btnO = { padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-tertiary)", cursor: "pointer", fontFamily: "inherit", fontSize: 14 };
+const aiB = { width: "100%", padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px dashed #c4b8a6", background: "var(--color-accent-soft)", color: "#6b5d4f", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: "var(--weight-medium)" };
+const navBtn = { padding: "10px 24px", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-secondary)", cursor: "pointer", fontFamily: "inherit", fontSize: 13 };
+const closeBtn = { background: "none", border: "none", fontSize: 20, color: "var(--color-tertiary)", cursor: "pointer" };
+const phaseDesc = { fontSize: 12, color: "var(--color-tertiary)", marginBottom: "var(--space-4)", lineHeight: "var(--leading-base)" };
+const tagBtn = { fontSize: 10, padding: "3px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-tertiary)", cursor: "pointer", fontFamily: "inherit" };
+const tagBtnActive = { border: "1.5px solid var(--color-tertiary)", background: "#e8e0d2", color: "var(--color-label)" };
