@@ -173,40 +173,10 @@
 }
 
 /* =========================================================================
- * Dark mode — new tokens only.
+ * Dark mode — DISABLED.
  *
- * Legacy aliases (--color-bg / --color-surface / etc) intentionally stay in
- * the light palette: hard-coded hex literals throughout the codebase
- * already define a light-mode look, and partial dark-mode would tear the
- * UI. Components migrated to the new tokens get full dark-mode for free.
+ * Phase 1 で先回り実装したが、コードベース全体は依然として light モードの
+ * hex リテラルで作られているため、`prefers-color-scheme: dark` を有効に
+ * すると「AI 選書の入力欄だけ黒くなる」など部分破綻が発生した。
+ * 完全なダークモードを Phase 5 以降で扱うまで、ここは無効にしておく。
  * ========================================================================= */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg-primary: #000000;
-    --color-bg-secondary: #1c1c1e;
-    --color-bg-elevated: #2c2c2e;
-    --color-bg-hover: #3a3a3c;
-
-    --color-text-primary: #ffffff;
-    --color-text-secondary: #ebebf5;
-    --color-text-tertiary: rgba(235, 235, 245, 0.6);
-    --color-text-quaternary: rgba(235, 235, 245, 0.3);
-
-    --color-accent: #b8956a;
-    --color-accent-hover: #c9a87f;
-    --color-accent-soft: #2a2520;
-    --color-accent-strong: #d4b48a;
-
-    --color-separator: #38383a;
-    --color-border-light: #38383a;
-    --color-border: #48484a;
-    --color-border-strong: #8e8e93;
-
-    /* Shadows lose contrast on dark surfaces — boost their alpha. */
-    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.40);
-    --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow-3: 0 4px 12px rgba(0, 0, 0, 0.50), 0 2px 4px rgba(0, 0, 0, 0.35);
-    --shadow-4: 0 8px 24px rgba(0, 0, 0, 0.55), 0 4px 8px rgba(0, 0, 0, 0.40);
-    --shadow-5: 0 16px 40px rgba(0, 0, 0, 0.60), 0 8px 16px rgba(0, 0, 0, 0.40);
-  }
-}

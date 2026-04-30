@@ -118,7 +118,9 @@ button:disabled:active {
 }
 
 ::placeholder {
-  color: var(--color-text-quaternary);
+  /* Phase 5 簡素化: 背景に同化しがちだった quaternary を tertiary に格上げ。 */
+  color: var(--color-text-tertiary);
+  opacity: 0.75;
 }
 
 /* ----- Momentum scrolling for horizontal scrollers ------------------------ */

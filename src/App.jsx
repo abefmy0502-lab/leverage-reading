@@ -26,15 +26,8 @@ import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
-import SeasonalEffect from './components/SeasonalEffect';
-import StreakBadge from './components/StreakBadge';
-import MilestoneCelebration from './components/MilestoneCelebration';
 import AuthorThankYou from './components/AuthorThankYou';
-import { useStreak } from './hooks/useStreak';
-import { useBookMilestones } from './hooks/useBookMilestones';
 import { buildGreeting } from './lib/greeting';
-import { markStreakMilestoneCelebrated } from './lib/streak';
-import { markReadingMilestoneCelebrated } from './lib/milestones';
 import { BookListSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
 import SwipeableCard from './components/SwipeableCard';
@@ -181,50 +174,26 @@ function BookResultCard({ book, onSelect }) {
   );
 }
 
-function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
-  // Mode: 'simple' (single input) or 'advanced' (title + author + isbn).
-  const [mode, setMode] = useState('simple');
-  const [q, setQ] = useState(initialQuery);
-  // Advanced-mode fields kept separately so switching back-and-forth doesn't
-  // clobber a half-typed query in the other mode.
-  const [advTitle, setAdvTitle] = useState('');
-  const [advAuthor, setAdvAuthor] = useState('');
-  const [advIsbn, setAdvIsbn] = useState('');
+function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor = '', initialIsbn = '' }) {
+  // 3 inputs always visible. Phase 5: 簡素化方針により simple/advanced
+  // タブを廃止し、最初から詳細検索 (title + author + isbn) を 1 画面で。
+  const [advTitle, setAdvTitle] = useState(initialQuery);
+  const [advAuthor, setAdvAuthor] = useState(initialAuthor);
+  const [advIsbn, setAdvIsbn] = useState(initialIsbn);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  // notFound = empty 0-results page; error = API/network failure with message.
-  // Distinguishing the two is the point of the recent search refactor.
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState(null);
   const [lastQuery, setLastQuery] = useState('');
-  // True when the result was served from the localStorage cache.
   const [cached, setCached] = useState(false);
-  // Sort: 'relevance' (preserve API order) | 'year-desc' | 'title'.
   const [sortBy, setSortBy] = useState('relevance');
 
-  const runSimple = async (queryOverride) => {
-    const query = (queryOverride ?? q).trim();
-    if (!query) return;
-    setSearching(true); setNotFound(false); setError(null); setResults([]); setCached(false);
-    setLastQuery(query);
-    const res = await searchBooksAPI(query);
-    if (!res.ok) {
-      setError(res.error || '検索でエラーが発生しました。');
-    } else if (res.results.length === 0) {
-      setNotFound(true);
-    } else {
-      setResults(res.results);
-      if (res.cached) setCached(true);
-    }
-    setSearching(false);
-  };
-
-  const runAdvanced = async () => {
-    const t = advTitle.trim();
-    const a = advAuthor.trim();
-    const i = advIsbn.trim();
+  const runSearch = async (override) => {
+    const t = (override?.title ?? advTitle).trim();
+    const a = (override?.author ?? advAuthor).trim();
+    const i = (override?.isbn ?? advIsbn).trim();
     if (!t && !a && !i) {
-      setError('タイトル / 著者 / ISBN のいずれかを入力してください。');
+      setError('タイトル・著者・ISBN のいずれかを入力してください。');
       return;
     }
     setSearching(true); setNotFound(false); setError(null); setResults([]); setCached(false);
@@ -241,17 +210,16 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
     setSearching(false);
   };
 
-  // Auto-search if a prefilled query was supplied (e.g. carried over from
-  // the AddBookModal's initial input).
+  // Auto-search if seeded from AddBookModal (any of title / author / isbn).
   useEffect(() => {
-    if (initialQuery && initialQuery.trim()) runSimple(initialQuery);
+    if (initialQuery?.trim() || initialAuthor?.trim() || initialIsbn?.trim()) {
+      runSearch({ title: initialQuery, author: initialAuthor, isbn: initialIsbn });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const retry = () => {
-    if (mode === 'advanced') runAdvanced();
-    else runSimple(lastQuery || q);
-  };
+  const retry = () => runSearch();
+  const hasAnyInput = advTitle.trim() || advAuthor.trim() || advIsbn.trim();
 
   // Apply sort over a stable copy. Empty pubYear sorts to the bottom.
   const sortedResults = useMemo(() => {
@@ -285,119 +253,66 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
         <button onClick={onClose} style={closeBtn} aria-label="閉じる">×</button>
       </div>
 
-      {/* Mode toggle */}
-      <div role="tablist" aria-label="検索モード" style={{ display: 'flex', gap: 4, padding: 4, background: '#eae3d6', borderRadius: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div>
+          <label htmlFor="adv-title" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-secondary)', display: 'block', marginBottom: 4 }}>タイトル</label>
+          <input
+            id="adv-title"
+            value={advTitle}
+            onChange={(e) => setAdvTitle(e.target.value)}
+            placeholder="例：レバレッジ・リーディング"
+            style={inp}
+            maxLength={LIMITS.bookTitle}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
+            autoFocus
+          />
+        </div>
+        <div>
+          <label htmlFor="adv-author" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-secondary)', display: 'block', marginBottom: 4 }}>
+            著者 <span style={{ fontWeight: 400, color: 'var(--color-tertiary)' }}>（任意）</span>
+          </label>
+          <input
+            id="adv-author"
+            value={advAuthor}
+            onChange={(e) => setAdvAuthor(e.target.value)}
+            placeholder="例：本田 直之"
+            style={inp}
+            maxLength={LIMITS.bookAuthor}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
+          />
+        </div>
+        <div>
+          <label htmlFor="adv-isbn" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-secondary)', display: 'block', marginBottom: 4 }}>
+            ISBN <span style={{ fontWeight: 400, color: 'var(--color-tertiary)' }}>（任意）</span>
+          </label>
+          <input
+            id="adv-isbn"
+            value={advIsbn}
+            onChange={(e) => setAdvIsbn(e.target.value)}
+            placeholder="978-4-7631-9742-3"
+            style={inp}
+            inputMode="numeric"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
+          />
+        </div>
         <button
           type="button"
-          role="tab"
-          aria-selected={mode === 'simple'}
-          onClick={() => setMode('simple')}
+          onClick={() => runSearch()}
+          disabled={searching || !hasAnyInput}
           style={{
-            flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
-            background: mode === 'simple' ? '#5c5043' : 'transparent',
-            color: mode === 'simple' ? '#faf6f0' : '#5c5548',
-            fontSize: 13, fontWeight: mode === 'simple' ? 600 : 500,
-            cursor: 'pointer', fontFamily: 'inherit', minHeight: 36,
+            ...btnS,
+            padding: '12px 14px',
+            fontSize: 14,
+            minHeight: 44,
+            opacity: searching || !hasAnyInput ? 0.5 : 1,
           }}
         >
-          🔍 シンプル検索
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'advanced'}
-          onClick={() => setMode('advanced')}
-          style={{
-            flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
-            background: mode === 'advanced' ? '#5c5043' : 'transparent',
-            color: mode === 'advanced' ? '#faf6f0' : '#5c5548',
-            fontSize: 13, fontWeight: mode === 'advanced' ? 600 : 500,
-            cursor: 'pointer', fontFamily: 'inherit', minHeight: 36,
-          }}
-        >
-          📋 詳細検索
+          🔍 検索
         </button>
       </div>
-
-      {mode === 'simple' && (
-        <>
-          <p style={{ fontSize: 11, color: '#a89e8c', lineHeight: 1.5 }}>タイトル・著者名・ISBN で検索できます</p>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="タイトル、著者名、ISBN"
-              style={{ ...inp, flex: 1 }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSimple(); } }}
-              autoFocus
-              aria-label="検索キーワード"
-            />
-            <button onClick={() => runSimple()} disabled={searching} style={{ ...btnS, padding: '8px 14px', fontSize: 12, opacity: searching ? 0.6 : 1, minHeight: 44 }}>検索</button>
-          </div>
-        </>
-      )}
-
-      {mode === 'advanced' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <p style={{ fontSize: 11, color: '#a89e8c', lineHeight: 1.5 }}>
-            タイトル + 著者で AND 絞り込み。ISBN を入れると最優先で検索します。
-          </p>
-          <div>
-            <label htmlFor="adv-title" style={{ fontSize: 11, fontWeight: 600, color: '#5c5043', display: 'block', marginBottom: 4 }}>📖 タイトル</label>
-            <input
-              id="adv-title"
-              value={advTitle}
-              onChange={(e) => setAdvTitle(e.target.value)}
-              placeholder="例：レバレッジ・リーディング"
-              style={inp}
-              maxLength={LIMITS.bookTitle}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runAdvanced(); } }}
-              autoFocus
-            />
-          </div>
-          <div>
-            <label htmlFor="adv-author" style={{ fontSize: 11, fontWeight: 600, color: '#5c5043', display: 'block', marginBottom: 4 }}>✍️ 著者名</label>
-            <input
-              id="adv-author"
-              value={advAuthor}
-              onChange={(e) => setAdvAuthor(e.target.value)}
-              placeholder="例：本田 直之"
-              style={inp}
-              maxLength={LIMITS.bookAuthor}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runAdvanced(); } }}
-            />
-          </div>
-          <div>
-            <label htmlFor="adv-isbn" style={{ fontSize: 11, fontWeight: 600, color: '#5c5043', display: 'block', marginBottom: 4 }}>🔢 ISBN <span style={{ fontWeight: 400, color: '#a89e8c' }}>（任意）</span></label>
-            <input
-              id="adv-isbn"
-              value={advIsbn}
-              onChange={(e) => setAdvIsbn(e.target.value)}
-              placeholder="例: 978-4-7631-9742-3 / 4763197428"
-              style={inp}
-              inputMode="numeric"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runAdvanced(); } }}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={runAdvanced}
-            disabled={searching || (!advTitle.trim() && !advAuthor.trim() && !advIsbn.trim())}
-            style={{
-              ...btnS,
-              padding: '12px 14px',
-              fontSize: 13,
-              minHeight: 44,
-              opacity: searching || (!advTitle.trim() && !advAuthor.trim() && !advIsbn.trim()) ? 0.5 : 1,
-            }}
-          >
-            🔍 詳細検索
-          </button>
-        </div>
-      )}
 
       {searching && <Dots />}
 
@@ -413,45 +328,25 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
 
       {notFound && !searching && (
         <div style={{ textAlign: 'center', padding: 18 }}>
-          <p style={{ fontSize: 13, color: '#5c5043', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0, lineHeight: 1.7 }}>
             「{lastQuery}」に一致する本が見つかりません
           </p>
-          <p style={{ fontSize: 11, color: '#a89e8c', margin: '6px 0 0' }}>
-            別のキーワードや、ISBN（10/13 桁）で試してみてください
+          <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '6px 0 0' }}>
+            別のキーワードでお試しください
           </p>
-          {mode === 'simple' && (
-            <button
-              type="button"
-              onClick={() => setMode('advanced')}
-              style={{ ...btnO, marginTop: 10, padding: '8px 14px', fontSize: 12 }}
-            >
-              📋 詳細検索に切替
-            </button>
-          )}
         </div>
       )}
 
       {results.length > 0 && cached && (
-        <p style={{ fontSize: 10, color: '#9a8e7a', margin: '0 2px', fontStyle: 'italic' }}>
-          ⚡ キャッシュから即時表示しました（最後の検索から 24 時間以内）
+        <p style={{ fontSize: 10, color: 'var(--color-tertiary)', margin: '0 2px', fontStyle: 'italic' }}>
+          ⚡ キャッシュから即時表示
         </p>
       )}
 
       {tooMany && !searching && (
-        <div style={{ background: '#f5efde', border: '1px solid #e0d0a8', borderRadius: 10, padding: '10px 12px' }}>
-          <p style={{ fontSize: 12, color: '#8a7040', margin: 0, lineHeight: 1.7, fontWeight: 500 }}>
-            💡 結果が {results.length} 件あります。タイトルや著者を追加して絞り込めます。
-          </p>
-          {mode === 'simple' && (
-            <button
-              type="button"
-              onClick={() => setMode('advanced')}
-              style={{ ...btnO, marginTop: 6, padding: '6px 12px', fontSize: 11 }}
-            >
-              📋 詳細検索に切替
-            </button>
-          )}
-        </div>
+        <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: 0, padding: '0 4px' }}>
+          💡 結果 {results.length} 件 — 著者や ISBN を入れると絞り込めます
+        </p>
       )}
 
       {suggestions.length > 0 && !searching && (
@@ -1490,7 +1385,7 @@ function BookAdvisor({ onAddBook, onClose }) {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="課題や悩みを入力（Enter で改行 / Shift+Enter で送信）"
+            placeholder="課題や悩みを入力..."
             rows={2}
             disabled={loading}
             aria-label="AI選書アドバイザーへの質問"
@@ -1564,12 +1459,14 @@ function BottomNav({ tab, setTab }) {
               gap: "var(--space-1)",
               position: "relative",
               minHeight: 56,
-              color: active ? "var(--color-accent-strong)" : "var(--color-text-tertiary)",
-              transition: "color var(--duration-fast) var(--ease-out)",
+              // 非アクティブも secondary 色にして「ある」と視認できるように。
+              color: active ? "var(--color-accent-strong)" : "var(--color-secondary)",
+              opacity: active ? 1 : 0.78,
+              transition: "color var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out)",
             }}
           >
-            <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
-            <span style={{ fontSize: "var(--type-caption)", fontWeight: active ? "var(--weight-semibold)" : "var(--weight-regular)" }}>{t.label}</span>
+            <Icon size={22} strokeWidth={active ? 2 : 1.6} aria-hidden="true" />
+            <span style={{ fontSize: "var(--type-caption)", fontWeight: active ? "var(--weight-semibold)" : "var(--weight-medium)" }}>{t.label}</span>
             {active && <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 2, background: "var(--color-accent)", borderRadius: 1 }} />}
           </button>
         );
@@ -1640,6 +1537,8 @@ function AuthedApp() {
   // Carries an initial query from AddBookModal → BookSearchModal so a search
   // typed there auto-runs without re-typing.
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
+  const [searchInitialAuthor, setSearchInitialAuthor] = useState('');
+  const [searchInitialIsbn, setSearchInitialIsbn] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   // Personal Capital UI is removed; data layer (CapitalDashboard component
   // file) is retained for potential future re-enablement.
@@ -1676,44 +1575,14 @@ function AuthedApp() {
   // Books are now committed to DB on delete (no soft-delete state to filter).
   const books = rawBooks;
 
-  // 🎯 Phase 4 — Personality. Personalised greeting (re-evaluated every
-  // hour so the slot label stays accurate if the user keeps the tab open
-  // overnight), streak counter, milestone watcher, and easter-egg state.
+  // 時刻に応じた挨拶 + 名前。1 時間ごとに再評価して開きっぱなしでも
+  // スロットラベルがズレないようにする。達成バッジ系の演出は撤去。
   const [greetingTick, setGreetingTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setGreetingTick((n) => n + 1), 60 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
   const greeting = useMemo(() => buildGreeting(user), [user, greetingTick]);
-  const streakState = useStreak();
-  const { pendingMilestone: pendingReadingMilestone } = useBookMilestones(books);
-
-  // The streak hook may surface a "first launch crossed N days" milestone
-  // immediately. Reading milestones come from the in-memory book list.
-  // Reading takes priority because completing a book is a more event-y
-  // moment than the streak rolling over silently.
-  const [activeCelebration, setActiveCelebration] = useState(null);
-  useEffect(() => {
-    if (activeCelebration) return;
-    if (pendingReadingMilestone) {
-      setActiveCelebration({ kind: 'reading', milestone: pendingReadingMilestone });
-    } else if (streakState.pendingMilestone) {
-      setActiveCelebration({ kind: 'streak', milestone: streakState.pendingMilestone });
-    }
-  }, [pendingReadingMilestone, streakState.pendingMilestone, activeCelebration]);
-
-  const dismissCelebration = useCallback(() => {
-    if (!activeCelebration || !user?.id) {
-      setActiveCelebration(null);
-      return;
-    }
-    if (activeCelebration.kind === 'reading') {
-      markReadingMilestoneCelebrated(user.id, activeCelebration.milestone);
-    } else {
-      markStreakMilestoneCelebrated(user.id, activeCelebration.milestone);
-    }
-    setActiveCelebration(null);
-  }, [activeCelebration, user]);
 
   // Easter egg: long-press the bookshelf logo (📚) to reveal a thank-you.
   const [thanksOpen, setThanksOpen] = useState(false);
@@ -1784,14 +1653,23 @@ const persist = useCallback((updates) => {
     setAddBookModalOpen(true);
   };
 
-  // From AddBookModal → 検索. Open BookSearchModal seeded with whatever the
-  // user typed so the search auto-runs.
-  const openSearchFromAdd = (query) => {
+  // From AddBookModal → 検索. AddBookModal は今や 3 入力欄
+  // (title/author/isbn) を持つので、その全てを seed として渡す。
+  // 後方互換のため、文字列が来たら title 扱い。
+  const openSearchFromAdd = (payload) => {
     setAddBookModalOpen(false);
     setForm({ ...emptyBook(), id: Date.now().toString(), addedVia: 'search' });
     setCurrent(null);
     setView('edit');
-    setSearchInitialQuery(query || '');
+    if (typeof payload === 'string') {
+      setSearchInitialQuery(payload || '');
+      setSearchInitialAuthor('');
+      setSearchInitialIsbn('');
+    } else {
+      setSearchInitialQuery(payload?.title || '');
+      setSearchInitialAuthor(payload?.author || '');
+      setSearchInitialIsbn(payload?.isbn || '');
+    }
     setSearchOpen(true);
   };
 
@@ -1915,6 +1793,8 @@ const persist = useCallback((updates) => {
   const handleBookSelect = (b) => {
     setSearchOpen(false);
     setSearchInitialQuery('');
+    setSearchInitialAuthor('');
+    setSearchInitialIsbn('');
     // A successful pick from BookSearchModal always implies the search path,
     // even if the user manually opened the modal from inside an existing form.
     setForm((f) => ({
@@ -2639,11 +2519,13 @@ const persist = useCallback((updates) => {
           )}
         </div>
 
-        <Modal open={searchOpen} onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); }}>
+        <Modal open={searchOpen} onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}>
           <BookSearchModal
             onSelect={handleBookSelect}
-            onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); }}
+            onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}
             initialQuery={searchInitialQuery}
+            initialAuthor={searchInitialAuthor}
+            initialIsbn={searchInitialIsbn}
           />
         </Modal>
         {helpModalOpen && (
@@ -2695,15 +2577,10 @@ const persist = useCallback((updates) => {
       >
         <span aria-hidden="true">📚</span>
       </button>
-      <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <span style={{ fontSize: 13, color: "var(--color-secondary)", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "60vw" }}>
-          <span aria-hidden="true" style={{ marginRight: 4 }}>{greeting.emoji}</span>
-          {greeting.text}
-        </span>
-        {streakState.streak >= 2 && (
-          <StreakBadge streak={streakState.streak} style={{ marginTop: 4, alignSelf: "flex-start" }} />
-        )}
-      </div>
+      <span style={{ fontSize: 13, color: "var(--color-secondary)", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "60vw" }}>
+        <span aria-hidden="true" style={{ marginRight: 4 }}>{greeting.emoji}</span>
+        {greeting.text}
+      </span>
     </div>
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <button
@@ -3021,22 +2898,8 @@ const persist = useCallback((updates) => {
         />
       )}
 
-      {/* 🌸 Seasonal ambient effect (sakura / leaves / snow). The list view
-          gets it; we hide it on full-screen edit / detail surfaces so the
-          form work isn't visually busy. */}
-      {view === 'list' && <SeasonalEffect />}
-
-      {/* 🎉 Milestone celebration — shows the first pending milestone, then
-          clears it via dismissCelebration so it never re-fires. */}
-      {activeCelebration && (
-        <MilestoneCelebration
-          kind={activeCelebration.kind}
-          milestone={activeCelebration.milestone}
-          onClose={dismissCelebration}
-        />
-      )}
-
-      {/* 🙇 Easter egg: long-press the bookshelf logo. */}
+      {/* 🙇 Easter egg: long-press the bookshelf logo. 季節演出 / マイル
+          ストーン演出は「鬱陶しい」フィードバックにより撤去済み。 */}
       {thanksOpen && <AuthorThankYou onClose={() => setThanksOpen(false)} />}
 
       <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} />
@@ -3089,7 +2952,10 @@ export default function App() {
  * literals replaced with tokens from styles/tokens.css. The shape is kept
  * identical so every consumer site picks up the new values for free.
  */
-const inp = { width: "100%", padding: "10px 12px", fontSize: 16, border: "1px solid var(--color-separator)", borderRadius: "var(--radius-sm)", background: "var(--color-bg-secondary)", outline: "none", color: "var(--color-label)", fontFamily: "inherit" };
+// `--color-surface` (legacy alias) は dark mode でも light のまま。新しい
+// `--color-bg-secondary` を使うと部分的に dark mode が走った時に
+// 入力欄だけ黒くなる問題が起きるため、常に light な surface を使う。
+const inp = { width: "100%", padding: "10px 12px", fontSize: 16, border: "1px solid var(--color-separator)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", outline: "none", color: "var(--color-label)", fontFamily: "inherit" };
 const ta = { ...inp, resize: "vertical", lineHeight: "var(--leading-relaxed)" };
 const lnk = { background: "none", border: "none", color: "var(--color-tertiary)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0 };
 const btnS = { padding: "10px 0", borderRadius: "var(--radius-sm)", border: "none", background: "var(--color-accent-strong)", color: "var(--color-text-inverse)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, letterSpacing: 1 };
