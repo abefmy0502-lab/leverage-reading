@@ -136,6 +136,16 @@ function isBookCategoryNdl(item) {
 
 // ---------- API callers ----------
 
+// NDL exposes a thumbnail-by-ISBN endpoint. Most modern Japanese books
+// have an image here even when openBD's `summary.cover` is empty, so we
+// use it as a baseline cover whenever the NDL response carries an ISBN.
+// openBD's higher-quality cover (cover.openbd.jp) overrides this in the
+// merge step when available.
+function ndlThumbnailUrl(isbn) {
+  if (!isbn) return '';
+  return `https://ndlsearch.ndl.go.jp/thumbnail/${isbn}.jpg`;
+}
+
 async function searchNDL(query) {
   const url = `https://ndlsearch.ndl.go.jp/api/opensearch?title=${encodeURIComponent(query)}&cnt=20`;
   const r = await fetch(url);
@@ -155,15 +165,18 @@ async function searchNDL(query) {
   const items = Array.from(doc.getElementsByTagName('item'));
   return items
     .filter(isBookCategoryNdl)
-    .map((item) => ({
-      title:
-        item.getElementsByTagName('title')[0]?.textContent?.trim() || '',
-      author: authorFromNdl(item),
-      publisher: publisherFromNdl(item),
-      isbn: isbnFromNdl(item),
-      cover: '',
-      pages: 0,
-    }))
+    .map((item) => {
+      const isbn = isbnFromNdl(item);
+      return {
+        title:
+          item.getElementsByTagName('title')[0]?.textContent?.trim() || '',
+        author: authorFromNdl(item),
+        publisher: publisherFromNdl(item),
+        isbn,
+        cover: ndlThumbnailUrl(isbn),
+        pages: 0,
+      };
+    })
     .filter((b) => b.title);
 }
 
@@ -198,7 +211,8 @@ async function lookupISBNopenBD(isbn) {
       title: s.title || '',
       author: s.author || '',
       publisher: s.publisher || '',
-      cover: s.cover || '',
+      // openBD ships a cover ~40% of the time; fall back to NDL thumbnail.
+      cover: s.cover || ndlThumbnailUrl(isbn),
       pages: 0,
       isbn,
     };
@@ -345,9 +359,11 @@ export async function searchBooks(query) {
         enriched = ndlResults.map((r) => {
           const e = r.isbn ? map[r.isbn] : null;
           if (!e) return r;
+          // openBD covers (cover.openbd.jp) are higher quality than the NDL
+          // thumbnail fallback baked in by searchNDL — prefer them.
           return {
             ...r,
-            cover: r.cover || e.cover,
+            cover: e.cover || r.cover,
             author: r.author || e.author,
             publisher: r.publisher || e.publisher,
           };

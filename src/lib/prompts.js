@@ -67,7 +67,34 @@ const setupSheet = {
     `## 💡 期待される行動変化\n` +
     `読了後、具体的にどんな行動が変わると ROI 達成か（3 つ）\n\n` +
     `## 📚 関連書籍\n` +
-    `読了後に読むと相乗効果がある本（2 冊、タイトルと著者）`,
+    `読了後に読むと相乗効果がある本（2 冊）。各エントリは必ず次の形式で出力:\n` +
+    `### 1. 『本のタイトル』- 著者名\n` +
+    `本の説明（1〜2 行、なぜ相乗効果があるか）\n` +
+    `### 2. 『本のタイトル』- 著者名\n` +
+    `本の説明（1〜2 行）`,
+};
+
+// =========================================================================
+// 2b. Setup sheet — refinement
+// =========================================================================
+// User wants to nudge an existing setup sheet (e.g. "もっと簡潔に",
+// "営業視点を強化"). Reuse the same persona but emphasise that the
+// existing structure should be kept — only adjust per the instruction.
+const setupSheetEdit = {
+  system:
+    `あなたは読書投資コンサルタントです。${BASE_PERSONA}\n\n` +
+    `既存の『読書セットアップシート』を、ユーザーの修正指示に従って改善してください。日本語で、Markdown 形式（## 見出し）で出力。`,
+  user: ({ existing, instruction, title, author }) =>
+    `【本】「${title}」（著者: ${author || '不明'}）\n\n` +
+    `【既存のセットアップシート】\n${existing}\n\n` +
+    `【ユーザーの修正指示】\n${instruction}\n\n` +
+    `【出力ルール】\n` +
+    `- 既存のセクション構造（## の見出し）を必ず維持する\n` +
+    `- 指示に直接関係しないセクションは大きく書き換えない\n` +
+    `- 「## 📚 関連書籍」がある場合は、各エントリを以下の形式で出力する:\n` +
+    `  ### 1. 『本のタイトル』- 著者名\n` +
+    `  本の説明（1〜2 行）\n` +
+    `- 説明や前置き・「修正版です」などの定型文は出力せず、シート本文のみを返す`,
 };
 
 // =========================================================================
@@ -166,6 +193,7 @@ const myBookBrain = {
 export const PROMPTS = {
   bookAnalysis,
   setupSheet,
+  setupSheetEdit,
   roiSummary,
   bookAdvisor,
   myBookBrain,

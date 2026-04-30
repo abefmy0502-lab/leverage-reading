@@ -74,7 +74,19 @@ function renderInline(text) {
   return parts.length ? parts : text;
 }
 
-function renderLines(lines) {
+// "### 1. 『title』- 著者" / "『title』 — 著者" / "『title』" all parse the
+// same way: title in 『』 + an optional author suffix after - / – / — / ・.
+const RELATED_BOOK_RE = /^\s*(?:\d+\.\s*)?『([^』]+)』(?:\s*[-–—・]\s*(.+))?\s*$/;
+function parseRelatedBookHeading(text) {
+  const m = (text || '').match(RELATED_BOOK_RE);
+  if (!m) return null;
+  const title = (m[1] || '').trim();
+  const author = (m[2] || '').trim();
+  if (!title) return null;
+  return { title, author };
+}
+
+function renderLines(lines, opts) {
   // Group consecutive list items into a single <ul> / <ol>.
   const blocks = [];
   let listBuf = null; // { type: 'ul' | 'ol', items: [] }
@@ -117,6 +129,67 @@ function renderLines(lines) {
   });
   flushList();
 
+  // For 関連書籍 sections: each `### N. 『title』- 著者` becomes a card
+  // with an "📚 読みたいに追加" button. Following paragraphs (until the
+  // next subhead) are absorbed as the description.
+  if (opts?.relatedBooks && opts?.onAddRelatedBook) {
+    const out = [];
+    let pending = null; // { book, lines: [] }
+    const flushPending = (key) => {
+      if (!pending) return;
+      out.push(
+        <RelatedBookCard
+          key={`rel-${key}`}
+          book={pending.book}
+          description={pending.lines.join('\n').trim()}
+          onAdd={() => opts.onAddRelatedBook(pending.book)}
+          isAdding={opts.addingTitles?.has(pending.book.title)}
+        />,
+      );
+      pending = null;
+    };
+    blocks.forEach((b, i) => {
+      if (b.type === 'subhead') {
+        const parsed = parseRelatedBookHeading(b.text);
+        flushPending(i);
+        if (parsed) {
+          pending = { book: parsed, lines: [] };
+        } else {
+          out.push(<h4 key={i} style={subHeadingStyle}>{renderInline(b.text)}</h4>);
+        }
+        return;
+      }
+      if (pending) {
+        if (b.type === 'p') pending.lines.push(b.text);
+        else if (b.type === 'ul') pending.lines.push(...b.items.map((it) => `- ${it}`));
+        else if (b.type === 'ol') pending.lines.push(...b.items.map((it, j) => `${j + 1}. ${it}`));
+        return;
+      }
+      // Non-related fallthrough — render normally.
+      if (b.type === 'ul') {
+        out.push(
+          <ul key={i} style={listStyle}>
+            {b.items.map((it, j) => (
+              <li key={j}>{renderInline(it)}</li>
+            ))}
+          </ul>,
+        );
+      } else if (b.type === 'ol') {
+        out.push(
+          <ol key={i} style={listStyle}>
+            {b.items.map((it, j) => (
+              <li key={j}>{renderInline(it)}</li>
+            ))}
+          </ol>,
+        );
+      } else {
+        out.push(<p key={i} style={paraStyle}>{renderInline(b.text)}</p>);
+      }
+    });
+    flushPending('end');
+    return out;
+  }
+
   return blocks.map((b, i) => {
     if (b.type === 'subhead') return <h4 key={i} style={subHeadingStyle}>{renderInline(b.text)}</h4>;
     if (b.type === 'ul') {
@@ -141,6 +214,55 @@ function renderLines(lines) {
   });
 }
 
+const relatedCardStyle = {
+  background: '#fff',
+  border: '1px solid #e0d0a8',
+  borderRadius: 10,
+  padding: '10px 12px',
+  margin: '8px 0',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+};
+const relatedAddBtn = {
+  alignSelf: 'flex-start',
+  padding: '8px 14px',
+  borderRadius: 999,
+  border: '1px solid #d4ccbe',
+  background: '#5c5043',
+  color: '#faf6f0',
+  fontSize: 12,
+  fontWeight: 500,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  minHeight: 36,
+};
+
+function RelatedBookCard({ book, description, onAdd, isAdding }) {
+  return (
+    <div style={relatedCardStyle}>
+      <p style={{ fontSize: 13, fontWeight: 600, color: '#3d362c', margin: 0, lineHeight: 1.5 }}>
+        📚 『{book.title}』
+        {book.author && <span style={{ fontSize: 11, color: '#8a7e6b', fontWeight: 400 }}> — {book.author}</span>}
+      </p>
+      {description && (
+        <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
+          {description}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={onAdd}
+        disabled={isAdding}
+        aria-label={`『${book.title}』を読みたいに追加`}
+        style={{ ...relatedAddBtn, opacity: isAdding ? 0.6 : 1 }}
+      >
+        {isAdding ? '追加中…' : '📚 読みたいに追加'}
+      </button>
+    </div>
+  );
+}
+
 function parseSections(text) {
   if (typeof text !== 'string' || !text.trim()) return [];
   const sections = [];
@@ -158,7 +280,14 @@ function parseSections(text) {
   return sections;
 }
 
-export default function MarkdownSections({ text, density = 'normal' }) {
+// Heading like "## 📚 関連書籍" / "おすすめの本" / "次に読む" → render
+// each `### N. 『title』- author` as a clickable add card.
+function isRelatedBooksHeading(heading) {
+  if (!heading) return false;
+  return /関連書籍|次に読む|併読|おすすめの本|参考書籍/.test(heading);
+}
+
+export default function MarkdownSections({ text, density = 'normal', onAddRelatedBook, addingTitles }) {
   const sections = useMemo(() => parseSections(text), [text]);
   if (sections.length === 0) return null;
 
@@ -175,10 +304,11 @@ export default function MarkdownSections({ text, density = 'normal' }) {
     <div style={wrap}>
       {sections.map((s, i) => {
         const styles = isHighlight(s.heading || '') ? highlightSection : sectionStyle;
+        const related = onAddRelatedBook && isRelatedBooksHeading(s.heading);
         return (
           <section key={i} style={styles}>
             {s.heading && <h3 style={headingStyle}>{s.heading}</h3>}
-            {renderLines(s.lines)}
+            {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
           </section>
         );
       })}

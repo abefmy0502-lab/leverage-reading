@@ -72,6 +72,31 @@ function saveData(data) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
 }
 
+/* ========== Setup-sheet edit history (localStorage, 1-step undo) ========== */
+const STRATEGY_HISTORY_KEY = (bookId) => `aiStrategyHistory:${bookId}`;
+function saveStrategyHistory(bookId, prevStrategy) {
+  if (!bookId || typeof prevStrategy !== 'string') return;
+  try { localStorage.setItem(STRATEGY_HISTORY_KEY(bookId), prevStrategy); } catch {}
+}
+function popStrategyHistory(bookId) {
+  if (!bookId) return null;
+  try {
+    const v = localStorage.getItem(STRATEGY_HISTORY_KEY(bookId));
+    if (!v) return null;
+    localStorage.removeItem(STRATEGY_HISTORY_KEY(bookId));
+    return v;
+  } catch { return null; }
+}
+function hasStrategyHistory(bookId) {
+  if (!bookId) return false;
+  try { return !!localStorage.getItem(STRATEGY_HISTORY_KEY(bookId)); }
+  catch { return false; }
+}
+function clearStrategyHistory(bookId) {
+  if (!bookId) return;
+  try { localStorage.removeItem(STRATEGY_HISTORY_KEY(bookId)); } catch {}
+}
+
 /* ========== AI ========== */
 // AI prompts now live in src/lib/prompts.js — single source of truth for
 // every generative flow. Do not re-introduce inline prompts here.
@@ -490,7 +515,26 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
 }
 
 // Phase 2: 読書前（投資設計）
-function BeforePhase({ form, setForm, onSave, aiLoading, onRunAnalysis, onRunStrategy }) {
+function BeforePhase({
+  form,
+  setForm,
+  onSave,
+  aiLoading,
+  onRunAnalysis,
+  onRunStrategy,
+  onRunStrategyEdit,
+  onUndoStrategy,
+  hasStrategyHistory,
+  onAddRelatedBook,
+  addingTitles,
+}) {
+  const [editInstruction, setEditInstruction] = useState('');
+  const submitEdit = () => {
+    const v = editInstruction.trim();
+    if (!v) return;
+    onRunStrategyEdit?.(v).then(() => setEditInstruction(''));
+  };
+
   return (
     <div>
       <p style={phaseDesc}>📐 読書の投資設計をしましょう</p>
@@ -526,7 +570,69 @@ function BeforePhase({ form, setForm, onSave, aiLoading, onRunAnalysis, onRunStr
           {form.aiStrategy && (
             <div style={{ marginTop: 8 }}>
               <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>読書前セットアップシート</p>
-              <MarkdownSections text={form.aiStrategy} />
+              <MarkdownSections
+                text={form.aiStrategy}
+                onAddRelatedBook={onAddRelatedBook}
+                addingTitles={addingTitles}
+              />
+
+              {/* Refinement: send the existing sheet + a free-form instruction
+                  to the AI. Keeps a 1-step history in localStorage so the
+                  user can undo. */}
+              <div style={{ marginTop: 12, padding: "12px 14px", background: "#f5efde", border: "1px solid #e0d0a8", borderRadius: 12 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "#5c5043", margin: 0 }}>
+                  📝 修正リクエスト
+                </p>
+                <p style={{ fontSize: 11, color: "#8a7e6b", margin: "4px 0 8px", lineHeight: 1.6 }}>
+                  例：もっと簡潔に / 営業視点を強化 / 章番号を増やして
+                </p>
+                <textarea
+                  value={editInstruction}
+                  onChange={(e) => setEditInstruction(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return;
+                    if (e.key === "Enter" && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      submitEdit();
+                    }
+                  }}
+                  placeholder="修正したい点を入力"
+                  rows={2}
+                  style={{ ...ta, minHeight: 60, maxHeight: 200 }}
+                  maxLength={LIMITS.memoText}
+                  aria-label="セットアップシートの修正指示"
+                  disabled={aiLoading}
+                />
+                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={submitEdit}
+                    disabled={!editInstruction.trim() || aiLoading}
+                    style={{
+                      ...btnS,
+                      padding: "10px 18px",
+                      fontSize: 13,
+                      opacity: !editInstruction.trim() || aiLoading ? 0.5 : 1,
+                    }}
+                  >
+                    {aiLoading ? "修正中..." : "🔧 修正する"}
+                  </button>
+                  {hasStrategyHistory && !aiLoading && (
+                    <button
+                      type="button"
+                      onClick={onUndoStrategy}
+                      style={{
+                        ...btnO,
+                        padding: "10px 14px",
+                        fontSize: 12,
+                      }}
+                      aria-label="ひとつ前のセットアップシートに戻す"
+                    >
+                      ↶ 元に戻す
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </>
@@ -927,6 +1033,14 @@ function BookAdvisor({ onAddBook, onClose }) {
     if (messages.length <= prev) return;
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 30);
   }, [messages]);
+  // Auto-grow textarea: clamp 60–200px, scroll past 200.
+  const inputRef = useRef(null);
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(Math.max(el.scrollHeight, 60), 200) + 'px';
+  }, [input]);
 
   // Parse the new richer response: leading prose + JSON recs + trailing prose.
   const parseAdvisorResponse = (text) => {
@@ -1074,11 +1188,33 @@ function BookAdvisor({ onAddBook, onClose }) {
 
       {/* Input */}
       {!recommendations && (
-        <div style={{ display: "flex", gap: 6, paddingTop: 12, borderTop: "1px solid #e0d8c8", marginTop: 8, flexShrink: 0 }}>
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="課題や悩みを入力..."
-            style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendMessage(); } }} disabled={loading} />
-          <button onClick={sendMessage} disabled={!input.trim() || loading}
-            style={{ ...btnS, padding: "8px 16px", fontSize: 12, opacity: !input.trim() || loading ? 0.5 : 1 }}>送信</button>
+        <div style={{ display: "flex", gap: 6, paddingTop: 12, borderTop: "1px solid #e0d8c8", marginTop: 8, flexShrink: 0, alignItems: "flex-end" }}>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="課題や悩みを入力（Enter で改行 / Shift+Enter で送信）"
+            rows={2}
+            disabled={loading}
+            aria-label="AI選書アドバイザーへの質問"
+            style={{ ...ta, flex: 1, minHeight: 60, maxHeight: 200, resize: "none" }}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing) return;
+              if (e.key === "Enter" && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={sendMessage}
+            disabled={!input.trim() || loading}
+            aria-label="送信"
+            style={{ ...btnS, padding: "10px 16px", fontSize: 12, minHeight: 44, opacity: !input.trim() || loading ? 0.5 : 1 }}
+          >
+            送信
+          </button>
         </div>
       )}
     </div>
@@ -1196,6 +1332,13 @@ function AuthedApp() {
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
   const onboardingTriggeredRef = useRef(false);
+  // Setup-sheet edit history visibility — bumps to force re-read of the
+  // localStorage-backed flag when we mutate it.
+  const [strategyHistoryTick, setStrategyHistoryTick] = useState(0);
+  // Set of titles currently being added from a related-books card so the
+  // button can show "追加中…" and we don't double-fire on rapid taps.
+  const addingRelatedTitlesRef = useRef(new Set());
+  const [addingRelatedTick, setAddingRelatedTick] = useState(0);
 
   // Memo ops for the currently-open book (FAB / quick sheet / full editor handoff).
   // Always called so hook order stays stable; isUsableBookId guards inside the hook.
@@ -1587,10 +1730,93 @@ const persist = useCallback((updates) => {
         { max_tokens: 2048 }
       );
       setForm((f) => ({ ...f, aiStrategy: r }));
+      // Fresh generation invalidates any prior 修正リクエスト history.
+      if (form?.id) clearStrategyHistory(form.id);
     } catch (error) {
       toast.error(toMessage(error, 'AI戦略の生成に失敗しました。'));
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  // Refinement: take the current sheet + an instruction and ask the AI to
+  // rewrite it. Saves a single-step history to localStorage so the user
+  // can undo.
+  const runStrategyEdit = async (instruction) => {
+    if (!form?.aiStrategy?.trim()) return;
+    if (!instruction?.trim()) return;
+    const prev = form.aiStrategy;
+    setAiLoading(true);
+    try {
+      const r = await callClaude(
+        PROMPTS.setupSheetEdit.system,
+        PROMPTS.setupSheetEdit.user({
+          existing: prev,
+          instruction,
+          title: form.title,
+          author: form.author,
+        }),
+        { max_tokens: 2048 }
+      );
+      if (typeof r !== 'string' || r.startsWith('エラー') || r.startsWith('AI機能') || r.startsWith('リクエスト') || r.startsWith('通信エラー')) {
+        throw new Error(r || 'AI 修正に失敗しました');
+      }
+      setForm((f) => ({ ...f, aiStrategy: r }));
+      if (form?.id) saveStrategyHistory(form.id, prev);
+      setStrategyHistoryTick((t) => t + 1);
+      toast.success('✓ セットアップシートを修正しました');
+    } catch (error) {
+      toast.error(toMessage(error, 'セットアップシートの修正に失敗しました。'));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const undoStrategy = () => {
+    if (!form?.id) return;
+    const prev = popStrategyHistory(form.id);
+    if (!prev) return;
+    setForm((f) => ({ ...f, aiStrategy: prev }));
+    setStrategyHistoryTick((t) => t + 1);
+    toast.info('ひとつ前のセットアップシートに戻しました');
+  };
+
+  // Adds a recommended book (from setup sheet / ROI summary related-books
+  // section) to the bookshelf in 'want' status. Best-effort cover lookup
+  // via the search pipeline; falls back to manual add if no hit.
+  const addRelatedBookFromAi = async ({ title, author = '' }) => {
+    if (!title || !title.trim()) return;
+    if (addingRelatedTitlesRef.current.has(title)) return;
+    addingRelatedTitlesRef.current.add(title);
+    setAddingRelatedTick((t) => t + 1);
+    try {
+      const newBook = {
+        ...emptyBook(),
+        title: title.trim(),
+        author: author?.trim() || '',
+        status: 'want',
+        addedVia: 'search',
+      };
+      try {
+        const results = await searchBooksAPIFlat(`${title} ${author || ''}`.trim());
+        if (results.length > 0) {
+          newBook.cover = results[0].cover || '';
+          newBook.totalPages = results[0].pages || 0;
+          // Upgrade author if AI said 不明 / blank but search has it.
+          if (!newBook.author && results[0].author) newBook.author = results[0].author;
+        } else {
+          newBook.addedVia = 'manual';
+        }
+      } catch {
+        newBook.addedVia = 'manual';
+      }
+      await saveBook(newBook);
+      toast.success(`「${title}」を読みたいに追加しました`);
+    } catch (error) {
+      toast.error(toMessage(error, '本の追加に失敗しました。'));
+    } finally {
+      addingRelatedTitlesRef.current.delete(title);
+      setAddingRelatedTick((t) => t + 1);
     }
   };
   const runSummary = async () => {
@@ -1749,7 +1975,11 @@ const persist = useCallback((updates) => {
           {current.aiStrategy && (
             <div style={{ marginTop: 12 }}>
               <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🗺️ セットアップシート</p>
-              <MarkdownSections text={current.aiStrategy} />
+              <MarkdownSections
+                text={current.aiStrategy}
+                onAddRelatedBook={addRelatedBookFromAi}
+                addingTitles={(() => { void addingRelatedTick; return addingRelatedTitlesRef.current; })()}
+              />
             </div>
           )}
 
@@ -1796,7 +2026,11 @@ const persist = useCallback((updates) => {
           {current.aiSummary && (
             <div style={{ marginTop: 12 }}>
               <p style={{ fontSize: 12, fontWeight: 600, color: "#5a7a48", marginBottom: 6 }}>🤖 AI 要約 (ROI)</p>
-              <MarkdownSections text={current.aiSummary} />
+              <MarkdownSections
+                text={current.aiSummary}
+                onAddRelatedBook={addRelatedBookFromAi}
+                addingTitles={(() => { void addingRelatedTick; return addingRelatedTitlesRef.current; })()}
+              />
             </div>
           )}
 
@@ -1954,7 +2188,25 @@ const persist = useCallback((updates) => {
             <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={() => setSearchOpen(true)} allTags={allTags} />
           )}
           {form.status === "before" && current && (
-            <BeforePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunAnalysis={runAnalysis} onRunStrategy={runStrategy} />
+            <BeforePhase
+              form={form}
+              setForm={setForm}
+              onSave={handleSave}
+              aiLoading={aiLoading}
+              onRunAnalysis={runAnalysis}
+              onRunStrategy={runStrategy}
+              onRunStrategyEdit={runStrategyEdit}
+              onUndoStrategy={undoStrategy}
+              hasStrategyHistory={
+                // strategyHistoryTick is read so React re-renders after writes.
+                strategyHistoryTick >= 0 && hasStrategyHistory(form?.id)
+              }
+              onAddRelatedBook={addRelatedBookFromAi}
+              addingTitles={(() => {
+                void addingRelatedTick;
+                return addingRelatedTitlesRef.current;
+              })()}
+            />
           )}
           {form.status === "reading" && current && (
             <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} allTags={allTags} />

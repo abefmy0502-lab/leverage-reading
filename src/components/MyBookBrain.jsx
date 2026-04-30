@@ -289,6 +289,14 @@ export default function MyBookBrain({ onOpenBook }) {
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
+  // Auto-grow textarea: 60px min, 200px max, scrolls past 200.
+  const inputRef = useRef(null);
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(Math.max(el.scrollHeight, 60), 200) + 'px';
+  }, [input]);
 
   const fetchHistory = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
@@ -587,29 +595,32 @@ export default function MyBookBrain({ onOpenBook }) {
             </button>
           )}
 
-          {/* Input area */}
-          <div style={{ display: 'flex', gap: 6, position: 'sticky', bottom: 0, paddingTop: 8 }}>
+          {/* Input area — Enter inserts a newline, Shift+Enter / Cmd+Enter
+              sends. IME composition is always passed through unchanged. */}
+          <div style={{ display: 'flex', gap: 6, position: 'sticky', bottom: 0, paddingTop: 8, alignItems: 'flex-end' }}>
             <textarea
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
-                else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                if (e.nativeEvent.isComposing) return;
+                if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
                   ask();
                 }
               }}
-              placeholder="質問を入力..."
+              placeholder="質問を入力（Enter で改行 / Shift+Enter で送信）"
               rows={2}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}
-              style={{ ...ta, minHeight: 56, flex: 1 }}
+              aria-label="マイ読書脳への質問"
+              style={{ ...ta, minHeight: 60, maxHeight: 200, flex: 1, resize: 'none', lineHeight: 1.7 }}
             />
             <button
               type="button"
               onClick={() => ask()}
               disabled={busy || !input.trim()}
-              style={{ ...btnPrimary, opacity: busy || !input.trim() ? 0.5 : 1, alignSelf: 'flex-end', minHeight: 44 }}
+              style={{ ...btnPrimary, padding: '12px 16px', opacity: busy || !input.trim() ? 0.5 : 1, alignSelf: 'flex-end', minHeight: 44 }}
               aria-label="送信"
             >
               送信
