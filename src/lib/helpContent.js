@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-04-30: デザインシステム Phase 3 — コンテンツ精緻化。EmptyState / SectionHeader / ErrorMessage / StatCard 新設、本棚・行動・振り返り・読書脳の空状態を寄り添い形に刷新、行動の完了率に「あと N 件で X% 達成」マイルストーン文脈、ステータス進む時の事前ガイダンス
  * - 2026-04-30: デザインシステム Phase 2 — マイクロインタラクション充実（spring 押下、stagger 登場、shimmer 進捗バー、shimmer skeleton、check-pop、tab-content フェード、toast 改良、Pull-to-refresh 完了フラッシュ、AnimatedNumber 導入）。挙動のみ刷新でヘルプ文言は変更なし
  * - 2026-04-30: デザインシステム Phase 1 — `src/styles/tokens.css` / `src/styles/components.css` を新設し、index.css をスリム化。BottomNav / Shell / FAB / 共通インラインスタイルがトークン参照に。ユーザー向けヘルプ文言は変わらず（外観改善のみ）
  * - 2026-04-30: 📩 フィードバックフォーム導入（設定モーダル）。本検索を「シンプル / 詳細」2 モード化、サジェスト表示・並び替え・改良カード対応。bookList セクションに反映

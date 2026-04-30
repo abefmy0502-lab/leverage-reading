@@ -180,7 +180,8 @@ export default function AddBookModal({ onClose, onSearch, onManual }) {
         </div>
 
         <div style={hintCardStyle}>
-          💡 検索で追加すると、AI が本の内容を解析し、セットアップシートや ROI 要約を自動生成します。
+          💡 <strong>検索で追加</strong>すると、AI が本の内容を解析し、<br />
+          セットアップシートや ROI 要約を自動生成できます。
         </div>
 
         <div style={dividerStyle}>

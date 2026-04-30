@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { useAllActions } from '../hooks/useAllActions';
 import { ensureHttps } from '../lib/url';
 import AnimatedNumber from './AnimatedNumber';
+import EmptyState from './EmptyState';
 import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
@@ -198,40 +199,56 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
         <p style={{ fontSize: 12, color: '#8a7e6b', marginTop: 2 }}>本から学んだ行動を実生活に</p>
       </div>
 
-      {/* Summary card */}
-      {stats.total > 0 && (
-        <div style={summaryCard}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <div>
-              <div style={{ fontSize: 11, color: '#8a7e6b' }}>完了率</div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, lineHeight: 1.1 }}>
-                <AnimatedNumber value={stats.pct} duration={700} />
-                <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, color: '#5c5043' }}>
-                <AnimatedNumber value={stats.completed} duration={500} /> / {stats.total} 完了
-              </div>
-              {stats.upcomingThisWeek > 0 && (
-                <div style={{ fontSize: 11, color: '#a05040', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <AlertCircle size={11} strokeWidth={1.75} aria-hidden="true" />
-                  今週期限 {stats.upcomingThisWeek}件
+      {/* Summary card — 完了率 + コンテキスト（あと N 件で X% 達成 / 今週期限） */}
+      {stats.total > 0 && (() => {
+        const remainingTo50  = Math.max(0, Math.ceil(stats.total * 0.5) - stats.completed);
+        const remainingTo80  = Math.max(0, Math.ceil(stats.total * 0.8) - stats.completed);
+        const remainingTo100 = Math.max(0, stats.total - stats.completed);
+        const milestone =
+          stats.pct >= 100
+            ? '🎉 すべて完了です'
+            : stats.pct >= 80
+            ? `あと ${remainingTo100} 件で全完了`
+            : stats.pct >= 50
+            ? `あと ${remainingTo80} 件で 80% 達成`
+            : `あと ${remainingTo50} 件で 50% 達成`;
+        return (
+          <div style={summaryCard}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#8a7e6b' }}>完了率</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, lineHeight: 1.1 }}>
+                  <AnimatedNumber value={stats.pct} duration={700} />
+                  <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
                 </div>
-              )}
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
+                  {milestone}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 12, color: '#5c5043' }}>
+                  <AnimatedNumber value={stats.completed} duration={500} /> / {stats.total} 完了
+                </div>
+                {stats.upcomingThisWeek > 0 && (
+                  <div style={{ fontSize: 11, color: '#a05040', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <AlertCircle size={11} strokeWidth={1.75} aria-hidden="true" />
+                    今週期限 {stats.upcomingThisWeek} 件
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="progress-bar" role="progressbar" aria-valuenow={stats.pct} aria-valuemin={0} aria-valuemax={100}>
+              <div
+                className="progress-fill"
+                style={{
+                  width: `${stats.pct}%`,
+                  background: `linear-gradient(90deg, ${pctColor}, var(--color-accent-strong))`,
+                }}
+              />
             </div>
           </div>
-          <div className="progress-bar" role="progressbar" aria-valuenow={stats.pct} aria-valuemin={0} aria-valuemax={100}>
-            <div
-              className="progress-fill"
-              style={{
-                width: `${stats.pct}%`,
-                background: `linear-gradient(90deg, ${pctColor}, var(--color-accent-strong))`,
-              }}
-            />
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Filter pills */}
       {stats.total > 0 && (
@@ -270,18 +287,23 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
 
       {/* List */}
       {stats.total === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#5c5548' }}>
-          <Target size={48} strokeWidth={1.5} aria-hidden="true" style={{ color: '#c4b8a6', marginBottom: 8 }} />
-          <p style={{ fontSize: 14, color: '#3d362c', margin: '0 0 6px', fontWeight: 500 }}>まだ行動がありません</p>
-          <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
-            本詳細画面で「行動リスト」に追加すると、<br />
-            ここに集約されます。
-          </p>
-        </div>
+        <EmptyState
+          icon="🎯"
+          title="学びを行動に変える時"
+          description={(
+            <>
+              本から得た「次にやること」を追加して、<br />
+              読書の ROI を最大化しましょう。
+            </>
+          )}
+          tip="💡 各本の詳細画面 → 「行動リスト」セクションから追加できます"
+        />
       ) : visible.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '24px 20px', color: '#8a7e6b', fontSize: 13 }}>
-          条件に合う行動がありません。
-        </div>
+        <EmptyState
+          icon="🔍"
+          title="条件に合う行動がありません"
+          description="フィルタや並び順を変えてみてください。"
+        />
       ) : (
         <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {visible.map((a) => {

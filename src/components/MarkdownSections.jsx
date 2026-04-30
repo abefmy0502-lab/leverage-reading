@@ -36,15 +36,16 @@ const subHeadingStyle = {
 const paraStyle = {
   fontSize: 13,
   color: '#4a4036',
-  lineHeight: 1.8,
-  margin: '4px 0',
+  lineHeight: 'var(--leading-relaxed)',
+  letterSpacing: '0.02em',
+  margin: 'var(--space-2) 0',
   whiteSpace: 'pre-wrap',
 };
 const listStyle = {
   fontSize: 13,
   color: '#4a4036',
-  lineHeight: 1.8,
-  margin: '4px 0 4px 18px',
+  lineHeight: 'var(--leading-relaxed)',
+  margin: 'var(--space-2) 0 var(--space-2) var(--space-5)',
   paddingLeft: 0,
 };
 const highlightSection = {
@@ -339,7 +340,7 @@ export default function MarkdownSections({ text, density = 'normal', onAddRelate
         const styles = isHighlight(s.heading || '') ? highlightSection : sectionStyle;
         const related = onAddRelatedBook && isRelatedBooksHeading(s.heading);
         return (
-          <section key={i} style={styles}>
+          <section key={i} className="long-text" style={styles}>
             {s.heading && <h3 style={headingStyle}>{s.heading}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && (

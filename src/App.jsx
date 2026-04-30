@@ -24,6 +24,8 @@ import {
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
+import EmptyState from './components/EmptyState';
+import ErrorMessage from './components/ErrorMessage';
 import { BookListSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
 import SwipeableCard from './components/SwipeableCard';
@@ -391,21 +393,13 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
       {searching && <Dots />}
 
       {error && !searching && (
-        <div style={{ background: '#fdf0ed', border: '1px solid #e0b0a0', borderRadius: 10, padding: 14 }}>
-          <p style={{ fontSize: 13, color: '#a05040', margin: 0, lineHeight: 1.7, fontWeight: 500 }}>
-            ⚠️ 検索でエラーが発生しました
-          </p>
-          <p style={{ fontSize: 12, color: '#7a4030', margin: '4px 0 10px', lineHeight: 1.7 }}>
-            {error}
-          </p>
-          <button
-            type="button"
-            onClick={retry}
-            style={{ ...btnS, padding: '8px 14px', fontSize: 12, background: '#a05040' }}
-          >
-            ↻ もう一度試す
-          </button>
-        </div>
+        <ErrorMessage
+          icon="⚠️"
+          title="検索でエラーが発生しました"
+          description={error}
+          actions={[{ label: '↻ もう一度試す', onClick: retry, variant: 'primary' }]}
+          hint="ネット接続が不安定な時は、少し時間をおいてからお試しください 🙏"
+        />
       )}
 
       {notFound && !searching && (
@@ -2388,9 +2382,19 @@ const persist = useCallback((updates) => {
           {/* Action buttons */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20 }}>
             {nextStatus[current.status] && (
-              <button onClick={() => advanceStatus(current, nextStatus[current.status])} style={{ ...btnS, width: "100%", background: st.color }}>
-                {nextLabel[current.status]}
-              </button>
+              <>
+                <button onClick={() => advanceStatus(current, nextStatus[current.status])} style={{ ...btnS, width: "100%", background: st.color }}>
+                  {nextLabel[current.status]}
+                </button>
+                {/* Phase 3: その場のガイダンス — 何が起きるか先に伝えて遷移を温かく */}
+                <p className="input-hint" style={{ marginTop: 0, justifyContent: 'center' }}>
+                  {current.status === 'want'
+                    ? '💡 投資戦略を立てると、AI がセットアップシートを自動生成します'
+                    : current.status === 'before'
+                    ? '💡 読書中になると、メモ機能が解放されます'
+                    : '💡 完了後、ROI 要約とメモの振り返りが可能になります'}
+                </p>
+              </>
             )}
             <a
               href={getAmazonLink(current)}
@@ -2790,20 +2794,37 @@ const persist = useCallback((updates) => {
                 <BookListSkeleton rows={4} />
               ) : filtered.length === 0 ? (
                 rawBooks.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "40px 20px", color: "#5c5548" }}>
-                    <div style={{ fontSize: 56, marginBottom: 8 }}>📚</div>
-                    <p style={{ fontSize: 15, fontWeight: 500, color: "#3d362c", margin: "0 0 6px" }}>まだ本がありません</p>
-                    <p style={{ fontSize: 12, color: "#8a7e6b", margin: "0 0 18px", lineHeight: 1.7 }}>
-                      読みたい本を追加して、<br />読書投資を始めましょう。
-                    </p>
-                    <button onClick={openAdd} style={{ ...btnS, padding: "12px 28px", fontSize: 14 }}>＋ 最初の本を追加</button>
-                  </div>
+                  <EmptyState
+                    icon="📚"
+                    title="あなたの本棚は、これから始まります"
+                    description={(
+                      <>
+                        最初の 1 冊を登録して、<br />
+                        読書を「投資」に変える旅をスタートしましょう。
+                      </>
+                    )}
+                    actions={[
+                      { label: '🤖 AI に本を選んでもらう', onClick: () => setTab('advisor'), variant: 'primary' },
+                      { label: '📚 自分で本を追加', onClick: openAdd, variant: 'secondary' },
+                    ]}
+                    tip={(
+                      <>
+                        💡 ヒント：「営業力を上げたい」など、<br />
+                        悩みを伝えると AI が最適な本を提案します
+                      </>
+                    )}
+                  />
                 ) : (
-                  <div style={{ textAlign: "center", padding: "32px 20px", color: "#8a7e6b" }}>
-                    <div style={{ fontSize: 36, marginBottom: 6 }}>🔍</div>
-                    <p style={{ fontSize: 13, color: "#5c5548", margin: 0, lineHeight: 1.7 }}>該当する本が見つかりませんでした。</p>
-                    <p style={{ fontSize: 11, color: "#a89e8c", margin: "6px 0 0" }}>検索ワードやフィルタを変えてみてください。</p>
-                  </div>
+                  <EmptyState
+                    icon="🔍"
+                    title="一致する本が見つかりませんでした"
+                    description={(
+                      <>
+                        別のキーワードで試すか、<br />
+                        フィルタを変えてみてください。
+                      </>
+                    )}
+                  />
                 )
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

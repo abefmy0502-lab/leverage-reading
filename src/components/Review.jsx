@@ -18,6 +18,7 @@ import { toMessage } from '../lib/errors';
 import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
+import EmptyState from './EmptyState';
 import { getRandomFromCategory } from '../lib/quotes';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
@@ -394,15 +395,17 @@ export default function Review({ books = [], onOpenBook }) {
   if (memos.length === 0) {
     return (
       <div style={wrap}>
-        <div style={{ ...cardBase, textAlign: 'center', padding: '32px 20px' }}>
-          <p style={{ fontSize: 32, margin: '0 0 8px' }}>🌱</p>
-          <p style={{ fontSize: 14, fontWeight: 500, color: '#3d362c', margin: '0 0 6px' }}>
-            まだ振り返るメモがありません
-          </p>
-          <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
-            本を読んでメモを追加すると、このタブで時系列に振り返れるようになります。
-          </p>
-        </div>
+        <EmptyState
+          icon="📔"
+          title="振り返るメモが、ここに集まります"
+          description={(
+            <>
+              本を読みながら気づきをメモすると、<br />
+              過去のあなたが今のあなたを助けてくれます。
+            </>
+          )}
+          tip="💡 各本の「読書中」「読了」状態でメモが追加できます"
+        />
       </div>
     );
   }

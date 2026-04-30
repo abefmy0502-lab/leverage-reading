@@ -503,3 +503,240 @@
 
 /* prefers-reduced-motion is already handled globally in index.css — every
    animation drops to ~0ms there. No need to repeat per keyframe. */
+
+/* =========================================================================
+ * Phase 3 — Content refinement
+ *   - EmptyState surface (with floating icon)
+ *   - StatCard / stat-trend
+ *   - SectionHeader
+ *   - ErrorMessage
+ *   - InputHint
+ *   - Long-form reading helpers
+ *   - Hierarchy presets (book-detail-*, book-card-*)
+ * ========================================================================= */
+
+/* ---- Floating icon for empty / hero illustrations ---------------------- */
+@keyframes lvg-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+
+/* ---- Empty state ------------------------------------------------------- */
+.empty-state {
+  text-align: center;
+  padding: var(--space-12) var(--space-4);
+  max-width: 420px;
+  margin: 0 auto;
+}
+.empty-state-icon {
+  font-size: 80px;
+  line-height: 1;
+  margin-bottom: var(--space-6);
+  animation: lvg-float 3s ease-in-out infinite;
+}
+.empty-state-title {
+  font-size: var(--type-title-2);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+  line-height: var(--leading-tight);
+}
+.empty-state-description {
+  font-size: var(--type-body);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-6);
+}
+.empty-state-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0 auto var(--space-6);
+  max-width: 320px;
+}
+.empty-state-tip {
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  background: var(--color-accent-soft);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  margin: var(--space-4) auto 0;
+  line-height: var(--leading-relaxed);
+  max-width: 320px;
+}
+
+/* ---- Section header ---------------------------------------------------- */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.section-header-icon { font-size: 20px; line-height: 1; }
+.section-header-title {
+  font-size: var(--type-title-3);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.section-header-count {
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-hover);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  margin-left: auto;
+}
+.section-divider {
+  height: 1px;
+  background: var(--color-separator);
+  margin: var(--space-8) 0;
+  border: none;
+}
+
+/* ---- Stat card --------------------------------------------------------- */
+.stat-card {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  text-align: center;
+  box-shadow: var(--shadow-2);
+  border: 1px solid var(--color-separator);
+}
+.stat-card-icon {
+  font-size: 28px;
+  line-height: 1;
+  margin-bottom: var(--space-2);
+}
+.stat-card-value {
+  font-size: var(--type-display);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.stat-card-suffix {
+  font-size: var(--type-title-2);
+  color: var(--color-text-secondary);
+  margin-left: var(--space-1);
+  font-weight: var(--weight-medium);
+}
+.stat-card-label {
+  font-size: var(--type-callout);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-2);
+}
+.stat-card-context {
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-1);
+}
+.stat-trend          { display: inline-flex; align-items: center; gap: 2px; font-size: var(--type-caption); }
+.stat-trend-positive { color: var(--color-success); }
+.stat-trend-negative { color: var(--color-error); }
+.stat-trend-neutral  { color: var(--color-text-tertiary); }
+
+/* ---- Error message ----------------------------------------------------- */
+.error-message {
+  background: var(--color-error-soft);
+  border-left: 4px solid var(--color-error);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  margin: var(--space-3) 0;
+}
+.error-message-icon {
+  font-size: 24px;
+  line-height: 1;
+  margin-bottom: var(--space-2);
+}
+.error-message-title {
+  font-size: var(--type-headline);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-2);
+}
+.error-message-description {
+  font-size: var(--type-body);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  margin: 0;
+}
+.error-message-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+.error-message-hint {
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-2);
+  line-height: var(--leading-relaxed);
+}
+
+/* ---- Input hint -------------------------------------------------------- */
+.input-hint {
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-2);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  line-height: var(--leading-relaxed);
+}
+
+/* ---- Long-form reading -------------------------------------------------- */
+.long-text {
+  font-size: var(--type-body);
+  line-height: var(--leading-relaxed); /* 1.7 */
+  letter-spacing: 0.02em;
+  color: var(--color-text-primary);
+}
+.long-text p + p { margin-top: var(--space-4); }
+.long-text h2,
+.long-text h3   { margin-top: var(--space-6); margin-bottom: var(--space-3); }
+.long-text ul,
+.long-text ol   { margin: var(--space-3) 0 var(--space-3) var(--space-5); }
+.long-text li + li { margin-top: var(--space-2); }
+
+/* ---- Book-card / detail hierarchy presets ------------------------------ */
+.book-detail-hero {
+  text-align: center;
+  padding: var(--space-6) var(--space-4) var(--space-4);
+}
+.book-detail-title {
+  font-size: var(--type-title-1);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  margin: 0 0 var(--space-2);
+  letter-spacing: -0.01em;
+}
+.book-detail-author {
+  font-size: var(--type-body);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-4);
+}
+.book-detail-meta {
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-2);
+}
+
+.book-card-title {
+  font-size: var(--type-headline);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.book-card-author {
+  font-size: var(--type-callout);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+}
+
+/* ---- Page rhythm helpers ----------------------------------------------- */
+.page-section { margin-bottom: var(--space-12); }
+.section-group { margin-bottom: var(--space-6); }

@@ -19,6 +19,7 @@ import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
+import EmptyState from './EmptyState';
 import { MessageCircle, Lightbulb, History, BookOpenCheck } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
@@ -523,9 +524,11 @@ export default function MyBookBrain({ onOpenBook }) {
             </div>
             {!historyLoaded && <Spinner message="読み込み中…" />}
             {historyLoaded && messages.length === 0 && (
-              <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: '20px 0' }}>
-                まだ会話がありません。「💬 質問する」から始めましょう。
-              </p>
+              <EmptyState
+                icon="💬"
+                title="まだ会話がありません"
+                description="「💬 質問する」から、過去の本と対話を始めましょう。"
+              />
             )}
             {messages.map((m) => (
               <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} />
@@ -568,8 +571,8 @@ export default function MyBookBrain({ onOpenBook }) {
                 ))}
               </div>
               {memoStats.count === 0 && (
-                <p style={{ fontSize: 11, color: '#a05040', marginTop: 10, lineHeight: 1.6 }}>
-                  まだメモが 1 件もありません。本を読んでメモを書くと、マイ読書脳が学習しはじめます。
+                <p style={{ fontSize: 11, color: '#a05040', marginTop: 10, lineHeight: 1.7 }}>
+                  まだメモが 1 件もありません。本を読んでメモを書くほど、マイ読書脳があなただけの AI に育っていきます 🌱
                 </p>
               )}
             </div>
