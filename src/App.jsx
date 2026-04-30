@@ -26,6 +26,15 @@ import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
+import SeasonalEffect from './components/SeasonalEffect';
+import StreakBadge from './components/StreakBadge';
+import MilestoneCelebration from './components/MilestoneCelebration';
+import AuthorThankYou from './components/AuthorThankYou';
+import { useStreak } from './hooks/useStreak';
+import { useBookMilestones } from './hooks/useBookMilestones';
+import { buildGreeting } from './lib/greeting';
+import { markStreakMilestoneCelebrated } from './lib/streak';
+import { markReadingMilestoneCelebrated } from './lib/milestones';
 import { BookListSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
 import SwipeableCard from './components/SwipeableCard';
@@ -1595,7 +1604,7 @@ function Shell({ children }) {
 
 /* ========== MAIN APP ========== */
 function AuthedApp() {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const {
     books: rawBooks,
     loading: booksLoading,
@@ -1666,6 +1675,54 @@ function AuthedApp() {
 
   // Books are now committed to DB on delete (no soft-delete state to filter).
   const books = rawBooks;
+
+  // 🎯 Phase 4 — Personality. Personalised greeting (re-evaluated every
+  // hour so the slot label stays accurate if the user keeps the tab open
+  // overnight), streak counter, milestone watcher, and easter-egg state.
+  const [greetingTick, setGreetingTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setGreetingTick((n) => n + 1), 60 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  const greeting = useMemo(() => buildGreeting(user), [user, greetingTick]);
+  const streakState = useStreak();
+  const { pendingMilestone: pendingReadingMilestone } = useBookMilestones(books);
+
+  // The streak hook may surface a "first launch crossed N days" milestone
+  // immediately. Reading milestones come from the in-memory book list.
+  // Reading takes priority because completing a book is a more event-y
+  // moment than the streak rolling over silently.
+  const [activeCelebration, setActiveCelebration] = useState(null);
+  useEffect(() => {
+    if (activeCelebration) return;
+    if (pendingReadingMilestone) {
+      setActiveCelebration({ kind: 'reading', milestone: pendingReadingMilestone });
+    } else if (streakState.pendingMilestone) {
+      setActiveCelebration({ kind: 'streak', milestone: streakState.pendingMilestone });
+    }
+  }, [pendingReadingMilestone, streakState.pendingMilestone, activeCelebration]);
+
+  const dismissCelebration = useCallback(() => {
+    if (!activeCelebration || !user?.id) {
+      setActiveCelebration(null);
+      return;
+    }
+    if (activeCelebration.kind === 'reading') {
+      markReadingMilestoneCelebrated(user.id, activeCelebration.milestone);
+    } else {
+      markStreakMilestoneCelebrated(user.id, activeCelebration.milestone);
+    }
+    setActiveCelebration(null);
+  }, [activeCelebration, user]);
+
+  // Easter egg: long-press the bookshelf logo (📚) to reveal a thank-you.
+  const [thanksOpen, setThanksOpen] = useState(false);
+  const logoLongPress = useLongPress({
+    onLongPress: () => {
+      try { haptic.medium(); } catch { /* non-critical */ }
+      setThanksOpen(true);
+    },
+  });
 
   // Scroll to top on every top-level tab/view change so the new content
   // always starts at the top of the screen instead of inheriting the previous
@@ -2621,7 +2678,33 @@ const persist = useCallback((updates) => {
        gap: 8,
      }}
    >
-    <span aria-hidden="true" style={{ fontSize: 26, lineHeight: 1, padding: "4px 6px" }}>📚</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+      <button
+        type="button"
+        {...logoLongPress.bind}
+        aria-label="ロゴ（長押しで開発者からのメッセージ）"
+        style={{
+          fontSize: 26,
+          lineHeight: 1,
+          padding: "4px 6px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        <span aria-hidden="true">📚</span>
+      </button>
+      <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <span style={{ fontSize: 13, color: "var(--color-secondary)", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "60vw" }}>
+          <span aria-hidden="true" style={{ marginRight: 4 }}>{greeting.emoji}</span>
+          {greeting.text}
+        </span>
+        {streakState.streak >= 2 && (
+          <StreakBadge streak={streakState.streak} style={{ marginTop: 4, alignSelf: "flex-start" }} />
+        )}
+      </div>
+    </div>
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <button
         onClick={openHelp}
@@ -2937,6 +3020,24 @@ const persist = useCallback((updates) => {
           }}
         />
       )}
+
+      {/* 🌸 Seasonal ambient effect (sakura / leaves / snow). The list view
+          gets it; we hide it on full-screen edit / detail surfaces so the
+          form work isn't visually busy. */}
+      {view === 'list' && <SeasonalEffect />}
+
+      {/* 🎉 Milestone celebration — shows the first pending milestone, then
+          clears it via dismissCelebration so it never re-fires. */}
+      {activeCelebration && (
+        <MilestoneCelebration
+          kind={activeCelebration.kind}
+          milestone={activeCelebration.milestone}
+          onClose={dismissCelebration}
+        />
+      )}
+
+      {/* 🙇 Easter egg: long-press the bookshelf logo. */}
+      {thanksOpen && <AuthorThankYou onClose={() => setThanksOpen(false)} />}
 
       <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} />
     </Shell>

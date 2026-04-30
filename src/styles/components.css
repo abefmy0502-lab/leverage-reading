@@ -740,3 +740,119 @@
 /* ---- Page rhythm helpers ----------------------------------------------- */
 .page-section { margin-bottom: var(--space-12); }
 .section-group { margin-bottom: var(--space-6); }
+
+/* =========================================================================
+ * Phase 4 — Personality
+ *   - Seasonal particles (sakura / leaves / snow)
+ *   - Streak badge
+ *   - Milestone celebration
+ *   - Author thank-you easter egg
+ * ========================================================================= */
+
+@keyframes lvg-petal-fall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10%  { opacity: 0.8; }
+  90%  { opacity: 0.8; }
+  100% {
+    transform: translate3d(var(--petal-drift, 0px), 100vh, 0) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+/* Subtle pulse for the streak fire icon — quick, friendly. */
+@keyframes lvg-flame-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+
+.streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #ffe8b3, #ffd58a);
+  color: #6b3a05;
+  font-size: var(--type-caption);
+  font-weight: var(--weight-semibold);
+  border: 1px solid rgba(212, 160, 64, 0.45);
+  box-shadow: var(--shadow-1);
+}
+.streak-badge-flame {
+  display: inline-block;
+  animation: lvg-flame-pulse 1.6s ease-in-out infinite;
+}
+.streak-badge-legendary {
+  background: linear-gradient(135deg, #ffd97e, #ff8a3d, #b85800);
+  color: #fff;
+  border-color: rgba(184, 88, 0, 0.6);
+  box-shadow: 0 0 12px rgba(255, 138, 61, 0.5), var(--shadow-2);
+}
+
+/* ---- Milestone celebration modal --------------------------------------- */
+@keyframes lvg-celebration-pop {
+  0%   { opacity: 0; transform: scale(0.85); }
+  60%  { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes lvg-celebration-glow {
+  0%, 100% { box-shadow: 0 0 0 rgba(212, 160, 64, 0); }
+  50%      { box-shadow: 0 0 36px rgba(212, 160, 64, 0.6); }
+}
+.celebration-modal {
+  text-align: center;
+  padding: var(--space-8) var(--space-5);
+  animation: lvg-celebration-pop var(--duration-slow) var(--ease-spring) both;
+}
+.celebration-modal-legendary {
+  animation:
+    lvg-celebration-pop var(--duration-slow) var(--ease-spring) both,
+    lvg-celebration-glow 2.6s ease-in-out infinite;
+}
+.celebration-icon {
+  font-size: 72px;
+  line-height: 1;
+  margin-bottom: var(--space-4);
+  animation: lvg-float 3s ease-in-out infinite;
+}
+.celebration-title {
+  font-size: var(--type-title-2);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+  line-height: var(--leading-tight);
+}
+.celebration-body {
+  font-size: var(--type-body);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  white-space: pre-line;
+  margin-bottom: var(--space-6);
+}
+
+/* ---- Author thank-you easter egg --------------------------------------- */
+.thanks-modal {
+  text-align: center;
+  padding: var(--space-8) var(--space-5);
+  animation: lvg-modal-in var(--duration-base) var(--ease-spring) both;
+}
+.thanks-icon {
+  font-size: 56px;
+  margin-bottom: var(--space-4);
+  animation: lvg-float 3s ease-in-out infinite;
+}
+.thanks-title {
+  font-size: var(--type-title-3);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+}
+.thanks-body {
+  font-size: var(--type-body);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  white-space: pre-line;
+}
