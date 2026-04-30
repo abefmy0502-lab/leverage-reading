@@ -477,9 +477,11 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '' }) {
               <option value="title">タイトル順</option>
             </select>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
+          <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
             {sortedResults.map((b, i) => (
-              <BookResultCard key={`r-${i}`} book={b} onSelect={onSelect} />
+              <div key={`r-${i}`} className="list-item-enter">
+                <BookResultCard book={b} onSelect={onSelect} />
+              </div>
             ))}
           </div>
         </>
@@ -504,8 +506,33 @@ function Stars({ r, onChange, size = 18 }) {
 function Modal({ open, onClose, children }) {
   if (!open) return null;
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(30,25,20,0.45)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn .2s" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#faf6f0", borderRadius: 14, padding: "22px 20px", width: "min(420px,92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 16px 48px rgba(30,25,20,0.16)", animation: "slideUp .25s" }}>
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "rgba(30,25,20,0.45)",
+        backdropFilter: "blur(3px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        className="modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--color-surface)",
+          borderRadius: "var(--radius-lg)",
+          padding: "var(--space-5) var(--space-5)",
+          width: "min(420px,92vw)",
+          maxHeight: "88vh",
+          overflowY: "auto",
+          boxShadow: "var(--shadow-4)",
+        }}
+      >
         {children}
       </div>
     </div>
@@ -2236,7 +2263,7 @@ const persist = useCallback((updates) => {
 
     return (
       <Shell>
-        <div style={{ padding: "20px 20px 80px" }}>
+        <div className="detail-enter" style={{ padding: "20px 20px 80px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <button onClick={goList} style={lnk}>← 一覧</button>
             <button
@@ -2798,24 +2825,30 @@ const persist = useCallback((updates) => {
         )}
 
         {tab === "review" && (
-          <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+          <div key={`tab-${tab}`} className="tab-content">
+            <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+          </div>
         )}
 
         {tab === "action" && (
-          <ActionList
-            books={books}
-            onToggleAction={toggleAction}
-            onDeleteAction={deleteActionFromBook}
-            onOpenBook={(b) => { openDetail(b); setTab("books"); }}
-          />
+          <div key={`tab-${tab}`} className="tab-content">
+            <ActionList
+              books={books}
+              onToggleAction={toggleAction}
+              onDeleteAction={deleteActionFromBook}
+              onOpenBook={(b) => { openDetail(b); setTab("books"); }}
+            />
+          </div>
         )}
 
         {tab === "brain" && (
-          <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+          <div key={`tab-${tab}`} className="tab-content">
+            <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+          </div>
         )}
 
         {tab === "advisor" && (
-          <div style={{ padding: "12px 16px 24px" }}>
+          <div key={`tab-${tab}`} className="tab-content" style={{ padding: "12px 16px 24px" }}>
             <BookAdvisor
               onAddBook={(rec) => { addFromAdvisor(rec); }}
               onClose={() => setTab("books")}

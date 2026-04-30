@@ -35,12 +35,11 @@ const toastStyleBase = {
   alignItems: 'center',
   gap: 10,
   padding: '12px 14px',
-  borderRadius: 12,
+  borderRadius: 'var(--radius-md)',
   fontSize: 13,
   fontFamily: "'Noto Serif JP', Georgia, serif",
-  lineHeight: 1.5,
-  boxShadow: '0 8px 24px rgba(30,25,20,0.18)',
-  animation: 'slideUp .2s ease',
+  lineHeight: 'var(--leading-base)',
+  boxShadow: 'var(--shadow-4)',
 };
 
 const closeBtnStyle = {
@@ -70,6 +69,7 @@ function ToastItem({ toast, onDismiss, onAction }) {
   const p = palette[toast.type] || palette.info;
   return (
     <div
+      className="toast-enter"
       style={{
         ...toastStyleBase,
         background: p.bg,

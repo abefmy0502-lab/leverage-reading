@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react';
 import { useAllActions } from '../hooks/useAllActions';
 import { ensureHttps } from '../lib/url';
+import AnimatedNumber from './AnimatedNumber';
 import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
@@ -204,11 +205,14 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
             <div>
               <div style={{ fontSize: 11, color: '#8a7e6b' }}>完了率</div>
               <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, lineHeight: 1.1 }}>
-                {stats.pct}<span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
+                <AnimatedNumber value={stats.pct} duration={700} />
+                <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, color: '#5c5043' }}>{stats.completed} / {stats.total} 完了</div>
+              <div style={{ fontSize: 12, color: '#5c5043' }}>
+                <AnimatedNumber value={stats.completed} duration={500} /> / {stats.total} 完了
+              </div>
               {stats.upcomingThisWeek > 0 && (
                 <div style={{ fontSize: 11, color: '#a05040', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <AlertCircle size={11} strokeWidth={1.75} aria-hidden="true" />
@@ -217,14 +221,12 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
               )}
             </div>
           </div>
-          <div style={{ height: 8, background: '#e8e0d2', borderRadius: 4, overflow: 'hidden' }}>
+          <div className="progress-bar" role="progressbar" aria-valuenow={stats.pct} aria-valuemin={0} aria-valuemax={100}>
             <div
+              className="progress-fill"
               style={{
-                height: '100%',
                 width: `${stats.pct}%`,
-                background: pctColor,
-                borderRadius: 4,
-                transition: 'width .4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                background: `linear-gradient(90deg, ${pctColor}, var(--color-accent-strong))`,
               }}
             />
           </div>
@@ -281,7 +283,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
           条件に合う行動がありません。
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {visible.map((a) => {
             const ds = deadlineState(a.deadline, a.done);
             const key = `${a.bookId}:${a.actionIdx}:${a.id || ''}`;
@@ -291,8 +293,9 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
               borderColor: ds.kind === 'overdue' && !a.done ? '#e0b0a0' : '#e4ddd0',
             };
             return (
-              <div key={key} style={cardStyle}>
-                {/* Checkbox */}
+              <div key={key} className="list-item-enter" style={cardStyle}>
+                {/* Checkbox — `key={a.done}` resets the inner ✓ so the
+                    pop keyframe replays on every toggle. */}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -300,13 +303,15 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
                     onToggleAction?.(a.bookId, a.actionIdx);
                   }}
                   aria-label={a.done ? '未完了に戻す' : '完了にする'}
+                  aria-checked={a.done}
+                  role="checkbox"
                   style={{
                     flexShrink: 0,
-                    width: 22,
-                    height: 22,
-                    borderRadius: 6,
-                    border: a.done ? 'none' : '1.5px solid #c4b8a6',
-                    background: a.done ? '#5a7a48' : 'transparent',
+                    width: 24,
+                    height: 24,
+                    borderRadius: 'var(--radius-sm)',
+                    border: a.done ? 'none' : '1.5px solid var(--color-border)',
+                    background: a.done ? 'var(--color-success)' : 'transparent',
                     color: '#fff',
                     cursor: 'pointer',
                     display: 'flex',
@@ -317,9 +322,15 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
                     fontFamily: 'inherit',
                     padding: 0,
                     marginTop: 1,
+                    transition: 'background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring)',
+                    transform: a.done ? 'scale(1.05)' : 'scale(1)',
                   }}
                 >
-                  {a.done ? '✓' : ''}
+                  {a.done && (
+                    <span key={`${key}-on`} className="check-pop" aria-hidden="true" style={{ display: 'block', fontWeight: 700 }}>
+                      ✓
+                    </span>
+                  )}
                 </button>
 
                 {/* Body */}

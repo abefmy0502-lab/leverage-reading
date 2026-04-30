@@ -109,6 +109,9 @@ export default function PullToRefresh({ onRefresh, threshold = 70, children }) {
       )}
 
       <div
+        // showCheck is true for the 600ms after a refresh completes; reuse
+        // that window to play the success flash on the list itself.
+        className={showCheck ? 'list-refreshed' : ''}
         style={{
           transform: pullDistance > 0 || isRefreshing ? `translate3d(0, ${isRefreshing ? threshold * 0.4 : pullDistance * 0.6}px, 0)` : 'translate3d(0, 0, 0)',
           transition: pullDistance === 0 && !isRefreshing ? 'transform 250ms cubic-bezier(0.25,1,0.5,1)' : 'none',
