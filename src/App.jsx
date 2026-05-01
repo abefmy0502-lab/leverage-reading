@@ -12,6 +12,8 @@ import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './
 import HelpModal from './components/HelpModal';
 import Review from './components/Review';
 import MyBookBrain from './components/MyBookBrain';
+import { AdvisorHistoryList, AdvisorSessionDetail } from './components/AdvisorHistory';
+import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import ActionList from './components/ActionList';
 import AddBookModal from './components/AddBookModal';
 import { useBookCover } from './hooks/useBookCover';
@@ -1457,7 +1459,7 @@ const ADVISOR_EXAMPLES = [
   'お金の不安',
 ];
 
-function BookAdvisor({ onAddBook }) {
+function BookAdvisor({ onAddBook, sessionApi }) {
   // 旧: 挨拶 seed メッセージで例を箇条書き → サブタブ画面では冗長
   // (タップ不可で文字を読まされるだけ)。例はチップ UI に分離した。
   const [messages, setMessages] = useState([]);
@@ -1471,6 +1473,11 @@ function BookAdvisor({ onAddBook }) {
   // 「📚 読みたいに追加」押下後、AI に会話を要約させる数秒間のロック。
   // 値はその時追加中の本のタイトル。
   const [addingTitle, setAddingTitle] = useState('');
+  // 履歴サブビュー: 'chat' | 'history' | 'detail'
+  const [view, setView] = useState('chat');
+  const [selectedSession, setSelectedSession] = useState(null);
+  // 現在進行中のセッション ID。null なら次回送信時に createSession で新規作成。
+  const [currentSessionId, setCurrentSessionId] = useState(null);
   // Strict auto-scroll: only when a real append happens. Initial seed
   // message + any case where we would scroll from a zero baseline are
   // explicitly excluded so re-mounting the component (sub-tab switch)
@@ -1536,20 +1543,84 @@ function BookAdvisor({ onAddBook }) {
         model: "claude-sonnet-4-20250514",
       });
 
+      // 親しみやすさのため UI の messages は短いプロセだけにするが、
+      // セッション永続化用の history は AI の生テキストを残す
+      // (再開時の文脈精度を保つため)。
       const { recs, prose } = parseAdvisorResponse(aiText);
+      let nextHistory;
+      let nextRecs = null;
       if (recs) {
+        const proseBefore = prose?.before || 'あなたの状況に合った本を選びました。';
         setRecommendations({ items: recs, before: prose?.before || '', after: prose?.after || '' });
         // 推薦が出た = この userMsg がユーザーの「課題」。これを source_query として記憶。
         setLastUserQuery(userMsg);
-        setMessages((prev) => [...prev, { role: "assistant", text: prose?.before || 'あなたの状況に合った本を選びました。' }]);
+        setMessages((prev) => [...prev, { role: "assistant", text: proseBefore }]);
+        // 永続化用 history は推薦カード込みの生テキストを残す
+        nextHistory = [...newHistory, { role: "assistant", content: aiText }];
+        setChatHistory(nextHistory);
+        nextRecs = recs;
       } else {
         setMessages((prev) => [...prev, { role: "assistant", text: aiText }]);
-        setChatHistory([...newHistory, { role: "assistant", content: aiText }]);
+        nextHistory = [...newHistory, { role: "assistant", content: aiText }];
+        setChatHistory(nextHistory);
+      }
+
+      // セッション永続化 — 最初の往復で作成、以降は更新。
+      // sessionApi が無い (= 未マイグレーション) ならスキップ。
+      if (sessionApi?.available) {
+        try {
+          if (!currentSessionId) {
+            const created = await sessionApi.createSession({
+              messages: nextHistory,
+              recommendedBooks: nextRecs || [],
+            });
+            if (created?.id) setCurrentSessionId(created.id);
+          } else {
+            const patch = { messages: nextHistory };
+            if (nextRecs) patch.recommended_books = nextRecs;
+            await sessionApi.updateSession(currentSessionId, patch);
+          }
+        } catch {
+          // 永続化失敗は UX を壊さない
+        }
       }
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", text: "通信エラーが発生しました。" }]);
     }
     setLoading(false);
+  };
+
+  // 新規セッション開始: 既存会話は DB に残し、フロント state だけクリア。
+  const startNewSession = () => {
+    setMessages([]);
+    setChatHistory([]);
+    setRecommendations(null);
+    setLastUserQuery('');
+    setCurrentSessionId(null);
+    setSelectedSession(null);
+    setView('chat');
+  };
+
+  // 履歴詳細から「💬 この会話を続ける」が押されたら、その session の状態を
+  // フロントに復元し、以降のメッセージはその session に紐付く。
+  const resumeSession = (s) => {
+    if (!s) return;
+    const histMessages = Array.isArray(s.messages) ? s.messages : [];
+    setChatHistory(histMessages);
+    setMessages(
+      histMessages.map((m) => ({
+        role: m.role,
+        text: (m.content ?? m.text ?? '').toString(),
+      })),
+    );
+    const recsList = Array.isArray(s.recommended_books) ? s.recommended_books : [];
+    setRecommendations(recsList.length > 0 ? { items: recsList, before: '', after: '' } : null);
+    // 直近の user 発話を lastUserQuery として復元 → 「読みたいに追加」時の sourceQuery に使う
+    const lastUser = [...histMessages].reverse().find((m) => m.role === 'user');
+    setLastUserQuery((lastUser?.content || lastUser?.text || '').toString());
+    setCurrentSessionId(s.id);
+    setSelectedSession(null);
+    setView('chat');
   };
 
   const isEmpty = messages.length === 0 && !recommendations;
@@ -1560,15 +1631,72 @@ function BookAdvisor({ onAddBook }) {
     chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length, recommendations]);
 
+  // 履歴サブビューでは入力欄を出さず、専用 UI に切り替える。
+  if (view === 'history') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <div className="chat-scroll">
+          <AdvisorHistoryList
+            sessions={sessionApi?.sessions || []}
+            loaded={!!sessionApi?.loaded}
+            onSelect={(s) => { setSelectedSession(s); setView('detail'); }}
+            onClose={() => setView('chat')}
+            onDelete={async (sid) => { try { await sessionApi?.deleteSession?.(sid); } catch { /* ignore */ } }}
+          />
+        </div>
+      </div>
+    );
+  }
+  if (view === 'detail' && selectedSession) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <div className="chat-scroll">
+          <AdvisorSessionDetail
+            session={selectedSession}
+            onResume={resumeSession}
+            onNewSession={startNewSession}
+            onClose={() => { setSelectedSession(null); setView('history'); }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* Scroll 領域: ヘッダー / 例チップ / メッセージ / 推薦カード をまとめる */}
       <div ref={chatScrollRef} className="chat-scroll">
       {/* Unified AI section header (マイ読書脳 と同じフォーマット)。
           ✕ ボタンはタブ画面では不要なので撤去。 */}
-      <div className="ai-section-header" style={{ padding: 0, marginBottom: 8 }}>
-        <h2>🤖 AI 選書アドバイザー</h2>
-        <p className="subtitle">あなたの課題から、読むべき本を提案します</p>
+      <div className="ai-section-header" style={{ padding: 0, marginBottom: 8, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2>🤖 AI 選書アドバイザー</h2>
+          <p className="subtitle">あなたの課題から、読むべき本を提案します</p>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          {sessionApi?.available && (
+            <button
+              type="button"
+              onClick={() => setView('history')}
+              aria-label="履歴を見る"
+              title="履歴"
+              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
+            >
+              🕒 履歴
+            </button>
+          )}
+          {(messages.length > 0 || recommendations) && (
+            <button
+              type="button"
+              onClick={startNewSession}
+              aria-label="新しい会話を始める"
+              title="新規"
+              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
+            >
+              🆕 新規
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Example chips — タップで textarea に流し込む。挨拶 seed が
@@ -1675,13 +1803,17 @@ function BookAdvisor({ onAddBook }) {
                         console.warn('[advisor-summary] failed:', e?.message || e);
                       }
                       try {
-                        await onAddBook(rec, {
+                        const saved = await onAddBook(rec, {
                           sourceQuery: lastUserQuery,
                           investPurpose: summary?.investPurpose || lastUserQuery || '',
                           currentChallenge: summary?.currentChallenge || '',
                           hypothesis: summary?.hypothesis || '',
                           bookReason: summary?.bookReason || (rec.why || ''),
                         });
+                        // 履歴セッションに「追加した本」として記録
+                        if (saved?.id && currentSessionId && sessionApi?.available) {
+                          try { await sessionApi.addBookToSession(currentSessionId, saved.id); } catch { /* non-critical */ }
+                        }
                       } finally {
                         setAddingTitle('');
                       }
@@ -1871,6 +2003,9 @@ function AuthedApp() {
   const haptic = useHaptic();
   const toast = useToast();
   const confirm = useConfirm();
+  // AI 選書の会話履歴。advisor_sessions テーブル未マイグレーションなら
+  // available=false で UI 側が履歴ボタンを隠す。
+  const advisorSessions = useAdvisorSessions();
 
   // collections と readingPlans は一旦localStorageのまま
   const [data, setData] = useState(() => {
@@ -2470,7 +2605,7 @@ const persist = useCallback((updates) => {
       }
     } catch {}
     try {
-      await saveBook(newBook);
+      const saved = await saveBook(newBook);
       // 4 フィールドが埋まっていれば「読書計画を作成しました」、そうでなければ控えめなトースト。
       const hasPlan = newBook.currentChallenge || newBook.hypothesis || newBook.bookReason;
       const msg = hasPlan
@@ -2479,8 +2614,12 @@ const persist = useCallback((updates) => {
           ? `「${rec.title}」を追加。AI セットアップで読み方戦略を立てましょう`
           : `「${rec.title}」を「読みたい」に追加しました`;
       toast.success(msg);
+      // BookAdvisor が advisor_sessions の added_book_ids を更新する用に
+      // 保存された本 (UUID 付き) を返す。
+      return saved;
     } catch (error) {
       toast.error(toMessage(error, '本の追加に失敗しました。'));
+      return null;
     }
   };
 
@@ -3865,7 +4004,10 @@ const persist = useCallback((updates) => {
             </div>
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
-                <BookAdvisor onAddBook={(rec, payload) => addFromAdvisor(rec, payload)} />
+                <BookAdvisor
+                  onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
+                  sessionApi={advisorSessions}
+                />
               ) : (
                 <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
               )}

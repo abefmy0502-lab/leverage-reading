@@ -183,6 +183,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_book_covers_bucket.sql` | 手動アップロード救済用 — `book-covers` public バケット作成 + INSERT/UPDATE/DELETE ポリシー（既に supabase_added_via.sql で作成済みの場合も idempotent に動作） |
 | `supabase_books_source_query.sql` | AI 選書 → セットアップシート引き継ぎ — `books.source_query` 列追加（AI 選書アドバイザーで入力した課題を投資目的にプレフィルする。任意。クライアントは schema-error fallback で列なしでも動作） |
 | `supabase_books_setup_fields.sql` | AI 選書 → セットアップシート構造化引き継ぎ — `books.current_challenge` / `hypothesis` / `book_reason` 列追加（会話を Claude で要約して 4 フィールドに分配。任意。schema-error fallback あり） |
+| `supabase_advisor_sessions.sql` | 🕒 AI 選書の会話履歴 — `advisor_sessions` テーブル新規（messages / recommended_books / added_book_ids を保持）。RLS で自分の行のみ可。set_updated_at 関数も同梱。任意（未適用なら履歴ボタン非表示で graceful degradation） |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 
