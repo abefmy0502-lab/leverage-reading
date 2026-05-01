@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-05-01: ランディングページ (LP) を /lp に追加。8 セクション（Hero / Problem / Solution / How / Features / Why us / Pricing / FAQ）+ Footer の縦スクロール構成。React Router を持ち込まず App.jsx の path 検出だけで切替（SPA fallback の Vercel rewrite が既存で対応済み）。スプラッシュも認証も介さず即表示、scroll-trigger fade-in + prefers-reduced-motion 対応。「無料で始める」CTA は window.location='/' で既存 AuthScreen フローへ合流
  * - 2026-05-01: 本のタイトルと表紙が一致しない問題を修正。findIsbnCandidates をタイトル類似度 0.7 + 著者の互含チェック付きの厳格マッチに改修（「タイトルが似ているだけの全く別の本」の ISBN を候補から弾く）。本詳細の表紙下に「表紙が違う？」リンク + ISBN 表示を追加し、CoverFixModal でグリッド形式の候補表紙から選び直し or 手動アップロードへ誘導。backfill v3→v4 にバンプして既存の誤マッチを再解決
  * - 2026-05-01: ノートタブを「読書から生まれた知識すべて」の統合フィードに拡張。投資目的 / 課題 / 仮説 / AI まとめ / ROI まとめ / レバレッジメモ / カードメモ / 学び / 行動の振り返り を時系列で表示。冒頭に種類別件数チップ、横断検索に「種類で絞り込み」select を追加。各カードに種類アイコン + 色付きボーダーで一目で判別可能。派生ノート（books / actions 由来）はスワイプ削除不可（DB 単一レコードに対応しないため）
  * - 2026-05-01: 行動の繰り返しエラー修正 — actions.id の DB DEFAULT が無い環境で「null value in column 'id'」が発生していた問題を二重防衛で根治。supabase_actions_id_default.sql で DB の DEFAULT を補填、useBooks.saveBook で crypto.randomUUID() を使った client-side UUID 生成

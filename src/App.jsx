@@ -30,6 +30,7 @@ import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
 import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import CoverFixModal from './components/CoverFixModal';
+import Landing from './pages/Landing';
 import { supabase as supabaseClient } from './lib/supabase';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
@@ -4463,10 +4464,39 @@ function AppShell() {
   return <AuthedApp />;
 }
 
+// LP ルート判定 — /lp パスもしくは ?view=lp クエリで Landing を表示する。
+// SPA 内で別ルートを切るため React Router を持ち込まず、最低限の URL 監視
+// だけで対応 (popstate 反応も拾う)。LP は認証も SW 更新監視もスキップ。
+function useIsLandingRoute() {
+  const compute = () => {
+    if (typeof window === 'undefined') return false;
+    const path = window.location.pathname;
+    if (path === '/lp' || path === '/lp/' || path.startsWith('/lp/')) return true;
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get('view') === 'lp') return true;
+    } catch { /* ignore */ }
+    return false;
+  };
+  const [is, setIs] = useState(compute);
+  useEffect(() => {
+    const onPop = () => setIs(compute());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  return is;
+}
+
 export default function App() {
   const [authCallbackActive, setAuthCallbackActive] = useState(hashHasAuthParams);
   const [showSplash, setShowSplash] = useState(true);
   const exitAuthCallback = useCallback(() => setAuthCallbackActive(false), []);
+  const isLandingRoute = useIsLandingRoute();
+
+  // LP は静的ページ扱い: スプラッシュも認証も介さず、即 Landing を返す。
+  if (isLandingRoute) {
+    return <Landing />;
+  }
 
   return (
     <>
