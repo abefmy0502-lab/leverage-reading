@@ -1,13 +1,23 @@
-// 📚 AddBookModal — 全画面シート式の本追加 UI。
+// 📚 AddBookModal — 全画面シート式の本追加 UI（検索 + 結果 + 手動入力切替を 1 画面で完結）。
 //
-// シンプル化: タブ切替・「シンプル / 詳細」分岐は廃止。最初から
-// タイトル / 著者 / ISBN の 3 入力欄を表示し、検索 → 結果リスト UI
-// (BookSearchModal) へ受け渡す。手動入力は下のリンクから。
+// シンプル化第 2 弾: 旧フローは AddBookModal → 「検索」ボタン → 別の
+// BookSearchModal に遷移、という 2 段階だった。今回はそれを撤廃し、
+// 同じモーダル内に 3 入力欄・検索ボタン・結果リスト・手動入力リンク
+// すべてを収めて、画面遷移なしで完結させる。
+//
+// 状態マシン:
+//   'idle'      : 初期。フォームのみ + 手動入力リンク
+//   'searching' : 検索中（フォーム disabled、下にスピナー）
+//   'results'   : 結果あり
+//   'notfound'  : 結果 0 件
+//   'error'     : 検索エラー（リトライ可能）
 
 import { useState } from 'react';
+import { searchBooksAdvanced, pickSuggestions } from '../lib/bookSearch';
+import { ensureHttps } from '../lib/url';
+import { LIMITS } from '../lib/limits';
 
 const overlayStyle = {
-  // 全画面シート — キーボード被りを最小化、安全領域も尊重。
   position: 'fixed',
   inset: 0,
   zIndex: 200,
@@ -26,6 +36,10 @@ const headerStyle = {
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 'var(--space-2)',
+  background: 'var(--color-surface)',
+  position: 'sticky',
+  top: 0,
+  zIndex: 1,
 };
 
 const closeBtn = {
@@ -46,7 +60,7 @@ const bodyStyle = {
   flex: 1,
   overflowY: 'auto',
   WebkitOverflowScrolling: 'touch',
-  padding: 'var(--space-5) var(--space-4)',
+  padding: 'var(--space-5) var(--space-4) var(--space-8)',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-4)',
@@ -96,12 +110,7 @@ const dividerStyle = {
   fontSize: 11,
   margin: 'var(--space-4) 0 var(--space-2)',
 };
-
-const dividerLine = {
-  flex: 1,
-  height: 1,
-  background: 'var(--color-separator)',
-};
+const dividerLine = { flex: 1, height: 1, background: 'var(--color-separator)' };
 
 const manualBtnStyle = {
   display: 'flex',
@@ -120,47 +129,133 @@ const manualBtnStyle = {
   minHeight: 44,
 };
 
-export default function AddBookModal({ onClose, onSearch, onManual }) {
+const resultCardStyle = {
+  display: 'flex',
+  gap: 10,
+  alignItems: 'flex-start',
+  padding: '10px 12px',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-separator)',
+  background: 'var(--color-surface)',
+  cursor: 'pointer',
+  textAlign: 'left',
+  fontFamily: 'inherit',
+  width: '100%',
+};
+
+function ResultCard({ book, onPick }) {
+  return (
+    <button type="button" onClick={() => onPick(book)} aria-label={`『${book.title}』を選択`} style={resultCardStyle}>
+      {book.cover ? (
+        <img
+          src={ensureHttps(book.cover)}
+          alt=""
+          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--color-separator)' }}
+        />
+      ) : (
+        <div style={{ width: 44, height: 60, background: 'var(--color-bg-hover)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📕</div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-label)', lineHeight: 1.4, marginBottom: 2 }}>{book.title}</div>
+        {book.author && <div style={{ fontSize: 11, color: 'var(--color-secondary)' }}>✍️ {book.author}</div>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+          {book.publisher && <span style={{ fontSize: 10, color: 'var(--color-tertiary)' }}>🏢 {book.publisher}</span>}
+          {book.pubYear && <span style={{ fontSize: 10, color: 'var(--color-tertiary)' }}>📅 {book.pubYear}</span>}
+        </div>
+        {book.isbn && <div style={{ fontSize: 10, color: 'var(--color-tertiary)', marginTop: 3 }}>🔢 {book.isbn}</div>}
+      </div>
+    </button>
+  );
+}
+
+function Spinner({ message = '検索中…' }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 0', color: 'var(--color-tertiary)' }}>
+      <div
+        aria-hidden="true"
+        style={{
+          width: 20,
+          height: 20,
+          border: '2px solid var(--color-separator)',
+          borderTopColor: 'var(--color-accent-strong)',
+          borderRadius: '50%',
+          animation: 'lvg-ptr-spin 0.8s linear infinite',
+        }}
+      />
+      <span style={{ fontSize: 12 }}>{message}</span>
+    </div>
+  );
+}
+
+export default function AddBookModal({ onClose, onSelect, onManual }) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
+  const [state, setState] = useState('idle'); // 'idle' | 'searching' | 'results' | 'notfound' | 'error'
+  const [results, setResults] = useState([]);
+  const [error, setError] = useState(null);
 
   const hasInput = !!(title.trim() || author.trim() || isbn.trim());
+  const isSearching = state === 'searching';
 
-  const submit = () => {
-    if (!hasInput) return;
-    onSearch?.({
+  const runSearch = async () => {
+    if (!hasInput || isSearching) return;
+    setState('searching');
+    setError(null);
+    setResults([]);
+    const res = await searchBooksAdvanced({
       title: title.trim(),
       author: author.trim(),
       isbn: isbn.trim(),
     });
+    if (!res.ok) {
+      setError(res.error || '検索でエラーが発生しました。');
+      setState('error');
+      return;
+    }
+    if (!res.results || res.results.length === 0) {
+      setState('notfound');
+      return;
+    }
+    setResults(res.results);
+    setState('results');
   };
 
   const onEnter = (e) => {
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      submit();
+      runSearch();
     }
   };
+
+  const handlePick = (book) => {
+    onSelect?.(book);
+  };
+
+  const suggestions = state === 'results' ? pickSuggestions(results, 3) : [];
+  const showSuggestions = suggestions.length > 0 && results.length >= 5;
+  const tooMany = results.length >= 20;
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true">
       <div style={headerStyle}>
         <h2 style={{ fontSize: 16, color: 'var(--color-label)', margin: 0, fontWeight: 600, flex: 1 }}>📚 本を追加</h2>
-        <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる">×</button>
+        <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={isSearching}>×</button>
       </div>
 
       <div style={bodyStyle}>
+        {/* === Form (常に上部に表示) === */}
         <div>
           <label htmlFor="add-book-title" style={labelStyle}>タイトル</label>
           <input
             id="add-book-title"
-            autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={onEnter}
             placeholder="例：レバレッジ・リーディング"
             style={inpStyle}
+            maxLength={LIMITS.bookTitle}
+            disabled={isSearching}
           />
         </div>
         <div>
@@ -174,6 +269,8 @@ export default function AddBookModal({ onClose, onSearch, onManual }) {
             onKeyDown={onEnter}
             placeholder="例：本田 直之"
             style={inpStyle}
+            maxLength={LIMITS.bookAuthor}
+            disabled={isSearching}
           />
         </div>
         <div>
@@ -191,27 +288,106 @@ export default function AddBookModal({ onClose, onSearch, onManual }) {
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
+            disabled={isSearching}
           />
         </div>
 
         <button
           type="button"
-          onClick={submit}
-          disabled={!hasInput}
-          style={{ ...searchBtnStyle, opacity: hasInput ? 1 : 0.5 }}
+          onClick={runSearch}
+          disabled={!hasInput || isSearching}
+          style={{ ...searchBtnStyle, opacity: !hasInput || isSearching ? 0.5 : 1 }}
         >
-          🔍 検索
+          {isSearching ? '検索中…' : '🔍 検索'}
         </button>
 
-        <div style={dividerStyle}>
-          <div style={dividerLine} />
-          <span>または</span>
-          <div style={dividerLine} />
-        </div>
+        {/* === 結果エリア (状態に応じて切替) === */}
 
-        <button type="button" onClick={onManual} style={manualBtnStyle}>
-          📝 検索でヒットしない場合は手動入力
-        </button>
+        {state === 'idle' && (
+          <>
+            <div style={dividerStyle}>
+              <div style={dividerLine} />
+              <span>または</span>
+              <div style={dividerLine} />
+            </div>
+            <button type="button" onClick={onManual} style={manualBtnStyle}>
+              📝 検索でヒットしない場合は手動入力
+            </button>
+          </>
+        )}
+
+        {isSearching && <Spinner />}
+
+        {state === 'error' && (
+          <div style={{ background: 'var(--color-error-soft)', border: '1px solid var(--color-error)', borderLeft: '4px solid var(--color-error)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
+            <p style={{ fontSize: 14, color: 'var(--color-label)', margin: 0, fontWeight: 600 }}>⚠️ 検索でエラーが発生しました</p>
+            <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '6px 0 10px', lineHeight: 1.7 }}>{error}</p>
+            <button
+              type="button"
+              onClick={runSearch}
+              style={{
+                padding: '8px 14px', borderRadius: 'var(--radius-md)', border: 'none',
+                background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
+                fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 600,
+              }}
+            >
+              ↻ もう一度試す
+            </button>
+          </div>
+        )}
+
+        {state === 'notfound' && (
+          <div style={{ textAlign: 'center', padding: 'var(--space-5)' }}>
+            <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0, lineHeight: 1.7 }}>
+              一致する本が見つかりませんでした
+            </p>
+            <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '6px 0 14px' }}>
+              別のキーワードや、ISBN（10/13 桁）で試すこともできます
+            </p>
+            <button type="button" onClick={onManual} style={manualBtnStyle}>
+              📝 このまま手動で追加する
+            </button>
+          </div>
+        )}
+
+        {state === 'results' && (
+          <>
+            <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: 0, fontWeight: 500 }}>
+              {results.length} 件見つかりました
+            </p>
+            {tooMany && (
+              <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: 0 }}>
+                💡 著者や ISBN を追加で絞り込めます
+              </p>
+            )}
+            {showSuggestions && (
+              <div style={{ background: 'var(--color-accent-soft)', border: '1px solid var(--color-separator)', borderRadius: 'var(--radius-md)', padding: '10px 12px' }}>
+                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-secondary)', margin: '0 0 6px' }}>💡 もしかしてこの本？</p>
+                <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {suggestions.map((b, i) => (
+                    <div key={`sug-${i}`} className="list-item-enter">
+                      <ResultCard book={b} onPick={handlePick} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {results.map((b, i) => (
+                <div key={`r-${i}`} className="list-item-enter">
+                  <ResultCard book={b} onPick={handlePick} />
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={onManual}
+              style={{ ...manualBtnStyle, marginTop: 'var(--space-3)' }}
+            >
+              📝 該当が無ければ手動入力
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

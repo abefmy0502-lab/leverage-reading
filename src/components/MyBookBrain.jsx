@@ -358,16 +358,19 @@ export default function MyBookBrain({ onOpenBook }) {
     };
   }, [user, learningOpen, messages.length, statsTick]);
 
-  // Auto-scroll only when a NEW message is appended — not on tab open and
-  // NOT on the initial history hydration. Without the hydration guard,
-  // opening the brain tab with prior history would push the chat to the
-  // bottom and yank the whole page down (the user would never see the
-  // header / question-examples again).
+  // Strict auto-scroll: only when a true append happens *from a non-zero
+  // baseline*. The `prev > 0` guard is the second line of defence — even
+  // if React schedules an unexpected effect run during initial hydration,
+  // we will not scroll the page. Combined with historyHydratedRef this
+  // makes the chat window feel inert on tab open and never yank the
+  // viewport down to the latest message.
   const prevMsgCountRef = useRef(0);
   const historyHydratedRef = useRef(false);
   useEffect(() => {
-    // First time history finishes loading (whether 0 or N rows): snap the
-    // counter to whatever shipped and bail without scrolling.
+    // Initial history load (whether 0 or N rows): just snap the counter
+    // and don't scroll. We mark hydrated only AFTER the history fetch
+    // resolved — otherwise we'd accept "messages came in but historyLoaded
+    // was already true" as hydration too.
     if (!historyHydratedRef.current && historyLoaded) {
       historyHydratedRef.current = true;
       prevMsgCountRef.current = messages.length;
@@ -376,10 +379,13 @@ export default function MyBookBrain({ onOpenBook }) {
     const prev = prevMsgCountRef.current;
     prevMsgCountRef.current = messages.length;
     if (view !== 'chat') return;
-    if (messages.length <= prev) return; // shrink → don't scroll
+    // Only scroll if (a) we have a non-zero baseline and (b) something
+    // was appended. Either condition failing skips the scroll entirely.
+    if (prev <= 0) return;
+    if (messages.length <= prev) return;
     setTimeout(
       () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }),
-      30
+      30,
     );
   }, [messages, view, historyLoaded]);
 

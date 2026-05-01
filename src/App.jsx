@@ -1259,14 +1259,22 @@ function BookAdvisor({ onAddBook, onClose }) {
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
-  // Use a regular ref + effect (not a callback ref) so the bottom anchor
-  // doesn't auto-scroll on every mount/re-render. Only scroll when the
-  // message count actually grew (= new message arrived).
+  // Strict auto-scroll: only when a real append happens. Initial seed
+  // message + any case where we would scroll from a zero baseline are
+  // explicitly excluded so re-mounting the component (sub-tab switch)
+  // can't pull the viewport down.
   const messagesEndRef = useRef(null);
-  const prevMsgCountRef = useRef(messages.length);
+  const prevMsgCountRef = useRef(0);
+  const seedHydratedRef = useRef(false);
   useEffect(() => {
+    if (!seedHydratedRef.current) {
+      seedHydratedRef.current = true;
+      prevMsgCountRef.current = messages.length;
+      return;
+    }
     const prev = prevMsgCountRef.current;
     prevMsgCountRef.current = messages.length;
+    if (prev <= 0) return;
     if (messages.length <= prev) return;
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 30);
   }, [messages]);
@@ -1670,9 +1678,26 @@ function AuthedApp() {
   // サブタブ (reviewSubTab / aiSubTab) の切替も対象に含める — そうしないと
   // 旧タブの自動スクロール位置を引きずって、見出しが画面外に消えたまま新
   // サブタブが開いてしまう。
+  //
+  // iOS Safari 対策で document.documentElement と document.body の両方を
+  // 0 にする (window.scrollTo だけだと一部のバージョンで効かない)。さらに
+  // 切替時に active element を blur して、textarea が裏で focus を奪い続け
+  // viewport がそこへ自動スクロールするのを防ぐ。
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    if (typeof document !== 'undefined') {
+      const active = document.activeElement;
+      if (active && typeof active.blur === 'function') {
+        try { active.blur(); } catch { /* ignore */ }
+      }
+    }
+    requestAnimationFrame(() => {
+      try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch { /* ignore */ }
+      if (typeof document !== 'undefined') {
+        if (document.documentElement) document.documentElement.scrollTop = 0;
+        if (document.body) document.body.scrollTop = 0;
+      }
+    });
   }, [tab, view, reviewSubTab, aiSubTab]);
 
   // First-run onboarding: show once per user/device until they dismiss it.
@@ -1725,24 +1750,25 @@ const persist = useCallback((updates) => {
     setAddBookModalOpen(true);
   };
 
-  // From AddBookModal → 検索. AddBookModal は今や 3 入力欄
-  // (title/author/isbn) を持つので、その全てを seed として渡す。
-  // 後方互換のため、文字列が来たら title 扱い。
-  const openSearchFromAdd = (payload) => {
+  // AddBookModal は今や検索結果リストまで内包する 1 画面モーダル。
+  // ここでは「ユーザーが結果から本を選んだ」イベントだけを受け取り、
+  // 編集画面を該当本のメタデータでプリフィルして開く。検索フォーム /
+  // 結果リスト UI は AddBookModal 側に閉じている。
+  const pickBookFromAdd = (b) => {
     setAddBookModalOpen(false);
-    setForm({ ...emptyBook(), id: Date.now().toString(), addedVia: 'search' });
+    const seeded = {
+      ...emptyBook(),
+      id: Date.now().toString(),
+      title: b.title || '',
+      author: b.author || '',
+      cover: b.cover || '',
+      totalPages: b.pages || 0,
+      isbn: b.isbn || '',
+      addedVia: 'search',
+    };
+    setForm(seeded);
     setCurrent(null);
     setView('edit');
-    if (typeof payload === 'string') {
-      setSearchInitialQuery(payload || '');
-      setSearchInitialAuthor('');
-      setSearchInitialIsbn('');
-    } else {
-      setSearchInitialQuery(payload?.title || '');
-      setSearchInitialAuthor(payload?.author || '');
-      setSearchInitialIsbn(payload?.isbn || '');
-    }
-    setSearchOpen(true);
   };
 
   // From AddBookModal → 手動入力. Skip the search step entirely.
@@ -3021,7 +3047,7 @@ const persist = useCallback((updates) => {
       {addBookModalOpen && (
         <AddBookModal
           onClose={() => setAddBookModalOpen(false)}
-          onSearch={openSearchFromAdd}
+          onSelect={pickBookFromAdd}
           onManual={openManualFromAdd}
         />
       )}
