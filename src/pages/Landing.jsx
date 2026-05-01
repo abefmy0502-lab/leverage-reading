@@ -34,12 +34,24 @@ const C = {
 const FONT = `'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, -apple-system, sans-serif`;
 
 // ---------- Section wrapper with fade-in on scroll ----------
+//
+// 重要: Observer が何らかの理由で firing しない端末でもセクションが必ず
+// 見えるように、3 段階の保険を入れている:
+//   (a) IntersectionObserver で intersect 検知
+//   (b) IntersectionObserver が無い環境では即座に shown=true
+//   (c) 1 秒後の fallback タイマー (= 観察前にも強制表示)
+// 1 つでも作動すれば opacity:0 のまま固まることは無い。
 function Section({ id, children, bg = '#fff', pad = 80 }) {
   const ref = useRef(null);
   const [shown, setShown] = useState(false);
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el) return undefined;
+    // 環境が IO 非対応なら即時 true
+    if (typeof IntersectionObserver === 'undefined') {
+      setShown(true);
+      return undefined;
+    }
     const obs = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
         if (e.isIntersecting) {
@@ -47,9 +59,14 @@ function Section({ id, children, bg = '#fff', pad = 80 }) {
           obs.disconnect();
         }
       });
-    }, { threshold: 0.1, rootMargin: '0px 0px -10% 0px' });
+    }, { threshold: 0, rootMargin: '0px 0px 0px 0px' });
     obs.observe(el);
-    return () => obs.disconnect();
+    // 保険タイマー: 1 秒経っても発火していなければ強制表示
+    const safety = setTimeout(() => setShown(true), 1000);
+    return () => {
+      obs.disconnect();
+      clearTimeout(safety);
+    };
   }, []);
   return (
     <section
