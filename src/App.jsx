@@ -1171,16 +1171,73 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
 
       <SectionHeader icon="⚡" title="次の 1 週間でやる行動" />
       <p style={{ fontSize: 11, color: "#a89e8c", marginBottom: 10, lineHeight: 1.5 }}>本を読みっぱなしにしないために、具体的な行動を 1〜3 つ書きましょう。</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {(form.actions || []).map((a, i) => (
-          <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+          <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：営業会議で結論ファーストを実践" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} />
               <button onClick={() => removeAction(i)} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer" }}>×</button>
             </div>
+            {/* 期限 */}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "#9a8e7a" }}>期限:</span>
+              <span style={{ fontSize: 11, color: "#9a8e7a", minWidth: 56 }}>📅 期限</span>
               <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...inp, flex: 1 }} />
+            </div>
+            {/* 優先度 chips */}
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: "#9a8e7a", minWidth: 56 }}>🎯 優先度</span>
+              {[
+                { key: 'high', label: '🔴 高', bg: '#FFEBEE', fg: '#C62828' },
+                { key: 'medium', label: '🟡 中', bg: '#FFF3E0', fg: '#E65100' },
+                { key: 'low', label: '🟢 低', bg: '#E8F5E9', fg: '#2E7D32' },
+              ].map((p) => {
+                const active = (a.priority || 'medium') === p.key;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => updateAction(i, 'priority', p.key)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      border: active ? `1.5px solid ${p.fg}` : '1px solid #d4ccbe',
+                      background: active ? p.bg : 'transparent',
+                      color: active ? p.fg : '#8a7e6b',
+                      fontSize: 11,
+                      fontWeight: active ? 600 : 400,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* 繰り返し */}
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: "#9a8e7a", minWidth: 56 }}>🔁 繰り返し</span>
+              <select
+                value={a.recurrence || ''}
+                onChange={(e) => updateAction(i, 'recurrence', e.target.value || null)}
+                style={{ ...inp, flex: 1 }}
+              >
+                <option value="">繰り返さない</option>
+                <option value="weekly">毎週</option>
+                <option value="monthly">毎月</option>
+              </select>
+            </div>
+            {/* ソース引用ページ — 本紐付けは既に DonePhase の本コンテキストで自明なのでページのみ */}
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: "#9a8e7a", minWidth: 56 }}>🔗 引用ページ</span>
+              <input
+                type="number"
+                placeholder="例：42"
+                value={a.sourcePage || ''}
+                onChange={(e) => updateAction(i, 'sourcePage', e.target.value ? parseInt(e.target.value, 10) : null)}
+                style={{ ...inp, flex: 1 }}
+                inputMode="numeric"
+              />
             </div>
           </div>
         ))}
@@ -2960,20 +3017,79 @@ const persist = useCallback((updates) => {
     }
   };
 
-  const toggleAction = async (bookId, actionIdx) => {
+  // 行動の完了プロンプト用 state — 「✅ 完了 + 振り返り？」モーダルを表示し、
+  // ユーザーが「振り返らずに完了」or「💾 振り返りを保存」を選んだ後に反映する。
+  // null なら非表示。{ bookId, actionIdx, action } をセット。
+  const [completingAction, setCompletingAction] = useState(null);
+  const [reflectionInput, setReflectionInput] = useState('');
+
+  // 内部関数: action.done を toggle し、完了時は completed_at + reflection を反映、
+  // 繰り返し設定があれば次回分を新規行動として末尾に追加する。
+  const applyActionToggle = async (bookId, actionIdx, options = {}) => {
     const book = books.find((b) => b.id === bookId);
     if (!book) return;
-
     const acts = [...(book.actions || [])];
-    acts[actionIdx] = { ...acts[actionIdx], done: !acts[actionIdx].done };
-    const updated = { ...book, actions: acts };
+    const target = acts[actionIdx];
+    if (!target) return;
+    const becomingDone = !target.done;
+    const updatedAct = {
+      ...target,
+      done: becomingDone,
+      completedAt: becomingDone ? new Date().toISOString() : null,
+      reflection: becomingDone
+        ? (typeof options.reflection === 'string' ? options.reflection : (target.reflection || ''))
+        : target.reflection || '',
+    };
+    acts[actionIdx] = updatedAct;
 
+    // 繰り返し設定があり、今回が「完了化」なら次回分を spawn。期限は元の期限を
+    // 基準に weekly/monthly で進める。期限が無ければ今日基準で進める。
+    if (becomingDone && updatedAct.recurrence) {
+      const baseStr = updatedAct.deadline || new Date().toISOString().slice(0, 10);
+      const base = new Date(baseStr + 'T00:00:00');
+      if (!Number.isNaN(base.getTime())) {
+        if (updatedAct.recurrence === 'weekly') base.setDate(base.getDate() + 7);
+        else if (updatedAct.recurrence === 'monthly') base.setMonth(base.getMonth() + 1);
+        const nextDeadline = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`;
+        acts.push({
+          // id を持たせず INSERT 扱いさせる。
+          text: target.text,
+          deadline: nextDeadline,
+          done: false,
+          priority: target.priority || 'medium',
+          recurrence: target.recurrence,
+          sourceMemoId: target.sourceMemoId || null,
+          sourcePage: target.sourcePage || null,
+          reflection: '',
+          completedAt: null,
+        });
+      }
+    }
+
+    const updated = { ...book, actions: acts };
     haptic.light();
     try {
       await saveBook(updated);
+      if (becomingDone && updatedAct.recurrence) {
+        toast.success('完了 + 次回分を自動で追加しました');
+      }
     } catch (error) {
       toast.error(toMessage(error, '行動の更新に失敗しました。'));
     }
+  };
+
+  const toggleAction = async (bookId, actionIdx) => {
+    const book = books.find((b) => b.id === bookId);
+    if (!book) return;
+    const target = (book.actions || [])[actionIdx];
+    if (!target) return;
+    // 「完了化」の場合は振り返りモーダルを出す。「未完了に戻す」は即実行。
+    if (!target.done) {
+      setReflectionInput(target.reflection || '');
+      setCompletingAction({ bookId, actionIdx, action: target });
+      return;
+    }
+    await applyActionToggle(bookId, actionIdx);
   };
 
   const deleteActionFromBook = async (bookId, actionIdx) => {
@@ -4107,6 +4223,108 @@ const persist = useCallback((updates) => {
           onClose={() => setSettingsOpen(false)}
           onAfterDelete={() => setSettingsOpen(false)}
         />
+      )}
+
+      {/* 行動完了 → 振り返り入力モーダル。任意入力で「振り返らずに完了」も
+          可能。recurrence あり の行動は applyActionToggle 内で自動的に
+          次回分が末尾に追加される。 */}
+      {completingAction && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => { setCompletingAction(null); setReflectionInput(''); }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 880,
+            background: 'rgba(30,25,20,0.45)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#faf6f0',
+              borderRadius: 14,
+              width: 'min(420px, 100%)',
+              padding: '20px 18px',
+              fontFamily: 'inherit',
+              display: 'flex', flexDirection: 'column', gap: 12,
+              boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
+            }}
+          >
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#3d362c', margin: 0 }}>
+              ✅ 完了おめでとうございます！
+            </h3>
+            <p style={{ fontSize: 13, color: '#5c5043', margin: 0, lineHeight: 1.6 }}>
+              「{completingAction.action?.text}」
+            </p>
+            <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+              やってみてどうでしたか？（任意）
+            </p>
+            <textarea
+              value={reflectionInput}
+              onChange={(e) => setReflectionInput(e.target.value)}
+              placeholder="例：思ったより自然にできた / 緊張したが効果あり"
+              rows={3}
+              style={{
+                ...ta, minHeight: 72, fontSize: 14,
+              }}
+              maxLength={LIMITS.memoText}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  const { bookId, actionIdx } = completingAction;
+                  setCompletingAction(null);
+                  setReflectionInput('');
+                  await applyActionToggle(bookId, actionIdx);
+                }}
+                style={{
+                  flex: 1, minWidth: 120,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid #d4ccbe',
+                  background: 'transparent',
+                  color: '#5c5043',
+                  fontSize: 13,
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  minHeight: 44,
+                }}
+              >
+                振り返らずに完了
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const { bookId, actionIdx } = completingAction;
+                  const reflection = reflectionInput.trim();
+                  setCompletingAction(null);
+                  setReflectionInput('');
+                  await applyActionToggle(bookId, actionIdx, { reflection });
+                }}
+                style={{
+                  flex: 1, minWidth: 120,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: '#5C4A2E',
+                  color: '#faf6f0',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  minHeight: 44,
+                }}
+              >
+                💾 振り返りを保存
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {addBookModalOpen && (

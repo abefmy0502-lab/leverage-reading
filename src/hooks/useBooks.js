@@ -9,13 +9,26 @@ const toHttps = (url) => {
   return url.startsWith('http://') ? 'https://' + url.slice(7) : url;
 };
 
+// 行動 (actions) も DB は snake_case、フロントは camelCase。
+// supabase_actions_full.sql 未適用の DB では新カラムは undefined のまま。
+const transformAction = (a) => ({
+  ...a,
+  priority: a.priority || 'medium',
+  recurrence: a.recurrence || null,
+  sourceMemoId: a.source_memo_id || null,
+  sourcePage: a.source_page || null,
+  reflection: a.reflection || '',
+  completedAt: a.completed_at || null,
+  notifyAt: a.notify_at || null,
+});
+
 const transformBook = (book) => ({
   ...book,
   cover: toHttps(book.cover),
   tags: (book.book_tags || []).map((t) => t.tag_name),
-  actions: [...(book.actions || [])].sort((a, b) =>
-    (a.created_at || '').localeCompare(b.created_at || '')
-  ),
+  actions: [...(book.actions || [])]
+    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+    .map(transformAction),
   startDate: book.start_date,
   doneDate: book.done_date,
   currentPage: book.current_page,
@@ -225,7 +238,10 @@ export function useBooks() {
       }
 
       if (incoming.length > 0) {
-        const actionsPayload = incoming.map((a) => {
+        // supabase_actions_full.sql で追加した拡張列。マイグレーション未適用
+        // DB では UNDEFINED COLUMN エラーになるので、エラー時は基本列のみで
+        // 再試行する。
+        const buildPayload = (a, includeExtras) => {
           const base = {
             book_id: savedBookId,
             user_id: user.id,
@@ -233,12 +249,38 @@ export function useBooks() {
             deadline: a.deadline || null,
             done: a.done || false,
           };
+          if (includeExtras) {
+            if ('priority' in a) base.priority = a.priority || 'medium';
+            if ('recurrence' in a) base.recurrence = a.recurrence || null;
+            if ('sourceMemoId' in a) base.source_memo_id = a.sourceMemoId || null;
+            if ('sourcePage' in a) base.source_page = a.sourcePage || null;
+            if ('reflection' in a) base.reflection = a.reflection || null;
+            if ('completedAt' in a) base.completed_at = a.completedAt || null;
+            if ('notifyAt' in a) base.notify_at = a.notifyAt || null;
+          }
           return a.id && UUID_RE.test(a.id) ? { id: a.id, ...base } : base;
-        });
-        const { error } = await supabase
-          .from('actions')
-          .upsert(actionsPayload, { onConflict: 'id' });
-        if (error) throw error;
+        };
+
+        const fullPayload = incoming.map((a) => buildPayload(a, true));
+        let res = await supabase.from('actions').upsert(fullPayload, { onConflict: 'id' });
+        if (res.error) {
+          const msg = String(res.error?.message || '').toLowerCase();
+          // 新カラムが無い → 基本列のみで再試行
+          if (
+            msg.includes('priority')
+            || msg.includes('recurrence')
+            || msg.includes('source_memo_id')
+            || msg.includes('source_page')
+            || msg.includes('reflection')
+            || msg.includes('completed_at')
+            || msg.includes('notify_at')
+            || msg.includes('column')
+          ) {
+            const minPayload = incoming.map((a) => buildPayload(a, false));
+            res = await supabase.from('actions').upsert(minPayload, { onConflict: 'id' });
+          }
+        }
+        if (res.error) throw res.error;
       }
 
       // Fetch fresh row with relations to return

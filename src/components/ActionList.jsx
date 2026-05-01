@@ -128,14 +128,19 @@ const FILTERS = [
   { key: 'all', label: '全て' },
   { key: 'open', label: '未完了' },
   { key: 'done', label: '完了' },
-  { key: 'upcoming', label: '今週期限', color: '#a05040', bg: '#fdf0ed' },
+  { key: 'overdue', label: '⚠ 期限切れ', color: '#a05040', bg: '#fdf0ed' },
+  { key: 'today', label: '今日まで', color: '#E65100', bg: '#FFF3E0' },
+  { key: 'upcoming', label: '今週期限', color: '#1565C0', bg: '#E3F2FD' },
 ];
 
 const SORTS = [
   { key: 'deadline', label: '期限順' },
+  { key: 'priority', label: '優先度順' },
   { key: 'created', label: '作成順' },
   { key: 'title', label: '本タイトル順' },
 ];
+
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
 export default function ActionList({ books, onToggleAction, onDeleteAction, onOpenBook }) {
   const { allActions, stats } = useAllActions(books);
@@ -152,7 +157,21 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
     let list = allActions;
     if (filter === 'open') list = list.filter((a) => !a.done);
     else if (filter === 'done') list = list.filter((a) => a.done);
-    else if (filter === 'upcoming') {
+    else if (filter === 'overdue') {
+      // 期限切れ = 未完了 + deadline が today より前
+      list = list.filter((a) => {
+        if (a.done || !a.deadline) return false;
+        const d = new Date(a.deadline);
+        return !Number.isNaN(d.getTime()) && d < today;
+      });
+    } else if (filter === 'today') {
+      // 今日まで = 未完了 + deadline が today 以前 (期限切れも含む)
+      list = list.filter((a) => {
+        if (a.done || !a.deadline) return false;
+        const d = new Date(a.deadline);
+        return !Number.isNaN(d.getTime()) && d <= today;
+      });
+    } else if (filter === 'upcoming') {
       list = list.filter((a) => {
         if (a.done || !a.deadline) return false;
         const d = new Date(a.deadline);
@@ -170,6 +189,16 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
         const bd = b.deadline || '9999-99-99';
         if (ad !== bd) return ad.localeCompare(bd);
         return (a.created_at || '').localeCompare(b.created_at || '');
+      });
+    } else if (sortBy === 'priority') {
+      // 優先度順: 高 → 中 → 低、未完了が先、期限がある方が先。
+      sorted.sort((a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        const pr = (PRIORITY_RANK[a.priority || 'medium'] ?? 1) - (PRIORITY_RANK[b.priority || 'medium'] ?? 1);
+        if (pr !== 0) return pr;
+        const ad = a.deadline || '9999-99-99';
+        const bd = b.deadline || '9999-99-99';
+        return ad.localeCompare(bd);
       });
     } else if (sortBy === 'created') {
       sorted.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
@@ -435,7 +464,44 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
                         {ds.kind === 'soon' && ds.days > 0 && ` (あと${ds.days}日)`}
                       </span>
                     )}
+                    {/* 優先度バッジ — 'medium' は default なので表示しない */}
+                    {a.priority === 'high' && (
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#FFEBEE', color: '#C62828', fontWeight: 600 }}>🔴 高</span>
+                    )}
+                    {a.priority === 'low' && (
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#E8F5E9', color: '#2E7D32' }}>🟢 低</span>
+                    )}
+                    {/* 繰り返し */}
+                    {a.recurrence && (
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#F3E5F5', color: '#6A1B9A' }}>
+                        🔁 {a.recurrence === 'weekly' ? '毎週' : '毎月'}
+                      </span>
+                    )}
+                    {/* 引用ページ */}
+                    {a.sourcePage && (
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#FFFDE7', color: '#5D4037' }}>
+                        🔗 p.{a.sourcePage}
+                      </span>
+                    )}
                   </div>
+                  {/* 完了後の振り返りメモ */}
+                  {a.done && a.reflection && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        padding: '8px 10px',
+                        background: '#f5efde',
+                        border: '1px solid #e0d0a8',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        color: '#5c5043',
+                        lineHeight: 1.6,
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      💭 {a.reflection}
+                    </div>
+                  )}
                 </div>
 
                 {/* Kebab */}
