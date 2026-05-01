@@ -48,6 +48,34 @@ export default function Landing() {
       setMeta('og:type', 'website', 'property'),
     ];
 
+    // ⚠ 重要: メインアプリの index.css は html/body/#root を
+    //   height: 100dvh; overflow: hidden  (LINE 風 flex column 用)
+    // で組んでいる。LP では #root も含めてスクロールを許可する必要がある。
+    // 'lp-active' クラスを 3 箇所に付け、landing.css 側で !important 解除する。
+    const root = document.getElementById('root');
+    document.documentElement.classList.add('lp-active');
+    document.body.classList.add('lp-active');
+    if (root) root.classList.add('lp-active');
+    // クラス側で勝てない外部スタイルがある場合の二重防衛 — inline で上書き
+    const prev = {
+      htmlOverflow: document.documentElement.style.overflow,
+      htmlHeight: document.documentElement.style.height,
+      bodyOverflow: document.body.style.overflow,
+      bodyHeight: document.body.style.height,
+      rootOverflow: root?.style.overflow ?? '',
+      rootHeight: root?.style.height ?? '',
+      rootDisplay: root?.style.display ?? '',
+    };
+    document.documentElement.style.overflow = 'auto';
+    document.documentElement.style.height = 'auto';
+    document.body.style.overflow = 'auto';
+    document.body.style.height = 'auto';
+    if (root) {
+      root.style.overflow = 'visible';
+      root.style.height = 'auto';
+      root.style.display = 'block';
+    }
+
     const handleScroll = () => {
       setShowStickyCta(window.scrollY > 400);
     };
@@ -56,6 +84,10 @@ export default function Landing() {
 
     // IntersectionObserver でフェードイン。1 秒経っても発火しなければ
     // 強制 visible にする保険を仕込む (低スペック端末で観察が走らないケース対策)。
+    // js-ready クラスが付いた状態のみ opacity:0 が効く設計 (CSS 側) なので、
+    // JS が動かなければそもそも全セクションが visible のまま表示される。
+    const lpRoot = document.querySelector('.lp-root');
+    if (lpRoot) lpRoot.classList.add('js-ready');
     const sections = document.querySelectorAll('.fade-in');
     const fallbackTimers = [];
     let observer = null;
@@ -77,12 +109,63 @@ export default function Landing() {
       sections.forEach((s) => s.classList.add('visible'));
     }
 
+    // 🩺 デバッグログ — Safari Web Inspector で「スクロール詰まり」の原因を
+    // 切り分けるため、各セクションの計算済み高さと html/body の overflow を出す。
+    const debugTimer = setTimeout(() => {
+      try {
+        const allSections = document.querySelectorAll('.lp-root section');
+        // eslint-disable-next-line no-console
+        console.log('[LP debug] sections count:', allSections.length);
+        allSections.forEach((s, i) => {
+          const cs = getComputedStyle(s);
+          // eslint-disable-next-line no-console
+          console.log(`[LP debug] section ${i}:`, {
+            tag: s.className.split(' ')[0],
+            height: s.offsetHeight,
+            display: cs.display,
+            visibility: cs.visibility,
+            overflow: cs.overflow,
+          });
+        });
+        // eslint-disable-next-line no-console
+        console.log('[LP debug] body overflow:', getComputedStyle(document.body).overflow,
+          'body height:', getComputedStyle(document.body).height);
+        // eslint-disable-next-line no-console
+        console.log('[LP debug] html overflow:', getComputedStyle(document.documentElement).overflow,
+          'html height:', getComputedStyle(document.documentElement).height);
+        // eslint-disable-next-line no-console
+        console.log('[LP debug] #root overflow:', root && getComputedStyle(root).overflow,
+          '#root height:', root && getComputedStyle(root).height,
+          '#root display:', root && getComputedStyle(root).display);
+        // eslint-disable-next-line no-console
+        console.log('[LP debug] body scrollHeight:', document.body.scrollHeight,
+          'window innerHeight:', window.innerHeight);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[LP debug] log failed', e);
+      }
+    }, 500);
+
     return () => {
       document.title = prevTitle;
       tags.forEach((el) => el && el.parentElement && el.parentElement.removeChild(el));
       window.removeEventListener('scroll', handleScroll);
       if (observer) observer.disconnect();
       fallbackTimers.forEach(clearTimeout);
+      clearTimeout(debugTimer);
+      // クラス + inline style を完全復元
+      document.documentElement.classList.remove('lp-active');
+      document.body.classList.remove('lp-active');
+      if (root) root.classList.remove('lp-active');
+      document.documentElement.style.overflow = prev.htmlOverflow;
+      document.documentElement.style.height = prev.htmlHeight;
+      document.body.style.overflow = prev.bodyOverflow;
+      document.body.style.height = prev.bodyHeight;
+      if (root) {
+        root.style.overflow = prev.rootOverflow;
+        root.style.height = prev.rootHeight;
+        root.style.display = prev.rootDisplay;
+      }
     };
   }, []);
 
