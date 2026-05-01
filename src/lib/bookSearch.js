@@ -172,7 +172,10 @@ function buildNdlUrl({ title, author, isbn, q } = {}) {
   if (isbn) params.push(`isbn=${encodeURIComponent(isbn)}`);
   // Free-text fallback (single-input mode).
   if (!params.length && q) params.push(`title=${encodeURIComponent(q)}`);
-  params.push('cnt=20');
+  // 50 まで持ってきて UI 側で「もっと見る」ページングする想定。
+  // NDL は cnt= 上限を強く設けていないが、レスポンスサイズと体感速度の
+  // バランスで 50 をプロジェクト基準にしている。
+  params.push('cnt=50');
   return `https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`;
 }
 
@@ -257,7 +260,8 @@ async function lookupISBNopenBD(isbn) {
 
 async function searchGoogleBooks(query) {
   const r = await fetch(
-    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=20`
+    // Google Books は maxResults の上限が 40。NDL fallback として 40 まで。
+    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=40`
   );
   if (!r.ok) {
     const e = new Error(`Google Books HTTP ${r.status}`);

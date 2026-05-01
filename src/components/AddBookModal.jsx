@@ -13,9 +13,15 @@
 //   'error'     : 検索エラー（リトライ可能）
 
 import { useState } from 'react';
-import { searchBooksAdvanced, pickSuggestions } from '../lib/bookSearch';
+import { searchBooksAdvanced } from '../lib/bookSearch';
 import { ensureHttps } from '../lib/url';
 import { LIMITS } from '../lib/limits';
+
+// 表示件数のページング基準。最初は 20、「もっと見る」で +10 ずつ増やし、
+// API 負荷とユーザビリティの観点から 50 で打ち止め。
+const INITIAL_DISPLAY = 20;
+const DISPLAY_STEP = 10;
+const MAX_DISPLAY = 50;
 
 const overlayStyle = {
   position: 'fixed',
@@ -194,6 +200,7 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
   const [state, setState] = useState('idle'); // 'idle' | 'searching' | 'results' | 'notfound' | 'error'
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
+  const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY);
 
   const hasInput = !!(title.trim() || author.trim() || isbn.trim());
   const isSearching = state === 'searching';
@@ -203,6 +210,8 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
     setState('searching');
     setError(null);
     setResults([]);
+    // 新しい検索を始めるたびにページング位置をリセット。
+    setDisplayCount(INITIAL_DISPLAY);
     const res = await searchBooksAdvanced({
       title: title.trim(),
       author: author.trim(),
@@ -232,8 +241,11 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
     onSelect?.(book);
   };
 
-  const suggestions = state === 'results' ? pickSuggestions(results, 3) : [];
-  const showSuggestions = suggestions.length > 0 && results.length >= 5;
+  // 表示件数 = min(displayCount, results.length, MAX_DISPLAY)
+  const visibleCount = Math.min(displayCount, results.length, MAX_DISPLAY);
+  const visibleResults = results.slice(0, visibleCount);
+  // 「もっと見る」が押せるのは: ロード済み結果が残っていて、かつ 50 上限未満。
+  const canShowMore = visibleCount < Math.min(results.length, MAX_DISPLAY);
   const tooMany = results.length >= 20;
 
   return (
@@ -353,32 +365,41 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
         {state === 'results' && (
           <>
             <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: 0, fontWeight: 500 }}>
-              {results.length} 件見つかりました
+              {results.length} 件中 {visibleCount} 件を表示
             </p>
             {tooMany && (
               <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: 0 }}>
                 💡 著者や ISBN を追加で絞り込めます
               </p>
             )}
-            {showSuggestions && (
-              <div style={{ background: 'var(--color-accent-soft)', border: '1px solid var(--color-separator)', borderRadius: 'var(--radius-md)', padding: '10px 12px' }}>
-                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-secondary)', margin: '0 0 6px' }}>💡 もしかしてこの本？</p>
-                <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {suggestions.map((b, i) => (
-                    <div key={`sug-${i}`} className="list-item-enter">
-                      <ResultCard book={b} onPick={handlePick} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {results.map((b, i) => (
+              {visibleResults.map((b, i) => (
                 <div key={`r-${i}`} className="list-item-enter">
                   <ResultCard book={b} onPick={handlePick} />
                 </div>
               ))}
             </div>
+            {canShowMore && (
+              <button
+                type="button"
+                onClick={() => setDisplayCount((n) => Math.min(n + DISPLAY_STEP, MAX_DISPLAY, results.length))}
+                aria-label={`さらに ${Math.min(DISPLAY_STEP, results.length - visibleCount, MAX_DISPLAY - visibleCount)} 件表示`}
+                style={{
+                  ...manualBtnStyle,
+                  background: 'var(--color-accent-soft)',
+                  border: '1px solid var(--color-separator)',
+                  color: 'var(--color-accent-strong)',
+                  fontWeight: 600,
+                }}
+              >
+                ↓ もっと見る（あと {Math.min(DISPLAY_STEP, results.length - visibleCount, MAX_DISPLAY - visibleCount)} 件）
+              </button>
+            )}
+            {!canShowMore && results.length > MAX_DISPLAY && (
+              <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: 0, textAlign: 'center' }}>
+                これ以上は表示しません。著者や ISBN を追加して絞り込めます。
+              </p>
+            )}
             <button
               type="button"
               onClick={onManual}
