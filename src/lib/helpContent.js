@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-05-01: ヘルプモーダル全面リニューアル。「?」をタップで開く HelpModal の上部に「🤖 AI に質問する」検索バー（PROMPTS.helpAi で Claude に問い合わせ）と「💡 よくある質問」chips を追加。下部に「🔁 他の画面のヘルプを見る」タブ切替（本棚 / 振り返り / AI）。既存 helpContent の steps/sections レンダリングは保持し、新層を上に重ねる構成
  * - 2026-05-01: 🕒 AI 選書アドバイザーに履歴機能追加。advisor_sessions テーブルに会話を 1 セッション = 1 行で永続化、ヘッダーの「🕒 履歴」「🆕 新規」から過去の会話を一覧 → 詳細閲覧 → 「💬 この会話を続ける」で再開可能。supabase_advisor_sessions.sql 未適用なら履歴ボタンは非表示で graceful degradation
  * - 2026-05-01: AI 選書 → セットアップシート構造化引き継ぎ強化。「📚 読みたいに追加」を押した瞬間に Claude が会話全体 + 選んだ本を要約 → 4 フィールド (投資目的 / 現在の課題 / 仮説 / 選書理由) を生成しプレフィル。BeforePhase に独立 3 フィールド + 読み取り専用「🤖 AI の選書理由」カード。supabase_books_setup_fields.sql 適用が前提（未適用 DB では schema-error fallback で挙動維持）
  * - 2026-05-01: AI 選書 → セットアップシート引き継ぎ。AI 選書で「読みたいに追加」した本は source_query を保持し、セットアップシートを開くと投資目的に自動プレフィル。「💡 AI 選書で入力した内容を引き継ぎました」バナー + 「↩ AI 選書で入力した内容に戻す」復元ボタン。supabase_books_source_query.sql 適用が前提（未適用 DB では schema-error fallback で挙動維持）
