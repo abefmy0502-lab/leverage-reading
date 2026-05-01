@@ -1427,9 +1427,17 @@ function BookAdvisor({ onAddBook }) {
   };
 
   const isEmpty = messages.length === 0 && !recommendations;
+  const chatScrollRef = useRef(null);
+  // 新メッセージ追加時に最下部へオートスクロール (LINE 挙動)。
+  useEffect(() => {
+    if (!chatScrollRef.current) return;
+    chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages.length, recommendations]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      {/* Scroll 領域: ヘッダー / 例チップ / メッセージ / 推薦カード をまとめる */}
+      <div ref={chatScrollRef} className="chat-scroll">
       {/* Unified AI section header (マイ読書脳 と同じフォーマット)。
           ✕ ボタンはタブ画面では不要なので撤去。 */}
       <div className="ai-section-header" style={{ padding: 0, marginBottom: 8 }}>
@@ -1455,8 +1463,9 @@ function BookAdvisor({ onAddBook }) {
         </div>
       )}
 
-      {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4, paddingTop: 12 }}>
+      {/* Messages — chat-scroll が overflow を担うため、ここは
+          flex column のレイアウトのみ。height: auto。 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 12 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div style={{
@@ -1547,8 +1556,10 @@ function BookAdvisor({ onAddBook }) {
 
         <div ref={messagesEndRef} />
       </div>
+      </div>{/* /chat-scroll */}
 
-      {/* Input — sticky 底辺、BottomNav 上に乗る。マイ読書脳と同じ UI。 */}
+      {/* Input — flex column の末尾に置かれ、親 (.ai-page) の 100dvh 構造で
+          自動的にキーボード直上 / BottomNav 直上に張り付く (LINE 風)。 */}
       {!recommendations && (
         <div className="ai-input-area">
           <textarea
@@ -3426,8 +3437,8 @@ const persist = useCallback((updates) => {
         )}
 
         {tab === "ai" && (
-          <div key={`tab-${tab}`} className="tab-content">
-            <div className="sub-tabs" role="tablist" aria-label="AI のサブタブ">
+          <div key={`tab-${tab}`} className="tab-content ai-page">
+            <div className="sub-tabs" role="tablist" aria-label="AI のサブタブ" style={{ flexShrink: 0 }}>
               <button
                 type="button"
                 role="tab"
@@ -3447,13 +3458,13 @@ const persist = useCallback((updates) => {
                 🧠 マイ読書脳
               </button>
             </div>
-            {aiSubTab === 'advisor' ? (
-              <div style={{ padding: "12px 16px calc(160px + env(safe-area-inset-bottom, 0px))" }}>
+            <div className="ai-page-body">
+              {aiSubTab === 'advisor' ? (
                 <BookAdvisor onAddBook={(rec) => { addFromAdvisor(rec); }} />
-              </div>
-            ) : (
-              <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
-            )}
+              ) : (
+                <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -22,10 +22,10 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import { MessageCircle, Lightbulb, History, BookOpenCheck } from 'lucide-react';
 
-// padding-bottom は fixed の .ai-input-area (高さ ~76px) +
-// BottomNav (56px) + safe-area の合計分を予約。chat/learning 等の
-// content が input の裏に隠れないようにするため。
-const wrap = { padding: '12px 16px calc(160px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: 12 };
+// AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
+// 収める flex column。chat 時は内側 .chat-scroll と .ai-input-area で
+// LINE 風レイアウトを構成する。padding は内側 (.chat-scroll) で持つ。
+const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, padding: '12px 16px 0' };
 const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
 const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #d4ccbe', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
@@ -249,6 +249,9 @@ export default function MyBookBrain({ onOpenBook }) {
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
+  // chat-scroll を直接掴んで scrollHeight ベースのオートスクロールを使う
+  // (messagesEndRef.scrollIntoView だと document も巻き込んで動くため)。
+  const chatScrollRef = useRef(null);
   // Auto-grow textarea: 60px min, 200px max, scrolls past 200.
   const inputRef = useRef(null);
   useEffect(() => {
@@ -343,10 +346,12 @@ export default function MyBookBrain({ onOpenBook }) {
     // was appended. Either condition failing skips the scroll entirely.
     if (prev <= 0) return;
     if (messages.length <= prev) return;
-    setTimeout(
-      () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }),
-      30,
-    );
+    // chat-scroll の scrollHeight ベースで最下部へ。scrollIntoView だと
+    // document scroll も巻き込んで AI タブ全体が上下する不具合があった。
+    setTimeout(() => {
+      const el = chatScrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }, 30);
   }, [messages, view, historyLoaded]);
 
   const ask = async (questionText) => {
@@ -529,9 +534,12 @@ export default function MyBookBrain({ onOpenBook }) {
         <KnowledgeManager onChanged={() => setStatsTick((t) => t + 1)} />
       )}
 
-      {/* Chat view */}
+      {/* Chat view — flex column で chat-scroll + ai-input-area の LINE
+          風レイアウトを構成する。親 wrap が flex 1 / minHeight 0 で
+          高さを与え、ここはそれを継承する。 */}
       {view === 'chat' && (
-        <>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div ref={chatScrollRef} className="chat-scroll" style={{ padding: '0 0 12px' }}>
           {isEmpty && historyLoaded && (
             <div style={card}>
               <p style={{ fontSize: 12, color: '#5c5548', margin: '0 0 8px', fontWeight: 500 }}>💡 質問例</p>
@@ -584,9 +592,11 @@ export default function MyBookBrain({ onOpenBook }) {
               ↻ もう一度違う角度で答えて
             </button>
           )}
+          </div>{/* /chat-scroll */}
 
-          {/* Input area — sticky 底辺、BottomNav 上に乗る。Enter = 改行、
-              Shift+Enter / Cmd+Enter = 送信、IME 中は無視。 */}
+          {/* Input area — flex 末尾。.ai-page (100dvh flex) の構造で
+              キーボード直上 / BottomNav 直上に自動で張り付く (LINE 風)。
+              Enter = 改行 / Shift+Enter or Cmd+Enter = 送信 / IME ガード継続。 */}
           <div className="ai-input-area">
             <textarea
               ref={inputRef}
@@ -615,7 +625,7 @@ export default function MyBookBrain({ onOpenBook }) {
               {busy ? '送信中…' : '送信 →'}
             </button>
           </div>
-        </>
+        </div>
       )}
 
       {/* 旧 LearningSheet (modal) は撤去。学びの追加は view === 'learning' の
