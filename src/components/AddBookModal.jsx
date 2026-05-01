@@ -13,6 +13,7 @@
 //   'error'     : 検索エラー（リトライ可能）
 
 import { useEffect, useRef, useState } from 'react';
+import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
 import { searchBooksAdvanced } from '../lib/bookSearch';
 import { ensureHttps } from '../lib/url';
 import { LIMITS } from '../lib/limits';
@@ -149,14 +150,25 @@ const resultCardStyle = {
   width: '100%',
 };
 
-function ResultCard({ book, onPick }) {
+function ResultCard({ book, onPick, existing, statusLabel }) {
+  // 既に本棚にある本は「✅ 追加済み」バッジを表示し、タップで既存本へ遷移する
+  // ように onPick(existing, { isExisting: true }) を呼ぶ。
+  const isExisting = !!existing;
   return (
-    <button type="button" onClick={() => onPick(book)} aria-label={`『${book.title}』を選択`} style={resultCardStyle}>
+    <button
+      type="button"
+      onClick={() => onPick(book, { isExisting, existing })}
+      aria-label={isExisting ? `『${book.title}』 (既に本棚にあり、開く)` : `『${book.title}』を選択`}
+      style={{
+        ...resultCardStyle,
+        ...(isExisting ? { background: '#f0ebe2', borderColor: '#b9d4a3' } : {}),
+      }}
+    >
       {book.cover ? (
         <img
           src={ensureHttps(book.cover)}
           alt=""
-          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--color-separator)' }}
+          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--color-separator)', opacity: isExisting ? 0.7 : 1 }}
         />
       ) : (
         <div style={{ width: 44, height: 60, background: 'var(--color-bg-hover)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📕</div>
@@ -169,6 +181,23 @@ function ResultCard({ book, onPick }) {
           {book.pubYear && <span style={{ fontSize: 10, color: 'var(--color-tertiary)' }}>📅 {book.pubYear}</span>}
         </div>
         {book.isbn && <div style={{ fontSize: 10, color: 'var(--color-tertiary)', marginTop: 3 }}>🔢 {book.isbn}</div>}
+        {isExisting && (
+          <div
+            style={{
+              marginTop: 6,
+              display: 'inline-block',
+              padding: '3px 8px',
+              borderRadius: 999,
+              background: '#eaf5e3',
+              border: '1px solid #b9d4a3',
+              color: '#4a6e3a',
+              fontSize: 10,
+              fontWeight: 600,
+            }}
+          >
+            ✅ 追加済み（{statusLabel || '本棚'}）— タップで開く
+          </div>
+        )}
       </div>
     </button>
   );
@@ -193,7 +222,7 @@ function Spinner({ message = '検索中…' }) {
   );
 }
 
-export default function AddBookModal({ onClose, onSelect, onManual }) {
+export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting }) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
@@ -260,7 +289,12 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
     }
   };
 
-  const handlePick = (book) => {
+  const handlePick = (book, opts = {}) => {
+    // 既に本棚にある本は追加せず、親に既存本を開かせる。
+    if (opts.isExisting && opts.existing) {
+      onOpenExisting?.(opts.existing);
+      return;
+    }
     onSelect?.(book);
   };
 
@@ -399,13 +433,17 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
               </p>
             )}
             <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {visibleResults.map((b, i) => (
+              {visibleResults.map((b, i) => {
                 // ISBN がある時は ISBN ベース、無い時は title+index で衝突回避。
                 // 連続検索後に key が前回と被ると React の reconcile が崩れるバグを防ぐ。
-                <div key={`r-${b.isbn || `${b.title}-${i}`}`} className="list-item-enter">
-                  <ResultCard book={b} onPick={handlePick} />
-                </div>
-              ))}
+                const existing = findDuplicateBook(existingBooks, b);
+                const statusLabel = existing ? (STATUS_LABEL[existing.status] || '本棚') : null;
+                return (
+                  <div key={`r-${b.isbn || `${b.title}-${i}`}`} className="list-item-enter">
+                    <ResultCard book={b} onPick={handlePick} existing={existing} statusLabel={statusLabel} />
+                  </div>
+                );
+              })}
             </div>
             {canShowMore && (
               <button

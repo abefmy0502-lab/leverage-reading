@@ -28,6 +28,7 @@ import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates } from 
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
+import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import { supabase as supabaseClient } from './lib/supabase';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
@@ -2410,10 +2411,33 @@ const persist = useCallback((updates) => {
   };
   const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); };
 
+  // 同じ本が既に本棚にあれば true を返す。ダイアログを出して「📖 既存の本を見る」
+  // が押されたらその詳細へジャンプ。呼び出し側はこの戻り値が true なら追加処理
+  // をスキップする。
+  const handleDuplicateGate = async (candidate) => {
+    const existing = findDuplicateBook(books, candidate);
+    if (!existing) return false;
+    const statusLabel = STATUS_LABEL[existing.status] || '本棚';
+    const ok = await confirm({
+      title: 'この本は既に本棚にあります',
+      message: `「${existing.title}」は ${statusLabel} として登録済みです。`,
+      confirmLabel: '📖 既存の本を見る',
+      cancelLabel: '← 戻る',
+    });
+    if (ok) openDetail(existing);
+    return true;
+  };
+
   const handleSave = async () => {
     if (!form.title.trim()) {
       toast.error(fieldRequiredMessage('タイトル'));
       return;
+    }
+    // 新規追加 (current=null) の時のみ重複チェック。既存本の編集は同じ本を
+    // 自分自身とマッチさせてしまうので除外。
+    if (!current) {
+      const dup = await handleDuplicateGate({ isbn: form.isbn, title: form.title, author: form.author });
+      if (dup) return;
     }
     try {
       const normalizedTags = Array.from(
@@ -2470,7 +2494,13 @@ const persist = useCallback((updates) => {
       if (wasNew) setView("detail");
       toast.success('保存しました');
     } catch (error) {
-      toast.error(toMessage(error, '保存に失敗しました。もう一度お試しください。'));
+      // DB 側 UNIQUE 制約に弾かれた場合 (= UI チェックを抜けた競合状況) は
+      // 専用メッセージで案内。それ以外は通常のエラー。
+      if (isUniqueViolation(error)) {
+        toast.error('この本は既に本棚にあります');
+      } else {
+        toast.error(toMessage(error, '保存に失敗しました。もう一度お試しください。'));
+      }
     }
   };
 
@@ -2578,6 +2608,10 @@ const persist = useCallback((updates) => {
   // 拡張ペイロード。後方互換性のため string も受け付け、その場合は
   // sourceQuery のみセット (ユーザーは投資目的だけを引き継ぐ旧挙動)。
   const addFromAdvisor = async (rec, payloadOrQuery = '') => {
+    // 既に本棚にある本ならダイアログ → 既存本へジャンプ。null を返して
+    // BookAdvisor 側に「追加されなかった」を伝える。
+    const dup = await handleDuplicateGate({ isbn: rec.isbn, title: rec.title, author: rec.author });
+    if (dup) return null;
     const payload = typeof payloadOrQuery === 'string'
       ? { sourceQuery: payloadOrQuery, investPurpose: payloadOrQuery, currentChallenge: '', hypothesis: '', bookReason: rec.why || '' }
       : payloadOrQuery;
@@ -2618,7 +2652,11 @@ const persist = useCallback((updates) => {
       // 保存された本 (UUID 付き) を返す。
       return saved;
     } catch (error) {
-      toast.error(toMessage(error, '本の追加に失敗しました。'));
+      if (isUniqueViolation(error)) {
+        toast.error('この本は既に本棚にあります');
+      } else {
+        toast.error(toMessage(error, '本の追加に失敗しました。'));
+      }
       return null;
     }
   };
@@ -2626,6 +2664,14 @@ const persist = useCallback((updates) => {
   // Used by CapitalDashboard's "学習プラン" → bulk-add. Throws on failure so
   // the dashboard can count successes/failures across the plan's book list.
   const addBookFromPlan = async ({ title, author = '', tags = [] }) => {
+    // Bulk-add フローではダイアログを出さず、重複は静かにスキップ。
+    // 学習プランの追加は複数件まとめて走るのでブロッキングしたくない。
+    const existing = findDuplicateBook(books, { title, author });
+    if (existing) {
+      // eslint-disable-next-line no-console
+      console.log('[addBookFromPlan] skip duplicate:', title);
+      return;
+    }
     const newBook = {
       ...emptyBook(),
       title,
@@ -2846,6 +2892,9 @@ const persist = useCallback((updates) => {
   const addRelatedBookFromAi = async ({ title, author = '' }) => {
     if (!title || !title.trim()) return;
     if (addingRelatedTitlesRef.current.has(title)) return;
+    // 既に本棚にあれば確認ダイアログ → 既存本へジャンプ。
+    const dup = await handleDuplicateGate({ title, author });
+    if (dup) return;
     addingRelatedTitlesRef.current.add(title);
     setAddingRelatedTick((t) => t + 1);
     try {
@@ -2873,7 +2922,11 @@ const persist = useCallback((updates) => {
       await saveBook(newBook);
       toast.success(`「${title}」を読みたいに追加しました`);
     } catch (error) {
-      toast.error(toMessage(error, '本の追加に失敗しました。'));
+      if (isUniqueViolation(error)) {
+        toast.error('この本は既に本棚にあります');
+      } else {
+        toast.error(toMessage(error, '本の追加に失敗しました。'));
+      }
     } finally {
       addingRelatedTitlesRef.current.delete(title);
       setAddingRelatedTick((t) => t + 1);
@@ -4061,6 +4114,11 @@ const persist = useCallback((updates) => {
           onClose={() => setAddBookModalOpen(false)}
           onSelect={pickBookFromAdd}
           onManual={openManualFromAdd}
+          existingBooks={books}
+          onOpenExisting={(existing) => {
+            setAddBookModalOpen(false);
+            openDetail(existing);
+          }}
         />
       )}
 
