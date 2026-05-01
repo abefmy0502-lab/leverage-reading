@@ -153,11 +153,12 @@ function LearningInline({ onCancel, onSaved }) {
       </div>
 
       <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: 0, lineHeight: 1.7 }}>
-        本以外の気づき（会話・経験・観察など）を記録します。マイ読書脳の AI に「あなたの体験」として渡されます。
+        本以外の気づきも追加。会話・経験・観察など、日常の学びを記録すると、マイ読書脳がよりあなたらしい答えを返します。
       </p>
 
       <div>
         <label style={{ fontSize: 12, color: '#5c5548', fontWeight: 500, display: 'block', marginBottom: 4 }}>カテゴリ</label>
+        <p style={{ fontSize: 10, color: '#a89e8c', margin: '0 0 6px' }}>気づきが生まれた場所を選んでください</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {CATEGORIES.map((c) => (
             <button
@@ -190,7 +191,7 @@ function LearningInline({ onCancel, onSaved }) {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
           }}
-          placeholder="今日の学びを入力..."
+          placeholder="例：先輩との会話で「相手の関心軸を聞く」が刺さった"
           style={ta}
           maxLength={LIMITS.memoText}
         />
@@ -461,10 +462,13 @@ export default function MyBookBrain({ onOpenBook }) {
       <div className="ai-section-header" style={{ padding: 0 }}>
         <h2>🧠 マイ読書脳</h2>
         <p className="subtitle">
-          過去に読んだ本の知恵があなたに答えます
+          あなたが読んだ本の知識から、あなた専用の答えが返ってきます
           {(memoStats.cards + memoStats.summaries + memoStats.personal) > 0 && (
             <>（メモ {memoStats.cards} / まとめ {memoStats.summaries} / 学び {memoStats.personal}）</>
           )}
+        </p>
+        <p className="subtitle" style={{ marginTop: 4 }}>
+          💡 質問は具体的に書くと精度が上がります
         </p>
       </div>
 
@@ -516,6 +520,12 @@ export default function MyBookBrain({ onOpenBook }) {
         <div style={viewScroll}>
         <PullToRefresh onRefresh={fetchHistory}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div>
+              <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>🕒 過去の質問と答え</p>
+              <p style={{ fontSize: 11, color: '#8a7e6b', margin: '2px 0 0', lineHeight: 1.7 }}>
+                気になる質問は再度開いて、答えを見返せます
+              </p>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0 }}>会話 {messages.length} 件</p>
               {messages.length > 0 && (
@@ -528,8 +538,8 @@ export default function MyBookBrain({ onOpenBook }) {
             {historyLoaded && messages.length === 0 && (
               <EmptyState
                 icon="💬"
-                title="まだ会話がありません"
-                description="「💬 質問する」から、過去の本と対話を始めましょう。"
+                title="まだ質問していません"
+                description="左の「質問」タブから AI に話しかけてみましょう。"
               />
             )}
             {messages.map((m) => (
@@ -555,7 +565,7 @@ export default function MyBookBrain({ onOpenBook }) {
           <div ref={chatScrollRef} className="chat-scroll" style={{ padding: '0 0 12px' }}>
           {isEmpty && historyLoaded && (
             <div style={card}>
-              <p style={{ fontSize: 12, color: '#5c5548', margin: '0 0 8px', fontWeight: 500 }}>💡 質問例</p>
+              <p style={{ fontSize: 12, color: '#5c5548', margin: '0 0 8px', fontWeight: 500 }}>💡 質問例（タップで入力）</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {QUESTION_EXAMPLES.map((ex) => (
                   <button

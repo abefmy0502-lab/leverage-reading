@@ -1058,13 +1058,13 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
         </>
       )}
 
-      <SectionHeader icon="⚡" title="行動リスト" />
-      <p style={{ fontSize: 11, color: "#a89e8c", marginBottom: 10, lineHeight: 1.5 }}>この本から得た学びを具体アクションに変換。期限を自由に設定。</p>
+      <SectionHeader icon="⚡" title="次の 1 週間でやる行動" />
+      <p style={{ fontSize: 11, color: "#a89e8c", marginBottom: 10, lineHeight: 1.5 }}>本を読みっぱなしにしないために、具体的な行動を 1〜3 つ書きましょう。</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {(form.actions || []).map((a, i) => (
           <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "10px 12px" }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-              <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={`行動 ${i + 1}`} style={{ ...inp, flex: 1 }} />
+              <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：営業会議で結論ファーストを実践" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} />
               <button onClick={() => removeAction(i)} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer" }}>×</button>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -1076,7 +1076,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
         <button onClick={addAction} style={{ ...btnO, padding: "10px 0", fontSize: 12, borderStyle: "dashed" }}>＋ 行動を追加</button>
       </div>
 
-      <Field label="ROI一言まとめ" sub="この本の投資リターンを一言で">
+      <Field label="ROI ひとことまとめ" sub="この本から得た一番大きな価値を 1 行で">
         {/* input → textarea (rows=3) に変更。シングルライン input だと placeholder が
             画面幅で見切れる問題があった。placeholder も短く具体的に。 */}
         <textarea
@@ -1452,7 +1452,7 @@ function BookAdvisor({ onAddBook }) {
           ✕ ボタンはタブ画面では不要なので撤去。 */}
       <div className="ai-section-header" style={{ padding: 0, marginBottom: 8 }}>
         <h2>🤖 AI 選書アドバイザー</h2>
-        <p className="subtitle">課題や悩みからおすすめの本を提案します</p>
+        <p className="subtitle">あなたの課題から、読むべき本を提案します</p>
       </div>
 
       {/* Example chips — タップで textarea に流し込む。挨拶 seed が
@@ -3425,6 +3425,7 @@ const persist = useCallback((updates) => {
                 </button>
               </div>
               {/* Pill filters — hide statuses with zero books to keep the bar tight. */}
+              <p style={{ fontSize: 10, color: "#a89e8c", margin: "0 0 4px", letterSpacing: 0.2 }}>タップで本を絞り込めます</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {[
                   { key: "all", label: "全て", count: stats.total, color: "#4a4036", bg: "#e8e0d2", Icon: null },

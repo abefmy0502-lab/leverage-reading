@@ -194,9 +194,11 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3d362c', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Target size={18} strokeWidth={1.75} aria-hidden="true" />
-          行動リスト
+          ✅ 本から決めた次の行動を管理
         </h2>
-        <p style={{ fontSize: 12, color: '#8a7e6b', marginTop: 2 }}>本から学んだ行動を実生活に</p>
+        <p style={{ fontSize: 12, color: '#8a7e6b', marginTop: 2, lineHeight: 1.7 }}>
+          完了したらチェックを入れて、習慣化していきましょう
+        </p>
       </div>
 
       {/* Summary card — 完了率 + コンテキスト（あと N 件で X% 達成 / 今週期限） */}

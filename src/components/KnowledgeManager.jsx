@@ -518,7 +518,7 @@ export default function KnowledgeManager({ onChanged }) {
       <div style={card}>
         <p style={{ fontSize: 14, fontWeight: 600, color: '#3d362c', margin: 0 }}>📚 マイ読書脳の知識ベース</p>
         <p style={{ fontSize: 11, color: '#8a7e6b', margin: '4px 0 8px', lineHeight: 1.7 }}>
-          AI が参照している知識の一覧です。編集・削除で AI の答えに即座に反映されます。
+          AI があなたの答えを作る時に参照する情報の一覧です。編集・削除すると、次回の答えに即座に反映されます。
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 11, color: '#5c5548' }}>
           <span>📝 カード式メモ: <strong>{counts.card || 0}</strong> 件</span>

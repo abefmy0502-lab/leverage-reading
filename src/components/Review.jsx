@@ -396,12 +396,12 @@ export default function Review({ books = [], onOpenBook }) {
     return (
       <div style={wrap}>
         <EmptyState
-          icon="📔"
-          title="振り返るメモが、ここに集まります"
+          icon="📝"
+          title="メモがまだありません"
           description={(
             <>
-              本を読みながら気づきをメモすると、<br />
-              過去のあなたが今のあなたを助けてくれます。
+              読書中の本にカード式メモを残すと、ここに表示されます。<br />
+              気づき・引用・自分の言葉、何でも気軽に。
             </>
           )}
           tip="💡 各本の「読書中」「読了」状態でメモが追加できます"
@@ -428,12 +428,15 @@ export default function Review({ books = [], onOpenBook }) {
       )}
       {/* ===== 1. 今日の振り返り (random) ===== */}
       <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <h2 style={sectionTitle}>🎲 今日の振り返り</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <h2 style={sectionTitle}>🎲 ランダム表示</h2>
           <button type="button" style={btnGhost} onClick={reroll} disabled={flipping}>
             ↻ 別のメモを見る
           </button>
         </div>
+        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+          偶然の再会で、忘れていた気づきを呼び戻します
+        </p>
         {randomMemo && (
           <div
             style={{
@@ -474,6 +477,9 @@ export default function Review({ books = [], onOpenBook }) {
       {/* ===== 2. タイムライン ===== */}
       <section>
         <h2 style={sectionTitle}>📅 タイムライン</h2>
+        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+          時系列で読書の軌跡を振り返る。3 ヶ月前・半年前の自分の気づきを見返してみましょう。
+        </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {memosByMonth.map(([key, group]) => {
             const open = expanded.has(key);
@@ -523,11 +529,14 @@ export default function Review({ books = [], onOpenBook }) {
 
       {/* ===== 3. 全メモ検索 ===== */}
       <section>
-        <h2 style={sectionTitle}>🔍 全メモ検索</h2>
+        <h2 style={sectionTitle}>🔎 すべての本のメモを横断検索</h2>
+        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+          例：「決断」「習慣」「営業」など、気になるキーワードを入れてみてください
+        </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
           <input
             type="search"
-            placeholder="本文・本のタイトル・著者・タグで検索"
+            placeholder="本文・タイトル・著者・タグ"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
@@ -579,8 +588,9 @@ export default function Review({ books = [], onOpenBook }) {
             検索ワードまたはフィルタを指定すると結果が表示されます。
           </p>
         ) : filteredSearch.length === 0 ? (
-          <p style={{ fontSize: 12, color: '#8a7e6b', textAlign: 'center', padding: '14px 0' }}>
-            該当するメモが見つかりませんでした。
+          <p style={{ fontSize: 12, color: '#8a7e6b', textAlign: 'center', padding: '14px 0', lineHeight: 1.7 }}>
+            このキーワードに関連するメモはまだありません。<br />
+            読書中・読了の本にメモを残すと、後から検索できます。
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

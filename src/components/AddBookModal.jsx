@@ -279,6 +279,9 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
       </div>
 
       <div style={bodyStyle}>
+        <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: 0, lineHeight: 1.7 }}>
+          ISBN（本の裏のバーコード番号）・書名・著者で検索できます
+        </p>
         {/* === Form (常に上部に表示) === */}
         <div>
           <label htmlFor="add-book-title" style={labelStyle}>タイトル</label>
@@ -374,10 +377,10 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
         {state === 'notfound' && (
           <div style={{ textAlign: 'center', padding: 'var(--space-5)' }}>
             <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0, lineHeight: 1.7 }}>
-              一致する本が見つかりませんでした
+              見つかりませんでした
             </p>
-            <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '6px 0 14px' }}>
-              別のキーワードや、ISBN（10/13 桁）で試すこともできます
+            <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '6px 0 14px', lineHeight: 1.7 }}>
+              書名を変えて再検索するか、ISBN（本の裏のバーコード番号）で検索してみてください。
             </p>
             <button type="button" onClick={onManual} style={manualBtnStyle}>
               📝 このまま手動で追加する
