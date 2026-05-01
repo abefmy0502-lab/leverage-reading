@@ -212,6 +212,14 @@ const FAQS = [
     a: '5 日間の無料トライアルがあります。期間中はすべての機能を試せます。',
   },
   {
+    q: 'クレジットカードは必要ですか？',
+    a: 'はい、無料トライアル開始時にクレジットカード登録が必要です。ただし、5 日以内に解約すれば一切課金されません。6 日目以降に自動的に月額 ¥1,000 の課金が始まります。',
+  },
+  {
+    q: 'トライアル期間が終わる前に通知はありますか？',
+    a: 'はい、トライアル終了の 2 日前にメール通知をお送りします。解約をご希望の場合は、それまでにアプリ内の設定から解約してください。',
+  },
+  {
     q: 'トライアル中の解約はどうすれば？',
     a: 'アプリ内の設定 → サブスクリプション → 解約 から 1 タップで可能です。解約しても残り日数までは引き続きすべての機能をご利用いただけます。',
   },
@@ -313,6 +321,38 @@ export default function Landing() {
     .lp-h2 { font-size: clamp(26px, 4vw, 38px); font-weight: 800; line-height: 1.3; margin: 0 0 20px; color: ${C.textMain}; }
     .lp-sub { font-size: clamp(16px, 2.2vw, 20px); line-height: 1.7; color: ${C.textSub}; margin: 0 0 32px; }
     .lp-anchor { display: block; height: 1px; visibility: hidden; }
+
+    /* 100x ROI セクション */
+    .lp-roi-compare {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 720px) { .lp-roi-compare { grid-template-columns: 1fr 1fr; gap: 20px; } }
+    .lp-roi-col {
+      padding: 22px 20px;
+      border-radius: 14px;
+    }
+    .lp-roi-col-bad {
+      background: #FFF5F5;
+      border-left: 4px solid ${C.error};
+    }
+    .lp-roi-col-good {
+      background: #F0FAF0;
+      border-left: 4px solid ${C.success};
+    }
+    .lp-mech-compare {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    @media (min-width: 720px) { .lp-mech-compare { grid-template-columns: 1fr 1fr; } }
+    .lp-impact-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    @media (min-width: 720px) { .lp-impact-grid { grid-template-columns: repeat(5, 1fr); } }
   `;
 
   return (
@@ -336,7 +376,7 @@ export default function Landing() {
               <a href="#features" className="lp-cta-secondary">詳しく見る ↓</a>
             </div>
             <p style={{ marginTop: 16, fontSize: 12, color: C.textSub }}>
-              5 日間無料トライアル・クレジットカード不要・いつでも解約可
+              5 日間無料トライアル・解約料金なし・期間中の解約で課金は発生しません
             </p>
           </div>
           <div className="lp-float">
@@ -398,6 +438,229 @@ export default function Landing() {
             レバレッジ読書ログは、<br />
             あなたの読書を「投資の運用」に変えるための、<br />
             唯一の専用ツールです。
+          </p>
+        </div>
+
+        {/* ベース思想カード — 本田直之『レバレッジ・リーディング』への言及 */}
+        <div
+          style={{
+            maxWidth: 720,
+            margin: '64px auto 0',
+            background: 'linear-gradient(135deg, #F5F1E8, #FAF6EC)',
+            padding: '28px 24px',
+            borderRadius: 16,
+            borderLeft: `4px solid ${C.primary}`,
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 28 }} aria-hidden="true">📕</span>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: C.primary, margin: 0, lineHeight: 1.4 }}>
+              ベースは、ベストセラー<br />
+              『レバレッジ・リーディング』の思想
+            </h3>
+          </div>
+          <p style={{ fontSize: 14, lineHeight: 1.9, color: C.textMain, margin: '12px 0' }}>
+            このアプリの設計は、本田直之氏の名著<br />
+            『レバレッジ・リーディング』（東洋経済新報社）の思想を<br />
+            ソフトウェアとして体現したものです。
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '16px 0', fontSize: 15, lineHeight: 2, color: C.primary, fontWeight: 500 }}>
+            <li>「本は最高の投資」</li>
+            <li>「目的を持って読む」</li>
+            <li>「全部読まない、必要な部分だけ抜き出す」</li>
+            <li>「行動につなげない読書はゴミ」</li>
+          </ul>
+          <p style={{ fontSize: 13, lineHeight: 1.8, color: C.textMain, margin: '12px 0 0' }}>
+            こうしたレバレッジ流の読書術を、AI と組み合わせることで、誰でも実践できる形にしました。
+          </p>
+          <p style={{ fontSize: 11, lineHeight: 1.6, color: '#999', marginTop: 16 }}>
+            ※ 本田直之氏・東洋経済新報社とは公式提携・許諾関係はありません。本書の思想・哲学を独自にソフトウェアで実装したサードパーティ製ツールです。
+          </p>
+        </div>
+      </Section>
+
+      {/* ===== 3.5. 100倍 ROI セクション ===== */}
+      <Section id="roi" bg="#fff" pad={80}>
+        <div style={{ textAlign: 'center', maxWidth: 800, margin: '0 auto' }}>
+          <h2 className="lp-h2">
+            1,500 円の本から、<br />
+            15 万円分の価値を引き出す。
+          </h2>
+          <p className="lp-sub" style={{ margin: '12px auto 0' }}>
+            読書の ROI を 100 倍にする、3 つの仕組み
+          </p>
+          <p style={{ fontSize: 16, lineHeight: 2, color: C.textMain, margin: '36px auto 0', textAlign: 'left' }}>
+            本は 1 冊 1,500 円。<br />
+            読みっぱなしの人にとっては、ただの紙の束。<br />
+            でも『投資』として運用する人にとっては、<br />
+            人生を変える最高のリターンを生む資産です。
+          </p>
+          <p style={{ fontSize: 15, lineHeight: 2, color: C.textSub, margin: '20px auto 0', textAlign: 'left' }}>
+            このアプリを使う人と、使わない人で、<br />
+            同じ本を読んでも 10 倍以上の差が生まれます。
+          </p>
+        </div>
+
+        {/* 比較セクション (2 カラム、モバイルでは縦) */}
+        <div className="lp-roi-compare" style={{ marginTop: 48 }}>
+          <div className="lp-roi-col lp-roi-col-bad">
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: C.error, margin: '0 0 14px' }}>
+              🔻 アプリなしの読書
+            </h3>
+            <div style={{ fontSize: 13, color: C.textMain, lineHeight: 1.9, fontWeight: 600, marginBottom: 14 }}>
+              📕 月 3 冊 × 1,500 円 = 4,500 円
+            </div>
+            {[
+              { x: 'なんとなくで本を選ぶ', y: '半分はハズレ本' },
+              { x: '読みっぱなしで内容を忘れる', y: '1 ヶ月後に覚えているのは 1 割未満' },
+              { x: 'メモを取っても見返さない', y: '知識が活用されない' },
+              { x: '行動につながらない', y: '「いい本だった」で終わる' },
+            ].map((row) => (
+              <div key={row.x} style={{ marginBottom: 10, fontSize: 13, color: C.textMain, lineHeight: 1.7 }}>
+                <div>❌ {row.x}</div>
+                <div style={{ paddingLeft: 18, color: C.textSub, fontSize: 12 }}>→ {row.y}</div>
+              </div>
+            ))}
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #d0a0a0', fontSize: 13, color: C.error, fontWeight: 700 }}>
+              📊 年間 ROI：ほぼゼロ<br />
+              <span style={{ fontWeight: 400, color: C.textSub, fontSize: 12, display: 'block', marginTop: 4 }}>
+                18,000 円の出費で、何も変わらない
+              </span>
+            </div>
+          </div>
+          <div className="lp-roi-col lp-roi-col-good">
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: C.success, margin: '0 0 14px' }}>
+              ✨ レバレッジ読書ログを使った読書
+            </h3>
+            <div style={{ fontSize: 13, color: C.textMain, lineHeight: 1.9, fontWeight: 600, marginBottom: 14 }}>
+              📚 月 3 冊 × 1,500 円 = 4,500 円
+            </div>
+            {[
+              { x: 'AI が課題に最適な本を選書', y: 'ハズレなく、刺さる本だけ' },
+              { x: 'AI が読み方を設計', y: '重点箇所を集中的に読破' },
+              { x: 'メモが構造化され蓄積される', y: '過去の本の知識が AI 経由で蘇る' },
+              { x: '期限・優先度付き行動管理', y: '1 冊から 3〜5 個の具体的行動' },
+            ].map((row) => (
+              <div key={row.x} style={{ marginBottom: 10, fontSize: 13, color: C.textMain, lineHeight: 1.7 }}>
+                <div>✅ {row.x}</div>
+                <div style={{ paddingLeft: 18, color: C.textSub, fontSize: 12 }}>→ {row.y}</div>
+              </div>
+            ))}
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #a0c0a0', fontSize: 13, color: C.success, fontWeight: 700 }}>
+              📊 年間 ROI：50〜150 万円相当<br />
+              <span style={{ fontWeight: 400, color: C.textSub, fontSize: 12, display: 'block', marginTop: 4 }}>
+                18,000 円の投資で、行動と成果が積み上がる
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3 つの仕組み */}
+        <div style={{ maxWidth: 800, margin: '64px auto 0' }}>
+          <h3 style={{ fontSize: 22, fontWeight: 800, textAlign: 'center', margin: '0 0 32px', color: C.textMain, lineHeight: 1.5 }}>
+            3 つの仕組みで、<br />
+            あなたの読書を 100 倍の投資に変える
+          </h3>
+
+          {[
+            {
+              icon: '🎯',
+              title: '本選びの精度が 10 倍に',
+              body: 'AI 選書アドバイザーが、あなたの「現在の課題」「達成したいこと」を深掘りし、年代・職業・状況に最適な本を提案します。\n\n「自己啓発書ばかり買って同じ内容を繰り返し読んでしまう」「ベストセラーを買ったけど自分には合わなかった」こんな失敗を完全に防ぎます。',
+              example: {
+                head: '具体例',
+                text: '「営業成績を上げたい」と入れるだけで、あなたが新規開拓に悩んでいるのか、既存顧客の深耕に悩んでいるのかを AI が判断し、それぞれに最適な 3〜5 冊を選書理由付きで提案。',
+              },
+            },
+            {
+              icon: '🚀',
+              title: '1 冊からの行動量が 10 倍に',
+              body: '読む前に AI が「投資目的・課題・仮説」を整理し、本を最大効率で活用する読み方戦略を提案します。\n\n重点的に読むべき章と、読まなくていい章まで明示。1〜2 時間で本のエッセンスを抽出し、具体的な行動アクションを 3〜5 個生成します。',
+              compare: { bad: '平均的な読書：1 冊から 1 個の行動が生まれれば良い方', good: 'このアプリ：1 冊から 3〜5 個の行動が確実に生まれる' },
+            },
+            {
+              icon: '🧠',
+              title: '知識の活用度が 10 倍に',
+              body: '過去に読んだすべての本の知識が、あなた専用の AI「マイ読書脳」に蓄積されます。\n\n「決断に迷う時の判断軸は？」「明日のプレゼンで意識すべきことは？」これらの質問に対し、過去の本のメモ・投資目的・ROI まとめからあなた専用の答えが返ってきます。',
+              compare: { bad: '平均的な読書：読んだ知識の活用率は数 %', good: 'このアプリ：必要な瞬間に過去の知識が即座に呼び出される' },
+            },
+          ].map((m, i) => (
+            <div
+              key={m.title}
+              style={{
+                margin: '0 0 24px',
+                padding: '28px 24px',
+                background: '#fff',
+                border: `1px solid ${C.cardBorder}`,
+                borderRadius: 16,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)',
+              }}
+            >
+              <div style={{ fontSize: 11, color: C.accent, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>
+                仕組み {i + 1}
+              </div>
+              <div style={{ fontSize: 44, marginBottom: 8 }}>{m.icon}</div>
+              <h4 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 14px', color: C.primary }}>
+                {m.title}
+              </h4>
+              <p style={{ fontSize: 14, color: C.textMain, lineHeight: 1.9, margin: 0, whiteSpace: 'pre-line' }}>
+                {m.body}
+              </p>
+              {m.example && (
+                <div style={{ marginTop: 16, padding: '14px 16px', background: C.bgWarmer, borderRadius: 10, borderLeft: `3px solid ${C.accent}` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 6 }}>
+                    💡 {m.example.head}
+                  </div>
+                  <p style={{ fontSize: 13, color: C.textMain, lineHeight: 1.8, margin: 0 }}>{m.example.text}</p>
+                </div>
+              )}
+              {m.compare && (
+                <div className="lp-mech-compare" style={{ marginTop: 16 }}>
+                  <div style={{ padding: 12, background: '#FFF5F5', borderRadius: 8, fontSize: 12, color: C.textMain, lineHeight: 1.7 }}>
+                    🔻 {m.compare.bad}
+                  </div>
+                  <div style={{ padding: 12, background: '#F0FAF0', borderRadius: 8, fontSize: 12, color: C.textMain, lineHeight: 1.7 }}>
+                    ✨ {m.compare.good}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 数字で見るインパクト */}
+        <div
+          style={{
+            maxWidth: 900,
+            margin: '64px auto 0',
+            padding: '36px 24px',
+            background: `linear-gradient(135deg, ${C.bgWarm}, #fff)`,
+            borderRadius: 20,
+            textAlign: 'center',
+          }}
+        >
+          <h3 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 28px', color: C.textMain, lineHeight: 1.5 }}>
+            このアプリを 5 年使い続けると…
+          </h3>
+          <div className="lp-impact-grid">
+            {[
+              { icon: '📚', n: '180+', label: '読了する本' },
+              { icon: '✅', n: '540+', label: '実行された行動' },
+              { icon: '🧠', n: '∞', label: '蓄積される知識' },
+              { icon: '💎', n: '¥270k', label: '累計の投資' },
+              { icon: '📈', n: 'x10', label: 'リターン推定' },
+            ].map((s) => (
+              <div key={s.label}>
+                <div style={{ fontSize: 28 }}>{s.icon}</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: C.primary, lineHeight: 1, marginTop: 4 }}>{s.n}</div>
+                <div style={{ fontSize: 11, color: C.textSub, marginTop: 6, lineHeight: 1.4 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ marginTop: 28, fontSize: 16, lineHeight: 2, color: C.primary, fontWeight: 700 }}>
+            5 年で 27 万円の投資が、<br />
+            あなたの人生を変える資産になります。
           </p>
         </div>
       </Section>
@@ -540,11 +803,28 @@ export default function Landing() {
           <button type="button" className="lp-cta-primary" onClick={goSignup} style={{ width: '100%', textAlign: 'center' }}>
             無料で始める →
           </button>
-          <p style={{ fontSize: 11, color: C.textSub, marginTop: 14, lineHeight: 1.6 }}>
-            ※ クレジットカード必要（無料期間中の自動課金は無し）<br />
-            ※ 期間中の解約で課金は発生しません<br />
-            ※ 解約はアプリ内から 1 タップで可能
-          </p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0 0', textAlign: 'left', fontSize: 11, color: C.textSub, lineHeight: 1.6 }}>
+            <li style={{ padding: '4px 0', display: 'flex', gap: 8 }}>
+              <span style={{ color: C.success, fontWeight: 700 }}>✓</span>
+              <span>初回 5 日間は無料（全機能利用可能）</span>
+            </li>
+            <li style={{ padding: '4px 0', display: 'flex', gap: 8 }}>
+              <span style={{ color: C.success, fontWeight: 700 }}>✓</span>
+              <span>クレジットカード登録が必要</span>
+            </li>
+            <li style={{ padding: '4px 0', display: 'flex', gap: 8 }}>
+              <span style={{ color: C.success, fontWeight: 700 }}>✓</span>
+              <span>5 日以内に解約すれば一切課金されません</span>
+            </li>
+            <li style={{ padding: '4px 0', display: 'flex', gap: 8 }}>
+              <span style={{ color: C.success, fontWeight: 700 }}>✓</span>
+              <span>6 日目以降、自動的に月額 ¥1,000 が発生します</span>
+            </li>
+            <li style={{ padding: '4px 0', display: 'flex', gap: 8 }}>
+              <span style={{ color: C.success, fontWeight: 700 }}>✓</span>
+              <span>解約はアプリ内から 1 タップで完了</span>
+            </li>
+          </ul>
         </div>
       </Section>
 
@@ -569,7 +849,7 @@ export default function Landing() {
             </button>
           </div>
           <p style={{ fontSize: 13, color: C.textSub, marginTop: 16 }}>
-            クレジットカード不要・いつでも解約可
+            5 日間無料・期間中の解約で課金なし・いつでも解約可
           </p>
         </div>
       </Section>
