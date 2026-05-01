@@ -531,7 +531,7 @@ export default function KnowledgeManager({ onChanged }) {
       {/* Search + filter + sort */}
       <input
         type="search"
-        placeholder="🔍 本文・本のタイトル・著者・タグで検索"
+        placeholder="🔍 本文・タイトル・著者・タグ"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}

@@ -950,21 +950,22 @@
   line-height: var(--leading-base);
 }
 
+/* root cause: 旧 sticky は document が scroll しない短い content で発火
+   せず、入力欄が画面中央に「浮く」。fixed で viewport 基準に固定する。
+   AI タブの content 領域は padding-bottom: 96px で fixed input に
+   被らないように担保する。 */
 .ai-input-area {
-  position: sticky;
-  /* BottomNav (56px + safe-area) の上に乗せる。BottomNav が消える時 (=
-     キーボード開) は body.keyboard-open に切替え、bottom = 0 にして
-     画面の最下端へ吸着させる。これで「BottomNav と入力欄の重なり」が
-     構造的に発生しない。 */
+  position: fixed;
+  left: 0;
+  right: 0;
   bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   background: var(--color-bg, #f5f0e8);
   padding: var(--space-3) var(--space-4);
-  margin: 0 calc(-1 * var(--space-4));
   border-top: 1px solid var(--color-separator);
   display: flex;
   gap: var(--space-2);
   align-items: flex-end;
-  z-index: 5;
+  z-index: 50;
 }
 body.keyboard-open .ai-input-area {
   bottom: env(safe-area-inset-bottom, 0px);

@@ -1425,7 +1425,7 @@ function BookAdvisor({ onAddBook }) {
   const isEmpty = messages.length === 0 && !recommendations;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "60vh" }}>
+    <div style={{ display: "flex", flexDirection: "column" }}>
       {/* Unified AI section header (マイ読書脳 と同じフォーマット)。
           ✕ ボタンはタブ画面では不要なので撤去。 */}
       <div className="ai-section-header" style={{ padding: 0, marginBottom: 8 }}>
@@ -3354,7 +3354,7 @@ const persist = useCallback((updates) => {
               </button>
             </div>
             {aiSubTab === 'advisor' ? (
-              <div style={{ padding: "12px 16px 24px" }}>
+              <div style={{ padding: "12px 16px calc(160px + env(safe-area-inset-bottom, 0px))" }}>
                 <BookAdvisor onAddBook={(rec) => { addFromAdvisor(rec); }} />
               </div>
             ) : (
