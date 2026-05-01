@@ -609,7 +609,7 @@ export default function MyBookBrain({ onOpenBook }) {
                   ask();
                 }
               }}
-              placeholder="質問を入力..."
+              placeholder="質問..."
               rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}
@@ -620,9 +620,16 @@ export default function MyBookBrain({ onOpenBook }) {
               className="send-btn"
               onClick={() => ask()}
               disabled={busy || !input.trim()}
-              aria-label="送信"
+              aria-label={busy ? '送信中' : '送信'}
+              title={busy ? '送信中…' : '送信'}
             >
-              {busy ? '送信中…' : '送信 →'}
+              {busy ? (
+                <span aria-hidden="true" style={{ fontSize: 11, fontWeight: 600 }}>…</span>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M2 12 22 2 13 22 11 13 2 12Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                </svg>
+              )}
             </button>
           </div>
         </div>

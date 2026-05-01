@@ -931,23 +931,26 @@
  * `bottom: calc(56px + safe-area-inset-bottom)` で置く。
  * ========================================================================= */
 
-/* AI タブ全体を 100dvh ベースの flex column にし、入力欄を自然な flex の
-   末尾に配置する (= position: fixed なし)。BottomNav (56 + safe) 分の
-   padding-bottom を確保し、キーボード開時は body.keyboard-open で 0 に。
-   interactive-widget=resizes-content により layout viewport が縮むので、
-   キーボード上に入力欄が自動で張り付く LINE / iMessage 挙動になる。 */
+/* AI タブを 100dvh ベースの flex column に。入力欄を flex の末尾に置き、
+   position: fixed なしで画面最下部に張り付かせる。
+   - HEIGHT は min-height ではなく height で固定 (内側の flex 1 が常に
+     スペースを埋める)。
+   - HEADER (36px) と SAFE_AREA_TOP の合計を viewport から差し引いて、
+     AI ページが「ヘッダーから画面下端まで」を正確に埋める。
+   - BottomNav (= 56 + safe-area-bottom) 分は body.keyboard-open でない
+     時だけ padding-bottom で予約。キーボード開時は 0 にして入力欄を
+     キーボード直上に張り付かせる。
+   interactive-widget=resizes-content (index.html) と組み合わせれば、
+   キーボード開閉で 100dvh が縮み・伸びる挙動が自動で機能する。 */
 .ai-page {
   display: flex;
   flex-direction: column;
-  /* 36px = ヘッダー高さ概算。BottomNav は keyboard-closed のときのみ
-     padding-bottom で逃がす。 */
-  min-height: calc(100dvh - 36px);
+  height: calc(100dvh - 36px - env(safe-area-inset-top, 0px));
   padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
+  overflow: hidden;
 }
 body.keyboard-open .ai-page {
-  /* BottomNav が hide されている時は予約スペース不要。viewport も
-     キーボード上に縮んでいるので、min-height が 100dvh だけで足りる。 */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .ai-page-body {

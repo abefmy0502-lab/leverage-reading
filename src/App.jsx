@@ -1566,7 +1566,7 @@ function BookAdvisor({ onAddBook }) {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="課題や悩みを入力..."
+            placeholder="課題を入力..."
             rows={1}
             disabled={loading}
             aria-label="AI選書アドバイザーへの質問"
@@ -1583,9 +1583,16 @@ function BookAdvisor({ onAddBook }) {
             className="send-btn"
             onClick={sendMessage}
             disabled={!input.trim() || loading}
-            aria-label="送信"
+            aria-label={loading ? '送信中' : '送信'}
+            title={loading ? '送信中…' : '送信'}
           >
-            {loading ? '送信中…' : '送信 →'}
+            {loading ? (
+              <span aria-hidden="true" style={{ fontSize: 11, fontWeight: 600 }}>…</span>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M2 12 22 2 13 22 11 13 2 12Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+              </svg>
+            )}
           </button>
         </div>
       )}
@@ -3187,7 +3194,10 @@ const persist = useCallback((updates) => {
     </div>
   </header>
 
-      <div key={tab} className="lvg-page" style={{ paddingBottom: 80 }}>
+      {/* AI タブは内側 .ai-page が 100dvh ベースで自前管理するため、wrapper
+          の paddingBottom: 80 (= BottomNav 余白) を入れると二重空白に
+          なる。AI 以外のタブだけ 80px を入れる。 */}
+      <div key={tab} className="lvg-page" style={{ paddingBottom: tab === 'ai' ? 0 : 80 }}>
         {tab === "books" && (
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <div
