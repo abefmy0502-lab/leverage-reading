@@ -63,16 +63,87 @@ function monthLabel(key) {
   return `${y}年${parseInt(m, 10)}月`;
 }
 
-const transformRow = (m) => ({
-  id: m.id,
-  bookId: m.book_id,
-  pageNumber: m.page_number ?? null,
-  text: m.text || '',
-  photoPath: m.photo_path || null,
-  tags: Array.isArray(m.tags) ? m.tags : [],
-  createdAt: m.created_at,
-  sourceType: m.source_type || (m.book_id ? 'book' : 'personal'),
-});
+const transformRow = (m) => {
+  const sourceType = m.source_type || (m.book_id ? 'book' : 'personal');
+  const kind = sourceType === 'personal' ? 'personal' : sourceType === 'summary' ? 'summary' : 'card';
+  return {
+    id: m.id,
+    bookId: m.book_id,
+    pageNumber: m.page_number ?? null,
+    text: m.text || '',
+    photoPath: m.photo_path || null,
+    tags: Array.isArray(m.tags) ? m.tags : [],
+    createdAt: m.created_at,
+    sourceType,
+    kind,
+    synth: false,
+  };
+};
+
+// 知識の種類ごとのアイコン + ラベル + ボーダー色。NoteCard で表示する。
+const KIND_META = {
+  card:              { icon: '📑', label: 'メモ',          color: '#2E7D32' },
+  summary:           { icon: '📖', label: 'まとめメモ',     color: '#5D4037' },
+  personal:          { icon: '💡', label: '学び',          color: '#E91E63' },
+  invest_purpose:    { icon: '📊', label: '投資目的',       color: '#1976D2' },
+  current_challenge: { icon: '⚠️', label: '現在の課題',     color: '#D32F2F' },
+  hypothesis:        { icon: '💡', label: '仮説',          color: '#FF9800' },
+  ai_summary:        { icon: '🤖', label: 'AI まとめ',      color: '#7B1FA2' },
+  roi_summary:       { icon: '💎', label: 'ROI まとめ',     color: '#FFA000' },
+  leverage_memo:     { icon: '📝', label: 'レバレッジメモ', color: '#5D4037' },
+  action_reflection: { icon: '💭', label: '行動の振り返り', color: '#00838F' },
+};
+
+// books から 派生ノート (本フィールド + 行動の振り返り) を生成。
+// 各エントリに synth: true を立てて、UI 側でスワイプ削除を出さない。
+function buildSyntheticNotes(books) {
+  if (!Array.isArray(books)) return [];
+  const out = [];
+  const fallbackTime = new Date().toISOString();
+  for (const b of books) {
+    const ts = b.updated_at || b.updatedAt || b.created_at || fallbackTime;
+    const push = (kind, text, t = ts) => {
+      const v = (text || '').toString().trim();
+      if (!v) return;
+      out.push({
+        id: `${kind}-${b.id}`,
+        bookId: b.id,
+        pageNumber: null,
+        text: v,
+        photoPath: null,
+        tags: [],
+        createdAt: t,
+        sourceType: 'synth',
+        kind,
+        synth: true,
+      });
+    };
+    push('invest_purpose',    b.investPurpose);
+    push('current_challenge', b.currentChallenge);
+    push('hypothesis',        b.hypothesis);
+    push('ai_summary',        b.aiSummary);
+    push('roi_summary',       b.roiSummary);
+    push('leverage_memo',     b.leverageMemo);
+    // 行動の振り返り
+    for (const a of (b.actions || [])) {
+      const r = (a.reflection || '').toString().trim();
+      if (!r) continue;
+      out.push({
+        id: `ref-${a.id || `${b.id}-${(a.text || '').slice(0, 12)}`}`,
+        bookId: b.id,
+        pageNumber: null,
+        text: `${(a.text || '').trim()}\n→ ${r}`,
+        photoPath: null,
+        tags: [],
+        createdAt: a.completedAt || a.completed_at || a.created_at || ts,
+        sourceType: 'synth',
+        kind: 'action_reflection',
+        synth: true,
+      });
+    }
+  }
+  return out;
+}
 
 function pickCategory(tags) {
   if (!Array.isArray(tags)) return null;
@@ -113,7 +184,10 @@ function MemoPhoto({ path }) {
 }
 
 function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeDelete, onLongPress }) {
-  const isPersonal = memo.sourceType === 'personal' || (!book && !memo.bookId);
+  const kind = memo.kind || (memo.sourceType === 'personal' ? 'personal' : memo.sourceType === 'summary' ? 'summary' : 'card');
+  const meta = KIND_META[kind] || KIND_META.card;
+  const isSynth = memo.synth === true;
+  const isPersonal = kind === 'personal';
   const category = isPersonal ? pickCategory(memo.tags) : null;
   const visibleTags = isPersonal
     ? (memo.tags || []).filter((t) => !t.startsWith('@'))
@@ -122,36 +196,50 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, memo, book }),
   });
 
+  const cardStyle = {
+    ...cardBase,
+    borderLeft: `4px solid ${meta.color}`,
+  };
+
   const inner = (
-    <div style={cardBase} {...(onLongPress ? longPress.bind : {})}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-        {isPersonal ? (
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: '#f5e6c8', color: '#8a7040', fontWeight: 600 }}>
-              💡 学びログ
-            </span>
-            {category && (
-              <span style={{ fontSize: 11, color: '#5c5548' }}>・{category}</span>
-            )}
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => book && onOpenBook?.(book)}
-            style={{ background: 'none', border: 'none', padding: 0, fontSize: 13, fontWeight: 500, color: '#3d362c', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+    <div style={cardStyle} {...(onLongPress && !isSynth ? longPress.bind : {})}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span
+            style={{
+              fontSize: 11,
+              padding: '2px 8px',
+              borderRadius: 999,
+              background: `${meta.color}1a`,
+              color: meta.color,
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+            }}
+            aria-label={`種類: ${meta.label}`}
           >
-            📖 {book?.title || '（本のデータが見つかりません）'}
-          </button>
-        )}
+            {meta.icon} {meta.label}
+          </span>
+          {category && (
+            <span style={{ fontSize: 11, color: '#5c5548' }}>・{category}</span>
+          )}
+        </div>
         <span style={{ fontSize: 10, color: '#a89e8c', whiteSpace: 'nowrap' }}>
           {showRelative ? relativeJa(memo.createdAt) : fmtDate(memo.createdAt)}
         </span>
       </div>
-      {!isPersonal && book?.author && (
-        <p style={{ fontSize: 11, color: '#9a8e7a', margin: '2px 0 6px' }}>{book.author}</p>
+      {/* 本へのリンク (個人学び以外) */}
+      {!isPersonal && (book || memo.bookId) && (
+        <button
+          type="button"
+          onClick={() => book && onOpenBook?.(book)}
+          style={{ background: 'none', border: 'none', padding: 0, marginTop: 6, fontSize: 12, fontWeight: 500, color: '#5c5043', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          📖 {book?.title || '（本のデータが見つかりません）'}
+          {book?.author && <span style={{ color: '#9a8e7a', marginLeft: 6 }}>{book.author}</span>}
+        </button>
       )}
       {memo.pageNumber != null && !isPersonal && (
-        <span style={{ ...pill, display: 'inline-block', marginBottom: 6 }}>P.{memo.pageNumber}</span>
+        <span style={{ ...pill, display: 'inline-block', marginTop: 6 }}>P.{memo.pageNumber}</span>
       )}
       {memo.text && (
         <p
@@ -160,7 +248,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
             color: '#4a4036',
             lineHeight: 1.8,
             whiteSpace: 'pre-wrap',
-            margin: 0,
+            margin: '8px 0 0',
             maxHeight: 300,
             overflowY: 'auto',
             paddingRight: 6,
@@ -180,7 +268,9 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
     </div>
   );
 
-  if (onSwipeDelete) {
+  // 派生ノート (synth=true) は DB の単一レコードに対応していないので
+  // スワイプ削除は不可。長押しメニューも出さない。
+  if (onSwipeDelete && !isSynth) {
     return <SwipeableCard onDelete={() => onSwipeDelete(memo)}>{inner}</SwipeableCard>;
   }
   return inner;
@@ -303,57 +393,82 @@ export default function Review({ books = [], onOpenBook }) {
     return m;
   }, [books]);
 
+  // 読書から生まれた知識をすべて時系列で扱う統合フィード。
+  //   - book_memos (memos): カードメモ / まとめメモ / 学び
+  //   - books の各フィールド: 投資目的 / 課題 / 仮説 / AI まとめ / ROI / レバレッジメモ
+  //   - actions.reflection: 行動の振り返り
+  // タイムライン・検索・ランダム想起のすべてがこの allNotes を使う。
+  const allNotes = useMemo(() => {
+    const synth = buildSyntheticNotes(books);
+    const merged = [...memos, ...synth];
+    merged.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    return merged;
+  }, [memos, books]);
+
+  // 知識タイプ別のフィルタ (横断検索セクション用)。
+  const [kindFilter, setKindFilter] = useState('all');
+
+  // 種類別の件数 — 上部のサマリーチップに表示。
+  const kindCounts = useMemo(() => {
+    const c = {};
+    for (const n of allNotes) {
+      c[n.kind] = (c[n.kind] || 0) + 1;
+    }
+    return c;
+  }, [allNotes]);
+
   // Default the first month to expanded so the user sees content.
   useEffect(() => {
-    if (memos.length === 0) return;
-    const firstMonth = monthKey(memos[0].createdAt);
+    if (allNotes.length === 0) return;
+    const firstMonth = monthKey(allNotes[0].createdAt);
     if (firstMonth) setExpanded(new Set([firstMonth]));
-  }, [memos]);
+  }, [allNotes]);
 
   const randomMemo = useMemo(() => {
-    if (memos.length === 0) return null;
-    const idx = Math.floor((randomSeed * 9301 + 49297 + Math.random() * memos.length) % memos.length);
-    return memos[idx] || memos[0];
-  }, [memos, randomSeed]);
+    if (allNotes.length === 0) return null;
+    const idx = Math.floor((randomSeed * 9301 + 49297 + Math.random() * allNotes.length) % allNotes.length);
+    return allNotes[idx] || allNotes[0];
+  }, [allNotes, randomSeed]);
 
   const allTags = useMemo(() => {
     const s = new Set();
-    memos.forEach((m) => (m.tags || []).forEach((t) => s.add(t)));
+    allNotes.forEach((m) => (m.tags || []).forEach((t) => s.add(t)));
     return [...s];
-  }, [memos]);
+  }, [allNotes]);
 
   const filteredSearch = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q && statusFilter === 'all' && !tagFilter) return [];
-    return memos.filter((m) => {
+    if (!q && statusFilter === 'all' && !tagFilter && kindFilter === 'all') return [];
+    return allNotes.filter((m) => {
+      if (kindFilter !== 'all' && m.kind !== kindFilter) return false;
       const book = booksById.get(m.bookId);
       if (statusFilter !== 'all' && book?.status !== statusFilter) return false;
       if (tagFilter && !m.tags?.includes(tagFilter)) return false;
       if (!q) return true;
       const title = (book?.title || '').toLowerCase();
       const author = (book?.author || '').toLowerCase();
-      const text = m.text.toLowerCase();
+      const text = (m.text || '').toLowerCase();
       const tagHit = (m.tags || []).some((t) => t.toLowerCase().includes(q));
       return title.includes(q) || author.includes(q) || text.includes(q) || tagHit;
     });
-  }, [memos, booksById, search, statusFilter, tagFilter]);
+  }, [allNotes, booksById, search, statusFilter, tagFilter, kindFilter]);
 
   const memosByMonth = useMemo(() => {
     const groups = new Map();
-    memos.forEach((m) => {
+    allNotes.forEach((m) => {
       const k = monthKey(m.createdAt);
       if (!k) return;
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k).push(m);
     });
     return Array.from(groups.entries()).sort(([a], [b]) => b.localeCompare(a));
-  }, [memos]);
+  }, [allNotes]);
 
   // Flip the random-memo card and swap its content at the back-facing midpoint.
   const reroll = () => {
     // Always rotate the inspirational quote alongside the memo swap.
     setTodayQuote(getRandomFromCategory('reviewAndMemory'));
-    if (memos.length <= 1) {
+    if (allNotes.length <= 1) {
       setRandomSeed((s) => s + 1);
       return;
     }
@@ -380,7 +495,7 @@ export default function Review({ books = [], onOpenBook }) {
     });
   };
 
-  const isSearching = search.trim() || statusFilter !== 'all' || tagFilter;
+  const isSearching = search.trim() || statusFilter !== 'all' || tagFilter || kindFilter !== 'all';
 
   if (loading) {
     return (
@@ -392,19 +507,19 @@ export default function Review({ books = [], onOpenBook }) {
     );
   }
 
-  if (memos.length === 0) {
+  if (allNotes.length === 0) {
     return (
       <div style={wrap}>
         <EmptyState
           icon="📝"
-          title="メモがまだありません"
+          title="ノートにまだ知識がありません"
           description={(
             <>
-              読書中の本にカード式メモを残すと、ここに表示されます。<br />
-              気づき・引用・自分の言葉、何でも気軽に。
+              本を追加して投資目的を入力したり、メモを残すと<br />
+              ここに「あなたの読書知識」が時系列で集まります。
             </>
           )}
-          tip="💡 各本の「読書中」「読了」状態でメモが追加できます"
+          tip="💡 投資目的・課題・仮説・ROI まとめ・メモ・行動の振り返り、すべてここに集約されます"
         />
       </div>
     );
@@ -426,6 +541,43 @@ export default function Review({ books = [], onOpenBook }) {
           ]}
         />
       )}
+
+      {/* 知識のタイプ別件数を冒頭に表示。「読書から何が蓄積されているか」が
+          一目で分かる + フィルタ前提の数字感をつかむため。 */}
+      <section
+        aria-label="ノートの種類別件数"
+        style={{
+          display: 'flex',
+          gap: 6,
+          flexWrap: 'wrap',
+          padding: '10px 12px',
+          background: '#faf6f0',
+          border: '1px solid #e4ddd0',
+          borderRadius: 12,
+        }}
+      >
+        {Object.entries(KIND_META).map(([k, meta]) => {
+          const n = kindCounts[k] || 0;
+          if (n === 0) return null;
+          return (
+            <span
+              key={k}
+              style={{
+                fontSize: 11,
+                padding: '3px 9px',
+                borderRadius: 999,
+                background: `${meta.color}1a`,
+                color: meta.color,
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {meta.icon} {meta.label} {n}
+            </span>
+          );
+        })}
+      </section>
+
       {/* ===== 1. 今日の振り返り (random) ===== */}
       <section>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -546,6 +698,17 @@ export default function Review({ books = [], onOpenBook }) {
           />
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <select
+              value={kindFilter}
+              onChange={(e) => setKindFilter(e.target.value)}
+              style={{ ...inp, width: 'auto', padding: '8px 10px' }}
+              aria-label="種類で絞り込み"
+            >
+              <option value="all">全種類</option>
+              {Object.entries(KIND_META).map(([k, meta]) => (
+                <option key={k} value={k}>{meta.icon} {meta.label}</option>
+              ))}
+            </select>
+            <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               style={{ ...inp, width: 'auto', padding: '8px 10px' }}
@@ -576,6 +739,7 @@ export default function Review({ books = [], onOpenBook }) {
                   setSearch('');
                   setStatusFilter('all');
                   setTagFilter('');
+                  setKindFilter('all');
                 }}
               >
                 クリア

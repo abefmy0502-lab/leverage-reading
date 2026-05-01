@@ -241,6 +241,20 @@ export function useBooks() {
         // supabase_actions_full.sql で追加した拡張列。マイグレーション未適用
         // DB では UNDEFINED COLUMN エラーになるので、エラー時は基本列のみで
         // 再試行する。
+        //
+        // id について: actions.id に DEFAULT gen_random_uuid() が無い環境では
+        // INSERT 時に NULL 制約違反になる。クライアント側で常に UUID を
+        // 生成しておく (DB の DEFAULT が無くても弾かれない)。生成した UUID
+        // は次回保存以降は UPDATE 経路に乗る。
+        const ensureId = (a) => {
+          if (a.id && UUID_RE.test(a.id)) return a.id;
+          try {
+            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+              return crypto.randomUUID();
+            }
+          } catch { /* ignore */ }
+          return null;
+        };
         const buildPayload = (a, includeExtras) => {
           const base = {
             book_id: savedBookId,
@@ -258,7 +272,8 @@ export function useBooks() {
             if ('completedAt' in a) base.completed_at = a.completedAt || null;
             if ('notifyAt' in a) base.notify_at = a.notifyAt || null;
           }
-          return a.id && UUID_RE.test(a.id) ? { id: a.id, ...base } : base;
+          const id = ensureId(a);
+          return id ? { id, ...base } : base;
         };
 
         const fullPayload = incoming.map((a) => buildPayload(a, true));
