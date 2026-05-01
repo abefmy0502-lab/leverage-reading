@@ -1712,7 +1712,7 @@ function AuthedApp() {
   useEdgeSwipeBack({
     enabled: view === 'detail' || view === 'edit',
     onBack: () => {
-      if (view === 'edit' && current) setView('detail');
+      if (view === 'edit' && current) { setEditPhaseOverride(null); setView('detail'); }
       else goList();
     },
   });
@@ -1897,9 +1897,24 @@ const persist = useCallback((updates) => {
     setCurrent(null);
     setView('edit');
   };
-  const openDetail = (b) => { setCurrent(b); setView("detail"); };
-  const openEdit = (b) => { setForm({ ...emptyBook(), ...b, tags: b.tags || [], actions: b.actions || [] }); setCurrent(b); setView("edit"); };
-  const goList = () => { setView("list"); setCurrent(null); };
+  // 編集画面でどの Phase を描画するかを上書きする state。null なら
+  // form.status が支配するが、たとえば status='reading' の本でセットアップ
+  // を仕切り直したい時 (= openSetup) は 'before' を入れて BeforePhase を
+  // 強制レンダリングする。Phase の上書きは UI の見た目だけの話で、
+  // form.status はそのまま保持され saveBook で正しい status が永続化される。
+  const [editPhaseOverride, setEditPhaseOverride] = useState(null);
+
+  const openDetail = (b) => { setCurrent(b); setEditPhaseOverride(null); setView("detail"); };
+  const openEdit = (b) => { setForm({ ...emptyBook(), ...b, tags: b.tags || [], actions: b.actions || [] }); setCurrent(b); setEditPhaseOverride(null); setView("edit"); };
+  // 読書中 (or それ以降) の本でセットアップを完了させたい時用。phase を
+  // 'before' にしてセットアップ UI を呼び出すが、form.status は維持。
+  const openSetup = (b) => {
+    setForm({ ...emptyBook(), ...b, tags: b.tags || [], actions: b.actions || [] });
+    setCurrent(b);
+    setEditPhaseOverride('before');
+    setView('edit');
+  };
+  const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); };
 
   const handleSave = async () => {
     if (!form.title.trim()) {
@@ -2462,6 +2477,56 @@ const persist = useCallback((updates) => {
             </div>
           )}
 
+          {/* セットアップ未完了の救済 CTA — 'reading' 中の本でも投資目的 /
+              AI 解析 / セットアップシートのいずれかが未入力なら、ここから
+              戻ってまとめて埋められるようにする。done は対象外。 */}
+          {(() => {
+            const setupIncomplete =
+              current.status === 'reading' &&
+              (!current.investPurpose || !current.aiAnalysis || !current.aiStrategy);
+            if (!setupIncomplete) return null;
+            return (
+              <div
+                role="alert"
+                style={{
+                  marginTop: 12,
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  background: 'var(--color-warning-soft, #fff8e1)',
+                  border: '1px solid #e0c878',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                <p style={{ fontSize: 13, color: '#8a6010', margin: 0, fontWeight: 600 }}>
+                  ⚠️ 読書前のセットアップが未完了です
+                </p>
+                <p style={{ fontSize: 11, color: '#9a7030', margin: 0, lineHeight: 1.6 }}>
+                  投資目的・AI 解析・セットアップシートをいま埋めると、ROI が最大化されます。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openSetup(current)}
+                  style={{
+                    alignSelf: 'flex-start',
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: '#8a7040',
+                    color: '#faf6f0',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  📋 セットアップを完了する
+                </button>
+              </div>
+            );
+          })()}
+
           {/* Phase-specific content */}
           {current.startDate && <p style={{ fontSize: 11, color: "#9a8e7a", marginTop: 10 }}>📅 開始: {current.startDate}</p>}
           {current.doneDate && <p style={{ fontSize: 11, color: "#9a8e7a", marginTop: 2 }}>📅 完了: {current.doneDate}</p>}
@@ -2711,6 +2776,24 @@ const persist = useCallback((updates) => {
             onClose={() => setDetailKebab(null)}
             items={[
               { label: '編集', icon: '✏️', onClick: () => openEdit(current) },
+              // セットアップ仕切り直し用 - 「読書前」未完了で reading に
+              // 進んでしまった本を一旦戻すための保険ルート。
+              ...(current.status === 'reading' || current.status === 'done'
+                ? [{
+                    label: '読書前に戻す',
+                    icon: '📚',
+                    onClick: async () => {
+                      const ok = await confirm({
+                        title: '読書前に戻しますか？',
+                        message: 'ステータスを「読書前」に戻します。メモや行動などのデータは保持されます。',
+                        confirmLabel: '戻す',
+                        cancelLabel: 'キャンセル',
+                      });
+                      if (!ok) return;
+                      advanceStatus(current, 'before');
+                    },
+                  }]
+                : []),
               { label: '表紙を取り直す', icon: '🔄', onClick: () => refreshCoverFor(current) },
               { label: '共有', icon: '📤', onClick: () => shareBook(current) },
               { label: '削除', icon: '🗑️', destructive: true, onClick: () => requestDeleteBook(current) },
@@ -2729,7 +2812,7 @@ const persist = useCallback((updates) => {
       <Shell>
         <div style={{ padding: "20px 20px 80px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <button onClick={current ? () => setView("detail") : goList} style={lnk}>← 戻る</button>
+            <button onClick={current ? () => { setEditPhaseOverride(null); setView("detail"); } : goList} style={lnk}>← 戻る</button>
             <button
               onClick={openHelp}
               style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#8a7e6b", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
@@ -2740,43 +2823,61 @@ const persist = useCallback((updates) => {
             </button>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, marginBottom: 16 }}>
-            <StatusBadge status={form.status} />
-            <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c" }}>
-              {!current ? "本を追加" : form.status === "want" ? "読みたい本" : form.status === "before" ? "投資設計" : form.status === "reading" ? "読書中" : "投資回収"}
-            </h2>
-          </div>
+          {/* どの Phase を描画するかを effectivePhase で決める。通常は
+              form.status と一致するが、editPhaseOverride が立っている時
+              (= openSetup から到達) は強制的にそのフェーズを表示する。 */}
+          {(() => {
+            const effectivePhase = editPhaseOverride || form.status;
+            const phaseLabel = !current
+              ? "本を追加"
+              : effectivePhase === "want" ? "読みたい本"
+              : effectivePhase === "before" ? "投資設計"
+              : effectivePhase === "reading" ? "読書中"
+              : "投資回収";
+            return (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, marginBottom: 16 }}>
+                  <StatusBadge status={form.status} />
+                  <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c" }}>{phaseLabel}</h2>
+                  {editPhaseOverride && editPhaseOverride !== form.status && (
+                    <span style={{ fontSize: 11, color: 'var(--color-tertiary)' }}>
+                      （セットアップを仕切り直し中）
+                    </span>
+                  )}
+                </div>
 
-          {(form.status === "want" || !current) && (
-            <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={() => setSearchOpen(true)} allTags={allTags} />
-          )}
-          {form.status === "before" && current && (
-            <BeforePhase
-              form={form}
-              setForm={setForm}
-              onSave={handleSave}
-              aiLoading={aiLoading}
-              onRunAnalysis={runAnalysis}
-              onRunStrategy={runStrategy}
-              onRunStrategyEdit={runStrategyEdit}
-              onUndoStrategy={undoStrategy}
-              hasStrategyHistory={
-                // strategyHistoryTick is read so React re-renders after writes.
-                strategyHistoryTick >= 0 && hasStrategyHistory(form?.id)
-              }
-              onAddRelatedBook={addRelatedBookFromAi}
-              addingTitles={(() => {
-                void addingRelatedTick;
-                return addingRelatedTitlesRef.current;
-              })()}
-            />
-          )}
-          {form.status === "reading" && current && (
-            <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} allTags={allTags} />
-          )}
-          {form.status === "done" && current && (
-            <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} allTags={allTags} />
-          )}
+                {(effectivePhase === "want" || !current) && (
+                  <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={() => setSearchOpen(true)} allTags={allTags} />
+                )}
+                {effectivePhase === "before" && current && (
+                  <BeforePhase
+                    form={form}
+                    setForm={setForm}
+                    onSave={handleSave}
+                    aiLoading={aiLoading}
+                    onRunAnalysis={runAnalysis}
+                    onRunStrategy={runStrategy}
+                    onRunStrategyEdit={runStrategyEdit}
+                    onUndoStrategy={undoStrategy}
+                    hasStrategyHistory={
+                      strategyHistoryTick >= 0 && hasStrategyHistory(form?.id)
+                    }
+                    onAddRelatedBook={addRelatedBookFromAi}
+                    addingTitles={(() => {
+                      void addingRelatedTick;
+                      return addingRelatedTitlesRef.current;
+                    })()}
+                  />
+                )}
+                {effectivePhase === "reading" && current && (
+                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} allTags={allTags} />
+                )}
+                {effectivePhase === "done" && current && (
+                  <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} allTags={allTags} />
+                )}
+              </>
+            );
+          })()}
         </div>
 
         <Modal open={searchOpen} onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}>
