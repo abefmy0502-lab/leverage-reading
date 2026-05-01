@@ -952,8 +952,10 @@
 
 .ai-input-area {
   position: sticky;
-  /* BottomNav (56px + safe-area) の上に乗せる。bottom: 0 にすると BottomNav
-     と重なって送信ボタンが見切れる現象が発生していた。 */
+  /* BottomNav (56px + safe-area) の上に乗せる。BottomNav が消える時 (=
+     キーボード開) は body.keyboard-open に切替え、bottom = 0 にして
+     画面の最下端へ吸着させる。これで「BottomNav と入力欄の重なり」が
+     構造的に発生しない。 */
   bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   background: var(--color-bg, #f5f0e8);
   padding: var(--space-3) var(--space-4);
@@ -963,6 +965,9 @@
   gap: var(--space-2);
   align-items: flex-end;
   z-index: 5;
+}
+body.keyboard-open .ai-input-area {
+  bottom: env(safe-area-inset-bottom, 0px);
 }
 .ai-input-area textarea {
   flex: 1;

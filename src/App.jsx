@@ -41,6 +41,7 @@ import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
 import { useLongPress } from './hooks/useLongPress';
 import { useEdgeSwipeBack } from './hooks/useEdgeSwipeBack';
+import { useKeyboardOpen } from './hooks/useKeyboardOpen';
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
@@ -1644,7 +1645,10 @@ function Shell({ children }) {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        // 100dvh = 動的ビューポート高さ。iOS Safari の URL バー / 仮想
+        // キーボード変動を考慮した「実際に見えてる高さ」。100vh だと
+        // キーボード開いた時に下が削れて見えない。
+        minHeight: "100dvh",
         background: "linear-gradient(160deg, var(--color-bg), #ebe4d8)",
         fontFamily: "var(--font-serif)",
         color: "var(--color-label)",
@@ -1666,6 +1670,15 @@ function Shell({ children }) {
 /* ========== MAIN APP ========== */
 function AuthedApp() {
   const { signOut, user } = useAuth();
+  // 仮想キーボード表示中は BottomNav を消し、入力欄に重ならないようにする。
+  // viewport meta の interactive-widget=resizes-content と併用すると iOS
+  // で「BottomNav が押し上げられる」現象が完全になくなる。
+  const keyboardOpen = useKeyboardOpen();
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    document.body.classList.toggle('keyboard-open', keyboardOpen);
+    return () => document.body.classList.remove('keyboard-open');
+  }, [keyboardOpen]);
   const {
     books: rawBooks,
     loading: booksLoading,
@@ -2862,7 +2875,7 @@ const persist = useCallback((updates) => {
           />
         )}
 
-        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
+        {!keyboardOpen && <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />}
       </Shell>
     );
   }
@@ -2964,7 +2977,7 @@ const persist = useCallback((updates) => {
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
         {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
-        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
+        {!keyboardOpen && <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />}
       </Shell>
     );
   }
@@ -3415,7 +3428,7 @@ const persist = useCallback((updates) => {
           ストーン演出は「鬱陶しい」フィードバックにより撤去済み。 */}
       {thanksOpen && <AuthorThankYou onClose={() => setThanksOpen(false)} />}
 
-      <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} />
+      {!keyboardOpen && <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} />}
     </Shell>
   );
 }

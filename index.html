@@ -2,7 +2,12 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!--
+    interactive-widget=resizes-content: iOS Safari の仮想キーボードが
+    開いた時、layout viewport をキーボード上の領域に縮める。これがないと
+    BottomNav が押し上げられて入力欄に重なる。
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
   <meta name="theme-color" content="#8A7040" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />

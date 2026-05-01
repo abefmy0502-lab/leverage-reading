@@ -497,13 +497,14 @@ export default function MyBookBrain({ onOpenBook }) {
         </p>
       </div>
 
-      {/* Action pills — 横スクロール + 文字省略を兼ねた pill 群。
-          padding と font-size を切り詰め「知識」を見切らせない。
-          フィット出来ない時は overflow-x: auto で横スクロール。 */}
+      {/* Action pills — 中央揃え + コンパクト padding。4 つで画面いっぱい
+          広げず、中央に固める方がスッキリ見える。狭すぎたら overflow-x:
+          auto で横スクロール許容も維持 (保険)。 */}
       <div
         className="lvg-no-scrollbar"
         style={{
           display: 'flex',
+          justifyContent: 'center',
           gap: 4,
           padding: 3,
           background: '#eae3d6',
