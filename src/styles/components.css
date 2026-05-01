@@ -931,27 +931,15 @@
  * `bottom: calc(56px + safe-area-inset-bottom)` で置く。
  * ========================================================================= */
 
-/* AI タブを 100dvh ベースの flex column に。入力欄を flex の末尾に置き、
-   position: fixed なしで画面最下部に張り付かせる。
-   - HEIGHT は min-height ではなく height で固定 (内側の flex 1 が常に
-     スペースを埋める)。
-   - HEADER (36px) と SAFE_AREA_TOP の合計を viewport から差し引いて、
-     AI ページが「ヘッダーから画面下端まで」を正確に埋める。
-   - BottomNav (= 56 + safe-area-bottom) 分は body.keyboard-open でない
-     時だけ padding-bottom で予約。キーボード開時は 0 にして入力欄を
-     キーボード直上に張り付かせる。
-   interactive-widget=resizes-content (index.html) と組み合わせれば、
-   キーボード開閉で 100dvh が縮み・伸びる挙動が自動で機能する。 */
+/* AI タブのページ。親 (lvg-page) が flex 1 / overflow hidden になり、
+   その中で AI page も flex column で残りスペースを取る。viewport 計算は
+   親 chain (#root → Shell → lvg-page) に任せて、ここは純粋な flex 1。 */
 .ai-page {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 36px - env(safe-area-inset-top, 0px));
-  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
-  box-sizing: border-box;
   overflow: hidden;
-}
-body.keyboard-open .ai-page {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .ai-page-body {
   flex: 1;
@@ -1118,6 +1106,21 @@ body.keyboard-open .ai-page {
 @keyframes lvg-greeting-fade {
   0%, 75%   { opacity: 1; }
   100%      { opacity: 0; pointer-events: none; }
+}
+
+/* BottomNav: キーボード開いたら畳む。max-height + opacity の transition で
+   滑らかに。padding/border も 0 にして完全に隠す。 */
+.bottom-nav {
+  transition: max-height 0.2s ease, opacity 0.15s ease, padding 0.2s ease;
+  max-height: 120px; /* 56 + safe-area の上限 */
+  overflow: hidden;
+}
+body.keyboard-open .bottom-nav {
+  max-height: 0;
+  opacity: 0;
+  padding: 0;
+  border-top: none;
+  pointer-events: none;
 }
 
 /* =========================================================================

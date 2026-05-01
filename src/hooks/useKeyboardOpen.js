@@ -19,7 +19,17 @@ export function useKeyboardOpen(threshold = 100) {
 
     const compute = () => {
       const heightDiff = window.innerHeight - vv.height;
-      setOpen(heightDiff > threshold);
+      const next = heightDiff > threshold;
+      setOpen((prev) => {
+        if (prev !== next) {
+          // 実機検証用: state が変化したタイミングだけログる。Safari Web
+          // Inspector で「キーボード開いた瞬間に [keyboard] open=true が
+          // 出るか」を見るための最小限のシグナル。
+          // eslint-disable-next-line no-console
+          console.log('[keyboard]', { open: next, heightDiff, vv: vv.height, win: window.innerHeight });
+        }
+        return next;
+      });
     };
 
     compute();

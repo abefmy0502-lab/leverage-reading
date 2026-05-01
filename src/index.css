@@ -38,17 +38,25 @@
   padding: 0;
 }
 
+html, body, #root {
+  /* document scroll を一切起こさない LINE 風レイアウトの土台。
+     #root から flex column が始まり、内部の各セクション (header /
+     main / BottomNav) が高さを分配する。padding-top/bottom の safe-area
+     吸収は body から外し、各セクション (header / .ai-input-area /
+     .bottom-nav) が個別に対応する。 */
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
-  overflow-x: hidden;
   scroll-behavior: smooth;
 }
 
 body {
-  margin: 0;
-  padding: 0;
   font-family: var(--font-system);
   font-size: var(--type-body);
   line-height: var(--leading-base);
@@ -56,10 +64,12 @@ body {
   background: var(--color-bg-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
   max-width: 100vw;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
 }
 
 img,

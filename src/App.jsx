@@ -1602,26 +1602,23 @@ function BookAdvisor({ onAddBook }) {
 
 /* ========== Bottom Nav ========== */
 function BottomNav({ tab, setTab }) {
-  // 5 タブ → 3 タブに整理。「振り返り」と「AI」は親タブで、それぞれ
-  // サブタブ（ノート/行動 と AI選書/読書脳）を内包する。
+  // 3 タブ。flex-shrink: 0 の通常の flex child として配置し、
+  // body.keyboard-open 時に max-height: 0 で滑らかに畳む。
   const tabs = [
     { key: "books", Icon: BookOpen, label: "本棚" },
     { key: "review", Icon: RotateCcw, label: "振り返り" },
     { key: "ai", Icon: Sparkles, label: "AI" },
   ];
   return (
-    <div
+    <nav
+      className="bottom-nav"
       style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
+        flexShrink: 0,
         background: "var(--color-surface)",
         borderTop: "1px solid var(--color-separator)",
         boxShadow: "var(--shadow-1)",
         display: "flex",
-        zIndex: 100,
-        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
       {tabs.map((t) => {
@@ -1658,7 +1655,7 @@ function BottomNav({ tab, setTab }) {
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
@@ -1667,13 +1664,17 @@ function Shell({ children }) {
   return (
     <div
       style={{
-        // 100dvh = 動的ビューポート高さ。iOS Safari の URL バー / 仮想
-        // キーボード変動を考慮した「実際に見えてる高さ」。100vh だと
-        // キーボード開いた時に下が削れて見えない。
-        minHeight: "100dvh",
+        // #root が 100dvh flex column のため Shell は flex: 1 で
+        // 残りを取る。min-height: 0 を明示しないと flex の入れ子で
+        // overflow が崩れる (重要)。
+        flex: 1,
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
         background: "linear-gradient(160deg, var(--color-bg), #ebe4d8)",
         fontFamily: "var(--font-serif)",
         color: "var(--color-label)",
+        overflow: "hidden",
       }}
     >
       <style>{`
@@ -2641,7 +2642,16 @@ const persist = useCallback((updates) => {
 
     return (
       <Shell>
-        <div className="detail-enter" style={{ padding: "20px 20px 80px" }}>
+        <div
+          className="detail-enter"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            padding: "20px 20px 80px",
+          }}
+        >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <button onClick={goList} style={lnk}>← 一覧</button>
             <div style={{ display: "flex", gap: 6 }}>
@@ -3018,7 +3028,7 @@ const persist = useCallback((updates) => {
           style={{ display: 'none' }}
         />
 
-        {!keyboardOpen && <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />}
+        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
       </Shell>
     );
   }
@@ -3027,7 +3037,15 @@ const persist = useCallback((updates) => {
   if (view === "edit") {
     return (
       <Shell>
-        <div style={{ padding: "20px 20px 80px" }}>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            padding: "20px 20px 80px",
+          }}
+        >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <button onClick={current ? () => { setEditPhaseOverride(null); setView("detail"); } : goList} style={lnk}>← 戻る</button>
             <button
@@ -3120,7 +3138,7 @@ const persist = useCallback((updates) => {
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
         {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
-        {!keyboardOpen && <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />}
+        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
       </Shell>
     );
   }
@@ -3130,12 +3148,14 @@ const persist = useCallback((updates) => {
     <Shell>
    <header
      style={{
+       flexShrink: 0,
        padding: "max(env(safe-area-inset-top, 6px), 6px) 12px 4px",
        minHeight: 36,
        display: "flex",
        justifyContent: "space-between",
        alignItems: "center",
        gap: 6,
+       background: "var(--color-surface)",
      }}
    >
     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
@@ -3194,10 +3214,21 @@ const persist = useCallback((updates) => {
     </div>
   </header>
 
-      {/* AI タブは内側 .ai-page が 100dvh ベースで自前管理するため、wrapper
-          の paddingBottom: 80 (= BottomNav 余白) を入れると二重空白に
-          なる。AI 以外のタブだけ 80px を入れる。 */}
-      <div key={tab} className="lvg-page" style={{ paddingBottom: tab === 'ai' ? 0 : 80 }}>
+      {/* Shell が flex column になったため、ここは flex: 1 / minHeight: 0
+          で残りスペースを取る。AI タブは内側で flex column を構成、
+          books/review は overflow-y: auto で内側スクロール。 */}
+      <div
+        key={tab}
+        className="lvg-page"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: tab === 'ai' ? 'hidden' : 'auto',
+          WebkitOverflowScrolling: tab === 'ai' ? undefined : 'touch',
+        }}
+      >
         {tab === "books" && (
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <div
@@ -3574,7 +3605,7 @@ const persist = useCallback((updates) => {
           ストーン演出は「鬱陶しい」フィードバックにより撤去済み。 */}
       {thanksOpen && <AuthorThankYou onClose={() => setThanksOpen(false)} />}
 
-      {!keyboardOpen && <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} />}
+      <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} />
     </Shell>
   );
 }
@@ -3611,7 +3642,7 @@ function AppShell() {
   if (loading) {
     return (
       <Shell>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Dots />
         </div>
       </Shell>
@@ -3620,7 +3651,9 @@ function AppShell() {
   if (!user) {
     return (
       <Shell>
-        <AuthScreen />
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <AuthScreen />
+        </div>
       </Shell>
     );
   }

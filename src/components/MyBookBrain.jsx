@@ -23,9 +23,12 @@ import EmptyState from './EmptyState';
 import { MessageCircle, Lightbulb, History, BookOpenCheck } from 'lucide-react';
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
-// 収める flex column。chat 時は内側 .chat-scroll と .ai-input-area で
-// LINE 風レイアウトを構成する。padding は内側 (.chat-scroll) で持つ。
-const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, padding: '12px 16px 0' };
+// 収める flex column。chat 時は内側 .chat-scroll + .ai-input-area で
+// LINE 風レイアウト、それ以外 (learning/history/knowledge) は普通の
+// 縦スクロールフォーム / リスト。padding は各 view 内側で管理する。
+const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' };
+// chat 以外の view 共通: ヘッダ/pill 下にスクロール可能な領域を提供。
+const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '12px 16px 24px' };
 const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
 const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #d4ccbe', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
@@ -451,6 +454,9 @@ export default function MyBookBrain({ onOpenBook }) {
 
   return (
     <div style={wrap}>
+      {/* 上部 (ヘッダー + pills) は固定領域。下の view 切替コンテンツが
+          flex 1 で残りを埋める。 */}
+      <div style={{ flexShrink: 0, padding: '12px 16px 8px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Unified AI section header (AI 選書 と同じフォーマット) */}
       <div className="ai-section-header" style={{ padding: 0 }}>
         <h2>🧠 マイ読書脳</h2>
@@ -493,17 +499,21 @@ export default function MyBookBrain({ onOpenBook }) {
           <BookOpenCheck size={13} strokeWidth={1.75} aria-hidden="true" />知識
         </button>
       </div>
+      </div>{/* /固定領域 (header + pills) */}
 
       {/* Learning view (inline、旧 LearningSheet モーダルを置換) */}
       {view === 'learning' && (
-        <LearningInline
-          onCancel={() => setView('chat')}
-          onSaved={() => { setView('chat'); setStatsTick((t) => t + 1); }}
-        />
+        <div style={viewScroll}>
+          <LearningInline
+            onCancel={() => setView('chat')}
+            onSaved={() => { setView('chat'); setStatsTick((t) => t + 1); }}
+          />
+        </div>
       )}
 
       {/* History view */}
       {view === 'history' && (
+        <div style={viewScroll}>
         <PullToRefresh onRefresh={fetchHistory}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -527,11 +537,14 @@ export default function MyBookBrain({ onOpenBook }) {
             ))}
           </div>
         </PullToRefresh>
+        </div>
       )}
 
       {/* Knowledge management view */}
       {view === 'knowledge' && (
-        <KnowledgeManager onChanged={() => setStatsTick((t) => t + 1)} />
+        <div style={viewScroll}>
+          <KnowledgeManager onChanged={() => setStatsTick((t) => t + 1)} />
+        </div>
       )}
 
       {/* Chat view — flex column で chat-scroll + ai-input-area の LINE
