@@ -358,20 +358,30 @@ export default function MyBookBrain({ onOpenBook }) {
     };
   }, [user, learningOpen, messages.length, statsTick]);
 
-  // Auto-scroll only when a NEW message is appended — not on tab open or on
-  // history load. Otherwise opening the brain tab with prior history would
-  // jump the page down to the latest message.
+  // Auto-scroll only when a NEW message is appended — not on tab open and
+  // NOT on the initial history hydration. Without the hydration guard,
+  // opening the brain tab with prior history would push the chat to the
+  // bottom and yank the whole page down (the user would never see the
+  // header / question-examples again).
   const prevMsgCountRef = useRef(0);
+  const historyHydratedRef = useRef(false);
   useEffect(() => {
+    // First time history finishes loading (whether 0 or N rows): snap the
+    // counter to whatever shipped and bail without scrolling.
+    if (!historyHydratedRef.current && historyLoaded) {
+      historyHydratedRef.current = true;
+      prevMsgCountRef.current = messages.length;
+      return;
+    }
     const prev = prevMsgCountRef.current;
     prevMsgCountRef.current = messages.length;
     if (view !== 'chat') return;
-    if (messages.length <= prev) return; // initial load or shrink → don't scroll
+    if (messages.length <= prev) return; // shrink → don't scroll
     setTimeout(
       () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }),
       30
     );
-  }, [messages, view]);
+  }, [messages, view, historyLoaded]);
 
   const ask = async (questionText) => {
     if (!user) {

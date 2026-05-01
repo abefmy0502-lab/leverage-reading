@@ -1667,10 +1667,13 @@ function AuthedApp() {
   // Scroll to top on every top-level tab/view change so the new content
   // always starts at the top of the screen instead of inheriting the previous
   // scroll position. `behavior: 'auto'` for instant snap (no smooth animation).
+  // サブタブ (reviewSubTab / aiSubTab) の切替も対象に含める — そうしないと
+  // 旧タブの自動スクロール位置を引きずって、見出しが画面外に消えたまま新
+  // サブタブが開いてしまう。
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [tab, view]);
+  }, [tab, view, reviewSubTab, aiSubTab]);
 
   // First-run onboarding: show once per user/device until they dismiss it.
   // The completion flag is the single source of truth — the book count is
