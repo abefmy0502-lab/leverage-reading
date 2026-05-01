@@ -181,6 +181,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_feedback.sql` | 📩 ユーザーフィードバック・要望の保存先 — `feedback` テーブル新規 + RLS（自分の投稿のみ SELECT 可能、UPDATE/DELETE は管理者のみ） |
 | `supabase_books_cover_isbn.sql` | multi-ISBN cover resolver で「実際にどの ISBN（エディション）から表紙が取れたか」を記録する `books.cover_isbn` 列追加（任意。クライアントは schema-error fallback で列なしでも動作） |
 | `supabase_book_covers_bucket.sql` | 手動アップロード救済用 — `book-covers` public バケット作成 + INSERT/UPDATE/DELETE ポリシー（既に supabase_added_via.sql で作成済みの場合も idempotent に動作） |
+| `supabase_books_source_query.sql` | AI 選書 → セットアップシート引き継ぎ — `books.source_query` 列追加（AI 選書アドバイザーで入力した課題を投資目的にプレフィルする。任意。クライアントは schema-error fallback で列なしでも動作） |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 

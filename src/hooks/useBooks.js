@@ -36,6 +36,10 @@ const transformBook = (book) => ({
   // カラム (supabase_books_cover_isbn.sql)。マイグレーション未適用の DB
   // では undefined のまま。
   coverIsbn: book.cover_isbn || '',
+  // AI 選書から本を追加した時の元クエリ (supabase_books_source_query.sql)。
+  // セットアップシートの投資目的にプレフィルする。マイグレーション未適用の
+  // DB では undefined のまま空文字に縮退。
+  sourceQuery: book.source_query || '',
 });
 
 export function useBooks() {
@@ -100,38 +104,53 @@ export function useBooks() {
         isbn: book.isbn ? String(book.isbn).replace(/[-\s]/g, '') : null,
         asin: book.asin ? String(book.asin).trim() : null,
       };
-      // 任意カラム: マイグレーション (supabase_books_cover_isbn.sql) 未
-      // 適用の DB だと UNDEFINED COLUMN エラーで save が止まるため、
-      // 試行は別経路で。`coverIsbn` が指定された時だけ書き込みを試す。
+      // 任意カラム: マイグレーション未適用の DB だと UNDEFINED COLUMN エラーで
+      // save が止まるため schema-error fallback で段階的に剥がす。
+      //   1. cover_isbn (supabase_books_cover_isbn.sql)
+      //   2. source_query (supabase_books_source_query.sql)
       const coverIsbnValue = book.coverIsbn ? String(book.coverIsbn).replace(/[-\s]/g, '') : null;
+      // sourceQuery は明示的に空文字を NULL として書きたい (UI 上クリアした時)。
+      // ただし sourceQuery プロパティが本オブジェクトに「存在しない」場合は
+      // 触らないため、`'sourceQuery' in book` で意図的判別。
+      const includeSourceQuery = Object.prototype.hasOwnProperty.call(book, 'sourceQuery');
+      const sourceQueryValue = includeSourceQuery ? (book.sourceQuery || null) : undefined;
 
       let savedBookId;
       const isUUID = UUID_RE.test(book.id || '');
 
-      // schema-error フォールバック付きヘルパー: cover_isbn 列が無い DB でも
-      // 通常の保存は成功する。
-      const writeWithCoverIsbnFallback = async (op) => {
-        if (coverIsbnValue) {
-          const r = await op({ ...bookData, cover_isbn: coverIsbnValue });
+      // schema-error フォールバック付きヘルパー: 任意カラムが無い DB でも
+      // 通常の保存は成功する。エラーメッセージに当該列名 or 'column' が
+      // 含まれていたらその列を payload から落としてリトライする。
+      const writeWithFallback = async (op) => {
+        const fullPayload = { ...bookData };
+        if (coverIsbnValue) fullPayload.cover_isbn = coverIsbnValue;
+        if (includeSourceQuery) fullPayload.source_query = sourceQueryValue;
+        let r = await op(fullPayload);
+        if (!r.error) return r;
+        let msg = String(r.error?.message || '');
+        // source_query 列が無い → 落として再試行
+        if (msg.includes('source_query') || (msg.includes('column') && includeSourceQuery)) {
+          const without = { ...fullPayload };
+          delete without.source_query;
+          r = await op(without);
           if (!r.error) return r;
-          // 列が存在しない時の Postgres 42703 / Supabase の "schema cache" 系
-          const msg = String(r.error?.message || '');
-          if (msg.includes('cover_isbn') || msg.includes('column')) {
-            return op(bookData); // フォールバック: cover_isbn なしで再試行
-          }
-          return r;
+          msg = String(r.error?.message || '');
         }
-        return op(bookData);
+        // cover_isbn 列が無い → 落として再試行
+        if (msg.includes('cover_isbn') || (msg.includes('column') && coverIsbnValue)) {
+          return op(bookData);
+        }
+        return r;
       };
 
       if (isUUID) {
-        const { error } = await writeWithCoverIsbnFallback((payload) =>
+        const { error } = await writeWithFallback((payload) =>
           supabase.from('books').update(payload).eq('id', book.id),
         );
         if (error) throw error;
         savedBookId = book.id;
       } else {
-        const { data, error } = await writeWithCoverIsbnFallback((payload) =>
+        const { data, error } = await writeWithFallback((payload) =>
           supabase.from('books').insert([payload]).select().single(),
         );
         if (error) throw error;
