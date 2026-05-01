@@ -22,7 +22,9 @@
 // from collapsing those into a single empty array).
 
 const CACHE_KEY = 'bookSearchCache';
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+// 7 days. ISBN は不変で、検索クエリも頻繁には変わらないため、長めに置いて
+// 体感速度を上げる。容量制御は CACHE_MAX_ENTRIES が担当。
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 50;
 
 // ---------- localStorage cache ----------
@@ -179,9 +181,9 @@ function buildNdlUrl({ title, author, isbn, q } = {}) {
   return `https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`;
 }
 
-async function searchNDLRaw(urlParams) {
+async function searchNDLRaw(urlParams, { signal } = {}) {
   const url = buildNdlUrl(urlParams);
-  const r = await fetch(url);
+  const r = await fetch(url, signal ? { signal } : undefined);
   if (!r.ok) {
     const e = new Error(`NDL HTTP ${r.status}`);
     e.status = r.status;
@@ -218,11 +220,11 @@ async function searchNDL(query) {
   return searchNDLRaw({ q: query });
 }
 
-async function batchOpenBD(isbns) {
+async function batchOpenBD(isbns, { signal } = {}) {
   if (!isbns.length) return {};
   // openBD accepts a comma-separated list and returns a parallel-indexed array.
   const url = `https://api.openbd.jp/v1/get?isbn=${isbns.join(',')}`;
-  const r = await fetch(url);
+  const r = await fetch(url, signal ? { signal } : undefined);
   if (!r.ok) return {};
   const arr = await r.json();
   const map = {};
@@ -258,10 +260,11 @@ async function lookupISBNopenBD(isbn) {
   return null;
 }
 
-async function searchGoogleBooks(query) {
+async function searchGoogleBooks(query, { signal } = {}) {
   const r = await fetch(
     // Google Books は maxResults の上限が 40。NDL fallback として 40 まで。
-    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=40`
+    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=40`,
+    signal ? { signal } : undefined,
   );
   if (!r.ok) {
     const e = new Error(`Google Books HTTP ${r.status}`);
@@ -475,7 +478,7 @@ export async function searchBooksFlat(query) {
 // 詳細検索 (advanced search) — accepts any combination of title / author /
 // isbn. AND semantics on the NDL side. ISBN takes the fast openBD path
 // when supplied alone (search ボックス と同じ shortcut).
-export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }) {
+export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }, { signal } = {}) {
   const t = (title || '').trim();
   const a = (author || '').trim();
   const i = cleanIsbn(isbn);
@@ -521,8 +524,9 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
   let ndlError = null;
   let results = [];
   try {
-    results = await searchNDLRaw({ title: t, author: a, isbn: i });
+    results = await searchNDLRaw({ title: t, author: a, isbn: i }, { signal });
   } catch (e) {
+    if (e?.name === 'AbortError') throw e; // 上層に伝搬
     ndlError = e;
     console.warn('NDL advanced search failed:', e?.message || e);
   }
@@ -532,7 +536,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
     try {
       const isbns = results.map((r) => r.isbn).filter(Boolean);
       if (isbns.length > 0) {
-        const map = await batchOpenBD(isbns);
+        const map = await batchOpenBD(isbns, { signal });
         results = results.map((r) => {
           const e = r.isbn ? map[r.isbn] : null;
           if (!e) return r;
@@ -545,6 +549,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
         });
       }
     } catch (e) {
+      if (e?.name === 'AbortError') throw e;
       console.warn('openBD enrichment failed (non-fatal):', e?.message || e);
     }
   }
@@ -552,7 +557,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
   // No NDL hits → Google Books with title + author concatenated.
   if (results.length === 0 && (t || a)) {
     try {
-      const g = await searchGoogleBooks(`${t} ${a}`.trim());
+      const g = await searchGoogleBooks(`${t} ${a}`.trim(), { signal });
       // Filter manually since Google Books doesn't support strict AND.
       results = g.filter((b) => {
         const titleHit = !t || (b.title || '').toLowerCase().includes(t.toLowerCase());
@@ -560,6 +565,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
         return titleHit && authorHit;
       });
     } catch (e) {
+      if (e?.name === 'AbortError') throw e;
       console.warn('Google Books fallback failed:', e?.message || e);
     }
   }

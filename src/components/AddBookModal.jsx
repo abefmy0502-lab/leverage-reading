@@ -12,7 +12,7 @@
 //   'notfound'  : 結果 0 件
 //   'error'     : 検索エラー（リトライ可能）
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { searchBooksAdvanced } from '../lib/bookSearch';
 import { ensureHttps } from '../lib/url';
 import { LIMITS } from '../lib/limits';
@@ -201,22 +201,45 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
   const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY);
+  // 直近の検索 AbortController を保持。新しい検索 / モーダル close 時に
+  // 既存リクエストを中断して、後着の応答が state を上書きする race を防ぐ。
+  const abortRef = useRef(null);
+  useEffect(() => () => { try { abortRef.current?.abort(); } catch { /* ignore */ } }, []);
 
   const hasInput = !!(title.trim() || author.trim() || isbn.trim());
   const isSearching = state === 'searching';
 
   const runSearch = async () => {
-    if (!hasInput || isSearching) return;
+    if (!hasInput) return;
+    // 直前の検索があれば中断 — 連続検索で後着の結果が state を上書きして
+    // 「画面が固まる」現象を起こすのを防ぐ最大の対策。
+    try { abortRef.current?.abort(); } catch { /* ignore */ }
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     setState('searching');
     setError(null);
     setResults([]);
-    // 新しい検索を始めるたびにページング位置をリセット。
     setDisplayCount(INITIAL_DISPLAY);
-    const res = await searchBooksAdvanced({
-      title: title.trim(),
-      author: author.trim(),
-      isbn: isbn.trim(),
-    });
+
+    let res;
+    try {
+      res = await searchBooksAdvanced(
+        { title: title.trim(), author: author.trim(), isbn: isbn.trim() },
+        { signal: ctrl.signal },
+      );
+    } catch (e) {
+      // abort で投げられた AbortError は最新の検索が支配しているので、
+      // 古いハンドラはここで早期 return する。state は触らない。
+      if (e?.name === 'AbortError' || ctrl.signal.aborted) return;
+      setError('検索でエラーが発生しました。');
+      setState('error');
+      return;
+    }
+
+    // 自分が aborted されている = 後続の検索が始まっている = state を上書きしない
+    if (ctrl.signal.aborted) return;
+
     if (!res.ok) {
       setError(res.error || '検索でエラーが発生しました。');
       setState('error');
@@ -374,7 +397,9 @@ export default function AddBookModal({ onClose, onSelect, onManual }) {
             )}
             <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {visibleResults.map((b, i) => (
-                <div key={`r-${i}`} className="list-item-enter">
+                // ISBN がある時は ISBN ベース、無い時は title+index で衝突回避。
+                // 連続検索後に key が前回と被ると React の reconcile が崩れるバグを防ぐ。
+                <div key={`r-${b.isbn || `${b.title}-${i}`}`} className="list-item-enter">
                   <ResultCard book={b} onPick={handlePick} />
                 </div>
               ))}

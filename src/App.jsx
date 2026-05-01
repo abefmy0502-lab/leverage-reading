@@ -540,13 +540,31 @@ function BookCoverCard({ book, isJustDone, onOpen, onLongPress }) {
             onError={() => setBroken(true)}
           />
         )}
-        <span
-          className="book-status-badge-overlay"
-          aria-label={getSt(book.status).label}
-          title={getSt(book.status).label}
-        >
-          {getSt(book.status).emoji}
-        </span>
+        {/* ステータスバッジは表紙を隠すというフィードバックで撤去。
+            done のときだけ右下に小さな ✅ を出して識別性を残す。 */}
+        {book.status === 'done' && (
+          <span
+            aria-label="読了"
+            title="読了"
+            style={{
+              position: 'absolute',
+              bottom: 4,
+              right: 4,
+              width: 18,
+              height: 18,
+              borderRadius: 9999,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 11,
+              lineHeight: 1,
+              background: 'rgba(255,255,255,0.95)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+            }}
+          >
+            ✅
+          </span>
+        )}
       </div>
       <p className="book-cover-title">{book.title}</p>
       {book.author && <p className="book-cover-author">{book.author}</p>}
@@ -1032,7 +1050,16 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
       </div>
 
       <Field label="ROI一言まとめ" sub="この本の投資リターンを一言で">
-        <input value={form.roiSummary || ""} onChange={(e) => setForm({ ...form, roiSummary: e.target.value })} placeholder="例：意思決定スピードが2倍になる思考法を得た" style={inp} maxLength={LIMITS.memoText} />
+        {/* input → textarea (rows=3) に変更。シングルライン input だと placeholder が
+            画面幅で見切れる問題があった。placeholder も短く具体的に。 */}
+        <textarea
+          value={form.roiSummary || ""}
+          onChange={(e) => setForm({ ...form, roiSummary: e.target.value })}
+          placeholder="例：意思決定が速くなる思考法を獲得"
+          rows={3}
+          style={{ ...ta, minHeight: 84 }}
+          maxLength={LIMITS.memoText}
+        />
       </Field>
 
       <Field label="タグ">
@@ -1810,6 +1837,15 @@ const persist = useCallback((updates) => {
   // 結果リスト UI は AddBookModal 側に閉じている。
   const pickBookFromAdd = (b) => {
     setAddBookModalOpen(false);
+    // 表紙バグ調査用 (本番ビルドでは noop に近い)。検索結果に cover URL が
+    // 載っているかを必ずログに残す。dev で「来てない」と判明したら
+    // bookSearch.js 側を再点検する。
+    if (typeof console !== 'undefined') {
+      console.log('[pickBookFromAdd] search result book:', {
+        title: b?.title, author: b?.author, isbn: b?.isbn,
+        coverPresent: !!b?.cover, coverUrl: b?.cover,
+      });
+    }
     const seeded = {
       ...emptyBook(),
       id: Date.now().toString(),
@@ -1823,6 +1859,35 @@ const persist = useCallback((updates) => {
     setForm(seeded);
     setCurrent(null);
     setView('edit');
+  };
+
+  // 既存の本に対して表紙を取り直す。ISBN があればそれで openBD/Google を
+  // 直接叩き、無ければタイトル+著者で再検索して 1 件目の cover を採用。
+  // 結果を books.cover に upsert。kebab メニューから呼び出す想定。
+  const refreshCoverFor = async (book) => {
+    if (!book) return;
+    try {
+      let candidate = '';
+      if (book.isbn) {
+        const r = await searchBooksAPI(String(book.isbn).replace(/[-\s]/g, ''));
+        if (r.ok && r.results?.[0]?.cover) candidate = r.results[0].cover;
+      }
+      if (!candidate) {
+        const r = await searchBooksAPIFlat(`${book.title || ''} ${book.author || ''}`.trim());
+        if (r?.[0]?.cover) candidate = r[0].cover;
+      }
+      if (!candidate) {
+        toast.info('表紙が見つかりませんでした');
+        return;
+      }
+      const updated = { ...book, cover: candidate };
+      const saved = await saveBook(updated);
+      const next = saved || updated;
+      if (current && current.id === next.id) setCurrent(next);
+      toast.success('表紙を更新しました');
+    } catch (e) {
+      toast.error(toMessage(e, '表紙の取得に失敗しました'));
+    }
   };
 
   // From AddBookModal → 手動入力. Skip the search step entirely.
@@ -1849,12 +1914,20 @@ const persist = useCallback((updates) => {
             .filter(Boolean)
         )
       );
+      // 重要: status は form.status をそのまま保持。saveBook は自動で
+      // ステータスを進めない (実際そういうコードは無いが、明示的にコメント
+      // しておく)。「読書を開始する」「読了にする」ボタン経由 = advanceStatus
+      // のみが status 遷移を担う。
       const payload = { ...form, tags: normalizedTags };
       const saved = await saveBook(payload);
       const next = saved || payload;
+      const wasNew = !current; // 新規追加 (current=null) かどうか
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
-      setView("detail");
+      // 既存本の編集中はフォームに留まる — BeforePhase で AI セットアップ
+      // 途中の保存 → detail へ飛ばされて戻れない問題を防ぐ。
+      // 新規追加だけは登録完了の手応えとして detail へ遷移させる。
+      if (wasNew) setView("detail");
       toast.success('保存しました');
     } catch (error) {
       toast.error(toMessage(error, '保存に失敗しました。もう一度お試しください。'));
@@ -2638,6 +2711,7 @@ const persist = useCallback((updates) => {
             onClose={() => setDetailKebab(null)}
             items={[
               { label: '編集', icon: '✏️', onClick: () => openEdit(current) },
+              { label: '表紙を取り直す', icon: '🔄', onClick: () => refreshCoverFor(current) },
               { label: '共有', icon: '📤', onClick: () => shareBook(current) },
               { label: '削除', icon: '🗑️', destructive: true, onClick: () => requestDeleteBook(current) },
             ]}

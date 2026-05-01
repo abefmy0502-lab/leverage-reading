@@ -988,8 +988,12 @@
   margin-bottom: var(--space-3);
 }
 .thanks-body {
-  font-size: var(--type-body);
+  font-size: var(--type-callout);
   color: var(--color-text-secondary);
   line-height: var(--leading-relaxed);
-  white-space: pre-line;
+  /* white-space: pre-line を撤廃。明示的な \n に頼らず段落 <p> + max-width で
+     ブラウザ任せの自然折返しに切替えた。 */
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
 }

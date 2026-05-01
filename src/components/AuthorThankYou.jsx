@@ -47,12 +47,15 @@ export default function AuthorThankYou({ onClose }) {
           <div className="thanks-icon" aria-hidden="true">🙇‍♂️</div>
           <h2 className="thanks-title">使ってくれて、ありがとう</h2>
           <p className="thanks-body">
-            このアプリは、読書を「投資」に変える小さな実験です。{'\n'}
-            あなたが本を読んで、メモを残して、行動に変えていく姿が、{'\n'}
-            このアプリを作る一番の励みになっています。{'\n\n'}
+            このアプリは、読書を「投資」に変える小さな実験です。
+          </p>
+          <p className="thanks-body" style={{ marginTop: 'var(--space-3)' }}>
+            あなたが本を読んで、メモを残して、行動に変えていく姿が、このアプリを作る一番の励みになっています。
+          </p>
+          <p className="thanks-body" style={{ marginTop: 'var(--space-3)' }}>
             これからも、読書がいい時間でありますように。
           </p>
-          <p className="thanks-body" style={{ fontSize: 'var(--type-caption)', color: 'var(--color-text-tertiary)', marginTop: 'var(--space-3)' }}>
+          <p className="thanks-body" style={{ fontSize: 'var(--type-caption)', color: 'var(--color-text-tertiary)', marginTop: 'var(--space-4)' }}>
             — 開発者より
           </p>
           <button type="button" onClick={onClose} style={btnPrimary}>
