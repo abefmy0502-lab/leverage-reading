@@ -503,12 +503,17 @@ function paletteFor(title) {
   return PLACEHOLDER_PALETTE[Math.abs(hash) % PLACEHOLDER_PALETTE.length];
 }
 
-// グリッド表示用の本カード（表紙主役）。表紙無しは色付きプレースホルダ。
+// グリッド表示用の本カード（表紙主役）。表紙無し / 画像 404 時は
+// タイトルベースの色付きプレースホルダにフォールバック。
 function BookCoverCard({ book, isJustDone, onOpen, onLongPress }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
   const [from, to] = paletteFor(book.title);
+  // book.id をキーに使って、book が変わった時のみ broken state をリセット。
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); }, [book.id, book.cover]);
+  const showPlaceholder = !book.cover || broken;
   return (
     <button
       type="button"
@@ -520,15 +525,20 @@ function BookCoverCard({ book, isJustDone, onOpen, onLongPress }) {
       }}
     >
       <div className="book-cover-image-wrap">
-        {book.cover ? (
-          <img src={ensureHttps(book.cover)} alt="" />
-        ) : (
+        {showPlaceholder ? (
           <div
             className="book-cover-placeholder"
             style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
           >
             {book.title}
           </div>
+        ) : (
+          <img
+            src={ensureHttps(book.cover)}
+            alt=""
+            loading="lazy"
+            onError={() => setBroken(true)}
+          />
         )}
         <span className="book-status-badge-overlay">
           {getSt(book.status).emoji} {getSt(book.status).label}
@@ -544,6 +554,10 @@ function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onL
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); }, [book.id, book.cover]);
+  const [from, to] = paletteFor(book.title);
+  const hasCover = !!(book.cover && !broken);
   return (
     <SwipeableCard onDelete={() => onSwipeDelete?.(book)}>
       <div
@@ -565,14 +579,27 @@ function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onL
         }}
       >
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          {book.cover ? (
+          {hasCover ? (
             <img
               src={ensureHttps(book.cover)}
               alt=""
+              loading="lazy"
+              onError={() => setBroken(true)}
               style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid #e0d8c8", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
             />
           ) : (
-            <BookIcon />
+            <div
+              aria-hidden="true"
+              style={{
+                width: 42, height: 60, borderRadius: 5, flexShrink: 0,
+                background: `linear-gradient(135deg, ${from}, ${to})`,
+                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 9, fontWeight: 600, padding: 4, textAlign: 'center', lineHeight: 1.2,
+                overflow: 'hidden', wordBreak: 'break-word',
+              }}
+            >
+              {(book.title || '').slice(0, 8)}
+            </div>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 600, color: "#3d362c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: 0.2 }}>{book.title}</div>
@@ -1586,15 +1613,27 @@ function AuthedApp() {
   const readingPlans = data.readingPlans || {};
 
   const [tab, setTab] = useState("books");
-  // 本棚の表示モード — 表紙グリッド (grid) / 縦並びリスト (list)。
-  // デフォルトは grid（視覚的本棚）、ユーザーは切替可。localStorage で永続化。
-  const [bookshelfView, setBookshelfView] = useState(() => {
-    try { return localStorage.getItem('bookshelfView') === 'list' ? 'list' : 'grid'; }
-    catch { return 'grid'; }
+  // 本棚の表示モード。
+  // - 'auto' (デフォルト): 3 冊以下→list / 4 冊以上→grid（数が少ない時に
+  //   表紙だけポツポツ並ぶのを避ける）
+  // - 'list' / 'grid': ユーザーが明示的に選んだ場合のみ尊重
+  // localStorage に保存しているのは override の選択のみ。
+  const [bookshelfViewMode, setBookshelfViewMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bookshelfView');
+      if (saved === 'list' || saved === 'grid' || saved === 'auto') return saved;
+      return 'auto';
+    } catch { return 'auto'; }
   });
   useEffect(() => {
-    try { localStorage.setItem('bookshelfView', bookshelfView); } catch { /* ignore */ }
-  }, [bookshelfView]);
+    try { localStorage.setItem('bookshelfView', bookshelfViewMode); } catch { /* ignore */ }
+  }, [bookshelfViewMode]);
+
+  // 実際に使う表示モード。auto なら冊数で自動判定。冊数は filtered ではなく
+  // rawBooks 全体で見る（フィルタ後の見え方で勝手に切替わると混乱する）。
+  const effectiveBookshelfView = bookshelfViewMode === 'auto'
+    ? (rawBooks.length <= 3 ? 'list' : 'grid')
+    : bookshelfViewMode;
   // 親タブ「振り返り」「AI」内のサブタブ。localStorage に保存して再訪時に復元。
   const [reviewSubTab, setReviewSubTab] = useState(() => {
     try { return localStorage.getItem('reviewSubTab') || 'note'; } catch { return 'note'; }
@@ -1628,6 +1667,12 @@ function AuthedApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Long-press context menu (book cards on bookshelf)
   const [bookContextMenu, setBookContextMenu] = useState(null); // { x, y, book }
+  // 詳細画面の「⋯」kebab メニュー位置 (button 近くに表示する)
+  const [detailKebab, setDetailKebab] = useState(null);
+  const openDetailKebab = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDetailKebab({ x: rect.right - 8, y: rect.bottom + 4 });
+  };
   // Edge-swipe back: only listens while we're on a detail or edit view.
   useEdgeSwipeBack({
     enabled: view === 'detail' || view === 'edit',
@@ -2296,14 +2341,25 @@ const persist = useCallback((updates) => {
         <div className="detail-enter" style={{ padding: "20px 20px 80px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <button onClick={goList} style={lnk}>← 一覧</button>
-            <button
-              onClick={openHelp}
-              style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#8a7e6b", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
-              aria-label="この画面のヘルプを見る"
-              title="ヘルプ"
-            >
-              <HelpCircle size={18} strokeWidth={1.75} aria-hidden="true" />
-            </button>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={openHelp}
+                style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#8a7e6b", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                aria-label="この画面のヘルプを見る"
+                title="ヘルプ"
+              >
+                <HelpCircle size={16} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+              {/* ⋯ kebab — 編集 / 共有 / 削除 を集約。下部の 3 ボタン廃止。 */}
+              <button
+                onClick={openDetailKebab}
+                style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 16, fontWeight: 700 }}
+                aria-label="その他の操作"
+                title="その他"
+              >
+                ⋯
+              </button>
+            </div>
           </div>
 
           {/* Book header */}
@@ -2329,22 +2385,32 @@ const persist = useCallback((updates) => {
           {current.startDate && <p style={{ fontSize: 11, color: "#9a8e7a", marginTop: 10 }}>📅 開始: {current.startDate}</p>}
           {current.doneDate && <p style={{ fontSize: 11, color: "#9a8e7a", marginTop: 2 }}>📅 完了: {current.doneDate}</p>}
 
-          {current.aiAnalysis && (
-            <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🔍 AI 本の解析</p>
-              <MarkdownSections text={current.aiAnalysis} />
-            </div>
-          )}
           {current.investPurpose && <Card label="目的・課題・仮説" text={current.investPurpose} />}
-          {current.aiStrategy && (
-            <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🗺️ セットアップシート</p>
-              <MarkdownSections
-                text={current.aiStrategy}
-                onAddRelatedBook={addRelatedBookFromAi}
-                addingTitles={(() => { void addingRelatedTick; return addingRelatedTitlesRef.current; })()}
-              />
-            </div>
+
+          {/* AI 出力（解析 / セットアップシート）はデフォルト折りたたみ。
+              スクロール量を圧縮し、必要な時に展開する。 */}
+          {(current.aiAnalysis || current.aiStrategy) && (
+            <details style={{ marginTop: 12, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "10px 12px" }}>
+              <summary style={{ fontSize: 13, fontWeight: 600, color: "#5c5043", cursor: "pointer", listStyle: "none" }}>
+                🤖 AI 解析 / セットアップシート
+              </summary>
+              {current.aiAnalysis && (
+                <div style={{ marginTop: 10 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🔍 AI 本の解析</p>
+                  <MarkdownSections text={current.aiAnalysis} />
+                </div>
+              )}
+              {current.aiStrategy && (
+                <div style={{ marginTop: 10 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🗺️ セットアップシート</p>
+                  <MarkdownSections
+                    text={current.aiStrategy}
+                    onAddRelatedBook={addRelatedBookFromAi}
+                    addingTitles={(() => { void addingRelatedTick; return addingRelatedTitlesRef.current; })()}
+                  />
+                </div>
+              )}
+            </details>
           )}
 
           {current.totalPages > 0 && (
@@ -2388,14 +2454,18 @@ const persist = useCallback((updates) => {
             </div>
           )}
           {current.aiSummary && (
-            <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#5a7a48", marginBottom: 6 }}>🤖 AI 要約 (ROI)</p>
-              <MarkdownSections
-                text={current.aiSummary}
-                onAddRelatedBook={addRelatedBookFromAi}
-                addingTitles={(() => { void addingRelatedTick; return addingRelatedTitlesRef.current; })()}
-              />
-            </div>
+            <details style={{ marginTop: 12, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "10px 12px" }}>
+              <summary style={{ fontSize: 13, fontWeight: 600, color: "#5a7a48", cursor: "pointer", listStyle: "none" }}>
+                🤖 AI 要約 (ROI)
+              </summary>
+              <div style={{ marginTop: 10 }}>
+                <MarkdownSections
+                  text={current.aiSummary}
+                  onAddRelatedBook={addRelatedBookFromAi}
+                  addingTitles={(() => { void addingRelatedTick; return addingRelatedTitlesRef.current; })()}
+                />
+              </div>
+            </details>
           )}
 
           {(current.actions || []).filter((a) => a.text?.trim()).length > 0 && (
@@ -2460,11 +2530,7 @@ const persist = useCallback((updates) => {
             <small style={{ fontSize: 10, color: "#a89e8c", lineHeight: 1.6, textAlign: "center" }}>
               {AMAZON_DISCLOSURE_TEXT}
             </small>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => openEdit(current)} style={{ ...btnO, flex: 1 }}>編集</button>
-              <button onClick={() => shareBook(current)} style={{ ...btnO, flex: 0, padding: "10px 18px", color: "#4a6e8a", borderColor: "#b8d0e0" }}>📤 共有</button>
-              <button onClick={() => requestDeleteBook(current)} style={{ ...btnO, flex: 0, padding: "10px 14px", borderColor: "#c4a0a0", color: "#a05040" }}>削除</button>
-            </div>
+            {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。下部のボタン群は撤去。 */}
           </div>
         </div>
 
@@ -2556,6 +2622,19 @@ const persist = useCallback((updates) => {
             modal here looks like nothing happens until the user navigates
             back to the bookshelf. */}
         {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
+
+        {detailKebab && (
+          <ContextMenu
+            x={detailKebab.x}
+            y={detailKebab.y}
+            onClose={() => setDetailKebab(null)}
+            items={[
+              { label: '編集', icon: '✏️', onClick: () => openEdit(current) },
+              { label: '共有', icon: '📤', onClick: () => shareBook(current) },
+              { label: '削除', icon: '🗑️', destructive: true, onClick: () => requestDeleteBook(current) },
+            ]}
+          />
+        )}
 
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
       </Shell>
@@ -2651,23 +2730,23 @@ const persist = useCallback((updates) => {
     <Shell>
    <header
      style={{
-       padding: "max(env(safe-area-inset-top, 12px), 12px) 16px 8px",
-       minHeight: 48,
+       padding: "max(env(safe-area-inset-top, 6px), 6px) 12px 4px",
+       minHeight: 36,
        display: "flex",
        justifyContent: "space-between",
        alignItems: "center",
-       gap: 8,
+       gap: 6,
      }}
    >
-    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
       <button
         type="button"
         {...logoLongPress.bind}
         aria-label="ロゴ（長押しで開発者からのメッセージ）"
         style={{
-          fontSize: 26,
+          fontSize: 22,
           lineHeight: 1,
-          padding: "4px 6px",
+          padding: "2px 4px",
           background: "none",
           border: "none",
           cursor: "pointer",
@@ -2676,27 +2755,41 @@ const persist = useCallback((updates) => {
       >
         <span aria-hidden="true">📚</span>
       </button>
-      <span style={{ fontSize: 13, color: "var(--color-secondary)", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "60vw" }}>
-        <span aria-hidden="true" style={{ marginRight: 4 }}>{greeting.emoji}</span>
+      {/* 挨拶は最初の数秒だけ表示してフェードアウト。ヘッダーの上下余白を
+          食わないよう font 11px + 上下 0 の inline テキストに留める。 */}
+      <span
+        style={{
+          fontSize: 11,
+          color: "var(--color-tertiary)",
+          lineHeight: 1.2,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          maxWidth: "60vw",
+          animation: "lvg-greeting-fade 4s var(--ease-out, ease) forwards",
+          willChange: "opacity",
+        }}
+      >
+        <span aria-hidden="true" style={{ marginRight: 3 }}>{greeting.emoji}</span>
         {greeting.text}
       </span>
     </div>
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <button
         onClick={openHelp}
-        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="この画面のヘルプを開く"
         title="ヘルプ"
       >
-        <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
+        <HelpCircle size={18} strokeWidth={1.75} aria-hidden="true" />
       </button>
       <button
         onClick={() => setSettingsOpen(true)}
-        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="アカウント設定を開く"
         title="設定"
       >
-        <SettingsIcon size={20} strokeWidth={1.75} aria-hidden="true" />
+        <SettingsIcon size={18} strokeWidth={1.75} aria-hidden="true" />
       </button>
     </div>
   </header>
@@ -2814,15 +2907,15 @@ const persist = useCallback((updates) => {
                   <div className="view-mode-switch" role="group" aria-label="表示モード">
                     <button
                       type="button"
-                      className={bookshelfView === 'grid' ? 'active' : ''}
-                      onClick={() => setBookshelfView('grid')}
+                      className={effectiveBookshelfView === 'grid' ? 'active' : ''}
+                      onClick={() => setBookshelfViewMode('grid')}
                       aria-label="表紙グリッド表示"
                       title="表紙グリッド"
                     >📚</button>
                     <button
                       type="button"
-                      className={bookshelfView === 'list' ? 'active' : ''}
-                      onClick={() => setBookshelfView('list')}
+                      className={effectiveBookshelfView === 'list' ? 'active' : ''}
+                      onClick={() => setBookshelfViewMode('list')}
                       aria-label="リスト表示"
                       title="リスト"
                     >📋</button>
@@ -2873,37 +2966,33 @@ const persist = useCallback((updates) => {
                 rawBooks.length === 0 ? (
                   <EmptyState
                     icon="📚"
-                    title="あなたの本棚は、これから始まります"
-                    description={(
-                      <>
-                        最初の 1 冊を登録して、<br />
-                        読書を「投資」に変える旅をスタートしましょう。
-                      </>
-                    )}
+                    title="本を追加しましょう"
+                    description="読書を「投資」に変える旅をスタート。"
                     actions={[
-                      { label: '🤖 AI に本を選んでもらう', onClick: () => { setAiSubTab('advisor'); setTab('ai'); }, variant: 'primary' },
-                      { label: '📚 自分で本を追加', onClick: openAdd, variant: 'secondary' },
+                      { label: '📚 本を追加', onClick: openAdd, variant: 'primary' },
                     ]}
                     tip={(
                       <>
-                        💡 ヒント：「営業力を上げたい」など、<br />
-                        悩みを伝えると AI が最適な本を提案します
+                        💡 悩みを伝えると AI が選書します（{' '}
+                        <button
+                          type="button"
+                          onClick={() => { setAiSubTab('advisor'); setTab('ai'); }}
+                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent)', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}
+                        >
+                          AI 選書を開く
+                        </button>
+                        ）
                       </>
                     )}
                   />
                 ) : (
                   <EmptyState
                     icon="🔍"
-                    title="一致する本が見つかりませんでした"
-                    description={(
-                      <>
-                        別のキーワードで試すか、<br />
-                        フィルタを変えてみてください。
-                      </>
-                    )}
+                    title="該当する本がありません"
+                    description="別のキーワードや、フィルタを試してみてください。"
                   />
                 )
-              ) : bookshelfView === 'grid' ? (
+              ) : effectiveBookshelfView === 'grid' ? (
                 <div className="bookshelf-grid">
                   {filtered.map((b) => (
                     <BookCoverCard

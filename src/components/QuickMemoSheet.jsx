@@ -282,7 +282,7 @@ export default function QuickMemoSheet({
                   e.preventDefault();
                 }
               }}
-              placeholder={'・印象に残ったフレーズ\n・すぐ使えるノウハウ\n・考え方の転換点'}
+              placeholder="メモを入力..."
               style={ta}
               maxLength={LIMITS.memoText}
             />
