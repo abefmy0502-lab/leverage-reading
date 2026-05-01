@@ -753,9 +753,29 @@
 
 .bookshelf-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: var(--space-5) var(--space-4);
-  padding: var(--space-4);
+  /* スマホ (≤640px) は 3 列固定。auto-fill だと縦長端末で 1〜2 列に
+     なってしまい「本棚に並んでいる」感が薄れるため、breakpoint 分岐に変更。 */
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4) var(--space-3);
+  padding: var(--space-3);
+}
+@media (min-width: 640px) {
+  .bookshelf-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-5) var(--space-4);
+    padding: var(--space-4);
+  }
+}
+@media (min-width: 1024px) {
+  .bookshelf-grid {
+    grid-template-columns: repeat(5, 1fr);
+    padding: var(--space-6);
+  }
+}
+@media (min-width: 1440px) {
+  .bookshelf-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
 }
 
 .book-cover-card {
@@ -807,32 +827,32 @@
 .book-cover-placeholder {
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   text-align: center;
-  padding: var(--space-3);
+  padding: var(--space-2);
   color: #fff;
-  font-size: var(--type-caption);
+  /* 11px 〜 type-caption (12px) で、3 列スマホ表示でも 4 行入る大きさ。 */
+  font-size: 11px;
   font-weight: var(--weight-semibold);
-  line-height: var(--leading-tight);
+  line-height: 1.35;
   letter-spacing: 0.02em;
   word-break: break-word;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   display: -webkit-box;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 
 .book-status-badge-overlay {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 4px;
+  right: 4px;
   font-size: 10px;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: var(--radius-full);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   background: rgba(255, 255, 255, 0.92);
   color: var(--color-label);
   backdrop-filter: blur(4px);
@@ -840,11 +860,13 @@
 }
 
 .book-cover-title {
-  font-size: var(--type-callout);
+  /* セルが小さくなる前提で 12px へダウンサイズ。読みやすさを保つため
+     line-height は 1.3 にちょうど。 */
+  font-size: var(--type-caption);
   font-weight: var(--weight-semibold);
-  line-height: var(--leading-tight);
+  line-height: 1.3;
   color: var(--color-text-primary);
-  margin: 0 0 2px;
+  margin: var(--space-1) 0 2px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -852,7 +874,7 @@
   word-break: break-word;
 }
 .book-cover-author {
-  font-size: var(--type-caption);
+  font-size: 11px;
   color: var(--color-text-tertiary);
   white-space: nowrap;
   overflow: hidden;
