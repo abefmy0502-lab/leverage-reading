@@ -745,6 +745,185 @@
 .section-group { margin-bottom: var(--space-6); }
 
 /* =========================================================================
+ * Bookshelf — grid of book covers (default).
+ *
+ * 表紙を主役に、タイトル / 著者は控えめ。背景にうっすら木目グラデで本棚感。
+ * リスト表示 (legacy) は表示モード切替で残置。
+ * ========================================================================= */
+
+.bookshelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: var(--space-5) var(--space-4);
+  padding: var(--space-4);
+}
+
+.book-cover-card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  position: relative;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.book-cover-image-wrap {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+  /* 本らしい立体感 — 右側に少し影を落とす */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    2px 4px 10px rgba(40, 30, 20, 0.18);
+  transition: transform var(--duration-base) var(--ease-spring),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+.book-cover-card:hover .book-cover-image-wrap {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    4px 8px 16px rgba(40, 30, 20, 0.22);
+}
+.book-cover-card:active .book-cover-image-wrap {
+  transform: scale(0.97);
+  transition-duration: var(--duration-instant);
+}
+.book-cover-image-wrap > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 表紙未取得用のグラデーションプレースホルダ */
+.book-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-3);
+  color: #fff;
+  font-size: var(--type-caption);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  letter-spacing: 0.02em;
+  word-break: break-word;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  overflow: hidden;
+}
+
+.book-status-badge-overlay {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.3px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-label);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.book-cover-title {
+  font-size: var(--type-callout);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-text-primary);
+  margin: 0 0 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.book-cover-author {
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* View-mode switch (grid / list) */
+.view-mode-switch {
+  display: inline-flex;
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-secondary);
+}
+.view-mode-switch button {
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.view-mode-switch button.active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+
+/* =========================================================================
+ * Sub-tabs (used by 振り返り and AI parent-tabs to split into ノート/行動 や
+ * AI 選書/読書脳)
+ * ========================================================================= */
+.sub-tabs {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--color-separator);
+  position: sticky;
+  top: 0;
+  background: var(--color-bg, #f5f0e8);
+  z-index: 10;
+}
+.sub-tab {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--type-callout);
+  font-weight: var(--weight-medium);
+  text-align: center;
+  cursor: pointer;
+  min-height: 40px;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+.sub-tab:hover { background: var(--color-bg-hover); }
+.sub-tab.active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+
+/* =========================================================================
  * Author thank-you easter egg (Phase 4 の他装飾は撤去 — 鬱陶しさ回避)
  * ========================================================================= */
 

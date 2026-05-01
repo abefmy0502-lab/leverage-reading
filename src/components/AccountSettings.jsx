@@ -15,6 +15,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import FeedbackForm from './FeedbackForm';
+import { exportUserDataAsCSV } from '../lib/exportData';
 
 const overlayStyle = {
   position: 'fixed',
@@ -107,22 +108,6 @@ const inputStyle = {
   boxSizing: 'border-box',
 };
 
-function fmtYYYYMMDD(d = new Date()) {
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-}
-
-async function downloadJson(filename, obj) {
-  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 async function listAllUserPhotos(userId) {
   if (!isSupabaseConfigured) return [];
   const all = [];
@@ -170,46 +155,9 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
     }
     setExporting(true);
     try {
-      const [booksRes, memosRes, tagsRes, actionsRes, chatRes] = await Promise.all([
-        supabase.from('books').select('*').eq('user_id', user.id),
-        supabase.from('book_memos').select('*').eq('user_id', user.id),
-        supabase.from('book_tags').select('*').eq('user_id', user.id),
-        supabase.from('actions').select('*').eq('user_id', user.id),
-        supabase.from('chat_messages').select('*').eq('user_id', user.id),
-      ]);
-      const errors = [booksRes.error, memosRes.error, tagsRes.error, actionsRes.error, chatRes.error].filter(Boolean);
-      if (errors.length > 0) {
-        // Fail soft on chat_messages — that table may not exist if migration unrun.
-        if (errors.length === 1 && errors[0] === chatRes.error) {
-          // ignore
-        } else {
-          throw errors[0];
-        }
-      }
-
-      const photoPaths = await listAllUserPhotos(user.id).catch(() => []);
-
-      const exportObj = {
-        meta: {
-          format: 'leverage-reading-export',
-          version: 1,
-          exported_at: new Date().toISOString(),
-          user_id: user.id,
-          user_email: user.email,
-          notice:
-            '本ファイルはあなた個人のデータのみを含みます。写真は photo_paths として参照のみ。' +
-            'Supabase Storage にアクセスして同じ path で取得してください (アクセス権はあなたのアカウントが必要です)。',
-        },
-        books: booksRes.data || [],
-        book_memos: memosRes.data || [],
-        book_tags: tagsRes.data || [],
-        actions: actionsRes.data || [],
-        chat_messages: chatRes.data || [],
-        photo_paths: photoPaths,
-      };
-
-      await downloadJson(`leverage-reading-export-${fmtYYYYMMDD()}.json`, exportObj);
-      toast.success('データをダウンロードしました');
+      const summary = await exportUserDataAsCSV(user.id);
+      const total = summary.reduce((acc, s) => acc + (s.count || 0), 0);
+      toast.success(`CSV ${summary.filter((s) => !s.skipped).length} 件をダウンロード（計 ${total} 行）`);
     } catch (e) {
       toast.error(toMessage(e, 'エクスポートに失敗しました。'));
     } finally {
@@ -326,10 +274,10 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               📥 データをダウンロード
             </p>
             <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
-              本・メモ・タグ・行動・対話履歴・写真パス一覧を JSON 形式でダウンロードできます。
+              本・メモ・タグ・行動・対話履歴をテーブル別の CSV ファイルでダウンロードします。Excel / Numbers でそのまま開けます（UTF-8 BOM 付き）。
             </p>
             <button type="button" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
-              {exporting ? 'エクスポート中…' : '📥 JSON をダウンロード'}
+              {exporting ? '準備中…' : '📥 CSV をダウンロード'}
             </button>
           </section>
 

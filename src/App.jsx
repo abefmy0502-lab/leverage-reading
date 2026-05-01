@@ -486,6 +486,59 @@ function BookIcon() {
 // Swipeable + long-pressable book row used on the bookshelf list.
 // Defined at top level (not inside AuthedApp) so the per-card hooks
 // (useLongPress) follow Rules of Hooks.
+// タイトル文字列から決定論的にプレースホルダ色を生成。同じ本は常に同じ色。
+const PLACEHOLDER_PALETTE = [
+  ['#8a7040', '#5d4a28'], // brown
+  ['#7a5080', '#5a3a60'], // plum
+  ['#4a6e8a', '#2c4d68'], // slate blue
+  ['#5a7a48', '#3a5a30'], // moss
+  ['#a05040', '#703528'], // brick
+  ['#9b7b5c', '#6a5340'], // sand
+];
+function paletteFor(title) {
+  const s = title || '';
+  let hash = 0;
+  for (let i = 0; i < s.length; i += 1) hash = (hash * 31 + s.charCodeAt(i)) | 0;
+  return PLACEHOLDER_PALETTE[Math.abs(hash) % PLACEHOLDER_PALETTE.length];
+}
+
+// グリッド表示用の本カード（表紙主役）。表紙無しは色付きプレースホルダ。
+function BookCoverCard({ book, isJustDone, onOpen, onLongPress }) {
+  const longPress = useLongPress({
+    onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
+  });
+  const [from, to] = paletteFor(book.title);
+  return (
+    <button
+      type="button"
+      className="book-cover-card"
+      onClick={() => onOpen?.(book)}
+      {...longPress.bind}
+      style={{
+        animation: isJustDone ? 'leverage-card-celebrate 2.4s ease both' : undefined,
+      }}
+    >
+      <div className="book-cover-image-wrap">
+        {book.cover ? (
+          <img src={ensureHttps(book.cover)} alt="" />
+        ) : (
+          <div
+            className="book-cover-placeholder"
+            style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
+          >
+            {book.title}
+          </div>
+        )}
+        <span className="book-status-badge-overlay">
+          {getSt(book.status).emoji} {getSt(book.status).label}
+        </span>
+      </div>
+      <p className="book-cover-title">{book.title}</p>
+      {book.author && <p className="book-cover-author">{book.author}</p>}
+    </button>
+  );
+}
+
 function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
@@ -1415,12 +1468,12 @@ function BookAdvisor({ onAddBook, onClose }) {
 
 /* ========== Bottom Nav ========== */
 function BottomNav({ tab, setTab }) {
+  // 5 タブ → 3 タブに整理。「振り返り」と「AI」は親タブで、それぞれ
+  // サブタブ（ノート/行動 と AI選書/読書脳）を内包する。
   const tabs = [
     { key: "books", Icon: BookOpen, label: "本棚" },
     { key: "review", Icon: RotateCcw, label: "振り返り" },
-    { key: "action", Icon: Target, label: "行動" },
-    { key: "brain", Icon: Brain, label: "読書脳" },
-    { key: "advisor", Icon: Sparkles, label: "AI 選書" },
+    { key: "ai", Icon: Sparkles, label: "AI" },
   ];
   return (
     <div
@@ -1524,6 +1577,24 @@ function AuthedApp() {
   const readingPlans = data.readingPlans || {};
 
   const [tab, setTab] = useState("books");
+  // 本棚の表示モード — 表紙グリッド (grid) / 縦並びリスト (list)。
+  // デフォルトは grid（視覚的本棚）、ユーザーは切替可。localStorage で永続化。
+  const [bookshelfView, setBookshelfView] = useState(() => {
+    try { return localStorage.getItem('bookshelfView') === 'list' ? 'list' : 'grid'; }
+    catch { return 'grid'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('bookshelfView', bookshelfView); } catch { /* ignore */ }
+  }, [bookshelfView]);
+  // 親タブ「振り返り」「AI」内のサブタブ。localStorage に保存して再訪時に復元。
+  const [reviewSubTab, setReviewSubTab] = useState(() => {
+    try { return localStorage.getItem('reviewSubTab') || 'note'; } catch { return 'note'; }
+  });
+  const [aiSubTab, setAiSubTab] = useState(() => {
+    try { return localStorage.getItem('aiSubTab') || 'advisor'; } catch { return 'advisor'; }
+  });
+  useEffect(() => { try { localStorage.setItem('reviewSubTab', reviewSubTab); } catch { /* ignore */ } }, [reviewSubTab]);
+  useEffect(() => { try { localStorage.setItem('aiSubTab', aiSubTab); } catch { /* ignore */ } }, [aiSubTab]);
   const [view, setView] = useState("list"); // list | detail | edit
   const [current, setCurrent] = useState(null);
   const [form, setForm] = useState(emptyBook());
@@ -1636,10 +1707,8 @@ const persist = useCallback((updates) => {
       if (status === 'reading') return 'bookDetailReading';
       if (status === 'done') return 'bookDetailDone';
     }
-    if (tab === 'review') return 'review';
-    if (tab === 'action') return 'actionList';
-    if (tab === 'advisor') return 'aiAdvisor';
-    if (tab === 'brain') return 'myBookBrain';
+    if (tab === 'review') return reviewSubTab === 'action' ? 'actionList' : 'review';
+    if (tab === 'ai') return aiSubTab === 'brain' ? 'myBookBrain' : 'aiAdvisor';
     return 'bookList';
   };
 
@@ -2710,7 +2779,25 @@ const persist = useCallback((updates) => {
                     <option value="rating">評価順</option>
                   </select>
                 </div>
-                <span>{filtered.length}件</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>{filtered.length} 件</span>
+                  <div className="view-mode-switch" role="group" aria-label="表示モード">
+                    <button
+                      type="button"
+                      className={bookshelfView === 'grid' ? 'active' : ''}
+                      onClick={() => setBookshelfView('grid')}
+                      aria-label="表紙グリッド表示"
+                      title="表紙グリッド"
+                    >📚</button>
+                    <button
+                      type="button"
+                      className={bookshelfView === 'list' ? 'active' : ''}
+                      onClick={() => setBookshelfView('list')}
+                      aria-label="リスト表示"
+                      title="リスト"
+                    >📋</button>
+                  </div>
+                </div>
               </div>
             </div>
             <div style={{ padding: "0 20px" }}>
@@ -2764,7 +2851,7 @@ const persist = useCallback((updates) => {
                       </>
                     )}
                     actions={[
-                      { label: '🤖 AI に本を選んでもらう', onClick: () => setTab('advisor'), variant: 'primary' },
+                      { label: '🤖 AI に本を選んでもらう', onClick: () => { setAiSubTab('advisor'); setTab('ai'); }, variant: 'primary' },
                       { label: '📚 自分で本を追加', onClick: openAdd, variant: 'secondary' },
                     ]}
                     tip={(
@@ -2786,6 +2873,18 @@ const persist = useCallback((updates) => {
                     )}
                   />
                 )
+              ) : bookshelfView === 'grid' ? (
+                <div className="bookshelf-grid">
+                  {filtered.map((b) => (
+                    <BookCoverCard
+                      key={b.id}
+                      book={b}
+                      isJustDone={recentlyDoneId === b.id}
+                      onOpen={openDetail}
+                      onLongPress={(payload) => setBookContextMenu(payload)}
+                    />
+                  ))}
+                </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {filtered.map((b, i) => (
@@ -2807,33 +2906,71 @@ const persist = useCallback((updates) => {
 
         {tab === "review" && (
           <div key={`tab-${tab}`} className="tab-content">
-            <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+            <div className="sub-tabs" role="tablist" aria-label="振り返りのサブタブ">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={reviewSubTab === 'note'}
+                className={`sub-tab ${reviewSubTab === 'note' ? 'active' : ''}`}
+                onClick={() => setReviewSubTab('note')}
+              >
+                💭 ノート
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={reviewSubTab === 'action'}
+                className={`sub-tab ${reviewSubTab === 'action' ? 'active' : ''}`}
+                onClick={() => setReviewSubTab('action')}
+              >
+                🎯 行動
+              </button>
+            </div>
+            {reviewSubTab === 'note' ? (
+              <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+            ) : (
+              <ActionList
+                books={books}
+                onToggleAction={toggleAction}
+                onDeleteAction={deleteActionFromBook}
+                onOpenBook={(b) => { openDetail(b); setTab("books"); }}
+              />
+            )}
           </div>
         )}
 
-        {tab === "action" && (
+        {tab === "ai" && (
           <div key={`tab-${tab}`} className="tab-content">
-            <ActionList
-              books={books}
-              onToggleAction={toggleAction}
-              onDeleteAction={deleteActionFromBook}
-              onOpenBook={(b) => { openDetail(b); setTab("books"); }}
-            />
-          </div>
-        )}
-
-        {tab === "brain" && (
-          <div key={`tab-${tab}`} className="tab-content">
-            <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
-          </div>
-        )}
-
-        {tab === "advisor" && (
-          <div key={`tab-${tab}`} className="tab-content" style={{ padding: "12px 16px 24px" }}>
-            <BookAdvisor
-              onAddBook={(rec) => { addFromAdvisor(rec); }}
-              onClose={() => setTab("books")}
-            />
+            <div className="sub-tabs" role="tablist" aria-label="AI のサブタブ">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aiSubTab === 'advisor'}
+                className={`sub-tab ${aiSubTab === 'advisor' ? 'active' : ''}`}
+                onClick={() => setAiSubTab('advisor')}
+              >
+                🔍 AI 選書
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aiSubTab === 'brain'}
+                className={`sub-tab ${aiSubTab === 'brain' ? 'active' : ''}`}
+                onClick={() => setAiSubTab('brain')}
+              >
+                🧠 マイ読書脳
+              </button>
+            </div>
+            {aiSubTab === 'advisor' ? (
+              <div style={{ padding: "12px 16px 24px" }}>
+                <BookAdvisor
+                  onAddBook={(rec) => { addFromAdvisor(rec); }}
+                  onClose={() => setTab("books")}
+                />
+              </div>
+            ) : (
+              <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+            )}
           </div>
         )}
       </div>
