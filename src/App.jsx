@@ -1601,9 +1601,10 @@ function BookAdvisor({ onAddBook }) {
 }
 
 /* ========== Bottom Nav ========== */
-function BottomNav({ tab, setTab }) {
+function BottomNav({ tab, setTab, hidden = false }) {
   // 3 タブ。flex-shrink: 0 の通常の flex child として配置し、
-  // body.keyboard-open 時に max-height: 0 で滑らかに畳む。
+  // hidden=true (= キーボード開) のときは .is-hidden クラスで畳む。
+  // body.keyboard-open とのダブルセレクタ + !important で確実に勝たせる。
   const tabs = [
     { key: "books", Icon: BookOpen, label: "本棚" },
     { key: "review", Icon: RotateCcw, label: "振り返り" },
@@ -1611,13 +1612,15 @@ function BottomNav({ tab, setTab }) {
   ];
   return (
     <nav
-      className="bottom-nav"
+      className={`bottom-nav${hidden ? ' is-hidden' : ''}`}
+      aria-hidden={hidden ? 'true' : undefined}
       style={{
         flexShrink: 0,
         background: "var(--color-surface)",
-        borderTop: "1px solid var(--color-separator)",
         boxShadow: "var(--shadow-1)",
         display: "flex",
+        // border-top は入力欄側に持たせて二重表示を避ける。AI 入力欄を
+        // 表示していない画面でも、本棚→ナビは色 / shadow で十分仕切れる。
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
@@ -3150,7 +3153,7 @@ const persist = useCallback((updates) => {
           style={{ display: 'none' }}
         />
 
-        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
+        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} hidden={keyboardOpen} />
       </Shell>
     );
   }
@@ -3260,7 +3263,7 @@ const persist = useCallback((updates) => {
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
         {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
-        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />
+        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} hidden={keyboardOpen} />
       </Shell>
     );
   }
@@ -3727,7 +3730,7 @@ const persist = useCallback((updates) => {
           ストーン演出は「鬱陶しい」フィードバックにより撤去済み。 */}
       {thanksOpen && <AuthorThankYou onClose={() => setThanksOpen(false)} />}
 
-      <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} />
+      <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
     </Shell>
   );
 }

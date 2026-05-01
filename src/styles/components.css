@@ -980,15 +980,23 @@
 /* LINE / iMessage 風 chat 入力欄。`.ai-page` の最下段に flex で置かれる。
    親が 100dvh ベースの flex column のため、キーボードが開けば layout
    viewport が縮み、入力欄も自動でキーボード直上に張り付く。
-   position: fixed は使わない (DOM 自然位置で十分)。 */
+   position: fixed は使わない (DOM 自然位置で十分)。
+   safe-area の吸収は BottomNav 側が担当する。ここで重ねて env() を入れると
+   入力欄と BottomNav の間に「謎の隙間」が生まれるので明示的に 0 にする。 */
 .ai-input-area {
   flex-shrink: 0;
   background: var(--color-bg, #f5f0e8);
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 12px;
+  margin: 0;
   border-top: 1px solid var(--color-separator);
   display: flex;
   gap: var(--space-2);
   align-items: flex-end;
+}
+/* キーボード開時は BottomNav が消えるので、入力欄に safe-area を吸収させる。
+   ここで初めて env() を効かせる。 */
+body.keyboard-open .ai-input-area {
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
 }
 .ai-input-area textarea {
   flex: 1;
@@ -1109,18 +1117,26 @@
 }
 
 /* BottomNav: キーボード開いたら畳む。max-height + opacity の transition で
-   滑らかに。padding/border も 0 にして完全に隠す。 */
+   滑らかに。padding/border/margin も 0 にして完全に隠す。
+   実機の優先度バトルに負けないよう .is-hidden + body.keyboard-open の
+   ダブルセレクタ + !important で押し切る。 */
 .bottom-nav {
   transition: max-height 0.2s ease, opacity 0.15s ease, padding 0.2s ease;
   max-height: 120px; /* 56 + safe-area の上限 */
   overflow: hidden;
+  margin: 0;
+  /* 入力欄側に border-top があるので、ナビ側はゼロにして二重線を防ぐ。
+     入力欄が無い画面 (本棚 / 振り返り) では shadow-1 の影で十分仕切れる。 */
+  border-top: 0;
+  padding-top: 0;
 }
+.bottom-nav.is-hidden,
 body.keyboard-open .bottom-nav {
-  max-height: 0;
-  opacity: 0;
-  padding: 0;
-  border-top: none;
-  pointer-events: none;
+  max-height: 0 !important;
+  opacity: 0 !important;
+  padding: 0 !important;
+  border-top: none !important;
+  pointer-events: none !important;
 }
 
 /* =========================================================================
