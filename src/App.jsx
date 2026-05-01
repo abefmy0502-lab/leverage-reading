@@ -24,6 +24,7 @@ import {
 } from './lib/bookSearch';
 import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
+import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { supabase as supabaseClient } from './lib/supabase';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
@@ -511,7 +512,7 @@ function paletteFor(title) {
 
 // グリッド表示用の本カード（表紙主役）。表紙無し / 画像 404 時は
 // タイトルベースの色付きプレースホルダにフォールバック。
-function BookCoverCard({ book, isJustDone, onOpen, onLongPress }) {
+function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
@@ -520,6 +521,11 @@ function BookCoverCard({ book, isJustDone, onOpen, onLongPress }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => { setBroken(false); }, [book.id, book.cover]);
   const showPlaceholder = !book.cover || broken;
+  // 表紙が出ない本はバックグラウンドで再解決をキューイング。
+  // セッション内で 1 回だけ走るので、ここから fire-and-forget で OK。
+  useEffect(() => {
+    if (showPlaceholder) onAutoRetry?.(book);
+  }, [showPlaceholder, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <button
       type="button"
@@ -583,7 +589,7 @@ function BookCoverCard({ book, isJustDone, onOpen, onLongPress }) {
   );
 }
 
-function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress }) {
+function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
@@ -591,6 +597,10 @@ function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onL
   useEffect(() => { setBroken(false); }, [book.id, book.cover]);
   const [from, to] = paletteFor(book.title);
   const hasCover = !!(book.cover && !broken);
+  // 表紙不在 → 裏で再解決を試行 (セッション内 1 回のみ、キュー処理)
+  useEffect(() => {
+    if (!hasCover) onAutoRetry?.(book);
+  }, [hasCover, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <SwipeableCard onDelete={() => onSwipeDelete?.(book)}>
       <div
@@ -1881,6 +1891,17 @@ function AuthedApp() {
       .then(() => { try { return refreshBooks(); } catch { /* ignore */ } })
       .catch(() => {});
   }, [user?.id, refreshBooks]);
+
+  // BookCard 側から「表紙が出ない」と通知されたらキューに積む。
+  // セッション内 1 回 / 1 秒 1 冊 のレート制御は coverAutoRetry 側で。
+  // 解決成功時は saveBook 経由で永続化されるので、useBooks の cache が
+  // 自動更新されカードが再レンダリングして表紙が表示される。
+  const triggerCoverAutoRetry = useCallback(
+    (book) => {
+      enqueueCoverRetry({ book, saveBook });
+    },
+    [saveBook],
+  );
 
 const persist = useCallback((updates) => {
     setData((prev) => { 
@@ -3576,6 +3597,7 @@ const persist = useCallback((updates) => {
                       isJustDone={recentlyDoneId === b.id}
                       onOpen={openDetail}
                       onLongPress={(payload) => setBookContextMenu(payload)}
+                      onAutoRetry={triggerCoverAutoRetry}
                     />
                   ))}
                 </div>
@@ -3590,6 +3612,7 @@ const persist = useCallback((updates) => {
                       onOpen={openDetail}
                       onSwipeDelete={swipeDeleteBook}
                       onLongPress={(payload) => setBookContextMenu(payload)}
+                      onAutoRetry={triggerCoverAutoRetry}
                     />
                   ))}
                 </div>
