@@ -33,8 +33,8 @@ const pill = (active) => ({
   // narrow phones via the parent's overflow-x: auto + lvg-no-scrollbar.
   flex: '0 0 auto',
   whiteSpace: 'nowrap',
-  minHeight: 40,
-  padding: '8px 14px',
+  minHeight: 36,
+  padding: '6px 10px',
   border: 'none',
   background: active ? '#5c5043' : 'transparent',
   color: active ? '#faf6f0' : '#5c5548',
@@ -486,24 +486,26 @@ export default function MyBookBrain({ onOpenBook }) {
 
   return (
     <div style={wrap}>
-      {/* Hero / explanation */}
-      <div style={{ ...card, background: 'linear-gradient(135deg, #faf6f0 0%, #f0ebe2 100%)' }}>
-        <p style={{ fontSize: 16, fontWeight: 600, color: '#3d362c', margin: 0 }}>🧠 マイ読書脳</p>
-        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '4px 0 0', lineHeight: 1.7 }}>
-          過去に読んだ本の知恵があなたに答えます。
+      {/* Unified AI section header (AI 選書 と同じフォーマット) */}
+      <div className="ai-section-header" style={{ padding: 0 }}>
+        <h2>🧠 マイ読書脳</h2>
+        <p className="subtitle">
+          過去に読んだ本の知恵があなたに答えます
           {(memoStats.cards + memoStats.summaries + memoStats.personal) > 0 && (
-            <>（メモ {memoStats.cards} 件 + まとめ {memoStats.summaries} 冊 + 学び {memoStats.personal} 件 を参照可能）</>
+            <>（メモ {memoStats.cards} / まとめ {memoStats.summaries} / 学び {memoStats.personal}）</>
           )}
         </p>
       </div>
 
-      {/* Action pills — horizontally scroll on narrow phones, no text wrap. */}
+      {/* Action pills — 横スクロール + 文字省略を兼ねた pill 群。
+          padding と font-size を切り詰め「知識」を見切らせない。
+          フィット出来ない時は overflow-x: auto で横スクロール。 */}
       <div
         className="lvg-no-scrollbar"
         style={{
           display: 'flex',
           gap: 4,
-          padding: 4,
+          padding: 3,
           background: '#eae3d6',
           borderRadius: 10,
           flexWrap: 'nowrap',
@@ -512,17 +514,17 @@ export default function MyBookBrain({ onOpenBook }) {
           overscrollBehaviorX: 'contain',
         }}
       >
-        <button type="button" style={{ ...pill(view === 'chat'), display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setView('chat')}>
-          <MessageCircle size={14} strokeWidth={1.75} aria-hidden="true" />質問する
+        <button type="button" style={{ ...pill(view === 'chat'), display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => setView('chat')}>
+          <MessageCircle size={13} strokeWidth={1.75} aria-hidden="true" />質問
         </button>
-        <button type="button" style={{ ...pill(false), display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setLearningOpen(true)}>
-          <Lightbulb size={14} strokeWidth={1.75} aria-hidden="true" />学びを追加
+        <button type="button" style={{ ...pill(false), display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => setLearningOpen(true)}>
+          <Lightbulb size={13} strokeWidth={1.75} aria-hidden="true" />学び
         </button>
-        <button type="button" style={{ ...pill(view === 'history'), display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setView('history')}>
-          <History size={14} strokeWidth={1.75} aria-hidden="true" />履歴
+        <button type="button" style={{ ...pill(view === 'history'), display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => setView('history')}>
+          <History size={13} strokeWidth={1.75} aria-hidden="true" />履歴
         </button>
-        <button type="button" style={{ ...pill(view === 'knowledge'), display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setView('knowledge')}>
-          <BookOpenCheck size={14} strokeWidth={1.75} aria-hidden="true" />知識管理
+        <button type="button" style={{ ...pill(view === 'knowledge'), display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => setView('knowledge')}>
+          <BookOpenCheck size={13} strokeWidth={1.75} aria-hidden="true" />知識
         </button>
       </div>
 
@@ -614,9 +616,9 @@ export default function MyBookBrain({ onOpenBook }) {
             </button>
           )}
 
-          {/* Input area — Enter inserts a newline, Shift+Enter / Cmd+Enter
-              sends. IME composition is always passed through unchanged. */}
-          <div style={{ display: 'flex', gap: 6, position: 'sticky', bottom: 0, paddingTop: 8, alignItems: 'flex-end' }}>
+          {/* Input area — sticky 底辺、BottomNav 上に乗る。Enter = 改行、
+              Shift+Enter / Cmd+Enter = 送信、IME 中は無視。 */}
+          <div className="ai-input-area">
             <textarea
               ref={inputRef}
               value={input}
@@ -629,20 +631,19 @@ export default function MyBookBrain({ onOpenBook }) {
                 }
               }}
               placeholder="質問を入力..."
-              rows={2}
+              rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}
               aria-label="マイ読書脳への質問"
-              style={{ ...ta, minHeight: 60, maxHeight: 200, flex: 1, resize: 'none', lineHeight: 1.7 }}
             />
             <button
               type="button"
+              className="send-btn"
               onClick={() => ask()}
               disabled={busy || !input.trim()}
-              style={{ ...btnPrimary, padding: '12px 16px', opacity: busy || !input.trim() ? 0.5 : 1, alignSelf: 'flex-end', minHeight: 44 }}
               aria-label="送信"
             >
-              送信
+              {busy ? '送信中…' : '送信 →'}
             </button>
           </div>
         </>

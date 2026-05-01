@@ -924,6 +924,120 @@
 }
 
 /* =========================================================================
+ * AI tab — shared header / sticky input / example chips
+ *
+ * AI 選書 と マイ読書脳 で同じ見た目を共有するためのクラス群。両画面の
+ * 入力欄は底辺 BottomNav (高さ 56 + safe-area) を避けるため
+ * `bottom: calc(56px + safe-area-inset-bottom)` で置く。
+ * ========================================================================= */
+
+.ai-section-header {
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+.ai-section-header h2 {
+  font-size: var(--type-headline);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ai-section-header .subtitle {
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  margin: 4px 0 0;
+  line-height: var(--leading-base);
+}
+
+.ai-input-area {
+  position: sticky;
+  /* BottomNav (56px + safe-area) の上に乗せる。bottom: 0 にすると BottomNav
+     と重なって送信ボタンが見切れる現象が発生していた。 */
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  background: var(--color-bg, #f5f0e8);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 calc(-1 * var(--space-4));
+  border-top: 1px solid var(--color-separator);
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  z-index: 5;
+}
+.ai-input-area textarea {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-separator);
+  background: var(--color-surface);
+  color: var(--color-label);
+  font-family: inherit;
+  font-size: 16px; /* iOS のズーム防止 */
+  line-height: var(--leading-base);
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+.ai-input-area textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+.ai-input-area .send-btn {
+  flex-shrink: 0;
+  min-width: 64px;
+  height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-accent-strong);
+  color: var(--color-text-inverse);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: opacity var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+.ai-input-area .send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 例チップ — タップで textarea に流し込む。AI 選書の中央余白を埋め、
+   入力のハードルを下げる。 */
+.example-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) 0;
+}
+.example-chips-label {
+  width: 100%;
+  font-size: var(--type-caption);
+  color: var(--color-text-tertiary);
+  margin: 0 0 4px;
+}
+.example-chip {
+  padding: 8px 14px;
+  border: 1px solid var(--color-separator);
+  border-radius: 9999px;
+  background: var(--color-surface);
+  color: var(--color-label);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.example-chip:hover { background: var(--color-bg-hover); }
+
+/* =========================================================================
  * Sub-tabs (used by 振り返り and AI parent-tabs to split into ノート/行動 や
  * AI 選書/読書脳)
  * ========================================================================= */

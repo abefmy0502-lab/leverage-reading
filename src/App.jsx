@@ -1326,10 +1326,18 @@ function ActionsTab({ books, onToggleAction }) {
 
 
 /* ========== AI Book Advisor ========== */
-function BookAdvisor({ onAddBook, onClose }) {
-  const [messages, setMessages] = useState([
-    { role: "assistant", text: "こんにちは！読書投資アドバイザーです。\n\nあなたの課題や叶えたいこと、悩みを教えてください。最適な本を選書します。\n\n例：\n・営業成績を上げたい\n・チームマネジメントに悩んでいる\n・自分に自信が持てない" }
-  ]);
+const ADVISOR_EXAMPLES = [
+  '営業成績を上げたい',
+  'チームマネジメント',
+  '自信を持ちたい',
+  '時間管理',
+  'お金の不安',
+];
+
+function BookAdvisor({ onAddBook }) {
+  // 旧: 挨拶 seed メッセージで例を箇条書き → サブタブ画面では冗長
+  // (タップ不可で文字を読まされるだけ)。例はチップ UI に分離した。
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState(null);
@@ -1413,16 +1421,37 @@ function BookAdvisor({ onAddBook, onClose }) {
     setLoading(false);
   };
 
+  const isEmpty = messages.length === 0 && !recommendations;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "75vh", maxHeight: 600 }}>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottom: "1px solid #e0d8c8", marginBottom: 12, flexShrink: 0 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 500, color: "#3d362c" }}>🤖 AI選書アドバイザー</h3>
-        <button onClick={onClose} style={closeBtn}>×</button>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "60vh" }}>
+      {/* Unified AI section header (マイ読書脳 と同じフォーマット)。
+          ✕ ボタンはタブ画面では不要なので撤去。 */}
+      <div className="ai-section-header" style={{ padding: 0, marginBottom: 8 }}>
+        <h2>🤖 AI 選書アドバイザー</h2>
+        <p className="subtitle">課題や悩みからおすすめの本を提案します</p>
       </div>
 
+      {/* Example chips — タップで textarea に流し込む。挨拶 seed が
+          消えたので、何を入力すれば良いかをここで提示する */}
+      {isEmpty && !loading && (
+        <div className="example-chips">
+          <p className="example-chips-label">💡 例（タップで入力）</p>
+          {ADVISOR_EXAMPLES.map((ex) => (
+            <button
+              type="button"
+              key={ex}
+              className="example-chip"
+              onClick={() => setInput(ex)}
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4 }}>
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4, paddingTop: 12 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div style={{
@@ -1514,18 +1543,17 @@ function BookAdvisor({ onAddBook, onClose }) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input — sticky 底辺、BottomNav 上に乗る。マイ読書脳と同じ UI。 */}
       {!recommendations && (
-        <div style={{ display: "flex", gap: 6, paddingTop: 12, borderTop: "1px solid #e0d8c8", marginTop: 8, flexShrink: 0, alignItems: "flex-end" }}>
+        <div className="ai-input-area">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="課題や悩みを入力..."
-            rows={2}
+            rows={1}
             disabled={loading}
             aria-label="AI選書アドバイザーへの質問"
-            style={{ ...ta, flex: 1, minHeight: 60, maxHeight: 200, resize: "none" }}
             onKeyDown={(e) => {
               if (e.nativeEvent.isComposing) return;
               if (e.key === "Enter" && (e.shiftKey || e.metaKey || e.ctrlKey)) {
@@ -1536,12 +1564,12 @@ function BookAdvisor({ onAddBook, onClose }) {
           />
           <button
             type="button"
+            className="send-btn"
             onClick={sendMessage}
             disabled={!input.trim() || loading}
             aria-label="送信"
-            style={{ ...btnS, padding: "10px 16px", fontSize: 12, minHeight: 44, opacity: !input.trim() || loading ? 0.5 : 1 }}
           >
-            送信
+            {loading ? '送信中…' : '送信 →'}
           </button>
         </div>
       )}
@@ -3314,10 +3342,7 @@ const persist = useCallback((updates) => {
             </div>
             {aiSubTab === 'advisor' ? (
               <div style={{ padding: "12px 16px 24px" }}>
-                <BookAdvisor
-                  onAddBook={(rec) => { addFromAdvisor(rec); }}
-                  onClose={() => setTab("books")}
-                />
+                <BookAdvisor onAddBook={(rec) => { addFromAdvisor(rec); }} />
               </div>
             ) : (
               <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
