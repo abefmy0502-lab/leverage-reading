@@ -28,6 +28,7 @@ import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
+import { initServiceWorker, applyUpdate } from './lib/swUpdate';
 import { BookListSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
 import SwipeableCard from './components/SwipeableCard';
@@ -3081,6 +3082,27 @@ function hashHasAuthParams() {
 
 function AppShell() {
   const { user, loading } = useAuth();
+  const toast = useToast();
+
+  // 🔄 PWA 自動更新の初期化。アプリ起動時 1 回だけ走らせ、新版が
+  // 検出された時はユーザーに合意を取ってから reload する。入力中の
+  // テキストを暗黙で消さないため、必ず toast の action で承認を取る。
+  useEffect(() => {
+    initServiceWorker({
+      onUpdateAvailable: () => {
+        toast.show({
+          type: 'info',
+          message: '新しいバージョンがあります',
+          duration: 0, // ユーザーが操作するまで残す
+          action: {
+            label: '更新',
+            onClick: () => applyUpdate(),
+          },
+        });
+      },
+    });
+  }, [toast]);
+
   if (loading) {
     return (
       <Shell>

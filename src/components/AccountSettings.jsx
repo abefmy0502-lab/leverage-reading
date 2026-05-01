@@ -16,6 +16,7 @@ import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import FeedbackForm from './FeedbackForm';
 import { exportUserDataAsCSV } from '../lib/exportData';
+import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 
 const overlayStyle = {
   position: 'fixed',
@@ -137,6 +138,17 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  const handleForceUpdate = async () => {
+    if (updating) return;
+    setUpdating(true);
+    toast.info('アプリを最新版に更新中…');
+    // 内部で SW.update() → cache 全消去 → reload。reload するので
+    // setUpdating(false) には到達しないが、エラー時の保険として finally。
+    try { await forceAppUpdate(); }
+    finally { setUpdating(false); }
+  };
 
   useEffect(() => {
     const onKey = (e) => {
@@ -254,6 +266,30 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0 }}>サインイン中</p>
             <p style={{ fontSize: 14, color: '#3d362c', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
           </div>
+
+          {/* App update */}
+          <section style={sectionStyle}>
+            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+              🔄 アプリを最新版に更新
+            </p>
+            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+              新しいバージョンが反映されない時はこちら。キャッシュをクリアして再読み込みします。
+            </p>
+            <button
+              type="button"
+              style={{
+                ...btnPrimary,
+                background: 'transparent',
+                color: '#5c5043',
+                border: '1px solid #d4ccbe',
+                opacity: updating ? 0.6 : 1,
+              }}
+              disabled={updating}
+              onClick={handleForceUpdate}
+            >
+              {updating ? '更新中…' : '🔄 最新版に更新する'}
+            </button>
+          </section>
 
           {/* Feedback */}
           <section style={sectionStyle}>

@@ -26,12 +26,11 @@
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-      });
-    }
-  </script>
+  <!--
+    Service Worker registration is handled in src/lib/swUpdate.js so the
+    React side can show a toast when a new version is detected. Don't
+    register from here.
+  -->
+
 </body>
 </html>

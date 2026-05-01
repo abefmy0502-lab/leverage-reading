@@ -1,5 +1,10 @@
-const STATIC_CACHE = 'leverage-static-v2';
-const RUNTIME_CACHE = 'leverage-runtime-v2';
+// 🚨 重要: SW の挙動を変えたら必ずこの値を bump する。
+// ブラウザは sw.js を byte-by-byte で diff するため、SW_VERSION を
+// 変えるだけでも install → skipWaiting → activate → 旧 cache 削除の
+// 流れが走り、ユーザーは「アプリを削除→再追加」しなくても新版を取得できる。
+const SW_VERSION = 'v3';
+const STATIC_CACHE = `leverage-static-${SW_VERSION}`;
+const RUNTIME_CACHE = `leverage-runtime-${SW_VERSION}`;
 const ALLOWED_CACHES = [STATIC_CACHE, RUNTIME_CACHE];
 
 self.addEventListener('install', () => {
@@ -81,4 +86,14 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
+  // 強制更新ボタンから飛んでくるリクエスト: 全 cache を削除してリロード
+  // 待機中の SW があれば skipWaiting も併せて発火する。
+  if (event.data === 'CLEAR_CACHES') {
+    event.waitUntil(
+      (async () => {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      })(),
+    );
+  }
 });
