@@ -625,9 +625,71 @@ const ISBN_CAND_CACHE_KEY = (title, author) =>
   `isbn-candidates:${(title || '').trim()}|${(author || '').trim()}`;
 const ISBN_CAND_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-// NDL OpenSearch — 日本書籍に強い。XML レスポンスから dc:identifier
-// (xsi:type が dcndl:ISBN) を抽出する。
-export async function findIsbnCandidatesFromNDL(title, author) {
+// ============================================================
+// タイトル/著者の類似度判定 — タイトルが似ているだけの「全く別の本」
+// (例: 「営業の本質」 vs 「営業の力」) の ISBN を候補から弾くために、
+// fetch した書誌メタデータを正規化して比較する。
+// ============================================================
+
+// 正規化: 全角→半角, 括弧/記号/空白除去, lowercase, ローマ数字 (Ⅰ-Ⅻ) 展開
+const normalizeTitle = (s) =>
+  (s || '')
+    .toString()
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s・()()\[\]【】「」『』:、,.。!?!?\-—‐−~〜:;]/g, '')
+    .replace(/[Ⅰ-Ⅻ]/g, (m) => 'i'.repeat(m.charCodeAt(0) - 0x2160 + 1));
+
+const normalizeAuthor = (s) =>
+  (s || '')
+    .toString()
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s・,、;:]/g, '');
+
+/**
+ * 0.0〜1.0 のタイトル類似度。
+ *  - 完全一致: 1.0
+ *  - 一方が他方を完全に含む (副題違い等): 包含側の比率
+ *  - それ以外: 0
+ *
+ * 部分一致 (どちらでも片方を含まない) は意図的に却下。半分一致した
+ * 別タイトルの本が候補に紛れる事故を根治するため。
+ */
+const titleSimilarity = (a, b) => {
+  const na = normalizeTitle(a);
+  const nb = normalizeTitle(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) {
+    const longer = na.length >= nb.length ? na : nb;
+    const shorter = na.length >= nb.length ? nb : na;
+    return shorter.length / longer.length;
+  }
+  return 0;
+};
+
+const TITLE_SIM_THRESHOLD = 0.7;
+
+/**
+ * 候補 (NDL/Google Books から取れた書誌) と「ユーザーが追加しようとして
+ * いる本」が同じ本かを判定する。タイトル類似度 ≥ 0.7 + 著者の互含 (両方
+ * 与えられている場合のみ) を要求。
+ */
+const isSameBook = (candidate, original) => {
+  const tSim = titleSimilarity(candidate.title, original.title);
+  if (tSim < TITLE_SIM_THRESHOLD) return false;
+  if (candidate.author && original.author) {
+    const aA = normalizeAuthor(candidate.author);
+    const aO = normalizeAuthor(original.author);
+    if (aA && aO && !aA.includes(aO) && !aO.includes(aA)) return false;
+  }
+  return true;
+};
+
+// NDL OpenSearch — 日本書籍に強い。XML レスポンスから書誌メタデータ
+// (isbn / title / author) をまとめて抽出する。
+async function findCandidateBooksFromNDL(title, author) {
   const t = (title || '').trim();
   const a = (author || '').trim();
   if (!t && !a) return [];
@@ -640,25 +702,26 @@ export async function findIsbnCandidatesFromNDL(title, author) {
     const r = await fetch(url);
     if (!r.ok) return [];
     const xml = await r.text();
-    // dc:identifier は xsi:type で ISBN を判別する。正規表現でざっくり
-    // 抽出 (XML 仕様的には DOMParser が望ましいが、ここはパフォーマンス
-    // 優先で文字列マッチ)。
-    const re = /<dc:identifier[^>]*ISBN[^>]*>\s*([0-9Xx-]+)\s*<\/dc:identifier>/gi;
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    if (doc.getElementsByTagName('parsererror').length > 0) return [];
+    const items = Array.from(doc.getElementsByTagName('item'));
     const out = [];
-    let m;
-    while ((m = re.exec(xml)) !== null) {
-      const clean = m[1].replace(/[-\s]/g, '');
-      if (clean.length === 10 || clean.length === 13) out.push(clean);
+    for (const item of items) {
+      const isbn = isbnFromNdl(item);
+      if (!isbn) continue;
+      const titleText = item.getElementsByTagName('title')[0]?.textContent?.trim() || '';
+      const authorText = authorFromNdl(item);
+      out.push({ isbn, title: titleText, author: authorText });
     }
-    return [...new Set(out)];
+    return out;
   } catch (e) {
-    console.warn('[findIsbnCandidatesFromNDL] failed:', e?.message || e);
+    console.warn('[findCandidateBooksFromNDL] failed:', e?.message || e);
     return [];
   }
 }
 
 // Google Books — 洋書 / NDL に無い和書のフォールバック。
-export async function findIsbnCandidatesFromGoogleBooks(title, author) {
+async function findCandidateBooksFromGoogleBooks(title, author) {
   const t = (title || '').trim();
   const a = (author || '').trim();
   if (!t && !a) return [];
@@ -670,31 +733,84 @@ export async function findIsbnCandidatesFromGoogleBooks(title, author) {
     const r = await fetch(url);
     if (!r.ok) return [];
     const d = await r.json();
-    const isbns = [];
+    const out = [];
     for (const item of d.items || []) {
-      const ids = item.volumeInfo?.industryIdentifiers || [];
+      const info = item.volumeInfo || {};
+      const ids = info.industryIdentifiers || [];
       for (const id of ids) {
         if ((id.type === 'ISBN_13' || id.type === 'ISBN_10') && id.identifier) {
-          isbns.push(String(id.identifier).replace(/[-\s]/g, ''));
+          out.push({
+            isbn: String(id.identifier).replace(/[-\s]/g, ''),
+            title: info.title || '',
+            author: (info.authors || []).join(', '),
+          });
         }
       }
     }
-    return [...new Set(isbns)];
+    return out;
   } catch (e) {
-    console.warn('[findIsbnCandidatesFromGoogleBooks] failed:', e?.message || e);
+    console.warn('[findCandidateBooksFromGoogleBooks] failed:', e?.message || e);
     return [];
   }
 }
 
-// 統合: NDL + Google Books を並列で叩いて、NDL を先頭に積んだ重複排除済み
-// ISBN リストを返す。
+// 後方互換: 旧 API は string[] を返す。
+export async function findIsbnCandidatesFromNDL(title, author) {
+  const books = await findCandidateBooksFromNDL(title, author);
+  return [...new Set(books.map((b) => b.isbn).filter(Boolean))];
+}
+export async function findIsbnCandidatesFromGoogleBooks(title, author) {
+  const books = await findCandidateBooksFromGoogleBooks(title, author);
+  return [...new Set(books.map((b) => b.isbn).filter(Boolean))];
+}
+
+/**
+ * 厳格化版: NDL + Google Books から書誌メタデータを並列取得 → タイトル/著者
+ * の類似度フィルタを通したものだけ {isbn, title, author} 配列で返す。
+ * 「タイトルが似ているだけの全く別の本」の ISBN は除外される。
+ */
+export async function findIsbnCandidatesWithMetadata(title, author) {
+  const t = (title || '').trim();
+  const a = (author || '').trim();
+  if (!t && !a) return [];
+  const [ndlR, googleR] = await Promise.allSettled([
+    findCandidateBooksFromNDL(t, a),
+    findCandidateBooksFromGoogleBooks(t, a),
+  ]);
+  const ndl = ndlR.status === 'fulfilled' ? ndlR.value : [];
+  const google = googleR.status === 'fulfilled' ? googleR.value : [];
+  const allCandidates = [...ndl, ...google];
+
+  // タイトル + 著者でフィルタ。NDL を優先 (先頭) し、同 ISBN は重複排除。
+  const original = { title: t, author: a };
+  const seen = new Set();
+  const filtered = [];
+  for (const cand of allCandidates) {
+    if (!cand.isbn) continue;
+    if (seen.has(cand.isbn)) continue;
+    seen.add(cand.isbn);
+    if (!t || !a || isSameBook(cand, original) || (!cand.title && cand.author)) {
+      // タイトル/著者が両方与えられていれば厳格、片方しかなければ通す。
+      // (片方しかない検索条件の時は受け取り側で判断)
+      filtered.push(cand);
+    }
+  }
+
+  if (typeof console !== 'undefined') {
+    console.log('[isbn-candidates] all:', allCandidates.length, 'filtered:', filtered.length);
+  }
+  return filtered;
+}
+
+// 統合: 厳格マッチ後の ISBN だけを返す (旧 API、後方互換用)。
 export async function findIsbnCandidates(title, author) {
   const t = (title || '').trim();
   const a = (author || '').trim();
   if (!t && !a) return [];
 
-  // localStorage cache
-  const cacheKey = ISBN_CAND_CACHE_KEY(t, a);
+  // localStorage cache。v4 で厳格マッチ導入 → 旧キャッシュは無視できるよう
+  // バージョン suffix を付ける。
+  const cacheKey = `${ISBN_CAND_CACHE_KEY(t, a)}:v2`;
   try {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem(cacheKey);
@@ -707,26 +823,15 @@ export async function findIsbnCandidates(title, author) {
     }
   } catch { /* ignore */ }
 
-  const [ndlR, googleR] = await Promise.allSettled([
-    findIsbnCandidatesFromNDL(t, a),
-    findIsbnCandidatesFromGoogleBooks(t, a),
-  ]);
-  const ndl = ndlR.status === 'fulfilled' ? ndlR.value : [];
-  const google = googleR.status === 'fulfilled' ? googleR.value : [];
-  const merged = [...new Set([...ndl, ...google])];
-
-  if (typeof console !== 'undefined') {
-    console.log('[findIsbnCandidates] NDL:', ndl);
-    console.log('[findIsbnCandidates] Google Books:', google);
-    console.log('[findIsbnCandidates] merged unique:', merged);
-  }
+  const filtered = await findIsbnCandidatesWithMetadata(t, a);
+  const isbns = filtered.map((c) => c.isbn);
 
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: merged }));
+      localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: isbns }));
     }
   } catch { /* ignore */ }
-  return merged;
+  return isbns;
 }
 
 // ISBN-only lookup used by BookSearchModal when a clean ISBN is typed.

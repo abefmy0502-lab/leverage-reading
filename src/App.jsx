@@ -29,6 +29,7 @@ import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
 import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
+import CoverFixModal from './components/CoverFixModal';
 import { supabase as supabaseClient } from './lib/supabase';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
@@ -3022,6 +3023,8 @@ const persist = useCallback((updates) => {
   // null なら非表示。{ bookId, actionIdx, action } をセット。
   const [completingAction, setCompletingAction] = useState(null);
   const [reflectionInput, setReflectionInput] = useState('');
+  // 「表紙が違う?」モーダル — 詳細画面の表紙下リンクから開く。
+  const [coverFixForBook, setCoverFixForBook] = useState(null);
 
   // 内部関数: action.done を toggle し、完了時は completed_at + reflection を反映、
   // 繰り返し設定があれば次回分を新規行動として末尾に追加する。
@@ -3193,7 +3196,34 @@ const persist = useCallback((updates) => {
 
           {/* Book header */}
           <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
-            {current.cover && <img src={ensureHttps(current.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />}
+            {current.cover && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                <img src={ensureHttps(current.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
+                {/* 表紙の出典 (ISBN) と「表紙が違う?」リンク。manual アップロード
+                    済み (cover_isbn === 'manual') の本は表示しない。 */}
+                {current.coverIsbn && current.coverIsbn !== 'manual' && (
+                  <span style={{ fontSize: 9, color: '#a89e8c', whiteSpace: 'nowrap' }}>
+                    ISBN: {current.coverIsbn}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setCoverFixForBook(current)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    fontSize: 10,
+                    color: '#8a7040',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  表紙が違う？
+                </button>
+              </div>
+            )}
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c", lineHeight: 1.4 }}>{current.title}</h2>
               {current.author && <p style={{ fontSize: 12, color: "#8a7e6b", marginTop: 3 }}>{current.author}</p>}
@@ -4222,6 +4252,28 @@ const persist = useCallback((updates) => {
         <AccountSettings
           onClose={() => setSettingsOpen(false)}
           onAfterDelete={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {/* 表紙修正モーダル — 詳細画面の「表紙が違う？」リンクから開く。
+          findIsbnCandidatesWithMetadata で別エディションの表紙候補を
+          グリッド表示し、ユーザーが正しいものを選び直せる。 */}
+      {coverFixForBook && (
+        <CoverFixModal
+          book={coverFixForBook}
+          onClose={() => setCoverFixForBook(null)}
+          onPick={async ({ cover, coverIsbn }) => {
+            try {
+              const updated = { ...coverFixForBook, cover, coverIsbn };
+              const saved = await saveBook(updated);
+              const next = saved || updated;
+              setCurrent((c) => (c && c.id === next.id ? next : c));
+              toast.success('表紙を更新しました');
+            } catch (error) {
+              toast.error(toMessage(error, '表紙の更新に失敗しました。'));
+            }
+          }}
+          onManualUpload={() => triggerManualCoverUpload(coverFixForBook)}
         />
       )}
 

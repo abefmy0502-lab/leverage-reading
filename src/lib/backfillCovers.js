@@ -19,7 +19,10 @@
 import { resolveCoverFromCandidates } from './bookCover';
 import { findIsbnCandidates } from './bookSearch';
 
-const FLAG_KEY = 'cover-backfill-v3-done';
+// v4: タイトル類似度フィルタを導入した findIsbnCandidates で再解決させる。
+// 旧 v3 で「タイトル似てるだけの違う本」の表紙を採用してしまったケースを
+// 修正するため、もう一度全本を走らせる。
+const FLAG_KEY = 'cover-backfill-v4-done';
 const BATCH_LIMIT = 50;
 
 export async function backfillCovers(supabase, userId) {
