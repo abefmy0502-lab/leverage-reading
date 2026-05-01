@@ -2694,54 +2694,143 @@ const persist = useCallback((updates) => {
             </div>
           )}
 
-          {/* セットアップ未完了の救済 CTA — 'reading' 中の本でも投資目的 /
-              AI 解析 / セットアップシートのいずれかが未入力なら、ここから
-              戻ってまとめて埋められるようにする。done は対象外。 */}
+          {/* AI セットアップ導線 — どのステータスでも setup フィールドが
+              足りていなければ目立つ位置で促す。
+              - before:    まだ読んでいないので「最初のメインアクション」として
+                           ブランドのグラデーションで前面に出す。完了済みなら
+                           緑の完了表示を返す。
+              - reading:   読書中の救済バナー（黄色 / warning ）。done は
+                           今さら遡る価値が薄いので対象外。 */}
           {(() => {
-            const setupIncomplete =
-              current.status === 'reading' &&
-              (!current.investPurpose || !current.aiAnalysis || !current.aiStrategy);
-            if (!setupIncomplete) return null;
-            return (
-              <div
-                role="alert"
-                style={{
-                  marginTop: 12,
-                  padding: '12px 14px',
-                  borderRadius: 10,
-                  background: 'var(--color-warning-soft, #fff8e1)',
-                  border: '1px solid #e0c878',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
-                }}
-              >
-                <p style={{ fontSize: 13, color: '#8a6010', margin: 0, fontWeight: 600 }}>
-                  ⚠️ 読書前のセットアップが未完了です
-                </p>
-                <p style={{ fontSize: 11, color: '#9a7030', margin: 0, lineHeight: 1.6 }}>
-                  投資目的・AI 解析・セットアップシートをいま埋めると、ROI が最大化されます。
-                </p>
-                <button
-                  type="button"
-                  onClick={() => openSetup(current)}
+            const isIncomplete =
+              !current.investPurpose || !current.aiAnalysis || !current.aiStrategy;
+
+            if (current.status === 'before') {
+              if (isIncomplete) {
+                return (
+                  <div
+                    style={{
+                      marginTop: 16,
+                      padding: '20px 18px',
+                      borderRadius: 16,
+                      background: 'linear-gradient(135deg, #5C4A2E 0%, #8B6F47 100%)',
+                      color: '#faf6f0',
+                      textAlign: 'center',
+                      boxShadow: '0 6px 18px rgba(92, 74, 46, 0.22)',
+                    }}
+                  >
+                    <div style={{ fontSize: 30, lineHeight: 1, marginBottom: 6 }}>📋</div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: 0.2 }}>
+                      AI セットアップを完了しよう
+                    </h3>
+                    <p style={{ margin: '8px 0 14px', fontSize: 12, lineHeight: 1.6, opacity: 0.92 }}>
+                      投資目的を明確にすると、AI があなた専用の読み方戦略を提案します
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => openSetup(current)}
+                      style={{
+                        background: '#faf6f0',
+                        color: '#5C4A2E',
+                        padding: '11px 22px',
+                        borderRadius: 999,
+                        border: 'none',
+                        fontWeight: 700,
+                        fontSize: 14,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        minHeight: 44,
+                      }}
+                    >
+                      📋 セットアップを始める →
+                    </button>
+                  </div>
+                );
+              }
+              // 完了済み: 控えめな完了表示 + 編集導線
+              return (
+                <div
                   style={{
-                    alignSelf: 'flex-start',
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: '#8a7040',
-                    color: '#faf6f0',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
+                    marginTop: 12,
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    background: 'var(--color-success-soft, #eaf5e3)',
+                    border: '1px solid #b9d4a3',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    flexWrap: 'wrap',
                   }}
                 >
-                  📋 セットアップを完了する
-                </button>
-              </div>
-            );
+                  <p style={{ fontSize: 12, color: '#4a6e3a', margin: 0, fontWeight: 600 }}>
+                    ✅ AI セットアップ完了
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openSetup(current)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 8,
+                      border: '1px solid #b9d4a3',
+                      background: 'transparent',
+                      color: '#4a6e3a',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    編集する
+                  </button>
+                </div>
+              );
+            }
+
+            if (current.status === 'reading' && isIncomplete) {
+              return (
+                <div
+                  role="alert"
+                  style={{
+                    marginTop: 12,
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    background: 'var(--color-warning-soft, #fff8e1)',
+                    border: '1px solid #e0c878',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  <p style={{ fontSize: 13, color: '#8a6010', margin: 0, fontWeight: 600 }}>
+                    ⚠️ 読書前のセットアップが未完了です
+                  </p>
+                  <p style={{ fontSize: 11, color: '#9a7030', margin: 0, lineHeight: 1.6 }}>
+                    投資目的・AI 解析・セットアップシートをいま埋めると、ROI が最大化されます。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openSetup(current)}
+                    style={{
+                      alignSelf: 'flex-start',
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: '#8a7040',
+                      color: '#faf6f0',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    📋 セットアップを完了する
+                  </button>
+                </div>
+              );
+            }
+
+            return null;
           })()}
 
           {/* Phase-specific content */}
@@ -2852,7 +2941,31 @@ const persist = useCallback((updates) => {
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20 }}>
             {nextStatus[current.status] && (
               <>
-                <button onClick={() => advanceStatus(current, nextStatus[current.status])} style={{ ...btnS, width: "100%", background: st.color }}>
+                <button
+                  onClick={async () => {
+                    // before → reading は AI セットアップが未完了のまま進むと
+                    // このアプリのコア価値（戦略提案）を使い損ねるので、
+                    // 強制はしないが必ず警告する。
+                    if (
+                      current.status === 'before' &&
+                      (!current.investPurpose || !current.aiAnalysis || !current.aiStrategy)
+                    ) {
+                      const ok = await confirm({
+                        title: 'セットアップ未完了のまま進みますか？',
+                        message:
+                          'AI 解析・投資目的・セットアップシートが未入力です。先に「📋 セットアップを始める」を完了すると、このアプリの一番の価値（戦略提案）が活用できます。',
+                        confirmLabel: 'このまま読書を開始',
+                        cancelLabel: 'セットアップを完了する',
+                      });
+                      if (!ok) {
+                        openSetup(current);
+                        return;
+                      }
+                    }
+                    advanceStatus(current, nextStatus[current.status]);
+                  }}
+                  style={{ ...btnS, width: "100%", background: st.color }}
+                >
                   {nextLabel[current.status]}
                 </button>
                 {/* Phase 3: その場のガイダンス — 何が起きるか先に伝えて遷移を温かく */}
@@ -2993,6 +3106,15 @@ const persist = useCallback((updates) => {
             onClose={() => setDetailKebab(null)}
             items={[
               { label: '編集', icon: '✏️', onClick: () => openEdit(current) },
+              // 📋 AI セットアップは before / reading / done のどこからでも
+              // 仕切り直せる。want は本格的なセットアップ前なので除外。
+              ...(current.status !== 'want'
+                ? [{
+                    label: 'AI セットアップを編集',
+                    icon: '📋',
+                    onClick: () => openSetup(current),
+                  }]
+                : []),
               ...(current.status === 'reading' || current.status === 'done'
                 ? [{
                     label: '読書前に戻す',
