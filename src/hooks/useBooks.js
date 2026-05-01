@@ -32,6 +32,10 @@ const transformBook = (book) => ({
   // optional — links fall back to a title search when missing.
   isbn: book.isbn || '',
   asin: book.asin || '',
+  // Multi-ISBN cover resolver で実際に表紙が取れた ISBN を記録する任意
+  // カラム (supabase_books_cover_isbn.sql)。マイグレーション未適用の DB
+  // では undefined のまま。
+  coverIsbn: book.cover_isbn || '',
 });
 
 export function useBooks() {
@@ -96,20 +100,40 @@ export function useBooks() {
         isbn: book.isbn ? String(book.isbn).replace(/[-\s]/g, '') : null,
         asin: book.asin ? String(book.asin).trim() : null,
       };
+      // 任意カラム: マイグレーション (supabase_books_cover_isbn.sql) 未
+      // 適用の DB だと UNDEFINED COLUMN エラーで save が止まるため、
+      // 試行は別経路で。`coverIsbn` が指定された時だけ書き込みを試す。
+      const coverIsbnValue = book.coverIsbn ? String(book.coverIsbn).replace(/[-\s]/g, '') : null;
 
       let savedBookId;
       const isUUID = UUID_RE.test(book.id || '');
 
+      // schema-error フォールバック付きヘルパー: cover_isbn 列が無い DB でも
+      // 通常の保存は成功する。
+      const writeWithCoverIsbnFallback = async (op) => {
+        if (coverIsbnValue) {
+          const r = await op({ ...bookData, cover_isbn: coverIsbnValue });
+          if (!r.error) return r;
+          // 列が存在しない時の Postgres 42703 / Supabase の "schema cache" 系
+          const msg = String(r.error?.message || '');
+          if (msg.includes('cover_isbn') || msg.includes('column')) {
+            return op(bookData); // フォールバック: cover_isbn なしで再試行
+          }
+          return r;
+        }
+        return op(bookData);
+      };
+
       if (isUUID) {
-        const { error } = await supabase.from('books').update(bookData).eq('id', book.id);
+        const { error } = await writeWithCoverIsbnFallback((payload) =>
+          supabase.from('books').update(payload).eq('id', book.id),
+        );
         if (error) throw error;
         savedBookId = book.id;
       } else {
-        const { data, error } = await supabase
-          .from('books')
-          .insert([bookData])
-          .select()
-          .single();
+        const { data, error } = await writeWithCoverIsbnFallback((payload) =>
+          supabase.from('books').insert([payload]).select().single(),
+        );
         if (error) throw error;
         savedBookId = data.id;
       }

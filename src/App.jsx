@@ -20,8 +20,9 @@ import {
   searchBooksFlat as searchBooksAPIFlat,
   searchBooksAdvanced as searchBooksAPIAdvanced,
   pickSuggestions,
+  findIsbnCandidates,
 } from './lib/bookSearch';
-import { resolveCoverUrl, getCoverCandidates } from './lib/bookCover';
+import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
 import { supabase as supabaseClient } from './lib/supabase';
 import AccountSettings from './components/AccountSettings';
@@ -710,6 +711,9 @@ const emptyBook = () => ({
   // link helper to route to the product page when available.
   isbn: "",
   asin: "",
+  // 表紙取得時に「実際にどの ISBN で画像が取れたか」を記録する任意フィールド。
+  // multi-ISBN リゾルバ (lib/bookCover.resolveCoverFromCandidates) が決定する。
+  coverIsbn: "",
 });
 
 /* ========== Phase Screens ========== */
@@ -1923,38 +1927,66 @@ const persist = useCallback((updates) => {
     setCurrent(null);
     setView('edit');
 
-    // 2) 非同期に「実在する URL」へ確定。完了したら form.cover を上書き。
-    //    保存ボタンは即押せるが、3 秒以内に検証結果が来ればそれが反映。
-    if (b?.isbn) {
-      resolveCoverUrl(b.isbn).then((resolved) => {
-        if (typeof console !== 'undefined') console.log('[cover] resolved:', resolved);
-        if (resolved) {
-          setForm((f) => (f && f.id === seeded.id ? { ...f, cover: resolved } : f));
+    // 2) 非同期に multi-ISBN リゾルバで cover を確定。
+    //    primary ISBN → 同タイトル+著者の他エディション ISBN の順で
+    //    openBD/Amazon を試し、最初にロード成功した URL を採用する。
+    //    完了したら form.cover (と coverIsbn) を上書き。
+    (async () => {
+      try {
+        const altIsbns = await findIsbnCandidates(b.title, b.author);
+        const ordered = [b?.isbn, ...altIsbns].filter(Boolean);
+        if (ordered.length === 0) return;
+        const { isbn: resolvedIsbn, url: resolvedUrl } = await resolveCoverFromCandidates(ordered);
+        if (typeof console !== 'undefined') {
+          console.log('[cover] alt ISBNs:', altIsbns);
+          console.log('[cover] resolved:', { isbn: resolvedIsbn, url: resolvedUrl });
         }
-      }).catch(() => {});
-    }
+        if (resolvedUrl) {
+          setForm((f) => (
+            f && f.id === seeded.id
+              ? { ...f, cover: resolvedUrl, coverIsbn: resolvedIsbn || f.coverIsbn || '' }
+              : f
+          ));
+        }
+      } catch (e) {
+        console.warn('[cover] multi-ISBN resolve failed:', e?.message || e);
+      }
+    })();
   };
 
-  // 既存の本に対して表紙を取り直す。lib/bookCover.js の resolveCoverUrl
-  // (openBD → Amazon ISBN-10 の順で実在検証) を最優先で使い、
-  // それで取れなければタイトル+著者検索の 1 件目 cover にフォールバック。
+  // 既存の本に対して表紙を取り直す。multi-ISBN リゾルバを優先で使い、
+  // primary ISBN → 同タイトル+著者の別エディションの順に openBD/Amazon
+  // を試す。すべて失敗したら最終手段として検索 1 件目の cover URL を採用。
   const refreshCoverFor = async (book) => {
     if (!book) return;
     try {
-      let candidate = '';
-      if (book.isbn) {
-        candidate = await resolveCoverUrl(book.isbn);
+      let coverUrl = '';
+      let coverIsbn = '';
+      if (book.title || book.author) {
+        const altIsbns = await findIsbnCandidates(book.title, book.author);
+        const ordered = [book.isbn, ...altIsbns].filter(Boolean);
+        if (ordered.length > 0) {
+          const r = await resolveCoverFromCandidates(ordered);
+          if (r.url) {
+            coverUrl = r.url;
+            coverIsbn = r.isbn || '';
+          }
+        }
       }
-      if (!candidate) {
-        // ISBN なし or 解決失敗 → 検索 → 1 件目の cover を最終手段として採用
+      if (!coverUrl && book.isbn) {
+        // primary ISBN だけで再試行 (find が失敗してもここで捕捉)
+        coverUrl = await resolveCoverUrl(book.isbn);
+        if (coverUrl) coverIsbn = book.isbn;
+      }
+      if (!coverUrl) {
         const r = await searchBooksAPIFlat(`${book.title || ''} ${book.author || ''}`.trim());
-        if (r?.[0]?.cover) candidate = r[0].cover;
+        if (r?.[0]?.cover) coverUrl = r[0].cover;
       }
-      if (!candidate) {
+      if (!coverUrl) {
         toast.info('表紙が見つかりませんでした');
         return;
       }
-      const updated = { ...book, cover: candidate };
+      const updated = { ...book, cover: coverUrl, coverIsbn };
       const saved = await saveBook(updated);
       const next = saved || updated;
       if (current && current.id === next.id) setCurrent(next);

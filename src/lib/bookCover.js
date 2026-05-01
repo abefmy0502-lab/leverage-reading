@@ -67,6 +67,41 @@ const checkImageExists = (url) =>
   });
 
 /**
+ * 1 つの ISBN について openBD と Amazon を順に試す。最初に通った URL を返す。
+ * resolveCoverUrl の単 ISBN 版エイリアス兼、複数候補ループの構成要素。
+ */
+export const tryCoverForIsbn = async (isbn) => {
+  const candidates = getCoverCandidates(isbn);
+  for (const url of candidates) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await checkImageExists(url)) return url;
+  }
+  return null;
+};
+
+const MAX_ISBNS_TO_TRY = 5;
+
+/**
+ * 複数の ISBN 候補（ハードカバー / 文庫 / 新装版 …）を順に試し、最初に
+ * 画像が見つかった `{ isbn, url }` を返す。すべて失敗したら
+ * `{ isbn: <先頭>, url: null }`。
+ *
+ * 同一書籍でもエディションごとに ISBN が違うため、書誌情報の主 ISBN
+ * (= primaryIsbn) で表紙が落ちなくても、別エディションで取れる確率が
+ * 高い。MAX_ISBNS_TO_TRY で試行回数の上限をかけて API 負荷を抑制。
+ */
+export const resolveCoverFromCandidates = async (isbnList) => {
+  const unique = [...new Set((isbnList || []).map((s) => s && String(s).replace(/[-\s]/g, '')).filter(Boolean))]
+    .slice(0, MAX_ISBNS_TO_TRY);
+  for (const isbn of unique) {
+    // eslint-disable-next-line no-await-in-loop
+    const url = await tryCoverForIsbn(isbn);
+    if (url) return { isbn, url };
+  }
+  return { isbn: unique[0] || null, url: null };
+};
+
+/**
  * ISBN から実際にロードできる cover URL を 1 つ返す。なければ null。
  * 候補を順に当たり、最初に通ったものを採用する (no-store / no-cors の
  * 影響を避けるため fetch ではなく `<img>` ロードで判定)。

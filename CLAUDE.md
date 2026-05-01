@@ -179,6 +179,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_added_via.sql` | 検索ファースト追加フロー — `books.added_via` カラム新設（`'search'` / `'manual'`）+ `book-covers` public バケット作成（手動入力時の表紙画像アップロード用） |
 | `supabase_books_isbn.sql` | Amazon アソシエイトリンク用に `books.isbn` / `books.asin` カラム新設（任意、リンクは ASIN > ISBN > タイトル の順でフォールバック） |
 | `supabase_feedback.sql` | 📩 ユーザーフィードバック・要望の保存先 — `feedback` テーブル新規 + RLS（自分の投稿のみ SELECT 可能、UPDATE/DELETE は管理者のみ） |
+| `supabase_books_cover_isbn.sql` | multi-ISBN cover resolver で「実際にどの ISBN（エディション）から表紙が取れたか」を記録する `books.cover_isbn` 列追加（任意。クライアントは schema-error fallback で列なしでも動作） |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 

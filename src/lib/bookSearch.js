@@ -612,6 +612,75 @@ export function pickSuggestions(results, limit = 3) {
   return scored.slice(0, limit).map((s) => s.r);
 }
 
+/**
+ * 同じタイトル+著者の本を Google Books で検索し、複数エディションの
+ * ISBN を集めて返す。「レバレッジ・リーディング」のように単行本/文庫/
+ * 新装版で別 ISBN を持つ本でも、いずれかのエディションで表紙が見つかる
+ * 確率が大幅に上がる。
+ *
+ * - localStorage に 7 日キャッシュ (Google Books の 1 日 1000 リクエスト
+ *   制限を温存)
+ * - intitle / inauthor 演算子で曖昧マッチを抑制
+ * - 取得は 10 件まで、ISBN-13 を優先 (ISBN-10 もあれば収集)
+ *
+ * 失敗 (ネット断 / レート制限 / 結果 0) 時は空配列を返す — 上層は
+ * primary ISBN だけで cover 解決を続けられる設計。
+ */
+const ISBN_CAND_CACHE_KEY = (title, author) =>
+  `isbn-candidates:${(title || '').trim()}|${(author || '').trim()}`;
+const ISBN_CAND_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function findIsbnCandidates(title, author) {
+  const t = (title || '').trim();
+  const a = (author || '').trim();
+  if (!t && !a) return [];
+
+  // localStorage cache (7 日)
+  const cacheKey = ISBN_CAND_CACHE_KEY(t, a);
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Date.now() - parsed.t < ISBN_CAND_TTL_MS && Array.isArray(parsed.v)) {
+          return parsed.v;
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  // intitle: / inauthor: 演算子で結果を絞る (曖昧マッチ抑制)
+  const parts = [];
+  if (t) parts.push(`intitle:${encodeURIComponent(t)}`);
+  if (a) parts.push(`inauthor:${encodeURIComponent(a)}`);
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${parts.join('+')}&maxResults=10&country=JP`;
+  let isbns = [];
+  try {
+    const r = await fetch(url);
+    if (r.ok) {
+      const d = await r.json();
+      for (const item of d.items || []) {
+        const ids = item.volumeInfo?.industryIdentifiers || [];
+        for (const id of ids) {
+          if ((id.type === 'ISBN_13' || id.type === 'ISBN_10') && id.identifier) {
+            isbns.push(String(id.identifier).replace(/[-\s]/g, ''));
+          }
+        }
+      }
+      isbns = [...new Set(isbns)];
+    }
+  } catch (e) {
+    console.warn('[findIsbnCandidates] failed:', e?.message || e);
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: isbns }));
+    }
+  } catch { /* ignore */ }
+  return isbns;
+}
+
 // ISBN-only lookup used by BookSearchModal when a clean ISBN is typed.
 // Returns one normalized book or null.
 export async function lookupISBN(isbn) {
