@@ -1,16 +1,25 @@
-// 🔄 Cover backfill v2 — multi-ISBN リゾルバを使って既存 cover=null
-// の本に表紙を埋める。v1 (= openBD URL を素直に書く) では「openBD に
-// 載っていない単行本」が ?マークのままだった。今回は同タイトル+著者で
-// 取れる別エディション ISBN も試すため、ハードカバーで取れない本でも
-// 文庫版で取れる確率が上がる。
+// 🔄 Cover backfill v3 — 既存 DB に残った「壊れた cover URL」も
+// 対象に含めて新リゾルバで再解決する。
 //
-// フラグキー: cover-backfill-v2-done — v1 (`coverBackfill:done:v1`) を
-// 既に走らせたユーザーにも、v2 を 1 回追加で走らせる狙い。
+// v2 までの問題: cover IS NULL の行しか触っておらず、過去に NDL の
+// 「No image」placeholder URL や Google Books の動的 URL が cover 列
+// に保存されてしまった本 (例: レバレッジ・リーディング ISBN 4492042695)
+// は永久に再解決されないままだった。
+//
+// v3 の対象:
+//   - cover IS NULL
+//   - cover が NDL サムネ URL (ndlsearch.ndl.go.jp/thumbnail を含む)
+//   - cover が Google Books の動的 URL (books.google.com/books/content を含む)
+//   - cover_isbn IS NULL (新システム未適用)
+//   ただし cover_isbn = 'manual' (手動アップロード済み) は除外。
+//
+// 解決失敗時は cover を null にリセットして手動アップロード待ちに。
+// 壊れた URL を残しても再解決のループが永遠に止まらないため。
 
 import { resolveCoverFromCandidates } from './bookCover';
 import { findIsbnCandidates } from './bookSearch';
 
-const FLAG_KEY = 'cover-backfill-v2-done';
+const FLAG_KEY = 'cover-backfill-v3-done';
 const BATCH_LIMIT = 50;
 
 export async function backfillCovers(supabase, userId) {
@@ -20,17 +29,22 @@ export async function backfillCovers(supabase, userId) {
   } catch { /* ignore */ }
 
   try {
-    // cover が NULL or 空文字の本を対象。手動アップロード済み (cover_isbn
-    // = 'manual') の本は対象外 — 自動再解決で上書きしないことを保証する。
-    // cover_isbn 列が無い DB は .neq が無視されるだけで動作する。
     const { data, error } = await supabase
       .from('books')
-      .select('id, title, author, isbn, cover_isbn')
+      .select('id, title, author, isbn, cover, cover_isbn')
       .eq('user_id', userId)
-      .or('cover.is.null,cover.eq.')
+      .or(
+        [
+          'cover.is.null',
+          'cover.eq.',
+          'cover.like.%ndlsearch.ndl.go.jp/thumbnail%',
+          'cover.like.%books.google.com/books/content%',
+          'cover_isbn.is.null',
+        ].join(','),
+      )
       .limit(BATCH_LIMIT);
     if (error) {
-      console.warn('[backfillCovers v2] fetch failed:', error?.message || error);
+      console.warn('[backfillCovers v3] fetch failed:', error?.message || error);
       return;
     }
     if (!data || data.length === 0) {
@@ -38,40 +52,68 @@ export async function backfillCovers(supabase, userId) {
       return;
     }
 
-    let updated = 0;
+    let resolved = 0;
+    let cleared = 0;
     for (const row of data) {
       try {
-        // 手動アップロード済み行はスキップ (cover_isbn 列がない DB では
-        // row.cover_isbn は undefined → 通常通り処理される)。
+        // 手動アップロード済みは絶対に触らない。
         if (row.cover_isbn === 'manual') continue;
+
         const altIsbns = await findIsbnCandidates(row.title, row.author);
         const ordered = [row.isbn, ...altIsbns].filter(Boolean);
-        if (ordered.length === 0) continue;
+
+        // ISBN 候補ゼロの本はリゾルバに渡しても結果は出ない。null 化のみ。
+        if (ordered.length === 0) {
+          if (row.cover) {
+            // eslint-disable-next-line no-await-in-loop
+            const res = await supabase.from('books').update({ cover: null }).eq('id', row.id);
+            if (!res.error) cleared += 1;
+          }
+          continue;
+        }
+
         // eslint-disable-next-line no-await-in-loop
         const { isbn, url } = await resolveCoverFromCandidates(ordered);
-        if (!url) continue;
 
-        // schema-error フォールバック: cover_isbn 列が無くても cover だけは保存
-        const payload = { cover: url };
-        const fullPayload = isbn ? { ...payload, cover_isbn: isbn } : payload;
-        // eslint-disable-next-line no-await-in-loop
-        let res = await supabase.from('books').update(fullPayload).eq('id', row.id);
-        if (res.error && /cover_isbn|column/.test(String(res.error?.message || ''))) {
-          // 列なし → cover のみで再試行
+        if (url) {
+          // 解決成功 → cover + cover_isbn を更新。schema-error fallback。
+          const fullPayload = { cover: url, cover_isbn: isbn || null };
+          const minPayload = { cover: url };
           // eslint-disable-next-line no-await-in-loop
-          res = await supabase.from('books').update(payload).eq('id', row.id);
+          let res = await supabase.from('books').update(fullPayload).eq('id', row.id);
+          if (res.error && /cover_isbn|column/.test(String(res.error?.message || ''))) {
+            // eslint-disable-next-line no-await-in-loop
+            res = await supabase.from('books').update(minPayload).eq('id', row.id);
+          }
+          if (!res.error) {
+            resolved += 1;
+            console.log('[backfill v3] resolved:', { title: row.title, isbn, url });
+          }
+        } else if (row.cover) {
+          // 解決失敗 + 既に壊れた URL がある → null にリセットして
+          // 手動アップロード待ちに。次回起動の再ループ防止にもなる。
+          const fullPayload = { cover: null, cover_isbn: null };
+          // eslint-disable-next-line no-await-in-loop
+          let res = await supabase.from('books').update(fullPayload).eq('id', row.id);
+          if (res.error && /cover_isbn|column/.test(String(res.error?.message || ''))) {
+            // eslint-disable-next-line no-await-in-loop
+            res = await supabase.from('books').update({ cover: null }).eq('id', row.id);
+          }
+          if (!res.error) {
+            cleared += 1;
+            console.log('[backfill v3] cleared:', { title: row.title });
+          }
         }
-        if (!res.error) updated += 1;
       } catch (e) {
-        console.warn('[backfillCovers v2] book failed:', row?.title, e?.message || e);
+        console.warn('[backfillCovers v3] book failed:', row?.title, e?.message || e);
       }
     }
 
     try { localStorage.setItem(FLAG_KEY, String(Date.now())); } catch { /* ignore */ }
-    if (updated > 0) {
-      console.log(`[backfillCovers v2] updated ${updated}/${data.length} books`);
+    if (resolved > 0 || cleared > 0) {
+      console.log(`[backfillCovers v3] resolved=${resolved} cleared=${cleared} of ${data.length}`);
     }
   } catch (e) {
-    console.warn('[backfillCovers v2] error:', e?.message || e);
+    console.warn('[backfillCovers v3] error:', e?.message || e);
   }
 }

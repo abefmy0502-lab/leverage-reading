@@ -2098,11 +2098,42 @@ const persist = useCallback((updates) => {
             .filter(Boolean)
         )
       );
+
+      // 表紙未確定の本については、ここで必ず resolveCoverFromCandidates
+      // を通す。検索結果から渡ってきた未検証の URL や、async resolve が
+      // 完了する前にユーザーが保存したケースを救済する。
+      // 'manual' は手動アップロード済み → 触らない。
+      let resolvedCover = form.cover;
+      let resolvedCoverIsbn = form.coverIsbn;
+      if (!resolvedCover && form.coverIsbn !== 'manual' && (form.title || form.isbn)) {
+        try {
+          const altIsbns = await findIsbnCandidates(form.title, form.author);
+          const ordered = [form.isbn, ...altIsbns].filter(Boolean);
+          if (ordered.length > 0) {
+            const r = await resolveCoverFromCandidates(ordered);
+            if (r.url) {
+              resolvedCover = r.url;
+              resolvedCoverIsbn = r.isbn || '';
+            } else {
+              // 取れなかった場合は明示的に null。NDL サムネ等の壊れた
+              // URL が永続化されないようにする。
+              resolvedCover = '';
+              resolvedCoverIsbn = '';
+              toast.show({
+                type: 'info',
+                message: '📷 表紙が見つかりませんでした。手動アップロードできます',
+                duration: 4000,
+              });
+            }
+          }
+        } catch { /* 解決失敗時は元の form 値で保存続行 */ }
+      }
+
       // 重要: status は form.status をそのまま保持。saveBook は自動で
       // ステータスを進めない (実際そういうコードは無いが、明示的にコメント
       // しておく)。「読書を開始する」「読了にする」ボタン経由 = advanceStatus
       // のみが status 遷移を担う。
-      const payload = { ...form, tags: normalizedTags };
+      const payload = { ...form, tags: normalizedTags, cover: resolvedCover, coverIsbn: resolvedCoverIsbn };
       const saved = await saveBook(payload);
       const next = saved || payload;
       const wasNew = !current; // 新規追加 (current=null) かどうか

@@ -138,19 +138,14 @@ function isBookCategoryNdl(item) {
 
 // ---------- API callers ----------
 
-// 📚 表紙 URL の baseline は openBD に統一。NDL の thumbnail は登録の
-// ない本にも 1×1 placeholder を 200 OK で返すことがあり、誤った URL を
-// DB に書き込む原因になっていた (5 回目の修正で root cause として特定)。
+// 📚 検索結果は「書誌メタデータ専用」— 未検証の cover URL は載せない。
+// NDL の thumbnail は登録のない本でも 'No image' プレースホルダーを
+// 200 OK で返す + openBD URL パターンも 404 の可能性があるため、検索
+// 段階で URL を入れると DB に「壊れた cover」として永続化される事故が
+//起きる (実際にレバレッジ・リーディングで発生)。
 //
-// openBD は日本書籍のカバー網羅率が極めて高く、URL パターンが単純
-// (ISBN-13 さえあれば導出可能)。404 が返ったら表示側の onError + lib/
-// bookCover.js の naturalWidth check でプレースホルダにフォールバック。
-import { getCoverCandidates as _coverCandidates } from './bookCover';
-function defaultCoverFromIsbn(isbn) {
-  if (!isbn) return '';
-  const list = _coverCandidates(isbn);
-  return list[0] || '';
-}
+// cover URL の確定は lib/bookCover.resolveCoverFromCandidates で実在
+// 検証してから。検索結果の cover は常に '' を返す。
 
 // Pull the publication year from <dc:date> / <pubDate>. NDL is inconsistent —
 // some entries use ISO ("2014-09"), others "2014", others a long date. We
@@ -213,7 +208,10 @@ async function searchNDLRaw(urlParams, { signal } = {}) {
         publisher: publisherFromNdl(item),
         pubYear: pubYearFromNdl(item),
         isbn,
-        cover: defaultCoverFromIsbn(isbn),
+        // 検索結果は cover を持たない — 保存時に resolveCoverFromCandidates
+        // で実在検証された URL に確定する。NDL サムネを cover に入れない
+        // ことが今回の根本対策。
+        cover: '',
         pages: 0,
       };
     })
@@ -255,10 +253,9 @@ async function lookupISBNopenBD(isbn) {
       title: s.title || '',
       author: s.author || '',
       publisher: s.publisher || '',
-      // openBD ships a cover ~40% of the time; fall back to a synthesised
-      // openBD-pattern URL (or Amazon ISBN-10) which the display layer
-      // verifies via naturalWidth check.
-      cover: s.cover || defaultCoverFromIsbn(isbn),
+      // openBD は summary.cover を持つ本は ~40%。それ以外は空文字に。
+      // 推測 URL は入れない (上層 resolveCoverFromCandidates で確定)。
+      cover: s.cover || '',
       pages: 0,
       isbn,
     };

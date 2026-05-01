@@ -52,15 +52,26 @@ export const getCoverCandidates = (isbn) => {
 };
 
 // 画像が「実体として存在するか」をブラウザでロードして確認する。
-// HTTP 200 でも 1×1 placeholder を返す API があるため、`naturalWidth > 1`
-// の値で本物かどうかを判定する。3 秒で打ち切り。
+// 単純な 1×1 placeholder だけでなく、「No image」ロゴ画像 (NDL 等が
+// 返す数十 px の正方形・横長画像) も弾くため、以下 3 段階で判定する:
+//   1. 画像が読めない                  → 偽
+//   2. naturalWidth < 50              → 偽 (placeholder 規模)
+//   3. height/width < 0.8 (横長)      → 偽 (本の表紙はほぼ縦長 ~1.4)
+// 3 秒で打ち切り。crossOrigin は付けない (CORS 未対応の openBD/Amazon
+// が読めなくなる。naturalWidth/Height はクロスオリジン画像でも取得可)。
 const checkImageExists = (url) =>
   new Promise((resolve) => {
     if (!url) { resolve(false); return; }
     let settled = false;
     const settle = (v) => { if (!settled) { settled = true; resolve(v); } };
     const img = new Image();
-    img.onload = () => settle(img.naturalWidth > 1);
+    img.onload = () => {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      if (w < 50 || h < 50) { settle(false); return; }      // 1×1 / 小さい placeholder
+      if (h / w < 0.8) { settle(false); return; }            // 横長 = 「No image」ロゴが多い
+      settle(true);
+    };
     img.onerror = () => settle(false);
     img.src = url;
     setTimeout(() => settle(false), 3000);
