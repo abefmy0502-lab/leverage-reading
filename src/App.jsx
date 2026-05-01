@@ -29,6 +29,7 @@ import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
+import BookshelfSummary from './components/BookshelfSummary';
 import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
 import { initServiceWorker, applyUpdate } from './lib/swUpdate';
@@ -3139,6 +3140,12 @@ const persist = useCallback((updates) => {
               </div>
             </div>
             <div style={{ padding: "0 20px" }}>
+              {/* 月次 1 行サマリー: 読了 (今月) / 読書中 (今) / 読書前 (今)
+                  タップで振り返りタブへ遷移 — 振り返り導線を強化。 */}
+              <BookshelfSummary
+                books={books}
+                onClick={() => { setReviewSubTab('note'); setTab('review'); }}
+              />
               {recentBooks.length > 0 && rawBooks.length >= 3 && !search && statusFilter === "all" && (
                 <div style={{ marginBottom: 14 }}>
                   <p style={{ fontSize: 11, color: "#8a7040", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>

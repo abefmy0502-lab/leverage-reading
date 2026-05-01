@@ -104,6 +104,54 @@ const itemList = {
   margin: 0,
 };
 
+// ステップカード用スタイル — bookList ヘルプのような「使い方フロー」を
+// カードで段階的に見せる。視認性を最優先にし、本文は 16px / line-height 1.7。
+const stepSubtitle = {
+  fontSize: 13,
+  color: '#8a7e6b',
+  margin: '0 0 16px',
+};
+const stepCard = {
+  background: '#fff',
+  border: '1px solid #e4ddd0',
+  borderRadius: 12,
+  padding: '14px 16px',
+  marginBottom: 12,
+  boxShadow: '0 1px 2px rgba(30,25,20,0.04)',
+};
+const stepNumber = {
+  fontSize: 22,
+  fontWeight: 700,
+  lineHeight: 1,
+  marginRight: 8,
+};
+const stepTitle = {
+  fontSize: 16,
+  fontWeight: 600,
+  color: '#3d362c',
+  margin: 0,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+};
+const stepBody = {
+  fontSize: 14,
+  color: '#5c5548',
+  lineHeight: 1.7,
+  margin: '8px 0 0',
+  whiteSpace: 'pre-line',
+};
+const tipBox = {
+  marginTop: 6,
+  padding: '12px 14px',
+  background: '#f5efde',
+  border: '1px solid #e0d0a8',
+  borderRadius: 10,
+  fontSize: 13,
+  color: '#5c5043',
+  lineHeight: 1.7,
+};
+
 export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
   const entry = getHelp(helpKey);
 
@@ -153,25 +201,48 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
         </div>
 
         <div style={bodyStyle}>
-          {entry.description && (
-            <p style={{ fontSize: 13, color: '#5c5548', lineHeight: 1.8, margin: '0 0 14px' }}>
-              {entry.description}
-            </p>
-          )}
-
-          {(entry.sections || []).map((s, i) => (
-            <section key={i} style={sectionWrap}>
-              <h3 style={sectionHeading}>{s.heading}</h3>
-              {s.body && <p style={{ ...sectionBody, whiteSpace: 'pre-line' }}>{s.body}</p>}
-              {s.items?.length > 0 && (
-                <ul style={itemList}>
-                  {s.items.map((item, j) => (
-                    <li key={j}>{item}</li>
-                  ))}
-                </ul>
+          {/* ステップ型レイアウト: bookList のような「使い方フロー」を提示。
+              steps を持つエントリだけがこの経路で描画される。 */}
+          {entry.steps?.length > 0 ? (
+            <>
+              {entry.description && <p style={stepSubtitle}>{entry.description}</p>}
+              {entry.steps.map((s, i) => (
+                <section key={i} style={stepCard}>
+                  <h3 style={stepTitle}>
+                    {s.number && <span style={stepNumber} aria-hidden="true">{s.number}</span>}
+                    <span>{s.title}</span>
+                  </h3>
+                  {s.body && <p style={stepBody}>{s.body}</p>}
+                </section>
+              ))}
+              {entry.tip && (
+                <div style={tipBox}>
+                  💡 <strong>コツ:</strong> {entry.tip}
+                </div>
               )}
-            </section>
-          ))}
+            </>
+          ) : (
+            <>
+              {entry.description && (
+                <p style={{ fontSize: 13, color: '#5c5548', lineHeight: 1.8, margin: '0 0 14px' }}>
+                  {entry.description}
+                </p>
+              )}
+              {(entry.sections || []).map((s, i) => (
+                <section key={i} style={sectionWrap}>
+                  <h3 style={sectionHeading}>{s.heading}</h3>
+                  {s.body && <p style={{ ...sectionBody, whiteSpace: 'pre-line' }}>{s.body}</p>}
+                  {s.items?.length > 0 && (
+                    <ul style={itemList}>
+                      {s.items.map((item, j) => (
+                        <li key={j}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ))}
+            </>
+          )}
 
           {onShowOnboarding && (
             <button
