@@ -21,6 +21,9 @@ import {
   searchBooksAdvanced as searchBooksAPIAdvanced,
   pickSuggestions,
 } from './lib/bookSearch';
+import { resolveCoverUrl, getCoverCandidates } from './lib/bookCover';
+import { backfillCovers } from './lib/backfillCovers';
+import { supabase as supabaseClient } from './lib/supabase';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
@@ -535,9 +538,14 @@ function BookCoverCard({ book, isJustDone, onOpen, onLongPress }) {
         ) : (
           <img
             src={ensureHttps(book.cover)}
-            alt=""
+            alt={book.title}
             loading="lazy"
             onError={() => setBroken(true)}
+            // 1×1 transparent placeholder (NDL / openBD などが「画像なし」に
+            // 返すダミー) を実画像と区別するため naturalWidth で判定。
+            onLoad={(e) => {
+              if (e?.target && e.target.naturalWidth <= 1) setBroken(true);
+            }}
           />
         )}
         {/* ステータスバッジは表紙を隠すというフィードバックで撤去。
@@ -608,9 +616,12 @@ function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onL
           {hasCover ? (
             <img
               src={ensureHttps(book.cover)}
-              alt=""
+              alt={book.title}
               loading="lazy"
               onError={() => setBroken(true)}
+              onLoad={(e) => {
+                if (e?.target && e.target.naturalWidth <= 1) setBroken(true);
+              }}
               style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid #e0d8c8", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
             />
           ) : (
@@ -1793,6 +1804,16 @@ function AuthedApp() {
     setShowOnboarding(true);
   }, [booksLoading]);
 
+  // 5 回目の修正で導入: 既存 cover=NULL 行に対して openBD URL を後追いで
+  // 埋めるバックフィル。localStorage で「実行済み」を管理し、ユーザー
+  // ごと 1 回だけ走る。失敗しても起動を遅らせない。
+  useEffect(() => {
+    if (!user?.id) return;
+    backfillCovers(supabaseClient, user.id)
+      .then(() => { try { return refreshBooks(); } catch { /* ignore */ } })
+      .catch(() => {});
+  }, [user?.id, refreshBooks]);
+
 const persist = useCallback((updates) => {
     setData((prev) => { 
       const next = { ...prev, ...updates };
@@ -1837,21 +1858,21 @@ const persist = useCallback((updates) => {
   // 結果リスト UI は AddBookModal 側に閉じている。
   const pickBookFromAdd = (b) => {
     setAddBookModalOpen(false);
-    // 表紙バグ調査用 (本番ビルドでは noop に近い)。検索結果に cover URL が
-    // 載っているかを必ずログに残す。dev で「来てない」と判明したら
-    // bookSearch.js 側を再点検する。
+    // 1) 即時 seed: ISBN があれば openBD パターンを暫定 cover に。
+    //    検索結果の b.cover が既に有効な URL ならそれを優先採用する。
+    const candidates = getCoverCandidates(b?.isbn);
+    const seedCover = b?.cover || candidates[0] || '';
     if (typeof console !== 'undefined') {
-      console.log('[pickBookFromAdd] search result book:', {
-        title: b?.title, author: b?.author, isbn: b?.isbn,
-        coverPresent: !!b?.cover, coverUrl: b?.cover,
-      });
+      console.log('[cover] picked book:', { title: b?.title, isbn: b?.isbn });
+      console.log('[cover] candidates:', candidates);
+      console.log('[cover] seed cover:', seedCover);
     }
     const seeded = {
       ...emptyBook(),
       id: Date.now().toString(),
       title: b.title || '',
       author: b.author || '',
-      cover: b.cover || '',
+      cover: seedCover,
       totalPages: b.pages || 0,
       isbn: b.isbn || '',
       addedVia: 'search',
@@ -1859,20 +1880,31 @@ const persist = useCallback((updates) => {
     setForm(seeded);
     setCurrent(null);
     setView('edit');
+
+    // 2) 非同期に「実在する URL」へ確定。完了したら form.cover を上書き。
+    //    保存ボタンは即押せるが、3 秒以内に検証結果が来ればそれが反映。
+    if (b?.isbn) {
+      resolveCoverUrl(b.isbn).then((resolved) => {
+        if (typeof console !== 'undefined') console.log('[cover] resolved:', resolved);
+        if (resolved) {
+          setForm((f) => (f && f.id === seeded.id ? { ...f, cover: resolved } : f));
+        }
+      }).catch(() => {});
+    }
   };
 
-  // 既存の本に対して表紙を取り直す。ISBN があればそれで openBD/Google を
-  // 直接叩き、無ければタイトル+著者で再検索して 1 件目の cover を採用。
-  // 結果を books.cover に upsert。kebab メニューから呼び出す想定。
+  // 既存の本に対して表紙を取り直す。lib/bookCover.js の resolveCoverUrl
+  // (openBD → Amazon ISBN-10 の順で実在検証) を最優先で使い、
+  // それで取れなければタイトル+著者検索の 1 件目 cover にフォールバック。
   const refreshCoverFor = async (book) => {
     if (!book) return;
     try {
       let candidate = '';
       if (book.isbn) {
-        const r = await searchBooksAPI(String(book.isbn).replace(/[-\s]/g, ''));
-        if (r.ok && r.results?.[0]?.cover) candidate = r.results[0].cover;
+        candidate = await resolveCoverUrl(book.isbn);
       }
       if (!candidate) {
+        // ISBN なし or 解決失敗 → 検索 → 1 件目の cover を最終手段として採用
         const r = await searchBooksAPIFlat(`${book.title || ''} ${book.author || ''}`.trim());
         if (r?.[0]?.cover) candidate = r[0].cover;
       }

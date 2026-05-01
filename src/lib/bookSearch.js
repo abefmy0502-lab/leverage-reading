@@ -138,14 +138,18 @@ function isBookCategoryNdl(item) {
 
 // ---------- API callers ----------
 
-// NDL exposes a thumbnail-by-ISBN endpoint. Most modern Japanese books
-// have an image here even when openBD's `summary.cover` is empty, so we
-// use it as a baseline cover whenever the NDL response carries an ISBN.
-// openBD's higher-quality cover (cover.openbd.jp) overrides this in the
-// merge step when available.
-function ndlThumbnailUrl(isbn) {
+// 📚 表紙 URL の baseline は openBD に統一。NDL の thumbnail は登録の
+// ない本にも 1×1 placeholder を 200 OK で返すことがあり、誤った URL を
+// DB に書き込む原因になっていた (5 回目の修正で root cause として特定)。
+//
+// openBD は日本書籍のカバー網羅率が極めて高く、URL パターンが単純
+// (ISBN-13 さえあれば導出可能)。404 が返ったら表示側の onError + lib/
+// bookCover.js の naturalWidth check でプレースホルダにフォールバック。
+import { getCoverCandidates as _coverCandidates } from './bookCover';
+function defaultCoverFromIsbn(isbn) {
   if (!isbn) return '';
-  return `https://ndlsearch.ndl.go.jp/thumbnail/${isbn}.jpg`;
+  const list = _coverCandidates(isbn);
+  return list[0] || '';
 }
 
 // Pull the publication year from <dc:date> / <pubDate>. NDL is inconsistent —
@@ -209,7 +213,7 @@ async function searchNDLRaw(urlParams, { signal } = {}) {
         publisher: publisherFromNdl(item),
         pubYear: pubYearFromNdl(item),
         isbn,
-        cover: ndlThumbnailUrl(isbn),
+        cover: defaultCoverFromIsbn(isbn),
         pages: 0,
       };
     })
@@ -251,8 +255,10 @@ async function lookupISBNopenBD(isbn) {
       title: s.title || '',
       author: s.author || '',
       publisher: s.publisher || '',
-      // openBD ships a cover ~40% of the time; fall back to NDL thumbnail.
-      cover: s.cover || ndlThumbnailUrl(isbn),
+      // openBD ships a cover ~40% of the time; fall back to a synthesised
+      // openBD-pattern URL (or Amazon ISBN-10) which the display layer
+      // verifies via naturalWidth check.
+      cover: s.cover || defaultCoverFromIsbn(isbn),
       pages: 0,
       isbn,
     };
