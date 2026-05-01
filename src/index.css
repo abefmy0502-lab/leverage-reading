@@ -99,6 +99,19 @@ summary {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* iOS で長押しした時に出る「コピー」「画像を保存」callout を、ボタン /
+   ナビ系の要素では抑止する。textarea や p などの本文テキストは通常通り
+   コピー可能。本のカードや BottomNav / header のボタンが長押しで周囲の
+   テキストを選択してしまう問題を根治するための rule。 */
+button,
+[role="button"],
+header,
+nav {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 button:active,
 [role="button"]:active,
 a:active,

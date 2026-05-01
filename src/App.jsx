@@ -540,8 +540,12 @@ function BookCoverCard({ book, isJustDone, onOpen, onLongPress }) {
             onError={() => setBroken(true)}
           />
         )}
-        <span className="book-status-badge-overlay">
-          {getSt(book.status).emoji} {getSt(book.status).label}
+        <span
+          className="book-status-badge-overlay"
+          aria-label={getSt(book.status).label}
+          title={getSt(book.status).label}
+        >
+          {getSt(book.status).emoji}
         </span>
       </div>
       <p className="book-cover-title">{book.title}</p>
@@ -576,6 +580,10 @@ function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onL
           animation: isJustDone
             ? "leverage-card-celebrate 2.4s ease both"
             : `slideUp .3s ease ${index * 0.02}s both`,
+          // 長押しでカード周辺のテキスト選択 / iOS の callout を抑止。
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
         }}
       >
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -2972,17 +2980,27 @@ const persist = useCallback((updates) => {
                       { label: '📚 本を追加', onClick: openAdd, variant: 'primary' },
                     ]}
                     tip={(
-                      <>
-                        💡 悩みを伝えると AI が選書します（{' '}
+                      <span style={{ display: 'block' }}>
+                        <span style={{ display: 'block' }}>💡 悩みを伝えると AI が本を提案</span>
                         <button
                           type="button"
                           onClick={() => { setAiSubTab('advisor'); setTab('ai'); }}
-                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent)', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}
+                          style={{
+                            display: 'inline-block',
+                            marginTop: 6,
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: 'var(--color-accent)',
+                            textDecoration: 'underline',
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            fontSize: 'inherit',
+                          }}
                         >
-                          AI 選書を開く
+                          AI 選書を開く →
                         </button>
-                        ）
-                      </>
+                      </span>
                     )}
                   />
                 ) : (
