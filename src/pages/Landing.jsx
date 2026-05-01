@@ -209,7 +209,11 @@ const FAQS = [
   },
   {
     q: '無料プランはありますか？',
-    a: '7 日間の無料トライアルがあります。期間中はすべての機能を試せます。',
+    a: '5 日間の無料トライアルがあります。期間中はすべての機能を試せます。',
+  },
+  {
+    q: 'トライアル中の解約はどうすれば？',
+    a: 'アプリ内の設定 → サブスクリプション → 解約 から 1 タップで可能です。解約しても残り日数までは引き続きすべての機能をご利用いただけます。',
   },
 ];
 
@@ -233,7 +237,7 @@ export default function Landing() {
       return el;
     };
     const tags = [
-      setMeta('description', 'AI が読み方を設計し、行動を引き出す『投資型』読書記録。読みっぱなしの本をもう作らない。月額 ¥1,000・7 日間無料。'),
+      setMeta('description', 'AI が読み方を設計し、行動を引き出す『投資型』読書記録。読みっぱなしの本をもう作らない。月額 ¥1,000・5 日間無料。'),
       setMeta('og:title', '読みっぱなしの本、もう作らない | レバレッジ読書ログ', 'property'),
       setMeta('og:description', 'AI が読み方を設計し、行動を引き出す『投資型』読書記録', 'property'),
       setMeta('og:type', 'website', 'property'),
@@ -332,7 +336,7 @@ export default function Landing() {
               <a href="#features" className="lp-cta-secondary">詳しく見る ↓</a>
             </div>
             <p style={{ marginTop: 16, fontSize: 12, color: C.textSub }}>
-              7 日間無料トライアル・クレジットカード不要・いつでも解約可
+              5 日間無料トライアル・クレジットカード不要・いつでも解約可
             </p>
           </div>
           <div className="lp-float">
@@ -518,7 +522,7 @@ export default function Landing() {
             ¥1,000 <span style={{ fontSize: 16, fontWeight: 500, color: C.textSub }}>/ 月</span>
           </div>
           <div style={{ fontSize: 13, color: C.success, fontWeight: 600, margin: '12px 0 24px' }}>
-            ✨ 初回 7 日間は無料
+            ✨ 初回 5 日間は無料
           </div>
           <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 28px', textAlign: 'left' }}>
             {[
@@ -538,7 +542,8 @@ export default function Landing() {
           </button>
           <p style={{ fontSize: 11, color: C.textSub, marginTop: 14, lineHeight: 1.6 }}>
             ※ クレジットカード必要（無料期間中の自動課金は無し）<br />
-            ※ 解約はアプリ内からワンタップ
+            ※ 期間中の解約で課金は発生しません<br />
+            ※ 解約はアプリ内から 1 タップで可能
           </p>
         </div>
       </Section>
