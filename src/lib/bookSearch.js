@@ -613,29 +613,90 @@ export function pickSuggestions(results, limit = 3) {
 }
 
 /**
- * 同じタイトル+著者の本を Google Books で検索し、複数エディションの
- * ISBN を集めて返す。「レバレッジ・リーディング」のように単行本/文庫/
- * 新装版で別 ISBN を持つ本でも、いずれかのエディションで表紙が見つかる
- * 確率が大幅に上がる。
+ * 同タイトル+著者の本から複数エディション ISBN を集める。日本書籍は
+ * Google Books だけでは網羅できない (定番の和書でも単行本 ISBN しか
+ * 載ってない等) ので、**NDL 優先 + Google Books 並列** で取得し、
+ * 重複排除して返す。
  *
- * - localStorage に 7 日キャッシュ (Google Books の 1 日 1000 リクエスト
- *   制限を温存)
- * - intitle / inauthor 演算子で曖昧マッチを抑制
- * - 取得は 10 件まで、ISBN-13 を優先 (ISBN-10 もあれば収集)
+ * キャッシュ: localStorage に 7 日。Google Books の 1日 1000 リクエスト
+ * 制限を温存する目的が大きい。
  *
- * 失敗 (ネット断 / レート制限 / 結果 0) 時は空配列を返す — 上層は
- * primary ISBN だけで cover 解決を続けられる設計。
+ * 失敗 (ネット断 / レート制限 / 0 件) 時は空配列を返す。上層は primary
+ * ISBN だけで cover 解決を続けられる設計。
  */
 const ISBN_CAND_CACHE_KEY = (title, author) =>
   `isbn-candidates:${(title || '').trim()}|${(author || '').trim()}`;
 const ISBN_CAND_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+// NDL OpenSearch — 日本書籍に強い。XML レスポンスから dc:identifier
+// (xsi:type が dcndl:ISBN) を抽出する。
+export async function findIsbnCandidatesFromNDL(title, author) {
+  const t = (title || '').trim();
+  const a = (author || '').trim();
+  if (!t && !a) return [];
+  const params = [];
+  if (t) params.push(`title=${encodeURIComponent(t)}`);
+  if (a) params.push(`creator=${encodeURIComponent(a)}`);
+  params.push('cnt=20');
+  const url = `https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const xml = await r.text();
+    // dc:identifier は xsi:type で ISBN を判別する。正規表現でざっくり
+    // 抽出 (XML 仕様的には DOMParser が望ましいが、ここはパフォーマンス
+    // 優先で文字列マッチ)。
+    const re = /<dc:identifier[^>]*ISBN[^>]*>\s*([0-9Xx-]+)\s*<\/dc:identifier>/gi;
+    const out = [];
+    let m;
+    while ((m = re.exec(xml)) !== null) {
+      const clean = m[1].replace(/[-\s]/g, '');
+      if (clean.length === 10 || clean.length === 13) out.push(clean);
+    }
+    return [...new Set(out)];
+  } catch (e) {
+    console.warn('[findIsbnCandidatesFromNDL] failed:', e?.message || e);
+    return [];
+  }
+}
+
+// Google Books — 洋書 / NDL に無い和書のフォールバック。
+export async function findIsbnCandidatesFromGoogleBooks(title, author) {
+  const t = (title || '').trim();
+  const a = (author || '').trim();
+  if (!t && !a) return [];
+  const parts = [];
+  if (t) parts.push(`intitle:${encodeURIComponent(t)}`);
+  if (a) parts.push(`inauthor:${encodeURIComponent(a)}`);
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${parts.join('+')}&maxResults=10&country=JP`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const d = await r.json();
+    const isbns = [];
+    for (const item of d.items || []) {
+      const ids = item.volumeInfo?.industryIdentifiers || [];
+      for (const id of ids) {
+        if ((id.type === 'ISBN_13' || id.type === 'ISBN_10') && id.identifier) {
+          isbns.push(String(id.identifier).replace(/[-\s]/g, ''));
+        }
+      }
+    }
+    return [...new Set(isbns)];
+  } catch (e) {
+    console.warn('[findIsbnCandidatesFromGoogleBooks] failed:', e?.message || e);
+    return [];
+  }
+}
+
+// 統合: NDL + Google Books を並列で叩いて、NDL を先頭に積んだ重複排除済み
+// ISBN リストを返す。
 export async function findIsbnCandidates(title, author) {
   const t = (title || '').trim();
   const a = (author || '').trim();
   if (!t && !a) return [];
 
-  // localStorage cache (7 日)
+  // localStorage cache
   const cacheKey = ISBN_CAND_CACHE_KEY(t, a);
   try {
     if (typeof localStorage !== 'undefined') {
@@ -649,36 +710,26 @@ export async function findIsbnCandidates(title, author) {
     }
   } catch { /* ignore */ }
 
-  // intitle: / inauthor: 演算子で結果を絞る (曖昧マッチ抑制)
-  const parts = [];
-  if (t) parts.push(`intitle:${encodeURIComponent(t)}`);
-  if (a) parts.push(`inauthor:${encodeURIComponent(a)}`);
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${parts.join('+')}&maxResults=10&country=JP`;
-  let isbns = [];
-  try {
-    const r = await fetch(url);
-    if (r.ok) {
-      const d = await r.json();
-      for (const item of d.items || []) {
-        const ids = item.volumeInfo?.industryIdentifiers || [];
-        for (const id of ids) {
-          if ((id.type === 'ISBN_13' || id.type === 'ISBN_10') && id.identifier) {
-            isbns.push(String(id.identifier).replace(/[-\s]/g, ''));
-          }
-        }
-      }
-      isbns = [...new Set(isbns)];
-    }
-  } catch (e) {
-    console.warn('[findIsbnCandidates] failed:', e?.message || e);
+  const [ndlR, googleR] = await Promise.allSettled([
+    findIsbnCandidatesFromNDL(t, a),
+    findIsbnCandidatesFromGoogleBooks(t, a),
+  ]);
+  const ndl = ndlR.status === 'fulfilled' ? ndlR.value : [];
+  const google = googleR.status === 'fulfilled' ? googleR.value : [];
+  const merged = [...new Set([...ndl, ...google])];
+
+  if (typeof console !== 'undefined') {
+    console.log('[findIsbnCandidates] NDL:', ndl);
+    console.log('[findIsbnCandidates] Google Books:', google);
+    console.log('[findIsbnCandidates] merged unique:', merged);
   }
 
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: isbns }));
+      localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: merged }));
     }
   } catch { /* ignore */ }
-  return isbns;
+  return merged;
 }
 
 // ISBN-only lookup used by BookSearchModal when a clean ISBN is typed.

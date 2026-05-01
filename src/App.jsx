@@ -1954,9 +1954,55 @@ const persist = useCallback((updates) => {
     })();
   };
 
+  // 詳細画面の kebab「🖼 手動でアップロード」用。useBookCover で
+  // book-covers バケットに upload → public URL を books.cover に保存。
+  // cover_isbn は 'manual' を立てて、自動再解決 (backfill) で上書き
+  // されないように保護する。
+  const detailCoverUploadRef = useRef(null);
+  const detailUploadTargetRef = useRef(null);
+  const { uploadCover } = useBookCover();
+
+  const triggerManualCoverUpload = (book) => {
+    if (!book) return;
+    detailUploadTargetRef.current = book;
+    detailCoverUploadRef.current?.click();
+  };
+
+  const handleManualCoverPicked = async (e) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = ''; // 同じファイル再選択を許可
+    const target = detailUploadTargetRef.current;
+    detailUploadTargetRef.current = null;
+    if (!file || !target) return;
+    try {
+      const url = await uploadCover(file);
+      if (!url) throw new Error('アップロード URL の取得に失敗しました');
+      const updated = { ...target, cover: url, coverIsbn: 'manual' };
+      const saved = await saveBook(updated);
+      const next = saved || updated;
+      if (current && current.id === next.id) setCurrent(next);
+      toast.success('表紙をアップロードしました');
+    } catch (err) {
+      toast.error(toMessage(err, '表紙のアップロードに失敗しました'));
+    }
+  };
+
+  const removeCoverFor = async (book) => {
+    if (!book) return;
+    try {
+      const updated = { ...book, cover: '', coverIsbn: '' };
+      const saved = await saveBook(updated);
+      const next = saved || updated;
+      if (current && current.id === next.id) setCurrent(next);
+      toast.success('表紙を削除しました');
+    } catch (err) {
+      toast.error(toMessage(err, '表紙の削除に失敗しました'));
+    }
+  };
+
   // 既存の本に対して表紙を取り直す。multi-ISBN リゾルバを優先で使い、
   // primary ISBN → 同タイトル+著者の別エディションの順に openBD/Amazon
-  // を試す。すべて失敗したら最終手段として検索 1 件目の cover URL を採用。
+  // を試す。すべて失敗したら手動アップロードを案内する。
   const refreshCoverFor = async (book) => {
     if (!book) return;
     try {
@@ -1983,7 +2029,13 @@ const persist = useCallback((updates) => {
         if (r?.[0]?.cover) coverUrl = r[0].cover;
       }
       if (!coverUrl) {
-        toast.info('表紙が見つかりませんでした');
+        // 自動取得が完璧になることはあり得ない → 手動アップロードを促す。
+        toast.show({
+          type: 'info',
+          message: '自動取得できませんでした。📷 手動アップロードをお試しください',
+          duration: 6000,
+          action: { label: 'アップロード', onClick: () => triggerManualCoverUpload(book) },
+        });
         return;
       }
       const updated = { ...book, cover: coverUrl, coverIsbn };
@@ -2882,8 +2934,6 @@ const persist = useCallback((updates) => {
             onClose={() => setDetailKebab(null)}
             items={[
               { label: '編集', icon: '✏️', onClick: () => openEdit(current) },
-              // セットアップ仕切り直し用 - 「読書前」未完了で reading に
-              // 進んでしまった本を一旦戻すための保険ルート。
               ...(current.status === 'reading' || current.status === 'done'
                 ? [{
                     label: '読書前に戻す',
@@ -2901,11 +2951,23 @@ const persist = useCallback((updates) => {
                   }]
                 : []),
               { label: '表紙を取り直す', icon: '🔄', onClick: () => refreshCoverFor(current) },
+              { label: '表紙を手動でアップロード', icon: '🖼', onClick: () => triggerManualCoverUpload(current) },
+              ...(current.cover ? [{ label: '表紙を削除', icon: '🗑', onClick: () => removeCoverFor(current) }] : []),
               { label: '共有', icon: '📤', onClick: () => shareBook(current) },
               { label: '削除', icon: '🗑️', destructive: true, onClick: () => requestDeleteBook(current) },
             ]}
           />
         )}
+
+        {/* hidden file input — kebab「🖼 手動でアップロード」のトリガー */}
+        <input
+          ref={detailCoverUploadRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleManualCoverPicked}
+          style={{ display: 'none' }}
+        />
 
         {!keyboardOpen && <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} />}
       </Shell>

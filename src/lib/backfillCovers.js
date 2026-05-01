@@ -20,11 +20,12 @@ export async function backfillCovers(supabase, userId) {
   } catch { /* ignore */ }
 
   try {
-    // cover が NULL or 空文字の本を対象。ISBN 必須にしないのは、
-    // タイトル+著者検索で alt ISBN を見つけられるケースのため。
+    // cover が NULL or 空文字の本を対象。手動アップロード済み (cover_isbn
+    // = 'manual') の本は対象外 — 自動再解決で上書きしないことを保証する。
+    // cover_isbn 列が無い DB は .neq が無視されるだけで動作する。
     const { data, error } = await supabase
       .from('books')
-      .select('id, title, author, isbn')
+      .select('id, title, author, isbn, cover_isbn')
       .eq('user_id', userId)
       .or('cover.is.null,cover.eq.')
       .limit(BATCH_LIMIT);
@@ -40,6 +41,9 @@ export async function backfillCovers(supabase, userId) {
     let updated = 0;
     for (const row of data) {
       try {
+        // 手動アップロード済み行はスキップ (cover_isbn 列がない DB では
+        // row.cover_isbn は undefined → 通常通り処理される)。
+        if (row.cover_isbn === 'manual') continue;
         const altIsbns = await findIsbnCandidates(row.title, row.author);
         const ordered = [row.isbn, ...altIsbns].filter(Boolean);
         if (ordered.length === 0) continue;
