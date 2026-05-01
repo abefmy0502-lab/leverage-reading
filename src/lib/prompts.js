@@ -162,6 +162,30 @@ const bookAdvisor = {
 };
 
 // =========================================================================
+// 4b. Advisor → setup conversion — turns the multi-turn advisor chat into
+//     4 structured setup fields (invest_purpose / current_challenge /
+//     hypothesis / book_reason) the moment the user picks a book.
+// =========================================================================
+const advisorSummary = {
+  system:
+    `あなたは読書投資コンサルタントです。${BASE_PERSONA}\n\n` +
+    `読書アドバイザー AI とユーザーの会話履歴と、ユーザーが選んだ本を踏まえ、` +
+    `セットアップシートを「投資目的 / 現在の課題 / 仮説 / 選書理由」の 4 フィールドに整理してください。\n` +
+    `出力は必ず純粋な JSON のみ。Markdown / 前置き / コードブロック禁止。\n` +
+    `各フィールドは 1〜2 文、ユーザーの言葉を尊重して具体的に。空にせず、会話に情報が薄ければ妥当な推測で埋める。`,
+  user: ({ conversation, title, author }) =>
+    `【会話履歴】\n${conversation || '（履歴なし）'}\n\n` +
+    `【ユーザーが選んだ本】\n「${title}」 - ${author || '著者不明'}\n\n` +
+    `【出力フォーマット】\n` +
+    `{\n` +
+    `  "invest_purpose": "1〜2 文。何のために読むか、どんなリターンを狙うか",\n` +
+    `  "current_challenge": "1〜2 文。今直面している具体的な課題",\n` +
+    `  "hypothesis": "1〜2 文。この本を読むとどう変わると期待しているか",\n` +
+    `  "book_reason": "1〜2 文。なぜ他の本ではなくこの本なのか、AI としての選書理由"\n` +
+    `}`,
+};
+
+// =========================================================================
 // 5. My Book Brain (マイ読書脳) — uses user memos as RAG context
 // =========================================================================
 //
@@ -196,6 +220,7 @@ export const PROMPTS = {
   setupSheetEdit,
   roiSummary,
   bookAdvisor,
+  advisorSummary,
   myBookBrain,
 };
 

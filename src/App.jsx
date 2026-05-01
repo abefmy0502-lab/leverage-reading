@@ -25,6 +25,7 @@ import {
 import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
+import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
 import { supabase as supabaseClient } from './lib/supabase';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
@@ -721,6 +722,11 @@ const emptyBook = () => ({
   // セットアップシートの投資目的にプレフィルし、引き継ぎバナーを表示する。
   // Persisted as books.source_query (see supabase_books_source_query.sql).
   sourceQuery: "",
+  // AI 選書の会話を構造化要約してプレフィルする 3 フィールド
+  // (supabase_books_setup_fields.sql)。bookReason は読み取り専用。
+  currentChallenge: "",
+  hypothesis: "",
+  bookReason: "",
   // Persisted via supabase_books_isbn.sql — used by the Amazon Associate
   // link helper to route to the product page when available.
   isbn: "",
@@ -881,19 +887,19 @@ function BeforePhase({
       {form.aiAnalysis && (
         <>
           <SectionHeader icon="🗺️" title="読書戦略の作成" />
-          {/* AI 選書から source_query を引き継ぎ済みなら、ユーザーが
+          {/* AI 選書から構造化要約 / source_query を引き継ぎ済みなら、ユーザーが
               「あれ、なんで既に文字が入ってるの？」と戸惑わないように
-              バナーで明示する。ユーザーが投資目的を編集 (= sourceQuery と
-              異なる文字列に) すると消える。 */}
-          {form.sourceQuery && (form.investPurpose || '').trim() === form.sourceQuery.trim() && (
+              バナーで明示する。bookReason があれば「会話を要約しました」、
+              無ければ旧来の「AI 選書で入力した内容」表現を使い分ける。 */}
+          {(form.bookReason || form.sourceQuery) && (
             <div
               style={{
                 background: '#FFF8E1',
                 border: '1px solid #e0c878',
-                padding: '8px 12px',
+                padding: '10px 12px',
                 borderRadius: 8,
                 fontSize: 12,
-                marginBottom: 10,
+                marginBottom: 12,
                 color: '#5D4037',
                 lineHeight: 1.7,
                 display: 'flex',
@@ -902,14 +908,25 @@ function BeforePhase({
               }}
             >
               <span aria-hidden="true">💡</span>
-              <span>AI 選書で入力した内容を引き継ぎました。必要に応じて編集してください。</span>
+              <span>
+                {form.bookReason
+                  ? 'AI 選書で話した内容を元に、AI が読書計画を作成しました。編集して自分の言葉に直すと、より効果的です。'
+                  : 'AI 選書で入力した内容を引き継ぎました。必要に応じて編集してください。'}
+              </span>
             </div>
           )}
-          <Field label="投資目的・現在の課題・仮説" sub="この本に何を期待するか？">
-            <textarea value={form.investPurpose || ""} onChange={(e) => setForm({ ...form, investPurpose: e.target.value })}
-              placeholder={"・目的：\n・課題：\n・仮説："} rows={4} style={ta} maxLength={LIMITS.memoText} />
+
+          <Field label="📊 投資目的" sub="何のためにこの本を読むか（1〜2 文）">
+            <textarea
+              value={form.investPurpose || ""}
+              onChange={(e) => setForm({ ...form, investPurpose: e.target.value })}
+              placeholder="例：営業成績を半年で 1.5 倍にする"
+              rows={3}
+              style={ta}
+              maxLength={LIMITS.memoText}
+            />
           </Field>
-          {/* 編集後でも sourceQuery が違うなら「↩ AI 選書の内容に戻す」 */}
+          {/* sourceQuery が違うなら「↩ AI 選書で入力した内容に戻す」 */}
           {form.sourceQuery && (form.investPurpose || '').trim() !== form.sourceQuery.trim() && (
             <button
               type="button"
@@ -928,6 +945,50 @@ function BeforePhase({
               ↩ AI 選書で入力した内容に戻す
             </button>
           )}
+
+          <Field label="⚠ 現在の課題" sub="今直面している具体的な問題">
+            <textarea
+              value={form.currentChallenge || ""}
+              onChange={(e) => setForm({ ...form, currentChallenge: e.target.value })}
+              placeholder="例：初回商談で信頼構築に時間がかかる"
+              rows={3}
+              style={ta}
+              maxLength={LIMITS.memoText}
+            />
+          </Field>
+
+          <Field label="💡 仮説" sub="この本を読むとどう変わると考えているか">
+            <textarea
+              value={form.hypothesis || ""}
+              onChange={(e) => setForm({ ...form, hypothesis: e.target.value })}
+              placeholder="例：短時間で信頼を築くフレームワークが学べる"
+              rows={3}
+              style={ta}
+              maxLength={LIMITS.memoText}
+            />
+          </Field>
+
+          {form.bookReason && (
+            <div
+              style={{
+                marginTop: 4,
+                marginBottom: 12,
+                padding: '10px 12px',
+                background: '#f0ebe2',
+                border: '1px solid #e4ddd0',
+                borderRadius: 10,
+              }}
+            >
+              <p style={{ fontSize: 12, fontWeight: 600, color: '#5c5043', margin: 0 }}>
+                🤖 AI の選書理由
+              </p>
+              <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: '6px 0 4px', whiteSpace: 'pre-wrap' }}>
+                {form.bookReason}
+              </p>
+              <small style={{ fontSize: 10, color: '#a89e8c' }}>※ この内容は AI 選書時の判断です。編集できません。</small>
+            </div>
+          )}
+
           <button onClick={onRunStrategy} disabled={!form.investPurpose?.trim() || aiLoading} style={{ ...aiB, opacity: !form.investPurpose?.trim() || aiLoading ? 0.5 : 1 }}>
             {aiLoading && form.aiAnalysis ? "作成中..." : "🗺️ セットアップシートを作成"}
           </button>
@@ -1407,6 +1468,9 @@ function BookAdvisor({ onAddBook }) {
   // 直近の「ユーザーの課題」入力 — 本棚に追加した時に source_query として
   // 持ち回り、セットアップシートの投資目的にプレフィルする。
   const [lastUserQuery, setLastUserQuery] = useState('');
+  // 「📚 読みたいに追加」押下後、AI に会話を要約させる数秒間のロック。
+  // 値はその時追加中の本のタイトル。
+  const [addingTitle, setAddingTitle] = useState('');
   // Strict auto-scroll: only when a real append happens. Initial seed
   // message + any case where we would scroll from a zero baseline are
   // explicitly excluded so re-mounting the component (sub-tab switch)
@@ -1595,8 +1659,36 @@ function BookAdvisor({ onAddBook }) {
                   >
                     🛒 Amazon で買う
                   </a>
-                  <button onClick={() => onAddBook(rec, lastUserQuery)} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: "transparent", color: "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: "pointer", fontWeight: 500, minHeight: 36 }}>
-                    📚 読みたいに追加
+                  <button
+                    disabled={!!addingTitle}
+                    onClick={async () => {
+                      if (addingTitle) return;
+                      setAddingTitle(rec.title);
+                      let summary = null;
+                      try {
+                        // BookAdvisor が保持している会話 (messages = ui 表示用)
+                        // を Claude に渡して 4 フィールドに要約。失敗しても
+                        // フォールバックとして lastUserQuery だけ持ち越して保存。
+                        summary = await summarizeAdvisorConversation(messages, rec);
+                      } catch (e) {
+                        // eslint-disable-next-line no-console
+                        console.warn('[advisor-summary] failed:', e?.message || e);
+                      }
+                      try {
+                        await onAddBook(rec, {
+                          sourceQuery: lastUserQuery,
+                          investPurpose: summary?.investPurpose || lastUserQuery || '',
+                          currentChallenge: summary?.currentChallenge || '',
+                          hypothesis: summary?.hypothesis || '',
+                          bookReason: summary?.bookReason || (rec.why || ''),
+                        });
+                      } finally {
+                        setAddingTitle('');
+                      }
+                    }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: addingTitle === rec.title ? '#f0ebe2' : "transparent", color: "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addingTitle ? "wait" : "pointer", fontWeight: 500, minHeight: 36, opacity: addingTitle && addingTitle !== rec.title ? 0.4 : 1 }}
+                  >
+                    {addingTitle === rec.title ? '📚 計画を作成中…' : '📚 読みたいに追加'}
                   </button>
                 </div>
               </div>
@@ -2347,17 +2439,26 @@ const persist = useCallback((updates) => {
     }));
   };
 
-  const addFromAdvisor = async (rec, query = '') => {
+  // BookAdvisor から呼ばれる本追加。第 2 引数は AI 構造化要約の結果を含む
+  // 拡張ペイロード。後方互換性のため string も受け付け、その場合は
+  // sourceQuery のみセット (ユーザーは投資目的だけを引き継ぐ旧挙動)。
+  const addFromAdvisor = async (rec, payloadOrQuery = '') => {
+    const payload = typeof payloadOrQuery === 'string'
+      ? { sourceQuery: payloadOrQuery, investPurpose: payloadOrQuery, currentChallenge: '', hypothesis: '', bookReason: rec.why || '' }
+      : payloadOrQuery;
     const newBook = {
       ...emptyBook(),
       title: rec.title,
       author: rec.author,
       status: "want",
       addedVia: 'search',
-      // AI 選書のクエリを引き継ぎ。セットアップシート画面で投資目的に
-      // プレフィルされる。クエリが空でも sourceQuery プロパティを持たせる
-      // ことで saveBook 側の source_query 書き込み判別が走る。
-      sourceQuery: (query || '').trim(),
+      // AI 選書のクエリを引き継ぎ。空でも sourceQuery プロパティを保持
+      // することで saveBook 側の source_query 書き込み判別が走る。
+      sourceQuery: (payload.sourceQuery || '').trim(),
+      investPurpose: (payload.investPurpose || '').trim(),
+      currentChallenge: (payload.currentChallenge || '').trim(),
+      hypothesis: (payload.hypothesis || '').trim(),
+      bookReason: (payload.bookReason || '').trim(),
     };
     // Try to get cover from Google Books — best-effort, ignore failures.
     try {
@@ -2370,9 +2471,13 @@ const persist = useCallback((updates) => {
     } catch {}
     try {
       await saveBook(newBook);
-      const msg = newBook.sourceQuery
-        ? `「${rec.title}」を追加。AI セットアップで読み方戦略を立てましょう`
-        : `「${rec.title}」を「読みたい」に追加しました`;
+      // 4 フィールドが埋まっていれば「読書計画を作成しました」、そうでなければ控えめなトースト。
+      const hasPlan = newBook.currentChallenge || newBook.hypothesis || newBook.bookReason;
+      const msg = hasPlan
+        ? `✅ 「${rec.title}」を追加。AI 読書計画を作成しました`
+        : newBook.sourceQuery
+          ? `「${rec.title}」を追加。AI セットアップで読み方戦略を立てましょう`
+          : `「${rec.title}」を「読みたい」に追加しました`;
       toast.success(msg);
     } catch (error) {
       toast.error(toMessage(error, '本の追加に失敗しました。'));
@@ -3760,7 +3865,7 @@ const persist = useCallback((updates) => {
             </div>
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
-                <BookAdvisor onAddBook={(rec, query) => { addFromAdvisor(rec, query); }} />
+                <BookAdvisor onAddBook={(rec, payload) => addFromAdvisor(rec, payload)} />
               ) : (
                 <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
               )}

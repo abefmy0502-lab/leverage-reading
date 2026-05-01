@@ -40,6 +40,12 @@ const transformBook = (book) => ({
   // セットアップシートの投資目的にプレフィルする。マイグレーション未適用の
   // DB では undefined のまま空文字に縮退。
   sourceQuery: book.source_query || '',
+  // AI 選書アドバイザーの会話を構造化要約してプレフィルした 3 フィールド
+  // (supabase_books_setup_fields.sql)。マイグレーション未適用 DB では空。
+  // bookReason は読み取り専用で、ユーザー編集不可。
+  currentChallenge: book.current_challenge || '',
+  hypothesis: book.hypothesis || '',
+  bookReason: book.book_reason || '',
 });
 
 export function useBooks() {
@@ -106,37 +112,70 @@ export function useBooks() {
       };
       // 任意カラム: マイグレーション未適用の DB だと UNDEFINED COLUMN エラーで
       // save が止まるため schema-error fallback で段階的に剥がす。
-      //   1. cover_isbn (supabase_books_cover_isbn.sql)
-      //   2. source_query (supabase_books_source_query.sql)
+      //   1. cover_isbn         (supabase_books_cover_isbn.sql)
+      //   2. source_query       (supabase_books_source_query.sql)
+      //   3. setup fields       (supabase_books_setup_fields.sql) —
+      //      current_challenge / hypothesis / book_reason をまとめて 1 グループ
       const coverIsbnValue = book.coverIsbn ? String(book.coverIsbn).replace(/[-\s]/g, '') : null;
-      // sourceQuery は明示的に空文字を NULL として書きたい (UI 上クリアした時)。
-      // ただし sourceQuery プロパティが本オブジェクトに「存在しない」場合は
-      // 触らないため、`'sourceQuery' in book` で意図的判別。
       const includeSourceQuery = Object.prototype.hasOwnProperty.call(book, 'sourceQuery');
       const sourceQueryValue = includeSourceQuery ? (book.sourceQuery || null) : undefined;
+      const includeSetupFields =
+        Object.prototype.hasOwnProperty.call(book, 'currentChallenge')
+        || Object.prototype.hasOwnProperty.call(book, 'hypothesis')
+        || Object.prototype.hasOwnProperty.call(book, 'bookReason');
+      const setupFields = includeSetupFields
+        ? {
+            current_challenge: book.currentChallenge || null,
+            hypothesis: book.hypothesis || null,
+            book_reason: book.bookReason || null,
+          }
+        : null;
 
       let savedBookId;
       const isUUID = UUID_RE.test(book.id || '');
 
-      // schema-error フォールバック付きヘルパー: 任意カラムが無い DB でも
-      // 通常の保存は成功する。エラーメッセージに当該列名 or 'column' が
-      // 含まれていたらその列を payload から落としてリトライする。
+      // schema-error フォールバック付きヘルパー: 任意カラム群を順に剥がして
+      // 再試行する。エラーメッセージに当該列名 or 'column' が含まれたら
+      // 該当グループを payload から落とす。
       const writeWithFallback = async (op) => {
         const fullPayload = { ...bookData };
         if (coverIsbnValue) fullPayload.cover_isbn = coverIsbnValue;
         if (includeSourceQuery) fullPayload.source_query = sourceQueryValue;
+        if (includeSetupFields && setupFields) Object.assign(fullPayload, setupFields);
+
         let r = await op(fullPayload);
         if (!r.error) return r;
         let msg = String(r.error?.message || '');
+
+        // setup fields のいずれか列が無い → セットで剥がして再試行
+        if (
+          msg.includes('current_challenge')
+          || msg.includes('hypothesis')
+          || msg.includes('book_reason')
+          || (msg.includes('column') && includeSetupFields)
+        ) {
+          const without = { ...fullPayload };
+          delete without.current_challenge;
+          delete without.hypothesis;
+          delete without.book_reason;
+          r = await op(without);
+          if (!r.error) return r;
+          msg = String(r.error?.message || '');
+        }
+
         // source_query 列が無い → 落として再試行
         if (msg.includes('source_query') || (msg.includes('column') && includeSourceQuery)) {
           const without = { ...fullPayload };
+          delete without.current_challenge;
+          delete without.hypothesis;
+          delete without.book_reason;
           delete without.source_query;
           r = await op(without);
           if (!r.error) return r;
           msg = String(r.error?.message || '');
         }
-        // cover_isbn 列が無い → 落として再試行
+
+        // cover_isbn 列が無い → bookData (任意列なし) で再試行
         if (msg.includes('cover_isbn') || (msg.includes('column') && coverIsbnValue)) {
           return op(bookData);
         }
