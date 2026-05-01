@@ -108,6 +108,11 @@ export function initServiceWorker({ onUpdateAvailable } = {}) {
         onUpdateAvailable?.();
       }
 
+      // 起動時に明示的に update() を叩く。register() 自体も新版の有無
+      // を確認するが、ブラウザによっては 24h cache を尊重して fetch を
+      // skip することがある。明示呼び出しで確実に問い合わせる。
+      reg.update().catch(() => {});
+
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         if (!newWorker) return;

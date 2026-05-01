@@ -10,6 +10,7 @@
     "icons": "node scripts/generate-icons.js"
   },
   "dependencies": {
+    "@sentry/react": "^10.51.0",
     "@supabase/supabase-js": "^2.39.0",
     "browser-image-compression": "^2.0.2",
     "lucide-react": "^1.11.0",

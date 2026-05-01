@@ -1,4 +1,5 @@
 import React from 'react';
+import { captureError } from '../lib/sentry';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -12,6 +13,8 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error('App crashed:', error, info);
+    // Sentry が初期化されていれば送信、無ければ no-op。
+    captureError(error, { componentStack: info?.componentStack });
   }
 
   handleReload = () => {
