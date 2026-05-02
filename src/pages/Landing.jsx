@@ -229,92 +229,78 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 2.5. Live Demo (AI 会話の実例) ============ */}
-      <section className="live-demo fade-in">
-        <p className="section-eyebrow">実際の使用イメージ</p>
+      {/* ============ 2.5. AI 選書フロー (3 ステップ圧縮 + 実画面) ============ */}
+      <section className="ai-flow fade-in">
+        <p className="section-eyebrow">AI 選書の流れ</p>
         <h2 className="section-headline">
           AI に話しかけるだけで、<br />
-          最適な本が見つかる。
+          あなた専用の選書が手に入る。
         </h2>
 
-        <div className="demo-conversation">
-          <div className="demo-msg user">
-            <div className="msg-label">あなた</div>
-            <div className="msg-bubble">
-              最近、営業会議で発言が浅いと言われる。<br />
-              論理的に意見を組み立てる力をつけたい。
+        {/* 3 ステップ圧縮フロー */}
+        <div className="flow-steps">
+          {/* STEP 1 */}
+          <div className="flow-step">
+            <div className="step-num">STEP 1</div>
+            <div className="step-title">課題を一言で入力</div>
+            <div className="step-mock">
+              <div className="mock-bubble user">営業成績を上げたい</div>
             </div>
           </div>
 
-          <div className="demo-msg ai">
-            <div className="msg-label">AI 選書アドバイザー</div>
-            <div className="msg-bubble">
-              承知しました。論理的思考を鍛える本は数多くありますが、営業会議という具体的な場面で活用したい場合、以下の 3 冊が特に効果的です。
-            </div>
-          </div>
+          <div className="flow-arrow" aria-hidden="true">↓</div>
 
-          <div className="demo-recommendations">
-            <div className="rec-card">
-              <div className="rec-cover c1" aria-hidden="true" />
-              <div className="rec-info">
-                <div className="rec-title">イシューからはじめよ</div>
-                <div className="rec-author">安宅和人</div>
-                <div className="rec-reason">
-                  <strong>選書理由:</strong>
-                  「議論の論点を見抜く」が体系化されている。会議で本質的な発言ができるようになる。
-                </div>
+          {/* STEP 2 */}
+          <div className="flow-step">
+            <div className="step-num">STEP 2</div>
+            <div className="step-title">AI が対話で深掘り</div>
+            <div className="step-mock">
+              <div className="mock-bubble ai">
+                業界・営業スタイル・困りごとを教えてください
               </div>
-            </div>
-            <div className="rec-card">
-              <div className="rec-cover c2" aria-hidden="true" />
-              <div className="rec-info">
-                <div className="rec-title">武器になる哲学</div>
-                <div className="rec-author">山口周</div>
-                <div className="rec-reason">
-                  <strong>選書理由:</strong>
-                  ビジネスで使える思考のフレームワークを提供。浅い意見を脱却する哲学的視点が学べる。
-                </div>
+              <div className="mock-bubble user">
+                不動産 BtoB SaaS、新規開拓、商談で決まらない
               </div>
-            </div>
-            <div className="rec-card">
-              <div className="rec-cover c3" aria-hidden="true" />
-              <div className="rec-info">
-                <div className="rec-title">考える技術・書く技術</div>
-                <div className="rec-author">バーバラ・ミント</div>
-                <div className="rec-reason">
-                  <strong>選書理由:</strong>
-                  ピラミッド原則で意見を構造化する技術。会議で説得力ある発言ができる。
-                </div>
+              <div className="mock-bubble ai">
+                決裁者へのアプローチ、ROI の示し方、顧客の本当の課題ヒアリングについても教えてください
               </div>
             </div>
           </div>
 
-          <div className="demo-msg user">
-            <div className="msg-label">あなた</div>
-            <div className="msg-bubble">
-              『イシューからはじめよ』を選びます。<br />
-              2 週間で読み切りたい。
-            </div>
-          </div>
+          <div className="flow-arrow" aria-hidden="true">↓</div>
 
-          <div className="demo-msg ai">
-            <div className="msg-label">AI 読書計画</div>
-            <div className="msg-bubble">
-              2 週間プランを作成しました。<br />
-              重点的に読むべき章:
-              <ul>
-                <li>序章「やってはいけない 犬の道」</li>
-                <li>第 2 章「イシューを見極める」</li>
-                <li>第 4 章「ストーリーラインを組み立てる」</li>
-              </ul>
-              第 5 章は時間があれば。第 3 章は流し読みで OK です。
+          {/* STEP 3 */}
+          <div className="flow-step">
+            <div className="step-num">STEP 3</div>
+            <div className="step-title">あなた専用の選書</div>
+            <div className="step-mock">
+              <div className="mock-bubble ai">
+                あなたの状況にピッタリの 4 冊を選びました
+              </div>
+              <div className="mock-recommendations">
+                <div className="rec-mini"><span className="rec-cover c1" aria-hidden="true" />SPIN 営業術</div>
+                <div className="rec-mini"><span className="rec-cover c2" aria-hidden="true" />セールス・イズ</div>
+                <div className="rec-mini"><span className="rec-cover c3" aria-hidden="true" />Value Proposition Design</div>
+                <div className="rec-mini"><span className="rec-cover c4" aria-hidden="true" />THE TIME HACKER</div>
+              </div>
             </div>
           </div>
         </div>
 
-        <p className="demo-conclusion">
-          すべての本に対して、AI があなた専用の<br />
-          「選書理由」と「読み方戦略」を提供します。
+        {/* 実画面の詳細推薦カード — 画像未配置時は onError で非表示にする */}
+        <div className="real-screenshot">
+          <p className="screenshot-label">↓ 各本に対して、こんな詳細な推薦が届きます</p>
+          <img
+            src="/lp/sample-recommendation.png"
+            alt="AI が提案する本の詳細カード (選書理由・核心・注目すべきポイント・実践時間)"
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        </div>
+
+        <p className="ai-flow-caption">
+          ただ本を勧めるのではなく、<br />
+          あなたの課題に合わせた<strong>選書理由・読み順・実践時間</strong>まで提案。
         </p>
       </section>
 
