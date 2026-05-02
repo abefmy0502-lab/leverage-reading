@@ -129,9 +129,8 @@ export default function Landing() {
           もう作らない。
         </h1>
         <p className="hero-subhead">
-          あなたの課題から AI が本を選び、<br />
-          読み方を設計し、行動につなげる。<br />
-          本を「投資の運用」に変える PWA。
+          あなたの悩みから、AI が読むべき本を選ぶ。<br />
+          読み終わる頃には、明日の行動が決まっている。
         </p>
         <ul className="hero-benefits" aria-label="主なメリット">
           <li>本選び失敗ゼロ</li>
