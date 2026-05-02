@@ -1062,7 +1062,20 @@ function BeforePhase({
         </>
       )}
 
-      <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 20 }}>保存</button>
+      {/* セットアップが揃っていれば保存と同時に読書中へ自動遷移する。
+          handleSave 側で同じ条件 (form.investPurpose + aiAnalysis/Strategy)
+          を見て status='reading' に切替 + setView('detail') を行う。
+          条件が揃っていない場合は通常の「保存」(その場で留まる)。 */}
+      {(() => {
+        const setupReady =
+          (form.investPurpose && form.investPurpose.trim()) &&
+          (form.aiAnalysis || form.aiStrategy);
+        return (
+          <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 20 }}>
+            {setupReady ? '💾 保存して読書を開始する' : '💾 保存'}
+          </button>
+        );
+      })()}
     </div>
   );
 }
@@ -2524,29 +2537,40 @@ const persist = useCallback((updates) => {
         } catch { /* 解決失敗時は元の form 値で保存続行 */ }
       }
 
-      // 重要: status は form.status をそのまま保持。saveBook は自動で
-      // ステータスを進めない (実際そういうコードは無いが、明示的にコメント
-      // しておく)。「読書を開始する」「読了にする」ボタン経由 = advanceStatus
-      // のみが status 遷移を担う。
+      // 「保存して読書を開始する」相当の自動遷移条件:
+      //   既存本 + status='before' + 投資目的 + (AI 解析 or 戦略) が揃っている。
+      // この時、payload.status を 'reading' に上書き + startDate を当日に。
+      // 旧実装は完了モーダル 3 択を出していたが「保存ボタンに次のアクションを
+      // 含める」方が UX が良いので、保存と同時にステータス遷移する設計に変更。
+      const isSetupCompletion = current
+        && form.status === 'before'
+        && (form.investPurpose && form.investPurpose.trim())
+        && (form.aiAnalysis || form.aiStrategy);
       const payload = { ...form, tags: normalizedTags, cover: resolvedCover, coverIsbn: resolvedCoverIsbn };
+      if (isSetupCompletion) {
+        payload.status = 'reading';
+        if (!payload.startDate) {
+          payload.startDate = new Date().toISOString().slice(0, 10);
+        }
+      }
+
       const saved = await saveBook(payload);
       const next = saved || payload;
       const wasNew = !current; // 新規追加 (current=null) かどうか
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
-      // 既存本の編集中はフォームに留まる — BeforePhase で AI セットアップ
-      // 途中の保存 → detail へ飛ばされて戻れない問題を防ぐ。
-      // 新規追加だけは登録完了の手応えとして detail へ遷移させる。
-      if (wasNew) setView("detail");
 
-      // 読書前ステータスでセットアップ内容が埋まっている既存本を保存した
-      // 場合、「次は何をすれば？」が分からない問題を解消するため、完了
-      // モーダルを出して 3 択 (読書開始 / 後で / もう少し編集) を提示する。
-      const isSetupCompletion = !wasNew
-        && next.status === 'before'
-        && (next.investPurpose || next.aiAnalysis || next.aiStrategy);
+      // 遷移ロジック:
+      //   - セットアップ完了 → 読書中フェーズの本詳細へ
+      //   - 新規追加 → 詳細へ
+      //   - それ以外 (既存本の編集中) → 編集画面に留まる
       if (isSetupCompletion) {
-        setSetupCompleteFor(next);
+        setEditPhaseOverride(null);
+        setView('detail');
+        toast.success('📚 読書を開始しました！');
+      } else if (wasNew) {
+        setView('detail');
+        toast.success('保存しました');
       } else {
         toast.success('保存しました');
       }
@@ -3054,9 +3078,6 @@ const persist = useCallback((updates) => {
   const [reflectionInput, setReflectionInput] = useState('');
   // 「表紙が違う?」モーダル — 詳細画面の表紙下リンクから開く。
   const [coverFixForBook, setCoverFixForBook] = useState(null);
-  // セットアップシート保存完了モーダル — BeforePhase の保存後に「次のアクション」
-  // を提示する。読書を開始する / まだ読まない / もう少し編集する の 3 択。
-  const [setupCompleteFor, setSetupCompleteFor] = useState(null);
 
   // 内部関数: action.done を toggle し、完了時は completed_at + reflection を反映、
   // 繰り返し設定があれば次回分を新規行動として末尾に追加する。
@@ -4311,138 +4332,6 @@ const persist = useCallback((updates) => {
           }}
           onManualUpload={() => triggerManualCoverUpload(coverFixForBook)}
         />
-      )}
-
-      {/* 📋 セットアップシート保存完了モーダル — BeforePhase で投資目的等
-          を保存した直後に表示。「次のアクション」を 3 択で提示する。 */}
-      {setupCompleteFor && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setSetupCompleteFor(null)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 880,
-            background: 'rgba(30,25,20,0.55)',
-            backdropFilter: 'blur(3px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 16,
-            animation: 'fadeIn 0.2s ease',
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#faf6f0',
-              borderRadius: 24,
-              width: 'min(380px, 100%)',
-              padding: '32px 24px',
-              fontFamily: 'inherit',
-              textAlign: 'center',
-              boxShadow: '0 16px 48px rgba(30,25,20,0.22)',
-              animation: 'lvg-modal-in var(--duration-base) var(--ease-spring) both',
-            }}
-          >
-            <div style={{ fontSize: 56, marginBottom: 12, lineHeight: 1 }}>✅</div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: '#3d362c', margin: '0 0 8px' }}>
-              セットアップ完了！
-            </h2>
-            <p style={{ fontSize: 14, color: '#666', margin: '0 0 24px', lineHeight: 1.7 }}>
-              読書計画ができました。<br />
-              次のアクションを選んでください。
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* 今すぐ読書を始める — status を reading に更新して detail へ */}
-              <button
-                type="button"
-                onClick={async () => {
-                  const target = setupCompleteFor;
-                  setSetupCompleteFor(null);
-                  setEditPhaseOverride(null);
-                  setView('detail');
-                  advanceStatus(target, 'reading');
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  fontFamily: 'inherit',
-                  background: '#5C4A2E',
-                  color: '#faf6f0',
-                  minHeight: 44,
-                }}
-              >
-                <span style={{ fontSize: 22, flexShrink: 0 }}>📚</span>
-                <span style={{ flex: 1 }}>
-                  <span style={{ display: 'block', fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>
-                    今すぐ読書を始める
-                  </span>
-                  <span style={{ display: 'block', fontSize: 11, opacity: 0.85, marginTop: 2 }}>
-                    ステータスが「読書中」に変わります
-                  </span>
-                </span>
-              </button>
-
-              {/* まだ読まない — モーダル閉じて本棚へ */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSetupCompleteFor(null);
-                  setEditPhaseOverride(null);
-                  toast.success('💾 セットアップを保存しました');
-                  goList();
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  border: '1px solid #e0d8c8',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  fontFamily: 'inherit',
-                  background: '#fff',
-                  color: '#3d362c',
-                  minHeight: 44,
-                }}
-              >
-                <span style={{ fontSize: 22, flexShrink: 0 }}>📅</span>
-                <span style={{ flex: 1 }}>
-                  <span style={{ display: 'block', fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>
-                    まだ読まない
-                  </span>
-                  <span style={{ display: 'block', fontSize: 11, color: '#8a7e6b', marginTop: 2 }}>
-                    あとで本棚から再開できます
-                  </span>
-                </span>
-              </button>
-
-              {/* もう少し編集する — モーダルを閉じてフォームに留まる */}
-              <button
-                type="button"
-                onClick={() => setSetupCompleteFor(null)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#5C4A2E',
-                  textDecoration: 'underline',
-                  padding: '8px',
-                  alignSelf: 'center',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                ✏️ もう少し編集する
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* 行動完了 → 振り返り入力モーダル。任意入力で「振り返らずに完了」も
