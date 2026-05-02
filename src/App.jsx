@@ -2538,14 +2538,28 @@ const persist = useCallback((updates) => {
       }
 
       // 「保存して読書を開始する」相当の自動遷移条件:
-      //   既存本 + status='before' + 投資目的 + (AI 解析 or 戦略) が揃っている。
-      // この時、payload.status を 'reading' に上書き + startDate を当日に。
-      // 旧実装は完了モーダル 3 択を出していたが「保存ボタンに次のアクションを
-      // 含める」方が UX が良いので、保存と同時にステータス遷移する設計に変更。
-      const isSetupCompletion = current
+      //   既存本 + form.status='before' + 投資目的 + (AI 解析 or 戦略) が揃っている。
+      // 保存時に payload.status='reading' に上書き + startDate=今日にする。
+      // form.status を見ているのは: editPhaseOverride で BeforePhase を強制
+      // 表示しているだけの reading/done 本は対象外にしたいため (既に読書中の
+      // 本のセットアップを編集しても再度 reading に戻るのは無意味)。
+      const isSetupCompletion = !!current
         && form.status === 'before'
-        && (form.investPurpose && form.investPurpose.trim())
-        && (form.aiAnalysis || form.aiStrategy);
+        && !!(form.investPurpose && form.investPurpose.trim())
+        && !!(form.aiAnalysis || form.aiStrategy);
+
+      // eslint-disable-next-line no-console
+      console.log('[handleSave]', {
+        wasNew: !current,
+        formStatus: form.status,
+        editPhaseOverride,
+        view,
+        hasInvestPurpose: !!(form.investPurpose && form.investPurpose.trim()),
+        hasAiAnalysis: !!form.aiAnalysis,
+        hasAiStrategy: !!form.aiStrategy,
+        isSetupCompletion,
+      });
+
       const payload = { ...form, tags: normalizedTags, cover: resolvedCover, coverIsbn: resolvedCoverIsbn };
       if (isSetupCompletion) {
         payload.status = 'reading';
@@ -2557,6 +2571,8 @@ const persist = useCallback((updates) => {
       const saved = await saveBook(payload);
       const next = saved || payload;
       const wasNew = !current; // 新規追加 (current=null) かどうか
+      // eslint-disable-next-line no-console
+      console.log('[handleSave] saved:', { id: next.id, status: next.status, isSetupCompletion });
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
 
