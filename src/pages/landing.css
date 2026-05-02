@@ -90,26 +90,27 @@ body.lp-active {
 .lp-root section { overflow: visible !important; }
 
 /* ============ Typography (serif headlines / sans body) ============ */
+/* 日本語改行を全要素で美しく:
+ *   - keep-all: 単語 (漢字熟語) の途中で切らない
+ *   - strict:   句読点・括弧の禁則処理を強める
+ *   - anywhere: 単語溢れ時のみ折り返し (overflow-wrap より積極的) */
+.lp-root,
+.lp-root * {
+  word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: anywhere;
+}
 .lp-root h1,
 .lp-root h2,
 .lp-root h3,
 .section-headline {
   font-family: var(--font-serif);
   letter-spacing: -0.02em;
-  /* 日本語の見出しの改行を美しく:
-   *   - keep-all: 単語 (漢字熟語) の途中で切らない
-   *   - strict:   句読点・括弧の禁則処理を強める
-   *   - balance:  対応ブラウザでは行の長さを均等に
-   *   - overflow-wrap: 単語が幅を超えたら折り返し許可 (フォールバック) */
-  word-break: keep-all;
-  line-break: strict;
-  overflow-wrap: break-word;
+  /* balance: 対応ブラウザは行の長さを均等にする (Chromium 114+ / Safari 17.5+) */
   text-wrap: balance;
 }
 .lp-root p {
-  word-break: keep-all;
-  line-break: strict;
-  overflow-wrap: break-word;
+  text-wrap: pretty;
 }
 /* 数字・価格・データ系は単独で nowrap (途中で切らない) */
 .data-num,
@@ -792,56 +793,109 @@ body.lp-active {
   line-height: 1.7;
 }
 
-/* ============ Comparison ============ */
+/* ============ Comparison (VS テーブル) ============ */
 .comparison { background: var(--lp-bg-warm); text-align: center; }
-.compare-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin: 32px 0;
-}
-.compare-card {
-  background: white;
-  padding: 24px 20px;
-  border-radius: 16px;
-  text-align: left;
-}
-.compare-card.with {
-  background: linear-gradient(135deg, #FFF8E1 0%, #FBEFCC 100%);
-  border: 2px solid var(--lp-primary);
-}
-.compare-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--lp-sub);
-  margin-bottom: 16px;
-}
-.compare-card.with .compare-label {
-  color: var(--lp-primary);
-}
-.compare-card ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.compare-card li {
-  padding: 10px 0;
+.comparison-intro {
   font-size: 14px;
+  text-align: center;
+  margin: 0 0 24px;
+  color: var(--lp-sub);
+  line-height: 1.85;
+}
+.vs-table {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  margin: 32px 0;
+  max-width: 100%;
+}
+.vs-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(0, 1.4fr);
+  background: var(--lp-bg);
+  border-bottom: 2px solid var(--lp-primary);
+}
+.vs-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(0, 1.4fr);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+.vs-row:last-child { border: none; }
+.vs-cell {
+  padding: 12px 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  color: var(--lp-text);
+  font-size: 12.5px;
+  line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
-.compare-card li svg { color: var(--lp-success); flex-shrink: 0; }
-.compare-card.with li svg { color: var(--lp-primary); }
-.compare-card.without li svg { color: var(--lp-sub); }
-.compare-card li:last-child { border: none; }
-.compare-card li.missing {
-  color: #aaa;
+.vs-cell.vs-feature {
+  font-weight: 600;
+  color: var(--lp-text);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  text-align: left;
+}
+.vs-cell.vs-other {
+  justify-content: center;
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  background: #fafafa;
+  color: #999;
+}
+.vs-cell.vs-other svg { color: #c0c0c0; }
+.vs-cell.vs-us {
+  background: #FFF8E1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding-left: 12px;
+}
+.vs-cell.vs-us svg { color: var(--lp-success); flex-shrink: 0; }
+.us-text {
+  font-size: 10.5px;
+  color: var(--lp-primary);
+  font-weight: 500;
+  line-height: 1.45;
+}
+.us-not-needed {
+  color: #999;
+  font-size: 11px;
   font-style: italic;
+}
+.us-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--lp-primary);
+  line-height: 1.4;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+/* ヘッダー行は中央揃え (機能列以外) */
+.vs-header .vs-cell {
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--lp-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+  justify-content: center;
+}
+.vs-header .vs-feature { color: var(--lp-text); justify-content: flex-start; }
+.vs-header .vs-us { background: #FFF8E1; }
+.comparison-conclusion {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  text-align: center;
+  margin-top: 32px;
+  line-height: 1.85;
+  font-weight: 700;
+}
+.comparison-conclusion strong {
+  color: var(--lp-primary);
+  border-bottom: 3px solid var(--lp-accent);
+  padding: 0 4px 2px;
 }
 
 /* ============ Philosophy ============ */
@@ -1109,8 +1163,9 @@ body.lp-active {
   .hero-title { font-size: 56px !important; line-height: 1.35; }
   .lp-root section h2 { font-size: 36px; line-height: 1.35; }
   .lp-root section h3 { font-size: 24px; }
-  .compare-cards { flex-direction: row; gap: 24px; }
-  .compare-card { flex: 1; }
+  .vs-cell { padding: 16px 14px; font-size: 14px; }
+  .us-text { font-size: 12px; }
+  .vs-header .vs-cell { font-size: 12px; }
   .sticky-cta { display: none; }
   .lp-root { padding-bottom: 0; }
   .phone-frame { width: 280px; height: 540px; max-height: 70vh; }

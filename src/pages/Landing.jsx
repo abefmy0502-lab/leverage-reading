@@ -5,7 +5,7 @@
 // SVG アイコンは lucide-react 既存依存をそのまま使用。
 
 import { useEffect, useState } from 'react';
-import { Check, BookOpen } from 'lucide-react';
+import { Check, X, BookOpen } from 'lucide-react';
 import './landing.css';
 
 const setMeta = (name, content, attr = 'name') => {
@@ -231,7 +231,8 @@ export default function Landing() {
         <p className="section-eyebrow">想像してください</p>
         <h2 className="section-headline">
           5 年後、あなたは<br />
-          『行動できる人』になっている。
+          『行動できる人』に<br />
+          なっている。
         </h2>
         <div className="outcome-stats">
           <div className="stat-card">
@@ -337,7 +338,7 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>本選びの精度が 10 倍に。</h3>
+            <h3>本選びの<span className="no-break">精度が 10 倍に。</span></h3>
             <p className="mech-lead">
               年間の自己啓発書購入数は平均 12 冊。そのうち<br />
               「自分に刺さった」本は 2〜3 冊と言われます。
@@ -369,7 +370,7 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>1 冊からの行動量が 10 倍に。</h3>
+            <h3>1 冊からの<span className="no-break">行動量が 10 倍に。</span></h3>
             <p className="mech-lead">
               本を読み終えても、行動に繋がるのは 10 冊に 1 冊。<br />
               多くの人が「読んだだけ」で終わってしまいます。
@@ -403,7 +404,7 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>知識の活用度が 10 倍に。</h3>
+            <h3>知識の<span className="no-break">活用度が 10 倍に。</span></h3>
             <p className="mech-lead">
               本を読んでも、内容を覚えているのは 1 ヶ月で 2 割未満。<br />
               本棚は知識の墓場になりがちです。
@@ -475,38 +476,65 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 5. Comparison ============ */}
+      {/* ============ 5. Comparison (大々的な VS テーブル) ============ */}
       <section className="comparison fade-in">
         <p className="section-eyebrow">他のアプリとの違い</p>
         <h2 className="section-headline">
           記録だけでは、<br />
           本は資産にならない。
         </h2>
+        <p className="comparison-intro">
+          一般的な読書アプリは「記録するだけ」。<br />
+          レバレッジ読書ログは「読書を運用する」アプリです。
+        </p>
 
-        <div className="compare-cards">
-          <div className="compare-card without">
-            <div className="compare-label">一般的な読書アプリ</div>
-            <ul>
-              <li><Check size={14} strokeWidth={2.2} /> 読了の記録</li>
-              <li><Check size={14} strokeWidth={2.2} /> レビュー投稿</li>
-              <li><Check size={14} strokeWidth={2.2} /> SNS 共有</li>
-              <li className="missing">— AI 選書なし</li>
-              <li className="missing">— 読書計画なし</li>
-              <li className="missing">— 行動管理なし</li>
-            </ul>
+        <div className="vs-table" role="table" aria-label="他アプリとの機能比較">
+          <div className="vs-header" role="row">
+            <div className="vs-cell vs-feature" role="columnheader">機能</div>
+            <div className="vs-cell vs-other" role="columnheader">
+              一般的な<br />読書アプリ
+            </div>
+            <div className="vs-cell vs-us" role="columnheader">
+              <span className="us-label">レバレッジ<br />読書ログ</span>
+            </div>
           </div>
-          <div className="compare-card with">
-            <div className="compare-label">レバレッジ読書ログ</div>
-            <ul>
-              <li><Check size={14} strokeWidth={2.5} /> 読了の記録</li>
-              <li><Check size={14} strokeWidth={2.5} /> AI 選書アドバイザー</li>
-              <li><Check size={14} strokeWidth={2.5} /> AI が読書計画を設計</li>
-              <li><Check size={14} strokeWidth={2.5} /> 期限・優先度付き行動管理</li>
-              <li><Check size={14} strokeWidth={2.5} /> 過去の本から答える AI</li>
-              <li><Check size={14} strokeWidth={2.5} /> ROI ひとことまとめで成果記録</li>
-            </ul>
-          </div>
+
+          {[
+            { name: '読了の記録', other: true, us: true },
+            { name: 'レビュー投稿', other: true, us: false, usText: '個人の知識資産化に集中' },
+            { name: 'SNS 共有', other: true, us: false, usText: '不要' },
+            { name: 'AI による本の選書', other: false, us: true, usText: '課題から最適な本を提案' },
+            { name: 'AI による読書計画', other: false, us: true, usText: '読み方を本ごとに設計' },
+            { name: '行動管理（期限・優先度）', other: false, us: true, usText: '完了まで追跡' },
+            { name: '過去の本から答える AI', other: false, us: true, usText: '読んだ知識をいつでも引き出す' },
+            { name: 'ROI ひとことまとめ', other: false, us: true, usText: '読書の効果を 1 行で記録' },
+            { name: 'カード式メモ', other: false, us: true, usText: 'ページ番号・写真・タグ付き' },
+          ].map((row) => (
+            <div key={row.name} className="vs-row" role="row">
+              <div className="vs-cell vs-feature" role="cell">{row.name}</div>
+              <div className="vs-cell vs-other" role="cell">
+                {row.other
+                  ? <Check size={20} strokeWidth={2.2} aria-label="あり" />
+                  : <X size={18} strokeWidth={2} aria-label="なし" />}
+              </div>
+              <div className="vs-cell vs-us" role="cell">
+                {row.us ? (
+                  <>
+                    <Check size={20} strokeWidth={3} aria-label="あり" />
+                    {row.usText && <span className="us-text">{row.usText}</span>}
+                  </>
+                ) : (
+                  <span className="us-not-needed">{row.usText || '—'}</span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
+
+        <p className="comparison-conclusion">
+          記録するだけでは、本は本棚の中で眠るだけ。<br />
+          <strong>「資産化する」アプリ</strong>に変えませんか？
+        </p>
       </section>
 
       <div className="lp-section-divider" aria-hidden="true" />
@@ -546,7 +574,8 @@ export default function Landing() {
         <p className="section-eyebrow">料金</p>
         <h2 className="section-headline">
           1 日 33 円で、<br />
-          あなたの読書を投資に変える。
+          あなたの読書を<br />
+          投資に変える。
         </h2>
 
         <div className="price-card">
@@ -574,9 +603,9 @@ export default function Landing() {
           </button>
 
           <div className="price-fineprint">
-            <p>※ クレジットカード登録が必要です</p>
-            <p>※ 5 日以内の解約で課金は一切発生しません</p>
-            <p>※ 6 日目以降、自動的に月額 ¥1,000 の課金が始まります</p>
+            <p>※ <span className="no-break">クレジットカード登録</span>が必要です</p>
+            <p>※ <span className="no-break">5 日以内の解約</span>で課金は一切発生しません</p>
+            <p>※ <span className="no-break">6 日目以降</span>、自動的に<span className="no-break">月額 ¥1,000</span>の課金が始まります</p>
           </div>
         </div>
 
@@ -612,7 +641,7 @@ export default function Landing() {
         </details>
         <details>
           <summary>iPhone でも使える？</summary>
-          <p>PWA なので iPhone・Android・PC すべてで利用可能。ホーム画面に追加すれば、ネイティブアプリのように動作します。</p>
+          <p>iPhone・Android・PC すべてで利用可能です。インストール不要で、ブラウザを開くだけですぐ使えます。iPhone のホーム画面に追加すれば、普通のアプリと同じように使えます。</p>
         </details>
         <details>
           <summary>データは安全？</summary>
