@@ -563,31 +563,24 @@ function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry }) {
             }}
           />
         )}
-        {/* ステータスバッジは表紙を隠すというフィードバックで撤去。
-            done のときだけ右下に小さな ✅ を出して識別性を残す。 */}
-        {book.status === 'done' && (
-          <span
-            aria-label="読了"
-            title="読了"
-            style={{
-              position: 'absolute',
-              bottom: 4,
-              right: 4,
-              width: 18,
-              height: 18,
-              borderRadius: 9999,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 11,
-              lineHeight: 1,
-              background: 'rgba(255,255,255,0.95)',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-            }}
-          >
-            ✅
-          </span>
-        )}
+        {/* ステータスを右下に小さなテキスト pill で常時表示。
+            旧: 'done' だけ大きな ✅ を出していたが、すべての状態で
+            視認できるよう「読みたい/読書前/読書中/読了」テキストに変更。
+            book-status-pill.{status} で色を切替。 */}
+        {book.status && (() => {
+          const labels = { want: '読みたい', before: '読書前', reading: '読書中', done: '読了' };
+          const label = labels[book.status];
+          if (!label) return null;
+          return (
+            <span
+              className={`book-status-pill ${book.status}`}
+              aria-label={label}
+              title={label}
+            >
+              {label}
+            </span>
+          );
+        })()}
       </div>
       <p className="book-cover-title">{book.title}</p>
       {book.author && <p className="book-cover-author">{book.author}</p>}
