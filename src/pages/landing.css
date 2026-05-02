@@ -1,14 +1,13 @@
 /* ===========================================================================
- * 🌱 Landing Page CSS — モバイルファースト構成
+ * 🌱 Landing Page CSS — モバイルファースト + 絵文字削減プロ版
  *
- * 設計原則:
- *   1. モバイル (375px) で完璧に動く。デスクトップは @media min-width: 768px で拡張
- *   2. iPhone モックは縦並び 1 台ずつ
- *   3. 1 セクション 1 メッセージ
- *   4. Sticky 下部 CTA でスクロール中も常時表示
+ * - 見出しは Noto Serif JP (感情・哲学を伝える明朝)
+ * - 本文・UI は Inter / Hiragino Sans (可読性 + 数字 tnum)
+ * - 数値は Inter で等幅 (font-feature-settings: tnum)
+ * - 紙のテクスチャを subtle に重ねる
  * =========================================================================== */
 
-/* ============ ベース ============ */
+/* ============ Variables ============ */
 :root {
   --lp-primary: #5C4A2E;
   --lp-accent: #8B6F47;
@@ -18,16 +17,15 @@
   --lp-sub: #666666;
   --lp-success: #2E7D32;
   --lp-error: #C62828;
+  --lp-divider: rgba(92, 74, 46, 0.15);
+  --font-serif: 'Noto Serif JP', 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+  --font-sans: 'Inter', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, -apple-system, sans-serif;
 }
 
 .lp-root, .lp-root *, .lp-root *::before, .lp-root *::after { box-sizing: border-box; }
 
-/* ⚠ 重要: メインアプリは index.css で
- *   html, body, #root { height: 100dvh; overflow: hidden }
- *   #root { display: flex; flex-direction: column }
- * を組んでいる (LINE 風 chat レイアウト用)。
- * LP は同じ #root の中に描画されるため、これらが効くとスクロール不可。
- * lp-active クラスで !important 解除 + #root も block 化する。 */
+/* ⚠ メインアプリの index.css は html/body/#root を 100dvh + overflow:hidden で
+ * 組んでいる (LINE 風 chat レイアウト用)。LP 表示中はこれを解除する。 */
 html.lp-active,
 body.lp-active {
   overflow: auto !important;
@@ -41,24 +39,61 @@ body.lp-active {
 }
 
 .lp-root {
-  font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   color: var(--lp-text);
   background: var(--lp-bg);
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: 100px; /* sticky CTA 分の余白 (モバイル) */
+  padding-bottom: 100px;
   min-height: 100vh;
   overflow: visible !important;
   position: relative;
 }
-.lp-root section {
-  overflow: visible !important;
+/* 紙のような微細なノイズ (透過率 3%) */
+.lp-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.29 0 0 0 0 0.18 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.55;
+  z-index: 0;
+}
+.lp-root > * { position: relative; z-index: 1; }
+
+.lp-root section { overflow: visible !important; }
+
+/* ============ Typography (serif headlines / sans body) ============ */
+.lp-root h1,
+.lp-root h2,
+.lp-root h3,
+.section-headline {
+  font-family: var(--font-serif);
+  letter-spacing: -0.02em;
+}
+.lp-root p,
+.lp-root li,
+.lp-root button,
+.lp-root summary,
+.section-eyebrow,
+.stat-number,
+.stat-label,
+.data-num,
+.price-amount .num,
+.mech-num,
+.cta-primary,
+.sticky-cta-btn {
+  font-family: var(--font-sans);
+}
+.stat-number,
+.data-num,
+.price-amount .num,
+.mech-num {
+  font-feature-settings: 'tnum';
+  font-variant-numeric: tabular-nums;
 }
 
-/* ============ Sticky 下部 CTA(モバイル絶対必須) ============ */
-/* 必ず横長の細い帯にする。height は auto で内容なり、決して 100vh などにしない。
- * pointer-events は内部要素のみ。z-index 50 でメイン UI には被るが画面全体は
- * 占有しない。 */
+/* ============ Sticky 下部 CTA ============ */
 .sticky-cta {
   position: fixed;
   bottom: 0;
@@ -68,7 +103,7 @@ body.lp-active {
   max-height: 110px;
   background: white;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
   z-index: 50;
   animation: lp-sticky-slide-up 0.3s ease;
 }
@@ -83,9 +118,10 @@ body.lp-active {
   background: var(--lp-primary);
   color: white;
   border: none;
-  border-radius: 24px;
-  font-size: 16px;
-  font-weight: 700;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   cursor: pointer;
   font-family: inherit;
 }
@@ -98,74 +134,99 @@ body.lp-active {
 
 /* ============ セクション共通 ============ */
 .lp-root section {
-  padding: 64px 24px;
+  padding: 80px 24px;
   max-width: 600px;
   margin: 0 auto;
-  text-align: center;
 }
 .section-eyebrow {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.18em;
   color: var(--lp-accent);
-  margin: 0 0 12px;
+  margin: 0 0 16px;
 }
 .lp-root section h1 {
-  font-size: 36px;
-  line-height: 1.2;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 40px;
+  line-height: 1.25;
+  font-weight: 900;
   margin: 16px 0;
 }
 .lp-root section h2 {
-  font-size: 28px;
+  font-size: 32px;
   line-height: 1.3;
-  font-weight: 800;
-  margin: 16px 0 24px;
-  letter-spacing: -0.01em;
+  font-weight: 900;
+  margin: 0 0 24px;
 }
 .lp-root section h3 {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
-  margin: 16px 0 8px;
+  margin: 16px 0 12px;
 }
 .lp-root section p {
   font-size: 16px;
   margin: 12px 0;
 }
 
+/* セクション境界の細い装飾線 */
+.lp-section-divider {
+  width: 1px;
+  height: 48px;
+  background: var(--lp-divider);
+  margin: 0 auto;
+}
+
 /* ============ Hero ============ */
 .hero {
-  padding: 48px 24px 80px !important;
+  padding: 56px 24px 88px !important;
   background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
+  text-align: center;
 }
 .hero-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 14px;
   background: white;
-  border-radius: 20px;
-  font-size: 12px;
+  border: 1px solid var(--lp-divider);
+  border-radius: 100px;
+  font-size: 11px;
   font-weight: 600;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  letter-spacing: 0.1em;
+  color: var(--lp-primary);
+  margin-bottom: 32px;
+}
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lp-success);
+  animation: lp-pulse 2s infinite;
+}
+@keyframes lp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 .hero-title {
   font-size: 40px !important;
-  line-height: 1.2;
+  line-height: 1.25;
+  font-weight: 900;
+  margin: 16px 0;
 }
 .hero-subhead {
-  font-size: 17px;
+  font-size: 16px;
   color: var(--lp-sub);
   margin: 16px 0 32px;
+  line-height: 1.85;
 }
 .hero-note {
   font-size: 12px;
   color: var(--lp-sub);
   margin-top: 12px;
+  line-height: 1.7;
 }
 .hero-mockup {
-  margin-top: 48px;
+  margin-top: 56px;
   display: flex;
   justify-content: center;
 }
@@ -173,39 +234,39 @@ body.lp-active {
 /* ============ CTA ボタン ============ */
 .cta-primary {
   display: inline-block;
-  padding: 16px 32px;
+  padding: 16px 36px;
   background: var(--lp-primary);
   color: white;
   border: none;
-  border-radius: 32px;
-  font-size: 17px;
-  font-weight: 700;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   cursor: pointer;
   text-decoration: none;
-  box-shadow: 0 4px 16px rgba(92, 74, 46, 0.3);
+  box-shadow: 0 4px 16px rgba(92, 74, 46, 0.25);
   transition: transform 0.2s, box-shadow 0.2s;
-  font-family: inherit;
+  font-family: var(--font-sans);
 }
 .cta-primary:active { transform: scale(0.98); }
-.cta-hero { padding: 18px 40px; font-size: 18px; }
+.cta-hero { padding: 18px 44px; font-size: 16px; }
 .cta-pricing { width: 100%; margin-top: 24px; }
 .cta-final {
   width: 100%;
   padding: 20px;
-  font-size: 18px;
+  font-size: 16px;
 }
 
-/* ============ iPhone モック (縦長 1 台) ============ */
+/* ============ iPhone モック ============ */
 .phone-frame {
   width: 240px;
   max-width: 80vw;
   height: 460px;
   max-height: 70vh;
-  aspect-ratio: auto; /* aspect-ratio で巨大化するのを防ぐため明示 */
   background: #1a1a1a;
   border-radius: 32px;
   padding: 8px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
   flex-shrink: 0;
 }
 .phone-frame.small { width: 200px; height: 380px; }
@@ -222,51 +283,74 @@ body.lp-active {
   font-size: 12px;
   text-align: left;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .screen-status {
   font-size: 10px;
+  font-weight: 600;
   color: var(--lp-sub);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 .screen-title {
-  font-size: 16px;
+  font-family: var(--font-serif);
+  font-size: 20px;
   font-weight: 700;
   margin-bottom: 12px;
+  letter-spacing: -0.01em;
 }
+
+/* 本のリスト */
 .book-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 8px;
   background: white;
   border-radius: 8px;
   margin-bottom: 6px;
+}
+.book-info { flex: 1; min-width: 0; }
+.book-title {
   font-size: 11px;
   font-weight: 600;
+  color: var(--lp-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.book-row small {
-  margin-left: auto;
-  font-size: 9px;
-  color: var(--lp-sub);
-  font-weight: 400;
+.book-status {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border-radius: 100px;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
+.book-status.reading { background: #FFF3E0; color: #E65100; }
+.book-status.wishlist { background: #F3E5F5; color: #6A1B9A; }
+.book-status.done { background: #E8F5E9; color: #2E7D32; }
+.book-status.before { background: #E3F2FD; color: #1565C0; }
 .book-cover {
-  width: 18px;
-  height: 26px;
+  width: 22px;
+  height: 30px;
   border-radius: 2px;
   flex-shrink: 0;
 }
-.c1 { background: #8B6F47; }
-.c2 { background: #6A1B9A; }
-.c3 { background: #2E7D32; }
-.c4 { background: #1565C0; }
+.c1 { background: linear-gradient(135deg, #8B6F47, #5C4A2E); }
+.c2 { background: linear-gradient(135deg, #6A1B9A, #4A148C); }
+.c3 { background: linear-gradient(135deg, #2E7D32, #1B5E20); }
+.c4 { background: linear-gradient(135deg, #1565C0, #0D47A1); }
 
+/* チャット系 */
 .advisor-msg, .brain-msg {
   padding: 8px 12px;
   border-radius: 12px;
   margin-bottom: 6px;
   font-size: 11px;
   max-width: 80%;
+  line-height: 1.5;
 }
 .advisor-msg.user, .brain-msg.user {
   background: var(--lp-primary);
@@ -282,48 +366,98 @@ body.lp-active {
   background: white;
   border-radius: 6px;
   font-size: 10px;
+  font-weight: 500;
   margin: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--lp-text);
 }
+.advisor-book svg { color: var(--lp-accent); flex-shrink: 0; }
 
+/* セットアップ系 */
 .setup-label {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: var(--lp-accent);
+  margin-top: 8px;
 }
 .setup-value {
   font-size: 11px;
   background: white;
   padding: 6px 8px;
   border-radius: 6px;
-  margin-top: 2px;
+  margin-top: 3px;
+  color: var(--lp-text);
 }
 
-/* ============ Pain ============ */
-.pain { background: white; }
-.pain-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 32px 0;
+/* ============ Pain (data driven) ============ */
+.pain {
+  background: white;
+  text-align: center;
 }
-.pain-item {
-  padding: 16px 20px;
-  background: var(--lp-bg);
-  border-radius: 12px;
+.pain-intro {
   font-size: 15px;
-  font-weight: 500;
+  color: var(--lp-text);
+  line-height: 1.85;
+  margin: 16px 0 32px;
+}
+.pain-data {
+  margin: 32px 0;
+  padding: 28px 24px;
+  background: var(--lp-bg);
+  border-radius: 16px;
+  border-left: 4px solid var(--lp-primary);
   text-align: left;
 }
-.pain-conclusion {
-  font-size: 18px;
-  font-weight: 600;
+.data-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+.data-row:last-of-type { border: none; }
+.data-num {
+  font-size: 32px;
+  font-weight: 800;
   color: var(--lp-primary);
-  margin-top: 32px;
+  min-width: 70px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.data-text {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--lp-text);
+  flex: 1;
+}
+.data-source {
+  font-size: 10px;
+  color: #999;
+  margin-top: 14px;
+  text-align: right;
+  line-height: 1.5;
+}
+.pain-conclusion {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 40px;
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+}
+.pain-conclusion strong {
+  color: var(--lp-primary);
+  border-bottom: 3px solid var(--lp-accent);
+  padding-bottom: 2px;
 }
 
 /* ============ Outcome ============ */
-.outcome { background: var(--lp-bg-warm); }
+.outcome { background: var(--lp-bg-warm); text-align: center; }
 .outcome-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -332,54 +466,127 @@ body.lp-active {
 }
 .stat-card {
   background: white;
-  padding: 20px 8px;
+  padding: 24px 8px 20px;
   border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 .stat-number {
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 800;
   color: var(--lp-primary);
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 .stat-label {
   font-size: 11px;
   color: var(--lp-sub);
-  margin-top: 4px;
+  margin-top: 8px;
+  letter-spacing: 0.05em;
 }
 .outcome-message {
-  font-size: 17px;
-  font-weight: 600;
-  margin-top: 24px;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 28px;
+  line-height: 1.7;
 }
 
-/* ============ Mechanisms ============ */
-.mechanisms { background: white; }
+/* ============ Mechanisms (numbered persona quotes) ============ */
+.mechanisms { background: white; text-align: center; }
 .mechanism {
-  margin: 48px 0;
-  padding: 32px 20px;
-  background: var(--lp-bg);
-  border-radius: 24px;
-  text-align: center;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 18px;
+  margin: 56px 0;
+  text-align: left;
+  align-items: stretch;
 }
-.mech-number {
-  display: inline-block;
-  padding: 4px 12px;
-  background: var(--lp-primary);
-  color: white;
-  border-radius: 12px;
-  font-size: 12px;
+.mech-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.mech-num {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--lp-primary);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.mech-line {
+  flex: 1;
+  width: 1px;
+  background: var(--lp-divider);
+  margin-top: 12px;
+}
+.mech-content { padding-bottom: 24px; }
+.mech-content h3 {
+  font-size: 22px;
   font-weight: 700;
-  margin-bottom: 12px;
+  margin: 0 0 16px;
+  line-height: 1.4;
 }
-.mech-icon { font-size: 48px; margin-bottom: 8px; }
+.mech-lead {
+  font-size: 13px;
+  color: var(--lp-sub);
+  font-style: italic;
+  border-left: 2px solid var(--lp-accent);
+  padding-left: 12px;
+  margin: 16px 0;
+  line-height: 1.7;
+}
+.mech-body {
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--lp-text);
+  margin: 12px 0;
+}
 .mech-mockup {
-  margin-top: 24px;
+  margin: 24px 0 24px;
   display: flex;
   justify-content: center;
 }
+.mech-quote {
+  margin: 24px 0 0;
+  padding: 24px 20px 20px;
+  background: var(--lp-bg);
+  border-radius: 12px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--lp-text);
+  position: relative;
+}
+.mech-quote::before {
+  content: '“';
+  position: absolute;
+  top: -2px;
+  left: 12px;
+  font-size: 48px;
+  color: var(--lp-accent);
+  font-family: var(--font-serif);
+  line-height: 1;
+}
+.mech-quote cite {
+  display: block;
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--lp-sub);
+  font-style: normal;
+  font-family: var(--font-sans);
+  letter-spacing: 0.03em;
+}
+.mech-disclaimer {
+  font-size: 10px;
+  color: #999;
+  text-align: center;
+  margin-top: 24px;
+  line-height: 1.6;
+}
 
 /* ============ Comparison ============ */
-.comparison { background: var(--lp-bg-warm); }
+.comparison { background: var(--lp-bg-warm); text-align: center; }
 .compare-cards {
   display: flex;
   flex-direction: column;
@@ -393,14 +600,16 @@ body.lp-active {
   text-align: left;
 }
 .compare-card.with {
-  background: linear-gradient(135deg, #FFF8E1 0%, #FFE0B2 100%);
+  background: linear-gradient(135deg, #FFF8E1 0%, #FBEFCC 100%);
   border: 2px solid var(--lp-primary);
 }
 .compare-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
   color: var(--lp-sub);
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 .compare-card.with .compare-label {
   color: var(--lp-primary);
@@ -411,105 +620,161 @@ body.lp-active {
   margin: 0;
 }
 .compare-card li {
-  padding: 8px 0;
+  padding: 10px 0;
   font-size: 14px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: var(--lp-text);
 }
+.compare-card li svg { color: var(--lp-success); flex-shrink: 0; }
+.compare-card.with li svg { color: var(--lp-primary); }
+.compare-card.without li svg { color: var(--lp-sub); }
 .compare-card li:last-child { border: none; }
 .compare-card li.missing {
-  color: #999;
-  text-decoration: line-through;
+  color: #aaa;
+  font-style: italic;
 }
 
 /* ============ Philosophy ============ */
 .philosophy { background: white; }
 .philosophy-card {
   margin: 24px 0;
-  padding: 28px 24px;
+  padding: 32px 24px;
   background: linear-gradient(135deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
   border-radius: 16px;
   border-left: 4px solid var(--lp-primary);
   text-align: left;
 }
+.philosophy-card p { font-size: 15px; line-height: 1.85; }
 .philosophy-quotes {
   list-style: none;
   padding: 0;
-  margin: 16px 0;
+  margin: 20px 0;
 }
 .philosophy-quotes li {
-  padding: 8px 12px;
+  padding: 12px 16px;
   background: white;
   border-radius: 8px;
-  margin: 6px 0;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 8px 0;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 700;
   color: var(--lp-primary);
+  letter-spacing: -0.01em;
+  position: relative;
+  padding-left: 28px;
+}
+.philosophy-quotes li::before {
+  content: '”';
+  position: absolute;
+  left: 10px;
+  top: 4px;
+  font-size: 24px;
+  color: var(--lp-accent);
+  line-height: 1;
 }
 .disclaimer {
   font-size: 11px;
   color: #999;
-  line-height: 1.5;
+  line-height: 1.6;
   margin-top: 16px;
 }
 
 /* ============ Pricing ============ */
-.pricing { background: var(--lp-bg-warm); }
+.pricing { background: var(--lp-bg-warm); text-align: center; }
 .price-card {
   background: white;
-  padding: 32px 24px;
+  padding: 36px 24px;
   border-radius: 24px;
-  margin-top: 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  margin-top: 32px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
   border: 2px solid var(--lp-primary);
+  text-align: left;
+}
+.price-tier {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--lp-accent);
+  text-align: center;
+  margin-bottom: 8px;
 }
 .price-amount {
   display: flex;
   align-items: baseline;
   justify-content: center;
   gap: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
-.price-amount .yen { font-size: 24px; font-weight: 700; }
+.price-amount .yen { font-size: 24px; font-weight: 700; color: var(--lp-primary); }
 .price-amount .num {
-  font-size: 56px;
+  font-size: 64px;
   font-weight: 800;
   color: var(--lp-primary);
   line-height: 1;
+  letter-spacing: -0.04em;
 }
-.price-amount .per { font-size: 16px; color: var(--lp-sub); }
+.price-amount .per { font-size: 16px; color: var(--lp-sub); margin-left: 4px; }
 .price-trial {
-  display: inline-block;
-  padding: 4px 12px;
-  background: var(--lp-bg);
-  border-radius: 12px;
+  display: block;
+  text-align: center;
   font-size: 12px;
   font-weight: 600;
-  color: var(--lp-primary);
+  color: var(--lp-success);
+  margin-bottom: 8px;
+}
+.price-divider {
+  height: 1px;
+  background: var(--lp-divider);
+  margin: 24px 0;
 }
 .price-features {
   list-style: none;
   padding: 0;
-  margin: 24px 0;
-  text-align: left;
+  margin: 0 0 24px;
 }
 .price-features li {
   padding: 10px 0;
-  font-size: 15px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: var(--lp-text);
 }
-.price-notes {
-  margin-top: 16px;
-  text-align: left;
+.price-features li svg { color: var(--lp-success); flex-shrink: 0; }
+.price-features li:last-child { border: none; }
+.price-fineprint {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
-.price-notes p {
+.price-fineprint p {
   font-size: 11px;
   color: var(--lp-sub);
   margin: 4px 0;
-  line-height: 1.5;
+  line-height: 1.6;
+}
+.price-philosophy {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  text-align: center;
+  margin-top: 40px;
+  color: var(--lp-text);
+  line-height: 1.95;
+}
+.price-philosophy strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 16px;
+  color: var(--lp-primary);
 }
 
 /* ============ FAQ ============ */
-.faq { background: white; }
+.faq { background: white; text-align: center; }
 .faq details {
   background: var(--lp-bg);
   border-radius: 12px;
@@ -518,13 +783,14 @@ body.lp-active {
   text-align: left;
 }
 .faq summary {
-  padding: 16px 20px;
+  padding: 18px 20px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   list-style: none;
   position: relative;
   padding-right: 48px;
+  color: var(--lp-text);
 }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary::after {
@@ -533,19 +799,17 @@ body.lp-active {
   right: 20px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 24px;
+  font-size: 22px;
   color: var(--lp-primary);
   font-weight: 300;
   transition: transform 0.2s;
 }
-.faq details[open] summary::after {
-  content: '×';
-}
+.faq details[open] summary::after { content: '×'; }
 .faq details p {
   padding: 0 20px 20px;
   font-size: 14px;
   color: var(--lp-sub);
-  line-height: 1.7;
+  line-height: 1.85;
   margin: 0;
 }
 
@@ -553,32 +817,40 @@ body.lp-active {
 .final-cta {
   background: linear-gradient(135deg, var(--lp-primary) 0%, var(--lp-accent) 100%);
   color: white;
-  padding: 80px 24px !important;
+  padding: 88px 24px !important;
+  text-align: center;
 }
-.final-cta h2 { color: white; font-size: 36px; }
+.final-cta h2 { color: white; font-size: 40px; }
 .final-sub {
   font-size: 16px;
   margin: 16px 0 32px;
-  opacity: 0.9;
+  opacity: 0.92;
 }
 .final-cta .cta-primary {
   background: white;
   color: var(--lp-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 .final-note {
   font-size: 12px;
-  margin-top: 16px;
-  opacity: 0.8;
+  margin-top: 18px;
+  opacity: 0.85;
 }
 
 /* ============ Footer ============ */
 .lp-footer {
-  background: #2C2C2C;
+  background: #1c1c1c;
   color: white;
-  padding: 48px 24px;
+  padding: 56px 24px;
   text-align: center;
 }
-.lp-footer p { margin: 6px 0; font-size: 14px; }
+.lp-footer-brand {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
 .footer-links {
   display: flex;
   justify-content: center;
@@ -588,19 +860,19 @@ body.lp-active {
 }
 .footer-links a {
   color: white;
-  font-size: 13px;
-  opacity: 0.8;
+  font-size: 12px;
+  opacity: 0.7;
   text-decoration: none;
+  letter-spacing: 0.05em;
 }
+.footer-links a:hover { opacity: 1; }
 .copyright {
   font-size: 11px !important;
-  opacity: 0.6;
+  opacity: 0.5;
+  margin: 0;
 }
 
-/* ============ Fade-in アニメーション ============ */
-/* デフォルトは見える状態。JS が動かなくても全セクション表示される。
- * .lp-root.js-ready が付くと初期 opacity:0 + slide-up が有効になり、
- * IntersectionObserver で .visible が付くと展開する。 */
+/* ============ Fade-in ============ */
 .fade-in {
   opacity: 1;
   transform: none;
@@ -621,20 +893,23 @@ body.lp-active {
     transform: none !important;
   }
   .sticky-cta { animation: none; }
+  .badge-dot { animation: none; }
 }
 
-/* ============ デスクトップ調整 ============ */
+/* ============ Desktop ============ */
 @media (min-width: 768px) {
-  .lp-root section { padding: 96px 32px; max-width: 800px; }
+  .lp-root section { padding: 120px 32px; max-width: 800px; }
   .hero-title { font-size: 64px !important; }
-  .lp-root section h2 { font-size: 40px; }
-  .compare-cards {
-    flex-direction: row;
-    gap: 24px;
-  }
+  .lp-root section h2 { font-size: 44px; }
+  .compare-cards { flex-direction: row; gap: 24px; }
   .compare-card { flex: 1; }
   .sticky-cta { display: none; }
   .lp-root { padding-bottom: 0; }
-  .phone-frame { width: 280px; }
-  .final-cta h2 { font-size: 48px; }
+  .phone-frame { width: 280px; height: 540px; max-height: 70vh; }
+  .phone-frame.small { width: 220px; height: 420px; }
+  .final-cta h2 { font-size: 52px; }
+  .pain-intro { font-size: 17px; }
+  .mechanism { gap: 28px; grid-template-columns: 80px 1fr; }
+  .mech-num { font-size: 40px; }
+  .mech-content h3 { font-size: 28px; }
 }
