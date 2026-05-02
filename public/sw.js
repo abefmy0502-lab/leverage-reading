@@ -2,7 +2,7 @@
 // ブラウザは sw.js を byte-by-byte で diff するため、SW_VERSION を
 // 変えるだけでも install → skipWaiting → activate → 旧 cache 削除の
 // 流れが走り、ユーザーは「アプリを削除→再追加」しなくても新版を取得できる。
-const SW_VERSION = 'v10';
+const SW_VERSION = 'v11';
 const STATIC_CACHE = `leverage-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `leverage-runtime-${SW_VERSION}`;
 const ALLOWED_CACHES = [STATIC_CACHE, RUNTIME_CACHE];

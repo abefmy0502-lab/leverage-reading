@@ -24,6 +24,32 @@
 
 .lp-root, .lp-root *, .lp-root *::before, .lp-root *::after { box-sizing: border-box; }
 
+/* ============ 横スクロール完全禁止 (LP 表示中のみ) ============
+ * LP のどのセクション/要素も画面幅を超えないように上から下まで max-width:
+ * 100vw + overflow-x: hidden を強制する。grid/flex の子要素は minmax(0, 1fr)
+ * で「親をはみ出す」既知のバグを抑制。 */
+html.lp-active,
+body.lp-active {
+  overflow-x: hidden !important;
+  max-width: 100vw;
+}
+.lp-root {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
+.lp-root section {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+.lp-root img,
+.lp-root .phone-frame,
+.lp-root .phone-screen,
+.lp-root pre,
+.lp-root code {
+  max-width: 100%;
+}
+
 /* ⚠ メインアプリの index.css は html/body/#root を 100dvh + overflow:hidden で
  * 組んでいる (LINE 風 chat レイアウト用)。LP 表示中はこれを解除する。 */
 html.lp-active,
@@ -252,6 +278,27 @@ body.lp-active {
   margin-top: 12px;
   line-height: 1.7;
 }
+.hero-benefits {
+  list-style: none;
+  padding: 0;
+  margin: 28px auto 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 100%;
+}
+.hero-benefits li {
+  background: white;
+  border: 1px solid var(--lp-divider);
+  padding: 8px 14px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--lp-primary);
+  white-space: nowrap;
+}
 .hero-mockup {
   margin-top: 56px;
   display: flex;
@@ -286,8 +333,7 @@ body.lp-active {
 
 /* ============ iPhone モック ============ */
 .phone-frame {
-  width: 240px;
-  max-width: 80vw;
+  width: min(240px, 70vw);
   height: 460px;
   max-height: 70vh;
   background: #1a1a1a;
@@ -296,10 +342,10 @@ body.lp-active {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
   flex-shrink: 0;
 }
-.phone-frame.small { width: 200px; height: 380px; }
+.phone-frame.small { width: min(180px, 60vw); height: 380px; }
 @media (max-width: 480px) {
-  .phone-frame { width: 220px; height: 420px; }
-  .phone-frame.small { width: 180px; height: 340px; }
+  .phone-frame { height: 420px; }
+  .phone-frame.small { height: 340px; }
 }
 .phone-screen {
   width: 100%;
@@ -522,11 +568,24 @@ body.lp-active {
 .mechanisms { background: white; text-align: center; }
 .mechanism {
   display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 18px;
+  /* minmax(0, 1fr): grid の子要素が親をはみ出す既知のバグ対策。
+   * 1fr 単独だと min-content で計算されて横スクロール発生。 */
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 16px;
   margin: 56px 0;
   text-align: left;
   align-items: stretch;
+  max-width: 100%;
+  overflow: hidden;
+}
+.mech-content {
+  min-width: 0; /* grid/flex 子要素の必須プロパティ */
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+.mech-quote {
+  max-width: 100%;
+  word-wrap: break-word;
 }
 .mech-marker {
   display: flex;
@@ -610,6 +669,127 @@ body.lp-active {
   text-align: center;
   margin-top: 24px;
   line-height: 1.6;
+}
+
+/* ============ Use-Case timeline ============ */
+.use-case {
+  background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
+  text-align: center;
+}
+.story-timeline {
+  margin: 32px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.story-step {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  max-width: 100%;
+}
+.story-time {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--lp-primary);
+  padding-top: 14px;
+  text-align: right;
+  white-space: nowrap;
+}
+.story-card {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  border-left: 3px solid var(--lp-primary);
+  text-align: left;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+.story-action {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--lp-text);
+  letter-spacing: -0.01em;
+}
+.story-detail {
+  font-size: 13px;
+  color: var(--lp-text);
+  background: var(--lp-bg);
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 10px 0;
+  font-style: italic;
+  font-family: var(--font-serif);
+  line-height: 1.75;
+}
+.story-result {
+  font-size: 13px;
+  color: var(--lp-primary);
+  font-weight: 600;
+  line-height: 1.75;
+}
+.story-conclusion {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 32px;
+  line-height: 1.85;
+  color: var(--lp-primary);
+  letter-spacing: -0.01em;
+}
+
+/* ============ Use-List (Q→A) ============ */
+.use-list {
+  background: white;
+  text-align: center;
+}
+.use-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 32px;
+}
+.use-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 20px;
+  background: var(--lp-bg);
+  border-radius: 12px;
+  text-align: left;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+.use-question {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lp-text);
+  line-height: 1.6;
+}
+.use-arrow {
+  font-size: 16px;
+  color: var(--lp-accent);
+  font-weight: 800;
+  align-self: flex-start;
+  line-height: 1;
+}
+.use-answer {
+  font-size: 14px;
+  color: var(--lp-text);
+  font-weight: 500;
+  background: white;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border-left: 3px solid var(--lp-primary);
+  line-height: 1.7;
 }
 
 /* ============ Comparison ============ */

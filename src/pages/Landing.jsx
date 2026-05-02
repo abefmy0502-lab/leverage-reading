@@ -129,9 +129,16 @@ export default function Landing() {
           もう作らない。
         </h1>
         <p className="hero-subhead">
-          1,500 円の本から、人生を変える行動を引き出す。<br />
-          AI が読み方を設計する、新しい読書記録です。
+          あなたの課題から AI が本を選び、<br />
+          読み方を設計し、行動につなげる。<br />
+          本を「投資の運用」に変える PWA。
         </p>
+        <ul className="hero-benefits" aria-label="主なメリット">
+          <li>本選び失敗ゼロ</li>
+          <li>読了時間 40% 短縮</li>
+          <li>行動量 3 倍</li>
+          <li>過去の知識を AI で引き出せる</li>
+        </ul>
         <button type="button" onClick={goToSignup} className="cta-primary cta-hero">
           無料で始める
         </button>
@@ -249,6 +256,74 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
+      {/* ============ 3.5. Use-Case timeline (1 日のストーリー) ============ */}
+      <section className="use-case fade-in">
+        <p className="section-eyebrow">使ってみるとこうなる</p>
+        <h2 className="section-headline">たとえば、こんな 1 日。</h2>
+
+        <div className="story-timeline">
+          <div className="story-step">
+            <div className="story-time">朝 7:00</div>
+            <div className="story-card">
+              <div className="story-action">通勤電車で AI に話しかける</div>
+              <div className="story-detail">
+                「最近の営業会議で発言が浅いと感じる。自分の意見を論理的に組み立てる力をつけたい」
+              </div>
+              <div className="story-result">
+                → AI が 3 冊の本を提案<br />
+                『武器になる哲学』『イシューからはじめよ』『考える技術』
+              </div>
+            </div>
+          </div>
+
+          <div className="story-step">
+            <div className="story-time">朝 7:15</div>
+            <div className="story-card">
+              <div className="story-action">読書計画を一緒に立てる</div>
+              <div className="story-detail">
+                『イシューからはじめよ』を選択。AI が「投資目的・現在の課題・仮説」を整理。
+              </div>
+              <div className="story-result">
+                → 「序章と第 2 章を重点的に・第 4 章は流し読みで OK」という戦略付きで読書スタート
+              </div>
+            </div>
+          </div>
+
+          <div className="story-step">
+            <div className="story-time">夜 22:00</div>
+            <div className="story-card">
+              <div className="story-action">読みながらカードでメモ</div>
+              <div className="story-detail">
+                ページ番号・写真付きで気づきを記録。「明日の会議で『イシュー度』を意識する」を行動アクションに登録。
+              </div>
+              <div className="story-result">
+                → 期限付きタスクとして翌日に通知
+              </div>
+            </div>
+          </div>
+
+          <div className="story-step">
+            <div className="story-time">3 週間後</div>
+            <div className="story-card">
+              <div className="story-action">AI に過去の知識を聞く</div>
+              <div className="story-detail">
+                「会議で意見が割れた時、どう判断すべき？」
+              </div>
+              <div className="story-result">
+                → 過去に読んだ『イシューからはじめよ』のメモを参照し、あなた専用の答えが返ってくる
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="story-conclusion">
+          本を読んだその瞬間で終わらない。<br />
+          過去の本が、未来のあなたを支える資産になる。
+        </p>
+      </section>
+
+      <div className="lp-section-divider" aria-hidden="true" />
+
       {/* ============ 4. Mechanisms (数字主体・ペルソナ引用) ============ */}
       <section className="mechanisms fade-in">
         <p className="section-eyebrow">仕組み</p>
@@ -353,6 +428,50 @@ export default function Landing() {
           </div>
         </div>
 
+      </section>
+
+      <div className="lp-section-divider" aria-hidden="true" />
+
+      {/* ============ 4.5. Use-List (Q→A) ============ */}
+      <section className="use-list fade-in">
+        <p className="section-eyebrow">使えるシーン</p>
+        <h2 className="section-headline">
+          あなたの読書を、<br />
+          こう変えます。
+        </h2>
+
+        <div className="use-grid">
+          <div className="use-item">
+            <div className="use-question">「何を読めばいいか分からない」</div>
+            <div className="use-arrow" aria-hidden="true">↓</div>
+            <div className="use-answer">AI に課題を話すだけで、あなたに合う本を 3〜5 冊提案</div>
+          </div>
+          <div className="use-item">
+            <div className="use-question">「どこを重点的に読めばいい？」</div>
+            <div className="use-arrow" aria-hidden="true">↓</div>
+            <div className="use-answer">AI が読み方を設計、章ごとに優先度を提案</div>
+          </div>
+          <div className="use-item">
+            <div className="use-question">「メモを取っても見返さない」</div>
+            <div className="use-arrow" aria-hidden="true">↓</div>
+            <div className="use-answer">カード式メモで自動整理、検索もタグ管理も可能</div>
+          </div>
+          <div className="use-item">
+            <div className="use-question">「読んでも行動につながらない」</div>
+            <div className="use-arrow" aria-hidden="true">↓</div>
+            <div className="use-answer">本から決めた行動に期限と優先度をつけて管理</div>
+          </div>
+          <div className="use-item">
+            <div className="use-question">「過去に読んだ知識を活用したい」</div>
+            <div className="use-arrow" aria-hidden="true">↓</div>
+            <div className="use-answer">マイ読書脳に質問すれば過去の本から AI が回答</div>
+          </div>
+          <div className="use-item">
+            <div className="use-question">「読んだ本の成果を見たい」</div>
+            <div className="use-arrow" aria-hidden="true">↓</div>
+            <div className="use-answer">ROI まとめと行動完了率で投資効果を可視化</div>
+          </div>
+        </div>
       </section>
 
       <div className="lp-section-divider" aria-hidden="true" />
