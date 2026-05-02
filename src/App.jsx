@@ -4295,8 +4295,12 @@ const persist = useCallback((updates) => {
           book={coverFixForBook}
           onClose={() => setCoverFixForBook(null)}
           onPick={async ({ cover, coverIsbn }) => {
+            // 楽観的 UI 更新: saveBook の完了を待たず即座に画面を新しい
+            // 表紙に切り替える。saveBook が失敗したら次の fetchBooks で
+            // 元の URL に戻るので最終的な整合性は崩れない。
+            const updated = { ...coverFixForBook, cover, coverIsbn };
+            setCurrent((c) => (c && c.id === updated.id ? { ...c, cover, coverIsbn } : c));
             try {
-              const updated = { ...coverFixForBook, cover, coverIsbn };
               const saved = await saveBook(updated);
               const next = saved || updated;
               setCurrent((c) => (c && c.id === next.id ? next : c));

@@ -169,34 +169,40 @@ export const fullyResolveCover = async (book, findIsbnCandidates) => {
   let url = '';
   let resolvedIsbn = '';
 
+  // ★ ステップ 1: プライマリ ISBN を最優先 (絶対に正しい本の表紙)。
+  // タイトル + 著者検索ベースの候補は誤マッチリスクがあるので、
+  // primary ISBN で取れるなら他の候補は試さない。
+  if (primary) {
+    try {
+      const v = await tryCoverForIsbn(primary);
+      if (v) {
+        // eslint-disable-next-line no-console
+        console.log('[fullyResolveCover] using primary ISBN:', primary);
+        return { url: v, isbn: primary };
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[fullyResolveCover] primary phase failed:', e?.message || e);
+    }
+  }
+
+  // ステップ 2: primary で取れなかった時のみ、厳格マッチ後の候補 ISBN を試す
   try {
     if ((title || author) && typeof findIsbnCandidates === 'function') {
       const altIsbns = await findIsbnCandidates(title, author);
-      const ordered = [primary, ...altIsbns].filter(Boolean);
-      if (ordered.length > 0) {
-        const r = await resolveCoverFromCandidates(ordered);
+      if (altIsbns.length > 0) {
+        const r = await resolveCoverFromCandidates(altIsbns);
         if (r.url) {
           url = r.url;
           resolvedIsbn = r.isbn || '';
+          // eslint-disable-next-line no-console
+          console.log('[fullyResolveCover] using alt ISBN:', resolvedIsbn);
         }
       }
     }
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[fullyResolveCover] candidate phase failed:', e?.message || e);
-  }
-
-  if (!url && primary) {
-    try {
-      const v = await resolveCoverUrl(primary);
-      if (v) {
-        url = v;
-        resolvedIsbn = primary;
-      }
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn('[fullyResolveCover] primary phase failed:', e?.message || e);
-    }
   }
 
   return { url, isbn: resolvedIsbn };

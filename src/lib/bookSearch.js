@@ -669,20 +669,30 @@ const titleSimilarity = (a, b) => {
   return 0;
 };
 
-const TITLE_SIM_THRESHOLD = 0.7;
+const TITLE_SIM_THRESHOLD = 0.8;
 
 /**
  * 候補 (NDL/Google Books から取れた書誌) と「ユーザーが追加しようとして
- * いる本」が同じ本かを判定する。タイトル類似度 ≥ 0.7 + 著者の互含 (両方
- * 与えられている場合のみ) を要求。
+ * いる本」が同じ本かを判定する。タイトル類似度 ≥ 0.8 + 著者厳格チェック。
+ *
+ * 著者ルール:
+ *   - original.author が無ければ author check は skip (信頼性は下がるが代替なし)
+ *   - original.author があるのに candidate.author が空 → 不一致扱い (誤マッチ防止)
+ *   - 両方ある時は互含 (どちらかが他方を含む)
+ *
+ * 0.7 → 0.8 に厳格化したのは「営業の本質」「営業の力」のような部分一致で
+ * 全く別の本の表紙が紛れ込む事故を防ぐため。
  */
 const isSameBook = (candidate, original) => {
   const tSim = titleSimilarity(candidate.title, original.title);
   if (tSim < TITLE_SIM_THRESHOLD) return false;
-  if (candidate.author && original.author) {
+  // original に author 情報があれば厳格にチェックする
+  if (original.author) {
+    if (!candidate.author) return false; // 候補に著者が無い → 別の本扱い
     const aA = normalizeAuthor(candidate.author);
     const aO = normalizeAuthor(original.author);
-    if (aA && aO && !aA.includes(aO) && !aO.includes(aA)) return false;
+    if (!aA || !aO) return false;
+    if (!aA.includes(aO) && !aO.includes(aA)) return false;
   }
   return true;
 };
@@ -808,9 +818,8 @@ export async function findIsbnCandidates(title, author) {
   const a = (author || '').trim();
   if (!t && !a) return [];
 
-  // localStorage cache。v4 で厳格マッチ導入 → 旧キャッシュは無視できるよう
-  // バージョン suffix を付ける。
-  const cacheKey = `${ISBN_CAND_CACHE_KEY(t, a)}:v2`;
+  // localStorage cache key を v3 にバンプ (閾値 0.8 + 上限 3 件 + 著者厳格化)
+  const cacheKey = `${ISBN_CAND_CACHE_KEY(t, a)}:v3`;
   try {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem(cacheKey);
@@ -824,7 +833,12 @@ export async function findIsbnCandidates(title, author) {
   } catch { /* ignore */ }
 
   const filtered = await findIsbnCandidatesWithMetadata(t, a);
-  const isbns = filtered.map((c) => c.isbn);
+  // 誤マッチを最小化するため候補を最大 3 件に制限。多すぎると tryCoverForIsbn
+  // のループで「タイトルが似ているだけの違う本」の表紙を採用するリスクが上がる。
+  const isbns = filtered.map((c) => c.isbn).slice(0, 3);
+  if (typeof console !== 'undefined') {
+    console.log('[isbn-candidates] final:', { title: t, author: a, isbns });
+  }
 
   try {
     if (typeof localStorage !== 'undefined') {
