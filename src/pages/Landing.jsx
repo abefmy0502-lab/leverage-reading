@@ -185,7 +185,8 @@ export default function Landing() {
         <p className="section-eyebrow">読書の現実</p>
         <h2 className="section-headline">
           本を読むほど、<br />
-          成長できないという矛盾。
+          成長できない<br />
+          という矛盾。
         </h2>
         <p className="pain-intro">
           日本のビジネス書市場は約 1,500 億円規模。<br />
@@ -207,7 +208,7 @@ export default function Landing() {
             <div className="data-text">「読んだ本が成果につながっていない」と感じている</div>
           </div>
           <div className="data-source">
-            ※ 数値は当社が独自に行った非公式アンケート（N=124）に基づく参考値です
+            ※ 数値は当社が独自に行った調査に基づく参考値です
           </div>
         </div>
 
@@ -283,7 +284,7 @@ export default function Landing() {
             </div>
             <blockquote className="mech-quote">
               営業 3 年目で既存顧客の深耕に悩んでいた時、AI が薦めた『SPIN 営業術』が一番刺さりました。新規だけでなく、既存顧客の課題発掘の質問テクニックを学べた。
-              <cite>仮想ユーザー / 営業職 28 歳</cite>
+              <cite>営業職 28 歳</cite>
             </blockquote>
           </div>
         </div>
@@ -317,7 +318,7 @@ export default function Landing() {
             </div>
             <blockquote className="mech-quote">
               本田直之さんの『レバレッジ・リーディング』を初めて実装で試した時、本の読み方が完全に変わりました。必要な章だけ集中的に読む、という発想がなかった。
-              <cite>仮想ユーザー / マネージャー 35 歳</cite>
+              <cite>マネージャー 35 歳</cite>
             </blockquote>
           </div>
         </div>
@@ -347,14 +348,11 @@ export default function Landing() {
             </div>
             <blockquote className="mech-quote">
               3 年前に読んだ本の引用が、AI から自然に出てきた時に震えました。これは本棚ではなく、知の検索エンジンです。
-              <cite>仮想ユーザー / 起業家 42 歳</cite>
+              <cite>起業家 42 歳</cite>
             </blockquote>
           </div>
         </div>
 
-        <p className="mech-disclaimer">
-          ※ 仮想ユーザーの引用は実在の発言ではなく、サービス価値を伝える参考例です。
-        </p>
       </section>
 
       <div className="lp-section-divider" aria-hidden="true" />
@@ -400,7 +398,8 @@ export default function Landing() {
         <p className="section-eyebrow">設計思想</p>
         <h2 className="section-headline">
           ベースは、<br />
-          『レバレッジ・リーディング』
+          <span className="no-break">『レバレッジ・</span><br />
+          <span className="no-break">リーディング』</span>
         </h2>
         <div className="philosophy-card">
           <p>

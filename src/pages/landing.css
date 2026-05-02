@@ -70,6 +70,32 @@ body.lp-active {
 .section-headline {
   font-family: var(--font-serif);
   letter-spacing: -0.02em;
+  /* 日本語の見出しの改行を美しく:
+   *   - keep-all: 単語 (漢字熟語) の途中で切らない
+   *   - strict:   句読点・括弧の禁則処理を強める
+   *   - balance:  対応ブラウザでは行の長さを均等に
+   *   - overflow-wrap: 単語が幅を超えたら折り返し許可 (フォールバック) */
+  word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.lp-root p {
+  word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: break-word;
+}
+/* 数字・価格・データ系は単独で nowrap (途中で切らない) */
+.data-num,
+.stat-number,
+.price-amount {
+  display: inline-block;
+  white-space: nowrap;
+}
+/* 括弧 / タイトルなど特定語句に当てる nowrap utility */
+.no-break {
+  display: inline-block;
+  white-space: nowrap;
 }
 .lp-root p,
 .lp-root li,
@@ -147,19 +173,20 @@ body.lp-active {
   margin: 0 0 16px;
 }
 .lp-root section h1 {
-  font-size: 40px;
-  line-height: 1.25;
+  font-size: 36px;
+  line-height: 1.4;
   font-weight: 900;
   margin: 16px 0;
 }
 .lp-root section h2 {
-  font-size: 32px;
-  line-height: 1.3;
+  font-size: 26px;
+  line-height: 1.4;
   font-weight: 900;
   margin: 0 0 24px;
 }
 .lp-root section h3 {
-  font-size: 22px;
+  font-size: 20px;
+  line-height: 1.4;
   font-weight: 700;
   margin: 16px 0 12px;
 }
@@ -208,8 +235,8 @@ body.lp-active {
   50% { opacity: 0.4; }
 }
 .hero-title {
-  font-size: 40px !important;
-  line-height: 1.25;
+  font-size: 36px !important;
+  line-height: 1.4;
   font-weight: 900;
   margin: 16px 0;
 }
@@ -899,17 +926,18 @@ body.lp-active {
 /* ============ Desktop ============ */
 @media (min-width: 768px) {
   .lp-root section { padding: 120px 32px; max-width: 800px; }
-  .hero-title { font-size: 64px !important; }
-  .lp-root section h2 { font-size: 44px; }
+  .hero-title { font-size: 56px !important; line-height: 1.35; }
+  .lp-root section h2 { font-size: 36px; line-height: 1.35; }
+  .lp-root section h3 { font-size: 24px; }
   .compare-cards { flex-direction: row; gap: 24px; }
   .compare-card { flex: 1; }
   .sticky-cta { display: none; }
   .lp-root { padding-bottom: 0; }
   .phone-frame { width: 280px; height: 540px; max-height: 70vh; }
   .phone-frame.small { width: 220px; height: 420px; }
-  .final-cta h2 { font-size: 52px; }
+  .final-cta h2 { font-size: 44px; }
   .pain-intro { font-size: 17px; }
   .mechanism { gap: 28px; grid-template-columns: 80px 1fr; }
   .mech-num { font-size: 40px; }
-  .mech-content h3 { font-size: 28px; }
+  .mech-content h3 { font-size: 26px; }
 }
