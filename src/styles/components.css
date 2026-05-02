@@ -756,30 +756,30 @@
 
 .bookshelf-grid {
   display: grid;
-  /* スマホ (<768px): 2 列。1 冊あたり ~170px 幅で表紙とタイトルが
-     しっかり読める。3 列だと placeholder テキストが潰れる問題があった
-     ので 2 列で大きく見せる方針に変更。
-     ≥768px: 3 列、≥1024px: 4 列、≥1440px: 5 列。 */
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-5) var(--space-4);
-  padding: var(--space-4);
+  /* モバイル (<768px): 3 列。タブレット (≥768px): 4 列。
+     デスクトップ (≥1024px): 5 列。大画面 (≥1440px): 6 列。
+     gap / padding はモバイルで詰めて、タブレット以上で広めに取る。 */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 12px;
 }
 @media (min-width: 768px) {
   .bookshelf-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-5) var(--space-4);
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
     padding: var(--space-4);
   }
 }
 @media (min-width: 1024px) {
   .bookshelf-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
     padding: var(--space-6);
   }
 }
 @media (min-width: 1440px) {
   .bookshelf-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
   }
 }
 
@@ -833,21 +833,20 @@
   display: block;
 }
 
-/* 表紙未取得用のグラデーションプレースホルダ。
-   2 列スマホ表示で 1 冊 170px 程度確保できるので、フォントサイズを 13px に
-   引き上げて視認性を改善。3 行で省略 (-webkit-line-clamp: 3)。 */
+/* 表紙未取得用のグラデーションプレースホルダ。3 列スマホ表示で 1 冊 ~110px
+   なので 11px / 4 行で本のタイトルが収まる設計。 */
 .book-cover-placeholder {
   width: 100%;
   height: 100%;
   text-align: center;
-  padding: var(--space-3);
+  padding: 8px;
   color: #fff;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: var(--weight-semibold);
   line-height: 1.4;
   letter-spacing: 0.02em;
   word-break: break-word;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   display: -webkit-box;
   align-items: center;
@@ -883,11 +882,11 @@
    絵文字 ✅ オーバーレイより小さく、全状態で常時表示する設計。 */
 .book-status-pill {
   position: absolute;
-  bottom: 6px;
-  right: 6px;
-  padding: 2px 8px;
+  bottom: 4px;
+  right: 4px;
+  padding: 2px 6px;
   border-radius: 9999px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   line-height: 1.4;
   letter-spacing: 0.02em;
@@ -905,13 +904,13 @@
 .book-status-pill.done { color: #2E7D32; }
 
 .book-cover-title {
-  /* セルが小さくなる前提で 12px へダウンサイズ。読みやすさを保つため
-     line-height は 1.3 にちょうど。 */
-  font-size: var(--type-caption);
+  /* 3 列スマホ表示で 1 冊 ~110px 幅。タイトルは 12px / 2 行で省略。
+     line-height 1.4 で読みやすさを確保。 */
+  font-size: 12px;
   font-weight: var(--weight-semibold);
-  line-height: 1.3;
+  line-height: 1.4;
   color: var(--color-text-primary);
-  margin: var(--space-1) 0 2px;
+  margin: 6px 0 2px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -919,11 +918,12 @@
   word-break: break-word;
 }
 .book-cover-author {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--color-text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 1px;
 }
 
 /* View-mode switch (grid / list) */
