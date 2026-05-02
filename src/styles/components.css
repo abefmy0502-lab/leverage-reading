@@ -758,10 +758,13 @@
   display: grid;
   /* モバイル (<768px): 3 列。タブレット (≥768px): 4 列。
      デスクトップ (≥1024px): 5 列。大画面 (≥1440px): 6 列。
-     gap / padding はモバイルで詰めて、タブレット以上で広めに取る。 */
+     gap / padding はモバイルで詰めて、タブレット以上で広めに取る。
+     align-items: start で各カードが行の最大高に伸びないようにする
+     (1 つのカードが大きいと grid のデフォルトでは他も縦に伸びてしまう)。*/
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   padding: 12px;
+  align-items: start;
 }
 @media (min-width: 768px) {
   .bookshelf-grid {
@@ -794,6 +797,10 @@
   text-align: left;
   font-family: inherit;
   color: inherit;
+  /* min-width: 0 は flex/grid 子要素で必須。これが無いと中の長い文字列で
+     カード幅が押し広げられて他のカードと不揃いになる。 */
+  min-width: 0;
+  width: 100%;
   -webkit-tap-highlight-color: transparent;
   /* 長押しでテキスト選択 / iOS の "保存・コピー" callout が出ないようにする。
      カード全体を「ジェスチャー対象 = 一塊」として扱う狙い。 */
@@ -834,19 +841,23 @@
 }
 
 /* 表紙未取得用のグラデーションプレースホルダ。3 列スマホ表示で 1 冊 ~110px
-   なので 11px / 4 行で本のタイトルが収まる設計。 */
+   なので 11px / 6 行で本のタイトルが収まる設計。
+   ★ position: absolute + inset: 0 が決定打。普通の display: flex で width/height
+   100% にすると、長文タイトルが親 (book-cover-image-wrap) を縦に押し広げて
+   aspect-ratio 2:3 が崩れる現象が iOS で発生する。absolute なら親のサイズに
+   完全従属するので、aspect-ratio が必ず維持される。 */
 .book-cover-placeholder {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   text-align: center;
   padding: 8px;
   color: #fff;
   font-size: 11px;
   font-weight: var(--weight-semibold);
-  line-height: 1.4;
-  letter-spacing: 0.02em;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
   word-break: break-word;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
   display: -webkit-box;
   align-items: center;
@@ -897,6 +908,7 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
   white-space: nowrap;
   pointer-events: none;
+  z-index: 2;
 }
 .book-status-pill.want { color: #6A1B9A; }
 .book-status-pill.before { color: #1565C0; }
