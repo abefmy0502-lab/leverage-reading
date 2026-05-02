@@ -451,10 +451,6 @@ export default function Landing() {
                 </div>
               </div>
             </div>
-            <blockquote className="mech-quote">
-              営業 3 年目で既存顧客の深耕に悩んでいた時、AI が薦めた『SPIN 営業術』が一番刺さりました。新規だけでなく、既存顧客の課題発掘の質問テクニックを学べた。
-              <cite>営業職 28 歳</cite>
-            </blockquote>
           </div>
         </div>
 
@@ -485,10 +481,6 @@ export default function Landing() {
                 </div>
               </div>
             </div>
-            <blockquote className="mech-quote">
-              本田直之さんの『レバレッジ・リーディング』を初めて実装で試した時、本の読み方が完全に変わりました。必要な章だけ集中的に読む、という発想がなかった。
-              <cite>マネージャー 35 歳</cite>
-            </blockquote>
           </div>
         </div>
 
@@ -515,10 +507,6 @@ export default function Landing() {
                 </div>
               </div>
             </div>
-            <blockquote className="mech-quote">
-              3 年前に読んだ本の引用が、AI から自然に出てきた時に震えました。これは本棚ではなく、知の検索エンジンです。
-              <cite>起業家 42 歳</cite>
-            </blockquote>
           </div>
         </div>
 

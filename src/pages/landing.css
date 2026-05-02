@@ -584,10 +584,6 @@ body.lp-active {
   max-width: 100%;
   overflow-wrap: break-word;
 }
-.mech-quote {
-  max-width: 100%;
-  word-wrap: break-word;
-}
 .mech-marker {
   display: flex;
   flex-direction: column;
@@ -629,53 +625,9 @@ body.lp-active {
   margin: 12px 0;
 }
 .mech-mockup {
-  margin: 24px 0 24px;
+  margin: 24px 0;
   display: flex;
   justify-content: center;
-}
-.mech-quote {
-  margin: 24px 0 0;
-  padding: 24px 20px 20px;
-  background: var(--lp-bg);
-  border-radius: 12px;
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 14px;
-  line-height: 1.95;
-  color: var(--lp-text);
-  position: relative;
-  word-break: keep-all;
-  line-break: strict;
-  overflow-wrap: anywhere;
-  text-wrap: pretty;
-  font-feature-settings: 'palt';
-  letter-spacing: -0.01em;
-}
-.mech-quote::before {
-  content: '“';
-  position: absolute;
-  top: -2px;
-  left: 12px;
-  font-size: 48px;
-  color: var(--lp-accent);
-  font-family: var(--font-serif);
-  line-height: 1;
-}
-.mech-quote cite {
-  display: block;
-  margin-top: 14px;
-  font-size: 11px;
-  color: var(--lp-sub);
-  font-style: normal;
-  font-family: var(--font-sans);
-  letter-spacing: 0.03em;
-}
-.mech-disclaimer {
-  font-size: 10px;
-  color: #999;
-  text-align: center;
-  margin-top: 24px;
-  line-height: 1.6;
 }
 
 /* ============ Use-Case timeline ============ */
