@@ -2538,7 +2538,18 @@ const persist = useCallback((updates) => {
       // 途中の保存 → detail へ飛ばされて戻れない問題を防ぐ。
       // 新規追加だけは登録完了の手応えとして detail へ遷移させる。
       if (wasNew) setView("detail");
-      toast.success('保存しました');
+
+      // 読書前ステータスでセットアップ内容が埋まっている既存本を保存した
+      // 場合、「次は何をすれば？」が分からない問題を解消するため、完了
+      // モーダルを出して 3 択 (読書開始 / 後で / もう少し編集) を提示する。
+      const isSetupCompletion = !wasNew
+        && next.status === 'before'
+        && (next.investPurpose || next.aiAnalysis || next.aiStrategy);
+      if (isSetupCompletion) {
+        setSetupCompleteFor(next);
+      } else {
+        toast.success('保存しました');
+      }
     } catch (error) {
       // DB 側 UNIQUE 制約に弾かれた場合 (= UI チェックを抜けた競合状況) は
       // 専用メッセージで案内。それ以外は通常のエラー。
@@ -2675,32 +2686,18 @@ const persist = useCallback((updates) => {
       hypothesis: (payload.hypothesis || '').trim(),
       bookReason: (payload.bookReason || '').trim(),
     };
-    // 旧: searchBooksAPIFlat で Google Books の cover URL を雑に拾うだけ
-    //     → NDL の placeholder URL や空文字を保存してしまい、表紙が出ない
-    //     原因になっていた。手動「再取得」ボタンを押すと完全な multi-ISBN
-    //     リゾルバが走って初めて表紙が出る、という不整合を解消する。
-    // 新: searchBooksAPIFlat で総ページ数・ISBN だけ拾い、cover は
-    //     fullyResolveCover (multi-ISBN リゾルバ) で完全解決する。
+    // 軽量な情報 (totalPages / isbn) だけ事前取得 → 即 saveBook。
+    // 表紙の multi-ISBN 解決は待たずバックグラウンドで実行 (下の resolveCoverInBackground)。
+    // 旧実装は fullyResolveCover を await して 5〜10 秒待たせていたが、
+    // ユーザーは「✅ 追加しました」を 0.5 秒以内に受け取れるよう、
+    // 重い処理を全部 fire-and-forget に分離した。
     try {
       const results = await searchBooksAPIFlat(rec.title + " " + rec.author);
       if (results.length > 0) {
         newBook.totalPages = results[0].pages || 0;
         newBook.isbn = results[0].isbn || '';
       }
-    } catch { /* 失敗しても fullyResolveCover が title/author だけでも解決を試みる */ }
-    try {
-      const r = await fullyResolveCover(
-        { title: newBook.title, author: newBook.author, isbn: newBook.isbn },
-        findIsbnCandidates,
-      );
-      if (r.url) {
-        newBook.cover = r.url;
-        newBook.coverIsbn = r.isbn || '';
-      }
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn('[addFromAdvisor] cover resolve failed:', e?.message || e);
-    }
+    } catch { /* 失敗しても OK — bg resolver が title/author だけでも解決を試みる */ }
     try {
       const saved = await saveBook(newBook);
       // 4 フィールドが埋まっていれば「読書計画を作成しました」、そうでなければ控えめなトースト。
@@ -2711,6 +2708,8 @@ const persist = useCallback((updates) => {
           ? `「${rec.title}」を追加。AI セットアップで読み方戦略を立てましょう`
           : `「${rec.title}」を「読みたい」に追加しました`;
       toast.success(msg);
+      // 表紙取得をバックグラウンドで実行 (await しない)。失敗しても UX に影響なし。
+      resolveCoverInBackground(saved);
       // BookAdvisor が advisor_sessions の added_book_ids を更新する用に
       // 保存された本 (UUID 付き) を返す。
       return saved;
@@ -2722,6 +2721,32 @@ const persist = useCallback((updates) => {
       }
       return null;
     }
+  };
+
+  // 🌱 バックグラウンドで multi-ISBN リゾルバを走らせ、表紙が取れたら DB
+  // を更新する。await しない fire-and-forget 設計。失敗しても UX を壊さない。
+  // useBooks.fetchBooks が走るので本棚 UI は自動的に更新される。
+  // coverAutoRetry が BookCard 描画時にも同じ処理を回すので、ここで失敗
+  // しても次の機会に再試行される。
+  const resolveCoverInBackground = (saved) => {
+    if (!saved || !saved.id || saved.cover || saved.coverIsbn === 'manual') return;
+    if (!saved.title && !saved.isbn) return;
+    (async () => {
+      try {
+        const r = await fullyResolveCover(
+          { title: saved.title, author: saved.author, isbn: saved.isbn },
+          findIsbnCandidates,
+        );
+        if (r.url) {
+          await saveBook({ ...saved, cover: r.url, coverIsbn: r.isbn || '' });
+          // eslint-disable-next-line no-console
+          console.log('[bg-cover] resolved:', { title: saved.title, url: r.url });
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[bg-cover] failed:', saved.title, e?.message || e);
+      }
+    })();
   };
 
   // Used by CapitalDashboard's "学習プラン" → bulk-add. Throws on failure so
@@ -2750,18 +2775,9 @@ const persist = useCallback((updates) => {
         newBook.isbn = results[0].isbn || '';
       }
     } catch { /* ignore */ }
-    // 表紙は完全な multi-ISBN リゾルバで解決 (再取得ボタンと同じロジック)。
-    try {
-      const r = await fullyResolveCover(
-        { title: newBook.title, author: newBook.author, isbn: newBook.isbn },
-        findIsbnCandidates,
-      );
-      if (r.url) {
-        newBook.cover = r.url;
-        newBook.coverIsbn = r.isbn || '';
-      }
-    } catch { /* ignore */ }
-    await saveBook(newBook);
+    // 即時保存して、表紙はバックグラウンドで解決 (await しない)
+    const saved = await saveBook(newBook);
+    resolveCoverInBackground(saved);
   };
 
 // Status transitions — optimistic UI with undo toast.
@@ -2988,18 +3004,9 @@ const persist = useCallback((updates) => {
       } catch {
         newBook.addedVia = 'manual';
       }
-      // 表紙は完全な multi-ISBN リゾルバで解決 (再取得ボタンと同じロジック)
-      try {
-        const r = await fullyResolveCover(
-          { title: newBook.title, author: newBook.author, isbn: newBook.isbn },
-          findIsbnCandidates,
-        );
-        if (r.url) {
-          newBook.cover = r.url;
-          newBook.coverIsbn = r.isbn || '';
-        }
-      } catch { /* ignore */ }
-      await saveBook(newBook);
+      // 即時保存 → 表紙はバックグラウンドで解決 (await しない)
+      const saved = await saveBook(newBook);
+      resolveCoverInBackground(saved);
       toast.success(`「${title}」を読みたいに追加しました`);
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -3047,6 +3054,9 @@ const persist = useCallback((updates) => {
   const [reflectionInput, setReflectionInput] = useState('');
   // 「表紙が違う?」モーダル — 詳細画面の表紙下リンクから開く。
   const [coverFixForBook, setCoverFixForBook] = useState(null);
+  // セットアップシート保存完了モーダル — BeforePhase の保存後に「次のアクション」
+  // を提示する。読書を開始する / まだ読まない / もう少し編集する の 3 択。
+  const [setupCompleteFor, setSetupCompleteFor] = useState(null);
 
   // 内部関数: action.done を toggle し、完了時は completed_at + reflection を反映、
   // 繰り返し設定があれば次回分を新規行動として末尾に追加する。
@@ -4297,6 +4307,138 @@ const persist = useCallback((updates) => {
           }}
           onManualUpload={() => triggerManualCoverUpload(coverFixForBook)}
         />
+      )}
+
+      {/* 📋 セットアップシート保存完了モーダル — BeforePhase で投資目的等
+          を保存した直後に表示。「次のアクション」を 3 択で提示する。 */}
+      {setupCompleteFor && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSetupCompleteFor(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 880,
+            background: 'rgba(30,25,20,0.55)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#faf6f0',
+              borderRadius: 24,
+              width: 'min(380px, 100%)',
+              padding: '32px 24px',
+              fontFamily: 'inherit',
+              textAlign: 'center',
+              boxShadow: '0 16px 48px rgba(30,25,20,0.22)',
+              animation: 'lvg-modal-in var(--duration-base) var(--ease-spring) both',
+            }}
+          >
+            <div style={{ fontSize: 56, marginBottom: 12, lineHeight: 1 }}>✅</div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: '#3d362c', margin: '0 0 8px' }}>
+              セットアップ完了！
+            </h2>
+            <p style={{ fontSize: 14, color: '#666', margin: '0 0 24px', lineHeight: 1.7 }}>
+              読書計画ができました。<br />
+              次のアクションを選んでください。
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* 今すぐ読書を始める — status を reading に更新して detail へ */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const target = setupCompleteFor;
+                  setSetupCompleteFor(null);
+                  setEditPhaseOverride(null);
+                  setView('detail');
+                  advanceStatus(target, 'reading');
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontFamily: 'inherit',
+                  background: '#5C4A2E',
+                  color: '#faf6f0',
+                  minHeight: 44,
+                }}
+              >
+                <span style={{ fontSize: 22, flexShrink: 0 }}>📚</span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: 'block', fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>
+                    今すぐ読書を始める
+                  </span>
+                  <span style={{ display: 'block', fontSize: 11, opacity: 0.85, marginTop: 2 }}>
+                    ステータスが「読書中」に変わります
+                  </span>
+                </span>
+              </button>
+
+              {/* まだ読まない — モーダル閉じて本棚へ */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSetupCompleteFor(null);
+                  setEditPhaseOverride(null);
+                  toast.success('💾 セットアップを保存しました');
+                  goList();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  border: '1px solid #e0d8c8',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontFamily: 'inherit',
+                  background: '#fff',
+                  color: '#3d362c',
+                  minHeight: 44,
+                }}
+              >
+                <span style={{ fontSize: 22, flexShrink: 0 }}>📅</span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: 'block', fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>
+                    まだ読まない
+                  </span>
+                  <span style={{ display: 'block', fontSize: 11, color: '#8a7e6b', marginTop: 2 }}>
+                    あとで本棚から再開できます
+                  </span>
+                </span>
+              </button>
+
+              {/* もう少し編集する — モーダルを閉じてフォームに留まる */}
+              <button
+                type="button"
+                onClick={() => setSetupCompleteFor(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#5C4A2E',
+                  textDecoration: 'underline',
+                  padding: '8px',
+                  alignSelf: 'center',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                ✏️ もう少し編集する
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 行動完了 → 振り返り入力モーダル。任意入力で「振り返らずに完了」も
