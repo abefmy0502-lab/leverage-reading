@@ -641,9 +641,15 @@ body.lp-active {
   font-family: var(--font-serif);
   font-style: italic;
   font-size: 14px;
-  line-height: 1.85;
+  line-height: 1.95;
   color: var(--lp-text);
   position: relative;
+  word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  font-feature-settings: 'palt';
+  letter-spacing: -0.01em;
 }
 .mech-quote::before {
   content: '“';
@@ -791,6 +797,164 @@ body.lp-active {
   border-radius: 8px;
   border-left: 3px solid var(--lp-primary);
   line-height: 1.7;
+}
+
+/* ============ Live Demo (AI 会話の実例) ============ */
+.live-demo {
+  background: white;
+  text-align: center;
+}
+.demo-conversation {
+  margin: 32px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+  max-width: 100%;
+}
+.demo-msg {
+  max-width: 90%;
+  display: flex;
+  flex-direction: column;
+}
+.demo-msg.user { align-self: flex-end; }
+.demo-msg.ai { align-self: flex-start; }
+.msg-label {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--lp-sub);
+  letter-spacing: 0.04em;
+}
+.demo-msg.user .msg-label {
+  text-align: right;
+  color: var(--lp-primary);
+}
+.msg-bubble {
+  padding: 14px 16px;
+  border-radius: 18px;
+  font-size: 13.5px;
+  line-height: 1.85;
+  word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.demo-msg.user .msg-bubble {
+  background: var(--lp-primary);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+.demo-msg.ai .msg-bubble {
+  background: var(--lp-bg);
+  color: var(--lp-text);
+  border-bottom-left-radius: 4px;
+}
+.msg-bubble ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+}
+.msg-bubble li { padding: 2px 0; }
+.demo-recommendations {
+  margin: 8px 0 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rec-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border: 1px solid var(--lp-divider);
+  border-radius: 12px;
+  align-items: flex-start;
+  max-width: 100%;
+}
+.rec-cover {
+  width: 44px;
+  height: 62px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.rec-cover.c1 { background: linear-gradient(135deg, #1565C0, #0D47A1); }
+.rec-cover.c2 { background: linear-gradient(135deg, #6A1B9A, #4A148C); }
+.rec-cover.c3 { background: linear-gradient(135deg, #2E7D32, #1B5E20); }
+.rec-info { flex: 1; min-width: 0; }
+.rec-title {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  letter-spacing: -0.01em;
+}
+.rec-author {
+  font-size: 11px;
+  color: var(--lp-sub);
+  margin-bottom: 6px;
+}
+.rec-reason {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--lp-text);
+}
+.rec-reason strong {
+  color: var(--lp-primary);
+  margin-right: 4px;
+}
+.demo-conclusion {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  text-align: center;
+  margin-top: 32px;
+  line-height: 1.85;
+  color: var(--lp-primary);
+  font-weight: 600;
+}
+
+/* ============ Risk Reversal (3 保証) ============ */
+.guarantee {
+  background: linear-gradient(135deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
+  text-align: center;
+}
+.guarantee-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 32px 0;
+}
+.g-item {
+  background: white;
+  padding: 28px 24px;
+  border-radius: 16px;
+  text-align: center;
+  border: 1px solid var(--lp-divider);
+}
+.g-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background: var(--lp-bg);
+  border-radius: 50%;
+  color: var(--lp-primary);
+  margin-bottom: 14px;
+}
+.g-item h3 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  margin: 0 0 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.g-item p {
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--lp-sub);
+  margin: 0;
 }
 
 /* ============ Comparison (VS テーブル) ============ */

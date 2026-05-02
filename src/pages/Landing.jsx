@@ -27,7 +27,7 @@ export default function Landing() {
     document.title = 'レバレッジ読書ログ | 読書を投資にする AI 読書記録';
     const tags = [
       setMeta('description',
-        '読みっぱなしの本、もう作らない。AI が読み方を設計し、行動を引き出す『投資型』読書記録。月 ¥1,000・5 日間無料。'),
+        '読みっぱなしの本、もう作らない。AI が読み方を設計し、行動を引き出す『投資型』読書記録。月 ¥1,000、いつでも 1 タップで解約可能。'),
       setMeta('og:title', '読みっぱなしの本、もう作らない | レバレッジ読書ログ', 'property'),
       setMeta('og:description', 'AI が読み方を設計し、行動を引き出す『投資型』読書記録', 'property'),
       setMeta('og:type', 'website', 'property'),
@@ -112,9 +112,9 @@ export default function Landing() {
       {showStickyCta && (
         <div className="sticky-cta" role="region" aria-label="申し込み">
           <button type="button" onClick={goToSignup} className="sticky-cta-btn">
-            無料で始める
+            今すぐ始める
           </button>
-          <p className="sticky-cta-note">5 日間無料・期間中の解約で課金なし</p>
+          <p className="sticky-cta-note">月 ¥1,000・いつでも 1 タップで解約可能</p>
         </div>
       )}
 
@@ -129,8 +129,11 @@ export default function Landing() {
           もう作らない。
         </h1>
         <p className="hero-subhead">
-          あなたの悩みから、AI が読むべき本を選ぶ。<br />
-          読み終わる頃には、明日の行動が決まっている。
+          あなたの悩みから、<br />
+          AI が読むべき本を選ぶ。<br />
+          <br />
+          読み終わる頃には、<br />
+          明日の行動が決まっている。
         </p>
         <ul className="hero-benefits" aria-label="主なメリット">
           <li>本選び失敗ゼロ</li>
@@ -139,11 +142,11 @@ export default function Landing() {
           <li>過去の知識を AI で引き出せる</li>
         </ul>
         <button type="button" onClick={goToSignup} className="cta-primary cta-hero">
-          無料で始める
+          今すぐ始める
         </button>
         <p className="hero-note">
-          5 日間無料・解約料金なし<br />
-          期間中の解約で課金は発生しません
+          月 ¥1,000（1 日あたり 33 円）<br />
+          いつでも 1 タップで解約・違約金なし
         </p>
 
         <div className="hero-mockup">
@@ -221,6 +224,97 @@ export default function Landing() {
         <p className="pain-conclusion">
           本そのものに問題があるわけではない。<br />
           問題は、<strong>読み方</strong>にあります。
+        </p>
+      </section>
+
+      <div className="lp-section-divider" aria-hidden="true" />
+
+      {/* ============ 2.5. Live Demo (AI 会話の実例) ============ */}
+      <section className="live-demo fade-in">
+        <p className="section-eyebrow">実際の使用イメージ</p>
+        <h2 className="section-headline">
+          AI に話しかけるだけで、<br />
+          最適な本が見つかる。
+        </h2>
+
+        <div className="demo-conversation">
+          <div className="demo-msg user">
+            <div className="msg-label">あなた</div>
+            <div className="msg-bubble">
+              最近、営業会議で発言が浅いと言われる。<br />
+              論理的に意見を組み立てる力をつけたい。
+            </div>
+          </div>
+
+          <div className="demo-msg ai">
+            <div className="msg-label">AI 選書アドバイザー</div>
+            <div className="msg-bubble">
+              承知しました。論理的思考を鍛える本は数多くありますが、営業会議という具体的な場面で活用したい場合、以下の 3 冊が特に効果的です。
+            </div>
+          </div>
+
+          <div className="demo-recommendations">
+            <div className="rec-card">
+              <div className="rec-cover c1" aria-hidden="true" />
+              <div className="rec-info">
+                <div className="rec-title">イシューからはじめよ</div>
+                <div className="rec-author">安宅和人</div>
+                <div className="rec-reason">
+                  <strong>選書理由:</strong>
+                  「議論の論点を見抜く」が体系化されている。会議で本質的な発言ができるようになる。
+                </div>
+              </div>
+            </div>
+            <div className="rec-card">
+              <div className="rec-cover c2" aria-hidden="true" />
+              <div className="rec-info">
+                <div className="rec-title">武器になる哲学</div>
+                <div className="rec-author">山口周</div>
+                <div className="rec-reason">
+                  <strong>選書理由:</strong>
+                  ビジネスで使える思考のフレームワークを提供。浅い意見を脱却する哲学的視点が学べる。
+                </div>
+              </div>
+            </div>
+            <div className="rec-card">
+              <div className="rec-cover c3" aria-hidden="true" />
+              <div className="rec-info">
+                <div className="rec-title">考える技術・書く技術</div>
+                <div className="rec-author">バーバラ・ミント</div>
+                <div className="rec-reason">
+                  <strong>選書理由:</strong>
+                  ピラミッド原則で意見を構造化する技術。会議で説得力ある発言ができる。
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="demo-msg user">
+            <div className="msg-label">あなた</div>
+            <div className="msg-bubble">
+              『イシューからはじめよ』を選びます。<br />
+              2 週間で読み切りたい。
+            </div>
+          </div>
+
+          <div className="demo-msg ai">
+            <div className="msg-label">AI 読書計画</div>
+            <div className="msg-bubble">
+              2 週間プランを作成しました。<br />
+              重点的に読むべき章:
+              <ul>
+                <li>序章「やってはいけない 犬の道」</li>
+                <li>第 2 章「イシューを見極める」</li>
+                <li>第 4 章「ストーリーラインを組み立てる」</li>
+              </ul>
+              第 5 章は時間があれば。第 3 章は流し読みで OK です。
+            </div>
+          </div>
+        </div>
+
+        <p className="demo-conclusion">
+          すべての本に対して、AI があなた専用の<br />
+          「選書理由」と「読み方戦略」を提供します。
         </p>
       </section>
 
@@ -539,6 +633,56 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
+      {/* ============ 5.5. Risk Reversal (3 つの保証) ============ */}
+      <section className="guarantee fade-in">
+        <p className="section-eyebrow">安心の 3 つの保証</p>
+        <h2 className="section-headline">
+          リスクなしで、<br />
+          始められます。
+        </h2>
+
+        <div className="guarantee-list">
+          <div className="g-item">
+            <div className="g-icon" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+            </div>
+            <h3>1 タップで解約可能</h3>
+            <p>
+              合わないと感じたら、アプリ内の設定からボタン 1 つで即解約できます。メールやカスタマーサポートへの連絡は不要です。
+            </p>
+          </div>
+          <div className="g-item">
+            <div className="g-icon" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+            </div>
+            <h3>違約金・手数料ゼロ</h3>
+            <p>
+              解約時の違約金や手数料は一切発生しません。いつでも気兼ねなく解約できます。
+            </p>
+          </div>
+          <div className="g-item">
+            <div className="g-icon" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M9 9h6v6H9z" />
+              </svg>
+            </div>
+            <h3>データはあなたのもの</h3>
+            <p>
+              解約してもデータは保持されます。再開すればすべてのメモ・履歴がそのまま戻ります。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="lp-section-divider" aria-hidden="true" />
+
       {/* ============ 6. Philosophy (本田思想) ============ */}
       <section className="philosophy fade-in">
         <p className="section-eyebrow">設計思想</p>
@@ -585,7 +729,7 @@ export default function Landing() {
             <span className="num">1,000</span>
             <span className="per">/月</span>
           </div>
-          <div className="price-trial">初回 5 日間は無料でお試し</div>
+          <div className="price-trial">お申込み即日から全機能を利用可能</div>
           <div className="price-divider" aria-hidden="true" />
 
           <ul className="price-features">
@@ -599,13 +743,14 @@ export default function Landing() {
           </ul>
 
           <button type="button" onClick={goToSignup} className="cta-primary cta-pricing">
-            無料で始める
+            今すぐ始める
           </button>
 
           <div className="price-fineprint">
             <p>※ <span className="no-break">クレジットカード登録</span>が必要です</p>
-            <p>※ <span className="no-break">5 日以内の解約</span>で課金は一切発生しません</p>
-            <p>※ <span className="no-break">6 日目以降</span>、自動的に<span className="no-break">月額 ¥1,000</span>の課金が始まります</p>
+            <p>※ お申込み即日から<span className="no-break">月額 ¥1,000</span>が発生します</p>
+            <p>※ いつでもアプリ内から<span className="no-break">1 タップ</span>で解約可能</p>
+            <p>※ 解約後も契約期間内は引き続きご利用いただけます</p>
           </div>
         </div>
 
@@ -629,15 +774,15 @@ export default function Landing() {
 
         <details>
           <summary>クレジットカードは必要？</summary>
-          <p>はい、無料トライアル開始時に登録が必要です。5 日以内の解約で一切課金されません。</p>
+          <p>はい、お申込み時に登録が必要です。月額 ¥1,000 は申込日から発生します。</p>
         </details>
         <details>
-          <summary>解約は簡単？</summary>
-          <p>アプリ内から 1 タップで解約できます。違約金などはありません。</p>
+          <summary>解約は本当に簡単？</summary>
+          <p>アプリ内の設定 → サブスクリプション → 解約 から 1 タップで完了します。違約金や手数料は一切ありません。</p>
         </details>
         <details>
-          <summary>トライアル終了前に通知は？</summary>
-          <p>はい、トライアル終了の 2 日前にメールでお知らせします。</p>
+          <summary>解約後はいつまで使える？</summary>
+          <p>契約した月の末日までは引き続き全機能をご利用いただけます。それ以降は自動的に課金が停止します。</p>
         </details>
         <details>
           <summary>iPhone でも使える？</summary>
@@ -663,12 +808,12 @@ export default function Landing() {
           読書を、<br />
           投資にする。
         </h2>
-        <p className="final-sub">5 日間、すべての機能を無料で試せます。</p>
+        <p className="final-sub">月 ¥1,000、すべての機能を即日から使えます。</p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-final">
-          無料で始める
+          今すぐ始める
         </button>
         <p className="final-note">
-          クレジットカード登録が必要・期間中の解約で課金なし
+          いつでも 1 タップで解約・違約金なし
         </p>
       </section>
 
