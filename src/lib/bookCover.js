@@ -145,3 +145,59 @@ export const resolveCoverUrl = async (isbn) => {
   }
   return null;
 };
+
+/**
+ * 完全な表紙解決パイプライン。「本の追加時」「再取得ボタン」「backfill」
+ * すべてが同じロジックを通るための単一エントリポイント。
+ *
+ *   1. findIsbnCandidates でタイトル+著者から ISBN 候補を集める (NDL + Google
+ *      Books の厳格マッチ後の配列)
+ *   2. resolveCoverFromCandidates でプライマリ ISBN + 候補を順に試行
+ *   3. それでもダメなら primary ISBN だけで resolveCoverUrl で再試行
+ *
+ * 戻り値: { url, isbn }。url が null/'' なら全部失敗 → 手動アップロード案内。
+ *
+ * 注: 循環依存を避けるため findIsbnCandidates は引数 inject。
+ * App.jsx 側で `import { findIsbnCandidates } from './bookSearch'` した上で
+ * `fullyResolveCover(book, findIsbnCandidates)` の形で呼ぶ。
+ */
+export const fullyResolveCover = async (book, findIsbnCandidates) => {
+  const title = (book?.title || '').trim();
+  const author = (book?.author || '').trim();
+  const primary = book?.isbn || '';
+
+  let url = '';
+  let resolvedIsbn = '';
+
+  try {
+    if ((title || author) && typeof findIsbnCandidates === 'function') {
+      const altIsbns = await findIsbnCandidates(title, author);
+      const ordered = [primary, ...altIsbns].filter(Boolean);
+      if (ordered.length > 0) {
+        const r = await resolveCoverFromCandidates(ordered);
+        if (r.url) {
+          url = r.url;
+          resolvedIsbn = r.isbn || '';
+        }
+      }
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[fullyResolveCover] candidate phase failed:', e?.message || e);
+  }
+
+  if (!url && primary) {
+    try {
+      const v = await resolveCoverUrl(primary);
+      if (v) {
+        url = v;
+        resolvedIsbn = primary;
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[fullyResolveCover] primary phase failed:', e?.message || e);
+    }
+  }
+
+  return { url, isbn: resolvedIsbn };
+};

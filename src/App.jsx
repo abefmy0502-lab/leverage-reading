@@ -24,7 +24,7 @@ import {
   pickSuggestions,
   findIsbnCandidates,
 } from './lib/bookSearch';
-import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates } from './lib/bookCover';
+import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
@@ -2381,27 +2381,21 @@ const persist = useCallback((updates) => {
   const refreshCoverFor = async (book) => {
     if (!book) return;
     try {
+      // fullyResolveCover で再取得ボタン / 本追加 / backfill を同一ロジックに統一
       let coverUrl = '';
       let coverIsbn = '';
-      if (book.title || book.author) {
-        const altIsbns = await findIsbnCandidates(book.title, book.author);
-        const ordered = [book.isbn, ...altIsbns].filter(Boolean);
-        if (ordered.length > 0) {
-          const r = await resolveCoverFromCandidates(ordered);
-          if (r.url) {
-            coverUrl = r.url;
-            coverIsbn = r.isbn || '';
-          }
-        }
+      const r = await fullyResolveCover(
+        { title: book.title, author: book.author, isbn: book.isbn },
+        findIsbnCandidates,
+      );
+      if (r.url) {
+        coverUrl = r.url;
+        coverIsbn = r.isbn || '';
       }
-      if (!coverUrl && book.isbn) {
-        // primary ISBN だけで再試行 (find が失敗してもここで捕捉)
-        coverUrl = await resolveCoverUrl(book.isbn);
-        if (coverUrl) coverIsbn = book.isbn;
-      }
+      // 最後の手段として searchBooksAPIFlat の cover URL も試す
       if (!coverUrl) {
-        const r = await searchBooksAPIFlat(`${book.title || ''} ${book.author || ''}`.trim());
-        if (r?.[0]?.cover) coverUrl = r[0].cover;
+        const flat = await searchBooksAPIFlat(`${book.title || ''} ${book.author || ''}`.trim());
+        if (flat?.[0]?.cover) coverUrl = flat[0].cover;
       }
       if (!coverUrl) {
         // 自動取得が完璧になることはあり得ない → 手動アップロードを促す。
@@ -2681,15 +2675,32 @@ const persist = useCallback((updates) => {
       hypothesis: (payload.hypothesis || '').trim(),
       bookReason: (payload.bookReason || '').trim(),
     };
-    // Try to get cover from Google Books — best-effort, ignore failures.
+    // 旧: searchBooksAPIFlat で Google Books の cover URL を雑に拾うだけ
+    //     → NDL の placeholder URL や空文字を保存してしまい、表紙が出ない
+    //     原因になっていた。手動「再取得」ボタンを押すと完全な multi-ISBN
+    //     リゾルバが走って初めて表紙が出る、という不整合を解消する。
+    // 新: searchBooksAPIFlat で総ページ数・ISBN だけ拾い、cover は
+    //     fullyResolveCover (multi-ISBN リゾルバ) で完全解決する。
     try {
       const results = await searchBooksAPIFlat(rec.title + " " + rec.author);
       if (results.length > 0) {
-        newBook.cover = results[0].cover || "";
         newBook.totalPages = results[0].pages || 0;
         newBook.isbn = results[0].isbn || '';
       }
-    } catch {}
+    } catch { /* 失敗しても fullyResolveCover が title/author だけでも解決を試みる */ }
+    try {
+      const r = await fullyResolveCover(
+        { title: newBook.title, author: newBook.author, isbn: newBook.isbn },
+        findIsbnCandidates,
+      );
+      if (r.url) {
+        newBook.cover = r.url;
+        newBook.coverIsbn = r.isbn || '';
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[addFromAdvisor] cover resolve failed:', e?.message || e);
+    }
     try {
       const saved = await saveBook(newBook);
       // 4 フィールドが埋まっていれば「読書計画を作成しました」、そうでなければ控えめなトースト。
@@ -2735,13 +2746,21 @@ const persist = useCallback((updates) => {
     try {
       const results = await searchBooksAPIFlat(`${title} ${author || ''}`.trim());
       if (results.length > 0) {
-        newBook.cover = results[0].cover || '';
         newBook.totalPages = results[0].pages || 0;
         newBook.isbn = results[0].isbn || '';
       }
-    } catch {
-      /* cover is best-effort; ignore */
-    }
+    } catch { /* ignore */ }
+    // 表紙は完全な multi-ISBN リゾルバで解決 (再取得ボタンと同じロジック)。
+    try {
+      const r = await fullyResolveCover(
+        { title: newBook.title, author: newBook.author, isbn: newBook.isbn },
+        findIsbnCandidates,
+      );
+      if (r.url) {
+        newBook.cover = r.url;
+        newBook.coverIsbn = r.isbn || '';
+      }
+    } catch { /* ignore */ }
     await saveBook(newBook);
   };
 
@@ -2960,10 +2979,8 @@ const persist = useCallback((updates) => {
       try {
         const results = await searchBooksAPIFlat(`${title} ${author || ''}`.trim());
         if (results.length > 0) {
-          newBook.cover = results[0].cover || '';
           newBook.totalPages = results[0].pages || 0;
           newBook.isbn = results[0].isbn || '';
-          // Upgrade author if AI said 不明 / blank but search has it.
           if (!newBook.author && results[0].author) newBook.author = results[0].author;
         } else {
           newBook.addedVia = 'manual';
@@ -2971,6 +2988,17 @@ const persist = useCallback((updates) => {
       } catch {
         newBook.addedVia = 'manual';
       }
+      // 表紙は完全な multi-ISBN リゾルバで解決 (再取得ボタンと同じロジック)
+      try {
+        const r = await fullyResolveCover(
+          { title: newBook.title, author: newBook.author, isbn: newBook.isbn },
+          findIsbnCandidates,
+        );
+        if (r.url) {
+          newBook.cover = r.url;
+          newBook.coverIsbn = r.isbn || '';
+        }
+      } catch { /* ignore */ }
       await saveBook(newBook);
       toast.success(`「${title}」を読みたいに追加しました`);
     } catch (error) {
