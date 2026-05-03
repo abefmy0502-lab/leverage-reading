@@ -1388,6 +1388,9 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
       const aiText = await callClaude(newHistory, {
         system: PROMPTS.bookAdvisor.system,
         max_tokens: 2048,
+        // temperature 0.7 — 推薦に多様性を出す (同じ著者ばかりにならない)。
+        // 高すぎると的外れな推薦が増えるので 0.7 が中庸。
+        temperature: 0.7,
         model: "claude-sonnet-4-20250514",
       });
 
@@ -2837,7 +2840,9 @@ function AuthedApp() {
           purpose: form.investPurpose,
           hours,
         }),
-        { max_tokens: 2048 }
+        // temperature 0.3 — メモから事実ベースで要約 (同じメモから毎回
+        // 同じ要約が返ってくるべき)。creativity は最小限。
+        { max_tokens: 2048, temperature: 0.3 }
       );
       setForm((f) => ({ ...f, aiSummary: r }));
     } catch (error) {
