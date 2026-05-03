@@ -1200,24 +1200,28 @@ body.keyboard-open .bottom-nav {
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: var(--space-3);
-  /* 「使ってくれて、ありがとう」が「、」「ありがとう」で割れないように */
-  word-break: keep-all;
-  line-break: strict;
+  /* タイトルは短いので balance だけで OK。keep-all は overflow を起こすので外す */
   text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 .thanks-body {
   font-size: var(--type-callout);
   color: var(--color-text-secondary);
   line-height: var(--leading-relaxed);
-  /* 日本語の改行崩れを防ぐ:
-     - word-break: keep-all で英数字+単位 / 単語の境目で切らない
-     - line-break: strict で句読点が行頭に取り残されないように
-     - text-wrap: balance で行末凸凹をブラウザに最小化させる
-       (「変」「えていく」のような単語途中の不自然な改行を抑制) */
-  word-break: keep-all;
-  line-break: strict;
-  text-wrap: balance;
-  max-width: 320px;
+  /* ⚠️ word-break: keep-all は日本語が長いと break point が無く右にはみ出すため使わない。
+     代わりに JSX 側で <br/> を明示し、CSS は折り返しの安全装置だけを担う。
+     - white-space: normal — nowrap が leak していても解除
+     - overflow-wrap: anywhere — どうしても 1 行に収まらない時の最後の砦
+     - max-width: 100% + 親 padding でモーダル内に必ず収まる */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
   margin-left: auto;
   margin-right: auto;
+}
+/* ありがとうモーダル全体: 子要素が幅を超えないように防御 */
+.thanks-modal,
+.thanks-modal * {
+  max-width: 100%;
+  box-sizing: border-box;
 }
