@@ -2135,9 +2135,17 @@ function AuthedApp() {
   const { uploadCover } = useBookCover();
 
   const triggerManualCoverUpload = (book) => {
+    // eslint-disable-next-line no-console
+    console.log('[manual-upload] trigger:', { hasBook: !!book, refMounted: !!detailCoverUploadRef.current });
     if (!book) return;
     detailUploadTargetRef.current = book;
-    detailCoverUploadRef.current?.click();
+    if (!detailCoverUploadRef.current) {
+      // eslint-disable-next-line no-console
+      console.error('[manual-upload] file input ref is null — input not mounted in current view');
+      toast.error('ファイル選択画面を開けませんでした。本棚から再度お試しください。');
+      return;
+    }
+    detailCoverUploadRef.current.click();
   };
 
   const handleManualCoverPicked = async (e) => {
@@ -2145,16 +2153,22 @@ function AuthedApp() {
     if (e.target) e.target.value = ''; // 同じファイル再選択を許可
     const target = detailUploadTargetRef.current;
     detailUploadTargetRef.current = null;
+    // eslint-disable-next-line no-console
+    console.log('[manual-upload] file picked:', { hasFile: !!file, fileSize: file?.size, hasTarget: !!target });
     if (!file || !target) return;
     try {
       const url = await uploadCover(file);
       if (!url) throw new Error('アップロード URL の取得に失敗しました');
+      // eslint-disable-next-line no-console
+      console.log('[manual-upload] uploaded:', url);
       const updated = { ...target, cover: url, coverIsbn: 'manual' };
       const saved = await saveBook(updated);
       const next = saved || updated;
       if (current && current.id === next.id) setCurrent(next);
       toast.success('表紙をアップロードしました');
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[manual-upload] failed:', err);
       toast.error(toMessage(err, '表紙のアップロードに失敗しました'));
     }
   };
@@ -3584,6 +3598,37 @@ function AuthedApp() {
           onChange={handleManualCoverPicked}
           style={{ display: 'none' }}
         />
+
+        {/* 表紙修正モーダル — DETAIL view からトリガーされるが、CoverFixModal
+            の mount 自体を LIST view 内だけに置いていたため、本詳細画面からは
+            「表紙が違う?」を押してもモーダルが見えず、本棚に戻った時に初めて
+            描画されるバグがあった。DETAIL view 側にも同じ mount を置くことで
+            その場で表示されるよう修正。{coverFixForBook && ...} の条件式は
+            LIST view と共有 state なので二重描画されることはない (片方の
+            view しか return されない)。 */}
+        {coverFixForBook && (
+          <CoverFixModal
+            book={coverFixForBook}
+            onClose={() => setCoverFixForBook(null)}
+            onPick={async ({ cover, coverIsbn }) => {
+              // eslint-disable-next-line no-console
+              console.log('[cover-modal] onPick (detail) fired:', { id: coverFixForBook?.id, newCover: cover, newCoverIsbn: coverIsbn });
+              const updated = { ...coverFixForBook, cover, coverIsbn };
+              setCurrent((c) => (c && c.id === updated.id ? { ...c, cover, coverIsbn } : c));
+              try {
+                const saved = await saveBook(updated);
+                const next = saved || updated;
+                setCurrent((c) => (c && c.id === next.id ? next : c));
+                toast.success('表紙を更新しました');
+              } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('[cover-modal] DB update failed:', error);
+                toast.error(toMessage(error, '表紙の更新に失敗しました。'));
+              }
+            }}
+            onManualUpload={() => triggerManualCoverUpload(coverFixForBook)}
+          />
+        )}
 
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} hidden={keyboardOpen} />
       </Shell>
