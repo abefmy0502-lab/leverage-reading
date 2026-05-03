@@ -387,7 +387,6 @@ export default function BookMemoEditor({
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={onFile}
                 style={{ display: 'none' }}
               />
@@ -425,7 +424,6 @@ export default function BookMemoEditor({
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={onFile}
                 style={{ display: 'none' }}
               />

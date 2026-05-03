@@ -840,7 +840,10 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
+            /* capture を意図的に外す: iOS の標準アクションシート (写真を撮る /
+               フォトライブラリ / ファイルを選択) を出すため。capture を指定
+               するとカメラに直行してしまい、スクショや既存写真からの選択が
+               できなくなる。 */
             onChange={onPickCover}
             style={{ display: 'none' }}
           />
@@ -3589,12 +3592,13 @@ function AuthedApp() {
           />
         )}
 
-        {/* hidden file input — kebab「🖼 手動でアップロード」のトリガー */}
+        {/* hidden file input — kebab「🖼 手動でアップロード」のトリガー。
+            capture は意図的に付けない (iOS のアクションシートで「写真を撮る
+            / フォトライブラリ / ファイル選択」の選択肢を出すため)。 */}
         <input
           ref={detailCoverUploadRef}
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={handleManualCoverPicked}
           style={{ display: 'none' }}
         />
