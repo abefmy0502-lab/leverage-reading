@@ -197,6 +197,13 @@ button:disabled:active {
 .lvg-help-body h4 {
   text-wrap: balance;
 }
+/* JSX 側で <span class="nowrap"> で囲まれた語を確実に同一行に保つ。
+   word-break: keep-all は数字↔CJK 境目では効かないため、ヘルプ文中の
+   「3ヶ月前」「カード式メモ」などはここで保護される。 */
+.lvg-help-body .nowrap {
+  white-space: nowrap;
+  display: inline-block;
+}
 
 /* ========================================================================== */
 /* Legacy utility classes — kept for back-compat with existing components     */

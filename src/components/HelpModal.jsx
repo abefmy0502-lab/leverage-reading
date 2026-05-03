@@ -148,6 +148,11 @@ const heroStyle = {
   maxWidth: '100%',
   boxSizing: 'border-box',
   overflow: 'hidden',
+  // 防御的に position と margin を明示。何らかの inheritance や stacking
+  // context の影響で Hero が body 領域から飛び出す事故を確実に防ぐ。
+  position: 'static',
+  margin: 0,
+  flexShrink: 0,
 };
 
 const answerCardStyle = {
@@ -251,6 +256,33 @@ const NUM_EMOJI = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️�
 function numberFor(step, index) {
   if (step.number) return step.number;
   return NUM_EMOJI[index] || `${index + 1}.`;
+}
+
+// 改行されたくない語を自動 nowrap 化 — `word-break: keep-all` は CSS 仕様上
+// 数字↔CJK の境目 (例: 「3ヶ月前」の 3 と ヶ の間) では効かないため、
+// JSX レベルで <span class="nowrap"> で囲む必要がある。
+// ここに追加するパターン:
+//   - 数字 + 単位 (ヶ月前 / 週間 / 日 / 年 / 冊 / 時間 / メモ / カード …)
+//   - 半年前 / 半年 などの慣用句
+//   - ブランド/専門語 (AI 読書計画 / マイ読書脳 / カード式メモ / 投資の効果 …)
+const NOWRAP_RE = /(\d+(?:ヶ月前|ヶ月|週間|日前|日|年前|年|冊|時間|分|メモ|カード|位))|(半年前|半年)|(AI 読書計画|AI 選書|AI まとめ|マイ読書脳|カード式メモ|まとめメモ|投資の効果|投資対効果|レバレッジメモ|学びログ)/g;
+
+function wrapNowrap(text) {
+  if (text == null) return text;
+  if (typeof text !== 'string') return text; // React node なら素通し
+  const parts = [];
+  let lastIndex = 0;
+  // 正規表現は state-ful なので毎呼び出しでリセット
+  NOWRAP_RE.lastIndex = 0;
+  let m;
+  let key = 0;
+  while ((m = NOWRAP_RE.exec(text)) !== null) {
+    if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
+    parts.push(<span key={`nw-${key++}`} className="nowrap">{m[0]}</span>);
+    lastIndex = NOWRAP_RE.lastIndex;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : parts;
 }
 
 // steps と sections を 1 つの shape に正規化 (heading→title, body→description, items→bullets)。
@@ -396,17 +428,17 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
                   <section key={i} style={stepCard}>
                     <h4 style={stepTitle}>
                       <span style={stepNumber} aria-hidden="true">{s.number}</span>
-                      <span>{s.title}</span>
+                      <span>{wrapNowrap(s.title)}</span>
                     </h4>
-                    {s.body && <p style={stepBody}>{s.body}</p>}
+                    {s.body && <p style={stepBody}>{wrapNowrap(s.body)}</p>}
                     {s.bullets.length > 0 && (
                       <ul style={stepBulletList}>
                         {s.bullets.map((b, j) => (
-                          <li key={j} style={stepBullet}>・{b}</li>
+                          <li key={j} style={stepBullet}>・{wrapNowrap(b)}</li>
                         ))}
                       </ul>
                     )}
-                    {s.footer && <p style={stepFooter}>{s.footer}</p>}
+                    {s.footer && <p style={stepFooter}>{wrapNowrap(s.footer)}</p>}
                   </section>
                 ))}
                 {entry.tip && (
