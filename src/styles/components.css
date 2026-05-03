@@ -1200,13 +1200,23 @@ body.keyboard-open .bottom-nav {
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: var(--space-3);
+  /* 「使ってくれて、ありがとう」が「、」「ありがとう」で割れないように */
+  word-break: keep-all;
+  line-break: strict;
+  text-wrap: balance;
 }
 .thanks-body {
   font-size: var(--type-callout);
   color: var(--color-text-secondary);
   line-height: var(--leading-relaxed);
-  /* white-space: pre-line を撤廃。明示的な \n に頼らず段落 <p> + max-width で
-     ブラウザ任せの自然折返しに切替えた。 */
+  /* 日本語の改行崩れを防ぐ:
+     - word-break: keep-all で英数字+単位 / 単語の境目で切らない
+     - line-break: strict で句読点が行頭に取り残されないように
+     - text-wrap: balance で行末凸凹をブラウザに最小化させる
+       (「変」「えていく」のような単語途中の不自然な改行を抑制) */
+  word-break: keep-all;
+  line-break: strict;
+  text-wrap: balance;
   max-width: 320px;
   margin-left: auto;
   margin-right: auto;
