@@ -59,7 +59,7 @@ function isHighlight(headingText) {
   return (
     /重点|👉|⭐|🌟|🏆|💎|🎯/.test(headingText) === false
       ? false
-      : /(重点|TOP3|TOP 3|アクション|主要|ROI 評価|投資戦略)/.test(headingText)
+      : /(重点|TOP3|TOP 3|アクション|主要|投資の効果|投資対効果|投資戦略)/.test(headingText)
   );
 }
 

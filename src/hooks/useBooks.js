@@ -54,7 +54,7 @@ const transformBook = (book) => ({
   // では undefined のまま。
   coverIsbn: book.cover_isbn || '',
   // AI 選書から本を追加した時の元クエリ (supabase_books_source_query.sql)。
-  // セットアップシートの投資目的にプレフィルする。マイグレーション未適用の
+  // 読書計画シートの投資目的にプレフィルする。マイグレーション未適用の
   // DB では undefined のまま空文字に縮退。
   sourceQuery: book.source_query || '',
   // AI 選書アドバイザーの会話を構造化要約してプレフィルした 3 フィールド

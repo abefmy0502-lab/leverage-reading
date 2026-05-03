@@ -89,7 +89,7 @@ const KIND_META = {
   current_challenge: { icon: '⚠️', label: '現在の課題',     color: '#D32F2F' },
   hypothesis:        { icon: '💡', label: '仮説',          color: '#FF9800' },
   ai_summary:        { icon: '🤖', label: 'AI まとめ',      color: '#7B1FA2' },
-  roi_summary:       { icon: '💎', label: 'ROI まとめ',     color: '#FFA000' },
+  roi_summary:       { icon: '💎', label: '投資の効果',     color: '#FFA000' },
   leverage_memo:     { icon: '📝', label: 'レバレッジメモ', color: '#5D4037' },
   action_reflection: { icon: '💭', label: '行動の振り返り', color: '#00838F' },
 };
@@ -395,7 +395,7 @@ export default function Review({ books = [], onOpenBook }) {
 
   // 読書から生まれた知識をすべて時系列で扱う統合フィード。
   //   - book_memos (memos): カードメモ / まとめメモ / 学び
-  //   - books の各フィールド: 投資目的 / 課題 / 仮説 / AI まとめ / ROI / レバレッジメモ
+  //   - books の各フィールド: 投資目的 / 課題 / 仮説 / AI まとめ / 投資の効果 / レバレッジメモ
   //   - actions.reflection: 行動の振り返り
   // タイムライン・検索・ランダム想起のすべてがこの allNotes を使う。
   const allNotes = useMemo(() => {
@@ -519,7 +519,7 @@ export default function Review({ books = [], onOpenBook }) {
               ここに「あなたの読書知識」が時系列で集まります。
             </>
           )}
-          tip="💡 投資目的・課題・仮説・ROI まとめ・メモ・行動の振り返り、すべてここに集約されます"
+          tip="💡 投資目的・課題・仮説・投資の効果・メモ・行動の振り返り、すべてここに集約されます"
         />
       </div>
     );

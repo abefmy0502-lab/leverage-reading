@@ -235,7 +235,7 @@ export default function Landing() {
                 不動産 BtoB SaaS、新規開拓、商談で決まらない
               </div>
               <div className="mock-bubble ai">
-                決裁者へのアプローチ、ROI の示し方、顧客の本当の課題ヒアリングについても教えてください
+                決裁者へのアプローチ、投資対効果の示し方、顧客の本当の課題ヒアリングについても教えてください
               </div>
             </div>
           </div>
@@ -434,7 +434,7 @@ export default function Landing() {
             <div className="mech-screenshot">
               <PhoneFrame
                 src="/lp/setup-sheet.jpg"
-                alt="AI が設計する読書セットアップシート (KPI / 投資戦略 / 重点的に読む箇所)"
+                alt="AI が設計する読書計画シート (目標数値 / 投資戦略 / 重点的に読む箇所)"
                 size="small"
               />
             </div>
@@ -560,7 +560,7 @@ export default function Landing() {
           <div className="use-item">
             <div className="use-question">「読んだ本の成果を見たい」</div>
             <div className="use-arrow" aria-hidden="true">↓</div>
-            <div className="use-answer">ROI まとめと行動完了率で投資効果を可視化</div>
+            <div className="use-answer">投資の効果と行動完了率で読書のリターンを可視化</div>
           </div>
         </div>
       </section>
@@ -598,7 +598,7 @@ export default function Landing() {
             { name: 'AI による読書計画', other: false, us: true, usText: '読み方を本ごとに設計' },
             { name: '行動管理（期限・優先度）', other: false, us: true, usText: '完了まで追跡' },
             { name: '過去の本から答える AI', other: false, us: true, usText: '読んだ知識をいつでも引き出す' },
-            { name: 'ROI ひとことまとめ', other: false, us: true, usText: '読書の効果を 1 行で記録' },
+            { name: '投資の効果(一言)', other: false, us: true, usText: '読書の効果を 1 行で記録' },
             { name: 'カード式メモ', other: false, us: true, usText: 'ページ番号・写真・タグ付き' },
           ].map((row) => (
             <div key={row.name} className="vs-row" role="row">

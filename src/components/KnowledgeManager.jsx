@@ -78,7 +78,7 @@ const KIND_META = {
   current_challenge: { icon: '⚠️', label: '現在の課題',   group: 'plan',    column: 'current_challenge' },
   hypothesis:        { icon: '💡',  label: '仮説',         group: 'plan',    column: 'hypothesis' },
   ai_summary:        { icon: '🤖',  label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },
-  roi_summary:       { icon: '💎',  label: 'ROI まとめ',   group: 'summary', column: 'roi_summary' },
+  roi_summary:       { icon: '💎',  label: '投資の効果',   group: 'summary', column: 'roi_summary' },
   ai_strategy:       { icon: '🗺️', label: '戦略',         group: 'plan',    column: 'ai_strategy' },
 };
 
@@ -606,7 +606,7 @@ export default function KnowledgeManager({ onChanged }) {
             { num: counts.current_challenge || 0, label: '⚠ 現在の課題' },
             { num: counts.hypothesis || 0,        label: '💡 仮説' },
             { num: counts.ai_summary || 0,        label: '🤖 AI まとめ' },
-            { num: counts.roi_summary || 0,       label: '💎 ROI まとめ' },
+            { num: counts.roi_summary || 0,       label: '💎 投資の効果' },
             { num: counts.ai_strategy || 0,       label: '🗺️ 戦略' },
           ].map((s) => (
             <div

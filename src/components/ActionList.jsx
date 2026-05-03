@@ -378,7 +378,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
           description={(
             <>
               本から得た「次にやること」を追加して、<br />
-              読書の ROI を最大化しましょう。
+              読書の投資対効果を最大化しましょう。
             </>
           )}
           tip="💡 各本の詳細画面 → 「行動リスト」セクションから追加できます"

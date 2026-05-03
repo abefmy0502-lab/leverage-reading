@@ -473,7 +473,7 @@ body.lp-active {
 }
 .advisor-book svg { color: var(--lp-accent); flex-shrink: 0; }
 
-/* セットアップ系 */
+/* 読書計画系 */
 .setup-label {
   font-size: 9.5px;
   font-weight: 700;

@@ -720,7 +720,7 @@ const emptyBook = () => ({
   // Persisted as books.added_via (see supabase_added_via.sql).
   addedVia: "search",
   // AI 選書アドバイザーで本を追加した時のユーザーの元クエリ。空でなければ
-  // セットアップシートの投資目的にプレフィルし、引き継ぎバナーを表示する。
+  // 読書計画シートの投資目的にプレフィルし、引き継ぎバナーを表示する。
   // Persisted as books.source_query (see supabase_books_source_query.sql).
   sourceQuery: "",
   // AI 選書の会話を構造化要約してプレフィルする 3 フィールド
@@ -991,12 +991,12 @@ function BeforePhase({
           )}
 
           <button onClick={onRunStrategy} disabled={!form.investPurpose?.trim() || aiLoading} style={{ ...aiB, opacity: !form.investPurpose?.trim() || aiLoading ? 0.5 : 1 }}>
-            {aiLoading && form.aiAnalysis ? "作成中..." : "🗺️ セットアップシートを作成"}
+            {aiLoading && form.aiAnalysis ? "作成中..." : "🗺️ 読書計画シートを作成"}
           </button>
           {aiLoading && form.aiAnalysis && !form.aiStrategy && <Dots />}
           {form.aiStrategy && (
             <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>読書前セットアップシート</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>読書前読書計画シート</p>
               <MarkdownSections
                 text={form.aiStrategy}
                 onAddRelatedBook={onAddRelatedBook}
@@ -1027,7 +1027,7 @@ function BeforePhase({
                   rows={2}
                   style={{ ...ta, minHeight: 60, maxHeight: 200 }}
                   maxLength={LIMITS.memoText}
-                  aria-label="セットアップシートの修正指示"
+                  aria-label="読書計画シートの修正指示"
                   disabled={aiLoading}
                 />
                 <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
@@ -1053,7 +1053,7 @@ function BeforePhase({
                         padding: "10px 14px",
                         fontSize: 12,
                       }}
-                      aria-label="ひとつ前のセットアップシートに戻す"
+                      aria-label="ひとつ前の読書計画シートに戻す"
                     >
                       ↶ 元に戻す
                     </button>
@@ -1065,7 +1065,7 @@ function BeforePhase({
         </>
       )}
 
-      {/* セットアップが揃っていれば保存と同時に読書中へ自動遷移する。
+      {/* 読書計画が揃っていれば保存と同時に読書中へ自動遷移する。
           handleSave 側で同じ条件 (form.investPurpose + aiAnalysis/Strategy)
           を見て status='reading' に切替 + setView('detail') を行う。
           条件が揃っていない場合は通常の「保存」(その場で留まる)。 */}
@@ -1092,7 +1092,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
 
       {form.aiStrategy && (
         <div style={{ background: "#f0ebe2", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: "#7a5080", marginBottom: 4 }}>📋 セットアップシート要約</p>
+          <p style={{ fontSize: 11, fontWeight: 600, color: "#7a5080", marginBottom: 4 }}>📋 読書計画シート要約</p>
           <p style={{ fontSize: 12, color: "#5c5548", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: 0 }}>
             {form.aiStrategy}
           </p>
@@ -1152,7 +1152,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
         <input type="date" value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={inp} />
       </Field>
 
-      <Field label="評価（ROI）">
+      <Field label="評価（投資対効果）">
         <div style={{ padding: "4px 0" }}>
           <Stars r={form.rating} onChange={(r) => setForm({ ...form, rating: r })} size={28} />
         </div>
@@ -1168,7 +1168,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
           {aiLoading && <Dots />}
           {form.aiSummary && (
             <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: "#5a7a48", marginBottom: 4 }}>要約結果（ROI レポート）</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#5a7a48", marginBottom: 4 }}>要約結果（投資の効果レポート）</p>
               <MarkdownSections text={form.aiSummary} />
             </div>
           )}
@@ -1255,7 +1255,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
         <button onClick={addAction} style={{ ...btnO, padding: "10px 0", fontSize: 12, borderStyle: "dashed" }}>＋ 行動を追加</button>
       </div>
 
-      <Field label="ROI ひとことまとめ" sub="この本から得た一番大きな価値を 1 行で">
+      <Field label="投資の効果(一言)" sub="この本から得た一番大きな価値を 1 行で">
         {/* input → textarea (rows=3) に変更。シングルライン input だと placeholder が
             画面幅で見切れる問題があった。placeholder も短く具体的に。 */}
         <textarea
@@ -1308,7 +1308,7 @@ function TodayTab({ books }) {
   }
 
   const c = cards[safeIdx];
-  const typeLabel = { memo: "メモ", summary: "要約", roi: "ROI", action: "行動" };
+  const typeLabel = { memo: "メモ", summary: "要約", roi: "投資の効果", action: "行動" };
   const typeBg = { memo: "#f0e8d8", summary: "#e2ecd8", roi: "#f0e8d8", action: "#dde8f0" };
   const typeColor = { memo: "#8a7040", summary: "#5a7a48", roi: "#8a7040", action: "#4a6e8a" };
 
@@ -1537,7 +1537,7 @@ function BookAdvisor({ onAddBook, sessionApi }) {
   const [recommendations, setRecommendations] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   // 直近の「ユーザーの課題」入力 — 本棚に追加した時に source_query として
-  // 持ち回り、セットアップシートの投資目的にプレフィルする。
+  // 持ち回り、読書計画シートの投資目的にプレフィルする。
   const [lastUserQuery, setLastUserQuery] = useState('');
   // 「📚 読みたいに追加」押下後、AI に会話を要約させる数秒間のロック。
   // 値はその時追加中の本のタイトル。
@@ -2441,7 +2441,7 @@ const persist = useCallback((updates) => {
     setView('edit');
   };
   // 編集画面でどの Phase を描画するかを上書きする state。null なら
-  // form.status が支配するが、たとえば status='reading' の本でセットアップ
+  // form.status が支配するが、たとえば status='reading' の本で読書計画
   // を仕切り直したい時 (= openSetup) は 'before' を入れて BeforePhase を
   // 強制レンダリングする。Phase の上書きは UI の見た目だけの話で、
   // form.status はそのまま保持され saveBook で正しい status が永続化される。
@@ -2463,8 +2463,8 @@ const persist = useCallback((updates) => {
         : (b.sourceQuery || ''),
   });
   const openEdit = (b) => { setForm(buildFormFromBook(b)); setCurrent(b); setEditPhaseOverride(null); setView("edit"); };
-  // 読書中 (or それ以降) の本でセットアップを完了させたい時用。phase を
-  // 'before' にしてセットアップ UI を呼び出すが、form.status は維持。
+  // 読書中 (or それ以降) の本で読書計画を完了させたい時用。phase を
+  // 'before' にして読書計画 UI を呼び出すが、form.status は維持。
   const openSetup = (b) => {
     setForm(buildFormFromBook(b));
     setCurrent(b);
@@ -2545,7 +2545,7 @@ const persist = useCallback((updates) => {
       // 保存時に payload.status='reading' に上書き + startDate=今日にする。
       // form.status を見ているのは: editPhaseOverride で BeforePhase を強制
       // 表示しているだけの reading/done 本は対象外にしたいため (既に読書中の
-      // 本のセットアップを編集しても再度 reading に戻るのは無意味)。
+      // 本の読書計画を編集しても再度 reading に戻るのは無意味)。
       const isSetupCompletion = !!current
         && form.status === 'before'
         && !!(form.investPurpose && form.investPurpose.trim())
@@ -2580,7 +2580,7 @@ const persist = useCallback((updates) => {
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
 
       // 遷移ロジック:
-      //   - セットアップ完了 → 読書中フェーズの本詳細へ
+      //   - 読書計画完了 → 読書中フェーズの本詳細へ
       //   - 新規追加 → 詳細へ
       //   - それ以外 (既存本の編集中) → 編集画面に留まる
       if (isSetupCompletion) {
@@ -2748,7 +2748,7 @@ const persist = useCallback((updates) => {
       const msg = hasPlan
         ? `✅ 「${rec.title}」を追加。AI 読書計画を作成しました`
         : newBook.sourceQuery
-          ? `「${rec.title}」を追加。AI セットアップで読み方戦略を立てましょう`
+          ? `「${rec.title}」を追加。AI 読書計画で読み方戦略を立てましょう`
           : `「${rec.title}」を「読みたい」に追加しました`;
       toast.success(msg);
       // 表紙取得をバックグラウンドで実行 (await しない)。失敗しても UX に影響なし。
@@ -2999,9 +2999,9 @@ const persist = useCallback((updates) => {
       setForm((f) => ({ ...f, aiStrategy: r }));
       if (form?.id) saveStrategyHistory(form.id, prev);
       setStrategyHistoryTick((t) => t + 1);
-      toast.success('✓ セットアップシートを修正しました');
+      toast.success('✓ 読書計画シートを修正しました');
     } catch (error) {
-      toast.error(toMessage(error, 'セットアップシートの修正に失敗しました。'));
+      toast.error(toMessage(error, '読書計画シートの修正に失敗しました。'));
     } finally {
       setAiLoading(false);
     }
@@ -3013,10 +3013,10 @@ const persist = useCallback((updates) => {
     if (!prev) return;
     setForm((f) => ({ ...f, aiStrategy: prev }));
     setStrategyHistoryTick((t) => t + 1);
-    toast.info('ひとつ前のセットアップシートに戻しました');
+    toast.info('ひとつ前の読書計画シートに戻しました');
   };
 
-  // Adds a recommended book (from setup sheet / ROI summary related-books
+  // Adds a recommended book (from reading plan sheet / 投資の効果 related-books
   // section) to the bookshelf in 'want' status. Best-effort cover lookup
   // via the search pipeline; falls back to manual add if no hit.
   const addRelatedBookFromAi = async ({ title, author = '' }) => {
@@ -3325,7 +3325,7 @@ const persist = useCallback((updates) => {
             </div>
           )}
 
-          {/* AI セットアップ導線 — どのステータスでも setup フィールドが
+          {/* AI 読書計画導線 — どのステータスでも setup フィールドが
               足りていなければ目立つ位置で促す。
               - before:    まだ読んでいないので「最初のメインアクション」として
                            ブランドのグラデーションで前面に出す。完了済みなら
@@ -3352,7 +3352,7 @@ const persist = useCallback((updates) => {
                   >
                     <div style={{ fontSize: 30, lineHeight: 1, marginBottom: 6 }}>📋</div>
                     <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: 0.2 }}>
-                      AI セットアップを完了しよう
+                      AI 読書計画を完了しよう
                     </h3>
                     <p style={{ margin: '8px 0 14px', fontSize: 12, lineHeight: 1.6, opacity: 0.92 }}>
                       投資目的を明確にすると、AI があなた専用の読み方戦略を提案します
@@ -3373,7 +3373,7 @@ const persist = useCallback((updates) => {
                         minHeight: 44,
                       }}
                     >
-                      📋 セットアップを始める →
+                      📋 読書計画を始める →
                     </button>
                   </div>
                 );
@@ -3395,7 +3395,7 @@ const persist = useCallback((updates) => {
                   }}
                 >
                   <p style={{ fontSize: 12, color: '#4a6e3a', margin: 0, fontWeight: 600 }}>
-                    ✅ AI セットアップ完了
+                    ✅ AI 読書計画 完了
                   </p>
                   <button
                     type="button"
@@ -3434,10 +3434,10 @@ const persist = useCallback((updates) => {
                   }}
                 >
                   <p style={{ fontSize: 13, color: '#8a6010', margin: 0, fontWeight: 600 }}>
-                    ⚠️ 読書前のセットアップが未完了です
+                    ⚠️ 読書前の読書計画が未完了です
                   </p>
                   <p style={{ fontSize: 11, color: '#9a7030', margin: 0, lineHeight: 1.6 }}>
-                    投資目的・AI 解析・セットアップシートをいま埋めると、ROI が最大化されます。
+                    投資目的・AI 解析・読書計画シートをいま埋めると、投資対効果が最大化されます。
                   </p>
                   <button
                     type="button"
@@ -3455,7 +3455,7 @@ const persist = useCallback((updates) => {
                       fontFamily: 'inherit',
                     }}
                   >
-                    📋 セットアップを完了する
+                    📋 読書計画を完了する
                   </button>
                 </div>
               );
@@ -3470,12 +3470,12 @@ const persist = useCallback((updates) => {
 
           {current.investPurpose && <Card label="目的・課題・仮説" text={current.investPurpose} />}
 
-          {/* AI 出力（解析 / セットアップシート）はデフォルト折りたたみ。
+          {/* AI 出力（解析 / 読書計画シート）はデフォルト折りたたみ。
               スクロール量を圧縮し、必要な時に展開する。 */}
           {(current.aiAnalysis || current.aiStrategy) && (
             <details style={{ marginTop: 12, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "10px 12px" }}>
               <summary style={{ fontSize: 13, fontWeight: 600, color: "#5c5043", cursor: "pointer", listStyle: "none" }}>
-                🤖 AI 解析 / セットアップシート
+                🤖 AI 解析 / 読書計画
               </summary>
               {current.aiAnalysis && (
                 <div style={{ marginTop: 10 }}>
@@ -3485,7 +3485,7 @@ const persist = useCallback((updates) => {
               )}
               {current.aiStrategy && (
                 <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🗺️ セットアップシート</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🗺️ 読書計画シート</p>
                   <MarkdownSections
                     text={current.aiStrategy}
                     onAddRelatedBook={addRelatedBookFromAi}
@@ -3539,7 +3539,7 @@ const persist = useCallback((updates) => {
           {current.aiSummary && (
             <details style={{ marginTop: 12, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "10px 12px" }}>
               <summary style={{ fontSize: 13, fontWeight: 600, color: "#5a7a48", cursor: "pointer", listStyle: "none" }}>
-                🤖 AI 要約 (ROI)
+                🤖 AI まとめ（投資の効果）
               </summary>
               <div style={{ marginTop: 10 }}>
                 <MarkdownSections
@@ -3566,7 +3566,7 @@ const persist = useCallback((updates) => {
             </div>
           )}
 
-          {current.roiSummary && <Card label="💡 ROI" text={current.roiSummary} bg="#f0ebe2" />}
+          {current.roiSummary && <Card label="💡 投資の効果" text={current.roiSummary} bg="#f0ebe2" />}
 
           {/* Action buttons */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20 }}>
@@ -3574,7 +3574,7 @@ const persist = useCallback((updates) => {
               <>
                 <button
                   onClick={async () => {
-                    // before → reading は AI セットアップが未完了のまま進むと
+                    // before → reading は AI 読書計画が未完了のまま進むと
                     // このアプリのコア価値（戦略提案）を使い損ねるので、
                     // 強制はしないが必ず警告する。
                     if (
@@ -3582,11 +3582,11 @@ const persist = useCallback((updates) => {
                       (!current.investPurpose || !current.aiAnalysis || !current.aiStrategy)
                     ) {
                       const ok = await confirm({
-                        title: 'セットアップ未完了のまま進みますか？',
+                        title: '読書計画 未完了のまま進みますか？',
                         message:
-                          'AI 解析・投資目的・セットアップシートが未入力です。先に「📋 セットアップを始める」を完了すると、このアプリの一番の価値（戦略提案）が活用できます。',
+                          'AI 解析・投資目的・読書計画シートが未入力です。先に「📋 読書計画を始める」を完了すると、このアプリの一番の価値（戦略提案）が活用できます。',
                         confirmLabel: 'このまま読書を開始',
-                        cancelLabel: 'セットアップを完了する',
+                        cancelLabel: '読書計画を完了する',
                       });
                       if (!ok) {
                         openSetup(current);
@@ -3602,10 +3602,10 @@ const persist = useCallback((updates) => {
                 {/* Phase 3: その場のガイダンス — 何が起きるか先に伝えて遷移を温かく */}
                 <p className="input-hint" style={{ marginTop: 0, justifyContent: 'center' }}>
                   {current.status === 'want'
-                    ? '💡 投資戦略を立てると、AI がセットアップシートを自動生成します'
+                    ? '💡 投資戦略を立てると、AI が読書計画シートを自動生成します'
                     : current.status === 'before'
                     ? '💡 読書中になると、メモ機能が解放されます'
-                    : '💡 完了後、ROI 要約とメモの振り返りが可能になります'}
+                    : '💡 完了後、投資の効果とメモの振り返りが可能になります'}
                 </p>
               </>
             )}
@@ -3760,11 +3760,11 @@ const persist = useCallback((updates) => {
             onClose={() => setDetailKebab(null)}
             items={[
               { label: '編集', icon: '✏️', onClick: () => openEdit(current) },
-              // 📋 AI セットアップは before / reading / done のどこからでも
-              // 仕切り直せる。want は本格的なセットアップ前なので除外。
+              // 📋 AI 読書計画は before / reading / done のどこからでも
+              // 仕切り直せる。want は本格的な読書計画前なので除外。
               ...(current.status !== 'want'
                 ? [{
-                    label: 'AI セットアップを編集',
+                    label: 'AI 読書計画を編集',
                     icon: '📋',
                     onClick: () => openSetup(current),
                   }]
@@ -3852,7 +3852,7 @@ const persist = useCallback((updates) => {
                   <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c" }}>{phaseLabel}</h2>
                   {editPhaseOverride && editPhaseOverride !== form.status && (
                     <span style={{ fontSize: 11, color: 'var(--color-tertiary)' }}>
-                      （セットアップを仕切り直し中）
+                      （読書計画を仕切り直し中）
                     </span>
                   )}
                 </div>

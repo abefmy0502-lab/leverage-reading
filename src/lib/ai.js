@@ -149,8 +149,8 @@ function formatMemo(memo) {
     current_challenge: '現在の課題',
     hypothesis: '仮説',
     ai_summary: 'AI まとめ',
-    roi_summary: 'ROI ひとことまとめ',
-    ai_strategy: 'セットアップ戦略',
+    roi_summary: '投資の効果(一言)',
+    ai_strategy: '読書計画戦略',
   };
   if (SYNTH_LABEL[memo.source_type]) {
     const parts = [`本: ${safeTitle}`];
@@ -233,10 +233,10 @@ export async function callMyBookBrain({ userId, question }) {
   // 7 種類の知識を一括で取得して RAG コンテキストに渡す:
   //   - book_memos (カード式メモ + 個人学び)
   //   - books.leverage_memo (まとめメモ)
-  //   - books.invest_purpose / current_challenge / hypothesis (セットアップシート)
+  //   - books.invest_purpose / current_challenge / hypothesis (読書計画シート)
   //   - books.ai_summary (AI 要約)
-  //   - books.roi_summary (ROI ひとことまとめ)
-  //   - books.ai_strategy (セットアップ戦略)
+  //   - books.roi_summary (投資の効果 一言)
+  //   - books.ai_strategy (読書計画戦略)
   // すべて同じ memo shape に整形し、既存の ranking/format パイプラインで処理。
   // books の SELECT は staged fallback。supabase_books_setup_fields.sql 未適用
   // で current_challenge / hypothesis / book_reason の列が存在しない環境でも
@@ -323,7 +323,7 @@ export async function callMyBookBrain({ userId, question }) {
     .map((x) => x.memo);
 
   // Per-source counts for UI display。summaryCount は「7 種類の knowledge」
-  // 全部を含めた数 (まとめ + 投資目的 + 課題 + 仮説 + AI まとめ + ROI + 戦略)。
+  // 全部を含めた数 (まとめ + 投資目的 + 課題 + 仮説 + AI まとめ + 投資の効果 + 戦略)。
   const cardCount = memoRows.filter((m) => m.source_type !== 'personal').length;
   const personalCount = memoRows.filter((m) => m.source_type === 'personal').length;
   const summaryCount = summaryRows.length;
