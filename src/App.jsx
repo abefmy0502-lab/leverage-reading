@@ -1287,9 +1287,13 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 直近の「ユーザーの課題」入力 — 本棚に追加した時に source_query として
   // 持ち回り、読書計画シートの投資目的にプレフィルする。
   const [lastUserQuery, setLastUserQuery] = useState('');
-  // 「📚 読みたいに追加」押下後、AI に会話を要約させる数秒間のロック。
-  // 値はその時追加中の本のタイトル。
-  const [addingTitle, setAddingTitle] = useState('');
+  // 「📚 読みたいに追加」を押した本のタイトル set。
+  // 連打防止 + UI 即時反映 (ボタンを「✅ 追加済み」表示に切替) の両方を担う。
+  // 旧実装は addingTitle を「処理中の本」のロックに使い、AI 要約と DB
+  // insert を await してから state を戻していたため、ボタンの反応に
+  // 5〜15 秒かかっていた。新実装はクリック時 UI を即更新、すべての I/O は
+  // .then() で fire-and-forget。失敗時のみ rollback。
+  const [addedTitles, setAddedTitles] = useState(() => new Set());
   // 履歴サブビュー: 'chat' | 'history' | 'detail'
   const [view, setView] = useState('chat');
   const [selectedSession, setSelectedSession] = useState(null);
@@ -1607,39 +1611,55 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     🛒 Amazon で買う
                   </a>
                   <button
-                    disabled={!!addingTitle}
-                    onClick={async () => {
-                      if (addingTitle) return;
-                      setAddingTitle(rec.title);
-                      let summary = null;
-                      try {
-                        // BookAdvisor が保持している会話 (messages = ui 表示用)
-                        // を Claude に渡して 4 フィールドに要約。失敗しても
-                        // フォールバックとして lastUserQuery だけ持ち越して保存。
-                        summary = await summarizeAdvisorConversation(messages, rec);
-                      } catch (e) {
-                        // eslint-disable-next-line no-console
-                        console.warn('[advisor-summary] failed:', e?.message || e);
-                      }
-                      try {
-                        const saved = await onAddBook(rec, {
-                          sourceQuery: lastUserQuery,
-                          investPurpose: summary?.investPurpose || lastUserQuery || '',
-                          currentChallenge: summary?.currentChallenge || '',
-                          hypothesis: summary?.hypothesis || '',
-                          bookReason: summary?.bookReason || (rec.why || ''),
-                        });
-                        // 履歴セッションに「追加した本」として記録
-                        if (saved?.id && currentSessionId && sessionApi?.available) {
-                          try { await sessionApi.addBookToSession(currentSessionId, saved.id); } catch { /* non-critical */ }
+                    disabled={addedTitles.has(rec.title)}
+                    onClick={() => {
+                      if (addedTitles.has(rec.title)) return;
+                      // 1. UI 即時反映 — ボタンを「✅ 追加済み」に切替 (< 5ms)
+                      setAddedTitles((prev) => {
+                        const next = new Set(prev);
+                        next.add(rec.title);
+                        return next;
+                      });
+                      // 2. すべての I/O は背景。AI 要約 → 本追加 → セッション追跡を
+                      //    chain で実行、handler は同期で終わる。失敗したら rollback。
+                      // eslint-disable-next-line no-console
+                      console.time(`[advisor-add] ${rec.title}`);
+                      Promise.resolve().then(async () => {
+                        let summary = null;
+                        try {
+                          summary = await summarizeAdvisorConversation(messages, rec);
+                        } catch (e) {
+                          // eslint-disable-next-line no-console
+                          console.warn('[advisor-summary] failed:', e?.message || e);
                         }
-                      } finally {
-                        setAddingTitle('');
-                      }
+                        try {
+                          const saved = await onAddBook(rec, {
+                            sourceQuery: lastUserQuery,
+                            investPurpose: summary?.investPurpose || lastUserQuery || '',
+                            currentChallenge: summary?.currentChallenge || '',
+                            hypothesis: summary?.hypothesis || '',
+                            bookReason: summary?.bookReason || (rec.why || ''),
+                          });
+                          if (saved?.id && currentSessionId && sessionApi?.available) {
+                            try { await sessionApi.addBookToSession(currentSessionId, saved.id); } catch { /* non-critical */ }
+                          }
+                        } catch (e) {
+                          // eslint-disable-next-line no-console
+                          console.error(`[advisor-add] failed (${rec.title}):`, e);
+                          setAddedTitles((prev) => {
+                            const next = new Set(prev);
+                            next.delete(rec.title);
+                            return next;
+                          });
+                        } finally {
+                          // eslint-disable-next-line no-console
+                          console.timeEnd(`[advisor-add] ${rec.title}`);
+                        }
+                      });
                     }}
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: addingTitle === rec.title ? '#f0ebe2' : "transparent", color: "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addingTitle ? "wait" : "pointer", fontWeight: 500, minHeight: 36, opacity: addingTitle && addingTitle !== rec.title ? 0.4 : 1 }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 36 }}
                   >
-                    {addingTitle === rec.title ? '📚 計画を作成中…' : '📚 読みたいに追加'}
+                    {addedTitles.has(rec.title) ? '✅ 追加済み' : '📚 読みたいに追加'}
                   </button>
                 </div>
               </div>

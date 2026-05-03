@@ -304,26 +304,57 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
     return false;
   };
 
-  const [addingTitle, setAddingTitle] = useState('');
+  // 連打防止 + UI 即時反映用のローカル set。クリック直後に key を入れ、
+  // 失敗時のみ rollback する。背景処理 (DB insert / 表紙取得 / AI 要約) は
+  // 一切 await しないので、ボタンは < 5ms で「✅ 追加済み」に切り替わる。
+  const [locallyAdded, setLocallyAdded] = useState(() => new Set());
   const lastUserQuery = useMemo(() => {
     const lastUser = [...messages].reverse().find((m) => m?.role === 'user');
     return (lastUser?.content || lastUser?.text || '').toString();
   }, [messages]);
 
-  const handleAdd = async (rec) => {
-    if (!onAddBook || addingTitle) return;
-    setAddingTitle(rec.title);
-    try {
-      await onAddBook(rec, {
-        sourceQuery: lastUserQuery,
-        investPurpose: lastUserQuery || '',
-        currentChallenge: '',
-        hypothesis: '',
-        bookReason: rec.why || '',
-      });
-    } finally {
-      setAddingTitle('');
-    }
+  const recKey = (rec) => {
+    const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');
+    return rec.isbn ? `isbn:${norm(rec.isbn)}` : `ta:${norm(rec.title)}|${norm(rec.author || '')}`;
+  };
+
+  const handleAdd = (rec) => {
+    if (!onAddBook) return;
+    const key = recKey(rec);
+    if (locallyAdded.has(key)) return; // 連打ガード
+    // 1. UI 即時反映 — ここで一切 await しない
+    setLocallyAdded((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    // 2. 重い処理は完全に背景。Promise.resolve().then で次の tick へ。
+    //    handler は同期で終わる。
+    // eslint-disable-next-line no-console
+    console.time(`[history-add] ${rec.title}`);
+    Promise.resolve().then(async () => {
+      try {
+        await onAddBook(rec, {
+          sourceQuery: lastUserQuery,
+          investPurpose: lastUserQuery || '',
+          currentChallenge: '',
+          hypothesis: '',
+          bookReason: rec.why || '',
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(`[history-add] failed (${rec.title}):`, e);
+        // 失敗したらローカル state を巻き戻す → ボタンが復活
+        setLocallyAdded((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      } finally {
+        // eslint-disable-next-line no-console
+        console.timeEnd(`[history-add] ${rec.title}`);
+      }
+    });
   };
 
   return (
@@ -380,8 +411,10 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             <RecommendationCard
               key={`${b.title}-${i}`}
               book={b}
-              isAdded={isBookAdded(b)}
-              isAdding={addingTitle === b.title}
+              // ローカル即時 set または books 由来の既存判定で「追加済み」表示。
+              // どちらも同期 read なので button の見た目は次の render で確定する。
+              isAdded={locallyAdded.has(recKey(b)) || isBookAdded(b)}
+              isAdding={false}
               onAdd={() => handleAdd(b)}
             />
           ))}
