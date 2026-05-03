@@ -172,6 +172,32 @@ button:disabled:active {
   height: 0;
 }
 
+/* ============================================================================
+ * .lvg-help-body — ヘルプモーダル内の日本語タイポグラフィ強制ルール
+ *
+ * iPhone で「3 / ヶ月前」「ヶ月前」「。」が孤立する etc の改行崩れを防ぐ。
+ * - word-break: keep-all は CJK 文字を「単語」として扱い英数字+単位の境目で
+ *   切らない (例: 「3ヶ月前」が分かれない)
+ * - line-break: strict で日本語の禁則処理を厳密化 (約物の前後で切らない)
+ * - overflow-wrap: anywhere は長すぎる英単語が出てきた時の最終手段
+ * - 見出しは text-wrap: balance で行頭/行末の凸凹を抑える
+ * ========================================================================== */
+.lvg-help-body,
+.lvg-help-body * {
+  word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: anywhere;
+}
+.lvg-help-body p,
+.lvg-help-body li {
+  text-wrap: pretty;
+}
+.lvg-help-body h2,
+.lvg-help-body h3,
+.lvg-help-body h4 {
+  text-wrap: balance;
+}
+
 /* ========================================================================== */
 /* Legacy utility classes — kept for back-compat with existing components     */
 /* (BookMemoCard, MarkdownSections sheets, etc). Prefer components.css for    */

@@ -61,6 +61,9 @@ const headerStyle = {
   padding: '14px 16px',
   borderBottom: '1px solid #e4ddd0',
   background: '#fff',
+  flexShrink: 0,           // ★ 必須: body content が大きくても header が潰れない
+  position: 'relative',
+  zIndex: 1,
 };
 
 const closeBtnStyle = {
@@ -83,7 +86,14 @@ const bodyStyle = {
   padding: '14px 14px 20px',
   overflowY: 'auto',
   overflowX: 'hidden',
-  flex: 1,
+  // flex 子要素を「正しくスクロールさせる」3 点セット:
+  //   - flexGrow 1 / flexShrink 1 で残り高さを使い切る
+  //   - minHeight 0 で content の intrinsic 高さを超えてシュリンクできる
+  // 旧コードは `flex: 1` (= 1 1 0%) だけで minHeight が無く、content が
+  // 大きい時に header が押し上げられて AI Q&A が上に被る現象が出ていた
+  flexGrow: 1,
+  flexShrink: 1,
+  minHeight: 0,
   width: '100%',
   WebkitOverflowScrolling: 'touch',
   display: 'flex',
@@ -186,6 +196,9 @@ const footerStyle = {
   color: '#a89e8c',
   textAlign: 'center',
   background: '#fff',
+  flexShrink: 0,           // ★ header と同様、潰れないように固定
+  position: 'relative',
+  zIndex: 1,
 };
 
 // === 統一カードレイアウト用スタイル ===
@@ -307,7 +320,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
         </div>
 
-        <div style={bodyStyle}>
+        <div className="lvg-help-body" style={bodyStyle}>
           {/* ===== 1. AI Q&A ===== */}
           <section style={heroStyle}>
             <p style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>🤖 AI に質問する</p>
