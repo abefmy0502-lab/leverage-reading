@@ -213,12 +213,9 @@ const footerStyle = {
   background: '#fff',
 };
 
-// === 既存 (steps / sections) レンダリング用スタイル ===
-
-const sectionWrap = { marginBottom: 14 };
-const sectionHeading = { fontSize: 13, color: '#3d362c', fontWeight: 600, marginBottom: 4 };
-const sectionBody = { fontSize: 13, color: '#5c5548', lineHeight: 1.8, margin: '0 0 6px' };
-const itemList = { fontSize: 12, color: '#5c5548', lineHeight: 1.8, paddingLeft: 18, margin: 0 };
+// === 統一カードレイアウト用スタイル ===
+// すべての helpKey で同じ「番号付きカード」見た目になるよう steps と
+// sections の両方を共通の renderCardSteps で描画する。
 
 const stepSubtitle = { fontSize: 13, color: '#8a7e6b', margin: '0 0 14px' };
 const stepCard = {
@@ -228,6 +225,7 @@ const stepCard = {
   padding: '14px 16px',
   marginBottom: 12,
   boxShadow: '0 1px 2px rgba(30,25,20,0.04)',
+  wordBreak: 'keep-all',
 };
 const stepNumber = { fontSize: 22, fontWeight: 700, lineHeight: 1, marginRight: 8 };
 const stepTitle = {
@@ -238,8 +236,12 @@ const stepTitle = {
   display: 'flex',
   alignItems: 'center',
   gap: 4,
+  wordBreak: 'keep-all',
 };
-const stepBody = { fontSize: 14, color: '#5c5548', lineHeight: 1.7, margin: '8px 0 0', whiteSpace: 'pre-line' };
+const stepBody = { fontSize: 14, color: '#5c5548', lineHeight: 1.7, margin: '8px 0 0', whiteSpace: 'pre-line', wordBreak: 'keep-all' };
+const stepBulletList = { listStyle: 'none', padding: 0, margin: '8px 0 0', display: 'flex', flexDirection: 'column', gap: 2 };
+const stepBullet = { fontSize: 13, color: '#5c5548', lineHeight: 1.7, wordBreak: 'keep-all' };
+const stepFooter = { fontSize: 13, color: '#5C4A2E', lineHeight: 1.7, margin: '8px 0 0', fontStyle: 'italic', wordBreak: 'keep-all' };
 const tipBox = {
   marginTop: 6,
   padding: '12px 14px',
@@ -250,6 +252,38 @@ const tipBox = {
   color: '#5c5043',
   lineHeight: 1.7,
 };
+
+// 数字絵文字に変換 (1〜10)。それ以上は数字をそのまま返す。
+const NUM_EMOJI = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+function numberFor(step, index) {
+  if (step.number) return step.number;
+  return NUM_EMOJI[index] || `${index + 1}.`;
+}
+
+// steps と sections を 1 つの shape に正規化 (heading→title, body→description, items→bullets)。
+// 結果は { number, title, body, bullets, footer } の配列。
+function normalizeSteps(entry) {
+  if (!entry) return [];
+  if (Array.isArray(entry.steps) && entry.steps.length > 0) {
+    return entry.steps.map((s, i) => ({
+      number: numberFor(s, i),
+      title: s.title || '',
+      body: s.body || s.description || '',
+      bullets: Array.isArray(s.bullets) ? s.bullets : [],
+      footer: s.footer || '',
+    }));
+  }
+  if (Array.isArray(entry.sections) && entry.sections.length > 0) {
+    return entry.sections.map((s, i) => ({
+      number: numberFor({}, i),
+      title: s.heading || '',
+      body: s.body || '',
+      bullets: Array.isArray(s.items) ? s.items : [],
+      footer: '',
+    }));
+  }
+  return [];
+}
 
 export default function HelpModal({ helpKey: initialHelpKey, onClose, onShowOnboarding }) {
   // 内部 state にすることで、「他のタブ」切替時に onClose せずモーダル内で
@@ -364,50 +398,35 @@ export default function HelpModal({ helpKey: initialHelpKey, onClose, onShowOnbo
             </div>
           </section>
 
-          {/* ===== 3. この画面のヘルプ (既存 helpContent.js) ===== */}
+          {/* ===== 3. この画面のヘルプ (steps / sections を統一カードで描画) ===== */}
           <section>
             <h3 style={sectionTitleStyle}>📖 {entry?.title || 'この画面のヘルプ'}</h3>
             {entry ? (
-              entry.steps?.length > 0 ? (
-                <>
-                  {entry.description && <p style={stepSubtitle}>{entry.description}</p>}
-                  {entry.steps.map((s, i) => (
-                    <section key={i} style={stepCard}>
-                      <h4 style={stepTitle}>
-                        {s.number && <span style={stepNumber} aria-hidden="true">{s.number}</span>}
-                        <span>{s.title}</span>
-                      </h4>
-                      {s.body && <p style={stepBody}>{s.body}</p>}
-                    </section>
-                  ))}
-                  {entry.tip && (
-                    <div style={tipBox}>
-                      💡 <strong>コツ:</strong> {entry.tip}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  {entry.description && (
-                    <p style={{ fontSize: 13, color: '#5c5548', lineHeight: 1.8, margin: '0 0 14px' }}>
-                      {entry.description}
-                    </p>
-                  )}
-                  {(entry.sections || []).map((s, i) => (
-                    <section key={i} style={sectionWrap}>
-                      <h4 style={sectionHeading}>{s.heading}</h4>
-                      {s.body && <p style={{ ...sectionBody, whiteSpace: 'pre-line' }}>{s.body}</p>}
-                      {s.items?.length > 0 && (
-                        <ul style={itemList}>
-                          {s.items.map((item, j) => (
-                            <li key={j}>{item}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </section>
-                  ))}
-                </>
-              )
+              <>
+                {entry.description && <p style={stepSubtitle}>{entry.description}</p>}
+                {normalizeSteps(entry).map((s, i) => (
+                  <section key={i} style={stepCard}>
+                    <h4 style={stepTitle}>
+                      <span style={stepNumber} aria-hidden="true">{s.number}</span>
+                      <span>{s.title}</span>
+                    </h4>
+                    {s.body && <p style={stepBody}>{s.body}</p>}
+                    {s.bullets.length > 0 && (
+                      <ul style={stepBulletList}>
+                        {s.bullets.map((b, j) => (
+                          <li key={j} style={stepBullet}>・{b}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {s.footer && <p style={stepFooter}>{s.footer}</p>}
+                  </section>
+                ))}
+                {entry.tip && (
+                  <div style={tipBox}>
+                    💡 <strong>コツ:</strong> {entry.tip}
+                  </div>
+                )}
+              </>
             ) : (
               <p style={{ fontSize: 13, color: '#a89e8c', margin: 0, lineHeight: 1.8 }}>
                 この画面のヘルプはまだ用意されていません。上の「AI に質問する」をお試しください。
