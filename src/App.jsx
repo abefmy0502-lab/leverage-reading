@@ -2079,14 +2079,16 @@ function AuthedApp() {
   // 結果リスト UI は AddBookModal 側に閉じている。
   const pickBookFromAdd = (b) => {
     setAddBookModalOpen(false);
-    // 1) 即時 seed: ISBN があれば openBD パターンを暫定 cover に。
-    //    検索結果の b.cover が既に有効な URL ならそれを優先採用する。
+    // ★ 検索結果に既に表示されていた cover を「視覚的に確認済み」とみなして
+    //   そのまま seed + coverIsbn = primary ISBN で確定する。これで
+    //   「ユーザーが見て選んだ表紙」と「DB に保存される表紙」が必ず一致する
+    //   (旧来は b.cover をシードした上で更に async で別 ISBN の表紙に
+    //    上書きしていたため、検索結果と保存結果がズレる事故が起きていた)。
     const candidates = getCoverCandidates(b?.isbn);
-    const seedCover = b?.cover || candidates[0] || '';
+    const visibleCover = b?.cover || '';
+    const seedCover = visibleCover || candidates[0] || '';
     if (typeof console !== 'undefined') {
-      console.log('[cover] picked book:', { title: b?.title, isbn: b?.isbn });
-      console.log('[cover] candidates:', candidates);
-      console.log('[cover] seed cover:', seedCover);
+      console.log('[cover] picked book:', { title: b?.title, isbn: b?.isbn, hasVisibleCover: !!visibleCover });
     }
     const seeded = {
       ...emptyBook(),
@@ -2094,6 +2096,8 @@ function AuthedApp() {
       title: b.title || '',
       author: b.author || '',
       cover: seedCover,
+      // 視覚的に確認できた cover は primary ISBN と紐付けて記録する。
+      coverIsbn: visibleCover && b?.isbn ? String(b.isbn).replace(/[-\s]/g, '') : '',
       totalPages: b.pages || 0,
       isbn: b.isbn || '',
       addedVia: 'search',
@@ -2102,10 +2106,15 @@ function AuthedApp() {
     setCurrent(null);
     setView('edit');
 
-    // 2) 非同期に multi-ISBN リゾルバで cover を確定。
-    //    primary ISBN → 同タイトル+著者の他エディション ISBN の順で
-    //    openBD/Amazon を試し、最初にロード成功した URL を採用する。
-    //    完了したら form.cover (と coverIsbn) を上書き。
+    // 2) cover が無かった (または ISBN ベースの推測しか無い) 場合のみ
+    //    multi-ISBN リゾルバで補完。視覚的に確認済みの cover がある時は
+    //    skip してユーザーが見たものをそのまま使う (誤上書きの根本対策)。
+    if (visibleCover) {
+      if (typeof console !== 'undefined') {
+        console.log('[cover] visible cover trusted, skipping async resolver:', visibleCover);
+      }
+      return;
+    }
     (async () => {
       try {
         const altIsbns = await findIsbnCandidates(b.title, b.author);
