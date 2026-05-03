@@ -142,11 +142,20 @@ function formatMemo(memo) {
   const safeTitle = sanitizeForPrompt(b.title || '').slice(0, 200);
   const safeAuthor = sanitizeForPrompt(b.author || '').slice(0, 100);
 
-  // Summary memo (books.leverage_memo) — synthesised, no DB row
-  if (memo.source_type === 'summary') {
+  // books の各フィールドを synthesize した行 (種別ラベルを切り替えるだけ)
+  const SYNTH_LABEL = {
+    summary: 'まとめメモ',
+    invest_purpose: '投資目的',
+    current_challenge: '現在の課題',
+    hypothesis: '仮説',
+    ai_summary: 'AI まとめ',
+    roi_summary: 'ROI ひとことまとめ',
+    ai_strategy: 'セットアップ戦略',
+  };
+  if (SYNTH_LABEL[memo.source_type]) {
     const parts = [`本: ${safeTitle}`];
     if (safeAuthor) parts.push(`著者: ${safeAuthor}`);
-    parts.push('種別: まとめメモ');
+    parts.push(`種別: ${SYNTH_LABEL[memo.source_type]}`);
     return `【${parts.join(' / ')}】${safeText}${truncated}`;
   }
 
@@ -221,9 +230,14 @@ export async function callMyBookBrain({ userId, question }) {
     throw new Error('質問を入力してください。');
   }
 
-  // Pull both card/personal memos AND books with non-empty leverage_memo
-  // (= "まとめメモ"). Summaries are synthesised into the same memo shape so
-  // the existing ranking + format pipeline picks them up uniformly.
+  // 7 種類の知識を一括で取得して RAG コンテキストに渡す:
+  //   - book_memos (カード式メモ + 個人学び)
+  //   - books.leverage_memo (まとめメモ)
+  //   - books.invest_purpose / current_challenge / hypothesis (セットアップシート)
+  //   - books.ai_summary (AI 要約)
+  //   - books.roi_summary (ROI ひとことまとめ)
+  //   - books.ai_strategy (セットアップ戦略)
+  // すべて同じ memo shape に整形し、既存の ranking/format パイプラインで処理。
   const [memosRes, booksRes] = await Promise.all([
     supabase
       .from('book_memos')
@@ -232,27 +246,45 @@ export async function callMyBookBrain({ userId, question }) {
       .order('created_at', { ascending: false }),
     supabase
       .from('books')
-      .select('id, title, author, rating, leverage_memo, updated_at, created_at')
-      .eq('user_id', userId)
-      .not('leverage_memo', 'is', null)
-      .neq('leverage_memo', ''),
+      .select('id, title, author, rating, status, leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy, updated_at, created_at')
+      .eq('user_id', userId),
   ]);
   if (memosRes.error) throw memosRes.error;
   if (booksRes.error) throw booksRes.error;
 
   const memoRows = memosRes.data || [];
-  const summaryRows = (booksRes.data || []).map((b) => ({
-    id: `summary-${b.id}`,
-    book_id: b.id,
-    user_id: userId,
-    source_type: 'summary',
-    text: b.leverage_memo,
-    page_number: null,
-    tags: [],
-    photo_path: null,
-    created_at: b.updated_at || b.created_at,
-    book: { id: b.id, title: b.title, author: b.author, rating: b.rating },
-  }));
+  const allBooks = booksRes.data || [];
+
+  // books の各フィールドを別々の memo 行として synthesize
+  const synthRows = [];
+  const synthFromBook = (b, sourceType, text) => {
+    if (!text || (typeof text === 'string' && !text.trim())) return null;
+    return {
+      id: `${sourceType}-${b.id}`,
+      book_id: b.id,
+      user_id: userId,
+      source_type: sourceType,
+      text,
+      page_number: null,
+      tags: [],
+      photo_path: null,
+      created_at: b.updated_at || b.created_at,
+      book: { id: b.id, title: b.title, author: b.author, rating: b.rating },
+    };
+  };
+  for (const b of allBooks) {
+    const rows = [
+      synthFromBook(b, 'summary', b.leverage_memo),
+      synthFromBook(b, 'invest_purpose', b.invest_purpose),
+      synthFromBook(b, 'current_challenge', b.current_challenge),
+      synthFromBook(b, 'hypothesis', b.hypothesis),
+      synthFromBook(b, 'ai_summary', b.ai_summary),
+      synthFromBook(b, 'roi_summary', b.roi_summary),
+      synthFromBook(b, 'ai_strategy', b.ai_strategy),
+    ].filter(Boolean);
+    synthRows.push(...rows);
+  }
+  const summaryRows = synthRows; // 後続コードと互換性維持
 
   const all = [...memoRows, ...summaryRows];
 
@@ -263,7 +295,8 @@ export async function callMyBookBrain({ userId, question }) {
     .slice(0, MAX_MEMOS)
     .map((x) => x.memo);
 
-  // Per-source counts for UI display
+  // Per-source counts for UI display。summaryCount は「7 種類の knowledge」
+  // 全部を含めた数 (まとめ + 投資目的 + 課題 + 仮説 + AI まとめ + ROI + 戦略)。
   const cardCount = memoRows.filter((m) => m.source_type !== 'personal').length;
   const personalCount = memoRows.filter((m) => m.source_type === 'personal').length;
   const summaryCount = summaryRows.length;

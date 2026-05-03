@@ -3622,6 +3622,29 @@ const persist = useCallback((updates) => {
               {AMAZON_DISCLOSURE_TEXT}
             </small>
             {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。下部のボタン群は撤去。 */}
+            {/* 本棚に戻る — 上部 ← 一覧 が text link で目立たないため、
+                どのフェーズの本詳細でも下部に大きめの secondary ボタンで提供。
+                スクロールで上に戻らずに本棚へ帰れる。 */}
+            <button
+              type="button"
+              onClick={goList}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                background: "transparent",
+                border: "1px solid #d4ccbe",
+                borderRadius: 14,
+                color: "#5c5043",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                marginTop: 16,
+                minHeight: 44,
+              }}
+            >
+              ← 本棚に戻る
+            </button>
           </div>
         </div>
 

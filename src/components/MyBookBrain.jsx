@@ -289,12 +289,16 @@ export default function MyBookBrain({ onOpenBook }) {
     fetchHistory();
   }, [fetchHistory]);
 
-  // Knowledge counts for the header (cards / summaries / personal).
+  // Knowledge counts for the header (cards / summaries / personal)。
+  // summaries は books の 7 フィールド (leverage_memo + invest_purpose +
+  // current_challenge + hypothesis + ai_summary + roi_summary + ai_strategy)
+  // を「いずれかが入っている本の数」ではなく「埋まっているフィールドの合計
+  // 件数」で数える。AI が参照する knowledge の厚みを正しく示すため。
   useEffect(() => {
     if (!user || !isSupabaseConfigured) return undefined;
     let cancelled = false;
     (async () => {
-      const [cardsRes, personalRes, summariesRes] = await Promise.all([
+      const [cardsRes, personalRes, booksFieldsRes] = await Promise.all([
         supabase
           .from('book_memos')
           .select('id', { count: 'exact', head: true })
@@ -307,16 +311,27 @@ export default function MyBookBrain({ onOpenBook }) {
           .eq('source_type', 'personal'),
         supabase
           .from('books')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .not('leverage_memo', 'is', null)
-          .neq('leverage_memo', ''),
+          .select('leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy')
+          .eq('user_id', user.id),
       ]);
       if (cancelled) return;
+      // 埋まっている (非 null + 空文字でない) フィールドだけ数える
+      const isFilled = (v) => typeof v === 'string' && v.trim().length > 0;
+      const summariesCount = (booksFieldsRes.data || []).reduce((sum, b) => {
+        let n = 0;
+        if (isFilled(b.leverage_memo)) n += 1;
+        if (isFilled(b.invest_purpose)) n += 1;
+        if (isFilled(b.current_challenge)) n += 1;
+        if (isFilled(b.hypothesis)) n += 1;
+        if (isFilled(b.ai_summary)) n += 1;
+        if (isFilled(b.roi_summary)) n += 1;
+        if (isFilled(b.ai_strategy)) n += 1;
+        return sum + n;
+      }, 0);
       setMemoStats({
         cards: cardsRes.count || 0,
         personal: personalRes.count || 0,
-        summaries: summariesRes.count || 0,
+        summaries: summariesCount,
       });
     })();
     return () => {
