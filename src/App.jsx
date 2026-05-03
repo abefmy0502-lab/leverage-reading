@@ -3088,16 +3088,59 @@ function AuthedApp() {
 
           {/* Book header */}
           <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
-            {current.cover && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+            {/* 表紙ブロックは cover 有無に関わらず常に表示。
+                cover が無い時はプレースホルダ + 「取り直す」「違う?」を案内。
+                旧実装は cover && (...) で全体を隠していたため、表紙が無い本では
+                取り直しボタンに辿り着けなかった (⋯ メニューを開く必要があった)。 */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+              {current.cover ? (
                 <img src={ensureHttps(current.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
-                {/* 表紙の出典 (ISBN) と「表紙が違う?」リンク。manual アップロード
-                    済み (cover_isbn === 'manual') の本は表示しない。 */}
-                {current.coverIsbn && current.coverIsbn !== 'manual' && (
-                  <span style={{ fontSize: 9, color: '#a89e8c', whiteSpace: 'nowrap' }}>
-                    ISBN: {current.coverIsbn}
-                  </span>
-                )}
+              ) : (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: 60,
+                    height: 84,
+                    borderRadius: 6,
+                    border: '1px dashed #d4ccbe',
+                    background: '#faf6f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 22,
+                    color: '#a89e8c',
+                  }}
+                >
+                  📚
+                </div>
+              )}
+              {/* 表紙の出典 (ISBN)。manual アップロード済みは表示しない。 */}
+              {current.coverIsbn && current.coverIsbn !== 'manual' && (
+                <span style={{ fontSize: 9, color: '#a89e8c', whiteSpace: 'nowrap' }}>
+                  ISBN: {current.coverIsbn}
+                </span>
+              )}
+              {/* 表紙関連の 2 アクション。常時可視で「⋯ メニューに埋もれて
+                  見つけにくい」問題を解消。「取り直す」は同じ ISBN で再 fetch、
+                  「違う?」は別エディション候補から選び直し or 手動 upload。 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start', marginTop: 2 }}>
+                <button
+                  type="button"
+                  onClick={() => refreshCoverFor(current)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    fontSize: 10,
+                    color: '#5C4A2E',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    textDecoration: 'underline',
+                    fontWeight: 600,
+                  }}
+                >
+                  🔄 表紙を取り直す
+                </button>
                 <button
                   type="button"
                   onClick={() => setCoverFixForBook(current)}
@@ -3115,7 +3158,7 @@ function AuthedApp() {
                   表紙が違う？
                 </button>
               </div>
-            )}
+            </div>
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c", lineHeight: 1.4 }}>{current.title}</h2>
               {current.author && <p style={{ fontSize: 12, color: "#8a7e6b", marginTop: 3 }}>{current.author}</p>}
@@ -4180,6 +4223,13 @@ function AuthedApp() {
               label: '編集',
               icon: '✏️',
               onClick: () => openEdit(bookContextMenu.book),
+            },
+            // 本棚から直接「表紙を取り直す」できるように追加。本詳細を開かず
+            // 1 タップで再 fetch まで完結する (誤表紙への対処を 3 秒以内に)。
+            {
+              label: '表紙を取り直す',
+              icon: '🔄',
+              onClick: () => refreshCoverFor(bookContextMenu.book),
             },
             {
               label: '共有',
