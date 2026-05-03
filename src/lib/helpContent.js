@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-05-04: 廃止済み機能のデッドコードを完全削除。`src/components/CapitalDashboard.jsx` + `src/components/AIInsight.jsx` ファイル削除。`App.jsx` から `function TodayTab` / `function MemosTab` / `function ActionsTab` (旧実装、ActionList.jsx で再実装済) / `addBookFromPlan` / `loadData` / `saveData` / `STORAGE_KEY` / `data` state (collections + readingPlans) / `persist` callback を削除 (合計 303 行)。`HELP_CONTENT` から未参照だった `todayLearning` / `memos` / `personalCapital` キーを削除。CLAUDE.md の Removed Features 表を「過去に削除された機能（履歴メモ）」に書き換え + 削除済みヘルプキーを表から除去。`getCurrentHelpKey` のコメントを 5 タブ → 3 タブ構成に同期更新
  * - 2026-05-04: ターゲット拡大のため、ビジネス専門用語を一般向け語彙に置換。「ROI」→「投資対効果」、「ROI まとめ」→「投資の効果」、「ROI ひとことまとめ」→「投資の効果(一言)」、「AI セットアップ」→「AI 読書計画」、「セットアップシート」→「読書計画シート」、「KPI」→「目標数値」を全 UI / ヘルプ / AI プロンプト / LP に統一適用。DB カラム名 (`roi_summary` / `ai_summary` / `ai_strategy` / `invest_purpose`) と JS 変数 / ファイル名は変更せず内部互換性を維持。AI プロンプト (prompts.js) のヘディング (例: 旧「## 💪 投資収益(ROI)評価」→ 新「## 💪 投資の効果（評価）」) と MarkdownSections.jsx の highlight 正規表現を同期更新。残置: helpContent.js の changelog (line 22, 36) は当時のリテラルを保持
  * - 2026-05-04: マイ読書脳「知識管理」タブで全 9 種を編集・削除可能に拡張。旧来は カード式メモ / まとめメモ (= leverage_memo) / 学びログ の 3 種だけ一覧表示できたが、追加で 投資目的 / 現在の課題 / 仮説 / AI まとめ / 投資の効果 / 戦略 (books の各 setup フィールド) も同じカード形式で並ぶ。各カードの「編集」ボタンで TextEditModal を開き books.{column} に書き戻し、「クリア」で空文字化 + 5 秒 Undo (既存 summary と同じパターンを 7 列分に汎用化 — performClearSummary → performClearField)。フィルタピルに「📊 計画」を追加し、KIND_META.group で memo / summary / plan / learning にグルーピング。badge 色は plan のみ blue 系を新設。staged FIELD_SELECTS で未マイグレーション DB でも動作 (古い列が無い段階に縮退)
  * - 2026-05-04: LP に実アプリスクショ 8 枚を組み込み (本物感の最大化)。新規 `src/components/PhoneFrame.jsx` を導入し iPhone 風枠 (Dynamic Island 付き) で統一表示 — small/medium/large の 3 サイズ + float (浮遊アニメ) オプション。差し替え箇所: Hero (本棚スクショ + float) / AI Flow (詳細推薦カード + 読む順番の 2 枚連発) / Mech 01 (AI 選書) / Mech 02 (読書計画シート) / Mech 03 (マイ読書脳の質問→回答 2 枚並び + 矢印) 。Mechanisms と Use-List の間に「行動管理アピール」セクションを新設 (action-management.jpg 主役 + 4 つの機能リスト)。CSS は旧 `.phone-frame` (固定 width/height) を画像 aspect-ratio 追従の image-frame に置換、`.mech-screenshot*` `.screenshot-pair` `.screenshot-step*` `.screenshot-arrow` `.screenshot-caption` `.action-feature*` を追加。狭幅 (≤600px) では 質問→回答ペアを縦並びに自動切替、矢印は 90deg 回転。`prefers-reduced-motion` 時は float アニメ停止
@@ -346,69 +347,6 @@ export const HELP_CONTENT = {
     ],
   },
 
-  todayLearning: {
-    title: '💡 今日の学び',
-    description: '今日の読書から得た気づきや学びを集約・確認するタブです。',
-    lastUpdated: '2026-04-26',
-    sections: [
-      {
-        heading: 'このタブで何ができる？',
-        body:
-          '今日のあなたの読書から、AI が抽出した重要な気づきや学びを表示します。複数の本を並行読書している場合も、本日のハイライトが一覧で確認できます。',
-      },
-      {
-        heading: '活用方法',
-        body:
-          '・寝る前にこのタブを見て、その日の読書を振り返る\n' +
-          '・1 日の終わりに「今日の収穫」を確認するルーティンを作る\n' +
-          '・SNS にシェアする時の元ネタにする',
-      },
-      {
-        heading: 'ヒント',
-        body:
-          'メモを書けば書くほど、ここの内容が充実します。1 日 1 メモでも続けると数ヶ月後に「学びの貯金」が見えてきます。',
-      },
-    ],
-  },
-
-  memos: {
-    title: '📝 メモ',
-    description: '本の読書中に記録した全メモを管理するタブです。',
-    lastUpdated: '2026-04-26',
-    sections: [
-      {
-        heading: '2 つのメモスタイル',
-        body:
-          '・📇 カード式: 1 メモ = 1 カード、ページ番号・写真・タグ付きで整理\n' +
-          '・📝 まとめ式: 1 冊 1 テキスト、本全体の感想や学びを自由に記述\n\n' +
-          'タブで切り替えられます。状況に応じて使い分けてください。',
-      },
-      {
-        heading: '新しいメモを追加',
-        body:
-          '右下の「＋」フローティングボタンをタップ → 画面下からシュッとシートが上がります。\n\n' +
-          'ページ番号と本文だけの最小入力で完了。詳細（写真・タグ）を加えたい時は『詳細入力 →』をタップ。',
-      },
-      {
-        heading: 'ソート切替',
-        body:
-          '・📖 ページ順: 本のページ番号順（読み進めた順に並ぶ）\n' +
-          '・🕒 新しい順: 作成日が新しいメモから\n\n' +
-          '読み返したい目的に応じて選択。',
-      },
-      {
-        heading: '編集・削除',
-        body:
-          '各カードの「⋮」メニューから編集・削除可能。削除しても 5 秒以内なら『取消』で復活できるので安心。',
-      },
-      {
-        heading: '写真添付のコツ',
-        body:
-          '本のページや手書きメモを撮影して添付。後から見返した時に「あの一節」「あの図解」を即思い出せる。スマホのカメラから直接撮影も OK。',
-      },
-    ],
-  },
-
   actions: {
     title: '🎯 行動',
     description: '本から学んだことを実際の行動に落とし込むタブです。',
@@ -645,56 +583,6 @@ export const HELP_CONTENT = {
         body:
           '1 日 1 回、寝る前に「🎲 ランダム表示」をタップ。\n\n' +
           '30 秒で過去の気づきが蘇り、読書の 投資対効果が劇的に上がります。',
-      },
-    ],
-  },
-
-  personalCapital: {
-    title: '📊 パーソナルキャピタル（廃止予定）',
-    description: 'この機能は現在 UI からアクセスできません。データは保持されており、将来再有効化する可能性があります。',
-    lastUpdated: '2026-04-26',
-    sections: [
-      {
-        heading: '投資成果サマリー（常に画面上部）',
-        body:
-          '累計読了 / 投資時間 / 気づき件数 / アクション完了 / 連続記録が一目で分かるカードです。\n\n' +
-          'まだ本が無い場合は「まず 1 冊登録してみよう」ボタンが表示されます。',
-      },
-      {
-        heading: '🗺️ 知識マップ',
-        body:
-          '上位 6 分野のレーダーチャートで「どこに知識資本が集中しているか」を可視化。\n\n' +
-          '上位 3 分野は「💪 あなたの強み」カードでハイライト。下に続くリストで全分野の累積資本（読了 ×3 + メモ ×0.5 + 行動完了 ×2）を確認できます。',
-      },
-      {
-        heading: '📈 投資対効果 分析',
-        body:
-          '画面トップに「投資効率スコア（0–100 点）」を大きく表示。行動完了・平均評価・メモ活動量を投資時間で正規化して算出します。\n\n' +
-          '下に続くリストで分野別の平均 投資対効果 と行動実行率を比較。',
-      },
-      {
-        heading: '🎯 読書計画',
-        body:
-          '分野別に目標冊数を設定し、進捗バーで達成度を可視化。\n\n' +
-          '目標を達成した分野には「✅ 完了」バッジが付きます。',
-      },
-      {
-        heading: '✨ 成長',
-        body:
-          '🔥 連続記録の可視化、過去 90 日のメモヒートマップ、レベル（読了冊数ベース）、8 種類のバッジ獲得状況を表示。\n\n' +
-          '継続を楽しく、節目を可視化する仕組みです。',
-      },
-      {
-        heading: '🤖 AI 分析（各タブ末尾）',
-        body:
-          '知識マップ・投資対効果・成長の各タブ末尾に、あなたの統計データを元にした AI 分析が表示されます。\n\n' +
-          '結果は同じ統計に対して 5 分間キャッシュされ、API を無駄に叩きません。「↻ 再生成」ボタンで強制リフレッシュ可。',
-      },
-      {
-        heading: '📚 おすすめ学習プラン（読書計画タブ）',
-        body:
-          '既存タグや評価が高かった本を踏まえて、AI が 3 つの学習プラン（5 冊コース）を提案します。\n\n' +
-          '「📚 このプランで読む」をタップすると確認後に 5 冊を一括で「読みたい」リストに追加。1 日キャッシュされます。',
       },
     ],
   },

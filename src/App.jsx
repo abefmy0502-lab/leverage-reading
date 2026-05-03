@@ -82,8 +82,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 const STAR = "★";
 const EMPTY_STAR = "☆";
-const STORAGE_KEY = "leverage-reading-data";
-
 const STATUSES = [
   { key: "want", label: "読みたい", emoji: "🔖", Icon: Bookmark, bg: "#f0e8d8", color: "#8a7040" },
   { key: "before", label: "読書前", emoji: "📐", Icon: PenSquare, bg: "#f0e0f0", color: "#7a5080" },
@@ -91,15 +89,6 @@ const STATUSES = [
   { key: "done", label: "読了", emoji: "✅", Icon: CheckCircle, bg: "#e2ecd8", color: "#5a7a48" },
 ];
 const getSt = (k) => STATUSES.find((s) => s.key === k) || STATUSES[0];
-
-/* ========== Storage ========== */
-function loadData() {
-  try { const r = localStorage.getItem(STORAGE_KEY); if (r) return JSON.parse(r); } catch {}
-  return { books: [], collections: [], goal: 24, readingPlans: {} };
-}
-function saveData(data) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
-}
 
 /* ========== Setup-sheet edit history (localStorage, 1-step undo) ========== */
 const STRATEGY_HISTORY_KEY = (bookId) => `aiStrategyHistory:${bookId}`;
@@ -1277,248 +1266,6 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
   );
 }
 
-/* ========== Tab: Today ========== */
-function TodayTab({ books }) {
-  const cards = useMemo(() => {
-    const all = [];
-    books.forEach((b) => {
-      if (b.leverageMemo?.trim()) all.push({ type: "memo", title: b.title, author: b.author, cover: b.cover, text: b.leverageMemo, tags: b.tags || [] });
-      if (b.aiSummary?.trim()) all.push({ type: "summary", title: b.title, text: b.aiSummary });
-      if (b.roiSummary?.trim()) all.push({ type: "roi", title: b.title, text: b.roiSummary });
-      (b.actions || []).filter((a) => a.text?.trim()).forEach((a) => all.push({ type: "action", title: b.title, text: a.text, done: a.done }));
-    });
-    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
-    return all;
-  }, [books]);
-
-  const [idx, setIdx] = useState(0);
-  const [touchStart, setTouchStart] = useState(null);
-  const next = () => setIdx((i) => (i + 1) % cards.length);
-  const prev = () => setIdx((i) => (i - 1 + cards.length) % cards.length);
-  const safeIdx = Math.min(idx, Math.max(0, cards.length - 1));
-
-  if (!cards.length) {
-    return (
-      <div style={{ textAlign: "center", padding: "60px 20px" }}>
-        <p style={{ fontSize: 48, marginBottom: 12 }}>📚</p>
-        <p style={{ fontSize: 15, color: "#5c5548", fontWeight: 500 }}>学びを蓄積しよう</p>
-        <p style={{ fontSize: 12, color: "#a89e8c", marginTop: 6, lineHeight: 1.6 }}>本を読んでメモを記録すると、<br />毎日ここに学びが表示されます。</p>
-      </div>
-    );
-  }
-
-  const c = cards[safeIdx];
-  const typeLabel = { memo: "メモ", summary: "要約", roi: "投資の効果", action: "行動" };
-  const typeBg = { memo: "#f0e8d8", summary: "#e2ecd8", roi: "#f0e8d8", action: "#dde8f0" };
-  const typeColor = { memo: "#8a7040", summary: "#5a7a48", roi: "#8a7040", action: "#4a6e8a" };
-
-  return (
-    <div style={{ padding: "0 20px" }}
-      onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
-      onTouchEnd={(e) => { if (touchStart === null) return; const diff = e.changedTouches[0].clientX - touchStart; if (Math.abs(diff) > 50) { diff < 0 ? next() : prev(); } setTouchStart(null); }}>
-      <div style={{ textAlign: "center", marginBottom: 16 }}>
-        <p style={{ fontSize: 11, color: "#a89e8c", letterSpacing: 3, fontWeight: 500 }}>TODAY'S LEVERAGE</p>
-        <p style={{ fontSize: 11, color: "#c4b8a6", marginTop: 2 }}>{safeIdx + 1} / {cards.length}</p>
-      </div>
-      <div key={safeIdx} style={{ background: "#faf6f0", borderRadius: 16, padding: "20px 18px", border: "1px solid #e4ddd0", minHeight: 160, animation: "fadeIn .3s" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          {c.cover && <img src={ensureHttps(c.cover)} alt="" style={{ width: 28, height: 40, objectFit: "cover", borderRadius: 4 }} />}
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 500, color: "#3d362c" }}>{c.title}</p>
-            {c.author && <p style={{ fontSize: 11, color: "#9a8e7a" }}>{c.author}</p>}
-          </div>
-          <span style={{ marginLeft: "auto", fontSize: 10, padding: "2px 8px", borderRadius: 8, background: typeBg[c.type], color: typeColor[c.type] }}>
-            {typeLabel[c.type]}
-          </span>
-        </div>
-        <p style={{ fontSize: 14, color: "#3d362c", lineHeight: 1.9, whiteSpace: "pre-wrap" }}>{c.text}</p>
-      </div>
-      <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 16 }}>
-        <button onClick={prev} style={navBtn}>← 前へ</button>
-        <button onClick={next} style={{ ...navBtn, background: "#5c5043", color: "#faf6f0", border: "none" }}>次へ →</button>
-      </div>
-      <p style={{ textAlign: "center", fontSize: 10, color: "#c4b8a6", marginTop: 8 }}>← スワイプで移動 →</p>
-    </div>
-  );
-}
-
-/* ========== Tab: Memos ========== */
-function MemosTab({ books, collections, onUpdateCollections }) {
-  const [subTab, setSubTab] = useState("search");
-  const [q, setQ] = useState("");
-  const [tagFilter, setTagFilter] = useState("");
-  const [newColName, setNewColName] = useState("");
-  const [editCol, setEditCol] = useState(null);
-
-  // Reset scroll when switching sub-tabs.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [subTab]);
-
-  const allMemos = useMemo(() => {
-    const memos = [];
-    books.forEach((b) => {
-      if (b.leverageMemo?.trim()) {
-        b.leverageMemo.split("\n").filter((l) => l.trim()).forEach((line) => {
-          memos.push({ text: line.trim(), title: b.title, tags: b.tags || [] });
-        });
-      }
-    });
-    return memos;
-  }, [books]);
-
-  const allTags = useMemo(() => { const s = new Set(); books.forEach((b) => (b.tags || []).forEach((t) => s.add(t))); return [...s]; }, [books]);
-
-  const filtered = useMemo(() => allMemos.filter((m) => {
-    if (tagFilter && !m.tags.includes(tagFilter)) return false;
-    if (q) { const ql = q.toLowerCase(); return m.text.toLowerCase().includes(ql) || m.title.toLowerCase().includes(ql) || m.tags.some((t) => t.toLowerCase().includes(ql)); }
-    return true;
-  }), [allMemos, q, tagFilter]);
-
-  const addCollection = () => { if (!newColName.trim()) return; onUpdateCollections([...collections, { id: Date.now().toString(), name: newColName.trim(), memoTexts: [] }]); setNewColName(""); };
-  const deleteCol = (id) => onUpdateCollections(collections.filter((c) => c.id !== id));
-  const toggleMemoInCol = (colId, memoText) => {
-    onUpdateCollections(collections.map((c) => {
-      if (c.id !== colId) return c;
-      const has = c.memoTexts.includes(memoText);
-      return { ...c, memoTexts: has ? c.memoTexts.filter((t) => t !== memoText) : [...c.memoTexts, memoText] };
-    }));
-  };
-
-  return (
-    <div style={{ padding: "0 20px" }}>
-      <div style={{ display: "flex", marginBottom: 16, borderBottom: "1px solid #e0d8c8" }}>
-        {[{ k: "search", l: "🔍 メモ検索" }, { k: "collections", l: "📂 コレクション" }].map((t) => (
-          <button key={t.k} onClick={() => setSubTab(t.k)} style={{ flex: 1, padding: "10px 0", fontSize: 13, fontFamily: "inherit", cursor: "pointer", background: "none", border: "none", borderBottom: subTab === t.k ? "2px solid #5c5043" : "2px solid transparent", color: subTab === t.k ? "#3d362c" : "#a89e8c", fontWeight: subTab === t.k ? 500 : 400 }}>{t.l}</button>
-        ))}
-      </div>
-      {subTab === "search" && (
-        <>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="メモを横断検索..." style={{ ...inp, background: "#faf6f0", marginBottom: 8 }} />
-          {allTags.length > 0 && (
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
-              <button onClick={() => setTagFilter("")} style={{ ...tagBtn, ...(tagFilter === "" ? tagBtnActive : {}) }}>すべて</button>
-              {allTags.map((t) => (
-                <button key={t} onClick={() => setTagFilter(tagFilter === t ? "" : t)} style={{ ...tagBtn, ...(tagFilter === t ? tagBtnActive : {}) }}>#{t}</button>
-              ))}
-            </div>
-          )}
-          <p style={{ fontSize: 11, color: "#a89e8c", marginBottom: 8 }}>{filtered.length}件</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {filtered.slice(0, 50).map((m, i) => (
-              <div key={i} style={{ background: "#faf6f0", borderRadius: 10, padding: "10px 12px", border: "1px solid #e4ddd0" }}>
-                <p style={{ fontSize: 13, color: "#3d362c", lineHeight: 1.7 }}>{m.text}</p>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 10, color: "#9a8e7a" }}>📕 {m.title}</span>
-                  {m.tags.map((t, j) => (<span key={j} style={{ fontSize: 9, background: "#eae3d6", color: "#7a6e58", padding: "1px 5px", borderRadius: 6 }}>#{t}</span>))}
-                  {collections.length > 0 && (
-                    <select onChange={(e) => { if (e.target.value) toggleMemoInCol(e.target.value, m.text); e.target.value = ""; }} style={{ fontSize: 16, border: "1px solid #d4ccbe", borderRadius: 6, padding: "2px 4px", color: "#8a7e6b", background: "transparent", fontFamily: "inherit", marginLeft: "auto" }} defaultValue="">
-                      <option value="">+📂</option>
-                      {collections.map((c) => (<option key={c.id} value={c.id}>{c.memoTexts.includes(m.text) ? "✓ " : ""}{c.name}</option>))}
-                    </select>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          {filtered.length === 0 && <p style={{ textAlign: "center", padding: 30, color: "#b5aa96", fontSize: 13 }}>メモがありません</p>}
-        </>
-      )}
-      {subTab === "collections" && (
-        <>
-          <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-            <input value={newColName} onChange={(e) => setNewColName(e.target.value)} placeholder="新しいコレクション名" style={{ ...inp, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); addCollection(); } }} />
-            <button onClick={addCollection} style={{ ...btnS, padding: "8px 14px", fontSize: 12 }}>作成</button>
-          </div>
-          {collections.length === 0 ? (
-            <p style={{ textAlign: "center", padding: 30, color: "#b5aa96", fontSize: 13 }}>テーマ別コレクションを作成しよう</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {collections.map((col) => (
-                <div key={col.id} style={{ background: "#faf6f0", borderRadius: 12, border: "1px solid #e4ddd0", overflow: "hidden" }}>
-                  <div onClick={() => setEditCol(editCol === col.id ? null : col.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", cursor: "pointer" }}>
-                    <div>
-                      <p style={{ fontSize: 14, fontWeight: 500, color: "#3d362c" }}>📂 {col.name}</p>
-                      <p style={{ fontSize: 11, color: "#9a8e7a" }}>{col.memoTexts.length}件</p>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <button onClick={(e) => { e.stopPropagation(); deleteCol(col.id); }} style={{ background: "none", border: "none", fontSize: 14, color: "#c4a0a0", cursor: "pointer" }}>×</button>
-                      <span style={{ fontSize: 12, color: "#c4b8a6" }}>{editCol === col.id ? "▲" : "▼"}</span>
-                    </div>
-                  </div>
-                  {editCol === col.id && (
-                    <div style={{ padding: "0 14px 12px", borderTop: "1px solid #e8e2d6" }}>
-                      {col.memoTexts.length === 0 ? <p style={{ fontSize: 12, color: "#b5aa96", padding: "12px 0" }}>メモ検索から追加</p>
-                        : col.memoTexts.map((t, i) => (
-                          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "8px 0", borderBottom: i < col.memoTexts.length - 1 ? "1px solid #f0ebe2" : "none" }}>
-                            <p style={{ fontSize: 12, color: "#4a4036", lineHeight: 1.6, flex: 1 }}>{t}</p>
-                            <button onClick={() => toggleMemoInCol(col.id, t)} style={{ background: "none", border: "none", fontSize: 12, color: "#c4a0a0", cursor: "pointer", flexShrink: 0, marginLeft: 8 }}>×</button>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ========== Tab: Actions ========== */
-function ActionsTab({ books, onToggleAction }) {
-  const allActions = useMemo(() => {
-    const a = [];
-    books.forEach((b) => (b.actions || []).forEach((act, i) => {
-      if (act.text?.trim()) a.push({ ...act, bookTitle: b.title, bookId: b.id, actionIdx: i });
-    }));
-    return a;
-  }, [books]);
-  const done = allActions.filter((a) => a.done).length;
-  const pct = allActions.length ? Math.round((done / allActions.length) * 100) : 0;
-  const today = new Date().toISOString().slice(0, 10);
-
-  return (
-    <div style={{ padding: "0 20px" }}>
-      <div style={{ background: "#faf6f0", borderRadius: 12, padding: "16px", border: "1px solid #e4ddd0", marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <span style={{ fontSize: 14, fontWeight: 500, color: "#3d362c" }}>実行率</span>
-          <span style={{ fontSize: 18, fontWeight: 600, color: pct >= 80 ? "#5a7a48" : pct >= 50 ? "#d4a040" : "#a05040" }}>{pct}%</span>
-        </div>
-        <div style={{ height: 8, background: "#e0d8c8", borderRadius: 4 }}>
-          <div style={{ height: "100%", width: `${pct}%`, background: pct >= 80 ? "#5a7a48" : pct >= 50 ? "#d4a040" : "#a05040", borderRadius: 4, transition: "width .4s" }} />
-        </div>
-        <p style={{ fontSize: 11, color: "#9a8e7a", marginTop: 6 }}>{done} / {allActions.length} 完了</p>
-      </div>
-      {allActions.length === 0 ? (
-        <p style={{ textAlign: "center", padding: 30, color: "#b5aa96", fontSize: 13 }}>行動リストなし</p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {allActions.map((a, i) => {
-            const overdue = a.deadline && a.deadline < today && !a.done;
-            return (
-              <div key={i} onClick={() => onToggleAction(a.bookId, a.actionIdx)} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", borderRadius: 10, background: a.done ? "#f0ebe2" : overdue ? "#fdf0ed" : "#faf6f0", border: `1px solid ${overdue ? "#e0b0a0" : "#e4ddd0"}`, cursor: "pointer" }}>
-                <span style={{ fontSize: 18, flexShrink: 0 }}>{a.done ? "✅" : "⬜"}</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 13, color: a.done ? "#9a8e7a" : "#3d362c", textDecoration: a.done ? "line-through" : "none" }}>{a.text}</p>
-                  <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
-                    <span style={{ fontSize: 10, color: "#b5aa96" }}>📕 {a.bookTitle}</span>
-                    {a.deadline && <span style={{ fontSize: 10, color: overdue ? "#a05040" : "#9a8e7a" }}>{overdue ? "⚠️ " : "📅 "}{a.deadline}</span>}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
 /* ========== AI Book Advisor ========== */
 const ADVISOR_EXAMPLES = [
   '営業成績を上げたい',
@@ -2076,14 +1823,6 @@ function AuthedApp() {
   // available=false で UI 側が履歴ボタンを隠す。
   const advisorSessions = useAdvisorSessions();
 
-  // collections と readingPlans は一旦localStorageのまま
-  const [data, setData] = useState(() => {
-    const d = loadData();
-    return { collections: d.collections || [], readingPlans: d.readingPlans || {} };
-  });
-  const collections = data.collections;
-  const readingPlans = data.readingPlans || {};
-
   const [tab, setTab] = useState("books");
   // 本棚の表示モード。
   // - 'auto' (デフォルト): 3 冊以下→list / 4 冊以上→grid（数が少ない時に
@@ -2131,8 +1870,6 @@ function AuthedApp() {
   const [searchInitialAuthor, setSearchInitialAuthor] = useState('');
   const [searchInitialIsbn, setSearchInitialIsbn] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
-  // Personal Capital UI is removed; data layer (CapitalDashboard component
-  // file) is retained for potential future re-enablement.
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [recentlyDoneId, setRecentlyDoneId] = useState(null);
   const recentlyDoneTimerRef = useRef(null);
@@ -2251,20 +1988,11 @@ function AuthedApp() {
     [saveBook],
   );
 
-const persist = useCallback((updates) => {
-    setData((prev) => { 
-      const next = { ...prev, ...updates };
-      // booksはSupabaseで管理するのでlocalStorageには保存しない
-      saveData({ collections: next.collections, readingPlans: next.readingPlans });
-      return next;
-    });
-  }, []);
-
   // Resolve the help key for whatever screen the user is currently looking at.
   // Priority order:
   //   1. Open modal contexts (advisor / quick memo / full editor) — they overlay everything
   //   2. Book detail / edit view — map by status
-  //   3. Bottom-nav tabs (list view) — today / books / memos / actions
+  //   3. Bottom-nav tabs — books / review / ai (3 タブ構成)
   const getCurrentHelpKey = () => {
     if (quickMemoOpen || fullEditorPrefill) return 'memoEditor';
     if (view === 'detail' || view === 'edit') {
@@ -2790,37 +2518,6 @@ const persist = useCallback((updates) => {
         console.warn('[bg-cover] failed:', saved.title, e?.message || e);
       }
     })();
-  };
-
-  // Used by CapitalDashboard's "学習プラン" → bulk-add. Throws on failure so
-  // the dashboard can count successes/failures across the plan's book list.
-  const addBookFromPlan = async ({ title, author = '', tags = [] }) => {
-    // Bulk-add フローではダイアログを出さず、重複は静かにスキップ。
-    // 学習プランの追加は複数件まとめて走るのでブロッキングしたくない。
-    const existing = findDuplicateBook(books, { title, author });
-    if (existing) {
-      // eslint-disable-next-line no-console
-      console.log('[addBookFromPlan] skip duplicate:', title);
-      return;
-    }
-    const newBook = {
-      ...emptyBook(),
-      title,
-      author: author || '',
-      status: 'want',
-      tags: Array.isArray(tags) ? tags : [],
-      addedVia: 'search',
-    };
-    try {
-      const results = await searchBooksAPIFlat(`${title} ${author || ''}`.trim());
-      if (results.length > 0) {
-        newBook.totalPages = results[0].pages || 0;
-        newBook.isbn = results[0].isbn || '';
-      }
-    } catch { /* ignore */ }
-    // 即時保存して、表紙はバックグラウンドで解決 (await しない)
-    const saved = await saveBook(newBook);
-    resolveCoverInBackground(saved);
   };
 
 // Status transitions — optimistic UI with undo toast.

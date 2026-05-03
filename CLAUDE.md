@@ -20,17 +20,16 @@
 
 設定 / ヘルプ / データダウンロード / 退会等はヘッダー右上の ⚙️ 設定モーダルから。
 
-### Removed Features（UI からは削除、コードは保持）
+### 過去に削除された機能（履歴メモ）
 
-これらは UI 導線が消えていますが、関連コンポーネントとロジックは将来再有効化のため残しています。
+以下は過去に存在したが現在は完全に削除されており、コードベースには残っていません。再実装する場合は git history (`git log --all -- src/components/CapitalDashboard.jsx` 等) から参照可能。
 
-| 機能 | 関連ファイル | 状態 |
-|---|---|---|
-| パーソナルキャピタル（投資成果サマリー / 知識マップ / ROI / 計画 / 成長 / AI 分析 / 学習プラン） | `src/components/CapitalDashboard.jsx`, `src/components/AIInsight.jsx` | App.jsx から import を外し未参照 |
-| 今日の学びタブ（TodayTab） | `src/App.jsx` 内の `function TodayTab` | 関数定義残置・呼び出し削除 |
-| クロスブック メモタブ（MemosTab） | `src/App.jsx` 内の `function MemosTab` | 関数定義残置・呼び出し削除 |
-| クロスブック 行動タブ（ActionsTab）— 旧実装 | `src/App.jsx` 内の `function ActionsTab` | 2026-04-25 に独立コンポーネント `src/components/ActionList.jsx` で再実装。旧 ActionsTab は未参照のまま残置 |
-| バッジ / 連続日数 / レベルシステム | `CapitalDashboard.jsx` 内 | 上記と同じく未参照に |
+- パーソナルキャピタル（投資成果サマリー / 知識マップ / ROI / 計画 / 成長 / AI 分析 / 学習プラン） — 旧 `src/components/CapitalDashboard.jsx` + `src/components/AIInsight.jsx`。2026-05-04 削除
+- 今日の学びタブ（TodayTab）— 旧 `src/App.jsx` 内の `function TodayTab`。2026-05-04 削除
+- クロスブック メモタブ（MemosTab、コレクション機能含む）— 旧 `src/App.jsx` 内の `function MemosTab` + `loadData/saveData` の `collections`。2026-05-04 削除
+- クロスブック 行動タブ（ActionsTab）— 旧実装。`src/components/ActionList.jsx` で再実装済。旧 `function ActionsTab` は 2026-05-04 削除
+- バッジ / 連続日数 / レベルシステム — 旧 `CapitalDashboard.jsx` 内。2026-05-04 削除
+- localStorage `leverage-reading-data` キー（`STORAGE_KEY` / `loadData` / `saveData`）— `collections` と `readingPlans` の永続化用だったが、両機能削除に伴い 2026-05-04 削除
 
 ## ディレクトリ構造
 
@@ -160,8 +159,6 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `bookDetailDone` | 「読了」状態の本詳細 |
 | `aiAdvisor` | AI 選書アドバイザー（下部ナビ: AI 選書） |
 | `memoEditor` | メモ入力画面（カード式 + クイックメモ + まとめ） |
-| `personalCapital` | （廃止予定）パーソナルキャピタル — UI 導線なし |
-| `todayLearning` / `memos` | （未使用）旧ボトムナビタブ用、現在は到達不可 |
 | `actions` | （内部用）本詳細フォーム内の行動リスト編集セクション。新しい横断行動タブは `actionList` 参照 |
 
 新しい画面を追加した場合、上の表にも追記し、`HELP_CONTENT` にもキーを追加すること。
