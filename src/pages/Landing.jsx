@@ -5,7 +5,8 @@
 // SVG アイコンは lucide-react 既存依存をそのまま使用。
 
 import { useEffect, useState } from 'react';
-import { Check, X, BookOpen } from 'lucide-react';
+import { Check, X } from 'lucide-react';
+import PhoneFrame from '../components/PhoneFrame';
 import './landing.css';
 
 const setMeta = (name, content, attr = 'name') => {
@@ -150,40 +151,12 @@ export default function Landing() {
         </p>
 
         <div className="hero-mockup">
-          <div className="phone-frame" aria-hidden="true">
-            <div className="phone-screen bookshelf-preview">
-              <div className="screen-status">9:41</div>
-              <div className="screen-title">本棚</div>
-              <div className="book-row">
-                <div className="book-cover c1" />
-                <div className="book-info">
-                  <div className="book-title">レバレッジ・リーディング</div>
-                  <div className="book-status reading">読書中</div>
-                </div>
-              </div>
-              <div className="book-row">
-                <div className="book-cover c2" />
-                <div className="book-info">
-                  <div className="book-title">武器になる哲学</div>
-                  <div className="book-status wishlist">読みたい</div>
-                </div>
-              </div>
-              <div className="book-row">
-                <div className="book-cover c3" />
-                <div className="book-info">
-                  <div className="book-title">影響力の武器</div>
-                  <div className="book-status done">読了</div>
-                </div>
-              </div>
-              <div className="book-row">
-                <div className="book-cover c4" />
-                <div className="book-info">
-                  <div className="book-title">エッセンシャル思考</div>
-                  <div className="book-status before">読書前</div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <PhoneFrame
+            src="/lp/hero-bookshelf.jpg"
+            alt="レバレッジ読書ログの本棚画面 — 6 冊が表紙付きで並ぶ"
+            size="medium"
+            float
+          />
         </div>
       </section>
 
@@ -287,14 +260,22 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* 実画面の詳細推薦カード — 画像未配置時は onError で非表示にする */}
+        {/* 実画面 — 詳細推薦カード + 読む順番の 2 枚で説得力を強化 */}
         <div className="real-screenshot">
           <p className="screenshot-label">↓ 各本に対して、こんな詳細な推薦が届きます</p>
-          <img
-            src="/lp/sample-recommendation.png"
-            alt="AI が提案する本の詳細カード (選書理由・核心・注目すべきポイント・実践時間)"
-            loading="lazy"
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          <PhoneFrame
+            src="/lp/ai-recommendation.jpg"
+            alt="AI 選書の詳細推薦カード — なぜ必要か / 核心 / 注目すべきポイント / 実践時間まで提示"
+            size="medium"
+          />
+        </div>
+
+        <div className="real-screenshot" style={{ marginTop: 32 }}>
+          <p className="screenshot-label">↓ さらに、最適な読む順番まで提案します</p>
+          <PhoneFrame
+            src="/lp/reading-order.jpg"
+            alt="AI が提案する読む順番のおすすめ"
+            size="medium"
           />
         </div>
 
@@ -426,16 +407,12 @@ export default function Landing() {
             <p className="mech-body">
               AI 選書は、あなたの現在の課題を会話で深掘りし、年代・職業・状況に合わせた本だけを提案。買う前に「自分に必要かどうか」が判断できます。
             </p>
-            <div className="mech-mockup">
-              <div className="phone-frame small" aria-hidden="true">
-                <div className="phone-screen advisor-preview">
-                  <div className="screen-status">9:41</div>
-                  <div className="advisor-msg user">営業成績を上げたい</div>
-                  <div className="advisor-msg ai">3 冊おすすめします</div>
-                  <div className="advisor-book"><BookOpen size={11} strokeWidth={1.6} /> SPIN 営業術</div>
-                  <div className="advisor-book"><BookOpen size={11} strokeWidth={1.6} /> 武器としての交渉思考</div>
-                </div>
-              </div>
+            <div className="mech-screenshot">
+              <PhoneFrame
+                src="/lp/ai-recommendation.jpg"
+                alt="AI 選書による本の詳細推薦"
+                size="small"
+              />
             </div>
           </div>
         </div>
@@ -454,18 +431,12 @@ export default function Landing() {
             <p className="mech-body">
               読む前に AI が「投資目的・現在の課題・仮説」を整理。重点的に読むべき章と、読まなくていい章まで提案するので、1 冊から 3〜5 個の具体的な行動が生まれます。
             </p>
-            <div className="mech-mockup">
-              <div className="phone-frame small" aria-hidden="true">
-                <div className="phone-screen setup-preview">
-                  <div className="screen-status">9:41</div>
-                  <div className="setup-label">投資目的</div>
-                  <div className="setup-value">営業成績を半年で 1.5 倍にする</div>
-                  <div className="setup-label">現在の課題</div>
-                  <div className="setup-value">初回商談での信頼構築</div>
-                  <div className="setup-label">仮説</div>
-                  <div className="setup-value">フレームワーク習得で改善</div>
-                </div>
-              </div>
+            <div className="mech-screenshot">
+              <PhoneFrame
+                src="/lp/setup-sheet.jpg"
+                alt="AI が設計する読書セットアップシート (KPI / 投資戦略 / 重点的に読む箇所)"
+                size="small"
+              />
             </div>
           </div>
         </div>
@@ -484,18 +455,70 @@ export default function Landing() {
             <p className="mech-body">
               過去に読んだ本のメモ・投資目的・行動が、あなた専用 AI に蓄積されます。「決断に迷う時の判断軸は？」と聞けば、過去の本の知識から、あなた専用の答えが返ってくる。
             </p>
-            <div className="mech-mockup">
-              <div className="phone-frame small" aria-hidden="true">
-                <div className="phone-screen brain-preview">
-                  <div className="screen-status">9:41</div>
-                  <div className="brain-msg user">決断に迷う時の判断軸は？</div>
-                  <div className="brain-msg ai">『エッセンシャル思考』のメモから…</div>
+            <div className="mech-screenshot mech-screenshot-double">
+              <div className="screenshot-pair">
+                <div className="screenshot-step">
+                  <p className="screenshot-step-label">① 質問する</p>
+                  <PhoneFrame
+                    src="/lp/mybook-brain-asking.jpg"
+                    alt="マイ読書脳に質問を入力している画面"
+                    size="small"
+                  />
+                </div>
+                <div className="screenshot-arrow" aria-hidden="true">→</div>
+                <div className="screenshot-step">
+                  <p className="screenshot-step-label">② 過去の本から回答</p>
+                  <PhoneFrame
+                    src="/lp/mybook-brain-answer-bottom.jpg"
+                    alt="参照した本付きで返ってくる AI の回答"
+                    size="small"
+                  />
                 </div>
               </div>
+              <p className="screenshot-caption">
+                質問するたびに、過去のメモから回答 + 参照した本が表示されます
+              </p>
             </div>
           </div>
         </div>
 
+      </section>
+
+      <div className="lp-section-divider" aria-hidden="true" />
+
+      {/* ============ 4.25. 行動管理アピール (action-management.jpg を主役に) ============ */}
+      <section className="action-feature fade-in">
+        <p className="section-eyebrow">読みっぱなしを防ぐ</p>
+        <h2 className="section-headline">
+          本から決めた行動を、<br />
+          最後まで追跡する。
+        </h2>
+
+        <div className="action-feature-grid">
+          <div className="action-feature-text">
+            <p className="action-feature-lead">
+              本を読んでも、行動が習慣にならなければ意味がない。
+            </p>
+            <ul className="action-feature-list">
+              <li>📅 期限・優先度・繰り返しを設定</li>
+              <li>✅ 完了率を毎週集計</li>
+              <li>🔥 連続達成日数で習慣化を可視化</li>
+              <li>💭 完了時に振り返りメモを残せる</li>
+            </ul>
+            <p className="action-feature-conclusion">
+              読書 → 行動 → 振り返り のサイクルを<br />
+              アプリ 1 つで完結します。
+            </p>
+          </div>
+
+          <div className="action-feature-image">
+            <PhoneFrame
+              src="/lp/action-management.jpg"
+              alt="行動管理画面 — 達成率 100% / 繰り返しタスク / 期限色分け"
+              size="medium"
+            />
+          </div>
+        </div>
       </section>
 
       <div className="lp-section-divider" aria-hidden="true" />
