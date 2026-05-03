@@ -10,21 +10,25 @@
 //   4. 該当無しなら「📷 自分でアップロードする」ボタンへ誘導
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { findIsbnCandidatesWithMetadata } from '../lib/bookSearch';
 import { tryCoverForIsbn } from '../lib/bookCover';
 import { ensureHttps } from '../lib/url';
 
+// 親ツリーの overflow:hidden / transform / z-index に左右されないよう
+// document.body に portal する。zIndex も他モーダル群より高く設定。
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
-  zIndex: 870,
-  background: 'rgba(30,25,20,0.45)',
+  zIndex: 9999,
+  background: 'rgba(30,25,20,0.55)',
   backdropFilter: 'blur(3px)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 20,
+  padding: 16,
   fontFamily: "'Noto Serif JP', Georgia, serif",
+  boxSizing: 'border-box',
 };
 
 const cardStyle = {
@@ -77,6 +81,8 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
   const [candidates, setCandidates] = useState([]); // [{isbn, title, author, coverUrl}]
 
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[cover-modal] open:', { bookId: book?.id, title: book?.title, currentISBN: book?.isbn, currentCoverISBN: book?.cover_isbn || book?.coverIsbn });
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -108,15 +114,20 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
           }),
         );
         if (cancelled) return;
-        setCandidates(resolved.filter(Boolean));
+        const list = resolved.filter(Boolean);
+        // eslint-disable-next-line no-console
+        console.log('[cover-modal] candidates loaded:', list.length, list.map((c) => c.isbn));
+        setCandidates(list);
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [book.title, book.author, book.isbn]);
+  }, [book.title, book.author, book.isbn, book.id]);
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
@@ -175,8 +186,12 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                   key={c.isbn}
                   type="button"
                   onClick={() => {
+                    // eslint-disable-next-line no-console
+                    console.log('[cover-modal] candidate selected:', { isbn: c.isbn, url: c.coverUrl });
                     onPick({ cover: c.coverUrl, coverIsbn: c.isbn });
                     onClose();
+                    // eslint-disable-next-line no-console
+                    console.log('[cover-modal] closed');
                   }}
                   style={{
                     display: 'flex',
@@ -250,6 +265,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

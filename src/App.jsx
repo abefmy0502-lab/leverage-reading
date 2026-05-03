@@ -91,6 +91,33 @@ const STATUSES = [
 ];
 const getSt = (k) => STATUSES.find((s) => s.key === k) || STATUSES[0];
 
+// 検索結果が AI 推薦と「同じ本」と確信できるかの判定。誤マッチで間違った
+// ISBN が保存され、後段の cover lookup で別の本の表紙が出る事故を防ぐため。
+// 判定ルール:
+//   - 著者がある場合: 互いの著者文字列が含み合いの関係であること
+//   - タイトル: 完全一致 OR 「短い方が長い方の prefix」かつ shorter/longer ≥ 0.7
+//   タイトルの部分一致だけ (例: 共通の漢字「思考」) では一致と認めない
+const _normTitle = (s) => (s || '').toString().normalize('NFKC').toLowerCase().replace(/[\s・()()\[\]【】「」『』:、,.。!?!?\-—‐−~〜:;]/g, '');
+const _normAuthor = (s) => (s || '').toString().normalize('NFKC').toLowerCase().replace(/[\s・,、;:]/g, '');
+function isStrictMatch(candidate, original) {
+  const ct = _normTitle(candidate?.title);
+  const ot = _normTitle(original?.title);
+  if (!ct || !ot) return false;
+  if (ct !== ot) {
+    const longer = ct.length >= ot.length ? ct : ot;
+    const shorter = ct.length >= ot.length ? ot : ct;
+    if (!longer.startsWith(shorter)) return false;
+    if (shorter.length / longer.length < 0.7) return false;
+  }
+  if (original?.author) {
+    const ca = _normAuthor(candidate?.author);
+    const oa = _normAuthor(original.author);
+    if (!ca || !oa) return false;
+    if (!ca.includes(oa) && !oa.includes(ca)) return false;
+  }
+  return true;
+}
+
 /* ========== Setup-sheet edit history (localStorage, 1-step undo) ========== */
 const STRATEGY_HISTORY_KEY = (bookId) => `aiStrategyHistory:${bookId}`;
 function saveStrategyHistory(bookId, prevStrategy) {
@@ -2482,14 +2509,24 @@ function AuthedApp() {
     };
     // 軽量な情報 (totalPages / isbn) だけ事前取得 → 即 saveBook。
     // 表紙の multi-ISBN 解決は待たずバックグラウンドで実行 (下の resolveCoverInBackground)。
-    // 旧実装は fullyResolveCover を await して 5〜10 秒待たせていたが、
-    // ユーザーは「✅ 追加しました」を 0.5 秒以内に受け取れるよう、
-    // 重い処理を全部 fire-and-forget に分離した。
+    //
+    // ⚠️ 検索 1 件目は AI 推薦と全く違う本のことがある (例: "エッセンシャル思考"
+    //    で検索すると "思考法の必読書 50 冊" が先に出る)。1 件目を盲信して
+    //    ISBN を採用すると後で primary-ISBN cover lookup が誤表紙を返す。
+    //    対策: ノーマライズ後の title+author 一致チェックをかけ、確信が
+    //    持てる時だけ ISBN を採用。落ちた場合は ISBN 空で保存し、bg resolver
+    //    側の findIsbnCandidates (より厳格) で再探索させる。
     try {
       const results = await searchBooksAPIFlat(rec.title + " " + rec.author);
       if (results.length > 0) {
-        newBook.totalPages = results[0].pages || 0;
-        newBook.isbn = results[0].isbn || '';
+        const first = results[0];
+        if (isStrictMatch(first, { title: rec.title, author: rec.author })) {
+          newBook.totalPages = first.pages || 0;
+          newBook.isbn = first.isbn || '';
+        } else {
+          // eslint-disable-next-line no-console
+          console.warn('[add] search top hit not strict match, skipping ISBN:', { recommended: rec.title, got: first.title });
+        }
       }
     } catch { /* 失敗しても OK — bg resolver が title/author だけでも解決を試みる */ }
     try {
@@ -4114,14 +4151,20 @@ function AuthedApp() {
             // 楽観的 UI 更新: saveBook の完了を待たず即座に画面を新しい
             // 表紙に切り替える。saveBook が失敗したら次の fetchBooks で
             // 元の URL に戻るので最終的な整合性は崩れない。
+            // eslint-disable-next-line no-console
+            console.log('[cover-modal] onPick fired:', { id: coverFixForBook?.id, newCover: cover, newCoverIsbn: coverIsbn });
             const updated = { ...coverFixForBook, cover, coverIsbn };
             setCurrent((c) => (c && c.id === updated.id ? { ...c, cover, coverIsbn } : c));
             try {
               const saved = await saveBook(updated);
               const next = saved || updated;
               setCurrent((c) => (c && c.id === next.id ? next : c));
+              // eslint-disable-next-line no-console
+              console.log('[cover-modal] DB updated for', next?.id);
               toast.success('表紙を更新しました');
             } catch (error) {
+              // eslint-disable-next-line no-console
+              console.error('[cover-modal] DB update failed:', error);
               toast.error(toMessage(error, '表紙の更新に失敗しました。'));
             }
           }}
