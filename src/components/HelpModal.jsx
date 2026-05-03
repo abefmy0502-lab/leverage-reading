@@ -15,27 +15,6 @@ import { getHelp } from '../lib/helpContent';
 import { callClaude } from '../lib/ai';
 import { PROMPTS } from '../lib/prompts';
 
-// helpKey → 大きいタブ分類。4. の「他の画面のヘルプ」に使う。
-const KEY_TO_TAB = {
-  bookList: 'bookshelf',
-  bookDetailWant: 'bookshelf',
-  bookDetailBefore: 'bookshelf',
-  bookDetailReading: 'bookshelf',
-  bookDetailDone: 'bookshelf',
-  memoEditor: 'bookshelf',
-  actions: 'bookshelf',
-  review: 'review',
-  actionList: 'review',
-  aiAdvisor: 'ai',
-  myBookBrain: 'ai',
-};
-
-const TABS = [
-  { id: 'bookshelf', icon: '📚', label: '本棚', defaultKey: 'bookList' },
-  { id: 'review', icon: '🔄', label: '振り返り', defaultKey: 'review' },
-  { id: 'ai', icon: '🤖', label: 'AI', defaultKey: 'aiAdvisor' },
-];
-
 const FAQ_LIST = [
   '本の表紙が出ない時は？',
   'AI 読書計画って何？',
@@ -46,6 +25,8 @@ const FAQ_LIST = [
   '本のステータスを変えたい',
 ];
 
+// モバイルでは画面いっぱいに近づけるため余白を最小化、デスクトップは
+// 控えめに余白。padding はインライン min() で簡易レスポンシブ。
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
@@ -55,19 +36,22 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 20,
+  padding: 'min(20px, 2vw)',
   fontFamily: "'Noto Serif JP', Georgia, serif",
+  boxSizing: 'border-box',
 };
 
 const cardStyle = {
   background: '#faf6f0',
   borderRadius: 16,
-  width: 'min(460px, 100%)',
+  width: '100%',
+  maxWidth: 'min(460px, 100vw - 16px)',
   maxHeight: 'min(85vh, 85dvh)',
   display: 'flex',
   flexDirection: 'column',
   boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
   overflow: 'hidden',
+  boxSizing: 'border-box',
 };
 
 const headerStyle = {
@@ -96,13 +80,16 @@ const closeBtnStyle = {
 };
 
 const bodyStyle = {
-  padding: '16px 16px 24px',
+  padding: '14px 14px 20px',
   overflowY: 'auto',
+  overflowX: 'hidden',
   flex: 1,
+  width: '100%',
   WebkitOverflowScrolling: 'touch',
   display: 'flex',
   flexDirection: 'column',
-  gap: 18,
+  gap: 16,
+  boxSizing: 'border-box',
 };
 
 const sectionTitleStyle = {
@@ -113,8 +100,9 @@ const sectionTitleStyle = {
 };
 
 const inputStyle = {
-  flex: 1,
+  flex: '1 1 0',
   minWidth: 0,
+  width: 0,
   padding: '10px 12px',
   borderRadius: 10,
   border: '1px solid #d4ccbe',
@@ -123,6 +111,7 @@ const inputStyle = {
   fontSize: 14,
   fontFamily: 'inherit',
   outline: 'none',
+  boxSizing: 'border-box',
 };
 
 const askBtnStyle = (disabled) => ({
@@ -145,6 +134,10 @@ const heroStyle = {
   borderRadius: 14,
   padding: '14px 14px',
   boxShadow: '0 4px 12px rgba(92, 74, 46, 0.18)',
+  width: '100%',
+  maxWidth: '100%',
+  boxSizing: 'border-box',
+  overflow: 'hidden',
 };
 
 const answerCardStyle = {
@@ -170,24 +163,6 @@ const chipStyle = {
   cursor: 'pointer',
   minHeight: 30,
 };
-
-const tabBtnStyle = (active) => ({
-  flex: 1,
-  padding: '10px 8px',
-  borderRadius: 10,
-  border: active ? '1.5px solid #5C4A2E' : '1px solid #d4ccbe',
-  background: active ? '#f5efde' : '#fff',
-  color: '#3d362c',
-  fontSize: 12,
-  fontWeight: active ? 600 : 500,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: 4,
-  minHeight: 56,
-});
 
 const onboardingLinkStyle = {
   display: 'block',
@@ -226,6 +201,11 @@ const stepCard = {
   marginBottom: 12,
   boxShadow: '0 1px 2px rgba(30,25,20,0.04)',
   wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
+  width: '100%',
+  maxWidth: '100%',
+  boxSizing: 'border-box',
+  overflow: 'hidden',
 };
 const stepNumber = { fontSize: 22, fontWeight: 700, lineHeight: 1, marginRight: 8 };
 const stepTitle = {
@@ -285,10 +265,7 @@ function normalizeSteps(entry) {
   return [];
 }
 
-export default function HelpModal({ helpKey: initialHelpKey, onClose, onShowOnboarding }) {
-  // 内部 state にすることで、「他のタブ」切替時に onClose せずモーダル内で
-  // ヘルプ画面を入れ替えられる。
-  const [helpKey, setHelpKey] = useState(initialHelpKey);
+export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
   const entry = getHelp(helpKey);
 
   const [question, setQuestion] = useState('');
@@ -321,8 +298,6 @@ export default function HelpModal({ helpKey: initialHelpKey, onClose, onShowOnbo
       setAsking(false);
     }
   };
-
-  const currentTab = KEY_TO_TAB[helpKey] || 'bookshelf';
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
@@ -432,28 +407,6 @@ export default function HelpModal({ helpKey: initialHelpKey, onClose, onShowOnbo
                 この画面のヘルプはまだ用意されていません。上の「AI に質問する」をお試しください。
               </p>
             )}
-          </section>
-
-          {/* ===== 4. 他のタブのヘルプ ===== */}
-          <section>
-            <h3 style={sectionTitleStyle}>🔁 他の画面のヘルプを見る</h3>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {TABS.map((t) => {
-                const active = t.id === currentTab;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setHelpKey(t.defaultKey)}
-                    style={tabBtnStyle(active)}
-                    aria-pressed={active}
-                  >
-                    <span style={{ fontSize: 18 }}>{t.icon}</span>
-                    <span>{t.label}</span>
-                  </button>
-                );
-              })}
-            </div>
           </section>
 
           {onShowOnboarding && (
