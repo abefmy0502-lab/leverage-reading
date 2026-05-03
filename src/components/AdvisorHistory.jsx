@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from 'react';
 import EmptyState from './EmptyState.jsx';
+import { getAmazonLink } from '../lib/amazonLink';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -23,6 +24,20 @@ function firstUserContent(messages) {
   if (!Array.isArray(messages)) return '';
   const m = messages.find((x) => x?.role === 'user');
   return (m?.content || m?.text || '').toString();
+}
+
+// AI 応答から RECOMMENDATIONS_START..END の JSON ブロックを除去して
+// 人間向けのプロセだけ残す。session.messages は永続化用に AI の生テキスト
+// (マーカー込み) を保存しているため、履歴表示時はここで剥がす。
+function stripRecommendations(text) {
+  if (!text) return '';
+  let cleaned = text.replace(
+    /RECOMMENDATIONS_START[\s\S]*?RECOMMENDATIONS_END/g,
+    '',
+  );
+  // 連続改行を 2 行までに圧縮 + 末尾整理
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  return cleaned;
 }
 
 const card = {
@@ -128,9 +143,188 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
   );
 }
 
-export function AdvisorSessionDetail({ session, onResume, onNewSession, onClose }) {
+// ============================================================================
+// 推薦本カード — 履歴詳細用 (live chat と同じ field 構成 + Amazon + 追加 button)
+// ============================================================================
+function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
+  const amazonHref = getAmazonLink(book);
+  return (
+    <div
+      style={{
+        background: '#fff',
+        border: '1px solid #e4ddd0',
+        borderRadius: 14,
+        padding: 14,
+        boxShadow: '0 1px 4px rgba(30,25,20,0.04)',
+        wordBreak: 'keep-all',
+        overflowWrap: 'anywhere',
+        boxSizing: 'border-box',
+      }}
+    >
+      <p style={{ fontSize: 14, fontWeight: 700, color: '#5C4A2E', margin: 0 }}>
+        『{book.title}』
+      </p>
+      {book.author && (
+        <p style={{ fontSize: 12, color: '#8a7e6b', margin: '2px 0 8px' }}>— {book.author}</p>
+      )}
+
+      {book.why && (
+        <RecField label="🎯 なぜあなたに必要か" text={book.why} />
+      )}
+      {book.core && (
+        <RecField label="💡 この本の核心" text={book.core} />
+      )}
+      {book.focus && (
+        <RecField label="📍 注目すべきポイント" text={book.focus} />
+      )}
+      {book.duration && (
+        <div
+          style={{
+            background: '#FFF8E1',
+            border: '1px solid #e0c878',
+            borderRadius: 8,
+            padding: '8px 10px',
+            margin: '8px 0 0',
+            fontSize: 12,
+            color: '#5D4037',
+            fontWeight: 600,
+            textAlign: 'center',
+          }}
+        >
+          ⏱ {book.duration}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        <a
+          href={amazonHref}
+          target="_blank"
+          rel="sponsored noopener noreferrer"
+          style={{
+            flex: 1,
+            minWidth: 120,
+            padding: '10px 12px',
+            background: '#FF9900',
+            color: '#fff',
+            borderRadius: 10,
+            fontSize: 12,
+            fontWeight: 700,
+            textAlign: 'center',
+            textDecoration: 'none',
+            fontFamily: 'inherit',
+            minHeight: 40,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+          }}
+        >
+          🛒 Amazon で買う
+        </a>
+        {isAdded ? (
+          <button
+            type="button"
+            disabled
+            style={{
+              flex: 1,
+              minWidth: 120,
+              padding: '10px 12px',
+              background: '#E0E0E0',
+              color: '#666',
+              border: 'none',
+              borderRadius: 10,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'not-allowed',
+              fontFamily: 'inherit',
+              minHeight: 40,
+            }}
+          >
+            ✅ 追加済み
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onAdd}
+            disabled={isAdding}
+            style={{
+              flex: 1,
+              minWidth: 120,
+              padding: '10px 12px',
+              background: '#5c5043',
+              color: '#faf6f0',
+              border: 'none',
+              borderRadius: 10,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: isAdding ? 'wait' : 'pointer',
+              fontFamily: 'inherit',
+              minHeight: 40,
+              opacity: isAdding ? 0.7 : 1,
+            }}
+          >
+            {isAdding ? '📚 計画を作成中…' : '📚 読みたいに追加'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RecField({ label, text }) {
+  return (
+    <div style={{ background: 'rgba(92,74,46,0.04)', borderRadius: 8, padding: '8px 10px', margin: '6px 0' }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#5C4A2E', margin: '0 0 4px' }}>{label}</p>
+      <p style={{ fontSize: 13, lineHeight: 1.7, color: '#3d362c', margin: 0 }}>{text}</p>
+    </div>
+  );
+}
+
+export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook }) {
   const messages = useMemo(() => Array.isArray(session?.messages) ? session.messages : [], [session]);
   const recs = useMemo(() => Array.isArray(session?.recommended_books) ? session.recommended_books : [], [session]);
+
+  // 既に本棚にある本 (タイトル+著者の正規化キー or ISBN/ASIN で重複判定)
+  const addedKeySet = useMemo(() => {
+    const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');
+    const set = new Set();
+    (books || []).forEach((b) => {
+      if (b.isbn) set.add(`isbn:${norm(b.isbn)}`);
+      if (b.asin) set.add(`asin:${norm(b.asin)}`);
+      if (b.title) set.add(`ta:${norm(b.title)}|${norm(b.author || '')}`);
+    });
+    return set;
+  }, [books]);
+
+  const isBookAdded = (rec) => {
+    const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');
+    if (rec.isbn && addedKeySet.has(`isbn:${norm(rec.isbn)}`)) return true;
+    if (rec.asin && addedKeySet.has(`asin:${norm(rec.asin)}`)) return true;
+    if (rec.title && addedKeySet.has(`ta:${norm(rec.title)}|${norm(rec.author || '')}`)) return true;
+    return false;
+  };
+
+  const [addingTitle, setAddingTitle] = useState('');
+  const lastUserQuery = useMemo(() => {
+    const lastUser = [...messages].reverse().find((m) => m?.role === 'user');
+    return (lastUser?.content || lastUser?.text || '').toString();
+  }, [messages]);
+
+  const handleAdd = async (rec) => {
+    if (!onAddBook || addingTitle) return;
+    setAddingTitle(rec.title);
+    try {
+      await onAddBook(rec, {
+        sourceQuery: lastUserQuery,
+        investPurpose: lastUserQuery || '',
+        currentChallenge: '',
+        hypothesis: '',
+        bookReason: rec.why || '',
+      });
+    } finally {
+      setAddingTitle('');
+    }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 16px 24px' }}>
@@ -148,7 +342,11 @@ export function AdvisorSessionDetail({ session, onResume, onNewSession, onClose 
         ) : (
           messages.map((m, i) => {
             const isUser = m.role === 'user';
-            const text = (m.content ?? m.text ?? '').toString();
+            const raw = (m.content ?? m.text ?? '').toString();
+            // assistant メッセージは RECOMMENDATIONS の JSON を剥がして
+            // プロセだけにする (永続化フォーマットの都合で生 JSON が混じっているため)
+            const text = isUser ? raw : stripRecommendations(raw);
+            if (!text) return null; // JSON だけのメッセージは非表示
             return (
               <div key={i} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
                 <div
@@ -161,6 +359,8 @@ export function AdvisorSessionDetail({ session, onResume, onNewSession, onClose 
                     fontSize: 13,
                     lineHeight: 1.7,
                     whiteSpace: 'pre-wrap',
+                    wordBreak: 'keep-all',
+                    overflowWrap: 'anywhere',
                     borderBottomRightRadius: isUser ? 4 : 14,
                     borderBottomLeftRadius: isUser ? 14 : 4,
                   }}
@@ -174,15 +374,20 @@ export function AdvisorSessionDetail({ session, onResume, onNewSession, onClose 
       </div>
 
       {recs.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
           <p style={{ fontSize: 12, color: '#5c5043', fontWeight: 600, margin: 0 }}>📚 提案された本</p>
           {recs.map((b, i) => (
-            <div key={i} style={{ background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 10, padding: '10px 12px' }}>
-              <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>『{b.title}』</p>
-              {b.author && <p style={{ fontSize: 11, color: '#8a7e6b', margin: '2px 0 0' }}>{b.author}</p>}
-              {b.why && <p style={{ fontSize: 11, color: '#5c5548', margin: '6px 0 0', lineHeight: 1.7 }}>{b.why}</p>}
-            </div>
+            <RecommendationCard
+              key={`${b.title}-${i}`}
+              book={b}
+              isAdded={isBookAdded(b)}
+              isAdding={addingTitle === b.title}
+              onAdd={() => handleAdd(b)}
+            />
           ))}
+          <p style={{ fontSize: 10, color: '#a89e8c', margin: '4px 0 0', lineHeight: 1.6 }}>
+            ※ Amazon のリンクはアソシエイトリンクです (購入時に運営に紹介料が入ります)
+          </p>
         </div>
       )}
 

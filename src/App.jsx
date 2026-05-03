@@ -1275,7 +1275,7 @@ const ADVISOR_EXAMPLES = [
   'お金の不安',
 ];
 
-function BookAdvisor({ onAddBook, sessionApi }) {
+function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 旧: 挨拶 seed メッセージで例を箇条書き → サブタブ画面では冗長
   // (タップ不可で文字を読まされるだけ)。例はチップ UI に分離した。
   const [messages, setMessages] = useState([]);
@@ -1469,6 +1469,8 @@ function BookAdvisor({ onAddBook, sessionApi }) {
         <div className="chat-scroll">
           <AdvisorSessionDetail
             session={selectedSession}
+            books={books}
+            onAddBook={onAddBook}
             onResume={resumeSession}
             onNewSession={startNewSession}
             onClose={() => { setSelectedSession(null); setView('history'); }}
@@ -4011,6 +4013,7 @@ function AuthedApp() {
                 <BookAdvisor
                   onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
                   sessionApi={advisorSessions}
+                  books={books}
                 />
               ) : (
                 <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
