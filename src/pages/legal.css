@@ -147,3 +147,99 @@
   .legal-content h2 { font-size: 20px; }
   .legal-content p, .legal-content li { font-size: 15px; }
 }
+
+/* ============ 本格版で追加した要素 ============ */
+
+/* 施行日 / 最終更新日 (各 legal page トップで連続表示) */
+.legal-content .effective-date {
+  font-size: 12px;
+  color: var(--lp-sub);
+  margin: 4px 0;
+  letter-spacing: 0.02em;
+}
+
+/* プライバシーポリシーのお問い合わせ窓口ボックス */
+.legal-content .contact-box {
+  background: var(--lp-bg);
+  border: 1px solid var(--lp-divider);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 16px 0 24px;
+}
+.legal-content .contact-box p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+.legal-content .contact-box a {
+  word-break: break-all;
+}
+
+/* 特定商取引法に基づく表記 — 表形式 */
+.sct-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 24px 0;
+  font-size: 14px;
+}
+.sct-table th,
+.sct-table td {
+  border: 1px solid var(--lp-divider);
+  padding: 12px;
+  vertical-align: top;
+  text-align: left;
+  line-height: 1.7;
+}
+.sct-table th {
+  background: var(--lp-bg);
+  width: 35%;
+  font-weight: 700;
+  color: var(--lp-primary);
+}
+.sct-table td {
+  color: var(--lp-text);
+}
+.sct-table a {
+  color: var(--lp-primary);
+  text-decoration: underline;
+  word-break: break-all;
+}
+.sct-note {
+  font-size: 12px;
+  color: var(--lp-sub);
+  margin-top: 16px;
+  line-height: 1.7;
+}
+
+/* 狭い画面でも崩れないように, セルをブロック化 */
+@media (max-width: 480px) {
+  .sct-table,
+  .sct-table tbody,
+  .sct-table tr,
+  .sct-table th,
+  .sct-table td {
+    display: block;
+    width: 100%;
+  }
+  .sct-table tr {
+    margin-bottom: 12px;
+    border: 1px solid var(--lp-divider);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .sct-table th,
+  .sct-table td {
+    border: none;
+    border-bottom: 1px solid var(--lp-divider);
+  }
+  .sct-table tr td:last-child {
+    border-bottom: none;
+  }
+  .sct-table th {
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+  .sct-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}

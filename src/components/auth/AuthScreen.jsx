@@ -199,9 +199,9 @@ export default function AuthScreen() {
               style={{ marginTop: 3, flexShrink: 0 }}
             />
             <span>
-              <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: '#5c5043' }}>利用規約</a>
+              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#5c5043' }}>利用規約</a>
               {' '}と{' '}
-              <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#5c5043' }}>プライバシーポリシー</a>
+              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#5c5043' }}>プライバシーポリシー</a>
               {' '}に同意します
             </span>
           </label>

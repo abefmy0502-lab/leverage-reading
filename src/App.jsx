@@ -31,7 +31,9 @@ import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
 import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import CoverFixModal from './components/CoverFixModal';
 import Landing from './pages/Landing';
-import { TermsPage, PrivacyPage, ContactPage } from './pages/LegalPages';
+import TermsPage from './legal/TermsPage';
+import PrivacyPage from './legal/PrivacyPage';
+import SctPage from './legal/SctPage';
 import { supabase as supabaseClient } from './lib/supabase';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
@@ -4563,16 +4565,20 @@ function AppShell() {
 // LP ルート判定 — /lp パスもしくは ?view=lp クエリで Landing を表示する。
 // SPA 内で別ルートを切るため React Router を持ち込まず、最低限の URL 監視
 // だけで対応 (popstate 反応も拾う)。LP は認証も SW 更新監視もスキップ。
-// LP / 法的ページのルート判定。返り値は 'lp' | 'terms' | 'privacy' | 'contact' | null。
+// LP / 法的ページのルート判定。返り値は 'lp' | 'terms' | 'privacy' | 'sct' | null。
 // React Router を持ち込まずに pathname/query だけで切替。popstate 追従も拾う。
+// 旧 /lp/terms · /lp/privacy · /lp/contact は新 /legal/* へのバックワード
+// コンパチとして同じページを返す (/lp/contact は SCT ページに統合した)。
 function useLpRoute() {
   const compute = () => {
     if (typeof window === 'undefined') return null;
-    const path = window.location.pathname;
-    if (path === '/lp/terms' || path === '/lp/terms/') return 'terms';
-    if (path === '/lp/privacy' || path === '/lp/privacy/') return 'privacy';
-    if (path === '/lp/contact' || path === '/lp/contact/') return 'contact';
-    if (path === '/lp' || path === '/lp/' || path.startsWith('/lp/')) return 'lp';
+    // trailing slash を除去 (ルート '/' だけは残す)
+    const raw = window.location.pathname;
+    const path = raw.length > 1 ? raw.replace(/\/+$/, '') : raw;
+    if (path === '/legal/terms' || path === '/lp/terms') return 'terms';
+    if (path === '/legal/privacy' || path === '/lp/privacy') return 'privacy';
+    if (path === '/legal/sct' || path === '/lp/contact') return 'sct';
+    if (path === '/lp' || path.startsWith('/lp/')) return 'lp';
     try {
       const sp = new URLSearchParams(window.location.search);
       if (sp.get('view') === 'lp') return 'lp';
@@ -4597,7 +4603,7 @@ export default function App() {
   // LP / 法的ページは静的ページ扱い: スプラッシュも認証も介さず即返す。
   if (lpRoute === 'terms') return <TermsPage />;
   if (lpRoute === 'privacy') return <PrivacyPage />;
-  if (lpRoute === 'contact') return <ContactPage />;
+  if (lpRoute === 'sct') return <SctPage />;
   if (lpRoute === 'lp') return <Landing />;
 
   return (

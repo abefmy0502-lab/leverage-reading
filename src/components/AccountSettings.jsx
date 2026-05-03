@@ -367,13 +367,20 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             )}
           </section>
 
-          {/* Legal links */}
-          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 4 }}>
-            <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#8a7e6b' }}>
+          {/* Legal links — LP と同じ /legal/* ページを参照 (単一ソース)。
+              新規タブで開いて、設定モーダルの状態を保つ。 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginTop: 4 }}>
+            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#8a7e6b' }}>
+              利用規約
+            </a>
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#8a7e6b' }}>
               プライバシーポリシー
             </a>
-            <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#8a7e6b' }}>
-              利用規約
+            <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#8a7e6b' }}>
+              特定商取引法に基づく表記
+            </a>
+            <a href="mailto:leverage.book0502@gmail.com" style={{ fontSize: 12, color: '#8a7e6b' }}>
+              お問い合わせ
             </a>
           </div>
         </div>

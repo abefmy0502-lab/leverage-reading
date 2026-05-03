@@ -1,6 +1,13 @@
 {
+  "redirects": [
+    { "source": "/terms.html", "destination": "/legal/terms", "permanent": true },
+    { "source": "/privacy-policy.html", "destination": "/legal/privacy", "permanent": true },
+    { "source": "/lp/terms", "destination": "/legal/terms", "permanent": true },
+    { "source": "/lp/privacy", "destination": "/legal/privacy", "permanent": true },
+    { "source": "/lp/contact", "destination": "/legal/sct", "permanent": true }
+  ],
   "rewrites": [
-    { "source": "/((?!api/|privacy-policy.html|terms.html).*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
