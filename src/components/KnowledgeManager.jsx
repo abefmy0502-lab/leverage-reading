@@ -65,10 +65,29 @@ function pickCategory(tags) {
   return cat ? cat.slice(1) : null;
 }
 
+// 全 9 種の知識アイテム。`column` を持つものは books テーブルの列で、編集
+// は TextEditModal、削除は「列を null にクリア」で統一処理 (= 既存の summary
+// と同じフロー)。column を持たない card / personal は book_memos の行なので
+// 行ごと delete + undo (既存挙動)。`group` は フィルタピル用 (memo / summary /
+// plan / learning) のグルーピングタグ。
 const KIND_META = {
-  card: { icon: '📝', label: 'カード式メモ' },
-  summary: { icon: '📖', label: 'まとめメモ' },
-  personal: { icon: '💡', label: '学びログ' },
+  card:              { icon: '📝',  label: 'カード式メモ', group: 'memo' },
+  summary:           { icon: '📖',  label: 'まとめメモ',   group: 'summary', column: 'leverage_memo' },
+  personal:          { icon: '💡',  label: '学びログ',     group: 'learning' },
+  invest_purpose:    { icon: '📊',  label: '投資目的',     group: 'plan',    column: 'invest_purpose' },
+  current_challenge: { icon: '⚠️', label: '現在の課題',   group: 'plan',    column: 'current_challenge' },
+  hypothesis:        { icon: '💡',  label: '仮説',         group: 'plan',    column: 'hypothesis' },
+  ai_summary:        { icon: '🤖',  label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },
+  roi_summary:       { icon: '💎',  label: 'ROI まとめ',   group: 'summary', column: 'roi_summary' },
+  ai_strategy:       { icon: '🗺️', label: '戦略',         group: 'plan',    column: 'ai_strategy' },
+};
+
+// グループごとの badge 色 (既存配色をベースに plan を追加)
+const GROUP_BADGE = {
+  memo:     { bg: '#e2ecd8', fg: '#5a7a48' },
+  summary:  { bg: '#eae3d6', fg: '#5c5043' },
+  learning: { bg: '#f5e6c8', fg: '#8a7040' },
+  plan:     { bg: '#e3eaf3', fg: '#3a5a78' },
 };
 
 // ============================================================================
@@ -146,10 +165,11 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
 // Knowledge card (display-only; parent provides handlers)
 // ============================================================================
 function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
-  const meta = KIND_META[item.kind];
+  const meta = KIND_META[item.kind] || KIND_META.card;
   const isPersonal = item.kind === 'personal';
-  const isSummary = item.kind === 'summary';
   const isCard = item.kind === 'card';
+  const isField = !!meta.column; // books の列 (summary を含む 7 種類)
+  const badge = GROUP_BADGE[meta.group] || GROUP_BADGE.memo;
   const category = isPersonal ? pickCategory(item.tags) : null;
   const visibleTags = isPersonal
     ? (item.tags || []).filter((t) => !t.startsWith('@'))
@@ -161,7 +181,7 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
   const inner = (
     <div style={card} {...(onLongPress ? longPress.bind : {})}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: isSummary ? '#eae3d6' : isPersonal ? '#f5e6c8' : '#e2ecd8', color: isSummary ? '#5c5043' : isPersonal ? '#8a7040' : '#5a7a48', fontWeight: 600 }}>
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: badge.bg, color: badge.fg, fontWeight: 600 }}>
           {meta.icon} {meta.label}
         </span>
         <span style={{ fontSize: 10, color: '#a89e8c' }}>{fmtDate(item.created_at)}</span>
@@ -191,7 +211,7 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
       <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
         <button type="button" style={btnGhost} onClick={() => onEdit(item)}>編集</button>
         <button type="button" style={dangerBtn} onClick={() => onDelete(item)}>
-          {isSummary ? 'クリア' : '削除'}
+          {isField ? 'クリア' : '削除'}
         </button>
       </div>
     </div>
@@ -201,7 +221,7 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
     return (
       <SwipeableCard
         onDelete={() => onSwipeDelete(item)}
-        actionLabel={isSummary ? '🧹 クリア' : undefined}
+        actionLabel={isField ? '🧹 クリア' : undefined}
       >
         {inner}
       </SwipeableCard>
@@ -222,7 +242,8 @@ export default function KnowledgeManager({ onChanged }) {
   const [loading, setLoading] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  const [filterKind, setFilterKind] = useState('all'); // all | card | summary | personal
+  // フィルタ: 'all' / KIND_META.group のいずれか ('memo' | 'summary' | 'plan' | 'learning')
+  const [filterKind, setFilterKind] = useState('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // newest | oldest | title
 
@@ -234,18 +255,6 @@ export default function KnowledgeManager({ onChanged }) {
     onChanged?.();
   };
 
-  // 知識ベースの全フィールド集計用 — books の各 setup フィールドの埋まり数。
-  // schema-error fallback で未マイグレーション DB でも動く。
-  const [fieldStats, setFieldStats] = useState({
-    invest_purpose: 0,
-    current_challenge: 0,
-    hypothesis: 0,
-    ai_summary: 0,
-    roi_summary: 0,
-    leverage_memo: 0,
-    ai_strategy: 0,
-  });
-
   useEffect(() => {
     if (!user || !isSupabaseConfigured) {
       setItems([]);
@@ -255,14 +264,16 @@ export default function KnowledgeManager({ onChanged }) {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      // KnowledgeManager のリスト表示は従来通り memos + leverage_memo まとめ。
-      // 全フィールドの内訳統計だけ別 query で staged fallback 取得。
+      // books の全 setup フィールドを 1 クエリで取得し、非空のフィールドごとに
+      // 統一形式の item を生成する。staged fallback で未マイグレーション DB
+      // (古い列が無い) でも段階縮退して動作する。
       const FIELD_SELECTS = [
-        'leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy',
-        'leverage_memo, invest_purpose, ai_summary, roi_summary, ai_strategy',
-        'leverage_memo, ai_summary, roi_summary',
+        'id, title, author, updated_at, created_at, leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy',
+        'id, title, author, updated_at, created_at, leverage_memo, invest_purpose, ai_summary, roi_summary, ai_strategy',
+        'id, title, author, updated_at, created_at, leverage_memo, ai_summary, roi_summary',
+        'id, title, author, updated_at, created_at, leverage_memo',
       ];
-      const fetchFieldStats = async () => {
+      const fetchBookFields = async () => {
         for (const sel of FIELD_SELECTS) {
           // eslint-disable-next-line no-await-in-loop
           const r = await supabase.from('books').select(sel).eq('user_id', user.id);
@@ -272,19 +283,14 @@ export default function KnowledgeManager({ onChanged }) {
         }
         return [];
       };
-      const [memosRes, booksRes, fieldRows] = await Promise.all([
+
+      const [memosRes, bookRows] = await Promise.all([
         supabase
           .from('book_memos')
           .select('*, book:books(id, title, author)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
-        supabase
-          .from('books')
-          .select('id, title, author, leverage_memo, updated_at, created_at')
-          .eq('user_id', user.id)
-          .not('leverage_memo', 'is', null)
-          .neq('leverage_memo', ''),
-        fetchFieldStats(),
+        fetchBookFields(),
       ]);
       if (cancelled) return;
 
@@ -292,27 +298,37 @@ export default function KnowledgeManager({ onChanged }) {
         ...m,
         kind: m.source_type === 'personal' ? 'personal' : 'card',
       }));
-      const summaryItems = (booksRes.data || []).map((b) => ({
-        kind: 'summary',
-        id: `summary-${b.id}`,
-        book_id: b.id,
-        book: { id: b.id, title: b.title, author: b.author },
-        text: b.leverage_memo || '',
-        tags: [],
-        page_number: null,
-        created_at: b.updated_at || b.created_at,
-      }));
-      setItems([...memoItems, ...summaryItems]);
 
-      // 全 setup フィールドの埋まり数を集計
+      // 各本の非空フィールドごとに 1 item を作る。kind = column 名 (summary は
+      // 例外で leverage_memo にマップ — 後方互換のため既存の "summary" を維持)。
       const isFilled = (v) => typeof v === 'string' && v.trim().length > 0;
-      const stats = { invest_purpose: 0, current_challenge: 0, hypothesis: 0, ai_summary: 0, roi_summary: 0, leverage_memo: 0, ai_strategy: 0 };
-      for (const b of fieldRows) {
-        for (const key of Object.keys(stats)) {
-          if (isFilled(b[key])) stats[key] += 1;
+      const FIELD_KINDS = [
+        ['summary',           'leverage_memo'],
+        ['invest_purpose',    'invest_purpose'],
+        ['current_challenge', 'current_challenge'],
+        ['hypothesis',        'hypothesis'],
+        ['ai_summary',        'ai_summary'],
+        ['roi_summary',       'roi_summary'],
+        ['ai_strategy',       'ai_strategy'],
+      ];
+      const fieldItems = [];
+      for (const b of bookRows) {
+        for (const [kind, col] of FIELD_KINDS) {
+          if (!isFilled(b[col])) continue;
+          fieldItems.push({
+            kind,
+            id: `${kind}-${b.id}`,
+            book_id: b.id,
+            book: { id: b.id, title: b.title, author: b.author },
+            text: b[col] || '',
+            tags: [],
+            page_number: null,
+            created_at: b.updated_at || b.created_at,
+          });
         }
       }
-      setFieldStats(stats);
+
+      setItems([...memoItems, ...fieldItems]);
       setLoading(false);
     })();
     return () => {
@@ -321,7 +337,8 @@ export default function KnowledgeManager({ onChanged }) {
   }, [user, refreshTick]);
 
   const counts = useMemo(() => {
-    const c = { card: 0, summary: 0, personal: 0 };
+    // Object.keys(KIND_META) で全 9 種を 0 で初期化 → forEach で実数を埋める。
+    const c = Object.fromEntries(Object.keys(KIND_META).map((k) => [k, 0]));
     items.forEach((it) => { c[it.kind] = (c[it.kind] || 0) + 1; });
     return c;
   }, [items]);
@@ -329,7 +346,10 @@ export default function KnowledgeManager({ onChanged }) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let arr = items.filter((it) => {
-      if (filterKind !== 'all' && it.kind !== filterKind) return false;
+      if (filterKind !== 'all') {
+        const group = KIND_META[it.kind]?.group;
+        if (group !== filterKind) return false;
+      }
       if (!q) return true;
       const hay = [
         it.text || '',
@@ -358,19 +378,23 @@ export default function KnowledgeManager({ onChanged }) {
       setEditingItem(item);
       return;
     }
-    if (item.kind === 'summary') {
+    const meta = KIND_META[item.kind];
+    if (meta?.column) {
+      // books の任意の text 列を編集 (summary / invest_purpose / current_challenge
+      // / hypothesis / ai_summary / roi_summary / ai_strategy)
+      const isSummaryLike = item.kind === 'summary'; // text が長い系は summary 上限
       setTextEdit({
-        title: `まとめメモを編集: ${item.book?.title || ''}`,
+        title: `${meta.icon} ${meta.label} を編集${item.book?.title ? `: ${item.book.title}` : ''}`,
         initialText: item.text || '',
-        maxLength: LIMITS.summaryMemo,
+        maxLength: isSummaryLike ? LIMITS.summaryMemo : LIMITS.memoText,
         onSave: async (newText) => {
           const { error } = await supabase
             .from('books')
-            .update({ leverage_memo: newText })
+            .update({ [meta.column]: newText })
             .eq('id', item.book_id)
             .eq('user_id', user.id);
           if (error) throw error;
-          toast.success('まとめメモを更新しました');
+          toast.success(`${meta.label} を更新しました`);
           refresh();
         },
       });
@@ -464,11 +488,16 @@ export default function KnowledgeManager({ onChanged }) {
     });
   };
 
-  const performClearSummary = (item) => {
+  // 任意の books.{column} を空にする (= AI の参照対象から外す)。
+  // Undo で previousText を書き戻す。summary だけでなく 7 つの book-field 全部に対応。
+  const performClearField = (item) => {
+    const meta = KIND_META[item.kind];
+    if (!meta?.column) return;
+    const column = meta.column;
     const previousText = item.text || '';
     const promise = supabase
       .from('books')
-      .update({ leverage_memo: '' })
+      .update({ [column]: '' })
       .eq('id', item.book_id)
       .eq('user_id', user.id)
       .then(({ error }) => {
@@ -482,13 +511,13 @@ export default function KnowledgeManager({ onChanged }) {
     setItems((arr) => arr.filter((x) => x.id !== item.id));
 
     toast.undo({
-      message: 'まとめメモをクリアしました',
+      message: `${meta.label} をクリアしました`,
       onUndo: async () => {
         try {
           await promise.catch(() => {});
           const { error } = await supabase
             .from('books')
-            .update({ leverage_memo: previousText })
+            .update({ [column]: previousText })
             .eq('id', item.book_id)
             .eq('user_id', user.id);
           if (error) throw error;
@@ -503,16 +532,17 @@ export default function KnowledgeManager({ onChanged }) {
 
   // Tap-driven (kebab "削除/クリア" button or long-press menu): confirm first.
   const handleDelete = async (item) => {
-    if (item.kind === 'summary') {
+    const meta = KIND_META[item.kind];
+    if (meta?.column) {
       const ok = await confirm({
-        title: 'まとめメモをクリアしますか？',
+        title: `${meta.label} をクリアしますか？`,
         message: '本自体は残ります。AI の参照対象からは外れます。\n5 秒以内なら「取消」で復元できます。',
         confirmLabel: 'クリアする',
         cancelLabel: 'キャンセル',
         danger: true,
       });
       if (!ok) return;
-      performClearSummary(item);
+      performClearField(item);
     } else {
       const ok = await confirm({
         title: 'この知識を削除しますか？',
@@ -528,7 +558,8 @@ export default function KnowledgeManager({ onChanged }) {
 
   // Swipe-driven (gesture itself = intent, no confirm).
   const handleSwipeDelete = (item) => {
-    if (item.kind === 'summary') performClearSummary(item);
+    const meta = KIND_META[item.kind];
+    if (meta?.column) performClearField(item);
     else performDeleteMemo(item);
   };
 
@@ -546,8 +577,8 @@ export default function KnowledgeManager({ onChanged }) {
           items={[
             { label: '編集', icon: '✏️', onClick: () => handleEdit(itemMenu.item) },
             {
-              label: itemMenu.item.kind === 'summary' ? 'クリア' : '削除',
-              icon: itemMenu.item.kind === 'summary' ? '🧹' : '🗑️',
+              label: KIND_META[itemMenu.item.kind]?.column ? 'クリア' : '削除',
+              icon: KIND_META[itemMenu.item.kind]?.column ? '🧹' : '🗑️',
               destructive: true,
               onClick: () => handleDelete(itemMenu.item),
             },
@@ -568,15 +599,15 @@ export default function KnowledgeManager({ onChanged }) {
           }}
         >
           {[
-            { num: counts.card || 0, label: '📝 カード式' },
-            { num: counts.summary || 0, label: '📖 まとめメモ' },
-            { num: counts.personal || 0, label: '💡 学びログ' },
-            { num: fieldStats.invest_purpose, label: '📊 投資目的' },
-            { num: fieldStats.current_challenge, label: '⚠ 現在の課題' },
-            { num: fieldStats.hypothesis, label: '💡 仮説' },
-            { num: fieldStats.ai_summary, label: '🤖 AI まとめ' },
-            { num: fieldStats.roi_summary, label: '💎 ROI まとめ' },
-            { num: fieldStats.ai_strategy, label: '🗺️ 戦略' },
+            { num: counts.card || 0,              label: '📝 カード式' },
+            { num: counts.summary || 0,           label: '📖 まとめメモ' },
+            { num: counts.personal || 0,          label: '💡 学びログ' },
+            { num: counts.invest_purpose || 0,    label: '📊 投資目的' },
+            { num: counts.current_challenge || 0, label: '⚠ 現在の課題' },
+            { num: counts.hypothesis || 0,        label: '💡 仮説' },
+            { num: counts.ai_summary || 0,        label: '🤖 AI まとめ' },
+            { num: counts.roi_summary || 0,       label: '💎 ROI まとめ' },
+            { num: counts.ai_strategy || 0,       label: '🗺️ 戦略' },
           ].map((s) => (
             <div
               key={s.label}
@@ -610,9 +641,10 @@ export default function KnowledgeManager({ onChanged }) {
       />
       <div style={{ display: 'flex', gap: 4, padding: 4, background: '#eae3d6', borderRadius: 10 }}>
         <button type="button" style={pill(filterKind === 'all')} onClick={() => setFilterKind('all')}>全て</button>
-        <button type="button" style={pill(filterKind === 'card')} onClick={() => setFilterKind('card')}>📝 メモ</button>
+        <button type="button" style={pill(filterKind === 'memo')} onClick={() => setFilterKind('memo')}>📝 メモ</button>
         <button type="button" style={pill(filterKind === 'summary')} onClick={() => setFilterKind('summary')}>📖 まとめ</button>
-        <button type="button" style={pill(filterKind === 'personal')} onClick={() => setFilterKind('personal')}>💡 学び</button>
+        <button type="button" style={pill(filterKind === 'plan')} onClick={() => setFilterKind('plan')}>📊 計画</button>
+        <button type="button" style={pill(filterKind === 'learning')} onClick={() => setFilterKind('learning')}>💡 学び</button>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a7e6b' }}>
         <span>並び順</span>
@@ -637,7 +669,10 @@ export default function KnowledgeManager({ onChanged }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map((it) => (
             <KnowledgeCard
-              key={it.kind === 'summary' ? it.id : `${it.kind}-${it.id}`}
+              // book-field 系は item.id がすでに `${kind}-${book_id}` で
+              // unique。card/personal は book_memos.id (UUID) なので
+              // `${kind}-${id}` で衝突回避する。
+              key={KIND_META[it.kind]?.column ? it.id : `${it.kind}-${it.id}`}
               item={it}
               onEdit={handleEdit}
               onDelete={handleDelete}
