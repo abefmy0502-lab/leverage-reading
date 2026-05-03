@@ -20,6 +20,10 @@ const transformAction = (a) => ({
   reflection: a.reflection || '',
   completedAt: a.completed_at || null,
   notifyAt: a.notify_at || null,
+  // 繰り返しタスクの先取り完了を防ぐため、表示開始日時 (scheduled_for)
+  // を超えるまでクライアントは非表示にする
+  // (supabase_actions_scheduled.sql)。未適用 DB では undefined → null。
+  scheduledFor: a.scheduled_for || null,
 });
 
 const transformBook = (book) => ({
@@ -271,6 +275,7 @@ export function useBooks() {
             if ('reflection' in a) base.reflection = a.reflection || null;
             if ('completedAt' in a) base.completed_at = a.completedAt || null;
             if ('notifyAt' in a) base.notify_at = a.notifyAt || null;
+            if ('scheduledFor' in a) base.scheduled_for = a.scheduledFor || null;
           }
           const id = ensureId(a);
           return id ? { id, ...base } : base;
@@ -289,6 +294,7 @@ export function useBooks() {
             || msg.includes('reflection')
             || msg.includes('completed_at')
             || msg.includes('notify_at')
+            || msg.includes('scheduled_for')
             || msg.includes('column')
           ) {
             const minPayload = incoming.map((a) => buildPayload(a, false));

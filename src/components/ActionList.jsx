@@ -147,6 +147,10 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
   const [filter, setFilter] = useState('all');
   const [sortBy, setSortBy] = useState('deadline');
   const [openMenuKey, setOpenMenuKey] = useState(null);
+  // 達成率の集計期間: 'week' | 'month' | 'all'。
+  // 旧: 全期間ベースで母数が無限膨張 → 達成率が下がり続ける問題があった
+  // ため、デフォルトは「今週」で rolling window 集計を見せる。
+  const [statsPeriod, setStatsPeriod] = useState('week');
 
   const visible = useMemo(() => {
     const today = new Date();
@@ -208,7 +212,11 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
     return sorted;
   }, [allActions, filter, sortBy]);
 
-  const pctColor = stats.pct >= 80 ? '#5a7a48' : stats.pct >= 50 ? '#d4a040' : '#a05040';
+  // 期間ベースの達成率表示用 — week / month / all で切替
+  const period = statsPeriod === 'all'
+    ? { rate: stats.pct, completed: stats.completed, total: stats.total }
+    : statsPeriod === 'month' ? stats.month : stats.week;
+  const pctColor = period.rate >= 80 ? '#5a7a48' : period.rate >= 50 ? '#d4a040' : '#a05040';
 
   const handleKebab = (e, key) => {
     e.stopPropagation();
@@ -230,26 +238,67 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
         </p>
       </div>
 
-      {/* Summary card — 完了率 + コンテキスト（あと N 件で X% 達成 / 今週期限） */}
+      {/* Summary card — 期間ベース達成率 (今週 / 今月 / 全期間 で切替) +
+          🔥 連続達成日数 + 今週期限件数。母数膨張問題を防ぐため
+          デフォルトは「今週」だが、必要なら全期間も見られる。 */}
       {stats.total > 0 && (() => {
-        const remainingTo50  = Math.max(0, Math.ceil(stats.total * 0.5) - stats.completed);
-        const remainingTo80  = Math.max(0, Math.ceil(stats.total * 0.8) - stats.completed);
-        const remainingTo100 = Math.max(0, stats.total - stats.completed);
+        const periodLabel = statsPeriod === 'week' ? '今週' : statsPeriod === 'month' ? '今月' : '全期間';
+        const remaining = Math.max(0, period.total - period.completed);
         const milestone =
-          stats.pct >= 100
-            ? '🎉 すべて完了です'
-            : stats.pct >= 80
-            ? `あと ${remainingTo100} 件で全完了`
-            : stats.pct >= 50
-            ? `あと ${remainingTo80} 件で 80% 達成`
-            : `あと ${remainingTo50} 件で 50% 達成`;
+          period.total === 0
+            ? `${periodLabel}に予定された行動はまだありません`
+            : period.rate >= 100
+            ? `🎉 ${periodLabel}の予定をすべて完了`
+            : `あと ${remaining} 件で ${periodLabel}を完了`;
         return (
           <div style={summaryCard}>
+            {/* 期間切替タブ */}
+            <div
+              style={{
+                display: 'flex',
+                gap: 4,
+                padding: 3,
+                background: '#eae3d6',
+                borderRadius: 10,
+                alignSelf: 'flex-start',
+              }}
+              role="tablist"
+              aria-label="集計期間"
+            >
+              {[
+                { key: 'week', label: '今週' },
+                { key: 'month', label: '今月' },
+                { key: 'all', label: '全期間' },
+              ].map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={statsPeriod === p.key}
+                  onClick={() => setStatsPeriod(p.key)}
+                  style={{
+                    padding: '5px 12px',
+                    minHeight: 30,
+                    borderRadius: 8,
+                    border: 'none',
+                    background: statsPeriod === p.key ? '#5c5043' : 'transparent',
+                    color: statsPeriod === p.key ? '#faf6f0' : '#5c5548',
+                    fontSize: 12,
+                    fontWeight: statsPeriod === p.key ? 600 : 500,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <div>
-                <div style={{ fontSize: 11, color: '#8a7e6b' }}>完了率</div>
+                <div style={{ fontSize: 11, color: '#8a7e6b' }}>{periodLabel}の達成率</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, lineHeight: 1.1 }}>
-                  <AnimatedNumber value={stats.pct} duration={700} />
+                  <AnimatedNumber value={period.rate} duration={700} />
                   <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
@@ -258,8 +307,13 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 12, color: '#5c5043' }}>
-                  <AnimatedNumber value={stats.completed} duration={500} /> / {stats.total} 完了
+                  <AnimatedNumber value={period.completed} duration={500} /> / {period.total} 完了
                 </div>
+                {stats.streak > 0 && (
+                  <div style={{ fontSize: 11, color: '#b07028', marginTop: 4 }}>
+                    🔥 連続 {stats.streak} 日
+                  </div>
+                )}
                 {stats.upcomingThisWeek > 0 && (
                   <div style={{ fontSize: 11, color: '#a05040', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <AlertCircle size={11} strokeWidth={1.75} aria-hidden="true" />
@@ -268,11 +322,11 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
                 )}
               </div>
             </div>
-            <div className="progress-bar" role="progressbar" aria-valuenow={stats.pct} aria-valuemin={0} aria-valuemax={100}>
+            <div className="progress-bar" role="progressbar" aria-valuenow={period.rate} aria-valuemin={0} aria-valuemax={100}>
               <div
                 className="progress-fill"
                 style={{
-                  width: `${stats.pct}%`,
+                  width: `${period.rate}%`,
                   background: `linear-gradient(90deg, ${pctColor}, var(--color-accent-strong))`,
                 }}
               />

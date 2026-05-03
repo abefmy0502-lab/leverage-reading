@@ -187,6 +187,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_books_unique_isbn.sql` | 同じ本の重複登録を防ぐ部分 UNIQUE インデックス 2 種（ISBN ありは ISBN ベース、ISBN なしは title+author の正規化キー）。実行前に既存重複を整理する必要あり（SQL 内に確認クエリと削除サンプル付き） |
 | `supabase_actions_full.sql` | 行動タブをタスク管理化 — `actions.priority` / `recurrence` / `source_memo_id` / `source_page` / `reflection` / `completed_at` / `notify_at` を追加（CHECK 制約・index 込み）。schema-error fallback で未適用 DB でも基本列のみで保存可能 |
 | `supabase_actions_id_default.sql` | `actions.id` に `gen_random_uuid()` の DEFAULT が無い環境向けの idempotent な補填。繰り返し作成時の「null value in column 'id'」エラーを根治。クライアント側でも `crypto.randomUUID()` で UUID を生成する二重防衛 |
+| `supabase_actions_scheduled.sql` | 繰り返しタスクの先取り完了防止。`actions.scheduled_for timestamptz` 列を追加 + 既存の暴走タスク (未来 deadline で未完了の繰り返し) をクリーンアップ DELETE する。クライアントは `useAllActions` で `scheduledFor > now` の行を非表示にし、達成率は今週/今月の rolling window に切替 (`stats.week / month / streak`)。schema-error fallback あり (未適用 DB では旧挙動: 即時 visible spawn を維持) |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 

@@ -5,15 +5,102 @@
 // book's metadata so the list view can render the source line + jump back to
 // the book detail. The actionIdx is the index inside that book's actions
 // array, which the parent uses for toggle/delete via saveBook.
+//
+// 🔁 繰り返しタスクの先取り防止 — 完了時に作られる「次回分」は
+//    scheduledFor (= 表示開始日時) を持つ。この hook は scheduledFor が
+//    未来の行を allActions から除外する。これによってユーザーは
+//    「今やるべきタスク」だけが見え、先取り完了が物理的にできなくなる。
+//
+// 📊 達成率の母数膨張対策 — 全期間ベースの pct (legacy) に加えて、
+//    今週 / 今月の rolling-window 集計と連続達成日数 (streak) を返す。
+//    UI は週 / 月切替で「今この期間の達成率」を見せられる。
 
 import { useMemo } from 'react';
 
+function startOfWeek(d) {
+  const t = new Date(d);
+  t.setHours(0, 0, 0, 0);
+  // 月曜始まり (日本のビジネス週)。getDay は 0=日, 1=月, ..., 6=土。
+  const dow = t.getDay() || 7; // 日曜を 7 として扱う
+  t.setDate(t.getDate() - dow + 1);
+  return t;
+}
+
+function startOfMonth(d) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function inRange(iso, start, end) {
+  if (!iso) return false;
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return false;
+  return t >= start && t < end;
+}
+
+// 期間内に「関連する」行動を数える + その期間に完了したものを数える。
+// 関連 = deadline が期間内 OR created_at が期間内 (完了済も含む)。
+// 完了 = completed_at が期間内。
+function computeForPeriod(actions, periodStart, periodEnd) {
+  const periodActions = actions.filter((a) => {
+    if (a.deadline) {
+      const d = new Date(a.deadline + 'T00:00:00');
+      if (!Number.isNaN(d.getTime()) && d >= periodStart && d < periodEnd) return true;
+    }
+    return inRange(a.created_at, periodStart, periodEnd);
+  });
+  const completed = periodActions.filter((a) => a.done && inRange(a.completedAt, periodStart, periodEnd));
+  const total = periodActions.length;
+  return {
+    total,
+    completed: completed.length,
+    rate: total > 0 ? Math.round((completed.length / total) * 100) : 0,
+  };
+}
+
+// 連続達成日数: 今日から遡って、行動を 1 つ以上完了した日の連続数。
+// 今日まだ完了がなければ昨日基準で数える (24 時間以内に必ず触らないと
+// 連続が切れる、という UX は厳しすぎるため)。
+function computeStreak(actions) {
+  const completedDateSet = new Set(
+    actions
+      .filter((a) => a.done && a.completedAt)
+      .map((a) => {
+        const t = new Date(a.completedAt);
+        if (Number.isNaN(t.getTime())) return null;
+        return `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`;
+      })
+      .filter(Boolean),
+  );
+  if (completedDateSet.size === 0) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+  // 今日完了がなければ昨日からカウント開始
+  const cursor = new Date(today);
+  if (!completedDateSet.has(todayKey)) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  // 安全弁: 1000 日以上は遡らない
+  for (let i = 0; i < 1000; i += 1) {
+    const key = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
+    if (!completedDateSet.has(key)) break;
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
 export function useAllActions(books) {
   const allActions = useMemo(() => {
+    const now = new Date();
     const out = [];
     (books || []).forEach((b) => {
       (b.actions || []).forEach((act, i) => {
         if (!act?.text?.trim()) return;
+        // 表示開始日 (scheduledFor) が未来なら隠す。これで「先取り完了」を防ぐ。
+        if (act.scheduledFor) {
+          const showFrom = new Date(act.scheduledFor);
+          if (!Number.isNaN(showFrom.getTime()) && showFrom > now) return;
+        }
         out.push({
           ...act,
           bookId: b.id,
@@ -47,7 +134,24 @@ export function useAllActions(books) {
       return d >= today && d < weekEnd;
     }).length;
 
-    return { total, completed, pct, upcomingThisWeek };
+    // 期間ベース集計 (rolling window) — 母数膨張対策
+    const now = new Date();
+    const wkStart = startOfWeek(now);
+    const wkEnd = new Date(wkStart);
+    wkEnd.setDate(wkEnd.getDate() + 7);
+    const moStart = startOfMonth(now);
+    const moEnd = new Date(moStart);
+    moEnd.setMonth(moEnd.getMonth() + 1);
+
+    return {
+      total,
+      completed,
+      pct,
+      upcomingThisWeek,
+      week: computeForPeriod(allActions, wkStart, wkEnd),
+      month: computeForPeriod(allActions, moStart, moEnd),
+      streak: computeStreak(allActions),
+    };
   }, [allActions]);
 
   return { allActions, stats };

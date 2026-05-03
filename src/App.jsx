@@ -3119,6 +3119,12 @@ const persist = useCallback((updates) => {
 
     // 繰り返し設定があり、今回が「完了化」なら次回分を spawn。期限は元の期限を
     // 基準に weekly/monthly で進める。期限が無ければ今日基準で進める。
+    //
+    // ⚠️ 旧バージョンは次回分を即「visible なタスク」として作っていたため、
+    //    ユーザーが何週間先まで先取り完了でき、母数が無限膨張して達成率が
+    //    下がり続ける問題があった。新バージョンは scheduled_for (= 表示
+    //    開始日時) を設定し、useAllActions が未来の行を非表示化する。
+    //    weekly: 1 日前から表示開始 / monthly: 3 日前から表示開始。
     if (becomingDone && updatedAct.recurrence) {
       const baseStr = updatedAct.deadline || new Date().toISOString().slice(0, 10);
       const base = new Date(baseStr + 'T00:00:00');
@@ -3126,6 +3132,11 @@ const persist = useCallback((updates) => {
         if (updatedAct.recurrence === 'weekly') base.setDate(base.getDate() + 7);
         else if (updatedAct.recurrence === 'monthly') base.setMonth(base.getMonth() + 1);
         const nextDeadline = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`;
+        // 表示開始日 (scheduled_for): deadline の N 日前
+        const showFrom = new Date(base);
+        if (updatedAct.recurrence === 'weekly') showFrom.setDate(showFrom.getDate() - 1);
+        else if (updatedAct.recurrence === 'monthly') showFrom.setDate(showFrom.getDate() - 3);
+        showFrom.setHours(0, 0, 0, 0);
         acts.push({
           // id を持たせず INSERT 扱いさせる。
           text: target.text,
@@ -3137,6 +3148,7 @@ const persist = useCallback((updates) => {
           sourcePage: target.sourcePage || null,
           reflection: '',
           completedAt: null,
+          scheduledFor: showFrom.toISOString(),
         });
       }
     }
@@ -3146,7 +3158,8 @@ const persist = useCallback((updates) => {
     try {
       await saveBook(updated);
       if (becomingDone && updatedAct.recurrence) {
-        toast.success('完了 + 次回分を自動で追加しました');
+        const label = updatedAct.recurrence === 'weekly' ? '次週' : '翌月';
+        toast.success(`完了 ✓ ${label}の予定を自動で組みました`);
       }
     } catch (error) {
       toast.error(toMessage(error, '行動の更新に失敗しました。'));
