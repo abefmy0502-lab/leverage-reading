@@ -1,14 +1,21 @@
 // 🚨 重要: SW の挙動を変えたら必ずこの値を bump する。
 // ブラウザは sw.js を byte-by-byte で diff するため、SW_VERSION を
-// 変えるだけでも install → skipWaiting → activate → 旧 cache 削除の
-// 流れが走り、ユーザーは「アプリを削除→再追加」しなくても新版を取得できる。
-const SW_VERSION = 'v31';
+// 変えるだけでも install → (waiting 状態で待機) → ユーザー操作で
+// SKIP_WAITING → activate → 旧 cache 削除の流れになる。
+const SW_VERSION = 'v32';
 const STATIC_CACHE = `leverage-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `leverage-runtime-${SW_VERSION}`;
 const ALLOWED_CACHES = [STATIC_CACHE, RUNTIME_CACHE];
 
+// install 時に skipWaiting() を呼ばない。
+// 旧版: install で即 skipWaiting → 即 activate して page reload 時に
+// 新 SW が即座に効く → ユーザーがメモ書き / AI 会話の最中に reload を
+// 強制されると入力が消える事故が発生していた。
+// 新版: install 後は waiting 状態で待機し、UpdateBanner 経由で
+// ユーザーが「今すぐ更新」を承諾した時のみ SKIP_WAITING メッセージを
+// 受け取って activate する。
 self.addEventListener('install', () => {
-  self.skipWaiting();
+  // intentionally no skipWaiting()
 });
 
 self.addEventListener('activate', (event) => {

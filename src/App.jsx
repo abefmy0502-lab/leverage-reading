@@ -43,7 +43,8 @@ import ErrorMessage from './components/ErrorMessage';
 import BookshelfSummary from './components/BookshelfSummary';
 import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
-import { initServiceWorker, applyUpdate } from './lib/swUpdate';
+import { initServiceWorker } from './lib/swUpdate';
+import UpdateBanner from './components/UpdateBanner';
 import { BookListSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
 import SwipeableCard from './components/SwipeableCard';
@@ -2937,6 +2938,25 @@ function AuthedApp() {
   const actionDone = books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0);
   const allTags = useMemo(() => { const s = new Set(); books.forEach((b) => (b.tags || []).forEach((t) => s.add(t))); return [...s]; }, [books]);
 
+  // 🔄 PWA 更新の「安全状態」判定。本棚のリスト画面 + 本棚タブ + どのモーダルも
+  // 開いていない時のみ true。ここが true の時だけ UpdateBanner が表示される。
+  // 入力フォーカスの判定は UpdateBanner 内 (focusin/focusout) で別途行う。
+  const safeForUpdate = (
+    view === 'list'
+    && tab === 'books'
+    && !addBookModalOpen
+    && !showOnboarding
+    && !settingsOpen
+    && !helpModalOpen
+    && !quickMemoOpen
+    && !thanksOpen
+    && !fullEditorPrefill
+    && !completingAction
+    && !searchOpen
+    && !detailKebab
+    && !bookContextMenu
+  );
+
   // ===== DETAIL =====
   if (view === "detail" && current) {
     const st = getSt(current.status);
@@ -4220,6 +4240,8 @@ function AuthedApp() {
           ストーン演出は「鬱陶しい」フィードバックにより撤去済み。 */}
       {thanksOpen && <AuthorThankYou onClose={() => setThanksOpen(false)} />}
 
+      <UpdateBanner safe={safeForUpdate} />
+
       <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
     </Shell>
   );
@@ -4235,24 +4257,17 @@ function AppShell() {
   const { user, loading } = useAuth();
   const toast = useToast();
 
-  // 🔄 PWA 自動更新の初期化。アプリ起動時 1 回だけ走らせ、新版が
-  // 検出された時はユーザーに合意を取ってから reload する。入力中の
-  // テキストを暗黙で消さないため、必ず toast の action で承認を取る。
+  // 🔄 PWA 自動更新の初期化。新版検出時は window event を dispatch するだけ。
+  // 実際の通知 UI (UpdateBanner) は「本棚 / モーダル無し / 入力フォーカス無し」の
+  // 安全状態でだけ表示される。toast でいきなり出るとメモ書き / AI 会話の最中に
+  // 視界を奪われるため、敢えて受動的な仕掛けに分離。
   useEffect(() => {
     initServiceWorker({
       onUpdateAvailable: () => {
-        toast.show({
-          type: 'info',
-          message: '新しいバージョンがあります',
-          duration: 0, // ユーザーが操作するまで残す
-          action: {
-            label: '更新',
-            onClick: () => applyUpdate(),
-          },
-        });
+        try { window.dispatchEvent(new Event('app-update-available')); } catch { /* ignore */ }
       },
     });
-  }, [toast]);
+  }, []);
 
   if (loading) {
     return (
