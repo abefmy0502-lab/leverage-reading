@@ -1,0 +1,149 @@
+/* ===========================================================================
+ * 📜 LP 法的ページ — 利用規約 / プライバシーポリシー / お問い合わせ
+ *
+ * landing.css の :root variables を再利用するので import 順序は
+ *   landing.css → legal.css の順に。
+ * =========================================================================== */
+
+.legal-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+  font-family: var(--font-sans);
+  color: var(--lp-text);
+  line-height: 1.85;
+  word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: anywhere;
+}
+
+.legal-header {
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--lp-divider);
+}
+
+.back-to-lp {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--lp-primary);
+  text-decoration: none;
+  margin-bottom: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.back-to-lp:hover { text-decoration: underline; }
+
+.legal-header h1 {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--lp-primary);
+  letter-spacing: -0.02em;
+}
+
+.legal-meta {
+  font-size: 12px;
+  color: var(--lp-sub);
+  margin-bottom: 24px;
+}
+
+.legal-content h2 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 32px 0 12px;
+  color: var(--lp-primary);
+  letter-spacing: -0.01em;
+}
+
+.legal-content p,
+.legal-content li {
+  font-size: 14px;
+  line-height: 1.85;
+  margin: 8px 0;
+  color: var(--lp-text);
+}
+
+.legal-content ol,
+.legal-content ul {
+  padding-left: 24px;
+  margin: 12px 0;
+}
+
+.legal-content ol li,
+.legal-content ul li {
+  margin: 6px 0;
+}
+
+.legal-content a {
+  color: var(--lp-primary);
+  text-decoration: underline;
+  font-weight: 500;
+}
+.legal-content a:hover { color: var(--lp-accent); }
+
+/* ============ Footer ============ */
+.legal-footer {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--lp-divider);
+  text-align: center;
+}
+.legal-footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.legal-footer-links a {
+  color: var(--lp-sub);
+  font-size: 12px;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+.legal-footer-links a:hover { color: var(--lp-primary); }
+
+.legal-copyright {
+  font-size: 11px;
+  color: #999;
+  margin: 0;
+}
+
+/* ============ お問い合わせ専用 ============ */
+.contact-card {
+  background: var(--lp-bg);
+  border: 1px solid var(--lp-divider);
+  border-radius: 14px;
+  padding: 28px 24px;
+  text-align: center;
+  margin: 24px 0;
+}
+.contact-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lp-sub);
+  margin: 0 0 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.contact-email {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-serif);
+}
+.contact-email a {
+  color: var(--lp-primary);
+  text-decoration: none;
+}
+.contact-email a:hover { text-decoration: underline; }
+
+@media (min-width: 768px) {
+  .legal-page { padding: 56px 24px 80px; }
+  .legal-header h1 { font-size: 36px; }
+  .legal-content h2 { font-size: 20px; }
+  .legal-content p, .legal-content li { font-size: 15px; }
+}

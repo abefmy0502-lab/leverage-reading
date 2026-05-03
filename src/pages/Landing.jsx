@@ -795,9 +795,9 @@ export default function Landing() {
       <footer className="lp-footer">
         <p className="lp-footer-brand">レバレッジ読書ログ</p>
         <div className="footer-links">
-          <a href="/?settings=terms">利用規約</a>
-          <a href="/?settings=privacy">プライバシーポリシー</a>
-          <a href="/?settings=feedback">お問い合わせ</a>
+          <a href="/lp/terms">利用規約</a>
+          <a href="/lp/privacy">プライバシーポリシー</a>
+          <a href="/lp/contact">お問い合わせ</a>
         </div>
         <p className="copyright">© 2026 レバレッジ読書ログ</p>
       </footer>

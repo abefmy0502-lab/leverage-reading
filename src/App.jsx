@@ -31,6 +31,7 @@ import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
 import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import CoverFixModal from './components/CoverFixModal';
 import Landing from './pages/Landing';
+import { TermsPage, PrivacyPage, ContactPage } from './pages/LegalPages';
 import { supabase as supabaseClient } from './lib/supabase';
 import AccountSettings from './components/AccountSettings';
 import SplashScreen from './components/SplashScreen';
@@ -4562,36 +4563,42 @@ function AppShell() {
 // LP ルート判定 — /lp パスもしくは ?view=lp クエリで Landing を表示する。
 // SPA 内で別ルートを切るため React Router を持ち込まず、最低限の URL 監視
 // だけで対応 (popstate 反応も拾う)。LP は認証も SW 更新監視もスキップ。
-function useIsLandingRoute() {
+// LP / 法的ページのルート判定。返り値は 'lp' | 'terms' | 'privacy' | 'contact' | null。
+// React Router を持ち込まずに pathname/query だけで切替。popstate 追従も拾う。
+function useLpRoute() {
   const compute = () => {
-    if (typeof window === 'undefined') return false;
+    if (typeof window === 'undefined') return null;
     const path = window.location.pathname;
-    if (path === '/lp' || path === '/lp/' || path.startsWith('/lp/')) return true;
+    if (path === '/lp/terms' || path === '/lp/terms/') return 'terms';
+    if (path === '/lp/privacy' || path === '/lp/privacy/') return 'privacy';
+    if (path === '/lp/contact' || path === '/lp/contact/') return 'contact';
+    if (path === '/lp' || path === '/lp/' || path.startsWith('/lp/')) return 'lp';
     try {
       const sp = new URLSearchParams(window.location.search);
-      if (sp.get('view') === 'lp') return true;
+      if (sp.get('view') === 'lp') return 'lp';
     } catch { /* ignore */ }
-    return false;
+    return null;
   };
-  const [is, setIs] = useState(compute);
+  const [route, setRoute] = useState(compute);
   useEffect(() => {
-    const onPop = () => setIs(compute());
+    const onPop = () => setRoute(compute());
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-  return is;
+  return route;
 }
 
 export default function App() {
   const [authCallbackActive, setAuthCallbackActive] = useState(hashHasAuthParams);
   const [showSplash, setShowSplash] = useState(true);
   const exitAuthCallback = useCallback(() => setAuthCallbackActive(false), []);
-  const isLandingRoute = useIsLandingRoute();
+  const lpRoute = useLpRoute();
 
-  // LP は静的ページ扱い: スプラッシュも認証も介さず、即 Landing を返す。
-  if (isLandingRoute) {
-    return <Landing />;
-  }
+  // LP / 法的ページは静的ページ扱い: スプラッシュも認証も介さず即返す。
+  if (lpRoute === 'terms') return <TermsPage />;
+  if (lpRoute === 'privacy') return <PrivacyPage />;
+  if (lpRoute === 'contact') return <ContactPage />;
+  if (lpRoute === 'lp') return <Landing />;
 
   return (
     <>
