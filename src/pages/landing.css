@@ -349,20 +349,6 @@ body.lp-active {
   flex-shrink: 0;
   max-width: 100%;
 }
-/* 端末上端の Dynamic Island っぽい凹み */
-.phone-frame::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80px;
-  height: 22px;
-  background: #1a1a1a;
-  border-radius: 0 0 16px 16px;
-  z-index: 2;
-  pointer-events: none;
-}
 .phone-screen-img {
   width: 100%;
   height: auto;
