@@ -248,6 +248,19 @@ export default function MyBookBrain({ onOpenBook }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  // 「✅ 解決した」をタップした時刻 (ISO 文字列)。chat view ではこの時刻
+  // 以降のメッセージのみ表示する。history view は全件表示。localStorage に
+  // 永続化して mount/unmount を跨いでも保持。
+  const [clearedAt, setClearedAt] = useState(() => {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      return localStorage.getItem('brain-cleared-at') || null;
+    } catch { return null; }
+  });
+  // 「解決しましたか？」プロンプトを今のターンで dismiss したか
+  // (= 「💬 続けて質問する」を押したか)。dismiss されたら次の AI 回答までは
+  // プロンプトを再表示しない。
+  const [promptDismissed, setPromptDismissed] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   // learningOpen state は廃止 — view === 'learning' で表現する。
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
@@ -421,6 +434,8 @@ export default function MyBookBrain({ onOpenBook }) {
         .single();
       if (error) throw error;
       setMessages((arr) => [...arr, transformMessage(data)]);
+      // 新しい AI 回答が来たら resolution prompt を再表示できるよう dismiss を解除
+      setPromptDismissed(false);
     } catch (e) {
       toast.error(toMessage(e, '回答の生成に失敗しました。'));
       // Insert a placeholder error message so the chat doesn't dangle.
@@ -432,9 +447,30 @@ export default function MyBookBrain({ onOpenBook }) {
         createdAt: new Date().toISOString(),
       };
       setMessages((arr) => [...arr, fallback]);
+      setPromptDismissed(false);
     } finally {
       setBusy(false);
     }
+  };
+
+  // 「✅ 解決した」: chat view を空に戻す。DB は消さないので履歴タブには残る。
+  // clearedAt を「今」にすることで、それ以降の新規メッセージだけが chat に
+  // 出るようになる。
+  const handleResolveAndClear = () => {
+    const now = new Date().toISOString();
+    setClearedAt(now);
+    setPromptDismissed(false);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('brain-cleared-at', now);
+      }
+    } catch { /* ignore */ }
+    toast.success('チャットをクリアしました。履歴タブから見返せます。');
+  };
+
+  // 「💬 続けて質問する」: プロンプトだけ閉じる。次の AI 回答までは再表示しない。
+  const handleContinue = () => {
+    setPromptDismissed(true);
   };
 
   const regenerate = async () => {
@@ -465,8 +501,13 @@ export default function MyBookBrain({ onOpenBook }) {
     }
   };
 
-  const isEmpty = messages.length === 0;
-  const lastIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
+  // chat view では clearedAt 以降のメッセージだけ表示する。history view は
+  // 全件表示のままで OK (DB は削除していない)。
+  const visibleMessages = clearedAt
+    ? messages.filter((m) => (m.createdAt || '') > clearedAt)
+    : messages;
+  const isEmpty = visibleMessages.length === 0;
+  const lastIsAssistant = visibleMessages.length > 0 && visibleMessages[visibleMessages.length - 1].role === 'assistant';
 
   return (
     <div style={wrap}>
@@ -614,7 +655,7 @@ export default function MyBookBrain({ onOpenBook }) {
           {!historyLoaded && <Spinner message="読み込み中…" />}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {messages.map((m) => (
+            {visibleMessages.map((m) => (
               <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} />
             ))}
             {busy && (
@@ -625,10 +666,58 @@ export default function MyBookBrain({ onOpenBook }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {lastIsAssistant && !busy && messages.some((m) => m.role === 'user') && (
-            <button type="button" onClick={regenerate} style={{ ...btnGhost, alignSelf: 'flex-start' }}>
-              ↻ もう一度違う角度で答えて
-            </button>
+          {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+              <button type="button" onClick={regenerate} style={{ ...btnGhost, alignSelf: 'flex-start' }}>
+                ↻ もう一度違う角度で答えて
+              </button>
+
+              {/* 解決しましたか? prompt — dismiss されていない時だけ出す。
+                  「✅ 解決した」で chat をクリア (履歴は残る)、「💬 続けて質問する」で
+                  プロンプトだけ閉じる。 */}
+              {!promptDismissed && (
+                <div
+                  style={{
+                    background: '#faf6f0',
+                    border: '1px solid #e4ddd0',
+                    borderRadius: 12,
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>
+                    解決しましたか？
+                  </p>
+                  <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+                    解決したらチャットをクリアして次の質問に集中できます。履歴タブからいつでも見返せます。
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleResolveAndClear}
+                      style={{
+                        ...btnPrimary,
+                        padding: '8px 14px',
+                        fontSize: 13,
+                        letterSpacing: 0,
+                        minHeight: 40,
+                      }}
+                    >
+                      ✅ 解決した
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleContinue}
+                      style={{ ...btnGhost, minHeight: 40, padding: '8px 14px' }}
+                    >
+                      💬 続けて質問する
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           </div>{/* /chat-scroll */}
 

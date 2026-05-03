@@ -234,6 +234,18 @@ export default function KnowledgeManager({ onChanged }) {
     onChanged?.();
   };
 
+  // 知識ベースの全フィールド集計用 — books の各 setup フィールドの埋まり数。
+  // schema-error fallback で未マイグレーション DB でも動く。
+  const [fieldStats, setFieldStats] = useState({
+    invest_purpose: 0,
+    current_challenge: 0,
+    hypothesis: 0,
+    ai_summary: 0,
+    roi_summary: 0,
+    leverage_memo: 0,
+    ai_strategy: 0,
+  });
+
   useEffect(() => {
     if (!user || !isSupabaseConfigured) {
       setItems([]);
@@ -243,7 +255,24 @@ export default function KnowledgeManager({ onChanged }) {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const [memosRes, booksRes] = await Promise.all([
+      // KnowledgeManager のリスト表示は従来通り memos + leverage_memo まとめ。
+      // 全フィールドの内訳統計だけ別 query で staged fallback 取得。
+      const FIELD_SELECTS = [
+        'leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy',
+        'leverage_memo, invest_purpose, ai_summary, roi_summary, ai_strategy',
+        'leverage_memo, ai_summary, roi_summary',
+      ];
+      const fetchFieldStats = async () => {
+        for (const sel of FIELD_SELECTS) {
+          // eslint-disable-next-line no-await-in-loop
+          const r = await supabase.from('books').select(sel).eq('user_id', user.id);
+          if (!r.error) return r.data || [];
+          const msg = String(r.error?.message || '').toLowerCase();
+          if (!msg.includes('does not exist') && !msg.includes('column')) return [];
+        }
+        return [];
+      };
+      const [memosRes, booksRes, fieldRows] = await Promise.all([
         supabase
           .from('book_memos')
           .select('*, book:books(id, title, author)')
@@ -255,6 +284,7 @@ export default function KnowledgeManager({ onChanged }) {
           .eq('user_id', user.id)
           .not('leverage_memo', 'is', null)
           .neq('leverage_memo', ''),
+        fetchFieldStats(),
       ]);
       if (cancelled) return;
 
@@ -273,6 +303,16 @@ export default function KnowledgeManager({ onChanged }) {
         created_at: b.updated_at || b.created_at,
       }));
       setItems([...memoItems, ...summaryItems]);
+
+      // 全 setup フィールドの埋まり数を集計
+      const isFilled = (v) => typeof v === 'string' && v.trim().length > 0;
+      const stats = { invest_purpose: 0, current_challenge: 0, hypothesis: 0, ai_summary: 0, roi_summary: 0, leverage_memo: 0, ai_strategy: 0 };
+      for (const b of fieldRows) {
+        for (const key of Object.keys(stats)) {
+          if (isFilled(b[key])) stats[key] += 1;
+        }
+      }
+      setFieldStats(stats);
       setLoading(false);
     })();
     return () => {
@@ -514,17 +554,48 @@ export default function KnowledgeManager({ onChanged }) {
           ]}
         />
       )}
-      {/* Hero */}
+      {/* Hero — 知識ベース全 9 カテゴリの集計を grid で表示 */}
       <div style={card}>
         <p style={{ fontSize: 14, fontWeight: 600, color: '#3d362c', margin: 0 }}>📚 マイ読書脳の知識ベース</p>
-        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '4px 0 8px', lineHeight: 1.7 }}>
+        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '4px 0 12px', lineHeight: 1.7 }}>
           AI があなたの答えを作る時に参照する情報の一覧です。編集・削除すると、次回の答えに即座に反映されます。
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 11, color: '#5c5548' }}>
-          <span>📝 カード式メモ: <strong>{counts.card || 0}</strong> 件</span>
-          <span>📖 まとめメモ: <strong>{counts.summary || 0}</strong> 冊分</span>
-          <span>💡 学びログ: <strong>{counts.personal || 0}</strong> 件</span>
-          <span>合計: <strong>{items.length}</strong> 件</span>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 6,
+          }}
+        >
+          {[
+            { num: counts.card || 0, label: '📝 カード式' },
+            { num: counts.summary || 0, label: '📖 まとめメモ' },
+            { num: counts.personal || 0, label: '💡 学びログ' },
+            { num: fieldStats.invest_purpose, label: '📊 投資目的' },
+            { num: fieldStats.current_challenge, label: '⚠ 現在の課題' },
+            { num: fieldStats.hypothesis, label: '💡 仮説' },
+            { num: fieldStats.ai_summary, label: '🤖 AI まとめ' },
+            { num: fieldStats.roi_summary, label: '💎 ROI まとめ' },
+            { num: fieldStats.ai_strategy, label: '🗺️ 戦略' },
+          ].map((s) => (
+            <div
+              key={s.label}
+              style={{
+                background: '#fff',
+                borderRadius: 8,
+                padding: '8px 4px',
+                textAlign: 'center',
+                border: '1px solid #eae3d6',
+              }}
+            >
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#5c5043', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                {s.num}
+              </div>
+              <div style={{ fontSize: 9.5, color: '#8a7e6b', marginTop: 4, letterSpacing: 0.02 }}>
+                {s.label}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

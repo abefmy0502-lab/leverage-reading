@@ -238,16 +238,43 @@ export async function callMyBookBrain({ userId, question }) {
   //   - books.roi_summary (ROI ひとことまとめ)
   //   - books.ai_strategy (セットアップ戦略)
   // すべて同じ memo shape に整形し、既存の ranking/format パイプラインで処理。
+  // books の SELECT は staged fallback。supabase_books_setup_fields.sql 未適用
+  // で current_challenge / hypothesis / book_reason の列が存在しない環境でも
+  // ai_summary / roi_summary / leverage_memo は最低限拾えるように 3 段階。
+  const BOOK_SELECTS = [
+    // Stage 1: 全フィールド
+    'id, title, author, rating, status, leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy, updated_at, created_at',
+    // Stage 2: setup_fields 系を除外
+    'id, title, author, rating, status, leverage_memo, invest_purpose, ai_summary, roi_summary, ai_strategy, updated_at, created_at',
+    // Stage 3: 最小 (旧 schema 完全互換)
+    'id, title, author, rating, status, leverage_memo, ai_summary, roi_summary, updated_at, created_at',
+  ];
+
+  const fetchBooks = async () => {
+    let lastErr = null;
+    for (const sel of BOOK_SELECTS) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await supabase.from('books').select(sel).eq('user_id', userId);
+      if (!res.error) return res;
+      lastErr = res.error;
+      const msg = String(res.error?.message || '');
+      // 列が無いエラー以外 (権限など) は即時 throw
+      if (!msg.toLowerCase().includes('does not exist') && !msg.toLowerCase().includes('column')) {
+        throw res.error;
+      }
+      // eslint-disable-next-line no-console
+      console.warn('[callMyBookBrain] books select stage failed, fallback:', msg);
+    }
+    throw lastErr || new Error('books select failed');
+  };
+
   const [memosRes, booksRes] = await Promise.all([
     supabase
       .from('book_memos')
       .select('*, book:books(id, title, author, rating)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false }),
-    supabase
-      .from('books')
-      .select('id, title, author, rating, status, leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy, updated_at, created_at')
-      .eq('user_id', userId),
+    fetchBooks(),
   ]);
   if (memosRes.error) throw memosRes.error;
   if (booksRes.error) throw booksRes.error;

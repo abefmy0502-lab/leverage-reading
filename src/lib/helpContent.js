@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-05-04: マイ読書脳の 3 つの問題を修正。(1) 読み込み時の "column books.current_challenge does not exist" を ai.js の callMyBookBrain に staged BOOK_SELECTS フォールバックを入れて段階縮退で対応 (full → middle → minimum)。(2) KnowledgeManager の知識ベース表示を 9 カテゴリ (本 / 投資目的 / AI まとめ / ROI まとめ / レバレッジメモ / まとめメモ / カード式メモ / 完了行動 / 学び) の 3 列グリッドに拡張。(3) AI 回答後に「解決しましたか？」プロンプトを表示、「✅ 解決した」で chat view をクリア (履歴は DB に残るので 履歴タブから見返し可能)、「💬 続けて質問する」でプロンプトのみ閉じる挙動を追加。clearedAt は localStorage に永続化
  * - 2026-05-03: マイ読書脳の RAG コンテキストを 7 種類に拡張。従来の カード式メモ + まとめメモ + 個人学び に加え、books の invest_purpose / current_challenge / hypothesis / ai_summary / roi_summary / ai_strategy も合成 memo として AI に渡す。回答が深くなる。Knowledge ヘッダーの「まとめ N 件」表示も全フィールド合算に。本詳細の最下部に「← 本棚に戻る」secondary ボタンを追加 (どのフェーズでも下スクロール後すぐ戻れる)
  * - 2026-05-01: ランディングページ (LP) を /lp に追加。8 セクション（Hero / Problem / Solution / How / Features / Why us / Pricing / FAQ）+ Footer の縦スクロール構成。React Router を持ち込まず App.jsx の path 検出だけで切替（SPA fallback の Vercel rewrite が既存で対応済み）。スプラッシュも認証も介さず即表示、scroll-trigger fade-in + prefers-reduced-motion 対応。「無料で始める」CTA は window.location='/' で既存 AuthScreen フローへ合流
  * - 2026-05-01: 本のタイトルと表紙が一致しない問題を修正。findIsbnCandidates をタイトル類似度 0.7 + 著者の互含チェック付きの厳格マッチに改修（「タイトルが似ているだけの全く別の本」の ISBN を候補から弾く）。本詳細の表紙下に「表紙が違う？」リンク + ISBN 表示を追加し、CoverFixModal でグリッド形式の候補表紙から選び直し or 手動アップロードへ誘導。backfill v3→v4 にバンプして既存の誤マッチを再解決
@@ -526,7 +527,7 @@ export const HELP_CONTENT = {
   myBookBrain: {
     title: '🧠 マイ読書脳',
     description: '過去に読んだ本の知恵があなた専用の AI になります。',
-    lastUpdated: '2026-04-30',
+    lastUpdated: '2026-05-04',
     sections: [
       {
         heading: '何ができる？',
@@ -574,12 +575,26 @@ export const HELP_CONTENT = {
           'AI に「これは答えに使ってほしくない」というメモがあれば、ここから削除可能。書きすぎたメモを整理することで、AI の答えの精度が上がります。',
       },
       {
-        heading: '🤖 AI に含まれる知識の種類',
+        heading: '🤖 AI に含まれる知識の種類（9 カテゴリ）',
         body:
-          '・📝 カード式メモ（本のページ単位の気づき）\n' +
-          '・📖 まとめメモ（本ごとの総合感想）\n' +
+          '・📚 本（タイトル / 著者 / 評価 / ステータス）\n' +
+          '・📊 投資目的・⚠️ 現在の課題・💡 仮説（セットアップシート）\n' +
+          '・🤖 AI まとめ（読書中タブの分析）\n' +
+          '・💎 ROI まとめ（読了振り返り）\n' +
+          '・📝 レバレッジメモ（読書中タブのまとめテキスト）\n' +
+          '・📖 まとめメモ（章別 / 本全体）\n' +
+          '・📑 カード式メモ（ページ単位の気づき）\n' +
+          '・✅ 完了行動（実行した行動 + 振り返り）\n' +
           '・💡 学びログ（本以外の経験・気づき）\n\n' +
-          '全てがマイ読書脳の知識ベースに含まれます。',
+          '「📚 知識管理」タブの上部に各カテゴリの件数が並びます。AI が参照する厚みを一目で把握できます。',
+      },
+      {
+        heading: '✅ 解決しましたか？',
+        body:
+          'AI の回答が出ると下に「解決しましたか？」と聞かれます。\n\n' +
+          '・✅ 解決した → チャット画面がクリアされ、次の質問に集中できる状態に。会話自体は DB に残っているので「📜 履歴」タブからいつでも見返せます。\n' +
+          '・💬 続けて質問する → プロンプトだけ閉じて、同じトピックで深掘り続行。\n\n' +
+          '質問ごとにチャットを区切れるので、長くなっても見通しが良いまま使えます。',
       },
     ],
   },
