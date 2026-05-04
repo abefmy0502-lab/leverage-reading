@@ -294,7 +294,14 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
       <div style={{ display: 'flex', gap: 6 }}>
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); onAdd?.(); }}
+          onClick={(e) => {
+            // 🔍 診断: クリックが DOM ハンドラに到達したことを確認。
+            // ⚠️ TODO(2026-05-11): 「読みたい」ボタン無反応問題の解決後に削除。
+            // eslint-disable-next-line no-console
+            console.log('[読みたい:related-card]', 'タップ', book?.title, 'isAdded=', isAdded, new Date().toISOString());
+            e.stopPropagation();
+            onAdd?.();
+          }}
           disabled={isAdded}
           aria-label={isAdded ? `『${book.title}』は本棚にあります` : `『${book.title}』を読みたいに追加`}
           style={{
@@ -304,6 +311,9 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
             cursor: isAdded ? 'not-allowed' : 'pointer',
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
+            pointerEvents: 'auto',
+            position: 'relative',
+            zIndex: 1,
           }}
         >
           {isAdded ? '✅ 追加済み' : '📚 読みたい'}

@@ -1766,7 +1766,14 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                   <button
                     type="button"
                     disabled={addedTitles.has(rec.title)}
-                    onClick={(e) => { e.stopPropagation(); handleClickAdd(rec); }}
+                    onClick={(e) => {
+                      // 🔍 診断: クリックが DOM ハンドラに到達したことを確認。
+                      // ⚠️ TODO(2026-05-11): 「読みたい」ボタン無反応問題の解決後に削除。
+                      // eslint-disable-next-line no-console
+                      console.log('[読みたい:advisor-live]', 'タップ', rec.title, new Date().toISOString());
+                      e.stopPropagation();
+                      handleClickAdd(rec);
+                    }}
                     style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(92,74,46,0.18)' }}
                   >
                     {addedTitles.has(rec.title) ? '✅ 追加済み' : '📚 読みたい'}
@@ -2921,15 +2928,8 @@ function AuthedApp() {
   // 何も起きない (toast も「追加済み」表示も出ない) 体験になっていた。
   // 新実装は fire-and-forget + 即時 UI 反映 + 診断ログで根治。
   const addRelatedBookFromAi = ({ title, author = '' }) => {
-    // 🔧 一時的な可視 diagnostic: タップ受付を即時 toast で見せる。
-    // 「ボタンが反応しない」報告がキャッシュ問題か実装問題かを切り分ける
-    // canary。ユーザーが新版 JS を読み込めていれば確実にこの toast が出る。
-    // 出ない場合は PWA cache の旧版が動いている (要再インストール / SW 更新)。
-    // 確認後はこの toast.info を削除して構わない。
-    try { toast.info(`📍 タップ受付: ${(title || '').slice(0, 20)}`); } catch { /* non-critical */ }
-
     // eslint-disable-next-line no-console
-    console.log('[related-add] tapped:', { title, author });
+    console.log('[related-add] handler reached:', { title, author });
     if (!title || !title.trim()) {
       // eslint-disable-next-line no-console
       console.warn('[related-add] empty title, ignored');

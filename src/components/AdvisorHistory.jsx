@@ -249,7 +249,14 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
         ) : (
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onAdd?.(); }}
+            onClick={(e) => {
+              // 🔍 診断: クリックが DOM ハンドラに到達したことを確認。
+              // ⚠️ TODO(2026-05-11): 「読みたい」ボタン無反応問題の解決後に削除。
+              // eslint-disable-next-line no-console
+              console.log('[読みたい:advisor-history]', 'タップ', book?.title, new Date().toISOString());
+              e.stopPropagation();
+              onAdd?.();
+            }}
             disabled={isAdding}
             style={{
               flex: 1,
