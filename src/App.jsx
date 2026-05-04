@@ -13,6 +13,7 @@ import HelpModal from './components/HelpModal';
 import Review from './components/Review';
 import MyBookBrain from './components/MyBookBrain';
 import { AdvisorHistoryList, AdvisorSessionDetail } from './components/AdvisorHistory';
+import AdvisorAddConfirmModal from './components/AdvisorAddConfirmModal';
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import ActionList from './components/ActionList';
 import AddBookModal from './components/AddBookModal';
@@ -1324,6 +1325,10 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 5〜15 秒かかっていた。新実装はクリック時 UI を即更新、すべての I/O は
   // .then() で fire-and-forget。失敗時のみ rollback。
   const [addedTitles, setAddedTitles] = useState(() => new Set());
+  // 「読みたいに追加」押下後に search の strict match 結果を確認させる
+  // モーダル。{ rec, candidates } | null。確認後に proceedAdd(verifiedRec)
+  // を呼んで実際の DB insert に進む。
+  const [confirmAdd, setConfirmAdd] = useState(null);
   // 履歴サブビュー: 'chat' | 'history' | 'detail'
   const [view, setView] = useState('chat');
   const [selectedSession, setSelectedSession] = useState(null);
@@ -1479,6 +1484,116 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
 
   const isEmpty = messages.length === 0 && !recommendations;
   const chatScrollRef = useRef(null);
+
+  // ---------------------------------------------------------------------------
+  // 「📚 読みたいに追加」フロー
+  //
+  //   1. handleClickAdd(rec): UI を即「✅ 追加済み」に切替 (< 5ms)、裏で
+  //      searchBooksAPIFlat を走らせる
+  //   2. strict match で絞り込んだ candidates が 1 件以上あれば確認モーダルへ
+  //      → AdvisorAddConfirmModal で視覚確認 → 選んだ candidate の isbn /
+  //      cover を rec に焼き込んで proceedAdd を呼ぶ
+  //   3. candidates が 0 件なら確認モーダル skip → そのまま proceedAdd (rec
+  //      は title/author だけ。addFromAdvisor 側の bg resolver に解決を任せる)
+  // ---------------------------------------------------------------------------
+  const proceedAdd = (verifiedRec) => {
+    // eslint-disable-next-line no-console
+    console.time(`[advisor-add] ${verifiedRec.title}`);
+    // すべての I/O を Promise.resolve().then で次の tick へ。handler 同期維持。
+    Promise.resolve().then(async () => {
+      let summary = null;
+      try {
+        summary = await summarizeAdvisorConversation(messages, verifiedRec);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[advisor-summary] failed:', e?.message || e);
+      }
+      try {
+        const saved = await onAddBook(verifiedRec, {
+          sourceQuery: lastUserQuery,
+          investPurpose: summary?.investPurpose || lastUserQuery || '',
+          currentChallenge: summary?.currentChallenge || '',
+          hypothesis: summary?.hypothesis || '',
+          bookReason: summary?.bookReason || (verifiedRec.why || ''),
+        });
+        if (saved?.id && currentSessionId && sessionApi?.available) {
+          try { await sessionApi.addBookToSession(currentSessionId, saved.id); } catch { /* non-critical */ }
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(`[advisor-add] failed (${verifiedRec.title}):`, e);
+        setAddedTitles((prev) => {
+          const next = new Set(prev);
+          next.delete(verifiedRec.title);
+          return next;
+        });
+      } finally {
+        // eslint-disable-next-line no-console
+        console.timeEnd(`[advisor-add] ${verifiedRec.title}`);
+      }
+    });
+  };
+
+  const handleClickAdd = (rec) => {
+    if (addedTitles.has(rec.title)) return;
+    // UI を即「✅ 追加済み」に切替 (連打防止 + 視覚 ack)。失敗時は rollback。
+    setAddedTitles((prev) => {
+      const next = new Set(prev);
+      next.add(rec.title);
+      return next;
+    });
+    // 裏で search → strict match で確認モーダルへ。失敗時はそのまま proceedAdd。
+    Promise.resolve().then(async () => {
+      try {
+        const results = await searchBooksAPIFlat(`${rec.title} ${rec.author || ''}`);
+        const matched = (results || [])
+          .filter((r) => isStrictMatch(r, { title: rec.title, author: rec.author }))
+          .slice(0, 4);
+        if (matched.length === 0) {
+          // 該当なし → 旧フローに任せる (addFromAdvisor 内で再 search +
+          // bg resolver が title/author から ISBN を探す)
+          // eslint-disable-next-line no-console
+          console.log(`[advisor-add] no strict match, falling back to direct add`);
+          proceedAdd(rec);
+          return;
+        }
+        // 1 件以上 → 視覚確認モーダルへ。AddedTitles はすでに反映済みだが、
+        // ユーザーがキャンセルしたら rollback する (handleConfirmCancel で対応)。
+        setConfirmAdd({ rec, candidates: matched });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn(`[advisor-add] search failed, fallback to direct add:`, e);
+        proceedAdd(rec);
+      }
+    });
+  };
+
+  const handleConfirmCandidate = (candidate) => {
+    if (!confirmAdd) return;
+    const { rec } = confirmAdd;
+    setConfirmAdd(null);
+    // candidate の isbn / cover を rec に焼き込んで「視覚的に確認済み」と
+    // して proceedAdd へ。addFromAdvisor 側はこれを信頼してそのまま保存
+    // する (再 search なし)。
+    proceedAdd({
+      ...rec,
+      isbn: candidate.isbn || rec.isbn || '',
+      cover: candidate.cover || '',
+    });
+  };
+
+  const handleConfirmCancel = () => {
+    if (!confirmAdd) return;
+    const { rec } = confirmAdd;
+    setConfirmAdd(null);
+    // 「✅ 追加済み」を rollback (ユーザーが追加を取りやめたため)。
+    setAddedTitles((prev) => {
+      const next = new Set(prev);
+      next.delete(rec.title);
+      return next;
+    });
+  };
+
   // 新メッセージ追加時に最下部へオートスクロール (LINE 挙動)。
   useEffect(() => {
     if (!chatScrollRef.current) return;
@@ -1645,51 +1760,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                   </a>
                   <button
                     disabled={addedTitles.has(rec.title)}
-                    onClick={() => {
-                      if (addedTitles.has(rec.title)) return;
-                      // 1. UI 即時反映 — ボタンを「✅ 追加済み」に切替 (< 5ms)
-                      setAddedTitles((prev) => {
-                        const next = new Set(prev);
-                        next.add(rec.title);
-                        return next;
-                      });
-                      // 2. すべての I/O は背景。AI 要約 → 本追加 → セッション追跡を
-                      //    chain で実行、handler は同期で終わる。失敗したら rollback。
-                      // eslint-disable-next-line no-console
-                      console.time(`[advisor-add] ${rec.title}`);
-                      Promise.resolve().then(async () => {
-                        let summary = null;
-                        try {
-                          summary = await summarizeAdvisorConversation(messages, rec);
-                        } catch (e) {
-                          // eslint-disable-next-line no-console
-                          console.warn('[advisor-summary] failed:', e?.message || e);
-                        }
-                        try {
-                          const saved = await onAddBook(rec, {
-                            sourceQuery: lastUserQuery,
-                            investPurpose: summary?.investPurpose || lastUserQuery || '',
-                            currentChallenge: summary?.currentChallenge || '',
-                            hypothesis: summary?.hypothesis || '',
-                            bookReason: summary?.bookReason || (rec.why || ''),
-                          });
-                          if (saved?.id && currentSessionId && sessionApi?.available) {
-                            try { await sessionApi.addBookToSession(currentSessionId, saved.id); } catch { /* non-critical */ }
-                          }
-                        } catch (e) {
-                          // eslint-disable-next-line no-console
-                          console.error(`[advisor-add] failed (${rec.title}):`, e);
-                          setAddedTitles((prev) => {
-                            const next = new Set(prev);
-                            next.delete(rec.title);
-                            return next;
-                          });
-                        } finally {
-                          // eslint-disable-next-line no-console
-                          console.timeEnd(`[advisor-add] ${rec.title}`);
-                        }
-                      });
-                    }}
+                    onClick={() => handleClickAdd(rec)}
                     style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 36 }}
                   >
                     {addedTitles.has(rec.title) ? '✅ 追加済み' : '📚 読みたいに追加'}
@@ -1753,6 +1824,14 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             )}
           </button>
         </div>
+      )}
+      {confirmAdd && (
+        <AdvisorAddConfirmModal
+          original={confirmAdd.rec}
+          candidates={confirmAdd.candidates}
+          onConfirm={handleConfirmCandidate}
+          onCancel={handleConfirmCancel}
+        />
       )}
     </div>
   );
@@ -2522,12 +2601,21 @@ function AuthedApp() {
     const payload = typeof payloadOrQuery === 'string'
       ? { sourceQuery: payloadOrQuery, investPurpose: payloadOrQuery, currentChallenge: '', hypothesis: '', bookReason: rec.why || '' }
       : payloadOrQuery;
+    // ★ rec.isbn / rec.cover が既に set されていれば「ユーザーが視覚で
+    //    確認済み」とみなして信頼する (BookAdvisor の AdvisorAddConfirmModal
+    //    で候補を表示 → 選択した結果)。検索を裏で再実行して 1 件目で
+    //    上書きする旧挙動は WYSIWYG 原則に反するので skip。
+    const verifiedIsbn = rec.isbn ? String(rec.isbn).replace(/[-\s]/g, '') : '';
+    const verifiedCover = (rec.cover || '').toString().trim();
     const newBook = {
       ...emptyBook(),
       title: rec.title,
       author: rec.author,
       status: "want",
       addedVia: 'search',
+      isbn: verifiedIsbn,
+      cover: verifiedCover,
+      coverIsbn: verifiedCover && verifiedIsbn ? verifiedIsbn : '',
       // AI 選書のクエリを引き継ぎ。空でも sourceQuery プロパティを保持
       // することで saveBook 側の source_query 書き込み判別が走る。
       sourceQuery: (payload.sourceQuery || '').trim(),
@@ -2536,28 +2624,23 @@ function AuthedApp() {
       hypothesis: (payload.hypothesis || '').trim(),
       bookReason: (payload.bookReason || '').trim(),
     };
-    // 軽量な情報 (totalPages / isbn) だけ事前取得 → 即 saveBook。
-    // 表紙の multi-ISBN 解決は待たずバックグラウンドで実行 (下の resolveCoverInBackground)。
-    //
-    // ⚠️ 検索 1 件目は AI 推薦と全く違う本のことがある (例: "エッセンシャル思考"
-    //    で検索すると "思考法の必読書 50 冊" が先に出る)。1 件目を盲信して
-    //    ISBN を採用すると後で primary-ISBN cover lookup が誤表紙を返す。
-    //    対策: ノーマライズ後の title+author 一致チェックをかけ、確信が
-    //    持てる時だけ ISBN を採用。落ちた場合は ISBN 空で保存し、bg resolver
-    //    側の findIsbnCandidates (より厳格) で再探索させる。
-    try {
-      const results = await searchBooksAPIFlat(rec.title + " " + rec.author);
-      if (results.length > 0) {
-        const first = results[0];
-        if (isStrictMatch(first, { title: rec.title, author: rec.author })) {
-          newBook.totalPages = first.pages || 0;
-          newBook.isbn = first.isbn || '';
-        } else {
-          // eslint-disable-next-line no-console
-          console.warn('[add] search top hit not strict match, skipping ISBN:', { recommended: rec.title, got: first.title });
+    // ISBN が未指定 (= AdvisorAddConfirmModal で候補が見つからず確認モーダル
+    // を skip したケース) のみ search で補完する。strict match で安全側に倒す。
+    if (!newBook.isbn) {
+      try {
+        const results = await searchBooksAPIFlat(rec.title + " " + rec.author);
+        if (results.length > 0) {
+          const first = results[0];
+          if (isStrictMatch(first, { title: rec.title, author: rec.author })) {
+            newBook.totalPages = first.pages || 0;
+            newBook.isbn = first.isbn || '';
+          } else {
+            // eslint-disable-next-line no-console
+            console.warn('[add] search top hit not strict match, skipping ISBN:', { recommended: rec.title, got: first.title });
+          }
         }
-      }
-    } catch { /* 失敗しても OK — bg resolver が title/author だけでも解決を試みる */ }
+      } catch { /* 失敗しても OK — bg resolver が title/author だけでも解決を試みる */ }
+    }
     try {
       const saved = await saveBook(newBook);
       // 4 フィールドが埋まっていれば「読書計画を作成しました」、そうでなければ控えめなトースト。
