@@ -39,7 +39,11 @@ function inRange(iso, start, end) {
 
 // 期間内に「関連する」行動を数える + その期間に完了したものを数える。
 // 関連 = deadline が期間内 OR created_at が期間内 (完了済も含む)。
-// 完了 = completed_at が期間内。
+// 完了 = completed_at が期間内。completedAt が無い (レガシーデータ:
+//   supabase_actions_full.sql で列追加される前の done=true 行) は
+//   created_at を fallback として使う。これで「完了済み表示なのに
+//   統計 0%」の事故を防ぐ。本格修正は supabase_actions_completed_at_
+//   backfill.sql で DB 側を埋めること。
 function computeForPeriod(actions, periodStart, periodEnd) {
   const periodActions = actions.filter((a) => {
     if (a.deadline) {
@@ -48,7 +52,12 @@ function computeForPeriod(actions, periodStart, periodEnd) {
     }
     return inRange(a.created_at, periodStart, periodEnd);
   });
-  const completed = periodActions.filter((a) => a.done && inRange(a.completedAt, periodStart, periodEnd));
+  const completed = periodActions.filter((a) => {
+    if (!a.done) return false;
+    // completedAt があれば厳密にその日時で判定。無ければ created_at を fallback。
+    const ts = a.completedAt || a.created_at;
+    return inRange(ts, periodStart, periodEnd);
+  });
   const total = periodActions.length;
   return {
     total,
@@ -63,9 +72,12 @@ function computeForPeriod(actions, periodStart, periodEnd) {
 function computeStreak(actions) {
   const completedDateSet = new Set(
     actions
-      .filter((a) => a.done && a.completedAt)
+      .filter((a) => a.done) // completedAt が無くても done なら含める
       .map((a) => {
-        const t = new Date(a.completedAt);
+        // completedAt が無いレガシー行は created_at を fallback。
+        const ts = a.completedAt || a.created_at;
+        if (!ts) return null;
+        const t = new Date(ts);
         if (Number.isNaN(t.getTime())) return null;
         return `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`;
       })
