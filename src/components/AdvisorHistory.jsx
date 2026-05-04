@@ -200,9 +200,10 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
           href={amazonHref}
           target="_blank"
           rel="sponsored noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
           style={{
             flex: 1,
-            minWidth: 120,
+            minWidth: 0,
             padding: '10px 12px',
             background: '#FF9900',
             color: '#fff',
@@ -212,14 +213,17 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
             textAlign: 'center',
             textDecoration: 'none',
             fontFamily: 'inherit',
-            minHeight: 40,
+            minHeight: 44,
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 4,
+            whiteSpace: 'nowrap',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'rgba(255,153,0,0.18)',
           }}
         >
-          🛒 Amazon で買う
+          🛒 Amazon
         </a>
         {isAdded ? (
           <button
@@ -265,7 +269,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
               WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
             }}
           >
-            {isAdding ? '📚 計画を作成中…' : '📚 読みたいに追加'}
+            {isAdding ? '📚 計画を作成中…' : '📚 読みたい'}
           </button>
         )}
       </div>

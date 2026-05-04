@@ -1759,9 +1759,9 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     target="_blank"
                     rel={AMAZON_LINK_REL}
                     aria-label={`Amazon で『${rec.title}』を購入（外部リンク）`}
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#FF9900", color: "#000", fontSize: 12, fontFamily: "inherit", textAlign: "center", textDecoration: "none", fontWeight: 600, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#FF9900", color: "#000", fontSize: 12, fontFamily: "inherit", textAlign: "center", textDecoration: "none", fontWeight: 600, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, whiteSpace: 'nowrap', touchAction: 'manipulation' }}
                   >
-                    🛒 Amazon で買う
+                    🛒 Amazon
                   </a>
                   <button
                     type="button"
@@ -1769,7 +1769,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     onClick={(e) => { e.stopPropagation(); handleClickAdd(rec); }}
                     style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(92,74,46,0.18)' }}
                   >
-                    {addedTitles.has(rec.title) ? '✅ 追加済み' : '📚 読みたいに追加'}
+                    {addedTitles.has(rec.title) ? '✅ 追加済み' : '📚 読みたい'}
                   </button>
                 </div>
               </div>

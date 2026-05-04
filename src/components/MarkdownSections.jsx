@@ -230,30 +230,42 @@ const relatedCardStyle = {
   flexDirection: 'column',
   gap: 6,
 };
+// flex: 1 で 2 ボタンを均等幅、padding を抑えめに、whiteSpace: nowrap で
+// 「Amazon で買 / う」のような縦割れを物理的に防ぐ。minHeight: 44 で
+// iOS HIG のタップ領域を確保。textAlign: center と inline-flex の組合せで
+// ラベルが必ず中央 1 行に収まる。
 const relatedAddBtn = {
   flex: 1,
-  padding: '8px 14px',
+  minWidth: 0,
+  padding: '10px 12px',
   borderRadius: 999,
   border: '1px solid #d4ccbe',
   background: '#5c5043',
   color: '#faf6f0',
-  fontSize: 12,
-  fontWeight: 500,
+  fontSize: 13,
+  fontWeight: 600,
   cursor: 'pointer',
   fontFamily: 'inherit',
-  minHeight: 36,
+  minHeight: 44,
+  whiteSpace: 'nowrap',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 4,
 };
 const relatedAmazonBtn = {
   flex: 1,
-  padding: '8px 14px',
+  minWidth: 0,
+  padding: '10px 12px',
   borderRadius: 999,
   background: '#FF9900',
   color: '#000',
-  fontSize: 12,
+  fontSize: 13,
   fontWeight: 600,
   textDecoration: 'none',
   fontFamily: 'inherit',
-  minHeight: 36,
+  minHeight: 44,
+  whiteSpace: 'nowrap',
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -277,12 +289,14 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           {description}
         </p>
       )}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {/* flexWrap を撤去し常に横並び。狭幅でもラベル短縮 + nowrap で
+          縦割れを防ぐ。touch-action: manipulation で iOS の 300ms 遅延も解消 */}
+      <div style={{ display: 'flex', gap: 6 }}>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onAdd?.(); }}
           disabled={isAdded}
-          aria-label={`『${book.title}』を読みたいに追加`}
+          aria-label={isAdded ? `『${book.title}』は本棚にあります` : `『${book.title}』を読みたいに追加`}
           style={{
             ...relatedAddBtn,
             background: isAdded ? '#E0E0E0' : relatedAddBtn.background,
@@ -290,19 +304,23 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
             cursor: isAdded ? 'not-allowed' : 'pointer',
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
-            minHeight: 44,
           }}
         >
-          {isAdded ? '✅ 追加済み' : '📚 読みたいに追加'}
+          {isAdded ? '✅ 追加済み' : '📚 読みたい'}
         </button>
         <a
           href={amazonHref}
           target="_blank"
           rel={AMAZON_LINK_REL}
           aria-label={`Amazon で『${book.title}』を購入（外部リンク）`}
-          style={relatedAmazonBtn}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            ...relatedAmazonBtn,
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'rgba(255,153,0,0.18)',
+          }}
         >
-          🛒 Amazon で買う
+          🛒 Amazon
         </a>
       </div>
     </div>
