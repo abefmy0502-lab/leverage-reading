@@ -10,7 +10,7 @@ import { useAllActions } from '../hooks/useAllActions';
 import { ensureHttps } from '../lib/url';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
-import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle } from 'lucide-react';
+import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3 } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
@@ -142,7 +142,7 @@ const SORTS = [
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
-export default function ActionList({ books, onToggleAction, onDeleteAction, onOpenBook }) {
+export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook }) {
   const { allActions, stats } = useAllActions(books);
   const [filter, setFilter] = useState('all');
   const [sortBy, setSortBy] = useState('deadline');
@@ -569,6 +569,19 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onOp
                 </button>
                 {openMenuKey === key && (
                   <div style={menuStyle} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      style={menuItem}
+                      onClick={() => {
+                        setOpenMenuKey(null);
+                        // a は useAllActions で transform 済みなので
+                        // text/deadline/priority/recurrence/reflection を含む
+                        onEditAction?.(a.bookId, a.actionIdx, a);
+                      }}
+                    >
+                      <Edit3 size={14} strokeWidth={1.75} aria-hidden="true" />
+                      編集
+                    </button>
                     <button
                       type="button"
                       style={menuItem}

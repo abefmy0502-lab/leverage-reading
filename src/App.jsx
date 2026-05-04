@@ -16,6 +16,7 @@ import { AdvisorHistoryList, AdvisorSessionDetail } from './components/AdvisorHi
 import AdvisorAddConfirmModal from './components/AdvisorAddConfirmModal';
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import ActionList from './components/ActionList';
+import ActionEditModal from './components/ActionEditModal';
 import AddBookModal from './components/AddBookModal';
 import { useBookCover } from './hooks/useBookCover';
 import {
@@ -2961,11 +2962,11 @@ function AuthedApp() {
     }
   };
 
-  // 行動の完了プロンプト用 state — 「✅ 完了 + 振り返り？」モーダルを表示し、
-  // ユーザーが「振り返らずに完了」or「💾 振り返りを保存」を選んだ後に反映する。
+  // 旧: 完了時に振り返りモーダルを出していたが UX フリクション削減のため撤去。
+  // state は ActionEditModal の編集対象として再利用 (= 編集中の {bookId, actionIdx}).
   // null なら非表示。{ bookId, actionIdx, action } をセット。
-  const [completingAction, setCompletingAction] = useState(null);
-  const [reflectionInput, setReflectionInput] = useState('');
+  // ActionEditModal を開いている対象 — { bookId, actionIdx, action }
+  const [editingAction, setEditingAction] = useState(null);
   // 「表紙が違う?」モーダル — 詳細画面の表紙下リンクから開く。
   const [coverFixForBook, setCoverFixForBook] = useState(null);
 
@@ -3042,12 +3043,10 @@ function AuthedApp() {
     if (!book) return;
     const target = (book.actions || [])[actionIdx];
     if (!target) return;
-    // 「完了化」の場合は振り返りモーダルを出す。「未完了に戻す」は即実行。
-    if (!target.done) {
-      setReflectionInput(target.reflection || '');
-      setCompletingAction({ bookId, actionIdx, action: target });
-      return;
-    }
+    // 旧実装は「完了化」時に振り返りモーダル (✅ 完了おめでとうございます!)
+    // を挟んでいたが、毎回フリクションを増やしていたため撤去。タップ即完了 /
+    // 即未完了戻しの軽快操作に統一。reflection は ActionEditModal から
+    // いつでも編集可能。
     await applyActionToggle(bookId, actionIdx);
   };
 
@@ -3122,7 +3121,7 @@ function AuthedApp() {
     && !quickMemoOpen
     && !thanksOpen
     && !fullEditorPrefill
-    && !completingAction
+    && !editingAction
     && !searchOpen
     && !detailKebab
     && !bookContextMenu
@@ -4246,6 +4245,7 @@ function AuthedApp() {
                 books={books}
                 onToggleAction={toggleAction}
                 onDeleteAction={deleteActionFromBook}
+                onEditAction={(bookId, actionIdx, action) => setEditingAction({ bookId, actionIdx, action })}
                 onOpenBook={(b) => { openDetail(b); setTab("books"); }}
               />
             )}
@@ -4368,106 +4368,35 @@ function AuthedApp() {
         />
       )}
 
-      {/* 行動完了 → 振り返り入力モーダル。任意入力で「振り返らずに完了」も
-          可能。recurrence あり の行動は applyActionToggle 内で自動的に
-          次回分が末尾に追加される。 */}
-      {completingAction && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => { setCompletingAction(null); setReflectionInput(''); }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 880,
-            background: 'rgba(30,25,20,0.45)',
-            backdropFilter: 'blur(3px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 20,
+      {/* 旧「✅ 完了おめでとうございます!」振り返りモーダルは撤去。
+          完了はタップ即時、reflection は ActionEditModal から編集可能。 */}
+
+      {editingAction && (
+        <ActionEditModal
+          action={editingAction.action}
+          onClose={() => setEditingAction(null)}
+          onSave={async (patch) => {
+            const { bookId, actionIdx } = editingAction;
+            const book = books.find((b) => b.id === bookId);
+            if (!book) { setEditingAction(null); return; }
+            const acts = [...(book.actions || [])];
+            if (actionIdx < 0 || actionIdx >= acts.length) { setEditingAction(null); return; }
+            acts[actionIdx] = { ...acts[actionIdx], ...patch };
+            try {
+              await saveBook({ ...book, actions: acts });
+              toast.success('💾 行動を更新しました');
+            } catch (error) {
+              toast.error(toMessage(error, '更新に失敗しました'));
+            } finally {
+              setEditingAction(null);
+            }
           }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#faf6f0',
-              borderRadius: 14,
-              width: 'min(420px, 100%)',
-              padding: '20px 18px',
-              fontFamily: 'inherit',
-              display: 'flex', flexDirection: 'column', gap: 12,
-              boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
-            }}
-          >
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#3d362c', margin: 0 }}>
-              ✅ 完了おめでとうございます！
-            </h3>
-            <p style={{ fontSize: 13, color: '#5c5043', margin: 0, lineHeight: 1.6 }}>
-              「{completingAction.action?.text}」
-            </p>
-            <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
-              やってみてどうでしたか？（任意）
-            </p>
-            <textarea
-              value={reflectionInput}
-              onChange={(e) => setReflectionInput(e.target.value)}
-              placeholder="例：思ったより自然にできた / 緊張したが効果あり"
-              rows={3}
-              style={{
-                ...ta, minHeight: 72, fontSize: 14,
-              }}
-              maxLength={LIMITS.memoText}
-              autoFocus
-            />
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  const { bookId, actionIdx } = completingAction;
-                  setCompletingAction(null);
-                  setReflectionInput('');
-                  await applyActionToggle(bookId, actionIdx);
-                }}
-                style={{
-                  flex: 1, minWidth: 120,
-                  padding: '10px 14px',
-                  borderRadius: 10,
-                  border: '1px solid #d4ccbe',
-                  background: 'transparent',
-                  color: '#5c5043',
-                  fontSize: 13,
-                  fontFamily: 'inherit',
-                  cursor: 'pointer',
-                  minHeight: 44,
-                }}
-              >
-                振り返らずに完了
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const { bookId, actionIdx } = completingAction;
-                  const reflection = reflectionInput.trim();
-                  setCompletingAction(null);
-                  setReflectionInput('');
-                  await applyActionToggle(bookId, actionIdx, { reflection });
-                }}
-                style={{
-                  flex: 1, minWidth: 120,
-                  padding: '10px 14px',
-                  borderRadius: 10,
-                  border: 'none',
-                  background: '#5C4A2E',
-                  color: '#faf6f0',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  fontFamily: 'inherit',
-                  cursor: 'pointer',
-                  minHeight: 44,
-                }}
-              >
-                💾 振り返りを保存
-              </button>
-            </div>
-          </div>
-        </div>
+          onDelete={async () => {
+            const { bookId, actionIdx } = editingAction;
+            setEditingAction(null);
+            await deleteActionFromBook(bookId, actionIdx);
+          }}
+        />
       )}
 
       {addBookModalOpen && (
