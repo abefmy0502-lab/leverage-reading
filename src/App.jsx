@@ -2009,6 +2009,11 @@ function AuthedApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [recentlyDoneId, setRecentlyDoneId] = useState(null);
   const recentlyDoneTimerRef = useRef(null);
+  // 本詳細のスクロール可能コンテナへの ref。フェーズ遷移 (status 変化) の
+  // たびにスクロールトップへ戻すために使う — 旧実装は前フェーズの最下部
+  // (例: 読書前で「読書を開始する」ボタン直前) のままだったため、新フェーズ
+  // で画面が下から始まる症状があった。
+  const detailScrollRef = useRef(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Long-press context menu (book cards on bookshelf)
   const [bookContextMenu, setBookContextMenu] = useState(null); // { x, y, book }
@@ -2341,6 +2346,17 @@ function AuthedApp() {
   const [editPhaseOverride, setEditPhaseOverride] = useState(null);
 
   const openDetail = (b) => { setCurrent(b); setEditPhaseOverride(null); setView("detail"); };
+
+  // 本詳細でフェーズ (status) が切り替わった時 + 本/view 切り替え時に
+  // detail コンテナをスクロールトップへ戻す。これがないと「読書前」で
+  // 下までスクロールした状態のまま「読書中」UI が表示され、画面が下から
+  // 始まる症状になる。
+  useEffect(() => {
+    if (view !== 'detail') return;
+    if (detailScrollRef.current) {
+      try { detailScrollRef.current.scrollTo({ top: 0, behavior: 'auto' }); } catch { /* ignore */ }
+    }
+  }, [view, current?.id, current?.status]);
   // 投資目的が空 + AI 選書のソースクエリがある時は、UI を開く瞬間に
   // 投資目的にプレフィルする。バナー (BeforePhase) 側で「AI 選書から
   // 引き継ぎました」のヒントを出す。これでユーザーは同じ課題を 2 回
@@ -3205,6 +3221,7 @@ function AuthedApp() {
     return (
       <Shell>
         <div
+          ref={detailScrollRef}
           className="detail-enter"
           style={{
             flex: 1,
