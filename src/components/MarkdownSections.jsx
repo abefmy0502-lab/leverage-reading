@@ -261,6 +261,10 @@ const relatedAmazonBtn = {
 };
 
 function RelatedBookCard({ book, description, onAdd, isAdding }) {
+  // 旧 isAdding は「処理中」(短時間で消える) だったが、新実装では
+  // App.jsx の addedRelatedTitles state Set に永続化される「追加済み」
+  // フラグになった。従って「✅ 追加済み」表示で disabled にする。
+  const isAdded = !!isAdding;
   const amazonHref = getAmazonSearchLink(book.title, book.author);
   return (
     <div style={relatedCardStyle}>
@@ -277,11 +281,16 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
         <button
           type="button"
           onClick={onAdd}
-          disabled={isAdding}
+          disabled={isAdded}
           aria-label={`『${book.title}』を読みたいに追加`}
-          style={{ ...relatedAddBtn, opacity: isAdding ? 0.6 : 1 }}
+          style={{
+            ...relatedAddBtn,
+            background: isAdded ? '#E0E0E0' : relatedAddBtn.background,
+            color: isAdded ? '#666' : relatedAddBtn.color,
+            cursor: isAdded ? 'not-allowed' : 'pointer',
+          }}
         >
-          {isAdding ? '追加中…' : '📚 読みたいに追加'}
+          {isAdded ? '✅ 追加済み' : '📚 読みたいに追加'}
         </button>
         <a
           href={amazonHref}

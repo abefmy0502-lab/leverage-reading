@@ -2035,8 +2035,14 @@ function AuthedApp() {
   const [strategyHistoryTick, setStrategyHistoryTick] = useState(0);
   // Set of titles currently being added from a related-books card so the
   // button can show "追加中…" and we don't double-fire on rapid taps.
-  const addingRelatedTitlesRef = useRef(new Set());
-  const [addingRelatedTick, setAddingRelatedTick] = useState(0);
+  // 関連書籍 (読書計画シート / ROI まとめ) からの「📚 読みたいに追加」を
+  // 追跡する state Set。ref ではなく state にすることで、Set の中身を
+  // 更新するたびに新しい参照を作って React の prop 比較を確実に通し、
+  // RelatedBookCard が「✅ 追加済み」表示に再 render される。
+  // 旧実装は addingRelatedTitlesRef + setAddingRelatedTick で render を
+  // 強制していたが、IIFE で同じ Set 参照を返していたため shallow compare
+  // で不変扱いされ「タップしても何も起きない」ように見える事故が発生。
+  const [addedRelatedTitles, setAddedRelatedTitles] = useState(() => new Set());
 
   // Memo ops for the currently-open book (FAB / quick sheet / full editor handoff).
   // Always called so hook order stays stable; isUsableBookId guards inside the hook.
@@ -2889,48 +2895,111 @@ function AuthedApp() {
   // Adds a recommended book (from reading plan sheet / 投資の効果 related-books
   // section) to the bookshelf in 'want' status. Best-effort cover lookup
   // via the search pipeline; falls back to manual add if no hit.
-  const addRelatedBookFromAi = async ({ title, author = '' }) => {
-    if (!title || !title.trim()) return;
-    if (addingRelatedTitlesRef.current.has(title)) return;
-    // 既に本棚にあれば確認ダイアログ → 既存本へジャンプ。
-    const dup = await handleDuplicateGate({ title, author });
-    if (dup) return;
-    addingRelatedTitlesRef.current.add(title);
-    setAddingRelatedTick((t) => t + 1);
-    try {
-      const newBook = {
-        ...emptyBook(),
-        title: title.trim(),
-        author: author?.trim() || '',
-        status: 'want',
-        addedVia: 'search',
-      };
+  //
+  // 旧実装は handler 内で複数 await していたためボタンタップから 1.5〜4s
+  // 何も起きない (toast も「追加済み」表示も出ない) 体験になっていた。
+  // 新実装は fire-and-forget + 即時 UI 反映 + 診断ログで根治。
+  const addRelatedBookFromAi = ({ title, author = '' }) => {
+    // eslint-disable-next-line no-console
+    console.log('[related-add] tapped:', { title, author });
+    if (!title || !title.trim()) {
+      // eslint-disable-next-line no-console
+      console.warn('[related-add] empty title, ignored');
+      return;
+    }
+    const trimmedTitle = title.trim();
+    if (addedRelatedTitles.has(trimmedTitle)) {
+      // eslint-disable-next-line no-console
+      console.log('[related-add] already added (UI), ignored');
+      return;
+    }
+
+    // ★ 1. UI 即時反映 — ボタンを「✅ 追加済み」に切替 (< 5ms)
+    setAddedRelatedTitles((prev) => {
+      const next = new Set(prev);
+      next.add(trimmedTitle);
+      return next;
+    });
+
+    // ★ 2. 既存本との重複チェックを背景で。dup なら confirm 経由で既存本を
+    //      開く (旧フローと同じ)。dup でユーザーが戻ったら UI をロールバック。
+    // eslint-disable-next-line no-console
+    console.time(`[related-add] ${trimmedTitle}`);
+    Promise.resolve().then(async () => {
       try {
-        const results = await searchBooksAPIFlat(`${title} ${author || ''}`.trim());
-        if (results.length > 0) {
-          newBook.totalPages = results[0].pages || 0;
-          newBook.isbn = results[0].isbn || '';
-          if (!newBook.author && results[0].author) newBook.author = results[0].author;
-        } else {
+        const dup = await handleDuplicateGate({ title: trimmedTitle, author });
+        if (dup) {
+          // eslint-disable-next-line no-console
+          console.log('[related-add] duplicate detected, rolling back UI');
+          setAddedRelatedTitles((prev) => {
+            const next = new Set(prev);
+            next.delete(trimmedTitle);
+            return next;
+          });
+          return;
+        }
+
+        const newBook = {
+          ...emptyBook(),
+          title: trimmedTitle,
+          author: (author || '').trim(),
+          status: 'want',
+          addedVia: 'search',
+        };
+
+        // ★ 3. 検索 → 厳格マッチで安全に ISBN/cover を取得。
+        //      isStrictMatch を通った時だけ採用、ダメなら ISBN 空で保存して
+        //      bg resolver の findIsbnCandidates 経路に任せる (誤マッチ回避)。
+        try {
+          const results = await searchBooksAPIFlat(`${trimmedTitle} ${author || ''}`.trim());
+          if (results.length > 0) {
+            const first = results[0];
+            if (isStrictMatch(first, { title: trimmedTitle, author })) {
+              newBook.totalPages = first.pages || 0;
+              newBook.isbn = first.isbn || '';
+              if (!newBook.author && first.author) newBook.author = first.author;
+              if (first.cover) {
+                newBook.cover = first.cover;
+                newBook.coverIsbn = first.isbn ? String(first.isbn).replace(/[-\s]/g, '') : '';
+              }
+            } else {
+              // eslint-disable-next-line no-console
+              console.warn('[related-add] search top hit not strict match:', { wanted: trimmedTitle, got: first.title });
+              newBook.addedVia = 'manual';
+            }
+          } else {
+            newBook.addedVia = 'manual';
+          }
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('[related-add] search failed, fallback to manual:', e?.message || e);
           newBook.addedVia = 'manual';
         }
-      } catch {
-        newBook.addedVia = 'manual';
+
+        const saved = await saveBook(newBook);
+        // eslint-disable-next-line no-console
+        console.log('[related-add] saved:', saved?.id);
+        resolveCoverInBackground(saved);
+        toast.success(`「${trimmedTitle}」を読みたいに追加しました`);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error(`[related-add] failed (${trimmedTitle}):`, error);
+        // 失敗時は UI rollback してエラー表示
+        setAddedRelatedTitles((prev) => {
+          const next = new Set(prev);
+          next.delete(trimmedTitle);
+          return next;
+        });
+        if (isUniqueViolation(error)) {
+          toast.error('この本は既に本棚にあります');
+        } else {
+          toast.error(toMessage(error, '本の追加に失敗しました。'));
+        }
+      } finally {
+        // eslint-disable-next-line no-console
+        console.timeEnd(`[related-add] ${trimmedTitle}`);
       }
-      // 即時保存 → 表紙はバックグラウンドで解決 (await しない)
-      const saved = await saveBook(newBook);
-      resolveCoverInBackground(saved);
-      toast.success(`「${title}」を読みたいに追加しました`);
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        toast.error('この本は既に本棚にあります');
-      } else {
-        toast.error(toMessage(error, '本の追加に失敗しました。'));
-      }
-    } finally {
-      addingRelatedTitlesRef.current.delete(title);
-      setAddingRelatedTick((t) => t + 1);
-    }
+    });
   };
   const runSummary = async () => {
     setAiLoading(true);
@@ -3421,7 +3490,7 @@ function AuthedApp() {
                   <MarkdownSections
                     text={current.aiStrategy}
                     onAddRelatedBook={addRelatedBookFromAi}
-                    addingTitles={(() => { void addingRelatedTick; return addingRelatedTitlesRef.current; })()}
+                    addingTitles={addedRelatedTitles}
                   />
                 </div>
               )}
@@ -3477,7 +3546,7 @@ function AuthedApp() {
                 <MarkdownSections
                   text={current.aiSummary}
                   onAddRelatedBook={addRelatedBookFromAi}
-                  addingTitles={(() => { void addingRelatedTick; return addingRelatedTitlesRef.current; })()}
+                  addingTitles={addedRelatedTitles}
                 />
               </div>
             </details>
@@ -3838,10 +3907,7 @@ function AuthedApp() {
                       strategyHistoryTick >= 0 && hasStrategyHistory(form?.id)
                     }
                     onAddRelatedBook={addRelatedBookFromAi}
-                    addingTitles={(() => {
-                      void addingRelatedTick;
-                      return addingRelatedTitlesRef.current;
-                    })()}
+                    addingTitles={addedRelatedTitles}
                   />
                 )}
                 {effectivePhase === "reading" && current && (
