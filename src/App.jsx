@@ -1311,6 +1311,8 @@ const ADVISOR_EXAMPLES = [
 function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 旧: 挨拶 seed メッセージで例を箇条書き → サブタブ画面では冗長
   // (タップ不可で文字を読まされるだけ)。例はチップ UI に分離した。
+  // 「📚 読みたいに追加」のタップ受付を触覚で即時 ack するため。
+  const advisorHaptic = useHaptic();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1537,6 +1539,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
 
   const handleClickAdd = (rec) => {
     if (addedTitles.has(rec.title)) return;
+    // 触覚で即時 ack (画面の見た目とは別経路で「タップ受付」を確実に伝える)。
+    try { advisorHaptic.light(); } catch { /* non-critical */ }
     // UI を即「✅ 追加済み」に切替 (連打防止 + 視覚 ack)。失敗時は rollback。
     setAddedTitles((prev) => {
       const next = new Set(prev);
@@ -1760,9 +1764,10 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     🛒 Amazon で買う
                   </a>
                   <button
+                    type="button"
                     disabled={addedTitles.has(rec.title)}
-                    onClick={() => handleClickAdd(rec)}
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 36 }}
+                    onClick={(e) => { e.stopPropagation(); handleClickAdd(rec); }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(92,74,46,0.18)' }}
                   >
                     {addedTitles.has(rec.title) ? '✅ 追加済み' : '📚 読みたいに追加'}
                   </button>
@@ -2930,6 +2935,8 @@ function AuthedApp() {
       return;
     }
 
+    // 触覚で即時 ack (画面の見た目とは別経路で「タップ受付」を確実に伝える)。
+    try { haptic.light(); } catch { /* non-critical */ }
     // ★ 1. UI 即時反映 — ボタンを「✅ 追加済み」に切替 (< 5ms)
     setAddedRelatedTitles((prev) => {
       const next = new Set(prev);

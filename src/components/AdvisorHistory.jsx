@@ -245,7 +245,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
         ) : (
           <button
             type="button"
-            onClick={onAdd}
+            onClick={(e) => { e.stopPropagation(); onAdd?.(); }}
             disabled={isAdding}
             style={{
               flex: 1,
@@ -259,8 +259,10 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
               fontWeight: 700,
               cursor: isAdding ? 'wait' : 'pointer',
               fontFamily: 'inherit',
-              minHeight: 40,
+              minHeight: 44,
               opacity: isAdding ? 0.7 : 1,
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
             }}
           >
             {isAdding ? '📚 計画を作成中…' : '📚 読みたいに追加'}

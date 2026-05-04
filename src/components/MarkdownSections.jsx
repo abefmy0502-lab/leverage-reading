@@ -280,7 +280,7 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <button
           type="button"
-          onClick={onAdd}
+          onClick={(e) => { e.stopPropagation(); onAdd?.(); }}
           disabled={isAdded}
           aria-label={`『${book.title}』を読みたいに追加`}
           style={{
@@ -288,6 +288,9 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
             background: isAdded ? '#E0E0E0' : relatedAddBtn.background,
             color: isAdded ? '#666' : relatedAddBtn.color,
             cursor: isAdded ? 'not-allowed' : 'pointer',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
+            minHeight: 44,
           }}
         >
           {isAdded ? '✅ 追加済み' : '📚 読みたいに追加'}
