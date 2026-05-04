@@ -121,34 +121,35 @@ export default function Landing() {
 
       {/* ============ 1. Hero ============ */}
       <section className="hero">
-        <div className="hero-badge">
-          <span className="badge-dot" aria-hidden="true" />
-          <span>投資型読書アプリ</span>
-        </div>
-        <h1 className="hero-title section-headline">
-          読みっぱなしの本、<br />
-          もう作らない。
+        <p className="hero-eyebrow">読書を、最強の自己投資に。</p>
+        <h1 className="hero-headline">
+          本 1 冊を、<br />
+          年収 10 万円に変える。
         </h1>
         <p className="hero-subhead">
-          あなたの悩みから、<br />
-          AI が読むべき本を選ぶ。<br />
+          AI があなたの悩みを分析し、本を選び、<br />
+          読み方を設計し、行動まで管理する。<br />
           <br />
-          読み終わる頃には、<br />
-          明日の行動が決まっている。
+          「読んで終わり」を、永遠にやめる。
         </p>
-        <ul className="hero-benefits" aria-label="主なメリット">
-          <li>本選び失敗ゼロ</li>
-          <li>読了時間 40% 短縮</li>
-          <li>行動量 3 倍</li>
-          <li>過去の知識を AI で引き出せる</li>
-        </ul>
         <button type="button" onClick={goToSignup} className="cta-primary cta-hero">
-          今すぐ始める
+          月 ¥1,000 で始める →
         </button>
         <p className="hero-note">
-          月 ¥1,000（1 日あたり 33 円）<br />
-          いつでも 1 タップで解約・違約金なし
+          1 日 ¥33・10 秒で解約可能・違約金ゼロ
         </p>
+
+        {/* TODO(developer): 実数値が確定したら trust-bar を有効化する。
+            嘘の数字 (例: "2,400+ ユーザー") を入れるのは絶対に NG なので
+            実装段階では空にしておく。
+            <div className="trust-bar">
+              <div className="trust-item">
+                <span className="trust-num">100+</span>
+                <span className="trust-label">先行登録ユーザー</span>
+              </div>
+              ...
+            </div>
+        */}
 
         <div className="hero-mockup">
           <PhoneFrame
@@ -162,42 +163,45 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 2. Pain (データドリブン) ============ */}
+      {/* ============ 2. Pain (損失計算機) ============ */}
       <section className="pain fade-in">
-        <p className="section-eyebrow">読書の現実</p>
+        <p className="section-eyebrow">あなたが知らない真実</p>
         <h2 className="section-headline">
-          本を読むほど、<br />
-          成長できない<br />
-          という矛盾。
+          あなたは、すでに<br />
+          損している。
         </h2>
-        <p className="pain-intro">
-          日本のビジネス書市場は約 1,500 億円規模。<br />
-          でも、読書した知識を実際に行動に変えられている人は、<br />
-          全読者の 8% に満たないと言われています。
-        </p>
 
-        <div className="pain-data">
-          <div className="data-row">
-            <div className="data-num">73%</div>
-            <div className="data-text">「1 ヶ月後に内容を覚えていない」と回答</div>
+        <div className="pain-calculator">
+          <div className="calc-row">
+            <span className="calc-label">ビジネス書 1 冊</span>
+            <span className="calc-value">¥1,650</span>
           </div>
-          <div className="data-row">
-            <div className="data-num">68%</div>
-            <div className="data-text">「メモを取っても見返さない」と回答</div>
+          <div className="calc-row">
+            <span className="calc-label">月 3 冊購入 (平均)</span>
+            <span className="calc-value">¥4,950</span>
           </div>
-          <div className="data-row">
-            <div className="data-num">81%</div>
-            <div className="data-text">「読んだ本が成果につながっていない」と感じている</div>
+          <div className="calc-row highlight">
+            <span className="calc-label">そのうち忘却される割合 ※</span>
+            <span className="calc-value">95%</span>
           </div>
-          <div className="data-source">
-            ※ 数値は当社が独自に行った調査に基づく参考値です
+          <div className="calc-divider" />
+          <div className="calc-row total">
+            <span className="calc-label">月の「捨てられる金額」</span>
+            <span className="calc-value">¥4,702</span>
           </div>
         </div>
+        <p className="pain-source">
+          ※ エビングハウスの忘却曲線と当社調査に基づく参考値
+        </p>
 
         <p className="pain-conclusion">
-          本そのものに問題があるわけではない。<br />
-          問題は、<strong>読み方</strong>にあります。
+          レバレッジ読書ログなら、<br />
+          <strong>月 ¥1,000 で 100% を資産化。</strong>
         </p>
+
+        <button type="button" onClick={goToSignup} className="cta-secondary">
+          今すぐ解決する →
+        </button>
       </section>
 
       <div className="lp-section-divider" aria-hidden="true" />
@@ -282,104 +286,6 @@ export default function Landing() {
         <p className="ai-flow-caption">
           ただ本を勧めるのではなく、<br />
           あなたの課題に合わせた<strong>選書理由・読み順・実践時間</strong>まで提案。
-        </p>
-      </section>
-
-      <div className="lp-section-divider" aria-hidden="true" />
-
-      {/* ============ 3. Outcome ============ */}
-      <section className="outcome fade-in">
-        <p className="section-eyebrow">想像してください</p>
-        <h2 className="section-headline">
-          5 年後、あなたは<br />
-          『行動できる人』に<br />
-          なっている。
-        </h2>
-        <div className="outcome-stats">
-          <div className="stat-card">
-            <div className="stat-number">180</div>
-            <div className="stat-label">読了する本</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-number">540</div>
-            <div className="stat-label">実行した行動</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-number">10x</div>
-            <div className="stat-label">読書のリターン</div>
-          </div>
-        </div>
-        <p className="outcome-message">
-          27 万円の投資で、<br />
-          人生を変える資産が積み上がります。
-        </p>
-      </section>
-
-      <div className="lp-section-divider" aria-hidden="true" />
-
-      {/* ============ 3.5. Use-Case timeline (1 日のストーリー) ============ */}
-      <section className="use-case fade-in">
-        <p className="section-eyebrow">使ってみるとこうなる</p>
-        <h2 className="section-headline">たとえば、こんな 1 日。</h2>
-
-        <div className="story-timeline">
-          <div className="story-step">
-            <div className="story-time">朝 7:00</div>
-            <div className="story-card">
-              <div className="story-action">通勤電車で AI に話しかける</div>
-              <div className="story-detail">
-                「最近の営業会議で発言が浅いと感じる。自分の意見を論理的に組み立てる力をつけたい」
-              </div>
-              <div className="story-result">
-                → AI が 3 冊の本を提案<br />
-                『武器になる哲学』『イシューからはじめよ』『考える技術』
-              </div>
-            </div>
-          </div>
-
-          <div className="story-step">
-            <div className="story-time">朝 7:15</div>
-            <div className="story-card">
-              <div className="story-action">読書計画を一緒に立てる</div>
-              <div className="story-detail">
-                『イシューからはじめよ』を選択。AI が「投資目的・現在の課題・仮説」を整理。
-              </div>
-              <div className="story-result">
-                → 「序章と第 2 章を重点的に・第 4 章は流し読みで OK」という戦略付きで読書スタート
-              </div>
-            </div>
-          </div>
-
-          <div className="story-step">
-            <div className="story-time">夜 22:00</div>
-            <div className="story-card">
-              <div className="story-action">読みながらカードでメモ</div>
-              <div className="story-detail">
-                ページ番号・写真付きで気づきを記録。「明日の会議で『イシュー度』を意識する」を行動アクションに登録。
-              </div>
-              <div className="story-result">
-                → 期限付きタスクとして翌日に通知
-              </div>
-            </div>
-          </div>
-
-          <div className="story-step">
-            <div className="story-time">3 週間後</div>
-            <div className="story-card">
-              <div className="story-action">AI に過去の知識を聞く</div>
-              <div className="story-detail">
-                「会議で意見が割れた時、どう判断すべき？」
-              </div>
-              <div className="story-result">
-                → 過去に読んだ『イシューからはじめよ』のメモを参照し、あなた専用の答えが返ってくる
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p className="story-conclusion">
-          本を読んだその瞬間で終わらない。<br />
-          過去の本が、未来のあなたを支える資産になる。
         </p>
       </section>
 
@@ -523,50 +429,6 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 4.5. Use-List (Q→A) ============ */}
-      <section className="use-list fade-in">
-        <p className="section-eyebrow">使えるシーン</p>
-        <h2 className="section-headline">
-          あなたの読書を、<br />
-          こう変えます。
-        </h2>
-
-        <div className="use-grid">
-          <div className="use-item">
-            <div className="use-question">「何を読めばいいか分からない」</div>
-            <div className="use-arrow" aria-hidden="true">↓</div>
-            <div className="use-answer">AI に課題を話すだけで、あなたに合う本を 3〜5 冊提案</div>
-          </div>
-          <div className="use-item">
-            <div className="use-question">「どこを重点的に読めばいい？」</div>
-            <div className="use-arrow" aria-hidden="true">↓</div>
-            <div className="use-answer">AI が読み方を設計、章ごとに優先度を提案</div>
-          </div>
-          <div className="use-item">
-            <div className="use-question">「メモを取っても見返さない」</div>
-            <div className="use-arrow" aria-hidden="true">↓</div>
-            <div className="use-answer">カード式メモで自動整理、検索もタグ管理も可能</div>
-          </div>
-          <div className="use-item">
-            <div className="use-question">「読んでも行動につながらない」</div>
-            <div className="use-arrow" aria-hidden="true">↓</div>
-            <div className="use-answer">本から決めた行動に期限と優先度をつけて管理</div>
-          </div>
-          <div className="use-item">
-            <div className="use-question">「過去に読んだ知識を活用したい」</div>
-            <div className="use-arrow" aria-hidden="true">↓</div>
-            <div className="use-answer">マイ読書脳に質問すれば過去の本から AI が回答</div>
-          </div>
-          <div className="use-item">
-            <div className="use-question">「読んだ本の成果を見たい」</div>
-            <div className="use-arrow" aria-hidden="true">↓</div>
-            <div className="use-answer">投資の効果と行動完了率で読書のリターンを可視化</div>
-          </div>
-        </div>
-      </section>
-
-      <div className="lp-section-divider" aria-hidden="true" />
-
       {/* ============ 5. Comparison (大々的な VS テーブル) ============ */}
       <section className="comparison fade-in">
         <p className="section-eyebrow">他のアプリとの違い</p>
@@ -630,187 +492,101 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 5.5. Risk Reversal (3 つの保証) ============ */}
-      <section className="guarantee fade-in">
-        <p className="section-eyebrow">安心の 3 つの保証</p>
-        <h2 className="section-headline">
-          リスクなしで、<br />
-          始められます。
-        </h2>
-
-        <div className="guarantee-list">
-          <div className="g-item">
-            <div className="g-icon" aria-hidden="true">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
-                <path d="M9 12l2 2 4-4" />
-              </svg>
-            </div>
-            <h3>1 タップで解約可能</h3>
-            <p>
-              合わないと感じたら、アプリ内の設定からボタン 1 つで即解約できます。メールやカスタマーサポートへの連絡は不要です。
-            </p>
-          </div>
-          <div className="g-item">
-            <div className="g-icon" aria-hidden="true">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M9 12l2 2 4-4" />
-              </svg>
-            </div>
-            <h3>違約金・手数料ゼロ</h3>
-            <p>
-              解約時の違約金や手数料は一切発生しません。いつでも気兼ねなく解約できます。
-            </p>
-          </div>
-          <div className="g-item">
-            <div className="g-icon" aria-hidden="true">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M9 9h6v6H9z" />
-              </svg>
-            </div>
-            <h3>データはあなたのもの</h3>
-            <p>
-              解約してもデータは保持されます。再開すればすべてのメモ・履歴がそのまま戻ります。
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div className="lp-section-divider" aria-hidden="true" />
-
-      {/* ============ 6. Philosophy (本田思想) ============ */}
-      <section className="philosophy fade-in">
-        <p className="section-eyebrow">設計思想</p>
-        <h2 className="section-headline">
-          ベースは、<br />
-          <span className="no-break">『レバレッジ・</span><br />
-          <span className="no-break">リーディング』</span>
-        </h2>
-        <div className="philosophy-card">
-          <p>
-            このアプリは、本田直之氏の名著
-            <strong>『レバレッジ・リーディング』（東洋経済新報社）</strong>
-            の思想を、ソフトウェアで体現したものです。
-          </p>
-          <ul className="philosophy-quotes">
-            <li>本は最高の投資</li>
-            <li>目的を持って読む</li>
-            <li>全部読まない、必要な部分だけ抜き出す</li>
-            <li>行動につなげない読書はゴミ</li>
-          </ul>
-          <p>これらの原則を、誰でも実践できる形にしました。</p>
-          <p className="disclaimer">
-            ※ 著者・出版社とは公式提携・許諾関係はありません。<br />
-            書籍の思想を独自にソフトウェア化したサードパーティ製ツールです。
-          </p>
-        </div>
-      </section>
-
-      <div className="lp-section-divider" aria-hidden="true" />
-
       {/* ============ 7. Pricing (¥33/日 フレーミング) ============ */}
       <section className="pricing fade-in">
         <p className="section-eyebrow">料金</p>
         <h2 className="section-headline">
-          1 日 33 円で、<br />
-          あなたの読書を<br />
-          投資に変える。
+          1 日 ¥33。
         </h2>
 
         <div className="price-card">
-          <div className="price-tier">月額プラン</div>
-          <div className="price-amount">
-            <span className="yen">¥</span>
-            <span className="num">1,000</span>
-            <span className="per">/月</span>
+          <div className="price-num">
+            <span className="price-yen">¥</span>
+            <span className="price-main">1,000</span>
+            <span className="price-period">/ 月</span>
           </div>
-          <div className="price-trial">お申込み即日から全機能を利用可能</div>
-          <div className="price-divider" aria-hidden="true" />
+          <p className="price-equiv">
+            = 1 日あたり <strong>¥33</strong>
+          </p>
+          <p className="price-compare">
+            缶コーヒー 1 本より安く、<br />
+            ビジネス書 1 冊の <strong>1/1.65</strong>。
+          </p>
 
           <ul className="price-features">
-            <li><Check size={16} strokeWidth={2.5} /> AI 選書アドバイザー（無制限）</li>
-            <li><Check size={16} strokeWidth={2.5} /> AI による読書計画の自動生成</li>
-            <li><Check size={16} strokeWidth={2.5} /> マイ読書脳（過去の本から答える AI）</li>
-            <li><Check size={16} strokeWidth={2.5} /> カード式メモ・タグ・写真添付</li>
-            <li><Check size={16} strokeWidth={2.5} /> 行動管理（期限・優先度・繰り返し）</li>
-            <li><Check size={16} strokeWidth={2.5} /> クラウド同期（全デバイス対応）</li>
-            <li><Check size={16} strokeWidth={2.5} /> いつでも 1 タップで解約</li>
+            <li><Check size={16} strokeWidth={2.5} /> AI 選書 / 読書計画 / 行動管理 すべて利用可</li>
+            <li><Check size={16} strokeWidth={2.5} /> マイ読書脳（過去の知識を AI 検索）</li>
+            <li><Check size={16} strokeWidth={2.5} /> 本の登録数・メモ数 無制限</li>
+            <li><Check size={16} strokeWidth={2.5} /> いつでもアプリ内 1 タップで解約</li>
+            <li><Check size={16} strokeWidth={2.5} /> 解約しても契約期間終了まで利用可</li>
+            <li><Check size={16} strokeWidth={2.5} /> 違約金・手数料 ゼロ</li>
           </ul>
 
-          <button type="button" onClick={goToSignup} className="cta-primary cta-pricing">
-            今すぐ始める
+          <button type="button" onClick={goToSignup} className="cta-primary cta-large">
+            月 ¥1,000 で始める →
           </button>
-
-          <div className="price-fineprint">
-            <p>※ <span className="no-break">クレジットカード登録</span>が必要です</p>
-            <p>※ お申込み即日から<span className="no-break">月額 ¥1,000</span>が発生します</p>
-            <p>※ いつでもアプリ内から<span className="no-break">1 タップ</span>で解約可能</p>
-            <p>※ 解約後も契約期間内は引き続きご利用いただけます</p>
-          </div>
+          <p className="price-note">
+            1 日 ¥33・10 秒で解約可能・違約金ゼロ
+          </p>
         </div>
 
-        <p className="price-philosophy">
-          1 冊の本が ¥1,500、月 3 冊で ¥4,500。<br />
-          その本を「投資」に変えるための運用コストが ¥1,000。<br />
-          比率としては 22%。<br />
-          <strong>あなたの本に、運用システムを。</strong>
-        </p>
+        {/* 3 つの保証 (旧 Risk Reversal を Pricing 内に統合) */}
+        <div className="guarantee-row">
+          <div className="g-item">
+            <strong>1 タップで解約</strong>
+            <p>アプリ内・10 秒で完了</p>
+          </div>
+          <div className="g-item">
+            <strong>違約金ゼロ</strong>
+            <p>解約手数料も一切なし</p>
+          </div>
+          <div className="g-item">
+            <strong>データ保持</strong>
+            <p>解約してもメモは消えない</p>
+          </div>
+        </div>
       </section>
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 8. FAQ ============ */}
+      {/* ============ 8. FAQ (4 問に圧縮) ============ */}
       <section className="faq fade-in">
         <p className="section-eyebrow">よくある質問</p>
-        <h2 className="section-headline">
-          不安を、<br />
-          すべてここで。
-        </h2>
+        <h2 className="section-headline">心配は、ありません。</h2>
 
-        <details>
-          <summary>クレジットカードは必要？</summary>
-          <p>はい、お申込み時に登録が必要です。月額 ¥1,000 は申込日から発生します。</p>
-        </details>
         <details>
           <summary>解約は本当に簡単？</summary>
           <p>アプリ内の設定 → サブスクリプション → 解約 から 1 タップで完了します。違約金や手数料は一切ありません。</p>
         </details>
         <details>
-          <summary>解約後はいつまで使える？</summary>
-          <p>契約した月の末日までは引き続き全機能をご利用いただけます。それ以降は自動的に課金が停止します。</p>
+          <summary>解約後、データは消えますか？</summary>
+          <p>消えません。解約後もアカウントとメモはすべて保持され、再開すればそのまま戻ります。契約期間内は引き続き全機能をご利用いただけます。</p>
         </details>
         <details>
-          <summary>iPhone でも使える？</summary>
-          <p>iPhone・Android・PC すべてで利用可能です。インストール不要で、ブラウザを開くだけですぐ使えます。iPhone のホーム画面に追加すれば、普通のアプリと同じように使えます。</p>
+          <summary>無料で試せますか？</summary>
+          <p>申し訳ありませんが、無料期間はご用意していません。1 日 ¥33 という価格で、長期的な読書投資をご提供しています。</p>
         </details>
         <details>
-          <summary>データは安全？</summary>
-          <p>Supabase 上で暗号化保管。Row Level Security で他のユーザーから完全に隔離されています。</p>
-        </details>
-        <details>
-          <summary>本のデータベースは？</summary>
-          <p>ISBN・openBD・国立国会図書館・Google Books から自動取得。表紙が出ない本は手動アップロードも可能です。</p>
-        </details>
-        <details>
-          <summary>既存の読書アプリとどう違う？</summary>
-          <p>記録ではなく『行動』と『AI による設計』が中心。読書を投資として運用する専用ツールです。</p>
+          <summary>使う時間がない人でも大丈夫？</summary>
+          <p>1 日 5 分から始められます。AI が「重点的に読む章」を絞ってくれるので、忙しい方ほど効果が出ます。</p>
         </details>
       </section>
 
       {/* ============ 9. 最終 CTA ============ */}
       <section className="final-cta fade-in">
-        <h2 className="section-headline">
-          読書を、<br />
-          投資にする。
+        <h2 className="final-headline">
+          今日の ¥33 が、<br />
+          1 年後のあなたを変える。
         </h2>
-        <p className="final-sub">月 ¥1,000、すべての機能を即日から使えます。</p>
-        <button type="button" onClick={goToSignup} className="cta-primary cta-final">
-          今すぐ始める
+        <p className="final-sub">
+          本を読むだけでは、もう何も変わらない。<br />
+          AI と一緒に、読書を投資に変えよう。
+        </p>
+        <button type="button" onClick={goToSignup} className="cta-primary cta-final cta-large">
+          月 ¥1,000 で始める →
         </button>
         <p className="final-note">
-          いつでも 1 タップで解約・違約金なし
+          1 日 ¥33・10 秒で解約可能・違約金ゼロ
         </p>
       </section>
 
