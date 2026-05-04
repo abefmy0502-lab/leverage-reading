@@ -142,6 +142,15 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
   const handleForceUpdate = async () => {
     if (updating) return;
+    // 確認ダイアログ必須 — 押した瞬間に reload するので、メモ書き / AI 会話の
+    // 途中で誤タップすると入力が消える。意図的な操作だけ通す。
+    const ok = await confirm({
+      title: '🔄 アプリを最新版に更新',
+      message: 'キャッシュを削除して再読み込みします。\n\n書きかけのメモや AI への入力中の文章は失われます。よろしいですか？',
+      confirmLabel: '更新する',
+      cancelLabel: 'キャンセル',
+    });
+    if (!ok) return;
     setUpdating(true);
     toast.info('アプリを最新版に更新中…');
     // 内部で SW.update() → cache 全消去 → reload。reload するので

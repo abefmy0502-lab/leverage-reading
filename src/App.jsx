@@ -4528,7 +4528,35 @@ function AuthedApp() {
       <UpdateBanner safe={safeForUpdate} />
 
       <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
+      <BuildLabel />
     </Shell>
+  );
+}
+
+// 🔍 PWA cache 診断用ラベル — ビルド時刻を画面右下に表示。
+// iPhone PWA で「新コードが届いているか」を一目で確認するため。
+// ⚠️ TODO(2026-05-11): 1 週間後に <BuildLabel /> 呼び出しと本コンポーネント、
+//    vite.config.js の __APP_BUILD__ define、CSP の不要な許可を全て削除する。
+function BuildLabel() {
+  if (typeof __APP_BUILD__ === 'undefined') return null;
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        bottom: 'calc(68px + env(safe-area-inset-bottom, 0px))',
+        right: 6,
+        fontSize: 9,
+        lineHeight: 1.2,
+        color: 'rgba(60, 50, 40, 0.32)',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        pointerEvents: 'none',
+        zIndex: 1,
+        userSelect: 'none',
+      }}
+    >
+      {__APP_BUILD__}
+    </div>
   );
 }
 
