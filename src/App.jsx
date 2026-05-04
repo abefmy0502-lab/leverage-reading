@@ -2921,6 +2921,13 @@ function AuthedApp() {
   // 何も起きない (toast も「追加済み」表示も出ない) 体験になっていた。
   // 新実装は fire-and-forget + 即時 UI 反映 + 診断ログで根治。
   const addRelatedBookFromAi = ({ title, author = '' }) => {
+    // 🔧 一時的な可視 diagnostic: タップ受付を即時 toast で見せる。
+    // 「ボタンが反応しない」報告がキャッシュ問題か実装問題かを切り分ける
+    // canary。ユーザーが新版 JS を読み込めていれば確実にこの toast が出る。
+    // 出ない場合は PWA cache の旧版が動いている (要再インストール / SW 更新)。
+    // 確認後はこの toast.info を削除して構わない。
+    try { toast.info(`📍 タップ受付: ${(title || '').slice(0, 20)}`); } catch { /* non-critical */ }
+
     // eslint-disable-next-line no-console
     console.log('[related-add] tapped:', { title, author });
     if (!title || !title.trim()) {
