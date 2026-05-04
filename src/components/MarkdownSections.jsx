@@ -139,10 +139,16 @@ function renderLines(lines, opts) {
   // with an "📚 読みたいに追加" button. Following paragraphs (until the
   // next subhead) are absorbed as the description.
   if (opts?.relatedBooks && opts?.onAddRelatedBook) {
+    // 🔍 診断: section が related-books 扱いになったことを確認。
+    // ⚠️ TODO(2026-05-12): 「読みたい」ボタン無反応問題の解決後に削除。
+    // eslint-disable-next-line no-console
+    console.log('[related-parse] section detected, blocks=', blocks.length);
     const out = [];
     let pending = null; // { book, lines: [] }
     const flushPending = (key) => {
       if (!pending) return;
+      // eslint-disable-next-line no-console
+      console.log('[related-parse] flushing card:', pending.book.title, 'descLines=', pending.lines.length);
       out.push(
         <RelatedBookCard
           key={`rel-${key}`}
@@ -157,6 +163,8 @@ function renderLines(lines, opts) {
     blocks.forEach((b, i) => {
       if (b.type === 'subhead') {
         const parsed = parseRelatedBookHeading(b.text);
+        // eslint-disable-next-line no-console
+        console.log('[related-parse] subhead:', b.text, '→', parsed ? `MATCH(${parsed.title})` : 'NO_MATCH (falls through to plain h4)');
         flushPending(i);
         if (parsed) {
           pending = { book: parsed, lines: [] };
@@ -278,6 +286,9 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
   // フラグになった。従って「✅ 追加済み」表示で disabled にする。
   const isAdded = !!isAdding;
   const amazonHref = getAmazonSearchLink(book.title, book.author);
+  // 🔍 診断: カード mount を可視化。⚠️ TODO(2026-05-12): 解決後削除。
+  // eslint-disable-next-line no-console
+  console.log('[related-render]', book?.title, 'onAdd type=', typeof onAdd, 'isAdded=', isAdded);
   return (
     <div style={relatedCardStyle}>
       <p style={{ fontSize: 13, fontWeight: 600, color: '#3d362c', margin: 0, lineHeight: 1.5 }}>
@@ -296,11 +307,18 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           type="button"
           onClick={(e) => {
             // 🔍 診断: クリックが DOM ハンドラに到達したことを確認。
-            // ⚠️ TODO(2026-05-11): 「読みたい」ボタン無反応問題の解決後に削除。
+            // ⚠️ TODO(2026-05-12): 「読みたい」ボタン無反応問題の解決後に削除。
             // eslint-disable-next-line no-console
-            console.log('[読みたい:related-card]', 'タップ', book?.title, 'isAdded=', isAdded, new Date().toISOString());
+            console.log('[読みたい:related-card] 🟢 onClick FIRED', book?.title, 'isAdded=', isAdded, 'onAdd type=', typeof onAdd);
             e.stopPropagation();
-            onAdd?.();
+            if (typeof onAdd !== 'function') {
+              // eslint-disable-next-line no-console
+              console.error('[読みたい:related-card] ❌ onAdd is NOT a function:', onAdd);
+              return;
+            }
+            // eslint-disable-next-line no-console
+            console.log('[読みたい:related-card] → calling onAdd()');
+            onAdd();
           }}
           disabled={isAdded}
           aria-label={isAdded ? `『${book.title}』は本棚にあります` : `『${book.title}』を読みたいに追加`}
