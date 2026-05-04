@@ -146,17 +146,18 @@ body.lp-active {
   font-variant-numeric: tabular-nums;
 }
 
-/* ============ Sticky 下部 CTA ============ */
+/* ============ Sticky 下部 CTA (price + button 横並び) ============ */
 .sticky-cta {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: auto;
-  max-height: 110px;
-  background: white;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.06);
   z-index: 50;
   animation: lp-sticky-slide-up 0.3s ease;
 }
@@ -164,26 +165,51 @@ body.lp-active {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
-.sticky-cta-btn {
-  display: block;
-  width: 100%;
-  padding: 14px;
+.sticky-inner {
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sticky-price {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+.sticky-price-main {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--lp-text);
+  font-family: var(--font-sans);
+}
+.sticky-price-sub {
+  font-size: 11px;
+  color: var(--lp-sub);
+  margin-top: 2px;
+  font-family: var(--font-sans);
+}
+.sticky-btn {
+  flex: 1;
+  min-height: 48px;
+  padding: 12px 18px;
   background: var(--lp-primary);
   color: white;
   border: none;
   border-radius: 100px;
   font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.12s ease;
 }
-.sticky-cta-note {
-  text-align: center;
-  font-size: 11px;
-  color: var(--lp-sub);
-  margin: 6px 0 0;
-}
+.sticky-btn:active { transform: scale(0.97); }
 
 /* ============ セクション共通 ============ */
 .lp-root section {
@@ -1665,4 +1691,88 @@ body.lp-active {
 .final-cta .cta-large {
   background: white;
   color: var(--lp-primary);
+}
+
+/* ============ FAQ Compact (final-cta 内に統合された折りたたみ FAQ) ============ */
+.faq-compact {
+  margin: 56px auto 0;
+  max-width: 480px;
+  text-align: left;
+}
+.faq-compact-eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 16px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+.faq-compact-item {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+.faq-compact-item[open] {
+  background: rgba(255, 255, 255, 0.13);
+}
+.faq-compact-item summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 18px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
+}
+.faq-compact-item summary::-webkit-details-marker { display: none; }
+.faq-compact-mark {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.faq-compact-mark::before,
+.faq-compact-mark::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 1px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.faq-compact-mark::before {
+  top: 6px; left: 0;
+  width: 14px; height: 2px;
+}
+.faq-compact-mark::after {
+  top: 0; left: 6px;
+  width: 2px; height: 14px;
+}
+.faq-compact-item[open] .faq-compact-mark::after {
+  transform: scaleY(0);
+  opacity: 0;
+}
+.faq-compact-item p {
+  margin: 0;
+  padding: 0 18px 16px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* ============ PhoneFrame モバイル幅キャップ ============ */
+@media (max-width: 480px) {
+  .phone-frame {
+    max-width: min(220px, 65vw);
+  }
 }

@@ -5,7 +5,7 @@
 // SVG アイコンは lucide-react 既存依存をそのまま使用。
 
 import { useEffect, useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check } from 'lucide-react';
 import PhoneFrame from '../components/PhoneFrame';
 import './landing.css';
 
@@ -112,10 +112,15 @@ export default function Landing() {
       {/* ============ Sticky 下部 CTA ============ */}
       {showStickyCta && (
         <div className="sticky-cta" role="region" aria-label="申し込み">
-          <button type="button" onClick={goToSignup} className="sticky-cta-btn">
-            今すぐ始める
-          </button>
-          <p className="sticky-cta-note">月 ¥1,000・いつでも 1 タップで解約可能</p>
+          <div className="sticky-inner">
+            <div className="sticky-price">
+              <span className="sticky-price-main">月 ¥1,000</span>
+              <span className="sticky-price-sub">1 日 ¥33</span>
+            </div>
+            <button type="button" onClick={goToSignup} className="sticky-btn">
+              始める →
+            </button>
+          </div>
         </div>
       )}
 
@@ -206,92 +211,7 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 2.5. AI 選書フロー (3 ステップ圧縮 + 実画面) ============ */}
-      <section className="ai-flow fade-in">
-        <p className="section-eyebrow">AI 選書の流れ</p>
-        <h2 className="section-headline">
-          AI に話しかけるだけで、<br />
-          あなた専用の選書が手に入る。
-        </h2>
-
-        {/* 3 ステップ圧縮フロー */}
-        <div className="flow-steps">
-          {/* STEP 1 */}
-          <div className="flow-step">
-            <div className="step-num">STEP 1</div>
-            <div className="step-title">課題を一言で入力</div>
-            <div className="step-mock">
-              <div className="mock-bubble user">営業成績を上げたい</div>
-            </div>
-          </div>
-
-          <div className="flow-arrow" aria-hidden="true">↓</div>
-
-          {/* STEP 2 */}
-          <div className="flow-step">
-            <div className="step-num">STEP 2</div>
-            <div className="step-title">AI が対話で深掘り</div>
-            <div className="step-mock">
-              <div className="mock-bubble ai">
-                業界・営業スタイル・困りごとを教えてください
-              </div>
-              <div className="mock-bubble user">
-                不動産 BtoB SaaS、新規開拓、商談で決まらない
-              </div>
-              <div className="mock-bubble ai">
-                決裁者へのアプローチ、投資対効果の示し方、顧客の本当の課題ヒアリングについても教えてください
-              </div>
-            </div>
-          </div>
-
-          <div className="flow-arrow" aria-hidden="true">↓</div>
-
-          {/* STEP 3 */}
-          <div className="flow-step">
-            <div className="step-num">STEP 3</div>
-            <div className="step-title">あなた専用の選書</div>
-            <div className="step-mock">
-              <div className="mock-bubble ai">
-                あなたの状況にピッタリの 4 冊を選びました
-              </div>
-              <div className="mock-recommendations">
-                <div className="rec-mini"><span className="rec-cover c1" aria-hidden="true" />SPIN 営業術</div>
-                <div className="rec-mini"><span className="rec-cover c2" aria-hidden="true" />セールス・イズ</div>
-                <div className="rec-mini"><span className="rec-cover c3" aria-hidden="true" />Value Proposition Design</div>
-                <div className="rec-mini"><span className="rec-cover c4" aria-hidden="true" />THE TIME HACKER</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 実画面 — 詳細推薦カード + 読む順番の 2 枚で説得力を強化 */}
-        <div className="real-screenshot">
-          <p className="screenshot-label">↓ 各本に対して、こんな詳細な推薦が届きます</p>
-          <PhoneFrame
-            src="/lp/ai-recommendation.jpg"
-            alt="AI 選書の詳細推薦カード — なぜ必要か / 核心 / 注目すべきポイント / 実践時間まで提示"
-            size="medium"
-          />
-        </div>
-
-        <div className="real-screenshot" style={{ marginTop: 32 }}>
-          <p className="screenshot-label">↓ さらに、最適な読む順番まで提案します</p>
-          <PhoneFrame
-            src="/lp/reading-order.jpg"
-            alt="AI が提案する読む順番のおすすめ"
-            size="medium"
-          />
-        </div>
-
-        <p className="ai-flow-caption">
-          ただ本を勧めるのではなく、<br />
-          あなたの課題に合わせた<strong>選書理由・読み順・実践時間</strong>まで提案。
-        </p>
-      </section>
-
-      <div className="lp-section-divider" aria-hidden="true" />
-
-      {/* ============ 4. Mechanisms (数字主体・ペルソナ引用) ============ */}
+      {/* ============ 3. Mechanisms (数字主体・ペルソナ引用) ============ */}
       <section className="mechanisms fade-in">
         <p className="section-eyebrow">仕組み</p>
         <h2 className="section-headline">
@@ -392,7 +312,7 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 4.25. 行動管理アピール (action-management.jpg を主役に) ============ */}
+      {/* ============ 4. 行動管理アピール (action-management.jpg を主役に) ============ */}
       <section className="action-feature fade-in">
         <p className="section-eyebrow">読みっぱなしを防ぐ</p>
         <h2 className="section-headline">
@@ -429,70 +349,7 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 5. Comparison (大々的な VS テーブル) ============ */}
-      <section className="comparison fade-in">
-        <p className="section-eyebrow">他のアプリとの違い</p>
-        <h2 className="section-headline">
-          記録だけでは、<br />
-          本は資産にならない。
-        </h2>
-        <p className="comparison-intro">
-          一般的な読書アプリは「記録するだけ」。<br />
-          レバレッジ読書ログは「読書を運用する」アプリです。
-        </p>
-
-        <div className="vs-table" role="table" aria-label="他アプリとの機能比較">
-          <div className="vs-header" role="row">
-            <div className="vs-cell vs-feature" role="columnheader">機能</div>
-            <div className="vs-cell vs-other" role="columnheader">
-              一般的な<br />読書アプリ
-            </div>
-            <div className="vs-cell vs-us" role="columnheader">
-              <span className="us-label">レバレッジ<br />読書ログ</span>
-            </div>
-          </div>
-
-          {[
-            { name: '読了の記録', other: true, us: true },
-            { name: 'レビュー投稿', other: true, us: false, usText: '個人の知識資産化に集中' },
-            { name: 'SNS 共有', other: true, us: false, usText: '不要' },
-            { name: 'AI による本の選書', other: false, us: true, usText: '課題から最適な本を提案' },
-            { name: 'AI による読書計画', other: false, us: true, usText: '読み方を本ごとに設計' },
-            { name: '行動管理（期限・優先度）', other: false, us: true, usText: '完了まで追跡' },
-            { name: '過去の本から答える AI', other: false, us: true, usText: '読んだ知識をいつでも引き出す' },
-            { name: '投資の効果(一言)', other: false, us: true, usText: '読書の効果を 1 行で記録' },
-            { name: 'カード式メモ', other: false, us: true, usText: 'ページ番号・写真・タグ付き' },
-          ].map((row) => (
-            <div key={row.name} className="vs-row" role="row">
-              <div className="vs-cell vs-feature" role="cell">{row.name}</div>
-              <div className="vs-cell vs-other" role="cell">
-                {row.other
-                  ? <Check size={20} strokeWidth={2.2} aria-label="あり" />
-                  : <X size={18} strokeWidth={2} aria-label="なし" />}
-              </div>
-              <div className="vs-cell vs-us" role="cell">
-                {row.us ? (
-                  <>
-                    <Check size={20} strokeWidth={3} aria-label="あり" />
-                    {row.usText && <span className="us-text">{row.usText}</span>}
-                  </>
-                ) : (
-                  <span className="us-not-needed">{row.usText || '—'}</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <p className="comparison-conclusion">
-          記録するだけでは、本は本棚の中で眠るだけ。<br />
-          <strong>「資産化する」アプリ</strong>に変えませんか？
-        </p>
-      </section>
-
-      <div className="lp-section-divider" aria-hidden="true" />
-
-      {/* ============ 7. Pricing (¥33/日 フレーミング) ============ */}
+      {/* ============ 5. Pricing (¥33/日 フレーミング) ============ */}
       <section className="pricing fade-in">
         <p className="section-eyebrow">料金</p>
         <h2 className="section-headline">
@@ -547,32 +404,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <div className="lp-section-divider" aria-hidden="true" />
-
-      {/* ============ 8. FAQ (4 問に圧縮) ============ */}
-      <section className="faq fade-in">
-        <p className="section-eyebrow">よくある質問</p>
-        <h2 className="section-headline">心配は、ありません。</h2>
-
-        <details>
-          <summary>解約は本当に簡単？</summary>
-          <p>アプリ内の設定 → サブスクリプション → 解約 から 1 タップで完了します。違約金や手数料は一切ありません。</p>
-        </details>
-        <details>
-          <summary>解約後、データは消えますか？</summary>
-          <p>消えません。解約後もアカウントとメモはすべて保持され、再開すればそのまま戻ります。契約期間内は引き続き全機能をご利用いただけます。</p>
-        </details>
-        <details>
-          <summary>無料で試せますか？</summary>
-          <p>申し訳ありませんが、無料期間はご用意していません。1 日 ¥33 という価格で、長期的な読書投資をご提供しています。</p>
-        </details>
-        <details>
-          <summary>使う時間がない人でも大丈夫？</summary>
-          <p>1 日 5 分から始められます。AI が「重点的に読む章」を絞ってくれるので、忙しい方ほど効果が出ます。</p>
-        </details>
-      </section>
-
-      {/* ============ 9. 最終 CTA ============ */}
+      {/* ============ 6. 最終 CTA + FAQ (1 セクションに統合) ============ */}
       <section className="final-cta fade-in">
         <h2 className="final-headline">
           今日の ¥33 が、<br />
@@ -588,6 +420,26 @@ export default function Landing() {
         <p className="final-note">
           1 日 ¥33・10 秒で解約可能・違約金ゼロ
         </p>
+
+        <div className="faq-compact" role="region" aria-label="よくある質問">
+          <p className="faq-compact-eyebrow">よくある質問</p>
+          <details className="faq-compact-item">
+            <summary>解約は本当に簡単？<span className="faq-compact-mark" aria-hidden="true" /></summary>
+            <p>アプリ内の設定 → サブスクリプション → 解約 から 1 タップで完了します。違約金や手数料は一切ありません。</p>
+          </details>
+          <details className="faq-compact-item">
+            <summary>解約後、データは消えますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
+            <p>消えません。解約後もアカウントとメモはすべて保持され、再開すればそのまま戻ります。契約期間内は引き続き全機能をご利用いただけます。</p>
+          </details>
+          <details className="faq-compact-item">
+            <summary>無料で試せますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
+            <p>申し訳ありませんが、無料期間はご用意していません。1 日 ¥33 という価格で、長期的な読書投資をご提供しています。</p>
+          </details>
+          <details className="faq-compact-item">
+            <summary>使う時間がない人でも大丈夫？<span className="faq-compact-mark" aria-hidden="true" /></summary>
+            <p>1 日 5 分から始められます。AI が「重点的に読む章」を絞ってくれるので、忙しい方ほど効果が出ます。</p>
+          </details>
+        </div>
       </section>
 
       {/* ============ Footer ============ */}
