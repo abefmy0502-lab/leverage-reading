@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
-import { callMyBookBrain } from '../lib/ai';
+import { streamMyBookBrain } from '../lib/ai';
 import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
@@ -248,6 +248,9 @@ export default function MyBookBrain({ onOpenBook }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  // 段階的ステータス表示: 'search' = 過去のメモを取得中, 'generate' = Claude が回答生成中,
+  // null = 未送信 or ストリーミング中で本文が出始めた。
+  const [stage, setStage] = useState(null);
   // 「✅ 解決した」をタップした時刻 (ISO 文字列)。chat view ではこの時刻
   // 以降のメッセージのみ表示する。history view は全件表示。localStorage に
   // 永続化して mount/unmount を跨いでも保持。
@@ -418,10 +421,36 @@ export default function MyBookBrain({ onOpenBook }) {
       return;
     }
 
+    // ★ 送信後すぐに assistant 吹き出しを optimistically 追加。空文字 +
+    //   streaming:true で skeleton/cursor を出し、TTFT を体感的に短縮する。
+    const streamingId = `streaming-${Date.now()}`;
+    setMessages((arr) => [
+      ...arr,
+      {
+        id: streamingId,
+        role: 'assistant',
+        content: '',
+        refs: [],
+        createdAt: new Date().toISOString(),
+        streaming: true,
+      },
+    ]);
+    setStage('search');
+
     try {
-      const { body, refs, memoCount, memoTotal, cardCount, summaryCount, personalCount } = await callMyBookBrain({
+      const { body, refs, memoCount, memoTotal, cardCount, summaryCount, personalCount } = await streamMyBookBrain({
         userId: user.id,
         question: q,
+        onStage: (s) => setStage(s),
+        onChunk: (visibleText) => {
+          // 最初の delta が来た瞬間に stage を消して本文表示に切り替える。
+          setStage(null);
+          setMessages((arr) => arr.map((m) =>
+            m.id === streamingId
+              ? { ...m, content: visibleText, streaming: true }
+              : m
+          ));
+        },
       });
       const breakdown = `カード ${cardCount || 0} / まとめ ${summaryCount || 0} / 学び ${personalCount || 0}`;
       const assistantContent = memoTotal > memoCount && memoCount > 0
@@ -433,22 +462,27 @@ export default function MyBookBrain({ onOpenBook }) {
         .select()
         .single();
       if (error) throw error;
-      setMessages((arr) => [...arr, transformMessage(data)]);
+      // 楽観的な streaming 行を、永続化された row で差し替える。
+      setMessages((arr) => arr.map((m) => (m.id === streamingId ? transformMessage(data) : m)));
       // 新しい AI 回答が来たら resolution prompt を再表示できるよう dismiss を解除
       setPromptDismissed(false);
     } catch (e) {
       toast.error(toMessage(e, '回答の生成に失敗しました。'));
-      // Insert a placeholder error message so the chat doesn't dangle.
-      const fallback = {
-        id: `err-${Date.now()}`,
-        role: 'assistant',
-        content: '回答を生成できませんでした。少し時間をおいて再度お試しください。',
-        refs: [],
-        createdAt: new Date().toISOString(),
-      };
-      setMessages((arr) => [...arr, fallback]);
+      // 楽観的な streaming 行を error placeholder に差し替える。
+      setMessages((arr) => arr.map((m) =>
+        m.id === streamingId
+          ? {
+              id: `err-${Date.now()}`,
+              role: 'assistant',
+              content: '回答を生成できませんでした。少し時間をおいて再度お試しください。',
+              refs: [],
+              createdAt: new Date().toISOString(),
+            }
+          : m
+      ));
       setPromptDismissed(false);
     } finally {
+      setStage(null);
       setBusy(false);
     }
   };
@@ -656,13 +690,13 @@ export default function MyBookBrain({ onOpenBook }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {visibleMessages.map((m) => (
-              <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} />
+              <ChatMessage
+                key={m.id}
+                message={m}
+                onOpenBook={onOpenBook}
+                stage={m.streaming ? stage : null}
+              />
             ))}
-            {busy && (
-              <div style={{ alignSelf: 'flex-start', maxWidth: '90%', padding: '10px 14px', background: '#f7f3ec', borderRadius: 14, borderBottomLeftRadius: 4 }}>
-                <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0 }}>分析中… 過去の本を参照しています</p>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -768,8 +802,14 @@ export default function MyBookBrain({ onOpenBook }) {
   );
 }
 
-function ChatMessage({ message, onOpenBook }) {
+const STAGE_LABEL = {
+  search: '📚 過去の本を検索中…',
+  generate: '🧠 あなた専用の回答を生成中…',
+};
+
+function ChatMessage({ message, onOpenBook, stage }) {
   const isUser = message.role === 'user';
+  const isStreaming = !!message.streaming;
   const bubbleStyle = {
     maxWidth: '90%',
     padding: '10px 14px',
@@ -783,11 +823,34 @@ function ChatMessage({ message, onOpenBook }) {
     borderBottomLeftRadius: isUser ? 14 : 4,
   };
 
+  // 本文がまだ無い (= stream 開始前) は段階ステータス + skeleton を出して
+  // 「何かが進んでいる」を視覚化する。本文が届き始めたら本文 + 点滅カーソル
+  // に切り替え、stage は隠す。
+  const hasBody = typeof message.content === 'string' && message.content.length > 0;
+  const showStageBlock = isStreaming && !hasBody;
+
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
       <div style={bubbleStyle}>
-        {message.content}
-        {!isUser && message.refs?.length > 0 && (
+        {showStageBlock ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="ai-thinking" aria-live="polite">
+              <span className="ai-thinking-dot" aria-hidden="true" />
+              <span>{STAGE_LABEL[stage] || '🧠 回答を準備中…'}</span>
+            </div>
+            <div className="ai-skeleton" aria-hidden="true">
+              <div className="ai-skeleton-line" style={{ width: '88%' }} />
+              <div className="ai-skeleton-line" style={{ width: '74%' }} />
+              <div className="ai-skeleton-line" style={{ width: '62%' }} />
+            </div>
+          </div>
+        ) : (
+          <>
+            {message.content}
+            {isStreaming && hasBody && <span className="streaming-cursor" aria-hidden="true" />}
+          </>
+        )}
+        {!isUser && !isStreaming && message.refs?.length > 0 && (
           <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #d4ccbe' }}>
             <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 4px', fontWeight: 500 }}>
               📚 参照した本・メモ
@@ -799,9 +862,11 @@ function ChatMessage({ message, onOpenBook }) {
             </ul>
           </div>
         )}
-        <p style={{ fontSize: 9, color: isUser ? 'rgba(250,246,240,0.6)' : '#a89e8c', margin: '6px 0 0' }}>
-          {fmtDate(message.createdAt)}
-        </p>
+        {!isStreaming && (
+          <p style={{ fontSize: 9, color: isUser ? 'rgba(250,246,240,0.6)' : '#a89e8c', margin: '6px 0 0' }}>
+            {fmtDate(message.createdAt)}
+          </p>
+        )}
       </div>
     </div>
   );

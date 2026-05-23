@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-05-24: 全 AI 機能のストリーミング化 (TTFT 最短化)。AI 選書 / マイ読書脳 / 読書計画シート の 3 機能で、Claude の応答を Server-Sent Events で逐次受信し、文字が届く端から画面に流す。新規 `src/lib/streamClaude.js` (Supabase access token 付きで /api/claude にストリーミング POST、Anthropic SSE の content_block_delta を解釈して onChunk を発火)、`api/claude.js` に `stream: true` の場合の SSE パススルー (Content-Type / Cache-Control / X-Accel-Buffering ヘッダ + flushHeaders で Vercel の edge buffering を無効化)、`src/lib/ai.js` の callMyBookBrain を buildBrainContext + callMyBookBrain + streamMyBookBrain に分割 (memos/books 取得は共有、transport だけ差分)。UI: BookAdvisor / MyBookBrain は送信直後に空の assistant 吹き出しを追加 → skeleton + 「📚 過去の本を検索中…」「🧠 あなた専用の回答を生成中…」段階表示 → 文字が来始めたら点滅カーソル付きでテキストを伸ばす。読書計画シート (runAnalysis / runStrategy / runStrategyEdit) は form.aiAnalysis / aiStrategy へ逐次書き込み、MarkdownSections が 1 chunk ごとに progressive render。RECOMMENDATIONS_START..END / REFS_START..END は streaming 中は stripRecommendationsBlock / stripRefsBlock で隠し、onDone でだけパースしてカード化 (途中の不完全な JSON で UI が壊れる事故を防止)。関連書籍カードの「📚 読みたい」ボタンは aiLoading 中は無効化 (onAddRelatedBook を渡さず通常見出しに縮退)。新規 CSS: `.streaming-cursor` (点滅) / `.ai-thinking` + `.ai-thinking-dot` (pulse) / `.ai-skeleton` + `.ai-skeleton-line` (shimmer)、すべて transform/opacity/background-position だけで GPU 駆動 + prefers-reduced-motion 抑制を継承
  * - 2026-05-04: LP 購買率最適化リライト (13 → 9 セクション)。【削除】outcome / use-case timeline / use-list / guarantee (Pricing 内に統合) / philosophy → 222 行カット。【書き換え】Hero: 「読みっぱなしの本、もう作らない」→「本 1 冊を、年収 10 万円に変える」+ 「読書を、最強の自己投資に」eyebrow + clamp() で巨大見出し (36-56px)。Pain: 73%/68%/81% の調査データ → 損失計算機 (¥4,702/月 が "捨てられている" を視覚化、損失回避フレーミング)。Pricing: ¥1,000/月 → ¥33/日 を主役表示 + 缶コーヒー比較 + 3 つの保証 (1 タップ解約 / 違約金ゼロ / データ保持) を Pricing 内に grid 統合。FAQ: 7 → 4 問に圧縮。Final CTA: 「読書を、投資にする」→「今日の ¥33 が、1 年後のあなたを変える」。【追加】cta-secondary (Pain 末尾)、cta-large (Pricing/Final で full-width 大ボタン)、guarantee-row (3 列 / 狭幅で縦並び)。【意図的に省略】trust-bar (実数値が無い段階で fake metrics を入れない方針 — TODO コメントで disabled mount を残置)、「値上げの可能性」FOMO (発表事実が確定するまで書かない)。SW v46 → v47
  * - 2026-05-04: 関連書籍ボタンの縦割れ表示修正 + ラベル統一短縮。スクショで「Amazon で買 / う」のように 1 ボタンが 2 行に分裂する症状を確認。RelatedBookCard (MarkdownSections.jsx) の関連書籍カード内で `flexWrap: 'wrap'` + 長いラベル + 狭幅で縦割れが発生していた。修正: (1) ラベル短縮 — 「📚 読みたいに追加」→「📚 読みたい」、「🛒 Amazon で買う」→「🛒 Amazon」を 3 箇所 (BookAdvisor / AdvisorSessionDetail / RelatedBookCard) すべてで統一。(2) `whiteSpace: 'nowrap'` を全ボタン style に追加 — 物理的に文字途中改行を禁止。(3) RelatedBookCard 行から `flexWrap: 'wrap'` を撤去、padding を 8px 14px → 10px 12px に微調整、minWidth: 0 で flex 子要素が縮小可能に。(4) Amazon 外部リンクにも `e.stopPropagation()` + `touchAction: manipulation` を追加。aria-label は「読みたいに追加」のフル文言を維持 (スクリーンリーダー向け配慮)。SW v45 → v46
  * - 2026-05-04: 全「📚 読みたいに追加」ボタンに iOS タップ性能 + イベント防御を強化。(1) 3 箇所すべて (BookAdvisor live chat / AdvisorSessionDetail history card / RelatedBookCard 読書計画シート関連書籍) の onClick に `e.stopPropagation()` を追加 — 親要素の click ハンドラに食われる事故を防止。(2) `type="button"` 明示 + `touchAction: 'manipulation'` (iOS Safari の 300ms ダブルタップ遅延を撤去) + `WebkitTapHighlightColor` で視覚的な押下フィードバック + `minHeight: 44` (iOS HIG の最小タップ領域)。(3) BookAdvisor handleClickAdd と addRelatedBookFromAi の冒頭に `haptic.light()` を追加 — 画面の見た目とは別経路でタップ受付を即時 ack (UI 反映が遅れて見える場合の補強)。BookAdvisor は同 file 内のため `useHaptic()` を component scope で呼び出して `advisorHaptic` 経由で参照。SW v44 → v45 で busting
@@ -151,7 +152,7 @@ export const HELP_CONTENT = {
   bookDetailBefore: {
     title: '🎯 読書前（投資戦略）',
     description: 'AI と一緒に「この本から何を得るか」を計画する段階です。',
-    lastUpdated: '2026-05-01',
+    lastUpdated: '2026-05-24',
     sections: [
       {
         heading: '📋 AI 読書計画を始める（最初のメインアクション）',
@@ -284,7 +285,7 @@ export const HELP_CONTENT = {
   aiAdvisor: {
     title: '🤖 AI 選書アドバイザー',
     description: 'AI が 4 つの機能で読書を加速します。',
-    lastUpdated: '2026-05-04',
+    lastUpdated: '2026-05-24',
     steps: [
       {
         title: 'AI 選書で本を見つける',
@@ -481,7 +482,7 @@ export const HELP_CONTENT = {
   myBookBrain: {
     title: '🧠 マイ読書脳',
     description: '過去に読んだ本の知恵が、あなた専用の AI になる。',
-    lastUpdated: '2026-05-04',
+    lastUpdated: '2026-05-24',
     steps: [
       {
         title: '質問する',

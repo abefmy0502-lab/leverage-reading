@@ -1,6 +1,7 @@
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
 import { callClaude } from './lib/ai';
+import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
 import MarkdownSections from './components/MarkdownSections';
 import AuthScreen from './components/auth/AuthScreen';
@@ -902,7 +903,10 @@ function BeforePhase({
       {aiLoading && !form.aiAnalysis && <Dots />}
       {form.aiAnalysis && (
         <div style={{ marginTop: 8 }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>解析結果</p>
+          <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>
+            解析結果
+            {aiLoading && !form.aiStrategy && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 6 }} />}
+          </p>
           <MarkdownSections text={form.aiAnalysis} />
         </div>
       )}
@@ -1018,10 +1022,17 @@ function BeforePhase({
           {aiLoading && form.aiAnalysis && !form.aiStrategy && <Dots />}
           {form.aiStrategy && (
             <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>読書前読書計画シート</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>
+                読書前読書計画シート
+                {aiLoading && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 6 }} />}
+              </p>
+              {/* aiLoading 中は onAddRelatedBook を渡さない — MarkdownSections は
+                  「関連書籍」見出しを通常の見出しとして描画し、関連書籍カードと
+                  「📚 読みたい」ボタンを出さない。途中の不完全な 『title』 を
+                  押されてもデータが壊れない。 */}
               <MarkdownSections
                 text={form.aiStrategy}
-                onAddRelatedBook={onAddRelatedBook}
+                onAddRelatedBook={aiLoading ? undefined : onAddRelatedBook}
                 addingTitles={addingTitles}
               />
 
@@ -1385,69 +1396,120 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     };
   };
 
+  // 推薦 JSON ブロックを表示用テキストから抜く。ストリーミング中に
+  // RECOMMENDATIONS_START が来ても、生 JSON を吹き出しに出さず「以降は
+  // 推薦カードに切り出す」前提のプレースホルダーに置換する。途中で切れた
+  // 場合 (END 未到達) は START 以降を捨てるだけで OK — onDone で完全な
+  // 推薦カードに置き換わる。
+  const stripRecommendationsBlock = (text) => {
+    if (typeof text !== 'string' || !text) return text || '';
+    const start = text.indexOf('RECOMMENDATIONS_START');
+    if (start < 0) return text;
+    const before = text.slice(0, start).trimEnd();
+    const endIdx = text.indexOf('RECOMMENDATIONS_END', start);
+    if (endIdx < 0) return before;
+    const after = text.slice(endIdx + 'RECOMMENDATIONS_END'.length).trimStart();
+    return after ? `${before}\n\n${after}` : before;
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
-    setLoading(true);
 
     const newHistory = [...chatHistory, { role: "user", content: userMsg }];
     setChatHistory(newHistory);
 
+    // ★ 送信直後に user 吹き出し + 空の assistant 吹き出しを同時に追加。
+    //   assistant 側の streaming: true で点滅カーソルを出し「文字を待っている
+    //   状態」を視覚化する。TTFT を体感的にゼロに近づける。
+    const assistantIndex = messages.length + 1; // user を入れた直後の index
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", text: userMsg },
+      { role: "assistant", text: '', streaming: true },
+    ]);
+    setLoading(true);
+
+    let finalText = '';
     try {
-      const aiText = await callClaude(newHistory, {
+      finalText = await streamClaude({
         system: PROMPTS.bookAdvisor.system,
-        max_tokens: 2048,
+        messages: newHistory,
         // temperature 0.7 — 推薦に多様性を出す (同じ著者ばかりにならない)。
         // 高すぎると的外れな推薦が増えるので 0.7 が中庸。
         temperature: 0.7,
+        max_tokens: 2048,
         model: "claude-sonnet-4-20250514",
+        onChunk: (fullText) => {
+          const display = stripRecommendationsBlock(fullText);
+          setMessages((prev) => {
+            if (!prev[assistantIndex]) return prev;
+            const next = [...prev];
+            next[assistantIndex] = { role: "assistant", text: display, streaming: true };
+            return next;
+          });
+        },
       });
+    } catch (e) {
+      // streamClaude が throw する場合は表示メッセージを差し替えて UI を回復。
+      const msg = (e && e.message) ? e.message : '通信エラーが発生しました。';
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next[assistantIndex]) next[assistantIndex] = { role: "assistant", text: msg };
+        return next;
+      });
+      setLoading(false);
+      return;
+    }
 
-      // 親しみやすさのため UI の messages は短いプロセだけにするが、
-      // セッション永続化用の history は AI の生テキストを残す
-      // (再開時の文脈精度を保つため)。
-      const { recs, prose } = parseAdvisorResponse(aiText);
-      let nextHistory;
-      let nextRecs = null;
-      if (recs) {
-        const proseBefore = prose?.before || 'あなたの状況に合った本を選びました。';
-        setRecommendations({ items: recs, before: prose?.before || '', after: prose?.after || '' });
-        // 推薦が出た = この userMsg がユーザーの「課題」。これを source_query として記憶。
-        setLastUserQuery(userMsg);
-        setMessages((prev) => [...prev, { role: "assistant", text: proseBefore }]);
-        // 永続化用 history は推薦カード込みの生テキストを残す
-        nextHistory = [...newHistory, { role: "assistant", content: aiText }];
-        setChatHistory(nextHistory);
-        nextRecs = recs;
-      } else {
-        setMessages((prev) => [...prev, { role: "assistant", text: aiText }]);
-        nextHistory = [...newHistory, { role: "assistant", content: aiText }];
-        setChatHistory(nextHistory);
-      }
+    // ★ 完了後にだけ RECOMMENDATIONS_START..END をパース。途中の不完全な
+    //   JSON で推薦カードを組まないことで、カード表示の壊れを防ぐ。
+    const { recs, prose } = parseAdvisorResponse(finalText);
+    let nextHistory;
+    let nextRecs = null;
+    if (recs) {
+      const proseBefore = prose?.before || 'あなたの状況に合った本を選びました。';
+      setRecommendations({ items: recs, before: prose?.before || '', after: prose?.after || '' });
+      // 推薦が出た = この userMsg がユーザーの「課題」。これを source_query として記憶。
+      setLastUserQuery(userMsg);
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next[assistantIndex]) next[assistantIndex] = { role: "assistant", text: proseBefore };
+        return next;
+      });
+      // 永続化用 history は推薦カード込みの生テキストを残す
+      nextHistory = [...newHistory, { role: "assistant", content: finalText }];
+      setChatHistory(nextHistory);
+      nextRecs = recs;
+    } else {
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next[assistantIndex]) next[assistantIndex] = { role: "assistant", text: finalText };
+        return next;
+      });
+      nextHistory = [...newHistory, { role: "assistant", content: finalText }];
+      setChatHistory(nextHistory);
+    }
 
-      // セッション永続化 — 最初の往復で作成、以降は更新。
-      // sessionApi が無い (= 未マイグレーション) ならスキップ。
-      if (sessionApi?.available) {
-        try {
-          if (!currentSessionId) {
-            const created = await sessionApi.createSession({
-              messages: nextHistory,
-              recommendedBooks: nextRecs || [],
-            });
-            if (created?.id) setCurrentSessionId(created.id);
-          } else {
-            const patch = { messages: nextHistory };
-            if (nextRecs) patch.recommended_books = nextRecs;
-            await sessionApi.updateSession(currentSessionId, patch);
-          }
-        } catch {
-          // 永続化失敗は UX を壊さない
+    // セッション永続化 — 最初の往復で作成、以降は更新。
+    // sessionApi が無い (= 未マイグレーション) ならスキップ。
+    if (sessionApi?.available) {
+      try {
+        if (!currentSessionId) {
+          const created = await sessionApi.createSession({
+            messages: nextHistory,
+            recommendedBooks: nextRecs || [],
+          });
+          if (created?.id) setCurrentSessionId(created.id);
+        } else {
+          const patch = { messages: nextHistory };
+          if (nextRecs) patch.recommended_books = nextRecs;
+          await sessionApi.updateSession(currentSessionId, patch);
         }
+      } catch {
+        // 永続化失敗は UX を壊さない
       }
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", text: "通信エラーが発生しました。" }]);
     }
     setLoading(false);
   };
@@ -1706,18 +1768,24 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               borderBottomRightRadius: m.role === "user" ? 4 : 14,
               borderBottomLeftRadius: m.role === "user" ? 14 : 4,
             }}>
-              {m.text}
+              {/* 空の assistant 吹き出し (= 最初の delta 到達前) は
+                  skeleton + thinking dot で「待っている感覚」を最小化。
+                  delta が来始めたら通常テキスト + 点滅カーソルに切り替え。 */}
+              {m.streaming && !m.text ? (
+                <div className="ai-skeleton" aria-label="AI が回答を作成しています">
+                  <div className="ai-skeleton-line" style={{ width: '88%' }} />
+                  <div className="ai-skeleton-line" style={{ width: '74%' }} />
+                  <div className="ai-skeleton-line" style={{ width: '62%' }} />
+                </div>
+              ) : (
+                <>
+                  {m.text}
+                  {m.streaming && m.text && <span className="streaming-cursor" aria-hidden="true" />}
+                </>
+              )}
             </div>
           </div>
         ))}
-
-        {loading && (
-          <div style={{ display: "flex", justifyContent: "flex-start" }}>
-            <div style={{ padding: "10px 14px", borderRadius: 14, background: "#f7f3ec", borderBottomLeftRadius: 4 }}>
-              <Dots />
-            </div>
-          </div>
-        )}
 
         {/* Recommendations — richer per-book card with reasoning */}
         {recommendations && (
@@ -2841,13 +2909,22 @@ function AuthedApp() {
 
   const runAnalysis = async () => {
     setAiLoading(true);
+    // ストリーミング開始前にフィールドをクリア。古い解析結果が残ると
+    // onChunk で書き換わるまでに違和感が出る。
+    setForm((f) => ({ ...f, aiAnalysis: '' }));
     try {
-      const r = await callClaude(
-        PROMPTS.bookAnalysis.system,
-        PROMPTS.bookAnalysis.user({ title: form.title, author: form.author }),
-        { max_tokens: 2048 }
-      );
-      setForm((f) => ({ ...f, aiAnalysis: r }));
+      await streamClaude({
+        system: PROMPTS.bookAnalysis.system,
+        messages: [{
+          role: 'user',
+          content: PROMPTS.bookAnalysis.user({ title: form.title, author: form.author }),
+        }],
+        max_tokens: 2048,
+        model: 'claude-sonnet-4-20250514',
+        onChunk: (fullText) => {
+          setForm((f) => ({ ...f, aiAnalysis: fullText }));
+        },
+      });
     } catch (error) {
       toast.error(toMessage(error, 'AI解析に失敗しました。'));
     } finally {
@@ -2856,19 +2933,30 @@ function AuthedApp() {
   };
   const runStrategy = async () => {
     setAiLoading(true);
+    setForm((f) => ({ ...f, aiStrategy: '' }));
     try {
-      const r = await callClaude(
-        PROMPTS.setupSheet.system,
-        PROMPTS.setupSheet.user({
-          title: form.title,
-          author: form.author,
-          analysis: form.aiAnalysis,
-          purpose: form.investPurpose,
-          topTags: allTags.slice(0, 3),
-        }),
-        { max_tokens: 2048 }
-      );
-      setForm((f) => ({ ...f, aiStrategy: r }));
+      await streamClaude({
+        system: PROMPTS.setupSheet.system,
+        messages: [{
+          role: 'user',
+          content: PROMPTS.setupSheet.user({
+            title: form.title,
+            author: form.author,
+            analysis: form.aiAnalysis,
+            purpose: form.investPurpose,
+            topTags: allTags.slice(0, 3),
+          }),
+        }],
+        max_tokens: 2048,
+        model: 'claude-sonnet-4-20250514',
+        onChunk: (fullText) => {
+          // 関連書籍カードのパース (= 「読みたい」ボタン押下可能) は
+          // streaming 中は BeforePhase 側で aiLoading を見て無効化している。
+          // MarkdownSections は 1 chunk ごとに再 render する形になるが、
+          // テキスト量は 2KB 以下で十分軽い。
+          setForm((f) => ({ ...f, aiStrategy: fullText }));
+        },
+      });
       // Fresh generation invalidates any prior 修正リクエスト history.
       if (form?.id) clearStrategyHistory(form.id);
     } catch (error) {
@@ -2886,25 +2974,40 @@ function AuthedApp() {
     if (!instruction?.trim()) return;
     const prev = form.aiStrategy;
     setAiLoading(true);
+    // 修正中は一旦シートを空にして「上書きしているんだ」と視覚化。
+    // 失敗時は finally で prev に戻す。
+    setForm((f) => ({ ...f, aiStrategy: '' }));
+    let didStreamAny = false;
     try {
-      const r = await callClaude(
-        PROMPTS.setupSheetEdit.system,
-        PROMPTS.setupSheetEdit.user({
-          existing: prev,
-          instruction,
-          title: form.title,
-          author: form.author,
-        }),
-        { max_tokens: 2048 }
-      );
-      if (typeof r !== 'string' || r.startsWith('エラー') || r.startsWith('AI機能') || r.startsWith('リクエスト') || r.startsWith('通信エラー')) {
-        throw new Error(r || 'AI 修正に失敗しました');
+      await streamClaude({
+        system: PROMPTS.setupSheetEdit.system,
+        messages: [{
+          role: 'user',
+          content: PROMPTS.setupSheetEdit.user({
+            existing: prev,
+            instruction,
+            title: form.title,
+            author: form.author,
+          }),
+        }],
+        max_tokens: 2048,
+        model: 'claude-sonnet-4-20250514',
+        onChunk: (fullText) => {
+          didStreamAny = true;
+          setForm((f) => ({ ...f, aiStrategy: fullText }));
+        },
+      });
+      if (!didStreamAny) {
+        // 何も返ってこなかったケース (network error 等は throw されるので
+        // ここに来ることは稀だが念のため)。
+        throw new Error('AI 修正に失敗しました');
       }
-      setForm((f) => ({ ...f, aiStrategy: r }));
       if (form?.id) saveStrategyHistory(form.id, prev);
       setStrategyHistoryTick((t) => t + 1);
       toast.success('✓ 読書計画シートを修正しました');
     } catch (error) {
+      // ストリーミング失敗時は元のシートを戻す (undo 履歴は触らない)。
+      setForm((f) => ({ ...f, aiStrategy: prev }));
       toast.error(toMessage(error, '読書計画シートの修正に失敗しました。'));
     } finally {
       setAiLoading(false);

@@ -82,6 +82,7 @@ export default async function handler(req, res) {
       ? Math.max(1, Math.floor(body.max_tokens))
       : MAX_TOKENS_DEFAULT;
     const maxTokens = Math.min(requestedTokens, MAX_TOKENS_HARD_CAP);
+    const wantsStream = body.stream === true;
 
     const payload = { ...body, max_tokens: maxTokens };
 
@@ -94,6 +95,42 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify(payload),
     });
+
+    // Streaming pass-through: forward Anthropic's SSE body verbatim to the
+    // browser so the first token reaches the client without buffering the
+    // entire response. Upstream errors arrive as JSON, not SSE — detect by
+    // content-type and short-circuit so the client still sees a normal
+    // error body.
+    if (wantsStream && response.ok && response.body) {
+      const upstreamType = response.headers.get('content-type') || '';
+      if (upstreamType.includes('text/event-stream')) {
+        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Connection', 'keep-alive');
+        // Vercel-specific: tell the edge layer not to buffer.
+        res.setHeader('X-Accel-Buffering', 'no');
+        res.status(response.status);
+        // flushHeaders fires the response headers immediately so the
+        // browser knows to start reading; without it some proxies hold the
+        // first chunk back.
+        if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+        const reader = response.body.getReader();
+        try {
+          while (true) {
+            // eslint-disable-next-line no-await-in-loop
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) res.write(Buffer.from(value));
+          }
+        } catch (streamErr) {
+          console.error('Claude stream relay error:', streamErr);
+        } finally {
+          try { res.end(); } catch { /* socket may already be closed */ }
+        }
+        return;
+      }
+    }
 
     const data = await response.json();
     return res.status(response.status).json(data);

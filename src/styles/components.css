@@ -1225,3 +1225,77 @@ body.keyboard-open .bottom-nav {
   max-width: 100%;
   box-sizing: border-box;
 }
+
+/* =========================================================================
+ * AI streaming affordances (Time-To-First-Token UX)
+ *
+ * 「最初の 1 文字が出るまで」を最短化する 3 点セット:
+ *   .streaming-cursor — text-stream の末尾で点滅する細い縦棒。生成中であることを
+ *                      無音で示し、止まっていないことを保証する。
+ *   .ai-thinking     — 「📚 過去の本を検索中…」のような段階表示。dot は GPU 駆動の
+ *                      pulse アニメーション。
+ *   .ai-skeleton-*   — 最初の delta が到達する前の空白を埋める shimmer プレース
+ *                      ホルダー。
+ * すべて transform / opacity / background-position だけで動くため
+ * prefers-reduced-motion は index.css の global 抑制で無効化される。
+ * ========================================================================= */
+
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  vertical-align: -0.15em;
+  margin-left: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  animation: lvg-streaming-blink 1s steps(2, end) infinite;
+}
+
+@keyframes lvg-streaming-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+
+.ai-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-tertiary, #8a7e6b);
+  padding: 4px 0;
+  line-height: 1.4;
+}
+
+.ai-thinking-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent, #5c5043);
+  animation: lvg-ai-pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes lvg-ai-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.5; }
+}
+
+.ai-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.ai-skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ece6da 25%, #f5f1e7 50%, #ece6da 75%);
+  background-size: 200% 100%;
+  animation: lvg-ai-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes lvg-ai-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
