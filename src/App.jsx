@@ -2709,7 +2709,16 @@ function AuthedApp() {
     //    で候補を表示 → 選択した結果)。検索を裏で再実行して 1 件目で
     //    上書きする旧挙動は WYSIWYG 原則に反するので skip。
     const verifiedIsbn = rec.isbn ? String(rec.isbn).replace(/[-\s]/g, '') : '';
-    const verifiedCover = (rec.cover || '').toString().trim();
+    let verifiedCover = (rec.cover || '').toString().trim();
+    // 検索結果に表紙 URL が含まれない (openBD enrichment が現在死んでいて
+    // 候補側 cover が空になるため) ケースに備え、ISBN が確定していれば
+    // pickBookFromAdd と同じく `getCoverCandidates[0]` (= Google Books の
+    // 直接 URL) を表紙として焼き込む。bg resolver 待ちにせず、保存時点で
+    // 本棚に表紙が表示される。
+    if (!verifiedCover && verifiedIsbn) {
+      const seedCandidates = getCoverCandidates(verifiedIsbn);
+      if (seedCandidates.length > 0) verifiedCover = seedCandidates[0];
+    }
     const newBook = {
       ...emptyBook(),
       title: rec.title,
@@ -2737,6 +2746,14 @@ function AuthedApp() {
           if (isStrictMatch(first, { title: rec.title, author: rec.author })) {
             newBook.totalPages = first.pages || 0;
             newBook.isbn = first.isbn || '';
+            // 二次検索で初めて ISBN が確定したケースもここで seed する。
+            if (newBook.isbn && !newBook.cover) {
+              const seedCandidates = getCoverCandidates(newBook.isbn);
+              if (seedCandidates.length > 0) {
+                newBook.cover = seedCandidates[0];
+                newBook.coverIsbn = String(newBook.isbn).replace(/[-\s]/g, '');
+              }
+            }
           } else {
             // eslint-disable-next-line no-console
             console.warn('[add] search top hit not strict match, skipping ISBN:', { recommended: rec.title, got: first.title });
@@ -3094,6 +3111,15 @@ function AuthedApp() {
               if (first.cover) {
                 newBook.cover = first.cover;
                 newBook.coverIsbn = first.isbn ? String(first.isbn).replace(/[-\s]/g, '') : '';
+              }
+              // openBD enrichment が dead で first.cover が空になるケースは
+              // pickBookFromAdd と同じく Google Books URL を seed する。
+              if (!newBook.cover && newBook.isbn) {
+                const seedCandidates = getCoverCandidates(newBook.isbn);
+                if (seedCandidates.length > 0) {
+                  newBook.cover = seedCandidates[0];
+                  newBook.coverIsbn = String(newBook.isbn).replace(/[-\s]/g, '');
+                }
               }
             } else {
               // eslint-disable-next-line no-console
