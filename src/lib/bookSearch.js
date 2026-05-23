@@ -647,10 +647,24 @@ const normalizeAuthor = (s) =>
     .toLowerCase()
     .replace(/[\s・,、;:]/g, '');
 
+// `longer` が `shorter` で始まる時、続く部分が「巻数 / 続編」を示すか。
+// 「1分で話せ」と「1分で話せ2」を別書誌として扱うため。App.jsx の
+// `_suffixIsVolume` と同じロジック (CJK タイトル + 数字接尾 + 巻数語彙)。
+function suffixIsVolume(longer, shorter) {
+  const tail = longer.slice(shorter.length);
+  if (!tail) return false;
+  if (/^\d/.test(tail)) return true;
+  if (/^(ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii)([^a-z]|$)/.test(tail)) return true;
+  if (/^(上|下|前編|後編|続編|完結編|外伝|新章|別巻|超)/.test(tail)) return true;
+  if (/^(vol|part|book|chapter|episode)/.test(tail)) return true;
+  return false;
+}
+
 /**
  * 0.0〜1.0 のタイトル類似度。
  *  - 完全一致: 1.0
  *  - 一方が他方を完全に含む (副題違い等): 包含側の比率
+ *  - 続編 (「1分で話せ」「1分で話せ2」): 0 (別書誌扱い)
  *  - それ以外: 0
  *
  * 部分一致 (どちらでも片方を含まない) は意図的に却下。半分一致した
@@ -664,6 +678,10 @@ const titleSimilarity = (a, b) => {
   if (na.includes(nb) || nb.includes(na)) {
     const longer = na.length >= nb.length ? na : nb;
     const shorter = na.length >= nb.length ? nb : na;
+    // longer = shorter + 巻数表記 のケースを除外 (例: 「1分で話せ2」を
+    // 「1分で話せ」の候補にしない)。includes は中央含み (副題のような) も
+    // 拾うが、続編判定は startsWith の時のみ実施する。
+    if (longer.startsWith(shorter) && suffixIsVolume(longer, shorter)) return 0;
     return shorter.length / longer.length;
   }
   return 0;
