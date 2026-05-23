@@ -5,15 +5,41 @@
 // state は概ね最新。
 //
 // マッチ規則:
-//   1. ISBN 同士の正規化比較 (両方に ISBN があれば厳密チェック)
+//   1. ISBN 同士の正規化比較 — ISBN-10 / ISBN-13 のどちらの表記でも同じ書誌は
+//      同じ ISBN-13 にキャノニカライズしてから比較する (例: 4492557717 ↔
+//      9784492557716 は同一書籍扱い)。
 //   2. ISBN が片方/両方無ければ、title (lower / 全角半角統一) と author (lower)
 //      の組み合わせ。
 //
 // 戻り値: マッチした book オブジェクト (= books[i]) もしくは null。
 
+// ISBN-10 → ISBN-13 (978 prefix) コンバータ。末尾チェックディジットは
+// EAN-13 のアルゴリズムで再計算する。X (ISBN-10 の '10' を表す) を含む
+// 入力にも対応。失敗時は入力をそのまま返す。
+function isbn10to13(isbn10) {
+  if (!isbn10 || isbn10.length !== 10) return isbn10 || '';
+  const core = `978${isbn10.slice(0, 9)}`;
+  if (!/^\d{12}$/.test(core)) return isbn10;
+  let sum = 0;
+  for (let i = 0; i < 12; i += 1) {
+    sum += parseInt(core[i], 10) * (i % 2 === 0 ? 1 : 3);
+  }
+  const check = (10 - (sum % 10)) % 10;
+  return core + check;
+}
+
 const normalizeIsbn = (raw) => {
   if (!raw) return '';
-  return String(raw).replace(/[-\s_]/g, '').trim();
+  // ハイフン / 空白 / アンダースコアを剥がし、ISBN-10 の X 末尾は大文字に統一。
+  const cleaned = String(raw).replace(/[-\s_]/g, '').trim().toUpperCase();
+  // 13 桁数字 (978/979 prefix の ISBN-13) → そのままキャノニカル形。
+  if (/^\d{13}$/.test(cleaned)) return cleaned;
+  // 10 桁 (末尾 0-9 or X) → ISBN-13 (978 prefix) に変換して比較。
+  if (/^\d{9}[\dX]$/.test(cleaned)) {
+    return isbn10to13(cleaned);
+  }
+  // 不明な形式は best-effort でそのまま (短縮 ISBN や非標準入力)。
+  return cleaned;
 };
 
 const normalizeText = (raw) => {
