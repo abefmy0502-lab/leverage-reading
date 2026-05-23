@@ -36,8 +36,10 @@ export const isbn13to10 = (isbn13) => {
 
 /**
  * 表紙 URL の候補を優先順で返す。
- * - 1: openBD (日本書籍カバー率最強)
- * - 2: Amazon ISBN-10 パターン (フォールバック)
+ * - 1: Google Books (日本書籍 + 洋書のカバー率が一番高い。安定稼働)
+ * - 2: Amazon ISBN-10 パターン (978 prefix のみ。openBD が落ちている間の保険)
+ * - 3: openBD (2026-05 から `cover.openbd.jp` が CloudFront 404 を返すように
+ *      なったため一時的に最下位へ。復旧したら自動で再活用される)
  *
  * 候補リストは「保存に直接使える URL」と「resolveCoverUrl で実在検証を
  * 通すための URL」を兼ねる。
@@ -46,17 +48,29 @@ export const getCoverCandidates = (isbn) => {
   const i13 = normalizeIsbn(isbn);
   const i10 = isbn13to10(i13);
   const list = [];
-  if (i13) list.push(`https://cover.openbd.jp/${i13}.jpg`);
-  if (i10) list.push(`https://images-na.ssl-images-amazon.com/images/P/${i10}.09.LZZZZZZZ.jpg`);
+  // Google Books のサムネは zoom=1 で 128×180-210 の JPEG を返す。本が無い時は
+  // 128×170 の小さい PNG プレースホルダー (`No cover available`) になる —
+  // checkImageExists の h/w 閾値 (>= 1.35) で弾く。
+  if (i13) {
+    list.push(`https://books.google.com/books/content?vid=ISBN${i13}&printsec=frontcover&img=1&zoom=1`);
+  }
+  if (i10) {
+    list.push(`https://images-na.ssl-images-amazon.com/images/P/${i10}.09.LZZZZZZZ.jpg`);
+  }
+  if (i13) {
+    list.push(`https://cover.openbd.jp/${i13}.jpg`);
+  }
   return list;
 };
 
 // 画像が「実体として存在するか」をブラウザでロードして確認する。
-// 単純な 1×1 placeholder だけでなく、「No image」ロゴ画像 (NDL 等が
-// 返す数十 px の正方形・横長画像) も弾くため、以下 3 段階で判定する:
+// 単純な 1×1 placeholder だけでなく、「No image」ロゴ画像 (NDL / Google Books が
+// 返す数十〜180 px の正方形・横長画像) も弾くため、以下 3 段階で判定する:
 //   1. 画像が読めない                  → 偽
 //   2. naturalWidth < 50              → 偽 (placeholder 規模)
-//   3. height/width < 0.8 (横長)      → 偽 (本の表紙はほぼ縦長 ~1.4)
+//   3. height/width < 1.35            → 偽 (Google Books の 128×170 PNG プレース
+//                                        ホルダー = h/w 1.328 は除外。本の表紙は
+//                                        ほぼ 1.4-1.6)
 // 3 秒で打ち切り。crossOrigin は付けない (CORS 未対応の openBD/Amazon
 // が読めなくなる。naturalWidth/Height はクロスオリジン画像でも取得可)。
 const checkImageExists = (url) =>
@@ -69,7 +83,7 @@ const checkImageExists = (url) =>
       const w = img.naturalWidth;
       const h = img.naturalHeight;
       if (w < 50 || h < 50) { settle(false); return; }      // 1×1 / 小さい placeholder
-      if (h / w < 0.8) { settle(false); return; }            // 横長 = 「No image」ロゴが多い
+      if (h / w < 1.35) { settle(false); return; }           // 平たい = Google Books の「No cover」(128×170) や横長ロゴ
       settle(true);
     };
     img.onerror = () => settle(false);
