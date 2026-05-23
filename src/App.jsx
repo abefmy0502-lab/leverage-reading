@@ -27,7 +27,7 @@ import {
   pickSuggestions,
   findIsbnCandidates,
 } from './lib/bookSearch';
-import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover } from './lib/bookCover';
+import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
@@ -579,10 +579,17 @@ function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry }) {
             alt={book.title}
             loading="lazy"
             onError={() => setBroken(true)}
-            // 1×1 transparent placeholder (NDL / openBD などが「画像なし」に
-            // 返すダミー) を実画像と区別するため naturalWidth で判定。
+            // 1×1 transparent placeholder + Google Books の "No cover"
+            // プレースホルダー (128×170 PNG、h/w 1.33) を実画像と区別する。
+            // 通常の本の表紙は h/w 1.4-1.6 なので 1.35 を閾値にする (bookCover.js
+            // checkImageExists と同じ基準)。
             onLoad={(e) => {
-              if (e?.target && e.target.naturalWidth <= 1) setBroken(true);
+              const t = e?.target;
+              if (!t) return;
+              const w = t.naturalWidth || 0;
+              const h = t.naturalHeight || 0;
+              if (w <= 1 || h <= 1) { setBroken(true); return; }
+              if (w >= 50 && h / w < 1.35) { setBroken(true); return; }
             }}
           />
         )}
@@ -655,7 +662,14 @@ function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onL
               loading="lazy"
               onError={() => setBroken(true)}
               onLoad={(e) => {
-                if (e?.target && e.target.naturalWidth <= 1) setBroken(true);
+                // 1×1 dummy + Google Books "No cover" placeholder (128×170, h/w 1.33)
+                // を弾く (bookCover.js の checkImageExists と同じ 1.35 閾値)。
+                const t = e?.target;
+                if (!t) return;
+                const w = t.naturalWidth || 0;
+                const h = t.naturalHeight || 0;
+                if (w <= 1 || h <= 1) { setBroken(true); return; }
+                if (w >= 50 && h / w < 1.35) { setBroken(true); return; }
               }}
               style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid #e0d8c8", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
             />
@@ -2709,16 +2723,7 @@ function AuthedApp() {
     //    で候補を表示 → 選択した結果)。検索を裏で再実行して 1 件目で
     //    上書きする旧挙動は WYSIWYG 原則に反するので skip。
     const verifiedIsbn = rec.isbn ? String(rec.isbn).replace(/[-\s]/g, '') : '';
-    let verifiedCover = (rec.cover || '').toString().trim();
-    // 検索結果に表紙 URL が含まれない (openBD enrichment が現在死んでいて
-    // 候補側 cover が空になるため) ケースに備え、ISBN が確定していれば
-    // pickBookFromAdd と同じく `getCoverCandidates[0]` (= Google Books の
-    // 直接 URL) を表紙として焼き込む。bg resolver 待ちにせず、保存時点で
-    // 本棚に表紙が表示される。
-    if (!verifiedCover && verifiedIsbn) {
-      const seedCandidates = getCoverCandidates(verifiedIsbn);
-      if (seedCandidates.length > 0) verifiedCover = seedCandidates[0];
-    }
+    const verifiedCover = (rec.cover || '').toString().trim();
     const newBook = {
       ...emptyBook(),
       title: rec.title,
@@ -2746,20 +2751,34 @@ function AuthedApp() {
           if (isStrictMatch(first, { title: rec.title, author: rec.author })) {
             newBook.totalPages = first.pages || 0;
             newBook.isbn = first.isbn || '';
-            // 二次検索で初めて ISBN が確定したケースもここで seed する。
-            if (newBook.isbn && !newBook.cover) {
-              const seedCandidates = getCoverCandidates(newBook.isbn);
-              if (seedCandidates.length > 0) {
-                newBook.cover = seedCandidates[0];
-                newBook.coverIsbn = String(newBook.isbn).replace(/[-\s]/g, '');
-              }
-            }
           } else {
             // eslint-disable-next-line no-console
             console.warn('[add] search top hit not strict match, skipping ISBN:', { recommended: rec.title, got: first.title });
           }
         }
       } catch { /* 失敗しても OK — bg resolver が title/author だけでも解決を試みる */ }
+    }
+    // ★ 同期的に表紙を解決 — `tryCoverForIsbn` は `checkImageExists` でプレース
+    //   ホルダー (128×170 PNG / 1×1 dummy) を弾いてから URL を返すので、保存
+    //   される cover は実在検証済み。失敗時は cover='' のままにして、本棚は
+    //   カラフルグラデーション placeholder を出す (placeholder URL を保存する
+    //   よりずっと良い体験)。
+    //
+    //   ここで await するのは: bg resolver は fire-and-forget で完了通知が
+    //   無いため、ユーザーが「本棚に追加できた」と認識した時点で表紙が
+    //   入っている方が嬉しい。レイテンシは 1〜2 秒 (checkImageExists が
+    //   各 URL を画像ロードで確認)。
+    if (!newBook.cover && newBook.isbn) {
+      try {
+        const url = await tryCoverForIsbn(newBook.isbn);
+        if (url) {
+          newBook.cover = url;
+          newBook.coverIsbn = String(newBook.isbn).replace(/[-\s]/g, '');
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[advisor-add] sync cover resolve failed:', e?.message || e);
+      }
     }
     try {
       const saved = await saveBook(newBook);
@@ -3112,15 +3131,6 @@ function AuthedApp() {
                 newBook.cover = first.cover;
                 newBook.coverIsbn = first.isbn ? String(first.isbn).replace(/[-\s]/g, '') : '';
               }
-              // openBD enrichment が dead で first.cover が空になるケースは
-              // pickBookFromAdd と同じく Google Books URL を seed する。
-              if (!newBook.cover && newBook.isbn) {
-                const seedCandidates = getCoverCandidates(newBook.isbn);
-                if (seedCandidates.length > 0) {
-                  newBook.cover = seedCandidates[0];
-                  newBook.coverIsbn = String(newBook.isbn).replace(/[-\s]/g, '');
-                }
-              }
             } else {
               // eslint-disable-next-line no-console
               console.warn('[related-add] search top hit not strict match:', { wanted: trimmedTitle, got: first.title });
@@ -3133,6 +3143,21 @@ function AuthedApp() {
           // eslint-disable-next-line no-console
           console.warn('[related-add] search failed, fallback to manual:', e?.message || e);
           newBook.addedVia = 'manual';
+        }
+
+        // ★ 同期的な表紙解決。addFromAdvisor と同じく `tryCoverForIsbn` で実在
+        //   検証する。プレースホルダー URL を保存する事故を防ぐ。
+        if (!newBook.cover && newBook.isbn) {
+          try {
+            const url = await tryCoverForIsbn(newBook.isbn);
+            if (url) {
+              newBook.cover = url;
+              newBook.coverIsbn = String(newBook.isbn).replace(/[-\s]/g, '');
+            }
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.warn('[related-add] sync cover resolve failed:', e?.message || e);
+          }
         }
 
         const saved = await saveBook(newBook);
