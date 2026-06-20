@@ -42,8 +42,9 @@ async function postClaude(payload) {
     if (res.status === 401) return 'AI機能を使うにはログインが必要です。';
     if (res.status === 429) return 'リクエストが多すぎます。少し時間をおいて再試行してください。';
     if (res.status === 413) return '入力が長すぎます。短くしてからもう一度お試しください。';
-    // 上流 (Anthropic) の内部メッセージはユーザーに見せない (固定文言に統一)
-    return '🤖 AI が一時的に利用できません。少し待ってもう一度お試しください。';
+    // 上流 (Anthropic) の内部メッセージはユーザーに見せない (固定文言に統一)。
+    // 末尾の (E###) は原因切り分け用のステータスコード (機微情報ではない)。
+    return `🤖 AI が一時的に利用できません。少し待ってもう一度お試しください。(E${res.status})`;
   }
 
   if (Array.isArray(data?.content)) {
