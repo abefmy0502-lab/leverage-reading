@@ -425,7 +425,7 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{ ...inp, width: 'auto', padding: '6px 8px', fontSize: 12 }}
+              style={{ ...inp, width: 'auto', padding: '6px 8px' }}
               aria-label="並び順"
             >
               <option value="relevance">関連度順</option>
@@ -4250,7 +4250,6 @@ function AuthedApp() {
                 </button>
               </div>
               {/* Pill filters — hide statuses with zero books to keep the bar tight. */}
-              <p style={{ fontSize: 10, color: "#a89e8c", margin: "0 0 4px", letterSpacing: 0.2 }}>タップで本を絞り込めます</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {[
                   { key: "all", label: "全て", count: stats.total, color: "#4a4036", bg: "#e8e0d2", Icon: null },
@@ -4295,21 +4294,19 @@ function AuthedApp() {
                   })}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: "#8a7e6b" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>並び順</span>
+                <span>{filtered.length} 冊</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    style={{ fontSize: 12, padding: "4px 8px", borderRadius: 8, border: "1px solid #d4ccbe", background: "#faf6f0", color: "#3d362c", fontFamily: "inherit" }}
+                    aria-label="並び順"
+                    style={{ fontSize: 16, padding: "4px 8px", borderRadius: 8, border: "1px solid #d4ccbe", background: "transparent", color: "#8a7e6b", fontFamily: "inherit" }}
                   >
                     <option value="updated">更新順</option>
                     <option value="created">登録順</option>
                     <option value="title">タイトル順</option>
                     <option value="rating">評価順</option>
                   </select>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span>{filtered.length} 件</span>
                   <div className="view-mode-switch" role="group" aria-label="表示モード">
                     <button
                       type="button"
