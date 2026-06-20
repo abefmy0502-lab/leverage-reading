@@ -176,6 +176,7 @@ export default function BookMemoCard({ memo, onEdit, onDelete, onSwipeDelete, on
           <img
             src={ensureHttps(photoUrl)}
             alt="memo"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
             style={{
               width: '100%',
               height: 'auto',
@@ -232,6 +233,7 @@ export default function BookMemoCard({ memo, onEdit, onDelete, onSwipeDelete, on
           <img
             src={ensureHttps(photoUrl)}
             alt="memo enlarged"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
             style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }}
           />
         </div>

@@ -359,7 +359,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, border: '1px solid #d4ccbe', background: '#faf6f0', color: '#3d362c', fontFamily: 'inherit' }}
+              style={{ fontSize: 16, padding: '4px 8px', borderRadius: 8, border: '1px solid #d4ccbe', background: '#faf6f0', color: '#3d362c', fontFamily: 'inherit' }}
             >
               {SORTS.map((s) => (
                 <option key={s.key} value={s.key}>{s.label}</option>
@@ -483,6 +483,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                         <img
                           src={ensureHttps(a.bookCover)}
                           alt=""
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           style={{ width: 14, height: 18, objectFit: 'cover', borderRadius: 2, flexShrink: 0 }}
                         />
                       ) : (

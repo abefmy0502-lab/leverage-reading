@@ -73,15 +73,11 @@ export async function streamClaude({
     });
 
     if (!res.ok) {
-      // Error path: relay returns plain JSON, not SSE.
-      let detail = '';
-      try {
-        const j = await res.json();
-        detail = j?.error?.message || j?.error || '';
-      } catch { /* fallthrough */ }
       if (res.status === 401) throw new Error('AI機能を使うにはログインが必要です。');
       if (res.status === 429) throw new Error('リクエストが多すぎます。少し時間をおいて再試行してください。');
-      throw new Error(detail ? `エラー: ${detail}` : `エラー (${res.status})`);
+      if (res.status === 413) throw new Error('入力が長すぎます。短くしてからもう一度お試しください。');
+      // 上流 (Anthropic) の内部メッセージはユーザーに見せない (固定文言に統一)
+      throw new Error('🤖 AI が一時的に利用できません。少し待ってもう一度お試しください。');
     }
 
     if (!res.body) {

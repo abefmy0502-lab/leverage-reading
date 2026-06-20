@@ -203,6 +203,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                     src={ensureHttps(c.coverUrl)}
                     alt={`ISBN ${c.isbn}`}
                     loading="lazy"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     style={{
                       width: '100%',
                       aspectRatio: '2/3',

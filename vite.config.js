@@ -10,6 +10,14 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   build: {
-    sourcemap: true,
+    // ⚠️ 本番 sourcemap は公開ホスティング (Vercel) に .map が乗ると全ソースが
+    // 誰でも取得できてしまうため false。Sentry でスタックを解読したい場合は
+    // `@sentry/vite-plugin` を導入し `sourcemap: 'hidden'` + アップロード運用に
+    // 切り替える (公開はせず Sentry にだけ map を渡す)。
+    sourcemap: false,
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.js'],
   },
 });

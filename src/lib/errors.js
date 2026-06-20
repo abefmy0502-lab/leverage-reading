@@ -66,7 +66,7 @@ export function toMessage(err, fallback = '予期せぬエラーが発生しま�
     return '🔒 この操作の権限がありません。再度ログインしてお試しください。';
   }
   // スキーマ不一致 — マイグレーション未適用などで起きる「列が存在しない」系
-  if (lower.includes('does not exist') || lower.includes('column') && lower.includes('not found')) {
+  if (lower.includes('does not exist') || (lower.includes('column') && lower.includes('not found'))) {
     return '💾 データの設定がまだ完了していません。お手数ですが運営までお問い合わせください。';
   }
 

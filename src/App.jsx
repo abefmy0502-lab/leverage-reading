@@ -2052,6 +2052,7 @@ function AuthedApp() {
     loading: booksLoading,
     saveBook,
     deleteBook,
+    patchBook,
     captureBookSnapshot,
     restoreBookFromSnapshot,
     refreshBooks,
@@ -2113,6 +2114,10 @@ function AuthedApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [recentlyDoneId, setRecentlyDoneId] = useState(null);
   const recentlyDoneTimerRef = useRef(null);
+  // アンマウント時に保留中のタイマーをクリア (late setState 警告を防ぐ)
+  useEffect(() => () => {
+    if (recentlyDoneTimerRef.current) clearTimeout(recentlyDoneTimerRef.current);
+  }, []);
   // 本詳細のスクロール可能コンテナへの ref。フェーズ遷移 (status 変化) の
   // たびにスクロールトップへ戻すために使う — 旧実装は前フェーズの最下部
   // (例: 読書前で「読書を開始する」ボタン直前) のままだったため、新フェーズ
@@ -3236,7 +3241,10 @@ function AuthedApp() {
     }
 
     const updated = { ...book, actions: acts };
+    const prevActions = book.actions;
     haptic.light();
+    // 楽観的 UI: タップ即反映。失敗したら previous へ rollback。
+    patchBook(bookId, (b) => ({ ...b, actions: acts }));
     try {
       await saveBook(updated);
       if (becomingDone && updatedAct.recurrence) {
@@ -3244,6 +3252,7 @@ function AuthedApp() {
         toast.success(`完了 ✓ ${label}の予定を自動で組みました`);
       }
     } catch (error) {
+      patchBook(bookId, (b) => ({ ...b, actions: prevActions }));
       toast.error(toMessage(error, '行動の更新に失敗しました。'));
     }
   };
@@ -3265,12 +3274,28 @@ function AuthedApp() {
     if (!book) return;
     const acts = [...(book.actions || [])];
     if (actionIdx < 0 || actionIdx >= acts.length) return;
+    const prevActions = book.actions;
     acts.splice(actionIdx, 1);
     const updated = { ...book, actions: acts };
+    haptic.medium();
+    // 楽観的 UI: 即リストから消す。失敗時は rollback、成功時は Undo トースト。
+    patchBook(bookId, (b) => ({ ...b, actions: acts }));
     try {
       await saveBook(updated);
-      toast.success('行動を削除しました');
+      toast.undo({
+        message: '行動を削除しました',
+        onUndo: async () => {
+          patchBook(bookId, (b) => ({ ...b, actions: prevActions }));
+          try {
+            await saveBook({ ...book, actions: prevActions });
+            toast.info('削除を取り消しました');
+          } catch (error) {
+            toast.error(toMessage(error, '復元に失敗しました。'));
+          }
+        },
+      });
     } catch (error) {
+      patchBook(bookId, (b) => ({ ...b, actions: prevActions }));
       toast.error(toMessage(error, '行動の削除に失敗しました。'));
     }
   };
@@ -4595,6 +4620,13 @@ function AuthedApp() {
           }}
           onDelete={async () => {
             const { bookId, actionIdx } = editingAction;
+            const ok = await confirm({
+              title: 'この行動を削除しますか？',
+              confirmLabel: '削除する',
+              cancelLabel: 'キャンセル',
+              danger: true,
+            });
+            if (!ok) return;
             setEditingAction(null);
             await deleteActionFromBook(bookId, actionIdx);
           }}

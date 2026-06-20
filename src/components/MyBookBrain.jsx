@@ -661,7 +661,8 @@ export default function MyBookBrain({ onOpenBook }) {
                   <button
                     key={ex}
                     type="button"
-                    onClick={() => setInput(ex)}
+                    // 書きかけの入力を勝手に上書きしない (空の時だけ例文を入れる)
+                    onClick={() => setInput((prev) => (prev.trim() ? prev : ex))}
                     style={{
                       textAlign: 'left',
                       padding: '8px 12px',
@@ -678,7 +679,7 @@ export default function MyBookBrain({ onOpenBook }) {
                   </button>
                 ))}
               </div>
-              {memoStats.count === 0 && (
+              {(memoStats.cards + memoStats.summaries + memoStats.personal) === 0 && (
                 <p style={{ fontSize: 11, color: '#a05040', marginTop: 10, lineHeight: 1.7 }}>
                   まだメモが 1 件もありません。本を読んでメモを書くほど、マイ読書脳があなただけの AI に育っていきます 🌱
                 </p>

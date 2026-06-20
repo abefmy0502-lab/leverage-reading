@@ -223,14 +223,18 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
       // 2. Delete data tables. books deletion CASCADES to book_memos / book_tags
       // / actions in our schema, but we also delete personal memos (book_id null)
       // and chat_messages explicitly.
+      // chat_messages は未マイグレーション DB では存在しない可能性があるので
+      // 「存在しない」系エラーは無視。それ以外の本体テーブルは削除エラーを
+      // 集約し、1 件でも失敗したら「削除完了」とは言わない (不完全削除の隠蔽防止)。
       try {
-        await supabase.from('chat_messages').delete().eq('user_id', user.id);
+        const { error } = await supabase.from('chat_messages').delete().eq('user_id', user.id);
+        if (error && !/does not exist|relation/i.test(error.message || '')) dbError = error;
       } catch (e) { /* table may not exist if migration unrun */ }
-      await supabase.from('book_memos').delete().eq('user_id', user.id);
-      await supabase.from('book_tags').delete().eq('user_id', user.id);
-      await supabase.from('actions').delete().eq('user_id', user.id);
-      const { error: booksErr } = await supabase.from('books').delete().eq('user_id', user.id);
-      if (booksErr) dbError = booksErr;
+      for (const table of ['book_memos', 'book_tags', 'actions', 'books']) {
+        // eslint-disable-next-line no-await-in-loop
+        const { error } = await supabase.from(table).delete().eq('user_id', user.id);
+        if (error && !dbError) dbError = error;
+      }
 
       // 3. Record the deletion request so the admin can finish off auth.users.
       try {

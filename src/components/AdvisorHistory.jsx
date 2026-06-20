@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import EmptyState from './EmptyState.jsx';
 import { getAmazonLink } from '../lib/amazonLink';
+import { useToast } from './Toast';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -290,6 +291,7 @@ function RecField({ label, text }) {
 }
 
 export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook }) {
+  const toast = useToast();
   const messages = useMemo(() => Array.isArray(session?.messages) ? session.messages : [], [session]);
   const recs = useMemo(() => Array.isArray(session?.recommended_books) ? session.recommended_books : [], [session]);
 
@@ -357,6 +359,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
           next.delete(key);
           return next;
         });
+        try { toast.error(`「${rec.title}」の追加に失敗しました。`); } catch { /* toast 不在環境 */ }
       }
     });
   };
