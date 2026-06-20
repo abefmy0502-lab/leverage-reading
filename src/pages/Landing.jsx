@@ -132,11 +132,11 @@ export default function Landing() {
           卒業する。
         </h1>
         <p className="hero-subhead">
-          読んだ本の内容は、時間とともに忘れていく。<br />
-          AI が読み方を設計し、メモを知識に変え、<br />
-          行動まで引き出す。<br />
+          おもしろかったのに、数か月後には中身を思い出せない。<br />
+          そんな読書を、もう終わりにしませんか。<br />
           <br />
-          その読書を、後から“再現できる”資産に。
+          読む前の準備から、メモ、振り返りまで。<br />
+          読んだ一冊を、ちゃんと自分のものにするためのアプリです。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-hero">
           月 ¥990 で始める →
@@ -216,8 +216,8 @@ export default function Landing() {
       <section className="mechanisms fade-in">
         <p className="section-eyebrow">仕組み</p>
         <h2 className="section-headline">
-          読書を、回収できる<br />
-          かたちに変える。
+          「読んで終わり」が、<br />
+          こう変わります。
         </h2>
 
         <div className="mechanism">
@@ -228,11 +228,11 @@ export default function Landing() {
           <div className="mech-content">
             <h3>本選びの、<span className="no-break">迷いが減る。</span></h3>
             <p className="mech-lead">
-              「買ったけれど、自分には合わなかった」——<br />
-              そんな経験は、誰にでもあります。
+              「買ったけれど、自分にはピンとこなかった」。<br />
+              そんな一冊、思い当たりませんか。
             </p>
             <p className="mech-body">
-              AI 選書は、あなたの現在の課題を会話で深掘りし、年代・職業・状況に合わせた本を提案。買う前に「自分に必要かどうか」を考える手がかりになります。
+              いま悩んでいることを話すと、AI がそれに合いそうな一冊を一緒に探します。話題だからではなく、「自分の状況に必要か」で選べるようになります。
             </p>
             <div className="mech-screenshot">
               <PhoneFrame
@@ -252,11 +252,11 @@ export default function Landing() {
           <div className="mech-content">
             <h3>1 冊が、<span className="no-break">行動に変わる。</span></h3>
             <p className="mech-lead">
-              読み終えても、行動に移せないまま忘れていく——<br />
-              よくある「読みっぱなし」を防ぎます。
+              「いい本だった」で終わって、結局なにも変わらない。<br />
+              その「読みっぱなし」を、手放しませんか。
             </p>
             <p className="mech-body">
-              読む前に AI が「投資目的・現在の課題・仮説」を整理。重点的に読む章のあたりをつけられるので、本から具体的な「やること」を引き出しやすくなります。
+              読む前に「何のために読むのか」を AI と整理しておくと、どこを重点的に読めばいいかが見えてきます。読み終えたら、気づきを「次にやること」としてそのまま残せます。
             </p>
             <div className="mech-screenshot">
               <PhoneFrame
@@ -276,11 +276,11 @@ export default function Landing() {
           <div className="mech-content">
             <h3>読んだ知識が、<span className="no-break">消えにくくなる。</span></h3>
             <p className="mech-lead">
-              読んだ内容の多くは、時間とともに忘れていくと言われます。<br />
-              本棚を「知識の墓場」にしないために。
+              半年前に読んだ本の中身、いまどれだけ思い出せますか。<br />
+              せっかくのメモを、眠らせたままにしないために。
             </p>
             <p className="mech-body">
-              過去に読んだ本のメモ・投資目的・行動が、あなた専用 AI に蓄積されます。「決断に迷う時の判断軸は？」と聞けば、過去の本のメモを根拠に、あなた専用の答えが返ってくる。
+              これまで書いたメモが、AI にたまっていきます。「迷ったとき、どう決めればいい？」と聞けば、過去に読んだ本のあなたのメモを引用しながら答えてくれます。
             </p>
             <div className="mech-screenshot mech-screenshot-double">
               <div className="screenshot-pair">
@@ -327,7 +327,7 @@ export default function Landing() {
         <div className="action-feature-grid">
           <div className="action-feature-text">
             <p className="action-feature-lead">
-              本を読んでも、行動が習慣にならなければ意味がない。
+              いい気づきほど、数日たつと忘れてしまう。
             </p>
             <ul className="action-feature-list">
               <li>📅 期限・優先度・繰り返しを設定</li>
@@ -336,8 +336,8 @@ export default function Landing() {
               <li>💭 完了時に振り返りメモを残せる</li>
             </ul>
             <p className="action-feature-conclusion">
-              読書 → 行動 → 振り返り のサイクルを<br />
-              アプリ 1 つで完結します。
+              読む、動く、振り返る。<br />
+              その繰り返しが、アプリ 1 つで続きます。
             </p>
           </div>
 
@@ -447,8 +447,8 @@ export default function Landing() {
           1 年後のあなたを変える。
         </h2>
         <p className="final-sub">
-          本を読むだけでは、もう何も変わらない。<br />
-          AI と一緒に、読書を投資に変えよう。
+          読んだ分だけ、ちゃんと前に進みたい。<br />
+          そんなあなたの読書を、ここから変えていきませんか。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-final cta-large">
           月 ¥990 で始める →
