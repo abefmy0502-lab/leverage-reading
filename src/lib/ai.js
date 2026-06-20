@@ -2,7 +2,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { LIMITS, clamp } from './limits';
 import { streamClaude } from './streamClaude';
 
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const DEFAULT_MAX_TOKENS = 1024;
 
 async function getAccessToken() {

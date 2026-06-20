@@ -1479,7 +1479,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         // 高すぎると的外れな推薦が増えるので 0.7 が中庸。
         temperature: 0.7,
         max_tokens: 2048,
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         onChunk: (fullText) => {
           const display = stripRecommendationsBlock(fullText);
           setMessages((prev) => {
@@ -2969,7 +2969,7 @@ function AuthedApp() {
           content: PROMPTS.bookAnalysis.user({ title: form.title, author: form.author }),
         }],
         max_tokens: 2048,
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         onChunk: (fullText) => {
           setForm((f) => ({ ...f, aiAnalysis: fullText }));
         },
@@ -2997,7 +2997,7 @@ function AuthedApp() {
           }),
         }],
         max_tokens: 2048,
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         onChunk: (fullText) => {
           // 関連書籍カードのパース (= 「読みたい」ボタン押下可能) は
           // streaming 中は BeforePhase 側で aiLoading を見て無効化している。
@@ -3040,7 +3040,7 @@ function AuthedApp() {
           }),
         }],
         max_tokens: 2048,
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         onChunk: (fullText) => {
           didStreamAny = true;
           setForm((f) => ({ ...f, aiStrategy: fullText }));

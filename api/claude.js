@@ -9,9 +9,9 @@ const MAX_TOKENS_HARD_CAP = 8192;
 // 流すと、認証済みユーザーが任意の高価なモデルや巨大ペイロードを送って
 // ANTHROPIC_API_KEY のコストを増幅できてしまう。サーバー側で payload を
 // 「許可されたモデル + 上限付きの messages/system」だけで再構築する。
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const ALLOWED_MODELS = new Set([
-  'claude-sonnet-4-20250514',
+  'claude-sonnet-4-6',
 ]);
 const MAX_MESSAGES = 50;
 const MAX_TOTAL_CONTENT_CHARS = 200000;

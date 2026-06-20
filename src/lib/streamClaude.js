@@ -13,7 +13,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const DEFAULT_MAX_TOKENS = 2048;
 
 async function getAccessToken() {
