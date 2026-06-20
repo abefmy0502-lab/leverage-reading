@@ -178,6 +178,7 @@ function MemoPhoto({ path }) {
     <img
       src={ensureHttps(url)}
       alt="memo"
+      onError={(e) => { e.currentTarget.style.display = 'none'; }}
       style={{ width: '70%', maxHeight: 240, objectFit: 'cover', borderRadius: 8, border: '1px solid #e4ddd0', marginTop: 6 }}
     />
   );

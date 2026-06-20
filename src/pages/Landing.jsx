@@ -28,7 +28,7 @@ export default function Landing() {
     document.title = 'レバレッジ読書ログ | 読書を投資にする AI 読書記録';
     const tags = [
       setMeta('description',
-        '読みっぱなしの本、もう作らない。AI が読み方を設計し、行動を引き出す『投資型』読書記録。月 ¥1,000、いつでも 1 タップで解約可能。'),
+        '読みっぱなしの本、もう作らない。AI が読み方を設計し、行動を引き出す『投資型』読書記録。月 ¥990、いつでも 1 タップで解約可能。'),
       setMeta('og:title', '読みっぱなしの本、もう作らない | レバレッジ読書ログ', 'property'),
       setMeta('og:description', 'AI が読み方を設計し、行動を引き出す『投資型』読書記録', 'property'),
       setMeta('og:type', 'website', 'property'),
@@ -114,7 +114,7 @@ export default function Landing() {
         <div className="sticky-cta" role="region" aria-label="申し込み">
           <div className="sticky-inner">
             <div className="sticky-price">
-              <span className="sticky-price-main">月 ¥1,000</span>
+              <span className="sticky-price-main">月 ¥990</span>
               <span className="sticky-price-sub">1 日 ¥33</span>
             </div>
             <button type="button" onClick={goToSignup} className="sticky-btn">
@@ -138,7 +138,7 @@ export default function Landing() {
           「読んで終わり」を、永遠にやめる。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-hero">
-          月 ¥1,000 で始める →
+          月 ¥990 で始める →
         </button>
         <p className="hero-note">
           1 日 ¥33・10 秒で解約可能・違約金ゼロ
@@ -201,7 +201,7 @@ export default function Landing() {
 
         <p className="pain-conclusion">
           レバレッジ読書ログなら、<br />
-          <strong>月 ¥1,000 で 100% を資産化。</strong>
+          <strong>月 ¥990 で 100% を資産化。</strong>
         </p>
 
         <button type="button" onClick={goToSignup} className="cta-secondary">
@@ -359,7 +359,7 @@ export default function Landing() {
         <div className="price-card">
           <div className="price-num">
             <span className="price-yen">¥</span>
-            <span className="price-main">1,000</span>
+            <span className="price-main">990</span>
             <span className="price-period">/ 月</span>
           </div>
           <p className="price-equiv">
@@ -380,7 +380,7 @@ export default function Landing() {
           </ul>
 
           <button type="button" onClick={goToSignup} className="cta-primary cta-large">
-            月 ¥1,000 で始める →
+            月 ¥990 で始める →
           </button>
           <p className="price-note">
             1 日 ¥33・10 秒で解約可能・違約金ゼロ
@@ -415,7 +415,7 @@ export default function Landing() {
           AI と一緒に、読書を投資に変えよう。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-final cta-large">
-          月 ¥1,000 で始める →
+          月 ¥990 で始める →
         </button>
         <p className="final-note">
           1 日 ¥33・10 秒で解約可能・違約金ゼロ

@@ -70,13 +70,17 @@ export function useBooks() {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  const fetchBooks = useCallback(async () => {
+  // silent: true の時はローディングスピナーを出さず (= 保存後の裏側リフレッシュ
+  // で本棚全体がちらつかない)、かつ一時的な取得エラーで既存データを []
+  // に吹き飛ばさない (= 通信が一瞬切れても本棚が消えない)。初回ロードや
+  // 明示的なリフレッシュ (PTR) は silent=false でスピナーを出す。
+  const fetchBooks = useCallback(async ({ silent = false } = {}) => {
     if (!user || !isSupabaseConfigured) {
       setBooks([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const { data, error } = await supabase
         .from('books')
@@ -87,11 +91,19 @@ export function useBooks() {
       setBooks((data || []).map(transformBook));
     } catch (error) {
       console.error('本の取得エラー:', error);
-      setBooks([]);
+      // 裏側リフレッシュ (silent) で失敗した時は既存の本棚を維持する。
+      // 初回ロード失敗時のみ空に倒す (表示すべきものが無いため)。
+      if (!silent) setBooks([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [user]);
+
+  // 楽観的 UI 用: 指定の本だけをローカル state で即時更新する。
+  // saveBook の裏側リフレッシュが完了するまでの「即反映」に使う。
+  const patchBook = useCallback((bookId, updater) => {
+    setBooks((prev) => prev.map((b) => (b.id === bookId ? updater(b) : b)));
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -214,7 +226,10 @@ export function useBooks() {
       }
 
       // Tags: delete + re-insert (no stable client-side ids)
-      await supabase.from('book_tags').delete().eq('book_id', savedBookId);
+      {
+        const { error } = await supabase.from('book_tags').delete().eq('book_id', savedBookId);
+        if (error) throw error;
+      }
       if (book.tags && book.tags.length > 0) {
         const tagInserts = book.tags.map((tag) => ({
           book_id: savedBookId,
@@ -232,13 +247,15 @@ export function useBooks() {
         .filter((id) => typeof id === 'string' && UUID_RE.test(id));
 
       if (existingIds.length === 0) {
-        await supabase.from('actions').delete().eq('book_id', savedBookId);
+        const { error } = await supabase.from('actions').delete().eq('book_id', savedBookId);
+        if (error) throw error;
       } else {
-        await supabase
+        const { error } = await supabase
           .from('actions')
           .delete()
           .eq('book_id', savedBookId)
           .not('id', 'in', `(${existingIds.join(',')})`);
+        if (error) throw error;
       }
 
       if (incoming.length > 0) {
@@ -313,10 +330,14 @@ export function useBooks() {
       if (freshErr) throw freshErr;
 
       const savedBook = transformBook(freshRow);
-      await fetchBooks();
+      await fetchBooks({ silent: true });
       return savedBook;
     } catch (error) {
       console.error('本の保存エラー:', error);
+      // 本体 UPDATE 後にタグ/アクションの書き込みが失敗すると DB が中途半端な
+      // 状態になりうる。画面とのズレを防ぐため、エラー時も DB の真の状態へ
+      // 再同期してから throw する (呼び出し側で rollback トーストを出す)。
+      try { await fetchBooks({ silent: true }); } catch { /* best-effort */ }
       throw error;
     }
   };
@@ -395,6 +416,7 @@ export function useBooks() {
     loading,
     saveBook,
     deleteBook,
+    patchBook,
     captureBookSnapshot,
     restoreBookFromSnapshot,
     refreshBooks: fetchBooks,

@@ -187,6 +187,12 @@ export default function FeedbackForm({ onClose }) {
       toast.error('内容を入力してください。');
       return;
     }
+    // 返信を希望するなら email を有効な形式に (ボタン送信なのでブラウザ検証が
+    // 走らない)。空欄は任意なので許可。
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error('メールアドレスの形式が正しくありません。');
+      return;
+    }
     setBusy(true);
     try {
       await submitFeedback({ category, content, name, email });

@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import EmptyState from './EmptyState.jsx';
 import { getAmazonLink } from '../lib/amazonLink';
+import { useToast } from './Toast';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -35,6 +36,9 @@ function stripRecommendations(text) {
     /RECOMMENDATIONS_START[\s\S]*?RECOMMENDATIONS_END/g,
     '',
   );
+  // END マーカーが欠落 (AI が 2048 トークン上限で途中切断) した場合でも、
+  // START 以降を末尾まで丸ごと除去して生 JSON が露出しないようにする。
+  cleaned = cleaned.replace(/RECOMMENDATIONS_START[\s\S]*$/g, '');
   // 連続改行を 2 行までに圧縮 + 末尾整理
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
   return cleaned;
@@ -250,10 +254,6 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
           <button
             type="button"
             onClick={(e) => {
-              // 🔍 診断: クリックが DOM ハンドラに到達したことを確認。
-              // ⚠️ TODO(2026-05-11): 「読みたい」ボタン無反応問題の解決後に削除。
-              // eslint-disable-next-line no-console
-              console.log('[読みたい:advisor-history]', 'タップ', book?.title, new Date().toISOString());
               e.stopPropagation();
               onAdd?.();
             }}
@@ -294,6 +294,7 @@ function RecField({ label, text }) {
 }
 
 export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook }) {
+  const toast = useToast();
   const messages = useMemo(() => Array.isArray(session?.messages) ? session.messages : [], [session]);
   const recs = useMemo(() => Array.isArray(session?.recommended_books) ? session.recommended_books : [], [session]);
 
@@ -343,8 +344,6 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
     });
     // 2. 重い処理は完全に背景。Promise.resolve().then で次の tick へ。
     //    handler は同期で終わる。
-    // eslint-disable-next-line no-console
-    console.time(`[history-add] ${rec.title}`);
     Promise.resolve().then(async () => {
       try {
         await onAddBook(rec, {
@@ -363,9 +362,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
           next.delete(key);
           return next;
         });
-      } finally {
-        // eslint-disable-next-line no-console
-        console.timeEnd(`[history-add] ${rec.title}`);
+        try { toast.error(`「${rec.title}」の追加に失敗しました。`); } catch { /* toast 不在環境 */ }
       }
     });
   };

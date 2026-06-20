@@ -51,7 +51,7 @@ export default function SctPage() {
           </tr>
           <tr>
             <th>販売価格</th>
-            <td>月額 1,000円(税込)</td>
+            <td>月額 990円(税込)</td>
           </tr>
           <tr>
             <th>商品代金以外の必要料金</th>

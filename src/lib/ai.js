@@ -41,9 +41,9 @@ async function postClaude(payload) {
   if (!res.ok) {
     if (res.status === 401) return 'AI機能を使うにはログインが必要です。';
     if (res.status === 429) return 'リクエストが多すぎます。少し時間をおいて再試行してください。';
-    if (data?.error?.message) return `エラー: ${data.error.message}`;
-    if (typeof data?.error === 'string') return `エラー: ${data.error}`;
-    return 'エラー';
+    if (res.status === 413) return '入力が長すぎます。短くしてからもう一度お試しください。';
+    // 上流 (Anthropic) の内部メッセージはユーザーに見せない (固定文言に統一)
+    return '🤖 AI が一時的に利用できません。少し待ってもう一度お試しください。';
   }
 
   if (Array.isArray(data?.content)) {
@@ -447,7 +447,7 @@ export async function callMyBookBrain({ userId, question }) {
 // in flight). onChunk receives the partial body text with REFS_START..END
 // stripped, so callers can render it directly without leaking metadata.
 // Returns the same shape as callMyBookBrain on completion.
-export async function streamMyBookBrain({ userId, question, onStage, onChunk }) {
+export async function streamMyBookBrain({ userId, question, onStage, onChunk, signal }) {
   const ctx = await buildBrainContext({ userId, question, onStage });
   if (ctx.empty) {
     onStage?.(null);
@@ -462,6 +462,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk }) 
     messages: [{ role: 'user', content: ctx.userPrompt }],
     max_tokens: 2048,
     temperature: 0.5,
+    signal,
     onChunk: (text) => {
       fullText = text;
       const visible = stripRefsBlock(text);
