@@ -3080,10 +3080,15 @@ function AuthedApp() {
   // 何も起きない (toast も「追加済み」表示も出ない) 体験になっていた。
   // 新実装は fire-and-forget + 即時 UI 反映で根治。
   const addRelatedBookFromAi = ({ title, author = '' }) => {
-    if (!title || !title.trim()) return;
-    const trimmedTitle = title.trim();
-    if (addedRelatedTitles.has(trimmedTitle)) return;
+    const trimmedTitle = (title || '').trim();
+    if (!trimmedTitle) return;
+    if (addedRelatedTitles.has(trimmedTitle)) {
+      toast.info('すでに本棚にあります');
+      return;
+    }
 
+    // 即時フィードバック (タップが届いた合図 + 遅い回線での体感改善)。
+    toast.info(`「${trimmedTitle}」を追加中…`);
     // 触覚で即時 ack (画面の見た目とは別経路で「タップ受付」を確実に伝える)。
     try { haptic.light(); } catch { /* non-critical */ }
     // ★ 1. UI 即時反映 — ボタンを「✅ 追加済み」に切替 (< 5ms)
