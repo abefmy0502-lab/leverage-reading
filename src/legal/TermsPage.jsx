@@ -11,7 +11,7 @@ export default function TermsPage() {
       title="利用規約"
       description="レバレッジ読書ログの利用規約。月額料金・解約・禁止事項・免責事項・AI 機能の取扱いについて。"
     >
-      <p className="effective-date">最終更新日:2026年5月3日</p>
+      <p className="effective-date">最終更新日:2026年6月20日</p>
       <p className="effective-date">施行日:2026年5月3日</p>
 
       <p>
