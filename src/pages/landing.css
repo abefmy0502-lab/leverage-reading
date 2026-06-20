@@ -1426,6 +1426,13 @@ body.lp-active {
   font-style: italic;
   text-align: center;
 }
+.screenshot-caption.privacy-note {
+  margin-top: 8px;
+  font-size: 12px;
+  font-style: normal;
+  color: var(--lp-text, #3d362c);
+  opacity: 0.78;
+}
 
 /* ============ 行動管理アピールセクション ============ */
 .action-feature {

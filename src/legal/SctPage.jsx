@@ -13,7 +13,7 @@ export default function SctPage() {
       title="特定商取引法に基づく表記"
       description="レバレッジ読書ログの特定商取引法に基づく表記。販売事業者・販売価格・支払方法・解約条件など。"
     >
-      <p className="effective-date">最終更新日:2026年5月3日</p>
+      <p className="effective-date">最終更新日:2026年6月20日</p>
 
       <table className="sct-table">
         <tbody>
@@ -51,7 +51,7 @@ export default function SctPage() {
           </tr>
           <tr>
             <th>販売価格</th>
-            <td>月額 1,000円(税込)</td>
+            <td>月額 990円(税込)</td>
           </tr>
           <tr>
             <th>商品代金以外の必要料金</th>
@@ -62,8 +62,11 @@ export default function SctPage() {
             <td>クレジットカード決済</td>
           </tr>
           <tr>
-            <th>支払時期</th>
-            <td>毎月、契約日に対応する日に自動課金</td>
+            <th>支払時期・契約期間</th>
+            <td>
+              契約期間は1ヶ月単位です。解約手続きがない限り、毎月、契約日に対応する日に
+              <strong>自動更新・自動課金</strong>されます。最低利用期間の定めはありません。
+            </td>
           </tr>
           <tr>
             <th>商品の引渡時期</th>
@@ -72,8 +75,8 @@ export default function SctPage() {
           <tr>
             <th>解約・返金について</th>
             <td>
-              アプリ内の設定画面からいつでも解約手続きが可能です。<br />
-              解約後、契約月の末日まではご利用いただけます。<br />
+              アプリ内の「設定 → サブスクリプション → 解約」から、いつでも 1 タップで解約手続きが可能です。違約金・解約手数料は一切かかりません。<br />
+              解約後も、契約期間の末日まではご利用いただけます。また、解約後もアカウントとメモのデータは保持されます。<br />
               既にお支払いいただいた料金は、当方の責に帰すべき事由による場合を除き、返金いたしません。
             </td>
           </tr>

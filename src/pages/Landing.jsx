@@ -28,7 +28,7 @@ export default function Landing() {
     document.title = 'レバレッジ読書ログ | 読書を投資にする AI 読書記録';
     const tags = [
       setMeta('description',
-        '読みっぱなしの本、もう作らない。AI が読み方を設計し、行動を引き出す『投資型』読書記録。月 ¥1,000、いつでも 1 タップで解約可能。'),
+        '読みっぱなしの本、もう作らない。AI が読み方を設計し、行動を引き出す『投資型』読書記録。月 ¥990（税込・自動更新）、いつでも 1 タップで解約可能。'),
       setMeta('og:title', '読みっぱなしの本、もう作らない | レバレッジ読書ログ', 'property'),
       setMeta('og:description', 'AI が読み方を設計し、行動を引き出す『投資型』読書記録', 'property'),
       setMeta('og:type', 'website', 'property'),
@@ -114,7 +114,7 @@ export default function Landing() {
         <div className="sticky-cta" role="region" aria-label="申し込み">
           <div className="sticky-inner">
             <div className="sticky-price">
-              <span className="sticky-price-main">月 ¥1,000</span>
+              <span className="sticky-price-main">月 ¥990</span>
               <span className="sticky-price-sub">1 日 ¥33</span>
             </div>
             <button type="button" onClick={goToSignup} className="sticky-btn">
@@ -128,20 +128,21 @@ export default function Landing() {
       <section className="hero">
         <p className="hero-eyebrow">読書を、最強の自己投資に。</p>
         <h1 className="hero-headline">
-          本 1 冊を、<br />
-          年収 10 万円に変える。
+          「読んだだけ」を、<br />
+          卒業する。
         </h1>
         <p className="hero-subhead">
-          AI があなたの悩みを分析し、本を選び、<br />
-          読み方を設計し、行動まで管理する。<br />
+          読んだ本の内容は、時間とともに忘れていく。<br />
+          AI が読み方を設計し、メモを知識に変え、<br />
+          行動まで引き出す。<br />
           <br />
-          「読んで終わり」を、永遠にやめる。
+          その読書を、後から“再現できる”資産に。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-hero">
-          月 ¥1,000 で始める →
+          月 ¥990 で始める →
         </button>
         <p className="hero-note">
-          1 日 ¥33・10 秒で解約可能・違約金ゼロ
+          月 ¥990（税込・自動更新）／1 日 ¥33／いつでも 1 タップで解約
         </p>
 
         {/* TODO(developer): 実数値が確定したら trust-bar を有効化する。
@@ -186,22 +187,22 @@ export default function Landing() {
             <span className="calc-value">¥4,950</span>
           </div>
           <div className="calc-row highlight">
-            <span className="calc-label">そのうち忘却される割合 ※</span>
-            <span className="calc-value">95%</span>
+            <span className="calc-label">時間とともに忘れる割合 ※</span>
+            <span className="calc-value">約 95%</span>
           </div>
           <div className="calc-divider" />
           <div className="calc-row total">
-            <span className="calc-label">月の「捨てられる金額」</span>
+            <span className="calc-label">活かしきれない金額（試算）</span>
             <span className="calc-value">¥4,702</span>
           </div>
         </div>
         <p className="pain-source">
-          ※ エビングハウスの忘却曲線と当社調査に基づく参考値
+          ※ 一般に知られる「忘却曲線」をもとにした、ある前提での試算です。実際に活かせる度合いは、人や読み方によって異なります。
         </p>
 
         <p className="pain-conclusion">
           レバレッジ読書ログなら、<br />
-          <strong>月 ¥1,000 で 100% を資産化。</strong>
+          <strong>月 ¥990 で、読んだ内容を“思い出せる”仕組みに。</strong>
         </p>
 
         <button type="button" onClick={goToSignup} className="cta-secondary">
@@ -225,13 +226,13 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>本選びの<span className="no-break">精度が 10 倍に。</span></h3>
+            <h3>本選びの、<span className="no-break">迷いが減る。</span></h3>
             <p className="mech-lead">
-              年間の自己啓発書購入数は平均 12 冊。そのうち<br />
-              「自分に刺さった」本は 2〜3 冊と言われます。
+              「買ったけれど、自分には合わなかった」——<br />
+              そんな経験は、誰にでもあります。
             </p>
             <p className="mech-body">
-              AI 選書は、あなたの現在の課題を会話で深掘りし、年代・職業・状況に合わせた本だけを提案。買う前に「自分に必要かどうか」が判断できます。
+              AI 選書は、あなたの現在の課題を会話で深掘りし、年代・職業・状況に合わせた本を提案。買う前に「自分に必要かどうか」を考える手がかりになります。
             </p>
             <div className="mech-screenshot">
               <PhoneFrame
@@ -249,13 +250,13 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>1 冊からの<span className="no-break">行動量が 10 倍に。</span></h3>
+            <h3>1 冊が、<span className="no-break">行動に変わる。</span></h3>
             <p className="mech-lead">
-              本を読み終えても、行動に繋がるのは 10 冊に 1 冊。<br />
-              多くの人が「読んだだけ」で終わってしまいます。
+              読み終えても、行動に移せないまま忘れていく——<br />
+              よくある「読みっぱなし」を防ぎます。
             </p>
             <p className="mech-body">
-              読む前に AI が「投資目的・現在の課題・仮説」を整理。重点的に読むべき章と、読まなくていい章まで提案するので、1 冊から 3〜5 個の具体的な行動が生まれます。
+              読む前に AI が「投資目的・現在の課題・仮説」を整理。重点的に読む章のあたりをつけられるので、本から具体的な「やること」を引き出しやすくなります。
             </p>
             <div className="mech-screenshot">
               <PhoneFrame
@@ -273,13 +274,13 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>知識の<span className="no-break">活用度が 10 倍に。</span></h3>
+            <h3>読んだ知識が、<span className="no-break">消えにくくなる。</span></h3>
             <p className="mech-lead">
-              本を読んでも、内容を覚えているのは 1 ヶ月で 2 割未満。<br />
-              本棚は知識の墓場になりがちです。
+              読んだ内容の多くは、時間とともに忘れていくと言われます。<br />
+              本棚を「知識の墓場」にしないために。
             </p>
             <p className="mech-body">
-              過去に読んだ本のメモ・投資目的・行動が、あなた専用 AI に蓄積されます。「決断に迷う時の判断軸は？」と聞けば、過去の本の知識から、あなた専用の答えが返ってくる。
+              過去に読んだ本のメモ・投資目的・行動が、あなた専用 AI に蓄積されます。「決断に迷う時の判断軸は？」と聞けば、過去の本のメモを根拠に、あなた専用の答えが返ってくる。
             </p>
             <div className="mech-screenshot mech-screenshot-double">
               <div className="screenshot-pair">
@@ -303,6 +304,9 @@ export default function Landing() {
               </div>
               <p className="screenshot-caption">
                 質問するたびに、過去のメモから回答 + 参照した本が表示されます
+              </p>
+              <p className="screenshot-caption privacy-note">
+                ※ あなたのメモは AI の学習には使われません。あなたへの回答の根拠にだけ使います。
               </p>
             </div>
           </div>
@@ -359,7 +363,7 @@ export default function Landing() {
         <div className="price-card">
           <div className="price-num">
             <span className="price-yen">¥</span>
-            <span className="price-main">1,000</span>
+            <span className="price-main">990</span>
             <span className="price-period">/ 月</span>
           </div>
           <p className="price-equiv">
@@ -367,7 +371,7 @@ export default function Landing() {
           </p>
           <p className="price-compare">
             缶コーヒー 1 本より安く、<br />
-            ビジネス書 1 冊の <strong>1/1.65</strong>。
+            ビジネス書 1 冊の <strong>約 1/1.7</strong>。
           </p>
 
           <ul className="price-features">
@@ -380,10 +384,10 @@ export default function Landing() {
           </ul>
 
           <button type="button" onClick={goToSignup} className="cta-primary cta-large">
-            月 ¥1,000 で始める →
+            月 ¥990 で始める →
           </button>
           <p className="price-note">
-            1 日 ¥33・10 秒で解約可能・違約金ゼロ
+            月 ¥990（税込・自動更新）／1 日 ¥33／いつでも 1 タップで解約・違約金ゼロ
           </p>
         </div>
 
@@ -415,10 +419,10 @@ export default function Landing() {
           AI と一緒に、読書を投資に変えよう。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-final cta-large">
-          月 ¥1,000 で始める →
+          月 ¥990 で始める →
         </button>
         <p className="final-note">
-          1 日 ¥33・10 秒で解約可能・違約金ゼロ
+          月 ¥990（税込・自動更新）／1 日 ¥33／いつでも 1 タップで解約・違約金ゼロ
         </p>
 
         <div className="faq-compact" role="region" aria-label="よくある質問">
@@ -432,12 +436,16 @@ export default function Landing() {
             <p>消えません。解約後もアカウントとメモはすべて保持され、再開すればそのまま戻ります。契約期間内は引き続き全機能をご利用いただけます。</p>
           </details>
           <details className="faq-compact-item">
-            <summary>無料で試せますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
-            <p>申し訳ありませんが、無料期間はご用意していません。1 日 ¥33 という価格で、長期的な読書投資をご提供しています。</p>
+            <summary>自分のメモを AI に渡すのは不安です<span className="faq-compact-mark" aria-hidden="true" /></summary>
+            <p>あなたのメモは AI の学習には使われません。あなたへの回答を作るための根拠としてのみ利用します。データの取り扱いはプライバシーポリシーに記載しています。</p>
           </details>
           <details className="faq-compact-item">
-            <summary>使う時間がない人でも大丈夫？<span className="faq-compact-mark" aria-hidden="true" /></summary>
-            <p>1 日 5 分から始められます。AI が「重点的に読む章」を絞ってくれるので、忙しい方ほど効果が出ます。</p>
+            <summary>無料で試せますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
+            <p>申し訳ありませんが、無料期間はご用意していません。月額 ¥990（税込・自動更新／1 日あたり ¥33）でご利用いただけます。いつでも 1 タップで解約でき、違約金はありません。</p>
+          </details>
+          <details className="faq-compact-item">
+            <summary>メモを続けられるか不安です<span className="faq-compact-mark" aria-hidden="true" /></summary>
+            <p>「カード 1 枚＝ひとこと」で大丈夫です。気づきを 1 行メモするだけで蓄積され、AI が後から思い出す手助けをします。忙しい方ほど、短いメモから始めてみてください。</p>
           </details>
         </div>
       </section>
