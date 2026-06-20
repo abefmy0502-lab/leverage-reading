@@ -44,6 +44,7 @@ import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import BookshelfSummary from './components/BookshelfSummary';
+import DailyResurface from './components/DailyResurface';
 import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
@@ -54,6 +55,7 @@ import SwipeableCard from './components/SwipeableCard';
 import ContextMenu from './components/ContextMenu';
 import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
+import { useDailyResurface } from './hooks/useDailyResurface';
 import { useLongPress } from './hooks/useLongPress';
 import { useEdgeSwipeBack } from './hooks/useEdgeSwipeBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
@@ -2058,6 +2060,7 @@ function AuthedApp() {
     refreshBooks,
   } = useBooks();
   const haptic = useHaptic();
+  const daily = useDailyResurface();
   const toast = useToast();
   const confirm = useConfirm();
   // AI 選書の会話履歴。advisor_sessions テーブル未マイグレーションなら
@@ -4327,6 +4330,20 @@ function AuthedApp() {
               </div>
             </div>
             <div style={{ padding: "0 20px" }}>
+              {/* 💭 ふと、思い出したい一節 — アプリを開いた瞬間に過去の気づきを
+                  主役として差し出す。検索 / 絞り込み中は隠して、純粋な「ホーム」
+                  の時だけ出す。 */}
+              {!search && statusFilter === "all" && daily.memo && (
+                <DailyResurface
+                  memo={daily.memo}
+                  book={books.find((b) => b.id === daily.memo.book_id)}
+                  onReroll={() => { daily.reroll(); haptic.light(); }}
+                  onOpen={() => {
+                    const b = books.find((x) => x.id === daily.memo.book_id);
+                    if (b) openDetail(b);
+                  }}
+                />
+              )}
               {/* 月次 1 行サマリー: 読了 (今月) / 読書中 (今) / 読書前 (今)
                   タップで振り返りタブへ遷移 — 振り返り導線を強化。 */}
               <BookshelfSummary

@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-06-20: ホーム再設計 第2弾 — 「💭 ふと、思い出したい一節」をホーム最上部に新設。新規 `useDailyResurface` フック (book_memos から直近80件・本文ありを取得し、セッション内で1件を表示・🔄 で引き直し) + `DailyResurface` コンポーネント (明朝・ゆったり行間のヒーローカード。タップでその本へ、学びの記録は本リンクなし)。検索/絞り込み中は非表示。読書の核心 (読みっぱなしにしない=過去の気づきが甦る) を振り返りタブの奥からホームの主役へ引き上げる狙い。bookList ヘルプの tip に説明追記。
  * - 2026-06-20: 監査是正 第2弾。マイ読書脳の AI 生成を「■ 停止」ボタンで途中キャンセル可能に (streamMyBookBrain に AbortSignal を配線、AbortError はエラー扱いせず静かに停止)。AI 空応答を空吹き出しとして保存しない guard。AI 選書履歴で END マーカー欠落 (途中切断) でも生 JSON を出さないよう START 以降を末尾まで除去。画像バリデーション強化 — MIME・拡張子のどちらからも許可形式と確認できないファイルを拒否 (jpeg 偽装保存の防止)。長押しメニュー成立後の合成 click を握りつぶし、背後カードの誤遷移を防止 (useLongPress)。ContextMenu の下端クランプに safe-area 相当の余白を追加 (ホームインジケータ被り防止)。Vitest 49 → 51 件
  * - 2026-06-20: 商用化前のセキュリティ + UX 徹底監査と是正 (アプリ化の前段)。【セキュリティ】(1) `/api/claude` 中継を「クライアント body をそのまま転送」から「サーバー側で payload を厳格に再構築」に変更 — 許可モデルのみ (claude-sonnet-4)、messages 件数/合計文字数の上限、system 長 clamp、temperature 範囲チェック (= 認証ユーザーによる高価モデル指定・巨大ペイロードでのコスト濫用を遮断)。(2) `supabase_core_rls.sql` を新設 — books / book_memos / book_tags / actions と book-memo-photos バケットの RLS + owner-only ポリシー (auth.uid()=user_id) を IaC として明文化 (要 Supabase で適用)。(3) 本番 sourcemap 公開を停止 (vite.config sourcemap:false)。(4) AI 上流 (Anthropic) の内部エラーメッセージをユーザーに出さず固定文言に統一 (ai.js / streamClaude.js)。(5) アカウント削除で book_memos/book_tags/actions の削除エラーを集約 — 不完全削除を「削除完了」と偽らない。(6) /api/claude のエラーログから payload を除外。【UX】(1) 行動 (actions) のトグル/削除を楽観的 UI 化 + 失敗時 rollback、削除に Undo トースト、ActionEditModal の削除を window.confirm → アプリ共通の確認ダイアログに統一。(2) useBooks の保存後リフレッシュを silent 化 (本棚のちらつき解消) + 一時的な取得エラーで本棚が空に吹き飛ぶ不具合を修正 + saveBook 内のタグ/アクション delete エラー検知と失敗時の再同期。(3) 全 `<img>` に onError フォールバック (署名 URL 失効時の割れ画像アイコン解消)。(4) 行動の並び順 select を 16px に (iOS ズーム防止)。(5) フィードバックのメール形式チェック、AI 選書履歴の追加失敗トースト、マイ読書脳の質問例タップで書きかけ入力を上書きしない、本追加モーダルを検索中でも閉じられる (検索 abort)、マイ読書脳の「メモ0件」案内が出ない不具合修正、タイマー未クリアの修正。【テスト基盤】Vitest 導入 + 純粋ロジック (limits / checkDuplicate / url / amazonLink / errors) に 49 テスト追加 (`npm test`)。ユーザー可視機能の骨格は不変のため HELP_CONTENT セクション本文は据え置き
  * - 2026-06-20: iOS ネイティブアプリ化 (App Store 配信) の土台を導入 + 月額を ¥990 に統一。【Capacitor 導入】`@capacitor/core` / `cli` / `ios` + プラグイン (status-bar / splash-screen / keyboard / haptics / app) を追加。`capacitor.config.json` (appId `com.leveragereading.app` / webDir `dist` / Splash 設定)、`src/lib/native.js` (ネイティブ時のみ StatusBar / Keyboard / SplashScreen を dynamic import で初期化 — `Capacitor.isNativePlatform()` ガードで Web/PWA には無影響)、`main.jsx` から `initNative()` 呼び出し。`src/hooks/useHaptic.js` を強化 — ネイティブでは `@capacitor/haptics` の Taptic Engine (impact/notification)、Web では従来通り navigator.vibrate フォールバック (iOS Safari PWA では効かなかったハプティクスがネイティブ版で動く)。`package.json` に `ios:add` / `ios:sync` / `ios:open` スクリプト、`.gitignore` に iOS 生成物。iOS のビルド・署名・申請・アプリ内課金は macOS + Xcode 必須のため `IOS_APP_GUIDE.md` (手順書) に集約。【価格 ¥990 統一】LP (`Landing.jsx` 7 箇所) / 利用規約 (`TermsPage.jsx` 第5条) / 特商法 (`SctPage.jsx` 販売価格) の「¥1,000」を「¥990」に更新 (心理的に始めやすい 1,000 円未満の価格点。¥33/日 フレーミングは維持)。アプリ内課金は Apple のルールで StoreKit (手数料 15〜30%) 必須・外部決済リンク禁止のため段階2 (要 Mac) でRevenueCat 等を実装予定。ユーザー可視の機能 UI 変更は無いため HELP_CONTENT セクションは変更なし
@@ -96,7 +97,7 @@ export const HELP_CONTENT = {
   bookList: {
     title: 'レバレッジ読書ログの使い方',
     description: '本を投資として捉え、行動につなげる 4 ステップ',
-    lastUpdated: '2026-05-04',
+    lastUpdated: '2026-06-20',
     // `steps` を持つエントリは HelpModal が「ステップカード」レイアウトで描画。
     // bullets / footer は任意。sections フォールバックも renderer 側で対応。
     steps: [
@@ -127,7 +128,7 @@ export const HELP_CONTENT = {
         footer: '振り返りタブで定期的に見返し、行動に落とし込みます。',
       },
     ],
-    tip: '完読を目指さず、必要な部分だけ抜き出す『レバレッジ読書』が最も効率的。',
+    tip: '完読を目指さず、必要な部分だけ抜き出す『レバレッジ読書』が最も効率的。ホーム上部には、過去に書いたメモが「💭 ふと、思い出したい」一節として現れます（🔄 で引き直し）。タップするとその本へ。',
   },
 
   bookDetailWant: {
