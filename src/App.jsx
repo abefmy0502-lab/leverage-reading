@@ -45,6 +45,7 @@ import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import BookshelfSummary from './components/BookshelfSummary';
 import DailyResurface from './components/DailyResurface';
+import TodayAction from './components/TodayAction';
 import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
@@ -56,6 +57,7 @@ import ContextMenu from './components/ContextMenu';
 import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
 import { useDailyResurface } from './hooks/useDailyResurface';
+import { useAllActions } from './hooks/useAllActions';
 import { useLongPress } from './hooks/useLongPress';
 import { useEdgeSwipeBack } from './hooks/useEdgeSwipeBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
@@ -2167,6 +2169,33 @@ function AuthedApp() {
 
   // Books are now committed to DB on delete (no soft-delete state to filter).
   const books = rawBooks;
+
+  // 🎯 ホームの「次の一歩」— 全本横断の未完了アクションから 1 件を選ぶ。
+  // 優先: 期限切れ → 期限が近い → 優先度高 → それ以外。
+  const { allActions: homeActions } = useAllActions(books);
+  const nextAction = useMemo(() => {
+    const open = homeActions.filter((a) => !a.done);
+    if (open.length === 0) return null;
+    const priRank = { high: 0, medium: 1, low: 2 };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const score = (a) => {
+      const d = a.deadline ? new Date(a.deadline + 'T00:00:00') : null;
+      const hasDeadline = d && !Number.isNaN(d.getTime());
+      return {
+        overdue: hasDeadline && d < today ? 0 : 1,
+        due: hasDeadline ? d.getTime() : Infinity,
+        pri: priRank[a.priority] ?? 1,
+      };
+    };
+    return [...open].sort((x, y) => {
+      const sx = score(x);
+      const sy = score(y);
+      if (sx.overdue !== sy.overdue) return sx.overdue - sy.overdue;
+      if (sx.due !== sy.due) return sx.due - sy.due;
+      return sx.pri - sy.pri;
+    })[0];
+  }, [homeActions]);
 
   // 時刻に応じた挨拶 + 名前。1 時間ごとに再評価して開きっぱなしでも
   // スロットラベルがズレないようにする。達成バッジ系の演出は撤去。
@@ -4340,6 +4369,20 @@ function AuthedApp() {
                   onReroll={() => { daily.reroll(); haptic.light(); }}
                   onOpen={() => {
                     const b = books.find((x) => x.id === daily.memo.book_id);
+                    if (b) openDetail(b);
+                  }}
+                />
+              )}
+              {/* 🎯 次の一歩 — 読書 → 行動の循環をホームで閉じる。チェックで即完了。 */}
+              {!search && statusFilter === "all" && nextAction && (
+                <TodayAction
+                  action={nextAction}
+                  onComplete={() => {
+                    haptic.success();
+                    applyActionToggle(nextAction.bookId, nextAction.actionIdx);
+                  }}
+                  onOpen={() => {
+                    const b = books.find((x) => x.id === nextAction.bookId);
                     if (b) openDetail(b);
                   }}
                 />
