@@ -143,13 +143,19 @@ function renderLines(lines, opts) {
     let pending = null; // { book, lines: [] }
     const flushPending = (key) => {
       if (!pending) return;
+      // ⚠️ `pending` はループ内で使い回され、この直後に null に戻る。
+      // onAdd は「後でクリックされた時」に評価されるクロージャなので、
+      // pending を直接参照すると null になっていて落ちる (= 無反応の真因)。
+      // ここで book / description をローカルに確定させてからクロージャに渡す。
+      const bookForCard = pending.book;
+      const descForCard = pending.lines.join('\n').trim();
       out.push(
         <RelatedBookCard
           key={`rel-${key}`}
-          book={pending.book}
-          description={pending.lines.join('\n').trim()}
-          onAdd={() => opts.onAddRelatedBook(pending.book)}
-          isAdding={opts.addingTitles?.has(pending.book.title)}
+          book={bookForCard}
+          description={descForCard}
+          onAdd={() => opts.onAddRelatedBook(bookForCard)}
+          isAdding={opts.addingTitles?.has(bookForCard.title)}
         />,
       );
       pending = null;
