@@ -55,8 +55,6 @@ export async function backfillCovers(supabase, userId) {
       return;
     }
 
-    let resolved = 0;
-    let cleared = 0;
     for (const row of data) {
       try {
         // 手動アップロード済みは絶対に触らない。
@@ -69,8 +67,7 @@ export async function backfillCovers(supabase, userId) {
         if (ordered.length === 0) {
           if (row.cover) {
             // eslint-disable-next-line no-await-in-loop
-            const res = await supabase.from('books').update({ cover: null }).eq('id', row.id);
-            if (!res.error) cleared += 1;
+            await supabase.from('books').update({ cover: null }).eq('id', row.id);
           }
           continue;
         }
@@ -88,10 +85,6 @@ export async function backfillCovers(supabase, userId) {
             // eslint-disable-next-line no-await-in-loop
             res = await supabase.from('books').update(minPayload).eq('id', row.id);
           }
-          if (!res.error) {
-            resolved += 1;
-            console.log('[backfill v3] resolved:', { title: row.title, isbn, url });
-          }
         } else if (row.cover) {
           // 解決失敗 + 既に壊れた URL がある → null にリセットして
           // 手動アップロード待ちに。次回起動の再ループ防止にもなる。
@@ -102,10 +95,6 @@ export async function backfillCovers(supabase, userId) {
             // eslint-disable-next-line no-await-in-loop
             res = await supabase.from('books').update({ cover: null }).eq('id', row.id);
           }
-          if (!res.error) {
-            cleared += 1;
-            console.log('[backfill v3] cleared:', { title: row.title });
-          }
         }
       } catch (e) {
         console.warn('[backfillCovers v3] book failed:', row?.title, e?.message || e);
@@ -113,9 +102,6 @@ export async function backfillCovers(supabase, userId) {
     }
 
     try { localStorage.setItem(FLAG_KEY, String(Date.now())); } catch { /* ignore */ }
-    if (resolved > 0 || cleared > 0) {
-      console.log(`[backfillCovers v3] resolved=${resolved} cleared=${cleared} of ${data.length}`);
-    }
   } catch (e) {
     console.warn('[backfillCovers v3] error:', e?.message || e);
   }

@@ -221,20 +221,14 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
   }, [memos]);
 
   const openCreate = () => {
-    // eslint-disable-next-line no-console
-    console.log('[memo-editor] open create');
     setEditingMemo(null);
     setEditorOpen(true);
   };
   const openEdit = (memo) => {
-    // eslint-disable-next-line no-console
-    console.log('[memo-editor] open edit:', memo?.id);
     setEditingMemo(memo);
     setEditorOpen(true);
   };
   const closeEditor = () => {
-    // eslint-disable-next-line no-console
-    console.log('[memo-editor] close');
     setEditorOpen(false);
     setEditingMemo(null);
   };

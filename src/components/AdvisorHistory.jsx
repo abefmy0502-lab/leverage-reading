@@ -250,10 +250,6 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
           <button
             type="button"
             onClick={(e) => {
-              // 🔍 診断: クリックが DOM ハンドラに到達したことを確認。
-              // ⚠️ TODO(2026-05-11): 「読みたい」ボタン無反応問題の解決後に削除。
-              // eslint-disable-next-line no-console
-              console.log('[読みたい:advisor-history]', 'タップ', book?.title, new Date().toISOString());
               e.stopPropagation();
               onAdd?.();
             }}
@@ -343,8 +339,6 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
     });
     // 2. 重い処理は完全に背景。Promise.resolve().then で次の tick へ。
     //    handler は同期で終わる。
-    // eslint-disable-next-line no-console
-    console.time(`[history-add] ${rec.title}`);
     Promise.resolve().then(async () => {
       try {
         await onAddBook(rec, {
@@ -363,9 +357,6 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
           next.delete(key);
           return next;
         });
-      } finally {
-        // eslint-disable-next-line no-console
-        console.timeEnd(`[history-add] ${rec.title}`);
       }
     });
   };
