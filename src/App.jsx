@@ -4151,19 +4151,19 @@ function AuthedApp() {
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <button
         onClick={openHelp}
-        style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8c8", borderRadius: 999, color: "#7a6f59", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="この画面のヘルプを開く"
         title="ヘルプ"
       >
-        <HelpCircle size={18} strokeWidth={1.75} aria-hidden="true" />
+        <HelpCircle size={19} strokeWidth={1.75} aria-hidden="true" />
       </button>
       <button
         onClick={() => setSettingsOpen(true)}
-        style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8c8", borderRadius: 999, color: "#7a6f59", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="アカウント設定を開く"
         title="設定"
       >
-        <SettingsIcon size={18} strokeWidth={1.75} aria-hidden="true" />
+        <SettingsIcon size={19} strokeWidth={1.75} aria-hidden="true" />
       </button>
     </div>
   </header>
