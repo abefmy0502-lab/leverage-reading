@@ -171,10 +171,10 @@ export default function Landing() {
 
       {/* ============ 2. Pain (損失計算機) ============ */}
       <section className="pain fade-in">
-        <p className="section-eyebrow">あなたが知らない真実</p>
+        <p className="section-eyebrow">その本、活かしきれていますか？</p>
         <h2 className="section-headline">
-          あなたは、すでに<br />
-          損している。
+          買った知識は、<br />
+          静かに消えていく。
         </h2>
 
         <div className="pain-calculator">
@@ -201,8 +201,8 @@ export default function Landing() {
         </p>
 
         <p className="pain-conclusion">
-          レバレッジ読書ログなら、<br />
-          <strong>月 ¥990 で、読んだ内容を“思い出せる”仕組みに。</strong>
+          問題は、記憶力じゃない。<br />
+          <strong>“思い出す仕組み” が、無いだけ。</strong>
         </p>
 
         <button type="button" onClick={goToSignup} className="cta-secondary">
@@ -216,8 +216,8 @@ export default function Landing() {
       <section className="mechanisms fade-in">
         <p className="section-eyebrow">仕組み</p>
         <h2 className="section-headline">
-          本を「投資」に変える、<br />
-          3 つの仕組み
+          読書を、回収できる<br />
+          かたちに変える。
         </h2>
 
         <div className="mechanism">
@@ -353,6 +353,38 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
+      {/* ============ 4.5 思想的裏付け (名著の方法論・暗色セクション) ============ */}
+      <section className="philosophy fade-in">
+        <p className="section-eyebrow philosophy-eyebrow">考え方</p>
+        <h2 className="philosophy-headline">
+          読み継がれる名著の方法論を、<br />
+          アプリに。
+        </h2>
+        <ul className="philosophy-list">
+          <li>
+            <strong>本は、投資である。</strong>
+            <span>読みっぱなしは、回収のない投資。</span>
+          </li>
+          <li>
+            <strong>20%で、80%の成果を。</strong>
+            <span>全部読まなくていい。要点を掴む。</span>
+          </li>
+          <li>
+            <strong>目的を持って、読む。</strong>
+            <span>問いがあるから、答えが残る。</span>
+          </li>
+          <li>
+            <strong>行動こそ、すべて。</strong>
+            <span>読書の価値は、動いて初めて生まれる。</span>
+          </li>
+        </ul>
+        <p className="philosophy-attr">
+          本田直之『レバレッジ・リーディング』の考え方を参考にしています。
+        </p>
+      </section>
+
+      <div className="lp-section-divider" aria-hidden="true" />
+
       {/* ============ 5. Pricing (¥33/日 フレーミング) ============ */}
       <section className="pricing fade-in">
         <p className="section-eyebrow">料金</p>
@@ -394,16 +426,16 @@ export default function Landing() {
         {/* 3 つの保証 (旧 Risk Reversal を Pricing 内に統合) */}
         <div className="guarantee-row">
           <div className="g-item">
-            <strong>1 タップで解約</strong>
-            <p>アプリ内・10 秒で完了</p>
+            <strong>いつでも1タップ解約</strong>
+            <p>設定からワンタップ。引き止めません。</p>
           </div>
           <div className="g-item">
             <strong>違約金ゼロ</strong>
-            <p>解約手数料も一切なし</p>
+            <p>解約に余計な費用はかかりません。</p>
           </div>
           <div className="g-item">
-            <strong>データ保持</strong>
-            <p>解約してもメモは消えない</p>
+            <strong>解約後もデータ保持</strong>
+            <p>あなたのメモは、消えずに残ります。</p>
           </div>
         </div>
       </section>
