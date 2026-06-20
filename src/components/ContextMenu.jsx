@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react';
 
 const PANEL_WIDTH = 220;
 const PANEL_MARGIN = 12;
+// iPhone のホームインジケータに被らないよう、下端クランプに safe-area 相当の
+// 余白を足す (env() を JS から読めないため保守的な定数で近似)。
+const SAFE_BOTTOM = 28;
 
 const backdrop = {
   position: 'fixed',
@@ -81,7 +84,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
     let top = y + 12;
     if (left < PANEL_MARGIN) left = PANEL_MARGIN;
     if (left + PANEL_WIDTH > vw - PANEL_MARGIN) left = vw - PANEL_WIDTH - PANEL_MARGIN;
-    if (top + estHeight > vh - PANEL_MARGIN) top = Math.max(PANEL_MARGIN, y - estHeight - 12);
+    if (top + estHeight > vh - PANEL_MARGIN - SAFE_BOTTOM) top = Math.max(PANEL_MARGIN, y - estHeight - 12);
     setPosition({ left, top });
   }, [x, y, items.length]);
 

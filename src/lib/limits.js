@@ -72,15 +72,26 @@ export function validateImageFile(file) {
   if (file.size > MAX_IMAGE_BYTES) {
     return '画像が大きすぎます。1 枚あたり 10 MB 以下にしてください。';
   }
-  if (file.type && !ALLOWED_IMAGE_MIME.includes(file.type)) {
-    return '対応している画像形式は JPEG / PNG / WebP のみです。';
-  }
+
+  const type = file.type || '';
   const name = (file.name || '').toLowerCase();
   const dot = name.lastIndexOf('.');
-  if (dot === -1) return null; // unknown extension — let MIME check above govern
-  const ext = name.slice(dot + 1);
-  if (!ALLOWED_IMAGE_EXT.includes(ext)) {
+  const ext = dot === -1 ? '' : name.slice(dot + 1);
+
+  // MIME が指定されていれば不一致を拒否。
+  if (type && !ALLOWED_IMAGE_MIME.includes(type)) {
     return '対応している画像形式は JPEG / PNG / WebP のみです。';
+  }
+  // 拡張子が指定されていれば不一致を拒否。
+  if (ext && !ALLOWED_IMAGE_EXT.includes(ext)) {
+    return '対応している画像形式は JPEG / PNG / WebP のみです。';
+  }
+  // MIME・拡張子のどちらからも「許可形式」だと確認できない (両方とも不明) 場合は
+  // 拒否する。jpeg 偽装での保存 (HEIC 等が表示できなくなる) を防ぐ。
+  const mimeOk = type ? ALLOWED_IMAGE_MIME.includes(type) : false;
+  const extOk = ext ? ALLOWED_IMAGE_EXT.includes(ext) : false;
+  if (!mimeOk && !extOk) {
+    return '画像形式を判別できませんでした。JPEG / PNG / WebP のファイルを選んでください。';
   }
   return null;
 }

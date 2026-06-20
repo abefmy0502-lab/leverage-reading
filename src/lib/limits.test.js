@@ -64,4 +64,10 @@ describe('validateImageFile', () => {
   it('allows files with no extension (MIME governs)', () => {
     expect(validateImageFile({ size: 1000, type: 'image/webp', name: 'noext' })).toBeNull();
   });
+  it('allows files with valid extension but missing MIME', () => {
+    expect(validateImageFile({ size: 1000, type: '', name: 'photo.png' })).toBeNull();
+  });
+  it('rejects files where neither MIME nor extension identifies an allowed image', () => {
+    expect(validateImageFile({ size: 1000, type: '', name: 'mystery' })).toMatch(/判別/);
+  });
 });

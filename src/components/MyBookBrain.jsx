@@ -269,9 +269,16 @@ export default function MyBookBrain({ onOpenBook }) {
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
+  // 生成中の AI ストリームを途中で止めるための AbortController。
+  const abortRef = useRef(null);
   // chat-scroll を直接掴んで scrollHeight ベースのオートスクロールを使う
   // (messagesEndRef.scrollIntoView だと document も巻き込んで動くため)。
   const chatScrollRef = useRef(null);
+
+  // ユーザーが「停止」を押したら生成を中断する。
+  const stopAsk = () => {
+    try { abortRef.current?.abort(); } catch { /* ignore */ }
+  };
   // Auto-grow textarea: 60px min, 200px max, scrolls past 200.
   const inputRef = useRef(null);
   useEffect(() => {
@@ -437,10 +444,13 @@ export default function MyBookBrain({ onOpenBook }) {
     ]);
     setStage('search');
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const { body, refs, memoCount, memoTotal, cardCount, summaryCount, personalCount } = await streamMyBookBrain({
         userId: user.id,
         question: q,
+        signal: controller.signal,
         onStage: (s) => setStage(s),
         onChunk: (visibleText) => {
           // 最初の delta が来た瞬間に stage を消して本文表示に切り替える。
@@ -452,6 +462,10 @@ export default function MyBookBrain({ onOpenBook }) {
           ));
         },
       });
+      // 空応答 (delta ゼロで done) を空の吹き出しとして DB に残さない。
+      if (!body || !body.trim()) {
+        throw new Error('🤖 AI が回答を生成できませんでした。もう一度お試しください。');
+      }
       const breakdown = `カード ${cardCount || 0} / まとめ ${summaryCount || 0} / 学び ${personalCount || 0}`;
       const assistantContent = memoTotal > memoCount && memoCount > 0
         ? `${body}\n\n（参照: ${memoCount}/${memoTotal} 件、内訳: ${breakdown}）`
@@ -467,21 +481,28 @@ export default function MyBookBrain({ onOpenBook }) {
       // 新しい AI 回答が来たら resolution prompt を再表示できるよう dismiss を解除
       setPromptDismissed(false);
     } catch (e) {
-      toast.error(toMessage(e, '回答の生成に失敗しました。'));
-      // 楽観的な streaming 行を error placeholder に差し替える。
-      setMessages((arr) => arr.map((m) =>
-        m.id === streamingId
-          ? {
-              id: `err-${Date.now()}`,
-              role: 'assistant',
-              content: '回答を生成できませんでした。少し時間をおいて再度お試しください。',
-              refs: [],
-              createdAt: new Date().toISOString(),
-            }
-          : m
-      ));
-      setPromptDismissed(false);
+      // ユーザーが「停止」した場合 (AbortError) はエラー扱いにしない。
+      // streaming 行を削除して静かに止める (DB には残さない)。
+      if (e?.name === 'AbortError') {
+        setMessages((arr) => arr.filter((m) => m.id !== streamingId));
+      } else {
+        toast.error(toMessage(e, '回答の生成に失敗しました。'));
+        // 楽観的な streaming 行を error placeholder に差し替える。
+        setMessages((arr) => arr.map((m) =>
+          m.id === streamingId
+            ? {
+                id: `err-${Date.now()}`,
+                role: 'assistant',
+                content: '回答を生成できませんでした。少し時間をおいて再度お試しください。',
+                refs: [],
+                createdAt: new Date().toISOString(),
+              }
+            : m
+        ));
+        setPromptDismissed(false);
+      }
     } finally {
+      abortRef.current = null;
       setStage(null);
       setBusy(false);
     }
@@ -780,13 +801,13 @@ export default function MyBookBrain({ onOpenBook }) {
             <button
               type="button"
               className="send-btn"
-              onClick={() => ask()}
-              disabled={busy || !input.trim()}
-              aria-label={busy ? '送信中' : '送信'}
-              title={busy ? '送信中…' : '送信'}
+              onClick={() => (busy ? stopAsk() : ask())}
+              disabled={busy ? false : !input.trim()}
+              aria-label={busy ? '停止' : '送信'}
+              title={busy ? '停止' : '送信'}
             >
               {busy ? (
-                <span aria-hidden="true" style={{ fontSize: 11, fontWeight: 600 }}>…</span>
+                <span aria-hidden="true" style={{ fontSize: 13, fontWeight: 700 }}>■</span>
               ) : (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M2 12 22 2 13 22 11 13 2 12Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />

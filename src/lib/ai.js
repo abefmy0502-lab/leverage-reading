@@ -447,7 +447,7 @@ export async function callMyBookBrain({ userId, question }) {
 // in flight). onChunk receives the partial body text with REFS_START..END
 // stripped, so callers can render it directly without leaking metadata.
 // Returns the same shape as callMyBookBrain on completion.
-export async function streamMyBookBrain({ userId, question, onStage, onChunk }) {
+export async function streamMyBookBrain({ userId, question, onStage, onChunk, signal }) {
   const ctx = await buildBrainContext({ userId, question, onStage });
   if (ctx.empty) {
     onStage?.(null);
@@ -462,6 +462,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk }) 
     messages: [{ role: 'user', content: ctx.userPrompt }],
     max_tokens: 2048,
     temperature: 0.5,
+    signal,
     onChunk: (text) => {
       fullText = text;
       const visible = stripRefsBlock(text);

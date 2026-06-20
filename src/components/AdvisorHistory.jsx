@@ -36,6 +36,9 @@ function stripRecommendations(text) {
     /RECOMMENDATIONS_START[\s\S]*?RECOMMENDATIONS_END/g,
     '',
   );
+  // END マーカーが欠落 (AI が 2048 トークン上限で途中切断) した場合でも、
+  // START 以降を末尾まで丸ごと除去して生 JSON が露出しないようにする。
+  cleaned = cleaned.replace(/RECOMMENDATIONS_START[\s\S]*$/g, '');
   // 連続改行を 2 行までに圧縮 + 末尾整理
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
   return cleaned;
