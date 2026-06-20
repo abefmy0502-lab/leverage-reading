@@ -3470,44 +3470,9 @@ function AuthedApp() {
                   ISBN: {current.coverIsbn}
                 </span>
               )}
-              {/* 表紙関連の 2 アクション。常時可視で「⋯ メニューに埋もれて
-                  見つけにくい」問題を解消。「取り直す」は同じ ISBN で再 fetch、
-                  「違う?」は別エディション候補から選び直し or 手動 upload。 */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start', marginTop: 2 }}>
-                <button
-                  type="button"
-                  onClick={() => refreshCoverFor(current)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    fontSize: 10,
-                    color: '#5C4A2E',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    textDecoration: 'underline',
-                    fontWeight: 600,
-                  }}
-                >
-                  🔄 表紙を取り直す
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCoverFixForBook(current)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    fontSize: 10,
-                    color: '#8a7040',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  表紙が違う？
-                </button>
-              </div>
+              {/* 表紙関連のアクション (取り直す / 別を選ぶ / 手動アップロード /
+                  削除) は上部 ⋯ メニューに集約。表紙まわりを常時リンクで
+                  ごちゃつかせない (一本道)。 */}
             </div>
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c", lineHeight: 1.4 }}>{current.title}</h2>
@@ -3809,58 +3774,43 @@ function AuthedApp() {
                 </p>
               </>
             )}
-            <a
-              href={getAmazonLink(current)}
-              target="_blank"
-              rel={AMAZON_LINK_REL}
-              aria-label={`Amazon で『${current.title}』を購入（外部リンク）`}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                width: "100%",
-                padding: "12px 16px",
-                background: "#FF9900",
-                color: "#000",
-                borderRadius: 10,
-                textDecoration: "none",
-                fontWeight: 600,
-                fontSize: 14,
-                fontFamily: "inherit",
-                minHeight: 44,
-                boxSizing: "border-box",
-              }}
-            >
-              📚 Amazon で買う
-            </a>
-            <small style={{ fontSize: 10, color: "#a89e8c", lineHeight: 1.6, textAlign: "center" }}>
-              {AMAZON_DISCLOSURE_TEXT}
-            </small>
-            {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。下部のボタン群は撤去。 */}
-            {/* 本棚に戻る — 上部 ← 一覧 が text link で目立たないため、
-                どのフェーズの本詳細でも下部に大きめの secondary ボタンで提供。
-                スクロールで上に戻らずに本棚へ帰れる。 */}
-            <button
-              type="button"
-              onClick={goList}
-              style={{
-                width: "100%",
-                padding: "12px 16px",
-                background: "transparent",
-                border: "1px solid #d4ccbe",
-                borderRadius: 14,
-                color: "#5c5043",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                marginTop: 16,
-                minHeight: 44,
-              }}
-            >
-              ← 本棚に戻る
-            </button>
+            {/* Amazon は「まだ手元に無い」want / before のみ表示。
+                読書中・読了で「買う」を出すのは導線として不要。 */}
+            {(current.status === 'want' || current.status === 'before') && (
+              <>
+                <a
+                  href={getAmazonLink(current)}
+                  target="_blank"
+                  rel={AMAZON_LINK_REL}
+                  aria-label={`Amazon で『${current.title}』を購入（外部リンク）`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    width: "100%",
+                    padding: "12px 16px",
+                    background: "#FF9900",
+                    color: "#000",
+                    borderRadius: 10,
+                    textDecoration: "none",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    fontFamily: "inherit",
+                    minHeight: 44,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  📚 Amazon で買う
+                </a>
+                <small style={{ fontSize: 10, color: "#a89e8c", lineHeight: 1.6, textAlign: "center" }}>
+                  {AMAZON_DISCLOSURE_TEXT}
+                </small>
+              </>
+            )}
+            {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。「← 本棚に戻る」は
+                上部「← 一覧」・下部ナビ「📚 本棚」・エッジスワイプと重複するため
+                撤去 (一本道 = ボタンの乱立を減らす)。 */}
           </div>
         </div>
 
@@ -3986,6 +3936,7 @@ function AuthedApp() {
                   }]
                 : []),
               { label: '表紙を取り直す', icon: '🔄', onClick: () => refreshCoverFor(current) },
+              { label: '別の表紙を選ぶ', icon: '🔍', onClick: () => setCoverFixForBook(current) },
               { label: '表紙を手動でアップロード', icon: '🖼', onClick: () => triggerManualCoverUpload(current) },
               ...(current.cover ? [{ label: '表紙を削除', icon: '🗑', onClick: () => removeCoverFor(current) }] : []),
               { label: '共有', icon: '📤', onClick: () => shareBook(current) },
