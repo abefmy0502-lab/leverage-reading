@@ -354,13 +354,13 @@ export default function Landing() {
       <div className="lp-section-divider" aria-hidden="true" />
 
       {/* ============ 4.5 思想的裏付け (名著の方法論・暗色セクション) ============ */}
-      <section className="philosophy fade-in">
-        <p className="section-eyebrow philosophy-eyebrow">考え方</p>
-        <h2 className="philosophy-headline">
+      <section className="lp-philosophy fade-in">
+        <p className="section-eyebrow lp-philosophy-eyebrow">考え方</p>
+        <h2 className="lp-philosophy-headline">
           読み継がれる名著の方法論を、<br />
           アプリに。
         </h2>
-        <ul className="philosophy-list">
+        <ul className="lp-philosophy-list">
           <li>
             <strong>本は、投資である。</strong>
             <span>読みっぱなしは、回収のない投資。</span>
@@ -378,7 +378,7 @@ export default function Landing() {
             <span>読書の価値は、動いて初めて生まれる。</span>
           </li>
         </ul>
-        <p className="philosophy-attr">
+        <p className="lp-philosophy-attr">
           本田直之『レバレッジ・リーディング』の考え方を参考にしています。
         </p>
       </section>
