@@ -18,3 +18,15 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# Capacitor / iOS ネイティブ (ios/ プロジェクト本体は commit するが、
+# 生成物・依存・同期される web ビルドは除外する)
+/ios/App/Pods/
+/ios/App/App/public/
+/ios/App/App/capacitor.config.json
+/ios/App/build/
+/ios/App/output/
+/ios/App/Podfile.lock
+DerivedData/
+*.xcuserstate
+*.xcuserdatad
