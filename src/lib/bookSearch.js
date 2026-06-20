@@ -824,9 +824,6 @@ export async function findIsbnCandidatesWithMetadata(title, author) {
     }
   }
 
-  if (typeof console !== 'undefined') {
-    console.log('[isbn-candidates] all:', allCandidates.length, 'filtered:', filtered.length);
-  }
   return filtered;
 }
 
@@ -854,9 +851,6 @@ export async function findIsbnCandidates(title, author) {
   // 誤マッチを最小化するため候補を最大 3 件に制限。多すぎると tryCoverForIsbn
   // のループで「タイトルが似ているだけの違う本」の表紙を採用するリスクが上がる。
   const isbns = filtered.map((c) => c.isbn).slice(0, 3);
-  if (typeof console !== 'undefined') {
-    console.log('[isbn-candidates] final:', { title: t, author: a, isbns });
-  }
 
   try {
     if (typeof localStorage !== 'undefined') {

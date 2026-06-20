@@ -168,6 +168,7 @@ function ResultCard({ book, onPick, existing, statusLabel }) {
         <img
           src={ensureHttps(book.cover)}
           alt=""
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
           style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--color-separator)', opacity: isExisting ? 0.7 : 1 }}
         />
       ) : (
@@ -237,6 +238,13 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
 
   const hasInput = !!(title.trim() || author.trim() || isbn.trim());
   const isSearching = state === 'searching';
+
+  // 検索中でも閉じられるように、close 時は進行中の検索を中断してから閉じる
+  // (× が disabled で逃げ場が無い問題の解消)。
+  const handleClose = () => {
+    try { abortRef.current?.abort(); } catch { /* ignore */ }
+    onClose?.();
+  };
 
   const runSearch = async () => {
     if (!hasInput) return;
@@ -309,7 +317,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
     <div style={overlayStyle} role="dialog" aria-modal="true">
       <div style={headerStyle}>
         <h2 style={{ fontSize: 16, color: 'var(--color-label)', margin: 0, fontWeight: 600, flex: 1 }}>📚 本を追加</h2>
-        <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={isSearching}>×</button>
+        <button type="button" onClick={handleClose} style={closeBtn} aria-label="閉じる">×</button>
       </div>
 
       <div style={bodyStyle}>

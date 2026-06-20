@@ -397,6 +397,7 @@ export default function BookMemoEditor({
               <img
                 src={ensureHttps(shownPreview)}
                 alt="preview"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 style={{
                   maxWidth: '100%',
                   maxHeight: 280,

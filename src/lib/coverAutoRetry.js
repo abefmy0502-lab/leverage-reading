@@ -25,11 +25,6 @@ let processing = false;
 
 const PACE_MS = 1000;
 
-const log = (...args) => {
-  // eslint-disable-next-line no-console
-  console.log('[auto-retry]', ...args);
-};
-
 /**
  * @param {Object}   params
  * @param {Object}   params.book      camelCase の本オブジェクト (id, title, author, isbn, coverIsbn)
@@ -53,13 +48,10 @@ async function processQueue() {
   while (queue.length > 0) {
     const { book, saveBook } = queue.shift();
     try {
-      log('retrying:', book.title);
       // eslint-disable-next-line no-await-in-loop
       const altIsbns = await findIsbnCandidates(book.title, book.author);
       const ordered = [book.isbn, ...altIsbns].filter(Boolean);
-      if (ordered.length === 0) {
-        log('skip (no ISBN candidates):', book.title);
-      } else {
+      if (ordered.length > 0) {
         // eslint-disable-next-line no-await-in-loop
         const { url, isbn } = await resolveCoverFromCandidates(ordered);
         if (url) {
@@ -67,9 +59,6 @@ async function processQueue() {
           // 自動で更新される (= UI がリアルタイムに表紙ありに切り替わる)。
           // eslint-disable-next-line no-await-in-loop
           await saveBook({ ...book, cover: url, coverIsbn: isbn || '' });
-          log('success:', { title: book.title, isbn, url });
-        } else {
-          log('failed (no cover available):', book.title);
         }
       }
     } catch (e) {

@@ -425,7 +425,7 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{ ...inp, width: 'auto', padding: '6px 8px', fontSize: 12 }}
+              style={{ ...inp, width: 'auto', padding: '6px 8px' }}
               aria-label="並び順"
             >
               <option value="relevance">関連度順</option>
@@ -1597,8 +1597,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   //      は title/author だけ。addFromAdvisor 側の bg resolver に解決を任せる)
   // ---------------------------------------------------------------------------
   const proceedAdd = (verifiedRec) => {
-    // eslint-disable-next-line no-console
-    console.time(`[advisor-add] ${verifiedRec.title}`);
     // すべての I/O を Promise.resolve().then で次の tick へ。handler 同期維持。
     Promise.resolve().then(async () => {
       let summary = null;
@@ -1627,9 +1625,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
           next.delete(verifiedRec.title);
           return next;
         });
-      } finally {
-        // eslint-disable-next-line no-console
-        console.timeEnd(`[advisor-add] ${verifiedRec.title}`);
       }
     });
   };
@@ -1654,8 +1649,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         if (matched.length === 0) {
           // 該当なし → 旧フローに任せる (addFromAdvisor 内で再 search +
           // bg resolver が title/author から ISBN を探す)
-          // eslint-disable-next-line no-console
-          console.log(`[advisor-add] no strict match, falling back to direct add`);
           proceedAdd(rec);
           return;
         }
@@ -1870,10 +1863,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     type="button"
                     disabled={addedTitles.has(rec.title)}
                     onClick={(e) => {
-                      // 🔍 診断: クリックが DOM ハンドラに到達したことを確認。
-                      // ⚠️ TODO(2026-05-11): 「読みたい」ボタン無反応問題の解決後に削除。
-                      // eslint-disable-next-line no-console
-                      console.log('[読みたい:advisor-live]', 'タップ', rec.title, new Date().toISOString());
                       e.stopPropagation();
                       handleClickAdd(rec);
                     }}
@@ -2063,6 +2052,7 @@ function AuthedApp() {
     loading: booksLoading,
     saveBook,
     deleteBook,
+    patchBook,
     captureBookSnapshot,
     restoreBookFromSnapshot,
     refreshBooks,
@@ -2124,6 +2114,10 @@ function AuthedApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [recentlyDoneId, setRecentlyDoneId] = useState(null);
   const recentlyDoneTimerRef = useRef(null);
+  // アンマウント時に保留中のタイマーをクリア (late setState 警告を防ぐ)
+  useEffect(() => () => {
+    if (recentlyDoneTimerRef.current) clearTimeout(recentlyDoneTimerRef.current);
+  }, []);
   // 本詳細のスクロール可能コンテナへの ref。フェーズ遷移 (status 変化) の
   // たびにスクロールトップへ戻すために使う — 旧実装は前フェーズの最下部
   // (例: 読書前で「読書を開始する」ボタン直前) のままだったため、新フェーズ
@@ -2293,9 +2287,6 @@ function AuthedApp() {
     const candidates = getCoverCandidates(b?.isbn);
     const visibleCover = b?.cover || '';
     const seedCover = visibleCover || candidates[0] || '';
-    if (typeof console !== 'undefined') {
-      console.log('[cover] picked book:', { title: b?.title, isbn: b?.isbn, hasVisibleCover: !!visibleCover });
-    }
     const seeded = {
       ...emptyBook(),
       id: Date.now().toString(),
@@ -2316,9 +2307,6 @@ function AuthedApp() {
     //    multi-ISBN リゾルバで補完。視覚的に確認済みの cover がある時は
     //    skip してユーザーが見たものをそのまま使う (誤上書きの根本対策)。
     if (visibleCover) {
-      if (typeof console !== 'undefined') {
-        console.log('[cover] visible cover trusted, skipping async resolver:', visibleCover);
-      }
       return;
     }
     (async () => {
@@ -2327,10 +2315,6 @@ function AuthedApp() {
         const ordered = [b?.isbn, ...altIsbns].filter(Boolean);
         if (ordered.length === 0) return;
         const { isbn: resolvedIsbn, url: resolvedUrl } = await resolveCoverFromCandidates(ordered);
-        if (typeof console !== 'undefined') {
-          console.log('[cover] alt ISBNs:', altIsbns);
-          console.log('[cover] resolved:', { isbn: resolvedIsbn, url: resolvedUrl });
-        }
         if (resolvedUrl) {
           setForm((f) => (
             f && f.id === seeded.id
@@ -2353,13 +2337,9 @@ function AuthedApp() {
   const { uploadCover } = useBookCover();
 
   const triggerManualCoverUpload = (book) => {
-    // eslint-disable-next-line no-console
-    console.log('[manual-upload] trigger:', { hasBook: !!book, refMounted: !!detailCoverUploadRef.current });
     if (!book) return;
     detailUploadTargetRef.current = book;
     if (!detailCoverUploadRef.current) {
-      // eslint-disable-next-line no-console
-      console.error('[manual-upload] file input ref is null — input not mounted in current view');
       toast.error('ファイル選択画面を開けませんでした。本棚から再度お試しください。');
       return;
     }
@@ -2371,14 +2351,10 @@ function AuthedApp() {
     if (e.target) e.target.value = ''; // 同じファイル再選択を許可
     const target = detailUploadTargetRef.current;
     detailUploadTargetRef.current = null;
-    // eslint-disable-next-line no-console
-    console.log('[manual-upload] file picked:', { hasFile: !!file, fileSize: file?.size, hasTarget: !!target });
     if (!file || !target) return;
     try {
       const url = await uploadCover(file);
       if (!url) throw new Error('アップロード URL の取得に失敗しました');
-      // eslint-disable-next-line no-console
-      console.log('[manual-upload] uploaded:', url);
       const updated = { ...target, cover: url, coverIsbn: 'manual' };
       const saved = await saveBook(updated);
       const next = saved || updated;
@@ -2575,18 +2551,6 @@ function AuthedApp() {
         && !!(form.investPurpose && form.investPurpose.trim())
         && !!(form.aiAnalysis || form.aiStrategy);
 
-      // eslint-disable-next-line no-console
-      console.log('[handleSave]', {
-        wasNew: !current,
-        formStatus: form.status,
-        editPhaseOverride,
-        view,
-        hasInvestPurpose: !!(form.investPurpose && form.investPurpose.trim()),
-        hasAiAnalysis: !!form.aiAnalysis,
-        hasAiStrategy: !!form.aiStrategy,
-        isSetupCompletion,
-      });
-
       const payload = { ...form, tags: normalizedTags, cover: resolvedCover, coverIsbn: resolvedCoverIsbn };
       if (isSetupCompletion) {
         payload.status = 'reading';
@@ -2598,8 +2562,6 @@ function AuthedApp() {
       const saved = await saveBook(payload);
       const next = saved || payload;
       const wasNew = !current; // 新規追加 (current=null) かどうか
-      // eslint-disable-next-line no-console
-      console.log('[handleSave] saved:', { id: next.id, status: next.status, isSetupCompletion });
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
 
@@ -2842,8 +2804,6 @@ function AuthedApp() {
         );
         if (r.url) {
           await saveBook({ ...saved, cover: r.url, coverIsbn: r.isbn || '' });
-          // eslint-disable-next-line no-console
-          console.log('[bg-cover] resolved:', { title: saved.title, url: r.url });
         }
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -3086,21 +3046,11 @@ function AuthedApp() {
   //
   // 旧実装は handler 内で複数 await していたためボタンタップから 1.5〜4s
   // 何も起きない (toast も「追加済み」表示も出ない) 体験になっていた。
-  // 新実装は fire-and-forget + 即時 UI 反映 + 診断ログで根治。
+  // 新実装は fire-and-forget + 即時 UI 反映で根治。
   const addRelatedBookFromAi = ({ title, author = '' }) => {
-    // eslint-disable-next-line no-console
-    console.log('[related-add] handler reached:', { title, author });
-    if (!title || !title.trim()) {
-      // eslint-disable-next-line no-console
-      console.warn('[related-add] empty title, ignored');
-      return;
-    }
+    if (!title || !title.trim()) return;
     const trimmedTitle = title.trim();
-    if (addedRelatedTitles.has(trimmedTitle)) {
-      // eslint-disable-next-line no-console
-      console.log('[related-add] already added (UI), ignored');
-      return;
-    }
+    if (addedRelatedTitles.has(trimmedTitle)) return;
 
     // 触覚で即時 ack (画面の見た目とは別経路で「タップ受付」を確実に伝える)。
     try { haptic.light(); } catch { /* non-critical */ }
@@ -3113,14 +3063,10 @@ function AuthedApp() {
 
     // ★ 2. 既存本との重複チェックを背景で。dup なら confirm 経由で既存本を
     //      開く (旧フローと同じ)。dup でユーザーが戻ったら UI をロールバック。
-    // eslint-disable-next-line no-console
-    console.time(`[related-add] ${trimmedTitle}`);
     Promise.resolve().then(async () => {
       try {
         const dup = await handleDuplicateGate({ title: trimmedTitle, author });
         if (dup) {
-          // eslint-disable-next-line no-console
-          console.log('[related-add] duplicate detected, rolling back UI');
           setAddedRelatedTitles((prev) => {
             const next = new Set(prev);
             next.delete(trimmedTitle);
@@ -3182,8 +3128,6 @@ function AuthedApp() {
         }
 
         const saved = await saveBook(newBook);
-        // eslint-disable-next-line no-console
-        console.log('[related-add] saved:', saved?.id);
         resolveCoverInBackground(saved);
         toast.success(`「${trimmedTitle}」を読みたいに追加しました`);
       } catch (error) {
@@ -3200,9 +3144,6 @@ function AuthedApp() {
         } else {
           toast.error(toMessage(error, '本の追加に失敗しました。'));
         }
-      } finally {
-        // eslint-disable-next-line no-console
-        console.timeEnd(`[related-add] ${trimmedTitle}`);
       }
     });
   };
@@ -3300,7 +3241,10 @@ function AuthedApp() {
     }
 
     const updated = { ...book, actions: acts };
+    const prevActions = book.actions;
     haptic.light();
+    // 楽観的 UI: タップ即反映。失敗したら previous へ rollback。
+    patchBook(bookId, (b) => ({ ...b, actions: acts }));
     try {
       await saveBook(updated);
       if (becomingDone && updatedAct.recurrence) {
@@ -3308,6 +3252,7 @@ function AuthedApp() {
         toast.success(`完了 ✓ ${label}の予定を自動で組みました`);
       }
     } catch (error) {
+      patchBook(bookId, (b) => ({ ...b, actions: prevActions }));
       toast.error(toMessage(error, '行動の更新に失敗しました。'));
     }
   };
@@ -3329,12 +3274,28 @@ function AuthedApp() {
     if (!book) return;
     const acts = [...(book.actions || [])];
     if (actionIdx < 0 || actionIdx >= acts.length) return;
+    const prevActions = book.actions;
     acts.splice(actionIdx, 1);
     const updated = { ...book, actions: acts };
+    haptic.medium();
+    // 楽観的 UI: 即リストから消す。失敗時は rollback、成功時は Undo トースト。
+    patchBook(bookId, (b) => ({ ...b, actions: acts }));
     try {
       await saveBook(updated);
-      toast.success('行動を削除しました');
+      toast.undo({
+        message: '行動を削除しました',
+        onUndo: async () => {
+          patchBook(bookId, (b) => ({ ...b, actions: prevActions }));
+          try {
+            await saveBook({ ...book, actions: prevActions });
+            toast.info('削除を取り消しました');
+          } catch (error) {
+            toast.error(toMessage(error, '復元に失敗しました。'));
+          }
+        },
+      });
     } catch (error) {
+      patchBook(bookId, (b) => ({ ...b, actions: prevActions }));
       toast.error(toMessage(error, '行動の削除に失敗しました。'));
     }
   };
@@ -4024,8 +3985,6 @@ function AuthedApp() {
             book={coverFixForBook}
             onClose={() => setCoverFixForBook(null)}
             onPick={async ({ cover, coverIsbn }) => {
-              // eslint-disable-next-line no-console
-              console.log('[cover-modal] onPick (detail) fired:', { id: coverFixForBook?.id, newCover: cover, newCoverIsbn: coverIsbn });
               const updated = { ...coverFixForBook, cover, coverIsbn };
               setCurrent((c) => (c && c.id === updated.id ? { ...c, cover, coverIsbn } : c));
               try {
@@ -4291,7 +4250,6 @@ function AuthedApp() {
                 </button>
               </div>
               {/* Pill filters — hide statuses with zero books to keep the bar tight. */}
-              <p style={{ fontSize: 10, color: "#a89e8c", margin: "0 0 4px", letterSpacing: 0.2 }}>タップで本を絞り込めます</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {[
                   { key: "all", label: "全て", count: stats.total, color: "#4a4036", bg: "#e8e0d2", Icon: null },
@@ -4336,21 +4294,19 @@ function AuthedApp() {
                   })}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: "#8a7e6b" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>並び順</span>
+                <span>{filtered.length} 冊</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    style={{ fontSize: 12, padding: "4px 8px", borderRadius: 8, border: "1px solid #d4ccbe", background: "#faf6f0", color: "#3d362c", fontFamily: "inherit" }}
+                    aria-label="並び順"
+                    style={{ fontSize: 16, padding: "4px 8px", borderRadius: 8, border: "1px solid #d4ccbe", background: "transparent", color: "#8a7e6b", fontFamily: "inherit" }}
                   >
                     <option value="updated">更新順</option>
                     <option value="created">登録順</option>
                     <option value="title">タイトル順</option>
                     <option value="rating">評価順</option>
                   </select>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span>{filtered.length} 件</span>
                   <div className="view-mode-switch" role="group" aria-label="表示モード">
                     <button
                       type="button"
@@ -4619,16 +4575,12 @@ function AuthedApp() {
             // 楽観的 UI 更新: saveBook の完了を待たず即座に画面を新しい
             // 表紙に切り替える。saveBook が失敗したら次の fetchBooks で
             // 元の URL に戻るので最終的な整合性は崩れない。
-            // eslint-disable-next-line no-console
-            console.log('[cover-modal] onPick fired:', { id: coverFixForBook?.id, newCover: cover, newCoverIsbn: coverIsbn });
             const updated = { ...coverFixForBook, cover, coverIsbn };
             setCurrent((c) => (c && c.id === updated.id ? { ...c, cover, coverIsbn } : c));
             try {
               const saved = await saveBook(updated);
               const next = saved || updated;
               setCurrent((c) => (c && c.id === next.id ? next : c));
-              // eslint-disable-next-line no-console
-              console.log('[cover-modal] DB updated for', next?.id);
               toast.success('表紙を更新しました');
             } catch (error) {
               // eslint-disable-next-line no-console
@@ -4665,6 +4617,13 @@ function AuthedApp() {
           }}
           onDelete={async () => {
             const { bookId, actionIdx } = editingAction;
+            const ok = await confirm({
+              title: 'この行動を削除しますか？',
+              confirmLabel: '削除する',
+              cancelLabel: 'キャンセル',
+              danger: true,
+            });
+            if (!ok) return;
             setEditingAction(null);
             await deleteActionFromBook(bookId, actionIdx);
           }}
@@ -4703,35 +4662,7 @@ function AuthedApp() {
       <UpdateBanner safe={safeForUpdate} />
 
       <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
-      <BuildLabel />
     </Shell>
-  );
-}
-
-// 🔍 PWA cache 診断用ラベル — ビルド時刻を画面右下に表示。
-// iPhone PWA で「新コードが届いているか」を一目で確認するため。
-// ⚠️ TODO(2026-05-11): 1 週間後に <BuildLabel /> 呼び出しと本コンポーネント、
-//    vite.config.js の __APP_BUILD__ define、CSP の不要な許可を全て削除する。
-function BuildLabel() {
-  if (typeof __APP_BUILD__ === 'undefined') return null;
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: 'fixed',
-        bottom: 'calc(68px + env(safe-area-inset-bottom, 0px))',
-        right: 6,
-        fontSize: 9,
-        lineHeight: 1.2,
-        color: 'rgba(60, 50, 40, 0.32)',
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-        pointerEvents: 'none',
-        zIndex: 1,
-        userSelect: 'none',
-      }}
-    >
-      {__APP_BUILD__}
-    </div>
   );
 }
 

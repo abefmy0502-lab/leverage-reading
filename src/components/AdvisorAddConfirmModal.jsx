@@ -161,6 +161,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
                       src={ensureHttps(c.cover)}
                       alt=""
                       loading="lazy"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       style={{
                         width: 56,
                         height: 80,

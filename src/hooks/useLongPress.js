@@ -67,12 +67,25 @@ export function useLongPress({ onLongPress, duration = DEFAULT_DURATION, onCance
     [cancel]
   );
 
+  // 長押しが成立した直後に発火する合成 click を握りつぶす。これが無いと
+  // 「長押しメニューを開いて指を離す」と背後カードの onClick (詳細遷移) も
+  // 同時に発火してしまう。capture フェーズで stopPropagation することで
+  // 同じ要素の onClick (bubble) に到達させない。
+  const clickGuard = useCallback((e) => {
+    if (triggeredRef.current) {
+      e.stopPropagation();
+      e.preventDefault();
+      triggeredRef.current = false;
+    }
+  }, []);
+
   return {
     bind: {
       onTouchStart: start,
       onTouchMove: move,
       onTouchEnd: cancel,
       onTouchCancel: cancel,
+      onClickCapture: clickGuard,
       onContextMenu: (e) => e.preventDefault(),
     },
   };

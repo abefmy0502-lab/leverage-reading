@@ -164,7 +164,8 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
 
   const handleDelete = async () => {
     if (busy) return;
-    if (typeof window !== 'undefined' && !window.confirm('この行動を削除しますか？')) return;
+    // 確認は親側 (アプリ共通の確認ダイアログ) で行う。削除後は Undo トースト
+    // でフォローするため、ここではネイティブ window.confirm を使わない。
     setBusy(true);
     try {
       await onDelete?.();
