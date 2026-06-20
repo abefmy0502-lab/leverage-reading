@@ -308,6 +308,20 @@ button:disabled:active {
   }
 }
 
+/* ホームのリチュアルカード (💭 想起 / 🎯 次の一歩) が、開いた瞬間に
+   ふわっと立ち上がる演出。GPU 駆動 (opacity + transform のみ)。
+   prefers-reduced-motion は index.css の global で抑制済み。 */
+@keyframes lvg-home-card {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ----- Page transition (used via key-prop swap) -------------------------- */
 @keyframes lvg-page-in {
   from {

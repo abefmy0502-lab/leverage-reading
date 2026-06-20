@@ -12,6 +12,8 @@ const card = {
   padding: '16px 18px',
   marginBottom: 14,
   boxShadow: '0 1px 2px rgba(60,50,40,0.04)',
+  animation: 'lvg-home-card 450ms var(--ease-out, ease) both',
+  animationDelay: '80ms',
 };
 
 const eyebrow = {
