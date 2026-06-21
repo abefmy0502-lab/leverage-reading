@@ -208,9 +208,15 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
     const existing = rawMemos.find((m) => m.id === memoId);
     let photoPath = existing?.photoPath || null;
     let oldToDelete = null;
+    // この update で「今アップロードした」新写真。DB 更新が失敗したら孤児に
+    // なるので、catch で Storage から消す（旧写真 oldToDelete は温存）。
+    let newlyUploaded = null;
 
     if (photoFile) {
+      // アップロードは時間がかかる。失敗時 (回線断など) はそのまま伝播させ、
+      // 呼び出し側 (BookMemoEditor) の保存ボタン loading が解除される。
       const newPath = await uploadPhoto(photoFile, user.id, bookId);
+      newlyUploaded = newPath;
       if (photoPath) oldToDelete = photoPath;
       photoPath = newPath;
     } else if (removePhotoFlag && photoPath) {
@@ -218,30 +224,43 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
       photoPath = null;
     }
 
-    const { data, error: upErr } = await supabase
-      .from('book_memos')
-      .update({
-        page_number: Number.isFinite(pageNumber) ? pageNumber : null,
-        text: text || '',
-        photo_path: photoPath,
-        tags: tags || [],
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', memoId)
-      .select()
-      .single();
-    if (upErr) {
-      if (photoFile && photoPath && photoPath !== existing?.photoPath) await removePhoto(photoPath);
-      throw upErr;
-    }
+    try {
+      const { data, error: upErr } = await supabase
+        .from('book_memos')
+        .update({
+          page_number: Number.isFinite(pageNumber) ? pageNumber : null,
+          text: text || '',
+          photo_path: photoPath,
+          tags: tags || [],
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', memoId)
+        .select()
+        .single();
+      if (upErr) throw upErr;
 
-    if (oldToDelete) {
-      await removePhoto(oldToDelete);
-      cache.invalidatePhotoUrl(oldToDelete);
+      // DB 更新成功後にのみ旧写真を破棄する（失敗時は旧写真を残して復元可能に）。
+      if (oldToDelete) {
+        await removePhoto(oldToDelete);
+        cache.invalidatePhotoUrl(oldToDelete);
+      }
+      const updated = transformMemo(data);
+      writeBoth(rawMemos.map((m) => (m.id === memoId ? updated : m)));
+      return updated;
+    } catch (e) {
+      // (a) 孤児防止: この update でアップロードした新写真だけ削除。旧写真には
+      //     触れない（DB の photo_path は旧値のままなので整合する）。
+      if (newlyUploaded) {
+        try {
+          await removePhoto(newlyUploaded);
+        } catch (cleanupErr) {
+          // 後始末の失敗は本筋のエラーを覆い隠さない
+          console.error('orphan photo cleanup failed', cleanupErr);
+        }
+      }
+      // (b) 失敗を握り潰さず呼び出し側へ伝播
+      throw e;
     }
-    const updated = transformMemo(data);
-    writeBoth(rawMemos.map((m) => (m.id === memoId ? updated : m)));
-    return updated;
   };
 
   const deleteMemo = async (memoId) => {

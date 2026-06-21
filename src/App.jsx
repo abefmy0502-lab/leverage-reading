@@ -2586,28 +2586,48 @@ function AuthedApp() {
   const handleSaveSummaryFromForm = async (text) => {
     if (!form?.id) return;
     const merged = { ...form, leverageMemo: text };
+    // rollback 用に直前値を退避（advanceStatus と同じ楽観的 UI パターン）
+    const prevForm = form;
+    const prevCurrent = current;
     try {
       const saved = await saveBook(merged);
-      const next = saved || merged;
+      // saveBook は未接続時に throw せず null を返す。その場合 DB へ書けて
+      // いないので、ローカル state を新値で確定すると「保存できたのにリロード
+      // で巻き戻る」不整合になる。明示的に失敗として扱い rollback する。
+      if (!saved) throw new Error('まとめメモを保存できませんでした。');
+      const next = saved;
       setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
-      if (current && current.id === next.id) setCurrent(next);
+      if (prevCurrent && prevCurrent.id === next.id) setCurrent(next);
     } catch (error) {
-      throw new Error(toMessage(error, 'まとめメモの保存に失敗しました。'));
+      // 失敗時は退避した previous 値へ戻す（新値を残さない）
+      setForm(prevForm);
+      if (prevCurrent && prevCurrent.id === prevForm.id) setCurrent(prevCurrent);
+      const msg = toMessage(error, 'まとめメモの保存に失敗しました。');
+      toast.error(msg);
+      throw new Error(msg);
     }
   };
 
   const handleSaveSummaryFromCurrent = async (text) => {
     if (!current?.id) return;
     const merged = { ...current, leverageMemo: text };
+    // rollback 用に直前値を退避
+    const prevCurrent = current;
+    const prevForm = form;
     try {
       const saved = await saveBook(merged);
-      const next = saved || merged;
+      if (!saved) throw new Error('まとめメモを保存できませんでした。');
+      const next = saved;
       setCurrent(next);
-      if (form && form.id === next.id) {
+      if (prevForm && prevForm.id === next.id) {
         setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
       }
     } catch (error) {
-      throw new Error(toMessage(error, 'まとめメモの保存に失敗しました。'));
+      setCurrent(prevCurrent);
+      if (prevForm && prevForm.id === prevCurrent.id) setForm(prevForm);
+      const msg = toMessage(error, 'まとめメモの保存に失敗しました。');
+      toast.error(msg);
+      throw new Error(msg);
     }
   };
 
@@ -3675,8 +3695,8 @@ function AuthedApp() {
               }}
             >
               {current.status === "want"
-                ? "📚 読み始めたら、ここにメモが書けるようになります。"
-                : "🎯 今は投資戦略を立てる段階です。読書中になるとここにメモが表示されます。"}
+                ? "📚 「読書中」にすると、＋ボタンからメモを追加できるようになります。"
+                : "🎯 今は投資戦略を立てる段階です。「読書中」にすると、＋ボタンからメモを追加できます。"}
             </div>
           )}
           {current.aiSummary && (
