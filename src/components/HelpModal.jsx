@@ -58,7 +58,7 @@ const headerStyle = {
   display: 'flex',
   alignItems: 'center',
   gap: 10,
-  padding: '14px 16px',
+  padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 14px',
   borderBottom: '1px solid #e4ddd0',
   background: '#fff',
   flexShrink: 0,           // ★ 必須: body content が大きくても header が潰れない
@@ -118,7 +118,7 @@ const inputStyle = {
   border: '1px solid #d4ccbe',
   background: '#fff',
   color: '#3d362c',
-  fontSize: 14,
+  fontSize: 16,
   fontFamily: 'inherit',
   outline: 'none',
   boxSizing: 'border-box',

@@ -5,7 +5,7 @@ const ConfirmContext = createContext({ confirm: async () => false });
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
-  zIndex: 900,
+  zIndex: 10000,
   background: 'rgba(30,25,20,0.45)',
   backdropFilter: 'blur(3px)',
   display: 'flex',
@@ -60,7 +60,7 @@ const confirmBtnStyle = (danger) => ({
   padding: '10px 0',
   borderRadius: 10,
   border: 'none',
-  background: danger ? '#a05040' : '#5c5043',
+  background: danger ? 'var(--color-error, #ff3b30)' : '#5c5043',
   color: '#faf6f0',
   cursor: 'pointer',
   fontFamily: 'inherit',

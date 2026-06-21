@@ -29,6 +29,7 @@ const modeTab = (active) => ({
 const sortTab = (active) => ({
   flex: 1,
   padding: '8px 0',
+  minHeight: 44,
   border: 'none',
   background: active ? '#5c5043' : 'transparent',
   color: active ? '#faf6f0' : '#8a7e6b',
@@ -42,6 +43,7 @@ const sortTab = (active) => ({
 const addBtn = {
   width: '100%',
   padding: '12px 0',
+  minHeight: 44,
   borderRadius: 10,
   border: '1px dashed #c4b8a6',
   background: '#faf6f0',

@@ -113,7 +113,8 @@ const tagPill = {
 
 const tagSuggestionBtn = {
   fontSize: 10,
-  padding: '2px 8px',
+  padding: '8px 8px',
+  minHeight: 32,
   borderRadius: 10,
   border: '1px dashed #d4ccbe',
   background: 'transparent',
@@ -319,7 +320,7 @@ export default function BookMemoEditor({
         <button
           type="button"
           onClick={onClose}
-          style={{ background: 'none', border: 'none', fontSize: 14, color: '#5c5043', cursor: 'pointer', padding: 4 }}
+          style={{ background: 'none', border: 'none', fontSize: 14, color: '#5c5043', cursor: 'pointer', padding: '11px 8px', margin: '-11px -8px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
         >
           ← 戻る
         </button>
@@ -377,7 +378,8 @@ export default function BookMemoEditor({
                   ...btnGhost,
                   flex: 'none',
                   display: 'inline-block',
-                  padding: '10px 16px',
+                  padding: '12px 16px',
+                  minHeight: 44,
                   fontSize: 13,
                 }}
               >
@@ -415,7 +417,11 @@ export default function BookMemoEditor({
                   color: '#a05040',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
-                  padding: 4,
+                  padding: '11px 8px',
+                  margin: '-7px -8px',
+                  minHeight: 44,
+                  display: 'inline-flex',
+                  alignItems: 'center',
                 }}
               >
                 ✕ 写真を削除
@@ -440,13 +446,20 @@ export default function BookMemoEditor({
                 <button
                   type="button"
                   onClick={() => removeTag(i)}
+                  aria-label="タグを削除"
                   style={{
                     background: 'none',
                     border: 'none',
-                    fontSize: 12,
+                    fontSize: 14,
                     color: '#a89e8c',
                     cursor: 'pointer',
-                    padding: 0,
+                    padding: '6px 8px',
+                    margin: '-6px -6px -6px 0',
+                    minWidth: 28,
+                    minHeight: 28,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     lineHeight: 1,
                   }}
                 >
@@ -487,7 +500,7 @@ export default function BookMemoEditor({
             <button
               type="button"
               onClick={() => addTag()}
-              style={{ ...btnGhost, flex: 'none', padding: '6px 14px', fontSize: 12 }}
+              style={{ ...btnGhost, flex: 'none', padding: '6px 14px', minHeight: 44, fontSize: 12 }}
             >
               追加
             </button>

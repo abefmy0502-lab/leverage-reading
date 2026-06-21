@@ -48,7 +48,12 @@ const closeBtnStyle = {
   color: 'rgba(250,246,240,0.7)',
   fontSize: 16,
   cursor: 'pointer',
-  padding: '0 4px',
+  padding: 0,
+  minWidth: 44,
+  minHeight: 44,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   fontFamily: 'inherit',
   flexShrink: 0,
 };

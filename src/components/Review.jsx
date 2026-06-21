@@ -90,7 +90,7 @@ const KIND_META = {
   hypothesis:        { icon: '💡', label: '仮説',          color: '#FF9800' },
   ai_summary:        { icon: '🤖', label: 'AI まとめ',      color: '#7B1FA2' },
   roi_summary:       { icon: '💎', label: '投資の効果',     color: '#FFA000' },
-  leverage_memo:     { icon: '📝', label: 'レバレッジメモ', color: '#5D4037' },
+  leverage_memo:     { icon: '📝', label: 'まとめメモ', color: '#5D4037' },
   action_reflection: { icon: '💭', label: '行動の振り返り', color: '#00838F' },
 };
 

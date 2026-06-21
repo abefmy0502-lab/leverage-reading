@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-06-21: アクセシビリティ・ハードニング（ローンチ品質）。(1) ユーザー可視の機能ラベル「レバレッジメモ」→「まとめメモ」に統一（本詳細の📝 まとめメモ見出し / 読了の AI 要約説明文 / 本詳細フォームの Field ラベル / 振り返りタブの派生ノート種別ラベル）。ヘルプ本文は既に「まとめ式メモ / まとめメモ」表記で整合済みのため文言変更不要、該当キー（bookDetailReading / bookDetailDone）の lastUpdated のみ更新。書名「レバレッジ・リーディング」/ DB 列 `leverage_memo` / `localStorage.leverageMemoMode` / CSS 接頭辞（lvg-）/ 本田直之氏の引用は不変。(2) タップ領域を iOS HIG の 44px に拡大（本棚/詳細/ヘッダー/メモ/行動/知識管理/トースト/更新バナー/認証/オンボーディングの各小ボタン・ケバブ・ソートタブ・ステータスピル）。(3) iOS 入力ズーム防止のため select/input の font-size を 16px に揃え（本棚ソート / 行動ソート / ヘルプ AI 質問欄）。(4) セーフエリア対応（認証フルスクリーン / 各モーダルヘッダー / マイ読書脳の入力欄を env(safe-area-inset-*) で iPhone ノッチ・ホームインジケータから保護）。(5) 破壊操作の視認性統一 — 確認ダイアログの削除ボタンを赤（--color-error）に、行動削除の確認をアプリ標準の確認ダイアログに置換（挙動は厳密維持）
  * - 2026-06-21: サービス名を「レバレッジ読書ログ」→「Orime」へリブランド。ユーザー可視のサービス名表記（PWA 名 / タイトル / LP / 認証画面 / スプラッシュ / 法的ページ / ヘルプ見出し / AI プロンプト内のアプリ名）を Orime に統一。あわせて LP（Landing.jsx）のコピーを法務 de-risk — 断定的な成果・倍率・損失額（「年収 10 万円に変える」「精度が 10 倍」「捨てられる金額 ¥4,702」「100% を資産化」等）を排し、誠実な訴求（「読みっぱなしを、やめる。」「精度が上がる」「活かしきれていないかもしれない金額（参考）」等）に調整。価格 ¥990 / 1 日 ¥33 / 解約自由 / データ保持 / 違約金ゼロは安心訴求として明記を維持。bookList ヘルプの title を「Orime の使い方」に更新。"レバレッジ・リーディング"（書名）/ "レバレッジメモ"（機能名）/ "レバレッジ化"（手法概念）はサービス名ではないため温存。コード識別子 / localStorage キー / DB 列 / CSS 接頭辞（lvg-）/ メールアドレス等の技術文字列は不変
  * - 2026-06-21: AI 利用量の月次上限（KGI 原価ガード）を導入。Claude API のコスト暴走（連打）を止めるランナウェイガードとして、api/claude.js に「月次の累積コール上限」(`AI_MONTHLY_CALL_LIMIT`、既定 120 回/月、env で可変) を追加。getUser 成功後・既存の分間レート制限と整合する位置で当月の利用回数を確認し、上限超過なら 429 +「今月の AI 利用上限に達しました。来月またご利用いただけます。」を返す。未超過なら成功後に service_role で原子的に +1（`increment_ai_usage` RPC）。堅牢性最優先で fail-open（usage 取得/加算がエラー or テーブル未適用なら通す）+ schema-fallback。新規 `supabase_ai_usage.sql`（`ai_usage(user_id, period_month 'YYYY-MM', calls)` + RLS: SELECT 本人のみ / 書き込み service_role のみ）。クライアントは ai.js / streamClaude.js の 429 ハンドラで `monthly_limit_exceeded` のサーバー文言を優先表示。上限は normal user がまず到達しない寛容値（通常 AI 利用は月数回）。ユーザー可視挙動のため myBookBrain / aiAdvisor のヘルプに「月の利用上限がある」旨を一文追記
  * - 2026-06-21: 「読みたい」「読書前」状態の本詳細に、メモが追加できない理由の控えめなヒントを明確化。アプリ側 (App.jsx の want/before メモ空状態) の文言を「『読書中』にすると ＋ ボタンからメモを追加できます」に統一したのに合わせ、bookDetailWant の「📝 メモは？」セクションと bookDetailBefore の「次のステップ」セクションに ＋ ボタンの存在を追記 (初回ユーザーが「メモできない」と誤解しないよう導線を明示)
@@ -224,7 +225,7 @@ export const HELP_CONTENT = {
   bookDetailReading: {
     title: '📖 読書中',
     description: '気づきを記録しながら読み進める段階です。このアプリのメイン機能です。',
-    lastUpdated: '2026-04-27',
+    lastUpdated: '2026-06-21',
     sections: [
       {
         heading: '🔍 AI 本の解析（読書のコンパス）',
@@ -264,7 +265,7 @@ export const HELP_CONTENT = {
   bookDetailDone: {
     title: '✅ 読了（振り返り）',
     description: '読み終わった本の振り返りと成果確認の段階です。',
-    lastUpdated: '2026-04-26',
+    lastUpdated: '2026-06-21',
     sections: [
       {
         heading: '投資の効果（要約）',

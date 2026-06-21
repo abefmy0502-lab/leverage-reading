@@ -85,7 +85,7 @@ const applyBtnStyle = {
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   fontFamily: 'inherit',
-  minHeight: 36,
+  minHeight: 44,
 };
 
 const dismissBtnStyle = {
@@ -99,7 +99,7 @@ const dismissBtnStyle = {
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   fontFamily: 'inherit',
-  minHeight: 36,
+  minHeight: 44,
 };
 
 export default function UpdateBanner({ safe = false }) {

@@ -122,14 +122,19 @@ const btnGhost = {
 
 const closeBtnStyle = {
   position: 'absolute',
-  top: 8,
-  right: 12,
+  top: 2,
+  right: 6,
   background: 'none',
   border: 'none',
   fontSize: 22,
   color: '#a89e8c',
   cursor: 'pointer',
-  padding: 4,
+  padding: 0,
+  width: 44,
+  height: 44,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
 export default function Onboarding({ onClose }) {

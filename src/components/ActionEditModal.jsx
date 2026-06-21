@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LIMITS } from '../lib/limits';
+import { useConfirm } from './ConfirmDialog';
 
 const overlayStyle = {
   position: 'fixed',
@@ -135,6 +136,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
   const [recurrence, setRecurrence] = useState(action?.recurrence || '');
   const [reflection, setReflection] = useState(action?.reflection || '');
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
@@ -164,7 +166,14 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
 
   const handleDelete = async () => {
     if (busy) return;
-    if (typeof window !== 'undefined' && !window.confirm('この行動を削除しますか？')) return;
+    const ok = await confirm({
+      title: '行動を削除',
+      message: 'この行動を削除しますか？',
+      confirmLabel: '削除',
+      cancelLabel: 'キャンセル',
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await onDelete?.();

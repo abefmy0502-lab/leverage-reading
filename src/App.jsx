@@ -1184,7 +1184,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
         )}
       </Field>
 
-      <Field label="レバレッジメモ" sub="📇 カード式（1メモ=1カード、ページ番号・写真・タグ）と 📝 まとめ式（1冊1テキスト）をタブで切替。">
+      <Field label="まとめメモ" sub="📇 カード式（1メモ=1カード、ページ番号・写真・タグ）と 📝 まとめ式（1冊1テキスト）をタブで切替。">
         <BookMemoList
           bookId={form.id}
           bookTitle={form.title}
@@ -1229,7 +1229,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
       {form.leverageMemo?.trim() && (
         <>
           <SectionHeader icon="🤖" title="AIメモ要約" />
-          <p style={{ fontSize: 11, color: "#a89e8c", marginBottom: 10, lineHeight: 1.5 }}>レバレッジメモをAIが3〜5個のポイントに凝縮します</p>
+          <p style={{ fontSize: 11, color: "#a89e8c", marginBottom: 10, lineHeight: 1.5 }}>まとめメモをAIが3〜5個のポイントに凝縮します</p>
           <button onClick={onRunSummary} disabled={aiLoading} style={{ ...aiB, opacity: aiLoading ? 0.5 : 1 }}>
             {aiLoading ? "要約中..." : "🤖 AIでメモを要約・整理"}
           </button>
@@ -3381,7 +3381,7 @@ function AuthedApp() {
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={openHelp}
-                style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#8a7e6b", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#8a7e6b", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
                 aria-label="この画面のヘルプを見る"
                 title="ヘルプ"
               >
@@ -3673,7 +3673,7 @@ function AuthedApp() {
 
           {(current.status === "reading" || current.status === "done") ? (
             <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>📝 レバレッジメモ</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>📝 まとめメモ</p>
               <BookMemoList
                 bookId={current.id}
                 bookTitle={current.title}
@@ -4019,7 +4019,7 @@ function AuthedApp() {
             <button onClick={current ? () => { setEditPhaseOverride(null); setView("detail"); } : goList} style={lnk}>← 戻る</button>
             <button
               onClick={openHelp}
-              style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#8a7e6b", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+              style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#8a7e6b", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
               aria-label="この画面のヘルプを見る"
               title="ヘルプ"
             >
@@ -4163,7 +4163,7 @@ function AuthedApp() {
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <button
         onClick={openHelp}
-        style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="この画面のヘルプを開く"
         title="ヘルプ"
       >
@@ -4171,7 +4171,7 @@ function AuthedApp() {
       </button>
       <button
         onClick={() => setSettingsOpen(true)}
-        style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="アカウント設定を開く"
         title="設定"
       >
@@ -4268,7 +4268,7 @@ function AuthedApp() {
                         onClick={() => setStatusFilter(s.key)}
                         style={{
                           padding: "6px 12px",
-                          minHeight: 30,
+                          minHeight: 44,
                           fontSize: 11,
                           borderRadius: 999,
                           fontFamily: "inherit",
@@ -4295,7 +4295,7 @@ function AuthedApp() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    style={{ fontSize: 12, padding: "4px 8px", borderRadius: 8, border: "1px solid #d4ccbe", background: "#faf6f0", color: "#3d362c", fontFamily: "inherit" }}
+                    style={{ fontSize: 16, padding: "8px 8px", minHeight: 44, borderRadius: 8, border: "1px solid #d4ccbe", background: "#faf6f0", color: "#3d362c", fontFamily: "inherit" }}
                   >
                     <option value="updated">更新順</option>
                     <option value="created">登録順</option>
@@ -4762,7 +4762,7 @@ export default function App() {
 // 入力欄だけ黒くなる問題が起きるため、常に light な surface を使う。
 const inp = { width: "100%", padding: "10px 12px", fontSize: 16, border: "1px solid var(--color-separator)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", outline: "none", color: "var(--color-label)", fontFamily: "inherit" };
 const ta = { ...inp, resize: "vertical", lineHeight: "var(--leading-relaxed)" };
-const lnk = { background: "none", border: "none", color: "var(--color-tertiary)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0 };
+const lnk = { background: "none", border: "none", color: "var(--color-tertiary)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: "11px 8px", margin: "-11px -8px", minHeight: 44, display: "inline-flex", alignItems: "center" };
 const btnS = { padding: "10px 0", borderRadius: "var(--radius-sm)", border: "none", background: "var(--color-accent-strong)", color: "var(--color-text-inverse)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, letterSpacing: 1 };
 const btnO = { padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-tertiary)", cursor: "pointer", fontFamily: "inherit", fontSize: 14 };
 const aiB = { width: "100%", padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px dashed #c4b8a6", background: "var(--color-accent-soft)", color: "#6b5d4f", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: "var(--weight-medium)" };

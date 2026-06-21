@@ -35,12 +35,12 @@ const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius:
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
 const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #d4ccbe', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
-const btnGhost = { padding: '6px 10px', borderRadius: 8, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, minHeight: 30 };
+const btnGhost = { padding: '6px 14px', borderRadius: 8, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, minHeight: 44 };
 const btnPrimary = { padding: '12px 18px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#faf6f0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1, minHeight: 44 };
 const dangerBtn = { ...btnGhost, color: '#a05040', borderColor: '#c4a0a0' };
 const pill = (active) => ({
   flex: 1,
-  minHeight: 36,
+  minHeight: 44,
   padding: '6px 0',
   border: 'none',
   background: active ? '#5c5043' : 'transparent',

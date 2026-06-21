@@ -38,7 +38,7 @@ const pill = (active, color = '#5c5043', bg = '#e8e0d2') => ({
   whiteSpace: 'nowrap',
   fontSize: 12,
   padding: '6px 14px',
-  minHeight: 32,
+  minHeight: 44,
   borderRadius: 999,
   border: active ? `1.5px solid ${color}` : '1px solid #d4ccbe',
   background: active ? bg : 'transparent',
@@ -61,10 +61,10 @@ const cardBase = {
 
 const kebabBtn = {
   position: 'absolute',
-  top: 8,
-  right: 10,
-  width: 28,
-  height: 28,
+  top: 2,
+  right: 4,
+  width: 44,
+  height: 44,
   background: 'none',
   border: 'none',
   color: '#a89e8c',
@@ -359,7 +359,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, border: '1px solid #d4ccbe', background: '#faf6f0', color: '#3d362c', fontFamily: 'inherit' }}
+              style={{ fontSize: 16, padding: '8px 8px', minHeight: 44, borderRadius: 8, border: '1px solid #d4ccbe', background: '#faf6f0', color: '#3d362c', fontFamily: 'inherit' }}
             >
               {SORTS.map((s) => (
                 <option key={s.key} value={s.key}>{s.label}</option>

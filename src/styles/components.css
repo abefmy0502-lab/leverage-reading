@@ -1028,15 +1028,15 @@
 .ai-input-area {
   flex-shrink: 0;
   background: var(--color-bg, #f5f0e8);
-  padding: 8px 12px;
+  /* ホームインジケータ（iPhone）に被らないよう、常時 safe-area を吸収する。 */
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
   margin: 0;
   border-top: 1px solid var(--color-separator);
   display: flex;
   gap: var(--space-2);
   align-items: flex-end;
 }
-/* キーボード開時は BottomNav が消えるので、入力欄に safe-area を吸収させる。
-   ここで初めて env() を効かせる。 */
+/* キーボード開時も同じ safe-area を維持（BottomNav が消えるため）。 */
 body.keyboard-open .ai-input-area {
   padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
 }

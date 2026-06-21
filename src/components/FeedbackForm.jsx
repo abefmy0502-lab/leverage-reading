@@ -40,7 +40,7 @@ const headerStyle = {
   display: 'flex',
   alignItems: 'center',
   gap: 10,
-  padding: '8px 16px 12px',
+  padding: 'calc(8px + env(safe-area-inset-top, 0px)) 16px 12px',
   borderBottom: '1px solid #e4ddd0',
 };
 

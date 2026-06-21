@@ -36,14 +36,16 @@ const tagPill = {
 
 const kebabBtn = {
   position: 'absolute',
-  top: 8,
-  right: 10,
+  top: 2,
+  right: 2,
+  width: 44,
+  height: 44,
   background: 'none',
   border: 'none',
   fontSize: 18,
   color: '#a89e8c',
   cursor: 'pointer',
-  padding: '2px 6px',
+  padding: 0,
   lineHeight: 1,
 };
 

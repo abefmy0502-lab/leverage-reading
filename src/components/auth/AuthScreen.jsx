@@ -22,7 +22,8 @@ const btnLink = {
   color: '#8a7e6b',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  padding: 4,
+  padding: '12px 8px',
+  minHeight: 44,
 };
 
 const inp = {
@@ -134,7 +135,7 @@ export default function AuthScreen() {
 
   if (!isSupabaseConfigured) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px', textAlign: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'max(env(safe-area-inset-top, 0px), 20px) max(env(safe-area-inset-right, 0px), 20px) max(env(safe-area-inset-bottom, 0px), 20px) max(env(safe-area-inset-left, 0px), 20px)', textAlign: 'center' }}>
         <h1 style={{ fontSize: 20, color: '#3d362c', marginBottom: 12 }}>⚠️ 設定が未完了です</h1>
         <p style={{ fontSize: 13, color: '#8a7e6b', lineHeight: 1.8, maxWidth: 360 }}>
           Supabase の環境変数が設定されていません。<br />
@@ -146,7 +147,7 @@ export default function AuthScreen() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)' }}>
       <h1 style={{ fontSize: 24, fontWeight: 500, color: '#3d362c', marginBottom: 12 }}>📚 Orime</h1>
       <p style={{ fontSize: 14, color: '#8a7e6b', marginBottom: 28, textAlign: 'center' }}>
         読みっぱなしを、やめる。<br />気づきを後から呼び戻し、行動に変える読書アプリ。
