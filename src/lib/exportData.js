@@ -34,6 +34,13 @@ function escapeCell(value) {
   } else {
     str = String(value);
   }
+  // CSV formula injection guard: a cell starting with = + - @ (or a leading
+  // tab / CR that Excel strips before evaluating) is executed as a formula
+  // when opened in Excel / Sheets. Prefix a single quote to neutralise it
+  // while keeping the displayed text intact. Memo/タグ text is user-controlled.
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
   if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
     return `"${str.replace(/"/g, '""')}"`;
   }

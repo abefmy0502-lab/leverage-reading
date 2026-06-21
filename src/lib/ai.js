@@ -55,7 +55,10 @@ async function postClaude(payload) {
   }
 
   if (Array.isArray(data?.content)) {
-    return data.content.map((b) => b.text || '').join('\n') || 'エラー';
+    // 成功レスポンスの本文。空文字も「正常な空応答」として尊重する
+    // (OCR で読み取れない画像は空で返る設計 — ここで 'エラー' に潰すと
+    //  呼び出し側が空と失敗を区別できなくなる)。
+    return data.content.map((b) => b.text || '').join('\n');
   }
   return 'エラー';
 }

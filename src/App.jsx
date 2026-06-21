@@ -50,7 +50,7 @@ import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
 import UpdateBanner from './components/UpdateBanner';
-import { BookListSkeleton } from './components/Skeleton';
+import { BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
 import SwipeableCard from './components/SwipeableCard';
 import ContextMenu from './components/ContextMenu';
@@ -4419,7 +4419,11 @@ function AuthedApp() {
                 </div>
               )}
               {booksLoading && rawBooks.length === 0 ? (
-                <BookListSkeleton rows={4} />
+                effectiveBookshelfView === 'grid' ? (
+                  <BookGridSkeleton count={6} />
+                ) : (
+                  <BookListSkeleton rows={4} />
+                )
               ) : filtered.length === 0 ? (
                 rawBooks.length === 0 ? (
                   <EmptyState
