@@ -9,6 +9,7 @@ import { LIMITS } from '../lib/limits';
 import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
+import ShareCardModal from './ShareCardModal';
 
 const MODE_KEY = 'leverageMemoMode';
 
@@ -186,12 +187,13 @@ function SummarySection({ bookId, summaryText, onSaveSummary }) {
   );
 }
 
-export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSaveSummary }) {
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary }) {
   const [mode, setMode] = useState(loadInitialMode);
   const [sortBy, setSortBy] = useState('page');
   const [quoteOnly, setQuoteOnly] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState(null);
+  const [shareMemo, setShareMemo] = useState(null);
   const toast = useToast();
   const haptic = useHaptic();
   const confirm = useConfirm();
@@ -262,6 +264,17 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
     } catch {
       toast.error('コピーできませんでした');
     }
+  };
+
+  // 🖼 引用カード（画像）を生成するモーダルを開く。本文が空のメモは導線が出ない
+  // ので（コピー同様）ここでは到達しない想定だが、念のためガードする。
+  const handleShare = (memo) => {
+    if (!(memo?.text || '').trim()) {
+      toast.error('共有できる本文がありません');
+      return;
+    }
+    haptic.light();
+    setShareMemo(memo);
   };
 
   const openCreate = () => {
@@ -409,6 +422,7 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
             memo={m}
             onEdit={openEdit}
             onCopy={handleCopy}
+            onShare={handleShare}
             onDelete={handleDelete}
             onSwipeDelete={handleSwipeDelete}
             onLongPress={(payload) => setMemoMenu(payload)}
@@ -459,6 +473,9 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
           items={[
             { label: '編集', icon: '✏️', onClick: () => openEdit(memoMenu.memo) },
             { label: 'コピー', icon: '📋', onClick: () => handleCopy(memoMenu.memo) },
+            ...((memoMenu.memo?.text || '').trim()
+              ? [{ label: '画像で共有', icon: '🖼', onClick: () => handleShare(memoMenu.memo) }]
+              : []),
             { label: '削除', icon: '🗑️', destructive: true, onClick: () => handleDelete(memoMenu.memo) },
           ]}
         />
@@ -475,6 +492,15 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
           onClose={closeEditor}
           onCreate={handleCreate}
           onUpdate={handleUpdate}
+        />
+      )}
+
+      {shareMemo && (
+        <ShareCardModal
+          memo={shareMemo}
+          bookTitle={bookTitle}
+          author={bookAuthor}
+          onClose={() => setShareMemo(null)}
         />
       )}
     </div>

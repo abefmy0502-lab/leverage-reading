@@ -84,7 +84,7 @@ function formatDate(iso) {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function BookMemoCard({ memo, onEdit, onCopy, onDelete, onSwipeDelete, onLongPress }) {
+export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, onSwipeDelete, onLongPress }) {
   const cache = useAppDataCache();
   // Synchronous cache hit → render the image immediately on first paint.
   const initialUrl = memo.photoPath ? cache.getCachedPhotoUrl(memo.photoPath) : null;
@@ -185,6 +185,18 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onDelete, onSwipeDe
               }}
             >
               コピー
+            </button>
+          )}
+          {onShare && (memo.text || '').trim() && (
+            <button
+              type="button"
+              style={menuItem}
+              onClick={() => {
+                setMenuOpen(false);
+                onShare(memo);
+              }}
+            >
+              🖼 画像で共有
             </button>
           )}
           <button

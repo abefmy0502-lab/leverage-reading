@@ -46,6 +46,7 @@ import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import BookshelfSummary from './components/BookshelfSummary';
+import HomeRecall from './components/HomeRecall';
 import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
@@ -1193,6 +1194,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
         <BookMemoList
           bookId={form.id}
           bookTitle={form.title}
+          bookAuthor={form.author || ""}
           summaryText={form.leverageMemo || ""}
           onSaveSummary={onSaveSummary}
         />
@@ -3754,6 +3756,7 @@ function AuthedApp() {
               <BookMemoList
                 bookId={current.id}
                 bookTitle={current.title}
+                bookAuthor={current.author || ""}
                 summaryText={current.leverageMemo || ""}
                 onSaveSummary={handleSaveSummaryFromCurrent}
               />
@@ -4410,6 +4413,10 @@ function AuthedApp() {
                 books={books}
                 onClick={() => { setReviewSubTab('note'); setTab('review'); }}
               />
+              {/* 🔄 今日の想起: 過去メモが 1 枚ふいに戻ってくる控えめなカード。
+                  自己完結（fetch / state は HomeRecall 内に閉じる）。
+                  メモ十分＋当日未 dismiss のときだけ静かに出る。 */}
+              <HomeRecall onOpen={() => { setReviewSubTab('note'); setTab('review'); }} />
               {recentBooks.length > 0 && rawBooks.length >= 3 && !search && statusFilter === "all" && (
                 <div style={{ marginBottom: 14 }}>
                   <p style={{ fontSize: 11, color: "#8a7040", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>
