@@ -88,10 +88,10 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
             fontFamily: "'Noto Serif JP', Georgia, serif",
           }}
         >
-          レバレッジ読書ログ
+          Orime
         </h1>
         <p style={{ fontSize: 13, color: '#8a7e6b', margin: 0, letterSpacing: 1 }}>
-          読書を投資に変える
+          読みっぱなしを、やめる。
         </p>
       </div>
       <div

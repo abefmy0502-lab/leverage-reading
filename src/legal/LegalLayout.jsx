@@ -22,7 +22,7 @@ const setMeta = (name, content, attr = 'name') => {
 export default function LegalLayout({ title, description, children }) {
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = `${title} | レバレッジ読書ログ`;
+    document.title = `${title} | Orime`;
     const tags = description ? [setMeta('description', description)] : [];
 
     const root = document.getElementById('root');
@@ -86,7 +86,7 @@ export default function LegalLayout({ title, description, children }) {
             <a href="/legal/sct">特定商取引法に基づく表記</a>
             <a href="mailto:leverage.book0502@gmail.com">お問い合わせ</a>
           </div>
-          <p className="legal-copyright">© 2026 レバレッジ読書ログ</p>
+          <p className="legal-copyright">© 2026 Orime</p>
         </footer>
       </div>
     </div>

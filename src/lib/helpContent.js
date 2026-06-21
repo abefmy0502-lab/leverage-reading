@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-06-21: サービス名を「レバレッジ読書ログ」→「Orime」へリブランド。ユーザー可視のサービス名表記（PWA 名 / タイトル / LP / 認証画面 / スプラッシュ / 法的ページ / ヘルプ見出し / AI プロンプト内のアプリ名）を Orime に統一。あわせて LP（Landing.jsx）のコピーを法務 de-risk — 断定的な成果・倍率・損失額（「年収 10 万円に変える」「精度が 10 倍」「捨てられる金額 ¥4,702」「100% を資産化」等）を排し、誠実な訴求（「読みっぱなしを、やめる。」「精度が上がる」「活かしきれていないかもしれない金額（参考）」等）に調整。価格 ¥990 / 1 日 ¥33 / 解約自由 / データ保持 / 違約金ゼロは安心訴求として明記を維持。bookList ヘルプの title を「Orime の使い方」に更新。"レバレッジ・リーディング"（書名）/ "レバレッジメモ"（機能名）/ "レバレッジ化"（手法概念）はサービス名ではないため温存。コード識別子 / localStorage キー / DB 列 / CSS 接頭辞（lvg-）/ メールアドレス等の技術文字列は不変
  * - 2026-06-21: AI 利用量の月次上限（KGI 原価ガード）を導入。Claude API のコスト暴走（連打）を止めるランナウェイガードとして、api/claude.js に「月次の累積コール上限」(`AI_MONTHLY_CALL_LIMIT`、既定 120 回/月、env で可変) を追加。getUser 成功後・既存の分間レート制限と整合する位置で当月の利用回数を確認し、上限超過なら 429 +「今月の AI 利用上限に達しました。来月またご利用いただけます。」を返す。未超過なら成功後に service_role で原子的に +1（`increment_ai_usage` RPC）。堅牢性最優先で fail-open（usage 取得/加算がエラー or テーブル未適用なら通す）+ schema-fallback。新規 `supabase_ai_usage.sql`（`ai_usage(user_id, period_month 'YYYY-MM', calls)` + RLS: SELECT 本人のみ / 書き込み service_role のみ）。クライアントは ai.js / streamClaude.js の 429 ハンドラで `monthly_limit_exceeded` のサーバー文言を優先表示。上限は normal user がまず到達しない寛容値（通常 AI 利用は月数回）。ユーザー可視挙動のため myBookBrain / aiAdvisor のヘルプに「月の利用上限がある」旨を一文追記
  * - 2026-06-21: 「読みたい」「読書前」状態の本詳細に、メモが追加できない理由の控えめなヒントを明確化。アプリ側 (App.jsx の want/before メモ空状態) の文言を「『読書中』にすると ＋ ボタンからメモを追加できます」に統一したのに合わせ、bookDetailWant の「📝 メモは？」セクションと bookDetailBefore の「次のステップ」セクションに ＋ ボタンの存在を追記 (初回ユーザーが「メモできない」と誤解しないよう導線を明示)
  * - 2026-05-24: 続編 / 巻数違い (例: 「1分で話せ」と「1分で話せ2」) を別書誌として扱うように修正。旧 `isStrictMatch` (App.jsx) / `titleSimilarity` → `isSameBook` (bookSearch.js) は `longer.startsWith(shorter)` かつ shorter/longer ≥ 0.7 で同一書誌扱いにしていたため、「1分で話せ2」が「1分で話せ」の候補に紛れ込み AdvisorAddConfirmModal や findIsbnCandidates が誤 ISBN を採用、結果として続編の表紙が保存される事故が起きていた。新規 helper `_suffixIsVolume` / `suffixIsVolume` を追加 — `longer.startsWith(shorter)` の時に続く部分が「数字 (1〜9 / NFKC で半角化された全角数字 / ローマ数字 ii-xii) / 上 / 下 / 前編 / 後編 / 続編 / 完結編 / 外伝 / 新章 / 別巻 / 超 / vol / part / book / chapter / episode」のいずれかで始まる場合は false を返して別書誌扱いにする。逆に「新装版 / 改訂版 / 文庫版 / 完全版」のような同内容の異版表記は flag しないので、これらは引き続き元と同じ書誌扱い (0.7 ratio で別途絞り込まれる)。修正対象は AI 選書 → 候補絞り込み (`AdvisorAddConfirmModal` への candidates) / addFromAdvisor 内部の strict match 検索 / addRelatedBookFromAi の strict match 検索 / fullyResolveCover が呼ぶ `findIsbnCandidates` の候補フィルタの 4 経路すべて
@@ -92,9 +93,9 @@
 
 export const HELP_CONTENT = {
   bookList: {
-    title: 'レバレッジ読書ログの使い方',
+    title: 'Orime の使い方',
     description: '本を投資として捉え、行動につなげる 4 ステップ',
-    lastUpdated: '2026-05-04',
+    lastUpdated: '2026-06-21',
     // `steps` を持つエントリは HelpModal が「ステップカード」レイアウトで描画。
     // bullets / footer は任意。sections フォールバックも renderer 側で対応。
     steps: [

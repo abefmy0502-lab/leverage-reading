@@ -33,7 +33,7 @@ export default class ErrorBoundary extends React.Component {
       // セキュリティ上もリスク)。開発時のみ詳細を出す。
       const isDev = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
       const errorTextForReport = encodeURIComponent(String(this.state.error || '').slice(0, 500));
-      const mailto = `mailto:leverage.book0502@gmail.com?subject=${encodeURIComponent('【レバレッジ読書ログ】エラー報告')}&body=${encodeURIComponent('発生した操作: ＿＿＿＿＿＿\n\n参考エラー (任意):\n')}${errorTextForReport}`;
+      const mailto = `mailto:leverage.book0502@gmail.com?subject=${encodeURIComponent('【Orime】エラー報告')}&body=${encodeURIComponent('発生した操作: ＿＿＿＿＿＿\n\n参考エラー (任意):\n')}${errorTextForReport}`;
 
       return (
         <div

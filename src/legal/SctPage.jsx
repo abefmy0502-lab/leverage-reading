@@ -11,7 +11,7 @@ export default function SctPage() {
   return (
     <LegalLayout
       title="特定商取引法に基づく表記"
-      description="レバレッジ読書ログの特定商取引法に基づく表記。販売事業者・販売価格・支払方法・解約条件など。"
+      description="Orime の特定商取引法に基づく表記。販売事業者・販売価格・支払方法・解約条件など。"
     >
       <p className="effective-date">最終更新日:2026年6月21日</p>
 

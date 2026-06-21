@@ -10,7 +10,7 @@ export default function PrivacyPage() {
   return (
     <LegalLayout
       title="プライバシーポリシー"
-      description="レバレッジ読書ログのプライバシーポリシー。取得情報・利用目的・委託先・国外移転・AI 連携・データ保管について。"
+      description="Orime のプライバシーポリシー。取得情報・利用目的・委託先・国外移転・AI 連携・データ保管について。"
     >
       <p className="effective-date">最終更新日:2026年6月21日</p>
       <p className="effective-date">施行日:2026年5月3日</p>

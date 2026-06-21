@@ -1,4 +1,4 @@
-// 🌱 Landing Page — レバレッジ読書ログ (絵文字削減・プロ版)
+// 🌱 Landing Page — Orime (絵文字削減・プロ版)
 //
 // 旧版から: 絵文字を 90% 削減 / serif 見出し + sans 本文 / 仮想ユーザー quote /
 // データドリブン Pain セクション / ¥33/日 フレーミング / 紙テクスチャ背景。
@@ -25,12 +25,12 @@ export default function Landing() {
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'レバレッジ読書ログ | 読書を投資にする AI 読書記録';
+    document.title = 'Orime｜読書を、行動に変える読書メモ';
     const tags = [
       setMeta('description',
-        '読みっぱなしの本、もう作らない。AI が読み方を設計し、行動を引き出す『投資型』読書記録。月 ¥990、いつでも 1 タップで解約可能。'),
-      setMeta('og:title', '読みっぱなしの本、もう作らない | レバレッジ読書ログ', 'property'),
-      setMeta('og:description', 'AI が読み方を設計し、行動を引き出す『投資型』読書記録', 'property'),
+        '読みっぱなしを、やめる。Orime は、本の"折り目"のように大事な気づきを後から呼び戻し、行動に変える読書アプリ。月 ¥990、いつでも 1 タップで解約可能。'),
+      setMeta('og:title', '読みっぱなしを、やめる。| Orime', 'property'),
+      setMeta('og:description', '読んだ気づきを後から呼び戻し、行動に変える読書アプリ', 'property'),
       setMeta('og:type', 'website', 'property'),
     ];
 
@@ -126,16 +126,16 @@ export default function Landing() {
 
       {/* ============ 1. Hero ============ */}
       <section className="hero">
-        <p className="hero-eyebrow">読書を、最強の自己投資に。</p>
+        <p className="hero-eyebrow">読書を、自己投資に。</p>
         <h1 className="hero-headline">
-          本 1 冊を、<br />
-          年収 10 万円に変える。
+          読みっぱなしを、<br />
+          やめる。
         </h1>
         <p className="hero-subhead">
-          AI があなたの悩みを分析し、本を選び、<br />
-          読み方を設計し、行動まで管理する。<br />
+          AI があなたの課題から本を選び、<br />
+          読み方を整理し、行動の管理まで手伝います。<br />
           <br />
-          「読んで終わり」を、永遠にやめる。
+          読んで終わりにしない読書アプリです。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-hero">
           月 ¥990 で始める →
@@ -159,7 +159,7 @@ export default function Landing() {
         <div className="hero-mockup">
           <PhoneFrame
             src="/lp/hero-bookshelf.jpg"
-            alt="レバレッジ読書ログの本棚画面 — 6 冊が表紙付きで並ぶ"
+            alt="Orime の本棚画面 — 6 冊が表紙付きで並ぶ"
             size="medium"
             float
           />
@@ -170,10 +170,10 @@ export default function Landing() {
 
       {/* ============ 2. Pain (損失計算機) ============ */}
       <section className="pain fade-in">
-        <p className="section-eyebrow">あなたが知らない真実</p>
+        <p className="section-eyebrow">よくある悩み</p>
         <h2 className="section-headline">
-          あなたは、すでに<br />
-          損している。
+          「読んだのに、<br />
+          覚えてない」。
         </h2>
 
         <div className="pain-calculator">
@@ -186,22 +186,22 @@ export default function Landing() {
             <span className="calc-value">¥4,950</span>
           </div>
           <div className="calc-row highlight">
-            <span className="calc-label">そのうち忘却される割合 ※</span>
-            <span className="calc-value">95%</span>
+            <span className="calc-label">時間とともに忘れがちな割合 ※</span>
+            <span className="calc-value">約 95%</span>
           </div>
           <div className="calc-divider" />
           <div className="calc-row total">
-            <span className="calc-label">月の「捨てられる金額」</span>
-            <span className="calc-value">¥4,702</span>
+            <span className="calc-label">活かしきれていないかもしれない金額（参考）</span>
+            <span className="calc-value">約 ¥4,702</span>
           </div>
         </div>
         <p className="pain-source">
-          ※ エビングハウスの忘却曲線と当社調査に基づく参考値
+          ※ あくまで一般的な目安です（忘却曲線などの一般的知見に基づく参考値）。
         </p>
 
         <p className="pain-conclusion">
-          レバレッジ読書ログなら、<br />
-          <strong>月 ¥990 で 100% を資産化。</strong>
+          Orime なら、<br />
+          <strong>月 ¥990 で、読書を"資産"に。</strong>
         </p>
 
         <button type="button" onClick={goToSignup} className="cta-secondary">
@@ -215,7 +215,7 @@ export default function Landing() {
       <section className="mechanisms fade-in">
         <p className="section-eyebrow">仕組み</p>
         <h2 className="section-headline">
-          本を「投資」に変える、<br />
+          読書を活かす、<br />
           3 つの仕組み
         </h2>
 
@@ -225,10 +225,10 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>本選びの<span className="no-break">精度が 10 倍に。</span></h3>
+            <h3>本選びの<span className="no-break">精度が上がる。</span></h3>
             <p className="mech-lead">
-              年間の自己啓発書購入数は平均 12 冊。そのうち<br />
-              「自分に刺さった」本は 2〜3 冊と言われます。
+              買った本が「自分に刺さらなかった」<br />
+              という経験は、誰にでもあります。
             </p>
             <p className="mech-body">
               AI 選書は、あなたの現在の課題を会話で深掘りし、年代・職業・状況に合わせた本だけを提案。買う前に「自分に必要かどうか」が判断できます。
@@ -249,13 +249,13 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>1 冊からの<span className="no-break">行動量が 10 倍に。</span></h3>
+            <h3>1 冊からの<span className="no-break">行動が増える。</span></h3>
             <p className="mech-lead">
-              本を読み終えても、行動に繋がるのは 10 冊に 1 冊。<br />
-              多くの人が「読んだだけ」で終わってしまいます。
+              本を読んでも、なかなか行動に<br />
+              つながらない——よくある悩みです。
             </p>
             <p className="mech-body">
-              読む前に AI が「投資目的・現在の課題・仮説」を整理。重点的に読むべき章と、読まなくていい章まで提案するので、1 冊から 3〜5 個の具体的な行動が生まれます。
+              読む前に AI が「投資目的・現在の課題・仮説」を整理。重点的に読むべき章を提案するので、1 冊から具体的な行動を引き出しやすくなります。
             </p>
             <div className="mech-screenshot">
               <PhoneFrame
@@ -273,10 +273,10 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>知識の<span className="no-break">活用度が 10 倍に。</span></h3>
+            <h3>知識の<span className="no-break">活用度が上がる。</span></h3>
             <p className="mech-lead">
-              本を読んでも、内容を覚えているのは 1 ヶ月で 2 割未満。<br />
-              本棚は知識の墓場になりがちです。
+              読んだ内容は、時間とともに忘れがち。<br />
+              本棚に眠ったままになりがちです。
             </p>
             <p className="mech-body">
               過去に読んだ本のメモ・投資目的・行動が、あなた専用 AI に蓄積されます。「決断に迷う時の判断軸は？」と聞けば、過去の本の知識から、あなた専用の答えが返ってくる。
@@ -407,12 +407,12 @@ export default function Landing() {
       {/* ============ 6. 最終 CTA + FAQ (1 セクションに統合) ============ */}
       <section className="final-cta fade-in">
         <h2 className="final-headline">
-          今日の ¥33 が、<br />
-          1 年後のあなたを変える。
+          読みっぱなしを、<br />
+          やめてみませんか。
         </h2>
         <p className="final-sub">
-          本を読むだけでは、もう何も変わらない。<br />
-          AI と一緒に、読書を投資に変えよう。
+          読んで終わりにしない読書を、<br />
+          AI と一緒に始めてみましょう。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-final cta-large">
           月 ¥990 で始める →
@@ -444,14 +444,14 @@ export default function Landing() {
 
       {/* ============ Footer ============ */}
       <footer className="lp-footer">
-        <p className="lp-footer-brand">レバレッジ読書ログ</p>
+        <p className="lp-footer-brand">Orime</p>
         <div className="footer-links">
           <a href="/legal/terms">利用規約</a>
           <a href="/legal/privacy">プライバシーポリシー</a>
           <a href="/legal/sct">特定商取引法に基づく表記</a>
           <a href="mailto:leverage.book0502@gmail.com">お問い合わせ</a>
         </div>
-        <p className="copyright">© 2026 レバレッジ読書ログ</p>
+        <p className="copyright">© 2026 Orime</p>
       </footer>
     </div>
   );

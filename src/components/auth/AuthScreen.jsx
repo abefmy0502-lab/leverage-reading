@@ -147,9 +147,9 @@ export default function AuthScreen() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px' }}>
-      <h1 style={{ fontSize: 24, fontWeight: 500, color: '#3d362c', marginBottom: 12 }}>📚 レバレッジ読書ログ</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 500, color: '#3d362c', marginBottom: 12 }}>📚 Orime</h1>
       <p style={{ fontSize: 14, color: '#8a7e6b', marginBottom: 28, textAlign: 'center' }}>
-        読書を投資に変える。<br />投資対効果を最大化する読書管理アプリ。
+        読みっぱなしを、やめる。<br />気づきを後から呼び戻し、行動に変える読書アプリ。
       </p>
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 340 }}>
         <h2 style={{ fontSize: 16, color: '#3d362c', marginBottom: 16, textAlign: 'center', fontWeight: 500 }}>{title}</h2>

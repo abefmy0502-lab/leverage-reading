@@ -1,7 +1,7 @@
 {
-  "name": "レバレッジ読書ログ",
-  "short_name": "読書ログ",
-  "description": "読書を投資に変える、本の内容を再現できる読書管理アプリ",
+  "name": "Orime",
+  "short_name": "Orime",
+  "description": "読みっぱなしを、やめる。気づきを後から呼び戻し、行動に変える読書アプリ",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
