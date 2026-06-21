@@ -76,6 +76,20 @@ export function AppDataCacheProvider({ children }) {
   // ===== photo URL cache =====
   const isFresh = (entry) => entry && Date.now() - entry.fetchedAt < PHOTO_TTL_MS;
 
+  // 期限切れ（かつ in-flight でない）エントリを掃除する。署名 URL は 50 分で
+  // 失効し再取得されるが、エントリ自体は明示削除しないと残り続ける。長時間
+  // セッションで大量の写真を閲覧した際のメモリ肥大を防ぐため、batch 取得の
+  // ついでに掃く（軽量・副作用なし）。in-flight（promise 保持）は触らない。
+  const prunePhotoStore = () => {
+    const store = photoStoreRef.current;
+    const now = Date.now();
+    for (const [path, entry] of store) {
+      if (entry && !entry.promise && now - entry.fetchedAt >= PHOTO_TTL_MS) {
+        store.delete(path);
+      }
+    }
+  };
+
   const getCachedPhotoUrl = useCallback((path) => {
     if (!path) return null;
     const entry = photoStoreRef.current.get(path);
@@ -117,6 +131,7 @@ export function AppDataCacheProvider({ children }) {
   }, []);
 
   const fetchPhotoUrlsBatch = useCallback(async (paths) => {
+    prunePhotoStore(); // 期限切れエントリを掃除（メモリ肥大防止）
     const result = new Map();
     if (!paths || paths.length === 0 || !isSupabaseConfigured) return result;
 

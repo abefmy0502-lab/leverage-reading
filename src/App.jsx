@@ -87,7 +87,7 @@ import {
   Target,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
 
 const STAR = "★";
 const EMPTY_STAR = "☆";
@@ -567,7 +567,7 @@ function paletteFor(title) {
 
 // グリッド表示用の本カード（表紙主役）。表紙無し / 画像 404 時は
 // タイトルベースの色付きプレースホルダにフォールバック。
-function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry }) {
+const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
@@ -642,9 +642,9 @@ function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry }) {
       {book.author && <p className="book-cover-author">{book.author}</p>}
     </button>
   );
-}
+});
 
-function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry }) {
+const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
@@ -728,7 +728,7 @@ function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onL
       </div>
     </SwipeableCard>
   );
-}
+});
 
 function TagInput({ tags, onChange, allTags }) {
   const [input, setInput] = useState("");
@@ -2495,7 +2495,13 @@ function AuthedApp() {
   // form.status はそのまま保持され saveBook で正しい status が永続化される。
   const [editPhaseOverride, setEditPhaseOverride] = useState(null);
 
-  const openDetail = (b) => { setCurrent(b); setEditPhaseOverride(null); setView("detail"); };
+  // 本棚カードに渡る安定参照 (memo 化したカードの再 render 抑止用)。
+  // setCurrent / setEditPhaseOverride / setView は安定なので deps は空でよい。
+  const openDetail = useCallback((b) => { setCurrent(b); setEditPhaseOverride(null); setView("detail"); }, []);
+
+  // 本棚カードの long-press から context menu を開く安定参照。payload には
+  // long-press フックが {x, y, book} を載せてくるのでそのまま state へ。
+  const handleBookLongPress = useCallback((payload) => setBookContextMenu(payload), []);
 
   // 本詳細でフェーズ (status) が切り替わった時 + 本/view 切り替え時に
   // detail コンテナをスクロールトップへ戻す。これがないと「読書前」で
@@ -2753,10 +2759,15 @@ function AuthedApp() {
   };
 
   // Swipe-driven delete from the list — gesture itself counts as confirmation.
-  const swipeDeleteBook = (book) => {
+  // 本棚カード (memo 化済み) に安定参照で渡すため useCallback + ref。
+  // performBookDelete は毎 render 再生成されるので、最新版を ref 経由で呼び、
+  // stale closure を避けつつ参照を安定化する (挙動は従来と同一)。
+  const performBookDeleteRef = useRef(performBookDelete);
+  performBookDeleteRef.current = performBookDelete;
+  const swipeDeleteBook = useCallback((book) => {
     if (!book) return;
-    performBookDelete(book, { fromList: true });
-  };
+    performBookDeleteRef.current(book, { fromList: true });
+  }, []);
 
   const handleBookSelect = (b) => {
     setSearchOpen(false);
@@ -3399,9 +3410,9 @@ function AuthedApp() {
       .slice(0, 3);
   }, [books]);
 
-  const stats = { total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length };
-  const actionCount = books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0);
-  const actionDone = books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0);
+  const stats = useMemo(() => ({ total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length }), [books]);
+  const actionCount = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0), [books]);
+  const actionDone = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0), [books]);
   const allTags = useMemo(() => { const s = new Set(); books.forEach((b) => (b.tags || []).forEach((t) => s.add(t))); return [...s]; }, [books]);
 
   // 🔄 PWA 更新の「安全状態」判定。本棚のリスト画面 + 本棚タブ + どのモーダルも
@@ -4489,7 +4500,7 @@ function AuthedApp() {
                       book={b}
                       isJustDone={recentlyDoneId === b.id}
                       onOpen={openDetail}
-                      onLongPress={(payload) => setBookContextMenu(payload)}
+                      onLongPress={handleBookLongPress}
                       onAutoRetry={triggerCoverAutoRetry}
                     />
                   ))}
@@ -4504,7 +4515,7 @@ function AuthedApp() {
                       isJustDone={recentlyDoneId === b.id}
                       onOpen={openDetail}
                       onSwipeDelete={swipeDeleteBook}
-                      onLongPress={(payload) => setBookContextMenu(payload)}
+                      onLongPress={handleBookLongPress}
                       onAutoRetry={triggerCoverAutoRetry}
                     />
                   ))}
