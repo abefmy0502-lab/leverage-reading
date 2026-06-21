@@ -242,6 +242,12 @@ export default async function handler(req, res) {
 
   let subs = [];
   try {
+    // 注意: push_subscriptions には preferred_hour / tz_offset_min 列も存在するが、
+    // MVP の配信ロジックは「Cron が叩かれたタイミングで一括送信」であり、時刻
+    // ターゲティングを行わないため、これらは意図的に SELECT しない（取得しても
+    // 使わないと「設定したのに反映されない」誤解を生むため）。将来、ユーザー
+    // ごとの希望時刻に寄せた配信（tz_offset_min でローカル時刻を求め
+    // preferred_hour 近傍でのみ送る）を実装する際に SELECT へ追加する。
     const { data, error } = await supabase
       .from('push_subscriptions')
       .select('id, user_id, endpoint, p256dh, auth, frequency, last_sent_at, enabled')

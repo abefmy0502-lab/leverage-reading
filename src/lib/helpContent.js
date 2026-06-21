@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-06-22: ⚙️ 設定（AccountSettings）簡素化に伴うヘルプ同期（文言のみ・挙動不変）。設定が「💳 プラン・お支払い / 📥 データ・アプリ / ⚠️ アカウント」の 3 グループに整理され「🔔 想起の通知」が「📥 データ・アプリ」群に内包された件を反映。review ヘルプの「🔔 通知で、向こうから戻ってくる」ステップで通知設定の所在を「📥 データ・アプリ」内と明記。billing ヘルプの「解約・カードの変更」は既に 3 グループ構成・プラン管理からの解約/カード変更/請求履歴・いつでも解約/データ保持を記載済みのため文言据え置き、lastUpdated のみ 2026-06-22 に更新。npm run build 成功
  * - 2026-06-22: 🔁 二次レビュー + UX 磨き。(1) 【修正/内部】想起プッシュの endpoint ローテーション自己修復を配線（SW の pushsubscriptionchange を App.jsx が受けて ensurePushSubscription で DB 再同期 + 起動時にも再同期）。これが無いと endpoint ローテーション後に通知が恒久的に届かなくなる穴があった。(2) 📊 テーマレポートの磨き — テーマチップの件数バッジ/44px/折返し、notice をメモ0件(info)とエラー(error)で型分け（アイコン/色/role 出し分け + エラー時「🔄 もう一度試す」）、完成レポートに「🕒 履歴」導線、a11y（role=list/aria-label）。(3) ⚙️ 設定（AccountSettings）の視覚一貫性 — 共通スタイル定数化、グループを 3 群（💳プラン・お支払い / 📥データ・アプリ / ⚠️アカウント）に整理し「🔔 想起の通知」を「データ・アプリ」群に内包、文言簡素化、a11y。挙動（課金判定/削除確認ゲート/通知購読/エクスポート）は一切不変・表示のみ。いずれも npm run build 成功
  * - 2026-06-22: 📝 メモの Markdown 書き出しを追加（データ可搬性）。⚙️ 設定 →「📥 データ・アプリ」に「📝 Markdown で書き出す」を新設。全メモ（カード式 / まとめ / 本以外の学び）を本ごとに見出し付きで 1 つの .md にまとめ、NotebookLM や Obsidian にそのまま取り込んで AI 活用・執筆に使える形に。ロックインの不安を消す（自分のメモはいつでも持ち出せる）狙い。`exportMemosAsMarkdown`（exportData.js）新規、CSV 書き出しと並置。AI 競合（Obsidian×Kindle×NotebookLM ワークフロー）分析を踏まえた可搬性強化で、Orime の AI（マイ読書脳/テーマレポート）は同じ価値を設定ゼロでネイティブ提供という位置付けを補強
  * - 2026-06-22: 🔔 想起プッシュ通知（Web Push）の試作を追加。⚙️ 設定（AccountSettings）に「🔔 通知 → 🔔 想起の通知」セクションを新設（デフォルト OFF・完全オプトイン・トグル ON 時のみ許可要求＝ユーザージェスチャ内）。週1回ほど、過去のメモが通知でそっと戻ってくる体験を自動化（Orime の核＝想起の自動化）。通知タップで /?recall=<memoId> 起動 → 振り返りタブ（💭 ノート）へ誘導（App.jsx のディープリンク + SW postMessage 受信）。public/sw.js は既存 cache/fetch ロジック無改変のまま push / notificationclick / pushsubscriptionchange を末尾追記（SW_VERSION v52→v53）。新規 src/lib/push.js（機能検出 / 購読 / 解除、VITE_VAPID_PUBLIC_KEY 未設定や iOS タブ・許可拒否は静かに無効化＝graceful degradation）/ src/lib/recall.js（想起の文言・選定ロジックを Review と共有）/ api/push-cron.js（Vercel Cron 送信・web-push・service_role、410/404 失効購読は DELETE、CRON_SECRET 認証）/ supabase_push_subscriptions.sql（RLS 本人のみ）。vercel.json に crons 追記。ユーザー可視の通知機能追加につき review ヘルプに「🔔 通知で、向こうから戻ってくる」ステップを新設。※ VAPID 鍵生成・env 投入・SQL 実行・npm i web-push・deploy・実機検証は環境作業として別途必要
@@ -357,7 +358,7 @@ export const HELP_CONTENT = {
   billing: {
     title: '💳 プラン・お支払い',
     description: 'Orime のご契約と、解約・カード変更について。',
-    lastUpdated: '2026-06-21',
+    lastUpdated: '2026-06-22',
     sections: [
       {
         heading: 'すべての機能を使うには',
@@ -665,7 +666,7 @@ export const HELP_CONTENT = {
       },
       {
         title: '🔔 通知で、向こうから戻ってくる',
-        body: '⚙️ 設定の「🔔 想起の通知」をオンにすると、週1回ほど、過去のあなたのメモが通知でそっと戻ってきます。タップするとその振り返りを開けます。',
+        body: '⚙️ 設定の「📥 データ・アプリ」内にある「🔔 想起の通知」をオンにすると、週1回ほど、過去のあなたのメモが通知でそっと戻ってきます。タップするとその振り返りを開けます。',
         bullets: [
           'デフォルトはオフ。あなたが選んだときだけ届きます',
           '低頻度（週1ほど）で、通知疲れしない静かなお届け',

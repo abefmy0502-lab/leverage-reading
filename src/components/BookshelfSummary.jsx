@@ -21,12 +21,27 @@ function startOfThisMonth(now = new Date()) {
   return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
 }
 
-function isThisMonth(dateLike, monthStart) {
-  if (!dateLike) return false;
-  // book.doneDate は 'YYYY-MM-DD' 形式で transformBook から渡る想定。
-  // Date constructor が許容する形式ならそのまま比較。
+// book.doneDate は 'YYYY-MM-DD' 形式で transformBook から渡る想定。
+// new Date('YYYY-MM-DD') は UTC 0 時として解釈されるため、UTC マイナス圏の
+// ユーザーでは月境界がローカルで前月にずれうる。startOfThisMonth はローカル
+// 基準なので、'YYYY-MM-DD' も new Date(y, m-1, d) でローカル構築して揃える。
+// それ以外の形式 (タイムスタンプ等) は通常どおり Date constructor に委ねる。
+function parseLocalDate(dateLike) {
+  if (!dateLike) return null;
+  if (typeof dateLike === 'string') {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateLike.trim());
+    if (m) {
+      const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+  }
   const d = new Date(dateLike);
-  if (Number.isNaN(d.getTime())) return false;
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function isThisMonth(dateLike, monthStart) {
+  const d = parseLocalDate(dateLike);
+  if (!d) return false;
   return d >= monthStart;
 }
 
@@ -64,8 +79,9 @@ function buildTrend(books, now = new Date()) {
   const lowerBound = new Date(buckets[0].year, buckets[0].month, 1, 0, 0, 0, 0);
   for (const b of books) {
     if (!b || b.status !== 'done' || !b.doneDate) continue;
-    const d = new Date(b.doneDate);
-    if (Number.isNaN(d.getTime()) || d < lowerBound) continue;
+    // 'YYYY-MM-DD' はローカル構築でパース (UTC 解釈による月バケットずれ防止)。
+    const d = parseLocalDate(b.doneDate);
+    if (!d || d < lowerBound) continue;
     const idx = buckets.findIndex(
       (k) => k.year === d.getFullYear() && k.month === d.getMonth()
     );
