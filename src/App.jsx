@@ -566,6 +566,25 @@ function paletteFor(title) {
   return PLACEHOLDER_PALETTE[Math.abs(hash) % PLACEHOLDER_PALETTE.length];
 }
 
+// 本棚カード下部の控えめな進捗バー。「読書中」かつ総ページが設定されている本
+// だけに出す（反ゲーミフィケーション: 目標 / ノルマ / 連続は出さない。今どの
+// あたりかを薄く示すだけ）。total 未設定なら何も描画しない（「続きから」を壊さない）。
+function CardProgressBar({ book }) {
+  if (!book || book.status !== 'reading') return null;
+  const total = Number(book.totalPages) || 0;
+  if (total <= 0) return null;
+  const cur = Number(book.currentPage) || 0;
+  const pct = Math.max(0, Math.min(100, Math.round((cur / total) * 100)));
+  return (
+    <div
+      aria-hidden="true"
+      style={{ marginTop: 6, height: 3, background: "#e7e0d2", borderRadius: 2, overflow: "hidden" }}
+    >
+      <div style={{ height: "100%", width: `${pct}%`, background: "#9fb0a0", borderRadius: 2, transition: "width .3s ease" }} />
+    </div>
+  );
+}
+
 // グリッド表示用の本カード（表紙主役）。表紙無し / 画像 404 時は
 // タイトルベースの色付きプレースホルダにフォールバック。
 const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry }) {
@@ -641,6 +660,7 @@ const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, on
       </div>
       <p className="book-cover-title">{book.title}</p>
       {book.author && <p className="book-cover-author">{book.author}</p>}
+      <CardProgressBar book={book} />
     </button>
   );
 });
@@ -723,6 +743,7 @@ const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustD
             <div style={{ marginTop: 6 }}>
               <StatusBadge status={book.status} />
             </div>
+            <CardProgressBar book={book} />
           </div>
           <span style={{ fontSize: 14, color: "#c4b8a6" }}>›</span>
         </div>
@@ -1158,6 +1179,14 @@ function BeforePhase({
 }
 
 // Phase 3: 読書中（インプット）
+// ページ入力を「0〜10万の整数」にクランプ。NaN / 負 / 巨大値を弾く。
+// 空入力は 0（＝未設定）に倒す。保存時に useBooks 側でも null 正規化される。
+const clampPage = (v) => {
+  const n = Math.floor(Number(v));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(n, 100000);
+};
+
 function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
   const pct = form.totalPages > 0 ? Math.min(Math.round((form.currentPage / form.totalPages) * 100), 100) : 0;
   return (
@@ -1175,9 +1204,9 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
 
       <Field label="読書進捗">
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-          <input type="number" value={form.currentPage || ""} onChange={(e) => setForm({ ...form, currentPage: parseInt(e.target.value) || 0 })} placeholder="現在" style={{ ...inp, width: 80, textAlign: "center" }} />
+          <input type="number" inputMode="numeric" maxLength={6} value={form.currentPage || ""} onChange={(e) => setForm({ ...form, currentPage: clampPage(e.target.value) })} placeholder="現在" style={{ ...inp, width: 80, textAlign: "center" }} />
           <span style={{ color: "#b5aa96" }}>/</span>
-          <input type="number" value={form.totalPages || ""} onChange={(e) => setForm({ ...form, totalPages: parseInt(e.target.value) || 0 })} placeholder="総ページ" style={{ ...inp, width: 80, textAlign: "center" }} />
+          <input type="number" inputMode="numeric" maxLength={6} value={form.totalPages || ""} onChange={(e) => setForm({ ...form, totalPages: clampPage(e.target.value) })} placeholder="総ページ" style={{ ...inp, width: 80, textAlign: "center" }} />
           <span style={{ fontSize: 12, color: "#8a7e6b" }}>ページ</span>
         </div>
         {form.totalPages > 0 && (

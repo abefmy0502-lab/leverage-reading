@@ -9,6 +9,14 @@ const toHttps = (url) => {
   return url.startsWith('http://') ? 'https://' + url.slice(7) : url;
 };
 
+// ページ番号を「整数 or null」に正規化。NaN / 負 / 非有限 / 非現実的な巨大値
+// (10 万ページ超) を弾く。0 は「未設定」として null に倒す。
+const normalizePage = (v) => {
+  const n = Math.floor(Number(v));
+  if (!Number.isFinite(n) || n <= 0 || n > 100000) return null;
+  return n;
+};
+
 // 行動 (actions) も DB は snake_case、フロントは camelCase。
 // supabase_actions_full.sql 未適用の DB では新カラムは undefined のまま。
 const transformAction = (a) => ({
@@ -115,8 +123,10 @@ export function useBooks() {
         rating: book.rating || 0,
         start_date: book.startDate || null,
         done_date: book.doneDate || null,
-        current_page: book.currentPage || 0,
-        total_pages: book.totalPages || 0,
+        // 読書進捗 (supabase_books_reading_progress.sql)。任意カラムなので
+        // 未適用 DB では schema-error fallback で剥がす。値は整数 or null に正規化。
+        current_page: normalizePage(book.currentPage),
+        total_pages: normalizePage(book.totalPages),
         invest_purpose: book.investPurpose || null,
         ai_analysis: book.aiAnalysis || null,
         ai_strategy: book.aiStrategy || null,
@@ -160,9 +170,34 @@ export function useBooks() {
         if (includeSourceQuery) fullPayload.source_query = sourceQueryValue;
         if (includeSetupFields && setupFields) Object.assign(fullPayload, setupFields);
 
+        // 任意グループを段階的に剥がしていく。これまでに「列が無い」と判明した
+        // 任意列は常に落とした状態で再試行するため、剥がし対象を 1 つの Set に
+        // 集約する。各ステップは Set にその列名を足して payload を作り直す。
+        const stripped = new Set();
+        const payloadWithout = () => {
+          const p = { ...fullPayload };
+          for (const col of stripped) delete p[col];
+          return p;
+        };
+
         let r = await op(fullPayload);
         if (!r.error) return r;
         let msg = String(r.error?.message || '');
+
+        // 読書進捗 (current_page / total_pages) 列が無い → セットで剥がして再試行。
+        // SELECT は '*' なので読み取りは未適用 DB でも壊れないが、INSERT/UPDATE の
+        // payload はこの 2 列で UNDEFINED COLUMN になるためここで救済する。
+        if (
+          msg.includes('current_page')
+          || msg.includes('total_pages')
+          || msg.includes('column')
+        ) {
+          stripped.add('current_page');
+          stripped.add('total_pages');
+          r = await op(payloadWithout());
+          if (!r.error) return r;
+          msg = String(r.error?.message || '');
+        }
 
         // setup fields のいずれか列が無い → セットで剥がして再試行
         if (
@@ -171,30 +206,33 @@ export function useBooks() {
           || msg.includes('book_reason')
           || (msg.includes('column') && includeSetupFields)
         ) {
-          const without = { ...fullPayload };
-          delete without.current_challenge;
-          delete without.hypothesis;
-          delete without.book_reason;
-          r = await op(without);
+          stripped.add('current_challenge');
+          stripped.add('hypothesis');
+          stripped.add('book_reason');
+          r = await op(payloadWithout());
           if (!r.error) return r;
           msg = String(r.error?.message || '');
         }
 
         // source_query 列が無い → 落として再試行
         if (msg.includes('source_query') || (msg.includes('column') && includeSourceQuery)) {
-          const without = { ...fullPayload };
-          delete without.current_challenge;
-          delete without.hypothesis;
-          delete without.book_reason;
-          delete without.source_query;
-          r = await op(without);
+          stripped.add('current_challenge');
+          stripped.add('hypothesis');
+          stripped.add('book_reason');
+          stripped.add('source_query');
+          r = await op(payloadWithout());
           if (!r.error) return r;
           msg = String(r.error?.message || '');
         }
 
-        // cover_isbn 列が無い → bookData (任意列なし) で再試行
+        // cover_isbn 列が無い → cover_isbn も剥がして再試行
         if (msg.includes('cover_isbn') || (msg.includes('column') && coverIsbnValue)) {
-          return op(bookData);
+          stripped.add('current_challenge');
+          stripped.add('hypothesis');
+          stripped.add('book_reason');
+          stripped.add('source_query');
+          stripped.add('cover_isbn');
+          return op(payloadWithout());
         }
         return r;
       };
