@@ -160,6 +160,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `bookDetailReading` | 「読書中」状態の本詳細 |
 | `bookDetailDone` | 「読了」状態の本詳細 |
 | `aiAdvisor` | AI 選書アドバイザー（下部ナビ: AI 選書） |
+| `billing` | 💳 プラン・お支払い（ハードペイウォール `Paywall.jsx` / AccountSettings の課金セクション） |
 | `memoEditor` | メモ入力画面（カード式 + クイックメモ + まとめ） |
 | `actions` | （内部用）本詳細フォーム内の行動リスト編集セクション。新しい横断行動タブは `actionList` 参照 |
 
@@ -240,6 +241,14 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `SUPABASE_SERVICE_ROLE_KEY` | サーバー専用 service_role キー (`api/claude.js` の AI 利用量メータリング書込 / Stripe・RevenueCat webhook の subscriptions 書込)。RLS バイパス。**クライアント露出厳禁** |
 | `ANTHROPIC_API_KEY` | Claude API キー |
 | `AI_MONTHLY_CALL_LIMIT` | (任意) AI 月次コール上限。未設定なら既定 120。ローンチ後に実データで調整するための env スイッチ |
+| `STRIPE_SECRET_KEY` | サーバー専用 Stripe シークレットキー (`api/stripe-*.js`)。**クライアント露出厳禁** |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名シークレット (`whsec_...`、`api/stripe-webhook.js`) |
+| `STRIPE_PRICE_ID_MONTHLY` | 月額プランの Stripe Price ID。未設定時は `STRIPE_PRICE_ID` にフォールバック |
+| `STRIPE_PRICE_ID_ANNUAL` | 年額プランの Stripe Price ID |
+| `STRIPE_PRICE_ID` | (旧) 月額プランの Price ID。`STRIPE_PRICE_ID_MONTHLY` 未設定時の monthly フォールバック |
+| `VITE_PRICE_MONTHLY_LABEL` | (任意) ペイウォール/設定の月額**表示用**ラベル。未設定なら「月額 ¥990（税込）」。金額の真実は Stripe 側 |
+| `VITE_PRICE_ANNUAL_LABEL` | (任意) 年額**表示用**ラベル。未設定なら「年額プラン」。金額の真実は Stripe 側 |
+| `VITE_PRICE_ANNUAL_NOTE` | (任意) 年額の補足一言（例「まとめてお得」）。誇大表現は避ける |
 
 ## デプロイフロー
 

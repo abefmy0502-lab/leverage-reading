@@ -17,6 +17,8 @@ import { toMessage } from '../lib/errors';
 import FeedbackForm from './FeedbackForm';
 import { exportUserDataAsCSV } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
+import { useSubscription } from '../hooks/useSubscription';
+import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
 
 const overlayStyle = {
   position: 'fixed',
@@ -109,6 +111,29 @@ const inputStyle = {
   boxSizing: 'border-box',
 };
 
+// Stripe の status を日本語の短いラベルに。entitlement 判定そのものは
+// useSubscription（status==='active'）が真実。ここは表示専用。
+function billingStatusLabel(status) {
+  switch (status) {
+    case 'active': return '利用中';
+    case 'trialing': return 'トライアル中';
+    case 'past_due': return 'お支払い確認中';
+    case 'canceled': return '解約済み';
+    case 'unpaid': return 'お支払い未完了';
+    case 'incomplete': return '手続き中';
+    case 'incomplete_expired': return '手続き期限切れ';
+    default: return status || '未契約';
+  }
+}
+
+// current_period_end（ISO 文字列）を「YYYY/MM/DD」へ。失敗時は null。
+function formatPeriodEnd(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+}
+
 async function listAllUserPhotos(userId) {
   if (!isSupabaseConfigured) return [];
   const all = [];
@@ -139,6 +164,33 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   const [confirmText, setConfirmText] = useState('');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
+  // 💳 課金状態。subscriptions 未適用なら subscription=null / isActive=false で
+  // 静かに縮退する（useSubscription 側で schema-error を握りつぶす）。
+  const { subscription, isActive, loading: subLoading } = useSubscription();
+  const [billingBusy, setBillingBusy] = useState(false);
+
+  const handleManageBilling = async () => {
+    if (billingBusy) return;
+    setBillingBusy(true);
+    try {
+      // 成功時はページ遷移するので戻らない。
+      await openBillingPortal();
+    } catch (e) {
+      toast.error(toMessage(e, 'プラン管理ページを開けませんでした。'));
+      setBillingBusy(false);
+    }
+  };
+
+  const handleUpgrade = async (plan) => {
+    if (billingBusy) return;
+    setBillingBusy(true);
+    try {
+      await startCheckout(plan);
+    } catch (e) {
+      toast.error(toMessage(e, '決済ページを開けませんでした。'));
+      setBillingBusy(false);
+    }
+  };
 
   const handleForceUpdate = async () => {
     if (updating) return;
@@ -275,6 +327,72 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0 }}>サインイン中</p>
             <p style={{ fontSize: 14, color: '#3d362c', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
           </div>
+
+          {/* 💳 Billing / プラン */}
+          <section style={sectionStyle}>
+            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+              💳 プラン
+            </p>
+            {subLoading ? (
+              <p style={{ fontSize: 12, color: '#8a7e6b', margin: '4px 0 0' }}>確認中…</p>
+            ) : isActive ? (
+              <>
+                <p style={{ fontSize: 12, color: '#8a7e6b', margin: '0 0 4px', lineHeight: 1.7 }}>
+                  状態：<strong style={{ color: '#3d362c' }}>{billingStatusLabel(subscription?.status)}</strong>
+                  {formatPeriodEnd(subscription?.currentPeriodEnd) && (
+                    <>（次回更新 {formatPeriodEnd(subscription.currentPeriodEnd)}）</>
+                  )}
+                </p>
+                <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+                  解約・カードの変更・請求履歴はこちらから。いつでも解約でき、データは保持されます。
+                </p>
+                {subscription?.stripeCustomerId ? (
+                  <button
+                    type="button"
+                    style={{ ...btnPrimary, opacity: billingBusy ? 0.6 : 1 }}
+                    disabled={billingBusy}
+                    onClick={handleManageBilling}
+                  >
+                    {billingBusy ? '移動中…' : '⚙️ プランを管理する'}
+                  </button>
+                ) : (
+                  <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+                    プラン管理画面は次回更新後にご利用いただけます。
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+                  すべての機能を使うにはご契約が必要です。いつでも解約でき、データは保持されます。
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button
+                    type="button"
+                    style={{ ...btnPrimary, opacity: billingBusy ? 0.6 : 1 }}
+                    disabled={billingBusy}
+                    onClick={() => handleUpgrade('annual')}
+                  >
+                    {billingBusy ? '移動中…' : `${PLAN_LABELS.annual.name}で契約（おすすめ）`}
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnPrimary,
+                      background: 'transparent',
+                      color: '#5c5043',
+                      border: '1px solid #d4ccbe',
+                      opacity: billingBusy ? 0.6 : 1,
+                    }}
+                    disabled={billingBusy}
+                    onClick={() => handleUpgrade('monthly')}
+                  >
+                    {PLAN_LABELS.monthly.name}で契約
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
 
           {/* App update */}
           <section style={sectionStyle}>

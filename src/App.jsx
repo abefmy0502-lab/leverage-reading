@@ -57,6 +57,8 @@ import { useHaptic } from './hooks/useHaptic';
 import { useLongPress } from './hooks/useLongPress';
 import { useEdgeSwipeBack } from './hooks/useEdgeSwipeBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
+import { useSubscription } from './hooks/useSubscription';
+import Paywall from './components/Paywall';
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
@@ -4697,7 +4699,94 @@ function AppShell() {
       </Shell>
     );
   }
-  return <AuthedApp />;
+  return <PaywallGate />;
+}
+
+// 💳 PaywallGate — Web ハードペイウォール（全機能有料）。
+//
+// 認証済みユーザーに対して useSubscription で entitlement を確認し、
+//   - loading 中           → スピナー（判定が固まるまで本棚を見せない）
+//   - isActive            → 通常アプリ（AuthedApp）
+//   - !isActive && !loading → 全画面ペイウォール（Paywall）
+// を出し分ける。AuthedApp の手前で return ガードするのが肝。
+//
+// ★ 詰み防止 / fail-open:
+//   useSubscription は subscriptions テーブル未適用（schema-error）を
+//   「未課金扱い（isActive=false）」ではなく schema-error として握りつぶす実装。
+//   そのままだとテーブル未適用環境で全員ロックされて詰む。
+//   そこで「テーブル未適用 = 判定不能」のときは fail-open（通す）に倒す。
+//   判定は useSubscription が返す error が schema-error かどうかで行う
+//   （error.code 42P01 / PGRST205 / "does not exist" 等）。
+//   通常運用（テーブルあり・未課金）では error=null なので、ちゃんとロックされる。
+//
+// ※ 将来 Capacitor（IAP）対応時は、ここで Capacitor.isNativePlatform() を見て
+//   native は別の entitlement ソース（RevenueCat 等）に切替える想定。今は Web 専用。
+function isSchemaUnappliedError(error) {
+  if (!error) return false;
+  const msg = String(error?.message || '').toLowerCase();
+  return (
+    msg.includes('does not exist') ||
+    msg.includes('not exist') ||
+    msg.includes('schema cache') ||
+    error?.code === '42P01' ||
+    error?.code === 'PGRST205'
+  );
+}
+
+function PaywallGate() {
+  const { isActive, loading, error, refresh } = useSubscription();
+
+  // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
+  // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    let sp;
+    try { sp = new URLSearchParams(window.location.search); } catch { return undefined; }
+    const checkout = sp.get('checkout');
+    if (checkout !== 'success' && checkout !== 'cancel') return undefined;
+
+    // クエリは消しておく（リロードで再発火しないように）。
+    try {
+      sp.delete('checkout');
+      const qs = sp.toString();
+      const next = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash;
+      window.history.replaceState(null, '', next);
+    } catch { /* ignore */ }
+
+    if (checkout === 'cancel') return undefined;
+
+    // success: webhook で subscriptions が active になるまで数回ポーリング。
+    let cancelled = false;
+    const delays = [0, 1500, 3000, 5000, 8000];
+    const timers = delays.map((ms) =>
+      setTimeout(() => { if (!cancelled) refresh?.(); }, ms),
+    );
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, [refresh]);
+
+  if (loading) {
+    return (
+      <Shell>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Dots />
+        </div>
+      </Shell>
+    );
+  }
+
+  // fail-open: subscriptions テーブル未適用なら判定不能 → ロックせず通す。
+  if (isActive || isSchemaUnappliedError(error)) {
+    return <AuthedApp />;
+  }
+
+  return (
+    <Shell>
+      <Paywall />
+    </Shell>
+  );
 }
 
 // LP ルート判定 — /lp パスもしくは ?view=lp クエリで Landing を表示する。

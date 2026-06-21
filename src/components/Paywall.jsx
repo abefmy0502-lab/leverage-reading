@@ -1,0 +1,250 @@
+// 💳 Paywall — Web 版ハードペイウォール（全機能有料）。
+//
+// 認証済みかつ未課金（useSubscription の !isActive && !loading）のとき、
+// AuthedApp の手前で全画面表示する。ここを越えないと本棚等に入れない。
+//
+// 設計方針（brand-messaging.md 準拠）:
+//   - 静か・誠実・控えめ（Apple Notes / Reminders 級）。煽らない・断定しない。
+//   - 上部に「価値プレビュー」を置き、コールドスタート（中身が見えない不安）を
+//     和らげる。これがハードペイウォールの肝。
+//   - 年額を主役（おすすめ・大きく）／月額を控えめに提示。
+//   - 価格の実数は Stripe / env ラベル（PLAN_LABELS）が真実。ハードコードしない。
+//   - 解約自由・データ保持の安心コピーを必ず添える。
+//
+// ※ 将来 Capacitor（IAP）対応時は、billing.js 側で native 課金へ分岐する想定。
+//   このコンポーネント自体は Web 専用（Stripe.js 埋め込みはせずリダイレクト型）。
+
+import { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { useToast } from './Toast';
+import { startCheckout, PLAN_LABELS } from '../lib/billing';
+import { toMessage } from '../lib/errors';
+
+// 価値プレビューの箇条書き（事実ベースの機能説明 / 誇大表現なし）。
+const VALUE_POINTS = [
+  {
+    emoji: '🔄',
+    title: '気づきを、後から呼び戻す',
+    body: '読んだメモがちょうど忘れた頃に、振り返りタブのランダム想起で戻ってきます。',
+  },
+  {
+    emoji: '🧠',
+    title: 'マイ読書脳が、あなたのメモに答える',
+    body: '「あの本、何て書いてあった？」を、過去のあなたのメモを根拠に AI が答えます。',
+  },
+  {
+    emoji: '🎯',
+    title: '読書を、行動に変える',
+    body: '1 冊から具体的な行動リストへ。完了率・期限で続けやすく。',
+  },
+  {
+    emoji: '🤖',
+    title: '課題から、本を選ぶ',
+    body: 'いま困っていることを話すと、AI 選書が日本語の本を提案します。',
+  },
+];
+
+const cardStyle = {
+  background: 'var(--color-surface)',
+  border: '1px solid var(--color-separator)',
+  borderRadius: 'var(--radius-md)',
+  padding: 16,
+};
+
+export default function Paywall() {
+  const { signOut, user } = useAuth();
+  const toast = useToast();
+  // どちらのボタンを押下中かを保持して二度押しを防ぐ。
+  const [pending, setPending] = useState(null); // 'monthly' | 'annual' | null
+
+  const handleSubscribe = async (plan) => {
+    if (pending) return;
+    setPending(plan);
+    try {
+      // 成功時は startCheckout 内で window.location.assign され戻らない。
+      await startCheckout(plan);
+    } catch (e) {
+      toast.error(toMessage(e, '決済ページを開けませんでした。少し時間をおいて再試行してください。'));
+      setPending(null);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        padding:
+          'calc(24px + env(safe-area-inset-top, 0px)) 20px calc(32px + env(safe-area-inset-bottom, 0px))',
+        fontFamily: 'var(--font-serif)',
+        color: 'var(--color-label)',
+      }}
+    >
+      <div style={{ maxWidth: 460, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {/* ヘッダー */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: 'var(--color-tertiary)', letterSpacing: 1 }}>Orime</div>
+          <h1 style={{ fontSize: 22, fontWeight: 600, margin: '6px 0 4px', lineHeight: 1.4 }}>
+            読みっぱなしを、やめる。
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0, lineHeight: 1.7 }}>
+            すべての機能をお使いいただくには、プランのご契約が必要です。
+          </p>
+        </div>
+
+        {/* 価値プレビュー（コールドスタート対策の肝） */}
+        <section style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {VALUE_POINTS.map((v) => (
+            <div key={v.title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 22, lineHeight: 1.2 }} aria-hidden="true">{v.emoji}</span>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, margin: 0, lineHeight: 1.5 }}>{v.title}</p>
+                <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '2px 0 0', lineHeight: 1.7 }}>
+                  {v.body}
+                </p>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* プラン提示：年額を主役、月額を控えめに */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* 年額（おすすめ・大きく） */}
+          <div
+            style={{
+              ...cardStyle,
+              border: '1.5px solid var(--color-accent-strong)',
+              background: 'var(--color-accent-soft)',
+              position: 'relative',
+            }}
+          >
+            <span
+              style={{
+                position: 'absolute',
+                top: -10,
+                left: 16,
+                fontSize: 11,
+                fontWeight: 600,
+                color: 'var(--color-text-inverse)',
+                background: 'var(--color-accent-strong)',
+                borderRadius: 'var(--radius-md)',
+                padding: '2px 10px',
+              }}
+            >
+              おすすめ
+            </span>
+            <p style={{ fontSize: 15, fontWeight: 600, margin: '4px 0 2px' }}>{PLAN_LABELS.annual.name}</p>
+            <p style={{ fontSize: 20, fontWeight: 700, margin: '0 0 2px', color: 'var(--color-label)' }}>
+              {PLAN_LABELS.annual.price}
+            </p>
+            {PLAN_LABELS.annual.note && (
+              <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '0 0 12px' }}>
+                {PLAN_LABELS.annual.note}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => handleSubscribe('annual')}
+              disabled={!!pending}
+              style={{
+                width: '100%',
+                minHeight: 48,
+                padding: '13px 18px',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                background: 'var(--color-accent-strong)',
+                color: 'var(--color-text-inverse)',
+                fontFamily: 'inherit',
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: pending ? 'default' : 'pointer',
+                opacity: pending && pending !== 'annual' ? 0.5 : 1,
+              }}
+            >
+              {pending === 'annual' ? '決済ページへ移動中…' : '年額プランで契約する'}
+            </button>
+          </div>
+
+          {/* 月額（控えめ） */}
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+              <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{PLAN_LABELS.monthly.name}</p>
+              <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{PLAN_LABELS.monthly.price}</p>
+            </div>
+            {PLAN_LABELS.monthly.note && (
+              <p style={{ fontSize: 12, color: 'var(--color-tertiary)', margin: '2px 0 12px' }}>
+                {PLAN_LABELS.monthly.note}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => handleSubscribe('monthly')}
+              disabled={!!pending}
+              style={{
+                width: '100%',
+                minHeight: 44,
+                padding: '11px 18px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-separator)',
+                background: 'transparent',
+                color: 'var(--color-secondary)',
+                fontFamily: 'inherit',
+                fontSize: 14,
+                cursor: pending ? 'default' : 'pointer',
+                opacity: pending && pending !== 'monthly' ? 0.5 : 1,
+              }}
+            >
+              {pending === 'monthly' ? '決済ページへ移動中…' : '月額プランで契約する'}
+            </button>
+          </div>
+        </section>
+
+        {/* 安心コピー */}
+        <p style={{ fontSize: 12, color: 'var(--color-tertiary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
+          いつでも解約できます。解約後もデータは保持されます。<br />
+          お支払いは Stripe の安全な決済ページで行われます。
+        </p>
+
+        {/* 法的リンク（サブスク必須開示の導線） */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+          <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-tertiary)' }}>
+            利用規約
+          </a>
+          <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-tertiary)' }}>
+            プライバシーポリシー
+          </a>
+          <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-tertiary)' }}>
+            特定商取引法に基づく表記
+          </a>
+        </div>
+
+        {/* アカウント切替（別アカウントで入り直したい人向け） */}
+        <div style={{ textAlign: 'center' }}>
+          {user?.email && (
+            <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '0 0 6px', wordBreak: 'break-all' }}>
+              {user.email} でサインイン中
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => { signOut(); }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--color-tertiary)',
+              fontSize: 12,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              padding: '8px 12px',
+              minHeight: 44,
+            }}
+          >
+            別のアカウントでサインイン
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

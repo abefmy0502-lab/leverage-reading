@@ -1,15 +1,23 @@
 // 💳 Stripe Checkout Session を作成するサーバーレス関数。
 //
 // 認証済みユーザー（Bearer トークン → supabase.auth.getUser）に対し、
-// 月額サブスクリプション（mode: 'subscription'、STRIPE_PRICE_ID 1 点）の
-// Checkout Session を作成し、その URL を返す。クライアントはこの URL に
-// リダイレクトする。
+// サブスクリプション（mode: 'subscription'）の Checkout Session を作成し、
+// その URL を返す。クライアントはこの URL にリダイレクトする。
+//
+// 月額 / 年額の 2 プラン対応:
+//   リクエストボディの `plan`（'monthly' | 'annual'）で使う Price ID を選ぶ。
+//   - 'annual'  → STRIPE_PRICE_ID_ANNUAL
+//   - 'monthly' → STRIPE_PRICE_ID_MONTHLY（無ければ旧 STRIPE_PRICE_ID にフォールバック）
+//   plan 未指定 / 不正値は 'monthly' 扱い。
+//   ★ 価格の実数（¥990 等）はコードに書かない。Stripe 側の Price 設定が真実。
 //
 // 認証・Supabase クライアントの組み立ては api/claude.js と同じ流儀。
 //
 // 必要な環境変数:
-//   - STRIPE_SECRET_KEY : Stripe シークレットキー（サーバー専用）
-//   - STRIPE_PRICE_ID   : 月額 ¥990 プランの Price ID
+//   - STRIPE_SECRET_KEY        : Stripe シークレットキー（サーバー専用）
+//   - STRIPE_PRICE_ID_MONTHLY  : 月額プランの Price ID（無ければ STRIPE_PRICE_ID）
+//   - STRIPE_PRICE_ID_ANNUAL   : 年額プランの Price ID
+//   - STRIPE_PRICE_ID          : （旧）月額プランの Price ID。monthly のフォールバック。
 //   - SUPABASE_URL / SUPABASE_ANON_KEY : Bearer トークン検証用（api/claude.js と共通）
 //
 // 依存: `stripe`（package.json に未追加 → `npm i stripe` が必要）。
@@ -46,6 +54,33 @@ function getBearerToken(req) {
   return token || null;
 }
 
+// plan（'monthly' | 'annual'）から使う Stripe Price ID を解決する。
+// 価格の実数はここに書かず、env の Price ID に委ねる。
+// 戻り値 null は「該当 env 未設定」を表す（呼び出し側で 500 を返す）。
+function resolvePriceId(plan) {
+  const normalized = plan === 'annual' ? 'annual' : 'monthly';
+  if (normalized === 'annual') {
+    return process.env.STRIPE_PRICE_ID_ANNUAL || null;
+  }
+  // monthly: 新 env を優先、無ければ旧 STRIPE_PRICE_ID にフォールバック。
+  return process.env.STRIPE_PRICE_ID_MONTHLY || process.env.STRIPE_PRICE_ID || null;
+}
+
+// Vercel のデフォルト bodyParser が JSON を req.body に展開するが、
+// 念のため string の場合もパースしておく（堅牢性）。
+function readPlan(req) {
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = null;
+    }
+  }
+  const plan = body && typeof body.plan === 'string' ? body.plan : 'monthly';
+  return plan === 'annual' ? 'annual' : 'monthly';
+}
+
 // success_url / cancel_url を組み立てるための origin を、信頼できる
 // リクエストヘッダー（origin → 無ければ host + proto）から導出する。
 function getOrigin(req) {
@@ -68,9 +103,14 @@ export default async function handler(req, res) {
   if (!stripe) {
     return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });
   }
-  const priceId = process.env.STRIPE_PRICE_ID;
+  const plan = readPlan(req);
+  const priceId = resolvePriceId(plan);
   if (!priceId) {
-    return res.status(500).json({ error: 'STRIPE_PRICE_ID not configured' });
+    const missing =
+      plan === 'annual'
+        ? 'STRIPE_PRICE_ID_ANNUAL'
+        : 'STRIPE_PRICE_ID_MONTHLY (or STRIPE_PRICE_ID)';
+    return res.status(500).json({ error: `${missing} not configured` });
   }
 
   const token = getBearerToken(req);
@@ -115,7 +155,8 @@ export default async function handler(req, res) {
       // Webhook が user.id を引き当てるための紐付け。
       client_reference_id: user.id,
       // entitlement を user に確実に結びつけるため metadata にも入れておく。
-      subscription_data: { metadata: { user_id: user.id } },
+      // plan は分析用（entitlement 判定には使わない — status='active' が真実）。
+      subscription_data: { metadata: { user_id: user.id, plan } },
       success_url: `${origin}/?checkout=success`,
       cancel_url: `${origin}/?checkout=cancel`,
       allow_promotion_codes: true,
