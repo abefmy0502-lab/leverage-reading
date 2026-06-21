@@ -22,10 +22,10 @@
 | 14 | （follow-up）client abort時のサーバー側Anthropicコール打ち切り（コスト） | `api/claude.js`/`streamClaude.js` | 📋 |
 | 5 | ローディング skeleton 一貫性（検索/AI/一覧） | `Skeleton.jsx`/各 | 📋 |
 | 6 | 振り返り(Review)体験の磨き（想起カードの質・空状態・操作感） | `Review.jsx` | ✅ Wave4（想起フレーミング/コールドスタート/ハプティクス）|
-| 7 | 設定/AccountSettings の情報整理（課金/データ/退会の導線） | `AccountSettings.jsx` | 📋 |
+| 7 | 設定/AccountSettings の情報整理（課金/データ/退会の導線） | `AccountSettings.jsx` | ✅ Wave5（3グループ見出し+退会最下部分離）|
 | 8 | hex→デザイントークン 段階移行（主要画面から・ダークモード布石） | 各（大） | 📋（慎重） |
-| 9 | 検索/本追加フローの磨き（候補表示・手動入力・エラー） | `AddBookModal.jsx` | 📋 |
-| 10 | 行動リストの磨き（期限色分け・完了演出・繰り返し） | `ActionList.jsx` | 📋 |
+| 9 | 検索/本追加フローの磨き（候補表示・手動入力・エラー） | `AddBookModal.jsx` | ✅ Wave5（検索skeleton+0件/エラー手動導線+humanize）|
+| 10 | 行動リストの磨き（期限色分け・完了演出・繰り返し） | `ActionList.jsx` | ✅ Wave5（期限色分け+完了haptic+空状態+stale help修正）|
 | 11 | コード分割で初期バンドル削減（lazy/Suspense） | `App.jsx` | ✅ commit 0696344（879→722kB） |
 | 12 | オンボーディング小型端末の高さ・想起の予感トースト（任意） | `Onboarding.jsx` | 📋 |
 

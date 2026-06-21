@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { useAllActions } from '../hooks/useAllActions';
+import { useHaptic } from '../hooks/useHaptic';
 import { ensureHttps } from '../lib/url';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
@@ -120,6 +121,7 @@ function deadlineState(deadline, done) {
   if (Number.isNaN(d.getTime())) return { kind: 'none' };
   const diffDays = Math.round((d - today) / 86400000);
   if (diffDays < 0) return { kind: 'overdue', days: diffDays };
+  if (diffDays === 0) return { kind: 'today', days: 0 };
   if (diffDays <= 3) return { kind: 'soon', days: diffDays };
   return { kind: 'later', days: diffDays };
 }
@@ -144,6 +146,7 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
 export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook }) {
   const { allActions, stats } = useAllActions(books);
+  const haptic = useHaptic();
   const [filter, setFilter] = useState('all');
   const [sortBy, setSortBy] = useState('deadline');
   const [openMenuKey, setOpenMenuKey] = useState(null);
@@ -374,11 +377,11 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
       {stats.total === 0 ? (
         <EmptyState
           icon="🎯"
-          title="学びを行動に変える時"
+          title="次の一歩が、ここに集まります"
           description={(
             <>
-              本から得た「次にやること」を追加して、<br />
-              読書の投資対効果を最大化しましょう。
+              本のメモから「やってみること」を決めると、<br />
+              本を横断してここに並びます。
             </>
           )}
           tip="💡 各本の詳細画面 → 「行動リスト」セクションから追加できます"
@@ -407,6 +410,10 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    // 完了にする瞬間だけ成功ハプティクス。戻す時は軽いタップ感に
+                    // 留めて、過剰なお祝いにならないようにする。
+                    if (a.done) haptic.light();
+                    else haptic.success();
                     onToggleAction?.(a.bookId, a.actionIdx);
                   }}
                   aria-label={a.done ? '未完了に戻す' : '完了にする'}
@@ -492,32 +499,41 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                         {a.bookTitle}
                       </span>
                     </button>
-                    {a.deadline && (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          color:
-                            ds.kind === 'overdue'
-                              ? '#a05040'
-                              : ds.kind === 'soon'
-                                ? '#b07028'
-                                : '#9a8e7a',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 3,
-                        }}
-                      >
-                        {ds.kind === 'overdue' ? (
-                          <AlertCircle size={10} strokeWidth={1.75} aria-hidden="true" />
-                        ) : (
-                          <Calendar size={10} strokeWidth={1.75} aria-hidden="true" />
-                        )}
-                        {fmtDate(a.deadline)}
-                        {ds.kind === 'overdue' && ' (期限切れ)'}
-                        {ds.kind === 'soon' && ds.days === 0 && ' (今日)'}
-                        {ds.kind === 'soon' && ds.days > 0 && ` (あと${ds.days}日)`}
-                      </span>
-                    )}
+                    {a.deadline && (() => {
+                      // 期限の状態で色とラベルを切替。期限切れ=赤 / 今日=橙(警告) /
+                      // 数日以内=アクセント / それ以降=控えめグレー。色はトークン参照。
+                      const dColor =
+                        ds.kind === 'overdue'
+                          ? 'var(--color-error)'
+                          : ds.kind === 'today'
+                            ? 'var(--color-warning)'
+                            : ds.kind === 'soon'
+                              ? 'var(--color-accent)'
+                              : 'var(--color-text-tertiary)';
+                      const emphasized = ds.kind === 'overdue' || ds.kind === 'today';
+                      return (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: dColor,
+                            fontWeight: emphasized ? 600 : 400,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
+                          }}
+                        >
+                          {ds.kind === 'overdue' || ds.kind === 'today' ? (
+                            <AlertCircle size={10} strokeWidth={1.75} aria-hidden="true" />
+                          ) : (
+                            <Calendar size={10} strokeWidth={1.75} aria-hidden="true" />
+                          )}
+                          {fmtDate(a.deadline)}
+                          {ds.kind === 'overdue' && ' (期限切れ)'}
+                          {ds.kind === 'today' && ' (今日まで)'}
+                          {ds.kind === 'soon' && ` (あと${ds.days}日)`}
+                        </span>
+                      );
+                    })()}
                     {/* 優先度バッジ — 'medium' は default なので表示しない */}
                     {a.priority === 'high' && (
                       <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#FFEBEE', color: '#C62828', fontWeight: 600 }}>🔴 高</span>

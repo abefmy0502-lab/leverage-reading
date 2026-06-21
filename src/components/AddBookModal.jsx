@@ -17,6 +17,8 @@ import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
 import { searchBooksAdvanced } from '../lib/bookSearch';
 import { ensureHttps } from '../lib/url';
 import { LIMITS } from '../lib/limits';
+import { toMessage } from '../lib/errors';
+import { SkeletonBlock } from './Skeleton';
 
 // 表示件数のページング基準。最初は 20、「もっと見る」で +10 ずつ増やし、
 // API 負荷とユーザビリティの観点から 50 で打ち止め。
@@ -203,21 +205,43 @@ function ResultCard({ book, onPick, existing, statusLabel }) {
   );
 }
 
-function Spinner({ message = '検索中…' }) {
+// 検索中の placeholder。スピナー単体より「結果がもうすぐ来る」ことが
+// 伝わるよう、実際の結果カードと同じ骨格（表紙 + 2 行）の skeleton を
+// 数枚並べる。すべて components.css の .skeleton（shimmer）を再利用し、
+// prefers-reduced-motion は global で抑制済み。
+function SearchSkeletonRow() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 0', color: 'var(--color-tertiary)' }}>
-      <div
-        aria-hidden="true"
-        style={{
-          width: 20,
-          height: 20,
-          border: '2px solid var(--color-separator)',
-          borderTopColor: 'var(--color-accent-strong)',
-          borderRadius: '50%',
-          animation: 'lvg-ptr-spin 0.8s linear infinite',
-        }}
-      />
-      <span style={{ fontSize: 12 }}>{message}</span>
+    <div style={{ ...resultCardStyle, cursor: 'default' }} aria-hidden="true">
+      <SkeletonBlock width={44} height={60} radius={4} style={{ flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 2 }}>
+        <SkeletonBlock width="80%" height={13} radius="var(--radius-full)" />
+        <SkeletonBlock width="45%" height={10} radius="var(--radius-full)" />
+        <SkeletonBlock width="30%" height={9} radius="var(--radius-full)" />
+      </div>
+    </div>
+  );
+}
+
+function SearchSkeleton({ rows = 3 }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '4px 0 8px', color: 'var(--color-tertiary)' }}>
+        <div
+          aria-hidden="true"
+          style={{
+            width: 16,
+            height: 16,
+            border: '2px solid var(--color-separator)',
+            borderTopColor: 'var(--color-accent-strong)',
+            borderRadius: '50%',
+            animation: 'lvg-ptr-spin 0.8s linear infinite',
+          }}
+        />
+        <span style={{ fontSize: 12 }}>本を探しています…</span>
+      </div>
+      {Array.from({ length: rows }, (_, i) => (
+        <SearchSkeletonRow key={i} />
+      ))}
     </div>
   );
 }
@@ -261,7 +285,8 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
       // abort で投げられた AbortError は最新の検索が支配しているので、
       // 古いハンドラはここで早期 return する。state は触らない。
       if (e?.name === 'AbortError' || ctrl.signal.aborted) return;
-      setError('検索でエラーが発生しました。');
+      // 生エラーが万一漏れても toMessage で humanize（生スタック/SQL を出さない）
+      setError(toMessage(e, '検索でエラーが発生しました。'));
       setState('error');
       return;
     }
@@ -270,7 +295,9 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
     if (ctrl.signal.aborted) return;
 
     if (!res.ok) {
-      setError(res.error || '検索でエラーが発生しました。');
+      // res.error は bookSearch 側で用意済みの安全な日本語だが、念のため
+      // toMessage を通して将来の生エラー混入を防ぐ。
+      setError(toMessage(res.error, '検索でエラーが発生しました。'));
       setState('error');
       return;
     }
@@ -389,35 +416,46 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           </>
         )}
 
-        {isSearching && <Spinner />}
+        {/* === 動的領域: 状態遷移を支援技術へ通知（過剰でない polite） === */}
+        <div aria-live="polite" aria-busy={isSearching} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        {isSearching && <SearchSkeleton />}
 
         {state === 'error' && (
-          <div style={{ background: 'var(--color-error-soft)', border: '1px solid var(--color-error)', borderLeft: '4px solid var(--color-error)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
+          <div role="alert" style={{ background: 'var(--color-error-soft)', border: '1px solid var(--color-error)', borderLeft: '4px solid var(--color-error)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
             <p style={{ fontSize: 14, color: 'var(--color-label)', margin: 0, fontWeight: 600 }}>⚠️ 検索でエラーが発生しました</p>
-            <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '6px 0 10px', lineHeight: 1.7 }}>{error}</p>
+            <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '6px 0 10px', lineHeight: 1.7, whiteSpace: 'pre-line' }}>{error}</p>
             <button
               type="button"
               onClick={runSearch}
               style={{
-                padding: '8px 14px', borderRadius: 'var(--radius-md)', border: 'none',
+                padding: '10px 16px', borderRadius: 'var(--radius-md)', border: 'none',
                 background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
-                fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 600,
+                fontSize: 13, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 600,
+                minHeight: 44,
               }}
             >
               ↻ もう一度試す
+            </button>
+            <button
+              type="button"
+              onClick={onManual}
+              style={{ ...manualBtnStyle, marginTop: 'var(--space-3)' }}
+            >
+              📝 手動で追加する
             </button>
           </div>
         )}
 
         {state === 'notfound' && (
-          <div style={{ textAlign: 'center', padding: 'var(--space-5)' }}>
-            <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0, lineHeight: 1.7 }}>
-              見つかりませんでした
+          <div style={{ textAlign: 'center', padding: 'var(--space-4) var(--space-2)' }}>
+            <div aria-hidden="true" style={{ fontSize: 32, marginBottom: 'var(--space-2)' }}>🔍</div>
+            <p style={{ fontSize: 14, color: 'var(--color-label)', margin: 0, fontWeight: 600, lineHeight: 1.6 }}>
+              該当する本が見つかりませんでした
             </p>
-            <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '6px 0 14px', lineHeight: 1.7 }}>
-              書名を変えて再検索するか、ISBN（本の裏のバーコード番号）で検索してみてください。
+            <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '6px 0 16px', lineHeight: 1.7 }}>
+              書名を変えて再検索するか、ISBN（本の裏のバーコード番号）で検索すると見つかりやすくなります。
             </p>
-            <button type="button" onClick={onManual} style={manualBtnStyle}>
+            <button type="button" onClick={onManual} style={{ ...manualBtnStyle, background: 'var(--color-accent-soft)', color: 'var(--color-accent-strong)', fontWeight: 600 }}>
               📝 このまま手動で追加する
             </button>
           </div>
@@ -476,6 +514,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             </button>
           </>
         )}
+        </div>
       </div>
     </div>
   );

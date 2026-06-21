@@ -83,6 +83,21 @@ const sectionStyle = {
 
 const dangerSection = { ...sectionStyle, border: '1px solid #d8b8b0', background: '#faf2ee' };
 
+// グループ見出し — 関連セクションを束ねる小さなラベル。モーダルのクリーム/ブラウン
+// 配色（serif）に合わせ、SectionHeader（sans 系トークン）ではなく軽量なインライン
+// 見出しを使う。表示専用で挙動には一切関与しない。
+const groupLabelStyle = {
+  fontSize: 11,
+  color: '#8a7e6b',
+  margin: '6px 0 -4px 2px',
+  fontWeight: 600,
+  letterSpacing: 0.5,
+};
+
+function GroupLabel({ children }) {
+  return <p style={groupLabelStyle}>{children}</p>;
+}
+
 const btnPrimary = {
   width: '100%',
   padding: '12px 18px',
@@ -328,6 +343,9 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             <p style={{ fontSize: 14, color: '#3d362c', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
           </div>
 
+          {/* ── 💳 プラン・お支払い ── */}
+          <GroupLabel>💳 プラン・お支払い</GroupLabel>
+
           {/* 💳 Billing / プラン */}
           <section style={sectionStyle}>
             <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
@@ -394,6 +412,22 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             )}
           </section>
 
+          {/* ── 📥 データ・アプリ ── */}
+          <GroupLabel>📥 データ・アプリ</GroupLabel>
+
+          {/* Export */}
+          <section style={sectionStyle}>
+            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+              📥 データをダウンロード
+            </p>
+            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+              本・メモ・タグ・行動・対話履歴をテーブル別の CSV ファイルでダウンロードします。Excel / Numbers でそのまま開けます（UTF-8 BOM 付き）。
+            </p>
+            <button type="button" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
+              {exporting ? '準備中…' : '📥 CSV をダウンロード'}
+            </button>
+          </section>
+
           {/* App update */}
           <section style={sectionStyle}>
             <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
@@ -431,18 +465,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             </button>
           </section>
 
-          {/* Export */}
-          <section style={sectionStyle}>
-            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
-              📥 データをダウンロード
-            </p>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
-              本・メモ・タグ・行動・対話履歴をテーブル別の CSV ファイルでダウンロードします。Excel / Numbers でそのまま開けます（UTF-8 BOM 付き）。
-            </p>
-            <button type="button" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
-              {exporting ? '準備中…' : '📥 CSV をダウンロード'}
-            </button>
-          </section>
+          {/* ── ⚠️ アカウント（破壊的操作・最下部に分離） ── */}
+          <GroupLabel>⚠️ アカウント</GroupLabel>
 
           {/* Delete */}
           <section style={dangerSection}>
