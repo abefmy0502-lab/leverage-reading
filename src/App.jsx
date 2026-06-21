@@ -2278,9 +2278,6 @@ function AuthedApp() {
     const candidates = getCoverCandidates(b?.isbn);
     const visibleCover = b?.cover || '';
     const seedCover = visibleCover || candidates[0] || '';
-    if (typeof console !== 'undefined') {
-      console.log('[cover] picked book:', { title: b?.title, isbn: b?.isbn, hasVisibleCover: !!visibleCover });
-    }
     const seeded = {
       ...emptyBook(),
       id: Date.now().toString(),
@@ -2301,9 +2298,6 @@ function AuthedApp() {
     //    multi-ISBN リゾルバで補完。視覚的に確認済みの cover がある時は
     //    skip してユーザーが見たものをそのまま使う (誤上書きの根本対策)。
     if (visibleCover) {
-      if (typeof console !== 'undefined') {
-        console.log('[cover] visible cover trusted, skipping async resolver:', visibleCover);
-      }
       return;
     }
     (async () => {
@@ -2312,10 +2306,6 @@ function AuthedApp() {
         const ordered = [b?.isbn, ...altIsbns].filter(Boolean);
         if (ordered.length === 0) return;
         const { isbn: resolvedIsbn, url: resolvedUrl } = await resolveCoverFromCandidates(ordered);
-        if (typeof console !== 'undefined') {
-          console.log('[cover] alt ISBNs:', altIsbns);
-          console.log('[cover] resolved:', { isbn: resolvedIsbn, url: resolvedUrl });
-        }
         if (resolvedUrl) {
           setForm((f) => (
             f && f.id === seeded.id
@@ -2338,8 +2328,6 @@ function AuthedApp() {
   const { uploadCover } = useBookCover();
 
   const triggerManualCoverUpload = (book) => {
-    // eslint-disable-next-line no-console
-    console.log('[manual-upload] trigger:', { hasBook: !!book, refMounted: !!detailCoverUploadRef.current });
     if (!book) return;
     detailUploadTargetRef.current = book;
     if (!detailCoverUploadRef.current) {
@@ -2356,14 +2344,10 @@ function AuthedApp() {
     if (e.target) e.target.value = ''; // 同じファイル再選択を許可
     const target = detailUploadTargetRef.current;
     detailUploadTargetRef.current = null;
-    // eslint-disable-next-line no-console
-    console.log('[manual-upload] file picked:', { hasFile: !!file, fileSize: file?.size, hasTarget: !!target });
     if (!file || !target) return;
     try {
       const url = await uploadCover(file);
       if (!url) throw new Error('アップロード URL の取得に失敗しました');
-      // eslint-disable-next-line no-console
-      console.log('[manual-upload] uploaded:', url);
       const updated = { ...target, cover: url, coverIsbn: 'manual' };
       const saved = await saveBook(updated);
       const next = saved || updated;
@@ -2560,18 +2544,6 @@ function AuthedApp() {
         && !!(form.investPurpose && form.investPurpose.trim())
         && !!(form.aiAnalysis || form.aiStrategy);
 
-      // eslint-disable-next-line no-console
-      console.log('[handleSave]', {
-        wasNew: !current,
-        formStatus: form.status,
-        editPhaseOverride,
-        view,
-        hasInvestPurpose: !!(form.investPurpose && form.investPurpose.trim()),
-        hasAiAnalysis: !!form.aiAnalysis,
-        hasAiStrategy: !!form.aiStrategy,
-        isSetupCompletion,
-      });
-
       const payload = { ...form, tags: normalizedTags, cover: resolvedCover, coverIsbn: resolvedCoverIsbn };
       if (isSetupCompletion) {
         payload.status = 'reading';
@@ -2583,8 +2555,6 @@ function AuthedApp() {
       const saved = await saveBook(payload);
       const next = saved || payload;
       const wasNew = !current; // 新規追加 (current=null) かどうか
-      // eslint-disable-next-line no-console
-      console.log('[handleSave] saved:', { id: next.id, status: next.status, isSetupCompletion });
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
 
@@ -2665,8 +2635,16 @@ function AuthedApp() {
       onUndo: async () => {
         try {
           await deletionPromise.catch(() => {});
-          await restoreBookFromSnapshot(snapshot);
-          toast.info('削除を取り消しました');
+          const result = await restoreBookFromSnapshot(snapshot);
+          // 本体は復元できたが、添付データ (タグ/行動/メモ) の一部が
+          // INSERT に失敗した場合は「取り消しました」と誤って伝えない。
+          if (result?.failed && result.failed.length > 0) {
+            toast.error(
+              `本は復元しましたが、${result.failed.join('・')}の一部を復元できませんでした。`,
+            );
+          } else {
+            toast.info('削除を取り消しました');
+          }
         } catch (error) {
           toast.error(toMessage(error, '復元に失敗しました。'));
         }
@@ -2826,8 +2804,6 @@ function AuthedApp() {
         );
         if (r.url) {
           await saveBook({ ...saved, cover: r.url, coverIsbn: r.isbn || '' });
-          // eslint-disable-next-line no-console
-          console.log('[bg-cover] resolved:', { title: saved.title, url: r.url });
         }
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -3984,8 +3960,6 @@ function AuthedApp() {
             book={coverFixForBook}
             onClose={() => setCoverFixForBook(null)}
             onPick={async ({ cover, coverIsbn }) => {
-              // eslint-disable-next-line no-console
-              console.log('[cover-modal] onPick (detail) fired:', { id: coverFixForBook?.id, newCover: cover, newCoverIsbn: coverIsbn });
               const updated = { ...coverFixForBook, cover, coverIsbn };
               setCurrent((c) => (c && c.id === updated.id ? { ...c, cover, coverIsbn } : c));
               try {
@@ -4579,16 +4553,12 @@ function AuthedApp() {
             // 楽観的 UI 更新: saveBook の完了を待たず即座に画面を新しい
             // 表紙に切り替える。saveBook が失敗したら次の fetchBooks で
             // 元の URL に戻るので最終的な整合性は崩れない。
-            // eslint-disable-next-line no-console
-            console.log('[cover-modal] onPick fired:', { id: coverFixForBook?.id, newCover: cover, newCoverIsbn: coverIsbn });
             const updated = { ...coverFixForBook, cover, coverIsbn };
             setCurrent((c) => (c && c.id === updated.id ? { ...c, cover, coverIsbn } : c));
             try {
               const saved = await saveBook(updated);
               const next = saved || updated;
               setCurrent((c) => (c && c.id === next.id ? next : c));
-              // eslint-disable-next-line no-console
-              console.log('[cover-modal] DB updated for', next?.id);
               toast.success('表紙を更新しました');
             } catch (error) {
               // eslint-disable-next-line no-console

@@ -90,7 +90,6 @@ export async function backfillCovers(supabase, userId) {
           }
           if (!res.error) {
             resolved += 1;
-            console.log('[backfill v3] resolved:', { title: row.title, isbn, url });
           }
         } else if (row.cover) {
           // 解決失敗 + 既に壊れた URL がある → null にリセットして
@@ -104,7 +103,6 @@ export async function backfillCovers(supabase, userId) {
           }
           if (!res.error) {
             cleared += 1;
-            console.log('[backfill v3] cleared:', { title: row.title });
           }
         }
       } catch (e) {
@@ -113,9 +111,6 @@ export async function backfillCovers(supabase, userId) {
     }
 
     try { localStorage.setItem(FLAG_KEY, String(Date.now())); } catch { /* ignore */ }
-    if (resolved > 0 || cleared > 0) {
-      console.log(`[backfillCovers v3] resolved=${resolved} cleared=${cleared} of ${data.length}`);
-    }
   } catch (e) {
     console.warn('[backfillCovers v3] error:', e?.message || e);
   }

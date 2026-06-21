@@ -232,13 +232,18 @@ export function useBooks() {
         .filter((id) => typeof id === 'string' && UUID_RE.test(id));
 
       if (existingIds.length === 0) {
-        await supabase.from('actions').delete().eq('book_id', savedBookId);
+        const { error: delErr } = await supabase
+          .from('actions')
+          .delete()
+          .eq('book_id', savedBookId);
+        if (delErr) throw delErr;
       } else {
-        await supabase
+        const { error: delErr } = await supabase
           .from('actions')
           .delete()
           .eq('book_id', savedBookId)
           .not('id', 'in', `(${existingIds.join(',')})`);
+        if (delErr) throw delErr;
       }
 
       if (incoming.length > 0) {
@@ -356,14 +361,25 @@ export function useBooks() {
   // Re-INSERT a book + its relations from a snapshot (used by Undo).
   // Photos in book_memos are gone (Storage delete is non-undoable), so memos
   // are restored with photo_path: null. Caller is expected to surface that.
+  //
+  // Returns a result object so the caller can tell the user the truth:
+  //   { ok: true }                         — book + all relations restored
+  //   { ok: true, failed: ['タグ', ...] }  — book restored but some attached
+  //                                           data (tags/actions/memos) failed
+  // If the book row itself can't be re-inserted, we throw (nothing was
+  // restored — the caller surfaces a hard failure). 添付データの INSERT 失敗を
+  // console.warn で握り潰すと「削除を取り消しました」と表示されたままタグ/
+  // 行動/メモが消えるため、失敗を必ず呼び出し側へ返す。
   const restoreBookFromSnapshot = async (snapshot) => {
-    if (!snapshot || !user || !isSupabaseConfigured) return;
+    if (!snapshot || !user || !isSupabaseConfigured) return { ok: false, failed: [] };
     const { book_tags = [], actions = [], book_memos = [], ...bookRow } = snapshot;
     // Reset updated_at so the restored row floats to the top of "更新順".
     const bookPayload = { ...bookRow, updated_at: new Date().toISOString() };
 
     const { error: bErr } = await supabase.from('books').insert([bookPayload]);
     if (bErr) throw bErr;
+
+    const failed = [];
 
     if (book_tags.length > 0) {
       const tagRows = book_tags.map((t) => ({
@@ -372,22 +388,32 @@ export function useBooks() {
         tag_name: t.tag_name,
       }));
       const { error: tErr } = await supabase.from('book_tags').insert(tagRows);
-      if (tErr) console.warn('タグ復元の一部失敗:', tErr);
+      if (tErr) {
+        console.error('タグ復元の一部失敗:', tErr);
+        failed.push('タグ');
+      }
     }
 
     if (actions.length > 0) {
       const actionRows = actions.map((a) => ({ ...a }));
       const { error: aErr } = await supabase.from('actions').insert(actionRows);
-      if (aErr) console.warn('行動リスト復元の一部失敗:', aErr);
+      if (aErr) {
+        console.error('行動リスト復元の一部失敗:', aErr);
+        failed.push('行動リスト');
+      }
     }
 
     if (book_memos.length > 0) {
       const memoRows = book_memos.map((m) => ({ ...m, photo_path: null }));
       const { error: mErr } = await supabase.from('book_memos').insert(memoRows);
-      if (mErr) console.warn('メモ復元の一部失敗:', mErr);
+      if (mErr) {
+        console.error('メモ復元の一部失敗:', mErr);
+        failed.push('メモ');
+      }
     }
 
     await fetchBooks();
+    return { ok: true, failed };
   };
 
   return {

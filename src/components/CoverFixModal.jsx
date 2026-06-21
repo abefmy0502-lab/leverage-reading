@@ -81,8 +81,6 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
   const [candidates, setCandidates] = useState([]); // [{isbn, title, author, coverUrl}]
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[cover-modal] open:', { bookId: book?.id, title: book?.title, currentISBN: book?.isbn, currentCoverISBN: book?.cover_isbn || book?.coverIsbn });
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -115,8 +113,6 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
         );
         if (cancelled) return;
         const list = resolved.filter(Boolean);
-        // eslint-disable-next-line no-console
-        console.log('[cover-modal] candidates loaded:', list.length, list.map((c) => c.isbn));
         setCandidates(list);
       } finally {
         if (!cancelled) setLoading(false);
@@ -186,12 +182,8 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                   key={c.isbn}
                   type="button"
                   onClick={() => {
-                    // eslint-disable-next-line no-console
-                    console.log('[cover-modal] candidate selected:', { isbn: c.isbn, url: c.coverUrl });
                     onPick({ cover: c.coverUrl, coverIsbn: c.isbn });
                     onClose();
-                    // eslint-disable-next-line no-console
-                    console.log('[cover-modal] closed');
                   }}
                   style={{
                     display: 'flex',
