@@ -62,7 +62,17 @@ function recallFraming(iso, now) {
 
 function memoExcerpt(text, max = 120) {
   if (!text || typeof text !== 'string') return '';
-  const clean = text.replace(/\s+/g, ' ').trim();
+  // 制御文字を除去してから空白を畳む。通知本文はロック画面に出るため、
+  // 改行・タブ等は空白化し、その他の制御文字・双方向制御 (RTL override)・
+  // ゼロ幅/不可視文字 (ZWSP / BOM) は載せない。
+  const clean = String(text)
+    // C0 制御 (NUL-US) + DEL + C1 制御 (0x80-0x9F)。
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+    // 双方向制御 / ゼロ幅 / 不可視フォーマット (RTL override, ZWSP, BOM 等)。
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (clean.length <= max) return clean;
   return `${clean.slice(0, max - 1)}…`;
 }
@@ -179,15 +189,28 @@ function getBearerToken(req) {
   return raw.slice(7).trim() || null;
 }
 
+// 長さ非依存の固定時間比較（タイミング攻撃を避ける）。
+function timingSafeEqual(a, b) {
+  const sa = String(a == null ? '' : a);
+  const sb = String(b == null ? '' : b);
+  // 長さが違っても早期 return しない。最大長で全文字を走査する。
+  const len = Math.max(sa.length, sb.length);
+  let diff = sa.length ^ sb.length;
+  for (let i = 0; i < len; i += 1) {
+    diff |= (sa.charCodeAt(i) || 0) ^ (sb.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
 // Cron 認証: Vercel Cron の Authorization: Bearer <CRON_SECRET> を検証。
+// 注意: x-vercel-cron ヘッダはクライアントが偽装可能な公開ヘッダなので
+// 認証根拠にしない（CRON_SECRET の Bearer 一致のみを唯一のゲートにする）。
 function isAuthorized(req) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false; // 未設定なら開けない（fail-closed）
   const token = getBearerToken(req);
-  if (token && token === secret) return true;
-  // Vercel Cron は x-vercel-cron ヘッダも付ける。secret 一致が取れない場合の保険。
-  if (req.headers && req.headers['x-vercel-cron']) return true;
-  return false;
+  if (!token) return false;
+  return timingSafeEqual(token, secret);
 }
 
 export default async function handler(req, res) {
@@ -213,7 +236,9 @@ export default async function handler(req, res) {
 
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
-  const resendCutoff = new Date(now - RESEND_GUARD_DAYS * 86400000).toISOString();
+  // 多重送信ガードの境界は数値(ms)で比較する。last_sent_at は Postgres timestamptz で
+  // "+00:00" 表記やマイクロ秒を含みうるため、ISO 文字列の辞書順比較は不正確になる。
+  const resendCutoffMs = now - RESEND_GUARD_DAYS * 86400000;
 
   let subs = [];
   try {
@@ -238,7 +263,11 @@ export default async function handler(req, res) {
     try {
       if (sub.frequency === 'off') { skipped += 1; continue; }
       // 多重送信ガード: 直近 RESEND_GUARD_DAYS 日以内に送っていればスキップ。
-      if (sub.last_sent_at && sub.last_sent_at > resendCutoff) { skipped += 1; continue; }
+      // 数値比較（パース失敗時は未送信扱いで送る側に倒す = fail-open）。
+      if (sub.last_sent_at) {
+        const lastMs = Date.parse(sub.last_sent_at);
+        if (!Number.isNaN(lastMs) && lastMs > resendCutoffMs) { skipped += 1; continue; }
+      }
 
       let notes = notesCache.get(sub.user_id);
       if (!notes) {

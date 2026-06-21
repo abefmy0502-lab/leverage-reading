@@ -67,12 +67,14 @@ const menuStyle = {
 const menuItem = {
   background: 'none',
   border: 'none',
-  padding: '10px 14px',
+  padding: '12px 16px',
+  minHeight: 44,
   fontSize: 13,
   textAlign: 'left',
   fontFamily: 'inherit',
   cursor: 'pointer',
   color: '#3d362c',
+  WebkitTapHighlightColor: 'transparent',
 };
 
 function formatDate(iso) {
@@ -131,8 +133,25 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onDelete, onSwipeDe
 
   const swipeEnabled = Boolean(onSwipeDelete);
 
+  // 本文が長い場合は行間広めの .long-text を当てて読みやすく（短い断片は据え置き）
+  const isLongBody = (memo.text || '').length > 120;
+
+  // スクリーンリーダー向けのカード要約（事実ベース・1メモ＝1記事として読める）
+  const cardAria = (() => {
+    const parts = ['メモ'];
+    if (memo.pageNumber != null) parts.push(`${memo.pageNumber}ページ`);
+    const dateLabel = formatDate(memo.createdAt);
+    if (dateLabel) parts.push(dateLabel);
+    return parts.join('・');
+  })();
+
   const cardInner = (
-    <div style={cardWrap} {...(onLongPress ? longPress.bind : {})}>
+    <div
+      style={cardWrap}
+      role="article"
+      aria-label={cardAria}
+      {...(onLongPress ? longPress.bind : {})}
+    >
       <button
         type="button"
         onClick={(e) => {
@@ -187,6 +206,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onDelete, onSwipeDe
         <button
           type="button"
           onClick={() => setZoom(true)}
+          aria-label="写真を拡大表示"
           style={{
             background: 'none',
             border: 'none',
@@ -215,12 +235,15 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onDelete, onSwipeDe
           style={{
             fontSize: 13,
             color: '#4a4036',
-            lineHeight: 1.8,
+            // 長文ほど行間をわずかに広げて可読性を上げる（短文は詰めすぎない）
+            lineHeight: isLongBody ? 1.85 : 1.7,
             whiteSpace: 'pre-wrap',
             margin: 0,
             maxHeight: 400,
             overflowY: 'auto',
             paddingRight: 8,
+            // 長い URL や英単語でカードが横に膨らむのを防ぐ
+            overflowWrap: 'anywhere',
           }}
         >
           {memo.text}
@@ -228,17 +251,28 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onDelete, onSwipeDe
       )}
 
       {memo.tags?.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <div
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}
+          aria-label={`タグ: ${memo.tags.join('、')}`}
+        >
           {memo.tags.map((t) => (
-            <span key={t} style={tagPill}>#{t}</span>
+            <span key={t} style={tagPill} aria-hidden="true">#{t}</span>
           ))}
         </div>
       )}
 
-      <p style={{ fontSize: 10, color: '#b5aa96', margin: 0 }}>{formatDate(memo.createdAt)}</p>
+      <p
+        style={{ fontSize: 10, color: '#9c917d', margin: 0 }}
+        aria-label={`作成日 ${formatDate(memo.createdAt)}`}
+      >
+        {formatDate(memo.createdAt)}
+      </p>
 
       {zoom && photoUrl && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="写真の拡大表示。タップで閉じる"
           onClick={() => setZoom(false)}
           style={{
             position: 'fixed',

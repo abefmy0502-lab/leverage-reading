@@ -42,7 +42,16 @@ export function recallFraming(iso, now = Date.now()) {
 // メモ本文を通知本文向けに短く整える（制御文字除去 + 行頭結合 + clamp）。
 export function memoExcerpt(text, max = 120) {
   if (!text || typeof text !== 'string') return '';
-  const clean = text.replace(/\s+/g, ' ').trim();
+  // 通知本文はロック画面に出るため、改行・タブ等は空白化し、その他の制御文字・
+  // 双方向制御 (RTL override)・ゼロ幅/不可視文字 (ZWSP / BOM) は除去する。
+  const clean = String(text)
+    // C0 制御 (NUL-US) + DEL + C1 制御 (0x80-0x9F)。
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+    // 双方向制御 / ゼロ幅 / 不可視フォーマット (RTL override, ZWSP, BOM 等)。
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (clean.length <= max) return clean;
   return `${clean.slice(0, max - 1)}…`;
 }

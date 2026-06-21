@@ -85,4 +85,46 @@ export function MemoListSkeleton({ rows = 3 }) {
   );
 }
 
+// Mirrors a single .book-cover-card: 2:3 cover block + title/author lines.
+// Geometry is kept in sync with components.css's .book-cover-* so the swap-in
+// from skeleton → real grid feels seamless.
+function BookCoverSkeleton() {
+  return (
+    <div
+      style={{ display: 'flex', flexDirection: 'column' }}
+      aria-hidden="true"
+    >
+      <span
+        className="skeleton"
+        style={{
+          display: 'block',
+          width: '100%',
+          aspectRatio: '2 / 3',
+          borderRadius: 'var(--radius-sm)',
+          marginBottom: 'var(--space-2)',
+        }}
+      />
+      <SkeletonBlock width="90%" height={12} radius="var(--radius-full)" />
+      <SkeletonBlock
+        width="55%"
+        height={10}
+        radius="var(--radius-full)"
+        style={{ marginTop: 4 }}
+      />
+    </div>
+  );
+}
+
+// Grid skeleton for the bookshelf cover view (📚 本棚 → 表紙グリッド).
+// Wrap in .bookshelf-grid so the columns/gap match the real layout exactly.
+export function BookGridSkeleton({ count = 6 }) {
+  return (
+    <div className="bookshelf-grid" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <BookCoverSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
 export default SkeletonBlock;

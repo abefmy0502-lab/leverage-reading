@@ -27,8 +27,9 @@ const ring = {
   width: 28,
   height: 28,
   borderRadius: '50%',
-  border: '3px solid #e0d8c8',
-  borderTopColor: '#5c5043',
+  // Tone matched to the skeleton shimmer: track = secondary bg, head = accent.
+  border: '3px solid var(--color-separator)',
+  borderTopColor: 'var(--color-accent)',
   animation: 'leverage-spin .9s linear infinite',
 };
 
@@ -37,8 +38,8 @@ export default function Spinner({ message, hint }) {
   return (
     <div style={wrap} role="status" aria-live="polite">
       <span style={ring} />
-      {message && <p style={{ fontSize: 13, color: '#5c5548', margin: 0 }}>{message}</p>}
-      {hint && <p style={{ fontSize: 11, color: '#a89e8c', margin: 0 }}>{hint}</p>}
+      {message && <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: 0 }}>{message}</p>}
+      {hint && <p style={{ fontSize: 11, color: 'var(--color-text-tertiary)', margin: 0 }}>{hint}</p>}
     </div>
   );
 }
