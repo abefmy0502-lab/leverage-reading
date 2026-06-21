@@ -80,7 +80,7 @@
 | 💻 エンジニア | 課金基盤実装済（8dcd810）/ 読みたいボタンP0完了（50c49c1）/ ¥990反映 | 次タスク待機（saveBook堅牢化 候補） |
 | 🎨 ブランディング | — | 8月起動予定 |
 | 📄 LP | ¥990に統一済（Landing/Terms/SCT）。「無料期間なし」で課金モデルと整合 | 待機 |
-| 📣 マーケ・営業 | — | 7月起動予定 |
+| 📣 マーケ・営業 | X/Note事前種まきプレイブックv1策定（`marketing-playbook.md`）・競合リサーチ中 | 🔄 種まき起動準備 |
 | 💰 経理 | 990円での必要課金者数・AI原価上限を算定 | ✅ 完了（2026KGI=約130人 / AI上限≤144円/人） |
 
 ---
@@ -137,8 +137,9 @@
 
 ## 9. 📒 意思決定ログ（新しいものを上に）
 
-- **2026-06-21（深夜）— B5前進＆指示書**
-  - 🎉 **Apple Developer Program 登録 申込完了**（個人/Individual・注文W1873749226・アクティベート待ち）。個人登録のためD-U-N-S不要＝7月ローンチ射程。次：App Store Connectで税/口座設定→Small Business枠(15%)申請。
+- **2026-06-21（深夜）— マーケ事前種まき起動＆B5前進＆指示書**
+  - 📣 **マーケ・営業を前倒し起動**：X/Note事前種まきプレイブック v1 策定（`company/marketing-playbook.md`）。founder-led build in public、週次運用カレンダー、3ヶ月KPI、「AIっぽくない」運営原則・自動化の線引きを明文化。競合リサーチを並列実行中（v1.1反映予定）。要決定2点：①ローンチ前CTA（ウェイトリスト vs 先行モニター）②Xの顔出し度（実名 vs 匿名）。
+  - 🎉 **Apple Developer Program 登録 申込完了**（個人/Individual・注文W1873749226・アクティベート待ち）。D-U-N-S不要＝7月ローンチ射程。次：App Store Connectで税/口座設定→Small Business枠(15%)申請。
   - ✅ B4：9部署の指示書を暫定起草（`company/*-directive.md`）。元帥正式版が来たら差し替え。
 - **2026-06-21（夜・続）— 「ガンガン進めて」指示で B5非依存P0/P1を3並列起動 → 全完了**
   - ✅ A: **AI利用量メータリング**（P0）完了・commit。月次上限120(env可変)、fail-open/schema-fallback、service_role権威で改ざん防止。`api/claude.js`＋`supabase_ai_usage.sql`＋helpContent同期。
