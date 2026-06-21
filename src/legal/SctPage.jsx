@@ -13,7 +13,7 @@ export default function SctPage() {
       title="特定商取引法に基づく表記"
       description="レバレッジ読書ログの特定商取引法に基づく表記。販売事業者・販売価格・支払方法・解約条件など。"
     >
-      <p className="effective-date">最終更新日:2026年5月3日</p>
+      <p className="effective-date">最終更新日:2026年6月21日</p>
 
       <table className="sct-table">
         <tbody>
@@ -53,11 +53,11 @@ export default function SctPage() {
           </tr>
           <tr>
             <th>支払方法</th>
-            <td>クレジットカード決済</td>
+            <td>アプリ内課金(Apple App Store / Google Play)</td>
           </tr>
           <tr>
             <th>支払時期</th>
-            <td>毎月、契約日に対応する日に自動課金</td>
+            <td>毎月、契約日に対応する日に自動課金(各ストアによる自動更新)</td>
           </tr>
           <tr>
             <th>商品の引渡時期</th>
@@ -66,15 +66,17 @@ export default function SctPage() {
           <tr>
             <th>解約・返金について</th>
             <td>
-              アプリ内の設定画面からいつでも解約手続きが可能です。<br />
-              解約後、契約月の末日まではご利用いただけます。<br />
-              既にお支払いいただいた料金は、当方の責に帰すべき事由による場合を除き、返金いたしません。
+              App Store / Google Play のサブスクリプション管理画面からいつでも解約手続きが可能です。<br />
+              解約後も、契約月(現在の課金期間)の末日まではご利用いただけます。<br />
+              返金については、Apple App Store / Google Play 各ストアの返金ポリシーに従います。<br />
+              既にお支払いいただいた料金は、各ストアのポリシーに基づく場合または当方の責に帰すべき事由による場合を除き、返金いたしません。
             </td>
           </tr>
           <tr>
             <th>動作環境</th>
             <td>
-              iOS 15以上の Safari、Android 10 以上の Chrome、最新版の Chrome / Safari / Edge / Firefox に対応
+              iOS / Android アプリ(App Store / Google Play で配布)。<br />
+              Web 版は iOS 15以上の Safari、Android 10 以上の Chrome、最新版の Chrome / Safari / Edge / Firefox に対応
             </td>
           </tr>
         </tbody>

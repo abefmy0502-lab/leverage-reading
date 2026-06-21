@@ -187,6 +187,8 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_books_cover_reset.sql` | 旧バージョンで保存された誤表紙の一括リセット。`books.cover_isbn != books.isbn AND cover_isbn != 'manual'` の行 (= primary ISBN と違う ISBN から取った表紙 = 誤マッチ) を `cover = NULL, cover_isbn = NULL` でクリア。次回起動時の `fullyResolveCover` で再解決される。手動アップロード (`cover_isbn = 'manual'`) は保護 |
 | `supabase_actions_completed_at_backfill.sql` | レガシー行の `completed_at` バックフィル。`done=true` だが `completed_at IS NULL` の行 (= `supabase_actions_full.sql` で列追加する前から完了していた行) に `COALESCE(updated_at, created_at, now())` を埋める。これがあると useAllActions の期間別統計 (今週/今月) で「完了済み表示なのに 0%」になる事故を根治。クライアント側でも `computeForPeriod` / `computeStreak` が `completedAt || created_at` で fallback するように改修済 (未適用 DB でも症状軽減) |
 | `supabase_actions_scheduled.sql` | 繰り返しタスクの先取り完了防止。`actions.scheduled_for timestamptz` 列を追加 + 既存の暴走タスク (未来 deadline で未完了の繰り返し) をクリーンアップ DELETE する。クライアントは `useAllActions` で `scheduledFor > now` の行を非表示にし、達成率は今週/今月の rolling window に切替 (`stats.week / month / streak`)。schema-error fallback あり (未適用 DB では旧挙動: 即時 visible spawn を維持) |
+| `supabase_subscriptions.sql` | 💳 課金 entitlement の真実の源 — `subscriptions` テーブル新規 (`user_id` PK / `stripe_customer_id` / `stripe_subscription_id` / `status` / `price_id` / `current_period_end`)。RLS で SELECT は本人のみ・INSERT/UPDATE/DELETE は service_role のみ (Webhook が書く)。`useSubscription` フックが `status==='active'` で判定 |
+| `supabase_subscriptions_provider.sql` | 💳 App 決済 (IAP / RevenueCat) 対応 — `subscriptions` に `provider` / `rc_app_user_id` / `store` 列を idempotent 追加。Stripe (Web) と RevenueCat (IAP) を 1 テーブルで併存。`stripe_*` 列は NULL 許容のまま温存。entitlement は status='active' で無改修流用 |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 
