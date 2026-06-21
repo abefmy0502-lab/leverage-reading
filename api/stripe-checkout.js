@@ -9,7 +9,7 @@
 //
 // 必要な環境変数:
 //   - STRIPE_SECRET_KEY : Stripe シークレットキー（サーバー専用）
-//   - STRIPE_PRICE_ID   : 月額 ¥1,000 プランの Price ID
+//   - STRIPE_PRICE_ID   : 月額 ¥990 プランの Price ID
 //   - SUPABASE_URL / SUPABASE_ANON_KEY : Bearer トークン検証用（api/claude.js と共通）
 //
 // 依存: `stripe`（package.json に未追加 → `npm i stripe` が必要）。
