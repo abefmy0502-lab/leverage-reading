@@ -76,7 +76,13 @@ export function useSubscription() {
       setError(null);
     } catch (e) {
       console.error('課金状態の取得エラー:', e);
-      setSubscription(null);
+      // 詰み防止 / fail-open: ネットワーク等の一時的失敗で直前まで判明していた
+      // 課金状態（active 等）を null に潰さない。潰すと、契約済みユーザーが
+      // 一時的な通信エラー（タブ復帰・?checkout=success のリトライ等）の度に
+      // isActive=false へ落ち、ペイウォールにロックされてしまう。
+      // last-known-good を温存し、error だけ surface する（schema-error 判定は別途）。
+      // 未契約（subscription=null）のユーザーはそのまま null のままなので
+      // ペイウォールは弱まらない。
       setError(e);
     } finally {
       setLoading(false);

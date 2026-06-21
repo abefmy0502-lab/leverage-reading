@@ -62,7 +62,9 @@ function humanizeError(err) {
   if (msg.includes('not configured')) {
     return 'アプリの設定が未完了です。管理者にお問い合わせください。';
   }
-  return err?.message || '予期せぬエラーが発生しました。';
+  // 未マッチのエラーは生の Supabase メッセージ（英語の技術文字列・内部 ID など）を
+  // そのまま表示せず、安全な汎用文へ倒す（CLAUDE.md セキュリティ方針）。
+  return '予期せぬエラーが発生しました。時間をおいて再度お試しください。';
 }
 
 export default function AuthScreen() {
