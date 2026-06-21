@@ -11,10 +11,12 @@
 ## バックログ（優先度・KGI/品質順）
 | # | 改善 | 主ファイル | 状態 |
 |---|---|---|---|
-| 1 | ペイウォール価値プレビュー強化（想起/マイ読書脳の具体見本＝install→課金UP） | `Paywall.jsx` | 🔄 Wave1 |
-| 2 | マイ読書脳 ストリーミング中断（AbortController+中止ボタン）＋チャットa11y（role/aria-live） | `MyBookBrain.jsx`/`ai.js`/`streamClaude.js`/`MarkdownSections.jsx` | 🔄 Wave1 |
-| 3 | 空状態の `EmptyState` 統一＋画像alt具体化（a11y） | `App.jsx`/各 | 📋 |
-| 4 | エラーメッセージ humanize・マイクロコピー一貫性（`toMessage`徹底） | `errors.js`/各 | 📋 |
+| 1 | ペイウォール価値プレビュー強化（想起/マイ読書脳の具体見本＝install→課金UP） | `Paywall.jsx` | ✅ commit 1a48f48 |
+| 2 | マイ読書脳 ストリーミング中断（AbortController+中止ボタン）＋チャットa11y（role/aria-live） | `MyBookBrain.jsx`/`ai.js`/`streamClaude.js` | ✅ commit f1c86d7 |
+| 3 | 空状態の `EmptyState` 統一（画像altは#13へ分離） | `App.jsx`/各 | 📋 |
+| 4 | エラーメッセージ humanize 強化（生Postgres/内部メッセージ漏れ防止） | `errors.js` | 🔄 Wave2 |
+| 13 | 画像alt具体化＋小型端末レスポンシブ（CoverFixModal 1カラム化） | `BookMemoCard`/`BookMemoEditor`/`CoverFixModal` | 🔄 Wave2 |
+| 14 | （follow-up）client abort時のサーバー側Anthropicコール打ち切り（コスト） | `api/claude.js`/`streamClaude.js` | 📋 |
 | 5 | ローディング skeleton 一貫性（検索/AI/一覧） | `Skeleton.jsx`/各 | 📋 |
 | 6 | 振り返り(Review)体験の磨き（想起カードの質・空状態・操作感） | `Review.jsx` | 📋 |
 | 7 | 設定/AccountSettings の情報整理（課金/データ/退会の導線） | `AccountSettings.jsx` | 📋 |
