@@ -93,7 +93,7 @@
 | B2 | **git push が 403** | 成果をリモート/本番に届けられない | push権限付与 → **元帥対応中** |
 | B3 | **コミット署名鍵が空/不在** | コミットが GitHub 上 Unverified | 署名鍵マテリアルの投入 → 元帥対応中 |
 | 〜B4 | ✅**暫定対応** CEOが9部署の指示書を暫定起草（`company/*-directive.md`） | — | 元帥の正式版が同期されたら差し替え。原因＝fresh cloneで別環境の未push分は届かない（B2連動） |
-| B5 | **ストアアカウント＆Small Business枠の取得**（Apple Developer $99/年・Google Play $25・各Small Business Program 15%枠・RevenueCat等） | App決済ローンチに必須。CEO/エンジニアでは取得不可（実名義・支払・税情報が要る） | **元帥が取得手配**。特に15%枠は黒字化の前提条件 → 最優先で申請。7月ローンチの新クリティカルパス |
+| B5 | **ストアアカウント＆Small Business枠の取得** | App決済ローンチに必須 | 🔄進行中：**Apple Developer登録 申込完了（個人/注文W1873749226・アクティベート待ち）**。残：①App Store Connectで税/口座設定 ②Small Business枠(15%)申請 ③Google Play Console ④RevenueCat。元帥手配 |
 
 > B2/B3/B4 は環境/同期要因。CEOの操作では解決不可。解決まではローカルに成果を積み上げる。
 
@@ -137,6 +137,9 @@
 
 ## 9. 📒 意思決定ログ（新しいものを上に）
 
+- **2026-06-21（深夜）— B5前進＆指示書**
+  - 🎉 **Apple Developer Program 登録 申込完了**（個人/Individual・注文W1873749226・アクティベート待ち）。個人登録のためD-U-N-S不要＝7月ローンチ射程。次：App Store Connectで税/口座設定→Small Business枠(15%)申請。
+  - ✅ B4：9部署の指示書を暫定起草（`company/*-directive.md`）。元帥正式版が来たら差し替え。
 - **2026-06-21（夜・続）— 「ガンガン進めて」指示で B5非依存P0/P1を3並列起動 → 全完了**
   - ✅ A: **AI利用量メータリング**（P0）完了・commit。月次上限120(env可変)、fail-open/schema-fallback、service_role権威で改ざん防止。`api/claude.js`＋`supabase_ai_usage.sql`＋helpContent同期。
   - ✅ B: **コア品質P1×3**完了・commit。まとめメモrollback／写真孤児防止＋旧写真温存／want·before初メモ導線ヒント。レビューでhappy path非破壊確認。
