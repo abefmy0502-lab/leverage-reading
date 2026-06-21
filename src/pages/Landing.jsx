@@ -1,7 +1,7 @@
 // 🌱 Landing Page — Orime (絵文字削減・プロ版)
 //
 // 旧版から: 絵文字を 90% 削減 / serif 見出し + sans 本文 / 仮想ユーザー quote /
-// データドリブン Pain セクション / ¥33/日 フレーミング / 紙テクスチャ背景。
+// データドリブン Pain セクション / 価値 + 安心訴求 / 紙テクスチャ背景。
 // SVG アイコンは lucide-react 既存依存をそのまま使用。
 
 import { useEffect, useState } from 'react';
@@ -28,7 +28,7 @@ export default function Landing() {
     document.title = 'Orime｜読書を、行動に変える読書メモ';
     const tags = [
       setMeta('description',
-        '読みっぱなしを、やめる。Orime は、本の"折り目"のように大事な気づきを後から呼び戻し、行動に変える読書アプリ。月 ¥990、いつでも 1 タップで解約可能。'),
+        '読みっぱなしを、やめる。Orime は、本の"折り目"のように大事な気づきを後から呼び戻し、行動に変える読書アプリ。月 ¥1,280、いつでも解約可能・データは残ります。'),
       setMeta('og:title', '読みっぱなしを、やめる。| Orime', 'property'),
       setMeta('og:description', '読んだ気づきを後から呼び戻し、行動に変える読書アプリ', 'property'),
       setMeta('og:type', 'website', 'property'),
@@ -114,8 +114,8 @@ export default function Landing() {
         <div className="sticky-cta" role="region" aria-label="申し込み">
           <div className="sticky-inner">
             <div className="sticky-price">
-              <span className="sticky-price-main">月 ¥990</span>
-              <span className="sticky-price-sub">1 日 ¥33</span>
+              <span className="sticky-price-main">月 ¥1,280</span>
+              <span className="sticky-price-sub">いつでも解約OK</span>
             </div>
             <button type="button" onClick={goToSignup} className="sticky-btn">
               始める →
@@ -138,10 +138,10 @@ export default function Landing() {
           読んで終わりにしない読書アプリです。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-hero">
-          月 ¥990 で始める →
+          月 ¥1,280 で始める →
         </button>
         <p className="hero-note">
-          1 日 ¥33・10 秒で解約可能・違約金ゼロ
+          10 秒で解約可能・違約金ゼロ・データは残ります
         </p>
 
         {/* TODO(developer): 実数値が確定したら trust-bar を有効化する。
@@ -201,7 +201,7 @@ export default function Landing() {
 
         <p className="pain-conclusion">
           Orime なら、<br />
-          <strong>月 ¥990 で、読書を"資産"に。</strong>
+          <strong>月 ¥1,280 で、読書を"資産"に。</strong>
         </p>
 
         <button type="button" onClick={goToSignup} className="cta-secondary">
@@ -349,41 +349,37 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 5. Pricing (¥33/日 フレーミング) ============ */}
+      {/* ============ 5. Pricing ============ */}
       <section className="pricing fade-in">
         <p className="section-eyebrow">料金</p>
         <h2 className="section-headline">
-          1 日 ¥33。
+          読書を、行動に。
         </h2>
 
         <div className="price-card">
           <div className="price-num">
             <span className="price-yen">¥</span>
-            <span className="price-main">990</span>
+            <span className="price-main">1,280</span>
             <span className="price-period">/ 月</span>
           </div>
           <p className="price-equiv">
-            = 1 日あたり <strong>¥33</strong>
-          </p>
-          <p className="price-compare">
-            缶コーヒー 1 本より安く、<br />
-            ビジネス書 1 冊の <strong>1/1.65</strong>。
+            年額なら <strong>¥10,800</strong>（月あたり約 ¥900・お得）
           </p>
 
           <ul className="price-features">
             <li><Check size={16} strokeWidth={2.5} /> AI 選書 / 読書計画 / 行動管理 すべて利用可</li>
             <li><Check size={16} strokeWidth={2.5} /> マイ読書脳（過去の知識を AI 検索）</li>
             <li><Check size={16} strokeWidth={2.5} /> 本の登録数・メモ数 無制限</li>
-            <li><Check size={16} strokeWidth={2.5} /> いつでもアプリ内 1 タップで解約</li>
+            <li><Check size={16} strokeWidth={2.5} /> いつでも解約可能</li>
             <li><Check size={16} strokeWidth={2.5} /> 解約しても契約期間終了まで利用可</li>
             <li><Check size={16} strokeWidth={2.5} /> 違約金・手数料 ゼロ</li>
           </ul>
 
           <button type="button" onClick={goToSignup} className="cta-primary cta-large">
-            月 ¥990 で始める →
+            月 ¥1,280 で始める →
           </button>
           <p className="price-note">
-            1 日 ¥33・10 秒で解約可能・違約金ゼロ
+            10 秒で解約可能・違約金ゼロ・データは残ります
           </p>
         </div>
 
@@ -415,17 +411,17 @@ export default function Landing() {
           AI と一緒に始めてみましょう。
         </p>
         <button type="button" onClick={goToSignup} className="cta-primary cta-final cta-large">
-          月 ¥990 で始める →
+          月 ¥1,280 で始める →
         </button>
         <p className="final-note">
-          1 日 ¥33・10 秒で解約可能・違約金ゼロ
+          10 秒で解約可能・違約金ゼロ・データは残ります
         </p>
 
         <div className="faq-compact" role="region" aria-label="よくある質問">
           <p className="faq-compact-eyebrow">よくある質問</p>
           <details className="faq-compact-item">
             <summary>解約は本当に簡単？<span className="faq-compact-mark" aria-hidden="true" /></summary>
-            <p>アプリ内の設定 → サブスクリプション → 解約 から 1 タップで完了します。違約金や手数料は一切ありません。</p>
+            <p>設定の「プラン管理」からいつでも解約できます。違約金や手数料は一切ありません。</p>
           </details>
           <details className="faq-compact-item">
             <summary>解約後、データは消えますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
@@ -433,7 +429,7 @@ export default function Landing() {
           </details>
           <details className="faq-compact-item">
             <summary>無料で試せますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
-            <p>申し訳ありませんが、無料期間はご用意していません。1 日 ¥33 という価格で、長期的な読書投資をご提供しています。</p>
+            <p>申し訳ありませんが、無料期間はご用意していません。月 ¥1,280（年額なら月あたり約 ¥900）で、すべての機能をご利用いただけます。いつでも解約でき、解約後もデータは残ります。</p>
           </details>
           <details className="faq-compact-item">
             <summary>使う時間がない人でも大丈夫？<span className="faq-compact-mark" aria-hidden="true" /></summary>
