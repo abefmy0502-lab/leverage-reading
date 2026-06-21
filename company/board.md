@@ -108,11 +108,11 @@
 | ✅完了 | ~~「読みたい」ボタン無反応バグの決着＋デバッグログ撤去~~ | エンジニア | バグは2026-05-04に解決済・残存なし。診断ログ/BuildLabel一掃（50c49c1） |
 | ✅完了 | ~~価格 ¥1,000→¥990 反映~~ | エンジニア | Landing/Terms/SCT/checkout コメント（本コミット） |
 | 🔴P0 | 特商法2フィールド記入 | 法務＋オーナー | `SctPage.jsx`。他項目記入済・¥990反映済 |
-| 🔴P0 | **App決済基盤（B5非依存・即着手）**：`api/revenuecat-webhook.js`＋subscriptions provider列＋法務文言(IAP/ストア解約) | エンジニア | Stripe webhookの流儀＆既存entitlement基盤(useSubscription/subscriptions)を再利用 |
+| ✅完了 | ~~App決済基盤（B5非依存）~~：revenuecat-webhook＋subscriptions provider列＋法務文言(IAP/ストア解約) | エンジニア | レビュー承認・コミット。Stripe流儀＆既存entitlement基盤を再利用 |
 | 🔴P0 | **ネイティブ化**（Capacitor導入＋SWガード＋ルーティング分岐＋外部リンクBrowser化＋認証戻り先固定） | エンジニア | 実build/実機(Xcode等)が要るため別環境で。6月着手 |
 | 🔴P0 | ペイウォール＋AccountSettings(復元/管理リンク)＋IAP購入シート | エンジニア | RevenueCat SDK前提＝ネイティブ導入後 |
 | ⏸B5依存 | 実機IAP疎通／ストア商品(¥990)登録／署名ビルド申請／RevenueCat-ストアAPI連携 | エンジニア＋元帥 | B5（O1 D-U-N-S・O5 税/口座）解消後 |
-| 🟠P1 | 法務：特商法/規約の支払方法を「アプリ内課金」に更新・解約導線をストア設定に | 法務＋エンジニア | `SctPage.jsx`支払方法/解約、TermsのApp課金条項。Apple規定の開示も |
+| 🟠P1 | 法務：プライバシーポリシー(privacy.md/PrivacyPage.jsx)の決済委託先をストア/RevenueCatに整合 | 法務 | 特商法/規約のIAP更新は✅完了。残はプライバシーのみ（App Storeプライバシーラベルとの整合） |
 | ⏸保留 | ~~Stripe課金基盤の本番化~~ | — | App決済確定によりWebフォールバックとして温存（8dcd810） |
 | 🔴P0 | `saveBook`/restore の堅牢化（握り潰し解消・復元失敗をユーザーに明示） | エンジニア | PM判定で実質P0。`useBooks.js:365-388` がINSERT失敗を`console.warn`で握り潰し→「復元しました」表示でも添付データ消失 |
 | 🔴P0 | 本番デバッグログ撤去（残り約30箇所） | エンジニア | `App.jsx`他のcover解決ログ等。本番ハイジーン |
@@ -144,6 +144,7 @@
   - ⚠️ **決済転換**：元帥「StripeではなくApp決済を前提にする予定」。Stripe基盤は保留（Webフォールバックとして温存）。経理再算定 → **必要課金者数 App15%で+約17%(2026=143人)/App30%で+約48%(181人)**。AI原価上限 50→45円(15%)/40円(30%)。**Small Business枠(15%)確保が黒字化の前提条件**。加えてPWAのネイティブ化＋ストア審査が7月ローンチに時間リスク。→ 7月の課金方式（Stripe先行 vs App決済でローンチ vs 課金分離）をオーナーに確認中。
   - B2/B3（push/署名）＝元帥対応中。B4（指示書不在）＝push/sync連動と回答。
   - 🎯 **決済方式 決定**：元帥が「**7月をApp決済（ネイティブ）でローンチ**」を選択。PWA→ネイティブラップ＋ストア内課金へ正式転換。ロードマップ更新（6月＝コア完成＋ネイティブ化着手 / 7月＝App決済ローンチ）。新ブロッカーB5（ストアアカウント＋Small Business枠）を起票＝元帥手配の新クリティカルパス。Stripe基盤は温存。
+  - ✅ **App決済 B5非依存基盤 完了**（commit済）：`api/revenuecat-webhook.js`（fail-closed認証・service_role・冪等upsert・status正規化）＋`supabase_subscriptions_provider.sql`（provider/store列）＋法務文言（特商法/規約をIAP・ストア解約・各ストア返金・Apple EULAに更新）＋CLAUDE.md SQL表同期。レビュー承認。残P1=プライバシーポリシーの委託先整合。
   - ✅ **実装計画 確定**（Capacitor＋RevenueCat）：コードベースはネイティブ化に素直（認証email/passwordのみ＝OAuthディープリンク不要）。既存`subscriptions`＋`useSubscription`をIAP entitlementに転用可（RevenueCat webhook→service_role upsertでStripeと同一流儀）。**7月ローンチは条件付きで現実的、律速はB5（Apple D-U-N-S 〜2週・税/口座）とApple審査**。6月中にコード基盤はほぼ完成可能。→ B5非依存の基盤（revenuecat-webhook＋provider列＋法務文言）をエンジニアに即起票。
 - **2026-06-21（夕）**
   - 元帥より**執行の指揮権を正式委譲**。統治モデル・財務KGI・価格¥990 FIX を本ボードに正本化。
