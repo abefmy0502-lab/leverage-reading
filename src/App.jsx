@@ -11,14 +11,15 @@ import BookMemoEditor from './components/BookMemoEditor';
 import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import HelpModal from './components/HelpModal';
-import Review from './components/Review';
-import MyBookBrain from './components/MyBookBrain';
-import { AdvisorHistoryList, AdvisorSessionDetail } from './components/AdvisorHistory';
+const Review = lazy(() => import('./components/Review'));
+const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
+const AdvisorHistoryList = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
+const AdvisorSessionDetail = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
 import AdvisorAddConfirmModal from './components/AdvisorAddConfirmModal';
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import ActionList from './components/ActionList';
 import ActionEditModal from './components/ActionEditModal';
-import AddBookModal from './components/AddBookModal';
+const AddBookModal = lazy(() => import('./components/AddBookModal'));
 import { useBookCover } from './hooks/useBookCover';
 import {
   searchBooks as searchBooksAPI,
@@ -32,13 +33,13 @@ import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
 import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
-import CoverFixModal from './components/CoverFixModal';
-import Landing from './pages/Landing';
-import TermsPage from './legal/TermsPage';
-import PrivacyPage from './legal/PrivacyPage';
-import SctPage from './legal/SctPage';
+const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
+const Landing = lazy(() => import('./pages/Landing'));
+const TermsPage = lazy(() => import('./legal/TermsPage'));
+const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
+const SctPage = lazy(() => import('./legal/SctPage'));
 import { supabase as supabaseClient } from './lib/supabase';
-import AccountSettings from './components/AccountSettings';
+const AccountSettings = lazy(() => import('./components/AccountSettings'));
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
@@ -58,7 +59,7 @@ import { useLongPress } from './hooks/useLongPress';
 import { useEdgeSwipeBack } from './hooks/useEdgeSwipeBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
 import { useSubscription } from './hooks/useSubscription';
-import Paywall from './components/Paywall';
+const Paywall = lazy(() => import('./components/Paywall'));
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
@@ -84,7 +85,7 @@ import {
   Target,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 
 const STAR = "★";
 const EMPTY_STAR = "☆";
@@ -1698,13 +1699,15 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <div className="chat-scroll">
-          <AdvisorHistoryList
-            sessions={sessionApi?.sessions || []}
-            loaded={!!sessionApi?.loaded}
-            onSelect={(s) => { setSelectedSession(s); setView('detail'); }}
-            onClose={() => setView('chat')}
-            onDelete={async (sid) => { try { await sessionApi?.deleteSession?.(sid); } catch { /* ignore */ } }}
-          />
+          <Suspense fallback={<Spinner />}>
+            <AdvisorHistoryList
+              sessions={sessionApi?.sessions || []}
+              loaded={!!sessionApi?.loaded}
+              onSelect={(s) => { setSelectedSession(s); setView('detail'); }}
+              onClose={() => setView('chat')}
+              onDelete={async (sid) => { try { await sessionApi?.deleteSession?.(sid); } catch { /* ignore */ } }}
+            />
+          </Suspense>
         </div>
       </div>
     );
@@ -1713,14 +1716,16 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <div className="chat-scroll">
-          <AdvisorSessionDetail
-            session={selectedSession}
-            books={books}
-            onAddBook={onAddBook}
-            onResume={resumeSession}
-            onNewSession={startNewSession}
-            onClose={() => { setSelectedSession(null); setView('history'); }}
-          />
+          <Suspense fallback={<Spinner />}>
+            <AdvisorSessionDetail
+              session={selectedSession}
+              books={books}
+              onAddBook={onAddBook}
+              onResume={resumeSession}
+              onNewSession={startNewSession}
+              onClose={() => { setSelectedSession(null); setView('history'); }}
+            />
+          </Suspense>
         </div>
       </div>
     );
@@ -3978,6 +3983,7 @@ function AuthedApp() {
             LIST view と共有 state なので二重描画されることはない (片方の
             view しか return されない)。 */}
         {coverFixForBook && (
+          <Suspense fallback={<Spinner />}>
           <CoverFixModal
             book={coverFixForBook}
             onClose={() => setCoverFixForBook(null)}
@@ -3997,6 +4003,7 @@ function AuthedApp() {
             }}
             onManualUpload={() => triggerManualCoverUpload(coverFixForBook)}
           />
+          </Suspense>
         )}
 
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} hidden={keyboardOpen} />
@@ -4467,7 +4474,9 @@ function AuthedApp() {
               </button>
             </div>
             {reviewSubTab === 'note' ? (
-              <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+              <Suspense fallback={<Spinner />}>
+                <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+              </Suspense>
             ) : (
               <ActionList
                 books={books}
@@ -4510,7 +4519,9 @@ function AuthedApp() {
                   books={books}
                 />
               ) : (
-                <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+                <Suspense fallback={<Spinner />}>
+                  <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+                </Suspense>
               )}
             </div>
           </div>
@@ -4558,16 +4569,19 @@ function AuthedApp() {
       )}
 
       {settingsOpen && (
-        <AccountSettings
-          onClose={() => setSettingsOpen(false)}
-          onAfterDelete={() => setSettingsOpen(false)}
-        />
+        <Suspense fallback={<Spinner />}>
+          <AccountSettings
+            onClose={() => setSettingsOpen(false)}
+            onAfterDelete={() => setSettingsOpen(false)}
+          />
+        </Suspense>
       )}
 
       {/* 表紙修正モーダル — 詳細画面の「表紙が違う？」リンクから開く。
           findIsbnCandidatesWithMetadata で別エディションの表紙候補を
           グリッド表示し、ユーザーが正しいものを選び直せる。 */}
       {coverFixForBook && (
+        <Suspense fallback={<Spinner />}>
         <CoverFixModal
           book={coverFixForBook}
           onClose={() => setCoverFixForBook(null)}
@@ -4590,6 +4604,7 @@ function AuthedApp() {
           }}
           onManualUpload={() => triggerManualCoverUpload(coverFixForBook)}
         />
+        </Suspense>
       )}
 
       {/* 旧「✅ 完了おめでとうございます!」振り返りモーダルは撤去。
@@ -4624,16 +4639,18 @@ function AuthedApp() {
       )}
 
       {addBookModalOpen && (
-        <AddBookModal
-          onClose={() => setAddBookModalOpen(false)}
-          onSelect={pickBookFromAdd}
-          onManual={openManualFromAdd}
-          existingBooks={books}
-          onOpenExisting={(existing) => {
-            setAddBookModalOpen(false);
-            openDetail(existing);
-          }}
-        />
+        <Suspense fallback={<Spinner />}>
+          <AddBookModal
+            onClose={() => setAddBookModalOpen(false)}
+            onSelect={pickBookFromAdd}
+            onManual={openManualFromAdd}
+            existingBooks={books}
+            onOpenExisting={(existing) => {
+              setAddBookModalOpen(false);
+              openDetail(existing);
+            }}
+          />
+        </Suspense>
       )}
 
       {helpModalOpen && (
@@ -4784,7 +4801,9 @@ function PaywallGate() {
 
   return (
     <Shell>
-      <Paywall />
+      <Suspense fallback={<Spinner />}>
+        <Paywall />
+      </Suspense>
     </Shell>
   );
 }
@@ -4828,10 +4847,11 @@ export default function App() {
   const lpRoute = useLpRoute();
 
   // LP / 法的ページは静的ページ扱い: スプラッシュも認証も介さず即返す。
-  if (lpRoute === 'terms') return <TermsPage />;
-  if (lpRoute === 'privacy') return <PrivacyPage />;
-  if (lpRoute === 'sct') return <SctPage />;
-  if (lpRoute === 'lp') return <Landing />;
+  // 各ページは lazy 化済みなので Suspense で包む (フォールバックは軽量 Spinner)。
+  if (lpRoute === 'terms') return <Suspense fallback={<Spinner />}><TermsPage /></Suspense>;
+  if (lpRoute === 'privacy') return <Suspense fallback={<Spinner />}><PrivacyPage /></Suspense>;
+  if (lpRoute === 'sct') return <Suspense fallback={<Spinner />}><SctPage /></Suspense>;
+  if (lpRoute === 'lp') return <Suspense fallback={<Spinner />}><Landing /></Suspense>;
 
   return (
     <>
