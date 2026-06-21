@@ -743,16 +743,23 @@ export default function MyBookBrain({ onOpenBook }) {
                       onClick={() => setInput(ex)}
                       style={{
                         textAlign: 'left',
-                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        // タップしやすいよう 44px の最小高さを確保（iOS HIG）。
+                        minHeight: 44,
+                        padding: '8px 14px',
                         background: '#fff',
                         border: '1px solid #e4ddd0',
-                        borderRadius: 8,
+                        borderRadius: 10,
                         fontSize: 13,
+                        lineHeight: 1.5,
                         color: '#3d362c',
                         cursor: 'pointer',
                         fontFamily: 'inherit',
                       }}
                     >
+                      <span aria-hidden="true" style={{ color: '#a89e8c', flexShrink: 0 }}>›</span>
                       {ex}
                     </button>
                   ))}
@@ -901,13 +908,21 @@ function ChatMessage({ message, onOpenBook, stage }) {
   const isStreaming = !!message.streaming;
   const bubbleStyle = {
     maxWidth: '90%',
-    padding: '10px 14px',
+    // AI の回答は読み物なので少しゆとりを持たせる。ユーザー吹き出しは
+    // 短文が多いので従来通りタイト。
+    padding: isUser ? '10px 14px' : '12px 15px',
     borderRadius: 14,
-    fontSize: 13,
-    lineHeight: 1.8,
+    fontSize: 14,
+    // 長文（特に日本語）の可読性を優先。.long-text 相当の行間 + 微字間。
+    lineHeight: isUser ? 1.7 : 1.85,
+    letterSpacing: '0.01em',
     whiteSpace: 'pre-wrap',
-    background: isUser ? '#5c5043' : '#f7f3ec',
-    color: isUser ? '#faf6f0' : '#3d362c',
+    wordBreak: 'break-word',
+    // AI 吹き出しはわずかな影で背景から浮かせ、読み出しの起点を明確にする。
+    background: isUser ? '#5c5043' : '#fbf8f2',
+    color: isUser ? '#faf6f0' : '#332d23',
+    border: isUser ? 'none' : '1px solid #ece5d8',
+    boxShadow: isUser ? 'none' : '0 1px 2px rgba(60,54,44,0.04)',
     borderBottomRightRadius: isUser ? 4 : 14,
     borderBottomLeftRadius: isUser ? 14 : 4,
   };
@@ -949,13 +964,13 @@ function ChatMessage({ message, onOpenBook, stage }) {
           </>
         )}
         {!isUser && !isStreaming && message.refs?.length > 0 && (
-          <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #d4ccbe' }}>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 4px', fontWeight: 500 }}>
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #d8d0c1' }}>
+            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 5px', fontWeight: 600, letterSpacing: '0.02em' }}>
               📚 参照した本・メモ
             </p>
-            <ul style={{ fontSize: 11, color: '#5c5548', lineHeight: 1.7, margin: 0, paddingLeft: 16 }}>
+            <ul style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.75, margin: 0, paddingLeft: 16 }}>
               {message.refs.map((r, i) => (
-                <li key={i}>{r}</li>
+                <li key={i} style={{ marginTop: i === 0 ? 0 : 3 }}>{r}</li>
               ))}
             </ul>
           </div>

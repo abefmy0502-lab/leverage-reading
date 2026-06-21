@@ -3767,17 +3767,20 @@ function AuthedApp() {
             </details>
           )}
 
-          {current.totalPages > 0 && (
+          {current.totalPages > 0 && (() => {
+            const detailPct = Math.max(0, Math.min(100, Math.round(((current.currentPage || 0) / current.totalPages) * 100)));
+            return (
             <div style={{ marginTop: 12, background: "#f7f3ec", borderRadius: 10, padding: "8px 12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#5c5548", marginBottom: 4 }}>
                 <span>進捗</span>
-                <span>{current.currentPage || 0}/{current.totalPages}p ({Math.round(((current.currentPage || 0) / current.totalPages) * 100)}%)</span>
+                <span>{current.currentPage || 0}/{current.totalPages}p ({detailPct}%)</span>
               </div>
-              <div style={{ height: 6, background: "#e0d8c8", borderRadius: 3 }}>
-                <div style={{ height: "100%", width: `${Math.round(((current.currentPage || 0) / current.totalPages) * 100)}%`, background: "#4a6e8a", borderRadius: 3 }} />
+              <div style={{ height: 6, background: "#e0d8c8", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${detailPct}%`, background: "#4a6e8a", borderRadius: 3 }} />
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {(current.status === "reading" || current.status === "done") ? (
             <div style={{ marginTop: 12 }}>
