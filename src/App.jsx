@@ -2212,6 +2212,12 @@ function AuthedApp() {
     const t = setInterval(() => setGreetingTick((n) => n + 1), 60 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
+  // 「読了グロー」用の 8 秒タイマーは advanceStatus 内で張られるが、その間に
+  // アンマウント (ログアウト / サブスク失効で PaywallGate に戻る等) すると
+  // unmount 後 setRecentlyDoneId が走って警告になる。アンマウント時に解放する。
+  useEffect(() => () => {
+    if (recentlyDoneTimerRef.current) clearTimeout(recentlyDoneTimerRef.current);
+  }, []);
   const greeting = useMemo(() => buildGreeting(user), [user, greetingTick]);
 
   // Easter egg: long-press the bookshelf logo (📚) to reveal a thank-you.
