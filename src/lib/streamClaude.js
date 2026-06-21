@@ -75,12 +75,18 @@ export async function streamClaude({
     if (!res.ok) {
       // Error path: relay returns plain JSON, not SSE.
       let detail = '';
+      let errorCode = '';
       try {
         const j = await res.json();
         detail = j?.error?.message || j?.error || '';
+        errorCode = j?.error_code || '';
       } catch { /* fallthrough */ }
       if (res.status === 401) throw new Error('AI機能を使うにはログインが必要です。');
-      if (res.status === 429) throw new Error('リクエストが多すぎます。少し時間をおいて再試行してください。');
+      if (res.status === 429) {
+        // 月次上限超過はサーバーの具体文言を優先。それ以外の 429 は汎用文言。
+        if (errorCode === 'monthly_limit_exceeded' && detail) throw new Error(detail);
+        throw new Error('リクエストが多すぎます。少し時間をおいて再試行してください。');
+      }
       throw new Error(detail ? `エラー: ${detail}` : `エラー (${res.status})`);
     }
 

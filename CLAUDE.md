@@ -189,6 +189,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_actions_scheduled.sql` | 繰り返しタスクの先取り完了防止。`actions.scheduled_for timestamptz` 列を追加 + 既存の暴走タスク (未来 deadline で未完了の繰り返し) をクリーンアップ DELETE する。クライアントは `useAllActions` で `scheduledFor > now` の行を非表示にし、達成率は今週/今月の rolling window に切替 (`stats.week / month / streak`)。schema-error fallback あり (未適用 DB では旧挙動: 即時 visible spawn を維持) |
 | `supabase_subscriptions.sql` | 💳 課金 entitlement の真実の源 — `subscriptions` テーブル新規 (`user_id` PK / `stripe_customer_id` / `stripe_subscription_id` / `status` / `price_id` / `current_period_end`)。RLS で SELECT は本人のみ・INSERT/UPDATE/DELETE は service_role のみ (Webhook が書く)。`useSubscription` フックが `status==='active'` で判定 |
 | `supabase_subscriptions_provider.sql` | 💳 App 決済 (IAP / RevenueCat) 対応 — `subscriptions` に `provider` / `rc_app_user_id` / `store` 列を idempotent 追加。Stripe (Web) と RevenueCat (IAP) を 1 テーブルで併存。`stripe_*` 列は NULL 許容のまま温存。entitlement は status='active' で無改修流用 |
+| `supabase_ai_usage.sql` | 🤖 AI 利用量メータリング (KGI 原価ガード) — `ai_usage(user_id, period_month 'YYYY-MM', calls)` 新規 + 原子的 increment RPC (`increment_ai_usage`)。SELECT は本人のみ、書き込みは `api/claude.js` の service_role 経由。月次の累積コール上限 (`AI_MONTHLY_CALL_LIMIT`、既定 120) 超過で 429。fail-open / schema-fallback (未適用でも AI は止まらない)。連打 (マイ読書脳等) によるコスト青天井を止めるランナウェイガード |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 
@@ -234,7 +235,9 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `VITE_SUPABASE_ANON_KEY` | クライアント用 Supabase anon key |
 | `SUPABASE_URL` | サーバー用 (`api/claude.js` の RLS auth) |
 | `SUPABASE_ANON_KEY` | サーバー用 |
+| `SUPABASE_SERVICE_ROLE_KEY` | サーバー専用 service_role キー (`api/claude.js` の AI 利用量メータリング書込 / Stripe・RevenueCat webhook の subscriptions 書込)。RLS バイパス。**クライアント露出厳禁** |
 | `ANTHROPIC_API_KEY` | Claude API キー |
+| `AI_MONTHLY_CALL_LIMIT` | (任意) AI 月次コール上限。未設定なら既定 120。ローンチ後に実データで調整するための env スイッチ |
 
 ## デプロイフロー
 

@@ -40,7 +40,14 @@ async function postClaude(payload) {
 
   if (!res.ok) {
     if (res.status === 401) return 'AI機能を使うにはログインが必要です。';
-    if (res.status === 429) return 'リクエストが多すぎます。少し時間をおいて再試行してください。';
+    if (res.status === 429) {
+      // 月次上限超過（monthly_limit_exceeded）はサーバーが具体的な日本語文言を
+      // 返すのでそれを優先。それ以外の 429（分間レート制限など）は汎用文言。
+      if (data?.error_code === 'monthly_limit_exceeded' && data?.error?.message) {
+        return data.error.message;
+      }
+      return 'リクエストが多すぎます。少し時間をおいて再試行してください。';
+    }
     if (data?.error?.message) return `エラー: ${data.error.message}`;
     if (typeof data?.error === 'string') return `エラー: ${data.error}`;
     return 'エラー';
