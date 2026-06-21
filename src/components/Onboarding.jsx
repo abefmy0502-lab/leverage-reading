@@ -22,7 +22,7 @@ const slides = [
   {
     icon: '✨',
     title: '読書を、行動に変える',
-    body: '読みっぱなしを防ぎ、本から具体的な行動を引き出す。\nさあ、人生を変える読書投資を始めましょう。',
+    body: '読みっぱなしを防ぎ、本から具体的な行動を引き出す。\n残した一行は、忘れた頃に「🔄 振り返り」でふいに戻ってきます。\nさあ、人生を変える読書投資を始めましょう。',
   },
 ];
 
@@ -65,13 +65,20 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 20,
+  // 小型端末でカードがビューポートより高くなったら overlay 自体をスクロール
+  // させて CTA が画面外に押し出されないようにする。セーフエリアも加味。
+  overflowY: 'auto',
+  padding: 'max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))',
 };
 
 const cardStyle = {
   background: '#faf6f0',
   borderRadius: 16,
   width: 'min(420px, 100%)',
+  // 低い画面高 (iPhone SE 等) でも CTA が必ず収まるよう、カード全体の高さを
+  // ビューポートに収める。内側のスライド本文だけをスクロールさせ、フッター
+  // (ドット + ボタン) は常に見える位置に固定する。
+  maxHeight: 'calc(100dvh - 32px)',
   padding: '24px 22px 18px',
   boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
   fontFamily: "'Noto Serif JP', Georgia, serif",
@@ -85,6 +92,7 @@ const dotsRow = {
   justifyContent: 'center',
   gap: 6,
   marginTop: 4,
+  flexShrink: 0,
 };
 
 const dot = (active) => ({
@@ -97,6 +105,7 @@ const dot = (active) => ({
 
 const btnPrimary = {
   flex: 1,
+  minHeight: 44,
   padding: '12px 0',
   borderRadius: 10,
   border: 'none',
@@ -110,6 +119,7 @@ const btnPrimary = {
 
 const btnGhost = {
   flex: 1,
+  minHeight: 44,
   padding: '12px 0',
   borderRadius: 10,
   border: '1px solid #d4ccbe',
@@ -189,6 +199,11 @@ export default function Onboarding({ onClose, onStart }) {
             alignItems: 'center',
             gap: 10,
             paddingTop: 6,
+            // 本文だけをスクロールさせる領域。フッターは下に固定されるので、
+            // 低い画面高でもボタンは常に押せる位置に残る。
+            overflowY: 'auto',
+            minHeight: 0,
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           <div
@@ -249,7 +264,7 @@ export default function Onboarding({ onClose, onStart }) {
         {isLast ? (
           // 最後のカードは「行動」で締める。主 CTA は本追加を直接開き、
           // 説明で終わらせない。下に控えめな「あとで」を残して逃げ道も確保。
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6, flexShrink: 0 }}>
             <button
               type="button"
               style={{ ...btnPrimary, flex: 'unset', width: '100%' }}
@@ -266,7 +281,7 @@ export default function Onboarding({ onClose, onStart }) {
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 6, flexShrink: 0 }}>
             {step > 0 ? (
               <button type="button" style={btnGhost} onClick={() => setStep((s) => Math.max(0, s - 1))}>
                 ← 戻る

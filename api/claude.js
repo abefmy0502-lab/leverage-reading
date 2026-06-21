@@ -187,15 +187,50 @@ export default async function handler(req, res) {
 
     const payload = { ...body, max_tokens: maxTokens };
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(payload),
-    });
+    // クライアント切断時に Anthropic への upstream fetch も打ち切るための
+    // AbortController。これが無いと、ユーザーが「中止」して fetch を切っても
+    // サーバーは upstream を最後まで読み続け、トークン課金が満額発生する
+    // （KGI 原価ガードの穴）。クライアント切断（'close' / 'aborted'）を検知して
+    // controller.abort() を呼ぶことで、upstream の生成も停止させる。
+    //
+    // upstreamDone は「reader ループが正常終了（done）した／ハンドラが正常完了
+    // した」ことを表すフラグ。正常終了後の遅延 'close' イベントで二重 abort
+    // しないためのガード（abort 由来の例外と正常終了の競合回避）。
+    const upstreamController = new AbortController();
+    let upstreamDone = false;
+    const abortUpstream = () => {
+      if (upstreamDone) return; // 正常終了済みなら abort しない（二重 abort 回避）
+      upstreamDone = true;
+      try { upstreamController.abort(); } catch { /* already aborted */ }
+    };
+    // クライアントが接続を切ったら upstream も止める。req / res 双方の 'close'
+    // を購読（ランタイムによってどちらが先に発火するか差があるため両取り）。
+    // abortUpstream は idempotent なので重複発火しても安全。
+    try { req.on?.('close', abortUpstream); } catch { /* no-op */ }
+    try { res.on?.('close', abortUpstream); } catch { /* no-op */ }
+
+    let response;
+    try {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(payload),
+        signal: upstreamController.signal,
+      });
+    } catch (fetchErr) {
+      // クライアントが接続前/接続待ち中に切断 → AbortError。これは正常な
+      // ユーザー操作なのでエラーログを出さず静かに終了する。
+      if (fetchErr?.name === 'AbortError' || upstreamController.signal.aborted) {
+        upstreamDone = true;
+        try { res.end(); } catch { /* socket may already be closed */ }
+        return;
+      }
+      throw fetchErr;
+    }
 
     // Streaming pass-through: forward Anthropic's SSE body verbatim to the
     // browser so the first token reaches the client without buffering the
@@ -224,19 +259,46 @@ export default async function handler(req, res) {
             if (done) break;
             if (value) res.write(Buffer.from(value));
           }
+          // 正常に message_stop まで読み切った。以後の遅延 'close' で abort
+          // しないようフラグを立てる（二重 abort / 余計な例外を避ける）。
+          upstreamDone = true;
         } catch (streamErr) {
-          console.error('Claude stream relay error:', streamErr);
+          // クライアント切断由来の abort（AbortError）は正常なユーザー操作。
+          // エラーログを出さず静かに終了する。それ以外の relay エラーのみログ。
+          if (streamErr?.name === 'AbortError' || upstreamController.signal.aborted) {
+            // abortUpstream() 経由で upstreamDone は既に true。何もしない。
+          } else {
+            console.error('Claude stream relay error:', streamErr);
+          }
         } finally {
+          upstreamDone = true; // どの経路でも以降の abort を抑止
           try { res.end(); } catch { /* socket may already be closed */ }
         }
-        // ストリームが正常に開始 = 成功コールとして当月カウントを +1。
+        // ストリームが開始 = 成功コールとして当月カウントを +1。
         // fire-and-forget（失敗してもユーザー応答には影響させない）。
+        // 注: 途中で中断（クライアント切断）してもストリームは開始済みであり、
+        // upstream への課金コールは発生しているため、1 カウントは妥当。
         incrementMonthlyUsage(userId);
         return;
       }
     }
 
-    const data = await response.json();
+    // 非ストリーミング経路。response.json() は upstream の body を読み切るので、
+    // 読込中にクライアントが切断すると signal が発火し AbortError で reject する。
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonErr) {
+      // クライアント切断由来の abort は正常操作 → 静かに終了（ログ無し・課金は
+      // upstream 完了前なら発生しないため increment しない）。
+      if (jsonErr?.name === 'AbortError' || upstreamController.signal.aborted) {
+        upstreamDone = true;
+        try { res.end(); } catch { /* socket may already be closed */ }
+        return;
+      }
+      throw jsonErr;
+    }
+    upstreamDone = true; // 正常完了。以降の遅延 'close' で abort しない。
     // 上流が 2xx の成功レスポンスの時だけ当月カウントを +1。失敗（4xx/5xx）は
     // 課金されないコールが多いので quota を消費させない。fire-and-forget。
     if (response.ok) incrementMonthlyUsage(userId);

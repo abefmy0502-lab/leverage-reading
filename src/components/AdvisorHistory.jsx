@@ -89,8 +89,8 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
       ) : sessions.length === 0 ? (
         <EmptyState
           icon="🕒"
-          title="まだ履歴がありません"
-          description="AI 選書で会話を始めると、ここに履歴が残ります。"
+          title="ここに会話が残ります"
+          description="AI 選書で相談すると、その会話がここに記録されます。あとから読み返したり、続きから相談できます。"
         />
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -369,9 +369,11 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} role="region" aria-label="AI 選書の会話">
         {messages.length === 0 ? (
-          <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: 20 }}>
-            メッセージがありません。
-          </p>
+          <EmptyState
+            icon="💬"
+            title="この会話には記録がありません"
+            description="メッセージのやり取りはまだ残っていません。"
+          />
         ) : (
           messages.map((m, i) => {
             const isUser = m.role === 'user';

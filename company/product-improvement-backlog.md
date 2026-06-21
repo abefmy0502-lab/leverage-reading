@@ -16,10 +16,10 @@
 |---|---|---|---|
 | 1 | ペイウォール価値プレビュー強化（想起/マイ読書脳の具体見本＝install→課金UP） | `Paywall.jsx` | ✅ commit 1a48f48 |
 | 2 | マイ読書脳 ストリーミング中断（AbortController+中止ボタン）＋チャットa11y（role/aria-live） | `MyBookBrain.jsx`/`ai.js`/`streamClaude.js` | ✅ commit f1c86d7 |
-| 3 | 空状態の `EmptyState` 統一（画像altは#13へ分離） | `App.jsx`/各 | 📋 |
+| 3 | 空状態の `EmptyState` 統一（画像altは#13へ分離） | `App.jsx`/各 | ✅ Wave6（KnowledgeManager/AdvisorHistory を EmptyState 化）|
 | 4 | エラーメッセージ humanize 強化（生Postgres/内部メッセージ漏れ防止） | `errors.js` | ✅ commit 32a409e |
 | 13 | 画像alt具体化＋小型端末レスポンシブ（CoverFixModal 1カラム化） | `BookMemoCard`/`BookMemoEditor`/`CoverFixModal` | ✅ commit af6e8bf |
-| 14 | （follow-up）client abort時のサーバー側Anthropicコール打ち切り（コスト） | `api/claude.js`/`streamClaude.js` | 📋 |
+| 14 | （follow-up）client abort時のサーバー側Anthropicコール打ち切り（コスト） | `api/claude.js`/`streamClaude.js` | ✅ Wave6（req/res close→upstream abort、idempotent）|
 | 5 | ローディング skeleton 一貫性（検索/AI/一覧） | `Skeleton.jsx`/各 | 📋 |
 | 6 | 振り返り(Review)体験の磨き（想起カードの質・空状態・操作感） | `Review.jsx` | ✅ Wave4（想起フレーミング/コールドスタート/ハプティクス）|
 | 7 | 設定/AccountSettings の情報整理（課金/データ/退会の導線） | `AccountSettings.jsx` | ✅ Wave5（3グループ見出し+退会最下部分離）|
@@ -27,7 +27,7 @@
 | 9 | 検索/本追加フローの磨き（候補表示・手動入力・エラー） | `AddBookModal.jsx` | ✅ Wave5（検索skeleton+0件/エラー手動導線+humanize）|
 | 10 | 行動リストの磨き（期限色分け・完了演出・繰り返し） | `ActionList.jsx` | ✅ Wave5（期限色分け+完了haptic+空状態+stale help修正）|
 | 11 | コード分割で初期バンドル削減（lazy/Suspense） | `App.jsx` | ✅ commit 0696344（879→722kB） |
-| 12 | オンボーディング小型端末の高さ・想起の予感トースト（任意） | `Onboarding.jsx` | 📋 |
+| 12 | オンボーディング小型端末の高さ・想起の予感トースト（任意） | `Onboarding.jsx` | ✅ Wave6（dvh高さ収束+CTA常時表示+想起予感コピー）|
 
 ## 🚀 フラッグシップ機能
 - ✅ **📊 テーマレポート**（第1フラッグシップ）— テーマ横断でメモを統合し1枚のレポート化。AIタブ3つ目のサブタブ。commit 9e7b747（build + コードレビュー済み）。元帥発案 → 実装。図解(Mermaid)はV2保留。

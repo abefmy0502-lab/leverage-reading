@@ -25,6 +25,7 @@ import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
 import BookMemoEditor from './BookMemoEditor';
+import EmptyState from './EmptyState.jsx';
 import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
@@ -660,11 +661,20 @@ export default function KnowledgeManager({ onChanged }) {
       {loading ? (
         <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: 20 }}>読み込み中…</p>
       ) : filtered.length === 0 ? (
-        <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: 30, lineHeight: 1.7 }}>
-          {items.length === 0
-            ? 'まだ知識がありません。本を読んでメモを残すと、ここに蓄積されます。'
-            : '該当する知識が見つかりませんでした。'}
-        </p>
+        items.length === 0 ? (
+          <EmptyState
+            icon="📚"
+            title="ここに知識が集まります"
+            description="本を読んでメモを残すと、AI があなたの答えを作るための材料がここに蓄積されます。"
+          />
+        ) : (
+          <EmptyState
+            icon="🔍"
+            title="見つかりませんでした"
+            description="検索やフィルタの条件に合う知識はありませんでした。"
+            tip="条件を変えるか「全て」に戻すと、ほかの知識が見つかります。"
+          />
+        )
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map((it) => (
