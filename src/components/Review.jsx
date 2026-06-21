@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
+import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
 import { toMessage } from '../lib/errors';
 import SwipeableCard from './SwipeableCard';
@@ -43,6 +44,18 @@ function relativeJa(iso) {
   if (day < 30) return `${Math.floor(day / 7)}週間前`;
   if (day < 365) return `${Math.floor(day / 30)}ヶ月前`;
   return `${Math.floor(day / 365)}年前`;
+}
+
+// ランダム想起カード専用の "久しぶりに戻ってきた感" を出す一行。
+// 例: 3ヶ月前のメモなら「3ヶ月前のあなたのメモ」。さっき書いたものは
+// 出さない (まだ「戻ってきた」感がないので空文字でフレーズを抑制)。
+function recallFraming(iso) {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const day = Math.floor((Date.now() - t) / 86400000);
+  if (day < 1) return ''; // 今日書いたばかり — 想起のフレーズは出さない
+  return `${relativeJa(iso)}のあなたのメモ`;
 }
 
 function fmtDate(iso) {
@@ -279,6 +292,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
 export default function Review({ books = [], onOpenBook }) {
   const { user } = useAuth();
   const toast = useToast();
+  const haptic = useHaptic();
   const [memos, setMemos] = useState([]);
   const [memoMenu, setMemoMenu] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -466,6 +480,7 @@ export default function Review({ books = [], onOpenBook }) {
 
   // Flip the random-memo card and swap its content at the back-facing midpoint.
   const reroll = () => {
+    haptic.light();
     // Always rotate the inspirational quote alongside the memo swap.
     setTodayQuote(getRandomFromCategory('reviewAndMemory'));
     if (allNotes.length <= 1) {
@@ -512,14 +527,15 @@ export default function Review({ books = [], onOpenBook }) {
       <div style={wrap}>
         <EmptyState
           icon="📝"
-          title="ノートにまだ知識がありません"
+          title="ここに、あなたの気づきが戻ってきます"
           description={(
             <>
-              本を追加して投資目的を入力したり、メモを残すと<br />
-              ここに「あなたの読書知識」が時系列で集まります。
+              本を追加してメモを残すと、忘れた頃に<br />
+              気づきがふいに戻ってくる場所になります。<br />
+              まずは一行から、気軽に。
             </>
           )}
-          tip="💡 投資目的・課題・仮説・投資の効果・メモ・行動の振り返り、すべてここに集約されます"
+          tip="💡 メモ・まとめ・投資目的・課題・仮説・行動の振り返り、すべてここに時系列で集まります"
         />
       </div>
     );
@@ -589,6 +605,34 @@ export default function Review({ books = [], onOpenBook }) {
         <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
           偶然の再会で、忘れていた気づきを呼び戻します
         </p>
+        {allNotes.length <= 3 && (
+          <p
+            style={{
+              fontSize: 11,
+              color: '#8a7e6b',
+              background: '#f4efe7',
+              border: '1px solid #e4ddd0',
+              borderRadius: 10,
+              padding: '8px 12px',
+              margin: '0 0 10px',
+              lineHeight: 1.7,
+            }}
+          >
+            🌱 メモが貯まるほど、戻ってくる気づきも豊かになります。今は少なくても大丈夫。
+          </p>
+        )}
+        {randomMemo && recallFraming(randomMemo.createdAt) && (
+          <p
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#7a6e58',
+              margin: '0 0 8px',
+            }}
+          >
+            💭 {recallFraming(randomMemo.createdAt)}
+          </p>
+        )}
         {randomMemo && (
           <div
             style={{
