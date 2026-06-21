@@ -12,7 +12,7 @@
 //   'notfound'  : 結果 0 件
 //   'error'     : 検索エラー（リトライ可能）
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
 import { searchBooksAdvanced } from '../lib/bookSearch';
 import { ensureHttps } from '../lib/url';
@@ -246,6 +246,262 @@ function SearchSkeleton({ rows = 3 }) {
   );
 }
 
+// 端末/ブラウザがバーコード読取に対応しているか。Web 標準 BarcodeDetector
+// （+ getUserMedia）が両方そろって初めて true。iOS Safari は BarcodeDetector
+// 未対応のことが多く、その場合は false → ボタン自体を出さない。
+const BARCODE_SUPPORTED =
+  typeof window !== 'undefined' &&
+  'BarcodeDetector' in window &&
+  !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+const camOverlayStyle = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 300,
+  background: '#000',
+  display: 'flex',
+  flexDirection: 'column',
+  paddingTop: 'env(safe-area-inset-top, 0px)',
+  paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+};
+
+// 📷 BarcodeScanner — カメラを起動して書籍バーコード(EAN-13/EAN-8)を読み取り、
+// 成功したら onDetect(isbn) を呼ぶ。停止は確実に: アンマウント・close・読取成功
+// いずれでも stopStream() が走り、全 track を stop する（カメラ消し忘れ防止）。
+function BarcodeScanner({ onDetect, onClose }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const detectorRef = useRef(null);
+  const rafRef = useRef(null);
+  const doneRef = useRef(false); // 二重発火防止（成功 or close で立てる）
+  const [scanError, setScanError] = useState(null);
+  const [ready, setReady] = useState(false);
+
+  const stopStream = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    const stream = streamRef.current;
+    if (stream) {
+      try { stream.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+      streamRef.current = null;
+    }
+    const v = videoRef.current;
+    if (v) {
+      try { v.pause(); } catch { /* ignore */ }
+      v.srcObject = null;
+    }
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    stopStream();
+    onClose?.();
+  }, [stopStream, onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function start() {
+      // 二重ガード: 親が出すのは BARCODE_SUPPORTED 時のみだが、ここでも防御。
+      if (!BARCODE_SUPPORTED) {
+        setScanError('お使いのブラウザはバーコード読取に未対応です。ISBN を手入力してください。');
+        return;
+      }
+      try {
+        detectorRef.current = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8'] });
+      } catch {
+        setScanError('お使いのブラウザはバーコード読取に未対応です。ISBN を手入力してください。');
+        return;
+      }
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        });
+      } catch (e) {
+        if (cancelled) {
+          try { stream?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+          return;
+        }
+        // 権限拒否・カメラ無し等。クラッシュさせず案内のみ。
+        const denied = e?.name === 'NotAllowedError' || e?.name === 'SecurityError';
+        setScanError(
+          denied
+            ? 'カメラの使用が許可されませんでした。ブラウザの設定でカメラを許可するか、ISBN を手入力してください。'
+            : 'カメラを起動できませんでした。ISBN を手入力してください。',
+        );
+        return;
+      }
+
+      if (cancelled) {
+        try { stream.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+        return;
+      }
+      streamRef.current = stream;
+      const v = videoRef.current;
+      if (!v) {
+        try { stream.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+        return;
+      }
+      v.srcObject = stream;
+      try { await v.play(); } catch { /* iOS で自動再生に失敗しても scan は試行 */ }
+      if (cancelled) return;
+      setReady(true);
+
+      const tick = async () => {
+        if (cancelled || doneRef.current) return;
+        const detector = detectorRef.current;
+        const video = videoRef.current;
+        if (detector && video && video.readyState >= 2) {
+          try {
+            const codes = await detector.detect(video);
+            if (cancelled || doneRef.current) return;
+            const hit = codes && codes.find((c) => {
+              const raw = (c.rawValue || '').replace(/[^0-9]/g, '');
+              // 書籍バーコードは ISBN-13（978 / 979 始まりの 13 桁）
+              return raw.length === 13 && (raw.startsWith('978') || raw.startsWith('979'));
+            });
+            if (hit) {
+              const isbn = (hit.rawValue || '').replace(/[^0-9]/g, '');
+              doneRef.current = true;
+              stopStream();
+              onDetect?.(isbn);
+              return;
+            }
+          } catch {
+            // detect の一過性エラーは無視して次フレーム継続。
+          }
+        }
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    }
+
+    start();
+
+    return () => {
+      cancelled = true;
+      stopStream();
+    };
+  }, [stopStream, onDetect]);
+
+  return (
+    <div style={camOverlayStyle} role="dialog" aria-modal="true" aria-label="バーコードをスキャン">
+      <div
+        style={{
+          padding: 'var(--space-3) var(--space-4)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--space-2)',
+          color: '#fff',
+        }}
+      >
+        <span style={{ fontSize: 15, fontWeight: 600, fontFamily: 'inherit' }}>📷 バーコードをスキャン</span>
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="閉じる"
+          style={{
+            background: 'rgba(255,255,255,0.15)',
+            border: 'none',
+            color: '#fff',
+            fontSize: 22,
+            cursor: 'pointer',
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'inherit',
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {scanError ? (
+          <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: '#fff', maxWidth: 360 }}>
+            <div aria-hidden="true" style={{ fontSize: 36, marginBottom: 'var(--space-3)' }}>📷</div>
+            <p role="alert" style={{ fontSize: 14, lineHeight: 1.7, margin: 0, fontFamily: 'inherit' }}>{scanError}</p>
+            <button
+              type="button"
+              onClick={handleClose}
+              style={{
+                marginTop: 'var(--space-5)',
+                padding: '12px 20px',
+                borderRadius: 'var(--radius-md)',
+                border: 'none',
+                background: '#fff',
+                color: '#111',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                minHeight: 44,
+              }}
+            >
+              閉じる
+            </button>
+          </div>
+        ) : (
+          <>
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              autoPlay
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            {/* 読取ガイド枠 */}
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '72%',
+                maxWidth: 320,
+                height: 120,
+                border: '2px solid rgba(255,255,255,0.9)',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
+              }}
+            />
+            <div
+              aria-live="polite"
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 'calc(var(--space-6) + env(safe-area-inset-bottom, 0px))',
+                textAlign: 'center',
+                color: '#fff',
+                fontSize: 13,
+                lineHeight: 1.6,
+                padding: '0 var(--space-5)',
+                fontFamily: 'inherit',
+              }}
+            >
+              {ready
+                ? '本の裏のバーコードを枠内に合わせてください'
+                : 'カメラを起動しています…'}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting }) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
@@ -254,6 +510,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
   const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY);
+  const [scanning, setScanning] = useState(false);
   // 直近の検索 AbortController を保持。新しい検索 / モーダル close 時に
   // 既存リクエストを中断して、後着の応答が state を上書きする race を防ぐ。
   const abortRef = useRef(null);
@@ -262,8 +519,15 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   const hasInput = !!(title.trim() || author.trim() || isbn.trim());
   const isSearching = state === 'searching';
 
-  const runSearch = async () => {
-    if (!hasInput) return;
+  const runSearch = async (override) => {
+    // override は { title, author, isbn } の部分指定。バーコード読取直後など
+    // setState の反映前に最新値で検索したいケースで使う。
+    const q = {
+      title: (override?.title ?? title).trim(),
+      author: (override?.author ?? author).trim(),
+      isbn: (override?.isbn ?? isbn).trim(),
+    };
+    if (!q.title && !q.author && !q.isbn) return;
     // 直前の検索があれば中断 — 連続検索で後着の結果が state を上書きして
     // 「画面が固まる」現象を起こすのを防ぐ最大の対策。
     try { abortRef.current?.abort(); } catch { /* ignore */ }
@@ -278,7 +542,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
     let res;
     try {
       res = await searchBooksAdvanced(
-        { title: title.trim(), author: author.trim(), isbn: isbn.trim() },
+        { title: q.title, author: q.author, isbn: q.isbn },
         { signal: ctrl.signal },
       );
     } catch (e) {
@@ -316,6 +580,17 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
     }
   };
 
+  // 📷 バーコード読取成功 → ISBN 欄に流し込み、他条件をクリアして既存検索へ委譲。
+  const handleScanDetect = (scannedIsbn) => {
+    setScanning(false);
+    if (!scannedIsbn) return;
+    setIsbn(scannedIsbn);
+    setTitle('');
+    setAuthor('');
+    // setState の反映を待たず override で即検索（既存 runSearch をそのまま利用）。
+    runSearch({ isbn: scannedIsbn, title: '', author: '' });
+  };
+
   const handlePick = (book, opts = {}) => {
     // 既に本棚にある本は追加せず、親に既存本を開かせる。
     if (opts.isExisting && opts.existing) {
@@ -334,6 +609,12 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true">
+      {scanning && (
+        <BarcodeScanner
+          onDetect={handleScanDetect}
+          onClose={() => setScanning(false)}
+        />
+      )}
       <div style={headerStyle}>
         <h2 style={{ fontSize: 16, color: 'var(--color-label)', margin: 0, fontWeight: 600, flex: 1 }}>📚 本を追加</h2>
         <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={isSearching}>×</button>
@@ -394,12 +675,25 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
 
         <button
           type="button"
-          onClick={runSearch}
+          onClick={() => runSearch()}
           disabled={!hasInput || isSearching}
           style={{ ...searchBtnStyle, opacity: !hasInput || isSearching ? 0.5 : 1 }}
         >
           {isSearching ? '検索中…' : '🔍 検索'}
         </button>
+
+        {/* 📷 バーコードで追加（対応端末のみ）。iOS Safari 等 BarcodeDetector
+            未対応の端末では BARCODE_SUPPORTED=false → ボタン自体を非表示。 */}
+        {BARCODE_SUPPORTED && (
+          <button
+            type="button"
+            onClick={() => setScanning(true)}
+            disabled={isSearching}
+            style={{ ...manualBtnStyle, opacity: isSearching ? 0.5 : 1 }}
+          >
+            📷 バーコードで追加
+          </button>
+        )}
 
         {/* === 結果エリア (状態に応じて切替) === */}
 
@@ -426,7 +720,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '6px 0 10px', lineHeight: 1.7, whiteSpace: 'pre-line' }}>{error}</p>
             <button
               type="button"
-              onClick={runSearch}
+              onClick={() => runSearch()}
               style={{
                 padding: '10px 16px', borderRadius: 'var(--radius-md)', border: 'none',
                 background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',

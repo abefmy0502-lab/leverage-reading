@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBookMemos } from '../hooks/useBookMemos';
 import { useToast } from './Toast';
+import { useHaptic } from '../hooks/useHaptic';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { MemoListSkeleton } from './Skeleton';
@@ -38,6 +39,21 @@ const sortTab = (active) => ({
   fontFamily: 'inherit',
   borderRadius: 8,
   transition: 'background .15s',
+});
+
+const quoteChip = (active) => ({
+  alignSelf: 'flex-start',
+  minHeight: 44,
+  padding: '8px 14px',
+  border: active ? '1px solid #5c5043' : '1px solid #d4ccbe',
+  background: active ? '#5c5043' : '#faf6f0',
+  color: active ? '#faf6f0' : '#5c5548',
+  fontSize: 12,
+  fontWeight: active ? 600 : 500,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  borderRadius: 999,
+  transition: 'background .15s, color .15s, border-color .15s',
 });
 
 const addBtn = {
@@ -173,9 +189,11 @@ function SummarySection({ bookId, summaryText, onSaveSummary }) {
 export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSaveSummary }) {
   const [mode, setMode] = useState(loadInitialMode);
   const [sortBy, setSortBy] = useState('page');
+  const [quoteOnly, setQuoteOnly] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState(null);
   const toast = useToast();
+  const haptic = useHaptic();
   const confirm = useConfirm();
   const {
     memos,
@@ -221,6 +239,30 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
     if (nums.length === 0) return '';
     return Math.max(...nums);
   }, [memos]);
+
+  // 「📖 引用のみ」フィルタ: ページ番号が入っているメモ＝引用・抜き書きとみなす。
+  // 並び（page / created_desc）は useBookMemos 側で済んでいるので順序は保たれる。
+  const visibleMemos = useMemo(
+    () => (quoteOnly ? memos.filter((m) => Number.isFinite(m.pageNumber)) : memos),
+    [memos, quoteOnly]
+  );
+
+  // メモ本文をクリップボードへ。ページ番号があれば「(p.42)」を併記して引用作業を楽にする。
+  const handleCopy = async (memo) => {
+    const body = (memo?.text || '').trim();
+    if (!body) {
+      toast.error('コピーできる本文がありません');
+      return;
+    }
+    const text = Number.isFinite(memo.pageNumber) ? `${body} (p.${memo.pageNumber})` : body;
+    try {
+      await navigator.clipboard.writeText(text);
+      haptic.light();
+      toast.success('コピーしました');
+    } catch {
+      toast.error('コピーできませんでした');
+    }
+  };
 
   const openCreate = () => {
     setEditingMemo(null);
@@ -321,6 +363,15 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
         </button>
       </div>
 
+      <button
+        type="button"
+        style={quoteChip(quoteOnly)}
+        onClick={() => setQuoteOnly((v) => !v)}
+        aria-pressed={quoteOnly}
+      >
+        📖 引用のみ
+      </button>
+
       <button type="button" onClick={openCreate} style={addBtn}>
         ＋ 新しいメモ
       </button>
@@ -339,12 +390,25 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
         </div>
       )}
 
+      {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '28px 16px', color: '#5c5548' }}>
+          <div style={{ fontSize: 36, marginBottom: 6 }}>📖</div>
+          <p style={{ fontSize: 13, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>
+            ページ番号付きのメモがまだありません。
+          </p>
+          <p style={{ fontSize: 11, color: '#a89e8c', margin: '6px 0 0', lineHeight: 1.7 }}>
+            メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。
+          </p>
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {memos.map((m) => (
+        {visibleMemos.map((m) => (
           <BookMemoCard
             key={m.id}
             memo={m}
             onEdit={openEdit}
+            onCopy={handleCopy}
             onDelete={handleDelete}
             onSwipeDelete={handleSwipeDelete}
             onLongPress={(payload) => setMemoMenu(payload)}
@@ -394,6 +458,7 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
           onClose={() => setMemoMenu(null)}
           items={[
             { label: '編集', icon: '✏️', onClick: () => openEdit(memoMenu.memo) },
+            { label: 'コピー', icon: '📋', onClick: () => handleCopy(memoMenu.memo) },
             { label: '削除', icon: '🗑️', destructive: true, onClick: () => handleDelete(memoMenu.memo) },
           ]}
         />
