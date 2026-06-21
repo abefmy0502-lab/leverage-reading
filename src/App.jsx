@@ -13,6 +13,7 @@ import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './
 import HelpModal from './components/HelpModal';
 const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
+const ThemeReport = lazy(() => import('./components/ThemeReport'));
 const AdvisorHistoryList = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
 import AdvisorAddConfirmModal from './components/AdvisorAddConfirmModal';
@@ -4510,6 +4511,15 @@ function AuthedApp() {
               >
                 🧠 マイ読書脳
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aiSubTab === 'report'}
+                className={`sub-tab ${aiSubTab === 'report' ? 'active' : ''}`}
+                onClick={() => setAiSubTab('report')}
+              >
+                📊 テーマレポート
+              </button>
             </div>
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
@@ -4518,6 +4528,10 @@ function AuthedApp() {
                   sessionApi={advisorSessions}
                   books={books}
                 />
+              ) : aiSubTab === 'report' ? (
+                <Suspense fallback={<Spinner />}>
+                  <ThemeReport />
+                </Suspense>
               ) : (
                 <Suspense fallback={<Spinner />}>
                   <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />

@@ -15,6 +15,7 @@ export const LIMITS = {
   email: 254,
   actionText: 500,
   bookIsbn: 20,
+  theme: 40,
   // For per-memo text snippets sent into AI prompts (defense-in-depth).
   promptMemoExcerpt: 2000,
 };

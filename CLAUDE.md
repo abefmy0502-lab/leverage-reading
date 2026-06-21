@@ -11,14 +11,14 @@
 - **バックエンド**: Supabase (PostgreSQL + Auth + Storage)
 - **AI**: Anthropic Claude API（`api/claude.js` 経由のサーバーサイド中継）
 - **ホスティング**: Vercel
-- **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🎯 行動リスト（本横断 + 完了率 + 期限管理）、🧠 マイ読書脳（自分のメモを根拠にする AI Q&A + 本以外の学びログ）、🤖 AI 選書アドバイザー、PWA インストール
+- **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🎯 行動リスト（本横断 + 完了率 + 期限管理）、🧠 マイ読書脳（自分のメモを根拠にする AI Q&A + 本以外の学びログ）、📊 テーマレポート（テーマ横断でメモを統合し 1 枚のレポート化）、🤖 AI 選書アドバイザー、PWA インストール
 
 ### ナビゲーション構造
 
 下部ナビは **3 タブ**（旧 5 タブから整理）：
 - 📚 **本棚** — 本一覧（検索 / フィルタ / ソート / 続きから / 表紙グリッド or リスト切替）
 - 🔄 **振り返り** — サブタブで切替: 💭 ノート（ランダム想起 / タイムライン / 横断検索）/ 🎯 行動（本横断アクション + 完了率 + 期限色分け）
-- 🤖 **AI** — サブタブで切替: 🔍 AI 選書（課題ヒアリング → 推薦）/ 🧠 マイ読書脳（メモ根拠の AI Q&A + 学びログ + 履歴）
+- 🤖 **AI** — サブタブで切替: 🔍 AI 選書（課題ヒアリング → 推薦）/ 🧠 マイ読書脳（メモ根拠の AI Q&A + 学びログ + 履歴）/ 📊 テーマレポート（テーマ横断でメモを統合 → 1 枚のレポート + 履歴）
 
 設定 / ヘルプ / データダウンロード / 退会等はヘッダー右上の ⚙️ 設定モーダルから。
 
@@ -155,6 +155,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `review` | 振り返りタブ（ランダム想起 / タイムライン / 横断検索） |
 | `actionList` | 行動リストタブ（本横断 + 完了率 + 期限色分け、`ActionList.jsx`） |
 | `myBookBrain` | マイ読書脳（メモ根拠の AI Q&A + 学びログ + 履歴） |
+| `themeReport` | 📊 テーマレポート（テーマ横断でメモを統合 → 1 枚のレポート + 履歴、`ThemeReport.jsx`） |
 | `bookDetailWant` | 「読みたい」状態の本詳細 |
 | `bookDetailBefore` | 「読書前」状態の本詳細 |
 | `bookDetailReading` | 「読書中」状態の本詳細 |
@@ -192,6 +193,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_actions_scheduled.sql` | 繰り返しタスクの先取り完了防止。`actions.scheduled_for timestamptz` 列を追加 + 既存の暴走タスク (未来 deadline で未完了の繰り返し) をクリーンアップ DELETE する。クライアントは `useAllActions` で `scheduledFor > now` の行を非表示にし、達成率は今週/今月の rolling window に切替 (`stats.week / month / streak`)。schema-error fallback あり (未適用 DB では旧挙動: 即時 visible spawn を維持) |
 | `supabase_subscriptions.sql` | 💳 課金 entitlement の真実の源 — `subscriptions` テーブル新規 (`user_id` PK / `stripe_customer_id` / `stripe_subscription_id` / `status` / `price_id` / `current_period_end`)。RLS で SELECT は本人のみ・INSERT/UPDATE/DELETE は service_role のみ (Webhook が書く)。`useSubscription` フックが `status==='active'` で判定 |
 | `supabase_subscriptions_provider.sql` | 💳 App 決済 (IAP / RevenueCat) 対応 — `subscriptions` に `provider` / `rc_app_user_id` / `store` 列を idempotent 追加。Stripe (Web) と RevenueCat (IAP) を 1 テーブルで併存。`stripe_*` 列は NULL 許容のまま温存。entitlement は status='active' で無改修流用 |
+| `supabase_theme_reports.sql` | 📊 テーマレポートの保存先 — `theme_reports(user_id / theme / content / generated_at)` 新規 + RLS（自分の行のみ SELECT/INSERT/UPDATE/DELETE）。任意。未適用でも生成・コピーはその場で動作し、保存/履歴のみ無効化（クライアント ai.js の `saveThemeReport` / `loadThemeReports` / `deleteThemeReport` が schema-error fallback で graceful degradation） |
 | `supabase_ai_usage.sql` | 🤖 AI 利用量メータリング (KGI 原価ガード) — `ai_usage(user_id, period_month 'YYYY-MM', calls)` 新規 + 原子的 increment RPC (`increment_ai_usage`)。SELECT は本人のみ、書き込みは `api/claude.js` の service_role 経由。月次の累積コール上限 (`AI_MONTHLY_CALL_LIMIT`、既定 120) 超過で 429。fail-open / schema-fallback (未適用でも AI は止まらない)。連打 (マイ読書脳等) によるコスト青天井を止めるランナウェイガード |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
