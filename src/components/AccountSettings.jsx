@@ -15,7 +15,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import FeedbackForm from './FeedbackForm';
-import { exportUserDataAsCSV } from '../lib/exportData';
+import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
@@ -184,6 +184,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [exporting, setExporting] = useState(false);
+  const [exportingMd, setExportingMd] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -312,6 +313,22 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
       toast.error(toMessage(e, 'エクスポートに失敗しました。'));
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleExportMarkdown = async () => {
+    if (!user || !isSupabaseConfigured) {
+      toast.error('ログインが必要です。');
+      return;
+    }
+    setExportingMd(true);
+    try {
+      const { memos } = await exportMemosAsMarkdown(user.id);
+      toast.success(`Markdown を書き出しました（メモ ${memos} 件）`);
+    } catch (e) {
+      toast.error(toMessage(e, '書き出しに失敗しました。'));
+    } finally {
+      setExportingMd(false);
     }
   };
 
@@ -543,6 +560,12 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             </p>
             <button type="button" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
               {exporting ? '準備中…' : '📥 CSV をダウンロード'}
+            </button>
+            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '14px 0 10px', lineHeight: 1.7 }}>
+              メモを 1 つの Markdown ファイルにまとめて書き出します。NotebookLM や Obsidian などにそのまま取り込んで、自分の読書メモを AI 活用・執筆に使えます。
+            </p>
+            <button type="button" style={{ ...btnPrimary, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
+              {exportingMd ? '書き出し中…' : '📝 Markdown で書き出す'}
             </button>
           </section>
 

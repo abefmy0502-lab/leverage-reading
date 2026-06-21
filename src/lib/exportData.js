@@ -122,3 +122,99 @@ export async function exportUserDataAsCSV(userId, { onProgress } = {}) {
   }
   return summary;
 }
+
+function mdLine(s) {
+  // Single-line for a list item: drop CR, collapse newlines to spaces.
+  return String(s || '').replace(/\r/g, '').replace(/\n+/g, ' ').trim();
+}
+
+/**
+ * Export all memos as a single human-readable Markdown file, grouped by book.
+ *
+ * Why: Markdown is tool-independent — users can drop the file straight into
+ * NotebookLM / Obsidian / any editor to do their own AI synthesis or writing.
+ * It also removes any "my notes are locked in" fear (data portability /
+ * trust). One file (not per-table CSV) is the friendliest for those tools.
+ */
+export async function exportMemosAsMarkdown(userId) {
+  if (!userId) throw new Error('ログインが必要です。');
+  const date = todayYMD();
+
+  let books = [];
+  try {
+    const { data, error } = await supabase
+      .from('books')
+      .select('id, title, author, leverage_memo')
+      .eq('user_id', userId);
+    if (!error) books = data || [];
+  } catch (e) {
+    console.warn('exportMemosAsMarkdown: books fetch failed', e?.message || e);
+  }
+
+  let memos = [];
+  try {
+    const { data, error } = await supabase
+      .from('book_memos')
+      .select('id, text, page_number, tags, source_type, book_id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    if (!error) memos = data || [];
+  } catch (e) {
+    console.warn('exportMemosAsMarkdown: memos fetch failed', e?.message || e);
+  }
+
+  const lines = [];
+  lines.push(`# Orime 読書メモ（${date}）`, '');
+  lines.push(
+    '> Orime からの書き出しです。Markdown 形式なので、NotebookLM や Obsidian などにそのまま取り込んで活用できます。',
+    '',
+  );
+
+  let bookCount = 0;
+  for (const b of books) {
+    const bookMemos = memos.filter((m) => m.book_id === b.id && m.source_type !== 'personal');
+    const hasSummary = b.leverage_memo && String(b.leverage_memo).trim();
+    if (!bookMemos.length && !hasSummary) continue; // メモの無い本は出さない
+    bookCount += 1;
+    const author = b.author ? ` — ${b.author}` : '';
+    lines.push(`## ${b.title || '（無題）'}${author}`, '');
+    if (hasSummary) {
+      lines.push('### まとめメモ', '', String(b.leverage_memo).replace(/\r/g, '').trim(), '');
+    }
+    if (bookMemos.length) {
+      lines.push('### カード式メモ', '');
+      for (const m of bookMemos) {
+        const page = Number.isFinite(m.page_number) ? `（p.${m.page_number}）` : '';
+        const tags = Array.isArray(m.tags)
+          ? m.tags
+              .filter((t) => typeof t === 'string' && !t.startsWith('@'))
+              .map((t) => `#${t.replace(/^#/, '')}`)
+              .join(' ')
+          : '';
+        const meta = [page, tags].filter(Boolean).join(' ');
+        const dt = (m.created_at || '').slice(0, 10);
+        lines.push(`- ${mdLine(m.text)}${meta ? ` ${meta}` : ''}${dt ? `  _(${dt})_` : ''}`);
+      }
+      lines.push('');
+    }
+  }
+
+  const personal = memos.filter((m) => m.source_type === 'personal');
+  if (personal.length) {
+    lines.push('## 本以外の学び', '');
+    for (const m of personal) {
+      const cat = Array.isArray(m.tags)
+        ? m.tags.find((t) => typeof t === 'string' && t.startsWith('@')) || ''
+        : '';
+      const catLabel = cat ? `[${cat.slice(1)}] ` : '';
+      const dt = (m.created_at || '').slice(0, 10);
+      lines.push(`- ${catLabel}${mdLine(m.text)}${dt ? `  _(${dt})_` : ''}`);
+    }
+    lines.push('');
+  }
+
+  const md = lines.join('\n');
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+  downloadBlob(`orime-memos-${date}.md`, blob);
+  return { books: bookCount, memos: memos.length };
+}
