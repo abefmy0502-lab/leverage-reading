@@ -269,6 +269,13 @@ export default function MyBookBrain({ onOpenBook }) {
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
+  // ストリーミング中の AbortController。送信ごとに作り直し、「中止」ボタンで
+  // abort() する。abort 後は streamMyBookBrain が途中までの内容で正常終了する
+  // ので、その時点の本文をそのまま確定 (DB 保存) する。
+  const abortRef = useRef(null);
+  // 「中止」を押した瞬間に true。trailing なエラートーストを抑止し、
+  // ボタン表示 (中止中…) の即時フィードバックに使う。
+  const [aborting, setAborting] = useState(false);
   // chat-scroll を直接掴んで scrollHeight ベースのオートスクロールを使う
   // (messagesEndRef.scrollIntoView だと document も巻き込んで動くため)。
   const chatScrollRef = useRef(null);
@@ -402,7 +409,12 @@ export default function MyBookBrain({ onOpenBook }) {
     if (!q || busy) return;
 
     setBusy(true);
+    setAborting(false);
     setInput('');
+
+    // 送信ごとに新しい AbortController。「中止」ボタンが abort() する。
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     // Optimistic insert: show the user's message immediately.
     let userRow = null;
@@ -437,14 +449,19 @@ export default function MyBookBrain({ onOpenBook }) {
     ]);
     setStage('search');
 
+    // ストリーミングで届いた最新の可視テキスト。abort 時に refs パースが
+    // 走らなくても、ここに溜めた本文をそのまま確定できるよう保持する。
+    let lastVisible = '';
     try {
       const { body, refs, memoCount, memoTotal, cardCount, summaryCount, personalCount } = await streamMyBookBrain({
         userId: user.id,
         question: q,
+        signal: controller.signal,
         onStage: (s) => setStage(s),
         onChunk: (visibleText) => {
           // 最初の delta が来た瞬間に stage を消して本文表示に切り替える。
           setStage(null);
+          lastVisible = visibleText;
           setMessages((arr) => arr.map((m) =>
             m.id === streamingId
               ? { ...m, content: visibleText, streaming: true }
@@ -452,13 +469,25 @@ export default function MyBookBrain({ onOpenBook }) {
           ));
         },
       });
+      // abort 時は streamMyBookBrain が途中までの body で正常 resolve する。
+      // body が空 (= 1 文字も生成される前に中止) の場合は lastVisible で補い、
+      // それも空なら中止メッセージを残す。
+      const wasAborted = controller.signal.aborted;
+      const finalBody = (body && body.trim())
+        ? body
+        : (lastVisible && lastVisible.trim())
+          ? lastVisible
+          : (wasAborted ? '（回答を中止しました）' : body);
       const breakdown = `カード ${cardCount || 0} / まとめ ${summaryCount || 0} / 学び ${personalCount || 0}`;
-      const assistantContent = memoTotal > memoCount && memoCount > 0
-        ? `${body}\n\n（参照: ${memoCount}/${memoTotal} 件、内訳: ${breakdown}）`
-        : body;
+      const base = (!wasAborted && memoTotal > memoCount && memoCount > 0)
+        ? `${finalBody}\n\n（参照: ${memoCount}/${memoTotal} 件、内訳: ${breakdown}）`
+        : finalBody;
+      // 中止した場合は末尾に控えめな注記を付ける (refs は付けない)。
+      const assistantContent = wasAborted ? `${base}\n\n— ⏹ ここで中止しました` : base;
+      const persistRefs = wasAborted ? [] : refs;
       const { data, error } = await supabase
         .from('chat_messages')
-        .insert([{ user_id: user.id, role: 'assistant', content: assistantContent, refs }])
+        .insert([{ user_id: user.id, role: 'assistant', content: assistantContent, refs: persistRefs }])
         .select()
         .single();
       if (error) throw error;
@@ -467,14 +496,20 @@ export default function MyBookBrain({ onOpenBook }) {
       // 新しい AI 回答が来たら resolution prompt を再表示できるよう dismiss を解除
       setPromptDismissed(false);
     } catch (e) {
-      toast.error(toMessage(e, '回答の生成に失敗しました。'));
+      // abort はエラーではない (streamMyBookBrain は正常 resolve するため通常
+      // ここには来ないが、念のため abort 由来の例外はトーストしない)。
+      if (!(controller.signal.aborted || (e && e.name === 'AbortError'))) {
+        toast.error(toMessage(e, '回答の生成に失敗しました。'));
+      }
       // 楽観的な streaming 行を error placeholder に差し替える。
       setMessages((arr) => arr.map((m) =>
         m.id === streamingId
           ? {
               id: `err-${Date.now()}`,
               role: 'assistant',
-              content: '回答を生成できませんでした。少し時間をおいて再度お試しください。',
+              content: controller.signal.aborted
+                ? '回答を中止しました。'
+                : '回答を生成できませんでした。少し時間をおいて再度お試しください。',
               refs: [],
               createdAt: new Date().toISOString(),
             }
@@ -482,9 +517,23 @@ export default function MyBookBrain({ onOpenBook }) {
       ));
       setPromptDismissed(false);
     } finally {
+      // この run の controller が現役なら掃除する (新しい送信が始まっていれば
+      // 上書きしない)。
+      if (abortRef.current === controller) abortRef.current = null;
       setStage(null);
       setBusy(false);
+      setAborting(false);
     }
+  };
+
+  // 「中止」ボタン: 進行中のストリームを止める。abort 後は streamMyBookBrain が
+  // 途中までの内容で正常終了し、ask() の try ブロックがその時点で確定する。
+  const stopStreaming = () => {
+    const controller = abortRef.current;
+    if (!controller || controller.signal.aborted) return;
+    setAborting(true);
+    setStage(null);
+    try { controller.abort(); } catch { /* ignore */ }
   };
 
   // 「✅ 解決した」: chat view を空に戻す。DB は消さないので履歴タブには残る。
@@ -609,7 +658,10 @@ export default function MyBookBrain({ onOpenBook }) {
       {view === 'history' && (
         <div style={viewScroll}>
         <PullToRefresh onRefresh={fetchHistory}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* 履歴は静的な過去ログなので live region にはしない (mount 時の
+              過剰読み上げを避ける)。region + ラベルで構造だけ与える。 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} role="region" aria-label="過去の質問と回答">
+
             <div>
               <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>🕒 過去の質問と答え</p>
               <p style={{ fontSize: 11, color: '#8a7e6b', margin: '2px 0 0', lineHeight: 1.7 }}>
@@ -652,7 +704,16 @@ export default function MyBookBrain({ onOpenBook }) {
           高さを与え、ここはそれを継承する。 */}
       {view === 'chat' && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <div ref={chatScrollRef} className="chat-scroll" style={{ padding: '0 0 12px' }}>
+          <div
+            ref={chatScrollRef}
+            className="chat-scroll"
+            style={{ padding: '0 0 12px' }}
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions text"
+            aria-label="マイ読書脳との会話"
+            aria-busy={busy}
+          >
           {isEmpty && historyLoaded && (
             (memoStats.cards + memoStats.summaries + memoStats.personal) === 0 ? (
               // メモが 1 件もない時は、AI に質問させる前に「まず 1 冊メモを残そう」を
@@ -790,22 +851,36 @@ export default function MyBookBrain({ onOpenBook }) {
               maxLength={LIMITS.aiQuestion}
               aria-label="マイ読書脳への質問"
             />
-            <button
-              type="button"
-              className="send-btn"
-              onClick={() => ask()}
-              disabled={busy || !input.trim()}
-              aria-label={busy ? '送信中' : '送信'}
-              title={busy ? '送信中…' : '送信'}
-            >
-              {busy ? (
-                <span aria-hidden="true" style={{ fontSize: 11, fontWeight: 600 }}>…</span>
-              ) : (
+            {busy ? (
+              // ストリーミング中は送信ボタンを「中止」ボタンに切り替える。
+              // 押すと現在の生成を止め、その時点の内容で確定する。
+              <button
+                type="button"
+                className="send-btn stop-btn"
+                onClick={stopStreaming}
+                disabled={aborting}
+                aria-label={aborting ? '中止しています' : '回答を中止'}
+                title={aborting ? '中止しています…' : '回答を中止'}
+              >
+                {/* ■ 停止アイコン (四角)。アクセシビリティは aria-label で担保。 */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="send-btn"
+                onClick={() => ask()}
+                disabled={!input.trim()}
+                aria-label="送信"
+                title="送信"
+              >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M2 12 22 2 13 22 11 13 2 12Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
                 </svg>
-              )}
-            </button>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -844,11 +919,20 @@ function ChatMessage({ message, onOpenBook, stage }) {
   const showStageBlock = isStreaming && !hasBody;
 
   return (
-    <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+    <div
+      style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}
+      role="article"
+      aria-label={isUser ? 'あなたの質問' : 'マイ読書脳の回答'}
+      // ストリーミング中は aria-busy=true。読み上げの過剰更新を抑え、
+      // 完了 (busy=false) 時にまとまった本文として読まれるようにする。
+      aria-busy={isStreaming || undefined}
+    >
       <div style={bubbleStyle}>
         {showStageBlock ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div className="ai-thinking" aria-live="polite">
+            {/* 親が role="log" aria-live なので、ここで二重に live 領域を
+                作らない (aria-live を外す)。状態テキストは親が拾う。 */}
+            <div className="ai-thinking">
               <span className="ai-thinking-dot" aria-hidden="true" />
               <span>{STAGE_LABEL[stage] || '🧠 回答を準備中…'}</span>
             </div>

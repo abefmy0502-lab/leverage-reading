@@ -1085,6 +1085,15 @@ body.keyboard-open .ai-input-area {
   opacity: 0.4;
   cursor: not-allowed;
 }
+/* ストリーミング中の「中止」ボタン。送信ボタンと同じ円形だが、
+   進行を止める破壊的アクションなので少しトーンを変える (落ち着いた
+   グレー系)。アイコンは ■ 停止記号。 */
+.ai-input-area .send-btn.stop-btn {
+  background: var(--color-secondary, #5c5043);
+}
+.ai-input-area .send-btn.stop-btn:disabled {
+  opacity: 0.5;
+}
 
 /* 例チップ — タップで textarea に流し込む。AI 選書の中央余白を埋め、
    入力のハードルを下げる。 */

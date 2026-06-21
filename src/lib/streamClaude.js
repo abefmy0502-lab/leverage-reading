@@ -7,14 +7,28 @@
 //
 // onChunk(fullText, delta) fires for every content_block_delta the server
 // emits. onDone(finalText) fires once when the stream completes. onError
-// receives any thrown error (network, non-OK status, abort). The returned
-// promise resolves after onDone (or onError) runs so callers can await the
-// whole exchange when convenient.
+// receives any thrown error (network, non-OK status).
+//
+// Abort: pass an AbortSignal as `signal`. When the caller aborts mid-stream we
+// treat it as a *normal* early finish — the partial text collected so far is
+// kept, onDone(fullText) fires (NOT onError), and the resolved value is the
+// partial text. This lets the UI keep whatever was generated up to the stop.
+// The returned promise resolves after onDone (or onError) runs so callers can
+// await the whole exchange when convenient.
 
 import { supabase, isSupabaseConfigured } from './supabase';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
 const DEFAULT_MAX_TOKENS = 2048;
+
+// fetch() rejects with a DOMException named 'AbortError' when the attached
+// AbortSignal fires. We also defensively check signal.aborted in case the
+// rejection surfaces as a plain Error in some runtimes.
+function isAbortError(e, signal) {
+  if (signal && signal.aborted) return true;
+  if (!e) return false;
+  return e.name === 'AbortError' || e.code === 20 || e.code === 'ABORT_ERR';
+}
 
 async function getAccessToken() {
   if (!isSupabaseConfigured) return null;
@@ -99,6 +113,10 @@ export async function streamClaude({
     let buffer = '';
 
     while (true) {
+      // Aborting cancels reader.read() (it rejects with AbortError, handled in
+      // the outer catch). Checking signal.aborted here gives us a clean,
+      // synchronous early exit between reads as a belt-and-braces guard.
+      if (signal?.aborted) break;
       // eslint-disable-next-line no-await-in-loop
       const { done, value } = await reader.read();
       if (done) break;
@@ -136,6 +154,12 @@ export async function streamClaude({
     onDone?.(fullText);
     return fullText;
   } catch (e) {
+    // User-initiated abort: not an error. Keep the partial text, fire onDone
+    // (so the same completion path runs), and resolve with what we have.
+    if (isAbortError(e, signal)) {
+      try { onDone?.(fullText); } catch { /* swallow */ }
+      return fullText;
+    }
     if (onError) {
       try { onError(e); } catch { /* swallow */ }
     } else {

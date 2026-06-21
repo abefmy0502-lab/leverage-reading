@@ -367,7 +367,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
         <span style={{ width: 50 }} />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} role="region" aria-label="AI 選書の会話">
         {messages.length === 0 ? (
           <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: 20 }}>
             メッセージがありません。
@@ -381,7 +381,12 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             const text = isUser ? raw : stripRecommendations(raw);
             if (!text) return null; // JSON だけのメッセージは非表示
             return (
-              <div key={i} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+              <div
+                key={i}
+                style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}
+                role="article"
+                aria-label={isUser ? 'あなたの相談' : 'AI の提案'}
+              >
                 <div
                   style={{
                     maxWidth: '85%',

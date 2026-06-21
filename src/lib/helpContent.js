@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-06-21: 🧠 マイ読書脳の回答ストリーミングを途中で止められるようにした (UX 改善)。長い AI 回答の生成中、送信ボタンが「中止」(■) ボタンに変わり、押すとその時点までの内容で確定して入力可能状態に戻る (streamClaude に AbortSignal を配線、abort はエラー扱いせず部分テキストを保持して onDone で正常終了 → ai.js streamMyBookBrain が partial body を返す → MyBookBrain が中止注記付きで DB 保存)。あわせてチャットのアクセシビリティを強化 — 会話スクロール領域に role="log" + aria-live="polite" + aria-busy、各メッセージに role="article" + ラベル、ストリーミング中は aria-busy で読み上げの過剰更新を抑制。履歴ビュー / AI 選書の会話履歴 (AdvisorHistory) にも region/article role を付与。myBookBrain ヘルプの「質問する」ステップに中止できる旨を追記
  * - 2026-06-21: 🌱 コールドスタート（新規ユーザーが本0冊・メモ0件で核価値を体感できない）の緩和。説明で終わらせず「行動」に繋ぐ軽い改善を追加。(1) オンボーディング最終カードの主 CTA を「📚 さっそく1冊、追加してみる」に変更し、閉じた直後に本追加（AddBookModal）を直接開くよう配線（onStart）。(2) 本棚の空状態コピーを価値先行＋「あとで想起として戻ってくる」予感つきに刷新（「まずは1冊、置いてみましょう」＋「最初の1冊を追加」）。(3) reading/done のカード式メモ空状態を「気になった一行を残すと、あとで振り返りの想起として戻ってくる」導線に変更。(4) マイ読書脳のメモ0件時に、質問例より先に「まずは1冊、メモを残すところから」を促す案内へ差し替え（空振り防止）。ユーザー可視フロー変更につき bookList / bookDetailReading / memoEditor / myBookBrain のヘルプを同期
  * - 2026-06-21: 💴 Web（Stripe）ソフトローンチに向けた価格改定 + 法務のチャネル整合。表示価格を月額 ¥990 →¥1,280（税込）/ 年額 ¥10,800（税込・月あたり約¥900）に更新（決済額は Stripe Price 設定が真実 — 表示コピーのみ変更）。billing ヘルプキーの「価格について」「お支払いについて（クレジットカード/Stripe 明記）」「解約・カードの変更（Stripe プラン管理ページ）」を新価格・Web チャネル前提に同期。あわせて billing.js の PLAN_LABELS 既定値を更新し「1 日約33円」の安さ訴求を削除（控えめな安心文言「いつでも解約OK・データは残ります」に置換）。LP（Landing.jsx）の「1 日 ¥33」「缶コーヒー 1 本より安く」「ビジネス書 1 冊の 1/1.65」等の安さフレーミングを全削除し、価値＋安心（10秒で解約・違約金ゼロ・データ保持）に置換。法務（TermsPage 第4〜6条 / SctPage / legal/terms.md / legal/tokushoho.md）を Web=Stripe(クレカ)/App=各ストア IAP の両チャネル併記に整合（価格・決済・自動更新・解約・返金・Apple EULA の適用範囲を明確化）。プライバシーポリシーの委託先一覧は価格非依存のため変更なし
  * - 2026-06-21: 💳 Web 版収益化（Stripe ソフトローンチ）。全機能有料のハードペイウォールを導入。認証済みかつ未課金（useSubscription の !isActive && !loading）のとき本棚等の手前で全画面ペイウォール `<Paywall>` を表示（loading 中はスピナー、isActive で通常アプリ）。月額＋年額の 2 プラン対応（価格非依存 — Stripe Price ID は env `STRIPE_PRICE_ID_MONTHLY` / `STRIPE_PRICE_ID_ANNUAL` で指定、旧 `STRIPE_PRICE_ID` は monthly フォールバック。表示ラベルは `PLAN_LABELS`／env `VITE_PRICE_MONTHLY_LABEL` 等で、実価格は Stripe 側が真実）。ペイウォールは brand-messaging 準拠の静かな構成（価値プレビュー 4 点＋年額主役/月額控えめ＋解約自由・データ保持の安心コピー）。AccountSettings に「💳 プラン」セクション（状態 / 次回更新日表示・Customer Portal 導線・未課金時のアップグレード導線）を追加。Checkout 復帰（?checkout=success）は webhook 反映ラグ対策で refresh を数回リトライ、?checkout=cancel は静かに戻す。詰み防止: subscriptions テーブル未適用（schema-error）時は判定不能とみなして fail-open（ロックせず通す）。ユーザー可視の課金 UI 追加に伴い `billing` ヘルプキーを新設。CLAUDE.md のヘルプキー表にも追記
@@ -545,6 +546,7 @@ export const HELP_CONTENT = {
         bullets: [
           '具体的に書くほど精度が上がる',
           '参照された本・メモが回答に表示',
+          '回答が長い時は「中止」(■) ボタンで途中で止められる(そこまでの内容は残ります)',
         ],
       },
       {
