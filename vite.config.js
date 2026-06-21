@@ -9,11 +9,6 @@ import react from '@vitejs/plugin-react';
 // の出力のみ行う。
 export default defineConfig({
   plugins: [react()],
-  // ⚠️ TODO(2026-05-11): __APP_BUILD__ ラベルは PWA cache 診断用。
-  // 1 週間後 (2026-05-11) に App.jsx の <BuildLabel> と一緒に削除する。
-  define: {
-    __APP_BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')),
-  },
   build: {
     sourcemap: true,
   },

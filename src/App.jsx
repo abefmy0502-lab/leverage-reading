@@ -1597,16 +1597,13 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   //      は title/author だけ。addFromAdvisor 側の bg resolver に解決を任せる)
   // ---------------------------------------------------------------------------
   const proceedAdd = (verifiedRec) => {
-    // eslint-disable-next-line no-console
-    console.time(`[advisor-add] ${verifiedRec.title}`);
     // すべての I/O を Promise.resolve().then で次の tick へ。handler 同期維持。
     Promise.resolve().then(async () => {
       let summary = null;
       try {
         summary = await summarizeAdvisorConversation(messages, verifiedRec);
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('[advisor-summary] failed:', e?.message || e);
+      } catch {
+        /* 要約失敗は非クリティカル。空のまま保存に進む。 */
       }
       try {
         const saved = await onAddBook(verifiedRec, {
@@ -1619,17 +1616,12 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         if (saved?.id && currentSessionId && sessionApi?.available) {
           try { await sessionApi.addBookToSession(currentSessionId, saved.id); } catch { /* non-critical */ }
         }
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error(`[advisor-add] failed (${verifiedRec.title}):`, e);
+      } catch {
         setAddedTitles((prev) => {
           const next = new Set(prev);
           next.delete(verifiedRec.title);
           return next;
         });
-      } finally {
-        // eslint-disable-next-line no-console
-        console.timeEnd(`[advisor-add] ${verifiedRec.title}`);
       }
     });
   };
@@ -1654,17 +1646,14 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         if (matched.length === 0) {
           // 該当なし → 旧フローに任せる (addFromAdvisor 内で再 search +
           // bg resolver が title/author から ISBN を探す)
-          // eslint-disable-next-line no-console
-          console.log(`[advisor-add] no strict match, falling back to direct add`);
           proceedAdd(rec);
           return;
         }
         // 1 件以上 → 視覚確認モーダルへ。AddedTitles はすでに反映済みだが、
         // ユーザーがキャンセルしたら rollback する (handleConfirmCancel で対応)。
         setConfirmAdd({ rec, candidates: matched });
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn(`[advisor-add] search failed, fallback to direct add:`, e);
+      } catch {
+        // search 失敗時は直接追加へフォールバック
         proceedAdd(rec);
       }
     });
@@ -1870,10 +1859,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     type="button"
                     disabled={addedTitles.has(rec.title)}
                     onClick={(e) => {
-                      // 🔍 診断: クリックが DOM ハンドラに到達したことを確認。
-                      // ⚠️ TODO(2026-05-11): 「読みたい」ボタン無反応問題の解決後に削除。
-                      // eslint-disable-next-line no-console
-                      console.log('[読みたい:advisor-live]', 'タップ', rec.title, new Date().toISOString());
                       e.stopPropagation();
                       handleClickAdd(rec);
                     }}
@@ -2796,9 +2781,8 @@ function AuthedApp() {
           newBook.cover = url;
           newBook.coverIsbn = String(newBook.isbn).replace(/[-\s]/g, '');
         }
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('[advisor-add] sync cover resolve failed:', e?.message || e);
+      } catch {
+        /* 同期表紙解決の失敗は非クリティカル。bg resolver に委ねる。 */
       }
     }
     try {
@@ -3088,19 +3072,9 @@ function AuthedApp() {
   // 何も起きない (toast も「追加済み」表示も出ない) 体験になっていた。
   // 新実装は fire-and-forget + 即時 UI 反映 + 診断ログで根治。
   const addRelatedBookFromAi = ({ title, author = '' }) => {
-    // eslint-disable-next-line no-console
-    console.log('[related-add] handler reached:', { title, author });
-    if (!title || !title.trim()) {
-      // eslint-disable-next-line no-console
-      console.warn('[related-add] empty title, ignored');
-      return;
-    }
+    if (!title || !title.trim()) return;
     const trimmedTitle = title.trim();
-    if (addedRelatedTitles.has(trimmedTitle)) {
-      // eslint-disable-next-line no-console
-      console.log('[related-add] already added (UI), ignored');
-      return;
-    }
+    if (addedRelatedTitles.has(trimmedTitle)) return;
 
     // 触覚で即時 ack (画面の見た目とは別経路で「タップ受付」を確実に伝える)。
     try { haptic.light(); } catch { /* non-critical */ }
@@ -3113,14 +3087,10 @@ function AuthedApp() {
 
     // ★ 2. 既存本との重複チェックを背景で。dup なら confirm 経由で既存本を
     //      開く (旧フローと同じ)。dup でユーザーが戻ったら UI をロールバック。
-    // eslint-disable-next-line no-console
-    console.time(`[related-add] ${trimmedTitle}`);
     Promise.resolve().then(async () => {
       try {
         const dup = await handleDuplicateGate({ title: trimmedTitle, author });
         if (dup) {
-          // eslint-disable-next-line no-console
-          console.log('[related-add] duplicate detected, rolling back UI');
           setAddedRelatedTitles((prev) => {
             const next = new Set(prev);
             next.delete(trimmedTitle);
@@ -3153,16 +3123,14 @@ function AuthedApp() {
                 newBook.coverIsbn = first.isbn ? String(first.isbn).replace(/[-\s]/g, '') : '';
               }
             } else {
-              // eslint-disable-next-line no-console
-              console.warn('[related-add] search top hit not strict match:', { wanted: trimmedTitle, got: first.title });
+              // 厳格マッチ外なので ISBN/cover は採用せず手動扱い (誤マッチ回避)
               newBook.addedVia = 'manual';
             }
           } else {
             newBook.addedVia = 'manual';
           }
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.warn('[related-add] search failed, fallback to manual:', e?.message || e);
+        } catch {
+          // 検索失敗時は手動扱いにして bg resolver に委ねる
           newBook.addedVia = 'manual';
         }
 
@@ -3175,20 +3143,15 @@ function AuthedApp() {
               newBook.cover = url;
               newBook.coverIsbn = String(newBook.isbn).replace(/[-\s]/g, '');
             }
-          } catch (e) {
-            // eslint-disable-next-line no-console
-            console.warn('[related-add] sync cover resolve failed:', e?.message || e);
+          } catch {
+            /* 同期表紙解決の失敗は非クリティカル。bg resolver に委ねる。 */
           }
         }
 
         const saved = await saveBook(newBook);
-        // eslint-disable-next-line no-console
-        console.log('[related-add] saved:', saved?.id);
         resolveCoverInBackground(saved);
         toast.success(`「${trimmedTitle}」を読みたいに追加しました`);
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(`[related-add] failed (${trimmedTitle}):`, error);
         // 失敗時は UI rollback してエラー表示
         setAddedRelatedTitles((prev) => {
           const next = new Set(prev);
@@ -3200,9 +3163,6 @@ function AuthedApp() {
         } else {
           toast.error(toMessage(error, '本の追加に失敗しました。'));
         }
-      } finally {
-        // eslint-disable-next-line no-console
-        console.timeEnd(`[related-add] ${trimmedTitle}`);
       }
     });
   };
@@ -4703,35 +4663,7 @@ function AuthedApp() {
       <UpdateBanner safe={safeForUpdate} />
 
       <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
-      <BuildLabel />
     </Shell>
-  );
-}
-
-// 🔍 PWA cache 診断用ラベル — ビルド時刻を画面右下に表示。
-// iPhone PWA で「新コードが届いているか」を一目で確認するため。
-// ⚠️ TODO(2026-05-11): 1 週間後に <BuildLabel /> 呼び出しと本コンポーネント、
-//    vite.config.js の __APP_BUILD__ define、CSP の不要な許可を全て削除する。
-function BuildLabel() {
-  if (typeof __APP_BUILD__ === 'undefined') return null;
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: 'fixed',
-        bottom: 'calc(68px + env(safe-area-inset-bottom, 0px))',
-        right: 6,
-        fontSize: 9,
-        lineHeight: 1.2,
-        color: 'rgba(60, 50, 40, 0.32)',
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-        pointerEvents: 'none',
-        zIndex: 1,
-        userSelect: 'none',
-      }}
-    >
-      {__APP_BUILD__}
-    </div>
   );
 }
 
