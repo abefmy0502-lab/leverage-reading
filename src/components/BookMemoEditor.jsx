@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppDataCache } from '../state/AppDataCache';
 import { toMessage } from '../lib/errors';
 import { LIMITS, validateImageFile } from '../lib/limits';
+import PhotoToTextButton from './PhotoToTextButton';
 import { ensureHttps } from '../lib/url';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
@@ -373,6 +374,13 @@ export default function BookMemoEditor({
             style={ta}
             maxLength={LIMITS.memoText}
           />
+          <div style={{ marginTop: 8 }}>
+            <PhotoToTextButton
+              onText={(t) =>
+                setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
+              }
+            />
+          </div>
         </div>
 
         <div>

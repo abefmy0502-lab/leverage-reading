@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
+import PhotoToTextButton from './PhotoToTextButton';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
@@ -286,6 +287,13 @@ export default function QuickMemoSheet({
               style={ta}
               maxLength={LIMITS.memoText}
             />
+            <div style={{ marginTop: 8 }}>
+              <PhotoToTextButton
+                onText={(t) =>
+                  setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
+                }
+              />
+            </div>
           </div>
           {errorMsg && (
             <p style={{ color: '#a05040', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
