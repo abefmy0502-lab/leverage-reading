@@ -3916,7 +3916,7 @@ function AuthedApp() {
             otherwise tapping "アプリ全体の使い方を最初から見る" from the help
             modal here looks like nothing happens until the user navigates
             back to the bookshelf. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} />}
 
         {detailKebab && (
           <ContextMenu
@@ -4105,7 +4105,7 @@ function AuthedApp() {
         )}
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} />}
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} hidden={keyboardOpen} />
       </Shell>
     );
@@ -4375,10 +4375,10 @@ function AuthedApp() {
                 rawBooks.length === 0 ? (
                   <EmptyState
                     icon="📚"
-                    title="本を追加しましょう"
-                    description="読書を「投資」に変える旅をスタート。"
+                    title="まずは1冊、置いてみましょう"
+                    description="読んだ気づきは、ここに少しずつ貯まっていきます。あとで振り返りで、ふいに戻ってきます。"
                     actions={[
-                      { label: '📚 本を追加', onClick: openAdd, variant: 'primary' },
+                      { label: '📚 最初の1冊を追加', onClick: openAdd, variant: 'primary' },
                     ]}
                     tip={(
                       <span style={{ display: 'block' }}>
@@ -4517,7 +4517,7 @@ function AuthedApp() {
         )}
       </div>
 
-      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} />}
+      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} />}
 
       {bookContextMenu && (
         <ContextMenu

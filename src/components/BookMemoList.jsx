@@ -330,9 +330,11 @@ export default function BookMemoList({ bookId, bookTitle, summaryText = '', onSa
       {!loading && memos.length === 0 && (
         <div style={{ textAlign: 'center', padding: '28px 16px', color: '#5c5548' }}>
           <div style={{ fontSize: 36, marginBottom: 6 }}>📝</div>
-          <p style={{ fontSize: 13, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>まだメモがありません。</p>
+          <p style={{ fontSize: 13, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>
+            読みながら気になった一行を、ひとつ残してみましょう。
+          </p>
           <p style={{ fontSize: 11, color: '#a89e8c', margin: '6px 0 0', lineHeight: 1.7 }}>
-            「＋ 新しいメモ」から最初の1件を追加しましょう。
+            残した一行は、あとで「振り返り」の想起として、ふいに戻ってきます。
           </p>
         </div>
       )}

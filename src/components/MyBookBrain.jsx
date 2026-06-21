@@ -654,36 +654,50 @@ export default function MyBookBrain({ onOpenBook }) {
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div ref={chatScrollRef} className="chat-scroll" style={{ padding: '0 0 12px' }}>
           {isEmpty && historyLoaded && (
-            <div style={card}>
-              <p style={{ fontSize: 12, color: '#5c5548', margin: '0 0 8px', fontWeight: 500 }}>💡 質問例（タップで入力）</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {QUESTION_EXAMPLES.map((ex) => (
-                  <button
-                    key={ex}
-                    type="button"
-                    onClick={() => setInput(ex)}
-                    style={{
-                      textAlign: 'left',
-                      padding: '8px 12px',
-                      background: '#fff',
-                      border: '1px solid #e4ddd0',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      color: '#3d362c',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    {ex}
-                  </button>
-                ))}
-              </div>
-              {(memoStats.cards + memoStats.summaries + memoStats.personal) === 0 && (
-                <p style={{ fontSize: 11, color: '#a05040', marginTop: 10, lineHeight: 1.7 }}>
-                  まだメモが 1 件もありません。本を読んでメモを書くほど、マイ読書脳があなただけの AI に育っていきます 🌱
+            (memoStats.cards + memoStats.summaries + memoStats.personal) === 0 ? (
+              // メモが 1 件もない時は、AI に質問させる前に「まず 1 冊メモを残そう」を
+              // 先に促す。空のまま質問しても根拠がなく、体験が空振りするため。
+              <div style={card}>
+                <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: '0 0 8px' }}>
+                  🌱 まずは1冊、メモを残すところから
                 </p>
-              )}
-            </div>
+                <p style={{ fontSize: 12, color: '#5c5548', margin: 0, lineHeight: 1.8 }}>
+                  マイ読書脳は、あなた自身のメモを根拠に答えます。<br />
+                  本棚で1冊えらび、気になった一行を残してみてください。メモが増えるほど、あなただけの AI に育っていきます。
+                </p>
+                {onOpenBook && (
+                  <p style={{ fontSize: 11, color: '#8a7e6b', margin: '10px 0 0', lineHeight: 1.7 }}>
+                    （メモがたまると、ここで質問に答えられるようになります）
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div style={card}>
+                <p style={{ fontSize: 12, color: '#5c5548', margin: '0 0 8px', fontWeight: 500 }}>💡 質問例（タップで入力）</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {QUESTION_EXAMPLES.map((ex) => (
+                    <button
+                      key={ex}
+                      type="button"
+                      onClick={() => setInput(ex)}
+                      style={{
+                        textAlign: 'left',
+                        padding: '8px 12px',
+                        background: '#fff',
+                        border: '1px solid #e4ddd0',
+                        borderRadius: 8,
+                        fontSize: 13,
+                        color: '#3d362c',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
           )}
 
           {!historyLoaded && <Spinner message="読み込み中…" />}

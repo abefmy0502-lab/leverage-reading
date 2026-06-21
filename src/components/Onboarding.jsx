@@ -137,7 +137,7 @@ const closeBtnStyle = {
   justifyContent: 'center',
 };
 
-export default function Onboarding({ onClose }) {
+export default function Onboarding({ onClose, onStart }) {
   const [step, setStep] = useState(0);
   const slide = slides[step];
   const isLast = step === slides.length - 1;
@@ -150,6 +150,15 @@ export default function Onboarding({ onClose }) {
   const dismiss = () => {
     markOnboardingCompleted();
     onClose?.();
+  };
+
+  // 「行動」で締める導線 — 最後のカードの CTA。説明で終わらせず、
+  // 閉じたあと本追加 (AddBookModal) を直接開く。onStart 未配線でも
+  // 単に閉じるだけで壊れない (graceful degradation)。
+  const startAdding = () => {
+    markOnboardingCompleted();
+    onClose?.();
+    onStart?.();
   };
 
   // Track the latest dismiss in a ref so the Escape-key effect doesn't need to
@@ -237,26 +246,41 @@ export default function Onboarding({ onClose }) {
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-          {step > 0 ? (
-            <button type="button" style={btnGhost} onClick={() => setStep((s) => Math.max(0, s - 1))}>
-              ← 戻る
+        {isLast ? (
+          // 最後のカードは「行動」で締める。主 CTA は本追加を直接開き、
+          // 説明で終わらせない。下に控えめな「あとで」を残して逃げ道も確保。
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+            <button
+              type="button"
+              style={{ ...btnPrimary, flex: 'unset', width: '100%' }}
+              onClick={startAdding}
+            >
+              📚 さっそく1冊、追加してみる
             </button>
-          ) : (
-            <button type="button" style={btnGhost} onClick={dismiss}>
+            <button
+              type="button"
+              style={{ ...btnGhost, flex: 'unset', width: '100%', border: 'none' }}
+              onClick={dismiss}
+            >
               あとで
             </button>
-          )}
-          {!isLast ? (
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+            {step > 0 ? (
+              <button type="button" style={btnGhost} onClick={() => setStep((s) => Math.max(0, s - 1))}>
+                ← 戻る
+              </button>
+            ) : (
+              <button type="button" style={btnGhost} onClick={dismiss}>
+                あとで
+              </button>
+            )}
             <button type="button" style={btnPrimary} onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}>
               次へ →
             </button>
-          ) : (
-            <button type="button" style={btnPrimary} onClick={dismiss}>
-              始める
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
