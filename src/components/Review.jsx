@@ -21,6 +21,7 @@ import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import { getRandomFromCategory } from '../lib/quotes';
+import { relativeJa, recallFraming } from '../lib/recall';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
@@ -29,34 +30,8 @@ const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px so
 const btnGhost = { padding: '8px 14px', borderRadius: 8, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, minHeight: 36 };
 const pill = { fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#eae3d6', color: '#7a6e58' };
 
-function relativeJa(iso) {
-  if (!iso) return '';
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return '';
-  const diff = Math.floor((Date.now() - t) / 1000);
-  if (diff < 60) return 'さっき';
-  const min = Math.floor(diff / 60);
-  if (min < 60) return `${min}分前`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}時間前`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}日前`;
-  if (day < 30) return `${Math.floor(day / 7)}週間前`;
-  if (day < 365) return `${Math.floor(day / 30)}ヶ月前`;
-  return `${Math.floor(day / 365)}年前`;
-}
-
-// ランダム想起カード専用の "久しぶりに戻ってきた感" を出す一行。
-// 例: 3ヶ月前のメモなら「3ヶ月前のあなたのメモ」。さっき書いたものは
-// 出さない (まだ「戻ってきた」感がないので空文字でフレーズを抑制)。
-function recallFraming(iso) {
-  if (!iso) return '';
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return '';
-  const day = Math.floor((Date.now() - t) / 86400000);
-  if (day < 1) return ''; // 今日書いたばかり — 想起のフレーズは出さない
-  return `${relativeJa(iso)}のあなたのメモ`;
-}
+// relativeJa / recallFraming は src/lib/recall.js に切り出して
+// サーバー（api/push-cron.js の想起通知）と文言を共有している。
 
 function fmtDate(iso) {
   if (!iso) return '';

@@ -2,7 +2,7 @@
 // ブラウザは sw.js を byte-by-byte で diff するため、SW_VERSION を
 // 変えるだけでも install → (waiting 状態で待機) → ユーザー操作で
 // SKIP_WAITING → activate → 旧 cache 削除の流れになる。
-const SW_VERSION = 'v52';
+const SW_VERSION = 'v53';
 const STATIC_CACHE = `leverage-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `leverage-runtime-${SW_VERSION}`;
 const ALLOWED_CACHES = [STATIC_CACHE, RUNTIME_CACHE];
@@ -103,4 +103,123 @@ self.addEventListener('message', (event) => {
       })(),
     );
   }
+});
+
+// ───────────────────────────────────────────────────────────────────
+// 🔔 想起プッシュ通知（Web Push）ハンドラ
+//
+// ⚠️ 上の install / activate / fetch / message ロジックは一切変更していない。
+//    ここはピュアに追記のみ。push 機能を使わない端末（鍵未設定・iOS タブ等）
+//    でも、これらのリスナは「呼ばれないだけ」で既存の cache/offline 動作に
+//    一切影響しない（push イベントは購読が無ければ発火しない）。
+//
+// 想定ペイロード（api/push-cron.js が web-push で送る JSON）:
+//   { title, body, url, tag }
+//   title 例: "💭 3ヶ月前のあなたのメモ"
+//   body  例: メモ本文の冒頭 1〜2 行
+//   url   例: "/?recall=<memoId>"（タップで該当メモへディープリンク）
+// ───────────────────────────────────────────────────────────────────
+
+self.addEventListener('push', (event) => {
+  // userVisibleOnly:true で購読しているため、push を受けたら必ず通知を出す。
+  // 出さないとブラウザが「サイレント push」とみなし購読を失効させる。
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    // JSON でなければテキストとして body に流用（堅牢性優先）。
+    try { payload = { body: event.data ? event.data.text() : '' }; }
+    catch { payload = {}; }
+  }
+
+  const title = (payload && payload.title) || 'Orime';
+  const body = (payload && payload.body) || '過去のあなたのメモが戻ってきました。';
+  const url = (payload && payload.url) || '/';
+  const tag = (payload && payload.tag) || 'orime-recall';
+
+  const options = {
+    body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag, // 同 tag は上書き = 通知の積み上げを防ぐ（静か・控えめ）
+    data: { url },
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options).catch(() => {
+      // 失敗してもクラッシュさせない（古い端末でアイコン解決に失敗する等）。
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+
+  event.waitUntil(
+    (async () => {
+      try {
+        const allClients = await self.clients.matchAll({
+          type: 'window',
+          includeUncontrolled: true,
+        });
+        // 既に開いている同一オリジンのウィンドウがあればフォーカス + 遷移。
+        for (const client of allClients) {
+          if ('focus' in client) {
+            try {
+              client.postMessage({ type: 'recall-navigate', url: target });
+            } catch { /* postMessage 失敗は無視 */ }
+            // ディープリンクのため URL も合わせて navigate を試みる。
+            if ('navigate' in client) {
+              try { await client.navigate(target); } catch { /* ignore */ }
+            }
+            return client.focus();
+          }
+        }
+        // 開いているウィンドウが無ければ新規に開く。
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(target);
+        }
+      } catch {
+        // 何があってもクラッシュさせない。
+      }
+    })(),
+  );
+});
+
+self.addEventListener('pushsubscriptionchange', (event) => {
+  // プッシュサービスが endpoint をローテーションした時に発火。
+  // 再 subscribe を試み、新 endpoint を待機中のクライアントへ通知する。
+  // （クライアント側 src/lib/push.js が message を受けて Supabase を upsert する。
+  //  ウィンドウが無い場合はサーバーへ直接登録できないので、次回起動時の
+  //  ensurePushSubscription() で自己修復する設計。ここでは black hole を防ぐ。）
+  event.waitUntil(
+    (async () => {
+      try {
+        const applicationServerKey =
+          event.oldSubscription && event.oldSubscription.options
+            ? event.oldSubscription.options.applicationServerKey
+            : null;
+        if (!applicationServerKey || !self.registration.pushManager) return;
+        const newSub = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+        const clientsArr = await self.clients.matchAll({
+          type: 'window',
+          includeUncontrolled: true,
+        });
+        for (const client of clientsArr) {
+          try {
+            client.postMessage({
+              type: 'pushsubscriptionchange',
+              subscription: newSub ? newSub.toJSON() : null,
+            });
+          } catch { /* ignore */ }
+        }
+      } catch {
+        // 再購読に失敗しても静かに諦める（次回起動で再登録される）。
+      }
+    })(),
+  );
 });

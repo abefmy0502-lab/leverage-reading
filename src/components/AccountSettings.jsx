@@ -19,6 +19,16 @@ import { exportUserDataAsCSV } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
+import {
+  isPushSupported,
+  isPushConfigured,
+  isStandalonePWA,
+  isIOS,
+  isSubscribed as isPushSubscribed,
+  getPermission as getPushPermission,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '../lib/push';
 
 const overlayStyle = {
   position: 'fixed',
@@ -183,6 +193,58 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   // 静かに縮退する（useSubscription 側で schema-error を握りつぶす）。
   const { subscription, isActive, loading: subLoading } = useSubscription();
   const [billingBusy, setBillingBusy] = useState(false);
+
+  // 🔔 想起の通知（Web Push）。デフォルト OFF・完全オプトイン。
+  //   pushOn       : この端末が現在購読済みか（トグルの初期/反映状態）
+  //   pushBusy     : 許可要求/購読処理中のロック
+  //   pushDenied   : OS で許可を拒否済み（自前ダイアログは二度と出せない → 案内に倒す）
+  const pushConfigured = isPushConfigured(); // VAPID 公開鍵が env にあるか
+  const pushSupported = isPushSupported();   // 端末 + iOS standalone 条件込み
+  const pushNeedsA2HS = pushConfigured && isIOS() && !isStandalonePWA(); // iOS タブ内
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushDenied, setPushDenied] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setPushDenied(getPushPermission() === 'denied');
+        const on = await isPushSubscribed();
+        if (alive) setPushOn(on);
+      } catch { /* graceful: トグルは OFF のまま */ }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const handleTogglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushOn) {
+        // OFF にする — 購読解除 + DB 行削除。失敗しても静かに。
+        await unsubscribeFromPush();
+        setPushOn(false);
+        toast.info('想起の通知をオフにしました。');
+      } else {
+        // ON にする — ここは必ずユーザージェスチャ内なので許可要求してよい。
+        const res = await subscribeToPush({ frequency: 'weekly' });
+        if (res.ok) {
+          setPushOn(true);
+          toast.success('週1で、過去のあなたのメモがそっと戻ってきます。');
+        } else if (res.reason === 'denied') {
+          setPushDenied(true);
+          toast.error('通知が許可されていません。端末の設定からオンにできます。');
+        } else if (res.reason === 'unsupported') {
+          toast.error('この端末では通知をまだ使えません。');
+        } else {
+          toast.error('通知の設定に失敗しました。少し時間をおいて再度お試しください。');
+        }
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const handleManageBilling = async () => {
     if (billingBusy) return;
@@ -409,6 +471,62 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                   </button>
                 </div>
               </>
+            )}
+          </section>
+
+          {/* ── 🔔 通知 ── */}
+          <GroupLabel>🔔 通知</GroupLabel>
+
+          <section style={sectionStyle}>
+            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+              🔔 想起の通知
+            </p>
+            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+              忘れた頃に、過去のあなたの気づきがそっと戻ってきます。週1回ほど、静かにお届けします。
+            </p>
+
+            {!pushConfigured ? (
+              // VAPID 鍵未設定 = 機能準備中（env 投入前）。静かに案内のみ。
+              <p style={{ fontSize: 11, color: '#a89e8c', margin: 0, lineHeight: 1.7 }}>
+                ただいま準備中です。もう少しお待ちください。
+              </p>
+            ) : pushNeedsA2HS ? (
+              // iOS タブ内 = ホーム画面に追加しないと通知は使えない。
+              <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+                📲 iPhone / iPad では、<strong>ホーム画面に追加</strong>したアプリから開くと通知を受け取れます。<br />
+                共有メニュー（□↑）→「ホーム画面に追加」→ 追加したアイコンから開いてください。
+              </p>
+            ) : !pushSupported ? (
+              // 非対応ブラウザ等。
+              <p style={{ fontSize: 11, color: '#a89e8c', margin: 0, lineHeight: 1.7 }}>
+                この端末・ブラウザでは通知に対応していません。
+              </p>
+            ) : pushDenied && !pushOn ? (
+              // OS で拒否済み = 自前ダイアログは出せない。設定からの手動許可を案内。
+              <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+                通知がオフになっています。端末の「設定 → 通知」から Orime の通知を許可すると受け取れます。
+              </p>
+            ) : (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={pushOn}
+                style={{
+                  ...btnPrimary,
+                  background: pushOn ? '#5c5043' : 'transparent',
+                  color: pushOn ? '#faf6f0' : '#5c5043',
+                  border: pushOn ? 'none' : '1px solid #d4ccbe',
+                  opacity: pushBusy ? 0.6 : 1,
+                }}
+                disabled={pushBusy}
+                onClick={handleTogglePush}
+              >
+                {pushBusy
+                  ? '設定中…'
+                  : pushOn
+                    ? '🔔 通知オン（タップでオフ）'
+                    : '🔕 通知を受け取る'}
+              </button>
             )}
           </section>
 

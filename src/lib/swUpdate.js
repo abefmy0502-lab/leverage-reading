@@ -41,6 +41,23 @@ export function getSwManager() {
   };
 }
 
+// 🔔 想起プッシュ通知用: 登録済み ServiceWorkerRegistration を返す。
+// initServiceWorker() がまだ走っていない / SW 非対応なら、その場で
+// 既存登録を取りに行ってフォールバックする。push.js から購読時に使う。
+export async function getServiceWorkerRegistration() {
+  if (registrationRef) return registrationRef;
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null;
+  try {
+    const reg =
+      (await navigator.serviceWorker.getRegistration('/sw.js')) ||
+      (await navigator.serviceWorker.ready);
+    if (reg) registrationRef = reg;
+    return reg || null;
+  } catch {
+    return null;
+  }
+}
+
 export function applyUpdate() {
   const reg = registrationRef;
   if (!reg) {

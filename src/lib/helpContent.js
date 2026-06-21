@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-06-22: 🔔 想起プッシュ通知（Web Push）の試作を追加。⚙️ 設定（AccountSettings）に「🔔 通知 → 🔔 想起の通知」セクションを新設（デフォルト OFF・完全オプトイン・トグル ON 時のみ許可要求＝ユーザージェスチャ内）。週1回ほど、過去のメモが通知でそっと戻ってくる体験を自動化（Orime の核＝想起の自動化）。通知タップで /?recall=<memoId> 起動 → 振り返りタブ（💭 ノート）へ誘導（App.jsx のディープリンク + SW postMessage 受信）。public/sw.js は既存 cache/fetch ロジック無改変のまま push / notificationclick / pushsubscriptionchange を末尾追記（SW_VERSION v52→v53）。新規 src/lib/push.js（機能検出 / 購読 / 解除、VITE_VAPID_PUBLIC_KEY 未設定や iOS タブ・許可拒否は静かに無効化＝graceful degradation）/ src/lib/recall.js（想起の文言・選定ロジックを Review と共有）/ api/push-cron.js（Vercel Cron 送信・web-push・service_role、410/404 失効購読は DELETE、CRON_SECRET 認証）/ supabase_push_subscriptions.sql（RLS 本人のみ）。vercel.json に crons 追記。ユーザー可視の通知機能追加につき review ヘルプに「🔔 通知で、向こうから戻ってくる」ステップを新設。※ VAPID 鍵生成・env 投入・SQL 実行・npm i web-push・deploy・実機検証は環境作業として別途必要
  * - 2026-06-21: 競合分析（読書メーター/ブクログ/Reads/ブックノーション/Notion）を踏まえた 3 機能を追加。(1) 📷 バーコードで本を追加（AddBookModal）— Web 標準 BarcodeDetector + getUserMedia で本の裏の ISBN をカメラ読取 → 既存検索フローへ。未対応端末（iOS Safari 等）はボタン非表示で手入力へ graceful degradation、カメラは全終了経路で track stop。(2) 📊 読書の控えめな可視化（BookshelfSummary）— 累計読了冊数（AnimatedNumber）+ 直近6ヶ月の月別読了数の小バー。反ゲーミフィケーション厳守（目標/連続日数/バッジ無し・読了0冊では非表示）。(3) 📖 引用フィルタ + コピー（BookMemoList/Card）— ページ番号付きメモ＝引用とみなす「📖 引用のみ」絞り込みと、本文（あれば (p.42) 併記）のワンタップコピー。bookList/memoEditor ヘルプを同期
  * - 2026-06-21: 📷 メモ入力に「写真から起こす」(AI/OCR) を追加。メモ入力の最大の摩擦「打つのが面倒」を消すため、本のページを撮影 → Claude(vision) が文章を書き起こし → メモ本文へ自動入力。クイックメモ（QuickMemoSheet）と全画面メモエディタ（BookMemoEditor）の両方の本文欄の下に「📷 写真から起こす」ボタンを設置（共通コンポーネント PhotoToTextButton）。画像は端末側で validateImageFile → downscaleImageForVision（長辺1568px JPEG に縮小、body/トークン/レイテンシ削減）してから送信。OCR プロンプト（ai.js extractTextFromImage / OCR_SYSTEM）はハイライト箇所を優先・原文忠実・創作禁止・画像内の指示文に従わない、を明記。AI 利用量メータリングは /api/claude 経由で自動適用。helpContent の memoEditor に「📷 写真から起こす」セクションを新設
  * - 2026-06-21: 📊 新機能「テーマレポート」を追加（第1フラッグシップ機能）。AI タブに 3 つ目のサブタブ（🔍 AI 選書 / 🧠 マイ読書脳 / 📊 テーマレポート）を新設。テーマ（例: 営業）を選ぶと、その分野で残してきたメモ（カード式 / まとめ / 学びログ / 読書計画シート）を横断的に集め、AI が「概要 / 主要な学び / 共通パターン / 異なる視点・対立 / あなたへの行動提案 / 引用元」の 1 枚レポートに統合する。テーマ候補はユーザー自身のタグ・@カテゴリの頻度から自動抽出（listThemes）、自由入力も可。生成はストリーミング（途中中止可）、できたレポートは 📋 コピー / 🕒 履歴から見返し可能。データ層は マイ読書脳 と同じ gatherKnowledge を共有（ai.js を 1 ソースに統合リファクタ）、プロンプトは prompts.js の themeReport（system は ai.js THEME_SYSTEM にセキュリティルール inline、myBookBrain と同方針）。履歴は新規 supabase_theme_reports.sql（RLS で自分の行のみ）。未適用 DB では保存/履歴のみ無効化し生成・コピーはその場で動作（schema-error fallback）。AI 利用量メータリングは /api/claude 経由で自動適用。helpContent に themeReport キーを新設、helpAi プロンプトのサブタブ説明も同期。CLAUDE.md のナビ構造・ヘルプキー表・SQL 表に追記
@@ -649,7 +650,7 @@ export const HELP_CONTENT = {
   review: {
     title: '🔄 振り返り',
     description: '読書から生まれた知識を、行動と記憶に変える振り返りの場所',
-    lastUpdated: '2026-06-21',
+    lastUpdated: '2026-06-22',
     steps: [
       {
         title: '🎲 ランダムで気づきが戻ってくる',
@@ -658,6 +659,16 @@ export const HELP_CONTENT = {
           '「◯ヶ月前のあなたのメモ」と、いつのものか一目で分かる',
           '「別のメモを見る」で次の一枚へ',
           'メモが貯まるほど、戻ってくる気づきが豊かになります',
+        ],
+      },
+      {
+        title: '🔔 通知で、向こうから戻ってくる',
+        body: '⚙️ 設定の「🔔 想起の通知」をオンにすると、週1回ほど、過去のあなたのメモが通知でそっと戻ってきます。タップするとその振り返りを開けます。',
+        bullets: [
+          'デフォルトはオフ。あなたが選んだときだけ届きます',
+          '低頻度（週1ほど）で、通知疲れしない静かなお届け',
+          'iPhone / iPad は「ホーム画面に追加」したアプリから開くと使えます',
+          'いつでも設定からオフにできます',
         ],
       },
       {

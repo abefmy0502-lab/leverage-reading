@@ -2098,6 +2098,47 @@ function AuthedApp() {
   });
   useEffect(() => { try { localStorage.setItem('reviewSubTab', reviewSubTab); } catch { /* ignore */ } }, [reviewSubTab]);
   useEffect(() => { try { localStorage.setItem('aiSubTab', aiSubTab); } catch { /* ignore */ } }, [aiSubTab]);
+
+  // 🔔 想起プッシュ通知のディープリンク受信。
+  //   通知タップ → /?recall=<memoId> で起動 / 既存ウィンドウに navigate される。
+  //   ここでは「振り返りタブ（💭 ノート）を開く」ところまで最小限で対応する
+  //   （個別メモへのスクロール先指定は将来拡張。まずは想起導線に確実に乗せる）。
+  //   recall クエリは消費後に URL から消す（リロードで再発火させない）。
+  const handleRecallDeepLink = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    let sp;
+    try { sp = new URLSearchParams(window.location.search); } catch { return; }
+    if (!sp.get('recall')) return;
+    // 振り返りタブ＋ノートサブタブへ誘導。
+    setReviewSubTab('note');
+    setTab('review');
+    setView('list');
+    setCurrent(null);
+    // クエリを掃除（hash / 他クエリは温存）。
+    try {
+      sp.delete('recall');
+      const qs = sp.toString();
+      const next = window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash;
+      window.history.replaceState(null, '', next);
+    } catch { /* ignore */ }
+  }, []);
+
+  // 起動時に 1 度（クエリに recall があれば）。
+  useEffect(() => { handleRecallDeepLink(); }, [handleRecallDeepLink]);
+
+  // アプリが既に開いている時に通知タップ → SW が postMessage('recall-navigate')。
+  // navigate でクエリ付き URL に変わるので、それを読んで誘導する。
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return undefined;
+    const onMsg = (event) => {
+      const data = event.data;
+      if (data && data.type === 'recall-navigate') {
+        handleRecallDeepLink();
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onMsg);
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg);
+  }, [handleRecallDeepLink]);
   const [view, setView] = useState("list"); // list | detail | edit
   const [current, setCurrent] = useState(null);
   const [form, setForm] = useState(emptyBook());
