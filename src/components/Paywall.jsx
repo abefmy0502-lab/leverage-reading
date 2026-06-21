@@ -51,6 +51,111 @@ const cardStyle = {
   padding: 16,
 };
 
+// 「※イメージ」ラベル（見本であることを明示。捏造UGC・偽データではない旨の誠実表示）。
+function PreviewBadge() {
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        fontWeight: 600,
+        color: 'var(--color-tertiary)',
+        background: 'var(--color-surface-2)',
+        border: '1px solid var(--color-separator)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '1px 7px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      ※イメージ
+    </span>
+  );
+}
+
+// 想起カードの見本。読みながら残した一行が、振り返りでこう戻ってくる、を視覚化。
+// 引用・添字はすべて「例」であり、特定ユーザーの実データではない。
+function RecallPreview() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+        <p style={{ fontSize: 13, fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
+          🔄 読みながら残した一行が、こう戻ってきます
+        </p>
+        <PreviewBadge />
+      </div>
+      {/* ランダム想起で表示されるメモカードの見本 */}
+      <div
+        style={{
+          background: 'var(--color-surface-2)',
+          border: '1px solid var(--color-separator)',
+          borderRadius: 'var(--radius-sm)',
+          borderLeft: '3px solid var(--color-accent-strong)',
+          padding: '12px 14px',
+        }}
+      >
+        <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '0 0 6px', lineHeight: 1.4 }}>
+          3か月前のメモ・『嫌われる勇気』 p.118
+        </p>
+        <p style={{ fontSize: 14, margin: 0, lineHeight: 1.7, color: 'var(--color-label)' }}>
+          「課題の分離」。相手がどう思うかは、相手の課題。
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// マイ読書脳の見本。質問→過去メモを根拠にした回答→参照本、のミニ会話。
+// 会話文も「例」であり、実際の回答は各ユーザーのメモに応じて変わる。
+function BrainPreview() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+        <p style={{ fontSize: 13, fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
+          🧠 あなたの過去のメモを根拠に答えます
+        </p>
+        <PreviewBadge />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* 質問（ユーザー側の吹き出し） */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <p
+            style={{
+              fontSize: 13,
+              margin: 0,
+              lineHeight: 1.6,
+              color: 'var(--color-text-inverse)',
+              background: 'var(--color-accent-strong)',
+              borderRadius: 'var(--radius-md)',
+              padding: '8px 12px',
+              maxWidth: '85%',
+            }}
+          >
+            迷ったときの判断軸は？
+          </p>
+        </div>
+        {/* 回答（マイ読書脳側の吹き出し＋参照本） */}
+        <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+          <div
+            style={{
+              maxWidth: '90%',
+              background: 'var(--color-surface-2)',
+              border: '1px solid var(--color-separator)',
+              borderRadius: 'var(--radius-md)',
+              padding: '8px 12px',
+            }}
+          >
+            <p style={{ fontSize: 13, margin: 0, lineHeight: 1.7, color: 'var(--color-label)' }}>
+              あなたのメモには「自分で決められる範囲に集中する」とありました。まずそこから整理してみては。
+            </p>
+            <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '6px 0 0', lineHeight: 1.5 }}>
+              参照：『7つの習慣』『嫌われる勇気』
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Paywall() {
   const { signOut, user } = useAuth();
   const toast = useToast();
@@ -107,6 +212,13 @@ export default function Paywall() {
               </div>
             </div>
           ))}
+        </section>
+
+        {/* 価値の見本（"こう戻ってくる" "こう答える" を視覚化。すべて※イメージ） */}
+        <section style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <RecallPreview />
+          <div style={{ height: 1, background: 'var(--color-separator)' }} aria-hidden="true" />
+          <BrainPreview />
         </section>
 
         {/* プラン提示：年額を主役、月額を控えめに */}
