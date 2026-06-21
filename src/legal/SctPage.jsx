@@ -19,17 +19,11 @@ export default function SctPage() {
         <tbody>
           <tr>
             <th>販売事業者名</th>
-            <td>
-              {/* TODO: 個人事業主届の屋号 or 個人名 */}
-              (運営者の氏名または屋号を記載)
-            </td>
+            <td>阿部文哉</td>
           </tr>
           <tr>
             <th>運営責任者</th>
-            <td>
-              {/* TODO: 運営者の氏名 */}
-              (代表者の氏名を記載)
-            </td>
+            <td>阿部文哉</td>
           </tr>
           <tr>
             <th>所在地</th>
