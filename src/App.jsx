@@ -49,6 +49,7 @@ import BookshelfSummary from './components/BookshelfSummary';
 import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
+import { ensurePushSubscription } from './lib/push';
 import UpdateBanner from './components/UpdateBanner';
 import { BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
@@ -2134,11 +2135,21 @@ function AuthedApp() {
       const data = event.data;
       if (data && data.type === 'recall-navigate') {
         handleRecallDeepLink();
+      } else if (data && data.type === 'pushsubscriptionchange') {
+        // プッシュサービスが endpoint をローテーション → SW が再 subscribe して
+        // 通知してくる。新しい購読を Supabase に再同期する（自己修復）。これが
+        // 無いと endpoint ローテーション後に通知が恒久的に届かなくなる。
+        ensurePushSubscription();
       }
     };
     navigator.serviceWorker.addEventListener('message', onMsg);
     return () => navigator.serviceWorker.removeEventListener('message', onMsg);
   }, [handleRecallDeepLink]);
+
+  // 起動時に 1 度、購読 endpoint と DB を再同期（許可済み・購読済みのみ。それ以外は
+  // no-op）。ウィンドウを閉じている間に endpoint がローテーションした取りこぼしを
+  // 次回起動で回復する。
+  useEffect(() => { ensurePushSubscription(); }, []);
   const [view, setView] = useState("list"); // list | detail | edit
   const [current, setCurrent] = useState(null);
   const [form, setForm] = useState(emptyBook());

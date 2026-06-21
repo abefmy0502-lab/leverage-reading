@@ -99,14 +99,23 @@ const dangerSection = { ...sectionStyle, border: '1px solid #d8b8b0', background
 const groupLabelStyle = {
   fontSize: 11,
   color: '#8a7e6b',
-  margin: '6px 0 -4px 2px',
+  margin: '8px 0 -2px 2px',
   fontWeight: 600,
   letterSpacing: 0.5,
 };
 
 function GroupLabel({ children }) {
-  return <p style={groupLabelStyle}>{children}</p>;
+  // 装飾的な見出しラベル。各 section は自前の見出し <p> を持つため、
+  // グループラベルはスクリーンリーダーでは補助的な小見出しとして読み上げる。
+  return <p style={groupLabelStyle} role="heading" aria-level={2}>{children}</p>;
 }
+
+// 全 section 共通の見出し（13px / 600）。色だけ差し替え可能（破壊操作は赤）。
+const sectionTitleStyle = { fontSize: 13, margin: '0 0 4px', fontWeight: 600, color: '#3d362c' };
+// 全 section 共通の説明文（11px / 行間 1.7 / ボタンとの間隔 10px）。
+const sectionDescStyle = { fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 };
+// 無効/準備中など、ボタンを出さず案内文のみのときの末尾余白なしバリアント。
+const sectionNoteStyle = { fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.7 };
 
 const btnPrimary = {
   width: '100%',
@@ -409,7 +418,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   };
 
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
+    <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="アカウント設定" onClick={onClose}>
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: '#3d362c', margin: 0, fontWeight: 500, flex: 1 }}>⚙️ アカウント設定</h2>
@@ -426,12 +435,12 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
           <GroupLabel>💳 プラン・お支払い</GroupLabel>
 
           {/* 💳 Billing / プラン */}
-          <section style={sectionStyle}>
-            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+          <section style={sectionStyle} aria-label="プラン・お支払い">
+            <p style={sectionTitleStyle}>
               💳 プラン
             </p>
             {subLoading ? (
-              <p style={{ fontSize: 12, color: '#8a7e6b', margin: '4px 0 0' }}>確認中…</p>
+              <p style={sectionNoteStyle}>確認中…</p>
             ) : isActive ? (
               <>
                 <p style={{ fontSize: 12, color: '#8a7e6b', margin: '0 0 4px', lineHeight: 1.7 }}>
@@ -440,12 +449,13 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                     <>（次回更新 {formatPeriodEnd(subscription.currentPeriodEnd)}）</>
                   )}
                 </p>
-                <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
-                  解約・カードの変更・請求履歴はこちらから。いつでも解約でき、データは保持されます。
+                <p style={sectionDescStyle}>
+                  解約・カード変更・請求履歴はこちらから。いつでも解約でき、データは保持されます。
                 </p>
                 {subscription?.stripeCustomerId ? (
                   <button
                     type="button"
+                    aria-label="プランを管理する"
                     style={{ ...btnPrimary, opacity: billingBusy ? 0.6 : 1 }}
                     disabled={billingBusy}
                     onClick={handleManageBilling}
@@ -453,19 +463,20 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                     {billingBusy ? '移動中…' : '⚙️ プランを管理する'}
                   </button>
                 ) : (
-                  <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+                  <p style={sectionNoteStyle}>
                     プラン管理画面は次回更新後にご利用いただけます。
                   </p>
                 )}
               </>
             ) : (
               <>
-                <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+                <p style={sectionDescStyle}>
                   すべての機能を使うにはご契約が必要です。いつでも解約でき、データは保持されます。
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button
                     type="button"
+                    aria-label={`${PLAN_LABELS.annual.name}で契約（おすすめ）`}
                     style={{ ...btnPrimary, opacity: billingBusy ? 0.6 : 1 }}
                     disabled={billingBusy}
                     onClick={() => handleUpgrade('annual')}
@@ -474,6 +485,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                   </button>
                   <button
                     type="button"
+                    aria-label={`${PLAN_LABELS.monthly.name}で契約`}
                     style={{
                       ...btnPrimary,
                       background: 'transparent',
@@ -491,36 +503,37 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             )}
           </section>
 
-          {/* ── 🔔 通知 ── */}
-          <GroupLabel>🔔 通知</GroupLabel>
+          {/* ── 📥 データ・アプリ ── */}
+          <GroupLabel>📥 データ・アプリ</GroupLabel>
 
-          <section style={sectionStyle}>
-            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+          {/* 🔔 通知 — データ・アプリ群の一機能として配置（独立グループにしない） */}
+          <section style={sectionStyle} aria-label="想起の通知">
+            <p style={sectionTitleStyle}>
               🔔 想起の通知
             </p>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
-              忘れた頃に、過去のあなたの気づきがそっと戻ってきます。週1回ほど、静かにお届けします。
+            <p style={sectionDescStyle}>
+              週1回ほど、過去のあなたの気づきがそっと戻ってきます。
             </p>
 
             {!pushConfigured ? (
               // VAPID 鍵未設定 = 機能準備中（env 投入前）。静かに案内のみ。
-              <p style={{ fontSize: 11, color: '#a89e8c', margin: 0, lineHeight: 1.7 }}>
+              <p style={{ ...sectionNoteStyle, color: '#a89e8c' }}>
                 ただいま準備中です。もう少しお待ちください。
               </p>
             ) : pushNeedsA2HS ? (
               // iOS タブ内 = ホーム画面に追加しないと通知は使えない。
-              <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+              <p style={sectionNoteStyle}>
                 📲 iPhone / iPad では、<strong>ホーム画面に追加</strong>したアプリから開くと通知を受け取れます。<br />
                 共有メニュー（□↑）→「ホーム画面に追加」→ 追加したアイコンから開いてください。
               </p>
             ) : !pushSupported ? (
               // 非対応ブラウザ等。
-              <p style={{ fontSize: 11, color: '#a89e8c', margin: 0, lineHeight: 1.7 }}>
+              <p style={{ ...sectionNoteStyle, color: '#a89e8c' }}>
                 この端末・ブラウザでは通知に対応していません。
               </p>
             ) : pushDenied && !pushOn ? (
               // OS で拒否済み = 自前ダイアログは出せない。設定からの手動許可を案内。
-              <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+              <p style={sectionNoteStyle}>
                 通知がオフになっています。端末の「設定 → 通知」から Orime の通知を許可すると受け取れます。
               </p>
             ) : (
@@ -528,6 +541,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                 type="button"
                 role="switch"
                 aria-checked={pushOn}
+                aria-label="想起の通知"
                 style={{
                   ...btnPrimary,
                   background: pushOn ? '#5c5043' : 'transparent',
@@ -547,38 +561,36 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             )}
           </section>
 
-          {/* ── 📥 データ・アプリ ── */}
-          <GroupLabel>📥 データ・アプリ</GroupLabel>
-
           {/* Export */}
-          <section style={sectionStyle}>
-            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+          <section style={sectionStyle} aria-label="データをダウンロード">
+            <p style={sectionTitleStyle}>
               📥 データをダウンロード
             </p>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
-              本・メモ・タグ・行動・対話履歴をテーブル別の CSV ファイルでダウンロードします。Excel / Numbers でそのまま開けます（UTF-8 BOM 付き）。
+            <p style={sectionDescStyle}>
+              本・メモ・タグ・行動・対話履歴を CSV でダウンロードします。Excel / Numbers でそのまま開けます。
             </p>
-            <button type="button" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
+            <button type="button" aria-label="CSV をダウンロード" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
               {exporting ? '準備中…' : '📥 CSV をダウンロード'}
             </button>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '14px 0 10px', lineHeight: 1.7 }}>
-              メモを 1 つの Markdown ファイルにまとめて書き出します。NotebookLM や Obsidian などにそのまま取り込んで、自分の読書メモを AI 活用・執筆に使えます。
+            <p style={{ ...sectionDescStyle, margin: '14px 0 10px' }}>
+              メモを 1 つの Markdown にまとめて書き出します。NotebookLM や Obsidian に取り込んで活用できます。
             </p>
-            <button type="button" style={{ ...btnPrimary, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
+            <button type="button" aria-label="Markdown で書き出す" style={{ ...btnPrimary, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
               {exportingMd ? '書き出し中…' : '📝 Markdown で書き出す'}
             </button>
           </section>
 
           {/* App update */}
-          <section style={sectionStyle}>
-            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+          <section style={sectionStyle} aria-label="アプリを最新版に更新">
+            <p style={sectionTitleStyle}>
               🔄 アプリを最新版に更新
             </p>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
-              新しいバージョンが反映されない時はこちら。キャッシュをクリアして再読み込みします。
+            <p style={sectionDescStyle}>
+              新しいバージョンが反映されない時はこちら。キャッシュを消して再読み込みします。
             </p>
             <button
               type="button"
+              aria-label="最新版に更新する"
               style={{
                 ...btnPrimary,
                 background: 'transparent',
@@ -594,14 +606,14 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
           </section>
 
           {/* Feedback */}
-          <section style={sectionStyle}>
-            <p style={{ fontSize: 13, color: '#3d362c', margin: '0 0 4px', fontWeight: 600 }}>
+          <section style={sectionStyle} aria-label="フィードバック・要望を送る">
+            <p style={sectionTitleStyle}>
               📩 フィードバック・要望を送る
             </p>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+            <p style={sectionDescStyle}>
               バグ報告 / 機能要望 / 感想など、開発者へ直接届きます。
             </p>
-            <button type="button" style={btnPrimary} onClick={() => setFeedbackOpen(true)}>
+            <button type="button" aria-label="フィードバックを送る" style={btnPrimary} onClick={() => setFeedbackOpen(true)}>
               📩 フィードバックを送る
             </button>
           </section>
@@ -610,16 +622,15 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
           <GroupLabel>⚠️ アカウント</GroupLabel>
 
           {/* Delete */}
-          <section style={dangerSection}>
-            <p style={{ fontSize: 13, color: '#a05040', margin: '0 0 4px', fontWeight: 600 }}>
+          <section style={dangerSection} aria-label="アカウント削除">
+            <p style={{ ...sectionTitleStyle, color: '#a05040' }}>
               ⚠️ アカウント削除
             </p>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
-              本・メモ・写真・対話履歴がすべて削除されます。<br />
-              認証アカウント自体の完全削除は管理者の最終確認後 (通常 7 日以内) に実行されます。
+            <p style={sectionDescStyle}>
+              本・メモ・写真・対話履歴がすべて削除されます。認証アカウント自体の完全削除は、管理者の最終確認後（通常 7 日以内）に実行されます。
             </p>
             {!deleteOpen ? (
-              <button type="button" style={btnDanger} onClick={() => setDeleteOpen(true)}>
+              <button type="button" aria-label="アカウントの削除を開始" style={btnDanger} onClick={() => setDeleteOpen(true)}>
                 アカウントの削除を開始
               </button>
             ) : (
@@ -632,6 +643,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}
                   placeholder={expectedConfirm}
+                  aria-label="確認用メールアドレス"
                   style={inputStyle}
                   autoCapitalize="off"
                   autoCorrect="off"
@@ -640,6 +652,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     type="button"
+                    aria-label="削除をキャンセル"
                     style={{ ...btnPrimary, background: 'transparent', color: '#5c5043', border: '1px solid #d4ccbe', flex: 1 }}
                     onClick={() => { setDeleteOpen(false); setConfirmText(''); }}
                     disabled={deleting}
@@ -648,6 +661,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                   </button>
                   <button
                     type="button"
+                    aria-label="アカウントを完全に削除"
                     style={{ ...btnDanger, flex: 1, opacity: deleting || confirmText.trim() !== expectedConfirm ? 0.5 : 1 }}
                     disabled={deleting || confirmText.trim() !== expectedConfirm}
                     onClick={handleDelete}

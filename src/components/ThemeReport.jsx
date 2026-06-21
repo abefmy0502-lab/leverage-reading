@@ -80,6 +80,7 @@ export default function ThemeReport() {
   const [generating, setGenerating] = useState(false);
   const [aborting, setAborting] = useState(false);
   const [notice, setNotice] = useState(''); // shown when a theme has no memos yet
+  const [noticeKind, setNoticeKind] = useState('info'); // 'info' (メモ0件) | 'error'
   const abortRef = useRef(null);
 
   // History (optional persistence)
@@ -123,6 +124,7 @@ export default function ThemeReport() {
     setActiveTheme(theme);
     setReportText('');
     setNotice('');
+    setNoticeKind('info');
     setStage('search');
     setGenerating(true);
     setAborting(false);
@@ -148,6 +150,7 @@ export default function ThemeReport() {
         setNotice('');
       } else if ((result?.memoCount ?? 0) === 0) {
         // No memos matched this theme yet — show guidance, not a saved report.
+        setNoticeKind('info');
         setNotice(result?.body || `テーマ「${theme}」に関連するメモが見つかりませんでした。`);
         setReportText('');
       } else {
@@ -166,6 +169,7 @@ export default function ThemeReport() {
     } catch (e) {
       if (!(controller.signal.aborted || (e && e.name === 'AbortError'))) {
         toast.error(toMessage(e, 'レポートの作成に失敗しました。'));
+        setNoticeKind('error');
         setNotice('レポートの作成に失敗しました。少し時間をおいて再度お試しください。');
       }
     } finally {
@@ -188,6 +192,7 @@ export default function ThemeReport() {
     setActiveTheme('');
     setReportText('');
     setNotice('');
+    setNoticeKind('info');
   }, []);
 
   const copyReport = useCallback(async () => {
@@ -205,6 +210,7 @@ export default function ThemeReport() {
     setActiveTheme(row.theme || '');
     setReportText(row.content || '');
     setNotice('');
+    setNoticeKind('info');
     setView('create');
   }, []);
 
@@ -316,14 +322,28 @@ export default function ThemeReport() {
                     <Square size={13} aria-hidden="true" /> {aborting ? '中止中…' : '中止'}
                   </button>
                 ) : (
-                  <button onClick={resetToPicker} style={btnGhost}>🔄 別のテーマ</button>
+                  <button onClick={resetToPicker} style={btnGhost} aria-label="テーマ選択に戻る">🔄 別のテーマ</button>
                 )}
               </div>
 
               {/* body */}
               {notice ? (
-                <div style={{ ...card, whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: 13, color: '#5c5548' }}>
-                  {notice}
+                <div
+                  role={noticeKind === 'error' ? 'alert' : 'status'}
+                  style={{
+                    ...card,
+                    background: noticeKind === 'error' ? '#fbf2ee' : card.background,
+                    borderColor: noticeKind === 'error' ? '#e6c9bd' : card.border,
+                    display: 'flex',
+                    gap: 10,
+                  }}
+                >
+                  <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1.5, flex: '0 0 auto' }}>
+                    {noticeKind === 'error' ? '⚠️' : '📭'}
+                  </span>
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: 13, color: '#5c5548', minWidth: 0 }}>
+                    {notice}
+                  </div>
                 </div>
               ) : showStageBlock ? (
                 <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }} aria-live="polite" aria-busy="true">
@@ -345,11 +365,29 @@ export default function ThemeReport() {
                 </div>
               )}
 
+              {/* error notice → offer a retry of the same theme */}
+              {!generating && notice && noticeKind === 'error' && activeTheme && (
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
+                  <button onClick={() => generate(activeTheme)} style={btnPrimary} aria-label={`テーマ「${activeTheme}」でもう一度作成`}>
+                    🔄 もう一度試す
+                  </button>
+                </div>
+              )}
+
               {/* actions (only when a finished report is shown) */}
               {!generating && !notice && reportText && (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
-                  <button onClick={copyReport} style={btnGhost}>📋 コピー</button>
-                  <button onClick={resetToPicker} style={btnPrimary}>🔄 別のテーマで作る</button>
+                  <button onClick={copyReport} style={btnGhost} aria-label="レポートをクリップボードにコピー">
+                    📋 コピー
+                  </button>
+                  {historyAvailable && (
+                    <button onClick={() => setView('history')} style={btnGhost} aria-label="保存済みのレポート履歴を見る">
+                      🕒 履歴
+                    </button>
+                  )}
+                  <button onClick={resetToPicker} style={btnPrimary} aria-label="別のテーマでレポートを作成">
+                    🔄 別のテーマで作る
+                  </button>
                 </div>
               )}
             </div>
@@ -385,6 +423,9 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
       <div>
         <p style={{ fontSize: 12, fontWeight: 600, color: '#5c5548', margin: '0 0 8px' }}>
           📌 あなたのメモから見つけたテーマ
+          {!themesLoading && themes.length > 0 && (
+            <span style={{ fontWeight: 500, color: '#a89e8c' }}>（{themes.length}）</span>
+          )}
         </p>
         {themesLoading ? (
           <div className="ai-skeleton" aria-hidden="true" style={{ maxWidth: 360 }}>
@@ -392,18 +433,24 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             <div className="ai-skeleton-line" style={{ width: '52%' }} />
           </div>
         ) : themes.length === 0 ? (
-          <p style={{ fontSize: 12, color: '#a89e8c', margin: 0, lineHeight: 1.7 }}>
-            メモにタグや「@カテゴリ」を付けると、ここに候補が並びます。下の入力欄から自由にテーマを指定することもできます。
+          <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+            まだ候補はありません。メモにタグや「@カテゴリ」を付けていくと、ここにあなただけのテーマが並びます。今は下の入力欄から自由にテーマを指定して始められます。
           </p>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div
+            style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}
+            role="list"
+            aria-label="メモから見つかったテーマ候補"
+          >
             {themes.map((t) => (
               <button
                 key={t.theme}
                 onClick={() => onGenerate(t.theme)}
+                role="listitem"
+                aria-label={`テーマ「${t.theme}」（メモ ${t.count} 件）でレポートを作成`}
                 style={{
-                  minHeight: 40,
-                  padding: '8px 14px',
+                  minHeight: 44,
+                  padding: '8px 8px 8px 14px',
                   borderRadius: 999,
                   border: '1px solid #e0d8c8',
                   background: '#fff',
@@ -413,11 +460,30 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                   fontSize: 13,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 6,
+                  gap: 8,
+                  touchAction: 'manipulation',
                 }}
               >
                 <span style={{ fontWeight: 600 }}>{t.theme}</span>
-                <span style={{ fontSize: 11, color: '#a89e8c' }}>{t.count}</span>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: '#7a6f5c',
+                    background: '#f0eadd',
+                    borderRadius: 999,
+                    minWidth: 20,
+                    height: 20,
+                    padding: '0 6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: 1,
+                  }}
+                >
+                  {t.count}
+                </span>
               </button>
             ))}
           </div>
