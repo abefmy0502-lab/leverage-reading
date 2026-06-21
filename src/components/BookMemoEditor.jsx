@@ -314,6 +314,14 @@ export default function BookMemoEditor({
 
   const shownPreview = previewUrl || existingPhotoUrl;
 
+  // 文脈のある alt（事実ベース）: 本タイトル + ページ番号を補う
+  const previewAlt = (() => {
+    const parts = ['メモに添付する写真のプレビュー'];
+    if (bookTitle) parts.push(`『${bookTitle}』`);
+    if (pageNumber !== '' && pageNumber != null) parts.push(`P.${pageNumber}`);
+    return parts.join(' ');
+  })();
+
   return (
     <div ref={overlayRef} style={overlay} role="dialog" aria-modal="true">
       <div style={headerBar}>
@@ -398,7 +406,7 @@ export default function BookMemoEditor({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
               <img
                 src={ensureHttps(shownPreview)}
-                alt="preview"
+                alt={previewAlt}
                 style={{
                   maxWidth: '100%',
                   maxHeight: 280,

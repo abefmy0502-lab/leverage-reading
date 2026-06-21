@@ -80,6 +80,18 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState([]); // [{isbn, title, author, coverUrl}]
 
+  // 小型端末（〜480px）では 1 カラムに段組（320px 幅でも表紙が潰れないように）。
+  // 表示の段組のみ — 選択ロジックには影響しない。
+  const [narrow, setNarrow] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 480 : false,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onResize = () => setNarrow(window.innerWidth <= 480);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -173,7 +185,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
+                gridTemplateColumns: narrow ? '1fr' : 'repeat(2, 1fr)',
                 gap: 10,
               }}
             >
@@ -201,7 +213,11 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                 >
                   <img
                     src={ensureHttps(c.coverUrl)}
-                    alt={`ISBN ${c.isbn}`}
+                    alt={
+                      c.isCurrent
+                        ? `『${c.title || book.title}』の現在の表紙候補`
+                        : `『${c.title || book.title}』の表紙候補`
+                    }
                     loading="lazy"
                     style={{
                       width: '100%',

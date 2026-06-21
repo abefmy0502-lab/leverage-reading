@@ -94,6 +94,15 @@ export default function BookMemoCard({ memo, onEdit, onDelete, onSwipeDelete, on
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, memo }),
   });
 
+  // 文脈のある alt（事実ベース）: ページ番号 + 本文先頭を補う
+  const photoAlt = (() => {
+    const parts = ['メモの写真'];
+    if (memo.pageNumber != null) parts.push(`P.${memo.pageNumber}`);
+    const snippet = (memo.text || '').trim().replace(/\s+/g, ' ').slice(0, 20);
+    if (snippet) parts.push(`「${snippet}${(memo.text || '').trim().length > 20 ? '…' : ''}」`);
+    return parts.join(' ');
+  })();
+
   useEffect(() => {
     let cancelled = false;
     if (!memo.photoPath) {
@@ -177,7 +186,7 @@ export default function BookMemoCard({ memo, onEdit, onDelete, onSwipeDelete, on
         >
           <img
             src={ensureHttps(photoUrl)}
-            alt="memo"
+            alt={photoAlt}
             style={{
               width: '100%',
               height: 'auto',
@@ -233,7 +242,7 @@ export default function BookMemoCard({ memo, onEdit, onDelete, onSwipeDelete, on
         >
           <img
             src={ensureHttps(photoUrl)}
-            alt="memo enlarged"
+            alt={`${photoAlt}（拡大表示）`}
             style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }}
           />
         </div>
