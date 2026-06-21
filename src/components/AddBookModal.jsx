@@ -356,6 +356,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             onKeyDown={onEnter}
             placeholder="978-4-7631-9742-3"
             style={inpStyle}
+            maxLength={LIMITS.bookIsbn}
             inputMode="numeric"
             autoCapitalize="off"
             autoCorrect="off"
