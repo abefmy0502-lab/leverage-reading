@@ -4,6 +4,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { validateImageFile, ALLOWED_IMAGE_EXT } from '../lib/limits';
+import { track, EVENTS } from '../lib/analytics';
 
 const BUCKET = 'book-memo-photos';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -196,6 +197,12 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
       if (insErr) throw insErr;
       const inserted = transformMemo(data);
       writeBoth([...rawMemos, inserted]);
+      // 📊 計測（新規作成パスのみ・insert 成功後）。PII は送らず enum/真偽のみ。
+      track(EVENTS.MEMO_ADDED, {
+        mode: 'card',
+        has_photo: Boolean(inserted.photoPath),
+        has_page: Number.isFinite(inserted.pageNumber),
+      });
       return inserted;
     } catch (e) {
       if (photoPath) await removePhoto(photoPath);

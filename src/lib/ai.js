@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { LIMITS, clamp } from './limits';
 import { streamClaude } from './streamClaude';
 import { PROMPTS } from './prompts';
+import { track } from './analytics';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
 const DEFAULT_MAX_TOKENS = 1024;
@@ -138,6 +139,9 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' })
   if (/^(エラー|通信エラー|レスポンス解析エラー|AI機能|リクエストが多|今月の AI)/.test(result)) {
     throw new Error(result);
   }
+  // 📊 AI 利用の計測（エラー / quota は上で throw 済み = ここは正常応答のみ）。
+  // 書き起こした本文は送らず feature の enum だけ。
+  track('ai_used', { feature: 'ocr' });
   return clamp(result.trim(), LIMITS.memoText);
 }
 
@@ -718,6 +722,9 @@ export async function streamThemeReport({ userId, theme, onStage, onChunk, signa
     };
   }
 
+  // 📊 AI 利用の計測（empty / suspicious は上で早期 return = ここは生成成功のみ）。
+  // テーマ名やレポート本文は送らず feature の enum だけ。
+  track('ai_used', { feature: 'theme' });
   return { body: fullText.trim(), ...ctx.stats };
 }
 

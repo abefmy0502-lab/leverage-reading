@@ -15,6 +15,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { streamMyBookBrain } from '../lib/ai';
+import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
@@ -493,6 +494,8 @@ export default function MyBookBrain({ onOpenBook }) {
       if (error) throw error;
       // 楽観的な streaming 行を、永続化された row で差し替える。
       setMessages((arr) => arr.map((m) => (m.id === streamingId ? transformMessage(data) : m)));
+      // AI 応答を正常に得て確定できた時のみ計測 (中止/中断パスは除外、PII なし)。
+      if (!wasAborted) track(EVENTS.AI_USED, { feature: 'brain' });
       // 新しい AI 回答が来たら resolution prompt を再表示できるよう dismiss を解除
       setPromptDismissed(false);
     } catch (e) {

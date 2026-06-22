@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { useAllActions } from '../hooks/useAllActions';
 import { useHaptic } from '../hooks/useHaptic';
 import { ensureHttps } from '../lib/url';
+import { track, EVENTS } from '../lib/analytics';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
 import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3 } from 'lucide-react';
@@ -413,7 +414,11 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                     // 完了にする瞬間だけ成功ハプティクス。戻す時は軽いタップ感に
                     // 留めて、過剰なお祝いにならないようにする。
                     if (a.done) haptic.light();
-                    else haptic.success();
+                    else {
+                      haptic.success();
+                      // 未完了→完了にトグルした瞬間だけ 1 回計測（PII なし・fire-and-forget）
+                      track(EVENTS.ACTION_COMPLETED);
+                    }
                     onToggleAction?.(a.bookId, a.actionIdx);
                   }}
                   aria-label={a.done ? '未完了に戻す' : '完了にする'}

@@ -19,7 +19,7 @@ import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
-import { track, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
+import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
   isPushSupported,
   isPushConfigured,
@@ -254,6 +254,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
         const res = await subscribeToPush({ frequency: 'weekly' });
         if (res.ok) {
           setPushOn(true);
+          track(EVENTS.PUSH_ENABLED); // ON 成功時のみ（props なし・fire-and-forget）
           toast.success('週1で、過去のあなたのメモがそっと戻ってきます。');
         } else if (res.reason === 'denied') {
           setPushDenied(true);
@@ -332,6 +333,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
     try {
       const summary = await exportUserDataAsCSV(user.id);
       const total = summary.reduce((acc, s) => acc + (s.count || 0), 0);
+      track(EVENTS.EXPORT_USED, { kind: 'csv' }); // 成功確定後のみ（fire-and-forget）
       toast.success(`CSV ${summary.filter((s) => !s.skipped).length} 件をダウンロード（計 ${total} 行）`);
     } catch (e) {
       toast.error(toMessage(e, 'エクスポートに失敗しました。'));
@@ -348,6 +350,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
     setExportingMd(true);
     try {
       const { memos } = await exportMemosAsMarkdown(user.id);
+      track(EVENTS.EXPORT_USED, { kind: 'markdown' }); // 成功確定後のみ（fire-and-forget）
       toast.success(`Markdown を書き出しました（メモ ${memos} 件）`);
     } catch (e) {
       toast.error(toMessage(e, '書き出しに失敗しました。'));

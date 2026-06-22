@@ -22,6 +22,7 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import { getRandomFromCategory } from '../lib/quotes';
 import { relativeJa, recallFraming } from '../lib/recall';
+import { track, EVENTS } from '../lib/analytics';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
@@ -282,6 +283,12 @@ export default function Review({ books = [], onOpenBook }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('');
+
+  // Analytics: fire once when the Review tab mounts (not per sub-tab switch).
+  // Empty dep array → runs exactly once on mount. fire-and-forget, no PII.
+  useEffect(() => {
+    track(EVENTS.REVIEW_OPENED);
+  }, []);
 
   const fetchMemos = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {

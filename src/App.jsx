@@ -1538,6 +1538,10 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
       return;
     }
 
+    // 📊 AI 利用の計測（streamClaude が throw せず応答を得た成功確定後のみ）。
+    // catch は早期 return するためここに来た時点で成功。feature の enum だけ送る。
+    track('ai_used', { feature: 'advisor' });
+
     // ★ 完了後にだけ RECOMMENDATIONS_START..END をパース。途中の不完全な
     //   JSON で推薦カードを組まないことで、カード表示の壊れを防ぐ。
     const { recs, prose } = parseAdvisorResponse(finalText);
@@ -2672,6 +2676,11 @@ function AuthedApp() {
           : 'manual';
         track('book_added', { via });
       }
+      // 📊 読書進捗の計測（読書中の本を進捗付きで保存できた時のみ・PII なし）。
+      // ページの実数値は送らず「進捗を設定した」という事実だけを記録する。
+      if (next.status === 'reading' && (Number(next.currentPage) > 0 || Number(next.totalPages) > 0)) {
+        track('reading_progress_set');
+      }
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
 
@@ -2713,6 +2722,8 @@ function AuthedApp() {
       // で巻き戻る」不整合になる。明示的に失敗として扱い rollback する。
       if (!saved) throw new Error('まとめメモを保存できませんでした。');
       const next = saved;
+      // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
+      track('memo_added', { mode: 'summary' });
       setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
       if (prevCurrent && prevCurrent.id === next.id) setCurrent(next);
     } catch (error) {
@@ -2735,6 +2746,8 @@ function AuthedApp() {
       const saved = await saveBook(merged);
       if (!saved) throw new Error('まとめメモを保存できませんでした。');
       const next = saved;
+      // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
+      track('memo_added', { mode: 'summary' });
       setCurrent(next);
       if (prevForm && prevForm.id === next.id) {
         setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
@@ -3091,6 +3104,8 @@ function AuthedApp() {
           setForm((f) => ({ ...f, aiAnalysis: fullText }));
         },
       });
+      // 📊 AI 利用の計測（解析が throw せず完了した成功時のみ・feature の enum だけ）。
+      track('ai_used', { feature: 'analysis' });
     } catch (error) {
       toast.error(toMessage(error, 'AI解析に失敗しました。'));
     } finally {
