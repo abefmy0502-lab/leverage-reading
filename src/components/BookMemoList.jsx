@@ -194,6 +194,17 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState(null);
   const [shareMemo, setShareMemo] = useState(null);
+  // 「最初の気づきを残したあと、想起の体験へ繋ぐ」一度きりの控えめなヒント。
+  // 新規ユーザーが"記録して終わり"でなく振り返り(想起)に辿り着けるよう、初メモ後に
+  // 1回だけ出す。localStorage で既読管理し、二度は出さない(Apple Notes 級の控えめさ)。
+  const [recallHintSeen, setRecallHintSeen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try { return window.localStorage.getItem('recallHintSeen') === 'true'; } catch { return true; }
+  });
+  const dismissRecallHint = () => {
+    setRecallHintSeen(true);
+    try { window.localStorage.setItem('recallHintSeen', 'true'); } catch { /* ignore */ }
+  };
   const toast = useToast();
   const haptic = useHaptic();
   const confirm = useConfirm();
@@ -412,6 +423,44 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           <p style={{ fontSize: 11, color: '#a89e8c', margin: '6px 0 0', lineHeight: 1.7 }}>
             メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。
           </p>
+        </div>
+      )}
+
+      {!loading && memos.length > 0 && !recallHintSeen && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            background: '#f4efe7',
+            border: '1px solid #e4ddd0',
+            borderRadius: 10,
+            padding: '10px 12px',
+            marginBottom: 10,
+          }}
+        >
+          <p style={{ fontSize: 12, color: '#5c5548', margin: 0, lineHeight: 1.7, flex: 1 }}>
+            💭 最初の気づきが残りました。下の「🔄 振り返り」を開くと、これがランダムに、そして忘れた頃にそっと戻ってきます。
+          </p>
+          <button
+            type="button"
+            onClick={dismissRecallHint}
+            style={{
+              flexShrink: 0,
+              minHeight: 32,
+              padding: '4px 10px',
+              border: '1px solid #d4ccbe',
+              background: '#faf6f0',
+              color: '#5c5043',
+              borderRadius: 8,
+              fontSize: 11,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+            aria-label="ヒントを閉じる"
+          >
+            わかった
+          </button>
         </div>
       )}
 
