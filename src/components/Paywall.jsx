@@ -320,6 +320,11 @@ export default function Paywall() {
         {/* 安心コピー */}
         <p style={{ fontSize: 12, color: 'var(--color-tertiary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
           初回は5日間の返金保証つき（合わなければ全額返金・お一人様1回限り）。<br />
+          返金のご希望は{' '}
+          <a href="mailto:leverage.book0502@gmail.com" style={{ color: 'var(--color-secondary)', textDecoration: 'underline' }}>
+            お問い合わせ
+          </a>
+          {' '}までご連絡ください（解約とは別の手続きです）。<br />
           いつでも解約できます。解約後もデータは保持されます。<br />
           お支払いは Stripe の安全な決済ページで行われます。
         </p>
@@ -360,6 +365,22 @@ export default function Paywall() {
           >
             別のアカウントでサインイン
           </button>
+          {/* まだ決めかねている人を完全離脱でなくサービス紹介(LP)へ逃がす導線 */}
+          <div>
+            <a
+              href="/lp"
+              style={{
+                display: 'inline-flex',
+                minHeight: 44,
+                alignItems: 'center',
+                padding: '8px 12px',
+                color: 'var(--color-tertiary)',
+                fontSize: 12,
+              }}
+            >
+              ← サービス紹介を見る
+            </a>
+          </div>
         </div>
       </div>
     </div>

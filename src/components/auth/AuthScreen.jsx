@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
@@ -89,6 +89,12 @@ export default function AuthScreen() {
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
+
+  // 一度この画面に来たユーザーは「既知」扱い。以後 "/" は LP を挟まず直接この
+  // 認証画面に来る（毎回マーケLPを見せられる煩わしさを防ぐ）。新規初見だけ LP。
+  useEffect(() => {
+    try { window.localStorage.setItem('orime-returning', 'true'); } catch { /* ignore */ }
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();

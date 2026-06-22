@@ -126,6 +126,8 @@ export default function Landing() {
   // 初見の購入希望者を新規登録画面に直接着地させる（?auth=signup）。
   // 直接課金導線の摩擦（ログイン画面に降りて登録リンクを探す手間）を削る。
   const goToSignup = () => { window.location.href = '/?auth=signup'; };
+  // 既にアカウントを持つ人（LP に着地した既存ユーザー）向けのログイン導線。
+  const goToLogin = () => { window.location.href = '/?auth=signin'; };
 
   return (
     <div className="lp-root">
@@ -162,6 +164,10 @@ export default function Landing() {
         </button>
         <p className="hero-note">
           初回5日間返金保証・いつでも解約OK・データは残ります
+        </p>
+        <p className="hero-login">
+          すでにアカウントをお持ちの方は{' '}
+          <button type="button" onClick={goToLogin} className="hero-login-link">ログイン</button>
         </p>
 
         {/* TODO(developer): 実数値が確定したら trust-bar を有効化する。

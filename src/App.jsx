@@ -4882,6 +4882,11 @@ function AppShell() {
     );
   }
   if (!user) {
+    // 未認証で "/" に来た初見訪問者には、裸のログイン画面でなく LP（価値訴求）を
+    // 見せる（転換ファネルの最大の漏れ＝LP バイパスの修復）。
+    if (shouldShowMarketingLanding()) {
+      return <Suspense fallback={<Spinner />}><Landing /></Suspense>;
+    }
     return (
       <Shell>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -4891,6 +4896,29 @@ function AppShell() {
     );
   }
   return <PaywallGate />;
+}
+
+// 未認証 "/" 訪問者に LP を見せるか判定する。これまで LP は /lp にしか無く、
+// ドメイン直打ち・SNS・口コミ・PWA 再起動で "/" に来た新規はログイン画面へ直行し、
+// LP の転換努力が丸ごとバイパスされていた（1万人調査の最大の漏れ）。
+// AuthScreen を見せる（LP をスキップする）条件:
+//   - ?auth= を明示（LP の CTA / ログインリンク経由＝もう登録/ログインする気）
+//   - PWA standalone（インストール済＝マーケ不要・毎回 LP は煩わしい）
+//   - 'orime-returning' フラグ済（一度 auth 画面に来た既知ユーザー）
+function shouldShowMarketingLanding() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('auth')) return false;
+    const standalone =
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+    if (standalone) return false;
+    if (window.localStorage.getItem('orime-returning') === 'true') return false;
+    return true;
+  } catch {
+    return false; // 不明時は従来挙動（AuthScreen）へ安全側に倒す
+  }
 }
 
 // 💳 PaywallGate — Web ハードペイウォール（全機能有料）。

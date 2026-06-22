@@ -1876,3 +1876,23 @@ body.lp-active {
   max-width: 30em;
 }
 .compare-note strong { color: var(--lp-text); }
+
+/* ログイン導線（LPに着地した既存ユーザー向け・控えめ） */
+.hero-login {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--lp-sub);
+  margin: 14px 0 0;
+}
+.hero-login-link {
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  min-height: 32px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lp-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
