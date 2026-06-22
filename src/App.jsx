@@ -2372,6 +2372,15 @@ function AuthedApp() {
     setAddBookModalOpen(true);
   };
 
+  // 🤖 AI 選書（advisor）へ直行。AI 選書は「メモ0件の初日でも価値が出る」唯一の
+  // 機能なので、新規ユーザーの time-to-value 最短ルートとしてオンボーディングから
+  // 直接ここへ送る（本棚が空でも"おっ"を体験させる）。
+  const openAdvisor = () => {
+    setView("list");
+    setAiSubTab('advisor');
+    setTab('ai');
+  };
+
   // AddBookModal は今や検索結果リストまで内包する 1 画面モーダル。
   // ここでは「ユーザーが結果から本を選んだ」イベントだけを受け取り、
   // 編集画面を該当本のメタデータでプリフィルして開く。検索フォーム /
@@ -4074,7 +4083,7 @@ function AuthedApp() {
             otherwise tapping "アプリ全体の使い方を最初から見る" from the help
             modal here looks like nothing happens until the user navigates
             back to the bookshelf. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} onStartAdvisor={openAdvisor} />}
 
         {detailKebab && (
           <ContextMenu
@@ -4265,7 +4274,7 @@ function AuthedApp() {
         )}
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} onStartAdvisor={openAdvisor} />}
         <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} hidden={keyboardOpen} />
       </Shell>
     );
@@ -4702,7 +4711,7 @@ function AuthedApp() {
         )}
       </div>
 
-      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} />}
+      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} onStartAdvisor={openAdvisor} />}
 
       {bookContextMenu && (
         <ContextMenu

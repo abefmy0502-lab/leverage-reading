@@ -147,7 +147,7 @@ const closeBtnStyle = {
   justifyContent: 'center',
 };
 
-export default function Onboarding({ onClose, onStart }) {
+export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
   const [step, setStep] = useState(0);
   const slide = slides[step];
   const isLast = step === slides.length - 1;
@@ -169,6 +169,14 @@ export default function Onboarding({ onClose, onStart }) {
     markOnboardingCompleted();
     onClose?.();
     onStart?.();
+  };
+
+  // 🤖 AI 選書へ直行（初日の最短 time-to-value）。手元に登録したい本が無くても、
+  // 「いまの悩み」を話すだけで価値（本の提案）を体験できる＝空アプリで手が止まらない。
+  const startAdvisor = () => {
+    markOnboardingCompleted();
+    onClose?.();
+    (onStartAdvisor || onStart)?.();
   };
 
   // Track the latest dismiss in a ref so the Escape-key effect doesn't need to
@@ -265,12 +273,21 @@ export default function Onboarding({ onClose, onStart }) {
           // 最後のカードは「行動」で締める。主 CTA は本追加を直接開き、
           // 説明で終わらせない。下に控えめな「あとで」を残して逃げ道も確保。
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6, flexShrink: 0 }}>
+            {/* 主CTA＝AI選書: 手元に本が無くても「いまの悩み」を話すだけで価値を体験
+                できる初日最短ルート。空アプリで手が止まる事故を防ぐ。 */}
             <button
               type="button"
               style={{ ...btnPrimary, flex: 'unset', width: '100%' }}
+              onClick={startAdvisor}
+            >
+              🤖 悩みからAIに本を選んでもらう
+            </button>
+            <button
+              type="button"
+              style={{ ...btnGhost, flex: 'unset', width: '100%' }}
               onClick={startAdding}
             >
-              📚 さっそく1冊、追加してみる
+              📚 自分で本を追加する
             </button>
             <button
               type="button"
