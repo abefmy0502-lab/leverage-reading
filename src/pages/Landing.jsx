@@ -27,6 +27,17 @@ const setMeta = (name, content, attr = 'name') => {
 // 形式: { quote: 'ユーザーの言葉', attribution: '匿名可。例: 30代・営業 / X: @handle（許可を得た範囲で）' }
 const TESTIMONIALS = [];
 
+// 「記録型(無料の読書管理アプリ) vs 想起・活用型(Orime)」の対比。
+// cold流入の最大の反論「無料で記録できるのに、なぜ有料？」に料金提示の直前で答える。
+// ※存在しない機能は書かない（データ移行/CSVインポートは未実装なので主張しない）。
+const COMPARE_ROWS = [
+  { label: 'できること', others: '読んだ本の記録・本棚', us: '記録はもちろん' },
+  { label: '読んだ後', others: '自分で見返す（つい忘れる）', us: '忘れた頃にそっと“想起”' },
+  { label: '知識の活用', others: '探すのが手間', us: '自分のメモを根拠に AI が答える' },
+  { label: '行動への接続', others: '記録で止まりがち', us: '1 冊から行動リスト＋追跡' },
+  { label: '続く理由', others: '記録のやる気頼み', us: '“想起”が習慣を支える' },
+];
+
 export default function Landing() {
   const [showStickyCta, setShowStickyCta] = useState(false);
 
@@ -354,6 +365,42 @@ export default function Landing() {
             />
           </div>
         </div>
+      </section>
+
+      <div className="lp-section-divider" aria-hidden="true" />
+
+      {/* ============ 4.3 比較（記録型 vs 想起・活用型）= なぜ無料の記録アプリでは続かないか ============ */}
+      <section className="compare fade-in" aria-label="他の読書アプリとの違い">
+        <p className="section-eyebrow">記録で終わらせない</p>
+        <h2 className="section-headline">
+          無料の&quot;記録アプリ&quot;と、<br />
+          何が違うのか。
+        </h2>
+        <p className="compare-lead">
+          本を記録できるアプリはたくさんあります。Orime が向き合うのは、その先——<strong>「読んだのに、身につかない」</strong>です。
+        </p>
+
+        <div className="compare-table">
+          <div className="compare-row compare-head">
+            <span className="compare-axis" aria-hidden="true" />
+            <span className="compare-col">一般的な<br />読書管理アプリ</span>
+            <span className="compare-col compare-us">Orime</span>
+          </div>
+          {COMPARE_ROWS.map((r) => (
+            <div className="compare-row" key={r.label}>
+              <span className="compare-axis">{r.label}</span>
+              <span className="compare-col compare-other">{r.others}</span>
+              <span className="compare-col compare-us">{r.us}</span>
+            </div>
+          ))}
+        </div>
+
+        <p className="compare-note">
+          これまで他の読書アプリで&quot;記録&quot;してきた方も、ここから<strong>&quot;思い出して活かす&quot;読書</strong>に切り替えられます。
+        </p>
+        <button type="button" onClick={goToSignup} className="cta-secondary">
+          違いを試してみる →
+        </button>
       </section>
 
       <div className="lp-section-divider" aria-hidden="true" />
