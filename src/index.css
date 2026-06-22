@@ -357,6 +357,20 @@ button:disabled:active {
   padding-bottom: 4px;
 }
 
+/* ⌨️ キーボードフォーカスの可視化（グローバル・最大ROIの a11y 修正）。
+   従来はフォーカスリングが .input/.textarea にしか無く、インラインスタイルの
+   button（border:none）はキーボード/スイッチ操作で「今どこにいるか」が全く
+   見えなかった。:focus-visible なのでマウスクリックではリングを出さず、
+   キーボード操作時だけ出す。全インラインボタン・リンクに一括で効く。 */
+:focus-visible {
+  outline: 2px solid var(--color-accent-strong, #8A7040);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Reduced-motion users get static feel */
 @media (prefers-reduced-motion: reduce) {
   *,

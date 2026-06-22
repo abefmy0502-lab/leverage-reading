@@ -48,7 +48,7 @@ function humanizeError(err) {
     return 'このメールアドレスは既に登録されています。';
   }
   if (msg.includes('password should be') || msg.includes('password length')) {
-    return 'パスワードは6文字以上で入力してください。';
+    return 'パスワードは8文字以上で、英字と数字を含めてください。';
   }
   if (msg.includes('email') && (msg.includes('invalid') || msg.includes('format'))) {
     return 'メールアドレスの形式が正しくありません。';

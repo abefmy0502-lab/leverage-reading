@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getHelp } from '../lib/helpContent';
 import { callClaude } from '../lib/ai';
 import { PROMPTS } from '../lib/prompts';
+import { toMessage } from '../lib/errors';
 
 const FAQ_LIST = [
   '本の表紙が出ない時は？',
@@ -338,7 +339,8 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
       const res = await callClaude(PROMPTS.helpAi.system, text, { max_tokens: 600 });
       setAnswer(res || '回答を取得できませんでした。');
     } catch (e) {
-      setError(e?.message || '通信エラーが発生しました。');
+      // 他画面と同様に humanize（生の英語スタック/内部メッセージを出さない）。
+      setError(toMessage(e, '通信エラーが発生しました。少し時間をおいて再度お試しください。'));
     } finally {
       setAsking(false);
     }
