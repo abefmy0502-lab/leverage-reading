@@ -52,6 +52,18 @@ export function useAuth() {
     return data;
   };
 
+  const resendConfirmation = async (email) => {
+    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+      },
+    });
+    if (error) throw error;
+  };
+
   const sendPasswordResetEmail = async (email) => {
     if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -77,6 +89,7 @@ export function useAuth() {
     signUpWithEmail,
     signInWithEmail,
     sendPasswordResetEmail,
+    resendConfirmation,
     signOut,
   };
 }

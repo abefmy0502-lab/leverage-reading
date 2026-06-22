@@ -80,7 +80,7 @@ function initialAuthMode() {
 }
 
 export default function AuthScreen() {
-  const { signInWithEmail, signUpWithEmail, sendPasswordResetEmail } = useAuth();
+  const { signInWithEmail, signUpWithEmail, sendPasswordResetEmail, resendConfirmation } = useAuth();
   const [mode, setMode] = useState(initialAuthMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -89,6 +89,9 @@ export default function AuthScreen() {
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  // signup 成功後、確認メール待ちの全画面ステップへ切替える宛先（中断離脱の最大谷を緩和）。
+  const [confirmSentTo, setConfirmSentTo] = useState('');
+  const [resending, setResending] = useState(false);
 
   // 一度この画面に来たユーザーは「既知」扱い。以後 "/" は LP を挟まず直接この
   // 認証画面に来る（毎回マーケLPを見せられる煩わしさを防ぐ）。新規初見だけ LP。
@@ -120,7 +123,8 @@ export default function AuthScreen() {
         await signInWithEmail(email.trim(), password);
       } else if (mode === 'signup') {
         await signUpWithEmail(email.trim(), password, displayName.trim());
-        setInfo('確認メールを送信しました。メール内のリンクをクリックして登録を完了してください。');
+        // 小さな緑文字でなく、全画面の「メール確認待ち」ステップに切替える。
+        setConfirmSentTo(email.trim());
       } else if (mode === 'reset') {
         await sendPasswordResetEmail(email.trim());
         setInfo('パスワードリセット用のメールを送信しました。');
@@ -136,6 +140,21 @@ export default function AuthScreen() {
     setMode(m);
     setError('');
     setInfo('');
+  };
+
+  const handleResend = async () => {
+    if (resending || !confirmSentTo) return;
+    setResending(true);
+    setError('');
+    setInfo('');
+    try {
+      await resendConfirmation(confirmSentTo);
+      setInfo('確認メールを再送しました。');
+    } catch (err) {
+      setError(humanizeError(err));
+    } finally {
+      setResending(false);
+    }
   };
 
   const blockEnterWhileComposing = (e) => {
@@ -162,6 +181,44 @@ export default function AuthScreen() {
           <code style={{ fontSize: 11 }}>VITE_SUPABASE_URL</code> と{' '}
           <code style={{ fontSize: 11 }}>VITE_SUPABASE_ANON_KEY</code> を設定してください。
         </p>
+      </div>
+    );
+  }
+
+  // 📩 確認メール待ちの全画面ステップ。signup 後にフォームへ小さく緑文字を出すだけ
+  //    だと多くの人がメール離脱後に迷子になり離脱（中断離脱の最大谷）。宛先・次の
+  //    行動・迷惑メール案内・再送・ログイン戻りを明示して取りこぼしを減らす。
+  if (confirmSentTo) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)' }}>
+        <div style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
+          <div style={{ fontSize: 44, marginBottom: 8 }} aria-hidden="true">📩</div>
+          <h1 style={{ fontSize: 20, fontWeight: 500, color: '#3d362c', margin: '0 0 12px' }}>確認メールを送りました</h1>
+          <p style={{ fontSize: 14, color: '#5c5548', lineHeight: 1.9, margin: '0 0 8px' }}>
+            <strong style={{ wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛にメールを送りました。<br />
+            メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。
+          </p>
+          <p style={{ fontSize: 12, color: '#8a7e6b', lineHeight: 1.8, margin: '0 0 20px' }}>
+            数分待っても届かない場合は、<strong>迷惑メール / プロモーション</strong>フォルダもご確認ください。
+          </p>
+          {error && <p style={{ color: '#b75050', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
+          {info && <p style={{ color: '#5a7a48', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resending}
+            style={{ ...btnPrimary, opacity: resending ? 0.6 : 1 }}
+          >
+            {resending ? '再送中...' : '確認メールを再送する'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setConfirmSentTo(''); setInfo(''); setError(''); switchMode('signin'); }}
+            style={btnLink}
+          >
+            ← ログインに戻る
+          </button>
+        </div>
       </div>
     );
   }
