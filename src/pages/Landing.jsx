@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import PhoneFrame from '../components/PhoneFrame';
+import { BUILD_LABEL } from '../lib/buildInfo';
 import './landing.css';
 
 const setMeta = (name, content, attr = 'name') => {
@@ -531,6 +532,14 @@ export default function Landing() {
           <a href="mailto:leverage.book0502@gmail.com">お問い合わせ</a>
         </div>
         <p className="copyright">© 2026 Orime</p>
+        {/* 🏷️ ビルド識別子。配信中の版が新旧どちらかを一目で判別するための控えめな表記。
+            （ログイン不要で確認できるよう、あえてランディング最下部に置く） */}
+        <p
+          className="build-stamp"
+          style={{ fontSize: 10, color: '#b3a994', marginTop: 6, letterSpacing: 0.3 }}
+        >
+          {BUILD_LABEL}
+        </p>
       </footer>
     </div>
   );
