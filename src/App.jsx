@@ -2669,8 +2669,10 @@ function AuthedApp() {
       const saved = await saveBook(payload);
       const next = saved || payload;
       const wasNew = !current; // 新規追加 (current=null) かどうか
-      // 📊 本追加の計測（新規追加時のみ・経路は addedVia の enum だけ）。
-      if (wasNew) {
+      // 📊 本追加の計測（DB 保存が確定した新規追加時のみ・経路は addedVia の enum だけ）。
+      // saveBook は未接続時に throw せず null を返すので、saved が truthy の時だけ計測する
+      // （未保存の payload を「追加した」と数えない）。
+      if (saved && wasNew) {
         const via = next.addedVia === 'manual' ? 'manual'
           : next.addedVia === 'search' ? 'search'
           : 'manual';
@@ -2678,7 +2680,7 @@ function AuthedApp() {
       }
       // 📊 読書進捗の計測（読書中の本を進捗付きで保存できた時のみ・PII なし）。
       // ページの実数値は送らず「進捗を設定した」という事実だけを記録する。
-      if (next.status === 'reading' && (Number(next.currentPage) > 0 || Number(next.totalPages) > 0)) {
+      if (saved && next.status === 'reading' && (Number(next.currentPage) > 0 || Number(next.totalPages) > 0)) {
         track('reading_progress_set');
       }
       setCurrent(next);
@@ -2723,7 +2725,11 @@ function AuthedApp() {
       if (!saved) throw new Error('まとめメモを保存できませんでした。');
       const next = saved;
       // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
-      track('memo_added', { mode: 'summary' });
+      // カード式の insert と粒度を揃えるため、空→記入の「新規作成」遷移だけ数える
+      // （既存まとめの編集再保存では二重計上しない）。
+      if (!(prevForm?.leverageMemo || '').trim() && (text || '').trim()) {
+        track('memo_added', { mode: 'summary' });
+      }
       setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
       if (prevCurrent && prevCurrent.id === next.id) setCurrent(next);
     } catch (error) {
@@ -2747,7 +2753,10 @@ function AuthedApp() {
       if (!saved) throw new Error('まとめメモを保存できませんでした。');
       const next = saved;
       // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
-      track('memo_added', { mode: 'summary' });
+      // カード式の insert と粒度を揃え、空→記入の「新規作成」遷移だけ数える。
+      if (!(prevCurrent?.leverageMemo || '').trim() && (text || '').trim()) {
+        track('memo_added', { mode: 'summary' });
+      }
       setCurrent(next);
       if (prevForm && prevForm.id === next.id) {
         setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
@@ -2986,19 +2995,22 @@ function AuthedApp() {
     setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
     setView("edit");
 
-    // 📊 ステータス遷移の計測（PII なし・to の enum だけ）。
-    if (newStatus === 'before' || newStatus === 'reading' || newStatus === 'done') {
-      track('status_changed', { to: newStatus });
-    }
-
     // Persist in background; roll back on failure.
-    saveBook(updated).catch((error) => {
-      toast.error(toMessage(error, 'ステータス変更に失敗しました。'));
-      const restored = { ...book, ...prev };
-      setCurrent(restored);
-      setForm({ ...emptyBook(), ...restored, tags: restored.tags || [], actions: restored.actions || [] });
-      setView("edit");
-    });
+    saveBook(updated)
+      .then((saved) => {
+        // 📊 ステータス遷移の計測（PII なし・to の enum だけ）。DB 保存が確定した
+        // 時だけ数える（楽観更新→失敗 rollback の遷移を成功として二重計上しない）。
+        if (saved && (newStatus === 'before' || newStatus === 'reading' || newStatus === 'done')) {
+          track('status_changed', { to: newStatus });
+        }
+      })
+      .catch((error) => {
+        toast.error(toMessage(error, 'ステータス変更に失敗しました。'));
+        const restored = { ...book, ...prev };
+        setCurrent(restored);
+        setForm({ ...emptyBook(), ...restored, tags: restored.tags || [], actions: restored.actions || [] });
+        setView("edit");
+      });
 
     const labels = { want: '読みたい', before: '読書前', reading: '読書中', done: '読了' };
     const revert = async () => {

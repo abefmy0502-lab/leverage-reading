@@ -430,11 +430,14 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
       // 明示削除する。theme_reports / advisor_sessions / push_subscriptions は
       // books と独立しており、かつ本人 DELETE ポリシーがあるので各自消す。
       //
-      // ⚠️ analytics_events / feedback / subscriptions / ai_usage は RLS に
-      //    ユーザー DELETE ポリシーが無い（設計上クライアントから消せない）。
-      //    これらは auth.users 削除時の ON DELETE CASCADE で消える設計（タスク2の
-      //    supabase_security_hardening.sql で FK CASCADE を保証）。ここでは
-      //    クライアントから delete を呼ばない（呼ぶと必ず失敗するため）。
+      // ⚠️ analytics_events / subscriptions / ai_usage / feedback は RLS に
+      //    ユーザー DELETE ポリシーが無い（設計上クライアントから消せない）ため、
+      //    ここでは delete を呼ばない（呼ぶと必ず失敗するため）。これらは管理者が
+      //    auth.users を最終削除した時に、各テーブル作成 SQL で定義された FK で
+      //    処理される: analytics_events / subscriptions / ai_usage は ON DELETE
+      //    CASCADE で消え、feedback は ON DELETE SET NULL で user_id を null 化して
+      //    匿名で残す（supabase_feedback.sql の設計）。account_deletion_requests の
+      //    記録を見て管理者が auth.users を削除する運用が前提。
       await deleteOwn('chat_messages');     // マイ読書脳の対話履歴（book_id null の学びログ含む）
       await deleteOwn('book_memos');        // カード式メモ（個人メモ含む）
       await deleteOwn('book_tags');         // タグ（user_id 列あり）

@@ -164,6 +164,14 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('book-covers', 'book-covers', true)
 ON CONFLICT (id) DO NOTHING;
 
+-- 旧 supabase_added_via.sql が作った別名ポリシー（book_covers_user_*）も明示的に
+-- 撤去し、book-covers の書き込みポリシー面をこの SQL に一本化する。これらは元々
+-- TO authenticated 付きで実害は無いが、残すと「作り直した」前提が崩れ二重定義に
+-- なるため除去（下で *_own を authenticated + user-folder 所有権で再作成）。
+DROP POLICY IF EXISTS book_covers_user_insert ON storage.objects;
+DROP POLICY IF EXISTS book_covers_user_update ON storage.objects;
+DROP POLICY IF EXISTS book_covers_user_delete ON storage.objects;
+
 DROP POLICY IF EXISTS "book_covers_insert_own" ON storage.objects;
 CREATE POLICY "book_covers_insert_own" ON storage.objects
   FOR INSERT TO authenticated WITH CHECK (
