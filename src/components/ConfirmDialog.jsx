@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const ConfirmContext = createContext({ confirm: async () => false });
 
@@ -70,6 +71,7 @@ const confirmBtnStyle = (danger) => ({
 
 export function ConfirmProvider({ children }) {
   const [pending, setPending] = useState(null);
+  const trapRef = useFocusTrap(!!pending);
 
   const confirm = useCallback((options) => {
     return new Promise((resolve) => {
@@ -110,7 +112,7 @@ export function ConfirmProvider({ children }) {
       {children}
       {pending && (
         <div style={overlayStyle} onClick={() => finish(false)} role="dialog" aria-modal="true">
-          <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+          <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <h2 style={titleStyle}>{pending.options.title}</h2>
             {pending.options.message && <p style={messageStyle}>{pending.options.message}</p>}
             <div style={rowStyle}>

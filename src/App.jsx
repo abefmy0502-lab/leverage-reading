@@ -3490,12 +3490,22 @@ function AuthedApp() {
 
   const recentBooks = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    return books
+    const seen = new Set();
+    const out = [];
+    // 1) 「読書中」の本を最優先（＝続きから読む主対象。最終更新の新しい順）。
+    //    冊数が少ない新規でも、読みかけが1冊あれば必ず出すことで「続きから」が機能する。
+    books
+      .filter((b) => b.status === 'reading')
+      .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
+      .forEach((b) => { if (b?.id && !seen.has(b.id)) { seen.add(b.id); out.push(b); } });
+    // 2) 直近7日に更新した本で補完。
+    books
       .filter((b) => {
         const stamp = b.updated_at ? Date.parse(b.updated_at) : NaN;
         return Number.isFinite(stamp) && stamp >= cutoff;
       })
-      .slice(0, 3);
+      .forEach((b) => { if (b?.id && !seen.has(b.id)) { seen.add(b.id); out.push(b); } });
+    return out.slice(0, 3);
   }, [books]);
 
   const stats = useMemo(() => ({ total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length }), [books]);
@@ -4506,7 +4516,7 @@ function AuthedApp() {
                   自己完結（fetch / state は HomeRecall 内に閉じる）。
                   メモ十分＋当日未 dismiss のときだけ静かに出る。 */}
               <HomeRecall onOpen={() => { setReviewSubTab('note'); setTab('review'); }} />
-              {recentBooks.length > 0 && rawBooks.length >= 3 && !search && statusFilter === "all" && (
+              {recentBooks.length > 0 && !search && statusFilter === "all" && (
                 <div style={{ marginBottom: 14 }}>
                   <p style={{ fontSize: 11, color: "#8a7040", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>
                   <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>

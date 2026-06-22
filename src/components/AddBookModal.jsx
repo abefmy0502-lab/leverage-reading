@@ -13,6 +13,7 @@
 //   'error'     : 検索エラー（リトライ可能）
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
 import { searchBooksAdvanced } from '../lib/bookSearch';
 import { ensureHttps } from '../lib/url';
@@ -276,6 +277,7 @@ function BarcodeScanner({ onDetect, onClose }) {
   const doneRef = useRef(false); // 二重発火防止（成功 or close で立てる）
   const [scanError, setScanError] = useState(null);
   const [ready, setReady] = useState(false);
+  const trapRef = useFocusTrap(true);
 
   const stopStream = useCallback(() => {
     if (rafRef.current) {
@@ -391,7 +393,7 @@ function BarcodeScanner({ onDetect, onClose }) {
   }, [stopStream, onDetect]);
 
   return (
-    <div style={camOverlayStyle} role="dialog" aria-modal="true" aria-label="バーコードをスキャン">
+    <div ref={trapRef} style={camOverlayStyle} role="dialog" aria-modal="true" aria-label="バーコードをスキャン">
       <div
         style={{
           padding: 'var(--space-3) var(--space-4)',
@@ -515,6 +517,9 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   // 既存リクエストを中断して、後着の応答が state を上書きする race を防ぐ。
   const abortRef = useRef(null);
   useEffect(() => () => { try { abortRef.current?.abort(); } catch { /* ignore */ } }, []);
+  // バーコードスキャナ（入れ子ダイアログ）を開いている間は、そちらのトラップに
+  // 譲るため本体のトラップを無効化する。
+  const trapRef = useFocusTrap(!scanning);
 
   const hasInput = !!(title.trim() || author.trim() || isbn.trim());
   const isSearching = state === 'searching';
@@ -608,7 +613,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   const tooMany = results.length >= 20;
 
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true">
+    <div ref={trapRef} style={overlayStyle} role="dialog" aria-modal="true">
       {scanning && (
         <BarcodeScanner
           onDetect={handleScanDetect}
@@ -746,7 +751,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             <p style={{ fontSize: 14, color: 'var(--color-label)', margin: 0, fontWeight: 600, lineHeight: 1.6 }}>
               該当する本が見つかりませんでした
             </p>
-            <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '6px 0 16px', lineHeight: 1.7 }}>
+            <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: '6px 0 16px', lineHeight: 1.7 }}>
               書名を変えて再検索するか、ISBN（本の裏のバーコード番号）で検索すると見つかりやすくなります。
             </p>
             <button type="button" onClick={onManual} style={{ ...manualBtnStyle, background: 'var(--color-accent-soft)', color: 'var(--color-accent-strong)', fontWeight: 600 }}>
@@ -761,7 +766,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
               {results.length} 件中 {visibleCount} 件を表示
             </p>
             {tooMany && (
-              <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: 0 }}>
+              <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: 0 }}>
                 💡 著者や ISBN を追加で絞り込めます
               </p>
             )}
@@ -795,7 +800,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
               </button>
             )}
             {!canShowMore && results.length > MAX_DISPLAY && (
-              <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: 0, textAlign: 'center' }}>
+              <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: 0, textAlign: 'center' }}>
                 これ以上は表示しません。著者や ISBN を追加して絞り込めます。
               </p>
             )}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getRandomFromCategory } from '../lib/quotes';
 
 const STORAGE_KEY = 'onboardingCompleted';
@@ -137,7 +138,7 @@ const closeBtnStyle = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#a89e8c',
+  color: '#6b5f4d',
   cursor: 'pointer',
   padding: 0,
   width: 44,
@@ -153,6 +154,7 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
   const isLast = step === slides.length - 1;
   // Lazy initializer — runs once on first render, never on module load.
   const [welcomeQuote] = useState(() => getRandomFromCategory('encouragement'));
+  const trapRef = useFocusTrap(true);
 
   // Every dismissal path marks the onboarding as completed.
   // The user can re-trigger it explicitly via the "ヘルプ" button
@@ -195,7 +197,7 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true">
-      <div style={{ ...cardStyle, position: 'relative' }}>
+      <div ref={trapRef} style={{ ...cardStyle, position: 'relative' }}>
         <button type="button" style={closeBtnStyle} onClick={dismiss} aria-label="閉じる">
           ×
         </button>

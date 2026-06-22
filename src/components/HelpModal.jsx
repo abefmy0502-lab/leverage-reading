@@ -11,6 +11,7 @@
 // だけ。`helpKey` を内部 state にすることで、4. の切替が onClose せずに完結。
 
 import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp } from '../lib/helpContent';
 import { callClaude } from '../lib/ai';
 import { PROMPTS } from '../lib/prompts';
@@ -199,7 +200,7 @@ const footerStyle = {
   padding: '10px 18px calc(10px + env(safe-area-inset-bottom, 0px))',
   borderTop: '1px solid #e4ddd0',
   fontSize: 11,
-  color: '#a89e8c',
+  color: '#6b5f4d',
   textAlign: 'center',
   background: '#fff',
   flexShrink: 0,           // ★ header と同様、潰れないように固定
@@ -211,7 +212,7 @@ const footerStyle = {
 // すべての helpKey で同じ「番号付きカード」見た目になるよう steps と
 // sections の両方を共通の renderCardSteps で描画する。
 
-const stepSubtitle = { fontSize: 13, color: '#8a7e6b', margin: '0 0 14px' };
+const stepSubtitle = { fontSize: 13, color: '#6b5f4d', margin: '0 0 14px' };
 const stepCard = {
   background: '#fff',
   border: '1px solid #e4ddd0',
@@ -319,6 +320,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
+  const trapRef = useFocusTrap(true);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -348,7 +350,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
-      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: '#3d362c', margin: 0, fontWeight: 600, flex: 1 }}>📖 ヘルプ</h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
@@ -450,7 +452,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
                 )}
               </>
             ) : (
-              <p style={{ fontSize: 13, color: '#a89e8c', margin: 0, lineHeight: 1.8 }}>
+              <p style={{ fontSize: 13, color: '#6b5f4d', margin: 0, lineHeight: 1.8 }}>
                 この画面のヘルプはまだ用意されていません。上の「AI に質問する」をお試しください。
               </p>
             )}

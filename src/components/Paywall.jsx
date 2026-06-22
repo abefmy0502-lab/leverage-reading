@@ -15,6 +15,7 @@
 //   このコンポーネント自体は Web 専用（Stripe.js 埋め込みはせずリダイレクト型）。
 
 import { useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { startCheckout, PLAN_LABELS } from '../lib/billing';
@@ -162,6 +163,7 @@ export default function Paywall() {
   const toast = useToast();
   // どちらのボタンを押下中かを保持して二度押しを防ぐ。
   const [pending, setPending] = useState(null); // 'monthly' | 'annual' | null
+  const trapRef = useFocusTrap(true);
 
   const handleSubscribe = async (plan) => {
     if (pending) return;
@@ -180,6 +182,7 @@ export default function Paywall() {
 
   return (
     <div
+      ref={trapRef}
       style={{
         flex: 1,
         minHeight: 0,
@@ -318,7 +321,7 @@ export default function Paywall() {
         </section>
 
         {/* 安心コピー */}
-        <p style={{ fontSize: 12, color: 'var(--color-tertiary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
+        <p style={{ fontSize: 12, color: 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
           初回は5日間の返金保証つき（合わなければ全額返金・お一人様1回限り）。<br />
           返金のご希望は{' '}
           <a href="mailto:leverage.book0502@gmail.com" style={{ color: 'var(--color-secondary)', textDecoration: 'underline' }}>
@@ -331,13 +334,13 @@ export default function Paywall() {
 
         {/* 法的リンク（サブスク必須開示の導線） */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
-          <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-tertiary)' }}>
+          <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
             利用規約
           </a>
-          <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-tertiary)' }}>
+          <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
             プライバシーポリシー
           </a>
-          <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-tertiary)' }}>
+          <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
             特定商取引法に基づく表記
           </a>
         </div>

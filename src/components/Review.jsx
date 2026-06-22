@@ -21,7 +21,7 @@ import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import { getRandomFromCategory } from '../lib/quotes';
-import { relativeJa, recallFraming } from '../lib/recall';
+import { relativeJa, recallFraming, pickRecallMemo } from '../lib/recall';
 import { track, EVENTS } from '../lib/analytics';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
@@ -422,6 +422,11 @@ export default function Review({ books = [], onOpenBook }) {
 
   const randomMemo = useMemo(() => {
     if (allNotes.length === 0) return null;
+    // 「忘れた頃の」sweet spot(30〜183日優先・最低14日)で選ぶ＝push通知/HomeRecall と
+    // 同じ想起ロジック。これにより「昨日書いたメモが出て"振り返り"感が無い」を解消。
+    // 熟成メモがまだ無い新規ユーザーは従来のランダム1枚にフォールバック（空にしない）。
+    const aged = pickRecallMemo(allNotes, { seed: randomSeed });
+    if (aged) return aged;
     const idx = Math.floor((randomSeed * 9301 + 49297 + Math.random() * allNotes.length) % allNotes.length);
     return allNotes[idx] || allNotes[0];
   }, [allNotes, randomSeed]);
