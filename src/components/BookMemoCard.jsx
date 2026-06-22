@@ -131,6 +131,15 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
     return () => window.removeEventListener('click', close);
   }, [menuOpen]);
 
+  // 写真拡大モーダルは背景タップで閉じるが、キーボード利用者向けに Esc でも
+  // 閉じられるようにする（モーダルの基本作法・a11y）。
+  useEffect(() => {
+    if (!zoom) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setZoom(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [zoom]);
+
   const swipeEnabled = Boolean(onSwipeDelete);
 
   // 本文が長い場合は行間広めの .long-text を当てて読みやすく（短い断片は据え置き）
