@@ -267,7 +267,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                 alignSelf: 'flex-start',
               }}
               role="tablist"
-              aria-label="集計期間"
+              aria-label="達成率の表示期間を選択"
             >
               {[
                 { key: 'week', label: '今週' },

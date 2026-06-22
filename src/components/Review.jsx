@@ -497,9 +497,11 @@ export default function Review({ books = [], onOpenBook }) {
   if (loading) {
     return (
       <div style={wrap}>
-        <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: 30 }}>
-          読み込み中…
-        </p>
+        <EmptyState
+          icon="⏳"
+          title="読み込み中"
+          description="あなたの気づきを集めています…"
+        />
       </div>
     );
   }
@@ -715,6 +717,7 @@ export default function Review({ books = [], onOpenBook }) {
           <input
             type="search"
             placeholder="本文・タイトル・著者・タグ"
+            aria-label="メモ横断検索: 本文・タイトル・著者・タグから探す"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
