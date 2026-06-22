@@ -3,6 +3,7 @@
  *
  * 更新履歴:
  * - 2026-06-23: 📊 利用状況の記録（製品改善のためのファーストパーティ計測）を追加。ローンチ後の「磨きの優先順位」を実データで決める最小限の計測基盤。外部トラッカーは使わず自前 Supabase（analytics_events）にだけ書く（CSP 変更不要）。送るのは「イベント名＋小さな enum/数値/真偽」だけで、メモ本文・書名・著者・メール・検索語・自由入力等の PII は src/lib/analytics.js の props サニタイズ（number(有限)/boolean/≤32字文字列のみ通す）で構造的に入らない。⚙️ 設定 →「📥 データ・アプリ」に「📊 利用状況の記録」トグル（role=switch・44px・既定 ON・オフで setAnalyticsOptOut(true)）を新設。track() は fire-and-forget・never throws・never blocks で、未設定/未ログイン/オプトアウト/テーブル未適用（schema error）は静かに no-op（fail-silent）。App.jsx に app_open（起動1回）/ book_added{via}（search/manual/advisor、barcode は後続）/ status_changed{to}（advanceStatus）/ paywall_viewed（PaywallGate）を、AccountSettings に checkout_started{plan} を配線。新規 supabase_analytics_events.sql（RLS: INSERT/SELECT 本人のみ・UPDATE/DELETE ポリシー無し＝改ざん防止の監査ログ・管理者は service_role で読む）。プライバシーポリシー（src/legal/PrivacyPage.jsx + legal/privacy.md）にファーストパーティ利用状況記録（個人特定情報を含まない・設定でオフ可・外部送信なし）を正直に開示。billing ヘルプに「📊 利用状況の記録について」セクションを新設。company/analytics-plan.md（taxonomy / プライバシー方針 / 集計 SQL / 拡張方針）新規。残りのイベント（memo_added / push_enabled / reading_progress_set / export_used / ai_used / review_opened / action_completed / barcode 経由 book_added）は taxonomy に列挙のみで各サーフェス担当が後続配線。委託先一覧は外部送信が無いため変更不要
+ * - 2026-06-22: 📱 iOS版（App内課金/IAP）の両チャネル化を実装（Mac不要のコード部分を先行）。Capacitor 土台を main へ再合流（capacitor.config.json は appName=Orime / native.js / main.jsx の initNative / useHaptic のネイティブ分岐 / @capacitor 依存。価格差分 ¥990 は持ち込まず ¥1,280 を維持）。新規 src/lib/iap.js（RevenueCat ラッパ。SDK は dynamic import + isNative ガードで Web バンドルから除外＝Web 完全無害。store 価格取得 / 購入 / 復元 / App Store サブスク管理）。Paywall と AccountSettings を Capacitor.isNativePlatform() で分岐 —— native は App Store 購入シート＋ストアのローカライズ価格（¥1,480）表示＋「購入を復元」（Apple 必須）＋自動更新条件の開示（審査要件 3.1.2）＋解約/管理は App Store 設定へ。反ステアリング順守で特商法リンク・サービス紹介 LP（安い Web 価格を含む）は native では非表示。Web は従来どおり Stripe（¥1,280）で不変。entitlement は subscriptions テーブル（status=active）で両チャネル共通、価格はコード非依存（Stripe Price ID / App Store 商品設定が真実）。IOS_APP_GUIDE.md を現行（App ¥1,480・RevenueCat・両チャネル）に全面刷新。billing ヘルプに「📱 App（iOS）版でご契約の場合」（管理・復元・自動更新の開示）を新設。npm run build / npm ci 成功。残りは Mac/Xcode での実機ビルドと App Store 審査（オーナー作業）
  * - 2026-06-22: 📖 読書進捗（現在ページ/総ページ→進捗バー）の UI を実装。「読書中」の本詳細（ReadingPhase）に数値入力 + 進捗バー、本棚の「読書中」カードにも細いバー（total_pages 設定時のみ）。反ゲーミフィケーション（目標/ノルマ/連続なし・あくまで続きを思い出す目安）。`books.current_page`/`total_pages`（既存の payload で送出済の列を UI から活用）、新規 supabase_books_reading_progress.sql で idempotent 追加、useBooks の schema-error fallback で未適用 DB でも保存・読込が壊れない。bookDetailReading の既存「進捗バー」セクションを実 UI に合わせて刷新（総ページ必須・カード表示・目安である旨）
  * - 2026-06-22: 🆕 2 機能追加（獲得・継続レバー）。(1) 🖼 引用カード画像共有 — カード式メモの「⋮」/長押しメニューに「🖼 画像で共有」を新設。その一行を 1080×1350 の美しい画像（書名・著者・ページ・Orime ワードマーク入り、Noto Serif JP）にして、📤 共有（端末の共有シート＝保存/各アプリ）または 💾 保存できる。外に出るのはその 1 枚だけ・自動 SNS 投稿はしない（SNS 化せず獲得の複利を狙う）。新規 shareCard.js（canvas 描画・フォント確定待ち・ワードラップ）/ ShareCardModal.jsx、BookMemoCard/List に onShare 配線（既存編集/削除/コピー/スワイプは不変）。memoEditor ヘルプに追記。(2) 🔄 ホームに「今日の想起」— 本棚上部に過去メモが 1 枚そっと戻る（メモ 5 件以上＋7 日以上前＋当日未 dismiss のときだけ・日替わりで安定・× で当日非表示）。振り返りを開かずに核体験を surface（プッシュのアプリ内版）。反ゲーミフィケーション厳守（バッジ/連続なし）。新規 HomeRecall.jsx + recall.js 再利用、App.jsx に 1 行マウント。review ヘルプに追記。いずれも npm run build 成功
  * - 2026-06-22: ⚙️ 設定（AccountSettings）簡素化に伴うヘルプ同期（文言のみ・挙動不変）。設定が「💳 プラン・お支払い / 📥 データ・アプリ / ⚠️ アカウント」の 3 グループに整理され「🔔 想起の通知」が「📥 データ・アプリ」群に内包された件を反映。review ヘルプの「🔔 通知で、向こうから戻ってくる」ステップで通知設定の所在を「📥 データ・アプリ」内と明記。billing ヘルプの「解約・カードの変更」は既に 3 グループ構成・プラン管理からの解約/カード変更/請求履歴・いつでも解約/データ保持を記載済みのため文言据え置き、lastUpdated のみ 2026-06-22 に更新。npm run build 成功
@@ -386,6 +387,15 @@ export const HELP_CONTENT = {
         heading: '価格について',
         body:
           '価格は決済ページに表示される金額が正式なものです。月額 ¥1,280（税込）と、年額 ¥10,800（税込・月あたり約 ¥900）からお選びいただけます。年額の方がお得です。',
+      },
+      {
+        heading: '📱 App（iOS）版でご契約の場合',
+        body:
+          'iOS アプリ版では、お支払い・解約は Apple（App Store）を通じて行います。\n\n' +
+          '・契約：アプリ内の購入シートから（App Store 決済）\n' +
+          '・解約／プラン変更：⚙️ 設定 →「💳 プラン・お支払い」→「⚙️ サブスクリプションを管理（App Store）」、または iPhone の「設定 →（自分の名前）→ サブスクリプション」から\n' +
+          '・機種変更・再インストール時：ご契約のご案内の下にある「購入を復元」で、元のご契約を引き継げます\n\n' +
+          'App 版の価格は App Store に表示される金額が正式なものです。サブスクリプションは自動更新で、期間終了の 24 時間前までに解約しない限り更新されます。',
       },
       {
         heading: '📊 利用状況の記録について',

@@ -18,3 +18,11 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# Capacitor / iOS native build artifacts (Mac/Xcode で生成・コミットしない)
+ios/App/Pods/
+ios/App/App/public/
+ios/App/build/
+ios/DerivedData/
+*.xcuserstate
+.cap/

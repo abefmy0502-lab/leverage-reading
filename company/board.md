@@ -77,7 +77,7 @@
 | 🧭 PM | 6月コア完成の Done定義 策定 | ✅ 完了（判定ゲート確定・誤検出2件を検証却下） |
 | 📊 データ分析・グロース | KPI設計済（NSM=週次想起WAU / 11イベント / PostHog推奨） | 計測実装は待機（法務前提待ち） |
 | ⚖️ 法務・コンプラ | 規約/プライバシー/特商法ドラフト作成済（`legal/`） | 特商法2フィールドはオーナー情報待ち |
-| 💻 エンジニア | 課金基盤実装済 / **¥1,280反映** / **saveBook堅牢化・デバッグログ撤去 完了** / Node固定+ビルドスタンプ(3de47b7) | ✅ main最新・build通過。次=待機 |
+| 💻 エンジニア | 課金基盤実装済 / **¥1,280反映** / saveBook堅牢化・ログ撤去 完了 / Node固定+ビルドスタンプ / **iOS両チャネル実装（Capacitor再合流+iap.js+Paywall/設定のnative分岐+復元+反ステアリング）** | ✅ main最新・build通過。残=Mac実機ビルド/審査(オーナー) |
 | 🎨 ブランディング（アイコン・アプリ名） | アプリ名を**「Orime」**に決定 | リブランド展開待ち（コード/LP/法務へ反映はP1） |
 | 📄 LP | **¥1,280に統一済**（Landing/Terms/SCT・コード確認済）。「無料期間なし」で課金モデルと整合 | ⚠️ライブ未反映（Vercel配線・B6） |
 | 📣 マーケ・営業 | X/Note事前種まきプレイブックv1策定（`marketing-playbook.md`）・競合リサーチ中 | 🔄 種まき起動準備 |
@@ -110,8 +110,8 @@
 | ✅完了 | ~~価格 ¥1,000→¥990 反映~~ | エンジニア | Landing/Terms/SCT/checkout コメント（本コミット） |
 | 🔴P0 | 特商法2フィールド記入 | 法務＋オーナー | `SctPage.jsx`。他項目記入済・¥990反映済 |
 | ✅完了 | ~~App決済基盤（B5非依存）~~：revenuecat-webhook＋subscriptions provider列＋法務文言(IAP/ストア解約) | エンジニア | レビュー承認・コミット。Stripe流儀＆既存entitlement基盤を再利用 |
-| 🔴P0 | **ネイティブ化**（Capacitor導入＋SWガード＋ルーティング分岐＋外部リンクBrowser化＋認証戻り先固定） | エンジニア | 実build/実機(Xcode等)が要るため別環境で。6月着手 |
-| 🔴P0 | ペイウォール＋AccountSettings(復元/管理リンク)＋IAP購入シート | エンジニア | RevenueCat SDK前提＝ネイティブ導入後 |
+| ✅完了(コード) | ~~**ネイティブ化**（Capacitor土台）~~ | エンジニア | capacitor.config(Orime)/native.js/initNative/useHaptic native分岐/@capacitor依存をmainへ再合流。¥990は持込まず。build/npm ci通過。残=Mac実機ビルド |
+| ✅完了(コード) | ~~ペイウォール＋AccountSettings(復元/管理リンク)＋IAP購入シート~~ | エンジニア | `iap.js`(RevenueCatラッパ・Web無害)+Paywall/設定をisNativePlatform分岐+購入/復元/store価格/管理。残=実機での購入疎通検証(TestFlight) |
 | ⏸B5依存 | 実機IAP疎通／ストア商品(¥990)登録／署名ビルド申請／RevenueCat-ストアAPI連携 | エンジニア＋元帥 | B5（O1 D-U-N-S・O5 税/口座）解消後 |
 | ✅完了 | ~~プロダクト名リブランド（→Orime）＋LP法務de-risk~~ | エンジニア | 表示文言のみ置換(コード識別子不変・破壊なし検証済)。LP誇大表現を景表法/Apple審査準拠に緩和。commit ee57862 |
 | ✅完了 | ~~プライバシーポリシーのIAP整合~~ | 法務 | Apple/Google/RevenueCat委託先・越境移転追記。commit済 |
@@ -141,6 +141,14 @@
 
 ## 9. 📒 意思決定ログ（新しいものを上に）
 
+- **2026-06-22（午後2）— 📱 iOS両チャネル化を実装（Mac不要部分を先行・7月両売り体制）**
+  - 元帥指示「Web/iOSどちらも7月中に売る」＋「Macあり・審査提出可」を受け、**Macが要らないコードを全実装**。残作業をオーナーの「ビルド→審査提出」だけに圧縮。
+  - **Capacitor土台を main へ再合流**（`8717a0c` からファイル単位で取得。capacitor.config=appName Orime / native.js / main.jsx initNative / useHaptic native分岐 / @capacitor依存）。**¥990差分は一切持ち込まず**¥1,280維持。
+  - **新規 `src/lib/iap.js`**（RevenueCatラッパ）：SDKは dynamic import + `isNative` ガードで **Webバンドルから除外＝Web完全無害**（遅延チャンク `web-*.js` に分離・index不変を確認）。store価格取得/購入/復元/App Store管理。
+  - **Paywall + AccountSettings を `Capacitor.isNativePlatform()` で分岐**：native=App Store購入シート＋ストア価格(¥1,480)表示＋**「購入を復元」(Apple必須)**＋**自動更新条件の開示(審査要件3.1.2)**＋管理はApp Store設定へ。**反ステアリング順守**で特商法/サービス紹介LP(安いWeb価格)を native では非表示。Web=従来Stripe(¥1,280)不変。
+  - **価格はコード非依存**（Stripe Price ID / App Store商品設定が真実）。entitlementは `subscriptions`(status=active)で両チャネル共通。
+  - `IOS_APP_GUIDE.md` を現行(App¥1,480・RevenueCat・両チャネル)に全面刷新。billingヘルプに「📱 App(iOS)版」節を新設。`npm run build`/`npm ci` 成功。
+  - 🔴 **唯一の残ボトルネック**：Mac/Xcodeでの実機ビルド＋App Store審査（オーナー）＋RevenueCat/ストア商品(¥1,480)設定（§5要対応）。コード側は完了。
 - **2026-06-22（午後）— 🏛 全社会議：認識統一＋ローンチ最終関門の特定**
   - 元帥指示で全責任者の認識をSSOT＋実コードで突合。**5件のズレを是正**：①価格＝一部資料が旧¥990→**正:Web¥1,280/App¥1,480**（コード全面¥1,280確認）②**最大の現在関門＝Vercel本番がmainをデプロイしていない**（旧Vercelは別アカウント作成＝配線切れ。ライブ=旧版6/20・¥990表示）→新**B6** ③`saveBook`/restore堅牢化=**完了**（`{ok,failed}`返却）④本番デバッグログ撤去=**完了**（console.log 0件）⑤push403(B2)=**解決済**。
   - **CEO結論**：コード・ビルド・push は新版で健全（main=3de47b7・build通過・¥1,280・Orime）。**ユーザーに届いていない唯一の原因はVercel配線（B6）**。元帥のVercel再Import（`abefmy0502-lab`でログイン→Import→Deploy）で解消すれば即ローンチ態勢。続く最終作業＝env/Stripe/SQL（runbook §1-5）。

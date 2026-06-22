@@ -14,11 +14,18 @@
 // ※ 将来 Capacitor（IAP）対応時は、billing.js 側で native 課金へ分岐する想定。
 //   このコンポーネント自体は Web 専用（Stripe.js 埋め込みはせずリダイレクト型）。
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { startCheckout, PLAN_LABELS } from '../lib/billing';
+import {
+  isNative,
+  APP_PLAN_LABELS,
+  getStoreLabels,
+  purchasePlan,
+  restorePurchases,
+} from '../lib/iap';
 import { toMessage } from '../lib/errors';
 import { track, EVENTS } from '../lib/analytics';
 
@@ -163,20 +170,60 @@ export default function Paywall() {
   const toast = useToast();
   // どちらのボタンを押下中かを保持して二度押しを防ぐ。
   const [pending, setPending] = useState(null); // 'monthly' | 'annual' | null
+  const [restoring, setRestoring] = useState(false);
+  // 表示ラベル: Web=env(Stripe ¥1,280) / ネイティブ=App 既定(¥1,480)→ストア価格で上書き。
+  const [labels, setLabels] = useState(isNative ? APP_PLAN_LABELS : PLAN_LABELS);
   const trapRef = useFocusTrap(true);
+
+  // ネイティブ時のみ、App Store のローカライズ価格をストアから取得して上書きする。
+  useEffect(() => {
+    if (!isNative) return;
+    let alive = true;
+    getStoreLabels(user?.id)
+      .then((l) => { if (alive && l) setLabels(l); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [user?.id]);
 
   const handleSubscribe = async (plan) => {
     if (pending) return;
     setPending(plan);
-    // 📊 課金ファネルの計測（決済ページへ送る直前・plan の enum だけ・PII なし）。
-    // ペイウォールが主要な転換導線なのでここで checkout_started を必ず計上する。
+    // 📊 課金ファネルの計測（購入導線に入る直前・plan の enum だけ・PII なし）。
     if (plan === 'monthly' || plan === 'annual') track(EVENTS.CHECKOUT_STARTED, { plan });
     try {
-      // 成功時は startCheckout 内で window.location.assign され戻らない。
+      if (isNative) {
+        // ネイティブ: App Store の購入シート（RevenueCat）。
+        const res = await purchasePlan(plan, user?.id);
+        if (res?.cancelled) { setPending(null); return; }
+        // 購入成功 → webhook が subscriptions を更新。反映のため少し待って再読込。
+        toast.success('ご契約ありがとうございます。反映までしばらくお待ちください。');
+        setTimeout(() => window.location.reload(), 1200);
+        return;
+      }
+      // Web: Stripe Checkout（成功時は assign され戻らない）。
       await startCheckout(plan);
     } catch (e) {
-      toast.error(toMessage(e, '決済ページを開けませんでした。少し時間をおいて再試行してください。'));
+      toast.error(toMessage(e, '購入手続きを開始できませんでした。少し時間をおいて再試行してください。'));
       setPending(null);
+    }
+  };
+
+  // 購入の復元（Apple 必須要件・ネイティブのみ）。
+  const handleRestore = async () => {
+    if (restoring) return;
+    setRestoring(true);
+    try {
+      const ok = await restorePurchases(user?.id);
+      if (ok) {
+        toast.success('購入を復元しました。');
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        toast.info('復元できる購入が見つかりませんでした。');
+        setRestoring(false);
+      }
+    } catch (e) {
+      toast.error(toMessage(e, '購入の復元に失敗しました。'));
+      setRestoring(false);
     }
   };
 
@@ -254,13 +301,13 @@ export default function Paywall() {
             >
               おすすめ
             </span>
-            <p style={{ fontSize: 15, fontWeight: 600, margin: '4px 0 2px' }}>{PLAN_LABELS.annual.name}</p>
+            <p style={{ fontSize: 15, fontWeight: 600, margin: '4px 0 2px' }}>{labels.annual.name}</p>
             <p style={{ fontSize: 20, fontWeight: 700, margin: '0 0 2px', color: 'var(--color-label)' }}>
-              {PLAN_LABELS.annual.price}
+              {labels.annual.price}
             </p>
-            {PLAN_LABELS.annual.note && (
+            {labels.annual.note && (
               <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '0 0 12px' }}>
-                {PLAN_LABELS.annual.note}
+                {labels.annual.note}
               </p>
             )}
             <button
@@ -289,12 +336,12 @@ export default function Paywall() {
           {/* 月額（控えめ） */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-              <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{PLAN_LABELS.monthly.name}</p>
-              <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{PLAN_LABELS.monthly.price}</p>
+              <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{labels.monthly.name}</p>
+              <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{labels.monthly.price}</p>
             </div>
-            {PLAN_LABELS.monthly.note && (
+            {labels.monthly.note && (
               <p style={{ fontSize: 12, color: 'var(--color-tertiary)', margin: '2px 0 12px' }}>
-                {PLAN_LABELS.monthly.note}
+                {labels.monthly.note}
               </p>
             )}
             <button
@@ -320,17 +367,50 @@ export default function Paywall() {
           </div>
         </section>
 
-        {/* 安心コピー */}
-        <p style={{ fontSize: 12, color: 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
-          初回は5日間の返金保証つき（合わなければ全額返金・お一人様1回限り）。<br />
-          返金のご希望は{' '}
-          <a href="mailto:leverage.book0502@gmail.com" style={{ color: 'var(--color-secondary)', textDecoration: 'underline' }}>
-            お問い合わせ
-          </a>
-          {' '}までご連絡ください（解約とは別の手続きです）。<br />
-          いつでも解約できます。解約後もデータは保持されます。<br />
-          お支払いは Stripe の安全な決済ページで行われます。
-        </p>
+        {/* 購入の復元（Apple 必須・ネイティブのみ） */}
+        {isNative && (
+          <button
+            type="button"
+            onClick={handleRestore}
+            disabled={restoring}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--color-secondary)',
+              fontSize: 13,
+              cursor: restoring ? 'default' : 'pointer',
+              fontFamily: 'inherit',
+              textDecoration: 'underline',
+              padding: '8px 12px',
+              minHeight: 44,
+              alignSelf: 'center',
+            }}
+          >
+            {restoring ? '復元中…' : '購入を復元'}
+          </button>
+        )}
+
+        {/* 安心コピー（チャネル別の必須開示） */}
+        {isNative ? (
+          // iOS/IAP: Apple 3.1.2 の自動更新条件を明示（審査必須）。返金は Apple 経由。
+          <p style={{ fontSize: 12, color: 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
+            サブスクリプションは自動更新です。期間終了の24時間前までに解約しない限り、同額で自動更新されます。<br />
+            解約・プラン変更は App Store のアカウント設定からいつでも行えます。<br />
+            解約後もデータは保持されます。お支払いは App Store を通じて行われます。
+          </p>
+        ) : (
+          // Web/Stripe: 5日間返金保証 + Stripe 決済の明示。
+          <p style={{ fontSize: 12, color: 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
+            初回は5日間の返金保証つき（合わなければ全額返金・お一人様1回限り）。<br />
+            返金のご希望は{' '}
+            <a href="mailto:leverage.book0502@gmail.com" style={{ color: 'var(--color-secondary)', textDecoration: 'underline' }}>
+              お問い合わせ
+            </a>
+            {' '}までご連絡ください（解約とは別の手続きです）。<br />
+            いつでも解約できます。解約後もデータは保持されます。<br />
+            お支払いは Stripe の安全な決済ページで行われます。
+          </p>
+        )}
 
         {/* 法的リンク（サブスク必須開示の導線） */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
@@ -340,9 +420,13 @@ export default function Paywall() {
           <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
             プライバシーポリシー
           </a>
-          <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
-            特定商取引法に基づく表記
-          </a>
+          {/* 特商法は Web 販売特有（Web価格 ¥1,280 を表示）。ネイティブでは反ステアリング
+              順守のため非表示にし、価格開示は App Store に委ねる。 */}
+          {!isNative && (
+            <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
+              特定商取引法に基づく表記
+            </a>
+          )}
         </div>
 
         {/* アカウント切替（別アカウントで入り直したい人向け） */}
@@ -368,22 +452,26 @@ export default function Paywall() {
           >
             別のアカウントでサインイン
           </button>
-          {/* まだ決めかねている人を完全離脱でなくサービス紹介(LP)へ逃がす導線 */}
-          <div>
-            <a
-              href="/lp"
-              style={{
-                display: 'inline-flex',
-                minHeight: 44,
-                alignItems: 'center',
-                padding: '8px 12px',
-                color: 'var(--color-tertiary)',
-                fontSize: 12,
-              }}
-            >
-              ← サービス紹介を見る
-            </a>
-          </div>
+          {/* まだ決めかねている人をサービス紹介(LP)へ逃がす導線。
+              LP は Web 価格(¥1,280)と比較表を含むため、反ステアリング順守で
+              ネイティブでは非表示（Web のみ）。 */}
+          {!isNative && (
+            <div>
+              <a
+                href="/lp"
+                style={{
+                  display: 'inline-flex',
+                  minHeight: 44,
+                  alignItems: 'center',
+                  padding: '8px 12px',
+                  color: 'var(--color-tertiary)',
+                  fontSize: 12,
+                }}
+              >
+                ← サービス紹介を見る
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>

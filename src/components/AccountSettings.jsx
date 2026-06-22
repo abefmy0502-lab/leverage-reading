@@ -20,6 +20,7 @@ import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
+import { isNative, purchasePlan, openManageSubscriptions } from '../lib/iap';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
   isPushSupported,
@@ -284,7 +285,13 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
     if (billingBusy) return;
     setBillingBusy(true);
     try {
-      // 成功時はページ遷移するので戻らない。
+      if (isNative) {
+        // ネイティブ(IAP): 解約・プラン変更は App Store のサブスク設定で行う。
+        await openManageSubscriptions();
+        setBillingBusy(false);
+        return;
+      }
+      // Web(Stripe): 成功時はページ遷移するので戻らない。
       await openBillingPortal();
     } catch (e) {
       toast.error(toMessage(e, 'プラン管理ページを開けませんでした。'));
@@ -298,9 +305,17 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
     // 📊 課金転換ファネル（PII なし・plan の enum だけ）。
     if (plan === 'monthly' || plan === 'annual') track('checkout_started', { plan });
     try {
+      if (isNative) {
+        // ネイティブ(IAP): App Store の購入シート。成功後は反映のため再読込。
+        const res = await purchasePlan(plan, user?.id);
+        if (res?.cancelled) { setBillingBusy(false); return; }
+        toast.success('ご契約ありがとうございます。反映までしばらくお待ちください。');
+        setTimeout(() => window.location.reload(), 1200);
+        return;
+      }
       await startCheckout(plan);
     } catch (e) {
-      toast.error(toMessage(e, '決済ページを開けませんでした。'));
+      toast.error(toMessage(e, '購入手続きを開始できませんでした。'));
       setBillingBusy(false);
     }
   };
@@ -535,9 +550,21 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                   )}
                 </p>
                 <p style={sectionDescStyle}>
-                  解約・カード変更・請求履歴はこちらから。いつでも解約でき、データは保持されます。
+                  {isNative
+                    ? '解約・プラン変更は App Store のサブスク設定から。いつでも解約でき、データは保持されます。'
+                    : '解約・カード変更・請求履歴はこちらから。いつでも解約でき、データは保持されます。'}
                 </p>
-                {subscription?.stripeCustomerId ? (
+                {isNative ? (
+                  <button
+                    type="button"
+                    aria-label="サブスクリプションを管理する"
+                    style={{ ...btnPrimary, opacity: billingBusy ? 0.6 : 1 }}
+                    disabled={billingBusy}
+                    onClick={handleManageBilling}
+                  >
+                    {billingBusy ? '移動中…' : '⚙️ サブスクリプションを管理（App Store）'}
+                  </button>
+                ) : subscription?.stripeCustomerId ? (
                   <button
                     type="button"
                     aria-label="プランを管理する"
