@@ -43,6 +43,18 @@
 //                                  絶対にクライアントへ露出しないこと）
 
 import { createClient } from '@supabase/supabase-js';
+import { timingSafeEqual } from 'node:crypto';
+
+// 共有シークレットを定数時間で比較する（タイミング攻撃でシークレットを 1 文字ずつ
+// 推測されるのを防ぐ）。長さが違う時点で false だが、長さの差自体が漏れないよう
+// 先に長さチェック → 同長なら timingSafeEqual。api/stripe-webhook.js と同流儀。
+function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 // service_role キーで作る Supabase クライアント。RLS をバイパスして
 // subscriptions に書き込めるのは Webhook（=このサーバー）だけ。
@@ -66,7 +78,8 @@ function isAuthorized(req) {
   const raw = req.headers?.authorization || req.headers?.Authorization || '';
   if (typeof raw !== 'string' || !raw) return false;
   // ダッシュボードの設定値をそのまま（例: "Bearer xxx" でも素の "xxx" でも）一致比較。
-  return raw === expected;
+  // タイミング攻撃対策で定数時間比較を使う。
+  return safeEqual(raw, expected);
 }
 
 function toIsoFromMs(ms) {

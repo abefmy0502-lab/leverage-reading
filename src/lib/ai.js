@@ -155,7 +155,7 @@ const MAX_MEMOS = 80;
 // Defense-in-depth: strip control characters and zero-widths from any string
 // embedded into a prompt. Prompt-injection text relying on hidden chars or
 // raw newlines that shouldn't be there is neutralised.
-function sanitizeForPrompt(text) {
+export function sanitizeForPrompt(text) {
   if (typeof text !== 'string') return '';
   return text
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')

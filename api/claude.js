@@ -5,6 +5,21 @@ const RATE_LIMIT_MAX = 10;
 const MAX_TOKENS_DEFAULT = 4096;
 const MAX_TOKENS_HARD_CAP = 8192;
 
+// リクエスト body の上限バイト数。vision（写真→AI 書き起こし / 表紙）は
+// クライアントで長辺 1568px JPEG に縮小済み（src/lib/image.js）なので、正規利用
+// では数百 KB に収まる。1.5MB を超える body は「異常 / 悪用（巨大画像・大量
+// メッセージの注入）」とみなして 413 で弾く（upstream への過大トークン課金 +
+// メモリ肥大の予防）。Vercel の bodyParser 既定上限とは別の、アプリ層のガード。
+const MAX_BODY_BYTES = 1.5 * 1024 * 1024;
+
+// 許可する Anthropic モデルの allowlist。クライアントは現状 1 モデルしか
+// 使わない（src/lib/ai.js / streamClaude.js の DEFAULT_MODEL）。中継 API が
+// body.model を verbatim で upstream に流すと、改ざんしたクライアントが Opus 等
+// の高単価モデルを指定して原価を吊り上げられる（KGI ガードの穴）。allowlist 外
+// は既定モデルに矯正する（拒否ではなく安全側に倒す＝正規利用を妨げない）。
+const ALLOWED_MODELS = new Set(['claude-sonnet-4-20250514']);
+const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+
 // ───────────────────────────────────────────────────────────────────
 // 🤖 月次 AI 利用量メータリング（KGI 原価ガード）
 //
@@ -108,6 +123,38 @@ async function checkMonthlyUsage(userId) {
   }
 }
 
+// 課金 entitlement のサーバー側ゲート。クライアントの PaywallGate は迂回可能
+// （DevTools / 改造クライアント）なので、原価が発生する AI 中継ではサーバーでも
+// subscriptions.status==='active' を確認する（useSubscription と同一判定）。
+//
+// fail-open の境界を厳密に分ける:
+//   - service_role 未設定 / テーブル未適用（schema error）/ インフラエラー
+//       → { allowed: true }（ロールアウト・移行中にユーザーを締め出さない）
+//   - テーブルは引けたが status!=='active'（行が無い含む）
+//       → { allowed: false }（明確な未課金。ハードペイウォールの方針どおり止める）
+// クライアントの useSubscription も「取得エラー時は active を潰さない」設計なので、
+// 表示と挙動が食い違わない（行が無い＝クライアントでも AI 非表示）。
+async function checkEntitlement(userId) {
+  const supabase = getServiceSupabase();
+  if (!supabase) return { allowed: true }; // 判定不能なら通す（fail-open）
+  try {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('status')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) {
+      // テーブル未適用（does not exist）含め、取得エラーは fail-open。
+      console.warn('[entitlement] check failed (fail-open):', error.message);
+      return { allowed: true };
+    }
+    return { allowed: data?.status === 'active' };
+  } catch (e) {
+    console.warn('[entitlement] check threw (fail-open):', e?.message);
+    return { allowed: true };
+  }
+}
+
 // 成功したコールの後に当月カウントを原子的に +1 する。
 // fire-and-forget で呼んでよい（失敗してもユーザー応答には影響させない）。
 // RPC が無い古い DB / service_role 未設定 / インフラエラーは握り潰す（fail-open）。
@@ -167,6 +214,16 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too Many Requests', retry_after: rl.retryAfter });
   }
 
+  // 課金 entitlement（サーバー側ゲート）。fail-open（未設定 / 未適用 / 障害は通す）。
+  // 明確に未課金（テーブルあり & status!=='active'）の時だけ 402 で止める。
+  const ent = await checkEntitlement(userId);
+  if (!ent.allowed) {
+    return res.status(402).json({
+      error: { message: 'AI 機能のご利用にはプランへのご登録が必要です。' },
+      error_code: 'subscription_required',
+    });
+  }
+
   // 月次累積上限（KGI 原価ガード）。超過なら 429 で明確なメッセージ。
   // checkMonthlyUsage は fail-open（基盤障害 / 未適用テーブルなら通す）。
   const usage = await checkMonthlyUsage(userId);
@@ -179,13 +236,32 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {};
+
+    // body サイズの上限ガード（過大トークン課金 / メモリ肥大の予防）。
+    // JSON 文字列のバイト長で概算。超過なら upstream に流す前に 413 で弾く。
+    let bodyBytes = 0;
+    try {
+      bodyBytes = Buffer.byteLength(JSON.stringify(body), 'utf8');
+    } catch {
+      bodyBytes = 0; // 文字列化不能（循環参照等）は 0 扱いで先へ（実質起きない）
+    }
+    if (bodyBytes > MAX_BODY_BYTES) {
+      return res.status(413).json({
+        error: { message: 'リクエストが大きすぎます。画像のサイズを小さくして再度お試しください。' },
+        error_code: 'payload_too_large',
+      });
+    }
+
     const requestedTokens = Number.isFinite(body.max_tokens)
       ? Math.max(1, Math.floor(body.max_tokens))
       : MAX_TOKENS_DEFAULT;
     const maxTokens = Math.min(requestedTokens, MAX_TOKENS_HARD_CAP);
     const wantsStream = body.stream === true;
 
-    const payload = { ...body, max_tokens: maxTokens };
+    // モデルを allowlist で矯正（高単価モデルへの差し替え悪用を封じる）。
+    const model = ALLOWED_MODELS.has(body.model) ? body.model : DEFAULT_MODEL;
+
+    const payload = { ...body, model, max_tokens: maxTokens };
 
     // クライアント切断時に Anthropic への upstream fetch も打ち切るための
     // AbortController。これが無いと、ユーザーが「中止」して fetch を切っても

@@ -377,7 +377,36 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
     setDeleting(true);
     let storageError = null;
-    let dbError = null;
+    // 本当の削除失敗（RLS 拒否・接続断など）だけを集める。テーブル/列が無い
+    // schema-error は未適用 DB 互換のため握りつぶしてスキップする。
+    const dbErrors = [];
+
+    // schema-error（テーブル/列が存在しない）を判定して許容するためのヘルパー。
+    // 未適用 DB（移行 SQL 未実行）でも退会を止めないために、これらは失敗扱いしない。
+    const isSchemaError = (err) => {
+      const msg = String(err?.message || err || '').toLowerCase();
+      const code = String(err?.code || '');
+      return (
+        code === '42P01'        // undefined_table
+        || code === '42703'     // undefined_column
+        || msg.includes('does not exist')
+        || msg.includes('could not find')
+        || msg.includes('schema cache')
+        || msg.includes('relation')
+        || msg.includes('column')
+      );
+    };
+
+    // 1 テーブルを削除し、本当の失敗のみ dbErrors に積む（schema-error はスキップ）。
+    const deleteOwn = async (table) => {
+      try {
+        const { error } = await supabase.from(table).delete().eq('user_id', user.id);
+        if (error && !isSchemaError(error)) dbErrors.push({ table, error });
+      } catch (e) {
+        if (!isSchemaError(e)) dbErrors.push({ table, error: e });
+      }
+    };
+
     try {
       // 1. Delete photos from Storage
       try {
@@ -390,25 +419,44 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
         storageError = e;
       }
 
-      // 2. Delete data tables. books deletion CASCADES to book_memos / book_tags
-      // / actions in our schema, but we also delete personal memos (book_id null)
-      // and chat_messages explicitly.
-      try {
-        await supabase.from('chat_messages').delete().eq('user_id', user.id);
-      } catch (e) { /* table may not exist if migration unrun */ }
-      await supabase.from('book_memos').delete().eq('user_id', user.id);
-      await supabase.from('book_tags').delete().eq('user_id', user.id);
-      await supabase.from('actions').delete().eq('user_id', user.id);
-      const { error: booksErr } = await supabase.from('books').delete().eq('user_id', user.id);
-      if (booksErr) dbError = booksErr;
+      // 2. Delete data tables, child → parent.
+      //
+      // 本人が RLS の DELETE ポリシーで自分で消せるテーブルだけをここで消す。
+      // books の削除は book_memos / book_tags / actions に CASCADE するが、
+      // book_id が null の個人メモや chat_messages は books に紐づかないため
+      // 明示削除する。theme_reports / advisor_sessions / push_subscriptions は
+      // books と独立しており、かつ本人 DELETE ポリシーがあるので各自消す。
+      //
+      // ⚠️ analytics_events / feedback / subscriptions / ai_usage は RLS に
+      //    ユーザー DELETE ポリシーが無い（設計上クライアントから消せない）。
+      //    これらは auth.users 削除時の ON DELETE CASCADE で消える設計（タスク2の
+      //    supabase_security_hardening.sql で FK CASCADE を保証）。ここでは
+      //    クライアントから delete を呼ばない（呼ぶと必ず失敗するため）。
+      await deleteOwn('chat_messages');     // マイ読書脳の対話履歴（book_id null の学びログ含む）
+      await deleteOwn('book_memos');        // カード式メモ（個人メモ含む）
+      await deleteOwn('book_tags');         // タグ（user_id 列あり）
+      await deleteOwn('actions');           // 行動リスト
+      await deleteOwn('theme_reports');     // 📊 テーマレポート履歴
+      await deleteOwn('advisor_sessions');  // 🕒 AI 選書の会話履歴
+      await deleteOwn('push_subscriptions');// 🔔 想起プッシュ購読
+      await deleteOwn('books');             // 親（残った子に CASCADE）
 
       // 3. Record the deletion request so the admin can finish off auth.users.
+      //    一部削除に失敗した場合でも、これは必ず試みる（管理者が手当てできるよう
+      //    残失敗の概要を notes に残す）。
+      const warnParts = [];
+      if (storageError) warnParts.push(`storage_warn: ${storageError.message || storageError}`);
+      if (dbErrors.length > 0) {
+        warnParts.push(
+          `db_warn: ${dbErrors.map((d) => `${d.table}(${d.error?.message || d.error})`).join('; ')}`,
+        );
+      }
       try {
         await supabase.from('account_deletion_requests').insert([
           {
             user_id: user.id,
             user_email: user.email || null,
-            notes: storageError ? `storage_warn: ${storageError.message || storageError}` : null,
+            notes: warnParts.length > 0 ? warnParts.join(' | ') : null,
           },
         ]);
       } catch (e) {
@@ -416,8 +464,11 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
         console.warn('account_deletion_requests insert failed:', e);
       }
 
-      if (dbError) {
-        toast.error(toMessage(dbError, 'データの削除中にエラーが発生しました。'));
+      // 1 つでも本当の削除失敗があれば成功トーストを出さず、サポート連絡を案内。
+      // （削除リクエストの insert は上で済ませているので、管理者が追って手当て可能）。
+      if (dbErrors.length > 0) {
+        console.error('account deletion partial failure:', dbErrors);
+        toast.error('一部のデータ削除に失敗しました。お手数ですがサポートにご連絡ください。');
         return;
       }
 

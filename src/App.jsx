@@ -1,6 +1,6 @@
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
-import { callClaude } from './lib/ai';
+import { callClaude, sanitizeForPrompt } from './lib/ai';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
 import MarkdownSections from './components/MarkdownSections';
@@ -67,7 +67,7 @@ const Paywall = lazy(() => import('./components/Paywall'));
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage } from './lib/errors';
-import { LIMITS } from './lib/limits';
+import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 import {
   getAmazonLink,
@@ -1486,8 +1486,11 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
-    const userMsg = input.trim();
+    // 制御文字 / ゼロ幅文字を除去し長さを clamp（プロンプトインジェクション防御）。
+    // 表示用にも sanitize 済みテキストを使い、生の制御文字を画面に出さない。
+    const userMsg = clamp(sanitizeForPrompt(input), LIMITS.aiQuestion);
     setInput("");
+    if (!userMsg) return;
 
     const newHistory = [...chatHistory, { role: "user", content: userMsg }];
     setChatHistory(newHistory);
@@ -1940,6 +1943,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             placeholder="課題を入力..."
             rows={1}
             disabled={loading}
+            maxLength={LIMITS.aiQuestion}
             aria-label="AI選書アドバイザーへの質問"
             onKeyDown={(e) => {
               if (e.nativeEvent.isComposing) return;
