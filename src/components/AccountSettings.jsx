@@ -19,6 +19,7 @@ import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
+import { track, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
   isPushSupported,
   isPushConfigured,
@@ -204,6 +205,18 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   const { subscription, isActive, loading: subLoading } = useSubscription();
   const [billingBusy, setBillingBusy] = useState(false);
 
+  // 📊 利用状況の記録（製品改善のためのファーストパーティ計測）。既定 ON。
+  //   analyticsOn=true なら記録する（= オプトアウトしていない）。オフ操作で
+  //   setAnalyticsOptOut(true) を呼ぶ。fail-silent（localStorage 不可でも壊さない）。
+  const [analyticsOn, setAnalyticsOn] = useState(() => !isAnalyticsOptedOut());
+  const handleToggleAnalytics = () => {
+    setAnalyticsOn((prev) => {
+      const next = !prev;
+      setAnalyticsOptOut(!next); // next=ON → optout=false
+      return next;
+    });
+  };
+
   // 🔔 想起の通知（Web Push）。デフォルト OFF・完全オプトイン。
   //   pushOn       : この端末が現在購読済みか（トグルの初期/反映状態）
   //   pushBusy     : 許可要求/購読処理中のロック
@@ -271,6 +284,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   const handleUpgrade = async (plan) => {
     if (billingBusy) return;
     setBillingBusy(true);
+    // 📊 課金転換ファネル（PII なし・plan の enum だけ）。
+    if (plan === 'monthly' || plan === 'annual') track('checkout_started', { plan });
     try {
       await startCheckout(plan);
     } catch (e) {
@@ -577,6 +592,32 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             </p>
             <button type="button" aria-label="Markdown で書き出す" style={{ ...btnPrimary, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
               {exportingMd ? '書き出し中…' : '📝 Markdown で書き出す'}
+            </button>
+          </section>
+
+          {/* 📊 利用状況の記録（製品改善のためのファーストパーティ計測） */}
+          <section style={sectionStyle} aria-label="利用状況の記録">
+            <p style={sectionTitleStyle}>
+              📊 利用状況の記録（製品改善のため）
+            </p>
+            <p style={sectionDescStyle}>
+              どの機能がよく使われているかを、機能名や回数だけ（個人を特定する内容は含めず）そっと記録し、Orime の改善に役立てます。外部のサービスには送らず、いつでもオフにできます。
+            </p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={analyticsOn}
+              aria-label="利用状況の記録"
+              style={{
+                ...btnPrimary,
+                minHeight: 44,
+                background: analyticsOn ? '#5c5043' : 'transparent',
+                color: analyticsOn ? '#faf6f0' : '#5c5043',
+                border: analyticsOn ? 'none' : '1px solid #d4ccbe',
+              }}
+              onClick={handleToggleAnalytics}
+            >
+              {analyticsOn ? '📊 記録オン（タップでオフ）' : '🚫 記録はオフです'}
             </button>
           </section>
 

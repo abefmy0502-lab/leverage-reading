@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-06-23: 📊 利用状況の記録（製品改善のためのファーストパーティ計測）を追加。ローンチ後の「磨きの優先順位」を実データで決める最小限の計測基盤。外部トラッカーは使わず自前 Supabase（analytics_events）にだけ書く（CSP 変更不要）。送るのは「イベント名＋小さな enum/数値/真偽」だけで、メモ本文・書名・著者・メール・検索語・自由入力等の PII は src/lib/analytics.js の props サニタイズ（number(有限)/boolean/≤32字文字列のみ通す）で構造的に入らない。⚙️ 設定 →「📥 データ・アプリ」に「📊 利用状況の記録」トグル（role=switch・44px・既定 ON・オフで setAnalyticsOptOut(true)）を新設。track() は fire-and-forget・never throws・never blocks で、未設定/未ログイン/オプトアウト/テーブル未適用（schema error）は静かに no-op（fail-silent）。App.jsx に app_open（起動1回）/ book_added{via}（search/manual/advisor、barcode は後続）/ status_changed{to}（advanceStatus）/ paywall_viewed（PaywallGate）を、AccountSettings に checkout_started{plan} を配線。新規 supabase_analytics_events.sql（RLS: INSERT/SELECT 本人のみ・UPDATE/DELETE ポリシー無し＝改ざん防止の監査ログ・管理者は service_role で読む）。プライバシーポリシー（src/legal/PrivacyPage.jsx + legal/privacy.md）にファーストパーティ利用状況記録（個人特定情報を含まない・設定でオフ可・外部送信なし）を正直に開示。billing ヘルプに「📊 利用状況の記録について」セクションを新設。company/analytics-plan.md（taxonomy / プライバシー方針 / 集計 SQL / 拡張方針）新規。残りのイベント（memo_added / push_enabled / reading_progress_set / export_used / ai_used / review_opened / action_completed / barcode 経由 book_added）は taxonomy に列挙のみで各サーフェス担当が後続配線。委託先一覧は外部送信が無いため変更不要
  * - 2026-06-22: 📖 読書進捗（現在ページ/総ページ→進捗バー）の UI を実装。「読書中」の本詳細（ReadingPhase）に数値入力 + 進捗バー、本棚の「読書中」カードにも細いバー（total_pages 設定時のみ）。反ゲーミフィケーション（目標/ノルマ/連続なし・あくまで続きを思い出す目安）。`books.current_page`/`total_pages`（既存の payload で送出済の列を UI から活用）、新規 supabase_books_reading_progress.sql で idempotent 追加、useBooks の schema-error fallback で未適用 DB でも保存・読込が壊れない。bookDetailReading の既存「進捗バー」セクションを実 UI に合わせて刷新（総ページ必須・カード表示・目安である旨）
  * - 2026-06-22: 🆕 2 機能追加（獲得・継続レバー）。(1) 🖼 引用カード画像共有 — カード式メモの「⋮」/長押しメニューに「🖼 画像で共有」を新設。その一行を 1080×1350 の美しい画像（書名・著者・ページ・Orime ワードマーク入り、Noto Serif JP）にして、📤 共有（端末の共有シート＝保存/各アプリ）または 💾 保存できる。外に出るのはその 1 枚だけ・自動 SNS 投稿はしない（SNS 化せず獲得の複利を狙う）。新規 shareCard.js（canvas 描画・フォント確定待ち・ワードラップ）/ ShareCardModal.jsx、BookMemoCard/List に onShare 配線（既存編集/削除/コピー/スワイプは不変）。memoEditor ヘルプに追記。(2) 🔄 ホームに「今日の想起」— 本棚上部に過去メモが 1 枚そっと戻る（メモ 5 件以上＋7 日以上前＋当日未 dismiss のときだけ・日替わりで安定・× で当日非表示）。振り返りを開かずに核体験を surface（プッシュのアプリ内版）。反ゲーミフィケーション厳守（バッジ/連続なし）。新規 HomeRecall.jsx + recall.js 再利用、App.jsx に 1 行マウント。review ヘルプに追記。いずれも npm run build 成功
  * - 2026-06-22: ⚙️ 設定（AccountSettings）簡素化に伴うヘルプ同期（文言のみ・挙動不変）。設定が「💳 プラン・お支払い / 📥 データ・アプリ / ⚠️ アカウント」の 3 グループに整理され「🔔 想起の通知」が「📥 データ・アプリ」群に内包された件を反映。review ヘルプの「🔔 通知で、向こうから戻ってくる」ステップで通知設定の所在を「📥 データ・アプリ」内と明記。billing ヘルプの「解約・カードの変更」は既に 3 グループ構成・プラン管理からの解約/カード変更/請求履歴・いつでも解約/データ保持を記載済みのため文言据え置き、lastUpdated のみ 2026-06-22 に更新。npm run build 成功
@@ -361,7 +362,7 @@ export const HELP_CONTENT = {
   billing: {
     title: '💳 プラン・お支払い',
     description: 'Orime のご契約と、解約・カード変更について。',
-    lastUpdated: '2026-06-22',
+    lastUpdated: '2026-06-23',
     sections: [
       {
         heading: 'すべての機能を使うには',
@@ -385,6 +386,13 @@ export const HELP_CONTENT = {
         heading: '価格について',
         body:
           '価格は決済ページに表示される金額が正式なものです。月額 ¥1,280（税込）と、年額 ¥10,800（税込・月あたり約 ¥900）からお選びいただけます。年額の方がお得です。',
+      },
+      {
+        heading: '📊 利用状況の記録について',
+        body:
+          '⚙️ 設定の「📥 データ・アプリ」に「📊 利用状況の記録（製品改善のため）」のスイッチがあります。\n\n' +
+          'どの機能がよく使われているかを、機能名や回数だけ（メモ本文・書名・検索語など個人を特定する内容は一切含めず）そっと記録し、Orime の改善に役立てます。外部のサービスには送らず、自前のサーバーにだけ保存します。\n\n' +
+          'いつでもオフにできます（オフにしても機能はすべてそのまま使えます）。',
       },
     ],
   },

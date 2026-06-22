@@ -40,6 +40,7 @@ const TermsPage = lazy(() => import('./legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
 const SctPage = lazy(() => import('./legal/SctPage'));
 import { supabase as supabaseClient } from './lib/supabase';
+import { track } from './lib/analytics';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
@@ -2083,6 +2084,8 @@ function AuthedApp() {
     document.body.classList.toggle('keyboard-open', keyboardOpen);
     return () => document.body.classList.remove('keyboard-open');
   }, [keyboardOpen]);
+  // 📊 起動 1 回だけ計測（fail-silent・オプトアウト/未ログインで no-op）。
+  useEffect(() => { track('app_open'); }, []);
   const {
     books: rawBooks,
     loading: booksLoading,
@@ -2658,6 +2661,13 @@ function AuthedApp() {
       const saved = await saveBook(payload);
       const next = saved || payload;
       const wasNew = !current; // 新規追加 (current=null) かどうか
+      // 📊 本追加の計測（新規追加時のみ・経路は addedVia の enum だけ）。
+      if (wasNew) {
+        const via = next.addedVia === 'manual' ? 'manual'
+          : next.addedVia === 'search' ? 'search'
+          : 'manual';
+        track('book_added', { via });
+      }
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
 
@@ -2893,6 +2903,8 @@ function AuthedApp() {
     }
     try {
       const saved = await saveBook(newBook);
+      // 📊 AI 選書経由の本追加（PII なし・via の enum だけ）。
+      track('book_added', { via: 'advisor' });
       // 4 フィールドが埋まっていれば「読書計画を作成しました」、そうでなければ控えめなトースト。
       const hasPlan = newBook.currentChallenge || newBook.hypothesis || newBook.bookReason;
       const msg = hasPlan
@@ -2956,6 +2968,11 @@ function AuthedApp() {
     setCurrent(updated);
     setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
     setView("edit");
+
+    // 📊 ステータス遷移の計測（PII なし・to の enum だけ）。
+    if (newStatus === 'before' || newStatus === 'reading' || newStatus === 'done') {
+      track('status_changed', { to: newStatus });
+    }
 
     // Persist in background; roll back on failure.
     saveBook(updated).catch((error) => {
@@ -4909,6 +4926,11 @@ function PaywallGate() {
       timers.forEach(clearTimeout);
     };
   }, [refresh]);
+
+  // ペイウォールが実際に表示される条件（判定確定 + 未課金 + schema 適用済み）。
+  const paywallShown = !loading && !isActive && !isSchemaUnappliedError(error);
+  // 📊 ペイウォール露出の計測（転換率の分母）。PII なし・表示時 1 回。
+  useEffect(() => { if (paywallShown) track('paywall_viewed'); }, [paywallShown]);
 
   if (loading) {
     return (
