@@ -169,21 +169,28 @@ function formatPeriodEnd(iso) {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function listAllUserPhotos(userId) {
+async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
   if (!isSupabaseConfigured) return [];
   const all = [];
   // Top level: user_id/<book_id>/<file>
   const { data: bookFolders, error } = await supabase.storage
-    .from('book-memo-photos')
+    .from(bucket)
     .list(userId, { limit: 1000 });
   if (error || !bookFolders) return all;
-  for (const folder of bookFolders) {
-    if (!folder?.name) continue;
+  for (const entry of bookFolders) {
+    if (!entry?.name) continue;
+    // Supabase storage の list 規約: フォルダは id=null、ファイルは id を持つ。
+    if (entry.id) {
+      // user_id 直下のファイル（例: book-covers/<userId>/<file>）。
+      all.push(`${userId}/${entry.name}`);
+      continue;
+    }
+    // フォルダ → 配下のファイルを列挙（例: book-memo-photos/<userId>/<bookId>/<file>）。
     const { data: files } = await supabase.storage
-      .from('book-memo-photos')
-      .list(`${userId}/${folder.name}`, { limit: 1000 });
+      .from(bucket)
+      .list(`${userId}/${entry.name}`, { limit: 1000 });
     (files || []).forEach((f) => {
-      if (f?.name) all.push(`${userId}/${folder.name}/${f.name}`);
+      if (f?.name) all.push(`${userId}/${entry.name}/${f.name}`);
     });
   }
   return all;
@@ -411,15 +418,18 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
     };
 
     try {
-      // 1. Delete photos from Storage
-      try {
-        const paths = await listAllUserPhotos(user.id);
-        if (paths.length > 0) {
-          const { error } = await supabase.storage.from('book-memo-photos').remove(paths);
-          if (error) storageError = error;
+      // 1. Delete photos from Storage（メモ写真 + 手動アップロード表紙の両バケット）。
+      //    「すべて削除」の約束を守るため book-covers の消し残し（孤児・公開残留）も無くす。
+      for (const bucket of ['book-memo-photos', 'book-covers']) {
+        try {
+          const paths = await listAllUserPhotos(user.id, bucket);
+          if (paths.length > 0) {
+            const { error } = await supabase.storage.from(bucket).remove(paths);
+            if (error) storageError = error;
+          }
+        } catch (e) {
+          storageError = e;
         }
-      } catch (e) {
-        storageError = e;
       }
 
       // 2. Delete data tables, child → parent.

@@ -25,6 +25,23 @@
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
+// In-memory レート制限（per serverless instance）。決済セッションの乱発を抑止。
+// api/claude.js と同流儀。低ボリュームでは十分。
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 6;
+const rateLimitStore = new Map();
+function checkRateLimit(userId) {
+  const now = Date.now();
+  const arr = (rateLimitStore.get(userId) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+  if (arr.length >= RATE_LIMIT_MAX) {
+    const retryAfter = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - arr[0])) / 1000));
+    return { ok: false, retryAfter };
+  }
+  arr.push(now);
+  rateLimitStore.set(userId, arr);
+  return { ok: true };
+}
+
 let supabaseClient = null;
 function getSupabase() {
   if (supabaseClient) return supabaseClient;
@@ -101,16 +118,18 @@ export default async function handler(req, res) {
 
   const stripe = getStripe();
   if (!stripe) {
-    return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });
+    // 内部 env 変数名はクライアントに出さない。詳細はログのみ。
+    console.error('[stripe-checkout] STRIPE_SECRET_KEY not configured');
+    return res.status(500).json({ error: '決済機能が一時的に利用できません。' });
   }
   const plan = readPlan(req);
   const priceId = resolvePriceId(plan);
   if (!priceId) {
-    const missing =
-      plan === 'annual'
-        ? 'STRIPE_PRICE_ID_ANNUAL'
-        : 'STRIPE_PRICE_ID_MONTHLY (or STRIPE_PRICE_ID)';
-    return res.status(500).json({ error: `${missing} not configured` });
+    console.error(
+      `[stripe-checkout] price id not configured for plan=${plan} ` +
+        '(STRIPE_PRICE_ID_ANNUAL / STRIPE_PRICE_ID_MONTHLY)',
+    );
+    return res.status(500).json({ error: '決済機能が一時的に利用できません。' });
   }
 
   const token = getBearerToken(req);
@@ -120,7 +139,8 @@ export default async function handler(req, res) {
 
   const supabase = getSupabase();
   if (!supabase) {
-    return res.status(500).json({ error: 'Supabase server credentials not configured' });
+    console.error('[stripe-checkout] Supabase server credentials not configured');
+    return res.status(500).json({ error: '決済機能が一時的に利用できません。' });
   }
 
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
@@ -128,6 +148,13 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized: invalid token' });
   }
   const user = userData.user;
+
+  // レート制限（決済セッション乱発による Stripe API 増幅・ノイズの抑止）。
+  const rl = checkRateLimit(user.id);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter));
+    return res.status(429).json({ error: 'リクエストが多すぎます。少し時間をおいて再試行してください。' });
+  }
 
   const origin = getOrigin(req);
   if (!origin) {

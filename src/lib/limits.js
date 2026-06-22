@@ -75,14 +75,16 @@ export function validateImageFile(file) {
   if (file.size > MAX_IMAGE_BYTES) {
     return '画像が大きすぎます。1 枚あたり 10 MB 以下にしてください。';
   }
-  if (file.type && !ALLOWED_IMAGE_MIME.includes(file.type)) {
-    return '対応している画像形式は JPEG / PNG / WebP のみです。';
-  }
+  const type = file.type || '';
   const name = (file.name || '').toLowerCase();
   const dot = name.lastIndexOf('.');
-  if (dot === -1) return null; // unknown extension — let MIME check above govern
-  const ext = name.slice(dot + 1);
-  if (!ALLOWED_IMAGE_EXT.includes(ext)) {
+  const ext = dot === -1 ? '' : name.slice(dot + 1);
+  const mimeOk = ALLOWED_IMAGE_MIME.includes(type);
+  const extOk = ALLOWED_IMAGE_EXT.includes(ext);
+  // fail-closed: MIME か拡張子のいずれかが「許可された画像」だと積極的に確認できない
+  // 限り拒否する（旧実装は MIME 空 + 拡張子不明を素通しさせていた）。正規の画像は
+  // ファイルピッカー/カメラ由来で image/* の MIME を持つため誤拒否しない。
+  if (!mimeOk && !extOk) {
     return '対応している画像形式は JPEG / PNG / WebP のみです。';
   }
   return null;

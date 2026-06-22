@@ -30,6 +30,26 @@ export function initSentry() {
     ],
     // 軽めに 10% サンプリング。負荷が問題になったらさらに下げる。
     tracesSampleRate: 0.1,
+    // PII を Sentry に送らない（プライバシー最優先）。IP/Cookie 等の自動付与を無効化。
+    sendDefaultPii: false,
+    // 送信直前のスクラブ。将来 captureException(任意エラー) が増えても、メッセージ・
+    // breadcrumb・リクエストURL に紛れ込んだメールや ?recall=<id> 等の識別子を落とす。
+    beforeSend(event) {
+      try {
+        const scrub = (s) =>
+          (typeof s === 'string' ? s : '')
+            .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
+            .replace(/([?&](recall|book|checkout|auth)=)[^&\s]+/g, '$1[redacted]');
+        if (event.message) event.message = scrub(event.message);
+        if (event.request?.url) event.request.url = scrub(event.request.url);
+        if (Array.isArray(event.exception?.values)) {
+          event.exception.values.forEach((v) => { if (v?.value) v.value = scrub(v.value); });
+        }
+        // 自由記述の extra は構造的に PII が入りうるので丸ごと落とす。
+        if (event.extra) delete event.extra;
+      } catch { /* スクラブ失敗で送信を止めない */ }
+      return event;
+    },
     // ビルドハッシュは Vite が _app__ のような露出をしないので、コミット
     // SHA を環境変数経由で渡す運用にしたい時はここで release: ... を埋める。
     // 例: release: import.meta.env.VITE_SENTRY_RELEASE

@@ -101,9 +101,14 @@ function normalizeStore(store) {
 
 // app_user_id が Supabase の user.id（UUID）として使えるか判定する。
 // RevenueCat の匿名 ID は `$RCAnonymousID:...` のように prefix を持つ。
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isResolvableUserId(appUserId) {
   if (!appUserId || typeof appUserId !== 'string') return false;
   if (appUserId.startsWith('$RCAnonymousID')) return false;
+  // Supabase の user.id は UUID。形式不一致は弾く（不正な行の生成・なりすまし対象の
+  // 取り違えを早期に拒否）。entitlement の真実性は共有シークレットの秘匿に依存する点は
+  // 別途運用で担保（強いシークレット・将来の HMAC 署名移行）。
+  if (!UUID_RE.test(appUserId)) return false;
   return true;
 }
 

@@ -10,6 +10,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
 } from 'react';
@@ -187,7 +188,18 @@ export function AppDataCacheProvider({ children }) {
   const clearAll = useCallback(() => {
     memoStoreRef.current.clear();
     photoStoreRef.current.clear();
+    memoSubsRef.current.clear();
   }, []);
+
+  // 共有端末対策: サインアウト時に in-memory のメモ本文・署名写真URLキャッシュを
+  // 確実に破棄する（次に同タブを使う別ユーザーへのデータ残留を防ぐ多層防御）。
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') clearAll();
+    });
+    return () => { try { data?.subscription?.unsubscribe(); } catch { /* ignore */ } };
+  }, [clearAll]);
 
   const value = useMemo(
     () => ({

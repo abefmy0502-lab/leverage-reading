@@ -69,3 +69,34 @@
 ## 検証
 - `npm run build` ✓（インラインスクリプト無しを確認した上で CSP 強化）。
 - 触れたファイル: `api/claude.js` / `api/revenuecat-webhook.js` / `vercel.json` / `src/lib/prompts.js` / `src/lib/ai.js`（export 追加）/ `src/App.jsx` / `src/components/AccountSettings.jsx` / 新規 `supabase_security_hardening.sql` / `CLAUDE.md` / 本レポート。
+
+---
+
+## 🛡️ 第2次 徹底監査（2026-06-22・4並列レッドチーム）
+
+元帥指示「セキュリティを徹底的に磨け」を受け、全コードベースを4脅威ドメイン（①認証/認可/IDOR ②XSS/インジェクション/SSRF/リダイレクト ③サーバーレスAPI/秘密/webhook ④ストレージ/アップロード/PII）で再監査。
+
+### 総評：Critical/High の悪用可能な脆弱性なし
+4監査いずれも主要攻撃面を「クリーン」と判定。IDORはRLS+クライアント側user_idスコープの二重防御、XSSは`dangerouslySetInnerHTML`等のシンク0件（MarkdownSectionsはJSX描画）、SSRFはfetch先が固定ドメイン+encodeURIComponent、課金はwebhook署名/entitlementサーバーゲートが堅牢、と確認。
+
+### 是正した防御強化（Med/Low・多層防御）
+| # | 重大度 | 内容 | 修正 |
+|---|---|---|---|
+| 1 | Med | **退会時に book-covers が消し残る**（「すべて削除」契約違反・public残留） | `listAllUserPhotos`を2バケット対応化し退会で両バケット削除 |
+| 2 | Low | Sentry に PII スクラバ無し | `sendDefaultPii:false`+`beforeSend`でメール/識別子/extraをスクラブ |
+| 3 | Low | SW 通知 url を未検証で navigate | `safeRecallPath`で同一オリジン相対パスのみ許可（正の許可リスト） |
+| 4 | Low | `validateImageFile`が MIME空+拡張子不明を素通し | fail-closed化（MIMEか拡張子の積極的確認を要求） |
+| 5 | Med* | RevenueCat `app_user_id`信頼 | UUID形式検証を追加（不正行/取り違えを早期拒否）。*真実性は共有シークレット依存＝運用で担保 |
+| 6 | Low | エラーで内部env変数名を露出 | claude/stripe-checkoutの500を汎用文言化（詳細はログのみ） |
+| 7 | Low | checkout/portal にレート制限無し | stripe-checkoutに6回/分/ユーザーのin-memoryレート制限 |
+| 8 | Low | サインアウト時にキャッシュ残留（共有端末） | signOutで`bookSearchCache`削除＋AppDataCacheが`SIGNED_OUT`購読で`clearAll` |
+| 9 | Low | `useCollections`デッドコード（collections表のIDOR懸念） | 未使用フック削除（クライアント参照を消去） |
+
+### 🔑 元帥/管理者アクション（コード外・残リスク）
+- **`collections` テーブルの確認/DROP**：旧コレクション機能の遺物。DBに残存しRLS無効なら理論IDOR。クライアント参照は除去済だが、Supabaseで存在確認→不要なら DROP（または RLS 有効化）。
+- **RevenueCat webhook シークレットの強度/ローテーション**：entitlementの真実性は`REVENUECAT_WEBHOOK_AUTH`の秘匿に依存。十分長いランダム値・定期ローテーション・将来のHMAC署名(v2)移行を推奨。
+- **book-covers のアップロード乱用**：public バケットへ任意画像を置ける（越権は不可）。容量/枚数上限はローンチ後に実データで要否判断（現状は低リスク・保留）。
+- **Stripe success_url の origin**：リクエストヘッダ由来（自己標的のみ・他者影響なし）。厳密化するなら本番ドメインの env allowlist 化（任意）。
+
+### 受容した設計上の限界（変更せず）
+- AIメータリングの check→increment は非原子的（TOCTOU）。per-instance 10回/分+月次上限で実害は無視可能。原価ガードの趣旨（暴走停止）には十分。

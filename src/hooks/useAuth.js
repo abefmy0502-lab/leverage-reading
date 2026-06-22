@@ -64,6 +64,11 @@ export function useAuth() {
     if (!isSupabaseConfigured) return;
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    // 共有端末対策: 弱い PII になりうる自前 localStorage キャッシュ（書影検索の
+    // クエリ/結果）をサインアウト時に消す。設定（オンボ完了・メモモード・解析
+    // オプトアウト等）は保持。in-memory のメモ/写真キャッシュは AppDataCache 側で
+    // onAuthStateChange('SIGNED_OUT') を購読して clearAll される。
+    try { window.localStorage.removeItem('bookSearchCache'); } catch { /* ignore */ }
   };
 
   return {

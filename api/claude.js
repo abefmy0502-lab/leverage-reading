@@ -189,7 +189,9 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+    // 内部 env 変数名はクライアントに出さない（構成情報の漏洩防止）。詳細はログのみ。
+    console.error('[claude] ANTHROPIC_API_KEY not configured');
+    return res.status(500).json({ error: 'AI機能が一時的に利用できません。' });
   }
 
   const token = getBearerToken(req);
@@ -199,7 +201,8 @@ export default async function handler(req, res) {
 
   const supabase = getSupabase();
   if (!supabase) {
-    return res.status(500).json({ error: 'Supabase server credentials not configured' });
+    console.error('[claude] Supabase server credentials not configured');
+    return res.status(500).json({ error: 'AI機能が一時的に利用できません。' });
   }
 
   const { data: userData, error: userError } = await supabase.auth.getUser(token);

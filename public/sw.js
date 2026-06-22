@@ -152,9 +152,19 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// 通知ペイロードの url を「同一オリジンの相対パス」に限定する多層防御。
+// 配信には VAPID 秘密鍵が要る（外部注入不可）ため現状 exploit 不可だが、万一
+// ペイロード経路が増えても open redirect / 外部ナビゲーションに化けないよう固める。
+// 正の許可リスト: "/" 始まり・"//"（プロトコル相対）でない・URL 安全文字のみ。
+function safeRecallPath(raw) {
+  if (typeof raw !== 'string' || !raw.startsWith('/') || raw.startsWith('//')) return '/';
+  if (!/^\/[A-Za-z0-9/_?=&%.,~+-]*$/.test(raw)) return '/';
+  return raw;
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || '/';
+  const target = safeRecallPath(event.notification.data && event.notification.data.url);
 
   event.waitUntil(
     (async () => {
