@@ -319,6 +319,7 @@ export default function Paywall() {
 
         {/* 安心コピー */}
         <p style={{ fontSize: 12, color: 'var(--color-tertiary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
+          初回は5日間の返金保証つき（合わなければ全額返金・お一人様1回限り）。<br />
           いつでも解約できます。解約後もデータは保持されます。<br />
           お支払いは Stripe の安全な決済ページで行われます。
         </p>

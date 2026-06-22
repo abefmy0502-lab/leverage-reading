@@ -150,7 +150,7 @@ export default function Landing() {
           月 ¥1,280 で始める →
         </button>
         <p className="hero-note">
-          10 秒で解約可能・違約金ゼロ・データは残ります
+          初回5日間返金保証・いつでも解約OK・データは残ります
         </p>
 
         {/* TODO(developer): 実数値が確定したら trust-bar を有効化する。
@@ -409,7 +409,7 @@ export default function Landing() {
             月 ¥1,280 で始める →
           </button>
           <p className="price-note">
-            10 秒で解約可能・違約金ゼロ・データは残ります
+            初回5日間返金保証・いつでも解約OK・データは残ります
           </p>
         </div>
 
@@ -444,7 +444,7 @@ export default function Landing() {
           月 ¥1,280 で始める →
         </button>
         <p className="final-note">
-          10 秒で解約可能・違約金ゼロ・データは残ります
+          初回5日間返金保証・いつでも解約OK・データは残ります
         </p>
 
         <div className="faq-compact" role="region" aria-label="よくある質問">
@@ -459,7 +459,7 @@ export default function Landing() {
           </details>
           <details className="faq-compact-item">
             <summary>無料で試せますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
-            <p>申し訳ありませんが、無料期間はご用意していません。月 ¥1,280（年額なら月あたり約 ¥900）で、すべての機能をご利用いただけます。いつでも解約でき、解約後もデータは残ります。</p>
+            <p>無料期間はご用意していませんが、初回のご契約には<strong>5日間の返金保証</strong>がつきます。合わないと感じたら、5日以内のご連絡で全額返金します（お一人様1回限り）。月 ¥1,280（年額なら月あたり約 ¥900）で、すべての機能をご利用いただけます。いつでも解約でき、解約後もデータは残ります。</p>
           </details>
           <details className="faq-compact-item">
             <summary>使う時間がない人でも大丈夫？<span className="faq-compact-mark" aria-hidden="true" /></summary>
