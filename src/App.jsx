@@ -4946,6 +4946,11 @@ function PaywallGate() {
 
     if (checkout === 'cancel') return undefined;
 
+    // 📊 課金転換（成果＝有料課金者）の計測。Stripe success_url(?checkout=success)
+    // 復帰時に 1 回だけ計上する。クエリは上で消すのでリロードで再発火しない。
+    // PII なし・イベント単独。北極星「有料課金者数」のファネル終端。
+    track('checkout_completed');
+
     // success: webhook で subscriptions が active になるまで数回ポーリング。
     let cancelled = false;
     const delays = [0, 1500, 3000, 5000, 8000];

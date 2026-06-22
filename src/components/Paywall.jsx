@@ -19,6 +19,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { startCheckout, PLAN_LABELS } from '../lib/billing';
 import { toMessage } from '../lib/errors';
+import { track, EVENTS } from '../lib/analytics';
 
 // 価値プレビューの箇条書き（事実ベースの機能説明 / 誇大表現なし）。
 const VALUE_POINTS = [
@@ -165,6 +166,9 @@ export default function Paywall() {
   const handleSubscribe = async (plan) => {
     if (pending) return;
     setPending(plan);
+    // 📊 課金ファネルの計測（決済ページへ送る直前・plan の enum だけ・PII なし）。
+    // ペイウォールが主要な転換導線なのでここで checkout_started を必ず計上する。
+    if (plan === 'monthly' || plan === 'annual') track(EVENTS.CHECKOUT_STARTED, { plan });
     try {
       // 成功時は startCheckout 内で window.location.assign され戻らない。
       await startCheckout(plan);

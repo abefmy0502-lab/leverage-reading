@@ -20,6 +20,13 @@ const setMeta = (name, content, attr = 'name') => {
   return el;
 };
 
+// 🗣 社会的証明（お客様の声）枠。
+// ⚠️ ここには「実在ユーザーの本物の声」だけを入れる。捏造・盛り・架空の数字は
+//    絶対にNG（景表法・ステマ規制・ブランド思想の誠実さに反する）。許可を得た
+//    実際の声が出てきたら 1〜2 件でも入れる。空の間はセクションごと非表示になる。
+// 形式: { quote: 'ユーザーの言葉', attribution: '匿名可。例: 30代・営業 / X: @handle（許可を得た範囲で）' }
+const TESTIMONIALS = [];
+
 export default function Landing() {
   const [showStickyCta, setShowStickyCta] = useState(false);
 
@@ -105,7 +112,9 @@ export default function Landing() {
     };
   }, []);
 
-  const goToSignup = () => { window.location.href = '/'; };
+  // 初見の購入希望者を新規登録画面に直接着地させる（?auth=signup）。
+  // 直接課金導線の摩擦（ログイン画面に降りて登録リンクを探す手間）を削る。
+  const goToSignup = () => { window.location.href = '/?auth=signup'; };
 
   return (
     <div className="lp-root">
@@ -348,6 +357,27 @@ export default function Landing() {
       </section>
 
       <div className="lp-section-divider" aria-hidden="true" />
+
+      {/* ============ 4.5 社会的証明（実在の声がある時だけ表示） ============ */}
+      {TESTIMONIALS.length > 0 && (
+        <section className="testimonials fade-in" aria-label="お客様の声">
+          <p className="section-eyebrow">使った人の声</p>
+          <h2 className="section-headline">
+            読みっぱなしから、<br />
+            抜け出した人たち。
+          </h2>
+          <div className="testimonial-list">
+            {TESTIMONIALS.map((t, i) => (
+              <figure className="testimonial-card" key={i}>
+                <blockquote>{t.quote}</blockquote>
+                {t.attribution && <figcaption>— {t.attribution}</figcaption>}
+              </figure>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {TESTIMONIALS.length > 0 && <div className="lp-section-divider" aria-hidden="true" />}
 
       {/* ============ 5. Pricing ============ */}
       <section className="pricing fade-in">

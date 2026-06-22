@@ -139,6 +139,7 @@ export const EVENTS = {
   MEMO_ADDED: 'memo_added',
   PAYWALL_VIEWED: 'paywall_viewed',
   CHECKOUT_STARTED: 'checkout_started',
+  CHECKOUT_COMPLETED: 'checkout_completed',
   PUSH_ENABLED: 'push_enabled',
   READING_PROGRESS_SET: 'reading_progress_set',
   EXPORT_USED: 'export_used',

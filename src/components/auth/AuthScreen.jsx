@@ -67,9 +67,21 @@ function humanizeError(err) {
   return '予期せぬエラーが発生しました。時間をおいて再度お試しください。';
 }
 
+// LP の「始める」CTA は /?auth=signup で着地する。初見の購入希望者を
+// ログイン画面でなく新規登録画面に直接乗せ、直接課金導線の摩擦を減らす。
+function initialAuthMode() {
+  if (typeof window === 'undefined') return 'signin';
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    return sp.get('auth') === 'signup' ? 'signup' : 'signin';
+  } catch {
+    return 'signin';
+  }
+}
+
 export default function AuthScreen() {
   const { signInWithEmail, signUpWithEmail, sendPasswordResetEmail } = useAuth();
-  const [mode, setMode] = useState('signin');
+  const [mode, setMode] = useState(initialAuthMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');

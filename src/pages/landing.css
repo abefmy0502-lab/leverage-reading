@@ -1776,3 +1776,35 @@ body.lp-active {
     max-width: min(220px, 65vw);
   }
 }
+
+/* ============ 社会的証明（お客様の声） ============ */
+/* 実在の声がある時だけ JSX 側で描画される（TESTIMONIALS が空なら出ない）。 */
+.testimonials { background: white; text-align: center; }
+.testimonial-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 32px;
+  text-align: left;
+}
+.testimonial-card {
+  margin: 0;
+  background: var(--lp-bg-warm);
+  border: 1px solid var(--lp-divider);
+  border-left: 3px solid var(--lp-accent);
+  border-radius: 12px;
+  padding: 20px 22px;
+}
+.testimonial-card blockquote {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--lp-text);
+}
+.testimonial-card figcaption {
+  margin-top: 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--lp-sub);
+}
