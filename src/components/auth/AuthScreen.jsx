@@ -226,13 +226,11 @@ export default function AuthScreen() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)' }}>
       <img
-        src="/icons/icon-512.png"
+        src="/logo-lockup.png"
         alt="Orime"
-        width={64}
-        height={64}
-        style={{ width: 64, height: 64, borderRadius: 15, boxShadow: '0 6px 18px rgba(60,40,20,0.12)', marginBottom: 10 }}
+        width={168}
+        style={{ width: 168, height: 'auto', marginBottom: 14 }}
       />
-      <h1 style={{ fontSize: 24, fontWeight: 500, color: '#3d362c', marginBottom: 12 }}>Orime</h1>
       <p style={{ fontSize: 14, color: '#8a7e6b', marginBottom: 28, textAlign: 'center' }}>
         読みっぱなしを、やめる。<br />気づきを後から呼び戻し、行動に変える読書アプリ。
       </p>

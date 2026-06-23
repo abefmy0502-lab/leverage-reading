@@ -78,30 +78,12 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
         }}
       >
         <img
-          src="/icons/icon-512.png"
+          src="/logo-lockup.png"
           alt="Orime"
-          width={104}
-          height={104}
-          style={{
-            width: 104,
-            height: 104,
-            borderRadius: 24,
-            boxShadow: '0 8px 24px rgba(60,40,20,0.14)',
-          }}
+          width={208}
+          style={{ width: 208, height: 'auto', display: 'block' }}
         />
-        <h1
-          style={{
-            fontSize: 22,
-            fontWeight: 500,
-            color: '#3d362c',
-            margin: '14px 0 4px',
-            letterSpacing: 2,
-            fontFamily: "'Noto Serif JP', Georgia, serif",
-          }}
-        >
-          Orime
-        </h1>
-        <p style={{ fontSize: 13, color: '#8a7e6b', margin: 0, letterSpacing: 1 }}>
+        <p style={{ fontSize: 13, color: '#8a7e6b', margin: '4px 0 0', letterSpacing: 1 }}>
           読みっぱなしを、やめる。
         </p>
       </div>
