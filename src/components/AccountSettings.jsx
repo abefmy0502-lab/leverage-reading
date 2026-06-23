@@ -20,7 +20,7 @@ import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
-import { isNative, purchasePlan, openManageSubscriptions } from '../lib/iap';
+import { isNative, purchasePlan, openManageSubscriptions, APP_PLAN_LABELS } from '../lib/iap';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
   isPushSupported,
@@ -213,7 +213,9 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   const trapRef = useFocusTrap(!feedbackOpen);
   // 💳 課金状態。subscriptions 未適用なら subscription=null / isActive=false で
   // 静かに縮退する（useSubscription 側で schema-error を握りつぶす）。
-  const { subscription, isActive, loading: subLoading } = useSubscription();
+  const { subscription, isActive, loading: subLoading, refresh: refreshSub } = useSubscription();
+  // 表示ラベルはチャネル別（Web=Stripe ¥1,280 / ネイティブ=App ¥1,480）。
+  const planLabels = isNative ? APP_PLAN_LABELS : PLAN_LABELS;
   const [billingBusy, setBillingBusy] = useState(false);
 
   // 📊 利用状況の記録（製品改善のためのファーストパーティ計測）。既定 ON。
@@ -303,14 +305,15 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
     if (billingBusy) return;
     setBillingBusy(true);
     // 📊 課金転換ファネル（PII なし・plan の enum だけ）。
-    if (plan === 'monthly' || plan === 'annual') track('checkout_started', { plan });
+    if (plan === 'monthly' || plan === 'annual') track(EVENTS.CHECKOUT_STARTED, { plan });
     try {
       if (isNative) {
-        // ネイティブ(IAP): App Store の購入シート。成功後は反映のため再読込。
+        // ネイティブ(IAP): App Store の購入シート。成功後は端末ローカル権利で即反映。
         const res = await purchasePlan(plan, user?.id);
         if (res?.cancelled) { setBillingBusy(false); return; }
-        toast.success('ご契約ありがとうございます。反映までしばらくお待ちください。');
-        setTimeout(() => window.location.reload(), 1200);
+        toast.success('ご契約ありがとうございます。');
+        await refreshSub?.();
+        setBillingBusy(false);
         return;
       }
       await startCheckout(plan);
@@ -588,16 +591,16 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button
                     type="button"
-                    aria-label={`${PLAN_LABELS.annual.name}で契約（おすすめ）`}
+                    aria-label={`${planLabels.annual.name}で契約（おすすめ）`}
                     style={{ ...btnPrimary, opacity: billingBusy ? 0.6 : 1 }}
                     disabled={billingBusy}
                     onClick={() => handleUpgrade('annual')}
                   >
-                    {billingBusy ? '移動中…' : `${PLAN_LABELS.annual.name}で契約（おすすめ）`}
+                    {billingBusy ? '移動中…' : `${planLabels.annual.name}で契約（おすすめ）`}
                   </button>
                   <button
                     type="button"
-                    aria-label={`${PLAN_LABELS.monthly.name}で契約`}
+                    aria-label={`${planLabels.monthly.name}で契約`}
                     style={{
                       ...btnPrimary,
                       background: 'transparent',
@@ -608,7 +611,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                     disabled={billingBusy}
                     onClick={() => handleUpgrade('monthly')}
                   >
-                    {PLAN_LABELS.monthly.name}で契約
+                    {planLabels.monthly.name}で契約
                   </button>
                 </div>
               </>
@@ -820,9 +823,13 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6b5f4d', textDecoration: 'underline' }}>
               プライバシーポリシー
             </a>
-            <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6b5f4d', textDecoration: 'underline' }}>
-              特定商取引法に基づく表記
-            </a>
+            {/* 特商法は Web 販売特有（Web価格 ¥1,280 を表示）。ネイティブでは
+                反ステアリング順守のため非表示にし、価格開示は App Store に委ねる。 */}
+            {!isNative && (
+              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6b5f4d', textDecoration: 'underline' }}>
+                特定商取引法に基づく表記
+              </a>
+            )}
             <a href="mailto:leverage.book0502@gmail.com" style={{ fontSize: 12, color: '#6b5f4d', textDecoration: 'underline' }}>
               お問い合わせ
             </a>

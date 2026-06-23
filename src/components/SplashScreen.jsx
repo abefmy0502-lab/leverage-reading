@@ -81,7 +81,10 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
           src="/logo-lockup.png"
           alt="Orime"
           width={208}
-          style={{ width: 208, height: 'auto', display: 'block' }}
+          height={193}
+          loading="eager"
+          fetchpriority="high"
+          style={{ width: 208, height: 'auto', aspectRatio: '430 / 400', display: 'block' }}
         />
         <p style={{ fontSize: 13, color: '#8a7e6b', margin: '4px 0 0', letterSpacing: 1 }}>
           読みっぱなしを、やめる。

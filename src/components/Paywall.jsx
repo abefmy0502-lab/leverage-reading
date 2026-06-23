@@ -165,9 +165,11 @@ function BrainPreview() {
   );
 }
 
-export default function Paywall() {
+export default function Paywall({ onPurchased }) {
   const { signOut, user } = useAuth();
   const toast = useToast();
+  // 購入導線の待機ラベル（Web=決済ページ遷移 / ネイティブ=App Store 購入シート）。
+  const pendingLabel = isNative ? '購入手続き中…' : '決済ページへ移動中…';
   // どちらのボタンを押下中かを保持して二度押しを防ぐ。
   const [pending, setPending] = useState(null); // 'monthly' | 'annual' | null
   const [restoring, setRestoring] = useState(false);
@@ -195,9 +197,13 @@ export default function Paywall() {
         // ネイティブ: App Store の購入シート（RevenueCat）。
         const res = await purchasePlan(plan, user?.id);
         if (res?.cancelled) { setPending(null); return; }
-        // 購入成功 → webhook が subscriptions を更新。反映のため少し待って再読込。
-        toast.success('ご契約ありがとうございます。反映までしばらくお待ちください。');
-        setTimeout(() => window.location.reload(), 1200);
+        // 購入成功 → 端末ローカルの entitlement で即アンロック（webhook 反映を待たない）。
+        // onPurchased=PaywallGate の refresh → useSubscription が RevenueCat の
+        // ローカル権利を見て isActive=true → App が自動で Paywall を外す。
+        // webhook は DB(subscriptions) を裏で durable に同期する。
+        toast.success('ご契約ありがとうございます。');
+        await onPurchased?.();
+        setPending(null);
         return;
       }
       // Web: Stripe Checkout（成功時は assign され戻らない）。
@@ -215,8 +221,10 @@ export default function Paywall() {
     try {
       const ok = await restorePurchases(user?.id);
       if (ok) {
+        // 端末ローカル権利が有効 → 即アンロック（restore は webhook が出ない場合がある）。
         toast.success('購入を復元しました。');
-        setTimeout(() => window.location.reload(), 800);
+        await onPurchased?.();
+        setRestoring(false);
       } else {
         toast.info('復元できる購入が見つかりませんでした。');
         setRestoring(false);
@@ -329,7 +337,7 @@ export default function Paywall() {
                 opacity: pending && pending !== 'annual' ? 0.5 : 1,
               }}
             >
-              {pending === 'annual' ? '決済ページへ移動中…' : '年額プランで契約する'}
+              {pending === 'annual' ? pendingLabel : '年額プランで契約する'}
             </button>
           </div>
 
@@ -362,7 +370,7 @@ export default function Paywall() {
                 opacity: pending && pending !== 'monthly' ? 0.5 : 1,
               }}
             >
-              {pending === 'monthly' ? '決済ページへ移動中…' : '月額プランで契約する'}
+              {pending === 'monthly' ? pendingLabel : '月額プランで契約する'}
             </button>
           </div>
         </section>

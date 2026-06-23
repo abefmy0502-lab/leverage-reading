@@ -134,17 +134,38 @@ export async function purchasePlan(plan, userId) {
   const pkg = pickPackage(offering, plan);
   if (!pkg) throw new Error('購入可能なプランが見つかりませんでした。');
   try {
-    await Purchases.purchasePackage({ aPackage: pkg });
-    return { ok: true };
+    const res = await Purchases.purchasePackage({ aPackage: pkg });
+    const active = res?.customerInfo?.entitlements?.active || {};
+    return { ok: true, active: Object.keys(active).length > 0 };
   } catch (e) {
-    // RevenueCat はキャンセルを userCancelled フラグ / 専用コードで返す。
+    // RevenueCat はキャンセルを userCancelled フラグ / 専用コード(文字列)で返す。
+    // v13 の error.code は 'PURCHASE_CANCELLED_ERROR'（数値 '1' ではない）。
+    // userCancelled は hybrid SDK で取りこぼす報告があるため複数経路で冗長判定。
+    const code = String(e?.code || '');
+    const msg = String(e?.message || e?.underlyingErrorMessage || '').toLowerCase();
     const cancelled =
       e?.userCancelled === true ||
-      e?.code === 'PURCHASE_CANCELLED' ||
-      e?.code === 'PurchaseCancelledError' ||
-      e?.code === '1';
+      code === 'PURCHASE_CANCELLED_ERROR' ||
+      code === 'PURCHASE_CANCELLED' ||
+      /cancel/.test(msg);
     if (cancelled) return { ok: false, cancelled: true };
     throw e;
+  }
+}
+
+// 端末ローカルの entitlement（RevenueCat customerInfo）が有効か。
+// webhook→DB 反映を待たずに、購入/復元直後の本人を即アンロックするための即時判定。
+// （Web では isNative=false で即 false。RevenueCat SDK もロードされない＝無害）
+export async function hasActiveEntitlement(userId) {
+  if (!(await ensureConfigured(userId))) return false;
+  const Purchases = await loadPurchases();
+  if (!Purchases) return false;
+  try {
+    const res = await Purchases.getCustomerInfo();
+    const active = res?.customerInfo?.entitlements?.active || {};
+    return Object.keys(active).length > 0;
+  } catch {
+    return false;
   }
 }
 

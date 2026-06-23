@@ -141,6 +141,14 @@
 
 ## 9. 📒 意思決定ログ（新しいものを上に）
 
+- **2026-06-23 — 🔬 4チーム並列QA（バグ＋UI/UX 徹底監査）→ 検出分を全修正**
+  - 元帥指示で領域別4チーム（課金/IAP・Capacitor/build・UI/UX・回帰）を並列稼働。**Critical 2件含む実バグを CEO 権限で全修正**。
+  - **[Critical] 購入キャンセル誤判定**（iap.js）：v13 の `error.code` は `'PURCHASE_CANCELLED_ERROR'`（数値'1'でない）。キャンセルの度に赤エラートーストが出ていた → コード/userCancelled/メッセージの冗長判定に修正。
+  - **[Critical] 購入後ロック罠**（iap/useSubscription/Paywall/AccountSettings/App）：`setTimeout(reload)` で webhook 反映を待つ設計だと、反映が遅い/restoreで未発火のとき「払ったのにロック」。→ **端末ローカルの RevenueCat entitlement を真実に追加**（`hasActiveEntitlement`）。useSubscription が native でローカル権利を見て即 `isActive`。Paywall/設定は reload を廃し `onPurchased=refresh` で即アンロック（webhook は DB を裏で durable 同期）。
+  - **[反ステアリング] AccountSettings の特商法リンク**（Web価格¥1,280を表示）を native で非表示に。native のアップグレード表示ラベルを `APP_PLAN_LABELS`(¥1,480) に。
+  - **[a11y/UX] AuthScreen** に h1 見出し復活（ロゴを h1 化・alt=Orime）、クリーム上の低コントラスト文字 `#8a7e6b`→`#6b5f4d`(WCAG AA)、ロゴ画像に aspectRatio で CLS 防止。Splash も LCP 優先読込＋CLS 防止。native の待機ラベルを「購入手続き中…」に。計測キーを `EVENTS.CHECKOUT_STARTED` に統一。
+  - **[デプロイ] SW_VERSION v53→v54**：新アイコン/ロゴが旧キャッシュで出ないように。
+  - 回帰チーム結論：P1/P2 ゼロ（IMEガード全数OK・optimistic rollback健全・console.log 0・web無害化確認）。`npm run build`/`npm ci` 成功。Web挙動は不変。
 - **2026-06-23 — 🎨 ロゴ確定（案A）＋アイコン一式を全面展開**
   - 元帥がロゴ3案を提示→全社＋外部有識者で選定会議。**スコアで案A（温かみブラウンの「めくれる折り目」＝折り目＋戻ってくる曲線）が23点で1位**（案C ドッグイヤー21点を保険に温存・案B グレー折り紙は温度/誤読リスクで不採用）。
   - CEO決定理由：①思想を1枚で語る（折り目＝気づきが戻る・競合が真似できない意味）②暖色がアプリ本体(#EDE0CA)と地続き＝北極星の「温かさ」に忠実 ③高コントラストで小サイズ耐性。

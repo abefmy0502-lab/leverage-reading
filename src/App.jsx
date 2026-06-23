@@ -5033,7 +5033,7 @@ function PaywallGate() {
   return (
     <Shell>
       <Suspense fallback={<Spinner />}>
-        <Paywall />
+        <Paywall onPurchased={refresh} />
       </Suspense>
     </Shell>
   );

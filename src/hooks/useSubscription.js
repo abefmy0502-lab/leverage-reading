@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
+import { isNative, hasActiveEntitlement } from '../lib/iap';
 
 // 💳 ログインユーザーの課金状態を取得するフック。
 //
@@ -46,16 +47,21 @@ export function useSubscription() {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // ネイティブ(iOS/IAP) の端末ローカル entitlement。webhook→DB 反映を待たず
+  // 購入/復元直後に本人をアンロックするための即時真実。Web では常に false。
+  const [nativeEntitled, setNativeEntitled] = useState(false);
   const { user } = useAuth();
 
   const fetchSubscription = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
       setSubscription(null);
+      setNativeEntitled(false);
       setError(null);
       setLoading(false);
       return;
     }
     setLoading(true);
+    let dbActive = false;
     try {
       const { data, error: dbError } = await supabase
         .from('subscriptions')
@@ -67,12 +73,13 @@ export function useSubscription() {
         // テーブル未適用なら課金未導入とみなして静かに縮退（未課金扱い）。
         if (isSchemaError(dbError)) {
           setSubscription(null);
-          setError(null);
-          return;
+        } else {
+          throw dbError;
         }
-        throw dbError;
+      } else {
+        setSubscription(transformSubscription(data));
+        dbActive = data?.status === 'active';
       }
-      setSubscription(transformSubscription(data));
       setError(null);
     } catch (e) {
       console.error('課金状態の取得エラー:', e);
@@ -81,12 +88,22 @@ export function useSubscription() {
       // 一時的な通信エラー（タブ復帰・?checkout=success のリトライ等）の度に
       // isActive=false へ落ち、ペイウォールにロックされてしまう。
       // last-known-good を温存し、error だけ surface する（schema-error 判定は別途）。
-      // 未契約（subscription=null）のユーザーはそのまま null のままなので
-      // ペイウォールは弱まらない。
       setError(e);
-    } finally {
-      setLoading(false);
     }
+    // ネイティブのみ: DB が active でない場合、端末ローカル(RevenueCat)の
+    // entitlement を確認する。これにより webhook が遅延/未発火でも、購入/復元
+    // 直後の本人が確実にアンロックされる（「払ったのにロック」事故の根治）。
+    // Web では hasActiveEntitlement が即 false を返す＝無害。
+    if (!dbActive && isNative) {
+      try {
+        setNativeEntitled(await hasActiveEntitlement(user.id));
+      } catch {
+        /* keep previous */
+      }
+    } else if (dbActive) {
+      setNativeEntitled(false); // DB が真実のときはそちらを優先
+    }
+    setLoading(false);
   }, [user]);
 
   useEffect(() => {
@@ -94,13 +111,15 @@ export function useSubscription() {
       fetchSubscription();
     } else {
       setSubscription(null);
+      setNativeEntitled(false);
       setError(null);
       setLoading(false);
     }
   }, [user, fetchSubscription]);
 
-  // entitlement 判定: 厳格に status='active' のみ許可。
-  const isActive = subscription?.status === 'active';
+  // entitlement 判定: DB の status='active'（Stripe/IAP webhook 同期済み）
+  // または ネイティブ端末ローカルの RevenueCat entitlement。
+  const isActive = subscription?.status === 'active' || nativeEntitled;
 
   return {
     subscription,
