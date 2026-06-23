@@ -15,7 +15,7 @@
 - [ ] **Mac + Xcode**（最新安定版）
 - [ ] **App Store Connect**：税・銀行口座・**Small Business Program(15%)申請**
 - [ ] **RevenueCat アカウント**（無料枠で可）+ App Store 連携
-- [ ] アイコン / スプラッシュ / スクショ素材 → `company/aso-store-listing.md` に文言・構成あり
+- [ ] アプリアイコンは **`public/icons/icon-1024.png`**（確定ロゴ案A）を Xcode の AppIcon に設定。スプラッシュ/スクショ文言・構成は `company/aso-store-listing.md`
 
 ## 2. ローカルで iOS プロジェクトを生成（Mac）
 

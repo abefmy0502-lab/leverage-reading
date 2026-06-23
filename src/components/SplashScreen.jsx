@@ -77,7 +77,18 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
           animation: 'leverage-splash-pop .55s cubic-bezier(0.2,0.9,0.3,1) both',
         }}
       >
-        <div style={{ fontSize: 88, lineHeight: 1 }}>📚</div>
+        <img
+          src="/icons/icon-512.png"
+          alt="Orime"
+          width={104}
+          height={104}
+          style={{
+            width: 104,
+            height: 104,
+            borderRadius: 24,
+            boxShadow: '0 8px 24px rgba(60,40,20,0.14)',
+          }}
+        />
         <h1
           style={{
             fontSize: 22,
