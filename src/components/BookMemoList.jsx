@@ -303,12 +303,14 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
   const handleCreate = async (payload) => {
     const result = await createMemo(payload);
+    haptic.success();
     toast.success('メモを保存しました');
     return result;
   };
 
   const handleUpdate = async (memoId, payload) => {
     const result = await updateMemo(memoId, payload);
+    haptic.success();
     toast.success('メモを更新しました');
     return result;
   };

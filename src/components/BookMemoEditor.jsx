@@ -155,6 +155,15 @@ export default function BookMemoEditor({
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
   const overlayRef = useRef(null);
+  const bodyRef = useRef(null);
+
+  // 新規メモは本文へ自動フォーカス（毎日の「ひとこと書く」を1タップ短縮）。
+  // 編集時はフォーカスを奪わない（ページ/タグの微調整を邪魔しない）。QuickMemoSheet と同じ流儀。
+  useEffect(() => {
+    if (isEdit) return undefined;
+    const t = setTimeout(() => bodyRef.current?.focus(), 80);
+    return () => clearTimeout(t);
+  }, [isEdit]);
 
   // Keyboard push-up: clamp the editor's height to visualViewport so the
   // bottom action bar stays visible when the on-screen keyboard appears.
@@ -368,6 +377,7 @@ export default function BookMemoEditor({
         <div>
           <label style={fieldLabel}>メモ本文</label>
           <textarea
+            ref={bodyRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="メモを入力..."

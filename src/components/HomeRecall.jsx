@@ -76,6 +76,7 @@ export default function HomeRecall({ onOpen }) {
           id: r.id,
           text: r.text,
           createdAt: r.created_at,
+          bookId: r.book_id || null,
           title: r.book?.title || '',
         }));
         // 日替わりで安定（同じ日は同じ 1 枚）。minAgeDays:7 で「忘れた頃」に寄せる。
@@ -108,7 +109,9 @@ export default function HomeRecall({ onOpen }) {
     } catch {
       /* haptics は非必須 */
     }
-    onOpen?.();
+    // その本の詳細（メモ一覧・行動追加がある場所）へ直接着地させ、想起→再読→行動の
+    // ループを最短で閉じる。本が特定できない場合は呼び出し側が振り返りタブへ退避。
+    onOpen?.(memo.bookId);
   };
 
   const handleDismiss = (e) => {

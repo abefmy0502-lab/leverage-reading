@@ -403,6 +403,8 @@ export default function Review({ books = [], onOpenBook }) {
 
   // 知識タイプ別のフィルタ (横断検索セクション用)。
   const [kindFilter, setKindFilter] = useState('all');
+  // 件数チップ → 横断検索フィルタ連動時に、結果セクションへスクロールさせる先。
+  const searchSectionRef = useRef(null);
 
   // 種類別の件数 — 上部のサマリーチップに表示。
   const kindCounts = useMemo(() => {
@@ -550,7 +552,7 @@ export default function Review({ books = [], onOpenBook }) {
       {/* 知識のタイプ別件数を冒頭に表示。「読書から何が蓄積されているか」が
           一目で分かる + フィルタ前提の数字感をつかむため。 */}
       <section
-        aria-label="ノートの種類別件数"
+        aria-label="種類で絞り込む"
         style={{
           display: 'flex',
           gap: 6,
@@ -564,21 +566,36 @@ export default function Review({ books = [], onOpenBook }) {
         {Object.entries(KIND_META).map(([k, meta]) => {
           const n = kindCounts[k] || 0;
           if (n === 0) return null;
+          const active = kindFilter === k;
           return (
-            <span
+            <button
               key={k}
+              type="button"
+              aria-pressed={active}
+              aria-label={`${meta.label}のメモ ${n}件で絞り込む`}
+              onClick={() => {
+                setKindFilter(active ? 'all' : k);
+                // 絞り込み結果（横断検索）へスクロールして連動を可視化する。
+                requestAnimationFrame(() =>
+                  searchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                );
+              }}
               style={{
                 fontSize: 11,
-                padding: '3px 9px',
+                padding: '4px 10px',
+                minHeight: 30,
                 borderRadius: 999,
-                background: `${meta.color}1a`,
-                color: meta.color,
+                background: active ? meta.color : `${meta.color}1a`,
+                color: active ? '#fff' : meta.color,
+                border: active ? `1px solid ${meta.color}` : '1px solid transparent',
                 fontWeight: 600,
                 whiteSpace: 'nowrap',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
               }}
             >
               {meta.icon} {meta.label} {n}
-            </span>
+            </button>
           );
         })}
       </section>
@@ -713,7 +730,7 @@ export default function Review({ books = [], onOpenBook }) {
       </section>
 
       {/* ===== 3. 全メモ検索 ===== */}
-      <section>
+      <section ref={searchSectionRef}>
         <h2 style={sectionTitle}>🔎 すべての本のメモを横断検索</h2>
         <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
           例：「決断」「習慣」「営業」など、気になるキーワードを入れてみてください

@@ -4515,7 +4515,11 @@ function AuthedApp() {
               {/* 🔄 今日の想起: 過去メモが 1 枚ふいに戻ってくる控えめなカード。
                   自己完結（fetch / state は HomeRecall 内に閉じる）。
                   メモ十分＋当日未 dismiss のときだけ静かに出る。 */}
-              <HomeRecall onOpen={() => { setReviewSubTab('note'); setTab('review'); }} />
+              <HomeRecall onOpen={(bookId) => {
+                const b = bookId && books.find((x) => x.id === bookId);
+                if (b) { openDetail(b); setTab('books'); }
+                else { setReviewSubTab('note'); setTab('review'); }
+              }} />
               {recentBooks.length > 0 && !search && statusFilter === "all" && (
                 <div style={{ marginBottom: 14 }}>
                   <p style={{ fontSize: 11, color: "#8a7040", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>
@@ -4664,6 +4668,7 @@ function AuthedApp() {
                 onDeleteAction={deleteActionFromBook}
                 onEditAction={(bookId, actionIdx, action) => setEditingAction({ bookId, actionIdx, action })}
                 onOpenBook={(b) => { openDetail(b); setTab("books"); }}
+                onGoToBooks={() => setTab("books")}
               />
             )}
           </div>

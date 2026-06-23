@@ -145,7 +145,7 @@ const SORTS = [
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
-export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook }) {
+export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook, onGoToBooks }) {
   const { allActions, stats } = useAllActions(books);
   const haptic = useHaptic();
   const [filter, setFilter] = useState('all');
@@ -385,6 +385,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
               本を横断してここに並びます。
             </>
           )}
+          actions={onGoToBooks ? [{ label: '本棚へ', icon: '📚', onClick: onGoToBooks }] : []}
           tip="💡 各本の詳細画面 → 「行動リスト」セクションから追加できます"
         />
       ) : visible.length === 0 ? (
