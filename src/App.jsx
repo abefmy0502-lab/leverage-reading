@@ -95,7 +95,7 @@ const STAR = "★";
 const EMPTY_STAR = "☆";
 const STATUSES = [
   { key: "want", label: "読みたい", emoji: "🔖", Icon: Bookmark, bg: "#f0e8d8", color: "#8a7040" },
-  { key: "before", label: "読書前", emoji: "📐", Icon: PenSquare, bg: "#f0e0f0", color: "#7a5080" },
+  { key: "before", label: "積読", emoji: "📐", Icon: PenSquare, bg: "#f0e0f0", color: "#7a5080" },
   { key: "reading", label: "読書中", emoji: "📖", Icon: BookOpen, bg: "#dde8f0", color: "#4a6e8a" },
   { key: "done", label: "読了", emoji: "✅", Icon: CheckCircle, bg: "#e2ecd8", color: "#5a7a48" },
 ];
@@ -645,7 +645,7 @@ const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, on
             視認できるよう「読みたい/読書前/読書中/読了」テキストに変更。
             book-status-pill.{status} で色を切替。 */}
         {book.status && (() => {
-          const labels = { want: '読みたい', before: '読書前', reading: '読書中', done: '読了' };
+          const labels = { want: '読みたい', before: '積読', reading: '読書中', done: '読了' };
           const label = labels[book.status];
           if (!label) return null;
           return (
@@ -952,7 +952,7 @@ function BeforePhase({
 
   return (
     <div>
-      <p style={phaseDesc}>📐 読書の投資設計をしましょう</p>
+      <p style={phaseDesc}>📐 読む準備をしましょう（任意）</p>
 
       <Field label="読書開始日">
         <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={inp} />
@@ -1086,7 +1086,7 @@ function BeforePhase({
           {form.aiStrategy && (
             <div style={{ marginTop: 8 }}>
               <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>
-                読書前読書計画シート
+読書計画シート
                 {aiLoading && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 6 }} />}
               </p>
               {/* aiLoading 中は onAddRelatedBook を渡さない — MarkdownSections は
@@ -1220,7 +1220,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
         )}
       </Field>
 
-      <Field label="まとめメモ" sub="📇 カード式（1メモ=1カード、ページ番号・写真・タグ）と 📝 まとめ式（1冊1テキスト）をタブで切替。">
+      <Field label="メモ・感想" sub="気づきや感想を、気軽に。1メモ=1カードで残すか、1冊まるごと1つのテキストにまとめるか、タブで選べます。">
         <BookMemoList
           bookId={form.id}
           bookTitle={form.title}
@@ -1251,7 +1251,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
 
   return (
     <div>
-      <p style={phaseDesc}>💰 投資回収をまとめましょう</p>
+      <p style={phaseDesc}>✅ 読み終えて、振り返りましょう</p>
 
       <Field label="読書完了日">
         <input type="date" value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={inp} />
@@ -3021,7 +3021,7 @@ function AuthedApp() {
         setView("edit");
       });
 
-    const labels = { want: '読みたい', before: '読書前', reading: '読書中', done: '読了' };
+    const labels = { want: '読みたい', before: '積読', reading: '読書中', done: '読了' };
     const revert = async () => {
       const reverted = { ...book, ...prev };
       setCurrent(reverted);
@@ -3536,7 +3536,7 @@ function AuthedApp() {
   if (view === "detail" && current) {
     const st = getSt(current.status);
     const nextStatus = { want: "before", before: "reading", reading: "done" };
-    const nextLabel = { want: "📐 読書前へ進む", before: "📖 読書を開始する", reading: "✅ 読了にする" };
+    const nextLabel = { want: "📐 積読へ進む", before: "📖 読書を開始する", reading: "✅ 読了にする" };
 
     return (
       <Shell>
@@ -3772,7 +3772,7 @@ function AuthedApp() {
                   }}
                 >
                   <p style={{ fontSize: 13, color: '#8a6010', margin: 0, fontWeight: 600 }}>
-                    ⚠️ 読書前の読書計画が未完了です
+                    ⚠️ 読書計画が未完了です
                   </p>
                   <p style={{ fontSize: 11, color: '#9a7030', margin: 0, lineHeight: 1.6 }}>
                     投資目的・AI 解析・読書計画シートをいま埋めると、投資対効果が最大化されます。
@@ -4113,12 +4113,12 @@ function AuthedApp() {
                 : []),
               ...(current.status === 'reading' || current.status === 'done'
                 ? [{
-                    label: '読書前に戻す',
+                    label: '積読に戻す',
                     icon: '📚',
                     onClick: async () => {
                       const ok = await confirm({
-                        title: '読書前に戻しますか？',
-                        message: 'ステータスを「読書前」に戻します。メモや行動などのデータは保持されます。',
+                        title: '積読に戻しますか？',
+                        message: 'ステータスを「積読」に戻します。メモや行動などのデータは保持されます。',
                         confirmLabel: '戻す',
                         cancelLabel: 'キャンセル',
                       });
@@ -4705,6 +4705,14 @@ function AuthedApp() {
                 📊 テーマレポート
               </button>
             </div>
+            {/* 独自名のサブタブを初対面でも分かるよう、内容を平易な一言で注釈する。 */}
+            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '6px 12px 0', lineHeight: 1.6, flexShrink: 0 }}>
+              {aiSubTab === 'advisor'
+                ? '🔍 いまの課題に合う本を、AI が提案します。'
+                : aiSubTab === 'brain'
+                ? '🧠 あなたが残したメモをもとに、AI が質問に答えます。'
+                : '📊 テーマ別に、これまでのメモを 1 枚にまとめます。'}
+            </p>
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
                 <BookAdvisor

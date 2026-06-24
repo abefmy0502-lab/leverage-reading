@@ -90,7 +90,7 @@ export function findDuplicateBook(books, candidate) {
 // が、ここから import する循環参照を避けるために再掲する。
 export const STATUS_LABEL = {
   want: '読みたい',
-  before: '読書前',
+  before: '積読',
   reading: '読書中',
   done: '読了',
 };

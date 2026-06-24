@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-06-23: 🤝 競合移住者の拒否反応を下げる UI 文言調整（表示のみ・挙動/データ/コード識別子は不変）。他の読書アプリ（読書メーター/ブクログ/Goodreads/Kindle）から来た人が戸惑わないよう、馴染みのある言葉・並びに統一し独自語はやさしく注釈。(1) ステータス「読書前」→「積読」に表示統一（読みたい→積読→読書中→読了 の自然な並び。key=before 不変）。App.jsx 全表示箇所・Review フィルタ・BookshelfSummary・checkDuplicate バッジ・本ガイド該当箇所を同期。(2) メモ欄ラベル「まとめメモ」→「メモ・感想」＋説明を平易化。(3) フェーズ見出しの投資ジャーニー濃度を緩和（「読書の投資設計をしましょう」→「読む準備をしましょう（任意）」/「投資回収をまとめましょう」→「読み終えて、振り返りましょう」）。(4) オンボーディング1枚目「本を投資として管理」→「読んだ本を、記録する」、最終CTAの「人生を変える読書投資」を削除。(5) LP eyebrow「読書を、自己投資に」→「読んだ本を、ちゃんと活かす」・「読書を資産に」→「読んだことを身につける」、削除済み機能の虚偽表示「🔥連続達成日数」を撤去（反ゲーミフィケーション整合）。(6) AI サブタブ（マイ読書脳/テーマレポート）に内容の一言注釈（独自名の progressive disclosure）。npm run build 成功
  * - 2026-06-23: 📊 利用状況の記録（製品改善のためのファーストパーティ計測）を追加。ローンチ後の「磨きの優先順位」を実データで決める最小限の計測基盤。外部トラッカーは使わず自前 Supabase（analytics_events）にだけ書く（CSP 変更不要）。送るのは「イベント名＋小さな enum/数値/真偽」だけで、メモ本文・書名・著者・メール・検索語・自由入力等の PII は src/lib/analytics.js の props サニタイズ（number(有限)/boolean/≤32字文字列のみ通す）で構造的に入らない。⚙️ 設定 →「📥 データ・アプリ」に「📊 利用状況の記録」トグル（role=switch・44px・既定 ON・オフで setAnalyticsOptOut(true)）を新設。track() は fire-and-forget・never throws・never blocks で、未設定/未ログイン/オプトアウト/テーブル未適用（schema error）は静かに no-op（fail-silent）。App.jsx に app_open（起動1回）/ book_added{via}（search/manual/advisor、barcode は後続）/ status_changed{to}（advanceStatus）/ paywall_viewed（PaywallGate）を、AccountSettings に checkout_started{plan} を配線。新規 supabase_analytics_events.sql（RLS: INSERT/SELECT 本人のみ・UPDATE/DELETE ポリシー無し＝改ざん防止の監査ログ・管理者は service_role で読む）。プライバシーポリシー（src/legal/PrivacyPage.jsx + legal/privacy.md）にファーストパーティ利用状況記録（個人特定情報を含まない・設定でオフ可・外部送信なし）を正直に開示。billing ヘルプに「📊 利用状況の記録について」セクションを新設。company/analytics-plan.md（taxonomy / プライバシー方針 / 集計 SQL / 拡張方針）新規。残りのイベント（memo_added / push_enabled / reading_progress_set / export_used / ai_used / review_opened / action_completed / barcode 経由 book_added）は taxonomy に列挙のみで各サーフェス担当が後続配線。委託先一覧は外部送信が無いため変更不要
  * - 2026-06-22: 📱 iOS版（App内課金/IAP）の両チャネル化を実装（Mac不要のコード部分を先行）。Capacitor 土台を main へ再合流（capacitor.config.json は appName=Orime / native.js / main.jsx の initNative / useHaptic のネイティブ分岐 / @capacitor 依存。価格差分 ¥990 は持ち込まず ¥1,280 を維持）。新規 src/lib/iap.js（RevenueCat ラッパ。SDK は dynamic import + isNative ガードで Web バンドルから除外＝Web 完全無害。store 価格取得 / 購入 / 復元 / App Store サブスク管理）。Paywall と AccountSettings を Capacitor.isNativePlatform() で分岐 —— native は App Store 購入シート＋ストアのローカライズ価格（¥1,480）表示＋「購入を復元」（Apple 必須）＋自動更新条件の開示（審査要件 3.1.2）＋解約/管理は App Store 設定へ。反ステアリング順守で特商法リンク・サービス紹介 LP（安い Web 価格を含む）は native では非表示。Web は従来どおり Stripe（¥1,280）で不変。entitlement は subscriptions テーブル（status=active）で両チャネル共通、価格はコード非依存（Stripe Price ID / App Store 商品設定が真実）。IOS_APP_GUIDE.md を現行（App ¥1,480・RevenueCat・両チャネル）に全面刷新。billing ヘルプに「📱 App（iOS）版でご契約の場合」（管理・復元・自動更新の開示）を新設。npm run build / npm ci 成功。残りは Mac/Xcode での実機ビルドと App Store 審査（オーナー作業）
  * - 2026-06-22: 📖 読書進捗（現在ページ/総ページ→進捗バー）の UI を実装。「読書中」の本詳細（ReadingPhase）に数値入力 + 進捗バー、本棚の「読書中」カードにも細いバー（total_pages 設定時のみ）。反ゲーミフィケーション（目標/ノルマ/連続なし・あくまで続きを思い出す目安）。`books.current_page`/`total_pages`（既存の payload で送出済の列を UI から活用）、新規 supabase_books_reading_progress.sql で idempotent 追加、useBooks の schema-error fallback で未適用 DB でも保存・読込が壊れない。bookDetailReading の既存「進捗バー」セクションを実 UI に合わせて刷新（総ページ必須・カード表示・目安である旨）
@@ -123,7 +124,7 @@ export const HELP_CONTENT = {
         footer: '見つからない / 通信エラーのときは、その場の「📝 手動で追加する」から登録できます。書名を少し変える・ISBN（裏表紙のバーコード番号）で探すと見つかりやすいです。',
       },
       {
-        title: '読書前の読書計画',
+        title: '積読の読書計画',
         body: '読み始める前に「投資目的」を明確にする。',
         bullets: [
           'なぜこの本を読むのか',
@@ -166,7 +167,7 @@ export const HELP_CONTENT = {
       {
         heading: '次のステップ',
         body:
-          '読み始める準備ができたら「読書前へ進む」で次の段階（投資戦略フェーズ）へ進みます。',
+          '読み始める準備ができたら「積読へ進む」で次の段階へ進みます。',
       },
       {
         heading: '📝 メモは？',
@@ -182,7 +183,7 @@ export const HELP_CONTENT = {
   },
 
   bookDetailBefore: {
-    title: '🎯 読書前（投資戦略）',
+    title: '🎯 積読（読む準備）',
     description: 'AI と一緒に「この本から何を得るか」を計画する段階です。',
     lastUpdated: '2026-06-21',
     sections: [
@@ -253,7 +254,7 @@ export const HELP_CONTENT = {
       {
         heading: '🔍 AI 本の解析（読書のコンパス）',
         body:
-          '読書前フェーズで生成した「著者の意図 / 本の構造 / キーコンセプト / 名言 / 適合する読者 / 実践へのヒント」が本詳細上部に常時表示されます。\n\n' +
+          '積読フェーズで生成した「著者の意図 / 本の構造 / キーコンセプト / 名言 / 適合する読者 / 実践へのヒント」が本詳細上部に常時表示されます。\n\n' +
           '読みながら参照すると、迷子にならず効率よく重要箇所を吸収できます。',
       },
       {

@@ -766,7 +766,7 @@ export default function Review({ books = [], onOpenBook }) {
             >
               <option value="all">全ステータス</option>
               <option value="want">読みたい</option>
-              <option value="before">読書前</option>
+              <option value="before">積読</option>
               <option value="reading">読書中</option>
               <option value="done">読了</option>
             </select>

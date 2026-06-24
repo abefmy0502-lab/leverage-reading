@@ -149,7 +149,7 @@ export default function Landing() {
 
       {/* ============ 1. Hero ============ */}
       <section className="hero">
-        <p className="hero-eyebrow">読書を、自己投資に。</p>
+        <p className="hero-eyebrow">読んだ本を、ちゃんと活かす。</p>
         <h1 className="hero-headline">
           読みっぱなしを、<br />
           やめる。
@@ -228,7 +228,7 @@ export default function Landing() {
 
         <p className="pain-conclusion">
           Orime なら、<br />
-          <strong>月 ¥1,280 で、読書を"資産"に。</strong>
+          <strong>月 ¥1,280 で、読んだことを、ちゃんと身につける。</strong>
         </p>
 
         <button type="button" onClick={goToSignup} className="cta-secondary">
@@ -353,9 +353,9 @@ export default function Landing() {
               本を読んでも、行動が習慣にならなければ意味がない。
             </p>
             <ul className="action-feature-list">
+              <li>📖 メモの一行から、そのまま行動に</li>
               <li>📅 期限・優先度・繰り返しを設定</li>
-              <li>✅ 完了率を毎週集計</li>
-              <li>🔥 連続達成日数で習慣化を可視化</li>
+              <li>✅ 本を横断して「やること」を一覧</li>
               <li>💭 完了時に振り返りメモを残せる</li>
             </ul>
             <p className="action-feature-conclusion">

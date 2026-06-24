@@ -251,7 +251,7 @@ export default function BookshelfSummary({ books, onClick }) {
 
   const text = empty
     ? '📚 今月の活動はまだありません。最初の 1 冊から始めましょう'
-    : `📚 今月: 読了 ${stats.doneThisMonth} 冊 / 読書中 ${stats.readingNow} 冊 / 読書前 ${stats.beforeNow} 冊`;
+    : `📚 今月: 読了 ${stats.doneThisMonth} 冊 / 読書中 ${stats.readingNow} 冊 / 積読 ${stats.beforeNow} 冊`;
 
   // 累計読了が 1 冊以上あるときだけ、静かな手応えパネルを出す。
   // 0 冊 (= まだ何も読了していない) のときは従来どおり一行のみ。
