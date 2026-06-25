@@ -1467,6 +1467,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const [interviewLoading, setInterviewLoading] = useState(false); // 質問生成中
   const [otherMode, setOtherMode] = useState(false);     // 「その他」自由入力モード
   const [otherText, setOtherText] = useState('');
+  const [multiSelected, setMultiSelected] = useState([]); // 複数選択質問の選択中の答え
   const [recoLoading, setRecoLoading] = useState(false); // 推薦生成中
   const [recoError, setRecoError] = useState(null);
   // Strict auto-scroll: only when a real append happens. Initial seed
@@ -1533,6 +1534,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         .filter((q) => q && typeof q.q === 'string' && q.q.trim())
         .map((q) => ({
           q: q.q.trim(),
+          multi: q.multi === true,
           options: Array.isArray(q.options)
             ? q.options
                 .filter((o) => typeof o === 'string' && o.trim())
@@ -1541,7 +1543,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             : [],
         }))
         .filter((q) => q.options.length >= 2)
-        .slice(0, 4);
+        .slice(0, 5);
       return cleaned.length ? cleaned : null;
     } catch {
       return null;
@@ -1654,6 +1656,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setInterviewAnswers(nextAnswers);
     setOtherMode(false);
     setOtherText('');
+    setMultiSelected([]);
     if (interviewStep + 1 < interview.length) {
       setInterviewStep(interviewStep + 1);
     } else {
@@ -1671,6 +1674,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const goBackQuestion = () => {
     setOtherMode(false);
     setOtherText('');
+    setMultiSelected([]);
     if (interviewStep <= 0) {
       setInterview(null);
       setInterviewAnswers([]);
@@ -1691,6 +1695,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setInterviewStep(0);
     setOtherMode(false);
     setOtherText('');
+    setMultiSelected([]);
     setInput('');
   };
 
@@ -1710,6 +1715,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setInterviewLoading(false);
     setOtherMode(false);
     setOtherText('');
+    setMultiSelected([]);
     setRecoError(null);
     setView('chat');
   };
@@ -1975,6 +1981,13 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         const total = interview.length;
         const q = interview[interviewStep];
         const stepNo = interviewStep + 1;
+        const isMulti = q.multi === true;
+        const toggleMulti = (opt) => {
+          try { advisorHaptic.light(); } catch { /* non-critical */ }
+          setMultiSelected((prev) =>
+            prev.includes(opt) ? prev.filter((x) => x !== opt) : [...prev, opt],
+          );
+        };
         return (
           <div style={advisorWizardCard}>
             {/* 進捗バー + 戻る */}
@@ -2021,24 +2034,37 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             )}
 
             {/* 質問文 */}
-            <p style={{ fontSize: 16, fontWeight: 700, color: '#3d362c', lineHeight: 1.6, margin: '0 0 14px' }}>
+            <p style={{ fontSize: 16, fontWeight: 700, color: '#3d362c', lineHeight: 1.6, margin: '0 0 4px' }}>
               {q.q}
+            </p>
+            {/* 複数選択できる質問は明示（タップで複数選べる安心感） */}
+            <p style={{ fontSize: 11, color: '#8a7c66', margin: '0 0 12px' }}>
+              {isMulti ? '当てはまるものを選んでください（複数可）' : '1 つ選んでください'}
             </p>
 
             {/* 選択肢チップ（縦並び・全幅タップ） */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {q.options.map((opt) => (
-                <button
-                  type="button"
-                  key={opt}
-                  onClick={() => answerQuestion(opt)}
-                  style={advisorOptionChip}
-                >
-                  {opt}
-                </button>
-              ))}
+              {q.options.map((opt) => {
+                const selected = isMulti && multiSelected.includes(opt);
+                return (
+                  <button
+                    type="button"
+                    key={opt}
+                    onClick={() => (isMulti ? toggleMulti(opt) : answerQuestion(opt))}
+                    aria-pressed={isMulti ? selected : undefined}
+                    style={{
+                      ...advisorOptionChip,
+                      ...(selected
+                        ? { background: '#efe7d3', borderColor: '#5c5043', color: '#3d362c', fontWeight: 600 }
+                        : null),
+                    }}
+                  >
+                    {isMulti ? `${selected ? '☑️' : '⬜️'} ${opt}` : opt}
+                  </button>
+                );
+              })}
 
-              {/* その他（自由入力） */}
+              {/* その他（自由入力）。複数選択モードでは選択肢に「追加」する。 */}
               {!otherMode ? (
                 <button
                   type="button"
@@ -2061,21 +2087,61 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                       if (e.nativeEvent.isComposing) return;
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        if (otherText.trim()) answerQuestion(otherText);
+                        if (!otherText.trim()) return;
+                        if (isMulti) {
+                          toggleMulti(otherText.trim());
+                          setOtherText('');
+                          setOtherMode(false);
+                        } else {
+                          answerQuestion(otherText);
+                        }
                       }
                     }}
                     style={{ flex: 1, padding: '12px 14px', borderRadius: 12, border: '1px solid #d4ccbe', background: '#fff', color: '#3d362c', fontSize: 16, fontFamily: 'inherit', minHeight: 48 }}
                   />
                   <button
                     type="button"
-                    onClick={() => { if (otherText.trim()) answerQuestion(otherText); }}
+                    onClick={() => {
+                      if (!otherText.trim()) return;
+                      if (isMulti) {
+                        toggleMulti(otherText.trim());
+                        setOtherText('');
+                        setOtherMode(false);
+                      } else {
+                        answerQuestion(otherText);
+                      }
+                    }}
                     disabled={!otherText.trim()}
-                    aria-label="この内容で回答"
+                    aria-label={isMulti ? '選択肢に追加' : 'この内容で回答'}
                     style={{ flexShrink: 0, padding: '0 16px', borderRadius: 12, border: 'none', background: otherText.trim() ? '#5c5043' : '#d4ccbe', color: '#faf6f0', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: otherText.trim() ? 'pointer' : 'not-allowed', minHeight: 48 }}
                   >
-                    決定
+                    {isMulti ? '追加' : '決定'}
                   </button>
                 </div>
+              )}
+
+              {/* 複数選択モードの確定ボタン */}
+              {isMulti && (
+                <button
+                  type="button"
+                  onClick={() => { if (multiSelected.length) answerQuestion(multiSelected.join('、')); }}
+                  disabled={multiSelected.length === 0}
+                  style={{
+                    marginTop: 4,
+                    padding: '13px 0',
+                    borderRadius: 12,
+                    border: 'none',
+                    background: multiSelected.length ? '#5c5043' : '#d4ccbe',
+                    color: '#faf6f0',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    fontFamily: 'inherit',
+                    cursor: multiSelected.length ? 'pointer' : 'not-allowed',
+                    minHeight: 48,
+                  }}
+                >
+                  {multiSelected.length ? `決定（${multiSelected.length}件）→` : '1つ以上選んでください'}
+                </button>
               )}
             </div>
           </div>
@@ -2145,6 +2211,12 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         {/* Recommendations — richer per-book card with reasoning */}
         {recommendations && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeIn .3s" }}>
+            {/* 「## 👋 はじめに」等の前置きを Markdown として描画（生の ## を出さない）。
+                末尾の空見出し「## 📚 おすすめの本」は本カードと重複するので除去。 */}
+            {recommendations.before && (() => {
+              const intro = recommendations.before.replace(/\n*##\s*📚\s*おすすめの本\s*$/u, '').trim();
+              return intro ? <MarkdownSections text={intro} /> : null;
+            })()}
             {recommendations.items.map((rec, i) => (
               <div key={i} style={{ background: "#faf6f0", borderRadius: 12, border: "1px solid #e4ddd0", padding: "14px 14px", overflow: "hidden" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
@@ -2200,11 +2272,9 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                 </div>
               </div>
             ))}
-            {recommendations.after && (
-              <div style={{ background: '#f0ebe2', borderRadius: 12, padding: '12px 14px', border: '1px solid #e4ddd0' }}>
-                <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap' }}>{recommendations.after}</p>
-              </div>
-            )}
+            {/* 「## 📋 読む順番」「## 💬 まとめ」等は Markdown（表・見出し・箇条書き）
+                として描画。生の `|---|` パイプや `##` が見えていた問題を解消。 */}
+            {recommendations.after && <MarkdownSections text={recommendations.after} />}
             <small style={{ fontSize: 10, color: '#6b5f4d', lineHeight: 1.6, padding: '0 4px' }}>
               {AMAZON_DISCLOSURE_TEXT}
             </small>
@@ -2393,7 +2463,17 @@ function AuthedApp() {
   // available=false で UI 側が履歴ボタンを隠す。
   const advisorSessions = useAdvisorSessions();
 
-  const [tab, setTab] = useState("books");
+  // アプリを離れて戻ると（特に iOS PWA の再読込で）毎回 books に戻るのを防ぐ。
+  // 直近のタブを localStorage に保存し、起動時に復元する。'books'/'review'/'ai' のみ許可。
+  const [tab, setTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('activeTab');
+      return ['books', 'review', 'ai'].includes(saved) ? saved : 'books';
+    } catch { return 'books'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('activeTab', tab); } catch { /* ignore */ }
+  }, [tab]);
   // 本棚の表示モード。
   // - 'auto' (デフォルト): 3 冊以下→list / 4 冊以上→grid（数が少ない時に
   //   表紙だけポツポツ並ぶのを避ける）
@@ -2417,7 +2497,8 @@ function AuthedApp() {
     : bookshelfViewMode;
   // 親タブ「振り返り」「AI」内のサブタブ。localStorage に保存して再訪時に復元。
   const [reviewSubTab, setReviewSubTab] = useState(() => {
-    try { return localStorage.getItem('reviewSubTab') || 'note'; } catch { return 'note'; }
+    // 既定は 🎯 行動（「次にやること」を最初に見せる方が振り返りの動機になる）。
+    try { return localStorage.getItem('reviewSubTab') || 'action'; } catch { return 'action'; }
   });
   const [aiSubTab, setAiSubTab] = useState(() => {
     try { return localStorage.getItem('aiSubTab') || 'advisor'; } catch { return 'advisor'; }

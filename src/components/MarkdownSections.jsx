@@ -54,6 +54,61 @@ const highlightSection = {
   borderColor: '#d4c089',
 };
 
+// Markdown 表のレンダリング。モバイル幅で 3 列が潰れないよう、横スクロール
+// 可能なコンテナに収める。先頭行をヘッダーとして強調。
+function renderTable(rows, key) {
+  if (!rows || rows.length === 0) return null;
+  const [head, ...body] = rows;
+  return (
+    <div key={key} style={{ overflowX: 'auto', margin: 'var(--space-2) 0', WebkitOverflowScrolling: 'touch' }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12, lineHeight: 1.6 }}>
+        <thead>
+          <tr>
+            {head.map((c, j) => (
+              <th
+                key={j}
+                style={{
+                  textAlign: 'left',
+                  padding: '6px 8px',
+                  background: '#efe7d8',
+                  color: '#5c5043',
+                  fontWeight: 700,
+                  border: '1px solid #e0d7c6',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {renderInline(c)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {body.map((row, ri) => (
+            <tr key={ri}>
+              {row.map((c, ci) => (
+                <td
+                  key={ci}
+                  style={{
+                    padding: '6px 8px',
+                    color: '#4a4036',
+                    border: '1px solid #e7ddcc',
+                    verticalAlign: 'top',
+                    // 1 列目（順番など）は折り返さず、それ以外は折り返して読みやすく
+                    whiteSpace: ci === 0 ? 'nowrap' : 'normal',
+                    minWidth: ci === 0 ? 0 : 90,
+                  }}
+                >
+                  {renderInline(c)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // Some headings deserve emphasis. Match by emoji or keyword fragments.
 function isHighlight(headingText) {
   return (
@@ -96,17 +151,38 @@ function renderLines(lines, opts) {
   // Group consecutive list items into a single <ul> / <ol>.
   const blocks = [];
   let listBuf = null; // { type: 'ul' | 'ol', items: [] }
+  let tableBuf = null; // { type: 'table', rows: [[...cells]] }
   const flushList = () => {
     if (!listBuf) return;
     blocks.push(listBuf);
     listBuf = null;
   };
+  // Markdown table helpers: `| a | b |` rows + a `|---|---|` separator row.
+  const isTableRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+  const isTableSep = (l) => /-/.test(l) && /^\s*\|?[\s:|-]+\|?\s*$/.test(l);
+  const parseRow = (l) =>
+    l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+  const flushTable = () => {
+    if (!tableBuf) return;
+    if (tableBuf.rows.length) blocks.push(tableBuf);
+    tableBuf = null;
+  };
   lines.forEach((rawLine) => {
     const line = rawLine.trimEnd();
     if (!line.trim()) {
       flushList();
+      flushTable();
       return;
     }
+    // テーブル行（`| … |`）はまとめて 1 つの table ブロックに。区切り行
+    // （`|---|---|`）はスキップ。これで AI が出す Markdown 表が崩れず描画される。
+    if (isTableRow(line)) {
+      flushList();
+      if (!tableBuf) tableBuf = { type: 'table', rows: [] };
+      if (!isTableSep(line)) tableBuf.rows.push(parseRow(line));
+      return;
+    }
+    flushTable();
     if (/^### /.test(line)) {
       flushList();
       blocks.push({ type: 'subhead', text: line.replace(/^### /, '') });
@@ -134,6 +210,7 @@ function renderLines(lines, opts) {
     blocks.push({ type: 'p', text: line });
   });
   flushList();
+  flushTable();
 
   // For 関連書籍 sections: each `### N. 『title』- 著者` becomes a card
   // with an "📚 読みたいに追加" button. Following paragraphs (until the
@@ -172,7 +249,9 @@ function renderLines(lines, opts) {
         return;
       }
       // Non-related fallthrough — render normally.
-      if (b.type === 'ul') {
+      if (b.type === 'table') {
+        out.push(renderTable(b.rows, i));
+      } else if (b.type === 'ul') {
         out.push(
           <ul key={i} style={listStyle}>
             {b.items.map((it, j) => (
@@ -198,6 +277,7 @@ function renderLines(lines, opts) {
 
   return blocks.map((b, i) => {
     if (b.type === 'subhead') return <h4 key={i} style={subHeadingStyle}>{renderInline(b.text)}</h4>;
+    if (b.type === 'table') return renderTable(b.rows, i);
     if (b.type === 'ul') {
       return (
         <ul key={i} style={listStyle}>
