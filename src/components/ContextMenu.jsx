@@ -25,7 +25,7 @@ const panelBase = {
   borderRadius: 14,
   boxShadow: '0 10px 30px rgba(30, 25, 20, 0.25)',
   overflow: 'hidden',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
   animation: 'lvg-context-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
 };
 

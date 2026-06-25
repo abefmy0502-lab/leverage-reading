@@ -33,12 +33,13 @@
 
 /* ===== Buttons ============================================================ */
 .btn {
-  font-family: var(--font-system);
+  font-family: var(--font-app);
   font-size: var(--type-body);
   font-weight: var(--weight-semibold);
+  letter-spacing: 0.01em;
   line-height: var(--leading-tight);
   padding: var(--space-3) var(--space-5);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   border: none;
   cursor: pointer;
   display: inline-flex;
@@ -66,6 +67,7 @@
 .btn-primary {
   background: var(--color-accent);
   color: var(--color-text-inverse);
+  box-shadow: 0 1px 2px rgba(93, 74, 40, 0.18);
 }
 .btn-primary:hover {
   background: var(--color-accent-hover);
@@ -123,8 +125,8 @@
 /* ===== Cards ============================================================== */
 .card {
   background: var(--color-bg-secondary);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
   box-shadow: var(--shadow-2);
   transition: transform var(--duration-fast) var(--ease-spring),
     box-shadow var(--duration-base) var(--ease-out);
@@ -156,7 +158,7 @@
 /* ===== Inputs ============================================================= */
 .input,
 .textarea {
-  font-family: var(--font-system);
+  font-family: var(--font-app);
   /* iOS Safari zooms inputs whose font-size is < 16px on focus. Keep ≥16. */
   font-size: 16px;
   line-height: var(--leading-base);

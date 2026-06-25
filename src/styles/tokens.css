@@ -64,6 +64,11 @@
   --font-rounded: -apple-system-ui-rounded, "SF Pro Rounded", "Hiragino Sans", sans-serif;
   --font-mono: "SF Mono", "Menlo", "Monaco", "Courier New", monospace;
   --font-serif: "Noto Serif JP", Georgia, serif;
+  /* アプリ本体の標準フォント。Apple 純正アプリと同じゴシック（サンセリフ）。
+     iOS は -apple-system が日本語を Hiragino Sans に解決。明朝（Noto Serif JP）から
+     これへ全面移行して「個人開発感」を払拭し、上質で読みやすい印象にする。 */
+  --font-app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
 
   /* === タイポスケール ======================================================== */
   --type-display: 34px;

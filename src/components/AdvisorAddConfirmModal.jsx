@@ -28,7 +28,7 @@ const overlayStyle = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: 16,
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
   boxSizing: 'border-box',
 };
 

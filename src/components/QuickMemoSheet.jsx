@@ -44,7 +44,7 @@ const sheetWrap = {
   flexDirection: 'column',
   maxHeight: '85vh',
   animation: 'leverage-sheet-up .25s cubic-bezier(0.2,0.9,0.3,1)',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
   paddingBottom: 'env(safe-area-inset-bottom, 0px)',
 };
 

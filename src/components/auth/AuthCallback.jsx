@@ -36,7 +36,7 @@ const wrap = {
   minHeight: '100vh',
   padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)',
   textAlign: 'center',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
   color: '#3d362c',
   background: '#f5f0e8',
 };

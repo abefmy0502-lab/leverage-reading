@@ -12,7 +12,7 @@ const overlayStyle = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: 'var(--space-4)',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
 };
 
 const cardStyle = {

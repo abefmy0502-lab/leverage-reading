@@ -245,7 +245,7 @@ export default function Paywall({ onPurchased }) {
         WebkitOverflowScrolling: 'touch',
         padding:
           'calc(24px + env(safe-area-inset-top, 0px)) 20px calc(32px + env(safe-area-inset-bottom, 0px))',
-        fontFamily: 'var(--font-serif)',
+        fontFamily: 'var(--font-app)',
         color: 'var(--color-label)',
       }}
     >

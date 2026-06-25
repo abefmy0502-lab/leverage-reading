@@ -43,7 +43,7 @@ const overlayStyle = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: 20,
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
 };
 
 const cardStyle = {

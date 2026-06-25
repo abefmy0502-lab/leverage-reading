@@ -34,7 +34,7 @@ const overlayStyle = {
   background: 'var(--color-bg, #f5f0e8)',
   display: 'flex',
   flexDirection: 'column',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
   paddingTop: 'env(safe-area-inset-top, 0px)',
   paddingBottom: 'env(safe-area-inset-bottom, 0px)',
 };

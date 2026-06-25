@@ -21,7 +21,7 @@ const cardStyle = {
   padding: '20px 22px',
   width: 'min(380px, 100%)',
   boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
 };
 
 const titleStyle = {

@@ -101,7 +101,7 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
           opacity: 0.85,
           animation: 'leverage-splash-pop .55s cubic-bezier(0.2,0.9,0.3,1) both',
           animationDelay: '.15s',
-          fontFamily: "'Noto Serif JP', Georgia, serif",
+          fontFamily: "var(--font-app)",
         }}
       >
         <p style={{ fontSize: 13, lineHeight: 1.7, fontStyle: 'italic', margin: 0 }}>

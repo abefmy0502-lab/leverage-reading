@@ -20,7 +20,7 @@ const overlay = {
   background: '#f5f0e8',
   display: 'flex',
   flexDirection: 'column',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
   color: '#3d362c',
   paddingTop: 'env(safe-area-inset-top, 0px)',
 };

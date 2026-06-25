@@ -82,7 +82,7 @@ const cardStyle = {
   maxHeight: 'calc(100dvh - 32px)',
   padding: '24px 22px 18px',
   boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
   display: 'flex',
   flexDirection: 'column',
   gap: 14,

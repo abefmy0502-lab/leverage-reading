@@ -37,7 +37,7 @@ const toastStyleBase = {
   padding: '12px 14px',
   borderRadius: 'var(--radius-md)',
   fontSize: 13,
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
   lineHeight: 'var(--leading-base)',
   boxShadow: 'var(--shadow-4)',
 };

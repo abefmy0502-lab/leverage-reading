@@ -20,7 +20,7 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'flex-end',
   justifyContent: 'center',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
 };
 
 const sheetStyle = {

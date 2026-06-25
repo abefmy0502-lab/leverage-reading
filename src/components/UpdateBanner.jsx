@@ -70,7 +70,7 @@ const overlayStyle = {
   gap: 12,
   boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
   boxSizing: 'border-box',
-  fontFamily: "'Noto Serif JP', Georgia, serif",
+  fontFamily: "var(--font-app)",
   animation: 'lvg-slide-down 280ms ease both',
 };
 

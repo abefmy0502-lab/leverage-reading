@@ -2479,7 +2479,7 @@ function Shell({ children }) {
         display: "flex",
         flexDirection: "column",
         background: "linear-gradient(160deg, var(--color-bg), #ebe4d8)",
-        fontFamily: "var(--font-serif)",
+        fontFamily: "var(--font-app)",
         color: "var(--color-label)",
         overflow: "hidden",
       }}

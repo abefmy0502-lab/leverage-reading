@@ -57,9 +57,11 @@ html {
 }
 
 body {
-  font-family: var(--font-system);
+  font-family: var(--font-app);
   font-size: var(--type-body);
   line-height: var(--leading-base);
+  /* 日本語ゴシックを Apple 純正アプリのように引き締めて見せる微トラッキング。 */
+  letter-spacing: 0.012em;
   color: var(--color-text-primary);
   background: var(--color-bg-primary);
   -webkit-font-smoothing: antialiased;

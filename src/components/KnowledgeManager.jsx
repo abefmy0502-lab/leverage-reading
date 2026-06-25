@@ -128,7 +128,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 870, background: 'rgba(30,25,20,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "'Noto Serif JP', Georgia, serif" }}
+      style={{ position: 'fixed', inset: 0, zIndex: 870, background: 'rgba(30,25,20,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "var(--font-app)" }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
