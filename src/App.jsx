@@ -1586,20 +1586,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     generateRecommendations(compiled, concern);
   };
 
-  // 推薦された各本が「実在し入手できるか」を書誌DB（NDL+Google Books の厳格
-  // マッチ）で検証する。実在が確認できた本には ISBN を付与（Amazon リンクが
-  // 確実に商品ページへ飛ぶ）。これで「Amazon に無い本が出る」事故を構造的に防ぐ。
-  const verifyRecs = async (list) =>
-    Promise.all(
-      (list || []).map(async (rec) => {
-        try {
-          const isbns = await findIsbnCandidates(rec.title, rec.author);
-          if (isbns && isbns.length) return { ...rec, isbn: isbns[0], verified: true };
-        } catch { /* 検証失敗は未確認扱い */ }
-        return { ...rec, verified: false };
-      }),
-    );
-
   // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
   // 1 回ストリーム。userMsg は AI へ渡す本文、sourceQuery は本棚追加時の
   // source_query（投資目的プレフィル）に使う「ユーザーの元の課題」。
@@ -1631,40 +1617,12 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     const { recs, prose } = parseAdvisorResponse(finalText);
     let nextRecs = null;
     if (recs) {
-      // ── 実在検証 ──────────────────────────────────────────────────
-      let checked = await verifyRecs(recs);
-      let verified = checked.filter((r) => r.verified);
-      // 実在確認できた本が 3 冊未満なら、1 回だけ「差し替え」を依頼して補充する。
-      if (verified.length < 3) {
-        const bad = checked.filter((r) => !r.verified).map((r) => r.title).filter(Boolean);
-        if (bad.length) {
-          const need = Math.max(1, 5 - verified.length);
-          const retryMsg =
-            `次の本は実在確認ができませんでした: ${bad.join('、')}。\n` +
-            `これらは挙げないでください。代わりに、より定番で確実に入手できる「実在する日本語の本」だけを ${need} 冊、` +
-            `同じ RECOMMENDATIONS_START..END の JSON フォーマットで推薦してください。` +
-            `すでに確定した本（${verified.map((r) => r.title).join('、') || 'なし'}）とは別の本にしてください。`;
-          try {
-            const retryText = await streamClaude({
-              system: PROMPTS.bookAdvisor.system,
-              messages: [...newHistory, { role: 'assistant', content: finalText }, { role: 'user', content: retryMsg }],
-              temperature: 0.6,
-              max_tokens: 2048,
-              model: 'claude-sonnet-4-6',
-            });
-            const more = parseAdvisorResponse(retryText).recs;
-            if (more) {
-              const moreChecked = await verifyRecs(more);
-              const moreVerified = moreChecked.filter(
-                (r) => r.verified && !verified.some((v) => v.title === r.title),
-              );
-              verified = [...verified, ...moreVerified];
-            }
-          } catch { /* 補充失敗は確定済みだけで進む */ }
-        }
-      }
-      // 確認できた本があればそれだけを表示。0 件なら原案を出す（空表示よりマシ）。
-      const finalList = (verified.length ? verified : checked).slice(0, 5);
+      // 提案された本は「全部」表示する。以前は findIsbnCandidates で実在確認できた
+      // 本だけに絞っていたが、Google Books 429 / NDL 照合の厳格さで「実在する本でも
+      // 確認できない」ことが多く、5 冊提案でも 1 冊しか出ない事故になっていた。
+      // 「実在しない本を出さない」担保は bookAdvisor プロンプト側の厳格ルールに任せ、
+      // ISBN は本棚追加時に解決する（Amazon リンクは title+author 検索で十分機能する）。
+      const finalList = recs.slice(0, 5);
       setRecommendations({
         items: finalList,
         before: prose?.before || '',
