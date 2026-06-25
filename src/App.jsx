@@ -1392,6 +1392,32 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
 }
 
 /* ========== AI Book Advisor ========== */
+// ガイド付きヒアリング（ウィザード）の共通スタイル。
+const advisorWizardCard = {
+  background: '#f7f3ec',
+  border: '1px solid #e4ddd0',
+  borderRadius: 16,
+  padding: '16px 16px',
+  marginTop: 8,
+  animation: 'fadeIn .25s',
+};
+const advisorOptionChip = {
+  width: '100%',
+  textAlign: 'left',
+  padding: '14px 16px',
+  borderRadius: 12,
+  border: '1px solid #d4ccbe',
+  background: '#faf6f0',
+  color: '#3d362c',
+  fontSize: 15,
+  fontFamily: 'inherit',
+  lineHeight: 1.5,
+  cursor: 'pointer',
+  minHeight: 48,
+  WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
+  touchAction: 'manipulation',
+};
+
 const ADVISOR_EXAMPLES = [
   '営業成績を上げたい',
   'チームマネジメント',
@@ -1409,7 +1435,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const advisorConfirm = useConfirm();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   // 直近の「ユーザーの課題」入力 — 本棚に追加した時に source_query として
@@ -1431,6 +1456,18 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const [selectedSession, setSelectedSession] = useState(null);
   // 現在進行中のセッション ID。null なら次回送信時に createSession で新規作成。
   const [currentSessionId, setCurrentSessionId] = useState(null);
+  // ── ガイド付きヒアリング（チップ選択ウィザード）の状態 ───────────────────
+  // 旧来の「4 問を一括テキストで投げて自由記述で受ける」摩擦を解消するため、
+  // 初回の相談内容から AI が質問セットを設計 → 1 問ずつ選択肢タップで答える。
+  const [concern, setConcern] = useState('');            // 初回の相談（課題）
+  const [interview, setInterview] = useState(null);      // [{q, options[]}] | null
+  const [interviewStep, setInterviewStep] = useState(0); // 現在の質問 index
+  const [interviewAnswers, setInterviewAnswers] = useState([]); // [{q, a}]
+  const [interviewLoading, setInterviewLoading] = useState(false); // 質問生成中
+  const [otherMode, setOtherMode] = useState(false);     // 「その他」自由入力モード
+  const [otherText, setOtherText] = useState('');
+  const [recoLoading, setRecoLoading] = useState(false); // 推薦生成中
+  const [recoError, setRecoError] = useState(null);
   // Strict auto-scroll: only when a real append happens. Initial seed
   // message + any case where we would scroll from a zero baseline are
   // explicitly excluded so re-mounting the component (sub-tab switch)
@@ -1479,111 +1516,78 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     };
   };
 
-  // 推薦 JSON ブロックを表示用テキストから抜く。ストリーミング中に
-  // RECOMMENDATIONS_START が来ても、生 JSON を吹き出しに出さず「以降は
-  // 推薦カードに切り出す」前提のプレースホルダーに置換する。途中で切れた
-  // 場合 (END 未到達) は START 以降を捨てるだけで OK — onDone で完全な
-  // 推薦カードに置き換わる。
-  const stripRecommendationsBlock = (text) => {
-    if (typeof text !== 'string' || !text) return text || '';
-    const start = text.indexOf('RECOMMENDATIONS_START');
-    if (start < 0) return text;
-    const before = text.slice(0, start).trimEnd();
-    const endIdx = text.indexOf('RECOMMENDATIONS_END', start);
-    if (endIdx < 0) return before;
-    const after = text.slice(endIdx + 'RECOMMENDATIONS_END'.length).trimStart();
-    return after ? `${before}\n\n${after}` : before;
+  // 質問生成レスポンス（JSON）を堅牢にパース。純粋 JSON を指示しているが、
+  // 前後に余計な文字が混ざっても最初の { 〜 最後の } を取り出して解釈する。
+  // 失敗時は null を返し、呼び出し側はヒアリングを skip して直接推薦に倒す。
+  const parseInterview = (text) => {
+    if (typeof text !== 'string') return null;
+    const s = text.indexOf('{');
+    const e = text.lastIndexOf('}');
+    if (s < 0 || e <= s) return null;
+    try {
+      const obj = JSON.parse(text.slice(s, e + 1));
+      const qs = Array.isArray(obj?.questions) ? obj.questions : null;
+      if (!qs) return null;
+      const cleaned = qs
+        .filter((q) => q && typeof q.q === 'string' && q.q.trim())
+        .map((q) => ({
+          q: q.q.trim(),
+          options: Array.isArray(q.options)
+            ? q.options
+                .filter((o) => typeof o === 'string' && o.trim())
+                .map((o) => o.trim())
+                .slice(0, 4)
+            : [],
+        }))
+        .filter((q) => q.options.length >= 2)
+        .slice(0, 4);
+      return cleaned.length ? cleaned : null;
+    } catch {
+      return null;
+    }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    // 制御文字 / ゼロ幅文字を除去し長さを clamp（プロンプトインジェクション防御）。
-    // 表示用にも sanitize 済みテキストを使い、生の制御文字を画面に出さない。
-    const userMsg = clamp(sanitizeForPrompt(input), LIMITS.aiQuestion);
-    setInput("");
-    if (!userMsg) return;
-
-    const newHistory = [...chatHistory, { role: "user", content: userMsg }];
+  // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
+  // 1 回ストリーム。userMsg は AI へ渡す本文、sourceQuery は本棚追加時の
+  // source_query（投資目的プレフィル）に使う「ユーザーの元の課題」。
+  const generateRecommendations = async (userMsg, sourceQuery) => {
+    if (!userMsg || recoLoading) return;
+    setRecoError(null);
+    setRecoLoading(true);
+    const newHistory = [...chatHistory, { role: 'user', content: userMsg }];
     setChatHistory(newHistory);
-
-    // ★ 送信直後に user 吹き出し + 空の assistant 吹き出しを同時に追加。
-    //   assistant 側の streaming: true で点滅カーソルを出し「文字を待っている
-    //   状態」を視覚化する。TTFT を体感的にゼロに近づける。
-    const assistantIndex = messages.length + 1; // user を入れた直後の index
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", text: userMsg },
-      { role: "assistant", text: '', streaming: true },
-    ]);
-    setLoading(true);
 
     let finalText = '';
     try {
       finalText = await streamClaude({
         system: PROMPTS.bookAdvisor.system,
         messages: newHistory,
-        // temperature 0.7 — 推薦に多様性を出す (同じ著者ばかりにならない)。
-        // 高すぎると的外れな推薦が増えるので 0.7 が中庸。
+        // temperature 0.7 — 推薦に多様性を出す（同じ著者ばかりにならない）。
         temperature: 0.7,
         max_tokens: 2048,
-        model: "claude-sonnet-4-6",
-        onChunk: (fullText) => {
-          const display = stripRecommendationsBlock(fullText);
-          setMessages((prev) => {
-            if (!prev[assistantIndex]) return prev;
-            const next = [...prev];
-            next[assistantIndex] = { role: "assistant", text: display, streaming: true };
-            return next;
-          });
-        },
+        model: 'claude-sonnet-4-6',
       });
     } catch (e) {
-      // streamClaude が throw する場合は表示メッセージを差し替えて UI を回復。
-      const msg = (e && e.message) ? e.message : '通信エラーが発生しました。';
-      setMessages((prev) => {
-        const next = [...prev];
-        if (next[assistantIndex]) next[assistantIndex] = { role: "assistant", text: msg };
-        return next;
-      });
-      setLoading(false);
+      setRecoError(toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
+      setRecoLoading(false);
       return;
     }
 
-    // 📊 AI 利用の計測（streamClaude が throw せず応答を得た成功確定後のみ）。
-    // catch は早期 return するためここに来た時点で成功。feature の enum だけ送る。
     track('ai_used', { feature: 'advisor' });
 
-    // ★ 完了後にだけ RECOMMENDATIONS_START..END をパース。途中の不完全な
-    //   JSON で推薦カードを組まないことで、カード表示の壊れを防ぐ。
     const { recs, prose } = parseAdvisorResponse(finalText);
-    let nextHistory;
     let nextRecs = null;
     if (recs) {
-      const proseBefore = prose?.before || 'あなたの状況に合った本を選びました。';
       setRecommendations({ items: recs, before: prose?.before || '', after: prose?.after || '' });
-      // 推薦が出た = この userMsg がユーザーの「課題」。これを source_query として記憶。
-      setLastUserQuery(userMsg);
-      setMessages((prev) => {
-        const next = [...prev];
-        if (next[assistantIndex]) next[assistantIndex] = { role: "assistant", text: proseBefore };
-        return next;
-      });
-      // 永続化用 history は推薦カード込みの生テキストを残す
-      nextHistory = [...newHistory, { role: "assistant", content: finalText }];
-      setChatHistory(nextHistory);
+      setLastUserQuery(sourceQuery || userMsg);
       nextRecs = recs;
     } else {
-      setMessages((prev) => {
-        const next = [...prev];
-        if (next[assistantIndex]) next[assistantIndex] = { role: "assistant", text: finalText };
-        return next;
-      });
-      nextHistory = [...newHistory, { role: "assistant", content: finalText }];
-      setChatHistory(nextHistory);
+      // 推薦 JSON が取れなかった → プロンプト本文をそのまま 1 吹き出しで提示。
+      setMessages([{ role: 'assistant', text: finalText }]);
     }
+    const nextHistory = [...newHistory, { role: 'assistant', content: finalText }];
+    setChatHistory(nextHistory);
 
-    // セッション永続化 — 最初の往復で作成、以降は更新。
-    // sessionApi が無い (= 未マイグレーション) ならスキップ。
     if (sessionApi?.available) {
       try {
         if (!currentSessionId) {
@@ -1601,7 +1605,92 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         // 永続化失敗は UX を壊さない
       }
     }
-    setLoading(false);
+    setRecoLoading(false);
+  };
+
+  // 初回の相談を受けて、AI にヒアリング質問セットを設計させる。
+  // 失敗（生成エラー / JSON 解釈不能）時はヒアリングを skip して直接推薦へ。
+  const startInterview = async (rawConcern) => {
+    if (interviewLoading || recoLoading) return;
+    const c = clamp(sanitizeForPrompt(rawConcern || ''), LIMITS.aiQuestion);
+    if (!c) return;
+    setConcern(c);
+    setInput('');
+    setOtherMode(false);
+    setOtherText('');
+    setInterviewAnswers([]);
+    setInterviewStep(0);
+    setInterviewLoading(true);
+    let text = '';
+    try {
+      text = await callClaude(
+        PROMPTS.advisorInterview.system,
+        PROMPTS.advisorInterview.user({ concern: c }),
+        { max_tokens: 700, temperature: 0.4 },
+      );
+    } catch {
+      text = '';
+    }
+    const parsed = parseInterview(text);
+    setInterviewLoading(false);
+    if (!parsed) {
+      // ヒアリングを組めなければ、相談内容だけで直接推薦（旧来の動きに graceful fallback）
+      generateRecommendations(c, c);
+      return;
+    }
+    setInterview(parsed);
+    setInterviewStep(0);
+  };
+
+  // 質問への回答（選択肢タップ or その他自由入力）。
+  const answerQuestion = (answer) => {
+    if (!interview) return;
+    const a = clamp(sanitizeForPrompt(String(answer || '')), 120);
+    if (!a) return;
+    try { advisorHaptic.light(); } catch { /* non-critical */ }
+    const q = interview[interviewStep];
+    const nextAnswers = [...interviewAnswers, { q: q.q, a }];
+    setInterviewAnswers(nextAnswers);
+    setOtherMode(false);
+    setOtherText('');
+    if (interviewStep + 1 < interview.length) {
+      setInterviewStep(interviewStep + 1);
+    } else {
+      // 最終問 → 回答を束ねて推薦へ
+      const lines = nextAnswers.map((x) => `Q. ${x.q}\nA. ${x.a}`).join('\n');
+      const compiled =
+        `【相談内容】\n${concern}\n\n【ヒアリングの回答】\n${lines}\n\n` +
+        `以上でヒアリングは十分です。これ以上質問せず、上記を踏まえてすぐに本を推薦してください。`;
+      setInterview(null);
+      generateRecommendations(compiled, concern);
+    }
+  };
+
+  // ひとつ前の質問へ戻る（最初の質問で戻ると相談入力に戻る）。
+  const goBackQuestion = () => {
+    setOtherMode(false);
+    setOtherText('');
+    if (interviewStep <= 0) {
+      setInterview(null);
+      setInterviewAnswers([]);
+      setInput(concern);
+      return;
+    }
+    setInterviewStep(interviewStep - 1);
+    setInterviewAnswers(interviewAnswers.slice(0, -1));
+  };
+
+  // すべてリセットして最初の相談入力に戻す（「別の条件で探す」用）。
+  const resetToConcern = () => {
+    setMessages([]);
+    setRecommendations(null);
+    setRecoError(null);
+    setInterview(null);
+    setInterviewAnswers([]);
+    setInterviewStep(0);
+    setOtherMode(false);
+    setOtherText('');
+    setInput('');
   };
 
   // 新規セッション開始: 既存会話は DB に残し、フロント state だけクリア。
@@ -1612,6 +1701,15 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setLastUserQuery('');
     setCurrentSessionId(null);
     setSelectedSession(null);
+    // ガイド付きヒアリングの途中状態もすべてクリア
+    setConcern('');
+    setInterview(null);
+    setInterviewAnswers([]);
+    setInterviewStep(0);
+    setInterviewLoading(false);
+    setOtherMode(false);
+    setOtherText('');
+    setRecoError(null);
     setView('chat');
   };
 
@@ -1638,6 +1736,10 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   };
 
   const isEmpty = messages.length === 0 && !recommendations;
+  // ガイド付きヒアリングのいずれかが動いている = 相談入力フェーズではない。
+  const inInterview = !!interview || interviewLoading || recoLoading;
+  // 相談入力（textarea + 例チップ）を出すのは「真っさらな初期状態」だけ。
+  const showConcernInput = isEmpty && !inInterview;
   const chatScrollRef = useRef(null);
 
   // ---------------------------------------------------------------------------
@@ -1838,7 +1940,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
 
       {/* Example chips — タップで textarea に流し込む。挨拶 seed が
           消えたので、何を入力すれば良いかをここで提示する */}
-      {isEmpty && !loading && (
+      {showConcernInput && (
         <div className="example-chips">
           <p className="example-chips-label">💡 例（タップで入力）</p>
           {ADVISOR_EXAMPLES.map((ex) => (
@@ -1851,6 +1953,159 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               {ex}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* ガイド付きヒアリング — 質問生成中のローディング */}
+      {interviewLoading && (
+        <div style={advisorWizardCard}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#3d362c', margin: 0 }}>
+            🤔 あなたに合わせた質問を準備しています…
+          </p>
+          <div className="ai-skeleton" aria-label="質問を準備中" style={{ marginTop: 12 }}>
+            <div className="ai-skeleton-line" style={{ width: '82%' }} />
+            <div className="ai-skeleton-line" style={{ width: '64%' }} />
+          </div>
+        </div>
+      )}
+
+      {/* ガイド付きヒアリング — 1 問ずつチップで回答するウィザード */}
+      {interview && !recoLoading && (() => {
+        const total = interview.length;
+        const q = interview[interviewStep];
+        const stepNo = interviewStep + 1;
+        return (
+          <div style={advisorWizardCard}>
+            {/* 進捗バー + 戻る */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <button
+                type="button"
+                onClick={goBackQuestion}
+                aria-label={interviewStep === 0 ? '相談入力に戻る' : '前の質問に戻る'}
+                style={{ background: 'none', border: 'none', color: '#6b5f4d', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1, minHeight: 32, minWidth: 32 }}
+              >
+                ←
+              </button>
+              <div style={{ flex: 1, display: 'flex', gap: 4 }} aria-hidden="true">
+                {interview.map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      flex: 1,
+                      height: 4,
+                      borderRadius: 2,
+                      background: i <= interviewStep ? '#5c5043' : '#e4ddd0',
+                      transition: 'background .25s',
+                    }}
+                  />
+                ))}
+              </div>
+              <span style={{ fontSize: 11, color: '#6b5f4d', fontWeight: 600, flexShrink: 0 }}>
+                {stepNo}/{total}
+              </span>
+            </div>
+
+            {/* これまでの回答（小チップ） */}
+            {interviewAnswers.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {interviewAnswers.map((x, i) => (
+                  <span
+                    key={i}
+                    style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, background: '#eee7da', color: '#6b5f4d', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    ✓ {x.a}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* 質問文 */}
+            <p style={{ fontSize: 16, fontWeight: 700, color: '#3d362c', lineHeight: 1.6, margin: '0 0 14px' }}>
+              {q.q}
+            </p>
+
+            {/* 選択肢チップ（縦並び・全幅タップ） */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {q.options.map((opt) => (
+                <button
+                  type="button"
+                  key={opt}
+                  onClick={() => answerQuestion(opt)}
+                  style={advisorOptionChip}
+                >
+                  {opt}
+                </button>
+              ))}
+
+              {/* その他（自由入力） */}
+              {!otherMode ? (
+                <button
+                  type="button"
+                  onClick={() => setOtherMode(true)}
+                  style={{ ...advisorOptionChip, color: '#6b5f4d', borderStyle: 'dashed' }}
+                >
+                  ✏️ その他（自由に入力）
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={otherText}
+                    onChange={(e) => setOtherText(e.target.value)}
+                    placeholder="自由に入力…"
+                    maxLength={120}
+                    aria-label="その他の回答を自由入力"
+                    onKeyDown={(e) => {
+                      if (e.nativeEvent.isComposing) return;
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (otherText.trim()) answerQuestion(otherText);
+                      }
+                    }}
+                    style={{ flex: 1, padding: '12px 14px', borderRadius: 12, border: '1px solid #d4ccbe', background: '#fff', color: '#3d362c', fontSize: 16, fontFamily: 'inherit', minHeight: 48 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { if (otherText.trim()) answerQuestion(otherText); }}
+                    disabled={!otherText.trim()}
+                    aria-label="この内容で回答"
+                    style={{ flexShrink: 0, padding: '0 16px', borderRadius: 12, border: 'none', background: otherText.trim() ? '#5c5043' : '#d4ccbe', color: '#faf6f0', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: otherText.trim() ? 'pointer' : 'not-allowed', minHeight: 48 }}
+                  >
+                    決定
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 推薦生成中のローディング */}
+      {recoLoading && (
+        <div style={advisorWizardCard}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#3d362c', margin: 0 }}>
+            📚 あなたにぴったりの本を選んでいます…
+          </p>
+          <div className="ai-skeleton" aria-label="本を選んでいます" style={{ marginTop: 12 }}>
+            <div className="ai-skeleton-line" style={{ width: '90%' }} />
+            <div className="ai-skeleton-line" style={{ width: '76%' }} />
+            <div className="ai-skeleton-line" style={{ width: '58%' }} />
+          </div>
+        </div>
+      )}
+
+      {/* 推薦生成エラー（リトライ可能） */}
+      {recoError && !recoLoading && (
+        <div style={{ ...advisorWizardCard, borderColor: '#e0b8a8' }}>
+          <p style={{ fontSize: 13, color: '#a05040', margin: 0, lineHeight: 1.7 }}>{recoError}</p>
+          <button
+            type="button"
+            onClick={resetToConcern}
+            style={{ ...btnO, padding: '10px 0', fontSize: 12, marginTop: 12 }}
+          >
+            🔄 もう一度はじめから
+          </button>
         </div>
       )}
 
@@ -1952,7 +2207,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             <small style={{ fontSize: 10, color: '#6b5f4d', lineHeight: 1.6, padding: '0 4px' }}>
               {AMAZON_DISCLOSURE_TEXT}
             </small>
-            <button onClick={() => { setRecommendations(null); setMessages((prev) => [...prev, { role: "assistant", text: "他にお探しの本のジャンルや悩みはありますか？" }]); }}
+            <button onClick={resetToConcern}
               style={{ ...btnO, padding: "10px 0", fontSize: 12 }}>
               🔄 別の条件で探す
             </button>
@@ -1965,34 +2220,34 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
 
       {/* Input — flex column の末尾に置かれ、親 (.ai-page) の 100dvh 構造で
           自動的にキーボード直上 / BottomNav 直上に張り付く (LINE 風)。 */}
-      {!recommendations && (
+      {showConcernInput && (
         <div className="ai-input-area">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="課題を入力..."
+            placeholder="どんなことで本を探していますか？（例: 営業成績を上げたい）"
             rows={1}
-            disabled={loading}
+            disabled={interviewLoading}
             maxLength={LIMITS.aiQuestion}
-            aria-label="AI選書アドバイザーへの質問"
+            aria-label="AI選書アドバイザーへの相談内容"
             onKeyDown={(e) => {
               if (e.nativeEvent.isComposing) return;
               if (e.key === "Enter" && (e.shiftKey || e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
-                sendMessage();
+                startInterview(input);
               }
             }}
           />
           <button
             type="button"
             className="send-btn"
-            onClick={sendMessage}
-            disabled={!input.trim() || loading}
-            aria-label={loading ? '送信中' : '送信'}
-            title={loading ? '送信中…' : '送信'}
+            onClick={() => startInterview(input)}
+            disabled={!input.trim() || interviewLoading}
+            aria-label={interviewLoading ? '準備中' : '相談する'}
+            title={interviewLoading ? '準備中…' : '相談する'}
           >
-            {loading ? (
+            {interviewLoading ? (
               <span aria-hidden="true" style={{ fontSize: 11, fontWeight: 600 }}>…</span>
             ) : (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">

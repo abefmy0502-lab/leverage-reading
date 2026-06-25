@@ -2,6 +2,8 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-06-25: 🤖 AI 選書アドバイザーのヒアリングを「ガイド付きウィザード」に刷新。旧来は AI が 4 つの質問を一括テキストで投げて自由記述で受ける作りで「一気に聞かれて答えにくい」摩擦があった。新フロー: 初回に課題を一言入力 → AI が回答しやすい質問セット（3〜4 問・各 3〜4 択）を設計（新プロンプト PROMPTS.advisorInterview）→ クライアントが 1 問ずつチップ UI で提示（選択肢タップ or「その他」自由入力、「←」で前問/相談入力に戻れる、進捗バー + 既回答チップ表示）→ 全回答を束ねて bookAdvisor へ 1 回ストリームし推薦カード生成。質問生成失敗 / JSON 解釈不能時はヒアリングを skip して相談内容だけで直接推薦に graceful fallback。aiAdvisor ヘルプの「AI 選書で本を見つける」手順を新フローに同期。npm run build 成功
+ * - 2026-06-25: 🔧 AI モデル ID を旧スナップショット claude-sonnet-4-20250514（廃止済み）から現行 claude-sonnet-4-6 に更新（api/claude.js の allowlist/default・ai.js・streamClaude.js・aiSetupSummary.js・App.jsx）。「model: claude-sonnet-4-20250514」エラーで全 AI 機能が停止していたのを復旧。単価据え置きのため原価ガードの試算は不変
  * - 2026-06-23: 🤝 競合移住者の拒否反応を下げる UI 文言調整（表示のみ・挙動/データ/コード識別子は不変）。他の読書アプリ（読書メーター/ブクログ/Goodreads/Kindle）から来た人が戸惑わないよう、馴染みのある言葉・並びに統一し独自語はやさしく注釈。(1) ステータス「読書前」→「積読」に表示統一（読みたい→積読→読書中→読了 の自然な並び。key=before 不変）。App.jsx 全表示箇所・Review フィルタ・BookshelfSummary・checkDuplicate バッジ・本ガイド該当箇所を同期。(2) メモ欄ラベル「まとめメモ」→「メモ・感想」＋説明を平易化。(3) フェーズ見出しの投資ジャーニー濃度を緩和（「読書の投資設計をしましょう」→「読む準備をしましょう（任意）」/「投資回収をまとめましょう」→「読み終えて、振り返りましょう」）。(4) オンボーディング1枚目「本を投資として管理」→「読んだ本を、記録する」、最終CTAの「人生を変える読書投資」を削除。(5) LP eyebrow「読書を、自己投資に」→「読んだ本を、ちゃんと活かす」・「読書を資産に」→「読んだことを身につける」、削除済み機能の虚偽表示「🔥連続達成日数」を撤去（反ゲーミフィケーション整合）。(6) AI サブタブ（マイ読書脳/テーマレポート）に内容の一言注釈（独自名の progressive disclosure）。npm run build 成功
  * - 2026-06-23: 📊 利用状況の記録（製品改善のためのファーストパーティ計測）を追加。ローンチ後の「磨きの優先順位」を実データで決める最小限の計測基盤。外部トラッカーは使わず自前 Supabase（analytics_events）にだけ書く（CSP 変更不要）。送るのは「イベント名＋小さな enum/数値/真偽」だけで、メモ本文・書名・著者・メール・検索語・自由入力等の PII は src/lib/analytics.js の props サニタイズ（number(有限)/boolean/≤32字文字列のみ通す）で構造的に入らない。⚙️ 設定 →「📥 データ・アプリ」に「📊 利用状況の記録」トグル（role=switch・44px・既定 ON・オフで setAnalyticsOptOut(true)）を新設。track() は fire-and-forget・never throws・never blocks で、未設定/未ログイン/オプトアウト/テーブル未適用（schema error）は静かに no-op（fail-silent）。App.jsx に app_open（起動1回）/ book_added{via}（search/manual/advisor、barcode は後続）/ status_changed{to}（advanceStatus）/ paywall_viewed（PaywallGate）を、AccountSettings に checkout_started{plan} を配線。新規 supabase_analytics_events.sql（RLS: INSERT/SELECT 本人のみ・UPDATE/DELETE ポリシー無し＝改ざん防止の監査ログ・管理者は service_role で読む）。プライバシーポリシー（src/legal/PrivacyPage.jsx + legal/privacy.md）にファーストパーティ利用状況記録（個人特定情報を含まない・設定でオフ可・外部送信なし）を正直に開示。billing ヘルプに「📊 利用状況の記録について」セクションを新設。company/analytics-plan.md（taxonomy / プライバシー方針 / 集計 SQL / 拡張方針）新規。残りのイベント（memo_added / push_enabled / reading_progress_set / export_used / ai_used / review_opened / action_completed / barcode 経由 book_added）は taxonomy に列挙のみで各サーフェス担当が後続配線。委託先一覧は外部送信が無いため変更不要
  * - 2026-06-22: 📱 iOS版（App内課金/IAP）の両チャネル化を実装（Mac不要のコード部分を先行）。Capacitor 土台を main へ再合流（capacitor.config.json は appName=Orime / native.js / main.jsx の initNative / useHaptic のネイティブ分岐 / @capacitor 依存。価格差分 ¥990 は持ち込まず ¥1,280 を維持）。新規 src/lib/iap.js（RevenueCat ラッパ。SDK は dynamic import + isNative ガードで Web バンドルから除外＝Web 完全無害。store 価格取得 / 購入 / 復元 / App Store サブスク管理）。Paywall と AccountSettings を Capacitor.isNativePlatform() で分岐 —— native は App Store 購入シート＋ストアのローカライズ価格（¥1,480）表示＋「購入を復元」（Apple 必須）＋自動更新条件の開示（審査要件 3.1.2）＋解約/管理は App Store 設定へ。反ステアリング順守で特商法リンク・サービス紹介 LP（安い Web 価格を含む）は native では非表示。Web は従来どおり Stripe（¥1,280）で不変。entitlement は subscriptions テーブル（status=active）で両チャネル共通、価格はコード非依存（Stripe Price ID / App Store 商品設定が真実）。IOS_APP_GUIDE.md を現行（App ¥1,480・RevenueCat・両チャネル）に全面刷新。billing ヘルプに「📱 App（iOS）版でご契約の場合」（管理・復元・自動更新の開示）を新設。npm run build / npm ci 成功。残りは Mac/Xcode での実機ビルドと App Store 審査（オーナー作業）
@@ -320,14 +322,16 @@ export const HELP_CONTENT = {
   aiAdvisor: {
     title: '🤖 AI 選書アドバイザー',
     description: 'AI が 4 つの機能で読書を加速します。',
-    lastUpdated: '2026-06-21',
+    lastUpdated: '2026-06-25',
     steps: [
       {
         title: 'AI 選書で本を見つける',
-        body: 'あなたの悩み・課題を会話で深掘りし、最適な本を提案。',
+        body: 'まず「どんなことで本を探しているか」を一言入力。あとは AI からの質問に、表示される選択肢をタップで答えるだけ。1 問ずつ進むので考え込まずに答えられます。',
         bullets: [
-          '「営業成績を上げたい」など自由に入力',
-          '選書理由・読み方戦略付き',
+          '「営業成績を上げたい」など、ざっくり一言でOK',
+          '質問は 1 問ずつ・選択肢をタップで回答（当てはまらなければ「その他」で自由入力）',
+          '「←」で前の質問に戻ってやり直しもできる',
+          '回答が終わると、選書理由・読み方つきで本を提案',
           '会話履歴は自動保存・後から再開可能',
         ],
       },
