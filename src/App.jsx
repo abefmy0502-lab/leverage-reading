@@ -1427,6 +1427,9 @@ const ADVISOR_EXAMPLES = [
   'お金の不安',
 ];
 
+// ヒアリングの最大ラウンド数。AI は途中で done を返せるが、上限で必ず締める。
+const MAX_INTERVIEW_ROUNDS = 3;
+
 function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 旧: 挨拶 seed メッセージで例を箇条書き → サブタブ画面では冗長
   // (タップ不可で文字を読まされるだけ)。例はチップ UI に分離した。
@@ -1463,7 +1466,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const [concern, setConcern] = useState('');            // 初回の相談（課題）
   const [interview, setInterview] = useState(null);      // [{q, options[]}] | null
   const [interviewStep, setInterviewStep] = useState(0); // 現在の質問 index
-  const [interviewAnswers, setInterviewAnswers] = useState([]); // [{q, a}]
+  const [interviewRound, setInterviewRound] = useState(1); // 現在のヒアリング周回（1..MAX）
+  const [interviewAnswers, setInterviewAnswers] = useState([]); // [{q, a}] 全周通算
   const [interviewLoading, setInterviewLoading] = useState(false); // 質問生成中
   const [otherMode, setOtherMode] = useState(false);     // 「その他」自由入力モード
   const [otherText, setOtherText] = useState('');
@@ -1520,7 +1524,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
 
   // 質問生成レスポンス（JSON）を堅牢にパース。純粋 JSON を指示しているが、
   // 前後に余計な文字が混ざっても最初の { 〜 最後の } を取り出して解釈する。
-  // 失敗時は null を返し、呼び出し側はヒアリングを skip して直接推薦に倒す。
+  // 返り値: { done: bool, questions: [...] } | null（パース不能）。
   const parseInterview = (text) => {
     if (typeof text !== 'string') return null;
     const s = text.indexOf('{');
@@ -1528,8 +1532,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     if (s < 0 || e <= s) return null;
     try {
       const obj = JSON.parse(text.slice(s, e + 1));
-      const qs = Array.isArray(obj?.questions) ? obj.questions : null;
-      if (!qs) return null;
+      const done = obj?.done === true;
+      const qs = Array.isArray(obj?.questions) ? obj.questions : [];
       const cleaned = qs
         .filter((q) => q && typeof q.q === 'string' && q.q.trim())
         .map((q) => ({
@@ -1543,12 +1547,58 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             : [],
         }))
         .filter((q) => q.options.length >= 2)
-        .slice(0, 5);
-      return cleaned.length ? cleaned : null;
+        .slice(0, 3);
+      return { done, questions: cleaned };
     } catch {
       return null;
     }
   };
+
+  // 1 ラウンド分のヒアリング質問を AI に設計させる。これまでの回答を渡して
+  // 「掘り下げ」を依頼する。返り値: 質問配列（続行）/ [] （done = 締めて推薦へ）/
+  // null（生成・解釈失敗 → 呼び出し側で fallback）。
+  const runInterviewRound = async (c, priorAnswers, round) => {
+    const priorQA = (priorAnswers || []).map((x) => `Q. ${x.q}\nA. ${x.a}`).join('\n');
+    let text = '';
+    try {
+      text = await callClaude(
+        PROMPTS.advisorInterview.system,
+        PROMPTS.advisorInterview.user({ concern: c, priorQA, round, maxRounds: MAX_INTERVIEW_ROUNDS }),
+        { max_tokens: 700, temperature: 0.4 },
+      );
+    } catch {
+      return null;
+    }
+    const parsed = parseInterview(text);
+    if (!parsed) return null;
+    // done でも質問が来ていても、最終ラウンドなら締める。
+    if (parsed.done || round > MAX_INTERVIEW_ROUNDS) return [];
+    return parsed.questions;
+  };
+
+  // 集めた回答を束ねて推薦生成へ。
+  const proceedToRecommend = (answers) => {
+    const lines = (answers || []).map((x) => `Q. ${x.q}\nA. ${x.a}`).join('\n');
+    const compiled =
+      `【相談内容】\n${concern}\n\n【ヒアリングの回答】\n${lines}\n\n` +
+      `以上でヒアリングは十分です。これ以上質問せず、上記を踏まえて、その人に本当に刺さる実在の本を推薦してください。`;
+    setInterview(null);
+    generateRecommendations(compiled, concern);
+  };
+
+  // 推薦された各本が「実在し入手できるか」を書誌DB（NDL+Google Books の厳格
+  // マッチ）で検証する。実在が確認できた本には ISBN を付与（Amazon リンクが
+  // 確実に商品ページへ飛ぶ）。これで「Amazon に無い本が出る」事故を構造的に防ぐ。
+  const verifyRecs = async (list) =>
+    Promise.all(
+      (list || []).map(async (rec) => {
+        try {
+          const isbns = await findIsbnCandidates(rec.title, rec.author);
+          if (isbns && isbns.length) return { ...rec, isbn: isbns[0], verified: true };
+        } catch { /* 検証失敗は未確認扱い */ }
+        return { ...rec, verified: false };
+      }),
+    );
 
   // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
   // 1 回ストリーム。userMsg は AI へ渡す本文、sourceQuery は本棚追加時の
@@ -1581,9 +1631,47 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     const { recs, prose } = parseAdvisorResponse(finalText);
     let nextRecs = null;
     if (recs) {
-      setRecommendations({ items: recs, before: prose?.before || '', after: prose?.after || '' });
+      // ── 実在検証 ──────────────────────────────────────────────────
+      let checked = await verifyRecs(recs);
+      let verified = checked.filter((r) => r.verified);
+      // 実在確認できた本が 3 冊未満なら、1 回だけ「差し替え」を依頼して補充する。
+      if (verified.length < 3) {
+        const bad = checked.filter((r) => !r.verified).map((r) => r.title).filter(Boolean);
+        if (bad.length) {
+          const need = Math.max(1, 5 - verified.length);
+          const retryMsg =
+            `次の本は実在確認ができませんでした: ${bad.join('、')}。\n` +
+            `これらは挙げないでください。代わりに、より定番で確実に入手できる「実在する日本語の本」だけを ${need} 冊、` +
+            `同じ RECOMMENDATIONS_START..END の JSON フォーマットで推薦してください。` +
+            `すでに確定した本（${verified.map((r) => r.title).join('、') || 'なし'}）とは別の本にしてください。`;
+          try {
+            const retryText = await streamClaude({
+              system: PROMPTS.bookAdvisor.system,
+              messages: [...newHistory, { role: 'assistant', content: finalText }, { role: 'user', content: retryMsg }],
+              temperature: 0.6,
+              max_tokens: 2048,
+              model: 'claude-sonnet-4-6',
+            });
+            const more = parseAdvisorResponse(retryText).recs;
+            if (more) {
+              const moreChecked = await verifyRecs(more);
+              const moreVerified = moreChecked.filter(
+                (r) => r.verified && !verified.some((v) => v.title === r.title),
+              );
+              verified = [...verified, ...moreVerified];
+            }
+          } catch { /* 補充失敗は確定済みだけで進む */ }
+        }
+      }
+      // 確認できた本があればそれだけを表示。0 件なら原案を出す（空表示よりマシ）。
+      const finalList = (verified.length ? verified : checked).slice(0, 5);
+      setRecommendations({
+        items: finalList,
+        before: prose?.before || '',
+        after: prose?.after || '',
+      });
       setLastUserQuery(sourceQuery || userMsg);
-      nextRecs = recs;
+      nextRecs = finalList;
     } else {
       // 推薦 JSON が取れなかった → プロンプト本文をそのまま 1 吹き出しで提示。
       setMessages([{ role: 'assistant', text: finalText }]);
@@ -1611,7 +1699,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setRecoLoading(false);
   };
 
-  // 初回の相談を受けて、AI にヒアリング質問セットを設計させる。
+  // 初回の相談を受けて、第 1 ラウンドのヒアリング質問を設計させる。
   // 失敗（生成エラー / JSON 解釈不能）時はヒアリングを skip して直接推薦へ。
   const startInterview = async (rawConcern) => {
     if (interviewLoading || recoLoading) return;
@@ -1621,27 +1709,24 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setInput('');
     setOtherMode(false);
     setOtherText('');
+    setMultiSelected([]);
     setInterviewAnswers([]);
     setInterviewStep(0);
+    setInterviewRound(1);
     setInterviewLoading(true);
-    let text = '';
-    try {
-      text = await callClaude(
-        PROMPTS.advisorInterview.system,
-        PROMPTS.advisorInterview.user({ concern: c }),
-        { max_tokens: 700, temperature: 0.4 },
-      );
-    } catch {
-      text = '';
-    }
-    const parsed = parseInterview(text);
+    const qs = await runInterviewRound(c, [], 1);
     setInterviewLoading(false);
-    if (!parsed) {
-      // ヒアリングを組めなければ、相談内容だけで直接推薦（旧来の動きに graceful fallback）
-      generateRecommendations(c, c);
+    if (qs === null || qs.length === 0) {
+      // 質問を組めなかった / いきなり done → 相談内容だけで直接推薦（graceful）
+      // 注: concern state はまだ反映前なので c を直接渡す。
+      const lines = '';
+      const compiled =
+        `【相談内容】\n${c}\n\n【ヒアリングの回答】\n${lines || '（なし）'}\n\n` +
+        `上記を踏まえて、その人に本当に刺さる実在の本を推薦してください。`;
+      generateRecommendations(compiled, c);
       return;
     }
-    setInterview(parsed);
+    setInterview(qs);
     setInterviewStep(0);
   };
 
@@ -1658,16 +1743,31 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setOtherText('');
     setMultiSelected([]);
     if (interviewStep + 1 < interview.length) {
+      // 同じラウンドの次の質問へ
       setInterviewStep(interviewStep + 1);
-    } else {
-      // 最終問 → 回答を束ねて推薦へ
-      const lines = nextAnswers.map((x) => `Q. ${x.q}\nA. ${x.a}`).join('\n');
-      const compiled =
-        `【相談内容】\n${concern}\n\n【ヒアリングの回答】\n${lines}\n\n` +
-        `以上でヒアリングは十分です。これ以上質問せず、上記を踏まえてすぐに本を推薦してください。`;
-      setInterview(null);
-      generateRecommendations(compiled, concern);
+      return;
     }
+    // このラウンドの質問をすべて回答 → AI に「さらに深掘りするか / 締めるか」を判断させる。
+    if (interviewRound >= MAX_INTERVIEW_ROUNDS) {
+      proceedToRecommend(nextAnswers);
+      return;
+    }
+    const nextRound = interviewRound + 1;
+    setInterview(null);
+    setInterviewLoading(true);
+    (async () => {
+      const qs = await runInterviewRound(concern, nextAnswers, nextRound);
+      setInterviewLoading(false);
+      if (qs === null || qs.length === 0) {
+        // done もしくは失敗 → 集めた回答で推薦へ
+        proceedToRecommend(nextAnswers);
+        return;
+      }
+      // さらに深掘りラウンドへ
+      setInterview(qs);
+      setInterviewStep(0);
+      setInterviewRound(nextRound);
+    })();
   };
 
   // ひとつ前の質問へ戻る（最初の質問で戻ると相談入力に戻る）。
@@ -1676,8 +1776,10 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setOtherText('');
     setMultiSelected([]);
     if (interviewStep <= 0) {
+      // ラウンド先頭で戻る → 相談入力に戻す（多段の途中状態はクリア）
       setInterview(null);
       setInterviewAnswers([]);
+      setInterviewRound(1);
       setInput(concern);
       return;
     }
@@ -1693,6 +1795,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setInterview(null);
     setInterviewAnswers([]);
     setInterviewStep(0);
+    setInterviewRound(1);
     setOtherMode(false);
     setOtherText('');
     setMultiSelected([]);
@@ -1712,6 +1815,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setInterview(null);
     setInterviewAnswers([]);
     setInterviewStep(0);
+    setInterviewRound(1);
     setInterviewLoading(false);
     setOtherMode(false);
     setOtherText('');
@@ -1963,11 +2067,13 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         </div>
       )}
 
-      {/* ガイド付きヒアリング — 質問生成中のローディング */}
+      {/* ガイド付きヒアリング — 質問生成中のローディング（初回 or 深掘り） */}
       {interviewLoading && (
         <div style={advisorWizardCard}>
           <p style={{ fontSize: 14, fontWeight: 700, color: '#3d362c', margin: 0 }}>
-            🤔 あなたに合わせた質問を準備しています…
+            {interviewAnswers.length > 0
+              ? '🔎 回答をもとに、さらに深掘りしています…'
+              : '🤔 あなたに合わせた質問を準備しています…'}
           </p>
           <div className="ai-skeleton" aria-label="質問を準備中" style={{ marginTop: 12 }}>
             <div className="ai-skeleton-line" style={{ width: '82%' }} />
@@ -2015,7 +2121,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                 ))}
               </div>
               <span style={{ fontSize: 11, color: '#6b5f4d', fontWeight: 600, flexShrink: 0 }}>
-                {stepNo}/{total}
+                {interviewRound > 1 ? `深掘り${interviewRound} · ` : ''}{stepNo}/{total}
               </span>
             </div>
 
@@ -2250,7 +2356,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                 )}
                 <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
                   <a
-                    href={getAmazonSearchLink(rec.title, rec.author)}
+                    href={getAmazonLink(rec)}
                     target="_blank"
                     rel={AMAZON_LINK_REL}
                     aria-label={`Amazon で『${rec.title}』を購入（外部リンク）`}
