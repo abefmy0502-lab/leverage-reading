@@ -36,7 +36,7 @@ const sheetWrap = {
   right: 0,
   bottom: 0,
   zIndex: 701,
-  background: '#faf6f0',
+  background: '#fffdf8',
   borderTopLeftRadius: 18,
   borderTopRightRadius: 18,
   boxShadow: '0 -10px 30px rgba(30,25,20,0.18)',
@@ -53,7 +53,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '14px 16px',
-  borderBottom: '1px solid #e4ddd0',
+  borderBottom: '1px solid #ece5d9',
 };
 
 const closeBtn = {
@@ -94,7 +94,7 @@ const inp = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   borderRadius: 10,
   background: '#fff',
   color: '#3d362c',
@@ -114,7 +114,7 @@ const footerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #e4ddd0',
+  borderTop: '1px solid #ece5d9',
 };
 
 const detailLink = {
@@ -135,7 +135,7 @@ const saveBtn = (busy) => ({
   borderRadius: 10,
   border: 'none',
   background: '#5c5043',
-  color: '#faf6f0',
+  color: '#fffdf8',
   cursor: busy ? 'default' : 'pointer',
   fontFamily: 'inherit',
   fontSize: 15,

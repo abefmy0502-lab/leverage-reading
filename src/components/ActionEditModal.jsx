@@ -28,7 +28,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#faf6f0',
+  background: '#fffdf8',
   borderRadius: 16,
   width: '100%',
   maxWidth: 'min(440px, 100vw - 16px)',
@@ -46,7 +46,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '14px 16px',
-  borderBottom: '1px solid #e4ddd0',
+  borderBottom: '1px solid #ece5d9',
   background: '#fff',
 };
 
@@ -84,7 +84,7 @@ const inpStyle = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   borderRadius: 10,
   background: '#fff',
   color: '#3d362c',
@@ -98,7 +98,7 @@ const chipBtn = (active) => ({
   flex: 1,
   padding: '8px 10px',
   borderRadius: 10,
-  border: active ? '1.5px solid #5c5043' : '1px solid #d4ccbe',
+  border: active ? '1.5px solid #5c5043' : '1px solid #e0d8ca',
   background: active ? '#eae3d6' : '#fff',
   color: active ? '#3d362c' : '#5c5043',
   fontSize: 12,
@@ -113,7 +113,7 @@ const footerStyle = {
   display: 'flex',
   gap: 8,
   padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #e4ddd0',
+  borderTop: '1px solid #ece5d9',
   background: '#fff',
 };
 
@@ -293,7 +293,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
               flex: 1,
               padding: '12px 14px',
               borderRadius: 10,
-              border: '1px solid #d4ccbe',
+              border: '1px solid #e0d8ca',
               background: '#fff',
               color: '#5c5043',
               fontSize: 13,
@@ -313,8 +313,8 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
               padding: '12px 14px',
               borderRadius: 10,
               border: 'none',
-              background: busy || !text.trim() ? '#d4ccbe' : '#5c5043',
-              color: '#faf6f0',
+              background: busy || !text.trim() ? '#e0d8ca' : '#5c5043',
+              color: '#fffdf8',
               fontSize: 13,
               fontFamily: 'inherit',
               fontWeight: 700,

@@ -153,7 +153,7 @@
      keep the legacy --color-bg name for components that opt-in to the warmer
      brand surface (e.g. <Shell>'s gradient). */
   --color-bg: #f5f0e8;
-  --color-surface: #faf6f0;
+  --color-surface: #fffdf8;
   --color-surface-2: #f0ebe2;
 
   --color-label: var(--color-text-primary);

@@ -26,7 +26,7 @@ const overlayStyle = {
 const sheetStyle = {
   width: 'min(520px, 100%)',
   maxHeight: 'min(92vh, 92dvh)',
-  background: '#faf6f0',
+  background: '#fffdf8',
   borderTopLeftRadius: 16,
   borderTopRightRadius: 16,
   display: 'flex',
@@ -41,7 +41,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: 'calc(8px + env(safe-area-inset-top, 0px)) 16px 12px',
-  borderBottom: '1px solid #e4ddd0',
+  borderBottom: '1px solid #ece5d9',
 };
 
 const closeBtn = {
@@ -78,7 +78,7 @@ const inpStyle = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   borderRadius: 10,
   background: '#fff',
   color: '#3d362c',
@@ -107,7 +107,7 @@ const radioItemStyle = (active) => ({
   gap: 10,
   padding: '10px 12px',
   borderRadius: 10,
-  border: active ? '1.5px solid #5c5043' : '1px solid #d4ccbe',
+  border: active ? '1.5px solid #5c5043' : '1px solid #e0d8ca',
   background: active ? '#eae3d6' : '#fff',
   cursor: 'pointer',
   fontSize: 14,
@@ -120,7 +120,7 @@ const footerStyle = {
   display: 'flex',
   gap: 10,
   padding: '12px 18px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #e4ddd0',
+  borderTop: '1px solid #ece5d9',
 };
 
 const btnPrimary = {
@@ -129,7 +129,7 @@ const btnPrimary = {
   borderRadius: 10,
   border: 'none',
   background: '#5c5043',
-  color: '#faf6f0',
+  color: '#fffdf8',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 14,
@@ -141,7 +141,7 @@ const btnGhost = {
   ...btnPrimary,
   background: 'transparent',
   color: '#5c5043',
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
 };
 
 export default function FeedbackForm({ onClose }) {

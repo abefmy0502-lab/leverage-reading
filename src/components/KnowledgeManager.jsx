@@ -32,12 +32,12 @@ import PullToRefresh from './PullToRefresh';
 import { useLongPress } from '../hooks/useLongPress';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
-const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
+const card = { background: '#fffdf8', border: '1px solid #ece5d9', borderRadius: 12, padding: '12px 14px' };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #d4ccbe', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
+const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #e0d8ca', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
-const btnGhost = { padding: '6px 14px', borderRadius: 8, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, minHeight: 44 };
-const btnPrimary = { padding: '12px 18px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#faf6f0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1, minHeight: 44 };
+const btnGhost = { padding: '6px 14px', borderRadius: 8, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, minHeight: 44 };
+const btnPrimary = { padding: '12px 18px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#fffdf8', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1, minHeight: 44 };
 const dangerBtn = { ...btnGhost, color: '#a05040', borderColor: '#c4a0a0' };
 const pill = (active) => ({
   flex: 1,
@@ -45,7 +45,7 @@ const pill = (active) => ({
   padding: '6px 0',
   border: 'none',
   background: active ? '#5c5043' : 'transparent',
-  color: active ? '#faf6f0' : '#5c5548',
+  color: active ? '#fffdf8' : '#5c5548',
   fontSize: 12,
   fontWeight: active ? 600 : 500,
   cursor: 'pointer',
@@ -133,8 +133,8 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
       role="dialog"
       aria-modal="true"
     >
-      <div style={{ background: '#faf6f0', borderRadius: 14, width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid #e4ddd0' }}>
+      <div style={{ background: '#fffdf8', borderRadius: 14, width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid #ece5d9' }}>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: '#5c5043', cursor: 'pointer', width: 44, height: 44, padding: 0 }} aria-label="閉じる">×</button>
           <p style={{ fontSize: 14, color: '#3d362c', fontWeight: 500, margin: 0, flex: 1 }}>{title}</p>
         </div>
@@ -151,7 +151,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
           />
           {errorMsg && <p style={{ color: '#a05040', fontSize: 12, marginTop: 8 }}>{errorMsg}</p>}
         </div>
-        <div style={{ display: 'flex', gap: 10, padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid #e4ddd0' }}>
+        <div style={{ display: 'flex', gap: 10, padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid #ece5d9' }}>
           <button type="button" onClick={onClose} style={{ ...btnGhost, flex: 1, minHeight: 44 }}>キャンセル</button>
           <button type="button" onClick={save} disabled={busy} style={{ ...btnPrimary, flex: 1, opacity: busy ? 0.6 : 1 }}>
             {busy ? '保存中…' : '保存'}

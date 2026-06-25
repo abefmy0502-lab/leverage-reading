@@ -44,7 +44,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#faf6f0',
+  background: '#fffdf8',
   borderRadius: 16,
   width: '100%',
   maxWidth: 'min(460px, 100vw - 16px)',
@@ -61,7 +61,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 14px',
-  borderBottom: '1px solid #e4ddd0',
+  borderBottom: '1px solid #ece5d9',
   background: '#fff',
   flexShrink: 0,           // ★ 必須: body content が大きくても header が潰れない
   position: 'relative',
@@ -117,7 +117,7 @@ const inputStyle = {
   width: 0,
   padding: '10px 12px',
   borderRadius: 10,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   background: '#fff',
   color: '#3d362c',
   fontSize: 16,
@@ -131,8 +131,8 @@ const askBtnStyle = (disabled) => ({
   padding: '10px 14px',
   borderRadius: 10,
   border: 'none',
-  background: disabled ? '#d4ccbe' : '#5C4A2E',
-  color: '#faf6f0',
+  background: disabled ? '#e0d8ca' : '#5C4A2E',
+  color: '#fffdf8',
   fontSize: 13,
   fontWeight: 600,
   cursor: disabled ? 'not-allowed' : 'pointer',
@@ -142,7 +142,7 @@ const askBtnStyle = (disabled) => ({
 
 const heroStyle = {
   background: 'linear-gradient(135deg, #5C4A2E 0%, #8B6F47 100%)',
-  color: '#faf6f0',
+  color: '#fffdf8',
   borderRadius: 14,
   padding: '14px 14px',
   boxShadow: '0 4px 12px rgba(92, 74, 46, 0.18)',
@@ -173,7 +173,7 @@ const chipStyle = {
   padding: '7px 12px',
   background: '#fff',
   color: '#5c5043',
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   borderRadius: 999,
   fontSize: 12,
   fontFamily: 'inherit',
@@ -186,7 +186,7 @@ const onboardingLinkStyle = {
   margin: '0',
   padding: '10px 12px',
   background: '#f0ebe2',
-  border: '1px solid #e4ddd0',
+  border: '1px solid #ece5d9',
   borderRadius: 10,
   fontSize: 13,
   color: '#5c5043',
@@ -198,7 +198,7 @@ const onboardingLinkStyle = {
 
 const footerStyle = {
   padding: '10px 18px calc(10px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #e4ddd0',
+  borderTop: '1px solid #ece5d9',
   fontSize: 11,
   color: '#6b5f4d',
   textAlign: 'center',
@@ -215,7 +215,7 @@ const footerStyle = {
 const stepSubtitle = { fontSize: 13, color: '#6b5f4d', margin: '0 0 14px' };
 const stepCard = {
   background: '#fff',
-  border: '1px solid #e4ddd0',
+  border: '1px solid #ece5d9',
   borderRadius: 12,
   padding: '14px 16px',
   marginBottom: 12,

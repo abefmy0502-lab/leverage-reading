@@ -32,7 +32,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#faf6f0',
+  background: '#fffdf8',
   borderRadius: 14,
   width: 'min(460px, 100%)',
   maxHeight: 'min(85vh, 85dvh)',
@@ -47,7 +47,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '14px 16px',
-  borderBottom: '1px solid #e4ddd0',
+  borderBottom: '1px solid #ece5d9',
 };
 
 const closeBtnStyle = {
@@ -157,7 +157,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                 style={{
                   width: 24,
                   height: 24,
-                  border: '2px solid #e4ddd0',
+                  border: '2px solid #ece5d9',
                   borderTopColor: '#5C4A2E',
                   borderRadius: '50%',
                   animation: 'lvg-ptr-spin 0.8s linear infinite',
@@ -170,7 +170,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
               style={{
                 padding: '20px 16px',
                 background: '#f0ebe2',
-                border: '1px solid #e4ddd0',
+                border: '1px solid #ece5d9',
                 borderRadius: 10,
                 fontSize: 13,
                 color: '#5c5043',
@@ -204,7 +204,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                     gap: 6,
                     padding: 8,
                     background: c.isCurrent ? '#fff8e1' : '#fff',
-                    border: c.isCurrent ? '2px solid #d4a040' : '2px solid #e4ddd0',
+                    border: c.isCurrent ? '2px solid #d4a040' : '2px solid #ece5d9',
                     borderRadius: 10,
                     cursor: 'pointer',
                     fontFamily: 'inherit',
@@ -224,7 +224,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                       aspectRatio: '2/3',
                       objectFit: 'cover',
                       borderRadius: 6,
-                      border: '1px solid #e4ddd0',
+                      border: '1px solid #ece5d9',
                     }}
                   />
                   <div style={{ fontSize: 10, color: '#6b5f4d', textAlign: 'center', lineHeight: 1.4 }}>
@@ -245,7 +245,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
             </div>
           )}
 
-          <hr style={{ border: 'none', borderTop: '1px solid #e4ddd0', margin: '4px 0' }} />
+          <hr style={{ border: 'none', borderTop: '1px solid #ece5d9', margin: '4px 0' }} />
 
           <p style={{ fontSize: 11, color: '#6b5f4d', margin: 0, lineHeight: 1.7 }}>
             該当する表紙が無い場合や、自分で撮影した写真を使いたい場合:
@@ -259,7 +259,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
             style={{
               padding: '12px 14px',
               borderRadius: 10,
-              border: '1px solid #d4ccbe',
+              border: '1px solid #e0d8ca',
               background: '#fff',
               color: '#5c5043',
               fontSize: 13,

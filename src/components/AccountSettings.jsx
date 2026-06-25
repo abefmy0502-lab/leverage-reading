@@ -47,7 +47,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#faf6f0',
+  background: '#fffdf8',
   borderRadius: 14,
   width: 'min(440px, 100%)',
   maxHeight: 'min(85vh, 85dvh)',
@@ -62,7 +62,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 14px',
-  borderBottom: '1px solid #e4ddd0',
+  borderBottom: '1px solid #ece5d9',
 };
 
 const closeBtnStyle = {
@@ -90,7 +90,7 @@ const bodyStyle = {
 const sectionStyle = {
   padding: 14,
   background: '#fff',
-  border: '1px solid #e4ddd0',
+  border: '1px solid #ece5d9',
   borderRadius: 12,
 };
 
@@ -126,7 +126,7 @@ const btnPrimary = {
   borderRadius: 14,
   border: 'none',
   background: '#5c5043',
-  color: '#faf6f0',
+  color: '#fffdf8',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 15,
@@ -142,7 +142,7 @@ const inputStyle = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   borderRadius: 10,
   background: '#fff',
   color: '#3d362c',
@@ -607,7 +607,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                       ...btnPrimary,
                       background: 'transparent',
                       color: '#5c5043',
-                      border: '1px solid #d4ccbe',
+                      border: '1px solid #e0d8ca',
                       opacity: billingBusy ? 0.6 : 1,
                     }}
                     disabled={billingBusy}
@@ -662,8 +662,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                 style={{
                   ...btnPrimary,
                   background: pushOn ? '#5c5043' : 'transparent',
-                  color: pushOn ? '#faf6f0' : '#5c5043',
-                  border: pushOn ? 'none' : '1px solid #d4ccbe',
+                  color: pushOn ? '#fffdf8' : '#5c5043',
+                  border: pushOn ? 'none' : '1px solid #e0d8ca',
                   opacity: pushBusy ? 0.6 : 1,
                 }}
                 disabled={pushBusy}
@@ -714,8 +714,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                 ...btnPrimary,
                 minHeight: 44,
                 background: analyticsOn ? '#5c5043' : 'transparent',
-                color: analyticsOn ? '#faf6f0' : '#5c5043',
-                border: analyticsOn ? 'none' : '1px solid #d4ccbe',
+                color: analyticsOn ? '#fffdf8' : '#5c5043',
+                border: analyticsOn ? 'none' : '1px solid #e0d8ca',
               }}
               onClick={handleToggleAnalytics}
             >
@@ -738,7 +738,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                 ...btnPrimary,
                 background: 'transparent',
                 color: '#5c5043',
-                border: '1px solid #d4ccbe',
+                border: '1px solid #e0d8ca',
                 opacity: updating ? 0.6 : 1,
               }}
               disabled={updating}
@@ -796,7 +796,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                   <button
                     type="button"
                     aria-label="削除をキャンセル"
-                    style={{ ...btnPrimary, background: 'transparent', color: '#5c5043', border: '1px solid #d4ccbe', flex: 1 }}
+                    style={{ ...btnPrimary, background: 'transparent', color: '#5c5043', border: '1px solid #e0d8ca', flex: 1 }}
                     onClick={() => { setDeleteOpen(false); setConfirmText(''); }}
                     disabled={deleting}
                   >

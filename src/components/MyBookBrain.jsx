@@ -30,11 +30,11 @@ import { MessageCircle, Lightbulb, History, BookOpenCheck } from 'lucide-react';
 const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' };
 // chat 以外の view 共通: ヘッダ/pill 下にスクロール可能な領域を提供。
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '12px 16px 24px' };
-const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #d4ccbe', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
+const card = { background: '#fffdf8', border: '1px solid #ece5d9', borderRadius: 12, padding: '12px 14px' };
+const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #e0d8ca', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
-const btnPrimary = { padding: '12px 20px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#faf6f0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
-const btnGhost = { padding: '8px 12px', borderRadius: 8, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 };
+const btnPrimary = { padding: '12px 20px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#fffdf8', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
+const btnGhost = { padding: '8px 12px', borderRadius: 8, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 };
 const pill = (active) => ({
   // Sized to content so labels never wrap; row scrolls horizontally on
   // narrow phones via the parent's overflow-x: auto + lvg-no-scrollbar.
@@ -44,7 +44,7 @@ const pill = (active) => ({
   padding: '6px 10px',
   border: 'none',
   background: active ? '#5c5043' : 'transparent',
-  color: active ? '#faf6f0' : '#5c5548',
+  color: active ? '#fffdf8' : '#5c5548',
   fontSize: 13,
   fontWeight: active ? 600 : 500,
   cursor: 'pointer',
@@ -172,7 +172,7 @@ function LearningInline({ onCancel, onSaved }) {
                 fontSize: 12,
                 fontFamily: 'inherit',
                 cursor: 'pointer',
-                border: category === c ? '1.5px solid #5c5043' : '1px solid #d4ccbe',
+                border: category === c ? '1.5px solid #5c5043' : '1px solid #e0d8ca',
                 background: category === c ? '#eae3d6' : 'transparent',
                 color: category === c ? '#3d362c' : '#8a7e6b',
                 fontWeight: category === c ? 600 : 400,
@@ -753,7 +753,7 @@ export default function MyBookBrain({ onOpenBook }) {
                         minHeight: 44,
                         padding: '8px 14px',
                         background: '#fff',
-                        border: '1px solid #e4ddd0',
+                        border: '1px solid #ece5d9',
                         borderRadius: 10,
                         fontSize: 13,
                         lineHeight: 1.5,
@@ -797,8 +797,8 @@ export default function MyBookBrain({ onOpenBook }) {
               {!promptDismissed && (
                 <div
                   style={{
-                    background: '#faf6f0',
-                    border: '1px solid #e4ddd0',
+                    background: '#fffdf8',
+                    border: '1px solid #ece5d9',
                     borderRadius: 12,
                     padding: '12px 14px',
                     display: 'flex',
@@ -923,7 +923,7 @@ function ChatMessage({ message, onOpenBook, stage }) {
     wordBreak: 'break-word',
     // AI 吹き出しはわずかな影で背景から浮かせ、読み出しの起点を明確にする。
     background: isUser ? '#5c5043' : '#fbf8f2',
-    color: isUser ? '#faf6f0' : '#332d23',
+    color: isUser ? '#fffdf8' : '#332d23',
     border: isUser ? 'none' : '1px solid #ece5d8',
     boxShadow: isUser ? 'none' : '0 1px 2px rgba(60,54,44,0.04)',
     borderBottomRightRadius: isUser ? 4 : 14,

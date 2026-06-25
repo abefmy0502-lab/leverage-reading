@@ -18,13 +18,14 @@ const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'colum
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
 
 const summaryCard = {
-  background: '#faf6f0',
-  border: '1px solid #e4ddd0',
-  borderRadius: 14,
+  background: '#fffdf8',
+  border: '1px solid #f0ebe1',
+  borderRadius: 16,
   padding: '16px 18px',
   display: 'flex',
   flexDirection: 'column',
   gap: 10,
+  boxShadow: '0 1px 3px rgba(60, 48, 30, 0.06)',
 };
 
 const pillRow = {
@@ -42,7 +43,7 @@ const pill = (active, color = '#5c5043', bg = '#e8e0d2') => ({
   padding: '6px 14px',
   minHeight: 44,
   borderRadius: 999,
-  border: active ? `1.5px solid ${color}` : '1px solid #d4ccbe',
+  border: active ? `1.5px solid ${color}` : '1px solid #e0d8ca',
   background: active ? bg : 'transparent',
   color: active ? color : '#6b5f4d',
   fontWeight: active ? 600 : 400,
@@ -52,13 +53,14 @@ const pill = (active, color = '#5c5043', bg = '#e8e0d2') => ({
 
 const cardBase = {
   position: 'relative',
-  background: '#faf6f0',
-  border: '1px solid #e4ddd0',
-  borderRadius: 12,
-  padding: '12px 40px 12px 14px',
+  background: '#fffdf8',
+  border: '1px solid #f0ebe1',
+  borderRadius: 14,
+  padding: '14px 40px 14px 16px',
   display: 'flex',
   gap: 10,
   alignItems: 'flex-start',
+  boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
 };
 
 const kebabBtn = {
@@ -83,7 +85,7 @@ const menuStyle = {
   top: 32,
   right: 8,
   background: '#fff',
-  border: '1px solid #e4ddd0',
+  border: '1px solid #ece5d9',
   borderRadius: 8,
   boxShadow: '0 4px 14px rgba(30,25,20,0.12)',
   zIndex: 5,
@@ -288,7 +290,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                     borderRadius: 8,
                     border: 'none',
                     background: statsPeriod === p.key ? '#5c5043' : 'transparent',
-                    color: statsPeriod === p.key ? '#faf6f0' : '#5c5548',
+                    color: statsPeriod === p.key ? '#fffdf8' : '#5c5548',
                     fontSize: 12,
                     fontWeight: statsPeriod === p.key ? 600 : 500,
                     cursor: 'pointer',
@@ -365,7 +367,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{ fontSize: 16, padding: '8px 8px', minHeight: 44, borderRadius: 8, border: '1px solid #d4ccbe', background: '#faf6f0', color: '#3d362c', fontFamily: 'inherit' }}
+              style={{ fontSize: 16, padding: '8px 8px', minHeight: 44, borderRadius: 8, border: '1px solid #e0d8ca', background: '#fffdf8', color: '#3d362c', fontFamily: 'inherit' }}
             >
               {SORTS.map((s) => (
                 <option key={s.key} value={s.key}>{s.label}</option>
@@ -413,8 +415,8 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
             const key = `${a.bookId}:${a.actionIdx}:${a.id || ''}`;
             const cardStyle = {
               ...cardBase,
-              background: a.done ? '#f0ebe2' : ds.kind === 'overdue' ? '#fdf0ed' : '#faf6f0',
-              borderColor: ds.kind === 'overdue' && !a.done ? '#e0b0a0' : '#e4ddd0',
+              background: a.done ? '#f0ebe2' : ds.kind === 'overdue' ? '#fdf0ed' : '#fffdf8',
+              borderColor: ds.kind === 'overdue' && !a.done ? '#e0b0a0' : '#ece5d9',
             };
             return (
               <div key={key} className="list-item-enter" style={cardStyle}>

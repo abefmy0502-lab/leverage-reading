@@ -31,10 +31,10 @@ import { BarChart3, Sparkles, Square } from 'lucide-react';
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
 const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' };
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '14px 16px 28px' };
-const card = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '14px 16px' };
-const inp = { width: '100%', padding: '11px 12px', fontSize: 16, border: '1px solid #d4ccbe', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
-const btnPrimary = { minHeight: 44, padding: '12px 20px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#faf6f0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
-const btnGhost = { minHeight: 44, padding: '10px 14px', borderRadius: 10, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 };
+const card = { background: '#fffdf8', border: '1px solid #ece5d9', borderRadius: 12, padding: '14px 16px' };
+const inp = { width: '100%', padding: '11px 12px', fontSize: 16, border: '1px solid #e0d8ca', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
+const btnPrimary = { minHeight: 44, padding: '12px 20px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#fffdf8', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
+const btnGhost = { minHeight: 44, padding: '10px 14px', borderRadius: 10, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 };
 const pill = (active) => ({
   flex: '0 0 auto',
   whiteSpace: 'nowrap',
@@ -42,7 +42,7 @@ const pill = (active) => ({
   padding: '6px 12px',
   border: 'none',
   background: active ? '#5c5043' : 'transparent',
-  color: active ? '#faf6f0' : '#5c5548',
+  color: active ? '#fffdf8' : '#5c5548',
   fontSize: 13,
   fontWeight: active ? 600 : 500,
   cursor: 'pointer',

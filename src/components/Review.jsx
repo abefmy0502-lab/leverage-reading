@@ -26,9 +26,9 @@ import { track, EVENTS } from '../lib/analytics';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
-const cardBase = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #d4ccbe', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
-const btnGhost = { padding: '8px 14px', borderRadius: 8, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, minHeight: 36 };
+const cardBase = { background: '#fffdf8', border: '1px solid #ece5d9', borderRadius: 12, padding: '12px 14px' };
+const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #e0d8ca', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
+const btnGhost = { padding: '8px 14px', borderRadius: 8, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, minHeight: 36 };
 const pill = { fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#eae3d6', color: '#6b5f4d', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
 // relativeJa / recallFraming は src/lib/recall.js に切り出して
@@ -167,7 +167,7 @@ function MemoPhoto({ path }) {
     <img
       src={ensureHttps(url)}
       alt="メモの写真"
-      style={{ width: '70%', maxHeight: 240, objectFit: 'cover', borderRadius: 8, border: '1px solid #e4ddd0', marginTop: 6 }}
+      style={{ width: '70%', maxHeight: 240, objectFit: 'cover', borderRadius: 8, border: '1px solid #ece5d9', marginTop: 6 }}
     />
   );
 }
@@ -558,8 +558,8 @@ export default function Review({ books = [], onOpenBook }) {
           gap: 6,
           flexWrap: 'wrap',
           padding: '10px 12px',
-          background: '#faf6f0',
-          border: '1px solid #e4ddd0',
+          background: '#fffdf8',
+          border: '1px solid #ece5d9',
           borderRadius: 12,
         }}
       >
@@ -617,7 +617,7 @@ export default function Review({ books = [], onOpenBook }) {
               fontSize: 11,
               color: '#6b5f4d',
               background: '#f4efe7',
-              border: '1px solid #e4ddd0',
+              border: '1px solid #ece5d9',
               borderRadius: 10,
               padding: '8px 12px',
               margin: '0 0 10px',

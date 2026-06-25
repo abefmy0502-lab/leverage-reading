@@ -16,7 +16,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#faf6f0',
+  background: '#fffdf8',
   borderRadius: 14,
   padding: '20px 22px',
   width: 'min(380px, 100%)',
@@ -48,7 +48,7 @@ const cancelBtnStyle = {
   flex: 1,
   padding: '10px 0',
   borderRadius: 10,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   background: 'transparent',
   color: '#5c5548',
   cursor: 'pointer',
@@ -62,7 +62,7 @@ const confirmBtnStyle = (danger) => ({
   borderRadius: 10,
   border: 'none',
   background: danger ? 'var(--color-error, #ff3b30)' : '#5c5043',
-  color: '#faf6f0',
+  color: '#fffdf8',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 14,

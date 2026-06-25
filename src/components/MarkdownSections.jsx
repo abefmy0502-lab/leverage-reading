@@ -15,10 +15,11 @@ import {
 
 const wrap = { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 };
 const sectionStyle = {
-  background: '#faf6f0',
-  border: '1px solid #e4ddd0',
-  borderRadius: 12,
-  padding: '12px 14px',
+  background: '#fffdf8',
+  border: '1px solid #f0ebe1',
+  borderRadius: 14,
+  padding: '14px 16px',
+  boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
 };
 const headingStyle = {
   fontSize: 14,
@@ -319,9 +320,9 @@ const relatedAddBtn = {
   minWidth: 0,
   padding: '10px 12px',
   borderRadius: 999,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   background: '#5c5043',
-  color: '#faf6f0',
+  color: '#fffdf8',
   fontSize: 13,
   fontWeight: 600,
   cursor: 'pointer',

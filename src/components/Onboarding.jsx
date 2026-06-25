@@ -73,7 +73,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#faf6f0',
+  background: '#fffdf8',
   borderRadius: 16,
   width: 'min(420px, 100%)',
   // 低い画面高 (iPhone SE 等) でも CTA が必ず収まるよう、カード全体の高さを
@@ -100,7 +100,7 @@ const dot = (active) => ({
   width: 8,
   height: 8,
   borderRadius: 4,
-  background: active ? '#5c5043' : '#d4ccbe',
+  background: active ? '#5c5043' : '#e0d8ca',
   transition: 'background .15s',
 });
 
@@ -111,7 +111,7 @@ const btnPrimary = {
   borderRadius: 10,
   border: 'none',
   background: '#5c5043',
-  color: '#faf6f0',
+  color: '#fffdf8',
   fontSize: 14,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -123,7 +123,7 @@ const btnGhost = {
   minHeight: 44,
   padding: '12px 0',
   borderRadius: 10,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   background: 'transparent',
   color: '#5c5548',
   fontSize: 14,

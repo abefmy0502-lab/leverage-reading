@@ -20,7 +20,7 @@ const baseStyle = {
   minHeight: 44,
   padding: '10px 14px',
   borderRadius: 10,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   background: 'transparent',
   color: '#5c5043',
   cursor: 'pointer',

@@ -30,8 +30,8 @@ const headerBar = {
   alignItems: 'center',
   gap: 12,
   padding: '14px 18px',
-  borderBottom: '1px solid #e4ddd0',
-  background: '#faf6f0',
+  borderBottom: '1px solid #ece5d9',
+  background: '#fffdf8',
   flexShrink: 0,
 };
 
@@ -48,8 +48,8 @@ const footer = {
   display: 'flex',
   gap: 10,
   padding: '12px 18px calc(12px + env(safe-area-inset-bottom))',
-  borderTop: '1px solid #e4ddd0',
-  background: '#faf6f0',
+  borderTop: '1px solid #ece5d9',
+  background: '#fffdf8',
   flexShrink: 0,
 };
 
@@ -57,7 +57,7 @@ const inp = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   borderRadius: 10,
   background: '#fff',
   outline: 'none',
@@ -74,7 +74,7 @@ const btnPrimary = {
   borderRadius: 10,
   border: 'none',
   background: '#5c5043',
-  color: '#faf6f0',
+  color: '#fffdf8',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 14,
@@ -85,7 +85,7 @@ const btnGhost = {
   flex: 1,
   padding: '12px 0',
   borderRadius: 10,
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   background: 'transparent',
   color: '#5c5043',
   cursor: 'pointer',
@@ -117,7 +117,7 @@ const tagSuggestionBtn = {
   padding: '8px 8px',
   minHeight: 32,
   borderRadius: 10,
-  border: '1px dashed #d4ccbe',
+  border: '1px dashed #e0d8ca',
   background: 'transparent',
   color: '#6b5f4d',
   cursor: 'pointer',
@@ -429,7 +429,7 @@ export default function BookMemoEditor({
                   maxWidth: '100%',
                   maxHeight: 280,
                   borderRadius: 8,
-                  border: '1px solid #e4ddd0',
+                  border: '1px solid #ece5d9',
                   display: 'block',
                 }}
               />

@@ -41,8 +41,8 @@ function stripRecommendations(text) {
 }
 
 const card = {
-  background: '#faf6f0',
-  border: '1px solid #e4ddd0',
+  background: '#fffdf8',
+  border: '1px solid #ece5d9',
   borderRadius: 12,
   padding: '12px 14px',
   cursor: 'pointer',
@@ -64,7 +64,7 @@ const meta = {
 
 const btnGhost = {
   background: 'transparent',
-  border: '1px solid #d4ccbe',
+  border: '1px solid #e0d8ca',
   borderRadius: 8,
   padding: '4px 10px',
   fontSize: 11,
@@ -152,7 +152,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
     <div
       style={{
         background: '#fff',
-        border: '1px solid #e4ddd0',
+        border: '1px solid #ece5d9',
         borderRadius: 14,
         padding: 14,
         boxShadow: '0 1px 4px rgba(30,25,20,0.04)',
@@ -259,7 +259,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
               minWidth: 120,
               padding: '10px 12px',
               background: '#5c5043',
-              color: '#faf6f0',
+              color: '#fffdf8',
               border: 'none',
               borderRadius: 10,
               fontSize: 12,
@@ -395,7 +395,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
                     padding: '10px 14px',
                     borderRadius: 14,
                     background: isUser ? '#5c5043' : '#f7f3ec',
-                    color: isUser ? '#faf6f0' : '#3d362c',
+                    color: isUser ? '#fffdf8' : '#3d362c',
                     fontSize: 13,
                     lineHeight: 1.7,
                     whiteSpace: 'pre-wrap',
@@ -442,7 +442,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             minWidth: 140,
             padding: '12px 14px',
             background: '#5c5043',
-            color: '#faf6f0',
+            color: '#fffdf8',
             border: 'none',
             borderRadius: 10,
             fontSize: 13,
@@ -463,7 +463,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             padding: '12px 14px',
             background: 'transparent',
             color: '#5c5043',
-            border: '1px solid #d4ccbe',
+            border: '1px solid #e0d8ca',
             borderRadius: 10,
             fontSize: 13,
             fontFamily: 'inherit',

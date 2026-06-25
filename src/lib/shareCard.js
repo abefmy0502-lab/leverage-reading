@@ -13,7 +13,7 @@ const W = 1080;
 const H = 1350;
 
 // クリーム / ブラウンの世界観（tokens.css と同系統）
-const BG = '#faf6f0';
+const BG = '#fffdf8';
 const INK = '#3d362c'; // 本文ブラウン
 const SUB = '#8a7e6b'; // 書名・著者
 const FAINT = '#c9bfac'; // 枠・装飾

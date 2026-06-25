@@ -207,8 +207,8 @@ function BookResultCard({ book, onSelect }) {
         alignItems: 'flex-start',
         padding: '10px 12px',
         borderRadius: 10,
-        border: '1px solid #e4ddd0',
-        background: '#faf6f0',
+        border: '1px solid #ece5d9',
+        background: '#fffdf8',
         cursor: 'pointer',
         textAlign: 'left',
         fontFamily: 'inherit',
@@ -233,7 +233,7 @@ function BookResultCard({ book, onSelect }) {
         </div>
         {book.isbn && <div style={{ fontSize: 10, color: '#b5aa96', marginTop: 3 }}>🔢 ISBN: {book.isbn}</div>}
       </div>
-      <span style={{ fontSize: 11, color: '#5c5043', alignSelf: 'center', whiteSpace: 'nowrap', padding: '4px 8px', border: '1px solid #d4ccbe', borderRadius: 6 }}>
+      <span style={{ fontSize: 11, color: '#5c5043', alignSelf: 'center', whiteSpace: 'nowrap', padding: '4px 8px', border: '1px solid #e0d8ca', borderRadius: 6 }}>
         📚 これを追加
       </span>
     </button>
@@ -416,7 +416,7 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
       )}
 
       {suggestions.length > 0 && !searching && (
-        <div style={{ background: '#f0ebe2', border: '1px solid #e4ddd0', borderRadius: 10, padding: '10px 12px' }}>
+        <div style={{ background: '#f0ebe2', border: '1px solid #ece5d9', borderRadius: 10, padding: '10px 12px' }}>
           <p style={{ fontSize: 11, fontWeight: 600, color: '#5c5043', margin: '0 0 6px' }}>💡 もしかしてこの本？</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {suggestions.map((b, i) => (
@@ -694,10 +694,10 @@ const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustD
         }}
         {...longPress.bind}
         style={{
-          background: "#faf6f0",
+          background: "#fffdf8",
           borderRadius: 14,
           padding: "12px 14px",
-          border: "1px solid #e4ddd0",
+          border: "1px solid #ece5d9",
           boxShadow: isJustDone
             ? "0 0 18px rgba(212,160,64,0.55), 0 2px 8px rgba(30,25,20,0.08)"
             : "0 2px 6px rgba(30,25,20,0.06)",
@@ -781,7 +781,7 @@ function TagInput({ tags, onChange, allTags }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
           <span style={{ fontSize: 10, color: "#b5aa96", lineHeight: "22px" }}>過去のタグ:</span>
           {suggestions.map((t) => (
-            <button key={t} onClick={() => add(t)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, border: "1px dashed #d4ccbe", background: "transparent", color: "#6b5f4d", cursor: "pointer", fontFamily: "inherit" }}>+ {t}</button>
+            <button key={t} onClick={() => add(t)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, border: "1px dashed #e0d8ca", background: "transparent", color: "#6b5f4d", cursor: "pointer", fontFamily: "inherit" }}>+ {t}</button>
           ))}
         </div>
       )}
@@ -1075,7 +1075,7 @@ function BeforePhase({
                 marginBottom: 12,
                 padding: '10px 12px',
                 background: '#f0ebe2',
-                border: '1px solid #e4ddd0',
+                border: '1px solid #ece5d9',
                 borderRadius: 10,
               }}
             >
@@ -1326,7 +1326,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
                     style={{
                       padding: '4px 10px',
                       borderRadius: 999,
-                      border: active ? `1.5px solid ${p.fg}` : '1px solid #d4ccbe',
+                      border: active ? `1.5px solid ${p.fg}` : '1px solid #e0d8ca',
                       background: active ? p.bg : 'transparent',
                       color: active ? p.fg : '#8a7e6b',
                       fontSize: 11,
@@ -1396,7 +1396,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
 // ガイド付きヒアリング（ウィザード）の共通スタイル。
 const advisorWizardCard = {
   background: '#f7f3ec',
-  border: '1px solid #e4ddd0',
+  border: '1px solid #ece5d9',
   borderRadius: 16,
   padding: '16px 16px',
   marginTop: 8,
@@ -1407,8 +1407,8 @@ const advisorOptionChip = {
   textAlign: 'left',
   padding: '14px 16px',
   borderRadius: 12,
-  border: '1px solid #d4ccbe',
-  background: '#faf6f0',
+  border: '1px solid #e0d8ca',
+  background: '#fffdf8',
   color: '#3d362c',
   fontSize: 15,
   fontFamily: 'inherit',
@@ -1988,7 +1988,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               onClick={() => setView('history')}
               aria-label="履歴を見る"
               title="履歴"
-              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
+              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
             >
               🕒 履歴
             </button>
@@ -1999,7 +1999,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               onClick={startNewSession}
               aria-label="新しい会話を始める"
               title="新規"
-              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
+              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
             >
               🆕 新規
             </button>
@@ -2072,7 +2072,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                       flex: 1,
                       height: 4,
                       borderRadius: 2,
-                      background: i <= interviewStep ? '#5c5043' : '#e4ddd0',
+                      background: i <= interviewStep ? '#5c5043' : '#ece5d9',
                       transition: 'background .25s',
                     }}
                   />
@@ -2161,7 +2161,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                         }
                       }
                     }}
-                    style={{ flex: 1, padding: '12px 14px', borderRadius: 12, border: '1px solid #d4ccbe', background: '#fff', color: '#3d362c', fontSize: 16, fontFamily: 'inherit', minHeight: 48 }}
+                    style={{ flex: 1, padding: '12px 14px', borderRadius: 12, border: '1px solid #e0d8ca', background: '#fff', color: '#3d362c', fontSize: 16, fontFamily: 'inherit', minHeight: 48 }}
                   />
                   <button
                     type="button"
@@ -2177,7 +2177,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     }}
                     disabled={!otherText.trim()}
                     aria-label={isMulti ? '選択肢に追加' : 'この内容で回答'}
-                    style={{ flexShrink: 0, padding: '0 16px', borderRadius: 12, border: 'none', background: otherText.trim() ? '#5c5043' : '#d4ccbe', color: '#faf6f0', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: otherText.trim() ? 'pointer' : 'not-allowed', minHeight: 48 }}
+                    style={{ flexShrink: 0, padding: '0 16px', borderRadius: 12, border: 'none', background: otherText.trim() ? '#5c5043' : '#e0d8ca', color: '#fffdf8', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: otherText.trim() ? 'pointer' : 'not-allowed', minHeight: 48 }}
                   >
                     {isMulti ? '追加' : '決定'}
                   </button>
@@ -2195,8 +2195,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     padding: '13px 0',
                     borderRadius: 12,
                     border: 'none',
-                    background: multiSelected.length ? '#5c5043' : '#d4ccbe',
-                    color: '#faf6f0',
+                    background: multiSelected.length ? '#5c5043' : '#e0d8ca',
+                    color: '#fffdf8',
                     fontSize: 14,
                     fontWeight: 700,
                     fontFamily: 'inherit',
@@ -2248,7 +2248,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             <div style={{
               maxWidth: "85%", padding: "10px 14px", borderRadius: 14,
               background: m.role === "user" ? "#5c5043" : "#f7f3ec",
-              color: m.role === "user" ? "#faf6f0" : "#3d362c",
+              color: m.role === "user" ? "#fffdf8" : "#3d362c",
               fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap",
               borderBottomRightRadius: m.role === "user" ? 4 : 14,
               borderBottomLeftRadius: m.role === "user" ? 14 : 4,
@@ -2282,7 +2282,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               return intro ? <MarkdownSections text={intro} /> : null;
             })()}
             {recommendations.items.map((rec, i) => (
-              <div key={i} style={{ background: "#faf6f0", borderRadius: 12, border: "1px solid #e4ddd0", padding: "14px 14px", overflow: "hidden" }}>
+              <div key={i} style={{ background: "#fffdf8", borderRadius: 16, border: "1px solid #f0ebe1", padding: "16px 16px", overflow: "hidden", boxShadow: "0 1px 3px rgba(60, 48, 30, 0.06)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 11, color: "#6b5f4d", margin: 0, fontWeight: 600 }}>#{i + 1}</p>
@@ -2329,7 +2329,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                       e.stopPropagation();
                       handleClickAdd(rec);
                     }}
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #d4ccbe", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(92,74,46,0.18)' }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #e0d8ca", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(92,74,46,0.18)' }}
                   >
                     {addedTitles.has(rec.title) ? '✅ 追加済み' : '📚 読みたい'}
                   </button>
@@ -4089,7 +4089,7 @@ function AuthedApp() {
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={openHelp}
-                style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
                 aria-label="この画面のヘルプを見る"
                 title="ヘルプ"
               >
@@ -4098,7 +4098,7 @@ function AuthedApp() {
               {/* ⋯ kebab — 編集 / 共有 / 削除 を集約。下部の 3 ボタン廃止。 */}
               <button
                 onClick={openDetailKebab}
-                style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 16, fontWeight: 700 }}
+                style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#5c5043", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 16, fontWeight: 700 }}
                 aria-label="その他の操作"
                 title="その他"
               >
@@ -4123,8 +4123,8 @@ function AuthedApp() {
                     width: 60,
                     height: 84,
                     borderRadius: 6,
-                    border: '1px dashed #d4ccbe',
-                    background: '#faf6f0',
+                    border: '1px dashed #e0d8ca',
+                    background: '#fffdf8',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -4218,7 +4218,7 @@ function AuthedApp() {
                       padding: '20px 18px',
                       borderRadius: 16,
                       background: 'linear-gradient(135deg, #5C4A2E 0%, #8B6F47 100%)',
-                      color: '#faf6f0',
+                      color: '#fffdf8',
                       textAlign: 'center',
                       boxShadow: '0 6px 18px rgba(92, 74, 46, 0.22)',
                     }}
@@ -4234,7 +4234,7 @@ function AuthedApp() {
                       type="button"
                       onClick={() => openSetup(current)}
                       style={{
-                        background: '#faf6f0',
+                        background: '#fffdf8',
                         color: '#5C4A2E',
                         padding: '11px 22px',
                         borderRadius: 999,
@@ -4321,7 +4321,7 @@ function AuthedApp() {
                       borderRadius: 8,
                       border: 'none',
                       background: '#8a7040',
-                      color: '#faf6f0',
+                      color: '#fffdf8',
                       fontSize: 13,
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -4346,7 +4346,7 @@ function AuthedApp() {
           {/* AI 出力（解析 / 読書計画シート）はデフォルト折りたたみ。
               スクロール量を圧縮し、必要な時に展開する。 */}
           {(current.aiAnalysis || current.aiStrategy) && (
-            <details style={{ marginTop: 12, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "10px 12px" }}>
+            <details style={{ marginTop: 12, background: "#fffdf8", border: "1px solid #ece5d9", borderRadius: 10, padding: "10px 12px" }}>
               <summary style={{ fontSize: 13, fontWeight: 600, color: "#5c5043", cursor: "pointer", listStyle: "none" }}>
                 🤖 AI 解析 / 読書計画
               </summary>
@@ -4400,8 +4400,8 @@ function AuthedApp() {
               style={{
                 marginTop: 12,
                 padding: "14px 16px",
-                background: "#faf6f0",
-                border: "1px dashed #d4ccbe",
+                background: "#fffdf8",
+                border: "1px dashed #e0d8ca",
                 borderRadius: 10,
                 fontSize: 12,
                 color: "#6b5f4d",
@@ -4414,7 +4414,7 @@ function AuthedApp() {
             </div>
           )}
           {current.aiSummary && (
-            <details style={{ marginTop: 12, background: "#faf6f0", border: "1px solid #e4ddd0", borderRadius: 10, padding: "10px 12px" }}>
+            <details style={{ marginTop: 12, background: "#fffdf8", border: "1px solid #ece5d9", borderRadius: 10, padding: "10px 12px" }}>
               <summary style={{ fontSize: 13, fontWeight: 600, color: "#5a7a48", cursor: "pointer", listStyle: "none" }}>
                 🤖 AI まとめ（投資の効果）
               </summary>
@@ -4525,7 +4525,7 @@ function AuthedApp() {
                 width: "100%",
                 padding: "12px 16px",
                 background: "transparent",
-                border: "1px solid #d4ccbe",
+                border: "1px solid #e0d8ca",
                 borderRadius: 14,
                 color: "#5c5043",
                 fontSize: 14,
@@ -4738,7 +4738,7 @@ function AuthedApp() {
             <button onClick={current ? () => { setEditPhaseOverride(null); setView("detail"); } : goList} style={lnk}>← 戻る</button>
             <button
               onClick={openHelp}
-              style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+              style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
               aria-label="この画面のヘルプを見る"
               title="ヘルプ"
             >
@@ -4900,7 +4900,7 @@ function AuthedApp() {
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <button
         onClick={openHelp}
-        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="この画面のヘルプを開く"
         title="ヘルプ"
       >
@@ -4908,7 +4908,7 @@ function AuthedApp() {
       </button>
       <button
         onClick={() => setSettingsOpen(true)}
-        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #d4ccbe", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="アカウント設定を開く"
         title="設定"
       >
@@ -4960,7 +4960,7 @@ function AuthedApp() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                  style={{ ...inp, flex: 1, background: "#faf6f0" }}
+                  style={{ ...inp, flex: 1, background: "#fffdf8" }}
                 />
                 <button
                   type="button"
@@ -4974,7 +4974,7 @@ function AuthedApp() {
                     borderRadius: 12,
                     border: "none",
                     background: "#5c5043",
-                    color: "#faf6f0",
+                    color: "#fffdf8",
                     fontSize: 24,
                     lineHeight: 1,
                     display: "flex",
@@ -5017,7 +5017,7 @@ function AuthedApp() {
                           borderRadius: 999,
                           fontFamily: "inherit",
                           cursor: "pointer",
-                          border: active ? `1.5px solid ${s.color}` : "1px solid #d4ccbe",
+                          border: active ? `1.5px solid ${s.color}` : "1px solid #e0d8ca",
                           background: active ? s.bg : "transparent",
                           color: active ? s.color : "#6b5f4d",
                           fontWeight: active ? 600 : 400,
@@ -5039,7 +5039,7 @@ function AuthedApp() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    style={{ fontSize: 16, padding: "8px 8px", minHeight: 44, borderRadius: 8, border: "1px solid #d4ccbe", background: "#faf6f0", color: "#3d362c", fontFamily: "inherit" }}
+                    style={{ fontSize: 16, padding: "8px 8px", minHeight: 44, borderRadius: 8, border: "1px solid #e0d8ca", background: "#fffdf8", color: "#3d362c", fontFamily: "inherit" }}
                   >
                     <option value="updated">更新順</option>
                     <option value="created">登録順</option>
@@ -5095,8 +5095,8 @@ function AuthedApp() {
                         style={{
                           flex: "0 0 auto",
                           width: 132,
-                          background: "#faf6f0",
-                          border: "1px solid #e4ddd0",
+                          background: "#fffdf8",
+                          border: "1px solid #ece5d9",
                           borderRadius: 10,
                           padding: 10,
                           cursor: "pointer",

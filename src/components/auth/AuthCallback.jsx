@@ -45,7 +45,7 @@ const btn = {
   marginTop: 18,
   padding: '12px 24px',
   background: '#5c5043',
-  color: '#faf6f0',
+  color: '#fffdf8',
   border: 'none',
   borderRadius: 10,
   cursor: 'pointer',

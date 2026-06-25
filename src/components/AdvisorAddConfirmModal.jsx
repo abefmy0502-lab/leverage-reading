@@ -33,7 +33,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#faf6f0',
+  background: '#fffdf8',
   borderRadius: 16,
   width: '100%',
   maxWidth: 'min(440px, 100vw - 16px)',
@@ -51,7 +51,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '14px 16px',
-  borderBottom: '1px solid #e4ddd0',
+  borderBottom: '1px solid #ece5d9',
   background: '#fff',
 };
 
@@ -96,7 +96,7 @@ const candidateBtn = (selected) => ({
   gap: 10,
   padding: 10,
   background: selected ? '#fff8e1' : '#fff',
-  border: selected ? '2px solid #d4a040' : '1px solid #e4ddd0',
+  border: selected ? '2px solid #d4a040' : '1px solid #ece5d9',
   borderRadius: 10,
   cursor: 'pointer',
   textAlign: 'left',
@@ -111,7 +111,7 @@ const footerStyle = {
   display: 'flex',
   gap: 8,
   padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #e4ddd0',
+  borderTop: '1px solid #ece5d9',
   background: '#fff',
 };
 
@@ -167,7 +167,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
                         objectFit: 'cover',
                         borderRadius: 4,
                         flexShrink: 0,
-                        border: '1px solid #e4ddd0',
+                        border: '1px solid #ece5d9',
                       }}
                     />
                   ) : (
@@ -184,7 +184,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
                         justifyContent: 'center',
                         fontSize: 18,
                         color: '#6b5f4d',
-                        border: '1px dashed #d4ccbe',
+                        border: '1px dashed #e0d8ca',
                       }}
                     >
                       📚
@@ -231,7 +231,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
               flex: 1,
               padding: '12px 14px',
               borderRadius: 10,
-              border: '1px solid #d4ccbe',
+              border: '1px solid #e0d8ca',
               background: '#fff',
               color: '#5c5043',
               fontSize: 13,
@@ -252,8 +252,8 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
               padding: '12px 14px',
               borderRadius: 10,
               border: 'none',
-              background: selected ? '#5c5043' : '#d4ccbe',
-              color: '#faf6f0',
+              background: selected ? '#5c5043' : '#e0d8ca',
+              color: '#fffdf8',
               fontSize: 13,
               fontFamily: 'inherit',
               fontWeight: 700,

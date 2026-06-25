@@ -7,13 +7,14 @@ import { MoreVertical } from 'lucide-react';
 
 const cardWrap = {
   position: 'relative',
-  background: '#faf6f0',
-  border: '1px solid #e4ddd0',
-  borderRadius: 12,
-  padding: '12px 14px',
+  background: '#fffdf8',
+  border: '1px solid #f0ebe1',
+  borderRadius: 14,
+  padding: '14px 16px',
   display: 'flex',
   flexDirection: 'column',
   gap: 8,
+  boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
 };
 
 const pageBadge = {
@@ -57,7 +58,7 @@ const menuStyle = {
   top: 32,
   right: 8,
   background: '#fff',
-  border: '1px solid #e4ddd0',
+  border: '1px solid #ece5d9',
   borderRadius: 8,
   boxShadow: '0 4px 14px rgba(30,25,20,0.12)',
   zIndex: 5,
@@ -247,7 +248,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
               width: '100%',
               height: 'auto',
               borderRadius: 8,
-              border: '1px solid #e4ddd0',
+              border: '1px solid #ece5d9',
               display: 'block',
             }}
           />
