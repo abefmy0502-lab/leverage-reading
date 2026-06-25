@@ -2288,7 +2288,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     <p style={{ fontSize: 15, fontWeight: 600, color: "#3d362c", margin: '2px 0 0' }}>『{rec.title}』</p>
                     <p style={{ fontSize: 12, color: "#5a4f3e", marginTop: 2 }}>{rec.author}</p>
                   </div>
-                  <span style={{ fontSize: 18, flexShrink: 0 }}>📕</span>
                 </div>
                 {rec.why && (
                   <div style={{ marginTop: 10, padding: '8px 10px', background: '#f5efde', borderRadius: 8, border: '1px solid #e0d0a8' }}>
