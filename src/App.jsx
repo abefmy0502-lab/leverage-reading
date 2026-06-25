@@ -2243,6 +2243,12 @@ function AuthedApp() {
   // (例: 読書前で「読書を開始する」ボタン直前) のままだったため、新フェーズ
   // で画面が下から始まる症状があった。
   const detailScrollRef = useRef(null);
+  // 本棚のスクロール位置を本詳細から戻った時に復元する（「迷子にならない」動線）。
+  // listScrollRef = 本棚スクロール要素 / savedShelfScroll = 離脱直前の scrollTop /
+  // prevViewRef = 直前の view（detail/edit から list に戻った時だけ復元）。
+  const listScrollRef = useRef(null);
+  const savedShelfScroll = useRef(0);
+  const prevViewRef = useRef('list');
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Long-press context menu (book cards on bookshelf)
   const [bookContextMenu, setBookContextMenu] = useState(null); // { x, y, book }
@@ -2336,6 +2342,21 @@ function AuthedApp() {
       }
     });
   }, [tab, view, reviewSubTab, aiSubTab]);
+
+  // 本棚スクロール位置の復元: 本詳細(detail/edit)から本棚(list)に戻った時だけ、
+  // 離脱前のスクロール位置へ戻す。長い本棚の途中で本を開いて戻ると先頭に飛ぶ
+  // 「迷子」を解消する。タブ切替や通常表示は従来どおり先頭のまま（復元しない）。
+  useEffect(() => {
+    const cameFromBook = prevViewRef.current === 'detail' || prevViewRef.current === 'edit';
+    prevViewRef.current = view;
+    if (view === 'list' && tab === 'books' && cameFromBook && savedShelfScroll.current > 0) {
+      requestAnimationFrame(() => {
+        if (listScrollRef.current) {
+          try { listScrollRef.current.scrollTop = savedShelfScroll.current; } catch { /* ignore */ }
+        }
+      });
+    }
+  }, [view, tab]);
 
   // First-run onboarding: show once per user/device until they dismiss it.
   // The completion flag is the single source of truth — the book count is
@@ -2734,6 +2755,9 @@ function AuthedApp() {
         setView('detail');
         toast.success('保存しました');
       } else {
+        // 既存本の編集を保存したら本詳細へ戻す（フォームに留めて行き止まりにしない）。
+        // form は current に同期済みなので、次の一歩（フェーズCTA）が見える。
+        setView('detail');
         toast.success('保存しました');
       }
     } catch (error) {
@@ -3026,10 +3050,12 @@ function AuthedApp() {
     if (newStatus === "before" && !updated.startDate) updated.startDate = new Date().toISOString().slice(0, 10);
     if (newStatus === "done" && !updated.doneDate) updated.doneDate = new Date().toISOString().slice(0, 10);
 
-    // Optimistic update — switch to edit view immediately.
+    // Optimistic update。読了・読書開始は「読む体験」の節目なので、編集フォームでは
+    // なく本詳細に着地させる（読了の祝福・新バッジが自然な場所で出る／読書中はその場で
+    // メモを始められる）。積読(before)は設計シートが主役なので従来どおり編集へ。
     setCurrent(updated);
     setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
-    setView("edit");
+    setView((newStatus === 'done' || newStatus === 'reading') ? 'detail' : 'edit');
 
     // Persist in background; roll back on failure.
     saveBook(updated)
@@ -4217,6 +4243,7 @@ function AuthedApp() {
     return (
       <Shell>
         <div
+          className="detail-enter"
           style={{
             flex: 1,
             minHeight: 0,
@@ -4395,6 +4422,11 @@ function AuthedApp() {
           books/review は overflow-y: auto で内側スクロール。 */}
       <div
         key={tab}
+        ref={listScrollRef}
+        onScroll={(e) => {
+          // 本棚スクロール中だけ位置を控える（本を開いて戻った時の復元用）。
+          if (view === 'list' && tab === 'books') savedShelfScroll.current = e.currentTarget.scrollTop;
+        }}
         className="lvg-page"
         style={{
           flex: 1,
