@@ -2174,17 +2174,19 @@ function AuthedApp() {
   //   ここでは「振り返りタブ（💭 ノート）を開く」ところまで最小限で対応する
   //   （個別メモへのスクロール先指定は将来拡張。まずは想起導線に確実に乗せる）。
   //   recall クエリは消費後に URL から消す（リロードで再発火させない）。
+  // 想起ディープリンクで開きたいメモ ID。books 読込後に「そのメモの本」を直接開く
+  // ためのペンディング（HomeRecall カードと同じ着地＝本詳細に揃える）。
+  const [pendingRecallMemoId, setPendingRecallMemoId] = useState(null);
   const handleRecallDeepLink = useCallback(() => {
     if (typeof window === 'undefined') return;
     let sp;
     try { sp = new URLSearchParams(window.location.search); } catch { return; }
-    if (!sp.get('recall')) return;
-    // 振り返りタブ＋ノートサブタブへ誘導。
-    setReviewSubTab('note');
-    setTab('review');
-    setView('list');
-    setCurrent(null);
-    // クエリを掃除（hash / 他クエリは温存）。
+    const memoId = sp.get('recall');
+    if (!memoId) return;
+    // 本を直接開くのは books 読込後（下の resolver）。ここでは対象を控えるだけ。
+    // 解決できない場合は resolver が振り返り（💭ノート）へフォールバックする。
+    setPendingRecallMemoId(memoId);
+    // クエリを掃除（hash / 他クエリは温存）— リロードで再発火させない。
     try {
       sp.delete('recall');
       const qs = sp.toString();
@@ -2249,6 +2251,8 @@ function AuthedApp() {
   const listScrollRef = useRef(null);
   const savedShelfScroll = useRef(0);
   const prevViewRef = useRef('list');
+  // 編集フォームの「未保存変更」検知用ベースライン（編集に入った時点のスナップショット）。
+  const editBaselineRef = useRef(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Long-press context menu (book cards on bookshelf)
   const [bookContextMenu, setBookContextMenu] = useState(null); // { x, y, book }
@@ -2357,6 +2361,17 @@ function AuthedApp() {
       });
     }
   }, [view, tab]);
+
+  // 編集に入った瞬間の form をベースラインとして控える（編集中の変更検知用）。
+  // form は deps に入れない＝編集中の変更で再スナップショットしない（入った時だけ）。
+  useEffect(() => {
+    editBaselineRef.current = view === 'edit' ? JSON.stringify(form) : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  // 編集フォームに未保存の変更があるか（ベースラインと現在 form の差分）。
+  const isEditDirty = () =>
+    view === 'edit' && editBaselineRef.current != null && JSON.stringify(form) !== editBaselineRef.current;
 
   // First-run onboarding: show once per user/device until they dismiss it.
   // The completion flag is the single source of truth — the book count is
@@ -2597,6 +2612,33 @@ function AuthedApp() {
   // 本棚カードに渡る安定参照 (memo 化したカードの再 render 抑止用)。
   // setCurrent / setEditPhaseOverride / setView は安定なので deps は空でよい。
   const openDetail = useCallback((b) => { setCurrent(b); setEditPhaseOverride(null); setView("detail"); }, []);
+
+  // 想起ディープリンクの解決: books 読込が済んだら、対象メモの本を直接開く
+  // （HomeRecall カードと同じ着地）。本が特定できない時のみ 💭ノートへ退避。
+  useEffect(() => {
+    if (!pendingRecallMemoId || booksLoading) return undefined;
+    let cancelled = false;
+    (async () => {
+      let opened = false;
+      try {
+        if (supabaseClient) {
+          const { data } = await supabaseClient
+            .from('book_memos')
+            .select('book_id')
+            .eq('id', pendingRecallMemoId)
+            .maybeSingle();
+          const bId = data?.book_id;
+          const b = bId && rawBooks.find((x) => x.id === bId);
+          if (b && !cancelled) { openDetail(b); setTab('books'); opened = true; }
+        }
+      } catch { /* fall through to review */ }
+      if (!cancelled && !opened) {
+        setReviewSubTab('note'); setTab('review'); setView('list'); setCurrent(null);
+      }
+      if (!cancelled) setPendingRecallMemoId(null);
+    })();
+    return () => { cancelled = true; };
+  }, [pendingRecallMemoId, booksLoading, rawBooks, openDetail]);
 
   // 本棚カードの long-press から context menu を開く安定参照。payload には
   // long-press フックが {x, y, book} を載せてくるのでそのまま state へ。
@@ -3607,7 +3649,7 @@ function AuthedApp() {
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <button onClick={goList} style={lnk}>← 一覧</button>
+            <button onClick={goList} style={lnk}>{tab === 'review' ? '← 振り返り' : tab === 'ai' ? '← AI' : '← 一覧'}</button>
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={openHelp}
@@ -4056,7 +4098,7 @@ function AuthedApp() {
                 minHeight: 44,
               }}
             >
-              ← 本棚に戻る
+              {tab === 'review' ? '← 振り返りに戻る' : tab === 'ai' ? '← AI に戻る' : '← 本棚に戻る'}
             </button>
           </div>
         </div>
@@ -4341,7 +4383,25 @@ function AuthedApp() {
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
         {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} onStartAdvisor={openAdvisor} />}
-        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} hidden={keyboardOpen} />
+        <BottomNav
+          tab={tab}
+          setTab={async (t) => {
+            // 編集中に未保存の変更があれば、移動前に確認（誤タップでの消失防止）。
+            if (isEditDirty()) {
+              const ok = await confirm({
+                title: '編集を破棄しますか？',
+                message: '保存していない変更があります。移動すると失われます。',
+                confirmLabel: '破棄して移動',
+                cancelLabel: '編集に戻る',
+                danger: true,
+              });
+              if (!ok) return;
+            }
+            setTab(t);
+            goList();
+          }}
+          hidden={keyboardOpen}
+        />
       </Shell>
     );
   }
@@ -4427,7 +4487,7 @@ function AuthedApp() {
           // 本棚スクロール中だけ位置を控える（本を開いて戻った時の復元用）。
           if (view === 'list' && tab === 'books') savedShelfScroll.current = e.currentTarget.scrollTop;
         }}
-        className="lvg-page"
+        className={tab === 'books' ? 'lvg-page tab-fade-in' : 'lvg-page'}
         style={{
           flex: 1,
           minHeight: 0,
@@ -4722,7 +4782,7 @@ function AuthedApp() {
             </div>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<Spinner />}>
-                <Review books={books} onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+                <Review books={books} onOpenBook={(b) => { openDetail(b); }} />
               </Suspense>
             ) : (
               <ActionList
@@ -4730,7 +4790,7 @@ function AuthedApp() {
                 onToggleAction={toggleAction}
                 onDeleteAction={deleteActionFromBook}
                 onEditAction={(bookId, actionIdx, action) => setEditingAction({ bookId, actionIdx, action })}
-                onOpenBook={(b) => { openDetail(b); setTab("books"); }}
+                onOpenBook={(b) => { openDetail(b); }}
                 onGoToBooks={() => setTab("books")}
               />
             )}
@@ -4789,7 +4849,7 @@ function AuthedApp() {
                 </Suspense>
               ) : (
                 <Suspense fallback={<Spinner />}>
-                  <MyBookBrain onOpenBook={(b) => { openDetail(b); setTab("books"); }} />
+                  <MyBookBrain onOpenBook={(b) => { openDetail(b); }} />
                 </Suspense>
               )}
             </div>

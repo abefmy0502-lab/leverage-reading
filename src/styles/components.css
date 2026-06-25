@@ -450,6 +450,18 @@
   animation: lvg-tab-content-in var(--duration-base) var(--ease-out) both;
 }
 
+/* 本棚タブ専用フェード: フィルタ/ソートバーが position:sticky のため、
+   transform を使う .tab-content だと sticky が壊れる（祖先の transform が
+   含有ブロックを作る）。opacity だけのフェードなら sticky を壊さずに、
+   他タブ（review/ai）と切替の体感を揃えられる。 */
+@keyframes lvg-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.tab-fade-in {
+  animation: lvg-fade-in var(--duration-base) var(--ease-out) both;
+}
+
 /* ---- Checkbox pop ------------------------------------------------------- */
 @keyframes lvg-check-pop {
   0%   { transform: scale(0); }
