@@ -150,7 +150,7 @@ export default function HomeRecall({ onOpen }) {
         style={{
           fontSize: 12,
           fontWeight: 600,
-          color: '#6b5f4d',
+          color: '#5a4f3e',
           margin: '0 0 6px',
           paddingRight: 32, // × ボタンと重ならない
         }}
@@ -176,7 +176,7 @@ export default function HomeRecall({ onOpen }) {
         <p
           style={{
             fontSize: 11,
-            color: '#6b5f4d',
+            color: '#5a4f3e',
             margin: '6px 0 0',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -201,7 +201,7 @@ export default function HomeRecall({ onOpen }) {
           justifyContent: 'center',
           background: 'transparent',
           border: 'none',
-          color: '#6b5f4d',
+          color: '#5a4f3e',
           fontSize: 16,
           cursor: 'pointer',
           fontFamily: 'inherit',

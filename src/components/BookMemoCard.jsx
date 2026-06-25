@@ -23,7 +23,7 @@ const pageBadge = {
   padding: '2px 8px',
   borderRadius: 8,
   background: '#eae3d6',
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   fontWeight: 600,
 };
 
@@ -32,7 +32,7 @@ const tagPill = {
   padding: '2px 8px',
   borderRadius: 10,
   background: '#f0ebe2',
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   maxWidth: '100%',
   overflowWrap: 'anywhere',
   wordBreak: 'break-word',
@@ -47,7 +47,7 @@ const kebabBtn = {
   background: 'none',
   border: 'none',
   fontSize: 18,
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   cursor: 'pointer',
   padding: 0,
   lineHeight: 1,
@@ -287,7 +287,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
       )}
 
       <p
-        style={{ fontSize: 10, color: '#6b5f4d', margin: 0 }}
+        style={{ fontSize: 10, color: '#5a4f3e', margin: 0 }}
         aria-label={`作成日 ${formatDate(memo.createdAt)}`}
       >
         {formatDate(memo.createdAt)}

@@ -101,7 +101,7 @@ const dangerSection = { ...sectionStyle, border: '1px solid #d8b8b0', background
 // 見出しを使う。表示専用で挙動には一切関与しない。
 const groupLabelStyle = {
   fontSize: 11,
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   margin: '8px 0 -2px 2px',
   fontWeight: 600,
   letterSpacing: 0.5,
@@ -116,9 +116,9 @@ function GroupLabel({ children }) {
 // 全 section 共通の見出し（13px / 600）。色だけ差し替え可能（破壊操作は赤）。
 const sectionTitleStyle = { fontSize: 13, margin: '0 0 4px', fontWeight: 600, color: '#3d362c' };
 // 全 section 共通の説明文（11px / 行間 1.7 / ボタンとの間隔 10px）。
-const sectionDescStyle = { fontSize: 11, color: '#6b5f4d', margin: '0 0 10px', lineHeight: 1.7 };
+const sectionDescStyle = { fontSize: 11, color: '#5a4f3e', margin: '0 0 10px', lineHeight: 1.7 };
 // 無効/準備中など、ボタンを出さず案内文のみのときの末尾余白なしバリアント。
-const sectionNoteStyle = { fontSize: 11, color: '#6b5f4d', margin: 0, lineHeight: 1.7 };
+const sectionNoteStyle = { fontSize: 11, color: '#5a4f3e', margin: 0, lineHeight: 1.7 };
 
 const btnPrimary = {
   width: '100%',
@@ -532,7 +532,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
         <div style={bodyStyle}>
           <div>
-            <p style={{ fontSize: 12, color: '#6b5f4d', margin: 0 }}>サインイン中</p>
+            <p style={{ fontSize: 12, color: '#5a4f3e', margin: 0 }}>サインイン中</p>
             <p style={{ fontSize: 14, color: '#3d362c', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
           </div>
 
@@ -548,7 +548,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               <p style={sectionNoteStyle}>確認中…</p>
             ) : isActive ? (
               <>
-                <p style={{ fontSize: 12, color: '#6b5f4d', margin: '0 0 4px', lineHeight: 1.7 }}>
+                <p style={{ fontSize: 12, color: '#5a4f3e', margin: '0 0 4px', lineHeight: 1.7 }}>
                   状態：<strong style={{ color: '#3d362c' }}>{billingStatusLabel(subscription?.status)}</strong>
                   {formatPeriodEnd(subscription?.currentPeriodEnd) && (
                     <>（次回更新 {formatPeriodEnd(subscription.currentPeriodEnd)}）</>
@@ -634,7 +634,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
             {!pushConfigured ? (
               // VAPID 鍵未設定 = 機能準備中（env 投入前）。静かに案内のみ。
-              <p style={{ ...sectionNoteStyle, color: '#6b5f4d' }}>
+              <p style={{ ...sectionNoteStyle, color: '#5a4f3e' }}>
                 ただいま準備中です。もう少しお待ちください。
               </p>
             ) : pushNeedsA2HS ? (
@@ -645,7 +645,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               </p>
             ) : !pushSupported ? (
               // 非対応ブラウザ等。
-              <p style={{ ...sectionNoteStyle, color: '#6b5f4d' }}>
+              <p style={{ ...sectionNoteStyle, color: '#5a4f3e' }}>
                 この端末・ブラウザでは通知に対応していません。
               </p>
             ) : pushDenied && !pushOn ? (
@@ -819,20 +819,20 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
           {/* Legal links — LP と同じ /legal/* ページを参照 (単一ソース)。
               新規タブで開いて、設定モーダルの状態を保つ。 */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginTop: 4 }}>
-            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6b5f4d', textDecoration: 'underline' }}>
+            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
               利用規約
             </a>
-            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6b5f4d', textDecoration: 'underline' }}>
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
               プライバシーポリシー
             </a>
             {/* 特商法は Web 販売特有（Web価格 ¥1,280 を表示）。ネイティブでは
                 反ステアリング順守のため非表示にし、価格開示は App Store に委ねる。 */}
             {!isNative && (
-              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6b5f4d', textDecoration: 'underline' }}>
+              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
                 特定商取引法に基づく表記
               </a>
             )}
-            <a href="mailto:leverage.book0502@gmail.com" style={{ fontSize: 12, color: '#6b5f4d', textDecoration: 'underline' }}>
+            <a href="mailto:leverage.book0502@gmail.com" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
               お問い合わせ
             </a>
           </div>

@@ -209,7 +209,7 @@ export default function FeedbackForm({ onClose }) {
         </div>
 
         <div style={bodyStyle}>
-          <p style={{ fontSize: 12, color: '#6b5f4d', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 12, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
             アプリの改善のため、ご意見・ご要望をお寄せください。<br />
             すべての投稿に目を通させていただきます🙏
           </p>
@@ -254,7 +254,7 @@ export default function FeedbackForm({ onClose }) {
               aria-required="true"
               disabled={busy}
             />
-            <p style={{ fontSize: 10, color: '#6b5f4d', textAlign: 'right', margin: '4px 2px 0' }}>
+            <p style={{ fontSize: 10, color: '#5a4f3e', textAlign: 'right', margin: '4px 2px 0' }}>
               {content.length} / {FEEDBACK_LIMITS.content}
             </p>
           </div>
@@ -262,7 +262,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Name (optional) */}
           <div>
             <label htmlFor="feedback-name" style={labelStyle}>
-              お名前 <span style={{ color: '#6b5f4d', fontWeight: 400 }}>（任意）</span>
+              お名前 <span style={{ color: '#5a4f3e', fontWeight: 400 }}>（任意）</span>
             </label>
             <input
               id="feedback-name"
@@ -280,7 +280,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Email (optional) */}
           <div>
             <label htmlFor="feedback-email" style={labelStyle}>
-              連絡先メールアドレス <span style={{ color: '#6b5f4d', fontWeight: 400 }}>（任意）</span>
+              連絡先メールアドレス <span style={{ color: '#5a4f3e', fontWeight: 400 }}>（任意）</span>
             </label>
             <input
               id="feedback-email"
@@ -295,7 +295,7 @@ export default function FeedbackForm({ onClose }) {
               autoCorrect="off"
               disabled={busy}
             />
-            <p style={{ fontSize: 10, color: '#6b5f4d', margin: '4px 2px 0' }}>
+            <p style={{ fontSize: 10, color: '#5a4f3e', margin: '4px 2px 0' }}>
               返信なしでも構いません。
             </p>
           </div>

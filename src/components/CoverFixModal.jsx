@@ -151,7 +151,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
           </p>
 
           {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '24px 0', color: '#6b5f4d' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '24px 0', color: '#5a4f3e' }}>
               <div
                 aria-hidden="true"
                 style={{
@@ -227,7 +227,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                       border: '1px solid #ece5d9',
                     }}
                   />
-                  <div style={{ fontSize: 10, color: '#6b5f4d', textAlign: 'center', lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 10, color: '#5a4f3e', textAlign: 'center', lineHeight: 1.4 }}>
                     {c.isCurrent && (
                       <div style={{ fontSize: 10, color: '#8a7040', fontWeight: 600, marginBottom: 2 }}>
                         ✓ 現在の表紙
@@ -235,7 +235,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                     )}
                     ISBN: {c.isbn}
                     {c.title && c.title !== book.title && (
-                      <div style={{ marginTop: 2, color: '#6b5f4d', fontStyle: 'italic' }}>
+                      <div style={{ marginTop: 2, color: '#5a4f3e', fontStyle: 'italic' }}>
                         {c.title.slice(0, 30)}{c.title.length > 30 ? '…' : ''}
                       </div>
                     )}
@@ -247,7 +247,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
 
           <hr style={{ border: 'none', borderTop: '1px solid #ece5d9', margin: '4px 0' }} />
 
-          <p style={{ fontSize: 11, color: '#6b5f4d', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
             該当する表紙が無い場合や、自分で撮影した写真を使いたい場合:
           </p>
           <button

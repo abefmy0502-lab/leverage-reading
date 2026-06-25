@@ -45,7 +45,7 @@ const pill = (active, color = '#5c5043', bg = '#e8e0d2') => ({
   borderRadius: 999,
   border: active ? `1.5px solid ${color}` : '1px solid #e0d8ca',
   background: active ? bg : 'transparent',
-  color: active ? color : '#6b5f4d',
+  color: active ? color : '#5a4f3e',
   fontWeight: active ? 600 : 400,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -71,7 +71,7 @@ const kebabBtn = {
   height: 44,
   background: 'none',
   border: 'none',
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -241,7 +241,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
           <Target size={18} strokeWidth={1.75} aria-hidden="true" />
           ✅ 本から決めた次の行動を管理
         </h2>
-        <p style={{ fontSize: 12, color: '#6b5f4d', marginTop: 2, lineHeight: 1.7 }}>
+        <p style={{ fontSize: 12, color: '#5a4f3e', marginTop: 2, lineHeight: 1.7 }}>
           完了したらチェックを入れて、習慣化していきましょう
         </p>
       </div>
@@ -304,7 +304,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <div>
-                <div style={{ fontSize: 11, color: '#6b5f4d' }}>{periodLabel}の達成率</div>
+                <div style={{ fontSize: 11, color: '#5a4f3e' }}>{periodLabel}の達成率</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, lineHeight: 1.1 }}>
                   <AnimatedNumber value={period.rate} duration={700} />
                   <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
@@ -361,7 +361,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
 
       {/* Sort */}
       {stats.total > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#6b5f4d' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#5a4f3e' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span>並び順</span>
             <select

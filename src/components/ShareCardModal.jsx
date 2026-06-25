@@ -57,7 +57,7 @@ const closeBtn = {
   minWidth: 44,
   border: 'none',
   background: 'none',
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   cursor: 'pointer',
   display: 'inline-flex',
   alignItems: 'center',
@@ -259,7 +259,7 @@ export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
           <div style={previewBox}>
             {loading && (
               <div
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: '#6b5f4d' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: '#5a4f3e' }}
                 aria-live="polite"
                 aria-busy="true"
               >
@@ -281,7 +281,7 @@ export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
             )}
           </div>
           {!loading && !error && (
-            <p style={{ fontSize: 11, color: '#6b5f4d', margin: 0, lineHeight: 1.7, textAlign: 'center' }}>
+            <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0, lineHeight: 1.7, textAlign: 'center' }}>
               この 1 枚だけを外に出せます。SNS への自動投稿はしません。
             </p>
           )}

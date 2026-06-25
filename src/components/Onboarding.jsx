@@ -138,7 +138,7 @@ const closeBtnStyle = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   cursor: 'pointer',
   padding: 0,
   width: 44,
@@ -260,7 +260,7 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
               <p style={{ fontSize: 12, color: '#5c5548', fontStyle: 'italic', lineHeight: 1.7, margin: 0 }}>
                 “{welcomeQuote.text}”
               </p>
-              <p style={{ fontSize: 10, color: '#6b5f4d', margin: '4px 0 0' }}>— {welcomeQuote.author}</p>
+              <p style={{ fontSize: 10, color: '#5a4f3e', margin: '4px 0 0' }}>— {welcomeQuote.author}</p>
             </div>
           )}
         </div>

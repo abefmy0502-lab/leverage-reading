@@ -279,7 +279,7 @@ export default function ThemeReport() {
                       <div style={{ fontSize: 14, fontWeight: 600, color: '#3d362c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         📊 {row.theme}
                       </div>
-                      <div style={{ fontSize: 11, color: '#6b5f4d', marginTop: 2 }}>{fmtDate(row.generated_at)}</div>
+                      <div style={{ fontSize: 11, color: '#5a4f3e', marginTop: 2 }}>{fmtDate(row.generated_at)}</div>
                     </button>
                     <button
                       onClick={() => removeHistory(row)}
@@ -414,7 +414,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             あなたの読書が、1 枚のレポートに
           </h2>
         </div>
-        <p style={{ fontSize: 13, color: '#6b5f4d', margin: 0, lineHeight: 1.7 }}>
+        <p style={{ fontSize: 13, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
           テーマを選ぶと、その分野で残してきたメモを横断して、要点・共通パターン・あなたへの行動提案を 1 枚にまとめます。
         </p>
       </div>
@@ -424,7 +424,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
         <p style={{ fontSize: 12, fontWeight: 600, color: '#5c5548', margin: '0 0 8px' }}>
           📌 あなたのメモから見つけたテーマ
           {!themesLoading && themes.length > 0 && (
-            <span style={{ fontWeight: 500, color: '#6b5f4d' }}>（{themes.length}）</span>
+            <span style={{ fontWeight: 500, color: '#5a4f3e' }}>（{themes.length}）</span>
           )}
         </p>
         {themesLoading ? (
@@ -433,7 +433,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             <div className="ai-skeleton-line" style={{ width: '52%' }} />
           </div>
         ) : themes.length === 0 ? (
-          <p style={{ fontSize: 12, color: '#6b5f4d', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 12, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
             まだ候補はありません。メモにタグや「@カテゴリ」を付けていくと、ここにあなただけのテーマが並びます。今は下の入力欄から自由にテーマを指定して始められます。
           </p>
         ) : (
@@ -520,7 +520,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             📊 作成
           </button>
         </div>
-        <p style={{ fontSize: 11, color: '#6b5f4d', margin: '8px 0 0', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 11, color: '#5a4f3e', margin: '8px 0 0', lineHeight: 1.6 }}>
           そのテーマに関連するメモ（タグ・@カテゴリ・本文）を集めてレポートにします。
         </p>
       </div>

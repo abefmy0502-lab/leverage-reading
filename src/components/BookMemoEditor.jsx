@@ -106,7 +106,7 @@ const tagPill = {
   padding: '2px 8px',
   borderRadius: 10,
   background: '#eae3d6',
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   display: 'flex',
   alignItems: 'center',
   gap: 4,
@@ -119,7 +119,7 @@ const tagSuggestionBtn = {
   borderRadius: 10,
   border: '1px dashed #e0d8ca',
   background: 'transparent',
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   cursor: 'pointer',
   fontFamily: 'inherit',
 };
@@ -343,7 +343,7 @@ export default function BookMemoEditor({
           ← 戻る
         </button>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{ fontSize: 11, color: '#6b5f4d', margin: 0 }}>{isEdit ? 'メモを編集' : 'メモを追加'}</p>
+          <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0 }}>{isEdit ? 'メモを編集' : 'メモを追加'}</p>
           <p
             style={{
               fontSize: 14,
@@ -477,7 +477,7 @@ export default function BookMemoEditor({
                     background: 'none',
                     border: 'none',
                     fontSize: 14,
-                    color: '#6b5f4d',
+                    color: '#5a4f3e',
                     cursor: 'pointer',
                     padding: '6px 8px',
                     margin: '-6px -6px -6px 0',

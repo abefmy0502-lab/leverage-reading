@@ -59,7 +59,7 @@ const meta = {
   flexWrap: 'wrap',
   gap: 8,
   fontSize: 11,
-  color: '#6b5f4d',
+  color: '#5a4f3e',
 };
 
 const btnGhost = {
@@ -68,7 +68,7 @@ const btnGhost = {
   borderRadius: 8,
   padding: '4px 10px',
   fontSize: 11,
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   cursor: 'pointer',
   fontFamily: 'inherit',
 };
@@ -83,7 +83,7 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
       </div>
 
       {!loaded ? (
-        <p style={{ fontSize: 12, color: '#6b5f4d', textAlign: 'center', padding: 20 }}>
+        <p style={{ fontSize: 12, color: '#5a4f3e', textAlign: 'center', padding: 20 }}>
           読み込み中…
         </p>
       ) : sessions.length === 0 ? (
@@ -126,7 +126,7 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
                     background: 'transparent',
                     border: 'none',
                     fontSize: 14,
-                    color: '#6b5f4d',
+                    color: '#5a4f3e',
                     cursor: 'pointer',
                     padding: 4,
                     fontFamily: 'inherit',
@@ -165,7 +165,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
         『{book.title}』
       </p>
       {book.author && (
-        <p style={{ fontSize: 12, color: '#6b5f4d', margin: '2px 0 8px' }}>— {book.author}</p>
+        <p style={{ fontSize: 12, color: '#5a4f3e', margin: '2px 0 8px' }}>— {book.author}</p>
       )}
 
       {book.why && (
@@ -427,7 +427,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
               onAdd={() => handleAdd(b)}
             />
           ))}
-          <p style={{ fontSize: 10, color: '#6b5f4d', margin: '4px 0 0', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 10, color: '#5a4f3e', margin: '4px 0 0', lineHeight: 1.6 }}>
             ※ Amazon のリンクはアソシエイトリンクです (購入時に運営に紹介料が入ります)
           </p>
         </div>

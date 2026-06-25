@@ -200,7 +200,7 @@ const footerStyle = {
   padding: '10px 18px calc(10px + env(safe-area-inset-bottom, 0px))',
   borderTop: '1px solid #ece5d9',
   fontSize: 11,
-  color: '#6b5f4d',
+  color: '#5a4f3e',
   textAlign: 'center',
   background: '#fff',
   flexShrink: 0,           // ★ header と同様、潰れないように固定
@@ -212,7 +212,7 @@ const footerStyle = {
 // すべての helpKey で同じ「番号付きカード」見た目になるよう steps と
 // sections の両方を共通の renderCardSteps で描画する。
 
-const stepSubtitle = { fontSize: 13, color: '#6b5f4d', margin: '0 0 14px' };
+const stepSubtitle = { fontSize: 13, color: '#5a4f3e', margin: '0 0 14px' };
 const stepCard = {
   background: '#fff',
   border: '1px solid #ece5d9',
@@ -452,7 +452,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
                 )}
               </>
             ) : (
-              <p style={{ fontSize: 13, color: '#6b5f4d', margin: 0, lineHeight: 1.8 }}>
+              <p style={{ fontSize: 13, color: '#5a4f3e', margin: 0, lineHeight: 1.8 }}>
                 この画面のヘルプはまだ用意されていません。上の「AI に質問する」をお試しください。
               </p>
             )}
