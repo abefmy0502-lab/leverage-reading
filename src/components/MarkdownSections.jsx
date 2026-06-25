@@ -22,33 +22,34 @@ const sectionStyle = {
   boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
 };
 const headingStyle = {
-  fontSize: 14,
-  fontWeight: 600,
-  color: '#5c5043',
-  margin: '0 0 6px',
+  fontSize: 15,
+  fontWeight: 700,
+  color: '#2e271c',
+  margin: '0 0 9px',
   lineHeight: 1.4,
+  letterSpacing: '-0.01em',
 };
 const subHeadingStyle = {
-  fontSize: 13,
-  fontWeight: 600,
+  fontSize: 13.5,
+  fontWeight: 700,
   color: '#3d362c',
-  margin: '8px 0 2px',
+  margin: '10px 0 3px',
 };
 const paraStyle = {
-  fontSize: 13,
+  fontSize: 13.5,
   color: '#4a4036',
-  lineHeight: 'var(--leading-relaxed)',
-  letterSpacing: '0.02em',
-  margin: 'var(--space-2) 0',
+  lineHeight: 1.85,
+  margin: '6px 0',
   whiteSpace: 'pre-wrap',
 };
 const listStyle = {
-  fontSize: 13,
+  fontSize: 13.5,
   color: '#4a4036',
-  lineHeight: 'var(--leading-relaxed)',
-  margin: 'var(--space-2) 0 var(--space-2) var(--space-5)',
+  lineHeight: 1.8,
+  margin: '6px 0 6px 20px',
   paddingLeft: 0,
 };
+const liStyle = { marginBottom: 5 };
 const highlightSection = {
   ...sectionStyle,
   background: '#f5efde',
@@ -256,7 +257,7 @@ function renderLines(lines, opts) {
         out.push(
           <ul key={i} style={listStyle}>
             {b.items.map((it, j) => (
-              <li key={j}>{renderInline(it)}</li>
+              <li key={j} style={liStyle}>{renderInline(it)}</li>
             ))}
           </ul>,
         );
@@ -264,7 +265,7 @@ function renderLines(lines, opts) {
         out.push(
           <ol key={i} style={listStyle}>
             {b.items.map((it, j) => (
-              <li key={j}>{renderInline(it)}</li>
+              <li key={j} style={liStyle}>{renderInline(it)}</li>
             ))}
           </ol>,
         );
@@ -283,7 +284,7 @@ function renderLines(lines, opts) {
       return (
         <ul key={i} style={listStyle}>
           {b.items.map((it, j) => (
-            <li key={j}>{renderInline(it)}</li>
+            <li key={j} style={liStyle}>{renderInline(it)}</li>
           ))}
         </ul>
       );
@@ -292,7 +293,7 @@ function renderLines(lines, opts) {
       return (
         <ol key={i} style={listStyle}>
           {b.items.map((it, j) => (
-            <li key={j}>{renderInline(it)}</li>
+            <li key={j} style={liStyle}>{renderInline(it)}</li>
           ))}
         </ol>
       );
