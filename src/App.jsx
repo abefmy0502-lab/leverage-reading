@@ -1978,8 +1978,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
           ✕ ボタンはタブ画面では不要なので撤去。 */}
       <div className="ai-section-header" style={{ padding: 0, marginBottom: 8, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h2>🤖 AI 選書アドバイザー</h2>
-          <p className="subtitle">あなたの課題から、読むべき本を提案します</p>
+          <h2>AI 選書アドバイザー</h2>
         </div>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           {sessionApi?.available && (
@@ -4998,7 +4997,6 @@ function AuthedApp() {
                 </button>
               </div>
               {/* Pill filters — hide statuses with zero books to keep the bar tight. */}
-              <p style={{ fontSize: 10, color: "#6b5f4d", margin: "0 0 4px", letterSpacing: 0.2 }}>タップで本を絞り込めます</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {[
                   { key: "all", label: "全て", count: stats.total, color: "#4a4036", bg: "#e8e0d2", Icon: null },

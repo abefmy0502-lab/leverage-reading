@@ -602,15 +602,11 @@ export default function MyBookBrain({ onOpenBook }) {
       <div style={{ flexShrink: 0, padding: '12px 16px 8px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Unified AI section header (AI 選書 と同じフォーマット) */}
       <div className="ai-section-header" style={{ padding: 0 }}>
-        <h2>🧠 マイ読書脳</h2>
+        <h2>マイ読書脳</h2>
         <p className="subtitle">
-          あなたが読んだ本の知識から、あなた専用の答えが返ってきます
-          {(memoStats.cards + memoStats.summaries + memoStats.personal) > 0 && (
-            <>（メモ {memoStats.cards} / まとめ {memoStats.summaries} / 学び {memoStats.personal}）</>
-          )}
-        </p>
-        <p className="subtitle" style={{ marginTop: 4 }}>
-          💡 質問は具体的に書くと精度が上がります
+          {(memoStats.cards + memoStats.summaries + memoStats.personal) > 0
+            ? <>根拠にできる メモ {memoStats.cards} / まとめ {memoStats.summaries} / 学び {memoStats.personal} 件</>
+            : '💡 質問は具体的に書くと精度が上がります'}
         </p>
       </div>
 
