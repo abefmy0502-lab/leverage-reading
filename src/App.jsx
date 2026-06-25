@@ -4089,16 +4089,16 @@ function AuthedApp() {
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={openHelp}
-                style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
                 aria-label="この画面のヘルプを見る"
                 title="ヘルプ"
               >
-                <HelpCircle size={16} strokeWidth={1.75} aria-hidden="true" />
+                <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
               </button>
               {/* ⋯ kebab — 編集 / 共有 / 削除 を集約。下部の 3 ボタン廃止。 */}
               <button
                 onClick={openDetailKebab}
-                style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#5c5043", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 16, fontWeight: 700 }}
+                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#5c5043", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 20, fontWeight: 700 }}
                 aria-label="その他の操作"
                 title="その他"
               >
@@ -4738,11 +4738,11 @@ function AuthedApp() {
             <button onClick={current ? () => { setEditPhaseOverride(null); setView("detail"); } : goList} style={lnk}>← 戻る</button>
             <button
               onClick={openHelp}
-              style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+              style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
               aria-label="この画面のヘルプを見る"
               title="ヘルプ"
             >
-              <HelpCircle size={18} strokeWidth={1.75} aria-hidden="true" />
+              <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
             </button>
           </div>
 
@@ -4852,13 +4852,15 @@ function AuthedApp() {
    <header
      style={{
        flexShrink: 0,
-       padding: "max(env(safe-area-inset-top, 6px), 6px) 12px 4px",
+       padding: "max(env(safe-area-inset-top, 6px), 6px) 14px 4px",
        minHeight: 36,
        display: "flex",
        justifyContent: "space-between",
        alignItems: "center",
        gap: 6,
-       background: "var(--color-surface)",
+       /* ページ（クリーム）と同色にして上部を一体化（iOS ナビバー流儀）。
+          白いカードが下で浮く構図になる。 */
+       background: "var(--color-bg, #f5f0e8)",
      }}
    >
     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
@@ -4867,16 +4869,23 @@ function AuthedApp() {
         {...logoLongPress.bind}
         aria-label="ロゴ（長押しで開発者からのメッセージ）"
         style={{
-          fontSize: 22,
-          lineHeight: 1,
-          padding: "2px 4px",
+          lineHeight: 0,
+          padding: 2,
           background: "none",
           border: "none",
           cursor: "pointer",
           fontFamily: "inherit",
+          display: "flex",
+          alignItems: "center",
         }}
       >
-        <span aria-hidden="true">📚</span>
+        <img
+          src="/apple-touch-icon.png"
+          alt="Orime"
+          width={28}
+          height={28}
+          style={{ borderRadius: 7, display: "block", boxShadow: "0 1px 2px rgba(60,48,30,0.12)" }}
+        />
       </button>
       {/* 挨拶は最初の数秒だけ表示してフェードアウト。ヘッダーの上下余白を
           食わないよう font 11px + 上下 0 の inline テキストに留める。 */}
@@ -4900,19 +4909,19 @@ function AuthedApp() {
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <button
         onClick={openHelp}
-        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="この画面のヘルプを開く"
         title="ヘルプ"
       >
-        <HelpCircle size={18} strokeWidth={1.75} aria-hidden="true" />
+        <HelpCircle size={22} strokeWidth={1.75} aria-hidden="true" />
       </button>
       <button
         onClick={() => setSettingsOpen(true)}
-        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e0d8ca", borderRadius: 999, color: "#5c5043", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#6b5f4d", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="アカウント設定を開く"
         title="設定"
       >
-        <SettingsIcon size={18} strokeWidth={1.75} aria-hidden="true" />
+        <SettingsIcon size={22} strokeWidth={1.75} aria-hidden="true" />
       </button>
     </div>
   </header>
