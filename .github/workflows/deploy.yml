@@ -1,0 +1,52 @@
+# Vercel 本番デプロイ（GitHub App を使わない CI ルート）
+#
+# 経緯: Vercel の公式 GitHub App 連携がアカウント制約でブロックされ、main への
+# push で自動デプロイができなくなった。そこで GitHub App に依存せず、
+# 「GitHub Actions（正常）＋ Vercel CLI（正常）＋ デプロイ用トークン」で
+# 本番反映を自動化する。main への push か、手動実行（workflow_dispatch）で走る。
+#
+# 必要な GitHub Secrets（Settings → Secrets and variables → Actions）:
+#   - VERCEL_TOKEN       : vercel.com/account/tokens で発行したトークン
+#   - VERCEL_ORG_ID      : .vercel/project.json の "orgId"
+#   - VERCEL_PROJECT_ID  : .vercel/project.json の "projectId"
+#
+# ビルド時の環境変数（VITE_SUPABASE_URL 等）は Vercel プロジェクト側に設定済みの
+# ものを `vercel pull` が取得するため、ここに重複定義は不要。
+name: Deploy to Vercel (Production)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# 同時に複数デプロイが走らないよう直列化（新しい push が来たら古い実行は中断）
+concurrency:
+  group: vercel-prod
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel project settings & env (production)
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build (production)
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy prebuilt output to production
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
