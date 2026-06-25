@@ -127,9 +127,11 @@ function deadlineState(deadline, done) {
   return { kind: 'later', days: diffDays };
 }
 
+// 既定は「未完了」を先頭に。タスク管理アプリの基本＝「いま やること」を最初に
+// 見せ、完了済みは脇に置く。「全て」「完了」はタップで切替。
 const FILTERS = [
-  { key: 'all', label: '全て' },
   { key: 'open', label: '未完了' },
+  { key: 'all', label: '全て' },
   { key: 'done', label: '完了' },
   { key: 'overdue', label: '⚠ 期限切れ', color: '#a05040', bg: '#fdf0ed' },
   { key: 'today', label: '今日まで', color: '#E65100', bg: '#FFF3E0' },
@@ -148,7 +150,7 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook, onGoToBooks }) {
   const { allActions, stats } = useAllActions(books);
   const haptic = useHaptic();
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('open');
   const [sortBy, setSortBy] = useState('deadline');
   const [openMenuKey, setOpenMenuKey] = useState(null);
   // 達成率の集計期間: 'week' | 'month' | 'all'。
@@ -389,11 +391,21 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
           tip="💡 各本の詳細画面 → 「行動リスト」セクションから追加できます"
         />
       ) : visible.length === 0 ? (
-        <EmptyState
-          icon="🔍"
-          title="条件に合う行動がありません"
-          description="フィルタや並び順を変えてみてください。"
-        />
+        filter === 'open' ? (
+          // 未完了が 0 = やることを全部こなした状態。ネガティブに見せず讃える。
+          <EmptyState
+            icon="🎉"
+            title="未完了の行動はありません"
+            description="いまやるべきことは全部完了しています。お見事です。"
+            actions={[{ label: '完了した行動を見る', icon: '✅', onClick: () => setFilter('done') }]}
+          />
+        ) : (
+          <EmptyState
+            icon="🔍"
+            title="条件に合う行動がありません"
+            description="フィルタや並び順を変えてみてください。"
+          />
+        )
       ) : (
         <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {visible.map((a) => {

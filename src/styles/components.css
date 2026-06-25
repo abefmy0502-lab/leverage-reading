@@ -1151,17 +1151,21 @@ body.keyboard-open .ai-input-area {
 }
 .sub-tab {
   flex: 1;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-1);
   border-radius: var(--radius-md);
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
   font-family: inherit;
-  font-size: var(--type-callout);
+  font-size: var(--type-footnote);
   font-weight: var(--weight-medium);
   text-align: center;
   cursor: pointer;
   min-height: 40px;
+  /* 3 等分の狭い列でラベルが「テーマレ / ポート」のように
+     不自然に途中改行するのを防ぐ。長い語は 1 行で詰めて表示。 */
+  white-space: nowrap;
+  letter-spacing: -0.01em;
   transition: background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }

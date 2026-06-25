@@ -191,54 +191,71 @@ const countLabelStyle = {
 const BAR_MAX_H = 36;
 const BAR_MIN_H = 3;
 
+const trendCaptionStyle = {
+  fontSize: 10,
+  color: 'var(--color-text-tertiary)',
+  lineHeight: 1.2,
+  alignSelf: 'flex-end',
+  whiteSpace: 'nowrap',
+};
+
 function QuietProgress({ doneTotal, trend }) {
   const peak = trend.reduce((m, k) => Math.max(m, k.count), 0);
+  const lastIdx = trend.length - 1; // 一番右 = 今月
   return (
     <div style={panel}>
       <div style={totalBlock}>
         <AnimatedNumber value={doneTotal} duration={700} style={totalNumber} />
-        <span style={totalLabel}>これまでの読了</span>
+        <span style={totalLabel}>累計の読了</span>
       </div>
-      <div
-        style={trendBlock}
-        aria-label={`直近 6 ヶ月の読了推移: ${trend
-          .map((k) => `${k.month + 1}月 ${k.count}冊`)
-          .join(', ')}`}
-      >
-        {trend.map((k) => {
-          // peak が 0 のときは全て最小高さ (静かに「まだこれから」)。
-          const h =
-            peak > 0
-              ? Math.max(BAR_MIN_H, Math.round((k.count / peak) * BAR_MAX_H))
-              : BAR_MIN_H;
-          const active = k.count > 0;
-          return (
-            <div key={`${k.year}-${k.month}`} style={monthCol} aria-hidden="true">
-              <span style={countLabelStyle}>{active ? k.count : ''}</span>
-              <div
-                style={{
-                  ...barTrackBase,
-                  height: BAR_MAX_H,
-                  background: 'transparent',
-                  alignItems: 'flex-end',
-                }}
-              >
+      {/* 棒グラフ = 月ごとの読了数。何のグラフか一目で分かるよう見出しを添える。 */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flex: '1 1 auto', minWidth: 0 }}>
+        <span style={trendCaptionStyle}>📅 月別の読了（直近6ヶ月）</span>
+        <div
+          style={trendBlock}
+          aria-label={`直近 6 ヶ月の読了推移: ${trend
+            .map((k) => `${k.month + 1}月 ${k.count}冊`)
+            .join(', ')}`}
+        >
+          {trend.map((k, i) => {
+            // peak が 0 のときは全て最小高さ (静かに「まだこれから」)。
+            const h =
+              peak > 0
+                ? Math.max(BAR_MIN_H, Math.round((k.count / peak) * BAR_MAX_H))
+                : BAR_MIN_H;
+            const active = k.count > 0;
+            const isCurrent = i === lastIdx; // 今月を少しだけ強調
+            return (
+              <div key={`${k.year}-${k.month}`} style={monthCol} aria-hidden="true">
+                <span style={countLabelStyle}>{active ? k.count : ''}</span>
                 <div
                   style={{
-                    width: '100%',
-                    height: h,
-                    borderRadius: 'var(--radius-xs)',
-                    background: active
-                      ? 'var(--color-accent)'
-                      : 'var(--color-border)',
-                    transition: 'height var(--duration-base, 0.3s) var(--ease-spring, ease)',
+                    ...barTrackBase,
+                    height: BAR_MAX_H,
+                    background: 'transparent',
+                    alignItems: 'flex-end',
                   }}
-                />
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      height: h,
+                      borderRadius: 'var(--radius-xs)',
+                      background: active
+                        ? 'var(--color-accent)'
+                        : 'var(--color-border)',
+                      transition: 'height var(--duration-base, 0.3s) var(--ease-spring, ease)',
+                    }}
+                  />
+                </div>
+                {/* 「5」だけだと数字の意味が不明 → 「5月」と単位を付ける。今月は太字。 */}
+                <span style={{ ...monthLabelStyle, fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--color-accent-strong)' : 'var(--color-text-tertiary)' }}>
+                  {k.month + 1}月
+                </span>
               </div>
-              <span style={monthLabelStyle}>{k.month + 1}</span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

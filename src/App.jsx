@@ -28,6 +28,7 @@ import {
   searchBooksAdvanced as searchBooksAPIAdvanced,
   pickSuggestions,
   findIsbnCandidates,
+  findCoverFromGoogleBooks,
 } from './lib/bookSearch';
 import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
@@ -2808,33 +2809,65 @@ function AuthedApp() {
     }
   };
 
-  // 既存の本に対して表紙を取り直す。multi-ISBN リゾルバを優先で使い、
-  // primary ISBN → 同タイトル+著者の別エディションの順に openBD/Amazon
-  // を試す。すべて失敗したら手動アップロードを案内する。
+  // 表紙取得中の本 id（ローディング表示 + 二重起動防止）。
+  const [coverBusyId, setCoverBusyId] = useState(null);
+  // 既存の本に対して表紙を取り直す。Google Books の検証済みサムネを最優先に、
+  // ダメなら ISBN ベースの multi-source、最後に通常検索の順で試す。
+  // すべて失敗したら手動アップロードを案内する。
   const refreshCoverFor = async (book) => {
     if (!book) return;
+    if (coverBusyId) return; // 二重起動防止
+    setCoverBusyId(book.id);
+    // ★ 即時フィードバック — これが無いと数秒の無反応で「動いていない」に見える。
+    const busyToastId = toast.show({
+      type: 'info',
+      message: '🔄 表紙を取得しています…',
+      duration: 15000,
+    });
     try {
-      // fullyResolveCover で再取得ボタン / 本追加 / backfill を同一ロジックに統一
       let coverUrl = '';
       let coverIsbn = '';
-      const r = await fullyResolveCover(
-        { title: book.title, author: book.author, isbn: book.isbn },
-        findIsbnCandidates,
-      );
-      if (r.url) {
-        coverUrl = r.url;
-        coverIsbn = r.isbn || '';
+
+      // ── ステップ 0（最優先・最速・最も確実）─────────────────────────
+      // Google Books の imageLinks.thumbnail は実体保証された URL。ISBN 直引き →
+      // タイトル+著者の厳格マッチの順で取得。ここで取れれば <img> 実在検証も不要。
+      try {
+        const gb = await findCoverFromGoogleBooks({
+          title: book.title,
+          author: book.author,
+          isbn: book.isbn,
+        });
+        if (gb) {
+          coverUrl = gb;
+          coverIsbn = book.isbn || '';
+        }
+      } catch { /* 次の手段へ */ }
+
+      // ── ステップ 1: ISBN ベースの multi-source リゾルバ（openBD / Amazon / GB content）
+      if (!coverUrl) {
+        const r = await fullyResolveCover(
+          { title: book.title, author: book.author, isbn: book.isbn },
+          findIsbnCandidates,
+        );
+        if (r.url) {
+          coverUrl = r.url;
+          coverIsbn = r.isbn || '';
+        }
       }
-      // 最後の手段として searchBooksAPIFlat の cover URL も試す
+
+      // ── ステップ 2: 最後の手段として通常検索の先頭ヒットの cover
       if (!coverUrl) {
         const flat = await searchBooksAPIFlat(`${book.title || ''} ${book.author || ''}`.trim());
-        if (flat?.[0]?.cover) coverUrl = flat[0].cover;
+        const hit = (flat || []).find((b) => b.cover);
+        if (hit?.cover) coverUrl = ensureHttps(hit.cover);
       }
+
       if (!coverUrl) {
+        toast.dismiss?.(busyToastId);
         // 自動取得が完璧になることはあり得ない → 手動アップロードを促す。
         toast.show({
           type: 'info',
-          message: '自動取得できませんでした。📷 手動アップロードをお試しください',
+          message: '自動では見つかりませんでした。📷 手動アップロードをお試しください',
           duration: 6000,
           action: { label: 'アップロード', onClick: () => triggerManualCoverUpload(book) },
         });
@@ -2844,9 +2877,13 @@ function AuthedApp() {
       const saved = await saveBook(updated);
       const next = saved || updated;
       if (current && current.id === next.id) setCurrent(next);
+      toast.dismiss?.(busyToastId);
       toast.success('表紙を更新しました');
     } catch (e) {
+      toast.dismiss?.(busyToastId);
       toast.error(toMessage(e, '表紙の取得に失敗しました'));
+    } finally {
+      setCoverBusyId(null);
     }
   };
 
@@ -3967,19 +4004,21 @@ function AuthedApp() {
                 <button
                   type="button"
                   onClick={() => refreshCoverFor(current)}
+                  disabled={coverBusyId === current.id}
                   style={{
                     background: 'none',
                     border: 'none',
                     padding: 0,
                     fontSize: 10,
                     color: '#5C4A2E',
-                    cursor: 'pointer',
+                    cursor: coverBusyId === current.id ? 'wait' : 'pointer',
                     fontFamily: 'inherit',
                     textDecoration: 'underline',
                     fontWeight: 600,
+                    opacity: coverBusyId === current.id ? 0.6 : 1,
                   }}
                 >
-                  🔄 表紙を取り直す
+                  {coverBusyId === current.id ? '⏳ 取得中…' : '🔄 表紙を取り直す'}
                 </button>
                 <button
                   type="button"
@@ -5080,7 +5119,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'report' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('report')}
               >
-                📊 テーマレポート
+                📊 レポート
               </button>
             </div>
             {/* 独自名のサブタブを初対面でも分かるよう、内容を平易な一言で注釈する。 */}

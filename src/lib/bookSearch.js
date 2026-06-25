@@ -782,6 +782,79 @@ async function findCandidateBooksFromGoogleBooks(title, author) {
   }
 }
 
+/**
+ * 📕 Google Books の imageLinks.thumbnail を「検証済みの確実な表紙 URL」として
+ * 直接取得する。ISBN ベースのコンストラクト URL（books.google.com/content?vid=…
+ * や Amazon の LZZZ パターン）は存在しない本でプレースホルダーを返したり遅い
+ * のに対し、volumes API の thumbnail は Google が実体保証している URL なので
+ * 実在検証（<img> ロード）なしでそのまま使える。日本語書籍の表紙取得が
+ * 「全然取れない」問題への主対策。
+ *
+ *   1. ISBN があれば `q=isbn:<isbn>` で直引き（最も正確）
+ *   2. 取れなければ title+author で intitle/inauthor 検索 → 厳格マッチした
+ *      最初の 1 冊の thumbnail
+ *
+ * 戻り値は https 化した URL（mixed-content 回避）。見つからなければ ''。
+ */
+export async function findCoverFromGoogleBooks({ title, author, isbn } = {}) {
+  const toHttps = (u) => (u ? String(u).replace(/^http:/i, 'https:') : '');
+  const thumbOf = (info) => {
+    const links = info?.imageLinks || {};
+    // thumbnail は ~128px、smallThumbnail は ~80px。大きい方を優先。
+    return toHttps(links.thumbnail || links.smallThumbnail || '');
+  };
+
+  // ── 1: ISBN 直引き（あれば最優先・最も正確） ─────────────────────────
+  const cleanIsbn = isbn ? String(isbn).replace(/[-\s]/g, '') : '';
+  if (cleanIsbn) {
+    try {
+      const r = await fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanIsbn}&country=JP`,
+      );
+      if (r.ok) {
+        const d = await r.json();
+        for (const item of d.items || []) {
+          const cover = thumbOf(item.volumeInfo);
+          if (cover) return cover;
+        }
+      }
+    } catch (e) {
+      console.warn('[findCoverFromGoogleBooks] isbn phase failed:', e?.message || e);
+    }
+  }
+
+  // ── 2: タイトル + 著者で検索 → 厳格マッチの thumbnail ────────────────
+  const t = (title || '').trim();
+  const a = (author || '').trim();
+  if (t || a) {
+    try {
+      const parts = [];
+      if (t) parts.push(`intitle:${encodeURIComponent(t)}`);
+      if (a) parts.push(`inauthor:${encodeURIComponent(a)}`);
+      const r = await fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${parts.join('+')}&maxResults=10&country=JP`,
+      );
+      if (r.ok) {
+        const d = await r.json();
+        const original = { title: t, author: a };
+        // まず厳格マッチ（同じ本）の中で thumbnail を持つものを探す。
+        for (const item of d.items || []) {
+          const info = item.volumeInfo || {};
+          const cover = thumbOf(info);
+          if (!cover) continue;
+          if (!t || !a || isSameBook({ title: info.title || '', author: (info.authors || []).join(', ') }, original)) {
+            return cover;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[findCoverFromGoogleBooks] title/author phase failed:', e?.message || e);
+    }
+  }
+
+  return '';
+}
+
 // 後方互換: 旧 API は string[] を返す。
 export async function findIsbnCandidatesFromNDL(title, author) {
   const books = await findCandidateBooksFromNDL(title, author);
