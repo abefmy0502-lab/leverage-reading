@@ -17,8 +17,8 @@ const MAX_BODY_BYTES = 1.5 * 1024 * 1024;
 // body.model を verbatim で upstream に流すと、改ざんしたクライアントが Opus 等
 // の高単価モデルを指定して原価を吊り上げられる（KGI ガードの穴）。allowlist 外
 // は既定モデルに矯正する（拒否ではなく安全側に倒す＝正規利用を妨げない）。
-const ALLOWED_MODELS = new Set(['claude-sonnet-4-20250514']);
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+const ALLOWED_MODELS = new Set(['claude-sonnet-4-6']);
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
 // ───────────────────────────────────────────────────────────────────
 // 🤖 月次 AI 利用量メータリング（KGI 原価ガード）
@@ -28,7 +28,7 @@ const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
 // 一切妨げないこと。
 //
 // 上限値の根拠:
-//   使用モデル claude-sonnet-4-20250514 は $3 / 1M 入力・$15 / 1M 出力（≈¥150/$）。
+//   使用モデル claude-sonnet-4-6 は $3 / 1M 入力・$15 / 1M 出力（≈¥150/$）。
 //   最も重いコール = 🧠 マイ読書脳（最大 ~80 メモを RAG コンテキストに同梱、
 //   出力上限 2048 tok）。worst-case で 入力 ~30K tok + 出力 2K tok ≈ $0.12 ≈ ¥18。
 //   典型コールはこれよりずっと小さい（¥2〜6）。
