@@ -48,17 +48,32 @@ export const getCoverCandidates = (isbn) => {
   const i13 = normalizeIsbn(isbn);
   const i10 = isbn13to10(i13);
   const list = [];
-  // Google Books のサムネは zoom=1 で 128×180-210 の JPEG を返す。本が無い時は
-  // 128×170 の小さい PNG プレースホルダー (`No cover available`) になる —
-  // checkImageExists の h/w 閾値 (>= 1.35) で弾く。
+  // 並び順 = 「鍵不要・レート制限なし・和書カバー率が高い」順。各 URL は
+  // checkImageExists が <img> ロードで実在検証する（1×1 / 平たいプレースホルダーは
+  // 弾く）ので、存在しない本のダミー画像が cover に保存されることはない。
+  //
+  // ① NDL（国立国会図書館）書影 — 和書のカバー率が非常に高く、鍵不要・無制限。
+  //    登録の無い本は 404 か 1×1 を返すので checkImageExists が安全に弾く。
+  if (i13) {
+    list.push(`https://ndlsearch.ndl.go.jp/thumbnail/${i13}.jpg`);
+  }
+  // ② openBD — 和書書影の定番（一時的に CloudFront 404 を返す時期があったが、
+  //    生きていれば高品質。死んでいても checkImageExists が弾くだけで無害）。
+  if (i13) {
+    list.push(`https://cover.openbd.jp/${i13}.jpg`);
+  }
+  // ③ Open Library — 鍵不要・無制限。?default=false で未登録時は 404（誤検出防止）。
+  if (i13) {
+    list.push(`https://covers.openlibrary.org/b/isbn/${i13}-L.jpg?default=false`);
+  }
+  // ④ Google Books コンテンツ URL（無料だが匿名はレート制限 429 になりやすい）。
   if (i13) {
     list.push(`https://books.google.com/books/content?vid=ISBN${i13}&printsec=frontcover&img=1&zoom=1`);
   }
+  // ⑤⑥ Amazon の書影 CDN（ISBN-10 ベース。新旧ホスト両方を試す）。
   if (i10) {
+    list.push(`https://m.media-amazon.com/images/P/${i10}.09._SCLZZZZZZZ_.jpg`);
     list.push(`https://images-na.ssl-images-amazon.com/images/P/${i10}.09.LZZZZZZZ.jpg`);
-  }
-  if (i13) {
-    list.push(`https://cover.openbd.jp/${i13}.jpg`);
   }
   return list;
 };

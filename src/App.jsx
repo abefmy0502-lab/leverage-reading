@@ -3487,27 +3487,10 @@ function AuthedApp() {
         }
       } catch { /* 失敗しても OK — bg resolver が title/author だけでも解決を試みる */ }
     }
-    // ★ 同期的に表紙を解決 — `tryCoverForIsbn` は `checkImageExists` でプレース
-    //   ホルダー (128×170 PNG / 1×1 dummy) を弾いてから URL を返すので、保存
-    //   される cover は実在検証済み。失敗時は cover='' のままにして、本棚は
-    //   カラフルグラデーション placeholder を出す (placeholder URL を保存する
-    //   よりずっと良い体験)。
-    //
-    //   ここで await するのは: bg resolver は fire-and-forget で完了通知が
-    //   無いため、ユーザーが「本棚に追加できた」と認識した時点で表紙が
-    //   入っている方が嬉しい。レイテンシは 1〜2 秒 (checkImageExists が
-    //   各 URL を画像ロードで確認)。
-    if (!newBook.cover && newBook.isbn) {
-      try {
-        const url = await tryCoverForIsbn(newBook.isbn);
-        if (url) {
-          newBook.cover = url;
-          newBook.coverIsbn = String(newBook.isbn).replace(/[-\s]/g, '');
-        }
-      } catch {
-        /* 同期表紙解決の失敗は非クリティカル。bg resolver に委ねる。 */
-      }
-    }
+    // 表紙は保存後に resolveCoverInBackground（Google Books サムネ → NDL/openBD/
+    // OpenLibrary/Amazon の multi-source）で非同期に解決する。ここで同期 await
+    // すると候補を順に試す分だけ「追加」の体感が遅くなるため、即保存→裏で解決に
+    // 統一（解決できるまで本棚はグラデーション placeholder を出す）。
     try {
       const saved = await saveBook(newBook);
       // 📊 AI 選書経由の本追加（PII なし・via の enum だけ）。
@@ -3545,12 +3528,27 @@ function AuthedApp() {
     if (!saved.title && !saved.isbn) return;
     (async () => {
       try {
-        const r = await fullyResolveCover(
-          { title: saved.title, author: saved.author, isbn: saved.isbn },
-          findIsbnCandidates,
-        );
-        if (r.url) {
-          await saveBook({ ...saved, cover: r.url, coverIsbn: r.isbn || '' });
+        let url = '';
+        let coverIsbn = '';
+        // ① Google Books の検証済みサムネ（取り直しボタンと同じ強い経路）
+        try {
+          const gb = await findCoverFromGoogleBooks({
+            title: saved.title,
+            author: saved.author,
+            isbn: saved.isbn,
+          });
+          if (gb) { url = gb; coverIsbn = saved.isbn || ''; }
+        } catch { /* 次へ */ }
+        // ② ISBN ベース multi-source（NDL / openBD / Open Library / Google / Amazon）
+        if (!url) {
+          const r = await fullyResolveCover(
+            { title: saved.title, author: saved.author, isbn: saved.isbn },
+            findIsbnCandidates,
+          );
+          if (r.url) { url = r.url; coverIsbn = r.isbn || ''; }
+        }
+        if (url) {
+          await saveBook({ ...saved, cover: url, coverIsbn });
         }
       } catch (e) {
         // eslint-disable-next-line no-console
