@@ -184,6 +184,10 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, memo, book }),
   });
+  // 長文メモ（AI 選書のヒアリング Q&A など）はタイムラインで畳んでおき、
+  // 「もっと見る」で展開。カード内スクロールの読みづらさを解消。
+  const [expanded, setExpanded] = useState(false);
+  const isLongText = (memo.text || '').length > 140;
 
   const cardStyle = {
     ...cardBase,
@@ -231,20 +235,36 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
         <span style={{ ...pill, display: 'inline-block', marginTop: 6 }}>P.{memo.pageNumber}</span>
       )}
       {memo.text && (
-        <p
-          style={{
-            fontSize: 13,
-            color: '#4a4036',
-            lineHeight: 1.8,
-            whiteSpace: 'pre-wrap',
-            margin: '8px 0 0',
-            maxHeight: 300,
-            overflowY: 'auto',
-            paddingRight: 6,
-          }}
-        >
-          {memo.text}
-        </p>
+        <>
+          <p
+            style={{
+              fontSize: 13,
+              color: '#4a4036',
+              lineHeight: 1.8,
+              whiteSpace: 'pre-wrap',
+              margin: '8px 0 0',
+              ...(isLongText && !expanded
+                ? {
+                    display: '-webkit-box',
+                    WebkitLineClamp: 6,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }
+                : {}),
+            }}
+          >
+            {memo.text}
+          </p>
+          {isLongText && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+              style={{ background: 'none', border: 'none', padding: '4px 0 0', marginTop: 2, fontSize: 12, fontWeight: 600, color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              {expanded ? '閉じる' : 'もっと見る'}
+            </button>
+          )}
+        </>
       )}
       {memo.photoPath && <MemoPhoto path={memo.photoPath} />}
       {visibleTags.length > 0 && (

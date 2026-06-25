@@ -282,12 +282,11 @@ export default function BookshelfSummary({ books, onClick }) {
     <p style={wrap} aria-label={text}>{text}</p>
   );
 
-  if (!showProgress) return line;
-
-  return (
-    <div>
-      <QuietProgress doneTotal={stats.doneTotal} trend={trend} />
-      {line}
-    </div>
-  );
+  // 累計パネルを出すときは「今月: 読了X/読書中Y/積読Z」の重複行を出さない。
+  // 読了の推移はパネルの月別グラフに、読書中/積読の数はステータスのフィルタ
+  // ピル（読書中(3)/積読(1)…）に既に出ているため、二重表示はノイズになる。
+  if (showProgress) {
+    return <QuietProgress doneTotal={stats.doneTotal} trend={trend} />;
+  }
+  return line;
 }
