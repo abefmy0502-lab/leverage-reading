@@ -2420,11 +2420,12 @@ function BottomNav({ tab, setTab, hidden = false }) {
       aria-hidden={hidden ? 'true' : undefined}
       style={{
         flexShrink: 0,
-        background: "var(--color-surface)",
-        boxShadow: "var(--shadow-1)",
+        // iOS タブバー風: 半透明＋うっすらブラー＋極細ヘアライン。
+        background: "rgba(250, 247, 242, 0.92)",
+        backdropFilter: "saturate(180%) blur(12px)",
+        WebkitBackdropFilter: "saturate(180%) blur(12px)",
+        borderTop: "0.5px solid rgba(60, 48, 30, 0.12)",
         display: "flex",
-        // border-top は入力欄側に持たせて二重表示を避ける。AI 入力欄を
-        // 表示していない画面でも、本棚→ナビは色 / shadow で十分仕切れる。
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
@@ -2456,9 +2457,9 @@ function BottomNav({ tab, setTab, hidden = false }) {
               transition: "color var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out)",
             }}
           >
-            <Icon size={22} strokeWidth={active ? 2 : 1.6} aria-hidden="true" />
-            <span style={{ fontSize: "var(--type-caption)", fontWeight: active ? "var(--weight-semibold)" : "var(--weight-medium)" }}>{t.label}</span>
-            {active && <div style={{ position: "absolute", top: 0, left: "25%", right: "25%", height: 2, background: "var(--color-accent)", borderRadius: 1 }} />}
+            <Icon size={24} strokeWidth={active ? 2.2 : 1.7} aria-hidden="true" />
+            <span style={{ fontSize: 10.5, letterSpacing: "0.02em", fontWeight: active ? "var(--weight-semibold)" : "var(--weight-medium)" }}>{t.label}</span>
+            {/* iOS タブバーはアクセントバーを使わず、アイコン/ラベルの色で示す。 */}
           </button>
         );
       })}
@@ -4557,10 +4558,12 @@ function AuthedApp() {
               border: "none",
               background: "var(--color-accent-strong)",
               color: "var(--color-text-inverse)",
-              fontSize: 28,
+              fontSize: 26,
+              fontWeight: 300,
               lineHeight: 1,
               cursor: "pointer",
-              boxShadow: "var(--shadow-fab)",
+              // ブランド色で色付けした、やわらかく上質な浮遊シャドウ。
+              boxShadow: "0 6px 18px rgba(93, 74, 40, 0.30), 0 2px 6px rgba(93, 74, 40, 0.18)",
               zIndex: 600,
               fontFamily: "inherit",
             }}
@@ -5673,11 +5676,11 @@ export default function App() {
 // `--color-surface` (legacy alias) は dark mode でも light のまま。新しい
 // `--color-bg-secondary` を使うと部分的に dark mode が走った時に
 // 入力欄だけ黒くなる問題が起きるため、常に light な surface を使う。
-const inp = { width: "100%", padding: "10px 12px", fontSize: 16, border: "1px solid var(--color-separator)", borderRadius: "var(--radius-sm)", background: "var(--color-surface)", outline: "none", color: "var(--color-label)", fontFamily: "inherit" };
+const inp = { width: "100%", padding: "12px 14px", fontSize: 16, border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", background: "var(--color-surface)", outline: "none", color: "var(--color-label)", fontFamily: "inherit" };
 const ta = { ...inp, resize: "vertical", lineHeight: "var(--leading-relaxed)" };
 const lnk = { background: "none", border: "none", color: "var(--color-tertiary)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: "11px 8px", margin: "-11px -8px", minHeight: 44, display: "inline-flex", alignItems: "center" };
-const btnS = { padding: "10px 0", borderRadius: "var(--radius-sm)", border: "none", background: "var(--color-accent-strong)", color: "var(--color-text-inverse)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, letterSpacing: 1 };
-const btnO = { padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-tertiary)", cursor: "pointer", fontFamily: "inherit", fontSize: 14 };
+const btnS = { padding: "12px 0", borderRadius: "var(--radius-lg)", border: "none", background: "var(--color-accent-strong)", color: "var(--color-text-inverse)", cursor: "pointer", fontFamily: "inherit", fontSize: 15, fontWeight: 600, letterSpacing: "0.01em", boxShadow: "0 1px 2px rgba(60,48,30,0.18)" };
+const btnO = { padding: "12px 0", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", background: "transparent", color: "var(--color-secondary)", cursor: "pointer", fontFamily: "inherit", fontSize: 15 };
 const aiB = { width: "100%", padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px dashed #c4b8a6", background: "var(--color-accent-soft)", color: "#6b5d4f", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: "var(--weight-medium)" };
 const navBtn = { padding: "10px 24px", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-secondary)", cursor: "pointer", fontFamily: "inherit", fontSize: 13 };
 const closeBtn = { background: "none", border: "none", fontSize: 20, color: "var(--color-tertiary)", cursor: "pointer" };

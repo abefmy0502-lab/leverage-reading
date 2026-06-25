@@ -122,16 +122,18 @@ const sectionNoteStyle = { fontSize: 11, color: '#6b5f4d', margin: 0, lineHeight
 
 const btnPrimary = {
   width: '100%',
-  padding: '12px 18px',
-  borderRadius: 10,
+  padding: '13px 18px',
+  borderRadius: 14,
   border: 'none',
   background: '#5c5043',
   color: '#faf6f0',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  fontSize: 14,
-  letterSpacing: 1,
-  minHeight: 44,
+  fontSize: 15,
+  fontWeight: 600,
+  letterSpacing: '0.01em',
+  minHeight: 48,
+  boxShadow: '0 1px 2px rgba(60, 48, 30, 0.18)',
 };
 
 const btnDanger = { ...btnPrimary, background: '#a05040' };
