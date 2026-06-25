@@ -81,7 +81,8 @@ function ToastItem({ toast, onDismiss, onAction }) {
         color: p.fg,
         border: `1px solid ${p.border}`,
       }}
-      role="status"
+      role={toast.type === 'error' ? 'alert' : 'status'}
+      aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
     >
       <span aria-hidden="true" style={{ fontSize: 14, flexShrink: 0 }}>{p.icon}</span>
       <span style={{ flex: 1, whiteSpace: 'pre-line' }}>{toast.message}</span>

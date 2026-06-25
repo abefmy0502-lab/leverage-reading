@@ -44,7 +44,7 @@ const pill = (active, color = '#5c5043', bg = '#e8e0d2') => ({
   borderRadius: 999,
   border: active ? `1.5px solid ${color}` : '1px solid #d4ccbe',
   background: active ? bg : 'transparent',
-  color: active ? color : '#8a7e6b',
+  color: active ? color : '#6b5f4d',
   fontWeight: active ? 600 : 400,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -69,7 +69,7 @@ const kebabBtn = {
   height: 44,
   background: 'none',
   border: 'none',
-  color: '#a89e8c',
+  color: '#6b5f4d',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -237,7 +237,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
           <Target size={18} strokeWidth={1.75} aria-hidden="true" />
           ✅ 本から決めた次の行動を管理
         </h2>
-        <p style={{ fontSize: 12, color: '#8a7e6b', marginTop: 2, lineHeight: 1.7 }}>
+        <p style={{ fontSize: 12, color: '#6b5f4d', marginTop: 2, lineHeight: 1.7 }}>
           完了したらチェックを入れて、習慣化していきましょう
         </p>
       </div>
@@ -300,7 +300,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <div>
-                <div style={{ fontSize: 11, color: '#8a7e6b' }}>{periodLabel}の達成率</div>
+                <div style={{ fontSize: 11, color: '#6b5f4d' }}>{periodLabel}の達成率</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, lineHeight: 1.1 }}>
                   <AnimatedNumber value={period.rate} duration={700} />
                   <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
@@ -357,7 +357,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
 
       {/* Sort */}
       {stats.total > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#8a7e6b' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#6b5f4d' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span>並び順</span>
             <select
@@ -412,14 +412,10 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // 完了にする瞬間だけ成功ハプティクス。戻す時は軽いタップ感に
-                    // 留めて、過剰なお祝いにならないようにする。
-                    if (a.done) haptic.light();
-                    else {
-                      haptic.success();
-                      // 未完了→完了にトグルした瞬間だけ 1 回計測（PII なし・fire-and-forget）
-                      track(EVENTS.ACTION_COMPLETED);
-                    }
+                    // 未完了→完了の瞬間だけ計測（PII なし・fire-and-forget）。
+                    // ハプティクスは共通経路 applyActionToggle が becomingDone を見て
+                    // 一元発火する（ここで鳴らすと二重ブザーになるため鳴らさない）。
+                    if (!a.done) track(EVENTS.ACTION_COMPLETED);
                     onToggleAction?.(a.bookId, a.actionIdx);
                   }}
                   aria-label={a.done ? '未完了に戻す' : '完了にする'}

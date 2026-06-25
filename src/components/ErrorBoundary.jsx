@@ -58,7 +58,7 @@ export default class ErrorBoundary extends React.Component {
           <p style={{ fontSize: 14, color: '#5c5548', lineHeight: 1.8, margin: '0 0 8px', maxWidth: 360 }}>
             予期せぬエラーが発生しました。
           </p>
-          <p style={{ fontSize: 13, color: '#8a7e6b', lineHeight: 1.8, margin: '0 0 28px', maxWidth: 360 }}>
+          <p style={{ fontSize: 13, color: '#6b5f4d', lineHeight: 1.8, margin: '0 0 28px', maxWidth: 360 }}>
             ご不便をおかけして申し訳ございません。<br />
             お手数ですが、ホームに戻る か 再読み込み をお試しください。
           </p>
@@ -103,7 +103,7 @@ export default class ErrorBoundary extends React.Component {
             style={{
               marginTop: 24,
               fontSize: 12,
-              color: '#8a7e6b',
+              color: '#6b5f4d',
               textDecoration: 'underline',
             }}
           >

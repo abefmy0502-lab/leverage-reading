@@ -159,7 +159,7 @@ function LearningInline({ onCancel, onSaved }) {
 
       <div>
         <label style={{ fontSize: 12, color: '#5c5548', fontWeight: 500, display: 'block', marginBottom: 4 }}>カテゴリ</label>
-        <p style={{ fontSize: 10, color: '#a89e8c', margin: '0 0 6px' }}>気づきが生まれた場所を選んでください</p>
+        <p style={{ fontSize: 10, color: '#6b5f4d', margin: '0 0 6px' }}>気づきが生まれた場所を選んでください</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {CATEGORIES.map((c) => (
             <button
@@ -202,9 +202,9 @@ function LearningInline({ onCancel, onSaved }) {
         <label style={{ fontSize: 12, color: '#5c5548', fontWeight: 500, display: 'block', marginBottom: 4 }}>タグ（任意）</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
           {tags.map((t, i) => (
-            <span key={`${t}-${i}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#eae3d6', color: '#7a6e58', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+            <span key={`${t}-${i}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#eae3d6', color: '#6b5f4d', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
               {t}
-              <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', fontSize: 12, color: '#a89e8c', cursor: 'pointer', padding: 0 }}>×</button>
+              <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', fontSize: 12, color: '#6b5f4d', cursor: 'pointer', padding: 0 }}>×</button>
             </span>
           ))}
         </div>
@@ -667,12 +667,12 @@ export default function MyBookBrain({ onOpenBook }) {
 
             <div>
               <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>🕒 過去の質問と答え</p>
-              <p style={{ fontSize: 11, color: '#8a7e6b', margin: '2px 0 0', lineHeight: 1.7 }}>
+              <p style={{ fontSize: 11, color: '#6b5f4d', margin: '2px 0 0', lineHeight: 1.7 }}>
                 気になる質問は再度開いて、答えを見返せます
               </p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={{ fontSize: 12, color: '#8a7e6b', margin: 0 }}>会話 {messages.length} 件</p>
+              <p style={{ fontSize: 12, color: '#6b5f4d', margin: 0 }}>会話 {messages.length} 件</p>
               {messages.length > 0 && (
                 <button type="button" style={{ ...btnGhost, color: '#a05040', borderColor: '#c4a0a0' }} onClick={clearHistory}>
                   すべて削除
@@ -730,7 +730,7 @@ export default function MyBookBrain({ onOpenBook }) {
                   本棚で1冊えらび、気になった一行を残してみてください。メモが増えるほど、あなただけの AI に育っていきます。
                 </p>
                 {onOpenBook && (
-                  <p style={{ fontSize: 11, color: '#8a7e6b', margin: '10px 0 0', lineHeight: 1.7 }}>
+                  <p style={{ fontSize: 11, color: '#6b5f4d', margin: '10px 0 0', lineHeight: 1.7 }}>
                     （メモがたまると、ここで質問に答えられるようになります）
                   </p>
                 )}
@@ -762,7 +762,7 @@ export default function MyBookBrain({ onOpenBook }) {
                         fontFamily: 'inherit',
                       }}
                     >
-                      <span aria-hidden="true" style={{ color: '#a89e8c', flexShrink: 0 }}>›</span>
+                      <span aria-hidden="true" style={{ color: '#6b5f4d', flexShrink: 0 }}>›</span>
                       {ex}
                     </button>
                   ))}
@@ -809,7 +809,7 @@ export default function MyBookBrain({ onOpenBook }) {
                   <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>
                     解決しましたか？
                   </p>
-                  <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.7 }}>
+                  <p style={{ fontSize: 11, color: '#6b5f4d', margin: 0, lineHeight: 1.7 }}>
                     解決したらチャットをクリアして次の質問に集中できます。履歴タブからいつでも見返せます。
                   </p>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -968,7 +968,7 @@ function ChatMessage({ message, onOpenBook, stage }) {
         )}
         {!isUser && !isStreaming && message.refs?.length > 0 && (
           <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #d8d0c1' }}>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 5px', fontWeight: 600, letterSpacing: '0.02em' }}>
+            <p style={{ fontSize: 11, color: '#6b5f4d', margin: '0 0 5px', fontWeight: 600, letterSpacing: '0.02em' }}>
               📚 参照した本・メモ
             </p>
             <ul style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.75, margin: 0, paddingLeft: 16 }}>

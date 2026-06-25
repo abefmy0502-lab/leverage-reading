@@ -177,7 +177,7 @@ export default function AuthScreen() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'max(env(safe-area-inset-top, 0px), 20px) max(env(safe-area-inset-right, 0px), 20px) max(env(safe-area-inset-bottom, 0px), 20px) max(env(safe-area-inset-left, 0px), 20px)', textAlign: 'center' }}>
         <h1 style={{ fontSize: 20, color: '#3d362c', marginBottom: 12 }}>⚠️ 設定が未完了です</h1>
-        <p style={{ fontSize: 13, color: '#8a7e6b', lineHeight: 1.8, maxWidth: 360 }}>
+        <p style={{ fontSize: 13, color: '#6b5f4d', lineHeight: 1.8, maxWidth: 360 }}>
           Supabase の環境変数が設定されていません。<br />
           <code style={{ fontSize: 11 }}>VITE_SUPABASE_URL</code> と{' '}
           <code style={{ fontSize: 11 }}>VITE_SUPABASE_ANON_KEY</code> を設定してください。
@@ -199,7 +199,7 @@ export default function AuthScreen() {
             <strong style={{ wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛にメールを送りました。<br />
             メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。
           </p>
-          <p style={{ fontSize: 12, color: '#8a7e6b', lineHeight: 1.8, margin: '0 0 20px' }}>
+          <p style={{ fontSize: 12, color: '#6b5f4d', lineHeight: 1.8, margin: '0 0 20px' }}>
             数分待っても届かない場合は、<strong>迷惑メール / プロモーション</strong>フォルダもご確認ください。
           </p>
           {error && <p style={{ color: '#b75050', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}

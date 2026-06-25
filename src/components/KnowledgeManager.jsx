@@ -185,16 +185,16 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: badge.bg, color: badge.fg, fontWeight: 600 }}>
           {meta.icon} {meta.label}
         </span>
-        <span style={{ fontSize: 10, color: '#a89e8c' }}>{fmtDate(item.created_at)}</span>
+        <span style={{ fontSize: 10, color: '#6b5f4d' }}>{fmtDate(item.created_at)}</span>
       </div>
       {item.book && (
         <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 500, margin: '4px 0 2px' }}>
           {item.book.title || '（タイトル不明）'}
-          {item.book.author && <span style={{ fontSize: 11, color: '#9a8e7a', fontWeight: 400 }}>　{item.book.author}</span>}
+          {item.book.author && <span style={{ fontSize: 11, color: '#6b5f4d', fontWeight: 400 }}>　{item.book.author}</span>}
         </p>
       )}
       {(isCard && Number.isFinite(item.page_number)) || (isPersonal && category) ? (
-        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 4px' }}>
+        <p style={{ fontSize: 11, color: '#6b5f4d', margin: '0 0 4px' }}>
           {isCard && Number.isFinite(item.page_number) && <>P.{item.page_number}　</>}
           {isPersonal && category && <>カテゴリ: {category}</>}
         </p>
@@ -205,7 +205,7 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
       {visibleTags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
           {visibleTags.map((t) => (
-            <span key={t} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#f0ebe2', color: '#7a6e58' }}>#{t}</span>
+            <span key={t} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#f0ebe2', color: '#6b5f4d' }}>#{t}</span>
           ))}
         </div>
       )}
@@ -589,7 +589,7 @@ export default function KnowledgeManager({ onChanged }) {
       {/* Hero — 知識ベース全 9 カテゴリの集計を grid で表示 */}
       <div style={card}>
         <p style={{ fontSize: 14, fontWeight: 600, color: '#3d362c', margin: 0 }}>📚 マイ読書脳の知識ベース</p>
-        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '4px 0 12px', lineHeight: 1.7 }}>
+        <p style={{ fontSize: 11, color: '#6b5f4d', margin: '4px 0 12px', lineHeight: 1.7 }}>
           AI があなたの答えを作る時に参照する情報の一覧です。編集・削除すると、次回の答えに即座に反映されます。
         </p>
         <div
@@ -623,7 +623,7 @@ export default function KnowledgeManager({ onChanged }) {
               <div style={{ fontSize: 18, fontWeight: 800, color: '#5c5043', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                 {s.num}
               </div>
-              <div style={{ fontSize: 9.5, color: '#8a7e6b', marginTop: 4, letterSpacing: 0.02 }}>
+              <div style={{ fontSize: 9.5, color: '#6b5f4d', marginTop: 4, letterSpacing: 0.02 }}>
                 {s.label}
               </div>
             </div>
@@ -647,7 +647,7 @@ export default function KnowledgeManager({ onChanged }) {
         <button type="button" style={pill(filterKind === 'plan')} onClick={() => setFilterKind('plan')}>📊 計画</button>
         <button type="button" style={pill(filterKind === 'learning')} onClick={() => setFilterKind('learning')}>💡 学び</button>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a7e6b' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#6b5f4d' }}>
         <span>並び順</span>
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inp, width: 'auto', padding: '6px 10px' }}>
           <option value="newest">新しい順</option>
@@ -659,7 +659,7 @@ export default function KnowledgeManager({ onChanged }) {
 
       {/* List */}
       {loading ? (
-        <p style={{ fontSize: 12, color: '#a89e8c', textAlign: 'center', padding: 20 }}>読み込み中…</p>
+        <p style={{ fontSize: 12, color: '#6b5f4d', textAlign: 'center', padding: 20 }}>読み込み中…</p>
       ) : filtered.length === 0 ? (
         items.length === 0 ? (
           <EmptyState

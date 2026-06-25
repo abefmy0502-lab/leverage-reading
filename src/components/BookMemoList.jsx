@@ -119,6 +119,7 @@ function SummarySection({ bookId, summaryText, onSaveSummary }) {
   const [savedFlash, setSavedFlash] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const flashTimerRef = useRef(null);
+  const haptic = useHaptic();
 
   // Reset local text only when the underlying book changes,
   // so unsaved typing is preserved when toggling tabs.
@@ -139,12 +140,13 @@ function SummarySection({ bookId, summaryText, onSaveSummary }) {
     setErrorMsg('');
     try {
       await onSaveSummary(text);
+      haptic.success();
       setSavedFlash(true);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => setSavedFlash(false), 1000);
     } catch (e) {
       console.error('summary save error', e);
-      setErrorMsg(e?.message || 'まとめメモの保存に失敗しました。');
+      setErrorMsg(toMessage(e, 'まとめメモの保存に失敗しました。'));
     } finally {
       setSaving(false);
     }
@@ -156,7 +158,7 @@ function SummarySection({ bookId, summaryText, onSaveSummary }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div>
         <p style={{ fontSize: 13, color: '#5c5548', fontWeight: 600, margin: 0 }}>まとめメモ</p>
-        <p style={{ fontSize: 11, color: '#a89e8c', margin: '2px 0 8px', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 11, color: '#6b5f4d', margin: '2px 0 8px', lineHeight: 1.6 }}>
           本全体の感想・学びを自由に書く欄です。
         </p>
       </div>
@@ -368,7 +370,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         border: '1px dashed #d4ccbe',
         borderRadius: 10,
         fontSize: 12,
-        color: '#8a7e6b',
+        color: '#6b5f4d',
         lineHeight: 1.7,
       }}
     >
@@ -410,7 +412,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           <p style={{ fontSize: 13, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>
             読みながら気になった一行を、ひとつ残してみましょう。
           </p>
-          <p style={{ fontSize: 11, color: '#a89e8c', margin: '6px 0 0', lineHeight: 1.7 }}>
+          <p style={{ fontSize: 11, color: '#6b5f4d', margin: '6px 0 0', lineHeight: 1.7 }}>
             残した一行は、あとで「振り返り」の想起として、ふいに戻ってきます。
           </p>
         </div>
@@ -422,7 +424,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           <p style={{ fontSize: 13, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>
             ページ番号付きのメモがまだありません。
           </p>
-          <p style={{ fontSize: 11, color: '#a89e8c', margin: '6px 0 0', lineHeight: 1.7 }}>
+          <p style={{ fontSize: 11, color: '#6b5f4d', margin: '6px 0 0', lineHeight: 1.7 }}>
             メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。
           </p>
         </div>
@@ -493,7 +495,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         border: '1px dashed #d4ccbe',
         borderRadius: 10,
         fontSize: 12,
-        color: '#8a7e6b',
+        color: '#6b5f4d',
         lineHeight: 1.7,
       }}
     >

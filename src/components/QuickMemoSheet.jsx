@@ -237,7 +237,7 @@ export default function QuickMemoSheet({
             ✕
           </button>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontSize: 11, color: '#a89e8c', margin: 0 }}>クイックメモ</p>
+            <p style={{ fontSize: 11, color: '#6b5f4d', margin: 0 }}>クイックメモ</p>
             <p
               style={{
                 fontSize: 14,

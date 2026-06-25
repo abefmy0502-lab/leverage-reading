@@ -29,7 +29,7 @@ const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: 
 const cardBase = { background: '#faf6f0', border: '1px solid #e4ddd0', borderRadius: 12, padding: '12px 14px' };
 const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #d4ccbe', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
 const btnGhost = { padding: '8px 14px', borderRadius: 8, border: '1px solid #d4ccbe', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, minHeight: 36 };
-const pill = { fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#eae3d6', color: '#7a6e58' };
+const pill = { fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#eae3d6', color: '#6b5f4d', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
 // relativeJa / recallFraming は src/lib/recall.js に切り出して
 // サーバー（api/push-cron.js の想起通知）と文言を共有している。
@@ -166,7 +166,7 @@ function MemoPhoto({ path }) {
   return (
     <img
       src={ensureHttps(url)}
-      alt="memo"
+      alt="メモの写真"
       style={{ width: '70%', maxHeight: 240, objectFit: 'cover', borderRadius: 8, border: '1px solid #e4ddd0', marginTop: 6 }}
     />
   );
@@ -212,7 +212,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
             <span style={{ fontSize: 11, color: '#5c5548' }}>・{category}</span>
           )}
         </div>
-        <span style={{ fontSize: 10, color: '#a89e8c', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 10, color: '#6b5f4d', whiteSpace: 'nowrap' }}>
           {showRelative ? relativeJa(memo.createdAt) : fmtDate(memo.createdAt)}
         </span>
       </div>
@@ -224,7 +224,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
           style={{ background: 'none', border: 'none', padding: 0, marginTop: 6, fontSize: 12, fontWeight: 500, color: '#5c5043', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
           📖 {book?.title || '（本のデータが見つかりません）'}
-          {book?.author && <span style={{ color: '#9a8e7a', marginLeft: 6 }}>{book.author}</span>}
+          {book?.author && <span style={{ color: '#6b5f4d', marginLeft: 6 }}>{book.author}</span>}
         </button>
       )}
       {memo.pageNumber != null && !isPersonal && (
@@ -608,14 +608,14 @@ export default function Review({ books = [], onOpenBook }) {
             ↻ 別のメモを見る
           </button>
         </div>
-        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+        <p style={{ fontSize: 11, color: '#6b5f4d', margin: '0 0 10px', lineHeight: 1.7 }}>
           偶然の再会で、忘れていた気づきを呼び戻します
         </p>
         {allNotes.length <= 3 && (
           <p
             style={{
               fontSize: 11,
-              color: '#8a7e6b',
+              color: '#6b5f4d',
               background: '#f4efe7',
               border: '1px solid #e4ddd0',
               borderRadius: 10,
@@ -632,7 +632,7 @@ export default function Review({ books = [], onOpenBook }) {
             style={{
               fontSize: 12,
               fontWeight: 600,
-              color: '#7a6e58',
+              color: '#6b5f4d',
               margin: '0 0 8px',
             }}
           >
@@ -657,13 +657,13 @@ export default function Review({ books = [], onOpenBook }) {
             />
           </div>
         )}
-        <p style={{ fontSize: 10, color: '#a89e8c', marginTop: 6, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 10, color: '#6b5f4d', marginTop: 6, lineHeight: 1.6 }}>
           忘れかけていた気づきを思い出す習慣で、本の内容が定着します。
         </p>
         <p
           style={{
             fontSize: 12,
-            color: '#8a7e6b',
+            color: '#6b5f4d',
             fontStyle: 'italic',
             textAlign: 'center',
             marginTop: 12,
@@ -679,7 +679,7 @@ export default function Review({ books = [], onOpenBook }) {
       {/* ===== 2. タイムライン ===== */}
       <section>
         <h2 style={sectionTitle}>📅 タイムライン</h2>
-        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+        <p style={{ fontSize: 11, color: '#6b5f4d', margin: '0 0 10px', lineHeight: 1.7 }}>
           時系列で読書の軌跡を振り返る。3 ヶ月前・半年前の自分の気づきを見返してみましょう。
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -705,7 +705,7 @@ export default function Review({ books = [], onOpenBook }) {
                   <span style={{ fontSize: 13, color: '#3d362c', fontWeight: 500 }}>
                     {monthLabel(key)}
                   </span>
-                  <span style={{ fontSize: 11, color: '#8a7e6b' }}>
+                  <span style={{ fontSize: 11, color: '#6b5f4d' }}>
                     {group.length} 件 {open ? '▾' : '▸'}
                   </span>
                 </button>
@@ -732,7 +732,7 @@ export default function Review({ books = [], onOpenBook }) {
       {/* ===== 3. 全メモ検索 ===== */}
       <section ref={searchSectionRef}>
         <h2 style={sectionTitle}>🔎 すべての本のメモを横断検索</h2>
-        <p style={{ fontSize: 11, color: '#8a7e6b', margin: '0 0 10px', lineHeight: 1.7 }}>
+        <p style={{ fontSize: 11, color: '#6b5f4d', margin: '0 0 10px', lineHeight: 1.7 }}>
           例：「決断」「習慣」「営業」など、気になるキーワードを入れてみてください
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
@@ -799,17 +799,17 @@ export default function Review({ books = [], onOpenBook }) {
           </div>
         </div>
         {!isSearching ? (
-          <p style={{ fontSize: 11, color: '#a89e8c', textAlign: 'center', padding: '12px 0' }}>
+          <p style={{ fontSize: 11, color: '#6b5f4d', textAlign: 'center', padding: '12px 0' }}>
             検索ワードまたはフィルタを指定すると結果が表示されます。
           </p>
         ) : filteredSearch.length === 0 ? (
-          <p style={{ fontSize: 12, color: '#8a7e6b', textAlign: 'center', padding: '14px 0', lineHeight: 1.7 }}>
+          <p style={{ fontSize: 12, color: '#6b5f4d', textAlign: 'center', padding: '14px 0', lineHeight: 1.7 }}>
             このキーワードに関連するメモはまだありません。<br />
             読書中・読了の本にメモを残すと、後から検索できます。
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0 }}>{filteredSearch.length} 件</p>
+            <p style={{ fontSize: 11, color: '#6b5f4d', margin: 0 }}>{filteredSearch.length} 件</p>
             {filteredSearch.map((m) => (
               <ReviewMemoCard
                 key={m.id}

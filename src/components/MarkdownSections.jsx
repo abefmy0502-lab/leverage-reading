@@ -282,7 +282,7 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
     <div style={relatedCardStyle}>
       <p style={{ fontSize: 13, fontWeight: 600, color: '#3d362c', margin: 0, lineHeight: 1.5 }}>
         📚 『{book.title}』
-        {book.author && <span style={{ fontSize: 11, color: '#8a7e6b', fontWeight: 400 }}> — {book.author}</span>}
+        {book.author && <span style={{ fontSize: 11, color: '#6b5f4d', fontWeight: 400 }}> — {book.author}</span>}
       </p>
       {description && (
         <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
@@ -381,7 +381,7 @@ export default function MarkdownSections({ text, density = 'normal', onAddRelate
             {s.heading && <h3 style={headingStyle}>{s.heading}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && (
-              <small style={{ display: 'block', fontSize: 10, color: '#a89e8c', lineHeight: 1.6, marginTop: 8 }}>
+              <small style={{ display: 'block', fontSize: 10, color: '#6b5f4d', lineHeight: 1.6, marginTop: 8 }}>
                 {AMAZON_DISCLOSURE_TEXT}
               </small>
             )}

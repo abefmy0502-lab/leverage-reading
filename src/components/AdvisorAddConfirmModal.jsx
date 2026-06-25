@@ -136,7 +136,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
               『{original.title}』
             </p>
             {original.author && (
-              <p style={{ fontSize: 11, color: '#8a7e6b', margin: '2px 0 0' }}>{original.author}</p>
+              <p style={{ fontSize: 11, color: '#6b5f4d', margin: '2px 0 0' }}>{original.author}</p>
             )}
           </div>
 
@@ -183,7 +183,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: 18,
-                        color: '#a89e8c',
+                        color: '#6b5f4d',
                         border: '1px dashed #d4ccbe',
                       }}
                     >
@@ -195,15 +195,15 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
                       {c.title}
                     </p>
                     {c.author && (
-                      <p style={{ fontSize: 11, color: '#8a7e6b', margin: '2px 0 0' }}>{c.author}</p>
+                      <p style={{ fontSize: 11, color: '#6b5f4d', margin: '2px 0 0' }}>{c.author}</p>
                     )}
                     {(c.publisher || c.pubYear) && (
-                      <p style={{ fontSize: 10, color: '#a89e8c', margin: '2px 0 0' }}>
+                      <p style={{ fontSize: 10, color: '#6b5f4d', margin: '2px 0 0' }}>
                         {[c.publisher, c.pubYear].filter(Boolean).join(' · ')}
                       </p>
                     )}
                     {c.isbn && (
-                      <p style={{ fontSize: 9, color: '#a89e8c', margin: '4px 0 0', fontFamily: 'monospace' }}>
+                      <p style={{ fontSize: 9, color: '#6b5f4d', margin: '4px 0 0', fontFamily: 'monospace' }}>
                         ISBN {c.isbn}
                       </p>
                     )}
@@ -218,7 +218,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
             })}
           </div>
 
-          <p style={{ fontSize: 11, color: '#8a7e6b', margin: 0, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 11, color: '#6b5f4d', margin: 0, lineHeight: 1.6 }}>
             💡 該当する本がここに無い場合は「キャンセル」して、本棚の「+ 本を追加」から検索してください。
           </p>
         </div>
