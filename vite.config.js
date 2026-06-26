@@ -40,5 +40,20 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
+    // 800KB 超の単一バンドルを「滅多に変わらない vendor」と「アプリ本体」に分割。
+    // vendor はデプロイ間でハッシュが変わらず長期キャッシュが効くので、更新時の
+    // 再ダウンロード量が激減し、初回も並列ロードで体感が速くなる。
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/[\\/]react(-dom)?[\\/]|[\\/]scheduler[\\/]/.test(id)) return 'vendor-react';
+          if (id.includes('@supabase')) return 'vendor-supabase';
+          if (id.includes('lucide-react')) return 'vendor-icons';
+          return 'vendor';
+        },
+      },
+    },
+    chunkSizeWarningLimit: 700,
   },
 });

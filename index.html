@@ -20,11 +20,11 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
-  <!-- LP の serif 見出し / sans 本文用フォント。CSP は fonts.googleapis.com /
-       fonts.gstatic.com を既に許可済み。 -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- フォントは OS 標準（-apple-system / Hiragino Sans・Mincho 等）に全面移行済み。
+       かつて読み込んでいた Google Fonts の Noto Serif JP(和文・数MB級) + Inter は
+       レンダーブロッキングで初回表示を大きく遅らせていたため撤去。
+       LP / 法務ページの serif 見出しは landing.css/legal.css の OS mincho フォール
+       バック(Yu Mincho / Hiragino Mincho ProN)で同等の見た目を保つ（ダウンロード 0）。 -->
   <title>Orime｜読書を、行動に変える読書メモ</title>
   <!--
     Global styles, design tokens, and animation keyframes live in
