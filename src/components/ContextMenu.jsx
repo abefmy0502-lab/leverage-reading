@@ -10,7 +10,7 @@ const PANEL_MARGIN = 12;
 const backdrop = {
   position: 'fixed',
   inset: 0,
-  zIndex: 880,
+  zIndex: 'var(--z-popover)',
   background: 'rgba(30, 25, 20, 0.18)',
   WebkitBackdropFilter: 'blur(2px)',
   backdropFilter: 'blur(2px)',

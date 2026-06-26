@@ -53,7 +53,7 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9000,
+        zIndex: 'var(--z-splash)',
         background: '#EDE0CA',
         display: 'flex',
         flexDirection: 'column',

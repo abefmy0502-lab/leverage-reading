@@ -61,7 +61,7 @@ export function clearOnboardingCompletion() {
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
-  zIndex: 800,
+  zIndex: 'var(--z-overlay)',
   background: 'rgba(30,25,20,0.55)',
   backdropFilter: 'blur(4px)',
   display: 'flex',

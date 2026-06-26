@@ -60,7 +60,7 @@ const overlayStyle = {
   top: 'env(safe-area-inset-top, 0px)',
   left: 0,
   right: 0,
-  zIndex: 999,
+  zIndex: 'var(--z-banner)',
   background: 'linear-gradient(135deg, #5C4A2E, #8B6F47)',
   color: '#fff',
   padding: '12px 16px',

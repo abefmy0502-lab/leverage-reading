@@ -37,7 +37,7 @@ import {
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
-  zIndex: 880,
+  zIndex: 'var(--z-popover)',
   background: 'rgba(30,25,20,0.45)',
   backdropFilter: 'blur(3px)',
   display: 'flex',

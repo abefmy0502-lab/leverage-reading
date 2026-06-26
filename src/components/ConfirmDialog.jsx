@@ -6,7 +6,7 @@ const ConfirmContext = createContext({ confirm: async () => false });
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
-  zIndex: 10000,
+  zIndex: 'var(--z-confirm)',
   background: 'rgba(30,25,20,0.45)',
   backdropFilter: 'blur(3px)',
   display: 'flex',

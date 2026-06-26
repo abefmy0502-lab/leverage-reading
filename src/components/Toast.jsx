@@ -24,7 +24,7 @@ const containerStyle = {
   display: 'flex',
   flexDirection: 'column',
   gap: 8,
-  zIndex: 1000,
+  zIndex: 'var(--z-toast)',
   width: 'min(420px, calc(100vw - 24px))',
   pointerEvents: 'none',
 };
