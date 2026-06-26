@@ -902,6 +902,46 @@ const STAGE_LABEL = {
   generate: '🧠 あなた専用の回答を生成中…',
 };
 
+// **bold** の軽量インラインパーサ。
+function renderBoldInline(text) {
+  const parts = [];
+  let cursor = 0;
+  const re = /\*\*([^*]+)\*\*/g;
+  let m;
+  let i = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > cursor) parts.push(text.slice(cursor, m.index));
+    parts.push(<strong key={i} style={{ color: '#1f1b14' }}>{m[1]}</strong>);
+    cursor = m.index + m[0].length;
+    i += 1;
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts.length ? parts : text;
+}
+
+// マイ読書脳の回答（【結論】【参照した本のメモ】…の構造）を、素のテキストダンプ
+// ではなく「設計された回答」に見せる。【】の見出しは小さなアクセントのラベルに、
+// 本文は読みやすい段落に。** は太字化。空行は余白で吸収。
+function FormattedAnswer({ text }) {
+  const lines = (text || '').split('\n');
+  const out = [];
+  lines.forEach((line, idx) => {
+    const h = line.match(/^【(.+?)】\s*(.*)$/);
+    if (h) {
+      out.push(
+        <p key={`h${idx}`} style={{ fontSize: 10.5, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: out.length ? '13px 0 0' : 0 }}>
+          {h[1]}
+        </p>,
+      );
+      if (h[2]) out.push(<p key={`b${idx}`} style={{ margin: '3px 0 0', lineHeight: 1.85 }}>{renderBoldInline(h[2])}</p>);
+      return;
+    }
+    if (!line.trim()) return;
+    out.push(<p key={`p${idx}`} style={{ margin: '4px 0 0', lineHeight: 1.85 }}>{renderBoldInline(line)}</p>);
+  });
+  return <>{out}</>;
+}
+
 function ChatMessage({ message, onOpenBook, stage }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
@@ -956,16 +996,22 @@ function ChatMessage({ message, onOpenBook, stage }) {
               <div className="ai-skeleton-line" style={{ width: '62%' }} />
             </div>
           </div>
-        ) : (
+        ) : isUser ? (
+          message.content
+        ) : isStreaming ? (
           <>
             {message.content}
-            {isStreaming && hasBody && <span className="streaming-cursor" aria-hidden="true" />}
+            {hasBody && <span className="streaming-cursor" aria-hidden="true" />}
           </>
+        ) : (
+          // 完了した回答は構造化して「設計された回答」に。ストリーミング中は
+          // 途中の【】を誤組みしないよう素の本文のまま流す。
+          <FormattedAnswer text={message.content} />
         )}
         {!isUser && !isStreaming && message.refs?.length > 0 && (
           <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #d8d0c1' }}>
-            <p style={{ fontSize: 11, color: '#5a4f3e', margin: '0 0 5px', fontWeight: 600, letterSpacing: '0.02em' }}>
-              📚 参照した本・メモ
+            <p style={{ fontSize: 10.5, color: '#8a7c5f', margin: '0 0 6px', fontWeight: 700, letterSpacing: '0.06em' }}>
+              参照した本・メモ
             </p>
             <ul style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.75, margin: 0, paddingLeft: 16 }}>
               {message.refs.map((r, i) => (
