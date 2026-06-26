@@ -33,18 +33,18 @@ import { BarChart3, Sparkles, Square } from 'lucide-react';
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
 const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' };
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '14px 16px 28px' };
-const card = { background: '#fffdf8', border: '1px solid #ece5d9', borderRadius: 12, padding: '14px 16px' };
-const inp = { width: '100%', padding: '11px 12px', fontSize: 16, border: '1px solid #e0d8ca', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
-const btnPrimary = { minHeight: 44, padding: '12px 20px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#fffdf8', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
-const btnGhost = { minHeight: 44, padding: '10px 14px', borderRadius: 10, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 };
+const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '14px 16px' };
+const inp = { width: '100%', padding: '11px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
+const btnPrimary = { minHeight: 44, padding: '12px 20px', borderRadius: 10, border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
+const btnGhost = { minHeight: 44, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 };
 const pill = (active) => ({
   flex: '0 0 auto',
   whiteSpace: 'nowrap',
   minHeight: 36,
   padding: '6px 12px',
   border: 'none',
-  background: active ? '#5c5043' : 'transparent',
-  color: active ? '#fffdf8' : '#5c5548',
+  background: active ? 'var(--c-brand)' : 'transparent',
+  color: active ? 'var(--c-card)' : 'var(--c-ink-soft)',
   fontSize: 13,
   fontWeight: active ? 600 : 500,
   cursor: 'pointer',
@@ -432,14 +432,14 @@ export default function ThemeReport() {
                       onClick={() => openHistoryReport(row)}
                       style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
                     >
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#3d362c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         📊 {row.theme}
                       </div>
-                      <div style={{ fontSize: 11, color: '#5a4f3e', marginTop: 2 }}>{fmtDate(row.generated_at)}</div>
+                      <div style={{ fontSize: 11, color: 'var(--c-ink-2)', marginTop: 2 }}>{fmtDate(row.generated_at)}</div>
                     </button>
                     <button
                       onClick={() => removeHistory(row)}
-                      style={{ ...btnGhost, minHeight: 36, padding: '6px 10px', color: '#a05040', borderColor: '#e0cabf' }}
+                      style={{ ...btnGhost, minHeight: 36, padding: '6px 10px', color: 'var(--c-critical)', borderColor: '#e0cabf' }}
                       aria-label={`「${row.theme}」のレポートを削除`}
                     >
                       🗑
@@ -464,8 +464,8 @@ export default function ThemeReport() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* report header */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <BarChart3 size={18} aria-hidden="true" style={{ color: '#5c5043' }} />
-                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#3d362c', margin: 0, flex: 1, minWidth: 0 }}>
+                <BarChart3 size={18} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+                <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--c-ink)', margin: 0, flex: 1, minWidth: 0 }}>
                   {activeTheme}
                 </h2>
                 {generating ? (
@@ -484,7 +484,7 @@ export default function ThemeReport() {
 
               {/* レバレッジメモ + 根拠スコープ */}
               {!notice && (
-                <div style={{ fontSize: 11, color: '#8a7d6a', margin: '-4px 0 2px', letterSpacing: '.02em' }}>
+                <div style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '-4px 0 2px', letterSpacing: '.02em' }}>
                   📐 レバレッジメモ
                   {scope && (scope.memoTotal > 0 || scope.bookCount > 0) && (
                     <> ・ 本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件を横断</>
@@ -499,7 +499,7 @@ export default function ThemeReport() {
                   style={{
                     ...card,
                     background: noticeKind === 'error' ? '#fbf2ee' : card.background,
-                    borderColor: noticeKind === 'error' ? '#e6c9bd' : card.border,
+                    borderColor: noticeKind === 'error' ? 'var(--c-critical-line)' : card.border,
                     display: 'flex',
                     gap: 10,
                   }}
@@ -507,7 +507,7 @@ export default function ThemeReport() {
                   <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1.5, flex: '0 0 auto' }}>
                     {noticeKind === 'error' ? '⚠️' : '📭'}
                   </span>
-                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: 13, color: '#5c5548', minWidth: 0 }}>
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: 13, color: 'var(--c-ink-soft)', minWidth: 0 }}>
                     {notice}
                   </div>
                 </div>
@@ -557,8 +557,8 @@ export default function ThemeReport() {
                   style={{
                     width: '100%', minHeight: 48, borderRadius: 13, border: 'none', fontFamily: 'inherit',
                     fontSize: 14, fontWeight: 700, cursor: actionBusy || actionAdded ? 'default' : 'pointer',
-                    background: actionAdded ? '#eef2e9' : '#5f7a55',
-                    color: actionAdded ? '#5f7a55' : '#fffdf8',
+                    background: actionAdded ? 'var(--c-positive-soft)' : 'var(--c-positive)',
+                    color: actionAdded ? 'var(--c-positive)' : 'var(--c-card)',
                     boxShadow: actionAdded ? 'none' : '0 1px 2px rgba(60,48,30,.18)',
                     opacity: actionBusy ? 0.6 : 1,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
@@ -576,11 +576,11 @@ export default function ThemeReport() {
               {/* 📈 前回からの変化（端末ローカル比較・あるときだけ） */}
               {!generating && !notice && reportText && delta && (
                 <div style={{ ...card, padding: '12px 14px' }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: '#3d362c', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--c-ink)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
                     📈 前回からの変化
-                    {delta.at && <span style={{ fontWeight: 500, color: '#8a7d6a', fontSize: 10.5 }}>（前回 {fmtDate(delta.at)}）</span>}
+                    {delta.at && <span style={{ fontWeight: 500, color: 'var(--c-ink-3)', fontSize: 10.5 }}>（前回 {fmtDate(delta.at)}）</span>}
                   </div>
-                  <div style={{ fontSize: 12.5, color: '#5a4f3e', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 12.5, color: 'var(--c-ink-2)', lineHeight: 1.6 }}>
                     {delta.book > 0 && <>本 +{delta.book} 冊　</>}
                     {delta.memo > 0 ? <>メモ +{delta.memo} 件を追加</> : delta.memo < 0 ? <>メモ {delta.memo} 件</> : <>新しい根拠が増えました</>}
                   </div>
@@ -627,22 +627,22 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
       {/* intro */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Sparkles size={18} aria-hidden="true" style={{ color: '#5c5043' }} />
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#3d362c', margin: 0 }}>
+          <Sparkles size={18} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
             あなたの読書が、1 枚のレバレッジメモに
           </h2>
         </div>
-        <p style={{ fontSize: 13, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
+        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
           テーマを選ぶと、その分野のメモを横断して<strong>「核心1行・繰り返す原則・次の一歩」</strong>に凝縮。さらに<strong>行動の鏡</strong>で実践度を映し、<strong>振り返り・通知</strong>に乗せて忘れた頃に呼び戻します。
         </p>
       </div>
 
       {/* detected theme chips */}
       <div>
-        <p style={{ fontSize: 12, fontWeight: 600, color: '#5c5548', margin: '0 0 8px' }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-soft)', margin: '0 0 8px' }}>
           📌 あなたのメモから見つけたテーマ
           {!themesLoading && themes.length > 0 && (
-            <span style={{ fontWeight: 500, color: '#5a4f3e' }}>（{themes.length}）</span>
+            <span style={{ fontWeight: 500, color: 'var(--c-ink-2)' }}>（{themes.length}）</span>
           )}
         </p>
         {themesLoading ? (
@@ -651,7 +651,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             <div className="ai-skeleton-line" style={{ width: '52%' }} />
           </div>
         ) : themes.length === 0 ? (
-          <p style={{ fontSize: 12, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
             まだ候補はありません。メモにタグや「@カテゴリ」を付けていくと、ここにあなただけのテーマが並びます。今は下の入力欄から自由にテーマを指定して始められます。
           </p>
         ) : (
@@ -672,7 +672,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                   borderRadius: 999,
                   border: '1px solid #e0d8c8',
                   background: '#fff',
-                  color: '#3d362c',
+                  color: 'var(--c-ink)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                   fontSize: 13,
@@ -710,7 +710,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
 
       {/* free-text theme */}
       <div style={card}>
-        <label htmlFor="theme-custom" style={{ fontSize: 12, fontWeight: 600, color: '#5c5548', display: 'block', marginBottom: 8 }}>
+        <label htmlFor="theme-custom" style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-soft)', display: 'block', marginBottom: 8 }}>
           ✏️ テーマを自分で入力
         </label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -738,7 +738,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             📊 作成
           </button>
         </div>
-        <p style={{ fontSize: 11, color: '#5a4f3e', margin: '8px 0 0', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.6 }}>
           そのテーマのメモ（タグ・@カテゴリ・本文）と行動を集めて、1 枚のレバレッジメモにします。
         </p>
       </div>
@@ -752,17 +752,17 @@ function CoreCard({ line }) {
     <div
       style={{
         position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(180deg,#fffdf8,#fbf6ec)',
-        border: '1px solid #ece5d9', borderRadius: 16,
+        background: 'linear-gradient(180deg,var(--c-card),#fbf6ec)',
+        border: '1px solid var(--c-hairline)', borderRadius: 16,
         padding: '18px 18px 18px 22px', marginBottom: 14,
         boxShadow: '0 1px 3px rgba(60,48,30,.06)',
       }}
     >
-      <span aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'linear-gradient(180deg,#7d6e54,#5c5043)' }} />
-      <div style={{ fontSize: 10, fontWeight: 800, color: '#8a7d6a', letterSpacing: '.18em', marginBottom: 8 }}>
+      <span aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'linear-gradient(180deg,#7d6e54,var(--c-brand))' }} />
+      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.18em', marginBottom: 8 }}>
         核心 — この1行
       </div>
-      <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.55, color: '#3d362c' }}>
+      <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.55, color: 'var(--c-ink)' }}>
         {line}
       </div>
     </div>
@@ -774,33 +774,33 @@ function CoreCard({ line }) {
 function ActionMirror({ stats, memoTotal }) {
   const { declared = 0, completed = 0, idle = 0, blindSpot = false, openSteps = [] } = stats || {};
   const statBox = (n, k, color) => (
-    <div style={{ flex: 1, background: '#faf6ee', border: '1px solid #ece5d9', borderRadius: 11, padding: '9px 4px', textAlign: 'center' }}>
+    <div style={{ flex: 1, background: '#faf6ee', border: '1px solid var(--c-hairline)', borderRadius: 11, padding: '9px 4px', textAlign: 'center' }}>
       <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color }}>{n}</div>
-      <div style={{ fontSize: 9.5, color: '#8a7d6a', marginTop: 5, letterSpacing: '.04em' }}>{k}</div>
+      <div style={{ fontSize: 9.5, color: 'var(--c-ink-3)', marginTop: 5, letterSpacing: '.04em' }}>{k}</div>
     </div>
   );
   return (
     <div style={{ ...card, padding: '14px 15px 15px' }}>
-      <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 7, color: '#3d362c' }}>
+      <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 7, color: 'var(--c-ink)' }}>
         🎯 行動の鏡
       </h3>
       <div style={{ display: 'flex', gap: 8, marginBottom: declared > 0 || blindSpot ? 12 : 0 }}>
-        {statBox(declared, '宣言した行動', '#3d362c')}
-        {statBox(completed, '完了', '#5f7a55')}
-        {statBox(idle, '放置中', idle > 0 ? '#a05040' : '#3d362c')}
+        {statBox(declared, '宣言した行動', 'var(--c-ink)')}
+        {statBox(completed, '完了', 'var(--c-positive)')}
+        {statBox(idle, '放置中', idle > 0 ? 'var(--c-critical)' : 'var(--c-ink)')}
       </div>
       {declared === 0 ? (
-        <div style={{ background: '#fbf3ee', border: '1px solid #e6c9bd', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
+        <div style={{ background: 'var(--c-critical-soft)', border: '1px solid var(--c-critical-line)', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
           <span style={{ fontSize: 16, lineHeight: 1.4, flex: '0 0 auto' }} aria-hidden="true">⚠️</span>
           <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#6e4a3c' }}>
-            このテーマに紐づく行動が<b style={{ color: '#a05040', fontWeight: 800 }}>まだ0件</b>。学びを、まず1つだけ行動に落としましょう。
+            このテーマに紐づく行動が<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>まだ0件</b>。学びを、まず1つだけ行動に落としましょう。
           </div>
         </div>
       ) : blindSpot ? (
-        <div style={{ background: '#fbf3ee', border: '1px solid #e6c9bd', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
+        <div style={{ background: 'var(--c-critical-soft)', border: '1px solid var(--c-critical-line)', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
           <span style={{ fontSize: 16, lineHeight: 1.4, flex: '0 0 auto' }} aria-hidden="true">⚠️</span>
           <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#6e4a3c' }}>
-            メモは<b style={{ color: '#a05040', fontWeight: 800 }}>{memoTotal}件</b>あるのに、完了した行動は<b style={{ color: '#a05040', fontWeight: 800 }}>0件</b>。学びが行動に変わっていません。
+            メモは<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>{memoTotal}件</b>あるのに、完了した行動は<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>0件</b>。学びが行動に変わっていません。
           </div>
         </div>
       ) : null}
@@ -808,12 +808,12 @@ function ActionMirror({ stats, memoTotal }) {
       {/* 🔸 やり残しの一歩を名指しで突き返す（本田: 宣言した一歩がどうなったか） */}
       {openSteps.length > 0 && (
         <div style={{ marginTop: 11 }}>
-          <p style={{ fontSize: 10.5, fontWeight: 800, color: '#a05040', letterSpacing: '.06em', margin: '0 0 6px' }}>
+          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-critical)', letterSpacing: '.06em', margin: '0 0 6px' }}>
             🔸 まだやれていない一歩
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {openSteps.map((s, i) => (
-              <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12.5, lineHeight: 1.55, color: '#5c5548' }}>
+              <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12.5, lineHeight: 1.55, color: 'var(--c-ink-soft)' }}>
                 <span aria-hidden="true" style={{ color: '#c08a6a', flexShrink: 0, marginTop: 1 }}>□</span>
                 <span style={{ minWidth: 0 }}>{s}</span>
               </div>
@@ -831,12 +831,12 @@ function ActionMirror({ stats, memoTotal }) {
 // 🔄 想起ループ接続 — 核心を「振り返り・通知」に乗せる仕組みの説明＋セットボタン。
 function RecallBanner({ busy, done, onSet }) {
   return (
-    <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid #e0d8ca', borderRadius: 16, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid var(--c-hairline-strong)', borderRadius: 16, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
         <span style={{ fontSize: 21, lineHeight: 1.2, flex: '0 0 auto' }} aria-hidden="true">🔄</span>
         <div style={{ fontSize: 12.5, lineHeight: 1.7, color: '#5b4f3c' }}>
-          <b style={{ color: '#3d362c', fontWeight: 800 }}>このメモは、読んで終わりにしません。</b><br />
-          核心を <b style={{ color: '#3d362c' }}>振り返りタブ</b> と <b style={{ color: '#3d362c' }}>想起通知</b> に乗せると、忘れた頃にそっと戻ってきて、無意識に動けるまで体に入れます。
+          <b style={{ color: 'var(--c-ink)', fontWeight: 800 }}>このメモは、読んで終わりにしません。</b><br />
+          核心を <b style={{ color: 'var(--c-ink)' }}>振り返りタブ</b> と <b style={{ color: 'var(--c-ink)' }}>想起通知</b> に乗せると、忘れた頃にそっと戻ってきて、無意識に動けるまで体に入れます。
         </div>
       </div>
       <button
@@ -847,8 +847,8 @@ function RecallBanner({ busy, done, onSet }) {
         style={{
           minHeight: 46, borderRadius: 13, border: 'none', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700,
           cursor: busy || done ? 'default' : 'pointer',
-          background: done ? '#eef2e9' : '#5c5043',
-          color: done ? '#5f7a55' : '#fffdf8',
+          background: done ? 'var(--c-positive-soft)' : 'var(--c-brand)',
+          color: done ? 'var(--c-positive)' : 'var(--c-card)',
           boxShadow: done ? 'none' : '0 1px 2px rgba(60,48,30,.18)',
           opacity: busy ? 0.6 : 1,
         }}

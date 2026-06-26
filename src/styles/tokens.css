@@ -156,6 +156,30 @@
   --color-surface: #fffdf8;
   --color-surface-2: #f0ebe2;
 
+  /* ============================================================================
+   * ☕ Warm brand palette（実際にインライン style で多用されている暖色系の単一の
+   * 真実）。これまで #3d362c / #5c5043 / #fffdf8 / #ece5d9 等が各コンポーネントに
+   * 直書きされ 600+ 箇所に散在していた。値は従来の hex と完全一致させてあるので、
+   * これらに置換しても見た目は一切変わらない（= 退行ゼロのトークン化）。
+   * 新規・既存コードはこの var(--c-*) を使い、hex 直書きをやめること。
+   * ========================================================================== */
+  --c-ink: #3d362c;            /* 本文・主テキスト（暖色の黒に近い茶） */
+  --c-ink-2: #5a4f3e;          /* 副テキスト */
+  --c-ink-3: #8a7d6a;          /* 三次テキスト・キャプション */
+  --c-ink-soft: #5c5548;       /* 本文より少し淡い説明文 */
+  --c-brand: #5c5043;          /* 主ボタン・アクセントの茶 */
+  --c-brand-ink: #fffdf8;      /* 茶ボタン上の文字（=カード面と同じ生成り） */
+  --c-card: #fffdf8;           /* カード面（生成り） */
+  --c-hairline: #ece5d9;       /* カードの細い枠線 */
+  --c-hairline-strong: #e0d8ca;/* 入力欄・濃いめの枠線 */
+  --c-soft: #f0ebe2;           /* 淡い面（要約ボックス等） */
+  --c-soft-2: #eae3d6;         /* タグ・サブタブ背景 */
+  --c-positive: #5f7a55;       /* 完了・達成のグリーン */
+  --c-positive-soft: #eef2e9;  /* グリーンの淡い面 */
+  --c-critical: #a05040;       /* 破壊的・警告のレンガ色 */
+  --c-critical-soft: #fbf3ee;  /* 警告の淡い面 */
+  --c-critical-line: #e6c9bd;  /* 警告枠線 */
+
   --color-label: var(--color-text-primary);
   --color-secondary: var(--color-text-secondary);
   --color-tertiary: var(--color-text-tertiary);

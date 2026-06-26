@@ -32,20 +32,20 @@ import PullToRefresh from './PullToRefresh';
 import { useLongPress } from '../hooks/useLongPress';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
-const card = { background: '#fffdf8', border: '1px solid #ece5d9', borderRadius: 12, padding: '12px 14px' };
-const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #e0d8ca', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
+const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '12px 14px' };
+const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
+const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
-const btnGhost = { padding: '6px 14px', borderRadius: 8, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, minHeight: 44 };
-const btnPrimary = { padding: '12px 18px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#fffdf8', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1, minHeight: 44 };
-const dangerBtn = { ...btnGhost, color: '#a05040', borderColor: '#c4a0a0' };
+const btnGhost = { padding: '6px 14px', borderRadius: 8, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, minHeight: 44 };
+const btnPrimary = { padding: '12px 18px', borderRadius: 10, border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1, minHeight: 44 };
+const dangerBtn = { ...btnGhost, color: 'var(--c-critical)', borderColor: '#c4a0a0' };
 const pill = (active) => ({
   flex: 1,
   minHeight: 44,
   padding: '6px 0',
   border: 'none',
-  background: active ? '#5c5043' : 'transparent',
-  color: active ? '#fffdf8' : '#5c5548',
+  background: active ? 'var(--c-brand)' : 'transparent',
+  color: active ? 'var(--c-card)' : 'var(--c-ink-soft)',
   fontSize: 12,
   fontWeight: active ? 600 : 500,
   cursor: 'pointer',
@@ -86,7 +86,7 @@ const KIND_META = {
 // グループごとの badge 色 (既存配色をベースに plan を追加)
 const GROUP_BADGE = {
   memo:     { bg: '#e2ecd8', fg: '#5a7a48' },
-  summary:  { bg: '#eae3d6', fg: '#5c5043' },
+  summary:  { bg: 'var(--c-soft-2)', fg: 'var(--c-brand)' },
   learning: { bg: '#f5e6c8', fg: '#8a7040' },
   plan:     { bg: '#e3eaf3', fg: '#3a5a78' },
 };
@@ -133,10 +133,10 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
       role="dialog"
       aria-modal="true"
     >
-      <div style={{ background: '#fffdf8', borderRadius: 14, width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid #ece5d9' }}>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: '#5c5043', cursor: 'pointer', width: 44, height: 44, padding: 0 }} aria-label="閉じる">×</button>
-          <p style={{ fontSize: 14, color: '#3d362c', fontWeight: 500, margin: 0, flex: 1 }}>{title}</p>
+      <div style={{ background: 'var(--c-card)', borderRadius: 14, width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--c-hairline)' }}>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: 'var(--c-brand)', cursor: 'pointer', width: 44, height: 44, padding: 0 }} aria-label="閉じる">×</button>
+          <p style={{ fontSize: 14, color: 'var(--c-ink)', fontWeight: 500, margin: 0, flex: 1 }}>{title}</p>
         </div>
         <div style={{ padding: '14px 16px', flex: 1, overflowY: 'auto' }}>
           <textarea
@@ -149,9 +149,9 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
             style={ta}
             maxLength={maxLength}
           />
-          {errorMsg && <p style={{ color: '#a05040', fontSize: 12, marginTop: 8 }}>{errorMsg}</p>}
+          {errorMsg && <p style={{ color: 'var(--c-critical)', fontSize: 12, marginTop: 8 }}>{errorMsg}</p>}
         </div>
-        <div style={{ display: 'flex', gap: 10, padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid #ece5d9' }}>
+        <div style={{ display: 'flex', gap: 10, padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--c-hairline)' }}>
           <button type="button" onClick={onClose} style={{ ...btnGhost, flex: 1, minHeight: 44 }}>キャンセル</button>
           <button type="button" onClick={save} disabled={busy} style={{ ...btnPrimary, flex: 1, opacity: busy ? 0.6 : 1 }}>
             {busy ? '保存中…' : '保存'}
@@ -185,16 +185,16 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: badge.bg, color: badge.fg, fontWeight: 600 }}>
           {meta.icon} {meta.label}
         </span>
-        <span style={{ fontSize: 10, color: '#5a4f3e' }}>{fmtDate(item.created_at)}</span>
+        <span style={{ fontSize: 10, color: 'var(--c-ink-2)' }}>{fmtDate(item.created_at)}</span>
       </div>
       {item.book && (
-        <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 500, margin: '4px 0 2px' }}>
+        <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 500, margin: '4px 0 2px' }}>
           {item.book.title || '（タイトル不明）'}
-          {item.book.author && <span style={{ fontSize: 11, color: '#5a4f3e', fontWeight: 400 }}>　{item.book.author}</span>}
+          {item.book.author && <span style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 400 }}>　{item.book.author}</span>}
         </p>
       )}
       {(isCard && Number.isFinite(item.page_number)) || (isPersonal && category) ? (
-        <p style={{ fontSize: 11, color: '#5a4f3e', margin: '0 0 4px' }}>
+        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 4px' }}>
           {isCard && Number.isFinite(item.page_number) && <>P.{item.page_number}　</>}
           {isPersonal && category && <>カテゴリ: {category}</>}
         </p>
@@ -205,7 +205,7 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
       {visibleTags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
           {visibleTags.map((t) => (
-            <span key={t} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#f0ebe2', color: '#5a4f3e' }}>#{t}</span>
+            <span key={t} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'var(--c-soft)', color: 'var(--c-ink-2)' }}>#{t}</span>
           ))}
         </div>
       )}
@@ -588,8 +588,8 @@ export default function KnowledgeManager({ onChanged }) {
       )}
       {/* Hero — 知識ベース全 9 カテゴリの集計を grid で表示 */}
       <div style={card}>
-        <p style={{ fontSize: 14, fontWeight: 600, color: '#3d362c', margin: 0 }}>📚 マイ読書脳の知識ベース</p>
-        <p style={{ fontSize: 11, color: '#5a4f3e', margin: '4px 0 12px', lineHeight: 1.7 }}>
+        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', margin: 0 }}>📚 マイ読書脳の知識ベース</p>
+        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '4px 0 12px', lineHeight: 1.7 }}>
           AI があなたの答えを作る時に参照する情報の一覧です。編集・削除すると、次回の答えに即座に反映されます。
         </p>
         <div
@@ -617,13 +617,13 @@ export default function KnowledgeManager({ onChanged }) {
                 borderRadius: 8,
                 padding: '8px 4px',
                 textAlign: 'center',
-                border: '1px solid #eae3d6',
+                border: '1px solid var(--c-soft-2)',
               }}
             >
-              <div style={{ fontSize: 18, fontWeight: 800, color: '#5c5043', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-brand)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                 {s.num}
               </div>
-              <div style={{ fontSize: 9.5, color: '#5a4f3e', marginTop: 4, letterSpacing: 0.02 }}>
+              <div style={{ fontSize: 9.5, color: 'var(--c-ink-2)', marginTop: 4, letterSpacing: 0.02 }}>
                 {s.label}
               </div>
             </div>
@@ -640,14 +640,14 @@ export default function KnowledgeManager({ onChanged }) {
         onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
         style={inp}
       />
-      <div style={{ display: 'flex', gap: 4, padding: 4, background: '#eae3d6', borderRadius: 10 }}>
+      <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft-2)', borderRadius: 10 }}>
         <button type="button" style={pill(filterKind === 'all')} onClick={() => setFilterKind('all')}>全て</button>
         <button type="button" style={pill(filterKind === 'memo')} onClick={() => setFilterKind('memo')}>📝 メモ</button>
         <button type="button" style={pill(filterKind === 'summary')} onClick={() => setFilterKind('summary')}>📖 まとめ</button>
         <button type="button" style={pill(filterKind === 'plan')} onClick={() => setFilterKind('plan')}>📊 計画</button>
         <button type="button" style={pill(filterKind === 'learning')} onClick={() => setFilterKind('learning')}>💡 学び</button>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#5a4f3e' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--c-ink-2)' }}>
         <span>並び順</span>
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inp, width: 'auto', padding: '6px 10px' }}>
           <option value="newest">新しい順</option>
@@ -659,7 +659,7 @@ export default function KnowledgeManager({ onChanged }) {
 
       {/* List */}
       {loading ? (
-        <p style={{ fontSize: 12, color: '#5a4f3e', textAlign: 'center', padding: 20 }}>読み込み中…</p>
+        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', textAlign: 'center', padding: 20 }}>読み込み中…</p>
       ) : filtered.length === 0 ? (
         items.length === 0 ? (
           <EmptyState

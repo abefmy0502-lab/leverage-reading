@@ -57,7 +57,7 @@ const closeBtn = {
   minWidth: 44,
   border: 'none',
   background: 'none',
-  color: '#5a4f3e',
+  color: 'var(--c-ink-2)',
   cursor: 'pointer',
   display: 'inline-flex',
   alignItems: 'center',
@@ -81,8 +81,8 @@ const previewBox = {
   width: '100%',
   aspectRatio: '1080 / 1350',
   borderRadius: 12,
-  border: '1px solid #ece5d9',
-  background: '#fffdf8',
+  border: '1px solid var(--c-hairline)',
+  background: 'var(--c-card)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -103,8 +103,8 @@ const btnPrimary = (disabled) => ({
   padding: '12px 16px',
   borderRadius: 12,
   border: 'none',
-  background: '#5c5043',
-  color: '#fffdf8',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   cursor: disabled ? 'default' : 'pointer',
   opacity: disabled ? 0.5 : 1,
   fontFamily: 'inherit',
@@ -118,9 +118,9 @@ const btnGhost = (disabled) => ({
   minHeight: 48,
   padding: '12px 16px',
   borderRadius: 12,
-  border: '1px solid #e0d8ca',
-  background: '#fffdf8',
-  color: '#5c5043',
+  border: '1px solid var(--c-hairline-strong)',
+  background: 'var(--c-card)',
+  color: 'var(--c-brand)',
   cursor: disabled ? 'default' : 'pointer',
   opacity: disabled ? 0.5 : 1,
   fontFamily: 'inherit',
@@ -247,7 +247,7 @@ export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
     >
       <div style={sheet} onClick={(e) => e.stopPropagation()}>
         <div style={header}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#3d362c', flex: 1 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-ink)', flex: 1 }}>
             🖼 画像で共有
           </span>
           <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる">
@@ -259,7 +259,7 @@ export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
           <div style={previewBox}>
             {loading && (
               <div
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: '#5a4f3e' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: 'var(--c-ink-2)' }}
                 aria-live="polite"
                 aria-busy="true"
               >
@@ -268,7 +268,7 @@ export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
               </div>
             )}
             {!loading && error && (
-              <div style={{ padding: 24, textAlign: 'center', color: '#a05040', fontSize: 13, lineHeight: 1.7 }} role="alert">
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--c-critical)', fontSize: 13, lineHeight: 1.7 }} role="alert">
                 {error}
               </div>
             )}
@@ -281,7 +281,7 @@ export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
             )}
           </div>
           {!loading && !error && (
-            <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0, lineHeight: 1.7, textAlign: 'center' }}>
+            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7, textAlign: 'center' }}>
               この 1 枚だけを外に出せます。SNS への自動投稿はしません。
             </p>
           )}

@@ -33,7 +33,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   borderRadius: 16,
   width: '100%',
   maxWidth: 'min(440px, 100vw - 16px)',
@@ -51,7 +51,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '14px 16px',
-  borderBottom: '1px solid #ece5d9',
+  borderBottom: '1px solid var(--c-hairline)',
   background: '#fff',
 };
 
@@ -59,7 +59,7 @@ const closeBtnStyle = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   width: 44,
   height: 44,
@@ -96,7 +96,7 @@ const candidateBtn = (selected) => ({
   gap: 10,
   padding: 10,
   background: selected ? '#fff8e1' : '#fff',
-  border: selected ? '2px solid #d4a040' : '1px solid #ece5d9',
+  border: selected ? '2px solid #d4a040' : '1px solid var(--c-hairline)',
   borderRadius: 10,
   cursor: 'pointer',
   textAlign: 'left',
@@ -111,7 +111,7 @@ const footerStyle = {
   display: 'flex',
   gap: 8,
   padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #ece5d9',
+  borderTop: '1px solid var(--c-hairline)',
   background: '#fff',
 };
 
@@ -123,7 +123,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onCancel}>
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: '#3d362c', margin: 0, fontWeight: 600, flex: 1 }}>
+          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
             📚 追加する本を確認
           </h2>
           <button type="button" style={closeBtnStyle} onClick={onCancel} aria-label="閉じる">×</button>
@@ -132,15 +132,15 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
         <div style={bodyStyle}>
           <div style={recBoxStyle}>
             <p style={{ fontSize: 11, color: '#8a7040', margin: 0, fontWeight: 600 }}>🤖 AI からのおすすめ</p>
-            <p style={{ fontSize: 14, color: '#3d362c', margin: '4px 0 0', fontWeight: 600, wordBreak: 'keep-all' }}>
+            <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '4px 0 0', fontWeight: 600, wordBreak: 'keep-all' }}>
               『{original.title}』
             </p>
             {original.author && (
-              <p style={{ fontSize: 11, color: '#5a4f3e', margin: '2px 0 0' }}>{original.author}</p>
+              <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '2px 0 0' }}>{original.author}</p>
             )}
           </div>
 
-          <p style={{ fontSize: 12, color: '#5c5548', margin: 0, lineHeight: 1.7, wordBreak: 'keep-all' }}>
+          <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7, wordBreak: 'keep-all' }}>
             {candidates.length === 1
               ? '見つかった本を確認してから追加してください。'
               : '複数の候補が見つかりました。表紙を見て正しい本を選んでください。'}
@@ -167,7 +167,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
                         objectFit: 'cover',
                         borderRadius: 4,
                         flexShrink: 0,
-                        border: '1px solid #ece5d9',
+                        border: '1px solid var(--c-hairline)',
                       }}
                     />
                   ) : (
@@ -178,37 +178,37 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
                         height: 80,
                         flexShrink: 0,
                         borderRadius: 4,
-                        background: '#f0ebe2',
+                        background: 'var(--c-soft)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: 18,
-                        color: '#5a4f3e',
-                        border: '1px dashed #e0d8ca',
+                        color: 'var(--c-ink-2)',
+                        border: '1px dashed var(--c-hairline-strong)',
                       }}
                     >
                       📚
                     </div>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0, lineHeight: 1.4, wordBreak: 'keep-all' }}>
+                    <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0, lineHeight: 1.4, wordBreak: 'keep-all' }}>
                       {c.title}
                     </p>
                     {c.author && (
-                      <p style={{ fontSize: 11, color: '#5a4f3e', margin: '2px 0 0' }}>{c.author}</p>
+                      <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '2px 0 0' }}>{c.author}</p>
                     )}
                     {(c.publisher || c.pubYear) && (
-                      <p style={{ fontSize: 10, color: '#5a4f3e', margin: '2px 0 0' }}>
+                      <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '2px 0 0' }}>
                         {[c.publisher, c.pubYear].filter(Boolean).join(' · ')}
                       </p>
                     )}
                     {c.isbn && (
-                      <p style={{ fontSize: 9, color: '#5a4f3e', margin: '4px 0 0', fontFamily: 'monospace' }}>
+                      <p style={{ fontSize: 9, color: 'var(--c-ink-2)', margin: '4px 0 0', fontFamily: 'monospace' }}>
                         ISBN {c.isbn}
                       </p>
                     )}
                     {!c.cover && (
-                      <p style={{ fontSize: 10, color: '#a05040', margin: '4px 0 0' }}>
+                      <p style={{ fontSize: 10, color: 'var(--c-critical)', margin: '4px 0 0' }}>
                         ⚠ 表紙未取得
                       </p>
                     )}
@@ -218,7 +218,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
             })}
           </div>
 
-          <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.6 }}>
             💡 該当する本がここに無い場合は「キャンセル」して、本棚の「+ 本を追加」から検索してください。
           </p>
         </div>
@@ -231,9 +231,9 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
               flex: 1,
               padding: '12px 14px',
               borderRadius: 10,
-              border: '1px solid #e0d8ca',
+              border: '1px solid var(--c-hairline-strong)',
               background: '#fff',
-              color: '#5c5043',
+              color: 'var(--c-brand)',
               fontSize: 13,
               fontFamily: 'inherit',
               fontWeight: 500,
@@ -252,8 +252,8 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
               padding: '12px 14px',
               borderRadius: 10,
               border: 'none',
-              background: selected ? '#5c5043' : '#e0d8ca',
-              color: '#fffdf8',
+              background: selected ? 'var(--c-brand)' : 'var(--c-hairline-strong)',
+              color: 'var(--c-card)',
               fontSize: 13,
               fontFamily: 'inherit',
               fontWeight: 700,

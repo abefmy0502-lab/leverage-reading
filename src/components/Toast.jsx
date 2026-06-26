@@ -10,10 +10,10 @@ const ToastContext = createContext({
 });
 
 const palette = {
-  info: { bg: '#3d362c', fg: '#fffdf8', border: '#3d362c', icon: 'ℹ️' },
-  success: { bg: '#5a7a48', fg: '#fffdf8', border: '#5a7a48', icon: '✓' },
-  error: { bg: '#a05040', fg: '#fffdf8', border: '#a05040', icon: '⚠' },
-  undo: { bg: '#3d362c', fg: '#fffdf8', border: '#3d362c', icon: '🗑' },
+  info: { bg: 'var(--c-ink)', fg: 'var(--c-card)', border: 'var(--c-ink)', icon: 'ℹ️' },
+  success: { bg: '#5a7a48', fg: 'var(--c-card)', border: '#5a7a48', icon: '✓' },
+  error: { bg: 'var(--c-critical)', fg: 'var(--c-card)', border: 'var(--c-critical)', icon: '⚠' },
+  undo: { bg: 'var(--c-ink)', fg: 'var(--c-card)', border: 'var(--c-ink)', icon: '🗑' },
 };
 
 const containerStyle = {
@@ -61,7 +61,7 @@ const closeBtnStyle = {
 const actionBtnStyle = {
   background: 'rgba(250,246,240,0.18)',
   border: '1px solid rgba(250,246,240,0.4)',
-  color: '#fffdf8',
+  color: 'var(--c-card)',
   padding: '6px 12px',
   borderRadius: 8,
   fontSize: 12,

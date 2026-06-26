@@ -86,7 +86,7 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
           fetchpriority="high"
           style={{ width: 208, height: 'auto', aspectRatio: '430 / 400', display: 'block' }}
         />
-        <p style={{ fontSize: 13, color: '#5a4f3e', margin: '4px 0 0', letterSpacing: 1 }}>
+        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', margin: '4px 0 0', letterSpacing: 1 }}>
           読みっぱなしを、やめる。
         </p>
       </div>
@@ -97,7 +97,7 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
           left: 20,
           right: 20,
           textAlign: 'center',
-          color: '#5a4f3e',
+          color: 'var(--c-ink-2)',
           opacity: 0.85,
           animation: 'leverage-splash-pop .55s cubic-bezier(0.2,0.9,0.3,1) both',
           animationDelay: '.15s',

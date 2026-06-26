@@ -49,7 +49,7 @@ const itemBase = {
   padding: '14px 16px',
   background: 'none',
   border: 'none',
-  borderBottom: '1px solid #eae3d6',
+  borderBottom: '1px solid var(--c-soft-2)',
   textAlign: 'left',
   fontFamily: 'inherit',
   fontSize: 15,
@@ -57,7 +57,7 @@ const itemBase = {
   display: 'flex',
   alignItems: 'center',
   gap: 12,
-  color: '#3d362c',
+  color: 'var(--c-ink)',
 };
 
 export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
@@ -105,7 +105,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
               }}
               style={{
                 ...itemBase,
-                color: it.destructive ? '#FF3B30' : '#3d362c',
+                color: it.destructive ? '#FF3B30' : 'var(--c-ink)',
                 borderBottom: isLast ? 'none' : itemBase.borderBottom,
               }}
             >

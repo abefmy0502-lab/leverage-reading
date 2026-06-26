@@ -28,7 +28,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   borderRadius: 16,
   width: '100%',
   maxWidth: 'min(440px, 100vw - 16px)',
@@ -46,7 +46,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '14px 16px',
-  borderBottom: '1px solid #ece5d9',
+  borderBottom: '1px solid var(--c-hairline)',
   background: '#fff',
 };
 
@@ -54,7 +54,7 @@ const closeBtn = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   width: 44,
   height: 44,
@@ -79,15 +79,15 @@ const bodyStyle = {
   boxSizing: 'border-box',
 };
 
-const labelStyle = { fontSize: 12, color: '#5c5043', fontWeight: 600, marginBottom: 4, display: 'block' };
+const labelStyle = { fontSize: 12, color: 'var(--c-brand)', fontWeight: 600, marginBottom: 4, display: 'block' };
 const inpStyle = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   borderRadius: 10,
   background: '#fff',
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   fontFamily: 'inherit',
   boxSizing: 'border-box',
   outline: 'none',
@@ -98,9 +98,9 @@ const chipBtn = (active) => ({
   flex: 1,
   padding: '8px 10px',
   borderRadius: 10,
-  border: active ? '1.5px solid #5c5043' : '1px solid #e0d8ca',
-  background: active ? '#eae3d6' : '#fff',
-  color: active ? '#3d362c' : '#5c5043',
+  border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
+  background: active ? 'var(--c-soft-2)' : '#fff',
+  color: active ? 'var(--c-ink)' : 'var(--c-brand)',
   fontSize: 12,
   fontWeight: active ? 600 : 500,
   cursor: 'pointer',
@@ -113,7 +113,7 @@ const footerStyle = {
   display: 'flex',
   gap: 8,
   padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #ece5d9',
+  borderTop: '1px solid var(--c-hairline)',
   background: '#fff',
 };
 
@@ -188,7 +188,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: '#3d362c', margin: 0, fontWeight: 600, flex: 1 }}>✏️ 行動を編集</h2>
+          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>✏️ 行動を編集</h2>
           <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる">×</button>
         </div>
 
@@ -274,7 +274,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
               borderRadius: 10,
               border: '1px solid #c4a0a0',
               background: '#fdf0ed',
-              color: '#a05040',
+              color: 'var(--c-critical)',
               fontSize: 13,
               fontFamily: 'inherit',
               fontWeight: 600,
@@ -293,9 +293,9 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
               flex: 1,
               padding: '12px 14px',
               borderRadius: 10,
-              border: '1px solid #e0d8ca',
+              border: '1px solid var(--c-hairline-strong)',
               background: '#fff',
-              color: '#5c5043',
+              color: 'var(--c-brand)',
               fontSize: 13,
               fontFamily: 'inherit',
               cursor: busy ? 'wait' : 'pointer',
@@ -313,8 +313,8 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
               padding: '12px 14px',
               borderRadius: 10,
               border: 'none',
-              background: busy || !text.trim() ? '#e0d8ca' : '#5c5043',
-              color: '#fffdf8',
+              background: busy || !text.trim() ? 'var(--c-hairline-strong)' : 'var(--c-brand)',
+              color: 'var(--c-card)',
               fontSize: 13,
               fontFamily: 'inherit',
               fontWeight: 700,

@@ -40,7 +40,7 @@ export default class ErrorBoundary extends React.Component {
           style={{
             padding: '48px 24px',
             fontFamily: "var(--font-app)",
-            color: '#3d362c',
+            color: 'var(--c-ink)',
             background: '#f5f0e8',
             minHeight: '100vh',
             boxSizing: 'border-box',
@@ -55,10 +55,10 @@ export default class ErrorBoundary extends React.Component {
           <h1 style={{ fontSize: 22, margin: '0 0 12px', fontWeight: 700 }}>
             申し訳ありません
           </h1>
-          <p style={{ fontSize: 14, color: '#5c5548', lineHeight: 1.8, margin: '0 0 8px', maxWidth: 360 }}>
+          <p style={{ fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.8, margin: '0 0 8px', maxWidth: 360 }}>
             予期せぬエラーが発生しました。
           </p>
-          <p style={{ fontSize: 13, color: '#5a4f3e', lineHeight: 1.8, margin: '0 0 28px', maxWidth: 360 }}>
+          <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 28px', maxWidth: 360 }}>
             ご不便をおかけして申し訳ございません。<br />
             お手数ですが、ホームに戻る か 再読み込み をお試しください。
           </p>
@@ -67,8 +67,8 @@ export default class ErrorBoundary extends React.Component {
               onClick={this.handleHome}
               style={{
                 padding: '12px 24px',
-                background: '#5c5043',
-                color: '#fffdf8',
+                background: 'var(--c-brand)',
+                color: 'var(--c-card)',
                 border: 'none',
                 borderRadius: 999,
                 cursor: 'pointer',
@@ -85,8 +85,8 @@ export default class ErrorBoundary extends React.Component {
               style={{
                 padding: '12px 24px',
                 background: 'transparent',
-                color: '#5c5043',
-                border: '1px solid #e0d8ca',
+                color: 'var(--c-brand)',
+                border: '1px solid var(--c-hairline-strong)',
                 borderRadius: 999,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -103,7 +103,7 @@ export default class ErrorBoundary extends React.Component {
             style={{
               marginTop: 24,
               fontSize: 12,
-              color: '#5a4f3e',
+              color: 'var(--c-ink-2)',
               textDecoration: 'underline',
             }}
           >
@@ -116,8 +116,8 @@ export default class ErrorBoundary extends React.Component {
                 color: '#b75050',
                 marginTop: 32,
                 padding: 12,
-                background: '#fffdf8',
-                border: '1px solid #ece5d9',
+                background: 'var(--c-card)',
+                border: '1px solid var(--c-hairline)',
                 borderRadius: 8,
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',

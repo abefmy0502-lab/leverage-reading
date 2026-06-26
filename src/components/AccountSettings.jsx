@@ -47,7 +47,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   borderRadius: 14,
   width: 'min(440px, 100%)',
   maxHeight: 'min(85vh, 85dvh)',
@@ -62,14 +62,14 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 14px',
-  borderBottom: '1px solid #ece5d9',
+  borderBottom: '1px solid var(--c-hairline)',
 };
 
 const closeBtnStyle = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   width: 44,
   height: 44,
@@ -90,7 +90,7 @@ const bodyStyle = {
 const sectionStyle = {
   padding: 14,
   background: '#fff',
-  border: '1px solid #ece5d9',
+  border: '1px solid var(--c-hairline)',
   borderRadius: 12,
 };
 
@@ -101,7 +101,7 @@ const dangerSection = { ...sectionStyle, border: '1px solid #d8b8b0', background
 // 見出しを使う。表示専用で挙動には一切関与しない。
 const groupLabelStyle = {
   fontSize: 11,
-  color: '#8a7d6a',
+  color: 'var(--c-ink-3)',
   // 5 グループに整理したので、前のカードとの間を少し広めに取り、グループの
   // 切れ目を分かりやすくする（body の gap:14 に加算される）。下は詰めて
   // 直下のカードと結びつける（iOS「設定」のセクション見出し相当）。
@@ -137,7 +137,7 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
         border: 'none',
         padding: 0,
         cursor: disabled || busy ? 'default' : 'pointer',
-        background: checked ? '#5c5043' : '#d6cfc2',
+        background: checked ? 'var(--c-brand)' : '#d6cfc2',
         transition: 'background 220ms ease',
         opacity: busy ? 0.6 : 1,
       }}
@@ -175,19 +175,19 @@ function SettingRow({ title, desc, control, titleColor }) {
 }
 
 // 全 section 共通の見出し（13px / 600）。色だけ差し替え可能（破壊操作は赤）。
-const sectionTitleStyle = { fontSize: 13, margin: '0 0 4px', fontWeight: 600, color: '#3d362c' };
+const sectionTitleStyle = { fontSize: 13, margin: '0 0 4px', fontWeight: 600, color: 'var(--c-ink)' };
 // 全 section 共通の説明文（11px / 行間 1.7 / ボタンとの間隔 10px）。
-const sectionDescStyle = { fontSize: 11, color: '#5a4f3e', margin: '0 0 10px', lineHeight: 1.7 };
+const sectionDescStyle = { fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.7 };
 // 無効/準備中など、ボタンを出さず案内文のみのときの末尾余白なしバリアント。
-const sectionNoteStyle = { fontSize: 11, color: '#5a4f3e', margin: 0, lineHeight: 1.7 };
+const sectionNoteStyle = { fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 };
 
 const btnPrimary = {
   width: '100%',
   padding: '13px 18px',
   borderRadius: 14,
   border: 'none',
-  background: '#5c5043',
-  color: '#fffdf8',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 15,
@@ -197,16 +197,16 @@ const btnPrimary = {
   boxShadow: '0 1px 2px rgba(60, 48, 30, 0.18)',
 };
 
-const btnDanger = { ...btnPrimary, background: '#a05040' };
+const btnDanger = { ...btnPrimary, background: 'var(--c-critical)' };
 
 const inputStyle = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   borderRadius: 10,
   background: '#fff',
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   fontFamily: 'inherit',
   boxSizing: 'border-box',
 };
@@ -587,14 +587,14 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="アカウント設定" onClick={onClose}>
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: '#3d362c', margin: 0, fontWeight: 500, flex: 1 }}>⚙️ アカウント設定</h2>
+          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 500, flex: 1 }}>⚙️ アカウント設定</h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
         </div>
 
         <div style={bodyStyle}>
           <div>
-            <p style={{ fontSize: 12, color: '#5a4f3e', margin: 0 }}>サインイン中</p>
-            <p style={{ fontSize: 14, color: '#3d362c', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
+            <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0 }}>サインイン中</p>
+            <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
           </div>
 
           {/* ── プラン・お支払い ── */}
@@ -609,8 +609,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               <p style={sectionNoteStyle}>確認中…</p>
             ) : isActive ? (
               <>
-                <p style={{ fontSize: 12, color: '#5a4f3e', margin: '0 0 4px', lineHeight: 1.7 }}>
-                  状態：<strong style={{ color: '#3d362c' }}>{billingStatusLabel(subscription?.status)}</strong>
+                <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '0 0 4px', lineHeight: 1.7 }}>
+                  状態：<strong style={{ color: 'var(--c-ink)' }}>{billingStatusLabel(subscription?.status)}</strong>
                   {formatPeriodEnd(subscription?.currentPeriodEnd) && (
                     <>（次回更新 {formatPeriodEnd(subscription.currentPeriodEnd)}）</>
                   )}
@@ -668,8 +668,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                     style={{
                       ...btnPrimary,
                       background: 'transparent',
-                      color: '#5c5043',
-                      border: '1px solid #e0d8ca',
+                      color: 'var(--c-brand)',
+                      border: '1px solid var(--c-hairline-strong)',
                       opacity: billingBusy ? 0.6 : 1,
                     }}
                     disabled={billingBusy}
@@ -709,7 +709,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
             {!pushConfigured ? (
               // VAPID 鍵未設定 = 機能準備中（env 投入前）。静かに案内のみ。
-              <p style={{ ...sectionNoteStyle, color: '#5a4f3e', marginTop: 10 }}>
+              <p style={{ ...sectionNoteStyle, color: 'var(--c-ink-2)', marginTop: 10 }}>
                 ただいま準備中です。もう少しお待ちください。
               </p>
             ) : pushNeedsA2HS ? (
@@ -720,7 +720,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               </p>
             ) : !pushSupported ? (
               // 非対応ブラウザ等。
-              <p style={{ ...sectionNoteStyle, color: '#5a4f3e', marginTop: 10 }}>
+              <p style={{ ...sectionNoteStyle, color: 'var(--c-ink-2)', marginTop: 10 }}>
                 この端末・ブラウザでは通知に対応していません。
               </p>
             ) : pushDenied && !pushOn ? (
@@ -785,8 +785,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               style={{
                 ...btnPrimary,
                 background: 'transparent',
-                color: '#5c5043',
-                border: '1px solid #e0d8ca',
+                color: 'var(--c-brand)',
+                border: '1px solid var(--c-hairline-strong)',
                 opacity: updating ? 0.6 : 1,
               }}
               disabled={updating}
@@ -814,7 +814,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
           {/* Delete */}
           <section style={dangerSection} aria-label="アカウント削除">
-            <p style={{ ...sectionTitleStyle, color: '#a05040' }}>
+            <p style={{ ...sectionTitleStyle, color: 'var(--c-critical)' }}>
               ⚠️ アカウント削除
             </p>
             <p style={sectionDescStyle}>
@@ -826,7 +826,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               </button>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <p style={{ fontSize: 12, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>
+                <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
                   確認のため、ご自身のメールアドレス <strong>{expectedConfirm}</strong> を入力してください。
                 </p>
                 <input
@@ -844,7 +844,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                   <button
                     type="button"
                     aria-label="削除をキャンセル"
-                    style={{ ...btnPrimary, background: 'transparent', color: '#5c5043', border: '1px solid #e0d8ca', flex: 1 }}
+                    style={{ ...btnPrimary, background: 'transparent', color: 'var(--c-brand)', border: '1px solid var(--c-hairline-strong)', flex: 1 }}
                     onClick={() => { setDeleteOpen(false); setConfirmText(''); }}
                     disabled={deleting}
                   >
@@ -867,20 +867,20 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
           {/* Legal links — LP と同じ /legal/* ページを参照 (単一ソース)。
               新規タブで開いて、設定モーダルの状態を保つ。 */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginTop: 4 }}>
-            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
+            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
               利用規約
             </a>
-            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
               プライバシーポリシー
             </a>
             {/* 特商法リンクはネイティブでは反ステアリング順守のため非表示にし、価格開示は
                 App Store に委ねる（特商法ページ自体は ¥1,480 / App Store 課金前提に更新済み）。 */}
             {!isNative && (
-              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
+              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
                 特定商取引法に基づく表記
               </a>
             )}
-            <a href="mailto:leverage.book0502@gmail.com" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
+            <a href="mailto:leverage.book0502@gmail.com" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
               お問い合わせ
             </a>
           </div>

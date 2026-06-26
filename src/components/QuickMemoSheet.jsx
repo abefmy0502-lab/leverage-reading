@@ -36,7 +36,7 @@ const sheetWrap = {
   right: 0,
   bottom: 0,
   zIndex: 701,
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   borderTopLeftRadius: 18,
   borderTopRightRadius: 18,
   boxShadow: '0 -10px 30px rgba(30,25,20,0.18)',
@@ -53,14 +53,14 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '14px 16px',
-  borderBottom: '1px solid #ece5d9',
+  borderBottom: '1px solid var(--c-hairline)',
 };
 
 const closeBtn = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   width: 44,
@@ -84,7 +84,7 @@ const bodyStyle = {
 
 const fieldLabel = {
   fontSize: 12,
-  color: '#5c5548',
+  color: 'var(--c-ink-soft)',
   fontWeight: 500,
   display: 'block',
   marginBottom: 4,
@@ -94,10 +94,10 @@ const inp = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   borderRadius: 10,
   background: '#fff',
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   fontFamily: 'inherit',
   boxSizing: 'border-box',
 };
@@ -114,14 +114,14 @@ const footerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #ece5d9',
+  borderTop: '1px solid var(--c-hairline)',
 };
 
 const detailLink = {
   background: 'none',
   border: 'none',
   fontSize: 13,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   textDecoration: 'underline',
@@ -134,8 +134,8 @@ const saveBtn = (busy) => ({
   padding: '12px 22px',
   borderRadius: 10,
   border: 'none',
-  background: '#5c5043',
-  color: '#fffdf8',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   cursor: busy ? 'default' : 'pointer',
   fontFamily: 'inherit',
   fontSize: 15,
@@ -237,11 +237,11 @@ export default function QuickMemoSheet({
             ✕
           </button>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0 }}>クイックメモ</p>
+            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0 }}>クイックメモ</p>
             <p
               style={{
                 fontSize: 14,
-                color: '#3d362c',
+                color: 'var(--c-ink)',
                 fontWeight: 500,
                 margin: 0,
                 overflow: 'hidden',
@@ -296,7 +296,7 @@ export default function QuickMemoSheet({
             </div>
           </div>
           {errorMsg && (
-            <p style={{ color: '#a05040', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
+            <p style={{ color: 'var(--c-critical)', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
           )}
         </div>
 

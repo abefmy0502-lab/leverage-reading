@@ -220,13 +220,13 @@ function RoiFunnel({ doneTotal, actionsDone, harvest }) {
   const arrow = <span aria-hidden="true" style={{ color: '#c3b9a4', fontWeight: 700, fontSize: 13 }}>→</span>;
   return (
     <div style={{ background: 'var(--color-accent-soft)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
-      <div style={{ fontSize: 10.5, fontWeight: 800, color: '#8a7d6a', letterSpacing: '.1em', marginBottom: 8 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.1em', marginBottom: 8 }}>
         📈 読書の投資対効果
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: 4 }}>
         {cell(doneTotal, '読了', 'var(--color-text-secondary)')}
         {arrow}
-        {cell(actionsDone, '行動 実行', actionsDone > 0 ? '#5f7a55' : 'var(--color-text-tertiary)')}
+        {cell(actionsDone, '行動 実行', actionsDone > 0 ? 'var(--c-positive)' : 'var(--color-text-tertiary)')}
         {arrow}
         {cell(harvest, '収穫', harvest > 0 ? '#a06a30' : 'var(--color-text-tertiary)')}
       </div>

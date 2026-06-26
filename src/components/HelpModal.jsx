@@ -44,7 +44,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   borderRadius: 16,
   width: '100%',
   maxWidth: 'min(460px, 100vw - 16px)',
@@ -61,7 +61,7 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 14px',
-  borderBottom: '1px solid #ece5d9',
+  borderBottom: '1px solid var(--c-hairline)',
   background: '#fff',
   flexShrink: 0,           // ★ 必須: body content が大きくても header が潰れない
   position: 'relative',
@@ -72,7 +72,7 @@ const closeBtnStyle = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   width: 44,
   height: 44,
@@ -107,7 +107,7 @@ const bodyStyle = {
 const sectionTitleStyle = {
   fontSize: 13,
   fontWeight: 600,
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   margin: '0 0 8px',
 };
 
@@ -117,9 +117,9 @@ const inputStyle = {
   width: 0,
   padding: '10px 12px',
   borderRadius: 10,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   background: '#fff',
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   fontSize: 16,
   fontFamily: 'inherit',
   outline: 'none',
@@ -131,8 +131,8 @@ const askBtnStyle = (disabled) => ({
   padding: '10px 14px',
   borderRadius: 10,
   border: 'none',
-  background: disabled ? '#e0d8ca' : '#5C4A2E',
-  color: '#fffdf8',
+  background: disabled ? 'var(--c-hairline-strong)' : '#5C4A2E',
+  color: 'var(--c-card)',
   fontSize: 13,
   fontWeight: 600,
   cursor: disabled ? 'not-allowed' : 'pointer',
@@ -142,7 +142,7 @@ const askBtnStyle = (disabled) => ({
 
 const heroStyle = {
   background: 'linear-gradient(135deg, #5C4A2E 0%, #8B6F47 100%)',
-  color: '#fffdf8',
+  color: 'var(--c-card)',
   borderRadius: 14,
   padding: '14px 14px',
   boxShadow: '0 4px 12px rgba(92, 74, 46, 0.18)',
@@ -172,8 +172,8 @@ const answerCardStyle = {
 const chipStyle = {
   padding: '7px 12px',
   background: '#fff',
-  color: '#5c5043',
-  border: '1px solid #e0d8ca',
+  color: 'var(--c-brand)',
+  border: '1px solid var(--c-hairline-strong)',
   borderRadius: 999,
   fontSize: 12,
   fontFamily: 'inherit',
@@ -185,11 +185,11 @@ const onboardingLinkStyle = {
   display: 'block',
   margin: '0',
   padding: '10px 12px',
-  background: '#f0ebe2',
-  border: '1px solid #ece5d9',
+  background: 'var(--c-soft)',
+  border: '1px solid var(--c-hairline)',
   borderRadius: 10,
   fontSize: 13,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   width: '100%',
@@ -198,9 +198,9 @@ const onboardingLinkStyle = {
 
 const footerStyle = {
   padding: '10px 18px calc(10px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #ece5d9',
+  borderTop: '1px solid var(--c-hairline)',
   fontSize: 11,
-  color: '#5a4f3e',
+  color: 'var(--c-ink-2)',
   textAlign: 'center',
   background: '#fff',
   flexShrink: 0,           // ★ header と同様、潰れないように固定
@@ -212,10 +212,10 @@ const footerStyle = {
 // すべての helpKey で同じ「番号付きカード」見た目になるよう steps と
 // sections の両方を共通の renderCardSteps で描画する。
 
-const stepSubtitle = { fontSize: 13, color: '#5a4f3e', margin: '0 0 14px' };
+const stepSubtitle = { fontSize: 13, color: 'var(--c-ink-2)', margin: '0 0 14px' };
 const stepCard = {
   background: '#fff',
-  border: '1px solid #ece5d9',
+  border: '1px solid var(--c-hairline)',
   borderRadius: 12,
   padding: '14px 16px',
   marginBottom: 12,
@@ -231,16 +231,16 @@ const stepNumber = { fontSize: 22, fontWeight: 700, lineHeight: 1, marginRight: 
 const stepTitle = {
   fontSize: 16,
   fontWeight: 600,
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   margin: 0,
   display: 'flex',
   alignItems: 'center',
   gap: 4,
   wordBreak: 'keep-all',
 };
-const stepBody = { fontSize: 14, color: '#5c5548', lineHeight: 1.7, margin: '8px 0 0', whiteSpace: 'pre-line', wordBreak: 'keep-all' };
+const stepBody = { fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.7, margin: '8px 0 0', whiteSpace: 'pre-line', wordBreak: 'keep-all' };
 const stepBulletList = { listStyle: 'none', padding: 0, margin: '8px 0 0', display: 'flex', flexDirection: 'column', gap: 2 };
-const stepBullet = { fontSize: 13, color: '#5c5548', lineHeight: 1.7, wordBreak: 'keep-all' };
+const stepBullet = { fontSize: 13, color: 'var(--c-ink-soft)', lineHeight: 1.7, wordBreak: 'keep-all' };
 const stepFooter = { fontSize: 13, color: '#5C4A2E', lineHeight: 1.7, margin: '8px 0 0', fontStyle: 'italic', wordBreak: 'keep-all' };
 const tipBox = {
   marginTop: 6,
@@ -249,7 +249,7 @@ const tipBox = {
   border: '1px solid #e0d0a8',
   borderRadius: 10,
   fontSize: 13,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   lineHeight: 1.7,
 };
 
@@ -352,7 +352,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: '#3d362c', margin: 0, fontWeight: 600, flex: 1 }}>📖 ヘルプ</h2>
+          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>📖 ヘルプ</h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
         </div>
 
@@ -398,7 +398,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
               </div>
             )}
             {error && !asking && (
-              <p style={{ fontSize: 12, color: '#fff', background: '#a05040', padding: '8px 12px', borderRadius: 8, margin: '10px 0 0' }}>
+              <p style={{ fontSize: 12, color: '#fff', background: 'var(--c-critical)', padding: '8px 12px', borderRadius: 8, margin: '10px 0 0' }}>
                 ⚠️ {error}
               </p>
             )}
@@ -452,7 +452,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
                 )}
               </>
             ) : (
-              <p style={{ fontSize: 13, color: '#5a4f3e', margin: 0, lineHeight: 1.8 }}>
+              <p style={{ fontSize: 13, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.8 }}>
                 この画面のヘルプはまだ用意されていません。上の「AI に質問する」をお試しください。
               </p>
             )}

@@ -37,15 +37,15 @@ const wrap = {
   padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)',
   textAlign: 'center',
   fontFamily: "var(--font-app)",
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   background: '#f5f0e8',
 };
 
 const btn = {
   marginTop: 18,
   padding: '12px 24px',
-  background: '#5c5043',
-  color: '#fffdf8',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   border: 'none',
   borderRadius: 10,
   cursor: 'pointer',
@@ -110,8 +110,8 @@ export default function AuthCallback({ onDone }) {
     return (
       <div style={wrap}>
         <h1 style={{ fontSize: 20, marginBottom: 12 }}>認証リンクが利用できません</h1>
-        <p style={{ fontSize: 13, color: '#5a4f3e', lineHeight: 1.8, maxWidth: 360 }}>{message}</p>
-        <p style={{ fontSize: 12, color: '#5a4f3e', marginTop: 8, lineHeight: 1.7, maxWidth: 360 }}>
+        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, maxWidth: 360 }}>{message}</p>
+        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', marginTop: 8, lineHeight: 1.7, maxWidth: 360 }}>
           お手数ですが、もう一度ログイン画面から操作をやり直してください。
         </p>
         <button type="button" onClick={handleBackToLogin} style={btn}>
@@ -125,7 +125,7 @@ export default function AuthCallback({ onDone }) {
     return (
       <div style={wrap}>
         <h1 style={{ fontSize: 18, marginBottom: 12 }}>認証中...</h1>
-        <p style={{ fontSize: 13, color: '#5a4f3e' }}>セッションを確認しています。</p>
+        <p style={{ fontSize: 13, color: 'var(--c-ink-2)' }}>セッションを確認しています。</p>
       </div>
     );
   }
@@ -133,7 +133,7 @@ export default function AuthCallback({ onDone }) {
   return (
     <div style={wrap}>
       <h1 style={{ fontSize: 20, marginBottom: 12 }}>認証を確認できませんでした</h1>
-      <p style={{ fontSize: 13, color: '#5a4f3e', lineHeight: 1.8, maxWidth: 360 }}>
+      <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, maxWidth: 360 }}>
         セッションの確立に時間がかかっています。ログイン画面からやり直してください。
       </p>
       <button type="button" onClick={handleBackToLogin} style={btn}>

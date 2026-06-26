@@ -23,7 +23,7 @@ const overlay = {
   display: 'flex',
   flexDirection: 'column',
   fontFamily: "var(--font-app)",
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   paddingTop: 'env(safe-area-inset-top, 0px)',
 };
 
@@ -32,8 +32,8 @@ const headerBar = {
   alignItems: 'center',
   gap: 12,
   padding: '14px 18px',
-  borderBottom: '1px solid #ece5d9',
-  background: '#fffdf8',
+  borderBottom: '1px solid var(--c-hairline)',
+  background: 'var(--c-card)',
   flexShrink: 0,
 };
 
@@ -50,8 +50,8 @@ const footer = {
   display: 'flex',
   gap: 10,
   padding: '12px 18px calc(12px + env(safe-area-inset-bottom))',
-  borderTop: '1px solid #ece5d9',
-  background: '#fffdf8',
+  borderTop: '1px solid var(--c-hairline)',
+  background: 'var(--c-card)',
   flexShrink: 0,
 };
 
@@ -59,11 +59,11 @@ const inp = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   borderRadius: 10,
   background: '#fff',
   outline: 'none',
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   fontFamily: 'inherit',
   boxSizing: 'border-box',
 };
@@ -75,8 +75,8 @@ const btnPrimary = {
   padding: '12px 0',
   borderRadius: 10,
   border: 'none',
-  background: '#5c5043',
-  color: '#fffdf8',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 14,
@@ -87,9 +87,9 @@ const btnGhost = {
   flex: 1,
   padding: '12px 0',
   borderRadius: 10,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   background: 'transparent',
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 14,
@@ -97,7 +97,7 @@ const btnGhost = {
 
 const fieldLabel = {
   fontSize: 13,
-  color: '#5c5548',
+  color: 'var(--c-ink-soft)',
   fontWeight: 500,
   display: 'block',
   marginBottom: 4,
@@ -107,8 +107,8 @@ const tagPill = {
   fontSize: 11,
   padding: '2px 8px',
   borderRadius: 10,
-  background: '#eae3d6',
-  color: '#5a4f3e',
+  background: 'var(--c-soft-2)',
+  color: 'var(--c-ink-2)',
   display: 'flex',
   alignItems: 'center',
   gap: 4,
@@ -119,9 +119,9 @@ const tagSuggestionBtn = {
   padding: '8px 8px',
   minHeight: 32,
   borderRadius: 10,
-  border: '1px dashed #e0d8ca',
+  border: '1px dashed var(--c-hairline-strong)',
   background: 'transparent',
-  color: '#5a4f3e',
+  color: 'var(--c-ink-2)',
   cursor: 'pointer',
   fontFamily: 'inherit',
 };
@@ -372,16 +372,16 @@ export default function BookMemoEditor({
         <button
           type="button"
           onClick={onClose}
-          style={{ background: 'none', border: 'none', fontSize: 14, color: '#5c5043', cursor: 'pointer', padding: '11px 8px', margin: '-11px -8px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+          style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--c-brand)', cursor: 'pointer', padding: '11px 8px', margin: '-11px -8px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
         >
           ← 戻る
         </button>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0 }}>{isEdit ? 'メモを編集' : 'メモを追加'}</p>
+          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0 }}>{isEdit ? 'メモを編集' : 'メモを追加'}</p>
           <p
             style={{
               fontSize: 14,
-              color: '#3d362c',
+              color: 'var(--c-ink)',
               fontWeight: 500,
               margin: 0,
               overflow: 'hidden',
@@ -433,8 +433,8 @@ export default function BookMemoEditor({
                 aria-label="メモを3行に凝縮する"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40,
-                  padding: '8px 14px', borderRadius: 10, border: '1px solid #e0d8ca',
-                  background: 'transparent', color: '#5c5043', fontSize: 13, fontWeight: 600,
+                  padding: '8px 14px', borderRadius: 10, border: '1px solid var(--c-hairline-strong)',
+                  background: 'transparent', color: 'var(--c-brand)', fontSize: 13, fontWeight: 600,
                   fontFamily: 'inherit', cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1,
                 }}
               >
@@ -449,7 +449,7 @@ export default function BookMemoEditor({
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 40,
                   padding: '8px 12px', borderRadius: 10, border: 'none',
-                  background: 'transparent', color: '#8a7d6a', fontSize: 12, fontWeight: 600,
+                  background: 'transparent', color: 'var(--c-ink-3)', fontSize: 12, fontWeight: 600,
                   fontFamily: 'inherit', cursor: 'pointer',
                 }}
               >
@@ -495,7 +495,7 @@ export default function BookMemoEditor({
                   maxWidth: '100%',
                   maxHeight: 280,
                   borderRadius: 8,
-                  border: '1px solid #ece5d9',
+                  border: '1px solid var(--c-hairline)',
                   display: 'block',
                 }}
               />
@@ -506,7 +506,7 @@ export default function BookMemoEditor({
                   background: 'none',
                   border: 'none',
                   fontSize: 12,
-                  color: '#a05040',
+                  color: 'var(--c-critical)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                   padding: '11px 8px',
@@ -543,7 +543,7 @@ export default function BookMemoEditor({
                     background: 'none',
                     border: 'none',
                     fontSize: 14,
-                    color: '#5a4f3e',
+                    color: 'var(--c-ink-2)',
                     cursor: 'pointer',
                     padding: '6px 8px',
                     margin: '-6px -6px -6px 0',
@@ -600,7 +600,7 @@ export default function BookMemoEditor({
         </div>
 
         {errorMsg && (
-          <p style={{ color: '#a05040', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
+          <p style={{ color: 'var(--c-critical)', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
         )}
       </div>
 

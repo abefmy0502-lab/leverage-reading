@@ -17,7 +17,7 @@ import {
 // 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。
 const wrap = { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8, minWidth: 0 };
 const sectionStyle = {
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   border: '1px solid #f0ebe1',
   borderRadius: 14,
   padding: '14px 16px',
@@ -37,7 +37,7 @@ const headingStyle = {
 const subHeadingStyle = {
   fontSize: 13.5,
   fontWeight: 700,
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   margin: '10px 0 3px',
   overflowWrap: 'anywhere',
 };
@@ -93,7 +93,7 @@ function renderTable(rows, key) {
                   textAlign: 'left',
                   padding: '6px 8px',
                   background: '#efe7d8',
-                  color: '#5c5043',
+                  color: 'var(--c-brand)',
                   fontWeight: 700,
                   border: '1px solid #e0d7c6',
                   whiteSpace: 'nowrap',
@@ -149,7 +149,7 @@ function renderInline(text) {
   let i = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > cursor) parts.push(text.slice(cursor, m.index));
-    parts.push(<strong key={`b-${i}`} style={{ color: '#3d362c' }}>{m[1]}</strong>);
+    parts.push(<strong key={`b-${i}`} style={{ color: 'var(--c-ink)' }}>{m[1]}</strong>);
     cursor = m.index + m[0].length;
     i += 1;
   }
@@ -353,9 +353,9 @@ const relatedAddBtn = {
   minWidth: 0,
   padding: '10px 12px',
   borderRadius: 999,
-  border: '1px solid #e0d8ca',
-  background: '#5c5043',
-  color: '#fffdf8',
+  border: '1px solid var(--c-hairline-strong)',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   fontSize: 13,
   fontWeight: 600,
   cursor: 'pointer',
@@ -394,12 +394,12 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
   const amazonHref = getAmazonSearchLink(book.title, book.author);
   return (
     <div style={relatedCardStyle}>
-      <p style={{ fontSize: 13, fontWeight: 600, color: '#3d362c', margin: 0, lineHeight: 1.5 }}>
+      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-ink)', margin: 0, lineHeight: 1.5 }}>
         📚 『{book.title}』
-        {book.author && <span style={{ fontSize: 11, color: '#5a4f3e', fontWeight: 400 }}> — {book.author}</span>}
+        {book.author && <span style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 400 }}> — {book.author}</span>}
       </p>
       {description && (
-        <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
+        <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
           {description}
         </p>
       )}
@@ -495,7 +495,7 @@ export default function MarkdownSections({ text, density = 'normal', onAddRelate
             {s.heading && <h3 style={headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && (
-              <small style={{ display: 'block', fontSize: 10, color: '#5a4f3e', lineHeight: 1.6, marginTop: 8 }}>
+              <small style={{ display: 'block', fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1.6, marginTop: 8 }}>
                 {AMAZON_DISCLOSURE_TEXT}
               </small>
             )}

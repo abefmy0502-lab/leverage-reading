@@ -73,7 +73,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   borderRadius: 16,
   width: 'min(420px, 100%)',
   // 低い画面高 (iPhone SE 等) でも CTA が必ず収まるよう、カード全体の高さを
@@ -100,7 +100,7 @@ const dot = (active) => ({
   width: 8,
   height: 8,
   borderRadius: 4,
-  background: active ? '#5c5043' : '#e0d8ca',
+  background: active ? 'var(--c-brand)' : 'var(--c-hairline-strong)',
   transition: 'background .15s',
 });
 
@@ -110,8 +110,8 @@ const btnPrimary = {
   padding: '12px 0',
   borderRadius: 10,
   border: 'none',
-  background: '#5c5043',
-  color: '#fffdf8',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   fontSize: 14,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -123,9 +123,9 @@ const btnGhost = {
   minHeight: 44,
   padding: '12px 0',
   borderRadius: 10,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   background: 'transparent',
-  color: '#5c5548',
+  color: 'var(--c-ink-soft)',
   fontSize: 14,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -138,7 +138,7 @@ const closeBtnStyle = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#5a4f3e',
+  color: 'var(--c-ink-2)',
   cursor: 'pointer',
   padding: 0,
   width: 44,
@@ -221,23 +221,23 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
               width: 78,
               height: 78,
               borderRadius: '50%',
-              background: '#eae3d6',
+              background: 'var(--c-soft-2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 36,
-              color: '#5c5043',
+              color: 'var(--c-brand)',
             }}
           >
             {slide.icon}
           </div>
-          <h2 style={{ fontSize: 18, color: '#3d362c', margin: '6px 0 0', fontWeight: 500 }}>
+          <h2 style={{ fontSize: 18, color: 'var(--c-ink)', margin: '6px 0 0', fontWeight: 500 }}>
             {slide.title}
           </h2>
           <p
             style={{
               fontSize: 13,
-              color: '#5c5548',
+              color: 'var(--c-ink-soft)',
               lineHeight: 1.8,
               textAlign: 'center',
               margin: 0,
@@ -257,10 +257,10 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
                 textAlign: 'center',
               }}
             >
-              <p style={{ fontSize: 12, color: '#5c5548', fontStyle: 'italic', lineHeight: 1.7, margin: 0 }}>
+              <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', fontStyle: 'italic', lineHeight: 1.7, margin: 0 }}>
                 “{welcomeQuote.text}”
               </p>
-              <p style={{ fontSize: 10, color: '#5a4f3e', margin: '4px 0 0' }}>— {welcomeQuote.author}</p>
+              <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '4px 0 0' }}>— {welcomeQuote.author}</p>
             </div>
           )}
         </div>

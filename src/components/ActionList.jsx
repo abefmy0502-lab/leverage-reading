@@ -15,10 +15,10 @@ import EmptyState from './EmptyState';
 import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3 } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
-const sectionTitle = { fontSize: 13, fontWeight: 600, color: '#5c5043', margin: '0 0 8px' };
+const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
 
 const summaryCard = {
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   border: '1px solid #f0ebe1',
   borderRadius: 16,
   padding: '16px 18px',
@@ -36,16 +36,16 @@ const pillRow = {
   paddingBottom: 4,
 };
 
-const pill = (active, color = '#5c5043', bg = '#e8e0d2') => ({
+const pill = (active, color = 'var(--c-brand)', bg = '#e8e0d2') => ({
   flex: '0 0 auto',
   whiteSpace: 'nowrap',
   fontSize: 12,
   padding: '6px 14px',
   minHeight: 44,
   borderRadius: 999,
-  border: active ? `1.5px solid ${color}` : '1px solid #e0d8ca',
+  border: active ? `1.5px solid ${color}` : '1px solid var(--c-hairline-strong)',
   background: active ? bg : 'transparent',
-  color: active ? color : '#5a4f3e',
+  color: active ? color : 'var(--c-ink-2)',
   fontWeight: active ? 600 : 400,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -53,7 +53,7 @@ const pill = (active, color = '#5c5043', bg = '#e8e0d2') => ({
 
 const cardBase = {
   position: 'relative',
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   border: '1px solid #f0ebe1',
   borderRadius: 14,
   padding: '14px 40px 14px 16px',
@@ -71,7 +71,7 @@ const kebabBtn = {
   height: 44,
   background: 'none',
   border: 'none',
-  color: '#5a4f3e',
+  color: 'var(--c-ink-2)',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -85,7 +85,7 @@ const menuStyle = {
   top: 32,
   right: 8,
   background: '#fff',
-  border: '1px solid #ece5d9',
+  border: '1px solid var(--c-hairline)',
   borderRadius: 8,
   boxShadow: '0 4px 14px rgba(30,25,20,0.12)',
   zIndex: 5,
@@ -106,7 +106,7 @@ const menuItem = {
   textAlign: 'left',
   fontFamily: 'inherit',
   cursor: 'pointer',
-  color: '#3d362c',
+  color: 'var(--c-ink)',
 };
 
 function fmtDate(iso) {
@@ -135,7 +135,7 @@ const FILTERS = [
   { key: 'open', label: '未完了' },
   { key: 'all', label: '全て' },
   { key: 'done', label: '完了' },
-  { key: 'overdue', label: '⚠ 期限切れ', color: '#a05040', bg: '#fdf0ed' },
+  { key: 'overdue', label: '⚠ 期限切れ', color: 'var(--c-critical)', bg: '#fdf0ed' },
   { key: 'today', label: '今日まで', color: '#E65100', bg: '#FFF3E0' },
   { key: 'upcoming', label: '今週期限', color: '#1565C0', bg: '#E3F2FD' },
 ];
@@ -224,7 +224,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
   const period = statsPeriod === 'all'
     ? { rate: stats.pct, completed: stats.completed, total: stats.total }
     : statsPeriod === 'month' ? stats.month : stats.week;
-  const pctColor = period.rate >= 80 ? '#5a7a48' : period.rate >= 50 ? '#d4a040' : '#a05040';
+  const pctColor = period.rate >= 80 ? '#5a7a48' : period.rate >= 50 ? '#d4a040' : 'var(--c-critical)';
 
   const handleKebab = (e, key) => {
     e.stopPropagation();
@@ -237,11 +237,11 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
     <div style={wrap} onClick={closeMenu}>
       {/* Page header */}
       <div>
-        <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3d362c', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--c-ink)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Target size={18} strokeWidth={1.75} aria-hidden="true" />
           ✅ 本から決めた次の行動を管理
         </h2>
-        <p style={{ fontSize: 12, color: '#5a4f3e', marginTop: 2, lineHeight: 1.7 }}>
+        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', marginTop: 2, lineHeight: 1.7 }}>
           完了したらチェックを入れて、習慣化していきましょう
         </p>
       </div>
@@ -266,7 +266,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                 display: 'flex',
                 gap: 4,
                 padding: 3,
-                background: '#eae3d6',
+                background: 'var(--c-soft-2)',
                 borderRadius: 10,
                 alignSelf: 'flex-start',
               }}
@@ -289,8 +289,8 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                     minHeight: 30,
                     borderRadius: 8,
                     border: 'none',
-                    background: statsPeriod === p.key ? '#5c5043' : 'transparent',
-                    color: statsPeriod === p.key ? '#fffdf8' : '#5c5548',
+                    background: statsPeriod === p.key ? 'var(--c-brand)' : 'transparent',
+                    color: statsPeriod === p.key ? 'var(--c-card)' : 'var(--c-ink-soft)',
                     fontSize: 12,
                     fontWeight: statsPeriod === p.key ? 600 : 500,
                     cursor: 'pointer',
@@ -304,7 +304,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <div>
-                <div style={{ fontSize: 11, color: '#5a4f3e' }}>{periodLabel}の達成率</div>
+                <div style={{ fontSize: 11, color: 'var(--c-ink-2)' }}>{periodLabel}の達成率</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, lineHeight: 1.1 }}>
                   <AnimatedNumber value={period.rate} duration={700} />
                   <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
@@ -314,7 +314,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 12, color: '#5c5043' }}>
+                <div style={{ fontSize: 12, color: 'var(--c-brand)' }}>
                   <AnimatedNumber value={period.completed} duration={500} /> / {period.total} 完了
                 </div>
                 {stats.streak > 0 && (
@@ -323,7 +323,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                   </div>
                 )}
                 {stats.upcomingThisWeek > 0 && (
-                  <div style={{ fontSize: 11, color: '#a05040', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ fontSize: 11, color: 'var(--c-critical)', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <AlertCircle size={11} strokeWidth={1.75} aria-hidden="true" />
                     今週期限 {stats.upcomingThisWeek} 件
                   </div>
@@ -361,13 +361,13 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
 
       {/* Sort */}
       {stats.total > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#5a4f3e' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--c-ink-2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span>並び順</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{ fontSize: 16, padding: '8px 8px', minHeight: 44, borderRadius: 8, border: '1px solid #e0d8ca', background: '#fffdf8', color: '#3d362c', fontFamily: 'inherit' }}
+              style={{ fontSize: 16, padding: '8px 8px', minHeight: 44, borderRadius: 8, border: '1px solid var(--c-hairline-strong)', background: 'var(--c-card)', color: 'var(--c-ink)', fontFamily: 'inherit' }}
             >
               {SORTS.map((s) => (
                 <option key={s.key} value={s.key}>{s.label}</option>
@@ -415,8 +415,8 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
             const key = `${a.bookId}:${a.actionIdx}:${a.id || ''}`;
             const cardStyle = {
               ...cardBase,
-              background: a.done ? '#f0ebe2' : ds.kind === 'overdue' ? '#fdf0ed' : '#fffdf8',
-              borderColor: ds.kind === 'overdue' && !a.done ? '#e0b0a0' : '#ece5d9',
+              background: a.done ? 'var(--c-soft)' : ds.kind === 'overdue' ? '#fdf0ed' : 'var(--c-card)',
+              borderColor: ds.kind === 'overdue' && !a.done ? '#e0b0a0' : 'var(--c-hairline)',
             };
             return (
               <div key={key} className="list-item-enter" style={cardStyle}>
@@ -469,7 +469,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                     style={{
                       fontSize: 13,
                       lineHeight: 1.6,
-                      color: a.done ? '#9a8e7a' : '#3d362c',
+                      color: a.done ? '#9a8e7a' : 'var(--c-ink)',
                       textDecoration: a.done ? 'line-through' : 'none',
                       margin: 0,
                       wordBreak: 'break-word',
@@ -580,7 +580,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                         border: '1px solid #e0d0a8',
                         borderRadius: 8,
                         fontSize: 12,
-                        color: '#5c5043',
+                        color: 'var(--c-brand)',
                         lineHeight: 1.6,
                         whiteSpace: 'pre-wrap',
                       }}
@@ -628,7 +628,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                     </button>
                     <button
                       type="button"
-                      style={{ ...menuItem, color: '#a05040' }}
+                      style={{ ...menuItem, color: 'var(--c-critical)' }}
                       onClick={() => {
                         setOpenMenuKey(null);
                         onDeleteAction?.(a.bookId, a.actionIdx);

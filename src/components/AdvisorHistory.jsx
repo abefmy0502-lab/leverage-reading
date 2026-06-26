@@ -41,8 +41,8 @@ function stripRecommendations(text) {
 }
 
 const card = {
-  background: '#fffdf8',
-  border: '1px solid #ece5d9',
+  background: 'var(--c-card)',
+  border: '1px solid var(--c-hairline)',
   borderRadius: 12,
   padding: '12px 14px',
   cursor: 'pointer',
@@ -59,16 +59,16 @@ const meta = {
   flexWrap: 'wrap',
   gap: 8,
   fontSize: 11,
-  color: '#5a4f3e',
+  color: 'var(--c-ink-2)',
 };
 
 const btnGhost = {
   background: 'transparent',
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   borderRadius: 8,
   padding: '4px 10px',
   fontSize: 11,
-  color: '#5a4f3e',
+  color: 'var(--c-ink-2)',
   cursor: 'pointer',
   fontFamily: 'inherit',
 };
@@ -77,13 +77,13 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 16px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: '#5c5043' }}>← 戻る</button>
-        <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>🕒 AI 選書の履歴</p>
+        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: 'var(--c-brand)' }}>← 戻る</button>
+        <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0 }}>🕒 AI 選書の履歴</p>
         <span style={{ width: 50 }} />
       </div>
 
       {!loaded ? (
-        <p style={{ fontSize: 12, color: '#5a4f3e', textAlign: 'center', padding: 20 }}>
+        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', textAlign: 'center', padding: 20 }}>
           読み込み中…
         </p>
       ) : sessions.length === 0 ? (
@@ -105,7 +105,7 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
                   onClick={() => onSelect(s)}
                   style={card}
                 >
-                  <div style={{ fontSize: 13, color: '#3d362c', fontWeight: 500, lineHeight: 1.5, paddingRight: 28 }}>
+                  <div style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 500, lineHeight: 1.5, paddingRight: 28 }}>
                     {head}
                   </div>
                   <div style={meta}>
@@ -126,7 +126,7 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
                     background: 'transparent',
                     border: 'none',
                     fontSize: 14,
-                    color: '#5a4f3e',
+                    color: 'var(--c-ink-2)',
                     cursor: 'pointer',
                     padding: 4,
                     fontFamily: 'inherit',
@@ -152,7 +152,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
     <div
       style={{
         background: '#fff',
-        border: '1px solid #ece5d9',
+        border: '1px solid var(--c-hairline)',
         borderRadius: 14,
         padding: 14,
         boxShadow: '0 1px 4px rgba(30,25,20,0.04)',
@@ -165,7 +165,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
         『{book.title}』
       </p>
       {book.author && (
-        <p style={{ fontSize: 12, color: '#5a4f3e', margin: '2px 0 8px' }}>— {book.author}</p>
+        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '2px 0 8px' }}>— {book.author}</p>
       )}
 
       {book.why && (
@@ -258,8 +258,8 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
               flex: 1,
               minWidth: 120,
               padding: '10px 12px',
-              background: '#5c5043',
-              color: '#fffdf8',
+              background: 'var(--c-brand)',
+              color: 'var(--c-card)',
               border: 'none',
               borderRadius: 10,
               fontSize: 12,
@@ -284,7 +284,7 @@ function RecField({ label, text }) {
   return (
     <div style={{ background: 'rgba(92,74,46,0.04)', borderRadius: 8, padding: '8px 10px', margin: '6px 0' }}>
       <p style={{ fontSize: 11, fontWeight: 700, color: '#5C4A2E', margin: '0 0 4px' }}>{label}</p>
-      <p style={{ fontSize: 13, lineHeight: 1.7, color: '#3d362c', margin: 0 }}>{text}</p>
+      <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--c-ink)', margin: 0 }}>{text}</p>
     </div>
   );
 }
@@ -362,8 +362,8 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 16px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: '#5c5043' }}>← 戻る</button>
-        <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>{formatDate(session?.created_at)} の会話</p>
+        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: 'var(--c-brand)' }}>← 戻る</button>
+        <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0 }}>{formatDate(session?.created_at)} の会話</p>
         <span style={{ width: 50 }} />
       </div>
 
@@ -394,8 +394,8 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
                     maxWidth: '85%',
                     padding: '10px 14px',
                     borderRadius: 14,
-                    background: isUser ? '#5c5043' : '#f7f3ec',
-                    color: isUser ? '#fffdf8' : '#3d362c',
+                    background: isUser ? 'var(--c-brand)' : '#f7f3ec',
+                    color: isUser ? 'var(--c-card)' : 'var(--c-ink)',
                     fontSize: 13,
                     lineHeight: 1.7,
                     whiteSpace: 'pre-wrap',
@@ -415,7 +415,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
 
       {recs.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
-          <p style={{ fontSize: 12, color: '#5c5043', fontWeight: 600, margin: 0 }}>📚 提案された本</p>
+          <p style={{ fontSize: 12, color: 'var(--c-brand)', fontWeight: 600, margin: 0 }}>📚 提案された本</p>
           {recs.map((b, i) => (
             <RecommendationCard
               key={`${b.title}-${i}`}
@@ -427,7 +427,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
               onAdd={() => handleAdd(b)}
             />
           ))}
-          <p style={{ fontSize: 10, color: '#5a4f3e', margin: '4px 0 0', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '4px 0 0', lineHeight: 1.6 }}>
             ※ Amazon のリンクはアソシエイトリンクです (購入時に運営に紹介料が入ります)
           </p>
         </div>
@@ -441,8 +441,8 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             flex: 1,
             minWidth: 140,
             padding: '12px 14px',
-            background: '#5c5043',
-            color: '#fffdf8',
+            background: 'var(--c-brand)',
+            color: 'var(--c-card)',
             border: 'none',
             borderRadius: 10,
             fontSize: 13,
@@ -462,8 +462,8 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             minWidth: 140,
             padding: '12px 14px',
             background: 'transparent',
-            color: '#5c5043',
-            border: '1px solid #e0d8ca',
+            color: 'var(--c-brand)',
+            border: '1px solid var(--c-hairline-strong)',
             borderRadius: 10,
             fontSize: 13,
             fontFamily: 'inherit',

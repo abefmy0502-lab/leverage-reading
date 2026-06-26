@@ -30,11 +30,11 @@ import { MessageCircle, Lightbulb, History, BookOpenCheck } from 'lucide-react';
 const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' };
 // chat 以外の view 共通: ヘッダ/pill 下にスクロール可能な領域を提供。
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '12px 16px 24px' };
-const card = { background: '#fffdf8', border: '1px solid #ece5d9', borderRadius: 12, padding: '12px 14px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid #e0d8ca', borderRadius: 10, background: '#fff', color: '#3d362c', fontFamily: 'inherit', boxSizing: 'border-box' };
+const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '12px 14px' };
+const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
-const btnPrimary = { padding: '12px 20px', borderRadius: 10, border: 'none', background: '#5c5043', color: '#fffdf8', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
-const btnGhost = { padding: '8px 12px', borderRadius: 8, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 };
+const btnPrimary = { padding: '12px 20px', borderRadius: 10, border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
+const btnGhost = { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 };
 const pill = (active) => ({
   // Sized to content so labels never wrap; row scrolls horizontally on
   // narrow phones via the parent's overflow-x: auto + lvg-no-scrollbar.
@@ -43,8 +43,8 @@ const pill = (active) => ({
   minHeight: 36,
   padding: '6px 10px',
   border: 'none',
-  background: active ? '#5c5043' : 'transparent',
-  color: active ? '#fffdf8' : '#5c5548',
+  background: active ? 'var(--c-brand)' : 'transparent',
+  color: active ? 'var(--c-card)' : 'var(--c-ink-soft)',
   fontSize: 13,
   fontWeight: active ? 600 : 500,
   cursor: 'pointer',
@@ -184,8 +184,8 @@ function LearningInline({ onCancel, onSaved }) {
       </p>
 
       <div>
-        <label style={{ fontSize: 12, color: '#5c5548', fontWeight: 500, display: 'block', marginBottom: 4 }}>カテゴリ</label>
-        <p style={{ fontSize: 10, color: '#5a4f3e', margin: '0 0 6px' }}>気づきが生まれた場所を選んでください</p>
+        <label style={{ fontSize: 12, color: 'var(--c-ink-soft)', fontWeight: 500, display: 'block', marginBottom: 4 }}>カテゴリ</label>
+        <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '0 0 6px' }}>気づきが生まれた場所を選んでください</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {CATEGORIES.map((c) => (
             <button
@@ -198,9 +198,9 @@ function LearningInline({ onCancel, onSaved }) {
                 fontSize: 12,
                 fontFamily: 'inherit',
                 cursor: 'pointer',
-                border: category === c ? '1.5px solid #5c5043' : '1px solid #e0d8ca',
-                background: category === c ? '#eae3d6' : 'transparent',
-                color: category === c ? '#3d362c' : '#8a7e6b',
+                border: category === c ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
+                background: category === c ? 'var(--c-soft-2)' : 'transparent',
+                color: category === c ? 'var(--c-ink)' : '#8a7e6b',
                 fontWeight: category === c ? 600 : 400,
               }}
             >
@@ -211,7 +211,7 @@ function LearningInline({ onCancel, onSaved }) {
       </div>
 
       <div>
-        <label style={{ fontSize: 12, color: '#5c5548', fontWeight: 500, display: 'block', marginBottom: 4 }}>学んだ内容</label>
+        <label style={{ fontSize: 12, color: 'var(--c-ink-soft)', fontWeight: 500, display: 'block', marginBottom: 4 }}>学んだ内容</label>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -225,12 +225,12 @@ function LearningInline({ onCancel, onSaved }) {
       </div>
 
       <div>
-        <label style={{ fontSize: 12, color: '#5c5548', fontWeight: 500, display: 'block', marginBottom: 4 }}>タグ（任意）</label>
+        <label style={{ fontSize: 12, color: 'var(--c-ink-soft)', fontWeight: 500, display: 'block', marginBottom: 4 }}>タグ（任意）</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
           {tags.map((t, i) => (
-            <span key={`${t}-${i}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#eae3d6', color: '#5a4f3e', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+            <span key={`${t}-${i}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
               {t}
-              <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', fontSize: 12, color: '#5a4f3e', cursor: 'pointer', padding: 0 }}>×</button>
+              <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--c-ink-2)', cursor: 'pointer', padding: 0 }}>×</button>
             </span>
           ))}
         </div>
@@ -705,7 +705,7 @@ export default function MyBookBrain({ onOpenBook }) {
           justifyContent: 'center',
           gap: 4,
           padding: 3,
-          background: '#eae3d6',
+          background: 'var(--c-soft-2)',
           borderRadius: 10,
           flexWrap: 'nowrap',
           overflowX: 'auto',
@@ -747,15 +747,15 @@ export default function MyBookBrain({ onOpenBook }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} role="region" aria-label="過去の質問と回答">
 
             <div>
-              <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>🕒 過去の質問と答え</p>
-              <p style={{ fontSize: 11, color: '#5a4f3e', margin: '2px 0 0', lineHeight: 1.7 }}>
+              <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0 }}>🕒 過去の質問と答え</p>
+              <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '2px 0 0', lineHeight: 1.7 }}>
                 気になる質問は再度開いて、答えを見返せます
               </p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={{ fontSize: 12, color: '#5a4f3e', margin: 0 }}>会話 {messages.length} 件</p>
+              <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0 }}>会話 {messages.length} 件</p>
               {messages.length > 0 && (
-                <button type="button" style={{ ...btnGhost, color: '#a05040', borderColor: '#c4a0a0' }} onClick={clearHistory}>
+                <button type="button" style={{ ...btnGhost, color: 'var(--c-critical)', borderColor: '#c4a0a0' }} onClick={clearHistory}>
                   すべて削除
                 </button>
               )}
@@ -803,15 +803,15 @@ export default function MyBookBrain({ onOpenBook }) {
               // メモが 1 件もない時は、AI に質問させる前に「まず 1 冊メモを残そう」を
               // 先に促す。空のまま質問しても根拠がなく、体験が空振りするため。
               <div style={card}>
-                <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: '0 0 8px' }}>
+                <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: '0 0 8px' }}>
                   🌱 まずは1冊、メモを残すところから
                 </p>
-                <p style={{ fontSize: 12, color: '#5c5548', margin: 0, lineHeight: 1.8 }}>
+                <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.8 }}>
                   マイ読書脳は、あなた自身のメモを根拠に答えます。<br />
                   本棚で1冊えらび、気になった一行を残してみてください。メモが増えるほど、あなただけの AI に育っていきます。
                 </p>
                 {onOpenBook && (
-                  <p style={{ fontSize: 11, color: '#5a4f3e', margin: '10px 0 0', lineHeight: 1.7 }}>
+                  <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '10px 0 0', lineHeight: 1.7 }}>
                     （メモがたまると、ここで質問に答えられるようになります）
                   </p>
                 )}
@@ -820,9 +820,9 @@ export default function MyBookBrain({ onOpenBook }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* 💭 今週の問い — マイ読書脳が向こうから問いを投げる（能動化） */}
               {weeklyQ && !weeklyDismissed && (
-                <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid #e0d8ca', borderRadius: 14, padding: '14px 15px' }}>
+                <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid var(--c-hairline-strong)', borderRadius: 14, padding: '14px 15px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 800, color: '#8a7d6a', letterSpacing: '.14em' }}>💭 今週の問い</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.14em' }}>💭 今週の問い</span>
                     <button
                       type="button"
                       onClick={dismissWeekly}
@@ -830,20 +830,20 @@ export default function MyBookBrain({ onOpenBook }) {
                       style={{ background: 'none', border: 'none', color: '#b3a994', fontSize: 16, lineHeight: 1, cursor: 'pointer', padding: 4, fontFamily: 'inherit' }}
                     >×</button>
                   </div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: '#3d362c', margin: '0 0 12px', lineHeight: 1.6 }}>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-ink)', margin: '0 0 12px', lineHeight: 1.6 }}>
                     {weeklyQ}
                   </p>
                   <button
                     type="button"
                     onClick={answerWeekly}
-                    style={{ minHeight: 44, width: '100%', borderRadius: 11, border: 'none', background: '#5c5043', color: '#fffdf8', fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 1px 2px rgba(60,48,30,.18)' }}
+                    style={{ minHeight: 44, width: '100%', borderRadius: 11, border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 1px 2px rgba(60,48,30,.18)' }}
                   >
                     この問いに答える →
                   </button>
                 </div>
               )}
               <div style={card}>
-                <p style={{ fontSize: 12, color: '#5c5548', margin: '0 0 8px', fontWeight: 500 }}>💡 質問例（タップで入力）</p>
+                <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: '0 0 8px', fontWeight: 500 }}>💡 質問例（タップで入力）</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {QUESTION_EXAMPLES.map((ex) => (
                     <button
@@ -859,16 +859,16 @@ export default function MyBookBrain({ onOpenBook }) {
                         minHeight: 44,
                         padding: '8px 14px',
                         background: '#fff',
-                        border: '1px solid #ece5d9',
+                        border: '1px solid var(--c-hairline)',
                         borderRadius: 10,
                         fontSize: 13,
                         lineHeight: 1.5,
-                        color: '#3d362c',
+                        color: 'var(--c-ink)',
                         cursor: 'pointer',
                         fontFamily: 'inherit',
                       }}
                     >
-                      <span aria-hidden="true" style={{ color: '#5a4f3e', flexShrink: 0 }}>›</span>
+                      <span aria-hidden="true" style={{ color: 'var(--c-ink-2)', flexShrink: 0 }}>›</span>
                       {ex}
                     </button>
                   ))}
@@ -904,8 +904,8 @@ export default function MyBookBrain({ onOpenBook }) {
               {!promptDismissed && (
                 <div
                   style={{
-                    background: '#fffdf8',
-                    border: '1px solid #ece5d9',
+                    background: 'var(--c-card)',
+                    border: '1px solid var(--c-hairline)',
                     borderRadius: 12,
                     padding: '12px 14px',
                     display: 'flex',
@@ -913,10 +913,10 @@ export default function MyBookBrain({ onOpenBook }) {
                     gap: 10,
                   }}
                 >
-                  <p style={{ fontSize: 13, color: '#3d362c', fontWeight: 600, margin: 0 }}>
+                  <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0 }}>
                     解決しましたか？
                   </p>
-                  <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
+                  <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
                     解決したらチャットをクリアして次の質問に集中できます。履歴タブからいつでも見返せます。
                   </p>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1069,8 +1069,8 @@ function ChatMessage({ message, onOpenBook, stage }) {
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
     // AI 吹き出しはわずかな影で背景から浮かせ、読み出しの起点を明確にする。
-    background: isUser ? '#5c5043' : '#fbf8f2',
-    color: isUser ? '#fffdf8' : '#332d23',
+    background: isUser ? 'var(--c-brand)' : '#fbf8f2',
+    color: isUser ? 'var(--c-card)' : '#332d23',
     border: isUser ? 'none' : '1px solid #ece5d8',
     boxShadow: isUser ? 'none' : '0 1px 2px rgba(60,54,44,0.04)',
     borderBottomRightRadius: isUser ? 4 : 14,
@@ -1124,7 +1124,7 @@ function ChatMessage({ message, onOpenBook, stage }) {
             <p style={{ fontSize: 10.5, color: '#8a7c5f', margin: '0 0 6px', fontWeight: 700, letterSpacing: '0.06em' }}>
               参照した本・メモ
             </p>
-            <ul style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.75, margin: 0, paddingLeft: 16 }}>
+            <ul style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: 0, paddingLeft: 16 }}>
               {message.refs.map((r, i) => (
                 <li key={i} style={{ marginTop: i === 0 ? 0 : 3 }}>{r}</li>
               ))}

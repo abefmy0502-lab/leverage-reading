@@ -207,8 +207,8 @@ function BookResultCard({ book, onSelect }) {
         alignItems: 'flex-start',
         padding: '10px 12px',
         borderRadius: 10,
-        border: '1px solid #ece5d9',
-        background: '#fffdf8',
+        border: '1px solid var(--c-hairline)',
+        background: 'var(--c-card)',
         cursor: 'pointer',
         textAlign: 'left',
         fontFamily: 'inherit',
@@ -225,15 +225,15 @@ function BookResultCard({ book, onSelect }) {
         <div style={{ width: 44, height: 60, background: '#e8e2d6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📕</div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#3d362c', lineHeight: 1.4, marginBottom: 2 }}>{book.title}</div>
-        {book.author && <div style={{ fontSize: 11, color: '#5a4f3e' }}>✍️ {book.author}</div>}
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', lineHeight: 1.4, marginBottom: 2 }}>{book.title}</div>
+        {book.author && <div style={{ fontSize: 11, color: 'var(--c-ink-2)' }}>✍️ {book.author}</div>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-          {book.publisher && <span style={{ fontSize: 10, color: '#5a4f3e' }}>🏢 {book.publisher}</span>}
-          {book.pubYear && <span style={{ fontSize: 10, color: '#5a4f3e' }}>📅 {book.pubYear}</span>}
+          {book.publisher && <span style={{ fontSize: 10, color: 'var(--c-ink-2)' }}>🏢 {book.publisher}</span>}
+          {book.pubYear && <span style={{ fontSize: 10, color: 'var(--c-ink-2)' }}>📅 {book.pubYear}</span>}
         </div>
         {book.isbn && <div style={{ fontSize: 10, color: '#b5aa96', marginTop: 3 }}>🔢 ISBN: {book.isbn}</div>}
       </div>
-      <span style={{ fontSize: 11, color: '#5c5043', alignSelf: 'center', whiteSpace: 'nowrap', padding: '4px 8px', border: '1px solid #e0d8ca', borderRadius: 6 }}>
+      <span style={{ fontSize: 11, color: 'var(--c-brand)', alignSelf: 'center', whiteSpace: 'nowrap', padding: '4px 8px', border: '1px solid var(--c-hairline-strong)', borderRadius: 6 }}>
         📚 これを追加
       </span>
     </button>
@@ -315,7 +315,7 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 500, color: '#3d362c' }}>🔍 本を検索</h3>
+        <h3 style={{ fontSize: 16, fontWeight: 500, color: 'var(--c-ink)' }}>🔍 本を検索</h3>
         <button onClick={onClose} style={closeBtn} aria-label="閉じる">×</button>
       </div>
 
@@ -416,8 +416,8 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
       )}
 
       {suggestions.length > 0 && !searching && (
-        <div style={{ background: '#f0ebe2', border: '1px solid #ece5d9', borderRadius: 10, padding: '10px 12px' }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: '#5c5043', margin: '0 0 6px' }}>💡 もしかしてこの本？</p>
+        <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline)', borderRadius: 10, padding: '10px 12px' }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 6px' }}>💡 もしかしてこの本？</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {suggestions.map((b, i) => (
               <BookResultCard key={`sug-${i}`} book={b} onSelect={onSelect} />
@@ -429,7 +429,7 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
       {results.length > 0 && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0 }}>{results.length} 件ヒット</p>
+            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0 }}>{results.length} 件ヒット</p>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -516,8 +516,8 @@ function Dots() {
 function Field({ label, sub, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <label style={{ fontSize: 13, color: "#5c5548", fontWeight: 500, display: "block", marginBottom: sub ? 2 : 5 }}>{label}</label>
-      {sub && <p style={{ fontSize: 11, color: "#5a4f3e", marginBottom: 5, lineHeight: 1.5 }}>{sub}</p>}
+      <label style={{ fontSize: 13, color: "var(--c-ink-soft)", fontWeight: 500, display: "block", marginBottom: sub ? 2 : 5 }}>{label}</label>
+      {sub && <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 5, lineHeight: 1.5 }}>{sub}</p>}
       {children}
     </div>
   );
@@ -558,7 +558,7 @@ const PLACEHOLDER_PALETTE = [
   ['#7a5080', '#5a3a60'], // plum
   ['#4a6e8a', '#2c4d68'], // slate blue
   ['#5a7a48', '#3a5a30'], // moss
-  ['#a05040', '#703528'], // brick
+  ['var(--c-critical)', '#703528'], // brick
   ['#9b7b5c', '#6a5340'], // sand
 ];
 function paletteFor(title) {
@@ -681,10 +681,10 @@ const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustD
         }}
         {...longPress.bind}
         style={{
-          background: "#fffdf8",
+          background: "var(--c-card)",
           borderRadius: 14,
           padding: "12px 14px",
-          border: "1px solid #ece5d9",
+          border: "1px solid var(--c-hairline)",
           boxShadow: isJustDone
             ? "0 0 18px rgba(212,160,64,0.55), 0 2px 8px rgba(30,25,20,0.08)"
             : "0 2px 6px rgba(30,25,20,0.06)",
@@ -733,9 +733,9 @@ const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustD
             </div>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#3d362c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: 0.2 }}>{book.title}</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--c-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: 0.2 }}>{book.title}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-              {book.author && <span style={{ fontSize: 11, color: "#5a4f3e", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.author}</span>}
+              {book.author && <span style={{ fontSize: 11, color: "var(--c-ink-2)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.author}</span>}
               {book.rating > 0 && <Stars r={book.rating} size={11} />}
             </div>
             <div style={{ marginTop: 6 }}>
@@ -758,9 +758,9 @@ function TagInput({ tags, onChange, allTags }) {
     <div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: tags.length ? 6 : 0 }}>
         {tags.map((t, i) => (
-          <span key={i} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "#eae3d6", color: "#5a4f3e", display: "flex", alignItems: "center", gap: 4 }}>
+          <span key={i} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--c-soft-2)", color: "var(--c-ink-2)", display: "flex", alignItems: "center", gap: 4 }}>
             {t}
-            <button onClick={() => onChange(tags.filter((_, j) => j !== i))} style={{ background: "none", border: "none", fontSize: 12, color: "#5a4f3e", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+            <button onClick={() => onChange(tags.filter((_, j) => j !== i))} style={{ background: "none", border: "none", fontSize: 12, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
           </span>
         ))}
       </div>
@@ -768,7 +768,7 @@ function TagInput({ tags, onChange, allTags }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
           <span style={{ fontSize: 10, color: "#b5aa96", lineHeight: "22px" }}>過去のタグ:</span>
           {suggestions.map((t) => (
-            <button key={t} onClick={() => add(t)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, border: "1px dashed #e0d8ca", background: "transparent", color: "#5a4f3e", cursor: "pointer", fontFamily: "inherit" }}>+ {t}</button>
+            <button key={t} onClick={() => add(t)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, border: "1px dashed var(--c-hairline-strong)", background: "transparent", color: "var(--c-ink-2)", cursor: "pointer", fontFamily: "inherit" }}>+ {t}</button>
           ))}
         </div>
       )}
@@ -782,7 +782,7 @@ function TagInput({ tags, onChange, allTags }) {
 
 function SectionHeader({ icon, title }) {
   return (
-    <h3 style={{ fontSize: 15, fontWeight: 500, color: "#3d362c", marginBottom: 12, marginTop: 24 }}>
+    <h3 style={{ fontSize: 15, fontWeight: 500, color: "var(--c-ink)", marginBottom: 12, marginTop: 24 }}>
       {icon} {title}
     </h3>
   );
@@ -867,7 +867,7 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 fontSize: 11,
-                color: '#5a4f3e',
+                color: 'var(--c-ink-2)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -893,7 +893,7 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
               <button
                 type="button"
                 onClick={clearCover}
-                style={{ background: 'none', border: 'none', fontSize: 10, color: '#a05040', cursor: 'pointer', padding: 2, fontFamily: 'inherit' }}
+                style={{ background: 'none', border: 'none', fontSize: 10, color: 'var(--c-critical)', cursor: 'pointer', padding: 2, fontFamily: 'inherit' }}
               >
                 削除
               </button>
@@ -956,7 +956,7 @@ function BeforePhase({
       </Field>
 
       <SectionHeader icon="🔍" title="AI本の解析" />
-      <p style={{ fontSize: 11, color: "#5a4f3e", marginBottom: 10, lineHeight: 1.5 }}>ボタンを押すとAIが本の核心・構造・著者の視点を分析します</p>
+      <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>ボタンを押すとAIが本の核心・構造・著者の視点を分析します</p>
       <button onClick={onRunAnalysis} disabled={!form.title.trim() || aiLoading} style={{ ...aiB, opacity: !form.title.trim() || aiLoading ? 0.5 : 1 }}>
         {aiLoading && !form.aiAnalysis ? "分析中..." : "🔍 AIで本を解析する"}
       </button>
@@ -1065,18 +1065,18 @@ function BeforePhase({
                 marginTop: 4,
                 marginBottom: 12,
                 padding: '10px 12px',
-                background: '#f0ebe2',
-                border: '1px solid #ece5d9',
+                background: 'var(--c-soft)',
+                border: '1px solid var(--c-hairline)',
                 borderRadius: 10,
               }}
             >
-              <p style={{ fontSize: 12, fontWeight: 600, color: '#5c5043', margin: 0 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-brand)', margin: 0 }}>
                 🤖 AI の選書理由
               </p>
-              <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: '6px 0 4px', whiteSpace: 'pre-wrap' }}>
+              <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.7, margin: '6px 0 4px', whiteSpace: 'pre-wrap' }}>
                 {form.bookReason}
               </p>
-              <small style={{ fontSize: 10, color: '#5a4f3e' }}>※ この内容は AI 選書時の判断です。編集できません。</small>
+              <small style={{ fontSize: 10, color: 'var(--c-ink-2)' }}>※ この内容は AI 選書時の判断です。編集できません。</small>
             </div>
           )}
 
@@ -1104,10 +1104,10 @@ function BeforePhase({
                   to the AI. Keeps a 1-step history in localStorage so the
                   user can undo. */}
               <div style={{ marginTop: 12, padding: "12px 14px", background: "#f5efde", border: "1px solid #e0d0a8", borderRadius: 12 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: "#5c5043", margin: 0 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--c-brand)", margin: 0 }}>
                   📝 修正リクエスト
                 </p>
-                <p style={{ fontSize: 11, color: "#5a4f3e", margin: "4px 0 8px", lineHeight: 1.6 }}>
+                <p style={{ fontSize: 11, color: "var(--c-ink-2)", margin: "4px 0 8px", lineHeight: 1.6 }}>
                   例：もっと簡潔に / 営業視点を強化 / 章番号を増やして
                 </p>
                 <textarea
@@ -1198,9 +1198,9 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
       <p style={phaseDesc}>📖 読書中のインプットを記録しましょう</p>
 
       {form.aiStrategy && (
-        <div style={{ background: "#f0ebe2", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
+        <div style={{ background: "var(--c-soft)", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
           <p style={{ fontSize: 11, fontWeight: 600, color: "#7a5080", marginBottom: 4 }}>📋 読書計画シート要約</p>
-          <p style={{ fontSize: 12, color: "#5c5548", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: 0 }}>
+          <p style={{ fontSize: 12, color: "var(--c-ink-soft)", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: 0 }}>
             {form.aiStrategy}
           </p>
         </div>
@@ -1252,7 +1252,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
       {form.leverageMemo?.trim() && (
         <>
           <SectionHeader icon="🤖" title="AIメモ要約" />
-          <p style={{ fontSize: 11, color: "#5a4f3e", marginBottom: 10, lineHeight: 1.5 }}>まとめメモをAIが3〜5個のポイントに凝縮します</p>
+          <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>まとめメモをAIが3〜5個のポイントに凝縮します</p>
           <button onClick={onRunSummary} disabled={aiLoading} style={{ ...aiB, opacity: aiLoading ? 0.5 : 1 }}>
             {aiLoading ? "要約中..." : "🤖 AIでメモを要約・整理"}
           </button>
@@ -1272,7 +1272,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
       )}
 
       <SectionHeader icon="⚡" title="次の 1 週間でやる行動" />
-      <p style={{ fontSize: 11, color: "#5a4f3e", marginBottom: 10, lineHeight: 1.5 }}>本を読みっぱなしにしないために、具体的な行動を 1〜3 つ書きましょう。</p>
+      <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>本を読みっぱなしにしないために、具体的な行動を 1〜3 つ書きましょう。</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {(form.actions || []).map((a, i) => (
           <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1282,12 +1282,12 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
             </div>
             {/* 期限 */}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "#5a4f3e", minWidth: 56 }}>📅 期限</span>
+              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}>📅 期限</span>
               <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...inp, flex: 1 }} />
             </div>
             {/* 優先度 chips */}
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, color: "#5a4f3e", minWidth: 56 }}>🎯 優先度</span>
+              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}>🎯 優先度</span>
               {[
                 { key: 'high', label: '🔴 高', bg: '#FFEBEE', fg: '#C62828' },
                 { key: 'medium', label: '🟡 中', bg: '#FFF3E0', fg: '#E65100' },
@@ -1302,7 +1302,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
                     style={{
                       padding: '4px 10px',
                       borderRadius: 999,
-                      border: active ? `1.5px solid ${p.fg}` : '1px solid #e0d8ca',
+                      border: active ? `1.5px solid ${p.fg}` : '1px solid var(--c-hairline-strong)',
                       background: active ? p.bg : 'transparent',
                       color: active ? p.fg : '#8a7e6b',
                       fontSize: 11,
@@ -1318,7 +1318,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
             </div>
             {/* 繰り返し */}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "#5a4f3e", minWidth: 56 }}>🔁 繰り返し</span>
+              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}>🔁 繰り返し</span>
               <select
                 value={a.recurrence || ''}
                 onChange={(e) => updateAction(i, 'recurrence', e.target.value || null)}
@@ -1331,7 +1331,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
             </div>
             {/* ソース引用ページ — 本紐付けは既に DonePhase の本コンテキストで自明なのでページのみ */}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "#5a4f3e", minWidth: 56 }}>🔗 引用ページ</span>
+              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}>🔗 引用ページ</span>
               <input
                 type="number"
                 placeholder="例：42"
@@ -1372,7 +1372,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
 // ガイド付きヒアリング（ウィザード）の共通スタイル。
 const advisorWizardCard = {
   background: '#f7f3ec',
-  border: '1px solid #ece5d9',
+  border: '1px solid var(--c-hairline)',
   borderRadius: 16,
   padding: '16px 16px',
   marginTop: 8,
@@ -1383,9 +1383,9 @@ const advisorOptionChip = {
   textAlign: 'left',
   padding: '14px 16px',
   borderRadius: 12,
-  border: '1px solid #e0d8ca',
-  background: '#fffdf8',
-  color: '#3d362c',
+  border: '1px solid var(--c-hairline-strong)',
+  background: 'var(--c-card)',
+  color: 'var(--c-ink)',
   fontSize: 15,
   fontFamily: 'inherit',
   lineHeight: 1.5,
@@ -1963,7 +1963,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               onClick={() => setView('history')}
               aria-label="履歴を見る"
               title="履歴"
-              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
+              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
             >
               🕒 履歴
             </button>
@@ -1974,7 +1974,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               onClick={startNewSession}
               aria-label="新しい会話を始める"
               title="新規"
-              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e0d8ca', background: 'transparent', color: '#5c5043', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
+              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
             >
               🆕 新規
             </button>
@@ -2003,7 +2003,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
       {/* ガイド付きヒアリング — 質問生成中のローディング（初回 or 深掘り） */}
       {interviewLoading && (
         <div style={advisorWizardCard}>
-          <p style={{ fontSize: 14, fontWeight: 700, color: '#3d362c', margin: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
             {interviewAnswers.length > 0
               ? '🔎 回答をもとに、さらに深掘りしています…'
               : '🤔 あなたに合わせた質問を準備しています…'}
@@ -2035,7 +2035,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                 type="button"
                 onClick={goBackQuestion}
                 aria-label={interviewStep === 0 ? '相談入力に戻る' : '前の質問に戻る'}
-                style={{ background: 'none', border: 'none', color: '#5a4f3e', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1, minHeight: 32, minWidth: 32 }}
+                style={{ background: 'none', border: 'none', color: 'var(--c-ink-2)', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1, minHeight: 32, minWidth: 32 }}
               >
                 ←
               </button>
@@ -2047,13 +2047,13 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                       flex: 1,
                       height: 4,
                       borderRadius: 2,
-                      background: i <= interviewStep ? '#5c5043' : '#ece5d9',
+                      background: i <= interviewStep ? 'var(--c-brand)' : 'var(--c-hairline)',
                       transition: 'background .25s',
                     }}
                   />
                 ))}
               </div>
-              <span style={{ fontSize: 11, color: '#5a4f3e', fontWeight: 600, flexShrink: 0 }}>
+              <span style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 600, flexShrink: 0 }}>
                 {interviewRound > 1 ? `深掘り${interviewRound} · ` : ''}{stepNo}/{total}
               </span>
             </div>
@@ -2064,7 +2064,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                 {interviewAnswers.map((x, i) => (
                   <span
                     key={i}
-                    style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, background: '#eee7da', color: '#5a4f3e', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, background: '#eee7da', color: 'var(--c-ink-2)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
                     ✓ {x.a}
                   </span>
@@ -2073,7 +2073,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             )}
 
             {/* 質問文 */}
-            <p style={{ fontSize: 16, fontWeight: 700, color: '#3d362c', lineHeight: 1.6, margin: '0 0 4px' }}>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--c-ink)', lineHeight: 1.6, margin: '0 0 4px' }}>
               {q.q}
             </p>
             {/* 複数選択できる質問は明示（タップで複数選べる安心感） */}
@@ -2094,7 +2094,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     style={{
                       ...advisorOptionChip,
                       ...(selected
-                        ? { background: '#efe7d3', borderColor: '#5c5043', color: '#3d362c', fontWeight: 600 }
+                        ? { background: '#efe7d3', borderColor: 'var(--c-brand)', color: 'var(--c-ink)', fontWeight: 600 }
                         : null),
                     }}
                   >
@@ -2108,7 +2108,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                 <button
                   type="button"
                   onClick={() => setOtherMode(true)}
-                  style={{ ...advisorOptionChip, color: '#5a4f3e', borderStyle: 'dashed' }}
+                  style={{ ...advisorOptionChip, color: 'var(--c-ink-2)', borderStyle: 'dashed' }}
                 >
                   ✏️ その他（自由に入力）
                 </button>
@@ -2136,7 +2136,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                         }
                       }
                     }}
-                    style={{ flex: 1, padding: '12px 14px', borderRadius: 12, border: '1px solid #e0d8ca', background: '#fff', color: '#3d362c', fontSize: 16, fontFamily: 'inherit', minHeight: 48 }}
+                    style={{ flex: 1, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--c-hairline-strong)', background: '#fff', color: 'var(--c-ink)', fontSize: 16, fontFamily: 'inherit', minHeight: 48 }}
                   />
                   <button
                     type="button"
@@ -2152,7 +2152,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     }}
                     disabled={!otherText.trim()}
                     aria-label={isMulti ? '選択肢に追加' : 'この内容で回答'}
-                    style={{ flexShrink: 0, padding: '0 16px', borderRadius: 12, border: 'none', background: otherText.trim() ? '#5c5043' : '#e0d8ca', color: '#fffdf8', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: otherText.trim() ? 'pointer' : 'not-allowed', minHeight: 48 }}
+                    style={{ flexShrink: 0, padding: '0 16px', borderRadius: 12, border: 'none', background: otherText.trim() ? 'var(--c-brand)' : 'var(--c-hairline-strong)', color: 'var(--c-card)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: otherText.trim() ? 'pointer' : 'not-allowed', minHeight: 48 }}
                   >
                     {isMulti ? '追加' : '決定'}
                   </button>
@@ -2170,8 +2170,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     padding: '13px 0',
                     borderRadius: 12,
                     border: 'none',
-                    background: multiSelected.length ? '#5c5043' : '#e0d8ca',
-                    color: '#fffdf8',
+                    background: multiSelected.length ? 'var(--c-brand)' : 'var(--c-hairline-strong)',
+                    color: 'var(--c-card)',
                     fontSize: 14,
                     fontWeight: 700,
                     fontFamily: 'inherit',
@@ -2190,7 +2190,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
       {/* 推薦生成中のローディング */}
       {recoLoading && (
         <div style={advisorWizardCard}>
-          <p style={{ fontSize: 14, fontWeight: 700, color: '#3d362c', margin: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
             📚 あなたにぴったりの本を選んでいます…
           </p>
           <div className="ai-skeleton" aria-label="本を選んでいます" style={{ marginTop: 12 }}>
@@ -2204,7 +2204,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
       {/* 推薦生成エラー（リトライ可能） */}
       {recoError && !recoLoading && (
         <div style={{ ...advisorWizardCard, borderColor: '#e0b8a8' }}>
-          <p style={{ fontSize: 13, color: '#a05040', margin: 0, lineHeight: 1.7 }}>{recoError}</p>
+          <p style={{ fontSize: 13, color: 'var(--c-critical)', margin: 0, lineHeight: 1.7 }}>{recoError}</p>
           <button
             type="button"
             onClick={resetToConcern}
@@ -2222,8 +2222,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
           <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div style={{
               maxWidth: "85%", padding: "10px 14px", borderRadius: 14,
-              background: m.role === "user" ? "#5c5043" : "#f7f3ec",
-              color: m.role === "user" ? "#fffdf8" : "#3d362c",
+              background: m.role === "user" ? "var(--c-brand)" : "#f7f3ec",
+              color: m.role === "user" ? "var(--c-card)" : "var(--c-ink)",
               fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap",
               borderBottomRightRadius: m.role === "user" ? 4 : 14,
               borderBottomLeftRadius: m.role === "user" ? 14 : 4,
@@ -2257,34 +2257,34 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               return intro ? <MarkdownSections text={intro} /> : null;
             })()}
             {recommendations.items.map((rec, i) => (
-              <div key={i} style={{ background: "#fffdf8", borderRadius: 16, border: "1px solid #f0ebe1", padding: "16px 16px", overflow: "hidden", boxShadow: "0 1px 3px rgba(60, 48, 30, 0.06)" }}>
+              <div key={i} style={{ background: "var(--c-card)", borderRadius: 16, border: "1px solid #f0ebe1", padding: "16px 16px", overflow: "hidden", boxShadow: "0 1px 3px rgba(60, 48, 30, 0.06)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 11, color: "#5a4f3e", margin: 0, fontWeight: 600 }}>#{i + 1}</p>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: "#3d362c", margin: '2px 0 0' }}>『{rec.title}』</p>
-                    <p style={{ fontSize: 12, color: "#5a4f3e", marginTop: 2 }}>{rec.author}</p>
+                    <p style={{ fontSize: 11, color: "var(--c-ink-2)", margin: 0, fontWeight: 600 }}>#{i + 1}</p>
+                    <p style={{ fontSize: 15, fontWeight: 600, color: "var(--c-ink)", margin: '2px 0 0' }}>『{rec.title}』</p>
+                    <p style={{ fontSize: 12, color: "var(--c-ink-2)", marginTop: 2 }}>{rec.author}</p>
                   </div>
                 </div>
                 {rec.why && (
                   <div style={{ marginTop: 10, padding: '10px 12px', background: '#f5efde', borderRadius: 10, border: '1px solid #e8dcc0' }}>
                     <p style={{ fontSize: 10.5, color: '#9a7e44', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>なぜあなたに</p>
-                    <p style={{ fontSize: 12.5, color: '#5c5548', lineHeight: 1.75, margin: '4px 0 0' }}>{rec.why}</p>
+                    <p style={{ fontSize: 12.5, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '4px 0 0' }}>{rec.why}</p>
                   </div>
                 )}
                 {rec.core && (
                   <div style={{ marginTop: 10 }}>
                     <p style={{ fontSize: 10.5, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>この本の核心</p>
-                    <p style={{ fontSize: 12.5, color: '#5c5548', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.core}</p>
+                    <p style={{ fontSize: 12.5, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.core}</p>
                   </div>
                 )}
                 {rec.focus && (
                   <div style={{ marginTop: 10 }}>
                     <p style={{ fontSize: 10.5, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>注目ポイント</p>
-                    <p style={{ fontSize: 12.5, color: '#5c5548', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.focus}</p>
+                    <p style={{ fontSize: 12.5, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.focus}</p>
                   </div>
                 )}
                 {rec.duration && (
-                  <p style={{ fontSize: 11.5, color: '#5a4f3e', margin: '10px 0 0' }}>
+                  <p style={{ fontSize: 11.5, color: 'var(--c-ink-2)', margin: '10px 0 0' }}>
                     <span style={{ color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.04em' }}>目安</span>　{rec.duration}
                   </p>
                 )}
@@ -2305,7 +2305,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                       e.stopPropagation();
                       handleClickAdd(rec);
                     }}
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #e0d8ca", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "#5c5043", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(92,74,46,0.18)' }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid var(--c-hairline-strong)", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "var(--c-brand)", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(92,74,46,0.18)' }}
                   >
                     {addedTitles.has(rec.title) ? '✅ 追加済み' : '📚 読みたい'}
                   </button>
@@ -2315,7 +2315,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             {/* 「## 📋 読む順番」「## 💬 まとめ」等は Markdown（表・見出し・箇条書き）
                 として描画。生の `|---|` パイプや `##` が見えていた問題を解消。 */}
             {recommendations.after && <MarkdownSections text={recommendations.after} />}
-            <small style={{ fontSize: 10, color: '#5a4f3e', lineHeight: 1.6, padding: '0 4px' }}>
+            <small style={{ fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1.6, padding: '0 4px' }}>
               {AMAZON_DISCLOSURE_TEXT}
             </small>
             <button onClick={resetToConcern}
@@ -4099,7 +4099,7 @@ function AuthedApp() {
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={openHelp}
-                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#5a4f3e", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
                 aria-label="この画面のヘルプを見る"
                 title="ヘルプ"
               >
@@ -4108,7 +4108,7 @@ function AuthedApp() {
               {/* ⋯ kebab — 編集 / 共有 / 削除 を集約。下部の 3 ボタン廃止。 */}
               <button
                 onClick={openDetailKebab}
-                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#5c5043", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 20, fontWeight: 700 }}
+                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-brand)", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 20, fontWeight: 700 }}
                 aria-label="その他の操作"
                 title="その他"
               >
@@ -4133,13 +4133,13 @@ function AuthedApp() {
                     width: 60,
                     height: 84,
                     borderRadius: 6,
-                    border: '1px dashed #e0d8ca',
-                    background: '#fffdf8',
+                    border: '1px dashed var(--c-hairline-strong)',
+                    background: 'var(--c-card)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: 22,
-                    color: '#5a4f3e',
+                    color: 'var(--c-ink-2)',
                   }}
                 >
                   📚
@@ -4147,7 +4147,7 @@ function AuthedApp() {
               )}
               {/* 表紙の出典 (ISBN)。manual アップロード済みは表示しない。 */}
               {current.coverIsbn && current.coverIsbn !== 'manual' && (
-                <span style={{ fontSize: 9, color: '#5a4f3e', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 9, color: 'var(--c-ink-2)', whiteSpace: 'nowrap' }}>
                   ISBN: {current.coverIsbn}
                 </span>
               )}
@@ -4193,8 +4193,8 @@ function AuthedApp() {
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c", lineHeight: 1.4, overflowWrap: "anywhere", wordBreak: "break-word" }}>{current.title}</h2>
-              {current.author && <p style={{ fontSize: 12, color: "#5a4f3e", marginTop: 3 }}>{current.author}</p>}
+              <h2 style={{ fontSize: 17, fontWeight: 500, color: "var(--c-ink)", lineHeight: 1.4, overflowWrap: "anywhere", wordBreak: "break-word" }}>{current.title}</h2>
+              {current.author && <p style={{ fontSize: 12, color: "var(--c-ink-2)", marginTop: 3 }}>{current.author}</p>}
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                 <StatusBadge status={current.status} />
                 {current.rating > 0 && <Stars r={current.rating} size={13} />}
@@ -4204,7 +4204,7 @@ function AuthedApp() {
 
           {current.tags?.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
-              {current.tags.map((t, i) => (<span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "#eae3d6", color: "#5a4f3e" }}>#{t}</span>))}
+              {current.tags.map((t, i) => (<span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "var(--c-soft-2)", color: "var(--c-ink-2)" }}>#{t}</span>))}
             </div>
           )}
 
@@ -4228,7 +4228,7 @@ function AuthedApp() {
                       padding: '20px 18px',
                       borderRadius: 16,
                       background: 'linear-gradient(135deg, #5C4A2E 0%, #8B6F47 100%)',
-                      color: '#fffdf8',
+                      color: 'var(--c-card)',
                       textAlign: 'center',
                       boxShadow: '0 6px 18px rgba(92, 74, 46, 0.22)',
                     }}
@@ -4244,7 +4244,7 @@ function AuthedApp() {
                       type="button"
                       onClick={() => openSetup(current)}
                       style={{
-                        background: '#fffdf8',
+                        background: 'var(--c-card)',
                         color: '#5C4A2E',
                         padding: '11px 22px',
                         borderRadius: 999,
@@ -4331,7 +4331,7 @@ function AuthedApp() {
                       borderRadius: 8,
                       border: 'none',
                       background: '#8a7040',
-                      color: '#fffdf8',
+                      color: 'var(--c-card)',
                       fontSize: 13,
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -4348,16 +4348,16 @@ function AuthedApp() {
           })()}
 
           {/* Phase-specific content */}
-          {current.startDate && <p style={{ fontSize: 11, color: "#5a4f3e", marginTop: 10 }}>📅 開始: {current.startDate}</p>}
-          {current.doneDate && <p style={{ fontSize: 11, color: "#5a4f3e", marginTop: 2 }}>📅 完了: {current.doneDate}</p>}
+          {current.startDate && <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginTop: 10 }}>📅 開始: {current.startDate}</p>}
+          {current.doneDate && <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginTop: 2 }}>📅 完了: {current.doneDate}</p>}
 
           {current.investPurpose && <Card label="目的・課題・仮説" text={current.investPurpose} />}
 
           {/* AI 出力（解析 / 読書計画シート）はデフォルト折りたたみ。
               スクロール量を圧縮し、必要な時に展開する。 */}
           {(current.aiAnalysis || current.aiStrategy) && (
-            <details style={{ marginTop: 12, background: "#fffdf8", border: "1px solid #ece5d9", borderRadius: 10, padding: "10px 12px" }}>
-              <summary style={{ fontSize: 13, fontWeight: 600, color: "#5c5043", cursor: "pointer", listStyle: "none" }}>
+            <details style={{ marginTop: 12, background: "var(--c-card)", border: "1px solid var(--c-hairline)", borderRadius: 10, padding: "10px 12px" }}>
+              <summary style={{ fontSize: 13, fontWeight: 600, color: "var(--c-brand)", cursor: "pointer", listStyle: "none" }}>
                 🤖 AI 解析 / 読書計画
               </summary>
               {current.aiAnalysis && (
@@ -4401,11 +4401,11 @@ function AuthedApp() {
               style={{
                 marginTop: 12,
                 padding: "14px 16px",
-                background: "#fffdf8",
-                border: "1px dashed #e0d8ca",
+                background: "var(--c-card)",
+                border: "1px dashed var(--c-hairline-strong)",
                 borderRadius: 10,
                 fontSize: 12,
-                color: "#5a4f3e",
+                color: "var(--c-ink-2)",
                 lineHeight: 1.7,
               }}
             >
@@ -4415,7 +4415,7 @@ function AuthedApp() {
             </div>
           )}
           {current.aiSummary && (
-            <details style={{ marginTop: 12, background: "#fffdf8", border: "1px solid #ece5d9", borderRadius: 10, padding: "10px 12px" }}>
+            <details style={{ marginTop: 12, background: "var(--c-card)", border: "1px solid var(--c-hairline)", borderRadius: 10, padding: "10px 12px" }}>
               <summary style={{ fontSize: 13, fontWeight: 600, color: "#5a7a48", cursor: "pointer", listStyle: "none" }}>
                 🤖 AI まとめ（要点の凝縮）
               </summary>
@@ -4444,7 +4444,7 @@ function AuthedApp() {
             </div>
           )}
 
-          {current.roiSummary && <Card label="💡 一番の収穫" text={current.roiSummary} bg="#f0ebe2" />}
+          {current.roiSummary && <Card label="💡 一番の収穫" text={current.roiSummary} bg="var(--c-soft)" />}
 
           {/* Action buttons */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20 }}>
@@ -4522,7 +4522,7 @@ function AuthedApp() {
             >
               📚 Amazon で買う
             </a>
-            <small style={{ fontSize: 10, color: "#5a4f3e", lineHeight: 1.6, textAlign: "center" }}>
+            <small style={{ fontSize: 10, color: "var(--c-ink-2)", lineHeight: 1.6, textAlign: "center" }}>
               {AMAZON_DISCLOSURE_TEXT}
             </small>
             {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。下部のボタン群は撤去。 */}
@@ -4536,9 +4536,9 @@ function AuthedApp() {
                 width: "100%",
                 padding: "12px 16px",
                 background: "transparent",
-                border: "1px solid #e0d8ca",
+                border: "1px solid var(--c-hairline-strong)",
                 borderRadius: 14,
-                color: "#5c5043",
+                color: "var(--c-brand)",
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -4750,7 +4750,7 @@ function AuthedApp() {
             <button onClick={current ? () => { setEditPhaseOverride(null); setView("detail"); } : goList} style={lnk}>← 戻る</button>
             <button
               onClick={openHelp}
-              style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#5a4f3e", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+              style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
               aria-label="この画面のヘルプを見る"
               title="ヘルプ"
             >
@@ -4773,7 +4773,7 @@ function AuthedApp() {
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, marginBottom: 16 }}>
                   <StatusBadge status={form.status} />
-                  <h2 style={{ fontSize: 17, fontWeight: 500, color: "#3d362c" }}>{phaseLabel}</h2>
+                  <h2 style={{ fontSize: 17, fontWeight: 500, color: "var(--c-ink)" }}>{phaseLabel}</h2>
                   {editPhaseOverride && editPhaseOverride !== form.status && (
                     <span style={{ fontSize: 11, color: 'var(--color-tertiary)' }}>
                       （読書計画を仕切り直し中）
@@ -4921,7 +4921,7 @@ function AuthedApp() {
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <button
         onClick={openHelp}
-        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#5a4f3e", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="この画面のヘルプを開く"
         title="ヘルプ"
       >
@@ -4929,7 +4929,7 @@ function AuthedApp() {
       </button>
       <button
         onClick={() => setSettingsOpen(true)}
-        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "#5a4f3e", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="アカウント設定を開く"
         title="設定"
       >
@@ -4981,7 +4981,7 @@ function AuthedApp() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                  style={{ ...inp, flex: 1, background: "#fffdf8" }}
+                  style={{ ...inp, flex: 1, background: "var(--c-card)" }}
                 />
                 <button
                   type="button"
@@ -4994,8 +4994,8 @@ function AuthedApp() {
                     flexShrink: 0,
                     borderRadius: 12,
                     border: "none",
-                    background: "#5c5043",
-                    color: "#fffdf8",
+                    background: "var(--c-brand)",
+                    color: "var(--c-card)",
                     fontSize: 24,
                     lineHeight: 1,
                     display: "flex",
@@ -5037,9 +5037,9 @@ function AuthedApp() {
                           borderRadius: 999,
                           fontFamily: "inherit",
                           cursor: "pointer",
-                          border: active ? `1.5px solid ${s.color}` : "1px solid #e0d8ca",
+                          border: active ? `1.5px solid ${s.color}` : "1px solid var(--c-hairline-strong)",
                           background: active ? s.bg : "transparent",
-                          color: active ? s.color : "#5a4f3e",
+                          color: active ? s.color : "var(--c-ink-2)",
                           fontWeight: active ? 600 : 400,
                           transition: "background .15s, color .15s",
                           display: "inline-flex",
@@ -5053,13 +5053,13 @@ function AuthedApp() {
                     );
                   })}
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: "#5a4f3e" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: "var(--c-ink-2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span>並び順</span>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    style={{ fontSize: 16, padding: "8px 8px", minHeight: 44, borderRadius: 8, border: "1px solid #e0d8ca", background: "#fffdf8", color: "#3d362c", fontFamily: "inherit" }}
+                    style={{ fontSize: 16, padding: "8px 8px", minHeight: 44, borderRadius: 8, border: "1px solid var(--c-hairline-strong)", background: "var(--c-card)", color: "var(--c-ink)", fontFamily: "inherit" }}
                   >
                     <option value="updated">更新順</option>
                     <option value="created">登録順</option>
@@ -5117,8 +5117,8 @@ function AuthedApp() {
                         style={{
                           flex: "0 0 auto",
                           width: 132,
-                          background: "#fffdf8",
-                          border: "1px solid #ece5d9",
+                          background: "var(--c-card)",
+                          border: "1px solid var(--c-hairline)",
                           borderRadius: 10,
                           padding: 10,
                           cursor: "pointer",
@@ -5132,9 +5132,9 @@ function AuthedApp() {
                         {b.cover ? (
                           <img src={ensureHttps(b.cover)} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
                         ) : (
-                          <div style={{ width: "100%", height: 90, background: "#eae3d6", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📕</div>
+                          <div style={{ width: "100%", height: 90, background: "var(--c-soft-2)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📕</div>
                         )}
-                        <div style={{ fontSize: 12, color: "#3d362c", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
+                        <div style={{ fontSize: 12, color: "var(--c-ink)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
                         <div><StatusBadge status={b.status} /></div>
                       </button>
                     ))}
@@ -5291,7 +5291,7 @@ function AuthedApp() {
               </button>
             </div>
             {/* 独自名のサブタブを初対面でも分かるよう、内容を平易な一言で注釈する。 */}
-            <p style={{ fontSize: 11, color: '#5a4f3e', margin: '6px 12px 0', lineHeight: 1.6, flexShrink: 0 }}>
+            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 12px 0', lineHeight: 1.6, flexShrink: 0 }}>
               {aiSubTab === 'advisor'
                 ? '🔍 いまの課題に合う本を、AI が提案します。'
                 : aiSubTab === 'brain'

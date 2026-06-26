@@ -18,8 +18,8 @@ const modeTab = (active) => ({
   minHeight: 44,
   padding: '10px 0',
   border: 'none',
-  background: active ? '#5c5043' : 'transparent',
-  color: active ? '#fffdf8' : '#5c5548',
+  background: active ? 'var(--c-brand)' : 'transparent',
+  color: active ? 'var(--c-card)' : 'var(--c-ink-soft)',
   fontSize: 13,
   fontWeight: active ? 600 : 500,
   cursor: 'pointer',
@@ -33,8 +33,8 @@ const sortTab = (active) => ({
   padding: '8px 0',
   minHeight: 44,
   border: 'none',
-  background: active ? '#5c5043' : 'transparent',
-  color: active ? '#fffdf8' : '#8a7e6b',
+  background: active ? 'var(--c-brand)' : 'transparent',
+  color: active ? 'var(--c-card)' : '#8a7e6b',
   fontSize: 12,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -46,9 +46,9 @@ const quoteChip = (active) => ({
   alignSelf: 'flex-start',
   minHeight: 44,
   padding: '8px 14px',
-  border: active ? '1px solid #5c5043' : '1px solid #e0d8ca',
-  background: active ? '#5c5043' : '#fffdf8',
-  color: active ? '#fffdf8' : '#5c5548',
+  border: active ? '1px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
+  background: active ? 'var(--c-brand)' : 'var(--c-card)',
+  color: active ? 'var(--c-card)' : 'var(--c-ink-soft)',
   fontSize: 12,
   fontWeight: active ? 600 : 500,
   cursor: 'pointer',
@@ -63,8 +63,8 @@ const addBtn = {
   minHeight: 44,
   borderRadius: 10,
   border: '1px dashed #c4b8a6',
-  background: '#fffdf8',
-  color: '#5c5043',
+  background: 'var(--c-card)',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 13,
@@ -77,10 +77,10 @@ const summaryTextarea = {
   maxHeight: 600,
   padding: '12px 14px',
   fontSize: 16,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   borderRadius: 10,
   background: '#fff',
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   fontFamily: 'inherit',
   lineHeight: 1.8,
   resize: 'vertical',
@@ -93,8 +93,8 @@ const summarySaveBtn = (saving) => ({
   padding: '12px 0',
   borderRadius: 10,
   border: 'none',
-  background: '#5c5043',
-  color: '#fffdf8',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   cursor: saving ? 'default' : 'pointer',
   fontFamily: 'inherit',
   fontSize: 14,
@@ -157,8 +157,8 @@ function SummarySection({ bookId, summaryText, onSaveSummary }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div>
-        <p style={{ fontSize: 13, color: '#5c5548', fontWeight: 600, margin: 0 }}>まとめメモ</p>
-        <p style={{ fontSize: 11, color: '#5a4f3e', margin: '2px 0 8px', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 13, color: 'var(--c-ink-soft)', fontWeight: 600, margin: 0 }}>まとめメモ</p>
+        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '2px 0 8px', lineHeight: 1.6 }}>
           本全体の感想・学びを自由に書く欄です。
         </p>
       </div>
@@ -175,7 +175,7 @@ function SummarySection({ bookId, summaryText, onSaveSummary }) {
         maxLength={LIMITS.summaryMemo}
       />
       {errorMsg && (
-        <p style={{ color: '#a05040', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
+        <p style={{ color: 'var(--c-critical)', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
       )}
       <button
         type="button"
@@ -366,11 +366,11 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     <div
       style={{
         padding: '14px',
-        background: '#fffdf8',
-        border: '1px dashed #e0d8ca',
+        background: 'var(--c-card)',
+        border: '1px dashed var(--c-hairline-strong)',
         borderRadius: 10,
         fontSize: 12,
-        color: '#5a4f3e',
+        color: 'var(--c-ink-2)',
         lineHeight: 1.7,
       }}
     >
@@ -378,7 +378,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     </div>
   ) : (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 4, padding: 4, background: '#f0ebe2', borderRadius: 10 }}>
+      <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft)', borderRadius: 10 }}>
         <button type="button" style={sortTab(sortBy === 'page')} onClick={() => setSortBy('page')}>
           📖 ページ順
         </button>
@@ -407,24 +407,24 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {loading && memos.length === 0 && <MemoListSkeleton rows={3} />}
 
       {!loading && memos.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '28px 16px', color: '#5c5548' }}>
+        <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--c-ink-soft)' }}>
           <div style={{ fontSize: 36, marginBottom: 6 }}>📝</div>
-          <p style={{ fontSize: 13, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 13, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
             読みながら気になった一行を、ひとつ残してみましょう。
           </p>
-          <p style={{ fontSize: 11, color: '#5a4f3e', margin: '6px 0 0', lineHeight: 1.7 }}>
+          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 0', lineHeight: 1.7 }}>
             残した一行は、あとで「振り返り」の想起として、ふいに戻ってきます。
           </p>
         </div>
       )}
 
       {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '28px 16px', color: '#5c5548' }}>
+        <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--c-ink-soft)' }}>
           <div style={{ fontSize: 36, marginBottom: 6 }}>📖</div>
-          <p style={{ fontSize: 13, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 13, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
             ページ番号付きのメモがまだありません。
           </p>
-          <p style={{ fontSize: 11, color: '#5a4f3e', margin: '6px 0 0', lineHeight: 1.7 }}>
+          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 0', lineHeight: 1.7 }}>
             メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。
           </p>
         </div>
@@ -437,13 +437,13 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             alignItems: 'flex-start',
             gap: 10,
             background: '#f4efe7',
-            border: '1px solid #ece5d9',
+            border: '1px solid var(--c-hairline)',
             borderRadius: 10,
             padding: '10px 12px',
             marginBottom: 10,
           }}
         >
-          <p style={{ fontSize: 12, color: '#5c5548', margin: 0, lineHeight: 1.7, flex: 1 }}>
+          <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7, flex: 1 }}>
             💭 最初の気づきが残りました。下の「🔄 振り返り」を開くと、これがランダムに、そして忘れた頃にそっと戻ってきます。
           </p>
           <button
@@ -453,9 +453,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
               flexShrink: 0,
               minHeight: 32,
               padding: '4px 10px',
-              border: '1px solid #e0d8ca',
-              background: '#fffdf8',
-              color: '#5c5043',
+              border: '1px solid var(--c-hairline-strong)',
+              background: 'var(--c-card)',
+              color: 'var(--c-brand)',
               borderRadius: 8,
               fontSize: 11,
               cursor: 'pointer',
@@ -491,11 +491,11 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     <div
       style={{
         padding: '14px',
-        background: '#fffdf8',
-        border: '1px dashed #e0d8ca',
+        background: 'var(--c-card)',
+        border: '1px dashed var(--c-hairline-strong)',
         borderRadius: 10,
         fontSize: 12,
-        color: '#5a4f3e',
+        color: 'var(--c-ink-2)',
         lineHeight: 1.7,
       }}
     >
@@ -505,7 +505,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
   return (
     <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 4, padding: 4, background: '#eae3d6', borderRadius: 10 }}>
+      <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft-2)', borderRadius: 10 }}>
         <button type="button" style={modeTab(mode === 'card')} onClick={() => setMode('card')}>
           📇 カード
         </button>

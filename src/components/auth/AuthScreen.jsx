@@ -6,8 +6,8 @@ import { LIMITS, validatePassword } from '../../lib/limits';
 const btnPrimary = {
   padding: '14px 28px',
   fontSize: 15,
-  background: '#5c5043',
-  color: '#fffdf8',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   border: 'none',
   borderRadius: 10,
   cursor: 'pointer',
@@ -19,8 +19,8 @@ const btnLink = {
   background: 'none',
   border: 'none',
   fontSize: 12,
-  // WCAG AA: #8a7e6b はクリーム背景で約2.7:1 と不足 → #5a4f3e（約4.6:1）へ。
-  color: '#5a4f3e',
+  // WCAG AA: #8a7e6b はクリーム背景で約2.7:1 と不足 → var(--c-ink-2)（約4.6:1）へ。
+  color: 'var(--c-ink-2)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   padding: '12px 8px',
@@ -31,11 +31,11 @@ const inp = {
   width: '100%',
   padding: '12px 14px',
   fontSize: 16,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   borderRadius: 8,
   fontFamily: 'inherit',
-  background: '#fffdf8',
-  color: '#3d362c',
+  background: 'var(--c-card)',
+  color: 'var(--c-ink)',
   marginBottom: 10,
   boxSizing: 'border-box',
 };
@@ -176,8 +176,8 @@ export default function AuthScreen() {
   if (!isSupabaseConfigured) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'max(env(safe-area-inset-top, 0px), 20px) max(env(safe-area-inset-right, 0px), 20px) max(env(safe-area-inset-bottom, 0px), 20px) max(env(safe-area-inset-left, 0px), 20px)', textAlign: 'center' }}>
-        <h1 style={{ fontSize: 20, color: '#3d362c', marginBottom: 12 }}>⚠️ 設定が未完了です</h1>
-        <p style={{ fontSize: 13, color: '#5a4f3e', lineHeight: 1.8, maxWidth: 360 }}>
+        <h1 style={{ fontSize: 20, color: 'var(--c-ink)', marginBottom: 12 }}>⚠️ 設定が未完了です</h1>
+        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, maxWidth: 360 }}>
           Supabase の環境変数が設定されていません。<br />
           <code style={{ fontSize: 11 }}>VITE_SUPABASE_URL</code> と{' '}
           <code style={{ fontSize: 11 }}>VITE_SUPABASE_ANON_KEY</code> を設定してください。
@@ -194,12 +194,12 @@ export default function AuthScreen() {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)' }}>
         <div style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
           <div style={{ fontSize: 44, marginBottom: 8 }} aria-hidden="true">📩</div>
-          <h1 style={{ fontSize: 20, fontWeight: 500, color: '#3d362c', margin: '0 0 12px' }}>確認メールを送りました</h1>
-          <p style={{ fontSize: 14, color: '#5c5548', lineHeight: 1.9, margin: '0 0 8px' }}>
+          <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--c-ink)', margin: '0 0 12px' }}>確認メールを送りました</h1>
+          <p style={{ fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.9, margin: '0 0 8px' }}>
             <strong style={{ wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛にメールを送りました。<br />
             メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。
           </p>
-          <p style={{ fontSize: 12, color: '#5a4f3e', lineHeight: 1.8, margin: '0 0 20px' }}>
+          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 20px' }}>
             数分待っても届かない場合は、<strong>迷惑メール / プロモーション</strong>フォルダもご確認ください。
           </p>
           {error && <p style={{ color: '#b75050', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
@@ -237,11 +237,11 @@ export default function AuthScreen() {
           style={{ width: 168, height: 'auto', aspectRatio: '430 / 400', display: 'block' }}
         />
       </h1>
-      <p style={{ fontSize: 14, color: '#5a4f3e', marginBottom: 28, textAlign: 'center' }}>
+      <p style={{ fontSize: 14, color: 'var(--c-ink-2)', marginBottom: 28, textAlign: 'center' }}>
         読みっぱなしを、やめる。<br />気づきを後から呼び戻し、行動に変える読書アプリ。
       </p>
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 340 }}>
-        <h2 style={{ fontSize: 16, color: '#3d362c', marginBottom: 16, textAlign: 'center', fontWeight: 500 }}>{title}</h2>
+        <h2 style={{ fontSize: 16, color: 'var(--c-ink)', marginBottom: 16, textAlign: 'center', fontWeight: 500 }}>{title}</h2>
         {mode === 'signup' && (
           <input
             style={inp}
@@ -280,7 +280,7 @@ export default function AuthScreen() {
           />
         )}
         {mode === 'signup' && (
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: '#5c5548', lineHeight: 1.6, marginBottom: 12, cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.6, marginBottom: 12, cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={agreed}
@@ -288,9 +288,9 @@ export default function AuthScreen() {
               style={{ marginTop: 3, flexShrink: 0 }}
             />
             <span>
-              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#5c5043' }}>利用規約</a>
+              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-brand)' }}>利用規約</a>
               {' '}と{' '}
-              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#5c5043' }}>プライバシーポリシー</a>
+              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-brand)' }}>プライバシーポリシー</a>
               {' '}に同意します
             </span>
           </label>

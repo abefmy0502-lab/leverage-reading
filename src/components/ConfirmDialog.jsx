@@ -16,7 +16,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   borderRadius: 14,
   padding: '20px 22px',
   width: 'min(380px, 100%)',
@@ -26,14 +26,14 @@ const cardStyle = {
 
 const titleStyle = {
   fontSize: 16,
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   fontWeight: 500,
   margin: '0 0 8px',
 };
 
 const messageStyle = {
   fontSize: 13,
-  color: '#5c5548',
+  color: 'var(--c-ink-soft)',
   lineHeight: 1.7,
   margin: '0 0 18px',
   whiteSpace: 'pre-line',
@@ -48,9 +48,9 @@ const cancelBtnStyle = {
   flex: 1,
   padding: '10px 0',
   borderRadius: 10,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   background: 'transparent',
-  color: '#5c5548',
+  color: 'var(--c-ink-soft)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 14,
@@ -61,8 +61,8 @@ const confirmBtnStyle = (danger) => ({
   padding: '10px 0',
   borderRadius: 10,
   border: 'none',
-  background: danger ? 'var(--color-error, #ff3b30)' : '#5c5043',
-  color: '#fffdf8',
+  background: danger ? 'var(--color-error, #ff3b30)' : 'var(--c-brand)',
+  color: 'var(--c-card)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 14,

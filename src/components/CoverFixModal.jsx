@@ -32,7 +32,7 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   borderRadius: 14,
   width: 'min(460px, 100%)',
   maxHeight: 'min(85vh, 85dvh)',
@@ -47,14 +47,14 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: '14px 16px',
-  borderBottom: '1px solid #ece5d9',
+  borderBottom: '1px solid var(--c-hairline)',
 };
 
 const closeBtnStyle = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   width: 44,
   height: 44,
@@ -139,25 +139,25 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: '#3d362c', margin: 0, fontWeight: 600, flex: 1 }}>
+          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
             🖼 正しい表紙を選択
           </h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
         </div>
 
         <div style={bodyStyle}>
-          <p style={{ fontSize: 12, color: '#5c5548', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
             「{book.title}」の別エディションを含めて、見つかった表紙の中から正しいものを選んでください。
           </p>
 
           {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '24px 0', color: '#5a4f3e' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '24px 0', color: 'var(--c-ink-2)' }}>
               <div
                 aria-hidden="true"
                 style={{
                   width: 24,
                   height: 24,
-                  border: '2px solid #ece5d9',
+                  border: '2px solid var(--c-hairline)',
                   borderTopColor: '#5C4A2E',
                   borderRadius: '50%',
                   animation: 'lvg-ptr-spin 0.8s linear infinite',
@@ -169,11 +169,11 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
             <div
               style={{
                 padding: '20px 16px',
-                background: '#f0ebe2',
-                border: '1px solid #ece5d9',
+                background: 'var(--c-soft)',
+                border: '1px solid var(--c-hairline)',
                 borderRadius: 10,
                 fontSize: 13,
-                color: '#5c5043',
+                color: 'var(--c-brand)',
                 lineHeight: 1.7,
                 textAlign: 'center',
               }}
@@ -204,7 +204,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                     gap: 6,
                     padding: 8,
                     background: c.isCurrent ? '#fff8e1' : '#fff',
-                    border: c.isCurrent ? '2px solid #d4a040' : '2px solid #ece5d9',
+                    border: c.isCurrent ? '2px solid #d4a040' : '2px solid var(--c-hairline)',
                     borderRadius: 10,
                     cursor: 'pointer',
                     fontFamily: 'inherit',
@@ -224,10 +224,10 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                       aspectRatio: '2/3',
                       objectFit: 'cover',
                       borderRadius: 6,
-                      border: '1px solid #ece5d9',
+                      border: '1px solid var(--c-hairline)',
                     }}
                   />
-                  <div style={{ fontSize: 10, color: '#5a4f3e', textAlign: 'center', lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 10, color: 'var(--c-ink-2)', textAlign: 'center', lineHeight: 1.4 }}>
                     {c.isCurrent && (
                       <div style={{ fontSize: 10, color: '#8a7040', fontWeight: 600, marginBottom: 2 }}>
                         ✓ 現在の表紙
@@ -235,7 +235,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                     )}
                     ISBN: {c.isbn}
                     {c.title && c.title !== book.title && (
-                      <div style={{ marginTop: 2, color: '#5a4f3e', fontStyle: 'italic' }}>
+                      <div style={{ marginTop: 2, color: 'var(--c-ink-2)', fontStyle: 'italic' }}>
                         {c.title.slice(0, 30)}{c.title.length > 30 ? '…' : ''}
                       </div>
                     )}
@@ -245,9 +245,9 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
             </div>
           )}
 
-          <hr style={{ border: 'none', borderTop: '1px solid #ece5d9', margin: '4px 0' }} />
+          <hr style={{ border: 'none', borderTop: '1px solid var(--c-hairline)', margin: '4px 0' }} />
 
-          <p style={{ fontSize: 11, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
             該当する表紙が無い場合や、自分で撮影した写真を使いたい場合:
           </p>
           <button
@@ -259,9 +259,9 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
             style={{
               padding: '12px 14px',
               borderRadius: 10,
-              border: '1px solid #e0d8ca',
+              border: '1px solid var(--c-hairline-strong)',
               background: '#fff',
-              color: '#5c5043',
+              color: 'var(--c-brand)',
               fontSize: 13,
               fontFamily: 'inherit',
               fontWeight: 600,

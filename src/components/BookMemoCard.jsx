@@ -7,7 +7,7 @@ import { MoreVertical } from 'lucide-react';
 
 const cardWrap = {
   position: 'relative',
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   border: '1px solid #f0ebe1',
   borderRadius: 14,
   padding: '14px 16px',
@@ -22,8 +22,8 @@ const pageBadge = {
   fontSize: 11,
   padding: '2px 8px',
   borderRadius: 8,
-  background: '#eae3d6',
-  color: '#5a4f3e',
+  background: 'var(--c-soft-2)',
+  color: 'var(--c-ink-2)',
   fontWeight: 600,
 };
 
@@ -31,8 +31,8 @@ const tagPill = {
   fontSize: 10,
   padding: '2px 8px',
   borderRadius: 10,
-  background: '#f0ebe2',
-  color: '#5a4f3e',
+  background: 'var(--c-soft)',
+  color: 'var(--c-ink-2)',
   maxWidth: '100%',
   overflowWrap: 'anywhere',
   wordBreak: 'break-word',
@@ -47,7 +47,7 @@ const kebabBtn = {
   background: 'none',
   border: 'none',
   fontSize: 18,
-  color: '#5a4f3e',
+  color: 'var(--c-ink-2)',
   cursor: 'pointer',
   padding: 0,
   lineHeight: 1,
@@ -58,7 +58,7 @@ const menuStyle = {
   top: 32,
   right: 8,
   background: '#fff',
-  border: '1px solid #ece5d9',
+  border: '1px solid var(--c-hairline)',
   borderRadius: 8,
   boxShadow: '0 4px 14px rgba(30,25,20,0.12)',
   zIndex: 5,
@@ -77,7 +77,7 @@ const menuItem = {
   textAlign: 'left',
   fontFamily: 'inherit',
   cursor: 'pointer',
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   WebkitTapHighlightColor: 'transparent',
 };
 
@@ -214,7 +214,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
           )}
           <button
             type="button"
-            style={{ ...menuItem, color: '#a05040' }}
+            style={{ ...menuItem, color: 'var(--c-critical)' }}
             onClick={() => {
               setMenuOpen(false);
               onDelete?.(memo);
@@ -248,7 +248,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
               width: '100%',
               height: 'auto',
               borderRadius: 8,
-              border: '1px solid #ece5d9',
+              border: '1px solid var(--c-hairline)',
               display: 'block',
             }}
           />
@@ -287,7 +287,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
       )}
 
       <p
-        style={{ fontSize: 10, color: '#5a4f3e', margin: 0 }}
+        style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: 0 }}
         aria-label={`作成日 ${formatDate(memo.createdAt)}`}
       >
         {formatDate(memo.createdAt)}

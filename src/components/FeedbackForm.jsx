@@ -26,7 +26,7 @@ const overlayStyle = {
 const sheetStyle = {
   width: 'min(520px, 100%)',
   maxHeight: 'min(92vh, 92dvh)',
-  background: '#fffdf8',
+  background: 'var(--c-card)',
   borderTopLeftRadius: 16,
   borderTopRightRadius: 16,
   display: 'flex',
@@ -41,14 +41,14 @@ const headerStyle = {
   alignItems: 'center',
   gap: 10,
   padding: 'calc(8px + env(safe-area-inset-top, 0px)) 16px 12px',
-  borderBottom: '1px solid #ece5d9',
+  borderBottom: '1px solid var(--c-hairline)',
 };
 
 const closeBtn = {
   background: 'none',
   border: 'none',
   fontSize: 22,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   cursor: 'pointer',
   width: 44,
   height: 44,
@@ -69,7 +69,7 @@ const bodyStyle = {
 const labelStyle = {
   fontSize: 12,
   fontWeight: 600,
-  color: '#5c5043',
+  color: 'var(--c-brand)',
   display: 'block',
   marginBottom: 6,
 };
@@ -78,10 +78,10 @@ const inpStyle = {
   width: '100%',
   padding: '10px 12px',
   fontSize: 16,
-  border: '1px solid #e0d8ca',
+  border: '1px solid var(--c-hairline-strong)',
   borderRadius: 10,
   background: '#fff',
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   fontFamily: 'inherit',
   boxSizing: 'border-box',
   outline: 'none',
@@ -107,11 +107,11 @@ const radioItemStyle = (active) => ({
   gap: 10,
   padding: '10px 12px',
   borderRadius: 10,
-  border: active ? '1.5px solid #5c5043' : '1px solid #e0d8ca',
-  background: active ? '#eae3d6' : '#fff',
+  border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
+  background: active ? 'var(--c-soft-2)' : '#fff',
   cursor: 'pointer',
   fontSize: 14,
-  color: '#3d362c',
+  color: 'var(--c-ink)',
   minHeight: 44,
   fontFamily: 'inherit',
 });
@@ -120,7 +120,7 @@ const footerStyle = {
   display: 'flex',
   gap: 10,
   padding: '12px 18px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid #ece5d9',
+  borderTop: '1px solid var(--c-hairline)',
 };
 
 const btnPrimary = {
@@ -128,8 +128,8 @@ const btnPrimary = {
   padding: '12px 18px',
   borderRadius: 10,
   border: 'none',
-  background: '#5c5043',
-  color: '#fffdf8',
+  background: 'var(--c-brand)',
+  color: 'var(--c-card)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 14,
@@ -140,8 +140,8 @@ const btnPrimary = {
 const btnGhost = {
   ...btnPrimary,
   background: 'transparent',
-  color: '#5c5043',
-  border: '1px solid #e0d8ca',
+  color: 'var(--c-brand)',
+  border: '1px solid var(--c-hairline-strong)',
 };
 
 export default function FeedbackForm({ onClose }) {
@@ -205,18 +205,18 @@ export default function FeedbackForm({ onClose }) {
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
           <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={busy}>×</button>
-          <h2 style={{ fontSize: 16, color: '#3d362c', margin: 0, fontWeight: 500, flex: 1 }}>📩 フィードバック・要望</h2>
+          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 500, flex: 1 }}>📩 フィードバック・要望</h2>
         </div>
 
         <div style={bodyStyle}>
-          <p style={{ fontSize: 12, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
             アプリの改善のため、ご意見・ご要望をお寄せください。<br />
             すべての投稿に目を通させていただきます🙏
           </p>
 
           {/* Category */}
           <div role="radiogroup" aria-label="カテゴリ">
-            <span style={labelStyle}>カテゴリ <span style={{ color: '#a05040' }}>*</span></span>
+            <span style={labelStyle}>カテゴリ <span style={{ color: 'var(--c-critical)' }}>*</span></span>
             <div style={radioRowStyle}>
               {FEEDBACK_CATEGORIES.map((c) => (
                 <label key={c.value} style={radioItemStyle(category === c.value)}>
@@ -226,7 +226,7 @@ export default function FeedbackForm({ onClose }) {
                     value={c.value}
                     checked={category === c.value}
                     onChange={() => setCategory(c.value)}
-                    style={{ accentColor: '#5c5043' }}
+                    style={{ accentColor: 'var(--c-brand)' }}
                   />
                   <span>{c.label}</span>
                 </label>
@@ -237,7 +237,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Content */}
           <div>
             <label htmlFor="feedback-content" style={labelStyle}>
-              内容 <span style={{ color: '#a05040' }}>*</span>
+              内容 <span style={{ color: 'var(--c-critical)' }}>*</span>
             </label>
             <textarea
               id="feedback-content"
@@ -254,7 +254,7 @@ export default function FeedbackForm({ onClose }) {
               aria-required="true"
               disabled={busy}
             />
-            <p style={{ fontSize: 10, color: '#5a4f3e', textAlign: 'right', margin: '4px 2px 0' }}>
+            <p style={{ fontSize: 10, color: 'var(--c-ink-2)', textAlign: 'right', margin: '4px 2px 0' }}>
               {content.length} / {FEEDBACK_LIMITS.content}
             </p>
           </div>
@@ -262,7 +262,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Name (optional) */}
           <div>
             <label htmlFor="feedback-name" style={labelStyle}>
-              お名前 <span style={{ color: '#5a4f3e', fontWeight: 400 }}>（任意）</span>
+              お名前 <span style={{ color: 'var(--c-ink-2)', fontWeight: 400 }}>（任意）</span>
             </label>
             <input
               id="feedback-name"
@@ -280,7 +280,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Email (optional) */}
           <div>
             <label htmlFor="feedback-email" style={labelStyle}>
-              連絡先メールアドレス <span style={{ color: '#5a4f3e', fontWeight: 400 }}>（任意）</span>
+              連絡先メールアドレス <span style={{ color: 'var(--c-ink-2)', fontWeight: 400 }}>（任意）</span>
             </label>
             <input
               id="feedback-email"
@@ -295,7 +295,7 @@ export default function FeedbackForm({ onClose }) {
               autoCorrect="off"
               disabled={busy}
             />
-            <p style={{ fontSize: 10, color: '#5a4f3e', margin: '4px 2px 0' }}>
+            <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '4px 2px 0' }}>
               返信なしでも構いません。
             </p>
           </div>

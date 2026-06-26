@@ -26,8 +26,8 @@ const indicatorBase = {
   width: 36,
   height: 36,
   borderRadius: '50%',
-  background: '#fffdf8',
-  border: '1px solid #ece5d9',
+  background: 'var(--c-card)',
+  border: '1px solid var(--c-hairline)',
   boxShadow: '0 4px 12px rgba(30, 25, 20, 0.12)',
   display: 'flex',
   alignItems: 'center',
@@ -85,7 +85,7 @@ export default function PullToRefresh({ onRefresh, threshold = 70, children }) {
                 height: 16,
                 borderRadius: '50%',
                 border: '2px solid #e0d8c8',
-                borderTopColor: '#5c5043',
+                borderTopColor: 'var(--c-brand)',
                 animation: 'lvg-ptr-spin 0.8s linear infinite',
               }}
             />
@@ -97,7 +97,7 @@ export default function PullToRefresh({ onRefresh, threshold = 70, children }) {
                 cy="12"
                 r="9"
                 fill="none"
-                stroke={armed ? '#5a7a48' : '#5c5043'}
+                stroke={armed ? '#5a7a48' : 'var(--c-brand)'}
                 strokeWidth="2.5"
                 strokeDasharray={`${progress * 56.5} 56.5`}
                 strokeLinecap="round"
