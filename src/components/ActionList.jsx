@@ -490,7 +490,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                         border: 'none',
                         padding: 0,
                         fontSize: 11,
-                        color: '#8a7040',
+                        color: 'var(--color-accent)',
                         cursor: 'pointer',
                         display: 'inline-flex',
                         alignItems: 'center',

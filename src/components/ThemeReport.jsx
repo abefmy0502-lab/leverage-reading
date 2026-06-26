@@ -671,7 +671,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                   minHeight: 44,
                   padding: '8px 8px 8px 14px',
                   borderRadius: 999,
-                  border: '1px solid #e0d8c8',
+                  border: '1px solid var(--c-hairline-strong)',
                   background: '#fff',
                   color: 'var(--c-ink)',
                   cursor: 'pointer',

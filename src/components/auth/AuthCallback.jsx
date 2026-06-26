@@ -38,7 +38,7 @@ const wrap = {
   textAlign: 'center',
   fontFamily: "var(--font-app)",
   color: 'var(--c-ink)',
-  background: '#f5f0e8',
+  background: 'var(--color-bg)',
 };
 
 const btn = {

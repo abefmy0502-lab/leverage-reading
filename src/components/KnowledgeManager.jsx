@@ -80,7 +80,7 @@ const KIND_META = {
   current_challenge: { icon: '⚠️', label: '現在の課題',   group: 'plan',    column: 'current_challenge' },
   hypothesis:        { icon: '💡',  label: '仮説',         group: 'plan',    column: 'hypothesis' },
   ai_summary:        { icon: '🤖',  label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },
-  roi_summary:       { icon: '💎',  label: '投資の効果',   group: 'summary', column: 'roi_summary' },
+  roi_summary:       { icon: '💎',  label: '一番の収穫',   group: 'summary', column: 'roi_summary' },
   ai_strategy:       { icon: '🗺️', label: '戦略',         group: 'plan',    column: 'ai_strategy' },
 };
 
@@ -88,7 +88,7 @@ const KIND_META = {
 const GROUP_BADGE = {
   memo:     { bg: '#e2ecd8', fg: '#5a7a48' },
   summary:  { bg: 'var(--c-soft-2)', fg: 'var(--c-brand)' },
-  learning: { bg: '#f5e6c8', fg: '#8a7040' },
+  learning: { bg: '#f5e6c8', fg: 'var(--color-accent)' },
   plan:     { bg: '#e3eaf3', fg: '#3a5a78' },
 };
 

@@ -41,7 +41,7 @@ export default class ErrorBoundary extends React.Component {
             padding: '48px 24px',
             fontFamily: "var(--font-app)",
             color: 'var(--c-ink)',
-            background: '#f5f0e8',
+            background: 'var(--color-bg)',
             minHeight: '100vh',
             boxSizing: 'border-box',
             display: 'flex',

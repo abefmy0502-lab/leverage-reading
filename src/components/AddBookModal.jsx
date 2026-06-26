@@ -31,7 +31,7 @@ const overlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 200,
-  background: 'var(--color-bg, #f5f0e8)',
+  background: 'var(--color-bg, var(--color-bg))',
   display: 'flex',
   flexDirection: 'column',
   fontFamily: "var(--font-app)",

@@ -229,7 +229,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                   />
                   <div style={{ fontSize: 10, color: 'var(--c-ink-2)', textAlign: 'center', lineHeight: 1.4 }}>
                     {c.isCurrent && (
-                      <div style={{ fontSize: 10, color: '#8a7040', fontWeight: 600, marginBottom: 2 }}>
+                      <div style={{ fontSize: 10, color: 'var(--color-accent)', fontWeight: 600, marginBottom: 2 }}>
                         ✓ 現在の表紙
                       </div>
                     )}

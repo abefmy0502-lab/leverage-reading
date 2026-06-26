@@ -20,7 +20,7 @@ const overlay = {
   bottom: 0,
   height: '100dvh',
   zIndex: 300,
-  background: '#f5f0e8',
+  background: 'var(--color-bg)',
   display: 'flex',
   flexDirection: 'column',
   fontFamily: "var(--font-app)",

@@ -131,7 +131,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
 
         <div style={bodyStyle}>
           <div style={recBoxStyle}>
-            <p style={{ fontSize: 11, color: '#8a7040', margin: 0, fontWeight: 600 }}>🤖 AI からのおすすめ</p>
+            <p style={{ fontSize: 11, color: 'var(--color-accent)', margin: 0, fontWeight: 600 }}>🤖 AI からのおすすめ</p>
             <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '4px 0 0', fontWeight: 600, wordBreak: 'keep-all' }}>
               『{original.title}』
             </p>

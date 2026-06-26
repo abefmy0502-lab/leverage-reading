@@ -84,14 +84,14 @@ export default function PullToRefresh({ onRefresh, threshold = 70, children }) {
                 width: 16,
                 height: 16,
                 borderRadius: '50%',
-                border: '2px solid #e0d8c8',
+                border: '2px solid var(--c-hairline-strong)',
                 borderTopColor: 'var(--c-brand)',
                 animation: 'lvg-ptr-spin 0.8s linear infinite',
               }}
             />
           ) : (
             <svg viewBox="0 0 24 24" width="20" height="20" style={{ transform: `rotate(${progress * 270}deg)`, transition: 'transform 80ms linear' }}>
-              <circle cx="12" cy="12" r="9" fill="none" stroke="#e0d8c8" strokeWidth="2.5" />
+              <circle cx="12" cy="12" r="9" fill="none" stroke="var(--c-hairline-strong)" strokeWidth="2.5" />
               <circle
                 cx="12"
                 cy="12"

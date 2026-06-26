@@ -96,7 +96,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo
 const STAR = "★";
 const EMPTY_STAR = "☆";
 const STATUSES = [
-  { key: "want", label: "読みたい", emoji: "🔖", Icon: Bookmark, bg: "#f0e8d8", color: "#8a7040" },
+  { key: "want", label: "読みたい", emoji: "🔖", Icon: Bookmark, bg: "#f0e8d8", color: "var(--color-accent)" },
   { key: "before", label: "積読", emoji: "📐", Icon: PenSquare, bg: "#f0e0f0", color: "#7a5080" },
   { key: "reading", label: "読書中", emoji: "📖", Icon: BookOpen, bg: "#dde8f0", color: "#4a6e8a" },
   { key: "done", label: "読了", emoji: "✅", Icon: CheckCircle, bg: "#e2ecd8", color: "#5a7a48" },
@@ -220,7 +220,7 @@ function BookResultCard({ book, onSelect }) {
         <img
           src={ensureHttps(book.cover)}
           alt=""
-          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid #e0d8c8' }}
+          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--c-hairline-strong)' }}
         />
       ) : (
         <div style={{ width: 44, height: 60, background: '#e8e2d6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📕</div>
@@ -527,7 +527,7 @@ function Field({ label, sub, children }) {
 function Card({ label, text, bg }) {
   return (
     <div style={{ background: bg || "#f7f3ec", borderRadius: 10, padding: "10px 12px", marginTop: 8 }}>
-      <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>{label}</p>
+      <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-accent)", marginBottom: 4 }}>{label}</p>
       <p style={{ fontSize: 13, color: "#4a4036", lineHeight: 1.8, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: 0 }}>{text}</p>
     </div>
   );
@@ -555,7 +555,7 @@ function BookIcon() {
 // (useLongPress) follow Rules of Hooks.
 // タイトル文字列から決定論的にプレースホルダ色を生成。同じ本は常に同じ色。
 const PLACEHOLDER_PALETTE = [
-  ['#8a7040', '#5d4a28'], // brown
+  ['var(--color-accent)', '#5d4a28'], // brown
   ['#7a5080', '#5a3a60'], // plum
   ['#4a6e8a', '#2c4d68'], // slate blue
   ['#5a7a48', '#3a5a30'], // moss
@@ -717,7 +717,7 @@ const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustD
                 if (w <= 1 || h <= 1) { setBroken(true); return; }
                 if (w >= 50 && h / w < 1.35) { setBroken(true); return; }
               }}
-              style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid #e0d8c8", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
+              style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid var(--c-hairline-strong)", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
             />
           ) : (
             <div
@@ -853,7 +853,7 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {form.cover ? (
-            <img src={ensureHttps(form.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
+            <img src={ensureHttps(form.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid var(--c-hairline-strong)" }} />
           ) : (
             <button
               type="button"
@@ -887,7 +887,7 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                style={{ background: 'none', border: 'none', fontSize: 10, color: '#8a7040', cursor: 'pointer', padding: 2, fontFamily: 'inherit' }}
+                style={{ background: 'none', border: 'none', fontSize: 10, color: 'var(--color-accent)', cursor: 'pointer', padding: 2, fontFamily: 'inherit' }}
               >
                 変更
               </button>
@@ -964,7 +964,7 @@ function BeforePhase({
       {aiLoading && !form.aiAnalysis && <Dots />}
       {form.aiAnalysis && (
         <div style={{ marginTop: 8 }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-accent)", marginBottom: 4 }}>
             解析結果
             {aiLoading && !form.aiStrategy && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 6 }} />}
           </p>
@@ -1087,7 +1087,7 @@ function BeforePhase({
           {aiLoading && form.aiAnalysis && !form.aiStrategy && <Dots />}
           {form.aiStrategy && (
             <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: "#8a7040", marginBottom: 4 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-accent)", marginBottom: 4 }}>
 読書計画シート
                 {aiLoading && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 6 }} />}
               </p>
@@ -4126,7 +4126,7 @@ function AuthedApp() {
                 取り直しボタンに辿り着けなかった (⋯ メニューを開く必要があった)。 */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
               {current.cover ? (
-                <img src={ensureHttps(current.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
+                <img src={ensureHttps(current.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid var(--c-hairline-strong)" }} />
               ) : (
                 <div
                   aria-hidden="true"
@@ -4183,7 +4183,7 @@ function AuthedApp() {
                     border: 'none',
                     padding: 0,
                     fontSize: 10,
-                    color: '#8a7040',
+                    color: 'var(--color-accent)',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
                     textDecoration: 'underline',
@@ -4331,7 +4331,7 @@ function AuthedApp() {
                       padding: '8px 14px',
                       borderRadius: 8,
                       border: 'none',
-                      background: '#8a7040',
+                      background: 'var(--color-accent)',
                       color: 'var(--c-card)',
                       fontSize: 13,
                       fontWeight: 600,
@@ -4363,7 +4363,7 @@ function AuthedApp() {
               </summary>
               {current.aiAnalysis && (
                 <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🔍 AI 本の解析</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}>🔍 AI 本の解析</p>
                   <MarkdownSections
                     text={current.aiAnalysis}
                     onAddRelatedBook={addRelatedBookFromAi}
@@ -4373,7 +4373,7 @@ function AuthedApp() {
               )}
               {current.aiStrategy && (
                 <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🗺️ 読書計画シート</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}>🗺️ 読書計画シート</p>
                   <MarkdownSections
                     text={current.aiStrategy}
                     onAddRelatedBook={addRelatedBookFromAi}
@@ -4388,7 +4388,7 @@ function AuthedApp() {
 
           {(current.status === "reading" || current.status === "done") ? (
             <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>📝 まとめメモ</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}>📝 まとめメモ</p>
               <BookMemoList
                 bookId={current.id}
                 bookTitle={current.title}
@@ -4432,7 +4432,7 @@ function AuthedApp() {
 
           {(current.actions || []).filter((a) => a.text?.trim()).length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>⚡ 行動リスト</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}>⚡ 行動リスト</p>
               {current.actions.filter((a) => a.text?.trim()).map((a, i) => (
                 <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0" }}>
                   <span style={{ fontSize: 16 }}>{a.done ? "✅" : "⬜"}</span>
@@ -4873,7 +4873,7 @@ function AuthedApp() {
        gap: 6,
        /* ページ（クリーム）と同色にして上部を一体化（iOS ナビバー流儀）。
           白いカードが下で浮く構図になる。 */
-       background: "var(--color-bg, #f5f0e8)",
+       background: "var(--color-bg, var(--color-bg))",
      }}
    >
     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
@@ -4970,7 +4970,7 @@ function AuthedApp() {
                 borderTop: "1px solid #e8e2d6",
                 position: "sticky",
                 top: 0,
-                background: "var(--color-bg, #f5f0e8)",
+                background: "var(--color-bg, var(--color-bg))",
                 zIndex: 10,
               }}
             >
@@ -5108,7 +5108,7 @@ function AuthedApp() {
                   時こそ読みかけにすぐ戻れるべき）。テキスト検索中だけは検索結果を優先して隠す。 */}
               {recentBooks.length > 0 && !search && (
                 <div style={{ marginBottom: 14 }}>
-                  <p style={{ fontSize: 11, color: "#8a7040", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>
+                  <p style={{ fontSize: 11, color: "var(--color-accent)", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>
                   <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
                     {recentBooks.map((b) => (
                       <button
@@ -5131,7 +5131,7 @@ function AuthedApp() {
                         }}
                       >
                         {b.cover ? (
-                          <img src={ensureHttps(b.cover)} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid #e0d8c8" }} />
+                          <img src={ensureHttps(b.cover)} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid var(--c-hairline-strong)" }} />
                         ) : (
                           <div style={{ width: "100%", height: 90, background: "var(--c-soft-2)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📕</div>
                         )}
