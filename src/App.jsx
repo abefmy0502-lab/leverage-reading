@@ -5103,7 +5103,9 @@ function AuthedApp() {
                 if (b) { openDetail(b); setTab('books'); }
                 else { setReviewSubTab('note'); setTab('review'); }
               }} />
-              {recentBooks.length > 0 && !search && statusFilter === "all" && (
+              {/* 「続きから」はフィルタから独立して出す（本田指摘: 営業本だけ絞っている
+                  時こそ読みかけにすぐ戻れるべき）。テキスト検索中だけは検索結果を優先して隠す。 */}
+              {recentBooks.length > 0 && !search && (
                 <div style={{ marginBottom: 14 }}>
                   <p style={{ fontSize: 11, color: "#8a7040", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>
                   <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>

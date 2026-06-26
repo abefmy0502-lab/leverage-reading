@@ -3,6 +3,8 @@ import { useAppDataCache } from '../state/AppDataCache';
 import { toMessage } from '../lib/errors';
 import { LIMITS, validateImageFile } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
+import { condenseMemo } from '../lib/ai';
+import { useToast } from './Toast';
 import { ensureHttps } from '../lib/url';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
@@ -145,6 +147,38 @@ export default function BookMemoEditor({
     initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '')
   );
   const [text, setText] = useState(initial?.text || defaultText || '');
+  // ✨ 凝縮（本田流レバレッジメモ化）— 元テキストを保持して「↩ 元に戻す」可能に。
+  const [condensing, setCondensing] = useState(false);
+  const [condensedFrom, setCondensedFrom] = useState(null);
+  const toast = useToast();
+
+  const handleCondense = async () => {
+    if (condensing) return;
+    const src = text.trim();
+    if (src.replace(/\s/g, '').length < 60) {
+      toast.info('もう少し長いメモで凝縮が活きます。');
+      return;
+    }
+    setCondensing(true);
+    try {
+      const out = await condenseMemo({ text: src });
+      if (out && out.trim() && out.trim() !== src) {
+        setCondensedFrom(text); // 元に戻せるよう保持
+        setText(out.trim());
+        toast.success('本質だけに凝縮しました。');
+      } else {
+        toast.error('うまく凝縮できませんでした。少し時間をおいて再度お試しください。');
+      }
+    } finally {
+      setCondensing(false);
+    }
+  };
+
+  const undoCondense = () => {
+    if (condensedFrom == null) return;
+    setText(condensedFrom);
+    setCondensedFrom(null);
+  };
   const [tags, setTags] = useState(initial?.tags || []);
   const [tagInput, setTagInput] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
@@ -384,12 +418,44 @@ export default function BookMemoEditor({
             style={ta}
             maxLength={LIMITS.memoText}
           />
-          <div style={{ marginTop: 8 }}>
+          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             <PhotoToTextButton
               onText={(t) =>
                 setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
               }
             />
+            {/* ✨ 3行に凝縮 — 長文/OCR を本田流レバレッジメモ化。十分な長さの時だけ出す。 */}
+            {text.trim().replace(/\s/g, '').length >= 60 && (
+              <button
+                type="button"
+                onClick={handleCondense}
+                disabled={condensing}
+                aria-label="メモを3行に凝縮する"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40,
+                  padding: '8px 14px', borderRadius: 10, border: '1px solid #e0d8ca',
+                  background: 'transparent', color: '#5c5043', fontSize: 13, fontWeight: 600,
+                  fontFamily: 'inherit', cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1,
+                }}
+              >
+                {condensing ? '凝縮中…' : '✨ 3行に凝縮'}
+              </button>
+            )}
+            {condensedFrom != null && (
+              <button
+                type="button"
+                onClick={undoCondense}
+                aria-label="凝縮を元に戻す"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 40,
+                  padding: '8px 12px', borderRadius: 10, border: 'none',
+                  background: 'transparent', color: '#8a7d6a', fontSize: 12, fontWeight: 600,
+                  fontFamily: 'inherit', cursor: 'pointer',
+                }}
+              >
+                ↩ 元に戻す
+              </button>
+            )}
           </div>
         </div>
 

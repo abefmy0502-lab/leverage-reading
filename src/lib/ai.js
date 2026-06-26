@@ -502,6 +502,34 @@ export async function callMyBookBrain({ userId, question }) {
   return { body: parsed.body, refs: parsed.refs, ...ctx.stats };
 }
 
+// ✨ メモの凝縮 — 長い抜き書き/OCR テキストを最大3行の本質に削る（本田流レバレッジ
+// メモ化）。成功で凝縮後テキストを返し、失敗・短すぎ・エラーは null（呼び出し側で案内）。
+export async function condenseMemo({ text }) {
+  const src = clamp(sanitizeForPrompt(String(text || '')), LIMITS.memoText || 2000);
+  // 既に十分短い（おおよそ60字未満）なら凝縮の余地が薄い。
+  if (!src || src.replace(/\s/g, '').length < 60) return null;
+  let result;
+  try {
+    result = await callClaude(
+      PROMPTS.condense.system,
+      PROMPTS.condense.user({ text: src }),
+      { max_tokens: 320, temperature: 0.4 },
+    );
+  } catch (e) {
+    console.warn('[condense] claude failed:', e?.message);
+    return null;
+  }
+  if (typeof result !== 'string'
+    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isSuspiciousOutput(result)) {
+    return null;
+  }
+  const cleaned = clamp(sanitizeForPrompt(result).trim(), LIMITS.memoText || 2000);
+  if (!cleaned) return null;
+  track('ai_used', { feature: 'condense' });
+  return cleaned;
+}
+
 // 💭 今週の問い — マイ読書脳の能動化。ユーザー自身のメモから「立ち止まって
 // 考え・行動したくなる問い」を1つだけ生成して返す（向こうから問いを投げる）。
 // 失敗・メモ不足・エラー時は null（呼び出し側は静かに定型の問いへフォールバック）。

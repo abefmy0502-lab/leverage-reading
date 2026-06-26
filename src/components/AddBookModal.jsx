@@ -810,7 +810,12 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: '6px 0 16px', lineHeight: 1.7 }}>
               書名を変えて再検索するか、ISBN（本の裏のバーコード番号）で検索すると見つかりやすくなります。
             </p>
-            <button type="button" onClick={onManual} style={{ ...manualBtnStyle, background: 'var(--color-accent-soft)', color: 'var(--color-accent-strong)', fontWeight: 600 }}>
+            <button type="button" onClick={onManual} style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              width: '100%', minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-md)',
+              border: 'none', background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
+              fontWeight: 700, fontSize: 14, fontFamily: 'inherit', cursor: 'pointer',
+            }}>
               📝 このまま手動で追加する
             </button>
           </div>
