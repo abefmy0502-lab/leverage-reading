@@ -2850,7 +2850,7 @@ function AuthedApp() {
       if (status === 'done') return 'bookDetailDone';
     }
     if (tab === 'review') return reviewSubTab === 'action' ? 'actionList' : 'review';
-    if (tab === 'ai') return aiSubTab === 'brain' ? 'myBookBrain' : 'aiAdvisor';
+    if (tab === 'ai') return aiSubTab === 'brain' ? 'myBookBrain' : aiSubTab === 'report' ? 'themeReport' : 'aiAdvisor';
     return 'bookList';
   };
 
@@ -5321,7 +5321,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'report' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('report')}
               >
-                📊 レポート
+                📐 レバレッジメモ
               </button>
             </div>
             {/* 独自名のサブタブを初対面でも分かるよう、内容を平易な一言で注釈する。 */}
@@ -5330,7 +5330,7 @@ function AuthedApp() {
                 ? '🔍 いまの課題に合う本を、AI が提案します。'
                 : aiSubTab === 'brain'
                 ? '🧠 あなたが残したメモをもとに、AI が質問に答えます。'
-                : '📊 テーマ別に、これまでのメモを 1 枚にまとめます。'}
+                : '📐 テーマの学びを「核心1行＋次の一歩」に凝縮し、振り返りに乗せます。'}
             </p>
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (

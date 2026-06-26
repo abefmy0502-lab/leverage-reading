@@ -22,6 +22,7 @@ import {
   saveThemeReport,
   loadThemeReports,
   deleteThemeReport,
+  setLeverageRecall,
 } from '../lib/ai';
 import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
@@ -51,8 +52,8 @@ const pill = (active) => ({
 });
 
 const STAGE_LABEL = {
-  search: '📚 テーマのメモを集めています…',
-  generate: '🧠 レポートを作成中…',
+  search: '📚 テーマのメモと行動を集めています…',
+  generate: '🧠 レバレッジメモを作成中…',
 };
 
 function fmtDate(iso) {
@@ -60,6 +61,63 @@ function fmtDate(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// レポート Markdown から「## 🧭 核心」セクションの本文（1行）を取り出す。
+// 想起ループにセットする核心テキストの抽出に使う。見つからなければ先頭の非空行。
+function extractCore(md) {
+  if (!md || typeof md !== 'string') return '';
+  const lines = md.split('\n');
+  let inCore = false;
+  const buf = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (/^#{1,6}\s/.test(line)) {
+      if (inCore) break; // next heading → 核心 セクション終わり
+      inCore = /核心/.test(line);
+      continue;
+    }
+    if (inCore && line) buf.push(line.replace(/^[-*]\s+/, ''));
+  }
+  const core = buf.join(' ').trim();
+  if (core) return core;
+  const first = lines.map((l) => l.trim()).find((l) => l && !/^#{1,6}\s/.test(l));
+  return (first || '').replace(/^[-*]\s+/, '');
+}
+
+// 核心セクション（## 〜核心 … 次の見出しまで）を取り除いた残りの Markdown を返す。
+// 核心は専用のヒーローカードで描くので、本文(原則/次の一歩)からは外す。
+function stripCoreSection(md) {
+  if (!md || typeof md !== 'string') return md || '';
+  const lines = md.split('\n');
+  const out = [];
+  let dropping = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (/^#{1,6}\s/.test(line)) {
+      if (/核心/.test(line)) { dropping = true; continue; }
+      dropping = false;
+    }
+    if (!dropping) out.push(raw);
+  }
+  return out.join('\n').trim();
+}
+
+// 端末ローカルの「前回スナップショット」で 📈 前回からの変化 を出す（DB 変更ゼロ）。
+// 偽の数字を出さないため、前回が無ければ delta は null。
+const SNAP_KEY = 'leverage-memo-snap';
+function readSnap(theme) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SNAP_KEY) || '{}');
+    return all[theme] || null;
+  } catch { return null; }
+}
+function writeSnap(theme, snap) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SNAP_KEY) || '{}');
+    all[theme] = snap;
+    localStorage.setItem(SNAP_KEY, JSON.stringify(all));
+  } catch { /* ignore */ }
 }
 
 export default function ThemeReport() {
@@ -82,6 +140,13 @@ export default function ThemeReport() {
   const [notice, setNotice] = useState(''); // shown when a theme has no memos yet
   const [noticeKind, setNoticeKind] = useState('info'); // 'info' (メモ0件) | 'error'
   const abortRef = useRef(null);
+
+  // 🎯 行動の鏡 / 根拠スコープ / 📈 前回比 / 🔄 想起ループ の状態。
+  const [actionStats, setActionStats] = useState(null); // { declared, completed, idle, blindSpot }
+  const [scope, setScope] = useState(null); // { memoTotal, bookCount }
+  const [delta, setDelta] = useState(null); // { memo, book, at } | null
+  const [recallSet, setRecallSet] = useState(false);
+  const [recallBusy, setRecallBusy] = useState(false);
 
   // History (optional persistence)
   const [history, setHistory] = useState([]);
@@ -128,6 +193,10 @@ export default function ThemeReport() {
     setStage('search');
     setGenerating(true);
     setAborting(false);
+    setActionStats(null);
+    setScope(null);
+    setDelta(null);
+    setRecallSet(false);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -157,12 +226,25 @@ export default function ThemeReport() {
         const finalText = (result?.body || '').trim();
         if (finalText) {
           setReportText(finalText);
+          // 🎯 行動の鏡 + 根拠スコープ（AI ではなく実データ）。
+          setActionStats(result?.actionStats || null);
+          const memoTotal = result?.memoTotal ?? 0;
+          const bookCount = result?.bookCount ?? 0;
+          setScope({ memoTotal, bookCount });
+          // 📈 前回からの変化（端末ローカルのスナップショット比較・偽数字は出さない）。
+          const prev = readSnap(theme);
+          if (prev && (memoTotal !== prev.memoTotal || bookCount !== prev.bookCount)) {
+            setDelta({ memo: memoTotal - (prev.memoTotal || 0), book: bookCount - (prev.bookCount || 0), at: prev.at });
+          } else {
+            setDelta(null);
+          }
+          writeSnap(theme, { memoTotal, bookCount, at: new Date().toISOString() });
           haptic.success();
           // Persist (no-op + history stays hidden if the table isn't applied).
           const saved = await saveThemeReport({ userId: user.id, theme, content: finalText });
           if (saved) {
             setHistoryAvailable(true);
-            setHistory((prev) => [saved, ...prev.filter((r) => r.id !== saved.id)]);
+            setHistory((prev2) => [saved, ...prev2.filter((r) => r.id !== saved.id)]);
           }
         }
       }
@@ -206,11 +288,36 @@ export default function ThemeReport() {
     }
   }, [activeTheme, reportText, haptic, toast]);
 
+  const handleSetRecall = useCallback(async () => {
+    if (recallBusy || recallSet) return;
+    const core = extractCore(reportText);
+    if (!core) { toast.error('核心を取り出せませんでした'); return; }
+    setRecallBusy(true);
+    try {
+      const res = await setLeverageRecall({ userId: user.id, theme: activeTheme, core });
+      if (res?.ok) {
+        setRecallSet(true);
+        haptic.success();
+        toast.success('想起ループにセットしました。振り返り・通知でそっと戻ってきます。');
+      } else {
+        toast.error('セットできませんでした。少し時間をおいて再度お試しください。');
+      }
+    } finally {
+      setRecallBusy(false);
+    }
+  }, [recallBusy, recallSet, reportText, activeTheme, user?.id, toast, haptic]);
+
   const openHistoryReport = useCallback((row) => {
     setActiveTheme(row.theme || '');
     setReportText(row.content || '');
     setNotice('');
     setNoticeKind('info');
+    // 履歴は保存済み Markdown のみ。ライブ集計（行動の鏡・スコープ・前回比）は持た
+    // ないのでクリアし、想起セットは核心から再実行できるよう false に。
+    setActionStats(null);
+    setScope(null);
+    setDelta(null);
+    setRecallSet(false);
     setView('create');
   }, []);
 
@@ -265,8 +372,8 @@ export default function ThemeReport() {
             {history.length === 0 ? (
               <EmptyState
                 icon="🕒"
-                title="まだレポートがありません"
-                description="「📊 作成」からテーマを選んでレポートを作ると、ここに保存されていきます。"
+                title="まだレバレッジメモがありません"
+                description="「📊 作成」からテーマを選んでレバレッジメモを作ると、ここに保存されていきます。"
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -326,6 +433,16 @@ export default function ThemeReport() {
                 )}
               </div>
 
+              {/* レバレッジメモ + 根拠スコープ */}
+              {!notice && (
+                <div style={{ fontSize: 11, color: '#8a7d6a', margin: '-4px 0 2px', letterSpacing: '.02em' }}>
+                  📐 レバレッジメモ
+                  {scope && (scope.memoTotal > 0 || scope.bookCount > 0) && (
+                    <> ・ 本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件を横断</>
+                  )}
+                </div>
+              )}
+
               {/* body */}
               {notice ? (
                 <div
@@ -349,7 +466,7 @@ export default function ThemeReport() {
                 <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }} aria-live="polite" aria-busy="true">
                   <div className="ai-thinking">
                     <span className="ai-thinking-dot" aria-hidden="true" />
-                    <span>{STAGE_LABEL[stage] || '🧠 レポートを準備中…'}</span>
+                    <span>{STAGE_LABEL[stage] || '🧠 レバレッジメモを準備中…'}</span>
                   </div>
                   <div className="ai-skeleton" aria-hidden="true">
                     <div className="ai-skeleton-line" style={{ width: '90%' }} />
@@ -358,10 +475,17 @@ export default function ThemeReport() {
                     <div className="ai-skeleton-line" style={{ width: '64%' }} />
                   </div>
                 </div>
-              ) : (
-                <div aria-live="polite" aria-busy={generating || undefined}>
+              ) : generating ? (
+                // ストリーミング中は素の Markdown を流す（核心の途中分割でチラつかせない）。
+                <div aria-live="polite" aria-busy="true">
                   <MarkdownSections text={reportText} />
-                  {generating && <span className="streaming-cursor" aria-hidden="true" />}
+                  <span className="streaming-cursor" aria-hidden="true" />
+                </div>
+              ) : (
+                // 完成後は「核心」を専用ヒーローカードで強調し、残り(原則/次の一歩)を下に。
+                <div aria-live="polite">
+                  {extractCore(reportText) && <CoreCard line={extractCore(reportText)} />}
+                  <MarkdownSections text={stripCoreSection(reportText)} />
                 </div>
               )}
 
@@ -374,18 +498,42 @@ export default function ThemeReport() {
                 </div>
               )}
 
+              {/* 🎯 行動の鏡 — 学びが行動に変わっているかを実データで突きつける */}
+              {!generating && !notice && reportText && actionStats && (
+                <ActionMirror stats={actionStats} memoTotal={scope?.memoTotal ?? 0} />
+              )}
+
+              {/* 📈 前回からの変化（端末ローカル比較・あるときだけ） */}
+              {!generating && !notice && reportText && delta && (
+                <div style={{ ...card, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#3d362c', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    📈 前回からの変化
+                    {delta.at && <span style={{ fontWeight: 500, color: '#8a7d6a', fontSize: 10.5 }}>（前回 {fmtDate(delta.at)}）</span>}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: '#5a4f3e', lineHeight: 1.6 }}>
+                    {delta.book > 0 && <>本 +{delta.book} 冊　</>}
+                    {delta.memo > 0 ? <>メモ +{delta.memo} 件を追加</> : delta.memo < 0 ? <>メモ {delta.memo} 件</> : <>新しい根拠が増えました</>}
+                  </div>
+                </div>
+              )}
+
+              {/* 🔄 想起ループ接続 — 読んで終わりにしない仕組み */}
+              {!generating && !notice && reportText && (
+                <RecallBanner busy={recallBusy} done={recallSet} onSet={handleSetRecall} />
+              )}
+
               {/* actions (only when a finished report is shown) */}
               {!generating && !notice && reportText && (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
-                  <button onClick={copyReport} style={btnGhost} aria-label="レポートをクリップボードにコピー">
+                  <button onClick={copyReport} style={btnGhost} aria-label="レバレッジメモをクリップボードにコピー">
                     📋 コピー
                   </button>
                   {historyAvailable && (
-                    <button onClick={() => setView('history')} style={btnGhost} aria-label="保存済みのレポート履歴を見る">
+                    <button onClick={() => setView('history')} style={btnGhost} aria-label="保存済みのレバレッジメモ履歴を見る">
                       🕒 履歴
                     </button>
                   )}
-                  <button onClick={resetToPicker} style={btnPrimary} aria-label="別のテーマでレポートを作成">
+                  <button onClick={resetToPicker} style={btnPrimary} aria-label="別のテーマでレバレッジメモを作成">
                     🔄 別のテーマで作る
                   </button>
                 </div>
@@ -411,11 +559,11 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Sparkles size={18} aria-hidden="true" style={{ color: '#5c5043' }} />
           <h2 style={{ fontSize: 17, fontWeight: 700, color: '#3d362c', margin: 0 }}>
-            あなたの読書が、1 枚のレポートに
+            あなたの読書が、1 枚のレバレッジメモに
           </h2>
         </div>
         <p style={{ fontSize: 13, color: '#5a4f3e', margin: 0, lineHeight: 1.7 }}>
-          テーマを選ぶと、その分野で残してきたメモを横断して、要点・共通パターン・あなたへの行動提案を 1 枚にまとめます。
+          テーマを選ぶと、その分野のメモを横断して<strong>「核心1行・繰り返す原則・次の一歩」</strong>に凝縮。さらに<strong>行動の鏡</strong>で実践度を映し、<strong>振り返り・通知</strong>に乗せて忘れた頃に呼び戻します。
         </p>
       </div>
 
@@ -521,9 +669,102 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
           </button>
         </div>
         <p style={{ fontSize: 11, color: '#5a4f3e', margin: '8px 0 0', lineHeight: 1.6 }}>
-          そのテーマに関連するメモ（タグ・@カテゴリ・本文）を集めてレポートにします。
+          そのテーマのメモ（タグ・@カテゴリ・本文）と行動を集めて、1 枚のレバレッジメモにします。
         </p>
       </div>
+    </div>
+  );
+}
+
+// 🧭 核心 — レバレッジメモの中心。暗記して持ち歩く「この1行」をヒーロー表示する。
+function CoreCard({ line }) {
+  return (
+    <div
+      style={{
+        position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(180deg,#fffdf8,#fbf6ec)',
+        border: '1px solid #ece5d9', borderRadius: 16,
+        padding: '18px 18px 18px 22px', marginBottom: 14,
+        boxShadow: '0 1px 3px rgba(60,48,30,.06)',
+      }}
+    >
+      <span aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'linear-gradient(180deg,#7d6e54,#5c5043)' }} />
+      <div style={{ fontSize: 10, fontWeight: 800, color: '#8a7d6a', letterSpacing: '.18em', marginBottom: 8 }}>
+        核心 — この1行
+      </div>
+      <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.55, color: '#3d362c' }}>
+        {line}
+      </div>
+    </div>
+  );
+}
+
+// 🎯 行動の鏡 — 宣言/完了/放置 を実データで表示し、学びが行動に変わっているかを
+// 突きつける（本田哲学の「実践してこそ」）。数値は AI ではなく actions の集計。
+function ActionMirror({ stats, memoTotal }) {
+  const { declared = 0, completed = 0, idle = 0, blindSpot = false } = stats || {};
+  const statBox = (n, k, color) => (
+    <div style={{ flex: 1, background: '#faf6ee', border: '1px solid #ece5d9', borderRadius: 11, padding: '9px 4px', textAlign: 'center' }}>
+      <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color }}>{n}</div>
+      <div style={{ fontSize: 9.5, color: '#8a7d6a', marginTop: 5, letterSpacing: '.04em' }}>{k}</div>
+    </div>
+  );
+  return (
+    <div style={{ ...card, padding: '14px 15px 15px' }}>
+      <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 7, color: '#3d362c' }}>
+        🎯 行動の鏡
+      </h3>
+      <div style={{ display: 'flex', gap: 8, marginBottom: declared > 0 || blindSpot ? 12 : 0 }}>
+        {statBox(declared, '宣言した行動', '#3d362c')}
+        {statBox(completed, '完了', '#5f7a55')}
+        {statBox(idle, '放置中', idle > 0 ? '#a05040' : '#3d362c')}
+      </div>
+      {declared === 0 ? (
+        <div style={{ background: '#fbf3ee', border: '1px solid #e6c9bd', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
+          <span style={{ fontSize: 16, lineHeight: 1.4, flex: '0 0 auto' }} aria-hidden="true">⚠️</span>
+          <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#6e4a3c' }}>
+            このテーマに紐づく行動が<b style={{ color: '#a05040', fontWeight: 800 }}>まだ0件</b>。学びを、まず1つだけ行動に落としましょう。
+          </div>
+        </div>
+      ) : blindSpot ? (
+        <div style={{ background: '#fbf3ee', border: '1px solid #e6c9bd', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
+          <span style={{ fontSize: 16, lineHeight: 1.4, flex: '0 0 auto' }} aria-hidden="true">⚠️</span>
+          <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#6e4a3c' }}>
+            メモは<b style={{ color: '#a05040', fontWeight: 800 }}>{memoTotal}件</b>あるのに、完了した行動は<b style={{ color: '#a05040', fontWeight: 800 }}>0件</b>。学びが行動に変わっていません。
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// 🔄 想起ループ接続 — 核心を「振り返り・通知」に乗せる仕組みの説明＋セットボタン。
+function RecallBanner({ busy, done, onSet }) {
+  return (
+    <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid #e0d8ca', borderRadius: 16, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+        <span style={{ fontSize: 21, lineHeight: 1.2, flex: '0 0 auto' }} aria-hidden="true">🔄</span>
+        <div style={{ fontSize: 12.5, lineHeight: 1.7, color: '#5b4f3c' }}>
+          <b style={{ color: '#3d362c', fontWeight: 800 }}>このメモは、読んで終わりにしません。</b><br />
+          核心を <b style={{ color: '#3d362c' }}>振り返りタブ</b> と <b style={{ color: '#3d362c' }}>想起通知</b> に乗せると、忘れた頃にそっと戻ってきて、無意識に動けるまで体に入れます。
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onSet}
+        disabled={busy || done}
+        aria-label={done ? '想起ループにセット済み' : '核心を想起ループにセット'}
+        style={{
+          minHeight: 46, borderRadius: 13, border: 'none', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700,
+          cursor: busy || done ? 'default' : 'pointer',
+          background: done ? '#eef2e9' : '#5c5043',
+          color: done ? '#5f7a55' : '#fffdf8',
+          boxShadow: done ? 'none' : '0 1px 2px rgba(60,48,30,.18)',
+          opacity: busy ? 0.6 : 1,
+        }}
+      >
+        {done ? '🔄 想起ループにセット済み ✓' : busy ? 'セット中…' : '🔄 想起ループにセット'}
+      </button>
     </div>
   );
 }
