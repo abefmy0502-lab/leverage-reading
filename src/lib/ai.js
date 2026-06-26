@@ -728,12 +728,30 @@ async function buildThemeContext({ userId, theme, onStage }) {
     matched.map((m) => m.book_id).filter((id) => id != null),
   ).size;
 
+  // 🎯→✅ 1タップ行動化の宛先: このテーマで最もメモが多い「主役の本」。
+  //   行動は本に紐づくので、次の一歩をここへ追加する（最も関連が深い本）。
+  const bookFreq = new Map();
+  const bookTitle = new Map();
+  for (const m of matched) {
+    if (m.book_id == null) continue;
+    bookFreq.set(m.book_id, (bookFreq.get(m.book_id) || 0) + 1);
+    if (m.book?.title && !bookTitle.has(m.book_id)) bookTitle.set(m.book_id, m.book.title);
+  }
+  let primaryBookId = null;
+  let primaryBookTitle = '';
+  let best = -1;
+  for (const [id, n] of bookFreq) {
+    if (n > best) { best = n; primaryBookId = id; primaryBookTitle = bookTitle.get(id) || ''; }
+  }
+
   const stats = {
     theme: safeTheme,
     memoCount: ranked.length,
     memoTotal: matched.length,
     bookCount,
     actionStats,
+    primaryBookId,
+    primaryBookTitle,
   };
 
   if (ranked.length === 0) {
@@ -871,6 +889,37 @@ export async function deleteThemeReport(id) {
 // = 「読んで終わりにしない」を仕組みで担保する。同テーマで再セットしたら、前の
 // 核心は消して入れ直す（重複防止）。失敗は静かに ok:false で返す。
 const LEVERAGE_RECALL_MARKER = 'レバレッジメモ';
+
+// 🎯→✅ レバレッジメモの「次の一歩」を行動リストに 1 タップで入れる。
+//   学び→実践の輪を閉じる（本田哲学）。行動は本に紐づくので、テーマの主役の本
+//   (primaryBookId) に追加する。id は gen_random_uuid 未設定 DB 対策で client 生成。
+//   schema-error / 失敗は ok:false で静かに返す（呼び出し側がトーストで案内）。
+export async function addThemeAction({ userId, bookId, text }) {
+  if (!isSupabaseConfigured || !userId || !bookId || !text || !String(text).trim()) {
+    return { ok: false };
+  }
+  const body = clamp(sanitizeForPrompt(String(text)), LIMITS.action || 280);
+  if (!body) return { ok: false };
+  let id;
+  try { id = crypto.randomUUID(); } catch { id = undefined; }
+  const base = { user_id: userId, book_id: bookId, text: body, done: false };
+  const payload = id ? { id, ...base } : base;
+  try {
+    let { error } = await supabase.from('actions').insert([payload]);
+    // id 列の DEFAULT 欠如等で弾かれたら id 無しで再試行（保険）。
+    if (error && id) {
+      ({ error } = await supabase.from('actions').insert([base]));
+    }
+    if (error) {
+      console.warn('[leverage-memo] add action skipped:', error.message);
+      return { ok: false };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.warn('[leverage-memo] add action threw:', e?.message);
+    return { ok: false };
+  }
+}
 
 export async function setLeverageRecall({ userId, theme, core }) {
   if (!isSupabaseConfigured || !userId || !core || !String(core).trim()) {

@@ -568,23 +568,10 @@ function paletteFor(title) {
   return PLACEHOLDER_PALETTE[Math.abs(hash) % PLACEHOLDER_PALETTE.length];
 }
 
-// 本棚カード下部の控えめな進捗バー。「読書中」かつ総ページが設定されている本
-// だけに出す（反ゲーミフィケーション: 目標 / ノルマ / 連続は出さない。今どの
-// あたりかを薄く示すだけ）。total 未設定なら何も描画しない（「続きから」を壊さない）。
-function CardProgressBar({ book }) {
-  if (!book || book.status !== 'reading') return null;
-  const total = Number(book.totalPages) || 0;
-  if (total <= 0) return null;
-  const cur = Number(book.currentPage) || 0;
-  const pct = Math.max(0, Math.min(100, Math.round((cur / total) * 100)));
-  return (
-    <div
-      aria-hidden="true"
-      style={{ marginTop: 6, height: 3, background: "#e7e0d2", borderRadius: 2, overflow: "hidden" }}
-    >
-      <div style={{ height: "100%", width: `${pct}%`, background: "#9fb0a0", borderRadius: 2, transition: "width .3s ease" }} />
-    </div>
-  );
+// 本棚カードの進捗バーは撤去（本田哲学=ページ進捗は「作業量」であって成果ではない）。
+// 何も描画しないスタブにして呼び出し側は不変のまま（復活が容易）。
+function CardProgressBar() {
+  return null;
 }
 
 // グリッド表示用の本カード（表紙主役）。表紙無し / 画像 404 時は
@@ -1203,7 +1190,9 @@ const clampPage = (v) => {
 };
 
 function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
-  const pct = form.totalPages > 0 ? Math.min(Math.round((form.currentPage / form.totalPages) * 100), 100) : 0;
+  // 📖 読書進捗（ページ管理）は撤去（本田哲学=「作業量の可視化」は成果ではない／
+  // 進捗を見て満足する病を生む）。totalPages は書誌メタとして裏で保持するのみで
+  // UI には出さない。データ列は dormant（復活は容易・既存値は保持）。
   return (
     <div>
       <p style={phaseDesc}>📖 読書中のインプットを記録しましょう</p>
@@ -1216,23 +1205,6 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
           </p>
         </div>
       )}
-
-      <Field label="読書進捗">
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-          <input type="number" inputMode="numeric" maxLength={6} value={form.currentPage || ""} onChange={(e) => setForm({ ...form, currentPage: clampPage(e.target.value) })} placeholder="現在" style={{ ...inp, width: 80, textAlign: "center" }} />
-          <span style={{ color: "#b5aa96" }}>/</span>
-          <input type="number" inputMode="numeric" maxLength={6} value={form.totalPages || ""} onChange={(e) => setForm({ ...form, totalPages: clampPage(e.target.value) })} placeholder="総ページ" style={{ ...inp, width: 80, textAlign: "center" }} />
-          <span style={{ fontSize: 12, color: "#5a4f3e" }}>ページ</span>
-        </div>
-        {form.totalPages > 0 && (
-          <div>
-            <div style={{ height: 8, background: "#e0d8c8", borderRadius: 4 }}>
-              <div style={{ height: "100%", width: `${pct}%`, background: pct >= 100 ? "#5a7a48" : "#4a6e8a", borderRadius: 4, transition: "width .3s" }} />
-            </div>
-            <p style={{ fontSize: 11, color: "#5a4f3e", marginTop: 4, textAlign: "right" }}>{pct}%</p>
-          </div>
-        )}
-      </Field>
 
       <Field label="メモ・感想" sub="気づきや感想を、気軽に。1メモ=1カードで残すか、1冊まるごと1つのテキストにまとめるか、タブで選べます。">
         <BookMemoList
@@ -3257,11 +3229,6 @@ function AuthedApp() {
           : 'manual';
         track('book_added', { via });
       }
-      // 📊 読書進捗の計測（読書中の本を進捗付きで保存できた時のみ・PII なし）。
-      // ページの実数値は送らず「進捗を設定した」という事実だけを記録する。
-      if (saved && next.status === 'reading' && (Number(next.currentPage) > 0 || Number(next.totalPages) > 0)) {
-        track('reading_progress_set');
-      }
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
 
@@ -4416,20 +4383,7 @@ function AuthedApp() {
             </details>
           )}
 
-          {current.totalPages > 0 && (() => {
-            const detailPct = Math.max(0, Math.min(100, Math.round(((current.currentPage || 0) / current.totalPages) * 100)));
-            return (
-            <div style={{ marginTop: 12, background: "#f7f3ec", borderRadius: 10, padding: "8px 12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#5c5548", marginBottom: 4 }}>
-                <span>進捗</span>
-                <span>{current.currentPage || 0}/{current.totalPages}p ({detailPct}%)</span>
-              </div>
-              <div style={{ height: 6, background: "#e0d8c8", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${detailPct}%`, background: "#4a6e8a", borderRadius: 3 }} />
-              </div>
-            </div>
-            );
-          })()}
+          {/* 📖 進捗バー（ページ）は撤去（本田哲学=作業量より成果。ROI は行動で測る）。 */}
 
           {(current.status === "reading" || current.status === "done") ? (
             <div style={{ marginTop: 12 }}>

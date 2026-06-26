@@ -23,6 +23,7 @@ import {
   loadThemeReports,
   deleteThemeReport,
   setLeverageRecall,
+  addThemeAction,
 } from '../lib/ai';
 import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
@@ -83,6 +84,24 @@ function extractCore(md) {
   if (core) return core;
   const first = lines.map((l) => l.trim()).find((l) => l && !/^#{1,6}\s/.test(l));
   return (first || '').replace(/^[-*]\s+/, '');
+}
+
+// 「## 〜次の一歩」セクションの本文を取り出す（1タップ行動化のテキスト）。
+function extractNextStep(md) {
+  if (!md || typeof md !== 'string') return '';
+  const lines = md.split('\n');
+  let inSec = false;
+  const buf = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (/^#{1,6}\s/.test(line)) {
+      if (inSec) break;
+      inSec = /次の一歩|next/i.test(line);
+      continue;
+    }
+    if (inSec && line) buf.push(line.replace(/^[-*\d.]+\s+/, ''));
+  }
+  return buf.join(' ').trim();
 }
 
 // 核心セクション（## 〜核心 … 次の見出しまで）を取り除いた残りの Markdown を返す。
@@ -147,6 +166,10 @@ export default function ThemeReport() {
   const [delta, setDelta] = useState(null); // { memo, book, at } | null
   const [recallSet, setRecallSet] = useState(false);
   const [recallBusy, setRecallBusy] = useState(false);
+  // 🎯→✅ 次の一歩を行動リストへ（主役の本へ追加）。
+  const [primaryBook, setPrimaryBook] = useState(null); // { id, title }
+  const [actionAdded, setActionAdded] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
 
   // History (optional persistence)
   const [history, setHistory] = useState([]);
@@ -197,6 +220,8 @@ export default function ThemeReport() {
     setScope(null);
     setDelta(null);
     setRecallSet(false);
+    setPrimaryBook(null);
+    setActionAdded(false);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -231,6 +256,8 @@ export default function ThemeReport() {
           const memoTotal = result?.memoTotal ?? 0;
           const bookCount = result?.bookCount ?? 0;
           setScope({ memoTotal, bookCount });
+          // 🎯→✅ 次の一歩の追加先（主役の本）。
+          setPrimaryBook(result?.primaryBookId ? { id: result.primaryBookId, title: result.primaryBookTitle || '' } : null);
           // 📈 前回からの変化（端末ローカルのスナップショット比較・偽数字は出さない）。
           const prev = readSnap(theme);
           if (prev && (memoTotal !== prev.memoTotal || bookCount !== prev.bookCount)) {
@@ -307,6 +334,26 @@ export default function ThemeReport() {
     }
   }, [recallBusy, recallSet, reportText, activeTheme, user?.id, toast, haptic]);
 
+  const handleAddNextStep = useCallback(async () => {
+    if (actionBusy || actionAdded) return;
+    const step = extractNextStep(reportText);
+    if (!step) { toast.error('「次の一歩」を取り出せませんでした'); return; }
+    if (!primaryBook?.id) { toast.error('追加先の本が見つかりませんでした'); return; }
+    setActionBusy(true);
+    try {
+      const res = await addThemeAction({ userId: user.id, bookId: primaryBook.id, text: step });
+      if (res?.ok) {
+        setActionAdded(true);
+        haptic.success();
+        toast.success(`行動リストに追加しました（${primaryBook.title || '関連する本'}）。`);
+      } else {
+        toast.error('追加できませんでした。少し時間をおいて再度お試しください。');
+      }
+    } finally {
+      setActionBusy(false);
+    }
+  }, [actionBusy, actionAdded, reportText, primaryBook, user?.id, toast, haptic]);
+
   const openHistoryReport = useCallback((row) => {
     setActiveTheme(row.theme || '');
     setReportText(row.content || '');
@@ -318,6 +365,8 @@ export default function ThemeReport() {
     setScope(null);
     setDelta(null);
     setRecallSet(false);
+    setPrimaryBook(null);
+    setActionAdded(false);
     setView('create');
   }, []);
 
@@ -496,6 +545,27 @@ export default function ThemeReport() {
                     🔄 もう一度試す
                   </button>
                 </div>
+              )}
+
+              {/* 🎯→✅ 次の一歩を 1 タップで行動リストへ（残す→活かすの輪を閉じる） */}
+              {!generating && !notice && reportText && primaryBook?.id && extractNextStep(reportText) && (
+                <button
+                  type="button"
+                  onClick={handleAddNextStep}
+                  disabled={actionBusy || actionAdded}
+                  aria-label="次の一歩を行動リストに追加"
+                  style={{
+                    width: '100%', minHeight: 48, borderRadius: 13, border: 'none', fontFamily: 'inherit',
+                    fontSize: 14, fontWeight: 700, cursor: actionBusy || actionAdded ? 'default' : 'pointer',
+                    background: actionAdded ? '#eef2e9' : '#5f7a55',
+                    color: actionAdded ? '#5f7a55' : '#fffdf8',
+                    boxShadow: actionAdded ? 'none' : '0 1px 2px rgba(60,48,30,.18)',
+                    opacity: actionBusy ? 0.6 : 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  }}
+                >
+                  {actionAdded ? '✅ 行動リストに追加済み' : actionBusy ? '追加中…' : '✅ この一歩を行動リストに入れる'}
+                </button>
               )}
 
               {/* 🎯 行動の鏡 — 学びが行動に変わっているかを実データで突きつける */}
