@@ -101,10 +101,13 @@ const dangerSection = { ...sectionStyle, border: '1px solid #d8b8b0', background
 // 見出しを使う。表示専用で挙動には一切関与しない。
 const groupLabelStyle = {
   fontSize: 11,
-  color: '#5a4f3e',
-  margin: '8px 0 -2px 2px',
+  color: '#8a7d6a',
+  // 5 グループに整理したので、前のカードとの間を少し広めに取り、グループの
+  // 切れ目を分かりやすくする（body の gap:14 に加算される）。下は詰めて
+  // 直下のカードと結びつける（iOS「設定」のセクション見出し相当）。
+  margin: '10px 0 2px 2px',
   fontWeight: 600,
-  letterSpacing: 0.5,
+  letterSpacing: 0.6,
 };
 
 function GroupLabel({ children }) {
@@ -594,8 +597,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             <p style={{ fontSize: 14, color: '#3d362c', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
           </div>
 
-          {/* ── 💳 プラン・お支払い ── */}
-          <GroupLabel>💳 プラン・お支払い</GroupLabel>
+          {/* ── プラン・お支払い ── */}
+          <GroupLabel>プラン・お支払い</GroupLabel>
 
           {/* 💳 Billing / プラン */}
           <section style={sectionStyle} aria-label="プラン・お支払い">
@@ -679,10 +682,10 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             )}
           </section>
 
-          {/* ── 📥 データ・アプリ ── */}
-          <GroupLabel>📥 データ・アプリ</GroupLabel>
+          {/* ── 通知 ── */}
+          <GroupLabel>通知</GroupLabel>
 
-          {/* 🔔 通知 — データ・アプリ群の一機能として配置（独立グループにしない） */}
+          {/* 🔔 想起の通知 */}
           <section style={sectionStyle} aria-label="想起の通知">
             {/* 操作可能な状態（許可要求できる）のときだけ右にスイッチを出す。
                 準備中 / A2HS 必要 / 非対応 / OS で拒否済み の各状態は案内文に倒す。 */}
@@ -728,6 +731,9 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             ) : null}
           </section>
 
+          {/* ── データとプライバシー ── */}
+          <GroupLabel>データとプライバシー</GroupLabel>
+
           {/* Export */}
           <section style={sectionStyle} aria-label="データをダウンロード">
             <p style={sectionTitleStyle}>
@@ -761,6 +767,9 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               )}
             />
           </section>
+
+          {/* ── アプリ・サポート ── */}
+          <GroupLabel>アプリ・サポート</GroupLabel>
 
           {/* App update */}
           <section style={sectionStyle} aria-label="アプリを最新版に更新">
@@ -800,8 +809,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             </button>
           </section>
 
-          {/* ── ⚠️ アカウント（破壊的操作・最下部に分離） ── */}
-          <GroupLabel>⚠️ アカウント</GroupLabel>
+          {/* ── アカウント（破壊的操作・最下部に分離） ── */}
+          <GroupLabel>アカウント</GroupLabel>
 
           {/* Delete */}
           <section style={dangerSection} aria-label="アカウント削除">
