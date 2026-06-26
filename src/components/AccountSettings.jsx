@@ -113,6 +113,64 @@ function GroupLabel({ children }) {
   return <p style={groupLabelStyle} role="heading" aria-level={2}>{children}</p>;
 }
 
+// iOS 風トグルスイッチ。on/off が「色＋ノブ位置」で一目で分かるので、
+// 「オン（タップでオフ）」のように状態と操作をラベルに詰め込む分かりにくさを解消する。
+function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaLabel }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      aria-busy={busy || undefined}
+      disabled={disabled || busy}
+      onClick={onChange}
+      style={{
+        position: 'relative',
+        flexShrink: 0,
+        width: 51,
+        height: 31,
+        borderRadius: 999,
+        border: 'none',
+        padding: 0,
+        cursor: disabled || busy ? 'default' : 'pointer',
+        background: checked ? '#5c5043' : '#d6cfc2',
+        transition: 'background 220ms ease',
+        opacity: busy ? 0.6 : 1,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: 2,
+          left: checked ? 22 : 2,
+          width: 27,
+          height: 27,
+          borderRadius: '50%',
+          background: '#fff',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+          transition: 'left 220ms cubic-bezier(0.3, 1.3, 0.6, 1)',
+        }}
+      />
+    </button>
+  );
+}
+
+// 設定行: 左にタイトル＋説明、右にスイッチ（or 任意のコントロール）。
+// iOS「設定」アプリと同じ並びで、トグル系の設定はこれで統一する。
+function SettingRow({ title, desc, control, titleColor }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ ...sectionTitleStyle, margin: 0, ...(titleColor ? { color: titleColor } : null) }}>{title}</p>
+        {desc && <p style={{ ...sectionDescStyle, margin: '4px 0 0' }}>{desc}</p>}
+      </div>
+      {control && <div style={{ paddingTop: 2 }}>{control}</div>}
+    </div>
+  );
+}
+
 // 全 section 共通の見出し（13px / 600）。色だけ差し替え可能（破壊操作は赤）。
 const sectionTitleStyle = { fontSize: 13, margin: '0 0 4px', fontWeight: 600, color: '#3d362c' };
 // 全 section 共通の説明文（11px / 行間 1.7 / ボタンとの間隔 10px）。
@@ -554,10 +612,15 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                     <>（次回更新 {formatPeriodEnd(subscription.currentPeriodEnd)}）</>
                   )}
                 </p>
+                {/* 管理ボタンを出せる状態かどうかで説明文を出し分ける。
+                    出せない（Web で stripeCustomerId 未同期 / 付与契約 等）のに
+                    「こちらから」と書くと、ボタンが無いのに導線を匂わせて分かりにくいため。 */}
                 <p style={sectionDescStyle}>
                   {isNative
                     ? '解約・プラン変更は App Store のサブスク設定から。いつでも解約でき、データは保持されます。'
-                    : '解約・カード変更・請求履歴はこちらから。いつでも解約でき、データは保持されます。'}
+                    : subscription?.stripeCustomerId
+                      ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
+                      : 'いつでも解約でき、データは保持されます。解約・変更のご希望は、画面下部の「お問い合わせ」よりご連絡ください。'}
                 </p>
                 {isNative ? (
                   <button
@@ -579,11 +642,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
                   >
                     {billingBusy ? '移動中…' : '⚙️ プランを管理する'}
                   </button>
-                ) : (
-                  <p style={sectionNoteStyle}>
-                    プラン管理画面は次回更新後にご利用いただけます。
-                  </p>
-                )}
+                ) : null}
               </>
             ) : (
               <>
@@ -625,57 +684,48 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
           {/* 🔔 通知 — データ・アプリ群の一機能として配置（独立グループにしない） */}
           <section style={sectionStyle} aria-label="想起の通知">
-            <p style={sectionTitleStyle}>
-              🔔 想起の通知
-            </p>
-            <p style={sectionDescStyle}>
-              週1回ほど、過去のあなたの気づきがそっと戻ってきます。
-            </p>
+            {/* 操作可能な状態（許可要求できる）のときだけ右にスイッチを出す。
+                準備中 / A2HS 必要 / 非対応 / OS で拒否済み の各状態は案内文に倒す。 */}
+            {(() => {
+              const canToggle = pushConfigured && pushSupported && !pushNeedsA2HS && !(pushDenied && !pushOn);
+              return (
+                <SettingRow
+                  title="🔔 想起の通知"
+                  desc="週1回ほど、過去のあなたの気づきがそっと戻ってきます。"
+                  control={canToggle ? (
+                    <ToggleSwitch
+                      checked={pushOn}
+                      busy={pushBusy}
+                      ariaLabel="想起の通知"
+                      onChange={handleTogglePush}
+                    />
+                  ) : null}
+                />
+              );
+            })()}
 
             {!pushConfigured ? (
               // VAPID 鍵未設定 = 機能準備中（env 投入前）。静かに案内のみ。
-              <p style={{ ...sectionNoteStyle, color: '#5a4f3e' }}>
+              <p style={{ ...sectionNoteStyle, color: '#5a4f3e', marginTop: 10 }}>
                 ただいま準備中です。もう少しお待ちください。
               </p>
             ) : pushNeedsA2HS ? (
               // iOS タブ内 = ホーム画面に追加しないと通知は使えない。
-              <p style={sectionNoteStyle}>
+              <p style={{ ...sectionNoteStyle, marginTop: 10 }}>
                 📲 iPhone / iPad では、<strong>ホーム画面に追加</strong>したアプリから開くと通知を受け取れます。<br />
                 共有メニュー（□↑）→「ホーム画面に追加」→ 追加したアイコンから開いてください。
               </p>
             ) : !pushSupported ? (
               // 非対応ブラウザ等。
-              <p style={{ ...sectionNoteStyle, color: '#5a4f3e' }}>
+              <p style={{ ...sectionNoteStyle, color: '#5a4f3e', marginTop: 10 }}>
                 この端末・ブラウザでは通知に対応していません。
               </p>
             ) : pushDenied && !pushOn ? (
               // OS で拒否済み = 自前ダイアログは出せない。設定からの手動許可を案内。
-              <p style={sectionNoteStyle}>
+              <p style={{ ...sectionNoteStyle, marginTop: 10 }}>
                 通知がオフになっています。端末の「設定 → 通知」から Orime の通知を許可すると受け取れます。
               </p>
-            ) : (
-              <button
-                type="button"
-                role="switch"
-                aria-checked={pushOn}
-                aria-label="想起の通知"
-                style={{
-                  ...btnPrimary,
-                  background: pushOn ? '#5c5043' : 'transparent',
-                  color: pushOn ? '#fffdf8' : '#5c5043',
-                  border: pushOn ? 'none' : '1px solid #e0d8ca',
-                  opacity: pushBusy ? 0.6 : 1,
-                }}
-                disabled={pushBusy}
-                onClick={handleTogglePush}
-              >
-                {pushBusy
-                  ? '設定中…'
-                  : pushOn
-                    ? '🔔 通知オン（タップでオフ）'
-                    : '🔕 通知を受け取る'}
-              </button>
-            )}
+            ) : null}
           </section>
 
           {/* Export */}
@@ -699,28 +749,17 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
           {/* 📊 利用状況の記録（製品改善のためのファーストパーティ計測） */}
           <section style={sectionStyle} aria-label="利用状況の記録">
-            <p style={sectionTitleStyle}>
-              📊 利用状況の記録（製品改善のため）
-            </p>
-            <p style={sectionDescStyle}>
-              どの機能がよく使われているかを、機能名や回数だけ（個人を特定する内容は含めず）そっと記録し、Orime の改善に役立てます。外部のサービスには送らず、いつでもオフにできます。
-            </p>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={analyticsOn}
-              aria-label="利用状況の記録"
-              style={{
-                ...btnPrimary,
-                minHeight: 44,
-                background: analyticsOn ? '#5c5043' : 'transparent',
-                color: analyticsOn ? '#fffdf8' : '#5c5043',
-                border: analyticsOn ? 'none' : '1px solid #e0d8ca',
-              }}
-              onClick={handleToggleAnalytics}
-            >
-              {analyticsOn ? '📊 記録オン（タップでオフ）' : '🚫 記録はオフです'}
-            </button>
+            <SettingRow
+              title="📊 利用状況の記録（製品改善のため）"
+              desc="どの機能がよく使われているかを、機能名や回数だけ（個人を特定する内容は含めず）そっと記録し、Orime の改善に役立てます。外部のサービスには送らず、いつでもオフにできます。"
+              control={(
+                <ToggleSwitch
+                  checked={analyticsOn}
+                  ariaLabel="利用状況の記録"
+                  onChange={handleToggleAnalytics}
+                />
+              )}
+            />
           </section>
 
           {/* App update */}
