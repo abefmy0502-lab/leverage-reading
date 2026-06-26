@@ -46,8 +46,8 @@ export default function PrivacyPage() {
         <li>課金・購読に関する情報
           <ul>
             <li>有料プランの契約状況・購読ステータス、課金履歴</li>
-            <li>各ストアのトランザクション識別子、購読開始日・更新日・有効期限等の購読状態情報(Apple App Store / Google Play でのアプリ内課金につき、購読状態管理サービス RevenueCat を通じて取得します)</li>
-            <li>※ クレジットカード番号等の決済情報は、Apple(App Store)または Google(Google Play)が直接取得・管理し、当方はこれを取得・保持しません。Web 版をご利用の場合は、決済代行事業者(Stripe, Inc.)が PCI-DSS に準拠してこれを取得・管理し、当方はカード番号全体を保持しません。</li>
+            <li>App Store のトランザクション識別子、購読開始日・更新日・有効期限等の購読状態情報(Apple App Store でのアプリ内課金につき、購読状態管理サービス RevenueCat を通じて取得します)</li>
+            <li>※ クレジットカード番号等の決済情報は、Apple(App Store)が直接取得・管理し、当方はこれを取得・保持しません。</li>
           </ul>
         </li>
         <li>自動的に取得する情報
@@ -98,9 +98,7 @@ export default function PrivacyPage() {
         <li><strong>Vercel, Inc.(米国):</strong> ホスティングサービスの提供</li>
         <li><strong>Anthropic, PBC(米国):</strong> AI 機能(選書、要約、質問応答)の提供</li>
         <li><strong>Apple Inc.(米国):</strong> App Store でのアプリ内課金・決済処理(iOS アプリ)</li>
-        <li><strong>Google LLC(米国):</strong> Google Play でのアプリ内課金・決済処理(Android アプリ)</li>
         <li><strong>RevenueCat, Inc.(米国):</strong> 購読状態(課金ステータス・トランザクション識別子等)の管理</li>
-        <li><strong>Stripe, Inc.(米国):</strong> Web 版をご利用の場合の利用料金の決済処理</li>
       </ul>
       <p>
         これらの委託先は、適切なセキュリティ措置を講じる事業者を選定し、
@@ -110,7 +108,7 @@ export default function PrivacyPage() {
       <h2>第6条(国外への個人データの移転)</h2>
       <p>
         前条に定める委託に伴い、ユーザーの個人データは、Supabase, Inc.、Vercel, Inc.、
-        Anthropic, PBC、Apple Inc.、Google LLC、RevenueCat, Inc.、Stripe, Inc. 等、
+        Anthropic, PBC、Apple Inc.、RevenueCat, Inc. 等、
         米国その他の国外に所在する委託先に移転されます。
         米国その他の国における個人情報保護制度は、日本と異なる場合があります。
         委託先の個人情報保護に関する制度については、以下をご参照ください。

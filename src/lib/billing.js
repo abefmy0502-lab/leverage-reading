@@ -27,14 +27,15 @@ export const PLAN_LABELS = {
     id: 'monthly',
     name: '月額プラン',
     // 既定は brand-messaging.md の事実価格。env で上書き可能。
-    price: ENV_MONTHLY_LABEL || '月額 ¥1,280（税込）',
+    // App 版（App Store IAP）の価格に統一。金額の真実はストア側設定。
+    price: ENV_MONTHLY_LABEL || '月額 ¥1,480（税込）',
     note: 'いつでも解約OK・データは残ります',
   },
   annual: {
     id: 'annual',
     name: '年額プラン',
-    price: ENV_ANNUAL_LABEL || '年額 ¥10,800（税込・月あたり約¥900）',
-    // 年額の割引率などは Stripe 側設定が真実。誇大にならない控えめな一言。
+    price: ENV_ANNUAL_LABEL || '年額 ¥12,800（税込・月あたり約¥1,066）',
+    // 年額の割引率などはストア側設定が真実。誇大にならない控えめな一言。
     note: ENV_ANNUAL_NOTE || 'まとめてお得・いつでも解約OK',
   },
 };

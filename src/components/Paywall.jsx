@@ -173,7 +173,8 @@ export default function Paywall({ onPurchased }) {
   // どちらのボタンを押下中かを保持して二度押しを防ぐ。
   const [pending, setPending] = useState(null); // 'monthly' | 'annual' | null
   const [restoring, setRestoring] = useState(false);
-  // 表示ラベル: Web=env(Stripe ¥1,280) / ネイティブ=App 既定(¥1,480)→ストア価格で上書き。
+  // 表示ラベル: ネイティブ=App 既定(¥1,480)→ストア価格で上書き。
+  // （Web/Stripe パスは App-only ピボットで休眠中。billing.js のフォールバックは ¥1,480 に統一済み）
   const [labels, setLabels] = useState(isNative ? APP_PLAN_LABELS : PLAN_LABELS);
   const trapRef = useFocusTrap(true);
 
@@ -428,8 +429,8 @@ export default function Paywall({ onPurchased }) {
           <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
             プライバシーポリシー
           </a>
-          {/* 特商法は Web 販売特有（Web価格 ¥1,280 を表示）。ネイティブでは反ステアリング
-              順守のため非表示にし、価格開示は App Store に委ねる。 */}
+          {/* 特商法リンクはネイティブでは反ステアリング順守のため非表示にし、価格開示は
+              App Store に委ねる（特商法ページ自体は ¥1,480 / App Store 課金前提に更新済み）。 */}
           {!isNative && (
             <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
               特定商取引法に基づく表記
@@ -461,7 +462,7 @@ export default function Paywall({ onPurchased }) {
             別のアカウントでサインイン
           </button>
           {/* まだ決めかねている人をサービス紹介(LP)へ逃がす導線。
-              LP は Web 価格(¥1,280)と比較表を含むため、反ステアリング順守で
+              LP は価格(¥1,480)と比較表を含むため、反ステアリング順守で
               ネイティブでは非表示（Web のみ）。 */}
           {!isNative && (
             <div>

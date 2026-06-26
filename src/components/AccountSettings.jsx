@@ -216,7 +216,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   // 💳 課金状態。subscriptions 未適用なら subscription=null / isActive=false で
   // 静かに縮退する（useSubscription 側で schema-error を握りつぶす）。
   const { subscription, isActive, loading: subLoading, refresh: refreshSub } = useSubscription();
-  // 表示ラベルはチャネル別（Web=Stripe ¥1,280 / ネイティブ=App ¥1,480）。
+  // 表示ラベルはチャネル別（ネイティブ=App ¥1,480 / Web パスは休眠中・フォールバックも ¥1,480）。
   const planLabels = isNative ? APP_PLAN_LABELS : PLAN_LABELS;
   const [billingBusy, setBillingBusy] = useState(false);
 
@@ -825,8 +825,8 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
               プライバシーポリシー
             </a>
-            {/* 特商法は Web 販売特有（Web価格 ¥1,280 を表示）。ネイティブでは
-                反ステアリング順守のため非表示にし、価格開示は App Store に委ねる。 */}
+            {/* 特商法リンクはネイティブでは反ステアリング順守のため非表示にし、価格開示は
+                App Store に委ねる（特商法ページ自体は ¥1,480 / App Store 課金前提に更新済み）。 */}
             {!isNative && (
               <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#5a4f3e', textDecoration: 'underline' }}>
                 特定商取引法に基づく表記

@@ -10,6 +10,13 @@ import PhoneFrame from '../components/PhoneFrame';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import './landing.css';
 
+// 📱 App Store ダウンロード URL。
+// ⚠️ TODO(developer): App Store 公開後、実際のアプリページ URL に差し替える。
+//    （例: https://apps.apple.com/jp/app/orime/id0000000000）
+//    公開前のプレースホルダのままだと App Store のトップに飛ぶだけなので、
+//    審査通過・公開のタイミングで必ず実 URL を入れること。
+const APP_STORE_URL = 'https://apps.apple.com/jp/app/orime';
+
 const setMeta = (name, content, attr = 'name') => {
   let el = document.querySelector(`meta[${attr}="${name}"]`);
   if (!el) {
@@ -47,7 +54,7 @@ export default function Landing() {
     document.title = 'Orime｜読書を、行動に変える読書メモ';
     const tags = [
       setMeta('description',
-        '読みっぱなしを、やめる。Orime は、本の"折り目"のように大事な気づきを後から呼び戻し、行動に変える読書アプリ。月 ¥1,280、いつでも解約可能・データは残ります。'),
+        '読みっぱなしを、やめる。Orime は、本の"折り目"のように大事な気づきを後から呼び戻し、行動に変える iOS 読書アプリ。月 ¥1,480、いつでも解約可能・データは残ります。App Store で公開中。'),
       setMeta('og:title', '読みっぱなしを、やめる。| Orime', 'property'),
       setMeta('og:description', '読んだ気づきを後から呼び戻し、行動に変える読書アプリ', 'property'),
       setMeta('og:type', 'website', 'property'),
@@ -124,10 +131,11 @@ export default function Landing() {
     };
   }, []);
 
-  // 初見の購入希望者を新規登録画面に直接着地させる（?auth=signup）。
-  // 直接課金導線の摩擦（ログイン画面に降りて登録リンクを探す手間）を削る。
-  const goToSignup = () => { window.location.href = '/?auth=signup'; };
+  // 📱 iOS アプリ専用サービスのため、すべての主要 CTA は App Store へ誘導する。
+  //（利用は iOS アプリのみ。Web は紹介 LP の役割に専念する）
+  const goToAppStore = () => { window.location.href = APP_STORE_URL; };
   // 既にアカウントを持つ人（LP に着地した既存ユーザー）向けのログイン導線。
+  // 利用はアプリが中心だが、Web からでもログイン自体は可能なため残す。
   const goToLogin = () => { window.location.href = '/?auth=signin'; };
 
   return (
@@ -137,11 +145,11 @@ export default function Landing() {
         <div className="sticky-cta" role="region" aria-label="申し込み">
           <div className="sticky-inner">
             <div className="sticky-price">
-              <span className="sticky-price-main">月 ¥1,280</span>
-              <span className="sticky-price-sub">いつでも解約OK</span>
+              <span className="sticky-price-main">月 ¥1,480</span>
+              <span className="sticky-price-sub">iOS アプリ・いつでも解約OK</span>
             </div>
-            <button type="button" onClick={goToSignup} className="sticky-btn">
-              始める →
+            <button type="button" onClick={goToAppStore} className="sticky-btn">
+              App Store で入手 →
             </button>
           </div>
         </div>
@@ -160,11 +168,11 @@ export default function Landing() {
           <br />
           読んで終わりにしない読書アプリです。
         </p>
-        <button type="button" onClick={goToSignup} className="cta-primary cta-hero">
-          月 ¥1,280 で始める →
+        <button type="button" onClick={goToAppStore} className="cta-primary cta-hero">
+          App Store でダウンロード →
         </button>
         <p className="hero-note">
-          初回5日間返金保証・いつでも解約OK・データは残ります
+          iPhone 専用アプリ・月 ¥1,480・いつでも解約OK・データは残ります
         </p>
         <p className="hero-login">
           すでにアカウントをお持ちの方は{' '}
@@ -228,10 +236,10 @@ export default function Landing() {
 
         <p className="pain-conclusion">
           Orime なら、<br />
-          <strong>月 ¥1,280 で、読んだことを、ちゃんと身につける。</strong>
+          <strong>月 ¥1,480 で、読んだことを、ちゃんと身につける。</strong>
         </p>
 
-        <button type="button" onClick={goToSignup} className="cta-secondary">
+        <button type="button" onClick={goToAppStore} className="cta-secondary">
           今すぐ解決する →
         </button>
       </section>
@@ -405,7 +413,7 @@ export default function Landing() {
         <p className="compare-note">
           これまで他の読書アプリで&quot;記録&quot;してきた方も、ここから<strong>&quot;思い出して活かす&quot;読書</strong>に切り替えられます。
         </p>
-        <button type="button" onClick={goToSignup} className="cta-secondary">
+        <button type="button" onClick={goToAppStore} className="cta-secondary">
           違いを試してみる →
         </button>
       </section>
@@ -443,11 +451,11 @@ export default function Landing() {
         <div className="price-card">
           <div className="price-num">
             <span className="price-yen">¥</span>
-            <span className="price-main">1,280</span>
+            <span className="price-main">1,480</span>
             <span className="price-period">/ 月</span>
           </div>
           <p className="price-equiv">
-            年額なら <strong>¥10,800</strong>（月あたり約 ¥900・お得）
+            年額なら <strong>¥12,800</strong>（月あたり約 ¥1,066・お得）
           </p>
 
           <ul className="price-features">
@@ -459,19 +467,19 @@ export default function Landing() {
             <li><Check size={16} strokeWidth={2.5} /> 違約金・手数料 ゼロ</li>
           </ul>
 
-          <button type="button" onClick={goToSignup} className="cta-primary cta-large">
-            月 ¥1,280 で始める →
+          <button type="button" onClick={goToAppStore} className="cta-primary cta-large">
+            App Store でダウンロード →
           </button>
           <p className="price-note">
-            初回5日間返金保証・いつでも解約OK・データは残ります
+            iPhone 専用・お支払いは App Store・いつでも解約OK・データは残ります
           </p>
         </div>
 
         {/* 3 つの保証 (旧 Risk Reversal を Pricing 内に統合) */}
         <div className="guarantee-row">
           <div className="g-item">
-            <strong>1 タップで解約</strong>
-            <p>アプリ内・10 秒で完了</p>
+            <strong>App Store で解約</strong>
+            <p>サブスク設定からいつでも</p>
           </div>
           <div className="g-item">
             <strong>違約金ゼロ</strong>
@@ -494,26 +502,30 @@ export default function Landing() {
           読んで終わりにしない読書を、<br />
           AI と一緒に始めてみましょう。
         </p>
-        <button type="button" onClick={goToSignup} className="cta-primary cta-final cta-large">
-          月 ¥1,280 で始める →
+        <button type="button" onClick={goToAppStore} className="cta-primary cta-final cta-large">
+          App Store でダウンロード →
         </button>
         <p className="final-note">
-          初回5日間返金保証・いつでも解約OK・データは残ります
+          iPhone 専用アプリ・月 ¥1,480・いつでも解約OK・データは残ります
         </p>
 
         <div className="faq-compact" role="region" aria-label="よくある質問">
           <p className="faq-compact-eyebrow">よくある質問</p>
           <details className="faq-compact-item">
+            <summary>iPhone 以外でも使えますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
+            <p>現在 Orime は <strong>iPhone（iOS）専用アプリ</strong>として App Store で公開しています。Android 版は今後検討中です。このページはサービスのご紹介ページで、ご利用には App Store からのインストールが必要です。</p>
+          </details>
+          <details className="faq-compact-item">
             <summary>解約は本当に簡単？<span className="faq-compact-mark" aria-hidden="true" /></summary>
-            <p>設定の「プラン管理」からいつでも解約できます。違約金や手数料は一切ありません。</p>
+            <p>iPhone の「設定 → 自分の名前 → サブスクリプション」からいつでも解約できます（App Store の標準の仕組み）。違約金や手数料は一切ありません。</p>
           </details>
           <details className="faq-compact-item">
             <summary>解約後、データは消えますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
             <p>消えません。解約後もアカウントとメモはすべて保持され、再開すればそのまま戻ります。契約期間内は引き続き全機能をご利用いただけます。</p>
           </details>
           <details className="faq-compact-item">
-            <summary>無料で試せますか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
-            <p>無料期間はご用意していませんが、初回のご契約には<strong>5日間の返金保証</strong>がつきます。合わないと感じたら、5日以内のご連絡で全額返金します（お一人様1回限り）。月 ¥1,280（年額なら月あたり約 ¥900）で、すべての機能をご利用いただけます。いつでも解約でき、解約後もデータは残ります。</p>
+            <summary>料金はいくらですか？<span className="faq-compact-mark" aria-hidden="true" /></summary>
+            <p>月 ¥1,480、または年額 ¥12,800（月あたり約 ¥1,066）で、すべての機能をご利用いただけます。お支払いは App Store 経由（Apple ID）です。いつでも解約でき、解約後もデータは残ります。</p>
           </details>
           <details className="faq-compact-item">
             <summary>使う時間がない人でも大丈夫？<span className="faq-compact-mark" aria-hidden="true" /></summary>
