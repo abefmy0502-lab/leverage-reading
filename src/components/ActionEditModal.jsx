@@ -47,7 +47,7 @@ const headerStyle = {
   gap: 10,
   padding: '14px 16px',
   borderBottom: '1px solid var(--c-hairline)',
-  background: '#fff',
+  background: 'var(--c-card)',
 };
 
 const closeBtn = {
@@ -114,7 +114,7 @@ const footerStyle = {
   gap: 8,
   padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
   borderTop: '1px solid var(--c-hairline)',
-  background: '#fff',
+  background: 'var(--c-card)',
 };
 
 const PRIORITIES = [
@@ -272,8 +272,8 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
             style={{
               padding: '12px 14px',
               borderRadius: 10,
-              border: '1px solid #c4a0a0',
-              background: '#fdf0ed',
+              border: '1px solid var(--c-critical-line)',
+              background: 'var(--c-critical-soft)',
               color: 'var(--c-critical)',
               fontSize: 13,
               fontFamily: 'inherit',
@@ -294,7 +294,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
               padding: '12px 14px',
               borderRadius: 10,
               border: '1px solid var(--c-hairline-strong)',
-              background: '#fff',
+              background: 'var(--c-card)',
               color: 'var(--c-brand)',
               fontSize: 13,
               fontFamily: 'inherit',

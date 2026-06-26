@@ -92,7 +92,7 @@ function renderTable(rows, key) {
                 style={{
                   textAlign: 'left',
                   padding: '6px 8px',
-                  background: '#efe7d8',
+                  background: 'var(--c-soft)',
                   color: 'var(--c-brand)',
                   fontWeight: 700,
                   border: '1px solid #e0d7c6',
