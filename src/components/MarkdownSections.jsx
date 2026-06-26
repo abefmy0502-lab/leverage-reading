@@ -46,10 +46,21 @@ const listStyle = {
   fontSize: 13.5,
   color: '#4a4036',
   lineHeight: 1.8,
-  margin: '6px 0 6px 20px',
+  margin: '8px 0 8px 2px',
   paddingLeft: 0,
+  listStyleType: 'none',
 };
-const liStyle = { marginBottom: 5 };
+const liStyle = { marginBottom: 6, display: 'flex', gap: 9, alignItems: 'flex-start' };
+// 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。
+const bulletDot = { flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: '#b9a77f', marginTop: 8 };
+const olNumStyle = { flexShrink: 0, minWidth: 16, color: '#8a7c5f', fontWeight: 700, fontVariantNumeric: 'tabular-nums' };
+// 見出し冒頭の絵文字（🏆🔑📚 …）を表示から外す。AI 出力の「素の markdown 感」を
+// 払拭する最大のレバー。ハイライト判定は元テキスト(絵文字込み)で行うので装飾は保つ。
+function stripLeadingEmoji(text) {
+  if (typeof text !== 'string') return text;
+  const stripped = text.replace(/^(?:[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}\u{2122}\u{2139}\u{2194}-\u{2199}\u{231A}-\u{231B}\u{2934}-\u{2935}]+\s*)+/u, '').trim();
+  return stripped || text;
+}
 const highlightSection = {
   ...sectionStyle,
   background: '#f5efde',
@@ -240,7 +251,7 @@ function renderLines(lines, opts) {
         if (parsed) {
           pending = { book: parsed, lines: [] };
         } else {
-          out.push(<h4 key={i} style={subHeadingStyle}>{renderInline(b.text)}</h4>);
+          out.push(<h4 key={i} style={subHeadingStyle}>{renderInline(stripLeadingEmoji(b.text))}</h4>);
         }
         return;
       }
@@ -257,7 +268,10 @@ function renderLines(lines, opts) {
         out.push(
           <ul key={i} style={listStyle}>
             {b.items.map((it, j) => (
-              <li key={j} style={liStyle}>{renderInline(it)}</li>
+              <li key={j} style={liStyle}>
+                <span style={bulletDot} aria-hidden="true" />
+                <span>{renderInline(it)}</span>
+              </li>
             ))}
           </ul>,
         );
@@ -265,7 +279,10 @@ function renderLines(lines, opts) {
         out.push(
           <ol key={i} style={listStyle}>
             {b.items.map((it, j) => (
-              <li key={j} style={liStyle}>{renderInline(it)}</li>
+              <li key={j} style={liStyle}>
+                <span style={olNumStyle} aria-hidden="true">{j + 1}.</span>
+                <span>{renderInline(it)}</span>
+              </li>
             ))}
           </ol>,
         );
@@ -278,13 +295,16 @@ function renderLines(lines, opts) {
   }
 
   return blocks.map((b, i) => {
-    if (b.type === 'subhead') return <h4 key={i} style={subHeadingStyle}>{renderInline(b.text)}</h4>;
+    if (b.type === 'subhead') return <h4 key={i} style={subHeadingStyle}>{renderInline(stripLeadingEmoji(b.text))}</h4>;
     if (b.type === 'table') return renderTable(b.rows, i);
     if (b.type === 'ul') {
       return (
         <ul key={i} style={listStyle}>
           {b.items.map((it, j) => (
-            <li key={j} style={liStyle}>{renderInline(it)}</li>
+            <li key={j} style={liStyle}>
+              <span style={bulletDot} aria-hidden="true" />
+              <span>{renderInline(it)}</span>
+            </li>
           ))}
         </ul>
       );
@@ -293,7 +313,10 @@ function renderLines(lines, opts) {
       return (
         <ol key={i} style={listStyle}>
           {b.items.map((it, j) => (
-            <li key={j} style={liStyle}>{renderInline(it)}</li>
+            <li key={j} style={liStyle}>
+              <span style={olNumStyle} aria-hidden="true">{j + 1}.</span>
+              <span>{renderInline(it)}</span>
+            </li>
           ))}
         </ol>
       );
@@ -460,7 +483,7 @@ export default function MarkdownSections({ text, density = 'normal', onAddRelate
         const related = onAddRelatedBook && isRelatedBooksHeading(s.heading);
         return (
           <section key={i} className="long-text" style={styles}>
-            {s.heading && <h3 style={headingStyle}>{s.heading}</h3>}
+            {s.heading && <h3 style={headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && (
               <small style={{ display: 'block', fontSize: 10, color: '#5a4f3e', lineHeight: 1.6, marginTop: 8 }}>

@@ -2290,25 +2290,27 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                   </div>
                 </div>
                 {rec.why && (
-                  <div style={{ marginTop: 10, padding: '8px 10px', background: '#f5efde', borderRadius: 8, border: '1px solid #e0d0a8' }}>
-                    <p style={{ fontSize: 11, color: '#8a7040', fontWeight: 600, margin: 0 }}>🎯 なぜあなたに必要か</p>
-                    <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: '4px 0 0' }}>{rec.why}</p>
+                  <div style={{ marginTop: 10, padding: '10px 12px', background: '#f5efde', borderRadius: 10, border: '1px solid #e8dcc0' }}>
+                    <p style={{ fontSize: 10.5, color: '#9a7e44', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>なぜあなたに</p>
+                    <p style={{ fontSize: 12.5, color: '#5c5548', lineHeight: 1.75, margin: '4px 0 0' }}>{rec.why}</p>
                   </div>
                 )}
                 {rec.core && (
-                  <div style={{ marginTop: 8 }}>
-                    <p style={{ fontSize: 11, color: '#5c5043', fontWeight: 600, margin: 0 }}>💡 この本の核心</p>
-                    <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: '2px 0 0' }}>{rec.core}</p>
+                  <div style={{ marginTop: 10 }}>
+                    <p style={{ fontSize: 10.5, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>この本の核心</p>
+                    <p style={{ fontSize: 12.5, color: '#5c5548', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.core}</p>
                   </div>
                 )}
                 {rec.focus && (
-                  <div style={{ marginTop: 8 }}>
-                    <p style={{ fontSize: 11, color: '#5c5043', fontWeight: 600, margin: 0 }}>📍 注目すべきポイント</p>
-                    <p style={{ fontSize: 12, color: '#5c5548', lineHeight: 1.7, margin: '2px 0 0' }}>{rec.focus}</p>
+                  <div style={{ marginTop: 10 }}>
+                    <p style={{ fontSize: 10.5, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>注目ポイント</p>
+                    <p style={{ fontSize: 12.5, color: '#5c5548', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.focus}</p>
                   </div>
                 )}
                 {rec.duration && (
-                  <p style={{ fontSize: 11, color: '#5a4f3e', margin: '8px 0 0' }}>⏱️ {rec.duration}</p>
+                  <p style={{ fontSize: 11.5, color: '#5a4f3e', margin: '10px 0 0' }}>
+                    <span style={{ color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.04em' }}>目安</span>　{rec.duration}
+                  </p>
                 )}
                 <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
                   <a
