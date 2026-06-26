@@ -247,13 +247,18 @@ function SearchSkeleton({ rows = 3 }) {
   );
 }
 
-// 端末/ブラウザがバーコード読取に対応しているか。Web 標準 BarcodeDetector
-// （+ getUserMedia）が両方そろって初めて true。iOS Safari は BarcodeDetector
-// 未対応のことが多く、その場合は false → ボタン自体を出さない。
+// ネイティブの Web 標準 BarcodeDetector が使えるか（Android Chrome 等）。
+// あれば最速・最省電力なのでこちらを優先する。
+const HAS_NATIVE_DETECTOR =
+  typeof window !== 'undefined' && 'BarcodeDetector' in window;
+
+// バーコード読取ボタンを出してよいか。カメラ（getUserMedia）が使える HTTPS 環境
+// なら true。BarcodeDetector 非対応端末（iOS Safari / WKWebView 等）は ZXing を
+// 遅延ロードしてフォールバックするので、もはや BarcodeDetector の有無は問わない。
 const BARCODE_SUPPORTED =
   typeof window !== 'undefined' &&
-  'BarcodeDetector' in window &&
-  !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) &&
+  window.isSecureContext !== false;
 
 const camOverlayStyle = {
   position: 'fixed',
@@ -274,6 +279,7 @@ function BarcodeScanner({ onDetect, onClose }) {
   const streamRef = useRef(null);
   const detectorRef = useRef(null);
   const rafRef = useRef(null);
+  const zxingControlsRef = useRef(null); // ZXing フォールバック時のカメラ停止ハンドル
   const doneRef = useRef(false); // 二重発火防止（成功 or close で立てる）
   const [scanError, setScanError] = useState(null);
   const [ready, setReady] = useState(false);
@@ -283,6 +289,11 @@ function BarcodeScanner({ onDetect, onClose }) {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
+    }
+    // ZXing フォールバックのカメラ＆デコードループを停止（自前 stream とは別管理）。
+    if (zxingControlsRef.current) {
+      try { zxingControlsRef.current.stop(); } catch { /* ignore */ }
+      zxingControlsRef.current = null;
     }
     const stream = streamRef.current;
     if (stream) {
@@ -312,10 +323,55 @@ function BarcodeScanner({ onDetect, onClose }) {
         setScanError('お使いのブラウザはバーコード読取に未対応です。ISBN を手入力してください。');
         return;
       }
-      try {
-        detectorRef.current = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8'] });
-      } catch {
-        setScanError('お使いのブラウザはバーコード読取に未対応です。ISBN を手入力してください。');
+      // ===== 経路A: ネイティブ BarcodeDetector（あれば最優先・最省電力）=====
+      if (HAS_NATIVE_DETECTOR) {
+        try {
+          detectorRef.current = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8'] });
+        } catch {
+          detectorRef.current = null;
+        }
+      }
+
+      // ===== 経路B: ZXing フォールバック（iOS Safari / WKWebView 等、BarcodeDetector
+      //        非対応端末）。ライブラリは遅延 import なので初回ロードには影響しない。 =====
+      if (!detectorRef.current) {
+        try {
+          const [{ BrowserMultiFormatReader }, lib] = await Promise.all([
+            import('@zxing/browser'),
+            import('@zxing/library'),
+          ]);
+          if (cancelled || doneRef.current) return;
+          const hints = new Map();
+          hints.set(lib.DecodeHintType.POSSIBLE_FORMATS, [lib.BarcodeFormat.EAN_13, lib.BarcodeFormat.EAN_8]);
+          const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 120 });
+          const v = videoRef.current;
+          if (!v) return;
+          // decodeFromConstraints が getUserMedia(背面カメラ) → video 再生 → 連続デコードを担う。
+          const controls = await reader.decodeFromConstraints(
+            { video: { facingMode: { ideal: 'environment' } }, audio: false },
+            v,
+            (result) => {
+              if (cancelled || doneRef.current || !result) return;
+              const raw = (result.getText() || '').replace(/[^0-9]/g, '');
+              if (raw.length === 13 && (raw.startsWith('978') || raw.startsWith('979'))) {
+                doneRef.current = true;
+                stopStream();
+                onDetect?.(raw);
+              }
+            },
+          );
+          if (cancelled || doneRef.current) { try { controls.stop(); } catch { /* ignore */ } return; }
+          zxingControlsRef.current = controls;
+          setReady(true);
+        } catch (e) {
+          if (cancelled) return;
+          const denied = e?.name === 'NotAllowedError' || e?.name === 'SecurityError';
+          setScanError(
+            denied
+              ? 'カメラの使用が許可されませんでした。ブラウザの設定でカメラを許可するか、ISBN を手入力してください。'
+              : 'カメラを起動できませんでした。ISBN を手入力してください。',
+          );
+        }
         return;
       }
 

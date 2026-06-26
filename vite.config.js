@@ -47,6 +47,9 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
+          // ZXing(バーコード)は遅延 import のみ。vendor に巻き込むと全員が
+          // 初回に DL してしまうので、専用の動的チャンクに残す（undefined を返す）。
+          if (id.includes('@zxing')) return undefined;
           if (/[\\/]react(-dom)?[\\/]|[\\/]scheduler[\\/]/.test(id)) return 'vendor-react';
           if (id.includes('@supabase')) return 'vendor-supabase';
           if (id.includes('lucide-react')) return 'vendor-icons';
