@@ -4084,6 +4084,7 @@ function AuthedApp() {
             flex: 1,
             minHeight: 0,
             overflowY: 'auto',
+            overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
             padding: "20px 20px 80px",
           }}
@@ -4738,6 +4739,7 @@ function AuthedApp() {
             flex: 1,
             minHeight: 0,
             overflowY: 'auto',
+            overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
             padding: "20px 20px 80px",
           }}
@@ -5692,7 +5694,7 @@ export default function App() {
 // `--color-surface` (legacy alias) は dark mode でも light のまま。新しい
 // `--color-bg-secondary` を使うと部分的に dark mode が走った時に
 // 入力欄だけ黒くなる問題が起きるため、常に light な surface を使う。
-const inp = { width: "100%", padding: "12px 14px", fontSize: 16, border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", background: "var(--color-surface)", outline: "none", color: "var(--color-label)", fontFamily: "inherit" };
+const inp = { width: "100%", minWidth: 0, padding: "12px 14px", fontSize: 16, border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", background: "var(--color-surface)", outline: "none", color: "var(--color-label)", fontFamily: "inherit", WebkitAppearance: "none", appearance: "none" };
 const ta = { ...inp, resize: "vertical", lineHeight: "var(--leading-relaxed)" };
 const lnk = { background: "none", border: "none", color: "var(--color-tertiary)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: "11px 8px", margin: "-11px -8px", minHeight: 44, display: "inline-flex", alignItems: "center" };
 const btnS = { padding: "12px 0", borderRadius: "var(--radius-lg)", border: "none", background: "var(--color-accent-strong)", color: "var(--color-text-inverse)", cursor: "pointer", fontFamily: "inherit", fontSize: 15, fontWeight: 600, letterSpacing: "0.01em", boxShadow: "0 1px 2px rgba(60,48,30,0.18)" };

@@ -13,13 +13,17 @@ import {
   AMAZON_LINK_REL,
 } from '../lib/amazonLink';
 
-const wrap = { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 };
+// minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
+// 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。
+const wrap = { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8, minWidth: 0 };
 const sectionStyle = {
   background: '#fffdf8',
   border: '1px solid #f0ebe1',
   borderRadius: 14,
   padding: '14px 16px',
   boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
+  minWidth: 0,
+  maxWidth: '100%',
 };
 const headingStyle = {
   fontSize: 15,
@@ -78,7 +82,7 @@ function renderTable(rows, key) {
   if (!rows || rows.length === 0) return null;
   const [head, ...body] = rows;
   return (
-    <div key={key} style={{ overflowX: 'auto', margin: 'var(--space-2) 0', WebkitOverflowScrolling: 'touch' }}>
+    <div key={key} style={{ overflowX: 'auto', maxWidth: '100%', margin: 'var(--space-2) 0', WebkitOverflowScrolling: 'touch' }}>
       <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12, lineHeight: 1.6 }}>
         <thead>
           <tr>
