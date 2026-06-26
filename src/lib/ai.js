@@ -553,11 +553,27 @@ export async function generateWeeklyQuestion(userId) {
     .map((x) => x.memo);
   const formatted = ranked.map(formatMemo).join('\n\n');
 
+  // 🎯 やり残しの一歩（未完了アクション）を渡し、AI が「先週決めた〇〇、やれた？」
+  // と実名で問えるようにする＝行動の輪を閉じる。失敗は静かに無視（問いはメモ発に倒れる）。
+  let openSteps = [];
+  try {
+    const { data } = await supabase
+      .from('actions')
+      .select('text, done, created_at')
+      .eq('user_id', userId)
+      .eq('done', false)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    openSteps = (data || [])
+      .map((a) => clamp(sanitizeForPrompt(a.text || ''), 80))
+      .filter(Boolean);
+  } catch { /* graceful: 行動なしとして扱う */ }
+
   let result;
   try {
     result = await callClaude(
       PROMPTS.weeklyQuestion.system,
-      PROMPTS.weeklyQuestion.user({ memos: formatted }),
+      PROMPTS.weeklyQuestion.user({ memos: formatted, openSteps }),
       { max_tokens: 200, temperature: 0.85 },
     );
   } catch (e) {
@@ -721,7 +737,7 @@ export async function listThemes(userId) {
 //   action.book_id（本単位）/ source_memo_id（このメモ発の行動）/ 本文一致 で拾う。
 //   未適用 DB（actions に user_id 等が無い）や失敗時は declared:0 で静かに縮退。
 async function gatherThemeActions(userId, themeNorm, matchedMemos) {
-  const empty = { declared: 0, completed: 0, idle: 0, blindSpot: false };
+  const empty = { declared: 0, completed: 0, idle: 0, blindSpot: false, openSteps: [] };
   if (!isSupabaseConfigured || !userId) return empty;
 
   const themeBookIds = new Set(
@@ -772,7 +788,16 @@ async function gatherThemeActions(userId, themeNorm, matchedMemos) {
   const memoDepth = (matchedMemos || []).length;
   const blindSpot = memoDepth >= 3 && completed === 0;
 
-  return { declared, completed, idle, blindSpot };
+  // 🎯 やり残しの一歩を「名指し」で返す（本田: 宣言した一歩がどうなったか突き返す）。
+  // 未完了を作成の新しい順に最大 3 件。
+  const openSteps = matched
+    .filter((a) => a.done !== true)
+    .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+    .slice(0, 3)
+    .map((a) => clamp(sanitizeForPrompt(a.text), 80))
+    .filter(Boolean);
+
+  return { declared, completed, idle, blindSpot, openSteps };
 }
 
 // Gather + filter memos for a theme, then build the report prompt.

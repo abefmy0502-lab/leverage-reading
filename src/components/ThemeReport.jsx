@@ -772,7 +772,7 @@ function CoreCard({ line }) {
 // 🎯 行動の鏡 — 宣言/完了/放置 を実データで表示し、学びが行動に変わっているかを
 // 突きつける（本田哲学の「実践してこそ」）。数値は AI ではなく actions の集計。
 function ActionMirror({ stats, memoTotal }) {
-  const { declared = 0, completed = 0, idle = 0, blindSpot = false } = stats || {};
+  const { declared = 0, completed = 0, idle = 0, blindSpot = false, openSteps = [] } = stats || {};
   const statBox = (n, k, color) => (
     <div style={{ flex: 1, background: '#faf6ee', border: '1px solid #ece5d9', borderRadius: 11, padding: '9px 4px', textAlign: 'center' }}>
       <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color }}>{n}</div>
@@ -804,6 +804,26 @@ function ActionMirror({ stats, memoTotal }) {
           </div>
         </div>
       ) : null}
+
+      {/* 🔸 やり残しの一歩を名指しで突き返す（本田: 宣言した一歩がどうなったか） */}
+      {openSteps.length > 0 && (
+        <div style={{ marginTop: 11 }}>
+          <p style={{ fontSize: 10.5, fontWeight: 800, color: '#a05040', letterSpacing: '.06em', margin: '0 0 6px' }}>
+            🔸 まだやれていない一歩
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {openSteps.map((s, i) => (
+              <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12.5, lineHeight: 1.55, color: '#5c5548' }}>
+                <span aria-hidden="true" style={{ color: '#c08a6a', flexShrink: 0, marginTop: 1 }}>□</span>
+                <span style={{ minWidth: 0 }}>{s}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 10.5, color: '#9a8c74', margin: '7px 0 0', lineHeight: 1.5 }}>
+            🎯 行動タブで完了にすると、ここから消えます。
+          </p>
+        </div>
+      )}
     </div>
   );
 }
