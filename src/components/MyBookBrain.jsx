@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
-import { streamMyBookBrain } from '../lib/ai';
+import { streamMyBookBrain, generateWeeklyQuestion } from '../lib/ai';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
@@ -61,6 +61,32 @@ const QUESTION_EXAMPLES = [
 ];
 
 const CATEGORIES = ['会話', '経験', '観察', '気づき', 'その他'];
+
+// 💭 今週の問い — AI 生成に失敗/未接続のときの定型フォールバック（メモに依らず
+// 立ち止まれる普遍的な問い）。曜日や週で固定的に1つ選ぶ。
+const FALLBACK_WEEKLY = [
+  'この1週間で、本から学んだことを1つでも行動に移せましたか？',
+  '今いちばん向き合っている課題に、過去のメモはどう答えますか？',
+  '繰り返し心に残っている学びは何ですか？それは行動になっていますか？',
+  'もし明日1つだけ実践するなら、どの学びを選びますか？',
+];
+
+// 文字列 → 安定したハッシュ（定型問いを週で固定選択するため）。
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i += 1) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+  return h;
+}
+
+// ISO 風の「年-週」キー（端末ローカルの週次キャッシュ用）。
+function isoWeekKey(d = new Date()) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -269,6 +295,10 @@ export default function MyBookBrain({ onOpenBook }) {
   // learningOpen state は廃止 — view === 'learning' で表現する。
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
   const [statsTick, setStatsTick] = useState(0);
+  // 💭 今週の問い（能動化）— マイ読書脳が向こうから問いを投げる。週1キャッシュ。
+  const [weeklyQ, setWeeklyQ] = useState(null);
+  const [weeklyDismissed, setWeeklyDismissed] = useState(false);
+  const weeklyTriedRef = useRef(false);
   const messagesEndRef = useRef(null);
   // ストリーミング中の AbortController。送信ごとに作り直し、「中止」ボタンで
   // abort() する。abort 後は streamMyBookBrain が途中までの内容で正常終了する
@@ -328,6 +358,45 @@ export default function MyBookBrain({ onOpenBook }) {
     setClearedAt(cut);
     try { localStorage.setItem('brain-cleared-at', cut); } catch { /* ignore */ }
   }, [historyLoaded, messages]);
+
+  // 💭 今週の問い — マイ読書脳を能動化（向こうから問いを投げる）。
+  //   メモがある人にだけ、週1で AI が自分のメモ発の問いを 1 つ用意する。
+  //   端末ローカルで週次キャッシュ（同じ週は再生成しない）。生成不可なら定型へ。
+  //   その週に dismiss されたら出さない。新規ユーザー（メモ無し）には出さない。
+  useEffect(() => {
+    if (weeklyTriedRef.current || !historyLoaded) return;
+    const hasMemos = (memoStats.cards + memoStats.summaries + memoStats.personal) > 0;
+    if (!hasMemos) return; // memoStats 反映後に再評価される
+    weeklyTriedRef.current = true;
+    const wk = isoWeekKey();
+    try {
+      if (localStorage.getItem('brain-weekly-dismissed') === wk) { setWeeklyDismissed(true); return; }
+      const raw = localStorage.getItem('brain-weekly-q');
+      const cached = raw ? JSON.parse(raw) : null;
+      if (cached && cached.week === wk && cached.q) { setWeeklyQ(cached.q); return; }
+    } catch { /* ignore cache */ }
+    let alive = true;
+    (async () => {
+      let q = null;
+      try { q = await generateWeeklyQuestion(user.id); } catch { q = null; }
+      if (!q) q = FALLBACK_WEEKLY[Math.abs(hashStr(wk)) % FALLBACK_WEEKLY.length];
+      if (!alive) return;
+      setWeeklyQ(q);
+      try { localStorage.setItem('brain-weekly-q', JSON.stringify({ week: wk, q })); } catch { /* ignore */ }
+    })();
+    return () => { alive = false; };
+  }, [historyLoaded, memoStats, user?.id]);
+
+  const answerWeekly = useCallback(() => {
+    if (!weeklyQ) return;
+    setInput(weeklyQ);
+    setTimeout(() => { try { inputRef.current?.focus(); } catch { /* ignore */ } }, 0);
+  }, [weeklyQ]);
+
+  const dismissWeekly = useCallback(() => {
+    setWeeklyDismissed(true);
+    try { localStorage.setItem('brain-weekly-dismissed', isoWeekKey()); } catch { /* ignore */ }
+  }, []);
 
   // Knowledge counts for the header (cards / summaries / personal)。
   // summaries は books の 7 フィールド (leverage_memo + invest_purpose +
@@ -748,6 +817,31 @@ export default function MyBookBrain({ onOpenBook }) {
                 )}
               </div>
             ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* 💭 今週の問い — マイ読書脳が向こうから問いを投げる（能動化） */}
+              {weeklyQ && !weeklyDismissed && (
+                <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid #e0d8ca', borderRadius: 14, padding: '14px 15px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, color: '#8a7d6a', letterSpacing: '.14em' }}>💭 今週の問い</span>
+                    <button
+                      type="button"
+                      onClick={dismissWeekly}
+                      aria-label="今週の問いを閉じる"
+                      style={{ background: 'none', border: 'none', color: '#b3a994', fontSize: 16, lineHeight: 1, cursor: 'pointer', padding: 4, fontFamily: 'inherit' }}
+                    >×</button>
+                  </div>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: '#3d362c', margin: '0 0 12px', lineHeight: 1.6 }}>
+                    {weeklyQ}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={answerWeekly}
+                    style={{ minHeight: 44, width: '100%', borderRadius: 11, border: 'none', background: '#5c5043', color: '#fffdf8', fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 1px 2px rgba(60,48,30,.18)' }}
+                  >
+                    この問いに答える →
+                  </button>
+                </div>
+              )}
               <div style={card}>
                 <p style={{ fontSize: 12, color: '#5c5548', margin: '0 0 8px', fontWeight: 500 }}>💡 質問例（タップで入力）</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -779,6 +873,7 @@ export default function MyBookBrain({ onOpenBook }) {
                     </button>
                   ))}
                 </div>
+              </div>
               </div>
             )
           )}

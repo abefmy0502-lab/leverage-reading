@@ -502,6 +502,55 @@ export async function callMyBookBrain({ userId, question }) {
   return { body: parsed.body, refs: parsed.refs, ...ctx.stats };
 }
 
+// 💭 今週の問い — マイ読書脳の能動化。ユーザー自身のメモから「立ち止まって
+// 考え・行動したくなる問い」を1つだけ生成して返す（向こうから問いを投げる）。
+// 失敗・メモ不足・エラー時は null（呼び出し側は静かに定型の問いへフォールバック）。
+// 呼び出し側で週次キャッシュするので、ここは「毎回新規生成」でよい。
+export async function generateWeeklyQuestion(userId) {
+  if (!isSupabaseConfigured || !userId) return null;
+  let all;
+  try {
+    ({ all } = await gatherKnowledge(userId));
+  } catch (e) {
+    console.warn('[weekly-question] gather failed:', e?.message);
+    return null;
+  }
+  // メモが薄い新規ユーザーには出さない（空振りを避ける）。
+  if (!Array.isArray(all) || all.length < 3) return null;
+
+  const ranked = [...all]
+    .map((m, i) => ({ memo: m, score: memoPriority(m) - i * 0.01 }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 30)
+    .map((x) => x.memo);
+  const formatted = ranked.map(formatMemo).join('\n\n');
+
+  let result;
+  try {
+    result = await callClaude(
+      PROMPTS.weeklyQuestion.system,
+      PROMPTS.weeklyQuestion.user({ memos: formatted }),
+      { max_tokens: 200, temperature: 0.85 },
+    );
+  } catch (e) {
+    console.warn('[weekly-question] claude failed:', e?.message);
+    return null;
+  }
+  if (typeof result !== 'string'
+    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isSuspiciousOutput(result)) {
+    return null;
+  }
+  // 前置き・記号・カギ括弧を落として 1 文に整える。
+  const cleaned = clamp(
+    sanitizeForPrompt(result).replace(/^[「『"'\-\d.\s]+/, '').replace(/[」』"']+$/, '').trim(),
+    90,
+  );
+  if (!cleaned) return null;
+  track('ai_used', { feature: 'weekly_q' });
+  return cleaned;
+}
+
 // Streaming version of callMyBookBrain. onStage receives 'search' (while
 // memos/books are being fetched) then 'generate' (once the Claude stream is
 // in flight). onChunk receives the partial body text with REFS_START..END
