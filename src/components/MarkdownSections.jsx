@@ -28,12 +28,14 @@ const headingStyle = {
   margin: '0 0 9px',
   lineHeight: 1.4,
   letterSpacing: '-0.01em',
+  overflowWrap: 'anywhere',
 };
 const subHeadingStyle = {
   fontSize: 13.5,
   fontWeight: 700,
   color: '#3d362c',
   margin: '10px 0 3px',
+  overflowWrap: 'anywhere',
 };
 const paraStyle = {
   fontSize: 13.5,
@@ -41,6 +43,8 @@ const paraStyle = {
   lineHeight: 1.85,
   margin: '6px 0',
   whiteSpace: 'pre-wrap',
+  // 長い英語タイトル/URL でカードが横にはみ出して「横幅が合わない」現象を防ぐ。
+  overflowWrap: 'anywhere',
 };
 const listStyle = {
   fontSize: 13.5,
@@ -49,6 +53,7 @@ const listStyle = {
   margin: '8px 0 8px 2px',
   paddingLeft: 0,
   listStyleType: 'none',
+  overflowWrap: 'anywhere',
 };
 const liStyle = { marginBottom: 6, display: 'flex', gap: 9, alignItems: 'flex-start' };
 // 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。

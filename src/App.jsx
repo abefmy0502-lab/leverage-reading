@@ -980,7 +980,11 @@ function BeforePhase({
             解析結果
             {aiLoading && !form.aiStrategy && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 6 }} />}
           </p>
-          <MarkdownSections text={form.aiAnalysis} />
+          <MarkdownSections
+            text={form.aiAnalysis}
+            onAddRelatedBook={aiLoading ? undefined : onAddRelatedBook}
+            addingTitles={addingTitles}
+          />
         </div>
       )}
 
@@ -4353,7 +4357,11 @@ function AuthedApp() {
               {current.aiAnalysis && (
                 <div style={{ marginTop: 10 }}>
                   <p style={{ fontSize: 12, fontWeight: 600, color: "#8a7040", marginBottom: 6 }}>🔍 AI 本の解析</p>
-                  <MarkdownSections text={current.aiAnalysis} />
+                  <MarkdownSections
+                    text={current.aiAnalysis}
+                    onAddRelatedBook={addRelatedBookFromAi}
+                    addingTitles={addedRelatedTitles}
+                  />
                 </div>
               )}
               {current.aiStrategy && (
