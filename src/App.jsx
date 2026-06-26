@@ -2629,6 +2629,23 @@ function AuthedApp() {
   useEffect(() => { ensurePushSubscription(); }, []);
   const [view, setView] = useState("list"); // list | detail | edit
   const [current, setCurrent] = useState(null);
+
+  // ── 画面復帰（iOS PWA リロード対策）─────────────────────────────────
+  // バックグラウンドでメモリから落とされると、戻った時にアプリがまるごと
+  // リロードされ state が初期化される。タブに加えて「開いていた本/詳細」も
+  // 保存し、books 読込後に同じ画面へ戻す。
+  // ※ 初回マウントで下の persist effect が navState を上書きする前に、
+  //    前回保存値を ref に退避しておく（こうしないと復元前に消える）。
+  const initialNavRef = useRef(undefined);
+  if (initialNavRef.current === undefined) {
+    try { initialNavRef.current = JSON.parse(localStorage.getItem('navState') || 'null'); }
+    catch { initialNavRef.current = null; }
+  }
+  useEffect(() => {
+    try { localStorage.setItem('navState', JSON.stringify({ view, bookId: current?.id || null })); }
+    catch { /* ignore */ }
+  }, [view, current]);
+  const navRestoredRef = useRef(false);
   const [form, setForm] = useState(emptyBook());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -3081,6 +3098,21 @@ function AuthedApp() {
     })();
     return () => { cancelled = true; };
   }, [pendingRecallMemoId, booksLoading, rawBooks, openDetail]);
+
+  // 🔁 リロード後（books 読込完了）に一度だけ、離脱直前に開いていた本の詳細へ復帰。
+  // タブは 'activeTab' で別途復元済み。詳細/編集だった時のみ、その本を開き直す
+  // （編集は未保存フォームが失われているので detail に着地させる）。本が削除済み
+  // なら何もしない（一覧のまま）。想起ディープリンク処理中はそちらに譲る。
+  useEffect(() => {
+    if (navRestoredRef.current || booksLoading) return;
+    navRestoredRef.current = true;
+    if (pendingRecallMemoId) return;
+    const nav = initialNavRef.current;
+    if (nav && (nav.view === 'detail' || nav.view === 'edit') && nav.bookId) {
+      const b = rawBooks.find((x) => x.id === nav.bookId);
+      if (b) openDetail(b);
+    }
+  }, [booksLoading, pendingRecallMemoId, rawBooks, openDetail]);
 
   // 本棚カードの long-press から context menu を開く安定参照。payload には
   // long-press フックが {x, y, book} を載せてくるのでそのまま state へ。
