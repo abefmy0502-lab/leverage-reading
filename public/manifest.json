@@ -1,7 +1,11 @@
 {
+  "id": "/",
   "name": "Orime",
   "short_name": "Orime",
   "description": "読みっぱなしを、やめる。気づきを後から呼び戻し、行動に変える読書アプリ",
+  "lang": "ja",
+  "dir": "ltr",
+  "categories": ["books", "education", "productivity"],
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
