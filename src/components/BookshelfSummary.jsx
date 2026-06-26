@@ -47,13 +47,17 @@ function isThisMonth(dateLike, monthStart) {
 
 function buildStats(books) {
   if (!Array.isArray(books) || books.length === 0) {
-    return { readingNow: 0, beforeNow: 0, doneThisMonth: 0, doneTotal: 0 };
+    return { readingNow: 0, beforeNow: 0, doneThisMonth: 0, doneTotal: 0, actionsDone: 0, harvest: 0 };
   }
   const monthStart = startOfThisMonth();
   let readingNow = 0;
   let beforeNow = 0;
   let doneThisMonth = 0;
   let doneTotal = 0;
+  // 📈 投資対効果（成果）の集計 — 本田哲学=読了数は「作業量」。本当に効いたかは
+  //   「行動に変わった数」と「収穫(一番の収穫=roiSummary)の数」で測る。
+  let actionsDone = 0;
+  let harvest = 0;
   for (const b of books) {
     if (!b) continue;
     if (b.status === 'reading') readingNow += 1;
@@ -62,8 +66,12 @@ function buildStats(books) {
       doneTotal += 1;
       if (isThisMonth(b.doneDate, monthStart)) doneThisMonth += 1;
     }
+    if (Array.isArray(b.actions)) {
+      for (const a of b.actions) { if (a && a.done) actionsDone += 1; }
+    }
+    if (b.roiSummary && String(b.roiSummary).trim()) harvest += 1;
   }
-  return { readingNow, beforeNow, doneThisMonth, doneTotal };
+  return { readingNow, beforeNow, doneThisMonth, doneTotal, actionsDone, harvest };
 }
 
 // 直近 6 ヶ月の月別読了数。done_date が無い読了本は推移には含めない
@@ -199,11 +207,45 @@ const trendCaptionStyle = {
   whiteSpace: 'nowrap',
 };
 
-function QuietProgress({ doneTotal, trend }) {
+// 📈 読書の投資対効果（損益計算書）— 読了→行動→収穫 の漏斗。読了は入力(作業量)、
+// 行動・収穫が成果。本田哲学「読書は投資、ROI で測る」を 1 行で可視化する。
+function RoiFunnel({ doneTotal, actionsDone, harvest }) {
+  const noOutcome = actionsDone === 0 && harvest === 0;
+  const cell = (n, label, color) => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, minWidth: 0 }}>
+      <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+      <span style={{ fontSize: 9.5, color: 'var(--color-text-tertiary)', letterSpacing: '.02em' }}>{label}</span>
+    </div>
+  );
+  const arrow = <span aria-hidden="true" style={{ color: '#c3b9a4', fontWeight: 700, fontSize: 13 }}>→</span>;
+  return (
+    <div style={{ background: 'var(--color-accent-soft)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: '#8a7d6a', letterSpacing: '.1em', marginBottom: 8 }}>
+        📈 読書の投資対効果
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: 4 }}>
+        {cell(doneTotal, '読了', 'var(--color-text-secondary)')}
+        {arrow}
+        {cell(actionsDone, '行動 実行', actionsDone > 0 ? '#5f7a55' : 'var(--color-text-tertiary)')}
+        {arrow}
+        {cell(harvest, '収穫', harvest > 0 ? '#a06a30' : 'var(--color-text-tertiary)')}
+      </div>
+      {noOutcome && doneTotal > 0 && (
+        <p style={{ fontSize: 10.5, color: '#9a8c74', margin: '8px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
+          まだ成果に変わっていません。1 冊から、行動を 1 つ決めましょう。
+        </p>
+      )}
+    </div>
+  );
+}
+
+function QuietProgress({ doneTotal, trend, actionsDone, harvest }) {
   const peak = trend.reduce((m, k) => Math.max(m, k.count), 0);
   const lastIdx = trend.length - 1; // 一番右 = 今月
   return (
-    <div style={panel}>
+   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '0 0 var(--space-2)' }}>
+    <RoiFunnel doneTotal={doneTotal} actionsDone={actionsDone} harvest={harvest} />
+    <div style={{ ...panel, margin: 0 }}>
       <div style={totalBlock}>
         <AnimatedNumber value={doneTotal} duration={700} style={totalNumber} />
         <span style={totalLabel}>累計の読了</span>
@@ -258,6 +300,7 @@ function QuietProgress({ doneTotal, trend }) {
         </div>
       </div>
     </div>
+   </div>
   );
 }
 
@@ -286,7 +329,7 @@ export default function BookshelfSummary({ books, onClick }) {
   // 読了の推移はパネルの月別グラフに、読書中/積読の数はステータスのフィルタ
   // ピル（読書中(3)/積読(1)…）に既に出ているため、二重表示はノイズになる。
   if (showProgress) {
-    return <QuietProgress doneTotal={stats.doneTotal} trend={trend} />;
+    return <QuietProgress doneTotal={stats.doneTotal} trend={trend} actionsDone={stats.actionsDone} harvest={stats.harvest} />;
   }
   return line;
 }

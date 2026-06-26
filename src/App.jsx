@@ -949,7 +949,7 @@ function BeforePhase({
 
   return (
     <div>
-      <p style={phaseDesc}>📐 読む準備をしましょう（任意）</p>
+      <p style={phaseDesc}>📐 読む前に、投資目的を決めましょう</p>
 
       <Field label="読書開始日">
         <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={inp} />
@@ -1007,7 +1007,7 @@ function BeforePhase({
             </div>
           )}
 
-          <Field label="📊 投資目的" sub="何のためにこの本を読むか（1〜2 文）">
+          <Field label="📊 投資目的（必須）" sub="何のためにこの本を読むか（1〜2 文）。これが読書のリターンを決めます">
             <textarea
               value={form.investPurpose || ""}
               onChange={(e) => setForm({ ...form, investPurpose: e.target.value })}
@@ -1259,7 +1259,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
           {aiLoading && <Dots />}
           {form.aiSummary && (
             <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: "#5a7a48", marginBottom: 4 }}>要約結果（投資の効果レポート）</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#5a7a48", marginBottom: 4 }}>要約結果（要点の凝縮）</p>
               <MarkdownSections text={form.aiSummary} />
             </div>
           )}
@@ -1346,7 +1346,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
         <button onClick={addAction} style={{ ...btnO, padding: "10px 0", fontSize: 12, borderStyle: "dashed" }}>＋ 行動を追加</button>
       </div>
 
-      <Field label="投資の効果(一言)" sub="この本から得た一番大きな価値を 1 行で">
+      <Field label="💡 一番の収穫（1行）" sub="この本から得た一番大きな価値を 1 行で">
         {/* input → textarea (rows=3) に変更。シングルライン input だと placeholder が
             画面幅で見切れる問題があった。placeholder も短く具体的に。 */}
         <textarea
@@ -4417,7 +4417,7 @@ function AuthedApp() {
           {current.aiSummary && (
             <details style={{ marginTop: 12, background: "#fffdf8", border: "1px solid #ece5d9", borderRadius: 10, padding: "10px 12px" }}>
               <summary style={{ fontSize: 13, fontWeight: 600, color: "#5a7a48", cursor: "pointer", listStyle: "none" }}>
-                🤖 AI まとめ（投資の効果）
+                🤖 AI まとめ（要点の凝縮）
               </summary>
               <div style={{ marginTop: 10 }}>
                 <MarkdownSections
@@ -4444,7 +4444,7 @@ function AuthedApp() {
             </div>
           )}
 
-          {current.roiSummary && <Card label="💡 投資の効果" text={current.roiSummary} bg="#f0ebe2" />}
+          {current.roiSummary && <Card label="💡 一番の収穫" text={current.roiSummary} bg="#f0ebe2" />}
 
           {/* Action buttons */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20 }}>
@@ -4452,23 +4452,33 @@ function AuthedApp() {
               <>
                 <button
                   onClick={async () => {
-                    // before → reading は AI 読書計画が未完了のまま進むと
-                    // このアプリのコア価値（戦略提案）を使い損ねるので、
-                    // 強制はしないが必ず警告する。
-                    if (
-                      current.status === 'before' &&
-                      (!current.investPurpose || !current.aiAnalysis || !current.aiStrategy)
-                    ) {
-                      const ok = await confirm({
-                        title: '読書計画 未完了のまま進みますか？',
-                        message:
-                          'AI 解析・投資目的・読書計画シートが未入力です。先に「📋 読書計画を始める」を完了すると、このアプリの一番の価値（戦略提案）が活用できます。',
-                        confirmLabel: 'このまま読書を開始',
-                        cancelLabel: '読書計画を完了する',
-                      });
-                      if (!ok) {
+                    if (current.status === 'before') {
+                      // 🎯 投資目的は必須（本田哲学=「目的なき読書はしない」）。
+                      // 1 行も無いまま読書中へは進ませない＝設定画面へ誘導。
+                      if (!current.investPurpose || !current.investPurpose.trim()) {
+                        await confirm({
+                          title: '読む前に、投資目的を決めましょう',
+                          message:
+                            'この本を「何のために読むか」を 1 行だけでも決めると、読書の精度とリターンが大きく変わります。目的なき読書は、もったいない。',
+                          confirmLabel: '投資目的を入力する',
+                          cancelLabel: '閉じる',
+                        });
                         openSetup(current);
                         return;
+                      }
+                      // 投資目的はあるが AI 解析・読書計画が未完了 → 任意なので警告のみ。
+                      if (!current.aiAnalysis || !current.aiStrategy) {
+                        const ok = await confirm({
+                          title: '読書計画を作っておきますか？',
+                          message:
+                            'AI 解析・読書計画シートが未作成です。作っておくと「どの 20% を読むか」が分かり、投資対効果が上がります（任意）。',
+                          confirmLabel: 'このまま読書を開始',
+                          cancelLabel: '読書計画を作る',
+                        });
+                        if (!ok) {
+                          openSetup(current);
+                          return;
+                        }
                       }
                     }
                     advanceStatus(current, nextStatus[current.status]);
@@ -4483,7 +4493,7 @@ function AuthedApp() {
                     ? '💡 投資戦略を立てると、AI が読書計画シートを自動生成します'
                     : current.status === 'before'
                     ? '💡 読書中になると、メモ機能が解放されます'
-                    : '💡 完了後、投資の効果とメモの振り返りが可能になります'}
+                    : '💡 完了後、振り返りと「一番の収穫」を残せます'}
                 </p>
               </>
             )}
