@@ -2564,16 +2564,22 @@ function AuthedApp() {
   const effectiveBookshelfView = bookshelfViewMode === 'auto'
     ? (rawBooks.length <= 3 ? 'list' : 'grid')
     : bookshelfViewMode;
-  // 親タブ「振り返り」「AI」内のサブタブ。localStorage に保存して再訪時に復元。
-  const [reviewSubTab, setReviewSubTab] = useState(() => {
-    // 既定は 🎯 行動（「次にやること」を最初に見せる方が振り返りの動機になる）。
-    try { return localStorage.getItem('reviewSubTab') || 'action'; } catch { return 'action'; }
-  });
-  const [aiSubTab, setAiSubTab] = useState(() => {
-    try { return localStorage.getItem('aiSubTab') || 'advisor'; } catch { return 'advisor'; }
-  });
-  useEffect(() => { try { localStorage.setItem('reviewSubTab', reviewSubTab); } catch { /* ignore */ } }, [reviewSubTab]);
-  useEffect(() => { try { localStorage.setItem('aiSubTab', aiSubTab); } catch { /* ignore */ } }, [aiSubTab]);
+  // 親タブ「振り返り」「AI」内のサブタブ。
+  // 入口は常に固定（永続化しない）: 振り返り＝🎯行動 / AI＝🔍AI選書。
+  // 直前に見ていたサブタブ（ノート / マイ読書脳など）に毎回飛ぶと「タブを
+  // 押したのに違うものが出る」分かりにくさになるため、毎回の起点を一定にする。
+  // 個別画面への明示遷移（想起ディープリンク等）は setReviewSubTab/setAiSubTab で上書きする。
+  const [reviewSubTab, setReviewSubTab] = useState('action');
+  const [aiSubTab, setAiSubTab] = useState('advisor');
+
+  // 下部ナビでタブを切り替えるときの共通処理。同一セッション内で前回見ていた
+  // サブタブが状態に残っていても、入口を「振り返り＝行動 / AI＝AI選書」に
+  // 必ずリセットしてから切り替える（タブを押すたびに起点が一定になる）。
+  const navigateTab = (t) => {
+    if (t === 'review') setReviewSubTab('action');
+    else if (t === 'ai') setAiSubTab('advisor');
+    setTab(t);
+  };
 
   // 🔔 想起プッシュ通知のディープリンク受信。
   //   通知タップ → /?recall=<memoId> で起動 / 既存ウィンドウに navigate される。
@@ -4756,7 +4762,7 @@ function AuthedApp() {
           </Suspense>
         )}
 
-        <BottomNav tab={tab} setTab={(t) => { setTab(t); goList(); }} hidden={keyboardOpen} />
+        <BottomNav tab={tab} setTab={(t) => { navigateTab(t); goList(); }} hidden={keyboardOpen} />
       </Shell>
     );
   }
@@ -5490,7 +5496,7 @@ function AuthedApp() {
 
       <UpdateBanner safe={safeForUpdate} />
 
-      <BottomNav tab={tab} setTab={(t) => { setTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
+      <BottomNav tab={tab} setTab={(t) => { navigateTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
     </Shell>
   );
 }

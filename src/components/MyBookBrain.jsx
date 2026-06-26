@@ -313,6 +313,22 @@ export default function MyBookBrain({ onOpenBook }) {
     fetchHistory();
   }, [fetchHistory]);
 
+  // マイ読書脳を開くたびに、💬 質問 は「新しい会話」から始める。
+  // 過去のやりとりは 📜 履歴 にすべて残るので失われない。「開いた瞬間に前回の
+  // 会話がそのまま出てきて違和感」を解消する。
+  // クロックずれ対策で、クライアント時刻ではなく「読み込んだ最新メッセージの
+  // 作成時刻(サーバ時刻)」を境界にする → 以降に送る質問(サーバ now() で必ず
+  // 後)は確実に chat に表示される。
+  const freshOnMountRef = useRef(false);
+  useEffect(() => {
+    if (freshOnMountRef.current || !historyLoaded) return;
+    freshOnMountRef.current = true;
+    const latest = messages.length > 0 ? messages[messages.length - 1].createdAt : null;
+    const cut = latest || new Date().toISOString();
+    setClearedAt(cut);
+    try { localStorage.setItem('brain-cleared-at', cut); } catch { /* ignore */ }
+  }, [historyLoaded, messages]);
+
   // Knowledge counts for the header (cards / summaries / personal)。
   // summaries は books の 7 フィールド (leverage_memo + invest_purpose +
   // current_challenge + hypothesis + ai_summary + roi_summary + ai_strategy)
