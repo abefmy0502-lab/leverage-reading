@@ -22,13 +22,14 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import { getRandomFromCategory } from '../lib/quotes';
 import { relativeJa, recallFraming, pickRecallMemo } from '../lib/recall';
+import { btnGhost as uiBtnGhost } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
 const cardBase = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '12px 14px' };
 const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
-const btnGhost = { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, minHeight: 36 };
+const btnGhost = { ...uiBtnGhost, width: 'auto', padding: '8px 14px', borderRadius: 8, fontSize: 12, minHeight: 36 };
 const pill = { fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
 // relativeJa / recallFraming は src/lib/recall.js に切り出して

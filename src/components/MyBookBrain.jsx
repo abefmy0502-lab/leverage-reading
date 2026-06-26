@@ -15,6 +15,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { streamMyBookBrain, generateWeeklyQuestion } from '../lib/ai';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
@@ -33,8 +34,8 @@ const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScr
 const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '12px 14px' };
 const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
-const btnPrimary = { padding: '12px 20px', borderRadius: 10, border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
-const btnGhost = { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 };
+const btnPrimary = { ...uiBtnPrimary, width: 'auto', padding: '12px 20px', fontSize: 14 };
+const btnGhost = { ...uiBtnGhost, width: 'auto', padding: '8px 12px', borderRadius: 8, fontSize: 12 };
 const pill = (active) => ({
   // Sized to content so labels never wrap; row scrolls horizontally on
   // narrow phones via the parent's overflow-x: auto + lvg-no-scrollbar.

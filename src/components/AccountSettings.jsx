@@ -21,6 +21,7 @@ import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
 import { isNative, purchasePlan, openManageSubscriptions, APP_PLAN_LABELS } from '../lib/iap';
+import { btnPrimary as uiBtnPrimary, btnDanger as uiBtnDanger } from '../styles/ui';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
   isPushSupported,
@@ -181,23 +182,8 @@ const sectionDescStyle = { fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 1
 // 無効/準備中など、ボタンを出さず案内文のみのときの末尾余白なしバリアント。
 const sectionNoteStyle = { fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 };
 
-const btnPrimary = {
-  width: '100%',
-  padding: '13px 18px',
-  borderRadius: 14,
-  border: 'none',
-  background: 'var(--c-brand)',
-  color: 'var(--c-card)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 15,
-  fontWeight: 600,
-  letterSpacing: '0.01em',
-  minHeight: 48,
-  boxShadow: '0 1px 2px rgba(60, 48, 30, 0.18)',
-};
-
-const btnDanger = { ...btnPrimary, background: 'var(--c-critical)' };
+const btnPrimary = uiBtnPrimary;
+const btnDanger = uiBtnDanger;
 
 const inputStyle = {
   width: '100%',

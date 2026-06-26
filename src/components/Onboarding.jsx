@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getRandomFromCategory } from '../lib/quotes';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
@@ -104,32 +105,9 @@ const dot = (active) => ({
   transition: 'background .15s',
 });
 
-const btnPrimary = {
-  flex: 1,
-  minHeight: 44,
-  padding: '12px 0',
-  borderRadius: 10,
-  border: 'none',
-  background: 'var(--c-brand)',
-  color: 'var(--c-card)',
-  fontSize: 14,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  letterSpacing: 1,
-};
+const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1, minHeight: 44, padding: '12px 0', fontSize: 14 };
 
-const btnGhost = {
-  flex: 1,
-  minHeight: 44,
-  padding: '12px 0',
-  borderRadius: 10,
-  border: '1px solid var(--c-hairline-strong)',
-  background: 'transparent',
-  color: 'var(--c-ink-soft)',
-  fontSize: 14,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-};
+const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1, minHeight: 44, padding: '12px 0', fontSize: 14, color: 'var(--c-ink-soft)' };
 
 const closeBtnStyle = {
   position: 'absolute',

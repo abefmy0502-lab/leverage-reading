@@ -5,6 +5,7 @@ import { LIMITS, validateImageFile } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
@@ -70,30 +71,9 @@ const inp = {
 
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
 
-const btnPrimary = {
-  flex: 1,
-  padding: '12px 0',
-  borderRadius: 10,
-  border: 'none',
-  background: 'var(--c-brand)',
-  color: 'var(--c-card)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 14,
-  letterSpacing: 1,
-};
+const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1, padding: '12px 0', fontSize: 14 };
 
-const btnGhost = {
-  flex: 1,
-  padding: '12px 0',
-  borderRadius: 10,
-  border: '1px solid var(--c-hairline-strong)',
-  background: 'transparent',
-  color: 'var(--c-brand)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 14,
-};
+const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1, padding: '12px 0', fontSize: 14 };
 
 const fieldLabel = {
   fontSize: 13,

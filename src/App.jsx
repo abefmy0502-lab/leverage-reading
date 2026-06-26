@@ -10,6 +10,7 @@ import BookMemoList from './components/BookMemoList';
 import BookMemoEditor from './components/BookMemoEditor';
 import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from './styles/ui';
 import HelpModal from './components/HelpModal';
 const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
@@ -5701,8 +5702,9 @@ export default function App() {
 const inp = { width: "100%", minWidth: 0, padding: "12px 14px", fontSize: 16, border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", background: "var(--color-surface)", outline: "none", color: "var(--color-label)", fontFamily: "inherit", WebkitAppearance: "none", appearance: "none" };
 const ta = { ...inp, resize: "vertical", lineHeight: "var(--leading-relaxed)" };
 const lnk = { background: "none", border: "none", color: "var(--color-tertiary)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: "11px 8px", margin: "-11px -8px", minHeight: 44, display: "inline-flex", alignItems: "center" };
-const btnS = { padding: "12px 0", borderRadius: "var(--radius-lg)", border: "none", background: "var(--color-accent-strong)", color: "var(--color-text-inverse)", cursor: "pointer", fontFamily: "inherit", fontSize: 15, fontWeight: 600, letterSpacing: "0.01em", boxShadow: "0 1px 2px rgba(60,48,30,0.18)" };
-const btnO = { padding: "12px 0", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", background: "transparent", color: "var(--color-secondary)", cursor: "pointer", fontFamily: "inherit", fontSize: 15 };
+// 主ボタンは ui.js（単一の真実）を継承。幅とパディングは従来の挙動を保つ。
+const btnS = { ...uiBtnPrimary, width: "auto", padding: "12px 0" };
+const btnO = { ...uiBtnGhost, width: "auto", padding: "12px 0", fontSize: 15 };
 const aiB = { width: "100%", padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px dashed #c4b8a6", background: "var(--color-accent-soft)", color: "#6b5d4f", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: "var(--weight-medium)" };
 const navBtn = { padding: "10px 24px", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-secondary)", cursor: "pointer", fontFamily: "inherit", fontSize: 13 };
 const closeBtn = { background: "none", border: "none", fontSize: 20, color: "var(--color-tertiary)", cursor: "pointer" };

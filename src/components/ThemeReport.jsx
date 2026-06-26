@@ -28,6 +28,7 @@ import {
 import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
 import PullToRefresh from './PullToRefresh';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 import { BarChart3, Sparkles, Square } from 'lucide-react';
 
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
@@ -35,8 +36,8 @@ const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, 
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '14px 16px 28px' };
 const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '14px 16px' };
 const inp = { width: '100%', padding: '11px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
-const btnPrimary = { minHeight: 44, padding: '12px 20px', borderRadius: 10, border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, letterSpacing: 1 };
-const btnGhost = { minHeight: 44, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 };
+const btnPrimary = { ...uiBtnPrimary, width: 'auto', minHeight: 44, padding: '12px 20px', fontSize: 14 };
+const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: '10px 14px', fontSize: 13 };
 const pill = (active) => ({
   flex: '0 0 auto',
   whiteSpace: 'nowrap',

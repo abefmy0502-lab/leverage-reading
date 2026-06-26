@@ -10,6 +10,7 @@ import { useFeedback, FEEDBACK_CATEGORIES, FEEDBACK_LIMITS } from '../hooks/useF
 import { useToast } from './Toast';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 
 const overlayStyle = {
   position: 'fixed',
@@ -123,26 +124,9 @@ const footerStyle = {
   borderTop: '1px solid var(--c-hairline)',
 };
 
-const btnPrimary = {
-  flex: 1,
-  padding: '12px 18px',
-  borderRadius: 10,
-  border: 'none',
-  background: 'var(--c-brand)',
-  color: 'var(--c-card)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 14,
-  letterSpacing: 1,
-  minHeight: 44,
-};
+const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1, padding: '12px 18px', fontSize: 14, minHeight: 44 };
 
-const btnGhost = {
-  ...btnPrimary,
-  background: 'transparent',
-  color: 'var(--c-brand)',
-  border: '1px solid var(--c-hairline-strong)',
-};
+const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1, padding: '12px 18px', fontSize: 14, minHeight: 44 };
 
 export default function FeedbackForm({ onClose }) {
   const { submitFeedback } = useFeedback();
