@@ -75,6 +75,7 @@ const SctPage = lazy(() => import('./legal/SctPage'));
 import { supabase as supabaseClient } from './lib/supabase';
 import { track } from './lib/analytics';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
@@ -2653,6 +2654,18 @@ function AuthedApp() {
   }, [keyboardOpen]);
   // 📊 起動 1 回だけ計測（fail-silent・オプトアウト/未ログインで no-op）。
   useEffect(() => { track('app_open'); }, []);
+  // 🛰️ 管理者判定（is_app_admin RPC）。非管理者・未適用 DB では静かに false。
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const { data, error } = await supabaseClient.rpc('is_app_admin');
+        if (alive && !error) setIsAdmin(data === true);
+      } catch { /* 未適用 DB 等は false のまま */ }
+    })();
+    return () => { alive = false; };
+  }, [user]);
   const {
     books: rawBooks,
     loading: booksLoading,
@@ -2830,6 +2843,9 @@ function AuthedApp() {
   // 編集フォームの「未保存変更」検知用ベースライン（編集に入った時点のスナップショット）。
   const editBaselineRef = useRef(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 🛰️ 運営ダッシュボード（管理者のみ）。isAdmin は起動時に1回だけ判定。
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   // Long-press context menu (book cards on bookshelf)
   const [bookContextMenu, setBookContextMenu] = useState(null); // { x, y, book }
   // 詳細画面の「⋯」kebab メニュー位置 (button 近くに表示する)
@@ -5582,7 +5598,16 @@ function AuthedApp() {
           <AccountSettings
             onClose={() => setSettingsOpen(false)}
             onAfterDelete={() => setSettingsOpen(false)}
+            isAdmin={isAdmin}
+            onOpenAdmin={() => { setSettingsOpen(false); setAdminOpen(true); }}
           />
+        </Suspense>
+      )}
+
+      {/* 🛰️ 運営ダッシュボード（管理者のみ。設定モーダルの「運営」から開く） */}
+      {adminOpen && (
+        <Suspense fallback={<Spinner />}>
+          <AdminDashboard onClose={() => setAdminOpen(false)} />
         </Suspense>
       )}
 

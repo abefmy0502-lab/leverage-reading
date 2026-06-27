@@ -260,7 +260,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
   return all;
 }
 
-export default function AccountSettings({ onClose, onAfterDelete }) {
+export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpenAdmin }) {
   const { user, signOut } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -670,6 +670,22 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
             <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0 }}>サインイン中</p>
             <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
           </div>
+
+          {/* 🛰️ 運営（管理者のみ表示） */}
+          {isAdmin && (
+            <>
+              <GroupLabel>運営</GroupLabel>
+              <section style={sectionStyle} aria-label="運営ダッシュボード">
+                <SecTitle icon={IcBar}>運営ダッシュボード</SecTitle>
+                <p style={sectionDescStyle}>
+                  アクティブ人数・売上・AI コスト・機能別の利用状況・問い合わせを一画面で確認できます。
+                </p>
+                <button type="button" style={btnPrimary} onClick={onOpenAdmin}>
+                  ダッシュボードを開く
+                </button>
+              </section>
+            </>
+          )}
 
           {/* ── プラン・お支払い ── */}
           <GroupLabel>プラン・お支払い</GroupLabel>
