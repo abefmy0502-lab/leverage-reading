@@ -176,9 +176,29 @@ async function checkMonthlyUsage(userId) {
 //       → { allowed: false }（明確な未課金。ハードペイウォールの方針どおり止める）
 // クライアントの useSubscription も「取得エラー時は active を潰さない」設計なので、
 // 表示と挙動が食い違わない（行が無い＝クライアントでも AI 非表示）。
+// 🛰️ 管理者（app_admins）か判定。運営はペイウォール/課金なしで AI を使える
+//    （運営ダッシュボードの AI ロードマップ等）。未適用/エラーは false（=通常判定へ）。
+async function isAdminUser(userId) {
+  const supabase = getServiceSupabase();
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase
+      .from('app_admins')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) return false;
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
 async function checkEntitlement(userId) {
   const supabase = getServiceSupabase();
   if (!supabase) return { allowed: true }; // 判定不能なら通す（fail-open）
+  // 管理者（運営）は課金不要で通す。
+  if (await isAdminUser(userId)) return { allowed: true };
   try {
     const { data, error } = await supabase
       .from('subscriptions')
