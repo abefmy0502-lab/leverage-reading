@@ -5455,13 +5455,14 @@ function AuthedApp() {
                 <IcRuler size={15} aria-hidden="true" style={subTabIconStyle} />テーマまとめ
               </button>
             </div>
-            {/* 独自名のサブタブを初対面でも分かるよう、内容を平易な一言で注釈する。 */}
+            {/* 独自名のサブタブを初対面でも分かるよう、役割を動詞で先頭に置いて注釈する。
+                3 つの違い（選ぶ/聞く/しぼる）を一目で言語化できるようにする。 */}
             <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 12px 0', lineHeight: 1.6, flexShrink: 0 }}>
               {aiSubTab === 'advisor'
-                ? 'いまの課題に合う本を、AI が提案します。'
+                ? <><strong style={{ color: 'var(--c-ink)' }}>選ぶ</strong> — いまの課題に合う本を、AI が提案します。</>
                 : aiSubTab === 'brain'
-                ? 'あなたが残したメモをもとに、AI が質問に答えます。'
-                : 'テーマごとに、学びを「この1行」と「次の一歩」にまとめます。'}
+                ? <><strong style={{ color: 'var(--c-ink)' }}>聞く</strong> — あなたのメモに質問して、答えと「明日の一歩」を得ます。</>
+                : <><strong style={{ color: 'var(--c-ink)' }}>しぼる</strong> — テーマの学びを「この1行」と「次の一歩」に凝縮します。</>}
             </p>
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
