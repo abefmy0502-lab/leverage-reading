@@ -89,11 +89,24 @@ async function googleCover(title, author, isbn) {
   return { cover: '', isbn: '' };
 }
 
+// 一部の書影 CDN（NDL / Amazon）はデータセンター IP からの素の fetch を
+// 403 で弾く（ブラウザの UA / Referer が無いため）。ブラウザ相当のヘッダを
+// 付けると通ることが多い。
+const BROWSER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+  Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+  'Accept-Language': 'ja,en;q=0.8',
+  Referer: 'https://ndlsearch.ndl.go.jp/',
+};
+
 // 画像の実在＋「表紙らしさ」を server-side で検証（1×1 / No-image を弾く）。
+// ※ これは best-effort。403 等で検証できなくても、呼び出し側は ISBN から
+//   構築した URL をクライアントに返し、ブラウザ側で最終検証する。
 async function imageIsReal(url) {
   if (!url) return false;
   try {
-    const r = await fetch(url, { method: 'GET' });
+    const r = await fetch(url, { method: 'GET', headers: BROWSER_HEADERS });
     if (!r.ok) return false;
     const ct = r.headers.get('content-type') || '';
     if (!/^image\//i.test(ct)) return false;
@@ -107,17 +120,23 @@ async function imageIsReal(url) {
   }
 }
 
-// ISBN から各ソースの表紙を順に検証採用。
-async function coverFromIsbn(isbn) {
+// ISBN から表紙 URL の候補を優先順で構築（クライアントが <img> で実在検証する）。
+// 鍵不要・和書カバー率の高い順。
+function coverCandidatesFor(isbn) {
   const i13 = cleanIsbn(isbn);
   const i10 = isbn13to10(i13);
-  const sources = [
+  return [
     i13 && `https://ndlsearch.ndl.go.jp/thumbnail/${i13}.jpg`,
     i13 && `https://cover.openbd.jp/${i13}.jpg`,
+    i13 && `https://covers.openlibrary.org/b/isbn/${i13}-L.jpg?default=false`,
     i10 && `https://m.media-amazon.com/images/P/${i10}.09._SCLZZZZZZZ_.jpg`,
     i10 && `https://images-na.ssl-images-amazon.com/images/P/${i10}.09.LZZZZZZZ.jpg`,
   ].filter(Boolean);
-  for (const u of sources) {
+}
+
+// ISBN から各ソースの表紙を順に server-side 検証採用（best-effort）。
+async function coverFromIsbn(isbn) {
+  for (const u of coverCandidatesFor(isbn)) {
     // eslint-disable-next-line no-await-in-loop
     if (await imageIsReal(u)) return u;
   }
@@ -151,9 +170,13 @@ export default async function handler(req, res) {
       dbg.steps.ndl = { url: ndlUrl, status: r.status, ok: r.ok, xmlLength: xml.length, xmlHead: xml.slice(0, 400), isbns };
       if (isbns[0]) {
         const u13 = `https://ndlsearch.ndl.go.jp/thumbnail/${isbns[0]}.jpg`;
-        const ir = await fetch(u13);
+        const ir = await fetch(u13, { headers: BROWSER_HEADERS });
         const buf = ir.ok ? await ir.arrayBuffer() : null;
         dbg.steps.ndlThumb = { url: u13, status: ir.status, contentType: ir.headers.get('content-type'), bytes: buf ? buf.byteLength : 0 };
+        const ob = `https://cover.openbd.jp/${isbns[0]}.jpg`;
+        const obr = await fetch(ob, { headers: BROWSER_HEADERS });
+        const obuf = obr.ok ? await obr.arrayBuffer() : null;
+        dbg.steps.openbd = { url: ob, status: obr.status, contentType: obr.headers.get('content-type'), bytes: obuf ? obuf.byteLength : 0 };
       }
     } catch (e) { dbg.steps.ndlError = String(e && e.message); }
     try {
@@ -169,17 +192,19 @@ export default async function handler(req, res) {
   let isbn = isbnIn;
 
   try {
-    // ① ISBN が分かっていれば各ソースを直接検証。
+    // ① ISBN が分かっていれば各ソースを server-side 検証（通れば fast path）。
     if (isbn) cover = await coverFromIsbn(isbn);
 
-    // ② NDL OpenSearch（キー不要・和書最強）で ISBN を引いて表紙を検証採用。
+    // ② NDL OpenSearch（キー不要・和書最強）で ISBN を引く。
+    //    ※ サーバーからの書影 fetch は 403 で弾かれることがあるので、表紙が
+    //      検証できなくても「正しい ISBN」は必ず確保する（後段でクライアントに渡す）。
     if (!cover) {
       const isbns = await ndlIsbns(title, author);
       for (const cand of isbns) {
+        if (!isbn) isbn = cand; // 最初に見つかった ISBN を確保
         // eslint-disable-next-line no-await-in-loop
         const u = await coverFromIsbn(cand);
         if (u) { cover = u; isbn = cand; break; }
-        if (!isbn) isbn = cand;
       }
     }
 
@@ -196,6 +221,11 @@ export default async function handler(req, res) {
     console.warn('[api/cover] failed:', e && e.message);
   }
 
+  // 🔑 重要: server-side で書影 fetch が 403 されても、解決済み ISBN から
+  //    候補 URL を構築してクライアントに返す。ブラウザは Referer/UA を付けて
+  //    読みに行くので 403 にならず、CSP も許可済み。client が <img> で最終検証する。
+  const candidates = isbn ? coverCandidatesFor(isbn) : [];
+
   res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800');
-  return res.status(200).json({ cover: cover || '', isbn: isbn || '' });
+  return res.status(200).json({ cover: cover || '', isbn: isbn || '', candidates });
 }

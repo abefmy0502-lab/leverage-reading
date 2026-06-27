@@ -22,8 +22,12 @@ export const normalizeIsbn = (isbn) => {
 };
 
 // 🛰️ サーバーサイドの表紙リゾルバ（/api/cover）に問い合わせる第一経路。
-// 端末からの Google Books 429 / NDL の CORS を回避するため、まずサーバーに
-// 解決を委ねる。返り値 { url, isbn } または null（失敗・未発見）。
+// サーバーは「タイトル+著者 → 正しい ISBN」の解決が得意（NDL OpenSearch は
+// データセンター IP でも 429/CORS にならない）。ただし書影画像そのものの
+// fetch はサーバーだと 403 で弾かれることがあるため、サーバーは候補 URL の
+// リスト（candidates）も返す。ここでブラウザの <img> ロードで実在検証する
+// （ブラウザは Referer/UA を付けるので 403 にならず、CSP も許可済み）。
+// 返り値 { url, isbn } または null（失敗・未発見）。
 export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
   const params = new URLSearchParams();
   if (title) params.set('title', title);
@@ -34,7 +38,19 @@ export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
     const r = await fetch(`/api/cover?${params.toString()}`);
     if (!r.ok) return null;
     const d = await r.json();
-    if (d && d.cover) return { url: d.cover, isbn: d.isbn || isbn || '' };
+    if (!d) return null;
+    const resolvedIsbn = d.isbn || isbn || '';
+    // ① サーバーが server-side 検証を通した cover があれば、それを最優先で
+    //    ブラウザ側でも一応検証して採用（速い）。
+    if (d.cover && (await checkImageExists(d.cover))) {
+      return { url: d.cover, isbn: resolvedIsbn };
+    }
+    // ② サーバーが返した候補 URL を順にブラウザ側で実在検証（403 回避の本命）。
+    const candidates = Array.isArray(d.candidates) ? d.candidates : [];
+    for (const u of candidates) {
+      // eslint-disable-next-line no-await-in-loop
+      if (await checkImageExists(u)) return { url: u, isbn: resolvedIsbn };
+    }
     return null;
   } catch {
     return null;
