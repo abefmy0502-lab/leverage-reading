@@ -263,8 +263,19 @@ export function useBooks() {
         if (error) throw error;
       }
 
-      // Actions: upsert by id, then delete removed rows
-      const incoming = book.actions || [];
+      // Actions: upsert by id, then delete removed rows.
+      // 完全重複（同じ文言・期限・完了状態・繰り返し）を保存前に畳む。繰り返し
+      // タスクの多重 spawn などでできた重複行を、保存のたびに 1 件へ収束させて
+      // DB を掃除する（id を持つ行を優先的に残し、残りは下の DELETE で消える）。
+      const rawActions = (book.actions || []).filter((a) => a && typeof a.text === 'string' && a.text.trim());
+      const dedupMap = new Map();
+      for (const a of rawActions) {
+        const key = `${a.text.trim()}|${a.deadline || ''}|${a.done ? 1 : 0}|${a.recurrence || ''}`;
+        const prev = dedupMap.get(key);
+        // id を持つ行（永続済み）を優先的に残す。
+        if (!prev || (!prev.id && a.id)) dedupMap.set(key, a);
+      }
+      const incoming = [...dedupMap.values()];
       const existingIds = incoming
         .map((a) => a.id)
         .filter((id) => typeof id === 'string' && UUID_RE.test(id));

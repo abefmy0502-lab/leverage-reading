@@ -3945,19 +3945,27 @@ function AuthedApp() {
         if (updatedAct.recurrence === 'weekly') showFrom.setDate(showFrom.getDate() - 1);
         else if (updatedAct.recurrence === 'monthly') showFrom.setDate(showFrom.getDate() - 3);
         showFrom.setHours(0, 0, 0, 0);
-        acts.push({
-          // id を持たせず INSERT 扱いさせる。
-          text: target.text,
-          deadline: nextDeadline,
-          done: false,
-          priority: target.priority || 'medium',
-          recurrence: target.recurrence,
-          sourceMemoId: target.sourceMemoId || null,
-          sourcePage: target.sourcePage || null,
-          reflection: '',
-          completedAt: null,
-          scheduledFor: showFrom.toISOString(),
-        });
+        // 既に同じ文言の未完了インスタンスが残っているなら spawn しない
+        // （二重タップや再完了で同じ繰り返しタスクが増殖するのを防ぐ）。
+        const twinText = (target.text || '').trim();
+        const hasPendingTwin = acts.some(
+          (a, idx) => idx !== actionIdx && !a.done && (a.text || '').trim() === twinText && a.recurrence === target.recurrence
+        );
+        if (!hasPendingTwin) {
+          acts.push({
+            // id を持たせず INSERT 扱いさせる。
+            text: target.text,
+            deadline: nextDeadline,
+            done: false,
+            priority: target.priority || 'medium',
+            recurrence: target.recurrence,
+            sourceMemoId: target.sourceMemoId || null,
+            sourcePage: target.sourcePage || null,
+            reflection: '',
+            completedAt: null,
+            scheduledFor: showFrom.toISOString(),
+          });
+        }
       }
     }
 

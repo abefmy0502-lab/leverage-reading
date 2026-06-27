@@ -207,28 +207,31 @@ const trendCaptionStyle = {
   whiteSpace: 'nowrap',
 };
 
-// 📈 読書の投資対効果（損益計算書）— 読了→行動→収穫 の漏斗。読了は入力(作業量)、
-// 行動・収穫が成果。本田哲学「読書は投資、ROI で測る」を 1 行で可視化する。
+// 📈 読書が成果につながった度合いを「読んだ本 → 実行した行動 → 残した学び」の
+// 流れで示す。初見でも意味が分かるよう、見出しの下に平易な一文を添える。
 function RoiFunnel({ doneTotal, actionsDone, harvest }) {
   const noOutcome = actionsDone === 0 && harvest === 0;
   const cell = (n, label, color) => (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, minWidth: 0 }}>
-      <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
-      <span style={{ fontSize: 9.5, color: 'var(--color-text-tertiary)', letterSpacing: '.02em' }}>{label}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 0, flex: 1 }}>
+      <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+      <span style={{ fontSize: 10, color: 'var(--color-text-secondary)', letterSpacing: '.01em', textAlign: 'center', lineHeight: 1.3 }}>{label}</span>
     </div>
   );
-  const arrow = <span aria-hidden="true" style={{ color: '#c3b9a4', fontWeight: 700, fontSize: 13 }}>→</span>;
+  const arrow = <span aria-hidden="true" style={{ color: '#c3b9a4', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>→</span>;
   return (
     <div style={{ background: 'var(--color-accent-soft)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
-      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.1em', marginBottom: 8 }}>
-        📈 読書の投資対効果
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', marginBottom: 2 }}>
+        📈 読書が成果に変わった記録
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: 4 }}>
-        {cell(doneTotal, '読了', 'var(--color-text-secondary)')}
+      <p style={{ fontSize: 10.5, color: 'var(--c-ink-3)', margin: '0 0 10px', lineHeight: 1.45 }}>
+        読んだ本が、行動の実行、そして学びの収穫へつながった数です。
+      </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4 }}>
+        {cell(doneTotal, '読んだ本', 'var(--color-text-secondary)')}
         {arrow}
-        {cell(actionsDone, '行動 実行', actionsDone > 0 ? 'var(--c-positive)' : 'var(--color-text-tertiary)')}
+        {cell(actionsDone, '実行した行動', actionsDone > 0 ? 'var(--c-positive)' : 'var(--color-text-tertiary)')}
         {arrow}
-        {cell(harvest, '収穫', harvest > 0 ? '#a06a30' : 'var(--color-text-tertiary)')}
+        {cell(harvest, '残した収穫', harvest > 0 ? '#a06a30' : 'var(--color-text-tertiary)')}
       </div>
       {noOutcome && doneTotal > 0 && (
         <p style={{ fontSize: 10.5, color: '#9a8c74', margin: '8px 0 0', lineHeight: 1.5, textAlign: 'center' }}>

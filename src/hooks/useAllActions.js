@@ -105,6 +105,11 @@ export function useAllActions(books) {
   const allActions = useMemo(() => {
     const now = new Date();
     const out = [];
+    // 同一行動の重複を排除する。繰り返しタスクの spawn 等で、同じ本・同じ文言・
+    // 同じ期限・同じ完了状態の行が複数できてしまうことがあり、そのまま出すと
+    // 「同じタスクが何個も並ぶ」「達成率の母数が水増しされる」事故になる。
+    // 最初の 1 件だけ採用（actionIdx を保持＝トグル対象は元の行のまま）。
+    const seen = new Set();
     (books || []).forEach((b) => {
       (b.actions || []).forEach((act, i) => {
         if (!act?.text?.trim()) return;
@@ -113,6 +118,9 @@ export function useAllActions(books) {
           const showFrom = new Date(act.scheduledFor);
           if (!Number.isNaN(showFrom.getTime()) && showFrom > now) return;
         }
+        const dedupKey = `${b.id}|${act.text.trim()}|${act.deadline || ''}|${act.done ? 1 : 0}|${act.recurrence || ''}`;
+        if (seen.has(dedupKey)) return; // 完全重複はスキップ
+        seen.add(dedupKey);
         out.push({
           ...act,
           bookId: b.id,

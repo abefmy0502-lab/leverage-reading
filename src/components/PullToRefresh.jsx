@@ -113,8 +113,15 @@ export default function PullToRefresh({ onRefresh, threshold = 70, children }) {
         // that window to play the success flash on the list itself.
         className={showCheck ? 'list-refreshed' : ''}
         style={{
-          transform: pullDistance > 0 || isRefreshing ? `translate3d(0, ${isRefreshing ? threshold * 0.4 : pullDistance * 0.6}px, 0)` : 'translate3d(0, 0, 0)',
+          // 引っ張り中・更新中だけ transform/GPU 昇格を効かせる。安静時に
+          // translate3d(0,0,0) を残すと、ノート等の「縦に長いリスト」全体が常時
+          // 1 枚の GPU レイヤーに昇格し、iOS Safari でスクロール（特に上方向への
+          // 戻り）がカクつく原因になっていた。安静時は transform 無し。
+          transform: pullDistance > 0 || isRefreshing
+            ? `translate3d(0, ${isRefreshing ? threshold * 0.4 : pullDistance * 0.6}px, 0)`
+            : 'none',
           transition: pullDistance === 0 && !isRefreshing ? 'transform 250ms cubic-bezier(0.25,1,0.5,1)' : 'none',
+          willChange: pullDistance > 0 || isRefreshing ? 'transform' : 'auto',
         }}
       >
         {children}
