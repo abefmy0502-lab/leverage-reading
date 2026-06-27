@@ -298,6 +298,61 @@ async function searchGoogleBooks(query, { signal } = {}) {
     .filter((b) => b.title);
 }
 
+// 🆕 本屋モード Phase 2 — テーマの「最新の新刊」を Google Books から取得する。
+// orderBy=newest で発売日の新しい順に並べ、表紙のある日本語書籍に絞る。
+// 失敗・429 は静かに [] を返す（呼び出し側で AI のおすすめ棚にフォールバック）。
+// 返す各要素は searchGoogleBooks と同形 + publishedDate（鮮度表示/並べ替え用）。
+export async function fetchNewReleases(theme, { signal, max = 12 } = {}) {
+  const q = (theme || '').trim();
+  if (!q) return [];
+  let d;
+  try {
+    const r = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}` +
+        `&orderBy=newest&langRestrict=ja&printType=books&maxResults=40&country=JP`,
+      signal ? { signal } : undefined,
+    );
+    if (!r.ok) return [];
+    d = await r.json();
+  } catch {
+    return [];
+  }
+  const seen = new Set();
+  const out = [];
+  // 異常に未来日付（メタデータ誤り）と、極端に古いものを弾くための緩い窓。
+  let curYear = 0;
+  try { curYear = new Date().getFullYear(); } catch { curYear = 0; }
+  for (const i of (d.items || [])) {
+    const v = i.volumeInfo || {};
+    const title = v.title || '';
+    const cover = v.imageLinks?.thumbnail || '';
+    if (!title || !cover) continue; // 棚に並べるので表紙必須
+    const key = title.replace(/\s+/g, '').toLowerCase();
+    if (seen.has(key)) continue;
+    const pubMatch = (v.publishedDate || '').match(/(\d{4})/);
+    const year = pubMatch ? parseInt(pubMatch[1], 10) : 0;
+    if (curYear && year && (year > curYear + 1 || year < curYear - 6)) continue;
+    const ids = v.industryIdentifiers || [];
+    const isbn =
+      ids.find((x) => x.type === 'ISBN_13')?.identifier ||
+      ids.find((x) => x.type === 'ISBN_10')?.identifier ||
+      '';
+    seen.add(key);
+    out.push({
+      title,
+      author: (v.authors || []).join(', '),
+      publisher: v.publisher || '',
+      pubYear: pubMatch ? pubMatch[1] : '',
+      publishedDate: v.publishedDate || '',
+      cover,
+      pages: v.pageCount || 0,
+      isbn,
+    });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 async function lookupISBNGoogle(isbn) {
   const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
   if (!r.ok) return null;
