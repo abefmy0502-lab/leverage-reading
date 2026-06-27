@@ -22,7 +22,7 @@ import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
-import { MessageCircle, Lightbulb, History, BookOpenCheck } from 'lucide-react';
+import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion } from 'lucide-react';
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
 // 収める flex column。chat 時は内側 .chat-scroll + .ai-input-area で
@@ -805,7 +805,8 @@ export default function MyBookBrain({ onOpenBook }) {
               // 先に促す。空のまま質問しても根拠がなく、体験が空振りするため。
               <div style={card}>
                 <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: '0 0 8px' }}>
-                  🌱 まずは1冊、メモを残すところから
+                  <Sprout size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+                  まずは1冊、メモを残すところから
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.8 }}>
                   マイ読書脳は、あなた自身のメモを根拠に答えます。<br />
@@ -823,7 +824,10 @@ export default function MyBookBrain({ onOpenBook }) {
               {weeklyQ && !weeklyDismissed && (
                 <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid var(--c-hairline-strong)', borderRadius: 14, padding: '14px 15px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.14em' }}>💭 今週の問い</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.14em' }}>
+                      <MessageCircleQuestion size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5, letterSpacing: 0 }} />
+                      今週の問い
+                    </span>
                     <button
                       type="button"
                       onClick={dismissWeekly}
@@ -844,7 +848,10 @@ export default function MyBookBrain({ onOpenBook }) {
                 </div>
               )}
               <div style={card}>
-                <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: '0 0 8px', fontWeight: 500 }}>💡 質問例（タップで入力）</p>
+                <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: '0 0 8px', fontWeight: 500 }}>
+                  <Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+                  質問例（タップで入力）
+                </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {QUESTION_EXAMPLES.map((ex) => (
                     <button

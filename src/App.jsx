@@ -16,6 +16,7 @@ import {
   TrendingUp as IcTrendingUp, MessageSquareQuote as IcQuote, History as IcHistory,
   SearchX as IcSearchX, NotebookText as IcNote, Target as IcTarget, Brain as IcBrain,
   Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
+  Lightbulb as IcBulb, MessageSquarePlus as IcNewChat,
 } from 'lucide-react';
 
 // サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
@@ -1975,7 +1976,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               title="履歴"
               style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
             >
-              🕒 履歴
+              <IcHistory size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+              履歴
             </button>
           )}
           {(messages.length > 0 || recommendations) && (
@@ -1986,7 +1988,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               title="新規"
               style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
             >
-              🆕 新規
+              <IcNewChat size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+              新規
             </button>
           )}
         </div>
@@ -1996,7 +1999,10 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
           消えたので、何を入力すれば良いかをここで提示する */}
       {showConcernInput && (
         <div className="example-chips">
-          <p className="example-chips-label">💡 例（タップで入力）</p>
+          <p className="example-chips-label">
+            <IcBulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+            例（タップで入力）
+          </p>
           {ADVISOR_EXAMPLES.map((ex) => (
             <button
               type="button"

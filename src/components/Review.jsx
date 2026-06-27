@@ -23,6 +23,7 @@ import EmptyState from './EmptyState';
 import { getRandomFromCategory } from '../lib/quotes';
 import { relativeJa, recallFraming, pickRecallMemo } from '../lib/recall';
 import { btnGhost as uiBtnGhost } from '../styles/ui';
+import { Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote } from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
@@ -624,9 +625,13 @@ export default function Review({ books = [], onOpenBook }) {
       {/* ===== 1. 今日の振り返り (random) ===== */}
       <section>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <h2 style={sectionTitle}>🎲 ランダム表示</h2>
+          <h2 style={sectionTitle}>
+            <Shuffle size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+            ランダム表示
+          </h2>
           <button type="button" style={btnGhost} onClick={reroll} disabled={flipping}>
-            ↻ 別のメモを見る
+            <RotateCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            別のメモを見る
           </button>
         </div>
         <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.7 }}>
@@ -645,7 +650,7 @@ export default function Review({ books = [], onOpenBook }) {
               lineHeight: 1.7,
             }}
           >
-            🌱 メモが貯まるほど、戻ってくる気づきも豊かになります。今は少なくても大丈夫。
+            メモが貯まるほど、戻ってくる気づきも豊かになります。今は少なくても大丈夫。
           </p>
         )}
         {randomMemo && recallFraming(randomMemo.createdAt) && (
@@ -657,7 +662,8 @@ export default function Review({ books = [], onOpenBook }) {
               margin: '0 0 8px',
             }}
           >
-            💭 {recallFraming(randomMemo.createdAt)}
+            <MessageSquareQuote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+            {recallFraming(randomMemo.createdAt)}
           </p>
         )}
         {randomMemo && (
@@ -691,7 +697,7 @@ export default function Review({ books = [], onOpenBook }) {
             lineHeight: 1.7,
           }}
         >
-          💭 “{todayQuote.text}”
+          “{todayQuote.text}”
           <br />
           <span style={{ fontSize: 10, opacity: 0.75 }}>— {todayQuote.author}</span>
         </p>
@@ -699,7 +705,10 @@ export default function Review({ books = [], onOpenBook }) {
 
       {/* ===== 2. タイムライン ===== */}
       <section>
-        <h2 style={sectionTitle}>📅 タイムライン</h2>
+        <h2 style={sectionTitle}>
+          <CalendarDays size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+          タイムライン
+        </h2>
         <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.7 }}>
           時系列で読書の軌跡を振り返る。3 ヶ月前・半年前の自分の気づきを見返してみましょう。
         </p>
@@ -752,7 +761,10 @@ export default function Review({ books = [], onOpenBook }) {
 
       {/* ===== 3. 全メモ検索 ===== */}
       <section ref={searchSectionRef}>
-        <h2 style={sectionTitle}>🔎 すべての本のメモを横断検索</h2>
+        <h2 style={sectionTitle}>
+          <SearchIcon size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+          すべての本のメモを横断検索
+        </h2>
         <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.7 }}>
           例：「決断」「習慣」「営業」など、気になるキーワードを入れてみてください
         </p>
