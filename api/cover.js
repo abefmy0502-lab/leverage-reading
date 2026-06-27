@@ -114,25 +114,64 @@ async function ndlIsbns(title, author) {
 }
 
 // Google Books（鍵があれば使う・補助）。鍵なしはサーバー IP で弾かれやすい。
+//
+// ⚠️ 著者で正解を選び直す: 「ナイン」のようなありふれたタイトルは数百件ヒット
+//    して先頭が無関係な本になる（=誤マッチで表紙ゼロ）。著者が分かっている時は
+//    volumeInfo.authors を正規化照合し、本人の本だけを採用する。誤った表紙を
+//    掴むより「表紙なし」を選ぶ（クライアントの実在検証では別人の本は弾けない）。
+function gVolFields(v) {
+  const links = v.imageLinks || {};
+  const cover = toHttps(links.thumbnail || links.smallThumbnail || '');
+  const ids = v.industryIdentifiers || [];
+  const gi =
+    (ids.find((x) => x.type === 'ISBN_13') || {}).identifier ||
+    (ids.find((x) => x.type === 'ISBN_10') || {}).identifier ||
+    '';
+  return { cover, isbn: cleanIsbn(gi) };
+}
+function gAuthorMatch(v, wantAuthor) {
+  if (!wantAuthor) return false;
+  return (v.authors || []).some((a) => {
+    const n = normPerson(a);
+    return n && (n.includes(wantAuthor) || wantAuthor.includes(n));
+  });
+}
 async function googleCover(title, author, isbn) {
   const key = process.env.GOOGLE_BOOKS_API_KEY ? `&key=${process.env.GOOGLE_BOOKS_API_KEY}` : '';
   const q = isbn ? `isbn:${cleanIsbn(isbn)}` : `${coreTitle(title)}${author ? ` ${clean(author)}` : ''}`;
+  const want = normPerson(author);
   try {
     const r = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5&country=JP${key}`,
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10&country=JP${key}`,
     );
     if (!r.ok) return { cover: '', isbn: '' };
     const d = await r.json();
-    for (const it of d.items || []) {
-      const v = it.volumeInfo || {};
-      const links = v.imageLinks || {};
-      const cover = toHttps(links.thumbnail || links.smallThumbnail || '');
-      const ids = v.industryIdentifiers || [];
-      const gi =
-        (ids.find((x) => x.type === 'ISBN_13') || {}).identifier ||
-        (ids.find((x) => x.type === 'ISBN_10') || {}).identifier ||
-        '';
-      if (cover) return { cover, isbn: cleanIsbn(gi) };
+    const items = (d.items || []).map((it) => it.volumeInfo || {});
+
+    // 著者が分かっている場合は「本人の本」を最優先（誤マッチ防止）。
+    if (want) {
+      // ① 著者一致＋表紙あり
+      for (const v of items) {
+        if (gAuthorMatch(v, want)) {
+          const f = gVolFields(v);
+          if (f.cover) return f;
+        }
+      }
+      // ② 著者一致だけ（表紙は無いが ISBN は正しい → 候補構築に使える）
+      for (const v of items) {
+        if (gAuthorMatch(v, want)) {
+          const f = gVolFields(v);
+          if (f.isbn) return { cover: '', isbn: f.isbn };
+        }
+      }
+      // 著者一致が皆無 = 別人の本しか無い。誤表紙を避けて空で返す。
+      return { cover: '', isbn: '' };
+    }
+
+    // 著者不明（ISBN 直引き等）は先頭の表紙ありを採用。
+    for (const v of items) {
+      const f = gVolFields(v);
+      if (f.cover) return f;
     }
   } catch { /* ignore */ }
   return { cover: '', isbn: '' };
@@ -230,16 +269,21 @@ export default async function handler(req, res) {
     } catch (e) { dbg.steps.ndlError = String(e && e.message); }
     // 著者照合フォールバック込みの最終 ISBN 候補（実コードと同じ経路）。
     try { dbg.steps.ndlFinal = await ndlIsbns(title, author); } catch (e) { dbg.steps.ndlFinalError = String(e && e.message); }
+    // 実 production と同じ著者照合つき googleCover() の結果。
+    try { dbg.steps.googleCover = await googleCover(title, author, ''); } catch (e) { dbg.steps.googleCoverError = String(e && e.message); }
+    // 生の Google 上位5件（著者照合がなぜ当たる/外れるかを目視するため）。
     try {
       const gq = `${coreTitle(title)}${author ? ` ${author}` : ''}`;
-      const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gq)}&maxResults=2&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`);
+      const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gq)}&maxResults=5&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`);
       const gj = gr.ok ? await gr.json() : null;
-      const gv = gj && gj.items ? (gj.items[0]?.volumeInfo || {}) : {};
       dbg.steps.google = {
         q: gq, status: gr.status, ok: gr.ok, hasKey: !!process.env.GOOGLE_BOOKS_API_KEY,
         totalItems: gj ? (gj.totalItems || 0) : null,
-        firstTitle: gv.title || null,
-        firstThumb: (gv.imageLinks && (gv.imageLinks.thumbnail || gv.imageLinks.smallThumbnail)) || null,
+        top: (gj && gj.items ? gj.items.slice(0, 5) : []).map((it) => ({
+          title: it.volumeInfo?.title || null,
+          authors: it.volumeInfo?.authors || [],
+          hasThumb: !!(it.volumeInfo?.imageLinks),
+        })),
       };
     } catch (e) { dbg.steps.googleError = String(e && e.message); }
     res.setHeader('Cache-Control', 'no-store');
