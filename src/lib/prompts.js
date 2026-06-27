@@ -445,6 +445,32 @@ const cardsToSummary = {
     `===== CARDS_START =====\n${cards}\n===== CARDS_END =====`,
 };
 
+// =========================================================================
+// 🗺 運営ロードマップ（操縦席）— 年の目標から逆算して月別の人数/売上/施策を引く
+// =========================================================================
+const opsRoadmap = {
+  system:
+    'あなたは BtoC アプリのスタートアップを共同経営する参謀です（CEO・マーケ営業責任者・エンジニアリング責任者・経理を兼ねる）。'
+    + '与えられた「現状」と「年の目標」だけを根拠に、目標から逆算した現実的な月別ロードマップを引いてください。'
+    + '楽観バイアスを避け、初期は獲得が遅く後半に伸びる S 字を前提に、無理な直線成長にしない。'
+    + '日本語・Markdown のみ。各月は「### YYYY-MM」見出しで始め、その下に必ず次の3行を入れる:'
+    + '「- 🎯 目標: 有料◯人 / 月売上¥◯ / 月粗利¥◯」'
+    + '「- 📣 マーケ営業: …（その月の具体施策を1〜2個）」'
+    + '「- 🛠 システム/プロダクト: …（その月に作る/直すものを1〜2個）」。'
+    + '冒頭に「## 🧭 全体方針」を2〜3行、末尾に「## ⚠️ 前提と注意」を2行（数字は概算・App手数料15%・AI原価は変動）。'
+    + '誇張や根拠なき断定はしない。数字は現状からの積み上げで一貫させる。',
+  user: ({ goalLabel, target, deadline, monthsLeft, price, feeRate, currentPaid, currentUsers, mrr, grossProfit }) =>
+    `【現状】\n`
+    + `- 総ユーザー: ${currentUsers}人 / 有料会員: ${currentPaid}人\n`
+    + `- 現在の月売上(MRR)概算: ¥${mrr} / 月粗利概算: ¥${grossProfit}\n`
+    + `- 月額単価: ¥${price}（税込）/ App内課金手数料: ${Math.round(feeRate * 100)}%\n`
+    + `\n【年の目標】\n`
+    + `- ${goalLabel} を ¥${target}（または ${target} 人）に、締切 ${deadline}（残り約${monthsLeft}ヶ月）\n`
+    + `\n上記から逆算し、今月から締切月まで（最大12ヶ月・多すぎる場合は四半期粗めでも可）の月別ロードマップを、`
+    + `指定フォーマット（### YYYY-MM ＋ 🎯/📣/🛠 の3行）で出力してください。`
+    + `各月の「有料人数」は累計の目標値、「月売上」は 有料人数×¥${price}、「月粗利」は そこから手数料${Math.round(feeRate * 100)}%とAI原価をざっくり引いた額にすること。`,
+};
+
 export const PROMPTS = {
   bookAnalysis,
   setupSheet,
@@ -459,6 +485,7 @@ export const PROMPTS = {
   weeklyQuestion,
   condense,
   cardsToSummary,
+  opsRoadmap,
 };
 
 export default PROMPTS;

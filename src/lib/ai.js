@@ -566,6 +566,43 @@ export async function summarizeCards({ title, cards }) {
   return cleaned;
 }
 
+// 🗺 運営ロードマップ — 年の目標と現状から、月別の目標人数/売上/施策を AI が引く。
+// 入力は数値/短い文字列のみ（管理者ダッシュボードが渡す）。返り値は Markdown / 失敗 null。
+export async function generateOpsRoadmap(state = {}) {
+  const args = {
+    goalLabel: String(state.goalLabel || '月次粗利').slice(0, 40),
+    target: Math.max(0, Math.round(Number(state.target) || 0)),
+    deadline: String(state.deadline || '').slice(0, 10),
+    monthsLeft: Math.max(1, Math.round(Number(state.monthsLeft) || 12)),
+    price: Math.max(0, Math.round(Number(state.price) || 0)),
+    feeRate: Number(state.feeRate) || 0.15,
+    currentPaid: Math.max(0, Math.round(Number(state.currentPaid) || 0)),
+    currentUsers: Math.max(0, Math.round(Number(state.currentUsers) || 0)),
+    mrr: Math.max(0, Math.round(Number(state.mrr) || 0)),
+    grossProfit: Math.max(0, Math.round(Number(state.grossProfit) || 0)),
+  };
+  let result;
+  try {
+    result = await callClaude(
+      PROMPTS.opsRoadmap.system,
+      PROMPTS.opsRoadmap.user(args),
+      { max_tokens: 2048, temperature: 0.5 },
+    );
+  } catch (e) {
+    console.warn('[opsRoadmap] claude failed:', e?.message);
+    return null;
+  }
+  if (typeof result !== 'string'
+    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isSuspiciousOutput(result)) {
+    return null;
+  }
+  const cleaned = clamp(result.trim(), 8000);
+  if (!cleaned) return null;
+  track('ai_used', { feature: 'ops_roadmap' });
+  return cleaned;
+}
+
 // 💭 今週の問い — マイ読書脳の能動化。ユーザー自身のメモから「立ち止まって
 // 考え・行動したくなる問い」を1つだけ生成して返す（向こうから問いを投げる）。
 // 失敗・メモ不足・エラー時は null（呼び出し側は静かに定型の問いへフォールバック）。

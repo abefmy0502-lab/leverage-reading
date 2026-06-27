@@ -14,9 +14,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
-  BarChart3, TrendingUp, Check, Flag, Pencil,
+  BarChart3, TrendingUp, Check, Flag, Pencil, Route,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { generateOpsRoadmap } from '../lib/ai';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 
@@ -82,6 +83,32 @@ const KIND_LABEL = { bug: '🐛 バグ', feature: '✨ 要望', task: '📌 タ�
 function fmtGoal(metric, v) {
   const n = Math.max(0, Math.round(v));
   return metric === 'mrr' ? `¥${n.toLocaleString()}` : `${n.toLocaleString()}人`;
+}
+
+// AI ロードマップ用の軽量 Markdown レンダラ（## 見出し / ### 月 / - 箇条書き / **太字**）。
+function boldify(s) {
+  const parts = String(s).split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) => (p.startsWith('**') && p.endsWith('**')
+    ? <strong key={i} style={{ color: C.ink }}>{p.slice(2, -2)}</strong>
+    : <span key={i}>{p}</span>));
+}
+function RoadmapMarkdown({ text }) {
+  const lines = String(text || '').split('\n');
+  const out = [];
+  lines.forEach((raw, i) => {
+    const line = raw.replace(/\s+$/, '');
+    if (!line.trim()) { out.push(<div key={i} style={{ height: 6 }} />); return; }
+    if (line.startsWith('### ')) {
+      out.push(<p key={i} style={{ margin: '14px 0 6px', fontSize: 14, fontWeight: 700, color: C.brand }}>{boldify(line.slice(4))}</p>);
+    } else if (line.startsWith('## ')) {
+      out.push(<p key={i} style={{ margin: '16px 0 6px', fontSize: 13, fontWeight: 800, color: C.ink, letterSpacing: '0.01em' }}>{boldify(line.slice(3))}</p>);
+    } else if (/^[-・]\s/.test(line)) {
+      out.push(<p key={i} style={{ margin: '3px 0 3px 4px', fontSize: 13, color: C.ink2, lineHeight: 1.6 }}>{boldify(line.replace(/^[-・]\s/, '• '))}</p>);
+    } else {
+      out.push(<p key={i} style={{ margin: '3px 0', fontSize: 13, color: C.ink2, lineHeight: 1.7 }}>{boldify(line)}</p>);
+    }
+  });
+  return <div>{out}</div>;
 }
 
 function Stat({ label, value, sub }) {
@@ -216,6 +243,9 @@ export default function AdminDashboard({ onClose }) {
   const [gMetric, setGMetric] = useState('mrr');
   const [gTarget, setGTarget] = useState('');
   const [gDeadline, setGDeadline] = useState('');
+  const [roadmap, setRoadmap] = useState('');
+  const [roadmapLoading, setRoadmapLoading] = useState(false);
+  const [roadmapErr, setRoadmapErr] = useState('');
 
   const [warn, setWarn] = useState('');
 
@@ -274,6 +304,19 @@ export default function AdminDashboard({ onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // 保存済みロードマップを localStorage から復元（目標が変わったら破棄）。
+  const goalSig = goal ? `${goal.metric}:${goal.target}:${goal.deadline}` : '';
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('orime-ops-roadmap');
+      if (raw) {
+        const o = JSON.parse(raw);
+        if (o && o.sig === goalSig && o.text) { setRoadmap(o.text); return; }
+      }
+    } catch { /* ignore */ }
+    setRoadmap('');
+  }, [goalSig]);
+
   const saveGoal = async () => {
     const t = parseFloat(gTarget);
     if (!Number.isFinite(t) || t <= 0) return;
@@ -327,6 +370,30 @@ export default function AdminDashboard({ onClose }) {
   const deptCounts = DEPT_ORDER.reduce((m, d) => ({ ...m, [d]: actions.filter((x) => x.dept === d).length }), {});
   const openTickets = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress');
   const shownFeedback = feedback.filter((f) => (fbFilter === 'all' ? true : f.status === fbFilter));
+
+  // 🗺 AI にロードマップを引いてもらう（年の目標→月別の人数/売上/施策）。
+  const makeRoadmap = async () => {
+    if (!goal || roadmapLoading) return;
+    setRoadmapLoading(true); setRoadmapErr('');
+    const monthsLeft = daysLeft != null ? Math.max(1, Math.round(daysLeft / 30)) : 12;
+    try {
+      const md = await generateOpsRoadmap({
+        goalLabel: METRIC_LABEL[goal.metric], target: goal.target, deadline: goal.deadline || '',
+        monthsLeft, price: MONTHLY_PRICE_JPY, feeRate: PAYMENT_FEE_RATE,
+        currentPaid: revenue?.active || 0, currentUsers: overview?.users_total || 0, mrr, grossProfit,
+      });
+      if (md) {
+        setRoadmap(md);
+        try { localStorage.setItem('orime-ops-roadmap', JSON.stringify({ sig: goalSig, text: md })); } catch { /* ignore */ }
+      } else {
+        setRoadmapErr('ロードマップの生成に失敗しました。少し時間をおいて再度お試しください。');
+      }
+    } catch {
+      setRoadmapErr('ロードマップの生成に失敗しました。');
+    } finally {
+      setRoadmapLoading(false);
+    }
+  };
 
   return (
     <div style={overlay} role="dialog" aria-modal="true" aria-label="運営ダッシュボード">
@@ -402,6 +469,32 @@ export default function AdminDashboard({ onClose }) {
                     {requiredPerWeek > 0 && <> ・ <strong style={{ color: C.brand }}>週 {fmtGoal(goal.metric, requiredPerWeek)} 必要</strong></>}
                     {goalGap === 0 && <strong style={{ color: '#6b8e6b' }}> ・ 達成！🎉</strong>}
                   </p>
+                </>
+              )}
+            </div>
+
+            {/* ── 🗺 ロードマップ（AIが年の目標から月別計画を引く） ── */}
+            <p style={sectionTitle}><Route size={15} strokeWidth={2} /> ロードマップ</p>
+            <div style={card}>
+              {!goal ? (
+                <p style={{ margin: 0, fontSize: 13, color: C.ink3, lineHeight: 1.7 }}>
+                  まず上で目標を設定すると、AI が現状から逆算して「月別の目標人数・売上・やること（マーケ営業／システム）」のロードマップを引きます。
+                </p>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <button type="button" onClick={makeRoadmap} disabled={roadmapLoading} style={{ ...btnPrimary, width: 'auto', minHeight: 44, opacity: roadmapLoading ? 0.6 : 1 }}>
+                      <Route size={16} aria-hidden="true" />
+                      {roadmapLoading ? 'AIが作成中…' : (roadmap ? 'ロードマップを引き直す' : 'AIにロードマップを引いてもらう')}
+                    </button>
+                    <span style={{ fontSize: 11, color: C.ink3 }}>現状の人数・売上・粗利を踏まえて逆算します</span>
+                  </div>
+                  {roadmapErr && <p style={{ margin: '10px 0 0', fontSize: 12, color: C.critical }}>{roadmapErr}</p>}
+                  {roadmap && (
+                    <div style={{ marginTop: 14, borderTop: `1px solid ${C.hairline}`, paddingTop: 12 }}>
+                      <RoadmapMarkdown text={roadmap} />
+                    </div>
+                  )}
                 </>
               )}
             </div>
