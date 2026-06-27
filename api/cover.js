@@ -134,6 +134,37 @@ export default async function handler(req, res) {
   const isbnIn = cleanIsbn(req.query?.isbn);
   if (!title && !isbnIn) return res.status(400).json({ error: 'title or isbn required' });
 
+  // 🔎 デバッグ: ?debug=1 で各段階の生の結果を返す（原因切り分け用）。
+  if (req.query?.debug) {
+    const dbg = { coreTitle: coreTitle(title), author, steps: {} };
+    try {
+      const params = [`title=${encodeURIComponent(coreTitle(title))}`];
+      if (author) params.push(`creator=${encodeURIComponent(author)}`);
+      params.push('cnt=5');
+      const ndlUrl = `https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`;
+      const r = await fetch(ndlUrl);
+      const xml = await r.text();
+      const isbns = [];
+      const re = /97[89][\d-]{10,17}/g;
+      let m;
+      while ((m = re.exec(xml)) !== null) { const v = cleanIsbn(m[0]); if (v.length === 13) isbns.push(v); if (isbns.length >= 5) break; }
+      dbg.steps.ndl = { url: ndlUrl, status: r.status, ok: r.ok, xmlLength: xml.length, xmlHead: xml.slice(0, 400), isbns };
+      if (isbns[0]) {
+        const u13 = `https://ndlsearch.ndl.go.jp/thumbnail/${isbns[0]}.jpg`;
+        const ir = await fetch(u13);
+        const buf = ir.ok ? await ir.arrayBuffer() : null;
+        dbg.steps.ndlThumb = { url: u13, status: ir.status, contentType: ir.headers.get('content-type'), bytes: buf ? buf.byteLength : 0 };
+      }
+    } catch (e) { dbg.steps.ndlError = String(e && e.message); }
+    try {
+      const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(coreTitle(title))}&maxResults=2&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`);
+      const gj = gr.ok ? await gr.json() : null;
+      dbg.steps.google = { status: gr.status, ok: gr.ok, hasKey: !!process.env.GOOGLE_BOOKS_API_KEY, totalItems: gj ? (gj.totalItems || 0) : null, firstTitle: gj && gj.items ? (gj.items[0]?.volumeInfo?.title || null) : null };
+    } catch (e) { dbg.steps.googleError = String(e && e.message); }
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json(dbg);
+  }
+
   let cover = '';
   let isbn = isbnIn;
 
