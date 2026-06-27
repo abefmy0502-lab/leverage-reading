@@ -568,8 +568,17 @@ export async function summarizeCards({ title, cards }) {
 
 // 🗺 運営ロードマップ — 年の目標と現状から、月別の目標人数/売上/施策を AI が引く。
 // 入力は数値/短い文字列のみ（管理者ダッシュボードが渡す）。返り値は Markdown / 失敗 null。
+function todayISO() {
+  // 実行時の今日（YYYY-MM-DD）。AI に現在日付を渡して年ズレを防ぐ。
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 export async function generateOpsRoadmap(state = {}) {
   const args = {
+    today: todayISO(),
     goalLabel: String(state.goalLabel || '月次粗利').slice(0, 40),
     target: Math.max(0, Math.round(Number(state.target) || 0)),
     deadline: String(state.deadline || '').slice(0, 10),
@@ -600,6 +609,33 @@ export async function generateOpsRoadmap(state = {}) {
   const cleaned = clamp(result.trim(), 8000);
   if (!cleaned) return null;
   track('ai_used', { feature: 'ops_roadmap' });
+  return cleaned;
+}
+
+// 🧠 AI 参謀（作戦会議）— 元帥と対話して打ち手を一緒に作る。会話履歴 messages
+// （{role:'user'|'assistant', content}）＋現状サマリーを渡す。返り値は参謀の応答 / 失敗 null。
+export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
+  const history = (Array.isArray(messages) ? messages : [])
+    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+    .slice(-20)
+    .map((m) => ({ role: m.role, content: clamp(sanitizeForPrompt(m.content), 4000) }));
+  if (history.length === 0 || history[history.length - 1].role !== 'user') return null;
+  const system = PROMPTS.opsAdvisor.system({ today: todayISO(), stateLine: clamp(String(stateLine || ''), 800) });
+  let result;
+  try {
+    result = await callClaude(history, { system, max_tokens: 1500, temperature: 0.6 });
+  } catch (e) {
+    console.warn('[opsAdvise] claude failed:', e?.message);
+    return null;
+  }
+  if (typeof result !== 'string'
+    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isSuspiciousOutput(result)) {
+    return null;
+  }
+  const cleaned = clamp(result.trim(), 6000);
+  if (!cleaned) return null;
+  track('ai_used', { feature: 'ops_advisor' });
   return cleaned;
 }
 

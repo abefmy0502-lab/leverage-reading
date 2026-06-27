@@ -15,9 +15,10 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
   BarChart3, TrendingUp, Check, Flag, Pencil, Route, Activity, Calculator,
+  Brain, Send,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { generateOpsRoadmap } from '../lib/ai';
+import { generateOpsRoadmap, opsAdvise } from '../lib/ai';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 
@@ -250,6 +251,10 @@ export default function AdminDashboard({ onClose }) {
   const [roadmap, setRoadmap] = useState('');
   const [roadmapLoading, setRoadmapLoading] = useState(false);
   const [roadmapErr, setRoadmapErr] = useState('');
+  // 🧠 AI 参謀（作戦会議）の対話。
+  const [advisorMsgs, setAdvisorMsgs] = useState([]);
+  const [advisorInput, setAdvisorInput] = useState('');
+  const [advisorBusy, setAdvisorBusy] = useState(false);
 
   const [warn, setWarn] = useState('');
 
@@ -310,6 +315,22 @@ export default function AdminDashboard({ onClose }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // 🧠 作戦会議の履歴を復元（自分の行のみ・時系列）。
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ops_advisor_messages')
+          .select('id, role, content, created_at')
+          .order('created_at', { ascending: true })
+          .limit(200);
+        if (alive && !error && Array.isArray(data)) setAdvisorMsgs(data);
+      } catch { /* 未適用 DB 等は空のまま */ }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   // 保存済みロードマップを localStorage から復元（目標が変わったら破棄）。
   const goalSig = goal ? `${goal.metric}:${goal.target}:${goal.deadline}` : '';
@@ -402,6 +423,41 @@ export default function AdminDashboard({ onClose }) {
   const cac = newPaidThisMonth > 0 ? Math.round(spend / newPaidThisMonth) : null;
   const ltvCac = cac && cac > 0 ? (ltv / cac) : null;
   const paybackMonths = (cac && gpPerUser > 0) ? (cac / gpPerUser) : null;
+
+  // 🧠 現状サマリー（参謀に毎回渡す）。
+  const stateLine = [
+    `総ユーザー${overview?.users_total ?? 0}人`,
+    `有料${revenue?.active ?? 0}人`,
+    `MRR¥${mrr.toLocaleString()}`,
+    `月粗利¥${grossProfit.toLocaleString()}`,
+    goal ? `目標=${METRIC_LABEL[goal.metric]}¥${(goal.target || 0).toLocaleString()}(締切${goal.deadline || '未設定'})` : '目標=未設定',
+  ].join(' / ');
+
+  // 🧠 作戦会議: 元帥の発言を送り、参謀の応答を得て、両方を保存する。
+  const sendAdvisor = async () => {
+    const text = advisorInput.trim();
+    if (!text || advisorBusy) return;
+    setAdvisorBusy(true);
+    setAdvisorInput('');
+    const userMsg = { role: 'user', content: text, id: `local-${advisorMsgs.length}` };
+    const next = [...advisorMsgs, userMsg];
+    setAdvisorMsgs(next);
+    // ユーザー発言を保存（fire-and-forget）。
+    supabase.from('ops_advisor_messages').insert({ role: 'user', content: text }).then(() => {});
+    try {
+      const reply = await opsAdvise({ messages: next, stateLine });
+      if (reply) {
+        setAdvisorMsgs((cur) => [...cur, { role: 'assistant', content: reply, id: `local-a-${cur.length}` }]);
+        supabase.from('ops_advisor_messages').insert({ role: 'assistant', content: reply }).then(() => {});
+      } else {
+        setAdvisorMsgs((cur) => [...cur, { role: 'assistant', content: '（応答に失敗しました。少し時間をおいて再度お試しください）', id: `err-${cur.length}` }]);
+      }
+    } catch {
+      setAdvisorMsgs((cur) => [...cur, { role: 'assistant', content: '（応答に失敗しました）', id: `err-${cur.length}` }]);
+    } finally {
+      setAdvisorBusy(false);
+    }
+  };
 
   // 🗺 AI にロードマップを引いてもらう（年の目標→月別の人数/売上/施策）。
   const makeRoadmap = async () => {
@@ -529,6 +585,48 @@ export default function AdminDashboard({ onClose }) {
                   )}
                 </>
               )}
+            </div>
+
+            {/* ── 🧠 作戦会議（AI参謀との対話） ── */}
+            <p style={sectionTitle}><Brain size={15} strokeWidth={2} /> 作戦会議（AI参謀）</p>
+            <div style={card}>
+              <p style={{ margin: '0 0 12px', fontSize: 12, color: C.ink2, lineHeight: 1.7 }}>
+                経営・マーケ営業・開発・経理の4頭脳に相談できます。現状の数字とこれまでの文脈を踏まえ、対話で打ち手を一緒に作ります（会話は保存されます）。
+              </p>
+              {advisorMsgs.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                  {advisorMsgs.map((m) => (
+                    <div key={m.id || m.created_at} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                      <div style={{
+                        maxWidth: '88%', padding: '10px 12px', borderRadius: 14, fontSize: 13, lineHeight: 1.7,
+                        background: m.role === 'user' ? C.brand : C.soft,
+                        color: m.role === 'user' ? C.brandInk : C.ink,
+                        borderTopRightRadius: m.role === 'user' ? 4 : 14,
+                        borderTopLeftRadius: m.role === 'user' ? 14 : 4,
+                        whiteSpace: m.role === 'user' ? 'pre-wrap' : 'normal', wordBreak: 'break-word',
+                      }}>
+                        {m.role === 'assistant' ? <RoadmapMarkdown text={m.content} /> : m.content}
+                      </div>
+                    </div>
+                  ))}
+                  {advisorBusy && <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>参謀が検討中…</p>}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <textarea
+                  value={advisorInput}
+                  onChange={(e) => setAdvisorInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendAdvisor(); } }}
+                  placeholder="例: 最初の10人をどう集める？ / 価格は¥1,480で妥当？ / 来月の優先順位は？"
+                  rows={2}
+                  style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, flex: 1 }}
+                />
+                <button type="button" onClick={sendAdvisor} disabled={advisorBusy || !advisorInput.trim()}
+                  aria-label="送信"
+                  style={{ flex: '0 0 auto', width: 48, height: 48, borderRadius: 12, border: 'none', background: C.brand, color: C.brandInk, cursor: advisorBusy || !advisorInput.trim() ? 'default' : 'pointer', opacity: advisorBusy || !advisorInput.trim() ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Send size={18} />
+                </button>
+              </div>
             </div>
 
             {/* ── 📋 今やるべきこと ── */}
