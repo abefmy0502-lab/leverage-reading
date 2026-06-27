@@ -24,8 +24,11 @@ function toHttps(u) {
 }
 // 副題を落とした「核タイトル」。NDL/Google の title 検索は副題込みだと
 // 0 件になりやすいので、最初の区切り（空白・コロン・縦棒等）までを使う。
+// ⚠️ カタカナ長音符「ー」は区切りに含めない（「シュガーマン」「チャレンジャー」
+//    のようにカタカナ語の中に普通に出るため、含めると "シュガ" 等に誤切断され
+//    検索が壊れる）。区切りは空白・コロン・縦棒・波ダッシュ・各種ダッシュのみ。
 function coreTitle(t) {
-  return clean(t).split(/[\s　:：|｜〜~ー－—–]/)[0] || clean(t);
+  return clean(t).split(/[\s　:：|｜〜~－—–]/)[0] || clean(t);
 }
 function isbn13to10(isbn13) {
   const s = cleanIsbn(isbn13);
