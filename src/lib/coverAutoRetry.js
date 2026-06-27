@@ -17,7 +17,7 @@
 //     楽観的 UI と整合させるため、生 supabase を直接叩かない。
 
 import { findIsbnCandidates, findCoverFromGoogleBooks } from './bookSearch';
-import { resolveCoverFromCandidates, checkImageExists } from './bookCover';
+import { resolveCoverFromCandidates, checkImageExists, resolveCoverViaServer } from './bookCover';
 
 const triedThisSession = new Set();
 const queue = [];
@@ -50,9 +50,16 @@ async function processQueue() {
     try {
       let url = '';
       let coverIsbn = '';
-      // ① Google Books サムネ（ISBN 直引き → タイトル＋著者 → 緩い上位ヒット）。
-      //    ISBN が無い・厳格マッチに漏れる和書でも拾えるので最優先にする。
+      // ⓪ サーバーサイドリゾルバ /api/cover を最優先（端末の Google 429 / NDL
+      //    CORS を回避）。検証してから採用。
       try {
+        // eslint-disable-next-line no-await-in-loop
+        const sv = await resolveCoverViaServer({ title: book.title, author: book.author, isbn: book.isbn });
+        // eslint-disable-next-line no-await-in-loop
+        if (sv?.url && await checkImageExists(sv.url)) { url = sv.url; coverIsbn = sv.isbn || book.isbn || ''; }
+      } catch { /* 次へ */ }
+      // ① Google Books サムネ（ISBN 直引き → タイトル＋著者 → 緩い上位ヒット）。
+      if (!url) try {
         // eslint-disable-next-line no-await-in-loop
         const gb = await findCoverFromGoogleBooks({ title: book.title, author: book.author, isbn: book.isbn });
         // Google の「No cover」プレースホルダを掴まないよう実在＋表紙比率を検証。

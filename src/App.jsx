@@ -62,7 +62,7 @@ import {
   findCoverFromGoogleBooks,
   fetchNewReleases,
 } from './lib/bookSearch';
-import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn, checkImageExists } from './lib/bookCover';
+import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn, checkImageExists, resolveCoverViaServer } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
@@ -3152,10 +3152,16 @@ function AuthedApp() {
       let coverUrl = '';
       let coverIsbn = '';
 
-      // ── ステップ 0（最優先・最速・最も確実）─────────────────────────
-      // Google Books の imageLinks.thumbnail は実体保証された URL。ISBN 直引き →
-      // タイトル+著者の厳格マッチの順で取得。ここで取れれば <img> 実在検証も不要。
+      // ── ステップ -1（最優先）: サーバーサイドリゾルバ /api/cover ─────────
+      // 端末の Google 429 / NDL CORS を回避。和書の取得率が大幅に上がる。
       try {
+        const sv = await resolveCoverViaServer({ title: book.title, author: book.author, isbn: book.isbn });
+        if (sv?.url && await checkImageExists(sv.url)) { coverUrl = sv.url; coverIsbn = sv.isbn || book.isbn || ''; }
+      } catch { /* 次の手段へ */ }
+
+      // ── ステップ 0 ─────────────────────────────────────────────────
+      // Google Books の imageLinks.thumbnail（ISBN 直引き → タイトル+著者）。
+      if (!coverUrl) try {
         const gb = await findCoverFromGoogleBooks({
           title: book.title,
           author: book.author,
@@ -3690,10 +3696,16 @@ function AuthedApp() {
       try {
         let url = '';
         let coverIsbn = '';
+        // ⓪ サーバーサイドリゾルバ（/api/cover）を最優先。端末の Google 429 /
+        //    NDL CORS を回避でき、和書の取得率が大きく上がる。検証してから採用。
+        try {
+          const sv = await resolveCoverViaServer({ title: saved.title, author: saved.author, isbn: saved.isbn });
+          if (sv?.url && await checkImageExists(sv.url)) { url = sv.url; coverIsbn = sv.isbn || saved.isbn || ''; }
+        } catch { /* 次へ */ }
         // ① Google Books サムネ。ただし Google の「No cover」プレースホルダ
         //    (128×170 等) を掴むことがあるので、実在＋表紙比率を checkImageExists
         //    で検証してから採用する（ダメなら ②の NDL/openBD 等へ落とす）。
-        try {
+        if (!url) try {
           const gb = await findCoverFromGoogleBooks({
             title: saved.title,
             author: saved.author,

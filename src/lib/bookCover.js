@@ -21,6 +21,26 @@ export const normalizeIsbn = (isbn) => {
   return String(isbn).replace(/[-\s]/g, '');
 };
 
+// 🛰️ サーバーサイドの表紙リゾルバ（/api/cover）に問い合わせる第一経路。
+// 端末からの Google Books 429 / NDL の CORS を回避するため、まずサーバーに
+// 解決を委ねる。返り値 { url, isbn } または null（失敗・未発見）。
+export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
+  const params = new URLSearchParams();
+  if (title) params.set('title', title);
+  if (author) params.set('author', author);
+  if (isbn) params.set('isbn', isbn);
+  if ([...params.keys()].length === 0) return null;
+  try {
+    const r = await fetch(`/api/cover?${params.toString()}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (d && d.cover) return { url: d.cover, isbn: d.isbn || isbn || '' };
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 // ISBN-13 → ISBN-10 変換。9784〜 のような 978 prefix 付き ISBN-13 のみ
 // 対応 (979 prefix の新ISBN は ISBN-10 が存在しない仕様)。
 export const isbn13to10 = (isbn13) => {
