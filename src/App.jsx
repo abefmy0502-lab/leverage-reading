@@ -601,12 +601,6 @@ function paletteFor(title) {
   return PLACEHOLDER_PALETTE[Math.abs(hash) % PLACEHOLDER_PALETTE.length];
 }
 
-// 本棚カードの進捗バーは撤去（本田哲学=ページ進捗は「作業量」であって成果ではない）。
-// 何も描画しないスタブにして呼び出し側は不変のまま（復活が容易）。
-function CardProgressBar() {
-  return null;
-}
-
 // グリッド表示用の本カード（表紙主役）。表紙無し / 画像 404 時は
 // タイトルベースの色付きプレースホルダにフォールバック。
 const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry }) {
@@ -682,7 +676,6 @@ const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, on
       </div>
       <p className="book-cover-title">{book.title}</p>
       {book.author && <p className="book-cover-author">{book.author}</p>}
-      <CardProgressBar book={book} />
     </button>
   );
 });
@@ -774,7 +767,6 @@ const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustD
             <div style={{ marginTop: 6 }}>
               <StatusBadge status={book.status} />
             </div>
-            <CardProgressBar book={book} />
           </div>
           <span style={{ fontSize: 14, color: "#c4b8a6" }}>›</span>
         </div>
@@ -1831,7 +1823,10 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     Promise.resolve().then(async () => {
       let summary = null;
       try {
-        summary = await summarizeAdvisorConversation(messages, verifiedRec);
+        // 正常系（推薦カードが出る）では会話は chatHistory に積まれ、messages は空。
+        // ヒアリングで集めた本人の言葉を読書計画シートに反映するため chatHistory を優先する。
+        const convo = chatHistory.length ? chatHistory : messages;
+        summary = await summarizeAdvisorConversation(convo, verifiedRec);
       } catch {
         /* 要約失敗は非クリティカル。空のまま保存に進む。 */
       }
@@ -4101,6 +4096,33 @@ function AuthedApp() {
     }
   };
 
+  // 🔄→🎯 想起から行動への橋渡し。振り返り（Review）で戻ってきたメモから
+  // 「→行動にする」で、メモ本文（とページ）を引いた行動を1タップで作る。
+  // 「読んで終わりにしない＝行動に変える」中核ループを想起面でも閉じる。
+  const addActionFromMemo = async (bookId, { text, sourceMemoId = null, sourcePage = null }) => {
+    const book = books.find((b) => b.id === bookId);
+    if (!book) return false;
+    const body = (text || '').trim();
+    if (!body) return false;
+    const newAction = {
+      text: body.slice(0, LIMITS.action || 280),
+      deadline: '',
+      done: false,
+      priority: 'medium',
+      sourceMemoId,
+      sourcePage,
+    };
+    const updated = { ...book, actions: [...(book.actions || []), newAction] };
+    haptic.light();
+    try {
+      await saveBook(updated);
+      return true;
+    } catch (error) {
+      toast.error(toMessage(error, '行動の追加に失敗しました。'));
+      return false;
+    }
+  };
+
   const toggleAction = async (bookId, actionIdx) => {
     const book = books.find((b) => b.id === bookId);
     if (!book) return;
@@ -5386,7 +5408,7 @@ function AuthedApp() {
             </div>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<Spinner />}>
-                <Review books={books} onOpenBook={(b) => { openDetail(b); }} />
+                <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} />
               </Suspense>
             ) : (
               <ActionList

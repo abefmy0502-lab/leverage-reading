@@ -421,15 +421,12 @@ export default function Paywall({ onPurchased }) {
             解約後もデータは保持されます。お支払いは App Store を通じて行われます。
           </p>
         ) : (
-          // Web/Stripe: 5日間返金保証 + Stripe 決済の明示。
+          // Web/Stripe（現在は休眠）: 自動更新条件 + Stripe 決済の明示。
+          // ※「5日間返金保証」の手動運用コピーは履行 SLA が未確立で景表法リスクのため撤去。
+          //   無料トライアルを出す場合は Stripe 側の設定と一致させること。
           <p style={{ fontSize: 12, color: 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
-            初回は5日間の返金保証つき（合わなければ全額返金・お一人様1回限り）。<br />
-            返金のご希望は{' '}
-            <a href="mailto:leverage.book0502@gmail.com" style={{ color: 'var(--color-secondary)', textDecoration: 'underline' }}>
-              お問い合わせ
-            </a>
-            {' '}までご連絡ください（解約とは別の手続きです）。<br />
-            いつでも解約できます。解約後もデータは保持されます。<br />
+            サブスクリプションは自動更新です。期間終了前に解約しない限り、同額で自動更新されます。<br />
+            いつでも解約でき、解約後もデータは保持されます。<br />
             お支払いは Stripe の安全な決済ページで行われます。
           </p>
         )}

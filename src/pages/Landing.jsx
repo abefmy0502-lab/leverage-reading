@@ -203,7 +203,7 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
-      {/* ============ 2. Pain (損失計算機) ============ */}
+      {/* ============ 2. Pain（事実の提示・煽らない） ============ */}
       <section className="pain fade-in">
         <p className="section-eyebrow">よくある悩み</p>
         <h2 className="section-headline">
@@ -211,36 +211,13 @@ export default function Landing() {
           覚えてない」。
         </h2>
 
-        <div className="pain-calculator">
-          <div className="calc-row">
-            <span className="calc-label">ビジネス書 1 冊</span>
-            <span className="calc-value">¥1,650</span>
-          </div>
-          <div className="calc-row">
-            <span className="calc-label">月 3 冊購入 (平均)</span>
-            <span className="calc-value">¥4,950</span>
-          </div>
-          <div className="calc-row highlight">
-            <span className="calc-label">時間とともに忘れがちな割合 ※</span>
-            <span className="calc-value">約 95%</span>
-          </div>
-          <div className="calc-divider" />
-          <div className="calc-row total">
-            <span className="calc-label">活かしきれていないかもしれない金額（参考）</span>
-            <span className="calc-value">約 ¥4,702</span>
-          </div>
-        </div>
-        <p className="pain-source">
-          ※ あくまで一般的な目安です（忘却曲線などの一般的知見に基づく参考値）。
-        </p>
-
         <p className="pain-conclusion">
-          Orime なら、<br />
-          <strong>月 ¥1,480 で、読んだことを、ちゃんと身につける。</strong>
+          本の中身は、時間とともに薄れていきます。<br />
+          <strong>Orime は、読んだことを思い出し、行動に変えるためのアプリです。</strong>
         </p>
 
         <button type="button" onClick={goToAppStore} className="cta-secondary">
-          今すぐ解決する →
+          くわしく見る →
         </button>
       </section>
 

@@ -20,12 +20,14 @@ import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
+import Spinner from './Spinner';
 import { getRandomFromCategory } from '../lib/quotes';
 import { relativeJa, recallFraming, pickRecallMemo } from '../lib/recall';
+import { markActivation } from '../lib/activation';
 import { btnGhost as uiBtnGhost } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
-  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2,
+  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check,
 } from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
 
@@ -293,7 +295,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   return inner;
 }
 
-export default function Review({ books = [], onOpenBook }) {
+export default function Review({ books = [], onOpenBook, onAddAction }) {
   const { user } = useAuth();
   const toast = useToast();
   const haptic = useHaptic();
@@ -311,6 +313,9 @@ export default function Review({ books = [], onOpenBook }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('');
+  // 想起カードから「→行動にする」したメモ id（直後のボタン表示を ✓ に切替）。
+  const [actionAddedId, setActionAddedId] = useState(null);
+  const [addingAction, setAddingAction] = useState(false);
 
   // Analytics: fire once when the Review tab mounts (not per sub-tab switch).
   // Empty dep array → runs exactly once on mount. fire-and-forget, no PII.
@@ -461,6 +466,31 @@ export default function Review({ books = [], onOpenBook }) {
     return allNotes[idx] || allNotes[0];
   }, [allNotes, randomSeed]);
 
+  // 活性化「想起を体験」ステップ — タブを開いただけ（偽陽性）ではなく、自分のメモが
+  // 実際に想起カードとして1枚戻ってきたときに初めて完了にする（= aha の本体）。
+  useEffect(() => {
+    if (randomMemo) markActivation('review');
+  }, [randomMemo]);
+
+  // 🔄→🎯 想起カードのメモを、その場で「行動」に変える。本詳細を開かずに
+  // 「読んで終わり」を断ち切る。メモ本文（＋ページ）を行動にプリフィルする。
+  const handleMemoToAction = useCallback(async (memo) => {
+    if (!memo || !onAddAction || addingAction) return;
+    const book = booksById.get(memo.bookId);
+    if (!book) return; // 本に紐づかないメモ（学び等）は行動化しない
+    setAddingAction(true);
+    const ok = await onAddAction(book.id, {
+      text: memo.text,
+      sourceMemoId: typeof memo.id === 'string' && !memo.id.startsWith('ref-') ? memo.id : null,
+      sourcePage: memo.pageNumber ?? null,
+    });
+    setAddingAction(false);
+    if (ok) {
+      setActionAddedId(memo.id);
+      toast.success('🎯 行動に追加しました');
+    }
+  }, [onAddAction, addingAction, booksById, toast]);
+
   const allTags = useMemo(() => {
     const s = new Set();
     allNotes.forEach((m) => (m.tags || []).forEach((t) => s.add(t)));
@@ -532,11 +562,7 @@ export default function Review({ books = [], onOpenBook }) {
   if (loading) {
     return (
       <div style={wrap}>
-        <EmptyState
-          icon="⏳"
-          title="読み込み中"
-          description="あなたの気づきを集めています…"
-        />
+        <Spinner message="あなたの気づきを集めています…" />
       </div>
     );
   }
@@ -687,6 +713,32 @@ export default function Review({ books = [], onOpenBook }) {
               onLongPress={(payload) => setMemoMenu(payload)}
               showRelative
             />
+            {/* 🔄→🎯 この気づきを、その場で行動に変える（本に紐づくメモのみ） */}
+            {onAddAction && booksById.get(randomMemo.bookId) && (
+              actionAddedId === randomMemo.id ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, fontWeight: 600, color: 'var(--c-brand)' }}>
+                  <Check size={15} aria-hidden="true" />
+                  行動リストに追加しました
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleMemoToAction(randomMemo)}
+                  disabled={addingAction}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10,
+                    minHeight: 44, padding: '8px 16px', borderRadius: 10,
+                    border: '1px solid var(--c-brand)', background: 'transparent',
+                    color: 'var(--c-brand)', fontSize: 13, fontWeight: 700,
+                    fontFamily: 'inherit', cursor: addingAction ? 'default' : 'pointer',
+                    opacity: addingAction ? 0.6 : 1,
+                  }}
+                >
+                  <Target size={15} aria-hidden="true" />
+                  この気づきを行動にする
+                </button>
+              )
+            )}
           </div>
         )}
         <p style={{ fontSize: 10, color: 'var(--c-ink-2)', marginTop: 6, lineHeight: 1.6 }}>

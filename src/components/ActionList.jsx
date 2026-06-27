@@ -11,7 +11,7 @@ import { ensureHttps } from '../lib/url';
 import { track, EVENTS } from '../lib/analytics';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
-import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo, Flame, ArrowUp, ArrowDown, Repeat, Link2, MessageSquareQuote, Check } from 'lucide-react';
+import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo, ArrowUp, ArrowDown, Repeat, Link2, MessageSquareQuote, Check } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
@@ -245,8 +245,9 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
       </div>
 
       {/* Summary card — 期間ベース達成率 (今週 / 今月 / 全期間 で切替) +
-          🔥 連続達成日数 + 今週期限件数。母数膨張問題を防ぐため
-          デフォルトは「今週」だが、必要なら全期間も見られる。 */}
+          今週期限件数。母数膨張問題を防ぐため
+          デフォルトは「今週」だが、必要なら全期間も見られる。
+          ※「連続達成日数」は煽り（連続日数=ゲーミフィケーション）のため撤去。 */}
       {stats.total > 0 && (() => {
         const periodLabel = statsPeriod === 'week' ? '今週' : statsPeriod === 'month' ? '今月' : '全期間';
         const remaining = Math.max(0, period.total - period.completed);
@@ -315,12 +316,6 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                 <div style={{ fontSize: 12, color: 'var(--c-brand)' }}>
                   <AnimatedNumber value={period.completed} duration={500} /> / {period.total} 完了
                 </div>
-                {stats.streak > 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--color-accent)', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <Flame size={11} aria-hidden="true" />
-                    連続 {stats.streak} 日
-                  </div>
-                )}
                 {stats.upcomingThisWeek > 0 && (
                   <div style={{ fontSize: 11, color: 'var(--c-critical)', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <AlertCircle size={11} strokeWidth={1.75} aria-hidden="true" />

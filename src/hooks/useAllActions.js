@@ -12,7 +12,7 @@
 //    「今やるべきタスク」だけが見え、先取り完了が物理的にできなくなる。
 //
 // 📊 達成率の母数膨張対策 — 全期間ベースの pct (legacy) に加えて、
-//    今週 / 今月の rolling-window 集計と連続達成日数 (streak) を返す。
+//    今週 / 今月の rolling-window 集計を返す。
 //    UI は週 / 月切替で「今この期間の達成率」を見せられる。
 
 import { useMemo } from 'react';
@@ -69,37 +69,8 @@ function computeForPeriod(actions, periodStart, periodEnd) {
 // 連続達成日数: 今日から遡って、行動を 1 つ以上完了した日の連続数。
 // 今日まだ完了がなければ昨日基準で数える (24 時間以内に必ず触らないと
 // 連続が切れる、という UX は厳しすぎるため)。
-function computeStreak(actions) {
-  const completedDateSet = new Set(
-    actions
-      .filter((a) => a.done) // completedAt が無くても done なら含める
-      .map((a) => {
-        // completedAt が無いレガシー行は created_at を fallback。
-        const ts = a.completedAt || a.created_at;
-        if (!ts) return null;
-        const t = new Date(ts);
-        if (Number.isNaN(t.getTime())) return null;
-        return `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`;
-      })
-      .filter(Boolean),
-  );
-  if (completedDateSet.size === 0) return 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-  // 今日完了がなければ昨日からカウント開始
-  const cursor = new Date(today);
-  if (!completedDateSet.has(todayKey)) cursor.setDate(cursor.getDate() - 1);
-  let streak = 0;
-  // 安全弁: 1000 日以上は遡らない
-  for (let i = 0; i < 1000; i += 1) {
-    const key = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
-    if (!completedDateSet.has(key)) break;
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
-}
+// （撤去）computeStreak — 連続達成日数。連続日数は煽り（ゲーミフィケーション）のため
+// ActionList のバッジごと撤去（CLAUDE.md: バッジ/連続日数/レベルは 2026-05-04 削除済み）。
 
 export function useAllActions(books) {
   const allActions = useMemo(() => {
@@ -170,7 +141,6 @@ export function useAllActions(books) {
       upcomingThisWeek,
       week: computeForPeriod(allActions, wkStart, wkEnd),
       month: computeForPeriod(allActions, moStart, moEnd),
-      streak: computeStreak(allActions),
     };
   }, [allActions]);
 

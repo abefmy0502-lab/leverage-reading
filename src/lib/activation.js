@@ -1,21 +1,21 @@
 // 🌱 初週オンボーディング（活性化）— 新規ユーザーを aha（メモ→想起が返ってくる）
-// まで最短で運ぶためのチェックリスト状態。端末ローカルに保存（PII なし・軽量）。
+// まで最短で運ぶための 3 ステップ（追加→メモ→想起体験）。端末ローカルに保存。
 //
-// 4 ステップは全て既存の track() イベントと対応するので、analytics.js の track()
-// 冒頭で markActivationFromEvent を呼ぶだけで自動的に進む（追加配線ほぼ不要）。
-//   book_added     → 本を1冊追加
-//   memo_added     → 気づきをメモ
-//   review_opened  → 振り返りで想起を体験
-//   status_changed → 本のステータスを進める
+//   book_added → 本を1冊追加      （analytics track 経由で自動）
+//   memo_added → 気づきをメモ       （analytics track 経由で自動）
+//   review     → 振り返りで想起を体験 （Review.jsx が自分のメモ想起カードを
+//                実際に1枚表示したときに markActivation('review') を直接呼ぶ。
+//                タブを開いただけ＝偽陽性を避け、aha を体験して初めて完了）
+//
+// ※「本のステータスを進める」は aha（読んで終わりにしない＝メモ→想起）に
+//   寄与しない単なる操作習熟のため、ステップから撤去（本田: 無駄を削る）。
 
 const KEY = 'orime-activation-v1';
 const DISMISS_KEY = 'orime-activation-v1:dismiss';
-export const ACTIVATION_STEPS = ['book', 'memo', 'review', 'status'];
+export const ACTIVATION_STEPS = ['book', 'memo', 'review'];
 const EVENT_TO_STEP = {
   book_added: 'book',
   memo_added: 'memo',
-  review_opened: 'review',
-  status_changed: 'status',
 };
 
 export function getActivation() {
@@ -36,11 +36,6 @@ export function markActivation(step) {
 export function markActivationFromEvent(event) {
   const step = EVENT_TO_STEP[event];
   if (step) markActivation(step);
-}
-
-export function isActivationComplete() {
-  const o = getActivation();
-  return ACTIVATION_STEPS.every((s) => o[s]);
 }
 
 export function dismissActivation() {

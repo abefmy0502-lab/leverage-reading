@@ -298,70 +298,9 @@ async function searchGoogleBooks(query, { signal } = {}) {
     .filter((b) => b.title);
 }
 
-// 🆕 本屋モード Phase 2 — テーマの「最新の新刊」を Google Books から取得する。
-// orderBy=newest で発売日の新しい順に並べ、表紙のある日本語書籍に絞る。
-// 失敗・429 は静かに [] を返す（呼び出し側で AI のおすすめ棚にフォールバック）。
-// 返す各要素は searchGoogleBooks と同形 + publishedDate（鮮度表示/並べ替え用）。
-export async function fetchNewReleases(theme, { signal, max = 12 } = {}) {
-  const q = (theme || '').trim();
-  if (!q) return [];
-
-  // 1 クエリ分を取得してパースする（失敗時は []）。
-  const fetchOnce = async (extra) => {
-    let d;
-    try {
-      const url =
-        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}` +
-        `&orderBy=newest&printType=books&maxResults=40&country=JP${extra}`;
-      const r = await fetch(url, signal ? { signal } : undefined);
-      if (!r.ok) return [];
-      d = await r.json();
-    } catch {
-      return [];
-    }
-    let curYear = 0;
-    try { curYear = new Date().getFullYear(); } catch { curYear = 0; }
-    const seen = new Set();
-    const out = [];
-    for (const i of (d.items || [])) {
-      const v = i.volumeInfo || {};
-      const title = v.title || '';
-      if (!title) continue;
-      const key = title.replace(/\s+/g, '').toLowerCase();
-      if (seen.has(key)) continue;
-      const pubMatch = (v.publishedDate || '').match(/(\d{4})/);
-      const year = pubMatch ? parseInt(pubMatch[1], 10) : 0;
-      if (curYear && year && year > curYear + 1) continue; // 未来日付の誤データのみ除外
-      const ids = v.industryIdentifiers || [];
-      const isbn =
-        ids.find((x) => x.type === 'ISBN_13')?.identifier ||
-        ids.find((x) => x.type === 'ISBN_10')?.identifier ||
-        '';
-      const cover = (v.imageLinks?.thumbnail || '').replace(/^http:/i, 'https:');
-      if (!cover && !isbn) continue; // 手がかりの無い断片は除外
-      seen.add(key);
-      out.push({
-        title,
-        author: (v.authors || []).join(', '),
-        publisher: v.publisher || '',
-        pubYear: pubMatch ? pubMatch[1] : '',
-        publishedDate: v.publishedDate || '',
-        cover,
-        pages: v.pageCount || 0,
-        isbn,
-      });
-    }
-    return out;
-  };
-
-  // まず ja 言語で。0 件なら langRestrict を外して再試行（ja タグ無しの本も拾う）。
-  let all = await fetchOnce('&langRestrict=ja');
-  if (all.length === 0) all = await fetchOnce('');
-
-  // 表紙のある本を前に寄せる（棚の見栄え）。発売日順は orderBy=newest を尊重。
-  all.sort((a, b) => (a.cover ? 0 : 1) - (b.cover ? 0 : 1));
-  return all.slice(0, max);
-}
+// （撤去）fetchNewReleases — 本屋モード「最新の新刊」。Google Books の発売日順は
+// キュレーションされておらずノイズが多く、「テーマの棚（AI 選書）」に一本化した際に
+// 呼び出し元を全て撤去済み。死にコードのため削除（git 履歴から復活可）。
 
 async function lookupISBNGoogle(isbn) {
   const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
