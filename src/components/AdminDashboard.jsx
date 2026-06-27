@@ -193,30 +193,54 @@ export default function AdminDashboard({ onClose }) {
   const [gTarget, setGTarget] = useState('');
   const [gDeadline, setGDeadline] = useState('');
 
+  const [warn, setWarn] = useState('');
+
   const load = useCallback(async (d) => {
-    setLoading(true); setErr('');
-    try {
-      const [ov, se, us, au, rv, fb, gl, tk] = await Promise.all([
-        supabase.rpc('admin_overview'),
-        supabase.rpc('admin_active_series', { p_days: d }),
-        supabase.rpc('admin_feature_usage', { p_days: d }),
-        supabase.rpc('admin_ai_usage', { p_months: 6 }),
-        supabase.rpc('admin_revenue'),
-        supabase.rpc('admin_feedback', { p_status: null }),
-        supabase.rpc('admin_get_goal'),
-        supabase.rpc('admin_tickets'),
-      ]);
-      const firstErr = [ov, se, us, au, rv, fb, gl, tk].find((r) => r.error)?.error;
-      if (firstErr) throw firstErr;
-      setOverview(ov.data || null); setSeries(se.data || []); setUsage(us.data || null);
-      setAi(au.data || []); setRevenue(rv.data || null); setFeedback(fb.data || []);
-      setGoal(gl.data || null); setTickets(tk.data || []);
-      if (gl.data) { setGMetric(gl.data.metric); setGTarget(String(gl.data.target || '')); setGDeadline(gl.data.deadline || ''); }
-    } catch (e) {
-      setErr(e?.message === 'not authorized'
-        ? 'この画面は管理者のみが閲覧できます。'
-        : '読み込みに失敗しました。SQL（supabase_admin_metrics.sql と supabase_admin_ops.sql）が適用済みかご確認ください。');
-    } finally { setLoading(false); }
+    setLoading(true); setErr(''); setWarn('');
+    // 各 RPC を独立に扱い、1つ失敗しても他は表示する（graceful degradation）。
+    const [ov, se, us, au, rv, fb, gl, tk] = await Promise.all([
+      supabase.rpc('admin_overview'),
+      supabase.rpc('admin_active_series', { p_days: d }),
+      supabase.rpc('admin_feature_usage', { p_days: d }),
+      supabase.rpc('admin_ai_usage', { p_months: 6 }),
+      supabase.rpc('admin_revenue'),
+      supabase.rpc('admin_feedback', { p_status: null }),
+      supabase.rpc('admin_get_goal'),
+      supabase.rpc('admin_tickets'),
+    ]);
+    const all = [ov, se, us, au, rv, fb, gl, tk];
+
+    // 'not authorized' が出るなら管理者でない（全面エラー）。
+    if (all.some((r) => r.error?.message === 'not authorized')) {
+      setErr('この画面は管理者のみが閲覧できます。');
+      setLoading(false);
+      return;
+    }
+    // 全部失敗 = metrics SQL 未適用の可能性が高い。
+    if (all.every((r) => r.error)) {
+      setErr(`読み込みに失敗しました（supabase_admin_metrics.sql が未適用かも）。詳細: ${ov.error?.message || ''}`);
+      setLoading(false);
+      return;
+    }
+
+    setOverview(ov.error ? null : (ov.data || null));
+    setSeries(se.error ? [] : (se.data || []));
+    setUsage(us.error ? null : (us.data || null));
+    setAi(au.error ? [] : (au.data || []));
+    setRevenue(rv.error ? null : (rv.data || null));
+    setFeedback(fb.error ? [] : (fb.data || []));
+    setGoal(gl.error ? null : (gl.data || null));
+    setTickets(tk.error ? [] : (tk.data || []));
+    if (!gl.error && gl.data) { setGMetric(gl.data.metric); setGTarget(String(gl.data.target || '')); setGDeadline(gl.data.deadline || ''); }
+
+    // 部分的に失敗したものを警告として可視化（原因切り分け用に実メッセージを出す）。
+    const opsFailed = gl.error || tk.error;
+    const metricFails = [ov, se, us, au, rv, fb].filter((r) => r.error);
+    const notes = [];
+    if (opsFailed) notes.push('🎯目標・🎫チケットが読めません → supabase_admin_ops.sql を適用してください');
+    if (metricFails.length) notes.push(`一部メトリクスが読めません（${metricFails[0].error?.message || '不明'}）`);
+    setWarn(notes.join(' / '));
+    setLoading(false);
   }, []);
 
   useEffect(() => { load(days); }, [load, days]);
@@ -290,6 +314,9 @@ export default function AdminDashboard({ onClose }) {
       <div style={wrap}>
         {loading && <div style={{ padding: '60px 0' }}><Spinner /></div>}
         {!loading && err && <div style={{ ...card, marginTop: 20, color: C.critical, fontSize: 13, lineHeight: 1.7 }}>{err}</div>}
+        {!loading && !err && warn && (
+          <div style={{ ...card, marginTop: 16, marginBottom: 4, color: '#8a6d3b', background: '#fdf6e3', border: '1px solid #efe2c0', fontSize: 12, lineHeight: 1.7 }}>⚠️ {warn}</div>
+        )}
 
         {!loading && !err && (
           <>
