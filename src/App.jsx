@@ -60,7 +60,6 @@ import {
   pickSuggestions,
   findIsbnCandidates,
   findCoverFromGoogleBooks,
-  fetchNewReleases,
 } from './lib/bookSearch';
 import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn, checkImageExists, resolveCoverViaServer } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
@@ -1446,11 +1445,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const [input, setInput] = useState("");
   const [recommendations, setRecommendations] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
-  // 本屋モード: 'curated' = AI が選ぶ良書の棚 / 'new' = Google Books の最新の新刊。
-  const [browseMode, setBrowseMode] = useState('curated');
-  const [newReleases, setNewReleases] = useState(null);     // 新刊配列 | null
-  const [newReleasesLoading, setNewReleasesLoading] = useState(false);
-  const [newReleasesTheme, setNewReleasesTheme] = useState('');
   // 直近の「ユーザーの課題」入力 — 本棚に追加した時に source_query として
   // 持ち回り、読書計画シートの投資目的にプレフィルする。
   const [lastUserQuery, setLastUserQuery] = useState('');
@@ -1667,43 +1661,9 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     setRecoLoading(false);
   };
 
-  // 🆕 本屋モード「最新の新刊」— Google Books の発売日順から、表紙のある
-  // 日本語書籍を取得。本棚に既にある本は除く。失敗時は空（呼び出し側でケア）。
-  const loadNewReleases = async (theme) => {
-    if (newReleasesLoading) return;
-    setNewReleasesTheme(theme);
-    setNewReleasesLoading(true);
-    setNewReleases(null);
-    try {
-      const list = await fetchNewReleases(theme);
-      const existing = new Set((books || []).map((b) => (b.title || '').replace(/\s+/g, '').toLowerCase()));
-      setNewReleases(list.filter((b) => !existing.has((b.title || '').replace(/\s+/g, '').toLowerCase())));
-    } catch {
-      setNewReleases([]);
-    } finally {
-      setNewReleasesLoading(false);
-    }
-  };
-
-  // テーマのチップをタップ — モードに応じて AI の良書棚 / 最新の新刊へ分岐。
+  // テーマのチップをタップ — AI の良書の棚（テーマ別の推薦）を生成する。
   const browseTheme = (theme) => {
-    if (browseMode === 'new') loadNewReleases(theme);
-    else generateRecommendations(browseQueryForTheme(theme), theme);
-  };
-
-  // 新刊カードの「読みたい」— isbn/cover は取得済みなので onAddBook へ直接渡す。
-  const addNewRelease = (b) => {
-    if (addedTitles.has(b.title)) return;
-    try { advisorHaptic.light(); } catch { /* non-critical */ }
-    setAddedTitles((prev) => new Set(prev).add(b.title));
-    Promise.resolve().then(async () => {
-      try {
-        await onAddBook({ title: b.title, author: b.author || '', isbn: b.isbn || '', cover: b.cover || '', why: '' }, newReleasesTheme);
-      } catch (error) {
-        setAddedTitles((prev) => { const n = new Set(prev); n.delete(b.title); return n; });
-        advisorToast.error(toMessage(error, '本の追加に失敗しました。'));
-      }
-    });
+    generateRecommendations(browseQueryForTheme(theme), theme);
   };
 
   // 初回の相談を受けて、第 1 ラウンドのヒアリング質問を設計させる。
@@ -2081,25 +2041,15 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         </div>
       )}
 
-      {/* 📚 本屋モード — 課題が曖昧な日でも「テーマの棚」をタップすると本が並ぶ。
-          本田直之の「本屋で棚を歩く」の追体験（新タブは作らず AI 選書の中で実現）。
-          良書の棚（AI）/ 最新の新刊（Google Books）を切替。あなたのタグ/フォルダ
-          由来のテーマを先頭に。 */}
+      {/* 📚 テーマの棚を眺める — 課題が曖昧な日でも、タグ/フォルダ由来や定番の
+          テーマをタップすると AI が良書を並べる。本田直之の「本屋で棚を歩く」の
+          追体験（新タブは作らず AI 選書の中で実現）。 */}
       {showConcernInput && (
         <div className="example-chips" style={{ marginTop: 4 }}>
           <p className="example-chips-label">
             <IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
             テーマの棚を眺める
           </p>
-          {/* モード切替: 良書の棚（AI）/ 最新の新刊（実データ） */}
-          <div style={{ display: 'flex', gap: 6, marginBottom: 8, width: '100%' }}>
-            <button type="button" onClick={() => setBrowseMode('curated')} style={bookshelfToolbarBtn(browseMode === 'curated')}>
-              <IcSparkles size={13} aria-hidden="true" />良書の棚
-            </button>
-            <button type="button" onClick={() => setBrowseMode('new')} style={bookshelfToolbarBtn(browseMode === 'new')}>
-              <IcSparkles size={13} aria-hidden="true" />最新の新刊
-            </button>
-          </div>
           {browseChips.map((t) => (
             <button
               type="button"
@@ -2110,55 +2060,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               {t}
             </button>
           ))}
-        </div>
-      )}
-
-      {/* 🆕 最新の新刊（Google Books）の棚 — 表紙グリッド。本屋らしく表紙主役。 */}
-      {showConcernInput && browseMode === 'new' && (newReleasesLoading || newReleases) && (
-        <div style={{ marginTop: 4 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', margin: '0 0 8px' }}>
-            {newReleasesTheme ? `「${newReleasesTheme}」の新刊` : '最新の新刊'}
-          </p>
-          {newReleasesLoading ? (
-            <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.7 }}>新刊を探しています…</p>
-          ) : newReleases && newReleases.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-              {newReleases.map((b, i) => {
-                const added = addedTitles.has(b.title);
-                return (
-                  <div key={`nr-${i}`} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ position: 'relative', width: '100%', aspectRatio: '3/4', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--c-hairline-strong)', background: 'var(--c-soft-2)' }}>
-                      {b.cover ? (
-                        <img
-                          src={ensureHttps(b.cover)}
-                          alt=""
-                          loading="lazy"
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'relative', zIndex: 1 }}
-                        />
-                      ) : null}
-                      {/* 表紙が無い / 読み込み失敗時に背面から見えるタイトルプレースホルダ */}
-                      <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8, textAlign: 'center', fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1.35, zIndex: 0 }}>{b.title}</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--c-ink)', fontWeight: 600, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.title}</div>
-                    {b.pubYear && <div style={{ fontSize: 10, color: 'var(--c-ink-3)' }}>{b.pubYear}年</div>}
-                    <button
-                      type="button"
-                      disabled={added}
-                      onClick={() => addNewRelease(b)}
-                      style={{ minHeight: 32, padding: '5px 0', borderRadius: 8, border: '1px solid var(--c-hairline-strong)', background: added ? '#E0E0E0' : 'transparent', color: added ? '#666' : 'var(--c-brand)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit', cursor: added ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
-                    >
-                      {added ? (<><IcCheck size={12} aria-hidden="true" />追加済み</>) : (<><IcBook size={12} aria-hidden="true" />読みたい</>)}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.7 }}>
-              このテーマの新刊が見つかりませんでした。別のテーマを試すか、「良書の棚」でAIに選んでもらってください。
-            </p>
-          )}
         </div>
       )}
 
