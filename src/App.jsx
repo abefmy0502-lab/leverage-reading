@@ -5820,6 +5820,23 @@ function isSchemaUnappliedError(error) {
 function PaywallGate() {
   const { isActive, loading, error, refresh } = useSubscription();
 
+  // 🛰️ 管理者（運営）はペイウォールを素通り。オーナーが課金なしでアプリ／運営
+  //    ダッシュボードを使えるようにする。is_app_admin RPC で判定（未適用 DB や
+  //    非管理者は false のまま＝通常のペイウォール挙動）。
+  const [adminBypass, setAdminBypass] = useState(false);
+  const [adminChecked, setAdminChecked] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data, error: e } = await supabaseClient.rpc('is_app_admin');
+        if (alive && !e && data === true) setAdminBypass(true);
+      } catch { /* 未適用 DB 等は false のまま */ }
+      finally { if (alive) setAdminChecked(true); }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。
   useEffect(() => {
@@ -5856,12 +5873,14 @@ function PaywallGate() {
     };
   }, [refresh]);
 
-  // ペイウォールが実際に表示される条件（判定確定 + 未課金 + schema 適用済み）。
-  const paywallShown = !loading && !isActive && !isSchemaUnappliedError(error);
+  // ペイウォールが実際に表示される条件（判定確定 + 非管理者 + 未課金 + schema 適用済み）。
+  const paywallShown = !loading && adminChecked && !adminBypass && !isActive && !isSchemaUnappliedError(error);
   // 📊 ペイウォール露出の計測（転換率の分母）。PII なし・表示時 1 回。
   useEffect(() => { if (paywallShown) track('paywall_viewed'); }, [paywallShown]);
 
-  if (loading) {
+  // 判定が確定するまで（課金 or 管理者）は読み込み表示。管理者チェックを待つ
+  // ことでペイウォールが一瞬チラつくのを防ぐ。
+  if (loading || !adminChecked) {
     return (
       <Shell>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -5871,8 +5890,8 @@ function PaywallGate() {
     );
   }
 
-  // fail-open: subscriptions テーブル未適用なら判定不能 → ロックせず通す。
-  if (isActive || isSchemaUnappliedError(error)) {
+  // fail-open: 管理者 / 課金中 / subscriptions テーブル未適用 → ロックせず通す。
+  if (adminBypass || isActive || isSchemaUnappliedError(error)) {
     return <AuthedApp />;
   }
 
