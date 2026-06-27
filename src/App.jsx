@@ -11,6 +11,11 @@ import BookMemoEditor from './components/BookMemoEditor';
 import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from './styles/ui';
+import {
+  Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
+  TrendingUp as IcTrendingUp, MessageSquareQuote as IcQuote, History as IcHistory,
+  SearchX as IcSearchX,
+} from 'lucide-react';
 import HelpModal from './components/HelpModal';
 const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
@@ -4983,15 +4988,18 @@ function AuthedApp() {
               }}
             >
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  type="search"
-                  aria-label="本を検索（タイトル・著者・タグ）"
-                  placeholder="🔍 タイトル・著者・タグで検索"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                  style={{ ...inp, flex: 1, background: "var(--c-card)" }}
-                />
+                <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center" }}>
+                  <IcSearch size={17} aria-hidden="true" style={{ position: "absolute", left: 13, color: "var(--c-ink-3)", pointerEvents: "none" }} />
+                  <input
+                    type="search"
+                    aria-label="本を検索（タイトル・著者・タグ）"
+                    placeholder="タイトル・著者・タグで検索"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
+                    style={{ ...inp, flex: 1, background: "var(--c-card)", paddingLeft: 38 }}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={openAdd}
@@ -5005,8 +5013,6 @@ function AuthedApp() {
                     border: "none",
                     background: "var(--c-brand)",
                     color: "var(--c-card)",
-                    fontSize: 24,
-                    lineHeight: 1,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -5015,7 +5021,7 @@ function AuthedApp() {
                     fontFamily: "inherit",
                   }}
                 >
-                  ＋
+                  <IcPlus size={22} aria-hidden="true" />
                 </button>
               </div>
               {/* Pill filters — hide statuses with zero books to keep the bar tight. */}
@@ -5116,7 +5122,7 @@ function AuthedApp() {
                   時こそ読みかけにすぐ戻れるべき）。テキスト検索中だけは検索結果を優先して隠す。 */}
               {recentBooks.length > 0 && !search && (
                 <div style={{ marginBottom: 14 }}>
-                  <p style={{ fontSize: 11, color: "var(--color-accent)", fontWeight: 600, marginBottom: 6 }}>📖 続きから</p>
+                  <p style={{ fontSize: 11, color: "var(--color-accent)", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}><IcHistory size={13} aria-hidden="true" /> 続きから</p>
                   <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
                     {recentBooks.map((b) => (
                       <button
@@ -5159,39 +5165,34 @@ function AuthedApp() {
               ) : filtered.length === 0 ? (
                 rawBooks.length === 0 ? (
                   <EmptyState
-                    icon="📚"
-                    title="まずは1冊、置いてみましょう"
-                    description="読んだ気づきは、ここに少しずつ貯まっていきます。あとで振り返りで、ふいに戻ってきます。"
+                    icon={<IcLibrary size={34} aria-hidden="true" />}
+                    title="最初の1冊から"
+                    description="読んだ気づきが、ここに少しずつ積み上がります。忘れた頃に、振り返りでそっと戻ってきます。"
                     actions={[
-                      { label: '📚 最初の1冊を追加', onClick: openAdd, variant: 'primary' },
+                      { label: '本を追加する', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
                     ]}
                     tip={(
-                      <span style={{ display: 'block' }}>
-                        <span style={{ display: 'block' }}>💡 悩みを伝えると AI が本を提案</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <IcSparkles size={15} aria-hidden="true" style={{ color: 'var(--color-accent)' }} />
+                        <span>悩みから</span>
                         <button
                           type="button"
                           onClick={() => { setAiSubTab('advisor'); setTab('ai'); }}
                           style={{
-                            display: 'inline-block',
-                            marginTop: 6,
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            color: 'var(--color-accent)',
-                            textDecoration: 'underline',
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                            fontSize: 'inherit',
+                            background: 'none', border: 'none', padding: 0,
+                            color: 'var(--color-accent)', fontWeight: 600,
+                            borderBottom: '1px solid var(--c-hairline-strong)',
+                            cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit',
                           }}
                         >
-                          AI 選書を開く →
+                          AI に選んでもらう
                         </button>
                       </span>
                     )}
                   />
                 ) : (
                   <EmptyState
-                    icon="🔍"
+                    icon={<IcSearchX size={32} aria-hidden="true" />}
                     title="該当する本がありません"
                     description="別のキーワードや、フィルタを試してみてください。"
                   />

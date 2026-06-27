@@ -549,11 +549,20 @@
   margin: 0 auto;
 }
 .empty-state-icon {
-  font-size: 56px;
+  /* 線アイコン（lucide）を淡い角丸スクエアに収める。絵文字の巨大イラストから
+     プロダクトらしい控えめなアイコンへ。脱・個人開発感の中心。 */
+  width: 76px;
+  height: 76px;
+  margin: 0 auto var(--space-4);
+  border-radius: 22px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
-  margin-bottom: var(--space-3);
-  animation: lvg-float 3s ease-in-out infinite;
 }
+.empty-state-icon svg { stroke-width: 1.5; }
 .empty-state-title {
   font-size: var(--type-title-3);
   font-weight: var(--weight-semibold);

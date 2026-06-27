@@ -12,7 +12,7 @@ import { ensureHttps } from '../lib/url';
 import { track, EVENTS } from '../lib/analytics';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
-import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3 } from 'lucide-react';
+import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
@@ -239,7 +239,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--c-ink)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Target size={18} strokeWidth={1.75} aria-hidden="true" />
-          ✅ 本から決めた次の行動を管理
+          本から決めた次の行動を管理
         </h2>
         <p style={{ fontSize: 12, color: 'var(--c-ink-2)', marginTop: 2, lineHeight: 1.7 }}>
           完了したらチェックを入れて、習慣化していきましょう
@@ -256,7 +256,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
           period.total === 0
             ? `${periodLabel}に予定された行動はまだありません`
             : period.rate >= 100
-            ? `🎉 ${periodLabel}の予定をすべて完了`
+            ? `${periodLabel}の予定をすべて完了しました`
             : `あと ${remaining} 件で ${periodLabel}を完了`;
         return (
           <div style={summaryCard}>
@@ -381,7 +381,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
       {/* List */}
       {stats.total === 0 ? (
         <EmptyState
-          icon="🎯"
+          icon={<ListTodo size={34} aria-hidden="true" />}
           title="次の一歩が、ここに集まります"
           description={(
             <>
@@ -389,21 +389,21 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
               本を横断してここに並びます。
             </>
           )}
-          actions={onGoToBooks ? [{ label: '本棚へ', icon: '📚', onClick: onGoToBooks }] : []}
-          tip="💡 各本の詳細画面 → 「行動リスト」セクションから追加できます"
+          actions={onGoToBooks ? [{ label: '本棚へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks }] : []}
+          tip="各本の詳細画面 →「行動リスト」から追加できます"
         />
       ) : visible.length === 0 ? (
         filter === 'open' ? (
           // 未完了が 0 = やることを全部こなした状態。ネガティブに見せず讃える。
           <EmptyState
-            icon="🎉"
+            icon={<CheckCircle2 size={34} aria-hidden="true" />}
             title="未完了の行動はありません"
             description="いまやるべきことは全部完了しています。お見事です。"
-            actions={[{ label: '完了した行動を見る', icon: '✅', onClick: () => setFilter('done') }]}
+            actions={[{ label: '完了した行動を見る', icon: <CheckCircle2 size={18} aria-hidden="true" />, onClick: () => setFilter('done') }]}
           />
         ) : (
           <EmptyState
-            icon="🔍"
+            icon={<SearchX size={32} aria-hidden="true" />}
             title="条件に合う行動がありません"
             description="フィルタや並び順を変えてみてください。"
           />

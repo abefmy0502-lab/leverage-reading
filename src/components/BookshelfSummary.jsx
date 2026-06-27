@@ -15,6 +15,7 @@
 // 重ねを静かに眺めるだけ。
 
 import { useMemo } from 'react';
+import { TrendingUp, CalendarDays } from 'lucide-react';
 import AnimatedNumber from './AnimatedNumber';
 
 function startOfThisMonth(now = new Date()) {
@@ -220,8 +221,8 @@ function RoiFunnel({ doneTotal, actionsDone, harvest }) {
   const arrow = <span aria-hidden="true" style={{ color: '#c3b9a4', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>→</span>;
   return (
     <div style={{ background: 'var(--color-accent-soft)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', marginBottom: 2 }}>
-        📈 読書が成果に変わった記録
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <TrendingUp size={15} aria-hidden="true" style={{ color: 'var(--color-accent)' }} /> 読書が成果に変わった記録
       </div>
       <p style={{ fontSize: 10.5, color: 'var(--c-ink-3)', margin: '0 0 10px', lineHeight: 1.45 }}>
         読んだ本が、行動の実行、そして学びの収穫へつながった数です。
@@ -255,7 +256,7 @@ function QuietProgress({ doneTotal, trend, actionsDone, harvest }) {
       </div>
       {/* 棒グラフ = 月ごとの読了数。何のグラフか一目で分かるよう見出しを添える。 */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flex: '1 1 auto', minWidth: 0 }}>
-        <span style={trendCaptionStyle}>📅 月別の読了（直近6ヶ月）</span>
+        <span style={{ ...trendCaptionStyle, display: 'inline-flex', alignItems: 'center', gap: 4 }}><CalendarDays size={12} aria-hidden="true" /> 月別の読了（直近6ヶ月）</span>
         <div
           style={trendBlock}
           aria-label={`直近 6 ヶ月の読了推移: ${trend
