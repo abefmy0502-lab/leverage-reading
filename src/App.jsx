@@ -14,8 +14,12 @@ import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from './styles/ui'
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
   TrendingUp as IcTrendingUp, MessageSquareQuote as IcQuote, History as IcHistory,
-  SearchX as IcSearchX,
+  SearchX as IcSearchX, NotebookText as IcNote, Target as IcTarget, Brain as IcBrain,
+  Ruler as IcRuler,
 } from 'lucide-react';
+
+// サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
+const subTabIconStyle = { verticalAlign: '-2px', marginRight: 5 };
 import HelpModal from './components/HelpModal';
 const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
@@ -5240,7 +5244,7 @@ function AuthedApp() {
                 className={`sub-tab ${reviewSubTab === 'note' ? 'active' : ''}`}
                 onClick={() => setReviewSubTab('note')}
               >
-                💭 ノート
+                <IcNote size={15} aria-hidden="true" style={subTabIconStyle} />ノート
               </button>
               <button
                 type="button"
@@ -5249,7 +5253,7 @@ function AuthedApp() {
                 className={`sub-tab ${reviewSubTab === 'action' ? 'active' : ''}`}
                 onClick={() => setReviewSubTab('action')}
               >
-                🎯 行動
+                <IcTarget size={15} aria-hidden="true" style={subTabIconStyle} />行動
               </button>
             </div>
             {reviewSubTab === 'note' ? (
@@ -5279,7 +5283,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'advisor' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('advisor')}
               >
-                🔍 AI 選書
+                <IcSearch size={15} aria-hidden="true" style={subTabIconStyle} />AI 選書
               </button>
               <button
                 type="button"
@@ -5288,7 +5292,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'brain' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('brain')}
               >
-                🧠 マイ読書脳
+                <IcBrain size={15} aria-hidden="true" style={subTabIconStyle} />マイ読書脳
               </button>
               <button
                 type="button"
@@ -5297,16 +5301,16 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'report' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('report')}
               >
-                📐 レバレッジメモ
+                <IcRuler size={15} aria-hidden="true" style={subTabIconStyle} />レバレッジメモ
               </button>
             </div>
             {/* 独自名のサブタブを初対面でも分かるよう、内容を平易な一言で注釈する。 */}
             <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 12px 0', lineHeight: 1.6, flexShrink: 0 }}>
               {aiSubTab === 'advisor'
-                ? '🔍 いまの課題に合う本を、AI が提案します。'
+                ? 'いまの課題に合う本を、AI が提案します。'
                 : aiSubTab === 'brain'
-                ? '🧠 あなたが残したメモをもとに、AI が質問に答えます。'
-                : '📐 テーマの学びを「核心1行＋次の一歩」に凝縮し、振り返りに乗せます。'}
+                ? 'あなたが残したメモをもとに、AI が質問に答えます。'
+                : 'テーマの学びを「核心1行＋次の一歩」に凝縮し、振り返りに乗せます。'}
             </p>
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (

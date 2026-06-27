@@ -22,6 +22,11 @@ import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
 import { isNative, purchasePlan, openManageSubscriptions, APP_PLAN_LABELS } from '../lib/iap';
 import { btnPrimary as uiBtnPrimary, btnDanger as uiBtnDanger } from '../styles/ui';
+import {
+  Settings as IcSettings, CreditCard as IcCard, Bell as IcBell, Download as IcDownload,
+  FileText as IcFileText, BarChart3 as IcBar, RefreshCw as IcRefresh, Mail as IcMail,
+  Eraser as IcEraser, AlertTriangle as IcWarn,
+} from 'lucide-react';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
   isPushSupported,
@@ -177,6 +182,14 @@ function SettingRow({ title, desc, control, titleColor }) {
 
 // 全 section 共通の見出し（13px / 600）。色だけ差し替え可能（破壊操作は赤）。
 const sectionTitleStyle = { fontSize: 13, margin: '0 0 4px', fontWeight: 600, color: 'var(--c-ink)' };
+// 見出し＝lucide 線アイコン＋テキスト（脱・絵文字）。色はオプションで上書き。
+function SecTitle({ icon: Icon, children, color }) {
+  return (
+    <p style={{ ...sectionTitleStyle, display: 'flex', alignItems: 'center', gap: 7, ...(color ? { color } : null) }}>
+      <Icon size={15} aria-hidden="true" /> {children}
+    </p>
+  );
+}
 // 全 section 共通の説明文（11px / 行間 1.7 / ボタンとの間隔 10px）。
 const sectionDescStyle = { fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.7 };
 // 無効/準備中など、ボタンを出さず案内文のみのときの末尾余白なしバリアント。
@@ -648,7 +661,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="アカウント設定" onClick={onClose}>
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 500, flex: 1 }}>⚙️ アカウント設定</h2>
+          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 500, flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}><IcSettings size={18} aria-hidden="true" /> アカウント設定</h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
         </div>
 
@@ -663,9 +676,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
           {/* 💳 Billing / プラン */}
           <section style={sectionStyle} aria-label="プラン・お支払い">
-            <p style={sectionTitleStyle}>
-              💳 プラン
-            </p>
+            <SecTitle icon={IcCard}>プラン</SecTitle>
             {subLoading ? (
               <p style={sectionNoteStyle}>確認中…</p>
             ) : isActive ? (
@@ -754,7 +765,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               const canToggle = pushConfigured && pushSupported && !pushNeedsA2HS && !(pushDenied && !pushOn);
               return (
                 <SettingRow
-                  title="🔔 想起の通知"
+                  title={<><IcBell size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />想起の通知</>}
                   desc="週1回ほど、過去のあなたの気づきがそっと戻ってきます。"
                   control={canToggle ? (
                     <ToggleSwitch
@@ -797,27 +808,25 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
           {/* Export */}
           <section style={sectionStyle} aria-label="データをダウンロード">
-            <p style={sectionTitleStyle}>
-              📥 データをダウンロード
-            </p>
+            <SecTitle icon={IcDownload}>データをダウンロード</SecTitle>
             <p style={sectionDescStyle}>
               本・メモ・タグ・行動・対話履歴を CSV でダウンロードします。Excel / Numbers でそのまま開けます。
             </p>
             <button type="button" aria-label="CSV をダウンロード" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
-              {exporting ? '準備中…' : '📥 CSV をダウンロード'}
+              {exporting ? '準備中…' : 'CSV をダウンロード'}
             </button>
             <p style={{ ...sectionDescStyle, margin: '14px 0 10px' }}>
               メモを 1 つの Markdown にまとめて書き出します。NotebookLM や Obsidian に取り込んで活用できます。
             </p>
             <button type="button" aria-label="Markdown で書き出す" style={{ ...btnPrimary, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
-              {exportingMd ? '書き出し中…' : '📝 Markdown で書き出す'}
+              {exportingMd ? '書き出し中…' : 'Markdown で書き出す'}
             </button>
           </section>
 
           {/* 📊 利用状況の記録（製品改善のためのファーストパーティ計測） */}
           <section style={sectionStyle} aria-label="利用状況の記録">
             <SettingRow
-              title="📊 利用状況の記録（製品改善のため）"
+              title={<><IcBar size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />利用状況の記録（製品改善のため）</>}
               desc="どの機能がよく使われているかを、機能名や回数だけ（個人を特定する内容は含めず）そっと記録し、Orime の改善に役立てます。外部のサービスには送らず、いつでもオフにできます。"
               control={(
                 <ToggleSwitch
@@ -834,9 +843,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
           {/* App update */}
           <section style={sectionStyle} aria-label="アプリを最新版に更新">
-            <p style={sectionTitleStyle}>
-              🔄 アプリを最新版に更新
-            </p>
+            <SecTitle icon={IcRefresh}>アプリを最新版に更新</SecTitle>
             <p style={sectionDescStyle}>
               新しいバージョンが反映されない時はこちら。キャッシュを消して再読み込みします。
             </p>
@@ -853,20 +860,18 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               disabled={updating}
               onClick={handleForceUpdate}
             >
-              {updating ? '更新中…' : '🔄 最新版に更新する'}
+              {updating ? '更新中…' : '最新版に更新する'}
             </button>
           </section>
 
           {/* Feedback */}
           <section style={sectionStyle} aria-label="フィードバック・要望を送る">
-            <p style={sectionTitleStyle}>
-              📩 フィードバック・要望を送る
-            </p>
+            <SecTitle icon={IcMail}>フィードバック・要望を送る</SecTitle>
             <p style={sectionDescStyle}>
               バグ報告 / 機能要望 / 感想など、開発者へ直接届きます。
             </p>
             <button type="button" aria-label="フィードバックを送る" style={btnPrimary} onClick={() => setFeedbackOpen(true)}>
-              📩 フィードバックを送る
+              フィードバックを送る
             </button>
           </section>
 
@@ -875,9 +880,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
           {/* 🧹 データ初期化（アカウントは残す） */}
           <section style={sectionStyle} aria-label="データを初期化">
-            <p style={sectionTitleStyle}>
-              🧹 データを初期化
-            </p>
+            <SecTitle icon={IcEraser}>データを初期化</SecTitle>
             <p style={sectionDescStyle}>
               本・メモ・写真・行動・対話履歴・テーマ履歴など、あなたのデータをすべて消して、まっさらな状態に戻します。アカウント（ログイン）は残ります。
             </p>
@@ -888,15 +891,13 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
               disabled={resetting}
               onClick={handleResetData}
             >
-              {resetting ? '初期化中…' : '🧹 データをすべて初期化する'}
+              {resetting ? '初期化中…' : 'データをすべて初期化する'}
             </button>
           </section>
 
           {/* Delete */}
           <section style={dangerSection} aria-label="アカウント削除">
-            <p style={{ ...sectionTitleStyle, color: 'var(--c-critical)' }}>
-              ⚠️ アカウント削除
-            </p>
+            <SecTitle icon={IcWarn} color="var(--c-critical)">アカウント削除</SecTitle>
             <p style={sectionDescStyle}>
               本・メモ・写真・対話履歴がすべて削除されます。認証アカウント自体の完全削除は、管理者の最終確認後（通常 7 日以内）に実行されます。
             </p>
