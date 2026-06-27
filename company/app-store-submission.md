@@ -1,0 +1,172 @@
+# 📱 Orime — App Store 提出 完全手順書（v1.0.0）
+
+> 対象: iOS / Capacitor + RevenueCat(IAP)。Bundle ID `com.leveragereading.app`、表示名 `Orime`。
+> このドキュメントは「コード側は提出可能水準」を前提に、**Apple 側でやる作業**を順に網羅する。
+> ✅=実装/準備済み、⬜=あなた（Mac/Apple アカウント）が行う作業。
+
+---
+
+## 0. 現状サマリー（コード側の到達点）
+
+| Apple の必須要件 | 状態 |
+|---|---|
+| IAP で課金（RevenueCat 経由・`src/lib/iap.js`） | ✅ |
+| 購入の復元ボタン（Guideline 3.1.1） | ✅ Paywall に実装 |
+| 自動更新の条件明示（3.1.2） | ✅ 「期間終了24時間前まで…」表示済み |
+| 利用規約(EULA)・プライバシーポリシーへのリンク（3.1.2 / 5.1.1） | ✅ Paywall・設定に表示 |
+| 価格・期間の明示 | ✅ ¥1,480/月・¥12,800/年 |
+| アカウント削除を**アプリ内**で提供（5.1.1(v)） | ✅ 設定→アカウント削除 |
+| 第三者トラッキング / IDFA / ATT | ✅ 無し（ATT プロンプト不要） |
+| 第三者データ収集 | Sentry（クラッシュ計測）のみ → App Privacy で申告 |
+| 自前利用計測 | analytics_events（ファーストパーティ・外部送信なし） |
+
+---
+
+## 1. Apple Developer / 証明書（⬜）
+
+1. **Apple Developer Program** 登録（年 ¥12,980）。
+2. **App ID** を作成: `com.leveragereading.app`。Capability で **In-App Purchase** を有効化（Push は後日＝今回は不要）。
+3. 署名は **Xcode の Automatically manage signing** に任せるのが最速（Team を選ぶだけ）。
+
+## 2. App Store Connect でアプリ作成（⬜）
+
+1. [App Store Connect](https://appstoreconnect.apple.com) → My Apps → ＋ → New App。
+   - Platform: iOS / Name: **Orime** / Primary Language: 日本語 / Bundle ID: `com.leveragereading.app` / SKU: `orime-ios-001`。
+2. **サブスク商品（Auto-Renewable Subscription）を2つ**登録（App内課金 → サブスクリプショングループ「Orime Premium」を作りその中に）:
+   - 月額: Product ID `orime_premium_monthly` / ¥1,480 / 期間1ヶ月
+   - 年額: Product ID `orime_premium_annual` / ¥12,800 / 期間1年
+   - ローカリゼーション（表示名・説明）を各商品に記入。**審査用に最低1商品をアプリのバイナリと一緒に提出**。
+   - ※ 5日間無料の扱い: 「返金保証」を運用で謳うなら App 側の表記のままでOK。**Introductory Offer（無料トライアル）を使う場合**はここで設定（その場合ダッシュボードの period_type を RevenueCat webhook が 'trial' で書くよう設定）。
+
+## 3. RevenueCat 設定（⬜）
+
+1. RevenueCat ダッシュボードで **iOS アプリ**を追加（Bundle ID 紐付け）。**App Store Connect API Key（.p8）** を RevenueCat に登録（サブスク状態同期に必須）。
+2. **Entitlement** を1つ作成（例 `premium`）。コードは「active な entitlement が1つでもあれば有効」判定なので名称は任意（`src/lib/iap.js` 参照）。
+3. **Offering（current）** を作り、**Packages を Monthly / Annual** で登録し、上の Product ID を割り当てる（コードは packageType=MONTHLY/ANNUAL で引く）。
+4. **公開 SDK キー（Apple 用）** を取得 → 環境変数 `VITE_REVENUECAT_IOS_KEY` に設定（下記）。
+5. **Webhook → Supabase**: RevenueCat の Webhook を、`subscriptions` テーブルへ status / period_type を書く中継に向ける（既存 Stripe webhook と同型。未実装なら別途。最悪 webhook 無しでも端末ローカル entitlement で課金は通るが、ダッシュボードの会員数は更新されない）。
+
+## 4. 環境変数（本番ビルドに必要・⬜ 確認）
+
+| 変数 | 用途 |
+|---|---|
+| `VITE_REVENUECAT_IOS_KEY` | RevenueCat Apple 公開キー（**必須**・未設定だと課金導線が出ない） |
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | クライアント |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | サーバー(API) |
+| `ANTHROPIC_API_KEY` | AI |
+| `GOOGLE_BOOKS_API_KEY` | 表紙解決（サーバー） |
+| `VITE_SENTRY_DSN`（任意） | クラッシュ計測 |
+
+## 5. Xcode / ネイティブプロジェクト（⬜）
+
+```bash
+# Mac で
+npm install
+npm run build
+npx cap sync ios
+npx cap open ios   # Xcode が開く
+```
+Xcode で:
+1. Signing & Capabilities → Team を選択、**In-App Purchase** capability を追加。
+2. General → **Version 1.0.0 / Build 1**、Display Name `Orime`。
+3. App アイコン: `public/icons/icon-1024.png` を AppIcon にセット（1024 必須）。
+4. **PrivacyInfo.xcprivacy** を `ios/App/App/` に追加（下記 §8 の内容をコピー）。
+5. 実機（あなたの iPhone）で一度ビルド＆起動して、**課金（Sandbox）と復元**が動くか確認。
+
+## 6. App Privacy（プライバシー栄養成分・⬜ App Store Connect で入力）
+
+「データを使用してユーザーを追跡しますか？」→ **いいえ**（第三者トラッキング/IDFA なし）。
+
+収集データ（すべて **App 機能のため**、トラッキングには未使用）:
+| データ種別 | 用途 | 識別子に紐づく |
+|---|---|---|
+| 連絡先情報 → メールアドレス | アカウント/認証 | はい |
+| 識別子 → ユーザーID | アカウント/購入管理 | はい |
+| 利用状況データ → 製品操作 | 分析（自前 analytics_events） | はい |
+| 購入履歴 | 課金管理（Apple/RevenueCat） | はい |
+| 診断 → クラッシュデータ / パフォーマンス | アプリ品質（**Sentry**＝第三者） | いいえ（PII 無効化前提） |
+
+## 7. App 審査情報（⬜）
+
+- **デモアカウント**を用意（審査官がペイウォール内を見られるよう、課金済みの test アカウント or Sandbox 手順を Review Notes に明記）。**ハードペイウォールは審査でログイン後の中身を見せられないと落ちやすい** → デモアカウント必須。
+- Review Notes 文例:
+  > サブスクリプション制アプリです。審査用デモアカウント: email=____ / pass=____（このアカウントは課金済み状態にしてあります）。課金は RevenueCat 経由の App 内課金、購入の復元・自動更新条件・利用規約・プライバシーポリシーを Paywall に明示しています。アカウント削除はアプリ内（設定→アカウント削除）で可能です。
+- **サポートURL** / **マーケティングURL** / **プライバシーポリシーURL**（`/legal/privacy`）/ **利用規約(EULA)URL**（`/legal/terms`）を登録。
+- 年齢レーティング: 4+（不適切コンテンツ無し）。
+
+## 8. PrivacyInfo.xcprivacy（⬜ `ios/App/App/` に追加）
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSPrivacyTracking</key>
+  <false/>
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array>
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeProductInteraction</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAnalytics</string></array>
+    </dict>
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeCrashData</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+  </array>
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array><string>CA92.1</string></array>
+    </dict>
+  </array>
+</dict>
+</plist>
+```
+
+## 9. スクリーンショット（⬜）
+
+- 必須: **6.7"（iPhone 15 Pro Max 等, 1290×2796）** と **6.5"** の2サイズ（最低各3枚、推奨5枚）。
+- 推奨カット: ①本棚（表紙グリッド）②メモ/凝縮 ③振り返り（想起）④AI選書 ⑤行動リスト。
+- Xcode のシミュレータ or 実機でキャプチャ。日本語UIで。
+
+## 10. 提出（⬜）
+
+1. Xcode → Product → Archive → Distribute App → App Store Connect → Upload。
+2. App Store Connect でビルドを選択、上記メタデータ/スクショ/価格/サブスク商品を紐付け。
+3. **サブスク商品もこのバージョンと一緒に「審査に追加」**（忘れると IAP が審査されない）。
+4. Submit for Review。初回審査は通常 24〜48h。
+
+---
+
+## ⚠️ 審査で落ちやすい点（事前対策・本アプリの状態）
+- ❗ **デモアカウント未提供** → ハードペイウォールで中身が見えず落ちる。§7 必須。
+- ✅ 復元ボタン・自動更新条件・規約/プライバシー → 実装済み。
+- ✅ アカウント削除（5.1.1(v)）→ 実装済み。
+- △ **価格の二重表示に注意**: アプリ内の価格表記は App Store の実価格と一致させる（コードは ¥1,480 固定フォールバックだが、実際は RevenueCat のストア価格で上書きされる）。
+- △ ハードペイウォール自体は許容されるが、Review Notes で「サブスクで全機能解放」と明記しデモアカウントを渡すこと。
+
+## 宿題（ローンチ後でよい）
+- 🔔 ネイティブ Push（APNs / @capacitor/push-notifications）— 現状 Web Push は WebView で発火しないため未対応。リテンション施策として後日。
+- 🧾 RevenueCat → subscriptions webhook（会員数の自動同期）。未実装なら課金は通るがダッシュボード会員数が手動確認になる。
