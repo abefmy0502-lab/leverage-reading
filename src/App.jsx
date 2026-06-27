@@ -62,7 +62,7 @@ import {
   findCoverFromGoogleBooks,
   fetchNewReleases,
 } from './lib/bookSearch';
-import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn } from './lib/bookCover';
+import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn, checkImageExists } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
@@ -3501,7 +3501,7 @@ function AuthedApp() {
   // Inner delete flow: snapshot, fire delete, show Undo toast. Used by both
   // the kebab "削除" button (with confirm) and the swipe-delete gesture
   // (which is already an explicit user intent, no confirm).
-  const performBookDelete = async (book, { fromList = false } = {}) => {
+  const performBookDelete = async (book, { fromList = false, undo = true } = {}) => {
     const snapshot = await captureBookSnapshot(book.id);
     if (!snapshot) {
       toast.error('本のデータを取得できませんでした。削除を中止します。');
@@ -3513,6 +3513,14 @@ function AuthedApp() {
     });
     if (!fromList) goList();
     haptic.medium();
+
+    // 確認ダイアログ経由の削除（undo=false）では、既にユーザーが意思確認済み
+    // なので下部の「取消」トーストは出さない（本が消えること自体が手応え）。
+    // スワイプ削除（ジェスチャー＝確認なし）のときだけ取消トーストを出す。
+    if (!undo) {
+      deletionPromise.catch(() => {});
+      return;
+    }
 
     const hasPhotos = (snapshot.book_memos || []).some((m) => m.photo_path);
     toast.undo({
@@ -3550,7 +3558,7 @@ function AuthedApp() {
       danger: true,
     });
     if (!ok) return;
-    await performBookDelete(book);
+    await performBookDelete(book, { undo: false });
   };
 
   // Swipe-driven delete from the list — gesture itself counts as confirmation.
@@ -3682,14 +3690,16 @@ function AuthedApp() {
       try {
         let url = '';
         let coverIsbn = '';
-        // ① Google Books の検証済みサムネ（取り直しボタンと同じ強い経路）
+        // ① Google Books サムネ。ただし Google の「No cover」プレースホルダ
+        //    (128×170 等) を掴むことがあるので、実在＋表紙比率を checkImageExists
+        //    で検証してから採用する（ダメなら ②の NDL/openBD 等へ落とす）。
         try {
           const gb = await findCoverFromGoogleBooks({
             title: saved.title,
             author: saved.author,
             isbn: saved.isbn,
           });
-          if (gb) { url = gb; coverIsbn = saved.isbn || ''; }
+          if (gb && await checkImageExists(gb)) { url = gb; coverIsbn = saved.isbn || ''; }
         } catch { /* 次へ */ }
         // ② ISBN ベース multi-source（NDL / openBD / Open Library / Google / Amazon）
         if (!url) {

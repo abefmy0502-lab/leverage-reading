@@ -88,7 +88,7 @@ export const getCoverCandidates = (isbn) => {
 //                                        ほぼ 1.4-1.6)
 // 3 秒で打ち切り。crossOrigin は付けない (CORS 未対応の openBD/Amazon
 // が読めなくなる。naturalWidth/Height はクロスオリジン画像でも取得可)。
-const checkImageExists = (url) =>
+export const checkImageExists = (url) =>
   new Promise((resolve) => {
     if (!url) { resolve(false); return; }
     let settled = false;

@@ -305,55 +305,60 @@ async function searchGoogleBooks(query, { signal } = {}) {
 export async function fetchNewReleases(theme, { signal, max = 12 } = {}) {
   const q = (theme || '').trim();
   if (!q) return [];
-  let d;
-  try {
-    const r = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}` +
-        `&orderBy=newest&langRestrict=ja&printType=books&maxResults=40&country=JP`,
-      signal ? { signal } : undefined,
-    );
-    if (!r.ok) return [];
-    d = await r.json();
-  } catch {
-    return [];
-  }
-  const seen = new Set();
-  const all = [];
-  // 異常に未来日付（メタデータ誤り）だけ弾く緩い窓。新しい和書は Google Books に
-  // 表紙が無いことが多いので「表紙必須」は外す（外さないとテーマによっては 0 件に
-  // なる）。表紙が無い本はクライアント側がプレースホルダ＋追加後に解決する。
-  let curYear = 0;
-  try { curYear = new Date().getFullYear(); } catch { curYear = 0; }
-  for (const i of (d.items || [])) {
-    const v = i.volumeInfo || {};
-    const title = v.title || '';
-    if (!title) continue;
-    const key = title.replace(/\s+/g, '').toLowerCase();
-    if (seen.has(key)) continue;
-    const pubMatch = (v.publishedDate || '').match(/(\d{4})/);
-    const year = pubMatch ? parseInt(pubMatch[1], 10) : 0;
-    if (curYear && year && year > curYear + 1) continue; // 未来日付の誤データのみ除外
-    const ids = v.industryIdentifiers || [];
-    const isbn =
-      ids.find((x) => x.type === 'ISBN_13')?.identifier ||
-      ids.find((x) => x.type === 'ISBN_10')?.identifier ||
-      '';
-    // ISBN も表紙も無い本は手がかりが薄い（自費出版の断片等）ので除外。
-    const cover = (v.imageLinks?.thumbnail || '').replace(/^http:/i, 'https:');
-    if (!cover && !isbn) continue;
-    seen.add(key);
-    all.push({
-      title,
-      author: (v.authors || []).join(', '),
-      publisher: v.publisher || '',
-      pubYear: pubMatch ? pubMatch[1] : '',
-      publishedDate: v.publishedDate || '',
-      cover,
-      pages: v.pageCount || 0,
-      isbn,
-    });
-  }
-  // 表紙のある本を前に寄せる（棚の見栄え）。発売日順は元の orderBy=newest を尊重。
+
+  // 1 クエリ分を取得してパースする（失敗時は []）。
+  const fetchOnce = async (extra) => {
+    let d;
+    try {
+      const url =
+        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}` +
+        `&orderBy=newest&printType=books&maxResults=40&country=JP${extra}`;
+      const r = await fetch(url, signal ? { signal } : undefined);
+      if (!r.ok) return [];
+      d = await r.json();
+    } catch {
+      return [];
+    }
+    let curYear = 0;
+    try { curYear = new Date().getFullYear(); } catch { curYear = 0; }
+    const seen = new Set();
+    const out = [];
+    for (const i of (d.items || [])) {
+      const v = i.volumeInfo || {};
+      const title = v.title || '';
+      if (!title) continue;
+      const key = title.replace(/\s+/g, '').toLowerCase();
+      if (seen.has(key)) continue;
+      const pubMatch = (v.publishedDate || '').match(/(\d{4})/);
+      const year = pubMatch ? parseInt(pubMatch[1], 10) : 0;
+      if (curYear && year && year > curYear + 1) continue; // 未来日付の誤データのみ除外
+      const ids = v.industryIdentifiers || [];
+      const isbn =
+        ids.find((x) => x.type === 'ISBN_13')?.identifier ||
+        ids.find((x) => x.type === 'ISBN_10')?.identifier ||
+        '';
+      const cover = (v.imageLinks?.thumbnail || '').replace(/^http:/i, 'https:');
+      if (!cover && !isbn) continue; // 手がかりの無い断片は除外
+      seen.add(key);
+      out.push({
+        title,
+        author: (v.authors || []).join(', '),
+        publisher: v.publisher || '',
+        pubYear: pubMatch ? pubMatch[1] : '',
+        publishedDate: v.publishedDate || '',
+        cover,
+        pages: v.pageCount || 0,
+        isbn,
+      });
+    }
+    return out;
+  };
+
+  // まず ja 言語で。0 件なら langRestrict を外して再試行（ja タグ無しの本も拾う）。
+  let all = await fetchOnce('&langRestrict=ja');
+  if (all.length === 0) all = await fetchOnce('');
+
+  // 表紙のある本を前に寄せる（棚の見栄え）。発売日順は orderBy=newest を尊重。
   all.sort((a, b) => (a.cover ? 0 : 1) - (b.cover ? 0 : 1));
   return all.slice(0, max);
 }

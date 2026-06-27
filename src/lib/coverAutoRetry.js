@@ -17,7 +17,7 @@
 //     楽観的 UI と整合させるため、生 supabase を直接叩かない。
 
 import { findIsbnCandidates, findCoverFromGoogleBooks } from './bookSearch';
-import { resolveCoverFromCandidates } from './bookCover';
+import { resolveCoverFromCandidates, checkImageExists } from './bookCover';
 
 const triedThisSession = new Set();
 const queue = [];
@@ -55,7 +55,9 @@ async function processQueue() {
       try {
         // eslint-disable-next-line no-await-in-loop
         const gb = await findCoverFromGoogleBooks({ title: book.title, author: book.author, isbn: book.isbn });
-        if (gb) { url = gb; coverIsbn = book.isbn || ''; }
+        // Google の「No cover」プレースホルダを掴まないよう実在＋表紙比率を検証。
+        // eslint-disable-next-line no-await-in-loop
+        if (gb && await checkImageExists(gb)) { url = gb; coverIsbn = book.isbn || ''; }
       } catch { /* 次へ */ }
       // ② ISBN ベース multi-source（NDL / openBD / Open Library / Amazon）。
       if (!url) {
