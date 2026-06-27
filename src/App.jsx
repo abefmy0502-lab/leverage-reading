@@ -582,12 +582,6 @@ function StatusBadge({ status }) {
   );
 }
 
-function BookIcon() {
-  return (
-    <div style={{ width: 32, height: 44, background: "#e8e2d6", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>📕</div>
-  );
-}
-
 // Swipeable + long-pressable book row used on the bookshelf list.
 // Defined at top level (not inside AuthedApp) so the per-card hooks
 // (useLongPress) follow Rules of Hooks.

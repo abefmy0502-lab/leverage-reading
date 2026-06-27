@@ -81,9 +81,18 @@ const FB_STATUS_LABEL = { open: '未対応', in_progress: '対応中', resolved:
 const TICKET_STATUS_LABEL = { open: '未着手', in_progress: '対応中', done: '完了', wont_fix: '却下' };
 const KIND_LABEL = { bug: '🐛 バグ', feature: '✨ 要望', task: '📌 タスク' };
 
+// ローカル一意 ID（チャットメッセージの React key 用・履歴の uuid と衝突しない）。
+let _uidCounter = 0;
+function uid() {
+  try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch { /* fall through */ }
+  _uidCounter += 1;
+  return `local-${_uidCounter}-${Date.now()}`;
+}
+
 function fmtGoal(metric, v) {
   const n = Math.max(0, Math.round(v));
-  return metric === 'mrr' ? `¥${n.toLocaleString()}` : `${n.toLocaleString()}人`;
+  // mrr / gross_profit は金額（円）、paid_users / users は人数。
+  return (metric === 'mrr' || metric === 'gross_profit') ? `¥${n.toLocaleString()}` : `${n.toLocaleString()}人`;
 }
 
 // AI ロードマップ用の軽量 Markdown レンダラ（## 見出し / ### 月 / - 箇条書き / **太字**）。
@@ -278,7 +287,7 @@ export default function AdminDashboard({ onClose }) {
       supabase.rpc('admin_tickets'),
       supabase.rpc('admin_growth'),
     ]);
-    const all = [ov, se, us, au, rv, fb, gl, tk];
+    const all = [ov, se, us, au, rv, fb, gl, tk, gr];
 
     // 'not authorized' が出るなら管理者でない（全面エラー）。
     if (all.some((r) => r.error?.message === 'not authorized')) {
@@ -299,7 +308,8 @@ export default function AdminDashboard({ onClose }) {
     setAi(au.error ? [] : (au.data || []));
     setRevenue(rv.error ? null : (rv.data || null));
     setFeedback(fb.error ? [] : (fb.data || []));
-    setGoal(gl.error ? null : (gl.data || null));
+    // jsonb numeric は文字列で届くことがあるため target を数値に正規化。
+    setGoal(gl.error || !gl.data ? null : { ...gl.data, target: Number(gl.data.target) || 0 });
     setTickets(tk.error ? [] : (tk.data || []));
     setGrowth(gr.error ? null : (gr.data || null));
     if (!gl.error && gl.data) { setGMetric(gl.data.metric); setGTarget(String(gl.data.target || '')); setGDeadline(gl.data.deadline || ''); }
@@ -458,7 +468,7 @@ export default function AdminDashboard({ onClose }) {
     if (!text || advisorBusy) return;
     setAdvisorBusy(true);
     setAdvisorInput('');
-    const userMsg = { role: 'user', content: text, id: `local-${advisorMsgs.length}` };
+    const userMsg = { role: 'user', content: text, id: uid() };
     const next = [...advisorMsgs, userMsg];
     setAdvisorMsgs(next);
     // ユーザー発言を保存（fire-and-forget）。
@@ -466,13 +476,13 @@ export default function AdminDashboard({ onClose }) {
     try {
       const reply = await opsAdvise({ messages: next, stateLine });
       if (reply) {
-        setAdvisorMsgs((cur) => [...cur, { role: 'assistant', content: reply, id: `local-a-${cur.length}` }]);
+        setAdvisorMsgs((cur) => [...cur, { role: 'assistant', content: reply, id: uid() }]);
         supabase.from('ops_advisor_messages').insert({ role: 'assistant', content: reply }).then(() => {});
       } else {
-        setAdvisorMsgs((cur) => [...cur, { role: 'assistant', content: '（応答に失敗しました。少し時間をおいて再度お試しください）', id: `err-${cur.length}` }]);
+        setAdvisorMsgs((cur) => [...cur, { role: 'assistant', content: '（応答に失敗しました。少し時間をおいて再度お試しください）', id: uid() }]);
       }
     } catch {
-      setAdvisorMsgs((cur) => [...cur, { role: 'assistant', content: '（応答に失敗しました）', id: `err-${cur.length}` }]);
+      setAdvisorMsgs((cur) => [...cur, { role: 'assistant', content: '（応答に失敗しました）', id: uid() }]);
     } finally {
       setAdvisorBusy(false);
     }
@@ -514,9 +524,16 @@ export default function AdminDashboard({ onClose }) {
       });
       if (rows && rows.length) {
         const todayStr = new Date().toISOString().slice(0, 10);
-        // 既存の「今日以降・未完了」を消してから差し替え（軌道修正）。
-        await supabase.from('ops_tasks').delete().gte('due_date', todayStr).eq('done', false);
-        await supabase.from('ops_tasks').insert(rows.map((r) => ({ due_date: r.due_date, dept: r.dept, title: r.title })));
+        // ⚠️ データ消失を防ぐため「先に挿入 → 成功したら旧タスクを削除」の順にする。
+        //    旧タスク（今日以降・未完了）の id を控えてから新規挿入し、成功時のみ旧を消す。
+        const { data: oldRows } = await supabase.from('ops_tasks')
+          .select('id').gte('due_date', todayStr).eq('done', false);
+        const ins = await supabase.from('ops_tasks')
+          .insert(rows.map((r) => ({ due_date: r.due_date, dept: r.dept, title: r.title })));
+        if (ins.error) { setTasksErr('タスクの保存に失敗しました。少し時間をおいて再度お試しください。'); return; }
+        if (oldRows && oldRows.length) {
+          await supabase.from('ops_tasks').delete().in('id', oldRows.map((r) => r.id));
+        }
         await loadTasks();
       } else {
         setTasksErr('タスク生成に失敗しました。少し時間をおいて再度お試しください。');
