@@ -266,7 +266,7 @@ export const HELP_CONTENT = {
   },
 
   bookDetailBefore: {
-    title: '🎯 積読（読む準備）',
+    title: '📚 積読（読む準備）',
     description: 'AI と一緒に「この本から何を得るか」を計画する段階です。',
     lastUpdated: '2026-06-26',
     sections: [
