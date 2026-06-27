@@ -1,24 +1,26 @@
-// 🛰️ AdminDashboard — 運営の「管制塔」。管理者だけが開ける1枚。
+// 🎛️ AdminDashboard — 運営の操縦席（Founder Cockpit）。管理者専用。
 //
-// アクティブ人数 / 売上・課金 / AI コスト・API 消費 / 機能別の利用状況 /
-// 問い合わせ受信箱（フィードバック）を一本化して表示する。
+// 単なる数字表示ではなく「いつ何をすべきか」を指示する操縦席:
+//   1. 🎯 目標     — 売上/利用目標 ＋ 締切。現在地との差分から達成ペースを逆算。
+//   2. 📋 今やるべきこと — 指標から自動生成される優先アクション（ファネル別）。
+//      数字が動くと指示も軌道修正される（再読込のたびに再計算）。
+//   3. 🎫 チケット — 顧客フィードバックから起票したバグ/要望＋手動タスクの作業ボード。
+//   4. 📊 メトリクス — アクティブ/売上/AIコスト/機能別の利用状況。
+//   5. 📩 問い合わせ受信箱 — フィードバックをさばく（ワンタップでチケット化）。
 //
-// データは supabase の SECURITY DEFINER RPC（supabase_admin_metrics.sql）から
-// 取得する。RPC 側で is_app_admin() ゲートがかかっているため、非管理者が叩いて
-// もエラーになるだけ（クライアント側でも入口を出さない二重防御）。
-//
-// グラフは依存追加を避けるため CSS バーのみ（軽量・GPU 不要）。
+// データは supabase の SECURITY DEFINER RPC（supabase_admin_metrics.sql /
+// supabase_admin_ops.sql）。RPC 側で is_app_admin() ゲート済み。
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  X, RefreshCw, Users, CreditCard, Cpu, Inbox, BarChart3, TrendingUp,
+  X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
+  BarChart3, TrendingUp, Check, Flag, Pencil,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { C, btnGhost } from '../styles/ui';
+import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 
-// 月額の概算 MRR 表示用（真実は Stripe 側。あくまで目安）。
-const MONTHLY_PRICE_JPY = 990;
+const MONTHLY_PRICE_JPY = 990; // MRR 概算用（真実は Stripe 側）
 
 const overlay = {
   position: 'fixed', inset: 0, zIndex: 1000, background: C.pageBg,
@@ -50,20 +52,39 @@ const card = {
 };
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 };
 const grid3 = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 };
+const inp = {
+  width: '100%', padding: '10px 12px', fontSize: 16, boxSizing: 'border-box',
+  border: `1px solid ${C.hairlineStrong}`, borderRadius: 10, background: '#fff',
+  color: C.ink, fontFamily: 'inherit',
+};
+
+const METRIC_LABEL = { mrr: 'MRR（月次売上）', paid_users: '有料会員数', users: '総ユーザー数' };
+const STAGE = { ACQ: '集客', ACT: '定着', REV: '収益化', RET: '継続', QUAL: '品質' };
+const STAGE_COLOR = {
+  集客: C.accent || C.brand, 定着: '#6b8e6b', 収益化: C.brand, 継続: '#b08a3e', 品質: C.critical,
+};
+const PRI_LABEL = { 1: '高', 2: '中', 3: '低' };
+const PRI_COLOR = { 1: C.critical, 2: C.brand, 3: C.ink3 };
+const CATEGORY_LABEL = { bug: '不具合', feature: '要望', ui: 'UI', question: '質問', thanks: '感謝', other: 'その他' };
+const FB_STATUS_LABEL = { open: '未対応', in_progress: '対応中', resolved: '解決', wont_fix: '却下' };
+const TICKET_STATUS_LABEL = { open: '未着手', in_progress: '対応中', done: '完了', wont_fix: '却下' };
+const KIND_LABEL = { bug: '🐛 バグ', feature: '✨ 要望', task: '📌 タスク' };
+
+function fmtGoal(metric, v) {
+  const n = Math.max(0, Math.round(v));
+  return metric === 'mrr' ? `¥${n.toLocaleString()}` : `${n.toLocaleString()}人`;
+}
 
 function Stat({ label, value, sub }) {
   return (
     <div style={card}>
       <p style={{ margin: 0, fontSize: 11, color: C.ink2, fontWeight: 600 }}>{label}</p>
-      <p style={{ margin: '6px 0 0', fontSize: 26, fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>
-        {value}
-      </p>
+      <p style={{ margin: '6px 0 0', fontSize: 26, fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>{value}</p>
       {sub != null && <p style={{ margin: '4px 0 0', fontSize: 11, color: C.ink3 }}>{sub}</p>}
     </div>
   );
 }
 
-// 横棒リスト（イベント名 → 件数）。最大値で正規化して幅を出す。
 function BarList({ data }) {
   const entries = Object.entries(data || {}).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0) return <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>データなし</p>;
@@ -83,13 +104,12 @@ function BarList({ data }) {
   );
 }
 
-// 日次推移のミニ縦棒グラフ（アクティブ人数）。
 function MiniBars({ series }) {
   if (!series || series.length === 0) return <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>データなし</p>;
   const max = Math.max(...series.map((d) => d.active), 1);
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 90 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 80 }}>
         {series.map((d) => (
           <div key={d.d} title={`${d.d}: ${d.active}人 / 新規本${d.new_books}`}
             style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
@@ -98,19 +118,62 @@ function MiniBars({ series }) {
         ))}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10, color: C.ink3 }}>
-        <span>{series[0]?.d}</span>
-        <span>{series[series.length - 1]?.d}</span>
+        <span>{series[0]?.d}</span><span>{series[series.length - 1]?.d}</span>
       </div>
     </div>
   );
 }
 
-const CATEGORY_LABEL = {
-  bug: '不具合', feature: '要望', ui: 'UI', question: '質問', thanks: '感謝', other: 'その他',
-};
-const STATUS_LABEL = {
-  open: '未対応', in_progress: '対応中', resolved: '解決', wont_fix: '却下',
-};
+// 指標から「今やるべきこと」を自動生成（ファネル別・優先度順）。
+// 数字が動くと結果が変わる＝軌道修正される。
+function buildActions({ overview, revenue, usage, ai, tickets, goal, gap, requiredPerWeek }) {
+  const a = [];
+  const ev = usage?.events || {};
+  const users = overview?.users_total || 0;
+  const paid = revenue?.active || 0;
+
+  // 目標ペース（収益化）
+  if (goal && gap > 0 && requiredPerWeek > 0) {
+    a.push({ stage: STAGE.REV, pri: 1, title: `目標まであと${fmtGoal(goal.metric, gap)} — 週 ${fmtGoal(goal.metric, requiredPerWeek)} ペースが必要`, why: `${METRIC_LABEL[goal.metric]}の達成ペース` });
+  }
+  // 品質: 未解決バグ
+  const openBugs = (tickets || []).filter((t) => t.kind === 'bug' && (t.status === 'open' || t.status === 'in_progress'));
+  if (openBugs.length) a.push({ stage: STAGE.QUAL, pri: 1, title: `バグを ${openBugs.length} 件修正する`, why: '未解決のバグチケット' });
+  // 収益化: 有料0
+  if (paid === 0) a.push({ stage: STAGE.REV, pri: 1, title: '最初の有料会員を獲得する', why: '有料会員がまだ0人' });
+  // 収益化: ペイウォール転換率
+  const pv = ev.paywall_viewed || 0; const cc = ev.checkout_completed || 0;
+  if (pv >= 10 && cc / pv < 0.05) {
+    a.push({ stage: STAGE.REV, pri: 1, title: 'ペイウォールの訴求・価格を見直す', why: `表示${pv}回中 課金${cc}件（転換率 ${(cc / pv * 100).toFixed(1)}%）` });
+  }
+  // 集客: 今週の新規0
+  if ((overview?.new_users_7d || 0) === 0 && users > 0) {
+    a.push({ stage: STAGE.ACQ, pri: 1, title: '集客に着手（LP / SNS / 紹介）', why: '今週の新規ユーザーが0人' });
+  }
+  // 品質: 未対応FB
+  if ((overview?.feedback_open || 0) > 0) {
+    a.push({ stage: STAGE.QUAL, pri: 2, title: `未対応の問い合わせ ${overview.feedback_open} 件をさばく`, why: 'open のフィードバック' });
+  }
+  // 継続: 解約リスク
+  if ((revenue?.expiring_30d || 0) > 0) {
+    a.push({ stage: STAGE.RET, pri: 2, title: `更新期限が近い有料会員 ${revenue.expiring_30d} 人をフォロー`, why: '30日以内に期限' });
+  }
+  // 継続: 粘着
+  const dau = overview?.dau || 0; const mau = overview?.mau || 0;
+  if (mau >= 10 && dau / mau < 0.1) {
+    a.push({ stage: STAGE.RET, pri: 2, title: '毎日使われる仕掛けを強化（想起通知など）', why: `DAU/MAU ${(dau / mau * 100).toFixed(0)}%（粘着が弱い）` });
+  }
+  // 定着: 1人あたり本
+  if (users >= 5) {
+    const bpu = (overview?.books_total || 0) / users;
+    if (bpu < 2) a.push({ stage: STAGE.ACT, pri: 2, title: 'オンボーディングを改善（最初の1冊登録まで）', why: `1人あたり本 ${bpu.toFixed(1)}冊` });
+  }
+  // 品質: AIコスト
+  const calls = ai && ai[0] ? ai[0].calls : 0;
+  if (calls > 1000) a.push({ stage: STAGE.QUAL, pri: 3, title: 'AIコストを点検（原価ガード）', why: `今月のAIコール ${calls}回` });
+
+  return a.sort((x, y) => x.pri - y.pri);
+}
 
 export default function AdminDashboard({ onClose }) {
   const [loading, setLoading] = useState(true);
@@ -122,52 +185,90 @@ export default function AdminDashboard({ onClose }) {
   const [ai, setAi] = useState([]);
   const [revenue, setRevenue] = useState(null);
   const [feedback, setFeedback] = useState([]);
+  const [goal, setGoal] = useState(null);
+  const [tickets, setTickets] = useState([]);
   const [fbFilter, setFbFilter] = useState('open');
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [gMetric, setGMetric] = useState('mrr');
+  const [gTarget, setGTarget] = useState('');
+  const [gDeadline, setGDeadline] = useState('');
 
   const load = useCallback(async (d) => {
-    setLoading(true);
-    setErr('');
+    setLoading(true); setErr('');
     try {
-      const [ov, se, us, au, rv, fb] = await Promise.all([
+      const [ov, se, us, au, rv, fb, gl, tk] = await Promise.all([
         supabase.rpc('admin_overview'),
         supabase.rpc('admin_active_series', { p_days: d }),
         supabase.rpc('admin_feature_usage', { p_days: d }),
         supabase.rpc('admin_ai_usage', { p_months: 6 }),
         supabase.rpc('admin_revenue'),
         supabase.rpc('admin_feedback', { p_status: null }),
+        supabase.rpc('admin_get_goal'),
+        supabase.rpc('admin_tickets'),
       ]);
-      const firstErr = [ov, se, us, au, rv, fb].find((r) => r.error)?.error;
+      const firstErr = [ov, se, us, au, rv, fb, gl, tk].find((r) => r.error)?.error;
       if (firstErr) throw firstErr;
-      setOverview(ov.data || null);
-      setSeries(se.data || []);
-      setUsage(us.data || null);
-      setAi(au.data || []);
-      setRevenue(rv.data || null);
-      setFeedback(fb.data || []);
+      setOverview(ov.data || null); setSeries(se.data || []); setUsage(us.data || null);
+      setAi(au.data || []); setRevenue(rv.data || null); setFeedback(fb.data || []);
+      setGoal(gl.data || null); setTickets(tk.data || []);
+      if (gl.data) { setGMetric(gl.data.metric); setGTarget(String(gl.data.target || '')); setGDeadline(gl.data.deadline || ''); }
     } catch (e) {
       setErr(e?.message === 'not authorized'
         ? 'この画面は管理者のみが閲覧できます。'
-        : '読み込みに失敗しました。SQL（supabase_admin_metrics.sql）が適用済みかご確認ください。');
-    } finally {
-      setLoading(false);
-    }
+        : '読み込みに失敗しました。SQL（supabase_admin_metrics.sql と supabase_admin_ops.sql）が適用済みかご確認ください。');
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(days); }, [load, days]);
-
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const triage = async (id, status) => {
-    // 楽観的 UI: 即反映 → 失敗なら再読込で戻す。
+  const saveGoal = async () => {
+    const t = parseFloat(gTarget);
+    if (!Number.isFinite(t) || t <= 0) return;
+    await supabase.rpc('admin_set_goal', { p_metric: gMetric, p_target: t, p_deadline: gDeadline || null });
+    setEditingGoal(false);
+    load(days);
+  };
+
+  const triageFb = async (id, status) => {
     setFeedback((list) => list.map((f) => (f.id === id ? { ...f, status } : f)));
     const { error } = await supabase.rpc('admin_feedback_update', { p_id: id, p_status: status, p_note: null });
     if (error) load(days);
   };
+  const ticketize = async (fbId) => {
+    const { error } = await supabase.rpc('admin_ticket_from_feedback', { p_feedback_id: fbId });
+    load(days);
+    if (error) setErr('チケット化に失敗しました。');
+  };
+  const updateTicket = async (id, patch) => {
+    setTickets((list) => list.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    const { error } = await supabase.rpc('admin_ticket_update', { p_id: id, p_status: patch.status ?? null, p_priority: patch.priority ?? null });
+    if (error) load(days);
+  };
 
+  // 目標の現在地・ペース計算。
+  const goalCurrent = goal
+    ? (goal.metric === 'mrr' ? (revenue?.active || 0) * MONTHLY_PRICE_JPY
+      : goal.metric === 'paid_users' ? (revenue?.active || 0)
+        : (overview?.users_total || 0))
+    : 0;
+  const goalGap = goal ? Math.max(0, (goal.target || 0) - goalCurrent) : 0;
+  const goalProgress = goal && goal.target > 0 ? Math.min(1, goalCurrent / goal.target) : 0;
+  let daysLeft = null; let requiredPerWeek = 0;
+  if (goal?.deadline) {
+    const ms = new Date(goal.deadline).getTime() - Date.now();
+    daysLeft = Math.ceil(ms / 86400000);
+    if (daysLeft > 0 && goalGap > 0) requiredPerWeek = Math.ceil(goalGap / (daysLeft / 7));
+  }
+
+  const actions = (!loading && !err)
+    ? buildActions({ overview, revenue, usage, ai, tickets, goal, gap: goalGap, requiredPerWeek })
+    : [];
+  const openTickets = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress');
   const shownFeedback = feedback.filter((f) => (fbFilter === 'all' ? true : f.status === fbFilter));
   const mrr = revenue ? (revenue.active || 0) * MONTHLY_PRICE_JPY : 0;
 
@@ -176,48 +277,137 @@ export default function AdminDashboard({ onClose }) {
       <div style={header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <BarChart3 size={20} strokeWidth={1.75} color={C.ink} />
-          <span style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>運営ダッシュボード</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>運営の操縦席</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <button type="button" style={iconBtn} onClick={() => load(days)} aria-label="再読み込み" disabled={loading}>
             <RefreshCw size={18} strokeWidth={1.75} />
           </button>
-          <button type="button" style={iconBtn} onClick={onClose} aria-label="閉じる">
-            <X size={20} strokeWidth={1.75} />
-          </button>
+          <button type="button" style={iconBtn} onClick={onClose} aria-label="閉じる"><X size={20} strokeWidth={1.75} /></button>
         </div>
       </div>
 
       <div style={wrap}>
         {loading && <div style={{ padding: '60px 0' }}><Spinner /></div>}
-
-        {!loading && err && (
-          <div style={{ ...card, marginTop: 20, color: C.critical, fontSize: 13, lineHeight: 1.7 }}>{err}</div>
-        )}
+        {!loading && err && <div style={{ ...card, marginTop: 20, color: C.critical, fontSize: 13, lineHeight: 1.7 }}>{err}</div>}
 
         {!loading && !err && (
           <>
-            {/* 期間トグル */}
-            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              {[7, 30, 90].map((d) => (
-                <button key={d} type="button" onClick={() => setDays(d)}
-                  style={{
-                    flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                    border: `1px solid ${days === d ? 'transparent' : C.hairlineStrong}`,
-                    background: days === d ? C.brand : 'transparent',
-                    color: days === d ? C.brandInk : C.ink2,
-                  }}>
-                  {d}日
-                </button>
-              ))}
+            {/* ── 🎯 目標 ── */}
+            <p style={sectionTitle}><Target size={15} strokeWidth={2} /> 目標</p>
+            <div style={card}>
+              {editingGoal || !goal ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {Object.entries(METRIC_LABEL).map(([k, label]) => (
+                      <button key={k} type="button" onClick={() => setGMetric(k)}
+                        style={{ padding: '8px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          border: `1px solid ${gMetric === k ? 'transparent' : C.hairlineStrong}`,
+                          background: gMetric === k ? C.brand : 'transparent', color: gMetric === k ? C.brandInk : C.ink2 }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>目標値{gMetric === 'mrr' ? '（円）' : '（人）'}</label>
+                      <input type="number" inputMode="numeric" value={gTarget} onChange={(e) => setGTarget(e.target.value)} placeholder={gMetric === 'mrr' ? '300000' : '300'} style={inp} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>締切（任意）</label>
+                      <input type="date" value={gDeadline} onChange={(e) => setGDeadline(e.target.value)} style={inp} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={saveGoal} style={{ ...btnPrimary, minHeight: 44 }}>目標を保存</button>
+                    {goal && <button type="button" onClick={() => setEditingGoal(false)} style={{ ...btnGhost, minHeight: 44 }}>キャンセル</button>}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 11, color: C.ink2, fontWeight: 600 }}>{METRIC_LABEL[goal.metric]}</p>
+                      <p style={{ margin: '4px 0 0', fontSize: 24, fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>
+                        {fmtGoal(goal.metric, goalCurrent)} <span style={{ fontSize: 14, color: C.ink3, fontWeight: 600 }}>/ {fmtGoal(goal.metric, goal.target)}</span>
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => setEditingGoal(true)} style={iconBtn} aria-label="目標を編集"><Pencil size={16} /></button>
+                  </div>
+                  <div style={{ height: 8, background: C.soft, borderRadius: 99, overflow: 'hidden', margin: '12px 0 8px' }}>
+                    <div style={{ height: '100%', width: `${goalProgress * 100}%`, background: C.brand, borderRadius: 99 }} />
+                  </div>
+                  <p style={{ margin: 0, fontSize: 12, color: C.ink2 }}>
+                    達成 {Math.round(goalProgress * 100)}%
+                    {daysLeft != null && <> ・ 締切まで {daysLeft > 0 ? `${daysLeft}日` : '超過'}</>}
+                    {requiredPerWeek > 0 && <> ・ <strong style={{ color: C.brand }}>週 {fmtGoal(goal.metric, requiredPerWeek)} 必要</strong></>}
+                    {goalGap === 0 && <strong style={{ color: '#6b8e6b' }}> ・ 達成！🎉</strong>}
+                  </p>
+                </>
+              )}
             </div>
 
-            {/* ── アクティブ人数 ── */}
+            {/* ── 📋 今やるべきこと ── */}
+            <p style={sectionTitle}><ListChecks size={15} strokeWidth={2} /> 今やるべきこと</p>
+            {actions.length === 0 ? (
+              <div style={{ ...card, color: '#6b8e6b', fontSize: 13, fontWeight: 600 }}>順調です。今すぐ手を打つべき指標はありません 👍</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {actions.map((act, i) => (
+                  <div key={i} style={{ ...card, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <span style={{ flex: '0 0 auto', marginTop: 2, fontSize: 10, fontWeight: 700, color: '#fff', background: STAGE_COLOR[act.stage] || C.brand, borderRadius: 6, padding: '2px 7px' }}>{act.stage}</span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.ink, lineHeight: 1.4 }}>{act.title}</p>
+                      <p style={{ margin: '4px 0 0', fontSize: 11, color: C.ink3 }}>根拠: {act.why}</p>
+                    </div>
+                    <Flag size={14} color={PRI_COLOR[act.pri]} aria-label={`優先度${PRI_LABEL[act.pri]}`} style={{ flex: '0 0 auto', marginTop: 3 }} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── 🎫 チケット ── */}
+            <p style={sectionTitle}>
+              <Ticket size={15} strokeWidth={2} /> チケット
+              {openTickets.length > 0 && <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 700, color: C.brandInk, background: C.brand, borderRadius: 99, padding: '1px 8px' }}>未完 {openTickets.length}</span>}
+            </p>
+            {tickets.length === 0 ? (
+              <div style={{ ...card, color: C.ink3, fontSize: 13 }}>チケットはまだありません。下の「問い合わせ」からバグ/要望をチケット化できます。</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {tickets.map((t) => (
+                  <div key={t.id} style={{ ...card, opacity: (t.status === 'done' || t.status === 'wont_fix') ? 0.6 : 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700 }}>{KIND_LABEL[t.kind] || t.kind}</span>
+                      <Flag size={12} color={PRI_COLOR[t.priority]} aria-label={`優先度${PRI_LABEL[t.priority]}`} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: t.status === 'open' ? C.critical : C.ink3 }}>{TICKET_STATUS_LABEL[t.status] || t.status}</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: C.ink, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{t.title}</p>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                      {t.status !== 'in_progress' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'in_progress' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 12 }}>対応中</button>}
+                      {t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'done' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 12 }}>完了</button>}
+                      <button type="button" onClick={() => updateTicket(t.id, { priority: t.priority === 1 ? 2 : 1 })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 12 }}>{t.priority === 1 ? '優先度↓' : '優先度↑'}</button>
+                      {t.status !== 'wont_fix' && t.status !== 'done' && <button type="button" onClick={() => updateTicket(t.id, { status: 'wont_fix' })} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 12, color: C.ink3 }}>却下</button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── 期間トグル ＋ メトリクス ── */}
             <p style={sectionTitle}><Users size={15} strokeWidth={2} /> アクティブ人数</p>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              {[7, 30, 90].map((d) => (
+                <button key={d} type="button" onClick={() => setDays(d)}
+                  style={{ flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    border: `1px solid ${days === d ? 'transparent' : C.hairlineStrong}`,
+                    background: days === d ? C.brand : 'transparent', color: days === d ? C.brandInk : C.ink2 }}>{d}日</button>
+              ))}
+            </div>
             <div style={grid3}>
-              <Stat label="DAU（24h）" value={overview?.dau ?? 0} />
-              <Stat label="WAU（7日）" value={overview?.wau ?? 0} />
-              <Stat label="MAU（30日）" value={overview?.mau ?? 0} />
+              <Stat label="DAU" value={overview?.dau ?? 0} />
+              <Stat label="WAU" value={overview?.wau ?? 0} />
+              <Stat label="MAU" value={overview?.mau ?? 0} />
             </div>
             <div style={{ ...grid2, marginTop: 10 }}>
               <Stat label="総ユーザー" value={overview?.users_total ?? 0} sub={`新規 +${overview?.new_users_30d ?? 0}（30日）`} />
@@ -228,76 +418,48 @@ export default function AdminDashboard({ onClose }) {
               <MiniBars series={series} />
             </div>
 
-            {/* ── 売上・課金 ── */}
             <p style={sectionTitle}><CreditCard size={15} strokeWidth={2} /> 売上・課金</p>
             <div style={grid3}>
               <Stat label="有料会員" value={revenue?.active ?? 0} />
-              <Stat label="MRR（概算）" value={`¥${mrr.toLocaleString()}`} sub="× ¥990/月 の目安" />
+              <Stat label="MRR（概算）" value={`¥${mrr.toLocaleString()}`} sub="× ¥990/月" />
               <Stat label="30日内に期限" value={revenue?.expiring_30d ?? 0} sub="要更新" />
             </div>
-            {revenue && Object.keys(revenue.by_status || {}).length > 0 && (
-              <div style={{ ...card, marginTop: 10 }}>
-                <p style={{ margin: '0 0 10px', fontSize: 11, color: C.ink2, fontWeight: 600 }}>ステータス内訳</p>
-                <BarList data={revenue.by_status} />
-              </div>
-            )}
 
-            {/* ── AI コスト / API 消費 ── */}
-            <p style={sectionTitle}><Cpu size={15} strokeWidth={2} /> AI コスト / API 消費</p>
+            <p style={sectionTitle}><Cpu size={15} strokeWidth={2} /> AIコスト / API消費</p>
             <div style={card}>
-              {ai.length === 0 ? (
-                <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>まだ利用がありません。</p>
-              ) : (
+              {ai.length === 0 ? <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>まだ利用がありません。</p> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {ai.map((m) => (
-                    <div key={m.month} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                    <div key={m.month} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>{m.month}</span>
-                      <span style={{ fontSize: 12, color: C.ink2 }}>
-                        <strong style={{ color: C.ink }}>{m.calls.toLocaleString()}</strong> コール / {m.users}人
-                      </span>
+                      <span style={{ fontSize: 12, color: C.ink2 }}><strong style={{ color: C.ink }}>{m.calls.toLocaleString()}</strong> コール / {m.users}人</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* ── 機能別の利用状況 ── */}
             <p style={sectionTitle}><TrendingUp size={15} strokeWidth={2} /> 機能別の利用状況（直近{days}日）</p>
-            <div style={{ ...card }}>
+            <div style={card}>
               <p style={{ margin: '0 0 10px', fontSize: 11, color: C.ink2, fontWeight: 600 }}>イベント別</p>
               <BarList data={usage?.events} />
             </div>
             <div style={{ ...grid2, marginTop: 10 }}>
-              <div style={card}>
-                <p style={{ margin: '0 0 10px', fontSize: 11, color: C.ink2, fontWeight: 600 }}>AI 機能の内訳</p>
-                <BarList data={usage?.ai_features} />
-              </div>
-              <div style={card}>
-                <p style={{ margin: '0 0 10px', fontSize: 11, color: C.ink2, fontWeight: 600 }}>本の追加経路</p>
-                <BarList data={usage?.book_via} />
-              </div>
+              <div style={card}><p style={{ margin: '0 0 10px', fontSize: 11, color: C.ink2, fontWeight: 600 }}>AI 機能</p><BarList data={usage?.ai_features} /></div>
+              <div style={card}><p style={{ margin: '0 0 10px', fontSize: 11, color: C.ink2, fontWeight: 600 }}>本の追加経路</p><BarList data={usage?.book_via} /></div>
             </div>
 
-            {/* ── 問い合わせ受信箱 ── */}
+            {/* ── 📩 問い合わせ受信箱 ── */}
             <p style={sectionTitle}>
               <Inbox size={15} strokeWidth={2} /> 問い合わせ・フィードバック
-              {overview?.feedback_open > 0 && (
-                <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 700, color: C.brandInk, background: C.brand, borderRadius: 99, padding: '1px 8px' }}>
-                  未対応 {overview.feedback_open}
-                </span>
-              )}
+              {overview?.feedback_open > 0 && <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 700, color: C.brandInk, background: C.brand, borderRadius: 99, padding: '1px 8px' }}>未対応 {overview.feedback_open}</span>}
             </p>
             <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
               {[['open', '未対応'], ['in_progress', '対応中'], ['resolved', '解決'], ['all', 'すべて']].map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setFbFilter(k)}
-                  style={{
-                    padding: '6px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  style={{ padding: '6px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                     border: `1px solid ${fbFilter === k ? 'transparent' : C.hairlineStrong}`,
-                    background: fbFilter === k ? C.brand : 'transparent',
-                    color: fbFilter === k ? C.brandInk : C.ink2,
-                  }}>
-                  {label}
-                </button>
+                    background: fbFilter === k ? C.brand : 'transparent', color: fbFilter === k ? C.brandInk : C.ink2 }}>{label}</button>
               ))}
             </div>
             {shownFeedback.length === 0 ? (
@@ -307,38 +469,16 @@ export default function AdminDashboard({ onClose }) {
                 {shownFeedback.map((f) => (
                   <div key={f.id} style={card}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: C.ink2, background: C.soft, borderRadius: 6, padding: '2px 8px' }}>
-                        {CATEGORY_LABEL[f.category] || f.category}
-                      </span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: f.status === 'open' ? C.critical : C.ink3 }}>
-                        {STATUS_LABEL[f.status] || f.status}
-                      </span>
-                      <span style={{ marginLeft: 'auto', fontSize: 10, color: C.ink3 }}>
-                        {String(f.created_at).slice(0, 10)}
-                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C.ink2, background: C.soft, borderRadius: 6, padding: '2px 8px' }}>{CATEGORY_LABEL[f.category] || f.category}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: f.status === 'open' ? C.critical : C.ink3 }}>{FB_STATUS_LABEL[f.status] || f.status}</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 10, color: C.ink3 }}>{String(f.created_at).slice(0, 10)}</span>
                     </div>
                     <p style={{ margin: 0, fontSize: 13, color: C.ink, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{f.content}</p>
-                    {(f.name || f.email) && (
-                      <p style={{ margin: '8px 0 0', fontSize: 11, color: C.ink3 }}>
-                        {f.name || '（匿名）'}{f.email ? ` · ${f.email}` : ''}
-                      </p>
-                    )}
-                    {f.admin_note && (
-                      <p style={{ margin: '6px 0 0', fontSize: 11, color: C.ink2, fontStyle: 'italic' }}>📝 {f.admin_note}</p>
-                    )}
-                    <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                      {f.status !== 'in_progress' && (
-                        <button type="button" onClick={() => triage(f.id, 'in_progress')}
-                          style={{ ...btnGhost, flex: 1, minHeight: 36, padding: '8px', fontSize: 12 }}>対応中</button>
-                      )}
-                      {f.status !== 'resolved' && (
-                        <button type="button" onClick={() => triage(f.id, 'resolved')}
-                          style={{ ...btnGhost, flex: 1, minHeight: 36, padding: '8px', fontSize: 12 }}>解決</button>
-                      )}
-                      {f.status !== 'wont_fix' && (
-                        <button type="button" onClick={() => triage(f.id, 'wont_fix')}
-                          style={{ ...btnGhost, flex: 1, minHeight: 36, padding: '8px', fontSize: 12, color: C.ink3 }}>却下</button>
-                      )}
+                    {(f.name || f.email) && <p style={{ margin: '8px 0 0', fontSize: 11, color: C.ink3 }}>{f.name || '（匿名）'}{f.email ? ` · ${f.email}` : ''}</p>}
+                    <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => ticketize(f.id)} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 12, color: C.brand, fontWeight: 700 }}>🎫 チケット化</button>
+                      {f.status !== 'in_progress' && <button type="button" onClick={() => triageFb(f.id, 'in_progress')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 12 }}>対応中</button>}
+                      {f.status !== 'resolved' && <button type="button" onClick={() => triageFb(f.id, 'resolved')} style={{ ...btnGhost, flex: '0 1 auto', minHeight: 34, padding: '7px 12px', fontSize: 12 }}>解決</button>}
                     </div>
                   </div>
                 ))}
