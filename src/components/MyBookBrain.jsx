@@ -824,7 +824,7 @@ export default function MyBookBrain({ onOpenBook }) {
               {weeklyQ && !weeklyDismissed && (
                 <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline-strong)', borderRadius: 14, padding: '14px 15px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.14em' }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.14em' }}>
                       <MessageCircleQuestion size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5, letterSpacing: 0 }} />
                       今週の問い
                     </span>
@@ -841,7 +841,7 @@ export default function MyBookBrain({ onOpenBook }) {
                   <button
                     type="button"
                     onClick={answerWeekly}
-                    style={{ minHeight: 44, width: '100%', borderRadius: 11, border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 1px 2px rgba(60,48,30,.18)' }}
+                    style={{ minHeight: 44, width: '100%', borderRadius: 11, border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 1px 2px rgba(60,48,30,.18)' }}
                   >
                     この問いに答える →
                   </button>
@@ -1048,7 +1048,7 @@ function FormattedAnswer({ text }) {
     const h = line.match(/^【(.+?)】\s*(.*)$/);
     if (h) {
       out.push(
-        <p key={`h${idx}`} style={{ fontSize: 10.5, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: out.length ? '13px 0 0' : 0 }}>
+        <p key={`h${idx}`} style={{ fontSize: 11, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: out.length ? '13px 0 0' : 0 }}>
           {h[1]}
         </p>,
       );
@@ -1129,7 +1129,7 @@ function ChatMessage({ message, onOpenBook, stage }) {
         )}
         {!isUser && !isStreaming && message.refs?.length > 0 && (
           <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #d8d0c1' }}>
-            <p style={{ fontSize: 10.5, color: '#8a7c5f', margin: '0 0 6px', fontWeight: 700, letterSpacing: '0.06em' }}>
+            <p style={{ fontSize: 11, color: '#8a7c5f', margin: '0 0 6px', fontWeight: 700, letterSpacing: '0.06em' }}>
               参照した本・メモ
             </p>
             <ul style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: 0, paddingLeft: 16 }}>

@@ -161,7 +161,7 @@ export default function HomeRecall({ onOpen }) {
       </p>
       <p
         style={{
-          fontSize: 13.5,
+          fontSize: 13,
           color: 'var(--c-ink)',
           lineHeight: 1.6,
           margin: 0,

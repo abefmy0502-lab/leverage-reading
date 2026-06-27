@@ -224,7 +224,7 @@ function RoiFunnel({ doneTotal, actionsDone, harvest }) {
       <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
         <TrendingUp size={15} aria-hidden="true" style={{ color: 'var(--color-accent)' }} /> 読書が成果に変わった記録
       </div>
-      <p style={{ fontSize: 10.5, color: 'var(--c-ink-3)', margin: '0 0 10px', lineHeight: 1.45 }}>
+      <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '0 0 10px', lineHeight: 1.45 }}>
         読んだ本が、行動の実行、そして学びの収穫へつながった数です。
       </p>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4 }}>
@@ -235,7 +235,7 @@ function RoiFunnel({ doneTotal, actionsDone, harvest }) {
         {cell(harvest, '残した収穫', harvest > 0 ? '#a06a30' : 'var(--color-text-tertiary)')}
       </div>
       {noOutcome && doneTotal > 0 && (
-        <p style={{ fontSize: 10.5, color: '#9a8c74', margin: '8px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
+        <p style={{ fontSize: 11, color: '#9a8c74', margin: '8px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
           まだ成果に変わっていません。1 冊から、行動を 1 つ決めましょう。
         </p>
       )}

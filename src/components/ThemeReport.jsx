@@ -574,7 +574,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                   )}
                 </button>
                 {!actionAdded && (
-                  <p style={{ fontSize: 10.5, color: 'var(--c-ink-3)', margin: '-4px 2px 0', lineHeight: 1.5 }}>
+                  <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '-4px 2px 0', lineHeight: 1.5 }}>
                     追加先は「振り返り」タブ →「<Target size={11} aria-hidden="true" style={{ verticalAlign: '-1px' }} /> 行動」（最も関連が深い本に紐づきます）
                   </p>
                 )}
@@ -591,9 +591,9 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                 <div style={{ ...card, padding: '12px 14px' }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--c-ink)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <TrendingUp size={14} aria-hidden="true" />前回からの変化
-                    {delta.at && <span style={{ fontWeight: 500, color: 'var(--c-ink-3)', fontSize: 10.5 }}>（前回 {fmtDate(delta.at)}）</span>}
+                    {delta.at && <span style={{ fontWeight: 500, color: 'var(--c-ink-3)', fontSize: 11 }}>（前回 {fmtDate(delta.at)}）</span>}
                   </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--c-ink-2)', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.6 }}>
                     {delta.book > 0 && <>本 +{delta.book} 冊　</>}
                     {delta.memo > 0 ? <>メモ +{delta.memo} 件を追加</> : delta.memo < 0 ? <>メモ {delta.memo} 件</> : <>新しい根拠が増えました</>}
                   </div>
@@ -805,14 +805,14 @@ function ActionMirror({ stats, memoTotal }) {
       {declared === 0 ? (
         <div style={{ background: 'var(--c-critical-soft)', border: '1px solid var(--c-critical-line)', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
           <span style={{ lineHeight: 1.4, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><AlertTriangle size={16} /></span>
-          <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#6e4a3c' }}>
+          <div style={{ fontSize: 12, lineHeight: 1.65, color: '#6e4a3c' }}>
             このテーマに紐づく行動が<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>まだ0件</b>。学びを、まず1つだけ行動に落としましょう。
           </div>
         </div>
       ) : blindSpot ? (
         <div style={{ background: 'var(--c-critical-soft)', border: '1px solid var(--c-critical-line)', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
           <span style={{ lineHeight: 1.4, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><AlertTriangle size={16} /></span>
-          <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#6e4a3c' }}>
+          <div style={{ fontSize: 12, lineHeight: 1.65, color: '#6e4a3c' }}>
             メモは<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>{memoTotal}件</b>あるのに、完了した行動は<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>0件</b>。学びが行動に変わっていません。
           </div>
         </div>
@@ -821,18 +821,18 @@ function ActionMirror({ stats, memoTotal }) {
       {/* 🔸 やり残しの一歩を名指しで突き返す（本田: 宣言した一歩がどうなったか） */}
       {openSteps.length > 0 && (
         <div style={{ marginTop: 11 }}>
-          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-critical)', letterSpacing: '.06em', margin: '0 0 6px' }}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-critical)', letterSpacing: '.06em', margin: '0 0 6px' }}>
             <AlertTriangle size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />まだやれていない一歩
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {openSteps.map((s, i) => (
-              <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12.5, lineHeight: 1.55, color: 'var(--c-ink-soft)' }}>
+              <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12, lineHeight: 1.55, color: 'var(--c-ink-soft)' }}>
                 <span aria-hidden="true" style={{ color: '#c08a6a', flexShrink: 0, marginTop: 1, display: 'inline-flex' }}><SquareIcon size={13} /></span>
                 <span style={{ minWidth: 0 }}>{s}</span>
               </div>
             ))}
           </div>
-          <p style={{ fontSize: 10.5, color: '#9a8c74', margin: '7px 0 0', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 11, color: '#9a8c74', margin: '7px 0 0', lineHeight: 1.5 }}>
             <Target size={11} aria-hidden="true" style={{ verticalAlign: '-1px', marginRight: 4 }} />行動タブで完了にすると、ここから消えます。
           </p>
         </div>
@@ -847,7 +847,7 @@ function RecallBanner({ busy, done, onSet }) {
     <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline-strong)', borderRadius: 16, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
         <span style={{ lineHeight: 1.2, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><RotateCw size={21} /></span>
-        <div style={{ fontSize: 12.5, lineHeight: 1.7, color: '#5b4f3c' }}>
+        <div style={{ fontSize: 12, lineHeight: 1.7, color: '#5b4f3c' }}>
           <b style={{ color: 'var(--c-ink)', fontWeight: 800 }}>このメモは、読んで終わりにしません。</b><br />
           核心を <b style={{ color: 'var(--c-ink)' }}>振り返りタブ</b> と <b style={{ color: 'var(--c-ink)' }}>想起通知</b> に乗せると、忘れた頃にそっと戻ってきて、無意識に動けるまで体に入れます。
         </div>
@@ -858,7 +858,7 @@ function RecallBanner({ busy, done, onSet }) {
         disabled={busy || done}
         aria-label={done ? '想起ループにセット済み' : '核心を想起ループにセット'}
         style={{
-          minHeight: 46, borderRadius: 13, border: 'none', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700,
+          minHeight: 46, borderRadius: 13, border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
           cursor: busy || done ? 'default' : 'pointer',
           background: done ? 'var(--c-positive-soft)' : 'var(--c-brand)',
           color: done ? 'var(--c-positive)' : 'var(--c-card)',

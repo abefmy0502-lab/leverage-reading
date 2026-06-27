@@ -35,14 +35,14 @@ const headingStyle = {
   overflowWrap: 'anywhere',
 };
 const subHeadingStyle = {
-  fontSize: 13.5,
+  fontSize: 13,
   fontWeight: 700,
   color: 'var(--c-ink)',
   margin: '10px 0 3px',
   overflowWrap: 'anywhere',
 };
 const paraStyle = {
-  fontSize: 13.5,
+  fontSize: 13,
   color: '#4a4036',
   lineHeight: 1.85,
   margin: '6px 0',
@@ -51,7 +51,7 @@ const paraStyle = {
   overflowWrap: 'anywhere',
 };
 const listStyle = {
-  fontSize: 13.5,
+  fontSize: 13,
   color: '#4a4036',
   lineHeight: 1.8,
   margin: '8px 0 8px 2px',

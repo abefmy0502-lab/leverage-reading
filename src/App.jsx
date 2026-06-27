@@ -1311,7 +1311,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
         ))}
         <button onClick={addAction} style={{ ...btnO, padding: "10px 0", fontSize: 12, borderStyle: "dashed" }}>＋ 行動を追加</button>
         {(form.actions || []).length > 0 && (
-          <p style={{ fontSize: 10.5, color: "var(--c-ink-3)", margin: "2px 2px 0", lineHeight: 1.6 }}>
+          <p style={{ fontSize: 11, color: "var(--c-ink-3)", margin: "2px 2px 0", lineHeight: 1.6 }}>
             優先度・繰り返しは、追加後に「振り返り」タブ →「行動」で設定できます。
           </p>
         )}
@@ -2244,24 +2244,24 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                 </div>
                 {rec.why && (
                   <div style={{ marginTop: 10, padding: '10px 12px', background: '#f5efde', borderRadius: 10, border: '1px solid #e8dcc0' }}>
-                    <p style={{ fontSize: 10.5, color: '#9a7e44', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>なぜあなたに</p>
-                    <p style={{ fontSize: 12.5, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '4px 0 0' }}>{rec.why}</p>
+                    <p style={{ fontSize: 11, color: '#9a7e44', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>なぜあなたに</p>
+                    <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '4px 0 0' }}>{rec.why}</p>
                   </div>
                 )}
                 {rec.core && (
                   <div style={{ marginTop: 10 }}>
-                    <p style={{ fontSize: 10.5, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>この本の核心</p>
-                    <p style={{ fontSize: 12.5, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.core}</p>
+                    <p style={{ fontSize: 11, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>この本の核心</p>
+                    <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.core}</p>
                   </div>
                 )}
                 {rec.focus && (
                   <div style={{ marginTop: 10 }}>
-                    <p style={{ fontSize: 10.5, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>注目ポイント</p>
-                    <p style={{ fontSize: 12.5, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.focus}</p>
+                    <p style={{ fontSize: 11, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>注目ポイント</p>
+                    <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.focus}</p>
                   </div>
                 )}
                 {rec.duration && (
-                  <p style={{ fontSize: 11.5, color: 'var(--c-ink-2)', margin: '10px 0 0' }}>
+                  <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '10px 0 0' }}>
                     <span style={{ color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.04em' }}>目安</span>　{rec.duration}
                   </p>
                 )}
@@ -2414,7 +2414,7 @@ function BottomNav({ tab, setTab, hidden = false }) {
             }}
           >
             <Icon size={24} strokeWidth={active ? 2.2 : 1.7} aria-hidden="true" />
-            <span style={{ fontSize: 10.5, letterSpacing: "0.02em", fontWeight: active ? "var(--weight-semibold)" : "var(--weight-medium)" }}>{t.label}</span>
+            <span style={{ fontSize: 11, letterSpacing: "0.02em", fontWeight: active ? "var(--weight-semibold)" : "var(--weight-medium)" }}>{t.label}</span>
             {/* iOS タブバーはアクセントバーを使わず、アイコン/ラベルの色で示す。 */}
           </button>
         );
