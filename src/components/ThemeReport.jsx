@@ -102,7 +102,15 @@ function extractNextStep(md) {
     }
     if (inSec && line) buf.push(line.replace(/^[-*\d.]+\s+/, ''));
   }
-  return buf.join(' ').trim();
+  const step = buf.join(' ').trim();
+  if (step) return step;
+  // フォールバック: 「次の一歩」見出しが崩れても行動追加を不発にしない。
+  // 末尾の非空・非見出し行（次の一歩は通常ドキュメント末尾）を採用する。
+  const tail = lines
+    .map((l) => l.trim())
+    .filter((l) => l && !/^#{1,6}\s/.test(l))
+    .pop();
+  return (tail || '').replace(/^[-*\d.]+\s+/, '');
 }
 
 // 核心セクション（## 〜核心 … 次の見出しまで）を取り除いた残りの Markdown を返す。
