@@ -739,9 +739,18 @@ const titleSimilarity = (a, b) => {
     const longer = na.length >= nb.length ? na : nb;
     const shorter = na.length >= nb.length ? nb : na;
     // longer = shorter + 巻数表記 のケースを除外 (例: 「1分で話せ2」を
-    // 「1分で話せ」の候補にしない)。includes は中央含み (副題のような) も
-    // 拾うが、続編判定は startsWith の時のみ実施する。
-    if (longer.startsWith(shorter) && suffixIsVolume(longer, shorter)) return 0;
+    // 「1分で話せ」の候補にしない)。続編判定は startsWith の時のみ実施。
+    if (longer.startsWith(shorter)) {
+      if (suffixIsVolume(longer, shorter)) return 0;
+      // 「核タイトル＋副題」= 同一書誌として高スコアを返す。
+      //   例: 「確率思考の戦略論 USJでも実証された…」と「確率思考の戦略論」
+      // これまでは shorter/longer の比率で 0.3 程度に下がり、副題付きで保存
+      // した本の ISBN/表紙が永遠に解決できない主因になっていた。
+      // 暴発防止: 核タイトルが十分長く(≥6)、続きも副題規模(≥3)の時だけ。
+      //   （「営業」(2字)が「営業の魔法」に化けるような短核は比率のまま）
+      const tail = longer.slice(shorter.length);
+      if (shorter.length >= 6 && tail.length >= 3) return 0.95;
+    }
     return shorter.length / longer.length;
   }
   return 0;
@@ -919,8 +928,9 @@ export async function findCoverFromGoogleBooks({ title, author, isbn } = {}) {
   if (t) {
     try {
       const q = `${t}${a ? ` ${a}` : ''}`.trim();
+      // langRestrict は付けない（メタデータが ja タグ無しの本を取りこぼすため）。
       const r = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5&country=JP&langRestrict=ja`,
+        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5&country=JP`,
       );
       if (r.ok) {
         const d = await r.json();
@@ -1000,7 +1010,9 @@ export async function findIsbnCandidates(title, author) {
   if (!t && !a) return [];
 
   // localStorage cache key を v3 にバンプ (閾値 0.8 + 上限 3 件 + 著者厳格化)
-  const cacheKey = `${ISBN_CAND_CACHE_KEY(t, a)}:v3`;
+  // v4: 副題付きタイトルの類似度判定を緩和（核タイトル＋副題＝同一書誌）。
+  // 旧 v3 のキャッシュ（解決失敗で空配列）を引き継がず、緩和ロジックで再解決させる。
+  const cacheKey = `${ISBN_CAND_CACHE_KEY(t, a)}:v4`;
   try {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem(cacheKey);
