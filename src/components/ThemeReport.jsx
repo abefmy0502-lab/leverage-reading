@@ -140,7 +140,7 @@ function writeSnap(theme, snap) {
   } catch { /* ignore */ }
 }
 
-export default function ThemeReport() {
+export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -346,7 +346,8 @@ export default function ThemeReport() {
       if (res?.ok) {
         setActionAdded(true);
         haptic.success();
-        toast.success(`行動リストに追加しました（${primaryBook.title || '関連する本'}）。`);
+        try { onActionAdded?.(); } catch { /* ignore */ }
+        toast.success('🎯 振り返りタブ →「行動」に追加しました。');
       } else {
         toast.error('追加できませんでした。少し時間をおいて再度お試しください。');
       }
@@ -550,14 +551,15 @@ export default function ThemeReport() {
 
               {/* 🎯→✅ 次の一歩を 1 タップで行動リストへ（残す→活かすの輪を閉じる） */}
               {!generating && !notice && reportText && primaryBook?.id && extractNextStep(reportText) && (
+                <>
                 <button
                   type="button"
-                  onClick={handleAddNextStep}
-                  disabled={actionBusy || actionAdded}
-                  aria-label="次の一歩を行動リストに追加"
+                  onClick={actionAdded ? (() => onOpenActions?.()) : handleAddNextStep}
+                  disabled={actionBusy}
+                  aria-label={actionAdded ? '追加した行動を行動リストで見る' : '次の一歩を行動リストに追加'}
                   style={{
                     width: '100%', minHeight: 48, borderRadius: 13, border: 'none', fontFamily: 'inherit',
-                    fontSize: 14, fontWeight: 700, cursor: actionBusy || actionAdded ? 'default' : 'pointer',
+                    fontSize: 14, fontWeight: 700, cursor: actionBusy ? 'default' : 'pointer',
                     background: actionAdded ? 'var(--c-positive-soft)' : 'var(--c-positive)',
                     color: actionAdded ? 'var(--c-positive)' : 'var(--c-card)',
                     boxShadow: actionAdded ? 'none' : '0 1px 2px rgba(60,48,30,.18)',
@@ -565,8 +567,14 @@ export default function ThemeReport() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                   }}
                 >
-                  {actionAdded ? '✅ 行動リストに追加済み' : actionBusy ? '追加中…' : '✅ この一歩を行動リストに入れる'}
+                  {actionAdded ? '✅ 追加済み ・ 🎯 行動リストで見る →' : actionBusy ? '追加中…' : '✅ この一歩を行動リストに入れる'}
                 </button>
+                {!actionAdded && (
+                  <p style={{ fontSize: 10.5, color: 'var(--c-ink-3)', margin: '-4px 2px 0', lineHeight: 1.5 }}>
+                    追加先は「振り返り」タブ →「🎯 行動」（最も関連が深い本に紐づきます）
+                  </p>
+                )}
+                </>
               )}
 
               {/* 🎯 行動の鏡 — 学びが行動に変わっているかを実データで突きつける */}

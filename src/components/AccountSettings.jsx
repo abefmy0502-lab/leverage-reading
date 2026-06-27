@@ -255,6 +255,7 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
   const [exportingMd, setExportingMd] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -433,6 +434,80 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
       toast.error(toMessage(e, '書き出しに失敗しました。'));
     } finally {
       setExportingMd(false);
+    }
+  };
+
+  // 🧹 データ初期化 — アカウントは残したまま、本・メモ・行動・対話履歴・写真など
+  // 自分のデータを全消去して「まっさら」に戻す。アカウント削除と違いサインアウト
+  // せず、account_deletion_requests も作らない。完了後はリロードして空状態に。
+  const handleResetData = async () => {
+    if (!user || !isSupabaseConfigured) {
+      toast.error('ログインが必要です。');
+      return;
+    }
+    const ok = await confirm({
+      title: 'データを初期化しますか？',
+      message:
+        '本・メモ・写真・行動リスト・対話履歴・タグ・テーマ履歴など、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
+      confirmLabel: '初期化する',
+      cancelLabel: 'キャンセル',
+      danger: true,
+    });
+    if (!ok) return;
+
+    setResetting(true);
+    const isSchemaError = (err) => {
+      const msg = String(err?.message || err || '').toLowerCase();
+      const code = String(err?.code || '');
+      return (
+        code === '42P01' || code === '42703'
+        || msg.includes('does not exist') || msg.includes('could not find')
+        || msg.includes('schema cache') || msg.includes('relation') || msg.includes('column')
+      );
+    };
+    const dbErrors = [];
+    const deleteOwn = async (table) => {
+      try {
+        const { error } = await supabase.from(table).delete().eq('user_id', user.id);
+        if (error && !isSchemaError(error)) dbErrors.push({ table, error });
+      } catch (e) {
+        if (!isSchemaError(e)) dbErrors.push({ table, error: e });
+      }
+    };
+    try {
+      // 写真（メモ写真 + 手動アップロード表紙）を Storage から削除。
+      for (const bucket of ['book-memo-photos', 'book-covers']) {
+        try {
+          const paths = await listAllUserPhotos(user.id, bucket);
+          if (paths.length > 0) await supabase.storage.from(bucket).remove(paths);
+        } catch { /* 写真の消し残しは致命ではない */ }
+      }
+      // データテーブルを子 → 親で削除（books は子に CASCADE）。
+      await deleteOwn('chat_messages');
+      await deleteOwn('book_memos');
+      await deleteOwn('book_tags');
+      await deleteOwn('actions');
+      await deleteOwn('theme_reports');
+      await deleteOwn('advisor_sessions');
+      await deleteOwn('push_subscriptions');
+      await deleteOwn('books');
+
+      if (dbErrors.length > 0) {
+        console.error('data reset partial failure:', dbErrors);
+        toast.error('一部のデータ初期化に失敗しました。もう一度お試しください。');
+        setResetting(false);
+        return;
+      }
+      // 端末ローカルの一時状態（想起のクリア時刻・週次の問い等）も掃除して完全に空へ。
+      try {
+        ['brain-cleared-at', 'brain-weekly-q', 'brain-weekly-dismissed', 'leverage-memo-snap'].forEach((k) => localStorage.removeItem(k));
+      } catch { /* ignore */ }
+      toast.success('データを初期化しました。まっさらな状態で読み込み直します。');
+      // 全 state / キャッシュを確実に空へ戻すためリロード（初期化操作なので妥当）。
+      setTimeout(() => { try { window.location.reload(); } catch { /* ignore */ } }, 600);
+    } catch (e) {
+      toast.error(toMessage(e, '初期化に失敗しました。'));
+      setResetting(false);
     }
   };
 
@@ -797,6 +872,25 @@ export default function AccountSettings({ onClose, onAfterDelete }) {
 
           {/* ── アカウント（破壊的操作・最下部に分離） ── */}
           <GroupLabel>アカウント</GroupLabel>
+
+          {/* 🧹 データ初期化（アカウントは残す） */}
+          <section style={sectionStyle} aria-label="データを初期化">
+            <p style={sectionTitleStyle}>
+              🧹 データを初期化
+            </p>
+            <p style={sectionDescStyle}>
+              本・メモ・写真・行動・対話履歴・テーマ履歴など、あなたのデータをすべて消して、まっさらな状態に戻します。アカウント（ログイン）は残ります。
+            </p>
+            <button
+              type="button"
+              aria-label="データを初期化する"
+              style={{ ...btnPrimary, background: 'transparent', color: 'var(--c-critical)', border: '1px solid var(--c-critical-line)', boxShadow: 'none', opacity: resetting ? 0.6 : 1 }}
+              disabled={resetting}
+              onClick={handleResetData}
+            >
+              {resetting ? '初期化中…' : '🧹 データをすべて初期化する'}
+            </button>
+          </section>
 
           {/* Delete */}
           <section style={dangerSection} aria-label="アカウント削除">

@@ -5316,7 +5316,10 @@ function AuthedApp() {
                 />
               ) : aiSubTab === 'report' ? (
                 <Suspense fallback={<Spinner />}>
-                  <ThemeReport />
+                  <ThemeReport
+                    onActionAdded={() => { try { refreshBooks(); } catch { /* ignore */ } }}
+                    onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
+                  />
                 </Suspense>
               ) : (
                 <Suspense fallback={<Spinner />}>
