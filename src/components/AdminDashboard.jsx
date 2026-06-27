@@ -18,7 +18,7 @@ import {
   Brain, Send,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { generateOpsRoadmap, opsAdvise } from '../lib/ai';
+import { generateOpsRoadmap, opsAdvise, generateOpsTasks } from '../lib/ai';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 
@@ -255,6 +255,12 @@ export default function AdminDashboard({ onClose }) {
   const [advisorMsgs, setAdvisorMsgs] = useState([]);
   const [advisorInput, setAdvisorInput] = useState('');
   const [advisorBusy, setAdvisorBusy] = useState(false);
+  // タブ（概況 / アクション / 参謀）。
+  const [activeTab, setActiveTab] = useState('overview');
+  // 🗓 日次タスク。
+  const [dailyTasks, setDailyTasks] = useState([]);
+  const [tasksBusy, setTasksBusy] = useState(false);
+  const [tasksErr, setTasksErr] = useState('');
 
   const [warn, setWarn] = useState('');
 
@@ -331,6 +337,19 @@ export default function AdminDashboard({ onClose }) {
     })();
     return () => { alive = false; };
   }, []);
+
+  // 🗓 日次タスクを復元（今日以降を優先・自分の行のみ）。
+  const loadTasks = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ops_tasks')
+        .select('id, due_date, dept, title, done')
+        .order('due_date', { ascending: true })
+        .limit(300);
+      if (!error && Array.isArray(data)) setDailyTasks(data);
+    } catch { /* 未適用 DB は空 */ }
+  }, []);
+  useEffect(() => { loadTasks(); }, [loadTasks]);
 
   // 保存済みロードマップを localStorage から復元（目標が変わったら破棄）。
   const goalSig = goal ? `${goal.metric}:${goal.target}:${goal.deadline}` : '';
@@ -483,6 +502,37 @@ export default function AdminDashboard({ onClose }) {
     }
   };
 
+  // 🗓 日次タスクを AI に生成させる（現状を踏まえて軌道修正）。未完了の今日以降を
+  //    入れ替える（過去・完了済みは残す）。
+  const makeTasks = async () => {
+    if (!goal || tasksBusy) return;
+    setTasksBusy(true); setTasksErr('');
+    try {
+      const rows = await generateOpsTasks({
+        goalLabel: METRIC_LABEL[goal.metric], target: goal.target, deadline: goal.deadline || '',
+        currentUsers: overview?.users_total || 0, currentPaid: revenue?.active || 0, mrr, grossProfit,
+      });
+      if (rows && rows.length) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        // 既存の「今日以降・未完了」を消してから差し替え（軌道修正）。
+        await supabase.from('ops_tasks').delete().gte('due_date', todayStr).eq('done', false);
+        await supabase.from('ops_tasks').insert(rows.map((r) => ({ due_date: r.due_date, dept: r.dept, title: r.title })));
+        await loadTasks();
+      } else {
+        setTasksErr('タスク生成に失敗しました。少し時間をおいて再度お試しください。');
+      }
+    } catch {
+      setTasksErr('タスク生成に失敗しました。');
+    } finally {
+      setTasksBusy(false);
+    }
+  };
+  const toggleTask = async (t) => {
+    setDailyTasks((list) => list.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)));
+    const { error } = await supabase.from('ops_tasks').update({ done: !t.done }).eq('id', t.id);
+    if (error) loadTasks();
+  };
+
   return (
     <div style={overlay} role="dialog" aria-modal="true" aria-label="運営ダッシュボード">
       <div style={header}>
@@ -507,6 +557,20 @@ export default function AdminDashboard({ onClose }) {
 
         {!loading && !err && (
           <>
+            {/* タブ: 概況 / アクション / 参謀 */}
+            <div style={{ display: 'flex', gap: 6, position: 'sticky', top: 0, padding: '10px 0 12px', background: C.pageBg, zIndex: 1 }}>
+              {[['overview', '📊 概況'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀']].map(([k, label]) => (
+                <button key={k} type="button" onClick={() => setActiveTab(k)}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    border: `1px solid ${activeTab === k ? 'transparent' : C.hairlineStrong}`,
+                    background: activeTab === k ? C.brand : 'transparent', color: activeTab === k ? C.brandInk : C.ink2 }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* ═══ 概況タブ（前半: 目標） ═══ */}
+            {activeTab === 'overview' && (<>
             {/* ── 🎯 目標 ── */}
             <p style={sectionTitle}><Target size={15} strokeWidth={2} /> 目標</p>
             <div style={card}>
@@ -561,6 +625,10 @@ export default function AdminDashboard({ onClose }) {
               )}
             </div>
 
+            </>)}
+
+            {/* ═══ 参謀タブ（作戦会議 ＋ ロードマップ） ═══ */}
+            {activeTab === 'advisor' && (<>
             {/* ── 🗺 ロードマップ（AIが年の目標から月別計画を引く） ── */}
             <p style={sectionTitle}><Route size={15} strokeWidth={2} /> ロードマップ</p>
             <div style={card}>
@@ -629,8 +697,56 @@ export default function AdminDashboard({ onClose }) {
               </div>
             </div>
 
-            {/* ── 📋 今やるべきこと ── */}
-            <p style={sectionTitle}><ListChecks size={15} strokeWidth={2} /> 今やるべきこと</p>
+            </>)}
+
+            {/* ═══ アクションタブ（日次タスク ＋ 今やるべきこと ＋ チケット） ═══ */}
+            {activeTab === 'action' && (<>
+            {/* ── 🗓 日次タスク（今やるべきことの日次分解・約30日分） ── */}
+            <p style={sectionTitle}><ListChecks size={15} strokeWidth={2} /> 日次タスク（約30日分）</p>
+            <div style={card}>
+              {!goal ? (
+                <p style={{ margin: 0, fontSize: 13, color: C.ink3, lineHeight: 1.7 }}>「概況」タブで目標を設定すると、AI が今日から約30日分の日次タスクに分解します。</p>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: dailyTasks.length ? 12 : 0 }}>
+                    <button type="button" onClick={makeTasks} disabled={tasksBusy} style={{ ...btnPrimary, width: 'auto', minHeight: 44, opacity: tasksBusy ? 0.6 : 1 }}>
+                      <ListChecks size={16} aria-hidden="true" />
+                      {tasksBusy ? 'AIが作成中…' : (dailyTasks.length ? '現状に合わせて引き直す' : 'AIに日次タスクを作ってもらう')}
+                    </button>
+                    <span style={{ fontSize: 11, color: C.ink3 }}>現状の人数・売上で軌道修正されます</span>
+                  </div>
+                  {tasksErr && <p style={{ margin: '0 0 8px', fontSize: 12, color: C.critical }}>{tasksErr}</p>}
+                  {(() => {
+                    const todayStr = new Date().toISOString().slice(0, 10);
+                    const upcoming = dailyTasks.filter((t) => t.due_date >= todayStr || !t.done).slice(0, 80);
+                    const byDate = {};
+                    upcoming.forEach((t) => { (byDate[t.due_date] = byDate[t.due_date] || []).push(t); });
+                    const dates = Object.keys(byDate).sort();
+                    if (dates.length === 0) return null;
+                    return dates.map((d) => (
+                      <div key={d} style={{ marginBottom: 12 }}>
+                        <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: d === todayStr ? C.brand : C.ink2 }}>
+                          {d === todayStr ? `${d}（今日）` : d}
+                        </p>
+                        {byDate[d].map((t) => (
+                          <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0' }}>
+                            <button type="button" onClick={() => toggleTask(t)} aria-label={t.done ? '未完了に戻す' : '完了'}
+                              style={{ flex: '0 0 auto', marginTop: 1, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: t.done ? '#6b8e6b' : C.hairlineStrong }}>
+                              {t.done ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 5 }} />}
+                            </button>
+                            <span style={{ flex: '0 0 auto', fontSize: 10, fontWeight: 700, color: '#fff', background: DEPT_COLOR[t.dept] || C.brand, borderRadius: 6, padding: '2px 6px', marginTop: 1 }}>{t.dept}</span>
+                            <span style={{ flex: 1, fontSize: 13, color: t.done ? C.ink3 : C.ink, textDecoration: t.done ? 'line-through' : 'none', lineHeight: 1.5 }}>{t.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ));
+                  })()}
+                </>
+              )}
+            </div>
+
+            {/* ── 📋 今やるべきこと（指標シグナル・軌道修正のトリガー） ── */}
+            <p style={sectionTitle}><Flag size={15} strokeWidth={2} /> シグナル（指標が示す注意点）</p>
             {/* 🏢 常駐ロスター: 4部門が常に在席。各部門の担当アクション件数を表示。 */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
               {DEPT_ORDER.map((d) => (
@@ -687,6 +803,10 @@ export default function AdminDashboard({ onClose }) {
               </div>
             )}
 
+            </>)}
+
+            {/* ═══ 概況タブ（後半: KPI・ファネル・継続率・LTV・コスト） ═══ */}
+            {activeTab === 'overview' && (<>
             {/* ── 期間トグル ＋ メトリクス ── */}
             <p style={sectionTitle}><Users size={15} strokeWidth={2} /> アクティブ人数</p>
             <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
@@ -711,11 +831,16 @@ export default function AdminDashboard({ onClose }) {
               <MiniBars series={series} />
             </div>
 
-            <p style={sectionTitle}><CreditCard size={15} strokeWidth={2} /> 売上・粗利</p>
+            <p style={sectionTitle}><CreditCard size={15} strokeWidth={2} /> 会員・売上</p>
+            {/* 会員内訳: 有料(課金中・無料期間除く) / 無料期間(トライアル) / 解約(累計) */}
             <div style={grid3}>
-              <Stat label="有料会員" value={revenue?.active ?? 0} />
-              <Stat label="MRR（概算）" value={`¥${mrr.toLocaleString()}`} sub={`× ¥${MONTHLY_PRICE_JPY.toLocaleString()}/月`} />
-              <Stat label="30日内に期限" value={revenue?.expiring_30d ?? 0} sub="要更新" />
+              <Stat label="有料会員" value={revenue?.active ?? 0} sub="課金中（無料期間除く）" />
+              <Stat label="無料期間" value={revenue?.trial ?? 0} sub="トライアル中" />
+              <Stat label="解約（累計）" value={revenue?.canceled ?? 0} sub="会員数に含めない" />
+            </div>
+            <div style={{ ...grid2, marginTop: 10 }}>
+              <Stat label="MRR（概算）" value={`¥${mrr.toLocaleString()}`} sub={`有料 ${revenue?.active ?? 0}人 × ¥${MONTHLY_PRICE_JPY.toLocaleString()}`} />
+              <Stat label="30日内に更新期限" value={revenue?.expiring_30d ?? 0} sub="要フォロー" />
             </div>
             <div style={{ ...card, marginTop: 10 }}>
               <p style={{ margin: 0, fontSize: 11, color: C.ink2, fontWeight: 600 }}>月次粗利（概算）</p>
@@ -813,6 +938,10 @@ export default function AdminDashboard({ onClose }) {
               <div style={card}><p style={{ margin: '0 0 10px', fontSize: 11, color: C.ink2, fontWeight: 600 }}>本の追加経路</p><BarList data={usage?.book_via} /></div>
             </div>
 
+            </>)}
+
+            {/* ═══ アクションタブ（後半: 問い合わせ受信箱） ═══ */}
+            {activeTab === 'action' && (<>
             {/* ── 📩 問い合わせ受信箱 ── */}
             <p style={sectionTitle}>
               <Inbox size={15} strokeWidth={2} /> 問い合わせ・フィードバック
@@ -848,6 +977,7 @@ export default function AdminDashboard({ onClose }) {
                 ))}
               </div>
             )}
+            </>)}
           </>
         )}
       </div>

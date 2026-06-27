@@ -612,6 +612,47 @@ export async function generateOpsRoadmap(state = {}) {
   return cleaned;
 }
 
+// 🗓 日次タスク生成 — 「今やるべきこと」を約30日分の日次タスクに分解。
+// 返り値は [{ due_date:'YYYY-MM-DD', dept, title }]（パース済み）/ 失敗 null。
+const TASK_DEPTS = ['経営', 'マーケ営業', '開発', '経理'];
+export async function generateOpsTasks(state = {}) {
+  const args = {
+    today: todayISO(),
+    goalLabel: String(state.goalLabel || '月次粗利').slice(0, 40),
+    target: Math.max(0, Math.round(Number(state.target) || 0)),
+    deadline: String(state.deadline || '').slice(0, 10),
+    currentUsers: Math.max(0, Math.round(Number(state.currentUsers) || 0)),
+    currentPaid: Math.max(0, Math.round(Number(state.currentPaid) || 0)),
+    mrr: Math.max(0, Math.round(Number(state.mrr) || 0)),
+    grossProfit: Math.max(0, Math.round(Number(state.grossProfit) || 0)),
+  };
+  let result;
+  try {
+    result = await callClaude(
+      PROMPTS.opsTasks.system,
+      PROMPTS.opsTasks.user(args),
+      { max_tokens: 2048, temperature: 0.5 },
+    );
+  } catch (e) {
+    console.warn('[opsTasks] claude failed:', e?.message);
+    return null;
+  }
+  if (typeof result !== 'string' || isSuspiciousOutput(result)) return null;
+  const rows = [];
+  for (const raw of result.split('\n')) {
+    const line = raw.trim().replace(/^[-*•]\s*/, '');
+    const m = line.match(/^(\d{4}-\d{2}-\d{2})\s*[|｜]\s*([^|｜]+?)\s*[|｜]\s*(.+)$/);
+    if (!m) continue;
+    const dept = TASK_DEPTS.find((d) => m[2].includes(d)) || '経営';
+    const title = clamp(sanitizeForPrompt(m[3]).trim(), 200);
+    if (title) rows.push({ due_date: m[1], dept, title });
+    if (rows.length >= 60) break;
+  }
+  if (rows.length === 0) return null;
+  track('ai_used', { feature: 'ops_tasks' });
+  return rows;
+}
+
 // 🧠 AI 参謀（作戦会議）— 元帥と対話して打ち手を一緒に作る。会話履歴 messages
 // （{role:'user'|'assistant', content}）＋現状サマリーを渡す。返り値は参謀の応答 / 失敗 null。
 export async function opsAdvise({ messages = [], stateLine = '' } = {}) {

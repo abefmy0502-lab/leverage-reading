@@ -7,11 +7,13 @@
 
 create table if not exists public.ops_advisor_messages (
   id         uuid primary key default gen_random_uuid(),
-  user_id    uuid not null references auth.users(id) on delete cascade,
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
   role       text not null check (role in ('user', 'assistant')),
   content    text not null,
   created_at timestamptz not null default now()
 );
+-- 既存テーブル向け: user_id を入れずに insert できるよう default を補填（冪等）。
+alter table public.ops_advisor_messages alter column user_id set default auth.uid();
 
 create index if not exists ops_advisor_messages_user_idx
   on public.ops_advisor_messages(user_id, created_at);
