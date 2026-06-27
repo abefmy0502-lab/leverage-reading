@@ -8,7 +8,7 @@ import { LIMITS } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
-import { BookOpen, Sparkles, Undo2, Mic } from 'lucide-react';
+import { BookOpen, Sparkles, Undo2, Mic, X } from 'lucide-react';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
@@ -269,7 +269,7 @@ export default function QuickMemoSheet({
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
           <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる">
-            ✕
+            <X size={18} aria-hidden="true" />
           </button>
           <div style={{ minWidth: 0, flex: 1 }}>
             <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0 }}>クイックメモ</p>

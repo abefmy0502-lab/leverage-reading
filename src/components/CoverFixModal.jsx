@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Image as ImageIcon, Check, Camera } from 'lucide-react';
+import { Image as ImageIcon, Check, Camera, X } from 'lucide-react';
 import { findIsbnCandidatesWithMetadata } from '../lib/bookSearch';
 import { tryCoverForIsbn } from '../lib/bookCover';
 import { ensureHttps } from '../lib/url';
@@ -143,7 +143,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
             <ImageIcon size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />正しい表紙を選択
           </h2>
-          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
+          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>

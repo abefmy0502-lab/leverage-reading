@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import PhoneFrame from '../components/PhoneFrame';
 import { BUILD_LABEL } from '../lib/buildInfo';
+import { SUPPORT_EMAIL } from '../lib/contact';
 import './landing.css';
 
 // 📱 App Store ダウンロード URL。
@@ -518,7 +519,7 @@ export default function Landing() {
           <a href="/legal/terms">利用規約</a>
           <a href="/legal/privacy">プライバシーポリシー</a>
           <a href="/legal/sct">特定商取引法に基づく表記</a>
-          <a href="mailto:leverage.book0502@gmail.com">お問い合わせ</a>
+          <a href={`mailto:${SUPPORT_EMAIL}`}>お問い合わせ</a>
         </div>
         <p className="copyright">© 2026 Orime</p>
         {/* 🏷️ ビルド識別子。配信中の版が新旧どちらかを一目で判別するための控えめな表記。

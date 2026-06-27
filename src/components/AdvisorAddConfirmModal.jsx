@@ -16,7 +16,7 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Library, Sparkles, AlertTriangle, Lightbulb, Check } from 'lucide-react';
+import { Library, Sparkles, AlertTriangle, Lightbulb, Check, X } from 'lucide-react';
 import { ensureHttps } from '../lib/url';
 
 const overlayStyle = {
@@ -130,7 +130,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
             <Library size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />追加する本を確認
           </h2>
-          <button type="button" style={closeBtnStyle} onClick={onCancel} aria-label="閉じる">×</button>
+          <button type="button" style={closeBtnStyle} onClick={onCancel} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>

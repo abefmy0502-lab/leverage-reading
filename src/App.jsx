@@ -121,6 +121,7 @@ import {
   HelpCircle,
   Settings as SettingsIcon,
   Target,
+  X as IcClose,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
@@ -352,7 +353,7 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
           <IcSearch size={16} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
           本を検索
         </h3>
-        <button onClick={onClose} style={closeBtn} aria-label="閉じる">×</button>
+        <button onClick={onClose} style={closeBtn} aria-label="閉じる"><IcClose size={20} aria-hidden="true" /></button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -5478,7 +5479,7 @@ function AuthedApp() {
                 </Suspense>
               ) : (
                 <Suspense fallback={<Spinner />}>
-                  <MyBookBrain onOpenBook={(b) => { openDetail(b); }} />
+                  <MyBookBrain onOpenBook={(b) => { openDetail(b); }} books={books} onAddAction={addActionFromMemo} />
                 </Suspense>
               )}
             </div>

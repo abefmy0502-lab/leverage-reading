@@ -32,6 +32,7 @@ import {
   Pencil,
   Trash2,
   Eraser,
+  X,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -151,7 +152,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
     >
       <div style={{ background: 'var(--c-card)', borderRadius: 14, width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--c-hairline)' }}>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: 'var(--c-brand)', cursor: 'pointer', width: 44, height: 44, padding: 0 }} aria-label="閉じる">×</button>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--c-brand)', cursor: 'pointer', width: 44, height: 44, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
           <p style={{ fontSize: 14, color: 'var(--c-ink)', fontWeight: 500, margin: 0, flex: 1 }}>{title}</p>
         </div>
         <div style={{ padding: '14px 16px', flex: 1, overflowY: 'auto' }}>

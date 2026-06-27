@@ -5,6 +5,7 @@
 // 商用化前に弁護士の正式レビューを推奨。
 
 import LegalLayout from './LegalLayout';
+import { SUPPORT_EMAIL } from '../lib/contact';
 
 export default function PrivacyPage() {
   return (
@@ -180,7 +181,7 @@ export default function PrivacyPage() {
         当方の個人情報の取扱いに関するお問い合わせは、以下の窓口までご連絡ください。
       </p>
       <div className="contact-box">
-        <p><strong>メールアドレス:</strong> <a href="mailto:leverage.book0502@gmail.com">leverage.book0502@gmail.com</a></p>
+        <p><strong>メールアドレス:</strong> <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></p>
         <p><strong>個人情報保護管理者:</strong> 運営者(別途、<a href="/legal/sct">特定商取引法に基づく表記</a>をご参照ください)</p>
       </div>
 

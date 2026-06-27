@@ -6,6 +6,7 @@
 // こと(TODO コメント参照)。
 
 import LegalLayout from './LegalLayout';
+import { SUPPORT_EMAIL } from '../lib/contact';
 
 export default function SctPage() {
   return (
@@ -41,7 +42,7 @@ export default function SctPage() {
           </tr>
           <tr>
             <th>メールアドレス</th>
-            <td><a href="mailto:leverage.book0502@gmail.com">leverage.book0502@gmail.com</a></td>
+            <td><a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></td>
           </tr>
           <tr>
             <th>販売価格</th>

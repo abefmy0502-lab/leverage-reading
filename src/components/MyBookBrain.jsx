@@ -22,7 +22,7 @@ import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
-import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion } from 'lucide-react';
+import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion, Target, Check } from 'lucide-react';
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
 // 収める flex column。chat 時は内側 .chat-scroll + .ai-input-area で
@@ -268,7 +268,7 @@ function LearningInline({ onCancel, onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction }) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -276,6 +276,13 @@ export default function MyBookBrain({ onOpenBook }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  // 🧠→🎯 回答の行動を、紐づく本の行動リストへ追加（成功時にトースト）。
+  const handleAnswerToAction = useCallback(async (bookId, text) => {
+    if (!onAddAction || !bookId || !text) return false;
+    const ok = await onAddAction(bookId, { text, sourceMemoId: null, sourcePage: null });
+    if (ok) toast.success('🎯 行動に追加しました');
+    return ok;
+  }, [onAddAction, toast]);
   // 段階的ステータス表示: 'search' = 過去のメモを取得中, 'generate' = Claude が回答生成中,
   // null = 未送信 or ストリーミング中で本文が出始めた。
   const [stage, setStage] = useState(null);
@@ -770,7 +777,7 @@ export default function MyBookBrain({ onOpenBook }) {
               />
             )}
             {messages.map((m) => (
-              <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} />
+              <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} />
             ))}
           </div>
         </PullToRefresh>
@@ -890,6 +897,8 @@ export default function MyBookBrain({ onOpenBook }) {
                 message={m}
                 onOpenBook={onOpenBook}
                 stage={m.streaming ? stage : null}
+                books={books}
+                onAddAction={handleAnswerToAction}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -1056,7 +1065,43 @@ function FormattedAnswer({ text }) {
   return <>{out}</>;
 }
 
-function ChatMessage({ message, onOpenBook, stage }) {
+// 回答末尾の「【明日からできる 1 つの行動】」セクション本文を取り出す。
+// 見出しが崩れても空振りしないよう、見出しが無ければ「行動」を含む最終文へ。
+function extractActionLine(text) {
+  if (!text || typeof text !== 'string') return '';
+  const m = text.match(/【\s*明日からできる[^】]*】\s*([\s\S]*?)(?:\n\s*【|REFS_START|$)/);
+  let body = m ? m[1] : '';
+  if (!body) {
+    // フォールバック: 「明日からできる」を含む行以降を拾う。
+    const idx = text.indexOf('明日からできる');
+    if (idx !== -1) body = text.slice(idx).replace(/^明日からできる[^\n:：]*[:：]?/, '');
+  }
+  return body
+    .replace(/^[\s:：・\-*>]+/, '')
+    .split(/\n\s*\n/)[0]
+    .replace(/\s*\n\s*/g, ' ')
+    .trim()
+    .slice(0, 280);
+}
+
+// チャット回答の参照（📚 著者『書名』…）から、行動を紐づける本を解決する。
+// クロスブックなので最初に一致した本へ。完全一致 → 部分一致の順。
+function resolveActionBookId(refs, books) {
+  if (!Array.isArray(refs) || !Array.isArray(books) || books.length === 0) return null;
+  for (const r of refs) {
+    const tm = String(r).match(/『([^』]+)』/);
+    if (!tm) continue;
+    const title = tm[1].trim();
+    if (!title) continue;
+    const exact = books.find((b) => (b.title || '').trim() === title);
+    if (exact) return exact.id;
+    const partial = books.find((b) => (b.title || '').trim() && title.includes((b.title || '').trim()));
+    if (partial) return partial.id;
+  }
+  return null;
+}
+
+function ChatMessage({ message, onOpenBook, stage, books, onAddAction }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const bubbleStyle = {
@@ -1085,6 +1130,20 @@ function ChatMessage({ message, onOpenBook, stage }) {
   // に切り替え、stage は隠す。
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
   const showStageBlock = isStreaming && !hasBody;
+
+  // 🧠→🎯 回答の「明日からできる1つの行動」を、紐づく本の行動リストへ1タップ追加。
+  const [actionAdded, setActionAdded] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const canAct = !isUser && !isStreaming && !!onAddAction;
+  const actionLine = canAct ? extractActionLine(message.content) : '';
+  const actionBookId = canAct && actionLine ? resolveActionBookId(message.refs, books) : null;
+  const handleAddAction = async () => {
+    if (!actionLine || !actionBookId || actionBusy) return;
+    setActionBusy(true);
+    const ok = await onAddAction(actionBookId, actionLine);
+    setActionBusy(false);
+    if (ok) setActionAdded(true);
+  };
 
   return (
     <div
@@ -1132,6 +1191,34 @@ function ChatMessage({ message, onOpenBook, stage }) {
                 <li key={i} style={{ marginTop: i === 0 ? 0 : 3 }}>{r}</li>
               ))}
             </ul>
+          </div>
+        )}
+        {/* 🧠→🎯 回答の「明日の1つの行動」を、その場で🎯行動リストへ */}
+        {canAct && actionLine && actionBookId && (
+          <div style={{ marginTop: 12 }}>
+            {actionAdded ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--c-brand)' }}>
+                <Check size={15} aria-hidden="true" />
+                行動リストに追加しました
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleAddAction}
+                disabled={actionBusy}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  minHeight: 44, padding: '8px 16px', borderRadius: 10,
+                  border: '1px solid var(--c-brand)', background: 'transparent',
+                  color: 'var(--c-brand)', fontSize: 13, fontWeight: 700,
+                  fontFamily: 'inherit', cursor: actionBusy ? 'default' : 'pointer',
+                  opacity: actionBusy ? 0.6 : 1,
+                }}
+              >
+                <Target size={15} aria-hidden="true" />
+                この行動をやってみる
+              </button>
+            )}
           </div>
         )}
         {!isStreaming && (

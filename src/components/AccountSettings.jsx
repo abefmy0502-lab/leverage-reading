@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { SUPPORT_EMAIL } from '../lib/contact';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
@@ -25,7 +26,7 @@ import { btnPrimary as uiBtnPrimary, btnDanger as uiBtnDanger } from '../styles/
 import {
   Settings as IcSettings, CreditCard as IcCard, Bell as IcBell, Download as IcDownload,
   FileText as IcFileText, BarChart3 as IcBar, RefreshCw as IcRefresh, Mail as IcMail,
-  Eraser as IcEraser, AlertTriangle as IcWarn,
+  Eraser as IcEraser, AlertTriangle as IcWarn, X as IcClose,
 } from 'lucide-react';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
@@ -79,6 +80,9 @@ const closeBtnStyle = {
   cursor: 'pointer',
   width: 44,
   height: 44,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   fontFamily: 'inherit',
   padding: 0,
 };
@@ -662,7 +666,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 500, flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}><IcSettings size={18} aria-hidden="true" /> アカウント設定</h2>
-          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
+          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><IcClose size={20} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>
@@ -977,7 +981,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 特定商取引法に基づく表記
               </a>
             )}
-            <a href="mailto:leverage.book0502@gmail.com" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
+            <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
               お問い合わせ
             </a>
           </div>

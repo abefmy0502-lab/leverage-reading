@@ -13,7 +13,7 @@
 //   'error'     : 検索エラー（リトライ可能）
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Library, Search, Camera, Pencil, AlertTriangle, RefreshCw, ChevronDown, Lightbulb, Check } from 'lucide-react';
+import { Library, Search, Camera, Pencil, AlertTriangle, RefreshCw, ChevronDown, Lightbulb, Check, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
 import { searchBooksAdvanced } from '../lib/bookSearch';
@@ -679,7 +679,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
       )}
       <div style={headerStyle}>
         <h2 style={{ fontSize: 16, color: 'var(--color-label)', margin: 0, fontWeight: 600, flex: 1 }}><Library size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />本を追加</h2>
-        <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={isSearching} aria-disabled={isSearching}>×</button>
+        <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={isSearching} aria-disabled={isSearching}><X size={20} aria-hidden="true" /></button>
       </div>
 
       <div style={bodyStyle}>

@@ -6,6 +6,7 @@
 // only the submitter (and admins via service_role) can read it later.
 
 import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { useFeedback, FEEDBACK_CATEGORIES, FEEDBACK_LIMITS } from '../hooks/useFeedback';
 import { useToast } from './Toast';
 import { toMessage } from '../lib/errors';
@@ -53,6 +54,9 @@ const closeBtn = {
   cursor: 'pointer',
   width: 44,
   height: 44,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   padding: 0,
   fontFamily: 'inherit',
 };
@@ -188,7 +192,7 @@ export default function FeedbackForm({ onClose }) {
       <div ref={sheetRef} style={sheetStyle} onClick={(e) => e.stopPropagation()}>
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
-          <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={busy}>×</button>
+          <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={busy}><X size={20} aria-hidden="true" /></button>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 500, flex: 1 }}>📩 フィードバック・要望</h2>
         </div>
 

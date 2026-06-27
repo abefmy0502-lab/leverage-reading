@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
-import { MessageSquareQuote } from 'lucide-react';
+import { MessageSquareQuote, X } from 'lucide-react';
 import { recallFraming, memoExcerpt, pickRecallMemo } from '../lib/recall';
 
 const DISMISS_KEY = 'orime-home-recall-dismissed';
@@ -209,7 +209,7 @@ export default function HomeRecall({ onOpen }) {
           lineHeight: 1,
         }}
       >
-        <span aria-hidden="true">✕</span>
+        <X size={16} aria-hidden="true" />
       </button>
     </div>
   );

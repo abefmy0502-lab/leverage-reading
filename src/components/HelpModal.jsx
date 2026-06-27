@@ -11,6 +11,7 @@
 // だけ。`helpKey` を内部 state にすることで、4. の切替が onClose せずに完結。
 
 import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp } from '../lib/helpContent';
 import { callClaude } from '../lib/ai';
@@ -353,7 +354,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>📖 ヘルプ</h2>
-          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
+          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div className="lvg-help-body" style={bodyStyle}>

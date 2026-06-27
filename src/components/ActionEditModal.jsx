@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LIMITS } from '../lib/limits';
 import { useConfirm } from './ConfirmDialog';
-import { Pencil, ClipboardList, CalendarDays, Target, Repeat, MessageSquareQuote, Trash2, Save, ArrowUp, Minus, ArrowDown } from 'lucide-react';
+import { Pencil, ClipboardList, CalendarDays, Target, Repeat, MessageSquareQuote, Trash2, Save, ArrowUp, Minus, ArrowDown, X } from 'lucide-react';
 
 const overlayStyle = {
   position: 'fixed',
@@ -190,7 +190,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}><Pencil size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />行動を編集</h2>
-          <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる">×</button>
+          <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>

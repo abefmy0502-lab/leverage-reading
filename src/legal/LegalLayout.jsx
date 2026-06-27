@@ -5,6 +5,7 @@
 // 戻り先は document.referrer が同一オリジン LP なら戻る、無ければ /lp。
 
 import { useEffect } from 'react';
+import { SUPPORT_EMAIL } from '../lib/contact';
 import '../pages/landing.css';
 import '../pages/legal.css';
 
@@ -84,7 +85,7 @@ export default function LegalLayout({ title, description, children }) {
             <a href="/legal/terms">利用規約</a>
             <a href="/legal/privacy">プライバシーポリシー</a>
             <a href="/legal/sct">特定商取引法に基づく表記</a>
-            <a href="mailto:leverage.book0502@gmail.com">お問い合わせ</a>
+            <a href={`mailto:${SUPPORT_EMAIL}`}>お問い合わせ</a>
           </div>
           <p className="legal-copyright">© 2026 Orime</p>
         </footer>
