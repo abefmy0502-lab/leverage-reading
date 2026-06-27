@@ -19,10 +19,27 @@ import {
   Lightbulb as IcBulb, MessageSquarePlus as IcNewChat,
   BookOpen as IcBook, Map as IcMap, Zap as IcZap, RefreshCw as IcRefresh, Bot as IcBot,
   CheckCircle2 as IcCheck, BarChart3 as IcBar, AlertTriangle as IcAlert, CalendarDays as IcCal,
+  SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar,
 } from 'lucide-react';
 
 // サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
 const subTabIconStyle = { verticalAlign: '-2px', marginRight: 5 };
+
+// 本棚ツールバー（シート化）用の共通スタイル。
+const SORT_LABELS = { updated: '更新順', created: '登録順', title: 'タイトル順', rating: '評価順' };
+const bookshelfToolbarBtn = (active) => ({
+  display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 38,
+  padding: '7px 12px', borderRadius: 999, fontSize: 12, fontFamily: 'inherit',
+  cursor: 'pointer', fontWeight: active ? 600 : 500,
+  border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
+  background: active ? 'var(--c-soft)' : 'transparent',
+  color: active ? 'var(--c-brand)' : 'var(--c-ink-2)',
+});
+const bookshelfToolbarBadge = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999,
+  background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 10, fontWeight: 700,
+};
 import HelpModal from './components/HelpModal';
 const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
@@ -33,6 +50,7 @@ import AdvisorAddConfirmModal from './components/AdvisorAddConfirmModal';
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import ActionList from './components/ActionList';
 import ActionEditModal from './components/ActionEditModal';
+import BottomSheet from './components/BottomSheet';
 const AddBookModal = lazy(() => import('./components/AddBookModal'));
 import { useBookCover } from './hooks/useBookCover';
 import {
@@ -2609,6 +2627,12 @@ function AuthedApp() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("updated"); // updated | created | title | rating
   const [searchOpen, setSearchOpen] = useState(false);
+  // 本棚の絞り込み拡張＋シート化ツールバー。常時表示のピル/セレクトを畳み、
+  // 「絞り込み / 並び」をボトムシートに隠して本棚をスッキリさせる。
+  const [highRatedOnly, setHighRatedOnly] = useState(false); // ★4 以上のみ
+  const [tagFilter, setTagFilter] = useState([]);            // 選択タグ（AND ではなく OR）
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [sortSheetOpen, setSortSheetOpen] = useState(false);
   // The "+" button opens this first; from here the user picks the
   // search path (default) or jumps to manual entry.
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
@@ -3994,6 +4018,11 @@ function AuthedApp() {
     const q = search.trim().toLowerCase();
     const list = books.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      if (highRatedOnly && (b.rating || 0) < 4) return false;
+      if (tagFilter.length > 0) {
+        const bt = (b.tags || []).map((t) => (t || '').toLowerCase());
+        if (!tagFilter.some((t) => bt.includes(t.toLowerCase()))) return false;
+      }
       if (!q) return true;
       const title = (b.title || '').toLowerCase();
       const author = (b.author || '').toLowerCase();
@@ -4016,7 +4045,23 @@ function AuthedApp() {
       sorted.sort((a, b) => updated(b).localeCompare(updated(a)));
     }
     return sorted;
-  }, [books, statusFilter, search, sortBy]);
+  }, [books, statusFilter, search, sortBy, highRatedOnly, tagFilter]);
+
+  // 絞り込みシート用: 本に付いた全タグ（出現頻度の高い順、最大 24 個）。
+  const availableTags = useMemo(() => {
+    const counts = new Map();
+    for (const b of books) {
+      for (const t of (b.tags || [])) {
+        const tag = (t || '').trim();
+        if (tag) counts.set(tag, (counts.get(tag) || 0) + 1);
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24).map(([t]) => t);
+  }, [books]);
+
+  // アクティブな絞り込み数（ツールバーのバッジ表示用）。
+  const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (highRatedOnly ? 1 : 0) + tagFilter.length;
+  const clearAllFilters = () => { setStatusFilter('all'); setHighRatedOnly(false); setTagFilter([]); };
 
   const recentBooks = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -4999,65 +5044,21 @@ function AuthedApp() {
                   <IcPlus size={22} aria-hidden="true" />
                 </button>
               </div>
-              {/* Pill filters — hide statuses with zero books to keep the bar tight. */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {[
-                  { key: "all", label: "全て", count: stats.total, color: "#4a4036", bg: "#e8e0d2", Icon: null },
-                  ...STATUSES.map((s) => ({
-                    key: s.key,
-                    label: s.label,
-                    Icon: s.Icon,
-                    color: s.color,
-                    bg: s.bg,
-                    count: stats[s.key] || 0,
-                  })),
-                ]
-                  .filter((s) => s.key === "all" || s.count > 0 || statusFilter === s.key)
-                  .map((s) => {
-                    const active = statusFilter === s.key;
-                    const Icon = s.Icon;
-                    return (
-                      <button
-                        key={s.key}
-                        onClick={() => setStatusFilter(s.key)}
-                        style={{
-                          padding: "6px 12px",
-                          minHeight: 44,
-                          fontSize: 11,
-                          borderRadius: 999,
-                          fontFamily: "inherit",
-                          cursor: "pointer",
-                          border: active ? `1.5px solid ${s.color}` : "1px solid var(--c-hairline-strong)",
-                          background: active ? s.bg : "transparent",
-                          color: active ? s.color : "var(--c-ink-2)",
-                          fontWeight: active ? 600 : 400,
-                          transition: "background .15s, color .15s",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        {Icon && <Icon size={12} strokeWidth={1.75} aria-hidden="true" />}
-                        {s.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>({s.count})</span>
-                      </button>
-                    );
-                  })}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: "var(--c-ink-2)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>並び順</span>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    style={{ fontSize: 16, padding: "8px 8px", minHeight: 44, borderRadius: 8, border: "1px solid var(--c-hairline-strong)", background: "var(--c-card)", color: "var(--c-ink)", fontFamily: "inherit" }}
-                  >
-                    <option value="updated">更新順</option>
-                    <option value="created">登録順</option>
-                    <option value="title">タイトル順</option>
-                    <option value="rating">評価順</option>
-                  </select>
-                </div>
+              {/* コンパクトなツールバー — 絞り込み・並びはシートに隠し、本棚を
+                  スッキリさせる（本の前に積まれていたピル列＋セレクトを撤去）。 */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button type="button" onClick={() => setFilterSheetOpen(true)} style={bookshelfToolbarBtn(activeFilterCount > 0)} aria-label="絞り込み">
+                    <IcFilter size={15} aria-hidden="true" />
+                    絞り込み
+                    {activeFilterCount > 0 && <span style={bookshelfToolbarBadge}>{activeFilterCount}</span>}
+                  </button>
+                  <button type="button" onClick={() => setSortSheetOpen(true)} style={bookshelfToolbarBtn(false)} aria-label="並び替え">
+                    <IcSort size={15} aria-hidden="true" />
+                    {SORT_LABELS[sortBy] || '並び'}
+                  </button>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--c-ink-2)" }}>
                   <span>{filtered.length} 件</span>
                   <div className="view-mode-switch" role="group" aria-label="表示モード">
                     <button
@@ -5415,6 +5416,85 @@ function AuthedApp() {
             await deleteActionFromBook(bookId, actionIdx);
           }}
         />
+      )}
+
+      {/* 本棚: 絞り込みシート（ステータス / ★高評価 / タグ） */}
+      {filterSheetOpen && (
+        <BottomSheet
+          title="絞り込み"
+          onClose={() => setFilterSheetOpen(false)}
+          footer={(
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              disabled={activeFilterCount === 0}
+              style={{ width: '100%', minHeight: 44, borderRadius: 11, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: activeFilterCount === 0 ? 'var(--c-ink-3)' : 'var(--c-critical)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: activeFilterCount === 0 ? 'default' : 'pointer' }}
+            >
+              条件をクリア{activeFilterCount > 0 ? `（${activeFilterCount}）` : ''}
+            </button>
+          )}
+        >
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>ステータス</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 18 }}>
+            {[{ key: 'all', label: '全て', count: stats.total }, ...STATUSES.map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => {
+              const active = statusFilter === s.key;
+              return (
+                <button key={s.key} type="button" onClick={() => setStatusFilter(s.key)} style={bookshelfToolbarBtn(active)}>
+                  {s.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>({s.count})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>評価</p>
+          <button type="button" onClick={() => setHighRatedOnly((v) => !v)} style={{ ...bookshelfToolbarBtn(highRatedOnly), marginBottom: 18 }}>
+            <IcStar size={14} aria-hidden="true" />
+            ★4 以上のみ
+          </button>
+
+          {availableTags.length > 0 && (
+            <>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>タグ</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {availableTags.map((t) => {
+                  const active = tagFilter.includes(t);
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTagFilter((arr) => (active ? arr.filter((x) => x !== t) : [...arr, t]))}
+                      style={bookshelfToolbarBtn(active)}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </BottomSheet>
+      )}
+
+      {/* 本棚: 並びシート */}
+      {sortSheetOpen && (
+        <BottomSheet title="並び替え" onClose={() => setSortSheetOpen(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {Object.entries(SORT_LABELS).map(([key, label]) => {
+              const active = sortBy === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => { setSortBy(key); setSortSheetOpen(false); }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 48, padding: '0 4px', background: 'none', border: 'none', borderBottom: '1px solid var(--c-hairline)', fontSize: 15, fontFamily: 'inherit', cursor: 'pointer', color: active ? 'var(--c-brand)' : 'var(--c-ink)', fontWeight: active ? 700 : 400 }}
+                >
+                  {label}
+                  {active && <IcCheck size={18} aria-hidden="true" />}
+                </button>
+              );
+            })}
+          </div>
+        </BottomSheet>
       )}
 
       {addBookModalOpen && (

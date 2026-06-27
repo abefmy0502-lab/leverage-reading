@@ -49,6 +49,12 @@ svg.lucide {
   vertical-align: -0.125em;
 }
 
+/* ボトムシート共通アニメーション（BottomSheet / QuickMemoSheet 共用）。
+   個別コンポーネントの runtime 注入に依存せず、どこから開いても動くよう
+   グローバルに定義しておく。 */
+@keyframes leverage-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes leverage-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
 html, body, #root {
   /* document scroll を一切起こさない LINE 風レイアウトの土台。
      #root から flex column が始まり、内部の各セクション (header /
