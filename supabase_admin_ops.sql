@@ -14,12 +14,16 @@
 -- ── 目標 ───────────────────────────────────────────────────────────────────
 create table if not exists public.ops_goals (
   user_id    uuid primary key references auth.users(id) on delete cascade,
-  metric     text not null default 'mrr' check (metric in ('mrr', 'paid_users', 'users')),
+  metric     text not null default 'mrr' check (metric in ('mrr', 'paid_users', 'users', 'gross_profit')),
   target     numeric not null default 0,
   deadline   date,
   updated_at timestamptz not null default now()
 );
 alter table public.ops_goals enable row level security;
+-- 既存DB向け: metric の許容値に gross_profit（月次粗利）を追加（冪等）。
+alter table public.ops_goals drop constraint if exists ops_goals_metric_check;
+alter table public.ops_goals add constraint ops_goals_metric_check
+  check (metric in ('mrr', 'paid_users', 'users', 'gross_profit'));
 
 -- ── チケット（作業ボード） ─────────────────────────────────────────────────
 create table if not exists public.ops_tickets (
@@ -57,7 +61,7 @@ language plpgsql security definer set search_path = public
 as $$
 begin
   perform public._require_admin();
-  if p_metric not in ('mrr', 'paid_users', 'users') then raise exception 'invalid metric'; end if;
+  if p_metric not in ('mrr', 'paid_users', 'users', 'gross_profit') then raise exception 'invalid metric'; end if;
   insert into public.ops_goals (user_id, metric, target, deadline, updated_at)
   values (auth.uid(), p_metric, greatest(coalesce(p_target, 0), 0), p_deadline, now())
   on conflict (user_id) do update

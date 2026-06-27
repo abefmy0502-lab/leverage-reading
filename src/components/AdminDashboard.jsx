@@ -20,7 +20,10 @@ import { supabase } from '../lib/supabase';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 
-const MONTHLY_PRICE_JPY = 990; // MRR 概算用（真実は Stripe 側）
+// 💰 コストモデル（粗利の概算用）。真実は Stripe / 請求書側。ここは"目安"。
+const MONTHLY_PRICE_JPY = 1480;     // 月額プランの税込価格（実価格）
+const PAYMENT_FEE_RATE = 0.036;     // 決済手数料の概算（Stripe ≈ 3.6%）
+const AI_COST_PER_CALL_JPY = 4;     // AIコールあたりの概算原価（ローンチ後に実測で調整）
 
 const overlay = {
   position: 'fixed', inset: 0, zIndex: 1000, background: C.pageBg,
@@ -58,11 +61,15 @@ const inp = {
   color: C.ink, fontFamily: 'inherit',
 };
 
-const METRIC_LABEL = { mrr: 'MRR（月次売上）', paid_users: '有料会員数', users: '総ユーザー数' };
+const METRIC_LABEL = { gross_profit: '月次粗利（概算）', mrr: 'MRR（月次売上）', paid_users: '有料会員数', users: '総ユーザー数' };
 const STAGE = { ACQ: '集客', ACT: '定着', REV: '収益化', RET: '継続', QUAL: '品質' };
 const STAGE_COLOR = {
   集客: C.accent || C.brand, 定着: '#6b8e6b', 収益化: C.brand, 継続: '#b08a3e', 品質: C.critical,
 };
+// 🏢 常駐する4部門。各アクションを担当部門に割り当てて「誰の仕事か」を明確にする。
+const DEPT = { CEO: '経営', MKT: 'マーケ営業', ENG: '開発', FIN: '経理' };
+const DEPT_COLOR = { 経営: C.brand, マーケ営業: '#b08a3e', 開発: '#5a7d9a', 経理: '#6b8e6b' };
+const DEPT_ORDER = ['経営', 'マーケ営業', '開発', '経理'];
 const PRI_LABEL = { 1: '高', 2: '中', 3: '低' };
 const PRI_COLOR = { 1: C.critical, 2: C.brand, 3: C.ink3 };
 const CATEGORY_LABEL = { bug: '不具合', feature: '要望', ui: 'UI', question: '質問', thanks: '感謝', other: 'その他' };
@@ -126,51 +133,66 @@ function MiniBars({ series }) {
 
 // 指標から「今やるべきこと」を自動生成（ファネル別・優先度順）。
 // 数字が動くと結果が変わる＝軌道修正される。
-function buildActions({ overview, revenue, usage, ai, tickets, goal, gap, requiredPerWeek }) {
+function buildActions({ overview, revenue, usage, ai, tickets, goal, gap, requiredPerWeek, mrr, grossProfit }) {
   const a = [];
   const ev = usage?.events || {};
   const users = overview?.users_total || 0;
   const paid = revenue?.active || 0;
 
-  // 目標ペース（収益化）
+  // 経営: 目標ペース
   if (goal && gap > 0 && requiredPerWeek > 0) {
-    a.push({ stage: STAGE.REV, pri: 1, title: `目標まであと${fmtGoal(goal.metric, gap)} — 週 ${fmtGoal(goal.metric, requiredPerWeek)} ペースが必要`, why: `${METRIC_LABEL[goal.metric]}の達成ペース` });
+    a.push({ dept: DEPT.CEO, stage: STAGE.REV, pri: 1, title: `目標まであと${fmtGoal(goal.metric, gap)} — 週 ${fmtGoal(goal.metric, requiredPerWeek)} ペースが必要`, why: `${METRIC_LABEL[goal.metric]}の達成ペース` });
   }
-  // 品質: 未解決バグ
+  // 経営: 目標未設定
+  if (!goal) a.push({ dept: DEPT.CEO, stage: STAGE.REV, pri: 1, title: '売上/粗利の目標を設定する', why: '目標が未設定（達成ペースを逆算できない）' });
+
+  // 開発: 未解決バグ
   const openBugs = (tickets || []).filter((t) => t.kind === 'bug' && (t.status === 'open' || t.status === 'in_progress'));
-  if (openBugs.length) a.push({ stage: STAGE.QUAL, pri: 1, title: `バグを ${openBugs.length} 件修正する`, why: '未解決のバグチケット' });
-  // 収益化: 有料0
-  if (paid === 0) a.push({ stage: STAGE.REV, pri: 1, title: '最初の有料会員を獲得する', why: '有料会員がまだ0人' });
-  // 収益化: ペイウォール転換率
+  if (openBugs.length) a.push({ dept: DEPT.ENG, stage: STAGE.QUAL, pri: 1, title: `バグを ${openBugs.length} 件修正する`, why: '未解決のバグチケット' });
+
+  // マーケ営業: 有料0
+  if (paid === 0 && users > 0) a.push({ dept: DEPT.MKT, stage: STAGE.REV, pri: 1, title: '最初の有料会員を獲得する', why: '登録はあるが有料会員が0人' });
+  // マーケ営業: ペイウォール転換率
   const pv = ev.paywall_viewed || 0; const cc = ev.checkout_completed || 0;
   if (pv >= 10 && cc / pv < 0.05) {
-    a.push({ stage: STAGE.REV, pri: 1, title: 'ペイウォールの訴求・価格を見直す', why: `表示${pv}回中 課金${cc}件（転換率 ${(cc / pv * 100).toFixed(1)}%）` });
+    a.push({ dept: DEPT.MKT, stage: STAGE.REV, pri: 1, title: 'ペイウォールの訴求・価格を見直す', why: `表示${pv}回中 課金${cc}件（転換率 ${(cc / pv * 100).toFixed(1)}%）` });
   }
-  // 集客: 今週の新規0
-  if ((overview?.new_users_7d || 0) === 0 && users > 0) {
-    a.push({ stage: STAGE.ACQ, pri: 1, title: '集客に着手（LP / SNS / 紹介）', why: '今週の新規ユーザーが0人' });
-  }
-  // 品質: 未対応FB
+  // マーケ営業: 今週の新規0 / そもそも0人
+  if (users === 0) a.push({ dept: DEPT.MKT, stage: STAGE.ACQ, pri: 1, title: '最初のユーザーを集める（告知・LP公開・SNS）', why: 'まだ登録ユーザーが0人' });
+  else if ((overview?.new_users_7d || 0) === 0) a.push({ dept: DEPT.MKT, stage: STAGE.ACQ, pri: 1, title: '集客に着手（LP / SNS / 紹介）', why: '今週の新規ユーザーが0人' });
+
+  // 開発/経営: 未対応FB
   if ((overview?.feedback_open || 0) > 0) {
-    a.push({ stage: STAGE.QUAL, pri: 2, title: `未対応の問い合わせ ${overview.feedback_open} 件をさばく`, why: 'open のフィードバック' });
+    a.push({ dept: DEPT.ENG, stage: STAGE.QUAL, pri: 2, title: `未対応の問い合わせ ${overview.feedback_open} 件をさばく（チケット化）`, why: 'open のフィードバック' });
   }
-  // 継続: 解約リスク
+  // マーケ営業: 解約リスク
   if ((revenue?.expiring_30d || 0) > 0) {
-    a.push({ stage: STAGE.RET, pri: 2, title: `更新期限が近い有料会員 ${revenue.expiring_30d} 人をフォロー`, why: '30日以内に期限' });
+    a.push({ dept: DEPT.MKT, stage: STAGE.RET, pri: 2, title: `更新期限が近い有料会員 ${revenue.expiring_30d} 人をフォロー`, why: '30日以内に期限' });
   }
-  // 継続: 粘着
+  // 開発: 粘着
   const dau = overview?.dau || 0; const mau = overview?.mau || 0;
   if (mau >= 10 && dau / mau < 0.1) {
-    a.push({ stage: STAGE.RET, pri: 2, title: '毎日使われる仕掛けを強化（想起通知など）', why: `DAU/MAU ${(dau / mau * 100).toFixed(0)}%（粘着が弱い）` });
+    a.push({ dept: DEPT.ENG, stage: STAGE.RET, pri: 2, title: '毎日使われる仕掛けを強化（想起通知など）', why: `DAU/MAU ${(dau / mau * 100).toFixed(0)}%（粘着が弱い）` });
   }
-  // 定着: 1人あたり本
+  // 開発: 定着（1人あたり本）
   if (users >= 5) {
     const bpu = (overview?.books_total || 0) / users;
-    if (bpu < 2) a.push({ stage: STAGE.ACT, pri: 2, title: 'オンボーディングを改善（最初の1冊登録まで）', why: `1人あたり本 ${bpu.toFixed(1)}冊` });
+    if (bpu < 2) a.push({ dept: DEPT.ENG, stage: STAGE.ACT, pri: 2, title: 'オンボーディングを改善（最初の1冊登録まで）', why: `1人あたり本 ${bpu.toFixed(1)}冊` });
   }
-  // 品質: AIコスト
+  // 経理: 粗利率（売上はあるのに薄利）
+  if (mrr > 0) {
+    const margin = grossProfit / mrr;
+    if (margin < 0.5) a.push({ dept: DEPT.FIN, stage: STAGE.QUAL, pri: 2, title: '粗利率が低い — 価格 or AI原価を見直す', why: `粗利率 ${(margin * 100).toFixed(0)}%（決済手数料＋AI原価が重い）` });
+  }
+  // 経理: AIコスト（1人あたり）
   const calls = ai && ai[0] ? ai[0].calls : 0;
-  if (calls > 1000) a.push({ stage: STAGE.QUAL, pri: 3, title: 'AIコストを点検（原価ガード）', why: `今月のAIコール ${calls}回` });
+  const aiUsers = ai && ai[0] ? ai[0].users : 0;
+  if (aiUsers > 0) {
+    const costPerUser = (calls * AI_COST_PER_CALL_JPY) / aiUsers;
+    if (costPerUser > 45) a.push({ dept: DEPT.FIN, stage: STAGE.QUAL, pri: 2, title: 'AI原価/人 が高い — 原価ガード（月次上限）を見直す', why: `今月のAI原価 約¥${Math.round(costPerUser)}/人（目安 ¥45 超）` });
+  } else if (calls > 1000) {
+    a.push({ dept: DEPT.FIN, stage: STAGE.QUAL, pri: 3, title: 'AIコストを点検（原価ガード）', why: `今月のAIコール ${calls}回` });
+  }
 
   return a.sort((x, y) => x.pri - y.pri);
 }
@@ -274,11 +296,18 @@ export default function AdminDashboard({ onClose }) {
     if (error) load(days);
   };
 
+  // 💰 売上・粗利の概算。MRR = 有料会員 × 月額。粗利 = MRR − 決済手数料 − AI原価。
+  const mrr = (revenue?.active || 0) * MONTHLY_PRICE_JPY;
+  const aiCallsThisMonth = ai && ai[0] ? ai[0].calls : 0;
+  const aiCostThisMonth = aiCallsThisMonth * AI_COST_PER_CALL_JPY;
+  const grossProfit = Math.max(0, Math.round(mrr - mrr * PAYMENT_FEE_RATE - aiCostThisMonth));
+
   // 目標の現在地・ペース計算。
   const goalCurrent = goal
-    ? (goal.metric === 'mrr' ? (revenue?.active || 0) * MONTHLY_PRICE_JPY
-      : goal.metric === 'paid_users' ? (revenue?.active || 0)
-        : (overview?.users_total || 0))
+    ? (goal.metric === 'mrr' ? mrr
+      : goal.metric === 'gross_profit' ? grossProfit
+        : goal.metric === 'paid_users' ? (revenue?.active || 0)
+          : (overview?.users_total || 0))
     : 0;
   const goalGap = goal ? Math.max(0, (goal.target || 0) - goalCurrent) : 0;
   const goalProgress = goal && goal.target > 0 ? Math.min(1, goalCurrent / goal.target) : 0;
@@ -290,11 +319,12 @@ export default function AdminDashboard({ onClose }) {
   }
 
   const actions = (!loading && !err)
-    ? buildActions({ overview, revenue, usage, ai, tickets, goal, gap: goalGap, requiredPerWeek })
+    ? buildActions({ overview, revenue, usage, ai, tickets, goal, gap: goalGap, requiredPerWeek, mrr, grossProfit })
     : [];
+  // 部門ごとの担当件数（常駐ロスター表示用）。
+  const deptCounts = DEPT_ORDER.reduce((m, d) => ({ ...m, [d]: actions.filter((x) => x.dept === d).length }), {});
   const openTickets = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress');
   const shownFeedback = feedback.filter((f) => (fbFilter === 'all' ? true : f.status === fbFilter));
-  const mrr = revenue ? (revenue.active || 0) * MONTHLY_PRICE_JPY : 0;
 
   return (
     <div style={overlay} role="dialog" aria-modal="true" aria-label="運営ダッシュボード">
@@ -376,13 +406,24 @@ export default function AdminDashboard({ onClose }) {
 
             {/* ── 📋 今やるべきこと ── */}
             <p style={sectionTitle}><ListChecks size={15} strokeWidth={2} /> 今やるべきこと</p>
+            {/* 🏢 常駐ロスター: 4部門が常に在席。各部門の担当アクション件数を表示。 */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+              {DEPT_ORDER.map((d) => (
+                <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#fff', background: DEPT_COLOR[d], borderRadius: 99, padding: '4px 10px', opacity: deptCounts[d] ? 1 : 0.45 }}>
+                  {d}<span style={{ fontSize: 10, background: 'rgba(255,255,255,0.28)', borderRadius: 99, minWidth: 16, textAlign: 'center', padding: '0 4px' }}>{deptCounts[d]}</span>
+                </span>
+              ))}
+            </div>
             {actions.length === 0 ? (
               <div style={{ ...card, color: '#6b8e6b', fontSize: 13, fontWeight: 600 }}>順調です。今すぐ手を打つべき指標はありません 👍</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {actions.map((act, i) => (
                   <div key={i} style={{ ...card, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                    <span style={{ flex: '0 0 auto', marginTop: 2, fontSize: 10, fontWeight: 700, color: '#fff', background: STAGE_COLOR[act.stage] || C.brand, borderRadius: 6, padding: '2px 7px' }}>{act.stage}</span>
+                    <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: DEPT_COLOR[act.dept] || C.brand, borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>{act.dept}</span>
+                      <span style={{ fontSize: 9, fontWeight: 600, color: C.ink3 }}>{act.stage}</span>
+                    </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.ink, lineHeight: 1.4 }}>{act.title}</p>
                       <p style={{ margin: '4px 0 0', fontSize: 11, color: C.ink3 }}>根拠: {act.why}</p>
@@ -445,11 +486,19 @@ export default function AdminDashboard({ onClose }) {
               <MiniBars series={series} />
             </div>
 
-            <p style={sectionTitle}><CreditCard size={15} strokeWidth={2} /> 売上・課金</p>
+            <p style={sectionTitle}><CreditCard size={15} strokeWidth={2} /> 売上・粗利</p>
             <div style={grid3}>
               <Stat label="有料会員" value={revenue?.active ?? 0} />
-              <Stat label="MRR（概算）" value={`¥${mrr.toLocaleString()}`} sub="× ¥990/月" />
+              <Stat label="MRR（概算）" value={`¥${mrr.toLocaleString()}`} sub={`× ¥${MONTHLY_PRICE_JPY.toLocaleString()}/月`} />
               <Stat label="30日内に期限" value={revenue?.expiring_30d ?? 0} sub="要更新" />
+            </div>
+            <div style={{ ...card, marginTop: 10 }}>
+              <p style={{ margin: 0, fontSize: 11, color: C.ink2, fontWeight: 600 }}>月次粗利（概算）</p>
+              <p style={{ margin: '6px 0 0', fontSize: 26, fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>¥{grossProfit.toLocaleString()}</p>
+              <p style={{ margin: '6px 0 0', fontSize: 11, color: C.ink3, lineHeight: 1.6 }}>
+                売上 ¥{mrr.toLocaleString()} − 決済手数料(約{(PAYMENT_FEE_RATE * 100).toFixed(1)}%) ¥{Math.round(mrr * PAYMENT_FEE_RATE).toLocaleString()} − AI原価 ¥{aiCostThisMonth.toLocaleString()}（{aiCallsThisMonth}コール×¥{AI_COST_PER_CALL_JPY}）
+                <br />※ 直接原価ベースの粗利概算。人件費・固定費は含みません。係数はローンチ後に実測で調整。
+              </p>
             </div>
 
             <p style={sectionTitle}><Cpu size={15} strokeWidth={2} /> AIコスト / API消費</p>
