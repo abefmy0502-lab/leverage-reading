@@ -97,6 +97,24 @@ function pickPackage(offering, plan) {
   );
 }
 
+// RevenueCat の introPrice から「無料トライアル」ラベルを作る。
+// App Store Connect で Introductory Offer（無料）を設定した時だけ非空になる
+// （未設定なら ''＝表示しない＝虚偽表示にならない）。割引イントロ（price>0）は無料扱いしない。
+function formatFreeTrial(product) {
+  const ip = product?.introPrice;
+  if (!ip) return '';
+  const price = Number(ip.price);
+  if (Number.isFinite(price) && price > 0) return ''; // 無料ではない（割引イントロ）
+  const n = Number(ip.periodNumberOfUnits) || 0;
+  const unit = String(ip.periodUnit || '').toUpperCase();
+  if (!n) return '';
+  const label = unit === 'DAY' ? `${n}日間`
+    : unit === 'WEEK' ? `${n}週間`
+      : unit === 'MONTH' ? `${n}ヶ月`
+        : unit === 'YEAR' ? `${n}年間` : '';
+  return label ? `${label}無料` : '';
+}
+
 // ストアのローカライズ価格ラベルを返す。失敗時は App 既定ラベル。
 export async function getStoreLabels(userId) {
   const fallback = APP_PLAN_LABELS;
@@ -115,6 +133,8 @@ export async function getStoreLabels(userId) {
         ...fallback.annual,
         price: a?.product?.priceString ? `年額 ${a.product.priceString}` : fallback.annual.price,
       },
+      // 無料トライアル（設定時のみ）。例: '5日間無料'
+      trial: formatFreeTrial(m?.product) || formatFreeTrial(a?.product) || '',
     };
   } catch {
     return fallback;

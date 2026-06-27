@@ -284,6 +284,18 @@ export default function Paywall({ onPurchased }) {
           <BrainPreview />
         </section>
 
+        {/* 🎁 無料トライアル（App Store Connect で Introductory Offer を設定した時だけ表示）。
+            未設定なら labels.trial は '' で出ない＝虚偽表示にならない。 */}
+        {labels.trial && (
+          <p style={{
+            textAlign: 'center', fontSize: 14, fontWeight: 700, margin: 0,
+            color: 'var(--color-label)', background: 'var(--color-accent-soft)',
+            borderRadius: 'var(--radius-md)', padding: '10px 12px',
+          }}>
+            🎁 まずは{labels.trial}　その後、自動更新
+          </p>
+        )}
+
         {/* プラン提示：年額を主役、月額を控えめに */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* 年額（おすすめ・大きく） */}
@@ -403,6 +415,7 @@ export default function Paywall({ onPurchased }) {
         {isNative ? (
           // iOS/IAP: Apple 3.1.2 の自動更新条件を明示（審査必須）。返金は Apple 経由。
           <p style={{ fontSize: 12, color: 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
+            {labels.trial && <>無料期間（{labels.trial}）の終了後、自動的に有料へ移行します。<br /></>}
             サブスクリプションは自動更新です。期間終了の24時間前までに解約しない限り、同額で自動更新されます。<br />
             解約・プラン変更は App Store のアカウント設定からいつでも行えます。<br />
             解約後もデータは保持されます。お支払いは App Store を通じて行われます。
