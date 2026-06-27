@@ -2812,7 +2812,7 @@ function AuthedApp() {
   const [searchOpen, setSearchOpen] = useState(false);
   // 本棚の絞り込み拡張＋シート化ツールバー。常時表示のピル/セレクトを畳み、
   // 「絞り込み / 並び」をボトムシートに隠して本棚をスッキリさせる。
-  const [highRatedOnly, setHighRatedOnly] = useState(false); // ★4 以上のみ
+  const [minRating, setMinRating] = useState(0);             // 0=指定なし / 1〜5=その星以上
   const [tagFilter, setTagFilter] = useState([]);            // 選択タグ（AND ではなく OR）
   const [folderFilter, setFolderFilter] = useState(null);    // 選択中フォルダ名（null=すべて）
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -4237,7 +4237,7 @@ function AuthedApp() {
     const list = books.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
       if (folderFilter && !((b.collections || []).includes(folderFilter))) return false;
-      if (highRatedOnly && (b.rating || 0) < 4) return false;
+      if (minRating > 0 && (b.rating || 0) < minRating) return false;
       if (tagFilter.length > 0) {
         const bt = (b.tags || []).map((t) => (t || '').toLowerCase());
         if (!tagFilter.some((t) => bt.includes(t.toLowerCase()))) return false;
@@ -4264,7 +4264,7 @@ function AuthedApp() {
       sorted.sort((a, b) => updated(b).localeCompare(updated(a)));
     }
     return sorted;
-  }, [books, statusFilter, search, sortBy, highRatedOnly, tagFilter, folderFilter]);
+  }, [books, statusFilter, search, sortBy, minRating, tagFilter, folderFilter]);
 
   // 絞り込みシート用: 本に付いた全タグ（出現頻度の高い順、最大 24 個）。
   const availableTags = useMemo(() => {
@@ -4279,8 +4279,8 @@ function AuthedApp() {
   }, [books]);
 
   // アクティブな絞り込み数（ツールバーのバッジ表示用）。
-  const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (highRatedOnly ? 1 : 0) + tagFilter.length;
-  const clearAllFilters = () => { setStatusFilter('all'); setHighRatedOnly(false); setTagFilter([]); };
+  const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (minRating > 0 ? 1 : 0) + tagFilter.length;
+  const clearAllFilters = () => { setStatusFilter('all'); setMinRating(0); setTagFilter([]); };
 
   const recentBooks = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -5700,13 +5700,27 @@ function AuthedApp() {
             })}
           </div>
 
-          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>評価</p>
-          <button type="button" onClick={() => setHighRatedOnly((v) => !v)} style={{ ...bookshelfToolbarBtn(highRatedOnly), marginBottom: 18 }}>
-            <IcStar size={14} aria-hidden="true" />
-            ★4 以上のみ
-          </button>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>評価（その星以上）</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 18 }}>
+            {[1, 2, 3, 4, 5].map((n) => {
+              const active = minRating === n;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  // 同じ星をもう一度押すと解除（指定なしに戻す）。
+                  onClick={() => setMinRating((cur) => (cur === n ? 0 : n))}
+                  style={bookshelfToolbarBtn(active)}
+                  aria-label={`★${n} 以上で絞り込む`}
+                >
+                  <IcStar size={13} aria-hidden="true" />
+                  {n}{n < 5 ? '+' : ''}
+                </button>
+              );
+            })}
+          </div>
 
-          {availableTags.length > 0 && (
+          {availableTags.length > 0 ? (
             <>
               <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>タグ</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -5724,6 +5738,13 @@ function AuthedApp() {
                   );
                 })}
               </div>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>タグ</p>
+              <p style={{ fontSize: 12, color: 'var(--c-ink-3)', margin: 0, lineHeight: 1.7 }}>
+                本を開いて「タグ」欄にキーワード（例: 営業 / 名著 / 再読したい）を付けると、ここでタグ絞り込みができるようになります。
+              </p>
             </>
           )}
         </BottomSheet>
