@@ -1401,6 +1401,18 @@ const ADVISOR_EXAMPLES = [
   'お金の不安',
 ];
 
+// 📚 本屋モード（テーマの棚を眺める）の既定テーマ。本田直之の「本屋で棚を歩く」
+// の追体験 — 課題が曖昧な日でも、気になる棚をタップすると AI が良書を並べる。
+const BROWSE_THEMES = [
+  '営業', 'リーダーシップ', '習慣化', 'マーケティング', '思考法・意思決定',
+  'お金・投資', '心理学', '伝え方・文章', 'チームづくり', '健康・運動',
+];
+
+// テーマ起点の「棚を眺める」相談文。bookAdvisor パイプラインへそのまま流す。
+const browseQueryForTheme = (theme) =>
+  `「${theme}」というテーマの本棚を眺めています。今このテーマで読んでおきたい良書を、` +
+  `定番の名著だけでなく比較的新しいものも織り交ぜて提案してください。`;
+
 // ヒアリングの最大ラウンド数。AI は途中で done を返せるが、上限で必ず締める。
 const MAX_INTERVIEW_ROUNDS = 3;
 
@@ -1411,6 +1423,23 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const advisorHaptic = useHaptic();
   const advisorToast = useToast();
   const advisorConfirm = useConfirm();
+  // 「あなたの棚」— 本に付けたタグ/フォルダから、よく触れているテーマを抽出。
+  // 本屋モードのチップ先頭に出して、自分の関心の棚から眺められるようにする。
+  const userThemes = useMemo(() => {
+    const counts = new Map();
+    (books || []).forEach((b) => {
+      [...(b.tags || []), ...(b.collections || [])].forEach((t) => {
+        const n = (t || '').trim();
+        if (n) counts.set(n, (counts.get(n) || 0) + 1);
+      });
+    });
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([t]) => t);
+  }, [books]);
+  // 本屋モードのチップ = あなたの棚（優先）＋ 既定テーマ（重複除外）。
+  const browseChips = useMemo(() => {
+    const seen = new Set(userThemes);
+    return [...userThemes, ...BROWSE_THEMES.filter((t) => !seen.has(t))].slice(0, 12);
+  }, [userThemes]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [recommendations, setRecommendations] = useState(null);
@@ -2001,6 +2030,28 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               onClick={() => setInput(ex)}
             >
               {ex}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 📚 本屋モード — 課題が曖昧な日でも「テーマの棚」をタップすると AI が
+          良書を並べる。本田直之の「本屋で棚を歩く」の追体験（新タブは作らず
+          AI 選書の中で実現）。あなたのタグ/フォルダ由来のテーマを先頭に。 */}
+      {showConcernInput && (
+        <div className="example-chips" style={{ marginTop: 4 }}>
+          <p className="example-chips-label">
+            <IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+            テーマの棚を眺める（タップで良書が並びます）
+          </p>
+          {browseChips.map((t) => (
+            <button
+              type="button"
+              key={`browse-${t}`}
+              className="example-chip"
+              onClick={() => generateRecommendations(browseQueryForTheme(t), t)}
+            >
+              {t}
             </button>
           ))}
         </div>
