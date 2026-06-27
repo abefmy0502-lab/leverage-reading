@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Check, Trash2, AlertTriangle, Info } from 'lucide-react';
 
 const ToastContext = createContext({
   show: () => '',
@@ -9,11 +10,12 @@ const ToastContext = createContext({
   dismiss: () => {},
 });
 
+// 下部バー（error / undo / info 用）の配色。success は下部バーを使わず、
+// 中央の上品な ✓ HUD（toast-hud）で表現する。
 const palette = {
-  info: { bg: 'var(--c-ink)', fg: 'var(--c-card)', border: 'var(--c-ink)', icon: 'ℹ️' },
-  success: { bg: '#5a7a48', fg: 'var(--c-card)', border: '#5a7a48', icon: '✓' },
-  error: { bg: 'var(--c-critical)', fg: 'var(--c-card)', border: 'var(--c-critical)', icon: '⚠' },
-  undo: { bg: 'var(--c-ink)', fg: 'var(--c-card)', border: 'var(--c-ink)', icon: '🗑' },
+  info: { bg: 'rgba(61,54,44,0.94)', fg: 'var(--c-card)', Icon: Info },
+  error: { bg: 'rgba(160,80,64,0.96)', fg: 'var(--c-card)', Icon: AlertTriangle },
+  undo: { bg: 'rgba(61,54,44,0.94)', fg: 'var(--c-card)', Icon: Trash2 },
 };
 
 const containerStyle = {
@@ -35,11 +37,13 @@ const toastStyleBase = {
   alignItems: 'center',
   gap: 10,
   padding: '12px 14px',
-  borderRadius: 'var(--radius-md)',
+  borderRadius: 'var(--radius-lg)',
   fontSize: 13,
-  fontFamily: "var(--font-app)",
+  fontFamily: 'var(--font-app)',
   lineHeight: 'var(--leading-base)',
   boxShadow: 'var(--shadow-4)',
+  WebkitBackdropFilter: 'blur(10px)',
+  backdropFilter: 'blur(10px)',
 };
 
 const closeBtnStyle = {
@@ -62,36 +66,30 @@ const actionBtnStyle = {
   background: 'rgba(250,246,240,0.18)',
   border: '1px solid rgba(250,246,240,0.4)',
   color: 'var(--c-card)',
-  padding: '6px 12px',
-  borderRadius: 8,
+  padding: '7px 14px',
+  borderRadius: 999,
   fontSize: 12,
+  fontWeight: 600,
   fontFamily: 'inherit',
   cursor: 'pointer',
   flexShrink: 0,
 };
 
+// 下部バー（error / undo / info）。success はここには来ない。
 function ToastItem({ toast, onDismiss, onAction }) {
   const p = palette[toast.type] || palette.info;
+  const Icon = p.Icon;
   return (
     <div
       className="toast-enter"
-      style={{
-        ...toastStyleBase,
-        background: p.bg,
-        color: p.fg,
-        border: `1px solid ${p.border}`,
-      }}
+      style={{ ...toastStyleBase, background: p.bg, color: p.fg }}
       role={toast.type === 'error' ? 'alert' : 'status'}
       aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
     >
-      <span aria-hidden="true" style={{ fontSize: 14, flexShrink: 0 }}>{p.icon}</span>
+      {Icon && <Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
       <span style={{ flex: 1, whiteSpace: 'pre-line' }}>{toast.message}</span>
       {toast.action && (
-        <button
-          type="button"
-          style={actionBtnStyle}
-          onClick={() => onAction(toast)}
-        >
+        <button type="button" style={actionBtnStyle} onClick={() => onAction(toast)}>
           {toast.action.label}
         </button>
       )}
@@ -103,6 +101,66 @@ function ToastItem({ toast, onDismiss, onAction }) {
       >
         ×
       </button>
+    </div>
+  );
+}
+
+// 中央の ✓ HUD（成功時）。下からせり上がるバーではなく、画面中央に一瞬だけ
+// 上品に出して消える iOS 風の確認表示。アクションした手応えを邪魔せず伝える。
+const hudContainerStyle = {
+  position: 'fixed',
+  inset: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 'var(--z-toast)',
+  pointerEvents: 'none',
+};
+
+function ToastHud({ toast }) {
+  // HUD 自体が ✓ を出すので、メッセージ先頭の絵文字（✅ / 💾 / 🎯 等）は除去。
+  const message = (toast.message || '').replace(/^[←-⯿\u{1F000}-\u{1FAFF}️‍\s]+/u, '');
+  return (
+    <div
+      className="toast-hud"
+      role="status"
+      aria-live="polite"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 10,
+        padding: '20px 24px',
+        minWidth: 132,
+        maxWidth: 'min(280px, calc(100vw - 48px))',
+        background: 'rgba(40,34,28,0.92)',
+        color: '#fff',
+        borderRadius: 20,
+        boxShadow: 'var(--shadow-5)',
+        WebkitBackdropFilter: 'blur(12px)',
+        backdropFilter: 'blur(12px)',
+      }}
+    >
+      <span
+        className="toast-hud-check"
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 999,
+          background: 'rgba(95,122,85,0.22)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#9ec48a',
+        }}
+      >
+        <Check size={28} strokeWidth={2.4} aria-hidden="true" />
+      </span>
+      {message && (
+        <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'center', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+          {message}
+        </span>
+      )}
     </div>
   );
 }
@@ -153,6 +211,8 @@ export function ToastProvider({ children }) {
       const duration =
         typeof opts.duration === 'number'
           ? opts.duration
+          : type === 'success'
+          ? 1150 // ✓ HUD は一瞬で消える
           : type === 'undo'
           ? 5000
           : type === 'error'
@@ -207,17 +267,22 @@ export function ToastProvider({ children }) {
     dismiss,
   };
 
+  const hudToasts = toasts.filter((t) => t.type === 'success');
+  const barToasts = toasts.filter((t) => t.type !== 'success');
+
   return (
     <ToastContext.Provider value={value}>
       {children}
+      {/* 中央 ✓ HUD（成功） */}
+      <div style={hudContainerStyle} aria-live="polite">
+        {hudToasts.slice(-1).map((toast) => (
+          <ToastHud key={toast.id} toast={toast} />
+        ))}
+      </div>
+      {/* 下部バー（エラー / 削除取消 / 情報） */}
       <div style={containerStyle} aria-live="polite">
-        {toasts.map((toast) => (
-          <ToastItem
-            key={toast.id}
-            toast={toast}
-            onDismiss={dismiss}
-            onAction={handleAction}
-          />
+        {barToasts.map((toast) => (
+          <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onAction={handleAction} />
         ))}
       </div>
     </ToastContext.Provider>
