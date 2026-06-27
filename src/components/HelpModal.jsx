@@ -141,7 +141,7 @@ const askBtnStyle = (disabled) => ({
 });
 
 const heroStyle = {
-  background: 'linear-gradient(135deg, #5C4A2E 0%, #8B6F47 100%)',
+  background: 'var(--c-brand)',
   color: 'var(--c-card)',
   borderRadius: 14,
   padding: '14px 14px',

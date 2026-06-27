@@ -822,7 +822,7 @@ export default function MyBookBrain({ onOpenBook }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* 💭 今週の問い — マイ読書脳が向こうから問いを投げる（能動化） */}
               {weeklyQ && !weeklyDismissed && (
-                <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid var(--c-hairline-strong)', borderRadius: 14, padding: '14px 15px' }}>
+                <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline-strong)', borderRadius: 14, padding: '14px 15px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.14em' }}>
                       <MessageCircleQuestion size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5, letterSpacing: 0 }} />

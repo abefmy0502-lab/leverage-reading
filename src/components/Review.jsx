@@ -75,17 +75,20 @@ const transformRow = (m) => {
 };
 
 // 知識の種類ごとのアイコン + ラベル + ボーダー色。NoteCard で表示する。
+// 種類バッジの配色は「遊園地の原色」を廃し、ウォームなブランド世界観に統一。
+// ニュートラル茶を基調に、警告＝レンガ / 達成＝苔グリーン / 学び＝ゴールド の
+// 3アクセントだけで意味を出す（本田哲学＝色数を絞る＝洗練）。
 const KIND_META = {
-  card:              { Icon: StickyNote,        label: 'メモ',          color: '#2E7D32' },
-  summary:           { Icon: BookOpen,          label: 'まとめメモ',     color: '#5D4037' },
-  personal:          { Icon: Lightbulb,         label: '学び',          color: '#E91E63' },
-  invest_purpose:    { Icon: BarChart3,         label: '投資目的',       color: '#1976D2' },
-  current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: '#D32F2F' },
-  hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: '#FF9800' },
-  ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: '#7B1FA2' },
-  roi_summary:       { Icon: Gem,               label: '投資の効果',     color: '#FFA000' },
-  leverage_memo:     { Icon: FileText,          label: 'まとめメモ', color: '#5D4037' },
-  action_reflection: { Icon: MessageSquareQuote, label: '行動の振り返り', color: '#00838F' },
+  card:              { Icon: StickyNote,        label: 'メモ',          color: '#5a4f3e' },
+  summary:           { Icon: BookOpen,          label: 'まとめメモ',     color: '#5c5043' },
+  personal:          { Icon: Lightbulb,         label: '学び',          color: '#8a7040' },
+  invest_purpose:    { Icon: BarChart3,         label: '投資目的',       color: '#5c5043' },
+  current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: '#a05040' },
+  hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: '#8a7040' },
+  ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: '#8a7d6a' },
+  roi_summary:       { Icon: Gem,               label: '投資の効果',     color: '#5f7a55' },
+  leverage_memo:     { Icon: FileText,          label: 'まとめメモ',     color: '#5c5043' },
+  action_reflection: { Icon: MessageSquareQuote, label: '行動の振り返り', color: '#5f7a55' },
 };
 
 // books から 派生ノート (本フィールド + 行動の振り返り) を生成。

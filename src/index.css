@@ -38,6 +38,17 @@
   padding: 0;
 }
 
+/* ── lucide ラインアイコンの一括精錬 ───────────────────────────
+   個人開発感の主因の一つ「線が太く・重い」アイコンを、premium な
+   ミニマル線画（stroke 1.75）に統一。全 lucide アイコンへ一括適用
+   （個別 JSX を触らずに効く）。vertical-align も中央寄りに寄せ、
+   テキストと並べたときの光学的なズレを最小化する。inline で
+   verticalAlign を指定している箇所はそちらが優先される。 */
+svg.lucide {
+  stroke-width: 1.75;
+  vertical-align: -0.125em;
+}
+
 html, body, #root {
   /* document scroll を一切起こさない LINE 風レイアウトの土台。
      #root から flex column が始まり、内部の各セクション (header /

@@ -61,7 +61,7 @@ const overlayStyle = {
   left: 0,
   right: 0,
   zIndex: 'var(--z-banner)',
-  background: 'linear-gradient(135deg, #5C4A2E, #8B6F47)',
+  background: 'var(--c-brand)',
   color: '#fff',
   padding: '12px 16px',
   display: 'flex',

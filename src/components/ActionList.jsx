@@ -135,9 +135,9 @@ const FILTERS = [
   { key: 'open', label: '未完了' },
   { key: 'all', label: '全て' },
   { key: 'done', label: '完了' },
-  { key: 'overdue', label: (<><AlertCircle size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限切れ</>), color: 'var(--c-critical)', bg: '#fdf0ed' },
-  { key: 'today', label: '今日まで', color: '#E65100', bg: '#FFF3E0' },
-  { key: 'upcoming', label: '今週期限', color: '#1565C0', bg: '#E3F2FD' },
+  { key: 'overdue', label: (<><AlertCircle size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限切れ</>), color: 'var(--c-critical)', bg: 'var(--c-critical-soft)' },
+  { key: 'today', label: '今日まで', color: 'var(--color-accent)', bg: 'var(--color-accent-soft)' },
+  { key: 'upcoming', label: '今週期限', color: 'var(--c-brand)', bg: 'var(--c-soft)' },
 ];
 
 const SORTS = [
@@ -224,7 +224,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
   const period = statsPeriod === 'all'
     ? { rate: stats.pct, completed: stats.completed, total: stats.total }
     : statsPeriod === 'month' ? stats.month : stats.week;
-  const pctColor = period.rate >= 80 ? '#5a7a48' : period.rate >= 50 ? '#d4a040' : 'var(--c-critical)';
+  const pctColor = period.rate >= 80 ? 'var(--c-positive)' : period.rate >= 50 ? 'var(--color-accent)' : 'var(--c-critical)';
 
   const handleKebab = (e, key) => {
     e.stopPropagation();
@@ -318,7 +318,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                   <AnimatedNumber value={period.completed} duration={500} /> / {period.total} 完了
                 </div>
                 {stats.streak > 0 && (
-                  <div style={{ fontSize: 11, color: '#b07028', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-accent)', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <Flame size={11} aria-hidden="true" />
                     連続 {stats.streak} 日
                   </div>
@@ -416,8 +416,8 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
             const key = `${a.bookId}:${a.actionIdx}:${a.id || ''}`;
             const cardStyle = {
               ...cardBase,
-              background: a.done ? 'var(--c-soft)' : ds.kind === 'overdue' ? '#fdf0ed' : 'var(--c-card)',
-              borderColor: ds.kind === 'overdue' && !a.done ? '#e0b0a0' : 'var(--c-hairline)',
+              background: a.done ? 'var(--c-soft)' : ds.kind === 'overdue' ? 'var(--c-critical-soft)' : 'var(--c-card)',
+              borderColor: ds.kind === 'overdue' && !a.done ? 'var(--c-critical-line)' : 'var(--c-hairline)',
             };
             return (
               <div key={key} className="list-item-enter" style={cardStyle}>
@@ -442,7 +442,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                     height: 24,
                     borderRadius: 'var(--radius-sm)',
                     border: a.done ? 'none' : '1.5px solid var(--color-border)',
-                    background: a.done ? 'var(--color-success)' : 'transparent',
+                    background: a.done ? 'var(--c-positive)' : 'transparent',
                     color: '#fff',
                     cursor: 'pointer',
                     display: 'flex',
@@ -470,7 +470,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                     style={{
                       fontSize: 13,
                       lineHeight: 1.6,
-                      color: a.done ? '#9a8e7a' : 'var(--c-ink)',
+                      color: a.done ? 'var(--c-ink-3)' : 'var(--c-ink)',
                       textDecoration: a.done ? 'line-through' : 'none',
                       margin: 0,
                       wordBreak: 'break-word',
@@ -521,12 +521,12 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                       // 数日以内=アクセント / それ以降=控えめグレー。色はトークン参照。
                       const dColor =
                         ds.kind === 'overdue'
-                          ? 'var(--color-error)'
+                          ? 'var(--c-critical)'
                           : ds.kind === 'today'
-                            ? 'var(--color-warning)'
+                            ? 'var(--color-accent)'
                             : ds.kind === 'soon'
                               ? 'var(--color-accent)'
-                              : 'var(--color-text-tertiary)';
+                              : 'var(--c-ink-3)';
                       const emphasized = ds.kind === 'overdue' || ds.kind === 'today';
                       return (
                         <span
@@ -553,24 +553,24 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                     })()}
                     {/* 優先度バッジ — 'medium' は default なので表示しない */}
                     {a.priority === 'high' && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#FFEBEE', color: '#C62828', fontWeight: 600 }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-critical-soft)', color: '#a05040', fontWeight: 600 }}>
                         <ArrowUp size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />高
                       </span>
                     )}
                     {a.priority === 'low' && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#E8F5E9', color: '#2E7D32' }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-soft)', color: '#8a7d6a' }}>
                         <ArrowDown size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />低
                       </span>
                     )}
                     {/* 繰り返し */}
                     {a.recurrence && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#F3E5F5', color: '#6A1B9A' }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-soft-2)', color: '#5c5043' }}>
                         <Repeat size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{a.recurrence === 'weekly' ? '毎週' : '毎月'}
                       </span>
                     )}
                     {/* 引用ページ */}
                     {a.sourcePage && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#FFFDE7', color: '#5D4037' }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--color-accent-soft)', color: '#5a4f3e' }}>
                         <Link2 size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />p.{a.sourcePage}
                       </span>
                     )}
@@ -581,8 +581,8 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                       style={{
                         marginTop: 8,
                         padding: '8px 10px',
-                        background: '#f5efde',
-                        border: '1px solid #e0d0a8',
+                        background: 'var(--color-accent-soft)',
+                        border: '1px solid var(--c-hairline-strong)',
                         borderRadius: 8,
                         fontSize: 12,
                         color: 'var(--c-brand)',

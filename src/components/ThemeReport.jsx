@@ -765,13 +765,13 @@ function CoreCard({ line }) {
     <div
       style={{
         position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(180deg,var(--c-card),#fbf6ec)',
+        background: 'var(--c-soft)',
         border: '1px solid var(--c-hairline)', borderRadius: 16,
         padding: '18px 18px 18px 22px', marginBottom: 14,
         boxShadow: '0 1px 3px rgba(60,48,30,.06)',
       }}
     >
-      <span aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'linear-gradient(180deg,#7d6e54,var(--c-brand))' }} />
+      <span aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'var(--c-brand)' }} />
       <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.18em', marginBottom: 8 }}>
         核心 — この1行
       </div>
@@ -844,7 +844,7 @@ function ActionMirror({ stats, memoTotal }) {
 // 🔄 想起ループ接続 — 核心を「振り返り・通知」に乗せる仕組みの説明＋セットボタン。
 function RecallBanner({ busy, done, onSet }) {
   return (
-    <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid var(--c-hairline-strong)', borderRadius: 16, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline-strong)', borderRadius: 16, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
         <span style={{ lineHeight: 1.2, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><RotateCw size={21} /></span>
         <div style={{ fontSize: 12.5, lineHeight: 1.7, color: '#5b4f3c' }}>
