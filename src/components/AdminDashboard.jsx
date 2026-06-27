@@ -20,9 +20,11 @@ import { supabase } from '../lib/supabase';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 
-// 💰 コストモデル（粗利の概算用）。真実は Stripe / 請求書側。ここは"目安"。
+// 💰 コストモデル（粗利の概算用）。ここは"目安"。
 const MONTHLY_PRICE_JPY = 1480;     // 月額プランの税込価格（実価格）
-const PAYMENT_FEE_RATE = 0.036;     // 決済手数料の概算（Stripe ≈ 3.6%）
+// App 内課金（App Store / Google Play）の手数料。Apple 小規模事業者プログラム
+// （年間売上 100万USD 未満）適用で 15%。Stripe(Web) は別物だが現状 App 決済が前提。
+const PAYMENT_FEE_RATE = 0.15;
 const AI_COST_PER_CALL_JPY = 4;     // AIコールあたりの概算原価（ローンチ後に実測で調整）
 
 const overlay = {
@@ -182,7 +184,7 @@ function buildActions({ overview, revenue, usage, ai, tickets, goal, gap, requir
   // 経理: 粗利率（売上はあるのに薄利）
   if (mrr > 0) {
     const margin = grossProfit / mrr;
-    if (margin < 0.5) a.push({ dept: DEPT.FIN, stage: STAGE.QUAL, pri: 2, title: '粗利率が低い — 価格 or AI原価を見直す', why: `粗利率 ${(margin * 100).toFixed(0)}%（決済手数料＋AI原価が重い）` });
+    if (margin < 0.5) a.push({ dept: DEPT.FIN, stage: STAGE.QUAL, pri: 2, title: '粗利率が低い — 価格 or AI原価を見直す', why: `粗利率 ${(margin * 100).toFixed(0)}%（App手数料15%＋AI原価が重い）` });
   }
   // 経理: AIコスト（1人あたり）
   const calls = ai && ai[0] ? ai[0].calls : 0;
@@ -496,8 +498,8 @@ export default function AdminDashboard({ onClose }) {
               <p style={{ margin: 0, fontSize: 11, color: C.ink2, fontWeight: 600 }}>月次粗利（概算）</p>
               <p style={{ margin: '6px 0 0', fontSize: 26, fontWeight: 700, color: C.ink, lineHeight: 1.1 }}>¥{grossProfit.toLocaleString()}</p>
               <p style={{ margin: '6px 0 0', fontSize: 11, color: C.ink3, lineHeight: 1.6 }}>
-                売上 ¥{mrr.toLocaleString()} − 決済手数料(約{(PAYMENT_FEE_RATE * 100).toFixed(1)}%) ¥{Math.round(mrr * PAYMENT_FEE_RATE).toLocaleString()} − AI原価 ¥{aiCostThisMonth.toLocaleString()}（{aiCallsThisMonth}コール×¥{AI_COST_PER_CALL_JPY}）
-                <br />※ 直接原価ベースの粗利概算。人件費・固定費は含みません。係数はローンチ後に実測で調整。
+                売上 ¥{mrr.toLocaleString()} − App手数料({(PAYMENT_FEE_RATE * 100).toFixed(0)}%) ¥{Math.round(mrr * PAYMENT_FEE_RATE).toLocaleString()} − AI原価 ¥{aiCostThisMonth.toLocaleString()}（{aiCallsThisMonth}コール×¥{AI_COST_PER_CALL_JPY}）
+                <br />※ App内課金（Apple小規模事業者プログラム 15%）想定の直接原価ベース。人件費・固定費は含みません。係数は実測で調整。
               </p>
             </div>
 
