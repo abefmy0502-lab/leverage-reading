@@ -18,7 +18,7 @@ import {
   Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
   Lightbulb as IcBulb, MessageSquarePlus as IcNewChat,
   BookOpen as IcBook, Map as IcMap, Zap as IcZap, RefreshCw as IcRefresh, Bot as IcBot,
-  CheckCircle2 as IcCheck,
+  CheckCircle2 as IcCheck, BarChart3 as IcBar, AlertTriangle as IcAlert,
 } from 'lucide-react';
 
 // サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
@@ -1026,7 +1026,7 @@ function BeforePhase({
             </div>
           )}
 
-          <Field label="📊 投資目的（必須）" sub="何のためにこの本を読むか（1〜2 文）。これが読書のリターンを決めます">
+          <Field label={<><IcBar size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />投資目的（必須）</>} sub="何のためにこの本を読むか（1〜2 文）。これが読書のリターンを決めます">
             <textarea
               value={form.investPurpose || ""}
               onChange={(e) => setForm({ ...form, investPurpose: e.target.value })}
@@ -1056,7 +1056,7 @@ function BeforePhase({
             </button>
           )}
 
-          <Field label="⚠ 現在の課題" sub="今直面している具体的な問題">
+          <Field label={<><IcAlert size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />現在の課題</>} sub="今直面している具体的な問題">
             <textarea
               value={form.currentChallenge || ""}
               onChange={(e) => setForm({ ...form, currentChallenge: e.target.value })}
@@ -1067,7 +1067,7 @@ function BeforePhase({
             />
           </Field>
 
-          <Field label="💡 仮説" sub="この本を読むとどう変わると考えているか">
+          <Field label={<><IcBulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />仮説</>} sub="この本を読むとどう変わると考えているか">
             <textarea
               value={form.hypothesis || ""}
               onChange={(e) => setForm({ ...form, hypothesis: e.target.value })}
@@ -1366,7 +1366,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
         <button onClick={addAction} style={{ ...btnO, padding: "10px 0", fontSize: 12, borderStyle: "dashed" }}>＋ 行動を追加</button>
       </div>
 
-      <Field label="💡 一番の収穫（1行）" sub="この本から得た一番大きな価値を 1 行で">
+      <Field label={<><IcBulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />一番の収穫（1行）</>} sub="この本から得た一番大きな価値を 1 行で">
         {/* input → textarea (rows=3) に変更。シングルライン input だと placeholder が
             画面幅で見切れる問題があった。placeholder も短く具体的に。 */}
         <textarea
@@ -4482,7 +4482,7 @@ function AuthedApp() {
             </div>
           )}
 
-          {current.roiSummary && <Card label="💡 一番の収穫" text={current.roiSummary} bg="var(--c-soft)" />}
+          {current.roiSummary && <Card label={<><IcBulb size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />一番の収穫</>} text={current.roiSummary} bg="var(--c-soft)" />}
 
           {/* Action buttons */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20 }}>

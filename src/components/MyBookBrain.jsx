@@ -1017,8 +1017,8 @@ export default function MyBookBrain({ onOpenBook }) {
 }
 
 const STAGE_LABEL = {
-  search: '📚 過去の本を検索中…',
-  generate: '🧠 あなた専用の回答を生成中…',
+  search: 'あなたのメモを読み込み中…',
+  generate: 'あなた専用の回答を生成中…',
 };
 
 // **bold** の軽量インラインパーサ。
@@ -1107,7 +1107,7 @@ function ChatMessage({ message, onOpenBook, stage }) {
                 作らない (aria-live を外す)。状態テキストは親が拾う。 */}
             <div className="ai-thinking">
               <span className="ai-thinking-dot" aria-hidden="true" />
-              <span>{STAGE_LABEL[stage] || '🧠 回答を準備中…'}</span>
+              <span>{STAGE_LABEL[stage] || '回答を準備中…'}</span>
             </div>
             <div className="ai-skeleton" aria-hidden="true">
               <div className="ai-skeleton-line" style={{ width: '88%' }} />
