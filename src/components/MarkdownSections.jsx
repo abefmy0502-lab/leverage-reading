@@ -247,13 +247,19 @@ function renderLines(lines, opts) {
     let pending = null; // { book, lines: [] }
     const flushPending = (key) => {
       if (!pending) return;
+      // ★ pending は let で、この後 null / 別の本に再代入される。onAdd の
+      //   アロー関数が外側の pending を参照すると、クリック時には pending が
+      //   null になっていて `pending.book` で例外→「押しても本当に無反応」に
+      //   なる。各カードごとに book / description をローカル const へ確定捕捉する。
+      const book = pending.book;
+      const description = pending.lines.join('\n').trim();
       out.push(
         <RelatedBookCard
           key={`rel-${key}`}
-          book={pending.book}
-          description={pending.lines.join('\n').trim()}
-          onAdd={() => opts.onAddRelatedBook(pending.book)}
-          isAdding={opts.addingTitles?.has(pending.book.title)}
+          book={book}
+          description={description}
+          onAdd={() => opts.onAddRelatedBook(book)}
+          isAdding={opts.addingTitles?.has(book.title)}
         />,
       );
       pending = null;
