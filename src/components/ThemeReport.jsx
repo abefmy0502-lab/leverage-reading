@@ -54,8 +54,8 @@ const pill = (active) => ({
 });
 
 const STAGE_LABEL = {
-  search: '📚 テーマのメモと行動を集めています…',
-  generate: '🧠 レバレッジメモを作成中…',
+  search: 'テーマのメモと行動を集めています…',
+  generate: 'テーマまとめを作成中…',
 };
 
 function fmtDate(iso) {
@@ -423,8 +423,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
             {history.length === 0 ? (
               <EmptyState
                 icon={<History size={40} aria-hidden="true" />}
-                title="まだレバレッジメモがありません"
-                description="「📊 作成」からテーマを選んでレバレッジメモを作ると、ここに保存されていきます。"
+                title="まだテーマまとめがありません"
+                description="「作成」からテーマを選んでテーマまとめを作ると、ここに保存されていきます。"
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -487,7 +487,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
               {/* レバレッジメモ + 根拠スコープ */}
               {!notice && (
                 <div style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '-4px 0 2px', letterSpacing: '.02em' }}>
-                  <Ruler size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />レバレッジメモ
+                  <Ruler size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />テーマまとめ
                   {scope && (scope.memoTotal > 0 || scope.bookCount > 0) && (
                     <> ・ 本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件を横断</>
                   )}
@@ -517,7 +517,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                 <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }} aria-live="polite" aria-busy="true">
                   <div className="ai-thinking">
                     <span className="ai-thinking-dot" aria-hidden="true" />
-                    <span>{STAGE_LABEL[stage] || '🧠 レバレッジメモを準備中…'}</span>
+                    <span>{STAGE_LABEL[stage] || 'テーマまとめを準備中…'}</span>
                   </div>
                   <div className="ai-skeleton" aria-hidden="true">
                     <div className="ai-skeleton-line" style={{ width: '90%' }} />
@@ -608,15 +608,15 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
               {/* actions (only when a finished report is shown) */}
               {!generating && !notice && reportText && (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
-                  <button onClick={copyReport} style={btnGhost} aria-label="レバレッジメモをクリップボードにコピー">
+                  <button onClick={copyReport} style={btnGhost} aria-label="テーマまとめをクリップボードにコピー">
                     <Copy size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />コピー
                   </button>
                   {historyAvailable && (
-                    <button onClick={() => setView('history')} style={btnGhost} aria-label="保存済みのレバレッジメモ履歴を見る">
+                    <button onClick={() => setView('history')} style={btnGhost} aria-label="保存済みのテーマまとめ履歴を見る">
                       <History size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />履歴
                     </button>
                   )}
-                  <button onClick={resetToPicker} style={btnPrimary} aria-label="別のテーマでレバレッジメモを作成">
+                  <button onClick={resetToPicker} style={btnPrimary} aria-label="別のテーマでテーマまとめを作成">
                     <RefreshCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />別のテーマで作る
                   </button>
                 </div>
@@ -642,7 +642,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Sparkles size={18} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
           <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
-            あなたの読書が、1 枚のレバレッジメモに
+            あなたの読書が、1 枚のテーマまとめに
           </h2>
         </div>
         <p style={{ fontSize: 13, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
@@ -752,7 +752,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
           </button>
         </div>
         <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.6 }}>
-          そのテーマのメモ（タグ・@カテゴリ・本文）と行動を集めて、1 枚のレバレッジメモにします。
+          そのテーマのメモ（タグ・@カテゴリ・本文）と行動を集めて、1 枚のテーマまとめにします。
         </p>
       </div>
     </div>

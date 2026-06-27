@@ -5321,7 +5321,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'report' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('report')}
               >
-                <IcRuler size={15} aria-hidden="true" style={subTabIconStyle} />レバレッジメモ
+                <IcRuler size={15} aria-hidden="true" style={subTabIconStyle} />テーマまとめ
               </button>
             </div>
             {/* 独自名のサブタブを初対面でも分かるよう、内容を平易な一言で注釈する。 */}
