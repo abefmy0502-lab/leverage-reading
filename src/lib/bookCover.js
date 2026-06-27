@@ -34,6 +34,10 @@ export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
   if (author) params.set('author', author);
   if (isbn) params.set('isbn', isbn);
   if ([...params.keys()].length === 0) return null;
+  // 🧹 キャッシュ毒抜き: リゾルバのロジックを変えたら必ずこの番号を上げる。
+  //    壊れていた時期に CDN へ張り付いた空っぽ応答（s-maxage 最長 7 日）を
+  //    新しい URL で確実に回避するため。
+  params.set('cv', '4');
   try {
     const r = await fetch(`/api/cover?${params.toString()}`);
     if (!r.ok) return null;

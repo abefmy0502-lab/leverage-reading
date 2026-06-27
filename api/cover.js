@@ -40,28 +40,74 @@ function isbn13to10(isbn13) {
   return core + (check === 10 ? 'X' : String(check));
 }
 
-// NDL OpenSearch（XML）から ISBN-13 を上位順に抽出する（DOMParser 不要・regex）。
+// 著者名の照合用に記号・空白・敬称（著/編/訳）を落として正規化する。
+function normPerson(s) {
+  return (s || '')
+    .toString()
+    .replace(/[\s　,，、・･.。]/g, '')
+    .replace(/(著|編|訳|監修|共著|編著)$/g, '')
+    .toLowerCase();
+}
+
+// XML から ISBN-13 を上位順に抽出（DOMParser 不要・regex）。
+function extractIsbns(xml, limit = 5) {
+  const found = [];
+  const seen = new Set();
+  const re = /97[89][\d-]{10,17}/g;
+  let m;
+  while ((m = re.exec(xml)) !== null) {
+    const isbn = cleanIsbn(m[0]);
+    if (isbn.length === 13 && !seen.has(isbn)) { seen.add(isbn); found.push(isbn); }
+    if (found.length >= limit) break;
+  }
+  return found;
+}
+
+async function ndlFetch(params) {
+  const r = await fetch(`https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`);
+  if (!r.ok) return '';
+  return r.text();
+}
+
+// NDL OpenSearch（XML）で ISBN-13 候補を引く。
+//   ① まず title + creator の AND 検索（精度重視）。
+//   ② 0 件なら title のみで再検索し、各 <item> の dc:creator を見て「本人の本」
+//      だけを採用（NDL は creator の表記揺れで AND 検索が空振りしやすいため。
+//      著者照合で誤マッチを防ぐ）。
 async function ndlIsbns(title, author) {
   const t = coreTitle(title);
   if (!t) return [];
-  const params = [`title=${encodeURIComponent(t)}`];
-  if (author) params.push(`creator=${encodeURIComponent(clean(author))}`);
-  params.push('cnt=10');
   try {
-    const r = await fetch(`https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`);
-    if (!r.ok) return [];
-    const xml = await r.text();
-    const found = [];
+    // ① title + creator
+    const p1 = [`title=${encodeURIComponent(t)}`];
+    if (author) p1.push(`creator=${encodeURIComponent(clean(author))}`);
+    p1.push('cnt=10');
+    const xml1 = await ndlFetch(p1);
+    const found1 = extractIsbns(xml1);
+    if (found1.length > 0) return found1;
+
+    // ② title のみ → item 単位で著者照合
+    if (!author) return [];
+    const xml2 = await ndlFetch([`title=${encodeURIComponent(t)}`, 'cnt=20']);
+    if (!xml2) return [];
+    const wantAuthor = normPerson(author);
+    if (!wantAuthor) return [];
+    const items = xml2.split(/<item[\s>]/i).slice(1);
+    const matched = [];
     const seen = new Set();
-    // 978/979 始まりの ISBN-13（ハイフン有無どちらも）を順に拾う。
-    const re = /97[89][\d-]{10,17}/g;
-    let m;
-    while ((m = re.exec(xml)) !== null) {
-      const isbn = cleanIsbn(m[0]);
-      if (isbn.length === 13 && !seen.has(isbn)) { seen.add(isbn); found.push(isbn); }
-      if (found.length >= 5) break;
+    for (const chunk of items) {
+      const creators = (chunk.match(/<dc:creator[^>]*>([^<]*)<\/dc:creator>/gi) || [])
+        .map((c) => normPerson(c.replace(/<[^>]+>/g, '')));
+      const hit = creators.some(
+        (c) => c && (c.includes(wantAuthor) || wantAuthor.includes(c)),
+      );
+      if (!hit) continue;
+      for (const isbn of extractIsbns(chunk, 3)) {
+        if (!seen.has(isbn)) { seen.add(isbn); matched.push(isbn); }
+      }
+      if (matched.length >= 5) break;
     }
-    return found;
+    return matched;
   } catch {
     return [];
   }
