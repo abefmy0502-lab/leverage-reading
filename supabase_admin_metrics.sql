@@ -256,6 +256,7 @@ grant execute on function public.admin_feedback_update(uuid, text, text) to auth
 
 -- ── 管理者シード（必ず 1 回実行） ─────────────────────────────────────────
 -- 自分（オーナー）の auth.users 行を app_admins に登録する。メールは実アドレスに。
+-- ※ このメールの account でアプリにサインイン済みであること（auth.users に行が要る）。
 insert into public.app_admins (user_id)
-select id from auth.users where email = 'f.abe@pntwhere.com'
+select id from auth.users where email = 'leverage.book0502@gmail.com'
 on conflict (user_id) do nothing;
