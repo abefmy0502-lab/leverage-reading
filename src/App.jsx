@@ -15,7 +15,7 @@ import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
   TrendingUp as IcTrendingUp, MessageSquareQuote as IcQuote, History as IcHistory,
   SearchX as IcSearchX, NotebookText as IcNote, Target as IcTarget, Brain as IcBrain,
-  Ruler as IcRuler,
+  Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
 } from 'lucide-react';
 
 // サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
@@ -5095,14 +5095,14 @@ function AuthedApp() {
                       onClick={() => setBookshelfViewMode('grid')}
                       aria-label="表紙グリッド表示"
                       title="表紙グリッド"
-                    >📚</button>
+                    ><IcGrid size={17} aria-hidden="true" /></button>
                     <button
                       type="button"
                       className={effectiveBookshelfView === 'list' ? 'active' : ''}
                       onClick={() => setBookshelfViewMode('list')}
                       aria-label="リスト表示"
                       title="リスト"
-                    >📋</button>
+                    ><IcList size={17} aria-hidden="true" /></button>
                   </div>
                 </div>
               </div>

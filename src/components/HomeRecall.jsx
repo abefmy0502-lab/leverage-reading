@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
+import { MessageSquareQuote } from 'lucide-react';
 import { recallFraming, memoExcerpt, pickRecallMemo } from '../lib/recall';
 
 const DISMISS_KEY = 'orime-home-recall-dismissed';
@@ -155,7 +156,7 @@ export default function HomeRecall({ onOpen }) {
           paddingRight: 32, // × ボタンと重ならない
         }}
       >
-        <span aria-hidden="true">💭 </span>
+        <MessageSquareQuote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
         {framing}
       </p>
       <p
