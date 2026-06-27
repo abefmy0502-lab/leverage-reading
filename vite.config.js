@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Sentry を有効にする際、ブラウザに送られるエラーのスタックトレースを
 // 解読できるよう production sourcemap を出力する。Sentry の Releases /
@@ -32,8 +34,33 @@ const BUILD_COMMIT = resolveBuildCommit();
 // 日付のみ（時刻まで出すとノイズなので YYYY-MM-DD に丸める）。
 const BUILD_DATE = new Date().toISOString().slice(0, 10);
 
+// 🔄 毎デプロイで dist/sw.js の SW_VERSION にビルド commit を焼き込むプラグイン。
+// public/sw.js は静的コピーで define を通らないため、ビルド後に書き換える。
+// これで「コード変更のみ（sw.js を手で bump しない）デプロイ」でも sw.js の
+// バイト列が必ず変わり、ブラウザが新 SW を検出 → swUpdate.js の自動更新が走る。
+function stampServiceWorkerVersion() {
+  return {
+    name: 'stamp-sw-version',
+    apply: 'build',
+    closeBundle() {
+      try {
+        const swPath = path.resolve('dist/sw.js');
+        if (!fs.existsSync(swPath)) return;
+        const src = fs.readFileSync(swPath, 'utf8');
+        const stamped = src.replace(
+          /const SW_VERSION = '([^']*)';/,
+          (_m, base) => `const SW_VERSION = '${base}-${BUILD_COMMIT}';`,
+        );
+        if (stamped !== src) fs.writeFileSync(swPath, stamped);
+      } catch {
+        /* fail-open: スタンプ失敗でビルドは止めない */
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), stampServiceWorkerVersion()],
   define: {
     __BUILD_COMMIT__: JSON.stringify(BUILD_COMMIT),
     __BUILD_DATE__: JSON.stringify(BUILD_DATE),

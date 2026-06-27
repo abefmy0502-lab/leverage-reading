@@ -22,6 +22,29 @@
 let registrationRef = null;
 let refreshing = false;
 let initialized = false;
+// 🔄 自動更新。true なら新版検出時にユーザーのタップ無しで適用する。
+//   - 起動時に待機版があれば即適用（アプリを開いた直後なので reload は安全）。
+//   - 利用中に検出した場合は「次にアプリを離れた（バックグラウンド）時」に
+//     静かに適用＝メモ入力 / AI 会話の最中に視界を奪わない。
+let autoApplyEnabled = false;
+let autoHiddenArmed = false;
+
+// 利用中に出た更新を「バックグラウンドに入った時」に静かに適用する仕掛け。
+function armAutoApplyOnHidden() {
+  if (!autoApplyEnabled || autoHiddenArmed) return;
+  autoHiddenArmed = true;
+  const applyWhenHidden = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      // 不可視のうちに skipWaiting → controllerchange → reload（戻ると新版）。
+      applyUpdate();
+    }
+  };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', applyWhenHidden);
+    // 検出時点で既に隠れているなら即適用。
+    if (document.visibilityState === 'hidden') applyWhenHidden();
+  }
+}
 
 function reloadOnce() {
   if (refreshing) return;
@@ -105,9 +128,10 @@ export async function forceUpdate() {
   }
 }
 
-export function initServiceWorker({ onUpdateAvailable } = {}) {
+export function initServiceWorker({ onUpdateAvailable, autoApply = false } = {}) {
   if (initialized) return;
   initialized = true;
+  autoApplyEnabled = !!autoApply;
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
 
   // 新 SW が controlling になった瞬間にリロード。
@@ -120,9 +144,11 @@ export function initServiceWorker({ onUpdateAvailable } = {}) {
       registrationRef = reg;
 
       // 起動時点で既に waiting がいれば「直ちに更新可能」状態。
-      // 通知して、ユーザーが許可したら applyUpdate() を呼ぶ。
+      // 自動更新 ON なら、アプリを開いた直後＝失うものが無いので即適用する
+      // （一瞬の再読込で新版へ）。OFF ならバナーで通知して手動適用。
       if (reg.waiting && navigator.serviceWorker.controller) {
-        onUpdateAvailable?.();
+        if (autoApplyEnabled) applyUpdate();
+        else onUpdateAvailable?.();
       }
 
       // 起動時に明示的に update() を叩く。register() 自体も新版の有無
@@ -137,6 +163,9 @@ export function initServiceWorker({ onUpdateAvailable } = {}) {
           // installed + 既に controller がある = 「更新版がスタンバイした」。
           // controller が無い場合は初回インストールなのでサイレントに通す。
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // 自動更新 ON: 利用中なので即リロードはせず、次にバックグラウンドへ
+            // 入った時に静かに適用する。あわせてバナーも出し「今すぐ」も選べる。
+            if (autoApplyEnabled) armAutoApplyOnHidden();
             onUpdateAvailable?.();
           }
         });

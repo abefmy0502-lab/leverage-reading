@@ -5755,6 +5755,10 @@ function AppShell() {
   // 視界を奪われるため、敢えて受動的な仕掛けに分離。
   useEffect(() => {
     initServiceWorker({
+      // 自動更新: 起動直後に待機版があれば即適用、利用中の検出は次に
+      // バックグラウンドへ入った時に静かに適用（タップ不要）。バナーは
+      // 「今すぐ更新」したい人向けの保険として従来どおり安全状態でだけ出る。
+      autoApply: true,
       onUpdateAvailable: () => {
         try { window.dispatchEvent(new Event('app-update-available')); } catch { /* ignore */ }
       },
