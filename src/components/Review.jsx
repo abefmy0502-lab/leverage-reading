@@ -545,16 +545,15 @@ export default function Review({ books = [], onOpenBook }) {
     return (
       <div style={wrap}>
         <EmptyState
-          icon="📝"
+          icon={<StickyNote size={34} aria-hidden="true" />}
           title="ここに、あなたの気づきが戻ってきます"
           description={(
             <>
-              本を追加してメモを残すと、忘れた頃に<br />
-              気づきがふいに戻ってくる場所になります。<br />
-              まずは一行から、気軽に。
+              本を読んでメモを残すと、忘れた頃に<br />
+              ここへふいに戻ってきます。まずは一行から。
             </>
           )}
-          tip="💡 メモ・まとめ・投資目的・課題・仮説・行動の振り返り、すべてここに時系列で集まります"
+          tip="残したメモや学びが、すべてここに集まります"
         />
       </div>
     );

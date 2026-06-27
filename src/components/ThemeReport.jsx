@@ -646,7 +646,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
           </h2>
         </div>
         <p style={{ fontSize: 13, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
-          テーマを選ぶと、その分野のメモを横断して<strong>「核心1行・繰り返す原則・次の一歩」</strong>に凝縮。さらに<strong>行動の鏡</strong>で実践度を映し、<strong>振り返り・通知</strong>に乗せて忘れた頃に呼び戻します。
+          テーマを選ぶと、そのメモをまとめて<strong>「この1行」と「次の一歩」</strong>にしぼります。あとで振り返りや通知でそっと思い出せます。
         </p>
       </div>
 
@@ -752,7 +752,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
           </button>
         </div>
         <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.6 }}>
-          そのテーマのメモ（タグ・@カテゴリ・本文）と行動を集めて、1 枚のテーマまとめにします。
+          そのテーマのメモと行動を集めて、1 枚にまとめます。
         </p>
       </div>
     </div>
@@ -795,10 +795,10 @@ function ActionMirror({ stats, memoTotal }) {
   return (
     <div style={{ ...card, padding: '14px 15px 15px' }}>
       <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 7, color: 'var(--c-ink)' }}>
-        <Target size={15} aria-hidden="true" />行動の鏡
+        <Target size={15} aria-hidden="true" />行動できてる？
       </h3>
       <div style={{ display: 'flex', gap: 8, marginBottom: declared > 0 || blindSpot ? 12 : 0 }}>
-        {statBox(declared, '宣言した行動', 'var(--c-ink)')}
+        {statBox(declared, '決めた行動', 'var(--c-ink)')}
         {statBox(completed, '完了', 'var(--c-positive)')}
         {statBox(idle, '放置中', idle > 0 ? 'var(--c-critical)' : 'var(--c-ink)')}
       </div>

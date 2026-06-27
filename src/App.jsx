@@ -5281,7 +5281,7 @@ function AuthedApp() {
                 ? 'いまの課題に合う本を、AI が提案します。'
                 : aiSubTab === 'brain'
                 ? 'あなたが残したメモをもとに、AI が質問に答えます。'
-                : 'テーマの学びを「核心1行＋次の一歩」に凝縮し、振り返りに乗せます。'}
+                : 'テーマごとに、学びを「この1行」と「次の一歩」にまとめます。'}
             </p>
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (

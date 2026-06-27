@@ -809,14 +809,9 @@ export default function MyBookBrain({ onOpenBook }) {
                   まずは1冊、メモを残すところから
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.8 }}>
-                  マイ読書脳は、あなた自身のメモを根拠に答えます。<br />
-                  本棚で1冊えらび、気になった一行を残してみてください。メモが増えるほど、あなただけの AI に育っていきます。
+                  本棚で1冊えらび、気になった一行を残してみましょう。<br />
+                  メモがたまると、それを根拠に AI が答えてくれます。
                 </p>
-                {onOpenBook && (
-                  <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '10px 0 0', lineHeight: 1.7 }}>
-                    （メモがたまると、ここで質問に答えられるようになります）
-                  </p>
-                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
