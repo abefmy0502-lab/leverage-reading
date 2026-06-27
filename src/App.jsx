@@ -1816,12 +1816,15 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         if (saved?.id && currentSessionId && sessionApi?.available) {
           try { await sessionApi.addBookToSession(currentSessionId, saved.id); } catch { /* non-critical */ }
         }
-      } catch {
+      } catch (error) {
+        // 失敗時は「追加済み」表示を rollback。これまではトーストを出さず
+        // 「押しても何も起きない」状態だったので、必ず原因を可視化する。
         setAddedTitles((prev) => {
           const next = new Set(prev);
           next.delete(verifiedRec.title);
           return next;
         });
+        advisorToast.error(toMessage(error, '本の追加に失敗しました。'));
       }
     });
   };
@@ -2702,6 +2705,10 @@ function AuthedApp() {
   // 強制していたが、IIFE で同じ Set 参照を返していたため shallow compare
   // で不変扱いされ「タップしても何も起きない」ように見える事故が発生。
   const [addedRelatedTitles, setAddedRelatedTitles] = useState(() => new Set());
+  // 開いている本が変わったら「追加済み」マークをリセット。これをしないと、
+  // 別の本の AI 提案で同じタイトルが出たとき前回のマークが残って "追加済み"
+  // でボタンが無効化され「押しても何も起きない」ように見える事故になる。
+  useEffect(() => { setAddedRelatedTitles(new Set()); }, [current?.id]);
 
   // Memo ops for the currently-open book (FAB / quick sheet / full editor handoff).
   // Always called so hook order stays stable; isUsableBookId guards inside the hook.

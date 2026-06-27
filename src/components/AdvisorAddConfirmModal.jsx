@@ -117,7 +117,10 @@ const footerStyle = {
 };
 
 export default function AdvisorAddConfirmModal({ original, candidates, onConfirm, onCancel }) {
-  const [selected, setSelected] = useState(candidates[0] || null);
+  // index で選択を管理（ISBN が無い候補同士でも選択が壊れない / 確認ボタンが
+  // 無効のまま固まらないようにする）。
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const selected = candidates[selectedIdx] || null;
   if (typeof document === 'undefined') return null;
 
   return createPortal(
@@ -148,13 +151,13 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {candidates.map((c) => {
-              const isSelected = selected && selected.isbn === c.isbn;
+            {candidates.map((c, i) => {
+              const isSelected = selectedIdx === i;
               return (
                 <button
-                  key={c.isbn || c.title}
+                  key={c.isbn || `${c.title}-${i}`}
                   type="button"
-                  onClick={() => setSelected(c)}
+                  onClick={() => setSelectedIdx(i)}
                   style={candidateBtn(isSelected)}
                 >
                   {c.cover ? (

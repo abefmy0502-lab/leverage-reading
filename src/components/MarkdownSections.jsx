@@ -160,10 +160,15 @@ function renderInline(text) {
 // "### 1. 『title』- 著者" / "『title』 — 著者" / "『title』" all parse the
 // same way: title in 『』 + an optional author suffix after - / – / — / ・.
 const RELATED_BOOK_RE = /^\s*(?:\d+\.\s*)?『([^』]+)』(?:\s*[-–—・]\s*(.+))?\s*$/;
+// 『』 なしのフォールバック: "### 1. タイトル - 著者" のような番号付き行を本として拾う。
+// 番号プレフィックス必須にして、通常の文や見出しを誤って本扱いしないようにする。
+const RELATED_BOOK_RE_PLAIN = /^\s*\d+\.\s*([^-–—・\n]{2,80}?)(?:\s*[-–—・]\s*(.+))?\s*$/;
 function parseRelatedBookHeading(text) {
-  const m = (text || '').match(RELATED_BOOK_RE);
+  const raw = text || '';
+  let m = raw.match(RELATED_BOOK_RE);
+  if (!m) m = raw.match(RELATED_BOOK_RE_PLAIN);
   if (!m) return null;
-  const title = (m[1] || '').trim();
+  const title = (m[1] || '').trim().replace(/^『|』$/g, '');
   const author = (m[2] || '').trim();
   if (!title) return null;
   return { title, author };
@@ -469,7 +474,9 @@ function parseSections(text) {
 // each `### N. 『title』- author` as a clickable add card.
 function isRelatedBooksHeading(heading) {
   if (!heading) return false;
-  return /関連書籍|次に読む|併読|おすすめの本|参考書籍/.test(heading);
+  // AI の見出しは揺れる（おすすめ書籍 / 次に読むべき本 / あわせて読みたい 等）。
+  // 取りこぼすと「追加」ボタンが出ず "押しても何も起きない" に見えるため広めに拾う。
+  return /関連(書籍|本|する本|図書)|次に読む|次に読むべき|次の(一冊|本)|併読|あわせて読みたい|おすすめ(の本|書籍|図書|の一冊)|参考(書籍|図書|文献)|読むべき本/.test(heading);
 }
 
 export default function MarkdownSections({ text, density = 'normal', onAddRelatedBook, addingTitles }) {
