@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LIMITS } from '../lib/limits';
 import { useConfirm } from './ConfirmDialog';
+import { Pencil, ClipboardList, CalendarDays, Target, Repeat, MessageSquareQuote, Trash2, Save, ArrowUp, Minus, ArrowDown } from 'lucide-react';
 
 const overlayStyle = {
   position: 'fixed',
@@ -118,9 +119,9 @@ const footerStyle = {
 };
 
 const PRIORITIES = [
-  { v: 'high',   label: '🔴 高' },
-  { v: 'medium', label: '🟡 中' },
-  { v: 'low',    label: '🟢 低' },
+  { v: 'high',   label: (<><ArrowUp size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />高</>) },
+  { v: 'medium', label: (<><Minus size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />中</>) },
+  { v: 'low',    label: (<><ArrowDown size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />低</>) },
 ];
 
 const RECURRENCES = [
@@ -188,13 +189,13 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>✏️ 行動を編集</h2>
+          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}><Pencil size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />行動を編集</h2>
           <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる">×</button>
         </div>
 
         <div style={bodyStyle}>
           <div>
-            <label style={labelStyle} htmlFor="ae-text">📋 行動内容</label>
+            <label style={labelStyle} htmlFor="ae-text"><ClipboardList size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />行動内容</label>
             <textarea
               id="ae-text"
               value={text}
@@ -209,7 +210,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
           </div>
 
           <div>
-            <label style={labelStyle} htmlFor="ae-deadline">📅 期限</label>
+            <label style={labelStyle} htmlFor="ae-deadline"><CalendarDays size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限</label>
             <input
               id="ae-deadline"
               type="date"
@@ -220,7 +221,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
           </div>
 
           <div>
-            <span style={labelStyle}>🎯 優先度</span>
+            <span style={labelStyle}><Target size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />優先度</span>
             <div style={{ display: 'flex', gap: 6 }}>
               {PRIORITIES.map((p) => (
                 <button
@@ -236,7 +237,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
           </div>
 
           <div>
-            <label style={labelStyle} htmlFor="ae-rec">🔁 繰り返し</label>
+            <label style={labelStyle} htmlFor="ae-rec"><Repeat size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />繰り返し</label>
             <select
               id="ae-rec"
               value={recurrence || ''}
@@ -250,7 +251,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
           </div>
 
           <div>
-            <label style={labelStyle} htmlFor="ae-ref">💭 振り返り (任意)</label>
+            <label style={labelStyle} htmlFor="ae-ref"><MessageSquareQuote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />振り返り (任意)</label>
             <textarea
               id="ae-ref"
               value={reflection}
@@ -283,7 +284,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
               opacity: busy ? 0.6 : 1,
             }}
           >
-            🗑 削除
+            <Trash2 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />削除
           </button>
           <button
             type="button"
@@ -322,7 +323,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
               minHeight: 44,
             }}
           >
-            {busy ? '保存中…' : '💾 保存'}
+            {busy ? '保存中…' : (<><Save size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />保存</>)}
           </button>
         </div>
       </div>

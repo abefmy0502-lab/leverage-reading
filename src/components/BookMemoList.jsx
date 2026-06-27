@@ -10,6 +10,7 @@ import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import ShareCardModal from './ShareCardModal';
+import { StickyNote, FileText, BookOpen, Clock, Quote, Plus, Pencil, Copy, Image, Trash2 } from 'lucide-react';
 
 const MODE_KEY = 'leverageMemoMode';
 
@@ -380,14 +381,16 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft)', borderRadius: 10 }}>
         <button type="button" style={sortTab(sortBy === 'page')} onClick={() => setSortBy('page')}>
-          📖 ページ順
+          <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+          ページ順
         </button>
         <button
           type="button"
           style={sortTab(sortBy === 'created_desc')}
           onClick={() => setSortBy('created_desc')}
         >
-          🕒 新しい順
+          <Clock size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+          新しい順
         </button>
       </div>
 
@@ -397,18 +400,22 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         onClick={() => setQuoteOnly((v) => !v)}
         aria-pressed={quoteOnly}
       >
-        📖 引用のみ
+        <Quote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+        引用のみ
       </button>
 
       <button type="button" onClick={openCreate} style={addBtn}>
-        ＋ 新しいメモ
+        <Plus size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+        新しいメモ
       </button>
 
       {loading && memos.length === 0 && <MemoListSkeleton rows={3} />}
 
       {!loading && memos.length === 0 && (
         <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--c-ink-soft)' }}>
-          <div style={{ fontSize: 36, marginBottom: 6 }}>📝</div>
+          <div style={{ marginBottom: 6, color: 'var(--c-ink-2)' }}>
+            <StickyNote size={32} strokeWidth={1.5} aria-hidden="true" />
+          </div>
           <p style={{ fontSize: 13, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
             読みながら気になった一行を、ひとつ残してみましょう。
           </p>
@@ -420,7 +427,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
       {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (
         <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--c-ink-soft)' }}>
-          <div style={{ fontSize: 36, marginBottom: 6 }}>📖</div>
+          <div style={{ marginBottom: 6, color: 'var(--c-ink-2)' }}>
+            <BookOpen size={32} strokeWidth={1.5} aria-hidden="true" />
+          </div>
           <p style={{ fontSize: 13, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
             ページ番号付きのメモがまだありません。
           </p>
@@ -444,7 +453,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           }}
         >
           <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7, flex: 1 }}>
-            💭 最初の気づきが残りました。下の「🔄 振り返り」を開くと、これがランダムに、そして忘れた頃にそっと戻ってきます。
+            最初の気づきが残りました。下の「🔄 振り返り」を開くと、これがランダムに、そして忘れた頃にそっと戻ってきます。
           </p>
           <button
             type="button"
@@ -507,10 +516,12 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft-2)', borderRadius: 10 }}>
         <button type="button" style={modeTab(mode === 'card')} onClick={() => setMode('card')}>
-          📇 カード
+          <StickyNote size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+          カード
         </button>
         <button type="button" style={modeTab(mode === 'summary')} onClick={() => setMode('summary')}>
-          📝 まとめ
+          <FileText size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+          まとめ
         </button>
       </div>
 
@@ -524,12 +535,12 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           y={memoMenu.y}
           onClose={() => setMemoMenu(null)}
           items={[
-            { label: '編集', icon: '✏️', onClick: () => openEdit(memoMenu.memo) },
-            { label: 'コピー', icon: '📋', onClick: () => handleCopy(memoMenu.memo) },
+            { label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => openEdit(memoMenu.memo) },
+            { label: 'コピー', icon: <Copy size={16} aria-hidden="true" />, onClick: () => handleCopy(memoMenu.memo) },
             ...((memoMenu.memo?.text || '').trim()
-              ? [{ label: '画像で共有', icon: '🖼', onClick: () => handleShare(memoMenu.memo) }]
+              ? [{ label: '画像で共有', icon: <Image size={16} aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]
               : []),
-            { label: '削除', icon: '🗑️', destructive: true, onClick: () => handleDelete(memoMenu.memo) },
+            { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => handleDelete(memoMenu.memo) },
           ]}
         />
       )}

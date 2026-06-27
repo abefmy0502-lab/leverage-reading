@@ -18,6 +18,21 @@
 //   summary  — clear (set leverage_memo = ''); Undo restores previous text
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Brain,
+  StickyNote,
+  BookOpen,
+  Lightbulb,
+  BarChart3,
+  AlertTriangle,
+  Bot,
+  Gem,
+  Map as MapIcon,
+  Search,
+  Pencil,
+  Trash2,
+  Eraser,
+} from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -73,15 +88,15 @@ function pickCategory(tags) {
 // 行ごと delete + undo (既存挙動)。`group` は フィルタピル用 (memo / summary /
 // plan / learning) のグルーピングタグ。
 const KIND_META = {
-  card:              { icon: '📝',  label: 'カード式メモ', group: 'memo' },
-  summary:           { icon: '📖',  label: 'まとめメモ',   group: 'summary', column: 'leverage_memo' },
-  personal:          { icon: '💡',  label: '学びログ',     group: 'learning' },
-  invest_purpose:    { icon: '📊',  label: '投資目的',     group: 'plan',    column: 'invest_purpose' },
-  current_challenge: { icon: '⚠️', label: '現在の課題',   group: 'plan',    column: 'current_challenge' },
-  hypothesis:        { icon: '💡',  label: '仮説',         group: 'plan',    column: 'hypothesis' },
-  ai_summary:        { icon: '🤖',  label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },
-  roi_summary:       { icon: '💎',  label: '一番の収穫',   group: 'summary', column: 'roi_summary' },
-  ai_strategy:       { icon: '🗺️', label: '戦略',         group: 'plan',    column: 'ai_strategy' },
+  card:              { Icon: StickyNote,   label: 'カード式メモ', group: 'memo' },
+  summary:           { Icon: BookOpen,     label: 'まとめメモ',   group: 'summary', column: 'leverage_memo' },
+  personal:          { Icon: Lightbulb,    label: '学びログ',     group: 'learning' },
+  invest_purpose:    { Icon: BarChart3,    label: '投資目的',     group: 'plan',    column: 'invest_purpose' },
+  current_challenge: { Icon: AlertTriangle, label: '現在の課題',  group: 'plan',    column: 'current_challenge' },
+  hypothesis:        { Icon: Lightbulb,    label: '仮説',         group: 'plan',    column: 'hypothesis' },
+  ai_summary:        { Icon: Bot,          label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },
+  roi_summary:       { Icon: Gem,          label: '一番の収穫',   group: 'summary', column: 'roi_summary' },
+  ai_strategy:       { Icon: MapIcon,      label: '戦略',         group: 'plan',    column: 'ai_strategy' },
 };
 
 // グループごとの badge 色 (既存配色をベースに plan を追加)
@@ -184,7 +199,8 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
     <div style={card} {...(onLongPress ? longPress.bind : {})}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: badge.bg, color: badge.fg, fontWeight: 600 }}>
-          {meta.icon} {meta.label}
+          {meta.Icon && <meta.Icon size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />}
+          {meta.label}
         </span>
         <span style={{ fontSize: 10, color: 'var(--c-ink-2)' }}>{fmtDate(item.created_at)}</span>
       </div>
@@ -223,7 +239,12 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
     return (
       <SwipeableCard
         onDelete={() => onSwipeDelete(item)}
-        actionLabel={isField ? '🧹 クリア' : undefined}
+        actionLabel={isField ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Eraser size={16} strokeWidth={1.75} aria-hidden="true" />
+            クリア
+          </span>
+        ) : undefined}
       >
         {inner}
       </SwipeableCard>
@@ -386,7 +407,7 @@ export default function KnowledgeManager({ onChanged }) {
       // / hypothesis / ai_summary / roi_summary / ai_strategy)
       const isSummaryLike = item.kind === 'summary'; // text が長い系は summary 上限
       setTextEdit({
-        title: `${meta.icon} ${meta.label} を編集${item.book?.title ? `: ${item.book.title}` : ''}`,
+        title: `${meta.label} を編集${item.book?.title ? `: ${item.book.title}` : ''}`,
         initialText: item.text || '',
         maxLength: isSummaryLike ? LIMITS.summaryMemo : LIMITS.memoText,
         onSave: async (newText) => {
@@ -577,10 +598,12 @@ export default function KnowledgeManager({ onChanged }) {
           y={itemMenu.y}
           onClose={() => setItemMenu(null)}
           items={[
-            { label: '編集', icon: '✏️', onClick: () => handleEdit(itemMenu.item) },
+            { label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => handleEdit(itemMenu.item) },
             {
               label: KIND_META[itemMenu.item.kind]?.column ? 'クリア' : '削除',
-              icon: KIND_META[itemMenu.item.kind]?.column ? '🧹' : '🗑️',
+              icon: KIND_META[itemMenu.item.kind]?.column
+                ? <Eraser size={16} aria-hidden="true" />
+                : <Trash2 size={16} aria-hidden="true" />,
               destructive: true,
               onClick: () => handleDelete(itemMenu.item),
             },
@@ -589,7 +612,10 @@ export default function KnowledgeManager({ onChanged }) {
       )}
       {/* Hero — 知識ベース全 9 カテゴリの集計を grid で表示 */}
       <div style={card}>
-        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', margin: 0 }}>📚 マイ読書脳の知識ベース</p>
+        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', margin: 0 }}>
+          <Brain size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+          マイ読書脳の知識ベース
+        </p>
         <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '4px 0 12px', lineHeight: 1.7 }}>
           AI があなたの答えを作る時に参照する情報の一覧です。編集・削除すると、次回の答えに即座に反映されます。
         </p>
@@ -601,15 +627,15 @@ export default function KnowledgeManager({ onChanged }) {
           }}
         >
           {[
-            { num: counts.card || 0,              label: '📝 カード式' },
-            { num: counts.summary || 0,           label: '📖 まとめメモ' },
-            { num: counts.personal || 0,          label: '💡 学びログ' },
-            { num: counts.invest_purpose || 0,    label: '📊 投資目的' },
-            { num: counts.current_challenge || 0, label: '⚠ 現在の課題' },
-            { num: counts.hypothesis || 0,        label: '💡 仮説' },
-            { num: counts.ai_summary || 0,        label: '🤖 AI まとめ' },
-            { num: counts.roi_summary || 0,       label: '💎 投資の効果' },
-            { num: counts.ai_strategy || 0,       label: '🗺️ 戦略' },
+            { num: counts.card || 0,              Icon: StickyNote,    label: 'カード式' },
+            { num: counts.summary || 0,           Icon: BookOpen,      label: 'まとめメモ' },
+            { num: counts.personal || 0,          Icon: Lightbulb,     label: '学びログ' },
+            { num: counts.invest_purpose || 0,    Icon: BarChart3,     label: '投資目的' },
+            { num: counts.current_challenge || 0, Icon: AlertTriangle, label: '現在の課題' },
+            { num: counts.hypothesis || 0,        Icon: Lightbulb,     label: '仮説' },
+            { num: counts.ai_summary || 0,        Icon: Bot,           label: 'AI まとめ' },
+            { num: counts.roi_summary || 0,       Icon: Gem,           label: '投資の効果' },
+            { num: counts.ai_strategy || 0,       Icon: MapIcon,       label: '戦略' },
           ].map((s) => (
             <div
               key={s.label}
@@ -625,6 +651,7 @@ export default function KnowledgeManager({ onChanged }) {
                 {s.num}
               </div>
               <div style={{ fontSize: 9.5, color: 'var(--c-ink-2)', marginTop: 4, letterSpacing: 0.02 }}>
+                {s.Icon && <s.Icon size={11} aria-hidden="true" style={{ verticalAlign: '-1px', marginRight: 3 }} />}
                 {s.label}
               </div>
             </div>
@@ -643,10 +670,18 @@ export default function KnowledgeManager({ onChanged }) {
       />
       <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft-2)', borderRadius: 10 }}>
         <button type="button" style={pill(filterKind === 'all')} onClick={() => setFilterKind('all')}>全て</button>
-        <button type="button" style={pill(filterKind === 'memo')} onClick={() => setFilterKind('memo')}>📝 メモ</button>
-        <button type="button" style={pill(filterKind === 'summary')} onClick={() => setFilterKind('summary')}>📖 まとめ</button>
-        <button type="button" style={pill(filterKind === 'plan')} onClick={() => setFilterKind('plan')}>📊 計画</button>
-        <button type="button" style={pill(filterKind === 'learning')} onClick={() => setFilterKind('learning')}>💡 学び</button>
+        <button type="button" style={pill(filterKind === 'memo')} onClick={() => setFilterKind('memo')}>
+          <StickyNote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />メモ
+        </button>
+        <button type="button" style={pill(filterKind === 'summary')} onClick={() => setFilterKind('summary')}>
+          <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />まとめ
+        </button>
+        <button type="button" style={pill(filterKind === 'plan')} onClick={() => setFilterKind('plan')}>
+          <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />計画
+        </button>
+        <button type="button" style={pill(filterKind === 'learning')} onClick={() => setFilterKind('learning')}>
+          <Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />学び
+        </button>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--c-ink-2)' }}>
         <span>並び順</span>
@@ -664,13 +699,13 @@ export default function KnowledgeManager({ onChanged }) {
       ) : filtered.length === 0 ? (
         items.length === 0 ? (
           <EmptyState
-            icon="📚"
+            icon={<Brain size={40} strokeWidth={1.5} aria-hidden="true" />}
             title="ここに知識が集まります"
             description="本を読んでメモを残すと、AI があなたの答えを作るための材料がここに蓄積されます。"
           />
         ) : (
           <EmptyState
-            icon="🔍"
+            icon={<Search size={40} strokeWidth={1.5} aria-hidden="true" />}
             title="見つかりませんでした"
             description="検索やフィルタの条件に合う知識はありませんでした。"
             tip="条件を変えるか「全て」に戻すと、ほかの知識が見つかります。"

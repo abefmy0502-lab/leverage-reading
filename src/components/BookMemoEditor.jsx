@@ -7,6 +7,7 @@ import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
+import { BookOpen, Sparkles, Undo2, Camera } from 'lucide-react';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -369,7 +370,8 @@ export default function BookMemoEditor({
               whiteSpace: 'nowrap',
             }}
           >
-            📚 {bookTitle || '本'}
+            <BookOpen size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+            {bookTitle || '本'}
           </p>
         </div>
       </div>
@@ -418,7 +420,8 @@ export default function BookMemoEditor({
                   fontFamily: 'inherit', cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1,
                 }}
               >
-                {condensing ? '凝縮中…' : '✨ 3行に凝縮'}
+                <Sparkles size={14} aria-hidden="true" style={{ marginRight: 5 }} />
+                {condensing ? '凝縮中…' : '3行に凝縮'}
               </button>
             )}
             {condensedFrom != null && (
@@ -433,7 +436,8 @@ export default function BookMemoEditor({
                   fontFamily: 'inherit', cursor: 'pointer',
                 }}
               >
-                ↩ 元に戻す
+                <Undo2 size={13} aria-hidden="true" style={{ marginRight: 4 }} />
+                元に戻す
               </button>
             )}
           </div>
@@ -455,7 +459,8 @@ export default function BookMemoEditor({
                   fontSize: 13,
                 }}
               >
-                📷 写真を追加
+                <Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+                写真を追加
               </button>
               <input
                 ref={fileInputRef}

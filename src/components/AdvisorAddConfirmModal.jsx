@@ -16,6 +16,7 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Library, Sparkles, AlertTriangle, Lightbulb, Check } from 'lucide-react';
 import { ensureHttps } from '../lib/url';
 
 const overlayStyle = {
@@ -124,14 +125,14 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
-            📚 追加する本を確認
+            <Library size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />追加する本を確認
           </h2>
           <button type="button" style={closeBtnStyle} onClick={onCancel} aria-label="閉じる">×</button>
         </div>
 
         <div style={bodyStyle}>
           <div style={recBoxStyle}>
-            <p style={{ fontSize: 11, color: 'var(--color-accent)', margin: 0, fontWeight: 600 }}>🤖 AI からのおすすめ</p>
+            <p style={{ fontSize: 11, color: 'var(--color-accent)', margin: 0, fontWeight: 600 }}><Sparkles size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />AI からのおすすめ</p>
             <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '4px 0 0', fontWeight: 600, wordBreak: 'keep-all' }}>
               『{original.title}』
             </p>
@@ -209,7 +210,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
                     )}
                     {!c.cover && (
                       <p style={{ fontSize: 10, color: 'var(--c-critical)', margin: '4px 0 0' }}>
-                        ⚠ 表紙未取得
+                        <AlertTriangle size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />表紙未取得
                       </p>
                     )}
                   </div>
@@ -219,7 +220,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
           </div>
 
           <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.6 }}>
-            💡 該当する本がここに無い場合は「キャンセル」して、本棚の「+ 本を追加」から検索してください。
+            <Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />該当する本がここに無い場合は「キャンセル」して、本棚の「+ 本を追加」から検索してください。
           </p>
         </div>
 
@@ -261,7 +262,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
               minHeight: 44,
             }}
           >
-            ✓ この本を追加
+            <Check size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />この本を追加
           </button>
         </div>
       </div>

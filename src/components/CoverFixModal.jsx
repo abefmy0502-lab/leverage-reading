@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Image as ImageIcon, Check, Camera } from 'lucide-react';
 import { findIsbnCandidatesWithMetadata } from '../lib/bookSearch';
 import { tryCoverForIsbn } from '../lib/bookCover';
 import { ensureHttps } from '../lib/url';
@@ -140,7 +141,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
-            🖼 正しい表紙を選択
+            <ImageIcon size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />正しい表紙を選択
           </h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる">×</button>
         </div>
@@ -230,7 +231,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                   <div style={{ fontSize: 10, color: 'var(--c-ink-2)', textAlign: 'center', lineHeight: 1.4 }}>
                     {c.isCurrent && (
                       <div style={{ fontSize: 10, color: 'var(--color-accent)', fontWeight: 600, marginBottom: 2 }}>
-                        ✓ 現在の表紙
+                        <Check size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />現在の表紙
                       </div>
                     )}
                     ISBN: {c.isbn}
@@ -269,7 +270,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
               minHeight: 44,
             }}
           >
-            📷 自分でアップロードする
+            <Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />自分でアップロードする
           </button>
         </div>
       </div>

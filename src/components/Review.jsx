@@ -23,7 +23,10 @@ import EmptyState from './EmptyState';
 import { getRandomFromCategory } from '../lib/quotes';
 import { relativeJa, recallFraming, pickRecallMemo } from '../lib/recall';
 import { btnGhost as uiBtnGhost } from '../styles/ui';
-import { Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote } from 'lucide-react';
+import {
+  Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
+  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2,
+} from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
@@ -73,16 +76,16 @@ const transformRow = (m) => {
 
 // 知識の種類ごとのアイコン + ラベル + ボーダー色。NoteCard で表示する。
 const KIND_META = {
-  card:              { icon: '📑', label: 'メモ',          color: '#2E7D32' },
-  summary:           { icon: '📖', label: 'まとめメモ',     color: '#5D4037' },
-  personal:          { icon: '💡', label: '学び',          color: '#E91E63' },
-  invest_purpose:    { icon: '📊', label: '投資目的',       color: '#1976D2' },
-  current_challenge: { icon: '⚠️', label: '現在の課題',     color: '#D32F2F' },
-  hypothesis:        { icon: '💡', label: '仮説',          color: '#FF9800' },
-  ai_summary:        { icon: '🤖', label: 'AI まとめ',      color: '#7B1FA2' },
-  roi_summary:       { icon: '💎', label: '投資の効果',     color: '#FFA000' },
-  leverage_memo:     { icon: '📝', label: 'まとめメモ', color: '#5D4037' },
-  action_reflection: { icon: '💭', label: '行動の振り返り', color: '#00838F' },
+  card:              { Icon: StickyNote,        label: 'メモ',          color: '#2E7D32' },
+  summary:           { Icon: BookOpen,          label: 'まとめメモ',     color: '#5D4037' },
+  personal:          { Icon: Lightbulb,         label: '学び',          color: '#E91E63' },
+  invest_purpose:    { Icon: BarChart3,         label: '投資目的',       color: '#1976D2' },
+  current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: '#D32F2F' },
+  hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: '#FF9800' },
+  ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: '#7B1FA2' },
+  roi_summary:       { Icon: Gem,               label: '投資の効果',     color: '#FFA000' },
+  leverage_memo:     { Icon: FileText,          label: 'まとめメモ', color: '#5D4037' },
+  action_reflection: { Icon: MessageSquareQuote, label: '行動の振り返り', color: '#00838F' },
 };
 
 // books から 派生ノート (本フィールド + 行動の振り返り) を生成。
@@ -212,7 +215,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
             }}
             aria-label={`種類: ${meta.label}`}
           >
-            {meta.icon} {meta.label}
+            <meta.Icon size={11} aria-hidden="true" style={{ verticalAlign: '-1.5px', marginRight: 4 }} />{meta.label}
           </span>
           {category && (
             <span style={{ fontSize: 11, color: 'var(--c-ink-soft)' }}>・{category}</span>
@@ -564,9 +567,9 @@ export default function Review({ books = [], onOpenBook }) {
           onClose={() => setMemoMenu(null)}
           items={[
             ...(memoMenu.book
-              ? [{ label: '本を開く', icon: '📖', onClick: () => onOpenBook?.(memoMenu.book) }]
+              ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book) }]
               : []),
-            { label: '削除', icon: '🗑️', destructive: true, onClick: () => handleSwipeDelete(memoMenu.memo) },
+            { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => handleSwipeDelete(memoMenu.memo) },
           ]}
         />
       )}
@@ -616,7 +619,7 @@ export default function Review({ books = [], onOpenBook }) {
                 fontFamily: 'inherit',
               }}
             >
-              {meta.icon} {meta.label} {n}
+              <meta.Icon size={11} aria-hidden="true" style={{ verticalAlign: '-1.5px', marginRight: 4 }} />{meta.label} {n}
             </button>
           );
         })}
@@ -789,7 +792,7 @@ export default function Review({ books = [], onOpenBook }) {
             >
               <option value="all">全種類</option>
               {Object.entries(KIND_META).map(([k, meta]) => (
-                <option key={k} value={k}>{meta.icon} {meta.label}</option>
+                <option key={k} value={k}>{meta.label}</option>
               ))}
             </select>
             <select

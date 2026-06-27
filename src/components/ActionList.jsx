@@ -12,7 +12,7 @@ import { ensureHttps } from '../lib/url';
 import { track, EVENTS } from '../lib/analytics';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
-import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo } from 'lucide-react';
+import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo, Flame, ArrowUp, ArrowDown, Repeat, Link2, MessageSquareQuote, Check } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
@@ -135,7 +135,7 @@ const FILTERS = [
   { key: 'open', label: '未完了' },
   { key: 'all', label: '全て' },
   { key: 'done', label: '完了' },
-  { key: 'overdue', label: '⚠ 期限切れ', color: 'var(--c-critical)', bg: '#fdf0ed' },
+  { key: 'overdue', label: (<><AlertCircle size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限切れ</>), color: 'var(--c-critical)', bg: '#fdf0ed' },
   { key: 'today', label: '今日まで', color: '#E65100', bg: '#FFF3E0' },
   { key: 'upcoming', label: '今週期限', color: '#1565C0', bg: '#E3F2FD' },
 ];
@@ -318,8 +318,9 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                   <AnimatedNumber value={period.completed} duration={500} /> / {period.total} 完了
                 </div>
                 {stats.streak > 0 && (
-                  <div style={{ fontSize: 11, color: '#b07028', marginTop: 4 }}>
-                    🔥 連続 {stats.streak} 日
+                  <div style={{ fontSize: 11, color: '#b07028', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Flame size={11} aria-hidden="true" />
+                    連続 {stats.streak} 日
                   </div>
                 )}
                 {stats.upcomingThisWeek > 0 && (
@@ -457,8 +458,8 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                   }}
                 >
                   {a.done && (
-                    <span key={`${key}-on`} className="check-pop" aria-hidden="true" style={{ display: 'block', fontWeight: 700 }}>
-                      ✓
+                    <span key={`${key}-on`} className="check-pop" aria-hidden="true" style={{ display: 'flex' }}>
+                      <Check size={15} strokeWidth={3} aria-hidden="true" />
                     </span>
                   )}
                 </button>
@@ -552,21 +553,25 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                     })()}
                     {/* 優先度バッジ — 'medium' は default なので表示しない */}
                     {a.priority === 'high' && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#FFEBEE', color: '#C62828', fontWeight: 600 }}>🔴 高</span>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#FFEBEE', color: '#C62828', fontWeight: 600 }}>
+                        <ArrowUp size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />高
+                      </span>
                     )}
                     {a.priority === 'low' && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#E8F5E9', color: '#2E7D32' }}>🟢 低</span>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#E8F5E9', color: '#2E7D32' }}>
+                        <ArrowDown size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />低
+                      </span>
                     )}
                     {/* 繰り返し */}
                     {a.recurrence && (
                       <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#F3E5F5', color: '#6A1B9A' }}>
-                        🔁 {a.recurrence === 'weekly' ? '毎週' : '毎月'}
+                        <Repeat size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{a.recurrence === 'weekly' ? '毎週' : '毎月'}
                       </span>
                     )}
                     {/* 引用ページ */}
                     {a.sourcePage && (
                       <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: '#FFFDE7', color: '#5D4037' }}>
-                        🔗 p.{a.sourcePage}
+                        <Link2 size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />p.{a.sourcePage}
                       </span>
                     )}
                   </div>
@@ -585,7 +590,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                         whiteSpace: 'pre-wrap',
                       }}
                     >
-                      💭 {a.reflection}
+                      <MessageSquareQuote size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{a.reflection}
                     </div>
                   )}
                 </div>

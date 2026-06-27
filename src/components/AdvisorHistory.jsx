@@ -5,6 +5,21 @@
 // レイアウトを乱さない。session オブジェクトは useAdvisorSessions から。
 
 import { useMemo, useState } from 'react';
+import {
+  History,
+  ArrowLeft,
+  BookOpen,
+  CheckCircle2,
+  Trash2,
+  MessageSquare,
+  Target,
+  Lightbulb,
+  MapPin,
+  Timer,
+  ShoppingCart,
+  CheckCircle,
+  Plus,
+} from 'lucide-react';
 import EmptyState from './EmptyState.jsx';
 import { getAmazonLink } from '../lib/amazonLink';
 
@@ -77,8 +92,13 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 16px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: 'var(--c-brand)' }}>← 戻る</button>
-        <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0 }}>🕒 AI 選書の履歴</p>
+        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: 'var(--c-brand)' }}>
+          <ArrowLeft size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />戻る
+        </button>
+        <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0 }}>
+          <History size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+          AI 選書の履歴
+        </p>
         <span style={{ width: 50 }} />
       </div>
 
@@ -88,7 +108,7 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
         </p>
       ) : sessions.length === 0 ? (
         <EmptyState
-          icon="🕒"
+          icon={<History size={40} strokeWidth={1.5} aria-hidden="true" />}
           title="ここに会話が残ります"
           description="AI 選書で相談すると、その会話がここに記録されます。あとから読み返したり、続きから相談できます。"
         />
@@ -110,8 +130,18 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
                   </div>
                   <div style={meta}>
                     <span>{formatDate(s.created_at)}</span>
-                    {recCount > 0 && <span>📚 {recCount} 冊提案</span>}
-                    {addedCount > 0 && <span>✅ {addedCount} 冊追加</span>}
+                    {recCount > 0 && (
+                      <span>
+                        <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+                        {recCount} 冊提案
+                      </span>
+                    )}
+                    {addedCount > 0 && (
+                      <span>
+                        <CheckCircle2 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+                        {addedCount} 冊追加
+                      </span>
+                    )}
                   </div>
                 </button>
                 <button
@@ -130,9 +160,10 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
                     cursor: 'pointer',
                     padding: 4,
                     fontFamily: 'inherit',
+                    lineHeight: 0,
                   }}
                 >
-                  🗑
+                  <Trash2 size={15} aria-hidden="true" />
                 </button>
               </li>
             );
@@ -169,13 +200,22 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
       )}
 
       {book.why && (
-        <RecField label="🎯 なぜあなたに必要か" text={book.why} />
+        <RecField
+          label={<><Target size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />なぜあなたに必要か</>}
+          text={book.why}
+        />
       )}
       {book.core && (
-        <RecField label="💡 この本の核心" text={book.core} />
+        <RecField
+          label={<><Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />この本の核心</>}
+          text={book.core}
+        />
       )}
       {book.focus && (
-        <RecField label="📍 注目すべきポイント" text={book.focus} />
+        <RecField
+          label={<><MapPin size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />注目すべきポイント</>}
+          text={book.focus}
+        />
       )}
       {book.duration && (
         <div
@@ -191,7 +231,8 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
             textAlign: 'center',
           }}
         >
-          ⏱ {book.duration}
+          <Timer size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+          {book.duration}
         </div>
       )}
 
@@ -223,7 +264,8 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
             WebkitTapHighlightColor: 'rgba(255,153,0,0.18)',
           }}
         >
-          🛒 Amazon
+          <ShoppingCart size={14} aria-hidden="true" style={{ marginRight: 4 }} />
+          Amazon
         </a>
         {isAdded ? (
           <button
@@ -244,7 +286,8 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
               minHeight: 40,
             }}
           >
-            ✅ 追加済み
+            <CheckCircle size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            追加済み
           </button>
         ) : (
           <button
@@ -272,7 +315,8 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
               WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
             }}
           >
-            {isAdding ? '📚 計画を作成中…' : '📚 読みたい'}
+            <Plus size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+            {isAdding ? '計画を作成中…' : '読みたい'}
           </button>
         )}
       </div>
@@ -362,7 +406,9 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 16px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: 'var(--c-brand)' }}>← 戻る</button>
+        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: 'var(--c-brand)' }}>
+          <ArrowLeft size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />戻る
+        </button>
         <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0 }}>{formatDate(session?.created_at)} の会話</p>
         <span style={{ width: 50 }} />
       </div>
@@ -370,7 +416,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} role="region" aria-label="AI 選書の会話">
         {messages.length === 0 ? (
           <EmptyState
-            icon="💬"
+            icon={<MessageSquare size={40} strokeWidth={1.5} aria-hidden="true" />}
             title="この会話には記録がありません"
             description="メッセージのやり取りはまだ残っていません。"
           />
@@ -415,7 +461,10 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
 
       {recs.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
-          <p style={{ fontSize: 12, color: 'var(--c-brand)', fontWeight: 600, margin: 0 }}>📚 提案された本</p>
+          <p style={{ fontSize: 12, color: 'var(--c-brand)', fontWeight: 600, margin: 0 }}>
+            <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+            提案された本
+          </p>
           {recs.map((b, i) => (
             <RecommendationCard
               key={`${b.title}-${i}`}
@@ -452,7 +501,8 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             minHeight: 44,
           }}
         >
-          💬 この会話を続ける
+          <MessageSquare size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+          この会話を続ける
         </button>
         <button
           type="button"
@@ -472,7 +522,8 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             minHeight: 44,
           }}
         >
-          🆕 新しい会話を始める
+          <Plus size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+          新しい会話を始める
         </button>
       </div>
     </div>

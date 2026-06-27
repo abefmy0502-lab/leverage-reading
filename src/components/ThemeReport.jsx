@@ -29,7 +29,7 @@ import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
 import PullToRefresh from './PullToRefresh';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
-import { BarChart3, Sparkles, Square } from 'lucide-react';
+import { BarChart3, Sparkles, Square, History, Trash2, RotateCw, Inbox, AlertTriangle, Ruler, TrendingUp, Target, Copy, RefreshCw, Pin, Pencil, CheckCircle2, Square as SquareIcon } from 'lucide-react';
 
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
 const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' };
@@ -408,11 +408,11 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
         aria-label="テーマレポートの表示切替"
       >
         <button style={pill(view === 'create')} onClick={() => setView('create')} role="tab" aria-selected={view === 'create'}>
-          📊 作成
+          <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />作成
         </button>
         {historyAvailable && (
           <button style={pill(view === 'history')} onClick={() => setView('history')} role="tab" aria-selected={view === 'history'}>
-            🕒 履歴{history.length > 0 ? `（${history.length}）` : ''}
+            <History size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />履歴{history.length > 0 ? `（${history.length}）` : ''}
           </button>
         )}
       </div>
@@ -422,7 +422,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
           <div style={viewScroll}>
             {history.length === 0 ? (
               <EmptyState
-                icon="🕒"
+                icon={<History size={40} aria-hidden="true" />}
                 title="まだレバレッジメモがありません"
                 description="「📊 作成」からテーマを選んでレバレッジメモを作ると、ここに保存されていきます。"
               />
@@ -435,7 +435,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                       style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
                     >
                       <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        📊 {row.theme}
+                        <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />{row.theme}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--c-ink-2)', marginTop: 2 }}>{fmtDate(row.generated_at)}</div>
                     </button>
@@ -444,7 +444,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                       style={{ ...btnGhost, minHeight: 36, padding: '6px 10px', color: 'var(--c-critical)', borderColor: '#e0cabf' }}
                       aria-label={`「${row.theme}」のレポートを削除`}
                     >
-                      🗑
+                      <Trash2 size={15} aria-hidden="true" />
                     </button>
                   </div>
                 ))}
@@ -480,14 +480,14 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                     <Square size={13} aria-hidden="true" /> {aborting ? '中止中…' : '中止'}
                   </button>
                 ) : (
-                  <button onClick={resetToPicker} style={btnGhost} aria-label="テーマ選択に戻る">🔄 別のテーマ</button>
+                  <button onClick={resetToPicker} style={btnGhost} aria-label="テーマ選択に戻る"><RefreshCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />別のテーマ</button>
                 )}
               </div>
 
               {/* レバレッジメモ + 根拠スコープ */}
               {!notice && (
                 <div style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '-4px 0 2px', letterSpacing: '.02em' }}>
-                  📐 レバレッジメモ
+                  <Ruler size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />レバレッジメモ
                   {scope && (scope.memoTotal > 0 || scope.bookCount > 0) && (
                     <> ・ 本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件を横断</>
                   )}
@@ -506,8 +506,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                     gap: 10,
                   }}
                 >
-                  <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1.5, flex: '0 0 auto' }}>
-                    {noticeKind === 'error' ? '⚠️' : '📭'}
+                  <span aria-hidden="true" style={{ lineHeight: 1.5, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}>
+                    {noticeKind === 'error' ? <AlertTriangle size={18} /> : <Inbox size={18} />}
                   </span>
                   <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: 13, color: 'var(--c-ink-soft)', minWidth: 0 }}>
                     {notice}
@@ -544,7 +544,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
               {!generating && notice && noticeKind === 'error' && activeTheme && (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
                   <button onClick={() => generate(activeTheme)} style={btnPrimary} aria-label={`テーマ「${activeTheme}」でもう一度作成`}>
-                    🔄 もう一度試す
+                    <RefreshCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />もう一度試す
                   </button>
                 </div>
               )}
@@ -567,11 +567,15 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                   }}
                 >
-                  {actionAdded ? '✅ 追加済み ・ 🎯 行動リストで見る →' : actionBusy ? '追加中…' : '✅ この一歩を行動リストに入れる'}
+                  {actionAdded ? (
+                    <><CheckCircle2 size={14} aria-hidden="true" />追加済み ・ <Target size={14} aria-hidden="true" />行動リストで見る →</>
+                  ) : actionBusy ? '追加中…' : (
+                    <><CheckCircle2 size={14} aria-hidden="true" />この一歩を行動リストに入れる</>
+                  )}
                 </button>
                 {!actionAdded && (
                   <p style={{ fontSize: 10.5, color: 'var(--c-ink-3)', margin: '-4px 2px 0', lineHeight: 1.5 }}>
-                    追加先は「振り返り」タブ →「🎯 行動」（最も関連が深い本に紐づきます）
+                    追加先は「振り返り」タブ →「<Target size={11} aria-hidden="true" style={{ verticalAlign: '-1px' }} /> 行動」（最も関連が深い本に紐づきます）
                   </p>
                 )}
                 </>
@@ -586,7 +590,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
               {!generating && !notice && reportText && delta && (
                 <div style={{ ...card, padding: '12px 14px' }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--c-ink)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    📈 前回からの変化
+                    <TrendingUp size={14} aria-hidden="true" />前回からの変化
                     {delta.at && <span style={{ fontWeight: 500, color: 'var(--c-ink-3)', fontSize: 10.5 }}>（前回 {fmtDate(delta.at)}）</span>}
                   </div>
                   <div style={{ fontSize: 12.5, color: 'var(--c-ink-2)', lineHeight: 1.6 }}>
@@ -605,15 +609,15 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
               {!generating && !notice && reportText && (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
                   <button onClick={copyReport} style={btnGhost} aria-label="レバレッジメモをクリップボードにコピー">
-                    📋 コピー
+                    <Copy size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />コピー
                   </button>
                   {historyAvailable && (
                     <button onClick={() => setView('history')} style={btnGhost} aria-label="保存済みのレバレッジメモ履歴を見る">
-                      🕒 履歴
+                      <History size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />履歴
                     </button>
                   )}
                   <button onClick={resetToPicker} style={btnPrimary} aria-label="別のテーマでレバレッジメモを作成">
-                    🔄 別のテーマで作る
+                    <RefreshCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />別のテーマで作る
                   </button>
                 </div>
               )}
@@ -649,7 +653,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
       {/* detected theme chips */}
       <div>
         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-soft)', margin: '0 0 8px' }}>
-          📌 あなたのメモから見つけたテーマ
+          <Pin size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />あなたのメモから見つけたテーマ
           {!themesLoading && themes.length > 0 && (
             <span style={{ fontWeight: 500, color: 'var(--c-ink-2)' }}>（{themes.length}）</span>
           )}
@@ -720,7 +724,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
       {/* free-text theme */}
       <div style={card}>
         <label htmlFor="theme-custom" style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-soft)', display: 'block', marginBottom: 8 }}>
-          ✏️ テーマを自分で入力
+          <Pencil size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />テーマを自分で入力
         </label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input
@@ -744,7 +748,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             disabled={!canGenerate}
             style={{ ...btnPrimary, opacity: canGenerate ? 1 : 0.5, cursor: canGenerate ? 'pointer' : 'default' }}
           >
-            📊 作成
+            <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />作成
           </button>
         </div>
         <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.6 }}>
@@ -791,7 +795,7 @@ function ActionMirror({ stats, memoTotal }) {
   return (
     <div style={{ ...card, padding: '14px 15px 15px' }}>
       <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 7, color: 'var(--c-ink)' }}>
-        🎯 行動の鏡
+        <Target size={15} aria-hidden="true" />行動の鏡
       </h3>
       <div style={{ display: 'flex', gap: 8, marginBottom: declared > 0 || blindSpot ? 12 : 0 }}>
         {statBox(declared, '宣言した行動', 'var(--c-ink)')}
@@ -800,14 +804,14 @@ function ActionMirror({ stats, memoTotal }) {
       </div>
       {declared === 0 ? (
         <div style={{ background: 'var(--c-critical-soft)', border: '1px solid var(--c-critical-line)', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
-          <span style={{ fontSize: 16, lineHeight: 1.4, flex: '0 0 auto' }} aria-hidden="true">⚠️</span>
+          <span style={{ lineHeight: 1.4, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><AlertTriangle size={16} /></span>
           <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#6e4a3c' }}>
             このテーマに紐づく行動が<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>まだ0件</b>。学びを、まず1つだけ行動に落としましょう。
           </div>
         </div>
       ) : blindSpot ? (
         <div style={{ background: 'var(--c-critical-soft)', border: '1px solid var(--c-critical-line)', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
-          <span style={{ fontSize: 16, lineHeight: 1.4, flex: '0 0 auto' }} aria-hidden="true">⚠️</span>
+          <span style={{ lineHeight: 1.4, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><AlertTriangle size={16} /></span>
           <div style={{ fontSize: 12.5, lineHeight: 1.65, color: '#6e4a3c' }}>
             メモは<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>{memoTotal}件</b>あるのに、完了した行動は<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>0件</b>。学びが行動に変わっていません。
           </div>
@@ -818,18 +822,18 @@ function ActionMirror({ stats, memoTotal }) {
       {openSteps.length > 0 && (
         <div style={{ marginTop: 11 }}>
           <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--c-critical)', letterSpacing: '.06em', margin: '0 0 6px' }}>
-            🔸 まだやれていない一歩
+            <AlertTriangle size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />まだやれていない一歩
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {openSteps.map((s, i) => (
               <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12.5, lineHeight: 1.55, color: 'var(--c-ink-soft)' }}>
-                <span aria-hidden="true" style={{ color: '#c08a6a', flexShrink: 0, marginTop: 1 }}>□</span>
+                <span aria-hidden="true" style={{ color: '#c08a6a', flexShrink: 0, marginTop: 1, display: 'inline-flex' }}><SquareIcon size={13} /></span>
                 <span style={{ minWidth: 0 }}>{s}</span>
               </div>
             ))}
           </div>
           <p style={{ fontSize: 10.5, color: '#9a8c74', margin: '7px 0 0', lineHeight: 1.5 }}>
-            🎯 行動タブで完了にすると、ここから消えます。
+            <Target size={11} aria-hidden="true" style={{ verticalAlign: '-1px', marginRight: 4 }} />行動タブで完了にすると、ここから消えます。
           </p>
         </div>
       )}
@@ -842,7 +846,7 @@ function RecallBanner({ busy, done, onSet }) {
   return (
     <div style={{ background: 'linear-gradient(135deg,#efe7d6,#f5efe2)', border: '1px solid var(--c-hairline-strong)', borderRadius: 16, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-        <span style={{ fontSize: 21, lineHeight: 1.2, flex: '0 0 auto' }} aria-hidden="true">🔄</span>
+        <span style={{ lineHeight: 1.2, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><RotateCw size={21} /></span>
         <div style={{ fontSize: 12.5, lineHeight: 1.7, color: '#5b4f3c' }}>
           <b style={{ color: 'var(--c-ink)', fontWeight: 800 }}>このメモは、読んで終わりにしません。</b><br />
           核心を <b style={{ color: 'var(--c-ink)' }}>振り返りタブ</b> と <b style={{ color: 'var(--c-ink)' }}>想起通知</b> に乗せると、忘れた頃にそっと戻ってきて、無意識に動けるまで体に入れます。
@@ -862,7 +866,11 @@ function RecallBanner({ busy, done, onSet }) {
           opacity: busy ? 0.6 : 1,
         }}
       >
-        {done ? '🔄 想起ループにセット済み ✓' : busy ? 'セット中…' : '🔄 想起ループにセット'}
+        {done ? (
+          <><RotateCw size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />想起ループにセット済み ✓</>
+        ) : busy ? 'セット中…' : (
+          <><RotateCw size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />想起ループにセット</>
+        )}
       </button>
     </div>
   );

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
+import { BookOpen } from 'lucide-react';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
@@ -249,7 +250,8 @@ export default function QuickMemoSheet({
                 whiteSpace: 'nowrap',
               }}
             >
-              📚 {bookTitle || '本'}
+              <BookOpen size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+              {bookTitle || '本'}
             </p>
           </div>
         </div>

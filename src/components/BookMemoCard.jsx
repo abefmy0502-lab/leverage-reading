@@ -3,7 +3,7 @@ import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
 import SwipeableCard from './SwipeableCard';
-import { MoreVertical } from 'lucide-react';
+import { MoreVertical, Image } from 'lucide-react';
 
 const cardWrap = {
   position: 'relative',
@@ -209,7 +209,8 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
                 onShare(memo);
               }}
             >
-              🖼 画像で共有
+              <Image size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+              画像で共有
             </button>
           )}
           <button

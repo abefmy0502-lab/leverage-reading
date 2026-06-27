@@ -17,6 +17,8 @@ import {
   SearchX as IcSearchX, NotebookText as IcNote, Target as IcTarget, Brain as IcBrain,
   Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
   Lightbulb as IcBulb, MessageSquarePlus as IcNewChat,
+  BookOpen as IcBook, Map as IcMap, Zap as IcZap, RefreshCw as IcRefresh, Bot as IcBot,
+  CheckCircle2 as IcCheck,
 } from 'lucide-react';
 
 // サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
@@ -245,7 +247,7 @@ function BookResultCard({ book, onSelect }) {
         {book.isbn && <div style={{ fontSize: 10, color: '#b5aa96', marginTop: 3 }}>🔢 ISBN: {book.isbn}</div>}
       </div>
       <span style={{ fontSize: 11, color: 'var(--c-brand)', alignSelf: 'center', whiteSpace: 'nowrap', padding: '4px 8px', border: '1px solid var(--c-hairline-strong)', borderRadius: 6 }}>
-        📚 これを追加
+        <IcPlus size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />これを追加
       </span>
     </button>
   );
@@ -326,7 +328,10 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 500, color: 'var(--c-ink)' }}>🔍 本を検索</h3>
+        <h3 style={{ fontSize: 16, fontWeight: 500, color: 'var(--c-ink)' }}>
+          <IcSearch size={16} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+          本を検索
+        </h3>
         <button onClick={onClose} style={closeBtn} aria-label="閉じる">×</button>
       </div>
 
@@ -428,7 +433,10 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
 
       {suggestions.length > 0 && !searching && (
         <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline)', borderRadius: 10, padding: '10px 12px' }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 6px' }}>💡 もしかしてこの本？</p>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 6px' }}>
+            <IcBulb size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+            もしかしてこの本？
+          </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {suggestions.map((b, i) => (
               <BookResultCard key={`sug-${i}`} book={b} onSelect={onSelect} />
@@ -856,7 +864,7 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
 
   return (
     <div>
-      <p style={phaseDesc}>📖 読みたい本を登録しましょう</p>
+      <p style={phaseDesc}><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読みたい本を登録しましょう</p>
       <button onClick={onSearchOpen} style={{ ...btnO, width: "100%", padding: "14px 0", borderStyle: "dashed", fontSize: 14, marginBottom: 12 }}>
         🔍 タイトル・ISBNで検索して登録
       </button>
@@ -960,13 +968,13 @@ function BeforePhase({
 
   return (
     <div>
-      <p style={phaseDesc}>📐 読む前に、投資目的を決めましょう</p>
+      <p style={phaseDesc}><IcRuler size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読む前に、投資目的を決めましょう</p>
 
       <Field label="読書開始日">
         <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={inp} />
       </Field>
 
-      <SectionHeader icon="🔍" title="AI本の解析" />
+      <SectionHeader icon={<IcSearch size={16} />} title="AI本の解析" />
       <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>ボタンを押すとAIが本の核心・構造・著者の視点を分析します</p>
       <button onClick={onRunAnalysis} disabled={!form.title.trim() || aiLoading} style={{ ...aiB, opacity: !form.title.trim() || aiLoading ? 0.5 : 1 }}>
         {aiLoading && !form.aiAnalysis ? "分析中..." : "🔍 AIで本を解析する"}
@@ -988,7 +996,7 @@ function BeforePhase({
 
       {form.aiAnalysis && (
         <>
-          <SectionHeader icon="🗺️" title="読書戦略の作成" />
+          <SectionHeader icon={<IcMap size={16} />} title="読書戦略の作成" />
           {/* AI 選書から構造化要約 / source_query を引き継ぎ済みなら、ユーザーが
               「あれ、なんで既に文字が入ってるの？」と戸惑わないように
               バナーで明示する。bookReason があれば「会話を要約しました」、
@@ -1009,7 +1017,7 @@ function BeforePhase({
                 gap: 6,
               }}
             >
-              <span aria-hidden="true">💡</span>
+              <IcBulb size={14} aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }} />
               <span>
                 {form.bookReason
                   ? 'AI 選書で話した内容を元に、AI が読書計画を作成しました。編集して自分の言葉に直すと、より効果的です。'
@@ -1082,7 +1090,8 @@ function BeforePhase({
               }}
             >
               <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-brand)', margin: 0 }}>
-                🤖 AI の選書理由
+                <IcBot size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+                AI の選書理由
               </p>
               <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.7, margin: '6px 0 4px', whiteSpace: 'pre-wrap' }}>
                 {form.bookReason}
@@ -1206,7 +1215,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
   // UI には出さない。データ列は dormant（復活は容易・既存値は保持）。
   return (
     <div>
-      <p style={phaseDesc}>📖 読書中のインプットを記録しましょう</p>
+      <p style={phaseDesc}><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読書中のインプットを記録しましょう</p>
 
       {form.aiStrategy && (
         <div style={{ background: "var(--c-soft)", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
@@ -1248,7 +1257,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
 
   return (
     <div>
-      <p style={phaseDesc}>✅ 読み終えて、振り返りましょう</p>
+      <p style={phaseDesc}><IcCheck size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読み終えて、振り返りましょう</p>
 
       <Field label="読書完了日">
         <input type="date" value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={inp} />
@@ -1262,10 +1271,10 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
 
       {form.leverageMemo?.trim() && (
         <>
-          <SectionHeader icon="🤖" title="AIメモ要約" />
+          <SectionHeader icon={<IcBot size={16} />} title="AIメモ要約" />
           <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>まとめメモをAIが3〜5個のポイントに凝縮します</p>
           <button onClick={onRunSummary} disabled={aiLoading} style={{ ...aiB, opacity: aiLoading ? 0.5 : 1 }}>
-            {aiLoading ? "要約中..." : "🤖 AIでメモを要約・整理"}
+            {aiLoading ? "要約中..." : (<><IcBot size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />AIでメモを要約・整理</>)}
           </button>
           {aiLoading && <Dots />}
           {form.aiSummary && (
@@ -1282,7 +1291,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
         </>
       )}
 
-      <SectionHeader icon="⚡" title="次の 1 週間でやる行動" />
+      <SectionHeader icon={<IcZap size={16} />} title="次の 1 週間でやる行動" />
       <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>本を読みっぱなしにしないために、具体的な行動を 1〜3 つ書きましょう。</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {(form.actions || []).map((a, i) => (
@@ -1298,7 +1307,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
             </div>
             {/* 優先度 chips */}
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}>🎯 優先度</span>
+              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}><Target size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />優先度</span>
               {[
                 { key: 'high', label: '🔴 高', bg: '#FFEBEE', fg: '#C62828' },
                 { key: 'medium', label: '🟡 中', bg: '#FFF3E0', fg: '#E65100' },
@@ -2207,7 +2216,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
       {recoLoading && (
         <div style={advisorWizardCard}>
           <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
-            📚 あなたにぴったりの本を選んでいます…
+<IcSparkles size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />あなたにぴったりの本を選んでいます…
           </p>
           <div className="ai-skeleton" aria-label="本を選んでいます" style={{ marginTop: 12 }}>
             <div className="ai-skeleton-line" style={{ width: '90%' }} />
@@ -2226,7 +2235,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             onClick={resetToConcern}
             style={{ ...btnO, padding: '10px 0', fontSize: 12, marginTop: 12 }}
           >
-            🔄 もう一度はじめから
+            <IcRefresh size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+            もう一度はじめから
           </button>
         </div>
       )}
@@ -2323,7 +2333,9 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     }}
                     style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid var(--c-hairline-strong)", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "var(--c-brand)", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(92,74,46,0.18)' }}
                   >
-                    {addedTitles.has(rec.title) ? '✅ 追加済み' : '📚 読みたい'}
+                    {addedTitles.has(rec.title)
+                      ? (<><IcCheck size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />追加済み</>)
+                      : (<><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読みたい</>)}
                   </button>
                 </div>
               </div>
@@ -2336,7 +2348,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
             </small>
             <button onClick={resetToConcern}
               style={{ ...btnO, padding: "10px 0", fontSize: 12 }}>
-              🔄 別の条件で探す
+              <IcRefresh size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+              別の条件で探す
             </button>
           </div>
         )}
@@ -4382,11 +4395,12 @@ function AuthedApp() {
           {(current.aiAnalysis || current.aiStrategy) && (
             <details style={{ marginTop: 12, background: "var(--c-card)", border: "1px solid var(--c-hairline)", borderRadius: 10, padding: "10px 12px" }}>
               <summary style={{ fontSize: 13, fontWeight: 600, color: "var(--c-brand)", cursor: "pointer", listStyle: "none" }}>
-                🤖 AI 解析 / 読書計画
+                <IcBot size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+                AI 解析 / 読書計画
               </summary>
               {current.aiAnalysis && (
                 <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}>🔍 AI 本の解析</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}><IcSearch size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />AI 本の解析</p>
                   <MarkdownSections
                     text={current.aiAnalysis}
                     onAddRelatedBook={addRelatedBookFromAi}
@@ -4396,7 +4410,7 @@ function AuthedApp() {
               )}
               {current.aiStrategy && (
                 <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}>🗺️ 読書計画シート</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}><IcMap size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読書計画シート</p>
                   <MarkdownSections
                     text={current.aiStrategy}
                     onAddRelatedBook={addRelatedBookFromAi}
@@ -4411,7 +4425,7 @@ function AuthedApp() {
 
           {(current.status === "reading" || current.status === "done") ? (
             <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}>📝 まとめメモ</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}><IcNote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />まとめメモ</p>
               <BookMemoList
                 bookId={current.id}
                 bookTitle={current.title}

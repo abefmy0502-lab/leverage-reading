@@ -13,6 +13,7 @@
 //   'error'     : 検索エラー（リトライ可能）
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Library, Search, Camera, Pencil, AlertTriangle, RefreshCw, ChevronDown, Lightbulb, Check } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
 import { searchBooksAdvanced } from '../lib/bookSearch';
@@ -198,7 +199,7 @@ function ResultCard({ book, onPick, existing, statusLabel }) {
               fontWeight: 600,
             }}
           >
-            ✅ 追加済み（{statusLabel || '本棚'}）— タップで開く
+            <Check size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />追加済み（{statusLabel || '本棚'}）— タップで開く
           </div>
         )}
       </div>
@@ -460,7 +461,7 @@ function BarcodeScanner({ onDetect, onClose }) {
           color: '#fff',
         }}
       >
-        <span style={{ fontSize: 15, fontWeight: 600, fontFamily: 'inherit' }}>📷 バーコードをスキャン</span>
+        <span style={{ fontSize: 15, fontWeight: 600, fontFamily: 'inherit' }}><Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />バーコードをスキャン</span>
         <button
           type="button"
           onClick={handleClose}
@@ -487,7 +488,7 @@ function BarcodeScanner({ onDetect, onClose }) {
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {scanError ? (
           <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: '#fff', maxWidth: 360 }}>
-            <div aria-hidden="true" style={{ fontSize: 36, marginBottom: 'var(--space-3)' }}>📷</div>
+            <div aria-hidden="true" style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}><Camera size={36} /></div>
             <p role="alert" style={{ fontSize: 14, lineHeight: 1.7, margin: 0, fontFamily: 'inherit' }}>{scanError}</p>
             <button
               type="button"
@@ -677,7 +678,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
         />
       )}
       <div style={headerStyle}>
-        <h2 style={{ fontSize: 16, color: 'var(--color-label)', margin: 0, fontWeight: 600, flex: 1 }}>📚 本を追加</h2>
+        <h2 style={{ fontSize: 16, color: 'var(--color-label)', margin: 0, fontWeight: 600, flex: 1 }}><Library size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />本を追加</h2>
         <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={isSearching} aria-disabled={isSearching}>×</button>
       </div>
 
@@ -740,7 +741,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           disabled={!hasInput || isSearching}
           style={{ ...searchBtnStyle, opacity: !hasInput || isSearching ? 0.5 : 1 }}
         >
-          {isSearching ? '検索中…' : '🔍 検索'}
+          {isSearching ? '検索中…' : (<><Search size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />検索</>)}
         </button>
 
         {/* 📷 バーコードで追加（対応端末のみ）。iOS Safari 等 BarcodeDetector
@@ -752,7 +753,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             disabled={isSearching}
             style={{ ...manualBtnStyle, opacity: isSearching ? 0.5 : 1 }}
           >
-            📷 バーコードで追加
+            <Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />バーコードで追加
           </button>
         )}
 
@@ -766,7 +767,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
               <div style={dividerLine} />
             </div>
             <button type="button" onClick={onManual} style={manualBtnStyle}>
-              📝 検索でヒットしない場合は手動入力
+              <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />検索でヒットしない場合は手動入力
             </button>
           </>
         )}
@@ -777,7 +778,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
 
         {state === 'error' && (
           <div role="alert" style={{ background: 'var(--color-error-soft)', border: '1px solid var(--color-error)', borderLeft: '4px solid var(--color-error)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
-            <p style={{ fontSize: 14, color: 'var(--color-label)', margin: 0, fontWeight: 600 }}>⚠️ 検索でエラーが発生しました</p>
+            <p style={{ fontSize: 14, color: 'var(--color-label)', margin: 0, fontWeight: 600 }}><AlertTriangle size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />検索でエラーが発生しました</p>
             <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '6px 0 10px', lineHeight: 1.7, whiteSpace: 'pre-line' }}>{error}</p>
             <button
               type="button"
@@ -789,21 +790,21 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
                 minHeight: 44,
               }}
             >
-              ↻ もう一度試す
+              <RefreshCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />もう一度試す
             </button>
             <button
               type="button"
               onClick={onManual}
               style={{ ...manualBtnStyle, marginTop: 'var(--space-3)' }}
             >
-              📝 手動で追加する
+              <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />手動で追加する
             </button>
           </div>
         )}
 
         {state === 'notfound' && (
           <div style={{ textAlign: 'center', padding: 'var(--space-4) var(--space-2)' }}>
-            <div aria-hidden="true" style={{ fontSize: 32, marginBottom: 'var(--space-2)' }}>🔍</div>
+            <div aria-hidden="true" style={{ marginBottom: 'var(--space-2)', display: 'flex', justifyContent: 'center' }}><Search size={32} /></div>
             <p style={{ fontSize: 14, color: 'var(--color-label)', margin: 0, fontWeight: 600, lineHeight: 1.6 }}>
               該当する本が見つかりませんでした
             </p>
@@ -816,7 +817,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
               border: 'none', background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
               fontWeight: 700, fontSize: 14, fontFamily: 'inherit', cursor: 'pointer',
             }}>
-              📝 このまま手動で追加する
+              <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />このまま手動で追加する
             </button>
           </div>
         )}
@@ -828,7 +829,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             </p>
             {tooMany && (
               <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: 0 }}>
-                💡 著者や ISBN を追加で絞り込めます
+                <Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />著者や ISBN を追加で絞り込めます
               </p>
             )}
             <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -857,7 +858,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
                   fontWeight: 600,
                 }}
               >
-                ↓ もっと見る（あと {Math.min(DISPLAY_STEP, results.length - visibleCount, MAX_DISPLAY - visibleCount)} 件）
+                <ChevronDown size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />もっと見る（あと {Math.min(DISPLAY_STEP, results.length - visibleCount, MAX_DISPLAY - visibleCount)} 件）
               </button>
             )}
             {!canShowMore && results.length > MAX_DISPLAY && (
@@ -870,7 +871,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
               onClick={onManual}
               style={{ ...manualBtnStyle, marginTop: 'var(--space-3)' }}
             >
-              📝 該当が無ければ手動入力
+              <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />該当が無ければ手動入力
             </button>
           </>
         )}
