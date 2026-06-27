@@ -18,24 +18,48 @@ function cleanIdentifier(s) {
   return (s || '').replace(/[-\s]/g, '').trim();
 }
 
+// 書籍の Amazon ASIN は基本 ISBN-10 と一致する。ISBN-13（978 始まり）は
+// アルゴリズムで ISBN-10 に変換できるので、検索ページではなく商品ページ
+// (/dp/{isbn10}) に直接着地させられる（他の商品が混ざらない）。
+function isbn13to10(isbn13) {
+  const s = cleanIdentifier(isbn13);
+  if (s.length !== 13 || !s.startsWith('978') || !/^\d{13}$/.test(s)) return '';
+  const core = s.slice(3, 12); // 978 の後ろ 9 桁
+  let sum = 0;
+  for (let i = 0; i < 9; i += 1) sum += parseInt(core[i], 10) * (10 - i);
+  const check = (11 - (sum % 11)) % 11;
+  return core + (check === 10 ? 'X' : String(check));
+}
+
+// 与えられた識別子から「商品ページに使える ISBN-10 / ASIN」を返す（無ければ空）。
+function toProductAsin(raw) {
+  const id = cleanIdentifier(raw).toUpperCase();
+  if (!id) return '';
+  if (/^\d{9}[\dX]$/.test(id)) return id;           // 既に ISBN-10（= ASIN）
+  if (id.length === 13) return isbn13to10(id);      // ISBN-13 → ISBN-10（978 のみ）
+  return '';
+}
+
 /**
  * Build the best Amazon link we can for a book.
  *
  * Priority:
- *   1. ASIN  → /dp/{asin}        (direct product page)
- *   2. ISBN  → /s?k={isbn}       (search by ISBN — usually 1 hit, opens product)
- *   3. title → /s?k={title author}
+ *   1. ASIN / ISBN-10 / ISBN-13(978) → /dp/{asin}  (商品ページに直接着地)
+ *   2. ISBN(変換不可: 979 等)        → /s?k={isbn}  (ISBN 検索フォールバック)
+ *   3. title                          → /s?k={title author}
  *
  * `book` only needs `{ asin?, isbn?, title, author? }`.
  */
 export function getAmazonLink(book) {
   if (!book) return AMAZON_BASE;
 
-  const asin = cleanIdentifier(book.asin);
+  // ASIN（明示）→ ISBN-10/13 から導出、の順で「商品ページ直リンク」を狙う。
+  const asin = toProductAsin(book.asin) || toProductAsin(book.isbn);
   if (asin) {
-    return withTag(`${AMAZON_BASE}/dp/${encodeURIComponent(asin)}`);
+    return withTag(`${AMAZON_BASE}/dp/${asin}`);
   }
 
+  // 商品ページにできない ISBN（979 始まり等）だけ ISBN 検索にフォールバック。
   const isbn = cleanIdentifier(book.isbn);
   if (isbn) {
     return withTag(`${AMAZON_BASE}/s?k=${encodeURIComponent(isbn)}`);
