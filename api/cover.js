@@ -226,6 +226,13 @@ export default async function handler(req, res) {
   //    読みに行くので 403 にならず、CSP も許可済み。client が <img> で最終検証する。
   const candidates = isbn ? coverCandidatesFor(isbn) : [];
 
-  res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800');
+  // ⚠️ 失敗（ISBN すら引けなかった空っぽ応答）を長期キャッシュすると、一度
+  //    こけた本が CDN に 7 日間張り付いてしまう。成功（ISBN が取れた）時だけ
+  //    長期キャッシュし、空っぽは短く（次回すぐ再試行できるように）する。
+  if (isbn) {
+    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800');
+  } else {
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60');
+  }
   return res.status(200).json({ cover: cover || '', isbn: isbn || '', candidates });
 }
