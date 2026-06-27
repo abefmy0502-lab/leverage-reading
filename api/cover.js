@@ -136,11 +136,11 @@ function gAuthorMatch(v, wantAuthor) {
     return n && (n.includes(wantAuthor) || wantAuthor.includes(n));
   });
 }
-async function googleFetchVolumes(q) {
+async function googleFetchVolumes(q, max = 10) {
   const key = process.env.GOOGLE_BOOKS_API_KEY ? `&key=${process.env.GOOGLE_BOOKS_API_KEY}` : '';
   try {
     const r = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10&country=JP${key}`,
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=${max}&country=JP${key}`,
     );
     if (!r.ok) return [];
     const d = await r.json();
@@ -150,55 +150,58 @@ async function googleFetchVolumes(q) {
   }
 }
 
+// タイトル照合用の正規化（記号・空白を落とす）。
+function normTitle(s) {
+  return clean(s).replace(/[\s　・･,，、.。:：「」『』\-―ー（）()]/g, '').toLowerCase();
+}
+function gTitleMatch(v, coreNorm) {
+  if (!coreNorm) return false;
+  const t = normTitle(v.title || '');
+  if (!t) return false;
+  return t.includes(coreNorm) || coreNorm.includes(t);
+}
+
 async function googleCover(title, author, isbn) {
   const want = normPerson(author);
   const core = coreTitle(title);
-  // クエリ候補（精度高い順）。
-  //   - ありふれたタイトル（「ナイン」等）はプレーン検索だと無関係な本が上位に
-  //     来るため、まず intitle:/inauthor: のフィールド指定で強制的に絞る。
-  //   - それでも 0 なら、保存タイトルが実書名と違うケース（「SPIN売法」等）に
-  //     備え、inauthor だけ＋プレーン検索でも当てにいく。
-  let queries;
+  const coreNorm = normTitle(core);
+
   if (isbn) {
-    queries = [`isbn:${cleanIsbn(isbn)}`];
-  } else if (author) {
-    queries = [
-      `intitle:${core} inauthor:${clean(author)}`,
-      `inauthor:${clean(author)} ${core}`,
-      `${core} ${clean(author)}`,
-    ];
-  } else {
-    queries = [core];
+    const items = await googleFetchVolumes(`isbn:${cleanIsbn(isbn)}`);
+    for (const v of items) { const f = gVolFields(v); if (f.cover) return f; }
+    return { cover: '', isbn: '' };
+  }
+  if (!author) {
+    const items = await googleFetchVolumes(core);
+    for (const v of items) { const f = gVolFields(v); if (f.cover) return f; }
+    return { cover: '', isbn: '' };
   }
 
-  for (const q of queries) {
+  // 著者あり: 精度順にクエリを試す。日本語の短いタイトルは intitle が空振り
+  // しやすいので、最終的に「著者で広く引いてタイトルで絞る」を効かせる。
+  //   { q, max, needTitle } — needTitle=true は、その query 結果で
+  //   著者一致だけでなくタイトル照合も要求する（別の著作を誤採用しないため）。
+  const plans = [
+    { q: `intitle:${core} inauthor:${clean(author)}`, max: 10, needTitle: false },
+    { q: `${core} ${clean(author)}`, max: 20, needTitle: true },
+    { q: `inauthor:${clean(author)}`, max: 40, needTitle: true },
+  ];
+
+  let isbnOnly = '';
+  for (const plan of plans) {
     // eslint-disable-next-line no-await-in-loop
-    const items = await googleFetchVolumes(q);
-    if (want) {
-      // ① 著者一致＋表紙あり
-      for (const v of items) {
-        if (gAuthorMatch(v, want)) {
-          const f = gVolFields(v);
-          if (f.cover) return f;
-        }
-      }
-      // ② 著者一致だけ（表紙は無いが ISBN は正しい → 候補構築に使える）
-      for (const v of items) {
-        if (gAuthorMatch(v, want)) {
-          const f = gVolFields(v);
-          if (f.isbn) return { cover: '', isbn: f.isbn };
-        }
-      }
-      // この query で著者一致が無ければ次の query へ（誤表紙は採らない）。
-    } else {
-      // 著者不明（ISBN 直引き等）は先頭の表紙ありを採用。
-      for (const v of items) {
-        const f = gVolFields(v);
-        if (f.cover) return f;
-      }
+    const items = await googleFetchVolumes(plan.q, plan.max);
+    const ok = (v) => gAuthorMatch(v, want) && (!plan.needTitle || gTitleMatch(v, coreNorm));
+    // ① 一致＋表紙あり
+    for (const v of items) {
+      if (ok(v)) { const f = gVolFields(v); if (f.cover) return f; }
+    }
+    // ② 一致だけ（表紙無し・ISBN は正しい → 候補構築に回す）
+    for (const v of items) {
+      if (ok(v)) { const f = gVolFields(v); if (f.isbn && !isbnOnly) isbnOnly = f.isbn; }
     }
   }
-  return { cover: '', isbn: '' };
+  return { cover: '', isbn: isbnOnly };
 }
 
 // 一部の書影 CDN（NDL / Amazon）はデータセンター IP からの素の fetch を
@@ -295,16 +298,15 @@ export default async function handler(req, res) {
     try { dbg.steps.ndlFinal = await ndlIsbns(title, author); } catch (e) { dbg.steps.ndlFinalError = String(e && e.message); }
     // 実 production と同じ著者照合つき googleCover() の結果。
     try { dbg.steps.googleCover = await googleCover(title, author, ''); } catch (e) { dbg.steps.googleCoverError = String(e && e.message); }
-    // 生の Google 上位5件（著者照合がなぜ当たる/外れるかを目視するため）。
-    // 実 production の第一クエリ（intitle:/inauthor:）と同じものを表示する。
+    // 著者で広く引いた時の上位（ナインが重松清の本として Google に在るか確認）。
     try {
-      const gq = author ? `intitle:${coreTitle(title)} inauthor:${author}` : coreTitle(title);
-      const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gq)}&maxResults=5&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`);
+      const gq = author ? `inauthor:${author}` : coreTitle(title);
+      const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gq)}&maxResults=20&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`);
       const gj = gr.ok ? await gr.json() : null;
       dbg.steps.google = {
         q: gq, status: gr.status, ok: gr.ok, hasKey: !!process.env.GOOGLE_BOOKS_API_KEY,
         totalItems: gj ? (gj.totalItems || 0) : null,
-        top: (gj && gj.items ? gj.items.slice(0, 5) : []).map((it) => ({
+        top: (gj && gj.items ? gj.items.slice(0, 20) : []).map((it) => ({
           title: it.volumeInfo?.title || null,
           authors: it.volumeInfo?.authors || [],
           hasThumb: !!(it.volumeInfo?.imageLinks),
