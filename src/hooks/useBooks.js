@@ -34,10 +34,21 @@ const transformAction = (a) => ({
   scheduledFor: a.scheduled_for || null,
 });
 
+// 本のリレーション select。フォルダ（book_collections）は任意機能なので、
+// テーブル未作成（マイグレーション未適用）の DB では relation エラーになる。
+// その場合は withCollections=false の素の select に段階縮退する。
+const BOOK_SELECT_FULL = '*, book_tags(tag_name), book_collections(collection_name), actions(*)';
+const BOOK_SELECT_BASE = '*, book_tags(tag_name), actions(*)';
+const isMissingRelationError = (err) => {
+  const m = (err?.message || '').toLowerCase();
+  return m.includes('book_collections') || m.includes('does not exist') || m.includes('relationship') || err?.code === '42P01' || err?.code === 'PGRST200';
+};
+
 const transformBook = (book) => ({
   ...book,
   cover: toHttps(book.cover),
   tags: (book.book_tags || []).map((t) => t.tag_name),
+  collections: (book.book_collections || []).map((c) => c.collection_name),
   actions: [...(book.actions || [])]
     .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
     .map(transformAction),
@@ -86,11 +97,19 @@ export function useBooks() {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('books')
-        .select('*, book_tags(tag_name), actions(*)')
+        .select(BOOK_SELECT_FULL)
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
+      // フォルダ未適用 DB（book_collections なし）では base select に縮退。
+      if (error && isMissingRelationError(error)) {
+        ({ data, error } = await supabase
+          .from('books')
+          .select(BOOK_SELECT_BASE)
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false }));
+      }
       if (error) throw error;
       setBooks((data || []).map(transformBook));
     } catch (error) {
@@ -263,6 +282,27 @@ export function useBooks() {
         if (error) throw error;
       }
 
+      // Collections (フォルダ): タグと同じ delete + re-insert パターン。任意機能
+      // のため、テーブル未作成の DB では schema-error を握りつぶして保存を続行
+      // （フォルダ未適用でも本の保存は壊さない）。
+      if (book.collections !== undefined) {
+        try {
+          await supabase.from('book_collections').delete().eq('book_id', savedBookId);
+          const cols = (book.collections || []).map((c) => (c || '').trim()).filter(Boolean);
+          if (cols.length > 0) {
+            const colInserts = cols.map((name) => ({
+              book_id: savedBookId,
+              user_id: user.id,
+              collection_name: name,
+            }));
+            const { error } = await supabase.from('book_collections').insert(colInserts);
+            if (error && !isMissingRelationError(error)) throw error;
+          }
+        } catch (e) {
+          if (!isMissingRelationError(e)) throw e;
+        }
+      }
+
       // Actions: upsert by id, then delete removed rows.
       // 完全重複（同じ文言・期限・完了状態・繰り返し）を保存前に畳む。繰り返し
       // タスクの多重 spawn などでできた重複行を、保存のたびに 1 件へ収束させて
@@ -358,12 +398,19 @@ export function useBooks() {
         if (res.error) throw res.error;
       }
 
-      // Fetch fresh row with relations to return
-      const { data: freshRow, error: freshErr } = await supabase
+      // Fetch fresh row with relations to return（フォルダ未適用 DB では縮退）
+      let { data: freshRow, error: freshErr } = await supabase
         .from('books')
-        .select('*, book_tags(tag_name), actions(*)')
+        .select(BOOK_SELECT_FULL)
         .eq('id', savedBookId)
         .single();
+      if (freshErr && isMissingRelationError(freshErr)) {
+        ({ data: freshRow, error: freshErr } = await supabase
+          .from('books')
+          .select(BOOK_SELECT_BASE)
+          .eq('id', savedBookId)
+          .single());
+      }
       if (freshErr) throw freshErr;
 
       const savedBook = transformBook(freshRow);

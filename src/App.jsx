@@ -19,7 +19,7 @@ import {
   Lightbulb as IcBulb, MessageSquarePlus as IcNewChat,
   BookOpen as IcBook, Map as IcMap, Zap as IcZap, RefreshCw as IcRefresh, Bot as IcBot,
   CheckCircle2 as IcCheck, BarChart3 as IcBar, AlertTriangle as IcAlert, CalendarDays as IcCal,
-  SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar,
+  SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar, Folder as IcFolder,
 } from 'lucide-react';
 
 // サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
@@ -828,7 +828,7 @@ function SectionHeader({ icon, title }) {
 /* ========== Data ========== */
 const emptyBook = () => ({
   id: "", title: "", author: "", cover: "", rating: 0, status: "want",
-  startDate: "", doneDate: "", tags: [], currentPage: 0, totalPages: 0,
+  startDate: "", doneDate: "", tags: [], collections: [], currentPage: 0, totalPages: 0,
   investPurpose: "", aiAnalysis: "", aiStrategy: "",
   leverageMemo: "", aiSummary: "",
   actions: [], roiSummary: "",
@@ -857,7 +857,7 @@ const emptyBook = () => ({
 /* ========== Phase Screens ========== */
 
 // Phase 1: 読みたい → just register
-function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
+function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFolders }) {
   const fileInputRef = useRef(null);
   const { uploadCover } = useBookCover();
   const toast = useToast();
@@ -955,6 +955,9 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags }) {
       </div>
       <Field label="タグ">
         <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
+      </Field>
+      <Field label="フォルダ" sub="本棚をグループ分け（任意・複数可）">
+        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} />
       </Field>
       <button onClick={onSave} disabled={!form.title.trim()} style={{ ...btnS, width: "100%", marginTop: 8, opacity: form.title.trim() ? 1 : 0.5 }}>
         保存
@@ -1227,7 +1230,7 @@ const clampPage = (v) => {
   return Math.min(n, 100000);
 };
 
-function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
+function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags, allFolders }) {
   // 📖 読書進捗（ページ管理）は撤去（本田哲学=「作業量の可視化」は成果ではない／
   // 進捗を見て満足する病を生む）。totalPages は書誌メタとして裏で保持するのみで
   // UI には出さない。データ列は dormant（復活は容易・既存値は保持）。
@@ -1257,6 +1260,9 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
       <Field label="タグ">
         <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
       </Field>
+      <Field label="フォルダ" sub="本棚をグループ分け（任意・複数可）">
+        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} />
+      </Field>
 
       <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 8 }}>保存</button>
     </div>
@@ -1264,7 +1270,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags }) {
 }
 
 // Phase 4: 読了（投資回収）
-function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) {
+function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags, allFolders }) {
   const addAction = () => setForm({ ...form, actions: [...(form.actions || []), { text: "", deadline: "", done: false }] });
   const updateAction = (i, key, val) => {
     const a = [...(form.actions || [])];
@@ -1350,6 +1356,9 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
 
       <Field label="タグ">
         <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
+      </Field>
+      <Field label="フォルダ" sub="本棚をグループ分け（任意・複数可）">
+        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} />
       </Field>
 
       <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 8 }}>保存</button>
@@ -2631,6 +2640,7 @@ function AuthedApp() {
   // 「絞り込み / 並び」をボトムシートに隠して本棚をスッキリさせる。
   const [highRatedOnly, setHighRatedOnly] = useState(false); // ★4 以上のみ
   const [tagFilter, setTagFilter] = useState([]);            // 選択タグ（AND ではなく OR）
+  const [folderFilter, setFolderFilter] = useState(null);    // 選択中フォルダ名（null=すべて）
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
   // The "+" button opens this first; from here the user picks the
@@ -4018,6 +4028,7 @@ function AuthedApp() {
     const q = search.trim().toLowerCase();
     const list = books.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      if (folderFilter && !((b.collections || []).includes(folderFilter))) return false;
       if (highRatedOnly && (b.rating || 0) < 4) return false;
       if (tagFilter.length > 0) {
         const bt = (b.tags || []).map((t) => (t || '').toLowerCase());
@@ -4045,7 +4056,7 @@ function AuthedApp() {
       sorted.sort((a, b) => updated(b).localeCompare(updated(a)));
     }
     return sorted;
-  }, [books, statusFilter, search, sortBy, highRatedOnly, tagFilter]);
+  }, [books, statusFilter, search, sortBy, highRatedOnly, tagFilter, folderFilter]);
 
   // 絞り込みシート用: 本に付いた全タグ（出現頻度の高い順、最大 24 個）。
   const availableTags = useMemo(() => {
@@ -4087,6 +4098,17 @@ function AuthedApp() {
   const actionCount = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0), [books]);
   const actionDone = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0), [books]);
   const allTags = useMemo(() => { const s = new Set(); books.forEach((b) => (b.tags || []).forEach((t) => s.add(t))); return [...s]; }, [books]);
+  // フォルダ（コレクション）一覧 — 本に付いた collection 名の集合（冊数つき・名前順）。
+  const allFolders = useMemo(() => {
+    const counts = new Map();
+    books.forEach((b) => (b.collections || []).forEach((c) => { const n = (c || '').trim(); if (n) counts.set(n, (counts.get(n) || 0) + 1); }));
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ja')).map(([name, count]) => ({ name, count }));
+  }, [books]);
+  const folderNames = useMemo(() => allFolders.map((f) => f.name), [allFolders]);
+  // フォルダが空になって消えたら、選択中フィルタを「すべて」に戻す（迷子防止）。
+  useEffect(() => {
+    if (folderFilter && !folderNames.includes(folderFilter)) setFolderFilter(null);
+  }, [folderFilter, folderNames]);
 
   // 🔄 PWA 更新の「安全状態」判定。本棚のリスト画面 + 本棚タブ + どのモーダルも
   // 開いていない時のみ true。ここが true の時だけ UpdateBanner が表示される。
@@ -4816,7 +4838,7 @@ function AuthedApp() {
                 </div>
 
                 {(effectivePhase === "want" || !current) && (
-                  <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={() => setSearchOpen(true)} allTags={allTags} />
+                  <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={() => setSearchOpen(true)} allTags={allTags} allFolders={folderNames} />
                 )}
                 {effectivePhase === "before" && current && (
                   <BeforePhase
@@ -4836,10 +4858,10 @@ function AuthedApp() {
                   />
                 )}
                 {effectivePhase === "reading" && current && (
-                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} allTags={allTags} />
+                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} allTags={allTags} allFolders={folderNames} />
                 )}
                 {effectivePhase === "done" && current && (
-                  <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} allTags={allTags} />
+                  <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} allTags={allTags} allFolders={folderNames} />
                 )}
               </>
             );
@@ -5044,6 +5066,21 @@ function AuthedApp() {
                   <IcPlus size={22} aria-hidden="true" />
                 </button>
               </div>
+              {/* フォルダ行 — フォルダが1つ以上あるときだけ出す（新規ユーザーには
+                  出ず本棚はスッキリのまま）。横スクロールで切替。 */}
+              {folderNames.length > 0 && (
+                <div className="lvg-no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+                  <button type="button" onClick={() => setFolderFilter(null)} style={bookshelfToolbarBtn(folderFilter === null)}>
+                    すべて <span style={{ opacity: 0.7, fontWeight: 500 }}>{rawBooks.length}</span>
+                  </button>
+                  {allFolders.map((f) => (
+                    <button key={f.name} type="button" onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)} style={bookshelfToolbarBtn(folderFilter === f.name)}>
+                      <IcFolder size={13} aria-hidden="true" />
+                      {f.name} <span style={{ opacity: 0.7, fontWeight: 500 }}>{f.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* コンパクトなツールバー — 絞り込み・並びはシートに隠し、本棚を
                   スッキリさせる（本の前に積まれていたピル列＋セレクトを撤去）。 */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
