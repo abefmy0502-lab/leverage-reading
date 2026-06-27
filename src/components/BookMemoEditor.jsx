@@ -7,7 +7,7 @@ import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
-import { BookOpen, Sparkles, Undo2, Camera } from 'lucide-react';
+import { BookOpen, Sparkles, Undo2, Camera, Mic } from 'lucide-react';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -400,6 +400,11 @@ export default function BookMemoEditor({
             style={ta}
             maxLength={LIMITS.memoText}
           />
+          {/* 💡 OS 標準のディクテーションへの導線（自前録音は持たない＝速い・無料・端末内）。 */}
+          <p style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '6px 0 0', fontSize: 11, color: 'var(--c-ink-3)' }}>
+            <Mic size={12} aria-hidden="true" />
+            キーボードの🎤を押すと、話して入力できます
+          </p>
           <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             <PhotoToTextButton
               onText={(t) =>

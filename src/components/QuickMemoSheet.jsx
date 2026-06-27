@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
-import { BookOpen } from 'lucide-react';
+import { condenseMemo } from '../lib/ai';
+import { useToast } from './Toast';
+import { BookOpen, Sparkles, Undo2, Mic } from 'lucide-react';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
@@ -158,8 +160,40 @@ export default function QuickMemoSheet({
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  // ✨ 凝縮（本田流レバレッジメモ化）— 元テキストを保持して「↩ 元に戻す」可能に。
+  const [condensing, setCondensing] = useState(false);
+  const [condensedFrom, setCondensedFrom] = useState(null);
   const textRef = useRef(null);
   const sheetRef = useRef(null);
+  const toast = useToast();
+
+  const handleCondense = async () => {
+    if (condensing) return;
+    const src = text.trim();
+    if (src.replace(/\s/g, '').length < 60) {
+      toast.info('もう少し長いメモで凝縮が活きます。');
+      return;
+    }
+    setCondensing(true);
+    try {
+      const out = await condenseMemo({ text: src });
+      if (out && out.trim() && out.trim() !== src) {
+        setCondensedFrom(text); // 元に戻せるよう保持
+        setText(out.trim());
+        toast.success('本質だけに凝縮しました。');
+      } else {
+        toast.error('うまく凝縮できませんでした。少し時間をおいて再度お試しください。');
+      }
+    } finally {
+      setCondensing(false);
+    }
+  };
+
+  const undoCondense = () => {
+    if (condensedFrom == null) return;
+    setText(condensedFrom);
+    setCondensedFrom(null);
+  };
 
   useEffect(() => {
     // Auto-focus the textarea when the sheet opens.
@@ -289,12 +323,51 @@ export default function QuickMemoSheet({
               style={ta}
               maxLength={LIMITS.memoText}
             />
-            <div style={{ marginTop: 8 }}>
+            {/* 💡 OS 標準のディクテーションへの導線（自前録音は持たない＝速い・無料・端末内）。 */}
+            <p style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '6px 0 0', fontSize: 11, color: 'var(--c-ink-3)' }}>
+              <Mic size={12} aria-hidden="true" />
+              キーボードの🎤を押すと、話して入力できます
+            </p>
+            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
               <PhotoToTextButton
                 onText={(t) =>
                   setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
                 }
               />
+              {/* ✨ 凝縮 — 十分な長さの時だけ出す（話した冗長メモを核心1行へ）。 */}
+              {text.trim().replace(/\s/g, '').length >= 60 && (
+                <button
+                  type="button"
+                  onClick={handleCondense}
+                  disabled={condensing}
+                  aria-label="メモを凝縮する"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40,
+                    padding: '8px 14px', borderRadius: 10, border: '1px solid var(--c-hairline-strong)',
+                    background: 'transparent', color: 'var(--c-brand)', fontSize: 13, fontWeight: 600,
+                    fontFamily: 'inherit', cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1,
+                  }}
+                >
+                  <Sparkles size={14} aria-hidden="true" />
+                  {condensing ? '凝縮中…' : '凝縮'}
+                </button>
+              )}
+              {condensedFrom != null && (
+                <button
+                  type="button"
+                  onClick={undoCondense}
+                  aria-label="凝縮を元に戻す"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 40,
+                    padding: '8px 12px', borderRadius: 10, border: 'none',
+                    background: 'transparent', color: 'var(--c-ink-3)', fontSize: 12, fontWeight: 600,
+                    fontFamily: 'inherit', cursor: 'pointer',
+                  }}
+                >
+                  <Undo2 size={13} aria-hidden="true" />
+                  元に戻す
+                </button>
+              )}
             </div>
           </div>
           {errorMsg && (
