@@ -103,7 +103,8 @@ const checkImageExists = (url) =>
     };
     img.onerror = () => settle(false);
     img.src = url;
-    setTimeout(() => settle(false), 3000);
+    // モバイル回線で実在する表紙を時間切れで取りこぼさないよう 5 秒に延長。
+    setTimeout(() => settle(false), 5000);
   });
 
 /**

@@ -16,7 +16,7 @@
 //   - 永続化は呼び出し側が渡す `saveBook` に任せる。useBooks の cache /
 //     楽観的 UI と整合させるため、生 supabase を直接叩かない。
 
-import { findIsbnCandidates } from './bookSearch';
+import { findIsbnCandidates, findCoverFromGoogleBooks } from './bookSearch';
 import { resolveCoverFromCandidates } from './bookCover';
 
 const triedThisSession = new Set();
@@ -48,18 +48,31 @@ async function processQueue() {
   while (queue.length > 0) {
     const { book, saveBook } = queue.shift();
     try {
-      // eslint-disable-next-line no-await-in-loop
-      const altIsbns = await findIsbnCandidates(book.title, book.author);
-      const ordered = [book.isbn, ...altIsbns].filter(Boolean);
-      if (ordered.length > 0) {
+      let url = '';
+      let coverIsbn = '';
+      // ① Google Books サムネ（ISBN 直引き → タイトル＋著者 → 緩い上位ヒット）。
+      //    ISBN が無い・厳格マッチに漏れる和書でも拾えるので最優先にする。
+      try {
         // eslint-disable-next-line no-await-in-loop
-        const { url, isbn } = await resolveCoverFromCandidates(ordered);
-        if (url) {
-          // useBooks.saveBook を経由することで、全 BookCard の React state が
-          // 自動で更新される (= UI がリアルタイムに表紙ありに切り替わる)。
+        const gb = await findCoverFromGoogleBooks({ title: book.title, author: book.author, isbn: book.isbn });
+        if (gb) { url = gb; coverIsbn = book.isbn || ''; }
+      } catch { /* 次へ */ }
+      // ② ISBN ベース multi-source（NDL / openBD / Open Library / Amazon）。
+      if (!url) {
+        // eslint-disable-next-line no-await-in-loop
+        const altIsbns = await findIsbnCandidates(book.title, book.author);
+        const ordered = [book.isbn, ...altIsbns].filter(Boolean);
+        if (ordered.length > 0) {
           // eslint-disable-next-line no-await-in-loop
-          await saveBook({ ...book, cover: url, coverIsbn: isbn || '' });
+          const r = await resolveCoverFromCandidates(ordered);
+          if (r.url) { url = r.url; coverIsbn = r.isbn || ''; }
         }
+      }
+      if (url) {
+        // useBooks.saveBook を経由することで、全 BookCard の React state が
+        // 自動で更新される (= UI がリアルタイムに表紙ありに切り替わる)。
+        // eslint-disable-next-line no-await-in-loop
+        await saveBook({ ...book, cover: url, coverIsbn });
       }
     } catch (e) {
       // 失敗してもユーザーには見せない (UX を壊さない)

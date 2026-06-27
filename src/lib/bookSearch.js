@@ -318,27 +318,31 @@ export async function fetchNewReleases(theme, { signal, max = 12 } = {}) {
     return [];
   }
   const seen = new Set();
-  const out = [];
-  // 異常に未来日付（メタデータ誤り）と、極端に古いものを弾くための緩い窓。
+  const all = [];
+  // 異常に未来日付（メタデータ誤り）だけ弾く緩い窓。新しい和書は Google Books に
+  // 表紙が無いことが多いので「表紙必須」は外す（外さないとテーマによっては 0 件に
+  // なる）。表紙が無い本はクライアント側がプレースホルダ＋追加後に解決する。
   let curYear = 0;
   try { curYear = new Date().getFullYear(); } catch { curYear = 0; }
   for (const i of (d.items || [])) {
     const v = i.volumeInfo || {};
     const title = v.title || '';
-    const cover = v.imageLinks?.thumbnail || '';
-    if (!title || !cover) continue; // 棚に並べるので表紙必須
+    if (!title) continue;
     const key = title.replace(/\s+/g, '').toLowerCase();
     if (seen.has(key)) continue;
     const pubMatch = (v.publishedDate || '').match(/(\d{4})/);
     const year = pubMatch ? parseInt(pubMatch[1], 10) : 0;
-    if (curYear && year && (year > curYear + 1 || year < curYear - 6)) continue;
+    if (curYear && year && year > curYear + 1) continue; // 未来日付の誤データのみ除外
     const ids = v.industryIdentifiers || [];
     const isbn =
       ids.find((x) => x.type === 'ISBN_13')?.identifier ||
       ids.find((x) => x.type === 'ISBN_10')?.identifier ||
       '';
+    // ISBN も表紙も無い本は手がかりが薄い（自費出版の断片等）ので除外。
+    const cover = (v.imageLinks?.thumbnail || '').replace(/^http:/i, 'https:');
+    if (!cover && !isbn) continue;
     seen.add(key);
-    out.push({
+    all.push({
       title,
       author: (v.authors || []).join(', '),
       publisher: v.publisher || '',
@@ -348,9 +352,10 @@ export async function fetchNewReleases(theme, { signal, max = 12 } = {}) {
       pages: v.pageCount || 0,
       isbn,
     });
-    if (out.length >= max) break;
   }
-  return out;
+  // 表紙のある本を前に寄せる（棚の見栄え）。発売日順は元の orderBy=newest を尊重。
+  all.sort((a, b) => (a.cover ? 0 : 1) - (b.cover ? 0 : 1));
+  return all.slice(0, max);
 }
 
 async function lookupISBNGoogle(isbn) {
@@ -904,6 +909,39 @@ export async function findCoverFromGoogleBooks({ title, author, isbn } = {}) {
       }
     } catch (e) {
       console.warn('[findCoverFromGoogleBooks] title/author phase failed:', e?.message || e);
+    }
+  }
+
+  // ── 3: 緩いフォールバック ───────────────────────────────────────────
+  // ユーザーはこの「正確なタイトル」で本を追加している。厳格マッチに漏れても、
+  // タイトル（＋著者）のプレーン検索の上位ヒットはほぼ同一書籍。タイトルが
+  // 十分に被っている最初の thumbnail を採用して取りこぼしを大幅に減らす。
+  if (t) {
+    try {
+      const q = `${t}${a ? ` ${a}` : ''}`.trim();
+      const r = await fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5&country=JP&langRestrict=ja`,
+      );
+      if (r.ok) {
+        const d = await r.json();
+        const norm = (s) => (s || '').replace(/[\s　]+/g, '').toLowerCase();
+        const tn = norm(t);
+        for (const item of d.items || []) {
+          const info = item.volumeInfo || {};
+          const cover = thumbOf(info);
+          if (!cover) continue;
+          const cand = norm(info.title);
+          // タイトルが相互に部分一致すれば同一書籍とみなす（緩め）。
+          if (!tn || cand.includes(tn) || tn.includes(cand)) return cover;
+        }
+        // それでも決まらなければ、最初に thumbnail を持つ本を採用（最終手段）。
+        for (const item of d.items || []) {
+          const cover = thumbOf(item.volumeInfo || {});
+          if (cover) return cover;
+        }
+      }
+    } catch (e) {
+      console.warn('[findCoverFromGoogleBooks] loose phase failed:', e?.message || e);
     }
   }
 

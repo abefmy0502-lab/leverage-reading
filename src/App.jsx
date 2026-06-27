@@ -2126,7 +2126,19 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                 const added = addedTitles.has(b.title);
                 return (
                   <div key={`nr-${i}`} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <img src={ensureHttps(b.cover)} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '3/4', objectFit: 'cover', borderRadius: 8, border: '1px solid var(--c-hairline-strong)' }} />
+                    <div style={{ position: 'relative', width: '100%', aspectRatio: '3/4', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--c-hairline-strong)', background: 'var(--c-soft-2)' }}>
+                      {b.cover ? (
+                        <img
+                          src={ensureHttps(b.cover)}
+                          alt=""
+                          loading="lazy"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'relative', zIndex: 1 }}
+                        />
+                      ) : null}
+                      {/* 表紙が無い / 読み込み失敗時に背面から見えるタイトルプレースホルダ */}
+                      <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8, textAlign: 'center', fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1.35, zIndex: 0 }}>{b.title}</span>
+                    </div>
                     <div style={{ fontSize: 11, color: 'var(--c-ink)', fontWeight: 600, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.title}</div>
                     {b.pubYear && <div style={{ fontSize: 10, color: 'var(--c-ink-3)' }}>{b.pubYear}年</div>}
                     <button
@@ -3612,6 +3624,11 @@ function AuthedApp() {
           if (isStrictMatch(first, { title: rec.title, author: rec.author })) {
             newBook.totalPages = first.pages || 0;
             newBook.isbn = first.isbn || '';
+            // 検索で既に表紙が取れているなら捨てずに採用（取得率を底上げ）。
+            if (first.cover && !newBook.cover) {
+              newBook.cover = first.cover;
+              newBook.coverIsbn = first.isbn ? String(first.isbn).replace(/[-\s]/g, '') : '';
+            }
           } else {
             // eslint-disable-next-line no-console
             console.warn('[add] search top hit not strict match, skipping ISBN:', { recommended: rec.title, got: first.title });
