@@ -228,10 +228,19 @@ export default async function handler(req, res) {
         dbg.steps.openbd = { url: ob, status: obr.status, contentType: obr.headers.get('content-type'), bytes: obuf ? obuf.byteLength : 0 };
       }
     } catch (e) { dbg.steps.ndlError = String(e && e.message); }
+    // 著者照合フォールバック込みの最終 ISBN 候補（実コードと同じ経路）。
+    try { dbg.steps.ndlFinal = await ndlIsbns(title, author); } catch (e) { dbg.steps.ndlFinalError = String(e && e.message); }
     try {
-      const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(coreTitle(title))}&maxResults=2&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`);
+      const gq = `${coreTitle(title)}${author ? ` ${author}` : ''}`;
+      const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gq)}&maxResults=2&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`);
       const gj = gr.ok ? await gr.json() : null;
-      dbg.steps.google = { status: gr.status, ok: gr.ok, hasKey: !!process.env.GOOGLE_BOOKS_API_KEY, totalItems: gj ? (gj.totalItems || 0) : null, firstTitle: gj && gj.items ? (gj.items[0]?.volumeInfo?.title || null) : null };
+      const gv = gj && gj.items ? (gj.items[0]?.volumeInfo || {}) : {};
+      dbg.steps.google = {
+        q: gq, status: gr.status, ok: gr.ok, hasKey: !!process.env.GOOGLE_BOOKS_API_KEY,
+        totalItems: gj ? (gj.totalItems || 0) : null,
+        firstTitle: gv.title || null,
+        firstThumb: (gv.imageLinks && (gv.imageLinks.thumbnail || gv.imageLinks.smallThumbnail)) || null,
+      };
     } catch (e) { dbg.steps.googleError = String(e && e.message); }
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json(dbg);
