@@ -136,19 +136,44 @@ function gAuthorMatch(v, wantAuthor) {
     return n && (n.includes(wantAuthor) || wantAuthor.includes(n));
   });
 }
-async function googleCover(title, author, isbn) {
+async function googleFetchVolumes(q) {
   const key = process.env.GOOGLE_BOOKS_API_KEY ? `&key=${process.env.GOOGLE_BOOKS_API_KEY}` : '';
-  const q = isbn ? `isbn:${cleanIsbn(isbn)}` : `${coreTitle(title)}${author ? ` ${clean(author)}` : ''}`;
-  const want = normPerson(author);
   try {
     const r = await fetch(
       `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=10&country=JP${key}`,
     );
-    if (!r.ok) return { cover: '', isbn: '' };
+    if (!r.ok) return [];
     const d = await r.json();
-    const items = (d.items || []).map((it) => it.volumeInfo || {});
+    return (d.items || []).map((it) => it.volumeInfo || {});
+  } catch {
+    return [];
+  }
+}
 
-    // 著者が分かっている場合は「本人の本」を最優先（誤マッチ防止）。
+async function googleCover(title, author, isbn) {
+  const want = normPerson(author);
+  const core = coreTitle(title);
+  // クエリ候補（精度高い順）。
+  //   - ありふれたタイトル（「ナイン」等）はプレーン検索だと無関係な本が上位に
+  //     来るため、まず intitle:/inauthor: のフィールド指定で強制的に絞る。
+  //   - それでも 0 なら、保存タイトルが実書名と違うケース（「SPIN売法」等）に
+  //     備え、inauthor だけ＋プレーン検索でも当てにいく。
+  let queries;
+  if (isbn) {
+    queries = [`isbn:${cleanIsbn(isbn)}`];
+  } else if (author) {
+    queries = [
+      `intitle:${core} inauthor:${clean(author)}`,
+      `inauthor:${clean(author)} ${core}`,
+      `${core} ${clean(author)}`,
+    ];
+  } else {
+    queries = [core];
+  }
+
+  for (const q of queries) {
+    // eslint-disable-next-line no-await-in-loop
+    const items = await googleFetchVolumes(q);
     if (want) {
       // ① 著者一致＋表紙あり
       for (const v of items) {
@@ -164,16 +189,15 @@ async function googleCover(title, author, isbn) {
           if (f.isbn) return { cover: '', isbn: f.isbn };
         }
       }
-      // 著者一致が皆無 = 別人の本しか無い。誤表紙を避けて空で返す。
-      return { cover: '', isbn: '' };
+      // この query で著者一致が無ければ次の query へ（誤表紙は採らない）。
+    } else {
+      // 著者不明（ISBN 直引き等）は先頭の表紙ありを採用。
+      for (const v of items) {
+        const f = gVolFields(v);
+        if (f.cover) return f;
+      }
     }
-
-    // 著者不明（ISBN 直引き等）は先頭の表紙ありを採用。
-    for (const v of items) {
-      const f = gVolFields(v);
-      if (f.cover) return f;
-    }
-  } catch { /* ignore */ }
+  }
   return { cover: '', isbn: '' };
 }
 
@@ -272,8 +296,9 @@ export default async function handler(req, res) {
     // 実 production と同じ著者照合つき googleCover() の結果。
     try { dbg.steps.googleCover = await googleCover(title, author, ''); } catch (e) { dbg.steps.googleCoverError = String(e && e.message); }
     // 生の Google 上位5件（著者照合がなぜ当たる/外れるかを目視するため）。
+    // 実 production の第一クエリ（intitle:/inauthor:）と同じものを表示する。
     try {
-      const gq = `${coreTitle(title)}${author ? ` ${author}` : ''}`;
+      const gq = author ? `intitle:${coreTitle(title)} inauthor:${author}` : coreTitle(title);
       const gr = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(gq)}&maxResults=5&country=JP${process.env.GOOGLE_BOOKS_API_KEY ? '&key=' + process.env.GOOGLE_BOOKS_API_KEY : ''}`);
       const gj = gr.ok ? await gr.json() : null;
       dbg.steps.google = {
