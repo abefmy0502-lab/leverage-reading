@@ -634,7 +634,7 @@ export default function KnowledgeManager({ onChanged }) {
             { num: counts.current_challenge || 0, Icon: AlertTriangle, label: '現在の課題' },
             { num: counts.hypothesis || 0,        Icon: Lightbulb,     label: '仮説' },
             { num: counts.ai_summary || 0,        Icon: Bot,           label: 'AI まとめ' },
-            { num: counts.roi_summary || 0,       Icon: Gem,           label: '投資の効果' },
+            { num: counts.roi_summary || 0,       Icon: Gem,           label: '一番の収穫' },
             { num: counts.ai_strategy || 0,       Icon: MapIcon,       label: '戦略' },
           ].map((s) => (
             <div

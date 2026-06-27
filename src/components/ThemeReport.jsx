@@ -278,9 +278,9 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
       }
     } catch (e) {
       if (!(controller.signal.aborted || (e && e.name === 'AbortError'))) {
-        toast.error(toMessage(e, 'レポートの作成に失敗しました。'));
+        toast.error(toMessage(e, 'テーマまとめの作成に失敗しました。'));
         setNoticeKind('error');
-        setNotice('レポートの作成に失敗しました。少し時間をおいて再度お試しください。');
+        setNotice('テーマまとめの作成に失敗しました。少し時間をおいて再度お試しください。');
       }
     } finally {
       setStage(null);
@@ -306,11 +306,11 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   }, []);
 
   const copyReport = useCallback(async () => {
-    const text = `【テーマレポート: ${activeTheme}】\n\n${reportText}`;
+    const text = `【テーマまとめ: ${activeTheme}】\n\n${reportText}`;
     try {
       await navigator.clipboard.writeText(text);
       haptic.success();
-      toast.success('レポートをコピーしました');
+      toast.success('テーマまとめをコピーしました');
     } catch {
       toast.error('コピーできませんでした');
     }
@@ -374,8 +374,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
 
   const removeHistory = useCallback(async (row) => {
     const ok = await confirm({
-      title: 'レポートを削除',
-      message: `「${row.theme}」のレポートを削除しますか？`,
+      title: 'テーマまとめを削除',
+      message: `「${row.theme}」のテーマまとめを削除しますか？`,
       confirmLabel: '削除',
       danger: true,
     });
@@ -405,7 +405,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
         className="lvg-no-scrollbar"
         style={{ display: 'flex', gap: 6, padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid #ece5d8', flex: '0 0 auto' }}
         role="tablist"
-        aria-label="テーマレポートの表示切替"
+        aria-label="テーマまとめの表示切替"
       >
         <button style={pill(view === 'create')} onClick={() => setView('create')} role="tab" aria-selected={view === 'create'}>
           <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />作成
@@ -442,7 +442,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                     <button
                       onClick={() => removeHistory(row)}
                       style={{ ...btnGhost, minHeight: 36, padding: '6px 10px', color: 'var(--c-critical)', borderColor: '#e0cabf' }}
-                      aria-label={`「${row.theme}」のレポートを削除`}
+                      aria-label={`「${row.theme}」のテーマまとめを削除`}
                     >
                       <Trash2 size={15} aria-hidden="true" />
                     </button>
@@ -475,7 +475,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                     onClick={stopGeneration}
                     disabled={aborting}
                     style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', gap: 6, opacity: aborting ? 0.6 : 1 }}
-                    aria-label={aborting ? '中止しています' : 'レポート作成を中止'}
+                    aria-label={aborting ? '中止しています' : 'テーマまとめの作成を中止'}
                   >
                     <Square size={13} aria-hidden="true" /> {aborting ? '中止中…' : '中止'}
                   </button>
@@ -678,7 +678,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                 key={t.theme}
                 onClick={() => onGenerate(t.theme)}
                 role="listitem"
-                aria-label={`テーマ「${t.theme}」（メモ ${t.count} 件）でレポートを作成`}
+                aria-label={`テーマ「${t.theme}」（メモ ${t.count} 件）でテーマまとめを作成`}
                 style={{
                   minHeight: 44,
                   padding: '8px 8px 8px 14px',

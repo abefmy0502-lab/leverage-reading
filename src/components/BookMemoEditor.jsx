@@ -417,7 +417,7 @@ export default function BookMemoEditor({
                 type="button"
                 onClick={handleCondense}
                 disabled={condensing}
-                aria-label="メモを3行に凝縮する"
+                aria-label="メモを凝縮する"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40,
                   padding: '8px 14px', borderRadius: 10, border: '1px solid var(--c-hairline-strong)',
@@ -426,7 +426,7 @@ export default function BookMemoEditor({
                 }}
               >
                 <Sparkles size={14} aria-hidden="true" style={{ marginRight: 5 }} />
-                {condensing ? '凝縮中…' : '3行に凝縮'}
+                {condensing ? '凝縮中…' : '凝縮'}
               </button>
             )}
             {condensedFrom != null && (
