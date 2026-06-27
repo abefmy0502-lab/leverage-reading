@@ -2752,6 +2752,9 @@ function AuthedApp() {
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return undefined;
     const onMsg = (event) => {
+      // 念のため: 自分の SW（同一オリジン）以外からの postMessage は無視する
+      // （防御的措置。SW message は本来同一オリジンに限られるが二重防御）。
+      if (event.source && navigator.serviceWorker.controller && event.source !== navigator.serviceWorker.controller) return;
       const data = event.data;
       if (data && data.type === 'recall-navigate') {
         handleRecallDeepLink();

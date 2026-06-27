@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
+import { LIMITS, clamp } from '../lib/limits';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -135,8 +136,10 @@ export function useBooks() {
     try {
       const bookData = {
         user_id: user.id,
-        title: book.title,
-        author: book.author || null,
+        // 保存境界で長さを clamp（AI 自動追加経路は maxLength を通らないため、
+        // ここで防御的に上限をかける）。
+        title: clamp((book.title || '').trim(), LIMITS.bookTitle),
+        author: book.author ? clamp(String(book.author).trim(), LIMITS.bookAuthor) : null,
         cover: toHttps(book.cover) || null,
         status: book.status,
         rating: book.rating || 0,

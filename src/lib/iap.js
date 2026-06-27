@@ -183,7 +183,7 @@ export async function restorePurchases(userId) {
 // iOS のサブスク管理 (解約・プラン変更) は App Store のアカウント設定で行う。
 export async function openManageSubscriptions() {
   try {
-    window.open('https://apps.apple.com/account/subscriptions', '_blank');
+    window.open('https://apps.apple.com/account/subscriptions', '_blank', 'noopener');
   } catch {
     /* noop */
   }

@@ -98,17 +98,26 @@ function readPlan(req) {
   return plan === 'annual' ? 'annual' : 'monthly';
 }
 
-// success_url / cancel_url を組み立てるための origin を、信頼できる
-// リクエストヘッダー（origin → 無ければ host + proto）から導出する。
+// success_url / cancel_url の origin を「許可リスト」で確定する。
+// 以前は req.headers.origin / host を verbatim で使っていたため、
+// Origin: https://evil.com を投げると Stripe 決済後に攻撃者ドメインへ
+// リダイレクトされる（オープンリダイレクト）穴があった。
+// 許可元: APP_ORIGIN（任意・カスタムドメイン用）/ VERCEL_URL（Vercel が
+// サーバー側で注入する自デプロイのホスト＝偽装不可）/ 既知の本番ドメイン。
+// リクエストの Origin が許可リストに無ければ正規 origin にフォールバックする
+// （＝攻撃者ドメインへは絶対に行かせない）。
+function getAllowedOrigins() {
+  const list = [];
+  if (process.env.APP_ORIGIN) list.push(process.env.APP_ORIGIN.replace(/\/+$/, ''));
+  if (process.env.VERCEL_URL) list.push(`https://${process.env.VERCEL_URL}`);
+  list.push('https://leverage-reading.vercel.app');
+  return [...new Set(list)];
+}
 function getOrigin(req) {
-  const origin = req.headers?.origin;
-  if (typeof origin === 'string' && /^https?:\/\//.test(origin)) return origin;
-  const host = req.headers?.host;
-  if (host) {
-    const proto = req.headers?.['x-forwarded-proto'] || 'https';
-    return `${proto}://${host}`;
-  }
-  return null;
+  const allowed = getAllowedOrigins();
+  const reqOrigin = (req.headers?.origin || '').replace(/\/+$/, '');
+  if (reqOrigin && allowed.includes(reqOrigin)) return reqOrigin;
+  return allowed[0] || null;
 }
 
 export default async function handler(req, res) {

@@ -44,15 +44,20 @@ function getBearerToken(req) {
   return token || null;
 }
 
+// return_url の origin を許可リストで確定（Origin/Host の verbatim 利用による
+// オープンリダイレクトを防ぐ）。詳細は api/stripe-checkout.js の同名関数を参照。
+function getAllowedOrigins() {
+  const list = [];
+  if (process.env.APP_ORIGIN) list.push(process.env.APP_ORIGIN.replace(/\/+$/, ''));
+  if (process.env.VERCEL_URL) list.push(`https://${process.env.VERCEL_URL}`);
+  list.push('https://leverage-reading.vercel.app');
+  return [...new Set(list)];
+}
 function getOrigin(req) {
-  const origin = req.headers?.origin;
-  if (typeof origin === 'string' && /^https?:\/\//.test(origin)) return origin;
-  const host = req.headers?.host;
-  if (host) {
-    const proto = req.headers?.['x-forwarded-proto'] || 'https';
-    return `${proto}://${host}`;
-  }
-  return null;
+  const allowed = getAllowedOrigins();
+  const reqOrigin = (req.headers?.origin || '').replace(/\/+$/, '');
+  if (reqOrigin && allowed.includes(reqOrigin)) return reqOrigin;
+  return allowed[0] || null;
 }
 
 export default async function handler(req, res) {
@@ -62,7 +67,9 @@ export default async function handler(req, res) {
 
   const stripe = getStripe();
   if (!stripe) {
-    return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });
+    // どの env が欠けているかをクライアントに漏らさない（詳細はサーバーログのみ）。
+    console.error('[stripe-portal] STRIPE_SECRET_KEY not configured');
+    return res.status(500).json({ error: '決済機能が一時的に利用できません。' });
   }
 
   const token = getBearerToken(req);
@@ -72,7 +79,8 @@ export default async function handler(req, res) {
 
   const supabase = getSupabase();
   if (!supabase) {
-    return res.status(500).json({ error: 'Supabase server credentials not configured' });
+    console.error('[stripe-portal] Supabase server credentials not configured');
+    return res.status(500).json({ error: '決済機能が一時的に利用できません。' });
   }
 
   const { data: userData, error: userError } = await supabase.auth.getUser(token);

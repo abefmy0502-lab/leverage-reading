@@ -11,6 +11,9 @@ const MAX_TOKENS_HARD_CAP = 8192;
 // メッセージの注入）」とみなして 413 で弾く（upstream への過大トークン課金 +
 // メモリ肥大の予防）。Vercel の bodyParser 既定上限とは別の、アプリ層のガード。
 const MAX_BODY_BYTES = 1.5 * 1024 * 1024;
+// 1 リクエストの最大メッセージ数。会話履歴（AI 選書 / マイ読書脳）でも通常 30
+// 前後。汎用 LLM プロキシ悪用で巨大配列を投げられるのを防ぐ安全側の上限。
+const MAX_MESSAGES = 60;
 
 // 許可する Anthropic モデルの allowlist。クライアントは現状 1 モデルしか
 // 使わない（src/lib/ai.js / streamClaude.js の DEFAULT_MODEL）。中継 API が
@@ -264,7 +267,19 @@ export default async function handler(req, res) {
     // モデルを allowlist で矯正（高単価モデルへの差し替え悪用を封じる）。
     const model = ALLOWED_MODELS.has(body.model) ? body.model : DEFAULT_MODEL;
 
-    const payload = { ...body, model, max_tokens: maxTokens };
+    // ★ 想定キーだけを allowlist で再構築する（client body の丸ごと転送をやめる）。
+    // これまでは `{ ...body }` で tools / tool_choice / metadata / stop_sequences /
+    // top_p 等を含む任意のフィールドを Anthropic へ素通ししており、認証済みユーザー
+    // が改ざんクライアントで本 API を「汎用 LLM プロキシ」として悪用できた。
+    // app が実際に送るのは system / messages / temperature / max_tokens / model /
+    // stream のみ（src/lib/streamClaude.js / ai.js）。それ以外は破棄する。
+    const payload = { model, max_tokens: maxTokens };
+    if (wantsStream) payload.stream = true;
+    if (typeof body.system === 'string') payload.system = body.system;
+    if (Array.isArray(body.messages)) payload.messages = body.messages.slice(0, MAX_MESSAGES);
+    if (Number.isFinite(body.temperature)) {
+      payload.temperature = Math.min(1, Math.max(0, body.temperature));
+    }
 
     // クライアント切断時に Anthropic への upstream fetch も打ち切るための
     // AbortController。これが無いと、ユーザーが「中止」して fetch を切っても

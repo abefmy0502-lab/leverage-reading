@@ -32,6 +32,7 @@
 //    `npm run build`（クライアント）には一切影響しない。
 
 import { createClient } from '@supabase/supabase-js';
+import { timingSafeEqual as cryptoTimingSafeEqual } from 'node:crypto';
 
 // ── 想起ロジック（src/lib/recall.js のサーバー版ミラー）─────────────
 // recall.js は ESM・ブラウザ向けなので、ここでは同じアルゴリズムを Node 用に
@@ -189,17 +190,35 @@ function getBearerToken(req) {
   return raw.slice(7).trim() || null;
 }
 
-// 長さ非依存の固定時間比較（タイミング攻撃を避ける）。
+// 固定時間比較（タイミング攻撃を避ける）。標準の crypto.timingSafeEqual を使用
+// （revenuecat-webhook.js の safeEqual と同流儀）。長さ差は早期 return するが、
+// 秘密長の露出はこの用途では許容範囲。
 function timingSafeEqual(a, b) {
-  const sa = String(a == null ? '' : a);
-  const sb = String(b == null ? '' : b);
-  // 長さが違っても早期 return しない。最大長で全文字を走査する。
-  const len = Math.max(sa.length, sb.length);
-  let diff = sa.length ^ sb.length;
-  for (let i = 0; i < len; i += 1) {
-    diff |= (sa.charCodeAt(i) || 0) ^ (sb.charCodeAt(i) || 0);
-  }
-  return diff === 0;
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return cryptoTimingSafeEqual(bufA, bufB);
+}
+
+// 既知のプッシュサービスのホストだけを許可（SSRF 防御）。endpoint は
+// クライアントが書き込めるため、HTTPS かつ正規のプッシュゲートウェイに限定する。
+const PUSH_HOST_SUFFIXES = [
+  '.push.services.mozilla.com', // Firefox
+  'fcm.googleapis.com',         // Chrome / Android (FCM)
+  '.notify.windows.com',        // Edge / Windows (WNS)
+  'web.push.apple.com',         // Safari / iOS (Apple)
+  '.push.apple.com',
+];
+function isAllowedPushEndpoint(endpoint) {
+  if (typeof endpoint !== 'string' || !endpoint) return false;
+  let u;
+  try { u = new URL(endpoint); } catch { return false; }
+  if (u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase();
+  return PUSH_HOST_SUFFIXES.some((s) =>
+    s.startsWith('.') ? host.endsWith(s) : host === s,
+  );
 }
 
 // Cron 認証: Vercel Cron の Authorization: Bearer <CRON_SECRET> を検証。
@@ -268,6 +287,10 @@ export default async function handler(req, res) {
   for (const sub of subs) {
     try {
       if (sub.frequency === 'off') { skipped += 1; continue; }
+      // SSRF ガード: endpoint はクライアントが RLS upsert で自由に書ける。
+      // service_role の cron が任意 URL に POST するのを防ぐため、既知の
+      // プッシュサービスのホストにのみ送る（169.254.169.254 等への悪用を封じる）。
+      if (!isAllowedPushEndpoint(sub.endpoint)) { skipped += 1; continue; }
       // 多重送信ガード: 直近 RESEND_GUARD_DAYS 日以内に送っていればスキップ。
       // 数値比較（パース失敗時は未送信扱いで送る側に倒す = fail-open）。
       if (sub.last_sent_at) {
