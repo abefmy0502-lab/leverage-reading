@@ -530,6 +530,42 @@ export async function condenseMemo({ text }) {
   return cleaned;
 }
 
+// 📝 カード→まとめ生成 — 1冊に貯めたカードメモ（断片）を AI が1枚の
+// まとめメモに統合する。まとめ式の手書きの手間を消す（A3: メモ概念の統合）。
+// cards: カードメモのテキスト配列。返り値はまとめ本文の文字列 / 失敗時 null。
+export async function summarizeCards({ title, cards }) {
+  const arr = Array.isArray(cards) ? cards : [];
+  // 断片を1ブロックに連結（各カードを区切る）。長すぎる入力は clamp。
+  const joined = arr
+    .map((t) => sanitizeForPrompt(String(t || '')).trim())
+    .filter(Boolean)
+    .map((t, i) => `(${i + 1}) ${t}`)
+    .join('\n');
+  const src = clamp(joined, (LIMITS.memoText || 2000) * 4);
+  // カードが乏しい（実質1枚・短文のみ）ときは統合の意味が薄い。
+  if (!src || src.replace(/\s/g, '').length < 40) return null;
+  let result;
+  try {
+    result = await callClaude(
+      PROMPTS.cardsToSummary.system,
+      PROMPTS.cardsToSummary.user({ title, cards: src }),
+      { max_tokens: 700, temperature: 0.4 },
+    );
+  } catch (e) {
+    console.warn('[summarizeCards] claude failed:', e?.message);
+    return null;
+  }
+  if (typeof result !== 'string'
+    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isSuspiciousOutput(result)) {
+    return null;
+  }
+  const cleaned = clamp(sanitizeForPrompt(result).trim(), LIMITS.leverageMemo || 4000);
+  if (!cleaned) return null;
+  track('ai_used', { feature: 'cards_to_summary' });
+  return cleaned;
+}
+
 // 💭 今週の問い — マイ読書脳の能動化。ユーザー自身のメモから「立ち止まって
 // 考え・行動したくなる問い」を1つだけ生成して返す（向こうから問いを投げる）。
 // 失敗・メモ不足・エラー時は null（呼び出し側は静かに定型の問いへフォールバック）。

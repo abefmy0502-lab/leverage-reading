@@ -4,13 +4,14 @@ import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
+import { summarizeCards } from '../lib/ai';
 import { MemoListSkeleton } from './Skeleton';
 import { LIMITS } from '../lib/limits';
 import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import ShareCardModal from './ShareCardModal';
-import { StickyNote, FileText, BookOpen, Clock, Quote, Plus, Pencil, Copy, Image, Trash2 } from 'lucide-react';
+import { StickyNote, FileText, BookOpen, Clock, Quote, Plus, Pencil, Copy, Image, Trash2, Sparkles } from 'lucide-react';
 
 const MODE_KEY = 'leverageMemoMode';
 
@@ -114,13 +115,49 @@ function loadInitialMode() {
   }
 }
 
-function SummarySection({ bookId, summaryText, onSaveSummary }) {
+function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSummary }) {
   const [text, setText] = useState(summaryText || '');
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [generating, setGenerating] = useState(false);
   const flashTimerRef = useRef(null);
   const haptic = useHaptic();
+  const toast = useToast();
+  const confirm = useConfirm();
+
+  // カードが2枚以上たまっていれば「カードからまとめを生成」を提案できる。
+  const cardTexts = (cards || []).map((t) => String(t || '').trim()).filter(Boolean);
+  const canGenerate = cardTexts.length >= 2;
+
+  // 📝 カード→まとめ生成。既存のまとめがあれば上書き確認してから差し替える。
+  const handleGenerate = async () => {
+    if (generating || !canGenerate) return;
+    if (text.trim()) {
+      const ok = await confirm({
+        title: 'まとめを生成しますか？',
+        message: '今のまとめメモを、カードから生成した内容で置き換えます。よろしいですか？',
+        confirmLabel: '生成する',
+      });
+      if (!ok) return;
+    }
+    setGenerating(true);
+    setErrorMsg('');
+    try {
+      const result = await summarizeCards({ title: bookTitle, cards: cardTexts });
+      if (!result) {
+        toast.error('まとめを生成できませんでした。カードを増やして再度お試しください。');
+        return;
+      }
+      setText(result);
+      haptic.success();
+      toast.success('カードからまとめを生成しました。確認して保存してください。');
+    } catch (e) {
+      setErrorMsg(toMessage(e, 'まとめの生成に失敗しました。'));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   // Reset local text only when the underlying book changes,
   // so unsaved typing is preserved when toggling tabs.
@@ -160,9 +197,26 @@ function SummarySection({ bookId, summaryText, onSaveSummary }) {
       <div>
         <p style={{ fontSize: 13, color: 'var(--c-ink-soft)', fontWeight: 600, margin: 0 }}>まとめメモ</p>
         <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '2px 0 8px', lineHeight: 1.6 }}>
-          本全体の感想・学びを自由に書く欄です。
+          本全体の感想・学びを1枚に。カードがたまっていれば AI が下書きを作れます。
         </p>
       </div>
+      {canGenerate && (
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={generating}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            alignSelf: 'flex-start', minHeight: 38, padding: '8px 14px', borderRadius: 10,
+            border: '1px solid var(--c-hairline-strong)', background: 'var(--c-soft)',
+            color: 'var(--c-brand)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+            cursor: generating ? 'default' : 'pointer', opacity: generating ? 0.6 : 1,
+          }}
+        >
+          <Sparkles size={14} aria-hidden="true" />
+          {generating ? 'まとめを生成中…' : 'カードからまとめを生成'}
+        </button>
+      )}
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -495,7 +549,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   );
 
   const summarySection = onSaveSummary ? (
-    <SummarySection bookId={bookId} summaryText={summaryText} onSaveSummary={onSaveSummary} />
+    <SummarySection bookId={bookId} bookTitle={bookTitle} cards={memos.map((m) => m.text)} summaryText={summaryText} onSaveSummary={onSaveSummary} />
   ) : (
     <div
       style={{
