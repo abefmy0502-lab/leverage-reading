@@ -14,7 +14,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
-  BarChart3, TrendingUp, Check, Flag, Pencil, Route,
+  BarChart3, TrendingUp, Check, Flag, Pencil, Route, Activity, Calculator,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { generateOpsRoadmap } from '../lib/ai';
@@ -238,6 +238,10 @@ export default function AdminDashboard({ onClose }) {
   const [feedback, setFeedback] = useState([]);
   const [goal, setGoal] = useState(null);
   const [tickets, setTickets] = useState([]);
+  const [growth, setGrowth] = useState(null);
+  // LTV/CAC 試算の前提（端末ローカルに保存）。月の集客費・想定継続月数。
+  const [mktSpend, setMktSpend] = useState(() => { try { return localStorage.getItem('orime-ops-mkt-spend') || ''; } catch { return ''; } });
+  const [lifeMonths, setLifeMonths] = useState(() => { try { return localStorage.getItem('orime-ops-life-months') || '12'; } catch { return '12'; } });
   const [fbFilter, setFbFilter] = useState('open');
   const [editingGoal, setEditingGoal] = useState(false);
   const [gMetric, setGMetric] = useState('mrr');
@@ -252,7 +256,7 @@ export default function AdminDashboard({ onClose }) {
   const load = useCallback(async (d) => {
     setLoading(true); setErr(''); setWarn('');
     // 各 RPC を独立に扱い、1つ失敗しても他は表示する（graceful degradation）。
-    const [ov, se, us, au, rv, fb, gl, tk] = await Promise.all([
+    const [ov, se, us, au, rv, fb, gl, tk, gr] = await Promise.all([
       supabase.rpc('admin_overview'),
       supabase.rpc('admin_active_series', { p_days: d }),
       supabase.rpc('admin_feature_usage', { p_days: d }),
@@ -261,6 +265,7 @@ export default function AdminDashboard({ onClose }) {
       supabase.rpc('admin_feedback', { p_status: null }),
       supabase.rpc('admin_get_goal'),
       supabase.rpc('admin_tickets'),
+      supabase.rpc('admin_growth'),
     ]);
     const all = [ov, se, us, au, rv, fb, gl, tk];
 
@@ -285,6 +290,7 @@ export default function AdminDashboard({ onClose }) {
     setFeedback(fb.error ? [] : (fb.data || []));
     setGoal(gl.error ? null : (gl.data || null));
     setTickets(tk.error ? [] : (tk.data || []));
+    setGrowth(gr.error ? null : (gr.data || null));
     if (!gl.error && gl.data) { setGMetric(gl.data.metric); setGTarget(String(gl.data.target || '')); setGDeadline(gl.data.deadline || ''); }
 
     // 部分的に失敗したものを警告として可視化（原因切り分け用に実メッセージを出す）。
@@ -292,6 +298,7 @@ export default function AdminDashboard({ onClose }) {
     const metricFails = [ov, se, us, au, rv, fb].filter((r) => r.error);
     const notes = [];
     if (opsFailed) notes.push('🎯目標・🎫チケットが読めません → supabase_admin_ops.sql を適用してください');
+    if (gr.error) notes.push('📈成長・継続率が読めません → supabase_admin_growth.sql を適用してください');
     if (metricFails.length) notes.push(`一部メトリクスが読めません（${metricFails[0].error?.message || '不明'}）`);
     setWarn(notes.join(' / '));
     setLoading(false);
@@ -370,6 +377,31 @@ export default function AdminDashboard({ onClose }) {
   const deptCounts = DEPT_ORDER.reduce((m, d) => ({ ...m, [d]: actions.filter((x) => x.dept === d).length }), {});
   const openTickets = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress');
   const shownFeedback = feedback.filter((f) => (fbFilter === 'all' ? true : f.status === fbFilter));
+
+  // 📈 ファネル（登録→課金到達→課金→継続）。
+  const ev2 = usage?.events || {};
+  const paidActive = revenue?.active || 0;
+  const funnel = [
+    { label: '登録ユーザー', n: overview?.users_total || 0 },
+    { label: 'ペイウォール到達', n: ev2.paywall_viewed || 0 },
+    { label: '課金完了', n: ev2.checkout_completed || 0 },
+    { label: '継続中(有料)', n: paidActive },
+  ];
+  // 🔁 継続率（N日後も残っている率）。
+  const ret = growth?.retention;
+  const pct = (num, den) => (den > 0 ? Math.round((num / den) * 100) : null);
+  const retD1 = ret ? pct(ret.d1_num, ret.d1_den) : null;
+  const retD7 = ret ? pct(ret.d7_num, ret.d7_den) : null;
+  const retD30 = ret ? pct(ret.d30_num, ret.d30_den) : null;
+  // 💹 ユニットエコノミクス。
+  const gpPerUser = paidActive > 0 ? grossProfit / paidActive : 0;     // 粗利/人・月
+  const lm = Math.max(1, parseInt(lifeMonths, 10) || 12);
+  const ltv = Math.round(gpPerUser * lm);                              // LTV（粗利ベース）
+  const spend = Math.max(0, parseFloat(mktSpend) || 0);
+  const newPaidThisMonth = growth?.paid_new_this_month || 0;
+  const cac = newPaidThisMonth > 0 ? Math.round(spend / newPaidThisMonth) : null;
+  const ltvCac = cac && cac > 0 ? (ltv / cac) : null;
+  const paybackMonths = (cac && gpPerUser > 0) ? (cac / gpPerUser) : null;
 
   // 🗺 AI にロードマップを引いてもらう（年の目標→月別の人数/売上/施策）。
   const makeRoadmap = async () => {
@@ -593,6 +625,69 @@ export default function AdminDashboard({ onClose }) {
               <p style={{ margin: '6px 0 0', fontSize: 11, color: C.ink3, lineHeight: 1.6 }}>
                 売上 ¥{mrr.toLocaleString()} − App手数料({(PAYMENT_FEE_RATE * 100).toFixed(0)}%) ¥{Math.round(mrr * PAYMENT_FEE_RATE).toLocaleString()} − AI原価 ¥{aiCostThisMonth.toLocaleString()}（{aiCallsThisMonth}コール×¥{AI_COST_PER_CALL_JPY}）
                 <br />※ App内課金（Apple小規模事業者プログラム 15%）想定の直接原価ベース。人件費・固定費は含みません。係数は実測で調整。
+              </p>
+            </div>
+
+            {/* ── 📈 ファネル ＆ 継続率 ＆ ユニットエコノミクス ── */}
+            <p style={sectionTitle}><Activity size={15} strokeWidth={2} /> ファネル（登録→課金→継続）</p>
+            <div style={card}>
+              {(() => {
+                const top = funnel[0].n || 1;
+                return funnel.map((s, i) => {
+                  const prev = i > 0 ? (funnel[i - 1].n || 0) : null;
+                  const stepConv = prev != null && prev > 0 ? Math.round((s.n / prev) * 100) : null;
+                  return (
+                    <div key={s.label} style={{ marginBottom: i < funnel.length - 1 ? 10 : 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                        <span style={{ color: C.ink, fontWeight: 600 }}>{s.label}</span>
+                        <span style={{ color: C.ink2 }}>
+                          <strong style={{ color: C.ink }}>{s.n}</strong>
+                          {stepConv != null && <span style={{ color: C.ink3, marginLeft: 6 }}>（前段比 {stepConv}%）</span>}
+                        </span>
+                      </div>
+                      <div style={{ height: 8, background: C.soft, borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.max(2, (s.n / top) * 100)}%`, background: C.brand, borderRadius: 99 }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            <p style={sectionTitle}><Users size={15} strokeWidth={2} /> 継続率（N日後も残っている率）</p>
+            <div style={grid3}>
+              <Stat label="D1継続" value={retD1 != null ? `${retD1}%` : '—'} sub={ret ? `${ret.d1_num}/${ret.d1_den}人` : '蓄積中'} />
+              <Stat label="D7継続" value={retD7 != null ? `${retD7}%` : '—'} sub={ret ? `${ret.d7_num}/${ret.d7_den}人` : '蓄積中'} />
+              <Stat label="D30継続" value={retD30 != null ? `${retD30}%` : '—'} sub={ret ? `${ret.d30_num}/${ret.d30_den}人` : '蓄積中'} />
+            </div>
+            {(!ret || ret.d1_den === 0) && (
+              <p style={{ margin: '8px 2px 0', fontSize: 11, color: C.ink3, lineHeight: 1.6 }}>※ 利用データが貯まると自動で算出されます（登録から日数が経った人が対象）。</p>
+            )}
+
+            <p style={sectionTitle}><Calculator size={15} strokeWidth={2} /> ユニットエコノミクス（LTV / CAC）</p>
+            <div style={card}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 130 }}>
+                  <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>今月の集客費用（円）</label>
+                  <input type="number" inputMode="numeric" value={mktSpend}
+                    onChange={(e) => { setMktSpend(e.target.value); try { localStorage.setItem('orime-ops-mkt-spend', e.target.value); } catch { /* ignore */ } }}
+                    placeholder="例: 30000" style={inp} />
+                </div>
+                <div style={{ flex: 1, minWidth: 130 }}>
+                  <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>想定継続月数</label>
+                  <input type="number" inputMode="numeric" value={lifeMonths}
+                    onChange={(e) => { setLifeMonths(e.target.value); try { localStorage.setItem('orime-ops-life-months', e.target.value); } catch { /* ignore */ } }}
+                    placeholder="12" style={inp} />
+                </div>
+              </div>
+              <div style={grid3}>
+                <Stat label="LTV（粗利）" value={`¥${ltv.toLocaleString()}`} sub={`粗利¥${Math.round(gpPerUser).toLocaleString()}/人 × ${lm}ヶ月`} />
+                <Stat label="CAC" value={cac != null ? `¥${cac.toLocaleString()}` : '—'} sub={newPaidThisMonth > 0 ? `今月有料${newPaidThisMonth}人` : '今月の有料0'} />
+                <Stat label="LTV:CAC" value={ltvCac != null ? `${ltvCac.toFixed(1)}` : '—'} sub="目安 3以上" />
+              </div>
+              <p style={{ margin: '10px 2px 0', fontSize: 11, color: C.ink3, lineHeight: 1.7 }}>
+                {paybackMonths != null ? `回収期間 約${paybackMonths.toFixed(1)}ヶ月。` : ''}
+                LTV:CAC ≥ 3 / 回収 ≤ 12ヶ月 が健全の目安。集客費は手入力（この端末に保存）。粗利ベースの概算です。
               </p>
             </div>
 
