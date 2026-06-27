@@ -53,6 +53,18 @@ function currentPeriodMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+// 🔐 構成チェック（H1 監視）。service_role が未設定だと entitlement（ペイウォール）
+// と月次コスト上限が fail-open＝実質無効になる。本番で未設定なら error ログを出し、
+// Vercel ログ/アラートで検知できるようにする（静かに無効化されるのを防ぐ）。
+if (
+  !process.env.SUPABASE_SERVICE_ROLE_KEY &&
+  (process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production')
+) {
+  console.error(
+    '[SECURITY] SUPABASE_SERVICE_ROLE_KEY is NOT set in production — AI paywall and monthly cost cap are DISABLED (fail-open). Set it in the production environment immediately.',
+  );
+}
+
 // In-memory rate limit (per serverless instance — sufficient for low volume).
 const rateLimitStore = new Map();
 
@@ -70,6 +82,33 @@ function checkRateLimit(userId) {
   recent.push(now);
   rateLimitStore.set(userId, recent);
   return { ok: true };
+}
+
+// インスタンス横断の共有レート制限（H3 是正）。in-memory は lambda インスタンス
+// ごとに独立しており実効上限が緩いため、service_role の check_ai_rate_limit RPC で
+// 全インスタンス一貫の固定ウィンドウ判定を行う。RPC/テーブル未適用 / service_role
+// 未設定 / 障害は fail-open（in-memory 側が一次防御として残る）。
+async function checkSharedRateLimit(userId) {
+  const supabase = getServiceSupabase();
+  if (!supabase) return { ok: true };
+  try {
+    const { data, error } = await supabase.rpc('check_ai_rate_limit', {
+      p_user: userId,
+      p_max: RATE_LIMIT_MAX,
+      p_window_seconds: Math.floor(RATE_LIMIT_WINDOW_MS / 1000),
+    });
+    if (error) {
+      console.warn('[rate-limit] shared check failed (fail-open):', error.message);
+      return { ok: true };
+    }
+    if (data === false) {
+      return { ok: false, retryAfter: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000) };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.warn('[rate-limit] shared check threw (fail-open):', e?.message);
+    return { ok: true };
+  }
 }
 
 let supabaseClient = null;
@@ -218,6 +257,13 @@ export default async function handler(req, res) {
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter));
     return res.status(429).json({ error: 'Too Many Requests', retry_after: rl.retryAfter });
+  }
+  // インスタンス横断の共有レート制限（H3）。in-memory を通過しても、全インスタンス
+  // 合算の上限を超えていれば 429。未適用 DB は fail-open（in-memory が一次防御）。
+  const rlShared = await checkSharedRateLimit(userId);
+  if (!rlShared.ok) {
+    res.setHeader('Retry-After', String(rlShared.retryAfter));
+    return res.status(429).json({ error: 'Too Many Requests', retry_after: rlShared.retryAfter });
   }
 
   // 課金 entitlement（サーバー側ゲート）。fail-open（未設定 / 未適用 / 障害は通す）。

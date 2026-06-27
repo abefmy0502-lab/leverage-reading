@@ -133,7 +133,28 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Webhook signature verification failed` });
   }
 
-  // 2) イベント処理
+  // 2) 冪等性ガード（M1）: 処理済み event.id は二度処理しない。Stripe は
+  //    at-least-once 配信＝重複/順序前後の再配信で課金状態が乱れるのを防ぐ。
+  //    「先に claim → 失敗時は解放（delete）」で、500 再送時の取りこぼしも防ぐ。
+  //    テーブル未適用（42P01）は fail-open（従来どおり処理）。
+  let eventClaimed = false;
+  try {
+    const { error: dedupErr } = await supabase
+      .from('stripe_events')
+      .insert({ event_id: event.id, type: event.type });
+    if (!dedupErr) {
+      eventClaimed = true;
+    } else if (dedupErr.code === '23505') {
+      // 既に処理済み → 静かにスキップ（200 で Stripe に再送させない）。
+      return res.status(200).json({ received: true, deduped: true });
+    } else {
+      console.warn('[stripe-webhook] dedup insert non-fatal (proceeding):', dedupErr.message);
+    }
+  } catch (e) {
+    console.warn('[stripe-webhook] dedup threw (proceeding):', e?.message);
+  }
+
+  // 3) イベント処理
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -253,7 +274,13 @@ export default async function handler(req, res) {
     return res.status(200).json({ received: true });
   } catch (error) {
     console.error('Stripe webhook handler error:', error);
-    // 5xx を返すと Stripe が再送する。冪等な upsert なので再送は安全。
+    // 処理失敗 → claim を解放して、Stripe の再送（5xx 起因）で確実に再処理
+    // できるようにする。冪等な upsert なので再処理は安全。
+    if (eventClaimed) {
+      try {
+        await supabase.from('stripe_events').delete().eq('event_id', event.id);
+      } catch { /* 解放失敗は致命ではない（最悪その1イベントが再処理されない） */ }
+    }
     return res.status(500).json({ error: 'Webhook handler failed' });
   }
 }
