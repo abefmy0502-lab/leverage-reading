@@ -80,6 +80,7 @@ import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import BookshelfSummary from './components/BookshelfSummary';
+import ActivationChecklist from './components/ActivationChecklist';
 import HomeRecall from './components/HomeRecall';
 import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
@@ -5226,6 +5227,13 @@ function AuthedApp() {
               </div>
             </div>
             <div style={{ padding: "0 20px" }}>
+              {/* 🌱 初週オンボーディング: 新規ユーザーを aha まで運ぶ4ステップ。
+                  未完了かつ未 dismiss のときだけ表示（既存ユーザーには出にくい）。 */}
+              <ActivationChecklist
+                books={books}
+                onAddBook={() => setAddBookModalOpen(true)}
+                onOpenReview={() => { setReviewSubTab('note'); setTab('review'); }}
+              />
               {/* 月次 1 行サマリー: 読了 (今月) / 読書中 (今) / 読書前 (今)
                   タップで振り返りタブへ遷移 — 振り返り導線を強化。 */}
               <BookshelfSummary

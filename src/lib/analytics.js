@@ -15,6 +15,7 @@
 //   4. オプトアウト可 — 設定でオフにできる（localStorage `orime-analytics-optout`）。
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import { markActivationFromEvent } from './activation';
 
 const OPTOUT_KEY = 'orime-analytics-optout';
 
@@ -106,6 +107,8 @@ async function resolveUserId() {
 export function track(event, props = {}) {
   // 同期パスを一切ブロックしないため、本体は次の tick に逃がす。
   try {
+    // 🌱 初週オンボーディングの進捗は計測オプトアウトに関係なく端末ローカルで記録。
+    try { markActivationFromEvent(event); } catch { /* ignore */ }
     if (!isSupabaseConfigured || !supabase) return;
     if (isAnalyticsOptedOut()) return;
     const name = sanitizeEventName(event);
