@@ -7,7 +7,6 @@
 
 import { useMemo, useState } from 'react';
 import { useAllActions } from '../hooks/useAllActions';
-import { useHaptic } from '../hooks/useHaptic';
 import { ensureHttps } from '../lib/url';
 import { track, EVENTS } from '../lib/analytics';
 import AnimatedNumber from './AnimatedNumber';
@@ -151,7 +150,6 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
 export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook, onGoToBooks }) {
   const { allActions, stats } = useAllActions(books);
-  const haptic = useHaptic();
   const [filter, setFilter] = useState('open');
   const [sortBy, setSortBy] = useState('deadline');
   const [openMenuKey, setOpenMenuKey] = useState(null);

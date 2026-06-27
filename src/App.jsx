@@ -5319,6 +5319,14 @@ function AuthedApp() {
                     icon={<IcSearchX size={32} aria-hidden="true" />}
                     title="該当する本がありません"
                     description="別のキーワードや、フィルタを試してみてください。"
+                    actions={[
+                      {
+                        label: '条件をクリア',
+                        onClick: () => { setSearch(''); setFolderFilter(null); clearAllFilters(); },
+                        variant: 'primary',
+                        icon: <IcRefresh size={18} aria-hidden="true" />,
+                      },
+                    ]}
                   />
                 )
               ) : effectiveBookshelfView === 'grid' ? (
