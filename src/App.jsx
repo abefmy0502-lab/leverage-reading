@@ -18,7 +18,7 @@ import {
   Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
   Lightbulb as IcBulb, MessageSquarePlus as IcNewChat,
   BookOpen as IcBook, Map as IcMap, Zap as IcZap, RefreshCw as IcRefresh, Bot as IcBot,
-  CheckCircle2 as IcCheck, BarChart3 as IcBar, AlertTriangle as IcAlert,
+  CheckCircle2 as IcCheck, BarChart3 as IcBar, AlertTriangle as IcAlert, CalendarDays as IcCal,
 } from 'lucide-react';
 
 // サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
@@ -1300,70 +1300,21 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags }) 
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：営業会議で結論ファーストを実践" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} />
               <button onClick={() => removeAction(i)} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer" }}>×</button>
             </div>
-            {/* 期限 */}
+            {/* 期限のみをインラインで。優先度・繰り返しなどの詳細は「行動」タブの
+                編集（ActionEditModal）に集約し、本詳細はまず"何をやるか"を素早く
+                捉える1画面に絞る（本田: 1画面1アクション）。 */}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}>📅 期限</span>
+              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}><IcCal size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限</span>
               <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...inp, flex: 1 }} />
-            </div>
-            {/* 優先度 chips */}
-            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}><Target size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />優先度</span>
-              {[
-                { key: 'high', label: '🔴 高', bg: '#FFEBEE', fg: '#C62828' },
-                { key: 'medium', label: '🟡 中', bg: '#FFF3E0', fg: '#E65100' },
-                { key: 'low', label: '🟢 低', bg: '#E8F5E9', fg: '#2E7D32' },
-              ].map((p) => {
-                const active = (a.priority || 'medium') === p.key;
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => updateAction(i, 'priority', p.key)}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: 999,
-                      border: active ? `1.5px solid ${p.fg}` : '1px solid var(--c-hairline-strong)',
-                      background: active ? p.bg : 'transparent',
-                      color: active ? p.fg : '#8a7e6b',
-                      fontSize: 11,
-                      fontWeight: active ? 600 : 400,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-            </div>
-            {/* 繰り返し */}
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}>🔁 繰り返し</span>
-              <select
-                value={a.recurrence || ''}
-                onChange={(e) => updateAction(i, 'recurrence', e.target.value || null)}
-                style={{ ...inp, flex: 1 }}
-              >
-                <option value="">繰り返さない</option>
-                <option value="weekly">毎週</option>
-                <option value="monthly">毎月</option>
-              </select>
-            </div>
-            {/* ソース引用ページ — 本紐付けは既に DonePhase の本コンテキストで自明なのでページのみ */}
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}>🔗 引用ページ</span>
-              <input
-                type="number"
-                placeholder="例：42"
-                value={a.sourcePage || ''}
-                onChange={(e) => updateAction(i, 'sourcePage', e.target.value ? parseInt(e.target.value, 10) : null)}
-                style={{ ...inp, flex: 1 }}
-                inputMode="numeric"
-              />
             </div>
           </div>
         ))}
         <button onClick={addAction} style={{ ...btnO, padding: "10px 0", fontSize: 12, borderStyle: "dashed" }}>＋ 行動を追加</button>
+        {(form.actions || []).length > 0 && (
+          <p style={{ fontSize: 10.5, color: "var(--c-ink-3)", margin: "2px 2px 0", lineHeight: 1.6 }}>
+            優先度・繰り返しは、追加後に「振り返り」タブ →「行動」で設定できます。
+          </p>
+        )}
       </div>
 
       <Field label={<><IcBulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />一番の収穫（1行）</>} sub="この本から得た一番大きな価値を 1 行で">
