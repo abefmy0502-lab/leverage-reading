@@ -21,7 +21,7 @@ import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
-import { isNative, purchasePlan, openManageSubscriptions, APP_PLAN_LABELS } from '../lib/iap';
+import { isNative, purchasePlan, openManageSubscriptions, APP_PLAN_LABELS, getStoreLabels } from '../lib/iap';
 import { btnPrimary as uiBtnPrimary, btnDanger as uiBtnDanger } from '../styles/ui';
 import {
   Settings as IcSettings, CreditCard as IcCard, Bell as IcBell, Download as IcDownload,
@@ -281,8 +281,19 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   // 💳 課金状態。subscriptions 未適用なら subscription=null / isActive=false で
   // 静かに縮退する（useSubscription 側で schema-error を握りつぶす）。
   const { subscription, isActive, loading: subLoading, refresh: refreshSub } = useSubscription();
-  // 表示ラベルはチャネル別（ネイティブ=App ¥1,480 / Web パスは休眠中・フォールバックも ¥1,480）。
-  const planLabels = isNative ? APP_PLAN_LABELS : PLAN_LABELS;
+  // 表示ラベルはチャネル別（ネイティブ=App / Web パスは休眠中）。
+  // ネイティブでは App Store のローカライズ価格をストアから取得して上書きする
+  // （Paywall と同じ。App Store Connect の設定価格と表示を一致させ、審査での
+  //  価格不一致リスクを避ける）。取れない時だけ既定ラベルにフォールバック。
+  const [planLabels, setPlanLabels] = useState(isNative ? APP_PLAN_LABELS : PLAN_LABELS);
+  useEffect(() => {
+    if (!isNative) return undefined;
+    let alive = true;
+    getStoreLabels(user?.id)
+      .then((l) => { if (alive && l) setPlanLabels(l); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [user?.id]);
   const [billingBusy, setBillingBusy] = useState(false);
 
   // 📊 利用状況の記録（製品改善のためのファーストパーティ計測）。既定 ON。
@@ -931,6 +942,16 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <p style={sectionDescStyle}>
               <strong>アカウントごと退会</strong>します。本・メモ・写真・対話履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
             </p>
+            {/* 退会してもサブスク（App Store / 決済）は自動では止まらない旨を明示。
+                Apple ガイドライン要件＋過剰請求トラブルの防止。 */}
+            {isActive && (
+              <p style={{ fontSize: 12, color: 'var(--c-critical)', margin: '0 0 10px', lineHeight: 1.7, fontWeight: 600 }}>
+                ⚠️ 退会してもサブスクの課金は自動で止まりません。
+                {isNative
+                  ? '先に「プラン管理」から App Store でサブスクを解約してください。'
+                  : '先に「プラン管理」からサブスクを解約してください。'}
+              </p>
+            )}
             {!deleteOpen ? (
               <button type="button" aria-label="アカウントの削除を開始" style={btnDanger} onClick={() => setDeleteOpen(true)}>
                 アカウントの削除を開始
