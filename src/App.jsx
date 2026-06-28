@@ -4118,7 +4118,7 @@ function AuthedApp() {
     const body = (text || '').trim();
     if (!body) return false;
     const newAction = {
-      text: body.slice(0, LIMITS.action || 280),
+      text: body.slice(0, LIMITS.actionText || 500),
       deadline: '',
       done: false,
       priority: 'medium',

@@ -613,6 +613,13 @@ export async function analyzeBookLearnings({ bookId, title, author, purpose, cha
     }),
     { max_tokens: 1400, temperature: 0.5, model: 'claude-sonnet-4-6' },
   );
+  // callClaude はエラー時に文言（'エラー...' / 'AI機能...' / 'リクエスト...'）を返すことがある。
+  // それを「分析結果」として描画しないよう、成功時のみ track / return する。
+  if (typeof content !== 'string'
+    || content.startsWith('エラー') || content.startsWith('AI機能') || content.startsWith('リクエスト')
+    || isSuspiciousOutput(content)) {
+    throw new Error(typeof content === 'string' && content ? content : '分析に失敗しました。少し時間をおいて再度お試しください。');
+  }
   track('ai_used', { feature: 'book_learning' });
   return { content, memoCount: cardMemos.length };
 }
@@ -1250,6 +1257,12 @@ export async function generateKnowledgeJourney(userId, theme) {
     }),
     { max_tokens: 2048, temperature: 0.7, model: 'claude-sonnet-4-6' },
   );
+  // callClaude のエラー文言を「足あと」として描画しない（成功時のみ track / return）。
+  if (typeof content !== 'string'
+    || content.startsWith('エラー') || content.startsWith('AI機能') || content.startsWith('リクエスト')
+    || isSuspiciousOutput(content)) {
+    throw new Error(typeof content === 'string' && content ? content : '足あとの作成に失敗しました。少し時間をおいて再度お試しください。');
+  }
   track('ai_used', { feature: 'journey' });
   return { content, first, last, count: sorted.length };
 }

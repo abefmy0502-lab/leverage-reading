@@ -90,7 +90,8 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
     if (added.has(i) || !onAddToActions) return;
     onAddToActions(text);
     setAdded((s) => new Set(s).add(i));
-    toast.success('🎯 行動に追加しました');
+    // form.actions に入るだけ（確定は 保存）。「保存済み」と誤認させない文言にする。
+    toast.success('🎯 下の行動リストに追加（保存で確定）');
   };
 
   // 📌 学び・新視点を本の AI まとめとして保存 → gatherKnowledge 経由で
