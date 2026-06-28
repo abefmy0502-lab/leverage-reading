@@ -1296,7 +1296,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAnalysis,
 }
 
 // Phase 4: 読了（投資回収）
-function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, onPersistAnalysis, allTags, allFolders }) {
+function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, allFolders }) {
   const addAction = () => setForm({ ...form, actions: [...(form.actions || []), { text: "", deadline: "", done: false }] });
   const updateAction = (i, key, val) => {
     const a = [...(form.actions || [])];
@@ -1319,29 +1319,8 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, onPersistAn
         </div>
       </Field>
 
-      {form.leverageMemo?.trim() && (
-        <>
-          <SectionHeader icon={<IcBot size={16} />} title="AIメモ要約" />
-          <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>まとめメモをAIが3〜5個のポイントに凝縮します</p>
-          <button onClick={onRunSummary} disabled={aiLoading} style={{ ...aiB, opacity: aiLoading ? 0.5 : 1 }}>
-            {aiLoading ? "要約中..." : (<><IcBot size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />AIでメモを要約・整理</>)}
-          </button>
-          {aiLoading && <Dots />}
-          {form.aiSummary && (
-            <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: "#5a7a48", marginBottom: 4 }}>要約結果（要点の凝縮）</p>
-              <MarkdownSections text={form.aiSummary} />
-            </div>
-          )}
-          {form.aiSummary && (
-            <Field label="要約の編集" sub="AIの要約を自由に修正できます">
-              <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={5} style={ta} maxLength={LIMITS.memoText} />
-            </Field>
-          )}
-        </>
-      )}
-
-      {/* 📊 メモ→目的照合→学び/視点→行動提案。AI がタスク作成を支援する。 */}
+      {/* 📊 本の AI synthesis は「学びを分析」に一本化（旧「AIでメモを要約」は統合・撤去）。
+          メモ→目的照合→学び/視点→行動提案。提案はタップで行動化、保存で全体に還流。 */}
       {form.id && (
         <div style={{ marginBottom: 14 }}>
           <BookLearningAnalysis
@@ -1350,6 +1329,13 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, onPersistAn
             onSaveToBook={onPersistAnalysis}
           />
         </div>
+      )}
+
+      {/* この本の AI まとめ（学び分析の保存先・編集可・全体に活かされる） */}
+      {form.aiSummary?.trim() && (
+        <Field label={<><IcBot size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />この本のAIまとめ</>} sub="「学びを分析」で保存した内容です。自由に編集でき、マイ読書脳・テーマまとめ・振り返りに活かされます。">
+          <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={5} style={ta} maxLength={LIMITS.memoText} />
+        </Field>
       )}
 
       <SectionHeader icon={<IcZap size={16} />} title="次の 1 週間でやる行動" />
@@ -4033,32 +4019,9 @@ function AuthedApp() {
       }
     });
   };
-  const runSummary = async () => {
-    setAiLoading(true);
-    try {
-      // AI へ渡す前にユーザー入力をサニタイズ + clamp（roiSummary は safe value 前提）。
-      const memoCorpus = clamp(sanitizeForPrompt(form.leverageMemo || ''), LIMITS.memoText);
-      const hours = form.totalPages > 0 ? Math.round((form.totalPages * 2) / 60) : null;
-      const r = await callClaude(
-        PROMPTS.roiSummary.system,
-        PROMPTS.roiSummary.user({
-          title: clamp(sanitizeForPrompt(form.title || ''), LIMITS.bookTitle),
-          author: clamp(sanitizeForPrompt(form.author || ''), LIMITS.bookAuthor),
-          memos: memoCorpus,
-          purpose: clamp(sanitizeForPrompt(form.investPurpose || ''), LIMITS.memoText),
-          hours,
-        }),
-        // temperature 0.3 — メモから事実ベースで要約 (同じメモから毎回
-        // 同じ要約が返ってくるべき)。creativity は最小限。
-        { max_tokens: 2048, temperature: 0.3 }
-      );
-      setForm((f) => ({ ...f, aiSummary: r }));
-    } catch (error) {
-      toast.error(toMessage(error, 'AI要約に失敗しました。'));
-    } finally {
-      setAiLoading(false);
-    }
-  };
+  // （撤去）runSummary — 旧「AIでメモを要約」(roiSummary)。本ごとの AI synthesis は
+  // 「学びを分析」(analyzeBookLearnings) に一本化（目的照合・新視点・タップ行動化・
+  // 全体還流が上位互換）。重複を畳んで迷い/原価を減らす（本田: 凝縮）。
 
   // 旧: 完了時に振り返りモーダルを出していたが UX フリクション削減のため撤去。
   // state は ActionEditModal の編集対象として再利用 (= 編集中の {bookId, actionIdx}).
@@ -5057,7 +5020,7 @@ function AuthedApp() {
                   <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} onPersistAnalysis={persistBookLearning} allTags={allTags} allFolders={folderNames} />
                 )}
                 {effectivePhase === "done" && current && (
-                  <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} onPersistAnalysis={persistBookLearning} allTags={allTags} allFolders={folderNames} />
+                  <DonePhase form={form} setForm={setForm} onSave={handleSave} onPersistAnalysis={persistBookLearning} allTags={allTags} allFolders={folderNames} />
                 )}
               </>
             );
