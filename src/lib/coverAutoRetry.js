@@ -1,29 +1,35 @@
-// 🔄 Cover auto-retry — 表紙が無い / 壊れている本に対して、
-// セッション内で 1 度だけバックグラウンドで再解決を試みる。
+// 🔄 Cover auto-retry — 表紙が無い / 壊れている本に対して、バックグラウンドで
+// 表紙を再解決する。
 //
-// 起動時 1 回の `backfillCovers` (lib/backfillCovers.js v3) では、
-// 解決失敗した本は `cover = null` に落とされる。それでも DB から本棚に
-// 並ぶ時点で「カードが灰色のプレースホルダ」になるので、見栄えが悪い。
-// このモジュールは、本棚レンダリング時に各 BookCard が「自分は表紙が
-// 無い / 壊れている」と気付いたら裏で再試行できる仕組み。
+// 設計の肝（2026-06-28 改修）:
+//   旧版は book.id で「成功 / 失敗を問わず」セッション内 1 回だけに固定していた。
+//   そのため最初の 1 回が一時的な失敗（429 / ネット瞬断 / タイムアウト）だと、
+//   その本は灰色のままセッション中ずっと固定され、ユーザーが手動で「取り直す」
+//   まで表紙が付かなかった。「取り直すと付く」= 表紙は実在する = 最初の失敗は
+//   一時的、という事実から、本改修では【失敗は数回まで自動で再試行】する。
+//   成功するか、上限（MAX_ATTEMPTS）に達したときだけ諦める。
 //
-// 重要な制約:
-//   - セッション内 1 回のみ (book.id でデデュープ)。成功 / 失敗を問わず。
-//   - book.coverIsbn === 'manual' は絶対に触らない (手動アップロード済み)
-//   - キュー化して 1 秒に 1 冊までしか走らせない (NDL / openBD / Google Books
-//     のレート制限を踏まないため)
-//   - 失敗時はトーストを出さない (UX の邪魔にならない)
-//   - 永続化は呼び出し側が渡す `saveBook` に任せる。useBooks の cache /
-//     楽観的 UI と整合させるため、生 supabase を直接叩かない。
+// 制約:
+//   - book.coverIsbn === 'manual' は絶対に触らない（手動アップロード済み）
+//   - 1 冊あたり最大 MAX_ATTEMPTS 回まで。成功で確定。
+//   - 同じ本が同時に複数キューに入らない（queuedOrInflight でデデュープ）
+//   - 失敗時は指数的に間隔を空けて再キュー（NDL/openBD/Google のレート制限回避）
+//   - 失敗してもトーストは出さない（UX を壊さない）
+//   - 永続化は呼び出し側の saveBook に委譲（useBooks の cache / 楽観的 UI と整合）
 
 import { findIsbnCandidates, findCoverFromGoogleBooks } from './bookSearch';
 import { resolveCoverFromCandidates, checkImageExists, resolveCoverViaServer } from './bookCover';
 
-const triedThisSession = new Set();
+const MAX_ATTEMPTS = 3;
+const PACE_MS = 1000;        // キュー内の連続処理ペース
+const BACKOFF_BASE_MS = 4000; // 失敗時の再試行までの基準待ち（n 回目で n×）
+
+// book.id -> これまでの失敗回数（MAX_ATTEMPTS 到達 or 成功で打ち止め）
+const attempts = new Map();
+// book.id -> 現在キュー / 処理中 / 再試行待機中（重複投入の防止）
+const queuedOrInflight = new Set();
 const queue = [];
 let processing = false;
-
-const PACE_MS = 1000;
 
 /**
  * @param {Object}   params
@@ -32,63 +38,86 @@ const PACE_MS = 1000;
  */
 export function enqueueCoverRetry({ book, saveBook }) {
   if (!book || !book.id) return;
-  if (triedThisSession.has(book.id)) return;
   if (book.coverIsbn === 'manual') return;
-  // 検索の手がかりが何も無い本はスキップ (title も isbn も無い空行など)
+  // 検索の手がかりが何も無い本はスキップ（title も isbn も無い空行など）
   if (!book.isbn && !(book.title && book.title.trim())) return;
   if (typeof saveBook !== 'function') return;
+  // 既にキュー/処理中/再試行待機中なら二重投入しない
+  if (queuedOrInflight.has(book.id)) return;
+  // 上限まで失敗済みなら諦める（無限ハンマリング防止）
+  if ((attempts.get(book.id) || 0) >= MAX_ATTEMPTS) return;
 
-  triedThisSession.add(book.id);
+  queuedOrInflight.add(book.id);
   queue.push({ book, saveBook });
   if (!processing) processQueue();
+}
+
+// 1 冊分の解決を試みる。成功で url を返し、見つからなければ ''。
+async function resolveOne(book) {
+  let url = '';
+  let coverIsbn = '';
+  // ⓪ サーバーサイドリゾルバ /api/cover を最優先（端末の Google 429 / NDL CORS 回避）。
+  try {
+    const sv = await resolveCoverViaServer({ title: book.title, author: book.author, isbn: book.isbn });
+    if (sv?.url && await checkImageExists(sv.url)) { url = sv.url; coverIsbn = sv.isbn || book.isbn || ''; }
+  } catch { /* 次へ */ }
+  // ① Google Books サムネ（ISBN 直引き → タイトル＋著者 → 緩い上位ヒット）。
+  if (!url) try {
+    const gb = await findCoverFromGoogleBooks({ title: book.title, author: book.author, isbn: book.isbn });
+    if (gb && await checkImageExists(gb)) { url = gb; coverIsbn = book.isbn || ''; }
+  } catch { /* 次へ */ }
+  // ② ISBN ベース multi-source（NDL / openBD / Open Library / Amazon）。
+  if (!url) {
+    const altIsbns = await findIsbnCandidates(book.title, book.author);
+    const ordered = [book.isbn, ...altIsbns].filter(Boolean);
+    if (ordered.length > 0) {
+      const r = await resolveCoverFromCandidates(ordered);
+      if (r.url) { url = r.url; coverIsbn = r.isbn || ''; }
+    }
+  }
+  return { url, coverIsbn };
 }
 
 async function processQueue() {
   processing = true;
   while (queue.length > 0) {
     const { book, saveBook } = queue.shift();
+    let succeeded = false;
     try {
-      let url = '';
-      let coverIsbn = '';
-      // ⓪ サーバーサイドリゾルバ /api/cover を最優先（端末の Google 429 / NDL
-      //    CORS を回避）。検証してから採用。
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const sv = await resolveCoverViaServer({ title: book.title, author: book.author, isbn: book.isbn });
-        // eslint-disable-next-line no-await-in-loop
-        if (sv?.url && await checkImageExists(sv.url)) { url = sv.url; coverIsbn = sv.isbn || book.isbn || ''; }
-      } catch { /* 次へ */ }
-      // ① Google Books サムネ（ISBN 直引き → タイトル＋著者 → 緩い上位ヒット）。
-      if (!url) try {
-        // eslint-disable-next-line no-await-in-loop
-        const gb = await findCoverFromGoogleBooks({ title: book.title, author: book.author, isbn: book.isbn });
-        // Google の「No cover」プレースホルダを掴まないよう実在＋表紙比率を検証。
-        // eslint-disable-next-line no-await-in-loop
-        if (gb && await checkImageExists(gb)) { url = gb; coverIsbn = book.isbn || ''; }
-      } catch { /* 次へ */ }
-      // ② ISBN ベース multi-source（NDL / openBD / Open Library / Amazon）。
-      if (!url) {
-        // eslint-disable-next-line no-await-in-loop
-        const altIsbns = await findIsbnCandidates(book.title, book.author);
-        const ordered = [book.isbn, ...altIsbns].filter(Boolean);
-        if (ordered.length > 0) {
-          // eslint-disable-next-line no-await-in-loop
-          const r = await resolveCoverFromCandidates(ordered);
-          if (r.url) { url = r.url; coverIsbn = r.isbn || ''; }
-        }
-      }
+      // eslint-disable-next-line no-await-in-loop
+      const { url, coverIsbn } = await resolveOne(book);
       if (url) {
-        // useBooks.saveBook を経由することで、全 BookCard の React state が
-        // 自動で更新される (= UI がリアルタイムに表紙ありに切り替わる)。
+        // saveBook 経由で全 BookCard の React state が自動更新 → 表紙が即反映。
         // eslint-disable-next-line no-await-in-loop
         await saveBook({ ...book, cover: url, coverIsbn });
+        succeeded = true;
       }
     } catch (e) {
-      // 失敗してもユーザーには見せない (UX を壊さない)
+      // 失敗してもユーザーには見せない
       // eslint-disable-next-line no-console
       console.warn('[auto-retry] error:', book?.title, e?.message || e);
     }
-    // レート制限対策。最後の 1 冊の後でも待つが大した影響はない。
+
+    if (succeeded) {
+      attempts.set(book.id, MAX_ATTEMPTS); // 確定（以後は試さない）
+      queuedOrInflight.delete(book.id);
+    } else {
+      const n = (attempts.get(book.id) || 0) + 1;
+      attempts.set(book.id, n);
+      if (n < MAX_ATTEMPTS) {
+        // まだ余地あり → バックオフして再キュー（queuedOrInflight は保持＝二重投入防止）。
+        const delay = BACKOFF_BASE_MS * n;
+        setTimeout(() => {
+          queue.push({ book, saveBook });
+          if (!processing) processQueue();
+        }, delay);
+      } else {
+        // 上限到達 → 諦める（手動アップロードに委ねる）。
+        queuedOrInflight.delete(book.id);
+      }
+    }
+
+    // レート制限対策。
     // eslint-disable-next-line no-await-in-loop
     await new Promise((r) => setTimeout(r, PACE_MS));
   }
@@ -97,7 +126,8 @@ async function processQueue() {
 
 // テスト / 手動デバッグ用。本番コードからは呼ばない。
 export function _resetCoverAutoRetry() {
-  triedThisSession.clear();
+  attempts.clear();
+  queuedOrInflight.clear();
   queue.length = 0;
   processing = false;
 }
