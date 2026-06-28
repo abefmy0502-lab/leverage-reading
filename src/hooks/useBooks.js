@@ -45,6 +45,9 @@ const isMissingRelationError = (err) => {
   return m.includes('book_collections') || m.includes('does not exist') || m.includes('relationship') || err?.code === '42P01' || err?.code === 'PGRST200';
 };
 
+// source_memo_id は UUID 列。非 UUID（合成ノートの 'leverage_memo-...' 等）を弾く。
+const isUuid = (v) => typeof v === 'string' && UUID_RE.test(v);
+
 const transformBook = (book) => ({
   ...book,
   cover: toHttps(book.cover),
@@ -368,7 +371,12 @@ export function useBooks() {
           if (includeExtras) {
             if ('priority' in a) base.priority = a.priority || 'medium';
             if ('recurrence' in a) base.recurrence = a.recurrence || null;
-            if ('sourceMemoId' in a) base.source_memo_id = a.sourceMemoId || null;
+            // source_memo_id は UUID 列。振り返りの「まとめメモ/投資目的」等は
+            // 合成ノートで id が 'leverage_memo-<uuid>' 等の非 UUID なので、
+            // そのまま入れると DB が拒否し保存全体が失敗する。UUID 形式のときだけ入れる。
+            if ('sourceMemoId' in a) {
+              base.source_memo_id = isUuid(a.sourceMemoId) ? a.sourceMemoId : null;
+            }
             if ('sourcePage' in a) base.source_page = a.sourcePage || null;
             if ('reflection' in a) base.reflection = a.reflection || null;
             if ('completedAt' in a) base.completed_at = a.completedAt || null;

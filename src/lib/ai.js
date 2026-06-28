@@ -574,6 +574,46 @@ export async function summarizeCards({ title, cards }) {
   return cleaned;
 }
 
+// 📊 本ごとの学び分析 → 行動提案。
+// この本に残したカードメモ＋まとめメモを、読む目的・課題と照らし合わせて
+// 「目的に対して得たもの / 新しく見えた視点 / 次の一歩(3つ)」に整理する。
+// 返り値の Markdown 末尾「## ✅ 次の一歩」の "- " 行を、呼び出し側が
+// タップで行動に追加できる（ユーザー or AI のタスク作成支援）。
+export async function analyzeBookLearnings({ bookId, title, author, purpose, challenge }) {
+  if (!isSupabaseConfigured) throw new Error('Supabase が設定されていません。');
+  if (!bookId) throw new Error('本が特定できません。');
+
+  // この本のカードメモを取得（RLS で本人の行のみ・personal 学びは本に紐づかないので対象外）。
+  const { data, error } = await supabase
+    .from('book_memos')
+    .select('text, page_number, tags, created_at')
+    .eq('book_id', bookId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+
+  const cardMemos = (data || [])
+    .map((m) => clamp(sanitizeForPrompt(m.text || ''), LIMITS.promptMemoExcerpt))
+    .filter(Boolean);
+  // まとめメモ（books.leverage_memo）も材料に含める。
+  // 呼び出し側から渡らないので、ここでは card メモのみ。十分薄ければ呼び出し側で空状態。
+  if (cardMemos.length === 0) return { tooThin: true };
+
+  const memos = cardMemos.map((t, i) => `(${i + 1}) ${t}`).join('\n');
+  const content = await callClaude(
+    PROMPTS.bookLearningAnalysis.system,
+    PROMPTS.bookLearningAnalysis.user({
+      title: clamp(sanitizeForPrompt(title || ''), LIMITS.bookTitle),
+      author: clamp(sanitizeForPrompt(author || ''), LIMITS.bookAuthor),
+      purpose: clamp(sanitizeForPrompt(purpose || ''), LIMITS.memoText),
+      challenge: clamp(sanitizeForPrompt(challenge || ''), LIMITS.memoText),
+      memos,
+    }),
+    { max_tokens: 1400, temperature: 0.5, model: 'claude-sonnet-4-6' },
+  );
+  track('ai_used', { feature: 'book_learning' });
+  return { content, memoCount: cardMemos.length };
+}
+
 // 🗺 運営ロードマップ — 年の目標と現状から、月別の目標人数/売上/施策を AI が引く。
 // 入力は数値/短い文字列のみ（管理者ダッシュボードが渡す）。返り値は Markdown / 失敗 null。
 function todayISO() {

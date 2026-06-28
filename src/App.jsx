@@ -8,6 +8,7 @@ import AuthScreen from './components/auth/AuthScreen';
 import AuthCallback from './components/auth/AuthCallback';
 import BookMemoList from './components/BookMemoList';
 import BookMemoEditor from './components/BookMemoEditor';
+import BookLearningAnalysis from './components/BookLearningAnalysis';
 import QuickMemoSheet from './components/QuickMemoSheet';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from './styles/ui';
@@ -1223,6 +1224,13 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags, allFolder
   // 📖 読書進捗（ページ管理）は撤去（本田哲学=「作業量の可視化」は成果ではない／
   // 進捗を見て満足する病を生む）。totalPages は書誌メタとして裏で保持するのみで
   // UI には出さない。データ列は dormant（復活は容易・既存値は保持）。
+  const addAction = () => setForm({ ...form, actions: [...(form.actions || []), { text: "", deadline: "", done: false }] });
+  const updateAction = (i, key, val) => {
+    const a = [...(form.actions || [])];
+    a[i] = { ...a[i], [key]: val };
+    setForm({ ...form, actions: a });
+  };
+  const removeAction = (i) => setForm({ ...form, actions: (form.actions || []).filter((_, j) => j !== i) });
   return (
     <div>
       <p style={phaseDesc}><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読書中のインプットを記録しましょう</p>
@@ -1253,7 +1261,35 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags, allFolder
         <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} />
       </Field>
 
-      <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 8 }}>保存</button>
+      {/* 📊 読書中でも：メモ→目的照合→学び/視点→行動提案（AI がタスク作成を支援） */}
+      {form.id && (
+        <div style={{ marginBottom: 14 }}>
+          <BookLearningAnalysis
+            book={form}
+            onAddToActions={(text) => setForm((f) => ({ ...f, actions: [...(f.actions || []), { text, deadline: "", done: false }] }))}
+          />
+        </div>
+      )}
+
+      <SectionHeader icon={<IcZap size={16} />} title="この本から決めた行動" />
+      <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>読みながら「やってみよう」と思ったことを、行動にしておきましょう。</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {(form.actions || []).map((a, i) => (
+          <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：明日の朝、学んだ手法を1つ試す" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} maxLength={LIMITS.actionText} />
+              <button onClick={() => removeAction(i)} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer" }}>×</button>
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}><IcCal size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限</span>
+              <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...inp, flex: 1 }} />
+            </div>
+          </div>
+        ))}
+        <button onClick={addAction} style={{ ...btnO, padding: "10px 0", fontSize: 12, borderStyle: "dashed" }}>＋ 行動を追加</button>
+      </div>
+
+      <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 16 }}>保存</button>
     </div>
   );
 }
@@ -1302,6 +1338,16 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags, al
             </Field>
           )}
         </>
+      )}
+
+      {/* 📊 メモ→目的照合→学び/視点→行動提案。AI がタスク作成を支援する。 */}
+      {form.id && (
+        <div style={{ marginBottom: 14 }}>
+          <BookLearningAnalysis
+            book={form}
+            onAddToActions={(text) => setForm((f) => ({ ...f, actions: [...(f.actions || []), { text, deadline: "", done: false }] }))}
+          />
+        </div>
       )}
 
       <SectionHeader icon={<IcZap size={16} />} title="次の 1 週間でやる行動" />

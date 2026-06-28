@@ -488,7 +488,9 @@ export default function Review({ books = [], onOpenBook, onAddAction }) {
     setAddingAction(true);
     const ok = await onAddAction(book.id, {
       text: memo.text,
-      sourceMemoId: typeof memo.id === 'string' && !memo.id.startsWith('ref-') ? memo.id : null,
+      // 合成ノート（まとめメモ/投資目的/仮説等）の id は非 UUID なので source に渡さない。
+      // 実カードメモ（synth=false）のときだけ起点メモ id を残す。
+      sourceMemoId: !memo.synth && typeof memo.id === 'string' ? memo.id : null,
       sourcePage: memo.pageNumber ?? null,
     });
     setAddingAction(false);
