@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
-import { startCheckout, PLAN_LABELS } from '../lib/billing';
+import { PLAN_LABELS } from '../lib/billing';
 import {
   isNative,
   APP_PLAN_LABELS,
@@ -52,6 +52,9 @@ const VALUE_POINTS = [
     body: 'いま困っていることを話すと、AI 選書が日本語の本を提案します。',
   },
 ];
+
+// 契約は App Store(IAP) 一本化。Web では決済せず App Store へ誘導する。
+const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime';
 
 const cardStyle = {
   background: 'var(--color-surface)',
@@ -207,10 +210,9 @@ export default function Paywall({ onPurchased }) {
         setPending(null);
         return;
       }
-      // Web: Stripe Checkout（成功時は assign され戻らない）。
-      await startCheckout(plan);
-      // assign が即時遷移しなかった環境（ポップアップブロック等）でボタンが
-      // 「移動中…」のまま永久ロックするのを防ぐ保険。
+      // Web: 課金は App Store(IAP) 一本化。Web では決済せず App Store へ誘導する
+      // （UI 上もこの分岐には到達しないが、念のため Stripe を呼ばず App へ送る）。
+      window.location.assign(APP_STORE_URL);
       setPending(null);
     } catch (e) {
       toast.error(toMessage(e, '購入手続きを開始できませんでした。少し時間をおいて再試行してください。'));
@@ -299,7 +301,31 @@ export default function Paywall({ onPurchased }) {
           </p>
         )}
 
-        {/* プラン提示：年額を主役、月額を控えめに */}
+        {/* プラン提示：年額を主役、月額を控えめに。
+            ※ 契約は App Store(IAP) 一本化。Web では決済せず App Store へ誘導する。 */}
+        {!isNative ? (
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={cardStyle}>
+              <p style={{ fontSize: 15, fontWeight: 600, margin: '0 0 6px' }}>ご契約は iOS アプリから</p>
+              <p style={{ fontSize: 13, color: 'var(--color-secondary)', lineHeight: 1.8, margin: '0 0 12px' }}>
+                Orime の有料プラン（{labels.annual.price} / {labels.monthly.price}）のご契約は、iPhone・iPad アプリ（App Store）から行えます。お支払い・解約はすべて App Store で管理されます。
+              </p>
+              <a
+                href={APP_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'center',
+                  minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
+                  fontSize: 15, fontWeight: 600, textDecoration: 'none',
+                }}
+              >
+                App Store で入手
+              </a>
+            </div>
+          </section>
+        ) : (
         <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* 年額（おすすめ・大きく） */}
           <div
@@ -390,6 +416,7 @@ export default function Paywall({ onPurchased }) {
             </button>
           </div>
         </section>
+        )}
 
         {/* 購入の復元（Apple 必須・ネイティブのみ） */}
         {isNative && (

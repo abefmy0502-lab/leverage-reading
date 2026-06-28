@@ -28,11 +28,15 @@
   --color-bg-elevated: #fffdf8;       /* 浮いた要素 */
   --color-bg-hover: #f5f1ea;          /* ホバー */
 
-  /* === 色: テキスト ========================================================== */
-  --color-text-primary: #1f1f1f;
-  --color-text-secondary: #595959;
-  --color-text-tertiary: #8c8c8c;
-  --color-text-quaternary: #bfbfbf;
+  /* === 色: テキスト ==========================================================
+   * トークン2系統の統一: テキスト色は暖色ブランド（--c-ink*）を単一の真実とする。
+   * 旧 --color-text-* は冷たいグレー（#1f1f1f/#595959/#8c8c8c）で、33ファイルで
+   * 使う暖色（--c-ink #3d362c 系）と画面間でちぐはぐだったため、暖色側へ寄せて統一。
+   * これにより --color-text-* を使う 16 ファイルも同じブランド文字色になる。 */
+  --color-text-primary: var(--c-ink);       /* = #3d362c（旧 #1f1f1f） */
+  --color-text-secondary: var(--c-ink-2);   /* = #5a4f3e（旧 #595959） */
+  --color-text-tertiary: var(--c-ink-3);    /* = #8a7d6a（旧 #8c8c8c） */
+  --color-text-quaternary: #bfbfbf;         /* 極淡プレースホルダ（暖色等価が無いため据置） */
   --color-text-inverse: #ffffff;
 
   /* === 色: アクセント ======================================================== */
@@ -199,6 +203,15 @@
   --c-critical: #a05040;       /* 破壊的・警告のレンガ色 */
   --c-critical-soft: #fbf3ee;  /* 警告の淡い面 */
   --c-critical-line: #e6c9bd;  /* 警告枠線 */
+
+  /* === 本のステータス色（単一の真実） =========================================
+   * 本棚カードの表紙ピル(CSS)と詳細/バッジ(JS)で色が二系統に割れていた
+   * （CSS は Material 原色 #6A1B9A 等、JS は落ち着いた暖色トーン）。
+   * 暖色トーンに統一し、JS の STATUSES と CSS の .book-status-pill 両方がこれを使う。 */
+  --status-want: #8a7040;      /* 読みたい（= --color-accent の金茶） */
+  --status-before: #7a5080;    /* 積読（落ち着いた紫） */
+  --status-reading: #4a6e8a;   /* 読書中（落ち着いた青） */
+  --status-done: #5a7a48;      /* 読了（落ち着いた緑） */
 
   --color-label: var(--color-text-primary);
   --color-secondary: var(--color-text-secondary);

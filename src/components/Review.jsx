@@ -81,15 +81,15 @@ const transformRow = (m) => {
 // ニュートラル茶を基調に、警告＝レンガ / 達成＝苔グリーン / 学び＝ゴールド の
 // 3アクセントだけで意味を出す（本田哲学＝色数を絞る＝洗練）。
 const KIND_META = {
-  card:              { Icon: StickyNote,        label: 'メモ',          color: '#5a4f3e' },
-  summary:           { Icon: BookOpen,          label: 'まとめメモ',     color: '#5c5043' },
+  card:              { Icon: StickyNote,        label: 'メモ',          color: 'var(--c-ink-2)' },
+  summary:           { Icon: BookOpen,          label: 'まとめメモ',     color: 'var(--c-brand)' },
   personal:          { Icon: Lightbulb,         label: '学び',          color: '#8a7040' },
-  invest_purpose:    { Icon: BarChart3,         label: '投資目的',       color: '#5c5043' },
+  invest_purpose:    { Icon: BarChart3,         label: '投資目的',       color: 'var(--c-brand)' },
   current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: '#a05040' },
   hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: '#8a7040' },
-  ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: '#8a7d6a' },
+  ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: 'var(--c-ink-3)' },
   roi_summary:       { Icon: Gem,               label: '一番の収穫',     color: '#5f7a55' },
-  leverage_memo:     { Icon: FileText,          label: 'まとめメモ',     color: '#5c5043' },
+  leverage_memo:     { Icon: FileText,          label: 'まとめメモ',     color: 'var(--c-brand)' },
   action_reflection: { Icon: MessageSquareQuote, label: '行動の振り返り', color: '#5f7a55' },
 };
 

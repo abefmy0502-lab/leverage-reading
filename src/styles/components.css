@@ -933,10 +933,10 @@
   pointer-events: none;
   z-index: 2;
 }
-.book-status-pill.want { color: #6A1B9A; }
-.book-status-pill.before { color: #1565C0; }
-.book-status-pill.reading { color: #E65100; }
-.book-status-pill.done { color: #2E7D32; }
+.book-status-pill.want { color: var(--status-want); }
+.book-status-pill.before { color: var(--status-before); }
+.book-status-pill.reading { color: var(--status-reading); }
+.book-status-pill.done { color: var(--status-done); }
 
 .book-cover-title {
   /* 3 列スマホ表示で 1 冊 ~110px 幅。タイトルは 12px / 2 行で省略。

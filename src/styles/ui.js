@@ -1,6 +1,6 @@
 // 🎨 ui.js — インライン style 用の「単一の真実」。
 //
-// 本田レビュー対応: 同じ暖色 hex（#3d362c / #5c5043 / #fffdf8 …）が 600+ 箇所に
+// 本田レビュー対応: 同じ暖色 hex（var(--c-ink) / var(--c-brand) / var(--c-card) …）が 600+ 箇所に
 // 直書きされ、btnPrimary / btnGhost / btnDanger が各ファイルで重複定義されていた
 // 「個人開発感」を解消する。色は tokens.css の var(--c-*) を指す文字列なので、
 // ここを single source として import すれば、値の変更が全画面へ波及する。

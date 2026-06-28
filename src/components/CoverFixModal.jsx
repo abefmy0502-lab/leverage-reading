@@ -204,7 +204,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                     alignItems: 'center',
                     gap: 6,
                     padding: 8,
-                    background: c.isCurrent ? '#fff8e1' : '#fff',
+                    background: c.isCurrent ? 'var(--color-warning-soft)' : '#fff',
                     border: c.isCurrent ? '2px solid #d4a040' : '2px solid var(--c-hairline)',
                     borderRadius: 10,
                     cursor: 'pointer',

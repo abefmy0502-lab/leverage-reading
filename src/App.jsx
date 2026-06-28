@@ -129,10 +129,10 @@ import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo
 const STAR = "★";
 const EMPTY_STAR = "☆";
 const STATUSES = [
-  { key: "want", label: "読みたい", emoji: "🔖", Icon: Bookmark, bg: "#f0e8d8", color: "var(--color-accent)" },
-  { key: "before", label: "積読", emoji: "📐", Icon: PenSquare, bg: "#f0e0f0", color: "#7a5080" },
-  { key: "reading", label: "読書中", emoji: "📖", Icon: BookOpen, bg: "#dde8f0", color: "#4a6e8a" },
-  { key: "done", label: "読了", emoji: "✅", Icon: CheckCircle, bg: "#e2ecd8", color: "#5a7a48" },
+  { key: "want", label: "読みたい", emoji: "🔖", Icon: Bookmark, bg: "#f0e8d8", color: "var(--status-want)" },
+  { key: "before", label: "積読", emoji: "📐", Icon: PenSquare, bg: "#f0e0f0", color: "var(--status-before)" },
+  { key: "reading", label: "読書中", emoji: "📖", Icon: BookOpen, bg: "#dde8f0", color: "var(--status-reading)" },
+  { key: "done", label: "読了", emoji: "✅", Icon: CheckCircle, bg: "#e2ecd8", color: "var(--status-done)" },
 ];
 const getSt = (k) => STATUSES.find((s) => s.key === k) || STATUSES[0];
 
@@ -1014,7 +1014,7 @@ function BeforePhase({
           {(form.bookReason || form.sourceQuery) && (
             <div
               style={{
-                background: '#FFF8E1',
+                background: 'var(--color-warning-soft)',
                 border: '1px solid #e0c878',
                 padding: '10px 12px',
                 borderRadius: 8,
@@ -4492,7 +4492,7 @@ function AuthedApp() {
                     marginTop: 12,
                     padding: '12px 14px',
                     borderRadius: 10,
-                    background: 'var(--color-warning-soft, #fff8e1)',
+                    background: 'var(--color-warning-soft, var(--color-warning-soft))',
                     border: '1px solid #e0c878',
                     display: 'flex',
                     flexDirection: 'column',

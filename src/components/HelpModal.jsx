@@ -160,7 +160,7 @@ const heroStyle = {
 
 const answerCardStyle = {
   marginTop: 10,
-  background: '#FFF8E1',
+  background: 'var(--color-warning-soft)',
   border: '1px solid #e0c878',
   borderRadius: 10,
   padding: '12px 14px',

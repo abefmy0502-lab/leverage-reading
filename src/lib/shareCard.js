@@ -12,9 +12,11 @@
 const W = 1080;
 const H = 1350;
 
-// クリーム / ブラウンの世界観（tokens.css と同系統）
+// クリーム / ブラウンの世界観（tokens.css と同系統）。
+// ※ canvas の fillStyle は CSS 変数 var(--*) を解決できないため、ここは
+//   必ずリテラル hex で持つこと（--c-card / --c-ink と同値）。
 const BG = '#fffdf8';
-const INK = '#3d362c'; // 本文ブラウン
+const INK = '#3d362c'; // 本文ブラウン（= --c-ink）
 const SUB = '#8a7e6b'; // 書名・著者
 const FAINT = '#c9bfac'; // 枠・装飾
 const WORDMARK = '#a89e8c';

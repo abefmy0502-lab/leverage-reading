@@ -220,7 +220,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
       {book.duration && (
         <div
           style={{
-            background: '#FFF8E1',
+            background: 'var(--color-warning-soft)',
             border: '1px solid #e0c878',
             borderRadius: 8,
             padding: '8px 10px',

@@ -559,19 +559,19 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                       </span>
                     )}
                     {a.priority === 'low' && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-soft)', color: '#8a7d6a' }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-soft)', color: 'var(--c-ink-3)' }}>
                         <ArrowDown size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />低
                       </span>
                     )}
                     {/* 繰り返し */}
                     {a.recurrence && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-soft-2)', color: '#5c5043' }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-soft-2)', color: 'var(--c-brand)' }}>
                         <Repeat size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{a.recurrence === 'weekly' ? '毎週' : '毎月'}
                       </span>
                     )}
                     {/* 引用ページ */}
                     {a.sourcePage && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--color-accent-soft)', color: '#5a4f3e' }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--color-accent-soft)', color: 'var(--c-ink-2)' }}>
                         <Link2 size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />p.{a.sourcePage}
                       </span>
                     )}
