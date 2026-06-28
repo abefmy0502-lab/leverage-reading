@@ -335,7 +335,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         if (res.ok) {
           setPushOn(true);
           track(EVENTS.PUSH_ENABLED); // ON 成功時のみ（props なし・fire-and-forget）
-          toast.success('週1で、過去のあなたのメモがそっと戻ってきます。');
+          toast.success('通知をオンにしました。メモが育つと、忘れた頃にそっと戻ってきます。');
         } else if (res.reason === 'denied') {
           setPushDenied(true);
           toast.error('通知が許可されていません。端末の設定からオンにできます。');
@@ -395,9 +395,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     // 確認ダイアログ必須 — 押した瞬間に reload するので、メモ書き / AI 会話の
     // 途中で誤タップすると入力が消える。意図的な操作だけ通す。
     const ok = await confirm({
-      title: '🔄 アプリを最新版に更新',
-      message: 'キャッシュを削除して再読み込みします。\n\n書きかけのメモや AI への入力中の文章は失われます。よろしいですか？',
-      confirmLabel: '更新する',
+      title: '🔄 読み込み直しますか？',
+      message: 'いったん閉じて読み込み直します。\n\n書きかけのメモや AI への入力中の文章は失われます。よろしいですか？',
+      confirmLabel: '読み込み直す',
       cancelLabel: 'キャンセル',
     });
     if (!ok) return;
@@ -540,7 +540,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = await confirm({
       title: '本当にすべて削除しますか？',
       message:
-        '本・メモ・写真・対話履歴・行動リスト・タグ — すべてのデータが完全に削除されます。\n\nこの操作は取り消せません。',
+        '本・メモ・写真・対話履歴・行動リスト・タグ — すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
       confirmLabel: '削除を実行',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -747,18 +747,24 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button
                     type="button"
-                    aria-label={`${planLabels.annual.name}で契約（おすすめ）`}
-                    style={{ ...btnPrimary, opacity: billingBusy ? 0.6 : 1 }}
+                    aria-label={`${planLabels.annual.price} で契約（おすすめ）`}
+                    style={{ ...btnPrimary, flexDirection: 'column', gap: 2, height: 'auto', paddingTop: 12, paddingBottom: 12, opacity: billingBusy ? 0.6 : 1 }}
                     disabled={billingBusy}
                     onClick={() => handleUpgrade('annual')}
                   >
-                    {billingBusy ? '移動中…' : `${planLabels.annual.name}で契約（おすすめ）`}
+                    <span>{billingBusy ? '移動中…' : `${planLabels.annual.price}`}</span>
+                    <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>おすすめ・{planLabels.annual.note}</span>
                   </button>
                   <button
                     type="button"
-                    aria-label={`${planLabels.monthly.name}で契約`}
+                    aria-label={`${planLabels.monthly.price} で契約`}
                     style={{
                       ...btnPrimary,
+                      flexDirection: 'column',
+                      gap: 2,
+                      height: 'auto',
+                      paddingTop: 12,
+                      paddingBottom: 12,
                       background: 'transparent',
                       color: 'var(--c-brand)',
                       border: '1px solid var(--c-hairline-strong)',
@@ -767,7 +773,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     disabled={billingBusy}
                     onClick={() => handleUpgrade('monthly')}
                   >
-                    {planLabels.monthly.name}で契約
+                    <span>{planLabels.monthly.price}</span>
+                    <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.75 }}>{planLabels.monthly.note}</span>
                   </button>
                 </div>
               </>
@@ -830,17 +837,20 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           <section style={sectionStyle} aria-label="データをダウンロード">
             <SecTitle icon={IcDownload}>データをダウンロード</SecTitle>
             <p style={sectionDescStyle}>
-              本・メモ・タグ・行動・対話履歴を CSV でダウンロードします。Excel / Numbers でそのまま開けます。
+              あなたのデータはいつでも書き出せます。用途に合わせて選んでください。
             </p>
-            <button type="button" aria-label="CSV をダウンロード" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
-              {exporting ? '準備中…' : 'CSV をダウンロード'}
+            <button type="button" aria-label="表で見る（CSV をダウンロード）" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
+              {exporting ? '準備中…' : '表で見る（CSV）'}
             </button>
-            <p style={{ ...sectionDescStyle, margin: '14px 0 10px' }}>
-              メモを 1 つの Markdown にまとめて書き出します。NotebookLM や Obsidian に取り込んで活用できます。
+            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 14px', lineHeight: 1.6 }}>
+              本・メモ・タグ・行動・対話履歴をまとめた表。Excel / Numbers で開けます。
             </p>
-            <button type="button" aria-label="Markdown で書き出す" style={{ ...btnPrimary, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
-              {exportingMd ? '書き出し中…' : 'Markdown で書き出す'}
+            <button type="button" aria-label="文章で読み返す（Markdown で書き出す）" style={{ ...btnPrimary, background: 'transparent', color: 'var(--c-brand)', border: '1px solid var(--c-hairline-strong)', opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
+              {exportingMd ? '書き出し中…' : '文章で読み返す（Markdown）'}
             </button>
+            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 0', lineHeight: 1.6 }}>
+              メモを 1 枚の読み物に。NotebookLM や Obsidian、AI への読み込みにも。
+            </p>
           </section>
 
           {/* 📊 利用状況の記録（製品改善のためのファーストパーティ計測） */}
@@ -861,15 +871,15 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           {/* ── アプリ・サポート ── */}
           <GroupLabel>アプリ・サポート</GroupLabel>
 
-          {/* App update */}
-          <section style={sectionStyle} aria-label="アプリを最新版に更新">
-            <SecTitle icon={IcRefresh}>アプリを最新版に更新</SecTitle>
+          {/* App update — 通常は自動更新（autoApply）。困った時の復旧用に顧客語で控えめに置く。 */}
+          <section style={sectionStyle} aria-label="画面がうまく表示されないとき">
+            <SecTitle icon={IcRefresh}>画面がうまく表示されないとき</SecTitle>
             <p style={sectionDescStyle}>
-              新しいバージョンが反映されない時はこちら。キャッシュを消して再読み込みします。
+              表示が古いまま・崩れている場合に、いったん読み込み直します。書きかけのメモや入力中の文章は失われます。
             </p>
             <button
               type="button"
-              aria-label="最新版に更新する"
+              aria-label="読み込み直す"
               style={{
                 ...btnPrimary,
                 background: 'transparent',
@@ -880,7 +890,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               disabled={updating}
               onClick={handleForceUpdate}
             >
-              {updating ? '更新中…' : '最新版に更新する'}
+              {updating ? '更新中…' : '読み込み直す'}
             </button>
           </section>
 
@@ -888,7 +898,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           <section style={sectionStyle} aria-label="フィードバック・要望を送る">
             <SecTitle icon={IcMail}>フィードバック・要望を送る</SecTitle>
             <p style={sectionDescStyle}>
-              バグ報告 / 機能要望 / 感想など、開発者へ直接届きます。
+              バグ報告 / 機能要望 / 感想など、運営に直接届きます。いただいた声はサービス改善に活用します。
             </p>
             <button type="button" aria-label="フィードバックを送る" style={btnPrimary} onClick={() => setFeedbackOpen(true)}>
               フィードバックを送る
@@ -900,9 +910,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
 
           {/* 🧹 データ初期化（アカウントは残す） */}
           <section style={sectionStyle} aria-label="データを初期化">
-            <SecTitle icon={IcEraser}>データを初期化</SecTitle>
+            <SecTitle icon={IcEraser}>データを初期化（ログインは残す）</SecTitle>
             <p style={sectionDescStyle}>
-              本・メモ・写真・行動・対話履歴・テーマ履歴など、あなたのデータをすべて消して、まっさらな状態に戻します。アカウント（ログイン）は残ります。
+              <strong>ログインはそのまま、データだけ</strong>をすべて消して、まっさらな状態から始め直します。本・メモ・写真・行動・対話履歴・テーマ履歴が対象です。この操作は取り消せません。
             </p>
             <button
               type="button"
@@ -917,9 +927,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
 
           {/* Delete */}
           <section style={dangerSection} aria-label="アカウント削除">
-            <SecTitle icon={IcWarn} color="var(--c-critical)">アカウント削除</SecTitle>
+            <SecTitle icon={IcWarn} color="var(--c-critical)">アカウント削除（退会）</SecTitle>
             <p style={sectionDescStyle}>
-              本・メモ・写真・対話履歴がすべて削除されます。認証アカウント自体の完全削除は、管理者の最終確認後（通常 7 日以内）に実行されます。
+              <strong>アカウントごと退会</strong>します。本・メモ・写真・対話履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
             </p>
             {!deleteOpen ? (
               <button type="button" aria-label="アカウントの削除を開始" style={btnDanger} onClick={() => setDeleteOpen(true)}>

@@ -360,13 +360,6 @@ export default function KnowledgeManager({ onChanged }) {
     };
   }, [user, refreshTick]);
 
-  const counts = useMemo(() => {
-    // Object.keys(KIND_META) で全 9 種を 0 で初期化 → forEach で実数を埋める。
-    const c = Object.fromEntries(Object.keys(KIND_META).map((k) => [k, 0]));
-    items.forEach((it) => { c[it.kind] = (c[it.kind] || 0) + 1; });
-    return c;
-  }, [items]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let arr = items.filter((it) => {
@@ -611,53 +604,18 @@ export default function KnowledgeManager({ onChanged }) {
           ]}
         />
       )}
-      {/* Hero — 知識ベース全 9 カテゴリの集計を grid で表示 */}
+      {/* Hero — 「作業量/データモデルの可視化」(9マスの 0 だらけグリッド) は本田哲学に
+          反する（進捗バー撤去と同じ判断）。AI が参照する知識の総数を 1 行に凝縮する。 */}
       <div style={card}>
         <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', margin: 0 }}>
           <Brain size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
           マイ読書脳の知識ベース
         </p>
-        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '4px 0 12px', lineHeight: 1.7 }}>
-          AI があなたの答えを作る時に参照する情報の一覧です。編集・削除すると、次回の答えに即座に反映されます。
+        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.7 }}>
+          AI が答えるとき参照する、あなたの知識は
+          <strong style={{ color: 'var(--c-brand)', fontSize: 18, margin: '0 4px', fontVariantNumeric: 'tabular-nums' }}>{items.length}</strong>
+          件。下のリストから編集・削除すると、次回の答えに即反映されます。
         </p>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 6,
-          }}
-        >
-          {[
-            { num: counts.card || 0,              Icon: StickyNote,    label: 'カード式' },
-            { num: counts.summary || 0,           Icon: BookOpen,      label: 'まとめメモ' },
-            { num: counts.personal || 0,          Icon: Lightbulb,     label: '学びログ' },
-            { num: counts.invest_purpose || 0,    Icon: BarChart3,     label: '投資目的' },
-            { num: counts.current_challenge || 0, Icon: AlertTriangle, label: '現在の課題' },
-            { num: counts.hypothesis || 0,        Icon: Lightbulb,     label: '仮説' },
-            { num: counts.ai_summary || 0,        Icon: Bot,           label: 'AI まとめ' },
-            { num: counts.roi_summary || 0,       Icon: Gem,           label: '一番の収穫' },
-            { num: counts.ai_strategy || 0,       Icon: MapIcon,       label: '戦略' },
-          ].map((s) => (
-            <div
-              key={s.label}
-              style={{
-                background: '#fff',
-                borderRadius: 8,
-                padding: '8px 4px',
-                textAlign: 'center',
-                border: '1px solid var(--c-soft-2)',
-              }}
-            >
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--c-brand)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                {s.num}
-              </div>
-              <div style={{ fontSize: 9.5, color: 'var(--c-ink-2)', marginTop: 4, letterSpacing: 0.02 }}>
-                {s.Icon && <s.Icon size={11} aria-hidden="true" style={{ verticalAlign: '-1px', marginRight: 3 }} />}
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Search + filter + sort */}

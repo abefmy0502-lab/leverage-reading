@@ -416,7 +416,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
         aria-label="テーマまとめの表示切替"
       >
         <button style={pill(view === 'create')} onClick={() => setView('create')} role="tab" aria-selected={view === 'create'}>
-          <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />作成
+          <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />新規
         </button>
         {historyAvailable && (
           <button style={pill(view === 'history')} onClick={() => setView('history')} role="tab" aria-selected={view === 'history'}>
@@ -432,7 +432,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
               <EmptyState
                 icon={<History size={40} aria-hidden="true" />}
                 title="まだテーマまとめがありません"
-                description="「作成」からテーマを選んでテーマまとめを作ると、ここに保存されていきます。"
+                description="「新規」からテーマを選んでテーマまとめを作ると、ここに保存されていきます。"
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -673,7 +673,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
           </div>
         ) : themes.length === 0 ? (
           <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
-            まだ候補はありません。メモにタグや「@カテゴリ」を付けていくと、ここにあなただけのテーマが並びます。今は下の入力欄から自由にテーマを指定して始められます。
+            まだ候補はありません。下の欄にテーマを入力して始めましょう。
           </p>
         ) : (
           <div
@@ -759,9 +759,6 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />作成
           </button>
         </div>
-        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.6 }}>
-          そのテーマのメモと行動を集めて、1 枚にまとめます。
-        </p>
       </div>
     </div>
   );

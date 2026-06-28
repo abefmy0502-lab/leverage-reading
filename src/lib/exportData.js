@@ -117,7 +117,7 @@ export async function exportUserDataAsCSV(userId, { onProgress } = {}) {
 
     const csv = arrayToCSV(rows);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const filename = `leverage-reading-${table}-${date}.csv`;
+    const filename = `orime-${table}-${date}.csv`;
     downloadBlob(filename, blob);
     summary.push({ table, count: rows.length, filename, skipped: false });
 
