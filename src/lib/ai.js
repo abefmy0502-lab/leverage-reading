@@ -203,7 +203,10 @@ const SYNTH_LABEL = {
 
 // withDate=true のとき、本に紐づくメモ/synth 行のヘッダにも記録日を付ける。
 // 既定(false)は従来の出力を完全維持し、時系列追跡フロー(知識の足あと)だけが日付を要求する。
-function formatMemo(memo, { withDate = false } = {}) {
+function formatMemo(memo, opts) {
+  // ⚠️ ranked.map(formatMemo) は第2引数に「配列の index(数値)」を渡すため、
+  //    opts がオブジェクトのときだけ採用する（数値が来ても withDate=false に倒す）。
+  const withDate = !!(opts && typeof opts === 'object' && opts.withDate);
   // Sanitize and clamp every user-supplied piece before embedding into the prompt.
   const rawText = memo.text || '';
   const safeText = clamp(sanitizeForPrompt(rawText), LIMITS.promptMemoExcerpt);
