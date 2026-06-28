@@ -107,6 +107,7 @@ import { ensureHttps } from './lib/url';
 import {
   getAmazonLink,
   getAmazonSearchLink,
+  openAmazonForBook,
   AMAZON_DISCLOSURE_TEXT,
   AMAZON_LINK_REL,
 } from './lib/amazonLink';
@@ -2382,6 +2383,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     href={getAmazonLink(rec)}
                     target="_blank"
                     rel={AMAZON_LINK_REL}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAmazonForBook(rec); }}
                     aria-label={`Amazon で『${rec.title}』を購入（外部リンク）`}
                     style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#FF9900", color: "#000", fontSize: 12, fontFamily: "inherit", textAlign: "center", textDecoration: "none", fontWeight: 600, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, whiteSpace: 'nowrap', touchAction: 'manipulation' }}
                   >
@@ -4716,6 +4718,7 @@ function AuthedApp() {
               href={getAmazonLink(current)}
               target="_blank"
               rel={AMAZON_LINK_REL}
+              onClick={(e) => { e.preventDefault(); openAmazonForBook(current); }}
               aria-label={`Amazon で『${current.title}』を購入（外部リンク）`}
               style={{
                 display: "inline-flex",
