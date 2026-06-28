@@ -61,10 +61,11 @@ const addChip = (added) => ({
   textAlign: 'left', flex: 1,
 });
 
-export default function BookLearningAnalysis({ book, onAddToActions }) {
+export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBook }) {
   const toast = useToast();
   const [state, setState] = useState({ status: 'idle' }); // idle|loading|done|thin|error
   const [added, setAdded] = useState(() => new Set());
+  const [saved, setSaved] = useState(false);
 
   const run = async () => {
     if (state.status === 'loading' || !book?.id) return;
@@ -78,6 +79,7 @@ export default function BookLearningAnalysis({ book, onAddToActions }) {
         challenge: book.currentChallenge,
       });
       if (r?.tooThin) { setState({ status: 'thin' }); return; }
+      setSaved(false);
       setState({ status: 'done', content: r.content, actions: extractSuggestedActions(r.content), body: stripActionSection(r.content) });
     } catch (e) {
       setState({ status: 'error', msg: toMessage(e, '分析に失敗しました。少し時間をおいて再度お試しください。') });
@@ -89,6 +91,15 @@ export default function BookLearningAnalysis({ book, onAddToActions }) {
     onAddToActions(text);
     setAdded((s) => new Set(s).add(i));
     toast.success('🎯 行動に追加しました');
+  };
+
+  // 📌 学び・新視点を本の AI まとめとして保存 → gatherKnowledge 経由で
+  //   マイ読書脳・テーマまとめ・🕰足あと、振り返りの想起にも自動で流れる（複利）。
+  const save = async () => {
+    if (saved || state.status !== 'done' || !onSaveToBook) return;
+    const ok = await onSaveToBook(state.body);
+    if (ok) { setSaved(true); toast.success('保存しました。マイ読書脳・振り返りにも活かされます'); }
+    else toast.error('保存に失敗しました。');
   };
 
   return (
@@ -140,6 +151,23 @@ export default function BookLearningAnalysis({ book, onAddToActions }) {
                   <span style={{ flex: 1 }}>{a}</span>
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* 📌 全体に還流：本の AI まとめとして保存（複利の核心） */}
+          {onSaveToBook && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <button
+                type="button"
+                style={{ ...analyzeBtn, background: saved ? 'transparent' : 'var(--c-brand)', color: saved ? 'var(--c-brand)' : 'var(--c-card)', border: saved ? '1px solid var(--c-brand)' : 'none', cursor: saved ? 'default' : 'pointer' }}
+                disabled={saved}
+                onClick={save}
+              >
+                {saved ? <><Check size={15} aria-hidden="true" />保存しました</> : <><Plus size={15} aria-hidden="true" />この学びを保存して、全体に活かす</>}
+              </button>
+              <p style={{ fontSize: 10.5, color: 'var(--c-ink-3)', margin: '2px 2px 0', lineHeight: 1.6 }}>
+                保存すると、この学びがマイ読書脳・テーマまとめ・足あと・振り返りの想起にも使われます。
+              </p>
             </div>
           )}
 

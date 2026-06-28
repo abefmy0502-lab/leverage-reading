@@ -1220,7 +1220,7 @@ const clampPage = (v) => {
   return Math.min(n, 100000);
 };
 
-function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags, allFolders }) {
+function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAnalysis, allTags, allFolders }) {
   // 📖 読書進捗（ページ管理）は撤去（本田哲学=「作業量の可視化」は成果ではない／
   // 進捗を見て満足する病を生む）。totalPages は書誌メタとして裏で保持するのみで
   // UI には出さない。データ列は dormant（復活は容易・既存値は保持）。
@@ -1267,6 +1267,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags, allFolder
           <BookLearningAnalysis
             book={form}
             onAddToActions={(text) => setForm((f) => ({ ...f, actions: [...(f.actions || []), { text, deadline: "", done: false }] }))}
+            onSaveToBook={onPersistAnalysis}
           />
         </div>
       )}
@@ -1295,7 +1296,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, allTags, allFolder
 }
 
 // Phase 4: 読了（投資回収）
-function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags, allFolders }) {
+function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, onPersistAnalysis, allTags, allFolders }) {
   const addAction = () => setForm({ ...form, actions: [...(form.actions || []), { text: "", deadline: "", done: false }] });
   const updateAction = (i, key, val) => {
     const a = [...(form.actions || [])];
@@ -1346,6 +1347,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags, al
           <BookLearningAnalysis
             book={form}
             onAddToActions={(text) => setForm((f) => ({ ...f, actions: [...(f.actions || []), { text, deadline: "", done: false }] }))}
+            onSaveToBook={onPersistAnalysis}
           />
         </div>
       )}
@@ -4171,6 +4173,24 @@ function AuthedApp() {
     }
   };
 
+  // 📊→♾️ 本の学び分析を ai_summary に保存して全体に還流させる（複利）。
+  // gatherKnowledge が ai_summary を読む → マイ読書脳 / テーマまとめ / 🕰足あと、
+  // 振り返りの想起ノート(ai_summary synth)にも自動で乗る。編集中フォームにも反映。
+  const persistBookLearning = async (text) => {
+    const body = (text || '').trim();
+    if (!form?.id || !body) return false;
+    const clamped = clamp(body, LIMITS.memoText);
+    setForm((f) => ({ ...f, aiSummary: clamped }));
+    const book = books.find((b) => b.id === form.id) || form;
+    try {
+      await saveBook({ ...book, aiSummary: clamped });
+      return true;
+    } catch (error) {
+      toast.error(toMessage(error, '保存に失敗しました。'));
+      return false;
+    }
+  };
+
   const toggleAction = async (bookId, actionIdx) => {
     const book = books.find((b) => b.id === bookId);
     if (!book) return;
@@ -5034,10 +5054,10 @@ function AuthedApp() {
                   />
                 )}
                 {effectivePhase === "reading" && current && (
-                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} allTags={allTags} allFolders={folderNames} />
+                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} onPersistAnalysis={persistBookLearning} allTags={allTags} allFolders={folderNames} />
                 )}
                 {effectivePhase === "done" && current && (
-                  <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} allTags={allTags} allFolders={folderNames} />
+                  <DonePhase form={form} setForm={setForm} onSave={handleSave} aiLoading={aiLoading} onRunSummary={runSummary} onPersistAnalysis={persistBookLearning} allTags={allTags} allFolders={folderNames} />
                 )}
               </>
             );
