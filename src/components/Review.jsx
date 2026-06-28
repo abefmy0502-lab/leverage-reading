@@ -117,9 +117,11 @@ function buildSyntheticNotes(books) {
         synth: true,
       });
     };
-    push('invest_purpose',    b.investPurpose);
-    push('current_challenge', b.currentChallenge);
-    push('hypothesis',        b.hypothesis);
+    // ※ 投資目的 / 現在の課題 / 仮説 は AI が読む前に生成する「計画」であって
+    //   思い出すべき「気づき」ではない。似たテーマの本が増えるとほぼ同じ文章が
+    //   何枚も羅列され、本物のメモが埋もれる。振り返り（想起/タイムライン）からは
+    //   外し、これらは 🧠知識ベース と本詳細でのみ扱う。読後の学び（まとめ・収穫・
+    //   行動の振り返り）と自分で書いたメモだけを想起の対象にする。
     push('ai_summary',        b.aiSummary);
     push('roi_summary',       b.roiSummary);
     push('leverage_memo',     b.leverageMemo);
@@ -700,9 +702,12 @@ export default function Review({ books = [], onOpenBook, onAddAction }) {
         {randomMemo && (
           <div
             style={{
+              // preserve-3d / backfaceVisibility はフリップ中だけ。安静時に残すと
+              // iOS Safari で永続 3D レイヤーになり、長いノートの上方向スクロールが
+              // 固まる（PullToRefresh の always-on translate3d と同じ原因）。
               animation: flipping ? 'leverage-card-flip .6s ease-in-out both' : undefined,
-              transformStyle: 'preserve-3d',
-              backfaceVisibility: 'hidden',
+              transformStyle: flipping ? 'preserve-3d' : undefined,
+              backfaceVisibility: flipping ? 'hidden' : undefined,
             }}
           >
             <ReviewMemoCard
