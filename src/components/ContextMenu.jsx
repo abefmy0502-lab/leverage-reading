@@ -105,7 +105,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
               }}
               style={{
                 ...itemBase,
-                color: it.destructive ? '#FF3B30' : 'var(--c-ink)',
+                color: it.destructive ? 'var(--color-error, #ff3b30)' : 'var(--c-ink)',
                 borderBottom: isLast ? 'none' : itemBase.borderBottom,
               }}
             >

@@ -219,14 +219,18 @@ export default function QuickMemoSheet({
     };
   }, []);
 
-  // Escape closes
+  // 保存中(busy)は閉じない。保存途中で閉じると onCreate の成否フィードバック
+  // (errorMsg) がアンマウントで消え、ユーザーに結果が届かない。
+  const requestClose = () => { if (busy) return; onClose?.(); };
+
+  // Escape closes（保存中は無視）
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      if (e.key === 'Escape' && !busy) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, busy]);
 
   const handleSave = async () => {
     if (busy) return;
@@ -264,11 +268,11 @@ export default function QuickMemoSheet({
 
   return (
     <>
-      <div style={backdrop} onClick={onClose} aria-hidden="true" />
+      <div style={backdrop} onClick={requestClose} aria-hidden="true" />
       <div ref={sheetRef} style={sheetWrap} role="dialog" aria-modal="true">
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
-          <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる">
+          <button type="button" style={closeBtn} onClick={requestClose} aria-label="閉じる">
             <X size={18} aria-hidden="true" />
           </button>
           <div style={{ minWidth: 0, flex: 1 }}>

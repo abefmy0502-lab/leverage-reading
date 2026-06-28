@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { SUPPORT_EMAIL } from '../lib/contact';
+import { LIMITS } from '../lib/limits';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
@@ -713,7 +714,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             ) : isActive ? (
               <>
                 <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '0 0 4px', lineHeight: 1.7 }}>
-                  状態：<strong style={{ color: 'var(--c-ink)' }}>{billingStatusLabel(subscription?.status)}</strong>
+                  状態：<strong style={{ color: 'var(--c-ink)' }}>{subscription?.status ? billingStatusLabel(subscription.status) : '利用中'}</strong>
                   {formatPeriodEnd(subscription?.currentPeriodEnd) && (
                     <>（次回更新 {formatPeriodEnd(subscription.currentPeriodEnd)}）</>
                   )}
@@ -968,6 +969,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   placeholder={expectedConfirm}
                   aria-label="確認用メールアドレス"
                   style={inputStyle}
+                  maxLength={LIMITS.email}
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck={false}

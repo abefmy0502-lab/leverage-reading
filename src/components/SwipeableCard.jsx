@@ -66,7 +66,7 @@ export default function SwipeableCard({
           top: 0,
           bottom: 0,
           width: ACTION_WIDTH,
-          background: '#FF3B30',
+          background: 'var(--color-error, #ff3b30)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-start',

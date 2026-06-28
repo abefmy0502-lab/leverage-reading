@@ -974,7 +974,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction }) {
                   ask();
                 }
               }}
-              placeholder="質問..."
+              placeholder="質問...（送信ボタン / ⌘・Ctrl+Enter で送信）"
               rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}

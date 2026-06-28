@@ -153,7 +153,7 @@ export function useBooks() {
         ai_analysis: book.aiAnalysis || null,
         ai_strategy: book.aiStrategy || null,
         leverage_memo: typeof book.leverageMemo === 'string' ? book.leverageMemo : null,
-        ai_summary: book.aiSummary || null,
+        ai_summary: book.aiSummary ? clamp(book.aiSummary, LIMITS.memoText) : null,
         roi_summary: book.roiSummary || null,
         added_via: book.addedVia === 'manual' ? 'manual' : 'search',
         isbn: book.isbn ? String(book.isbn).replace(/[-\s]/g, '') : null,
@@ -360,7 +360,8 @@ export function useBooks() {
           const base = {
             book_id: savedBookId,
             user_id: user.id,
-            text: a.text,
+            // 保存境界で clamp（本詳細インライン入力は maxLength を通らない経路があるため二重防御）。
+            text: clamp(a.text || '', LIMITS.actionText),
             deadline: a.deadline || null,
             done: a.done || false,
           };

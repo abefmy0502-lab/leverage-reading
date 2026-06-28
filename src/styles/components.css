@@ -972,14 +972,16 @@
 .view-mode-switch button {
   background: transparent;
   border: none;
-  padding: 6px 10px;
+  padding: 6px 14px;
   font-size: var(--type-caption);
   color: var(--color-text-tertiary);
   cursor: pointer;
   font-family: inherit;
-  min-height: 32px;
+  min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
 }
 .view-mode-switch button.active {
@@ -1086,9 +1088,9 @@ body.keyboard-open .ai-input-area {
 }
 .ai-input-area .send-btn {
   flex-shrink: 0;
-  /* LINE 風の丸ボタン。アイコン or 短いテキスト用に正方形 40×40。 */
-  width: 40px;
-  height: 40px;
+  /* LINE 風の丸ボタン。iOS HIG の最小タップ域 44×44。 */
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-radius: 50%;
   border: none;

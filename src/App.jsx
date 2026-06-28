@@ -28,7 +28,7 @@ const subTabIconStyle = { verticalAlign: '-2px', marginRight: 5 };
 // 本棚ツールバー（シート化）用の共通スタイル。
 const SORT_LABELS = { updated: '更新順', created: '登録順', title: 'タイトル順', rating: '評価順' };
 const bookshelfToolbarBtn = (active) => ({
-  display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 38,
+  display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 44,
   padding: '7px 12px', borderRadius: 999, fontSize: 12, fontFamily: 'inherit',
   cursor: 'pointer', fontWeight: active ? 600 : 500,
   border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
@@ -1298,7 +1298,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags, al
           )}
           {form.aiSummary && (
             <Field label="要約の編集" sub="AIの要約を自由に修正できます">
-              <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={5} style={ta} />
+              <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={5} style={ta} maxLength={LIMITS.memoText} />
             </Field>
           )}
         </>
@@ -1310,7 +1310,7 @@ function DonePhase({ form, setForm, onSave, aiLoading, onRunSummary, allTags, al
         {(form.actions || []).map((a, i) => (
           <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：営業会議で結論ファーストを実践" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} />
+              <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：営業会議で結論ファーストを実践" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} maxLength={LIMITS.actionText} />
               <button onClick={() => removeAction(i)} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer" }}>×</button>
             </div>
             {/* 期限のみをインラインで。優先度・繰り返しなどの詳細は「行動」タブの
@@ -3241,7 +3241,11 @@ function AuthedApp() {
     return true;
   };
 
+  const savingRef = useRef(false);
   const handleSave = async () => {
+    // 二重送信ガード。handleSave は表紙解決(findIsbnCandidates/resolveCover)+saveBook の
+    // 複数 await を含むため、連打すると新規本が二重作成されうる。
+    if (savingRef.current) return;
     if (!form.title.trim()) {
       toast.error(fieldRequiredMessage('タイトル'));
       return;
@@ -3252,6 +3256,7 @@ function AuthedApp() {
       const dup = await handleDuplicateGate({ isbn: form.isbn, title: form.title, author: form.author });
       if (dup) return;
     }
+    savingRef.current = true;
     try {
       const normalizedTags = Array.from(
         new Set(
@@ -3350,6 +3355,8 @@ function AuthedApp() {
       } else {
         toast.error(toMessage(error, '保存に失敗しました。もう一度お試しください。'));
       }
+    } finally {
+      savingRef.current = false;
     }
   };
 
@@ -3716,15 +3723,10 @@ function AuthedApp() {
   // Share
   const shareBook = async (book) => {
     // Build recommendation reason from available data
-    let reason = "";
-    if (book.roiSummary?.trim()) {
-      reason = book.roiSummary.trim();
-    } else if (book.aiSummary?.trim()) {
-      reason = book.aiSummary.split("\n").filter((l) => l.trim())[0] || "";
-    } else if (book.leverageMemo?.trim()) {
-      reason = book.leverageMemo.split("\n").filter((l) => l.trim())[0] || "";
-    }
-
+    // ⚠️ プライバシー: 一番の収穫 / まとめメモ / AI 要約は本人の私的記述。
+    //   「おすすめを共有」のつもりで私的メモが SNS/クリップボードに漏れるのを防ぐため、
+    //   共有テキストには私的本文を自動で含めない（書名・評価・Amazon リンクのみ）。
+    //   ひとことは共有シート/各アプリ側でユーザー自身が書ける。
     const link = getAmazonLink(book);
     const lines = [
       `📚 おすすめの本`,
@@ -3732,7 +3734,6 @@ function AuthedApp() {
       `「${book.title}」${book.author ? `（${book.author}）` : ""}`,
     ];
     if (book.rating > 0) lines.push(`${"★".repeat(book.rating)}${"☆".repeat(5 - book.rating)}`);
-    if (reason) { lines.push(``); lines.push(`💡 ${reason}`); }
     lines.push(``);
     lines.push(`📖 Amazonで見る：`);
     lines.push(link);
@@ -3771,7 +3772,10 @@ function AuthedApp() {
         system: PROMPTS.bookAnalysis.system,
         messages: [{
           role: 'user',
-          content: PROMPTS.bookAnalysis.user({ title: form.title, author: form.author }),
+          content: PROMPTS.bookAnalysis.user({
+            title: clamp(sanitizeForPrompt(form.title || ''), LIMITS.bookTitle),
+            author: clamp(sanitizeForPrompt(form.author || ''), LIMITS.bookAuthor),
+          }),
         }],
         max_tokens: 2048,
         model: 'claude-sonnet-4-6',
@@ -3796,10 +3800,10 @@ function AuthedApp() {
         messages: [{
           role: 'user',
           content: PROMPTS.setupSheet.user({
-            title: form.title,
-            author: form.author,
-            analysis: form.aiAnalysis,
-            purpose: form.investPurpose,
+            title: clamp(sanitizeForPrompt(form.title || ''), LIMITS.bookTitle),
+            author: clamp(sanitizeForPrompt(form.author || ''), LIMITS.bookAuthor),
+            analysis: clamp(sanitizeForPrompt(form.aiAnalysis || ''), LIMITS.memoText),
+            purpose: clamp(sanitizeForPrompt(form.investPurpose || ''), LIMITS.memoText),
             topTags: allTags.slice(0, 3),
           }),
         }],
@@ -3840,10 +3844,10 @@ function AuthedApp() {
         messages: [{
           role: 'user',
           content: PROMPTS.setupSheetEdit.user({
-            existing: prev,
-            instruction,
-            title: form.title,
-            author: form.author,
+            existing: clamp(sanitizeForPrompt(prev || ''), LIMITS.memoText),
+            instruction: clamp(sanitizeForPrompt(instruction || ''), LIMITS.aiQuestion),
+            title: clamp(sanitizeForPrompt(form.title || ''), LIMITS.bookTitle),
+            author: clamp(sanitizeForPrompt(form.author || ''), LIMITS.bookAuthor),
           }),
         }],
         max_tokens: 2048,
@@ -3984,19 +3988,16 @@ function AuthedApp() {
   const runSummary = async () => {
     setAiLoading(true);
     try {
-      const memoCorpus = [
-        form.leverageMemo || '',
-        // (Card-style memos already get sent via aiAnalysis flow context;
-        //  here we keep summary scope tight to leverage_memo for compatibility.)
-      ].join('\n\n');
+      // AI へ渡す前にユーザー入力をサニタイズ + clamp（roiSummary は safe value 前提）。
+      const memoCorpus = clamp(sanitizeForPrompt(form.leverageMemo || ''), LIMITS.memoText);
       const hours = form.totalPages > 0 ? Math.round((form.totalPages * 2) / 60) : null;
       const r = await callClaude(
         PROMPTS.roiSummary.system,
         PROMPTS.roiSummary.user({
-          title: form.title,
-          author: form.author,
+          title: clamp(sanitizeForPrompt(form.title || ''), LIMITS.bookTitle),
+          author: clamp(sanitizeForPrompt(form.author || ''), LIMITS.bookAuthor),
           memos: memoCorpus,
-          purpose: form.investPurpose,
+          purpose: clamp(sanitizeForPrompt(form.investPurpose || ''), LIMITS.memoText),
           hours,
         }),
         // temperature 0.3 — メモから事実ベースで要約 (同じメモから毎回
@@ -4639,14 +4640,15 @@ function AuthedApp() {
                       // 🎯 投資目的は必須（本田哲学=「目的なき読書はしない」）。
                       // 1 行も無いまま読書中へは進ませない＝設定画面へ誘導。
                       if (!current.investPurpose || !current.investPurpose.trim()) {
-                        await confirm({
+                        const ok = await confirm({
                           title: '読む前に、投資目的を決めましょう',
                           message:
                             'この本を「何のために読むか」を 1 行だけでも決めると、読書の精度とリターンが大きく変わります。目的なき読書は、もったいない。',
                           confirmLabel: '投資目的を入力する',
                           cancelLabel: '閉じる',
                         });
-                        openSetup(current);
+                        // 「閉じる」を押したら遷移しない（強制連行を防ぐ）。
+                        if (ok) openSetup(current);
                         return;
                       }
                       // 投資目的はあるが AI 解析・読書計画が未完了 → 任意なので警告のみ。
@@ -5032,7 +5034,9 @@ function AuthedApp() {
               });
               if (!ok) return;
             }
-            setTab(t);
+            // navigateTab は振り返り→行動 / AI→AI選書 の入口リセットを担保する。
+            // 編集経由だけ素の setTab だと他経路と挙動がズレるため揃える。
+            navigateTab(t);
             goList();
           }}
           hidden={keyboardOpen}

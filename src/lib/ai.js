@@ -1150,7 +1150,7 @@ export async function addThemeAction({ userId, bookId, text }) {
   if (!isSupabaseConfigured || !userId || !bookId || !text || !String(text).trim()) {
     return { ok: false };
   }
-  const body = clamp(sanitizeForPrompt(String(text)), LIMITS.action || 280);
+  const body = clamp(sanitizeForPrompt(String(text)), LIMITS.actionText || 500);
   if (!body) return { ok: false };
   let id;
   try { id = crypto.randomUUID(); } catch { id = undefined; }

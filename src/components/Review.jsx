@@ -88,7 +88,7 @@ const KIND_META = {
   current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: '#a05040' },
   hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: '#8a7040' },
   ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: '#8a7d6a' },
-  roi_summary:       { Icon: Gem,               label: '投資の効果',     color: '#5f7a55' },
+  roi_summary:       { Icon: Gem,               label: '一番の収穫',     color: '#5f7a55' },
   leverage_memo:     { Icon: FileText,          label: 'まとめメモ',     color: '#5c5043' },
   action_reflection: { Icon: MessageSquareQuote, label: '行動の振り返り', color: '#5f7a55' },
 };
@@ -451,8 +451,13 @@ export default function Review({ books = [], onOpenBook, onAddAction }) {
   }, [allNotes]);
 
   // Default the first month to expanded so the user sees content.
+  // 初回（空→非空になった最初）だけ第1月を開く。以降はユーザーの開閉状態を保持する。
+  // （allNotes はスワイプ削除/PTR/books 更新のたびに再生成されるので、毎回 reset すると
+  //  手動で開いた過去月が畳まれ「3ヶ月前を見返す」主目的を阻害していた。）
+  const didInitExpand = useRef(false);
   useEffect(() => {
-    if (allNotes.length === 0) return;
+    if (didInitExpand.current || allNotes.length === 0) return;
+    didInitExpand.current = true;
     const firstMonth = monthKey(allNotes[0].createdAt);
     if (firstMonth) setExpanded(new Set([firstMonth]));
   }, [allNotes]);

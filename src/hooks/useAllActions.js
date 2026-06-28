@@ -120,7 +120,8 @@ export function useAllActions(books) {
     weekEnd.setDate(today.getDate() + 7);
     const upcomingThisWeek = allActions.filter((a) => {
       if (a.done || !a.deadline) return false;
-      const d = new Date(a.deadline);
+      // 日付のみ文字列はローカル0時で解釈（ActionList と統一・JST 1日ずれ防止）。
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(a.deadline) ? new Date(a.deadline + 'T00:00:00') : new Date(a.deadline);
       if (Number.isNaN(d.getTime())) return false;
       return d >= today && d < weekEnd;
     }).length;

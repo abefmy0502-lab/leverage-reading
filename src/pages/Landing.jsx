@@ -14,9 +14,10 @@ import './landing.css';
 // 📱 App Store ダウンロード URL。
 // ⚠️ TODO(developer): App Store 公開後、実際のアプリページ URL に差し替える。
 //    （例: https://apps.apple.com/jp/app/orime/id0000000000）
-//    公開前のプレースホルダのままだと App Store のトップに飛ぶだけなので、
-//    審査通過・公開のタイミングで必ず実 URL を入れること。
-const APP_STORE_URL = 'https://apps.apple.com/jp/app/orime';
+//    審査通過後に実アプリの URL（.../id0000000000）を環境変数 VITE_APP_STORE_URL
+//    に入れれば、コード変更なしで全 CTA に反映される。未設定の間はプレースホルダ
+//    のままなので、URL 確定まで LP を本番公開しないこと（運用ガード）。
+const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime';
 
 const setMeta = (name, content, attr = 'name') => {
   let el = document.querySelector(`meta[${attr}="${name}"]`);

@@ -115,11 +115,19 @@ function fmtDate(iso) {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// 期限('YYYY-MM-DD' の日付のみ文字列)をローカル0時で解釈する。素の new Date('YYYY-MM-DD')
+// は UTC0時扱いになり JST(+9) で1日ずれ、「期限切れ/今週期限」判定や達成率が日付境界でずれる。
+function parseDeadline(s) {
+  if (!s) return new Date(NaN);
+  // 既に時刻付き(ISO)ならそのまま、日付のみなら T00:00:00 を補ってローカル0時に。
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T00:00:00') : new Date(s);
+}
+
 function deadlineState(deadline, done) {
   if (done || !deadline) return { kind: 'none' };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const d = new Date(deadline);
+  const d = parseDeadline(deadline);
   if (Number.isNaN(d.getTime())) return { kind: 'none' };
   const diffDays = Math.round((d - today) / 86400000);
   if (diffDays < 0) return { kind: 'overdue', days: diffDays };
@@ -171,20 +179,20 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
       // 期限切れ = 未完了 + deadline が today より前
       list = list.filter((a) => {
         if (a.done || !a.deadline) return false;
-        const d = new Date(a.deadline);
+        const d = parseDeadline(a.deadline);
         return !Number.isNaN(d.getTime()) && d < today;
       });
     } else if (filter === 'today') {
       // 今日まで = 未完了 + deadline が today 以前 (期限切れも含む)
       list = list.filter((a) => {
         if (a.done || !a.deadline) return false;
-        const d = new Date(a.deadline);
+        const d = parseDeadline(a.deadline);
         return !Number.isNaN(d.getTime()) && d <= today;
       });
     } else if (filter === 'upcoming') {
       list = list.filter((a) => {
         if (a.done || !a.deadline) return false;
-        const d = new Date(a.deadline);
+        const d = parseDeadline(a.deadline);
         return d >= today && d < weekEnd;
       });
     }

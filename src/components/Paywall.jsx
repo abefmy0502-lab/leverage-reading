@@ -209,6 +209,9 @@ export default function Paywall({ onPurchased }) {
       }
       // Web: Stripe Checkout（成功時は assign され戻らない）。
       await startCheckout(plan);
+      // assign が即時遷移しなかった環境（ポップアップブロック等）でボタンが
+      // 「移動中…」のまま永久ロックするのを防ぐ保険。
+      setPending(null);
     } catch (e) {
       toast.error(toMessage(e, '購入手続きを開始できませんでした。少し時間をおいて再試行してください。'));
       setPending(null);
