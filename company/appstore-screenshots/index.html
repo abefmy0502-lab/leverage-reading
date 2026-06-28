@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Orime — App Store プレビュー作成ツール</title>
+<!-- 画面を PNG 保存するためのライブラリ（ネット接続が必要） -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  /* ====== Orime ブランド（tokens.css と同系統の暖色） ====== */
+  :root{
+    --cream:#faf7f2; --cream2:#f2ece1; --soft:#f0ebe2;
+    --ink:#3d362c; --ink2:#5a4f3e; --brand:#5c5043; --hair:#e6ddcf;
+    --accent:#8a7040;
+    --w:1290px;  /* 6.7インチ App Store 幅（iPhone 15/14 Pro Max） */
+    --h:2796px;  /* 6.7インチ 高さ */
+    --scale:0.30; /* 画面プレビューの縮小率（保存時は自動で原寸に戻る） */
+    --serif:"Noto Serif JP","Hiragino Mincho ProN",serif;
+    --sans:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#2a2520;color:#fff;font-family:var(--sans);padding:24px;}
+  h1{font-size:18px;font-weight:700;margin:0 0 4px;}
+  .lead{font-size:13px;color:#cdbfa8;margin:0 0 20px;line-height:1.7;max-width:720px;}
+  .lead code{background:#000;padding:1px 6px;border-radius:5px;}
+  .grid{display:flex;flex-wrap:wrap;gap:28px;}
+  .card{display:flex;flex-direction:column;gap:10px;}
+  .toolbar{display:flex;gap:8px;align-items:center;}
+  .save{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .save:active{opacity:.8;}
+  .frame-wrap{
+    width:calc(var(--w) * var(--scale));
+    height:calc(var(--h) * var(--scale));
+    overflow:hidden;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);
+    background:#fff;
+  }
+
+  /* ====== 1枚 = App Store 原寸 1290×2796 ====== */
+  .frame{
+    width:var(--w);height:var(--h);
+    transform:scale(var(--scale));transform-origin:top left;
+    position:relative;overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .frame.bg-a{background:linear-gradient(180deg,#faf7f2 0%,#f1e9da 100%);}
+  .frame.bg-b{background:linear-gradient(180deg,#efe7d8 0%,#e3d6bf 100%);}
+  .frame.bg-c{background:linear-gradient(180deg,#f3eee4 0%,#e8ddc9 100%);}
+
+  .cap{padding:150px 110px 0;text-align:center;width:100%;}
+  .eyebrow{font-family:var(--sans);font-size:38px;font-weight:700;letter-spacing:.12em;color:var(--accent);margin:0 0 22px;}
+  .headline{
+    font-family:var(--serif);font-weight:700;color:var(--ink);
+    font-size:104px;line-height:1.34;margin:0;letter-spacing:.01em;
+    outline:none;
+  }
+  .headline .em{color:var(--brand);}
+  .sub{font-family:var(--sans);font-size:42px;color:var(--ink2);line-height:1.6;margin:28px 0 0;outline:none;}
+
+  /* 端末フレーム */
+  .device{
+    position:absolute;left:50%;transform:translateX(-50%);
+    bottom:-40px;width:980px;
+    background:#1d1813;border-radius:96px;padding:20px;
+    box-shadow:0 60px 110px rgba(60,48,30,.30);
+  }
+  .screen{position:relative;border-radius:78px;overflow:hidden;background:#faf7f2;}
+  .shot{display:block;width:100%;height:auto;}
+  .shot-empty{
+    width:100%;aspect-ratio:1179/2556;background:
+      repeating-linear-gradient(45deg,#efe7d8,#efe7d8 24px,#e6dcc9 24px,#e6dcc9 48px);
+    display:flex;align-items:center;justify-content:center;color:#8a7c5f;
+    font-family:var(--sans);font-size:40px;text-align:center;line-height:1.6;padding:40px;
+  }
+  /* クリーンなステータスバー（実機の時刻/電池を隠して 9:41 に） */
+  .statusbar{
+    position:absolute;top:0;left:0;right:0;height:118px;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 70px;font-family:var(--sans);color:var(--ink);
+    background:#faf7f2; /* アプリ上部のクリーム色に馴染ませる */
+  }
+  .statusbar .time{font-size:46px;font-weight:700;}
+  .statusbar .right{display:flex;align-items:center;gap:14px;font-size:40px;}
+  .sb-bat{width:64px;height:32px;border:3px solid var(--ink);border-radius:8px;position:relative;}
+  .sb-bat::after{content:"";position:absolute;right:-9px;top:9px;width:5px;height:14px;background:var(--ink);border-radius:2px;}
+  .sb-bat span{position:absolute;inset:3px;right:14px;background:var(--ink);border-radius:3px;}
+</style>
+</head>
+<body>
+  <h1>📱 Orime — App Store プレビュー作成ツール</h1>
+  <p class="lead">
+    ① iPhone でアプリの画面を6枚スクショ → このフォルダに <code>shot1.png</code> 〜 <code>shot6.png</code> の名前で置く。<br>
+    ② キャッチコピーは<strong>直接クリックして書き換え可能</strong>（自由に編集してOK）。<br>
+    ③ 各カードの「📥 PNG保存」を押すと、App Store 用の <strong>1290×2796</strong> 画像が保存されます。<br>
+    ※ ファイルを直接開くと保存ボタンが動かないことがあります。その場合は下の README の手順でローカルサーバー経由で開いてください。
+  </p>
+
+  <div class="grid" id="grid"></div>
+
+<script>
+  // ====== ここを編集すると各スライドの中身が変わります ======
+  const SLIDES = [
+    { bg:'bg-a', shot:'shot1.png', eyebrow:'YOUR LIBRARY',
+      head:'読んだ本が、<br><span class="em">あなたの中に残る。</span>', sub:'表紙で揃う、静かな本棚。' },
+    { bg:'bg-b', shot:'shot2.png', eyebrow:'JUST ONE LINE',
+      head:'心が動いた一行を、<br><span class="em">残すだけ。</span>', sub:'ページも、想いも、いっしょに。' },
+    { bg:'bg-c', shot:'shot3.png', eyebrow:'AI CONDENSE',
+      head:'AI が、あなたの言葉を<br><span class="em">「核心の一行」に。</span>', sub:'バラバラのメモが、使える知恵へ。' },
+    { bg:'bg-a', shot:'shot4.png', eyebrow:'RECALL',
+      head:'忘れた頃に、<br><span class="em">ふいに戻ってくる。</span>', sub:'読みっぱなしを、やめる。' },
+    { bg:'bg-b', shot:'shot5.png', eyebrow:'INTO ACTION',
+      head:'学びは、ちゃんと<br><span class="em">行動に変わる。</span>', sub:'読んだら、1つ動ける。' },
+    { bg:'bg-c', shot:'shot6.png', eyebrow:'AI PICKS',
+      head:'いまの課題に合う本を、<br><span class="em">AI が選ぶ。</span>', sub:'目的のある一冊から。' },
+  ];
+
+  const grid = document.getElementById('grid');
+  SLIDES.forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="toolbar">
+        <button class="save" data-i="${i}">📥 PNG保存（slide ${i+1}）</button>
+      </div>
+      <div class="frame-wrap">
+        <div class="frame ${s.bg}" id="frame-${i}">
+          <div class="cap">
+            <p class="eyebrow" contenteditable="true">${s.eyebrow}</p>
+            <h2 class="headline" contenteditable="true">${s.head}</h2>
+            <p class="sub" contenteditable="true">${s.sub}</p>
+          </div>
+          <div class="device">
+            <div class="screen">
+              <img class="shot" src="${s.shot}" alt=""
+                   onerror="this.outerHTML='<div class=&quot;shot-empty&quot;>ここに ${s.shot} が入ります<br>（同じフォルダに置いてください）</div>'">
+              <div class="statusbar">
+                <span class="time">9:41</span>
+                <span class="right">
+                  <span>●●●</span>
+                  <span>📶</span>
+                  <span class="sb-bat"><span></span></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  // 保存：プレビュー用の縮小を一旦解除して原寸(1290×2796)でキャプチャ
+  document.querySelectorAll('.save').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const i = btn.dataset.i;
+      const frame = document.getElementById('frame-' + i);
+      const prev = frame.style.transform;
+      frame.style.transform = 'none';
+      btn.textContent = '保存中…';
+      try {
+        const canvas = await html2canvas(frame, {
+          width: 1290, height: 2796, windowWidth: 1290, windowHeight: 2796,
+          scale: 1, useCORS: true, backgroundColor: null,
+        });
+        const a = document.createElement('a');
+        a.download = `orime-appstore-${Number(i) + 1}.png`;
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+      } catch (e) {
+        alert('保存に失敗しました。README の「ローカルサーバーで開く」手順を試してください。\n' + (e?.message || e));
+      } finally {
+        frame.style.transform = prev;
+        btn.textContent = `📥 PNG保存（slide ${Number(i) + 1}）`;
+      }
+    });
+  });
+</script>
+</body>
+</html>
