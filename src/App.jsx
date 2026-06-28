@@ -4578,6 +4578,7 @@ function AuthedApp() {
                 bookAuthor={current.author || ""}
                 summaryText={current.leverageMemo || ""}
                 onSaveSummary={handleSaveSummaryFromCurrent}
+                onMakeAction={addActionFromMemo}
               />
             </div>
           ) : (

@@ -3,7 +3,7 @@ import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
 import SwipeableCard from './SwipeableCard';
-import { MoreVertical, Image } from 'lucide-react';
+import { MoreVertical, Image, Target } from 'lucide-react';
 
 const cardWrap = {
   position: 'relative',
@@ -88,7 +88,7 @@ function formatDate(iso) {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, onSwipeDelete, onLongPress }) {
+export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, onMakeAction, onSwipeDelete, onLongPress }) {
   const cache = useAppDataCache();
   // Synchronous cache hit → render the image immediately on first paint.
   const initialUrl = memo.photoPath ? cache.getCachedPhotoUrl(memo.photoPath) : null;
@@ -198,6 +198,19 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
               }}
             >
               コピー
+            </button>
+          )}
+          {onMakeAction && (memo.text || '').trim() && (
+            <button
+              type="button"
+              style={menuItem}
+              onClick={() => {
+                setMenuOpen(false);
+                onMakeAction(memo);
+              }}
+            >
+              <Target size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+              行動にする
             </button>
           )}
           {onShare && (memo.text || '').trim() && (

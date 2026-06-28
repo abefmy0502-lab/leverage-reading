@@ -11,7 +11,7 @@ import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import ShareCardModal from './ShareCardModal';
-import { StickyNote, FileText, BookOpen, Clock, Quote, Plus, Pencil, Copy, Image, Trash2, Sparkles } from 'lucide-react';
+import { StickyNote, FileText, BookOpen, Clock, Quote, Plus, Pencil, Copy, Image, Trash2, Sparkles, Target } from 'lucide-react';
 
 const MODE_KEY = 'leverageMemoMode';
 
@@ -244,7 +244,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   );
 }
 
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary }) {
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction }) {
   const [mode, setMode] = useState(loadInitialMode);
   const [sortBy, setSortBy] = useState('page');
   const [quoteOnly, setQuoteOnly] = useState(false);
@@ -343,6 +343,17 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     }
     haptic.light();
     setShareMemo(memo);
+  };
+
+  // 🎯 このメモを、その場で行動に変える（メモ本文＋ページを起点に紐づけ）。
+  const handleMakeAction = async (memo) => {
+    if (!onMakeAction || !(memo?.text || '').trim()) return;
+    const ok = await onMakeAction(bookId, {
+      text: memo.text,
+      sourceMemoId: memo.id || null,
+      sourcePage: memo.pageNumber ?? memo.page_number ?? null,
+    });
+    if (ok) { haptic.success(); toast.success('🎯 行動に追加しました'); }
   };
 
   const openCreate = () => {
@@ -539,6 +550,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             onEdit={openEdit}
             onCopy={handleCopy}
             onShare={handleShare}
+            onMakeAction={onMakeAction ? handleMakeAction : undefined}
             onDelete={handleDelete}
             onSwipeDelete={handleSwipeDelete}
             onLongPress={(payload) => setMemoMenu(payload)}
@@ -591,6 +603,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           items={[
             { label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => openEdit(memoMenu.memo) },
             { label: 'コピー', icon: <Copy size={16} aria-hidden="true" />, onClick: () => handleCopy(memoMenu.memo) },
+            ...(onMakeAction && (memoMenu.memo?.text || '').trim()
+              ? [{ label: '行動にする', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMakeAction(memoMenu.memo) }]
+              : []),
             ...((memoMenu.memo?.text || '').trim()
               ? [{ label: '画像で共有', icon: <Image size={16} aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]
               : []),

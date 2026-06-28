@@ -188,13 +188,29 @@ function pickCategory(tags) {
   return cat ? cat.slice(1) : null;
 }
 
-function formatMemo(memo) {
+// SYNTH_LABEL は formatMemo と gatherKnowledge(synth 列の収集)で共有する単一の真実。
+// book_reason(選書理由) を含め、「なぜこの本を選んだか」という“想い”も凝縮の根拠に入れる。
+const SYNTH_LABEL = {
+  summary: 'まとめメモ',
+  invest_purpose: '投資目的',
+  current_challenge: '現在の課題',
+  hypothesis: '仮説',
+  book_reason: '選書理由',
+  ai_summary: 'AI まとめ',
+  roi_summary: '一番の収穫',
+  ai_strategy: '読書計画戦略',
+};
+
+// withDate=true のとき、本に紐づくメモ/synth 行のヘッダにも記録日を付ける。
+// 既定(false)は従来の出力を完全維持し、時系列追跡フロー(知識の足あと)だけが日付を要求する。
+function formatMemo(memo, { withDate = false } = {}) {
   // Sanitize and clamp every user-supplied piece before embedding into the prompt.
   const rawText = memo.text || '';
   const safeText = clamp(sanitizeForPrompt(rawText), LIMITS.promptMemoExcerpt);
   const truncated = rawText.length > LIMITS.promptMemoExcerpt ? '\n…（以下省略）' : '';
+  const dateTag = withDate && memo.created_at ? `${memo.created_at.slice(0, 10)} / ` : '';
 
-  // Personal learning ("学びログ")
+  // Personal learning ("学びログ") — 元々日付あり。
   if (memo.source_type === 'personal' || (!memo.book && !memo.book_id)) {
     const date = memo.created_at?.slice(0, 10) || '';
     const cat = sanitizeForPrompt(pickCategory(memo.tags) || 'その他').slice(0, 32);
@@ -206,24 +222,15 @@ function formatMemo(memo) {
   const safeAuthor = sanitizeForPrompt(b.author || '').slice(0, 100);
 
   // books の各フィールドを synthesize した行 (種別ラベルを切り替えるだけ)
-  const SYNTH_LABEL = {
-    summary: 'まとめメモ',
-    invest_purpose: '投資目的',
-    current_challenge: '現在の課題',
-    hypothesis: '仮説',
-    ai_summary: 'AI まとめ',
-    roi_summary: '投資の効果(一言)',
-    ai_strategy: '読書計画戦略',
-  };
   if (SYNTH_LABEL[memo.source_type]) {
-    const parts = [`本: ${safeTitle}`];
+    const parts = [`${dateTag}本: ${safeTitle}`];
     if (safeAuthor) parts.push(`著者: ${safeAuthor}`);
     parts.push(`種別: ${SYNTH_LABEL[memo.source_type]}`);
     return `【${parts.join(' / ')}】${safeText}${truncated}`;
   }
 
   // Card memo (book_memos with book_id)
-  const parts = [`本: ${safeTitle}`];
+  const parts = [`${dateTag}本: ${safeTitle}`];
   if (safeAuthor) parts.push(`著者: ${safeAuthor}`);
   if (Number.isFinite(memo.page_number)) parts.push(`P.${memo.page_number}`);
   const tagText = (memo.tags || [])
@@ -320,8 +327,8 @@ function parseRefs(text) {
 // (supabase_books_setup_fields.sql not yet applied). Returns the rows array.
 async function fetchBooksStaged(userId) {
   const BOOK_SELECTS = [
-    // Stage 1: 全フィールド
-    'id, title, author, rating, status, leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy, updated_at, created_at',
+    // Stage 1: 全フィールド（book_reason=選書理由=「なぜこの本か」も凝縮の根拠に含める）
+    'id, title, author, rating, status, leverage_memo, invest_purpose, current_challenge, hypothesis, book_reason, ai_summary, roi_summary, ai_strategy, updated_at, created_at',
     // Stage 2: setup_fields 系を除外
     'id, title, author, rating, status, leverage_memo, invest_purpose, ai_summary, roi_summary, ai_strategy, updated_at, created_at',
     // Stage 3: 最小 (旧 schema 完全互換)
@@ -390,6 +397,7 @@ async function gatherKnowledge(userId) {
       synthFromBook(b, 'invest_purpose', b.invest_purpose),
       synthFromBook(b, 'current_challenge', b.current_challenge),
       synthFromBook(b, 'hypothesis', b.hypothesis),
+      synthFromBook(b, 'book_reason', b.book_reason),
       synthFromBook(b, 'ai_summary', b.ai_summary),
       synthFromBook(b, 'roi_summary', b.roi_summary),
       synthFromBook(b, 'ai_strategy', b.ai_strategy),
@@ -1133,6 +1141,74 @@ export async function deleteThemeReport(id) {
   } catch {
     return false;
   }
+}
+
+// ---- 🕰 知識の足あと（変遷追跡）--------------------------------------------
+// CEO の願い:「いつ・どんなメモを残し→どんな行動をし→考え(メモ内容)がどう変わって
+// きたか、を AI が“日付”で追跡し物語る」。データは全て DB にあるのに formatMemo が
+// 日付を捨てていたのが唯一の障害だった。formatMemo(m,{withDate:true}) で日付を通し、
+// テーマで絞った時系列のメモ＋行動を AI に渡し、knowledgeJourney プロンプトで
+// 「理解はこう深まった / 考えが動いた瞬間 / 行動に変わったか / 次の問い」を物語る。
+// DB 変更ゼロ。煽らず、淡々と事実を映す鏡として（本田哲学）。
+export async function generateKnowledgeJourney(userId, theme) {
+  if (!isSupabaseConfigured || !userId) throw new Error('Supabase が設定されていません。');
+  const safeTheme = clamp(sanitizeForPrompt(theme || ''), LIMITS.theme);
+  if (!safeTheme) throw new Error('テーマを入力してください。');
+  const themeNorm = normTheme(safeTheme);
+
+  const { all } = await gatherKnowledge(userId);
+  const matched = all.filter((m) => memoMatchesTheme(m, themeNorm) && m.created_at);
+  // 日付で追える最低ライン。薄ければ空状態へ（無理に物語を作らない）。
+  if (matched.length < 4) return { tooThin: true };
+
+  const sorted = [...matched].sort((a, b) =>
+    String(a.created_at).localeCompare(String(b.created_at)),
+  ); // 古い → 新しい
+  const timeline = sorted.map((m) => formatMemo(m, { withDate: true })).join('\n\n');
+
+  // 行動の時系列（宣言日 → 完了/未完了）。gatherThemeActions と同じマッチで生の行を拾う。
+  let actionTimeline = '';
+  try {
+    const { data } = await supabase.from('actions').select('*').eq('user_id', userId);
+    const themeBookIds = new Set(matched.map((m) => m.book_id).filter((id) => id != null));
+    const matchedMemoIds = new Set(matched.map((m) => m.id).filter((id) => id != null));
+    const acts = (data || [])
+      .filter((a) => {
+        if (!a || typeof a.text !== 'string' || !a.text.trim()) return false;
+        if (a.book_id != null && themeBookIds.has(a.book_id)) return true;
+        if (a.source_memo_id != null && matchedMemoIds.has(a.source_memo_id)) return true;
+        if (themeNorm.length >= 2 && normTheme(a.text).includes(themeNorm)) return true;
+        return false;
+      })
+      .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+    actionTimeline = acts
+      .map((a) => {
+        const decl = (a.created_at || '').slice(0, 10);
+        const done = a.done ? ` → 完了 ${(a.completed_at || a.updated_at || '').slice(0, 10)}` : ' → 未完了';
+        return `・[宣言 ${decl}${done}] ${clamp(sanitizeForPrompt(a.text || ''), 80)}`;
+      })
+      .join('\n');
+  } catch {
+    /* 行動が取れなくてもメモの変遷は語れる。空のまま続行。 */
+  }
+
+  const first = sorted[0].created_at.slice(0, 10);
+  const last = sorted[sorted.length - 1].created_at.slice(0, 10);
+  const spanText = `最初の記録 ${first} 〜 最新 ${last}`;
+
+  const content = await callClaude(
+    PROMPTS.knowledgeJourney.system,
+    PROMPTS.knowledgeJourney.user({
+      theme: safeTheme,
+      timeline,
+      actionTimeline,
+      todayISO: todayISO(),
+      spanText,
+    }),
+    { max_tokens: 2048, temperature: 0.7, model: 'claude-sonnet-4-6' },
+  );
+  track('ai_used', { feature: 'journey' });
+  return { content, first, last, count: sorted.length };
 }
 
 // ---- 🔄 想起ループ接続 ----------------------------------------------------

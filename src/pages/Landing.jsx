@@ -43,7 +43,7 @@ const TESTIMONIALS = [];
 const COMPARE_ROWS = [
   { label: 'できること', others: '読んだ本の記録・本棚', us: '記録はもちろん' },
   { label: '読んだ後', others: '自分で見返す（つい忘れる）', us: '忘れた頃にそっと“想起”' },
-  { label: '知識の活用', others: '探すのが手間', us: '自分のメモを根拠に AI が答える' },
+  { label: '知識の活用', others: '探すのが手間', us: 'メモ・目的・想いを 1 枚に凝縮してくれる' },
   { label: '行動への接続', others: '記録で止まりがち', us: '1 冊から行動リスト＋追跡' },
   { label: '続く理由', others: '記録のやる気頼み', us: '“想起”が習慣を支える' },
 ];
@@ -56,9 +56,9 @@ export default function Landing() {
     document.title = 'Orime｜読書を、行動に変える読書メモ';
     const tags = [
       setMeta('description',
-        '読みっぱなしを、やめる。Orime は、本の"折り目"のように大事な気づきを後から呼び戻し、行動に変える iOS 読書アプリ。月 ¥1,480、いつでも解約可能・データは残ります。App Store で公開中。'),
-      setMeta('og:title', '読みっぱなしを、やめる。| Orime', 'property'),
-      setMeta('og:description', '読んだ気づきを後から呼び戻し、行動に変える読書アプリ', 'property'),
+        'あなたのメモが、あなただけの知恵になる。Orime は、本に残したメモ・読んだ目的・想いを AI が一枚に凝縮し、行動と成果に変える iOS 読書アプリ。月 ¥1,480、いつでも解約可能・データは残ります。App Store で公開中。'),
+      setMeta('og:title', 'あなたのメモが、あなただけの知恵になる。| Orime', 'property'),
+      setMeta('og:description', '本のメモ・目的・想いを AI が凝縮し、行動に変える読書アプリ', 'property'),
       setMeta('og:type', 'website', 'property'),
     ];
 
@@ -159,16 +159,17 @@ export default function Landing() {
 
       {/* ============ 1. Hero ============ */}
       <section className="hero">
-        <p className="hero-eyebrow">読んだ本を、ちゃんと活かす。</p>
+        <p className="hero-eyebrow">あなたのメモが、あなただけの知恵になる。</p>
         <h1 className="hero-headline">
-          読みっぱなしを、<br />
-          やめる。
+          読んだ本が、<br />
+          あなたの中に残る。
         </h1>
         <p className="hero-subhead">
-          AI があなたの課題から本を選び、<br />
-          読み方を整理し、行動の管理まで手伝います。<br />
+          本に残したメモも、読んだ目的も、その時の想いも。<br />
+          続けるほど AI がまとめ上げ、<br />
+          "あなた専用の知恵" に凝縮していきます。<br />
           <br />
-          読んで終わりにしない読書アプリです。
+          そして、次の一歩へ。
         </p>
         <button type="button" onClick={goToAppStore} className="cta-primary cta-hero">
           App Store でダウンロード →
@@ -225,6 +226,25 @@ export default function Landing() {
 
       <div className="lp-section-divider" aria-hidden="true" />
 
+      {/* ============ 2.5 核心 = 凝縮（最大の武器を独立配置） ============ */}
+      <section className="pain fade-in">
+        <p className="section-eyebrow">Orime がいちばん得意なこと</p>
+        <h2 className="section-headline">
+          メモは、貯めるほど<br />
+          "効いて" くる。
+        </h2>
+        <p className="pain-conclusion">
+          1 冊ごとのメモ、読んだ目的、その時の想い、行動の記録——<br />
+          バラバラの断片を、AI がテーマごとに <strong>1 枚へ凝縮</strong>。<br />
+          「核心の一行 / 繰り返す原則 / 次の一歩」だけが残ります。
+        </p>
+        <p className="pain-source">
+          ※ あなたが残した言葉だけを根拠にします（= レバレッジメモ / マイ読書脳）。
+        </p>
+      </section>
+
+      <div className="lp-section-divider" aria-hidden="true" />
+
       {/* ============ 3. Mechanisms (数字主体・ペルソナ引用) ============ */}
       <section className="mechanisms fade-in">
         <p className="section-eyebrow">仕組み</p>
@@ -263,13 +283,13 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>1 冊からの<span className="no-break">行動が増える。</span></h3>
+            <h3>読んだら、<span className="no-break">1 つ動ける。</span></h3>
             <p className="mech-lead">
               本を読んでも、なかなか行動に<br />
               つながらない——よくある悩みです。
             </p>
             <p className="mech-body">
-              読む前に AI が「投資目的・現在の課題・仮説」を整理。重点的に読むべき章を提案するので、1 冊から具体的な行動を引き出しやすくなります。
+              読む前に AI が「投資目的・現在の課題・仮説」を整理。重点的に読むべき章を提案するので、1 冊から具体的な行動を引き出しやすくなります。いつ決めた行動かが日付で残り、後から見返せます。
             </p>
             <div className="mech-screenshot">
               <PhoneFrame
@@ -287,13 +307,13 @@ export default function Landing() {
             <span className="mech-line" aria-hidden="true" />
           </div>
           <div className="mech-content">
-            <h3>知識の<span className="no-break">活用度が上がる。</span></h3>
+            <h3>過去の自分に、<span className="no-break">相談できる。</span></h3>
             <p className="mech-lead">
               読んだ内容は、時間とともに忘れがち。<br />
               本棚に眠ったままになりがちです。
             </p>
             <p className="mech-body">
-              過去に読んだ本のメモ・投資目的・行動が、あなた専用 AI に蓄積されます。「決断に迷う時の判断軸は？」と聞けば、過去の本の知識から、あなた専用の答えが返ってくる。
+              これまで読んだ本のメモ・読んだ目的・行動が、あなた専用 AI に貯まっていきます。「迷ったときの判断軸は？」と聞けば、<strong>あなた自身が残した言葉</strong>から答えが返ってくる。さらに「足あと」で、考えが日付とともにどう深まってきたかも振り返れます。
             </p>
             <div className="mech-screenshot mech-screenshot-double">
               <div className="screenshot-pair">

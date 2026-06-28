@@ -22,7 +22,8 @@ import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
-import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion, Target, Check } from 'lucide-react';
+import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion, Target, Check, Clock } from 'lucide-react';
+import KnowledgeJourney from './KnowledgeJourney';
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
 // 収める flex column。chat 時は内側 .chat-scroll + .ai-input-area で
@@ -733,8 +734,18 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction }) {
         <button type="button" style={{ ...pill(view === 'knowledge'), display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => setView('knowledge')}>
           <BookOpenCheck size={13} strokeWidth={1.75} aria-hidden="true" />知識
         </button>
+        <button type="button" style={{ ...pill(view === 'journey'), display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => setView('journey')}>
+          <Clock size={13} strokeWidth={1.75} aria-hidden="true" />足あと
+        </button>
       </div>
       </div>{/* /固定領域 (header + pills) */}
+
+      {/* 🕰 知識の足あと（変遷追跡） */}
+      {view === 'journey' && (
+        <div style={viewScroll}>
+          <KnowledgeJourney userId={user?.id} />
+        </div>
+      )}
 
       {/* Learning view (inline、旧 LearningSheet モーダルを置換) */}
       {view === 'learning' && (

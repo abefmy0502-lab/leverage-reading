@@ -12,8 +12,8 @@ import { getActivation, isActivationDismissed, dismissActivation, ACTIVATION_STE
 
 const STEP_META = {
   book: { label: '本を1冊、本棚に追加する', hint: '右上の ＋ から検索して追加', cta: '追加' },
-  memo: { label: '気づきをメモに残す', hint: '本を開いて「メモ」から一行でOK' },
-  review: { label: '「振り返り」で想起を体験する', hint: '残したメモが、あとで戻ってくる', cta: '開く' },
+  memo: { label: '心が動いた一行をメモに残す', hint: '本を開いて「メモ」から一行でOK。ここから全部が始まります' },
+  review: { label: '「振り返り」で、戻ってくる一行を体験する', hint: 'メモが貯まると、AI がこの一行たちを"知恵"に凝縮します', cta: '開く' },
 };
 
 export default function ActivationChecklist({ books = [], onAddBook, onOpenReview }) {
@@ -61,7 +61,7 @@ export default function ActivationChecklist({ books = [], onAddBook, onOpenRevie
         </button>
       </div>
       <p style={{ margin: '0 0 12px', fontSize: 12, color: C.ink2, lineHeight: 1.6 }}>
-        Orime の「読んで終わりにしない」体験を、この順でひと通り掴めます。
+        Orime の「読んで終わりにしない」体験——一行を残し、戻し、知恵に凝縮するまでを、この順で掴めます。
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {steps.map((s) => (
