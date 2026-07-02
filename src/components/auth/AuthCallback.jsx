@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { LIMITS, validatePassword } from '../../lib/limits';
 
 function parseHashParams() {
   if (typeof window === 'undefined') return {};
@@ -57,6 +58,15 @@ export default function AuthCallback({ onDone }) {
   const [initial] = useState(parseHashParams);
   const hasError = Boolean(initial.error || initial.error_code);
   const hasAccessToken = Boolean(initial.access_token);
+  // パスワードリセットのリンク (#type=recovery) は、セッション確立後に
+  // 「新しいパスワードを設定する」フォームを必ず挟む。ここで挟まないと、
+  // リセット導線がどこにも存在せず、ユーザーは古いパスワードのまま
+  // 毎回リセットメールを送る無限ループに陥る。
+  const isRecovery = initial.type === 'recovery';
+  const [recoveryReady, setRecoveryReady] = useState(false); // セッション確立済み
+  const [newPassword, setNewPassword] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwError, setPwError] = useState('');
   const [waiting, setWaiting] = useState(hasAccessToken && !hasError);
 
   useEffect(() => {
@@ -72,7 +82,9 @@ export default function AuthCallback({ onDone }) {
       if (done) return;
       done = true;
       clearAuthHash();
-      onDone();
+      // recovery はアプリに流さず、新パスワード設定フォームを表示する。
+      if (isRecovery) setRecoveryReady(true);
+      else onDone();
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -102,8 +114,69 @@ export default function AuthCallback({ onDone }) {
     } catch {
       /* ignore */
     }
+    // 「ログイン画面に戻る」の約束どおりログイン画面に着地させる。
+    // このフラグが無い初見ブラウザ（メールアプリ内など）では、戻り先が
+    // マーケティング LP になってしまい文言と矛盾する。
+    try { window.localStorage.setItem('orime-returning', 'true'); } catch { /* ignore */ }
     onDone();
   };
+
+  const handleSetNewPassword = async (e) => {
+    e?.preventDefault?.();
+    if (pwBusy) return;
+    const pwErr = validatePassword(newPassword);
+    if (pwErr) { setPwError(pwErr); return; }
+    setPwBusy(true);
+    setPwError('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      try { window.localStorage.setItem('orime-returning', 'true'); } catch { /* ignore */ }
+      onDone();
+    } catch (err) {
+      const msg = String(err?.message || '').toLowerCase();
+      setPwError(
+        msg.includes('should be different')
+          ? '現在と同じパスワードは設定できません。別のパスワードをお試しください。'
+          : 'パスワードの更新に失敗しました。時間をおいて再度お試しください。',
+      );
+    } finally {
+      setPwBusy(false);
+    }
+  };
+
+  if (recoveryReady) {
+    return (
+      <div style={wrap}>
+        <h1 style={{ fontSize: 20, marginBottom: 8 }}>🔑 新しいパスワードを設定</h1>
+        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, maxWidth: 360 }}>
+          本人確認ができました。新しいパスワードを入力してください。
+        </p>
+        <form onSubmit={handleSetNewPassword} style={{ width: '100%', maxWidth: 320, marginTop: 14 }}>
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => { setNewPassword(e.target.value); setPwError(''); }}
+            placeholder="新しいパスワード（8文字以上）"
+            autoComplete="new-password"
+            maxLength={LIMITS.password || 72}
+            autoFocus
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '12px 14px', fontSize: 16,
+              borderRadius: 10, border: '1px solid var(--c-hairline-strong)', fontFamily: 'inherit',
+              background: 'var(--c-card)', color: 'var(--c-ink)',
+            }}
+          />
+          {pwError && (
+            <p style={{ fontSize: 12, color: 'var(--c-critical)', marginTop: 8, lineHeight: 1.6 }}>{pwError}</p>
+          )}
+          <button type="submit" disabled={pwBusy} style={{ ...btn, width: '100%', opacity: pwBusy ? 0.6 : 1 }}>
+            {pwBusy ? '更新中…' : 'パスワードを更新してはじめる'}
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (hasError) {
     const message = errorMessage(initial.error_code, initial.error_description);

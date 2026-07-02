@@ -3226,9 +3226,18 @@ function AuthedApp() {
   };
 
   // From AddBookModal → 手動入力. Skip the search step entirely.
-  const openManualFromAdd = () => {
+  const openManualFromAdd = (seed) => {
     setAddBookModalOpen(false);
-    setForm({ ...emptyBook(), id: Date.now().toString(), addedVia: 'manual' });
+    // 検索モーダルに入力済みのタイトル・著者・ISBN を引き継ぐ。
+    // 「このまま手動で追加する」の文言どおり、打ち直しをさせない。
+    setForm({
+      ...emptyBook(),
+      id: Date.now().toString(),
+      addedVia: 'manual',
+      title: seed?.title || '',
+      author: seed?.author || '',
+      isbn: seed?.isbn || '',
+    });
     setCurrent(null);
     setView('edit');
   };
@@ -3369,10 +3378,16 @@ function AuthedApp() {
       // 表紙未確定の本については、ここで必ず resolveCoverFromCandidates
       // を通す。検索結果から渡ってきた未検証の URL や、async resolve が
       // 完了する前にユーザーが保存したケースを救済する。
-      // 'manual' は手動アップロード済み → 触らない。
+      // 'manual' は手動アップロード済み / 'removed' はユーザーが意図的に
+      // 削除した印 → どちらも触らない（保存のたびに削除した表紙が復活
+      // してしまうため）。
       let resolvedCover = form.cover;
       let resolvedCoverIsbn = form.coverIsbn;
-      if (!resolvedCover && form.coverIsbn !== 'manual' && (form.title || form.isbn)) {
+      let resolvingToastId = null;
+      if (!resolvedCover && form.coverIsbn !== 'manual' && form.coverIsbn !== 'removed' && (form.title || form.isbn)) {
+        // 表紙解決は複数のネットワーク往復（最大数十秒）になり得る。無反応だと
+        // 保存失敗と誤認して離脱するため、その場でフィードバックを出す。
+        resolvingToastId = toast.show({ type: 'info', message: '💾 保存しています…', duration: 30000 });
         try {
           const altIsbns = await findIsbnCandidates(form.title, form.author);
           const ordered = [form.isbn, ...altIsbns].filter(Boolean);
@@ -3394,6 +3409,9 @@ function AuthedApp() {
             }
           }
         } catch { /* 解決失敗時は元の form 値で保存続行 */ }
+        finally {
+          if (resolvingToastId) { try { toast.dismiss(resolvingToastId); } catch { /* ignore */ } }
+        }
       }
 
       // 「保存して読書を開始する」相当の自動遷移条件:
@@ -4121,25 +4139,35 @@ function AuthedApp() {
 
   // 内部関数: action.done を toggle し、完了時は completed_at + reflection を反映、
   // 繰り返し設定があれば次回分を新規行動として末尾に追加する。
-  // 行動トグルの直列化: saveBook のラウンドトリップ（1-2秒）中に同じ本の別の
-  // 行動をタップすると、後発が stale な books から computed され先のトグルを
-  // 上書きしていた。本ごとに Promise チェーンで直列化し、実行時点の最新
-  // スナップショット（直前の保存結果 or books state）に rebase する。
-  const actionToggleChainsRef = useRef(new Map()); // bookId -> { promise, latest }
+  // 行動の保存系操作（トグル / 削除 / 編集モーダル保存）の直列化: saveBook の
+  // ラウンドトリップ（1-2秒）中に同じ本へ別の操作をすると、後発が stale な
+  // books から computed され先の変更を上書き（削除した行動の復活等）していた。
+  // 本ごとに共有 entry（{ promise, latest }）で直列化し、実行時点の最新
+  // スナップショット（直前の保存結果 latest or books state）に rebase する。
+  // entry は enqueue 間で「同じオブジェクトを再利用」する — コピーすると
+  // 先行タスクが書いた latest が後続に伝わらない。
+  const actionToggleChainsRef = useRef(new Map()); // bookId -> { promise, latest, token }
 
-  const applyActionToggle = (bookId, actionIdx, options = {}) => {
+  const enqueueBookMutation = (bookId, mutate) => {
     const chains = actionToggleChainsRef.current;
-    const prevEntry = chains.get(bookId);
-    const entry = { promise: Promise.resolve(), latest: prevEntry?.latest || null };
-    const run = (prevEntry?.promise || Promise.resolve())
-      .then(() => doActionToggle(bookId, actionIdx, options, entry));
-    entry.promise = run.catch(() => { /* 失敗しても後続タップは処理する */ });
-    chains.set(bookId, entry);
+    let entry = chains.get(bookId);
+    if (!entry) {
+      entry = { promise: Promise.resolve(), latest: null, token: null };
+      chains.set(bookId, entry);
+    }
+    const run = entry.promise.then(() => mutate(entry));
+    const token = {};
+    entry.token = token;
+    entry.promise = run.catch(() => { /* 失敗しても後続操作は処理する */ });
     entry.promise.then(() => {
-      if (chains.get(bookId) === entry) chains.delete(bookId);
+      // 自分が最後の enqueue だったらチェーンを掃除（latest の無限保持を防ぐ）。
+      if (chains.get(bookId) === entry && entry.token === token) chains.delete(bookId);
     });
     return run;
   };
+
+  const applyActionToggle = (bookId, actionIdx, options = {}) =>
+    enqueueBookMutation(bookId, (entry) => doActionToggle(bookId, actionIdx, options, entry));
 
   const doActionToggle = async (bookId, actionIdx, options, chainEntry) => {
     const book = chainEntry.latest || booksRef.current.find((b) => b.id === bookId);
@@ -4167,7 +4195,11 @@ function AuthedApp() {
     //    開始日時) を設定し、useAllActions が未来の行を非表示化する。
     //    weekly: 1 日前から表示開始 / monthly: 3 日前から表示開始。
     if (becomingDone && updatedAct.recurrence) {
-      const baseStr = updatedAct.deadline || new Date().toISOString().slice(0, 10);
+      // toISOString は UTC — JST の午前 9 時前に完了すると前日扱いになり
+      // 次回期限が 1 日早まる。ローカル日付で組み立てる。
+      const now = new Date();
+      const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const baseStr = updatedAct.deadline || todayLocal;
       const base = new Date(baseStr + 'T00:00:00');
       if (!Number.isNaN(base.getTime())) {
         if (updatedAct.recurrence === 'weekly') base.setDate(base.getDate() + 7);
@@ -4286,19 +4318,40 @@ function AuthedApp() {
     await applyActionToggle(bookId, actionIdx);
   };
 
-  const deleteActionFromBook = async (bookId, actionIdx) => {
-    const book = books.find((b) => b.id === bookId);
-    if (!book) return;
-    const acts = [...(book.actions || [])];
-    if (actionIdx < 0 || actionIdx >= acts.length) return;
-    acts.splice(actionIdx, 1);
-    const updated = { ...book, actions: acts };
-    try {
-      await saveBook(updated);
-      toast.success('行動を削除しました');
-    } catch (error) {
-      toast.error(toMessage(error, '行動の削除に失敗しました。'));
+  const deleteActionFromBook = async (bookId, actionIdx, { skipConfirm = false } = {}) => {
+    // ⋮ → 削除は誤タップし得る明示メニュー操作なので、規約どおり確認を挟む
+    // （スワイプ削除＝ジェスチャー意図は確認なし + Undo、と役割分担）。
+    // ActionEditModal 経由はモーダル側で確認済みなので skipConfirm で二重確認を避ける。
+    if (!skipConfirm) {
+      const ok = await confirm({
+        title: '行動を削除しますか？',
+        message: 'この行動（期限・振り返り含む）を完全に削除します。元に戻せません。',
+        confirmLabel: '削除する',
+        cancelLabel: 'キャンセル',
+        danger: true,
+      });
+      if (!ok) return;
     }
+    // トグルと同じ本ごとの直列化チェーンに乗せる。並行の saveBook（トグル進行中）
+    // と競合すると、削除した行動が stale upsert で復活し得るため。
+    await enqueueBookMutation(bookId, async (entry) => {
+      const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
+      if (!book) return;
+      const acts = [...(book.actions || [])];
+      if (actionIdx < 0 || actionIdx >= acts.length) return;
+      acts.splice(actionIdx, 1);
+      const updated = { ...book, actions: acts };
+      mutateBookLocal(bookId, () => updated);
+      try {
+        const saved = await saveBook(updated);
+        entry.latest = saved || updated;
+        toast.success('行動を削除しました');
+      } catch (error) {
+        mutateBookLocal(bookId, () => book);
+        entry.latest = book;
+        toast.error(toMessage(error, '行動の削除に失敗しました。'));
+      }
+    });
   };
 
   const filtered = useMemo(() => {
@@ -5738,24 +5791,33 @@ function AuthedApp() {
           onClose={() => setEditingAction(null)}
           onSave={async (patch) => {
             const { bookId, actionIdx } = editingAction;
-            const book = books.find((b) => b.id === bookId);
-            if (!book) { setEditingAction(null); return; }
-            const acts = [...(book.actions || [])];
-            if (actionIdx < 0 || actionIdx >= acts.length) { setEditingAction(null); return; }
-            acts[actionIdx] = { ...acts[actionIdx], ...patch };
-            try {
-              await saveBook({ ...book, actions: acts });
-              toast.success('💾 行動を更新しました');
-            } catch (error) {
-              toast.error(toMessage(error, '更新に失敗しました'));
-            } finally {
-              setEditingAction(null);
-            }
+            setEditingAction(null);
+            // トグル/削除と同じ本ごとの直列化チェーンに乗せる（並行 saveBook との
+            // 競合で編集内容が stale 上書きで失われるのを防ぐ）。
+            await enqueueBookMutation(bookId, async (entry) => {
+              const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
+              if (!book) return;
+              const acts = [...(book.actions || [])];
+              if (actionIdx < 0 || actionIdx >= acts.length) return;
+              acts[actionIdx] = { ...acts[actionIdx], ...patch };
+              const updated = { ...book, actions: acts };
+              mutateBookLocal(bookId, () => updated);
+              try {
+                const saved = await saveBook(updated);
+                entry.latest = saved || updated;
+                toast.success('💾 行動を更新しました');
+              } catch (error) {
+                mutateBookLocal(bookId, () => book);
+                entry.latest = book;
+                toast.error(toMessage(error, '更新に失敗しました'));
+              }
+            });
           }}
           onDelete={async () => {
             const { bookId, actionIdx } = editingAction;
             setEditingAction(null);
-            await deleteActionFromBook(bookId, actionIdx);
+            // モーダル側で確認済み → 二重確認を避ける。
+            await deleteActionFromBook(bookId, actionIdx, { skipConfirm: true });
           }}
         />
       )}

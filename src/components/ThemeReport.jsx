@@ -168,6 +168,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   const [notice, setNotice] = useState(''); // shown when a theme has no memos yet
   const [noticeKind, setNoticeKind] = useState('info'); // 'info' (メモ0件) | 'error'
   const abortRef = useRef(null);
+  const runIdRef = useRef(0); // 生成の実行トークン（履歴を開いたら無効化）
 
   // 🎯 行動の鏡 / 根拠スコープ / 📈 前回比 / 🔄 想起ループ の状態。
   const [actionStats, setActionStats] = useState(null); // { declared, completed, idle, blindSpot }
@@ -218,6 +219,11 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
     const theme = (rawTheme || '').trim();
     if (!theme || generating || !user?.id) return;
     haptic.light();
+    // 実行トークン: 生成中に履歴レポートを開く等で runId が進んだら、この
+    // 実行のストリーム/完了処理は一切 state を触らない（履歴の内容がテーマ
+    // 違いの生成結果で上書きされ、誤テーマの核心が想起ループに載る事故を防ぐ）。
+    const runId = ++runIdRef.current;
+    const isLive = () => runIdRef.current === runId;
     setActiveTheme(theme);
     setReportText('');
     setNotice('');
@@ -240,10 +246,11 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
         userId: user.id,
         theme,
         signal: controller.signal,
-        onStage: (s) => setStage(s),
-        onChunk: (text) => setReportText(text),
+        onStage: (s) => { if (isLive()) setStage(s); },
+        onChunk: (text) => { if (isLive()) setReportText(text); },
       });
 
+      if (!isLive()) return; // 履歴表示等に切り替わった — 何も上書きしない
       const wasAborted = controller.signal.aborted;
       if (wasAborted) {
         // 中止＝キャンセル扱い。中途半端なレポートを残さず選択画面に戻す
@@ -285,7 +292,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
         }
       }
     } catch (e) {
-      if (!(controller.signal.aborted || (e && e.name === 'AbortError'))) {
+      if (isLive() && !(controller.signal.aborted || (e && e.name === 'AbortError'))) {
         toast.error(toMessage(e, 'テーマまとめの作成に失敗しました。'));
         setNoticeKind('error');
         setNotice('テーマまとめの作成に失敗しました。少し時間をおいて再度お試しください。');
@@ -365,6 +372,11 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   }, [actionBusy, actionAdded, reportText, primaryBook, user?.id, toast, haptic]);
 
   const openHistoryReport = useCallback((row) => {
+    // 進行中の生成があれば無効化＋中止（放置すると履歴の内容をストリームが上書きする）。
+    runIdRef.current += 1;
+    try { abortRef.current?.abort(); } catch { /* ignore */ }
+    setGenerating(false);
+    setStage(null);
     setActiveTheme(row.theme || '');
     setReportText(row.content || '');
     setNotice('');

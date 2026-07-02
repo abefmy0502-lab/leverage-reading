@@ -438,31 +438,46 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                   aria-checked={a.done}
                   role="checkbox"
                   style={{
+                    // タップ領域は 44×44（この画面の最頻操作。24px だと隣の
+                    // 本タイトルリンクを誤タップする）。視覚は内側の 24px ボックス。
                     flexShrink: 0,
-                    width: 24,
-                    height: 24,
-                    borderRadius: 'var(--radius-sm)',
-                    border: a.done ? 'none' : '1.5px solid var(--color-border)',
-                    background: a.done ? 'var(--c-positive)' : 'transparent',
-                    color: '#fff',
+                    width: 44,
+                    height: 44,
+                    margin: '-10px -10px -10px -10px',
+                    background: 'none',
+                    border: 'none',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 14,
-                    lineHeight: 1,
-                    fontFamily: 'inherit',
                     padding: 0,
-                    marginTop: 1,
-                    transition: 'background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring)',
-                    transform: a.done ? 'scale(1.05)' : 'scale(1)',
+                    fontFamily: 'inherit',
                   }}
                 >
-                  {a.done && (
-                    <span key={`${key}-on`} className="check-pop" aria-hidden="true" style={{ display: 'flex' }}>
-                      <Check size={15} strokeWidth={3} aria-hidden="true" />
-                    </span>
-                  )}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 'var(--radius-sm)',
+                      border: a.done ? 'none' : '1.5px solid var(--color-border)',
+                      background: a.done ? 'var(--c-positive)' : 'transparent',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                      lineHeight: 1,
+                      transition: 'background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring)',
+                      transform: a.done ? 'scale(1.05)' : 'scale(1)',
+                    }}
+                  >
+                    {a.done && (
+                      <span key={`${key}-on`} className="check-pop" aria-hidden="true" style={{ display: 'flex' }}>
+                        <Check size={15} strokeWidth={3} aria-hidden="true" />
+                      </span>
+                    )}
+                  </span>
                 </button>
 
                 {/* Body */}

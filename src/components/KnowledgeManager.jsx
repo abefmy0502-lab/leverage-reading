@@ -39,7 +39,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
-import { LIMITS } from '../lib/limits';
+import { LIMITS, validateImageFile } from '../lib/limits';
 import BookMemoEditor from './BookMemoEditor';
 import EmptyState from './EmptyState.jsx';
 import SwipeableCard from './SwipeableCard';
@@ -98,6 +98,9 @@ const KIND_META = {
   ai_summary:        { Icon: Bot,          label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },
   roi_summary:       { Icon: Gem,          label: '一番の収穫',   group: 'summary', column: 'roi_summary' },
   ai_strategy:       { Icon: MapIcon,      label: '戦略',         group: 'plan',    column: 'ai_strategy' },
+  // gatherKnowledge が AI コンテキストに含める列は全てここに出す（透明性と
+  // 除外手段の担保）。選書理由も AI が参照するため、見えない・消せないは NG。
+  book_reason:       { Icon: Bot,          label: '選書理由',     group: 'plan',    column: 'book_reason' },
 };
 
 // グループごとの badge 色 (既存配色をベースに plan を追加)
@@ -292,6 +295,7 @@ export default function KnowledgeManager({ onChanged }) {
       // 統一形式の item を生成する。staged fallback で未マイグレーション DB
       // (古い列が無い) でも段階縮退して動作する。
       const FIELD_SELECTS = [
+        'id, title, author, updated_at, created_at, leverage_memo, invest_purpose, current_challenge, hypothesis, book_reason, ai_summary, roi_summary, ai_strategy',
         'id, title, author, updated_at, created_at, leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy',
         'id, title, author, updated_at, created_at, leverage_memo, invest_purpose, ai_summary, roi_summary, ai_strategy',
         'id, title, author, updated_at, created_at, leverage_memo, ai_summary, roi_summary',
@@ -331,6 +335,7 @@ export default function KnowledgeManager({ onChanged }) {
         ['invest_purpose',    'invest_purpose'],
         ['current_challenge', 'current_challenge'],
         ['hypothesis',        'hypothesis'],
+        ['book_reason',       'book_reason'],
         ['ai_summary',        'ai_summary'],
         ['roi_summary',       'roi_summary'],
         ['ai_strategy',       'ai_strategy'],
@@ -436,19 +441,48 @@ export default function KnowledgeManager({ onChanged }) {
     }
   };
 
-  const handleCardMemoUpdate = async (memoId, payload) => {
+  const handleCardMemoUpdate = async (memoId, payload, item) => {
     if (!user) throw new Error('未ログイン');
+    // 写真の追加/削除も反映する（BookMemoEditor は photoFile / removePhotoFlag を
+    // 渡してくる。無視すると成功トーストの裏でユーザーの写真変更が黙って消える）。
+    const patch = {
+      page_number: Number.isFinite(payload.pageNumber) ? payload.pageNumber : null,
+      text: payload.text || '',
+      tags: payload.tags || [],
+      updated_at: new Date().toISOString(),
+    };
+    const oldPath = item?.photo_path || null;
+    let uploadedPath = null;
+    if (payload.photoFile) {
+      const vErr = validateImageFile(payload.photoFile);
+      if (vErr) throw new Error(vErr);
+      const ext = (payload.photoFile.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const dir = item?.book_id || 'personal';
+      uploadedPath = `${user.id}/${dir}/${(typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('book-memo-photos')
+        .upload(uploadedPath, payload.photoFile, { upsert: false, contentType: payload.photoFile.type || 'image/jpeg' });
+      if (upErr) throw upErr;
+      patch.photo_path = uploadedPath;
+    } else if (payload.removePhotoFlag) {
+      patch.photo_path = null;
+    }
     const { error } = await supabase
       .from('book_memos')
-      .update({
-        page_number: Number.isFinite(payload.pageNumber) ? payload.pageNumber : null,
-        text: payload.text || '',
-        tags: payload.tags || [],
-        updated_at: new Date().toISOString(),
-      })
+      .update(patch)
       .eq('id', memoId)
       .eq('user_id', user.id);
-    if (error) throw error;
+    if (error) {
+      // DB 更新に失敗したら、今アップロードした孤児ファイルを掃除。
+      if (uploadedPath) {
+        try { await supabase.storage.from('book-memo-photos').remove([uploadedPath]); } catch { /* ignore */ }
+      }
+      throw error;
+    }
+    // 置換/削除が確定した後で旧写真を片づける（best-effort）。
+    if (oldPath && (payload.photoFile || payload.removePhotoFlag)) {
+      try { await supabase.storage.from('book-memo-photos').remove([oldPath]); } catch { /* ignore */ }
+    }
     toast.success('メモを更新しました');
     refresh();
   };
@@ -471,7 +505,10 @@ export default function KnowledgeManager({ onChanged }) {
       }
     })().catch((e) => {
       toast.error(toMessage(e, 'メモの削除に失敗しました。'));
-      throw e;
+      // 楽観的に消したカードを一覧へ戻す（rollback）。戻さないと DB に残って
+      // いる行が画面から消えっぱなしになり、「削除済み」と誤認させる。
+      // rethrow しない（誰も await しない unhandled rejection を作らない）。
+      setItems((arr) => (arr.some((x) => x.id === snapshot.id) ? arr : [snapshot, ...arr]));
     });
 
     setItems((arr) => arr.filter((x) => x.id !== item.id));
@@ -522,7 +559,8 @@ export default function KnowledgeManager({ onChanged }) {
       })
       .catch((e) => {
         toast.error(toMessage(e, 'クリアに失敗しました。'));
-        throw e;
+        // rollback: 楽観的に消したアイテムを戻す（rethrow しない）。
+        setItems((arr) => (arr.some((x) => x.id === item.id) ? arr : [item, ...arr]));
       });
 
     setItems((arr) => arr.filter((x) => x.id !== item.id));
@@ -704,7 +742,7 @@ export default function KnowledgeManager({ onChanged }) {
           onClose={() => setEditingItem(null)}
           onCreate={async () => { /* create flow not used here */ }}
           onUpdate={async (memoId, payload) => {
-            await handleCardMemoUpdate(memoId, payload);
+            await handleCardMemoUpdate(memoId, payload, editingItem);
           }}
         />
       )}

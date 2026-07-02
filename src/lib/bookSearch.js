@@ -499,6 +499,8 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
     const cacheKey = `isbn:${i}`;
     const cached = getCached(cacheKey);
     if (cached) return { ok: true, results: cached, cached: true };
+    let openbdError = null;
+    let googleError = null;
     try {
       const r = await lookupISBNopenBD(i);
       if (r) {
@@ -507,6 +509,8 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
         return { ok: true, results };
       }
     } catch (e) {
+      if (e?.name === 'AbortError') throw e;
+      openbdError = e;
       console.warn('openBD ISBN lookup failed:', e?.message || e);
     }
     try {
@@ -517,7 +521,14 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
         return { ok: true, results };
       }
     } catch (e) {
+      if (e?.name === 'AbortError') throw e;
+      googleError = e;
       console.warn('Google Books ISBN lookup failed:', e?.message || e);
+    }
+    // 両ソースとも「失敗」なら通信エラー。空をキャッシュすると、ネット復帰後も
+    // 7 日間「該当なし」を返し続ける cache poisoning になる。
+    if (openbdError && googleError) {
+      return { ok: false, error: '検索できませんでした。通信環境を確認して、もう一度お試しください。' };
     }
     setCached(cacheKey, []);
     return { ok: true, results: [] };
@@ -562,6 +573,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
   }
 
   // No NDL hits → Google Books with title + author concatenated.
+  let googleError = null;
   if (results.length === 0 && (t || a)) {
     try {
       const g = await searchGoogleBooks(`${t} ${a}`.trim(), { signal });
@@ -573,6 +585,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
       });
     } catch (e) {
       if (e?.name === 'AbortError') throw e;
+      googleError = e;
       console.warn('Google Books fallback failed:', e?.message || e);
     }
   }
@@ -587,6 +600,12 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
       ok: false,
       error: '検索の利用回数が一時的に上限に達しました。\n5〜10 分後に再度お試しください。',
     };
+  }
+  // 全ソースが「失敗」（真の 0 件ではない）なら通信エラーとして返し、
+  // 空結果を 7 日キャッシュしない（ネット復帰後の再検索を殺さない）。
+  if ((typeof navigator !== 'undefined' && navigator.onLine === false)
+    || (ndlError && googleError)) {
+    return { ok: false, error: '検索できませんでした。通信環境を確認して、もう一度お試しください。' };
   }
   setCached(cacheKey, []);
   return { ok: true, results: [] };

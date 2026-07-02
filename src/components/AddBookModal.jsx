@@ -679,7 +679,9 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
       )}
       <div style={headerStyle}>
         <h2 style={{ fontSize: 16, color: 'var(--color-label)', margin: 0, fontWeight: 600, flex: 1 }}><Library size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />本を追加</h2>
-        <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={isSearching} aria-disabled={isSearching}><X size={20} aria-hidden="true" /></button>
+        {/* 検索中でも閉じられるようにする。fetch がハングするとモーダルに数分閉じ込められる
+            ため。アンマウント時の cleanup effect が abortRef.abort() で安全に中断する。 */}
+        <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
       </div>
 
       <div style={bodyStyle}>
@@ -766,7 +768,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
               <span>または</span>
               <div style={dividerLine} />
             </div>
-            <button type="button" onClick={onManual} style={manualBtnStyle}>
+            <button type="button" onClick={() => onManual({ title: title.trim(), author: author.trim(), isbn: isbn.trim() })} style={manualBtnStyle}>
               <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />検索でヒットしない場合は手動入力
             </button>
           </>
@@ -794,7 +796,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             </button>
             <button
               type="button"
-              onClick={onManual}
+              onClick={() => onManual({ title: title.trim(), author: author.trim(), isbn: isbn.trim() })}
               style={{ ...manualBtnStyle, marginTop: 'var(--space-3)' }}
             >
               <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />手動で追加する
@@ -811,7 +813,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: '6px 0 16px', lineHeight: 1.7 }}>
               書名を変えて再検索するか、ISBN（本の裏のバーコード番号）で検索すると見つかりやすくなります。
             </p>
-            <button type="button" onClick={onManual} style={{
+            <button type="button" onClick={() => onManual({ title: title.trim(), author: author.trim(), isbn: isbn.trim() })} style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               width: '100%', minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-md)',
               border: 'none', background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
@@ -868,7 +870,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             )}
             <button
               type="button"
-              onClick={onManual}
+              onClick={() => onManual({ title: title.trim(), author: author.trim(), isbn: isbn.trim() })}
               style={{ ...manualBtnStyle, marginTop: 'var(--space-3)' }}
             >
               <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />該当が無ければ手動入力

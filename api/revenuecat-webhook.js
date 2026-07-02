@@ -157,6 +157,40 @@ export default async function handler(req, res) {
     const event = body.event || {};
     const type = event.type;
 
+    // TRANSFER: 同じ Apple ID の購入が別の app_user_id（別 Supabase アカウント）へ
+    // 「購入を復元」で移った。無視すると (a) 旧アカウントが永久 active のまま残り
+    // （以後の RENEWAL/EXPIRATION は新 ID 宛にしか届かない）、(b) 新アカウントは
+    // Web/PWA 側でロックされ続ける。旧→canceled / 新→active に同期する。
+    if (type === 'TRANSFER') {
+      const from = Array.isArray(event.transferred_from) ? event.transferred_from : [];
+      const to = Array.isArray(event.transferred_to) ? event.transferred_to : [];
+      const fromIds = from.filter((id) => isResolvableUserId(id));
+      const toIds = to.filter((id) => isResolvableUserId(id));
+      for (const uid of fromIds) {
+        const { error } = await supabase
+          .from('subscriptions')
+          .update({ status: 'canceled' })
+          .eq('user_id', uid)
+          .eq('provider', 'revenuecat');
+        if (error) throw error;
+      }
+      for (const uid of toIds) {
+        const { error } = await supabase
+          .from('subscriptions')
+          .upsert({
+            user_id: uid,
+            provider: 'revenuecat',
+            store: normalizeStore(event.store),
+            rc_app_user_id: uid,
+            status: 'active',
+            price_id: event.product_id || null,
+            current_period_end: toIsoFromMs(event.expiration_at_ms),
+          }, { onConflict: 'user_id' });
+        if (error) throw error;
+      }
+      return res.status(200).json({ received: true, transferred: { from: fromIds.length, to: toIds.length } });
+    }
+
     const appUserId = event.app_user_id;
     if (!isResolvableUserId(appUserId)) {
       // 匿名 ID 等で user.id に解決できない → 行を作らずスキップ（200 で受け流し）。

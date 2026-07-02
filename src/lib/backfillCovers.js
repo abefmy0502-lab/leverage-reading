@@ -59,8 +59,9 @@ export async function backfillCovers(supabase, userId) {
     let cleared = 0;
     for (const row of data) {
       try {
-        // 手動アップロード済みは絶対に触らない。
-        if (row.cover_isbn === 'manual') continue;
+        // 手動アップロード済み / ユーザーが意図的に表紙を削除した本（'removed'）は
+        // 絶対に触らない（新端末ログインで削除した表紙が復活してしまう）。
+        if (row.cover_isbn === 'manual' || row.cover_isbn === 'removed') continue;
 
         // 「確実に壊れている」と言えるのは NDL の No image プレースホルダのみ。
         // Google Books の動的 URL は実際には表示できていることが多く、

@@ -330,7 +330,11 @@ export default function BookMemoEditor({
   const clearPhoto = () => {
     setPhotoFile(null);
     setPreviewUrl(null);
-    if (existingPhotoPath) setRemovePhotoFlag(true);
+    // 「元写真を削除→新写真を選択→やっぱり削除」の順だと existingPhotoPath は
+    // 既に null（onFile がクリア済み）でフラグが立たず、保存後に元写真が復活する。
+    // このセッションの初期状態で写真を持っていたなら、プレビューを空にした時点で
+    // 常に削除フラグを立てる（再度 onFile されれば false に戻るので置換は壊れない）。
+    if (existingPhotoPath || initial?.photoPath) setRemovePhotoFlag(true);
     setExistingPhotoPath(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -352,8 +356,9 @@ export default function BookMemoEditor({
       <div style={headerBar}>
         <button
           type="button"
-          onClick={onClose}
-          style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--c-brand)', cursor: 'pointer', padding: '11px 8px', margin: '-11px -8px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+          onClick={() => { if (!busy) onClose?.(); }}
+          style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--c-brand)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.4 : 1, padding: '11px 8px', margin: '-11px -8px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+          aria-disabled={busy}
         >
           ← 戻る
         </button>

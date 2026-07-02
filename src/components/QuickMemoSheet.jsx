@@ -48,7 +48,8 @@ const sheetWrap = {
   maxHeight: '85vh',
   animation: 'leverage-sheet-up .25s cubic-bezier(0.2,0.9,0.3,1)',
   fontFamily: "var(--font-app)",
-  paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+  // safe-area は footer 側の calc で 1 回だけ確保する（ここにも入れると
+  // 二重加算でホームインジケータ上に余計な空白帯が出る）。
 };
 
 const headerStyle = {
@@ -223,10 +224,11 @@ export default function QuickMemoSheet({
   // (errorMsg) がアンマウントで消え、ユーザーに結果が届かない。
   const requestClose = () => { if (busy) return; onClose?.(); };
 
-  // Escape closes（保存中は無視）
+  // Escape closes（保存中は無視）。IME 変換中の Esc（変換キャンセル）で
+  // シートごと閉じて下書きを失わないよう isComposing をガードする。
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape' && !busy) onClose?.();
+      if (e.key === 'Escape' && !busy && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

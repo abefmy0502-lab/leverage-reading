@@ -304,7 +304,10 @@ export default function Review({ books = [], onOpenBook, onAddAction }) {
   const [memos, setMemos] = useState([]);
   const [memoMenu, setMemoMenu] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [randomSeed, setRandomSeed] = useState(0);
+  // seed=0 固定だと pool が同じ限り毎回同じメモが出て「偶然の再会」にならない。
+  // 初期値をランダムにして、開くたびに違う一枚が戻ってくるようにする
+  // （「別のメモを見る」の setRandomSeed でさらに回せる）。
+  const [randomSeed, setRandomSeed] = useState(() => Math.floor(Math.random() * 233280));
   const [flipping, setFlipping] = useState(false);
   const flipTimerRef = useRef(null);
   // Lazy initializer — runs once on first render, not on module load.

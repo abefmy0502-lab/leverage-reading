@@ -315,8 +315,14 @@ export function useBooks() {
       // DB を掃除する（id を持つ行を優先的に残し、残りは下の DELETE で消える）。
       const rawActions = (book.actions || []).filter((a) => a && typeof a.text === 'string' && a.text.trim());
       const dedupMap = new Map();
+      let doneSeq = 0;
       for (const a of rawActions) {
-        const key = `${a.text.trim()}|${a.deadline || ''}|${a.done ? 1 : 0}|${a.recurrence || ''}`;
+        // ⚠️ 畳み込みは「未完了の増殖 spawn」対策に限定する。完了済み行は
+        //   完了時期・振り返りが違う正当な履歴（同じ習慣を複数回完了した等）
+        //   なので畳まない — 畳むと片方が差分 DELETE で静かに消える。
+        const key = a.done
+          ? `done#${a.id || `new-${doneSeq++}`}`
+          : `${a.text.trim()}|${a.deadline || ''}|0|${a.recurrence || ''}`;
         const prev = dedupMap.get(key);
         // id を持つ行（永続済み）を優先的に残す。
         if (!prev || (!prev.id && a.id)) dedupMap.set(key, a);
@@ -426,7 +432,14 @@ export function useBooks() {
       if (freshErr) throw freshErr;
 
       const savedBook = transformBook(freshRow);
-      await fetchBooks();
+      // 全件再フェッチ（setBooks 全置換）はしない。保存した本だけを差し替える。
+      // 全置換は (a) 余計な 1 往復、(b) 並行して楽観更新中の「別の本」の
+      // チェック表示を一時的に巻き戻す（消えて→再点灯のちらつき）ため。
+      // freshRow は relations 込みで取得済みなので、これが完全な最新行。
+      setBooks((prev) => {
+        const exists = prev.some((b) => b.id === savedBook.id);
+        return exists ? prev.map((b) => (b.id === savedBook.id ? savedBook : b)) : [...prev, savedBook];
+      });
       return savedBook;
     } catch (error) {
       console.error('本の保存エラー:', error);

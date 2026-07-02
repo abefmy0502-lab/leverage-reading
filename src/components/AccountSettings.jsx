@@ -751,7 +751,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   </button>
                 ) : null}
               </>
-            ) : (
+            ) : isNative ? (
               <>
                 <p style={sectionDescStyle}>
                   すべての機能を使うにはご契約が必要です。いつでも解約でき、データは保持されます。
@@ -789,6 +789,23 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.75 }}>{planLabels.monthly.note}</span>
                   </button>
                 </div>
+              </>
+            ) : (
+              <>
+                {/* Web/PWA: 契約は App Store（IAP）一本化 — Paywall と同じチャネル分岐。
+                    ここで休眠中の Stripe Checkout に誘導すると、表示価格と請求額の不一致
+                    （景表法リスク）や「決済機能が利用できません」の導線死になる。 */}
+                <p style={sectionDescStyle}>
+                  ご契約は iOS アプリ（App Store）から行えます。ご契約後、この Web 版でも同じアカウントで全機能が使えます。
+                </p>
+                <a
+                  href={import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ ...btnPrimary, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  📱 App Store で Orime を入手
+                </a>
               </>
             )}
           </section>

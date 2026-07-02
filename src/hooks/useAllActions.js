@@ -56,7 +56,21 @@ function computeForPeriod(actions, periodStart, periodEnd) {
     if (!a.done) return false;
     // completedAt があれば厳密にその日時で判定。無ければ created_at を fallback。
     const ts = a.completedAt || a.created_at;
-    return inRange(ts, periodStart, periodEnd);
+    if (inRange(ts, periodStart, periodEnd)) return true;
+    // 期限がこの期間内のタスクを「期間前に前倒しで完了」したケース
+    // （繰り返しタスクは scheduled_for により期限の 1〜3 日前から完了できる）。
+    // total には入るのに completed に入らないと、全部やっているのに
+    // 達成率が恒常的に 100% 未満/0% になる。done ならこの期間の達成として数える。
+    if (a.deadline) {
+      const d = new Date(a.deadline + 'T00:00:00');
+      if (!Number.isNaN(d.getTime()) && d >= periodStart && d < periodEnd) {
+        const doneAt = new Date(ts);
+        // 完了時刻が期間より「前」の前倒し完了のみ救済（期間後の遅延完了は
+        // その完了期間側で数えるので二重計上しない）。
+        return !Number.isNaN(doneAt.getTime()) && doneAt < periodStart;
+      }
+    }
+    return false;
   });
   const total = periodActions.length;
   return {

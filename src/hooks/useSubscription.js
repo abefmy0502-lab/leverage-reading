@@ -29,6 +29,30 @@ function isSchemaError(error) {
   );
 }
 
+// 🛟 最後に確認できた entitlement の端末キャッシュ（詰み防止・fail-open）。
+// 初回マウント時の SELECT がオフライン/一時障害で失敗すると last-known-good が
+// メモリに存在せず、課金済みユーザーが機内モードで PWA を開いただけで
+// ペイウォールにロックされる。active を確認できた時だけ書き、7日で失効。
+const ENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const entKey = (uid) => `orime-entitlement:${uid}`;
+
+function readCachedEntitlement(uid) {
+  try {
+    const raw = localStorage.getItem(entKey(uid));
+    if (!raw) return null;
+    const { at } = JSON.parse(raw);
+    if (!at || Date.now() - at > ENT_TTL_MS) return null;
+    return { status: 'active', fromCache: true };
+  } catch { return null; }
+}
+
+function writeCachedEntitlement(uid, active) {
+  try {
+    if (active) localStorage.setItem(entKey(uid), JSON.stringify({ at: Date.now() }));
+    else localStorage.removeItem(entKey(uid));
+  } catch { /* ignore */ }
+}
+
 const transformSubscription = (row) => {
   if (!row) return null;
   return {
@@ -79,6 +103,8 @@ export function useSubscription() {
       } else {
         setSubscription(transformSubscription(data));
         dbActive = data?.status === 'active';
+        // 確認できた真実を端末にも控える（次回の初回ロード失敗に備える）。
+        writeCachedEntitlement(user.id, dbActive);
       }
       setError(null);
     } catch (e) {
@@ -87,7 +113,9 @@ export function useSubscription() {
       // 課金状態（active 等）を null に潰さない。潰すと、契約済みユーザーが
       // 一時的な通信エラー（タブ復帰・?checkout=success のリトライ等）の度に
       // isActive=false へ落ち、ペイウォールにロックされてしまう。
-      // last-known-good を温存し、error だけ surface する（schema-error 判定は別途）。
+      // last-known-good を温存し、初回ロード（メモリに何も無い）では端末
+      // キャッシュ（7日TTL）で補う。error だけ surface する。
+      setSubscription((prev) => prev || readCachedEntitlement(user.id));
       setError(e);
     }
     // ネイティブのみ: DB が active でない場合、端末ローカル(RevenueCat)の

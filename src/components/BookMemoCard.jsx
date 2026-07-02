@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
@@ -53,15 +54,17 @@ const kebabBtn = {
   lineHeight: 1,
 };
 
+// ⚠️ このメニューと写真拡大モーダルは createPortal で body 直下に出す。
+// カードは SwipeableCard の transform + overflow:hidden 配下にあり、
+// カード内に描くと (a) メニューが短いカードでクリップされ「削除」に届かない
+// (b) position:fixed が transform を containing block として全画面にならない。
 const menuStyle = {
-  position: 'absolute',
-  top: 32,
-  right: 8,
+  position: 'fixed',
   background: '#fff',
   border: '1px solid var(--c-hairline)',
   borderRadius: 8,
   boxShadow: '0 4px 14px rgba(30,25,20,0.12)',
-  zIndex: 5,
+  zIndex: 300,
   display: 'flex',
   flexDirection: 'column',
   minWidth: 110,
@@ -95,6 +98,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
   const [photoUrl, setPhotoUrl] = useState(initialUrl);
   const [zoom, setZoom] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // fixed 座標（portal 用）
 
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, memo }),
@@ -169,6 +173,11 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
         type="button"
         onClick={(e) => {
           e.stopPropagation();
+          const rect = e.currentTarget.getBoundingClientRect();
+          setMenuPos({
+            top: Math.min(rect.bottom + 2, (window.innerHeight || 800) - 240),
+            right: Math.max(8, (window.innerWidth || 400) - rect.right),
+          });
           setMenuOpen((v) => !v);
         }}
         style={{ ...kebabBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -176,8 +185,8 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
       >
         <MoreVertical size={18} strokeWidth={1.75} aria-hidden="true" />
       </button>
-      {menuOpen && (
-        <div style={menuStyle} onClick={(e) => e.stopPropagation()}>
+      {menuOpen && createPortal(
+        <div style={{ ...menuStyle, top: menuPos.top, right: menuPos.right }} onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             style={menuItem}
@@ -236,7 +245,8 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
           >
             削除
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {memo.pageNumber != null && <span style={pageBadge}>P.{memo.pageNumber}</span>}
@@ -307,7 +317,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
         {formatDate(memo.createdAt)}
       </p>
 
-      {zoom && photoUrl && (
+      {zoom && photoUrl && createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -330,7 +340,8 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
             alt={`${photoAlt}（拡大表示）`}
             style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }}
           />
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -123,7 +123,16 @@ export default function AuthScreen() {
       if (mode === 'signin') {
         await signInWithEmail(email.trim(), password);
       } else if (mode === 'signup') {
-        await signUpWithEmail(email.trim(), password, displayName.trim());
+        const data = await signUpWithEmail(email.trim(), password, displayName.trim());
+        // Supabase はメール確認有効時、既存メールへの signUp をエラーにせず
+        // identities: [] の難読化された成功で返す（列挙攻撃対策の仕様）。
+        // このとき確認メールは送られないので、「送りました」画面で永遠に
+        // 待たせず、ログイン/リセットへ誘導する。
+        if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          setError('このメールアドレスは既に登録されています。ログイン、またはパスワードをお忘れの場合はリセットをお試しください。');
+          setMode('signin');
+          return;
+        }
         // 小さな緑文字でなく、全画面の「メール確認待ち」ステップに切替える。
         setConfirmSentTo(email.trim());
       } else if (mode === 'reset') {
