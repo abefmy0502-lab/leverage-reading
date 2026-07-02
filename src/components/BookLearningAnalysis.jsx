@@ -77,9 +77,14 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
         author: book.author,
         purpose: book.investPurpose,
         challenge: book.currentChallenge,
+        // まとめ式メモ派も分析できるよう、まとめメモも材料に渡す。
+        summaryMemo: book.leverageMemo,
       });
       if (r?.tooThin) { setState({ status: 'thin' }); return; }
       setSaved(false);
+      // 再分析では「＋追加」済みマークをリセット（前回のインデックスが新しい
+      // 提案に残ると、新しい行動を追加できなくなる）。
+      setAdded(new Set());
       setState({ status: 'done', content: r.content, actions: extractSuggestedActions(r.content), body: stripActionSection(r.content) });
     } catch (e) {
       setState({ status: 'error', msg: toMessage(e, '分析に失敗しました。少し時間をおいて再度お試しください。') });
@@ -126,7 +131,7 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
 
       {state.status === 'thin' && (
         <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.7, margin: 0 }}>
-          🌱 まだこの本のメモが少ないようです。カードメモを少し残すと、目的に照らした学びを分析できます。
+          🌱 まだこの本のメモが少ないようです。メモ（カード式でも、まとめ式でも）を少し残すと、目的に照らした学びを分析できます。
         </p>
       )}
 

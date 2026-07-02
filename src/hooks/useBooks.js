@@ -452,12 +452,22 @@ export function useBooks() {
   const captureBookSnapshot = async (bookId) => {
     if (!user || !isSupabaseConfigured || !bookId) return null;
     try {
-      const { data, error } = await supabase
+      // フォルダ (book_collections) も含めて控える。未適用 DB では relation が
+      // 無いので、その時だけ collections 抜きで取り直す（staged fallback）。
+      let { data, error } = await supabase
         .from('books')
-        .select('*, book_tags(*), actions(*), book_memos(*)')
+        .select('*, book_tags(*), actions(*), book_memos(*), book_collections(*)')
         .eq('id', bookId)
         .eq('user_id', user.id)
         .single();
+      if (error && isMissingRelationError(error)) {
+        ({ data, error } = await supabase
+          .from('books')
+          .select('*, book_tags(*), actions(*), book_memos(*)')
+          .eq('id', bookId)
+          .eq('user_id', user.id)
+          .single());
+      }
       if (error) throw error;
       return data;
     } catch (error) {
@@ -480,7 +490,7 @@ export function useBooks() {
   // 行動/メモが消えるため、失敗を必ず呼び出し側へ返す。
   const restoreBookFromSnapshot = async (snapshot) => {
     if (!snapshot || !user || !isSupabaseConfigured) return { ok: false, failed: [] };
-    const { book_tags = [], actions = [], book_memos = [], ...bookRow } = snapshot;
+    const { book_tags = [], actions = [], book_memos = [], book_collections = [], ...bookRow } = snapshot;
     // Reset updated_at so the restored row floats to the top of "更新順".
     const bookPayload = { ...bookRow, updated_at: new Date().toISOString() };
 
@@ -520,8 +530,27 @@ export function useBooks() {
       }
     }
 
+    if (book_collections.length > 0) {
+      const colRows = book_collections.map((c) => ({
+        book_id: snapshot.id,
+        user_id: user.id,
+        collection_name: c.collection_name,
+      }));
+      const { error: cErr } = await supabase.from('book_collections').insert(colRows);
+      if (cErr && !isMissingRelationError(cErr)) {
+        console.error('フォルダ復元の一部失敗:', cErr);
+        failed.push('フォルダ');
+      }
+    }
+
     await fetchBooks();
     return { ok: true, failed };
+  };
+
+  // ローカル state のみを即時更新する（DB は触らない）。行動トグル等の
+  // 楽観的 UI 用。確定値は直後の saveBook → fetchBooks が上書きする。
+  const mutateBookLocal = (bookId, updater) => {
+    setBooks((prev) => prev.map((b) => (b.id === bookId ? updater(b) : b)));
   };
 
   return {
@@ -529,6 +558,7 @@ export function useBooks() {
     loading,
     saveBook,
     deleteBook,
+    mutateBookLocal,
     captureBookSnapshot,
     restoreBookFromSnapshot,
     refreshBooks: fetchBooks,

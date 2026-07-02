@@ -9,7 +9,7 @@
 import { useMemo } from 'react';
 import {
   getAmazonSearchLink,
-  openAmazonForSearch,
+  handleAmazonClick,
   AMAZON_DISCLOSURE_TEXT,
   AMAZON_LINK_REL,
 } from '../lib/amazonLink';
@@ -446,7 +446,7 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           target="_blank"
           rel={AMAZON_LINK_REL}
           aria-label={`Amazon で『${book.title}』を購入（外部リンク）`}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAmazonForSearch(book.title, book.author); }}
+          onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazonHref); }}
           style={{
             ...relatedAmazonBtn,
             touchAction: 'manipulation',

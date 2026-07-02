@@ -108,13 +108,21 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
   const [loading, setLoading] = useState(!initialFromCache && isUsableBookId);
   const [error, setError] = useState(null);
   const aliveRef = useRef(true);
+  // mutation が「クロージャに閉じ込めた古い rawMemos」から次状態を計算すると、
+  // 素早い連続操作（スワイプ削除2連続など）で先の変更が巻き戻る。常に最新を
+  // 参照できるよう ref を同期させ、mutation は updater 関数で書く。
+  const rawMemosRef = useRef(rawMemos);
 
   useEffect(() => () => {
     aliveRef.current = false;
   }, []);
 
   const writeBoth = useCallback(
-    (next) => {
+    (nextOrUpdater) => {
+      const next = typeof nextOrUpdater === 'function'
+        ? nextOrUpdater(rawMemosRef.current)
+        : nextOrUpdater;
+      rawMemosRef.current = next;
       setRawMemos(next);
       if (isUsableBookId) cache.setMemos(bookId, next);
     },
@@ -166,6 +174,7 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
   useEffect(() => {
     if (!isUsableBookId) return undefined;
     return cache.subscribeMemos(bookId, (next) => {
+      rawMemosRef.current = next;
       setRawMemos(next);
     });
   }, [bookId, isUsableBookId, cache]);
@@ -196,7 +205,7 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
         .single();
       if (insErr) throw insErr;
       const inserted = transformMemo(data);
-      writeBoth([...rawMemos, inserted]);
+      writeBoth((prev) => [...prev, inserted]);
       // 📊 計測（新規作成パスのみ・insert 成功後）。PII は送らず enum/真偽のみ。
       track(EVENTS.MEMO_ADDED, {
         mode: 'card',
@@ -212,7 +221,7 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
 
   const updateMemo = async (memoId, { pageNumber, text, photoFile, tags, removePhotoFlag }) => {
     if (!user || !isSupabaseConfigured) throw new Error('Supabase 未接続');
-    const existing = rawMemos.find((m) => m.id === memoId);
+    const existing = rawMemosRef.current.find((m) => m.id === memoId);
     let photoPath = existing?.photoPath || null;
     let oldToDelete = null;
     // この update で「今アップロードした」新写真。DB 更新が失敗したら孤児に
@@ -252,7 +261,7 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
         cache.invalidatePhotoUrl(oldToDelete);
       }
       const updated = transformMemo(data);
-      writeBoth(rawMemos.map((m) => (m.id === memoId ? updated : m)));
+      writeBoth((prev) => prev.map((m) => (m.id === memoId ? updated : m)));
       return updated;
     } catch (e) {
       // (a) 孤児防止: この update でアップロードした新写真だけ削除。旧写真には
@@ -272,14 +281,14 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
 
   const deleteMemo = async (memoId) => {
     if (!user || !isSupabaseConfigured) return;
-    const target = rawMemos.find((m) => m.id === memoId);
+    const target = rawMemosRef.current.find((m) => m.id === memoId);
     const { error: delErr } = await supabase.from('book_memos').delete().eq('id', memoId);
     if (delErr) throw delErr;
     if (target?.photoPath) {
       await removePhoto(target.photoPath);
       cache.invalidatePhotoUrl(target.photoPath);
     }
-    writeBoth(rawMemos.filter((m) => m.id !== memoId));
+    writeBoth((prev) => prev.filter((m) => m.id !== memoId));
   };
 
   // Re-INSERT a previously-deleted memo from a snapshot (used by Undo).
@@ -305,7 +314,7 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
       .single();
     if (insErr) throw insErr;
     const inserted = transformMemo(data);
-    writeBoth([...rawMemos, inserted]);
+    writeBoth((prev) => [...prev, inserted]);
     return inserted;
   };
 

@@ -29,12 +29,33 @@ let initialized = false;
 let autoApplyEnabled = false;
 let autoHiddenArmed = false;
 
+// 書きかけ（フォーカス中のテキスト入力に中身がある）かどうか。
+// バックグラウンド中の自動 reload は in-memory の下書きを消すため、
+// 書きかけがある間は適用を見送る（次に hidden になった時に再判定）。
+function hasUnsavedTyping() {
+  try {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = (el.tagName || '').toLowerCase();
+    if (tag === 'textarea' || tag === 'input') {
+      return typeof el.value === 'string' && el.value.trim().length > 0;
+    }
+    if (el.isContentEditable) return (el.textContent || '').trim().length > 0;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 // 利用中に出た更新を「バックグラウンドに入った時」に静かに適用する仕掛け。
 function armAutoApplyOnHidden() {
   if (!autoApplyEnabled || autoHiddenArmed) return;
   autoHiddenArmed = true;
   const applyWhenHidden = () => {
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      // メモ等の書きかけがあるなら今回は見送る（reload で下書きが消えるため）。
+      // リスナは残るので、書きかけが無い次回の hidden で静かに適用される。
+      if (hasUnsavedTyping()) return;
       // 不可視のうちに skipWaiting → controllerchange → reload（戻ると新版）。
       applyUpdate();
     }

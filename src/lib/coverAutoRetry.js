@@ -35,10 +35,14 @@ let processing = false;
  * @param {Object}   params
  * @param {Object}   params.book      camelCase の本オブジェクト (id, title, author, isbn, coverIsbn)
  * @param {Function} params.saveBook  useBooks の saveBook。{...book, cover, coverIsbn} を渡す
+ * @param {Function} [params.getBook] id -> 最新の本 を返すアクセサ。保存直前に必ず最新へ
+ *   rebase する（saveBook は actions 等を差分同期するため、enqueue 時の古い
+ *   スナップショットで保存すると、その間のユーザー編集を巻き戻してしまう）。
  */
-export function enqueueCoverRetry({ book, saveBook }) {
+export function enqueueCoverRetry({ book, saveBook, getBook }) {
   if (!book || !book.id) return;
   if (book.coverIsbn === 'manual') return;
+  if (book.coverIsbn === 'removed') return; // ユーザーが意図的に表紙を消した本は復活させない
   // 検索の手がかりが何も無い本はスキップ（title も isbn も無い空行など）
   if (!book.isbn && !(book.title && book.title.trim())) return;
   if (typeof saveBook !== 'function') return;
@@ -48,7 +52,7 @@ export function enqueueCoverRetry({ book, saveBook }) {
   if ((attempts.get(book.id) || 0) >= MAX_ATTEMPTS) return;
 
   queuedOrInflight.add(book.id);
-  queue.push({ book, saveBook });
+  queue.push({ book, saveBook, getBook });
   if (!processing) processQueue();
 }
 
@@ -81,16 +85,22 @@ async function resolveOne(book) {
 async function processQueue() {
   processing = true;
   while (queue.length > 0) {
-    const { book, saveBook } = queue.shift();
+    const { book, saveBook, getBook } = queue.shift();
     let succeeded = false;
     try {
       // eslint-disable-next-line no-await-in-loop
       const { url, coverIsbn } = await resolveOne(book);
       if (url) {
-        // saveBook 経由で全 BookCard の React state が自動更新 → 表紙が即反映。
-        // eslint-disable-next-line no-await-in-loop
-        await saveBook({ ...book, cover: url, coverIsbn });
-        succeeded = true;
+        // 保存直前に最新の本へ rebase。enqueue 時の古いスナップショットで
+        // saveBook すると、その間のユーザー編集（行動・タグ・ステータス等）が
+        // 差分同期で巻き戻る/消えるため。削除済み・手動アップ済み・削除意図
+        // (removed)・既に表紙ありの本には触らない。
+        const latest = typeof getBook === 'function' ? getBook(book.id) : book;
+        if (latest && latest.coverIsbn !== 'manual' && latest.coverIsbn !== 'removed' && !latest.cover) {
+          // eslint-disable-next-line no-await-in-loop
+          await saveBook({ ...latest, cover: url, coverIsbn });
+        }
+        succeeded = true; // 見つかった事実は確定（触らなかった場合も再試行不要）
       }
     } catch (e) {
       // 失敗してもユーザーには見せない

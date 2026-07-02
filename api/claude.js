@@ -342,7 +342,14 @@ export default async function handler(req, res) {
     const payload = { model, max_tokens: maxTokens };
     if (wantsStream) payload.stream = true;
     if (typeof body.system === 'string') payload.system = body.system;
-    if (Array.isArray(body.messages)) payload.messages = body.messages.slice(0, MAX_MESSAGES);
+    if (Array.isArray(body.messages)) {
+      // 上限超過時は「最新」を残す（slice(0,N) は最古を残し、直前のユーザー発言を
+      // 捨ててしまう＝長い会話で直近の質問が無視される）。先頭が assistant に
+      // なったら Anthropic の user-first 要件に合わせて刈る。
+      let msgs = body.messages.slice(-MAX_MESSAGES);
+      while (msgs.length > 0 && msgs[0]?.role === 'assistant') msgs = msgs.slice(1);
+      payload.messages = msgs;
+    }
     if (Number.isFinite(body.temperature)) {
       payload.temperature = Math.min(1, Math.max(0, body.temperature));
     }

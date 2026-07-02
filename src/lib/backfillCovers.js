@@ -62,12 +62,20 @@ export async function backfillCovers(supabase, userId) {
         // 手動アップロード済みは絶対に触らない。
         if (row.cover_isbn === 'manual') continue;
 
+        // 「確実に壊れている」と言えるのは NDL の No image プレースホルダのみ。
+        // Google Books の動的 URL は実際には表示できていることが多く、
+        // 解決失敗（ネット瞬断・429 等の一時要因）を理由に null 化すると
+        // 「新端末でログインしたら表紙が消えた」事故になる。失敗時に消して
+        // よいのは既知プレースホルダだけ。生きている可能性のある URL は残す
+        // （本当に壊れていれば BookCard の onError → 自動リトライが拾う）。
+        const isKnownPlaceholder = !!row.cover && row.cover.includes('ndlsearch.ndl.go.jp/thumbnail');
+
         const altIsbns = await findIsbnCandidates(row.title, row.author);
         const ordered = [row.isbn, ...altIsbns].filter(Boolean);
 
-        // ISBN 候補ゼロの本はリゾルバに渡しても結果は出ない。null 化のみ。
+        // ISBN 候補ゼロの本はリゾルバに渡しても結果は出ない。
         if (ordered.length === 0) {
-          if (row.cover) {
+          if (isKnownPlaceholder) {
             // eslint-disable-next-line no-await-in-loop
             const res = await supabase.from('books').update({ cover: null }).eq('id', row.id);
             if (!res.error) cleared += 1;
@@ -91,8 +99,8 @@ export async function backfillCovers(supabase, userId) {
           if (!res.error) {
             resolved += 1;
           }
-        } else if (row.cover) {
-          // 解決失敗 + 既に壊れた URL がある → null にリセットして
+        } else if (isKnownPlaceholder) {
+          // 解決失敗 + 既知プレースホルダ URL → null にリセットして
           // 手動アップロード待ちに。次回起動の再ループ防止にもなる。
           const fullPayload = { cover: null, cover_isbn: null };
           // eslint-disable-next-line no-await-in-loop

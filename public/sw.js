@@ -2,7 +2,7 @@
 // ブラウザは sw.js を byte-by-byte で diff するため、SW_VERSION を
 // 変えるだけでも install → (waiting 状態で待機) → ユーザー操作で
 // SKIP_WAITING → activate → 旧 cache 削除の流れになる。
-const SW_VERSION = 'v54';
+const SW_VERSION = 'v55';
 const STATIC_CACHE = `leverage-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `leverage-runtime-${SW_VERSION}`;
 const ALLOWED_CACHES = [STATIC_CACHE, RUNTIME_CACHE];
@@ -52,6 +52,14 @@ async function networkFirst(request) {
   } catch (err) {
     const cached = await caches.match(request);
     if (cached) return cached;
+    // SPA のナビゲーションはクエリ付き URL（例: プッシュ通知の /?recall=<id>）で
+    // 来ることがあり、その URL 自体はキャッシュに無い。オフラインでもエラー画面に
+    // せず、キャッシュ済みアプリシェル（/）で応える。
+    if (request.mode === 'navigate' || request.destination === 'document') {
+      const shell = await caches.match('/', { ignoreSearch: true })
+        || await caches.match('/index.html', { ignoreSearch: true });
+      if (shell) return shell;
+    }
     throw err;
   }
 }

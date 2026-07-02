@@ -21,7 +21,7 @@ import {
   Plus,
 } from 'lucide-react';
 import EmptyState from './EmptyState.jsx';
-import { getAmazonLink, openAmazonForBook } from '../lib/amazonLink';
+import { getAmazonLink, handleAmazonClick } from '../lib/amazonLink';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -241,7 +241,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
           href={amazonHref}
           target="_blank"
           rel="sponsored noopener noreferrer"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAmazonForBook(book); }}
+          onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazonHref); }}
           style={{
             flex: 1,
             minWidth: 0,

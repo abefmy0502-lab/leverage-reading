@@ -19,11 +19,24 @@ function getScrollTop() {
   );
 }
 
+// タッチ位置から祖先を辿り、スクロール済みのコンテナが1つでもあれば
+// 「最上部ではない」。window だけ見ていると、内側の overflow: auto コンテナ
+// （AI タブの履歴リスト等）をスクロール中の引き戻しで PTR が誤発火する。
+function isAnyAncestorScrolled(el) {
+  let node = el;
+  while (node && node !== document.body && node !== document.documentElement) {
+    if (node.scrollTop > 0) return true;
+    node = node.parentElement;
+  }
+  return getScrollTop() > 0;
+}
+
 export function usePullToRefresh({ onRefresh, threshold = DEFAULT_THRESHOLD } = {}) {
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const startYRef = useRef(null);
   const activeRef = useRef(false);
+  const targetRef = useRef(null);
 
   const reset = useCallback(() => {
     startYRef.current = null;
@@ -33,13 +46,14 @@ export function usePullToRefresh({ onRefresh, threshold = DEFAULT_THRESHOLD } = 
 
   const onTouchStart = useCallback((e) => {
     if (isRefreshing) return;
-    if (getScrollTop() > 0) {
+    if (isAnyAncestorScrolled(e.target)) {
       activeRef.current = false;
       return;
     }
     const t = e.touches?.[0];
     if (!t) return;
     startYRef.current = t.clientY;
+    targetRef.current = e.target;
     activeRef.current = true;
   }, [isRefreshing]);
 
@@ -48,8 +62,8 @@ export function usePullToRefresh({ onRefresh, threshold = DEFAULT_THRESHOLD } = 
       if (!activeRef.current || isRefreshing) return;
       const t = e.touches?.[0];
       if (!t) return;
-      // If user has scrolled down at all, stop tracking pull.
-      if (getScrollTop() > 0) {
+      // If user has scrolled down at all (window or inner container), stop tracking pull.
+      if (isAnyAncestorScrolled(targetRef.current)) {
         reset();
         return;
       }

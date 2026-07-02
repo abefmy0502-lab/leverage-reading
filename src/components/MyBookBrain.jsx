@@ -580,14 +580,27 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction }) {
       // 中止した場合は末尾に控えめな注記を付ける (refs は付けない)。
       const assistantContent = wasAborted ? `${base}\n\n— ⏹ ここで中止しました` : base;
       const persistRefs = wasAborted ? [] : refs;
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .insert([{ user_id: user.id, role: 'assistant', content: assistantContent, refs: persistRefs }])
-        .select()
-        .single();
-      if (error) throw error;
-      // 楽観的な streaming 行を、永続化された row で差し替える。
-      setMessages((arr) => arr.map((m) => (m.id === streamingId ? transformMessage(data) : m)));
+      // 保存（履歴への insert）は「回答の表示」と切り離す。回答生成は成功して
+      // いるのに保存だけ失敗した場合、画面の回答をエラー文言で消さない。
+      try {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .insert([{ user_id: user.id, role: 'assistant', content: assistantContent, refs: persistRefs }])
+          .select()
+          .single();
+        if (error) throw error;
+        // 楽観的な streaming 行を、永続化された row で差し替える。
+        setMessages((arr) => arr.map((m) => (m.id === streamingId ? transformMessage(data) : m)));
+      } catch (saveErr) {
+        // 表示は確定させたまま（streaming フラグだけ落とす）、保存失敗を控えめに知らせる。
+        setMessages((arr) => arr.map((m) =>
+          m.id === streamingId
+            ? { ...m, content: assistantContent, refs: persistRefs, streaming: false }
+            : m
+        ));
+        console.warn('[brain] answer insert failed:', saveErr?.message || saveErr);
+        toast.error('回答は表示できましたが、履歴への保存に失敗しました。');
+      }
       // AI 応答を正常に得て確定できた時のみ計測 (中止/中断パスは除外、PII なし)。
       if (!wasAborted) track(EVENTS.AI_USED, { feature: 'brain' });
       // 新しい AI 回答が来たら resolution prompt を再表示できるよう dismiss を解除
@@ -673,7 +686,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction }) {
     });
     if (!ok) return;
     try {
-      await supabase.from('chat_messages').delete().eq('user_id', user.id);
+      // supabase-js は失敗を throw せず { error } で返す。チェックしないと
+      // 削除に失敗しても「クリアしました」と偽の成功表示になる。
+      const { error } = await supabase.from('chat_messages').delete().eq('user_id', user.id);
+      if (error) throw error;
       setMessages([]);
       toast.success('履歴をクリアしました');
     } catch (e) {

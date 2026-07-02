@@ -107,7 +107,7 @@ import { ensureHttps } from './lib/url';
 import {
   getAmazonLink,
   getAmazonSearchLink,
-  openAmazonForBook,
+  handleAmazonClick,
   AMAZON_DISCLOSURE_TEXT,
   AMAZON_LINK_REL,
 } from './lib/amazonLink';
@@ -498,12 +498,39 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
 
 /* ========== Primitives ========== */
 function Stars({ r, onChange, size = 18 }) {
+  // 編集可能な場合は button 化してキーボード / スクリーンリーダーからも操作可能に。
+  // 表示専用（onChange なし）は従来どおり装飾 span。
+  if (!onChange) {
+    return (
+      <span aria-label={`評価 ${r || 0} / 5`} style={{ userSelect: "none" }}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <span key={n} aria-hidden="true" style={{ fontSize: size, color: n <= r ? "#d4a040" : "#d0c8b8", marginRight: 2 }}>
+            {n <= r ? STAR : EMPTY_STAR}
+          </span>
+        ))}
+      </span>
+    );
+  }
   return (
-    <span style={{ cursor: onChange ? "pointer" : "default", userSelect: "none" }}>
+    <span role="radiogroup" aria-label="評価（星 1〜5）" style={{ userSelect: "none", display: "inline-flex" }}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <span key={n} onClick={() => onChange?.(r === n ? 0 : n)} style={{ fontSize: size, color: n <= r ? "#d4a040" : "#d0c8b8", marginRight: 2 }}>
+        <button
+          key={n}
+          type="button"
+          role="radio"
+          aria-checked={r === n}
+          aria-label={`星 ${n}${r === n ? '（タップで解除）' : ''}`}
+          onClick={() => onChange(r === n ? 0 : n)}
+          style={{
+            background: "none", border: "none", padding: 0, cursor: "pointer",
+            fontSize: size, color: n <= r ? "#d4a040" : "#d0c8b8", marginRight: 2,
+            minWidth: Math.max(32, size + 8), minHeight: Math.max(32, size + 8),
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "inherit",
+          }}
+        >
           {n <= r ? STAR : EMPTY_STAR}
-        </span>
+        </button>
       ))}
     </span>
   );
@@ -788,7 +815,11 @@ function TagInput({ tags, onChange, allTags }) {
         {tags.map((t, i) => (
           <span key={i} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--c-soft-2)", color: "var(--c-ink-2)", display: "flex", alignItems: "center", gap: 4 }}>
             {t}
-            <button onClick={() => onChange(tags.filter((_, j) => j !== i))} style={{ background: "none", border: "none", fontSize: 12, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+            <button
+              onClick={() => onChange(tags.filter((_, j) => j !== i))}
+              aria-label={`「${t}」を削除`}
+              style={{ background: "none", border: "none", fontSize: 12, color: "var(--c-ink-2)", cursor: "pointer", lineHeight: 1, minWidth: 28, minHeight: 28, margin: "-6px -8px -6px -2px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+            >×</button>
           </span>
         ))}
       </div>
@@ -1199,7 +1230,11 @@ function BeforePhase({
           を見て status='reading' に切替 + setView('detail') を行う。
           条件が揃っていない場合は通常の「保存」(その場で留まる)。 */}
       {(() => {
+        // handleSave の自動遷移条件と一致させる（status='before' のみ）。
+        // 読書中/読了の本を openSetup で開いた時に「読書を開始する」と
+        // 誤表示しない。
         const setupReady =
+          form.status === 'before' &&
           (form.investPurpose && form.investPurpose.trim()) &&
           (form.aiAnalysis || form.aiStrategy);
         return (
@@ -1280,7 +1315,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAnalysis,
           <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：明日の朝、学んだ手法を1つ試す" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} maxLength={LIMITS.actionText} />
-              <button onClick={() => removeAction(i)} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer" }}>×</button>
+              <button onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", margin: "-8px -10px -8px -4px" }}>×</button>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}><IcCal size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限</span>
@@ -1346,7 +1381,7 @@ function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, allFolde
           <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：営業会議で結論ファーストを実践" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} maxLength={LIMITS.actionText} />
-              <button onClick={() => removeAction(i)} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer" }}>×</button>
+              <button onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", margin: "-8px -10px -8px -4px" }}>×</button>
             </div>
             {/* 期限のみをインラインで。優先度・繰り返しなどの詳細は「行動」タブの
                 編集（ActionEditModal）に集約し、本詳細はまず"何をやるか"を素早く
@@ -2383,7 +2418,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     href={getAmazonLink(rec)}
                     target="_blank"
                     rel={AMAZON_LINK_REL}
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAmazonForBook(rec); }}
+                    onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, getAmazonLink(rec)); }}
                     aria-label={`Amazon で『${rec.title}』を購入（外部リンク）`}
                     style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#FF9900", color: "#000", fontSize: 12, fontFamily: "inherit", textAlign: "center", textDecoration: "none", fontWeight: 600, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, whiteSpace: 'nowrap', touchAction: 'manipulation' }}
                   >
@@ -2599,6 +2634,7 @@ function AuthedApp() {
     loading: booksLoading,
     saveBook,
     deleteBook,
+    mutateBookLocal,
     captureBookSnapshot,
     restoreBookFromSnapshot,
     refreshBooks,
@@ -2785,7 +2821,9 @@ function AuthedApp() {
   // Edge-swipe back: only listens while we're on a detail or edit view.
   useEdgeSwipeBack({
     enabled: view === 'detail' || view === 'edit',
-    onBack: () => {
+    onBack: async () => {
+      // 編集中の未保存変更は破棄前に確認（下部ナビと同じガード）。
+      if (view === 'edit' && !(await confirmDiscardEdit())) return;
       if (view === 'edit' && current) { setEditPhaseOverride(null); setView('detail'); }
       else goList();
     },
@@ -2818,6 +2856,11 @@ function AuthedApp() {
 
   // Books are now committed to DB on delete (no soft-delete state to filter).
   const books = rawBooks;
+  // 非同期処理（表紙リトライ・行動トグル直列化など）が「実行時点の最新 books」を
+  // 読めるようにする ref。古いスナップショットで saveBook すると差分同期で
+  // ユーザー編集が巻き戻るため、保存直前の rebase に使う。
+  const booksRef = useRef(rawBooks);
+  useEffect(() => { booksRef.current = rawBooks; }, [rawBooks]);
 
   // 時刻に応じた挨拶 + 名前。1 時間ごとに再評価して開きっぱなしでも
   // スロットラベルがズレないようにする。達成バッジ系の演出は撤去。
@@ -2897,6 +2940,19 @@ function AuthedApp() {
   const isEditDirty = () =>
     view === 'edit' && editBaselineRef.current != null && JSON.stringify(form) !== editBaselineRef.current;
 
+  // 未保存の変更があれば破棄確認を挟む共通ガード。下部ナビ・「← 戻る」・
+  // edge-swipe back の全経路で同じ挙動にする（一部だけ確認が出るのは不整合）。
+  const confirmDiscardEdit = async () => {
+    if (!isEditDirty()) return true;
+    return confirm({
+      title: '編集を破棄しますか？',
+      message: '保存していない変更があります。移動すると失われます。',
+      confirmLabel: '破棄して移動',
+      cancelLabel: '編集に戻る',
+      danger: true,
+    });
+  };
+
   // First-run onboarding: show once per user/device until they dismiss it.
   // The completion flag is the single source of truth — the book count is
   // intentionally NOT part of the predicate, so users who clear data or
@@ -2925,7 +2981,12 @@ function AuthedApp() {
   // 自動更新されカードが再レンダリングして表紙が表示される。
   const triggerCoverAutoRetry = useCallback(
     (book) => {
-      enqueueCoverRetry({ book, saveBook });
+      enqueueCoverRetry({
+        book,
+        saveBook,
+        // 保存直前に最新の本へ rebase させる（stale 保存によるユーザー編集の巻き戻し防止）。
+        getBook: (id) => booksRef.current.find((b) => b.id === id) || null,
+      });
     },
     [saveBook],
   );
@@ -3067,7 +3128,10 @@ function AuthedApp() {
   const removeCoverFor = async (book) => {
     if (!book) return;
     try {
-      const updated = { ...book, cover: '', coverIsbn: '' };
+      // coverIsbn='removed' は「ユーザーが意図的に消した」印。自動リトライ
+      // (coverAutoRetry) がこれを見て復活させない。手動「取り直す」では
+      // 通常どおり新しい表紙で上書きされ、印も消える。
+      const updated = { ...book, cover: '', coverIsbn: 'removed' };
       const saved = await saveBook(updated);
       const next = saved || updated;
       if (current && current.id === next.id) setCurrent(next);
@@ -3673,7 +3737,14 @@ function AuthedApp() {
           if (r.url) { url = r.url; coverIsbn = r.isbn || ''; }
         }
         if (url) {
-          await saveBook({ ...saved, cover: url, coverIsbn });
+          // 解決に数秒かかる間にユーザーが編集している可能性があるため、
+          // enqueue 時の saved ではなく最新の本に rebase して保存する
+          // （stale 保存は差分同期で編集を巻き戻すため）。削除済み・手動
+          // アップ済み・既に表紙ありなら触らない。
+          const latest = booksRef.current.find((b) => b.id === saved.id);
+          if (latest && !latest.cover && latest.coverIsbn !== 'manual' && latest.coverIsbn !== 'removed') {
+            await saveBook({ ...latest, cover: url, coverIsbn });
+          }
         }
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -3685,12 +3756,16 @@ function AuthedApp() {
 // Status transitions — optimistic UI with undo toast.
   const advanceStatus = (book, newStatus) => {
     if (!book) return;
+    // 呼び出し元のスナップショット（current 等）は古い可能性がある。saveBook は
+    // 「渡した actions に無い行を DELETE」する差分同期なので、stale なまま保存すると
+    // 直前に追加した行動などが静かに消える。必ず books state の最新行に rebase する。
+    const fresh = books.find((b) => b.id === book.id) || book;
     const prev = {
-      status: book.status,
-      startDate: book.startDate,
-      doneDate: book.doneDate,
+      status: fresh.status,
+      startDate: fresh.startDate,
+      doneDate: fresh.doneDate,
     };
-    const updated = { ...book, status: newStatus };
+    const updated = { ...fresh, status: newStatus };
     if (newStatus === "before" && !updated.startDate) updated.startDate = new Date().toISOString().slice(0, 10);
     if (newStatus === "done" && !updated.doneDate) updated.doneDate = new Date().toISOString().slice(0, 10);
 
@@ -3712,7 +3787,7 @@ function AuthedApp() {
       })
       .catch((error) => {
         toast.error(toMessage(error, 'ステータス変更に失敗しました。'));
-        const restored = { ...book, ...prev };
+        const restored = { ...fresh, ...prev };
         setCurrent(restored);
         setForm({ ...emptyBook(), ...restored, tags: restored.tags || [], actions: restored.actions || [] });
         setView("edit");
@@ -3720,7 +3795,7 @@ function AuthedApp() {
 
     const labels = { want: '読みたい', before: '積読', reading: '読書中', done: '読了' };
     const revert = async () => {
-      const reverted = { ...book, ...prev };
+      const reverted = { ...fresh, ...prev };
       setCurrent(reverted);
       setForm({ ...emptyBook(), ...reverted, tags: reverted.tags || [], actions: reverted.actions || [] });
       setView("edit");
@@ -3800,6 +3875,10 @@ function AuthedApp() {
 
   const runAnalysis = async () => {
     setAiLoading(true);
+    // ストリーミング先の本を固定する。ストリーム中に別の本を開いても、
+    // 結果が「その時開いている form」に混入しないようにする。
+    const targetId = form?.id;
+    const prevAnalysis = form?.aiAnalysis || '';
     // ストリーミング開始前にフィールドをクリア。古い解析結果が残ると
     // onChunk で書き換わるまでに違和感が出る。
     setForm((f) => ({ ...f, aiAnalysis: '' }));
@@ -3816,12 +3895,14 @@ function AuthedApp() {
         max_tokens: 2048,
         model: 'claude-sonnet-4-6',
         onChunk: (fullText) => {
-          setForm((f) => ({ ...f, aiAnalysis: fullText }));
+          setForm((f) => (f && f.id === targetId ? { ...f, aiAnalysis: fullText } : f));
         },
       });
       // 📊 AI 利用の計測（解析が throw せず完了した成功時のみ・feature の enum だけ）。
       track('ai_used', { feature: 'analysis' });
     } catch (error) {
+      // 失敗時は元の解析結果に戻す（クリアしたまま保存すると DB の解析が消える）。
+      setForm((f) => (f && f.id === targetId ? { ...f, aiAnalysis: prevAnalysis } : f));
       toast.error(toMessage(error, 'AI解析に失敗しました。'));
     } finally {
       setAiLoading(false);
@@ -3829,6 +3910,8 @@ function AuthedApp() {
   };
   const runStrategy = async () => {
     setAiLoading(true);
+    const targetId = form?.id;
+    const prevStrategy = form?.aiStrategy || '';
     setForm((f) => ({ ...f, aiStrategy: '' }));
     try {
       await streamClaude({
@@ -3850,12 +3933,14 @@ function AuthedApp() {
           // streaming 中は BeforePhase 側で aiLoading を見て無効化している。
           // MarkdownSections は 1 chunk ごとに再 render する形になるが、
           // テキスト量は 2KB 以下で十分軽い。
-          setForm((f) => ({ ...f, aiStrategy: fullText }));
+          setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: fullText } : f));
         },
       });
       // Fresh generation invalidates any prior 修正リクエスト history.
-      if (form?.id) clearStrategyHistory(form.id);
+      if (targetId) clearStrategyHistory(targetId);
     } catch (error) {
+      // 失敗時は元の計画シートに戻す（クリアしたまま保存すると DB のシートが消える）。
+      setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prevStrategy } : f));
       toast.error(toMessage(error, 'AI戦略の生成に失敗しました。'));
     } finally {
       setAiLoading(false);
@@ -3869,9 +3954,10 @@ function AuthedApp() {
     if (!form?.aiStrategy?.trim()) return;
     if (!instruction?.trim()) return;
     const prev = form.aiStrategy;
+    const targetId = form?.id;
     setAiLoading(true);
     // 修正中は一旦シートを空にして「上書きしているんだ」と視覚化。
-    // 失敗時は finally で prev に戻す。
+    // 失敗時は catch で prev に戻す。
     setForm((f) => ({ ...f, aiStrategy: '' }));
     let didStreamAny = false;
     try {
@@ -3890,7 +3976,7 @@ function AuthedApp() {
         model: 'claude-sonnet-4-6',
         onChunk: (fullText) => {
           didStreamAny = true;
-          setForm((f) => ({ ...f, aiStrategy: fullText }));
+          setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: fullText } : f));
         },
       });
       if (!didStreamAny) {
@@ -3898,12 +3984,12 @@ function AuthedApp() {
         // ここに来ることは稀だが念のため)。
         throw new Error('AI 修正に失敗しました');
       }
-      if (form?.id) saveStrategyHistory(form.id, prev);
+      if (targetId) saveStrategyHistory(targetId, prev);
       setStrategyHistoryTick((t) => t + 1);
       toast.success('✓ 読書計画シートを修正しました');
     } catch (error) {
       // ストリーミング失敗時は元のシートを戻す (undo 履歴は触らない)。
-      setForm((f) => ({ ...f, aiStrategy: prev }));
+      setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prev } : f));
       toast.error(toMessage(error, '読書計画シートの修正に失敗しました。'));
     } finally {
       setAiLoading(false);
@@ -4035,8 +4121,28 @@ function AuthedApp() {
 
   // 内部関数: action.done を toggle し、完了時は completed_at + reflection を反映、
   // 繰り返し設定があれば次回分を新規行動として末尾に追加する。
-  const applyActionToggle = async (bookId, actionIdx, options = {}) => {
-    const book = books.find((b) => b.id === bookId);
+  // 行動トグルの直列化: saveBook のラウンドトリップ（1-2秒）中に同じ本の別の
+  // 行動をタップすると、後発が stale な books から computed され先のトグルを
+  // 上書きしていた。本ごとに Promise チェーンで直列化し、実行時点の最新
+  // スナップショット（直前の保存結果 or books state）に rebase する。
+  const actionToggleChainsRef = useRef(new Map()); // bookId -> { promise, latest }
+
+  const applyActionToggle = (bookId, actionIdx, options = {}) => {
+    const chains = actionToggleChainsRef.current;
+    const prevEntry = chains.get(bookId);
+    const entry = { promise: Promise.resolve(), latest: prevEntry?.latest || null };
+    const run = (prevEntry?.promise || Promise.resolve())
+      .then(() => doActionToggle(bookId, actionIdx, options, entry));
+    entry.promise = run.catch(() => { /* 失敗しても後続タップは処理する */ });
+    chains.set(bookId, entry);
+    entry.promise.then(() => {
+      if (chains.get(bookId) === entry) chains.delete(bookId);
+    });
+    return run;
+  };
+
+  const doActionToggle = async (bookId, actionIdx, options, chainEntry) => {
+    const book = chainEntry.latest || booksRef.current.find((b) => b.id === bookId);
     if (!book) return;
     const acts = [...(book.actions || [])];
     const target = acts[actionIdx];
@@ -4100,13 +4206,19 @@ function AuthedApp() {
     // ハプティクスはここで一元発火（becomingDone で成功/軽タップを出し分け）。
     // ActionList 側でも鳴らすと二重ブザーになるため、触覚はこの共通経路に集約する。
     haptic[becomingDone ? 'success' : 'light']();
+    // 楽観的 UI: チェックを即時反映（従来は saveBook 完了まで 1-2 秒無反応だった）。
+    mutateBookLocal(bookId, () => updated);
     try {
-      await saveBook(updated);
+      const saved = await saveBook(updated);
+      chainEntry.latest = saved || updated;
       if (becomingDone && updatedAct.recurrence) {
         const label = updatedAct.recurrence === 'weekly' ? '次週' : '翌月';
         toast.success(`完了 ✓ ${label}の予定を自動で組みました`);
       }
     } catch (error) {
+      // rollback: 楽観反映を元に戻す。
+      mutateBookLocal(bookId, () => book);
+      chainEntry.latest = book;
       toast.error(toMessage(error, '行動の更新に失敗しました。'));
     }
   };
@@ -4130,7 +4242,13 @@ function AuthedApp() {
     const updated = { ...book, actions: [...(book.actions || []), newAction] };
     haptic.light();
     try {
-      await saveBook(updated);
+      const saved = await saveBook(updated);
+      // 開いている詳細/編集画面のスナップショットにも即反映する。
+      // ここで同期しないと、直後の「読了にする」等が stale な actions で
+      // saveBook し、いま追加した行動が差分 DELETE で消える。
+      const next = saved || updated;
+      setCurrent((c) => (c && c.id === next.id ? { ...c, actions: next.actions } : c));
+      setForm((f) => (f && f.id === next.id ? { ...f, actions: next.actions } : f));
       return true;
     } catch (error) {
       toast.error(toMessage(error, '行動の追加に失敗しました。'));
@@ -4718,7 +4836,7 @@ function AuthedApp() {
               href={getAmazonLink(current)}
               target="_blank"
               rel={AMAZON_LINK_REL}
-              onClick={(e) => { e.preventDefault(); openAmazonForBook(current); }}
+              onClick={(e) => handleAmazonClick(e, getAmazonLink(current))}
               aria-label={`Amazon で『${current.title}』を購入（外部リンク）`}
               style={{
                 display: "inline-flex",
@@ -4965,7 +5083,14 @@ function AuthedApp() {
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <button onClick={current ? () => { setEditPhaseOverride(null); setView("detail"); } : goList} style={lnk}>← 戻る</button>
+            <button
+              onClick={async () => {
+                if (!(await confirmDiscardEdit())) return;
+                if (current) { setEditPhaseOverride(null); setView("detail"); }
+                else goList();
+              }}
+              style={lnk}
+            >← 戻る</button>
             <button
               onClick={openHelp}
               style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
@@ -5057,16 +5182,7 @@ function AuthedApp() {
           tab={tab}
           setTab={async (t) => {
             // 編集中に未保存の変更があれば、移動前に確認（誤タップでの消失防止）。
-            if (isEditDirty()) {
-              const ok = await confirm({
-                title: '編集を破棄しますか？',
-                message: '保存していない変更があります。移動すると失われます。',
-                confirmLabel: '破棄して移動',
-                cancelLabel: '編集に戻る',
-                danger: true,
-              });
-              if (!ok) return;
-            }
+            if (!(await confirmDiscardEdit())) return;
             // navigateTab は振り返り→行動 / AI→AI選書 の入口リセットを担保する。
             // 編集経由だけ素の setTab だと他経路と挙動がズレるため揃える。
             navigateTab(t);

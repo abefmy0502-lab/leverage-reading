@@ -98,6 +98,24 @@ export async function callClaude(systemOrMessages, userOrOptions, options) {
 
 export default callClaude;
 
+// callClaude / postClaude はエラー時に「例外ではなく日本語のエラー文字列」を返す
+// 契約になっている（チャット系 UI がそのまま表示できるように）。非チャット系の
+// 呼び出し（要約・分析・凝縮など、結果をデータとして保存/描画する関数）は、この
+// 判定を通してエラー文言を「成果物」として扱わないこと。判定対象は postClaude が
+// 返し得る全エラー文字列（閉集合）:
+//   '通信エラー' / 'レスポンス解析エラー' / 'エラー' / 'エラー: ...'
+//   'AI機能を使うにはログインが必要です。' / 'リクエストが多すぎます...'
+//   '今月の AI 利用上限に達しました...'（api/claude.js の monthly_limit_exceeded）
+export function isClaudeErrorString(s) {
+  if (typeof s !== 'string') return true;
+  if (s === '通信エラー' || s === 'レスポンス解析エラー' || s === 'エラー') return true;
+  if (s.startsWith('エラー: ')) return true;
+  if (s.startsWith('AI機能')) return true;
+  if (s.startsWith('リクエストが多すぎます')) return true;
+  if (s.startsWith('今月の AI 利用上限')) return true;
+  return false;
+}
+
 // ============================================================================
 // 📷 写真からメモを起こす (OCR via Claude vision)
 // ============================================================================
@@ -496,7 +514,7 @@ export async function callMyBookBrain({ userId, question }) {
 
   // callClaude returns string for both success and known errors. Treat error
   // strings as plain content but with no refs.
-  if (typeof result !== 'string' || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')) {
+  if (isClaudeErrorString(result)) {
     return { body: result || 'エラー', refs: [], ...ctx.stats };
   }
 
@@ -531,7 +549,7 @@ export async function condenseMemo({ text }) {
     return null;
   }
   if (typeof result !== 'string'
-    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isClaudeErrorString(result)
     || isSuspiciousOutput(result)) {
     return null;
   }
@@ -567,7 +585,7 @@ export async function summarizeCards({ title, cards }) {
     return null;
   }
   if (typeof result !== 'string'
-    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isClaudeErrorString(result)
     || isSuspiciousOutput(result)) {
     return null;
   }
@@ -582,7 +600,7 @@ export async function summarizeCards({ title, cards }) {
 // 「目的に対して得たもの / 新しく見えた視点 / 次の一歩(3つ)」に整理する。
 // 返り値の Markdown 末尾「## ✅ 次の一歩」の "- " 行を、呼び出し側が
 // タップで行動に追加できる（ユーザー or AI のタスク作成支援）。
-export async function analyzeBookLearnings({ bookId, title, author, purpose, challenge }) {
+export async function analyzeBookLearnings({ bookId, title, author, purpose, challenge, summaryMemo }) {
   if (!isSupabaseConfigured) throw new Error('Supabase が設定されていません。');
   if (!bookId) throw new Error('本が特定できません。');
 
@@ -597,11 +615,17 @@ export async function analyzeBookLearnings({ bookId, title, author, purpose, cha
   const cardMemos = (data || [])
     .map((m) => clamp(sanitizeForPrompt(m.text || ''), LIMITS.promptMemoExcerpt))
     .filter(Boolean);
-  // まとめメモ（books.leverage_memo）も材料に含める。
-  // 呼び出し側から渡らないので、ここでは card メモのみ。十分薄ければ呼び出し側で空状態。
-  if (cardMemos.length === 0) return { tooThin: true };
+  // まとめメモ（books.leverage_memo・呼び出し側から渡る）も材料に含める。
+  // まとめ式だけで書くユーザーもカード派と同じく分析できるように。
+  const summary = clamp(sanitizeForPrompt(summaryMemo || ''), LIMITS.memoText);
+  if (cardMemos.length === 0 && !summary) return { tooThin: true };
 
-  const memos = cardMemos.map((t, i) => `(${i + 1}) ${t}`).join('\n');
+  const parts = [];
+  if (summary) parts.push(`【まとめメモ（本全体の総括）】\n${summary}`);
+  if (cardMemos.length > 0) {
+    parts.push(`【カードメモ】\n${cardMemos.map((t, i) => `(${i + 1}) ${t}`).join('\n')}`);
+  }
+  const memos = parts.join('\n\n');
   const content = await callClaude(
     PROMPTS.bookLearningAnalysis.system,
     PROMPTS.bookLearningAnalysis.user({
@@ -616,12 +640,12 @@ export async function analyzeBookLearnings({ bookId, title, author, purpose, cha
   // callClaude はエラー時に文言（'エラー...' / 'AI機能...' / 'リクエスト...'）を返すことがある。
   // それを「分析結果」として描画しないよう、成功時のみ track / return する。
   if (typeof content !== 'string'
-    || content.startsWith('エラー') || content.startsWith('AI機能') || content.startsWith('リクエスト')
+    || isClaudeErrorString(content)
     || isSuspiciousOutput(content)) {
     throw new Error(typeof content === 'string' && content ? content : '分析に失敗しました。少し時間をおいて再度お試しください。');
   }
   track('ai_used', { feature: 'book_learning' });
-  return { content, memoCount: cardMemos.length };
+  return { content, memoCount: cardMemos.length + (summary ? 1 : 0) };
 }
 
 // 🗺 運営ロードマップ — 年の目標と現状から、月別の目標人数/売上/施策を AI が引く。
@@ -660,7 +684,7 @@ export async function generateOpsRoadmap(state = {}) {
     return null;
   }
   if (typeof result !== 'string'
-    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isClaudeErrorString(result)
     || isSuspiciousOutput(result)) {
     return null;
   }
@@ -728,7 +752,7 @@ export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
     return null;
   }
   if (typeof result !== 'string'
-    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isClaudeErrorString(result)
     || isSuspiciousOutput(result)) {
     return null;
   }
@@ -789,7 +813,7 @@ export async function generateWeeklyQuestion(userId) {
     return null;
   }
   if (typeof result !== 'string'
-    || result.startsWith('エラー') || result.startsWith('AI機能') || result.startsWith('リクエスト')
+    || isClaudeErrorString(result)
     || isSuspiciousOutput(result)) {
     return null;
   }
@@ -1214,7 +1238,15 @@ export async function generateKnowledgeJourney(userId, theme) {
   const sorted = [...matched].sort((a, b) =>
     String(a.created_at).localeCompare(String(b.created_at)),
   ); // 古い → 新しい
-  const timeline = sorted.map((m) => formatMemo(m, { withDate: true })).join('\n\n');
+  // プロンプト肥大の上限。多メモユーザーは時系列を保ったまま等間隔サンプリング
+  // （最初と最新は必ず含む＝「変遷」の両端を失わない）。
+  const MAX_JOURNEY_MEMOS = 120;
+  let picked = sorted;
+  if (sorted.length > MAX_JOURNEY_MEMOS) {
+    const step = (sorted.length - 1) / (MAX_JOURNEY_MEMOS - 1);
+    picked = Array.from({ length: MAX_JOURNEY_MEMOS }, (_, i) => sorted[Math.round(i * step)]);
+  }
+  const timeline = picked.map((m) => formatMemo(m, { withDate: true })).join('\n\n');
 
   // 行動の時系列（宣言日 → 完了/未完了）。gatherThemeActions と同じマッチで生の行を拾う。
   let actionTimeline = '';
@@ -1259,7 +1291,7 @@ export async function generateKnowledgeJourney(userId, theme) {
   );
   // callClaude のエラー文言を「足あと」として描画しない（成功時のみ track / return）。
   if (typeof content !== 'string'
-    || content.startsWith('エラー') || content.startsWith('AI機能') || content.startsWith('リクエスト')
+    || isClaudeErrorString(content)
     || isSuspiciousOutput(content)) {
     throw new Error(typeof content === 'string' && content ? content : '足あとの作成に失敗しました。少し時間をおいて再度お試しください。');
   }
