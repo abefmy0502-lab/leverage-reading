@@ -166,6 +166,23 @@ export default async function handler(req, res) {
       const to = Array.isArray(event.transferred_to) ? event.transferred_to : [];
       const fromIds = from.filter((id) => isResolvableUserId(id));
       const toIds = to.filter((id) => isResolvableUserId(id));
+
+      // TRANSFER ペイロードには expiration_at_ms / product_id が乗らないことが
+      // ある。無条件に active を upsert すると「失効済みの購入を復元しただけ」で
+      // 永久 active を配ってしまうため、旧アカウントの行から権利を“引き継ぐ”。
+      // 旧行が無く expiration も不明なら行を作らない（直後に RevenueCat が送る
+      // INITIAL_PURCHASE/RENEWAL 側が正しく作る）。
+      let carry = null;
+      if (fromIds.length > 0) {
+        const { data: oldRows } = await supabase
+          .from('subscriptions')
+          .select('status, price_id, current_period_end')
+          .in('user_id', fromIds)
+          .eq('provider', 'revenuecat');
+        carry = (oldRows || [])
+          .sort((a, b) => String(b.current_period_end || '').localeCompare(String(a.current_period_end || '')))[0] || null;
+      }
+
       for (const uid of fromIds) {
         const { error } = await supabase
           .from('subscriptions')
@@ -174,19 +191,27 @@ export default async function handler(req, res) {
           .eq('provider', 'revenuecat');
         if (error) throw error;
       }
-      for (const uid of toIds) {
-        const { error } = await supabase
-          .from('subscriptions')
-          .upsert({
-            user_id: uid,
-            provider: 'revenuecat',
-            store: normalizeStore(event.store),
-            rc_app_user_id: uid,
-            status: 'active',
-            price_id: event.product_id || null,
-            current_period_end: toIsoFromMs(event.expiration_at_ms),
-          }, { onConflict: 'user_id' });
-        if (error) throw error;
+
+      const expIso = toIsoFromMs(event.expiration_at_ms) || carry?.current_period_end || null;
+      // 引き継げる根拠（旧行 or ペイロードの期限）が何も無ければ作らない。
+      if (toIds.length > 0 && (carry || expIso)) {
+        // 期限が過去なら canceled として引き継ぐ（失効済み転送に active を配らない）。
+        const stillValid = expIso ? Date.parse(expIso) > Date.now() : (carry?.status === 'active');
+        const status = stillValid ? (carry?.status === 'past_due' ? 'past_due' : 'active') : 'canceled';
+        for (const uid of toIds) {
+          const { error } = await supabase
+            .from('subscriptions')
+            .upsert({
+              user_id: uid,
+              provider: 'revenuecat',
+              store: normalizeStore(event.store),
+              rc_app_user_id: uid,
+              status,
+              price_id: event.product_id || carry?.price_id || null,
+              current_period_end: expIso,
+            }, { onConflict: 'user_id' });
+          if (error) throw error;
+        }
       }
       return res.status(200).json({ received: true, transferred: { from: fromIds.length, to: toIds.length } });
     }

@@ -362,7 +362,9 @@ button:disabled:active {
   }
 }
 .lvg-page {
-  animation: lvg-page-in var(--duration-base) var(--ease-out-quart) both;
+  /* backwards: 終了後に transform を残さない（残すとスクロールコンテナに
+     恒久的な含有ブロックができ、子の position: sticky / fixed が壊れる）。 */
+  animation: lvg-page-in var(--duration-base) var(--ease-out-quart) backwards;
 }
 
 /* ----- Detail open scale-pop --------------------------------------------- */

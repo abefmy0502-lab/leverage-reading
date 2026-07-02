@@ -298,9 +298,13 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
         setNotice('テーマまとめの作成に失敗しました。少し時間をおいて再度お試しください。');
       }
     } finally {
-      setStage(null);
-      setGenerating(false);
-      setAborting(false);
+      // runId が進んでいる（履歴を開いた/新しい生成が始まった）場合、この古い
+      // run の finally が新しい run の generating/stage を巻き戻さないようにする。
+      if (isLive()) {
+        setStage(null);
+        setGenerating(false);
+        setAborting(false);
+      }
       if (abortRef.current === controller) abortRef.current = null;
     }
   }, [generating, user?.id, haptic, toast]);

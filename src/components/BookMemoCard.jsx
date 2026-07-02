@@ -16,6 +16,9 @@ const cardWrap = {
   flexDirection: 'column',
   gap: 8,
   boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
+  // 大量メモ時、画面外カードのレイアウト/ペイントをスキップ（未対応環境は無視）。
+  contentVisibility: 'auto',
+  containIntrinsicSize: 'auto 140px',
 };
 
 const pageBadge = {
@@ -96,6 +99,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
   // Synchronous cache hit → render the image immediately on first paint.
   const initialUrl = memo.photoPath ? cache.getCachedPhotoUrl(memo.photoPath) : null;
   const [photoUrl, setPhotoUrl] = useState(initialUrl);
+  const [photoLoaded, setPhotoLoaded] = useState(false);
   const [zoom, setZoom] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // fixed 座標（portal 用）
@@ -193,7 +197,16 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
         <MoreVertical size={18} strokeWidth={1.75} aria-hidden="true" />
       </button>
       {menuOpen && createPortal(
-        <div style={{ ...menuStyle, top: menuPos.top, right: menuPos.right }} onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{ ...menuStyle, top: menuPos.top, right: menuPos.right }}
+          onClick={(e) => e.stopPropagation()}
+          // portal でも React ツリー上は SwipeableCard / useLongPress の子のまま
+          // なので、合成 touch イベントが背後のスワイプ削除・長押しに届く。遮断する。
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             style={menuItem}
@@ -258,6 +271,16 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
 
       {memo.pageNumber != null && <span style={pageBadge}>P.{memo.pageNumber}</span>}
 
+      {/* 署名 URL 解決待ちの間、写真の場所を先に確保（skeleton シマー）。
+          「テキストだけ → 数百ms後にカードがガクッと伸びて写真出現」の
+          レイアウトシフトを消す。 */}
+      {memo.photoPath && !photoUrl && (
+        <div
+          className="skeleton"
+          aria-hidden="true"
+          style={{ width: '80%', aspectRatio: '4 / 3', borderRadius: 8 }}
+        />
+      )}
       {photoUrl && (
         <button
           type="button"
@@ -275,12 +298,18 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
           <img
             src={ensureHttps(photoUrl)}
             alt={photoAlt}
+            loading="lazy"
+            decoding="async"
+            ref={(el) => { if (el && el.complete && el.naturalWidth > 0 && !photoLoaded) setPhotoLoaded(true); }}
+            onLoad={() => setPhotoLoaded(true)}
             style={{
               width: '100%',
               height: 'auto',
               borderRadius: 8,
               border: '1px solid var(--c-hairline)',
               display: 'block',
+              opacity: photoLoaded ? 1 : 0,
+              transition: 'opacity var(--duration-fast) var(--ease-out)',
             }}
           />
         </button>
@@ -330,6 +359,12 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
           aria-modal="true"
           aria-label="写真の拡大表示。タップで閉じる"
           onClick={() => setZoom(false)}
+          // 拡大写真上のパン/長押しが背後のカードのスワイプ削除・長押しメニューに
+          // バブリングしてメモが消える事故を防ぐ（portal は React ツリーを辿る）。
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           style={{
             position: 'fixed',
             inset: 0,

@@ -39,7 +39,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
-import { LIMITS, validateImageFile } from '../lib/limits';
+import imageCompression from 'browser-image-compression';
+import { LIMITS, validateImageFile, ALLOWED_IMAGE_EXT } from '../lib/limits';
 import BookMemoEditor from './BookMemoEditor';
 import EmptyState from './EmptyState.jsx';
 import SwipeableCard from './SwipeableCard';
@@ -456,12 +457,23 @@ export default function KnowledgeManager({ onChanged }) {
     if (payload.photoFile) {
       const vErr = validateImageFile(payload.photoFile);
       if (vErr) throw new Error(vErr);
-      const ext = (payload.photoFile.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      // 正規経路（useBookMemos.uploadPhoto）と同じ圧縮・拡張子矯正を通す。
+      // 生アップロードだと 8MB/4000px がそのまま保存され、一覧表示が重くなる。
+      let fileToUpload = payload.photoFile;
+      try {
+        fileToUpload = await imageCompression(payload.photoFile, {
+          maxSizeMB: 0.3,
+          maxWidthOrHeight: 1200,
+          useWebWorker: true,
+        });
+      } catch { /* 圧縮失敗時は元ファイルで続行 */ }
+      const rawExt = (payload.photoFile.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const ext = ALLOWED_IMAGE_EXT.includes(rawExt) ? rawExt : 'jpg';
       const dir = item?.book_id || 'personal';
       uploadedPath = `${user.id}/${dir}/${(typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from('book-memo-photos')
-        .upload(uploadedPath, payload.photoFile, { upsert: false, contentType: payload.photoFile.type || 'image/jpeg' });
+        .upload(uploadedPath, fileToUpload, { upsert: false, contentType: fileToUpload.type || payload.photoFile.type || 'image/jpeg' });
       if (upErr) throw upErr;
       patch.photo_path = uploadedPath;
     } else if (payload.removePhotoFlag) {
@@ -491,6 +503,7 @@ export default function KnowledgeManager({ onChanged }) {
   // Inner delete: row + photo + Undo. Used by both confirm-fronted and swipe.
   const performDeleteMemo = (item) => {
     const snapshot = { ...item };
+    let deleteFailed = false;
     const promise = (async () => {
       const { error } = await supabase
         .from('book_memos')
@@ -504,6 +517,7 @@ export default function KnowledgeManager({ onChanged }) {
         } catch { /* ignore */ }
       }
     })().catch((e) => {
+      deleteFailed = true;
       toast.error(toMessage(e, 'メモの削除に失敗しました。'));
       // 楽観的に消したカードを一覧へ戻す（rollback）。戻さないと DB に残って
       // いる行が画面から消えっぱなしになり、「削除済み」と誤認させる。
@@ -520,6 +534,9 @@ export default function KnowledgeManager({ onChanged }) {
       onUndo: async () => {
         try {
           await promise.catch(() => {});
+          // 削除自体が失敗して rollback 済みなら、再 INSERT は重複キーで必ず
+          // 失敗する。行は既に画面と DB にあるので、静かに何もしない。
+          if (deleteFailed) return;
           const payload = {
             id: snapshot.id,
             book_id: snapshot.book_id || null,
@@ -549,6 +566,7 @@ export default function KnowledgeManager({ onChanged }) {
     if (!meta?.column) return;
     const column = meta.column;
     const previousText = item.text || '';
+    let clearFailed = false;
     const promise = supabase
       .from('books')
       .update({ [column]: '' })
@@ -558,6 +576,7 @@ export default function KnowledgeManager({ onChanged }) {
         if (error) throw error;
       })
       .catch((e) => {
+        clearFailed = true;
         toast.error(toMessage(e, 'クリアに失敗しました。'));
         // rollback: 楽観的に消したアイテムを戻す（rethrow しない）。
         setItems((arr) => (arr.some((x) => x.id === item.id) ? arr : [item, ...arr]));
@@ -570,6 +589,8 @@ export default function KnowledgeManager({ onChanged }) {
       onUndo: async () => {
         try {
           await promise.catch(() => {});
+          // クリア自体が失敗して rollback 済みなら何もしない（値は元のまま）。
+          if (clearFailed) return;
           const { error } = await supabase
             .from('books')
             .update({ [column]: previousText })

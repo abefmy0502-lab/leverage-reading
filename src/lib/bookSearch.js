@@ -243,9 +243,17 @@ async function batchOpenBD(isbns, { signal } = {}) {
   return map;
 }
 
-async function lookupISBNopenBD(isbn) {
-  const r = await fetch(`https://api.openbd.jp/v1/get?isbn=${isbn}`);
-  if (!r.ok) return null;
+async function lookupISBNopenBD(isbn, { signal } = {}) {
+  const r = await fetch(`https://api.openbd.jp/v1/get?isbn=${isbn}`, signal ? { signal } : undefined);
+  // HTTP エラー（429/5xx）は「未収録（null）」と区別して throw する。
+  // null に潰すと呼び出し側の error ガードが発火せず、空結果が 7 日
+  // キャッシュされる（cache poisoning）。
+  if (!r.ok) {
+    const e = new Error(`openBD HTTP ${r.status}`);
+    e.status = r.status;
+    e.source = 'openbd';
+    throw e;
+  }
   const d = await r.json();
   if (d?.[0]?.summary) {
     const s = d[0].summary;
@@ -302,9 +310,15 @@ async function searchGoogleBooks(query, { signal } = {}) {
 // キュレーションされておらずノイズが多く、「テーマの棚（AI 選書）」に一本化した際に
 // 呼び出し元を全て撤去済み。死にコードのため削除（git 履歴から復活可）。
 
-async function lookupISBNGoogle(isbn) {
-  const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-  if (!r.ok) return null;
+async function lookupISBNGoogle(isbn, { signal } = {}) {
+  const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`, signal ? { signal } : undefined);
+  // HTTP エラーは「未収録」と区別して throw（上のコメント参照）。
+  if (!r.ok) {
+    const e = new Error(`Google Books HTTP ${r.status}`);
+    e.status = r.status;
+    e.source = 'google';
+    throw e;
+  }
   const d = await r.json();
   const v = d.items?.[0]?.volumeInfo;
   if (!v) return null;
@@ -361,6 +375,7 @@ export async function searchBooks(query) {
   // ISBN shortcut: openBD first, Google Books fallback.
   if (isISBN(q)) {
     const cleaned = cleanIsbn(q);
+    let isbnErr = null;
     try {
       const r = await lookupISBNopenBD(cleaned);
       if (r) {
@@ -369,6 +384,7 @@ export async function searchBooks(query) {
         return { ok: true, results };
       }
     } catch (e) {
+      isbnErr = e;
       console.warn('openBD ISBN lookup failed:', e?.message || e);
     }
     try {
@@ -379,6 +395,7 @@ export async function searchBooks(query) {
         return { ok: true, results };
       }
     } catch (e) {
+      isbnErr = e;
       console.warn('Google Books ISBN lookup failed:', e?.message || e);
       if (e?.status === 429) {
         return {
@@ -386,6 +403,11 @@ export async function searchBooks(query) {
           error: '検索の利用回数が一時的に上限に達しました。\n5〜10 分後に再度お試しください。',
         };
       }
+    }
+    // どちらかのソースが「失敗」していたら真の 0 件と断定できない。
+    // 空をキャッシュすると 7 日間この ISBN の検索が死ぬ（cache poisoning）。
+    if (isbnErr) {
+      return { ok: false, error: '検索できませんでした。通信環境を確認して、もう一度お試しください。' };
     }
     setCached(q, []);
     return { ok: true, results: [] };
@@ -502,7 +524,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
     let openbdError = null;
     let googleError = null;
     try {
-      const r = await lookupISBNopenBD(i);
+      const r = await lookupISBNopenBD(i, { signal });
       if (r) {
         const results = [r];
         setCached(cacheKey, results);
@@ -514,7 +536,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
       console.warn('openBD ISBN lookup failed:', e?.message || e);
     }
     try {
-      const r = await lookupISBNGoogle(i);
+      const r = await lookupISBNGoogle(i, { signal });
       if (r) {
         const results = [r];
         setCached(cacheKey, results);
@@ -525,9 +547,10 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
       googleError = e;
       console.warn('Google Books ISBN lookup failed:', e?.message || e);
     }
-    // 両ソースとも「失敗」なら通信エラー。空をキャッシュすると、ネット復帰後も
+    // どちらかのソースが「失敗」なら真の 0 件と断定できない（片方は未収録でも
+    // もう片方が 429/5xx なら本は存在し得る）。空をキャッシュすると、復帰後も
     // 7 日間「該当なし」を返し続ける cache poisoning になる。
-    if (openbdError && googleError) {
+    if (openbdError || googleError) {
       return { ok: false, error: '検索できませんでした。通信環境を確認して、もう一度お試しください。' };
     }
     setCached(cacheKey, []);
@@ -604,7 +627,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
   // 全ソースが「失敗」（真の 0 件ではない）なら通信エラーとして返し、
   // 空結果を 7 日キャッシュしない（ネット復帰後の再検索を殺さない）。
   if ((typeof navigator !== 'undefined' && navigator.onLine === false)
-    || (ndlError && googleError)) {
+    || ndlError || googleError) {
     return { ok: false, error: '検索できませんでした。通信環境を確認して、もう一度お試しください。' };
   }
   setCached(cacheKey, []);

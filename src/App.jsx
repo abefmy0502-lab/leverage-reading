@@ -640,7 +640,8 @@ const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, on
   const [from, to] = paletteFor(book.title);
   // book.id をキーに使って、book が変わった時のみ broken state をリセット。
   const [broken, setBroken] = useState(false);
-  useEffect(() => { setBroken(false); }, [book.id, book.cover]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setBroken(false); setLoaded(false); }, [book.id, book.cover]);
   const showPlaceholder = !book.cover || broken;
   // 表紙が出ない本はバックグラウンドで再解決をキューイング。
   // セッション内で 1 回だけ走るので、ここから fire-and-forget で OK。
@@ -658,18 +659,28 @@ const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, on
       }}
     >
       <div className="book-cover-image-wrap">
-        {showPlaceholder ? (
-          <div
-            className="book-cover-placeholder"
-            style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
-          >
-            {book.title}
-          </div>
-        ) : (
+        {/* グラデーションプレースホルダは常に下敷き: (a) ロード待ちの間も
+            タイトル入りの色面が見える（生成りの空白にしない） (b) 画像は
+            onLoad で opacity フェードイン＝突然のポップインを消す
+            (c) onError 時の白フラッシュも起きない。 */}
+        <div
+          className="book-cover-placeholder"
+          style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
+        >
+          {book.title}
+        </div>
+        {!showPlaceholder && (
           <img
+            className={`book-cover-img${loaded ? ' is-loaded' : ''}`}
             src={ensureHttps(book.cover)}
             alt={book.title}
             loading="lazy"
+            decoding="async"
+            // キャッシュ済み画像は onLoad が発火しないことがあるため、
+            // ref で complete を同期検出して即表示（再訪時のフェード再生なし）。
+            ref={(el) => {
+              if (el && el.complete && el.naturalWidth > 1 && !loaded) setLoaded(true);
+            }}
             onError={() => setBroken(true)}
             // 1×1 transparent placeholder + Google Books の "No cover"
             // プレースホルダー (128×170 PNG、h/w 1.33) を実画像と区別する。
@@ -682,6 +693,7 @@ const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, on
               const h = t.naturalHeight || 0;
               if (w <= 1 || h <= 1) { setBroken(true); return; }
               if (w >= 50 && h / w < 1.35) { setBroken(true); return; }
+              setLoaded(true);
             }}
           />
         )}
@@ -748,7 +760,9 @@ const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustD
           transition: "background .12s ease, box-shadow .35s ease, transform .12s ease",
           animation: isJustDone
             ? "leverage-card-celebrate 2.4s ease both"
-            : `slideUp .3s ease ${index * 0.02}s both`,
+            // スタッガーは最初の一画面分（8件）だけ。無制限だと 60 冊目は
+            // 1.2 秒不可視になり、詳細から戻るたびに画面が空白→パラパラ出現する。
+            : `slideUp .3s ease ${Math.min(index, 8) * 0.02}s both`,
           // 長押しでカード周辺のテキスト選択 / iOS の callout を抑止。
           userSelect: "none",
           WebkitUserSelect: "none",
@@ -2952,13 +2966,14 @@ function AuthedApp() {
     });
   }, [tab, view, reviewSubTab, aiSubTab]);
 
-  // 本棚スクロール位置の復元: 本詳細(detail/edit)から本棚(list)に戻った時だけ、
-  // 離脱前のスクロール位置へ戻す。長い本棚の途中で本を開いて戻ると先頭に飛ぶ
-  // 「迷子」を解消する。タブ切替や通常表示は従来どおり先頭のまま（復元しない）。
+  // 本棚スクロール位置の復元: 本詳細(detail/edit)から戻った時だけでなく、
+  // タブ往復（books → review → books）でも直前の位置へ戻す。スクロール
+  // コンテナは key={tab} で毎回リマウントされ 0 に飛ぶが、iOS 純正アプリは
+  // タブごとに位置を必ず保持する（App Store / 写真等）。savedShelfScroll は
+  // 本棚滞在中の onScroll で常時更新済みなので、復元は常に正しい。
   useEffect(() => {
-    const cameFromBook = prevViewRef.current === 'detail' || prevViewRef.current === 'edit';
     prevViewRef.current = view;
-    if (view === 'list' && tab === 'books' && cameFromBook && savedShelfScroll.current > 0) {
+    if (view === 'list' && tab === 'books' && savedShelfScroll.current > 0) {
       requestAnimationFrame(() => {
         if (listScrollRef.current) {
           try { listScrollRef.current.scrollTop = savedShelfScroll.current; } catch { /* ignore */ }
@@ -4204,14 +4219,35 @@ function AuthedApp() {
     return run;
   };
 
-  const applyActionToggle = (bookId, actionIdx, options = {}) =>
-    enqueueBookMutation(bookId, (entry) => doActionToggle(bookId, actionIdx, options, entry));
+  // enqueue 時に掴んだ action を、実行時点の acts 配列内で再特定する。
+  // チェーンの rebase（entry.latest / booksRef）で行が増減していると、
+  // 呼び出し時の index は別の行を指し得る。id（永続済み）→ 参照 → 内容の
+  // 順で探し、見つからなければ -1（＝対象は消えた。何もしない）。
+  const resolveActionIndex = (acts, target, fallbackIdx) => {
+    if (!target) return (fallbackIdx >= 0 && fallbackIdx < acts.length) ? fallbackIdx : -1;
+    if (target.id) return acts.findIndex((a) => a && a.id === target.id);
+    const byRef = acts.indexOf(target);
+    if (byRef >= 0) return byRef;
+    return acts.findIndex((a) => a && !a.id
+      && (a.text || '') === (target.text || '')
+      && (a.deadline || '') === (target.deadline || '')
+      && !!a.done === !!target.done);
+  };
 
-  const doActionToggle = async (bookId, actionIdx, options, chainEntry) => {
+  const applyActionToggle = (bookId, actionIdx, options = {}) => {
+    // 対象行の「身元」を今の books から掴んでおく（index は実行時に再解決）。
+    const bookNow = booksRef.current.find((b) => b.id === bookId);
+    const targetAction = bookNow?.actions?.[actionIdx] || null;
+    return enqueueBookMutation(bookId, (entry) => doActionToggle(bookId, actionIdx, options, entry, targetAction));
+  };
+
+  const doActionToggle = async (bookId, actionIdx, options, chainEntry, targetAction) => {
     const book = chainEntry.latest || booksRef.current.find((b) => b.id === bookId);
     if (!book) return;
     const acts = [...(book.actions || [])];
-    const target = acts[actionIdx];
+    const idx = resolveActionIndex(acts, targetAction, actionIdx);
+    if (idx < 0) return; // 対象は先行操作で消えた — 別の行を誤ってトグルしない
+    const target = acts[idx];
     if (!target) return;
     const becomingDone = !target.done;
     const updatedAct = {
@@ -4222,7 +4258,7 @@ function AuthedApp() {
         ? (typeof options.reflection === 'string' ? options.reflection : (target.reflection || ''))
         : target.reflection || '',
     };
-    acts[actionIdx] = updatedAct;
+    acts[idx] = updatedAct;
 
     // 繰り返し設定があり、今回が「完了化」なら次回分を spawn。期限は元の期限を
     // 基準に weekly/monthly で進める。期限が無ければ今日基準で進める。
@@ -4252,7 +4288,7 @@ function AuthedApp() {
         // （二重タップや再完了で同じ繰り返しタスクが増殖するのを防ぐ）。
         const twinText = (target.text || '').trim();
         const hasPendingTwin = acts.some(
-          (a, idx) => idx !== actionIdx && !a.done && (a.text || '').trim() === twinText && a.recurrence === target.recurrence
+          (a, j) => j !== idx && !a.done && (a.text || '').trim() === twinText && a.recurrence === target.recurrence
         );
         if (!hasPendingTwin) {
           acts.push({
@@ -4372,12 +4408,15 @@ function AuthedApp() {
     }
     // トグルと同じ本ごとの直列化チェーンに乗せる。並行の saveBook（トグル進行中）
     // と競合すると、削除した行動が stale upsert で復活し得るため。
+    // 対象行の身元を今掴む（index は実行時に再解決 — 行数がずれても別の行を消さない）。
+    const delTarget = (booksRef.current.find((b) => b.id === bookId)?.actions || [])[actionIdx] || null;
     await enqueueBookMutation(bookId, async (entry) => {
       const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
       if (!book) return;
       const acts = [...(book.actions || [])];
-      if (actionIdx < 0 || actionIdx >= acts.length) return;
-      acts.splice(actionIdx, 1);
+      const idx = resolveActionIndex(acts, delTarget, actionIdx);
+      if (idx < 0 || idx >= acts.length) return;
+      acts.splice(idx, 1);
       const updated = { ...book, actions: acts };
       mutateBookLocal(bookId, () => updated);
       try {
@@ -4513,6 +4552,7 @@ function AuthedApp() {
             minHeight: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
+            overscrollBehaviorY: 'contain',
             WebkitOverflowScrolling: 'touch',
             padding: "20px 20px 80px",
           }}
@@ -5390,6 +5430,9 @@ function AuthedApp() {
           display: 'flex',
           flexDirection: 'column',
           overflow: tab === 'ai' ? 'hidden' : 'auto',
+          // 終端の慣性をリスト内で完結させる（PWA シェル全体への波及を防ぐ、
+          // iOS ネイティブアプリと同じ挙動）。
+          overscrollBehaviorY: 'contain',
           WebkitOverflowScrolling: tab === 'ai' ? undefined : 'touch',
         }}
       >
@@ -5840,12 +5883,15 @@ function AuthedApp() {
             setEditingAction(null);
             // トグル/削除と同じ本ごとの直列化チェーンに乗せる（並行 saveBook との
             // 競合で編集内容が stale 上書きで失われるのを防ぐ）。
+            // 対象行の身元を掴んでおき、index は実行時に再解決する。
+            const editTarget = (booksRef.current.find((b) => b.id === bookId)?.actions || [])[actionIdx] || null;
             await enqueueBookMutation(bookId, async (entry) => {
               const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
               if (!book) return;
               const acts = [...(book.actions || [])];
-              if (actionIdx < 0 || actionIdx >= acts.length) return;
-              acts[actionIdx] = { ...acts[actionIdx], ...patch };
+              const idx = resolveActionIndex(acts, editTarget, actionIdx);
+              if (idx < 0 || idx >= acts.length) return;
+              acts[idx] = { ...acts[idx], ...patch };
               const updated = { ...book, actions: acts };
               mutateBookLocal(bookId, () => updated);
               try {
