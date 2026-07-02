@@ -136,7 +136,14 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
     if (!menuOpen) return undefined;
     const close = () => setMenuOpen(false);
     window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    // portal + position:fixed のメニューはスクロールに追従しない。開いたまま
+    // スクロールするとカードから切り離されて浮くため、スクロールで閉じる
+    // （内側スクロールコンテナのイベントは bubble しないので capture で拾う）。
+    window.addEventListener('scroll', close, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('scroll', close, { capture: true });
+    };
   }, [menuOpen]);
 
   // 写真拡大モーダルは背景タップで閉じるが、キーボード利用者向けに Esc でも

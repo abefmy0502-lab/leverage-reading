@@ -333,7 +333,7 @@ function RecField({ label, text }) {
   );
 }
 
-export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook }) {
+export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook, onBookAdded }) {
   const messages = useMemo(() => Array.isArray(session?.messages) ? session.messages : [], [session]);
   const recs = useMemo(() => Array.isArray(session?.recommended_books) ? session.recommended_books : [], [session]);
 
@@ -385,13 +385,24 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
     //    handler は同期で終わる。
     Promise.resolve().then(async () => {
       try {
-        await onAddBook(rec, {
+        const saved = await onAddBook(rec, {
           sourceQuery: lastUserQuery,
           investPurpose: lastUserQuery || '',
           currentChallenge: '',
           hypothesis: '',
           bookReason: rec.why || '',
         });
+        // onAddBook は失敗時に throw せず null を返す契約。falsy は失敗として巻き戻す。
+        if (!saved) {
+          setLocallyAdded((prev) => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+          return;
+        }
+        // このセッションの added_book_ids に記録（履歴一覧の「N 冊追加」を正しく）。
+        if (saved.id) onBookAdded?.(saved.id);
       } catch (e) {
         // 失敗したらローカル state を巻き戻す → ボタンが復活
         setLocallyAdded((prev) => {

@@ -188,7 +188,16 @@ export default function FeedbackForm({ onClose }) {
   };
 
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true" onClick={() => !busy && onClose?.()}>
+    <div
+      style={overlayStyle}
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        // 親（設定モーダル）の overlay onClick まで bubbling すると両方一緒に閉じる。
+        e.stopPropagation();
+        if (!busy) onClose?.();
+      }}
+    >
       <div ref={sheetRef} style={sheetStyle} onClick={(e) => e.stopPropagation()}>
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>

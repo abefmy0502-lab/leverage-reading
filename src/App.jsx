@@ -1565,9 +1565,17 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   }, [input]);
 
   // Parse the new richer response: leading prose + JSON recs + trailing prose.
+  // 表示用: RECOMMENDATIONS ブロック（マーカー + JSON）を本文から取り除く。
+  // END マーカー欠落（max_tokens 打ち切り等）でも途中までの JSON を残さない。
+  // ※ chatHistory / advisor_sessions への永続化は生テキストのまま（AI 文脈維持）。
+  const stripRecoBlock = (text) =>
+    (typeof text === 'string' ? text : '')
+      .replace(/RECOMMENDATIONS_START[\s\S]*?(?:RECOMMENDATIONS_END|$)/g, '')
+      .trim();
+
   const parseAdvisorResponse = (text) => {
     const match = text.match(/RECOMMENDATIONS_START\s*([\s\S]*?)\s*RECOMMENDATIONS_END/);
-    if (!match) return { recs: null, prose: text };
+    if (!match) return { recs: null, prose: stripRecoBlock(text) };
     let recs = null;
     try {
       const arr = JSON.parse(match[1]);
@@ -1575,7 +1583,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         recs = arr.filter((r) => r && typeof r.title === 'string');
       }
     } catch { /* keep recs null */ }
-    if (!recs || recs.length === 0) return { recs: null, prose: text };
+    // JSON が壊れていた/空だった場合も、マーカーと生 JSON をユーザーに見せない。
+    if (!recs || recs.length === 0) return { recs: null, prose: stripRecoBlock(text) };
     const before = text.slice(0, match.index).trim();
     const after = text.slice(match.index + match[0].length).trim();
     return {
@@ -1693,8 +1702,12 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
       setLastUserQuery(sourceQuery || userMsg);
       nextRecs = finalList;
     } else {
-      // 推薦 JSON が取れなかった → プロンプト本文をそのまま 1 吹き出しで提示。
-      setMessages([{ role: 'assistant', text: finalText }]);
+      // 推薦 JSON が取れなかった → 本文（マーカー/壊れた JSON は除去済み）を提示。
+      // 空になった（=JSON だけで打ち切られた等）場合は案内文を出し、袋小路を防ぐ。
+      const visible = typeof prose === 'string' && prose
+        ? prose
+        : '提案の生成が途中で途切れてしまいました。お手数ですが、もう一度質問を送ってください。';
+      setMessages([{ role: 'assistant', text: visible }]);
     }
     const nextHistory = [...newHistory, { role: 'assistant', content: finalText }];
     setChatHistory(nextHistory);
@@ -1854,12 +1867,17 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const resumeSession = (s) => {
     if (!s) return;
     const histMessages = Array.isArray(s.messages) ? s.messages : [];
-    setChatHistory(histMessages);
+    setChatHistory(histMessages); // AI 文脈は生テキストのまま保持
     setMessages(
-      histMessages.map((m) => ({
-        role: m.role,
-        text: (m.content ?? m.text ?? '').toString(),
-      })),
+      histMessages
+        .map((m) => ({
+          role: m.role,
+          // 表示は RECOMMENDATIONS ブロック（マーカー + 生 JSON）を剥がす。
+          text: m.role === 'assistant'
+            ? stripRecoBlock((m.content ?? m.text ?? '').toString())
+            : (m.content ?? m.text ?? '').toString(),
+        }))
+        .filter((m) => m.text), // 剥がして空になった吹き出しは出さない
     );
     const recsList = Array.isArray(s.recommended_books) ? s.recommended_books : [];
     setRecommendations(recsList.length > 0 ? { items: recsList, before: '', after: '' } : null);
@@ -1874,8 +1892,11 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const isEmpty = messages.length === 0 && !recommendations;
   // ガイド付きヒアリングのいずれかが動いている = 相談入力フェーズではない。
   const inInterview = !!interview || interviewLoading || recoLoading;
-  // 相談入力（textarea + 例チップ）を出すのは「真っさらな初期状態」だけ。
-  const showConcernInput = isEmpty && !inInterview;
+  // 相談入力（textarea + 例チップ）は「推薦カードが出ていない間」は常に出す。
+  // 旧条件（isEmpty のみ）だと、推薦 JSON が取れなかった回や履歴再開
+  // （recommended_books 空）で messages だけがあると、入力欄も再スタート
+  // 導線も無い袋小路になっていた。
+  const showConcernInput = !inInterview && !recommendations;
   const chatScrollRef = useRef(null);
 
   // ---------------------------------------------------------------------------
@@ -1909,6 +1930,17 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
           hypothesis: summary?.hypothesis || '',
           bookReason: summary?.bookReason || (verifiedRec.why || ''),
         });
+        // onAddBook (addFromAdvisor) は失敗を内部 catch で握りつぶし null を
+        // 返す（throw しない）。falsy を失敗として扱わないと rollback が
+        // 一度も発火せず、追加されていないのに「✅ 追加済み」で固まる。
+        if (!saved) {
+          setAddedTitles((prev) => {
+            const next = new Set(prev);
+            next.delete(verifiedRec.title);
+            return next;
+          });
+          return; // トーストは addFromAdvisor 側が出している（二重表示しない）
+        }
         if (saved?.id && currentSessionId && sessionApi?.available) {
           try { await sessionApi.addBookToSession(currentSessionId, saved.id); } catch { /* non-critical */ }
         }
@@ -2033,6 +2065,12 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               session={selectedSession}
               books={books}
               onAddBook={onAddBook}
+              onBookAdded={(bookId) => {
+                // 履歴詳細からの追加もセッションに記録（一覧の「N 冊追加」を正しく）。
+                if (bookId && sessionApi?.available && selectedSession?.id) {
+                  sessionApi.addBookToSession(selectedSession.id, bookId).catch(() => {});
+                }
+              }}
               onResume={resumeSession}
               onNewSession={startNewSession}
               onClose={() => { setSelectedSession(null); setView('history'); }}
@@ -4539,7 +4577,9 @@ function AuthedApp() {
               {/* 表紙関連の 2 アクション。常時可視で「⋯ メニューに埋もれて
                   見つけにくい」問題を解消。「取り直す」は同じ ISBN で再 fetch、
                   「違う?」は別エディション候補から選び直し or 手動 upload。 */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start', marginTop: 2 }}>
+              {/* タップ領域: 見た目は小さな text link のまま、padding で
+                  実効ヒットを広げる（隣接誤タップ防止のため gap も確保）。 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start', marginTop: 2 }}>
                 <button
                   type="button"
                   onClick={() => refreshCoverFor(current)}
@@ -4547,7 +4587,9 @@ function AuthedApp() {
                   style={{
                     background: 'none',
                     border: 'none',
-                    padding: 0,
+                    padding: '8px 4px',
+                    margin: '-6px 0 -6px -4px',
+                    minHeight: 32,
                     fontSize: 10,
                     color: '#5C4A2E',
                     cursor: coverBusyId === current.id ? 'wait' : 'pointer',
@@ -4565,7 +4607,9 @@ function AuthedApp() {
                   style={{
                     background: 'none',
                     border: 'none',
-                    padding: 0,
+                    padding: '8px 4px',
+                    margin: '-6px 0 -6px -4px',
+                    minHeight: 32,
                     fontSize: 10,
                     color: 'var(--color-accent)',
                     cursor: 'pointer',
@@ -4964,7 +5008,9 @@ function AuthedApp() {
               cursor: "pointer",
               // ブランド色で色付けした、やわらかく上質な浮遊シャドウ。
               boxShadow: "0 6px 18px rgba(93, 74, 40, 0.30), 0 2px 6px rgba(93, 74, 40, 0.18)",
-              zIndex: 600,
+              // メモ編集(300)・写真拡大(400)等のオーバーレイより下に置く
+              // （600 だと全画面エディタの上に ＋ が浮いてしまう）。
+              zIndex: 100,
               fontFamily: "inherit",
             }}
           >

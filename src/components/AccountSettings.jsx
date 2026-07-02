@@ -423,11 +423,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      // フィードバックシートが開いている間は、Escape はシート側に任せる
+      // （ここで拾うと設定モーダルごと閉じ、送信中の入力が失われる）。
+      if (e.key === 'Escape' && !feedbackOpen) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, feedbackOpen]);
 
   const expectedConfirm = (user?.email || 'DELETE').trim();
 
@@ -641,17 +643,20 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           `db_warn: ${dbErrors.map((d) => `${d.table}(${d.error?.message || d.error})`).join('; ')}`,
         );
       }
-      try {
-        await supabase.from('account_deletion_requests').insert([
-          {
-            user_id: user.id,
-            user_email: user.email || null,
-            notes: warnParts.length > 0 ? warnParts.join(' | ') : null,
-          },
-        ]);
-      } catch (e) {
-        // Table may not exist if migration unrun — surface as warning.
-        console.warn('account_deletion_requests insert failed:', e);
+      // supabase-js は失敗を throw せず { error } で返す。この行が書けていないと
+      // 管理者は auth.users を削除しない（「7日以内に完全削除」の約束が静かに
+      // 破られる）ため、失敗したら成功トーストを出さずサポート連絡を案内する。
+      const { error: reqError } = await supabase.from('account_deletion_requests').insert([
+        {
+          user_id: user.id,
+          user_email: user.email || null,
+          notes: warnParts.length > 0 ? warnParts.join(' | ') : null,
+        },
+      ]);
+      if (reqError) {
+        console.error('account_deletion_requests insert failed:', reqError);
+        toast.error('削除リクエストの登録に失敗しました。お手数ですがサポートにご連絡ください。');
+        return;
       }
 
       // 1 つでも本当の削除失敗があれば成功トーストを出さず、サポート連絡を案内。
@@ -675,7 +680,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="アカウント設定" onClick={onClose}>
-      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 500, flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}><IcSettings size={18} aria-hidden="true" /> アカウント設定</h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><IcClose size={20} aria-hidden="true" /></button>

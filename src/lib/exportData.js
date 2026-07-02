@@ -2,7 +2,8 @@
 //
 // The previous JSON export was complete but Excel-unfriendly. CSV is the
 // pragmatic interchange format users actually open. We emit one CSV per
-// table (books / book_memos / book_tags / actions / chat_messages) and
+// table (books / book_memos / book_tags / actions / chat_messages /
+// theme_reports / advisor_sessions / book_collections) and
 // trigger sequential downloads. ZIP packaging would require pulling in
 // JSZip (~100 KB) — the user-spec marked it optional, so we skip it.
 //
@@ -20,6 +21,12 @@ export const EXPORT_TABLES = [
   'book_tags',
   'actions',
   'chat_messages',
+  // 「あなたのデータはいつでも書き出せる」の約束を守る: 退会時に削除される
+  // データは全てエクスポート対象に含める。未適用 DB は per-table soft-fail が
+  // skipped 扱いにするので互換。
+  'theme_reports',      // 📐 レバレッジメモ（テーマまとめ）履歴
+  'advisor_sessions',   // 🕒 AI 選書の会話履歴
+  'book_collections',   // 🗂 本棚フォルダの割当
 ];
 
 const UTF8_BOM = '﻿';

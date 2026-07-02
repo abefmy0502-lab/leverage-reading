@@ -216,6 +216,12 @@ export async function unsubscribeFromPush() {
 
 // 既に許可済み（granted）で購読が DB と乖離している場合に再同期する自己修復。
 // pushsubscriptionchange 後の起動時などに呼ぶと安全（任意・throw しない）。
+//
+// ⚠️ 自己修復は「本人が過去にオンにした（＝本人の行が既に存在する）」場合に
+// 限定する。無条件に upsert すると、共有端末でアカウントを切り替えた瞬間に
+// 通知をオンにしていないユーザーの行が勝手に作られ、前のユーザーのメモ通知と
+// 混ざって届き続ける（プライバシー事故）。初回の行作成は必ず設定画面の
+// 明示的なオン操作（subscribePush）だけが行う。
 export async function ensurePushSubscription() {
   if (!isPushSupported()) return;
   if (getPermission() !== 'granted') return;
@@ -223,6 +229,20 @@ export async function ensurePushSubscription() {
     const reg = await getServiceWorkerRegistration();
     if (!reg || !reg.pushManager) return;
     const sub = await reg.pushManager.getSubscription();
-    if (sub) await upsertSubscription(sub);
+    if (!sub) return;
+    if (!isSupabaseConfigured || !supabase) return;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    if (!userId) return;
+    const endpoint = sub.toJSON()?.endpoint;
+    if (!endpoint) return;
+    const { data: existing, error } = await supabase
+      .from('push_subscriptions')
+      .select('user_id')
+      .eq('user_id', userId)
+      .eq('endpoint', endpoint)
+      .maybeSingle();
+    if (error || !existing) return; // 本人の行が無ければ何もしない
+    await upsertSubscription(sub);
   } catch { /* ignore */ }
 }

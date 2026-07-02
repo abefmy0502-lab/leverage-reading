@@ -74,9 +74,17 @@ export function useAuth() {
 
   const signOut = async () => {
     if (!isSupabaseConfigured) return;
+    // 共有端末対策①: 想起プッシュの購読をこの端末から解除する（サインアウト前・
+    // RLS で自分の行を消せるうちに）。解除しないと、次に別のアカウントが使う
+    // 端末に前ユーザーのメモ通知（本文抜粋つき）が届き続ける。失敗しても
+    // サインアウト自体は止めない。
+    try {
+      const { unsubscribeFromPush } = await import('../lib/push');
+      await unsubscribeFromPush();
+    } catch { /* ignore */ }
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-    // 共有端末対策: 弱い PII になりうる自前 localStorage キャッシュ（書影検索の
+    // 共有端末対策②: 弱い PII になりうる自前 localStorage キャッシュ（書影検索の
     // クエリ/結果）をサインアウト時に消す。設定（オンボ完了・メモモード・解析
     // オプトアウト等）は保持。in-memory のメモ/写真キャッシュは AppDataCache 側で
     // onAuthStateChange('SIGNED_OUT') を購読して clearAll される。
