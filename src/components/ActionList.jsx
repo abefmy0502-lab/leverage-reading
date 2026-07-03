@@ -11,7 +11,7 @@ import { ensureHttps } from '../lib/url';
 import { track, EVENTS } from '../lib/analytics';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
-import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo, ArrowUp, ArrowDown, Repeat, Link2, MessageSquareQuote, Check } from 'lucide-react';
+import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo, ArrowUp, Repeat, Link2, MessageSquareQuote, Check } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
@@ -484,8 +484,10 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p
                     style={{
-                      fontSize: 13,
-                      lineHeight: 1.6,
+                      // カードの主役＝行動文。13px だと 10-11px のメタ群と
+                      // コントラストが無く、スキャン時に主題が立たない。
+                      fontSize: 'var(--type-callout)',
+                      lineHeight: 1.5,
                       color: a.done ? 'var(--c-ink-3)' : 'var(--c-ink)',
                       textDecoration: a.done ? 'line-through' : 'none',
                       margin: 0,
@@ -567,15 +569,13 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                         </span>
                       );
                     })()}
-                    {/* 優先度バッジ — 'medium' は default なので表示しない */}
+                    {/* 優先度バッジ — 'medium' は default なので表示しない。
+                        「低」も無表記が最も静か（既定より下は出さない＝引き算）。
+                        色は accent 系: 赤（critical）は「期限切れ＝時間切迫」専用に
+                        予約し、赤の意味の一意性を守る。 */}
                     {a.priority === 'high' && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-critical-soft)', color: '#a05040', fontWeight: 600 }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--color-accent-soft)', color: 'var(--color-accent-strong)', fontWeight: 600 }}>
                         <ArrowUp size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />高
-                      </span>
-                    )}
-                    {a.priority === 'low' && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-soft)', color: 'var(--c-ink-3)' }}>
-                        <ArrowDown size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />低
                       </span>
                     )}
                     {/* 繰り返し */}

@@ -18,6 +18,7 @@ function ensureKeyframes() {
   style.id = KEYFRAMES_ID;
   style.textContent = `
 @keyframes leverage-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes leverage-sheet-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
 @keyframes leverage-fade-in { from { opacity: 0; } to { opacity: 1; } }
 `;
   document.head.appendChild(style);
@@ -161,6 +162,12 @@ export default function QuickMemoSheet({
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  // 閉じアニメーション中（入りが滑らかなのに出だけ瞬間消滅、の非対称を解消）。
+  const [closing, setClosing] = useState(false);
+  // 下スワイプで閉じるドラッグ（ハンドル/ヘッダー起点）。キーボード追従の
+  // transform と競合しないよう、ドラッグ中は vv 追従を一時停止する。
+  const dragStartYRef = useRef(null);
+  const draggingRef = useRef(false);
   // ✨ 凝縮（本田流レバレッジメモ化）— 元テキストを保持して「↩ 元に戻す」可能に。
   const [condensing, setCondensing] = useState(false);
   const [condensedFrom, setCondensedFrom] = useState(null);
@@ -208,6 +215,7 @@ export default function QuickMemoSheet({
     if (!vv) return undefined;
     const apply = () => {
       if (!sheetRef.current) return;
+      if (draggingRef.current) return; // ドラッグ中は指の transform を優先
       const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
       sheetRef.current.style.transform = offset > 60 ? `translateY(-${offset}px)` : '';
     };
@@ -220,9 +228,50 @@ export default function QuickMemoSheet({
     };
   }, []);
 
+  // 閉じは必ず slide-down を経由する（入りが .25s で滑らかに上がるのに、
+  // 出だけ瞬間消滅すると往復の所作が非対称で安っぽい）。
+  const animateClose = () => {
+    if (closing) return;
+    setClosing(true);
+    setTimeout(() => onClose?.(), 220); // アニメ長と一致
+  };
+
   // 保存中(busy)は閉じない。保存途中で閉じると onCreate の成否フィードバック
   // (errorMsg) がアンマウントで消え、ユーザーに結果が届かない。
-  const requestClose = () => { if (busy) return; onClose?.(); };
+  const requestClose = () => { if (busy) return; animateClose(); };
+
+  // 下スワイプで閉じる（iOS のシート標準所作。ハンドル/ヘッダー起点のみ —
+  // 本文 textarea のスクロール/選択とは競合させない）。
+  const onDragStart = (e) => {
+    if (busy || closing) return;
+    // キーボード追従 transform が効いている間はドラッグを開始しない（競合回避）。
+    const t = sheetRef.current?.style?.transform || '';
+    if (t && t !== 'none' && !t.startsWith('translateY(0')) return;
+    dragStartYRef.current = e.touches?.[0]?.clientY ?? null;
+  };
+  const onDragMove = (e) => {
+    if (dragStartYRef.current == null || !sheetRef.current) return;
+    const dy = (e.touches?.[0]?.clientY ?? 0) - dragStartYRef.current;
+    if (dy <= 0) return;
+    draggingRef.current = true;
+    sheetRef.current.style.transition = 'none';
+    sheetRef.current.style.transform = `translateY(${dy}px)`;
+  };
+  const onDragEnd = (e) => {
+    const startY = dragStartYRef.current;
+    dragStartYRef.current = null;
+    if (!draggingRef.current || !sheetRef.current || startY == null) return;
+    draggingRef.current = false;
+    const dy = Math.max(0, (e.changedTouches?.[0]?.clientY ?? startY) - startY);
+    const el = sheetRef.current;
+    el.style.transition = 'transform .22s cubic-bezier(0.2,0.9,0.3,1)';
+    if (dy > 110 && !busy) {
+      el.style.transform = 'translateY(100%)';
+      setTimeout(() => onClose?.(), 200);
+    } else {
+      el.style.transform = '';
+    }
+  };
 
   // Escape closes（保存中は無視）。IME 変換中の Esc（変換キャンセル）で
   // シートごと閉じて下書きを失わないよう isComposing をガードする。
@@ -251,7 +300,7 @@ export default function QuickMemoSheet({
         photoFile: null,
         tags: [],
       });
-      onClose?.();
+      animateClose(); // 保存後も滑って閉じる（出入りの所作を統一）
     } catch (e) {
       setErrorMsg(toMessage(e, 'メモの保存に失敗しました。'));
     } finally {
@@ -270,11 +319,27 @@ export default function QuickMemoSheet({
 
   return (
     <>
-      <div style={backdrop} onClick={requestClose} aria-hidden="true" />
-      <div ref={sheetRef} style={sheetWrap} role="dialog" aria-modal="true">
+      <div
+        style={{ ...backdrop, ...(closing ? { opacity: 0, transition: 'opacity .18s ease' } : {}) }}
+        onClick={requestClose}
+        aria-hidden="true"
+      />
+      <div
+        ref={sheetRef}
+        style={{
+          ...sheetWrap,
+          animation: closing
+            ? 'leverage-sheet-down .22s cubic-bezier(0.3,0,0.8,0.3) forwards'
+            : sheetWrap.animation,
+        }}
+        role="dialog"
+        aria-modal="true"
+      >
+        {/* ハンドル+ヘッダー = 掴んで下に振ると閉じる（iOS シートの標準所作） */}
+        <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}>
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
-          <button type="button" style={closeBtn} onClick={requestClose} aria-label="閉じる">
+          <button type="button" className="icon-btn" style={closeBtn} onClick={requestClose} aria-label="閉じる">
             <X size={18} aria-hidden="true" />
           </button>
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -295,6 +360,7 @@ export default function QuickMemoSheet({
             </p>
           </div>
         </div>
+        </div>{/* /drag zone (handle + header) */}
 
         <div style={bodyStyle}>
           <div>

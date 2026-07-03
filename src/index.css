@@ -53,6 +53,7 @@ svg.lucide {
    個別コンポーネントの runtime 注入に依存せず、どこから開いても動くよう
    グローバルに定義しておく。 */
 @keyframes leverage-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes leverage-sheet-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
 @keyframes leverage-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ✓ 成功 HUD（下部バーの代わりに中央で一瞬だけ上品に出して消える）。
@@ -149,6 +150,9 @@ summary {
     opacity var(--duration-fast) var(--ease-out-quart),
     box-shadow var(--duration-base) var(--ease-out-quart);
   -webkit-tap-highlight-color: transparent;
+  /* ダブルタップズーム / 300ms 遅延を一括抑止（パン・ピンチは残る）。
+     従来はインライン 7 箇所に散在し、新規ボタンで抜けていた。 */
+  touch-action: manipulation;
 }
 
 /* iOS で長押しした時に出る「コピー」「画像を保存」callout を、ボタン /
@@ -410,6 +414,16 @@ button:disabled:active {
   outline: 2px solid var(--color-accent-strong, #8A7040);
   outline-offset: 2px;
   border-radius: 4px;
+}
+/* 自前の box-shadow フォーカスリングを持つ入力系は outline を重ねない
+   （キーボードフォーカス時の「二重リング」を防ぐ）。 */
+.input:focus-visible,
+.textarea:focus-visible,
+.ai-input-area textarea:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
 }
 :focus:not(:focus-visible) {
   outline: none;

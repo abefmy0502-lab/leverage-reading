@@ -878,6 +878,14 @@
   display: block;
   opacity: 0;
   transition: opacity var(--duration-fast) var(--ease-out);
+  /* 長押しは「カード（親ボタン）の ContextMenu」が主。画像単体の OS
+     コールアウト（画像を保存/コピー）が 500ms 長押しメニューと競合しない
+     よう、img 自体のネイティブ挙動を切る。タップ/長押しは親が受ける。 */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
 }
 .book-cover-image-wrap > img.is-loaded {
   opacity: 1;

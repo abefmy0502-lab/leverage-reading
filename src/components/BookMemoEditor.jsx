@@ -188,6 +188,11 @@ export default function BookMemoEditor({
     const apply = () => {
       if (!overlayRef.current) return;
       overlayRef.current.style.height = `${vv.height}px`;
+      // iOS Safari はフォーカス時にページが自動スクロールすると offsetTop > 0
+      // になる。overlay は top:0 固定なので、translateY で可視ビューポートの
+      // 先頭にピン留めしないと下部の保存バーがキーボード裏に潜る
+      // （QuickMemoSheet と同じ追従思想。Capacitor resize:native では 0 で無害）。
+      overlayRef.current.style.transform = vv.offsetTop ? `translateY(${vv.offsetTop}px)` : '';
     };
     apply();
     vv.addEventListener('resize', apply);

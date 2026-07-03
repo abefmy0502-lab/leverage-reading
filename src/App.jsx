@@ -1462,7 +1462,6 @@ const advisorOptionChip = {
   lineHeight: 1.5,
   cursor: 'pointer',
   minHeight: 48,
-  WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
   touchAction: 'manipulation',
 };
 
@@ -2483,7 +2482,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                       e.stopPropagation();
                       handleClickAdd(rec);
                     }}
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid var(--c-hairline-strong)", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "var(--c-brand)", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(92,74,46,0.18)' }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid var(--c-hairline-strong)", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "var(--c-brand)", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation' }}
                   >
                     {addedTitles.has(rec.title)
                       ? (<><IcCheck size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />追加済み</>)
@@ -2611,7 +2610,7 @@ function BottomNav({ tab, setTab, hidden = false }) {
               // 非アクティブも secondary 色にして「ある」と視認できるように。
               color: active ? "var(--color-accent-strong)" : "var(--color-secondary)",
               opacity: active ? 1 : 0.78,
-              transition: "color var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out)",
+              transition: "color var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring)",
             }}
           >
             <Icon size={24} strokeWidth={active ? 2.2 : 1.7} aria-hidden="true" />
@@ -4558,7 +4557,10 @@ function AuthedApp() {
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <button onClick={goList} style={lnk}>{tab === 'review' ? '← 振り返り' : tab === 'ai' ? '← AI' : '← 一覧'}</button>
+            {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
+            <button onClick={goList} style={{ ...lnk, color: "var(--c-brand)", fontSize: 15, fontWeight: 600 }}>
+              ‹ {tab === 'review' ? '振り返り' : tab === 'ai' ? 'AI' : '本棚'}
+            </button>
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={openHelp}
@@ -4662,9 +4664,11 @@ function AuthedApp() {
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 500, color: "var(--c-ink)", lineHeight: 1.4, overflowWrap: "anywhere", wordBreak: "break-word" }}>{current.title}</h2>
-              {current.author && <p style={{ fontSize: 12, color: "var(--c-ink-2)", marginTop: 3 }}>{current.author}</p>}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+              {/* 書名＝この画面の主役。本文サイズ(17/500)だと .btn と同格に埋もれる。
+                  20px/bold で立て、著者は ink-3 に沈めて二段階の階層を作る。 */}
+              <h2 style={{ fontSize: "var(--type-title-3)", fontWeight: 700, color: "var(--c-ink)", lineHeight: 1.25, letterSpacing: "-0.01em", margin: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>{current.title}</h2>
+              {current.author && <p style={{ fontSize: 13, color: "var(--c-ink-3)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "var(--space-2)", flexWrap: "wrap" }}>
                 <StatusBadge status={current.status} />
                 {current.rating > 0 && <Stars r={current.rating} size={13} />}
               </div>
@@ -4903,19 +4907,51 @@ function AuthedApp() {
           {(current.actions || []).filter((a) => a.text?.trim()).length > 0 && (
             <div style={{ marginTop: 12 }}>
               <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}>⚡ 行動リスト</p>
-              {current.actions.filter((a) => a.text?.trim()).map((a, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0" }}>
-                  <span style={{ fontSize: 16 }}>{a.done ? "✅" : "⬜"}</span>
-                  <div>
-                    <p style={{ fontSize: 13, color: a.done ? "#9a8e7a" : "#4a4036", textDecoration: a.done ? "line-through" : "none" }}>{a.text}</p>
-                    {a.deadline && <p style={{ fontSize: 10, color: "#b5aa96" }}>📅 {a.deadline}</p>}
+              {/* その場で完了できる（読み取り専用だと行動タブへの往復を強制する）。
+                  filter だと index がズレるので生 index で回す。 */}
+              {current.actions.map((a, i) => (a.text?.trim() ? (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => { haptic.light(); toggleAction(current.id, i); }}
+                  aria-label={a.done ? `「${a.text}」を未完了に戻す` : `「${a.text}」を完了にする`}
+                  style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 44 }}
+                >
+                  <span style={{ fontSize: 16 }} aria-hidden="true">{a.done ? "✅" : "⬜"}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 13, color: a.done ? "#9a8e7a" : "#4a4036", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "break-word" }}>{a.text}</p>
+                    {a.deadline && <p style={{ fontSize: 10, color: "#b5aa96", margin: 0 }}>📅 {a.deadline}</p>}
                   </div>
-                </div>
-              ))}
+                </button>
+              ) : null))}
             </div>
           )}
 
           {current.roiSummary && <Card label={<><IcBulb size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />一番の収穫</>} text={current.roiSummary} bg="var(--c-soft)" />}
+
+          {/* 💡 読了直後の「一番の収穫」導線 — 感情のピークで 1 行の言語化を促す
+              （レバレッジ読書の核心。未記入のときだけ出る＝書けば消える）。 */}
+          {current.status === 'done' && !(current.roiSummary || '').trim() && (
+            <button
+              type="button"
+              onClick={() => openEdit(current)}
+              style={{
+                marginTop: 16, width: '100%', padding: '16px 18px', borderRadius: 16,
+                background: 'var(--c-brand)', color: 'var(--c-card)', border: 'none',
+                textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', gap: 12, minHeight: 44,
+                boxShadow: '0 6px 18px rgba(92,74,46,0.22)',
+              }}
+            >
+              <span aria-hidden="true" style={{ fontSize: 26, lineHeight: 1 }}>💡</span>
+              <span>
+                <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>一番の収穫を1行だけ残す</span>
+                <span style={{ display: 'block', fontSize: 12, opacity: 0.9, marginTop: 3, lineHeight: 1.5 }}>
+                  この本で得た価値を1行にすると、振り返りで確実に思い出せます
+                </span>
+              </span>
+            </button>
+          )}
 
           {/* Action buttons */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20 }}>
@@ -4955,7 +4991,9 @@ function AuthedApp() {
                     }
                     advanceStatus(current, nextStatus[current.status]);
                   }}
-                  style={{ ...btnS, width: "100%", background: st.color }}
+                  // 色は「遷移先」のステータス色（押すとどうなるかの予告）。
+                  // 現在色だと「✅ 読了にする」が読書中の青で出て予感が湧かない。
+                  style={{ ...btnS, width: "100%", background: getSt(nextStatus[current.status]).color }}
                 >
                   {nextLabel[current.status]}
                 </button>
@@ -4969,32 +5007,61 @@ function AuthedApp() {
                 </p>
               </>
             )}
-            <a
-              href={getAmazonLink(current)}
-              target="_blank"
-              rel={AMAZON_LINK_REL}
-              onClick={(e) => handleAmazonClick(e, getAmazonLink(current))}
-              aria-label={`Amazon で『${current.title}』を購入（外部リンク）`}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                width: "100%",
-                padding: "12px 16px",
-                background: "#FF9900",
-                color: "#000",
-                borderRadius: 10,
-                textDecoration: "none",
-                fontWeight: 600,
-                fontSize: 14,
-                fontFamily: "inherit",
-                minHeight: 44,
-                boxSizing: "border-box",
-              }}
-            >
-              📚 Amazon で買う
-            </a>
+            {/* 購入導線は「まだ買っていない可能性が高い」want / before だけ主役。
+                reading / done で全幅オレンジが最強の視覚要素になるのは、収穫・
+                行動が主役であるべき画面の佇まいを崩す（本田哲学）。 */}
+            {(current.status === 'want' || current.status === 'before') ? (
+              <a
+                href={getAmazonLink(current)}
+                target="_blank"
+                rel={AMAZON_LINK_REL}
+                onClick={(e) => handleAmazonClick(e, getAmazonLink(current))}
+                aria-label={`Amazon で『${current.title}』を購入（外部リンク）`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  width: "100%",
+                  padding: "12px 16px",
+                  background: "#FF9900",
+                  color: "#000",
+                  borderRadius: 10,
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  minHeight: 44,
+                  boxSizing: "border-box",
+                }}
+              >
+                📚 Amazon で買う
+              </a>
+            ) : (
+              <a
+                href={getAmazonLink(current)}
+                target="_blank"
+                rel={AMAZON_LINK_REL}
+                onClick={(e) => handleAmazonClick(e, getAmazonLink(current))}
+                aria-label={`Amazon で『${current.title}』を見る（外部リンク）`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  alignSelf: "center",
+                  padding: "10px 8px",
+                  minHeight: 44,
+                  background: "none",
+                  color: "var(--c-ink-3)",
+                  fontSize: 12,
+                  textDecoration: "underline",
+                  fontFamily: "inherit",
+                }}
+              >
+                Amazon で見る
+              </a>
+            )}
             <small style={{ fontSize: 10, color: "var(--c-ink-2)", lineHeight: 1.6, textAlign: "center" }}>
               {AMAZON_DISCLOSURE_TEXT}
             </small>
@@ -5072,6 +5139,8 @@ function AuthedApp() {
             onClose={() => setQuickMemoOpen(false)}
             onCreate={async (payload) => {
               await currentMemoOps.createMemo(payload);
+              // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
+              haptic.success();
               toast.success('メモを保存しました');
             }}
             onOpenFullEditor={(prefill) => {
@@ -5091,10 +5160,12 @@ function AuthedApp() {
             onClose={() => setFullEditorPrefill(null)}
             onCreate={async (payload) => {
               await currentMemoOps.createMemo(payload);
+              haptic.success();
               toast.success('メモを保存しました');
             }}
             onUpdate={async (memoId, payload) => {
               await currentMemoOps.updateMemo(memoId, payload);
+              haptic.success();
               toast.success('メモを更新しました');
             }}
           />

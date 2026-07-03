@@ -251,6 +251,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState(null);
   const [shareMemo, setShareMemo] = useState(null);
+  // 直近に追加したメモ id — 1.5 秒だけ .just-added グローを当てる。
+  const [justAddedId, setJustAddedId] = useState(null);
   // 「最初の気づきを残したあと、想起の体験へ繋ぐ」一度きりの控えめなヒント。
   // 新規ユーザーが"記録して終わり"でなく振り返り(想起)に辿り着けるよう、初メモ後に
   // 1回だけ出す。localStorage で既読管理し、二度は出さない(Apple Notes 級の控えめさ)。
@@ -373,6 +375,12 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     const result = await createMemo(payload);
     haptic.success();
     toast.success('メモを保存しました');
+    // 新着カードを 1.5 秒だけ淡くグロー（.just-added）— どこに入ったかを
+    // 無音で示す。timeout で必ず class を外す（forwards の透明が固定される為）。
+    if (result?.id) {
+      setJustAddedId(result.id);
+      setTimeout(() => setJustAddedId((cur) => (cur === result.id ? null : cur)), 1600);
+    }
     return result;
   };
 
@@ -547,6 +555,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           <BookMemoCard
             key={m.id}
             memo={m}
+            highlight={m.id === justAddedId}
             onEdit={openEdit}
             onCopy={handleCopy}
             onShare={handleShare}

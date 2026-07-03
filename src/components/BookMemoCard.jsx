@@ -21,14 +21,15 @@ const cardWrap = {
   containIntrinsicSize: 'auto 140px',
 };
 
+// ページ番号は「従」— 塗り+bold だと本文より先に視線が落ちる（階層の逆転）。
+// 控えめなインラインラベルに落とし、本文を主役に保つ。
 const pageBadge = {
   alignSelf: 'flex-start',
-  fontSize: 11,
-  padding: '2px 8px',
-  borderRadius: 8,
-  background: 'var(--c-soft-2)',
-  color: 'var(--c-ink-2)',
-  fontWeight: 600,
+  fontSize: 'var(--type-meta)',
+  padding: 0,
+  background: 'none',
+  color: 'var(--c-ink-3)',
+  fontWeight: 500,
 };
 
 const tagPill = {
@@ -94,7 +95,7 @@ function formatDate(iso) {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, onMakeAction, onSwipeDelete, onLongPress }) {
+export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare, onDelete, onMakeAction, onSwipeDelete, onLongPress }) {
   const cache = useAppDataCache();
   // Synchronous cache hit → render the image immediately on first paint.
   const initialUrl = memo.photoPath ? cache.getCachedPhotoUrl(memo.photoPath) : null;
@@ -176,6 +177,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
   const cardInner = (
     <div
       style={cardWrap}
+      className={highlight ? 'just-added' : undefined}
       role="article"
       aria-label={cardAria}
       {...(onLongPress ? longPress.bind : {})}
@@ -191,6 +193,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
           });
           setMenuOpen((v) => !v);
         }}
+        className="icon-btn"
         style={{ ...kebabBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         aria-label="メニューを開く"
       >
@@ -319,7 +322,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
         <p
           style={{
             fontSize: 13,
-            color: '#4a4036',
+            color: 'var(--c-ink)',
             // 長文ほど行間をわずかに広げて可読性を上げる（短文は詰めすぎない）
             lineHeight: isLongBody ? 1.85 : 1.7,
             whiteSpace: 'pre-wrap',
@@ -347,7 +350,7 @@ export default function BookMemoCard({ memo, onEdit, onCopy, onShare, onDelete, 
       )}
 
       <p
-        style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: 0 }}
+        style={{ fontSize: 10, color: 'var(--c-ink-3)', margin: 0 }}
         aria-label={`作成日 ${formatDate(memo.createdAt)}`}
       >
         {formatDate(memo.createdAt)}
