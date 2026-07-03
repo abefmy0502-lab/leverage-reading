@@ -145,7 +145,8 @@ export default function FeedbackForm({ onClose }) {
   // Close on ESC for desktop users.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape' && !busy) onClose?.();
+      // IME 変換中の Esc はガード（変換キャンセルでシートごと閉じない）。
+      if (e.key === 'Escape' && !busy && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

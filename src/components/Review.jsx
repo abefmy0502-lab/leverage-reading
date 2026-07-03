@@ -606,6 +606,12 @@ export default function Review({ books = [], onOpenBook, onAddAction }) {
           y={memoMenu.y}
           onClose={() => setMemoMenu(null)}
           items={[
+            // 🎯 読む→メモる→行動する、の変換点をどの一覧（タイムライン /
+            // 検索結果）からでも 1 タップに。ランダム想起カード限定だった
+            // handleMemoToAction を長押しメニューにも露出する。
+            ...(memoMenu.book && onAddAction
+              ? [{ label: '行動にする', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMemoToAction(memoMenu.memo) }]
+              : []),
             ...(memoMenu.book
               ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book) }]
               : []),

@@ -63,6 +63,23 @@ function getStripe() {
   return stripeClient;
 }
 
+// service_role キーで作る Supabase クライアント（api/stripe-webhook.js と同一流儀）。
+// ⚠️ subscriptions テーブルは RLS で「SELECT は本人のみ」— サーバーの素の anon
+// クライアントはユーザーの JWT を運ばないため auth.uid() が null になり SELECT が
+// 常に 0 行を返す。その結果 (a) 既存 customer の再利用が効かず毎回新規 customer が
+// 作られ、(b) 既契約チェックが素通りして二重サブスクリプションが成立していた。
+let serviceClient = null;
+function getServiceSupabase() {
+  if (serviceClient) return serviceClient;
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+  serviceClient = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return serviceClient;
+}
+
 function getBearerToken(req) {
   const raw = req.headers?.authorization || req.headers?.Authorization || '';
   if (typeof raw !== 'string') return null;
@@ -172,17 +189,53 @@ export default async function handler(req, res) {
 
   try {
     // 既に Stripe customer がある場合は再利用して重複顧客を防ぐ。
-    // 行が無い / テーブル未適用でも checkout は成立させたいので best-effort。
+    // 読み取りは service_role（RLS バイパス）。行が無い / テーブル未適用 /
+    // service_role 未設定でも checkout は成立させたいので best-effort。
     let existingCustomerId = null;
+    let existingStatus = null;
     try {
-      const { data: subRow } = await supabase
+      const dbClient = getServiceSupabase() || supabase;
+      const { data: subRow } = await dbClient
         .from('subscriptions')
-        .select('stripe_customer_id')
+        .select('stripe_customer_id, status')
         .eq('user_id', user.id)
         .maybeSingle();
       if (subRow?.stripe_customer_id) existingCustomerId = subRow.stripe_customer_id;
+      if (subRow?.status) existingStatus = subRow.status;
     } catch {
       // subscriptions テーブル未適用などは無視して新規 customer 扱いにする。
+    }
+
+    // 🛡 二重課金ガード①: DB 上で既に有効な購読（active / trialing / past_due）
+    // があるのに再度 checkout すると、同一ユーザーに 2 本目のサブスクリプションが
+    // 成立して二重請求になる。409 で止め、クライアントは Portal（プラン管理）へ
+    // 誘導する。
+    if (['active', 'trialing', 'past_due'].includes(existingStatus)) {
+      return res.status(409).json({
+        error: { message: 'すでに有効なプランをご契約中です。プランの変更・確認は「プラン管理」から行えます。' },
+        error_code: 'already_subscribed',
+      });
+    }
+
+    // 🛡 二重課金ガード②: DB が canceled / 行無しでも、Webhook 遅延・未達で
+    // Stripe 側には生きた購読が残っている可能性がある。customer が分かる場合は
+    // Stripe を直接確認する（best-effort — 失敗しても checkout は通す）。
+    if (existingCustomerId) {
+      try {
+        const live = await stripe.subscriptions.list({
+          customer: existingCustomerId,
+          status: 'active',
+          limit: 1,
+        });
+        if (live?.data?.length > 0) {
+          return res.status(409).json({
+            error: { message: 'すでに有効なプランをご契約中です。プランの変更・確認は「プラン管理」から行えます。' },
+            error_code: 'already_subscribed',
+          });
+        }
+      } catch (e) {
+        console.warn('[stripe-checkout] live subscription check failed (proceeding):', e?.message);
+      }
     }
 
     const params = {

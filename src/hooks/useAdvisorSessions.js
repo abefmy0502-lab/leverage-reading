@@ -12,17 +12,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
+import { isSchemaError } from '../lib/errors';
 
 // 「テーブルが無い」「列が無い」を検知するゆるい判定。
+// 実体は lib/errors.js の isSchemaError（判定条件の唯一の真実）に委譲。
+// 名前だけこのファイルの語彙（missing relation = 未マイグレーション）を維持。
 function isMissingRelation(error) {
-  if (!error) return false;
-  const msg = String(error.message || '').toLowerCase();
-  // Postgres 42P01 = undefined_table, 42703 = undefined_column
-  return msg.includes('does not exist')
-    || msg.includes('relation')
-    || msg.includes('schema cache')
-    || error.code === '42P01'
-    || error.code === '42703';
+  return isSchemaError(error);
 }
 
 export function useAdvisorSessions() {

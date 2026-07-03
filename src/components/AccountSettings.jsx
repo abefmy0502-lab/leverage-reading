@@ -16,7 +16,7 @@ import { LIMITS } from '../lib/limits';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { toMessage } from '../lib/errors';
+import { toMessage, isSchemaError } from '../lib/errors';
 import FeedbackForm from './FeedbackForm';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
@@ -425,7 +425,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const onKey = (e) => {
       // フィードバックシートが開いている間は、Escape はシート側に任せる
       // （ここで拾うと設定モーダルごと閉じ、送信中の入力が失われる）。
-      if (e.key === 'Escape' && !feedbackOpen) onClose?.();
+      // IME 変換中の Esc はガード（変換キャンセルで設定ごと閉じない）。
+      if (e.key === 'Escape' && !feedbackOpen && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -487,15 +488,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     if (!ok) return;
 
     setResetting(true);
-    const isSchemaError = (err) => {
-      const msg = String(err?.message || err || '').toLowerCase();
-      const code = String(err?.code || '');
-      return (
-        code === '42P01' || code === '42703'
-        || msg.includes('does not exist') || msg.includes('could not find')
-        || msg.includes('schema cache') || msg.includes('relation') || msg.includes('column')
-      );
-    };
+    // schema-error（テーブル/列が存在しない）判定は lib/errors.js の isSchemaError
+    //（唯一の真実）を使う。未適用 DB（移行 SQL 未実行）でも初期化を止めないため、
+    // これらは失敗扱いせずスキップする。
     const dbErrors = [];
     const deleteOwn = async (table) => {
       try {
@@ -567,22 +562,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     // schema-error は未適用 DB 互換のため握りつぶしてスキップする。
     const dbErrors = [];
 
-    // schema-error（テーブル/列が存在しない）を判定して許容するためのヘルパー。
-    // 未適用 DB（移行 SQL 未実行）でも退会を止めないために、これらは失敗扱いしない。
-    const isSchemaError = (err) => {
-      const msg = String(err?.message || err || '').toLowerCase();
-      const code = String(err?.code || '');
-      return (
-        code === '42P01'        // undefined_table
-        || code === '42703'     // undefined_column
-        || msg.includes('does not exist')
-        || msg.includes('could not find')
-        || msg.includes('schema cache')
-        || msg.includes('relation')
-        || msg.includes('column')
-      );
-    };
-
+    // schema-error（テーブル/列が存在しない）の判定は lib/errors.js の isSchemaError
+    //（唯一の真実）を使う。未適用 DB（移行 SQL 未実行）でも退会を止めないために、
+    // これらは失敗扱いしない。
     // 1 テーブルを削除し、本当の失敗のみ dbErrors に積む（schema-error はスキップ）。
     const deleteOwn = async (table) => {
       try {
@@ -653,7 +635,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           notes: warnParts.length > 0 ? warnParts.join(' | ') : null,
         },
       ]);
-      if (reqError) {
+      // 23505 (unique violation) = 既に同一ユーザーの削除リクエストが登録済み
+      // （supabase_account_deletion_hardening.sql の UNIQUE(user_id)）。前回の
+      // リクエスト後に再ログインして再度削除を押したケースで、リクエスト自体は
+      // 有効に存在するので「失敗」ではなく成功として先へ進める。
+      if (reqError && reqError.code !== '23505') {
         console.error('account_deletion_requests insert failed:', reqError);
         toast.error('削除リクエストの登録に失敗しました。お手数ですがサポートにご連絡ください。');
         return;

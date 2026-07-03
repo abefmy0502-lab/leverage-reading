@@ -197,7 +197,22 @@ export default async function handler(req, res) {
 
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
-        const sub = event.data.object;
+        let sub = event.data.object;
+        // 🛡 配信順序逆転ガード: event.id の重複排除では「別イベントが順序前後で
+        // 届く」ケースは防げない。遅延した updated（status:'active' のスナップ
+        // ショット）が deleted の後に届くと、解約済みユーザーの entitlement が
+        // 復活してしまう。ペイロードのスナップショットを信用せず、Stripe から
+        // 現在状態を取り直して upsert する（checkout.session.completed が既に
+        // やっているパターンの横展開）。解約済み subscription も retrieve 可能で
+        // status:'canceled' が返る。取得失敗時はペイロードで続行（fail-open、
+        // 従来挙動と同じ）。
+        try {
+          sub = await stripe.subscriptions.retrieve(sub.id);
+        } catch (e) {
+          console.warn(
+            `[stripe-webhook] subscription retrieve failed (using event payload): ${e?.message}`,
+          );
+        }
         const customerId =
           typeof sub.customer === 'string' ? sub.customer : sub.customer?.id || null;
         const userId = await resolveUserId(supabase, {

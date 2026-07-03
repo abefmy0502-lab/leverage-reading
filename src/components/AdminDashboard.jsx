@@ -327,7 +327,8 @@ export default function AdminDashboard({ onClose }) {
 
   useEffect(() => { load(days); }, [load, days]);
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    // IME 変換中の Esc はガード（変換キャンセルで参謀チャットの下書きを失わない）。
+    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);

@@ -47,6 +47,51 @@ function looksLikeSafeUserMessage(text) {
   return true;
 }
 
+// 💾 「マイグレーション未適用」(schema error) 判定 — 唯一の真実。
+//
+// このアプリは全 supabase_*.sql マイグレーションを「未適用 DB でも壊れない」
+// 前提（graceful degradation）で設計している。その要になるのが「このエラーは
+// テーブル/列/リレーションが無いという意味か？」の判定だが、以前は各フック・
+// コンポーネントが微妙に違うコード/文字列の組み合わせを独自に持っていて、
+// 判定が漏れた箇所だけ縮退が破れる事故が起きうる（例: useSubscription で漏れる
+// と課金済みユーザーに誤ってペイウォールが出る）。そこで判定条件の「和集合」を
+// ここに一極集中し、各所はこの関数（または薄いラッパー）を呼ぶ。
+// 新しいコード/文字列パターンを見つけたら、必ずここに足すこと。
+//
+// 判定対象:
+//   - Postgres:  42P01 (undefined_table) / 42703 (undefined_column)
+//   - PostgREST: PGRST200 (relationship not found) / PGRST204 (column not
+//     found in schema cache) / PGRST205 (table not found in schema cache)
+//   - 防御的な文字列マッチ（コードが落ちている・fetch 経由で文字列化された
+//     エラーに備える）: 'not exist'（'does not exist' を包含）/ 'schema cache'
+//     / 'could not find'（PGRST20x の英文）/ 'column' / 'relation'
+//     （'relationship' を包含）
+//
+// ⚠️ 文字列マッチは意図的に広い。呼び出し側は「schema error → 縮退/スキップ、
+// それ以外 → throw/記録」という fail 方向を持っているので、この関数を使う時は
+// その方向を変えないこと（広げる分には縮退が増えるだけで安全、狭めるのは事故）。
+export function isSchemaError(err) {
+  if (!err) return false;
+  // `throw error.message` のように文字列で投げられた事故にも備える。
+  const msg = (typeof err === 'string'
+    ? err
+    : String(err.message || err.error_description || err.error || '')
+  ).toLowerCase();
+  const code = typeof err === 'string' ? '' : String(err.code || err.error_code || '');
+  return (
+    code === '42P01' ||
+    code === '42703' ||
+    code === 'PGRST200' ||
+    code === 'PGRST204' ||
+    code === 'PGRST205' ||
+    msg.includes('not exist') ||
+    msg.includes('schema cache') ||
+    msg.includes('could not find') ||
+    msg.includes('column') ||
+    msg.includes('relation')
+  );
+}
+
 export function toMessage(err, fallback = '予期せぬエラーが発生しました。') {
   if (!err) return fallback;
   // 文字列で渡されたものは「呼び出し側が意図的に渡した人間語」とみなして
@@ -169,16 +214,11 @@ export function toMessage(err, fallback = '予期せぬエラーが発生しま�
   if (code === '42501' || lower.includes('row-level security') || lower.includes('permission denied')) {
     return '🔒 この操作の権限がありません。再度ログインしてお試しください。';
   }
-  // スキーマ不一致 — マイグレーション未適用などで起きる「列/テーブルが存在しない」系
-  if (
-    code === '42P01' ||
-    code === '42703' ||
-    code === 'PGRST204' ||
-    lower.includes('does not exist') ||
-    (lower.includes('column') && lower.includes('not found')) ||
-    (lower.includes('relation') && lower.includes('not exist')) ||
-    lower.includes('schema cache')
-  ) {
+  // スキーマ不一致 — マイグレーション未適用などで起きる「列/テーブルが存在しない」系。
+  // 判定は isSchemaError に一極集中（上の定義参照）。文字列マッチが広いので、
+  // この分岐は 23502（null value in column ...）や 42501（permission denied）等の
+  // より具体的な分岐の「後」に置いたまま動かさないこと。
+  if (isSchemaError(err)) {
     return '💾 データの設定がまだ完了していません。お手数ですが運営までお問い合わせください。';
   }
 

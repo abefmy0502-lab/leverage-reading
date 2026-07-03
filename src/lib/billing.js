@@ -73,7 +73,9 @@ async function postJson(path, body) {
   }
 
   if (!res.ok) {
-    const msg = data?.error || `エラー (${res.status})`;
+    // error は文字列（従来）と { message } オブジェクト（already_subscribed 等の
+    // 構造化エラー）の両形式がある。message を優先して人間向け文言を取り出す。
+    const msg = data?.error?.message || data?.error || `エラー (${res.status})`;
     throw new Error(typeof msg === 'string' ? msg : 'エラーが発生しました。');
   }
   return data || {};

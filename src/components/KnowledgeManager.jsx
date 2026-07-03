@@ -38,7 +38,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { toMessage } from '../lib/errors';
+import { toMessage, isSchemaError } from '../lib/errors';
 import imageCompression from 'browser-image-compression';
 import { LIMITS, validateImageFile, ALLOWED_IMAGE_EXT } from '../lib/limits';
 import BookMemoEditor from './BookMemoEditor';
@@ -127,7 +127,8 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      // IME 変換中の Esc はガード（変換キャンセルで編集モーダルごと閉じない）。
+      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -261,7 +262,7 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
 // ============================================================================
 // Main component
 // ============================================================================
-export default function KnowledgeManager({ onChanged }) {
+export default function KnowledgeManager({ onChanged, onBooksMutated }) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -281,6 +282,15 @@ export default function KnowledgeManager({ onChanged }) {
   const refresh = () => {
     setRefreshTick((t) => t + 1);
     onChanged?.();
+  };
+
+  // books テーブルの列（まとめメモ / 投資目的 / AI まとめ等）を Supabase 直
+  // UPDATE した後に呼ぶ。⚠️ ここで App 側（useBooks）の books state を再同期
+  // しないと、以降ユーザーがその本に対して行う任意の saveBook（ステータス変更・
+  // 行動トグル等）が stale な旧値で全列上書きし、ここで行った編集・クリアが
+  // 黙って巻き戻る。fire-and-forget（失敗しても本画面の操作は成立している）。
+  const notifyBooksMutated = () => {
+    try { onBooksMutated?.(); } catch { /* non-critical */ }
   };
 
   useEffect(() => {
@@ -307,8 +317,9 @@ export default function KnowledgeManager({ onChanged }) {
           // eslint-disable-next-line no-await-in-loop
           const r = await supabase.from('books').select(sel).eq('user_id', user.id);
           if (!r.error) return r.data || [];
-          const msg = String(r.error?.message || '').toLowerCase();
-          if (!msg.includes('does not exist') && !msg.includes('column')) return [];
+          // 列が無い schema エラーなら次の stage に縮退。それ以外（権限など）は
+          // 即座に空で諦める。判定は lib/errors.js の isSchemaError（唯一の真実）。
+          if (!isSchemaError(r.error)) return [];
         }
         return [];
       };
@@ -419,6 +430,7 @@ export default function KnowledgeManager({ onChanged }) {
           if (error) throw error;
           toast.success(`${meta.label} を更新しました`);
           refresh();
+          notifyBooksMutated();
         },
       });
       return;
@@ -574,6 +586,7 @@ export default function KnowledgeManager({ onChanged }) {
       .eq('user_id', user.id)
       .then(({ error }) => {
         if (error) throw error;
+        notifyBooksMutated();
       })
       .catch((e) => {
         clearFailed = true;
@@ -599,6 +612,7 @@ export default function KnowledgeManager({ onChanged }) {
           if (error) throw error;
           toast.info('クリアを取り消しました');
           refresh();
+          notifyBooksMutated();
         } catch (e) {
           toast.error(toMessage(e, '復元に失敗しました。'));
         }

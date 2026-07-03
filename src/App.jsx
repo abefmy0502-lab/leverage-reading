@@ -101,7 +101,7 @@ import { useSubscription } from './hooks/useSubscription';
 const Paywall = lazy(() => import('./components/Paywall'));
 import { useToast } from './components/Toast';
 import { useConfirm } from './components/ConfirmDialog';
-import { toMessage, fieldRequiredMessage } from './lib/errors';
+import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 import {
@@ -475,7 +475,9 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{ ...inp, width: 'auto', padding: '6px 8px', fontSize: 12 }}
+              // fontSize は inp の 16px を維持する（16px 未満のフォーム要素は
+              // iOS Safari がフォーカス時に画面全体を自動ズームさせる）。
+              style={{ ...inp, width: 'auto', padding: '6px 8px' }}
               aria-label="並び順"
             >
               <option value="relevance">関連度順</option>
@@ -1051,8 +1053,10 @@ function BeforePhase({
         </div>
       )}
 
-      {form.aiAnalysis && (
-        <>
+      {/* ⚠️ 投資目的〜読書計画は AI 解析の実行にゲートしない。AI を使わない /
+          月次上限 / オフラインのユーザーも、投資目的さえ書けば読書を開始できる
+          （「目的なき読書はしない」は投資目的の必須化で守る。AI は任意の補助）。 */}
+      <>
           <SectionHeader icon={<IcMap size={16} />} title="読書戦略の作成" />
           {/* AI 選書から構造化要約 / source_query を引き継ぎ済みなら、ユーザーが
               「あれ、なんで既に文字が入ってるの？」と戸惑わないように
@@ -1236,12 +1240,12 @@ function BeforePhase({
               </div>
             </div>
           )}
-        </>
-      )}
+      </>
 
-      {/* 読書計画が揃っていれば保存と同時に読書中へ自動遷移する。
-          handleSave 側で同じ条件 (form.investPurpose + aiAnalysis/Strategy)
-          を見て status='reading' に切替 + setView('detail') を行う。
+      {/* 投資目的が書けていれば保存と同時に読書中へ自動遷移する。
+          handleSave 側で同じ条件 (form.investPurpose) を見て status='reading'
+          に切替 + setView('detail') を行う。AI 解析/計画シートは任意の補助で、
+          自動遷移の条件には含めない（AI 不使用でも読書を始められる）。
           条件が揃っていない場合は通常の「保存」(その場で留まる)。 */}
       {(() => {
         // handleSave の自動遷移条件と一致させる（status='before' のみ）。
@@ -1249,8 +1253,7 @@ function BeforePhase({
         // 誤表示しない。
         const setupReady =
           form.status === 'before' &&
-          (form.investPurpose && form.investPurpose.trim()) &&
-          (form.aiAnalysis || form.aiStrategy);
+          (form.investPurpose && form.investPurpose.trim());
         return (
           <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 20 }}>
             {setupReady ? '💾 保存して読書を開始する' : '💾 保存'}
@@ -1270,7 +1273,7 @@ const clampPage = (v) => {
   return Math.min(n, 100000);
 };
 
-function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAnalysis, allTags, allFolders }) {
+function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAnalysis, onMakeAction, allTags, allFolders }) {
   // 📖 読書進捗（ページ管理）は撤去（本田哲学=「作業量の可視化」は成果ではない／
   // 進捗を見て満足する病を生む）。totalPages は書誌メタとして裏で保持するのみで
   // UI には出さない。データ列は dormant（復活は容易・既存値は保持）。
@@ -1301,6 +1304,7 @@ function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAnalysis,
           bookAuthor={form.author || ""}
           summaryText={form.leverageMemo || ""}
           onSaveSummary={onSaveSummary}
+          onMakeAction={onMakeAction}
         />
       </Field>
 
@@ -2756,6 +2760,11 @@ function AuthedApp() {
   // サブタブが状態に残っていても、入口を「振り返り＝行動 / AI＝AI選書」に
   // 必ずリセットしてから切り替える（タブを押すたびに起点が一定になる）。
   const navigateTab = (t) => {
+    // 既にアクティブなタブの再タップではサブタブをリセットしない —
+    // リセットするとサブ画面（🧠 マイ読書脳等）がアンマウントされ、
+    // 入力中の質問ドラフトが黙って消える。入口リセットは「別のタブから
+    // 切り替えてきた時」だけの仕事。
+    if (t === tab) return;
     if (t === 'review') setReviewSubTab('action');
     else if (t === 'ai') setAiSubTab('advisor');
     setTab(t);
@@ -2927,6 +2936,11 @@ function AuthedApp() {
   // ユーザー編集が巻き戻るため、保存直前の rebase に使う。
   const booksRef = useRef(rawBooks);
   useEffect(() => { booksRef.current = rawBooks; }, [rawBooks]);
+  // 非同期処理（saveBook の rollback / Undo 等）から「今ユーザーが開いている本」
+  // を stale クロージャ無しで判定するための ref。closure の current は数秒前の
+  // スナップショットであり、別の本へ移動済みのユーザーの画面を乗っ取る事故の元。
+  const currentRef = useRef(null);
+  useEffect(() => { currentRef.current = current; }, [current]);
 
   // 時刻に応じた挨拶 + 名前。1 時間ごとに再評価して開きっぱなしでも
   // スロットラベルがズレないようにする。達成バッジ系の演出は撤去。
@@ -3083,6 +3097,10 @@ function AuthedApp() {
   // search-first AddBookModal opens so they're nudged toward the path that
   // produces clean metadata for AI features.
   const openAdd = () => {
+    // AddBookModal は本棚（view==='list'）の return 枝でのみ描画される。
+    // detail / edit ビューからオンボーディング等で呼ばれた場合、view を
+    // 戻さないと「押しても何も起きない」袋小路になる（openAdvisor と同形）。
+    setView("list");
     setTab("books");
     setAddBookModalOpen(true);
   };
@@ -3482,15 +3500,17 @@ function AuthedApp() {
       }
 
       // 「保存して読書を開始する」相当の自動遷移条件:
-      //   既存本 + form.status='before' + 投資目的 + (AI 解析 or 戦略) が揃っている。
+      //   既存本 + form.status='before' + 投資目的 が揃っている。
+      // AI 解析/計画シートは任意の補助であり条件に含めない（AI 不使用・月次上限・
+      // オフラインのユーザーも読書を開始できる。「目的なき読書はしない」は
+      // 投資目的の必須化で守る）。
       // 保存時に payload.status='reading' に上書き + startDate=今日にする。
       // form.status を見ているのは: editPhaseOverride で BeforePhase を強制
       // 表示しているだけの reading/done 本は対象外にしたいため (既に読書中の
       // 本の読書計画を編集しても再度 reading に戻るのは無意味)。
       const isSetupCompletion = !!current
         && form.status === 'before'
-        && !!(form.investPurpose && form.investPurpose.trim())
-        && !!(form.aiAnalysis || form.aiStrategy);
+        && !!(form.investPurpose && form.investPurpose.trim());
 
       const payload = { ...form, tags: normalizedTags, cover: resolvedCover, coverIsbn: resolvedCoverIsbn };
       if (isSetupCompletion) {
@@ -3547,61 +3567,77 @@ function AuthedApp() {
 
   const handleSaveSummaryFromForm = async (text) => {
     if (!form?.id) return;
-    const merged = { ...form, leverageMemo: text };
-    // rollback 用に直前値を退避（advanceStatus と同じ楽観的 UI パターン）
+    const bookId = form.id;
+    // rollback 用に直前値を退避（advanceStatus と同じ楽観的 UI パターン）。
+    // form は編集画面の「作業コピー」（未保存の行動編集を含み得る）なので、
+    // ここでは books へ rebase せず form をそのまま保存する。ただし同一本への
+    // 並行保存（行動トグル等）と交錯しないよう直列化チェーンには乗せる。
     const prevForm = form;
     const prevCurrent = current;
-    try {
-      const saved = await saveBook(merged);
-      // saveBook は未接続時に throw せず null を返す。その場合 DB へ書けて
-      // いないので、ローカル state を新値で確定すると「保存できたのにリロード
-      // で巻き戻る」不整合になる。明示的に失敗として扱い rollback する。
-      if (!saved) throw new Error('まとめメモを保存できませんでした。');
-      const next = saved;
-      // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
-      // カード式の insert と粒度を揃えるため、空→記入の「新規作成」遷移だけ数える
-      // （既存まとめの編集再保存では二重計上しない）。
-      if (!(prevForm?.leverageMemo || '').trim() && (text || '').trim()) {
-        track('memo_added', { mode: 'summary' });
+    await enqueueBookMutation(bookId, async (entry) => {
+      const merged = { ...prevForm, leverageMemo: text };
+      try {
+        const saved = await saveBook(merged);
+        // saveBook は未接続時に throw せず null を返す。その場合 DB へ書けて
+        // いないので、ローカル state を新値で確定すると「保存できたのにリロード
+        // で巻き戻る」不整合になる。明示的に失敗として扱い rollback する。
+        if (!saved) throw new Error('まとめメモを保存できませんでした。');
+        entry.latest = saved;
+        const next = saved;
+        // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
+        // カード式の insert と粒度を揃えるため、空→記入の「新規作成」遷移だけ数える
+        // （既存まとめの編集再保存では二重計上しない）。
+        if (!(prevForm?.leverageMemo || '').trim() && (text || '').trim()) {
+          track('memo_added', { mode: 'summary' });
+        }
+        setForm((f) => (f && f.id === next.id ? { ...f, leverageMemo: next.leverageMemo ?? text } : f));
+        setCurrent((c) => (c && c.id === next.id ? next : c));
+      } catch (error) {
+        // 失敗時は leverageMemo だけ previous 値へ戻す（並行操作の結果は保持）。
+        setForm((f) => (f && f.id === bookId ? { ...f, leverageMemo: prevForm?.leverageMemo } : f));
+        setCurrent((c) => (c && c.id === bookId ? { ...c, leverageMemo: prevCurrent?.leverageMemo } : c));
+        const msg = toMessage(error, 'まとめメモの保存に失敗しました。');
+        toast.error(msg);
+        throw new Error(msg);
       }
-      setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
-      if (prevCurrent && prevCurrent.id === next.id) setCurrent(next);
-    } catch (error) {
-      // 失敗時は退避した previous 値へ戻す（新値を残さない）
-      setForm(prevForm);
-      if (prevCurrent && prevCurrent.id === prevForm.id) setCurrent(prevCurrent);
-      const msg = toMessage(error, 'まとめメモの保存に失敗しました。');
-      toast.error(msg);
-      throw new Error(msg);
-    }
+    });
   };
 
   const handleSaveSummaryFromCurrent = async (text) => {
     if (!current?.id) return;
-    const merged = { ...current, leverageMemo: text };
+    const bookId = current.id;
     // rollback 用に直前値を退避
     const prevCurrent = current;
     const prevForm = form;
-    try {
-      const saved = await saveBook(merged);
-      if (!saved) throw new Error('まとめメモを保存できませんでした。');
-      const next = saved;
-      // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
-      // カード式の insert と粒度を揃え、空→記入の「新規作成」遷移だけ数える。
-      if (!(prevCurrent?.leverageMemo || '').trim() && (text || '').trim()) {
-        track('memo_added', { mode: 'summary' });
+    await enqueueBookMutation(bookId, async (entry) => {
+      // ⚠️ current のスナップショットは古い可能性がある（詳細画面の行動トグルは
+      // 直列化チェーン側で確定していく）。saveBook は「渡した actions に無い行を
+      // DELETE」する差分同期なので、stale な current で全行保存するとトグル結果や
+      // 繰り返し spawn 行が黙って巻き戻る。チェーンの latest / books の最新行に
+      // rebase して leverageMemo だけ差し替える。
+      const base = entry.latest || booksRef.current.find((b) => b.id === bookId) || prevCurrent;
+      const merged = { ...base, leverageMemo: text };
+      try {
+        const saved = await saveBook(merged);
+        if (!saved) throw new Error('まとめメモを保存できませんでした。');
+        entry.latest = saved;
+        const next = saved;
+        // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
+        // カード式の insert と粒度を揃え、空→記入の「新規作成」遷移だけ数える。
+        if (!(prevCurrent?.leverageMemo || '').trim() && (text || '').trim()) {
+          track('memo_added', { mode: 'summary' });
+        }
+        setCurrent((c) => (c && c.id === next.id ? next : c));
+        setForm((f) => (f && f.id === next.id ? { ...f, leverageMemo: next.leverageMemo ?? text, actions: next.actions } : f));
+      } catch (error) {
+        // 失敗時は leverageMemo だけ previous 値へ戻す（並行操作の結果は保持）。
+        setCurrent((c) => (c && c.id === bookId ? { ...c, leverageMemo: prevCurrent?.leverageMemo } : c));
+        setForm((f) => (f && f.id === bookId ? { ...f, leverageMemo: prevForm?.leverageMemo } : f));
+        const msg = toMessage(error, 'まとめメモの保存に失敗しました。');
+        toast.error(msg);
+        throw new Error(msg);
       }
-      setCurrent(next);
-      if (prevForm && prevForm.id === next.id) {
-        setForm((f) => ({ ...f, leverageMemo: next.leverageMemo ?? text }));
-      }
-    } catch (error) {
-      setCurrent(prevCurrent);
-      if (prevForm && prevForm.id === prevCurrent.id) setForm(prevForm);
-      const msg = toMessage(error, 'まとめメモの保存に失敗しました。');
-      toast.error(msg);
-      throw new Error(msg);
-    }
+    });
   };
 
   // Inner delete flow: snapshot, fire delete, show Undo toast. Used by both
@@ -3850,45 +3886,70 @@ function AuthedApp() {
       startDate: fresh.startDate,
       doneDate: fresh.doneDate,
     };
-    const updated = { ...fresh, status: newStatus };
-    if (newStatus === "before" && !updated.startDate) updated.startDate = new Date().toISOString().slice(0, 10);
-    if (newStatus === "done" && !updated.doneDate) updated.doneDate = new Date().toISOString().slice(0, 10);
+    const patch = { status: newStatus };
+    if (newStatus === "before" && !fresh.startDate) patch.startDate = new Date().toISOString().slice(0, 10);
+    if (newStatus === "done" && !fresh.doneDate) patch.doneDate = new Date().toISOString().slice(0, 10);
+    const updated = { ...fresh, ...patch };
 
     // Optimistic update。読了・読書開始は「読む体験」の節目なので、編集フォームでは
     // なく本詳細に着地させる（読了の祝福・新バッジが自然な場所で出る／読書中はその場で
     // メモを始められる）。積読(before)は設計シートが主役なので従来どおり編集へ。
+    // books state（booksRef 経由の並行操作の読み取り元）にも即時反映する — ここを
+    // 更新しないと、保存ラウンドトリップ中の行動トグル等が旧ステータスを読み、
+    // その stale UPDATE がステータス変更を DB 上で巻き戻す。
     setCurrent(updated);
     setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
     setView((newStatus === 'done' || newStatus === 'reading') ? 'detail' : 'edit');
+    mutateBookLocal(book.id, (b) => ({ ...b, ...patch }));
 
-    // Persist in background; roll back on failure.
-    saveBook(updated)
-      .then((saved) => {
+    // Persist on the per-book serialization chain; roll back on failure.
+    // チェーン実行時点の最新行（並行トグルの結果込み）に status 系フィールド
+    // だけを載せて保存する — 全行スナップショット保存は他フィールドを巻き戻す。
+    enqueueBookMutation(book.id, async (entry) => {
+      const base = entry.latest || booksRef.current.find((b) => b.id === book.id) || updated;
+      const toSave = { ...base, ...patch };
+      try {
+        const saved = await saveBook(toSave);
+        entry.latest = saved || toSave;
         // 📊 ステータス遷移の計測（PII なし・to の enum だけ）。DB 保存が確定した
         // 時だけ数える（楽観更新→失敗 rollback の遷移を成功として二重計上しない）。
         if (saved && (newStatus === 'before' || newStatus === 'reading' || newStatus === 'done')) {
           track('status_changed', { to: newStatus });
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         toast.error(toMessage(error, 'ステータス変更に失敗しました。'));
-        const restored = { ...fresh, ...prev };
-        setCurrent(restored);
-        setForm({ ...emptyBook(), ...restored, tags: restored.tags || [], actions: restored.actions || [] });
-        setView("edit");
-      });
+        // rollback は status 系フィールドのみ（他の並行変更は保持）。画面遷移は
+        // ユーザーがこの本を開いたままの時だけ行う（別の本の編集画面を乗っ取らない）。
+        mutateBookLocal(book.id, (b) => ({ ...b, ...prev }));
+        entry.latest = null;
+        setCurrent((c) => (c && c.id === book.id ? { ...c, ...prev } : c));
+        setForm((f) => (f && f.id === book.id ? { ...f, ...prev } : f));
+        if (currentRef.current?.id === book.id) setView('edit');
+      }
+    });
 
     const labels = { want: '読みたい', before: '積読', reading: '読書中', done: '読了' };
     const revert = async () => {
-      const reverted = { ...fresh, ...prev };
-      setCurrent(reverted);
-      setForm({ ...emptyBook(), ...reverted, tags: reverted.tags || [], actions: reverted.actions || [] });
-      setView("edit");
-      try {
-        await saveBook(reverted);
-      } catch (error) {
-        toast.error(toMessage(error, 'ステータス変更の取り消しに失敗しました。'));
-      }
+      // Undo も直列化チェーンに乗せ、実行時点の最新行に rebase して status 系
+      // フィールドだけを prev に戻す。クリック時スナップショット（fresh）での
+      // 全行保存は、Undo トースト表示中（5〜6.5 秒）の行動トグルや繰り返し
+      // spawn 行を差分 DELETE で消してしまう。
+      await enqueueBookMutation(book.id, async (entry) => {
+        const base = entry.latest || booksRef.current.find((b) => b.id === book.id) || fresh;
+        const reverted = { ...base, ...prev };
+        // 画面の差し替えはユーザーがまだこの本を開いている時だけ（別の本の
+        // 編集中フォームを乗っ取ると isEditDirty 保護も壊れる）。
+        setCurrent((c) => (c && c.id === book.id ? reverted : c));
+        setForm((f) => (f && f.id === book.id ? { ...emptyBook(), ...reverted, tags: reverted.tags || [], actions: reverted.actions || [] } : f));
+        if (currentRef.current?.id === book.id) setView('edit');
+        mutateBookLocal(book.id, (b) => ({ ...b, ...prev }));
+        try {
+          const saved = await saveBook(reverted);
+          entry.latest = saved || reverted;
+        } catch (error) {
+          toast.error(toMessage(error, 'ステータス変更の取り消しに失敗しました。'));
+        }
+      });
     };
 
     const becomingDone = newStatus === 'done' && prev.status !== 'done';
@@ -4204,6 +4265,8 @@ function AuthedApp() {
   // null なら非表示。{ bookId, actionIdx, action } をセット。
   // ActionEditModal を開いている対象 — { bookId, actionIdx, action }
   const [editingAction, setEditingAction] = useState(null);
+  // 🎯 行動タブの「＋追加」フロー — null | 'pick'（本選択シート） | { bookId }（入力モーダル）
+  const [addActionSheet, setAddActionSheet] = useState(null);
   // 「表紙が違う?」モーダル — 詳細画面の表紙下リンクから開く。
   const [coverFixForBook, setCoverFixForBook] = useState(null);
 
@@ -4251,6 +4314,18 @@ function AuthedApp() {
       && !!a.done === !!target.done);
   };
 
+  // 詳細/編集画面のスナップショット（current / form）を最新の actions 配列に
+  // 同期する。books（mutateBookLocal / saveBook 後の確定値）だけ更新して
+  // current / form を置き去りにすると、(a) 詳細画面のチェック表示が動かない、
+  // (b) 後続の「まとめメモ保存」「読了にする」等が stale な actions で全行保存し、
+  // トグル結果や繰り返し spawn 行を差分 DELETE で黙って巻き戻す。
+  // addActionFromMemo で実証済みの同期パターンを全行動系操作に共通化したもの。
+  const syncActionSnapshots = (next) => {
+    if (!next?.id) return;
+    setCurrent((c) => (c && c.id === next.id ? { ...c, actions: next.actions } : c));
+    setForm((f) => (f && f.id === next.id ? { ...f, actions: next.actions } : f));
+  };
+
   const applyActionToggle = (bookId, actionIdx, options = {}) => {
     // 対象行の「身元」を今の books から掴んでおく（index は実行時に再解決）。
     const bookNow = booksRef.current.find((b) => b.id === bookId);
@@ -4294,7 +4369,15 @@ function AuthedApp() {
       const base = new Date(baseStr + 'T00:00:00');
       if (!Number.isNaN(base.getTime())) {
         if (updatedAct.recurrence === 'weekly') base.setDate(base.getDate() + 7);
-        else if (updatedAct.recurrence === 'monthly') base.setMonth(base.getMonth() + 1);
+        else if (updatedAct.recurrence === 'monthly') {
+          // ⚠️ 素の setMonth(+1) は日数オーバーフローする（1/31 → 3/3 で 2 月が
+          // 丸ごとスキップ）。月末アンカーは翌月の末日にクランプして守る。
+          const day = base.getDate();
+          base.setDate(1);
+          base.setMonth(base.getMonth() + 1);
+          const daysInNextMonth = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+          base.setDate(Math.min(day, daysInNextMonth));
+        }
         const nextDeadline = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`;
         // 表示開始日 (scheduled_for): deadline の N 日前
         const showFrom = new Date(base);
@@ -4330,10 +4413,14 @@ function AuthedApp() {
     // ActionList 側でも鳴らすと二重ブザーになるため、触覚はこの共通経路に集約する。
     haptic[becomingDone ? 'success' : 'light']();
     // 楽観的 UI: チェックを即時反映（従来は saveBook 完了まで 1-2 秒無反応だった）。
+    // current / form のスナップショットにも同時反映（詳細画面のチェック表示 +
+    // 後続保存の stale 上書き防止）。
     mutateBookLocal(bookId, () => updated);
+    syncActionSnapshots(updated);
     try {
       const saved = await saveBook(updated);
       chainEntry.latest = saved || updated;
+      syncActionSnapshots(saved || updated);
       if (becomingDone && updatedAct.recurrence) {
         const label = updatedAct.recurrence === 'weekly' ? '次週' : '翌月';
         toast.success(`完了 ✓ ${label}の予定を自動で組みました`);
@@ -4342,6 +4429,7 @@ function AuthedApp() {
       // rollback: 楽観反映を元に戻す。
       mutateBookLocal(bookId, () => book);
       chainEntry.latest = book;
+      syncActionSnapshots(book);
       toast.error(toMessage(error, '行動の更新に失敗しました。'));
     }
   };
@@ -4350,10 +4438,9 @@ function AuthedApp() {
   // 「→行動にする」で、メモ本文（とページ）を引いた行動を1タップで作る。
   // 「読んで終わりにしない＝行動に変える」中核ループを想起面でも閉じる。
   const addActionFromMemo = async (bookId, { text, sourceMemoId = null, sourcePage = null }) => {
-    const book = books.find((b) => b.id === bookId);
-    if (!book) return false;
     const body = (text || '').trim();
     if (!body) return false;
+    if (!booksRef.current.find((b) => b.id === bookId)) return false;
     const newAction = {
       text: body.slice(0, LIMITS.actionText || 500),
       deadline: '',
@@ -4362,16 +4449,59 @@ function AuthedApp() {
       sourceMemoId,
       sourcePage,
     };
-    const updated = { ...book, actions: [...(book.actions || []), newAction] };
     haptic.light();
     try {
-      const saved = await saveBook(updated);
-      // 開いている詳細/編集画面のスナップショットにも即反映する。
-      // ここで同期しないと、直後の「読了にする」等が stale な actions で
-      // saveBook し、いま追加した行動が差分 DELETE で消える。
-      const next = saved || updated;
-      setCurrent((c) => (c && c.id === next.id ? { ...c, actions: next.actions } : c));
-      setForm((f) => (f && f.id === next.id ? { ...f, actions: next.actions } : f));
+      // トグル/削除と同じ本ごとの直列化チェーンに乗せ、実行時点の最新行に
+      // rebase して追加する（並行保存との stale 上書きを防ぐ）。
+      await enqueueBookMutation(bookId, async (entry) => {
+        const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
+        if (!book) throw new Error('本が見つかりませんでした。');
+        const updated = { ...book, actions: [...(book.actions || []), newAction] };
+        const saved = await saveBook(updated);
+        const next = saved || updated;
+        entry.latest = next;
+        mutateBookLocal(bookId, () => next);
+        // 開いている詳細/編集画面のスナップショットにも即反映する。
+        // ここで同期しないと、直後の「読了にする」等が stale な actions で
+        // saveBook し、いま追加した行動が差分 DELETE で消える。
+        syncActionSnapshots(next);
+      });
+      return true;
+    } catch (error) {
+      toast.error(toMessage(error, '行動の追加に失敗しました。'));
+      return false;
+    }
+  };
+
+  // 🎯 行動タブの「＋追加」から、任意の本に行動を新規作成する。
+  // ActionEditModal(mode='create') の onSave から呼ばれる。addActionFromMemo と
+  // 同じ直列化チェーン + rebase + スナップショット同期の流儀。
+  const createActionForBook = async (bookId, payload) => {
+    const text = (payload?.text || '').trim();
+    if (!bookId || !text) return false;
+    const newAction = {
+      text: text.slice(0, LIMITS.actionText || 500),
+      deadline: payload.deadline || '',
+      done: false,
+      priority: payload.priority || 'medium',
+      recurrence: payload.recurrence || null,
+      reflection: '',
+      sourceMemoId: null,
+      sourcePage: null,
+    };
+    haptic.light();
+    try {
+      await enqueueBookMutation(bookId, async (entry) => {
+        const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
+        if (!book) throw new Error('本が見つかりませんでした。');
+        const updated = { ...book, actions: [...(book.actions || []), newAction] };
+        const saved = await saveBook(updated);
+        const next = saved || updated;
+        entry.latest = next;
+        mutateBookLocal(bookId, () => next);
+        syncActionSnapshots(next);
+      });
+      toast.success('🎯 行動を追加しました');
       return true;
     } catch (error) {
       toast.error(toMessage(error, '行動の追加に失敗しました。'));
@@ -4385,11 +4515,17 @@ function AuthedApp() {
   const persistBookLearning = async (text) => {
     const body = (text || '').trim();
     if (!form?.id || !body) return false;
+    const bookId = form.id;
     const clamped = clamp(body, LIMITS.memoText);
     setForm((f) => ({ ...f, aiSummary: clamped }));
-    const book = books.find((b) => b.id === form.id) || form;
+    // 直列化チェーンに乗せ、実行時点の最新行に rebase して aiSummary だけ
+    // 差し替える（stale スナップショットの全行保存は並行トグルを巻き戻す）。
     try {
-      await saveBook({ ...book, aiSummary: clamped });
+      await enqueueBookMutation(bookId, async (entry) => {
+        const base = entry.latest || booksRef.current.find((b) => b.id === bookId) || form;
+        const saved = await saveBook({ ...base, aiSummary: clamped });
+        if (saved) entry.latest = saved;
+      });
       return true;
     } catch (error) {
       toast.error(toMessage(error, '保存に失敗しました。'));
@@ -4436,13 +4572,16 @@ function AuthedApp() {
       acts.splice(idx, 1);
       const updated = { ...book, actions: acts };
       mutateBookLocal(bookId, () => updated);
+      syncActionSnapshots(updated);
       try {
         const saved = await saveBook(updated);
         entry.latest = saved || updated;
+        syncActionSnapshots(saved || updated);
         toast.success('行動を削除しました');
       } catch (error) {
         mutateBookLocal(bookId, () => book);
         entry.latest = book;
+        syncActionSnapshots(book);
         toast.error(toMessage(error, '行動の削除に失敗しました。'));
       }
     });
@@ -4707,8 +4846,10 @@ function AuthedApp() {
               - reading:   読書中の救済バナー（黄色 / warning ）。done は
                            今さら遡る価値が薄いので対象外。 */}
           {(() => {
-            const isIncomplete =
-              !current.investPurpose || !current.aiAnalysis || !current.aiStrategy;
+            // 「未完了」の基準は投資目的の有無のみ。AI 解析/計画シートは任意の
+            // 補助なので、AI を使わない選択をしたユーザーに永久バナーで
+            // 迫らない（目的なき読書をしない、が守られていれば十分）。
+            const isIncomplete = !(current.investPurpose || '').trim();
 
             if (current.status === 'before') {
               if (isIncomplete) {
@@ -5377,7 +5518,7 @@ function AuthedApp() {
                   />
                 )}
                 {effectivePhase === "reading" && current && (
-                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} onPersistAnalysis={persistBookLearning} allTags={allTags} allFolders={folderNames} />
+                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} onPersistAnalysis={persistBookLearning} onMakeAction={addActionFromMemo} allTags={allTags} allFolders={folderNames} />
                 )}
                 {effectivePhase === "done" && current && (
                   <DonePhase form={form} setForm={setForm} onSave={handleSave} onPersistAnalysis={persistBookLearning} allTags={allTags} allFolders={folderNames} />
@@ -5809,6 +5950,7 @@ function AuthedApp() {
                 onEditAction={(bookId, actionIdx, action) => setEditingAction({ bookId, actionIdx, action })}
                 onOpenBook={(b) => { openDetail(b); }}
                 onGoToBooks={() => setTab("books")}
+                onAddAction={() => setAddActionSheet('pick')}
               />
             )}
           </div>
@@ -5870,7 +6012,7 @@ function AuthedApp() {
                 </Suspense>
               ) : (
                 <Suspense fallback={<Spinner />}>
-                  <MyBookBrain onOpenBook={(b) => { openDetail(b); }} books={books} onAddAction={addActionFromMemo} />
+                  <MyBookBrain onOpenBook={(b) => { openDetail(b); }} books={books} onAddAction={addActionFromMemo} onBooksMutated={refreshBooks} />
                 </Suspense>
               )}
             </div>
@@ -5990,13 +6132,16 @@ function AuthedApp() {
               acts[idx] = { ...acts[idx], ...patch };
               const updated = { ...book, actions: acts };
               mutateBookLocal(bookId, () => updated);
+              syncActionSnapshots(updated);
               try {
                 const saved = await saveBook(updated);
                 entry.latest = saved || updated;
+                syncActionSnapshots(saved || updated);
                 toast.success('💾 行動を更新しました');
               } catch (error) {
                 mutateBookLocal(bookId, () => book);
                 entry.latest = book;
+                syncActionSnapshots(book);
                 toast.error(toMessage(error, '更新に失敗しました'));
               }
             });
@@ -6008,6 +6153,62 @@ function AuthedApp() {
             await deleteActionFromBook(bookId, actionIdx, { skipConfirm: true });
           }}
         />
+        </Suspense>
+      )}
+
+      {/* 🎯 行動タブ「＋追加」: ① どの本の行動かを選ぶ（読書中→読了→積読→読みたい順） */}
+      {addActionSheet === 'pick' && (
+        <BottomSheet title="どの本の行動にしますか？" onClose={() => setAddActionSheet(null)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {[...books]
+              .sort((a, b) => {
+                const rank = { reading: 0, done: 1, before: 2, want: 3 };
+                const ra = rank[a.status] ?? 4;
+                const rb = rank[b.status] ?? 4;
+                if (ra !== rb) return ra - rb;
+                return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
+              })
+              .map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setAddActionSheet({ bookId: b.id })}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    minHeight: 52, padding: '8px 10px', borderRadius: 10,
+                    border: '1px solid var(--c-hairline)', background: 'var(--c-card)',
+                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  }}
+                >
+                  {b.cover ? (
+                    <img src={ensureHttps(b.cover)} alt="" style={{ width: 26, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                  ) : (
+                    <span style={{ width: 26, height: 36, borderRadius: 4, background: 'var(--c-soft-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} aria-hidden="true">
+                      <IcBook size={14} />
+                    </span>
+                  )}
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                    <span style={{ display: 'block', fontSize: 11, color: 'var(--c-ink-2)' }}>{STATUS_LABEL[b.status] || b.status}</span>
+                  </span>
+                </button>
+              ))}
+          </div>
+        </BottomSheet>
+      )}
+
+      {/* 🎯 行動タブ「＋追加」: ② 行動の内容を入力（ActionEditModal を create モードで再利用） */}
+      {addActionSheet && addActionSheet !== 'pick' && addActionSheet.bookId && (
+        <Suspense fallback={<Spinner />}>
+          <ActionEditModal
+            mode="create"
+            action={null}
+            onClose={() => setAddActionSheet(null)}
+            onSave={async (patch) => {
+              const ok = await createActionForBook(addActionSheet.bookId, patch);
+              if (ok) setAddActionSheet(null);
+            }}
+          />
         </Suspense>
       )}
 
@@ -6240,21 +6441,13 @@ function shouldShowMarketingLanding() {
 //   そのままだとテーブル未適用環境で全員ロックされて詰む。
 //   そこで「テーブル未適用 = 判定不能」のときは fail-open（通す）に倒す。
 //   判定は useSubscription が返す error が schema-error かどうかで行う
-//   （error.code 42P01 / PGRST205 / "does not exist" 等）。
+//   （lib/errors.js の isSchemaError = マイグレーション未適用判定の唯一の真実）。
 //   通常運用（テーブルあり・未課金）では error=null なので、ちゃんとロックされる。
 //
 // ※ 将来 Capacitor（IAP）対応時は、ここで Capacitor.isNativePlatform() を見て
 //   native は別の entitlement ソース（RevenueCat 等）に切替える想定。今は Web 専用。
 function isSchemaUnappliedError(error) {
-  if (!error) return false;
-  const msg = String(error?.message || '').toLowerCase();
-  return (
-    msg.includes('does not exist') ||
-    msg.includes('not exist') ||
-    msg.includes('schema cache') ||
-    error?.code === '42P01' ||
-    error?.code === 'PGRST205'
-  );
+  return isSchemaError(error);
 }
 
 function PaywallGate() {

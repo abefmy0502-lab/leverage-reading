@@ -11,7 +11,7 @@ import { ensureHttps } from '../lib/url';
 import { track, EVENTS } from '../lib/analytics';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
-import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo, ArrowUp, Repeat, Link2, MessageSquareQuote, Check } from 'lucide-react';
+import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo, ArrowUp, Repeat, Link2, MessageSquareQuote, Check, Plus } from 'lucide-react';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
@@ -156,7 +156,7 @@ const SORTS = [
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
-export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook, onGoToBooks }) {
+export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction }) {
   const { allActions, stats } = useAllActions(books);
   const [filter, setFilter] = useState('open');
   const [sortBy, setSortBy] = useState('deadline');
@@ -241,15 +241,43 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
 
   return (
     <div style={wrap} onClick={closeMenu}>
-      {/* Page header */}
-      <div>
-        <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--c-ink)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Target size={18} strokeWidth={1.75} aria-hidden="true" />
-          本から決めた次の行動を管理
-        </h2>
-        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', marginTop: 2, lineHeight: 1.7 }}>
-          完了したらチェックを入れて、習慣化していきましょう
-        </p>
+      {/* Page header — 「＋追加」をこのタブの一等地に置く（「行動が全て」の
+          哲学に対し、追加動線が本詳細の編集画面の奥にしか無いのは自己矛盾）。 */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--c-ink)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Target size={18} strokeWidth={1.75} aria-hidden="true" />
+            本から決めた次の行動を管理
+          </h2>
+          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', marginTop: 2, lineHeight: 1.7 }}>
+            完了したらチェックを入れて、習慣化していきましょう
+          </p>
+        </div>
+        {onAddAction && (books || []).length > 0 && (
+          <button
+            type="button"
+            onClick={onAddAction}
+            style={{
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              minHeight: 44,
+              padding: '8px 14px',
+              borderRadius: 999,
+              border: 'none',
+              background: 'var(--c-brand)',
+              color: 'var(--c-card)',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            <Plus size={15} strokeWidth={2} aria-hidden="true" />
+            追加
+          </button>
+        )}
       </div>
 
       {/* Summary card — 期間ベース達成率 (今週 / 今月 / 全期間 で切替) +
@@ -391,8 +419,14 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
               本を横断してここに並びます。
             </>
           )}
-          actions={onGoToBooks ? [{ label: '本棚へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks }] : []}
-          tip="各本の詳細画面 →「行動リスト」から追加できます"
+          actions={[
+            // 本があれば「＋ 行動を追加」が最短の一歩。本がまだ無ければ本棚へ。
+            ...(onAddAction && (books || []).length > 0
+              ? [{ label: '＋ 行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction }]
+              : []),
+            ...(onGoToBooks ? [{ label: '本棚へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks }] : []),
+          ]}
+          tip="振り返りのメモカードの「→ 行動にする」からも追加できます"
         />
       ) : visible.length === 0 ? (
         filter === 'open' ? (

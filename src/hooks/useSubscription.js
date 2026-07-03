@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { isNative, hasActiveEntitlement } from '../lib/iap';
+import { isSchemaError } from '../lib/errors';
 
 // 💳 ログインユーザーの課金状態を取得するフック。
 //
@@ -16,18 +17,10 @@ import { isNative, hasActiveEntitlement } from '../lib/iap';
 // graceful fallback する（他の *_full.sql フォールバックと同じ流儀）。
 // その場合 isActive=false / subscription=null で静かに縮退する。
 
-// テーブルが存在しない等の「スキーマ未適用」エラーを判定する。
-function isSchemaError(error) {
-  const msg = String(error?.message || '').toLowerCase();
-  return (
-    msg.includes('does not exist') ||
-    msg.includes('not exist') ||
-    msg.includes('relation') ||
-    msg.includes('schema cache') ||
-    error?.code === '42P01' || // undefined_table
-    error?.code === 'PGRST205' // PostgREST: table not found in schema cache
-  );
-}
+// テーブルが存在しない等の「スキーマ未適用」エラー判定は lib/errors.js の
+// isSchemaError に一極集中（旧ローカル実装より広い和集合）。ここで判定が漏れる
+// と下の catch（一時障害扱い）に落ちて error が surface されるだけだが、逆に
+// 「schema error なのに拾えず縮退できない」事故を防ぐため共通判定を使う。
 
 // 🛟 最後に確認できた entitlement の端末キャッシュ（詰み防止・fail-open）。
 // 初回マウント時の SELECT がオフライン/一時障害で失敗すると last-known-good が

@@ -44,6 +44,24 @@ function getSupabase() {
   return supabaseClient;
 }
 
+// service_role キーで作る Supabase クライアント（api/stripe-webhook.js と同一流儀）。
+// ⚠️ subscriptions テーブルは RLS で「SELECT は本人のみ」— サーバーの素の anon
+// クライアントはユーザーの JWT を運ばないため auth.uid() が null になり、
+// SELECT が常に 0 行を返す（＝全有料ユーザーが「課金情報なし」の 404 になる）。
+// RLS をバイパスできる service_role で読むのが正解。api/claude.js の
+// checkEntitlement と同パターン。
+let serviceClient = null;
+function getServiceSupabase() {
+  if (serviceClient) return serviceClient;
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+  serviceClient = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return serviceClient;
+}
+
 let stripeClient = null;
 function getStripe() {
   if (stripeClient) return stripeClient;
@@ -119,7 +137,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { data: subRow, error: subErr } = await supabase
+    // subscriptions の読み取りは service_role で行う（RLS バイパス）。
+    // service_role 未設定環境では anon にフォールバック（RLS で 0 行 = 従来挙動）。
+    const dbClient = getServiceSupabase() || supabase;
+    const { data: subRow, error: subErr } = await dbClient
       .from('subscriptions')
       .select('stripe_customer_id')
       .eq('user_id', user.id)

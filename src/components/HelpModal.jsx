@@ -325,7 +325,8 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      // IME 変換中の Esc はガード（変換キャンセルで質問下書きを失わない）。
+      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

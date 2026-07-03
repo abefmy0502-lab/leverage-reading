@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { LIMITS, clamp } from '../lib/limits';
+import { isSchemaError } from '../lib/errors';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -40,9 +41,12 @@ const transformAction = (a) => ({
 // その場合は withCollections=false の素の select に段階縮退する。
 const BOOK_SELECT_FULL = '*, book_tags(tag_name), book_collections(collection_name), actions(*)';
 const BOOK_SELECT_BASE = '*, book_tags(tag_name), actions(*)';
+// 汎用の schema-error 判定は lib/errors.js の isSchemaError（唯一の真実）に委譲。
+// 加えて 'book_collections' の名指しも拾う — embed 失敗のエラー文言がテーブル名
+// しか含まないケースに備えた、この select 固有の保険。
 const isMissingRelationError = (err) => {
   const m = (err?.message || '').toLowerCase();
-  return m.includes('book_collections') || m.includes('does not exist') || m.includes('relationship') || err?.code === '42P01' || err?.code === 'PGRST200';
+  return isSchemaError(err) || m.includes('book_collections');
 };
 
 // source_memo_id は UUID 列。非 UUID（合成ノートの 'leverage_memo-...' 等）を弾く。

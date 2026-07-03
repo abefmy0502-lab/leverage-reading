@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { isSchemaError } from './errors';
 import { LIMITS, clamp } from './limits';
 import { streamClaude } from './streamClaude';
 import { PROMPTS } from './prompts';
@@ -375,8 +376,10 @@ async function fetchBooksStaged(userId) {
     if (!res.error) return res.data || [];
     lastErr = res.error;
     const msg = String(res.error?.message || '');
-    // 列が無いエラー以外 (権限など) は即時 throw
-    if (!msg.toLowerCase().includes('does not exist') && !msg.toLowerCase().includes('column')) {
+    // 列が無い schema エラー以外 (権限など) は即時 throw。
+    // 判定は lib/errors.js の isSchemaError（唯一の真実）に委譲 — schema エラー
+    // なら次の stage へ縮退し、全 stage 失敗なら最後に lastErr を throw する。
+    if (!isSchemaError(res.error)) {
       throw res.error;
     }
     // eslint-disable-next-line no-console

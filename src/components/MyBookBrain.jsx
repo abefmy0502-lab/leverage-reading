@@ -269,7 +269,7 @@ function LearningInline({ onCancel, onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated }) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -814,7 +814,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction }) {
       {/* Knowledge management view */}
       {view === 'knowledge' && (
         <div style={viewScroll}>
-          <KnowledgeManager onChanged={() => setStatsTick((t) => t + 1)} />
+          <KnowledgeManager onChanged={() => setStatsTick((t) => t + 1)} onBooksMutated={onBooksMutated} />
         </div>
       )}
 

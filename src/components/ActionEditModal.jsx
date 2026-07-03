@@ -130,7 +130,11 @@ const RECURRENCES = [
   { v: 'monthly', label: '毎月' },
 ];
 
-export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
+// mode: 'edit'（既定・従来挙動） | 'create'（行動タブの「＋行動を追加」用）。
+// create では削除ボタンと「振り返り」欄を出さない（まだやっていない行動に
+// 振り返りは書けない）。保存 payload の形は両モードで同一。
+export default function ActionEditModal({ action, onSave, onClose, onDelete, mode = 'edit' }) {
+  const isCreate = mode === 'create';
   const [text, setText] = useState(action?.text || '');
   const [deadline, setDeadline] = useState(action?.deadline || '');
   const [priority, setPriority] = useState(action?.priority || 'medium');
@@ -140,7 +144,9 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
   const confirm = useConfirm();
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    // IME 変換中の Esc（変換キャンセル）でモーダルごと閉じて下書きを失わない
+    // よう isComposing をガード（QuickMemoSheet と同パターン）。
+    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
@@ -189,7 +195,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}><Pencil size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />行動を編集</h2>
+          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}><Pencil size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />{isCreate ? '行動を追加' : '行動を編集'}</h2>
           <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
@@ -250,22 +256,25 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
             </select>
           </div>
 
-          <div>
-            <label style={labelStyle} htmlFor="ae-ref"><MessageSquareQuote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />振り返り (任意)</label>
-            <textarea
-              id="ae-ref"
-              value={reflection}
-              onChange={(e) => setReflection(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
-              placeholder="やってみてどうだったか (任意)"
-              rows={2}
-              style={taStyle}
-              maxLength={LIMITS.memoText}
-            />
-          </div>
+          {!isCreate && (
+            <div>
+              <label style={labelStyle} htmlFor="ae-ref"><MessageSquareQuote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />振り返り (任意)</label>
+              <textarea
+                id="ae-ref"
+                value={reflection}
+                onChange={(e) => setReflection(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
+                placeholder="やってみてどうだったか (任意)"
+                rows={2}
+                style={taStyle}
+                maxLength={LIMITS.memoText}
+              />
+            </div>
+          )}
         </div>
 
         <div style={footerStyle}>
+          {!isCreate && (
           <button
             type="button"
             onClick={handleDelete}
@@ -286,6 +295,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
           >
             <Trash2 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />削除
           </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -323,7 +333,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete }) {
               minHeight: 44,
             }}
           >
-            {busy ? '保存中…' : (<><Save size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />保存</>)}
+            {busy ? '保存中…' : (<><Save size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{isCreate ? '追加' : '保存'}</>)}
           </button>
         </div>
       </div>
