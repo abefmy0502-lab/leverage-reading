@@ -16,8 +16,12 @@
 function clean(s) {
   return (s || '').toString().trim().slice(0, 300);
 }
+// ISBN-10（末尾 X 可）/ ISBN-13 の形式のみ許可。形式外は空文字を返す
+// （不正な長さ・文字種の値が候補 URL 構築・外部フェッチ・レスポンスへ
+// そのまま流れ込むのを防ぐ）。
 function cleanIsbn(s) {
-  return (s || '').toString().replace(/[-\s]/g, '').trim();
+  const v = (s || '').toString().replace(/[-\s]/g, '').trim().slice(0, 20);
+  return /^(?:[0-9]{9}[0-9Xx]|[0-9]{13})$/.test(v) ? v.toUpperCase() : '';
 }
 function toHttps(u) {
   return u ? String(u).replace(/^http:/i, 'https:') : '';
@@ -258,18 +262,56 @@ async function coverFromIsbn(isbn) {
   return '';
 }
 
+// 未認証・公開エンドポイントのため userId が無い。呼び出し元 IP をキーにした
+// 簡易レート制限（api/stripe-checkout.js の checkRateLimit と同一流儀）。
+// 1 リクエストが NDL/openBD/Google への複数回の外部フェッチにつながるため、
+// 無制限だと外部 API クォータ枯渇・コスト増幅の踏み台にされうる。
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 30;
+const rateLimitStore = new Map();
+function checkRateLimit(key) {
+  const now = Date.now();
+  const arr = (rateLimitStore.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+  if (arr.length >= RATE_LIMIT_MAX) {
+    const retryAfter = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - arr[0])) / 1000));
+    return { ok: false, retryAfter };
+  }
+  arr.push(now);
+  rateLimitStore.set(key, arr);
+  return { ok: true };
+}
+function clientKey(req) {
+  const fwd = req.headers?.['x-forwarded-for'];
+  const ip = (typeof fwd === 'string' ? fwd.split(',')[0] : '') || req.socket?.remoteAddress || 'unknown';
+  return ip.trim();
+}
+
+const IS_PRODUCTION =
+  process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const rl = checkRateLimit(clientKey(req));
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter));
+    return res.status(429).json({ error: 'Too Many Requests', retry_after: rl.retryAfter });
+  }
+
   const title = clean(req.query?.title);
   const author = clean(req.query?.author);
   const isbnIn = cleanIsbn(req.query?.isbn);
   if (!title && !isbnIn) return res.status(400).json({ error: 'title or isbn required' });
 
-  // 🔎 デバッグ: ?debug=1 で各段階の生の結果を返す（原因切り分け用）。
-  if (req.query?.debug) {
+  // 🔎 デバッグ: ?debug=1 で各段階の生の結果を返す（原因切り分け用）。本番では
+  // 無効化する — 未認証で誰でも叩けるため、内部 URL / エラー文言 / API キーの
+  // 有無（hasKey）が露出し、かつ 1 リクエストで NDL/openBD/Google へ 7+ 回の
+  // 外部フェッチが連鎖する増幅経路になっていた。開発時の原因切り分け用途は
+  // 本番以外の環境（ローカル/プレビュー）でのみ有効。
+  if (req.query?.debug && !IS_PRODUCTION) {
     const dbg = { coreTitle: coreTitle(title), author, steps: {} };
     try {
       const params = [`title=${encodeURIComponent(coreTitle(title))}`];

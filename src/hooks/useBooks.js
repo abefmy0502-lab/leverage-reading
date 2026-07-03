@@ -452,7 +452,10 @@ export function useBooks() {
     try {
       const { error } = await supabase.from('books').delete().eq('id', bookId);
       if (error) throw error;
-      await fetchBooks();
+      // 全件再フェッチはしない（saveBook と同じ方針）。削除した 1 冊だけを
+      // ローカル state から取り除く — 全置換は余計な 1 往復に加え、並行して
+      // 楽観更新中の「別の本」の表示を一時的に巻き戻すちらつきの原因になる。
+      setBooks((prev) => prev.filter((b) => b.id !== bookId));
     } catch (error) {
       console.error('本の削除エラー:', error);
       throw error;

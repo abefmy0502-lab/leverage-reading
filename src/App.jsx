@@ -9,7 +9,7 @@ import AuthCallback from './components/auth/AuthCallback';
 import BookMemoList from './components/BookMemoList';
 import BookMemoEditor from './components/BookMemoEditor';
 import BookLearningAnalysis from './components/BookLearningAnalysis';
-import QuickMemoSheet from './components/QuickMemoSheet';
+const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from './styles/ui';
 import {
@@ -41,16 +41,16 @@ const bookshelfToolbarBadge = {
   minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999,
   background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 10, fontWeight: 700,
 };
-import HelpModal from './components/HelpModal';
+const HelpModal = lazy(() => import('./components/HelpModal'));
 const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
 const ThemeReport = lazy(() => import('./components/ThemeReport'));
 const AdvisorHistoryList = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
-import AdvisorAddConfirmModal from './components/AdvisorAddConfirmModal';
+const AdvisorAddConfirmModal = lazy(() => import('./components/AdvisorAddConfirmModal'));
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import ActionList from './components/ActionList';
-import ActionEditModal from './components/ActionEditModal';
+const ActionEditModal = lazy(() => import('./components/ActionEditModal'));
 import BottomSheet from './components/BottomSheet';
 const AddBookModal = lazy(() => import('./components/AddBookModal'));
 import { useBookCover } from './hooks/useBookCover';
@@ -1642,12 +1642,18 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 「掘り下げ」を依頼する。返り値: 質問配列（続行）/ [] （done = 締めて推薦へ）/
   // null（生成・解釈失敗 → 呼び出し側で fallback）。
   const runInterviewRound = async (c, priorAnswers, round) => {
-    const priorQA = (priorAnswers || []).map((x) => `Q. ${x.q}\nA. ${x.a}`).join('\n');
+    // c / x.a は呼び出し元（startInterview / answerQuestion）で既に
+    // sanitizeForPrompt+clamp 済みだが、AI プロンプトへ渡す直前でも二重に
+    // 適用しておく（呼び出し元の前提が将来崩れても壊れない防御的境界）。
+    const safeConcern = clamp(sanitizeForPrompt(c || ''), LIMITS.aiQuestion);
+    const priorQA = (priorAnswers || [])
+      .map((x) => `Q. ${clamp(sanitizeForPrompt(x.q || ''), LIMITS.aiQuestion)}\nA. ${clamp(sanitizeForPrompt(x.a || ''), 120)}`)
+      .join('\n');
     let text = '';
     try {
       text = await callClaude(
         PROMPTS.advisorInterview.system,
-        PROMPTS.advisorInterview.user({ concern: c, priorQA, round, maxRounds: MAX_INTERVIEW_ROUNDS }),
+        PROMPTS.advisorInterview.user({ concern: safeConcern, priorQA, round, maxRounds: MAX_INTERVIEW_ROUNDS }),
         { max_tokens: 700, temperature: 0.4, cacheSystem: true },
       );
     } catch {
@@ -1677,7 +1683,13 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     if (!userMsg || recoLoading) return;
     setRecoError(null);
     setRecoLoading(true);
-    const newHistory = [...chatHistory, { role: 'user', content: userMsg }];
+    // userMsg は複数の呼び出し元（proceedToRecommend / browseTheme /
+    // startInterview の fallback）から来るテンプレート済み文字列。個々の
+    // ユーザー入力片は呼び出し元で既に sanitize 済みだが、AI に渡す直前の
+    // 単一の境界としてもう一段 sanitize+clamp する（改行は保持されるので
+    // テンプレートの見出し構造は壊れない）。
+    const safeMsg = clamp(sanitizeForPrompt(userMsg), LIMITS.memoText);
+    const newHistory = [...chatHistory, { role: 'user', content: safeMsg }];
     setChatHistory(newHistory);
 
     let finalText = '';
@@ -1713,7 +1725,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         before: prose?.before || '',
         after: prose?.after || '',
       });
-      setLastUserQuery(sourceQuery || userMsg);
+      setLastUserQuery(sourceQuery || safeMsg);
       nextRecs = finalList;
     } else {
       // 推薦 JSON が取れなかった → 本文（マーカー/壊れた JSON は除去済み）を提示。
@@ -2550,12 +2562,14 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         </div>
       )}
       {confirmAdd && (
-        <AdvisorAddConfirmModal
-          original={confirmAdd.rec}
-          candidates={confirmAdd.candidates}
-          onConfirm={handleConfirmCandidate}
-          onCancel={handleConfirmCancel}
-        />
+        <Suspense fallback={<Spinner />}>
+          <AdvisorAddConfirmModal
+            original={confirmAdd.rec}
+            candidates={confirmAdd.candidates}
+            onConfirm={handleConfirmCandidate}
+            onCancel={handleConfirmCancel}
+          />
+        </Suspense>
       )}
     </div>
   );
@@ -5130,28 +5144,30 @@ function AuthedApp() {
         )}
 
         {quickMemoOpen && (current.status === "reading" || current.status === "done") && (
-          <QuickMemoSheet
-            bookTitle={current.title}
-            defaultPageNumber={
-              (() => {
-                const nums = (currentMemoOps.memos || [])
-                  .map((m) => m.pageNumber)
-                  .filter((n) => Number.isFinite(n));
-                return nums.length ? Math.max(...nums) + 1 : '';
-              })()
-            }
-            onClose={() => setQuickMemoOpen(false)}
-            onCreate={async (payload) => {
-              await currentMemoOps.createMemo(payload);
-              // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
-              haptic.success();
-              toast.success('メモを保存しました');
-            }}
-            onOpenFullEditor={(prefill) => {
-              setQuickMemoOpen(false);
-              setFullEditorPrefill(prefill);
-            }}
-          />
+          <Suspense fallback={<Spinner />}>
+            <QuickMemoSheet
+              bookTitle={current.title}
+              defaultPageNumber={
+                (() => {
+                  const nums = (currentMemoOps.memos || [])
+                    .map((m) => m.pageNumber)
+                    .filter((n) => Number.isFinite(n));
+                  return nums.length ? Math.max(...nums) + 1 : '';
+                })()
+              }
+              onClose={() => setQuickMemoOpen(false)}
+              onCreate={async (payload) => {
+                await currentMemoOps.createMemo(payload);
+                // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
+                haptic.success();
+                toast.success('メモを保存しました');
+              }}
+              onOpenFullEditor={(prefill) => {
+                setQuickMemoOpen(false);
+                setFullEditorPrefill(prefill);
+              }}
+            />
+          </Suspense>
         )}
 
         {fullEditorPrefill && (
@@ -5176,15 +5192,17 @@ function AuthedApp() {
         )}
 
         {helpModalOpen && (
-          <HelpModal
-            helpKey={getCurrentHelpKey()}
-            onClose={() => setHelpModalOpen(false)}
-            onShowOnboarding={() => {
-              setHelpModalOpen(false);
-              clearOnboardingCompletion();
-              setShowOnboarding(true);
-            }}
-          />
+          <Suspense fallback={<Spinner />}>
+            <HelpModal
+              helpKey={getCurrentHelpKey()}
+              onClose={() => setHelpModalOpen(false)}
+              onShowOnboarding={() => {
+                setHelpModalOpen(false);
+                clearOnboardingCompletion();
+                setShowOnboarding(true);
+              }}
+            />
+          </Suspense>
         )}
 
         {/* Onboarding must be mounted in every view, not just the list view —
@@ -5379,15 +5397,17 @@ function AuthedApp() {
           />
         </Modal>
         {helpModalOpen && (
-          <HelpModal
-            helpKey={getCurrentHelpKey()}
-            onClose={() => setHelpModalOpen(false)}
-            onShowOnboarding={() => {
-              setHelpModalOpen(false);
-              clearOnboardingCompletion();
-              setShowOnboarding(true);
-            }}
-          />
+          <Suspense fallback={<Spinner />}>
+            <HelpModal
+              helpKey={getCurrentHelpKey()}
+              onClose={() => setHelpModalOpen(false)}
+              onShowOnboarding={() => {
+                setHelpModalOpen(false);
+                clearOnboardingCompletion();
+                setShowOnboarding(true);
+              }}
+            />
+          </Suspense>
         )}
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
@@ -5950,6 +5970,7 @@ function AuthedApp() {
           完了はタップ即時、reflection は ActionEditModal から編集可能。 */}
 
       {editingAction && (
+        <Suspense fallback={<Spinner />}>
         <ActionEditModal
           action={editingAction.action}
           onClose={() => setEditingAction(null)}
@@ -5987,6 +6008,7 @@ function AuthedApp() {
             await deleteActionFromBook(bookId, actionIdx, { skipConfirm: true });
           }}
         />
+        </Suspense>
       )}
 
       {/* 本棚: 絞り込みシート（ステータス / ★高評価 / タグ） */}
@@ -6105,15 +6127,17 @@ function AuthedApp() {
       )}
 
       {helpModalOpen && (
-        <HelpModal
-          helpKey={getCurrentHelpKey()}
-          onClose={() => setHelpModalOpen(false)}
-          onShowOnboarding={() => {
-            setHelpModalOpen(false);
-            clearOnboardingCompletion();
-            setShowOnboarding(true);
-          }}
-        />
+        <Suspense fallback={<Spinner />}>
+          <HelpModal
+            helpKey={getCurrentHelpKey()}
+            onClose={() => setHelpModalOpen(false)}
+            onShowOnboarding={() => {
+              setHelpModalOpen(false);
+              clearOnboardingCompletion();
+              setShowOnboarding(true);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* 🙇 Easter egg: long-press the bookshelf logo. 季節演出 / マイル

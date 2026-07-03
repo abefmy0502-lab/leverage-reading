@@ -15,6 +15,23 @@
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
+// In-memory レート制限（per serverless instance）。api/stripe-checkout.js と
+// 同流儀（決済まわりのエンドポイントは揃えてガードする）。
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 6;
+const rateLimitStore = new Map();
+function checkRateLimit(userId) {
+  const now = Date.now();
+  const arr = (rateLimitStore.get(userId) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+  if (arr.length >= RATE_LIMIT_MAX) {
+    const retryAfter = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - arr[0])) / 1000));
+    return { ok: false, retryAfter };
+  }
+  arr.push(now);
+  rateLimitStore.set(userId, arr);
+  return { ok: true };
+}
+
 let supabaseClient = null;
 function getSupabase() {
   if (supabaseClient) return supabaseClient;
@@ -88,6 +105,13 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized: invalid token' });
   }
   const user = userData.user;
+
+  // レート制限（Portal セッション乱発による Stripe API 増幅の抑止）。
+  const rl = checkRateLimit(user.id);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter));
+    return res.status(429).json({ error: 'リクエストが多すぎます。少し時間をおいて再試行してください。' });
+  }
 
   const origin = getOrigin(req);
   if (!origin) {

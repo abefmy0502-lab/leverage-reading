@@ -978,13 +978,34 @@ export async function listThemes(userId) {
     .slice(0, 24);
 }
 
-// 🎯 行動の鏡用: テーマに紐づく actions を集めて 宣言/完了/放置 を数える。
+// 未適用 DB（actions に user_id 等が無い）や失敗時は declared:0 で静かに縮退。
+// actions の生の行だけを取得する（テーマでの絞り込みは呼び出し側の
+// gatherKnowledge(userId) の結果に依存するが、この fetch 自体は userId
+// だけで独立に走らせられる。buildThemeContext 側で gatherKnowledge と
+// Promise.all して同時に発射することで Supabase 往復を 1 回分減らす）。
+async function fetchUserActions(userId) {
+  if (!isSupabaseConfigured || !userId) return [];
+  try {
+    const { data, error } = await supabase
+      .from('actions')
+      .select('*')
+      .eq('user_id', userId);
+    if (error) {
+      console.warn('[leverage-memo] actions fetch skipped:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (e) {
+    console.warn('[leverage-memo] actions fetch threw:', e?.message);
+    return [];
+  }
+}
+
+// 🎯 行動の鏡用: テーマに紐づく actions（取得済みの生の行）から 宣言/完了/放置 を数える。
 //   matchedMemos からテーマの「本」と「メモ id」の手がかりを作り、
 //   action.book_id（本単位）/ source_memo_id（このメモ発の行動）/ 本文一致 で拾う。
-//   未適用 DB（actions に user_id 等が無い）や失敗時は declared:0 で静かに縮退。
-async function gatherThemeActions(userId, themeNorm, matchedMemos) {
+function summarizeThemeActions(rows, themeNorm, matchedMemos) {
   const empty = { declared: 0, completed: 0, idle: 0, blindSpot: false, openSteps: [] };
-  if (!isSupabaseConfigured || !userId) return empty;
 
   const themeBookIds = new Set(
     (matchedMemos || []).map((m) => m.book_id).filter((id) => id != null),
@@ -995,22 +1016,7 @@ async function gatherThemeActions(userId, themeNorm, matchedMemos) {
   const matchedMemoIds = new Set(
     (matchedMemos || []).map((m) => m.id).filter((id) => id != null),
   );
-
-  let rows;
-  try {
-    const { data, error } = await supabase
-      .from('actions')
-      .select('*')
-      .eq('user_id', userId);
-    if (error) {
-      console.warn('[leverage-memo] actions fetch skipped:', error.message);
-      return empty;
-    }
-    rows = data || [];
-  } catch (e) {
-    console.warn('[leverage-memo] actions fetch threw:', e?.message);
-    return empty;
-  }
+  if (!Array.isArray(rows)) return empty;
 
   const now = new Date();
   const matched = rows.filter((a) => {
@@ -1058,7 +1064,13 @@ async function buildThemeContext({ userId, theme, onStage }) {
   onStage?.('search');
   const themeNorm = normTheme(safeTheme);
 
-  const { all } = await gatherKnowledge(userId);
+  // gatherKnowledge（book_memos + books の RAG コンテキスト）と actions の生
+  // 取得は互いに独立（どちらも userId だけが入力）なので同時に発射する。
+  // actions 側の実際の絞り込み（matched メモへの依存）は両方揃ってから行う。
+  const knowledgePromise = gatherKnowledge(userId);
+  const actionsRowsPromise = fetchUserActions(userId);
+
+  const { all } = await knowledgePromise;
   const matched = all.filter((m) => memoMatchesTheme(m, themeNorm));
 
   const ranked = [...matched]
@@ -1070,7 +1082,7 @@ async function buildThemeContext({ userId, theme, onStage }) {
   // 🎯 行動の鏡: このテーマに紐づく行動（actions）の宣言/完了/放置を集計する。
   //   レバレッジ哲学=「学びは実践してこそ」。メモは多いのに行動0、が最大の盲点。
   //   matched メモの book_id / memo id を手がかりに、本単位 + 出所メモ + 本文一致で拾う。
-  const actionStats = await gatherThemeActions(userId, themeNorm, matched);
+  const actionStats = summarizeThemeActions(await actionsRowsPromise, themeNorm, matched);
   // 根拠の広がり（本の冊数）— scope 表示と前回比に使う。
   const bookCount = new Set(
     matched.map((m) => m.book_id).filter((id) => id != null),

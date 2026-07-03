@@ -32,8 +32,16 @@
 //   （または不明）なら canceled、と判定する。EXPIRATION は通常期限到来後に
 //   届くので大抵 canceled に落ちる。
 //
-// 冪等性: user_id を onConflict にした upsert なので、RevenueCat の再送
-//   （at-least-once 配信）でも壊れない。Stripe webhook と同一流儀。
+// 冪等性:
+//   - TRANSFER 以外は user_id を onConflict にした upsert なので、再送でも
+//     最終状態は変わらず壊れない。
+//   - TRANSFER だけは例外。「旧アカウントを canceled に書き換えてから、その
+//     行を読んで新アカウントへ引き継ぐ」という自己言及的な構造のため、再送
+//     されると 1 回目の書き込み結果を 2 回目の読み取りが拾ってしまい、引き継ぎ
+//     判定が狂いうる（有効な購読者が誤って canceled になりうる）。そのため
+//     event.id を supabase_revenuecat_events.sql のテーブルで claim し、
+//     二度目以降は処理せずスキップする（api/stripe-webhook.js と同一流儀）。
+//     テーブル未適用は fail-open（従来どおり処理・TRANSFER の再送耐性のみ無い）。
 //
 // 必要な環境変数:
 //   - REVENUECAT_WEBHOOK_AUTH    : RevenueCat ダッシュボードで設定する
@@ -151,11 +159,36 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Supabase service role not configured' });
   }
 
+  // event / eventId は catch 節（claim 解放）でも参照するため try の外で宣言する。
+  let eventId = null;
+  let eventClaimed = false;
   try {
     // RevenueCat のペイロードは { event: {...}, api_version: "1.0" } 形式。
     const body = req.body || {};
     const event = body.event || {};
     const type = event.type;
+    eventId = typeof event.id === 'string' && event.id ? event.id : null;
+
+    // 冪等性ガード: 処理済み event.id は二度処理しない。「先に claim → 失敗時は
+    // 解放（delete）」で 5xx 再送時の取りこぼしも防ぐ（api/stripe-webhook.js と
+    // 同一流儀）。event.id 欠落 / テーブル未適用（42P01）は fail-open。
+    if (eventId) {
+      try {
+        const { error: dedupErr } = await supabase
+          .from('revenuecat_events')
+          .insert({ event_id: eventId, type });
+        if (!dedupErr) {
+          eventClaimed = true;
+        } else if (dedupErr.code === '23505') {
+          // 既に処理済み → 静かにスキップ（200 で RevenueCat に再送させない）。
+          return res.status(200).json({ received: true, deduped: true });
+        } else {
+          console.warn('[revenuecat-webhook] dedup insert non-fatal (proceeding):', dedupErr.message);
+        }
+      } catch (e) {
+        console.warn('[revenuecat-webhook] dedup threw (proceeding):', e?.message);
+      }
+    }
 
     // TRANSFER: 同じ Apple ID の購入が別の app_user_id（別 Supabase アカウント）へ
     // 「購入を復元」で移った。無視すると (a) 旧アカウントが永久 active のまま残り
@@ -183,14 +216,15 @@ export default async function handler(req, res) {
           .sort((a, b) => String(b.current_period_end || '').localeCompare(String(a.current_period_end || '')))[0] || null;
       }
 
-      for (const uid of fromIds) {
+      // fromIds は独立した行の更新（互いの結果に依存しない）ので並列実行する。
+      await Promise.all(fromIds.map(async (uid) => {
         const { error } = await supabase
           .from('subscriptions')
           .update({ status: 'canceled' })
           .eq('user_id', uid)
           .eq('provider', 'revenuecat');
         if (error) throw error;
-      }
+      }));
 
       const expIso = toIsoFromMs(event.expiration_at_ms) || carry?.current_period_end || null;
       // 引き継げる根拠（旧行 or ペイロードの期限）が何も無ければ作らない。
@@ -198,7 +232,8 @@ export default async function handler(req, res) {
         // 期限が過去なら canceled として引き継ぐ（失効済み転送に active を配らない）。
         const stillValid = expIso ? Date.parse(expIso) > Date.now() : (carry?.status === 'active');
         const status = stillValid ? (carry?.status === 'past_due' ? 'past_due' : 'active') : 'canceled';
-        for (const uid of toIds) {
+        // toIds も独立した行の upsert なので並列実行する。
+        await Promise.all(toIds.map(async (uid) => {
           const { error } = await supabase
             .from('subscriptions')
             .upsert({
@@ -211,7 +246,7 @@ export default async function handler(req, res) {
               current_period_end: expIso,
             }, { onConflict: 'user_id' });
           if (error) throw error;
-        }
+        }));
       }
       return res.status(200).json({ received: true, transferred: { from: fromIds.length, to: toIds.length } });
     }
@@ -251,6 +286,13 @@ export default async function handler(req, res) {
     return res.status(200).json({ received: true });
   } catch (error) {
     console.error('RevenueCat webhook handler error:', error);
+    // 処理失敗 → claim を解放して、RevenueCat の再送（5xx 起因）で確実に
+    // 再処理できるようにする（api/stripe-webhook.js と同一流儀）。
+    if (eventClaimed && eventId) {
+      try {
+        await supabase.from('revenuecat_events').delete().eq('event_id', eventId);
+      } catch { /* 解放失敗は致命ではない（最悪その1イベントが再処理されない） */ }
+    }
     // 5xx を返すと RevenueCat が再送する。冪等な upsert なので再送は安全。
     return res.status(500).json({ error: 'Webhook handler failed' });
   }

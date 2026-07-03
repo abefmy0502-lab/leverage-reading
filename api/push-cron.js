@@ -149,36 +149,38 @@ const MIN_NOTES_TO_SEND = 3;
 // schema-fallback: 一部列が無くても落とさない。
 async function gatherUserNotes(supabase, userId, now) {
   const notes = [];
-  try {
-    const { data: memoRows } = await supabase
+  // book_memos と books は互いに独立したクエリ（同じ user_id で絞るだけ）なので
+  // 直列 await せず同時に発射する。
+  const [memoRes, bookRes] = await Promise.all([
+    supabase
       .from('book_memos')
       .select('id, text, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(500);
-    for (const m of memoRows || []) {
-      if (m && m.text && String(m.text).trim()) {
-        notes.push({ id: m.id, text: m.text, createdAt: m.created_at });
-      }
-    }
-  } catch { /* テーブル/列が無くても続行 */ }
-
-  try {
-    const { data: bookRows } = await supabase
+      .limit(500)
+      .then((r) => r, () => ({ data: null })), // テーブル/列が無くても続行
+    supabase
       .from('books')
       .select('id, leverage_memo, updated_at, created_at')
       .eq('user_id', userId)
-      .limit(500);
-    for (const b of bookRows || []) {
-      if (b && b.leverage_memo && String(b.leverage_memo).trim()) {
-        notes.push({
-          id: `summary-${b.id}`,
-          text: b.leverage_memo,
-          createdAt: b.updated_at || b.created_at,
-        });
-      }
+      .limit(500)
+      .then((r) => r, () => ({ data: null })),
+  ]);
+
+  for (const m of memoRes?.data || []) {
+    if (m && m.text && String(m.text).trim()) {
+      notes.push({ id: m.id, text: m.text, createdAt: m.created_at });
     }
-  } catch { /* 続行 */ }
+  }
+  for (const b of bookRes?.data || []) {
+    if (b && b.leverage_memo && String(b.leverage_memo).trim()) {
+      notes.push({
+        id: `summary-${b.id}`,
+        text: b.leverage_memo,
+        createdAt: b.updated_at || b.created_at,
+      });
+    }
+  }
 
   return notes;
 }
@@ -284,32 +286,38 @@ export default async function handler(req, res) {
   let sent = 0;
   let skipped = 0;
 
-  for (const sub of subs) {
+  // 1 件ずつ完全直列で処理すると、購読者数が数百〜数千に増えたとき
+  // Vercel の実行時間上限に対して線形に時間がかかり、後半の購読者が
+  // 静かに送信されないまま Cron が打ち切られる恐れがある。かといって
+  // 全件 Promise.all は push サービスへの同時接続数が無制限に跳ね上がる
+  // ため、PUSH_BATCH_SIZE 件ずつのバッチ並列に留める。
+  const PUSH_BATCH_SIZE = 15;
+
+  const processSub = async (sub) => {
     try {
-      if (sub.frequency === 'off') { skipped += 1; continue; }
+      if (sub.frequency === 'off') return 'skipped';
       // SSRF ガード: endpoint はクライアントが RLS upsert で自由に書ける。
       // service_role の cron が任意 URL に POST するのを防ぐため、既知の
       // プッシュサービスのホストにのみ送る（169.254.169.254 等への悪用を封じる）。
-      if (!isAllowedPushEndpoint(sub.endpoint)) { skipped += 1; continue; }
+      if (!isAllowedPushEndpoint(sub.endpoint)) return 'skipped';
       // 多重送信ガード: 直近 RESEND_GUARD_DAYS 日以内に送っていればスキップ。
       // 数値比較（パース失敗時は未送信扱いで送る側に倒す = fail-open）。
       if (sub.last_sent_at) {
         const lastMs = Date.parse(sub.last_sent_at);
-        if (!Number.isNaN(lastMs) && lastMs > resendCutoffMs) { skipped += 1; continue; }
+        if (!Number.isNaN(lastMs) && lastMs > resendCutoffMs) return 'skipped';
       }
 
       let notes = notesCache.get(sub.user_id);
       if (!notes) {
-        // eslint-disable-next-line no-await-in-loop
         notes = await gatherUserNotes(supabase, sub.user_id, now);
         notesCache.set(sub.user_id, notes);
       }
-      if (notes.length < MIN_NOTES_TO_SEND) { skipped += 1; continue; }
+      if (notes.length < MIN_NOTES_TO_SEND) return 'skipped';
 
       // seed は user_id + 当日でばらけさせる（端末間で同じメモ・日替わりで別メモ）。
       const seed = (hashStr(sub.user_id) + Math.floor(now / 86400000)) >>> 0;
       const memo = pickRecallMemo(notes, { now, seed });
-      if (!memo) { skipped += 1; continue; }
+      if (!memo) return 'skipped';
 
       const payload = JSON.stringify({
         title: `💭 ${recallFraming(memo.createdAt, now)}`,
@@ -319,18 +327,16 @@ export default async function handler(req, res) {
       });
 
       try {
-        // eslint-disable-next-line no-await-in-loop
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           payload,
         );
-        sent += 1;
         // last_sent_at を更新（fire-and-forget でよいが await で確実に）。
-        // eslint-disable-next-line no-await-in-loop
         await supabase
           .from('push_subscriptions')
           .update({ last_sent_at: nowIso })
           .eq('id', sub.id);
+        return 'sent';
       } catch (sendErr) {
         const status = sendErr && (sendErr.statusCode || sendErr.status);
         if (status === 404 || status === 410) {
@@ -339,10 +345,21 @@ export default async function handler(req, res) {
         } else {
           console.warn('[push-cron] send failed (kept):', status, sendErr?.message);
         }
+        return 'skipped';
       }
     } catch (loopErr) {
       console.warn('[push-cron] loop error (skipped):', loopErr?.message);
-      skipped += 1;
+      return 'skipped';
+    }
+  };
+
+  for (let i = 0; i < subs.length; i += PUSH_BATCH_SIZE) {
+    const batch = subs.slice(i, i + PUSH_BATCH_SIZE);
+    // eslint-disable-next-line no-await-in-loop
+    const results = await Promise.all(batch.map(processSub));
+    for (const r of results) {
+      if (r === 'sent') sent += 1;
+      else skipped += 1;
     }
   }
 

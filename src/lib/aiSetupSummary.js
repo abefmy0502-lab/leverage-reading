@@ -8,8 +8,9 @@
 // の 4 フィールドにまとめさせる。失敗してもアプリは止めない (呼び出し側で
 // fallback を持つ)。
 
-import { callClaude } from './ai.js';
+import { callClaude, sanitizeForPrompt } from './ai.js';
 import { PROMPTS } from './prompts.js';
+import { LIMITS, clamp } from './limits.js';
 
 const ROLE_LABEL = { user: 'ユーザー', assistant: 'AI', system: 'system' };
 
@@ -17,7 +18,12 @@ function buildConversation(messages) {
   if (!Array.isArray(messages) || messages.length === 0) return '';
   return messages
     .map((m) => {
-      const text = (m.content ?? m.text ?? '').toString().trim();
+      // ここまでで既に BookAdvisor 側の各所で sanitize されている想定だが、
+      // AI に渡す直前の境界としてもう一段 sanitize+clamp する（他の AI
+      // 呼び出し口と同じ防御的パターン。CLAUDE.md のセキュリティチェック
+      // リスト「AI prompt: ユーザー入力を sanitizeForPrompt() で除去」）。
+      const raw = (m.content ?? m.text ?? '').toString();
+      const text = clamp(sanitizeForPrompt(raw), LIMITS.memoText).trim();
       if (!text) return '';
       return `${ROLE_LABEL[m.role] || m.role}: ${text}`;
     })
