@@ -236,6 +236,24 @@ async function incrementMonthlyUsage(userId) {
   }
 }
 
+// body.system が配列（プロンプトキャッシュ用の content-block 形式）のときの
+// allowlist バリデータ。最大 4 ブロック（Anthropic の cache breakpoint 上限と
+// 揃える）、各要素は { type: 'text', text: string, cache_control?: { type: 'ephemeral' } }
+// のみ許可。1 つでも形が崩れていれば null を返し、呼び出し側が system 無しに倒す。
+function sanitizeCachedSystemBlocks(blocks) {
+  if (!Array.isArray(blocks) || blocks.length === 0 || blocks.length > 4) return null;
+  const out = [];
+  for (const b of blocks) {
+    if (!b || typeof b !== 'object' || typeof b.text !== 'string') return null;
+    const block = { type: 'text', text: b.text };
+    if (b.cache_control && b.cache_control.type === 'ephemeral') {
+      block.cache_control = { type: 'ephemeral' };
+    }
+    out.push(block);
+  }
+  return out;
+}
+
 function getBearerToken(req) {
   const raw = req.headers?.authorization || req.headers?.Authorization || '';
   if (typeof raw !== 'string') return null;
@@ -278,9 +296,21 @@ export default async function handler(req, res) {
     res.setHeader('Retry-After', String(rl.retryAfter));
     return res.status(429).json({ error: 'Too Many Requests', retry_after: rl.retryAfter });
   }
+
+  // 以下 3 チェックはいずれも userId だけを入力に取る独立クエリ（互いの結果に
+  // 依存しない）。直列 await すると 1 リクエストあたり Supabase 往復が 3 回
+  // 積み上がり、全 AI コールの TTFT を無駄に押し上げる。Promise.all で同時実行し、
+  // 判定の優先順位（レート制限 → entitlement → 月次上限）は逐次チェック時と
+  // 完全に同一に保つ（各チェックの合否は他のチェックの実行順に依存しないため、
+  // 並列化しても外部から見えるレスポンスは変わらない）。
+  const [rlShared, ent, usage] = await Promise.all([
+    checkSharedRateLimit(userId),
+    checkEntitlement(userId),
+    checkMonthlyUsage(userId),
+  ]);
+
   // インスタンス横断の共有レート制限（H3）。in-memory を通過しても、全インスタンス
   // 合算の上限を超えていれば 429。未適用 DB は fail-open（in-memory が一次防御）。
-  const rlShared = await checkSharedRateLimit(userId);
   if (!rlShared.ok) {
     res.setHeader('Retry-After', String(rlShared.retryAfter));
     return res.status(429).json({ error: 'Too Many Requests', retry_after: rlShared.retryAfter });
@@ -288,7 +318,6 @@ export default async function handler(req, res) {
 
   // 課金 entitlement（サーバー側ゲート）。fail-open（未設定 / 未適用 / 障害は通す）。
   // 明確に未課金（テーブルあり & status!=='active'）の時だけ 402 で止める。
-  const ent = await checkEntitlement(userId);
   if (!ent.allowed) {
     return res.status(402).json({
       error: { message: 'AI 機能のご利用にはプランへのご登録が必要です。' },
@@ -298,7 +327,6 @@ export default async function handler(req, res) {
 
   // 月次累積上限（KGI 原価ガード）。超過なら 429 で明確なメッセージ。
   // checkMonthlyUsage は fail-open（基盤障害 / 未適用テーブルなら通す）。
-  const usage = await checkMonthlyUsage(userId);
   if (usage.exceeded) {
     return res.status(429).json({
       error: { message: '今月の AI 利用上限に達しました。来月またご利用いただけます。' },
@@ -341,7 +369,20 @@ export default async function handler(req, res) {
     // stream のみ（src/lib/streamClaude.js / ai.js）。それ以外は破棄する。
     const payload = { model, max_tokens: maxTokens };
     if (wantsStream) payload.stream = true;
-    if (typeof body.system === 'string') payload.system = body.system;
+    if (typeof body.system === 'string') {
+      payload.system = body.system;
+    } else {
+      // プロンプトキャッシュ（Anthropic prompt caching、claude-sonnet-4-6 は
+      // GA・追加ヘッダー不要）対応。クライアントが「固定文言のシステムプロンプト」
+      // を content-block 配列 + cache_control で送ってきた場合のみ受理する。
+      // ここでも `{ ...body }` 式の丸ごと転送はせず、type/text/cache_control の
+      // 3 フィールドだけを allowlist で再構築する（任意フィールド注入の防止は
+      // 上の messages 処理と同じ方針）。不正な形なら黙って system 無しにする
+      // （strict にエラーを返すと将来のクライアント側バグで AI が丸ごと止まる
+      // リスクがあるため、ここは fail-open）。
+      const blocks = sanitizeCachedSystemBlocks(body.system);
+      if (blocks) payload.system = blocks;
+    }
     if (Array.isArray(body.messages)) {
       // 上限超過時は「最新」を残す（slice(0,N) は最古を残し、直前のユーザー発言を
       // 捨ててしまう＝長い会話で直近の質問が無視される）。先頭が assistant に

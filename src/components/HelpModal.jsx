@@ -339,7 +339,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
     setError('');
     setAsking(true);
     try {
-      const res = await callClaude(PROMPTS.helpAi.system, text, { max_tokens: 600 });
+      const res = await callClaude(PROMPTS.helpAi.system, text, { max_tokens: 600, cacheSystem: true });
       setAnswer(res || '回答を取得できませんでした。');
     } catch (e) {
       // 他画面と同様に humanize（生の英語スタック/内部メッセージを出さない）。

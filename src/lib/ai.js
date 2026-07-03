@@ -7,6 +7,19 @@ import { track } from './analytics';
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const DEFAULT_MAX_TOKENS = 1024;
 
+// Anthropic プロンプトキャッシュ（claude-sonnet-4-6 は GA・追加ヘッダー不要）。
+// 完全に固定文言（ユーザーごとに変わらない）のシステムプロンプトだけをこの形に
+// 包む — 呼び出しごとに埋め込む値が変わるプロンプト（例: 今日の日付や現状サマリー
+// を差し込む opsAdvisor）に使うと、書き込みコストだけ払って読み取りヒットが
+// 一切発生しない。中継サーバー（api/claude.js）は単一の ANTHROPIC_API_KEY を
+// 全ユーザーで共有しているため、同一の固定文言はユーザー横断でキャッシュを
+// 共有できる（ある利用者のコールがキャッシュを温め、以降 5 分以内の別利用者の
+// 同じ機能呼び出しが読み取りヒットする）。しきい値未満（2048 tok 未満）の
+// プロンプトに付けても無害（黙ってキャッシュ化されないだけ）。
+export function cachedSystem(text) {
+  return [{ type: 'text', text, cache_control: { type: 'ephemeral' } }];
+}
+
 async function getAccessToken() {
   if (!isSupabaseConfigured) return null;
   try {
@@ -88,7 +101,7 @@ export async function callClaude(systemOrMessages, userOrOptions, options) {
     max_tokens: opts.max_tokens || DEFAULT_MAX_TOKENS,
     messages,
   };
-  if (system) payload.system = system;
+  if (system) payload.system = opts.cacheSystem ? cachedSystem(system) : system;
   // 0〜1 の範囲で temperature を制御。AI 機能ごとに最適値が違うため
   // 呼び出し側から渡す。未指定なら Claude の default (≈ 1.0) に任せる。
   if (typeof opts.temperature === 'number') payload.temperature = opts.temperature;
@@ -150,7 +163,7 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' })
     },
   ];
   // temperature 0 — 創作させず忠実な書き起こしを優先。
-  const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, temperature: 0 });
+  const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, temperature: 0, cacheSystem: true });
   if (typeof result !== 'string') throw new Error('読み取りに失敗しました。');
   // postClaude は失敗時にも文字列（既知のエラー文言）を返すので throw に変換し、
   // 呼び出し側が toMessage で humanize できるようにする。
@@ -542,7 +555,7 @@ export async function condenseMemo({ text }) {
     result = await callClaude(
       PROMPTS.condense.system,
       PROMPTS.condense.user({ text: src }),
-      { max_tokens: 320, temperature: 0.4 },
+      { max_tokens: 320, temperature: 0.4, cacheSystem: true },
     );
   } catch (e) {
     console.warn('[condense] claude failed:', e?.message);
@@ -578,7 +591,7 @@ export async function summarizeCards({ title, cards }) {
     result = await callClaude(
       PROMPTS.cardsToSummary.system,
       PROMPTS.cardsToSummary.user({ title, cards: src }),
-      { max_tokens: 700, temperature: 0.4 },
+      { max_tokens: 700, temperature: 0.4, cacheSystem: true },
     );
   } catch (e) {
     console.warn('[summarizeCards] claude failed:', e?.message);
@@ -635,7 +648,7 @@ export async function analyzeBookLearnings({ bookId, title, author, purpose, cha
       challenge: clamp(sanitizeForPrompt(challenge || ''), LIMITS.memoText),
       memos,
     }),
-    { max_tokens: 1400, temperature: 0.5, model: 'claude-sonnet-4-6' },
+    { max_tokens: 1400, temperature: 0.5, model: 'claude-sonnet-4-6', cacheSystem: true },
   );
   // callClaude はエラー時に文言（'エラー...' / 'AI機能...' / 'リクエスト...'）を返すことがある。
   // それを「分析結果」として描画しないよう、成功時のみ track / return する。
@@ -677,7 +690,7 @@ export async function generateOpsRoadmap(state = {}) {
     result = await callClaude(
       PROMPTS.opsRoadmap.system,
       PROMPTS.opsRoadmap.user(args),
-      { max_tokens: 2048, temperature: 0.5 },
+      { max_tokens: 2048, temperature: 0.5, cacheSystem: true },
     );
   } catch (e) {
     console.warn('[opsRoadmap] claude failed:', e?.message);
@@ -713,7 +726,7 @@ export async function generateOpsTasks(state = {}) {
     result = await callClaude(
       PROMPTS.opsTasks.system,
       PROMPTS.opsTasks.user(args),
-      { max_tokens: 2048, temperature: 0.5 },
+      { max_tokens: 2048, temperature: 0.5, cacheSystem: true },
     );
   } catch (e) {
     console.warn('[opsTasks] claude failed:', e?.message);
@@ -806,7 +819,7 @@ export async function generateWeeklyQuestion(userId) {
     result = await callClaude(
       PROMPTS.weeklyQuestion.system,
       PROMPTS.weeklyQuestion.user({ memos: formatted, openSteps }),
-      { max_tokens: 200, temperature: 0.85 },
+      { max_tokens: 200, temperature: 0.85, cacheSystem: true },
     );
   } catch (e) {
     console.warn('[weekly-question] claude failed:', e?.message);
@@ -848,6 +861,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   let fullText = '';
   await streamClaude({
     system: BRAIN_SYSTEM,
+    cacheSystem: true,
     messages: [{ role: 'user', content: ctx.userPrompt }],
     max_tokens: 2048,
     temperature: 0.5,
@@ -1136,6 +1150,7 @@ export async function streamThemeReport({ userId, theme, onStage, onChunk, signa
   let fullText = '';
   await streamClaude({
     system: THEME_SYSTEM,
+    cacheSystem: true,
     messages: [{ role: 'user', content: ctx.userPrompt }],
     max_tokens: 2048,
     // temperature 0.4 — メモに忠実な統合を優先 (創作より引用の一貫性)。
@@ -1287,7 +1302,7 @@ export async function generateKnowledgeJourney(userId, theme) {
       todayISO: todayISO(),
       spanText,
     }),
-    { max_tokens: 2048, temperature: 0.7, model: 'claude-sonnet-4-6' },
+    { max_tokens: 2048, temperature: 0.7, model: 'claude-sonnet-4-6', cacheSystem: true },
   );
   // callClaude のエラー文言を「足あと」として描画しない（成功時のみ track / return）。
   if (typeof content !== 'string'

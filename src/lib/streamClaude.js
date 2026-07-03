@@ -40,14 +40,22 @@ async function getAccessToken() {
   }
 }
 
-function buildPayload({ system, messages, model, max_tokens, temperature }) {
+// プロンプトキャッシュ用の content-block ラップ。src/lib/ai.js の cachedSystem
+// と同じ形（api/claude.js の sanitizeCachedSystemBlocks が受理する形）。
+// 完全に固定文言のシステムプロンプトにだけ使う — ここでは import で ai.js に
+// 依存させたくない（streamClaude.js は ai.js から呼ばれる側）ため同じ形をローカルに複製。
+function cachedSystemBlock(text) {
+  return [{ type: 'text', text, cache_control: { type: 'ephemeral' } }];
+}
+
+function buildPayload({ system, messages, model, max_tokens, temperature, cacheSystem }) {
   const payload = {
     model: model || DEFAULT_MODEL,
     max_tokens: max_tokens || DEFAULT_MAX_TOKENS,
     messages: messages || [],
     stream: true,
   };
-  if (system) payload.system = system;
+  if (system) payload.system = cacheSystem ? cachedSystemBlock(system) : system;
   if (typeof temperature === 'number') payload.temperature = temperature;
   return payload;
 }
@@ -64,6 +72,7 @@ export async function streamClaude({
   model,
   max_tokens,
   temperature,
+  cacheSystem,
   signal,
   onChunk,
   onDone,
@@ -82,7 +91,7 @@ export async function streamClaude({
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(buildPayload({ system, messages, model, max_tokens, temperature })),
+      body: JSON.stringify(buildPayload({ system, messages, model, max_tokens, temperature, cacheSystem })),
       signal,
     });
 

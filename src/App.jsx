@@ -1648,7 +1648,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
       text = await callClaude(
         PROMPTS.advisorInterview.system,
         PROMPTS.advisorInterview.user({ concern: c, priorQA, round, maxRounds: MAX_INTERVIEW_ROUNDS }),
-        { max_tokens: 700, temperature: 0.4 },
+        { max_tokens: 700, temperature: 0.4, cacheSystem: true },
       );
     } catch {
       return null;
@@ -1684,6 +1684,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     try {
       finalText = await streamClaude({
         system: PROMPTS.bookAdvisor.system,
+        cacheSystem: true,
         messages: newHistory,
         // temperature 0.7 — 推薦に多様性を出す（同じ著者ばかりにならない）。
         temperature: 0.7,
@@ -3955,6 +3956,7 @@ function AuthedApp() {
     try {
       await streamClaude({
         system: PROMPTS.bookAnalysis.system,
+        cacheSystem: true,
         messages: [{
           role: 'user',
           content: PROMPTS.bookAnalysis.user({
@@ -3986,6 +3988,7 @@ function AuthedApp() {
     try {
       await streamClaude({
         system: PROMPTS.setupSheet.system,
+        cacheSystem: true,
         messages: [{
           role: 'user',
           content: PROMPTS.setupSheet.user({
@@ -4033,6 +4036,7 @@ function AuthedApp() {
     try {
       await streamClaude({
         system: PROMPTS.setupSheetEdit.system,
+        cacheSystem: true,
         messages: [{
           role: 'user',
           content: PROMPTS.setupSheetEdit.user({

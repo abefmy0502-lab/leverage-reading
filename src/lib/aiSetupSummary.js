@@ -57,7 +57,7 @@ export async function summarizeAdvisorConversation(messages, selectedBook) {
       title: selectedBook.title,
       author: selectedBook.author || '',
     }),
-    { max_tokens: 800, model: 'claude-sonnet-4-6' },
+    { max_tokens: 800, model: 'claude-sonnet-4-6', cacheSystem: true },
   );
   const parsed = extractJson(raw);
   if (!parsed) throw new Error('JSON parse failed');
