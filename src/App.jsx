@@ -88,6 +88,7 @@ import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
 import { ensurePushSubscription } from './lib/push';
 import { isNative } from './lib/iap';
+import { initNativePushNav } from './lib/nativePush';
 import UpdateBanner from './components/UpdateBanner';
 import { BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
@@ -2874,8 +2875,22 @@ function AuthedApp() {
 
   // 起動時に 1 度、購読 endpoint と DB を再同期（許可済み・購読済みのみ。それ以外は
   // no-op）。ウィンドウを閉じている間に endpoint がローテーションした取りこぼしを
-  // 次回起動で回復する。
+  // 次回起動で回復する。（native では isPushSupported()=false で即 no-op）
   useEffect(() => { ensurePushSubscription(); }, []);
+
+  // 🔔📱 ネイティブ(APNs)通知タップのディープリンク配線。通知の data.url
+  //   (/?recall=<id>) を URL に反映してから既存の recall ハンドラを起動する
+  //   （Web の SW postMessage 経路と同じ着地に合流させる）。native のみ。
+  useEffect(() => {
+    if (!isNative) return undefined;
+    let cancelled = false;
+    initNativePushNav((url) => {
+      if (cancelled || !url) return;
+      try { window.history.replaceState(null, '', url); } catch { /* ignore */ }
+      handleRecallDeepLink();
+    });
+    return () => { cancelled = true; };
+  }, [handleRecallDeepLink]);
   const [view, setView] = useState("list"); // list | detail | edit
   const [current, setCurrent] = useState(null);
 
@@ -6568,6 +6583,63 @@ function isSchemaUnappliedError(error) {
   return isSchemaError(error);
 }
 
+// 📱 Web 利用者（非管理者）向けの「アプリでご利用ください」ゲート。
+// App-only 配信方針（①C: Web は管理者のみ）に基づき、ブラウザでログインした
+// 一般ユーザーを App Store へ誘導する。サインアウトで別アカウントへ切替も可能。
+function WebAppOnlyGate() {
+  const { signOut, user } = useAuth();
+  const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime';
+  return (
+    <div
+      style={{
+        flex: 1, minHeight: 0, overflowY: 'auto',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        textAlign: 'center', padding: '32px 24px', gap: 16,
+        background: 'var(--c-bg, #fdf9f2)', color: 'var(--c-ink, #3d362c)',
+      }}
+    >
+      <div style={{ fontSize: 34 }} aria-hidden="true">📱</div>
+      <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, lineHeight: 1.5 }}>
+        Orime は iPhone / iPad アプリでご利用いただけます
+      </h1>
+      <p style={{ fontSize: 14, color: 'var(--c-ink-2, #6b6155)', margin: 0, lineHeight: 1.8, maxWidth: 360 }}>
+        App Store から Orime アプリを入手して、同じアカウントでサインインしてください。
+        メモも読書記録もそのまま引き継がれます。
+      </p>
+      <a
+        href={APP_STORE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          minHeight: 48, padding: '13px 24px', borderRadius: 12,
+          background: 'var(--c-brand, #6b5b45)', color: '#fff',
+          fontSize: 15, fontWeight: 700, textDecoration: 'none', marginTop: 4,
+        }}
+      >
+        App Store で Orime を入手
+      </a>
+      <div style={{ marginTop: 8 }}>
+        {user?.email && (
+          <p style={{ fontSize: 11, color: 'var(--c-ink-3, #9a8f80)', margin: '0 0 6px', wordBreak: 'break-all' }}>
+            {user.email} でサインイン中
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => { try { signOut(); } catch { /* ignore */ } }}
+          style={{
+            background: 'none', border: 'none', color: 'var(--c-ink-3, #9a8f80)',
+            fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: '8px 12px', minHeight: 44,
+          }}
+        >
+          別のアカウントでサインイン
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PaywallGate() {
   const { isActive, loading, error, refresh } = useSubscription();
 
@@ -6637,6 +6709,18 @@ function PaywallGate() {
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Dots />
         </div>
+      </Shell>
+    );
+  }
+
+  // ①C: Web(ブラウザ)は管理者のみ利用可。Orime は App Store の iOS アプリでのみ
+  //    提供する方針のため、管理者でないブラウザ利用者は（課金の有無・スキーマ状態に
+  //    関わらず）アプリへ誘導する。管理者(adminBypass)は検証のためブラウザ利用を許可。
+  //    ネイティブ(isNative)は当然すべて通常フロー。
+  if (!isNative && !adminBypass) {
+    return (
+      <Shell>
+        <WebAppOnlyGate />
       </Shell>
     );
   }

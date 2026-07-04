@@ -32,7 +32,8 @@
 //    `npm run build`（クライアント）には一切影響しない。
 
 import { createClient } from '@supabase/supabase-js';
-import { timingSafeEqual as cryptoTimingSafeEqual } from 'node:crypto';
+import { timingSafeEqual as cryptoTimingSafeEqual, sign as cryptoSign } from 'node:crypto';
+import http2 from 'node:http2';
 
 // ── 想起ロジック（src/lib/recall.js のサーバー版ミラー）─────────────
 // recall.js は ESM・ブラウザ向けなので、ここでは同じアルゴリズムを Node 用に
@@ -148,6 +149,144 @@ function getWebPush() {
     }
   }
   return webpushMod;
+}
+
+// ── APNs(Apple Push Notification service)送信 — ネイティブ(iOS)行用 ──────
+//
+// ネイティブ(App Store アプリ)は Web Push が WKWebView で動かないため、
+// platform='ios' の購読は APNs 経由で送る。JWT(ES256)をプロバイダ認証に使い、
+// HTTP/2 で api.push.apple.com へ POST する。認証キー(.p8)はサーバー env のみ。
+//
+// ★★★ 元帥がやる環境作業 ★★★
+//   1. Xcode: iOS プロジェクトに Push Notifications capability +
+//      Background Modes(Remote notifications) を追加
+//   2. Apple Developer: APNs 認証キー(.p8)を発行（Key ID を控える）
+//   3. Vercel env:
+//        APNS_KEY_ID        （.p8 の Key ID）
+//        APNS_TEAM_ID       （Apple Developer の Team ID）
+//        APNS_PRIVATE_KEY   （.p8 の中身。-----BEGIN PRIVATE KEY----- を含む全文。
+//                             改行は \n エスケープでも実改行でも可）
+//        APNS_BUNDLE_ID     （アプリの Bundle ID = apns-topic）
+//        APNS_PRODUCTION    （'true' で本番 api.push.apple.com。未設定/false は
+//                             sandbox api.sandbox.push.apple.com＝TestFlight/開発ビルド）
+//   4. supabase_push_native.sql を Supabase SQL Editor で実行
+//   ※ APNS_* が未設定なら ios 行は静かにスキップ（fail-safe・web 送信には無影響）。
+
+function b64url(buf) {
+  return Buffer.from(buf).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+let _apnsCfg = null;
+let _apnsCfgResolved = false;
+function getApnsConfig() {
+  if (_apnsCfgResolved) return _apnsCfg;
+  _apnsCfgResolved = true;
+  const keyId = process.env.APNS_KEY_ID;
+  const teamId = process.env.APNS_TEAM_ID;
+  const bundleId = process.env.APNS_BUNDLE_ID;
+  let privateKey = process.env.APNS_PRIVATE_KEY;
+  if (!keyId || !teamId || !bundleId || !privateKey) {
+    _apnsCfg = null; // 未設定 = APNs 無効（web は無影響）
+    return null;
+  }
+  // env に \n エスケープで入れられた PEM を実改行へ戻す。
+  if (privateKey.includes('\\n')) privateKey = privateKey.replace(/\\n/g, '\n');
+  const production = String(process.env.APNS_PRODUCTION || '').toLowerCase() === 'true';
+  _apnsCfg = {
+    keyId,
+    teamId,
+    bundleId,
+    privateKey,
+    host: production ? 'https://api.push.apple.com' : 'https://api.sandbox.push.apple.com',
+  };
+  return _apnsCfg;
+}
+
+// APNs プロバイダ JWT(ES256)。有効期限は最大 60 分だが、Cron 1 実行内で使い回すため
+// 実行ごとに 1 度だけ生成する。iss=TeamID / kid=KeyID / iat=now。
+let _apnsJwt = null;
+let _apnsJwtAt = 0;
+function makeApnsJwt(cfg) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (_apnsJwt && nowSec - _apnsJwtAt < 1800) return _apnsJwt; // 30 分キャッシュ
+  const header = b64url(JSON.stringify({ alg: 'ES256', kid: cfg.keyId }));
+  const payload = b64url(JSON.stringify({ iss: cfg.teamId, iat: nowSec }));
+  const signingInput = `${header}.${payload}`;
+  // ES256 は ECDSA(P-256)+SHA-256。JWT は JOSE 形式(生 r||s の 64byte)を要求するため
+  // dsaEncoding:'ieee-p1363' を指定（DER ではなく固定長）。
+  const sig = cryptoSign('sha256', Buffer.from(signingInput), {
+    key: cfg.privateKey,
+    dsaEncoding: 'ieee-p1363',
+  });
+  _apnsJwt = `${signingInput}.${b64url(sig)}`;
+  _apnsJwtAt = nowSec;
+  return _apnsJwt;
+}
+
+// HTTP/2 セッションを Cron 1 実行内で使い回す（毎回 connect すると遅い）。
+let _apnsSession = null;
+function getApnsSession(host) {
+  if (_apnsSession && !_apnsSession.destroyed && !_apnsSession.closed) return _apnsSession;
+  _apnsSession = http2.connect(host);
+  _apnsSession.on('error', () => { /* 個別 request 側で拾う */ });
+  return _apnsSession;
+}
+function closeApnsSession() {
+  try { if (_apnsSession && !_apnsSession.destroyed) _apnsSession.close(); } catch { /* ignore */ }
+  _apnsSession = null;
+}
+
+// APNs デバイストークンの形式検証（16 進のみ・妥当な長さ）。apns_token は
+// クライアントが RLS upsert で書けるため、:path に載せる前に軽く検証する。
+function isValidApnsToken(token) {
+  return typeof token === 'string' && /^[0-9a-fA-F]{32,200}$/.test(token);
+}
+
+// 1 件 APNs 送信。戻り値 { status, reason }（status=200 で成功）。
+function sendApns(cfg, jwt, token, payloadObj) {
+  return new Promise((resolve) => {
+    let session;
+    try {
+      session = getApnsSession(cfg.host);
+    } catch (e) {
+      resolve({ status: 0, reason: e?.message || 'connect-failed' });
+      return;
+    }
+    const body = Buffer.from(JSON.stringify(payloadObj));
+    let req;
+    try {
+      req = session.request({
+        ':method': 'POST',
+        ':path': `/3/device/${token}`,
+        authorization: `bearer ${jwt}`,
+        'apns-topic': cfg.bundleId,
+        'apns-push-type': 'alert',
+        'apns-priority': '10',
+        'content-type': 'application/json',
+        'content-length': body.length,
+      });
+    } catch (e) {
+      resolve({ status: 0, reason: e?.message || 'request-failed' });
+      return;
+    }
+    let status = 0;
+    let data = '';
+    let settled = false;
+    const done = (val) => { if (!settled) { settled = true; resolve(val); } };
+    req.setEncoding('utf8');
+    req.on('response', (headers) => { status = headers[':status'] || 0; });
+    req.on('data', (chunk) => { data += chunk; });
+    req.on('end', () => {
+      let reason = '';
+      if (status !== 200 && data) {
+        try { reason = JSON.parse(data)?.reason || ''; } catch { /* ignore */ }
+      }
+      done({ status, reason });
+    });
+    req.on('error', (e) => done({ status: 0, reason: e?.message || 'stream-error' }));
+    req.setTimeout(10000, () => { try { req.close(); } catch { /* ignore */ } done({ status: 0, reason: 'timeout' }); });
+    req.end(body);
+  });
 }
 
 let serviceClient = null;
@@ -301,8 +440,11 @@ export default async function handler(req, res) {
   }
 
   const webpush = getWebPush();
-  if (!webpush || !webpushConfigured) {
-    // web-push 未インストール / VAPID 未設定 = 機能未準備。fail-safe で no-op。
+  const apnsCfg = getApnsConfig();
+  const webReady = Boolean(webpush && webpushConfigured);
+  const apnsReady = Boolean(apnsCfg);
+  if (!webReady && !apnsReady) {
+    // web-push 未インストール/VAPID 未設定 かつ APNs 未設定 = 機能未準備。fail-safe で no-op。
     return res.status(200).json({ ok: true, skipped: 'push-not-configured', sent: 0 });
   }
 
@@ -322,13 +464,24 @@ export default async function handler(req, res) {
     // preferred_hour 近傍でのみ送る）を実装する際に SELECT へ追加する。
     const { data, error } = await supabase
       .from('push_subscriptions')
-      .select('id, user_id, endpoint, p256dh, auth, frequency, last_sent_at, enabled')
+      .select('id, user_id, endpoint, p256dh, auth, frequency, last_sent_at, enabled, platform, apns_token')
       .eq('enabled', true);
     if (error) throw error;
     subs = data || [];
   } catch (e) {
-    // テーブル未適用なら graceful に no-op。
-    return res.status(200).json({ ok: true, skipped: 'subscriptions-unavailable', sent: 0 });
+    // platform/apns_token 列が未適用の DB では上の SELECT が error になるため、
+    // 基本列のみで再取得する（supabase_push_native.sql 未適用でも web 送信は動く）。
+    try {
+      const { data, error: e2 } = await supabase
+        .from('push_subscriptions')
+        .select('id, user_id, endpoint, p256dh, auth, frequency, last_sent_at, enabled')
+        .eq('enabled', true);
+      if (e2) throw e2;
+      subs = (data || []).map((s) => ({ ...s, platform: 'web', apns_token: null }));
+    } catch {
+      // テーブル自体が未適用なら graceful に no-op。
+      return res.status(200).json({ ok: true, skipped: 'subscriptions-unavailable', sent: 0 });
+    }
   }
 
   // ユーザーごとにノートを一度だけ集めてキャッシュ（同一ユーザーが複数端末を持つ場合）。
@@ -344,13 +497,40 @@ export default async function handler(req, res) {
   // ため、PUSH_BATCH_SIZE 件ずつのバッチ並列に留める。
   const PUSH_BATCH_SIZE = 15;
 
+  // 送信成功後の共通後処理（last_sent_at 多重送信ガード + 間隔反復の last_recalled_at）。
+  const afterSend = async (sub, memo) => {
+    await supabase
+      .from('push_subscriptions')
+      .update({ last_sent_at: nowIso })
+      .eq('id', sub.id);
+    // 送信成功 = そのメモを「想起した」とみなし、間隔反復の last_recalled_at を更新
+    // （次の想起を dueGapDays 分先送り）。recall_count は増やさない（アプリ内カードのみ）。
+    // 実 book_memos 行のみ対象（まとめメモは合成 id）。列未適用でも握りつぶす。
+    if (memo.isMemoRow && memo.id) {
+      try {
+        await supabase.from('book_memos').update({ last_recalled_at: nowIso }).eq('id', memo.id);
+      } catch { /* last_recalled_at 列が無い / 更新失敗でも送信は成立 */ }
+    }
+  };
+
+  const isIosSub = (sub) => sub.platform === 'ios';
+
   const processSub = async (sub) => {
     try {
       if (sub.frequency === 'off') return 'skipped';
-      // SSRF ガード: endpoint はクライアントが RLS upsert で自由に書ける。
-      // service_role の cron が任意 URL に POST するのを防ぐため、既知の
-      // プッシュサービスのホストにのみ送る（169.254.169.254 等への悪用を封じる）。
-      if (!isAllowedPushEndpoint(sub.endpoint)) return 'skipped';
+      const ios = isIosSub(sub);
+      // 送信経路の準備状況で早期スキップ（片方だけ設定済みでも他方は動く）。
+      if (ios && !apnsReady) return 'skipped';
+      if (!ios && !webReady) return 'skipped';
+      if (ios) {
+        // APNs トークンの形式検証（クライアントが書ける値を :path に載せる前に）。
+        if (!isValidApnsToken(sub.apns_token)) return 'skipped';
+      } else {
+        // SSRF ガード: endpoint はクライアントが RLS upsert で自由に書ける。
+        // service_role の cron が任意 URL に POST するのを防ぐため、既知の
+        // プッシュサービスのホストにのみ送る（169.254.169.254 等への悪用を封じる）。
+        if (!isAllowedPushEndpoint(sub.endpoint)) return 'skipped';
+      }
       // 多重送信ガード: 直近 RESEND_GUARD_DAYS 日以内に送っていればスキップ。
       // 数値比較（パース失敗時は未送信扱いで送る側に倒す = fail-open）。
       if (sub.last_sent_at) {
@@ -370,39 +550,40 @@ export default async function handler(req, res) {
       const memo = pickRecallMemo(notes, { now, seed });
       if (!memo) return 'skipped';
 
-      const payload = JSON.stringify({
-        title: `💭 ${recallFraming(memo.createdAt, now)}`,
-        body: memoExcerpt(memo.text),
-        url: `/?recall=${encodeURIComponent(memo.id)}`,
-        tag: 'orime-recall',
-      });
+      const title = `💭 ${recallFraming(memo.createdAt, now)}`;
+      const body = memoExcerpt(memo.text);
+      const url = `/?recall=${encodeURIComponent(memo.id)}`;
 
+      // ── ネイティブ(iOS/APNs)経路 ─────────────────────────────
+      if (ios) {
+        const jwt = makeApnsJwt(apnsCfg);
+        const apnsPayload = {
+          aps: { alert: { title, body }, sound: 'default' },
+          url,
+          recall: String(memo.id),
+        };
+        const { status, reason } = await sendApns(apnsCfg, jwt, sub.apns_token, apnsPayload);
+        if (status === 200) {
+          await afterSend(sub, memo);
+          return 'sent';
+        }
+        // 失効トークン → 削除。BadDeviceToken/Unregistered/DeviceTokenNotForTopic 等。
+        if (status === 410 || reason === 'BadDeviceToken' || reason === 'Unregistered') {
+          expiredSubIds.push(sub.id);
+        } else {
+          console.warn('[push-cron] apns send failed (kept):', status, reason);
+        }
+        return 'skipped';
+      }
+
+      // ── Web(VAPID)経路（既存）─────────────────────────────────
+      const payload = JSON.stringify({ title, body, url, tag: 'orime-recall' });
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           payload,
         );
-        // last_sent_at を更新（fire-and-forget でよいが await で確実に）。
-        // これは端末単位の多重送信ガード（既存挙動・変更しない）。
-        await supabase
-          .from('push_subscriptions')
-          .update({ last_sent_at: nowIso })
-          .eq('id', sub.id);
-        // 送信成功 = そのメモを「想起した」とみなし、間隔反復の last_recalled_at を
-        // 更新する（次の想起を dueGapDays 分先送り = すぐ再プッシュしない）。recall_count は
-        // プッシュでは増やさない（「覚えた」フィードバックはアプリ内のカードでのみ発生）。
-        // 実 book_memos 行のみ対象（まとめメモは合成 id なので更新しない）。
-        // 列が未適用でも error を握りつぶすだけで送信結果には影響しない。
-        if (memo.isMemoRow && memo.id) {
-          try {
-            await supabase
-              .from('book_memos')
-              .update({ last_recalled_at: nowIso })
-              .eq('id', memo.id);
-          } catch {
-            /* last_recalled_at 列が無い / 更新失敗でも送信は成立している */
-          }
-        }
+        await afterSend(sub, memo);
         return 'sent';
       } catch (sendErr) {
         const status = sendErr && (sendErr.statusCode || sendErr.status);
@@ -438,6 +619,9 @@ export default async function handler(req, res) {
       console.warn('[push-cron] cleanup failed:', e?.message);
     }
   }
+
+  // APNs の HTTP/2 セッションを閉じる（開いていれば）。
+  closeApnsSession();
 
   return res.status(200).json({
     ok: true,

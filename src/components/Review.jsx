@@ -25,6 +25,8 @@ import { getRandomFromCategory } from '../lib/quotes';
 import { relativeJa, recallFraming, pickRecallMemo, recallPatch } from '../lib/recall';
 import { markActivation } from '../lib/activation';
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
+import { isNativePushCapable, getNativePushPermission, subscribeNativePush } from '../lib/nativePush';
+import { isNative } from '../lib/iap';
 import { btnGhost as uiBtnGhost } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
@@ -336,6 +338,23 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
     try { return localStorage.getItem(PUSH_OPTIN_KEY) === '1'; } catch { return false; }
   });
   const [pushBusy, setPushBusy] = useState(false);
+  // aha 直後の opt-in を出してよいか。Web は同期判定できるが、ネイティブ(APNs)は
+  // 権限確認が非同期なので effect で解決する。既定は Web の同期判定。
+  const [pushOptInEligible, setPushOptInEligible] = useState(() =>
+    !isNative && isPushSupported() && isPushConfigured() && getPermission() === 'default',
+  );
+  useEffect(() => {
+    if (!isNative) return undefined;
+    let alive = true;
+    (async () => {
+      try {
+        // ネイティブは「プラグイン利用可 かつ 未許可(prompt)」の時だけ opt-in を出す。
+        const eligible = isNativePushCapable && (await getNativePushPermission()) === 'prompt';
+        if (alive) setPushOptInEligible(eligible);
+      } catch { if (alive) setPushOptInEligible(false); }
+    })();
+    return () => { alive = false; };
+  }, []);
   const dismissPushOptIn = useCallback(() => {
     try { localStorage.setItem(PUSH_OPTIN_KEY, '1'); } catch { /* ignore */ }
     setPushOptInDismissed(true);
@@ -344,7 +363,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
     if (pushBusy) return;
     setPushBusy(true);
     try {
-      const res = await subscribeToPush({ frequency: 'weekly' });
+      const res = isNative
+        ? await subscribeNativePush({ frequency: 'weekly' })
+        : await subscribeToPush({ frequency: 'weekly' });
       if (res?.ok) {
         try { haptic.success(); } catch { /* non-critical */ }
         toast.success('🔔 通知をオンにしました。忘れた頃にそっとお届けします');
@@ -874,7 +895,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
         </p>
 
         {/* 🔔 aha 直後の通知 opt-in（初回・1枚戻ってきた時だけ・未許可時のみ） */}
-        {randomMemo && !pushOptInDismissed && isPushSupported() && isPushConfigured() && getPermission() === 'default' && (
+        {randomMemo && !pushOptInDismissed && pushOptInEligible && (
           <div
             style={{
               marginTop: 12, padding: '12px 14px', borderRadius: 12,
@@ -915,7 +936,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
                 今はしない
               </button>
             </div>
-            {isIOS() && !isStandalonePWA() && (
+            {!isNative && isIOS() && !isStandalonePWA() && (
               <p style={{ fontSize: 10, color: 'var(--c-ink-3)', margin: '8px 0 0', lineHeight: 1.6 }}>
                 ※ iPhone / iPad は「ホーム画面に追加」したアプリから開くと通知を使えます。
               </p>

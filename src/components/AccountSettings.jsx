@@ -40,6 +40,13 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
 } from '../lib/push';
+import {
+  isNativePushCapable,
+  isNativePushSubscribed,
+  getNativePushPermission,
+  subscribeNativePush,
+  unsubscribeNativePush,
+} from '../lib/nativePush';
 
 const overlayStyle = {
   position: 'fixed',
@@ -313,11 +320,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   //   pushOn       : この端末が現在購読済みか（トグルの初期/反映状態）
   //   pushBusy     : 許可要求/購読処理中のロック
   //   pushDenied   : OS で許可を拒否済み（自前ダイアログは二度と出せない → 案内に倒す）
-  const pushConfigured = isPushConfigured(); // VAPID 公開鍵が env にあるか
-  const pushSupported = isPushSupported();   // 端末 + iOS standalone 条件込み
+  // ネイティブ(iOS/APNs)と Web(VAPID)で「準備済み/対応済み」の意味が異なる。
+  //   - Web:      VAPID 公開鍵の有無 + SW/PushManager/standalone 条件
+  //   - ネイティブ: Capacitor プラグインで APNs 登録できるか（VAPID 不要）
+  const pushConfigured = isNative ? isNativePushCapable : isPushConfigured();
+  const pushSupported = isNative ? isNativePushCapable : isPushSupported();
   // A2HS 案内は Web(ブラウザ)のみ。ネイティブ(Capacitor WKWebView)では isIOS()=true /
   // isStandalonePWA()=false になり「ホーム画面に追加」を誤って促してしまうため !isNative で封じる。
-  const pushNeedsA2HS = !isNative && pushConfigured && isIOS() && !isStandalonePWA(); // iOS ブラウザタブ内
+  const pushNeedsA2HS = !isNative && isPushConfigured() && isIOS() && !isStandalonePWA(); // iOS ブラウザタブ内
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushDenied, setPushDenied] = useState(false);
@@ -326,9 +336,16 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     let alive = true;
     (async () => {
       try {
-        setPushDenied(getPushPermission() === 'denied');
-        const on = await isPushSubscribed();
-        if (alive) setPushOn(on);
+        if (isNative) {
+          // ネイティブ(APNs): 権限と DB 上の ios 購読行から初期状態を決める。
+          setPushDenied((await getNativePushPermission()) === 'denied');
+          const on = await isNativePushSubscribed();
+          if (alive) setPushOn(on);
+        } else {
+          setPushDenied(getPushPermission() === 'denied');
+          const on = await isPushSubscribed();
+          if (alive) setPushOn(on);
+        }
       } catch { /* graceful: トグルは OFF のまま */ }
     })();
     return () => { alive = false; };
@@ -340,12 +357,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     try {
       if (pushOn) {
         // OFF にする — 購読解除 + DB 行削除。失敗しても静かに。
-        await unsubscribeFromPush();
+        if (isNative) await unsubscribeNativePush(); else await unsubscribeFromPush();
         setPushOn(false);
         toast.info('想起の通知をオフにしました。');
       } else {
         // ON にする — ここは必ずユーザージェスチャ内なので許可要求してよい。
-        const res = await subscribeToPush({ frequency: 'weekly' });
+        const res = isNative
+          ? await subscribeNativePush({ frequency: 'weekly' })
+          : await subscribeToPush({ frequency: 'weekly' });
         if (res.ok) {
           setPushOn(true);
           track(EVENTS.PUSH_ENABLED); // ON 成功時のみ（props なし・fire-and-forget）
@@ -828,13 +847,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               );
             })()}
 
-            {isNative ? (
-              // ネイティブ(iOS アプリ)は Web Push 非対応。APNs 対応は今後のアップデート。
-              // 「ブラウザ非対応」等の誤案内を出さず、正直に準備中と伝える。
-              <p style={{ ...sectionNoteStyle, color: 'var(--c-ink-2)', marginTop: 10 }}>
-                📱 想起の通知は、今後のアップデートで対応予定です。
-              </p>
-            ) : !pushConfigured ? (
+            {!pushConfigured ? (
               // VAPID 鍵未設定 = 機能準備中（env 投入前）。静かに案内のみ。
               <p style={{ ...sectionNoteStyle, color: 'var(--c-ink-2)', marginTop: 10 }}>
                 ただいま準備中です。もう少しお待ちください。
