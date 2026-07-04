@@ -17,7 +17,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { MessageSquareQuote, X } from 'lucide-react';
-import { recallFraming, memoExcerpt, pickRecallMemo } from '../lib/recall';
+import { recallFraming, memoExcerpt, pickRecallMemo, recallPatch } from '../lib/recall';
 
 const DISMISS_KEY = 'orime-home-recall-dismissed';
 // これ未満なら出さない（控えめさの肝）。看板体験「過去メモがふいに戻る」瞬間を
@@ -68,12 +68,22 @@ export default function HomeRecall({ onOpen }) {
     let active = true;
     (async () => {
       try {
-        const { data, error } = await supabase
+        // 間隔反復用の列も取得（未適用DBでは列が無いので schema-error 時は
+        // 基本列だけで再取得＝想起は「作成日ベース」に degrade するが壊れない）。
+        let { data, error } = await supabase
           .from('book_memos')
-          .select('id, text, created_at, book_id, book:books(title)')
+          .select('id, text, created_at, book_id, last_recalled_at, recall_count, source_type, book:books(title)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(200);
+        if (error) {
+          ({ data, error } = await supabase
+            .from('book_memos')
+            .select('id, text, created_at, book_id, book:books(title)')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(200));
+        }
         if (!active) return;
         if (error || !Array.isArray(data) || data.length < MIN_MEMOS) {
           setMemo(null); // 失敗・件数不足は静かに何も出さない
@@ -85,6 +95,9 @@ export default function HomeRecall({ onOpen }) {
           createdAt: r.created_at,
           bookId: r.book_id || null,
           title: r.book?.title || '',
+          lastRecalledAt: r.last_recalled_at ?? null,
+          recallCount: r.recall_count ?? 0,
+          sourceType: r.source_type ?? null,
         }));
         // 日替わりで安定（同じ日は同じ 1 枚）。
         // メモがまだ少ない初期は minAgeDays:1 で早めに一度「戻ってくる」体験を起こし、
@@ -128,6 +141,22 @@ export default function HomeRecall({ onOpen }) {
     e.stopPropagation();
     markDismissedToday();
     setDismissed(true);
+  };
+
+  // 🧠 間隔反復のフィードバック。「覚えた」= 定着(+1)して次の間隔まで当面出さない、
+  // 「もう一度」= 定着カウントは据え置きで翌日また戻す。どちらも last_recalled_at を
+  // now に更新して当面の再登場を制御する（recall.js の recallPatch）。書き込み後は
+  // 今日のカードを閉じる（1日1枚の静けさを守る）。列が無い DB では静かに no-op。
+  const recordRecall = async (e, mastered) => {
+    e.stopPropagation();
+    try { haptic.light(); } catch { /* non-critical */ }
+    setDismissed(true);
+    try {
+      await supabase
+        .from('book_memos')
+        .update(recallPatch(memo.recallCount, mastered))
+        .eq('id', memo.id);
+    } catch { /* 列未適用・失敗は静かに無視（想起体験は成立している） */ }
   };
 
   return (
@@ -196,6 +225,32 @@ export default function HomeRecall({ onOpen }) {
           『{memo.title}』
         </p>
       )}
+      {/* 🧠 間隔反復のフィードバック（覚えた/もう一度）。カード全体のタップ（開く）と
+          干渉しないよう stopPropagation。 */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }} onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={(e) => recordRecall(e, true)}
+          style={{
+            flex: 1, minHeight: 40, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
+            background: '#fff', color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
+            fontFamily: 'inherit', cursor: 'pointer',
+          }}
+        >
+          ✓ 覚えた
+        </button>
+        <button
+          type="button"
+          onClick={(e) => recordRecall(e, false)}
+          style={{
+            flex: 1, minHeight: 40, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
+            background: '#fff', color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
+            fontFamily: 'inherit', cursor: 'pointer',
+          }}
+        >
+          もう一度
+        </button>
+      </div>
       <button
         type="button"
         onClick={handleDismiss}

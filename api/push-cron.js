@@ -78,28 +78,51 @@ function memoExcerpt(text, max = 120) {
   return `${clean.slice(0, max - 1)}…`;
 }
 
-// 「忘れた頃に戻ってくる」メモを 1 件選ぶ（recall.js の pickRecallMemo と同ポリシー）。
+// 間隔反復（spaced repetition / SM-2 lite）。recall.js のミラー。
+// recall_count に応じて次の想起までの間隔を伸ばし、「忘れた頃に戻す」を機械的に保証する。
+const RECALL_INTERVALS = [1, 3, 7, 16, 35, 70, 140]; // 日。recall_count で index（上限クランプ）
+function dueGapDays(recallCount) {
+  const i = Math.min(Math.max(0, recallCount || 0), RECALL_INTERVALS.length - 1);
+  return RECALL_INTERVALS[i];
+}
+function isCondensedSource(sourceType) {
+  return sourceType === 'summary' || sourceType === 'personal';
+}
+
+// 「忘れた頃に戻ってくる」メモを 1 件選ぶ（recall.js の pickRecallMemo と同ポリシー = 間隔反復）。
+// notes 要素は { id, text, createdAt, lastRecalledAt?, recallCount?, sourceType?, isMemoRow? }。
+// due 判定: 未想起なら作成から minAgeDays、想起済なら前回想起 + dueGapDays(recallCount) 経過で due。
+// 既に最近想起した / 定着したメモはプッシュで送らない（due でない = 候補から除外）。
 function pickRecallMemo(notes, { now, minAgeDays = 14, seed = 0 } = {}) {
   if (!Array.isArray(notes) || notes.length === 0) return null;
   const minAgeMs = minAgeDays * 86400000;
-  const sweetMin = 30 * 86400000;
-  const sweetMax = 183 * 86400000;
 
-  const eligible = notes.filter((n) => {
-    if (!n || !n.text || !String(n.text).trim()) return false;
-    const t = new Date(n.createdAt).getTime();
-    if (Number.isNaN(t)) return false;
-    return now - t >= minAgeMs;
-  });
-  if (eligible.length === 0) return null;
+  const candidates = [];
+  for (const n of notes) {
+    if (!n || !n.text || !String(n.text).trim()) continue;
+    const created = new Date(n.createdAt).getTime();
+    if (Number.isNaN(created)) continue;
 
-  const sweet = eligible.filter((n) => {
-    const age = now - new Date(n.createdAt).getTime();
-    return age >= sweetMin && age <= sweetMax;
-  });
-  const pool = sweet.length > 0 ? sweet : eligible;
+    const count = n.recallCount || 0;
+    const lastRecalled = n.lastRecalledAt ? new Date(n.lastRecalledAt).getTime() : null;
+    const dueTime =
+      lastRecalled == null || Number.isNaN(lastRecalled)
+        ? created + minAgeMs
+        : lastRecalled + dueGapDays(count) * 86400000;
+    if (now < dueTime) continue; // まだ間隔が来ていない → 除外
+
+    const overdueDays = (now - dueTime) / 86400000;
+    let score = overdueDays; // ① 長く overdue なほど優先
+    score += Math.max(0, 6 - count) * 2; // ② 未定着ほど優先
+    if (isCondensedSource(n.sourceType)) score += 5; // ③ 凝縮系を軽くブースト
+    candidates.push({ note: n, score });
+  }
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => b.score - a.score || String(a.note.id).localeCompare(String(b.note.id)));
+  const pool = candidates.slice(0, Math.min(5, candidates.length));
   const idx = Math.abs(Math.floor((seed * 9301 + 49297) % 233280)) % pool.length;
-  return pool[idx] || pool[0];
+  return (pool[idx] || pool[0]).note;
 }
 
 // ── web-push の遅延 require（未インストールでも import 時にクラッシュしない）──
@@ -149,16 +172,33 @@ const MIN_NOTES_TO_SEND = 3;
 // schema-fallback: 一部列が無くても落とさない。
 async function gatherUserNotes(supabase, userId, now) {
   const notes = [];
-  // book_memos と books は互いに独立したクエリ（同じ user_id で絞るだけ）なので
-  // 直列 await せず同時に発射する。
-  const [memoRes, bookRes] = await Promise.all([
-    supabase
+
+  // book_memos は間隔反復列（last_recalled_at / recall_count / source_type）付きで取りに行く。
+  // これらの列が未適用の DB では error が返るため、staged fallback で基本列のみ再取得する
+  // （エラーで空配列に倒すと「間隔反復未適用の DB では通知が来ない」退行になるのを防ぐ）。
+  const fetchMemos = async () => {
+    const full = await supabase
+      .from('book_memos')
+      .select('id, text, created_at, last_recalled_at, recall_count, source_type')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(500)
+      .then((r) => r, () => ({ data: null, error: true }));
+    if (full && !full.error && Array.isArray(full.data)) return full.data;
+    // schema-error fallback: 間隔反復列なしで再取得（未適用 DB でも従来どおり動く）。
+    const base = await supabase
       .from('book_memos')
       .select('id, text, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(500)
-      .then((r) => r, () => ({ data: null })), // テーブル/列が無くても続行
+      .then((r) => r, () => ({ data: null }));
+    return base?.data || [];
+  };
+
+  // book_memos と books は互いに独立したクエリ（同じ user_id で絞るだけ）なので同時に発射する。
+  const [memoRows, bookRes] = await Promise.all([
+    fetchMemos(),
     supabase
       .from('books')
       .select('id, leverage_memo, updated_at, created_at')
@@ -167,9 +207,18 @@ async function gatherUserNotes(supabase, userId, now) {
       .then((r) => r, () => ({ data: null })),
   ]);
 
-  for (const m of memoRes?.data || []) {
+  for (const m of memoRows || []) {
     if (m && m.text && String(m.text).trim()) {
-      notes.push({ id: m.id, text: m.text, createdAt: m.created_at });
+      notes.push({
+        id: m.id,
+        text: m.text,
+        createdAt: m.created_at,
+        // 未適用 DB では undefined になり、pickRecallMemo が null / 0 として扱う。
+        lastRecalledAt: m.last_recalled_at,
+        recallCount: m.recall_count,
+        sourceType: m.source_type,
+        isMemoRow: true, // 実 book_memos 行 = 送信成功時に last_recalled_at を更新できる
+      });
     }
   }
   for (const b of bookRes?.data || []) {
@@ -178,6 +227,8 @@ async function gatherUserNotes(supabase, userId, now) {
         id: `summary-${b.id}`,
         text: b.leverage_memo,
         createdAt: b.updated_at || b.created_at,
+        sourceType: 'summary', // まとめメモ = 凝縮系（選定で軽くブースト）
+        isMemoRow: false, // 合成 id なので last_recalled_at 更新の対象外
       });
     }
   }
@@ -332,10 +383,26 @@ export default async function handler(req, res) {
           payload,
         );
         // last_sent_at を更新（fire-and-forget でよいが await で確実に）。
+        // これは端末単位の多重送信ガード（既存挙動・変更しない）。
         await supabase
           .from('push_subscriptions')
           .update({ last_sent_at: nowIso })
           .eq('id', sub.id);
+        // 送信成功 = そのメモを「想起した」とみなし、間隔反復の last_recalled_at を
+        // 更新する（次の想起を dueGapDays 分先送り = すぐ再プッシュしない）。recall_count は
+        // プッシュでは増やさない（「覚えた」フィードバックはアプリ内のカードでのみ発生）。
+        // 実 book_memos 行のみ対象（まとめメモは合成 id なので更新しない）。
+        // 列が未適用でも error を握りつぶすだけで送信結果には影響しない。
+        if (memo.isMemoRow && memo.id) {
+          try {
+            await supabase
+              .from('book_memos')
+              .update({ last_recalled_at: nowIso })
+              .eq('id', memo.id);
+          } catch {
+            /* last_recalled_at 列が無い / 更新失敗でも送信は成立している */
+          }
+        }
         return 'sent';
       } catch (sendErr) {
         const status = sendErr && (sendErr.statusCode || sendErr.status);

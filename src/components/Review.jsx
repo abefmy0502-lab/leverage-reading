@@ -22,8 +22,9 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import Spinner from './Spinner';
 import { getRandomFromCategory } from '../lib/quotes';
-import { relativeJa, recallFraming, pickRecallMemo } from '../lib/recall';
+import { relativeJa, recallFraming, pickRecallMemo, recallPatch } from '../lib/recall';
 import { markActivation } from '../lib/activation';
+import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
 import { btnGhost as uiBtnGhost } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
@@ -73,6 +74,9 @@ const transformRow = (m) => {
     sourceType,
     kind,
     synth: false,
+    // 間隔反復（recall.js）用。select('*') で取れる。未適用DBでは null/0。
+    lastRecalledAt: m.last_recalled_at ?? null,
+    recallCount: m.recall_count ?? 0,
   };
 };
 
@@ -324,6 +328,37 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
   // 想起カードから「→行動にする」したメモ id（直後のボタン表示を ✓ に切替）。
   const [actionAddedId, setActionAddedId] = useState(null);
   const [addingAction, setAddingAction] = useState(false);
+  // 🔔 想起プッシュ通知の aha 直後 opt-in。旗艦の復帰導線が設定モーダル奥・
+  // 既定オフ・オンボ未案内で死蔵していたため、実際に「過去メモが1枚戻ってきた」
+  // 瞬間に一度だけ価値訴求付きで案内する（1回で dismiss を永続化・しつこくしない）。
+  const PUSH_OPTIN_KEY = 'orime-recall-push-optin-v1';
+  const [pushOptInDismissed, setPushOptInDismissed] = useState(() => {
+    try { return localStorage.getItem(PUSH_OPTIN_KEY) === '1'; } catch { return false; }
+  });
+  const [pushBusy, setPushBusy] = useState(false);
+  const dismissPushOptIn = useCallback(() => {
+    try { localStorage.setItem(PUSH_OPTIN_KEY, '1'); } catch { /* ignore */ }
+    setPushOptInDismissed(true);
+  }, []);
+  const enablePushFromOptIn = useCallback(async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      const res = await subscribeToPush({ frequency: 'weekly' });
+      if (res?.ok) {
+        try { haptic.success(); } catch { /* non-critical */ }
+        toast.success('🔔 通知をオンにしました。忘れた頃にそっとお届けします');
+        dismissPushOptIn();
+      } else if (res?.reason === 'denied') {
+        toast.info('通知は端末の設定でブロックされています。設定から許可できます');
+        dismissPushOptIn();
+      } else {
+        toast.error('通知をオンにできませんでした。設定からもう一度お試しください');
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  }, [pushBusy, haptic, toast, dismissPushOptIn]);
 
   // Analytics: fire once when the Review tab mounts (not per sub-tab switch).
   // Empty dep array → runs exactly once on mount. fire-and-forget, no PII.
@@ -541,6 +576,19 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
   }, [allNotes]);
 
   // Flip the random-memo card and swap its content at the back-facing midpoint.
+  // 🧠 間隔反復のフィードバック（覚えた/もう一度）。実メモ行(synth:false)だけ
+  // last_recalled_at/recall_count を更新し、次の間隔まで出す/翌日また出す を制御。
+  // 書き込み後は次の一枚へ回す（reroll）。列未適用DBでは静かに no-op。
+  const recordRandomRecall = useCallback(async (memo, mastered) => {
+    if (!memo || memo.synth) return;
+    try {
+      await supabase
+        .from('book_memos')
+        .update(recallPatch(memo.recallCount, mastered))
+        .eq('id', memo.id);
+    } catch { /* 列未適用・失敗は静かに無視 */ }
+  }, []);
+
   const reroll = () => {
     haptic.light();
     // Always rotate the inspirational quote alongside the memo swap.
@@ -789,11 +837,91 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
                 </button>
               )
             )}
+            {/* 🧠 間隔反復のフィードバック（実メモのみ）。「覚えた」で定着させ次の
+                間隔まで出さない／「もう一度」で翌日また戻す。 */}
+            {!randomMemo.synth && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => { recordRandomRecall(randomMemo, true); reroll(); }}
+                  style={{
+                    minHeight: 40, padding: '8px 16px', borderRadius: 10,
+                    border: '1px solid var(--c-hairline-strong)', background: '#fff',
+                    color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
+                    fontFamily: 'inherit', cursor: 'pointer',
+                  }}
+                >
+                  ✓ 覚えた
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { recordRandomRecall(randomMemo, false); reroll(); }}
+                  style={{
+                    minHeight: 40, padding: '8px 16px', borderRadius: 10,
+                    border: '1px solid var(--c-hairline-strong)', background: '#fff',
+                    color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
+                    fontFamily: 'inherit', cursor: 'pointer',
+                  }}
+                >
+                  もう一度
+                </button>
+              </div>
+            )}
           </div>
         )}
         <p style={{ fontSize: 10, color: 'var(--c-ink-2)', marginTop: 6, lineHeight: 1.6 }}>
           忘れかけていた気づきを思い出す習慣で、本の内容が定着します。
         </p>
+
+        {/* 🔔 aha 直後の通知 opt-in（初回・1枚戻ってきた時だけ・未許可時のみ） */}
+        {randomMemo && !pushOptInDismissed && isPushSupported() && isPushConfigured() && getPermission() === 'default' && (
+          <div
+            style={{
+              marginTop: 12, padding: '12px 14px', borderRadius: 12,
+              background: 'var(--c-soft)', border: '1px solid var(--c-hairline)',
+            }}
+          >
+            <p style={{ fontSize: 12, color: 'var(--c-ink)', margin: 0, lineHeight: 1.7, fontWeight: 600 }}>
+              🔔 忘れた頃に、この一行がそっと戻ってきます
+            </p>
+            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '4px 0 10px', lineHeight: 1.7 }}>
+              週に1回ほど、過去のあなたのメモを通知でお届けします（いつでもオフにできます）。
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={enablePushFromOptIn}
+                disabled={pushBusy}
+                style={{
+                  flex: 1, minHeight: 44, borderRadius: 10, border: 'none',
+                  background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 13,
+                  fontWeight: 700, fontFamily: 'inherit', cursor: pushBusy ? 'default' : 'pointer',
+                  opacity: pushBusy ? 0.6 : 1,
+                }}
+              >
+                {pushBusy ? '設定中…' : '通知を受け取る'}
+              </button>
+              <button
+                type="button"
+                onClick={dismissPushOptIn}
+                disabled={pushBusy}
+                style={{
+                  flexShrink: 0, minHeight: 44, padding: '0 16px', borderRadius: 10,
+                  border: '1px solid var(--c-hairline-strong)', background: 'transparent',
+                  color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+                  cursor: 'pointer',
+                }}
+              >
+                今はしない
+              </button>
+            </div>
+            {isIOS() && !isStandalonePWA() && (
+              <p style={{ fontSize: 10, color: 'var(--c-ink-3)', margin: '8px 0 0', lineHeight: 1.6 }}>
+                ※ iPhone / iPad は「ホーム画面に追加」したアプリから開くと通知を使えます。
+              </p>
+            )}
+          </div>
+        )}
         <p
           style={{
             fontSize: 12,

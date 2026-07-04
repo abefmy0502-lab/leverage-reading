@@ -1,6 +1,6 @@
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
-import { callClaude, sanitizeForPrompt } from './lib/ai';
+import { callClaude, sanitizeForPrompt, gatherAdvisorContext } from './lib/ai';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
 import MarkdownSections from './components/MarkdownSections';
@@ -997,8 +997,49 @@ function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFolders })
       <Field label="フォルダ" sub="本棚をグループ分け（任意・複数可）">
         <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} />
       </Field>
+
+      {/* 📖 既読クイック追加: 「もう読んだ／読んでいる」本は、読みたい→読書前→
+          読書中 の遷移や投資目的ゲートを経ずに、ここで状態を選んで直接
+          読書中/読了で保存 → 保存後すぐ本詳細のメモ欄が開く（メモだけ残したい
+          人の入口摩擦を無くす）。 */}
+      <Field label="この本の状態" sub="もう読んだ本は「読了」を選ぶと、保存後すぐメモを書けます">
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[
+            { v: 'want', label: '読みたい' },
+            { v: 'reading', label: '読書中' },
+            { v: 'done', label: '読了' },
+          ].map((s) => {
+            const active = (form.status || 'want') === s.v;
+            return (
+              <button
+                key={s.v}
+                type="button"
+                onClick={() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  setForm((f) => ({
+                    ...f,
+                    status: s.v,
+                    startDate: (s.v === 'reading' || s.v === 'done') && !f.startDate ? today : f.startDate,
+                    doneDate: s.v === 'done' && !f.doneDate ? today : f.doneDate,
+                  }));
+                }}
+                style={{
+                  flex: 1, minHeight: 44, padding: '8px 6px', borderRadius: 10,
+                  border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
+                  background: active ? 'var(--c-soft-2)' : '#fff',
+                  color: active ? 'var(--c-ink)' : 'var(--c-brand)',
+                  fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      </Field>
+
       <button onClick={onSave} disabled={!form.title.trim()} style={{ ...btnS, width: "100%", marginTop: 8, opacity: form.title.trim() ? 1 : 0.5 }}>
-        保存
+        {(form.status === 'reading' || form.status === 'done') ? '保存してメモを書く' : '保存'}
       </button>
     </div>
   );
@@ -1496,6 +1537,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 旧: 挨拶 seed メッセージで例を箇条書き → サブタブ画面では冗長
   // (タップ不可で文字を読まされるだけ)。例はチップ UI に分離した。
   // 「📚 読みたいに追加」のタップ受付を触覚で即時 ack するため。
+  const { user: advisorUser } = useAuth();
   const advisorHaptic = useHaptic();
   const advisorToast = useToast();
   const advisorConfirm = useConfirm();
@@ -1696,11 +1738,19 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     const newHistory = [...chatHistory, { role: 'user', content: safeMsg }];
     setChatHistory(newHistory);
 
+    // 🔑 差別化: ユーザーの既読/高評価本と高評価メモの要点を推薦の足場にする
+    //   （既読の重複推薦を避け、「あなたが○○を高評価したので」とパーソナル化し、
+    //    実在の既読本を土台にして捏造を減らす）。best-effort — 失敗しても推薦は続行。
+    let readerContext = '';
+    try { readerContext = await gatherAdvisorContext(advisorUser?.id); } catch { /* graceful */ }
+
     let finalText = '';
     try {
       finalText = await streamClaude({
-        system: PROMPTS.bookAdvisor.system,
-        cacheSystem: true,
+        system: PROMPTS.bookAdvisor.systemWith(readerContext),
+        // readerContext はユーザーごとに変わるためキャッシュ読取ヒットが起きない。
+        // 汎用（context 空）の時だけキャッシュを効かせる。
+        cacheSystem: !readerContext,
         messages: newHistory,
         // temperature 0.7 — 推薦に多様性を出す（同じ著者ばかりにならない）。
         temperature: 0.7,
