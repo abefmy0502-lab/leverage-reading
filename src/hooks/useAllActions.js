@@ -103,7 +103,12 @@ export function useAllActions(books) {
           const showFrom = new Date(act.scheduledFor);
           if (!Number.isNaN(showFrom.getTime()) && showFrom > now) return;
         }
-        const dedupKey = `${b.id}|${act.text.trim()}|${act.deadline || ''}|${act.done ? 1 : 0}|${act.recurrence || ''}`;
+        // id があれば id を dedup キーにする（ユーザーが同じ一行を意図的に2つ作った
+        // 等の「別レコードだが内容が同じ」行を消さない）。id が無いレガシー/合成行だけ
+        // 内容ベースで重複畳み込みする（繰り返しスポーンの重複対策は温存）。
+        const dedupKey = act.id
+          ? `id:${act.id}`
+          : `${b.id}|${act.text.trim()}|${act.deadline || ''}|${act.done ? 1 : 0}|${act.recurrence || ''}`;
         if (seen.has(dedupKey)) return; // 完全重複はスキップ
         seen.add(dedupKey);
         out.push({

@@ -279,12 +279,18 @@ export function ToastProvider({ children }) {
           <ToastHud key={toast.id} toast={toast} />
         ))}
       </div>
-      {/* 下部バー（エラー / 削除取消 / 情報） */}
-      <div style={containerStyle} aria-live="polite">
-        {barToasts.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onAction={handleAction} />
-        ))}
-      </div>
+      {/* 下部バー（エラー / 削除取消 / 情報）。エラーがある時はスクリーンリーダーに
+          割り込み通知（assertive/alert）、それ以外は穏やかに（polite/status）。 */}
+      {(() => {
+        const barHasError = barToasts.some((t) => t.type === 'error');
+        return (
+          <div style={containerStyle} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
+            {barToasts.map((toast) => (
+              <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onAction={handleAction} />
+            ))}
+          </div>
+        );
+      })()}
     </ToastContext.Provider>
   );
 }

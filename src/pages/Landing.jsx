@@ -147,7 +147,7 @@ export default function Landing() {
         <div className="sticky-cta" role="region" aria-label="申し込み">
           <div className="sticky-inner">
             <div className="sticky-price">
-              <span className="sticky-price-main">月 ¥1,480</span>
+              <span className="sticky-price-main">月 ¥1,480（税込）</span>
               <span className="sticky-price-sub">iOS アプリ・いつでも解約OK</span>
             </div>
             <button type="button" onClick={goToAppStore} className="sticky-btn">
@@ -175,7 +175,7 @@ export default function Landing() {
           App Store でダウンロード →
         </button>
         <p className="hero-note">
-          iPhone 専用アプリ・月 ¥1,480・いつでも解約OK・データは残ります
+          iPhone 専用アプリ・月 ¥1,480（税込）・いつでも解約OK・データは残ります
         </p>
         <p className="hero-login">
           すでにアカウントをお持ちの方は{' '}
@@ -220,7 +220,7 @@ export default function Landing() {
         </p>
 
         <button type="button" onClick={goToAppStore} className="cta-secondary">
-          くわしく見る →
+          App Store で入手 →
         </button>
       </section>
 
@@ -505,7 +505,7 @@ export default function Landing() {
           App Store でダウンロード →
         </button>
         <p className="final-note">
-          iPhone 専用アプリ・月 ¥1,480・いつでも解約OK・データは残ります
+          iPhone 専用アプリ・月 ¥1,480（税込）・いつでも解約OK・データは残ります
         </p>
 
         <div className="faq-compact" role="region" aria-label="よくある質問">

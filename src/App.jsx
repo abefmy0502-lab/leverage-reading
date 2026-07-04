@@ -2899,12 +2899,16 @@ function AuthedApp() {
   useEffect(() => {
     if (!isNative) return undefined;
     let cancelled = false;
+    let removeListener = null;
     initNativePushNav((url) => {
       if (cancelled || !url) return;
       try { window.history.replaceState(null, '', url); } catch { /* ignore */ }
       handleRecallDeepLink();
+    }).then((remove) => {
+      if (cancelled) { try { remove?.(); } catch { /* ignore */ } }
+      else removeListener = remove;
     });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; try { removeListener?.(); } catch { /* ignore */ } };
   }, [handleRecallDeepLink]);
   const [view, setView] = useState("list"); // list | detail | edit
   const [current, setCurrent] = useState(null);
@@ -3426,7 +3430,14 @@ function AuthedApp() {
     (async () => {
       let opened = false;
       try {
-        if (supabaseClient) {
+        // 合成ノート id（push-cron のまとめメモは `summary-<bookId>`。他の合成系も
+        // `<prefix>-<bookId>`）は book_memos.id(UUID 列)で検索できず invalid-uuid で
+        // 弾かれ、常に💭ノートへ退避していた。prefix を剥がして bookId を直接開く。
+        const synthMatch = /^(summary|leverage_memo|ai_summary|roi_summary|invest_purpose|current_challenge|hypothesis|ref)-(.+)$/.exec(pendingRecallMemoId);
+        if (synthMatch) {
+          const b = rawBooks.find((x) => x.id === synthMatch[2]);
+          if (b && !cancelled) { openDetail(b); setTab('books'); opened = true; }
+        } else if (supabaseClient) {
           const { data } = await supabaseClient
             .from('book_memos')
             .select('book_id')
@@ -4459,6 +4470,11 @@ function AuthedApp() {
       const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const baseStr = updatedAct.deadline || todayLocal;
       const base = new Date(baseStr + 'T00:00:00');
+      // 期限が過去（何ヶ月も溜めた繰り返しタスクを今やっと完了）だと、元期限+1周期は
+      // まだ過去のまま＝次回インスタンスが即 overdue で湧き、達成率が下がり続ける。
+      // 進める基準を max(期限, 今日) にして、次回は必ず未来に落とす。
+      const today0 = new Date(todayLocal + 'T00:00:00');
+      if (Number.isNaN(base.getTime()) || base < today0) base.setTime(today0.getTime());
       if (!Number.isNaN(base.getTime())) {
         if (updatedAct.recurrence === 'weekly') base.setDate(base.getDate() + 7);
         else if (updatedAct.recurrence === 'monthly') {

@@ -382,7 +382,9 @@ export default function Paywall({ onPurchased }) {
                 opacity: pending && pending !== 'annual' ? 0.5 : 1,
               }}
             >
-              {pending === 'annual' ? pendingLabel : '年額プランで契約する'}
+              {pending === 'annual'
+                ? pendingLabel
+                : (labels.trial ? `まずは${labels.trial}で試す` : '年額プランで契約する')}
             </button>
           </div>
 

@@ -266,11 +266,14 @@ export default function BookMemoEditor({
 
   const buildPayload = () => {
     const parsed = parseInt(pageNumber, 10);
+    // 入力欄に打ちかけて未確定（Enter/＋を押す前）のタグも保存に含める＝取りこぼし防止。
+    const pendingTag = tagInput.trim();
+    const finalTags = pendingTag && !tags.includes(pendingTag) ? [...tags, pendingTag] : tags;
     return {
       pageNumber: Number.isFinite(parsed) ? parsed : null,
       text: text.trim(),
       photoFile: photoFile || null,
-      tags,
+      tags: finalTags,
       removePhotoFlag,
     };
   };

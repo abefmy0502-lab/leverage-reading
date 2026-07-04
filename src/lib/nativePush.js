@@ -199,16 +199,20 @@ export async function unsubscribeNativePush() {
 
 // 通知タップ時のディープリンク（/?recall=<memoId>）を SPA 内遷移につなぐ。
 // アプリ起動時に1回だけ呼ぶ（native のみ）。onNavigate(url) が呼ばれる。
+// 戻り値: リスナー解除関数（呼ぶと remove。native/未導入では no-op 関数）。
 export async function initNativePushNav(onNavigate) {
   const PN = await loadPN();
-  if (!PN) return;
+  if (!PN) return () => {};
   try {
-    await PN.addListener('pushNotificationActionPerformed', (action) => {
+    const handle = await PN.addListener('pushNotificationActionPerformed', (action) => {
       try {
         const data = action?.notification?.data || {};
         const url = data.url || (data.recall ? `/?recall=${encodeURIComponent(data.recall)}` : null);
         if (url && typeof onNavigate === 'function') onNavigate(url);
       } catch { /* ignore */ }
     });
-  } catch { /* ignore */ }
+    return () => { try { handle && handle.remove && handle.remove(); } catch { /* ignore */ } };
+  } catch {
+    return () => {};
+  }
 }
