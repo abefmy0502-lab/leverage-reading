@@ -560,6 +560,8 @@ function Modal({ open, onClose, children }) {
     >
       <div
         className="modal"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--color-surface)",
@@ -6225,12 +6227,15 @@ function AuthedApp() {
           action={editingAction.action}
           onClose={() => setEditingAction(null)}
           onSave={async (patch) => {
-            const { bookId, actionIdx } = editingAction;
+            const { bookId, actionIdx, action: openedAction } = editingAction;
             setEditingAction(null);
             // トグル/削除と同じ本ごとの直列化チェーンに乗せる（並行 saveBook との
             // 競合で編集内容が stale 上書きで失われるのを防ぐ）。
-            // 対象行の身元を掴んでおき、index は実行時に再解決する。
-            const editTarget = (booksRef.current.find((b) => b.id === bookId)?.actions || [])[actionIdx] || null;
+            // ⚠️ 対象の身元は「モーダルを開いた時点の action」を使う。保存時に
+            // actionIdx で再取得すると、モーダルを開いている間に配列が動いた場合
+            // （繰り返しスポーン / 別行削除）に別の行を掴んでしまう。resolveActionIndex は
+            // id 優先で解決するので、開いた時点の action オブジェクトを渡すのが正しい。
+            const editTarget = openedAction || (booksRef.current.find((b) => b.id === bookId)?.actions || [])[actionIdx] || null;
             await enqueueBookMutation(bookId, async (entry) => {
               const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
               if (!book) return;

@@ -278,6 +278,21 @@ export default async function handler(req, res) {
       current_period_end: toIsoFromMs(event.expiration_at_ms),
     };
 
+    // 二重 provider(Web=Stripe と IAP=RevenueCat)対策。subscriptions は user_id 1 行
+    // なので、RC の expire/cancel イベントが「現在 active な Stripe 購読」を上書きして
+    // 誤って canceled 化するのを防ぐ。RC が active を通知する時（＝IAP 購入という正当な
+    // 移行）だけ provider を RC に引き継ぎ、それ以外で既存が Stripe active なら触らない。
+    try {
+      const { data: existing } = await supabase
+        .from('subscriptions')
+        .select('provider, status')
+        .eq('user_id', appUserId)
+        .maybeSingle();
+      if (existing && existing.provider === 'stripe' && existing.status === 'active' && status !== 'active') {
+        return res.status(200).json({ received: true, skipped: 'stripe_active_preserved' });
+      }
+    } catch { /* 読み取り失敗時は従来どおり upsert に進む（fail-open） */ }
+
     const { error } = await supabase
       .from('subscriptions')
       .upsert(patch, { onConflict: 'user_id' });

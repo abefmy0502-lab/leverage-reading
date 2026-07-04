@@ -15,7 +15,7 @@ import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
-import { toMessage } from '../lib/errors';
+import { toMessage, isSchemaError } from '../lib/errors';
 import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
@@ -183,7 +183,20 @@ function MemoPhoto({ path }) {
       cancelled = true;
     };
   }, [path, cache]);
-  if (!url) return null;
+  // 署名 URL 解決までは場所を先取りするプレースホルダを出す（解決後にガクッと
+  // 出現する CLS を防ぐ）。写真が無い（path なし）ときだけ何も描画しない。
+  if (!url) {
+    if (!path) return null;
+    return (
+      <div
+        aria-hidden="true"
+        style={{
+          width: '70%', height: 160, borderRadius: 8, marginTop: 6,
+          border: '1px solid var(--c-hairline)', background: 'var(--c-soft, #f4efe7)',
+        }}
+      />
+    );
+  }
   return (
     <img
       src={ensureHttps(url)}
@@ -468,10 +481,19 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               text: snapshot.text || '',
               tags: snapshot.tags || [],
               photo_path: null,
-              source_type: snapshot.sourceType === 'personal' ? 'personal' : 'book',
+              // 元の source_type を尊重（'summary' 等を 'book' に潰さない）。
+              source_type: snapshot.sourceType || null,
             };
             if (snapshot.createdAt) payload.created_at = snapshot.createdAt;
-            const { error } = await supabase.from('book_memos').insert([payload]);
+            // 間隔反復の進捗（覚えた回数・最終想起）も復元する。列が無い DB では
+            // schema-error になるため、その時だけ剥がして再挿入する。
+            const withRecall = { ...payload };
+            if (snapshot.recallCount) withRecall.recall_count = snapshot.recallCount;
+            if (snapshot.lastRecalledAt) withRecall.last_recalled_at = snapshot.lastRecalledAt;
+            let { error } = await supabase.from('book_memos').insert([withRecall]);
+            if (error && isSchemaError(error)) {
+              ({ error } = await supabase.from('book_memos').insert([payload]));
+            }
             if (error) throw error;
             toast.info('削除を取り消しました');
             fetchMemos();

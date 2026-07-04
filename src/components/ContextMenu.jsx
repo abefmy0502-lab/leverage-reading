@@ -2,7 +2,7 @@
 // (taps close) plus a small floating panel positioned near (x, y) but clamped
 // to the viewport.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const PANEL_WIDTH = 220;
 const PANEL_MARGIN = 12;
@@ -86,6 +86,24 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
     setPosition({ left, top });
   }, [x, y, items.length]);
 
+  // role="menu" のキーボードパターン: 開いたら先頭にフォーカスし、上下/Home/End で移動。
+  const itemRefs = useRef([]);
+  useEffect(() => {
+    const t = setTimeout(() => { try { itemRefs.current[0]?.focus(); } catch { /* ignore */ } }, 0);
+    return () => clearTimeout(t);
+  }, []);
+  const onMenuKeyDown = (e) => {
+    const n = items.length;
+    if (n === 0) return;
+    const cur = itemRefs.current.indexOf(document.activeElement);
+    let next = -1;
+    if (e.key === 'ArrowDown') next = cur < 0 ? 0 : (cur + 1) % n;
+    else if (e.key === 'ArrowUp') next = cur <= 0 ? n - 1 : cur - 1;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = n - 1;
+    if (next >= 0) { e.preventDefault(); try { itemRefs.current[next]?.focus(); } catch { /* ignore */ } }
+  };
+
   return (
     <>
       <div style={backdrop} onClick={onClose} aria-hidden="true" />
@@ -93,6 +111,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
         style={{ ...panelBase, left: position.left, top: position.top }}
         role="menu"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={onMenuKeyDown}
       >
         {items.map((it, i) => {
           const isLast = i === items.length - 1;
@@ -101,6 +120,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
               key={it.label}
               type="button"
               role="menuitem"
+              ref={(el) => { itemRefs.current[i] = el; }}
               onClick={() => {
                 try { it.onClick?.(); } finally { onClose?.(); }
               }}
