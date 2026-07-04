@@ -87,6 +87,7 @@ import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
 import { ensurePushSubscription } from './lib/push';
+import { isNative } from './lib/iap';
 import UpdateBanner from './components/UpdateBanner';
 import { BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
 import { fireConfetti } from './lib/confetti';
@@ -6476,6 +6477,10 @@ function AppShell() {
   // 安全状態でだけ表示される。toast でいきなり出るとメモ書き / AI 会話の最中に
   // 視界を奪われるため、敢えて受動的な仕掛けに分離。
   useEffect(() => {
+    // ネイティブ(Capacitor/App Store)ではアプリ更新は App Store 経由で行われ、
+    // Service Worker は不要（ローカルバンドルへの介在・controllerchange リロード・
+    // 「新版があります」バナーはむしろ有害）。Web のみで SW を登録する。
+    if (isNative) return;
     initServiceWorker({
       // 自動更新: 起動直後に待機版があれば即適用、利用中の検出は次に
       // バックグラウンドへ入った時に静かに適用（タップ不要）。バナーは
@@ -6522,6 +6527,10 @@ function AppShell() {
 //   - 'orime-returning' フラグ済（一度 auth 画面に来た既知ユーザー）
 function shouldShowMarketingLanding() {
   if (typeof window === 'undefined') return false;
+  // ネイティブ(App Store アプリ)内では LP は不要（既にアプリを入手済み。LP は
+  // ブラウザ訪問者を App Store へ送る集客導線であり、アプリ内で見せると
+  // 「App Store で入手」CTA が自己言及的で無意味になる）。直接 AuthScreen へ。
+  if (isNative) return false;
   try {
     const sp = new URLSearchParams(window.location.search);
     if (sp.get('auth')) return false;

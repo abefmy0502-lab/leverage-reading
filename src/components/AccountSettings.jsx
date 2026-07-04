@@ -315,7 +315,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   //   pushDenied   : OS で許可を拒否済み（自前ダイアログは二度と出せない → 案内に倒す）
   const pushConfigured = isPushConfigured(); // VAPID 公開鍵が env にあるか
   const pushSupported = isPushSupported();   // 端末 + iOS standalone 条件込み
-  const pushNeedsA2HS = pushConfigured && isIOS() && !isStandalonePWA(); // iOS タブ内
+  // A2HS 案内は Web(ブラウザ)のみ。ネイティブ(Capacitor WKWebView)では isIOS()=true /
+  // isStandalonePWA()=false になり「ホーム画面に追加」を誤って促してしまうため !isNative で封じる。
+  const pushNeedsA2HS = !isNative && pushConfigured && isIOS() && !isStandalonePWA(); // iOS ブラウザタブ内
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushDenied, setPushDenied] = useState(false);
@@ -783,11 +785,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               </>
             ) : (
               <>
-                {/* Web/PWA: 契約は App Store（IAP）一本化 — Paywall と同じチャネル分岐。
-                    ここで休眠中の Stripe Checkout に誘導すると、表示価格と請求額の不一致
-                    （景表法リスク）や「決済機能が利用できません」の導線死になる。 */}
+                {/* App-only 配信: Orime は App Store の iOS アプリでのみ提供・課金。
+                    Web/PWA から開かれた場合も、契約・利用ともアプリへ誘導する
+                    （「Web 版」という別プロダクトは存在しないため、そう見せない）。 */}
                 <p style={sectionDescStyle}>
-                  ご契約は iOS アプリ（App Store）から行えます。ご契約後、この Web 版でも同じアカウントで全機能が使えます。
+                  Orime のご契約・ご利用は iOS アプリ（App Store）から行えます。アプリを入手して、同じアカウントでサインインしてください。
                 </p>
                 <a
                   href={import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime'}
@@ -826,7 +828,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               );
             })()}
 
-            {!pushConfigured ? (
+            {isNative ? (
+              // ネイティブ(iOS アプリ)は Web Push 非対応。APNs 対応は今後のアップデート。
+              // 「ブラウザ非対応」等の誤案内を出さず、正直に準備中と伝える。
+              <p style={{ ...sectionNoteStyle, color: 'var(--c-ink-2)', marginTop: 10 }}>
+                📱 想起の通知は、今後のアップデートで対応予定です。
+              </p>
+            ) : !pushConfigured ? (
               // VAPID 鍵未設定 = 機能準備中（env 投入前）。静かに案内のみ。
               <p style={{ ...sectionNoteStyle, color: 'var(--c-ink-2)', marginTop: 10 }}>
                 ただいま準備中です。もう少しお待ちください。

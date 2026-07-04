@@ -321,7 +321,7 @@ function BarcodeScanner({ onDetect, onClose }) {
     async function start() {
       // 二重ガード: 親が出すのは BARCODE_SUPPORTED 時のみだが、ここでも防御。
       if (!BARCODE_SUPPORTED) {
-        setScanError('お使いのブラウザはバーコード読取に未対応です。ISBN を手入力してください。');
+        setScanError('お使いの端末ではバーコード読取に未対応です。ISBN を手入力してください。');
         return;
       }
       // ===== 経路A: ネイティブ BarcodeDetector（あれば最優先・最省電力）=====
@@ -369,7 +369,7 @@ function BarcodeScanner({ onDetect, onClose }) {
           const denied = e?.name === 'NotAllowedError' || e?.name === 'SecurityError';
           setScanError(
             denied
-              ? 'カメラの使用が許可されませんでした。ブラウザの設定でカメラを許可するか、ISBN を手入力してください。'
+              ? 'カメラの使用が許可されませんでした。端末の「設定」からカメラを許可するか、ISBN を手入力してください。'
               : 'カメラを起動できませんでした。ISBN を手入力してください。',
           );
         }

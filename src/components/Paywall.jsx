@@ -451,13 +451,13 @@ export default function Paywall({ onPurchased }) {
             解約後もデータは保持されます。お支払いは App Store を通じて行われます。
           </p>
         ) : (
-          // Web/Stripe（現在は休眠）: 自動更新条件 + Stripe 決済の明示。
-          // ※「5日間返金保証」の手動運用コピーは履行 SLA が未確立で景表法リスクのため撤去。
-          //   無料トライアルを出す場合は Stripe 側の設定と一致させること。
+          // App-only 配信: Web から開かれた場合も課金は App Store(IAP) に一本化。
+          // ここで Stripe/決済ページに言及すると、実際の入手導線（App Store）と
+          // 食い違い、表示と請求の不一致（景表法リスク）になるため触れない。
           <p style={{ fontSize: 12, color: 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
+            ご契約・お支払い・解約はすべて App Store（iOS アプリ）で行われます。<br />
             サブスクリプションは自動更新です。期間終了前に解約しない限り、同額で自動更新されます。<br />
-            いつでも解約でき、解約後もデータは保持されます。<br />
-            お支払いは Stripe の安全な決済ページで行われます。
+            いつでも解約でき、解約後もデータは保持されます。
           </p>
         )}
 

@@ -16,6 +16,7 @@
 import { useEffect, useReducer, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { applyUpdate } from '../lib/swUpdate';
+import { isNative } from '../lib/iap';
 
 // ---------------------------------------------------------------------------
 // Module-level state — UpdateBanner が unmount/remount されても更新検知の
@@ -122,6 +123,9 @@ export default function UpdateBanner({ safe = false }) {
     return () => clearTimeout(t);
   }, [dismissed]);
 
+  // ネイティブ(App Store アプリ)では更新はストア経由＝SW 非登録でこの event は
+  // そもそも発火しないが、多層防御として明示的にも封じる（誤案内防止）。
+  if (isNative) return null;
   if (!updateAvailable) return null;
   if (!safe) return null;
   if (inputFocused) return null;

@@ -2,6 +2,7 @@
  * Help Content for Leverage Reading App
  *
  * 更新履歴:
+ * - 2026-07-04: 📱 App-only 配信への整合（Web 版前提の文言・PWA 案内を除去）。「App Store（iOS アプリ）でのみ提供・課金」という現行方針に全サーフェスを揃えた。①想起通知ヘルプから「ホーム画面に追加したアプリから開くと使えます」の PWA 前提 bullet を削除（ネイティブアプリでは不要・誤案内）。②設定/Paywall の課金文言から「この Web 版でも全機能が使えます」「Stripe 決済ページ」を除去し App Store 一本化に統一。③法務（プライバシー/特商法）のブラウザ・Cookie・決済処理の記述を「マーケティング用 Web ページのみ」「決済は Apple」にスコープ。④ネイティブでは SW 更新バナー・マーケLP・A2HS 案内を非表示化、想起通知は「今後のアップデートで対応予定」と正直表示（Web Push は WKWebView 非対応のため）。npm run build 成功
  * - 2026-07-04: 🧠 間隔反復（想起の記憶モデル）＋既読クイック追加＋AI選書のメモ注入を反映。①review ヘルプの想起節を「単なるランダム→忘れた頃に戻す間隔反復」に刷新（✓覚えた＝当面出さない・もう一度＝翌日再登場）、通知の想起（週1 opt-in）節も維持。②bookList ヘルプの「まずは1冊」に既読クイック追加（追加画面の「この本の状態」で読了/読書中を選び段階を飛ばして直接登録→読了保存でそのままメモ）を追記。③aiAdvisor ヘルプに「読んだ本・メモの傾向を踏まえた提案（読了済みは再推薦しない）」を追記。lastUpdated を review/bookList/aiAdvisor で 2026-07-04 に更新。DB は supabase_recall_memory.sql（book_memos に last_recalled_at / recall_count 追加・任意）。npm run build 成功
  * - 2026-07-04: 🧹 ユーザー可視の人物名「本田直之」を画面文言・AI 出力ペルソナ・名言帰属から削除。書籍名『レバレッジ・リーディング』と哲学（本は投資／20%で80%成果／目的なき読書はしない／凝縮／反復／行動が全て）は維持。helpContent の該当 body（bookDetailBefore / memoEditor / myBookBrain / themeReport / quotes）から人物名を落とし書籍名だけ残す形に置換、名言コーナー説明から本田直之引用の言及と件数を削除。あわせて prompts.js の AI ペルソナ／quotes.js の実名帰属8件も是正。npm run build 成功
  * - 2026-07-03: 🎯 本田直之ペルソナ統括の全体最適化ワークフロー（6観点58件→検証済み18件）を一括実装。【UX動線】①投資目的の入力欄が「AI解析の実行」にゲートされ AI 不使用/月次上限/オフラインのユーザーが読書を開始できなかった→常時表示に変更、「保存して読書を開始する」の条件も投資目的のみに（AI は任意の補助。bookDetailBefore の 🎯 セクションを現行挙動に同期）。②🎯行動タブに「＋追加」ボタンを新設（本選択シート→ActionEditModal の create モード。actionList ヘルプの「➕ 行動の追加」を更新）＋空状態の実在しない案内（「詳細画面→行動リスト」）を実経路に修正。③「行動にする」をタイムライン/検索の長押しメニューと読書中編集画面のメモ一覧にも露出（review ヘルプに追記）。④detail/edit ビューからオンボーディング経由の「本を追加」が無反応になる袋小路を修正。⑤アクティブタブ再タップでサブタブが強制リセットされマイ読書脳の入力ドラフトが消えていた→リセットはタブ切替時のみ。⑥検索結果ソートの select が 12px で iOS 自動ズームを誘発→16px 維持。【データ整合性】⑦詳細画面の行動トグル/削除/編集モーダル保存が current/form を同期せず、直後のまとめメモ保存・読了操作が stale な行動配列で全行保存→トグル結果や繰り返し行が黙って巻き戻るバグを根治（syncActionSnapshots で一元同期）。⑧advanceStatus/まとめ保存/学び分析保存/Undo を本ごとの直列化チェーンに統合し実行時 rebase（「読了が読書中に戻る」「Undo で行動が消える」「別の本の編集画面を乗っ取る」を全て封じる）。⑨知識ベース（KnowledgeManager）の books 列編集/クリアが App 側 state に反映されず後続保存で巻き戻る→onBooksMutated で再同期。【課金】⑩stripe-portal/checkout が anon クライアントで RLS 保護の subscriptions を読み常に 0 行→有料ユーザーが解約・カード変更に到達できない致命バグを service_role 読み取りで修正。⑪checkout に二重課金ガード（DB 上 active なら 409 + Stripe 側 live 購読の直接確認）。⑫webhook の配信順序逆転で解約済みが active に復活し得た→ペイロードを信用せず retrieve で現在状態を取得。【小修正】⑬月次繰り返しの setMonth オーバーフロー（1/31完了→2月スキップ）を月末クランプで修正。⑭ActionEditModal/FeedbackForm/知識ベース/共有/設定/ヘルプ/運営の Escape に IME 変換中ガード（変換キャンセルで下書き全損の防止）。【セキュリティ/基盤】⑮feedback の INSERT が anon ロールにも開放→authenticated 限定 + 長さ CHECK（supabase_feedback_hardening.sql）。⑯account_deletion_requests の user_email 偽装ベクトル封じ + UNIQUE(user_id)（supabase_account_deletion_hardening.sql。クライアントは 23505 を「登録済み」として成功扱いに）。⑰「マイグレーション未適用」判定を lib/errors.js の isSchemaError に一元化（8箇所の判定漏れで課金済みユーザーに誤ペイウォールが出得る穴を閉じる）。npm run build 成功
@@ -923,7 +924,6 @@ export const HELP_CONTENT = {
         bullets: [
           'デフォルトはオフ。あなたが選んだときだけ届きます',
           '低頻度（週1ほど）で、通知疲れしない静かなお届け',
-          'iPhone / iPad は「ホーム画面に追加」したアプリから開くと使えます',
           'いつでも設定からオフにできます',
         ],
       },
