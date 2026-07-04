@@ -27,7 +27,7 @@ import { markActivation } from '../lib/activation';
 import { btnGhost as uiBtnGhost } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
-  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check,
+  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus,
 } from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
 
@@ -297,10 +297,13 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   return inner;
 }
 
-export default function Review({ books = [], onOpenBook, onAddAction }) {
+export default function Review({ books = [], onOpenBook, onAddAction, onAddNote }) {
   const { user } = useAuth();
   const toast = useToast();
   const haptic = useHaptic();
+  // メモは読書中/読了の本にだけ付けられる。「＋ メモを追加」を出してよいのは
+  // 付け先の本がある時だけ（無ければ本棚で本を追加/開始するのが先）。
+  const hasMemoableBooks = (books || []).some((b) => b.status === 'reading' || b.status === 'done');
   const [memos, setMemos] = useState([]);
   const [memoMenu, setMemoMenu] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -591,6 +594,11 @@ export default function Review({ books = [], onOpenBook, onAddAction }) {
               ここへふいに戻ってきます。まずは一行から。
             </>
           )}
+          actions={
+            onAddNote && hasMemoableBooks
+              ? [{ label: 'メモを追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote }]
+              : []
+          }
           tip="残したメモや学びが、すべてここに集まります"
         />
       </div>
@@ -618,6 +626,27 @@ export default function Review({ books = [], onOpenBook, onAddAction }) {
             { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => handleSwipeDelete(memoMenu.memo) },
           ]}
         />
+      )}
+
+      {/* 🎯 行動タブと同じく、この画面からも直接メモを追加できる導線を出す
+          （付け先の本＝読書中/読了の本がある時だけ）。想起カードが主役なので
+          控えめに右寄せの細いボタンで。 */}
+      {onAddNote && hasMemoableBooks && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onAddNote}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 40,
+              padding: '7px 14px', borderRadius: 999, border: '1px solid var(--c-hairline-strong)',
+              background: 'var(--c-card)', color: 'var(--c-brand)', fontSize: 12,
+              fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            <Plus size={15} strokeWidth={2} aria-hidden="true" />
+            メモを追加
+          </button>
+        </div>
       )}
 
       {/* 知識のタイプ別件数を冒頭に表示。「読書から何が蓄積されているか」が

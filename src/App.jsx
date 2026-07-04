@@ -380,7 +380,7 @@ function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor =
             id="adv-author"
             value={advAuthor}
             onChange={(e) => setAdvAuthor(e.target.value)}
-            placeholder="例：本田 直之"
+            placeholder="例：山田 太郎"
             style={inp}
             maxLength={LIMITS.bookAuthor}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
@@ -4267,6 +4267,10 @@ function AuthedApp() {
   const [editingAction, setEditingAction] = useState(null);
   // 🎯 行動タブの「＋追加」フロー — null | 'pick'（本選択シート） | { bookId }（入力モーダル）
   const [addActionSheet, setAddActionSheet] = useState(null);
+  // 💭 ノート（振り返り）タブの「＋メモを追加」フロー — null | 'pick'（本選択シート）。
+  // メモは本に紐づくので、本を選んだらその本の詳細を開いてクイックメモを起動する
+  // （既存の実績あるメモ作成 UI をそのまま使う＝メモ挿入ロジックを重複させない）。
+  const [addNoteSheet, setAddNoteSheet] = useState(null);
   // 「表紙が違う?」モーダル — 詳細画面の表紙下リンクから開く。
   const [coverFixForBook, setCoverFixForBook] = useState(null);
 
@@ -5940,7 +5944,7 @@ function AuthedApp() {
             </div>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<Spinner />}>
-                <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} />
+                <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} />
               </Suspense>
             ) : (
               <ActionList
@@ -6210,6 +6214,50 @@ function AuthedApp() {
             }}
           />
         </Suspense>
+      )}
+
+      {/* 💭 ノートタブ「＋メモを追加」: どの本のメモかを選ぶ（読書中→読了順）。
+          選ぶとその本の詳細を開いてクイックメモを起動する（メモは reading/done
+          の本にだけ付くので、その2ステータスのみ候補に出す）。 */}
+      {addNoteSheet === 'pick' && (
+        <BottomSheet title="どの本のメモにしますか？" onClose={() => setAddNoteSheet(null)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {[...books]
+              .filter((b) => b.status === 'reading' || b.status === 'done')
+              .sort((a, b) => {
+                const rank = { reading: 0, done: 1 };
+                const ra = rank[a.status] ?? 4;
+                const rb = rank[b.status] ?? 4;
+                if (ra !== rb) return ra - rb;
+                return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
+              })
+              .map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => { setAddNoteSheet(null); openDetail(b); setQuickMemoOpen(true); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    minHeight: 52, padding: '8px 10px', borderRadius: 10,
+                    border: '1px solid var(--c-hairline)', background: 'var(--c-card)',
+                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  }}
+                >
+                  {b.cover ? (
+                    <img src={ensureHttps(b.cover)} alt="" style={{ width: 26, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                  ) : (
+                    <span style={{ width: 26, height: 36, borderRadius: 4, background: 'var(--c-soft-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} aria-hidden="true">
+                      <IcBook size={14} />
+                    </span>
+                  )}
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                    <span style={{ display: 'block', fontSize: 11, color: 'var(--c-ink-2)' }}>{STATUS_LABEL[b.status] || b.status}</span>
+                  </span>
+                </button>
+              ))}
+          </div>
+        </BottomSheet>
       )}
 
       {/* 本棚: 絞り込みシート（ステータス / ★高評価 / タグ） */}

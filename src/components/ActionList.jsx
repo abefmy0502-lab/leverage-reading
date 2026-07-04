@@ -422,7 +422,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
           actions={[
             // 本があれば「＋ 行動を追加」が最短の一歩。本がまだ無ければ本棚へ。
             ...(onAddAction && (books || []).length > 0
-              ? [{ label: '＋ 行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction }]
+              ? [{ label: '行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction }]
               : []),
             ...(onGoToBooks ? [{ label: '本棚へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks }] : []),
           ]}
