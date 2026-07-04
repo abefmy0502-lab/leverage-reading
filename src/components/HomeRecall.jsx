@@ -53,6 +53,15 @@ function markDismissedToday(now = Date.now()) {
   }
 }
 
+// 🌱 初回「戻ってくる」プレビューは端末で一度だけ（#5: 初日 aha）。
+const PREVIEW_KEY = 'orime-home-recall-preview-shown-v1';
+function isPreviewShown() {
+  try { return localStorage.getItem(PREVIEW_KEY) === '1'; } catch { return false; }
+}
+function markPreviewShown() {
+  try { localStorage.setItem(PREVIEW_KEY, '1'); } catch { /* ignore */ }
+}
+
 export default function HomeRecall({ onOpen }) {
   const { user } = useAuth();
   const haptic = useHaptic();
@@ -85,7 +94,9 @@ export default function HomeRecall({ onOpen }) {
             .limit(200));
         }
         if (!active) return;
-        if (error || !Array.isArray(data) || data.length < MIN_MEMOS) {
+        // 通常の想起は MIN_MEMOS 未満なら出さないが、初回プレビュー（下記）は
+        // 2 件から成立させたいので、まず 2 件未満だけを弾く。
+        if (error || !Array.isArray(data) || data.length < 2) {
           setMemo(null); // 失敗・件数不足は静かに何も出さない
           return;
         }
@@ -104,13 +115,23 @@ export default function HomeRecall({ onOpen }) {
         // 貯まってきたら minAgeDays:7 で本来の「忘れた頃」に寄せる（段階的緩和）。
         const seed = Math.floor(Date.now() / 86400000);
         const minAgeDays = notes.length >= EARLY_MATURITY ? 7 : 1;
-        const picked = pickRecallMemo(notes, { now: Date.now(), minAgeDays, seed });
-        // recallFraming が空（＝今日書いたばかり等）なら出さない。
-        if (!picked || !recallFraming(picked.createdAt)) {
-          setMemo(null);
+        const picked = notes.length >= MIN_MEMOS
+          ? pickRecallMemo(notes, { now: Date.now(), minAgeDays, seed })
+          : null;
+        // recallFraming が空（＝今日書いたばかり等）なら通常想起は出さない。
+        if (picked && recallFraming(picked.createdAt)) {
+          setMemo({ ...picked, preview: false });
           return;
         }
-        setMemo(picked);
+        // 🌱 初回プレビュー（#5: 初日 aha）。まだ「戻ってくる」体験が一度も起きていない
+        //   新規ユーザー（due なメモが無い＝全部書きたて）に、最新の一行を使って
+        //   「これがこれから戻ってきます」を一度だけ正直に見せる。偽の日付は出さない。
+        if (!isPreviewShown() && notes.length >= 2) {
+          markPreviewShown();
+          setMemo({ ...notes[0], preview: true });
+          return;
+        }
+        setMemo(null);
       } catch {
         if (active) setMemo(null); // 例外も静かに握りつぶす
       }
@@ -122,7 +143,10 @@ export default function HomeRecall({ onOpen }) {
 
   if (dismissed || !memo) return null;
 
-  const framing = recallFraming(memo.createdAt);
+  // プレビュー（初回 aha）は書きたてなので recallFraming が空になる。偽の経過日は
+  // 出さず、正直に「これから戻ってくる」旨のキャプションにする。
+  const isPreview = !!memo.preview;
+  const framing = isPreview ? '💡 これが、忘れた頃に戻ってきます' : recallFraming(memo.createdAt);
   if (!framing) return null;
   const excerpt = memoExcerpt(memo.text, 140);
 
@@ -225,32 +249,40 @@ export default function HomeRecall({ onOpen }) {
           『{memo.title}』
         </p>
       )}
-      {/* 🧠 間隔反復のフィードバック（覚えた/もう一度）。カード全体のタップ（開く）と
-          干渉しないよう stopPropagation。 */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }} onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={(e) => recordRecall(e, true)}
-          style={{
-            flex: 1, minHeight: 40, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
-            background: '#fff', color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
-            fontFamily: 'inherit', cursor: 'pointer',
-          }}
-        >
-          ✓ 覚えた
-        </button>
-        <button
-          type="button"
-          onClick={(e) => recordRecall(e, false)}
-          style={{
-            flex: 1, minHeight: 40, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
-            background: '#fff', color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
-            fontFamily: 'inherit', cursor: 'pointer',
-          }}
-        >
-          もう一度
-        </button>
-      </div>
+      {/* プレビュー時は「これから戻ってくる」の一言だけ。間隔反復フィードバックは
+          本物の想起（非プレビュー）でのみ出す。 */}
+      {isPreview ? (
+        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.6 }}>
+          メモを残すほど、この「ふいの再会」が自然に増えていきます。
+        </p>
+      ) : (
+        // 🧠 間隔反復のフィードバック（覚えた/もう一度）。カード全体のタップ（開く）と
+        //    干渉しないよう stopPropagation。
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }} onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={(e) => recordRecall(e, true)}
+            style={{
+              flex: 1, minHeight: 40, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
+              background: '#fff', color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
+              fontFamily: 'inherit', cursor: 'pointer',
+            }}
+          >
+            ✓ 覚えた
+          </button>
+          <button
+            type="button"
+            onClick={(e) => recordRecall(e, false)}
+            style={{
+              flex: 1, minHeight: 40, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
+              background: '#fff', color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
+              fontFamily: 'inherit', cursor: 'pointer',
+            }}
+          >
+            もう一度
+          </button>
+        </div>
+      )}
       <button
         type="button"
         onClick={handleDismiss}

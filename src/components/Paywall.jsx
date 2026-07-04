@@ -33,8 +33,8 @@ import { track, EVENTS } from '../lib/analytics';
 const VALUE_POINTS = [
   {
     emoji: '🔄',
-    title: '気づきを、後から呼び戻す',
-    body: '読んだメモがちょうど忘れた頃に、振り返りタブのランダム想起で戻ってきます。',
+    title: 'あなたのメモが、忘れた頃に戻ってくる',
+    body: '残した一行を、記憶に定着する間隔で自動的に呼び戻します。読みっぱなしが、身につく読書に変わる——Orime の核心です。',
   },
   {
     emoji: '🧠',

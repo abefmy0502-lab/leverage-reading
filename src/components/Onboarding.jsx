@@ -253,21 +253,22 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
           // 最後のカードは「行動」で締める。主 CTA は本追加を直接開き、
           // 説明で終わらせない。下に控えめな「あとで」を残して逃げ道も確保。
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6, flexShrink: 0 }}>
-            {/* 主CTA＝AI選書: 手元に本が無くても「いまの悩み」を話すだけで価値を体験
-                できる初日最短ルート。空アプリで手が止まる事故を防ぐ。 */}
+            {/* 主CTA＝いま読んでいる本を追加してメモを残す＝想起→行動の核ループに
+                最短で入る道（＝継続の aha）。AI選書は本が手元に無い人向けの副導線に降格
+                （選書は取得/読前フェーズでコストも掛かり、継続の核ではないため）。 */}
             <button
               type="button"
               style={{ ...btnPrimary, flex: 'unset', width: '100%' }}
-              onClick={startAdvisor}
+              onClick={startAdding}
             >
-              🤖 悩みからAIに本を選んでもらう
+              📚 いま読んでいる本を追加する
             </button>
             <button
               type="button"
               style={{ ...btnGhost, flex: 'unset', width: '100%' }}
-              onClick={startAdding}
+              onClick={startAdvisor}
             >
-              📚 自分で本を追加する
+              🤖 まだ無い／悩みからAIに選んでもらう
             </button>
             <button
               type="button"
