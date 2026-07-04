@@ -15,6 +15,7 @@ import { Image as ImageIcon, Check, Camera, X } from 'lucide-react';
 import { findIsbnCandidatesWithMetadata } from '../lib/bookSearch';
 import { tryCoverForIsbn } from '../lib/bookCover';
 import { ensureHttps } from '../lib/url';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 // 親ツリーの overflow:hidden / transform / z-index に左右されないよう
 // document.body に portal する。zIndex も他モーダル群より高く設定。
@@ -80,6 +81,7 @@ const bodyStyle = {
 export default function CoverFixModal({ book, onClose, onPick, onManualUpload }) {
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState([]); // [{isbn, title, author, coverUrl}]
+  const trapRef = useFocusTrap(true);
 
   // 小型端末（〜480px）では 1 カラムに段組（320px 幅でも表紙が潰れないように）。
   // 表示の段組のみ — 選択ロジックには影響しない。
@@ -138,7 +140,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
 
   return createPortal(
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
-      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
             <ImageIcon size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />正しい表紙を選択

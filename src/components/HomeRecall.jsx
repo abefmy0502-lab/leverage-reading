@@ -20,7 +20,13 @@ import { MessageSquareQuote, X } from 'lucide-react';
 import { recallFraming, memoExcerpt, pickRecallMemo } from '../lib/recall';
 
 const DISMISS_KEY = 'orime-home-recall-dismissed';
-const MIN_MEMOS = 5; // これ未満なら出さない（控えめさの肝）
+// これ未満なら出さない（控えめさの肝）。看板体験「過去メモがふいに戻る」瞬間を
+// 新規ユーザーが最短でも1週間先まで体験できない（旧: 5件×7日前の AND）と離脱の
+// 元になるため、閾値を 3 に下げ、下の minAgeDays を件数に応じて段階化する。
+const MIN_MEMOS = 3;
+// メモがまだ少ない初期は「1日前」から想起を起こして早期に一度は体験させ、
+// 貯まってきたら本来の sweet-spot（30〜183日）に効かせるため厳しめ(7日前)に寄せる。
+const EARLY_MATURITY = 8; // これ以上メモがあれば「成熟」扱い
 
 // YYYY-MM-DD（ローカル日付）。dismiss の判定とログに使う。
 function todayKey(now = Date.now()) {
@@ -80,9 +86,12 @@ export default function HomeRecall({ onOpen }) {
           bookId: r.book_id || null,
           title: r.book?.title || '',
         }));
-        // 日替わりで安定（同じ日は同じ 1 枚）。minAgeDays:7 で「忘れた頃」に寄せる。
+        // 日替わりで安定（同じ日は同じ 1 枚）。
+        // メモがまだ少ない初期は minAgeDays:1 で早めに一度「戻ってくる」体験を起こし、
+        // 貯まってきたら minAgeDays:7 で本来の「忘れた頃」に寄せる（段階的緩和）。
         const seed = Math.floor(Date.now() / 86400000);
-        const picked = pickRecallMemo(notes, { now: Date.now(), minAgeDays: 7, seed });
+        const minAgeDays = notes.length >= EARLY_MATURITY ? 7 : 1;
+        const picked = pickRecallMemo(notes, { now: Date.now(), minAgeDays, seed });
         // recallFraming が空（＝今日書いたばかり等）なら出さない。
         if (!picked || !recallFraming(picked.createdAt)) {
           setMemo(null);

@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LIMITS } from '../lib/limits';
 import { useConfirm } from './ConfirmDialog';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { Pencil, ClipboardList, CalendarDays, Target, Repeat, MessageSquareQuote, Trash2, Save, ArrowUp, Minus, ArrowDown, X } from 'lucide-react';
 
 const overlayStyle = {
@@ -142,6 +143,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
   const [reflection, setReflection] = useState(action?.reflection || '');
   const [busy, setBusy] = useState(false);
   const confirm = useConfirm();
+  const trapRef = useFocusTrap(true);
 
   useEffect(() => {
     // IME 変換中の Esc（変換キャンセル）でモーダルごと閉じて下書きを失わない
@@ -193,7 +195,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
 
   return createPortal(
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
-      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}><Pencil size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />{isCreate ? '行動を追加' : '行動を編集'}</h2>
           <button type="button" style={closeBtn} onClick={onClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>

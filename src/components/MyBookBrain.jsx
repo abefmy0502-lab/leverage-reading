@@ -269,7 +269,7 @@ function LearningInline({ onCancel, onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook }) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -804,7 +804,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               />
             )}
             {messages.map((m) => (
-              <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} />
+              <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} />
             ))}
           </div>
         </PullToRefresh>
@@ -926,6 +926,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 stage={m.streaming ? stage : null}
                 books={books}
                 onAddAction={handleAnswerToAction}
+                onAddActionPickBook={onAddActionPickBook}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -1128,7 +1129,7 @@ function resolveActionBookId(refs, books) {
   return null;
 }
 
-function ChatMessage({ message, onOpenBook, stage, books, onAddAction }) {
+function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const bubbleStyle = {
@@ -1161,15 +1162,25 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction }) {
   // 🧠→🎯 回答の「明日からできる1つの行動」を、紐づく本の行動リストへ1タップ追加。
   const [actionAdded, setActionAdded] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
-  const canAct = !isUser && !isStreaming && !!onAddAction;
+  const canAct = !isUser && !isStreaming && (!!onAddAction || !!onAddActionPickBook);
   const actionLine = canAct ? extractActionLine(message.content) : '';
-  const actionBookId = canAct && actionLine ? resolveActionBookId(message.refs, books) : null;
+  // 参照メモから本を特定できれば直接その本へ。特定できない一般回答は、
+  // 本選択シート（onAddActionPickBook）へフォールバックして行動化できる
+  // ようにする（「明日の一歩」が宙に浮かないように）。
+  const actionBookId = actionLine && onAddAction ? resolveActionBookId(message.refs, books) : null;
+  const canShowAction = !!actionLine && (!!actionBookId || !!onAddActionPickBook);
   const handleAddAction = async () => {
-    if (!actionLine || !actionBookId || actionBusy) return;
-    setActionBusy(true);
-    const ok = await onAddAction(actionBookId, actionLine);
-    setActionBusy(false);
-    if (ok) setActionAdded(true);
+    if (!actionLine || actionBusy) return;
+    if (actionBookId && onAddAction) {
+      setActionBusy(true);
+      const ok = await onAddAction(actionBookId, actionLine);
+      setActionBusy(false);
+      if (ok) setActionAdded(true);
+    } else if (onAddActionPickBook) {
+      // 本を特定できない → 本選択シートを開いて行動文をプレフィル。実際の追加は
+      // ユーザーが本を選んで確定した時点で行われるので、ここでは済み表示にしない。
+      onAddActionPickBook(actionLine);
+    }
   };
 
   return (
@@ -1221,7 +1232,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction }) {
           </div>
         )}
         {/* 🧠→🎯 回答の「明日の1つの行動」を、その場で🎯行動リストへ */}
-        {canAct && actionLine && actionBookId && (
+        {canAct && canShowAction && (
           <div style={{ marginTop: 12 }}>
             {actionAdded ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--c-brand)' }}>

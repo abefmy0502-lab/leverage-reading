@@ -3804,7 +3804,14 @@ function AuthedApp() {
         : newBook.sourceQuery
           ? `「${rec.title}」を追加。AI 読書計画で読み方戦略を立てましょう`
           : `「${rec.title}」を「読みたい」に追加しました`;
-      toast.success(msg);
+      // 追加直後に「本棚で探し直す」断絶を無くす — トーストから 1 タップで
+      // その本の読書計画（投資目的→戦略）へ直行できるようにする（time-to-value）。
+      toast.show({
+        type: 'success',
+        message: msg,
+        duration: 6000,
+        action: { label: '📖 開く', onClick: () => openSetup(saved) },
+      });
       // 表紙取得をバックグラウンドで実行 (await しない)。失敗しても UX に影響なし。
       resolveCoverInBackground(saved);
       // BookAdvisor が advisor_sessions の added_book_ids を更新する用に
@@ -5954,7 +5961,7 @@ function AuthedApp() {
                 onEditAction={(bookId, actionIdx, action) => setEditingAction({ bookId, actionIdx, action })}
                 onOpenBook={(b) => { openDetail(b); }}
                 onGoToBooks={() => setTab("books")}
-                onAddAction={() => setAddActionSheet('pick')}
+                onAddAction={() => setAddActionSheet({ step: 'pick', prefillText: '' })}
               />
             )}
           </div>
@@ -6016,7 +6023,7 @@ function AuthedApp() {
                 </Suspense>
               ) : (
                 <Suspense fallback={<Spinner />}>
-                  <MyBookBrain onOpenBook={(b) => { openDetail(b); }} books={books} onAddAction={addActionFromMemo} onBooksMutated={refreshBooks} />
+                  <MyBookBrain onOpenBook={(b) => { openDetail(b); }} books={books} onAddAction={addActionFromMemo} onBooksMutated={refreshBooks} onAddActionPickBook={(text) => setAddActionSheet({ step: 'pick', prefillText: text })} />
                 </Suspense>
               )}
             </div>
@@ -6160,8 +6167,11 @@ function AuthedApp() {
         </Suspense>
       )}
 
-      {/* 🎯 行動タブ「＋追加」: ① どの本の行動かを選ぶ（読書中→読了→積読→読みたい順） */}
-      {addActionSheet === 'pick' && (
+      {/* 🎯 行動タブ「＋追加」/ 🧠マイ読書脳の行動化フォールバック:
+          ① どの本の行動かを選ぶ（読書中→読了→積読→読みたい順）。
+          prefillText があれば ② の入力欄に初期表示する（本を解決できなかった
+          AI 回答の「明日の一歩」を、本を選んで行動化できるようにする）。 */}
+      {addActionSheet?.step === 'pick' && (
         <BottomSheet title="どの本の行動にしますか？" onClose={() => setAddActionSheet(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {[...books]
@@ -6176,7 +6186,7 @@ function AuthedApp() {
                 <button
                   key={b.id}
                   type="button"
-                  onClick={() => setAddActionSheet({ bookId: b.id })}
+                  onClick={() => setAddActionSheet({ step: 'edit', bookId: b.id, prefillText: addActionSheet.prefillText || '' })}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                     minHeight: 52, padding: '8px 10px', borderRadius: 10,
@@ -6201,12 +6211,13 @@ function AuthedApp() {
         </BottomSheet>
       )}
 
-      {/* 🎯 行動タブ「＋追加」: ② 行動の内容を入力（ActionEditModal を create モードで再利用） */}
-      {addActionSheet && addActionSheet !== 'pick' && addActionSheet.bookId && (
+      {/* 🎯 行動タブ「＋追加」: ② 行動の内容を入力（ActionEditModal を create モードで再利用）。
+          prefillText があれば行動文を初期表示（AI 回答からの行動化フォールバック）。 */}
+      {addActionSheet?.step === 'edit' && addActionSheet.bookId && (
         <Suspense fallback={<Spinner />}>
           <ActionEditModal
             mode="create"
-            action={null}
+            action={addActionSheet.prefillText ? { text: addActionSheet.prefillText } : null}
             onClose={() => setAddActionSheet(null)}
             onSave={async (patch) => {
               const ok = await createActionForBook(addActionSheet.bookId, patch);
@@ -6654,7 +6665,7 @@ const btnS = { ...uiBtnPrimary, width: "auto", padding: "12px 0" };
 const btnO = { ...uiBtnGhost, width: "auto", padding: "12px 0", fontSize: 15 };
 const aiB = { width: "100%", padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px dashed #c4b8a6", background: "var(--color-accent-soft)", color: "#6b5d4f", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: "var(--weight-medium)" };
 const navBtn = { padding: "10px 24px", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-secondary)", cursor: "pointer", fontFamily: "inherit", fontSize: 13 };
-const closeBtn = { background: "none", border: "none", fontSize: 20, color: "var(--color-tertiary)", cursor: "pointer" };
+const closeBtn = { background: "none", border: "none", fontSize: 20, color: "var(--color-tertiary)", cursor: "pointer", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, borderRadius: 10 };
 const phaseDesc = { fontSize: 12, color: "var(--color-tertiary)", marginBottom: "var(--space-4)", lineHeight: "var(--leading-base)" };
 const tagBtn = { fontSize: 10, padding: "3px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-tertiary)", cursor: "pointer", fontFamily: "inherit" };
 const tagBtnActive = { border: "1.5px solid var(--color-tertiary)", background: "#e8e0d2", color: "var(--color-label)" };

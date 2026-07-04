@@ -29,7 +29,7 @@ const sectionStyle = {
 const headingStyle = {
   fontSize: 15,
   fontWeight: 700,
-  color: '#2e271c',
+  color: 'var(--c-ink)',
   margin: '0 0 9px',
   lineHeight: 1.4,
   letterSpacing: '-0.01em',
@@ -44,7 +44,7 @@ const subHeadingStyle = {
 };
 const paraStyle = {
   fontSize: 13,
-  color: '#4a4036',
+  color: 'var(--c-ink)',
   lineHeight: 1.85,
   margin: '6px 0',
   whiteSpace: 'pre-wrap',
@@ -53,7 +53,7 @@ const paraStyle = {
 };
 const listStyle = {
   fontSize: 13,
-  color: '#4a4036',
+  color: 'var(--c-ink)',
   lineHeight: 1.8,
   margin: '8px 0 8px 2px',
   paddingLeft: 0,
@@ -63,7 +63,7 @@ const listStyle = {
 const liStyle = { marginBottom: 6, display: 'flex', gap: 9, alignItems: 'flex-start' };
 // 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。
 const bulletDot = { flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: '#b9a77f', marginTop: 8 };
-const olNumStyle = { flexShrink: 0, minWidth: 16, color: '#8a7c5f', fontWeight: 700, fontVariantNumeric: 'tabular-nums' };
+const olNumStyle = { flexShrink: 0, minWidth: 16, color: 'var(--c-ink-3)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' };
 // 見出し冒頭の絵文字（🏆🔑📚 …）を表示から外す。AI 出力の「素の markdown 感」を
 // 払拭する最大のレバー。ハイライト判定は元テキスト(絵文字込み)で行うので装飾は保つ。
 function stripLeadingEmoji(text) {
@@ -113,7 +113,7 @@ function renderTable(rows, key) {
                   key={ci}
                   style={{
                     padding: '6px 8px',
-                    color: '#4a4036',
+                    color: 'var(--c-ink)',
                     border: '1px solid #e7ddcc',
                     verticalAlign: 'top',
                     // 1 列目（順番など）は折り返さず、それ以外は折り返して読みやすく

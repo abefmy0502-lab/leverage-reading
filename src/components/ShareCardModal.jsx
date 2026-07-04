@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { toMessage } from '../lib/errors';
 import { renderQuoteCardBlob } from '../lib/shareCard';
 import { X } from 'lucide-react';
@@ -146,6 +147,7 @@ function downloadBlob(blob, filename) {
 export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
   const toast = useToast();
   const haptic = useHaptic();
+  const trapRef = useFocusTrap(true);
 
   const [blob, setBlob] = useState(null);
   const [imgUrl, setImgUrl] = useState(null);
@@ -246,7 +248,7 @@ export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
       aria-modal="true"
       aria-label="引用カードを共有"
     >
-      <div style={sheet} onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} style={sheet} onClick={(e) => e.stopPropagation()}>
         <div style={header}>
           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-ink)', flex: 1 }}>
             🖼 画像で共有

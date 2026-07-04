@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Library, Sparkles, AlertTriangle, Lightbulb, Check, X } from 'lucide-react';
 import { ensureHttps } from '../lib/url';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const overlayStyle = {
   position: 'fixed',
@@ -121,11 +122,12 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
   // 無効のまま固まらないようにする）。
   const [selectedIdx, setSelectedIdx] = useState(0);
   const selected = candidates[selectedIdx] || null;
+  const trapRef = useFocusTrap(true);
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onCancel}>
-      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
             <Library size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />追加する本を確認
