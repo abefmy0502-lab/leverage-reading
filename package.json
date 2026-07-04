@@ -10,6 +10,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "icons": "node scripts/generate-icons.js"
   },
   "dependencies": {
@@ -37,6 +39,7 @@
     "@capacitor/ios": "^8.4.1",
     "@vitejs/plugin-react": "^4.3.4",
     "sharp": "^0.34.5",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^4.1.9"
   }
 }
