@@ -147,32 +147,8 @@ function getServiceSupabase() {
   return serviceClient;
 }
 
-// 当月の利用回数が上限に達しているか判定する。
-// 堅牢性最優先 — fail-open: service_role 未設定 / テーブル未適用（schema error）/
-// インフラエラーのいずれでも、ブロックせず { exceeded: false } を返す。
-// メータリング基盤の障害で AI 全体が止まることを避ける。ログだけ残す。
-async function checkMonthlyUsage(userId) {
-  const supabase = getServiceSupabase();
-  if (!supabase) return { exceeded: false }; // schema-fallback: 集計不能なら通す
-  try {
-    const { data, error } = await supabase
-      .from('ai_usage')
-      .select('calls')
-      .eq('user_id', userId)
-      .eq('period_month', currentPeriodMonth())
-      .maybeSingle();
-    if (error) {
-      // テーブル未適用（does not exist）含め、取得エラーは fail-open。
-      console.warn('[ai-usage] check failed (fail-open):', error.message);
-      return { exceeded: false };
-    }
-    const calls = data?.calls || 0;
-    return { exceeded: calls >= AI_MONTHLY_CALL_LIMIT, calls };
-  } catch (e) {
-    console.warn('[ai-usage] check threw (fail-open):', e?.message);
-    return { exceeded: false };
-  }
-}
+// （旧 checkMonthlyUsage は reserveMonthlyUsage の原子的 check-and-increment に
+//  置き換えたため削除。上限判定は reserve_ai_usage RPC が単一往復で原子的に行う。）
 
 // 課金 entitlement のサーバー側ゲート。クライアントの PaywallGate は迂回可能
 // （DevTools / 改造クライアント）なので、原価が発生する AI 中継ではサーバーでも
@@ -245,6 +221,35 @@ async function incrementMonthlyUsage(userId) {
   }
 }
 
+// 原子的な「予約」= check-and-increment を 1 往復で行う（TOCTOU 是正）。
+// 戻り値:
+//   { allowed: true,  reserved: true  } — 上限内で +1 済み（後段の increment は不要）
+//   { allowed: false, reserved: true  } — 上限到達（加算されていない・拒否する）
+//   { allowed: true,  reserved: false } — RPC 未適用/未設定/障害 → fail-open。
+//                                          呼び出し側は従来どおり成功後 increment に委ねる。
+async function reserveMonthlyUsage(userId) {
+  const supabase = getServiceSupabase();
+  if (!supabase) return { allowed: true, reserved: false }; // fail-open
+  try {
+    const { data, error } = await supabase.rpc('reserve_ai_usage', {
+      p_user_id: userId,
+      p_period_month: currentPeriodMonth(),
+      p_limit: AI_MONTHLY_CALL_LIMIT,
+    });
+    if (error) {
+      // reserve_ai_usage 未適用（does not exist）含めて fail-open。旧 increment に委ねる。
+      console.warn('[ai-usage] reserve failed (fail-open):', error.message);
+      return { allowed: true, reserved: false };
+    }
+    const calls = typeof data === 'number' ? data : (Array.isArray(data) ? data[0] : null);
+    if (calls === -1) return { allowed: false, reserved: true };
+    return { allowed: true, reserved: true };
+  } catch (e) {
+    console.warn('[ai-usage] reserve threw (fail-open):', e?.message);
+    return { allowed: true, reserved: false };
+  }
+}
+
 // body.system が配列（プロンプトキャッシュ用の content-block 形式）のときの
 // allowlist バリデータ。最大 4 ブロック（Anthropic の cache breakpoint 上限と
 // 揃える）、各要素は { type: 'text', text: string, cache_control?: { type: 'ephemeral' } }
@@ -312,10 +317,9 @@ export default async function handler(req, res) {
   // 判定の優先順位（レート制限 → entitlement → 月次上限）は逐次チェック時と
   // 完全に同一に保つ（各チェックの合否は他のチェックの実行順に依存しないため、
   // 並列化しても外部から見えるレスポンスは変わらない）。
-  const [rlShared, ent, usage] = await Promise.all([
+  const [rlShared, ent] = await Promise.all([
     checkSharedRateLimit(userId),
     checkEntitlement(userId),
-    checkMonthlyUsage(userId),
   ]);
 
   // インスタンス横断の共有レート制限（H3）。in-memory を通過しても、全インスタンス
@@ -334,14 +338,18 @@ export default async function handler(req, res) {
     });
   }
 
-  // 月次累積上限（KGI 原価ガード）。超過なら 429 で明確なメッセージ。
-  // checkMonthlyUsage は fail-open（基盤障害 / 未適用テーブルなら通す）。
-  if (usage.exceeded) {
+  // 月次累積上限（KGI 原価ガード）。原子的な reserve で check-and-increment を行い
+  // TOCTOU（並行リクエストが同じ pre-increment 値を読んで全通過）を封じる。
+  // entitlement 通過後にだけ予約する（未課金の予約を作らない）。fail-open（RPC 未適用/
+  // 障害）の時は reserved=false になり、従来どおり成功後に increment する。
+  const usage = await reserveMonthlyUsage(userId);
+  if (!usage.allowed) {
     return res.status(429).json({
       error: { message: '今月の AI 利用上限に達しました。来月またご利用いただけます。' },
       error_code: 'monthly_limit_exceeded',
     });
   }
+  const usageReserved = usage.reserved;
 
   try {
     const body = req.body || {};
@@ -495,7 +503,8 @@ export default async function handler(req, res) {
         // fire-and-forget（失敗してもユーザー応答には影響させない）。
         // 注: 途中で中断（クライアント切断）してもストリームは開始済みであり、
         // upstream への課金コールは発生しているため、1 カウントは妥当。
-        incrementMonthlyUsage(userId);
+        // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
+        if (!usageReserved) incrementMonthlyUsage(userId);
         return;
       }
     }
@@ -518,7 +527,8 @@ export default async function handler(req, res) {
     upstreamDone = true; // 正常完了。以降の遅延 'close' で abort しない。
     // 上流が 2xx の成功レスポンスの時だけ当月カウントを +1。失敗（4xx/5xx）は
     // 課金されないコールが多いので quota を消費させない。fire-and-forget。
-    if (response.ok) incrementMonthlyUsage(userId);
+    // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
+    if (response.ok && !usageReserved) incrementMonthlyUsage(userId);
     return res.status(response.status).json(data);
   } catch (error) {
     console.error('Claude API error:', error);
