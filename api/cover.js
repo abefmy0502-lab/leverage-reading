@@ -278,11 +278,24 @@ function checkRateLimit(key) {
   }
   arr.push(now);
   rateLimitStore.set(key, arr);
+  // メモリリーク防止: warm インスタンスで IP キーが無限増殖しないよう、
+  // ときどき全キーを掃き、ウィンドウ外だけになった（空になる）キーを削除する。
+  if (rateLimitStore.size > 2000) {
+    for (const [k, v] of rateLimitStore) {
+      const alive = v.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+      if (alive.length === 0) rateLimitStore.delete(k);
+      else rateLimitStore.set(k, alive);
+    }
+  }
   return { ok: true };
 }
 function clientKey(req) {
-  const fwd = req.headers?.['x-forwarded-for'];
-  const ip = (typeof fwd === 'string' ? fwd.split(',')[0] : '') || req.socket?.remoteAddress || 'unknown';
+  // Vercel は x-real-ip を実クライアント IP に上書きする（プロキシ管理・偽装不可）。
+  // x-forwarded-for の「先頭」はクライアントが自由に足せるため単独では信頼しない。
+  const h = req.headers || {};
+  const realIp = typeof h['x-real-ip'] === 'string' ? h['x-real-ip'].trim() : '';
+  const fwd = typeof h['x-forwarded-for'] === 'string' ? h['x-forwarded-for'].split(',')[0].trim() : '';
+  const ip = realIp || fwd || req.socket?.remoteAddress || 'unknown';
   return ip.trim();
 }
 
@@ -306,12 +319,14 @@ export default async function handler(req, res) {
   const isbnIn = cleanIsbn(req.query?.isbn);
   if (!title && !isbnIn) return res.status(400).json({ error: 'title or isbn required' });
 
-  // 🔎 デバッグ: ?debug=1 で各段階の生の結果を返す（原因切り分け用）。本番では
-  // 無効化する — 未認証で誰でも叩けるため、内部 URL / エラー文言 / API キーの
-  // 有無（hasKey）が露出し、かつ 1 リクエストで NDL/openBD/Google へ 7+ 回の
-  // 外部フェッチが連鎖する増幅経路になっていた。開発時の原因切り分け用途は
-  // 本番以外の環境（ローカル/プレビュー）でのみ有効。
-  if (req.query?.debug && !IS_PRODUCTION) {
+  // 🔎 デバッグ: ?debug=1 で各段階の生の結果を返す（原因切り分け用）。
+  // ⚠️ 未認証で誰でも叩け、内部 URL / エラー文言 / API キーの有無（hasKey）が
+  // 露出し、1 リクエストで外部へ 7+ 回のフェッチが連鎖する増幅経路になる。
+  // 以前は `!IS_PRODUCTION` で無効化していたが、Vercel の **プレビュー配信**
+  // （URL さえ知れば公開・本番 env を持つ）では有効のままだった。明示的な
+  // オプトイン env `ALLOW_COVER_DEBUG='true'` を要求し、本番・プレビュー共に
+  // 既定で無効にする。
+  if (req.query?.debug && process.env.ALLOW_COVER_DEBUG === 'true') {
     const dbg = { coreTitle: coreTitle(title), author, steps: {} };
     try {
       const params = [`title=${encodeURIComponent(coreTitle(title))}`];

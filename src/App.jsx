@@ -128,7 +128,7 @@ import {
   X as IcClose,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo, isValidElement, cloneElement } from "react";
 
 const STAR = "★";
 const EMPTY_STAR = "☆";
@@ -528,7 +528,8 @@ function Stars({ r, onChange, size = 18 }) {
           style={{
             background: "none", border: "none", padding: 0, cursor: "pointer",
             fontSize: size, color: n <= r ? "#d4a040" : "#d0c8b8", marginRight: 2,
-            minWidth: Math.max(32, size + 8), minHeight: Math.max(32, size + 8),
+            // タップ領域は iOS HIG の 44px を下限に（グリフは fontSize のまま）。
+            minWidth: Math.max(44, size + 8), minHeight: Math.max(44, size + 8),
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             fontFamily: "inherit",
           }}
@@ -587,11 +588,20 @@ function Dots() {
 }
 
 function Field({ label, sub, children }) {
+  // a11y: <label> は見た目のみで children(input/textarea) と関連付いていなかった。
+  // 全呼び出し箇所に htmlFor/id を配るのは大がかりなので、単一子要素なら
+  // aria-label をラベル文字列から注入してアクセシブルネームを与える
+  // （既に aria-label / aria-labelledby がある子は尊重して上書きしない）。
+  const labelled =
+    isValidElement(children) && typeof label === 'string'
+      && !children.props['aria-label'] && !children.props['aria-labelledby']
+      ? cloneElement(children, { 'aria-label': label })
+      : children;
   return (
     <div style={{ marginBottom: 12 }}>
       <label style={{ fontSize: 13, color: "var(--c-ink-soft)", fontWeight: 500, display: "block", marginBottom: sub ? 2 : 5 }}>{label}</label>
       {sub && <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 5, lineHeight: 1.5 }}>{sub}</p>}
-      {children}
+      {labelled}
     </div>
   );
 }
@@ -2665,6 +2675,11 @@ function BottomNav({ tab, setTab, hidden = false }) {
             onClick={() => setTab(t.key)}
             aria-label={t.label}
             aria-current={active ? "page" : undefined}
+            // hidden(キーボード表示中)は aria-hidden の nav 配下＝フォーカス可能要素を
+            // 残すと SR/キーボードが「見えないタブ」に到達できてしまう。tabIndex=-1 +
+            // disabled でフォーカス対象から確実に外す。
+            tabIndex={hidden ? -1 : undefined}
+            disabled={hidden || undefined}
             style={{
               flex: 1,
               padding: "var(--space-3) 0 var(--space-2)",
@@ -6017,7 +6032,7 @@ function AuthedApp() {
             </div>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<Spinner />}>
-                <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} />
+                <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); }} />
               </Suspense>
             ) : (
               <ActionList

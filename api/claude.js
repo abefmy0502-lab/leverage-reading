@@ -81,6 +81,15 @@ function checkRateLimit(userId) {
   }
   recent.push(now);
   rateLimitStore.set(userId, recent);
+  // メモリリーク防止: warm インスタンスで userId キーが無限に増えないよう、
+  // 肥大時に全キーを掃いてウィンドウ外だけになったキーを削除する。
+  if (rateLimitStore.size > 5000) {
+    for (const [k, v] of rateLimitStore) {
+      const alive = v.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+      if (alive.length === 0) rateLimitStore.delete(k);
+      else rateLimitStore.set(k, alive);
+    }
+  }
   return { ok: true };
 }
 

@@ -244,6 +244,9 @@ export default function Paywall({ onPurchased }) {
   return (
     <div
       ref={trapRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="paywall-title"
       style={{
         flex: 1,
         minHeight: 0,
@@ -259,7 +262,7 @@ export default function Paywall({ onPurchased }) {
         {/* ヘッダー */}
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 13, color: 'var(--color-tertiary)', letterSpacing: 1 }}>Orime</div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, margin: '6px 0 4px', lineHeight: 1.4 }}>
+          <h1 id="paywall-title" style={{ fontSize: 22, fontWeight: 600, margin: '6px 0 4px', lineHeight: 1.4 }}>
             読みっぱなしを、やめる。
           </h1>
           <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0, lineHeight: 1.7 }}>

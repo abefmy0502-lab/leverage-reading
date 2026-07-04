@@ -66,7 +66,8 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      // IME 変換中の Escape は変換キャンセル。メニューを閉じない。
+      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

@@ -320,8 +320,8 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                   aria-selected={statsPeriod === p.key}
                   onClick={() => setStatsPeriod(p.key)}
                   style={{
-                    padding: '5px 12px',
-                    minHeight: 30,
+                    padding: '10px 14px',
+                    minHeight: 44,
                     borderRadius: 8,
                     border: 'none',
                     background: statsPeriod === p.key ? 'var(--c-brand)' : 'transparent',

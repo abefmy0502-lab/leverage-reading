@@ -465,7 +465,10 @@ export default async function handler(req, res) {
     const { data, error } = await supabase
       .from('push_subscriptions')
       .select('id, user_id, endpoint, p256dh, auth, frequency, last_sent_at, enabled, platform, apns_token')
-      .eq('enabled', true);
+      .eq('enabled', true)
+      // 公平性: 最後に送ってから長い人を先に処理する（null=未送信を最優先）。
+      // 実行時間上限で末尾が打ち切られても、毎回同じ人が飢餓しないようにする。
+      .order('last_sent_at', { ascending: true, nullsFirst: true });
     if (error) throw error;
     subs = data || [];
   } catch (e) {
@@ -475,7 +478,8 @@ export default async function handler(req, res) {
       const { data, error: e2 } = await supabase
         .from('push_subscriptions')
         .select('id, user_id, endpoint, p256dh, auth, frequency, last_sent_at, enabled')
-        .eq('enabled', true);
+        .eq('enabled', true)
+        .order('last_sent_at', { ascending: true, nullsFirst: true });
       if (e2) throw e2;
       subs = (data || []).map((s) => ({ ...s, platform: 'web', apns_token: null }));
     } catch {
@@ -567,8 +571,13 @@ export default async function handler(req, res) {
           await afterSend(sub, memo);
           return 'sent';
         }
-        // 失効トークン → 削除。BadDeviceToken/Unregistered/DeviceTokenNotForTopic 等。
-        if (status === 410 || reason === 'BadDeviceToken' || reason === 'Unregistered') {
+        // 削除は「トークンが恒久的に無効」= 410 / Unregistered のみ。
+        // ⚠️ BadDeviceToken(400) や DeviceTokenNotForTopic(400) は env 誤設定
+        // (APNS_PRODUCTION の本番/sandbox 取り違え・APNS_BUNDLE_ID 誤り) でも返る。
+        // これを削除条件に含めると、設定ミス時に全 iOS 購読が 1 回の cron で消える
+        // (ユーザーは再許可・再登録が必要=非可逆)。恒久失効の 410/Unregistered だけを
+        // 削除し、それ以外は行を保持してログのみ(設定を直せば次回から復旧する)。
+        if (status === 410 || reason === 'Unregistered') {
           expiredSubIds.push(sub.id);
         } else {
           console.warn('[push-cron] apns send failed (kept):', status, reason);

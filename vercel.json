@@ -2,6 +2,9 @@
   "crons": [
     { "path": "/api/push-cron", "schedule": "0 23 * * 1" }
   ],
+  "functions": {
+    "api/push-cron.js": { "maxDuration": 300 }
+  },
   "redirects": [
     { "source": "/terms.html", "destination": "/legal/terms", "permanent": true },
     { "source": "/privacy-policy.html", "destination": "/legal/privacy", "permanent": true },

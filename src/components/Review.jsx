@@ -88,7 +88,10 @@ const transformRow = (m) => {
 // 3アクセントだけで意味を出す（本田哲学＝色数を絞る＝洗練）。
 const KIND_META = {
   card:              { Icon: StickyNote,        label: 'メモ',          color: 'var(--c-ink-2)' },
-  summary:           { Icon: BookOpen,          label: 'まとめメモ',     color: 'var(--c-brand)' },
+  // summary(book_memos.source_type='summary') と leverage_memo(books.leverage_memo)は
+  // どちらも「まとめ」だが別ストレージ。フィルタ/バッジで区別できるよう別ラベルにする
+  // （両方「まとめメモ」だと種類フィルタに同名の選択肢が2つ並び判別不能になっていた）。
+  summary:           { Icon: BookOpen,          label: '本のまとめ',     color: 'var(--c-brand)' },
   personal:          { Icon: Lightbulb,         label: '学び',          color: '#8a7040' },
   invest_purpose:    { Icon: BarChart3,         label: '投資目的',       color: 'var(--c-brand)' },
   current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: '#a05040' },
@@ -303,7 +306,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   return inner;
 }
 
-export default function Review({ books = [], onOpenBook, onAddAction, onAddNote }) {
+export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf }) {
   const { user } = useAuth();
   const toast = useToast();
   const haptic = useHaptic();
@@ -319,6 +322,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
   const [randomSeed, setRandomSeed] = useState(() => Math.floor(Math.random() * 233280));
   const [flipping, setFlipping] = useState(false);
   const flipTimerRef = useRef(null);
+  const flipEndTimerRef = useRef(null);
   // Lazy initializer — runs once on first render, not on module load.
   const [todayQuote, setTodayQuote] = useState(() =>
     getRandomFromCategory('reviewAndMemory')
@@ -531,7 +535,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
     // 熟成メモがまだ無い新規ユーザーは従来のランダム1枚にフォールバック（空にしない）。
     const aged = pickRecallMemo(allNotes, { seed: randomSeed });
     if (aged) return aged;
-    const idx = Math.floor((randomSeed * 9301 + 49297 + Math.random() * allNotes.length) % allNotes.length);
+    // 熟成メモが無い新規ユーザーのフォールバック。useMemo 内なので純粋に保つ
+    // （Math.random は再計算のたびに値が変わり memo 化が壊れる）。seed から決定的に。
+    const idx = Math.abs(Math.floor((randomSeed * 9301 + 49297) % 233280)) % allNotes.length;
     return allNotes[idx] || allNotes[0];
   }, [allNotes, randomSeed]);
 
@@ -602,10 +608,17 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
   // 書き込み後は次の一枚へ回す（reroll）。列未適用DBでは静かに no-op。
   const recordRandomRecall = useCallback(async (memo, mastered) => {
     if (!memo || memo.synth) return;
+    const patch = recallPatch(memo.recallCount, mastered);
+    // 楽観的にローカル state も更新する。これをしないと DB だけ進み、allNotes 上は
+    // 依然 due のままで、直後の reroll(randomSeed++) で同じ 1 枚が再選出されうる
+    // （間隔反復の体験が壊れる）。camelCase に合わせて反映する。
+    setMemos((arr) => arr.map((m) => (m.id === memo.id
+      ? { ...m, lastRecalledAt: patch.last_recalled_at, recallCount: patch.recall_count }
+      : m)));
     try {
       await supabase
         .from('book_memos')
-        .update(recallPatch(memo.recallCount, mastered))
+        .update(patch)
         .eq('id', memo.id);
     } catch { /* 列未適用・失敗は静かに無視 */ }
   }, []);
@@ -620,16 +633,19 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
     }
     setFlipping(true);
     if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
+    if (flipEndTimerRef.current) clearTimeout(flipEndTimerRef.current);
     // Swap at the midpoint of the 0.6s flip animation
     flipTimerRef.current = setTimeout(() => {
       setRandomSeed((s) => s + 1);
     }, 280);
-    // Clear the flip class after the animation completes
-    setTimeout(() => setFlipping(false), 620);
+    // Clear the flip class after the animation completes（両タイマーとも ref 管理し
+    // アンマウント時/連続 reroll 時に確実に破棄＝unmount 後 setState を防ぐ）。
+    flipEndTimerRef.current = setTimeout(() => setFlipping(false), 620);
   };
 
   useEffect(() => () => {
     if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
+    if (flipEndTimerRef.current) clearTimeout(flipEndTimerRef.current);
   }, []);
 
   const toggleMonth = (key) => {
@@ -666,7 +682,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
           actions={
             onAddNote && hasMemoableBooks
               ? [{ label: 'メモを追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote }]
-              : []
+              // メモできる本がまだ無い（＝本が無い/全て読みたい積読）ときは行き止まりに
+              // せず、本棚へ誘導する（そこで本を追加・読書中にできる）。
+              : onGoToShelf
+                ? [{ label: '本棚へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToShelf }]
+                : []
           }
           tip="残したメモや学びが、すべてここに集まります"
         />
@@ -751,8 +771,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote 
               }}
               style={{
                 fontSize: 11,
-                padding: '4px 10px',
-                minHeight: 30,
+                padding: '8px 12px',
+                minHeight: 40,
+                display: 'inline-flex',
+                alignItems: 'center',
                 borderRadius: 999,
                 background: active ? meta.color : `${meta.color}1a`,
                 color: active ? '#fff' : meta.color,

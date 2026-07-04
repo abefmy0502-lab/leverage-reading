@@ -101,7 +101,8 @@ export function ConfirmProvider({ children }) {
   useEffect(() => {
     if (!pending) return undefined;
     const onKey = (e) => {
-      if (e.key === 'Escape') finish(false);
+      // IME 変換中の Escape は「変換キャンセル」であってダイアログを閉じる意図ではない。
+      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) finish(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
