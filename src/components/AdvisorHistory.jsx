@@ -46,10 +46,12 @@ function firstUserContent(messages) {
 // (マーカー込み) を保存しているため、履歴表示時はここで剥がす。
 function stripRecommendations(text) {
   if (!text) return '';
-  let cleaned = text.replace(
-    /RECOMMENDATIONS_START[\s\S]*?RECOMMENDATIONS_END/g,
-    '',
-  );
+  let cleaned = text
+    // END マーカー欠落（max_tokens 打ち切り）でも生 JSON を残さないよう `|$` を許容。
+    // App.jsx の stripRecoBlock と挙動を揃える（履歴詳細でも生マーカーを漏らさない）。
+    .replace(/RECOMMENDATIONS_START[\s\S]*?(?:RECOMMENDATIONS_END|$)/g, '')
+    // ブロック除去で空になった「## 📚 おすすめの本」見出しも落とす。
+    .replace(/\n*#{1,4}\s*📚?\s*おすすめの本[^\n]*\s*(?=#{1,4}\s|$)/gu, '\n');
   // 連続改行を 2 行までに圧縮 + 末尾整理
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
   return cleaned;

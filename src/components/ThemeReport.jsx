@@ -258,8 +258,9 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
         setActiveTheme('');
         setReportText('');
         setNotice('');
-      } else if ((result?.memoCount ?? 0) === 0) {
-        // No memos matched this theme yet — show guidance, not a saved report.
+      } else if ((result?.memoCount ?? 0) === 0 || result?.blocked) {
+        // メモ0件、またはコンテンツガードで弾かれた場合は「案内」を出すだけで
+        // レポートとして保存/履歴化しない（案内文が成果物として残らないように）。
         setNoticeKind('info');
         setNotice(result?.body || `テーマ「${theme}」に関連するメモが見つかりませんでした。`);
         setReportText('');

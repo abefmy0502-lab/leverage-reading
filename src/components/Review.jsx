@@ -1088,9 +1088,13 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               aria-label="種類で絞り込み"
             >
               <option value="all">全種類</option>
-              {Object.entries(KIND_META).map(([k, meta]) => (
-                <option key={k} value={k}>{meta.label}</option>
-              ))}
+              {/* 実際に存在する種類だけを出す（0件になる選択肢＝投資目的/仮説等の
+                  未生成カテゴリを並べない。現在選択中の種類は件数0でも残す）。 */}
+              {Object.entries(KIND_META)
+                .filter(([k]) => (kindCounts[k] || 0) > 0 || kindFilter === k)
+                .map(([k, meta]) => (
+                  <option key={k} value={k}>{meta.label}</option>
+                ))}
             </select>
             <select
               value={statusFilter}

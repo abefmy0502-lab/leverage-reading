@@ -299,9 +299,6 @@ function clientKey(req) {
   return ip.trim();
 }
 
-const IS_PRODUCTION =
-  process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
-
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');

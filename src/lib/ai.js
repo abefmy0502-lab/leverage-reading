@@ -1299,9 +1299,12 @@ export async function streamThemeReport({ userId, theme, onStage, onChunk, signa
 
   if (isSuspiciousOutput(fullText)) {
     console.warn('AI output flagged by content guard');
+    // blocked=true でガード案内を「レポート」として保存/履歴化しないよう呼び出し側に伝える
+    // （案内文が theme_reports に成果物として残る事故を防ぐ）。
     return {
       body: '安全なフォーマットでレバレッジメモを作成できませんでした。テーマを変えて再度お試しください。',
       ...ctx.stats,
+      blocked: true,
     };
   }
 

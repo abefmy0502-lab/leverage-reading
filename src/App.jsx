@@ -6029,14 +6029,18 @@ function PaywallGate() {
   const [adminChecked, setAdminChecked] = useState(false);
   useEffect(() => {
     let alive = true;
+    // is_app_admin はゲート全体（spinner）を止めるので、決して返らない通信で
+    // アプリが永久に固まらないよう 8 秒でタイムアウトして先へ進む（adminBypass は
+    // false のまま＝通常のペイウォール/Web ゲート判定に倒れる＝安全側）。
+    const timeout = setTimeout(() => { if (alive) setAdminChecked(true); }, 8000);
     (async () => {
       try {
         const { data, error: e } = await supabaseClient.rpc('is_app_admin');
         if (alive && !e && data === true) setAdminBypass(true);
       } catch { /* 未適用 DB 等は false のまま */ }
-      finally { if (alive) setAdminChecked(true); }
+      finally { if (alive) { clearTimeout(timeout); setAdminChecked(true); } }
     })();
-    return () => { alive = false; };
+    return () => { alive = false; clearTimeout(timeout); };
   }, []);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため

@@ -243,6 +243,10 @@ async function reserveMonthlyUsage(userId) {
     }
     const calls = typeof data === 'number' ? data : (Array.isArray(data) ? data[0] : null);
     if (calls === -1) return { allowed: false, reserved: true };
+    // 想定外の戻り形状（数値でない）は「予約できていない」とみなし fail-open。
+    // reserved:true で返すと RPC が実際には +1 していないのに成功後 increment を
+    // スキップして取りこぼす恐れがあるため、reserved:false で従来の increment に委ねる。
+    if (typeof calls !== 'number') return { allowed: true, reserved: false };
     return { allowed: true, reserved: true };
   } catch (e) {
     console.warn('[ai-usage] reserve threw (fail-open):', e?.message);
