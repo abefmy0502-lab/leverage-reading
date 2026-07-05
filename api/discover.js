@@ -155,8 +155,16 @@ export default async function handler(req, res) {
       clearTimeout(t);
     }
     if (!r.ok) {
-      // 楽天側エラー（レート/一時障害）。生の詳細は返さず graceful。
-      return res.status(200).json({ ok: false, reason: 'upstream_error', items: [] });
+      // 楽天側エラー（レート/一時障害/ID不正など）。通常は生詳細を返さず graceful。
+      // ?debug=1 のときだけ、切り分け用に楽天の HTTP ステータス＋エラー本文を返す
+      // （applicationId 等の秘密は含めない。楽天の error/error_description のみ）。
+      const body = { ok: false, reason: 'upstream_error', items: [] };
+      if (req.query?.debug === '1') {
+        let upstream = '';
+        try { upstream = (await r.text()).slice(0, 300); } catch { /* ignore */ }
+        body._debug = { status: r.status, keyword, sort, hasReferer: !!process.env.RAKUTEN_APP_URL, upstream };
+      }
+      return res.status(200).json(body);
     }
     const data = await r.json();
     const items = Array.isArray(data?.Items)
