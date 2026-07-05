@@ -1,3 +1,5 @@
+import https from 'node:https';
+
 // 📚🔥 テーマ別「新着・人気」本の発見 — 楽天ブックス API のサーバープロキシ。
 //
 // なぜサーバー経由か:
@@ -155,34 +157,25 @@ export default async function handler(req, res) {
   // 変更（旧ドメインは 2026-05-14 に廃止）。パス/バージョンは書籍検索のまま。
   const url = `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
 
-  // 楽天ウェブサービスの「許可されたWebサイト」制限対策。うちはサーバー(Vercel)から
-  // 叩くので通常 Referer が付かない。登録したドメイン(RAKUTEN_APP_URL)を Referer と
-  // して送り、ドメイン照合を通す。未設定なら送らない（従来挙動＝無害）。
-  const reqHeaders = { Accept: 'application/json' };
-  if (process.env.RAKUTEN_APP_URL) reqHeaders.Referer = process.env.RAKUTEN_APP_URL;
+  // 楽天の新 API は Referer/Origin ヘッダーが無いと 403（REFERRER_MISSING）になる。
+  // ⚠️ Vercel の fetch(undici) は `Referer` を「禁止ヘッダー」として仕様準拠で
+  //    自動的に剥がすため、fetch では Referer が届かない。そこで Node の https
+  //    モジュールで直接リクエストし、Referer/Origin を確実に送る。
+  const referer = (process.env.RAKUTEN_APP_URL || '').trim();
 
   try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 8000);
-    let r;
-    try {
-      r = await fetch(url, { signal: controller.signal, headers: reqHeaders });
-    } finally {
-      clearTimeout(t);
-    }
-    if (!r.ok) {
-      // 楽天側エラー（レート/一時障害/ID不正など）。通常は生詳細を返さず graceful。
-      // ?debug=1 のときだけ、切り分け用に楽天の HTTP ステータス＋エラー本文を返す
-      // （applicationId 等の秘密は含めない。楽天の error/error_description のみ）。
+    const resp = await rakutenGet(url, referer);
+    if (resp.status < 200 || resp.status >= 300) {
+      // 楽天側エラー（レート/一時障害/ID不正/Referer 不足など）。通常は生詳細を
+      // 返さず graceful。?debug=1 のときだけ切り分け用に詳細を返す（秘密は含めない）。
       const body = { ok: false, reason: 'upstream_error', items: [] };
       if (req.query?.debug === '1') {
-        let upstream = '';
-        try { upstream = (await r.text()).slice(0, 300); } catch { /* ignore */ }
-        body._debug = { status: r.status, keyword, sort, hasReferer: !!process.env.RAKUTEN_APP_URL, hasAccessKey: !!accessKey, appIdLen: appId.length, appIdShape: appId.replace(/[0-9]/g, '#').replace(/[a-zA-Z]/g, 'a').slice(0, 40), upstream };
+        body._debug = { status: resp.status, keyword, sort, hasReferer: !!referer, hasAccessKey: !!accessKey, appIdLen: appId.length, appIdShape: appId.replace(/[0-9]/g, '#').replace(/[a-zA-Z]/g, 'a').slice(0, 40), upstream: (resp.body || '').slice(0, 300) };
       }
       return res.status(200).json(body);
     }
-    const data = await r.json();
+    let data = null;
+    try { data = JSON.parse(resp.body); } catch { /* 壊れた JSON は空扱い */ }
     const items = Array.isArray(data?.Items)
       ? data.Items.map(normalizeItem).filter(Boolean)
       : [];
@@ -191,4 +184,31 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(200).json({ ok: false, reason: 'fetch_failed', items: [] });
   }
+}
+
+// Node の https で GET し { status, body } を返す。fetch と違い Referer/Origin を
+// 剥がさないので、楽天の新 API（Referer 必須）を確実に通せる。8s タイムアウト・
+// レスポンスは 1MB で打ち切り（防御）。
+function rakutenGet(urlStr, referer) {
+  return new Promise((resolve, reject) => {
+    let u;
+    try { u = new URL(urlStr); } catch (e) { reject(e); return; }
+    const headers = { Accept: 'application/json' };
+    if (referer) { headers.Referer = referer; headers.Origin = referer; }
+    const req = https.request(
+      { hostname: u.hostname, path: `${u.pathname}${u.search}`, method: 'GET', headers },
+      (res) => {
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', (c) => {
+          data += c;
+          if (data.length > 1_000_000) { data = data.slice(0, 1_000_000); req.destroy(); }
+        });
+        res.on('end', () => resolve({ status: res.statusCode || 0, body: data }));
+      },
+    );
+    req.on('error', reject);
+    req.setTimeout(8000, () => req.destroy(new Error('timeout')));
+    req.end();
+  });
 }
