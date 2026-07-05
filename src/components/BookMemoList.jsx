@@ -6,6 +6,7 @@ import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { summarizeCards } from '../lib/ai';
 import { MemoListSkeleton } from './Skeleton';
+import EmptyState from './EmptyState';
 import { LIMITS } from '../lib/limits';
 import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
@@ -485,31 +486,20 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {loading && memos.length === 0 && <MemoListSkeleton rows={3} />}
 
       {!loading && memos.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--c-ink-soft)' }}>
-          <div style={{ marginBottom: 6, color: 'var(--c-ink-2)' }}>
-            <StickyNote size={32} strokeWidth={1.5} aria-hidden="true" />
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
-            読みながら気になった一行を、ひとつ残してみましょう。
-          </p>
-          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 0', lineHeight: 1.7 }}>
-            残した一行は、あとで「振り返り」の想起として、ふいに戻ってきます。
-          </p>
-        </div>
+        <EmptyState
+          icon={<StickyNote size={32} strokeWidth={1.5} aria-hidden="true" />}
+          title="まだメモがありません"
+          description="読みながら気になった一行を、ひとつ残してみましょう。"
+          tip="残した一行は、あとで「振り返り」の想起として、ふいに戻ってきます。"
+        />
       )}
 
       {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--c-ink-soft)' }}>
-          <div style={{ marginBottom: 6, color: 'var(--c-ink-2)' }}>
-            <BookOpen size={32} strokeWidth={1.5} aria-hidden="true" />
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
-            ページ番号付きのメモがまだありません。
-          </p>
-          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 0', lineHeight: 1.7 }}>
-            メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。
-          </p>
-        </div>
+        <EmptyState
+          icon={<BookOpen size={32} strokeWidth={1.5} aria-hidden="true" />}
+          title="ページ番号付きのメモがまだありません"
+          description="メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。"
+        />
       )}
 
       {!loading && memos.length > 0 && !recallHintSeen && (

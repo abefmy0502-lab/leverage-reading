@@ -711,7 +711,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
             onKeyDown={onEnter}
-            placeholder="例：本田 直之"
+            placeholder="例：山田 太郎"
             style={inpStyle}
             maxLength={LIMITS.bookAuthor}
             disabled={isSearching}

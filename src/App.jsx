@@ -4503,7 +4503,7 @@ function AuthedApp() {
                 <button
                   key={i}
                   type="button"
-                  onClick={() => { haptic.light(); toggleAction(current.id, i); }}
+                  onClick={() => toggleAction(current.id, i)}
                   aria-label={a.done ? `「${a.text}」を未完了に戻す` : `「${a.text}」を完了にする`}
                   style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 44 }}
                 >
