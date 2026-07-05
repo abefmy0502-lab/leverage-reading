@@ -280,6 +280,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `APNS_PRODUCTION` | `'true'` で本番 `api.push.apple.com`、未設定/`false` で sandbox（TestFlight/開発ビルド）。APNS_* が未設定なら iOS 行は静かにスキップ（fail-safe） |
 | `RAKUTEN_APPLICATION_ID` | 🔥 AI 選書「話題の本を探す」— 楽天ブックス API のアプリ ID（`api/discover.js` サーバー専用）。https://webservice.rakuten.co.jp/ で無料発行。**未設定なら `api/discover.js` が `{ok:false, reason:'not_configured'}` を返し UI は「準備中」表示に倒す（fail-safe）** |
 | `RAKUTEN_AFFILIATE_ID` | (任意) 楽天アフィリエイト ID。設定すると「話題の本を探す」の楽天ブックスリンクにアフィリエイトが付く（`api/discover.js`） |
+| `RAKUTEN_APP_URL` | (任意/推奨) 楽天アプリ登録の「許可されたWebサイト」に登録した本番ドメイン URL（例 `https://orime.app`）。`api/discover.js` がサーバー→楽天へのリクエストに `Referer` として付与し、ドメイン照合制限を通す。未設定なら Referer を送らない（従来挙動）。楽天がドメイン制限を強制する場合に本が出ない事故を防ぐための保険 |
 
 ## デプロイフロー
 

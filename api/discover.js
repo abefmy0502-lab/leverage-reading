@@ -139,12 +139,18 @@ export default async function handler(req, res) {
   if (process.env.RAKUTEN_AFFILIATE_ID) params.set('affiliateId', process.env.RAKUTEN_AFFILIATE_ID);
   const url = `https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
 
+  // 楽天ウェブサービスの「許可されたWebサイト」制限対策。うちはサーバー(Vercel)から
+  // 叩くので通常 Referer が付かない。登録したドメイン(RAKUTEN_APP_URL)を Referer と
+  // して送り、ドメイン照合を通す。未設定なら送らない（従来挙動＝無害）。
+  const reqHeaders = { Accept: 'application/json' };
+  if (process.env.RAKUTEN_APP_URL) reqHeaders.Referer = process.env.RAKUTEN_APP_URL;
+
   try {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 8000);
     let r;
     try {
-      r = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+      r = await fetch(url, { signal: controller.signal, headers: reqHeaders });
     } finally {
       clearTimeout(t);
     }
