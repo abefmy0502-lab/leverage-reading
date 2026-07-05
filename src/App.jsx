@@ -948,22 +948,61 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const stripRecoBlock = (text) =>
     (typeof text === 'string' ? text : '')
       .replace(/RECOMMENDATIONS_START[\s\S]*?(?:RECOMMENDATIONS_END|$)/g, '')
+      // 推薦ブロックを剥がした結果「## 📚 おすすめの本」が中身ゼロで残る
+      // （直後が次の見出し or 末尾）場合は、その空見出しごと除去する
+      // （カードが出せなかった回に空の見出しだけが浮く表示崩れを防ぐ）。
+      .replace(/\n*#{1,4}\s*📚?\s*おすすめの本[^\n]*\s*(?=#{1,4}\s|$)/gu, '\n')
       .trim();
 
+  // 推薦 JSON を寛容にパースする。LLM は例の「// 3〜5 冊」コメントを真似たり、
+  // 末尾カンマを付けたり、前後にノイズを混ぜたりして strict JSON.parse を落とす。
+  // ①素の parse → ②行コメント/末尾カンマ除去 → ③最初の[〜最後の]抽出、の順で試す。
+  const tolerantRecArray = (raw) => {
+    if (typeof raw !== 'string') return null;
+    const clean = (s) => s
+      .replace(/^\s*\/\/[^\n]*$/gm, '')   // 行頭コメント（例の "// 3〜5 冊" 等）
+      .replace(/,(\s*[\]}])/g, '$1');     // 末尾カンマ
+    const tries = [raw, clean(raw)];
+    const s = raw.indexOf('[');
+    const e = raw.lastIndexOf(']');
+    if (s >= 0 && e > s) tries.push(clean(raw.slice(s, e + 1)));
+    for (const t of tries) {
+      try {
+        const arr = JSON.parse(t);
+        if (Array.isArray(arr)) return arr;
+      } catch { /* 次の候補へ */ }
+    }
+    return null;
+  };
+
   const parseAdvisorResponse = (text) => {
-    const match = text.match(/RECOMMENDATIONS_START\s*([\s\S]*?)\s*RECOMMENDATIONS_END/);
-    if (!match) return { recs: null, prose: stripRecoBlock(text) };
-    let recs = null;
-    try {
-      const arr = JSON.parse(match[1]);
-      if (Array.isArray(arr)) {
-        recs = arr.filter((r) => r && typeof r.title === 'string');
-      }
-    } catch { /* keep recs null */ }
-    // JSON が壊れていた/空だった場合も、マーカーと生 JSON をユーザーに見せない。
+    if (typeof text !== 'string') return { recs: null, prose: '' };
+    const START = 'RECOMMENDATIONS_START';
+    const END = 'RECOMMENDATIONS_END';
+    const startIdx = text.indexOf(START);
+    if (startIdx < 0) return { recs: null, prose: stripRecoBlock(text) };
+
+    const afterStart = text.slice(startIdx + START.length);
+    const endRel = afterStart.indexOf(END);
+    let jsonRaw;
+    let blockEndAbs;
+    if (endRel >= 0) {
+      jsonRaw = afterStart.slice(0, endRel);
+      blockEndAbs = startIdx + START.length + endRel + END.length;
+    } else {
+      // END マーカー欠落（max_tokens 打ち切り等）でも、次の見出し(## )までを
+      // JSON 候補として拾って復旧を試みる（見出しが無ければ以降すべて）。
+      const nextHeading = afterStart.search(/\n#{1,4}\s/);
+      jsonRaw = nextHeading >= 0 ? afterStart.slice(0, nextHeading) : afterStart;
+      blockEndAbs = nextHeading >= 0 ? startIdx + START.length + nextHeading : text.length;
+    }
+
+    const arr = tolerantRecArray(jsonRaw);
+    const recs = Array.isArray(arr) ? arr.filter((r) => r && typeof r.title === 'string') : null;
+    // JSON が壊れていた/空だった場合も、マーカーと生 JSON・空見出しをユーザーに見せない。
     if (!recs || recs.length === 0) return { recs: null, prose: stripRecoBlock(text) };
-    const before = text.slice(0, match.index).trim();
-    const after = text.slice(match.index + match[0].length).trim();
+    const before = text.slice(0, startIdx).trim();
+    const after = text.slice(blockEndAbs).trim();
     return {
       recs,
       prose: { before, after },
