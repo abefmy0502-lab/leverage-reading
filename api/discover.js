@@ -106,7 +106,9 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too Many Requests', retry_after: rl.retryAfter });
   }
 
-  const appId = process.env.RAKUTEN_APPLICATION_ID;
+  // 環境変数に前後の空白/改行が混入すると applicationId が不正になり楽天が
+  // 400 wrong_parameter を返すため、必ず trim する（ダッシュボード貼付け事故対策）。
+  const appId = (process.env.RAKUTEN_APPLICATION_ID || '').trim();
   if (!appId) {
     // 未設定 = 機能準備中。UI は「準備中」に倒す（fail-safe）。
     return res.status(200).json({ ok: false, reason: 'not_configured', items: [] });
@@ -162,7 +164,7 @@ export default async function handler(req, res) {
       if (req.query?.debug === '1') {
         let upstream = '';
         try { upstream = (await r.text()).slice(0, 300); } catch { /* ignore */ }
-        body._debug = { status: r.status, keyword, sort, hasReferer: !!process.env.RAKUTEN_APP_URL, upstream };
+        body._debug = { status: r.status, keyword, sort, hasReferer: !!process.env.RAKUTEN_APP_URL, appIdLen: appId.length, appIdShape: appId.replace(/[0-9]/g, '#').replace(/[a-zA-Z]/g, 'a').slice(0, 40), upstream };
       }
       return res.status(200).json(body);
     }
