@@ -17,8 +17,9 @@
 // await the whole exchange when convenient.
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import { MODEL_SMART } from './models';
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_MODEL = MODEL_SMART;
 const DEFAULT_MAX_TOKENS = 2048;
 
 // fetch() rejects with a DOMException named 'AbortError' when the attached

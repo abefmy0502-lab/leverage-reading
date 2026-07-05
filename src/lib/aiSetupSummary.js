@@ -11,6 +11,7 @@
 import { callClaude, sanitizeForPrompt } from './ai.js';
 import { PROMPTS } from './prompts.js';
 import { LIMITS, clamp } from './limits.js';
+import { MODEL_FAST } from './models.js';
 
 const ROLE_LABEL = { user: 'ユーザー', assistant: 'AI', system: 'system' };
 
@@ -63,7 +64,8 @@ export async function summarizeAdvisorConversation(messages, selectedBook) {
       title: selectedBook.title,
       author: selectedBook.author || '',
     }),
-    { max_tokens: 800, model: 'claude-sonnet-4-6', cacheSystem: true },
+    // 会話→4フィールドの構造化抽出は定型なので FAST(Haiku)。
+    { max_tokens: 800, model: MODEL_FAST, cacheSystem: true },
   );
   const parsed = extractJson(raw);
   if (!parsed) throw new Error('JSON parse failed');

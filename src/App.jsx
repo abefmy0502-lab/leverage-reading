@@ -66,6 +66,7 @@ import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyR
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
+import { MODEL_SMART, MODEL_FAST } from './lib/models';
 import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 const Landing = lazy(() => import('./pages/Landing'));
@@ -1057,7 +1058,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
       text = await callClaude(
         PROMPTS.advisorInterview.system,
         PROMPTS.advisorInterview.user({ concern: safeConcern, priorQA, round, maxRounds: MAX_INTERVIEW_ROUNDS }),
-        { max_tokens: 700, temperature: 0.4, cacheSystem: true },
+        // ヒアリング質問生成は定型 JSON なので FAST(Haiku)。安価・高速で品質十分。
+        { max_tokens: 700, temperature: 0.4, cacheSystem: true, model: MODEL_FAST },
       );
     } catch {
       return null;
@@ -1112,7 +1114,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         // temperature 0.7 — 推薦に多様性を出す（同じ著者ばかりにならない）。
         temperature: 0.7,
         max_tokens: 2048,
-        model: 'claude-sonnet-4-6',
+        model: MODEL_SMART,
       });
     } catch (e) {
       setRecoError(toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
@@ -3484,7 +3486,7 @@ function AuthedApp() {
           }),
         }],
         max_tokens: 2048,
-        model: 'claude-sonnet-4-6',
+        model: MODEL_SMART,
         onChunk: (fullText) => {
           setForm((f) => (f && f.id === targetId ? { ...f, aiAnalysis: fullText } : f));
         },
@@ -3519,7 +3521,7 @@ function AuthedApp() {
           }),
         }],
         max_tokens: 2048,
-        model: 'claude-sonnet-4-6',
+        model: MODEL_SMART,
         onChunk: (fullText) => {
           // 関連書籍カードのパース (= 「読みたい」ボタン押下可能) は
           // streaming 中は BeforePhase 側で aiLoading を見て無効化している。
@@ -3566,7 +3568,7 @@ function AuthedApp() {
           }),
         }],
         max_tokens: 2048,
-        model: 'claude-sonnet-4-6',
+        model: MODEL_SMART,
         onChunk: (fullText) => {
           didStreamAny = true;
           setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: fullText } : f));

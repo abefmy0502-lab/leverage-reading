@@ -20,8 +20,16 @@ const MAX_MESSAGES = 60;
 // body.model を verbatim で upstream に流すと、改ざんしたクライアントが Opus 等
 // の高単価モデルを指定して原価を吊り上げられる（KGI ガードの穴）。allowlist 外
 // は既定モデルに矯正する（拒否ではなく安全側に倒す＝正規利用を妨げない）。
-const ALLOWED_MODELS = new Set(['claude-sonnet-4-6']);
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+// コスト最適化の 2 層ルーティング（src/lib/models.js と一致させる）:
+//   SMART = claude-sonnet-5（品質必須の機能）/ FAST = claude-haiku-4-5（定型処理・安価高速）。
+//   旧 claude-sonnet-4-6 も後方互換で許可（未デプロイのクライアントからの要求を弾かない）。
+//   許可外は DEFAULT_MODEL に矯正（拒否ではなく安全側）。
+const ALLOWED_MODELS = new Set(['claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
+const DEFAULT_MODEL = 'claude-sonnet-5';
+// 実績のある既知モデル。指定モデルが upstream に 404（model not found）で拒否された
+// 時のフォールバック先。過去に廃止スナップショット ID の指定で全 AI が停止した事故が
+// あったため、新モデル ID がアカウント未対応でも AI を止めないための保険。
+const FALLBACK_MODEL = 'claude-sonnet-4-6';
 
 // ───────────────────────────────────────────────────────────────────
 // 🤖 月次 AI 利用量メータリング（KGI 原価ガード）
@@ -438,18 +446,29 @@ export default async function handler(req, res) {
     try { req.on?.('close', abortUpstream); } catch { /* no-op */ }
     try { res.on?.('close', abortUpstream); } catch { /* no-op */ }
 
+    const anthropicFetch = () => fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(payload),
+      signal: upstreamController.signal,
+    });
+
     let response;
     try {
-      response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(payload),
-        signal: upstreamController.signal,
-      });
+      response = await anthropicFetch();
+      // 🛡️ モデル未提供フォールバック: 指定モデルが 404（model not found）で拒否
+      // されたら、実績のある FALLBACK_MODEL で 1 回だけ再試行する。ストリーム開始前
+      // （response.ok 判定より前）なので安全に差し替えられる。これで新モデル ID が
+      // アカウント未対応でも全 AI 停止を回避する（過去の同種事故の恒久対策）。
+      if (response && response.status === 404 && payload.model !== FALLBACK_MODEL) {
+        console.warn('[claude] model not found, falling back:', payload.model, '→', FALLBACK_MODEL);
+        payload.model = FALLBACK_MODEL;
+        response = await anthropicFetch();
+      }
     } catch (fetchErr) {
       // クライアントが接続前/接続待ち中に切断 → AbortError。これは正常な
       // ユーザー操作なのでエラーログを出さず静かに終了する。
