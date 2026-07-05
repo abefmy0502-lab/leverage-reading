@@ -278,9 +278,10 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `APNS_PRIVATE_KEY` | APNs 認証キー(.p8)の中身（`-----BEGIN PRIVATE KEY-----` 全文。改行は `\n` エスケープ可）。**クライアント露出厳禁** |
 | `APNS_BUNDLE_ID` | アプリの Bundle ID（APNs の `apns-topic`） |
 | `APNS_PRODUCTION` | `'true'` で本番 `api.push.apple.com`、未設定/`false` で sandbox（TestFlight/開発ビルド）。APNS_* が未設定なら iOS 行は静かにスキップ（fail-safe） |
-| `RAKUTEN_APPLICATION_ID` | 🔥 AI 選書「話題の本を探す」— 楽天ブックス API のアプリ ID（`api/discover.js` サーバー専用）。https://webservice.rakuten.co.jp/ で無料発行。**未設定なら `api/discover.js` が `{ok:false, reason:'not_configured'}` を返し UI は「準備中」表示に倒す（fail-safe）** |
+| `RAKUTEN_APPLICATION_ID` | 🔥 AI 選書「話題の本を探す」— 楽天ブックス API の**アプリケーションID（UUID 形式）**（`api/discover.js` サーバー専用）。https://webservice.rakuten.co.jp/ で無料発行。**2026 年の楽天 API 刷新で `RAKUTEN_ACCESS_KEY` との併用が必須**。未設定なら `{ok:false, reason:'not_configured'}` を返し UI は「準備中」に倒す（fail-safe） |
+| `RAKUTEN_ACCESS_KEY` | 🔑 楽天 API の**アクセスキー（`pk_...` 形式）**（`api/discover.js` サーバー専用）。2026 年の刷新で `applicationId` と**両方必須**（片方だけだと楽天が 400）。アプリ詳細の「アクセスキー」欄の値。**クライアント露出厳禁**（サーバーからのクエリにのみ付与） |
 | `RAKUTEN_AFFILIATE_ID` | (任意) 楽天アフィリエイト ID。設定すると「話題の本を探す」の楽天ブックスリンクにアフィリエイトが付く（`api/discover.js`） |
-| `RAKUTEN_APP_URL` | (任意/推奨) 楽天アプリ登録の「許可されたWebサイト」に登録した本番ドメイン URL（例 `https://orime.app`）。`api/discover.js` がサーバー→楽天へのリクエストに `Referer` として付与し、ドメイン照合制限を通す。未設定なら Referer を送らない（従来挙動）。楽天がドメイン制限を強制する場合に本が出ない事故を防ぐための保険 |
+| `RAKUTEN_APP_URL` | **（2026 刷新後は実質必須）** 楽天アプリ登録の「許可されたWebサイト」に登録した本番ドメイン URL（例 `https://leverage-reading.vercel.app`）。`api/discover.js` がサーバー→楽天へのリクエストに `Referer` として付与する。**新 API は Referer/Origin ヘッダーが無いと 403**。未設定なら Referer を送らないため本が出ない |
 
 ## デプロイフロー
 

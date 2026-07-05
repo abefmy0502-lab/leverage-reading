@@ -6,18 +6,27 @@
 //   - 結果を正規化 + キャッシュ + レート制限して、楽天側の 1req/sec 制限と
 //     コスト/速度を守る。
 //
-// データ源: 楽天ブックス書籍検索 API（BooksBook Search）。
+// データ源: 楽天ブックス書籍検索 API（BooksBook Search / openapi.rakuten.co.jp）。
 //   - sort='sales'        → 売れ筋（人気）
 //   - sort='-releaseDate' → 発売日新しい順（新着 / 近刊）
 //   - keyword=テーマ語, 書籍のみ（BooksBook）
 //
+// ⚠️ 2026 年の楽天 API 刷新に対応済み:
+//   - ドメイン app.rakuten.co.jp → openapi.rakuten.co.jp（旧は 2026-05-14 廃止）
+//   - 認証は applicationId(UUID) と accessKey(pk_...) の【両方】が必須
+//   - Referer/Origin ヘッダー必須（RAKUTEN_APP_URL を Referer として送る）
+//
 // ★★★ 元帥の環境作業（このコードだけでは動かない）★★★
-//   1. 楽天ウェブサービスでアプリ ID を無料発行（https://webservice.rakuten.co.jp/）
-//   2. Vercel env: RAKUTEN_APPLICATION_ID（サーバー専用）
+//   1. 楽天ウェブサービスでアプリを作成（https://webservice.rakuten.co.jp/）
+//      → アプリケーションID(UUID) と アクセスキー(pk_...) を取得
+//   2. Vercel env（サーバー専用）:
+//        RAKUTEN_APPLICATION_ID … アプリケーションID（UUID）
+//        RAKUTEN_ACCESS_KEY     … アクセスキー（pk_...）
+//        RAKUTEN_APP_URL        … 登録した本番ドメイン URL（Referer 用・必須）
 //      （任意）RAKUTEN_AFFILIATE_ID … 設定すると itemUrl にアフィリエイトが付く
 //   3. vercel.json の CSP img-src に thumbnail.image.rakuten.co.jp を追加済み
-//   ※ RAKUTEN_APPLICATION_ID 未設定なら { ok:false, reason:'not_configured' } を
-//      200 で返す（UI は「準備中」表示に倒す＝fail-safe）。
+//   ※ APPLICATION_ID か ACCESS_KEY が未設定なら { ok:false, reason:'not_configured' }
+//      を 200 で返す（UI は「準備中」表示に倒す＝fail-safe）。
 
 // テーマ（固定キー）→ 楽天検索キーワード。クライアントは固定キーだけ送れる
 // （任意キーワードを楽天へ流さない＝サーバー権威のホワイトリスト）。
@@ -106,11 +115,13 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too Many Requests', retry_after: rl.retryAfter });
   }
 
-  // 環境変数に前後の空白/改行が混入すると applicationId が不正になり楽天が
-  // 400 wrong_parameter を返すため、必ず trim する（ダッシュボード貼付け事故対策）。
+  // 🔑 2026 年の楽天 API 刷新後の認証: applicationId(UUID) と accessKey(pk_...) の
+  //    両方が必須（片方だけだと 400）。旧来は applicationId のみだった。
+  //    env 貼付けの空白/改行事故を避けるため必ず trim。
   const appId = (process.env.RAKUTEN_APPLICATION_ID || '').trim();
-  if (!appId) {
-    // 未設定 = 機能準備中。UI は「準備中」に倒す（fail-safe）。
+  const accessKey = (process.env.RAKUTEN_ACCESS_KEY || '').trim();
+  if (!appId || !accessKey) {
+    // どちらか未設定 = 機能準備中。UI は「準備中」に倒す（fail-safe）。
     return res.status(200).json({ ok: false, reason: 'not_configured', items: [] });
   }
 
@@ -132,14 +143,17 @@ export default async function handler(req, res) {
   const params = new URLSearchParams({
     format: 'json',
     applicationId: appId,
+    accessKey, // 2026 刷新で必須になったアクセスキー（pk_...）
     keyword,
     sort,
     hits: '20',
     outOfStockFlag: '1', // 品切れ/近刊も含める（新着で近刊を出したい）
     elements: 'title,author,publisherName,isbn,salesDate,itemPrice,largeImageUrl,mediumImageUrl,itemUrl,affiliateUrl',
   });
-  if (process.env.RAKUTEN_AFFILIATE_ID) params.set('affiliateId', process.env.RAKUTEN_AFFILIATE_ID);
-  const url = `https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
+  if (process.env.RAKUTEN_AFFILIATE_ID) params.set('affiliateId', (process.env.RAKUTEN_AFFILIATE_ID || '').trim());
+  // 2026 年のインフラ刷新でドメインが app.rakuten.co.jp → openapi.rakuten.co.jp に
+  // 変更（旧ドメインは 2026-05-14 に廃止）。パス/バージョンは書籍検索のまま。
+  const url = `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`;
 
   // 楽天ウェブサービスの「許可されたWebサイト」制限対策。うちはサーバー(Vercel)から
   // 叩くので通常 Referer が付かない。登録したドメイン(RAKUTEN_APP_URL)を Referer と
@@ -164,7 +178,7 @@ export default async function handler(req, res) {
       if (req.query?.debug === '1') {
         let upstream = '';
         try { upstream = (await r.text()).slice(0, 300); } catch { /* ignore */ }
-        body._debug = { status: r.status, keyword, sort, hasReferer: !!process.env.RAKUTEN_APP_URL, appIdLen: appId.length, appIdShape: appId.replace(/[0-9]/g, '#').replace(/[a-zA-Z]/g, 'a').slice(0, 40), upstream };
+        body._debug = { status: r.status, keyword, sort, hasReferer: !!process.env.RAKUTEN_APP_URL, hasAccessKey: !!accessKey, appIdLen: appId.length, appIdShape: appId.replace(/[0-9]/g, '#').replace(/[a-zA-Z]/g, 'a').slice(0, 40), upstream };
       }
       return res.status(200).json(body);
     }
