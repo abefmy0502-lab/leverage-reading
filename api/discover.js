@@ -56,6 +56,7 @@ const THEME_GENRES = {
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 40;
 const rateLimitStore = new Map();
+const RATE_LIMIT_MAX_KEYS = 5000; // ハードキャップ（詐称IPフラッド時のメモリ暴走防止）
 function checkRateLimit(key) {
   const now = Date.now();
   const arr = (rateLimitStore.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
@@ -67,11 +68,24 @@ function checkRateLimit(key) {
       const alive = v.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
       if (alive.length === 0) rateLimitStore.delete(k); else rateLimitStore.set(k, alive);
     }
+    // 期限切れ掃除後もキャップ超過（＝短時間に大量のユニークキー＝IP詐称フラッド）
+    // なら、挿入順が古い方から強制退避してメモリ暴走を止める（Map は挿入順を保持）。
+    if (rateLimitStore.size > RATE_LIMIT_MAX_KEYS) {
+      const excess = rateLimitStore.size - RATE_LIMIT_MAX_KEYS;
+      let i = 0;
+      for (const k of rateLimitStore.keys()) {
+        if (i >= excess) break;
+        rateLimitStore.delete(k);
+        i += 1;
+      }
+    }
   }
   return { ok: true };
 }
 function clientKey(req) {
   const h = req.headers || {};
+  // Vercel はプラットフォーム側で x-real-ip を実クライアント IP に上書きするため最優先。
+  // x-forwarded-for の左端はクライアントが付与可能（詐称可）なのでフォールバック扱い。
   const realIp = typeof h['x-real-ip'] === 'string' ? h['x-real-ip'].trim() : '';
   const fwd = typeof h['x-forwarded-for'] === 'string' ? h['x-forwarded-for'].split(',')[0].trim() : '';
   return (realIp || fwd || req.socket?.remoteAddress || 'unknown').trim();
@@ -173,20 +187,17 @@ export default async function handler(req, res) {
   try {
     const resp = await rakutenGet(url, referer);
     if (resp.status < 200 || resp.status >= 300) {
-      // 楽天側エラー（レート/一時障害/ID不正/Referer 不足など）。通常は生詳細を
-      // 返さず graceful。?debug=1 のときだけ切り分け用に詳細を返す（秘密は含めない）。
-      const body = { ok: false, reason: 'upstream_error', items: [] };
-      if (req.query?.debug === '1') {
-        body._debug = { status: resp.status, genreId, sort, hasReferer: !!referer, hasAccessKey: !!accessKey, upstream: (resp.body || '').slice(0, 300) };
-      }
-      return res.status(200).json(body);
+      // 楽天側エラー（レート/一時障害/ID不正/Referer 不足など）。生詳細は返さず graceful。
+      return res.status(200).json({ ok: false, reason: 'upstream_error', items: [] });
     }
     let data = null;
     try { data = JSON.parse(resp.body); } catch { /* 壊れた JSON は空扱い */ }
     const items = Array.isArray(data?.Items)
       ? data.Items.map(normalizeItem).filter(Boolean)
       : [];
-    cache.set(cacheKey, { at: Date.now(), items });
+    // ⚠️ 空結果はキャッシュしない。楽天の一時的な空/全件フィルタ除外を 1h キャッシュ
+    //    すると、テーマ棚が全ユーザーに 1 時間空になり回復しない事故になる（監査 S1）。
+    if (items.length) cache.set(cacheKey, { at: Date.now(), items });
     return res.status(200).json({ ok: true, items });
   } catch (e) {
     return res.status(200).json({ ok: false, reason: 'fetch_failed', items: [] });

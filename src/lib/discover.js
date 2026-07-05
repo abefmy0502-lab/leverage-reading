@@ -65,6 +65,20 @@ export function dateKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// 🧹 書店員POP の localStorage キャッシュ（orime.pop.<date>.<id>）は日付キーで貯まる。
+// 今日以外の古いキーを掃除して無制限成長を防ぐ（監査 P6）。呼び出し失敗は無視。
+export function cleanupStalePopCache() {
+  try {
+    const today = `orime.pop.${dateKey()}.`;
+    const stale = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('orime.pop.') && !k.startsWith(today)) stale.push(k);
+    }
+    stale.forEach((k) => { try { localStorage.removeItem(k); } catch { /* noop */ } });
+  } catch { /* private mode 等では no-op */ }
+}
+
 // トレンド寄りのローテ候補（ビジネスパーソンの時代感度＋ぶらぶらの意外性）。
 // ビジネス/人文/新書/科学 を軸に、小説・暮らしも混ぜて出会いを広げる。
 const TREND_POOL = [
@@ -73,8 +87,10 @@ const TREND_POOL = [
 ];
 
 // その日の「今日の平台」テーマ。offset を変えると別の棚を選べる。
+// フォールバックは必ず「有効なテーマキー」を返す（'ビジネス' はラベルで API に無効）。
+const FALLBACK_THEME = 'ビジネス・経済';
 export function pickDailyTheme(offset = 0, pool = TREND_POOL) {
-  if (!pool.length) return 'ビジネス';
+  if (!pool.length) return FALLBACK_THEME;
   const i = (dayOfYear() + offset) % pool.length;
   return pool[(i + pool.length) % pool.length];
 }
@@ -83,7 +99,7 @@ export function pickDailyTheme(offset = 0, pool = TREND_POOL) {
 // 畑違いの出会いを誘う。全テーマから日替わりで選び、関心と被れば隣へずらす。
 export function pickSerendipityTheme(excludeKeys = []) {
   const all = DISCOVER_THEMES.map((t) => t.key);
-  if (!all.length) return 'ビジネス';
+  if (!all.length) return FALLBACK_THEME;
   const ex = new Set(excludeKeys);
   const base = (dayOfYear() + 7) % all.length;
   for (let step = 0; step < all.length; step += 1) {
@@ -108,10 +124,13 @@ export function seededShuffle(arr, seed = dayOfYear()) {
 
 // 簡易メモリキャッシュ（同一セッション内のタブ往復を高速化）。
 const _cache = new Map(); // `${theme}|${sort}` -> { at, items }
+const _inflight = new Map(); // `${theme}|${sort}` -> Promise（同時同一リクエストの重複排除）
 const CLIENT_TTL_MS = 10 * 60 * 1000;
 
 /**
  * テーマ別の新着 / 人気の本を取得。
+ * 同じ theme|sort が同時に複数回呼ばれても、実際の fetch は 1 回に集約する
+ * （複数の棚が同じ日替わりテーマに解決した時の二重リクエストを防ぐ・監査 P1）。
  * @param {{ theme: string, sort?: 'new'|'popular', signal?: AbortSignal }} args
  * @returns {Promise<{ ok: boolean, items: Array, reason?: string }>}
  */
@@ -123,26 +142,36 @@ export async function fetchDiscover({ theme, sort = 'new', signal } = {}) {
   if (hit && Date.now() - hit.at < CLIENT_TTL_MS) {
     return { ok: true, items: hit.items, cached: true };
   }
-  try {
-    const params = new URLSearchParams({ theme, sort: normSort });
-    const res = await fetch(`/api/discover?${params.toString()}`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      signal,
-    });
-    if (!res.ok) {
-      return { ok: false, items: [], reason: `http_${res.status}` };
+  // 進行中の同一リクエストがあれば相乗り（signal は個別だが、共有取得の結果を待つ）。
+  const pending = _inflight.get(cacheKey);
+  if (pending) return pending;
+
+  const run = (async () => {
+    try {
+      const params = new URLSearchParams({ theme, sort: normSort });
+      const res = await fetch(`/api/discover?${params.toString()}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal,
+      });
+      if (!res.ok) {
+        return { ok: false, items: [], reason: `http_${res.status}` };
+      }
+      const data = await res.json();
+      const items = Array.isArray(data?.items) ? data.items : [];
+      if (data?.ok && items.length) {
+        _cache.set(cacheKey, { at: Date.now(), items });
+      }
+      return { ok: !!data?.ok, items, reason: data?.reason };
+    } catch (e) {
+      if (e?.name === 'AbortError') return { ok: false, items: [], reason: 'aborted' };
+      return { ok: false, items: [], reason: 'fetch_failed' };
+    } finally {
+      _inflight.delete(cacheKey);
     }
-    const data = await res.json();
-    const items = Array.isArray(data?.items) ? data.items : [];
-    if (data?.ok && items.length) {
-      _cache.set(cacheKey, { at: Date.now(), items });
-    }
-    return { ok: !!data?.ok, items, reason: data?.reason };
-  } catch (e) {
-    if (e?.name === 'AbortError') return { ok: false, items: [], reason: 'aborted' };
-    return { ok: false, items: [], reason: 'fetch_failed' };
-  }
+  })();
+  _inflight.set(cacheKey, run);
+  return run;
 }
 
 export default fetchDiscover;

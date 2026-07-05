@@ -32,7 +32,7 @@ async function getAccessToken() {
   }
 }
 
-async function postClaude(payload) {
+async function postClaude(payload, signal) {
   const accessToken = await getAccessToken();
   const headers = { 'Content-Type': 'application/json' };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
@@ -43,6 +43,7 @@ async function postClaude(payload) {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
+      signal,
     });
   } catch {
     return '通信エラー';
@@ -108,7 +109,7 @@ export async function callClaude(systemOrMessages, userOrOptions, options) {
   // 呼び出し側から渡す。未指定なら Claude の default (≈ 1.0) に任せる。
   if (typeof opts.temperature === 'number') payload.temperature = opts.temperature;
 
-  return postClaude(payload);
+  return postClaude(payload, opts.signal);
 }
 
 export default callClaude;
@@ -984,7 +985,7 @@ export async function generateWeeklyQuestion(userId) {
 // - contextLine: ユーザーの読書傾向の短い1行（呼び出し側で books から組み立て）。
 // - 失敗 / エラー文字列 / 疑わしい出力は null（呼び出し側は静かに POP なしへ倒す）。
 // - 低コスト・高速の MODEL_FAST。呼び出し側が日付＋ISBN で localStorage キャッシュ想定。
-export async function generateSerendipityPop({ title, author = '', contextLine = '' } = {}) {
+export async function generateSerendipityPop({ title, author = '', contextLine = '', signal } = {}) {
   const t = clamp(sanitizeForPrompt(String(title || '')), LIMITS.bookTitle).trim();
   if (!t) return null;
   const a = clamp(sanitizeForPrompt(String(author || '')), LIMITS.bookAuthor).trim();
@@ -994,7 +995,7 @@ export async function generateSerendipityPop({ title, author = '', contextLine =
     result = await callClaude(
       PROMPTS.serendipityPop.system,
       PROMPTS.serendipityPop.user({ title: t, author: a, contextLine: ctx }),
-      { max_tokens: 120, temperature: 0.9, cacheSystem: true, model: MODEL_FAST },
+      { max_tokens: 120, temperature: 0.9, cacheSystem: true, model: MODEL_FAST, signal },
     );
   } catch (e) {
     console.warn('[serendipity-pop] claude failed:', e?.message);

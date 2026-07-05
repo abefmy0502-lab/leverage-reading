@@ -15,15 +15,28 @@ function clean(s) {
   return (s || '').toString().replace(/[-\s]/g, '').trim();
 }
 
+// 直リンクを href に流す前に「https の楽天ドメインである」ことを厳密検証する。
+// 部分一致（`?x=rakuten.co.jp` や `javascript:` 混入）を弾く防御（監査 S5）。
+function isSafeRakutenUrl(u) {
+  try {
+    const p = new URL(u);
+    if (p.protocol !== 'https:') return false;
+    const host = p.hostname.toLowerCase();
+    return host === 'rakuten.co.jp' || host.endsWith('.rakuten.co.jp');
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 本に対する最善の楽天ブックスリンクを作る。
  * `book` は `{ rakutenUrl?, url?, isbn?, title?, author? }` を見る。
  */
 export function getRakutenLink(book) {
   if (!book) return RAKUTEN_BOOKS_BASE;
-  // 楽天の商品/アフィリエイトURL（話題の本タブの実データ）が最優先。
+  // 楽天の商品/アフィリエイトURL（話題の本タブの実データ）が最優先。ホスト厳密検証つき。
   const direct = (book.rakutenUrl || book.url || '').toString();
-  if (/rakuten\.co\.jp/i.test(direct)) return direct;
+  if (isSafeRakutenUrl(direct)) return direct;
 
   const isbn = clean(book.isbn);
   if (isbn) return `${RAKUTEN_BOOKS_BASE}/search?sitem=${encodeURIComponent(isbn)}`;

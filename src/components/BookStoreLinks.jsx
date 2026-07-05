@@ -66,9 +66,9 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
           aria-label={`Amazon で『${title}』を見る（外部リンク）`}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-            padding: '8px 14px', borderRadius: 999, border: `1px solid ${AMAZON_ORANGE}`,
-            background: 'transparent', color: '#9a6b00', fontSize: 12, fontWeight: 700,
-            fontFamily: 'inherit', textDecoration: 'none', minHeight: 36,
+            padding: '10px 14px', borderRadius: 999, border: `1px solid ${AMAZON_ORANGE}`,
+            background: 'transparent', color: '#7a5500', fontSize: 12, fontWeight: 700,
+            fontFamily: 'inherit', textDecoration: 'none', minHeight: 44,
           }}
         >
           🛒 Amazon ↗
@@ -78,9 +78,9 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
           aria-label={`楽天ブックス で『${title}』を見る（外部リンク）`}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-            padding: '8px 14px', borderRadius: 999, border: `1px solid ${RAKUTEN_CRIMSON}`,
+            padding: '10px 14px', borderRadius: 999, border: `1px solid ${RAKUTEN_CRIMSON}`,
             background: 'transparent', color: RAKUTEN_CRIMSON, fontSize: 12, fontWeight: 700,
-            fontFamily: 'inherit', textDecoration: 'none', minHeight: 36,
+            fontFamily: 'inherit', textDecoration: 'none', minHeight: 44,
           }}
         >
           🛒 楽天 ↗
