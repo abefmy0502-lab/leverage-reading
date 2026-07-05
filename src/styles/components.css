@@ -32,21 +32,24 @@
  * ========================================================================= */
 
 /* ===== Buttons ============================================================ */
+/* ⚠️ 一貫性: このCSSボタンは styles/ui.js の btnPrimary/btnGhost/btnDanger と
+ * 同一の見た目に揃える（唯一の正典=ui.js）。EmptyState / ErrorMessage が消費。
+ * 値: min-height 48 / radius-md(12) / type-callout(15) / --c-brand(#5c5043) 系。 */
 .btn {
   font-family: var(--font-app);
-  font-size: var(--type-body);
+  font-size: var(--type-callout);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.01em;
   line-height: var(--leading-tight);
-  padding: var(--space-3) var(--space-5);
-  border-radius: var(--radius-lg);
+  padding: 13px 18px;
+  border-radius: var(--radius-md);
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 44px;
+  min-height: 48px;
   /* Phase 2: own the spring transform here so the depression on press
      stacks cleanly with index.css's global button:active fallback. */
   transition: transform var(--duration-fast) var(--ease-spring),
@@ -61,38 +64,38 @@
   box-shadow: var(--shadow-1);
 }
 .btn-primary:active {
-  background: var(--color-accent-strong);
+  filter: brightness(0.92);
 }
 
 .btn-primary {
-  background: var(--color-accent);
-  color: var(--color-text-inverse);
-  box-shadow: 0 1px 2px rgba(93, 74, 40, 0.18);
+  background: var(--c-brand);
+  color: var(--c-brand-ink);
+  box-shadow: var(--shadow-1);
 }
 .btn-primary:hover {
-  background: var(--color-accent-hover);
+  filter: brightness(0.95);
 }
 
 .btn-secondary {
   background: transparent;
-  color: var(--color-accent);
-  border: 1px solid var(--color-accent);
+  color: var(--c-brand);
+  border: 1px solid var(--c-hairline-strong);
 }
 .btn-secondary:hover {
-  background: var(--color-accent-soft);
+  background: var(--c-soft);
 }
 
 .btn-ghost {
   background: transparent;
-  color: var(--color-text-primary);
+  color: var(--c-brand);
 }
 .btn-ghost:hover {
-  background: var(--color-bg-hover);
+  background: var(--c-soft);
 }
 
 .btn-danger {
-  background: var(--color-error);
-  color: var(--color-text-inverse);
+  background: var(--c-critical);
+  color: var(--c-brand-ink);
 }
 .btn-danger:hover {
   filter: brightness(0.95);

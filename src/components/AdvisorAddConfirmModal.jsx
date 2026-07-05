@@ -24,7 +24,7 @@ const overlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 'var(--z-dialog)',
-  background: 'rgba(30,25,20,0.55)',
+  background: 'var(--backdrop)',
   backdropFilter: 'blur(3px)',
   display: 'flex',
   alignItems: 'center',

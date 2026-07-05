@@ -423,8 +423,8 @@ function DetailSheet({ item, added, onAdd, onClose }) {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(30,24,16,0.42)',
-        backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-end',
+        position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--backdrop)',
+        backdropFilter: 'var(--backdrop-blur)', display: 'flex', alignItems: 'flex-end',
       }}
     >
       <div
@@ -436,8 +436,8 @@ function DetailSheet({ item, added, onAdd, onClose }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%', maxHeight: '85vh', overflowY: 'auto', background: 'var(--c-card)', borderRadius: '20px 20px 0 0',
-          padding: '10px 20px calc(20px + env(safe-area-inset-bottom))', boxShadow: '0 -8px 30px rgba(0,0,0,0.2)',
-          animation: 'sheetUp .28s cubic-bezier(0.2,0.8,0.2,1)', outline: 'none',
+          padding: '10px 20px calc(20px + env(safe-area-inset-bottom))', boxShadow: '0 -10px 30px rgba(30,25,20,0.18)',
+          animation: 'leverage-sheet-up .25s cubic-bezier(0.2,0.9,0.3,1)', outline: 'none',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
@@ -633,8 +633,6 @@ export default function DiscoverPanel({ onAddBook, books }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <style>{'@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}'}</style>
-
       {emptyAll && (
         <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--c-ink-3)', fontSize: 13, lineHeight: 1.8, background: 'var(--c-soft)', borderRadius: 14 }}>
           📭 いまは本を取得できませんでした。<br />少し時間をおいて、もう一度お試しください。
