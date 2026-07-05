@@ -82,16 +82,24 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const cache = new Map(); // key -> { at, items }
 
 // 楽天のサムネ URL を少し大きめ（_ex=300x300）に。無ければそのまま。
+// 表紙未確定の「Now Printing / noimage」プレースホルダは空にして、クライアント側の
+// 📕 フォールバックに倒す（ロボットの仮画像が並ぶ見栄えを防ぐ）。
 function upscaleCover(url) {
   if (typeof url !== 'string' || !url) return '';
+  if (/noimage|now_printing|nowprinting/i.test(url)) return '';
   return url.replace(/_ex=\d+x\d+/, '_ex=300x300');
 }
+
+// 楽天が各ジャンルに紛れ込ませる「本ではないグッズ／付録本」を除外する。
+// ビジネス棚にサンリオのシールブック等が混ざるのを防ぐ（明確に非書籍のものだけ）。
+const NON_BOOK_RE = /(シール\s?ブック|シールセット|ぬりえ|ステッカー|カレンダー|手帳|家計簿|ファン\s?ブック|FAN\s?BOOK|グッズ|フィギュア|ぬいぐるみ|トートバッグ|ポスター|マグカップ|キーホルダー|下敷き|クリアファイル|【バーゲン本】)/i;
 
 function normalizeItem(raw) {
   const it = raw && raw.Item ? raw.Item : raw;
   if (!it || typeof it !== 'object') return null;
   const title = (it.title || '').toString().trim();
   if (!title) return null;
+  if (NON_BOOK_RE.test(title)) return null; // 非書籍グッズは弾く
   return {
     title,
     author: (it.author || '').toString().trim(),
