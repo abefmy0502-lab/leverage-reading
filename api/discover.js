@@ -126,6 +126,30 @@ export default async function handler(req, res) {
     // どちらか未設定 = 機能準備中。UI は「準備中」に倒す（fail-safe）。
     return res.status(200).json({ ok: false, reason: 'not_configured', items: [] });
   }
+  const referer = (process.env.RAKUTEN_APP_URL || '').trim();
+
+  // 🔧 一時: 楽天ブックスのジャンルツリー取得（正しい booksGenreId を確定する用）。
+  //    /api/discover?genres=001 で 001(本) 直下の子ジャンル id/name を返す。
+  //    正しい ID を確定したらこのブロックは撤去する。
+  if (req.query?.genres != null) {
+    const gid = ((req.query.genres || '001').toString().replace(/[^0-9]/g, '')) || '001';
+    const gp = new URLSearchParams({ format: 'json', applicationId: appId, accessKey, booksGenreId: gid });
+    const gurl = `https://openapi.rakuten.co.jp/services/api/BooksGenre/Search/20121128?${gp.toString()}`;
+    try {
+      const gr = await rakutenGet(gurl, referer);
+      if (gr.status < 200 || gr.status >= 300) {
+        return res.status(200).json({ ok: false, status: gr.status, body: (gr.body || '').slice(0, 300) });
+      }
+      const gd = JSON.parse(gr.body);
+      const current = gd?.current ? { id: gd.current.booksGenreId, name: gd.current.booksGenreName } : null;
+      const children = Array.isArray(gd?.children)
+        ? gd.children.map((c) => { const n = c?.child || c; return { id: n.booksGenreId, name: n.booksGenreName }; })
+        : [];
+      return res.status(200).json({ ok: true, current, children });
+    } catch (e) {
+      return res.status(200).json({ ok: false, reason: 'genre_fetch_failed' });
+    }
+  }
 
   const themeRaw = (req.query?.theme || '').toString();
   const sortRaw = (req.query?.sort || 'new').toString();
@@ -160,9 +184,7 @@ export default async function handler(req, res) {
   // 楽天の新 API は Referer/Origin ヘッダーが無いと 403（REFERRER_MISSING）になる。
   // ⚠️ Vercel の fetch(undici) は `Referer` を「禁止ヘッダー」として仕様準拠で
   //    自動的に剥がすため、fetch では Referer が届かない。そこで Node の https
-  //    モジュールで直接リクエストし、Referer/Origin を確実に送る。
-  const referer = (process.env.RAKUTEN_APP_URL || '').trim();
-
+  //    モジュールで直接リクエストし、Referer/Origin を確実に送る（referer は上で定義済み）。
   try {
     const resp = await rakutenGet(url, referer);
     if (resp.status < 200 || resp.status >= 300) {
