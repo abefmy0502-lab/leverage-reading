@@ -131,6 +131,9 @@ const COVER_FALLBACK_BG = 'linear-gradient(135deg,#efe9df,#e4ddcf)';
 const CoverThumb = memo(function CoverThumb({ item, added, onOpen, onQuickAdd }) {
   const [imgErr, setImgErr] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // キャッシュ済み画像は onLoad が発火しない競合があるため、マウント時に
+  // img.complete を見て即 loaded 化する（表紙が opacity:0 で消える回帰の修正）。
+  const imgRef = useCallback((el) => { if (el && el.complete && el.naturalWidth > 0) setLoaded(true); }, []);
   return (
     <div style={{ width: 108, flex: '0 0 auto', scrollSnapAlign: 'start' }}>
       <div style={{ position: 'relative', width: 108, height: 156 }}>
@@ -146,6 +149,7 @@ const CoverThumb = memo(function CoverThumb({ item, added, onOpen, onQuickAdd })
         >
           {item.cover && !imgErr ? (
             <img
+              ref={imgRef}
               src={item.cover}
               alt=""
               loading="lazy"
@@ -570,7 +574,10 @@ export default function DiscoverPanel({ onAddBook, books }) {
   // 全棚が空のときだけ空状態を出す（個々の弱い棚は静かに隠す・監査 U7）。
   const expectedIds = useMemo(() => ['serendipity', ...shelfConfigs.map((c) => c.id)], [shelfConfigs]);
   const resultsRef = useRef({});
-  useEffect(() => { resultsRef.current = {}; setEmptyAll(false); }, [expectedIds, nonce]);
+  // リセットは再試行(nonce)時のみ。books 変更で expectedIds の identity が変わっても
+  // 既に報告済みの eager 棚は再報告しないため、reset すると emptyAll 判定が二度と
+  // 成立しなくなる（監査 FE3）。棚 id が増減しても resultsRef は追記/残置で無害。
+  useEffect(() => { resultsRef.current = {}; setEmptyAll(false); }, [nonce]);
   const onResult = useCallback((id, had) => {
     resultsRef.current[id] = had;
     const done = expectedIds.every((x) => x in resultsRef.current);
