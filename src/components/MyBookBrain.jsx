@@ -22,7 +22,7 @@ import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
-import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion, Target, Check, Clock } from 'lucide-react';
+import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion, Target, Check, Clock, ArrowLeft } from 'lucide-react';
 import KnowledgeJourney from './KnowledgeJourney';
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
@@ -176,7 +176,7 @@ function LearningInline({ onCancel, onSaved }) {
           }}
           aria-label="戻る"
         >
-          ← 戻る
+          <ArrowLeft size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 3 }} />戻る
         </button>
         <p style={{ fontSize: 14, color: 'var(--color-label)', fontWeight: 600, margin: 0 }}>💡 学びを追加</p>
       </div>

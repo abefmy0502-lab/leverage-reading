@@ -7,7 +7,7 @@ import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
-import { BookOpen, Sparkles, Undo2, Camera, Mic } from 'lucide-react';
+import { BookOpen, Sparkles, Undo2, Camera, Mic, ArrowLeft } from 'lucide-react';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -367,8 +367,9 @@ export default function BookMemoEditor({
           onClick={() => { if (!busy) onClose?.(); }}
           style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--c-brand)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.4 : 1, padding: '11px 8px', margin: '-11px -8px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
           aria-disabled={busy}
+          aria-label="戻る"
         >
-          ← 戻る
+          <ArrowLeft size={15} aria-hidden="true" style={{ marginRight: 3 }} />戻る
         </button>
         <div style={{ minWidth: 0, flex: 1 }}>
           <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0 }}>{isEdit ? 'メモを編集' : 'メモを追加'}</p>
