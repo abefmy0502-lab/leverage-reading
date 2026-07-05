@@ -48,6 +48,7 @@ const ThemeReport = lazy(() => import('./components/ThemeReport'));
 const AdvisorHistoryList = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
 const AdvisorAddConfirmModal = lazy(() => import('./components/AdvisorAddConfirmModal'));
+const DiscoverPanel = lazy(() => import('./components/DiscoverPanel'));
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import ActionList from './components/ActionList';
 const ActionEditModal = lazy(() => import('./components/ActionEditModal'));
@@ -837,18 +838,6 @@ const ADVISOR_EXAMPLES = [
   'お金の不安',
 ];
 
-// 📚 本屋モード（テーマの棚を眺める）の既定テーマ。本田直之の「本屋で棚を歩く」
-// の追体験 — 課題が曖昧な日でも、気になる棚をタップすると AI が良書を並べる。
-const BROWSE_THEMES = [
-  '営業', 'リーダーシップ', '習慣化', 'マーケティング', '思考法・意思決定',
-  'お金・投資', '心理学', '伝え方・文章', 'チームづくり', '健康・運動',
-];
-
-// テーマ起点の「棚を眺める」相談文。bookAdvisor パイプラインへそのまま流す。
-const browseQueryForTheme = (theme) =>
-  `「${theme}」というテーマの本棚を眺めています。今このテーマで読んでおきたい良書を、` +
-  `定番の名著だけでなく比較的新しいものも織り交ぜて提案してください。`;
-
 // ヒアリングの最大ラウンド数。AI は途中で done を返せるが、上限で必ず締める。
 const MAX_INTERVIEW_ROUNDS = 3;
 
@@ -860,23 +849,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   const advisorHaptic = useHaptic();
   const advisorToast = useToast();
   const advisorConfirm = useConfirm();
-  // 「あなたの棚」— 本に付けたタグ/フォルダから、よく触れているテーマを抽出。
-  // 本屋モードのチップ先頭に出して、自分の関心の棚から眺められるようにする。
-  const userThemes = useMemo(() => {
-    const counts = new Map();
-    (books || []).forEach((b) => {
-      [...(b.tags || []), ...(b.collections || [])].forEach((t) => {
-        const n = (t || '').trim();
-        if (n) counts.set(n, (counts.get(n) || 0) + 1);
-      });
-    });
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([t]) => t);
-  }, [books]);
-  // 本屋モードのチップ = あなたの棚（優先）＋ 既定テーマ（重複除外）。
-  const browseChips = useMemo(() => {
-    const seen = new Set(userThemes);
-    return [...userThemes, ...BROWSE_THEMES.filter((t) => !seen.has(t))].slice(0, 12);
-  }, [userThemes]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [recommendations, setRecommendations] = useState(null);
@@ -895,6 +867,8 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   // モーダル。{ rec, candidates } | null。確認後に proceedAdd(verifiedRec)
   // を呼んで実際の DB insert に進む。
   const [confirmAdd, setConfirmAdd] = useState(null);
+  // AI 選書のメインタブ: 'consult'(相談して選ぶ) | 'discover'(話題の本を探す)
+  const [advisorView, setAdvisorView] = useState('consult');
   // 履歴サブビュー: 'chat' | 'history' | 'detail'
   const [view, setView] = useState('chat');
   const [selectedSession, setSelectedSession] = useState(null);
@@ -1088,7 +1062,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
     if (!userMsg || recoLoading) return;
     setRecoError(null);
     setRecoLoading(true);
-    // userMsg は複数の呼び出し元（proceedToRecommend / browseTheme /
+    // userMsg は複数の呼び出し元（proceedToRecommend /
     // startInterview の fallback）から来るテンプレート済み文字列。個々の
     // ユーザー入力片は呼び出し元で既に sanitize 済みだが、AI に渡す直前の
     // 単一の境界としてもう一段 sanitize+clamp する（改行は保持されるので
@@ -1172,10 +1146,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
   };
 
   // テーマのチップをタップ — AI の良書の棚（テーマ別の推薦）を生成する。
-  const browseTheme = (theme) => {
-    generateRecommendations(browseQueryForTheme(theme), theme);
-  };
-
   // 初回の相談を受けて、第 1 ラウンドのヒアリング質問を設計させる。
   // 失敗（生成エラー / JSON 解釈不能）時はヒアリングを skip して直接推薦へ。
   const startInterview = async (rawConcern) => {
@@ -1558,6 +1528,43 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
         </div>
       </div>
 
+      {/* AI 選書のメインタブ: 相談して選ぶ / 話題の本を探す（楽天ブックスの実データ）。
+          旧「テーマの棚」(AI 生成) を実データのディスカバリーに置換し、2 機能を分離。 */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, background: 'var(--c-soft-2)', borderRadius: 12, padding: 4 }}>
+        {[
+          { k: 'consult', label: '💬 相談して選ぶ' },
+          { k: 'discover', label: '🔥 話題の本を探す' },
+        ].map((t) => (
+          <button
+            type="button"
+            key={t.k}
+            onClick={() => { setAdvisorView(t.k); try { advisorHaptic.light(); } catch { /* non-critical */ } }}
+            style={{
+              flex: 1,
+              padding: '9px 0',
+              borderRadius: 9,
+              border: 'none',
+              fontSize: 13,
+              fontWeight: 700,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              minHeight: 40,
+              background: advisorView === t.k ? 'var(--c-card)' : 'transparent',
+              color: advisorView === t.k ? 'var(--c-brand)' : 'var(--c-ink-2)',
+              boxShadow: advisorView === t.k ? '0 1px 3px rgba(60,48,30,0.12)' : 'none',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {advisorView === 'discover' ? (
+        <Suspense fallback={<Spinner />}>
+          <DiscoverPanel onAddBook={onAddBook} books={books} />
+        </Suspense>
+      ) : (<>
+
       {/* Example chips — タップで textarea に流し込む。挨拶 seed が
           消えたので、何を入力すれば良いかをここで提示する */}
       {showConcernInput && (
@@ -1574,28 +1581,6 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
               onClick={() => setInput(ex)}
             >
               {ex}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* 📚 テーマの棚を眺める — 課題が曖昧な日でも、タグ/フォルダ由来や定番の
-          テーマをタップすると AI が良書を並べる。本田直之の「本屋で棚を歩く」の
-          追体験（新タブは作らず AI 選書の中で実現）。 */}
-      {showConcernInput && (
-        <div className="example-chips" style={{ marginTop: 4 }}>
-          <p className="example-chips-label">
-            <IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-            テーマの棚を眺める
-          </p>
-          {browseChips.map((t) => (
-            <button
-              type="button"
-              key={`browse-${t}`}
-              className="example-chip"
-              onClick={() => browseTheme(t)}
-            >
-              {t}
             </button>
           ))}
         </div>
@@ -1933,11 +1918,13 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
 
         <div ref={messagesEndRef} />
       </div>
+      </>)}
       </div>{/* /chat-scroll */}
 
       {/* Input — flex column の末尾に置かれ、親 (.ai-page) の 100dvh 構造で
-          自動的にキーボード直上 / BottomNav 直上に張り付く (LINE 風)。 */}
-      {showConcernInput && (
+          自動的にキーボード直上 / BottomNav 直上に張り付く (LINE 風)。
+          話題の本タブ (discover) では相談入力を出さない。 */}
+      {advisorView === 'consult' && showConcernInput && (
         <div className="ai-input-area">
           <textarea
             ref={inputRef}
