@@ -17,6 +17,7 @@ import {
   fetchDiscover,
   DISCOVER_THEMES,
   themeLabel,
+  tagToThemeKey,
   pickDailyTheme,
   pickSerendipityTheme,
   seededShuffle,
@@ -33,7 +34,7 @@ function bookKey({ isbn, title, author }) {
   return `ta:${norm(title)}|${norm(author)}`;
 }
 
-// ユーザーの蔵書タグ/フォルダから、テーマに紐づく関心を推定（パーソナル棚用）。
+// ユーザーの蔵書タグ/フォルダから、ジャンルテーマに紐づく関心を推定（パーソナル棚用）。
 function matchPersonalTheme(books) {
   const counts = new Map();
   (books || []).forEach((b) => {
@@ -44,10 +45,11 @@ function matchPersonalTheme(books) {
   });
   const tags = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t);
   for (const tag of tags) {
-    const hit = DISCOVER_THEMES.find(
-      (th) => tag.includes(th.label) || tag.includes(th.key) || th.label.includes(tag) || th.key.includes(tag),
-    );
-    if (hit) return { ...hit, tag };
+    const key = tagToThemeKey(tag);
+    if (key) {
+      const meta = DISCOVER_THEMES.find((th) => th.key === key);
+      if (meta) return { ...meta, tag };
+    }
   }
   return null;
 }
@@ -57,12 +59,8 @@ function userThemeKeys(books) {
   const keys = new Set();
   (books || []).forEach((b) => {
     [...(b.tags || []), ...(b.collections || [])].forEach((t) => {
-      const tag = (t || '').trim();
-      if (!tag) return;
-      const hit = DISCOVER_THEMES.find(
-        (th) => tag.includes(th.label) || tag.includes(th.key) || th.label.includes(tag) || th.key.includes(tag),
-      );
-      if (hit) keys.add(hit.key);
+      const key = tagToThemeKey((t || '').trim());
+      if (key) keys.add(key);
     });
   });
   return [...keys];
@@ -454,7 +452,7 @@ export default function DiscoverPanel({ onAddBook, books }) {
       />
 
       <Shelf
-        title="いま読まれてるビジネス書" emoji="🔥" theme="ビジネス" sort="popular"
+        title="いま読まれてるビジネス書" emoji="🔥" theme="ビジネス・経済" sort="popular"
         addedFor={addedFor} onOpen={setDetail} onQuickAdd={handleAdd}
         onNotConfigured={() => setNotConfigured(true)}
       />

@@ -11,7 +11,7 @@ import https from 'node:https';
 // データ源: 楽天ブックス書籍検索 API（BooksBook Search / openapi.rakuten.co.jp）。
 //   - sort='sales'        → 売れ筋（人気）
 //   - sort='-releaseDate' → 発売日新しい順（新着 / 近刊）
-//   - keyword=テーマ語, 書籍のみ（BooksBook）
+//   - booksGenreId=ジャンル（本 001 直下）で絞る（keyword は売れ筋で無視されるため不可）
 //
 // ⚠️ 2026 年の楽天 API 刷新に対応済み:
 //   - ドメイン app.rakuten.co.jp → openapi.rakuten.co.jp（旧は 2026-05-14 廃止）
@@ -30,26 +30,26 @@ import https from 'node:https';
 //   ※ APPLICATION_ID か ACCESS_KEY が未設定なら { ok:false, reason:'not_configured' }
 //      を 200 で返す（UI は「準備中」表示に倒す＝fail-safe）。
 
-// テーマ（固定キー）→ 楽天検索キーワード。クライアントは固定キーだけ送れる
-// （任意キーワードを楽天へ流さない＝サーバー権威のホワイトリスト）。
-const THEME_KEYWORDS = {
-  '読書': '読書術',
-  '営業': '営業',
-  'リーダーシップ': 'リーダーシップ',
-  '習慣化': '習慣',
-  'マーケティング': 'マーケティング',
-  '思考法・意思決定': '思考法',
-  'お金・投資': '投資',
-  '心理学': '心理学',
-  '伝え方・文章': '文章術',
-  'チームづくり': 'チームビルディング',
-  '健康・運動': '健康',
-  // ビジネスパーソンの「時代感度」に応える汎用トレンド系（ぶらぶら発見の平台用）。
-  'ビジネス': 'ビジネス書',
-  '自己啓発': '自己啓発',
-  '教養': '教養',
-  '時間術': '時間術',
-  'キャリア': 'キャリア',
+// テーマ（固定キー）→ 楽天ブックスの booksGenreId（本 001 直下の実ジャンル）。
+// クライアントは固定キーだけ送れる（サーバー権威のホワイトリスト）。
+//
+// ⚠️ キーワード検索（keyword=）は sort=sales(売れ筋) 時に無視され全体の売上
+//    ランキング（マンガ中心）が返るため使えない。楽天カタログの根幹である
+//    booksGenreId で絞れば「そのジャンルの売れ筋／新刊」が確実に出る。
+//    ID は本番接続から `?genres=001` で取得した実値（2026-07 時点）。
+const THEME_GENRES = {
+  'ビジネス・経済': '001006',   // ビジネス・経済・就職
+  '人文・思想': '001008',       // 人文・思想・社会（心理・哲学・歴史ほか）
+  '新書': '001020',             // 新書（トレンドの教養・時事に強い）
+  '小説・エッセイ': '001004',
+  '暮らし・健康': '001010',     // 美容・暮らし・健康・料理
+  '科学・技術': '001012',
+  'IT・パソコン': '001005',     // パソコン・システム開発
+  '資格・検定': '001016',
+  '旅行・アウトドア': '001007', // 旅行・留学・アウトドア
+  '趣味・スポーツ': '001009',   // ホビー・スポーツ・美術
+  '語学・学習': '001002',       // 語学・学習参考書
+  '漫画': '001001',             // 漫画（コミック）
 };
 
 // ── 簡易 IP レート制限（未認証・公開エンドポイント。cover.js と同流儀）──
@@ -153,8 +153,8 @@ export default async function handler(req, res) {
 
   const themeRaw = (req.query?.theme || '').toString();
   const sortRaw = (req.query?.sort || 'new').toString();
-  const keyword = THEME_KEYWORDS[themeRaw];
-  if (!keyword) {
+  const genreId = THEME_GENRES[themeRaw];
+  if (!genreId) {
     return res.status(400).json({ ok: false, reason: 'unknown_theme', items: [] });
   }
   // new=発売日新しい順 / popular=売れ筋。それ以外は new に倒す。
@@ -170,9 +170,9 @@ export default async function handler(req, res) {
     format: 'json',
     applicationId: appId,
     accessKey, // 2026 刷新で必須になったアクセスキー（pk_...）
-    keyword,
+    booksGenreId: genreId, // ← キーワードではなくジャンルで絞る（売れ筋でも効く）
     sort,
-    hits: '20',
+    hits: '30',
     outOfStockFlag: '1', // 品切れ/近刊も含める（新着で近刊を出したい）
     elements: 'title,author,publisherName,isbn,salesDate,itemPrice,largeImageUrl,mediumImageUrl,itemUrl,affiliateUrl',
   });
@@ -192,7 +192,7 @@ export default async function handler(req, res) {
       // 返さず graceful。?debug=1 のときだけ切り分け用に詳細を返す（秘密は含めない）。
       const body = { ok: false, reason: 'upstream_error', items: [] };
       if (req.query?.debug === '1') {
-        body._debug = { status: resp.status, keyword, sort, hasReferer: !!referer, hasAccessKey: !!accessKey, appIdLen: appId.length, appIdShape: appId.replace(/[0-9]/g, '#').replace(/[a-zA-Z]/g, 'a').slice(0, 40), upstream: (resp.body || '').slice(0, 300) };
+        body._debug = { status: resp.status, genreId, sort, hasReferer: !!referer, hasAccessKey: !!accessKey, upstream: (resp.body || '').slice(0, 300) };
       }
       return res.status(200).json(body);
     }
