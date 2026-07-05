@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
-import { MessageSquareQuote, X } from 'lucide-react';
+import { MessageSquareQuote, X, Target } from 'lucide-react';
 import { recallFraming, memoExcerpt, pickRecallMemo, recallPatch } from '../lib/recall';
 
 const DISMISS_KEY = 'orime-home-recall-dismissed';
@@ -62,12 +62,17 @@ function markPreviewShown() {
   try { localStorage.setItem(PREVIEW_KEY, '1'); } catch { /* ignore */ }
 }
 
-export default function HomeRecall({ onOpen }) {
+export default function HomeRecall({ onOpen, onAction }) {
   const { user } = useAuth();
   const haptic = useHaptic();
   const [memo, setMemo] = useState(null); // { id, text, createdAt, book }
   // 当日 dismiss 済みなら最初から描画しない（マウント時に確定）。
   const [dismissed, setDismissed] = useState(() => isDismissedToday());
+  // 「行動にする」の進行/完了（想起→行動でループを閉じる）。
+  const [actioning, setActioning] = useState(false);
+  const [actioned, setActioned] = useState(false);
+  // 別のメモに差し替わったら行動状態をリセット。
+  useEffect(() => { setActioning(false); setActioned(false); }, [memo?.id]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !user?.id || dismissed) {
@@ -167,6 +172,21 @@ export default function HomeRecall({ onOpen }) {
     setDismissed(true);
   };
 
+  // 🎯 想起した一行を、その場で行動に変える（本を開き直さずループを閉じる）。
+  // 本に紐づくメモのみ（personal メモは bookId が無いので出さない）。
+  const handleAction = async (e) => {
+    e.stopPropagation();
+    if (actioning || actioned || !memo?.bookId) return;
+    setActioning(true);
+    try { haptic.success?.(); } catch { /* non-critical */ }
+    let ok = false;
+    try {
+      ok = await onAction?.({ bookId: memo.bookId, text: memo.text, sourceMemoId: memo.id });
+    } catch { ok = false; }
+    setActioning(false);
+    if (ok) setActioned(true); // 失敗時は呼び出し側がトーストを出す（据え置きで再試行可）
+  };
+
   // 🧠 間隔反復のフィードバック。「覚えた」= 定着(+1)して次の間隔まで当面出さない、
   // 「もう一度」= 定着カウントは据え置きで翌日また戻す。どちらも last_recalled_at を
   // now に更新して当面の再登場を制御する（recall.js の recallPatch）。書き込み後は
@@ -256,31 +276,52 @@ export default function HomeRecall({ onOpen }) {
           メモを残すほど、この「ふいの再会」が自然に増えていきます。
         </p>
       ) : (
-        // 🧠 間隔反復のフィードバック（覚えた/もう一度）。カード全体のタップ（開く）と
-        //    干渉しないよう stopPropagation。
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }} onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={(e) => recordRecall(e, true)}
-            style={{
-              flex: 1, minHeight: 40, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
-              background: '#fff', color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
-              fontFamily: 'inherit', cursor: 'pointer',
-            }}
-          >
-            ✓ 覚えた
-          </button>
-          <button
-            type="button"
-            onClick={(e) => recordRecall(e, false)}
-            style={{
-              flex: 1, minHeight: 40, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
-              background: '#fff', color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
-              fontFamily: 'inherit', cursor: 'pointer',
-            }}
-          >
-            もう一度
-          </button>
+        // 🧠 間隔反復のフィードバック（覚えた/もう一度）＋ 🎯 行動にする。カード全体の
+        //    タップ（開く）と干渉しないよう stopPropagation。
+        <div style={{ marginTop: 10 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={(e) => recordRecall(e, true)}
+              style={{
+                flex: 1, minHeight: 44, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
+                background: '#fff', color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
+                fontFamily: 'inherit', cursor: 'pointer',
+              }}
+            >
+              ✓ 覚えた
+            </button>
+            <button
+              type="button"
+              onClick={(e) => recordRecall(e, false)}
+              style={{
+                flex: 1, minHeight: 44, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
+                background: '#fff', color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
+                fontFamily: 'inherit', cursor: 'pointer',
+              }}
+            >
+              もう一度
+            </button>
+          </div>
+          {/* 🎯 想起→行動でループを閉じる。本に紐づくメモのみ。 */}
+          {memo.bookId && onAction && (
+            <button
+              type="button"
+              onClick={handleAction}
+              disabled={actioning || actioned}
+              style={{
+                width: '100%', marginTop: 8, minHeight: 44, borderRadius: 9, border: 'none',
+                background: actioned ? 'var(--c-positive-soft)' : 'var(--c-brand)',
+                color: actioned ? 'var(--c-positive)' : 'var(--c-brand-ink)',
+                fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
+                cursor: (actioning || actioned) ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              <Target size={14} aria-hidden="true" />
+              {actioned ? '行動リストに追加しました' : actioning ? '追加中…' : 'この気づきを行動にする'}
+            </button>
+          )}
         </div>
       )}
       <button

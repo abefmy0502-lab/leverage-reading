@@ -5176,11 +5176,14 @@ function AuthedApp() {
               {/* 🔄 今日の想起: 過去メモが 1 枚ふいに戻ってくる控えめなカード。
                   自己完結（fetch / state は HomeRecall 内に閉じる）。
                   メモ十分＋当日未 dismiss のときだけ静かに出る。 */}
-              <HomeRecall onOpen={(bookId) => {
-                const b = bookId && books.find((x) => x.id === bookId);
-                if (b) { openDetail(b); setTab('books'); }
-                else { setReviewSubTab('note'); setTab('review'); }
-              }} />
+              <HomeRecall
+                onOpen={(bookId) => {
+                  const b = bookId && books.find((x) => x.id === bookId);
+                  if (b) { openDetail(b); setTab('books'); }
+                  else { setReviewSubTab('note'); setTab('review'); }
+                }}
+                onAction={({ bookId, text, sourceMemoId }) => addActionFromMemo(bookId, { text, sourceMemoId })}
+              />
               {/* 「続きから」はフィルタから独立して出す（本田指摘: 営業本だけ絞っている
                   時こそ読みかけにすぐ戻れるべき）。テキスト検索中だけは検索結果を優先して隠す。 */}
               {recentBooks.length > 0 && !search && (

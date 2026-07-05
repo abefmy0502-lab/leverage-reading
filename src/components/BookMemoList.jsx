@@ -375,7 +375,26 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const handleCreate = async (payload) => {
     const result = await createMemo(payload);
     haptic.success();
-    toast.success('メモを保存しました');
+    // 🎯 保存直後に「行動にする」を 1 タップで提案し、キャプチャと行動を溶接する
+    //    （読む→行動の最大リークを塞ぐ）。本文のあるメモかつ onMakeAction がある時だけ。
+    const actionText = (result?.text ?? payload?.text ?? '').trim();
+    if (onMakeAction && actionText && result?.id) {
+      toast.show({
+        type: 'success',
+        message: 'メモを保存しました',
+        duration: 6000,
+        action: {
+          label: '🎯 行動にする',
+          onClick: () => handleMakeAction({
+            id: result.id,
+            text: actionText,
+            pageNumber: result.page_number ?? payload?.pageNumber ?? null,
+          }),
+        },
+      });
+    } else {
+      toast.success('メモを保存しました');
+    }
     // 新着カードを 1.5 秒だけ淡くグロー（.just-added）— どこに入ったかを
     // 無音で示す。timeout で必ず class を外す（forwards の透明が固定される為）。
     if (result?.id) {
