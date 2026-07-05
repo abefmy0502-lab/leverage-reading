@@ -111,13 +111,9 @@ import { ensureHttps } from './lib/url';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Field, SectionHeader, Dots, Stars, TagInput, inp, ta, btnS, btnO, aiB, phaseDesc } from './components/formPrimitives';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase } from './components/BookPhases';
-import {
-  getAmazonLink,
-  getAmazonSearchLink,
-  handleAmazonClick,
-  AMAZON_DISCLOSURE_TEXT,
-  AMAZON_LINK_REL,
-} from './lib/amazonLink';
+import { getAmazonLink } from './lib/amazonLink';
+import BookStoreLinks from './components/BookStoreLinks';
+import { getRakutenLink, STORE_DISCLOSURE_TEXT } from './lib/rakutenLink';
 import { getRandomFromCategory } from './lib/quotes';
 import {
   BookOpen,
@@ -1875,17 +1871,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                     <span style={{ color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.04em' }}>目安</span>　{rec.duration}
                   </p>
                 )}
-                <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-                  <a
-                    href={getAmazonLink(rec)}
-                    target="_blank"
-                    rel={AMAZON_LINK_REL}
-                    onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, getAmazonLink(rec)); }}
-                    aria-label={`Amazon で『${rec.title}』を購入（外部リンク）`}
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#FF9900", color: "#000", fontSize: 12, fontFamily: "inherit", textAlign: "center", textDecoration: "none", fontWeight: 600, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, whiteSpace: 'nowrap', touchAction: 'manipulation' }}
-                  >
-                    🛒 Amazon
-                  </a>
+                <div style={{ display: "flex", flexDirection: 'column', gap: 8, marginTop: 12 }}>
                   <button
                     type="button"
                     disabled={addedTitles.has(rec.title)}
@@ -1893,12 +1879,14 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                       e.stopPropagation();
                       handleClickAdd(rec);
                     }}
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid var(--c-hairline-strong)", background: addedTitles.has(rec.title) ? '#E0E0E0' : "transparent", color: addedTitles.has(rec.title) ? '#666' : "var(--c-brand)", fontSize: 12, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: addedTitles.has(rec.title) ? 700 : 500, minHeight: 44, touchAction: 'manipulation' }}
+                    style={{ width: '100%', padding: "11px 0", borderRadius: 8, border: "none", background: addedTitles.has(rec.title) ? '#E0E0E0' : "var(--c-brand)", color: addedTitles.has(rec.title) ? '#666' : "#fff", fontSize: 13, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: 700, minHeight: 44, touchAction: 'manipulation' }}
                   >
                     {addedTitles.has(rec.title)
                       ? (<><IcCheck size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />追加済み</>)
-                      : (<><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読みたい</>)}
+                      : (<><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読みたいに追加</>)}
                   </button>
+                  {/* Amazon + 楽天 の両方（統一）。カード下にまとめ開示があるので個別開示は省略 */}
+                  <BookStoreLinks book={rec} variant="compact" showDisclosure={false} stopPropagation />
                 </div>
               </div>
             ))}
@@ -1906,7 +1894,7 @@ function BookAdvisor({ onAddBook, sessionApi, books }) {
                 として描画。生の `|---|` パイプや `##` が見えていた問題を解消。 */}
             {recommendations.after && <MarkdownSections text={recommendations.after} />}
             <small style={{ fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1.6, padding: '0 4px' }}>
-              {AMAZON_DISCLOSURE_TEXT}
+              {STORE_DISCLOSURE_TEXT}
             </small>
             <button onClick={resetToConcern}
               style={{ ...btnO, padding: "10px 0", fontSize: 12 }}>
@@ -3417,7 +3405,6 @@ function AuthedApp() {
     //   「おすすめを共有」のつもりで私的メモが SNS/クリップボードに漏れるのを防ぐため、
     //   共有テキストには私的本文を自動で含めない（書名・評価・Amazon リンクのみ）。
     //   ひとことは共有シート/各アプリ側でユーザー自身が書ける。
-    const link = getAmazonLink(book);
     const lines = [
       `📚 おすすめの本`,
       ``,
@@ -3426,7 +3413,9 @@ function AuthedApp() {
     if (book.rating > 0) lines.push(`${"★".repeat(book.rating)}${"☆".repeat(5 - book.rating)}`);
     lines.push(``);
     lines.push(`📖 Amazonで見る：`);
-    lines.push(link);
+    lines.push(getAmazonLink(book));
+    lines.push(`🛒 楽天ブックスで見る：`);
+    lines.push(getRakutenLink(book));
 
     const text = lines.join("\n");
 
@@ -4611,61 +4600,15 @@ function AuthedApp() {
             {/* 購入導線は「まだ買っていない可能性が高い」want / before だけ主役。
                 reading / done で全幅オレンジが最強の視覚要素になるのは、収穫・
                 行動が主役であるべき画面の佇まいを崩す（本田哲学）。 */}
+            {/* 購入導線: Amazon + 楽天ブックスの両方を出す（統一）。want/before は
+                買う導線を主役に全幅ボタン、reading/done は控えめな横並びリンク。 */}
             {(current.status === 'want' || current.status === 'before') ? (
-              <a
-                href={getAmazonLink(current)}
-                target="_blank"
-                rel={AMAZON_LINK_REL}
-                onClick={(e) => handleAmazonClick(e, getAmazonLink(current))}
-                aria-label={`Amazon で『${current.title}』を購入（外部リンク）`}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  width: "100%",
-                  padding: "12px 16px",
-                  background: "#FF9900",
-                  color: "#000",
-                  borderRadius: 10,
-                  textDecoration: "none",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  fontFamily: "inherit",
-                  minHeight: 44,
-                  boxSizing: "border-box",
-                }}
-              >
-                📚 Amazon で買う
-              </a>
+              <BookStoreLinks book={current} variant="cta" buy />
             ) : (
-              <a
-                href={getAmazonLink(current)}
-                target="_blank"
-                rel={AMAZON_LINK_REL}
-                onClick={(e) => handleAmazonClick(e, getAmazonLink(current))}
-                aria-label={`Amazon で『${current.title}』を見る（外部リンク）`}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  alignSelf: "center",
-                  padding: "10px 8px",
-                  minHeight: 44,
-                  background: "none",
-                  color: "var(--c-ink-3)",
-                  fontSize: 12,
-                  textDecoration: "underline",
-                  fontFamily: "inherit",
-                }}
-              >
-                Amazon で見る
-              </a>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <BookStoreLinks book={current} variant="compact" />
+              </div>
             )}
-            <small style={{ fontSize: 10, color: "var(--c-ink-2)", lineHeight: 1.6, textAlign: "center" }}>
-              {AMAZON_DISCLOSURE_TEXT}
-            </small>
             {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。下部のボタン群は撤去。 */}
             {/* 本棚に戻る — 上部 ← 一覧 が text link で目立たないため、
                 どのフェーズの本詳細でも下部に大きめの secondary ボタンで提供。

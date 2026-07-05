@@ -23,8 +23,9 @@ import {
   seededShuffle,
   dateKey,
 } from '../lib/discover';
-import { generateSerendipityPop } from '../lib/ai';
+import { generateSerendipityPop, streamBookQuickSummary } from '../lib/ai';
 import { useHaptic } from '../hooks/useHaptic';
+import BookStoreLinks from './BookStoreLinks';
 
 // ── 重複判定キー（ISBN 優先、無ければ title|author 正規化）──────────────
 const norm = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, '');
@@ -311,8 +312,42 @@ function SerendipityShelf({ theme, contextLine, addedFor, onOpen, onQuickAdd, on
   );
 }
 
+// 本の概要（AI）の日次不要・セッション内キャッシュ。同じ本を開き直しても再生成しない。
+const summaryCache = new Map(); // key(isbn|title) -> text
+
 // ── 詳細ボトムシート（手に取る）───────────────────────────────────────
 function DetailSheet({ item, added, onAdd, onClose }) {
+  const key = item ? (item.isbn || item.title || '') : '';
+  const [summary, setSummary] = useState('');
+  const [sumLoading, setSumLoading] = useState(false);
+  const [sumErr, setSumErr] = useState('');
+  const abortRef = useRef(null);
+
+  // 本が変わったらリセット＋キャッシュ参照。閉じる/切替時は生成を中断。
+  useEffect(() => {
+    setSumErr('');
+    setSumLoading(false);
+    setSummary(key ? (summaryCache.get(key) || '') : '');
+    return () => { try { abortRef.current?.abort?.(); } catch { /* noop */ } };
+  }, [key]);
+
+  const runSummary = () => {
+    if (!item || sumLoading || summary) return;
+    setSumLoading(true);
+    setSumErr('');
+    const controller = new AbortController();
+    abortRef.current = controller;
+    streamBookQuickSummary({
+      title: item.title,
+      author: item.author,
+      signal: controller.signal,
+      onChunk: (t) => setSummary(t),
+    })
+      .then((full) => { if (full) summaryCache.set(key, full); })
+      .catch((e) => { setSumErr(e?.message || '概要を取得できませんでした'); })
+      .finally(() => setSumLoading(false));
+  };
+
   if (!item) return null;
   return createPortal(
     <div
@@ -325,7 +360,7 @@ function DetailSheet({ item, added, onAdd, onClose }) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%', background: 'var(--c-card)', borderRadius: '20px 20px 0 0',
+          width: '100%', maxHeight: '85vh', overflowY: 'auto', background: 'var(--c-card)', borderRadius: '20px 20px 0 0',
           padding: '10px 20px calc(20px + env(safe-area-inset-bottom))', boxShadow: '0 -8px 30px rgba(0,0,0,0.2)',
           animation: 'sheetUp .28s cubic-bezier(0.2,0.8,0.2,1)',
         }}
@@ -353,35 +388,60 @@ function DetailSheet({ item, added, onAdd, onClose }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 18, alignItems: 'center' }}>
+        {/* 📖 概要を AI でサッと読む（3〜5行） */}
+        <div style={{ marginTop: 16 }}>
+          {!summary && !sumLoading && !sumErr && (
+            <button
+              type="button"
+              onClick={runSummary}
+              style={{
+                width: '100%', padding: '11px 0', borderRadius: 12, border: '1px dashed var(--c-hairline-strong)',
+                background: 'var(--c-soft)', color: 'var(--c-brand)', fontSize: 13, fontWeight: 700,
+                fontFamily: 'inherit', cursor: 'pointer', minHeight: 44,
+              }}
+            >
+              📖 この本の概要を AI で読む
+            </button>
+          )}
+          {(summary || sumLoading) && (
+            <div style={{
+              padding: 12, borderRadius: 12, background: 'var(--c-soft)', border: '1px solid var(--c-hairline)',
+            }}>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: 'var(--c-ink-3)', marginBottom: 6 }}>
+                🤖 AI による概要{sumLoading ? '（生成中…）' : ''}
+              </p>
+              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--c-ink)', whiteSpace: 'pre-wrap' }}>
+                {summary || '…'}
+              </p>
+              <p style={{ margin: '8px 0 0', fontSize: 10, color: 'var(--c-ink-3)' }}>
+                ※ AI の推定です。事実と異なる場合があります。
+              </p>
+            </div>
+          )}
+          {sumErr && (
+            <p style={{ margin: '4px 2px 0', fontSize: 12, color: 'var(--c-critical)' }}>{sumErr}</p>
+          )}
+        </div>
+
+        {/* 読みたい追加 + Amazon/楽天 の両方リンク（統一） */}
+        <div style={{ marginTop: 16 }}>
           <button
             type="button"
             disabled={added}
             onClick={() => { if (!added) { onAdd(item); onClose(); } }}
             style={{
-              flex: 1, padding: '13px 0', borderRadius: 12, border: 'none', fontSize: 14, fontWeight: 700,
+              width: '100%', padding: '13px 0', borderRadius: 12, border: 'none', fontSize: 14, fontWeight: 700,
               fontFamily: 'inherit', cursor: added ? 'default' : 'pointer', minHeight: 48,
               background: added ? 'var(--c-hairline)' : 'var(--c-brand)', color: added ? 'var(--c-ink-3)' : '#fff',
             }}
           >
             {added ? '✅ 追加済み' : '📚 読みたいに追加'}
           </button>
-          {item.url && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                padding: '13px 16px', borderRadius: 12, border: '1px solid var(--c-hairline-strong)',
-                fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', textDecoration: 'none', minHeight: 48,
-                display: 'flex', alignItems: 'center',
-              }}
-            >
-              楽天 ↗
-            </a>
-          )}
+          <div style={{ marginTop: 10 }}>
+            <BookStoreLinks book={item} variant="compact" buy />
+          </div>
         </div>
-        <p style={{ margin: '12px 0 0', fontSize: 10, color: 'var(--c-ink-3)', textAlign: 'center' }}>出典: 楽天ブックス</p>
+        <p style={{ margin: '12px 0 0', fontSize: 10, color: 'var(--c-ink-3)', textAlign: 'center' }}>本の情報・表紙・価格の出典: 楽天ブックス</p>
       </div>
     </div>,
     document.body,
