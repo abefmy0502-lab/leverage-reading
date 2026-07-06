@@ -69,6 +69,8 @@ import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { summarizeAdvisorConversation } from './lib/aiSetupSummary';
 import { MODEL_SMART, MODEL_FAST } from './lib/models';
 import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
+import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrategyHistory } from './lib/strategyHistory';
+import { paletteFor } from './lib/coverPalette';
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
@@ -185,31 +187,6 @@ function isStrictMatch(candidate, original) {
     if (!ca.includes(oa) && !oa.includes(ca)) return false;
   }
   return true;
-}
-
-/* ========== Setup-sheet edit history (localStorage, 1-step undo) ========== */
-const STRATEGY_HISTORY_KEY = (bookId) => `aiStrategyHistory:${bookId}`;
-function saveStrategyHistory(bookId, prevStrategy) {
-  if (!bookId || typeof prevStrategy !== 'string') return;
-  try { localStorage.setItem(STRATEGY_HISTORY_KEY(bookId), prevStrategy); } catch {}
-}
-function popStrategyHistory(bookId) {
-  if (!bookId) return null;
-  try {
-    const v = localStorage.getItem(STRATEGY_HISTORY_KEY(bookId));
-    if (!v) return null;
-    localStorage.removeItem(STRATEGY_HISTORY_KEY(bookId));
-    return v;
-  } catch { return null; }
-}
-function hasStrategyHistory(bookId) {
-  if (!bookId) return false;
-  try { return !!localStorage.getItem(STRATEGY_HISTORY_KEY(bookId)); }
-  catch { return false; }
-}
-function clearStrategyHistory(bookId) {
-  if (!bookId) return;
-  try { localStorage.removeItem(STRATEGY_HISTORY_KEY(bookId)); } catch {}
 }
 
 /* ========== AI ========== */
@@ -564,21 +541,7 @@ function StatusBadge({ status }) {
 // Swipeable + long-pressable book row used on the bookshelf list.
 // Defined at top level (not inside AuthedApp) so the per-card hooks
 // (useLongPress) follow Rules of Hooks.
-// タイトル文字列から決定論的にプレースホルダ色を生成。同じ本は常に同じ色。
-const PLACEHOLDER_PALETTE = [
-  ['var(--color-accent)', '#5d4a28'], // brown
-  ['#7a5080', '#5a3a60'], // plum
-  ['#4a6e8a', '#2c4d68'], // slate blue
-  ['#5a7a48', '#3a5a30'], // moss
-  ['var(--c-critical)', '#703528'], // brick
-  ['#9b7b5c', '#6a5340'], // sand
-];
-function paletteFor(title) {
-  const s = title || '';
-  let hash = 0;
-  for (let i = 0; i < s.length; i += 1) hash = (hash * 31 + s.charCodeAt(i)) | 0;
-  return PLACEHOLDER_PALETTE[Math.abs(hash) % PLACEHOLDER_PALETTE.length];
-}
+// 表紙プレースホルダ色は src/lib/coverPalette.js（paletteFor）へ切り出し済み。
 
 // グリッド表示用の本カード（表紙主役）。表紙無し / 画像 404 時は
 // タイトルベースの色付きプレースホルダにフォールバック。
