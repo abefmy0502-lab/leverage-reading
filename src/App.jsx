@@ -12,7 +12,7 @@ import StatusBadge from './components/StatusBadge';
 import { BookCoverCard, SwipeableBookCard } from './components/BookCards';
 import { STATUSES, getSt } from './lib/status';
 import { isStrictMatch } from './lib/bookMatch';
-import BookAdvisor from './components/BookAdvisor';
+const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
 import BookMemoEditor from './components/BookMemoEditor';
 import BookLearningAnalysis from './components/BookLearningAnalysis';
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
@@ -3658,11 +3658,13 @@ function AuthedApp() {
             </p>
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
-                <BookAdvisor
-                  onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
-                  sessionApi={advisorSessions}
-                  books={books}
-                />
+                <Suspense fallback={<Spinner />}>
+                  <BookAdvisor
+                    onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
+                    sessionApi={advisorSessions}
+                    books={books}
+                  />
+                </Suspense>
               ) : aiSubTab === 'report' ? (
                 <Suspense fallback={<Spinner />}>
                   <ThemeReport
