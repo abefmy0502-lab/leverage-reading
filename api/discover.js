@@ -104,16 +104,26 @@ function upscaleCover(url) {
   return url.replace(/_ex=\d+x\d+/, '_ex=300x300');
 }
 
-// 楽天が各ジャンルに紛れ込ませる「本ではないグッズ／付録本」を除外する。
-// ビジネス棚にサンリオのシールブック等が混ざるのを防ぐ（明確に非書籍のものだけ）。
-const NON_BOOK_RE = /(シール\s?ブック|シールセット|ぬりえ|ステッカー|カレンダー|手帳|家計簿|ファン\s?ブック|FAN\s?BOOK|グッズ|フィギュア|ぬいぐるみ|トートバッグ|ポスター|マグカップ|キーホルダー|下敷き|クリアファイル|【バーゲン本】)/i;
+// 楽天が各ジャンルに紛れ込ませる「本ではないグッズ／付録本／ムック・雑誌」を除外する。
+// ビジネス棚に飲食店ムック（例: Royal Host ぴあ）やサンリオのシールブック等が混ざる
+// のを防ぐ。明確に非書籍/非読書のものだけを弾く（誤って実本を消さないよう保守的に）。
+// ムック/写真集/増刊 等は「タイトルにその語がある」＝強いシグナルなので追加。
+const NON_BOOK_RE = /(シール\s?ブック|シールセット|ぬりえ|ステッカー|カレンダー|手帳|家計簿|ファン\s?ブック|FAN\s?BOOK|グッズ|フィギュア|ぬいぐるみ|トートバッグ|ポスター|マグカップ|キーホルダー|下敷き|クリアファイル|【バーゲン本】|ムック|MOOK|増刊号|総集編|完全保存版|写真集|画集)/i;
 
-function normalizeItem(raw) {
+// 楽天の `size`（書籍サイズ）メタデータが「ムック/雑誌」なら読書対象外として弾く。
+// これはタイトル正規表現より確実（＝出版形態そのもの）で、飲食店ムック等の
+// 「タイトルに手掛かりが無い雑誌的商品」を的確に除外できる。size が空/未知の時は
+// fail-open（消さない）＝ メタデータ欠落で棚が空になる事故を防ぐ。
+const NON_BOOK_SIZE_RE = /(ムック|雑誌|カレンダー|MOOK)/i;
+
+export function normalizeItem(raw) {
   const it = raw && raw.Item ? raw.Item : raw;
   if (!it || typeof it !== 'object') return null;
   const title = (it.title || '').toString().trim();
   if (!title) return null;
-  if (NON_BOOK_RE.test(title)) return null; // 非書籍グッズは弾く
+  if (NON_BOOK_RE.test(title)) return null; // 非書籍グッズ/ムック（タイトル由来）は弾く
+  const size = (it.size || '').toString().trim();
+  if (size && NON_BOOK_SIZE_RE.test(size)) return null; // ムック/雑誌（メタデータ由来）を弾く
   return {
     title,
     author: (it.author || '').toString().trim(),
@@ -173,7 +183,9 @@ export default async function handler(req, res) {
     sort,
     hits: '30',
     outOfStockFlag: '1', // 品切れ/近刊も含める（新着で近刊を出したい）
-    elements: 'title,author,publisherName,isbn,salesDate,itemPrice,largeImageUrl,mediumImageUrl,itemUrl,affiliateUrl',
+    // size = 書籍サイズ（ムック/雑誌の判定に使う）。booksGenreId = 各書籍の実ジャンル
+    // パス（将来のサブジャンル精緻化・診断用に取得）。
+    elements: 'title,author,publisherName,isbn,salesDate,itemPrice,largeImageUrl,mediumImageUrl,itemUrl,affiliateUrl,size,booksGenreId',
   });
   if (process.env.RAKUTEN_AFFILIATE_ID) params.set('affiliateId', (process.env.RAKUTEN_AFFILIATE_ID || '').trim());
   // 2026 年のインフラ刷新でドメインが app.rakuten.co.jp → openapi.rakuten.co.jp に

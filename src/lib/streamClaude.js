@@ -57,7 +57,9 @@ function buildPayload({ system, messages, model, max_tokens, temperature, cacheS
     stream: true,
   };
   if (system) payload.system = cacheSystem ? cachedSystemBlock(system) : system;
-  if (typeof temperature === 'number') payload.temperature = temperature;
+  // ⚠️ temperature は payload に含めない。sonnet-5 / haiku-4-5 世代は sampling
+  // params を受け付けず 400（「deprecated for this model」）になる。引数は後方
+  // 互換で受けるが無視する（呼び出し側の分割代入シグネチャは変更しない）。
   return payload;
 }
 

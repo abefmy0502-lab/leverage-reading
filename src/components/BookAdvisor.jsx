@@ -265,7 +265,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         PROMPTS.advisorInterview.system,
         PROMPTS.advisorInterview.user({ concern: safeConcern, priorQA, round, maxRounds: MAX_INTERVIEW_ROUNDS }),
         // ヒアリング質問生成は定型 JSON なので FAST(Haiku)。安価・高速で品質十分。
-        { max_tokens: 700, temperature: 0.4, cacheSystem: true, model: MODEL_FAST },
+        { max_tokens: 700, cacheSystem: true, model: MODEL_FAST },
       );
     } catch {
       return null;
@@ -318,7 +318,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         cacheSystem: !readerContext,
         messages: newHistory,
         // temperature 0.7 — 推薦に多様性を出す（同じ著者ばかりにならない）。
-        temperature: 0.7,
         max_tokens: 2048,
         model: MODEL_SMART,
       });

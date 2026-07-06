@@ -105,9 +105,10 @@ export async function callClaude(systemOrMessages, userOrOptions, options) {
     messages,
   };
   if (system) payload.system = opts.cacheSystem ? cachedSystem(system) : system;
-  // 0〜1 の範囲で temperature を制御。AI 機能ごとに最適値が違うため
-  // 呼び出し側から渡す。未指定なら Claude の default (≈ 1.0) に任せる。
-  if (typeof opts.temperature === 'number') payload.temperature = opts.temperature;
+  // ⚠️ temperature は送らない。claude-sonnet-5 / haiku-4-5 世代（Opus 4.7 以降と
+  // 同系）は sampling params（temperature / top_p / top_k）を受け付けず 400 を返す
+  // （「`temperature` is deprecated for this model.」）。呼び出し側は opts.temperature
+  // を渡してよいが（後方互換）、ここで無視する。振る舞いの制御はプロンプト側で行う。
 
   return postClaude(payload, opts.signal);
 }
@@ -166,7 +167,7 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' })
     },
   ];
   // temperature 0 — 創作させず忠実な書き起こしを優先。
-  const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, temperature: 0, cacheSystem: true, model: MODEL_FAST });
+  const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, cacheSystem: true, model: MODEL_FAST });
   if (typeof result !== 'string') throw new Error('読み取りに失敗しました。');
   // postClaude は失敗時にも文字列（既知のエラー文言）を返すので throw に変換し、
   // 呼び出し側が toMessage で humanize できるようにする。
@@ -662,7 +663,7 @@ export async function callMyBookBrain({ userId, question }) {
   // 引用してほしい)。creativity は低めで OK。
   const result = await callClaude(
     [{ role: 'user', content: ctx.userBlocks }],
-    { system: BRAIN_SYSTEM, cacheSystem: true, max_tokens: 2048, temperature: 0.5 },
+    { system: BRAIN_SYSTEM, cacheSystem: true, max_tokens: 2048 },
   );
 
   // callClaude returns string for both success and known errors. Treat error
@@ -695,7 +696,7 @@ export async function condenseMemo({ text }) {
     result = await callClaude(
       PROMPTS.condense.system,
       PROMPTS.condense.user({ text: src }),
-      { max_tokens: 320, temperature: 0.4, cacheSystem: true, model: MODEL_FAST },
+      { max_tokens: 320, cacheSystem: true, model: MODEL_FAST },
     );
   } catch (e) {
     console.warn('[condense] claude failed:', e?.message);
@@ -731,7 +732,7 @@ export async function summarizeCards({ title, cards }) {
     result = await callClaude(
       PROMPTS.cardsToSummary.system,
       PROMPTS.cardsToSummary.user({ title, cards: src }),
-      { max_tokens: 700, temperature: 0.4, cacheSystem: true, model: MODEL_FAST },
+      { max_tokens: 700, cacheSystem: true, model: MODEL_FAST },
     );
   } catch (e) {
     console.warn('[summarizeCards] claude failed:', e?.message);
@@ -788,7 +789,7 @@ export async function analyzeBookLearnings({ bookId, title, author, purpose, cha
       challenge: clamp(sanitizeForPrompt(challenge || ''), LIMITS.memoText),
       memos,
     }),
-    { max_tokens: 1400, temperature: 0.5, model: MODEL_SMART, cacheSystem: true },
+    { max_tokens: 1400, model: MODEL_SMART, cacheSystem: true },
   );
   // callClaude はエラー時に文言（'エラー...' / 'AI機能...' / 'リクエスト...'）を返すことがある。
   // それを「分析結果」として描画しないよう、成功時のみ track / return する。
@@ -830,7 +831,7 @@ export async function generateOpsRoadmap(state = {}) {
     result = await callClaude(
       PROMPTS.opsRoadmap.system,
       PROMPTS.opsRoadmap.user(args),
-      { max_tokens: 2048, temperature: 0.5, cacheSystem: true },
+      { max_tokens: 2048, cacheSystem: true },
     );
   } catch (e) {
     console.warn('[opsRoadmap] claude failed:', e?.message);
@@ -866,7 +867,7 @@ export async function generateOpsTasks(state = {}) {
     result = await callClaude(
       PROMPTS.opsTasks.system,
       PROMPTS.opsTasks.user(args),
-      { max_tokens: 2048, temperature: 0.5, cacheSystem: true },
+      { max_tokens: 2048, cacheSystem: true },
     );
   } catch (e) {
     console.warn('[opsTasks] claude failed:', e?.message);
@@ -899,7 +900,7 @@ export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
   const system = PROMPTS.opsAdvisor.system({ today: todayISO(), stateLine: clamp(String(stateLine || ''), 800) });
   let result;
   try {
-    result = await callClaude(history, { system, max_tokens: 1500, temperature: 0.6 });
+    result = await callClaude(history, { system, max_tokens: 1500 });
   } catch (e) {
     console.warn('[opsAdvise] claude failed:', e?.message);
     return null;
@@ -959,7 +960,7 @@ export async function generateWeeklyQuestion(userId) {
     result = await callClaude(
       PROMPTS.weeklyQuestion.system,
       PROMPTS.weeklyQuestion.user({ memos: formatted, openSteps }),
-      { max_tokens: 200, temperature: 0.85, cacheSystem: true, model: MODEL_FAST },
+      { max_tokens: 200, cacheSystem: true, model: MODEL_FAST },
     );
   } catch (e) {
     console.warn('[weekly-question] claude failed:', e?.message);
@@ -995,7 +996,7 @@ export async function generateSerendipityPop({ title, author = '', contextLine =
     result = await callClaude(
       PROMPTS.serendipityPop.system,
       PROMPTS.serendipityPop.user({ title: t, author: a, contextLine: ctx }),
-      { max_tokens: 120, temperature: 0.9, cacheSystem: true, model: MODEL_FAST, signal },
+      { max_tokens: 120, cacheSystem: true, model: MODEL_FAST, signal },
     );
   } catch (e) {
     console.warn('[serendipity-pop] claude failed:', e?.message);
@@ -1027,7 +1028,6 @@ export async function streamBookQuickSummary({ title, author = '', onChunk, sign
     cacheSystem: true,
     model: MODEL_FAST,
     max_tokens: 320,
-    temperature: 0.5,
     messages: [{ role: 'user', content: p.user({ title: t, author: a }) }],
     signal,
     onChunk: (fullText) => { full = fullText; try { onChunk?.(fullText); } catch { /* swallow */ } },
@@ -1061,7 +1061,6 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
     // メモ文脈をキャッシュ対象ブロックに（連続質問で入力コストを削減）。
     messages: [{ role: 'user', content: ctx.userBlocks }],
     max_tokens: 2048,
-    temperature: 0.5,
     signal,
     onChunk: (text) => {
       fullText = text;
@@ -1363,7 +1362,6 @@ export async function streamThemeReport({ userId, theme, onStage, onChunk, signa
     messages: [{ role: 'user', content: ctx.userPrompt }],
     max_tokens: 2048,
     // temperature 0.4 — メモに忠実な統合を優先 (創作より引用の一貫性)。
-    temperature: 0.4,
     signal,
     onChunk: (text) => {
       fullText = text;
@@ -1514,7 +1512,7 @@ export async function generateKnowledgeJourney(userId, theme) {
       todayISO: todayISO(),
       spanText,
     }),
-    { max_tokens: 2048, temperature: 0.7, model: MODEL_SMART, cacheSystem: true },
+    { max_tokens: 2048, model: MODEL_SMART, cacheSystem: true },
   );
   // callClaude のエラー文言を「足あと」として描画しない（成功時のみ track / return）。
   if (typeof content !== 'string'

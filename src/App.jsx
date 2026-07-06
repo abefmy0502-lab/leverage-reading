@@ -17,15 +17,14 @@ import BookMemoEditor from './components/BookMemoEditor';
 import BookLearningAnalysis from './components/BookLearningAnalysis';
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from './styles/ui';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
-  TrendingUp as IcTrendingUp, MessageSquareQuote as IcQuote, History as IcHistory,
+  History as IcHistory,
   SearchX as IcSearchX, NotebookText as IcNote, Target as IcTarget, Brain as IcBrain,
   Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
   Lightbulb as IcBulb,
-  BookOpen as IcBook, Map as IcMap, Zap as IcZap, RefreshCw as IcRefresh, Bot as IcBot,
-  CheckCircle2 as IcCheck, BarChart3 as IcBar, AlertTriangle as IcAlert, CalendarDays as IcCal,
+  BookOpen as IcBook, Map as IcMap, RefreshCw as IcRefresh, Bot as IcBot,
+  CheckCircle2 as IcCheck,
   SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar, Folder as IcFolder,
 } from 'lucide-react';
 
@@ -62,18 +61,16 @@ import BottomSheet from './components/BottomSheet';
 const AddBookModal = lazy(() => import('./components/AddBookModal'));
 import { useBookCover } from './hooks/useBookCover';
 import {
-  searchBooks as searchBooksAPI,
   searchBooksFlat as searchBooksAPIFlat,
   findIsbnCandidates,
   findCoverFromGoogleBooks,
 } from './lib/bookSearch';
-import { resolveCoverUrl, getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn, checkImageExists, resolveCoverViaServer } from './lib/bookCover';
+import { getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn, checkImageExists, resolveCoverViaServer } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
 import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrategyHistory } from './lib/strategyHistory';
-import { paletteFor } from './lib/coverPalette';
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
@@ -114,7 +111,7 @@ import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
-import { Field, SectionHeader, Dots, Stars, TagInput, inp, ta, btnS, aiB, phaseDesc } from './components/formPrimitives';
+import { Dots, Stars, inp, btnS } from './components/formPrimitives';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase } from './components/BookPhases';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -130,7 +127,7 @@ import {
   Target,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo, isValidElement, cloneElement } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
 
 
 

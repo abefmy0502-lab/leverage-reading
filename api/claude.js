@@ -394,8 +394,9 @@ export default async function handler(req, res) {
     // これまでは `{ ...body }` で tools / tool_choice / metadata / stop_sequences /
     // top_p 等を含む任意のフィールドを Anthropic へ素通ししており、認証済みユーザー
     // が改ざんクライアントで本 API を「汎用 LLM プロキシ」として悪用できた。
-    // app が実際に送るのは system / messages / temperature / max_tokens / model /
-    // stream のみ（src/lib/streamClaude.js / ai.js）。それ以外は破棄する。
+    // app が実際に使うのは system / messages / max_tokens / model / stream のみ
+    // （src/lib/streamClaude.js / ai.js）。temperature は下記の理由で転送しない。
+    // それ以外は破棄する。
     const payload = { model, max_tokens: maxTokens };
     if (wantsStream) payload.stream = true;
     if (typeof body.system === 'string') {
@@ -420,9 +421,12 @@ export default async function handler(req, res) {
       while (msgs.length > 0 && msgs[0]?.role === 'assistant') msgs = msgs.slice(1);
       payload.messages = msgs;
     }
-    if (Number.isFinite(body.temperature)) {
-      payload.temperature = Math.min(1, Math.max(0, body.temperature));
-    }
+    // ⚠️ temperature は Anthropic へ転送しない（サーバー側の最終防波堤）。
+    // claude-sonnet-5 / haiku-4-5 世代（Opus 4.7 以降と同系）は sampling params
+    // （temperature / top_p / top_k）を受け付けず 400 を返す
+    // （「`temperature` is deprecated for this model.」）。クライアントが後方互換で
+    // temperature を送ってきても、ここで破棄して全 AI 機能が止まらないようにする。
+    // 振る舞いの制御はプロンプト側で行う方針。
 
     // クライアント切断時に Anthropic への upstream fetch も打ち切るための
     // AbortController。これが無いと、ユーザーが「中止」して fetch を切っても
