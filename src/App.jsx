@@ -318,8 +318,9 @@ function Shell({ children }) {
         overflow: "hidden",
       }}
     >
+      {/* フォントは OS 標準に全面移行済み（index.html 参照）。かつてここにあった
+          Google Fonts の @import はレンダーブロッキングで初回表示を遅らせるため撤去。 */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;600&display=swap');
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
         @keyframes pulse { 0%, 100% { opacity: .2 } 50% { opacity: 1 } }

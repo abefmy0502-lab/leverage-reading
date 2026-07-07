@@ -1,169 +1,237 @@
 /* ===========================================================================
- * 🌱 Landing Page CSS — モバイルファースト + 絵文字削減プロ版
+ * 🌱 Landing Page CSS — Orime 2026-07 全面リニューアル版
  *
- * - 見出しは Noto Serif JP (感情・哲学を伝える明朝)
- * - 本文・UI は Inter / Hiragino Sans (可読性 + 数字 tnum)
- * - 数値は Inter で等幅 (font-feature-settings: tnum)
- * - 紙のテクスチャを subtle に重ねる
+ * デザインコンセプト: 「静かな本屋の佇まい」
+ *   - 和紙のようなベージュ地 + 微細ノイズ
+ *   - 見出しは OS 明朝 (Yu Mincho / Hiragino Mincho)、本文はゴシック
+ *   - ブランドモチーフ「折り目」= カード右上の角折り (dog-ear) を CSS で表現
+ *   - 動きは控えめ (フェード + わずかな上昇のみ)。prefers-reduced-motion 尊重
+ *
+ * 実装原則:
+ *   - モバイルファースト。768px でデスクトップ拡張
+ *   - 横スクロールをどの幅でも出さない (keep-all + overflow-wrap: anywhere)
+ *   - 外部フォント読込なし (index.html の方針に従う / LCP 保護)
+ *   - フォーカスリング (:focus-visible) を全インタラクティブ要素に
  * =========================================================================== */
 
 /* ============ Variables ============ */
 :root {
-  --lp-primary: #5C4A2E;
-  --lp-accent: #8B6F47;
-  --lp-bg: #FAF6EC;
-  --lp-bg-warm: #F5F1E8;
-  --lp-text: #2C2C2C;
-  --lp-sub: #666666;
-  --lp-success: #2E7D32;
-  --lp-error: #C62828;
-  --lp-divider: rgba(92, 74, 46, 0.15);
-  --font-serif: 'Noto Serif JP', 'Yu Mincho', 'Hiragino Mincho ProN', serif;
-  --font-sans: 'Inter', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, -apple-system, sans-serif;
+  --lp-primary: #5C4A2E;        /* 深い茶 — 見出し/主ボタン */
+  --lp-primary-deep: #43351F;   /* さらに深い茶 — final CTA 地 */
+  --lp-accent: #8B6F47;         /* 金茶 — 装飾/ボーダー用アクセント */
+  --lp-accent-text: #75592F;    /* 金茶の文字用 — ベージュ地でコントラスト 4.5:1 以上 */
+  --lp-bg: #FAF6EC;             /* 和紙ベージュ */
+  --lp-bg-warm: #F3EDDF;        /* 一段濃いベージュ */
+  --lp-card: #FFFFFF;
+  --lp-text: #2B2620;           /* 墨色 */
+  --lp-sub: #5D5546;            /* 補助文 (コントラスト 4.5:1 以上を維持) */
+  --lp-hairline: rgba(92, 74, 46, 0.16);
+  --lp-fold: #E7DCC4;           /* 折り目の裏面色 */
+  --font-serif: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'Noto Serif JP', serif;
+  --font-sans: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Inter', system-ui, -apple-system, sans-serif;
+  --header-h: 56px;
 }
 
 .lp-root, .lp-root *, .lp-root *::before, .lp-root *::after { box-sizing: border-box; }
 
-/* ============ 横スクロール完全禁止 (LP 表示中のみ) ============
- * LP のどのセクション/要素も画面幅を超えないように上から下まで max-width:
- * 100vw + overflow-x: hidden を強制する。grid/flex の子要素は minmax(0, 1fr)
- * で「親をはみ出す」既知のバグを抑制。 */
+/* ============ メインアプリのレイアウト解除 + 横スクロール禁止 ============
+ * メインアプリの index.css は html/body/#root を 100dvh + overflow:hidden で
+ * 組んでいる。LP 表示中 (lp-active) はこれを解除する。 */
 html.lp-active,
 body.lp-active {
+  overflow: auto !important;
+  height: auto !important;
   overflow-x: hidden !important;
   max-width: 100vw;
+}
+#root.lp-active {
+  overflow: visible !important;
+  height: auto !important;
+  display: block !important;
 }
 .lp-root {
   overflow-x: hidden;
   max-width: 100vw;
   width: 100%;
 }
-.lp-root section {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-.lp-root img,
-.lp-root .phone-frame,
-.lp-root .phone-screen,
-.lp-root pre,
-.lp-root code {
-  max-width: 100%;
-}
+.lp-root section { max-width: 100vw; }
+.lp-root img { max-width: 100%; }
 
-/* ⚠ メインアプリの index.css は html/body/#root を 100dvh + overflow:hidden で
- * 組んでいる (LINE 風 chat レイアウト用)。LP 表示中はこれを解除する。 */
-html.lp-active,
-body.lp-active {
-  overflow: auto !important;
-  height: auto !important;
-}
-#root.lp-active {
-  overflow: visible !important;
-  height: auto !important;
-  display: block !important;
-  flex-direction: initial !important;
-}
-
+/* ============ ベース ============ */
 .lp-root {
   font-family: var(--font-sans);
   color: var(--lp-text);
   background: var(--lp-bg);
-  line-height: 1.7;
+  line-height: 1.8;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: 100px;
-  min-height: 100vh;
-  overflow: visible !important;
   position: relative;
+  min-height: 100vh;
 }
-/* 紙のような微細なノイズ (透過率 3%) */
+/* 紙のような微細ノイズ (3%) */
 .lp-root::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.29 0 0 0 0 0.18 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.55;
+  opacity: 0.5;
   z-index: 0;
 }
 .lp-root > * { position: relative; z-index: 1; }
 
-.lp-root section { overflow: visible !important; }
-
-/* ============ Typography (serif headlines / sans body) ============ */
-/* 日本語改行を全要素で美しく:
- *   - keep-all: 単語 (漢字熟語) の途中で切らない
- *   - strict:   句読点・括弧の禁則処理を強める
- *   - anywhere: 単語溢れ時のみ折り返し (overflow-wrap より積極的) */
+/* 日本語改行: 熟語の途中で切らない + 禁則強化 + 溢れ時のみ折る */
 .lp-root,
 .lp-root * {
   word-break: keep-all;
   line-break: strict;
   overflow-wrap: anywhere;
 }
-.lp-root h1,
-.lp-root h2,
-.lp-root h3,
-.section-headline {
+
+/* ============ タイポグラフィ ============ */
+.lp-root h1, .lp-root h2, .lp-root h3,
+.section-headline, .final-headline {
   font-family: var(--font-serif);
-  letter-spacing: -0.02em;
-  /* balance: 対応ブラウザは行の長さを均等にする (Chromium 114+ / Safari 17.5+) */
+  letter-spacing: 0.01em;
   text-wrap: balance;
+  color: var(--lp-text);
 }
-.lp-root p {
-  text-wrap: pretty;
-}
-/* 数字・価格・データ系は単独で nowrap (途中で切らない) */
-.data-num,
-.stat-number,
-.price-amount {
-  display: inline-block;
-  white-space: nowrap;
-}
-/* 括弧 / タイトルなど特定語句に当てる nowrap utility */
-.no-break {
-  display: inline-block;
-  white-space: nowrap;
-}
-.lp-root p,
-.lp-root li,
-.lp-root button,
-.lp-root summary,
-.section-eyebrow,
-.stat-number,
-.stat-label,
-.data-num,
-.price-amount .num,
-.mech-num,
-.cta-primary,
-.sticky-cta-btn {
+.lp-root p { text-wrap: pretty; }
+
+.section-eyebrow {
   font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--lp-accent-text);
+  margin: 0 0 18px;
 }
-.stat-number,
-.data-num,
-.price-amount .num,
-.mech-num {
-  font-feature-settings: 'tnum';
-  font-variant-numeric: tabular-nums;
+.section-headline {
+  font-size: clamp(26px, 6.6vw, 34px);
+  line-height: 1.5;
+  font-weight: 700;
+  margin: 0 0 22px;
 }
 
-/* ============ Sticky 下部 CTA (price + button 横並び) ============ */
+/* 表示切替ヘルパ */
+.sp-only { display: inline; }
+.pc-only { display: none; }
+
+/* ============ a11y ============ */
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: 12px;
+  z-index: 200;
+  background: var(--lp-primary);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-link:focus-visible { top: 10px; }
+
+.lp-root a:focus-visible,
+.lp-root button:focus-visible,
+.lp-root summary:focus-visible {
+  outline: 3px solid var(--lp-accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ============ 0. Header ============ */
+.lp-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  background: rgba(250, 246, 236, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--lp-hairline);
+}
+.lp-header-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  height: var(--header-h);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+  color: var(--lp-text);
+  min-height: 44px;
+}
+.lp-brand-mark { border-radius: 7px; display: block; }
+.lp-brand-name {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.lp-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lp-header-login {
+  color: var(--lp-sub);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 10px 12px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+}
+.lp-header-login:hover { color: var(--lp-primary); }
+.lp-header-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 18px;
+  background: var(--lp-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  border-radius: 100px;
+  white-space: nowrap;
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+}
+.lp-header-cta:hover { box-shadow: 0 4px 14px rgba(92, 74, 46, 0.3); }
+.lp-header-cta:active { transform: scale(0.97); }
+
+/* ============ Sticky 下部 CTA (モバイル) ============ */
 .sticky-cta {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.06);
   z-index: 50;
-  animation: lp-sticky-slide-up 0.3s ease;
+  transform: translateY(110%);
+  transition: transform 0.3s ease;
+  visibility: hidden;
 }
-@keyframes lp-sticky-slide-up {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+.sticky-cta.is-visible {
+  transform: translateY(0);
+  visibility: visible;
 }
 .sticky-inner {
   max-width: 480px;
@@ -173,37 +241,23 @@ body.lp-active {
   justify-content: space-between;
   gap: 12px;
 }
-.sticky-price {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  flex-shrink: 0;
-}
-.sticky-price-main {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--lp-text);
-  font-family: var(--font-sans);
-}
-.sticky-price-sub {
-  font-size: 11px;
-  color: var(--lp-sub);
-  margin-top: 2px;
-  font-family: var(--font-sans);
-}
+.sticky-price { display: flex; flex-direction: column; line-height: 1.2; flex-shrink: 0; }
+.sticky-price-main { font-size: 15px; font-weight: 800; color: var(--lp-text); }
+.sticky-price-sub { font-size: 11px; color: var(--lp-sub); margin-top: 2px; }
 .sticky-btn {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 48px;
-  padding: 12px 18px;
+  padding: 12px 16px;
   background: var(--lp-primary);
-  color: white;
-  border: none;
+  color: #fff;
   border-radius: 100px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  font-family: inherit;
+  letter-spacing: 0.03em;
+  text-decoration: none;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -212,162 +266,132 @@ body.lp-active {
 .sticky-btn:active { transform: scale(0.97); }
 
 /* ============ セクション共通 ============ */
-.lp-root section {
-  padding: 80px 24px;
-  max-width: 600px;
+.lp-root main section {
+  padding: 76px 24px;
+  max-width: 620px;
   margin: 0 auto;
-}
-.section-eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--lp-accent);
-  margin: 0 0 16px;
-}
-.lp-root section h1 {
-  font-size: 36px;
-  line-height: 1.4;
-  font-weight: 900;
-  margin: 16px 0;
-}
-.lp-root section h2 {
-  font-size: 26px;
-  line-height: 1.4;
-  font-weight: 900;
-  margin: 0 0 24px;
-}
-.lp-root section h3 {
-  font-size: 20px;
-  line-height: 1.4;
-  font-weight: 700;
-  margin: 16px 0 12px;
-}
-.lp-root section p {
-  font-size: 16px;
-  margin: 12px 0;
-}
-
-/* セクション境界の細い装飾線 */
-.lp-section-divider {
-  width: 1px;
-  height: 48px;
-  background: var(--lp-divider);
-  margin: 0 auto;
-}
-
-/* ============ Hero ============ */
-.hero {
-  padding: 56px 24px 88px !important;
-  background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
-  text-align: center;
-}
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  background: white;
-  border: 1px solid var(--lp-divider);
-  border-radius: 100px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--lp-primary);
-  margin-bottom: 32px;
-}
-.badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--lp-success);
-  animation: lp-pulse 2s infinite;
-}
-@keyframes lp-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-.hero-title {
-  font-size: 36px !important;
-  line-height: 1.4;
-  font-weight: 900;
-  margin: 16px 0;
-}
-.hero-subhead {
-  font-size: 16px;
-  color: var(--lp-sub);
-  margin: 16px 0 32px;
-  line-height: 1.85;
-}
-.hero-note {
-  font-size: 12px;
-  color: var(--lp-sub);
-  margin-top: 12px;
-  line-height: 1.7;
-}
-.hero-benefits {
-  list-style: none;
-  padding: 0;
-  margin: 28px auto 32px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  max-width: 100%;
-}
-.hero-benefits li {
-  background: white;
-  border: 1px solid var(--lp-divider);
-  padding: 8px 14px;
-  border-radius: 100px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: var(--lp-primary);
-  white-space: nowrap;
-}
-.hero-mockup {
-  margin-top: 56px;
-  display: flex;
-  justify-content: center;
 }
 
 /* ============ CTA ボタン ============ */
 .cta-primary {
-  display: inline-block;
-  padding: 16px 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 15px 38px;
   background: var(--lp-primary);
-  color: white;
+  color: #fff;
   border: none;
   border-radius: 100px;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   cursor: pointer;
   text-decoration: none;
-  box-shadow: 0 4px 16px rgba(92, 74, 46, 0.25);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 6px 20px rgba(92, 74, 46, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
   font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
+.cta-primary:hover { box-shadow: 0 8px 26px rgba(92, 74, 46, 0.36); }
 .cta-primary:active { transform: scale(0.98); }
-.cta-hero { padding: 18px 44px; font-size: 16px; }
-.cta-pricing { width: 100%; margin-top: 24px; }
-.cta-final {
+.cta-primary { white-space: nowrap; } /* ボタン文言は 1 行厳守 (折返しは見栄えを壊す) */
+.cta-hero { padding: 17px 44px; }
+.cta-large {
   width: 100%;
-  padding: 20px;
-  font-size: 16px;
+  max-width: 360px;
+  padding-left: 20px;  /* nowrap でも狭幅ではみ出さないよう左右を細く */
+  padding-right: 20px;
+}
+@media (max-width: 350px) {
+  .cta-primary { font-size: 14px; }
 }
 
-/* ============ iPhone 風スクショフレーム ============
- * 実アプリのスクショを <PhoneFrame> 経由で表示する。width / padding は
- * PhoneFrame.jsx 側のインラインスタイルで指定し、ここは見た目だけを定義。
- * 高さは画像の aspect ratio に追従する (height は付けない)。 */
+.cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  background: var(--lp-card);
+  color: var(--lp-primary);
+  border: 2px solid var(--lp-primary);
+  padding: 12px 30px;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  margin-top: 28px;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.cta-secondary:active { transform: scale(0.97); background: var(--lp-bg); }
+
+/* ============ 1. Hero ============ */
+.hero {
+  padding: calc(var(--header-h) + 52px) 24px 80px !important;
+  background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
+  text-align: center;
+}
+.hero-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--lp-accent-text);
+  margin: 0 0 20px;
+}
+.hero-headline {
+  font-size: clamp(40px, 11vw, 60px);
+  line-height: 1.32;
+  font-weight: 700;
+  margin: 0 0 26px;
+  color: var(--lp-primary);
+}
+.hero-subhead {
+  font-family: var(--font-serif);
+  font-size: clamp(16px, 4.4vw, 19px);
+  color: var(--lp-text);
+  margin: 0 0 14px;
+  line-height: 2.15;
+}
+.hero-tagline {
+  font-size: 14px;
+  color: var(--lp-sub);
+  margin: 0 0 34px;
+}
+.hero-cta-block { display: flex; flex-direction: column; align-items: center; }
+.hero-note {
+  font-size: 12px;
+  color: var(--lp-sub);
+  margin: 14px 0 0;
+  line-height: 1.7;
+}
+.hero-login {
+  font-size: 13px;
+  color: var(--lp-sub);
+  margin: 10px 0 0;
+}
+.hero-login-link {
+  color: var(--lp-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 4px 2px;
+}
+.hero-mockup {
+  margin-top: 52px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ============ iPhone 風スクショフレーム ============ */
 .phone-frame {
   background: #1a1a1a;
   border-radius: 36px;
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.18),
-    0 8px 16px rgba(0, 0, 0, 0.08);
+    0 20px 60px rgba(43, 38, 32, 0.18),
+    0 8px 16px rgba(43, 38, 32, 0.08);
   position: relative;
   display: inline-block;
   margin: 0 auto;
@@ -380,1406 +404,308 @@ body.lp-active {
   height: auto;
   display: block;
   border-radius: 28px;
+  background: var(--lp-bg-warm); /* 読込前のプレースホルダ地 */
 }
 @keyframes phoneFloat {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }
 .phone-frame.float {
-  animation: phoneFloat 4s ease-in-out infinite;
+  animation: phoneFloat 4.5s ease-in-out infinite;
   will-change: transform;
 }
-@media (prefers-reduced-motion: reduce) {
-  .phone-frame.float { animation: none; }
-}
-
-/* 狭い画面では PhoneFrame の inline width を上書きして 70vw 上限に */
 @media (max-width: 480px) {
-  .phone-frame { width: min(280px, 70vw) !important; }
-  .phone-frame-small { width: min(200px, 55vw) !important; }
+  .phone-frame { width: min(280px, 72vw) !important; }
+  .phone-frame-small { width: min(210px, 56vw) !important; }
 }
-.phone-screen {
-  width: 100%;
-  height: 100%;
-  background: var(--lp-bg);
-  border-radius: 24px;
-  padding: 16px;
-  font-size: 12px;
-  text-align: left;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+
+/* ============ 2. Problem ============ */
+.problem { text-align: center; }
+.problem-body {
+  font-size: 15.5px;
+  line-height: 2.1;
+  color: var(--lp-text);
+  margin: 18px 0;
 }
-.screen-status {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--lp-sub);
-  margin-bottom: 8px;
-}
-.screen-title {
+.problem-body strong { color: var(--lp-primary); }
+.problem-turn {
   font-family: var(--font-serif);
-  font-size: 20px;
+  font-size: clamp(17px, 4.6vw, 21px);
   font-weight: 700;
-  margin-bottom: 12px;
-  letter-spacing: -0.01em;
-}
-
-/* 本のリスト */
-.book-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-  background: white;
-  border-radius: 8px;
-  margin-bottom: 6px;
-}
-.book-info { flex: 1; min-width: 0; }
-.book-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--lp-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.book-status {
-  display: inline-block;
-  margin-top: 3px;
-  padding: 1px 7px;
-  border-radius: 100px;
-  font-size: 8.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-.book-status.reading { background: #FFF3E0; color: #E65100; }
-.book-status.wishlist { background: #F3E5F5; color: #6A1B9A; }
-.book-status.done { background: #E8F5E9; color: #2E7D32; }
-.book-status.before { background: #E3F2FD; color: #1565C0; }
-.book-cover {
-  width: 22px;
-  height: 30px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-.c1 { background: linear-gradient(135deg, #8B6F47, #5C4A2E); }
-.c2 { background: linear-gradient(135deg, #6A1B9A, #4A148C); }
-.c3 { background: linear-gradient(135deg, #2E7D32, #1B5E20); }
-.c4 { background: linear-gradient(135deg, #1565C0, #0D47A1); }
-
-/* チャット系 */
-.advisor-msg, .brain-msg {
-  padding: 8px 12px;
-  border-radius: 12px;
-  margin-bottom: 6px;
-  font-size: 11px;
-  max-width: 80%;
-  line-height: 1.5;
-}
-.advisor-msg.user, .brain-msg.user {
-  background: var(--lp-primary);
-  color: white;
-  margin-left: auto;
-  width: fit-content;
-}
-.advisor-msg.ai, .brain-msg.ai {
-  background: white;
-}
-.advisor-book {
-  padding: 6px 8px;
-  background: white;
-  border-radius: 6px;
-  font-size: 10px;
-  font-weight: 500;
-  margin: 4px 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  line-height: 2;
+  margin: 40px 0 0;
   color: var(--lp-text);
 }
-.advisor-book svg { color: var(--lp-accent); flex-shrink: 0; }
-
-/* 読書計画系 */
-.setup-label {
-  font-size: 9.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--lp-accent);
-  margin-top: 8px;
-}
-.setup-value {
-  font-size: 11px;
-  background: white;
-  padding: 6px 8px;
-  border-radius: 6px;
-  margin-top: 3px;
-  color: var(--lp-text);
-}
-
-/* ============ Pain (data driven) ============ */
-.pain {
-  background: white;
-  text-align: center;
-}
-.pain-intro {
-  font-size: 15px;
-  color: var(--lp-text);
-  line-height: 1.85;
-  margin: 16px 0 32px;
-}
-.pain-data {
-  margin: 32px 0;
-  padding: 28px 24px;
-  background: var(--lp-bg);
-  border-radius: 16px;
-  border-left: 4px solid var(--lp-primary);
-  text-align: left;
-}
-.data-row {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  padding: 14px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-.data-row:last-of-type { border: none; }
-.data-num {
-  font-size: 32px;
-  font-weight: 800;
+.problem-turn em {
+  font-style: normal;
   color: var(--lp-primary);
-  min-width: 70px;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-.data-text {
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--lp-text);
-  flex: 1;
-}
-.data-source {
-  font-size: 10px;
-  color: #999;
-  margin-top: 14px;
-  text-align: right;
-  line-height: 1.5;
-}
-.pain-conclusion {
-  font-family: var(--font-serif);
-  font-size: 22px;
-  font-weight: 700;
-  text-align: center;
-  margin-top: 40px;
-  line-height: 1.7;
-  letter-spacing: -0.01em;
-}
-.pain-conclusion strong {
-  color: var(--lp-primary);
-  border-bottom: 3px solid var(--lp-accent);
+  border-bottom: 2px solid var(--lp-accent);
   padding-bottom: 2px;
 }
 
-/* ============ Outcome ============ */
-.outcome { background: var(--lp-bg-warm); text-align: center; }
-.outcome-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin: 32px 0;
+/* ============ 3-6. Feature 共通 ============ */
+.feature { text-align: center; }
+.feature-alt {
+  background: var(--lp-card);
+  max-width: none !important;
 }
-.stat-card {
-  background: white;
-  padding: 24px 8px 20px;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-}
-.stat-number {
-  font-size: 32px;
-  font-weight: 800;
-  color: var(--lp-primary);
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-.stat-label {
-  font-size: 11px;
-  color: var(--lp-sub);
-  margin-top: 8px;
-  letter-spacing: 0.05em;
-}
-.outcome-message {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  font-weight: 700;
-  margin-top: 28px;
-  line-height: 1.7;
-}
-
-/* ============ Mechanisms (numbered persona quotes) ============ */
-.mechanisms { background: white; text-align: center; }
-.mechanism {
-  display: grid;
-  /* minmax(0, 1fr): grid の子要素が親をはみ出す既知のバグ対策。
-   * 1fr 単独だと min-content で計算されて横スクロール発生。 */
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 16px;
-  margin: 56px 0;
-  text-align: left;
-  align-items: stretch;
-  max-width: 100%;
-  overflow: hidden;
-}
-.mech-content {
-  min-width: 0; /* grid/flex 子要素の必須プロパティ */
-  max-width: 100%;
-  overflow-wrap: break-word;
-}
-.mech-marker {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.mech-num {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--lp-primary);
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-.mech-line {
-  flex: 1;
-  width: 1px;
-  background: var(--lp-divider);
-  margin-top: 12px;
-}
-.mech-content { padding-bottom: 24px; }
-.mech-content h3 {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0 0 16px;
-  line-height: 1.4;
-}
-.mech-lead {
-  font-size: 13px;
-  color: var(--lp-sub);
-  font-style: italic;
-  border-left: 2px solid var(--lp-accent);
-  padding-left: 12px;
-  margin: 16px 0;
-  line-height: 1.7;
-}
-.mech-body {
-  font-size: 15px;
-  line-height: 1.85;
-  color: var(--lp-text);
-  margin: 12px 0;
-}
-.mech-mockup {
-  margin: 24px 0;
-  display: flex;
-  justify-content: center;
-}
-
-/* ============ Use-Case timeline ============ */
-.use-case {
-  background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
-  text-align: center;
-}
-.story-timeline {
-  margin: 32px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.story-step {
-  display: grid;
-  grid-template-columns: 80px minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
-  max-width: 100%;
-}
-.story-time {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--lp-primary);
-  padding-top: 14px;
-  text-align: right;
-  white-space: nowrap;
-}
-.story-card {
-  background: white;
-  padding: 16px;
-  border-radius: 12px;
-  border-left: 3px solid var(--lp-primary);
-  text-align: left;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: break-word;
-}
-.story-action {
-  font-family: var(--font-serif);
-  font-size: 15px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: var(--lp-text);
-  letter-spacing: -0.01em;
-}
-.story-detail {
-  font-size: 13px;
-  color: var(--lp-text);
-  background: var(--lp-bg);
-  padding: 10px 12px;
-  border-radius: 8px;
-  margin: 10px 0;
-  font-style: italic;
-  font-family: var(--font-serif);
-  line-height: 1.75;
-}
-.story-result {
-  font-size: 13px;
-  color: var(--lp-primary);
-  font-weight: 600;
-  line-height: 1.75;
-}
-.story-conclusion {
-  font-family: var(--font-serif);
-  font-size: 17px;
-  font-weight: 700;
-  text-align: center;
-  margin-top: 32px;
-  line-height: 1.85;
-  color: var(--lp-primary);
-  letter-spacing: -0.01em;
-}
-
-/* ============ Use-List (Q→A) ============ */
-.use-list {
-  background: white;
-  text-align: center;
-}
-.use-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 32px;
-}
-.use-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 18px 20px;
-  background: var(--lp-bg);
-  border-radius: 12px;
-  text-align: left;
-  max-width: 100%;
-  overflow-wrap: break-word;
-}
-.use-question {
-  font-family: var(--font-serif);
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--lp-text);
-  line-height: 1.6;
-}
-.use-arrow {
-  font-size: 16px;
-  color: var(--lp-accent);
-  font-weight: 800;
-  align-self: flex-start;
-  line-height: 1;
-}
-.use-answer {
-  font-size: 14px;
-  color: var(--lp-text);
-  font-weight: 500;
-  background: white;
-  padding: 12px 14px;
-  border-radius: 8px;
-  border-left: 3px solid var(--lp-primary);
-  line-height: 1.7;
-}
-
-/* ============ AI 選書フロー (3 ステップ圧縮 + 実画面) ============ */
-.ai-flow {
-  background: white;
-  text-align: center;
-}
-
-/* 3 ステップフロー */
-.flow-steps {
-  margin: 32px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  text-align: left;
-}
-.flow-step {
-  background: var(--lp-bg);
-  border-radius: 16px;
-  padding: 20px;
-  border-left: 3px solid var(--lp-primary);
-  max-width: 100%;
-}
-.step-num {
-  display: inline-block;
-  background: var(--lp-primary);
-  color: white;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 100px;
-  margin-bottom: 10px;
-  letter-spacing: 0.06em;
-}
-.step-title {
-  font-family: var(--font-serif);
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 12px;
-  color: var(--lp-text);
-  letter-spacing: -0.01em;
-}
-.step-mock {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.flow-arrow {
-  text-align: center;
-  font-size: 20px;
-  color: var(--lp-accent);
-  font-weight: 700;
-  margin: 4px 0;
-}
-
-/* チャット風モック吹き出し */
-.mock-bubble {
-  padding: 10px 14px;
-  border-radius: 14px;
-  font-size: 13px;
-  line-height: 1.7;
-  max-width: 90%;
-  word-break: keep-all;
-  line-break: strict;
-  overflow-wrap: anywhere;
-}
-.mock-bubble.user {
-  background: var(--lp-primary);
-  color: white;
-  align-self: flex-end;
+/* feature-alt は全幅の白帯にし、中身を再度センタリング */
+.feature-alt > * {
+  max-width: 620px;
   margin-left: auto;
-  border-bottom-right-radius: 4px;
+  margin-right: auto;
 }
-.mock-bubble.ai {
-  background: white;
+.feature-body {
+  font-size: 15.5px;
+  line-height: 2.05;
   color: var(--lp-text);
-  border: 1px solid var(--lp-divider);
-  border-bottom-left-radius: 4px;
+  margin: 16px 0;
 }
-
-/* STEP 3 の小カード (本のミニチュア) */
-.mock-recommendations {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 8px;
-}
-.rec-mini {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: white;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  border: 1px solid var(--lp-divider);
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-  line-height: 1.4;
-}
-.rec-cover {
-  width: 18px;
-  height: 26px;
-  border-radius: 2px;
-  flex-shrink: 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-}
-.rec-cover.c1 { background: linear-gradient(135deg, #C62828, #8B0000); }
-.rec-cover.c2 { background: linear-gradient(135deg, #1565C0, #0D47A1); }
-.rec-cover.c3 { background: linear-gradient(135deg, #6A1B9A, #4A148C); }
-.rec-cover.c4 { background: linear-gradient(135deg, #2E7D32, #1B5E20); }
-
-/* 実画面スクショ */
-.real-screenshot {
-  margin: 40px 0 24px;
-  text-align: center;
-}
-.screenshot-label {
+.feature-body strong { color: var(--lp-primary); font-weight: 700; }
+.feature-sub {
   font-size: 13px;
   color: var(--lp-sub);
-  margin-bottom: 12px;
-  font-weight: 500;
-}
-.real-screenshot img {
-  width: 100%;
-  max-width: 360px;
-  height: auto;
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-  display: inline-block;
+  margin: 22px 0 0;
 }
 
-/* キャッチコピー */
-.ai-flow-caption {
-  font-family: var(--font-serif);
-  font-size: 15px;
-  text-align: center;
-  margin-top: 32px;
-  line-height: 1.95;
-  color: var(--lp-text);
-}
-.ai-flow-caption strong {
-  color: var(--lp-primary);
-  border-bottom: 2px solid var(--lp-accent);
-  padding: 0 2px 1px;
-}
-
-/* ============ Risk Reversal (3 保証) ============ */
-.guarantee {
-  background: linear-gradient(135deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
-  text-align: center;
-}
-.guarantee-list {
+/* テキスト+画像の 2 分割 (モバイルは縦積み) */
+.feature-split {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin: 32px 0;
+  gap: 30px;
+  align-items: center;
+  margin-top: 10px;
 }
-.g-item {
-  background: white;
-  padding: 28px 24px;
-  border-radius: 16px;
+.feature-split-text { text-align: center; }
+
+/* ============ スタイライズド UI モック (実スクショが無い機能用) ============
+ * 右上の「折り目」= ブランドモチーフ。clip-path で角を落とし、::after の
+ * 三角で折り返しの裏面を描く。 */
+.ui-mock {
+  position: relative;
+  background: var(--lp-card);
+  border: 1px solid var(--lp-hairline);
+  border-radius: 18px;
+  padding: 26px 24px;
+  margin: 34px auto 0;
+  max-width: 400px;
+  text-align: left;
+  box-shadow: 0 10px 34px rgba(43, 38, 32, 0.09);
+  clip-path: polygon(0 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 0 100%);
+}
+.ui-mock::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(225deg, transparent 48%, var(--lp-fold) 50%);
+  border-bottom-left-radius: 10px;
+}
+.mock-caption {
+  font-size: 11px;
+  color: var(--lp-sub);
+  margin: 12px 0 0;
   text-align: center;
-  border: 1px solid var(--lp-divider);
 }
-.g-icon {
+
+/* 想起カードモック */
+.recall-mock-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--lp-accent-text);
+  margin: 0 0 14px;
+}
+.recall-mock-quote {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.85;
+  color: var(--lp-text);
+  margin: 0 0 12px;
+}
+.recall-mock-source {
+  font-size: 12px;
+  color: var(--lp-sub);
+  margin: 0 0 20px;
+}
+.recall-mock-actions { display: flex; gap: 10px; }
+.recall-mock-btn {
+  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 60px;
-  height: 60px;
-  background: var(--lp-bg);
-  border-radius: 50%;
-  color: var(--lp-primary);
-  margin-bottom: 14px;
-}
-.g-item h3 {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  margin: 0 0 12px;
+  min-height: 42px;
+  border-radius: 100px;
+  font-size: 13.5px;
   font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.g-item p {
-  font-size: 14px;
-  line-height: 1.85;
+  border: 1.5px solid var(--lp-hairline);
   color: var(--lp-sub);
-  margin: 0;
+  background: var(--lp-bg);
+}
+.recall-mock-btn.primary {
+  background: var(--lp-primary);
+  border-color: var(--lp-primary);
+  color: #fff;
 }
 
-/* ============ Comparison (VS テーブル) ============ */
-.comparison { background: var(--lp-bg-warm); text-align: center; }
-.comparison-intro {
-  font-size: 14px;
-  text-align: center;
-  margin: 0 0 24px;
-  color: var(--lp-sub);
-  line-height: 1.85;
+/* 凝縮 (テーマまとめ) モック */
+.condense-mock-theme {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--lp-accent-text);
+  margin: 0 0 16px;
 }
-.vs-table {
-  background: white;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-  margin: 32px 0;
-  max-width: 100%;
-}
-.vs-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(0, 1.4fr);
-  background: var(--lp-bg);
-  border-bottom: 2px solid var(--lp-primary);
-}
-.vs-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(0, 1.4fr);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-.vs-row:last-child { border: none; }
-.vs-cell {
-  padding: 12px 10px;
+.condense-mock-row {
   display: flex;
-  align-items: center;
-  font-size: 12.5px;
-  line-height: 1.6;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-.vs-cell.vs-feature {
-  font-weight: 600;
-  color: var(--lp-text);
-  border-right: 1px solid rgba(0, 0, 0, 0.05);
-  text-align: left;
-}
-.vs-cell.vs-other {
-  justify-content: center;
-  border-right: 1px solid rgba(0, 0, 0, 0.05);
-  background: #fafafa;
-  color: #999;
-}
-.vs-cell.vs-other svg { color: #c0c0c0; }
-.vs-cell.vs-us {
-  background: #FFF8E1;
   flex-direction: column;
-  align-items: flex-start;
   gap: 4px;
-  padding-left: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--lp-hairline);
 }
-.vs-cell.vs-us svg { color: var(--lp-success); flex-shrink: 0; }
-.us-text {
-  font-size: 10.5px;
-  color: var(--lp-primary);
-  font-weight: 500;
-  line-height: 1.45;
-}
-.us-not-needed {
-  color: #999;
-  font-size: 11px;
-  font-style: italic;
-}
-.us-label {
+.condense-mock-key {
   font-size: 11px;
   font-weight: 700;
-  color: var(--lp-primary);
-  line-height: 1.4;
-  text-align: center;
-  letter-spacing: 0.02em;
-}
-/* ヘッダー行は中央揃え (機能列以外) */
-.vs-header .vs-cell {
-  font-weight: 700;
-  font-size: 11px;
+  letter-spacing: 0.1em;
   color: var(--lp-sub);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-align: center;
-  justify-content: center;
 }
-.vs-header .vs-feature { color: var(--lp-text); justify-content: flex-start; }
-.vs-header .vs-us { background: #FFF8E1; }
-.comparison-conclusion {
+.condense-mock-val {
   font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.8;
+  color: var(--lp-text);
+}
+.condense-mock-row:first-of-type .condense-mock-val {
   font-size: 17px;
-  text-align: center;
-  margin-top: 32px;
-  line-height: 1.85;
-  font-weight: 700;
-}
-.comparison-conclusion strong {
   color: var(--lp-primary);
-  border-bottom: 3px solid var(--lp-accent);
-  padding: 0 4px 2px;
 }
 
-/* ============ Philosophy ============ */
-.philosophy { background: white; }
-.philosophy-card {
-  margin: 24px 0;
-  padding: 32px 24px;
-  background: linear-gradient(135deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
-  border-radius: 16px;
-  border-left: 4px solid var(--lp-primary);
-  text-align: left;
-}
-.philosophy-card p { font-size: 15px; line-height: 1.85; }
-.philosophy-quotes {
-  list-style: none;
-  padding: 0;
-  margin: 20px 0;
-}
-.philosophy-quotes li {
-  padding: 12px 16px;
-  background: white;
-  border-radius: 8px;
-  margin: 8px 0;
-  font-family: var(--font-serif);
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--lp-primary);
-  letter-spacing: -0.01em;
-  position: relative;
-  padding-left: 28px;
-}
-.philosophy-quotes li::before {
-  content: '”';
-  position: absolute;
-  left: 10px;
-  top: 4px;
-  font-size: 24px;
-  color: var(--lp-accent);
-  line-height: 1;
-}
-.disclaimer {
-  font-size: 11px;
-  color: #999;
-  line-height: 1.6;
-  margin-top: 16px;
-}
-
-/* ============ Pricing ============ */
-.pricing { background: var(--lp-bg-warm); text-align: center; }
-.price-card {
-  background: white;
-  padding: 36px 24px;
-  border-radius: 24px;
-  margin-top: 32px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
-  border: 2px solid var(--lp-primary);
-  text-align: left;
-}
-.price-tier {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--lp-accent);
-  text-align: center;
-  margin-bottom: 8px;
-}
-.price-amount {
+/* ============ 6. マイ読書脳 スクショペア ============ */
+.screenshot-pair {
   display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-.price-amount .yen { font-size: 24px; font-weight: 700; color: var(--lp-primary); }
-.price-amount .num {
-  font-size: 64px;
-  font-weight: 800;
-  color: var(--lp-primary);
-  line-height: 1;
-  letter-spacing: -0.04em;
-}
-.price-amount .per { font-size: 16px; color: var(--lp-sub); margin-left: 4px; }
-.price-trial {
-  display: block;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--lp-success);
-  margin-bottom: 8px;
-}
-.price-divider {
-  height: 1px;
-  background: var(--lp-divider);
-  margin: 24px 0;
-}
-.price-features {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 24px;
-}
-.price-features li {
-  padding: 10px 0;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  color: var(--lp-text);
-}
-.price-features li svg { color: var(--lp-success); flex-shrink: 0; }
-.price-features li:last-child { border: none; }
-.price-fineprint {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-}
-.price-fineprint p {
-  font-size: 11px;
-  color: var(--lp-sub);
-  margin: 4px 0;
-  line-height: 1.6;
-}
-.price-philosophy {
-  font-family: var(--font-serif);
-  font-size: 14px;
-  text-align: center;
-  margin-top: 40px;
-  color: var(--lp-text);
-  line-height: 1.95;
-}
-.price-philosophy strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 16px;
-  color: var(--lp-primary);
-}
-
-/* ============ FAQ ============ */
-.faq { background: white; text-align: center; }
-.faq details {
-  background: var(--lp-bg);
-  border-radius: 12px;
-  margin: 12px 0;
-  overflow: hidden;
-  text-align: left;
-}
-.faq summary {
-  padding: 18px 20px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  list-style: none;
-  position: relative;
-  padding-right: 48px;
-  color: var(--lp-text);
-}
-.faq summary::-webkit-details-marker { display: none; }
-.faq summary::after {
-  content: '+';
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 22px;
-  color: var(--lp-primary);
-  font-weight: 300;
-  transition: transform 0.2s;
-}
-.faq details[open] summary::after { content: '×'; }
-.faq details p {
-  padding: 0 20px 20px;
-  font-size: 14px;
-  color: var(--lp-sub);
-  line-height: 1.85;
-  margin: 0;
-}
-
-/* ============ Final CTA ============ */
-.final-cta {
-  background: linear-gradient(135deg, var(--lp-primary) 0%, var(--lp-accent) 100%);
-  color: white;
-  padding: 88px 24px !important;
-  text-align: center;
-}
-.final-cta h2 { color: white; font-size: 40px; }
-.final-sub {
-  font-size: 16px;
-  margin: 16px 0 32px;
-  opacity: 0.92;
-}
-.final-cta .cta-primary {
-  background: white;
-  color: var(--lp-primary);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-.final-note {
-  font-size: 12px;
-  margin-top: 18px;
-  opacity: 0.85;
-}
-
-/* ============ Footer ============ */
-.lp-footer {
-  background: #1c1c1c;
-  color: white;
-  padding: 56px 24px;
-  text-align: center;
-}
-.lp-footer-brand {
-  font-family: var(--font-serif);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  margin: 0 0 8px;
-}
-.footer-links {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin: 24px 0;
-  flex-wrap: wrap;
-}
-.footer-links a {
-  color: white;
-  font-size: 12px;
-  opacity: 0.7;
-  text-decoration: none;
-  letter-spacing: 0.05em;
-}
-.footer-links a:hover { opacity: 1; }
-.copyright {
-  font-size: 11px !important;
-  opacity: 0.5;
-  margin: 0;
-}
-
-/* ============ Fade-in ============ */
-.fade-in {
-  opacity: 1;
-  transform: none;
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-.lp-root.js-ready .fade-in:not(.visible) {
-  opacity: 0;
-  transform: translateY(20px);
-}
-.fade-in.visible {
-  opacity: 1 !important;
-  transform: none !important;
-}
-@media (prefers-reduced-motion: reduce) {
-  .fade-in,
-  .lp-root.js-ready .fade-in:not(.visible) {
-    opacity: 1 !important;
-    transform: none !important;
-  }
-  .sticky-cta { animation: none; }
-  .badge-dot { animation: none; }
-}
-
-/* ============ Desktop ============ */
-@media (min-width: 768px) {
-  .lp-root section { padding: 120px 32px; max-width: 800px; }
-  .hero-title { font-size: 56px !important; line-height: 1.35; }
-  .lp-root section h2 { font-size: 36px; line-height: 1.35; }
-  .lp-root section h3 { font-size: 24px; }
-  .vs-cell { padding: 16px 14px; font-size: 14px; }
-  .us-text { font-size: 12px; }
-  .vs-header .vs-cell { font-size: 12px; }
-  .sticky-cta { display: none; }
-  .lp-root { padding-bottom: 0; }
-  /* デスクトップでは PhoneFrame の inline width をそのまま (上書きしない) */
-  .final-cta h2 { font-size: 44px; }
-  .pain-intro { font-size: 17px; }
-  .mechanism { gap: 28px; grid-template-columns: 80px 1fr; }
-  .mech-num { font-size: 40px; }
-  .mech-content h3 { font-size: 26px; }
-}
-
-/* ============================================================================
- * 実アプリスクショ統合 — Mechanisms と新 Action Feature セクション用
- * ============================================================================ */
-
-/* Mech 各セクション内の単一スクショ */
-.mech-screenshot {
-  margin-top: 24px;
-  text-align: center;
-}
-
-/* Mech 03 用: 質問 → 回答 の 2 枚並び */
-.mech-screenshot-double .screenshot-pair {
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  margin: 16px 0;
-  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 36px;
 }
 .screenshot-step {
-  text-align: center;
+  margin: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .screenshot-step-label {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--lp-primary);
-  margin: 0;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 .screenshot-arrow {
-  font-size: 28px;
+  font-size: 26px;
   color: var(--lp-accent);
   font-weight: 700;
   line-height: 1;
-}
-@media (max-width: 600px) {
-  .mech-screenshot-double .screenshot-pair {
-    flex-direction: column;
-    gap: 12px;
-  }
-  .screenshot-arrow { transform: rotate(90deg); }
-}
-.screenshot-caption {
-  font-size: 13px;
-  color: var(--lp-sub);
-  margin-top: 16px;
-  font-style: italic;
-  text-align: center;
+  transform: rotate(90deg);
 }
 
-/* ============ 行動管理アピールセクション ============ */
-.action-feature {
-  background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
-}
-.action-feature-grid {
+/* ============ 7. 読む前 ============ */
+.before { text-align: center; }
+.before-grid {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  align-items: center;
-  margin-top: 32px;
-}
-.action-feature-text {
-  text-align: left;
-  max-width: 480px;
-  width: 100%;
-}
-.action-feature-lead {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0 0 16px;
-  line-height: 1.7;
-  color: var(--lp-text);
-}
-.action-feature-list {
-  list-style: none;
-  padding: 0;
-  margin: 16px 0;
-}
-.action-feature-list li {
-  padding: 12px 14px;
-  background: white;
-  border-radius: 10px;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--lp-text);
-  line-height: 1.6;
-  border: 1px solid var(--lp-divider);
-}
-.action-feature-conclusion {
-  font-family: var(--font-serif);
-  font-size: 15px;
-  margin: 16px 0 0;
-  color: var(--lp-primary);
-  line-height: 1.85;
-  font-weight: 600;
-}
-.action-feature-image {
-  display: flex;
-  justify-content: center;
-}
-@media (min-width: 768px) {
-  .action-feature-grid {
-    flex-direction: row;
-    align-items: center;
-    gap: 48px;
-    justify-content: center;
-  }
-  .action-feature-text { flex: 1; max-width: 420px; }
-  .action-feature-image { flex: 0 0 auto; }
-}
-
-/* ============================================================================
- * 購買率最適化リライト用スタイル (2026-05-04)
- *
- * Hero / Pain (損失計算機) / Pricing 強化 / Final CTA / Guarantee row /
- * cta-secondary・cta-large。既存スタイルは触らず追加分のみ。
- * ============================================================================ */
-
-/* ---- Hero (新コピー) ---- */
-.hero-eyebrow {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--lp-primary);
-  margin: 0 0 16px;
-  text-transform: none;
-}
-.hero-headline {
-  font-family: var(--font-serif);
-  font-size: clamp(36px, 9vw, 56px);
-  line-height: 1.2;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin: 0 0 24px;
-  word-break: keep-all;
-  color: var(--lp-primary);
-}
-
-/* ---- Pain 損失計算機 ---- */
-.pain-calculator {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  margin: 24px auto 8px;
-  max-width: 380px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  box-sizing: border-box;
-}
-.calc-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  font-size: 14px;
-  color: var(--lp-text);
-  word-break: keep-all;
-}
-.calc-row .calc-value {
-  font-family: var(--font-serif);
-  font-weight: 700;
-  white-space: nowrap;
-  margin-left: 12px;
-}
-.calc-row.highlight { color: #c0392b; }
-.calc-row.highlight .calc-value { font-size: 22px; }
-.calc-divider {
-  height: 1px;
-  background: rgba(0, 0, 0, 0.1);
-  margin: 8px 0;
-}
-.calc-row.total { font-size: 16px; font-weight: 700; }
-.calc-row.total .calc-value { font-size: 28px; color: #c0392b; }
-.pain-source {
-  font-size: 11px;
-  color: var(--lp-sub);
-  text-align: center;
-  margin: 0 0 24px;
-}
-.pain-conclusion {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  text-align: center;
-  margin: 24px 0 20px;
-  line-height: 1.8;
-  word-break: keep-all;
-}
-.pain-conclusion strong {
-  color: var(--lp-primary);
-  font-size: 22px;
-}
-
-/* ---- セカンダリ CTA (Pain 末尾など) ---- */
-.cta-secondary {
-  display: inline-block;
-  background: white;
-  color: var(--lp-primary);
-  border: 2px solid var(--lp-primary);
-  padding: 14px 28px;
-  border-radius: 999px;
-  font-size: 15px;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  font-family: inherit;
-  margin-top: 8px;
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-.cta-secondary:active { transform: scale(0.97); background: var(--lp-bg); }
-
-/* ---- ラージ CTA (Pricing / Final で使う) ---- */
-.cta-large {
-  display: inline-block;
-  width: 100%;
-  max-width: 360px;
-  margin: 16px auto 8px;
-  font-size: 18px;
-  padding: 20px 24px;
-  font-weight: 800;
-  text-align: center;
-}
-
-/* ---- Pricing 強化 (新ラベル / 数値 / 比較) ---- */
-.pricing .price-card {
-  text-align: center;
-}
-.price-num {
-  font-family: var(--font-serif);
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 4px;
-  margin-bottom: 12px;
-  color: var(--lp-primary);
-}
-.price-yen { font-size: 24px; font-weight: 700; }
-.price-main {
-  font-size: clamp(48px, 13vw, 64px);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-.price-period { font-size: 16px; color: var(--lp-sub); }
-.price-equiv {
-  font-size: 16px;
-  color: var(--lp-text);
-  margin: 0 0 8px;
-  word-break: keep-all;
-}
-.price-equiv strong {
-  font-size: 22px;
-  color: var(--lp-primary);
-  font-family: var(--font-serif);
-}
-.price-compare {
-  font-size: 13px;
-  color: var(--lp-sub);
-  line-height: 1.7;
-  margin: 0 0 24px;
-  word-break: keep-all;
-}
-.price-note {
-  font-size: 11px;
-  color: var(--lp-sub);
-  margin-top: 8px;
-  text-align: center;
-}
-
-/* ---- 3 つの保証 (Pricing 内) ---- */
-.guarantee-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-  max-width: 420px;
-  margin: 28px auto 0;
-}
-@media (max-width: 480px) {
-  .guarantee-row { grid-template-columns: 1fr; gap: 10px; }
-}
-.g-item {
-  background: var(--lp-bg);
-  padding: 16px 12px;
-  border-radius: 12px;
-  text-align: center;
-  border: 1px solid var(--lp-divider);
-}
-.g-item strong {
-  display: block;
-  font-size: 14px;
-  margin-bottom: 4px;
-  color: var(--lp-primary);
-}
-.g-item p {
-  font-size: 12px;
-  color: var(--lp-sub);
-  margin: 0;
-  line-height: 1.6;
-}
-
-/* ---- Final CTA 強化 ---- */
-.final-headline {
-  font-family: var(--font-serif);
-  font-size: clamp(28px, 7vw, 40px);
-  line-height: 1.3;
-  font-weight: 800;
-  margin: 0 0 24px;
-  word-break: keep-all;
-  color: white;
-}
-.final-cta .cta-large {
-  background: white;
-  color: var(--lp-primary);
-}
-
-/* ============ FAQ Compact (final-cta 内に統合された折りたたみ FAQ) ============ */
-.faq-compact {
-  margin: 56px auto 0;
-  max-width: 480px;
+  gap: 14px;
+  margin: 30px 0 36px;
   text-align: left;
 }
-.faq-compact-eyebrow {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.7);
-  margin: 0 0 16px;
-  text-align: center;
-  font-family: var(--font-sans);
-  font-weight: 600;
-}
-.faq-compact-item {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+.before-item {
+  background: var(--lp-card);
+  border: 1px solid var(--lp-hairline);
   border-radius: 14px;
-  margin-bottom: 10px;
+  padding: 20px 22px;
+}
+.before-item h3 {
+  font-size: 16.5px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--lp-primary);
+}
+.before-item p {
+  font-size: 13.5px;
+  line-height: 1.9;
+  color: var(--lp-sub);
+  margin: 0;
+}
+.before-screens {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+/* ============ 8. 比較 ============ */
+.compare { text-align: center; }
+.compare-lead {
+  font-size: 14.5px;
+  line-height: 2;
+  color: var(--lp-sub);
+  margin: 0 auto 30px;
+  max-width: 30em;
+}
+.compare-lead strong { color: var(--lp-text); }
+.compare-table {
+  display: flex;
+  flex-direction: column;
+  background: var(--lp-card);
+  border: 1px solid var(--lp-hairline);
+  border-radius: 16px;
   overflow: hidden;
-  transition: background 0.2s ease;
+  text-align: left;
 }
-.faq-compact-item[open] {
-  background: rgba(255, 255, 255, 0.13);
+.compare-row {
+  display: grid;
+  grid-template-columns: 4.8em minmax(0, 1fr) minmax(0, 1fr);
 }
-.faq-compact-item summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 14px 18px;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
+.compare-row + .compare-row { border-top: 1px solid var(--lp-hairline); }
+.compare-axis {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--lp-sub);
+  padding: 15px 10px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  min-height: 44px;
+  background: var(--lp-bg-warm);
 }
-.faq-compact-item summary::-webkit-details-marker { display: none; }
-.faq-compact-mark {
-  position: relative;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-.faq-compact-mark::before,
-.faq-compact-mark::after {
-  content: "";
-  position: absolute;
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 1px;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-.faq-compact-mark::before {
-  top: 6px; left: 0;
-  width: 14px; height: 2px;
-}
-.faq-compact-mark::after {
-  top: 0; left: 6px;
-  width: 2px; height: 14px;
-}
-.faq-compact-item[open] .faq-compact-mark::after {
-  transform: scaleY(0);
-  opacity: 0;
-}
-.faq-compact-item p {
-  margin: 0;
-  padding: 0 18px 16px;
-  color: rgba(255, 255, 255, 0.85);
+.compare-col {
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.65;
+  padding: 15px 12px;
+  display: flex;
+  align-items: center;
 }
-
-/* ============ PhoneFrame モバイル幅キャップ ============ */
-@media (max-width: 480px) {
-  .phone-frame {
-    max-width: min(220px, 65vw);
-  }
+.compare-other { color: var(--lp-sub); border-left: 1px solid var(--lp-hairline); }
+.compare-us {
+  color: var(--lp-primary);
+  font-weight: 700;
+  border-left: 1px solid var(--lp-hairline);
+  background: rgba(139, 111, 71, 0.07);
 }
+.compare-head .compare-col {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lp-text);
+  line-height: 1.5;
+}
+.compare-head .compare-us { color: var(--lp-accent-text); }
 
-/* ============ 社会的証明（お客様の声） ============ */
-/* 実在の声がある時だけ JSX 側で描画される（TESTIMONIALS が空なら出ない）。 */
-.testimonials { background: white; text-align: center; }
+/* ============ 8.5 お客様の声 (実在の声がある時だけ) ============ */
+.testimonials { text-align: center; }
 .testimonial-list {
   display: flex;
   flex-direction: column;
@@ -1789,8 +715,8 @@ body.lp-active {
 }
 .testimonial-card {
   margin: 0;
-  background: var(--lp-bg-warm);
-  border: 1px solid var(--lp-divider);
+  background: var(--lp-card);
+  border: 1px solid var(--lp-hairline);
   border-left: 3px solid var(--lp-accent);
   border-radius: 12px;
   padding: 20px 22px;
@@ -1799,100 +725,354 @@ body.lp-active {
   margin: 0;
   font-family: var(--font-serif);
   font-size: 16px;
-  line-height: 1.8;
-  color: var(--lp-text);
+  line-height: 1.9;
 }
 .testimonial-card figcaption {
   margin-top: 12px;
-  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--lp-sub);
 }
 
-/* ============ 比較（記録型 vs 想起・活用型） ============ */
-.compare { background: var(--lp-bg-warm); text-align: center; }
-.compare-lead {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.9;
-  color: var(--lp-sub);
-  margin: 16px auto 28px;
-  max-width: 30em;
+/* ============ 9. ブランドストーリー (折り目) ============ */
+.story { text-align: center; }
+.story-card {
+  position: relative;
+  background: var(--lp-card);
+  border: 1px solid var(--lp-hairline);
+  border-radius: 20px;
+  padding: 44px 28px;
+  box-shadow: 0 12px 40px rgba(43, 38, 32, 0.08);
+  clip-path: polygon(0 0, calc(100% - 40px) 0, 100% 40px, 100% 100%, 0 100%);
 }
-.compare-lead strong { color: var(--lp-text); }
-.compare-table {
+.story-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(225deg, transparent 48%, var(--lp-fold) 50%);
+  border-bottom-left-radius: 12px;
+}
+.story-card .section-headline { font-size: clamp(24px, 6vw, 30px); }
+.story-body {
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  line-height: 2.2;
+  color: var(--lp-text);
+  margin: 18px 0;
+}
+.story-close {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--lp-primary);
+  margin: 30px 0 0;
+}
+
+/* ============ 10. Pricing ============ */
+.pricing {
+  background: var(--lp-bg-warm);
+  max-width: none !important;
+  text-align: center;
+}
+.pricing > * { max-width: 620px; margin-left: auto; margin-right: auto; }
+.price-card {
+  background: var(--lp-card);
+  padding: 38px 26px;
+  border-radius: 24px;
+  margin-top: 30px;
+  box-shadow: 0 12px 32px rgba(43, 38, 32, 0.08);
+  border: 2px solid var(--lp-primary);
+  max-width: 440px !important;
+}
+.price-num {
+  font-family: var(--font-serif);
   display: flex;
-  flex-direction: column;
-  gap: 0;
-  background: white;
-  border: 1px solid var(--lp-divider);
-  border-radius: 14px;
-  overflow: hidden;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  color: var(--lp-primary);
+  white-space: nowrap;
+}
+.price-yen { font-size: 24px; font-weight: 700; }
+.price-main {
+  font-size: clamp(48px, 13vw, 62px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.price-period { font-size: 15px; color: var(--lp-sub); margin-left: 4px; }
+.price-equiv {
+  font-size: 14px;
+  color: var(--lp-sub);
+  margin: 0 0 22px;
+}
+.price-equiv strong {
+  font-size: 19px;
+  color: var(--lp-primary);
+  font-family: var(--font-serif);
+}
+.price-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 26px;
   text-align: left;
 }
-.compare-row {
-  display: grid;
-  grid-template-columns: 5.5em 1fr 1fr;
-  align-items: stretch;
-}
-.compare-row + .compare-row { border-top: 1px solid var(--lp-divider); }
-.compare-axis {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--lp-sub);
-  padding: 14px 10px;
-  display: flex;
-  align-items: center;
-  background: var(--lp-bg-warm);
-}
-.compare-col {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.55;
-  padding: 14px 12px;
-  display: flex;
-  align-items: center;
-}
-.compare-other { color: var(--lp-sub); border-left: 1px solid var(--lp-divider); }
-.compare-us {
-  color: var(--lp-text);
-  font-weight: 600;
-  border-left: 1px solid var(--lp-divider);
-  background: rgba(139, 111, 71, 0.06);
-}
-.compare-head .compare-col {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--lp-text);
-}
-.compare-head .compare-us { color: var(--lp-accent); }
-.compare-note {
-  font-family: var(--font-sans);
+.price-features li {
+  padding: 11px 0;
   font-size: 14px;
-  line-height: 1.9;
-  color: var(--lp-sub);
-  margin: 24px auto 20px;
-  max-width: 30em;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: var(--lp-text);
+  line-height: 1.6;
 }
-.compare-note strong { color: var(--lp-text); }
-
-/* ログイン導線（LPに着地した既存ユーザー向け・控えめ） */
-.hero-login {
-  font-family: var(--font-sans);
-  font-size: 13px;
+.price-features li svg { color: #2E7D32; flex-shrink: 0; margin-top: 3px; }
+.price-features li:last-child { border: none; }
+.price-note {
+  font-size: 11.5px;
   color: var(--lp-sub);
-  margin: 14px 0 0;
+  margin: 12px 0 0;
 }
-.hero-login-link {
-  background: none;
-  border: none;
-  padding: 6px 4px;
-  min-height: 32px;
-  font-family: inherit;
+.guarantee-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 460px !important;
+  margin-top: 26px;
+}
+.g-item {
+  background: var(--lp-card);
+  padding: 16px 10px;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid var(--lp-hairline);
+}
+.g-item strong {
+  display: block;
   font-size: 13px;
-  font-weight: 600;
+  margin-bottom: 4px;
   color: var(--lp-primary);
-  text-decoration: underline;
+}
+.g-item p {
+  font-size: 11.5px;
+  color: var(--lp-sub);
+  margin: 0;
+  line-height: 1.6;
+}
+@media (max-width: 480px) {
+  .guarantee-row { grid-template-columns: 1fr; gap: 10px; }
+  .g-item { display: flex; align-items: baseline; gap: 10px; text-align: left; padding: 13px 16px; }
+  .g-item strong { margin: 0; flex-shrink: 0; }
+}
+
+/* ============ 11. FAQ ============ */
+.faq { text-align: center; }
+.faq-list { margin-top: 28px; text-align: left; }
+.faq-item {
+  background: var(--lp-card);
+  border: 1px solid var(--lp-hairline);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+.faq-item[open] { box-shadow: 0 6px 20px rgba(43, 38, 32, 0.07); }
+.faq-item summary {
+  list-style: none;
   cursor: pointer;
+  padding: 16px 18px;
+  color: var(--lp-text);
+  font-size: 14.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-mark { position: relative; width: 14px; height: 14px; flex-shrink: 0; }
+.faq-mark::before,
+.faq-mark::after {
+  content: '';
+  position: absolute;
+  background: var(--lp-accent);
+  border-radius: 1px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.faq-mark::before { top: 6px; left: 0; width: 14px; height: 2px; }
+.faq-mark::after { top: 0; left: 6px; width: 2px; height: 14px; }
+.faq-item[open] .faq-mark::after { transform: scaleY(0); opacity: 0; }
+.faq-item p {
+  margin: 0;
+  padding: 0 18px 18px;
+  color: var(--lp-sub);
+  font-size: 13.5px;
+  line-height: 1.95;
+}
+
+/* ============ 12. Final CTA ============ */
+.final-cta {
+  background: linear-gradient(160deg, var(--lp-primary) 0%, var(--lp-primary-deep) 100%);
+  color: #fff;
+  padding: 92px 24px !important;
+  max-width: none !important;
+  text-align: center;
+}
+.final-cta > * { max-width: 620px; margin-left: auto; margin-right: auto; }
+.final-headline {
+  font-size: clamp(30px, 8vw, 42px);
+  line-height: 1.45;
+  font-weight: 700;
+  margin: 0 0 20px;
+  color: #fff;
+}
+.final-sub {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 2.1;
+  margin: 0 0 36px;
+  opacity: 0.94;
+}
+.final-cta .cta-final {
+  background: #fff;
+  color: var(--lp-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+.final-note {
+  font-size: 12px;
+  margin: 18px 0 0;
+  opacity: 0.85;
+}
+
+/* ============ Footer ============ */
+.lp-footer {
+  background: #1c1a17;
+  color: #fff;
+  padding: 56px 24px calc(56px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+}
+.lp-footer-brand {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin: 0 0 6px;
+}
+.lp-footer-tag {
+  font-size: 12px;
+  opacity: 0.6;
+  margin: 0 0 24px;
+}
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 8px 24px;
+  margin: 0 0 24px;
+  flex-wrap: wrap;
+}
+.footer-links a {
+  color: #fff;
+  font-size: 12px;
+  opacity: 0.72;
+  text-decoration: none;
+  letter-spacing: 0.05em;
+  padding: 8px 0;
+  display: inline-block;
+}
+.footer-links a:hover { opacity: 1; text-decoration: underline; }
+.copyright { font-size: 11px; opacity: 0.5; margin: 0; }
+.build-stamp {
+  font-size: 10px;
+  color: #9a917f; /* #1c1a17 地でコントラスト 4.5:1 以上 */
+  margin: 8px 0 0;
+  letter-spacing: 0.3px;
+}
+
+/* ============ フェードイン ============ */
+.fade-in {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.lp-root.js-ready .fade-in:not(.visible) {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.fade-in.visible {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* ============ reduced motion ============ */
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .lp-root.js-ready .fade-in:not(.visible) {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none;
+  }
+  .sticky-cta { transition: none; }
+  .phone-frame.float { animation: none; }
+  .skip-link { transition: none; }
+}
+
+/* ============ Tablet / Desktop (≥768px) ============ */
+@media (min-width: 768px) {
+  .sp-only { display: none; }
+  .pc-only { display: inline; }
+
+  .lp-root main section { padding: 110px 32px; max-width: 720px; }
+  .lp-header-inner { padding: 0 28px; }
+
+  .hero { padding: calc(var(--header-h) + 84px) 32px 110px !important; }
+  .hero-subhead { line-height: 2.3; }
+  .hero-mockup { margin-top: 64px; }
+
+  .section-headline { font-size: 38px; }
+  .section-headline br { /* デスクトップでは 1 行に収まる見出しもあるが、リズム優先で改行を維持 */ }
+
+  .sticky-cta { display: none; }
+
+  /* 行動セクション: 左テキスト / 右スクショの 2 カラム */
+  .feature-split {
+    flex-direction: row;
+    gap: 56px;
+    justify-content: center;
+    align-items: center;
+    text-align: left;
+  }
+  .feature-split-text { text-align: left; flex: 1; max-width: 400px; }
+  .feature-alt .feature-split { max-width: 820px; margin-left: auto; margin-right: auto; }
+
+  /* 読書脳: 横並び Q→A */
+  .screenshot-pair { flex-direction: row; align-items: flex-start; gap: 26px; }
+  .screenshot-arrow { transform: none; margin-top: 220px; }
+
+  /* 読む前: 3 カラムカード */
+  .before-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .before-screens { gap: 32px; }
+
+  .compare-row { grid-template-columns: 6.5em minmax(0, 1fr) minmax(0, 1fr); }
+  .compare-col { font-size: 14px; padding: 17px 16px; }
+
+  .story-card { padding: 56px 56px; }
+
+  .final-cta { padding: 120px 32px !important; }
+}
+
+/* 大画面: 余白をさらに */
+@media (min-width: 1100px) {
+  .lp-root main section { max-width: 760px; }
 }
