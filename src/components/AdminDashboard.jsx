@@ -366,6 +366,45 @@ export default function AdminDashboard({ onClose }) {
     return () => { alive = false; };
   }, []);
 
+  // 🏢 作戦司令室の報告を Supabase から復元（AI企業の「記憶」・自分の行のみ）。
+  // 各 member の最新行 = 現在の状態。未適用 DB では静かに localStorage のみで動く。
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ops_floor_reports')
+          .select('member_id, kind, status, body, created_at')
+          .order('created_at', { ascending: false })
+          .limit(300);
+        if (!alive || error || !Array.isArray(data)) return;
+        const latest = {};
+        let integ = null;
+        for (const r of data) {
+          if (r.kind === 'integration') { if (!integ) integ = r; continue; }
+          if (!latest[r.member_id]) latest[r.member_id] = r;
+        }
+        // クラウドの行がローカルより新しければ採用（新しい方が勝つ）。
+        setFloorReports((prev) => {
+          const next = { ...prev };
+          for (const [id, r] of Object.entries(latest)) {
+            const at = new Date(r.created_at).getTime();
+            if (!next[id] || at > (next[id].at || 0)) next[id] = { status: r.status || '報告完了', body: r.body || '', at, ok: true };
+          }
+          try { localStorage.setItem('orime.floor.reports', JSON.stringify(next)); } catch { /* quota */ }
+          return next;
+        });
+        if (integ) {
+          setIntegration((prev) => {
+            const at = new Date(integ.created_at).getTime();
+            return (!prev || at > (prev.at || 0)) ? { body: integ.body || '', at, ok: true } : prev;
+          });
+        }
+      } catch { /* テーブル未適用: localStorage のみ */ }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   // 🗓 日次タスクを復元（今日以降を優先・自分の行のみ）。
   const loadTasks = useCallback(async () => {
     try {
@@ -522,6 +561,12 @@ export default function AdminDashboard({ onClose }) {
         try { localStorage.setItem('orime.floor.reports', JSON.stringify(next)); } catch { /* quota/private */ }
         return next;
       });
+      // クラウドにも追記（記憶＋履歴・fire-and-forget・未適用 DB は静かに失敗）。
+      if (res && res.body) {
+        supabase.from('ops_floor_reports')
+          .insert({ member_id: member.id, kind: 'report', status: res.status || null, body: res.body })
+          .then(() => {}, () => {});
+      }
     } finally {
       setFloorBusy((b) => ({ ...b, [member.id]: false }));
     }
@@ -562,6 +607,11 @@ export default function AdminDashboard({ onClose }) {
       const entry = { body: body || '', at: Date.now(), ok: !!body, count: reports.length };
       setIntegration(entry);
       try { localStorage.setItem('orime.floor.integration', JSON.stringify(entry)); } catch { /* quota */ }
+      if (body) {
+        supabase.from('ops_floor_reports')
+          .insert({ member_id: '__integration__', kind: 'integration', status: null, body })
+          .then(() => {}, () => {});
+      }
     } finally {
       setIntegrationBusy(false);
     }
