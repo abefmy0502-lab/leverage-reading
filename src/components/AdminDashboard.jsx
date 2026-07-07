@@ -18,7 +18,7 @@ import {
   Brain, Send,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { generateOpsRoadmap, opsAdvise, generateOpsTasks, consultSpecialist } from '../lib/ai';
+import { generateOpsRoadmap, opsAdvise, generateOpsTasks, consultSpecialist, integrateFloor } from '../lib/ai';
 import { DEPARTMENTS, DEPT_META, AI_COMPANY, findMember } from '../lib/aiCompany';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
@@ -272,6 +272,15 @@ export default function AdminDashboard({ onClose }) {
   const [floorBusy, setFloorBusy] = useState({}); // memberId -> bool
   const [activeMemberId, setActiveMemberId] = useState(null);
   const [floorOrder, setFloorOrder] = useState('');
+  // 🎖 CEO室 統合ブリーフ。
+  const [integration, setIntegration] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('orime.floor.integration') || 'null'); } catch { return null; }
+  });
+  const [integrationBusy, setIntegrationBusy] = useState(false);
+  // 部門一括招集の進捗（deptKey -> {done,total} / null）。
+  const [deptProgress, setDeptProgress] = useState({});
+  // 成果物→チケット化の状態（memberId -> 'done'）。
+  const [ticketed, setTicketed] = useState({});
   // タブ（概況 / アクション / 参謀 / フロア）。
   const [activeTab, setActiveTab] = useState('overview');
   // 🗓 日次タスク。
@@ -524,6 +533,57 @@ export default function AdminDashboard({ onClose }) {
     if (!floorReports[member.id] && !floorBusy[member.id]) dispatchMember(member, floorOrder);
   };
 
+  // 🏢 部門を一括招集（順次・レート制限に配慮）。進捗を deptProgress で表示。
+  const dispatchDepartment = async (deptKey) => {
+    const members = AI_COMPANY.filter((m) => m.dept === deptKey);
+    if (!members.length || deptProgress[deptKey]) return;
+    setDeptProgress((p) => ({ ...p, [deptKey]: { done: 0, total: members.length } }));
+    try {
+      for (let i = 0; i < members.length; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await dispatchMember(members[i], floorOrder);
+        setDeptProgress((p) => ({ ...p, [deptKey]: { done: i + 1, total: members.length } }));
+      }
+    } finally {
+      setDeptProgress((p) => { const n = { ...p }; delete n[deptKey]; return n; });
+    }
+  };
+
+  // 🎖 CEO室: 各社員の報告を統合して「今日の意思決定」を1つに収束させる（1 コール）。
+  const runIntegration = async () => {
+    if (integrationBusy) return;
+    const reports = AI_COMPANY
+      .filter((m) => floorReports[m.id] && floorReports[m.id].body)
+      .map((m) => ({ name: m.name, title: m.title, dept: DEPT_META[m.dept]?.label || '', status: floorReports[m.id].status, body: floorReports[m.id].body }));
+    if (reports.length === 0) return;
+    setIntegrationBusy(true);
+    try {
+      const body = await integrateFloor({ reports, stateLine, order: floorOrder });
+      const entry = { body: body || '', at: Date.now(), ok: !!body, count: reports.length };
+      setIntegration(entry);
+      try { localStorage.setItem('orime.floor.integration', JSON.stringify(entry)); } catch { /* quota */ }
+    } finally {
+      setIntegrationBusy(false);
+    }
+  };
+
+  // 🎫 成果物 → チケット化（既存の作業ボードへ流し込む＝実行に接続）。
+  const ticketFromReport = async (member, rep) => {
+    if (!rep || !rep.body || ticketed[member.id]) return;
+    const title = `[${DEPT_META[member.dept]?.label || ''}/${member.name}] ${rep.status || '成果物'}`.slice(0, 120);
+    try {
+      const { error } = await supabase.rpc('admin_ticket_create', {
+        p_title: title, p_body: String(rep.body).slice(0, 4000), p_kind: 'task', p_priority: 2, p_source_feedback: null,
+      });
+      if (!error) setTicketed((t) => ({ ...t, [member.id]: 'done' }));
+    } catch { /* RPC 未適用等は静かに無視 */ }
+  };
+
+  // フロアの稼働状況サマリー（司令室ヘッダー表示用）。
+  const floorReportedCount = AI_COMPANY.filter((m) => floorReports[m.id] && floorReports[m.id].body).length;
+  const floorBusyCount = Object.values(floorBusy).filter(Boolean).length;
+  const floorCostJpy = (floorReportedCount + (integration && integration.ok ? 1 : 0)) * AI_COST_PER_CALL_JPY;
+
   // 🗺 AI にロードマップを引いてもらう（年の目標→月別の人数/売上/施策）。
   const makeRoadmap = async () => {
     if (!goal || roadmapLoading) return;
@@ -754,31 +814,74 @@ export default function AdminDashboard({ onClose }) {
 
             {/* ═══ 社員フロアタブ（作戦司令室 — 20名+顧問の AI 社員） ═══ */}
             {activeTab === 'floor' && (<>
-            <p style={sectionTitle}>🏢 社員フロア
+            <p style={sectionTitle}>🏢 作戦司令室
               <span style={{ fontWeight: 600, color: C.ink3, fontSize: 11 }}>　{AI_COMPANY.length}名 ＋ 特別顧問団</span>
             </p>
-            <p style={{ fontSize: 12, color: C.ink2, lineHeight: 1.7, margin: '0 0 12px' }}>
-              社員をタップすると、その専門家が現状（または下の指示）を踏まえて成果物を1つ出します。
-              <strong style={{ color: C.brand }}>1タップ＝AI 1コール</strong>（原価の目安 約¥{AI_COST_PER_CALL_JPY}）。
-              報告済みの社員のタップは閲覧のみ（無課金）。更新は報告内の「🔄 更新」から。
-            </p>
+
+            {/* ── 全社サマリー（稼働状況の一望） ── */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              {[
+                ['稼働中', floorBusyCount, C.brand],
+                ['報告済', `${floorReportedCount}/${AI_COMPANY.length}`, '#6b8e6b'],
+                ['本日概算', `¥${floorCostJpy}`, C.ink2],
+              ].map(([label, val, col]) => (
+                <div key={label} style={{ flex: 1, background: C.card, border: `1px solid ${C.hairline}`, borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: col, lineHeight: 1.1 }}>{val}</p>
+                  <p style={{ margin: '3px 0 0', fontSize: 10, color: C.ink3 }}>{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* ── 元帥の指示（招集する社員に共通で伝わる） ── */}
             <textarea
               value={floorOrder}
               onChange={(e) => setFloorOrder(e.target.value)}
               placeholder="任意: 招集する社員に共通で伝える指示（空なら各自が最重要の一手を選びます）例: 来週の集客を具体化して"
               rows={2}
-              style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, marginBottom: 16 }}
+              style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, marginBottom: 14 }}
             />
+
+            {/* ── 🎖 CEO室 統合ブリーフ（全社を1つの意思決定に収束） ── */}
+            <div style={{ ...card, borderTop: `3px solid ${DEPT_META.ceo.accent}`, marginBottom: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.ink }}>🎖 CEO室 統合ブリーフ</p>
+                <button type="button" onClick={runIntegration} disabled={integrationBusy || floorReportedCount === 0}
+                  style={{ ...btnPrimary, minHeight: 38, padding: '0 14px', fontSize: 12, width: 'auto',
+                    opacity: (integrationBusy || floorReportedCount === 0) ? 0.5 : 1, cursor: (integrationBusy || floorReportedCount === 0) ? 'default' : 'pointer' }}>
+                  {integrationBusy ? '統合中…' : integration ? '再統合' : '全社を統合'}
+                </button>
+              </div>
+              <p style={{ margin: '8px 0 0', fontSize: 11, color: C.ink2, lineHeight: 1.65 }}>
+                各社員の報告を横断し、部門間の依存・矛盾を洗い出して「今日の意思決定」を1つに絞ります（AI 1コール）。
+                {floorReportedCount === 0 && <span style={{ color: C.ink3 }}>　まず社員を招集して報告を集めてください。</span>}
+              </p>
+              {integration && integration.ok && integration.body && !integrationBusy && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.hairline}`, fontSize: 13, lineHeight: 1.75, color: C.ink }}>
+                  <RoadmapMarkdown text={integration.body} />
+                </div>
+              )}
+              {integration && !integration.ok && !integrationBusy && (
+                <p style={{ fontSize: 12, color: C.critical, margin: '12px 0 0' }}>統合に失敗しました。少し時間をおいて「再統合」してください。</p>
+              )}
+            </div>
 
             {DEPARTMENTS.map((dept) => {
               const members = AI_COMPANY.filter((m) => m.dept === dept.key);
               if (!members.length) return null;
+              const prog = deptProgress[dept.key];
               return (
                 <div key={dept.key} style={{ marginBottom: 18 }}>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: C.ink2 }}>
-                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: dept.accent }} />
-                    {dept.label}
-                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '0 0 8px' }}>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, fontSize: 12, fontWeight: 700, color: C.ink2 }}>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: dept.accent }} />
+                      {dept.label}
+                    </p>
+                    <button type="button" onClick={() => dispatchDepartment(dept.key)} disabled={!!prog}
+                      style={{ border: `1px solid ${dept.accent}`, background: 'transparent', color: dept.accent, borderRadius: 99,
+                        padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: prog ? 'default' : 'pointer', opacity: prog ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                      {prog ? `招集中 ${prog.done}/${prog.total}` : `部門を招集（${members.length}コール）`}
+                    </button>
+                  </div>
                   <div style={grid2}>
                     {members.map((m) => {
                       const rep = floorReports[m.id];
@@ -838,10 +941,19 @@ export default function AdminDashboard({ onClose }) {
                     <p style={{ fontSize: 12, color: C.critical, margin: '12px 0 0' }}>応答に失敗しました。少し時間をおいて「更新」してください。</p>
                   )}
                   {!busy && (
-                    <button type="button" onClick={() => dispatchMember(m, floorOrder)}
-                      style={{ ...btnGhost, minHeight: 40, marginTop: 14, fontSize: 12 }}>
-                      🔄 {rep ? '更新（再実行・AI 1コール）' : '報告を出す（AI 1コール）'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => dispatchMember(m, floorOrder)}
+                        style={{ ...btnGhost, minHeight: 40, fontSize: 12, flex: 1, minWidth: 140 }}>
+                        🔄 {rep ? '更新（AI 1コール）' : '報告を出す（AI 1コール）'}
+                      </button>
+                      {rep && rep.ok && rep.body && (
+                        <button type="button" onClick={() => ticketFromReport(m, rep)} disabled={ticketed[m.id] === 'done'}
+                          style={{ ...btnGhost, minHeight: 40, fontSize: 12, flex: 1, minWidth: 140,
+                            opacity: ticketed[m.id] === 'done' ? 0.6 : 1, cursor: ticketed[m.id] === 'done' ? 'default' : 'pointer' }}>
+                          {ticketed[m.id] === 'done' ? '✅ チケット化済み' : '🎫 チケット化'}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               );

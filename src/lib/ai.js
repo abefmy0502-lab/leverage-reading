@@ -954,6 +954,36 @@ export async function consultSpecialist({ member, stateLine = '', order = '' } =
   return { status, body };
 }
 
+// 🎖 CEO室 統合ブリーフ — 各社員の報告を1つに束ね「今日の意思決定」に収束させる。
+// reports: [{ name, title, dept, status, body }]。1 コールで全社を統合。
+// 返り値: 統合ブリーフの Markdown 文字列 / 失敗・材料不足時 null。
+export async function integrateFloor({ reports = [], stateLine = '', order = '' } = {}) {
+  const valid = (Array.isArray(reports) ? reports : []).filter((r) => r && typeof r.body === 'string' && r.body.trim());
+  if (valid.length === 0) return null;
+  const reportsText = clamp(
+    valid.map((r) =>
+      `【${r.dept || ''}／${r.title || ''} ${r.name || ''}】${r.status ? `(${r.status})` : ''}\n${clamp(String(r.body), 700)}`,
+    ).join('\n\n'),
+    8000,
+  );
+  const system = PROMPTS.opsIntegration.system({ today: todayISO(), stateLine: clamp(String(stateLine || ''), 800) });
+  const userMsg = PROMPTS.opsIntegration.user({ reportsText, order: clamp(sanitizeForPrompt(order || ''), 1000) });
+  let result;
+  try {
+    result = await callClaude([{ role: 'user', content: userMsg }], { system, max_tokens: 1600 });
+  } catch (e) {
+    console.warn('[integrateFloor] claude failed:', e?.message);
+    return null;
+  }
+  if (typeof result !== 'string' || isClaudeErrorString(result) || isSuspiciousOutput(result)) {
+    return null;
+  }
+  const cleaned = clamp(result.trim(), 6000);
+  if (!cleaned) return null;
+  track('ai_used', { feature: 'ops_integration' });
+  return cleaned;
+}
+
 // 💭 今週の問い — マイ読書脳の能動化。ユーザー自身のメモから「立ち止まって
 // 考え・行動したくなる問い」を1つだけ生成して返す（向こうから問いを投げる）。
 // 失敗・メモ不足・エラー時は null（呼び出し側は静かに定型の問いへフォールバック）。
