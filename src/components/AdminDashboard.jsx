@@ -18,7 +18,8 @@ import {
   Brain, Send,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { generateOpsRoadmap, opsAdvise, generateOpsTasks } from '../lib/ai';
+import { generateOpsRoadmap, opsAdvise, generateOpsTasks, consultSpecialist } from '../lib/ai';
+import { DEPARTMENTS, DEPT_META, AI_COMPANY, findMember } from '../lib/aiCompany';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 
@@ -264,7 +265,14 @@ export default function AdminDashboard({ onClose }) {
   const [advisorMsgs, setAdvisorMsgs] = useState([]);
   const [advisorInput, setAdvisorInput] = useState('');
   const [advisorBusy, setAdvisorBusy] = useState(false);
-  // タブ（概況 / アクション / 参謀）。
+  // 🏢 社員フロア（作戦司令室）。各社員の最新レポートは端末ローカルに保持。
+  const [floorReports, setFloorReports] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('orime.floor.reports') || '{}'); } catch { return {}; }
+  });
+  const [floorBusy, setFloorBusy] = useState({}); // memberId -> bool
+  const [activeMemberId, setActiveMemberId] = useState(null);
+  const [floorOrder, setFloorOrder] = useState('');
+  // タブ（概況 / アクション / 参謀 / フロア）。
   const [activeTab, setActiveTab] = useState('overview');
   // 🗓 日次タスク。
   const [dailyTasks, setDailyTasks] = useState([]);
@@ -489,6 +497,33 @@ export default function AdminDashboard({ onClose }) {
     }
   };
 
+  // 🏢 社員フロア: 1 名の社員に成果物を出させる（1 タップ = AI 1 コール）。
+  // 既にレポートがある社員のタップは「閲覧のみ」（無課金）。更新は明示ボタンで。
+  const dispatchMember = async (member, order = '') => {
+    if (!member || floorBusy[member.id]) return;
+    setFloorBusy((b) => ({ ...b, [member.id]: true }));
+    try {
+      const deptLabel = DEPT_META[member.dept]?.label || '';
+      const res = await consultSpecialist({ member: { ...member, deptLabel }, stateLine, order });
+      setFloorReports((prev) => {
+        const entry = res
+          ? { status: res.status || '報告完了', body: res.body || '', at: Date.now(), ok: true }
+          : { status: '応答に失敗', body: prev[member.id]?.body || '', at: Date.now(), ok: false };
+        const next = { ...prev, [member.id]: entry };
+        try { localStorage.setItem('orime.floor.reports', JSON.stringify(next)); } catch { /* quota/private */ }
+        return next;
+      });
+    } finally {
+      setFloorBusy((b) => ({ ...b, [member.id]: false }));
+    }
+  };
+
+  // フロアのカードをタップ: 未報告なら起動、報告済みなら閲覧（パネルを開くだけ）。
+  const onMemberTap = (member) => {
+    setActiveMemberId(member.id);
+    if (!floorReports[member.id] && !floorBusy[member.id]) dispatchMember(member, floorOrder);
+  };
+
   // 🗺 AI にロードマップを引いてもらう（年の目標→月別の人数/売上/施策）。
   const makeRoadmap = async () => {
     if (!goal || roadmapLoading) return;
@@ -577,9 +612,9 @@ export default function AdminDashboard({ onClose }) {
           <>
             {/* タブ: 概況 / アクション / 参謀 */}
             <div style={{ display: 'flex', gap: 6, position: 'sticky', top: 0, padding: '10px 0 12px', background: C.pageBg, zIndex: 1 }}>
-              {[['overview', '📊 概況'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀']].map(([k, label]) => (
+              {[['overview', '📊 概況'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀'], ['floor', '🏢 フロア']].map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setActiveTab(k)}
-                  style={{ flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  style={{ flex: 1, padding: '10px 2px', borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
                     border: `1px solid ${activeTab === k ? 'transparent' : C.hairlineStrong}`,
                     background: activeTab === k ? C.brand : 'transparent', color: activeTab === k ? C.brandInk : C.ink2 }}>
                   {label}
@@ -715,6 +750,102 @@ export default function AdminDashboard({ onClose }) {
               </div>
             </div>
 
+            </>)}
+
+            {/* ═══ 社員フロアタブ（作戦司令室 — 20名+顧問の AI 社員） ═══ */}
+            {activeTab === 'floor' && (<>
+            <p style={sectionTitle}>🏢 社員フロア
+              <span style={{ fontWeight: 600, color: C.ink3, fontSize: 11 }}>　{AI_COMPANY.length}名 ＋ 特別顧問団</span>
+            </p>
+            <p style={{ fontSize: 12, color: C.ink2, lineHeight: 1.7, margin: '0 0 12px' }}>
+              社員をタップすると、その専門家が現状（または下の指示）を踏まえて成果物を1つ出します。
+              <strong style={{ color: C.brand }}>1タップ＝AI 1コール</strong>（原価の目安 約¥{AI_COST_PER_CALL_JPY}）。
+              報告済みの社員のタップは閲覧のみ（無課金）。更新は報告内の「🔄 更新」から。
+            </p>
+            <textarea
+              value={floorOrder}
+              onChange={(e) => setFloorOrder(e.target.value)}
+              placeholder="任意: 招集する社員に共通で伝える指示（空なら各自が最重要の一手を選びます）例: 来週の集客を具体化して"
+              rows={2}
+              style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, marginBottom: 16 }}
+            />
+
+            {DEPARTMENTS.map((dept) => {
+              const members = AI_COMPANY.filter((m) => m.dept === dept.key);
+              if (!members.length) return null;
+              return (
+                <div key={dept.key} style={{ marginBottom: 18 }}>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: C.ink2 }}>
+                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: dept.accent }} />
+                    {dept.label}
+                  </p>
+                  <div style={grid2}>
+                    {members.map((m) => {
+                      const rep = floorReports[m.id];
+                      const busy = floorBusy[m.id];
+                      const state = busy ? 'busy' : rep ? (rep.ok ? 'done' : 'fail') : 'idle';
+                      const dotColor = state === 'busy' ? dept.accent : state === 'done' ? '#6b8e6b' : state === 'fail' ? C.critical : C.hairlineStrong;
+                      const statusText = busy ? '検討中…' : rep ? rep.status : '待機中';
+                      const selected = activeMemberId === m.id;
+                      return (
+                        <button key={m.id} type="button" onClick={() => onMemberTap(m)}
+                          style={{
+                            textAlign: 'left', cursor: 'pointer', padding: 12, borderRadius: 12,
+                            background: selected ? C.soft : C.card,
+                            border: `1px solid ${selected ? dept.accent : C.hairline}`,
+                            borderLeft: `3px solid ${dept.accent}`,
+                            display: 'flex', flexDirection: 'column', gap: 4, minHeight: 76,
+                          }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>{m.name}</span>
+                          <span style={{ fontSize: 10.5, color: C.ink3, lineHeight: 1.35 }}>{m.title}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 'auto', fontSize: 10.5, color: state === 'idle' ? C.ink3 : C.ink2 }}>
+                            <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0, animation: busy ? 'pulse 1.2s infinite' : 'none' }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{statusText}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* 選択中の社員の報告パネル */}
+            {activeMemberId && (() => {
+              const m = findMember(activeMemberId);
+              const rep = floorReports[activeMemberId];
+              const busy = floorBusy[activeMemberId];
+              if (!m) return null;
+              return (
+                <div style={{ ...card, borderTop: `3px solid ${DEPT_META[m.dept]?.accent || C.brand}`, marginTop: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.ink }}>{m.name}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: C.ink3 }}>{m.title}・{DEPT_META[m.dept]?.label}</p>
+                    </div>
+                    <button type="button" onClick={() => setActiveMemberId(null)} style={iconBtn} aria-label="閉じる"><X size={18} /></button>
+                  </div>
+                  <p style={{ margin: '10px 0 0', fontSize: 11, color: C.ink2, lineHeight: 1.6, paddingBottom: 10, borderBottom: `1px solid ${C.hairline}` }}>
+                    <strong style={{ color: C.ink }}>担当:</strong> {m.mandate}
+                  </p>
+                  {busy && <p style={{ fontSize: 12, color: C.ink3, margin: '12px 0 0' }}>{m.name} が検討中…</p>}
+                  {!busy && rep && rep.body && (
+                    <div style={{ marginTop: 12, fontSize: 13, lineHeight: 1.75, color: C.ink }}>
+                      <RoadmapMarkdown text={rep.body} />
+                    </div>
+                  )}
+                  {!busy && rep && !rep.ok && !rep.body && (
+                    <p style={{ fontSize: 12, color: C.critical, margin: '12px 0 0' }}>応答に失敗しました。少し時間をおいて「更新」してください。</p>
+                  )}
+                  {!busy && (
+                    <button type="button" onClick={() => dispatchMember(m, floorOrder)}
+                      style={{ ...btnGhost, minHeight: 40, marginTop: 14, fontSize: 12 }}>
+                      🔄 {rep ? '更新（再実行・AI 1コール）' : '報告を出す（AI 1コール）'}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
             </>)}
 
             {/* ═══ アクションタブ（日次タスク ＋ 今やるべきこと ＋ チケット） ═══ */}

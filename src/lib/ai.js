@@ -916,6 +916,44 @@ export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
   return cleaned;
 }
 
+// 🏢 AI 社員（作戦司令室）— 1 名の専門家に現状 or 元帥の指示を渡し、成果物を1つ得る。
+// member は src/lib/aiCompany.js のエントリ（deptLabel を付けて渡すこと）。
+// 返り値: { status, body } / 失敗時 null。コスト境界のため 1 コール = 1 成果物。
+export async function consultSpecialist({ member, stateLine = '', order = '' } = {}) {
+  if (!member || typeof member.name !== 'string') return null;
+  const system = PROMPTS.opsSpecialist.system({
+    member,
+    today: todayISO(),
+    stateLine: clamp(String(stateLine || ''), 800),
+  });
+  const userMsg = PROMPTS.opsSpecialist.user({
+    member,
+    order: clamp(sanitizeForPrompt(order || ''), 1000),
+  });
+  let result;
+  try {
+    result = await callClaude([{ role: 'user', content: userMsg }], { system, max_tokens: 1200 });
+  } catch (e) {
+    console.warn('[consultSpecialist] claude failed:', e?.message);
+    return null;
+  }
+  if (typeof result !== 'string' || isClaudeErrorString(result) || isSuspiciousOutput(result)) {
+    return null;
+  }
+  const cleaned = clamp(result.trim(), 6000);
+  if (!cleaned) return null;
+  // 1 行目の「STATUS: 〜」をフロア表示用に抽出し、本体から取り除く。
+  let status = '';
+  let body = cleaned;
+  const m = cleaned.match(/^\s*STATUS[:：]\s*(.+)$/im);
+  if (m) {
+    status = m[1].trim().replace(/[。.]+$/, '').slice(0, 40);
+    body = cleaned.replace(m[0], '').trim();
+  }
+  track('ai_used', { feature: 'ops_specialist' });
+  return { status, body };
+}
+
 // 💭 今週の問い — マイ読書脳の能動化。ユーザー自身のメモから「立ち止まって
 // 考え・行動したくなる問い」を1つだけ生成して返す（向こうから問いを投げる）。
 // 失敗・メモ不足・エラー時は null（呼び出し側は静かに定型の問いへフォールバック）。
