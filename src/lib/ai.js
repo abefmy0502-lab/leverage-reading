@@ -71,11 +71,21 @@ async function postClaude(payload, signal) {
     return 'エラー';
   }
 
+  // 安全機構による拒否（stop_reason: 'refusal'、200 + content 空/途中まで）。
+  // 空応答と区別してユーザーに再試行の手がかりを返す（無言の空回答にしない）。
+  if (data?.stop_reason === 'refusal') {
+    return 'AI が今回の内容への回答を控えました。表現を変えて再度お試しください。';
+  }
   if (Array.isArray(data?.content)) {
-    // 成功レスポンスの本文。空文字も「正常な空応答」として尊重する
+    // 成功レスポンスの本文。text ブロックだけを結合する（Sonnet 5 世代は thinking
+    // ブロックが混ざり得るため type で選別。thinking はサーバー側で無効化済みだが
+    // 二重防衛）。空文字も「正常な空応答」として尊重する
     // (OCR で読み取れない画像は空で返る設計 — ここで 'エラー' に潰すと
     //  呼び出し側が空と失敗を区別できなくなる)。
-    return data.content.map((b) => b.text || '').join('\n');
+    return data.content
+      .filter((b) => b && (b.type === 'text' || typeof b.type === 'undefined'))
+      .map((b) => b.text || '')
+      .join('\n');
   }
   return 'エラー';
 }
@@ -166,7 +176,6 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' })
       ],
     },
   ];
-  // temperature 0 — 創作させず忠実な書き起こしを優先。
   const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, cacheSystem: true, model: MODEL_FAST });
   if (typeof result !== 'string') throw new Error('読み取りに失敗しました。');
   // postClaude は失敗時にも文字列（既知のエラー文言）を返すので throw に変換し、
@@ -590,11 +599,25 @@ async function buildBrainContext({ userId, question, onStage }) {
   const { all, counts } = await gatherKnowledge(userId);
 
   // Priority-rank, then preserve original recency order for the slice.
-  const ranked = [...all]
+  const rankedAll = [...all]
     .map((m, i) => ({ memo: m, score: memoPriority(m) - i * 0.01 }))
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_MEMOS)
     .map((x) => x.memo);
+
+  // 💰 RAG 総量予算: 「件数 × 1件あたり clamp」だけでは 80 件 × 2000 字 = 16 万字
+  // （Sonnet 5 の新トークナイザで約 10 万トークン級）まで膨らみ、1 コールの入力
+  // コストが原価見積りを大きく超え得る。優先度順に積んで総文字数で打ち切り、
+  // 入力コストの上限を構造的に保証する（上位優先なので回答品質への影響は最小）。
+  const RAG_TOTAL_CHARS = 60000;
+  let ragUsed = 0;
+  const ranked = [];
+  for (const m of rankedAll) {
+    const len = Math.min((m.text || '').length, LIMITS.promptMemoExcerpt || 2000) + 120; // 本文 clamp + ヘッダ概算
+    if (ranked.length > 0 && ragUsed + len > RAG_TOTAL_CHARS) break;
+    ranked.push(m);
+    ragUsed += len;
+  }
 
   const stats = {
     memoCount: ranked.length,
@@ -659,11 +682,11 @@ export async function callMyBookBrain({ userId, question }) {
   const ctx = await buildBrainContext({ userId, question });
   if (ctx.empty) return ctx.payload;
 
-  // temperature 0.5 — 引用に基づく一貫性を優先 (同じメモを毎回同じ角度で
+  // 引用に基づく一貫性は BRAIN_SYSTEM のプロンプト側で担保する (同じメモを毎回同じ角度で
   // 引用してほしい)。creativity は低めで OK。
   const result = await callClaude(
     [{ role: 'user', content: ctx.userBlocks }],
-    { system: BRAIN_SYSTEM, cacheSystem: true, max_tokens: 2048 },
+    { system: BRAIN_SYSTEM, cacheSystem: true, max_tokens: 3072 },
   );
 
   // callClaude returns string for both success and known errors. Treat error
@@ -789,7 +812,7 @@ export async function analyzeBookLearnings({ bookId, title, author, purpose, cha
       challenge: clamp(sanitizeForPrompt(challenge || ''), LIMITS.memoText),
       memos,
     }),
-    { max_tokens: 1400, model: MODEL_SMART, cacheSystem: true },
+    { max_tokens: 3072, model: MODEL_SMART, cacheSystem: true },
   );
   // callClaude はエラー時に文言（'エラー...' / 'AI機能...' / 'リクエスト...'）を返すことがある。
   // それを「分析結果」として描画しないよう、成功時のみ track / return する。
@@ -831,7 +854,7 @@ export async function generateOpsRoadmap(state = {}) {
     result = await callClaude(
       PROMPTS.opsRoadmap.system,
       PROMPTS.opsRoadmap.user(args),
-      { max_tokens: 2048, cacheSystem: true },
+      { max_tokens: 3072, cacheSystem: true },
     );
   } catch (e) {
     console.warn('[opsRoadmap] claude failed:', e?.message);
@@ -867,7 +890,7 @@ export async function generateOpsTasks(state = {}) {
     result = await callClaude(
       PROMPTS.opsTasks.system,
       PROMPTS.opsTasks.user(args),
-      { max_tokens: 2048, cacheSystem: true },
+      { max_tokens: 3072, cacheSystem: true },
     );
   } catch (e) {
     console.warn('[opsTasks] claude failed:', e?.message);
@@ -900,7 +923,7 @@ export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
   const system = PROMPTS.opsAdvisor.system({ today: todayISO(), stateLine: clamp(String(stateLine || ''), 800) });
   let result;
   try {
-    result = await callClaude(history, { system, max_tokens: 1500 });
+    result = await callClaude(history, { system, max_tokens: 2048 });
   } catch (e) {
     console.warn('[opsAdvise] claude failed:', e?.message);
     return null;
@@ -1032,7 +1055,9 @@ export async function streamBookQuickSummary({ title, author = '', onChunk, sign
     signal,
     onChunk: (fullText) => { full = fullText; try { onChunk?.(fullText); } catch { /* swallow */ } },
   });
-  track('ai_used', { feature: 'book_summary' });
+  // 計測は完走時のみ（シートを開いてすぐ閉じる abort を成功として集計しない —
+  // brain / theme と同じ基準に揃え、運営ダッシュボードの水増しを防ぐ）。
+  if (!signal?.aborted) track('ai_used', { feature: 'book_summary' });
   return full;
 }
 
@@ -1055,13 +1080,16 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   onStage?.('generate');
 
   let fullText = '';
+  let streamMeta = null;
   await streamClaude({
     system: BRAIN_SYSTEM,
     cacheSystem: true,
     // メモ文脈をキャッシュ対象ブロックに（連続質問で入力コストを削減）。
     messages: [{ role: 'user', content: ctx.userBlocks }],
-    max_tokens: 2048,
+    // Sonnet 5 の新トークナイザ（同じ日本語で約 3 割増）に合わせて上限を拡大。
+    max_tokens: 3072,
     signal,
+    onDone: (_t, meta) => { streamMeta = meta; },
     onChunk: (text) => {
       fullText = text;
       const visible = stripRefsBlock(text);
@@ -1080,7 +1108,12 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   }
 
   const parsed = parseRefs(fullText);
-  return { body: parsed.body, refs: parsed.refs, ...ctx.stats };
+  // 出力上限による途中切れは本文末尾に注記して伝える（無音の劣化にしない）。
+  const truncated = streamMeta?.stopReason === 'max_tokens';
+  const body = truncated
+    ? `${parsed.body}\n\n※ 回答が長さの上限に達したため途中までです。質問を絞ると最後まで生成できます。`
+    : parsed.body;
+  return { body, refs: parsed.refs, ...ctx.stats, truncated };
 }
 
 // ============================================================================
@@ -1356,13 +1389,16 @@ export async function streamThemeReport({ userId, theme, onStage, onChunk, signa
   onStage?.('generate');
 
   let fullText = '';
+  let streamMeta = null;
   await streamClaude({
     system: THEME_SYSTEM,
     cacheSystem: true,
     messages: [{ role: 'user', content: ctx.userPrompt }],
-    max_tokens: 2048,
-    // temperature 0.4 — メモに忠実な統合を優先 (創作より引用の一貫性)。
+    // Sonnet 5 の新トークナイザは同じ日本語で約 3 割トークンが増えるため、
+    // 旧 2048 のままだと途中切れリスクが上がる（忠実性はプロンプト側で担保）。
+    max_tokens: 3072,
     signal,
+    onDone: (_t, meta) => { streamMeta = meta; },
     onChunk: (text) => {
       fullText = text;
       try { onChunk?.(text); } catch { /* swallow render errors */ }
@@ -1384,7 +1420,10 @@ export async function streamThemeReport({ userId, theme, onStage, onChunk, signa
   // 📊 AI 利用の計測（empty / suspicious は上で早期 return = ここは生成成功のみ）。
   // テーマ名やレポート本文は送らず feature の enum だけ。
   track('ai_used', { feature: 'theme' });
-  return { body: fullText.trim(), ...ctx.stats };
+  // 出力上限（max_tokens）による途中切れを呼び出し側へ伝える。切れたレポートを
+  // 完成品として履歴保存しない判断に使う（従来は切り詰めが完全に無音だった）。
+  const truncated = streamMeta?.stopReason === 'max_tokens';
+  return { body: fullText.trim(), ...ctx.stats, truncated };
 }
 
 // ---- Theme report history (optional persistence) --------------------------
@@ -1470,6 +1509,19 @@ export async function generateKnowledgeJourney(userId, theme) {
   if (sorted.length > MAX_JOURNEY_MEMOS) {
     const step = (sorted.length - 1) / (MAX_JOURNEY_MEMOS - 1);
     picked = Array.from({ length: MAX_JOURNEY_MEMOS }, (_, i) => sorted[Math.round(i * step)]);
+  }
+  // 💰 総文字数予算（buildBrainContext と同思想）。件数上限だけでは長文メモ 120 件で
+  // 20 万字級まで膨らみ得る。予算超過の間は件数を減らして「等間隔サンプリングを
+  // やり直す」— 末尾を切り落とすと『変遷の最新側』が失われるため、時系列の両端を
+  // 保ったまま密度を下げる。
+  const JOURNEY_TOTAL_CHARS = 60000;
+  const memoLen = (m) => Math.min((m.text || '').length, LIMITS.promptMemoExcerpt || 2000) + 120;
+  let journeyTotal = picked.reduce((s, m) => s + memoLen(m), 0);
+  while (journeyTotal > JOURNEY_TOTAL_CHARS && picked.length > 8) {
+    const target = Math.max(8, Math.floor(picked.length * 0.75));
+    const step2 = (sorted.length - 1) / Math.max(1, target - 1);
+    picked = Array.from({ length: target }, (_, i) => sorted[Math.round(i * step2)]);
+    journeyTotal = picked.reduce((s, m) => s + memoLen(m), 0);
   }
   const timeline = picked.map((m) => formatMemo(m, { withDate: true })).join('\n\n');
 

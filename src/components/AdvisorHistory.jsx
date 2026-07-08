@@ -152,15 +152,22 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
                   aria-label="削除"
                   title="削除"
                   style={{
+                    // 44px ルール: アイコンは 15px のまま実効タップ領域を広げ、
+                    // 隣接する「カードを開く」への誤タップを防ぐ。
                     position: 'absolute',
-                    top: 8,
-                    right: 8,
+                    top: 0,
+                    right: 0,
                     background: 'transparent',
                     border: 'none',
                     fontSize: 14,
                     color: 'var(--c-ink-2)',
                     cursor: 'pointer',
-                    padding: 4,
+                    padding: 0,
+                    minWidth: 44,
+                    minHeight: 44,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     fontFamily: 'inherit',
                     lineHeight: 0,
                   }}

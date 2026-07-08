@@ -6,8 +6,12 @@
 // シート) where TTFT — the first visible token — drives perceived speed.
 //
 // onChunk(fullText, delta) fires for every content_block_delta the server
-// emits. onDone(finalText) fires once when the stream completes. onError
-// receives any thrown error (network, non-OK status).
+// emits. onDone(finalText, meta) fires once when the stream completes —
+// meta = { stopReason, aborted }。stopReason は Anthropic の message_delta から
+// 捕捉した停止理由（'end_turn' | 'max_tokens' | 'refusal' | null）。呼び出し側は
+// 'max_tokens'（出力上限で途中切れ）を検知して「保存しない/注記を出す」等の
+// 判断ができる（従来は切り詰めが完全に無音だった）。onError receives any
+// thrown error (network, non-OK status).
 //
 // Abort: pass an AbortSignal as `signal`. When the caller aborts mid-stream we
 // treat it as a *normal* early finish — the partial text collected so far is
@@ -82,6 +86,7 @@ export async function streamClaude({
   onError,
 } = {}) {
   let fullText = '';
+  let stopReason = null;
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -140,36 +145,39 @@ export async function streamClaude({
       for (const line of lines) {
         if (!line.startsWith('data:')) continue;
         const data = line.slice(5).trim();
-        if (!data || data === '[DONE]') continue;
+        if (!data) continue;
+        let event = null;
         try {
-          const event = JSON.parse(data);
-          if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-            const delta = event.delta.text || '';
-            if (!delta) continue;
-            fullText += delta;
-            try { onChunk?.(fullText, delta); } catch { /* swallow render errors */ }
-          } else if (event.type === 'error' && event.error?.message) {
-            throw new Error(`エラー: ${event.error.message}`);
-          }
-        } catch (parseErr) {
-          // A chunk boundary can split a JSON event in half. Re-buffer the
-          // partial line and continue — the rest will arrive next read.
-          if (parseErr instanceof SyntaxError) {
-            buffer = `${line}\n${buffer}`;
-            continue;
-          }
-          throw parseErr;
+          event = JSON.parse(data);
+        } catch {
+          // 行分割は `lines.pop()` の再バッファで完結行しかここに来ないため、
+          // parse 失敗 = relay が混ぜた異常行。再バッファすると以後の全 read で
+          // 同じ行の parse 失敗が無限に繰り返される（過去実装の罠）ので、警告して捨てる。
+          // eslint-disable-next-line no-console
+          console.warn('[streamClaude] unparsable SSE line (skipped)');
+          continue;
+        }
+        if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+          const delta = event.delta.text || '';
+          if (!delta) continue;
+          fullText += delta;
+          try { onChunk?.(fullText, delta); } catch { /* swallow render errors */ }
+        } else if (event.type === 'message_delta' && event.delta?.stop_reason) {
+          // 停止理由（end_turn / max_tokens / refusal 等）を捕捉して onDone で通知。
+          stopReason = event.delta.stop_reason;
+        } else if (event.type === 'error' && event.error?.message) {
+          throw new Error(`エラー: ${event.error.message}`);
         }
       }
     }
 
-    onDone?.(fullText);
+    onDone?.(fullText, { stopReason, aborted: false });
     return fullText;
   } catch (e) {
     // User-initiated abort: not an error. Keep the partial text, fire onDone
     // (so the same completion path runs), and resolve with what we have.
     if (isAbortError(e, signal)) {
-      try { onDone?.(fullText); } catch { /* swallow */ }
+      try { onDone?.(fullText, { stopReason, aborted: true }); } catch { /* swallow */ }
       return fullText;
     }
     if (onError) {

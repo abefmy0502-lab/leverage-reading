@@ -284,11 +284,18 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
           }
           writeSnap(theme, { memoTotal, bookCount, at: new Date().toISOString() });
           haptic.success();
-          // Persist (no-op + history stays hidden if the table isn't applied).
-          const saved = await saveThemeReport({ userId: user.id, theme, content: finalText });
-          if (saved) {
-            setHistoryAvailable(true);
-            setHistory((prev2) => [saved, ...prev2.filter((r) => r.id !== saved.id)]);
+          if (result?.truncated) {
+            // 出力上限で途中切れ。画面には表示するが、欠けたレポートを完成品として
+            // 履歴に永続化しない（再表示しても欠けたままになる事故を防ぐ）。
+            setNoticeKind('info');
+            setNotice('⚠️ レポートが長さの上限に達したため途中までです。メモやテーマを絞って再生成すると最後まで作成できます（このままでは履歴に保存されません）。');
+          } else {
+            // Persist (no-op + history stays hidden if the table isn't applied).
+            const saved = await saveThemeReport({ userId: user.id, theme, content: finalText });
+            if (saved) {
+              setHistoryAvailable(true);
+              setHistory((prev2) => [saved, ...prev2.filter((r) => r.id !== saved.id)]);
+            }
           }
         }
       }
@@ -332,7 +339,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
       haptic.success();
       toast.success('テーマまとめをコピーしました');
     } catch {
-      toast.error('コピーできませんでした');
+      toast.error('コピーできませんでした。');
     }
   }, [activeTheme, reportText, haptic, toast]);
 
@@ -401,7 +408,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
     const ok = await confirm({
       title: 'テーマまとめを削除',
       message: `「${row.theme}」のテーマまとめを削除しますか？`,
-      confirmLabel: '削除',
+      confirmLabel: '削除する',
       danger: true,
     });
     if (!ok) return;

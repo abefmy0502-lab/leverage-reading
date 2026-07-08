@@ -232,7 +232,8 @@ function LearningInline({ onCancel, onSaved }) {
           {tags.map((t, i) => (
             <span key={`${t}-${i}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
               {t}
-              <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--c-ink-2)', cursor: 'pointer', padding: 0 }}>×</button>
+              {/* 共通 TagInput と同じ a11y/タップ仕様（aria-label + 28px 実効領域を負マージンで確保） */}
+              <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--c-ink-2)', cursor: 'pointer', padding: 0, minWidth: 28, minHeight: 28, margin: '-8px -6px -8px -2px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </span>
           ))}
         </div>
@@ -611,7 +612,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       if (!(controller.signal.aborted || (e && e.name === 'AbortError'))) {
         toast.error(toMessage(e, '回答の生成に失敗しました。'));
       }
-      // 楽観的な streaming 行を error placeholder に差し替える。
+      // 楽観的な streaming 行を差し替える。途中まで本文が生成されていた場合は
+      // 捨てずに残し、末尾に中断注記を付ける（8 割生成済みの回答がエラーで全文
+      // 消える事故を防ぐ。abort 時の部分保持と対称にする）。
+      const partial = (lastVisible || '').trim();
       setMessages((arr) => arr.map((m) =>
         m.id === streamingId
           ? {
@@ -619,7 +623,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               role: 'assistant',
               content: controller.signal.aborted
                 ? '回答を中止しました。'
-                : '回答を生成できませんでした。少し時間をおいて再度お試しください。',
+                : partial
+                  ? `${partial}\n\n— ⚠️ 通信が中断されたため、回答はここまでです。`
+                  : '回答を生成できませんでした。少し時間をおいて再度お試しください。',
               refs: [],
               createdAt: new Date().toISOString(),
             }
@@ -861,7 +867,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       type="button"
                       onClick={dismissWeekly}
                       aria-label="今週の問いを閉じる"
-                      style={{ background: 'none', border: 'none', color: '#b3a994', fontSize: 16, lineHeight: 1, cursor: 'pointer', padding: 4, fontFamily: 'inherit' }}
+                      style={{ background: 'none', border: 'none', color: 'var(--c-ink-3)', fontSize: 16, lineHeight: 1, cursor: 'pointer', padding: 4, fontFamily: 'inherit' }}
                     >×</button>
                   </div>
                   <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-ink)', margin: '0 0 12px', lineHeight: 1.6 }}>

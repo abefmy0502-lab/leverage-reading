@@ -50,10 +50,6 @@ const HelpModal = lazy(() => import('./components/HelpModal'));
 const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
 const ThemeReport = lazy(() => import('./components/ThemeReport'));
-const AdvisorHistoryList = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
-const AdvisorSessionDetail = lazy(() => import('./components/AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
-const AdvisorAddConfirmModal = lazy(() => import('./components/AdvisorAddConfirmModal'));
-const DiscoverPanel = lazy(() => import('./components/DiscoverPanel'));
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import ActionList from './components/ActionList';
 const ActionEditModal = lazy(() => import('./components/ActionEditModal'));
@@ -3116,8 +3112,9 @@ function AuthedApp() {
                 if (current) { setEditPhaseOverride(null); setView("detail"); }
                 else goList();
               }}
-              style={lnk}
-            >← 戻る</button>
+              // 詳細画面の「‹ 本棚」と同じ iOS ナビ様式に統一（旧: 沈む極小グレー「← 戻る」）。
+              style={{ ...lnk, color: "var(--c-brand)", fontSize: 15, fontWeight: 600 }}
+            >‹ {current ? '詳細' : '本棚'}</button>
             <button
               onClick={openHelp}
               style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}

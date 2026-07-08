@@ -333,7 +333,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       haptic.light();
       toast.success('コピーしました');
     } catch {
-      toast.error('コピーできませんでした');
+      toast.error('コピーできませんでした。');
     }
   };
 

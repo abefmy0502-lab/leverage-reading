@@ -107,8 +107,14 @@ function upscaleCover(url) {
 // 楽天が各ジャンルに紛れ込ませる「本ではないグッズ／付録本／ムック・雑誌」を除外する。
 // ビジネス棚に飲食店ムック（例: Royal Host ぴあ）やサンリオのシールブック等が混ざる
 // のを防ぐ。明確に非書籍/非読書のものだけを弾く（誤って実本を消さないよう保守的に）。
-// ムック/写真集/増刊 等は「タイトルにその語がある」＝強いシグナルなので追加。
-const NON_BOOK_RE = /(シール\s?ブック|シールセット|ぬりえ|ステッカー|カレンダー|手帳|家計簿|ファン\s?ブック|FAN\s?BOOK|グッズ|フィギュア|ぬいぐるみ|トートバッグ|ポスター|マグカップ|キーホルダー|下敷き|クリアファイル|【バーゲン本】|ムック|MOOK|増刊号|総集編|完全保存版|写真集|画集)/i;
+// 強語（どのジャンルでも非読書対象）と弱語（美術・漫画では正規商品）を分ける:
+//   - 強語: グッズ/ムック/増刊号 等 — 全ジャンルで除外
+//   - 弱語: 写真集/画集/総集編/完全保存版 — 「趣味・スポーツ（美術含む）」「漫画」
+//     では正規の本なので適用しない（それ以外の棚では雑誌的ノイズとして除外）
+const NON_BOOK_RE = /(シール\s?ブック|シールセット|ぬりえ|ステッカー|カレンダー|手帳|家計簿|ファン\s?ブック|FAN\s?BOOK|グッズ|フィギュア|ぬいぐるみ|トートバッグ|ポスター|マグカップ|キーホルダー|下敷き|クリアファイル|【バーゲン本】|ムック|MOOK|増刊号)/i;
+const NON_BOOK_WEAK_RE = /(総集編|完全保存版|写真集|画集)/i;
+// 弱語フィルタを適用しない（=写真集/画集が正規商品である）テーマ。
+const WEAK_FILTER_EXEMPT = new Set(['趣味・スポーツ', '漫画']);
 
 // 楽天の `size`（書籍サイズ）メタデータが「ムック/雑誌」なら読書対象外として弾く。
 // これはタイトル正規表現より確実（＝出版形態そのもの）で、飲食店ムック等の
@@ -116,12 +122,13 @@ const NON_BOOK_RE = /(シール\s?ブック|シールセット|ぬりえ|ステ�
 // fail-open（消さない）＝ メタデータ欠落で棚が空になる事故を防ぐ。
 const NON_BOOK_SIZE_RE = /(ムック|雑誌|カレンダー|MOOK)/i;
 
-export function normalizeItem(raw) {
+export function normalizeItem(raw, theme = '') {
   const it = raw && raw.Item ? raw.Item : raw;
   if (!it || typeof it !== 'object') return null;
   const title = (it.title || '').toString().trim();
   if (!title) return null;
   if (NON_BOOK_RE.test(title)) return null; // 非書籍グッズ/ムック（タイトル由来）は弾く
+  if (!WEAK_FILTER_EXEMPT.has(theme) && NON_BOOK_WEAK_RE.test(title)) return null; // 弱語（棚により正規）
   const size = (it.size || '').toString().trim();
   if (size && NON_BOOK_SIZE_RE.test(size)) return null; // ムック/雑誌（メタデータ由来）を弾く
   return {
@@ -205,7 +212,7 @@ export default async function handler(req, res) {
     let data = null;
     try { data = JSON.parse(resp.body); } catch { /* 壊れた JSON は空扱い */ }
     const items = Array.isArray(data?.Items)
-      ? data.Items.map(normalizeItem).filter(Boolean)
+      ? data.Items.map((raw) => normalizeItem(raw, themeRaw)).filter(Boolean)
       : [];
     // ⚠️ 空結果はキャッシュしない。楽天の一時的な空/全件フィルタ除外を 1h キャッシュ
     //    すると、テーマ棚が全ユーザーに 1 時間空になり回復しない事故になる（監査 S1）。

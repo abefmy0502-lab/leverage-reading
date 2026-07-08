@@ -178,7 +178,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
     const ok = await confirm({
       title: '行動を削除',
       message: 'この行動を削除しますか？',
-      confirmLabel: '削除',
+      confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
     });

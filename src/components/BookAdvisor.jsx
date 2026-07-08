@@ -179,7 +179,33 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         if (Array.isArray(arr)) return arr;
       } catch { /* 次の候補へ */ }
     }
-    return null;
+    // 最終フォールバック: 配列としては壊れていても（max_tokens 打ち切りで閉じ ']'
+    // が無い等）、完成している先頭のオブジェクト群だけを波括弧バランスで救い出す。
+    // 5 冊中 4 冊まで生成済みなのに全滅する事故を防ぐ。
+    const out = [];
+    let depth = 0; let start = -1; let inStr = false; let esc = false;
+    for (let i = 0; i < raw.length; i += 1) {
+      const ch = raw[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') { inStr = true; continue; }
+      if (ch === '{') { if (depth === 0) start = i; depth += 1; }
+      else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0 && start >= 0) {
+          try {
+            const o = JSON.parse(clean(raw.slice(start, i + 1)));
+            if (o && typeof o === 'object') out.push(o);
+          } catch { /* この 1 冊は諦めて次へ */ }
+          start = -1;
+        }
+      }
+    }
+    return out.length ? out : null;
   };
 
   const parseAdvisorResponse = (text) => {
@@ -309,25 +335,52 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     let readerContext = '';
     try { readerContext = await gatherAdvisorContext(advisorUser?.id); } catch { /* graceful */ }
 
+    // 🕐 無通信ウォッチドッグ: SSE がストール（モバイル回線切替等）しても
+    // 「選んでいます…」で無期限に固まらないよう、チャンク間 45 秒無通信で中断する。
+    // streamClaude は abort 時に部分テキストで正常 resolve するため、途中まで
+    // 生成済みの推薦は下の salvage パースで拾える。
+    const controller = new AbortController();
+    let watchdog = null;
+    const armWatchdog = () => {
+      if (watchdog) clearTimeout(watchdog);
+      watchdog = setTimeout(() => { try { controller.abort(); } catch { /* noop */ } }, 45000);
+    };
+
     let finalText = '';
     try {
+      armWatchdog();
       finalText = await streamClaude({
         system: PROMPTS.bookAdvisor.systemWith(readerContext),
         // readerContext はユーザーごとに変わるためキャッシュ読取ヒットが起きない。
         // 汎用（context 空）の時だけキャッシュを効かせる。
         cacheSystem: !readerContext,
         messages: newHistory,
-        // temperature 0.7 — 推薦に多様性を出す（同じ著者ばかりにならない）。
-        max_tokens: 2048,
+        // 前置き + 3〜5冊の JSON + 読む順番 + まとめを 1 応答で要求するため、
+        // JSON が途中で切れて推薦カードが全滅しないよう余裕を持たせる
+        // （Sonnet 5 の新トークナイザは同じ日本語で約 3 割トークン増）。
+        max_tokens: 4096,
         model: MODEL_SMART,
+        signal: controller.signal,
+        onChunk: () => armWatchdog(),
       });
     } catch (e) {
       setRecoError(toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
       setRecoLoading(false);
       return;
+    } finally {
+      if (watchdog) clearTimeout(watchdog);
     }
 
-    track('ai_used', { feature: 'advisor' });
+    if (controller.signal.aborted && !finalText.trim()) {
+      // ストール中断かつ 1 文字も生成されていない → エラーとして再試行を促す。
+      setRecoError('通信が途切れました。電波の良い場所でもう一度お試しください。');
+      setRecoLoading(false);
+      return;
+    }
+
+    // 計測は「応答を最後まで受け取れた」時のみ（ストール中断の部分応答は除外し、
+    // 運営ダッシュボードの AI 利用集計を歪めない）。
+    if (!controller.signal.aborted) track('ai_used', { feature: 'advisor' });
 
     const { recs, prose } = parseAdvisorResponse(finalText);
     let nextRecs = null;

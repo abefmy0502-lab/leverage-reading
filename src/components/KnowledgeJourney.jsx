@@ -73,7 +73,7 @@ export default function KnowledgeJourney({ userId }) {
       await navigator.clipboard.writeText(state.content);
       toast.success('コピーしました');
     } catch {
-      toast.error('コピーできませんでした');
+      toast.error('コピーできませんでした。');
     }
   };
 

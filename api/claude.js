@@ -229,6 +229,24 @@ async function incrementMonthlyUsage(userId) {
   }
 }
 
+// 予約済みカウントの払い戻し（upstream 失敗時）。reserve は upstream 呼び出し前に
+// +1 するため、Anthropic が 4xx/5xx を返した（=課金されないコールが多い）時に
+// そのままだと quota だけ消費される。release_ai_usage RPC で原子的に -1 する。
+// RPC 未適用/障害は握り潰す（fail-open・従来挙動のまま）。fire-and-forget 可。
+async function releaseMonthlyUsage(userId) {
+  const supabase = getServiceSupabase();
+  if (!supabase) return;
+  try {
+    const { error } = await supabase.rpc('release_ai_usage', {
+      p_user_id: userId,
+      p_period_month: currentPeriodMonth(),
+    });
+    if (error) console.warn('[ai-usage] release failed (ignored):', error.message);
+  } catch (e) {
+    console.warn('[ai-usage] release threw (ignored):', e?.message);
+  }
+}
+
 // 原子的な「予約」= check-and-increment を 1 往復で行う（TOCTOU 是正）。
 // 戻り値:
 //   { allowed: true,  reserved: true  } — 上限内で +1 済み（後段の increment は不要）
@@ -398,6 +416,13 @@ export default async function handler(req, res) {
     // （src/lib/streamClaude.js / ai.js）。temperature は下記の理由で転送しない。
     // それ以外は破棄する。
     const payload = { model, max_tokens: maxTokens };
+    // ⚠️ claude-sonnet-5 は `thinking` 省略時に adaptive thinking が既定 ON
+    // （sonnet-4-6 以前は省略 = OFF）。thinking トークンは max_tokens（総出力上限）
+    // から消費されるため、本アプリの小さめの max_tokens（320〜4096）では本文が
+    // 途中で切れ、かつ出力単価で課金だけ増える。旧世代と同じ挙動（thinking なし）
+    // をサーバー側で明示して、切り詰め・コスト増・応答遅延を防ぐ。
+    // （disabled は Sonnet 5 で合法。haiku-4-5 / sonnet-4-6 は省略 = OFF なので不要）
+    if (model === 'claude-sonnet-5') payload.thinking = { type: 'disabled' };
     if (wantsStream) payload.stream = true;
     if (typeof body.system === 'string') {
       payload.system = body.system;
@@ -471,6 +496,9 @@ export default async function handler(req, res) {
       if (response && response.status === 404 && payload.model !== FALLBACK_MODEL) {
         console.warn('[claude] model not found, falling back:', payload.model, '→', FALLBACK_MODEL);
         payload.model = FALLBACK_MODEL;
+        // sonnet-4-6 は thinking 省略 = OFF（既定）。sonnet-5 向けに付けた明示
+        // disabled は 4.6 では非対応の可能性があるため外す（挙動は同じ OFF）。
+        delete payload.thinking;
         response = await anthropicFetch();
       }
     } catch (fetchErr) {
@@ -478,6 +506,8 @@ export default async function handler(req, res) {
       // ユーザー操作なのでエラーログを出さず静かに終了する。
       if (fetchErr?.name === 'AbortError' || upstreamController.signal.aborted) {
         upstreamDone = true;
+        // レスポンス到達前の切断 = upstream 課金は発生していない。予約分を払い戻す。
+        if (usageReserved) releaseMonthlyUsage(userId);
         try { res.end(); } catch { /* socket may already be closed */ }
         return;
       }
@@ -556,9 +586,14 @@ export default async function handler(req, res) {
     // 課金されないコールが多いので quota を消費させない。fire-and-forget。
     // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
     if (response.ok && !usageReserved) incrementMonthlyUsage(userId);
+    // reserve 済みで upstream が失敗した時は予約分を払い戻す（非 reserve 経路の
+    // 「2xx のときだけ increment」と対称にする）。
+    if (!response.ok && usageReserved) releaseMonthlyUsage(userId);
     return res.status(response.status).json(data);
   } catch (error) {
     console.error('Claude API error:', error);
+    // upstream に到達できずに失敗（ネットワーク等）。reserve 済みの予約分を払い戻す。
+    if (usageReserved) releaseMonthlyUsage(userId);
     return res.status(500).json({ error: 'API request failed' });
   }
 }
