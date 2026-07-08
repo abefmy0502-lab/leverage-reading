@@ -18,7 +18,8 @@ import {
   Brain, Send,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { generateOpsRoadmap, opsAdvise, generateOpsTasks } from '../lib/ai';
+import { generateOpsRoadmap, opsAdvise, generateOpsTasks, consultSpecialist, integrateFloor } from '../lib/ai';
+import { DEPARTMENTS, DEPT_META, AI_COMPANY, findMember } from '../lib/aiCompany';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 
@@ -264,7 +265,23 @@ export default function AdminDashboard({ onClose }) {
   const [advisorMsgs, setAdvisorMsgs] = useState([]);
   const [advisorInput, setAdvisorInput] = useState('');
   const [advisorBusy, setAdvisorBusy] = useState(false);
-  // タブ（概況 / アクション / 参謀）。
+  // 🏢 社員フロア（作戦司令室）。各社員の最新レポートは端末ローカルに保持。
+  const [floorReports, setFloorReports] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('orime.floor.reports') || '{}'); } catch { return {}; }
+  });
+  const [floorBusy, setFloorBusy] = useState({}); // memberId -> bool
+  const [activeMemberId, setActiveMemberId] = useState(null);
+  const [floorOrder, setFloorOrder] = useState('');
+  // 🎖 CEO室 統合ブリーフ。
+  const [integration, setIntegration] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('orime.floor.integration') || 'null'); } catch { return null; }
+  });
+  const [integrationBusy, setIntegrationBusy] = useState(false);
+  // 部門一括招集の進捗（deptKey -> {done,total} / null）。
+  const [deptProgress, setDeptProgress] = useState({});
+  // 成果物→チケット化の状態（memberId -> 'done'）。
+  const [ticketed, setTicketed] = useState({});
+  // タブ（概況 / アクション / 参謀 / フロア）。
   const [activeTab, setActiveTab] = useState('overview');
   // 🗓 日次タスク。
   const [dailyTasks, setDailyTasks] = useState([]);
@@ -345,6 +362,45 @@ export default function AdminDashboard({ onClose }) {
           .limit(200);
         if (alive && !error && Array.isArray(data)) setAdvisorMsgs(data);
       } catch { /* 未適用 DB 等は空のまま */ }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // 🏢 作戦司令室の報告を Supabase から復元（AI企業の「記憶」・自分の行のみ）。
+  // 各 member の最新行 = 現在の状態。未適用 DB では静かに localStorage のみで動く。
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ops_floor_reports')
+          .select('member_id, kind, status, body, created_at')
+          .order('created_at', { ascending: false })
+          .limit(300);
+        if (!alive || error || !Array.isArray(data)) return;
+        const latest = {};
+        let integ = null;
+        for (const r of data) {
+          if (r.kind === 'integration') { if (!integ) integ = r; continue; }
+          if (!latest[r.member_id]) latest[r.member_id] = r;
+        }
+        // クラウドの行がローカルより新しければ採用（新しい方が勝つ）。
+        setFloorReports((prev) => {
+          const next = { ...prev };
+          for (const [id, r] of Object.entries(latest)) {
+            const at = new Date(r.created_at).getTime();
+            if (!next[id] || at > (next[id].at || 0)) next[id] = { status: r.status || '報告完了', body: r.body || '', at, ok: true };
+          }
+          try { localStorage.setItem('orime.floor.reports', JSON.stringify(next)); } catch { /* quota */ }
+          return next;
+        });
+        if (integ) {
+          setIntegration((prev) => {
+            const at = new Date(integ.created_at).getTime();
+            return (!prev || at > (prev.at || 0)) ? { body: integ.body || '', at, ok: true } : prev;
+          });
+        }
+      } catch { /* テーブル未適用: localStorage のみ */ }
     })();
     return () => { alive = false; };
   }, []);
@@ -489,6 +545,95 @@ export default function AdminDashboard({ onClose }) {
     }
   };
 
+  // 🏢 社員フロア: 1 名の社員に成果物を出させる（1 タップ = AI 1 コール）。
+  // 既にレポートがある社員のタップは「閲覧のみ」（無課金）。更新は明示ボタンで。
+  const dispatchMember = async (member, order = '') => {
+    if (!member || floorBusy[member.id]) return;
+    setFloorBusy((b) => ({ ...b, [member.id]: true }));
+    try {
+      const deptLabel = DEPT_META[member.dept]?.label || '';
+      const res = await consultSpecialist({ member: { ...member, deptLabel }, stateLine, order });
+      setFloorReports((prev) => {
+        const entry = res
+          ? { status: res.status || '報告完了', body: res.body || '', at: Date.now(), ok: true }
+          : { status: '応答に失敗', body: prev[member.id]?.body || '', at: Date.now(), ok: false };
+        const next = { ...prev, [member.id]: entry };
+        try { localStorage.setItem('orime.floor.reports', JSON.stringify(next)); } catch { /* quota/private */ }
+        return next;
+      });
+      // クラウドにも追記（記憶＋履歴・fire-and-forget・未適用 DB は静かに失敗）。
+      if (res && res.body) {
+        supabase.from('ops_floor_reports')
+          .insert({ member_id: member.id, kind: 'report', status: res.status || null, body: res.body })
+          .then(() => {}, () => {});
+      }
+    } finally {
+      setFloorBusy((b) => ({ ...b, [member.id]: false }));
+    }
+  };
+
+  // フロアのカードをタップ: 未報告なら起動、報告済みなら閲覧（パネルを開くだけ）。
+  const onMemberTap = (member) => {
+    setActiveMemberId(member.id);
+    if (!floorReports[member.id] && !floorBusy[member.id]) dispatchMember(member, floorOrder);
+  };
+
+  // 🏢 部門を一括招集（順次・レート制限に配慮）。進捗を deptProgress で表示。
+  const dispatchDepartment = async (deptKey) => {
+    const members = AI_COMPANY.filter((m) => m.dept === deptKey);
+    if (!members.length || deptProgress[deptKey]) return;
+    setDeptProgress((p) => ({ ...p, [deptKey]: { done: 0, total: members.length } }));
+    try {
+      for (let i = 0; i < members.length; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await dispatchMember(members[i], floorOrder);
+        setDeptProgress((p) => ({ ...p, [deptKey]: { done: i + 1, total: members.length } }));
+      }
+    } finally {
+      setDeptProgress((p) => { const n = { ...p }; delete n[deptKey]; return n; });
+    }
+  };
+
+  // 🎖 CEO室: 各社員の報告を統合して「今日の意思決定」を1つに収束させる（1 コール）。
+  const runIntegration = async () => {
+    if (integrationBusy) return;
+    const reports = AI_COMPANY
+      .filter((m) => floorReports[m.id] && floorReports[m.id].body)
+      .map((m) => ({ name: m.name, title: m.title, dept: DEPT_META[m.dept]?.label || '', status: floorReports[m.id].status, body: floorReports[m.id].body }));
+    if (reports.length === 0) return;
+    setIntegrationBusy(true);
+    try {
+      const body = await integrateFloor({ reports, stateLine, order: floorOrder });
+      const entry = { body: body || '', at: Date.now(), ok: !!body, count: reports.length };
+      setIntegration(entry);
+      try { localStorage.setItem('orime.floor.integration', JSON.stringify(entry)); } catch { /* quota */ }
+      if (body) {
+        supabase.from('ops_floor_reports')
+          .insert({ member_id: '__integration__', kind: 'integration', status: null, body })
+          .then(() => {}, () => {});
+      }
+    } finally {
+      setIntegrationBusy(false);
+    }
+  };
+
+  // 🎫 成果物 → チケット化（既存の作業ボードへ流し込む＝実行に接続）。
+  const ticketFromReport = async (member, rep) => {
+    if (!rep || !rep.body || ticketed[member.id]) return;
+    const title = `[${DEPT_META[member.dept]?.label || ''}/${member.name}] ${rep.status || '成果物'}`.slice(0, 120);
+    try {
+      const { error } = await supabase.rpc('admin_ticket_create', {
+        p_title: title, p_body: String(rep.body).slice(0, 4000), p_kind: 'task', p_priority: 2, p_source_feedback: null,
+      });
+      if (!error) setTicketed((t) => ({ ...t, [member.id]: 'done' }));
+    } catch { /* RPC 未適用等は静かに無視 */ }
+  };
+
+  // フロアの稼働状況サマリー（司令室ヘッダー表示用）。
+  const floorReportedCount = AI_COMPANY.filter((m) => floorReports[m.id] && floorReports[m.id].body).length;
+  const floorBusyCount = Object.values(floorBusy).filter(Boolean).length;
+  const floorCostJpy = (floorReportedCount + (integration && integration.ok ? 1 : 0)) * AI_COST_PER_CALL_JPY;
+
   // 🗺 AI にロードマップを引いてもらう（年の目標→月別の人数/売上/施策）。
   const makeRoadmap = async () => {
     if (!goal || roadmapLoading) return;
@@ -577,9 +722,9 @@ export default function AdminDashboard({ onClose }) {
           <>
             {/* タブ: 概況 / アクション / 参謀 */}
             <div style={{ display: 'flex', gap: 6, position: 'sticky', top: 0, padding: '10px 0 12px', background: C.pageBg, zIndex: 1 }}>
-              {[['overview', '📊 概況'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀']].map(([k, label]) => (
+              {[['overview', '📊 概況'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀'], ['floor', '🏢 フロア']].map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setActiveTab(k)}
-                  style={{ flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  style={{ flex: 1, padding: '10px 2px', borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
                     border: `1px solid ${activeTab === k ? 'transparent' : C.hairlineStrong}`,
                     background: activeTab === k ? C.brand : 'transparent', color: activeTab === k ? C.brandInk : C.ink2 }}>
                   {label}
@@ -715,6 +860,154 @@ export default function AdminDashboard({ onClose }) {
               </div>
             </div>
 
+            </>)}
+
+            {/* ═══ 社員フロアタブ（作戦司令室 — 20名+顧問の AI 社員） ═══ */}
+            {activeTab === 'floor' && (<>
+            <p style={sectionTitle}>🏢 作戦司令室
+              <span style={{ fontWeight: 600, color: C.ink3, fontSize: 11 }}>　{AI_COMPANY.length}名 ＋ 特別顧問団</span>
+            </p>
+
+            {/* ── 全社サマリー（稼働状況の一望） ── */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              {[
+                ['稼働中', floorBusyCount, C.brand],
+                ['報告済', `${floorReportedCount}/${AI_COMPANY.length}`, '#6b8e6b'],
+                ['本日概算', `¥${floorCostJpy}`, C.ink2],
+              ].map(([label, val, col]) => (
+                <div key={label} style={{ flex: 1, background: C.card, border: `1px solid ${C.hairline}`, borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: col, lineHeight: 1.1 }}>{val}</p>
+                  <p style={{ margin: '3px 0 0', fontSize: 10, color: C.ink3 }}>{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* ── 元帥の指示（招集する社員に共通で伝わる） ── */}
+            <textarea
+              value={floorOrder}
+              onChange={(e) => setFloorOrder(e.target.value)}
+              placeholder="任意: 招集する社員に共通で伝える指示（空なら各自が最重要の一手を選びます）例: 来週の集客を具体化して"
+              rows={2}
+              style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, marginBottom: 14 }}
+            />
+
+            {/* ── 🎖 CEO室 統合ブリーフ（全社を1つの意思決定に収束） ── */}
+            <div style={{ ...card, borderTop: `3px solid ${DEPT_META.ceo.accent}`, marginBottom: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.ink }}>🎖 CEO室 統合ブリーフ</p>
+                <button type="button" onClick={runIntegration} disabled={integrationBusy || floorReportedCount === 0}
+                  style={{ ...btnPrimary, minHeight: 38, padding: '0 14px', fontSize: 12, width: 'auto',
+                    opacity: (integrationBusy || floorReportedCount === 0) ? 0.5 : 1, cursor: (integrationBusy || floorReportedCount === 0) ? 'default' : 'pointer' }}>
+                  {integrationBusy ? '統合中…' : integration ? '再統合' : '全社を統合'}
+                </button>
+              </div>
+              <p style={{ margin: '8px 0 0', fontSize: 11, color: C.ink2, lineHeight: 1.65 }}>
+                各社員の報告を横断し、部門間の依存・矛盾を洗い出して「今日の意思決定」を1つに絞ります（AI 1コール）。
+                {floorReportedCount === 0 && <span style={{ color: C.ink3 }}>　まず社員を招集して報告を集めてください。</span>}
+              </p>
+              {integration && integration.ok && integration.body && !integrationBusy && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.hairline}`, fontSize: 13, lineHeight: 1.75, color: C.ink }}>
+                  <RoadmapMarkdown text={integration.body} />
+                </div>
+              )}
+              {integration && !integration.ok && !integrationBusy && (
+                <p style={{ fontSize: 12, color: C.critical, margin: '12px 0 0' }}>統合に失敗しました。少し時間をおいて「再統合」してください。</p>
+              )}
+            </div>
+
+            {DEPARTMENTS.map((dept) => {
+              const members = AI_COMPANY.filter((m) => m.dept === dept.key);
+              if (!members.length) return null;
+              const prog = deptProgress[dept.key];
+              return (
+                <div key={dept.key} style={{ marginBottom: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '0 0 8px' }}>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, fontSize: 12, fontWeight: 700, color: C.ink2 }}>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: dept.accent }} />
+                      {dept.label}
+                    </p>
+                    <button type="button" onClick={() => dispatchDepartment(dept.key)} disabled={!!prog}
+                      style={{ border: `1px solid ${dept.accent}`, background: 'transparent', color: dept.accent, borderRadius: 99,
+                        padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: prog ? 'default' : 'pointer', opacity: prog ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                      {prog ? `招集中 ${prog.done}/${prog.total}` : `部門を招集（${members.length}コール）`}
+                    </button>
+                  </div>
+                  <div style={grid2}>
+                    {members.map((m) => {
+                      const rep = floorReports[m.id];
+                      const busy = floorBusy[m.id];
+                      const state = busy ? 'busy' : rep ? (rep.ok ? 'done' : 'fail') : 'idle';
+                      const dotColor = state === 'busy' ? dept.accent : state === 'done' ? '#6b8e6b' : state === 'fail' ? C.critical : C.hairlineStrong;
+                      const statusText = busy ? '検討中…' : rep ? rep.status : '待機中';
+                      const selected = activeMemberId === m.id;
+                      return (
+                        <button key={m.id} type="button" onClick={() => onMemberTap(m)}
+                          style={{
+                            textAlign: 'left', cursor: 'pointer', padding: 12, borderRadius: 12,
+                            background: selected ? C.soft : C.card,
+                            border: `1px solid ${selected ? dept.accent : C.hairline}`,
+                            borderLeft: `3px solid ${dept.accent}`,
+                            display: 'flex', flexDirection: 'column', gap: 4, minHeight: 76,
+                          }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>{m.name}</span>
+                          <span style={{ fontSize: 10.5, color: C.ink3, lineHeight: 1.35 }}>{m.title}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 'auto', fontSize: 10.5, color: state === 'idle' ? C.ink3 : C.ink2 }}>
+                            <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0, animation: busy ? 'pulse 1.2s infinite' : 'none' }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{statusText}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* 選択中の社員の報告パネル */}
+            {activeMemberId && (() => {
+              const m = findMember(activeMemberId);
+              const rep = floorReports[activeMemberId];
+              const busy = floorBusy[activeMemberId];
+              if (!m) return null;
+              return (
+                <div style={{ ...card, borderTop: `3px solid ${DEPT_META[m.dept]?.accent || C.brand}`, marginTop: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.ink }}>{m.name}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: C.ink3 }}>{m.title}・{DEPT_META[m.dept]?.label}</p>
+                    </div>
+                    <button type="button" onClick={() => setActiveMemberId(null)} style={iconBtn} aria-label="閉じる"><X size={18} /></button>
+                  </div>
+                  <p style={{ margin: '10px 0 0', fontSize: 11, color: C.ink2, lineHeight: 1.6, paddingBottom: 10, borderBottom: `1px solid ${C.hairline}` }}>
+                    <strong style={{ color: C.ink }}>担当:</strong> {m.mandate}
+                  </p>
+                  {busy && <p style={{ fontSize: 12, color: C.ink3, margin: '12px 0 0' }}>{m.name} が検討中…</p>}
+                  {!busy && rep && rep.body && (
+                    <div style={{ marginTop: 12, fontSize: 13, lineHeight: 1.75, color: C.ink }}>
+                      <RoadmapMarkdown text={rep.body} />
+                    </div>
+                  )}
+                  {!busy && rep && !rep.ok && !rep.body && (
+                    <p style={{ fontSize: 12, color: C.critical, margin: '12px 0 0' }}>応答に失敗しました。少し時間をおいて「更新」してください。</p>
+                  )}
+                  {!busy && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => dispatchMember(m, floorOrder)}
+                        style={{ ...btnGhost, minHeight: 40, fontSize: 12, flex: 1, minWidth: 140 }}>
+                        🔄 {rep ? '更新（AI 1コール）' : '報告を出す（AI 1コール）'}
+                      </button>
+                      {rep && rep.ok && rep.body && (
+                        <button type="button" onClick={() => ticketFromReport(m, rep)} disabled={ticketed[m.id] === 'done'}
+                          style={{ ...btnGhost, minHeight: 40, fontSize: 12, flex: 1, minWidth: 140,
+                            opacity: ticketed[m.id] === 'done' ? 0.6 : 1, cursor: ticketed[m.id] === 'done' ? 'default' : 'pointer' }}>
+                          {ticketed[m.id] === 'done' ? '✅ チケット化済み' : '🎫 チケット化'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             </>)}
 
             {/* ═══ アクションタブ（日次タスク ＋ 今やるべきこと ＋ チケット） ═══ */}
