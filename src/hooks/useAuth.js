@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+// push.js は App.jsx 等から static import 済み（= 主バンドルに常在）。ここだけ
+// dynamic import すると「同一モジュールの static/dynamic 混在」でビルド警告が出て
+// コード分割も効かないため、static に統一する。
+import { unsubscribeFromPush } from '../lib/push';
 
 export function useAuth() {
   const [user, setUser] = useState(null);
@@ -79,7 +83,6 @@ export function useAuth() {
     // 端末に前ユーザーのメモ通知（本文抜粋つき）が届き続ける。失敗しても
     // サインアウト自体は止めない。
     try {
-      const { unsubscribeFromPush } = await import('../lib/push');
       await unsubscribeFromPush();
     } catch { /* ignore */ }
     const { error } = await supabase.auth.signOut();

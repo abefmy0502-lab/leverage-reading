@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import imageCompression from 'browser-image-compression';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
@@ -28,6 +27,9 @@ function newId() {
 async function compressForUpload(file) {
   if (!file) return null;
   try {
+    // 動的 import: 写真アップロード時しか使わない 57KB 級のライブラリを
+    // 初回バンドルから外す（ZXing / Sentry と同じ流儀）。
+    const { default: imageCompression } = await import('browser-image-compression');
     return await imageCompression(file, {
       maxSizeMB: 0.3,
       maxWidthOrHeight: 1200,
@@ -129,8 +131,16 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
     [bookId, isUsableBookId, cache]
   );
 
+  // リクエスト世代トークン。同一フックインスタンスで bookId が切り替わった時、
+  // 遅れて解決した旧 bookId のレスポンスが state を上書きして「別の本のメモが
+  // 表示されたまま」になるアウトオブオーダーを防ぐ（キャッシュへの書込は
+  // bookId 付きクロージャなので stale でも安全 = 温存する）。
+  const fetchGenRef = useRef(0);
+
   const fetchMemos = useCallback(
     async ({ silent = false } = {}) => {
+      const gen = ++fetchGenRef.current;
+      const isCurrent = () => aliveRef.current && gen === fetchGenRef.current;
       if (!user || !isSupabaseConfigured || !isUsableBookId) {
         writeBoth([]);
         setLoading(false);
@@ -138,27 +148,31 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
       }
       if (!silent) setLoading(true);
       try {
-        const { data, error: qErr } = await supabase
-          .from('book_memos')
-          .select('*')
-          .eq('book_id', bookId)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true });
-        if (qErr) throw qErr;
-        const fresh = (data || []).map(transformMemo);
-        if (aliveRef.current) {
+        // 同時同一 bookId の取得は 1 本の Promise に相乗り（App の currentMemoOps と
+        // BookMemoList の二重フェッチを 1 クエリに）。
+        const fresh = await cache.dedupeMemoFetch(bookId, async () => {
+          const { data, error: qErr } = await supabase
+            .from('book_memos')
+            .select('*')
+            .eq('book_id', bookId)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: true });
+          if (qErr) throw qErr;
+          return (data || []).map(transformMemo);
+        });
+        if (isCurrent()) {
           writeBoth(fresh);
           setError(null);
         } else {
-          // Component unmounted during fetch — still update the cache so the
-          // next mount sees fresh data.
+          // Unmounted / superseded during fetch — still update the cache so
+          // the next mount (of this bookId) sees fresh data.
           if (isUsableBookId) cache.setMemos(bookId, fresh);
         }
       } catch (e) {
         console.error('book_memos fetch error', e);
-        if (aliveRef.current) setError(e);
+        if (isCurrent()) setError(e);
       } finally {
-        if (aliveRef.current) setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
     },
     [user, bookId, isUsableBookId, cache, writeBoth]

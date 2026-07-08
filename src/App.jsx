@@ -609,6 +609,12 @@ function AuthedApp() {
   // ユーザー編集が巻き戻るため、保存直前の rebase に使う。
   const booksRef = useRef(rawBooks);
   useEffect(() => { booksRef.current = rawBooks; }, [rawBooks]);
+  // form の「実行時点の最新値」参照。保存系ハンドラはクリック時の form スナップ
+  // ショットを閉じ込むが、await 中に直列化チェーン（行動トグル/→行動にする）が
+  // syncActionSnapshots で form を進めることがある。保存直前に formRef を読む
+  // ことで、その 1-2 秒窓の追加行動を巻き戻さない（form の未保存編集は保持）。
+  const formRef = useRef(null);
+  useEffect(() => { formRef.current = form; }, [form]);
   // 非同期処理（saveBook の rollback / Undo 等）から「今ユーザーが開いている本」
   // を stale クロージャ無しで判定するための ref。closure の current は数秒前の
   // スナップショットであり、別の本へ移動済みのユーザーの画面を乗っ取る事故の元。
@@ -871,11 +877,19 @@ function AuthedApp() {
     try {
       const url = await uploadCover(file);
       if (!url) throw new Error('アップロード URL の取得に失敗しました');
-      const updated = { ...target, cover: url, coverIsbn: 'manual' };
-      const saved = await saveBook(updated);
-      const next = saved || updated;
-      if (current && current.id === next.id) setCurrent(next);
-      toast.success('表紙をアップロードしました');
+      // 直列化チェーンに乗せ、実行時点の最新行へ rebase して cover だけ差し替える。
+      // タップ時点の全行スナップショットで saveBook すると、アップロード待ちの間の
+      // 並行編集（行動トグル等）が差分同期で巻き戻るため。
+      await enqueueBookMutation(target.id, async (entry) => {
+        const base = entry.latest || booksRef.current.find((b) => b.id === target.id) || target;
+        const updated = { ...base, cover: url, coverIsbn: 'manual' };
+        const saved = await saveBook(updated);
+        if (saved) entry.latest = saved;
+        const next = saved || updated;
+        // stale クロージャの current 同士を比較すると常に一致してしまうため関数形式で。
+        setCurrent((c) => (c && c.id === next.id ? next : c));
+      });
+      toast.success('表紙をアップロードしました。');
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[manual-upload] failed:', err);
@@ -889,11 +903,16 @@ function AuthedApp() {
       // coverIsbn='removed' は「ユーザーが意図的に消した」印。自動リトライ
       // (coverAutoRetry) がこれを見て復活させない。手動「取り直す」では
       // 通常どおり新しい表紙で上書きされ、印も消える。
-      const updated = { ...book, cover: '', coverIsbn: 'removed' };
-      const saved = await saveBook(updated);
-      const next = saved || updated;
-      if (current && current.id === next.id) setCurrent(next);
-      toast.success('表紙を削除しました');
+      // チェーン + 実行時点 rebase（並行編集の巻き戻し防止）。
+      await enqueueBookMutation(book.id, async (entry) => {
+        const base = entry.latest || booksRef.current.find((b) => b.id === book.id) || book;
+        const updated = { ...base, cover: '', coverIsbn: 'removed' };
+        const saved = await saveBook(updated);
+        if (saved) entry.latest = saved;
+        const next = saved || updated;
+        setCurrent((c) => (c && c.id === next.id ? next : c));
+      });
+      toast.success('表紙を削除しました。');
     } catch (err) {
       toast.error(toMessage(err, '表紙の削除に失敗しました'));
     }
@@ -969,17 +988,46 @@ function AuthedApp() {
         });
         return;
       }
-      const updated = { ...book, cover: coverUrl, coverIsbn };
-      const saved = await saveBook(updated);
-      const next = saved || updated;
-      if (current && current.id === next.id) setCurrent(next);
+      // チェーン + 実行時点 rebase。表紙解決は最大 10 秒超かかるため、この間の
+      // 並行編集（行動トグル / 読了化）をタップ時スナップショットで巻き戻さない。
+      await enqueueBookMutation(book.id, async (entry) => {
+        const base = entry.latest || booksRef.current.find((b) => b.id === book.id) || book;
+        const updated = { ...base, cover: coverUrl, coverIsbn };
+        const saved = await saveBook(updated);
+        if (saved) entry.latest = saved;
+        const next = saved || updated;
+        setCurrent((c) => (c && c.id === next.id ? next : c));
+      });
       toast.dismiss?.(busyToastId);
-      toast.success('表紙を更新しました');
+      toast.success('表紙を更新しました。');
     } catch (e) {
       toast.dismiss?.(busyToastId);
       toast.error(toMessage(e, '表紙の取得に失敗しました'));
     } finally {
       setCoverBusyId(null);
+    }
+  };
+
+  // CoverFixModal からの表紙差し替え（LIST / DETAIL 2 箇所の mount から共有）。
+  // 楽観的 UI 更新 → チェーン + 実行時点 rebase で cover だけ差し替え（並行編集
+  // の巻き戻し防止）。saveBook 失敗時は次の fetchBooks で元に戻り整合する。
+  const handleCoverFixPick = async (book, { cover, coverIsbn }) => {
+    if (!book) return;
+    setCurrent((c) => (c && c.id === book.id ? { ...c, cover, coverIsbn } : c));
+    try {
+      await enqueueBookMutation(book.id, async (entry) => {
+        const base = entry.latest || booksRef.current.find((b) => b.id === book.id) || book;
+        const updated = { ...base, cover, coverIsbn };
+        const saved = await saveBook(updated);
+        if (saved) entry.latest = saved;
+        const next = saved || updated;
+        setCurrent((c) => (c && c.id === next.id ? next : c));
+      });
+      toast.success('表紙を更新しました。');
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[cover-modal] DB update failed:', error);
+      toast.error(toMessage(error, '表紙の更新に失敗しました。'));
     }
   };
 
@@ -1096,7 +1144,10 @@ function AuthedApp() {
     setEditPhaseOverride('before');
     setView('edit');
   };
-  const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); };
+  // quickMemoOpen / fullEditorPrefill もリセットする — edge-swipe back や BottomNav
+  // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
+  // 開いた別の本の詳細でシートが勝手に開いてしまう。
+  const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); };
 
   // 同じ本が既に本棚にあれば true を返す。ダイアログを出して「📖 既存の本を見る」
   // が押されたらその詳細へジャンプ。呼び出し側はこの戻り値が true なら追加処理
@@ -1192,15 +1243,33 @@ function AuthedApp() {
         && form.status === 'before'
         && !!(form.investPurpose && form.investPurpose.trim());
 
-      const payload = { ...form, tags: normalizedTags, cover: resolvedCover, coverIsbn: resolvedCoverIsbn };
-      if (isSetupCompletion) {
-        payload.status = 'reading';
-        if (!payload.startDate) {
-          payload.startDate = new Date().toISOString().slice(0, 10);
+      // 保存直前に「実行時点の最新 form」を読む（表紙解決の長い await 中に
+      // →行動にする / 行動トグルが syncActionSnapshots で form を進めていても
+      // 巻き戻さない）。既存本は直列化チェーンに乗せ、並行 saveBook との
+      // 順序不定な競合（後勝ち上書き）も防ぐ。
+      const buildPayload = () => {
+        const liveForm = (formRef.current && formRef.current.id === form.id) ? formRef.current : form;
+        const p = { ...liveForm, tags: normalizedTags, cover: resolvedCover, coverIsbn: resolvedCoverIsbn };
+        if (isSetupCompletion) {
+          p.status = 'reading';
+          if (!p.startDate) {
+            p.startDate = new Date().toISOString().slice(0, 10);
+          }
         }
+        return p;
+      };
+      let saved = null;
+      let payload = null;
+      if (current?.id) {
+        await enqueueBookMutation(current.id, async (entry) => {
+          payload = buildPayload();
+          saved = await saveBook(payload);
+          if (saved) entry.latest = saved;
+        });
+      } else {
+        payload = buildPayload();
+        saved = await saveBook(payload);
       }
-
-      const saved = await saveBook(payload);
       const next = saved || payload;
       const wasNew = !current; // 新規追加 (current=null) かどうか
       // 📊 本追加の計測（DB 保存が確定した新規追加時のみ・経路は addedVia の enum だけ）。
@@ -1255,7 +1324,10 @@ function AuthedApp() {
     const prevForm = form;
     const prevCurrent = current;
     await enqueueBookMutation(bookId, async (entry) => {
-      const merged = { ...prevForm, leverageMemo: text };
+      // 実行時点の最新 form を使う（クリック後〜実行までにチェーンの先行タスク
+      // （→行動にする等）が syncActionSnapshots で form を進めた分を失わない）。
+      const liveForm = (formRef.current && formRef.current.id === bookId) ? formRef.current : prevForm;
+      const merged = { ...liveForm, leverageMemo: text };
       try {
         const saved = await saveBook(merged);
         // saveBook は未接続時に throw せず null を返す。その場合 DB へ書けて
@@ -2776,7 +2848,7 @@ function AuthedApp() {
                   <span style={{ fontSize: 16 }} aria-hidden="true">{a.done ? "✅" : "⬜"}</span>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 13, color: a.done ? "#9a8e7a" : "#4a4036", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "break-word" }}>{a.text}</p>
-                    {a.deadline && <p style={{ fontSize: 10, color: "#b5aa96", margin: 0 }}>📅 {a.deadline}</p>}
+                    {a.deadline && <p style={{ fontSize: 10, color: "var(--c-ink-3)", margin: 0 }}>📅 {a.deadline}</p>}
                   </div>
                 </button>
               ) : null))}
@@ -3067,20 +3139,7 @@ function AuthedApp() {
           <CoverFixModal
             book={coverFixForBook}
             onClose={() => setCoverFixForBook(null)}
-            onPick={async ({ cover, coverIsbn }) => {
-              const updated = { ...coverFixForBook, cover, coverIsbn };
-              setCurrent((c) => (c && c.id === updated.id ? { ...c, cover, coverIsbn } : c));
-              try {
-                const saved = await saveBook(updated);
-                const next = saved || updated;
-                setCurrent((c) => (c && c.id === next.id ? next : c));
-                toast.success('表紙を更新しました');
-              } catch (error) {
-                // eslint-disable-next-line no-console
-                console.error('[cover-modal] DB update failed:', error);
-                toast.error(toMessage(error, '表紙の更新に失敗しました。'));
-              }
-            }}
+            onPick={(pick) => handleCoverFixPick(coverFixForBook, pick)}
             onManualUpload={() => triggerManualCoverUpload(coverFixForBook)}
           />
           </Suspense>
@@ -3743,23 +3802,7 @@ function AuthedApp() {
         <CoverFixModal
           book={coverFixForBook}
           onClose={() => setCoverFixForBook(null)}
-          onPick={async ({ cover, coverIsbn }) => {
-            // 楽観的 UI 更新: saveBook の完了を待たず即座に画面を新しい
-            // 表紙に切り替える。saveBook が失敗したら次の fetchBooks で
-            // 元の URL に戻るので最終的な整合性は崩れない。
-            const updated = { ...coverFixForBook, cover, coverIsbn };
-            setCurrent((c) => (c && c.id === updated.id ? { ...c, cover, coverIsbn } : c));
-            try {
-              const saved = await saveBook(updated);
-              const next = saved || updated;
-              setCurrent((c) => (c && c.id === next.id ? next : c));
-              toast.success('表紙を更新しました');
-            } catch (error) {
-              // eslint-disable-next-line no-console
-              console.error('[cover-modal] DB update failed:', error);
-              toast.error(toMessage(error, '表紙の更新に失敗しました。'));
-            }
-          }}
+          onPick={(pick) => handleCoverFixPick(coverFixForBook, pick)}
           onManualUpload={() => triggerManualCoverUpload(coverFixForBook)}
         />
         </Suspense>

@@ -9,7 +9,7 @@
 // 動かしたいので、SELECT エラーは silent fail。available フラグで「履歴
 // 機能が使えない (未マイグレーション)」を呼び出し側に伝える。
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { isSchemaError } from '../lib/errors';
@@ -123,15 +123,32 @@ export function useAdvisorSessions() {
   );
 
   // 本を追加した時に added_book_ids へ UUID をプッシュ。
+  //
+  // 連続追加（推薦カードから 2 冊続けてタップ等）の read-modify-write 競合対策:
+  // per-session の追加 bookId をフック内で蓄積し、書込みは直列化チェーンで
+  // 「state の現在値 ∪ 蓄積分」を送る。state が stale でも蓄積側に全 id が
+  // あるため、後勝ち上書きで先に追加した本が履歴から消えない（union は冪等）。
+  const pendingAddsRef = useRef(new Map()); // sessionId -> Set<bookId>
+  const addChainRef = useRef(Promise.resolve());
+  const sessionsRef = useRef(sessions);
+  useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
+
   const addBookToSession = useCallback(
-    async (sessionId, bookId) => {
-      if (!sessionId || !bookId || !available) return;
-      const session = sessions.find((s) => s.id === sessionId);
-      if (!session) return;
-      const next = Array.from(new Set([...(session.added_book_ids || []), bookId]));
-      await updateSession(sessionId, { added_book_ids: next });
+    (sessionId, bookId) => {
+      if (!sessionId || !bookId || !available) return Promise.resolve();
+      const set = pendingAddsRef.current.get(sessionId) || new Set();
+      set.add(bookId);
+      pendingAddsRef.current.set(sessionId, set);
+      const run = addChainRef.current.then(async () => {
+        const session = sessionsRef.current.find((s) => s.id === sessionId);
+        if (!session) return;
+        const next = Array.from(new Set([...(session.added_book_ids || []), ...set]));
+        await updateSession(sessionId, { added_book_ids: next });
+      });
+      addChainRef.current = run.catch(() => { /* 失敗しても後続の追加を止めない */ });
+      return run;
     },
-    [sessions, updateSession, available],
+    [available, updateSession],
   );
 
   useEffect(() => {

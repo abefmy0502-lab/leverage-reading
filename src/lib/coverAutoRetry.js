@@ -116,9 +116,12 @@ async function processQueue() {
       attempts.set(book.id, n);
       if (n < MAX_ATTEMPTS) {
         // まだ余地あり → バックオフして再キュー（queuedOrInflight は保持＝二重投入防止）。
+        // ⚠️ getBook を必ず引き継ぐ。落とすと再試行の成功時に enqueue 時点の古い
+        // スナップショットで saveBook され、その間のユーザー編集（行動・タグ・
+        // ステータス）が差分同期で巻き戻る（上の rebase コメントの事故そのもの）。
         const delay = BACKOFF_BASE_MS * n;
         setTimeout(() => {
-          queue.push({ book, saveBook });
+          queue.push({ book, saveBook, getBook });
           if (!processing) processQueue();
         }, delay);
       } else {

@@ -74,11 +74,16 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
-          // ZXing(バーコード)・Sentry は遅延 import のみ。vendor に巻き込むと
-          // 全員が初回に DL してしまうので、専用の動的チャンクに残す
+          // ZXing(バーコード)・Sentry・RevenueCat(IAP・native ガード内の遅延 import
+          // のみ)・browser-image-compression(写真アップロード時のみ) は vendor に
+          // 巻き込むと全員が初回に DL してしまうので、専用の動的チャンクに残す
           // （undefined を返す＝ Rollup の動的 import 境界どおりに分割させる）。
           if (id.includes('@zxing')) return undefined;
           if (id.includes('@sentry')) return undefined;
+          if (id.includes('@revenuecat')) return undefined;
+          if (id.includes('iceberg-js')) return undefined;
+          if (id.includes('ts-custom-error')) return undefined;
+          if (id.includes('browser-image-compression')) return undefined;
           if (/[\\/]react(-dom)?[\\/]|[\\/]scheduler[\\/]/.test(id)) return 'vendor-react';
           if (id.includes('@supabase')) return 'vendor-supabase';
           if (id.includes('lucide-react')) return 'vendor-icons';

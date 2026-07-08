@@ -39,7 +39,7 @@ const AdvisorAddConfirmModal = lazy(() => import('./AdvisorAddConfirmModal'));
 const DiscoverPanel = lazy(() => import('./DiscoverPanel'));
 
 const advisorWizardCard = {
-  background: '#f7f3ec',
+  background: 'var(--c-soft)',
   border: '1px solid var(--c-hairline)',
   borderRadius: 16,
   padding: '16px 16px',
@@ -934,7 +934,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                 {interviewAnswers.map((x, i) => (
                   <span
                     key={i}
-                    style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, background: '#eee7da', color: 'var(--c-ink-2)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
                     ✓ {x.a}
                   </span>
@@ -947,7 +947,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
               {q.q}
             </p>
             {/* 複数選択できる質問は明示（タップで複数選べる安心感） */}
-            <p style={{ fontSize: 11, color: '#8a7c66', margin: '0 0 12px' }}>
+            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 12px' }}>
               {isMulti ? '当てはまるものを選んでください（複数可）' : '1 つ選んでください'}
             </p>
 
@@ -964,7 +964,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     style={{
                       ...advisorOptionChip,
                       ...(selected
-                        ? { background: '#efe7d3', borderColor: 'var(--c-brand)', color: 'var(--c-ink)', fontWeight: 600 }
+                        ? { background: 'var(--c-soft-2)', borderColor: 'var(--c-brand)', color: 'var(--c-ink)', fontWeight: 600 }
                         : null),
                     }}
                   >
@@ -1093,7 +1093,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
           <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div style={{
               maxWidth: "85%", padding: "10px 14px", borderRadius: 14,
-              background: m.role === "user" ? "var(--c-brand)" : "#f7f3ec",
+              background: m.role === "user" ? "var(--c-brand)" : "var(--c-soft)",
               color: m.role === "user" ? "var(--c-card)" : "var(--c-ink)",
               fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap",
               borderBottomRightRadius: m.role === "user" ? 4 : 14,
@@ -1144,19 +1144,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                 )}
                 {rec.core && (
                   <div style={{ marginTop: 10 }}>
-                    <p style={{ fontSize: 11, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>この本の核心</p>
+                    <p style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>この本の核心</p>
                     <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.core}</p>
                   </div>
                 )}
                 {rec.focus && (
                   <div style={{ marginTop: 10 }}>
-                    <p style={{ fontSize: 11, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>注目ポイント</p>
+                    <p style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>注目ポイント</p>
                     <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.focus}</p>
                   </div>
                 )}
                 {rec.duration && (
                   <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '10px 0 0' }}>
-                    <span style={{ color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.04em' }}>目安</span>　{rec.duration}
+                    <span style={{ color: 'var(--c-ink-2)', fontWeight: 700, letterSpacing: '0.04em' }}>目安</span>　{rec.duration}
                   </p>
                 )}
                 <div style={{ display: "flex", flexDirection: 'column', gap: 8, marginTop: 12 }}>
@@ -1167,7 +1167,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                       e.stopPropagation();
                       handleClickAdd(rec);
                     }}
-                    style={{ width: '100%', padding: "11px 0", borderRadius: 8, border: "none", background: addedTitles.has(rec.title) ? '#E0E0E0' : "var(--c-brand)", color: addedTitles.has(rec.title) ? '#666' : "#fff", fontSize: 13, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: 700, minHeight: 44, touchAction: 'manipulation' }}
+                    style={{ width: '100%', padding: "11px 0", borderRadius: 8, border: "none", background: addedTitles.has(rec.title) ? 'var(--c-soft-2)' : "var(--c-brand)", color: addedTitles.has(rec.title) ? 'var(--c-ink-2)' : "#fff", fontSize: 13, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: 700, minHeight: 44, touchAction: 'manipulation' }}
                   >
                     {addedTitles.has(rec.title)
                       ? (<><IcCheck size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />追加済み</>)

@@ -55,6 +55,24 @@ export function AppDataCacheProvider({ children }) {
     notifyMemos(bookId, next);
   }, []);
 
+  // 🚿 メモ取得の in-flight 共有（photoCache の promise パターンと同思想）。
+  // 本詳細を開くと App の currentMemoOps と BookMemoList 内の useBookMemos が
+  // 同じ bookId で同時に fetch を発行する（= 毎回 2 クエリ）。同時同一 bookId の
+  // 取得を 1 本の Promise に相乗りさせて重複クエリを消す。
+  const memoFetchesRef = useRef(new Map()); // bookId -> Promise<rows>
+  const dedupeMemoFetch = useCallback((bookId, fetcher) => {
+    if (!bookId) return Promise.resolve().then(fetcher);
+    const inflight = memoFetchesRef.current.get(bookId);
+    if (inflight) return inflight;
+    const p = Promise.resolve()
+      .then(fetcher)
+      .finally(() => {
+        if (memoFetchesRef.current.get(bookId) === p) memoFetchesRef.current.delete(bookId);
+      });
+    memoFetchesRef.current.set(bookId, p);
+    return p;
+  }, []);
+
   const subscribeMemos = useCallback((bookId, cb) => {
     if (!bookId || typeof cb !== 'function') return () => {};
     if (!memoSubsRef.current.has(bookId)) memoSubsRef.current.set(bookId, new Set());
@@ -207,6 +225,7 @@ export function AppDataCacheProvider({ children }) {
       setMemos,
       patchMemos,
       subscribeMemos,
+      dedupeMemoFetch,
       clearMemos,
       getCachedPhotoUrl,
       fetchPhotoUrl,
@@ -219,6 +238,7 @@ export function AppDataCacheProvider({ children }) {
       setMemos,
       patchMemos,
       subscribeMemos,
+      dedupeMemoFetch,
       clearMemos,
       getCachedPhotoUrl,
       fetchPhotoUrl,
