@@ -14,9 +14,10 @@ import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp } from '../lib/helpContent';
-import { callClaude } from '../lib/ai';
+import { callClaude, sanitizeForPrompt, isClaudeErrorString } from '../lib/ai';
 import { PROMPTS } from '../lib/prompts';
 import { toMessage } from '../lib/errors';
+import { LIMITS, clamp } from '../lib/limits';
 
 const FAQ_LIST = [
   '本の表紙が出ない時は？',
@@ -333,7 +334,9 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
   }, [onClose]);
 
   const askAI = async (q) => {
-    const text = (q || '').trim();
+    // 他の全 AI 入口と同じ二重防衛: 制御文字を除去し長さを clamp してから渡す
+    // （CLAUDE.md セキュリティチェックリスト「AI prompt は sanitize」準拠）。
+    const text = clamp(sanitizeForPrompt((q || '').trim()), LIMITS.aiQuestion || 500);
     if (!text || asking) return;
     setQuestion(text);
     setAnswer('');
@@ -341,7 +344,13 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
     setAsking(true);
     try {
       const res = await callClaude(PROMPTS.helpAi.system, text, { max_tokens: 600, cacheSystem: true });
-      setAnswer(res || '回答を取得できませんでした。');
+      // callClaude はエラーを「日本語のエラー文字列」で返す契約。回答として
+      // 表示せずエラー欄に出す（トーンの混線を防ぐ）。
+      if (isClaudeErrorString(res)) {
+        setError(res);
+      } else {
+        setAnswer(res || '回答を取得できませんでした。');
+      }
     } catch (e) {
       // 他画面と同様に humanize（生の英語スタック/内部メッセージを出さない）。
       setError(toMessage(e, '通信エラーが発生しました。少し時間をおいて再度お試しください。'));

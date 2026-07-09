@@ -117,7 +117,7 @@ export function TagInput({ tags, onChange, allTags }) {
       </div>
       {suggestions.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
-          <span style={{ fontSize: 10, color: "#b5aa96", lineHeight: "22px" }}>過去のタグ:</span>
+          <span style={{ fontSize: 10, color: "var(--c-ink-3)", lineHeight: "22px" }}>過去のタグ:</span>
           {suggestions.map((t) => (
             <button key={t} onClick={() => add(t)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, border: "1px dashed var(--c-hairline-strong)", background: "transparent", color: "var(--c-ink-2)", cursor: "pointer", fontFamily: "inherit" }}>+ {t}</button>
           ))}

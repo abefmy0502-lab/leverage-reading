@@ -6,7 +6,7 @@
 // Other lines are rendered as `<p>` blocks. `**bold**` is rendered as <strong>.
 // Lists (`- ` or `1. ` etc) are rendered as a styled <ul> / <ol>.
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   getAmazonSearchLink,
   handleAmazonClick,
@@ -486,7 +486,10 @@ function isRelatedBooksHeading(heading) {
   return /関連(書籍|本|する本|図書)|次に読む|次に読むべき|次の(一冊|本)|併読|あわせて読みたい|おすすめ(の本|書籍|図書|の一冊)|参考(書籍|図書|文献)|読むべき本/.test(heading);
 }
 
-export default function MarkdownSections({ text, density = 'normal', onAddRelatedBook, addingTitles }) {
+// memo 化: 編集フォームの毎キーストローク（setForm → 親再レンダー）で、不変の
+// text（AI 解析 / 計画シート）に対する数百要素の Markdown ツリー再構築を防ぐ。
+// props はどれも参照安定（text=string / addingTitles=state の Set / handler=useCallback）。
+function MarkdownSections({ text, density = 'normal', onAddRelatedBook, addingTitles }) {
   const sections = useMemo(() => parseSections(text), [text]);
   if (sections.length === 0) return null;
 
@@ -519,3 +522,5 @@ export default function MarkdownSections({ text, density = 'normal', onAddRelate
     </div>
   );
 }
+
+export default memo(MarkdownSections);

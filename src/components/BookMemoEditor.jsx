@@ -566,7 +566,7 @@ export default function BookMemoEditor({
           </div>
           {suggestions.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-              <span style={{ fontSize: 10, color: '#b5aa96', lineHeight: '22px' }}>過去のタグ:</span>
+              <span style={{ fontSize: 10, color: 'var(--c-ink-3)', lineHeight: '22px' }}>過去のタグ:</span>
               {suggestions.map((t) => (
                 <button
                   key={t}

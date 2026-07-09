@@ -10,7 +10,6 @@
 // the Supabase SQL editor before this hook is exercised in production.
 
 import { useCallback } from 'react';
-import imageCompression from 'browser-image-compression';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { validateImageFile, ALLOWED_IMAGE_EXT } from '../lib/limits';
@@ -25,6 +24,8 @@ function newId() {
 async function compressForCover(file) {
   if (!file) return null;
   try {
+    // 動的 import: アップロード時のみ必要な 57KB 級ライブラリを初回バンドルから外す。
+    const { default: imageCompression } = await import('browser-image-compression');
     return await imageCompression(file, {
       maxSizeMB: 0.5,
       maxWidthOrHeight: 800,

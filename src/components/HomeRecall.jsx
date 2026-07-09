@@ -62,6 +62,12 @@ function markPreviewShown() {
   try { localStorage.setItem(PREVIEW_KEY, '1'); } catch { /* ignore */ }
 }
 
+// 📦 日次キャッシュ（モジュールスコープ）。HomeRecall は本棚リスト⇄詳細の往復の
+// たびに再マウントされフェッチ（最大 200 行）が走るが、表示メモは日替わりシードで
+// 1 日固定。ユーザー×日のキーで取得行を再利用し、アプリ内で最頻のナビ経路から
+// 重複クエリを消す（「覚えた/もう一度」後は dismiss 側が表示を止めるので安全）。
+let _recallDayCache = { key: '', notes: null };
+
 export default function HomeRecall({ onOpen, onAction }) {
   const { user } = useAuth();
   const haptic = useHaptic();
@@ -82,39 +88,50 @@ export default function HomeRecall({ onOpen, onAction }) {
     let active = true;
     (async () => {
       try {
-        // 間隔反復用の列も取得（未適用DBでは列が無いので schema-error 時は
-        // 基本列だけで再取得＝想起は「作成日ベース」に degrade するが壊れない）。
-        let { data, error } = await supabase
-          .from('book_memos')
-          .select('id, text, created_at, book_id, last_recalled_at, recall_count, source_type, book:books(title)')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(200);
-        if (error) {
-          ({ data, error } = await supabase
+        // 同日 & 同ユーザーならキャッシュ行を再利用（往復ナビの重複フェッチ排除）。
+        const dayKey = `${user.id}:${Math.floor(Date.now() / 86400000)}`;
+        let notes = _recallDayCache.key === dayKey ? _recallDayCache.notes : null;
+        if (!notes) {
+          // 間隔反復用の列も取得（未適用DBでは列が無いので schema-error 時は
+          // 基本列だけで再取得＝想起は「作成日ベース」に degrade するが壊れない）。
+          let { data, error } = await supabase
             .from('book_memos')
-            .select('id, text, created_at, book_id, book:books(title)')
+            .select('id, text, created_at, book_id, last_recalled_at, recall_count, source_type, book:books(title)')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
-            .limit(200));
+            .limit(200);
+          if (error) {
+            ({ data, error } = await supabase
+              .from('book_memos')
+              .select('id, text, created_at, book_id, book:books(title)')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(200));
+          }
+          if (!active) return;
+          // 通常の想起は MIN_MEMOS 未満なら出さないが、初回プレビュー（下記）は
+          // 2 件から成立させたいので、まず 2 件未満だけを弾く。
+          if (error || !Array.isArray(data) || data.length < 2) {
+            setMemo(null); // 失敗・件数不足は静かに何も出さない
+            return;
+          }
+          notes = data.map((r) => ({
+            id: r.id,
+            text: r.text,
+            createdAt: r.created_at,
+            bookId: r.book_id || null,
+            title: r.book?.title || '',
+            lastRecalledAt: r.last_recalled_at ?? null,
+            recallCount: r.recall_count ?? 0,
+            sourceType: r.source_type ?? null,
+          }));
+          _recallDayCache = { key: dayKey, notes };
         }
         if (!active) return;
-        // 通常の想起は MIN_MEMOS 未満なら出さないが、初回プレビュー（下記）は
-        // 2 件から成立させたいので、まず 2 件未満だけを弾く。
-        if (error || !Array.isArray(data) || data.length < 2) {
-          setMemo(null); // 失敗・件数不足は静かに何も出さない
+        if (!Array.isArray(notes) || notes.length < 2) {
+          setMemo(null);
           return;
         }
-        const notes = data.map((r) => ({
-          id: r.id,
-          text: r.text,
-          createdAt: r.created_at,
-          bookId: r.book_id || null,
-          title: r.book?.title || '',
-          lastRecalledAt: r.last_recalled_at ?? null,
-          recallCount: r.recall_count ?? 0,
-          sourceType: r.source_type ?? null,
-        }));
         // 日替わりで安定（同じ日は同じ 1 枚）。
         // メモがまだ少ない初期は minAgeDays:1 で早めに一度「戻ってくる」体験を起こし、
         // 貯まってきたら minAgeDays:7 で本来の「忘れた頃」に寄せる（段階的緩和）。

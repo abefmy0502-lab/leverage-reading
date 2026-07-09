@@ -39,7 +39,7 @@ const AdvisorAddConfirmModal = lazy(() => import('./AdvisorAddConfirmModal'));
 const DiscoverPanel = lazy(() => import('./DiscoverPanel'));
 
 const advisorWizardCard = {
-  background: '#f7f3ec',
+  background: 'var(--c-soft)',
   border: '1px solid var(--c-hairline)',
   borderRadius: 16,
   padding: '16px 16px',
@@ -179,7 +179,33 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         if (Array.isArray(arr)) return arr;
       } catch { /* 次の候補へ */ }
     }
-    return null;
+    // 最終フォールバック: 配列としては壊れていても（max_tokens 打ち切りで閉じ ']'
+    // が無い等）、完成している先頭のオブジェクト群だけを波括弧バランスで救い出す。
+    // 5 冊中 4 冊まで生成済みなのに全滅する事故を防ぐ。
+    const out = [];
+    let depth = 0; let start = -1; let inStr = false; let esc = false;
+    for (let i = 0; i < raw.length; i += 1) {
+      const ch = raw[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') { inStr = true; continue; }
+      if (ch === '{') { if (depth === 0) start = i; depth += 1; }
+      else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0 && start >= 0) {
+          try {
+            const o = JSON.parse(clean(raw.slice(start, i + 1)));
+            if (o && typeof o === 'object') out.push(o);
+          } catch { /* この 1 冊は諦めて次へ */ }
+          start = -1;
+        }
+      }
+    }
+    return out.length ? out : null;
   };
 
   const parseAdvisorResponse = (text) => {
@@ -309,25 +335,52 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     let readerContext = '';
     try { readerContext = await gatherAdvisorContext(advisorUser?.id); } catch { /* graceful */ }
 
+    // 🕐 無通信ウォッチドッグ: SSE がストール（モバイル回線切替等）しても
+    // 「選んでいます…」で無期限に固まらないよう、チャンク間 45 秒無通信で中断する。
+    // streamClaude は abort 時に部分テキストで正常 resolve するため、途中まで
+    // 生成済みの推薦は下の salvage パースで拾える。
+    const controller = new AbortController();
+    let watchdog = null;
+    const armWatchdog = () => {
+      if (watchdog) clearTimeout(watchdog);
+      watchdog = setTimeout(() => { try { controller.abort(); } catch { /* noop */ } }, 45000);
+    };
+
     let finalText = '';
     try {
+      armWatchdog();
       finalText = await streamClaude({
         system: PROMPTS.bookAdvisor.systemWith(readerContext),
         // readerContext はユーザーごとに変わるためキャッシュ読取ヒットが起きない。
         // 汎用（context 空）の時だけキャッシュを効かせる。
         cacheSystem: !readerContext,
         messages: newHistory,
-        // temperature 0.7 — 推薦に多様性を出す（同じ著者ばかりにならない）。
-        max_tokens: 2048,
+        // 前置き + 3〜5冊の JSON + 読む順番 + まとめを 1 応答で要求するため、
+        // JSON が途中で切れて推薦カードが全滅しないよう余裕を持たせる
+        // （Sonnet 5 の新トークナイザは同じ日本語で約 3 割トークン増）。
+        max_tokens: 4096,
         model: MODEL_SMART,
+        signal: controller.signal,
+        onChunk: () => armWatchdog(),
       });
     } catch (e) {
       setRecoError(toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
       setRecoLoading(false);
       return;
+    } finally {
+      if (watchdog) clearTimeout(watchdog);
     }
 
-    track('ai_used', { feature: 'advisor' });
+    if (controller.signal.aborted && !finalText.trim()) {
+      // ストール中断かつ 1 文字も生成されていない → エラーとして再試行を促す。
+      setRecoError('通信が途切れました。電波の良い場所でもう一度お試しください。');
+      setRecoLoading(false);
+      return;
+    }
+
+    // 計測は「応答を最後まで受け取れた」時のみ（ストール中断の部分応答は除外し、
+    // 運営ダッシュボードの AI 利用集計を歪めない）。
+    if (!controller.signal.aborted) track('ai_used', { feature: 'advisor' });
 
     const { recs, prose } = parseAdvisorResponse(finalText);
     let nextRecs = null;
@@ -881,7 +934,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                 {interviewAnswers.map((x, i) => (
                   <span
                     key={i}
-                    style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, background: '#eee7da', color: 'var(--c-ink-2)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
                     ✓ {x.a}
                   </span>
@@ -894,7 +947,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
               {q.q}
             </p>
             {/* 複数選択できる質問は明示（タップで複数選べる安心感） */}
-            <p style={{ fontSize: 11, color: '#8a7c66', margin: '0 0 12px' }}>
+            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 12px' }}>
               {isMulti ? '当てはまるものを選んでください（複数可）' : '1 つ選んでください'}
             </p>
 
@@ -911,7 +964,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     style={{
                       ...advisorOptionChip,
                       ...(selected
-                        ? { background: '#efe7d3', borderColor: 'var(--c-brand)', color: 'var(--c-ink)', fontWeight: 600 }
+                        ? { background: 'var(--c-soft-2)', borderColor: 'var(--c-brand)', color: 'var(--c-ink)', fontWeight: 600 }
                         : null),
                     }}
                   >
@@ -1040,7 +1093,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
           <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div style={{
               maxWidth: "85%", padding: "10px 14px", borderRadius: 14,
-              background: m.role === "user" ? "var(--c-brand)" : "#f7f3ec",
+              background: m.role === "user" ? "var(--c-brand)" : "var(--c-soft)",
               color: m.role === "user" ? "var(--c-card)" : "var(--c-ink)",
               fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap",
               borderBottomRightRadius: m.role === "user" ? 4 : 14,
@@ -1091,19 +1144,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                 )}
                 {rec.core && (
                   <div style={{ marginTop: 10 }}>
-                    <p style={{ fontSize: 11, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>この本の核心</p>
+                    <p style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>この本の核心</p>
                     <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.core}</p>
                   </div>
                 )}
                 {rec.focus && (
                   <div style={{ marginTop: 10 }}>
-                    <p style={{ fontSize: 11, color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>注目ポイント</p>
+                    <p style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>注目ポイント</p>
                     <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.focus}</p>
                   </div>
                 )}
                 {rec.duration && (
                   <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '10px 0 0' }}>
-                    <span style={{ color: '#8a7c5f', fontWeight: 700, letterSpacing: '0.04em' }}>目安</span>　{rec.duration}
+                    <span style={{ color: 'var(--c-ink-2)', fontWeight: 700, letterSpacing: '0.04em' }}>目安</span>　{rec.duration}
                   </p>
                 )}
                 <div style={{ display: "flex", flexDirection: 'column', gap: 8, marginTop: 12 }}>
@@ -1114,7 +1167,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                       e.stopPropagation();
                       handleClickAdd(rec);
                     }}
-                    style={{ width: '100%', padding: "11px 0", borderRadius: 8, border: "none", background: addedTitles.has(rec.title) ? '#E0E0E0' : "var(--c-brand)", color: addedTitles.has(rec.title) ? '#666' : "#fff", fontSize: 13, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: 700, minHeight: 44, touchAction: 'manipulation' }}
+                    style={{ width: '100%', padding: "11px 0", borderRadius: 8, border: "none", background: addedTitles.has(rec.title) ? 'var(--c-soft-2)' : "var(--c-brand)", color: addedTitles.has(rec.title) ? 'var(--c-ink-2)' : "#fff", fontSize: 13, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: 700, minHeight: 44, touchAction: 'manipulation' }}
                   >
                     {addedTitles.has(rec.title)
                       ? (<><IcCheck size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />追加済み</>)

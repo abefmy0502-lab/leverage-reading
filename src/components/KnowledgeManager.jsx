@@ -39,7 +39,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage, isSchemaError } from '../lib/errors';
-import imageCompression from 'browser-image-compression';
 import { LIMITS, validateImageFile, ALLOWED_IMAGE_EXT } from '../lib/limits';
 import BookMemoEditor from './BookMemoEditor';
 import EmptyState from './EmptyState.jsx';
@@ -473,6 +472,8 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
       // 生アップロードだと 8MB/4000px がそのまま保存され、一覧表示が重くなる。
       let fileToUpload = payload.photoFile;
       try {
+        // 動的 import: アップロード時のみ必要（初回バンドル削減）。
+        const { default: imageCompression } = await import('browser-image-compression');
         fileToUpload = await imageCompression(payload.photoFile, {
           maxSizeMB: 0.3,
           maxWidthOrHeight: 1200,

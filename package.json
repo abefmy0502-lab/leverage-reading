@@ -39,6 +39,7 @@
     "@capacitor/ios": "^8.4.1",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^8.57.1",
+    "playwright-core": "^1.61.1",
     "sharp": "^0.34.5",
     "vite": "^6.0.0",
     "vitest": "^4.1.9"
