@@ -277,6 +277,10 @@ export default async function handler(req, res) {
       price_id: event.product_id || null, // RevenueCat の product_id を price_id 相当に格納
       current_period_end: toIsoFromMs(event.expiration_at_ms),
     };
+    // 会員内訳（admin_revenue の trial/intro 集計）用。RC イベントの period_type は
+    // 'TRIAL' | 'INTRO' | 'NORMAL'。未知値/欠落は書かない（既存値を上書きしない）。
+    const periodType = typeof event.period_type === 'string' ? event.period_type.toLowerCase() : '';
+    if (['trial', 'intro', 'normal'].includes(periodType)) patch.period_type = periodType;
 
     // 二重 provider(Web=Stripe と IAP=RevenueCat)対策。subscriptions は user_id 1 行
     // なので、RC の expire/cancel イベントが「現在 active な Stripe 購読」を上書きして
@@ -285,10 +289,15 @@ export default async function handler(req, res) {
     try {
       const { data: existing } = await supabase
         .from('subscriptions')
-        .select('provider, status')
+        .select('provider, status, stripe_subscription_id')
         .eq('user_id', appUserId)
         .maybeSingle();
-      if (existing && existing.provider === 'stripe' && existing.status === 'active' && status !== 'active') {
+      // provider='stripe' 明示行に加え、provider が NULL のレガシー行でも
+      // stripe_subscription_id を持つ＝Stripe 管理下とみなして保護する
+      // （provider 列を書き始める前に作られた行の後方互換）。
+      const managedByStripe = existing
+        && (existing.provider === 'stripe' || (!existing.provider && existing.stripe_subscription_id));
+      if (managedByStripe && existing.status === 'active' && status !== 'active') {
         return res.status(200).json({ received: true, skipped: 'stripe_active_preserved' });
       }
     } catch { /* 読み取り失敗時は従来どおり upsert に進む（fail-open） */ }

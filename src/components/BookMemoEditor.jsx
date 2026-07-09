@@ -270,7 +270,7 @@ export default function BookMemoEditor({
     const pendingTag = tagInput.trim();
     const finalTags = pendingTag && !tags.includes(pendingTag) ? [...tags, pendingTag] : tags;
     return {
-      pageNumber: Number.isFinite(parsed) ? parsed : null,
+      pageNumber: Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 99999) : null,
       text: text.trim(),
       photoFile: photoFile || null,
       tags: finalTags,
@@ -396,6 +396,8 @@ export default function BookMemoEditor({
           <input
             type="number"
             inputMode="numeric"
+            min={0}
+            max={99999}
             value={pageNumber}
             onChange={(e) => setPageNumber(e.target.value)}
             onKeyDown={blockEnter}
@@ -410,7 +412,7 @@ export default function BookMemoEditor({
             ref={bodyRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="メモを入力..."
+            placeholder="メモを入力…"
             style={ta}
             maxLength={LIMITS.memoText}
           />
@@ -616,7 +618,7 @@ export default function BookMemoEditor({
             disabled={busy}
             style={{ ...btnGhost, opacity: busy ? 0.6 : 1 }}
           >
-            {busy ? '保存中...' : '保存して次へ'}
+            {busy ? '保存中…' : '保存して次へ'}
           </button>
         )}
         <button
@@ -625,7 +627,7 @@ export default function BookMemoEditor({
           disabled={busy}
           style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}
         >
-          {busy ? '保存中...' : '保存'}
+          {busy ? '保存中…' : '保存'}
         </button>
       </div>
     </div>

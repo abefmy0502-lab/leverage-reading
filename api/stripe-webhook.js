@@ -86,6 +86,11 @@ function subscriptionFields(sub) {
     status: sub?.status || null,
     price_id: priceId,
     current_period_end: toIso(sub?.current_period_end),
+    // ⚠️ provider を必ず刻む。これが無いと revenuecat-webhook.js の
+    // 「Stripe active 保護ガード」(provider==='stripe' 判定) が一度も発火せず、
+    // iOS の失効イベントが Web 課金中ユーザーの行を canceled で上書きして
+    // ロックアウトする（実際に起きうる事故）。
+    provider: 'stripe',
   };
 }
 

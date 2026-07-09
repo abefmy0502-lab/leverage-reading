@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { isNative, hasActiveEntitlement } from '../lib/iap';
@@ -68,6 +68,9 @@ export function useSubscription() {
   // 購入/復元直後に本人をアンロックするための即時真実。Web では常に false。
   const [nativeEntitled, setNativeEntitled] = useState(false);
   const { user } = useAuth();
+  // fetchSubscription の in-flight 混線ガード用（常に最新のユーザー id を参照）。
+  const userRef = useRef(user?.id ?? null);
+  useEffect(() => { userRef.current = user?.id ?? null; }, [user?.id]);
 
   const fetchSubscription = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
@@ -77,6 +80,11 @@ export function useSubscription() {
       setLoading(false);
       return;
     }
+    // アカウント切替の in-flight 混線ガード: 発行時のユーザーを控え、応答時に
+    // 変わっていたら破棄する（前ユーザー宛の SELECT が後着して別人の課金状態で
+    // アンロック/ロックされるのを防ぐ）。
+    const forUserId = user.id;
+    const isCurrent = () => userRef.current === forUserId;
     setLoading(true);
     let dbActive = false;
     try {
@@ -86,6 +94,7 @@ export function useSubscription() {
         .eq('user_id', user.id)
         .maybeSingle();
 
+      if (!isCurrent()) return; // ユーザーが切り替わった — この応答は破棄
       if (dbError) {
         // テーブル未適用なら課金未導入とみなして静かに縮退（未課金扱い）。
         if (isSchemaError(dbError)) {

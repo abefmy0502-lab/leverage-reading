@@ -288,7 +288,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
             // 出力上限で途中切れ。画面には表示するが、欠けたレポートを完成品として
             // 履歴に永続化しない（再表示しても欠けたままになる事故を防ぐ）。
             setNoticeKind('info');
-            setNotice('⚠️ レポートが長さの上限に達したため途中までです。メモやテーマを絞って再生成すると最後まで作成できます（このままでは履歴に保存されません）。');
+            setNotice('⚠️ テーマまとめが長さの上限に達したため途中までです。メモやテーマを絞って再生成すると最後まで作成できます（このままでは履歴に保存されません）。');
           } else {
             // Persist (no-op + history stays hidden if the table isn't applied).
             const saved = await saveThemeReport({ userId: user.id, theme, content: finalText });
@@ -337,7 +337,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
     try {
       await navigator.clipboard.writeText(text);
       haptic.success();
-      toast.success('テーマまとめをコピーしました');
+      toast.success('テーマまとめをコピーしました。');
     } catch {
       toast.error('コピーできませんでした。');
     }
@@ -346,7 +346,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   const handleSetRecall = useCallback(async () => {
     if (recallBusy || recallSet) return;
     const core = extractCore(reportText);
-    if (!core) { toast.error('核心を取り出せませんでした'); return; }
+    if (!core) { toast.error('核心を取り出せませんでした。'); return; }
     setRecallBusy(true);
     try {
       const res = await setLeverageRecall({ userId: user.id, theme: activeTheme, core });
@@ -365,8 +365,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   const handleAddNextStep = useCallback(async () => {
     if (actionBusy || actionAdded) return;
     const step = extractNextStep(reportText);
-    if (!step) { toast.error('「次の一歩」を取り出せませんでした'); return; }
-    if (!primaryBook?.id) { toast.error('追加先の本が見つかりませんでした'); return; }
+    if (!step) { toast.error('「次の一歩」を取り出せませんでした。'); return; }
+    if (!primaryBook?.id) { toast.error('追加先の本が見つかりませんでした。'); return; }
     setActionBusy(true);
     try {
       const res = await addThemeAction({ userId: user.id, bookId: primaryBook.id, text: step });
@@ -406,7 +406,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
 
   const removeHistory = useCallback(async (row) => {
     const ok = await confirm({
-      title: 'テーマまとめを削除',
+      title: 'テーマまとめを削除しますか？',
       message: `「${row.theme}」のテーマまとめを削除しますか？`,
       confirmLabel: '削除する',
       danger: true,
@@ -419,7 +419,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
       setHistory((h) => (h.some((r) => r.id === row.id)
         ? h
         : [...h, row].sort((a, b) => (b.generated_at || '').localeCompare(a.generated_at || ''))));
-      toast.error('削除できませんでした');
+      toast.error('削除できませんでした。');
     } else {
       haptic.medium();
     }
@@ -771,7 +771,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                 submitCustom();
               }
             }}
-            placeholder="例: 営業 / リーダーシップ / 習慣"
+            placeholder="例：営業 / リーダーシップ / 習慣"
             maxLength={LIMITS.theme}
             style={{ ...inp, flex: 1, minWidth: 160 }}
           />

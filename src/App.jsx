@@ -88,6 +88,7 @@ import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
 import { ensurePushSubscription } from './lib/push';
 import { isNative } from './lib/iap';
+import { APP_STORE_URL, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
 import UpdateBanner from './components/UpdateBanner';
 import { BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
@@ -404,11 +405,13 @@ function AuthedApp() {
     ? (rawBooks.length <= 3 ? 'list' : 'grid')
     : bookshelfViewMode;
   // 親タブ「振り返り」「AI」内のサブタブ。
-  // 入口は常に固定（永続化しない）: 振り返り＝🎯行動 / AI＝🔍AI選書。
-  // 直前に見ていたサブタブ（ノート / マイ読書脳など）に毎回飛ぶと「タブを
-  // 押したのに違うものが出る」分かりにくさになるため、毎回の起点を一定にする。
+  // 入口は常に固定（永続化しない）: 振り返り＝💭ノート(想起) / AI＝🔍AI選書。
+  // 直前に見ていたサブタブに毎回飛ぶと「タブを押したのに違うものが出る」分かり
+  // にくさになるため、毎回の起点を一定にする。起点をノート(想起)にするのは、
+  // タブ名「振り返り」・アイコン(RotateCcw)・LP の筆頭訴求「忘れた頃に戻る」と
+  // 入口の実体を一致させるため（CPO 監査 2-2: 旧・行動起点は名前と中身の不一致）。
   // 個別画面への明示遷移（想起ディープリンク等）は setReviewSubTab/setAiSubTab で上書きする。
-  const [reviewSubTab, setReviewSubTab] = useState('action');
+  const [reviewSubTab, setReviewSubTab] = useState('note');
   const [aiSubTab, setAiSubTab] = useState('advisor');
 
   // 下部ナビでタブを切り替えるときの共通処理。同一セッション内で前回見ていた
@@ -420,7 +423,7 @@ function AuthedApp() {
     // 入力中の質問ドラフトが黙って消える。入口リセットは「別のタブから
     // 切り替えてきた時」だけの仕事。
     if (t === tab) return;
-    if (t === 'review') setReviewSubTab('action');
+    if (t === 'review') setReviewSubTab('note');
     else if (t === 'ai') setAiSubTab('advisor');
     setTab(t);
   };
@@ -1294,18 +1297,23 @@ function AuthedApp() {
         toast.success('📚 読書を開始しました！');
       } else if (wasNew) {
         setView('detail');
-        toast.success('保存しました');
+        // ボタンラベル「保存してメモを書く」（読書中/読了で新規保存）に挙動を一致させ、
+        // 最初のメモ（aha #1）への迷いを消す — 詳細画面着地と同時にクイックメモを開く。
+        if (payload.status === 'reading' || payload.status === 'done') {
+          setQuickMemoOpen(true);
+        }
+        toast.success('保存しました。');
       } else {
         // 既存本の編集を保存したら本詳細へ戻す（フォームに留めて行き止まりにしない）。
         // form は current に同期済みなので、次の一歩（フェーズCTA）が見える。
         setView('detail');
-        toast.success('保存しました');
+        toast.success('保存しました。');
       }
     } catch (error) {
       // DB 側 UNIQUE 制約に弾かれた場合 (= UI チェックを抜けた競合状況) は
       // 専用メッセージで案内。それ以外は通常のエラー。
       if (isUniqueViolation(error)) {
-        toast.error('この本は既に本棚にあります');
+        toast.error('この本は既に本棚にあります。');
       } else {
         toast.error(toMessage(error, '保存に失敗しました。もう一度お試しください。'));
       }
@@ -1416,11 +1424,10 @@ function AuthedApp() {
       return;
     }
 
-    const hasPhotos = (snapshot.book_memos || []).some((m) => m.photo_path);
+    // 本の削除→Undo では Storage の写真ファイルを消していないため、
+    // photo_path ごと完全復元される（旧「※写真は復元できません」は誤案内だった）。
     toast.undo({
-      message: hasPhotos
-        ? `「${book.title}」を削除しました。\n※写真は復元できません。`
-        : `「${book.title}」を削除しました。`,
+      message: `「${book.title}」を削除しました。`,
       onUndo: async () => {
         try {
           await deletionPromise.catch(() => {});
@@ -1432,7 +1439,7 @@ function AuthedApp() {
               `本は復元しましたが、${result.failed.join('・')}の一部を復元できませんでした。`,
             );
           } else {
-            toast.info('削除を取り消しました');
+            toast.info('削除を取り消しました。');
           }
         } catch (error) {
           toast.error(toMessage(error, '復元に失敗しました。'));
@@ -1552,10 +1559,10 @@ function AuthedApp() {
       // 4 フィールドが埋まっていれば「読書計画を作成しました」、そうでなければ控えめなトースト。
       const hasPlan = newBook.currentChallenge || newBook.hypothesis || newBook.bookReason;
       const msg = hasPlan
-        ? `✅ 「${rec.title}」を追加。AI 読書計画を作成しました`
+        ? `✅ 「${rec.title}」を追加。AI 読書計画を作成しました。`
         : newBook.sourceQuery
-          ? `「${rec.title}」を追加。AI 読書計画で読み方戦略を立てましょう`
-          : `「${rec.title}」を「読みたい」に追加しました`;
+          ? `「${rec.title}」を追加。AI 読書計画で読み方戦略を立てましょう。`
+          : `「${rec.title}」を「読みたい」に追加しました。`;
       // 追加直後に「本棚で探し直す」断絶を無くす — トーストから 1 タップで
       // その本の読書計画（投資目的→戦略）へ直行できるようにする（time-to-value）。
       toast.show({
@@ -1571,7 +1578,7 @@ function AuthedApp() {
       return saved;
     } catch (error) {
       if (isUniqueViolation(error)) {
-        toast.error('この本は既に本棚にあります');
+        toast.error('この本は既に本棚にあります。');
       } else {
         toast.error(toMessage(error, '本の追加に失敗しました。'));
       }
@@ -1766,7 +1773,7 @@ function AuthedApp() {
     // Fallback: copy to clipboard
     try {
       await navigator.clipboard.writeText(text);
-      toast.success('共有テキストをコピーしました');
+      toast.success('共有テキストをコピーしました。');
     } catch {
       // Last resort
       prompt("共有テキストをコピーしてください：", text);
@@ -1895,7 +1902,7 @@ function AuthedApp() {
       }
       if (targetId) saveStrategyHistory(targetId, prev);
       setStrategyHistoryTick((t) => t + 1);
-      toast.success('✓ 読書計画シートを修正しました');
+      toast.success('✓ 読書計画シートを修正しました。');
     } catch (error) {
       // ストリーミング失敗時は元のシートを戻す (undo 履歴は触らない)。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prev } : f));
@@ -1911,7 +1918,7 @@ function AuthedApp() {
     if (!prev) return;
     setForm((f) => ({ ...f, aiStrategy: prev }));
     setStrategyHistoryTick((t) => t + 1);
-    toast.info('ひとつ前の読書計画シートに戻しました');
+    toast.info('ひとつ前の読書計画シートに戻しました。');
   };
 
   // Adds a recommended book (from reading plan sheet / 投資の効果 related-books
@@ -2000,7 +2007,7 @@ function AuthedApp() {
 
         const saved = await saveBook(newBook);
         resolveCoverInBackground(saved);
-        toast.success(`「${trimmedTitle}」を読みたいに追加しました`);
+        toast.success(`「${trimmedTitle}」を「読みたい」に追加しました。`);
       } catch (error) {
         // 失敗時は UI rollback してエラー表示
         setAddedRelatedTitles((prev) => {
@@ -2009,7 +2016,7 @@ function AuthedApp() {
           return next;
         });
         if (isUniqueViolation(error)) {
-          toast.error('この本は既に本棚にあります');
+          toast.error('この本は既に本棚にあります。');
         } else {
           toast.error(toMessage(error, '本の追加に失敗しました。'));
         }
@@ -2270,7 +2277,7 @@ function AuthedApp() {
         mutateBookLocal(bookId, () => next);
         syncActionSnapshots(next);
       });
-      toast.success('🎯 行動を追加しました');
+      toast.success('🎯 行動を追加しました。');
       return true;
     } catch (error) {
       toast.error(toMessage(error, '行動の追加に失敗しました。'));
@@ -2346,7 +2353,7 @@ function AuthedApp() {
         const saved = await saveBook(updated);
         entry.latest = saved || updated;
         syncActionSnapshots(saved || updated);
-        toast.success('行動を削除しました');
+        toast.success('行動を削除しました。');
       } catch (error) {
         mutateBookLocal(bookId, () => book);
         entry.latest = book;
@@ -2465,7 +2472,7 @@ function AuthedApp() {
   if (view === "detail" && current) {
     const st = getSt(current.status);
     const nextStatus = { want: "before", before: "reading", reading: "done" };
-    const nextLabel = { want: "📐 積読へ進む", before: "📖 読書を開始する", reading: "✅ 読了にする" };
+    const nextLabel = { want: "📕 積読へ進む", before: "📖 読書を開始する", reading: "✅ 読了にする" };
 
     return (
       <Shell>
@@ -3024,7 +3031,7 @@ function AuthedApp() {
                 await currentMemoOps.createMemo(payload);
                 // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
                 haptic.success();
-                toast.success('メモを保存しました');
+                toast.success('メモを保存しました。');
               }}
               onOpenFullEditor={(prefill) => {
                 setQuickMemoOpen(false);
@@ -3045,12 +3052,12 @@ function AuthedApp() {
             onCreate={async (payload) => {
               await currentMemoOps.createMemo(payload);
               haptic.success();
-              toast.success('メモを保存しました');
+              toast.success('メモを保存しました。');
             }}
             onUpdate={async (memoId, payload) => {
               await currentMemoOps.updateMemo(memoId, payload);
               haptic.success();
-              toast.success('メモを更新しました');
+              toast.success('メモを更新しました。');
             }}
           />
         )}
@@ -3561,7 +3568,7 @@ function AuthedApp() {
                     title="最初の1冊から"
                     description="読んだ気づきが、ここに少しずつ積み上がります。忘れた頃に、振り返りでそっと戻ってきます。"
                     actions={[
-                      { label: '本を追加する', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
+                      { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
                     ]}
                     tip={(
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -3840,7 +3847,7 @@ function AuthedApp() {
                 const saved = await saveBook(updated);
                 entry.latest = saved || updated;
                 syncActionSnapshots(saved || updated);
-                toast.success('💾 行動を更新しました');
+                toast.success('🎯 行動を更新しました。');
               } catch (error) {
                 mutateBookLocal(bookId, () => book);
                 entry.latest = book;
@@ -4034,7 +4041,7 @@ function AuthedApp() {
             <>
               <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>タグ</p>
               <p style={{ fontSize: 12, color: 'var(--c-ink-3)', margin: 0, lineHeight: 1.7 }}>
-                本を開いて「タグ」欄にキーワード（例: 営業 / 名著 / 再読したい）を付けると、ここでタグ絞り込みができるようになります。
+                本を開いて「タグ」欄にキーワード（例：営業 / 名著 / 再読したい）を付けると、ここでタグ絞り込みができるようになります。
               </p>
             </>
           )}
@@ -4214,7 +4221,18 @@ function isSchemaUnappliedError(error) {
 // 一般ユーザーを App Store へ誘導する。サインアウトで別アカウントへ切替も可能。
 function WebAppOnlyGate() {
   const { signOut, user } = useAuth();
-  const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime';
+  // 📩 AuthCallback がメール確認リンク（type=signup）経由の着地時に立てる一回きり
+  // のフラグ。アプリで登録 → 確認メールのリンクが Safari で開く → ここに着地、
+  // という遷移で「確認は済んだのに何も起きない」と迷子になるのを防ぐ。
+  const [emailJustConfirmed] = useState(() => {
+    try {
+      const v = window.sessionStorage.getItem('orime-email-confirmed') === 'true';
+      if (v) window.sessionStorage.removeItem('orime-email-confirmed');
+      return v;
+    } catch {
+      return false;
+    }
+  });
   return (
     <div
       style={{
@@ -4225,26 +4243,39 @@ function WebAppOnlyGate() {
       }}
     >
       <div style={{ fontSize: 34 }} aria-hidden="true">📱</div>
+      {emailJustConfirmed && (
+        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-accent-strong, #5a7a48)', margin: 0, lineHeight: 1.7 }}>
+          ✅ メールアドレスの確認が完了しました
+        </p>
+      )}
       <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, lineHeight: 1.5 }}>
-        Orime は iPhone / iPad アプリでご利用いただけます
+        {emailJustConfirmed
+          ? 'アプリに戻ってサインインしてください'
+          : 'Orime は iPhone / iPad アプリでご利用いただけます'}
       </h1>
       <p style={{ fontSize: 14, color: 'var(--c-ink-2, #6b6155)', margin: 0, lineHeight: 1.8, maxWidth: 360 }}>
         App Store から Orime アプリを入手して、同じアカウントでサインインしてください。
         メモも読書記録もそのまま引き継がれます。
       </p>
-      <a
-        href={APP_STORE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          minHeight: 48, padding: '13px 24px', borderRadius: 12,
-          background: 'var(--c-brand, #6b5b45)', color: '#fff',
-          fontSize: 15, fontWeight: 700, textDecoration: 'none', marginTop: 4,
-        }}
-      >
-        App Store で Orime を入手
-      </a>
+      {isAppStoreLive ? (
+        <a
+          href={APP_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            minHeight: 48, padding: '13px 24px', borderRadius: 12,
+            background: 'var(--c-brand, #6b5b45)', color: '#fff',
+            fontSize: 15, fontWeight: 700, textDecoration: 'none', marginTop: 4,
+          }}
+        >
+          App Store で Orime を入手
+        </a>
+      ) : (
+        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-ink-2, #6b6155)', margin: '4px 0 0' }}>
+          iOS アプリは App Store で近日公開予定です
+        </p>
+      )}
       <div style={{ marginTop: 8 }}>
         {user?.email && (
           <p style={{ fontSize: 11, color: 'var(--c-ink-3, #9a8f80)', margin: '0 0 6px', wordBreak: 'break-all' }}>

@@ -25,14 +25,25 @@ import { Check } from 'lucide-react';
 import PhoneFrame from '../components/PhoneFrame';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
+import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
 import './landing.css';
 
-// 📱 App Store ダウンロード URL。
-// ⚠️ TODO(developer): App Store 公開後、実際のアプリページ URL に差し替える。
-//    審査通過後に実アプリの URL（.../id0000000000）を環境変数 VITE_APP_STORE_URL
-//    に入れれば、コード変更なしで全 CTA に反映される。未設定の間はプレースホルダ
-//    のままなので、URL 確定まで LP を本番公開しないこと（運用ガード）。
-const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime';
+// 📱 App Store ダウンロード URL は src/lib/appStore.js に一元化。
+// VITE_APP_STORE_URL 未設定（= 実 URL 未確定）の間、CTA は自動で「近日公開」
+// 表示に倒れる — プレースホルダー URL を踏ませて App Store の 404 に落とさない。
+// 審査通過後に env へ実 URL（.../idXXXXXXXXXX）を入れれば全 CTA が一斉に有効化。
+
+// StoreCta: App Store 導線の共通 CTA。実 URL があるときだけリンクにする。
+function StoreCta({ className, children, tabIndex }) {
+  if (!isAppStoreLive) {
+    return (
+      <span className={className} aria-disabled="true" style={{ opacity: 0.65, pointerEvents: 'none' }}>
+        App Store で近日公開
+      </span>
+    );
+  }
+  return <a href={APP_STORE_URL} className={className} tabIndex={tabIndex}>{children}</a>;
+}
 
 const PRICE_NOTE = '月 ¥1,480（税込）・いつでも解約OK・解約してもメモは残ります';
 
@@ -234,7 +245,7 @@ export default function Landing() {
           </a>
           <nav className="lp-header-nav" aria-label="ヘッダー">
             <a href="/?auth=signin" className="lp-header-login">ログイン</a>
-            <a href={APP_STORE_URL} className="lp-header-cta">App Store で入手</a>
+            <StoreCta className="lp-header-cta">App Store で入手</StoreCta>
           </nav>
         </div>
       </header>
@@ -251,9 +262,9 @@ export default function Landing() {
             <span className="sticky-price-main">月 ¥1,480（税込）</span>
             <span className="sticky-price-sub">いつでも解約OK・データは残ります</span>
           </div>
-          <a href={APP_STORE_URL} className="sticky-btn" tabIndex={showStickyCta ? undefined : -1}>
+          <StoreCta className="sticky-btn" tabIndex={showStickyCta ? undefined : -1}>
             App Store で入手
-          </a>
+          </StoreCta>
         </div>
       </div>
 
@@ -272,7 +283,7 @@ export default function Landing() {
           </p>
           <p className="hero-tagline">読書の「読んだあと」を設計するアプリです。</p>
           <div className="hero-cta-block">
-            <a href={APP_STORE_URL} className="cta-primary cta-hero">App Store でダウンロード</a>
+            <StoreCta className="cta-primary cta-hero">App Store でダウンロード</StoreCta>
             <p className="hero-note">{PRICE_NOTE}</p>
             <p className="hero-login">
               すでにアカウントをお持ちの方は <a href="/?auth=signin" className="hero-login-link">ログイン</a>
@@ -282,7 +293,7 @@ export default function Landing() {
           <div className="hero-mockup">
             <PhoneFrame
               src="/lp/hero-bookshelf.jpg"
-              alt="Orime の本棚画面。読みたい・読書前・読了のステータス付きで本の表紙が並ぶ"
+              alt="Orime の本棚画面。読みたい・積読・読了のステータス付きで本の表紙が並ぶ"
               size="medium"
               float
               eager
@@ -507,7 +518,7 @@ export default function Landing() {
             ))}
           </div>
 
-          <a href={APP_STORE_URL} className="cta-secondary">違いを試してみる</a>
+          <StoreCta className="cta-secondary">違いを試してみる</StoreCta>
         </section>
 
         {/* ============ 8.5 社会的証明（実在の声がある時だけ表示） ============ */}
@@ -573,7 +584,7 @@ export default function Landing() {
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 解約してもメモは消えません</li>
             </ul>
 
-            <a href={APP_STORE_URL} className="cta-primary cta-large">App Store でダウンロード</a>
+            <StoreCta className="cta-primary cta-large">App Store でダウンロード</StoreCta>
             <p className="price-note">お支払いは App Store（Apple ID）経由です</p>
           </div>
 
@@ -617,7 +628,7 @@ export default function Landing() {
             今日残した一行が、<br className="sp-only" />
             一年後のあなたを助けにくる。
           </p>
-          <a href={APP_STORE_URL} className="cta-primary cta-large cta-final">App Store でダウンロード</a>
+          <StoreCta className="cta-primary cta-large cta-final">App Store でダウンロード</StoreCta>
           <p className="final-note">{PRICE_NOTE}</p>
         </section>
       </main>

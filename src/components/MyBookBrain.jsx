@@ -154,7 +154,7 @@ function LearningInline({ onCancel, onSaved }) {
         },
       ]);
       if (error) throw error;
-      toast.success('💡 学びを記録しました');
+      toast.success('💡 学びを記録しました。');
       onSaved?.();
     } catch (e) {
       toast.error(toMessage(e, '保存に失敗しました。'));
@@ -282,7 +282,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const handleAnswerToAction = useCallback(async (bookId, text) => {
     if (!onAddAction || !bookId || !text) return false;
     const ok = await onAddAction(bookId, { text, sourceMemoId: null, sourcePage: null });
-    if (ok) toast.success('🎯 行動に追加しました');
+    if (ok) toast.success('🎯 行動に追加しました。');
     return ok;
   }, [onAddAction, toast]);
   // 段階的ステータス表示: 'search' = 過去のメモを取得中, 'generate' = Claude が回答生成中,
@@ -697,7 +697,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const { error } = await supabase.from('chat_messages').delete().eq('user_id', user.id);
       if (error) throw error;
       setMessages([]);
-      toast.success('履歴をクリアしました');
+      toast.success('履歴をクリアしました。');
     } catch (e) {
       toast.error(toMessage(e, '履歴の削除に失敗しました。'));
     }
@@ -1008,7 +1008,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   ask();
                 }
               }}
-              placeholder="質問...（送信ボタン / ⌘・Ctrl+Enter で送信）"
+              placeholder="質問…（送信ボタン / ⌘・Ctrl+Enter で送信）"
               rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}

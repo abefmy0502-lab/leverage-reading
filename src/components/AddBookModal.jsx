@@ -643,7 +643,9 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   };
 
   // 📷 バーコード読取成功 → ISBN 欄に流し込み、他条件をクリアして既存検索へ委譲。
-  const handleScanDetect = (scannedIsbn) => {
+  // BarcodeScanner の effect 依存に入るため useCallback で参照を安定させる
+  // （不安定だと親の再レンダーごとにカメラが停止→再取得されて一瞬固まる）。
+  const handleScanDetect = useCallback((scannedIsbn) => {
     setScanning(false);
     if (!scannedIsbn) return;
     setIsbn(scannedIsbn);
@@ -651,7 +653,8 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
     setAuthor('');
     // setState の反映を待たず override で即検索（既存 runSearch をそのまま利用）。
     runSearch({ isbn: scannedIsbn, title: '', author: '' });
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePick = (book, opts = {}) => {
     // 既に本棚にある本は追加せず、親に既存本を開かせる。

@@ -270,6 +270,10 @@ export default function AdminDashboard({ onClose }) {
     try { return JSON.parse(localStorage.getItem('orime.floor.reports') || '{}'); } catch { return {}; }
   });
   const [floorBusy, setFloorBusy] = useState({}); // memberId -> bool
+  // 二重コール防止の即時ガード。部門招集ループ中の dispatchMember は招集開始時
+  // レンダーの floorBusy を閉包で読むため、state だけだと個別タップとの並行で
+  // 同一社員に二重コール（AI 原価二重払い）の窓が開く。ref は常に最新。
+  const floorBusyRef = useRef({});
   const [activeMemberId, setActiveMemberId] = useState(null);
   const [floorOrder, setFloorOrder] = useState('');
   // 🎖 CEO室 統合ブリーフ。
@@ -548,7 +552,8 @@ export default function AdminDashboard({ onClose }) {
   // 🏢 社員フロア: 1 名の社員に成果物を出させる（1 タップ = AI 1 コール）。
   // 既にレポートがある社員のタップは「閲覧のみ」（無課金）。更新は明示ボタンで。
   const dispatchMember = async (member, order = '') => {
-    if (!member || floorBusy[member.id]) return;
+    if (!member || floorBusyRef.current[member.id]) return;
+    floorBusyRef.current[member.id] = true;
     setFloorBusy((b) => ({ ...b, [member.id]: true }));
     try {
       const deptLabel = DEPT_META[member.dept]?.label || '';
@@ -568,6 +573,7 @@ export default function AdminDashboard({ onClose }) {
           .then(() => {}, () => {});
       }
     } finally {
+      floorBusyRef.current[member.id] = false;
       setFloorBusy((b) => ({ ...b, [member.id]: false }));
     }
   };
@@ -618,21 +624,34 @@ export default function AdminDashboard({ onClose }) {
   };
 
   // 🎫 成果物 → チケット化（既存の作業ボードへ流し込む＝実行に接続）。
+  // RPC 応答待ちの間の再タップで重複チケットが作られないよう、発行前に
+  // 'busy' を立てて disabled 条件に含める（in-flight ガード）。
   const ticketFromReport = async (member, rep) => {
     if (!rep || !rep.body || ticketed[member.id]) return;
+    setTicketed((t) => ({ ...t, [member.id]: 'busy' }));
     const title = `[${DEPT_META[member.dept]?.label || ''}/${member.name}] ${rep.status || '成果物'}`.slice(0, 120);
     try {
       const { error } = await supabase.rpc('admin_ticket_create', {
         p_title: title, p_body: String(rep.body).slice(0, 4000), p_kind: 'task', p_priority: 2, p_source_feedback: null,
       });
-      if (!error) setTicketed((t) => ({ ...t, [member.id]: 'done' }));
-    } catch { /* RPC 未適用等は静かに無視 */ }
+      setTicketed((t) => ({ ...t, [member.id]: error ? undefined : 'done' }));
+    } catch {
+      // RPC 未適用等は静かに無視（busy は解除して再試行可能に）
+      setTicketed((t) => ({ ...t, [member.id]: undefined }));
+    }
   };
 
   // フロアの稼働状況サマリー（司令室ヘッダー表示用）。
   const floorReportedCount = AI_COMPANY.filter((m) => floorReports[m.id] && floorReports[m.id].body).length;
   const floorBusyCount = Object.values(floorBusy).filter(Boolean).length;
-  const floorCostJpy = (floorReportedCount + (integration && integration.ok ? 1 : 0)) * AI_COST_PER_CALL_JPY;
+  // コスト概算は「当日の報告」だけを数える（過去日の復元分まで足すと、今日
+  // 1 コールも使っていないのに費用が出て元帥の原価判断をミスリードする）。
+  const _todayKey = new Date().toDateString();
+  const floorTodayCount = AI_COMPANY.filter((m) => {
+    const r = floorReports[m.id];
+    return r && r.body && r.at && new Date(r.at).toDateString() === _todayKey;
+  }).length;
+  const floorCostJpy = (floorTodayCount + (integration && integration.ok && integration.at && new Date(integration.at).toDateString() === _todayKey ? 1 : 0)) * AI_COST_PER_CALL_JPY;
 
   // 🗺 AI にロードマップを引いてもらう（年の目標→月別の人数/売上/施策）。
   const makeRoadmap = async () => {
@@ -848,7 +867,7 @@ export default function AdminDashboard({ onClose }) {
                   value={advisorInput}
                   onChange={(e) => setAdvisorInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendAdvisor(); } }}
-                  placeholder="例: 最初の10人をどう集める？ / 価格は¥1,480で妥当？ / 来月の優先順位は？"
+                  placeholder="例：最初の10人をどう集める？ / 価格は¥1,480で妥当？ / 来月の優先順位は？"
                   rows={2}
                   style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, flex: 1 }}
                 />
@@ -886,8 +905,9 @@ export default function AdminDashboard({ onClose }) {
             <textarea
               value={floorOrder}
               onChange={(e) => setFloorOrder(e.target.value)}
-              placeholder="任意: 招集する社員に共通で伝える指示（空なら各自が最重要の一手を選びます）例: 来週の集客を具体化して"
+              placeholder="任意: 招集する社員に共通で伝える指示（空なら各自が最重要の一手を選びます）例：来週の集客を具体化して"
               rows={2}
+              maxLength={1000}
               style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, marginBottom: 14 }}
             />
 
@@ -896,7 +916,7 @@ export default function AdminDashboard({ onClose }) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.ink }}>🎖 CEO室 統合ブリーフ</p>
                 <button type="button" onClick={runIntegration} disabled={integrationBusy || floorReportedCount === 0}
-                  style={{ ...btnPrimary, minHeight: 38, padding: '0 14px', fontSize: 12, width: 'auto',
+                  style={{ ...btnPrimary, minHeight: 44, padding: '0 14px', fontSize: 12, width: 'auto',
                     opacity: (integrationBusy || floorReportedCount === 0) ? 0.5 : 1, cursor: (integrationBusy || floorReportedCount === 0) ? 'default' : 'pointer' }}>
                   {integrationBusy ? '統合中…' : integration ? '再統合' : '全社を統合'}
                 </button>
@@ -928,7 +948,7 @@ export default function AdminDashboard({ onClose }) {
                     </p>
                     <button type="button" onClick={() => dispatchDepartment(dept.key)} disabled={!!prog}
                       style={{ border: `1px solid ${dept.accent}`, background: 'transparent', color: dept.accent, borderRadius: 99,
-                        padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: prog ? 'default' : 'pointer', opacity: prog ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                        padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: prog ? 'default' : 'pointer', opacity: prog ? 0.6 : 1, whiteSpace: 'nowrap', minHeight: 44 }}>
                       {prog ? `招集中 ${prog.done}/${prog.total}` : `部門を招集（${members.length}コール）`}
                     </button>
                   </div>
@@ -1205,7 +1225,7 @@ export default function AdminDashboard({ onClose }) {
                   <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>今月の集客費用（円）</label>
                   <input type="number" inputMode="numeric" value={mktSpend}
                     onChange={(e) => { setMktSpend(e.target.value); try { localStorage.setItem('orime-ops-mkt-spend', e.target.value); } catch { /* ignore */ } }}
-                    placeholder="例: 30000" style={inp} />
+                    placeholder="例：30000" style={inp} />
                 </div>
                 <div style={{ flex: 1, minWidth: 130 }}>
                   <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>想定継続月数</label>

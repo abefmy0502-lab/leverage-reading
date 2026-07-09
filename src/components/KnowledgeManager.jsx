@@ -446,7 +446,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
             .eq('id', item.id)
             .eq('user_id', user.id);
           if (error) throw error;
-          toast.success('学びログを更新しました');
+          toast.success('学びログを更新しました。');
           refresh();
         },
       });
@@ -508,7 +508,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
     if (oldPath && (payload.photoFile || payload.removePhotoFlag)) {
       try { await supabase.storage.from('book-memo-photos').remove([oldPath]); } catch { /* ignore */ }
     }
-    toast.success('メモを更新しました');
+    toast.success('メモを更新しました。');
     refresh();
   };
 
@@ -563,7 +563,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
           if (snapshot.created_at) payload.created_at = snapshot.created_at;
           const { error } = await supabase.from('book_memos').insert([payload]);
           if (error) throw error;
-          toast.info('削除を取り消しました');
+          toast.info('削除を取り消しました。');
           refresh();
         } catch (e) {
           toast.error(toMessage(e, '復元に失敗しました。'));
@@ -611,7 +611,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
             .eq('id', item.book_id)
             .eq('user_id', user.id);
           if (error) throw error;
-          toast.info('クリアを取り消しました');
+          toast.info('クリアを取り消しました。');
           refresh();
           notifyBooksMutated();
         } catch (e) {

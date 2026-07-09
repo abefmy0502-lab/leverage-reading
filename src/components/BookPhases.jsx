@@ -8,6 +8,7 @@
 // ⚠️ 挙動は抽出前と不変。識別子名・props も不変（App.jsx 側の呼び出しはそのまま）。
 
 import { useState, useRef } from 'react';
+import { toMessage } from '../lib/errors';
 import {
   BookOpen as IcBook, Ruler as IcRuler, Search as IcSearch, Map as IcMap,
   BarChart3 as IcBar, AlertTriangle as IcAlert, Lightbulb as IcBulb, Bot as IcBot,
@@ -43,7 +44,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
       const url = await uploadCover(file);
       if (url) setForm({ ...form, cover: url });
     } catch (err) {
-      toast.error(err?.message || '画像のアップロードに失敗しました');
+      toast.error(toMessage(err, '画像のアップロードに失敗しました。もう一度お試しください。'));
     } finally {
       setUploading(false);
     }
@@ -210,7 +211,7 @@ export function BeforePhase({
       <SectionHeader icon={<IcSearch size={16} />} title="AI本の解析" />
       <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>ボタンを押すとAIが本の核心・構造・著者の視点を分析します</p>
       <button onClick={onRunAnalysis} disabled={!form.title.trim() || aiLoading} style={{ ...aiB, opacity: !form.title.trim() || aiLoading ? 0.5 : 1 }}>
-        {aiLoading && !form.aiAnalysis ? "分析中..." : "🔍 AIで本を解析する"}
+        {aiLoading && !form.aiAnalysis ? "分析中…" : "🔍 AIで本を解析する"}
       </button>
       {aiLoading && !form.aiAnalysis && <Dots />}
       {form.aiAnalysis && (
@@ -336,7 +337,7 @@ export function BeforePhase({
           )}
 
           <button onClick={onRunStrategy} disabled={!form.investPurpose?.trim() || aiLoading} style={{ ...aiB, opacity: !form.investPurpose?.trim() || aiLoading ? 0.5 : 1 }}>
-            {aiLoading && form.aiAnalysis ? "作成中..." : "🗺️ 読書計画シートを作成"}
+            {aiLoading && form.aiAnalysis ? "作成中…" : "🗺️ 読書計画シートを作成"}
           </button>
           {aiLoading && form.aiAnalysis && !form.aiStrategy && <Dots />}
           {form.aiStrategy && (
@@ -394,7 +395,7 @@ export function BeforePhase({
                       opacity: !editInstruction.trim() || aiLoading ? 0.5 : 1,
                     }}
                   >
-                    {aiLoading ? "修正中..." : "🔧 修正する"}
+                    {aiLoading ? "修正中…" : "🔧 修正する"}
                   </button>
                   {hasStrategyHistory && !aiLoading && (
                     <button

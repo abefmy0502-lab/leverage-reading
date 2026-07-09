@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
+import { isNative } from '../../lib/iap';
 
 const btnPrimary = {
   padding: '14px 28px',
@@ -175,7 +176,7 @@ export default function AuthScreen() {
 
   const title = mode === 'signin' ? 'ログイン' : mode === 'signup' ? '新規登録' : 'パスワードリセット';
   const submitLabel = loading
-    ? '処理中...'
+    ? '処理中…'
     : mode === 'signin'
     ? 'ログイン'
     : mode === 'signup'
@@ -219,7 +220,7 @@ export default function AuthScreen() {
             disabled={resending}
             style={{ ...btnPrimary, opacity: resending ? 0.6 : 1 }}
           >
-            {resending ? '再送中...' : '確認メールを再送する'}
+            {resending ? '再送中…' : '確認メールを再送する'}
           </button>
           <button
             type="button"
@@ -251,6 +252,15 @@ export default function AuthScreen() {
       </p>
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 340 }}>
         <h2 style={{ fontSize: 16, color: 'var(--c-ink)', marginBottom: 16, textAlign: 'center', fontWeight: 500 }}>{title}</h2>
+        {mode === 'signup' && !isNative && (
+          /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
+             「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */
+          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 12px', textAlign: 'center' }}>
+            Orime は iPhone / iPad アプリでのご利用となります。<br />
+            ここで登録したアカウントで、アプリからサインインできます。{' '}
+            <a href="/lp" style={{ color: 'var(--c-ink-2)' }}>サービス紹介を見る</a>
+          </p>
+        )}
         {mode === 'signup' && (
           <input
             style={inp}
@@ -284,7 +294,7 @@ export default function AuthScreen() {
             onKeyDown={blockEnterWhileComposing}
             required
             minLength={mode === 'signup' ? 8 : 6}
-            maxLength={128}
+            maxLength={LIMITS.password}
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
           />
         )}

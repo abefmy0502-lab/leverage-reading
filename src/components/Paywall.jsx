@@ -27,6 +27,7 @@ import {
   restorePurchases,
 } from '../lib/iap';
 import { toMessage } from '../lib/errors';
+import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
 import { track, EVENTS } from '../lib/analytics';
 
 // 価値プレビューの箇条書き（事実ベースの機能説明 / 誇大表現なし）。
@@ -54,7 +55,7 @@ const VALUE_POINTS = [
 ];
 
 // 契約は App Store(IAP) 一本化。Web では決済せず App Store へ誘導する。
-const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime';
+// URL は src/lib/appStore.js に一元化（実 URL 未設定なら isAppStoreLive=false）。
 
 const cardStyle = {
   background: 'var(--color-surface)',
@@ -212,7 +213,12 @@ export default function Paywall({ onPurchased }) {
       }
       // Web: 課金は App Store(IAP) 一本化。Web では決済せず App Store へ誘導する
       // （UI 上もこの分岐には到達しないが、念のため Stripe を呼ばず App へ送る）。
-      window.location.assign(APP_STORE_URL);
+      // 実 URL 未確定の間はプレースホルダーに飛ばさない（App Store の 404 回避）。
+      if (isAppStoreLive) {
+        window.location.assign(APP_STORE_URL);
+      } else {
+        toast.info('iOS アプリは近日公開予定です。公開までいましばらくお待ちください。');
+      }
       setPending(null);
     } catch (e) {
       toast.error(toMessage(e, '購入手続きを開始できませんでした。少し時間をおいて再試行してください。'));
@@ -313,19 +319,32 @@ export default function Paywall({ onPurchased }) {
               <p style={{ fontSize: 13, color: 'var(--color-secondary)', lineHeight: 1.8, margin: '0 0 12px' }}>
                 Orime の有料プラン（{labels.annual.price} / {labels.monthly.price}）のご契約は、iPhone・iPad アプリ（App Store）から行えます。お支払い・解約はすべて App Store で管理されます。
               </p>
-              <a
-                href={APP_STORE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'center',
-                  minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
-                  fontSize: 15, fontWeight: 600, textDecoration: 'none',
-                }}
-              >
-                App Store で入手
-              </a>
+              {isAppStoreLive ? (
+                <a
+                  href={APP_STORE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'center',
+                    minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
+                    fontSize: 15, fontWeight: 600, textDecoration: 'none',
+                  }}
+                >
+                  App Store で入手
+                </a>
+              ) : (
+                <p
+                  style={{
+                    display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'center',
+                    minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--color-fill-tertiary)', color: 'var(--color-secondary)',
+                    fontSize: 15, fontWeight: 600, margin: 0,
+                  }}
+                >
+                  App Store で近日公開
+                </p>
+              )}
             </div>
           </section>
         ) : (
@@ -492,7 +511,7 @@ export default function Paywall({ onPurchased }) {
           )}
           <button
             type="button"
-            onClick={() => { signOut(); }}
+            onClick={async () => { try { await signOut(); } catch { /* オフライン等 — 画面は変わらないが再タップで再試行できる */ } }}
             style={{
               background: 'none',
               border: 'none',

@@ -2,9 +2,13 @@
 -- 各社員（member_id）の報告と CEO室の統合ブリーフ（member_id='__integration__'）を
 -- 追記していく。最新行 = その社員の現在の状態、過去行 = 履歴。
 -- 管理者（元帥）本人の行のみ RLS で読み書き可（他人は一切見えない）。
+-- さらに is_app_admin() ゲートで「管理者以外は自分の行すら作れない」ようにする
+-- （UI 入口は AdminDashboard 内だが、anon キー + 自分の JWT で直接 INSERT する
+--  ストレージ濫用ベクトルをテーブル側でも封じる = UI とテーブルの二層ゲート）。
 -- 未適用でもクライアントは localStorage にフォールバックするため機能は壊れない。
 --
--- 依存: なし（単独で適用可）。冪等（IF NOT EXISTS / DROP POLICY IF EXISTS）。
+-- 依存: supabase_admin_metrics.sql（is_app_admin() 関数）を先に適用すること。
+-- 冪等（IF NOT EXISTS / DROP POLICY IF EXISTS）。
 
 create table if not exists public.ops_floor_reports (
   id uuid primary key default gen_random_uuid(),
@@ -24,8 +28,8 @@ alter table public.ops_floor_reports enable row level security;
 drop policy if exists ofr_all on public.ops_floor_reports;
 create policy ofr_all on public.ops_floor_reports
   for all to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (auth.uid() = user_id and public.is_app_admin())
+  with check (auth.uid() = user_id and public.is_app_admin());
 
 -- 最新行・履歴の取得を速くする（user × member × 新しい順）。
 create index if not exists ops_floor_reports_user_member_idx

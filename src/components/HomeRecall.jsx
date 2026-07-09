@@ -23,7 +23,7 @@ const DISMISS_KEY = 'orime-home-recall-dismissed';
 // これ未満なら出さない（控えめさの肝）。看板体験「過去メモがふいに戻る」瞬間を
 // 新規ユーザーが最短でも1週間先まで体験できない（旧: 5件×7日前の AND）と離脱の
 // 元になるため、閾値を 3 に下げ、下の minAgeDays を件数に応じて段階化する。
-const MIN_MEMOS = 3;
+const MIN_MEMOS = 2;
 // メモがまだ少ない初期は「1日前」から想起を起こして早期に一度は体験させ、
 // 貯まってきたら本来の sweet-spot（30〜183日）に効かせるため厳しめ(7日前)に寄せる。
 const EARLY_MATURITY = 8; // これ以上メモがあれば「成熟」扱い
@@ -111,8 +111,8 @@ export default function HomeRecall({ onOpen, onAction }) {
           if (!active) return;
           // 通常の想起は MIN_MEMOS 未満なら出さないが、初回プレビュー（下記）は
           // 2 件から成立させたいので、まず 2 件未満だけを弾く。
-          if (error || !Array.isArray(data) || data.length < 2) {
-            setMemo(null); // 失敗・件数不足は静かに何も出さない
+          if (error || !Array.isArray(data) || data.length < 1) {
+            setMemo(null); // 失敗・0件は静かに何も出さない
             return;
           }
           notes = data.map((r) => ({
@@ -128,7 +128,7 @@ export default function HomeRecall({ onOpen, onAction }) {
           _recallDayCache = { key: dayKey, notes };
         }
         if (!active) return;
-        if (!Array.isArray(notes) || notes.length < 2) {
+        if (!Array.isArray(notes) || notes.length < 1) {
           setMemo(null);
           return;
         }
@@ -142,14 +142,18 @@ export default function HomeRecall({ onOpen, onAction }) {
           : null;
         // recallFraming が空（＝今日書いたばかり等）なら通常想起は出さない。
         if (picked && recallFraming(picked.createdAt)) {
+          // 本物の想起が初めて成立した時点でプレビューを卒業（以後は実想起のみ）。
+          markPreviewShown();
           setMemo({ ...picked, preview: false });
           return;
         }
         // 🌱 初回プレビュー（#5: 初日 aha）。まだ「戻ってくる」体験が一度も起きていない
         //   新規ユーザー（due なメモが無い＝全部書きたて）に、最新の一行を使って
         //   「これがこれから戻ってきます」を一度だけ正直に見せる。偽の日付は出さない。
-        if (!isPreviewShown() && notes.length >= 2) {
-          markPreviewShown();
+        // プレビューは「実想起が初めて成立するまで」何度でも出せる（旧: 1回きり
+        // だと、翌日メモ1〜2件のままのユーザーに何も起きない沈黙の谷ができていた）。
+        // 1日1枚の静けさは dismiss（×）側が守る。
+        if (!isPreviewShown() && notes.length >= 1) {
           setMemo({ ...notes[0], preview: true });
           return;
         }

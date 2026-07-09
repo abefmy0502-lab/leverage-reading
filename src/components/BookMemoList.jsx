@@ -191,7 +191,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
     }
   };
 
-  const label = saving ? '保存中...' : savedFlash ? '保存しました ✓' : '保存';
+  const label = saving ? '保存中…' : savedFlash ? '保存しました ✓' : '保存';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -324,14 +324,14 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const handleCopy = async (memo) => {
     const body = (memo?.text || '').trim();
     if (!body) {
-      toast.error('コピーできる本文がありません');
+      toast.error('コピーできる本文がありません。');
       return;
     }
     const text = Number.isFinite(memo.pageNumber) ? `${body} (p.${memo.pageNumber})` : body;
     try {
       await navigator.clipboard.writeText(text);
       haptic.light();
-      toast.success('コピーしました');
+      toast.success('コピーしました。');
     } catch {
       toast.error('コピーできませんでした。');
     }
@@ -341,7 +341,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   // ので（コピー同様）ここでは到達しない想定だが、念のためガードする。
   const handleShare = (memo) => {
     if (!(memo?.text || '').trim()) {
-      toast.error('共有できる本文がありません');
+      toast.error('共有できる本文がありません。');
       return;
     }
     haptic.light();
@@ -356,7 +356,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       sourceMemoId: memo.id || null,
       sourcePage: memo.pageNumber ?? memo.page_number ?? null,
     });
-    if (ok) { haptic.success(); toast.success('🎯 行動に追加しました'); }
+    if (ok) { haptic.success(); toast.success('🎯 行動に追加しました。'); }
   };
 
   const openCreate = () => {
@@ -393,7 +393,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         },
       });
     } else {
-      toast.success('メモを保存しました');
+      toast.success('メモを保存しました。');
     }
     // 新着カードを 1.5 秒だけ淡くグロー（.just-added）— どこに入ったかを
     // 無音で示す。timeout で必ず class を外す（forwards の透明が固定される為）。
@@ -407,7 +407,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const handleUpdate = async (memoId, payload) => {
     const result = await updateMemo(memoId, payload);
     haptic.success();
-    toast.success('メモを更新しました');
+    toast.success('メモを更新しました。');
     return result;
   };
 
@@ -427,7 +427,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         try {
           await deletionPromise.catch(() => {});
           await restoreMemoFromSnapshot(snapshot);
-          toast.info('削除を取り消しました');
+          toast.info('削除を取り消しました。');
         } catch (e) {
           toast.error(toMessage(e, '復元に失敗しました。'));
         }

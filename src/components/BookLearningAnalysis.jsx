@@ -96,7 +96,7 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
     onAddToActions(text);
     setAdded((s) => new Set(s).add(i));
     // form.actions に入るだけ（確定は 保存）。「保存済み」と誤認させない文言にする。
-    toast.success('🎯 下の行動リストに追加（保存で確定）');
+    toast.success('🎯 下の行動リストに追加（保存で確定）。');
   };
 
   // 📌 学び・新視点を本の AI まとめとして保存 → gatherKnowledge 経由で
@@ -104,7 +104,7 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
   const save = async () => {
     if (saved || state.status !== 'done' || !onSaveToBook) return;
     const ok = await onSaveToBook(state.body);
-    if (ok) { setSaved(true); toast.success('保存しました。マイ読書脳・振り返りにも活かされます'); }
+    if (ok) { setSaved(true); toast.success('保存しました。マイ読書脳・振り返りにも活かされます。'); }
     else toast.error('保存に失敗しました。');
   };
 

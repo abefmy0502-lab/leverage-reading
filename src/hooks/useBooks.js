@@ -497,8 +497,9 @@ export function useBooks() {
   };
 
   // Re-INSERT a book + its relations from a snapshot (used by Undo).
-  // Photos in book_memos are gone (Storage delete is non-undoable), so memos
-  // are restored with photo_path: null. Caller is expected to surface that.
+  // 本の削除→Undo 経路では Storage の写真ファイルは削除していない（消すのは
+  // メモ単体削除のみ）。photo_path を null に落とすと実在ファイルへのリンク
+  // だけ失う二重損失になるため、スナップショットの値をそのまま復元する。
   //
   // Returns a result object so the caller can tell the user the truth:
   //   { ok: true }                         — book + all relations restored
@@ -542,7 +543,7 @@ export function useBooks() {
     }
 
     if (book_memos.length > 0) {
-      const memoRows = book_memos.map((m) => ({ ...m, photo_path: null }));
+      const memoRows = book_memos.map((m) => ({ ...m }));
       const { error: mErr } = await supabase.from('book_memos').insert(memoRows);
       if (mErr) {
         console.error('メモ復元の一部失敗:', mErr);

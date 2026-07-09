@@ -295,7 +295,7 @@ export default function QuickMemoSheet({
     setErrorMsg('');
     try {
       await onCreate({
-        pageNumber: Number.isFinite(parsed) ? parsed : null,
+        pageNumber: Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 99999) : null,
         text: trimmed,
         photoFile: null,
         tags: [],
@@ -309,9 +309,10 @@ export default function QuickMemoSheet({
   };
 
   const handleDetailHandoff = () => {
+    if (busy) return; // 保存の在空中に引き継ぐと同内容メモが二重作成される
     const parsed = parseInt(pageNumber, 10);
     onOpenFullEditor?.({
-      pageNumber: Number.isFinite(parsed) ? parsed : null,
+      pageNumber: Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 99999) : null,
       text,
     });
     onClose?.();
@@ -368,6 +369,8 @@ export default function QuickMemoSheet({
             <input
               type="number"
               inputMode="numeric"
+              min={0}
+              max={99999}
               value={pageNumber}
               onChange={(e) => setPageNumber(e.target.value)}
               onKeyDown={(e) => {
@@ -391,7 +394,7 @@ export default function QuickMemoSheet({
                   e.preventDefault();
                 }
               }}
-              placeholder="メモを入力..."
+              placeholder="メモを入力…"
               style={ta}
               maxLength={LIMITS.memoText}
             />

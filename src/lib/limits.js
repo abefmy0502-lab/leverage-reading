@@ -5,6 +5,7 @@
 // タグ 50 / AI 質問 1000.
 
 export const LIMITS = {
+  password: 128, // サインアップ/リセットの両画面で共有（片方だけ 72 に落ちて 73〜128 字が入力不能になる事故を防ぐ）
   bookTitle: 200,
   bookAuthor: 100,
   memoText: 5000,

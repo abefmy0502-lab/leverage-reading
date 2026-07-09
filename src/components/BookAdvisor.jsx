@@ -1206,7 +1206,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="どんなことで本を探していますか？（例: 営業成績を上げたい）"
+            placeholder="どんなことで本を探していますか？（例：営業成績を上げたい）"
             rows={1}
             disabled={interviewLoading}
             maxLength={LIMITS.aiQuestion}
