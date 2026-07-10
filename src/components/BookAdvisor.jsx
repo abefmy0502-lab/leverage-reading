@@ -77,9 +77,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
   const activeControllerRef = useRef(null);
   const unmountedRef = useRef(false);
-  useEffect(() => () => {
-    unmountedRef.current = true;
-    try { activeControllerRef.current?.abort(); } catch { /* noop */ }
+  useEffect(() => {
+    // StrictMode（dev）の疑似 unmount → 再マウントでフラグが立ちっぱなしに
+    // ならないよう、マウント時に必ずリセットする。
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      try { activeControllerRef.current?.abort(); } catch { /* noop */ }
+    };
   }, []);
 
   // 旧: 挨拶 seed メッセージで例を箇条書き → サブタブ画面では冗長

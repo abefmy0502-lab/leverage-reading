@@ -107,7 +107,7 @@ async function fetchAllRows(table, userId) {
   let rows = [];
   for (let page = 0; page < 20; page += 1) {
     // eslint-disable-next-line no-await-in-loop
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from(table)
       .select('*')
       .eq('user_id', userId)
@@ -115,6 +115,15 @@ async function fetchAllRows(table, userId) {
       // 欠落が起き得る（このヘルパーの存在理由を確率的に裏切る）。id で安定化。
       .order('id', { ascending: true })
       .range(page * PAGE, page * PAGE + PAGE - 1);
+    // id 列を持たないテーブル（例: 古い book_tags スキーマ）では 42703 になる。
+    // その場合は order 無しで再取得 — export から黙って脱落させるより順序不定の方がまし。
+    if (error && error.code === '42703') {
+      ({ data, error } = await supabase
+        .from(table)
+        .select('*')
+        .eq('user_id', userId)
+        .range(page * PAGE, page * PAGE + PAGE - 1));
+    }
     if (error) throw error;
     rows = rows.concat(data || []);
     if (!data || data.length < PAGE) break;

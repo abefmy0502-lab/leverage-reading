@@ -195,11 +195,14 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
     let alive = true;
     (async () => {
       try {
-        const { count } = await supabase
+        const { count, error } = await supabase
           .from('book_memos')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id);
-        if (alive) setMemoTotal(count || 0);
+        // supabase-js は失敗時も throw せず { count: null, error } を返す。
+        // エラーを 0 扱いすると既存ユーザーの生成 UI が消える（fail-closed）ため、
+        // 不明時は null のままゲートしない（安全側 = 従来挙動）。
+        if (alive) setMemoTotal(error ? null : (count || 0));
       } catch {
         if (alive) setMemoTotal(null); // 不明時はゲートしない（安全側 = 従来挙動）
       }

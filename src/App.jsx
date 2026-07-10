@@ -1064,6 +1064,9 @@ function AuthedApp() {
     // 「このまま手動で追加する」の文言どおり、打ち直しをさせない。
     setForm({
       ...emptyBook(),
+      // オンボーディング「いま読んでいる本を追加する」経由なら手動パスでも
+      // 「読書中」プリセットを効かせる（検索パス pickBookFromAdd と同じ扱い）。
+      ...(addStatusPresetRef.current ? { status: addStatusPresetRef.current } : {}),
       id: Date.now().toString(),
       addedVia: 'manual',
       title: seed?.title || '',
@@ -1307,18 +1310,23 @@ function AuthedApp() {
           : 'manual';
         track('book_added', { via });
       }
-      setCurrent(next);
-      setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
-
       // ⚠️ 表紙解決を含む保存は最大数十秒かかり、その間にユーザーは「‹ 戻る」や
-      // 下部ナビ（破棄確認つき）で別の画面へ移動できる。ここで無条件に
-      // setView('detail') / setQuickMemoOpen(true) すると、振り返りタブ等を見ている
-      // ユーザーを突然この本の詳細へハイジャックしてしまう。編集画面に留まっている
-      // ときだけ遷移する（advanceStatus の rollback ガードと同じ思想）。
-      if (viewRef.current !== 'edit') {
+      // 下部ナビ（破棄確認つき）で別の画面・別の本へ移動できる。ここで無条件に
+      // setCurrent/setForm/setView すると、(a) 振り返りタブ等を見ているユーザーを
+      // 突然この本の詳細へハイジャックする、(b) 別の本を閲覧/編集中なら画面の中身が
+      // 保存した本にすり替わる。「この本の編集画面に留まっている」ときだけ
+      // フル遷移し、それ以外は閲覧中の同じ本の詳細だけ静かに最新化する
+      // （advanceStatus の rollback ガードと同じ思想）。
+      const stillEditingThis =
+        viewRef.current === 'edit' && formRef.current && formRef.current.id === next.id;
+      if (!stillEditingThis) {
+        setCurrent((c) => (c && c.id === next.id ? next : c));
         toast.success('保存しました。');
         return;
       }
+
+      setCurrent(next);
+      setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
 
       // 遷移ロジック:
       //   - 読書計画完了 → 読書中フェーズの本詳細へ
