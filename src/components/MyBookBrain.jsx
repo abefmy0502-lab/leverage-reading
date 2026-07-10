@@ -202,7 +202,7 @@ function LearningInline({ onCancel, onSaved }) {
                 cursor: 'pointer',
                 border: category === c ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
                 background: category === c ? 'var(--c-soft-2)' : 'transparent',
-                color: category === c ? 'var(--c-ink)' : '#8a7e6b',
+                color: category === c ? 'var(--c-ink)' : 'var(--c-ink-2)',
                 fontWeight: category === c ? 600 : 400,
               }}
             >

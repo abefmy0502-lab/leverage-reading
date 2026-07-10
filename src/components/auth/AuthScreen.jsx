@@ -207,7 +207,11 @@ export default function AuthScreen() {
           <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--c-ink)', margin: '0 0 12px' }}>確認メールを送りました</h1>
           <p style={{ fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.9, margin: '0 0 8px' }}>
             <strong style={{ wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛にメールを送りました。<br />
-            メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。
+            {isNative
+              // ネイティブでは確認リンクは Safari（Web）で開く — 「そのまま進める」と
+              // 約束すると迷子になる。確認後にこのアプリへ戻る導線を正しく案内する。
+              ? 'メール内のリンクを開いて確認が完了したら、このアプリに戻ってログインしてください。'
+              : 'メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。'}
           </p>
           <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 20px' }}>
             数分待っても届かない場合は、<strong>迷惑メール / プロモーション</strong>フォルダもご確認ください。
@@ -216,19 +220,20 @@ export default function AuthScreen() {
           {info && <p style={{ color: '#5a7a48', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
           <button
             type="button"
-            onClick={handleResend}
-            disabled={resending}
-            style={{ ...btnPrimary, opacity: resending ? 0.6 : 1 }}
+            onClick={() => { setConfirmSentTo(''); setInfo(''); setError(''); switchMode('signin'); }}
+            style={btnPrimary}
           >
-            {resending ? '再送中…' : '確認メールを再送する'}
+            確認が済んだので、ログインする
           </button>
           <button
             type="button"
-            onClick={() => { setConfirmSentTo(''); setInfo(''); setError(''); switchMode('signin'); }}
-            style={btnLink}
+            onClick={handleResend}
+            disabled={resending}
+            style={{ ...btnLink, opacity: resending ? 0.6 : 1 }}
           >
-            ← ログインに戻る
+            {resending ? '再送中…' : '確認メールを再送する'}
           </button>
+
         </div>
       </div>
     );

@@ -479,7 +479,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       const summary = await exportUserDataAsCSV(user.id);
       const total = summary.reduce((acc, s) => acc + (s.count || 0), 0);
       track(EVENTS.EXPORT_USED, { kind: 'csv' }); // 成功確定後のみ（fire-and-forget）
-      toast.success(`CSV ${summary.filter((s) => !s.skipped).length} 件をダウンロード（計 ${total} 行）`);
+      toast.success(`CSV ${summary.filter((s) => !s.skipped).length} 件をダウンロードしました（計 ${total} 行）。`);
     } catch (e) {
       toast.error(toMessage(e, 'エクスポートに失敗しました。'));
     } finally {
@@ -496,7 +496,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     try {
       const { memos } = await exportMemosAsMarkdown(user.id);
       track(EVENTS.EXPORT_USED, { kind: 'markdown' }); // 成功確定後のみ（fire-and-forget）
-      toast.success(`Markdown を書き出しました（メモ ${memos} 件）`);
+      toast.success(`Markdown を書き出しました（メモ ${memos} 件）。`);
     } catch (e) {
       toast.error(toMessage(e, '書き出しに失敗しました。'));
     } finally {

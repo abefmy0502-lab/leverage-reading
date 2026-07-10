@@ -111,6 +111,9 @@ async function fetchAllRows(table, userId) {
       .from(table)
       .select('*')
       .eq('user_id', userId)
+      // ORDER BY なしの range は Postgres で順序保証がなく、ページ間で行の重複・
+      // 欠落が起き得る（このヘルパーの存在理由を確率的に裏切る）。id で安定化。
+      .order('id', { ascending: true })
       .range(page * PAGE, page * PAGE + PAGE - 1);
     if (error) throw error;
     rows = rows.concat(data || []);
@@ -190,6 +193,7 @@ export async function exportMemosAsMarkdown(userId) {
         .select('id, text, page_number, tags, source_type, book_id, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
         .range(page * PAGE, page * PAGE + PAGE - 1);
       if (error) break;
       memos = memos.concat(data || []);

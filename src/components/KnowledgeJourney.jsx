@@ -17,7 +17,7 @@ import { LIMITS } from '../lib/limits';
 const wrap = { display: 'flex', flexDirection: 'column', gap: 16 };
 const hint = { fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: 0 };
 const chip = (active) => ({
-  flex: '0 0 auto', whiteSpace: 'nowrap', fontSize: 12, padding: '7px 13px', minHeight: 36,
+  flex: '0 0 auto', whiteSpace: 'nowrap', fontSize: 12, padding: '7px 13px', minHeight: 44,
   borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontWeight: active ? 600 : 500,
   border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
   background: active ? 'var(--c-soft)' : 'transparent',
@@ -150,7 +150,7 @@ export default function KnowledgeJourney({ userId }) {
       )}
 
       {state.status === 'error' && (
-        <p style={{ fontSize: 12, color: 'var(--c-critical)', background: 'var(--c-critical-soft)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.7 }}>
+        <p role="alert" style={{ fontSize: 12, color: 'var(--c-critical)', background: 'var(--c-critical-soft)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.7 }}>
           {state.msg}
         </p>
       )}

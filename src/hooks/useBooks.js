@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { LIMITS, clamp } from '../lib/limits';
@@ -96,6 +96,11 @@ export function useBooks() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  // 🏷 世代トークン（useBookMemos と同じ流儀）。PTR・バックフィル完了・復元・
+  // AI 面の onBooksMutated など発火源が多く、遅い旧リクエストが後着すると
+  // setBooks の全置換が直近の楽観更新/保存結果を見た目上巻き戻すため、
+  // 「自分が最新の fetch でなければ結果を捨てる」。
+  const fetchGenRef = useRef(0);
 
   const fetchBooks = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
@@ -103,6 +108,7 @@ export function useBooks() {
       setLoading(false);
       return;
     }
+    const gen = ++fetchGenRef.current;
     setLoading(true);
     try {
       let { data, error } = await supabase
@@ -119,12 +125,14 @@ export function useBooks() {
           .order('updated_at', { ascending: false }));
       }
       if (error) throw error;
+      if (gen !== fetchGenRef.current) return; // stale fetch — 後着の旧応答は捨てる
       setBooks((data || []).map(transformBook));
     } catch (error) {
+      if (gen !== fetchGenRef.current) return;
       console.error('本の取得エラー:', error);
       setBooks([]);
     } finally {
-      setLoading(false);
+      if (gen === fetchGenRef.current) setLoading(false);
     }
   }, [user]);
 

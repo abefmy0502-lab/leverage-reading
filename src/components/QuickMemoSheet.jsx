@@ -3,6 +3,7 @@
 // "詳細入力 →" hands off to the full BookMemoEditor for photos/tags.
 
 import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
@@ -173,6 +174,8 @@ export default function QuickMemoSheet({
   const [condensedFrom, setCondensedFrom] = useState(null);
   const textRef = useRef(null);
   const sheetRef = useRef(null);
+  // ♿ Tab をシート内に閉じ込め、閉じたら元の要素へ復帰（aria-modal と実挙動を一致）。
+  const trapRef = useFocusTrap(true);
   const toast = useToast();
 
   const handleCondense = async () => {
@@ -238,7 +241,9 @@ export default function QuickMemoSheet({
 
   // 保存中(busy)は閉じない。保存途中で閉じると onCreate の成否フィードバック
   // (errorMsg) がアンマウントで消え、ユーザーに結果が届かない。
-  const requestClose = () => { if (busy) return; animateClose(); };
+  // condensing（AI 凝縮中）も閉じさせない — backdrop/Esc で閉じると結果と下書きが
+  // 破棄され AI コストだけ消費する。busy と同格のガードにする。
+  const requestClose = () => { if (busy || condensing) return; animateClose(); };
 
   // 下スワイプで閉じる（iOS のシート標準所作。ハンドル/ヘッダー起点のみ —
   // 本文 textarea のスクロール/選択とは競合させない）。
@@ -326,7 +331,7 @@ export default function QuickMemoSheet({
         aria-hidden="true"
       />
       <div
-        ref={sheetRef}
+        ref={(el) => { sheetRef.current = el; trapRef.current = el; }}
         style={{
           ...sheetWrap,
           animation: closing

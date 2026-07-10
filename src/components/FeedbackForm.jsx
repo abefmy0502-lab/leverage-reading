@@ -6,6 +6,7 @@
 // only the submitter (and admins via service_role) can read it later.
 
 import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { X } from 'lucide-react';
 import { useFeedback, FEEDBACK_CATEGORIES, FEEDBACK_LIMITS } from '../hooks/useFeedback';
 import { useToast } from './Toast';
@@ -141,6 +142,7 @@ export default function FeedbackForm({ onClose }) {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const sheetRef = useRef(null);
+  const trapRef = useFocusTrap(true); // ♿ Tab をフォーム内に閉じ込める
 
   // Close on ESC for desktop users.
   useEffect(() => {
@@ -190,6 +192,7 @@ export default function FeedbackForm({ onClose }) {
 
   return (
     <div
+      ref={trapRef}
       style={overlayStyle}
       role="dialog"
       aria-modal="true"

@@ -406,12 +406,16 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     track(EVENTS.REVIEW_OPENED);
   }, []);
 
+  const fetchGenRef = useRef(0);
   const fetchMemos = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
       setMemos([]);
       setLoading(false);
       return;
     }
+    // 世代トークン: マウント + PTR + Undo 復元後と発火源が多く、遅い旧リクエストが
+    // 後着すると削除/復元直後の一覧が巻き戻って見える。最新 fetch 以外は捨てる。
+    const gen = ++fetchGenRef.current;
     setLoading(true);
     // Supabase 既定の max-rows (1000) を超えるヘビーユーザーでも古いメモが
     // タイムライン/検索/想起から黙って消えないよう range ページングで全件取得。
@@ -426,11 +430,15 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+        // created_at は一意でない（一括インポート等でタイ）ため、ページ境界の
+        // 重複・欠落を防ぐ第2ソートキーを付ける。
+        .order('id', { ascending: false })
         .range(page * PAGE, page * PAGE + PAGE - 1);
       if (e) { error = e; break; }
       rows = rows.concat(data || []);
       if (!data || data.length < PAGE) break;
     }
+    if (gen !== fetchGenRef.current) return; // stale fetch — 後着の旧応答は捨てる
     if (error) {
       console.error('review memos fetch error:', error);
       // 「全メモが消えた」ように見せない — 空にせずエラー状態を立てて再試行導線を出す。
@@ -443,11 +451,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   }, [user]);
 
   useEffect(() => {
-    let cancelled = false;
     fetchMemos();
-    return () => {
-      cancelled = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -465,6 +469,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       const snapshot = { ...memo };
       // Optimistic: remove from list now
       setMemos((arr) => arr.filter((m) => m.id !== snapshot.id));
+      let deleteFailed = false;
       const promise = (async () => {
         const { error } = await supabase
           .from('book_memos')
@@ -480,6 +485,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       })().catch((e) => {
         toast.error(toMessage(e, 'メモの削除に失敗しました。'));
         // Restore in UI on failure
+        deleteFailed = true;
         setMemos((arr) => [snapshot, ...arr]);
         throw e;
       });
@@ -490,6 +496,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         onUndo: async () => {
           try {
             await promise.catch(() => {});
+            // DELETE 自体が失敗していた場合、メモは DB に健在 — 同 id を INSERT すると
+            // PK 重複で「復元に失敗しました」と出て混乱させる。Undo は何もしなくてよい。
+            if (deleteFailed) { toast.info('メモは削除されていません。'); return; }
             const payload = {
               id: snapshot.id,
               book_id: snapshot.bookId || null,
@@ -583,7 +592,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // 活性化「想起を体験」ステップ — タブを開いただけ（偽陽性）ではなく、自分のメモが
   // 実際に想起カードとして1枚戻ってきたときに初めて完了にする（= aha の本体）。
   useEffect(() => {
-    if (randomMemo) markActivation('review');
+    // recallFraming が空 = 当日書いたばかりのメモのフォールバック表示。それで
+    // 完了にすると初日にチェックリストが消え、翌日の「本物の想起」への橋を失う。
+    if (randomMemo && recallFraming(randomMemo.createdAt)) markActivation('review');
   }, [randomMemo]);
 
   // 🔄→🎯 想起カードのメモを、その場で「行動」に変える。本詳細を開かずに
@@ -939,9 +950,16 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 </button>
               )
             )}
-            {/* 🧠 間隔反復のフィードバック（実メモのみ）。「覚えた」で定着させ次の
-                間隔まで出さない／「もう一度」で翌日また戻す。 */}
-            {!randomMemo.synth && (
+            {/* 🧠 間隔反復のフィードバック（実メモのみ・当日メモは除く）。
+                5 分前に書いた一行に「覚えた?」と聞くのは不自然で、「覚えた」を押すと
+                last_recalled_at が書かれて本来の初回想起がむしろ遅れる。当日メモには
+                正直な予告文だけを出す。 */}
+            {!randomMemo.synth && !recallFraming(randomMemo.createdAt) && (
+              <p style={{ fontSize: 11, color: 'var(--c-ink-2)', marginTop: 10, lineHeight: 1.7 }}>
+                🌱 これが、忘れた頃にそっと戻ってきます。
+              </p>
+            )}
+            {!randomMemo.synth && recallFraming(randomMemo.createdAt) && (
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                 <button
                   type="button"
@@ -978,7 +996,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         </p>
 
         {/* 🔔 aha 直後の通知 opt-in（初回・1枚戻ってきた時だけ・未許可時のみ） */}
-        {randomMemo && !pushOptInDismissed && pushOptInEligible && (
+        {randomMemo && recallFraming(randomMemo.createdAt) && !pushOptInDismissed && pushOptInEligible && (
           <div
             style={{
               marginTop: 12, padding: '12px 14px', borderRadius: 12,

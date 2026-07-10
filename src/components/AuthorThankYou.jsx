@@ -2,6 +2,9 @@
 // long-presses the bookshelf logo (📚 in the header). Quiet way to
 // thank power users who explore the app.
 
+import { useEffect } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
@@ -40,12 +43,20 @@ const btnPrimary = {
 };
 
 export default function AuthorThankYou({ onClose }) {
+  // ♿ 唯一 Escape で閉じられないダイアログだった。フォーカストラップ + Escape +
+  // accessible name を他のモーダルと同じ流儀で揃える。
+  const trapRef = useFocusTrap(true);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
-      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+    <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="thanks-title" onClick={onClose}>
+      <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div className="thanks-modal">
           <div className="thanks-icon" aria-hidden="true">🙇‍♂️</div>
-          <h2 className="thanks-title">使ってくれて、ありがとう</h2>
+          <h2 className="thanks-title" id="thanks-title">使ってくれて、ありがとう</h2>
           <p className="thanks-body">
             このアプリは、<br />
             読書を「投資」に変える<br />

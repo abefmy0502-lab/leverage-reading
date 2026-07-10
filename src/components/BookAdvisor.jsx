@@ -74,6 +74,14 @@ const ADVISOR_EXAMPLES = [
 const MAX_INTERVIEW_ROUNDS = 3;
 
 export default function BookAdvisor({ onAddBook, sessionApi, books }) {
+  // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
+  const activeControllerRef = useRef(null);
+  const unmountedRef = useRef(false);
+  useEffect(() => () => {
+    unmountedRef.current = true;
+    try { activeControllerRef.current?.abort(); } catch { /* noop */ }
+  }, []);
+
   // 旧: 挨拶 seed メッセージで例を箇条書き → サブタブ画面では冗長
   // (タップ不可で文字を読まされるだけ)。例はチップ UI に分離した。
   // 「📚 読みたいに追加」のタップ受付を触覚で即時 ack するため。
@@ -340,6 +348,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     // streamClaude は abort 時に部分テキストで正常 resolve するため、途中まで
     // 生成済みの推薦は下の salvage パースで拾える。
     const controller = new AbortController();
+    // アンマウント（タブ/サブタブ切替）時に abort できるよう ref に控える。
+    // 放置すると streamClaude と後続の createSession がアンマウント後も走り、
+    // AI コストだけ消費して回答は誰にも見えず、履歴に半端なセッションが増える。
+    activeControllerRef.current = controller;
     let watchdog = null;
     const armWatchdog = () => {
       if (watchdog) clearTimeout(watchdog);
@@ -409,7 +421,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     const nextHistory = [...newHistory, { role: 'assistant', content: finalText }];
     setChatHistory(nextHistory);
 
-    if (sessionApi?.available) {
+    // アンマウント後（タブ切替で abort された後）はセッションを作らない —
+    // setCurrentSessionId が no-op になり、戻ってきた UI が別の新規セッションを
+    // 作って履歴に半端な重複が増えるため。
+    if (sessionApi?.available && !unmountedRef.current) {
       try {
         if (!currentSessionId) {
           const created = await sessionApi.createSession({

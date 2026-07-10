@@ -502,6 +502,10 @@ function AuthedApp() {
     return () => { cancelled = true; try { removeListener?.(); } catch { /* ignore */ } };
   }, [handleRecallDeepLink]);
   const [view, setView] = useState("list"); // list | detail | edit
+  // 実行時点の最新 view を読むための ref（handleSave の長い await 後に「ユーザーが
+  // まだ編集画面にいるか」を判定する用。formRef/booksRef と同じ流儀）。
+  const viewRef = useRef(view);
+  useEffect(() => { viewRef.current = view; }, [view]);
   const [current, setCurrent] = useState(null);
 
   // ── 画面復帰（iOS PWA リロード対策）─────────────────────────────────
@@ -746,11 +750,24 @@ function AuthedApp() {
     (book) => {
       enqueueCoverRetry({
         book,
-        saveBook,
+        // 表紙リトライの保存も本ごとの保存チェーンに乗せる。チェーン外の saveBook は
+        // 進行中の行動トグル等と DB レベルで並走し、actions 差分同期が in-flight の
+        // 新規行動を DELETE する窓がある。チェーン内で最新へ rebase し表紙だけ差し替える。
+        saveBook: (patch) => enqueueBookMutation(patch.id, async (entry) => {
+          const latest = entry.latest || booksRef.current.find((b) => b.id === patch.id);
+          if (!latest) return;
+          if (latest.cover || latest.coverIsbn === 'manual' || latest.coverIsbn === 'removed') return;
+          const next = { ...latest, cover: patch.cover, coverIsbn: patch.coverIsbn };
+          entry.latest = next;
+          await saveBook(next);
+        }),
         // 保存直前に最新の本へ rebase させる（stale 保存によるユーザー編集の巻き戻し防止）。
         getBook: (id) => booksRef.current.find((b) => b.id === id) || null,
       });
     },
+    // enqueueBookMutation は安定した ref（actionToggleChainsRef）しか触らないため、
+    // 初回レンダーのクロージャで十分（deps に含めない）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [saveBook],
   );
 
@@ -778,12 +795,17 @@ function AuthedApp() {
   // Tapping "+" no longer drops the user straight into a blank form — the
   // search-first AddBookModal opens so they're nudged toward the path that
   // produces clean metadata for AI features.
-  const openAdd = () => {
+  const addStatusPresetRef = useRef('');
+  const openAdd = (presetStatus) => {
     // AddBookModal は本棚（view==='list'）の return 枝でのみ描画される。
     // detail / edit ビューからオンボーディング等で呼ばれた場合、view を
     // 戻さないと「押しても何も起きない」袋小路になる（openAdvisor と同形）。
     setView("list");
     setTab("books");
+    // オンボーディングの「いま読んでいる本を追加する」経由では既定ステータスを
+    // 「読書中」にプリセットする。既定の「読みたい」のままだと、CTA の約束
+    // （いま読んでいる本 → すぐメモ）に対して状態セレクタの一段が折れる。
+    addStatusPresetRef.current = typeof presetStatus === 'string' ? presetStatus : '';
     setAddBookModalOpen(true);
   };
 
@@ -812,6 +834,7 @@ function AuthedApp() {
     const seedCover = visibleCover || candidates[0] || '';
     const seeded = {
       ...emptyBook(),
+      ...(addStatusPresetRef.current ? { status: addStatusPresetRef.current } : {}),
       id: Date.now().toString(),
       title: b.title || '',
       author: b.author || '',
@@ -1287,6 +1310,16 @@ function AuthedApp() {
       setCurrent(next);
       setForm({ ...emptyBook(), ...next, tags: next.tags || [], actions: next.actions || [] });
 
+      // ⚠️ 表紙解決を含む保存は最大数十秒かかり、その間にユーザーは「‹ 戻る」や
+      // 下部ナビ（破棄確認つき）で別の画面へ移動できる。ここで無条件に
+      // setView('detail') / setQuickMemoOpen(true) すると、振り返りタブ等を見ている
+      // ユーザーを突然この本の詳細へハイジャックしてしまう。編集画面に留まっている
+      // ときだけ遷移する（advanceStatus の rollback ガードと同じ思想）。
+      if (viewRef.current !== 'edit') {
+        toast.success('保存しました。');
+        return;
+      }
+
       // 遷移ロジック:
       //   - 読書計画完了 → 読書中フェーズの本詳細へ
       //   - 新規追加 → 詳細へ
@@ -1625,13 +1658,19 @@ function AuthedApp() {
         }
         if (url) {
           // 解決に数秒かかる間にユーザーが編集している可能性があるため、
-          // enqueue 時の saved ではなく最新の本に rebase して保存する
-          // （stale 保存は差分同期で編集を巻き戻すため）。削除済み・手動
-          // アップ済み・既に表紙ありなら触らない。
-          const latest = booksRef.current.find((b) => b.id === saved.id);
-          if (latest && !latest.cover && latest.coverIsbn !== 'manual' && latest.coverIsbn !== 'removed') {
-            await saveBook({ ...latest, cover: url, coverIsbn });
-          }
+          // 本ごとの保存チェーン（enqueueBookMutation）に乗せ、実行時点の最新
+          // （entry.latest > booksRef）に rebase してから表紙だけ差し替えて保存する。
+          // チェーン外で saveBook すると、進行中の行動トグル等と DB レベルで並走し、
+          // actions の差分同期が「保存直後の新規行動」を DELETE してしまう窓があった。
+          // 削除済み・手動アップ済み・既に表紙ありなら触らない。
+          await enqueueBookMutation(saved.id, async (entry) => {
+            const latest = entry.latest || booksRef.current.find((b) => b.id === saved.id);
+            if (latest && !latest.cover && latest.coverIsbn !== 'manual' && latest.coverIsbn !== 'removed') {
+              const next = { ...latest, cover: url, coverIsbn };
+              entry.latest = next;
+              await saveBook(next);
+            }
+          });
         }
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -2184,6 +2223,24 @@ function AuthedApp() {
       }
     }
 
+    // 完了 → 直後に未完了へ戻した（誤タップ等）場合、完了時に spawn した次回分を
+    // 掃除する。放置すると元行動が未完了のまま次周期の同文言タスクが scheduledFor
+    // 到来時に並び、達成率の母数も水増しされる（hasPendingTwin は再 spawn を防ぐ
+    // だけで掃除はしない）。「同文言・同 recurrence・未完了・表示開始が未来」の
+    // 行だけを対象にするので、既に表示中の正当なインスタンスは消さない。
+    if (!becomingDone && updatedAct.recurrence) {
+      const twinText = (target.text || '').trim();
+      const nowMs = Date.now();
+      for (let j = acts.length - 1; j >= 0; j -= 1) {
+        const a = acts[j];
+        if (!a || a === updatedAct || a.done) continue;
+        if ((a.text || '').trim() !== twinText) continue;
+        if (a.recurrence !== target.recurrence) continue;
+        const sf = a.scheduledFor ? Date.parse(a.scheduledFor) : NaN;
+        if (Number.isFinite(sf) && sf > nowMs) acts.splice(j, 1);
+      }
+    }
+
     const updated = { ...book, actions: acts };
     // ハプティクスはここで一元発火（becomingDone で成功/軽タップを出し分け）。
     // ActionList 側でも鳴らすと二重ブザーになるため、触覚はこの共通経路に集約する。
@@ -2199,7 +2256,7 @@ function AuthedApp() {
       syncActionSnapshots(saved || updated);
       if (becomingDone && updatedAct.recurrence) {
         const label = updatedAct.recurrence === 'weekly' ? '次週' : '翌月';
-        toast.success(`完了 ✓ ${label}の予定を自動で組みました`);
+        toast.success(`完了 ✓ ${label}の予定を自動で組みました。`);
       }
     } catch (error) {
       // rollback: 楽観反映を元に戻す。
@@ -2821,7 +2878,7 @@ function AuthedApp() {
             >
               {current.status === "want"
                 ? "📚 「読書中」にすると、＋ボタンからメモを追加できるようになります。"
-                : "🎯 今は投資戦略を立てる段階です。「読書中」にすると、＋ボタンからメモを追加できます。"}
+                : "📊 今は投資戦略を立てる段階です。「読書中」にすると、＋ボタンからメモを追加できます。"}
             </div>
           )}
           {current.aiSummary && (
@@ -3080,7 +3137,7 @@ function AuthedApp() {
             otherwise tapping "アプリ全体の使い方を最初から見る" from the help
             modal here looks like nothing happens until the user navigates
             back to the bookshelf. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} onStartAdvisor={openAdvisor} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} />}
 
         {detailKebab && (
           <ContextMenu
@@ -3270,7 +3327,7 @@ function AuthedApp() {
         )}
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} onStartAdvisor={openAdvisor} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} />}
         <BottomNav
           tab={tab}
           setTab={async (t) => {
@@ -3743,7 +3800,7 @@ function AuthedApp() {
         )}
       </div>
 
-      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={openAdd} onStartAdvisor={openAdvisor} />}
+      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} />}
 
       {bookContextMenu && (
         <ContextMenu
@@ -4216,6 +4273,23 @@ function isSchemaUnappliedError(error) {
   return isSchemaError(error);
 }
 
+// 📩 AuthCallback が立てる「メール確認完了」フラグの一回きり読み取り。
+// モジュール変数にキャッシュするのは、useSubscription の refresh 等でゲートが
+// unmount→remount しても同一ページロード中は ✅ バナーを出し続けるため。
+// sessionStorage からは初回読み取り時に消す（次のフルリロードでは出さない）。
+let _emailConfirmedCache = null;
+function readEmailConfirmedFlag() {
+  if (_emailConfirmedCache === null) {
+    try {
+      _emailConfirmedCache = window.sessionStorage.getItem('orime-email-confirmed') === 'true';
+      if (_emailConfirmedCache) window.sessionStorage.removeItem('orime-email-confirmed');
+    } catch {
+      _emailConfirmedCache = false;
+    }
+  }
+  return _emailConfirmedCache;
+}
+
 // 📱 Web 利用者（非管理者）向けの「アプリでご利用ください」ゲート。
 // App-only 配信方針（①C: Web は管理者のみ）に基づき、ブラウザでログインした
 // 一般ユーザーを App Store へ誘導する。サインアウトで別アカウントへ切替も可能。
@@ -4224,15 +4298,7 @@ function WebAppOnlyGate() {
   // 📩 AuthCallback がメール確認リンク（type=signup）経由の着地時に立てる一回きり
   // のフラグ。アプリで登録 → 確認メールのリンクが Safari で開く → ここに着地、
   // という遷移で「確認は済んだのに何も起きない」と迷子になるのを防ぐ。
-  const [emailJustConfirmed] = useState(() => {
-    try {
-      const v = window.sessionStorage.getItem('orime-email-confirmed') === 'true';
-      if (v) window.sessionStorage.removeItem('orime-email-confirmed');
-      return v;
-    } catch {
-      return false;
-    }
-  });
+  const emailJustConfirmed = readEmailConfirmedFlag();
   return (
     <div
       style={{

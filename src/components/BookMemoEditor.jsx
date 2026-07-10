@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useAppDataCache } from '../state/AppDataCache';
 import { toMessage } from '../lib/errors';
 import { LIMITS, validateImageFile } from '../lib/limits';
@@ -170,6 +171,8 @@ export default function BookMemoEditor({
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
   const overlayRef = useRef(null);
+  // ♿ 全画面エディタも Tab を内部に閉じ込める（背景の本詳細へ抜けない）。
+  const trapRef = useFocusTrap(true);
   const bodyRef = useRef(null);
 
   // 新規メモは本文へ自動フォーカス（毎日の「ひとこと書く」を1タップ短縮）。
@@ -360,7 +363,7 @@ export default function BookMemoEditor({
   })();
 
   return (
-    <div ref={overlayRef} style={overlay} role="dialog" aria-modal="true">
+    <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true">
       <div style={headerBar}>
         <button
           type="button"

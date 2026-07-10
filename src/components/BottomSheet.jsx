@@ -4,6 +4,7 @@
 // アプリ全体で再利用できるよう最小の API（title / onClose / children / footer）
 // に絞った。Esc / ハンドルタップ / 背景タップ / 下スワイプ で閉じる。
 import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const backdrop = {
   position: 'fixed',
@@ -35,6 +36,8 @@ const sheetWrap = {
 
 export default function BottomSheet({ title, onClose, children, footer }) {
   const sheetRef = useRef(null);
+  // ♿ aria-modal の宣言どおり Tab を内部に閉じ込め、閉じたら元へ復帰。
+  const trapRef = useFocusTrap(true);
   const dragStartYRef = useRef(null);
   const draggingRef = useRef(false);
   // 閉じは slide-down を経由（入りだけ滑らかで出が瞬間消滅、の非対称を解消）。
@@ -89,7 +92,7 @@ export default function BottomSheet({ title, onClose, children, footer }) {
         aria-hidden="true"
       />
       <div
-        ref={sheetRef}
+        ref={(el) => { sheetRef.current = el; trapRef.current = el; }}
         style={{
           ...sheetWrap,
           animation: closing

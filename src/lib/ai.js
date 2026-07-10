@@ -179,8 +179,10 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' })
   const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, cacheSystem: true, model: MODEL_FAST });
   if (typeof result !== 'string') throw new Error('読み取りに失敗しました。');
   // postClaude は失敗時にも文字列（既知のエラー文言）を返すので throw に変換し、
-  // 呼び出し側が toMessage で humanize できるようにする。
-  if (/^(エラー|通信エラー|レスポンス解析エラー|AI機能|リクエストが多|今月の AI)/.test(result)) {
+  // 呼び出し側が toMessage で humanize できるようにする。判定は isClaudeErrorString
+  // （エラー文言の閉集合の唯一の真実）に委譲 — 独自 regex は将来の文言追加でドリフトし、
+  // 書き起こし本文が偶然「エラー」で始まると誤 throw する罠もあった。
+  if (isClaudeErrorString(result)) {
     throw new Error(result);
   }
   // 📊 AI 利用の計測（エラー / quota は上で throw 済み = ここは正常応答のみ）。
@@ -896,7 +898,7 @@ export async function generateOpsTasks(state = {}) {
     console.warn('[opsTasks] claude failed:', e?.message);
     return null;
   }
-  if (typeof result !== 'string' || isSuspiciousOutput(result)) return null;
+  if (typeof result !== 'string' || isClaudeErrorString(result) || isSuspiciousOutput(result)) return null;
   const rows = [];
   for (const raw of result.split('\n')) {
     const line = raw.trim().replace(/^[-*•]\s*/, '');

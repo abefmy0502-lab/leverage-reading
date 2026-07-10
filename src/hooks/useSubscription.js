@@ -6,9 +6,12 @@ import { isSchemaError } from '../lib/errors';
 
 // 💳 ログインユーザーの課金状態を取得するフック。
 //
-// 全機能有料モデル（フリーミアム無し・無料トライアル無し）の entitlement 判定に使う。
+// 全機能有料モデル（フリーミアム無し）の entitlement 判定に使う。
 // `isActive = status === 'active'` のみを「有料権利あり」とみなす。
-//   - トライアルは無いので 'trialing' は不要。
+//   - App Store の Introductory Offer（無料期間）は RevenueCat 経由でも
+//     status='active'（subscriptions.period_type='trial'/'intro' で区別）として
+//     届くため、この判定のままトライアル会員も通る。'trialing' という別 status は
+//     使っていない。
 //   - past_due（支払い遅延）を猶予として一時的に許可したい場合は、
 //     下の isActive 算出を `['active', 'past_due'].includes(status)` に拡張する。
 //     デフォルトは厳格に 'active' のみ。

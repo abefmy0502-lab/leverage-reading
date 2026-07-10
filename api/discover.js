@@ -239,7 +239,14 @@ function rakutenGet(urlStr, referer) {
         res.setEncoding('utf8');
         res.on('data', (c) => {
           data += c;
-          if (data.length > 1_000_000) { data = data.slice(0, 1_000_000); req.destroy(); }
+          if (data.length > 1_000_000) {
+            // destroy() を引数なしで呼ぶと 'error' が発火せず Promise が永遠に
+            // settle しない場合がある（'end' も来ない）。打ち切り時点のデータで
+            // 即 resolve してからソケットを閉じる。
+            data = data.slice(0, 1_000_000);
+            resolve({ status: res.statusCode || 200, body: data });
+            req.destroy();
+          }
         });
         res.on('end', () => resolve({ status: res.statusCode || 0, body: data }));
       },

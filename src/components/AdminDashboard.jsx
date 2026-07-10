@@ -12,6 +12,7 @@
 // supabase_admin_ops.sql）。RPC 側で is_app_admin() ゲート済み。
 
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
   BarChart3, TrendingUp, Check, Flag, Pencil, Route, Activity, Calculator,
@@ -45,7 +46,7 @@ const header = {
 };
 const iconBtn = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  width: 40, height: 40, borderRadius: 12, border: 'none',
+  width: 44, height: 44, borderRadius: 12, border: 'none',
   background: 'transparent', color: C.ink2, cursor: 'pointer',
 };
 const wrap = { maxWidth: 760, margin: '0 auto', padding: '18px' };
@@ -238,6 +239,7 @@ function buildActions({ overview, revenue, usage, ai, tickets, goal, gap, requir
 }
 
 export default function AdminDashboard({ onClose }) {
+  const trapRef = useFocusTrap(true); // ♿ Tab をダッシュボード内に閉じ込める
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [days, setDays] = useState(30);
@@ -716,7 +718,7 @@ export default function AdminDashboard({ onClose }) {
   };
 
   return (
-    <div style={overlay} role="dialog" aria-modal="true" aria-label="運営ダッシュボード">
+    <div ref={trapRef} style={overlay} role="dialog" aria-modal="true" aria-label="運営ダッシュボード">
       <div style={header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <BarChart3 size={20} strokeWidth={1.75} color={C.ink} />
@@ -844,7 +846,7 @@ export default function AdminDashboard({ onClose }) {
                 経営・マーケ営業・開発・経理の4頭脳に相談できます。現状の数字とこれまでの文脈を踏まえ、対話で打ち手を一緒に作ります（会話は保存されます）。
               </p>
               {advisorMsgs.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                <div role="log" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
                   {advisorMsgs.map((m) => (
                     <div key={m.id || m.created_at} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                       <div style={{
@@ -859,7 +861,7 @@ export default function AdminDashboard({ onClose }) {
                       </div>
                     </div>
                   ))}
-                  {advisorBusy && <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>参謀が検討中…</p>}
+                  {advisorBusy && <p aria-live="polite" style={{ fontSize: 12, color: C.ink3, margin: 0 }}>参謀が検討中…</p>}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
@@ -1062,7 +1064,7 @@ export default function AdminDashboard({ onClose }) {
                         {byDate[d].map((t) => (
                           <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0' }}>
                             <button type="button" onClick={() => toggleTask(t)} aria-label={t.done ? '未完了に戻す' : '完了'}
-                              style={{ flex: '0 0 auto', marginTop: 1, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: t.done ? '#6b8e6b' : C.hairlineStrong }}>
+                              style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 44, margin: '-12px 0 -12px -12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: t.done ? '#6b8e6b' : C.hairlineStrong }}>
                               {t.done ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 5 }} />}
                             </button>
                             <span style={{ flex: '0 0 auto', fontSize: 10, fontWeight: 700, color: '#fff', background: DEPT_COLOR[t.dept] || C.brand, borderRadius: 6, padding: '2px 6px', marginTop: 1 }}>{t.dept}</span>

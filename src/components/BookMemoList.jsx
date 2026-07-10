@@ -37,7 +37,7 @@ const sortTab = (active) => ({
   minHeight: 44,
   border: 'none',
   background: active ? 'var(--c-brand)' : 'transparent',
-  color: active ? 'var(--c-card)' : '#8a7e6b',
+  color: active ? 'var(--c-card)' : 'var(--c-ink-2)',
   fontSize: 12,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -415,8 +415,10 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   // confirm-fronted handler (kebab/long-press menu) and the swipe gesture.
   const performDelete = (memo) => {
     const snapshot = { ...memo };
+    let deleteFailed = false;
     const deletionPromise = deleteMemo(memo.id).catch((e) => {
       toast.error(toMessage(e, 'メモの削除に失敗しました。'));
+      deleteFailed = true;
       throw e;
     });
     toast.undo({
@@ -426,6 +428,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       onUndo: async () => {
         try {
           await deletionPromise.catch(() => {});
+          // DELETE が失敗していたらメモは DB に健在 — 再 INSERT すると PK 重複で
+          // 偽のエラーを出すため、Undo は no-op にする。
+          if (deleteFailed) { toast.info('メモは削除されていません。'); return; }
           await restoreMemoFromSnapshot(snapshot);
           toast.info('削除を取り消しました。');
         } catch (e) {
@@ -535,7 +540,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           }}
         >
           <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7, flex: 1 }}>
-            最初の気づきが残りました。下の「🔄 振り返り」を開くと、これがランダムに、そして忘れた頃にそっと戻ってきます。
+            最初の気づきが残りました。下の「🔄 振り返り」を開くと、これが忘れた頃に想起されて、そっと戻ってきます。
           </p>
           <button
             type="button"
