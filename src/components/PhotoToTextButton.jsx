@@ -66,7 +66,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       }
       haptic.success();
       onText(text);
-      toast.success('写真から書き起こしました');
+      toast.success('写真から書き起こしました。');
     } catch (e2) {
       toast.error(toMessage(e2, '読み取りに失敗しました。'));
     } finally {

@@ -18,6 +18,7 @@
 //   summary  — clear (set leverage_memo = ''); Undo restores previous text
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   Brain,
   StickyNote,
@@ -105,7 +106,7 @@ const KIND_META = {
 
 // グループごとの badge 色 (既存配色をベースに plan を追加)
 const GROUP_BADGE = {
-  memo:     { bg: '#e2ecd8', fg: '#5a7a48' },
+  memo:     { bg: '#e2ecd8', fg: '#4a6a3a' }, // 4.0:1→約5.4:1（11px 文字の WCAG AA 対応）
   summary:  { bg: 'var(--c-soft-2)', fg: 'var(--c-brand)' },
   learning: { bg: '#f5e6c8', fg: 'var(--color-accent)' },
   plan:     { bg: '#e3eaf3', fg: '#3a5a78' },
@@ -115,6 +116,7 @@ const GROUP_BADGE = {
 // Simple text-edit modal (used for summary + personal edit)
 // ============================================================================
 function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
+  const trapRef = useFocusTrap(true); // ♿ Tab をダイアログ内に閉じ込める
   const [text, setText] = useState(initialText || '');
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -149,6 +151,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
 
   return (
     <div
+      ref={trapRef}
       style={{ position: 'fixed', inset: 0, zIndex: 870, background: 'rgba(30,25,20,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "var(--font-app)" }}
       onClick={onClose}
       role="dialog"
@@ -427,7 +430,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
             .eq('id', item.book_id)
             .eq('user_id', user.id);
           if (error) throw error;
-          toast.success(`${meta.label} を更新しました`);
+          toast.success(`${meta.label} を更新しました。`);
           refresh();
           notifyBooksMutated();
         },
@@ -446,7 +449,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
             .eq('id', item.id)
             .eq('user_id', user.id);
           if (error) throw error;
-          toast.success('学びログを更新しました');
+          toast.success('学びログを更新しました。');
           refresh();
         },
       });
@@ -508,7 +511,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
     if (oldPath && (payload.photoFile || payload.removePhotoFlag)) {
       try { await supabase.storage.from('book-memo-photos').remove([oldPath]); } catch { /* ignore */ }
     }
-    toast.success('メモを更新しました');
+    toast.success('メモを更新しました。');
     refresh();
   };
 
@@ -563,7 +566,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
           if (snapshot.created_at) payload.created_at = snapshot.created_at;
           const { error } = await supabase.from('book_memos').insert([payload]);
           if (error) throw error;
-          toast.info('削除を取り消しました');
+          toast.info('削除を取り消しました。');
           refresh();
         } catch (e) {
           toast.error(toMessage(e, '復元に失敗しました。'));
@@ -611,7 +614,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
             .eq('id', item.book_id)
             .eq('user_id', user.id);
           if (error) throw error;
-          toast.info('クリアを取り消しました');
+          toast.info('クリアを取り消しました。');
           refresh();
           notifyBooksMutated();
         } catch (e) {

@@ -12,6 +12,7 @@
 // supabase_admin_ops.sql）。RPC 側で is_app_admin() ゲート済み。
 
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
   BarChart3, TrendingUp, Check, Flag, Pencil, Route, Activity, Calculator,
@@ -45,7 +46,7 @@ const header = {
 };
 const iconBtn = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  width: 40, height: 40, borderRadius: 12, border: 'none',
+  width: 44, height: 44, borderRadius: 12, border: 'none',
   background: 'transparent', color: C.ink2, cursor: 'pointer',
 };
 const wrap = { maxWidth: 760, margin: '0 auto', padding: '18px' };
@@ -238,6 +239,7 @@ function buildActions({ overview, revenue, usage, ai, tickets, goal, gap, requir
 }
 
 export default function AdminDashboard({ onClose }) {
+  const trapRef = useFocusTrap(true); // ♿ Tab をダッシュボード内に閉じ込める
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [days, setDays] = useState(30);
@@ -270,6 +272,10 @@ export default function AdminDashboard({ onClose }) {
     try { return JSON.parse(localStorage.getItem('orime.floor.reports') || '{}'); } catch { return {}; }
   });
   const [floorBusy, setFloorBusy] = useState({}); // memberId -> bool
+  // 二重コール防止の即時ガード。部門招集ループ中の dispatchMember は招集開始時
+  // レンダーの floorBusy を閉包で読むため、state だけだと個別タップとの並行で
+  // 同一社員に二重コール（AI 原価二重払い）の窓が開く。ref は常に最新。
+  const floorBusyRef = useRef({});
   const [activeMemberId, setActiveMemberId] = useState(null);
   const [floorOrder, setFloorOrder] = useState('');
   // 🎖 CEO室 統合ブリーフ。
@@ -548,7 +554,8 @@ export default function AdminDashboard({ onClose }) {
   // 🏢 社員フロア: 1 名の社員に成果物を出させる（1 タップ = AI 1 コール）。
   // 既にレポートがある社員のタップは「閲覧のみ」（無課金）。更新は明示ボタンで。
   const dispatchMember = async (member, order = '') => {
-    if (!member || floorBusy[member.id]) return;
+    if (!member || floorBusyRef.current[member.id]) return;
+    floorBusyRef.current[member.id] = true;
     setFloorBusy((b) => ({ ...b, [member.id]: true }));
     try {
       const deptLabel = DEPT_META[member.dept]?.label || '';
@@ -568,6 +575,7 @@ export default function AdminDashboard({ onClose }) {
           .then(() => {}, () => {});
       }
     } finally {
+      floorBusyRef.current[member.id] = false;
       setFloorBusy((b) => ({ ...b, [member.id]: false }));
     }
   };
@@ -618,21 +626,34 @@ export default function AdminDashboard({ onClose }) {
   };
 
   // 🎫 成果物 → チケット化（既存の作業ボードへ流し込む＝実行に接続）。
+  // RPC 応答待ちの間の再タップで重複チケットが作られないよう、発行前に
+  // 'busy' を立てて disabled 条件に含める（in-flight ガード）。
   const ticketFromReport = async (member, rep) => {
     if (!rep || !rep.body || ticketed[member.id]) return;
+    setTicketed((t) => ({ ...t, [member.id]: 'busy' }));
     const title = `[${DEPT_META[member.dept]?.label || ''}/${member.name}] ${rep.status || '成果物'}`.slice(0, 120);
     try {
       const { error } = await supabase.rpc('admin_ticket_create', {
         p_title: title, p_body: String(rep.body).slice(0, 4000), p_kind: 'task', p_priority: 2, p_source_feedback: null,
       });
-      if (!error) setTicketed((t) => ({ ...t, [member.id]: 'done' }));
-    } catch { /* RPC 未適用等は静かに無視 */ }
+      setTicketed((t) => ({ ...t, [member.id]: error ? undefined : 'done' }));
+    } catch {
+      // RPC 未適用等は静かに無視（busy は解除して再試行可能に）
+      setTicketed((t) => ({ ...t, [member.id]: undefined }));
+    }
   };
 
   // フロアの稼働状況サマリー（司令室ヘッダー表示用）。
   const floorReportedCount = AI_COMPANY.filter((m) => floorReports[m.id] && floorReports[m.id].body).length;
   const floorBusyCount = Object.values(floorBusy).filter(Boolean).length;
-  const floorCostJpy = (floorReportedCount + (integration && integration.ok ? 1 : 0)) * AI_COST_PER_CALL_JPY;
+  // コスト概算は「当日の報告」だけを数える（過去日の復元分まで足すと、今日
+  // 1 コールも使っていないのに費用が出て元帥の原価判断をミスリードする）。
+  const _todayKey = new Date().toDateString();
+  const floorTodayCount = AI_COMPANY.filter((m) => {
+    const r = floorReports[m.id];
+    return r && r.body && r.at && new Date(r.at).toDateString() === _todayKey;
+  }).length;
+  const floorCostJpy = (floorTodayCount + (integration && integration.ok && integration.at && new Date(integration.at).toDateString() === _todayKey ? 1 : 0)) * AI_COST_PER_CALL_JPY;
 
   // 🗺 AI にロードマップを引いてもらう（年の目標→月別の人数/売上/施策）。
   const makeRoadmap = async () => {
@@ -697,7 +718,7 @@ export default function AdminDashboard({ onClose }) {
   };
 
   return (
-    <div style={overlay} role="dialog" aria-modal="true" aria-label="運営ダッシュボード">
+    <div ref={trapRef} style={overlay} role="dialog" aria-modal="true" aria-label="運営ダッシュボード">
       <div style={header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <BarChart3 size={20} strokeWidth={1.75} color={C.ink} />
@@ -825,7 +846,7 @@ export default function AdminDashboard({ onClose }) {
                 経営・マーケ営業・開発・経理の4頭脳に相談できます。現状の数字とこれまでの文脈を踏まえ、対話で打ち手を一緒に作ります（会話は保存されます）。
               </p>
               {advisorMsgs.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                <div role="log" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
                   {advisorMsgs.map((m) => (
                     <div key={m.id || m.created_at} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                       <div style={{
@@ -840,7 +861,7 @@ export default function AdminDashboard({ onClose }) {
                       </div>
                     </div>
                   ))}
-                  {advisorBusy && <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>参謀が検討中…</p>}
+                  {advisorBusy && <p aria-live="polite" style={{ fontSize: 12, color: C.ink3, margin: 0 }}>参謀が検討中…</p>}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
@@ -848,7 +869,7 @@ export default function AdminDashboard({ onClose }) {
                   value={advisorInput}
                   onChange={(e) => setAdvisorInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendAdvisor(); } }}
-                  placeholder="例: 最初の10人をどう集める？ / 価格は¥1,480で妥当？ / 来月の優先順位は？"
+                  placeholder="例：最初の10人をどう集める？ / 価格は¥1,480で妥当？ / 来月の優先順位は？"
                   rows={2}
                   style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, flex: 1 }}
                 />
@@ -886,8 +907,9 @@ export default function AdminDashboard({ onClose }) {
             <textarea
               value={floorOrder}
               onChange={(e) => setFloorOrder(e.target.value)}
-              placeholder="任意: 招集する社員に共通で伝える指示（空なら各自が最重要の一手を選びます）例: 来週の集客を具体化して"
+              placeholder="任意: 招集する社員に共通で伝える指示（空なら各自が最重要の一手を選びます）例：来週の集客を具体化して"
               rows={2}
+              maxLength={1000}
               style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, marginBottom: 14 }}
             />
 
@@ -896,7 +918,7 @@ export default function AdminDashboard({ onClose }) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.ink }}>🎖 CEO室 統合ブリーフ</p>
                 <button type="button" onClick={runIntegration} disabled={integrationBusy || floorReportedCount === 0}
-                  style={{ ...btnPrimary, minHeight: 38, padding: '0 14px', fontSize: 12, width: 'auto',
+                  style={{ ...btnPrimary, minHeight: 44, padding: '0 14px', fontSize: 12, width: 'auto',
                     opacity: (integrationBusy || floorReportedCount === 0) ? 0.5 : 1, cursor: (integrationBusy || floorReportedCount === 0) ? 'default' : 'pointer' }}>
                   {integrationBusy ? '統合中…' : integration ? '再統合' : '全社を統合'}
                 </button>
@@ -928,7 +950,7 @@ export default function AdminDashboard({ onClose }) {
                     </p>
                     <button type="button" onClick={() => dispatchDepartment(dept.key)} disabled={!!prog}
                       style={{ border: `1px solid ${dept.accent}`, background: 'transparent', color: dept.accent, borderRadius: 99,
-                        padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: prog ? 'default' : 'pointer', opacity: prog ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                        padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: prog ? 'default' : 'pointer', opacity: prog ? 0.6 : 1, whiteSpace: 'nowrap', minHeight: 44 }}>
                       {prog ? `招集中 ${prog.done}/${prog.total}` : `部門を招集（${members.length}コール）`}
                     </button>
                   </div>
@@ -1042,7 +1064,7 @@ export default function AdminDashboard({ onClose }) {
                         {byDate[d].map((t) => (
                           <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0' }}>
                             <button type="button" onClick={() => toggleTask(t)} aria-label={t.done ? '未完了に戻す' : '完了'}
-                              style={{ flex: '0 0 auto', marginTop: 1, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: t.done ? '#6b8e6b' : C.hairlineStrong }}>
+                              style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 36, margin: '-8px 0 -8px -12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: t.done ? '#6b8e6b' : C.hairlineStrong }}>
                               {t.done ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 5 }} />}
                             </button>
                             <span style={{ flex: '0 0 auto', fontSize: 10, fontWeight: 700, color: '#fff', background: DEPT_COLOR[t.dept] || C.brand, borderRadius: 6, padding: '2px 6px', marginTop: 1 }}>{t.dept}</span>
@@ -1205,7 +1227,7 @@ export default function AdminDashboard({ onClose }) {
                   <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>今月の集客費用（円）</label>
                   <input type="number" inputMode="numeric" value={mktSpend}
                     onChange={(e) => { setMktSpend(e.target.value); try { localStorage.setItem('orime-ops-mkt-spend', e.target.value); } catch { /* ignore */ } }}
-                    placeholder="例: 30000" style={inp} />
+                    placeholder="例：30000" style={inp} />
                 </div>
                 <div style={{ flex: 1, minWidth: 130 }}>
                   <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>想定継続月数</label>

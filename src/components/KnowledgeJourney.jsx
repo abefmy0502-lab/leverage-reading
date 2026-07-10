@@ -4,7 +4,7 @@
 // 既存資産だけで成立: gatherKnowledge + formatMemo(withDate) + listThemes を再利用し、
 // DB 変更ゼロ。出力は ThemeReport と同じ MarkdownSections でレンダリング。
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { listThemes, generateKnowledgeJourney } from '../lib/ai';
 import { toMessage } from '../lib/errors';
 import { useToast } from './Toast';
@@ -17,7 +17,7 @@ import { LIMITS } from '../lib/limits';
 const wrap = { display: 'flex', flexDirection: 'column', gap: 16 };
 const hint = { fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: 0 };
 const chip = (active) => ({
-  flex: '0 0 auto', whiteSpace: 'nowrap', fontSize: 12, padding: '7px 13px', minHeight: 36,
+  flex: '0 0 auto', whiteSpace: 'nowrap', fontSize: 12, padding: '7px 13px', minHeight: 44,
   borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontWeight: active ? 600 : 500,
   border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
   background: active ? 'var(--c-soft)' : 'transparent',
@@ -53,6 +53,11 @@ export default function KnowledgeJourney({ userId }) {
     return () => { alive = false; };
   }, [userId]);
 
+  // AI 生成は数十秒かかる — タブ離脱（unmount）後の setState を防ぐ alive ガード
+  // （上の listThemes と同じパターンに揃える）。
+  const aliveRef = useRef(true);
+  useEffect(() => () => { aliveRef.current = false; }, []);
+
   const run = useCallback(async (t) => {
     const theme = (t || '').trim();
     if (!theme || state.status === 'loading') return;
@@ -60,9 +65,11 @@ export default function KnowledgeJourney({ userId }) {
     setState({ status: 'loading' });
     try {
       const r = await generateKnowledgeJourney(userId, theme);
+      if (!aliveRef.current) return;
       if (r?.tooThin) setState({ status: 'thin' });
       else setState({ status: 'done', ...r });
     } catch (e) {
+      if (!aliveRef.current) return;
       setState({ status: 'error', msg: toMessage(e, '足あとの生成に失敗しました。') });
     }
   }, [userId, state.status]);
@@ -71,7 +78,7 @@ export default function KnowledgeJourney({ userId }) {
     if (state.status !== 'done') return;
     try {
       await navigator.clipboard.writeText(state.content);
-      toast.success('コピーしました');
+      toast.success('コピーしました。');
     } catch {
       toast.error('コピーできませんでした。');
     }
@@ -122,7 +129,7 @@ export default function KnowledgeJourney({ userId }) {
           value={custom}
           onChange={(e) => setCustom(e.target.value.slice(0, LIMITS.theme))}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); submitCustom(); } }}
-          placeholder="例: 営業 / リーダーシップ / 習慣"
+          placeholder="例：営業 / リーダーシップ / 習慣"
           maxLength={LIMITS.theme}
           aria-label="テーマを入力"
           style={inp}
@@ -143,7 +150,7 @@ export default function KnowledgeJourney({ userId }) {
       )}
 
       {state.status === 'error' && (
-        <p style={{ fontSize: 12, color: 'var(--c-critical)', background: 'var(--c-critical-soft)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.7 }}>
+        <p role="alert" style={{ fontSize: 12, color: 'var(--c-critical)', background: 'var(--c-critical-soft)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.7 }}>
           {state.msg}
         </p>
       )}

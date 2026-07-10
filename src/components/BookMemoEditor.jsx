@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useAppDataCache } from '../state/AppDataCache';
 import { toMessage } from '../lib/errors';
 import { LIMITS, validateImageFile } from '../lib/limits';
@@ -170,6 +171,8 @@ export default function BookMemoEditor({
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
   const overlayRef = useRef(null);
+  // ♿ 全画面エディタも Tab を内部に閉じ込める（背景の本詳細へ抜けない）。
+  const trapRef = useFocusTrap(true);
   const bodyRef = useRef(null);
 
   // 新規メモは本文へ自動フォーカス（毎日の「ひとこと書く」を1タップ短縮）。
@@ -270,7 +273,7 @@ export default function BookMemoEditor({
     const pendingTag = tagInput.trim();
     const finalTags = pendingTag && !tags.includes(pendingTag) ? [...tags, pendingTag] : tags;
     return {
-      pageNumber: Number.isFinite(parsed) ? parsed : null,
+      pageNumber: Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 99999) : null,
       text: text.trim(),
       photoFile: photoFile || null,
       tags: finalTags,
@@ -360,7 +363,7 @@ export default function BookMemoEditor({
   })();
 
   return (
-    <div ref={overlayRef} style={overlay} role="dialog" aria-modal="true">
+    <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true">
       <div style={headerBar}>
         <button
           type="button"
@@ -396,6 +399,8 @@ export default function BookMemoEditor({
           <input
             type="number"
             inputMode="numeric"
+            min={0}
+            max={99999}
             value={pageNumber}
             onChange={(e) => setPageNumber(e.target.value)}
             onKeyDown={blockEnter}
@@ -410,7 +415,7 @@ export default function BookMemoEditor({
             ref={bodyRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="メモを入力..."
+            placeholder="メモを入力…"
             style={ta}
             maxLength={LIMITS.memoText}
           />
@@ -616,7 +621,7 @@ export default function BookMemoEditor({
             disabled={busy}
             style={{ ...btnGhost, opacity: busy ? 0.6 : 1 }}
           >
-            {busy ? '保存中...' : '保存して次へ'}
+            {busy ? '保存中…' : '保存して次へ'}
           </button>
         )}
         <button
@@ -625,7 +630,7 @@ export default function BookMemoEditor({
           disabled={busy}
           style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}
         >
-          {busy ? '保存中...' : '保存'}
+          {busy ? '保存中…' : '保存'}
         </button>
       </div>
     </div>

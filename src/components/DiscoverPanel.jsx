@@ -15,6 +15,7 @@
 // 中断安全キャッシュ + 再試行、全棚空のときの空状態、などを実装。
 
 import { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
+import { toMessage } from '../lib/errors';
 import { createPortal } from 'react-dom';
 import { Plus, Check, X as IcX } from 'lucide-react';
 import {
@@ -414,7 +415,7 @@ function DetailSheet({ item, added, onAdd, onClose }) {
       // 監査 FE1: 中断時は streamClaude が部分テキストで resolve するため、
       // 中断していない完了時のみキャッシュする（部分要約の焼き付き防止）。
       .then((full) => { if (full && !controller.signal.aborted) cacheSummary(key, full); })
-      .catch((e) => { setSumErr(e?.message || '概要を取得できませんでした'); })
+      .catch((e) => { setSumErr(toMessage(e, '概要を取得できませんでした。もう一度お試しください。')); })
       .finally(() => setSumLoading(false));
   };
 
@@ -446,7 +447,7 @@ function DetailSheet({ item, added, onAdd, onClose }) {
             type="button"
             onClick={onClose}
             aria-label="閉じる"
-            style={{ width: 32, height: 32, flex: '0 0 auto', borderRadius: 999, border: 'none', background: 'var(--c-soft)', color: 'var(--c-ink-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: 44, height: 44, flex: '0 0 auto', borderRadius: 999, border: 'none', background: 'var(--c-soft)', color: 'var(--c-ink-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <IcX size={16} aria-hidden="true" />
           </button>

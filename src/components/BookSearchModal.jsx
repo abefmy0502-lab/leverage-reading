@@ -2,6 +2,7 @@
 // App.jsx から切り出した自己完結コンポーネント（props のみ・App の state に非依存）。
 
 import { useEffect, useMemo, useState } from 'react';
+import { toMessage } from '../lib/errors';
 import { Search as IcSearch, Plus as IcPlus, Lightbulb as IcBulb, X as IcClose } from 'lucide-react';
 import { searchBooksAdvanced as searchBooksAPIAdvanced, pickSuggestions } from '../lib/bookSearch';
 import { ensureHttps } from '../lib/url';
@@ -82,7 +83,8 @@ export default function BookSearchModal({ onSelect, onClose, initialQuery = '', 
     setLastQuery([t, a, i].filter(Boolean).join(' / '));
     const res = await searchBooksAPIAdvanced({ title: t, author: a, isbn: i });
     if (!res.ok) {
-      setError(res.error || '検索でエラーが発生しました。');
+      // 生のエラー文字列を将来混入させない — AddBookModal と同じく humanize して表示。
+      setError(toMessage(res.error, '検索でエラーが発生しました。少し時間をおいて再度お試しください。'));
     } else if (res.results.length === 0) {
       setNotFound(true);
     } else {

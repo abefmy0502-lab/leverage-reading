@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { useHaptic } from '../hooks/useHaptic';
@@ -41,7 +42,7 @@ const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: '10px 1
 const pill = (active) => ({
   flex: '0 0 auto',
   whiteSpace: 'nowrap',
-  minHeight: 36,
+  minHeight: 44,
   padding: '6px 12px',
   border: 'none',
   background: active ? 'var(--c-brand)' : 'transparent',
@@ -185,6 +186,30 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   const [history, setHistory] = useState([]);
   const [historyAvailable, setHistoryAvailable] = useState(false);
 
+  // メモ総数（head カウントのみ・行は取らない）。0 件のうちは生成 UI を出さず
+  // 先回り案内に倒す — 「押してから空振り」（生成 → 関連メモなし notice）を防ぐ。
+  // マイ読書脳の先回り案内と同じ思想。
+  const [memoTotal, setMemoTotal] = useState(null); // null = 未取得
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured) { setMemoTotal(0); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const { count, error } = await supabase
+          .from('book_memos')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        // supabase-js は失敗時も throw せず { count: null, error } を返す。
+        // エラーを 0 扱いすると既存ユーザーの生成 UI が消える（fail-closed）ため、
+        // 不明時は null のままゲートしない（安全側 = 従来挙動）。
+        if (alive) setMemoTotal(error ? null : (count || 0));
+      } catch {
+        if (alive) setMemoTotal(null); // 不明時はゲートしない（安全側 = 従来挙動）
+      }
+    })();
+    return () => { alive = false; };
+  }, [user?.id]);
+
   const refreshThemes = useCallback(async () => {
     if (!user?.id) return;
     setThemesLoading(true);
@@ -288,7 +313,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
             // 出力上限で途中切れ。画面には表示するが、欠けたレポートを完成品として
             // 履歴に永続化しない（再表示しても欠けたままになる事故を防ぐ）。
             setNoticeKind('info');
-            setNotice('⚠️ レポートが長さの上限に達したため途中までです。メモやテーマを絞って再生成すると最後まで作成できます（このままでは履歴に保存されません）。');
+            setNotice('⚠️ テーマまとめが長さの上限に達したため途中までです。メモやテーマを絞って再生成すると最後まで作成できます（このままでは履歴に保存されません）。');
           } else {
             // Persist (no-op + history stays hidden if the table isn't applied).
             const saved = await saveThemeReport({ userId: user.id, theme, content: finalText });
@@ -337,7 +362,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
     try {
       await navigator.clipboard.writeText(text);
       haptic.success();
-      toast.success('テーマまとめをコピーしました');
+      toast.success('テーマまとめをコピーしました。');
     } catch {
       toast.error('コピーできませんでした。');
     }
@@ -346,7 +371,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   const handleSetRecall = useCallback(async () => {
     if (recallBusy || recallSet) return;
     const core = extractCore(reportText);
-    if (!core) { toast.error('核心を取り出せませんでした'); return; }
+    if (!core) { toast.error('核心を取り出せませんでした。'); return; }
     setRecallBusy(true);
     try {
       const res = await setLeverageRecall({ userId: user.id, theme: activeTheme, core });
@@ -365,8 +390,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   const handleAddNextStep = useCallback(async () => {
     if (actionBusy || actionAdded) return;
     const step = extractNextStep(reportText);
-    if (!step) { toast.error('「次の一歩」を取り出せませんでした'); return; }
-    if (!primaryBook?.id) { toast.error('追加先の本が見つかりませんでした'); return; }
+    if (!step) { toast.error('「次の一歩」を取り出せませんでした。'); return; }
+    if (!primaryBook?.id) { toast.error('追加先の本が見つかりませんでした。'); return; }
     setActionBusy(true);
     try {
       const res = await addThemeAction({ userId: user.id, bookId: primaryBook.id, text: step });
@@ -406,7 +431,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
 
   const removeHistory = useCallback(async (row) => {
     const ok = await confirm({
-      title: 'テーマまとめを削除',
+      title: 'テーマまとめを削除しますか？',
       message: `「${row.theme}」のテーマまとめを削除しますか？`,
       confirmLabel: '削除する',
       danger: true,
@@ -419,7 +444,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
       setHistory((h) => (h.some((r) => r.id === row.id)
         ? h
         : [...h, row].sort((a, b) => (b.generated_at || '').localeCompare(a.generated_at || ''))));
-      toast.error('削除できませんでした');
+      toast.error('削除できませんでした。');
     } else {
       haptic.medium();
     }
@@ -473,7 +498,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                     </button>
                     <button
                       onClick={() => removeHistory(row)}
-                      style={{ ...btnGhost, minHeight: 36, padding: '6px 10px', color: 'var(--c-critical)', borderColor: '#e0cabf' }}
+                      style={{ ...btnGhost, minHeight: 44, padding: '6px 10px', color: 'var(--c-critical)', borderColor: '#e0cabf' }}
                       aria-label={`「${row.theme}」のテーマまとめを削除`}
                     >
                       <Trash2 size={15} aria-hidden="true" />
@@ -487,6 +512,15 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
       ) : (
         <div style={viewScroll}>
           {!activeTheme && !hasReport ? (
+            memoTotal === 0 ? (
+              /* メモ 0 件では何を入力しても「関連するメモが見つかりません」で空振りする。
+                 誘ってから外すのではなく、先回りして最初の一歩（メモを書く）へ案内する。 */
+              <EmptyState
+                icon="📐"
+                title="メモが貯まると、テーマまとめが作れます"
+                description={'テーマまとめは、あなたのメモを横断して「核心1行と次の一歩」に凝縮する機能です。まず本を開いて、気づきを1行メモに残すところから始めましょう。'}
+              />
+            ) : (
             <ThemePicker
               themes={themes}
               themesLoading={themesLoading}
@@ -494,6 +528,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
               setCustomTheme={setCustomTheme}
               onGenerate={generate}
             />
+            )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* report header */}
@@ -771,7 +806,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                 submitCustom();
               }
             }}
-            placeholder="例: 営業 / リーダーシップ / 習慣"
+            placeholder="例：営業 / リーダーシップ / 習慣"
             maxLength={LIMITS.theme}
             style={{ ...inp, flex: 1, minWidth: 160 }}
           />

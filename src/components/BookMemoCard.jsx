@@ -385,6 +385,22 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
             alt={`${photoAlt}（拡大表示）`}
             style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }}
           />
+          {/* ♿ aria-modal ダイアログ内にフォーカス可能要素がゼロだと、SR ユーザーは
+              背景が隠された状態で移動先を失う。閉じるボタンを内包し開時にフォーカス。 */}
+          <button
+            type="button"
+            autoFocus
+            onClick={(e) => { e.stopPropagation(); setZoom(false); }}
+            aria-label="拡大表示を閉じる"
+            style={{
+              position: 'absolute', top: 'max(env(safe-area-inset-top, 0px), 12px)', right: 12,
+              width: 44, height: 44, borderRadius: 999, border: 'none', cursor: 'pointer',
+              background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 20, lineHeight: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            ×
+          </button>
         </div>,
         document.body,
       )}

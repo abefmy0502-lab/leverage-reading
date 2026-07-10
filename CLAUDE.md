@@ -11,16 +11,31 @@
 - **バックエンド**: Supabase (PostgreSQL + Auth + Storage)
 - **AI**: Anthropic Claude API（`api/claude.js` 経由のサーバーサイド中継）
 - **ホスティング**: Vercel
-- **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号・📷 写真から AI 書き起こし）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🎯 行動リスト（本横断 + 完了率 + 期限管理）、🧠 マイ読書脳（自分のメモを根拠にする AI Q&A + 本以外の学びログ）、📊 テーマレポート（テーマ横断でメモを統合し 1 枚のレポート化）、🤖 AI 選書アドバイザー、PWA インストール
+- **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号・📷 写真から AI 書き起こし）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🎯 行動リスト（本横断 + 完了率 + 期限管理）、🧠 マイ読書脳（自分のメモを根拠にする AI Q&A + 本以外の学びログ）、📐 テーマまとめ（テーマ横断でメモを凝縮。コード識別子は themeReport のまま）、🤖 AI 選書アドバイザー、PWA インストール
 
 ### ナビゲーション構造
 
 下部ナビは **3 タブ**（旧 5 タブから整理）：
 - 📚 **本棚** — 本一覧（検索 / フィルタ / ソート / 続きから / 表紙グリッド or リスト切替）
 - 🔄 **振り返り** — サブタブで切替: 💭 ノート（ランダム想起 / タイムライン / 横断検索）/ 🎯 行動（本横断アクション + 完了率 + 期限色分け）
-- 🤖 **AI** — サブタブで切替: 🔍 AI 選書（課題ヒアリング → 推薦）/ 🧠 マイ読書脳（メモ根拠の AI Q&A + 学びログ + 履歴）/ 📐 レバレッジメモ（テーマの学びを「核心1行＋繰り返す原則＋次の一歩」に凝縮 + 🎯行動の鏡 + 🔄想起ループ接続 + 履歴）
+- 🤖 **AI** — サブタブで切替: 🔍 AI 選書（課題ヒアリング → 推薦）/ 🧠 マイ読書脳（メモ根拠の AI Q&A + 学びログ + 履歴）/ 📐 テーマまとめ（旧称レバレッジメモ。テーマの学びを「核心1行＋繰り返す原則＋次の一歩」に凝縮 + 🎯行動の鏡 + 🔄想起ループ接続 + 履歴）
 
 設定 / ヘルプ / データダウンロード / 退会等はヘッダー右上の ⚙️ 設定モーダルから。
+
+### 用語の正典（GLOSSARY）— ユーザー可視の語彙はこれに統一する
+
+UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前の唯一の真実。新しい文言を書くとき・AI プロンプトを変えるときは必ずここに合わせる（コード識別子は対象外・不変）。
+
+| 正典 | 使わない表記（旧称・揺れ） | 備考 |
+|---|---|---|
+| テーマまとめ | レバレッジメモ / テーマレポート / レポート | コード識別子は `themeReport` / `theme_reports` のまま |
+| 行動 | アクション / タスク | 絵文字は 🎯 を行動専用とする |
+| 積読 | 読書前 | ステータス `before` のユーザー可視名。絵文字は 📕（📐 はテーマまとめ専用） |
+| 想起 | ランダム表示 / リマインド | 「今日の想起」= 振り返りタブの間隔反復カード |
+| メモ | ノート / 記録 | カード式 / まとめ式の総称 |
+| 読書計画シート | セットアップシート / 読書戦略書 | `before` フェーズの AI シート |
+| 凝縮 | 3行に凝縮 / 要約 | メモの AI 凝縮ボタン |
+| AI 選書 | アドバイザー / 選書アドバイザー | ヘルプキーは `aiAdvisor` のまま |
 
 ### 過去に削除された機能（履歴メモ）
 
@@ -155,7 +170,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `review` | 振り返りタブ（ランダム想起 / タイムライン / 横断検索） |
 | `actionList` | 行動リストタブ（本横断 + 完了率 + 期限色分け、`ActionList.jsx`） |
 | `myBookBrain` | マイ読書脳（メモ根拠の AI Q&A + 学びログ + 履歴） |
-| `themeReport` | 📐 レバレッジメモ（テーマの学びを「核心1行＋繰り返す原則＋次の一歩」に凝縮 + 🎯行動の鏡（actions 集計）+ 🔄想起ループ接続（核心を personal メモ化して振り返り/通知へ）+ 履歴、`ThemeReport.jsx`。コード識別子・キー名は themeReport / theme_reports のまま不変） |
+| `themeReport` | 📐 テーマまとめ（旧称レバレッジメモ。テーマの学びを「核心1行＋繰り返す原則＋次の一歩」に凝縮 + 🎯行動の鏡（actions 集計）+ 🔄想起ループ接続（核心を personal メモ化して振り返り/通知へ）+ 履歴、`ThemeReport.jsx`。コード識別子・キー名は themeReport / theme_reports のまま不変） |
 | `bookDetailWant` | 「読みたい」状態の本詳細 |
 | `bookDetailBefore` | 「読書前」状態の本詳細 |
 | `bookDetailReading` | 「読書中」状態の本詳細 |
@@ -177,8 +192,8 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_chat_messages.sql` | 🧠 マイ読書脳用 — `chat_messages` 新規 + `book_memos.book_id` nullable + `book_memos.source_type` 列追加 |
 | `supabase_account_deletion.sql` | アカウント削除リクエスト — `account_deletion_requests` 新規（管理者が auth.users を最終削除する用） |
 | `supabase_normalize_urls.sql` | 既存 `books.cover` の `http://` を `https://` に一括書き換え（Mixed Content 警告解消・既存本がない環境では不要） |
-| `supabase_added_via.sql` | 検索ファースト追加フロー — `books.added_via` カラム新設（`'search'` / `'manual'`）+ `book-covers` public バケット作成（手動入力時の表紙画像アップロード用） |
-| `supabase_books_isbn.sql` | Amazon アソシエイトリンク用に `books.isbn` / `books.asin` カラム新設（任意、リンクは ASIN > ISBN > タイトル の順でフォールバック） |
+| `supabase_added_via.sql` | 検索ファースト追加フロー — `books.added_via` カラム新設（`'search'` / `'manual'`）+ `book-covers` public バケット作成（手動入力時の表紙画像アップロード用）。**実質必須**（現行の本追加フローが常に書く。schema-error fallback はあるが未適用だと計測・重複判定の質が落ちる） |
+| `supabase_books_isbn.sql` | Amazon アソシエイトリンク用に `books.isbn` / `books.asin` カラム新設（リンクは ASIN > ISBN > タイトル の順でフォールバック）。**実質必須**（表紙解決・重複防止 UNIQUE インデックス・楽天/Amazon 導線が ISBN 前提。未適用でも落ちないが主要機能が劣化） |
 | `supabase_feedback.sql` | 📩 ユーザーフィードバック・要望の保存先 — `feedback` テーブル新規 + RLS（自分の投稿のみ SELECT 可能、UPDATE/DELETE は管理者のみ） |
 | `supabase_books_cover_isbn.sql` | multi-ISBN cover resolver で「実際にどの ISBN（エディション）から表紙が取れたか」を記録する `books.cover_isbn` 列追加（任意。クライアントは schema-error fallback で列なしでも動作） |
 | `supabase_book_covers_bucket.sql` | 手動アップロード救済用 — `book-covers` public バケット作成 + INSERT/UPDATE/DELETE ポリシー（既に supabase_added_via.sql で作成済みの場合も idempotent に動作） |
@@ -195,7 +210,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_subscriptions_provider.sql` | 💳 App 決済 (IAP / RevenueCat) 対応 — `subscriptions` に `provider` / `rc_app_user_id` / `store` 列を idempotent 追加。Stripe (Web) と RevenueCat (IAP) を 1 テーブルで併存。`stripe_*` 列は NULL 許容のまま温存。entitlement は status='active' で無改修流用 |
 | `supabase_theme_reports.sql` | 📊 テーマレポートの保存先 — `theme_reports(user_id / theme / content / generated_at)` 新規 + RLS（自分の行のみ SELECT/INSERT/UPDATE/DELETE）。任意。未適用でも生成・コピーはその場で動作し、保存/履歴のみ無効化（クライアント ai.js の `saveThemeReport` / `loadThemeReports` / `deleteThemeReport` が schema-error fallback で graceful degradation） |
 | `supabase_ai_usage.sql` | 🤖 AI 利用量メータリング (KGI 原価ガード) — `ai_usage(user_id, period_month 'YYYY-MM', calls)` 新規 + 原子的 increment RPC (`increment_ai_usage`)。SELECT は本人のみ、書き込みは `api/claude.js` の service_role 経由。月次の累積コール上限 (`AI_MONTHLY_CALL_LIMIT`、既定 120) 超過で 429。fail-open / schema-fallback (未適用でも AI は止まらない)。連打 (マイ読書脳等) によるコスト青天井を止めるランナウェイガード |
-| `supabase_ai_usage_atomic.sql` | 🧮 AI 月次上限の原子的 check-and-increment RPC (`reserve_ai_usage(p_user, p_month, p_limit)`)。従来の checkMonthlyUsage(読み)→判定→後で increment の 2 段構えは並行リクエストが同じ pre-increment 値を読んで全通過する TOCTOU があった (per-minute レート制限が overrun を抑えるが原価ガードとしては緩い)。本 RPC は「上限未満のときだけ +1 して新カウントを返す/到達なら加算せず -1」を単一 UPDATE (conflict の DO UPDATE ... WHERE calls<limit) で原子的に行う。`api/claude.js` は entitlement 通過後に reserve を呼び、reserved 済みなら成功後の increment を二重加算しない。未適用/障害は fail-open (reserved=false → 従来の成功後 increment に委譲)。先に `supabase_ai_usage.sql` を適用済みであること。SECURITY DEFINER・service_role のみ。冪等 |
+| `supabase_ai_usage_atomic.sql` | 🧮 AI 月次上限の原子的 check-and-increment RPC (`reserve_ai_usage(p_user_id, p_period_month, p_limit)`)。従来の checkMonthlyUsage(読み)→判定→後で increment の 2 段構えは並行リクエストが同じ pre-increment 値を読んで全通過する TOCTOU があった (per-minute レート制限が overrun を抑えるが原価ガードとしては緩い)。本 RPC は「上限未満のときだけ +1 して新カウントを返す/到達なら加算せず -1」を単一 UPDATE (conflict の DO UPDATE ... WHERE calls<limit) で原子的に行う。`api/claude.js` は entitlement 通過後に reserve を呼び、reserved 済みなら成功後の increment を二重加算しない。未適用/障害は fail-open (reserved=false → 従来の成功後 increment に委譲)。先に `supabase_ai_usage.sql` を適用済みであること。SECURITY DEFINER・service_role のみ。冪等 |
 | `supabase_push_subscriptions.sql` | 🔔 想起プッシュ通知 (Web Push) — `push_subscriptions(user_id, endpoint UNIQUE, p256dh, auth, enabled, frequency, preferred_hour, tz_offset_min, last_sent_at)` 新規 + RLS (本人のみ全操作可。クライアントが直接 upsert / オフ設定できる)。送信は `api/push-cron.js` が service_role で全件読む (RLS バイパス・追加ポリシー不要)。冪等 (DROP POLICY IF EXISTS)。`set_updated_at` トリガ共有。**要環境作業**: VAPID 鍵生成 (`npx web-push generate-vapid-keys`)・env (`VITE_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` / `CRON_SECRET`)・`npm i web-push`・`vercel.json` の crons・実機 A2HS 検証 |
 | `supabase_push_native.sql` | 🔔📱 想起プッシュのネイティブ(iOS/APNs)対応 — `push_subscriptions` に `platform text default 'web'`（'web'=VAPID / 'ios'=APNs）/ `apns_token text`（デバイストークン）を idempotent 追加 + `p256dh`/`auth` を NULL 許容化（ネイティブ行は Web Push 鍵を持たない）+ index `push_subscriptions_platform_idx`。App Store 配信では Web Push が WKWebView で動かないため、ネイティブは APNs で送る。クライアント `src/lib/nativePush.js`（`@capacitor/push-notifications`・dynamic import で Web バンドル無影響）が platform='ios' / endpoint='apns:<token>' で upsert。送信は `api/push-cron.js` が platform で経路分岐し、iOS 行を APNs（HTTP/2 + ES256 JWT）で送る（`web-push` の web 経路は不変）。RLS/ポリシーは `supabase_push_subscriptions.sql` のまま。**要環境作業**: Xcode で Push Notifications capability + Background Modes(Remote notifications)・APNs 認証キー(.p8)発行・env（`APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_PRIVATE_KEY` / `APNS_BUNDLE_ID` / `APNS_PRODUCTION`）。APNS_* 未設定なら iOS 行は静かにスキップ（fail-safe・web 送信に無影響）。先に `supabase_push_subscriptions.sql` を適用済みであること。冪等 |
 | `supabase_books_reading_progress.sql` | 📖 読書進捗 — `books` に `current_page` / `total_pages` (integer、任意) を idempotent 追加。**2026-06-26: 進捗バー UI は撤去（本田直之レビュー: 「作業量の可視化」は成果ではない）。** ReadingPhase の数値入力・本詳細・本棚カードの進捗表示・計測を削除。`current_page` / `total_pages` の **列は dormant で温存**（既存データ保持・復活容易。`total_pages` は書誌メタ＝読書時間見積り `(pages*2)/60` 等に裏で使用継続）。クライアントは `useBooks.js` の staged schema-error fallback でこの 2 列を剥がして再保存するため、未適用 DB でも保存・読込が壊れない。 |
@@ -210,12 +225,15 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_admin_growth.sql` | 📈 運営ダッシュボードの成長・継続率集計（admin_metrics の上に乗る・`_require_admin` 依存）。`admin_growth()` 1 関数で returns jsonb: ①コホート継続率 D1/D7/D30（analytics_events の各ユーザー初回イベント日基準＝「N日後も残っている率」、分母は N 日以上経過した人）②新規有料の月次推移（subscriptions.created_at）③subs_total/active/canceled ④paid_new_this_month（当月獲得＝CAC 分母）。AdminDashboard が「ファネル（登録→課金到達→課金→継続）／継続率／ユニットエコノミクス（LTV=粗利/人×想定継続月・CAC=集客費/今月有料・LTV:CAC・回収期間。集客費と継続月は端末ローカル入力）」を描画。データが無い間は 0/空で壊れない。未適用は warn で名指し（他セクションは動く）。冪等 |
 | `supabase_admin_exclude_admins.sql` | 🧹 運営ダッシュボードの全集計から管理者（app_admins）を除外する上書き版（admin_overview/active_series/feature_usage/ai_usage/revenue/growth を create or replace）。創業者の自己利用（テスト/ドッグフーディング）が顧客指標を水増ししないように `user_id not in (select user_id from app_admins)` を全カウントに付与（feedback は匿名=user_id null を残す）。metrics/growth 適用後に最後に流す（後勝ち・冪等）。顧客のテスト垢/テスト課金そのものを 0 にするのは別途 DELETE（管理者は残す）。 |
 | `supabase_ops_advisor.sql` | 🧠 AI 参謀（作戦会議）の会話履歴 — `ops_advisor_messages(id, user_id, role 'user'/'assistant', content, created_at)` 新規 + index + RLS（本人のみ select/insert/delete）。運営ダッシュボードの対話相談役（経営/マーケ営業/開発/経理の4頭脳が元帥に仕える合議体）が現状サマリー＋プロダクト文脈ブリーフ（prompts.js の ORIME_BRIEF）＋今日の日付を踏まえて対話する。クライアント（AdminDashboard）が直接読み書き（DEFINER 不要・RLS 自己アクセス）。`ai.js` の `opsAdvise({messages, stateLine})` が会話履歴を messages 配列で callClaude に渡す。AI ロードマップ（opsRoadmap）も今日の日付を渡して年ズレを修正。冪等 |
-| `supabase_admin_members_tasks.sql` | 🧩 操縦席強化（会員内訳＋日次タスク・先に metrics/ops/growth/exclude_admins 適用）。①`subscriptions.period_type` 列追加（'trial'/'intro'=無料期間=売上0、'normal'/null=有料）→ `admin_revenue` を会員内訳（active=有料[無料期間除く] / trial=無料期間 / canceled=解約[会員数に含めない]）で create or replace（管理者除外維持）。MRR は有料のみで計算。②`ops_tasks(id, user_id default auth.uid(), due_date, dept, title, done)` 新規 + RLS 本人のみ全操作。AI（prompts.js opsTasks / ai.js generateOpsTasks）が今日から約30日分の日次タスクを「YYYY-MM-DD | 部門 | タスク」で生成→パースして格納。AdminDashboard は3タブ（📊概況/🗓アクション/🧠参謀）で、アクションタブに日次タスク（日付別・チェックオフ・現状に合わせ引き直し＝軌道修正）。ops_advisor_messages/ops_tasks の user_id は default auth.uid()（user_id 無し insert を許容）。冪等 |
+| `supabase_admin_members_tasks.sql` | 🧩 操縦席強化（会員内訳＋日次タスク・先に metrics/ops/growth/exclude_admins 適用）。①`subscriptions.period_type` 列追加（'trial'/'intro'=無料期間=売上0、'normal'/null=有料）→ `admin_revenue` を会員内訳（active=有料[無料期間除く] / trial=無料期間 / canceled=解約[会員数に含めない]）で create or replace（管理者除外維持）。MRR は有料のみで計算。②`ops_tasks(id, user_id default auth.uid(), due_date, dept, title, done)` 新規 + RLS 本人のみ全操作。AI（prompts.js opsTasks / ai.js generateOpsTasks）が今日から約30日分の日次タスクを「YYYY-MM-DD | 部門 | タスク」で生成→パースして格納。AdminDashboard は3タブ（📊概況/🗓アクション/🧠参謀）で、アクションタブに日次タスク（日付別・チェックオフ・現状に合わせ引き直し＝軌道修正）。ops_advisor_messages/ops_tasks の user_id は default auth.uid()（user_id 無し insert を許容）。⚠️ `admin_revenue` は metrics → exclude_admins → 本ファイルの **3 段上書き**。再適用するときは必ずこの順で最後に本ファイルを流すこと（順序を崩すと管理者除外 or 会員内訳が欠けた古い定義に戻る）。`period_type` の書き手は `api/revenuecat-webhook.js`（RC イベントの period_type を 'trial'/'intro'/'normal' のときのみ保存）— Stripe 経路は書かない（null=有料扱い）。冪等 |
 | `supabase_revenuecat_events.sql` | 💳 RevenueCat Webhook の冪等化（stripe_events と同一パターン）— `revenuecat_events(event_id PK, type, created_at)` 新規。`api/revenuecat-webhook.js` が event.id を claim（unique violation＝処理済みでスキップ・処理失敗時は delete で解放して再送に備える）。特に TRANSFER イベントは「旧アカウントを canceled に書き換えてから、その行を読んで新アカウントへ引き継ぐ」自己言及的な構造で、再送されると 1 回目の書き込み結果を 2 回目が読んでしまい有効な購読者が誤って canceled になりうる不具合があったため、これを恒久修正する目的で追加。RLS 有効＋ポリシー無し＝service_role のみ。未適用は fail-open（従来どおり処理・TRANSFER の再送耐性のみ無い） |
 | `supabase_core_indexes.sql` | ⚡ コアテーブルのインデックス補強 — `book_memos(user_id, created_at desc)` / `book_memos(book_id)` / `books(user_id, updated_at desc)` を `CREATE INDEX IF NOT EXISTS` で追加。この 2 テーブルはリポジトリ内に元の `CREATE TABLE` が無く（`supabase_security_hardening.sql` の RLS 定義のみが版管理下）、支持インデックスの有無も不明だったため、実際にある/なしに関わらず安全に追加できる形で明示。本棚一覧・メモ一覧・🧠マイ読書脳/📊テーマレポートの RAG コンテキスト取得（`gatherKnowledge`）等、ほぼ全 AI/画面機能がこの 2 テーブルへの `user_id` 絞り込み+日付ソートに依存するため、インデックス欠落時の効果が最も大きい。本番に副作用なし（存在すれば no-op） |
 | `supabase_feedback_hardening.sql` | 🛡️ `feedback` テーブルの堅牢化 — 既存 INSERT ポリシー（`TO` 指定なし＝anon ロールにも開放）を DROP → `FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id OR user_id IS NULL)` で作り直し、公開 anon キーだけの無認証スパム投入を封じる（クライアント `useFeedback.js` の user_id null パスは温存）。あわせて `content(≤4000)` / `name(≤200)` / `email(≤320)` / `user_agent(≤1000)` の `char_length()` CHECK を制約名存在確認つきで冪等追加（クライアント clamp 値 2000/60/254/500 の約 2 倍）。既存の上限超過行があると CHECK 追加が失敗するため、SQL 冒頭に確認クエリと削除サンプル付き。`supabase_feedback.sql` は本番適用済みの可能性があるため編集せず上書き用の別ファイル。冪等 |
 | `supabase_account_deletion_hardening.sql` | 🛡️ `account_deletion_requests` の堅牢化 — INSERT ポリシーを DROP → `TO authenticated WITH CHECK (auth.uid() = user_id AND (user_email IS NULL OR user_email = auth.jwt()->>'email'))` で作り直し、他人メールを詐称した削除リクエスト（管理者がメール基準で auth.users を消す運用への社会工学ベクトル）を封じる。`UNIQUE INDEX (user_id)` を `IF NOT EXISTS` で追加し二重リクエストを防止（実行前に既存重複の確認クエリ・削除サンプルを SQL 冒頭コメントに同梱）。`notes(≤4000)` / `user_email(≤320)` の CHECK も冪等追加。**管理者の削除運用は user_id 基準に統一**（メール照合は削除前に必ず user_id と突き合わせる）。冪等 |
 | `supabase_recall_memory.sql` | 🔄 想起（recall）の間隔反復（spaced repetition）化 — `book_memos` に `last_recalled_at timestamptz`（最後に想起した時刻。null=未想起）/ `recall_count integer not null default 0`（「覚えた」で +1 の定着回数）を idempotent 追加 + 補助 index `book_memos_recall_idx(user_id, last_recalled_at)`。`src/lib/recall.js` の `pickRecallMemo` が SM-2 lite の間隔スケジュール（`RECALL_INTERVALS=[1,3,7,16,35,70,140]` 日を recall_count で index）で due 判定し、忘却曲線に沿って「忘れた頃」に再想起する（従来のシード付き純ランダムを置換）。想起カードのフィードバックは `recallPatch(count, mastered)`（「覚えた」=count+1・当面出さない / 「もう一度」=据え置き・翌日再登場）で `book_memos` を update。`api/push-cron.js` もミラーで同じ due 判定を使い、既に最近想起した / 定着したメモをプッシュで送らず、送信成功時に該当メモの `last_recalled_at` を更新（recall_count は増やさない。既存の last_sent_at 多重送信ガードは不変）。クライアント（Review.jsx / HomeRecall.jsx）・サーバーとも schema-error fallback で未適用 DB では last_recalled_at=undefined / recall_count=undefined を null / 0 扱いし、従来の「作成経過ベース想起」で動く。冪等 |
+| `supabase_ops_floor.sql` | 🏢 作戦司令室（社員フロア）の報告ログ — `ops_floor_reports(id, user_id, member_id, kind 'report'/'integration', status, body, created_at)` 新規 + RLS（`auth.uid()=user_id AND is_app_admin()` の二層ゲート = 管理者以外は自分の行すら作れない）+ index(user, member, created_at desc)。**依存: `supabase_admin_metrics.sql`（`is_app_admin()`）を先に適用**。未適用でもクライアントは localStorage フォールバックで動く。冪等 |
+| `supabase_ai_usage_release.sql` | 🧮 AI 上限の返金 RPC + GRANT 補修 — ①`reserve_ai_usage` に `GRANT EXECUTE TO service_role` を明示（REVOKE ALL FROM public は PUBLIC 継承の実行権も剥がすため、GRANT が無いと service_role すら実行不可になる環境がある）②`release_ai_usage(p_user_id, p_period_month)` 新規（`greatest(calls-1, 0)` で 1 回分返金）。`api/claude.js` が upstream (Anthropic) 失敗・中断・500 時に呼び、「AI が答えていないのに月次上限だけ消費される」非対称を解消。**適用順: `supabase_ai_usage.sql` → `supabase_ai_usage_atomic.sql` → 本ファイル**。未適用は fail-open（返金されないだけ）。冪等 |
+| `supabase_subscriptions_provider_backfill.sql` | 💳 `subscriptions.provider` のバックフィル — `provider IS NULL AND stripe_subscription_id IS NOT NULL` の既存行に `provider='stripe'` を埋める。`api/stripe-webhook.js` が provider を書くようになる前に作られた行が対象。`api/revenuecat-webhook.js` の「Stripe active は RC で上書きしない」ガードは provider 優先 + stripe_subscription_id フォールバックの二段判定なので未適用でも誤動作はしないが、データを正しておくのが本筋。1 回だけ実行すればよい（再実行も無害） |
 | `supabase_ops_floor.sql` | 🏢 作戦司令室（社員フロア＝仮想 AI 企業）の報告ログ＝AI企業の「記憶」— `ops_floor_reports(id, user_id default auth.uid(), member_id text, kind 'report'/'integration', status, body, created_at)` 新規 + RLS（本人のみ全操作）+ index(user, member, created_at desc) + `char_length` CHECK。`src/lib/aiCompany.js` が組織図（CEO室/経営企画/マーケ/営業/財務/法務/プロダクト/特別顧問 = 22名。id/mandate/lens）を定義。`prompts.js opsSpecialist`（社員1名＝「STATUS:一言＋成果物本体」）/ `opsIntegration`（CEO室が全報告を統合し「今日の意思決定1つ」に収束）、`ai.js consultSpecialist`（1名=callClaude 1コール=1成果物・STATUS抽出）/ `integrateFloor`（全社統合1コール）。AdminDashboard の「🏢 作戦司令室」タブが部門別グリッド（社員カード＝待機/検討中/報告/失敗）＋全社サマリー帯＋CEO統合ブリーフ＋部門一括招集（順次・進捗表示）＋成果物→🎫チケット化（admin_ticket_create）を描画。最新行=現在状態・過去行=履歴。クライアントは Supabase とローカル（localStorage）へ二重書き込みし、マウント時に新しい方を採用。**未適用 DB でも localStorage のみで完全動作**（schema-error は静かに握りつぶし）。管理者専用（`is_app_admin`）。冪等 |
 
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
@@ -270,8 +288,8 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `STRIPE_PRICE_ID_MONTHLY` | 月額プランの Stripe Price ID。未設定時は `STRIPE_PRICE_ID` にフォールバック |
 | `STRIPE_PRICE_ID_ANNUAL` | 年額プランの Stripe Price ID |
 | `STRIPE_PRICE_ID` | (旧) 月額プランの Price ID。`STRIPE_PRICE_ID_MONTHLY` 未設定時の monthly フォールバック |
-| `VITE_PRICE_MONTHLY_LABEL` | (任意) ペイウォール/設定の月額**表示用**ラベル。未設定なら「月額 ¥990（税込）」。金額の真実は Stripe 側 |
-| `VITE_PRICE_ANNUAL_LABEL` | (任意) 年額**表示用**ラベル。未設定なら「年額プラン」。金額の真実は Stripe 側 |
+| `VITE_PRICE_MONTHLY_LABEL` | (任意) ペイウォール/設定の月額**表示用**ラベル。未設定なら「月額 ¥1,480（税込）」（`src/lib/billing.js` の既定値）。金額の真実は App Store / Stripe 側 |
+| `VITE_PRICE_ANNUAL_LABEL` | (任意) 年額**表示用**ラベル。未設定なら「年額 ¥12,800（税込・月あたり約¥1,066）」（`src/lib/billing.js` の既定値）。金額の真実は App Store / Stripe 側 |
 | `VITE_PRICE_ANNUAL_NOTE` | (任意) 年額の補足一言（例「まとめてお得」）。誇大表現は避ける |
 | `VITE_APP_STORE_URL` | (任意) App Store の実 URL。LP / Paywall / 設定 / Web 利用ゲートの「App Store で入手」導線が参照。未設定時は暫定 `https://apps.apple.com/jp/app/orime`。公開後に実 URL へ差替 |
 | `APNS_KEY_ID` | 🔔📱 ネイティブ想起プッシュ(APNs)の認証キー Key ID（`api/push-cron.js`）。サーバー専用 |
@@ -283,6 +301,12 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `RAKUTEN_ACCESS_KEY` | 🔑 楽天 API の**アクセスキー（`pk_...` 形式）**（`api/discover.js` サーバー専用）。2026 年の刷新で `applicationId` と**両方必須**（片方だけだと楽天が 400）。アプリ詳細の「アクセスキー」欄の値。**クライアント露出厳禁**（サーバーからのクエリにのみ付与） |
 | `RAKUTEN_AFFILIATE_ID` | (任意) 楽天アフィリエイト ID。設定すると「話題の本を探す」の楽天ブックスリンクにアフィリエイトが付く（`api/discover.js`） |
 | `RAKUTEN_APP_URL` | **（2026 刷新後は実質必須）** 楽天アプリ登録の「許可されたWebサイト」に登録した本番ドメイン URL（例 `https://leverage-reading.vercel.app`）。`api/discover.js` がサーバー→楽天へのリクエストに `Referer` として付与する。**新 API は Referer/Origin ヘッダーが無いと 403**。未設定なら Referer を送らないため本が出ない |
+| `REVENUECAT_WEBHOOK_AUTH` | 💳 RevenueCat Webhook の認証トークン（`api/revenuecat-webhook.js` が `Authorization` ヘッダーと突き合わせる）。RevenueCat ダッシュボードの Webhook 設定と同じ値を設定。**未設定だと Webhook を全拒否**（fail-closed）。サーバー専用 |
+| `VITE_VAPID_PUBLIC_KEY` | 🔔 Web Push（想起通知）の VAPID 公開鍵（クライアント `src/lib/push.js` が購読時に使用）。`npx web-push generate-vapid-keys` で生成 |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 🔔 Web Push 送信側（`api/push-cron.js`）の VAPID 鍵ペアと連絡先（`mailto:...`）。`VAPID_PRIVATE_KEY` は**クライアント露出厳禁** |
+| `CRON_SECRET` | 🔔 `api/push-cron.js` の起動認証（Vercel Cron が `Authorization: Bearer` で送る）。未設定/不一致は 401 |
+| `GOOGLE_BOOKS_API_KEY` | (任意) 表紙解決サーバー（`api/cover.js`）の Google Books API キー。未設定でもキー無しで動くが、レート制限が緩和される |
+| `ALLOW_COVER_DEBUG` | (任意) `'true'` で `api/cover.js` の `?debug=1` 診断出力を本番でも許可。既定は無効（内部情報の露出防止）。通常は未設定のまま |
 
 ## デプロイフロー
 

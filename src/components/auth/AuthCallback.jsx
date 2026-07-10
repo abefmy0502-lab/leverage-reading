@@ -17,16 +17,12 @@ function clearAuthHash() {
   window.history.replaceState(null, '', `${pathname}${search}#`);
 }
 
-function errorMessage(code, description) {
-  if (code === 'otp_expired') return 'リンクの有効期限が切れています。';
-  if (description) {
-    try {
-      return decodeURIComponent(description.replace(/\+/g, ' '));
-    } catch {
-      return 'リンクが無効です。';
-    }
-  }
-  return 'リンクが無効です。';
+function errorMessage(code) {
+  // error_description は Supabase の生の英語文のため表示しない（技術文言を
+  // ユーザーに見せない規範）。code → 和文マップ + 安全な汎用文に倒す。
+  if (code === 'otp_expired') return 'リンクの有効期限が切れています。もう一度メールを送信してください。';
+  if (code === 'access_denied') return 'リンクが無効です。お手数ですが、もう一度お試しください。';
+  return 'リンクが無効です。お手数ですが、もう一度お試しください。';
 }
 
 const wrap = {
@@ -84,7 +80,15 @@ export default function AuthCallback({ onDone }) {
       clearAuthHash();
       // recovery はアプリに流さず、新パスワード設定フォームを表示する。
       if (isRecovery) setRecoveryReady(true);
-      else onDone();
+      else {
+        // 📩 メール確認リンク経由（signup 等）の着地を WebAppOnlyGate に伝える
+        // 一回きりのフラグ。アプリで登録 → メールのリンクが Safari で開く →
+        // Web に着地、という遷移で「確認は完了した。次はアプリに戻る」を明示できる。
+        if (initial.type === 'signup') {
+          try { window.sessionStorage.setItem('orime-email-confirmed', 'true'); } catch { /* ignore */ }
+        }
+        onDone();
+      }
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -159,7 +163,7 @@ export default function AuthCallback({ onDone }) {
             onChange={(e) => { setNewPassword(e.target.value); setPwError(''); }}
             placeholder="新しいパスワード（8文字以上）"
             autoComplete="new-password"
-            maxLength={LIMITS.password || 72}
+            maxLength={LIMITS.password}
             autoFocus
             style={{
               width: '100%', boxSizing: 'border-box', padding: '12px 14px', fontSize: 16,
@@ -197,7 +201,7 @@ export default function AuthCallback({ onDone }) {
   if (waiting) {
     return (
       <div style={wrap}>
-        <h1 style={{ fontSize: 18, marginBottom: 12 }}>認証中...</h1>
+        <h1 style={{ fontSize: 18, marginBottom: 12 }}>認証中…</h1>
         <p style={{ fontSize: 13, color: 'var(--c-ink-2)' }}>セッションを確認しています。</p>
       </div>
     );

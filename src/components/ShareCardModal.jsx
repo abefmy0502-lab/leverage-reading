@@ -218,7 +218,7 @@ export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
         // 共有不可な環境では自動でダウンロードへフォールバック
         downloadBlob(blob, 'orime.png');
         haptic.success();
-        toast.info('共有に対応していないため、画像を保存しました');
+        toast.info('共有に対応していないため、画像を保存しました。');
       }
     } catch (e) {
       // ユーザーが共有シートをキャンセルした場合は黙って無視
@@ -233,7 +233,7 @@ export default function ShareCardModal({ memo, bookTitle, author, onClose }) {
     try {
       downloadBlob(blob, 'orime.png');
       haptic.success();
-      toast.success('画像を保存しました');
+      toast.success('画像を保存しました。');
     } catch (e) {
       console.error('save error', e);
       toast.error(toMessage(e, '保存できませんでした。'));

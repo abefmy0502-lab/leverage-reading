@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
+import { isNative } from '../../lib/iap';
 
 const btnPrimary = {
   padding: '14px 28px',
@@ -175,7 +176,7 @@ export default function AuthScreen() {
 
   const title = mode === 'signin' ? 'ログイン' : mode === 'signup' ? '新規登録' : 'パスワードリセット';
   const submitLabel = loading
-    ? '処理中...'
+    ? '処理中…'
     : mode === 'signin'
     ? 'ログイン'
     : mode === 'signup'
@@ -206,7 +207,11 @@ export default function AuthScreen() {
           <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--c-ink)', margin: '0 0 12px' }}>確認メールを送りました</h1>
           <p style={{ fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.9, margin: '0 0 8px' }}>
             <strong style={{ wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛にメールを送りました。<br />
-            メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。
+            {isNative
+              // ネイティブでは確認リンクは Safari（Web）で開く — 「そのまま進める」と
+              // 約束すると迷子になる。確認後にこのアプリへ戻る導線を正しく案内する。
+              ? 'メール内のリンクを開いて確認が完了したら、このアプリに戻ってログインしてください。'
+              : 'メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。'}
           </p>
           <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 20px' }}>
             数分待っても届かない場合は、<strong>迷惑メール / プロモーション</strong>フォルダもご確認ください。
@@ -215,19 +220,20 @@ export default function AuthScreen() {
           {info && <p style={{ color: '#5a7a48', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
           <button
             type="button"
-            onClick={handleResend}
-            disabled={resending}
-            style={{ ...btnPrimary, opacity: resending ? 0.6 : 1 }}
+            onClick={() => { setConfirmSentTo(''); setInfo(''); setError(''); switchMode('signin'); }}
+            style={btnPrimary}
           >
-            {resending ? '再送中...' : '確認メールを再送する'}
+            確認が済んだので、ログインする
           </button>
           <button
             type="button"
-            onClick={() => { setConfirmSentTo(''); setInfo(''); setError(''); switchMode('signin'); }}
-            style={btnLink}
+            onClick={handleResend}
+            disabled={resending}
+            style={{ ...btnLink, opacity: resending ? 0.6 : 1 }}
           >
-            ← ログインに戻る
+            {resending ? '再送中…' : '確認メールを再送する'}
           </button>
+
         </div>
       </div>
     );
@@ -251,6 +257,15 @@ export default function AuthScreen() {
       </p>
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 340 }}>
         <h2 style={{ fontSize: 16, color: 'var(--c-ink)', marginBottom: 16, textAlign: 'center', fontWeight: 500 }}>{title}</h2>
+        {mode === 'signup' && !isNative && (
+          /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
+             「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */
+          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 12px', textAlign: 'center' }}>
+            Orime は iPhone / iPad アプリでのご利用となります。<br />
+            ここで登録したアカウントで、アプリからサインインできます。{' '}
+            <a href="/lp" style={{ color: 'var(--c-ink-2)' }}>サービス紹介を見る</a>
+          </p>
+        )}
         {mode === 'signup' && (
           <input
             style={inp}
@@ -284,7 +299,7 @@ export default function AuthScreen() {
             onKeyDown={blockEnterWhileComposing}
             required
             minLength={mode === 'signup' ? 8 : 6}
-            maxLength={128}
+            maxLength={LIMITS.password}
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
           />
         )}

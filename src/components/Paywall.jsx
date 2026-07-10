@@ -27,6 +27,8 @@ import {
   restorePurchases,
 } from '../lib/iap';
 import { toMessage } from '../lib/errors';
+import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
+import { exportMemosAsMarkdown } from '../lib/exportData';
 import { track, EVENTS } from '../lib/analytics';
 
 // 価値プレビューの箇条書き（事実ベースの機能説明 / 誇大表現なし）。
@@ -54,7 +56,7 @@ const VALUE_POINTS = [
 ];
 
 // 契約は App Store(IAP) 一本化。Web では決済せず App Store へ誘導する。
-const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime';
+// URL は src/lib/appStore.js に一元化（実 URL 未設定なら isAppStoreLive=false）。
 
 const cardStyle = {
   background: 'var(--color-surface)',
@@ -174,7 +176,8 @@ export default function Paywall({ onPurchased }) {
   // 購入導線の待機ラベル（Web=決済ページ遷移 / ネイティブ=App Store 購入シート）。
   const pendingLabel = isNative ? '購入手続き中…' : '決済ページへ移動中…';
   // どちらのボタンを押下中かを保持して二度押しを防ぐ。
-  const [pending, setPending] = useState(null); // 'monthly' | 'annual' | null
+  const [pending, setPending] = useState(null);
+  const [exporting, setExporting] = useState(false); // 'monthly' | 'annual' | null
   const [restoring, setRestoring] = useState(false);
   // 表示ラベル: ネイティブ=App 既定(¥1,480)→ストア価格で上書き。
   // （Web/Stripe パスは App-only ピボットで休眠中。billing.js のフォールバックは ¥1,480 に統一済み）
@@ -212,7 +215,12 @@ export default function Paywall({ onPurchased }) {
       }
       // Web: 課金は App Store(IAP) 一本化。Web では決済せず App Store へ誘導する
       // （UI 上もこの分岐には到達しないが、念のため Stripe を呼ばず App へ送る）。
-      window.location.assign(APP_STORE_URL);
+      // 実 URL 未確定の間はプレースホルダーに飛ばさない（App Store の 404 回避）。
+      if (isAppStoreLive) {
+        window.location.assign(APP_STORE_URL);
+      } else {
+        toast.info('iOS アプリは近日公開予定です。公開までいましばらくお待ちください。');
+      }
       setPending(null);
     } catch (e) {
       toast.error(toMessage(e, '購入手続きを開始できませんでした。少し時間をおいて再試行してください。'));
@@ -313,19 +321,32 @@ export default function Paywall({ onPurchased }) {
               <p style={{ fontSize: 13, color: 'var(--color-secondary)', lineHeight: 1.8, margin: '0 0 12px' }}>
                 Orime の有料プラン（{labels.annual.price} / {labels.monthly.price}）のご契約は、iPhone・iPad アプリ（App Store）から行えます。お支払い・解約はすべて App Store で管理されます。
               </p>
-              <a
-                href={APP_STORE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'center',
-                  minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
-                  fontSize: 15, fontWeight: 600, textDecoration: 'none',
-                }}
-              >
-                App Store で入手
-              </a>
+              {isAppStoreLive ? (
+                <a
+                  href={APP_STORE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'center',
+                    minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
+                    fontSize: 15, fontWeight: 600, textDecoration: 'none',
+                  }}
+                >
+                  App Store で入手
+                </a>
+              ) : (
+                <p
+                  style={{
+                    display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'center',
+                    minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--color-fill-tertiary, #f0ece3)', color: 'var(--color-secondary)',
+                    fontSize: 15, fontWeight: 600, margin: 0,
+                  }}
+                >
+                  App Store で近日公開
+                </p>
+              )}
             </div>
           </section>
         ) : (
@@ -453,7 +474,7 @@ export default function Paywall({ onPurchased }) {
             {labels.trial && <>無料期間（{labels.trial}）の終了後、自動的に有料へ移行します。<br /></>}
             サブスクリプションは自動更新です。期間終了の24時間前までに解約しない限り、同額で自動更新されます。<br />
             解約・プラン変更は App Store のアカウント設定からいつでも行えます。<br />
-            解約後もデータは保持されます。お支払いは App Store を通じて行われます。
+            解約後もデータは削除されません（再契約でいつでも再開できます）。お支払いは App Store を通じて行われます。
           </p>
         ) : (
           // App-only 配信: Web から開かれた場合も課金は App Store(IAP) に一本化。
@@ -462,9 +483,38 @@ export default function Paywall({ onPurchased }) {
           <p style={{ fontSize: 12, color: 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.8, margin: 0 }}>
             ご契約・お支払い・解約はすべて App Store（iOS アプリ）で行われます。<br />
             サブスクリプションは自動更新です。期間終了前に解約しない限り、同額で自動更新されます。<br />
-            いつでも解約でき、解約後もデータは保持されます。
+            いつでも解約でき、解約後もデータは削除されません。再契約するといつでも再開できます。
           </p>
         )}
+
+        {/* 📥 「解約後もデータは保持されます」の約束を実効化する導線。
+            ペイウォールは未課金/解約後ユーザーの唯一の画面なので、ここに出さないと
+            解約者は自分のメモを見ることも持ち出すこともできない（データ可搬性）。 */}
+        <div style={{ textAlign: 'center' }}>
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={async () => {
+              if (exporting) return;
+              setExporting(true);
+              try {
+                const { memos } = await exportMemosAsMarkdown(user?.id);
+                toast.success(`メモ ${memos} 件を書き出しました。`);
+              } catch (e) {
+                toast.error(toMessage(e, 'データの書き出しに失敗しました。'));
+              } finally {
+                setExporting(false);
+              }
+            }}
+            style={{
+              background: 'none', border: 'none', cursor: exporting ? 'default' : 'pointer',
+              fontSize: 12, color: 'var(--color-secondary)', textDecoration: 'underline',
+              fontFamily: 'inherit', minHeight: 44, opacity: exporting ? 0.6 : 1,
+            }}
+          >
+            {exporting ? '書き出し中…' : '📥 メモをダウンロード（Markdown）'}
+          </button>
+        </div>
 
         {/* 法的リンク（サブスク必須開示の導線） */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
@@ -492,7 +542,7 @@ export default function Paywall({ onPurchased }) {
           )}
           <button
             type="button"
-            onClick={() => { signOut(); }}
+            onClick={async () => { try { await signOut(); } catch { /* オフライン等 — 画面は変わらないが再タップで再試行できる */ } }}
             style={{
               background: 'none',
               border: 'none',

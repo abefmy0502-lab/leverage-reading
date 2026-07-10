@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { isNative, hasActiveEntitlement } from '../lib/iap';
@@ -6,9 +6,12 @@ import { isSchemaError } from '../lib/errors';
 
 // 💳 ログインユーザーの課金状態を取得するフック。
 //
-// 全機能有料モデル（フリーミアム無し・無料トライアル無し）の entitlement 判定に使う。
+// 全機能有料モデル（フリーミアム無し）の entitlement 判定に使う。
 // `isActive = status === 'active'` のみを「有料権利あり」とみなす。
-//   - トライアルは無いので 'trialing' は不要。
+//   - App Store の Introductory Offer（無料期間）は RevenueCat 経由でも
+//     status='active'（subscriptions.period_type='trial'/'intro' で区別）として
+//     届くため、この判定のままトライアル会員も通る。'trialing' という別 status は
+//     使っていない。
 //   - past_due（支払い遅延）を猶予として一時的に許可したい場合は、
 //     下の isActive 算出を `['active', 'past_due'].includes(status)` に拡張する。
 //     デフォルトは厳格に 'active' のみ。
@@ -68,6 +71,9 @@ export function useSubscription() {
   // 購入/復元直後に本人をアンロックするための即時真実。Web では常に false。
   const [nativeEntitled, setNativeEntitled] = useState(false);
   const { user } = useAuth();
+  // fetchSubscription の in-flight 混線ガード用（常に最新のユーザー id を参照）。
+  const userRef = useRef(user?.id ?? null);
+  useEffect(() => { userRef.current = user?.id ?? null; }, [user?.id]);
 
   const fetchSubscription = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
@@ -77,6 +83,11 @@ export function useSubscription() {
       setLoading(false);
       return;
     }
+    // アカウント切替の in-flight 混線ガード: 発行時のユーザーを控え、応答時に
+    // 変わっていたら破棄する（前ユーザー宛の SELECT が後着して別人の課金状態で
+    // アンロック/ロックされるのを防ぐ）。
+    const forUserId = user.id;
+    const isCurrent = () => userRef.current === forUserId;
     setLoading(true);
     let dbActive = false;
     try {
@@ -86,6 +97,7 @@ export function useSubscription() {
         .eq('user_id', user.id)
         .maybeSingle();
 
+      if (!isCurrent()) return; // ユーザーが切り替わった — この応答は破棄
       if (dbError) {
         // テーブル未適用なら課金未導入とみなして静かに縮退（未課金扱い）。
         if (isSchemaError(dbError)) {

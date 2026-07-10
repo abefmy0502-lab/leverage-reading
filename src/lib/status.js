@@ -7,7 +7,7 @@ import { Bookmark, PenSquare, BookOpen, CheckCircle } from 'lucide-react';
 
 export const STATUSES = [
   { key: "want", label: "読みたい", emoji: "🔖", Icon: Bookmark, bg: "#f0e8d8", color: "var(--status-want)" },
-  { key: "before", label: "積読", emoji: "📐", Icon: PenSquare, bg: "#f0e0f0", color: "var(--status-before)" },
+  { key: "before", label: "積読", emoji: "📕", Icon: PenSquare, bg: "#f0e0f0", color: "var(--status-before)" },
   { key: "reading", label: "読書中", emoji: "📖", Icon: BookOpen, bg: "#dde8f0", color: "var(--status-reading)" },
   { key: "done", label: "読了", emoji: "✅", Icon: CheckCircle, bg: "#e2ecd8", color: "var(--status-done)" },
 ];

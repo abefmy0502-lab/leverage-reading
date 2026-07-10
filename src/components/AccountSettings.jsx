@@ -17,6 +17,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage, isSchemaError } from '../lib/errors';
+import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
 import FeedbackForm from './FeedbackForm';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
@@ -248,11 +249,25 @@ function formatPeriodEnd(iso) {
 async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
   if (!isSupabaseConfigured) return [];
   const all = [];
+  // offset ページングで全件列挙する。旧実装は limit:1000 の 1 ページのみで、
+  // 1000 件超のユーザーは退会/初期化時に Storage へ消し残りが出ていた
+  // （「すべて削除」のプライバシー約束違反）。上限 20 ページは安全弁。
+  const PAGE = 1000;
+  const listAll = async (path) => {
+    const out = [];
+    for (let page = 0; page < 20; page += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .list(path, { limit: PAGE, offset: page * PAGE });
+      if (error || !data) break;
+      out.push(...data);
+      if (data.length < PAGE) break;
+    }
+    return out;
+  };
   // Top level: user_id/<book_id>/<file>
-  const { data: bookFolders, error } = await supabase.storage
-    .from(bucket)
-    .list(userId, { limit: 1000 });
-  if (error || !bookFolders) return all;
+  const bookFolders = await listAll(userId);
   for (const entry of bookFolders) {
     if (!entry?.name) continue;
     // Supabase storage の list 規約: フォルダは id=null、ファイルは id を持つ。
@@ -262,10 +277,9 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
       continue;
     }
     // フォルダ → 配下のファイルを列挙（例: book-memo-photos/<userId>/<bookId>/<file>）。
-    const { data: files } = await supabase.storage
-      .from(bucket)
-      .list(`${userId}/${entry.name}`, { limit: 1000 });
-    (files || []).forEach((f) => {
+    // eslint-disable-next-line no-await-in-loop
+    const files = await listAll(`${userId}/${entry.name}`);
+    files.forEach((f) => {
       if (f?.name) all.push(`${userId}/${entry.name}/${f.name}`);
     });
   }
@@ -428,7 +442,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     // 確認ダイアログ必須 — 押した瞬間に reload するので、メモ書き / AI 会話の
     // 途中で誤タップすると入力が消える。意図的な操作だけ通す。
     const ok = await confirm({
-      title: '🔄 読み込み直しますか？',
+      title: '読み込み直しますか？',
       message: 'いったん閉じて読み込み直します。\n\n書きかけのメモや AI への入力中の文章は失われます。よろしいですか？',
       confirmLabel: '読み込み直す',
       cancelLabel: 'キャンセル',
@@ -465,7 +479,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       const summary = await exportUserDataAsCSV(user.id);
       const total = summary.reduce((acc, s) => acc + (s.count || 0), 0);
       track(EVENTS.EXPORT_USED, { kind: 'csv' }); // 成功確定後のみ（fire-and-forget）
-      toast.success(`CSV ${summary.filter((s) => !s.skipped).length} 件をダウンロード（計 ${total} 行）`);
+      toast.success(`CSV ${summary.filter((s) => !s.skipped).length} 件をダウンロードしました（計 ${total} 行）。`);
     } catch (e) {
       toast.error(toMessage(e, 'エクスポートに失敗しました。'));
     } finally {
@@ -482,7 +496,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     try {
       const { memos } = await exportMemosAsMarkdown(user.id);
       track(EVENTS.EXPORT_USED, { kind: 'markdown' }); // 成功確定後のみ（fire-and-forget）
-      toast.success(`Markdown を書き出しました（メモ ${memos} 件）`);
+      toast.success(`Markdown を書き出しました（メモ ${memos} 件）。`);
     } catch (e) {
       toast.error(toMessage(e, '書き出しに失敗しました。'));
     } finally {
@@ -551,6 +565,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       } catch { /* ignore */ }
       toast.success('データを初期化しました。まっさらな状態で読み込み直します。');
       // 全 state / キャッシュを確実に空へ戻すためリロード（初期化操作なので妥当）。
+      // reload がブロックされた場合でもボタンが「初期化中…」で永久固定しないよう解除。
+      setResetting(false);
       setTimeout(() => { try { window.location.reload(); } catch { /* ignore */ } }, 600);
     } catch (e) {
       toast.error(toMessage(e, '初期化に失敗しました。'));
@@ -563,7 +579,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       toast.error('ログインが必要です。');
       return;
     }
-    if (confirmText.trim() !== expectedConfirm) {
+    if (confirmText.trim().toLowerCase() !== String(expectedConfirm || '').toLowerCase()) {
       toast.error('確認入力が一致しません。');
       return;
     }
@@ -571,7 +587,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       title: '本当にすべて削除しますか？',
       message:
         '本・メモ・写真・対話履歴・行動リスト・タグ — すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
-      confirmLabel: '削除を実行',
+      confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
     });
@@ -810,14 +826,20 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 <p style={sectionDescStyle}>
                   Orime のご契約・ご利用は iOS アプリ（App Store）から行えます。アプリを入手して、同じアカウントでサインインしてください。
                 </p>
-                <a
-                  href={import.meta.env.VITE_APP_STORE_URL || 'https://apps.apple.com/jp/app/orime'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ ...btnPrimary, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  📱 App Store で Orime を入手
-                </a>
+                {isAppStoreLive ? (
+                  <a
+                    href={APP_STORE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ ...btnPrimary, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    📱 App Store で Orime を入手
+                  </a>
+                ) : (
+                  <p style={{ ...sectionDescStyle, fontWeight: 600, margin: 0 }}>
+                    📱 iOS アプリは App Store で近日公開予定です
+                  </p>
+                )}
               </>
             )}
           </section>

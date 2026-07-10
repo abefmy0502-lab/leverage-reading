@@ -98,6 +98,39 @@ function downloadBlob(filename, blob) {
  * collapse them into a single prompt and don't hit the "block multiple
  * downloads?" warning. ~250ms is the sweet spot we tested.
  */
+
+// Supabase 既定の max-rows (1000) を超えるテーブルでも黙って切り捨てないよう
+// range でページング全件取得する（「あなたのデータはいつでも書き出せます」の
+// 約束を守る）。上限 20 ページ (2万行) は安全弁。
+async function fetchAllRows(table, userId) {
+  const PAGE = 1000;
+  let rows = [];
+  for (let page = 0; page < 20; page += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    let { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq('user_id', userId)
+      // ORDER BY なしの range は Postgres で順序保証がなく、ページ間で行の重複・
+      // 欠落が起き得る（このヘルパーの存在理由を確率的に裏切る）。id で安定化。
+      .order('id', { ascending: true })
+      .range(page * PAGE, page * PAGE + PAGE - 1);
+    // id 列を持たないテーブル（例: 古い book_tags スキーマ）では 42703 になる。
+    // その場合は order 無しで再取得 — export から黙って脱落させるより順序不定の方がまし。
+    if (error && error.code === '42703') {
+      ({ data, error } = await supabase
+        .from(table)
+        .select('*')
+        .eq('user_id', userId)
+        .range(page * PAGE, page * PAGE + PAGE - 1));
+    }
+    if (error) throw error;
+    rows = rows.concat(data || []);
+    if (!data || data.length < PAGE) break;
+  }
+  return rows;
+}
+
 export async function exportUserDataAsCSV(userId, { onProgress } = {}) {
   if (!userId) throw new Error('ログインが必要です。');
   const date = todayYMD();
@@ -108,14 +141,7 @@ export async function exportUserDataAsCSV(userId, { onProgress } = {}) {
     onProgress?.({ table, index: i, total: EXPORT_TABLES.length });
     let rows = [];
     try {
-      const { data, error } = await supabase.from(table).select('*').eq('user_id', userId);
-      if (error) {
-        // Soft-fail per table — chat_messages may not exist if migration unrun.
-        console.warn(`exportUserDataAsCSV: ${table} fetch failed`, error?.message || error);
-        summary.push({ table, count: 0, skipped: true });
-        continue;
-      }
-      rows = data || [];
+      rows = await fetchAllRows(table, userId);
     } catch (e) {
       console.warn(`exportUserDataAsCSV: ${table} threw`, e?.message || e);
       summary.push({ table, count: 0, skipped: true });
@@ -167,12 +193,21 @@ export async function exportMemosAsMarkdown(userId) {
 
   let memos = [];
   try {
-    const { data, error } = await supabase
-      .from('book_memos')
-      .select('id, text, page_number, tags, source_type, book_id, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true });
-    if (!error) memos = data || [];
+    // メモは 1000 件超があり得る主テーブル — range ページングで全件（切り捨て防止）。
+    const PAGE = 1000;
+    for (let page = 0; page < 20; page += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await supabase
+        .from('book_memos')
+        .select('id, text, page_number, tags, source_type, book_id, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+        .range(page * PAGE, page * PAGE + PAGE - 1);
+      if (error) break;
+      memos = memos.concat(data || []);
+      if (!data || data.length < PAGE) break;
+    }
   } catch (e) {
     console.warn('exportMemosAsMarkdown: memos fetch failed', e?.message || e);
   }

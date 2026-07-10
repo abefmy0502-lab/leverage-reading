@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { LIMITS, clamp } from '../lib/limits';
@@ -96,6 +96,11 @@ export function useBooks() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  // 🏷 世代トークン（useBookMemos と同じ流儀）。PTR・バックフィル完了・復元・
+  // AI 面の onBooksMutated など発火源が多く、遅い旧リクエストが後着すると
+  // setBooks の全置換が直近の楽観更新/保存結果を見た目上巻き戻すため、
+  // 「自分が最新の fetch でなければ結果を捨てる」。
+  const fetchGenRef = useRef(0);
 
   const fetchBooks = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
@@ -103,6 +108,7 @@ export function useBooks() {
       setLoading(false);
       return;
     }
+    const gen = ++fetchGenRef.current;
     setLoading(true);
     try {
       let { data, error } = await supabase
@@ -119,12 +125,14 @@ export function useBooks() {
           .order('updated_at', { ascending: false }));
       }
       if (error) throw error;
+      if (gen !== fetchGenRef.current) return; // stale fetch — 後着の旧応答は捨てる
       setBooks((data || []).map(transformBook));
     } catch (error) {
+      if (gen !== fetchGenRef.current) return;
       console.error('本の取得エラー:', error);
       setBooks([]);
     } finally {
-      setLoading(false);
+      if (gen === fetchGenRef.current) setLoading(false);
     }
   }, [user]);
 
@@ -497,8 +505,9 @@ export function useBooks() {
   };
 
   // Re-INSERT a book + its relations from a snapshot (used by Undo).
-  // Photos in book_memos are gone (Storage delete is non-undoable), so memos
-  // are restored with photo_path: null. Caller is expected to surface that.
+  // 本の削除→Undo 経路では Storage の写真ファイルは削除していない（消すのは
+  // メモ単体削除のみ）。photo_path を null に落とすと実在ファイルへのリンク
+  // だけ失う二重損失になるため、スナップショットの値をそのまま復元する。
   //
   // Returns a result object so the caller can tell the user the truth:
   //   { ok: true }                         — book + all relations restored
@@ -542,7 +551,7 @@ export function useBooks() {
     }
 
     if (book_memos.length > 0) {
-      const memoRows = book_memos.map((m) => ({ ...m, photo_path: null }));
+      const memoRows = book_memos.map((m) => ({ ...m }));
       const { error: mErr } = await supabase.from('book_memos').insert(memoRows);
       if (mErr) {
         console.error('メモ復元の一部失敗:', mErr);
