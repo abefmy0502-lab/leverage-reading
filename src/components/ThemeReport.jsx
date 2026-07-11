@@ -149,7 +149,7 @@ function writeSnap(theme, snap) {
   } catch { /* ignore */ }
 }
 
-export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
+export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshelf, onOpenJourney } = {}) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -458,21 +458,23 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
   return (
     <div style={wrap}>
       {/* sub navigation */}
-      <div
-        className="lvg-no-scrollbar"
-        style={{ display: 'flex', gap: 6, padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid #ece5d8', flex: '0 0 auto' }}
-        role="tablist"
-        aria-label="テーマまとめの表示切替"
-      >
-        <button style={pill(view === 'create')} onClick={() => setView('create')} role="tab" aria-selected={view === 'create'}>
-          <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />新規
-        </button>
-        {historyAvailable && (
+      {/* 履歴が使える時だけタブを出す — 「新規」単独の pill は初見に意味不明な
+          謎ボタンだった（切替先が無いのにタブだけ浮く）。ラベルも「作成」に。 */}
+      {historyAvailable && (
+        <div
+          className="lvg-no-scrollbar"
+          style={{ display: 'flex', gap: 6, padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid #ece5d8', flex: '0 0 auto' }}
+          role="tablist"
+          aria-label="テーマまとめの表示切替"
+        >
+          <button style={pill(view === 'create')} onClick={() => setView('create')} role="tab" aria-selected={view === 'create'}>
+            <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />作成
+          </button>
           <button style={pill(view === 'history')} onClick={() => setView('history')} role="tab" aria-selected={view === 'history'}>
             <History size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />履歴{history.length > 0 ? `（${history.length}）` : ''}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {view === 'history' ? (
         <PullToRefresh onRefresh={refreshHistory}>
@@ -519,6 +521,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
                 icon="📐"
                 title="メモが貯まると、テーマまとめが作れます"
                 description={'テーマまとめは、あなたのメモを横断して「核心1行と次の一歩」に凝縮する機能です。まず本を開いて、気づきを1行メモに残すところから始めましょう。'}
+                actions={onGoBookshelf ? [{ label: '📚 本棚で1冊ひらく', onClick: onGoBookshelf }] : []}
               />
             ) : (
             <ThemePicker
@@ -675,6 +678,15 @@ export default function ThemeReport({ onActionAdded, onOpenActions } = {}) {
               {/* actions (only when a finished report is shown) */}
               {!generating && !notice && reportText && (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
+                  {onOpenJourney && activeTheme && (
+                    <button
+                      onClick={() => onOpenJourney(activeTheme)}
+                      style={btnGhost}
+                      aria-label={`テーマ「${activeTheme}」の変遷（足あと）を見る`}
+                    >
+                      🕰 このテーマの変遷を見る
+                    </button>
+                  )}
                   <button onClick={copyReport} style={btnGhost} aria-label="テーマまとめをクリップボードにコピー">
                     <Copy size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />コピー
                   </button>

@@ -39,7 +39,7 @@ const ghostBtn = {
   color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
 };
 
-export default function KnowledgeJourney({ userId }) {
+export default function KnowledgeJourney({ userId, initialTheme = '' }) {
   const toast = useToast();
   const [themes, setThemes] = useState([]);
   const [custom, setCustom] = useState('');
@@ -79,6 +79,16 @@ export default function KnowledgeJourney({ userId }) {
       setState({ status: 'error', msg: toMessage(e, '足あとの生成に失敗しました。') });
     }
   }, [userId, state.status]);
+
+  // 📐→🕰 テーマまとめから「このテーマの足あとを見る」で遷移してきた時、
+  // テーマを引き継いで自動で変遷を生成する（一度だけ）。
+  const initialRanRef = useRef(false);
+  useEffect(() => {
+    if (initialRanRef.current || !initialTheme || !userId) return;
+    initialRanRef.current = true;
+    run(initialTheme);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTheme, userId]);
 
   const copy = async () => {
     if (state.status !== 'done') return;

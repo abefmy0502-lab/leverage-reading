@@ -413,6 +413,9 @@ function AuthedApp() {
   // 個別画面への明示遷移（想起ディープリンク等）は setReviewSubTab/setAiSubTab で上書きする。
   const [reviewSubTab, setReviewSubTab] = useState('note');
   const [aiSubTab, setAiSubTab] = useState('advisor');
+  // 📐→🕰 テーマまとめから「このテーマの足あとを見る」で、マイ読書脳の足あとビューへ
+  // テーマを引き継いで遷移するためのプリセット。nonce で毎回の遷移を区別する。
+  const [journeyPreset, setJourneyPreset] = useState(null); // { theme, nonce } | null
 
   // 下部ナビでタブを切り替えるときの共通処理。同一セッション内で前回見ていた
   // サブタブが状態に残っていても、入口を「振り返り＝行動 / AI＝AI選書」に
@@ -3796,11 +3799,24 @@ function AuthedApp() {
                   <ThemeReport
                     onActionAdded={() => { try { refreshBooks(); } catch { /* ignore */ } }}
                     onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
+                    onGoBookshelf={() => { setView('list'); setTab('books'); }}
+                    onOpenJourney={(theme) => {
+                      setJourneyPreset({ theme, nonce: Date.now() });
+                      setAiSubTab('brain');
+                    }}
                   />
                 </Suspense>
               ) : (
                 <Suspense fallback={<Spinner />}>
-                  <MyBookBrain onOpenBook={(b) => { openDetail(b); }} books={books} onAddAction={addActionFromMemo} onBooksMutated={refreshBooks} onAddActionPickBook={(text) => setAddActionSheet({ step: 'pick', prefillText: text })} />
+                  <MyBookBrain
+                    onOpenBook={(b) => { openDetail(b); }}
+                    books={books}
+                    onAddAction={addActionFromMemo}
+                    onBooksMutated={refreshBooks}
+                    onAddActionPickBook={(text) => setAddActionSheet({ step: 'pick', prefillText: text })}
+                    onGoBookshelf={() => { setView('list'); setTab('books'); }}
+                    journeyPreset={journeyPreset}
+                  />
                 </Suspense>
               )}
             </div>

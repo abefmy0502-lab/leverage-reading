@@ -270,7 +270,7 @@ function LearningInline({ onCancel, onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, journeyPreset }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -278,6 +278,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const toast = useToast();
   const confirm = useConfirm();
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
+  // 📐→🕰 テーマまとめの「このテーマの足あとを見る」から遷移してきたら、
+  // 足あとビューへ切替（テーマ本体は KnowledgeJourney に initialTheme で渡す）。
+  useEffect(() => {
+    if (journeyPreset?.theme) setView('journey');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [journeyPreset?.nonce]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -494,6 +500,24 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     }, 30);
   }, [messages, view, historyLoaded]);
+
+  // 💡 おすすめの質問 — ユーザー自身のデータ（タグ・直近の本）から質問テンプレを
+  // 組み立てる（AI 呼び出し無し・即時）。「何を聞けばいいか分からない」という
+  // 最初の摩擦を消し、メモ資産→質問の接続を作る。会話が空のときだけ表示。
+  const suggestedQuestions = useMemo(() => {
+    const qs = [];
+    const tagCount = new Map();
+    (books || []).forEach((b) => (Array.isArray(b.tags) ? b.tags : []).forEach((t) => {
+      const k = String(t || '').trim();
+      if (k) tagCount.set(k, (tagCount.get(k) || 0) + 1);
+    }));
+    const topTags = [...tagCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([t]) => t);
+    topTags.forEach((t) => qs.push(`「${t}」について、私のメモから要点を3つにまとめて`));
+    const recent = (books || []).find((b) => b.status === 'reading' || b.status === 'done');
+    if (recent?.title) qs.push(`『${recent.title}』の学びで、明日から使えるものは？`);
+    qs.push('最近のメモから、今週やるべき一歩を1つ提案して');
+    return qs.slice(0, 3);
+  }, [books]);
 
   const ask = async (questionText) => {
     if (!user) {
@@ -768,7 +792,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       {/* 🕰 知識の足あと（変遷追跡） */}
       {view === 'journey' && (
         <div style={viewScroll}>
-          <KnowledgeJourney userId={user?.id} />
+          <KnowledgeJourney
+            key={journeyPreset?.nonce || 'journey'}
+            userId={user?.id}
+            initialTheme={journeyPreset?.theme || ''}
+          />
         </div>
       )}
 
@@ -855,9 +883,48 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   本棚で1冊えらび、気になった一行を残してみましょう。<br />
                   メモがたまると、それを根拠に AI が答えてくれます。
                 </p>
+                {onGoBookshelf && (
+                  <button
+                    type="button"
+                    onClick={onGoBookshelf}
+                    style={{
+                      marginTop: 12, minHeight: 44, padding: '10px 18px', borderRadius: 12,
+                      border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)',
+                      fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                    }}
+                  >
+                    📚 本棚で1冊ひらく
+                  </button>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* 💡 おすすめの質問 — 自分のタグ・本から生成（タップで即質問） */}
+              {suggestedQuestions.length > 0 && (
+                <div style={card}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', margin: '0 0 10px' }}>
+                    💡 こんな質問から始められます
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {suggestedQuestions.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => { if (!busy) ask(q); }}
+                        disabled={busy}
+                        style={{
+                          textAlign: 'left', minHeight: 44, padding: '11px 14px', borderRadius: 12,
+                          border: '1px solid var(--c-hairline-strong)', background: 'var(--c-card)',
+                          color: 'var(--c-ink)', fontSize: 13, lineHeight: 1.6, fontFamily: 'inherit',
+                          cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
+                        }}
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* 💭 今週の問い — マイ読書脳が向こうから問いを投げる（能動化） */}
               {weeklyQ && !weeklyDismissed && (
                 <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline-strong)', borderRadius: 14, padding: '14px 15px' }}>
@@ -1011,7 +1078,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   ask();
                 }
               }}
-              placeholder="質問…（送信ボタン / ⌘・Ctrl+Enter で送信）"
+              placeholder="あなたのメモに質問…"
               rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}
