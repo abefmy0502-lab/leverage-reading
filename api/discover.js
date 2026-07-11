@@ -122,6 +122,33 @@ const WEAK_FILTER_EXEMPT = new Set(['趣味・スポーツ', '漫画']);
 // fail-open（消さない）＝ メタデータ欠落で棚が空になる事故を防ぐ。
 const NON_BOOK_SIZE_RE = /(ムック|雑誌|カレンダー|MOOK)/i;
 
+// 📵 「読み物」棚の質を守る学習教材フィルタ。
+// 楽天のジャンル売れ筋（特にビジネス・経済 001006）は、資格試験の教科書・問題集・
+// 年度版実務書が上位を占拠する（宅建/簿記/FP/保険調剤 等）。これらは「読む本」では
+// なく勉強道具なので、読み物の棚（ビジネス/人文/新書/小説…）からは除外する。
+// ⚠️ ただし「資格・検定」「語学・学習」の棚そのものでは主役なので適用しない
+//    （STUDY_EXEMPT_THEMES）。誤爆リスクの高い一般語（例:「教科書」「入門」）は
+//    含めない — ビジネス書の題名装置（『〜の教科書』）を殺さないため。
+const STUDY_BOOK_RE = new RegExp(
+  [
+    // 出版形態（試験対策物の定番シグナル）
+    '問題集', '過去問', '予想模試', '模試', '一問一答', '直前対策', '直前予想',
+    '出る順', '頻出', '試験に出る', '赤シート', '書き込み式', '完全攻略', '合格テキスト',
+    '公式テキスト', '試験対策', 'テキスト＆問題', 'テキスト&問題',
+    // 資格・試験の固有名
+    '宅建', '行政書士', '司法書士', '社労士', '中小企業診断士', '衛生管理者',
+    '危険物取扱', '電験', '簿記', 'FP\\d1?級', 'ファイナンシャル・?プランニング技能',
+    'TOEIC', 'TOEFL', 'IELTS', '英検', '漢検', '基本情報技術者', '応用情報技術者',
+    'ITパスポート', '介護福祉士', '保育士試験', '看護師国家試験', 'ケアマネ', '登録販売者',
+    '調剤報酬', '診療報酬', '点数表',
+    // 年度版（実務書・試験書のシグナル。読み物はほぼ年度版を名乗らない）
+    '令和\\d+年度?版?', '20\\d{2}年度版', '20\\d{2}年版', '\\d+年度用',
+    // 級もの（漢検2級・簿記3級 等）
+    '\\d+級',
+  ].join('|'),
+);
+const STUDY_EXEMPT_THEMES = new Set(['資格・検定', '語学・学習']);
+
 export function normalizeItem(raw, theme = '') {
   const it = raw && raw.Item ? raw.Item : raw;
   if (!it || typeof it !== 'object') return null;
@@ -129,6 +156,8 @@ export function normalizeItem(raw, theme = '') {
   if (!title) return null;
   if (NON_BOOK_RE.test(title)) return null; // 非書籍グッズ/ムック（タイトル由来）は弾く
   if (!WEAK_FILTER_EXEMPT.has(theme) && NON_BOOK_WEAK_RE.test(title)) return null; // 弱語（棚により正規）
+  // 学習教材（資格・問題集・年度版）は読み物の棚から除外。資格/語学の棚では主役なので残す。
+  if (!STUDY_EXEMPT_THEMES.has(theme) && STUDY_BOOK_RE.test(title)) return null;
   const size = (it.size || '').toString().trim();
   if (size && NON_BOOK_SIZE_RE.test(size)) return null; // ムック/雑誌（メタデータ由来）を弾く
   return {

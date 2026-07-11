@@ -83,7 +83,7 @@ export function cleanupStalePopCache() {
 // ビジネス/人文/新書/科学 を軸に、小説・暮らしも混ぜて出会いを広げる。
 const TREND_POOL = [
   'ビジネス・経済', '人文・思想', '新書', '科学・技術',
-  '小説・エッセイ', '暮らし・健康', 'IT・パソコン', '資格・検定',
+  '小説・エッセイ', '暮らし・健康', 'IT・パソコン', '旅行・アウトドア',
 ];
 
 // その日の「今日の平台」テーマ。offset を変えると別の棚を選べる。
@@ -96,9 +96,17 @@ export function pickDailyTheme(offset = 0, pool = TREND_POOL) {
 }
 
 // 「あえての一冊」用テーマ。ユーザーの関心（excludeKeys）から少し外して、
-// 畑違いの出会いを誘う。全テーマから日替わりで選び、関心と被れば隣へずらす。
+// 畑違いの出会いを誘う。⚠️ プールは「読み物」ジャンルに限定する —
+// 資格・検定/語学・学習は中身がほぼ問題集・教科書（勉強道具）で、
+// 「あえての一冊」に TOEIC 問題集が出る事故の温床だった。IT（技術書中心）と
+// 漫画（巻数もの中心）も serendipity の一冊としては外し、テーマの棚チップから
+// 明示的に選べる形に残す。
+const SERENDIPITY_POOL = [
+  'ビジネス・経済', '人文・思想', '新書', '小説・エッセイ',
+  '暮らし・健康', '科学・技術', '旅行・アウトドア', '趣味・スポーツ',
+];
 export function pickSerendipityTheme(excludeKeys = []) {
-  const all = DISCOVER_THEMES.map((t) => t.key);
+  const all = SERENDIPITY_POOL;
   if (!all.length) return FALLBACK_THEME;
   const ex = new Set(excludeKeys);
   const base = (dayOfYear() + 7) % all.length;
