@@ -173,6 +173,8 @@ function BrainPreview() {
 export default function Paywall({ onPurchased }) {
   const { signOut, user } = useAuth();
   const toast = useToast();
+  // 📊 課金転換率（CVR = purchase÷view）の分母。定義だけ存在して未配線だった。
+  useEffect(() => { track(EVENTS.PAYWALL_VIEWED); }, []);
   // 購入導線の待機ラベル（Web=決済ページ遷移 / ネイティブ=App Store 購入シート）。
   const pendingLabel = isNative ? '購入手続き中…' : '決済ページへ移動中…';
   // どちらのボタンを押下中かを保持して二度押しを防ぐ。
@@ -208,6 +210,7 @@ export default function Paywall({ onPurchased }) {
         // onPurchased=PaywallGate の refresh → useSubscription が RevenueCat の
         // ローカル権利を見て isActive=true → App が自動で Paywall を外す。
         // webhook は DB(subscriptions) を裏で durable に同期する。
+        track(EVENTS.CHECKOUT_COMPLETED, { plan });
         toast.success('ご契約ありがとうございます。');
         await onPurchased?.();
         setPending(null);

@@ -18,6 +18,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { MessageSquareQuote, X, Target } from 'lucide-react';
 import { recallFraming, memoExcerpt, pickRecallMemo, recallPatch } from '../lib/recall';
+import { track, EVENTS } from '../lib/analytics';
 
 const DISMISS_KEY = 'orime-home-recall-dismissed';
 // これ未満なら出さない（控えめさの肝）。看板体験「過去メモがふいに戻る」瞬間を
@@ -145,6 +146,8 @@ export default function HomeRecall({ onOpen, onAction }) {
           // 本物の想起が初めて成立した時点でプレビューを卒業（以後は実想起のみ）。
           markPreviewShown();
           setMemo({ ...picked, preview: false });
+          // 📊 初週想起体験率の分子（ホーム面の本物の想起）。
+          track(EVENTS.RECALL_SHOWN, { surface: 'home' });
           return;
         }
         // 🌱 初回プレビュー（#5: 初日 aha）。まだ「戻ってくる」体験が一度も起きていない

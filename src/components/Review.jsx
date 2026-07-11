@@ -594,7 +594,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   useEffect(() => {
     // recallFraming が空 = 当日書いたばかりのメモのフォールバック表示。それで
     // 完了にすると初日にチェックリストが消え、翌日の「本物の想起」への橋を失う。
-    if (randomMemo && recallFraming(randomMemo.createdAt)) markActivation('review');
+    if (randomMemo && recallFraming(randomMemo.createdAt)) {
+      markActivation('review');
+      // 📊 初週想起体験率の分子（本物の想起のみ。初回判定は集計側で MIN(created_at)）。
+      track(EVENTS.RECALL_SHOWN, { surface: 'review' });
+    }
   }, [randomMemo]);
 
   // 🔄→🎯 想起カードのメモを、その場で「行動」に変える。本詳細を開かずに
