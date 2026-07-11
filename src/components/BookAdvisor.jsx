@@ -174,6 +174,34 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       .replace(/\n*#{1,4}\s*📚?\s*おすすめの本[^\n]*\s*(?=#{1,4}\s|$)/gu, '\n')
       .trim();
 
+  // 本文（prose）から、モデルが「下書き→最終版」と推敲したときに残る
+  //   ①RECOMMENDATIONS マーカー・ブロック
+  //   ②マーカー無しで裸に出てくる推薦候補の生 JSON（{ "title": ... } の羅列）
+  //   ③「最終版」「再提示」「差し替え」等の推敲メタ・見出し
+  // を除去して、ユーザーに見せられる説明文だけを残す。カードは別途 recs で描く。
+  const cleanProse = (text) => {
+    let s = stripRecoBlock(text);
+    // 生 JSON の残骸を行単位で除去（括弧/カンマだけの行・"key": ... の行・マーカー行）。
+    s = s
+      .split('\n')
+      .filter((line) => {
+        const t = line.trim();
+        if (t === '') return true;
+        if (/^[[\]{},]+$/.test(t)) return false;          // [ ] { } , だけの行
+        if (/^"[^"]+"\s*:/.test(t)) return false;          // "title": "..." の行
+        if (/^RECOMMENDATIONS_(START|END)\b/.test(t)) return false;
+        return true;
+      })
+      .join('\n');
+    // 推敲・訂正・謝罪のメタ発言と「おすすめの本（最終版）」等の見出しを行ごと除去。
+    s = s
+      .replace(/^.*(最終版|再提示|差し替え|文脈に合わないため|確証が持てなかった|確度の高い書籍で).*$/gm, '')
+      .replace(/^#{1,4}\s*📚?\s*おすすめの本[^\n]*$/gmu, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    return s;
+  };
+
   // 推薦 JSON を寛容にパースする。LLM は例の「// 3〜5 冊」コメントを真似たり、
   // 末尾カンマを付けたり、前後にノイズを混ぜたりして strict JSON.parse を落とす。
   // ①素の parse → ②行コメント/末尾カンマ除去 → ③最初の[〜最後の]抽出、の順で試す。
@@ -225,34 +253,51 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     if (typeof text !== 'string') return { recs: null, prose: '' };
     const START = 'RECOMMENDATIONS_START';
     const END = 'RECOMMENDATIONS_END';
-    const startIdx = text.indexOf(START);
-    if (startIdx < 0) return { recs: null, prose: stripRecoBlock(text) };
+    if (text.indexOf(START) < 0) return { recs: null, prose: cleanProse(text) };
 
-    const afterStart = text.slice(startIdx + START.length);
-    const endRel = afterStart.indexOf(END);
-    let jsonRaw;
-    let blockEndAbs;
-    if (endRel >= 0) {
-      jsonRaw = afterStart.slice(0, endRel);
-      blockEndAbs = startIdx + START.length + endRel + END.length;
-    } else {
-      // END マーカー欠落（max_tokens 打ち切り等）でも、次の見出し(## )までを
-      // JSON 候補として拾って復旧を試みる（見出しが無ければ以降すべて）。
-      const nextHeading = afterStart.search(/\n#{1,4}\s/);
-      jsonRaw = nextHeading >= 0 ? afterStart.slice(0, nextHeading) : afterStart;
-      blockEndAbs = nextHeading >= 0 ? startIdx + START.length + nextHeading : text.length;
+    // モデルは「下書き → やっぱり最終版」と RECOMMENDATIONS ブロックを複数回
+    // 吐くことがある（本来は 1 回・プロンプトで禁止済みだが保険）。全ブロックを
+    // 走査し、valid な非空配列が取れた「最後の」ブロックを最終版として採用する。
+    let recs = null;
+    let firstStart = -1;
+    let lastEnd = -1;
+    let from = 0;
+    // 無限ループ保険（最大 8 ブロックまで）。
+    for (let guard = 0; guard < 8; guard += 1) {
+      const s = text.indexOf(START, from);
+      if (s < 0) break;
+      if (firstStart < 0) firstStart = s;
+      const afterStart = text.slice(s + START.length);
+      const endRel = afterStart.indexOf(END);
+      let jsonRaw;
+      let blockEndAbs;
+      if (endRel >= 0) {
+        jsonRaw = afterStart.slice(0, endRel);
+        blockEndAbs = s + START.length + endRel + END.length;
+      } else {
+        // END 欠落（max_tokens 打ち切り 等）→ 次のブロック開始 or 次の見出しまでを
+        // JSON 候補にする（どちらも無ければ以降すべて）。
+        const nextStartRel = afterStart.indexOf(START);
+        const nextHeadingRel = afterStart.search(/\n#{1,4}\s/);
+        const cuts = [nextStartRel, nextHeadingRel].filter((x) => x >= 0);
+        const cut = cuts.length ? Math.min(...cuts) : -1;
+        jsonRaw = cut >= 0 ? afterStart.slice(0, cut) : afterStart;
+        blockEndAbs = cut >= 0 ? s + START.length + cut : text.length;
+      }
+      const arr = tolerantRecArray(jsonRaw);
+      const parsed = Array.isArray(arr) ? arr.filter((r) => r && typeof r.title === 'string') : null;
+      if (parsed && parsed.length > 0) recs = parsed; // 最後の valid を保持
+      lastEnd = blockEndAbs;
+      from = blockEndAbs > s ? blockEndAbs : s + START.length; // 必ず前進
     }
 
-    const arr = tolerantRecArray(jsonRaw);
-    const recs = Array.isArray(arr) ? arr.filter((r) => r && typeof r.title === 'string') : null;
-    // JSON が壊れていた/空だった場合も、マーカーと生 JSON・空見出しをユーザーに見せない。
-    if (!recs || recs.length === 0) return { recs: null, prose: stripRecoBlock(text) };
-    const before = text.slice(0, startIdx).trim();
-    const after = text.slice(blockEndAbs).trim();
-    return {
-      recs,
-      prose: { before, after },
-    };
+    // どのブロックも valid でなければ、マーカー・生 JSON・推敲メタを消して本文だけ返す。
+    if (!recs) return { recs: null, prose: cleanProse(text) };
+    // prose は「最初のブロックより前」＋「最後のブロックより後」を、それぞれ
+    // cleanProse で洗って結合（間の下書き群はまるごと捨てる）。
+    const before = cleanProse(text.slice(0, firstStart));
+    const after = cleanProse(text.slice(lastEnd));
+    return { recs, prose: { before, after } };
   };
 
   // 質問生成レスポンス（JSON）を堅牢にパース。純粋 JSON を指示しているが、
