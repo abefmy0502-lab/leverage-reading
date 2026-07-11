@@ -15,14 +15,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X, RefreshCw, Target, ListChecks, Ticket, Users, CreditCard, Cpu, Inbox,
-  BarChart3, TrendingUp, Check, Flag, Pencil, Route, Activity, Calculator,
-  Brain, Send,
+  BarChart3, TrendingUp, Check, Flag, Pencil, Activity, Calculator,
+  Brain, Send, Rocket,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { generateOpsRoadmap, opsAdvise, generateOpsTasks, consultSpecialist, integrateFloor } from '../lib/ai';
-import { DEPARTMENTS, DEPT_META, AI_COMPANY, findMember } from '../lib/aiCompany';
+import { opsAdvise } from '../lib/ai';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
+import TodayCard from './admin/TodayCard';
+import {
+  evaluateRules, SALES_MILESTONES, SHIP_CHECKLIST, MIN_N, weekStartISO, monthlyMilestoneNeed,
+} from '../lib/playbook';
 
 // 💰 コストモデル（粗利の概算用）。ここは"目安"。
 const MONTHLY_PRICE_JPY = 1480;     // 月額プランの税込価格（実価格）
@@ -68,10 +71,6 @@ const inp = {
 };
 
 const METRIC_LABEL = { gross_profit: '月次粗利（概算）', mrr: 'MRR（月次売上）', paid_users: '有料会員数', users: '総ユーザー数' };
-const STAGE = { ACQ: '集客', ACT: '定着', REV: '収益化', RET: '継続', QUAL: '品質' };
-const STAGE_COLOR = {
-  集客: C.accent || C.brand, 定着: '#6b8e6b', 収益化: C.brand, 継続: '#b08a3e', 品質: C.critical,
-};
 // 🏢 常駐する4部門。各アクションを担当部門に割り当てて「誰の仕事か」を明確にする。
 const DEPT = { CEO: '経営', MKT: 'マーケ営業', ENG: '開発', FIN: '経理' };
 const DEPT_COLOR = { 経営: C.brand, マーケ営業: '#b08a3e', 開発: '#5a7d9a', 経理: '#6b8e6b' };
@@ -172,71 +171,6 @@ function MiniBars({ series }) {
   );
 }
 
-// 指標から「今やるべきこと」を自動生成（ファネル別・優先度順）。
-// 数字が動くと結果が変わる＝軌道修正される。
-function buildActions({ overview, revenue, usage, ai, tickets, goal, gap, requiredPerWeek, mrr, grossProfit }) {
-  const a = [];
-  const ev = usage?.events || {};
-  const users = overview?.users_total || 0;
-  const paid = revenue?.active || 0;
-
-  // 経営: 目標ペース
-  if (goal && gap > 0 && requiredPerWeek > 0) {
-    a.push({ dept: DEPT.CEO, stage: STAGE.REV, pri: 1, title: `目標まであと${fmtGoal(goal.metric, gap)} — 週 ${fmtGoal(goal.metric, requiredPerWeek)} ペースが必要`, why: `${METRIC_LABEL[goal.metric]}の達成ペース` });
-  }
-  // 経営: 目標未設定
-  if (!goal) a.push({ dept: DEPT.CEO, stage: STAGE.REV, pri: 1, title: '売上/粗利の目標を設定する', why: '目標が未設定（達成ペースを逆算できない）' });
-
-  // 開発: 未解決バグ
-  const openBugs = (tickets || []).filter((t) => t.kind === 'bug' && (t.status === 'open' || t.status === 'in_progress'));
-  if (openBugs.length) a.push({ dept: DEPT.ENG, stage: STAGE.QUAL, pri: 1, title: `バグを ${openBugs.length} 件修正する`, why: '未解決のバグチケット' });
-
-  // マーケ営業: 有料0
-  if (paid === 0 && users > 0) a.push({ dept: DEPT.MKT, stage: STAGE.REV, pri: 1, title: '最初の有料会員を獲得する', why: '登録はあるが有料会員が0人' });
-  // マーケ営業: ペイウォール転換率
-  const pv = ev.paywall_viewed || 0; const cc = ev.checkout_completed || 0;
-  if (pv >= 10 && cc / pv < 0.05) {
-    a.push({ dept: DEPT.MKT, stage: STAGE.REV, pri: 1, title: 'ペイウォールの訴求・価格を見直す', why: `表示${pv}回中 課金${cc}件（転換率 ${(cc / pv * 100).toFixed(1)}%）` });
-  }
-  // マーケ営業: 今週の新規0 / そもそも0人
-  if (users === 0) a.push({ dept: DEPT.MKT, stage: STAGE.ACQ, pri: 1, title: '最初のユーザーを集める（告知・LP公開・SNS）', why: 'まだ登録ユーザーが0人' });
-  else if ((overview?.new_users_7d || 0) === 0) a.push({ dept: DEPT.MKT, stage: STAGE.ACQ, pri: 1, title: '集客に着手（LP / SNS / 紹介）', why: '今週の新規ユーザーが0人' });
-
-  // 開発/経営: 未対応FB
-  if ((overview?.feedback_open || 0) > 0) {
-    a.push({ dept: DEPT.ENG, stage: STAGE.QUAL, pri: 2, title: `未対応の問い合わせ ${overview.feedback_open} 件をさばく（チケット化）`, why: 'open のフィードバック' });
-  }
-  // マーケ営業: 解約リスク
-  if ((revenue?.expiring_30d || 0) > 0) {
-    a.push({ dept: DEPT.MKT, stage: STAGE.RET, pri: 2, title: `更新期限が近い有料会員 ${revenue.expiring_30d} 人をフォロー`, why: '30日以内に期限' });
-  }
-  // 開発: 粘着
-  const dau = overview?.dau || 0; const mau = overview?.mau || 0;
-  if (mau >= 10 && dau / mau < 0.1) {
-    a.push({ dept: DEPT.ENG, stage: STAGE.RET, pri: 2, title: '毎日使われる仕掛けを強化（想起通知など）', why: `DAU/MAU ${(dau / mau * 100).toFixed(0)}%（粘着が弱い）` });
-  }
-  // 開発: 定着（1人あたり本）
-  if (users >= 5) {
-    const bpu = (overview?.books_total || 0) / users;
-    if (bpu < 2) a.push({ dept: DEPT.ENG, stage: STAGE.ACT, pri: 2, title: 'オンボーディングを改善（最初の1冊登録まで）', why: `1人あたり本 ${bpu.toFixed(1)}冊` });
-  }
-  // 経理: 粗利率（売上はあるのに薄利）
-  if (mrr > 0) {
-    const margin = grossProfit / mrr;
-    if (margin < 0.5) a.push({ dept: DEPT.FIN, stage: STAGE.QUAL, pri: 2, title: '粗利率が低い — 価格 or AI原価を見直す', why: `粗利率 ${(margin * 100).toFixed(0)}%（App手数料15%＋AI原価が重い）` });
-  }
-  // 経理: AIコスト（1人あたり）
-  const calls = ai && ai[0] ? ai[0].calls : 0;
-  const aiUsers = ai && ai[0] ? ai[0].users : 0;
-  if (aiUsers > 0) {
-    const costPerUser = (calls * AI_COST_PER_CALL_JPY) / aiUsers;
-    if (costPerUser > 45) a.push({ dept: DEPT.FIN, stage: STAGE.QUAL, pri: 2, title: 'AI原価/人 が高い — 原価ガード（月次上限）を見直す', why: `今月のAI原価 約¥${Math.round(costPerUser)}/人（目安 ¥45 超）` });
-  } else if (calls > 1000) {
-    a.push({ dept: DEPT.FIN, stage: STAGE.QUAL, pri: 3, title: 'AIコストを点検（原価ガード）', why: `今月のAIコール ${calls}回` });
-  }
-
-  return a.sort((x, y) => x.pri - y.pri);
-}
 
 export default function AdminDashboard({ onClose }) {
   const trapRef = useFocusTrap(true); // ♿ Tab をダッシュボード内に閉じ込める
@@ -260,42 +194,33 @@ export default function AdminDashboard({ onClose }) {
   const [gMetric, setGMetric] = useState('mrr');
   const [gTarget, setGTarget] = useState('');
   const [gDeadline, setGDeadline] = useState('');
-  const [roadmap, setRoadmap] = useState('');
-  const [roadmapLoading, setRoadmapLoading] = useState(false);
-  const [roadmapErr, setRoadmapErr] = useState('');
   // 🧠 AI 参謀（作戦会議）の対話。
   const [advisorMsgs, setAdvisorMsgs] = useState([]);
   const [advisorInput, setAdvisorInput] = useState('');
   const [advisorBusy, setAdvisorBusy] = useState(false);
-  // 🏢 社員フロア（作戦司令室）。各社員の最新レポートは端末ローカルに保持。
-  const [floorReports, setFloorReports] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('orime.floor.reports') || '{}'); } catch { return {}; }
-  });
-  const [floorBusy, setFloorBusy] = useState({}); // memberId -> bool
-  // 二重コール防止の即時ガード。部門招集ループ中の dispatchMember は招集開始時
-  // レンダーの floorBusy を閉包で読むため、state だけだと個別タップとの並行で
-  // 同一社員に二重コール（AI 原価二重払い）の窓が開く。ref は常に最新。
-  const floorBusyRef = useRef({});
-  const [activeMemberId, setActiveMemberId] = useState(null);
-  const [floorOrder, setFloorOrder] = useState('');
-  // 🎖 CEO室 統合ブリーフ。
-  const [integration, setIntegration] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('orime.floor.integration') || 'null'); } catch { return null; }
-  });
-  const [integrationBusy, setIntegrationBusy] = useState(false);
-  // 部門一括招集の進捗（deptKey -> {done,total} / null）。
-  const [deptProgress, setDeptProgress] = useState({});
-  // 成果物→チケット化の状態（memberId -> 'done'）。
-  const [ticketed, setTicketed] = useState({});
-  // タブ（概況 / アクション / 参謀 / フロア）。
+  // タブ（概況 / 営業 / アクション / 参謀）。
   const [activeTab, setActiveTab] = useState('overview');
 
-  // ── 📣 営業ウィークリー（company/sales-strategy-2026-2027.md をダッシュボード化）──
-  // 戦略の月次マイルストーン（継続課金者の目標）。文書を改訂したらここも更新する。
-  const SALES_MILESTONES = [
-    ['2026-07', 5], ['2026-08', 15], ['2026-09', 30], ['2026-10', 50], ['2026-11', 75], ['2026-12', 100],
-    ['2027-03', 150], ['2027-06', 300], ['2027-09', 550], ['2027-12', 1000],
-  ];
+  // 🚀 運用フェーズ（配信前/配信中）。手動切替・不可逆（自動昇格は誤検知するため禁止）。
+  const [phase, setPhase] = useState(() => { try { return localStorage.getItem('orime-ops-phase') || 'prelaunch'; } catch { return 'prelaunch'; } });
+  const [launchDate, setLaunchDate] = useState(() => { try { return localStorage.getItem('orime-ops-launch-date') || ''; } catch { return ''; } });
+  const [shipChecks, setShipChecks] = useState(() => { try { return JSON.parse(localStorage.getItem('orime-ops-ship-checks') || '{}'); } catch { return {}; } });
+  const toggleShipCheck = (id) => {
+    setShipChecks((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem('orime-ops-ship-checks', JSON.stringify(next)); } catch { /* quota */ }
+      return next;
+    });
+  };
+  const goLive = () => {
+    // 不可逆の切替なので確認を挟む。配信日は未入力なら今日。
+    if (!window.confirm('配信中モードに切り替えますか？（KPI計器と判定ルールが有効になります。元に戻す想定はありません）')) return;
+    const d = launchDate || new Date().toISOString().slice(0, 10);
+    setLaunchDate(d); setPhase('live');
+    try { localStorage.setItem('orime-ops-phase', 'live'); localStorage.setItem('orime-ops-launch-date', d); } catch { /* quota */ }
+  };
+
+  // ── 📣 営業ウィークリー入力（installs/note PV 等は外部数値のため手入力）──
   const SALES_FIELDS = [
     ['new_paid', '新規課金', '人'],
     ['installs', 'インストール', '件'],
@@ -308,15 +233,6 @@ export default function AdminDashboard({ onClose }) {
   const [salesSaving, setSalesSaving] = useState(false);
   const [salesMissing, setSalesMissing] = useState(false);  // テーブル未適用
   const [salesLoaded, setSalesLoaded] = useState(false);
-
-  // 今週の月曜日（ローカル）を YYYY-MM-DD で。週次レコードのキー。
-  const weekStartISO = () => {
-    const d = new Date();
-    const day = d.getDay(); // 0=日
-    const diff = day === 0 ? -6 : 1 - day;
-    d.setDate(d.getDate() + diff);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
 
   const loadSales = async () => {
     try {
@@ -343,7 +259,8 @@ export default function AdminDashboard({ onClose }) {
       setSalesLoaded(true);
     }
   };
-  useEffect(() => { if (activeTab === 'sales' && !salesLoaded) loadSales(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeTab]);
+  // TodayCard の判定にも使うためマウント時に読み込む。
+  useEffect(() => { loadSales(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const saveSalesWeek = async () => {
     if (salesSaving) return;
@@ -364,43 +281,11 @@ export default function AdminDashboard({ onClose }) {
     setSalesSaving(false);
   };
 
-  // if-then 警告（戦略 §6 の判断ルールを実データで自動評価）。
-  const salesAlerts = (() => {
-    const rows = [...salesRows].sort((a, b) => String(b.week_start).localeCompare(String(a.week_start)));
-    const out = [];
-    const ctr = (r) => (r?.note_pv > 0 && r?.lp_clicks != null ? r.lp_clicks / r.note_pv : null);
-    const c0 = ctr(rows[0]); const c1 = ctr(rows[1]);
-    if (c0 != null && c1 != null && c0 < 0.02 && c1 < 0.02) {
-      out.push({ level: 'warn', text: `note→LP クリック率が2週連続 2% 未満（${(c0 * 100).toFixed(1)}% / ${(c1 * 100).toFixed(1)}%）`, action: 'CTA を記事末→中間にも追加し、文言を「悩み文脈」に書き換える' });
-    }
-    const last4 = rows.slice(0, 4);
-    const sum = (arr, k) => arr.reduce((a, r) => a + (Number.isFinite(r?.[k]) ? r[k] : 0), 0);
-    const inst4 = sum(last4, 'installs'); const paid4 = sum(last4, 'new_paid');
-    if (inst4 >= 30 && paid4 / inst4 < 0.03) {
-      out.push({ level: 'warn', text: `install→課金が直近4週で ${(100 * paid4 / inst4).toFixed(1)}%（基準 3%）`, action: 'ペイウォール手前の価値プレビューを改善。改善しなければ 7日間無料（Introductory Offer）の AB を検討' });
-    }
-    // 今月の月次目標（マイルストーン線形補間ではなく当月値）と新規ペース
-    const ym = new Date(); const ymKey = `${ym.getFullYear()}-${String(ym.getMonth() + 1).padStart(2, '0')}`;
-    const ms = SALES_MILESTONES.find(([k]) => k === ymKey);
-    if (ms && last4.length >= 2) {
-      const idx = SALES_MILESTONES.findIndex(([k]) => k === ymKey);
-      const prevTarget = idx > 0 ? SALES_MILESTONES[idx - 1][1] : 0;
-      const monthlyNeed = Math.max(0, ms[1] - prevTarget);
-      if (monthlyNeed > 0 && paid4 < monthlyNeed * 0.5) {
-        out.push({ level: 'warn', text: `新規課金が直近4週 ${paid4} 人 — 今月目標の増分 ${monthlyNeed} 人の 50% 未満`, action: '翌月は「比較記事」（最も課金に近い）を月2本に増やし、ストーリー記事を1回休む' });
-      }
-    }
-    const pv4 = sum(rows.slice(0, 4), 'note_pv'); const pvPrev4 = sum(rows.slice(4, 8), 'note_pv');
-    if (rows.length >= 8 && pvPrev4 > 0 && pv4 <= pvPrev4) {
-      out.push({ level: 'info', text: `note PV が横ばい（直近4週 ${pv4} ≤ 前4週 ${pvPrev4}）`, action: 'SEO キーワードを再選定（検索ボリュームのある悩み語へ）。/note-shijo で競合調査' });
-    }
-    return out;
-  })();
 
-  // 🗓 日次タスク。
+  // 🗓 タスク（手動追加のみ）。
   const [dailyTasks, setDailyTasks] = useState([]);
-  const [tasksBusy, setTasksBusy] = useState(false);
-  const [tasksErr, setTasksErr] = useState('');
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [taskAdding, setTaskAdding] = useState(false);
 
   const [warn, setWarn] = useState('');
 
@@ -480,45 +365,6 @@ export default function AdminDashboard({ onClose }) {
     return () => { alive = false; };
   }, []);
 
-  // 🏢 作戦司令室の報告を Supabase から復元（AI企業の「記憶」・自分の行のみ）。
-  // 各 member の最新行 = 現在の状態。未適用 DB では静かに localStorage のみで動く。
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('ops_floor_reports')
-          .select('member_id, kind, status, body, created_at')
-          .order('created_at', { ascending: false })
-          .limit(300);
-        if (!alive || error || !Array.isArray(data)) return;
-        const latest = {};
-        let integ = null;
-        for (const r of data) {
-          if (r.kind === 'integration') { if (!integ) integ = r; continue; }
-          if (!latest[r.member_id]) latest[r.member_id] = r;
-        }
-        // クラウドの行がローカルより新しければ採用（新しい方が勝つ）。
-        setFloorReports((prev) => {
-          const next = { ...prev };
-          for (const [id, r] of Object.entries(latest)) {
-            const at = new Date(r.created_at).getTime();
-            if (!next[id] || at > (next[id].at || 0)) next[id] = { status: r.status || '報告完了', body: r.body || '', at, ok: true };
-          }
-          try { localStorage.setItem('orime.floor.reports', JSON.stringify(next)); } catch { /* quota */ }
-          return next;
-        });
-        if (integ) {
-          setIntegration((prev) => {
-            const at = new Date(integ.created_at).getTime();
-            return (!prev || at > (prev.at || 0)) ? { body: integ.body || '', at, ok: true } : prev;
-          });
-        }
-      } catch { /* テーブル未適用: localStorage のみ */ }
-    })();
-    return () => { alive = false; };
-  }, []);
-
   // 🗓 日次タスクを復元（今日以降を優先・自分の行のみ）。
   const loadTasks = useCallback(async () => {
     try {
@@ -531,19 +377,6 @@ export default function AdminDashboard({ onClose }) {
     } catch { /* 未適用 DB は空 */ }
   }, []);
   useEffect(() => { loadTasks(); }, [loadTasks]);
-
-  // 保存済みロードマップを localStorage から復元（目標が変わったら破棄）。
-  const goalSig = goal ? `${goal.metric}:${goal.target}:${goal.deadline}` : '';
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('orime-ops-roadmap');
-      if (raw) {
-        const o = JSON.parse(raw);
-        if (o && o.sig === goalSig && o.text) { setRoadmap(o.text); return; }
-      }
-    } catch { /* ignore */ }
-    setRoadmap('');
-  }, [goalSig]);
 
   const saveGoal = async () => {
     const t = parseFloat(gTarget);
@@ -591,11 +424,12 @@ export default function AdminDashboard({ onClose }) {
     if (daysLeft > 0 && goalGap > 0) requiredPerWeek = Math.ceil(goalGap / (daysLeft / 7));
   }
 
-  const actions = (!loading && !err)
-    ? buildActions({ overview, revenue, usage, ai, tickets, goal, gap: goalGap, requiredPerWeek, mrr, grossProfit })
+  // 📕 if-then ルールの一括評価（playbook.js が正典。営業タブ・TodayCard が共用）。
+  const rulesEval = (!loading && !err)
+    ? evaluateRules({ phase, weekly: salesRows, paid: revenue?.active || 0, events: usage?.events || {} })
     : [];
-  // 部門ごとの担当件数（常駐ロスター表示用）。
-  const deptCounts = DEPT_ORDER.reduce((m, d) => ({ ...m, [d]: actions.filter((x) => x.dept === d).length }), {});
+  const salesAlerts = rulesEval.filter((r) => r.state === 'fired');
+  const rulesPending = rulesEval.filter((r) => r.state === 'insufficient');
   const openTickets = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress');
   const shownFeedback = feedback.filter((f) => (fbFilter === 'all' ? true : f.status === fbFilter));
 
@@ -624,14 +458,18 @@ export default function AdminDashboard({ onClose }) {
   const ltvCac = cac && cac > 0 ? (ltv / cac) : null;
   const paybackMonths = (cac && gpPerUser > 0) ? (cac / gpPerUser) : null;
 
-  // 🧠 現状サマリー（参謀に毎回渡す）。
+  // 🧠 現状サマリー（参謀に毎回渡す）。判定保留の指標は値でなく「保留」と伝え、
+  // AI が薄いデータから誤った提案を導かないようにする。
   const stateLine = [
+    `フェーズ=${phase === 'prelaunch' ? '配信前' : '配信中'}`,
     `総ユーザー${overview?.users_total ?? 0}人`,
     `有料${revenue?.active ?? 0}人`,
     `MRR¥${mrr.toLocaleString()}`,
     `月粗利¥${grossProfit.toLocaleString()}`,
     goal ? `目標=${METRIC_LABEL[goal.metric]}¥${(goal.target || 0).toLocaleString()}(締切${goal.deadline || '未設定'})` : '目標=未設定',
-  ].join(' / ');
+    salesAlerts.length ? `発火中の警告=${salesAlerts.map((r) => r.text).join('；')}` : '発火中の警告なし',
+    rulesPending.length ? `判定保留(分母不足・値からの推測禁止)=${rulesPending.map((r) => r.id).join(',')}` : '',
+  ].filter(Boolean).join(' / ');
 
   // 🧠 作戦会議: 元帥の発言を送り、参謀の応答を得て、両方を保存する。
   const sendAdvisor = async () => {
@@ -659,165 +497,16 @@ export default function AdminDashboard({ onClose }) {
     }
   };
 
-  // 🏢 社員フロア: 1 名の社員に成果物を出させる（1 タップ = AI 1 コール）。
-  // 既にレポートがある社員のタップは「閲覧のみ」（無課金）。更新は明示ボタンで。
-  const dispatchMember = async (member, order = '') => {
-    if (!member || floorBusyRef.current[member.id]) return;
-    floorBusyRef.current[member.id] = true;
-    setFloorBusy((b) => ({ ...b, [member.id]: true }));
+  // 🗓 タスクは手動追加のみ（AI 30日生成は廃止 — 台本と司令が正典。タスクは例外事項の置き場）。
+  const addTask = async () => {
+    const title = newTaskTitle.trim();
+    if (!title || taskAdding) return;
+    setTaskAdding(true);
     try {
-      const deptLabel = DEPT_META[member.dept]?.label || '';
-      const res = await consultSpecialist({ member: { ...member, deptLabel }, stateLine, order });
-      setFloorReports((prev) => {
-        const entry = res
-          ? { status: res.status || '報告完了', body: res.body || '', at: Date.now(), ok: true }
-          : { status: '応答に失敗', body: prev[member.id]?.body || '', at: Date.now(), ok: false };
-        const next = { ...prev, [member.id]: entry };
-        try { localStorage.setItem('orime.floor.reports', JSON.stringify(next)); } catch { /* quota/private */ }
-        return next;
-      });
-      // クラウドにも追記（記憶＋履歴・fire-and-forget・未適用 DB は静かに失敗）。
-      if (res && res.body) {
-        supabase.from('ops_floor_reports')
-          .insert({ member_id: member.id, kind: 'report', status: res.status || null, body: res.body })
-          .then(() => {}, () => {});
-      }
-    } finally {
-      floorBusyRef.current[member.id] = false;
-      setFloorBusy((b) => ({ ...b, [member.id]: false }));
-    }
-  };
-
-  // フロアのカードをタップ: 未報告なら起動、報告済みなら閲覧（パネルを開くだけ）。
-  const onMemberTap = (member) => {
-    setActiveMemberId(member.id);
-    if (!floorReports[member.id] && !floorBusy[member.id]) dispatchMember(member, floorOrder);
-  };
-
-  // 🏢 部門を一括招集（順次・レート制限に配慮）。進捗を deptProgress で表示。
-  const dispatchDepartment = async (deptKey) => {
-    const members = AI_COMPANY.filter((m) => m.dept === deptKey);
-    if (!members.length || deptProgress[deptKey]) return;
-    setDeptProgress((p) => ({ ...p, [deptKey]: { done: 0, total: members.length } }));
-    try {
-      for (let i = 0; i < members.length; i += 1) {
-        // eslint-disable-next-line no-await-in-loop
-        await dispatchMember(members[i], floorOrder);
-        setDeptProgress((p) => ({ ...p, [deptKey]: { done: i + 1, total: members.length } }));
-      }
-    } finally {
-      setDeptProgress((p) => { const n = { ...p }; delete n[deptKey]; return n; });
-    }
-  };
-
-  // 🎖 CEO室: 各社員の報告を統合して「今日の意思決定」を1つに収束させる（1 コール）。
-  const runIntegration = async () => {
-    if (integrationBusy) return;
-    const reports = AI_COMPANY
-      .filter((m) => floorReports[m.id] && floorReports[m.id].body)
-      .map((m) => ({ name: m.name, title: m.title, dept: DEPT_META[m.dept]?.label || '', status: floorReports[m.id].status, body: floorReports[m.id].body }));
-    if (reports.length === 0) return;
-    setIntegrationBusy(true);
-    try {
-      const body = await integrateFloor({ reports, stateLine, order: floorOrder });
-      const entry = { body: body || '', at: Date.now(), ok: !!body, count: reports.length };
-      setIntegration(entry);
-      try { localStorage.setItem('orime.floor.integration', JSON.stringify(entry)); } catch { /* quota */ }
-      if (body) {
-        supabase.from('ops_floor_reports')
-          .insert({ member_id: '__integration__', kind: 'integration', status: null, body })
-          .then(() => {}, () => {});
-      }
-    } finally {
-      setIntegrationBusy(false);
-    }
-  };
-
-  // 🎫 成果物 → チケット化（既存の作業ボードへ流し込む＝実行に接続）。
-  // RPC 応答待ちの間の再タップで重複チケットが作られないよう、発行前に
-  // 'busy' を立てて disabled 条件に含める（in-flight ガード）。
-  const ticketFromReport = async (member, rep) => {
-    if (!rep || !rep.body || ticketed[member.id]) return;
-    setTicketed((t) => ({ ...t, [member.id]: 'busy' }));
-    const title = `[${DEPT_META[member.dept]?.label || ''}/${member.name}] ${rep.status || '成果物'}`.slice(0, 120);
-    try {
-      const { error } = await supabase.rpc('admin_ticket_create', {
-        p_title: title, p_body: String(rep.body).slice(0, 4000), p_kind: 'task', p_priority: 2, p_source_feedback: null,
-      });
-      setTicketed((t) => ({ ...t, [member.id]: error ? undefined : 'done' }));
-    } catch {
-      // RPC 未適用等は静かに無視（busy は解除して再試行可能に）
-      setTicketed((t) => ({ ...t, [member.id]: undefined }));
-    }
-  };
-
-  // フロアの稼働状況サマリー（司令室ヘッダー表示用）。
-  const floorReportedCount = AI_COMPANY.filter((m) => floorReports[m.id] && floorReports[m.id].body).length;
-  const floorBusyCount = Object.values(floorBusy).filter(Boolean).length;
-  // コスト概算は「当日の報告」だけを数える（過去日の復元分まで足すと、今日
-  // 1 コールも使っていないのに費用が出て元帥の原価判断をミスリードする）。
-  const _todayKey = new Date().toDateString();
-  const floorTodayCount = AI_COMPANY.filter((m) => {
-    const r = floorReports[m.id];
-    return r && r.body && r.at && new Date(r.at).toDateString() === _todayKey;
-  }).length;
-  const floorCostJpy = (floorTodayCount + (integration && integration.ok && integration.at && new Date(integration.at).toDateString() === _todayKey ? 1 : 0)) * AI_COST_PER_CALL_JPY;
-
-  // 🗺 AI にロードマップを引いてもらう（年の目標→月別の人数/売上/施策）。
-  const makeRoadmap = async () => {
-    if (!goal || roadmapLoading) return;
-    setRoadmapLoading(true); setRoadmapErr('');
-    const monthsLeft = daysLeft != null ? Math.max(1, Math.round(daysLeft / 30)) : 12;
-    try {
-      const md = await generateOpsRoadmap({
-        goalLabel: METRIC_LABEL[goal.metric], target: goal.target, deadline: goal.deadline || '',
-        monthsLeft, price: MONTHLY_PRICE_JPY, feeRate: PAYMENT_FEE_RATE,
-        currentPaid: revenue?.active || 0, currentUsers: overview?.users_total || 0, mrr, grossProfit,
-      });
-      if (md) {
-        setRoadmap(md);
-        try { localStorage.setItem('orime-ops-roadmap', JSON.stringify({ sig: goalSig, text: md })); } catch { /* ignore */ }
-      } else {
-        setRoadmapErr('ロードマップの生成に失敗しました。少し時間をおいて再度お試しください。');
-      }
-    } catch {
-      setRoadmapErr('ロードマップの生成に失敗しました。');
-    } finally {
-      setRoadmapLoading(false);
-    }
-  };
-
-  // 🗓 日次タスクを AI に生成させる（現状を踏まえて軌道修正）。未完了の今日以降を
-  //    入れ替える（過去・完了済みは残す）。
-  const makeTasks = async () => {
-    if (!goal || tasksBusy) return;
-    setTasksBusy(true); setTasksErr('');
-    try {
-      const rows = await generateOpsTasks({
-        goalLabel: METRIC_LABEL[goal.metric], target: goal.target, deadline: goal.deadline || '',
-        currentUsers: overview?.users_total || 0, currentPaid: revenue?.active || 0, mrr, grossProfit,
-      });
-      if (rows && rows.length) {
-        const todayStr = new Date().toISOString().slice(0, 10);
-        // ⚠️ データ消失を防ぐため「先に挿入 → 成功したら旧タスクを削除」の順にする。
-        //    旧タスク（今日以降・未完了）の id を控えてから新規挿入し、成功時のみ旧を消す。
-        const { data: oldRows } = await supabase.from('ops_tasks')
-          .select('id').gte('due_date', todayStr).eq('done', false);
-        const ins = await supabase.from('ops_tasks')
-          .insert(rows.map((r) => ({ due_date: r.due_date, dept: r.dept, title: r.title })));
-        if (ins.error) { setTasksErr('タスクの保存に失敗しました。少し時間をおいて再度お試しください。'); return; }
-        if (oldRows && oldRows.length) {
-          await supabase.from('ops_tasks').delete().in('id', oldRows.map((r) => r.id));
-        }
-        await loadTasks();
-      } else {
-        setTasksErr('タスク生成に失敗しました。少し時間をおいて再度お試しください。');
-      }
-    } catch {
-      setTasksErr('タスク生成に失敗しました。');
-    } finally {
-      setTasksBusy(false);
-    }
+      const { error } = await supabase.from('ops_tasks')
+        .insert({ due_date: new Date().toISOString().slice(0, 10), dept: '経営', title: title.slice(0, 200) });
+      if (!error) { setNewTaskTitle(''); await loadTasks(); }
+    } finally { setTaskAdding(false); }
   };
   const toggleTask = async (t) => {
     setDailyTasks((list) => list.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)));
@@ -849,9 +538,12 @@ export default function AdminDashboard({ onClose }) {
 
         {!loading && !err && (
           <>
-            {/* タブ: 概況 / アクション / 参謀 */}
+            {/* 🎯 今日の一手 — 開いた瞬間に今日の最重要アクションが決まる1枚（常設） */}
+            <TodayCard phase={phase} launchDate={launchDate} weekly={salesRows} rules={rulesEval} shipChecks={shipChecks} />
+
+            {/* タブ: 概況 / 営業 / アクション / 参謀 */}
             <div style={{ display: 'flex', gap: 6, position: 'sticky', top: 0, padding: '10px 0 12px', background: C.pageBg, zIndex: 1 }}>
-              {[['overview', '📊 概況'], ['sales', '📣 営業'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀'], ['floor', '🏢 フロア']].map(([k, label]) => (
+              {[['overview', '📊 概況'], ['sales', '📣 営業'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀']].map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setActiveTab(k)}
                   style={{ flex: 1, padding: '10px 2px', borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
                     border: `1px solid ${activeTab === k ? 'transparent' : C.hairlineStrong}`,
@@ -928,13 +620,15 @@ export default function AdminDashboard({ onClose }) {
                   const active = revenue?.active ?? null;
                   const now = new Date(); const ymKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
                   const cur = SALES_MILESTONES.find(([k]) => k >= ymKey) || SALES_MILESTONES[SALES_MILESTONES.length - 1];
-                  const pace = active != null && cur ? Math.round((active / cur[1]) * 100) : null;
+                  // 有料が MIN_N.pace 未満の間は % を出さない（1人動くだけで大きく振れて誤誘導するため実数のみ）。
+                  const pace = active != null && cur && active >= MIN_N.pace ? Math.round((active / cur[1]) * 100) : null;
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <div style={{ fontSize: 13, color: C.ink }}>
                         現在の有料会員: <b style={{ fontSize: 18 }}>{active ?? '—'}</b> 人
                         　/　直近目標（{cur[0]}）: <b>{cur[1]}</b> 人
                         {pace != null && <span style={{ marginLeft: 8, fontWeight: 700, color: pace >= 80 ? '#6b8e6b' : pace >= 40 ? '#a8842f' : '#b75050' }}>ペース {pace}%</span>}
+                        {pace == null && active != null && cur && <span style={{ marginLeft: 8, fontSize: 11, color: C.ink3 }}>（あと {Math.max(0, cur[1] - active)}人。% は有料{MIN_N.pace}人から表示）</span>}
                       </div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                         {SALES_MILESTONES.map(([k, v]) => (
@@ -959,13 +653,19 @@ export default function AdminDashboard({ onClose }) {
                 {salesAlerts.length > 0 && (
                   <>
                     <p style={sectionTitle}>⚠️ 判断ルールに該当</p>
-                    {salesAlerts.map((a, i) => (
-                      <div key={i} style={{ ...card, borderColor: a.level === 'warn' ? '#e0cabf' : C.hairlineStrong }}>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: a.level === 'warn' ? '#b75050' : C.ink, margin: '0 0 4px' }}>{a.text}</p>
+                    {salesAlerts.map((a) => (
+                      <div key={a.id} style={{ ...card, borderColor: a.id.startsWith('gate_') ? '#cfe0c8' : '#e0cabf' }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: a.id.startsWith('gate_') ? '#4c6b4c' : '#b75050', margin: '0 0 4px' }}>{a.text}</p>
                         <p style={{ fontSize: 12, color: C.ink2, margin: 0, lineHeight: 1.6 }}>→ {a.action}</p>
                       </div>
                     ))}
                   </>
+                )}
+
+                {rulesPending.length > 0 && (
+                  <p style={{ fontSize: 11, color: C.ink3, margin: '10px 2px 0', lineHeight: 1.6 }}>
+                    ⏳ 判定保留 {rulesPending.length} 件（分母不足・収集中）: {rulesPending.map((r) => r.text).join(' / ')}
+                  </p>
                 )}
 
                 <p style={sectionTitle}>✍️ 今週の数字（週の起点: {weekStartISO()}）</p>
@@ -1025,32 +725,6 @@ export default function AdminDashboard({ onClose }) {
             </>)}
 
             {activeTab === 'advisor' && (<>
-            {/* ── 🗺 ロードマップ（AIが年の目標から月別計画を引く） ── */}
-            <p style={sectionTitle}><Route size={15} strokeWidth={2} /> ロードマップ</p>
-            <div style={card}>
-              {!goal ? (
-                <p style={{ margin: 0, fontSize: 13, color: C.ink3, lineHeight: 1.7 }}>
-                  まず上で目標を設定すると、AI が現状から逆算して「月別の目標人数・売上・やること（マーケ営業／システム）」のロードマップを引きます。
-                </p>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <button type="button" onClick={makeRoadmap} disabled={roadmapLoading} style={{ ...btnPrimary, width: 'auto', minHeight: 44, opacity: roadmapLoading ? 0.6 : 1 }}>
-                      <Route size={16} aria-hidden="true" />
-                      {roadmapLoading ? 'AIが作成中…' : (roadmap ? 'ロードマップを引き直す' : 'AIにロードマップを引いてもらう')}
-                    </button>
-                    <span style={{ fontSize: 11, color: C.ink3 }}>現状の人数・売上・粗利を踏まえて逆算します</span>
-                  </div>
-                  {roadmapErr && <p style={{ margin: '10px 0 0', fontSize: 12, color: C.critical }}>{roadmapErr}</p>}
-                  {roadmap && (
-                    <div style={{ marginTop: 14, borderTop: `1px solid ${C.hairline}`, paddingTop: 12 }}>
-                      <RoadmapMarkdown text={roadmap} />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
             {/* ── 🧠 作戦会議（AI参謀との対話） ── */}
             <p style={sectionTitle}><Brain size={15} strokeWidth={2} /> 作戦会議（AI参謀）</p>
             <div style={card}>
@@ -1095,230 +769,38 @@ export default function AdminDashboard({ onClose }) {
 
             </>)}
 
-            {/* ═══ 社員フロアタブ（作戦司令室 — 20名+顧問の AI 社員） ═══ */}
-            {activeTab === 'floor' && (<>
-            <p style={sectionTitle}>🏢 作戦司令室
-              <span style={{ fontWeight: 600, color: C.ink3, fontSize: 11 }}>　{AI_COMPANY.length}名 ＋ 特別顧問団</span>
-            </p>
-
-            {/* ── 全社サマリー（稼働状況の一望） ── */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-              {[
-                ['稼働中', floorBusyCount, C.brand],
-                ['報告済', `${floorReportedCount}/${AI_COMPANY.length}`, '#6b8e6b'],
-                ['本日概算', `¥${floorCostJpy}`, C.ink2],
-              ].map(([label, val, col]) => (
-                <div key={label} style={{ flex: 1, background: C.card, border: `1px solid ${C.hairline}`, borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: col, lineHeight: 1.1 }}>{val}</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 10, color: C.ink3 }}>{label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* ── 元帥の指示（招集する社員に共通で伝わる） ── */}
-            <textarea
-              value={floorOrder}
-              onChange={(e) => setFloorOrder(e.target.value)}
-              placeholder="任意: 招集する社員に共通で伝える指示（空なら各自が最重要の一手を選びます）例：来週の集客を具体化して"
-              rows={2}
-              maxLength={1000}
-              style={{ ...inp, resize: 'vertical', minHeight: 44, lineHeight: 1.6, marginBottom: 14 }}
-            />
-
-            {/* ── 🎖 CEO室 統合ブリーフ（全社を1つの意思決定に収束） ── */}
-            <div style={{ ...card, borderTop: `3px solid ${DEPT_META.ceo.accent}`, marginBottom: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.ink }}>🎖 CEO室 統合ブリーフ</p>
-                <button type="button" onClick={runIntegration} disabled={integrationBusy || floorReportedCount === 0}
-                  style={{ ...btnPrimary, minHeight: 44, padding: '0 14px', fontSize: 12, width: 'auto',
-                    opacity: (integrationBusy || floorReportedCount === 0) ? 0.5 : 1, cursor: (integrationBusy || floorReportedCount === 0) ? 'default' : 'pointer' }}>
-                  {integrationBusy ? '統合中…' : integration ? '再統合' : '全社を統合'}
-                </button>
-              </div>
-              <p style={{ margin: '8px 0 0', fontSize: 11, color: C.ink2, lineHeight: 1.65 }}>
-                各社員の報告を横断し、部門間の依存・矛盾を洗い出して「今日の意思決定」を1つに絞ります（AI 1コール）。
-                {floorReportedCount === 0 && <span style={{ color: C.ink3 }}>　まず社員を招集して報告を集めてください。</span>}
-              </p>
-              {integration && integration.ok && integration.body && !integrationBusy && (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.hairline}`, fontSize: 13, lineHeight: 1.75, color: C.ink }}>
-                  <RoadmapMarkdown text={integration.body} />
-                </div>
-              )}
-              {integration && !integration.ok && !integrationBusy && (
-                <p style={{ fontSize: 12, color: C.critical, margin: '12px 0 0' }}>統合に失敗しました。少し時間をおいて「再統合」してください。</p>
-              )}
-            </div>
-
-            {DEPARTMENTS.map((dept) => {
-              const members = AI_COMPANY.filter((m) => m.dept === dept.key);
-              if (!members.length) return null;
-              const prog = deptProgress[dept.key];
-              return (
-                <div key={dept.key} style={{ marginBottom: 18 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '0 0 8px' }}>
-                    <p style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, fontSize: 12, fontWeight: 700, color: C.ink2 }}>
-                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: dept.accent }} />
-                      {dept.label}
-                    </p>
-                    <button type="button" onClick={() => dispatchDepartment(dept.key)} disabled={!!prog}
-                      style={{ border: `1px solid ${dept.accent}`, background: 'transparent', color: dept.accent, borderRadius: 99,
-                        padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: prog ? 'default' : 'pointer', opacity: prog ? 0.6 : 1, whiteSpace: 'nowrap', minHeight: 44 }}>
-                      {prog ? `招集中 ${prog.done}/${prog.total}` : `部門を招集（${members.length}コール）`}
-                    </button>
-                  </div>
-                  <div style={grid2}>
-                    {members.map((m) => {
-                      const rep = floorReports[m.id];
-                      const busy = floorBusy[m.id];
-                      const state = busy ? 'busy' : rep ? (rep.ok ? 'done' : 'fail') : 'idle';
-                      const dotColor = state === 'busy' ? dept.accent : state === 'done' ? '#6b8e6b' : state === 'fail' ? C.critical : C.hairlineStrong;
-                      const statusText = busy ? '検討中…' : rep ? rep.status : '待機中';
-                      const selected = activeMemberId === m.id;
-                      return (
-                        <button key={m.id} type="button" onClick={() => onMemberTap(m)}
-                          style={{
-                            textAlign: 'left', cursor: 'pointer', padding: 12, borderRadius: 12,
-                            background: selected ? C.soft : C.card,
-                            border: `1px solid ${selected ? dept.accent : C.hairline}`,
-                            borderLeft: `3px solid ${dept.accent}`,
-                            display: 'flex', flexDirection: 'column', gap: 4, minHeight: 76,
-                          }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>{m.name}</span>
-                          <span style={{ fontSize: 10.5, color: C.ink3, lineHeight: 1.35 }}>{m.title}</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 'auto', fontSize: 10.5, color: state === 'idle' ? C.ink3 : C.ink2 }}>
-                            <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0, animation: busy ? 'pulse 1.2s infinite' : 'none' }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{statusText}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* 選択中の社員の報告パネル */}
-            {activeMemberId && (() => {
-              const m = findMember(activeMemberId);
-              const rep = floorReports[activeMemberId];
-              const busy = floorBusy[activeMemberId];
-              if (!m) return null;
-              return (
-                <div style={{ ...card, borderTop: `3px solid ${DEPT_META[m.dept]?.accent || C.brand}`, marginTop: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.ink }}>{m.name}</p>
-                      <p style={{ margin: '2px 0 0', fontSize: 11, color: C.ink3 }}>{m.title}・{DEPT_META[m.dept]?.label}</p>
-                    </div>
-                    <button type="button" onClick={() => setActiveMemberId(null)} style={iconBtn} aria-label="閉じる"><X size={18} /></button>
-                  </div>
-                  <p style={{ margin: '10px 0 0', fontSize: 11, color: C.ink2, lineHeight: 1.6, paddingBottom: 10, borderBottom: `1px solid ${C.hairline}` }}>
-                    <strong style={{ color: C.ink }}>担当:</strong> {m.mandate}
-                  </p>
-                  {busy && <p style={{ fontSize: 12, color: C.ink3, margin: '12px 0 0' }}>{m.name} が検討中…</p>}
-                  {!busy && rep && rep.body && (
-                    <div style={{ marginTop: 12, fontSize: 13, lineHeight: 1.75, color: C.ink }}>
-                      <RoadmapMarkdown text={rep.body} />
-                    </div>
-                  )}
-                  {!busy && rep && !rep.ok && !rep.body && (
-                    <p style={{ fontSize: 12, color: C.critical, margin: '12px 0 0' }}>応答に失敗しました。少し時間をおいて「更新」してください。</p>
-                  )}
-                  {!busy && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-                      <button type="button" onClick={() => dispatchMember(m, floorOrder)}
-                        style={{ ...btnGhost, minHeight: 40, fontSize: 12, flex: 1, minWidth: 140 }}>
-                        🔄 {rep ? '更新（AI 1コール）' : '報告を出す（AI 1コール）'}
-                      </button>
-                      {rep && rep.ok && rep.body && (
-                        <button type="button" onClick={() => ticketFromReport(m, rep)} disabled={ticketed[m.id] === 'done'}
-                          style={{ ...btnGhost, minHeight: 40, fontSize: 12, flex: 1, minWidth: 140,
-                            opacity: ticketed[m.id] === 'done' ? 0.6 : 1, cursor: ticketed[m.id] === 'done' ? 'default' : 'pointer' }}>
-                          {ticketed[m.id] === 'done' ? '✅ チケット化済み' : '🎫 チケット化'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            </>)}
-
-            {/* ═══ アクションタブ（日次タスク ＋ 今やるべきこと ＋ チケット） ═══ */}
+            {/* ═══ アクションタブ（タスク ＋ チケット ＋ 受信箱） ═══ */}
             {activeTab === 'action' && (<>
-            {/* ── 🗓 日次タスク（今やるべきことの日次分解・約30日分） ── */}
-            <p style={sectionTitle}><ListChecks size={15} strokeWidth={2} /> 日次タスク（約30日分）</p>
+            {/* ── 🗓 タスク（手動追加のみ。日々の背骨は「今日の台本」が担う） ── */}
+            <p style={sectionTitle}><ListChecks size={15} strokeWidth={2} /> タスク（例外事項の置き場）</p>
             <div style={card}>
-              {!goal ? (
-                <p style={{ margin: 0, fontSize: 13, color: C.ink3, lineHeight: 1.7 }}>「概況」タブで目標を設定すると、AI が今日から約30日分の日次タスクに分解します。</p>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: dailyTasks.length ? 12 : 0 }}>
-                    <button type="button" onClick={makeTasks} disabled={tasksBusy} style={{ ...btnPrimary, width: 'auto', minHeight: 44, opacity: tasksBusy ? 0.6 : 1 }}>
-                      <ListChecks size={16} aria-hidden="true" />
-                      {tasksBusy ? 'AIが作成中…' : (dailyTasks.length ? '現状に合わせて引き直す' : 'AIに日次タスクを作ってもらう')}
-                    </button>
-                    <span style={{ fontSize: 11, color: C.ink3 }}>現状の人数・売上で軌道修正されます</span>
-                  </div>
-                  {tasksErr && <p style={{ margin: '0 0 8px', fontSize: 12, color: C.critical }}>{tasksErr}</p>}
-                  {(() => {
-                    const todayStr = new Date().toISOString().slice(0, 10);
-                    const upcoming = dailyTasks.filter((t) => t.due_date >= todayStr || !t.done).slice(0, 80);
-                    const byDate = {};
-                    upcoming.forEach((t) => { (byDate[t.due_date] = byDate[t.due_date] || []).push(t); });
-                    const dates = Object.keys(byDate).sort();
-                    if (dates.length === 0) return null;
-                    return dates.map((d) => (
-                      <div key={d} style={{ marginBottom: 12 }}>
-                        <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: d === todayStr ? C.brand : C.ink2 }}>
-                          {d === todayStr ? `${d}（今日）` : d}
-                        </p>
-                        {byDate[d].map((t) => (
-                          <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0' }}>
-                            <button type="button" onClick={() => toggleTask(t)} aria-label={t.done ? '未完了に戻す' : '完了'}
-                              style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 36, margin: '-8px 0 -8px -12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: t.done ? '#6b8e6b' : C.hairlineStrong }}>
-                              {t.done ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 5 }} />}
-                            </button>
-                            <span style={{ flex: '0 0 auto', fontSize: 10, fontWeight: 700, color: '#fff', background: DEPT_COLOR[t.dept] || C.brand, borderRadius: 6, padding: '2px 6px', marginTop: 1 }}>{t.dept}</span>
-                            <span style={{ flex: 1, fontSize: 13, color: t.done ? C.ink3 : C.ink, textDecoration: t.done ? 'line-through' : 'none', lineHeight: 1.5 }}>{t.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ));
-                  })()}
-                </>
-              )}
-            </div>
-
-            {/* ── 📋 今やるべきこと（指標シグナル・軌道修正のトリガー） ── */}
-            <p style={sectionTitle}><Flag size={15} strokeWidth={2} /> シグナル（指標が示す注意点）</p>
-            {/* 🏢 常駐ロスター: 4部門が常に在席。各部門の担当アクション件数を表示。 */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-              {DEPT_ORDER.map((d) => (
-                <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#fff', background: DEPT_COLOR[d], borderRadius: 99, padding: '4px 10px', opacity: deptCounts[d] ? 1 : 0.45 }}>
-                  {d}<span style={{ fontSize: 10, background: 'rgba(255,255,255,0.28)', borderRadius: 99, minWidth: 16, textAlign: 'center', padding: '0 4px' }}>{deptCounts[d]}</span>
-                </span>
-              ))}
-            </div>
-            {actions.length === 0 ? (
-              <div style={{ ...card, color: '#6b8e6b', fontSize: 13, fontWeight: 600 }}>順調です。今すぐ手を打つべき指標はありません 👍</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {actions.map((act, i) => (
-                  <div key={i} style={{ ...card, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                    <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: DEPT_COLOR[act.dept] || C.brand, borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' }}>{act.dept}</span>
-                      <span style={{ fontSize: 9, fontWeight: 600, color: C.ink3 }}>{act.stage}</span>
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.ink, lineHeight: 1.4 }}>{act.title}</p>
-                      <p style={{ margin: '4px 0 0', fontSize: 11, color: C.ink3 }}>根拠: {act.why}</p>
-                    </div>
-                    <Flag size={14} color={PRI_COLOR[act.pri]} aria-label={`優先度${PRI_LABEL[act.pri]}`} style={{ flex: '0 0 auto', marginTop: 3 }} />
-                  </div>
-                ))}
+              <p style={{ margin: '0 0 10px', fontSize: 11, color: C.ink3, lineHeight: 1.6 }}>
+                毎日のルーチンは上の「今日の台本」が正典。ここには台本に無い単発の用事だけを置く。
+              </p>
+              <div style={{ display: 'flex', gap: 8, marginBottom: dailyTasks.length ? 12 : 0 }}>
+                <input type="text" value={newTaskTitle} maxLength={200}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); addTask(); } }}
+                  placeholder="例: 審査リジェクトの返信を書く" style={{ ...inp, flex: 1 }} />
+                <button type="button" onClick={addTask} disabled={taskAdding || !newTaskTitle.trim()}
+                  style={{ ...btnPrimary, width: 'auto', minHeight: 44, padding: '0 16px', opacity: (taskAdding || !newTaskTitle.trim()) ? 0.5 : 1 }}>追加</button>
               </div>
-            )}
+              {(() => {
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const upcoming = dailyTasks.filter((t) => t.due_date >= todayStr || !t.done).slice(0, 60);
+                if (upcoming.length === 0) return null;
+                return upcoming.map((t) => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0' }}>
+                    <button type="button" onClick={() => toggleTask(t)} aria-label={t.done ? '未完了に戻す' : '完了'}
+                      style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 36, margin: '-8px 0 -8px -12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: t.done ? '#6b8e6b' : C.hairlineStrong }}>
+                      {t.done ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 5 }} />}
+                    </button>
+                    <span style={{ flex: 1, fontSize: 13, color: t.done ? C.ink3 : C.ink, textDecoration: t.done ? 'line-through' : 'none', lineHeight: 1.5 }}>{t.title}</span>
+                    <span style={{ flex: '0 0 auto', fontSize: 10, color: C.ink3, marginTop: 2 }}>{t.due_date}</span>
+                  </div>
+                ));
+              })()}
+            </div>
 
             {/* ── 🎫 チケット ── */}
             <p style={sectionTitle}>
@@ -1350,8 +832,56 @@ export default function AdminDashboard({ onClose }) {
 
             </>)}
 
-            {/* ═══ 概況タブ（後半: KPI・ファネル・継続率・LTV・コスト） ═══ */}
-            {activeTab === 'overview' && (<>
+            {/* ═══ 概況タブ（後半: 配信前=出荷チェックリスト / 配信中=KPI計器） ═══ */}
+            {activeTab === 'overview' && phase === 'prelaunch' && (<>
+            {/* ── 🚢 出荷チェックリスト（配信前の主役。チェックはこの端末に保存） ── */}
+            <p style={sectionTitle}><Rocket size={15} strokeWidth={2} /> 出荷チェックリスト
+              <span style={{ fontWeight: 600, color: C.ink3, fontSize: 11 }}>　残り {SHIP_CHECKLIST.filter((c) => !shipChecks[c.id]).length} 件</span>
+            </p>
+            <div style={card}>
+              {SHIP_CHECKLIST.map((c) => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0' }}>
+                  <button type="button" onClick={() => toggleShipCheck(c.id)} aria-label={shipChecks[c.id] ? '未完了に戻す' : '完了'}
+                    style={{ flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 44, minHeight: 36, margin: '-8px 0 -8px -12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: shipChecks[c.id] ? '#6b8e6b' : C.hairlineStrong }}>
+                    {shipChecks[c.id] ? <Check size={18} /> : <span style={{ display: 'inline-block', width: 16, height: 16, border: `2px solid ${C.hairlineStrong}`, borderRadius: 5 }} />}
+                  </button>
+                  <span style={{ flex: 1, fontSize: 13, color: shipChecks[c.id] ? C.ink3 : C.ink, textDecoration: shipChecks[c.id] ? 'line-through' : 'none', lineHeight: 1.55 }}>{c.title}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* ── 🔌 計測配線チェック（KPI の土台。イベントが 1 件でも入れば ✅） ── */}
+            <p style={sectionTitle}><Activity size={15} strokeWidth={2} /> 計測配線チェック</p>
+            <div style={card}>
+              <p style={{ margin: '0 0 10px', fontSize: 11, color: C.ink3, lineHeight: 1.6 }}>
+                TestFlight / 実機で操作して、各イベントが届くか確認する（直近{days}日の実カウント）。
+              </p>
+              {['app_open', 'signup_source', 'book_added', 'memo_added', 'paywall_viewed', 'checkout_started', 'checkout_completed', 'recall_shown', 'push_enabled'].map((ev) => {
+                const n = usage?.events?.[ev] || 0;
+                return (
+                  <div key={ev} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
+                    <span style={{ color: C.ink, fontFamily: 'ui-monospace, monospace' }}>{ev}</span>
+                    <span style={{ fontWeight: 700, color: n > 0 ? '#6b8e6b' : C.ink3 }}>{n > 0 ? `✅ ${n}` : '⚪ 0件'}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── 🚀 配信開始の切替 ── */}
+            <div style={{ ...card, marginTop: 18 }}>
+              <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: C.ink }}>🚀 App Store 配信を開始したら</p>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 150 }}>
+                  <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>配信日</label>
+                  <input type="date" value={launchDate} onChange={(e) => setLaunchDate(e.target.value)} style={inp} />
+                </div>
+                <button type="button" onClick={goLive} style={{ ...btnPrimary, width: 'auto', minHeight: 44 }}>配信中モードに切替</button>
+              </div>
+              <p style={{ margin: '8px 0 0', fontSize: 11, color: C.ink3, lineHeight: 1.6 }}>切り替えると KPI 計器と if-then 判定が有効になり、W1〜W4 ローンチスプリントが今日の一手に反映されます。</p>
+            </div>
+            </>)}
+
+            {activeTab === 'overview' && phase === 'live' && (<>
             {/* ── 期間トグル ＋ メトリクス ── */}
             <p style={sectionTitle}><Users size={15} strokeWidth={2} /> アクティブ人数</p>
             <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>

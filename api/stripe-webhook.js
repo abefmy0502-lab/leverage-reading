@@ -86,12 +86,28 @@ function subscriptionFields(sub) {
     status: sub?.status || null,
     price_id: priceId,
     current_period_end: toIso(sub?.current_period_end),
+    // 📉 チャーン計測: 解約時刻（Stripe の canceled_at、無ければ現在時刻）。
+    // canceled 以外では書かない（undefined キーは下の upsert ヘルパーが除去）。
+    ...(sub?.status === 'canceled'
+      ? { canceled_at: toIso(sub?.canceled_at) || new Date().toISOString() }
+      : {}),
     // ⚠️ provider を必ず刻む。これが無いと revenuecat-webhook.js の
     // 「Stripe active 保護ガード」(provider==='stripe' 判定) が一度も発火せず、
     // iOS の失効イベントが Web 課金中ユーザーの行を canceled で上書きして
     // ロックアウトする（実際に起きうる事故）。
     provider: 'stripe',
   };
+}
+
+// subscriptions への upsert。canceled_at 列が未適用の DB では列を抜いて再試行する
+// （supabase_subscriptions_canceled_at.sql 未適用でも webhook を止めない）。
+async function upsertSubscriptionRow(supabase, row) {
+  let { error } = await supabase.from('subscriptions').upsert(row, { onConflict: 'user_id' });
+  if (error && 'canceled_at' in row && /canceled_at/i.test(error.message || '')) {
+    const { canceled_at: _omit, ...rest } = row;
+    ({ error } = await supabase.from('subscriptions').upsert(rest, { onConflict: 'user_id' }));
+  }
+  if (error) throw error;
 }
 
 // user_id を解決する。subscription / session の metadata や client_reference_id を
@@ -186,17 +202,11 @@ export default async function handler(req, res) {
           fields = subscriptionFields(sub);
         }
 
-        const { error } = await supabase
-          .from('subscriptions')
-          .upsert(
-            {
-              user_id: userId,
-              stripe_customer_id: customerId,
-              ...fields,
-            },
-            { onConflict: 'user_id' },
-          );
-        if (error) throw error;
+        await upsertSubscriptionRow(supabase, {
+          user_id: userId,
+          stripe_customer_id: customerId,
+          ...fields,
+        });
         break;
       }
 
@@ -229,17 +239,11 @@ export default async function handler(req, res) {
           break;
         }
 
-        const { error } = await supabase
-          .from('subscriptions')
-          .upsert(
-            {
-              user_id: userId,
-              stripe_customer_id: customerId,
-              ...subscriptionFields(sub),
-            },
-            { onConflict: 'user_id' },
-          );
-        if (error) throw error;
+        await upsertSubscriptionRow(supabase, {
+          user_id: userId,
+          stripe_customer_id: customerId,
+          ...subscriptionFields(sub),
+        });
         break;
       }
 
@@ -272,17 +276,11 @@ export default async function handler(req, res) {
           }
         }
 
-        const { error } = await supabase
-          .from('subscriptions')
-          .upsert(
-            {
-              user_id: userId,
-              stripe_customer_id: customerId,
-              ...fields,
-            },
-            { onConflict: 'user_id' },
-          );
-        if (error) throw error;
+        await upsertSubscriptionRow(supabase, {
+          user_id: userId,
+          stripe_customer_id: customerId,
+          ...fields,
+        });
         break;
       }
 

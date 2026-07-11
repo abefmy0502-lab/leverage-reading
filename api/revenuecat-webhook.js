@@ -144,6 +144,17 @@ function resolveStatus(type, expirationMs) {
   }
 }
 
+// canceled_at 列が未適用の DB では「列が無い」エラーになるため、その時だけ
+// 列を抜いて再試行する（既存挙動を壊さない schema fallback）。
+async function upsertSubscriptionRow(supabase, row) {
+  let { error } = await supabase.from('subscriptions').upsert(row, { onConflict: 'user_id' });
+  if (error && 'canceled_at' in row && /canceled_at/i.test(error.message || '')) {
+    const { canceled_at: _omit, ...rest } = row;
+    ({ error } = await supabase.from('subscriptions').upsert(rest, { onConflict: 'user_id' }));
+  }
+  if (error) throw error;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -168,6 +179,15 @@ export default async function handler(req, res) {
     const event = body.event || {};
     const type = event.type;
     eventId = typeof event.id === 'string' && event.id ? event.id : null;
+
+    // 🧪 SANDBOX イベント（TestFlight / 開発ビルドの課金）は既定でスキップする。
+    // 本番 subscriptions とチャーン/CVR 等の顧客指標をテスト課金で汚さないため。
+    // クライアントの entitlement は RevenueCat SDK 直読（nativeEntitled）で成立
+    // するので、skip してもテスターのロック解除は壊れない。webhook 込みの通し
+    // 検証をしたい期間だけ env RC_ALLOW_SANDBOX=true にする。
+    if (event.environment === 'SANDBOX' && process.env.RC_ALLOW_SANDBOX !== 'true') {
+      return res.status(200).json({ received: true, skipped: 'sandbox' });
+    }
 
     // 冪等性ガード: 処理済み event.id は二度処理しない。「先に claim → 失敗時は
     // 解放（delete）」で 5xx 再送時の取りこぼしも防ぐ（api/stripe-webhook.js と
@@ -218,11 +238,15 @@ export default async function handler(req, res) {
 
       // fromIds は独立した行の更新（互いの結果に依存しない）ので並列実行する。
       await Promise.all(fromIds.map(async (uid) => {
-        const { error } = await supabase
+        let { error } = await supabase
           .from('subscriptions')
-          .update({ status: 'canceled' })
+          .update({ status: 'canceled', canceled_at: new Date().toISOString() })
           .eq('user_id', uid)
           .eq('provider', 'revenuecat');
+        if (error && /canceled_at/i.test(error.message || '')) {
+          ({ error } = await supabase.from('subscriptions')
+            .update({ status: 'canceled' }).eq('user_id', uid).eq('provider', 'revenuecat'));
+        }
         if (error) throw error;
       }));
 
@@ -234,18 +258,17 @@ export default async function handler(req, res) {
         const status = stillValid ? (carry?.status === 'past_due' ? 'past_due' : 'active') : 'canceled';
         // toIds も独立した行の upsert なので並列実行する。
         await Promise.all(toIds.map(async (uid) => {
-          const { error } = await supabase
-            .from('subscriptions')
-            .upsert({
-              user_id: uid,
-              provider: 'revenuecat',
-              store: normalizeStore(event.store),
-              rc_app_user_id: uid,
-              status,
-              price_id: event.product_id || carry?.price_id || null,
-              current_period_end: expIso,
-            }, { onConflict: 'user_id' });
-          if (error) throw error;
+          const row = {
+            user_id: uid,
+            provider: 'revenuecat',
+            store: normalizeStore(event.store),
+            rc_app_user_id: uid,
+            status,
+            price_id: event.product_id || carry?.price_id || null,
+            current_period_end: expIso,
+          };
+          if (status === 'canceled') row.canceled_at = new Date().toISOString();
+          await upsertSubscriptionRow(supabase, row);
         }));
       }
       return res.status(200).json({ received: true, transferred: { from: fromIds.length, to: toIds.length } });
@@ -281,6 +304,8 @@ export default async function handler(req, res) {
     // 'TRIAL' | 'INTRO' | 'NORMAL'。未知値/欠落は書かない（既存値を上書きしない）。
     const periodType = typeof event.period_type === 'string' ? event.period_type.toLowerCase() : '';
     if (['trial', 'intro', 'normal'].includes(periodType)) patch.period_type = periodType;
+    // 📉 チャーン計測: canceled への遷移時刻を残す（supabase_subscriptions_canceled_at.sql）。
+    if (status === 'canceled') patch.canceled_at = new Date().toISOString();
 
     // 二重 provider(Web=Stripe と IAP=RevenueCat)対策。subscriptions は user_id 1 行
     // なので、RC の expire/cancel イベントが「現在 active な Stripe 購読」を上書きして
@@ -302,10 +327,7 @@ export default async function handler(req, res) {
       }
     } catch { /* 読み取り失敗時は従来どおり upsert に進む（fail-open） */ }
 
-    const { error } = await supabase
-      .from('subscriptions')
-      .upsert(patch, { onConflict: 'user_id' });
-    if (error) throw error;
+    await upsertSubscriptionRow(supabase, patch);
 
     return res.status(200).json({ received: true });
   } catch (error) {

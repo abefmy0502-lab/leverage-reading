@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getRandomFromCategory } from '../lib/quotes';
+import { track } from '../lib/analytics';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 
 const STORAGE_KEY = 'onboardingCompleted';
@@ -132,6 +133,15 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
   const isLast = step === slides.length - 1;
   // Lazy initializer — runs once on first render, never on module load.
   const [welcomeQuote] = useState(() => getRandomFromCategory('encouragement'));
+  // 📊 signup_source: 「どこで知りましたか」の1タップ計測（任意・スキップ可）。
+  // チャネル別の獲得効率（note/X/検索）を測る唯一の一次データ。値は analytics の
+  // sanitizer 適合（≤32字の固定スラッグ）。1度選んだら変更なしで送信済み扱い。
+  const [srcPicked, setSrcPicked] = useState('');
+  const pickSource = (key) => {
+    if (srcPicked) return;
+    setSrcPicked(key);
+    track('signup_source', { ch: key });
+  };
   const trapRef = useFocusTrap(true);
 
   // Every dismissal path marks the onboarding as completed.
@@ -253,6 +263,23 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
           // 最後のカードは「行動」で締める。主 CTA は本追加を直接開き、
           // 説明で終わらせない。下に控えめな「あとで」を残して逃げ道も確保。
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6, flexShrink: 0 }}>
+            {/* 📊 signup_source（任意）: 押しつけないよう1行・小さく。選択後はお礼だけ。 */}
+            <div style={{ marginBottom: 2 }}>
+              <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 6px' }}>
+                {srcPicked ? 'ありがとうございます 🙏' : 'Orime をどこで知りましたか？（任意）'}
+              </p>
+              {!srcPicked && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {[['note', 'note'], ['x', 'X (Twitter)'], ['appstore', 'App Store検索'], ['friend', '知人'], ['other', 'その他']].map(([key, label]) => (
+                    <button key={key} type="button" onClick={() => pickSource(key)}
+                      style={{ padding: '7px 12px', borderRadius: 99, fontSize: 12, cursor: 'pointer',
+                        border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-ink-2)', minHeight: 34 }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {/* 主CTA＝いま読んでいる本を追加してメモを残す＝想起→行動の核ループに
                 最短で入る道（＝継続の aha）。AI選書は本が手元に無い人向けの副導線に降格
                 （選書は取得/読前フェーズでコストも掛かり、継続の核ではないため）。 */}

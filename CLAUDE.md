@@ -238,6 +238,8 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 
 | `supabase_ops_sales_metrics.sql` | 📣 営業ウィークリー計測 — `ops_sales_metrics(user_id, week_start date, new_paid, installs, lp_clicks, note_pv, x_profile_clicks, memo)` 新規 + UNIQUE(user_id, week_start) + RLS（本人 AND `is_app_admin()` の二層ゲート・ops_floor と同型）。操縦席の「📣 営業」タブが週次KPIを手入力で記録し、営業戦略（company/sales-strategy-2026-2027.md）の if-then 判断ルールを実データで自動評価・警告表示する。依存: supabase_admin_metrics.sql。未適用は案内カード表示のみ（既存機能に影響なし）。冪等 |
 
+| `supabase_subscriptions_canceled_at.sql` | 💳 解約時刻の記録 — `subscriptions.canceled_at timestamptz` を idempotent 追加。チャーン率（月次解約÷月初active）の正確な算出用。書くのは stripe/revenuecat 両 webhook（service_role）で、status='canceled' 遷移時に刻む。未適用 DB でも両 webhook は schema fallback（列抜き再試行）で止まらない。冪等 |
+
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 
 ## 🛡️ セキュリティ チェックリスト
@@ -302,6 +304,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `RAKUTEN_APPLICATION_ID` | 🔥 AI 選書「話題の本を探す」— 楽天ブックス API の**アプリケーションID（UUID 形式）**（`api/discover.js` サーバー専用）。https://webservice.rakuten.co.jp/ で無料発行。**2026 年の楽天 API 刷新で `RAKUTEN_ACCESS_KEY` との併用が必須**。未設定なら `{ok:false, reason:'not_configured'}` を返し UI は「準備中」に倒す（fail-safe） |
 | `RAKUTEN_ACCESS_KEY` | 🔑 楽天 API の**アクセスキー（`pk_...` 形式）**（`api/discover.js` サーバー専用）。2026 年の刷新で `applicationId` と**両方必須**（片方だけだと楽天が 400）。アプリ詳細の「アクセスキー」欄の値。**クライアント露出厳禁**（サーバーからのクエリにのみ付与） |
 | `RAKUTEN_AFFILIATE_ID` | (任意) 楽天アフィリエイト ID。設定すると「話題の本を探す」の楽天ブックスリンクにアフィリエイトが付く（`api/discover.js`） |
+| `RC_ALLOW_SANDBOX` | (任意) `'true'` で RevenueCat の SANDBOX イベント（TestFlight/開発ビルド課金）も subscriptions に書き込む。既定はスキップ（テスト課金で顧客指標を汚さないため。テスターの解除は RevenueCat SDK 直読で成立） |
 | `RAKUTEN_APP_URL` | **（2026 刷新後は実質必須）** 楽天アプリ登録の「許可されたWebサイト」に登録した本番ドメイン URL（例 `https://leverage-reading.vercel.app`）。`api/discover.js` がサーバー→楽天へのリクエストに `Referer` として付与する。**新 API は Referer/Origin ヘッダーが無いと 403**。未設定なら Referer を送らないため本が出ない |
 | `REVENUECAT_WEBHOOK_AUTH` | 💳 RevenueCat Webhook の認証トークン（`api/revenuecat-webhook.js` が `Authorization` ヘッダーと突き合わせる）。RevenueCat ダッシュボードの Webhook 設定と同じ値を設定。**未設定だと Webhook を全拒否**（fail-closed）。サーバー専用 |
 | `VITE_VAPID_PUBLIC_KEY` | 🔔 Web Push（想起通知）の VAPID 公開鍵（クライアント `src/lib/push.js` が購読時に使用）。`npx web-push generate-vapid-keys` で生成 |
