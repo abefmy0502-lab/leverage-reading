@@ -289,6 +289,114 @@ export default function AdminDashboard({ onClose }) {
   const [ticketed, setTicketed] = useState({});
   // タブ（概況 / アクション / 参謀 / フロア）。
   const [activeTab, setActiveTab] = useState('overview');
+
+  // ── 📣 営業ウィークリー（company/sales-strategy-2026-2027.md をダッシュボード化）──
+  // 戦略の月次マイルストーン（継続課金者の目標）。文書を改訂したらここも更新する。
+  const SALES_MILESTONES = [
+    ['2026-07', 5], ['2026-08', 15], ['2026-09', 30], ['2026-10', 50], ['2026-11', 75], ['2026-12', 100],
+    ['2027-03', 150], ['2027-06', 300], ['2027-09', 550], ['2027-12', 1000],
+  ];
+  const SALES_FIELDS = [
+    ['new_paid', '新規課金', '人'],
+    ['installs', 'インストール', '件'],
+    ['lp_clicks', 'LPクリック', '回'],
+    ['note_pv', 'note PV', ''],
+    ['x_profile_clicks', 'Xプロフクリック', '回'],
+  ];
+  const [salesRows, setSalesRows] = useState([]);           // 直近の週次実績（新しい順）
+  const [salesForm, setSalesForm] = useState({});           // 今週の入力
+  const [salesSaving, setSalesSaving] = useState(false);
+  const [salesMissing, setSalesMissing] = useState(false);  // テーブル未適用
+  const [salesLoaded, setSalesLoaded] = useState(false);
+
+  // 今週の月曜日（ローカル）を YYYY-MM-DD で。週次レコードのキー。
+  const weekStartISO = () => {
+    const d = new Date();
+    const day = d.getDay(); // 0=日
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const loadSales = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ops_sales_metrics')
+        .select('*')
+        .order('week_start', { ascending: false })
+        .limit(12);
+      if (error) throw error;
+      setSalesMissing(false);
+      const rows = data || [];
+      setSalesRows(rows);
+      const cur = rows.find((r) => r.week_start === weekStartISO());
+      if (cur) {
+        const f = {};
+        SALES_FIELDS.forEach(([k]) => { f[k] = cur[k] ?? ''; });
+        f.memo = cur.memo || '';
+        setSalesForm(f);
+      }
+    } catch (e) {
+      // 42P01 = relation does not exist（マイグレーション未適用）
+      if (e?.code === '42P01' || /does not exist/i.test(e?.message || '')) setSalesMissing(true);
+    } finally {
+      setSalesLoaded(true);
+    }
+  };
+  useEffect(() => { if (activeTab === 'sales' && !salesLoaded) loadSales(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeTab]);
+
+  const saveSalesWeek = async () => {
+    if (salesSaving) return;
+    setSalesSaving(true);
+    try {
+      const row = { week_start: weekStartISO(), updated_at: new Date().toISOString() };
+      SALES_FIELDS.forEach(([k]) => {
+        const v = parseInt(salesForm[k], 10);
+        row[k] = Number.isFinite(v) && v >= 0 ? v : null;
+      });
+      row.memo = (salesForm.memo || '').slice(0, 500) || null;
+      const { error } = await supabase
+        .from('ops_sales_metrics')
+        .upsert(row, { onConflict: 'user_id,week_start' });
+      if (error) throw error;
+      await loadSales();
+    } catch { /* RLS/未適用時は下の案内カードが出ている */ }
+    setSalesSaving(false);
+  };
+
+  // if-then 警告（戦略 §6 の判断ルールを実データで自動評価）。
+  const salesAlerts = (() => {
+    const rows = [...salesRows].sort((a, b) => String(b.week_start).localeCompare(String(a.week_start)));
+    const out = [];
+    const ctr = (r) => (r?.note_pv > 0 && r?.lp_clicks != null ? r.lp_clicks / r.note_pv : null);
+    const c0 = ctr(rows[0]); const c1 = ctr(rows[1]);
+    if (c0 != null && c1 != null && c0 < 0.02 && c1 < 0.02) {
+      out.push({ level: 'warn', text: `note→LP クリック率が2週連続 2% 未満（${(c0 * 100).toFixed(1)}% / ${(c1 * 100).toFixed(1)}%）`, action: 'CTA を記事末→中間にも追加し、文言を「悩み文脈」に書き換える' });
+    }
+    const last4 = rows.slice(0, 4);
+    const sum = (arr, k) => arr.reduce((a, r) => a + (Number.isFinite(r?.[k]) ? r[k] : 0), 0);
+    const inst4 = sum(last4, 'installs'); const paid4 = sum(last4, 'new_paid');
+    if (inst4 >= 30 && paid4 / inst4 < 0.03) {
+      out.push({ level: 'warn', text: `install→課金が直近4週で ${(100 * paid4 / inst4).toFixed(1)}%（基準 3%）`, action: 'ペイウォール手前の価値プレビューを改善。改善しなければ 7日間無料（Introductory Offer）の AB を検討' });
+    }
+    // 今月の月次目標（マイルストーン線形補間ではなく当月値）と新規ペース
+    const ym = new Date(); const ymKey = `${ym.getFullYear()}-${String(ym.getMonth() + 1).padStart(2, '0')}`;
+    const ms = SALES_MILESTONES.find(([k]) => k === ymKey);
+    if (ms && last4.length >= 2) {
+      const idx = SALES_MILESTONES.findIndex(([k]) => k === ymKey);
+      const prevTarget = idx > 0 ? SALES_MILESTONES[idx - 1][1] : 0;
+      const monthlyNeed = Math.max(0, ms[1] - prevTarget);
+      if (monthlyNeed > 0 && paid4 < monthlyNeed * 0.5) {
+        out.push({ level: 'warn', text: `新規課金が直近4週 ${paid4} 人 — 今月目標の増分 ${monthlyNeed} 人の 50% 未満`, action: '翌月は「比較記事」（最も課金に近い）を月2本に増やし、ストーリー記事を1回休む' });
+      }
+    }
+    const pv4 = sum(rows.slice(0, 4), 'note_pv'); const pvPrev4 = sum(rows.slice(4, 8), 'note_pv');
+    if (rows.length >= 8 && pvPrev4 > 0 && pv4 <= pvPrev4) {
+      out.push({ level: 'info', text: `note PV が横ばい（直近4週 ${pv4} ≤ 前4週 ${pvPrev4}）`, action: 'SEO キーワードを再選定（検索ボリュームのある悩み語へ）。/note-shijo で競合調査' });
+    }
+    return out;
+  })();
+
   // 🗓 日次タスク。
   const [dailyTasks, setDailyTasks] = useState([]);
   const [tasksBusy, setTasksBusy] = useState(false);
@@ -743,7 +851,7 @@ export default function AdminDashboard({ onClose }) {
           <>
             {/* タブ: 概況 / アクション / 参謀 */}
             <div style={{ display: 'flex', gap: 6, position: 'sticky', top: 0, padding: '10px 0 12px', background: C.pageBg, zIndex: 1 }}>
-              {[['overview', '📊 概況'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀'], ['floor', '🏢 フロア']].map(([k, label]) => (
+              {[['overview', '📊 概況'], ['sales', '📣 営業'], ['action', '🗓 アクション'], ['advisor', '🧠 参謀'], ['floor', '🏢 フロア']].map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setActiveTab(k)}
                   style={{ flex: 1, padding: '10px 2px', borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
                     border: `1px solid ${activeTab === k ? 'transparent' : C.hairlineStrong}`,
@@ -812,6 +920,110 @@ export default function AdminDashboard({ onClose }) {
             </>)}
 
             {/* ═══ 参謀タブ（作戦会議 ＋ ロードマップ） ═══ */}
+            {/* ═══ 📣 営業タブ — 週次KPI・マイルストーン・警告（戦略のダッシュボード化） ═══ */}
+            {activeTab === 'sales' && (<>
+              <p style={sectionTitle}>📣 マイルストーン進捗</p>
+              <div style={card}>
+                {(() => {
+                  const active = revenue?.active ?? null;
+                  const now = new Date(); const ymKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                  const cur = SALES_MILESTONES.find(([k]) => k >= ymKey) || SALES_MILESTONES[SALES_MILESTONES.length - 1];
+                  const pace = active != null && cur ? Math.round((active / cur[1]) * 100) : null;
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ fontSize: 13, color: C.ink }}>
+                        現在の有料会員: <b style={{ fontSize: 18 }}>{active ?? '—'}</b> 人
+                        　/　直近目標（{cur[0]}）: <b>{cur[1]}</b> 人
+                        {pace != null && <span style={{ marginLeft: 8, fontWeight: 700, color: pace >= 80 ? '#6b8e6b' : pace >= 40 ? '#a8842f' : '#b75050' }}>ペース {pace}%</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                        {SALES_MILESTONES.map(([k, v]) => (
+                          <span key={k} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, border: `1px solid ${C.hairlineStrong}`, color: active != null && active >= v ? '#6b8e6b' : C.ink2, background: active != null && active >= v ? 'var(--c-positive-soft, #e2ecd8)' : 'transparent' }}>
+                            {k}: {v}人{active != null && active >= v ? ' ✓' : ''}
+                          </span>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: 11, color: C.ink3, margin: '4px 0 0' }}>目標線は company/sales-strategy-2026-2027.md §5。改訂したらコードの SALES_MILESTONES も更新。</p>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {salesMissing ? (
+                <div style={{ ...card, borderColor: '#e0cabf' }}>
+                  <p style={{ fontSize: 12, color: C.ink2, margin: 0, lineHeight: 1.7 }}>
+                    週次トラッキングは未セットアップです。Supabase SQL Editor で <b>supabase_ops_sales_metrics.sql</b> を実行すると、このタブで週次KPIの記録と警告判定ができるようになります。
+                  </p>
+                </div>
+              ) : (<>
+                {salesAlerts.length > 0 && (
+                  <>
+                    <p style={sectionTitle}>⚠️ 判断ルールに該当</p>
+                    {salesAlerts.map((a, i) => (
+                      <div key={i} style={{ ...card, borderColor: a.level === 'warn' ? '#e0cabf' : C.hairlineStrong }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: a.level === 'warn' ? '#b75050' : C.ink, margin: '0 0 4px' }}>{a.text}</p>
+                        <p style={{ fontSize: 12, color: C.ink2, margin: 0, lineHeight: 1.6 }}>→ {a.action}</p>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                <p style={sectionTitle}>✍️ 今週の数字（週の起点: {weekStartISO()}）</p>
+                <div style={card}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    {SALES_FIELDS.map(([k, label]) => (
+                      <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: C.ink2 }}>
+                        {label}
+                        <input type="number" inputMode="numeric" min={0} max={9999999} value={salesForm[k] ?? ''} onChange={(e) => setSalesForm((f) => ({ ...f, [k]: e.target.value }))} style={inp} placeholder="—" />
+                      </label>
+                    ))}
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: C.ink2 }}>
+                      メモ（任意）
+                      <input type="text" maxLength={500} value={salesForm.memo ?? ''} onChange={(e) => setSalesForm((f) => ({ ...f, memo: e.target.value }))} style={inp} placeholder="気づき一言" />
+                    </label>
+                  </div>
+                  <button type="button" onClick={saveSalesWeek} disabled={salesSaving} style={{ ...btnPrimary, minHeight: 44, marginTop: 12, opacity: salesSaving ? 0.6 : 1 }}>
+                    {salesSaving ? '保存中…' : '今週の数字を保存'}
+                  </button>
+                  <p style={{ fontSize: 11, color: C.ink3, margin: '8px 0 0', lineHeight: 1.6 }}>
+                    出どころ: 新規課金=下の売上欄 / インストール=App Store Connect / LPクリック=note・XのUTM / note PV=noteダッシュボード / Xプロフクリック=Xアナリティクス。日曜の週次レビュー（20分）で入力。
+                  </p>
+                </div>
+
+                {salesRows.length > 0 && (
+                  <>
+                    <p style={sectionTitle}>📈 直近8週</p>
+                    <div style={{ ...card, overflowX: 'auto' }}>
+                      <table style={{ borderCollapse: 'collapse', fontSize: 11, width: '100%', minWidth: 560 }}>
+                        <thead>
+                          <tr style={{ color: C.ink2, textAlign: 'right' }}>
+                            <th style={{ textAlign: 'left', padding: '4px 6px' }}>週</th>
+                            {SALES_FIELDS.map(([k, label]) => <th key={k} style={{ padding: '4px 6px', fontWeight: 600 }}>{label}</th>)}
+                            <th style={{ padding: '4px 6px', fontWeight: 600 }}>note CTR</th>
+                            <th style={{ padding: '4px 6px', fontWeight: 600 }}>課金率</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {salesRows.slice(0, 8).map((r) => {
+                            const ctr = r.note_pv > 0 && r.lp_clicks != null ? `${(100 * r.lp_clicks / r.note_pv).toFixed(1)}%` : '—';
+                            const cvr = r.installs > 0 && r.new_paid != null ? `${(100 * r.new_paid / r.installs).toFixed(1)}%` : '—';
+                            return (
+                              <tr key={r.week_start} style={{ color: C.ink, textAlign: 'right', borderTop: `1px solid ${C.hairline}` }}>
+                                <td style={{ textAlign: 'left', padding: '5px 6px', whiteSpace: 'nowrap' }}>{String(r.week_start).slice(5)}〜</td>
+                                {SALES_FIELDS.map(([k]) => <td key={k} style={{ padding: '5px 6px' }}>{r[k] ?? '—'}</td>)}
+                                <td style={{ padding: '5px 6px' }}>{ctr}</td>
+                                <td style={{ padding: '5px 6px' }}>{cvr}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </>)}
+            </>)}
+
             {activeTab === 'advisor' && (<>
             {/* ── 🗺 ロードマップ（AIが年の目標から月別計画を引く） ── */}
             <p style={sectionTitle}><Route size={15} strokeWidth={2} /> ロードマップ</p>

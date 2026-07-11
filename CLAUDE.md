@@ -236,6 +236,8 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `supabase_subscriptions_provider_backfill.sql` | 💳 `subscriptions.provider` のバックフィル — `provider IS NULL AND stripe_subscription_id IS NOT NULL` の既存行に `provider='stripe'` を埋める。`api/stripe-webhook.js` が provider を書くようになる前に作られた行が対象。`api/revenuecat-webhook.js` の「Stripe active は RC で上書きしない」ガードは provider 優先 + stripe_subscription_id フォールバックの二段判定なので未適用でも誤動作はしないが、データを正しておくのが本筋。1 回だけ実行すればよい（再実行も無害） |
 | `supabase_ops_floor.sql` | 🏢 作戦司令室（社員フロア＝仮想 AI 企業）の報告ログ＝AI企業の「記憶」— `ops_floor_reports(id, user_id default auth.uid(), member_id text, kind 'report'/'integration', status, body, created_at)` 新規 + RLS（本人のみ全操作）+ index(user, member, created_at desc) + `char_length` CHECK。`src/lib/aiCompany.js` が組織図（CEO室/経営企画/マーケ/営業/財務/法務/プロダクト/特別顧問 = 22名。id/mandate/lens）を定義。`prompts.js opsSpecialist`（社員1名＝「STATUS:一言＋成果物本体」）/ `opsIntegration`（CEO室が全報告を統合し「今日の意思決定1つ」に収束）、`ai.js consultSpecialist`（1名=callClaude 1コール=1成果物・STATUS抽出）/ `integrateFloor`（全社統合1コール）。AdminDashboard の「🏢 作戦司令室」タブが部門別グリッド（社員カード＝待機/検討中/報告/失敗）＋全社サマリー帯＋CEO統合ブリーフ＋部門一括招集（順次・進捗表示）＋成果物→🎫チケット化（admin_ticket_create）を描画。最新行=現在状態・過去行=履歴。クライアントは Supabase とローカル（localStorage）へ二重書き込みし、マウント時に新しい方を採用。**未適用 DB でも localStorage のみで完全動作**（schema-error は静かに握りつぶし）。管理者専用（`is_app_admin`）。冪等 |
 
+| `supabase_ops_sales_metrics.sql` | 📣 営業ウィークリー計測 — `ops_sales_metrics(user_id, week_start date, new_paid, installs, lp_clicks, note_pv, x_profile_clicks, memo)` 新規 + UNIQUE(user_id, week_start) + RLS（本人 AND `is_app_admin()` の二層ゲート・ops_floor と同型）。操縦席の「📣 営業」タブが週次KPIを手入力で記録し、営業戦略（company/sales-strategy-2026-2027.md）の if-then 判断ルールを実データで自動評価・警告表示する。依存: supabase_admin_metrics.sql。未適用は案内カード表示のみ（既存機能に影響なし）。冪等 |
+
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 
 ## 🛡️ セキュリティ チェックリスト
