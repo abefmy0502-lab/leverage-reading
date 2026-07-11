@@ -64,7 +64,13 @@ export default function KnowledgeJourney({ userId }) {
     setActiveTheme(theme);
     setState({ status: 'loading' });
     try {
-      const r = await generateKnowledgeJourney(userId, theme);
+      const r = await generateKnowledgeJourney(userId, theme, {
+        // ⚡ ストリーミング表示 — 足あとは長文になりやすい。最初の段落から流し込む。
+        onChunk: (text) => {
+          if (!aliveRef.current) return;
+          setState((st) => (st.status === 'loading' ? { status: 'loading', partial: text } : st));
+        },
+      });
       if (!aliveRef.current) return;
       if (r?.tooThin) setState({ status: 'thin' });
       else setState({ status: 'done', ...r });
@@ -139,7 +145,12 @@ export default function KnowledgeJourney({ userId }) {
         </button>
       </div>
 
-      {state.status === 'loading' && <Spinner message="あなたのメモを時系列で読んでいます…" />}
+      {state.status === 'loading' && !state.partial && <Spinner message="あなたのメモを時系列で読んでいます…" />}
+      {state.status === 'loading' && state.partial && (
+        <div aria-live="polite" aria-busy="true">
+          <MarkdownSections text={state.partial} />
+        </div>
+      )}
 
       {state.status === 'thin' && (
         <EmptyState

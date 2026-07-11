@@ -13,10 +13,10 @@ import {
   RefreshCw as IcRefresh,
   Sparkles as IcSparkles,
 } from 'lucide-react';
-import { callClaude, sanitizeForPrompt, gatherAdvisorContext } from '../lib/ai';
+import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext } from '../lib/ai';
 import { streamClaude } from '../lib/streamClaude';
 import { PROMPTS } from '../lib/prompts';
-import { MODEL_SMART, MODEL_FAST } from '../lib/models';
+import { MODEL_SMART } from '../lib/models';
 import { LIMITS, clamp } from '../lib/limits';
 import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
@@ -91,6 +91,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // (タップ不可で文字を読まされるだけ)。例はチップ UI に分離した。
   // 「📚 読みたいに追加」のタップ受付を触覚で即時 ack するため。
   const { user: advisorUser } = useAuth();
+  // ⚡ 読書傾向コンテキストをタブ表示時に先読み — 推薦開始時にはキャッシュ済みで、
+  // 「選んでいます…」までの初動が速くなる（ai.js 側で TTL キャッシュ）。
+  useEffect(() => { prewarmAdvisorContext(advisorUser?.id); }, [advisorUser?.id]);
   const advisorHaptic = useHaptic();
   const advisorToast = useToast();
   const advisorConfirm = useConfirm();
@@ -348,8 +351,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       text = await callClaude(
         PROMPTS.advisorInterview.system,
         PROMPTS.advisorInterview.user({ concern: safeConcern, priorQA, round, maxRounds: MAX_INTERVIEW_ROUNDS }),
-        // ヒアリング質問生成は定型 JSON なので FAST(Haiku)。安価・高速で品質十分。
-        { max_tokens: 700, cacheSystem: true, model: MODEL_FAST },
+        // ヒアリングの質問の質 = 選書精度の土台なので SMART に昇格（出力は短い
+        // JSON なので速度影響は小さい。深掘りの鋭さ・選択肢の具体性が上がる）。
+        { max_tokens: 700, cacheSystem: true, model: MODEL_SMART },
       );
     } catch {
       return null;

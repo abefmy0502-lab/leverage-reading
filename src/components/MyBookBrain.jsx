@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
-import { streamMyBookBrain, generateWeeklyQuestion } from '../lib/ai';
+import { streamMyBookBrain, generateWeeklyQuestion, prewarmKnowledge } from '../lib/ai';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
@@ -272,6 +272,9 @@ function LearningInline({ onCancel, onSaved }) {
 // ============================================================================
 export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook }) {
   const { user } = useAuth();
+  // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
+  // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
+  useEffect(() => { prewarmKnowledge(user?.id); }, [user?.id]);
   const toast = useToast();
   const confirm = useConfirm();
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'

@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './useAuth';
 import { LIMITS, clamp } from '../lib/limits';
 import { isSchemaError } from '../lib/errors';
+import { invalidateKnowledgeCache } from '../lib/ai';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -147,6 +148,8 @@ export function useBooks() {
 
   const saveBook = async (book) => {
     if (!user || !isSupabaseConfigured) return null;
+    // 本の保存はまとめメモ/AIまとめ等（知識ベースの材料）を変えうる → キャッシュ無効化。
+    invalidateKnowledgeCache();
 
     try {
       const bookData = {
@@ -461,6 +464,7 @@ export function useBooks() {
 
   const deleteBook = async (bookId) => {
     if (!user || !isSupabaseConfigured) return;
+    invalidateKnowledgeCache();
     try {
       const { error } = await supabase.from('books').delete().eq('id', bookId);
       if (error) throw error;

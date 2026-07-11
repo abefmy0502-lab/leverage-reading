@@ -14,7 +14,8 @@ import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp } from '../lib/helpContent';
-import { callClaude, sanitizeForPrompt, isClaudeErrorString } from '../lib/ai';
+import { sanitizeForPrompt } from '../lib/ai';
+import { streamClaude } from '../lib/streamClaude';
 import { PROMPTS } from '../lib/prompts';
 import { toMessage } from '../lib/errors';
 import { LIMITS, clamp } from '../lib/limits';
@@ -343,14 +344,17 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
     setError('');
     setAsking(true);
     try {
-      const res = await callClaude(PROMPTS.helpAi.system, text, { max_tokens: 600, cacheSystem: true });
-      // callClaude はエラーを「日本語のエラー文字列」で返す契約。回答として
-      // 表示せずエラー欄に出す（トーンの混線を防ぐ）。
-      if (isClaudeErrorString(res)) {
-        setError(res);
-      } else {
-        setAnswer(res || '回答を取得できませんでした。');
-      }
+      // ⚡ ストリーミング — 全文を待たず 1 文字目から表示（体感の即答化）。
+      // streamClaude は失敗を throw する（エラー文が回答として混ざらない）。
+      let full = '';
+      await streamClaude({
+        system: PROMPTS.helpAi.system,
+        cacheSystem: true,
+        messages: [{ role: 'user', content: text }],
+        max_tokens: 600,
+        onChunk: (t) => { full = t; setAnswer(t); },
+      });
+      if (!full.trim()) setAnswer('回答を取得できませんでした。');
     } catch (e) {
       // 他画面と同様に humanize（生の英語スタック/内部メッセージを出さない）。
       setError(toMessage(e, '通信エラーが発生しました。少し時間をおいて再度お試しください。'));

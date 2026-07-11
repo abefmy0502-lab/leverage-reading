@@ -466,6 +466,51 @@ async function gatherKnowledge(userId) {
 }
 
 // ============================================================================
+// 📦 知識スキャンのセッションキャッシュ（速度の最重要レバー）
+// ============================================================================
+// gatherKnowledge は「全メモ + 全 books の synth 化」を行う最も重いクエリで、
+// マイ読書脳 / テーマまとめ / テーマ候補 / 足あと / 今週の問い の 5 経路が
+// それぞれ毎回実行していた。同一ユーザーの結果を短TTLで共有し、
+//   ・同じ画面での連続質問（マイ読書脳の会話）
+//   ・タブを開いた時のテーマ候補スキャン → 直後のテーマ生成
+// の 2 回目以降からスキャン時間（数百ms〜数秒）を丸ごと消す。
+// 鮮度: メモ書き込み系（AppDataCache の setMemos/patchMemos）から invalidate
+// されるため「書いた直後に聞く」ケースでも古い知識に基づかない。TTL は保険。
+let _knowledgeCache = { userId: null, at: 0, promise: null };
+const KNOWLEDGE_TTL_MS = 120_000;
+
+export function invalidateKnowledgeCache() {
+  _knowledgeCache = { userId: null, at: 0, promise: null };
+  // 読書傾向（AI 選書のコンテキスト）も同じ材料に依存するので連動して無効化。
+  try { invalidateAdvisorContextCache(); } catch { /* 宣言順の都合で未定義なら無視 */ }
+}
+
+function gatherKnowledgeCached(userId) {
+  const now = Date.now();
+  if (
+    _knowledgeCache.promise &&
+    _knowledgeCache.userId === userId &&
+    now - _knowledgeCache.at < KNOWLEDGE_TTL_MS
+  ) {
+    return _knowledgeCache.promise;
+  }
+  const promise = gatherKnowledge(userId).catch((e) => {
+    // 失敗はキャッシュしない（次回は再試行）。
+    if (_knowledgeCache.promise === promise) invalidateKnowledgeCache();
+    throw e;
+  });
+  _knowledgeCache = { userId, at: now, promise };
+  return promise;
+}
+
+// タブを開いた瞬間に裏でスキャンを始めておくためのプリウォーム（fire-and-forget）。
+// 最初の質問/生成時にはキャッシュ済み → 体感の初動が数百ms〜数秒速くなる。
+export function prewarmKnowledge(userId) {
+  if (!userId || !isSupabaseConfigured) return;
+  try { gatherKnowledgeCached(userId).catch(() => {}); } catch { /* noop */ }
+}
+
+// ============================================================================
 // 🔍 AI 選書アドバイザー用コンテキスト (gatherAdvisorContext)
 // ============================================================================
 // AI 選書だけが「自分のメモを根拠にする」独自性を全く使っておらず、汎用レコメンダ
@@ -488,7 +533,43 @@ async function gatherKnowledge(userId) {
 const ADVISOR_MAX_BOOKS = 20;
 const ADVISOR_MAX_POINTS = 6;
 
-export async function gatherAdvisorContext(userId) {
+
+// 📦 AI 選書コンテキストのセッションキャッシュ + プリウォーム。
+// 推薦の直前に毎回 books を引いていた（+0.5〜1.5s）。ヒアリング開始時点で
+// 裏取りしておけば、推薦ストリーム開始までの待ちがゼロになる。
+// 知識キャッシュと同じ思想（TTL + メモ/本の書き込みで invalidate — 下の
+// invalidateKnowledgeCache から連動して呼ばれる）。
+let _advisorCtxCache = { userId: null, at: 0, promise: null };
+const ADVISOR_CTX_TTL_MS = 120_000;
+
+export function invalidateAdvisorContextCache() {
+  _advisorCtxCache = { userId: null, at: 0, promise: null };
+}
+
+export function gatherAdvisorContext(userId) {
+  if (!userId) return Promise.resolve('');
+  const now = Date.now();
+  if (
+    _advisorCtxCache.promise &&
+    _advisorCtxCache.userId === userId &&
+    now - _advisorCtxCache.at < ADVISOR_CTX_TTL_MS
+  ) {
+    return _advisorCtxCache.promise;
+  }
+  const promise = gatherAdvisorContextInner(userId).catch(() => {
+    if (_advisorCtxCache.promise === promise) invalidateAdvisorContextCache();
+    return ''; // graceful — コンテキスト無しでも推薦は動く
+  });
+  _advisorCtxCache = { userId, at: now, promise };
+  return promise;
+}
+
+export function prewarmAdvisorContext(userId) {
+  if (!userId || !isSupabaseConfigured) return;
+  try { gatherAdvisorContext(userId).catch(() => {}); } catch { /* noop */ }
+}
+
+async function gatherAdvisorContextInner(userId) {
   if (!isSupabaseConfigured || !userId) return '';
 
   let books;
@@ -598,7 +679,7 @@ async function buildBrainContext({ userId, question, onStage }) {
   }
   onStage?.('search');
 
-  const { all, counts } = await gatherKnowledge(userId);
+  const { all, counts } = await gatherKnowledgeCached(userId);
 
   // Priority-rank, then preserve original recency order for the slice.
   const rankedAll = [...all]
@@ -779,7 +860,7 @@ export async function summarizeCards({ title, cards }) {
 // 「目的に対して得たもの / 新しく見えた視点 / 次の一歩(3つ)」に整理する。
 // 返り値の Markdown 末尾「## ✅ 次の一歩」の "- " 行を、呼び出し側が
 // タップで行動に追加できる（ユーザー or AI のタスク作成支援）。
-export async function analyzeBookLearnings({ bookId, title, author, purpose, challenge, summaryMemo }) {
+export async function analyzeBookLearnings({ bookId, title, author, purpose, challenge, summaryMemo, onChunk, signal }) {
   if (!isSupabaseConfigured) throw new Error('Supabase が設定されていません。');
   if (!bookId) throw new Error('本が特定できません。');
 
@@ -805,23 +886,35 @@ export async function analyzeBookLearnings({ bookId, title, author, purpose, cha
     parts.push(`【カードメモ】\n${cardMemos.map((t, i) => `(${i + 1}) ${t}`).join('\n')}`);
   }
   const memos = parts.join('\n\n');
-  const content = await callClaude(
-    PROMPTS.bookLearningAnalysis.system,
-    PROMPTS.bookLearningAnalysis.user({
-      title: clamp(sanitizeForPrompt(title || ''), LIMITS.bookTitle),
-      author: clamp(sanitizeForPrompt(author || ''), LIMITS.bookAuthor),
-      purpose: clamp(sanitizeForPrompt(purpose || ''), LIMITS.memoText),
-      challenge: clamp(sanitizeForPrompt(challenge || ''), LIMITS.memoText),
-      memos,
-    }),
-    { max_tokens: 3072, model: MODEL_SMART, cacheSystem: true },
-  );
-  // callClaude はエラー時に文言（'エラー...' / 'AI機能...' / 'リクエスト...'）を返すことがある。
-  // それを「分析結果」として描画しないよう、成功時のみ track / return する。
-  if (typeof content !== 'string'
-    || isClaudeErrorString(content)
-    || isSuspiciousOutput(content)) {
-    throw new Error(typeof content === 'string' && content ? content : '分析に失敗しました。少し時間をおいて再度お試しください。');
+  // ⚡ ストリーミング化 — 全文生成（数十秒）を黙って待たせず、最初の 1 行から
+  // 見せる。onChunk はレンダリング用の逐次コールバック（省略可・従来互換）。
+  // streamClaude は失敗を throw する（callClaude の文字列契約と違う）ので、
+  // エラー文が「分析結果」として混入する事故は構造的に起きない。
+  let content = '';
+  await streamClaude({
+    system: PROMPTS.bookLearningAnalysis.system,
+    cacheSystem: true,
+    messages: [{
+      role: 'user',
+      content: PROMPTS.bookLearningAnalysis.user({
+        title: clamp(sanitizeForPrompt(title || ''), LIMITS.bookTitle),
+        author: clamp(sanitizeForPrompt(author || ''), LIMITS.bookAuthor),
+        purpose: clamp(sanitizeForPrompt(purpose || ''), LIMITS.memoText),
+        challenge: clamp(sanitizeForPrompt(challenge || ''), LIMITS.memoText),
+        memos,
+      }),
+    }],
+    max_tokens: 3072,
+    model: MODEL_SMART,
+    signal,
+    onChunk: (text) => {
+      content = text;
+      try { onChunk?.(text); } catch { /* swallow render errors */ }
+    },
+  });
+  if (signal?.aborted) throw new Error('分析を中止しました。');
+  if (typeof content !== 'string' || !content.trim() || isSuspiciousOutput(content)) {
+    throw new Error('分析に失敗しました。少し時間をおいて再度お試しください。');
   }
   track('ai_used', { feature: 'book_learning' });
   return { content, memoCount: cardMemos.length + (summary ? 1 : 0) };
@@ -1017,7 +1110,7 @@ export async function generateWeeklyQuestion(userId) {
   if (!isSupabaseConfigured || !userId) return null;
   let all;
   try {
-    ({ all } = await gatherKnowledge(userId));
+    ({ all } = await gatherKnowledgeCached(userId));
   } catch (e) {
     console.warn('[weekly-question] gather failed:', e?.message);
     return null;
@@ -1248,7 +1341,7 @@ export async function listThemes(userId) {
   if (!isSupabaseConfigured || !userId) return [];
   let all;
   try {
-    ({ all } = await gatherKnowledge(userId));
+    ({ all } = await gatherKnowledgeCached(userId));
   } catch (e) {
     console.warn('[theme-report] listThemes failed:', e?.message);
     return [];
@@ -1366,7 +1459,7 @@ async function buildThemeContext({ userId, theme, onStage }) {
   // gatherKnowledge（book_memos + books の RAG コンテキスト）と actions の生
   // 取得は互いに独立（どちらも userId だけが入力）なので同時に発射する。
   // actions 側の実際の絞り込み（matched メモへの依存）は両方揃ってから行う。
-  const knowledgePromise = gatherKnowledge(userId);
+  const knowledgePromise = gatherKnowledgeCached(userId);
   const actionsRowsPromise = fetchUserActions(userId);
 
   const { all } = await knowledgePromise;
@@ -1558,13 +1651,13 @@ export async function deleteThemeReport(id) {
 // テーマで絞った時系列のメモ＋行動を AI に渡し、knowledgeJourney プロンプトで
 // 「理解はこう深まった / 考えが動いた瞬間 / 行動に変わったか / 次の問い」を物語る。
 // DB 変更ゼロ。煽らず、淡々と事実を映す鏡として（本田哲学）。
-export async function generateKnowledgeJourney(userId, theme) {
+export async function generateKnowledgeJourney(userId, theme, { onChunk, signal } = {}) {
   if (!isSupabaseConfigured || !userId) throw new Error('Supabase が設定されていません。');
   const safeTheme = clamp(sanitizeForPrompt(theme || ''), LIMITS.theme);
   if (!safeTheme) throw new Error('テーマを入力してください。');
   const themeNorm = normTheme(safeTheme);
 
-  const { all } = await gatherKnowledge(userId);
+  const { all } = await gatherKnowledgeCached(userId);
   const matched = all.filter((m) => memoMatchesTheme(m, themeNorm) && m.created_at);
   // 日付で追える最低ライン。薄ければ空状態へ（無理に物語を作らない）。
   if (matched.length < 4) return { tooThin: true };
@@ -1625,22 +1718,33 @@ export async function generateKnowledgeJourney(userId, theme) {
   const last = sorted[sorted.length - 1].created_at.slice(0, 10);
   const spanText = `最初の記録 ${first} 〜 最新 ${last}`;
 
-  const content = await callClaude(
-    PROMPTS.knowledgeJourney.system,
-    PROMPTS.knowledgeJourney.user({
-      theme: safeTheme,
-      timeline,
-      actionTimeline,
-      todayISO: todayISO(),
-      spanText,
-    }),
-    { max_tokens: 2048, model: MODEL_SMART, cacheSystem: true },
-  );
-  // callClaude のエラー文言を「足あと」として描画しない（成功時のみ track / return）。
-  if (typeof content !== 'string'
-    || isClaudeErrorString(content)
-    || isSuspiciousOutput(content)) {
-    throw new Error(typeof content === 'string' && content ? content : '足あとの作成に失敗しました。少し時間をおいて再度お試しください。');
+  // ⚡ ストリーミング化 — 足あとは長文になりやすく、全文待ちだと 20 秒級の
+  // 無反応があった。最初の段落から流し込む（streamClaude は失敗を throw）。
+  let content = '';
+  await streamClaude({
+    system: PROMPTS.knowledgeJourney.system,
+    cacheSystem: true,
+    messages: [{
+      role: 'user',
+      content: PROMPTS.knowledgeJourney.user({
+        theme: safeTheme,
+        timeline,
+        actionTimeline,
+        todayISO: todayISO(),
+        spanText,
+      }),
+    }],
+    max_tokens: 2048,
+    model: MODEL_SMART,
+    signal,
+    onChunk: (text) => {
+      content = text;
+      try { onChunk?.(text); } catch { /* swallow render errors */ }
+    },
+  });
+  if (signal?.aborted) throw new Error('生成を中止しました。');
+  if (typeof content !== 'string' || !content.trim() || isSuspiciousOutput(content)) {
+    throw new Error('足あとの作成に失敗しました。少し時間をおいて再度お試しください。');
   }
   track('ai_used', { feature: 'journey' });
   return { content, first, last, count: sorted.length };

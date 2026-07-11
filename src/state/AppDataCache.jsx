@@ -14,6 +14,7 @@ import {
   useMemo,
   useRef,
 } from 'react';
+import { invalidateKnowledgeCache } from '../lib/ai';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const PHOTO_BUCKET = 'book-memo-photos';
@@ -45,6 +46,9 @@ export function AppDataCacheProvider({ children }) {
     if (!bookId) return;
     memoStoreRef.current.set(bookId, memos);
     notifyMemos(bookId, memos);
+    // メモが動いたら AI の知識キャッシュ（gatherKnowledge）を無効化 —
+    // 「書いた直後にマイ読書脳へ聞く」でも常に最新の知識で答えるため。
+    invalidateKnowledgeCache();
   }, []);
 
   const patchMemos = useCallback((bookId, fn) => {
@@ -53,6 +57,7 @@ export function AppDataCacheProvider({ children }) {
     const next = fn(current);
     memoStoreRef.current.set(bookId, next);
     notifyMemos(bookId, next);
+    invalidateKnowledgeCache();
   }, []);
 
   // 🚿 メモ取得の in-flight 共有（photoCache の promise パターンと同思想）。

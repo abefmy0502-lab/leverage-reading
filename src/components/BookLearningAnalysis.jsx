@@ -79,6 +79,11 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
         challenge: book.currentChallenge,
         // まとめ式メモ派も分析できるよう、まとめメモも材料に渡す。
         summaryMemo: book.leverageMemo,
+        // ⚡ ストリーミング表示 — 全文生成を待たず最初の 1 行から見せる。
+        // 行動抽出・保存は完了時（下の 'done'）で確定するので途中文は表示のみ。
+        onChunk: (text) => {
+          setState((st) => (st.status === 'loading' ? { status: 'loading', partial: text } : st));
+        },
       });
       if (r?.tooThin) { setState({ status: 'thin' }); return; }
       setSaved(false);
@@ -127,7 +132,12 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
         </button>
       )}
 
-      {state.status === 'loading' && <Spinner message="メモを目的と照らし合わせています…" />}
+      {state.status === 'loading' && !state.partial && <Spinner message="メモを目的と照らし合わせています…" />}
+      {state.status === 'loading' && state.partial && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} aria-live="polite" aria-busy="true">
+          <MarkdownSections text={stripActionSection(state.partial)} />
+        </div>
+      )}
 
       {state.status === 'thin' && (
         <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.7, margin: 0 }}>
