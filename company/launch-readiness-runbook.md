@@ -20,7 +20,7 @@
 2. **Vercel 環境変数を設定**（§3の🔴必須のみでも可）。
 3. **Supabase で課金の最小SQLを実行**：`supabase_subscriptions.sql` →（IAP併用なら）`supabase_subscriptions_provider.sql`。
    - ⚠️ **これが無いと PaywallGate が fail-open で全機能無料になり、誰も課金されない**（＝売れない）。最優先。
-4. **Stripe 設定**（§4）：商品＋月額¥1,280/年額¥10,800のPrice ID＋Webhook（4イベント）＋署名シークレット。
+4. **Stripe 設定**（§4）：商品＋月額¥1,480/年額¥10,800のPrice ID＋Webhook（4イベント）＋署名シークレット。
 5. **テストモードで1課金を疎通**（§6スモークテスト）→ subscriptions が active → ペイウォール解除を目視。
 6. **本番キーに切替 → 公開URL確定 → ローンチ告知**（§7）。
 
@@ -83,10 +83,10 @@
 - [ ] `ANTHROPIC_API_KEY`（AI）
 - [ ] `STRIPE_SECRET_KEY`（**クライアント露出厳禁**）
 - [ ] `STRIPE_WEBHOOK_SECRET`（`whsec_...`）
-- [ ] `STRIPE_PRICE_ID_MONTHLY`（¥1,280）/ `STRIPE_PRICE_ID_ANNUAL`（¥10,800）
+- [ ] `STRIPE_PRICE_ID_MONTHLY`（¥1,480）/ `STRIPE_PRICE_ID_ANNUAL`（¥10,800）
 
 **🟠任意（表示/調整）**
-- [ ] `VITE_PRICE_MONTHLY_LABEL`（既定「月額 ¥1,280（税込）」）/ `VITE_PRICE_ANNUAL_LABEL` / `VITE_PRICE_ANNUAL_NOTE`
+- [ ] `VITE_PRICE_MONTHLY_LABEL`（既定「月額 ¥1,480（税込）」）/ `VITE_PRICE_ANNUAL_LABEL` / `VITE_PRICE_ANNUAL_NOTE`
 - [ ] `AI_MONTHLY_CALL_LIMIT`（既定120）
 
 **🟢後で（プッシュ通知導入時）**
@@ -95,7 +95,7 @@
 ---
 
 ## 4. 💳 Stripe 設定
-- [ ] 商品「Orime」を作成 → **2つのPrice（recurring）**：月額¥1,280 / 年額¥10,800。各 **Price ID** を env へ。
+- [ ] 商品「Orime」を作成 → **2つのPrice（recurring）**：月額¥1,480 / 年額¥10,800。各 **Price ID** を env へ。
 - [ ] **Webhook エンドポイント**：`https://<本番ドメイン>/api/stripe-webhook`
   - 送信イベント（コードが処理する4つ）：`checkout.session.completed` / `customer.subscription.updated` / `customer.subscription.deleted` / `invoice.payment_failed`
   - 署名シークレット（`whsec_...`）→ `STRIPE_WEBHOOK_SECRET` へ。
@@ -130,7 +130,7 @@
 
 ## 7. 📣 ローンチ告知（買える化が確認できた瞬間）
 > 文面は `company/launch-thread-and-content-july.md`（fumiyaが自分の言葉に上書き）。
-1. [ ] 固定ポストを「今日から使える（月¥1,280・無料体験なし・10秒解約・データ残る）＋LPリンク」に差し替え。
+1. [ ] 固定ポストを「今日から使える（月¥1,480・7日間無料・10秒解約・データ残る）＋LPリンク」に差し替え。
 2. [ ] ローンチ告知スレッド投稿（なぜ作った→何ができる→正直な現在地→価格の理由→リンク）。
 3. [ ] Readee難民の受け皿宣言。
 4. [ ] Note 1本目公開＋X告知。
@@ -141,7 +141,7 @@
 
 ## 8. 🔭 ローンチ後すぐ（"ガンガン"の加速）
 - [ ] 最初の有料ユーザーの**許可済みの声**を `Landing.jsx` の `TESTIMONIALS` に1〜2件入れる（社会的証明＝次の転換を生む）。
-- [ ] `marketing-week1-kit.md` の旧価格¥990を¥1,280へ更新（コンテンツagentが不整合検出済）。
+- [ ] `marketing-week1-kit.md` の旧価格¥990を¥1,480へ更新（コンテンツagentが不整合検出済）。
 - [ ] App版（IAP）は並行でB5（Apple/Google/RevenueCat）を進め後追いローンチ。
 - [ ] `supabase_base_schema.sql` を作って核スキーマを版管理下に（災害復旧・P1）。
 

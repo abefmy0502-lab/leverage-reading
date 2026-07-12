@@ -78,6 +78,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
   const activeControllerRef = useRef(null);
   const unmountedRef = useRef(false);
+  // 実在検証の世代トークン（再生成で旧検証の結果適用を無効化する）。
+  const verifyGenRef = useRef(0);
   useEffect(() => {
     // StrictMode（dev）の疑似 unmount → 再マウントでフラグが立ちっぱなしに
     // ならないよう、マウント時に必ずリセットする。
@@ -384,11 +386,23 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   //     （実在本を誤って落とさないための安全策。ネットワーク不明 exists===null も罰しない）。
   //   - 目的2（体感速度＝質）: 実在本の表紙をここで先読みしてカードに載せる。
   //     追加時に別途解決していた表紙が、カード表示中に埋まる。
-  const verifyAndEnrich = async (pool) => {
+  //   実装ノート（レビューボード監査で是正済みの2点）:
+  //   - 世代ガード: 検証中に「別の条件で探す」→再生成されると、古い検証結果が
+  //     後から resolve して新しい推薦カードを上書きするレースがあった。呼び出し時の
+  //     世代トークンを持ち、apply 時に最新世代でなければ静かに破棄する。
+  //   - 逐次実行: 旧実装は Promise.all で最大7並列 → /api/cover 経由で楽天
+  //     （約1req/秒制限）へ同時多発し大半が 429、検証品質がむしろ落ちていた。
+  //     1冊ずつ逐次＋250ms スタガに変更（非ブロッキングなので体感への影響なし。
+  //     coverAutoRetry の 1req/秒ペーシングと同じ流儀）。
+  const verifyAndEnrich = async (pool, gen) => {
     if (!Array.isArray(pool) || pool.length === 0) return;
-    const results = await Promise.all(pool.map(async (rec) => {
+    const stale = () => unmountedRef.current || verifyGenRef.current !== gen;
+    const results = [];
+    for (const rec of pool) {
+      if (stale()) return; // 再生成/離脱済み — 外部APIをこれ以上叩かない
       let v = { exists: null };
       try {
+        // eslint-disable-next-line no-await-in-loop
         v = await Promise.race([
           verifyBookExists({ title: rec.title, author: rec.author, isbn: rec.isbn }),
           new Promise((res) => { setTimeout(() => res({ exists: null }), 6000); }),
@@ -396,7 +410,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       } catch { v = { exists: null }; }
       // 表紙: rec.cover → サーバー cover → candidates を <img> 実在検証で採用。
       let cover = (rec.cover || '').trim();
+      // eslint-disable-next-line no-await-in-loop
       if (cover && !(await checkImageExists(cover))) cover = '';
+      // eslint-disable-next-line no-await-in-loop
       if (!cover && v.cover && await checkImageExists(v.cover)) cover = v.cover;
       if (!cover && Array.isArray(v.candidates)) {
         for (const u of v.candidates) {
@@ -404,9 +420,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
           if (await checkImageExists(u)) { cover = u; break; }
         }
       }
-      return { ...rec, cover, isbn: v.isbn || rec.isbn || '', _suspect: v.exists === false };
-    }));
-    if (unmountedRef.current) return;
+      results.push({ ...rec, cover, isbn: v.isbn || rec.isbn || '', _suspect: v.exists === false });
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => { setTimeout(r, 250); });
+    }
+    if (stale()) return;
     const solid = results.filter((r) => !r._suspect);   // 実在確認 or 不明（罰しない）
     const suspects = results.filter((r) => r._suspect);  // 実在しない疑い
     // 実在系が 3 冊以上あれば疑わしい本を落とす（予備で埋まる）。少なければ警告付きで残す。
@@ -511,7 +529,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       // 🔎 実在検証＋表紙先読み（並列・非ブロッキング）。表示は上で済ませているので
       //    体感は落ちない。検証結果で「実在しない本」を除外/警告し、実在本には
       //    表紙を後追いで載せる（カードの質と信頼が上がる）。
-      verifyAndEnrich(verifyPool);
+      verifyGenRef.current += 1;
+      verifyAndEnrich(verifyPool, verifyGenRef.current);
     } else {
       // 推薦 JSON が取れなかった → 本文（マーカー/壊れた JSON は除去済み）を提示。
       // 空になった（=JSON だけで打ち切られた等）場合は案内文を出し、袋小路を防ぐ。
