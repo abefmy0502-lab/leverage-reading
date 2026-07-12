@@ -274,7 +274,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 - `X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`
 - `Permissions-Policy: camera=(self), microphone=(), geolocation=()`
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-- `Content-Security-Policy`: `default-src 'self'` ベースでホワイトリスト制（Supabase / Anthropic / Google Books / openBD / NDL / Amazon 画像 / 楽天ブックス画像(`thumbnail.image.rakuten.co.jp`, img-src のみ) を許可。楽天 API 本体はサーバー(`api/discover.js`)経由なので connect-src 不要）
+- `Content-Security-Policy`: `default-src 'self'` ベースでホワイトリスト制（Supabase / Anthropic / Google Books / openBD / NDL / Amazon 画像 / 楽天ブックス画像(`thumbnail.image.rakuten.co.jp`, img-src のみ) を許可。楽天 API 本体はサーバー(`api/cover.js` の表紙リゾルバ)経由なので connect-src 不要）
 
 ## 環境変数 (本番)
 
@@ -301,11 +301,11 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `APNS_PRIVATE_KEY` | APNs 認証キー(.p8)の中身（`-----BEGIN PRIVATE KEY-----` 全文。改行は `\n` エスケープ可）。**クライアント露出厳禁** |
 | `APNS_BUNDLE_ID` | アプリの Bundle ID（APNs の `apns-topic`） |
 | `APNS_PRODUCTION` | `'true'` で本番 `api.push.apple.com`、未設定/`false` で sandbox（TestFlight/開発ビルド）。APNS_* が未設定なら iOS 行は静かにスキップ（fail-safe） |
-| `RAKUTEN_APPLICATION_ID` | 🔥 AI 選書「話題の本を探す」＋ 📕 表紙リゾルバ — 楽天ブックス API の**アプリケーションID（UUID 形式）**（`api/discover.js` / `api/cover.js` サーバー専用）。https://webservice.rakuten.co.jp/ で無料発行。**2026 年の楽天 API 刷新で `RAKUTEN_ACCESS_KEY` との併用が必須**。未設定なら `{ok:false, reason:'not_configured'}` を返し UI は「準備中」に倒す（fail-safe） |
-| `RAKUTEN_ACCESS_KEY` | 🔑 楽天 API の**アクセスキー（`pk_...` 形式）**（`api/discover.js` サーバー専用）。2026 年の刷新で `applicationId` と**両方必須**（片方だけだと楽天が 400）。アプリ詳細の「アクセスキー」欄の値。**クライアント露出厳禁**（サーバーからのクエリにのみ付与） |
-| `RAKUTEN_AFFILIATE_ID` | (任意) 楽天アフィリエイト ID。設定すると「話題の本を探す」の楽天ブックスリンクにアフィリエイトが付く（`api/discover.js`） |
+| `RAKUTEN_APPLICATION_ID` | 📕 表紙リゾルバ — 楽天ブックス API の**アプリケーションID（UUID 形式）**（`api/cover.js` サーバー専用。和書の表紙カバー率が最も高い一次ソース）。https://webservice.rakuten.co.jp/ で無料発行。**2026 年の楽天 API 刷新で `RAKUTEN_ACCESS_KEY` との併用が必須**。未設定なら静かにスキップ（fail-safe・他ソースで表紙解決） |
+| `RAKUTEN_ACCESS_KEY` | 🔑 楽天 API の**アクセスキー（`pk_...` 形式）**（`api/cover.js` サーバー専用）。2026 年の刷新で `applicationId` と**両方必須**（片方だけだと楽天が 400）。アプリ詳細の「アクセスキー」欄の値。**クライアント露出厳禁**（サーバーからのクエリにのみ付与） |
+| `RAKUTEN_AFFILIATE_ID` | (現在未使用) 楽天アフィリエイト ID。旧「話題の本を探す」の楽天リンクに付与していたが、当該機能（`api/discover.js`）の撤去に伴い参照なし。将来アフィリエイト導線を復活させる場合の予約枠 |
 | `RC_ALLOW_SANDBOX` | (任意) `'true'` で RevenueCat の SANDBOX イベント（TestFlight/開発ビルド課金）も subscriptions に書き込む。既定はスキップ（テスト課金で顧客指標を汚さないため。テスターの解除は RevenueCat SDK 直読で成立） |
-| `RAKUTEN_APP_URL` | **（2026 刷新後は実質必須）** 楽天アプリ登録の「許可されたWebサイト」に登録した本番ドメイン URL（例 `https://leverage-reading.vercel.app`）。`api/discover.js` がサーバー→楽天へのリクエストに `Referer` として付与する。**新 API は Referer/Origin ヘッダーが無いと 403**。未設定なら Referer を送らないため本が出ない |
+| `RAKUTEN_APP_URL` | **（2026 刷新後は実質必須）** 楽天アプリ登録の「許可されたWebサイト」に登録した本番ドメイン URL（例 `https://leverage-reading.vercel.app`）。`api/cover.js` がサーバー→楽天へのリクエストに `Referer` として付与する。**新 API は Referer/Origin ヘッダーが無いと 403**。未設定なら Referer を送らないため楽天ソースの表紙が取れない |
 | `REVENUECAT_WEBHOOK_AUTH` | 💳 RevenueCat Webhook の認証トークン（`api/revenuecat-webhook.js` が `Authorization` ヘッダーと突き合わせる）。RevenueCat ダッシュボードの Webhook 設定と同じ値を設定。**未設定だと Webhook を全拒否**（fail-closed）。サーバー専用 |
 | `VITE_VAPID_PUBLIC_KEY` | 🔔 Web Push（想起通知）の VAPID 公開鍵（クライアント `src/lib/push.js` が購読時に使用）。`npx web-push generate-vapid-keys` で生成 |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 🔔 Web Push 送信側（`api/push-cron.js`）の VAPID 鍵ペアと連絡先（`mailto:...`）。`VAPID_PRIVATE_KEY` は**クライアント露出厳禁** |
@@ -364,7 +364,7 @@ update feedback
 - **デザインシステム Phase 3 完了（コンテンツ精緻化）**: 共通コンポーネント 4 種を新設 — `EmptyState` / `SectionHeader` / `ErrorMessage` / `StatCard`。それぞれ `components.css` の `.empty-state*` / `.section-header*` / `.error-message*` / `.stat-card*` を消費する。新しい空状態 / エラー / 数値カードは必ずこれらを使うこと（独自インラインを書かない）。長文（メモ本文 / セットアップシート / ROI）には `.long-text` クラスを適用すると行間 1.7 + 段落間 16px が揃う
 - **デザインシステム Phase 4 → 簡素化（縮退）**: 「シンプル・直感的」優先のフィードバックを受け、Phase 4 の装飾は **大半を撤去**。残置は `lib/greeting.js`（時刻別挨拶 + 名前解決）と `components/AuthorThankYou.jsx`（ロゴ長押し easter egg）のみ。**削除済み**: `lib/streak.js` / `lib/milestones.js` / `lib/season.js` / `hooks/useStreak.js` / `hooks/useBookMilestones.js` / `components/SeasonalEffect.jsx` / `components/StreakBadge.jsx` / `components/MilestoneCelebration.jsx`。再導入する場合も Apple Notes / Reminders レベルの控えめさを基準に判断すること
 - **ダークモード一時停止**: `tokens.css` の `@media (prefers-color-scheme: dark)` ブロックを削除。コードベースは light hex リテラルが多数残るため部分的な dark mode は破綻する（AI 選書の入力欄だけ黒くなる等）。完全実装するときに再開
-- **AI プロンプトは `src/lib/prompts.js` で一元管理**: `bookAnalysis` / `setupSheet` / `setupSheetEdit` / `roiSummary` / `bookAdvisor` / `advisorInterview` / `advisorSummary` / `helpAi` / `myBookBrain` / `themeReport` / `weeklyQuestion` / `condense` / `serendipityPop`（🎲 話題の本を探す「あえての一冊」の書店員POP）/ `bookQuickSummary`（📖 話題の本の詳細シートで書名・著者から3〜5行の概要を生成）。各エントリは `{ system, user(args) }`。プロンプトを変えたいときはこのファイルだけを編集する（App.jsx や ai.js にインライン定義してはいけない）。出力は基本 Markdown（`## <emoji> <heading>`）で、`<MarkdownSections>` でレンダリング。`bookAdvisor` だけは `RECOMMENDATIONS_START ... _END` の JSON ブロックも同梱する設計（リッチカードのデータ用）。max_tokens は 2048 が標準
+- **AI プロンプトは `src/lib/prompts.js` で一元管理**: `bookAnalysis` / `setupSheet` / `setupSheetEdit` / `roiSummary` / `bookAdvisor` / `advisorInterview` / `advisorSummary` / `helpAi` / `myBookBrain` / `themeReport` / `weeklyQuestion` / `condense`。各エントリは `{ system, user(args) }`。プロンプトを変えたいときはこのファイルだけを編集する（App.jsx や ai.js にインライン定義してはいけない）。出力は基本 Markdown（`## <emoji> <heading>`）で、`<MarkdownSections>` でレンダリング。`bookAdvisor` だけは `RECOMMENDATIONS_START ... _END` の JSON ブロックも同梱する設計（リッチカードのデータ用）。max_tokens は 2048 が標準
 - **ジェスチャー基盤**（Phase B 完了済み・全 surface に展開済み）: 以下のフック/コンポーネントを使うとネイティブ感が出る — 新画面でも同じ仕組みを再利用できる
   - 適用済み: 本棚カード（swipe + long-press + PTR + edge-swipe back）/ メモカード `BookMemoCard` `BookMemoList`（swipe + long-press）/ 振り返りタブ `Review`（swipe + long-press + PTR）/ 知識管理 `KnowledgeManager`（swipe + long-press + PTR、まとめは🧹クリア表示）/ マイ読書脳の履歴ビュー（PTR）
   - `useHaptic()` — `light/medium/heavy/success/warning/error` を返す。重要操作には `haptic.light()`、削除確定時に `haptic.medium()`、読了など達成時に `haptic.success()`

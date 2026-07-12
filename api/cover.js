@@ -278,7 +278,7 @@ async function googleCover(title, author, isbn, sink) {
 
 // ─────────────────────────────────────────────────────────────────────────
 // 🅁 楽天ブックス書籍検索 API（和書の表紙カバー率が最も高い一次ソース）。
-// api/discover.js と同じ認証（applicationId + accessKey + Referer 必須）。
+// 認証は applicationId + accessKey + Referer 必須（2026 の楽天 API 刷新）。
 // env 未設定なら静かにスキップ（fail-safe・従来ソースのみで動く）。
 // 画像 URL は thumbnail.image.rakuten.co.jp（vercel.json の CSP img-src 許可済み）。
 // ─────────────────────────────────────────────────────────────────────────

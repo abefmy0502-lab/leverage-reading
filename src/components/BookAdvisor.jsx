@@ -1,7 +1,6 @@
 // 🔍 AI 選書アドバイザー（「相談して選ぶ」）。課題ヒアリング（ウィザード）→
 // Claude による推薦 → セットアップシート引き継ぎ + 会話履歴。App.jsx から
 // 切り出した自己完結コンポーネント。props: onAddBook / sessionApi / books。
-// 「話題の本を探す」タブ（DiscoverPanel）もこの中でサブタブとして描画する。
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
@@ -37,7 +36,6 @@ import BookStoreLinks from './BookStoreLinks';
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
 const AdvisorAddConfirmModal = lazy(() => import('./AdvisorAddConfirmModal'));
-const DiscoverPanel = lazy(() => import('./DiscoverPanel'));
 
 const advisorWizardCard = {
   background: 'var(--c-soft)',
@@ -118,8 +116,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // モーダル。{ rec, candidates } | null。確認後に proceedAdd(verifiedRec)
   // を呼んで実際の DB insert に進む。
   const [confirmAdd, setConfirmAdd] = useState(null);
-  // AI 選書のメインタブ: 'consult'(相談して選ぶ) | 'discover'(話題の本を探す)
-  const [advisorView, setAdvisorView] = useState('consult');
   // 履歴サブビュー: 'chat' | 'history' | 'detail'
   const [view, setView] = useState('chat');
   const [selectedSession, setSelectedSession] = useState(null);
@@ -948,43 +944,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         </div>
       </div>
 
-      {/* AI 選書のメインタブ: 相談して選ぶ / 話題の本を探す（楽天ブックスの実データ）。
-          旧「テーマの棚」(AI 生成) を実データのディスカバリーに置換し、2 機能を分離。 */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12, background: 'var(--c-soft-2)', borderRadius: 12, padding: 4 }}>
-        {[
-          { k: 'consult', label: '💬 相談して選ぶ' },
-          { k: 'discover', label: '🔥 話題の本を探す' },
-        ].map((t) => (
-          <button
-            type="button"
-            key={t.k}
-            onClick={() => { setAdvisorView(t.k); try { advisorHaptic.light(); } catch { /* non-critical */ } }}
-            style={{
-              flex: 1,
-              padding: '9px 0',
-              borderRadius: 9,
-              border: 'none',
-              fontSize: 13,
-              fontWeight: 700,
-              fontFamily: 'inherit',
-              cursor: 'pointer',
-              minHeight: 40,
-              background: advisorView === t.k ? 'var(--c-card)' : 'transparent',
-              color: advisorView === t.k ? 'var(--c-brand)' : 'var(--c-ink-2)',
-              boxShadow: advisorView === t.k ? '0 1px 3px rgba(60,48,30,0.12)' : 'none',
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {advisorView === 'discover' ? (
-        <Suspense fallback={<Spinner />}>
-          <DiscoverPanel onAddBook={onAddBook} books={books} />
-        </Suspense>
-      ) : (<>
-
       {/* Example chips — タップで textarea に流し込む。挨拶 seed が
           消えたので、何を入力すれば良いかをここで提示する */}
       {showConcernInput && (
@@ -1351,13 +1310,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
         <div ref={messagesEndRef} />
       </div>
-      </>)}
       </div>{/* /chat-scroll */}
 
       {/* Input — flex column の末尾に置かれ、親 (.ai-page) の 100dvh 構造で
-          自動的にキーボード直上 / BottomNav 直上に張り付く (LINE 風)。
-          話題の本タブ (discover) では相談入力を出さない。 */}
-      {advisorView === 'consult' && showConcernInput && (
+          自動的にキーボード直上 / BottomNav 直上に張り付く (LINE 風)。 */}
+      {showConcernInput && (
         <div className="ai-input-area">
           <textarea
             ref={inputRef}

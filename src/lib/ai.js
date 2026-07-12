@@ -1167,63 +1167,6 @@ export async function generateWeeklyQuestion(userId) {
   return cleaned;
 }
 
-// 🎲 あえての一冊の「書店員POP」を1行だけ生成する（ディスカバリーの
-// セレンディピティ演出）。本そのものは楽天の実在データで、AI は POP 文だけ書く。
-// - contextLine: ユーザーの読書傾向の短い1行（呼び出し側で books から組み立て）。
-// - 失敗 / エラー文字列 / 疑わしい出力は null（呼び出し側は静かに POP なしへ倒す）。
-// - 低コスト・高速の MODEL_FAST。呼び出し側が日付＋ISBN で localStorage キャッシュ想定。
-export async function generateSerendipityPop({ title, author = '', contextLine = '', signal } = {}) {
-  const t = clamp(sanitizeForPrompt(String(title || '')), LIMITS.bookTitle).trim();
-  if (!t) return null;
-  const a = clamp(sanitizeForPrompt(String(author || '')), LIMITS.bookAuthor).trim();
-  const ctx = clamp(sanitizeForPrompt(String(contextLine || '')), 300).trim();
-  let result;
-  try {
-    result = await callClaude(
-      PROMPTS.serendipityPop.system,
-      PROMPTS.serendipityPop.user({ title: t, author: a, contextLine: ctx }),
-      { max_tokens: 120, cacheSystem: true, model: MODEL_FAST, signal },
-    );
-  } catch (e) {
-    console.warn('[serendipity-pop] claude failed:', e?.message);
-    return null;
-  }
-  if (typeof result !== 'string' || isClaudeErrorString(result) || isSuspiciousOutput(result)) {
-    return null;
-  }
-  const cleaned = clamp(
-    sanitizeForPrompt(result).replace(/^[「『"'\-\d.\s]+/, '').replace(/[」』"']+$/, '').trim(),
-    60,
-  );
-  if (!cleaned) return null;
-  track('ai_used', { feature: 'serendipity_pop' });
-  return cleaned;
-}
-
-// 📖 本の概要を 3〜5 行でサッと生成（話題の本タブの詳細シート）。
-// スピード感重視で MODEL_FAST を streaming。onChunk(fullText) で逐次表示。
-// signal で中断可（シートを閉じたら止める）。返り値は最終テキスト。
-export async function streamBookQuickSummary({ title, author = '', onChunk, signal } = {}) {
-  const t = clamp(sanitizeForPrompt(String(title || '')), LIMITS.bookTitle).trim();
-  if (!t) return '';
-  const a = clamp(sanitizeForPrompt(String(author || '')), LIMITS.bookAuthor).trim();
-  const p = PROMPTS.bookQuickSummary;
-  let full = '';
-  await streamClaude({
-    system: p.system,
-    cacheSystem: true,
-    model: MODEL_FAST,
-    max_tokens: 320,
-    messages: [{ role: 'user', content: p.user({ title: t, author: a }) }],
-    signal,
-    onChunk: (fullText) => { full = fullText; try { onChunk?.(fullText); } catch { /* swallow */ } },
-  });
-  // 計測は完走時のみ（シートを開いてすぐ閉じる abort を成功として集計しない —
-  // brain / theme と同じ基準に揃え、運営ダッシュボードの水増しを防ぐ）。
-  if (!signal?.aborted) track('ai_used', { feature: 'book_summary' });
-  return full;
-}
-
 // Streaming version of callMyBookBrain. onStage receives 'search' (while
 // memos/books are being fetched) then 'generate' (once the Claude stream is
 // in flight). onChunk receives the partial body text with REFS_START..END
