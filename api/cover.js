@@ -13,6 +13,8 @@
 // 入力（GET）: title, author, isbn（最低 title か isbn）
 // 出力: { cover, isbn }（cover が '' なら未発見）。認証なし・公開書誌の読み取り専用。
 
+import https from 'node:https';
+
 function clean(s) {
   return (s || '').toString().trim().slice(0, 300);
 }
@@ -45,10 +47,14 @@ function isbn13to10(isbn13) {
 }
 
 // 著者名の照合用に記号・空白・敬称（著/編/訳）を落として正規化する。
+// NFKC で全角英数字/半角カナを統一（「ＡＩ」と「AI」、｢ﾊﾞｶﾞﾎﾞﾝﾄﾞ｣と「バガボンド」
+// のような表記揺れで照合が落ちるのを防ぐ）。
 function normPerson(s) {
   return (s || '')
     .toString()
-    .replace(/[\s　,，、・･.。]/g, '')
+    .normalize('NFKC')
+    // 区切り記号は「/」も落とす（楽天ブックスは連名を「楠木建/杉浦泰」形式で返す）。
+    .replace(/[\s　,，、・･.。/／|｜]/g, '')
     .replace(/(著|編|訳|監修|共著|編著)$/g, '')
     .toLowerCase();
 }
@@ -175,9 +181,10 @@ async function googleFetchVolumes(q, max = 10) {
   }
 }
 
-// タイトル照合用の正規化（記号・空白を落とす）。
+// タイトル照合用の正規化（記号・空白を落とす）。NFKC で全角英数字・半角カナ・
+// ㈱等の互換文字を統一（「営業１年目」vs「営業1年目」の揺れで照合が落ちない）。
 function normTitle(s) {
-  return clean(s).replace(/[\s　・･,，、.。:：「」『』\-―ー（）()]/g, '').toLowerCase();
+  return clean(s).normalize('NFKC').replace(/[\s　・･,，、.。:：!！?？「」『』\-―ー（）()]/g, '').toLowerCase();
 }
 function gTitleMatch(v, coreNorm) {
   if (!coreNorm) return false;
@@ -232,6 +239,129 @@ async function googleCover(title, author, isbn) {
   return { cover: '', isbn: isbnOnly };
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// 🅁 楽天ブックス書籍検索 API（和書の表紙カバー率が最も高い一次ソース）。
+// api/discover.js と同じ認証（applicationId + accessKey + Referer 必須）。
+// env 未設定なら静かにスキップ（fail-safe・従来ソースのみで動く）。
+// 画像 URL は thumbnail.image.rakuten.co.jp（vercel.json の CSP img-src 許可済み）。
+// ─────────────────────────────────────────────────────────────────────────
+function rakutenGet(urlStr, referer) {
+  return new Promise((resolve, reject) => {
+    let u;
+    try { u = new URL(urlStr); } catch (e) { reject(e); return; }
+    const headers = { Accept: 'application/json' };
+    // Vercel の fetch(undici) は Referer を禁止ヘッダーとして剥がすため、
+    // Node https で直接送る（楽天の新 API は Referer 無しだと 403）。
+    if (referer) { headers.Referer = referer; headers.Origin = referer; }
+    const req = https.request(
+      { hostname: u.hostname, path: `${u.pathname}${u.search}`, method: 'GET', headers },
+      (res) => {
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', (c) => {
+          data += c;
+          if (data.length > 1_000_000) {
+            data = data.slice(0, 1_000_000);
+            resolve({ status: res.statusCode || 200, body: data });
+            req.destroy();
+          }
+        });
+        res.on('end', () => resolve({ status: res.statusCode || 0, body: data }));
+      },
+    );
+    req.on('error', reject);
+    req.setTimeout(8000, () => req.destroy(new Error('timeout')));
+    req.end();
+  });
+}
+
+// 楽天のサムネ URL の _ex サイズ指定を拡大（既定は 120x120 程度で粗い）。
+function rakutenUpscale(url) {
+  if (!url) return '';
+  return toHttps(String(url)).replace(/_ex=\d+x\d+/, '_ex=420x420');
+}
+
+// タイトル(+著者) または ISBN から楽天ブックスで表紙を引く。
+// NDL と同じ照合規律: ISBN 直引き以外は「タイトル一致必須」＋「著者一致を優先」。
+// 兄弟本（同著者・別書名）のカバーは絶対に採らない。
+// 返り値 { cover, isbn }（見つからなければ両方 ''）。
+async function rakutenCover(title, author, isbn) {
+  const appId = (process.env.RAKUTEN_APPLICATION_ID || '').trim();
+  const accessKey = (process.env.RAKUTEN_ACCESS_KEY || '').trim();
+  if (!appId || !accessKey) return { cover: '', isbn: '' };
+  const referer = (process.env.RAKUTEN_APP_URL || '').trim();
+
+  const params = new URLSearchParams({
+    format: 'json',
+    applicationId: appId,
+    accessKey,
+    hits: '20',
+    outOfStockFlag: '1', // 品切れでも書影は取れる（絶版本の救済）
+    elements: 'title,author,isbn,largeImageUrl,mediumImageUrl',
+  });
+  const iq = cleanIsbn(isbn);
+  if (iq) {
+    params.set('isbn', iq);
+  } else {
+    // 著者は API に渡さない（楠木建・杉浦泰のような連名・表記揺れで 0 件に
+    // なりやすい）。タイトルの核で広めに引き、照合はローカルで厳密に行う。
+    const t = coreTitle(title);
+    if (!t) return { cover: '', isbn: '' };
+    params.set('title', t);
+  }
+
+  try {
+    const resp = await rakutenGet(
+      `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`,
+      referer,
+    );
+    if (resp.status < 200 || resp.status >= 300) return { cover: '', isbn: '' };
+    let data = null;
+    try { data = JSON.parse(resp.body); } catch { return { cover: '', isbn: '' }; }
+    const items = (Array.isArray(data?.Items) ? data.Items : [])
+      .map((raw) => (raw && raw.Item ? raw.Item : raw))
+      .filter((it) => it && typeof it === 'object');
+    if (items.length === 0) return { cover: '', isbn: '' };
+
+    const fields = (it) => ({
+      cover: rakutenUpscale(it.largeImageUrl || it.mediumImageUrl || ''),
+      isbn: cleanIsbn(it.isbn),
+      title: (it.title || '').toString(),
+      author: (it.author || '').toString(),
+    });
+
+    // ISBN 直引きは本の同定が済んでいる → 表紙があれば即採用。
+    if (iq) {
+      for (const it of items) {
+        const f = fields(it);
+        if (f.cover) return { cover: f.cover, isbn: f.isbn || iq };
+      }
+      return { cover: '', isbn: '' };
+    }
+
+    // タイトル検索: タイトル一致必須（兄弟本除外）＋ 著者一致を優先。
+    const wantCoreNorm = normTitle(coreTitle(title));
+    const wantAuthor = normPerson(author);
+    let titleOnly = null;
+    for (const it of items) {
+      const f = fields(it);
+      if (!f.cover) continue;
+      const tn = normTitle(f.title);
+      if (!tn || !(tn.includes(wantCoreNorm) || wantCoreNorm.includes(tn))) continue;
+      const authorOk = !wantAuthor || (() => {
+        const an = normPerson(f.author);
+        return an && (an.includes(wantAuthor) || wantAuthor.includes(an));
+      })();
+      if (authorOk) return { cover: f.cover, isbn: f.isbn };
+      if (!titleOnly) titleOnly = { cover: f.cover, isbn: f.isbn };
+    }
+    // 著者一致が無ければタイトルのみ一致を保険で採用（NDL と同じ順位付け）。
+    return titleOnly || { cover: '', isbn: '' };
+  } catch {
+    return { cover: '', isbn: '' };
+  }
+}
+
 // 一部の書影 CDN（NDL / Amazon）はデータセンター IP からの素の fetch を
 // 403 で弾く（ブラウザの UA / Referer が無いため）。ブラウザ相当のヘッダを
 // 付けると通ることが多い。
@@ -272,6 +402,9 @@ function coverCandidatesFor(isbn) {
     i13 && `https://ndlsearch.ndl.go.jp/thumbnail/${i13}.jpg`,
     i13 && `https://cover.openbd.jp/${i13}.jpg`,
     i13 && `https://covers.openlibrary.org/b/isbn/${i13}-L.jpg?default=false`,
+    // Google Books の ISBN 直リンク（未登録本はプレースホルダーを返すため、
+    // クライアント側 checkImageExists の縦横比ゲートで検証してから採用される）。
+    i13 && `https://books.google.com/books/content?vid=ISBN${i13}&printsec=frontcover&img=1&zoom=1`,
     i10 && `https://m.media-amazon.com/images/P/${i10}.09._SCLZZZZZZZ_.jpg`,
     i10 && `https://images-na.ssl-images-amazon.com/images/P/${i10}.09.LZZZZZZZ.jpg`,
   ].filter(Boolean);
@@ -402,7 +535,23 @@ export default async function handler(req, res) {
     // ① ISBN が分かっていれば各ソースを server-side 検証（通れば fast path）。
     if (isbn) cover = await coverFromIsbn(isbn);
 
-    // ② NDL OpenSearch（キー不要・和書最強）で ISBN を引く。
+    // ② 楽天ブックス（和書カバー率が最も高い・タイトル一致必須で兄弟本を除外）。
+    //    ISBN 直引き→無ければタイトル検索。表紙 URL は CSP 許可済みの
+    //    thumbnail.image.rakuten.co.jp を直接返せる（クライアントが最終検証）。
+    //    env（RAKUTEN_APPLICATION_ID / ACCESS_KEY）未設定なら静かにスキップ。
+    if (!cover) {
+      const rk = await rakutenCover(title, author, isbn);
+      if (rk.cover) {
+        cover = rk.cover;
+        if (rk.isbn) isbn = rk.isbn;
+      } else if (rk.isbn && !isbn) {
+        // 楽天が本を同定できたが書影なし → 正しい ISBN として他ソースを試す。
+        isbn = rk.isbn;
+        cover = await coverFromIsbn(rk.isbn);
+      }
+    }
+
+    // ③ NDL OpenSearch（キー不要・和書に強い）で ISBN を引く。
     //    ※ サーバーからの書影 fetch は 403 で弾かれることがあるので、表紙が
     //      検証できなくても「正しい ISBN」は必ず確保する（後段でクライアントに渡す）。
     if (!cover) {
@@ -415,7 +564,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ③ それでもダメなら Google Books（鍵があれば有効・補助）。
+    // ④ それでもダメなら Google Books（鍵があれば有効・補助）。
     if (!cover) {
       const g = await googleCover(title, author, isbn);
       if (g.cover) { cover = g.cover; if (!isbn) isbn = g.isbn; }

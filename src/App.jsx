@@ -999,10 +999,20 @@ function AuthedApp() {
         }
       }
 
-      // ── ステップ 2: 最後の手段として通常検索の先頭ヒットの cover
+      // ── ステップ 2: 最後の手段として通常検索のヒットの cover。
+      // ⚠️ タイトル一致を必須にする。以前は「表紙を持つ先頭ヒット」を無条件採用
+      //    しており、同著者の別の本（兄弟本）の表紙を掴む誤マッチの発生源だった。
+      //    誤った表紙より「表紙なし → 手動アップロード案内」を選ぶ。
       if (!coverUrl) {
         const flat = await searchBooksAPIFlat(`${book.title || ''} ${book.author || ''}`.trim());
-        const hit = (flat || []).find((b) => b.cover);
+        const normT = (s) => (s || '').normalize('NFKC').replace(/[\s　・･,，、.。:：!！?？「」『』\-―ー（）()]/g, '').toLowerCase();
+        const want = normT(book.title);
+        const hit = (flat || []).find((b) => {
+          if (!b.cover) return false;
+          if (!want) return true;
+          const cand = normT(b.title);
+          return cand && (cand.includes(want) || want.includes(cand));
+        });
         if (hit?.cover) coverUrl = ensureHttps(hit.cover);
       }
 

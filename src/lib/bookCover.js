@@ -37,7 +37,9 @@ export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
   // 🧹 キャッシュ毒抜き: リゾルバのロジックを変えたら必ずこの番号を上げる。
   //    壊れていた時期に CDN へ張り付いた空っぽ応答（s-maxage 最長 7 日）を
   //    新しい URL で確実に回避するため。
-  params.set('cv', '4');
+  //    v5: 兄弟本誤マッチ根治（NDL タイトル照合必須）＋楽天ブックスソース追加。
+  //    旧ロジックが CDN に焼き込んだ「別の本の ISBN/candidates」を確実に無効化する。
+  params.set('cv', '5');
   try {
     const r = await fetch(`/api/cover?${params.toString()}`);
     if (!r.ok) return null;
@@ -123,11 +125,18 @@ export const getCoverCandidates = (isbn) => {
 // 返す数十〜180 px の正方形・横長画像) も弾くため、以下 3 段階で判定する:
 //   1. 画像が読めない                  → 偽
 //   2. naturalWidth < 50              → 偽 (placeholder 規模)
-//   3. height/width < 1.35            → 偽 (Google Books の 128×170 PNG プレース
-//                                        ホルダー = h/w 1.328 は除外。本の表紙は
-//                                        ほぼ 1.4-1.6)
-// 3 秒で打ち切り。crossOrigin は付けない (CORS 未対応の openBD/Amazon
-// が読めなくなる。naturalWidth/Height はクロスオリジン画像でも取得可)。
+//   3. 縦横比ゲート（ソース別）        → 偽
+//      - books.google.com/books/content の ISBN 直リンクだけは、未登録本に
+//        128×170 の「No cover」プレースホルダー (h/w=1.328) を返すため
+//        厳しめの 1.35 を要求（本の表紙はほぼ 1.4-1.6）
+//      - それ以外のソース（NDL / openBD / 楽天 / Amazon / GB thumbnail）は
+//        「存在しない本」を 404 / 1×1 で返すのでプレースホルダーの心配が無く、
+//        1.05 の緩いゲートにする。以前は全ソースに 1.35 を課しており、正方形
+//        寄りの実在する表紙（絵本・ムック・一部単行本）を誤って弾いて
+//        「表紙が取れない」の一因になっていた
+// crossOrigin は付けない (CORS 未対応の openBD/Amazon が読めなくなる。
+// naturalWidth/Height はクロスオリジン画像でも取得可)。
+const GB_CONTENT_RE = /books\.google\.[a-z.]+\/books\/content/i;
 export const checkImageExists = (url) =>
   new Promise((resolve) => {
     if (!url) { resolve(false); return; }
@@ -138,7 +147,8 @@ export const checkImageExists = (url) =>
       const w = img.naturalWidth;
       const h = img.naturalHeight;
       if (w < 50 || h < 50) { settle(false); return; }      // 1×1 / 小さい placeholder
-      if (h / w < 1.35) { settle(false); return; }           // 平たい = Google Books の「No cover」(128×170) や横長ロゴ
+      const minRatio = GB_CONTENT_RE.test(url) ? 1.35 : 1.05;
+      if (h / w < minRatio) { settle(false); return; }       // 平たい = プレースホルダー / 横長ロゴ
       settle(true);
     };
     img.onerror = () => settle(false);

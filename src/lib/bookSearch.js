@@ -920,7 +920,8 @@ export async function findCoverFromGoogleBooks({ title, author, isbn } = {}) {
       );
       if (r.ok) {
         const d = await r.json();
-        const norm = (s) => (s || '').replace(/[\s　]+/g, '').toLowerCase();
+        // NFKC で全角英数字/記号の揺れも吸収して照合（「営業１年目」vs「営業1年目」）。
+        const norm = (s) => (s || '').normalize('NFKC').replace(/[\s　・･,，、.。:：!！?？「」『』\-―ー（）()]/g, '').toLowerCase();
         const tn = norm(t);
         for (const item of d.items || []) {
           const info = item.volumeInfo || {};
@@ -930,11 +931,10 @@ export async function findCoverFromGoogleBooks({ title, author, isbn } = {}) {
           // タイトルが相互に部分一致すれば同一書籍とみなす（緩め）。
           if (!tn || cand.includes(tn) || tn.includes(cand)) return cover;
         }
-        // それでも決まらなければ、最初に thumbnail を持つ本を採用（最終手段）。
-        for (const item of d.items || []) {
-          const cover = thumbOf(item.volumeInfo || {});
-          if (cover) return cover;
-        }
+        // ⚠️「タイトル不一致でも最初の thumbnail を無条件採用」する旧・最終手段は
+        //    撤去した。同じ著者の別の本（兄弟本）や無関係な本の表紙を掴む誤マッチの
+        //    発生源だったため（例: 楠木建『感情と勘定の経営』に『逆・タイムマシン
+        //    経営論』の表紙）。誤った表紙より「表紙なし → 手動アップロード」を選ぶ。
       }
     } catch (e) {
       console.warn('[findCoverFromGoogleBooks] loose phase failed:', e?.message || e);
