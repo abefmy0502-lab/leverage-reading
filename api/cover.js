@@ -96,7 +96,8 @@ function extractIsbns(xml, limit = 5) {
 
 async function ndlFetch(params) {
   const r = await fetch(`https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`);
-  if (!r.ok) return '';
+  if (!r.ok) { ndlFetch._lastStatus = r.status; return ''; }
+  ndlFetch._lastStatus = r.status;
   return r.text();
 }
 
@@ -125,7 +126,7 @@ function ndlTitleMatches(rawItemTitle, wantCoreNorm) {
 //   採用順位: ①タイトル一致＋著者一致 → ②タイトルのみ一致（著者照合は表記揺れで
 //   落ちることがあるため保険）。タイトル不一致の ISBN は絶対に採らない
 //   （＝「誤った表紙」より「表紙なし（手動アップロードへ）」を選ぶ）。
-async function ndlIsbns(title, author) {
+async function ndlIsbns(title, author, sink) {
   const t = coreTitle(title);
   if (!t) return [];
   const wantCoreNorm = normTitle(t);
@@ -139,18 +140,22 @@ async function ndlIsbns(title, author) {
     if (qAuthor) p1.push(`creator=${encodeURIComponent(qAuthor)}`);
     p1.push('cnt=20');
     let xml = await ndlFetch(p1);
+    if (sink) sink.http = ndlFetch._lastStatus ?? null;
     if (!xml || !/<item[\s>]/i.test(xml)) {
       xml = await ndlFetch([`title=${encodeURIComponent(t)}`, 'cnt=20']);
+      if (sink) sink.http2 = ndlFetch._lastStatus ?? null;
     }
     if (!xml) return [];
 
     const items = xml.split(/<item[\s>]/i).slice(1);
+    if (sink) { sink.raw = items.length; sink.tmatch = 0; }
     const both = [];       // タイトル一致＋著者一致（最優先）
     const titleOnly = [];  // タイトルのみ一致（著者照合が落ちた時の保険）
     const seen = new Set();
     for (const chunk of items) {
       // タイトル一致は必須。ここで兄弟本（別書名・同著者）を弾く。
       if (!ndlTitleMatches(itemTitle(chunk), wantCoreNorm)) continue;
+      if (sink) sink.tmatch += 1;
       const creators = (chunk.match(/<dc:creator[^>]*>([^<]*)<\/dc:creator>/gi) || [])
         .map((c) => normPerson(c.replace(/<[^>]+>/g, '')));
       const authorOk = !wantAuthor
@@ -162,7 +167,8 @@ async function ndlIsbns(title, author) {
       }
     }
     return [...both, ...titleOnly].slice(0, 5);
-  } catch {
+  } catch (e) {
+    if (sink) sink.err = String((e && e.message) || e).slice(0, 60);
     return [];
   }
 }
@@ -196,10 +202,12 @@ async function googleFetchVolumes(q, max = 10) {
     const r = await fetch(
       `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=${max}&country=JP${key}`,
     );
+    googleFetchVolumes._lastStatus = r.status;
     if (!r.ok) return [];
     const d = await r.json();
     return (d.items || []).map((it) => it.volumeInfo || {});
-  } catch {
+  } catch (e) {
+    googleFetchVolumes._lastErr = String((e && e.message) || e).slice(0, 60);
     return [];
   }
 }
@@ -216,18 +224,20 @@ function gTitleMatch(v, coreNorm) {
   return t.includes(coreNorm) || coreNorm.includes(t);
 }
 
-async function googleCover(title, author, isbn) {
+async function googleCover(title, author, isbn, sink) {
   const want = normPerson(author);
   const core = coreTitle(title);
   const coreNorm = normTitle(core);
 
   if (isbn) {
     const items = await googleFetchVolumes(`isbn:${cleanIsbn(isbn)}`);
+    if (sink) { sink.http = googleFetchVolumes._lastStatus ?? null; sink.raw = items.length; }
     for (const v of items) { const f = gVolFields(v); if (f.cover) return f; }
     return { cover: '', isbn: '' };
   }
   if (!author) {
     const items = await googleFetchVolumes(core);
+    if (sink) { sink.http = googleFetchVolumes._lastStatus ?? null; sink.raw = items.length; }
     for (const v of items) { const f = gVolFields(v); if (f.cover) return f; }
     return { cover: '', isbn: '' };
   }
@@ -324,6 +334,8 @@ async function rakutenCover(title, author, isbn) {
     outOfStockFlag: '1', // 品切れでも書影は取れる（絶版本の救済）
     elements: 'title,author,isbn,largeImageUrl,mediumImageUrl',
   });
+  // 🔎 診断: referer(APP_URL) の有無・HTTP status・生件数・照合結果を控える。
+  const d = { ref: !!referer, http: null, raw: 0, tmatch: 0 };
   const iq = cleanIsbn(isbn);
   if (iq) {
     params.set('isbn', iq);
@@ -331,7 +343,7 @@ async function rakutenCover(title, author, isbn) {
     // 著者は API に渡さない（楠木建・杉浦泰のような連名・表記揺れで 0 件に
     // なりやすい）。タイトルの核で広めに引き、照合はローカルで厳密に行う。
     const t = coreTitle(title);
-    if (!t) return { cover: '', isbn: '' };
+    if (!t) return { cover: '', isbn: '', _d: d };
     params.set('title', t);
   }
 
@@ -340,13 +352,15 @@ async function rakutenCover(title, author, isbn) {
       `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`,
       referer,
     );
-    if (resp.status < 200 || resp.status >= 300) return { cover: '', isbn: '' };
+    d.http = resp.status;
+    if (resp.status < 200 || resp.status >= 300) return { cover: '', isbn: '', _d: d };
     let data = null;
-    try { data = JSON.parse(resp.body); } catch { return { cover: '', isbn: '' }; }
+    try { data = JSON.parse(resp.body); } catch { return { cover: '', isbn: '', _d: d }; }
     const items = (Array.isArray(data?.Items) ? data.Items : [])
       .map((raw) => (raw && raw.Item ? raw.Item : raw))
       .filter((it) => it && typeof it === 'object');
-    if (items.length === 0) return { cover: '', isbn: '' };
+    d.raw = items.length;
+    if (items.length === 0) return { cover: '', isbn: '', _d: d };
 
     const fields = (it) => ({
       cover: rakutenUpscale(it.largeImageUrl || it.mediumImageUrl || ''),
@@ -359,9 +373,9 @@ async function rakutenCover(title, author, isbn) {
     if (iq) {
       for (const it of items) {
         const f = fields(it);
-        if (f.cover) return { cover: f.cover, isbn: f.isbn || iq };
+        if (f.cover) return { cover: f.cover, isbn: f.isbn || iq, _d: d };
       }
-      return { cover: '', isbn: '' };
+      return { cover: '', isbn: '', _d: d };
     }
 
     // タイトル検索: タイトル一致必須（兄弟本除外）＋ 著者一致を優先。
@@ -373,17 +387,19 @@ async function rakutenCover(title, author, isbn) {
       if (!f.cover) continue;
       const tn = normTitle(f.title);
       if (!tn || !(tn.includes(wantCoreNorm) || wantCoreNorm.includes(tn))) continue;
+      d.tmatch += 1;
       const authorOk = !wantAuthor || (() => {
         const an = normPerson(f.author);
         return an && (an.includes(wantAuthor) || wantAuthor.includes(an));
       })();
-      if (authorOk) return { cover: f.cover, isbn: f.isbn };
+      if (authorOk) return { cover: f.cover, isbn: f.isbn, _d: d };
       if (!titleOnly) titleOnly = { cover: f.cover, isbn: f.isbn };
     }
     // 著者一致が無ければタイトルのみ一致を保険で採用（NDL と同じ順位付け）。
-    return titleOnly || { cover: '', isbn: '' };
-  } catch {
-    return { cover: '', isbn: '' };
+    return { ...(titleOnly || { cover: '', isbn: '' }), _d: d };
+  } catch (e) {
+    d.err = String((e && e.message) || e).slice(0, 60);
+    return { cover: '', isbn: '', _d: d };
   }
 }
 
@@ -577,7 +593,7 @@ export default async function handler(req, res) {
     //    env（RAKUTEN_APPLICATION_ID / ACCESS_KEY）未設定なら静かにスキップ。
     if (!cover) {
       const rk = await rakutenCover(title, author, isbn);
-      diag.src.rakuten = { cover: !!rk.cover, isbn: rk.isbn || null };
+      diag.src.rakuten = { cover: !!rk.cover, isbn: rk.isbn || null, ...(rk._d || {}) };
       if (rk.cover) {
         cover = rk.cover;
         if (rk.isbn) isbn = rk.isbn;
@@ -592,8 +608,9 @@ export default async function handler(req, res) {
     //    ※ サーバーからの書影 fetch は 403 で弾かれることがあるので、表紙が
     //      検証できなくても「正しい ISBN」は必ず確保する（後段でクライアントに渡す）。
     if (!cover) {
-      const isbns = await ndlIsbns(title, author);
-      diag.src.ndl = { isbnCount: isbns.length, first: isbns[0] || null };
+      const ndlSink = {};
+      const isbns = await ndlIsbns(title, author, ndlSink);
+      diag.src.ndl = { isbnCount: isbns.length, first: isbns[0] || null, ...ndlSink };
       for (const cand of isbns) {
         if (!isbn) isbn = cand; // 最初に見つかった ISBN を確保
         // eslint-disable-next-line no-await-in-loop
@@ -604,8 +621,9 @@ export default async function handler(req, res) {
 
     // ④ それでもダメなら Google Books（鍵があれば有効・補助）。
     if (!cover) {
-      const g = await googleCover(title, author, isbn);
-      diag.src.google = { cover: !!g.cover, isbn: g.isbn || null };
+      const gSink = {};
+      const g = await googleCover(title, author, isbn, gSink);
+      diag.src.google = { cover: !!g.cover, isbn: g.isbn || null, ...gSink };
       if (g.cover) { cover = g.cover; if (!isbn) isbn = g.isbn; }
       else if (g.isbn && !isbn) {
         isbn = g.isbn;
