@@ -172,11 +172,11 @@ export default function HomeRecall({ onOpen, onAction }) {
 
   if (dismissed || !memo) return null;
 
-  // プレビュー（初回 aha）は書きたてなので recallFraming が空になる。偽の経過日は
-  // 出さず、正直に「これから戻ってくる」旨のキャプションにする。
+  // プレビュー（初回 aha）は書きたて。宣伝的な見出し/フッターは出さず、メモ本文と
+  // 「何の本か」だけを静かに見せる（本物の想起のみ「◯ヶ月前のあなたのメモ」を出す）。
   const isPreview = !!memo.preview;
-  const framing = isPreview ? '💡 これが、忘れた頃に戻ってきます' : recallFraming(memo.createdAt);
-  if (!framing) return null;
+  const framing = isPreview ? '' : recallFraming(memo.createdAt);
+  if (!isPreview && !framing) return null;
   const excerpt = memoExcerpt(memo.text, 140);
 
   const handleOpen = () => {
@@ -244,7 +244,7 @@ export default function HomeRecall({ onOpen, onAction }) {
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${framing}を振り返る`}
+      aria-label={memo.title ? `『${memo.title}』のメモを振り返る` : 'メモを振り返る'}
       onClick={handleOpen}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -266,24 +266,28 @@ export default function HomeRecall({ onOpen, onAction }) {
         boxShadow: '0 1px 2px rgba(60, 50, 30, 0.04)',
       }}
     >
-      <p
-        style={{
-          fontSize: 12,
-          fontWeight: 600,
-          color: 'var(--c-ink-2)',
-          margin: '0 0 6px',
-          paddingRight: 32, // × ボタンと重ならない
-        }}
-      >
-        <MessageSquareQuote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-        {framing}
-      </p>
+      {framing && (
+        <p
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--c-ink-2)',
+            margin: '0 0 6px',
+            paddingRight: 32, // × ボタンと重ならない
+          }}
+        >
+          <MessageSquareQuote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+          {framing}
+        </p>
+      )}
       <p
         style={{
           fontSize: 13,
           color: 'var(--c-ink)',
           lineHeight: 1.6,
           margin: 0,
+          // 見出しが無い（プレビュー）ときは、先頭行が × ボタンに被らないよう右に余白。
+          paddingRight: framing ? 0 : 32,
           display: '-webkit-box',
           WebkitLineClamp: 3,
           WebkitBoxOrient: 'vertical',
@@ -306,13 +310,9 @@ export default function HomeRecall({ onOpen, onAction }) {
           『{memo.title}』
         </p>
       )}
-      {/* プレビュー時は「これから戻ってくる」の一言だけ。間隔反復フィードバックは
-          本物の想起（非プレビュー）でのみ出す。 */}
-      {isPreview ? (
-        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.6 }}>
-          メモを残すほど、この「ふいの再会」が自然に増えていきます。
-        </p>
-      ) : (
+      {/* プレビュー（書きたて）は宣伝文を出さず、メモ本文＋本名だけの静かなカード。
+          間隔反復フィードバック（覚えた/もう一度）は本物の想起でのみ出す。 */}
+      {isPreview ? null : (
         // 🧠 間隔反復のフィードバック（覚えた/もう一度）＋ 🎯 行動にする。カード全体の
         //    タップ（開く）と干渉しないよう stopPropagation。
         <div style={{ marginTop: 10 }} onClick={(e) => e.stopPropagation()}>
