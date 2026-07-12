@@ -21,6 +21,7 @@ import { LIMITS, clamp } from '../lib/limits';
 import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
 import { isStrictMatch } from '../lib/bookMatch';
+import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { summarizeAdvisorConversation } from '../lib/aiSetupSummary';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
@@ -375,6 +376,44 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     generateRecommendations(compiled, concern);
   };
 
+  // 🔎 推薦の実在検証＋表紙先読み（並列・非ブロッキング）。
+  //   - 目的1（ハルシネーション対策）: 楽天総合検索/NDL/Google のどれかで実在を
+  //     同定できない本（exists===false＝サーバーが全ソース 0 件と応答）を「疑わしい」
+  //     とみなす。実在が確認できた本が 3 冊以上あれば疑わしい本は表示から落とし、
+  //     予備（6〜7冊目）で埋める。3 冊未満なら落とさず警告バッジ付きで残す
+  //     （実在本を誤って落とさないための安全策。ネットワーク不明 exists===null も罰しない）。
+  //   - 目的2（体感速度＝質）: 実在本の表紙をここで先読みしてカードに載せる。
+  //     追加時に別途解決していた表紙が、カード表示中に埋まる。
+  const verifyAndEnrich = async (pool) => {
+    if (!Array.isArray(pool) || pool.length === 0) return;
+    const results = await Promise.all(pool.map(async (rec) => {
+      let v = { exists: null };
+      try {
+        v = await Promise.race([
+          verifyBookExists({ title: rec.title, author: rec.author, isbn: rec.isbn }),
+          new Promise((res) => { setTimeout(() => res({ exists: null }), 6000); }),
+        ]);
+      } catch { v = { exists: null }; }
+      // 表紙: rec.cover → サーバー cover → candidates を <img> 実在検証で採用。
+      let cover = (rec.cover || '').trim();
+      if (cover && !(await checkImageExists(cover))) cover = '';
+      if (!cover && v.cover && await checkImageExists(v.cover)) cover = v.cover;
+      if (!cover && Array.isArray(v.candidates)) {
+        for (const u of v.candidates) {
+          // eslint-disable-next-line no-await-in-loop
+          if (await checkImageExists(u)) { cover = u; break; }
+        }
+      }
+      return { ...rec, cover, isbn: v.isbn || rec.isbn || '', _suspect: v.exists === false };
+    }));
+    if (unmountedRef.current) return;
+    const solid = results.filter((r) => !r._suspect);   // 実在確認 or 不明（罰しない）
+    const suspects = results.filter((r) => r._suspect);  // 実在しない疑い
+    // 実在系が 3 冊以上あれば疑わしい本を落とす（予備で埋まる）。少なければ警告付きで残す。
+    const items = (solid.length >= 3 ? solid : [...solid, ...suspects]).slice(0, 5);
+    setRecommendations((prev) => (prev ? { ...prev, items } : prev));
+  };
+
   // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
   // 1 回ストリーム。userMsg は AI へ渡す本文、sourceQuery は本棚追加時の
   // source_query（投資目的プレフィル）に使う「ユーザーの元の課題」。
@@ -456,7 +495,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       // 確認できない」ことが多く、5 冊提案でも 1 冊しか出ない事故になっていた。
       // 「実在しない本を出さない」担保は bookAdvisor プロンプト側の厳格ルールに任せ、
       // ISBN は本棚追加時に解決する（Amazon リンクは title+author 検索で十分機能する）。
-      const finalList = recs.slice(0, 5);
+      // AI は最大 7 冊まで挙げてよい（実在検証で絞る余地＝予備を作るため）。
+      // まず上位 5 冊を楽観的に即表示し（体感速度を落とさない）、裏で全 7 冊の
+      // 実在検証＋表紙先読みを回す。ゴースト（実在しない本）は検証後に予備と
+      // 差し替えられる。
+      const verifyPool = recs.slice(0, 7);
+      const finalList = verifyPool.slice(0, 5);
       setRecommendations({
         items: finalList,
         before: prose?.before || '',
@@ -464,6 +508,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       });
       setLastUserQuery(sourceQuery || safeMsg);
       nextRecs = finalList;
+      // 🔎 実在検証＋表紙先読み（並列・非ブロッキング）。表示は上で済ませているので
+      //    体感は落ちない。検証結果で「実在しない本」を除外/警告し、実在本には
+      //    表紙を後追いで載せる（カードの質と信頼が上がる）。
+      verifyAndEnrich(verifyPool);
     } else {
       // 推薦 JSON が取れなかった → 本文（マーカー/壊れた JSON は除去済み）を提示。
       // 空になった（=JSON だけで打ち切られた等）場合は案内文を出し、袋小路を防ぐ。
@@ -1198,13 +1246,34 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             })()}
             {recommendations.items.map((rec, i) => (
               <div key={i} style={{ background: "var(--c-card)", borderRadius: 16, border: "1px solid #f0ebe1", padding: "16px 16px", overflow: "hidden", boxShadow: "0 1px 3px rgba(60, 48, 30, 0.06)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                  <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  {/* 実在検証で先読みした表紙（あれば）。追加前に表紙が見えて信頼が上がる。 */}
+                  {rec.cover && (
+                    <img
+                      src={rec.cover}
+                      alt=""
+                      width="52"
+                      loading="lazy"
+                      style={{ width: 52, height: 74, objectFit: 'cover', borderRadius: 6, flexShrink: 0, boxShadow: '0 1px 3px rgba(60,48,30,0.15)' }}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 11, color: "var(--c-ink-2)", margin: 0, fontWeight: 600 }}>#{i + 1}</p>
                     <p style={{ fontSize: 15, fontWeight: 600, color: "var(--c-ink)", margin: '2px 0 0' }}>『{rec.title}』</p>
                     <p style={{ fontSize: 12, color: "var(--c-ink-2)", marginTop: 2 }}>{rec.author}</p>
                   </div>
                 </div>
+                {/* ⚠️ 実在を確認できなかった本（AI が実在しない書名を挙げた疑い）。
+                    削除はせず注意喚起に留める（実在するのに検証を取りこぼした本を
+                    誤って葬らないため）。 */}
+                {rec._suspect && (
+                  <div style={{ marginTop: 10, padding: '8px 10px', background: '#fdf6e3', border: '1px solid #efe2c0', borderRadius: 8 }}>
+                    <p style={{ fontSize: 11, color: '#8a6d3b', lineHeight: 1.6, margin: 0 }}>
+                      ⚠️ この本は書誌情報が見つかりませんでした。書名・著者が正しいか、実在する本かご確認ください。
+                    </p>
+                  </div>
+                )}
                 {rec.why && (
                   <div style={{ marginTop: 10, padding: '10px 12px', background: '#f5efde', borderRadius: 10, border: '1px solid #e8dcc0' }}>
                     <p style={{ fontSize: 11, color: '#9a7e44', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>なぜあなたに</p>

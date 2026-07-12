@@ -64,6 +64,38 @@ export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
   }
 };
 
+// 📖 実在検証: サーバーの表紙リゾルバ（/api/cover）が、この (title, author) を
+//   楽天総合検索・NDL・Google のいずれかで「実在する本」として同定できたかを返す。
+//   AI 選書のハルシネーション（実在する著者＋存在しない書名）を検出する用途。
+//   返り値:
+//     { exists: true,  isbn, cover, candidates }  実在（どれかのソースが ISBN を返した）
+//     { exists: false }                            サーバーは応答したが全ソース 0 件
+//     { exists: null }                             判定不能（ネットワーク/レート制限）
+//   ⚠️ exists:null（通信失敗）は「実在しない」とは扱わない。過去に実在検証で
+//     429/CORS の誤検知が多発し実在本まで落とした反省から、不明は罰しない。
+export const verifyBookExists = async ({ title, author, isbn } = {}) => {
+  const params = new URLSearchParams();
+  if (title) params.set('title', title);
+  if (author) params.set('author', author);
+  if (isbn) params.set('isbn', isbn);
+  params.set('cv', '6');
+  if ([...params.keys()].length === 0) return { exists: false };
+  try {
+    const r = await fetch(`/api/cover?${params.toString()}`);
+    if (!r.ok) return { exists: null };
+    const d = await r.json();
+    if (!d) return { exists: null };
+    return {
+      exists: !!d.isbn,
+      isbn: d.isbn || '',
+      cover: d.cover || '',
+      candidates: Array.isArray(d.candidates) ? d.candidates : [],
+    };
+  } catch {
+    return { exists: null };
+  }
+};
+
 // ISBN-13 → ISBN-10 変換。9784〜 のような 978 prefix 付き ISBN-13 のみ
 // 対応 (979 prefix の新ISBN は ISBN-10 が存在しない仕様)。
 export const isbn13to10 = (isbn13) => {
