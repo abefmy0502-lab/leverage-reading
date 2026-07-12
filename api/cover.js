@@ -556,6 +556,17 @@ export default async function handler(req, res) {
   let cover = '';
   let isbn = isbnIn;
 
+  // 🔎 軽量診断（常時オン・安全）: どのソースが何を返したかを記録する。追加の
+  //    外部フェッチは行わず（通常フローの結果を控えるだけ）、内部 URL・API キー・
+  //    生エラー文言は一切出さない。原因切り分け（コード版・楽天設定・各ソースの
+  //    ISBN 有無）に必要な最小限だけ。落ち着いたら削除してよい。
+  const diag = {
+    v: 'cov-2026-07-12b',           // デプロイ判定用の版マーカー
+    rk: !!(process.env.RAKUTEN_APPLICATION_ID && process.env.RAKUTEN_ACCESS_KEY),
+    fa: firstAuthor(author) || null, // 実際にクエリへ渡した先頭著者
+    src: {},                         // 各ソースの結果（rakuten/ndl/google）
+  };
+
   try {
     // ① ISBN が分かっていれば各ソースを server-side 検証（通れば fast path）。
     if (isbn) cover = await coverFromIsbn(isbn);
@@ -566,6 +577,7 @@ export default async function handler(req, res) {
     //    env（RAKUTEN_APPLICATION_ID / ACCESS_KEY）未設定なら静かにスキップ。
     if (!cover) {
       const rk = await rakutenCover(title, author, isbn);
+      diag.src.rakuten = { cover: !!rk.cover, isbn: rk.isbn || null };
       if (rk.cover) {
         cover = rk.cover;
         if (rk.isbn) isbn = rk.isbn;
@@ -581,6 +593,7 @@ export default async function handler(req, res) {
     //      検証できなくても「正しい ISBN」は必ず確保する（後段でクライアントに渡す）。
     if (!cover) {
       const isbns = await ndlIsbns(title, author);
+      diag.src.ndl = { isbnCount: isbns.length, first: isbns[0] || null };
       for (const cand of isbns) {
         if (!isbn) isbn = cand; // 最初に見つかった ISBN を確保
         // eslint-disable-next-line no-await-in-loop
@@ -592,6 +605,7 @@ export default async function handler(req, res) {
     // ④ それでもダメなら Google Books（鍵があれば有効・補助）。
     if (!cover) {
       const g = await googleCover(title, author, isbn);
+      diag.src.google = { cover: !!g.cover, isbn: g.isbn || null };
       if (g.cover) { cover = g.cover; if (!isbn) isbn = g.isbn; }
       else if (g.isbn && !isbn) {
         isbn = g.isbn;
@@ -599,6 +613,7 @@ export default async function handler(req, res) {
       }
     }
   } catch (e) {
+    diag.err = String((e && e.message) || e).slice(0, 120);
     console.warn('[api/cover] failed:', e && e.message);
   }
 
@@ -615,5 +630,5 @@ export default async function handler(req, res) {
   } else {
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60');
   }
-  return res.status(200).json({ cover: cover || '', isbn: isbn || '', candidates });
+  return res.status(200).json({ cover: cover || '', isbn: isbn || '', candidates, _diag: diag });
 }
