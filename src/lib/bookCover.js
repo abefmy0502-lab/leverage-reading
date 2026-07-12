@@ -38,8 +38,9 @@ export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
   //    壊れていた時期に CDN へ張り付いた空っぽ応答（s-maxage 最長 7 日）を
   //    新しい URL で確実に回避するため。
   //    v5: 兄弟本誤マッチ根治（NDL タイトル照合必須）＋楽天ブックスソース追加。
-  //    旧ロジックが CDN に焼き込んだ「別の本の ISBN/candidates」を確実に無効化する。
-  params.set('cv', '5');
+  //    v6: 共著の著者クエリを先頭著者に修正（連結文字列だと NDL/Google が 0 件で
+  //        表紙が取れなかった。例: 楠木建・杉浦泰）。旧応答（空）を CDN から無効化。
+  params.set('cv', '6');
   try {
     const r = await fetch(`/api/cover?${params.toString()}`);
     if (!r.ok) return null;

@@ -59,6 +59,27 @@ function normPerson(s) {
     .toLowerCase();
 }
 
+// 共著（「楠木建・杉浦泰」「A、B」「A/B」「A and B」等）を書籍 API の著者絞り込み
+// （creator= / inauthor:）に丸ごと渡すと「その名前の 1 人の著者」を探して 0 件に
+// なる。クエリには先頭著者だけを使う（照合は全著者文字列で includes 判定するので
+// 2 人目以降も拾える）。
+//   ※「・」の扱いに注意: 外国人名の中黒（ロバート・キヨサキ ＝ 1 人）は割らず、
+//     日本語の連名（漢字・漢字 ＝ 2 人）だけ割る。全パートが漢字を含む時のみ分割。
+function firstAuthor(author) {
+  const a = clean(author);
+  if (!a) return '';
+  // 明確な連名区切り（読点/スラッシュ/カンマ/&/and）は常に分割。
+  let first = a.split(/[/／、,，;；&＆]|\s+and\s+/i)[0].trim();
+  if (first.includes('・') || first.includes('･')) {
+    const parts = first.split(/[・･]/).map((p) => p.trim()).filter(Boolean);
+    const hasKanji = (s) => /[一-龯]/.test(s);
+    // 全パートが漢字を含む＝日本語の連名 → 先頭を採用。1 つでもカタカナ断片が
+    // あれば外国人名の中黒とみなし割らない（ロバート・キヨサキ / スティーブン・R・コヴィー）。
+    if (parts.length >= 2 && parts.every(hasKanji)) first = parts[0];
+  }
+  return first || a;
+}
+
 // XML から ISBN-13 を上位順に抽出（DOMParser 不要・regex）。
 function extractIsbns(xml, limit = 5) {
   const found = [];
@@ -113,7 +134,9 @@ async function ndlIsbns(title, author) {
     // title(+creator) で広めに引く。creator 併用は表記揺れで空振りしやすいので、
     // item が取れなければ title のみで引き直す（照合は item 単位で厳密に行う）。
     const p1 = [`title=${encodeURIComponent(t)}`];
-    if (author) p1.push(`creator=${encodeURIComponent(clean(author))}`);
+    // 共著は先頭著者で絞る（連結文字列だと NDL が 0 件になる）。
+    const qAuthor = firstAuthor(author);
+    if (qAuthor) p1.push(`creator=${encodeURIComponent(qAuthor)}`);
     p1.push('cnt=20');
     let xml = await ndlFetch(p1);
     if (!xml || !/<item[\s>]/i.test(xml)) {
@@ -216,10 +239,12 @@ async function googleCover(title, author, isbn) {
   // needTitle は全プランで true。intitle でも別著作が混じることがあるため、
   // 著者一致だけでなくタイトル照合も必須にして兄弟本の誤採用を防ぐ
   // （gTitleMatch は正規化した包含判定なので副題・表記揺れには寛容）。
+  // 共著は先頭著者で絞る（inauthor: に連結文字列を渡すと 0 件になる）。
+  const qAuthor = firstAuthor(author);
   const plans = [
-    { q: `intitle:${core} inauthor:${clean(author)}`, max: 10, needTitle: true },
-    { q: `${core} ${clean(author)}`, max: 20, needTitle: true },
-    { q: `inauthor:${clean(author)}`, max: 40, needTitle: true },
+    { q: `intitle:${core} inauthor:${qAuthor}`, max: 10, needTitle: true },
+    { q: `${core} ${qAuthor}`, max: 20, needTitle: true },
+    { q: `inauthor:${qAuthor}`, max: 40, needTitle: true },
   ];
 
   let isbnOnly = '';

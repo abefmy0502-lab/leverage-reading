@@ -21,6 +21,24 @@
 // network/quota failure (the original "search appears broken" bug came
 // from collapsing those into a single empty array).
 
+// 共著（「楠木建・杉浦泰」「A、B」「A/B」「A and B」）を書籍 API の著者絞り込み
+// （inauthor: / creator=）に丸ごと渡すと「その名前の 1 人」を探して 0 件になる。
+// クエリには先頭著者だけを使う（照合は isSameBook が全著者文字列で含み合い判定
+// するので 2 人目以降も同定できる）。
+//   ※「・」は外国人名の中黒（ロバート・キヨサキ ＝ 1 人）を割らず、日本語の連名
+//     （漢字・漢字 ＝ 2 人）だけ割る。全パートが漢字を含む時のみ分割。
+const firstAuthorForQuery = (author) => {
+  const a = (author || '').trim();
+  if (!a) return '';
+  let first = a.split(/[/／、,，;；&＆]|\s+and\s+/i)[0].trim();
+  if (first.includes('・') || first.includes('･')) {
+    const parts = first.split(/[・･]/).map((p) => p.trim()).filter(Boolean);
+    const hasKanji = (s) => /[一-龯]/.test(s);
+    if (parts.length >= 2 && parts.every(hasKanji)) first = parts[0];
+  }
+  return first || a;
+};
+
 const CACHE_KEY = 'bookSearchCache';
 // 7 days. ISBN は不変で、検索クエリも頻繁には変わらないため、長めに置いて
 // 体感速度を上げる。容量制御は CACHE_MAX_ENTRIES が担当。
@@ -778,7 +796,8 @@ async function findCandidateBooksFromNDL(title, author) {
   if (!t && !a) return [];
   const params = [];
   if (t) params.push(`title=${encodeURIComponent(t)}`);
-  if (a) params.push(`creator=${encodeURIComponent(a)}`);
+  const qa = firstAuthorForQuery(a); // 共著は先頭著者で絞る
+  if (qa) params.push(`creator=${encodeURIComponent(qa)}`);
   params.push('cnt=20');
   const url = `https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`;
   try {
@@ -810,7 +829,8 @@ async function findCandidateBooksFromGoogleBooks(title, author) {
   if (!t && !a) return [];
   const parts = [];
   if (t) parts.push(`intitle:${encodeURIComponent(t)}`);
-  if (a) parts.push(`inauthor:${encodeURIComponent(a)}`);
+  const qa = firstAuthorForQuery(a); // 共著は先頭著者で絞る
+  if (qa) parts.push(`inauthor:${encodeURIComponent(qa)}`);
   const url = `https://www.googleapis.com/books/v1/volumes?q=${parts.join('+')}&maxResults=10&country=JP`;
   try {
     const r = await fetch(url);
@@ -885,7 +905,8 @@ export async function findCoverFromGoogleBooks({ title, author, isbn } = {}) {
     try {
       const parts = [];
       if (t) parts.push(`intitle:${encodeURIComponent(t)}`);
-      if (a) parts.push(`inauthor:${encodeURIComponent(a)}`);
+      const qa = firstAuthorForQuery(a); // 共著は先頭著者で絞る（連結だと 0 件）
+      if (qa) parts.push(`inauthor:${encodeURIComponent(qa)}`);
       const r = await fetch(
         `https://www.googleapis.com/books/v1/volumes?q=${parts.join('+')}&maxResults=10&country=JP`,
       );
@@ -997,8 +1018,9 @@ export async function findIsbnCandidates(title, author) {
 
   // localStorage cache key を v3 にバンプ (閾値 0.8 + 上限 3 件 + 著者厳格化)
   // v4: 副題付きタイトルの類似度判定を緩和（核タイトル＋副題＝同一書誌）。
-  // 旧 v3 のキャッシュ（解決失敗で空配列）を引き継がず、緩和ロジックで再解決させる。
-  const cacheKey = `${ISBN_CAND_CACHE_KEY(t, a)}:v4`;
+  // v5: 共著の著者クエリを先頭著者に修正（連結文字列だと NDL/Google が 0 件で
+  //     ISBN が取れず空配列がキャッシュされていた）。旧キャッシュを捨てて再解決。
+  const cacheKey = `${ISBN_CAND_CACHE_KEY(t, a)}:v5`;
   try {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem(cacheKey);
