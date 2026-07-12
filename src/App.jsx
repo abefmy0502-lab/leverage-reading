@@ -2887,9 +2887,28 @@ function AuthedApp() {
                 lineHeight: 1.7,
               }}
             >
-              {current.status === "want"
-                ? "📚 「読書中」にすると、＋ボタンからメモを追加できるようになります。"
-                : "📊 今は投資戦略を立てる段階です。「読書中」にすると、＋ボタンからメモを追加できます。"}
+              {/* コールドスタート緩和: 行き止まりの説明で終わらせず、ワンタップで
+                  「読書中」に昇格して即メモを開く。核ループ（メモ→想起）の入口の
+                  摩擦を最小化する（メモが貯まらないと想起もマイ読書脳も効かないため、
+                  初日に一行残せるかが継続の分岐点）。設計（メモは reading/done に住む）
+                  は反転せず、その状態への移行を一手で済ませる。 */}
+              <p style={{ margin: "0 0 10px" }}>
+                {current.status === "want"
+                  ? "📚 心が動いた一行は、いつでも残せます。"
+                  : "📊 今は投資戦略を立てる段階です。読み始めたら、一行メモを残していきましょう。"}
+              </p>
+              <button
+                type="button"
+                onClick={() => { advanceStatus(current, "reading"); setQuickMemoOpen(true); }}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  minHeight: 44, padding: "10px 16px", borderRadius: 10, border: "none",
+                  background: "var(--c-brand)", color: "var(--c-brand-ink)",
+                  fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                ✍️ 「読書中」にして、いま一行メモを残す
+              </button>
             </div>
           )}
           {current.aiSummary && (

@@ -382,6 +382,12 @@ export default function Paywall({ onPurchased }) {
             <p style={{ fontSize: 20, fontWeight: 700, margin: '0 0 2px', color: 'var(--color-label)' }}>
               {labels.annual.price}
             </p>
+            {/* 💰 価格アンカリング: 月額×12（¥17,760）に対する割引を可視化して「お得さ」を
+                届ける。日本専用アプリ（iPhone/日本語書籍）のため ¥ 固定提示で誤表示なし。
+                paywall-design.md 指定の「取り消し線＋割引バッジ」を実装。 */}
+            <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '0 0 4px' }}>
+              月額プランなら年 <s>¥17,760</s> → <strong style={{ color: 'var(--color-label)' }}>約28%お得</strong>（月あたり約¥1,066・3.3ヶ月分オフ）
+            </p>
             {labels.annual.note && (
               <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '0 0 12px' }}>
                 {labels.annual.note}
@@ -441,7 +447,9 @@ export default function Paywall({ onPurchased }) {
                 opacity: pending && pending !== 'monthly' ? 0.5 : 1,
               }}
             >
-              {pending === 'monthly' ? pendingLabel : '月額プランで契約する'}
+              {pending === 'monthly'
+                ? pendingLabel
+                : (labels.trial ? `まずは${labels.trial}で試す（月額）` : '月額プランで契約する')}
             </button>
           </div>
         </section>
