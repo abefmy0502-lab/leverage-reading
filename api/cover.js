@@ -327,99 +327,82 @@ async function rakutenCover(title, author, isbn) {
   const accessKey = (process.env.RAKUTEN_ACCESS_KEY || '').trim();
   if (!appId || !accessKey) return { cover: '', isbn: '' };
   const referer = (process.env.RAKUTEN_APP_URL || '').trim();
+  const d = { ref: !!referer, tmatch: 0, tries: [] };
 
-  const params = new URLSearchParams({
-    format: 'json',
-    applicationId: appId,
-    accessKey,
-    hits: '20',
-    outOfStockFlag: '1', // 品切れでも書影は取れる（絶版本の救済）
-    elements: 'title,author,isbn,largeImageUrl,mediumImageUrl',
+  const fields = (it) => ({
+    cover: rakutenUpscale(it.largeImageUrl || it.mediumImageUrl || ''),
+    isbn: cleanIsbn(it.isbn),
+    title: (it.title || '').toString(),
+    author: (it.author || '').toString(),
   });
-  // 🔎 診断: referer(APP_URL) の有無・HTTP status・生件数・照合結果を控える。
-  const d = { ref: !!referer, http: null, raw: 0, tmatch: 0 };
-  const iq = cleanIsbn(isbn);
-  // ⚠️ エンドポイントを用途で使い分ける（実測で判明した決定的な差）:
-  //   - ISBN 直引き: BooksBook/Search（書籍限定・isbn= が正確）
-  //   - タイトル検索: BooksTotal/Search（総合検索）。keyword= が効くのはこちらで、
-  //     BooksBook/Search は keyword を無視してデフォルトの新刊を返す（実測:
-  //     『感情と勘定の経営』検索で無関係な新刊 20 件が返り tmatch:0 になった）。
-  let apiPath;
-  if (iq) {
-    apiPath = 'BooksBook/Search';
-    params.set('isbn', iq);
-  } else {
-    apiPath = 'BooksTotal/Search';
-    const t = coreTitle(title);
-    if (!t) return { cover: '', isbn: '', _d: d };
-    // keyword はタイトル・著者・内容を横断する緩い検索。著者（連名は先頭のみ）も
-    // 添えて精度を上げ、照合はローカルで厳密に行う（兄弟本・非書籍を除外）。
-    const kw = [t, firstAuthor(author)].filter(Boolean).join(' ');
-    params.set('keyword', kw);
-  }
-  d.api = apiPath;
 
-  try {
-    const resp = await rakutenGet(
-      `https://openapi.rakuten.co.jp/services/api/${apiPath}/20170404?${params.toString()}`,
-      referer,
-    );
-    d.http = resp.status;
-    if (resp.status < 200 || resp.status >= 300) return { cover: '', isbn: '', _d: d };
-    let data = null;
-    try { data = JSON.parse(resp.body); } catch { return { cover: '', isbn: '', _d: d }; }
-    const items = (Array.isArray(data?.Items) ? data.Items : [])
-      .map((raw) => (raw && raw.Item ? raw.Item : raw))
-      .filter((it) => it && typeof it === 'object');
-    d.raw = items.length;
-    // 🔎 診断: 楽天が実際に返した先頭数件の書名/カバー有無/ISBN を控える
-    //    （tmatch:0 の原因＝書名が別物か・カバーが空か・照合バグかを見分ける）。
-    d.sample = items.slice(0, 4).map((it) => ({
-      t: (it.title || '').toString().slice(0, 24),
-      c: !!(it.largeImageUrl || it.mediumImageUrl),
-      i: cleanIsbn(it.isbn) || null,
-    }));
-    if (items.length === 0) return { cover: '', isbn: '', _d: d };
-
-    const fields = (it) => ({
-      cover: rakutenUpscale(it.largeImageUrl || it.mediumImageUrl || ''),
-      isbn: cleanIsbn(it.isbn),
-      title: (it.title || '').toString(),
-      author: (it.author || '').toString(),
+  // 1 回分の検索を実行し items を返す。診断も控える。
+  const run = async (apiPath, extra, label) => {
+    const params = new URLSearchParams({
+      format: 'json', applicationId: appId, accessKey, hits: '20',
+      outOfStockFlag: '1', elements: 'title,author,isbn,largeImageUrl,mediumImageUrl',
+      ...extra,
     });
-
-    // ISBN 直引きは本の同定が済んでいる → 表紙があれば即採用。
-    if (iq) {
-      for (const it of items) {
-        const f = fields(it);
-        if (f.cover) return { cover: f.cover, isbn: f.isbn || iq, _d: d };
-      }
-      return { cover: '', isbn: '', _d: d };
+    const t = { q: label, http: null, raw: 0 };
+    try {
+      const resp = await rakutenGet(
+        `https://openapi.rakuten.co.jp/services/api/${apiPath}/20170404?${params.toString()}`,
+        referer,
+      );
+      t.http = resp.status;
+      if (resp.status < 200 || resp.status >= 300) { d.tries.push(t); return []; }
+      const data = JSON.parse(resp.body);
+      const items = (Array.isArray(data?.Items) ? data.Items : [])
+        .map((raw) => (raw && raw.Item ? raw.Item : raw))
+        .filter((it) => it && typeof it === 'object');
+      t.raw = items.length;
+      t.sample = items.slice(0, 3).map((it) => ({ t: (it.title || '').toString().slice(0, 20), c: !!(it.largeImageUrl || it.mediumImageUrl) }));
+      d.tries.push(t);
+      return items;
+    } catch (e) {
+      t.err = String((e && e.message) || e).slice(0, 50);
+      d.tries.push(t);
+      return [];
     }
+  };
 
-    // タイトル検索: タイトル一致必須（兄弟本除外）＋ 著者一致を優先。
-    const wantCoreNorm = normTitle(coreTitle(title));
-    const wantAuthor = normPerson(author);
-    let titleOnly = null;
+  // ── ISBN 直引き（BooksBook/Search・書籍限定で正確）─────────────────
+  const iq = cleanIsbn(isbn);
+  if (iq) {
+    const items = await run('BooksBook/Search', { isbn: iq }, 'isbn');
+    for (const it of items) { const f = fields(it); if (f.cover) return { cover: f.cover, isbn: f.isbn || iq, _d: d }; }
+    return { cover: '', isbn: '', _d: d };
+  }
+
+  // ── タイトル検索（BooksTotal/Search・keyword が効く総合検索）─────────
+  //   keyword を「タイトル＋先頭著者」→ 0 件なら「タイトルのみ」で引き直す
+  //   （著者付きが厳しすぎて 0 になる本を救う）。照合はローカルで厳密に行い、
+  //   兄弟本・非書籍・別の本を弾く（tmatch でタイトル一致数を可視化）。
+  const t = coreTitle(title);
+  if (!t) return { cover: '', isbn: '', _d: d };
+  const wantCoreNorm = normTitle(t);
+  const wantAuthor = normPerson(author);
+  const kws = [[t, firstAuthor(author)].filter(Boolean).join(' '), t];
+
+  let titleOnly = null;
+  for (let i = 0; i < kws.length; i += 1) {
+    if (i > 0 && kws[i] === kws[i - 1]) break; // 著者無しでタイトルと同一なら再検索不要
+    // eslint-disable-next-line no-await-in-loop
+    const items = await run('BooksTotal/Search', { keyword: kws[i] }, i === 0 ? 'kw+author' : 'kw');
     for (const it of items) {
       const f = fields(it);
       if (!f.cover) continue;
       const tn = normTitle(f.title);
       if (!tn || !(tn.includes(wantCoreNorm) || wantCoreNorm.includes(tn))) continue;
       d.tmatch += 1;
-      const authorOk = !wantAuthor || (() => {
-        const an = normPerson(f.author);
-        return an && (an.includes(wantAuthor) || wantAuthor.includes(an));
-      })();
+      const an = normPerson(f.author);
+      const authorOk = !wantAuthor || (an && (an.includes(wantAuthor) || wantAuthor.includes(an)));
       if (authorOk) return { cover: f.cover, isbn: f.isbn, _d: d };
       if (!titleOnly) titleOnly = { cover: f.cover, isbn: f.isbn };
     }
-    // 著者一致が無ければタイトルのみ一致を保険で採用（NDL と同じ順位付け）。
-    return { ...(titleOnly || { cover: '', isbn: '' }), _d: d };
-  } catch (e) {
-    d.err = String((e && e.message) || e).slice(0, 60);
-    return { cover: '', isbn: '', _d: d };
+    if (titleOnly) return { ...titleOnly, _d: d }; // タイトル一致（著者不一致）でも採用
   }
+  return { cover: '', isbn: '', _d: d };
 }
 
 // 一部の書影 CDN（NDL / Amazon）はデータセンター IP からの素の fetch を
@@ -596,7 +579,7 @@ export default async function handler(req, res) {
   //    生エラー文言は一切出さない。原因切り分け（コード版・楽天設定・各ソースの
   //    ISBN 有無）に必要な最小限だけ。落ち着いたら削除してよい。
   const diag = {
-    v: 'cov-2026-07-12e',           // デプロイ判定用の版マーカー
+    v: 'cov-2026-07-12f',           // デプロイ判定用の版マーカー
     rk: !!(process.env.RAKUTEN_APPLICATION_ID && process.env.RAKUTEN_ACCESS_KEY),
     ttl: coreTitle(title) || null,   // API へ渡す核タイトル（エンコード起因の切り分け用）
     fa: firstAuthor(author) || null, // 実際にクエリへ渡した先頭著者
