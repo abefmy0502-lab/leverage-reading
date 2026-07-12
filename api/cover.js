@@ -339,22 +339,29 @@ async function rakutenCover(title, author, isbn) {
   // 🔎 診断: referer(APP_URL) の有無・HTTP status・生件数・照合結果を控える。
   const d = { ref: !!referer, http: null, raw: 0, tmatch: 0 };
   const iq = cleanIsbn(isbn);
+  // ⚠️ エンドポイントを用途で使い分ける（実測で判明した決定的な差）:
+  //   - ISBN 直引き: BooksBook/Search（書籍限定・isbn= が正確）
+  //   - タイトル検索: BooksTotal/Search（総合検索）。keyword= が効くのはこちらで、
+  //     BooksBook/Search は keyword を無視してデフォルトの新刊を返す（実測:
+  //     『感情と勘定の経営』検索で無関係な新刊 20 件が返り tmatch:0 になった）。
+  let apiPath;
   if (iq) {
+    apiPath = 'BooksBook/Search';
     params.set('isbn', iq);
   } else {
-    // ⚠️ title= ではなく keyword= で引く。楽天の title 検索は厳格（完全一致寄り）で
-    //    現行書籍でも 0 件になることがある（実測: 『感情と勘定の経営』で raw:0）。
-    //    keyword はタイトル・著者・内容を横断する緩い検索で取りこぼしが少ない。
-    //    著者（連名は先頭のみ）も足して精度を上げ、照合はローカルで厳密に行う。
+    apiPath = 'BooksTotal/Search';
     const t = coreTitle(title);
     if (!t) return { cover: '', isbn: '', _d: d };
+    // keyword はタイトル・著者・内容を横断する緩い検索。著者（連名は先頭のみ）も
+    // 添えて精度を上げ、照合はローカルで厳密に行う（兄弟本・非書籍を除外）。
     const kw = [t, firstAuthor(author)].filter(Boolean).join(' ');
     params.set('keyword', kw);
   }
+  d.api = apiPath;
 
   try {
     const resp = await rakutenGet(
-      `https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`,
+      `https://openapi.rakuten.co.jp/services/api/${apiPath}/20170404?${params.toString()}`,
       referer,
     );
     d.http = resp.status;
@@ -589,7 +596,7 @@ export default async function handler(req, res) {
   //    生エラー文言は一切出さない。原因切り分け（コード版・楽天設定・各ソースの
   //    ISBN 有無）に必要な最小限だけ。落ち着いたら削除してよい。
   const diag = {
-    v: 'cov-2026-07-12d',           // デプロイ判定用の版マーカー
+    v: 'cov-2026-07-12e',           // デプロイ判定用の版マーカー
     rk: !!(process.env.RAKUTEN_APPLICATION_ID && process.env.RAKUTEN_ACCESS_KEY),
     ttl: coreTitle(title) || null,   // API へ渡す核タイトル（エンコード起因の切り分け用）
     fa: firstAuthor(author) || null, // 実際にクエリへ渡した先頭著者
