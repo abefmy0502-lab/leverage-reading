@@ -258,9 +258,11 @@ async function googleCover(title, author, isbn, sink) {
   ];
 
   let isbnOnly = '';
+  if (sink) { sink.raw = 0; sink.http = null; }
   for (const plan of plans) {
     // eslint-disable-next-line no-await-in-loop
     const items = await googleFetchVolumes(plan.q, plan.max);
+    if (sink) { sink.http = googleFetchVolumes._lastStatus ?? sink.http; sink.raw += items.length; }
     const ok = (v) => gAuthorMatch(v, want) && (!plan.needTitle || gTitleMatch(v, coreNorm));
     // ① 一致＋表紙あり
     for (const v of items) {
@@ -340,11 +342,14 @@ async function rakutenCover(title, author, isbn) {
   if (iq) {
     params.set('isbn', iq);
   } else {
-    // 著者は API に渡さない（楠木建・杉浦泰のような連名・表記揺れで 0 件に
-    // なりやすい）。タイトルの核で広めに引き、照合はローカルで厳密に行う。
+    // ⚠️ title= ではなく keyword= で引く。楽天の title 検索は厳格（完全一致寄り）で
+    //    現行書籍でも 0 件になることがある（実測: 『感情と勘定の経営』で raw:0）。
+    //    keyword はタイトル・著者・内容を横断する緩い検索で取りこぼしが少ない。
+    //    著者（連名は先頭のみ）も足して精度を上げ、照合はローカルで厳密に行う。
     const t = coreTitle(title);
     if (!t) return { cover: '', isbn: '', _d: d };
-    params.set('title', t);
+    const kw = [t, firstAuthor(author)].filter(Boolean).join(' ');
+    params.set('keyword', kw);
   }
 
   try {
@@ -577,8 +582,9 @@ export default async function handler(req, res) {
   //    生エラー文言は一切出さない。原因切り分け（コード版・楽天設定・各ソースの
   //    ISBN 有無）に必要な最小限だけ。落ち着いたら削除してよい。
   const diag = {
-    v: 'cov-2026-07-12b',           // デプロイ判定用の版マーカー
+    v: 'cov-2026-07-12c',           // デプロイ判定用の版マーカー
     rk: !!(process.env.RAKUTEN_APPLICATION_ID && process.env.RAKUTEN_ACCESS_KEY),
+    ttl: coreTitle(title) || null,   // API へ渡す核タイトル（エンコード起因の切り分け用）
     fa: firstAuthor(author) || null, // 実際にクエリへ渡した先頭著者
     src: {},                         // 各ソースの結果（rakuten/ndl/google）
   };
