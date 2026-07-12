@@ -1115,6 +1115,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </button>
             )}
           </div>
+          {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。
+              入力欄の直下に小さく常時表示する。 */}
+          <p style={{ fontSize: 11, color: 'var(--c-ink-3, #9a8f80)', textAlign: 'center', margin: '4px 12px 6px', lineHeight: 1.5 }}>
+            AI の回答には誤りが含まれることがあります
+          </p>
         </div>
       )}
 

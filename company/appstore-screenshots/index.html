@@ -12,8 +12,8 @@
     --cream:#faf7f2; --cream2:#f2ece1; --soft:#f0ebe2;
     --ink:#3d362c; --ink2:#5a4f3e; --brand:#5c5043; --hair:#e6ddcf;
     --accent:#8a7040;
-    --w:1290px;  /* 6.7インチ App Store 幅（iPhone 15/14 Pro Max） */
-    --h:2796px;  /* 6.7インチ 高さ */
+    --w:1320px;  /* 6.9インチ App Store 幅（iPhone 16/15 Pro Max・Apple必須サイズ） */
+    --h:2868px;  /* 6.9インチ 高さ */
     --scale:0.30; /* 画面プレビューの縮小率（保存時は自動で原寸に戻る） */
     --serif:"Noto Serif JP","Hiragino Mincho ProN",serif;
     --sans:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
@@ -35,7 +35,7 @@
     background:#fff;
   }
 
-  /* ====== 1枚 = App Store 原寸 1290×2796 ====== */
+  /* ====== 1枚 = App Store 原寸 1320×2868 ====== */
   .frame{
     width:var(--w);height:var(--h);
     transform:scale(var(--scale));transform-origin:top left;
@@ -90,7 +90,7 @@
   <p class="lead">
     ① iPhone でアプリの画面を6枚スクショ → このフォルダに <code>shot1.png</code> 〜 <code>shot6.png</code> の名前で置く。<br>
     ② キャッチコピーは<strong>直接クリックして書き換え可能</strong>（自由に編集してOK）。<br>
-    ③ 各カードの「📥 PNG保存」を押すと、App Store 用の <strong>1290×2796</strong> 画像が保存されます。<br>
+    ③ 各カードの「📥 PNG保存」を押すと、App Store 用の <strong>1320×2868</strong> 画像が保存されます。<br>
     ※ ファイルを直接開くと保存ボタンが動かないことがあります。その場合は下の README の手順でローカルサーバー経由で開いてください。
   </p>
 
@@ -98,19 +98,21 @@
 
 <script>
   // ====== ここを編集すると各スライドの中身が変わります ======
+  // 順序・コピーの正典は company/aso-store-listing.md §8（1枚目=マイ読書脳が差別化の核）。
+  // shotN.png との対応: 1=マイ読書脳 2=想起カード 3=メモ編集 4=AI選書 5=行動リスト 6=本棚
   const SLIDES = [
-    { bg:'bg-a', shot:'shot1.png', eyebrow:'YOUR LIBRARY',
-      head:'読んだ本が、<br><span class="em">あなたの中に残る。</span>', sub:'表紙で揃う、静かな本棚。' },
-    { bg:'bg-b', shot:'shot2.png', eyebrow:'JUST ONE LINE',
-      head:'心が動いた一行を、<br><span class="em">残すだけ。</span>', sub:'ページも、想いも、いっしょに。' },
-    { bg:'bg-c', shot:'shot3.png', eyebrow:'AI CONDENSE',
-      head:'AI が、あなたの言葉を<br><span class="em">「核心の一行」に。</span>', sub:'バラバラのメモが、使える知恵へ。' },
-    { bg:'bg-a', shot:'shot4.png', eyebrow:'RECALL',
+    { bg:'bg-c', shot:'shot1.png', eyebrow:'MY READING BRAIN',
+      head:'「あの本、なんて言ってた？」に、<br><span class="em">自分のメモが答える。</span>', sub:'過去のあなたの言葉が、根拠になる。' },
+    { bg:'bg-a', shot:'shot2.png', eyebrow:'RECALL',
       head:'忘れた頃に、<br><span class="em">ふいに戻ってくる。</span>', sub:'読みっぱなしを、やめる。' },
-    { bg:'bg-b', shot:'shot5.png', eyebrow:'INTO ACTION',
-      head:'学びは、ちゃんと<br><span class="em">行動に変わる。</span>', sub:'読んだら、1つ動ける。' },
-    { bg:'bg-c', shot:'shot6.png', eyebrow:'AI PICKS',
+    { bg:'bg-b', shot:'shot3.png', eyebrow:'JUST ONE LINE',
+      head:'心が動いた一行を、<br><span class="em">残すだけ。</span>', sub:'ページも、想いも、いっしょに。' },
+    { bg:'bg-c', shot:'shot4.png', eyebrow:'AI PICKS',
       head:'いまの課題に合う本を、<br><span class="em">AI が選ぶ。</span>', sub:'目的のある一冊から。' },
+    { bg:'bg-b', shot:'shot5.png', eyebrow:'INTO ACTION',
+      head:'学びは、ちゃんと<br><span class="em">行動に変わる。</span>', sub:'7日間無料・月¥1,480／年¥12,800・解約自由' },
+    { bg:'bg-a', shot:'shot6.png', eyebrow:'YOUR LIBRARY',
+      head:'読んだ本が、<br><span class="em">あなたの中に残る。</span>', sub:'表紙で揃う、静かな本棚。' },
   ];
 
   const grid = document.getElementById('grid');
@@ -147,7 +149,7 @@
     grid.appendChild(card);
   });
 
-  // 保存：プレビュー用の縮小を一旦解除して原寸(1290×2796)でキャプチャ
+  // 保存：プレビュー用の縮小を一旦解除して原寸(1320×2868)でキャプチャ
   document.querySelectorAll('.save').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const i = btn.dataset.i;
@@ -157,7 +159,7 @@
       btn.textContent = '保存中…';
       try {
         const canvas = await html2canvas(frame, {
-          width: 1290, height: 2796, windowWidth: 1290, windowHeight: 2796,
+          width: 1320, height: 2868, windowWidth: 1320, windowHeight: 2868,
           scale: 1, useCORS: true, backgroundColor: null,
         });
         const a = document.createElement('a');

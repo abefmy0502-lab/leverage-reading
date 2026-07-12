@@ -464,7 +464,7 @@ export default function Landing() {
           <div className="before-grid">
             <div className="before-item">
               <h3>AI 選書</h3>
-              <p>いまの課題を話すと、AI が深掘りして「そのための本」を提案。話題の本の棚も、ぶらぶら歩けます。</p>
+              <p>いまの課題を話すと、AI が深掘りして「そのための本」を提案。読む前から、外さない一冊に出会えます。</p>
             </div>
             <div className="before-item">
               <h3>読書計画</h3>
