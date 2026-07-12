@@ -365,6 +365,13 @@ async function rakutenCover(title, author, isbn) {
       .map((raw) => (raw && raw.Item ? raw.Item : raw))
       .filter((it) => it && typeof it === 'object');
     d.raw = items.length;
+    // 🔎 診断: 楽天が実際に返した先頭数件の書名/カバー有無/ISBN を控える
+    //    （tmatch:0 の原因＝書名が別物か・カバーが空か・照合バグかを見分ける）。
+    d.sample = items.slice(0, 4).map((it) => ({
+      t: (it.title || '').toString().slice(0, 24),
+      c: !!(it.largeImageUrl || it.mediumImageUrl),
+      i: cleanIsbn(it.isbn) || null,
+    }));
     if (items.length === 0) return { cover: '', isbn: '', _d: d };
 
     const fields = (it) => ({
@@ -582,7 +589,7 @@ export default async function handler(req, res) {
   //    生エラー文言は一切出さない。原因切り分け（コード版・楽天設定・各ソースの
   //    ISBN 有無）に必要な最小限だけ。落ち着いたら削除してよい。
   const diag = {
-    v: 'cov-2026-07-12c',           // デプロイ判定用の版マーカー
+    v: 'cov-2026-07-12d',           // デプロイ判定用の版マーカー
     rk: !!(process.env.RAKUTEN_APPLICATION_ID && process.env.RAKUTEN_ACCESS_KEY),
     ttl: coreTitle(title) || null,   // API へ渡す核タイトル（エンコード起因の切り分け用）
     fa: firstAuthor(author) || null, // 実際にクエリへ渡した先頭著者
