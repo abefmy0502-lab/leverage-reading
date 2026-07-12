@@ -73,45 +73,66 @@ async function ndlFetch(params) {
   return r.text();
 }
 
+// <item> チャンクからその書名を取り出す（RSS の <title> 優先・無ければ <dc:title>）。
+// これで「この ISBN はどの本のものか」を ISBN 単位で照合できる。
+function itemTitle(chunk) {
+  const m = chunk.match(/<title[^>]*>([^<]*)<\/title>/i)
+    || chunk.match(/<dc:title[^>]*>([^<]*)<\/dc:title>/i);
+  return m ? m[1] : '';
+}
+// アイテムの書名が、要求された（核）タイトルと一致するか。正規化して包含判定
+// （副題込みのアイテム名でも核タイトルを含めば一致）。兄弟本の除外に使う。
+function ndlTitleMatches(rawItemTitle, wantCoreNorm) {
+  if (!wantCoreNorm) return false;
+  const t = normTitle(rawItemTitle);
+  if (!t) return false;
+  return t.includes(wantCoreNorm) || wantCoreNorm.includes(t);
+}
+
 // NDL OpenSearch（XML）で ISBN-13 候補を引く。
-//   ① まず title + creator の AND 検索（精度重視）。
-//   ② 0 件なら title のみで再検索し、各 <item> の dc:creator を見て「本人の本」
-//      だけを採用（NDL は creator の表記揺れで AND 検索が空振りしやすいため。
-//      著者照合で誤マッチを防ぐ）。
+//   ⚠️ 誤マッチ根治: 以前は title+creator 検索の応答から ISBN を document 順で
+//   拾っていたため、同じ著者の「別の本（兄弟本）」の ISBN を掴み、まったく違う
+//   表紙が付く事故があった（例: 楠木建・杉浦泰『感情と勘定の経営』に『逆・タイム
+//   マシン経営論』の表紙）。NDL の title 検索は緩く兄弟本も返すため、ISBN を
+//   採る前に **その <item> の書名が要求タイトルと一致するか** を必ず検証する。
+//   採用順位: ①タイトル一致＋著者一致 → ②タイトルのみ一致（著者照合は表記揺れで
+//   落ちることがあるため保険）。タイトル不一致の ISBN は絶対に採らない
+//   （＝「誤った表紙」より「表紙なし（手動アップロードへ）」を選ぶ）。
 async function ndlIsbns(title, author) {
   const t = coreTitle(title);
   if (!t) return [];
+  const wantCoreNorm = normTitle(t);
+  const wantAuthor = normPerson(author);
   try {
-    // ① title + creator
+    // title(+creator) で広めに引く。creator 併用は表記揺れで空振りしやすいので、
+    // item が取れなければ title のみで引き直す（照合は item 単位で厳密に行う）。
     const p1 = [`title=${encodeURIComponent(t)}`];
     if (author) p1.push(`creator=${encodeURIComponent(clean(author))}`);
-    p1.push('cnt=10');
-    const xml1 = await ndlFetch(p1);
-    const found1 = extractIsbns(xml1);
-    if (found1.length > 0) return found1;
+    p1.push('cnt=20');
+    let xml = await ndlFetch(p1);
+    if (!xml || !/<item[\s>]/i.test(xml)) {
+      xml = await ndlFetch([`title=${encodeURIComponent(t)}`, 'cnt=20']);
+    }
+    if (!xml) return [];
 
-    // ② title のみ → item 単位で著者照合
-    if (!author) return [];
-    const xml2 = await ndlFetch([`title=${encodeURIComponent(t)}`, 'cnt=20']);
-    if (!xml2) return [];
-    const wantAuthor = normPerson(author);
-    if (!wantAuthor) return [];
-    const items = xml2.split(/<item[\s>]/i).slice(1);
-    const matched = [];
+    const items = xml.split(/<item[\s>]/i).slice(1);
+    const both = [];       // タイトル一致＋著者一致（最優先）
+    const titleOnly = [];  // タイトルのみ一致（著者照合が落ちた時の保険）
     const seen = new Set();
     for (const chunk of items) {
+      // タイトル一致は必須。ここで兄弟本（別書名・同著者）を弾く。
+      if (!ndlTitleMatches(itemTitle(chunk), wantCoreNorm)) continue;
       const creators = (chunk.match(/<dc:creator[^>]*>([^<]*)<\/dc:creator>/gi) || [])
         .map((c) => normPerson(c.replace(/<[^>]+>/g, '')));
-      const hit = creators.some(
-        (c) => c && (c.includes(wantAuthor) || wantAuthor.includes(c)),
-      );
-      if (!hit) continue;
+      const authorOk = !wantAuthor
+        || creators.some((c) => c && (c.includes(wantAuthor) || wantAuthor.includes(c)));
       for (const isbn of extractIsbns(chunk, 3)) {
-        if (!seen.has(isbn)) { seen.add(isbn); matched.push(isbn); }
+        if (seen.has(isbn)) continue;
+        seen.add(isbn);
+        (authorOk ? both : titleOnly).push(isbn);
       }
-      if (matched.length >= 5) break;
     }
-    return matched;
+    return [...both, ...titleOnly].slice(0, 5);
   } catch {
     return [];
   }
@@ -185,8 +206,11 @@ async function googleCover(title, author, isbn) {
   // しやすいので、最終的に「著者で広く引いてタイトルで絞る」を効かせる。
   //   { q, max, needTitle } — needTitle=true は、その query 結果で
   //   著者一致だけでなくタイトル照合も要求する（別の著作を誤採用しないため）。
+  // needTitle は全プランで true。intitle でも別著作が混じることがあるため、
+  // 著者一致だけでなくタイトル照合も必須にして兄弟本の誤採用を防ぐ
+  // （gTitleMatch は正規化した包含判定なので副題・表記揺れには寛容）。
   const plans = [
-    { q: `intitle:${core} inauthor:${clean(author)}`, max: 10, needTitle: false },
+    { q: `intitle:${core} inauthor:${clean(author)}`, max: 10, needTitle: true },
     { q: `${core} ${clean(author)}`, max: 20, needTitle: true },
     { q: `inauthor:${clean(author)}`, max: 40, needTitle: true },
   ];
