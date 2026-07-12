@@ -25,7 +25,7 @@ import {
   tagToThemeKey,
   pickDailyTheme,
   pickSerendipityTheme,
-  seededShuffle,
+  seededShuffle, bandedShuffle, NEW_RELEASE_POOL,
   dateKey,
   cleanupStalePopCache,
 } from '../lib/discover';
@@ -207,7 +207,8 @@ function Shelf({ id, title, emoji, subtitle, theme, sort, eager, addedFor, onOpe
     fetchDiscover({ theme, sort, signal: controller.signal }).then((res) => {
       if (!alive) return;
       if (res.reason === 'not_configured') onNotConfigured?.();
-      const items = seededShuffle(res.items || []);
+      // 帯内シャッフル: 日替わり感は保ちつつ売れ筋上位（良書）を先頭帯に維持する。
+      const items = bandedShuffle(res.items || []);
       setState({ loading: false, items });
       onResult?.(id, items.length > 0);
     });
@@ -256,7 +257,8 @@ function SerendipityShelf({ theme, contextLine, addedFor, onOpen, onQuickAdd, on
     fetchDiscover({ theme, sort: 'popular', signal: controller.signal }).then((res) => {
       if (!alive) return;
       if (res.reason === 'not_configured') onNotConfigured?.();
-      const shuffled = seededShuffle(res.items || []);
+      // 上位帯（売れ筋1〜6位）の中から日替わりで1冊 — 畑違いでも「良い本」を出す。
+      const shuffled = bandedShuffle(res.items || []);
       const picked = shuffled[0] || null;
       setBook(picked);
       setLoading(false);
@@ -555,7 +557,7 @@ export default function DiscoverPanel({ onAddBook, books }) {
   const serendipityTheme = useMemo(() => pickSerendipityTheme(userThemeKeys(books)), [books]);
   const contextLine = useMemo(() => readingContextLine(books), [books]);
   const todayTheme = useMemo(() => pickDailyTheme(0), []);
-  const newTheme = useMemo(() => pickDailyTheme(3), []);
+  const newTheme = useMemo(() => pickDailyTheme(3, NEW_RELEASE_POOL), []);
 
   // 棚の構成（監査 FE2: theme|sort が重複する棚は除外して同一棚の二重表示を防ぐ）。
   const shelfConfigs = useMemo(() => {

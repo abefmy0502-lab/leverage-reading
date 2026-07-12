@@ -142,12 +142,35 @@ const STUDY_BOOK_RE = new RegExp(
     'ITパスポート', '介護福祉士', '保育士試験', '看護師国家試験', 'ケアマネ', '登録販売者',
     '調剤報酬', '診療報酬', '点数表',
     // 年度版（実務書・試験書のシグナル。読み物はほぼ年度版を名乗らない）
-    '令和\\d+年度?版?', '20\\d{2}年度版', '20\\d{2}年版', '\\d+年度用',
+    // '年度版' 単体トークンで括弧割り込み表記も捕捉（旧パターンは
+    // 『賃貸不動産管理の知識と実務 令和8（2026）年度版』の括弧で不一致＝実漏れ）。
+    '年度版', '令和\\d+年度?版?', '20\\d{2}年度版', '20\\d{2}年版', '\\d+年度用',
     // 級もの（漢検2級・簿記3級 等）
     '\\d+級',
   ].join('|'),
 );
 const STUDY_EXEMPT_THEMES = new Set(['資格・検定', '語学・学習']);
+
+// 💸 ビジネス棚専用のノイズフィルタ。楽天「ビジネス・経済・就職 001006」の売れ筋は
+// ①一攫千金・投機ハウツー（爆勝ち/1億貯めた/ほったらかし等）②原著のマンガ・
+// コミック版 ③業界研究ムック（動向とカラクリ/よ〜くわかる本）が上位を占拠し、
+// 「自己投資の読書」を求めるユーザーの棚の信頼を壊す（実機スクリーンショットで
+// AI株投資爆勝ち/ママ投資家1億/マンガわが投資術2/物流業界カラクリを確認）。
+// 名著（敗者のゲーム/サイコロジー・オブ・マネー/金持ち父さん等）は一切マッチしない
+// ことを実タイトルで検証済み。ビジネス・経済の棚にのみ適用（他棚は対象外）。
+const BUSINESS_NOISE_RE = new RegExp(
+  [
+    // マンガ・コミック版（派生版は原著に譲る）
+    '^(マンガ|まんが|コミック)', 'マンガでわかる', 'まんがでわかる', 'マンガで学ぶ', 'コミック版',
+    // 一攫千金・投機ハウツー
+    '億り人', '億超え', '\\d億(円)?貯', '爆勝ち', '爆益', '秒速で', 'ほったらかし',
+    '不労所得', 'デイトレ', 'スキャルピング', 'バイナリーオプション', '必勝法',
+    '勝率\\d', '\\d+万円を?稼', '働かずに', '寝てる?間に',
+    // 業界研究ムック・図解シリーズ（読み物ではなく就活/実務資料）
+    '業界研究', '動向とカラクリ', 'よ〜くわかる本', '図解入門ビジネス',
+  ].join('|'),
+);
+const BUSINESS_NOISE_THEMES = new Set(['ビジネス・経済']);
 
 export function normalizeItem(raw, theme = '') {
   const it = raw && raw.Item ? raw.Item : raw;
@@ -158,6 +181,8 @@ export function normalizeItem(raw, theme = '') {
   if (!WEAK_FILTER_EXEMPT.has(theme) && NON_BOOK_WEAK_RE.test(title)) return null; // 弱語（棚により正規）
   // 学習教材（資格・問題集・年度版）は読み物の棚から除外。資格/語学の棚では主役なので残す。
   if (!STUDY_EXEMPT_THEMES.has(theme) && STUDY_BOOK_RE.test(title)) return null;
+  // ビジネス棚の投機ハウツー・マンガ版・業界ムックを除外（棚の信頼の生命線）。
+  if (BUSINESS_NOISE_THEMES.has(theme) && BUSINESS_NOISE_RE.test(title)) return null;
   const size = (it.size || '').toString().trim();
   if (size && NON_BOOK_SIZE_RE.test(size)) return null; // ムック/雑誌（メタデータ由来）を弾く
   return {
@@ -240,9 +265,14 @@ export default async function handler(req, res) {
     }
     let data = null;
     try { data = JSON.parse(resp.body); } catch { /* 壊れた JSON は空扱い */ }
-    const items = Array.isArray(data?.Items)
+    let items = Array.isArray(data?.Items)
       ? data.Items.map((raw) => normalizeItem(raw, themeRaw)).filter(Boolean)
       : [];
+    // 📕 表紙必須。カバー主役の平台 UI で表紙なし（近刊の未登録・noimage）が並ぶと
+    //    棚全体が壊れて見える（実機で確認）。表紙ありだけで 8 冊以上組めるなら
+    //    絞り、足りない時だけ fail-open（棚が空になる事故を防ぐ）。
+    const covered = items.filter((i) => i.cover);
+    if (covered.length >= 8) items = covered;
     // ⚠️ 空結果はキャッシュしない。楽天の一時的な空/全件フィルタ除外を 1h キャッシュ
     //    すると、テーマ棚が全ユーザーに 1 時間空になり回復しない事故になる（監査 S1）。
     if (items.length) cache.set(cacheKey, { at: Date.now(), items });
