@@ -1,5 +1,7 @@
 # 🚀 Orime Webローンチ Go-Live Runbook（push解放の瞬間に売り始める手順書）
 
+> ⚠️ 2026-07-12 更新: 本書は Web(Stripe) 先行ローンチ前提の旧手順書。**7/27 の正式リリースは App Store 一本であり、正典は `launch-plan-appstore-2026-07-27.md`**。本書の §2 SQL 適用順・§3 環境変数は引き続き有効な参照。
+
 > CEO起草 2026-06-22。元帥指示「push解放されたら、ガンガン売れるように準備を徹底」。
 > **これは"push解放後にボタンを押す順番"の単一の真実**。Web版(Stripe)先行ソフトローンチ／直接課金／北極星=有料課金者数。会社の真実は `board.md`、SNSは `sns-sales-plan-july.md`。
 
@@ -20,7 +22,7 @@
 2. **Vercel 環境変数を設定**（§3の🔴必須のみでも可）。
 3. **Supabase で課金の最小SQLを実行**：`supabase_subscriptions.sql` →（IAP併用なら）`supabase_subscriptions_provider.sql`。
    - ⚠️ **これが無いと PaywallGate が fail-open で全機能無料になり、誰も課金されない**（＝売れない）。最優先。
-4. **Stripe 設定**（§4）：商品＋月額¥1,480/年額¥10,800のPrice ID＋Webhook（4イベント）＋署名シークレット。
+4. **Stripe 設定**（§4）：商品＋月額¥1,480/年額¥12,800のPrice ID＋Webhook（4イベント）＋署名シークレット。
 5. **テストモードで1課金を疎通**（§6スモークテスト）→ subscriptions が active → ペイウォール解除を目視。
 6. **本番キーに切替 → 公開URL確定 → ローンチ告知**（§7）。
 
@@ -83,7 +85,7 @@
 - [ ] `ANTHROPIC_API_KEY`（AI）
 - [ ] `STRIPE_SECRET_KEY`（**クライアント露出厳禁**）
 - [ ] `STRIPE_WEBHOOK_SECRET`（`whsec_...`）
-- [ ] `STRIPE_PRICE_ID_MONTHLY`（¥1,480）/ `STRIPE_PRICE_ID_ANNUAL`（¥10,800）
+- [ ] `STRIPE_PRICE_ID_MONTHLY`（¥1,480）/ `STRIPE_PRICE_ID_ANNUAL`（¥12,800）
 
 **🟠任意（表示/調整）**
 - [ ] `VITE_PRICE_MONTHLY_LABEL`（既定「月額 ¥1,480（税込）」）/ `VITE_PRICE_ANNUAL_LABEL` / `VITE_PRICE_ANNUAL_NOTE`
@@ -95,7 +97,7 @@
 ---
 
 ## 4. 💳 Stripe 設定
-- [ ] 商品「Orime」を作成 → **2つのPrice（recurring）**：月額¥1,480 / 年額¥10,800。各 **Price ID** を env へ。
+- [ ] 商品「Orime」を作成 → **2つのPrice（recurring）**：月額¥1,480 / 年額¥12,800。各 **Price ID** を env へ。
 - [ ] **Webhook エンドポイント**：`https://<本番ドメイン>/api/stripe-webhook`
   - 送信イベント（コードが処理する4つ）：`checkout.session.completed` / `customer.subscription.updated` / `customer.subscription.deleted` / `invoice.payment_failed`
   - 署名シークレット（`whsec_...`）→ `STRIPE_WEBHOOK_SECRET` へ。

@@ -5,7 +5,7 @@
 ## 0. 結論ファースト
 - **計測できる場所が2層に分かれる**：①ログイン前（LP〜登録）＝自前DBに書けない ②ログイン後（活性化〜課金）＝`analytics_events`で追える。
 - 今回、ログイン後ファネルの**欠けていた2イベントを実装**：`checkout_started`（ペイウォール）/`checkout_completed`（決済成功復帰）。
-- **課金者数の"真実"は `subscriptions` テーブル＋Stripeダッシュボード**。`checkout_completed` は転換の動き（UX計測）用で、売上の正本ではない。
+- **課金者数の"真実"は `subscriptions` テーブル＋App: RevenueCat ダッシュボード＋App Store Connect（(Web併売時のみ) Stripe）**。`checkout_completed` は転換の動き（UX計測）用で、売上の正本ではない。
 
 ## 1. ファネル全体と計測層
 
@@ -13,7 +13,7 @@
 [SNS投稿] ──UTM/リンク──▶ [LP /lp] ──「始める」──▶ [/?auth=signup 登録] ──確認メール──▶ [ログイン]
    └ SNS側の分析          └ ▲ここまで自前DB不可      └ Supabase Authの登録数        │
                                                                                   ▼
-                                                   [app_open] ▶ [paywall_viewed] ▶ [checkout_started] ▶ [Stripe] ▶ [checkout_completed]＝🎯
+                                                   [app_open] ▶ [paywall_viewed] ▶ [checkout_started] ▶ [IAP購入シート] ▶ [checkout_completed]＝🎯
                                                    └──────────── analytics_events（ログイン後・自前DB）────────────┘
                                                                                                          （真実）[subscriptions.status='active']
 ```
@@ -44,8 +44,8 @@
 
 ## 3. 売上の"真実"（正本）
 - **`subscriptions` テーブル**（`status='active'`）＝entitlementの真実。Stripe/RevenueCat webhookが service_role で書く。
-- **Stripe ダッシュボード**＝MRR・課金者数・解約・返金の正本。
-- → **北極星「有料課金者数」は subscriptions / Stripe で数える**。`checkout_completed` は「決済完了画面に戻ってきた人数」で、webhook反映前のUX指標（両者は概ね一致するが、決済直後の離脱や反映ラグでズレうる）。
+- **App: RevenueCat ダッシュボード＋App Store Connect**＝MRR・課金者数・解約・返金の正本（(Web併売時のみ) Stripe ダッシュボード）。
+- → **北極星「有料課金者数」は subscriptions / RevenueCat＋App Store Connect で数える**。`checkout_completed` は「決済完了画面に戻ってきた人数」で、webhook反映前のUX指標（両者は概ね一致するが、決済直後の離脱や反映ラグでズレうる）。
 
 ## 4. 毎週見る（KPIダッシュボード・SQLは service_role で SQL Editor 実行）
 
@@ -73,7 +73,7 @@ where status = 'active';
 
 **読み方（どこで漏れているか＝磨きの的）：**
 - `saw_paywall` → `started_checkout` が低い＝**ペイウォールの説得力不足**（価値プレビュー/価格提示を磨く）。
-- `started_checkout` → `completed_checkout` が低い＝**Stripe決済画面での離脱**（価格ショック/入力摩擦。年額主役の見せ方・¥表示を見直す）。
+- `started_checkout` → `completed_checkout` が低い＝**IAP購入シートでの離脱**（価格ショック/入力摩擦。年額主役の見せ方・¥表示を見直す）。
 - `activated` → `saw_paywall` はほぼ100%のはず（未課金はペイウォールに必ず当たる）。乖離があれば実装バグを疑う。
 - ログイン前（SNS→LP→登録）の歩留まりは外部数値で別途。**登録は来るのに app_open が伸びない＝メール確認で脱落**を疑う。
 
