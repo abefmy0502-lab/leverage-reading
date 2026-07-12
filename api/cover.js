@@ -375,34 +375,29 @@ async function rakutenCover(title, author, isbn) {
   }
 
   // ── タイトル検索（BooksTotal/Search・keyword が効く総合検索）─────────
-  //   keyword を「タイトル＋先頭著者」→ 0 件なら「タイトルのみ」で引き直す
-  //   （著者付きが厳しすぎて 0 になる本を救う）。照合はローカルで厳密に行い、
-  //   兄弟本・非書籍・別の本を弾く（tmatch でタイトル一致数を可視化）。
+  //   keyword=「タイトル＋先頭著者」の 1 回だけ引く（楽天は連続呼び出しで 429 に
+  //   なりやすいので多段検索はしない）。照合はローカルで厳密に行い、兄弟本・
+  //   非書籍・別の本を弾く（tmatch でタイトル一致数を可視化）。
   const t = coreTitle(title);
   if (!t) return { cover: '', isbn: '', _d: d };
   const wantCoreNorm = normTitle(t);
   const wantAuthor = normPerson(author);
-  const kws = [[t, firstAuthor(author)].filter(Boolean).join(' '), t];
+  const kw = [t, firstAuthor(author)].filter(Boolean).join(' ');
+  const items = await run('BooksTotal/Search', { keyword: kw }, 'kw');
 
   let titleOnly = null;
-  for (let i = 0; i < kws.length; i += 1) {
-    if (i > 0 && kws[i] === kws[i - 1]) break; // 著者無しでタイトルと同一なら再検索不要
-    // eslint-disable-next-line no-await-in-loop
-    const items = await run('BooksTotal/Search', { keyword: kws[i] }, i === 0 ? 'kw+author' : 'kw');
-    for (const it of items) {
-      const f = fields(it);
-      if (!f.cover) continue;
-      const tn = normTitle(f.title);
-      if (!tn || !(tn.includes(wantCoreNorm) || wantCoreNorm.includes(tn))) continue;
-      d.tmatch += 1;
-      const an = normPerson(f.author);
-      const authorOk = !wantAuthor || (an && (an.includes(wantAuthor) || wantAuthor.includes(an)));
-      if (authorOk) return { cover: f.cover, isbn: f.isbn, _d: d };
-      if (!titleOnly) titleOnly = { cover: f.cover, isbn: f.isbn };
-    }
-    if (titleOnly) return { ...titleOnly, _d: d }; // タイトル一致（著者不一致）でも採用
+  for (const it of items) {
+    const f = fields(it);
+    if (!f.cover) continue;
+    const tn = normTitle(f.title);
+    if (!tn || !(tn.includes(wantCoreNorm) || wantCoreNorm.includes(tn))) continue;
+    d.tmatch += 1;
+    const an = normPerson(f.author);
+    const authorOk = !wantAuthor || (an && (an.includes(wantAuthor) || wantAuthor.includes(an)));
+    if (authorOk) return { cover: f.cover, isbn: f.isbn, _d: d };
+    if (!titleOnly) titleOnly = { cover: f.cover, isbn: f.isbn };
   }
-  return { cover: '', isbn: '', _d: d };
+  return { ...(titleOnly || { cover: '', isbn: '' }), _d: d };
 }
 
 // 一部の書影 CDN（NDL / Amazon）はデータセンター IP からの素の fetch を
