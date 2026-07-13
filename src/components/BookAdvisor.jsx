@@ -134,6 +134,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   const [otherText, setOtherText] = useState('');
   const [multiSelected, setMultiSelected] = useState([]); // 複数選択質問の選択中の答え
   const [recoLoading, setRecoLoading] = useState(false); // 推薦生成中
+  const [recoStream, setRecoStream] = useState(''); // 推薦生成中のライブ前置き文（体感速度）
   const [recoError, setRecoError] = useState(null);
   // Strict auto-scroll: only when a real append happens. Initial seed
   // message + any case where we would scroll from a zero baseline are
@@ -434,6 +435,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   const generateRecommendations = async (userMsg, sourceQuery) => {
     if (!userMsg || recoLoading) return;
     setRecoError(null);
+    setRecoStream('');
     setRecoLoading(true);
     // userMsg は複数の呼び出し元（proceedToRecommend /
     // startInterview の fallback）から来るテンプレート済み文字列。個々の
@@ -447,6 +449,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     // 🔑 差別化: ユーザーの既読/高評価本と高評価メモの要点を推薦の足場にする
     //   （既読の重複推薦を避け、「あなたが○○を高評価したので」とパーソナル化し、
     //    実在の既読本を土台にして捏造を減らす）。best-effort — 失敗しても推薦は続行。
+    // gatherAdvisorContext は ai.js 側で TTL キャッシュ済み。ヒアリング開始時の
+    // prewarmAdvisorContext で先読みされていれば、ここは即座に解決する（往復ゼロ）。
     let readerContext = '';
     try { readerContext = await gatherAdvisorContext(advisorUser?.id); } catch { /* graceful */ }
 
@@ -480,10 +484,23 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         max_tokens: 4096,
         model: MODEL_SMART,
         signal: controller.signal,
-        onChunk: () => armWatchdog(),
+        // チャンク受信のたびに (1) 無通信ウォッチドッグを再武装し、(2) 生成中の
+        // 前置き文（「👋 はじめに」の共感コメント）をライブ表示する。死んだスケルトン
+        // ではなく動く文字を見せて体感速度を上げる。RECOMMENDATIONS ブロック以降は
+        // 生 JSON なので表示しない。見出し行（## …）はプレビューでは落とす。
+        onChunk: (full) => {
+          armWatchdog();
+          const head = String(full)
+            .split('RECOMMENDATIONS_START')[0]
+            .replace(/^#{1,6}\s.*$/gm, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+          if (head) setRecoStream(head);
+        },
       });
     } catch (e) {
       setRecoError(toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
+      setRecoStream('');
       setRecoLoading(false);
       return;
     } finally {
@@ -537,6 +554,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     }
     const nextHistory = [...newHistory, { role: 'assistant', content: finalText }];
     setChatHistory(nextHistory);
+    // 推薦カードは既に確定。セッション永続化（ネットワーク往復）を待たずにローディングを
+    // 解除して結果を即表示する（永続化は下でバックグラウンド実行。以前はここで待って
+    // いたため「本は選び終わっているのにスケルトンのまま」の無駄待ちが数百 ms あった）。
+    setRecoStream('');
+    setRecoLoading(false);
 
     // アンマウント後（タブ切替で abort された後）はセッションを作らない —
     // setCurrentSessionId が no-op になり、戻ってきた UI が別の新規セッションを
@@ -558,7 +580,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         // 永続化失敗は UX を壊さない
       }
     }
-    setRecoLoading(false);
   };
 
   // テーマのチップをタップ — AI の良書の棚（テーマ別の推薦）を生成する。
@@ -568,6 +589,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     if (interviewLoading || recoLoading) return;
     const c = clamp(sanitizeForPrompt(rawConcern || ''), LIMITS.aiQuestion);
     if (!c) return;
+    // ヒアリング開始と同時に読書傾向コンテキストを裏で先読み（推薦時の待ちを隠す）。
+    // マウント時の prewarm から時間が経ち TTL 切れの場合の再ウォーム。
+    prewarmAdvisorContext(advisorUser?.id);
     setConcern(c);
     setInput('');
     setOtherMode(false);
@@ -655,6 +679,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     setMessages([]);
     setRecommendations(null);
     setRecoError(null);
+    setRecoStream('');
     setInterview(null);
     setInterviewAnswers([]);
     setInterviewStep(0);
@@ -1154,15 +1179,22 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
       {/* 推薦生成中のローディング */}
       {recoLoading && (
-        <div style={advisorWizardCard}>
+        <div style={advisorWizardCard} aria-live="polite">
           <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
 <IcSparkles size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />あなたにぴったりの本を選んでいます…
           </p>
-          <div className="ai-skeleton" aria-label="本を選んでいます" style={{ marginTop: 12 }}>
-            <div className="ai-skeleton-line" style={{ width: '90%' }} />
-            <div className="ai-skeleton-line" style={{ width: '76%' }} />
-            <div className="ai-skeleton-line" style={{ width: '58%' }} />
-          </div>
+          {recoStream ? (
+            // 生成中の前置き文をライブ表示（動く文字＝進行が見える）。カードは完了時に出る。
+            <p style={{ fontSize: 13.5, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '12px 0 0', whiteSpace: 'pre-wrap' }}>
+              {recoStream}
+            </p>
+          ) : (
+            <div className="ai-skeleton" aria-label="本を選んでいます" style={{ marginTop: 12 }}>
+              <div className="ai-skeleton-line" style={{ width: '90%' }} />
+              <div className="ai-skeleton-line" style={{ width: '76%' }} />
+              <div className="ai-skeleton-line" style={{ width: '58%' }} />
+            </div>
+          )}
         </div>
       )}
 
