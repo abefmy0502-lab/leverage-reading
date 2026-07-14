@@ -202,7 +202,7 @@ export function BeforePhase({
 
   return (
     <div>
-      <p style={phaseDesc}><IcRuler size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読む前に、投資目的を決めましょう</p>
+      <p style={phaseDesc}><IcRuler size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読む前に、この本から得たい・味わいたいことを決めましょう</p>
 
       <Field label="読書開始日">
         <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={inp} />
@@ -262,11 +262,11 @@ export function BeforePhase({
             </div>
           )}
 
-          <Field label={<><IcBar size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />投資目的（必須）</>} sub="何のためにこの本を読むか（1〜2 文）。これが読書のリターンを決めます">
+          <Field label={<><IcBar size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />この本から得たいこと（必須）</>} sub="何のために読むか／どう味わいたいか（1〜2 文）。読んだ後に見返す指針になります">
             <textarea
               value={form.investPurpose || ""}
               onChange={(e) => setForm({ ...form, investPurpose: e.target.value })}
-              placeholder="例：営業成績を半年で 1.5 倍にする"
+              placeholder="例：営業成績を半年で1.5倍にする／物語をゆっくり味わう"
               rows={3}
               style={ta}
               maxLength={LIMITS.memoText}
@@ -542,7 +542,7 @@ export function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, a
         <input type="date" value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={inp} />
       </Field>
 
-      <Field label="評価（投資対効果）">
+      <Field label="評価（読んでよかった度）">
         <div style={{ padding: "4px 0" }}>
           <Stars r={form.rating} onChange={(r) => setForm({ ...form, rating: r })} size={28} />
         </div>
