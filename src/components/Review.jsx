@@ -93,7 +93,7 @@ const KIND_META = {
   // （両方「まとめメモ」だと種類フィルタに同名の選択肢が2つ並び判別不能になっていた）。
   summary:           { Icon: BookOpen,          label: '本のまとめ',     color: 'var(--c-brand)' },
   personal:          { Icon: Lightbulb,         label: '学び',          color: '#8a7040' },
-  invest_purpose:    { Icon: BarChart3,         label: '投資目的',       color: 'var(--c-brand)' },
+  invest_purpose:    { Icon: BarChart3,         label: '得たいこと',     color: 'var(--c-brand)' },
   current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: '#a05040' },
   hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: '#8a7040' },
   ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: 'var(--c-ink-3)' },

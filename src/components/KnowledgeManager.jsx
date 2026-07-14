@@ -93,7 +93,7 @@ const KIND_META = {
   card:              { Icon: StickyNote,   label: 'カード式メモ', group: 'memo' },
   summary:           { Icon: BookOpen,     label: 'まとめメモ',   group: 'summary', column: 'leverage_memo' },
   personal:          { Icon: Lightbulb,    label: '学びログ',     group: 'learning' },
-  invest_purpose:    { Icon: BarChart3,    label: '投資目的',     group: 'plan',    column: 'invest_purpose' },
+  invest_purpose:    { Icon: BarChart3,    label: '得たいこと',   group: 'plan',    column: 'invest_purpose' },
   current_challenge: { Icon: AlertTriangle, label: '現在の課題',  group: 'plan',    column: 'current_challenge' },
   hypothesis:        { Icon: Lightbulb,    label: '仮説',         group: 'plan',    column: 'hypothesis' },
   ai_summary:        { Icon: Bot,          label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },

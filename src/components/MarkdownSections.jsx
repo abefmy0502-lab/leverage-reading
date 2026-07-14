@@ -137,7 +137,7 @@ function isHighlight(headingText) {
   return (
     /重点|👉|⭐|🌟|🏆|💎|🎯/.test(headingText) === false
       ? false
-      : /(重点|TOP3|TOP 3|アクション|次の行動|主要|投資の効果|投資対効果|投資戦略)/.test(headingText)
+      : /(重点|TOP3|TOP 3|アクション|次の行動|主要|投資の効果|投資対効果|投資戦略|戦略|評価|心に残|味わい)/.test(headingText)
   );
 }
 

@@ -238,7 +238,7 @@ function pickCategory(tags) {
 // book_reason(選書理由) を含め、「なぜこの本を選んだか」という“想い”も凝縮の根拠に入れる。
 const SYNTH_LABEL = {
   summary: 'まとめメモ',
-  invest_purpose: '投資目的',
+  invest_purpose: '得たいこと',
   current_challenge: '現在の課題',
   hypothesis: '仮説',
   book_reason: '選書理由',

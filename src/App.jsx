@@ -2724,7 +2724,7 @@ function AuthedApp() {
                       AI 読書計画を完了しよう
                     </h3>
                     <p style={{ margin: '8px 0 14px', fontSize: 12, lineHeight: 1.6, opacity: 0.92 }}>
-                      投資目的を明確にすると、AI があなた専用の読み方戦略を提案します
+                      この本から得たいことを決めると、AI があなた専用の読み方を提案します
                     </p>
                     <button
                       type="button"
@@ -2806,7 +2806,7 @@ function AuthedApp() {
                     ⚠️ 読書計画が未完了です
                   </p>
                   <p style={{ fontSize: 11, color: '#9a7030', margin: 0, lineHeight: 1.6 }}>
-                    投資目的・AI 解析・読書計画シートをいま埋めると、投資対効果が最大化されます。
+                    得たいこと・AI 解析・読書計画シートをいま埋めると、この本から得られるものが増えます。
                   </p>
                   <button
                     type="button"
@@ -2905,7 +2905,7 @@ function AuthedApp() {
               <p style={{ margin: "0 0 10px" }}>
                 {current.status === "want"
                   ? "📚 心が動いた一行は、いつでも残せます。"
-                  : "📊 今は投資戦略を立てる段階です。読み始めたら、一行メモを残していきましょう。"}
+                  : "📊 今は読む準備をする段階です。読み始めたら、一行メモを残していきましょう。"}
               </p>
               <button
                 type="button"
@@ -2996,10 +2996,10 @@ function AuthedApp() {
                       // 1 行も無いまま読書中へは進ませない＝設定画面へ誘導。
                       if (!current.investPurpose || !current.investPurpose.trim()) {
                         const ok = await confirm({
-                          title: '読む前に、投資目的を決めましょう',
+                          title: '読む前に、この本から得たいことを決めましょう',
                           message:
-                            'この本を「何のために読むか」を 1 行だけでも決めると、読書の精度とリターンが大きく変わります。目的なき読書は、もったいない。',
-                          confirmLabel: '投資目的を入力する',
+                            'この本から「得たいこと・味わいたいこと」を 1 行だけでも決めると、読んだ後に見返す指針になり、読みっぱなしを防げます。',
+                          confirmLabel: '得たいことを入力する',
                           cancelLabel: '閉じる',
                         });
                         // 「閉じる」を押したら遷移しない（強制連行を防ぐ）。
@@ -3011,7 +3011,7 @@ function AuthedApp() {
                         const ok = await confirm({
                           title: '読書計画を作っておきますか？',
                           message:
-                            'AI 解析・読書計画シートが未作成です。作っておくと「どの 20% を読むか」が分かり、投資対効果が上がります（任意）。',
+                            'AI 解析・読書計画シートが未作成です。作っておくと、学びの本では「どの 20% を読むか」が分かります（任意）。',
                           confirmLabel: 'このまま読書を開始',
                           cancelLabel: '読書計画を作る',
                         });
@@ -3032,7 +3032,7 @@ function AuthedApp() {
                 {/* Phase 3: その場のガイダンス — 何が起きるか先に伝えて遷移を温かく */}
                 <p className="input-hint" style={{ marginTop: 0, justifyContent: 'center' }}>
                   {current.status === 'want'
-                    ? '💡 投資戦略を立てると、AI が読書計画シートを自動生成します'
+                    ? '💡 得たいことを決めると、AI が読書計画シートを自動生成します'
                     : current.status === 'before'
                     ? '💡 読書中になると、メモ機能が解放されます'
                     : '💡 完了後、振り返りと「一番の収穫」を残せます'}
