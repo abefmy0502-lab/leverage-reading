@@ -472,12 +472,20 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     let finalText = '';
     try {
       armWatchdog();
+      // readerContext（ユーザーの読書傾向）を system に焼き込むと、ユーザーごとに
+      // system が変わりプロンプトキャッシュが一切効かない。そこで readerContext は
+      // 「先頭の（永続化しない）参考ターン」として messages に注入し、system は完全に
+      // 静的（bookAdvisor.system）に保つ。これで大きな選書 system が常時キャッシュされ、
+      // 入力コスト（−70〜90%）と TTFT が大きく下がる。読書傾向データの扱い方（既読の
+      // 非再推薦・高評価を足場にしたパーソナル化）は system 側に恒常ルールとして内包済み。
+      // 永続化するのは newHistory のみ（readerContext は毎回その場で注入し直す）。
+      const sendMessages = readerContext
+        ? [{ role: 'user', content: readerContext }, ...newHistory]
+        : newHistory;
       finalText = await streamClaude({
-        system: PROMPTS.bookAdvisor.systemWith(readerContext),
-        // readerContext はユーザーごとに変わるためキャッシュ読取ヒットが起きない。
-        // 汎用（context 空）の時だけキャッシュを効かせる。
-        cacheSystem: !readerContext,
-        messages: newHistory,
+        system: PROMPTS.bookAdvisor.system,
+        cacheSystem: true,
+        messages: sendMessages,
         // 前置き + 3〜5冊の JSON + 読む順番 + まとめを 1 応答で要求するため、
         // JSON が途中で切れて推薦カードが全滅しないよう余裕を持たせる
         // （Sonnet 5 の新トークナイザは同じ日本語で約 3 割トークン増）。
