@@ -56,6 +56,15 @@ const AI_MONTHLY_CALL_LIMIT = (() => {
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 120;
 })();
 
+// 🎁 7日間無料トライアル/導入価格期間中の AI 月次上限（原価ガード・トライアル悪用対策）。
+//   トライアル中は収益ゼロで AI 原価だけが出るため、通常より低い上限で青天井を防ぐ。
+//   subscriptions.period_type が 'trial'/'intro'（無料期間）の時だけ適用。'normal'/null
+//   （有料）は必ず通常上限（有料ユーザーを絞らない）。未設定なら既定 40。env で可変。
+const AI_TRIAL_CALL_LIMIT = (() => {
+  const raw = Number(process.env.AI_TRIAL_CALL_LIMIT);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 40;
+})();
+
 // 'YYYY-MM'（UTC 基準の当月）。月をまたぐと別キーになり自動でリセット。
 function currentPeriodMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -193,17 +202,32 @@ async function checkEntitlement(userId) {
   // 管理者（運営）は課金不要で通す。
   if (await isAdminUser(userId)) return { allowed: true };
   try {
-    const { data, error } = await supabase
+    // period_type は supabase_admin_members_tasks.sql で追加された列。未適用 DB では
+    // 選択が失敗するので、schema-error 時は status のみで再取得し従来挙動へ degrade する。
+    let data;
+    let error;
+    ({ data, error } = await supabase
       .from('subscriptions')
-      .select('status')
+      .select('status, period_type')
       .eq('user_id', userId)
-      .maybeSingle();
+      .maybeSingle());
+    if (error && /period_type/.test(error.message || '')) {
+      ({ data, error } = await supabase
+        .from('subscriptions')
+        .select('status')
+        .eq('user_id', userId)
+        .maybeSingle());
+    }
     if (error) {
       // テーブル未適用（does not exist）含め、取得エラーは fail-open。
       console.warn('[entitlement] check failed (fail-open):', error.message);
       return { allowed: true };
     }
-    return { allowed: data?.status === 'active' };
+    const allowed = data?.status === 'active';
+    // 無料期間（trial/intro）中だけ低い AI 上限を適用。有料（normal/null）は通常上限。
+    const pt = data?.period_type;
+    const limit = (pt === 'trial' || pt === 'intro') ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT;
+    return { allowed, limit };
   } catch (e) {
     console.warn('[entitlement] check threw (fail-open):', e?.message);
     return { allowed: true };
@@ -253,14 +277,16 @@ async function releaseMonthlyUsage(userId) {
 //   { allowed: false, reserved: true  } — 上限到達（加算されていない・拒否する）
 //   { allowed: true,  reserved: false } — RPC 未適用/未設定/障害 → fail-open。
 //                                          呼び出し側は従来どおり成功後 increment に委ねる。
-async function reserveMonthlyUsage(userId) {
+async function reserveMonthlyUsage(userId, limit) {
   const supabase = getServiceSupabase();
   if (!supabase) return { allowed: true, reserved: false }; // fail-open
+  // entitlement 由来の上限（トライアルは低め）を優先。未指定/不正は通常上限に倒す。
+  const effectiveLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : AI_MONTHLY_CALL_LIMIT;
   try {
     const { data, error } = await supabase.rpc('reserve_ai_usage', {
       p_user_id: userId,
       p_period_month: currentPeriodMonth(),
-      p_limit: AI_MONTHLY_CALL_LIMIT,
+      p_limit: effectiveLimit,
     });
     if (error) {
       // reserve_ai_usage 未適用（does not exist）含めて fail-open。旧 increment に委ねる。
@@ -372,7 +398,7 @@ export default async function handler(req, res) {
   // TOCTOU（並行リクエストが同じ pre-increment 値を読んで全通過）を封じる。
   // entitlement 通過後にだけ予約する（未課金の予約を作らない）。fail-open（RPC 未適用/
   // 障害）の時は reserved=false になり、従来どおり成功後に increment する。
-  const usage = await reserveMonthlyUsage(userId);
+  const usage = await reserveMonthlyUsage(userId, ent.limit);
   if (!usage.allowed) {
     return res.status(429).json({
       error: { message: '今月の AI 利用上限に達しました。来月またご利用いただけます。' },

@@ -287,6 +287,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `SUPABASE_SERVICE_ROLE_KEY` | サーバー専用 service_role キー (`api/claude.js` の AI 利用量メータリング書込 / Stripe・RevenueCat webhook の subscriptions 書込)。RLS バイパス。**クライアント露出厳禁** |
 | `ANTHROPIC_API_KEY` | Claude API キー |
 | `AI_MONTHLY_CALL_LIMIT` | (任意) AI 月次コール上限。未設定なら既定 120。ローンチ後に実データで調整するための env スイッチ |
+| `AI_TRIAL_CALL_LIMIT` | (任意) 🎁 無料トライアル/導入価格期間中の AI 月次上限。未設定なら既定 40。`subscriptions.period_type` が `'trial'`/`'intro'`（無料期間）の時だけ適用し、`'normal'`/`null`（有料）は必ず `AI_MONTHLY_CALL_LIMIT`。トライアル中は収益ゼロで AI 原価だけ出るため、冷やかしユーザーの青天井を防ぐ原価ガード。`period_type` 列（`supabase_admin_members_tasks.sql`）が未適用なら schema-error fallback で通常上限に degrade（無害） |
 | `STRIPE_SECRET_KEY` | サーバー専用 Stripe シークレットキー (`api/stripe-*.js`)。**クライアント露出厳禁** |
 | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名シークレット (`whsec_...`、`api/stripe-webhook.js`) |
 | `STRIPE_PRICE_ID_MONTHLY` | 月額プランの Stripe Price ID。未設定時は `STRIPE_PRICE_ID` にフォールバック |
