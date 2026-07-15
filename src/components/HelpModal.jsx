@@ -10,24 +10,42 @@
 // 既存 helpContent.js / helpKey ルーティングは破壊しない。新層を上に重ねる
 // だけ。`helpKey` を内部 state にすることで、4. の切替が onClose せずに完結。
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp } from '../lib/helpContent';
-import { sanitizeForPrompt } from '../lib/ai';
-import { streamClaude } from '../lib/streamClaude';
-import { PROMPTS } from '../lib/prompts';
-import { toMessage } from '../lib/errors';
-import { LIMITS, clamp } from '../lib/limits';
 
+// よくある質問 — 答えは決まっているので AI を走らせず、あらかじめ用意した
+// 確定回答をその場で開いて見せる（原価ゼロ・即答・幻覚なし）。
 const FAQ_LIST = [
-  '本の表紙が出ない時は？',
-  'AI 読書計画って何？',
-  'メモを編集・削除したい',
-  '行動を完了にする方法',
-  'マイ読書脳の精度を上げるには？',
-  '過去の AI 選書を見たい',
-  '本のステータスを変えたい',
+  {
+    q: '本の表紙が出ない時は？',
+    a: '表紙は書名・著者・ISBN から自動で探します。見つからない時は、本詳細の ⋯ メニュー →「🖼 手動でアップロード」で写真を設定できます。「表紙を取り直す」で再取得も試せます。',
+  },
+  {
+    q: 'AI 読書計画って何？',
+    a: '読む前に「この本から得たいこと・今の課題・仮説」を整理し、重点的に読む章や読み方を AI が提案する機能です。本詳細（読書前）の「AI 読書計画を始める」から作れます（任意）。',
+  },
+  {
+    q: 'メモを編集・削除したい',
+    a: 'メモカードをタップすると編集できます。削除はカードを左スワイプ、または ⋮ メニューから。削除しても Undo（取り消し）が5秒間出るので、うっかり消しても戻せます。',
+  },
+  {
+    q: '行動を完了にする方法',
+    a: '🔄 振り返り →「🎯 行動」タブ、または本詳細の行動リストで、チェックをタップすると完了になります。完了率や期限もそこで確認できます。',
+  },
+  {
+    q: 'マイ読書脳の精度を上げるには？',
+    a: 'マイ読書脳は「あなたのメモ」を根拠に答えます。気づき・ページ番号・タグを添えたメモを多く残すほど、回答が具体的で的確になります。',
+  },
+  {
+    q: '過去の AI 選書を見たい',
+    a: '🤖 AI →「🔍 AI 選書」の 🕒 履歴ボタンから、過去の相談・推薦・追加した本を見返せます。「💬 続きから」で会話を再開もできます。',
+  },
+  {
+    q: '本のステータスを変えたい',
+    a: '本詳細で、今の状態に応じて次へ進めます（読みたい → 積読 → 読書中 → 読了）。読書中・読了にすると、その本にメモを残せるようになります。',
+  },
 ];
 
 // モバイルでは画面いっぱいに近づけるため余白を最小化、デスクトップは
@@ -114,74 +132,36 @@ const sectionTitleStyle = {
   margin: '0 0 8px',
 };
 
-const inputStyle = {
-  flex: '1 1 0',
-  minWidth: 0,
-  width: 0,
-  padding: '10px 12px',
+// よくある質問（FAQ）アコーディオンのスタイル。答えは確定なので AI は使わない。
+const faqItemStyle = {
+  border: '1px solid var(--c-hairline)',
   borderRadius: 10,
-  border: '1px solid var(--c-hairline-strong)',
   background: '#fff',
-  color: 'var(--c-ink)',
-  fontSize: 16,
-  fontFamily: 'inherit',
-  outline: 'none',
-  boxSizing: 'border-box',
-};
-
-const askBtnStyle = (disabled) => ({
-  flexShrink: 0,
-  padding: '10px 14px',
-  borderRadius: 10,
-  border: 'none',
-  background: disabled ? 'var(--c-hairline-strong)' : '#5C4A2E',
-  color: 'var(--c-card)',
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  fontFamily: 'inherit',
-  minHeight: 44,
-});
-
-const heroStyle = {
-  background: 'var(--c-brand)',
-  color: 'var(--c-card)',
-  borderRadius: 14,
-  padding: '14px 14px',
-  boxShadow: '0 4px 12px rgba(92, 74, 46, 0.18)',
-  width: '100%',
-  maxWidth: '100%',
-  boxSizing: 'border-box',
   overflow: 'hidden',
-  // 防御的に position と margin を明示。何らかの inheritance や stacking
-  // context の影響で Hero が body 領域から飛び出す事故を確実に防ぐ。
-  position: 'static',
-  margin: 0,
-  flexShrink: 0,
 };
-
-const answerCardStyle = {
-  marginTop: 10,
-  background: 'var(--color-warning-soft)',
-  border: '1px solid #e0c878',
-  borderRadius: 10,
-  padding: '12px 14px',
-  color: '#5D4037',
+const faqQuestionStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  width: '100%',
+  textAlign: 'left',
+  padding: '13px 14px',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  fontSize: 14,
+  fontWeight: 600,
+  color: 'var(--c-ink)',
+  minHeight: 48,
+  lineHeight: 1.5,
+};
+const faqAnswerStyle = {
+  margin: 0,
+  padding: '0 14px 14px',
   fontSize: 14,
   lineHeight: 1.8,
-  whiteSpace: 'pre-wrap',
-};
-
-const chipStyle = {
-  padding: '7px 12px',
-  background: '#fff',
-  color: 'var(--c-brand)',
-  border: '1px solid var(--c-hairline-strong)',
-  borderRadius: 999,
-  fontSize: 12,
-  fontFamily: 'inherit',
-  cursor: 'pointer',
-  minHeight: 30,
+  color: 'var(--c-ink-soft)',
 };
 
 const onboardingLinkStyle = {
@@ -319,11 +299,7 @@ function normalizeSteps(entry) {
 export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
   const entry = getHelp(helpKey);
 
-  const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
-  const [asking, setAsking] = useState(false);
-  const [error, setError] = useState('');
-  const inputRef = useRef(null);
+  const [openFaq, setOpenFaq] = useState(-1); // 開いている FAQ の index（-1=全て閉）
   const trapRef = useFocusTrap(true);
 
   useEffect(() => {
@@ -335,35 +311,6 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const askAI = async (q) => {
-    // 他の全 AI 入口と同じ二重防衛: 制御文字を除去し長さを clamp してから渡す
-    // （CLAUDE.md セキュリティチェックリスト「AI prompt は sanitize」準拠）。
-    const text = clamp(sanitizeForPrompt((q || '').trim()), LIMITS.aiQuestion || 500);
-    if (!text || asking) return;
-    setQuestion(text);
-    setAnswer('');
-    setError('');
-    setAsking(true);
-    try {
-      // ⚡ ストリーミング — 全文を待たず 1 文字目から表示（体感の即答化）。
-      // streamClaude は失敗を throw する（エラー文が回答として混ざらない）。
-      let full = '';
-      await streamClaude({
-        system: PROMPTS.helpAi.system,
-        cacheSystem: true,
-        messages: [{ role: 'user', content: text }],
-        max_tokens: 600,
-        onChunk: (t) => { full = t; setAnswer(t); },
-      });
-      if (!full.trim()) setAnswer('回答を取得できませんでした。');
-    } catch (e) {
-      // 他画面と同様に humanize（生の英語スタック/内部メッセージを出さない）。
-      setError(toMessage(e, '通信エラーが発生しました。少し時間をおいて再度お試しください。'));
-    } finally {
-      setAsking(false);
-    }
-  };
-
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
@@ -373,68 +320,30 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
         </div>
 
         <div className="lvg-help-body" style={bodyStyle}>
-          {/* ===== 1. AI Q&A ===== */}
-          <section style={heroStyle}>
-            <p style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>🤖 AI に質問する</p>
-            <p style={{ fontSize: 11, opacity: 0.9, margin: '4px 0 10px', lineHeight: 1.6 }}>
-              アプリの使い方で困ったら何でも聞いてください
-            </p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                ref={inputRef}
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="例：本の表紙が出ない時は？"
-                style={inputStyle}
-                disabled={asking}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    askAI(question);
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => askAI(question)}
-                disabled={!question.trim() || asking}
-                style={askBtnStyle(!question.trim() || asking)}
-              >
-                {asking ? '…' : '質問する'}
-              </button>
-            </div>
-            {asking && (
-              <p style={{ fontSize: 11, color: '#fff', opacity: 0.85, margin: '10px 0 0' }}>AI が回答を作成中…</p>
-            )}
-            {answer && !asking && (
-              <div style={answerCardStyle}>
-                <p style={{ fontSize: 11, color: '#8D6E2A', fontWeight: 600, margin: '0 0 6px' }}>💡 AI の回答</p>
-                {answer}
-              </div>
-            )}
-            {error && !asking && (
-              <p style={{ fontSize: 12, color: '#fff', background: 'var(--c-critical)', padding: '8px 12px', borderRadius: 8, margin: '10px 0 0' }}>
-                ⚠️ {error}
-              </p>
-            )}
-          </section>
-
-          {/* ===== 2. FAQ chips ===== */}
+          {/* ===== よくある質問（確定回答・タップで開く。答えは決まっているので AI は使わない） ===== */}
           <section>
             <h3 style={sectionTitleStyle}>💡 よくある質問</h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {FAQ_LIST.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => askAI(q)}
-                  disabled={asking}
-                  style={{ ...chipStyle, opacity: asking ? 0.6 : 1, cursor: asking ? 'wait' : 'pointer' }}
-                >
-                  {q}
-                </button>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {FAQ_LIST.map((item, i) => {
+                const open = openFaq === i;
+                return (
+                  <div key={item.q} style={faqItemStyle}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenFaq(open ? -1 : i)}
+                      style={faqQuestionStyle}
+                      aria-expanded={open}
+                    >
+                      <span>{item.q}</span>
+                      <span
+                        aria-hidden="true"
+                        style={{ color: 'var(--c-brand)', flexShrink: 0, marginLeft: 8, transition: 'transform .15s ease', transform: open ? 'rotate(180deg)' : 'none' }}
+                      >⌄</span>
+                    </button>
+                    {open && <p style={faqAnswerStyle}>{item.a}</p>}
+                  </div>
+                );
+              })}
             </div>
           </section>
 
