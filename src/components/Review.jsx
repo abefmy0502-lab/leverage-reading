@@ -407,7 +407,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   }, []);
 
   const fetchGenRef = useRef(0);
-  const fetchMemos = useCallback(async () => {
+  const fetchMemos = useCallback(async (opts = {}) => {
     if (!user || !isSupabaseConfigured) {
       setMemos([]);
       setLoading(false);
@@ -416,7 +416,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     // 世代トークン: マウント + PTR + Undo 復元後と発火源が多く、遅い旧リクエストが
     // 後着すると削除/復元直後の一覧が巻き戻って見える。最新 fetch 以外は捨てる。
     const gen = ++fetchGenRef.current;
-    setLoading(true);
+    // silent: Pull-to-Refresh から呼ぶときは全画面スピナーに切り替えない。
+    // loading=true にすると下の早期 return が PullToRefresh ごと unmount し、
+    // PTR のリング/✓演出が消えて画面がチラつく（onRefresh の promise も宙に浮く）。
+    if (!opts.silent) setLoading(true);
     // Supabase 既定の max-rows (1000) を超えるヘビーユーザーでも古いメモが
     // タイムライン/検索/想起から黙って消えないよう range ページングで全件取得。
     // 上限 10 ページ (1万件) は安全弁。
@@ -457,7 +460,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
 
   // Pull-to-refresh handler — refetch + re-roll random.
   const handleRefresh = useCallback(async () => {
-    await fetchMemos();
+    await fetchMemos({ silent: true });
     setRandomSeed((s) => s + 1);
   }, [fetchMemos]);
 

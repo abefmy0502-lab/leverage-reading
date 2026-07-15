@@ -3935,7 +3935,6 @@ function AuthedApp() {
           onClose={() => setEditingAction(null)}
           onSave={async (patch) => {
             const { bookId, actionIdx, action: openedAction } = editingAction;
-            setEditingAction(null);
             // トグル/削除と同じ本ごとの直列化チェーンに乗せる（並行 saveBook との
             // 競合で編集内容が stale 上書きで失われるのを防ぐ）。
             // ⚠️ 対象の身元は「モーダルを開いた時点の action」を使う。保存時に
@@ -3943,6 +3942,12 @@ function AuthedApp() {
             // （繰り返しスポーン / 別行削除）に別の行を掴んでしまう。resolveActionIndex は
             // id 優先で解決するので、開いた時点の action オブジェクトを渡すのが正しい。
             const editTarget = openedAction || (booksRef.current.find((b) => b.id === bookId)?.actions || [])[actionIdx] || null;
+            // 保存の結末で閉じ方を変える: 'saved'/'gone'（対象消失）は閉じる、
+            // 'failed'（保存失敗）はモーダルを開いたままにして入力（下書き）を守る。
+            // create モードが「成功時のみ閉じる」のと挙動を揃える（先に閉じると
+            // 保存失敗時に入力が全損する）。onSave は throw せず正常 resolve するので、
+            // ActionEditModal 側は finally で busy を解除して開いたまま待機できる。
+            let outcome = 'gone';
             await enqueueBookMutation(bookId, async (entry) => {
               const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
               if (!book) return;
@@ -3957,14 +3962,17 @@ function AuthedApp() {
                 const saved = await saveBook(updated);
                 entry.latest = saved || updated;
                 syncActionSnapshots(saved || updated);
+                outcome = 'saved';
                 toast.success('🎯 行動を更新しました。');
               } catch (error) {
                 mutateBookLocal(bookId, () => book);
                 entry.latest = book;
                 syncActionSnapshots(book);
+                outcome = 'failed';
                 toast.error(toMessage(error, '更新に失敗しました'));
               }
             });
+            if (outcome !== 'failed') setEditingAction(null);
           }}
           onDelete={async () => {
             const { bookId, actionIdx } = editingAction;

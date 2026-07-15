@@ -195,6 +195,10 @@ export default function QuickMemoSheet({
       } else {
         toast.error('うまく凝縮できませんでした。少し時間をおいて再度お試しください。');
       }
+    } catch (e) {
+      // 例外（429/通信断/API エラー）を握り潰すとスピナーが止まるだけで無反応に
+      // 見え、連打を誘発する。必ず失敗を伝える。
+      toast.error(toMessage(e, '凝縮に失敗しました。少し時間をおいて再度お試しください。'));
     } finally {
       setCondensing(false);
     }

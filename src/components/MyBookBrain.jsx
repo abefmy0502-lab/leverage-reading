@@ -362,6 +362,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     fetchHistory();
   }, [fetchHistory]);
 
+  // アンマウント時に進行中のストリームを中止する（ThemeReport と同じ防御）。
+  // AI サブタブ（選書/レバレッジメモ）や下部ナビへ切り替えると本コンポーネントは
+  // unmount されるが、これが無いと /api/claude ストリームが走り続けて月次 AI
+  // コール枠を空費し、完了時に unmount 済みへ setState してしまう。
+  useEffect(() => () => { try { abortRef.current?.abort(); } catch { /* ignore */ } }, []);
+
   // マイ読書脳を開くたびに、💬 質問 は「新しい会話」から始める。
   // 過去のやりとりは 📜 履歴 にすべて残るので失われない。「開いた瞬間に前回の
   // 会話がそのまま出てきて違和感」を解消する。
@@ -519,7 +525,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return qs.slice(0, 3);
   }, [books]);
 
-  const ask = async (questionText) => {
+  const ask = async (questionText, opts = {}) => {
     if (!user) {
       toast.error('ログインが必要です。');
       return;
@@ -540,20 +546,25 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     abortRef.current = controller;
 
     // Optimistic insert: show the user's message immediately.
-    let userRow = null;
-    try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .insert([{ user_id: user.id, role: 'user', content: q }])
-        .select()
-        .single();
-      if (error) throw error;
-      userRow = transformMessage(data);
-      setMessages((arr) => [...arr, userRow]);
-    } catch (e) {
-      setBusy(false);
-      toast.error(toMessage(e, 'メッセージの保存に失敗しました。'));
-      return;
+    // ただし再生成（regenerate）は既存の質問を answer し直すだけなので、
+    // user 行を再 INSERT しない（skipUserInsert）。しないと押すたびに同じ質問が
+    // chat_messages に重複保存され、履歴と「会話 N 件」が水増しされる。
+    if (!opts.skipUserInsert) {
+      let userRow = null;
+      try {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .insert([{ user_id: user.id, role: 'user', content: q }])
+          .select()
+          .single();
+        if (error) throw error;
+        userRow = transformMessage(data);
+        setMessages((arr) => [...arr, userRow]);
+      } catch (e) {
+        setBusy(false);
+        toast.error(toMessage(e, 'メッセージの保存に失敗しました。'));
+        return;
+      }
     }
 
     // ★ 送信後すぐに assistant 吹き出しを optimistically 追加。空文字 +
@@ -703,7 +714,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // Find the last user message; resend it.
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       if (messages[i].role === 'user') {
-        await ask(messages[i].content);
+        // 既存の質問を answer し直すだけ — user 行は再 INSERT しない（重複防止）。
+        await ask(messages[i].content, { skipUserInsert: true });
         return;
       }
     }
