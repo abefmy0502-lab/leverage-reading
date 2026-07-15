@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
-import { MessageSquareQuote, X, Target } from 'lucide-react';
+import { MessageSquareQuote, X, Target, Check } from 'lucide-react';
 import { recallFraming, memoExcerpt, pickRecallMemo, recallPatch } from '../lib/recall';
 import { track, EVENTS } from '../lib/analytics';
 
@@ -326,7 +326,7 @@ export default function HomeRecall({ onOpen, onAction }) {
                 fontFamily: 'inherit', cursor: 'pointer',
               }}
             >
-              ✓ 覚えた
+              <Check size={13} strokeWidth={2.5} style={{ verticalAlign: '-2px', marginRight: 3 }} aria-hidden="true" />覚えた
             </button>
             <button
               type="button"

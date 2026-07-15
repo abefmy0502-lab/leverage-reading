@@ -979,7 +979,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                     fontFamily: 'inherit', cursor: flipping ? 'default' : 'pointer', opacity: flipping ? 0.6 : 1,
                   }}
                 >
-                  ✓ 覚えた
+                  <Check size={13} strokeWidth={2.5} style={{ verticalAlign: '-2px', marginRight: 3 }} aria-hidden="true" />覚えた
                 </button>
                 <button
                   type="button"

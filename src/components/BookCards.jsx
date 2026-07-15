@@ -8,6 +8,7 @@ import { memo, useState, useEffect } from 'react';
 import { useLongPress } from '../hooks/useLongPress';
 import { paletteFor } from '../lib/coverPalette';
 import { ensureHttps } from '../lib/url';
+import { ChevronRight } from 'lucide-react';
 import SwipeableCard from './SwipeableCard';
 import StatusBadge from './StatusBadge';
 import { Stars } from './formPrimitives';
@@ -194,7 +195,7 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
               <StatusBadge status={book.status} />
             </div>
           </div>
-          <span style={{ fontSize: 14, color: "#c4b8a6" }}>›</span>
+          <ChevronRight size={16} strokeWidth={1.75} color="var(--c-ink-3)" aria-hidden="true" />
         </div>
       </div>
     </SwipeableCard>
