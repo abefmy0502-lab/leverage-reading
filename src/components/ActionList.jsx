@@ -18,7 +18,7 @@ const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', m
 
 const summaryCard = {
   background: 'var(--c-card)',
-  border: '1px solid #f0ebe1',
+  border: '1px solid var(--c-hairline)',
   borderRadius: 16,
   padding: '16px 18px',
   display: 'flex',
@@ -53,8 +53,8 @@ const pill = (active, color = 'var(--c-brand)', bg = '#e8e0d2') => ({
 const cardBase = {
   position: 'relative',
   background: 'var(--c-card)',
-  border: '1px solid #f0ebe1',
-  borderRadius: 14,
+  border: '1px solid var(--c-hairline)',
+  borderRadius: 'var(--radius-md)',
   padding: '14px 40px 14px 16px',
   display: 'flex',
   gap: 10,

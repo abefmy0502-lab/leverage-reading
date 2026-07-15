@@ -22,7 +22,7 @@ const panelBase = {
   zIndex: 881,
   width: PANEL_WIDTH,
   background: '#fff',
-  borderRadius: 14,
+  borderRadius: 'var(--radius-md)',
   boxShadow: '0 10px 30px rgba(30, 25, 20, 0.25)',
   overflow: 'hidden',
   fontFamily: "var(--font-app)",

@@ -736,7 +736,7 @@ export default function AdminDashboard({ onClose }) {
                   {advisorMsgs.map((m) => (
                     <div key={m.id || m.created_at} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                       <div style={{
-                        maxWidth: '88%', padding: '10px 12px', borderRadius: 14, fontSize: 13, lineHeight: 1.7,
+                        maxWidth: '88%', padding: '10px 12px', borderRadius: 'var(--radius-md)', fontSize: 13, lineHeight: 1.7,
                         background: m.role === 'user' ? C.brand : C.soft,
                         color: m.role === 'user' ? C.brandInk : C.ink,
                         borderTopRightRadius: m.role === 'user' ? 4 : 14,

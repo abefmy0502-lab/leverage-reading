@@ -193,7 +193,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
       style={{
         background: '#fff',
         border: '1px solid var(--c-hairline)',
-        borderRadius: 14,
+        borderRadius: 'var(--radius-md)',
         padding: 14,
         boxShadow: '0 1px 4px rgba(30,25,20,0.04)',
         wordBreak: 'keep-all',
@@ -459,7 +459,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
                   style={{
                     maxWidth: '85%',
                     padding: '10px 14px',
-                    borderRadius: 14,
+                    borderRadius: 'var(--radius-md)',
                     background: isUser ? 'var(--c-brand)' : '#f7f3ec',
                     color: isUser ? 'var(--c-card)' : 'var(--c-ink)',
                     fontSize: 13,

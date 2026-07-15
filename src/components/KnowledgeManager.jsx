@@ -157,7 +157,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
       role="dialog"
       aria-modal="true"
     >
-      <div style={{ background: 'var(--c-card)', borderRadius: 14, width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ background: 'var(--c-card)', borderRadius: 'var(--radius-md)', width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--c-hairline)' }}>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--c-brand)', cursor: 'pointer', width: 44, height: 44, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
           <p style={{ fontSize: 14, color: 'var(--c-ink)', fontWeight: 500, margin: 0, flex: 1 }}>{title}</p>

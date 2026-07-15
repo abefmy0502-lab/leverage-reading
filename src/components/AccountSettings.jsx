@@ -64,7 +64,7 @@ const overlayStyle = {
 
 const cardStyle = {
   background: 'var(--c-card)',
-  borderRadius: 14,
+  borderRadius: 'var(--radius-md)',
   width: 'min(440px, 100%)',
   maxHeight: 'min(85vh, 85dvh)',
   display: 'flex',

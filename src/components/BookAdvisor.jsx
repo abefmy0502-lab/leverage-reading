@@ -1228,7 +1228,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         {messages.map((m, i) => (
           <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div style={{
-              maxWidth: "85%", padding: "10px 14px", borderRadius: 14,
+              maxWidth: "85%", padding: "10px 14px", borderRadius: 'var(--radius-md)',
               background: m.role === "user" ? "var(--c-brand)" : "var(--c-soft)",
               color: m.role === "user" ? "var(--c-card)" : "var(--c-ink)",
               fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap",
@@ -1264,7 +1264,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
               return intro ? <MarkdownSections text={intro} /> : null;
             })()}
             {recommendations.items.map((rec, i) => (
-              <div key={i} style={{ background: "var(--c-card)", borderRadius: 16, border: "1px solid #f0ebe1", padding: "16px 16px", overflow: "hidden", boxShadow: "0 1px 3px rgba(60, 48, 30, 0.06)" }}>
+              <div key={i} style={{ background: "var(--c-card)", borderRadius: 16, border: "1px solid var(--c-hairline)", padding: "16px 16px", overflow: "hidden", boxShadow: "0 1px 3px rgba(60, 48, 30, 0.06)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                   {/* 実在検証で先読みした表紙（あれば）。追加前に表紙が見えて信頼が上がる。 */}
                   {rec.cover && (

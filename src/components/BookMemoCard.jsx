@@ -9,8 +9,8 @@ import { MoreVertical, Image, Target } from 'lucide-react';
 const cardWrap = {
   position: 'relative',
   background: 'var(--c-card)',
-  border: '1px solid #f0ebe1',
-  borderRadius: 14,
+  border: '1px solid var(--c-hairline)',
+  borderRadius: 'var(--radius-md)',
   padding: '14px 16px',
   display: 'flex',
   flexDirection: 'column',

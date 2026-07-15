@@ -44,7 +44,7 @@ function stripActionSection(md) {
 }
 
 const card = {
-  background: 'var(--c-soft)', border: '1px solid var(--c-hairline)', borderRadius: 14,
+  background: 'var(--c-soft)', border: '1px solid var(--c-hairline)', borderRadius: 'var(--radius-md)',
   padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12,
 };
 const analyzeBtn = {

@@ -52,7 +52,7 @@ export default function SwipeableCard({
       style={{
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: 14,
+        borderRadius: 'var(--radius-md)',
         // Background sits behind the foreground card; the action drawer paints
         // its own colour above it.
       }}

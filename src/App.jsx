@@ -3063,7 +3063,7 @@ function AuthedApp() {
                 padding: "12px 16px",
                 background: "transparent",
                 border: "1px solid var(--c-hairline-strong)",
-                borderRadius: 14,
+                borderRadius: 'var(--radius-md)',
                 color: "var(--c-brand)",
                 fontSize: 14,
                 fontWeight: 600,

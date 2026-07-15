@@ -132,7 +132,7 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
         {...longPress.bind}
         style={{
           background: "var(--c-card)",
-          borderRadius: 14,
+          borderRadius: 'var(--radius-md)',
           padding: "12px 14px",
           border: "1px solid var(--c-hairline)",
           boxShadow: isJustDone

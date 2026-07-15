@@ -939,7 +939,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               )}
               {/* 💭 今週の問い — マイ読書脳が向こうから問いを投げる（能動化） */}
               {weeklyQ && !weeklyDismissed && (
-                <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline-strong)', borderRadius: 14, padding: '14px 15px' }}>
+                <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline-strong)', borderRadius: 'var(--radius-md)', padding: '14px 15px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.14em' }}>
                       <MessageCircleQuestion size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5, letterSpacing: 0 }} />
@@ -1230,7 +1230,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
     // AI の回答は読み物なので少しゆとりを持たせる。ユーザー吹き出しは
     // 短文が多いので従来通りタイト。
     padding: isUser ? '10px 14px' : '12px 15px',
-    borderRadius: 14,
+    borderRadius: 'var(--radius-md)',
     fontSize: 14,
     // 長文（特に日本語）の可読性を優先。.long-text 相当の行間 + 微字間。
     lineHeight: isUser ? 1.7 : 1.85,

@@ -19,8 +19,8 @@ import {
 const wrap = { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8, minWidth: 0 };
 const sectionStyle = {
   background: 'var(--c-card)',
-  border: '1px solid #f0ebe1',
-  borderRadius: 14,
+  border: '1px solid var(--c-hairline)',
+  borderRadius: 'var(--radius-md)',
   padding: '14px 16px',
   boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
   minWidth: 0,
