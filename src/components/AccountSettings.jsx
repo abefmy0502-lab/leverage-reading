@@ -690,7 +690,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         return;
       }
 
-      toast.success('すべてのデータを削除しました。サインアウトします。');
+      toast.success('すべてのデータを削除しました。ログアウトします。');
       // Sign out then bubble up to the parent
       try { await signOut(); } catch { /* ignore */ }
       onAfterDelete?.();
@@ -711,7 +711,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
 
         <div style={bodyStyle}>
           <div>
-            <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0 }}>サインイン中</p>
+            <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0 }}>ログイン中</p>
             <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
           </div>
 
@@ -824,7 +824,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     Web/PWA から開かれた場合も、契約・利用ともアプリへ誘導する
                     （「Web 版」という別プロダクトは存在しないため、そう見せない）。 */}
                 <p style={sectionDescStyle}>
-                  Orime のご契約・ご利用は iOS アプリ（App Store）から行えます。アプリを入手して、同じアカウントでサインインしてください。
+                  Orime のご契約・ご利用は iOS アプリ（App Store）から行えます。アプリを入手して、同じアカウントでログインしてください。
                 </p>
                 {isAppStoreLive ? (
                   <a

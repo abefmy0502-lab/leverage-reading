@@ -431,7 +431,7 @@ export function BeforePhase({
           (form.investPurpose && form.investPurpose.trim());
         return (
           <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 20 }}>
-            {setupReady ? '💾 保存して読書を開始する' : '💾 保存'}
+            {setupReady ? '保存して読書を開始' : '保存'}
           </button>
         );
       })()}
@@ -461,7 +461,7 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAn
   const removeAction = (i) => setForm({ ...form, actions: (form.actions || []).filter((_, j) => j !== i) });
   return (
     <div>
-      <p style={phaseDesc}><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読書中のインプットを記録しましょう</p>
+      <p style={phaseDesc}><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読みながら気づいたことを、メモに残しましょう</p>
 
       {form.aiStrategy && (
         <div style={{ background: "var(--c-soft)", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>

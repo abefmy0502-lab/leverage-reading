@@ -45,7 +45,7 @@ function StoreCta({ className, children, tabIndex }) {
   return <a href={APP_STORE_URL} className={className} tabIndex={tabIndex}>{children}</a>;
 }
 
-const PRICE_NOTE = '月 ¥1,480（税込）・いつでも解約OK・解約してもメモは残ります';
+const PRICE_NOTE = '月 ¥1,480（税込）・いつでも解約できます・解約してもメモは残ります';
 
 // 🗣 社会的証明（お客様の声）枠。
 // ⚠️ ここには「実在ユーザーの本物の声」だけを入れる。捏造・盛り・架空の数字は
@@ -115,7 +115,7 @@ export default function Landing() {
     document.title = 'Orime（オリメ）｜読んだ本を、忘れない。読書を行動に変える iPhone アプリ';
     const metas = [
       setMeta('description',
-        '心が動いた一行をメモすると、忘れた頃に Orime が届け直す。決めた一歩はやり切るまで見届ける。読書の「読んだあと」を設計する iPhone アプリ。月¥1,480・いつでも解約OK・解約してもメモは残ります。'),
+        '心が動いた一行をメモすると、忘れた頃に Orime が届け直す。決めた一歩はやり切るまで見届ける。読書の「読んだあと」を設計する iPhone アプリ。月¥1,480・いつでも解約できます・解約してもメモは残ります。'),
       setMeta('og:title', '読んだ本を、忘れない。| Orime（オリメ）', 'property'),
       setMeta('og:description', '忘れた頃にメモが戻り、決めた一歩を見届ける。読書の「読んだあと」を設計する iPhone アプリ。', 'property'),
       setMeta('og:type', 'website', 'property'),
@@ -260,7 +260,7 @@ export default function Landing() {
         <div className="sticky-inner">
           <div className="sticky-price">
             <span className="sticky-price-main">月 ¥1,480（税込）</span>
-            <span className="sticky-price-sub">いつでも解約OK・データは残ります</span>
+            <span className="sticky-price-sub">いつでも解約できます・データは残ります</span>
           </div>
           <StoreCta className="sticky-btn" tabIndex={showStickyCta ? undefined : -1}>
             App Store で入手
@@ -580,7 +580,7 @@ export default function Landing() {
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 想起・行動・凝縮・マイ読書脳 すべて利用可</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> AI 選書・読書計画・写真の書き起こしも込み</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 本の登録数・メモ数は無制限</li>
-              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> いつでも解約OK・違約金なし</li>
+              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> いつでも解約できます・違約金なし</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 解約してもメモは消えません</li>
             </ul>
 

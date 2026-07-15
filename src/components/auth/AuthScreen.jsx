@@ -262,7 +262,7 @@ export default function AuthScreen() {
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */
           <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 12px', textAlign: 'center' }}>
             Orime は iPhone / iPad アプリでのご利用となります。<br />
-            ここで登録したアカウントで、アプリからサインインできます。{' '}
+            ここで登録したアカウントで、アプリからログインできます。{' '}
             <a href="/lp" style={{ color: 'var(--c-ink-2)' }}>サービス紹介を見る</a>
           </p>
         )}

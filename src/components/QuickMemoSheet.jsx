@@ -403,7 +403,7 @@ export default function QuickMemoSheet({
                   e.preventDefault();
                 }
               }}
-              placeholder="メモを入力…"
+              placeholder="心が動いた一行を、そのまま書き留めましょう"
               style={ta}
               maxLength={LIMITS.memoText}
             />

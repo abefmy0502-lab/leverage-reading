@@ -548,7 +548,7 @@ export default function Paywall({ onPurchased }) {
         <div style={{ textAlign: 'center' }}>
           {user?.email && (
             <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '0 0 6px', wordBreak: 'break-all' }}>
-              {user.email} でサインイン中
+              {user.email} でログイン中
             </p>
           )}
           <button
@@ -565,7 +565,7 @@ export default function Paywall({ onPurchased }) {
               minHeight: 44,
             }}
           >
-            別のアカウントでサインイン
+            別のアカウントでログイン
           </button>
           {/* まだ決めかねている人をサービス紹介(LP)へ逃がす導線。
               LP は価格(¥1,480)と比較表を含むため、反ステアリング順守で

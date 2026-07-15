@@ -419,7 +419,7 @@ export default function BookMemoEditor({
             ref={bodyRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="メモを入力…"
+            placeholder="心が動いた一行を、そのまま書き留めましょう"
             style={ta}
             maxLength={LIMITS.memoText}
           />
