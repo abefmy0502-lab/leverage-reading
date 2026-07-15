@@ -22,7 +22,7 @@ import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
-import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion, Target, Check, Clock, ArrowLeft } from 'lucide-react';
+import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion, Target, Check, Clock, ArrowLeft, RotateCw } from 'lucide-react';
 import KnowledgeJourney from './KnowledgeJourney';
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
@@ -666,6 +666,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   : '回答を生成できませんでした。少し時間をおいて再度お試しください。',
               refs: [],
               createdAt: new Date().toISOString(),
+              // 通信エラー（ユーザーの中止ではない）はその場で再試行できるように
+              // フラグを立てる。行き止まりで打ち直しを強いると看板機能で最悪の離脱に。
+              error: !controller.signal.aborted,
             }
           : m
       ));
@@ -853,7 +856,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               />
             )}
             {messages.map((m) => (
-              <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} />
+              <ChatMessage key={m.id} message={m} onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} />
             ))}
           </div>
         </PullToRefresh>
@@ -1237,7 +1240,7 @@ function resolveRefBookId(ref, books) {
   return partial ? partial.id : null;
 }
 
-function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook }) {
+function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook, onRetry }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const bubbleStyle = {
@@ -1384,6 +1387,24 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                 この行動をやってみる
               </button>
             )}
+          </div>
+        )}
+        {message.error && onRetry && (
+          <div style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={onRetry}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                minHeight: 40, padding: '8px 16px', borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--c-brand)', background: 'transparent',
+                color: 'var(--c-brand)', fontSize: 13, fontWeight: 700,
+                fontFamily: 'inherit', cursor: 'pointer',
+              }}
+            >
+              <RotateCw size={14} aria-hidden="true" />
+              再試行
+            </button>
           </div>
         )}
         {!isStreaming && (
