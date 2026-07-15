@@ -167,8 +167,8 @@ const answerCardStyle = {
   borderRadius: 10,
   padding: '12px 14px',
   color: '#5D4037',
-  fontSize: 13,
-  lineHeight: 1.7,
+  fontSize: 14,
+  lineHeight: 1.8,
   whiteSpace: 'pre-wrap',
 };
 
@@ -215,13 +215,13 @@ const footerStyle = {
 // すべての helpKey で同じ「番号付きカード」見た目になるよう steps と
 // sections の両方を共通の renderCardSteps で描画する。
 
-const stepSubtitle = { fontSize: 13, color: 'var(--c-ink-2)', margin: '0 0 14px' };
+const stepSubtitle = { fontSize: 14, color: 'var(--c-ink-2)', lineHeight: 1.7, margin: '0 0 14px' };
 const stepCard = {
   background: '#fff',
   border: '1px solid var(--c-hairline)',
   borderRadius: 12,
-  padding: '14px 16px',
-  marginBottom: 12,
+  padding: '16px 16px',
+  marginBottom: 14,
   boxShadow: '0 1px 2px rgba(30,25,20,0.04)',
   wordBreak: 'keep-all',
   overflowWrap: 'anywhere',
@@ -230,7 +230,7 @@ const stepCard = {
   boxSizing: 'border-box',
   overflow: 'hidden',
 };
-const stepNumber = { fontSize: 22, fontWeight: 700, lineHeight: 1, marginRight: 8 };
+const stepNumber = { fontSize: 22, fontWeight: 700, lineHeight: 1, marginRight: 8, color: 'var(--c-brand)' };
 const stepTitle = {
   fontSize: 16,
   fontWeight: 600,
@@ -241,19 +241,20 @@ const stepTitle = {
   gap: 4,
   wordBreak: 'keep-all',
 };
-const stepBody = { fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.7, margin: '8px 0 0', whiteSpace: 'pre-line', wordBreak: 'keep-all' };
-const stepBulletList = { listStyle: 'none', padding: 0, margin: '8px 0 0', display: 'flex', flexDirection: 'column', gap: 2 };
-const stepBullet = { fontSize: 13, color: 'var(--c-ink-soft)', lineHeight: 1.7, wordBreak: 'keep-all' };
-const stepFooter = { fontSize: 13, color: '#5C4A2E', lineHeight: 1.7, margin: '8px 0 0', fontStyle: 'italic', wordBreak: 'keep-all' };
+const stepBody = { fontSize: 15, color: 'var(--c-ink-soft)', lineHeight: 1.8, margin: '10px 0 0', whiteSpace: 'pre-line', wordBreak: 'keep-all' };
+const stepBulletList = { listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 8 };
+const stepBullet = { fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.7, wordBreak: 'keep-all', display: 'flex', gap: 6, alignItems: 'baseline' };
+const stepBulletMark = { color: 'var(--c-brand)', flexShrink: 0 };
+const stepFooter = { fontSize: 13, color: '#5C4A2E', lineHeight: 1.7, margin: '10px 0 0', fontStyle: 'italic', wordBreak: 'keep-all' };
 const tipBox = {
   marginTop: 6,
-  padding: '12px 14px',
+  padding: '13px 15px',
   background: '#f5efde',
   border: '1px solid #e0d0a8',
   borderRadius: 10,
-  fontSize: 13,
+  fontSize: 14,
   color: 'var(--c-brand)',
-  lineHeight: 1.7,
+  lineHeight: 1.8,
 };
 
 // 数字絵文字に変換 (1〜10)。それ以上は数字をそのまま返す。
@@ -453,7 +454,10 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
                     {s.bullets.length > 0 && (
                       <ul style={stepBulletList}>
                         {s.bullets.map((b, j) => (
-                          <li key={j} style={stepBullet}>・{wrapNowrap(b)}</li>
+                          <li key={j} style={stepBullet}>
+                            <span aria-hidden="true" style={stepBulletMark}>・</span>
+                            <span>{wrapNowrap(b)}</span>
+                          </li>
                         ))}
                       </ul>
                     )}
