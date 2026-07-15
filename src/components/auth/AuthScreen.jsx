@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
+import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
 import { isNative } from '../../lib/iap';
 
 const btnPrimary = {
@@ -94,6 +95,32 @@ export default function AuthScreen() {
   // signup 成功後、確認メール待ちの全画面ステップへ切替える宛先（中断離脱の最大谷を緩和）。
   const [confirmSentTo, setConfirmSentTo] = useState('');
   const [resending, setResending] = useState(false);
+  const [appleBusy, setAppleBusy] = useState(false);
+
+  // 🍎 Apple でサインイン。iOS は常時表示（HIG 準拠）。Web は Apple/Supabase の
+  // Web 設定が済むまで誤爆させないため、環境変数で明示的に有効化した時だけ表示。
+  const showAppleButton = isAppleSignInAvailable() && (isNativeApple || import.meta.env.VITE_APPLE_SIGNIN_WEB === 'true');
+
+  const handleApple = async () => {
+    if (appleBusy) return;
+    setError('');
+    setInfo('');
+    setAppleBusy(true);
+    try {
+      await signInWithApple();
+      // 成功時は onAuthStateChange がセッションを拾い、上位が画面遷移する
+      // （Web はリダイレクトで離脱）。ここで明示的な遷移は不要。
+    } catch (err) {
+      // ユーザーキャンセルはエラー表示しない（静かに戻す）。
+      if (!err?.canceled) {
+        setError(err?.code === 'plugin_missing'
+          ? 'この端末では Apple サインインを利用できません。メールでご登録ください。'
+          : humanizeError(err));
+      }
+    } finally {
+      setAppleBusy(false);
+    }
+  };
 
   // 一度この画面に来たユーザーは「既知」扱い。以後 "/" は LP を挟まず直接この
   // 認証画面に来る（毎回マーケLPを見せられる煩わしさを防ぐ）。新規初見だけ LP。
@@ -257,6 +284,34 @@ export default function AuthScreen() {
       </p>
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 340 }}>
         <h2 style={{ fontSize: 16, color: 'var(--c-ink)', marginBottom: 16, textAlign: 'center', fontWeight: 500 }}>{title}</h2>
+        {/* 🍎 Sign in with Apple — メール確認の往復が不要でワンタップ。HIG 準拠で
+            メール認証より目立つ位置（上）に、公式カラー（黒）で置く。 */}
+        {showAppleButton && mode !== 'reset' && (
+          <>
+            <button
+              type="button"
+              onClick={handleApple}
+              disabled={appleBusy}
+              aria-label="Appleでサインイン"
+              style={{
+                width: '100%', minHeight: 48, display: 'inline-flex', alignItems: 'center',
+                justifyContent: 'center', gap: 8, background: '#000', color: '#fff',
+                border: 'none', borderRadius: 10, fontFamily: 'inherit', fontSize: 15,
+                fontWeight: 600, cursor: appleBusy ? 'default' : 'pointer', opacity: appleBusy ? 0.6 : 1,
+              }}
+            >
+              <svg width="16" height="19" viewBox="0 0 16 19" fill="currentColor" aria-hidden="true">
+                <path d="M13.09 10.06c-.02-2.14 1.75-3.17 1.83-3.22-1-1.46-2.55-1.66-3.1-1.68-1.32-.13-2.58.78-3.25.78-.67 0-1.7-.76-2.8-.74-1.44.02-2.77.84-3.51 2.13-1.5 2.6-.38 6.44 1.07 8.55.71 1.03 1.55 2.19 2.66 2.15 1.07-.04 1.47-.69 2.76-.69 1.29 0 1.65.69 2.78.67 1.15-.02 1.87-1.05 2.57-2.09.81-1.2 1.14-2.36 1.16-2.42-.03-.01-2.22-.85-2.24-3.37zM10.94 3.78c.59-.72.99-1.71.88-2.71-.85.03-1.89.57-2.5 1.28-.55.63-1.03 1.65-.9 2.62.95.07 1.92-.48 2.52-1.19z"/>
+              </svg>
+              {appleBusy ? 'サインイン中…' : 'Appleでサインイン'}
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0' }}>
+              <span style={{ flex: 1, height: 1, background: 'var(--c-hairline)' }} />
+              <span style={{ fontSize: 11, color: 'var(--c-ink-3)' }}>または</span>
+              <span style={{ flex: 1, height: 1, background: 'var(--c-hairline)' }} />
+            </div>
+          </>
+        )}
         {mode === 'signup' && !isNative && (
           /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */

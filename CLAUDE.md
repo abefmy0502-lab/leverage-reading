@@ -297,6 +297,7 @@ want(読みたい) → before(読書前) → reading(読書中) → done(読了)
 | `VITE_PRICE_ANNUAL_LABEL` | (任意) 年額**表示用**ラベル。未設定なら「年額 ¥12,800（税込・月あたり約¥1,066）」（`src/lib/billing.js` の既定値）。金額の真実は App Store / Stripe 側 |
 | `VITE_PRICE_ANNUAL_NOTE` | (任意) 年額の補足一言（例「まとめてお得」）。誇大表現は避ける |
 | `VITE_APP_STORE_URL` | (任意) App Store の実 URL。LP / Paywall / 設定 / Web 利用ゲートの「App Store で入手」導線が参照。未設定時は暫定 `https://apps.apple.com/jp/app/orime`。公開後に実 URL へ差替 |
+| `VITE_APPLE_SIGNIN_WEB` | (任意) 🍎 Web で「Appleでサインイン」ボタンを出すフラグ。`'true'` の時だけ表示。iOS(ネイティブ)は常時表示なので不要。Apple Developer の Service ID と Supabase Auth の Apple プロバイダ（Web 経路）の設定が済むまでは未設定のままにし、Web での誤爆を防ぐ。認証実装は `src/lib/appleAuth.js`（要外部設定はファイル冒頭コメント参照） |
 | `APNS_KEY_ID` | 🔔📱 ネイティブ想起プッシュ(APNs)の認証キー Key ID（`api/push-cron.js`）。サーバー専用 |
 | `APNS_TEAM_ID` | Apple Developer の Team ID（APNs JWT の iss）。サーバー専用 |
 | `APNS_PRIVATE_KEY` | APNs 認証キー(.p8)の中身（`-----BEGIN PRIVATE KEY-----` 全文。改行は `\n` エスケープ可）。**クライアント露出厳禁** |
