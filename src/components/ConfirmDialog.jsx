@@ -7,8 +7,9 @@ const overlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 'var(--z-confirm)',
-  background: 'rgba(30,25,20,0.45)',
-  backdropFilter: 'blur(3px)',
+  background: 'var(--backdrop)',
+  backdropFilter: 'var(--backdrop-blur)',
+  WebkitBackdropFilter: 'var(--backdrop-blur)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -17,10 +18,10 @@ const overlayStyle = {
 
 const cardStyle = {
   background: 'var(--c-card)',
-  borderRadius: 14,
+  borderRadius: 'var(--radius-lg)',
   padding: '20px 22px',
   width: 'min(380px, 100%)',
-  boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
+  boxShadow: 'var(--shadow-5)',
   fontFamily: "var(--font-app)",
 };
 
@@ -46,27 +47,33 @@ const rowStyle = {
 
 const cancelBtnStyle = {
   flex: 1,
-  padding: '10px 0',
-  borderRadius: 10,
+  minHeight: 44,
+  padding: '12px 0',
+  borderRadius: 'var(--radius-md)',
   border: '1px solid var(--c-hairline-strong)',
   background: 'transparent',
   color: 'var(--c-ink-soft)',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  fontSize: 14,
+  fontSize: 15,
+  fontWeight: 600,
 };
 
 const confirmBtnStyle = (danger) => ({
   flex: 1,
-  padding: '10px 0',
-  borderRadius: 10,
+  minHeight: 44,
+  padding: '12px 0',
+  borderRadius: 'var(--radius-md)',
   border: 'none',
-  background: danger ? 'var(--color-error, #ff3b30)' : 'var(--c-brand)',
+  // 破壊的アクションの色はブランドのレンガ色（--c-critical）に統一。
+  // 以前の鮮やかな iOS 純赤 #ff3b30 は暖色世界観から浮き、削除メニュー側の
+  // --c-critical と2色に割れていた。--color-error はシステムエラー帯専用に隔離。
+  background: danger ? 'var(--c-critical)' : 'var(--c-brand)',
   color: 'var(--c-card)',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  fontSize: 14,
-  fontWeight: 500,
+  fontSize: 15,
+  fontWeight: 600,
 });
 
 export function ConfirmProvider({ children }) {
