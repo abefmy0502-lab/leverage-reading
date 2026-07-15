@@ -3866,6 +3866,15 @@ function AuthedApp() {
               icon: '📖',
               onClick: () => openDetail(bookContextMenu.book),
             },
+            // 読書中/読了の本は、本棚の長押しから直接メモを書けるように
+            // （最速でも「探す→開く→FAB」だった導線を1手に短縮＝熱い一行を取りこぼさない）。
+            ...((bookContextMenu.book?.status === 'reading' || bookContextMenu.book?.status === 'done')
+              ? [{
+                  label: 'メモを書く',
+                  icon: '✍️',
+                  onClick: () => { openDetail(bookContextMenu.book); setQuickMemoOpen(true); },
+                }]
+              : []),
             {
               label: '編集',
               icon: '✏️',

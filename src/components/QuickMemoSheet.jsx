@@ -373,25 +373,8 @@ export default function QuickMemoSheet({
         </div>{/* /drag zone (handle + header) */}
 
         <div style={bodyStyle}>
-          <div>
-            <label style={fieldLabel}>ページ番号（任意）</label>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={99999}
-              value={pageNumber}
-              onChange={(e) => setPageNumber(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  textRef.current?.focus();
-                }
-              }}
-              placeholder="78"
-              style={{ ...inp, width: 140, textAlign: 'center' }}
-            />
-          </div>
+          {/* 本文を最上段の主役に。ページ番号は従属情報として本文の下へ置く
+              （「一行を吐き出す」情緒の瞬間に、数字入力の逡巡を先に挟まない）。 */}
           <div>
             <label style={fieldLabel}>メモ本文</label>
             <textarea
@@ -453,6 +436,25 @@ export default function QuickMemoSheet({
                 </button>
               )}
             </div>
+          </div>
+          <div>
+            <label style={fieldLabel}>ページ番号（任意）</label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={99999}
+              value={pageNumber}
+              onChange={(e) => setPageNumber(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  textRef.current?.focus();
+                }
+              }}
+              placeholder="78"
+              style={{ ...inp, width: 140, textAlign: 'center' }}
+            />
           </div>
           {errorMsg && (
             <p style={{ color: 'var(--c-critical)', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>

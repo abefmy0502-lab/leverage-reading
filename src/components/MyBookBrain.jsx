@@ -1222,6 +1222,21 @@ function resolveActionBookId(refs, books) {
   return null;
 }
 
+// 単一の参照文字列（📚 著者『書名』…）から本 ID を解決する。解決できた参照だけ
+// タップで本へ飛べるリンクにする（「本当に私の記録から答えている」を確認できる＝
+// 幻覚不安への最良の先回りで、看板機能の信頼＝課金理由に直結する）。
+function resolveRefBookId(ref, books) {
+  if (!Array.isArray(books) || books.length === 0) return null;
+  const tm = String(ref).match(/『([^』]+)』/);
+  if (!tm) return null;
+  const title = tm[1].trim();
+  if (!title) return null;
+  const exact = books.find((b) => (b.title || '').trim() === title);
+  if (exact) return exact.id;
+  const partial = books.find((b) => (b.title || '').trim() && title.includes((b.title || '').trim()));
+  return partial ? partial.id : null;
+}
+
 function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
@@ -1318,9 +1333,28 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
               参照した本・メモ
             </p>
             <ul style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: 0, paddingLeft: 16 }}>
-              {message.refs.map((r, i) => (
-                <li key={i} style={{ marginTop: i === 0 ? 0 : 3 }}>{r}</li>
-              ))}
+              {message.refs.map((r, i) => {
+                const refBookId = onOpenBook ? resolveRefBookId(r, books) : null;
+                return (
+                  <li key={i} style={{ marginTop: i === 0 ? 0 : 3 }}>
+                    {refBookId ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenBook(refBookId)}
+                        style={{
+                          background: 'none', border: 'none', padding: 0, margin: 0,
+                          font: 'inherit', color: 'var(--c-brand)', textAlign: 'left',
+                          textDecoration: 'underline', textUnderlineOffset: 2,
+                          cursor: 'pointer',
+                        }}
+                        aria-label={`${r} を開く`}
+                      >
+                        {r}
+                      </button>
+                    ) : r}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
