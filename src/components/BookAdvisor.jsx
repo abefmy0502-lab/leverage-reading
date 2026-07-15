@@ -15,7 +15,7 @@ import {
 import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext } from '../lib/ai';
 import { streamClaude } from '../lib/streamClaude';
 import { PROMPTS } from '../lib/prompts';
-import { MODEL_SMART } from '../lib/models';
+import { MODEL_SMART, MODEL_FAST } from '../lib/models';
 import { LIMITS, clamp } from '../lib/limits';
 import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
@@ -351,9 +351,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       text = await callClaude(
         PROMPTS.advisorInterview.system,
         PROMPTS.advisorInterview.user({ concern: safeConcern, priorQA, round, maxRounds: MAX_INTERVIEW_ROUNDS }),
-        // ヒアリングの質問の質 = 選書精度の土台なので SMART に昇格（出力は短い
-        // JSON なので速度影響は小さい。深掘りの鋭さ・選択肢の具体性が上がる）。
-        { max_tokens: 700, cacheSystem: true, model: MODEL_SMART },
+        // ヒアリング質問は「定型 JSON（質問文＋選択肢）」の生成で、Haiku 4.5 で十分な
+        // 品質が出る領域（事実想起や横断推論を伴わない）。コスト削減のため FAST に。
+        // ※ 最終的な「本の推薦」は捏造リスク＆横断推論があるため別関数で SMART 維持。
+        { max_tokens: 700, cacheSystem: true, model: MODEL_FAST },
       );
     } catch {
       return null;
