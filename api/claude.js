@@ -199,25 +199,33 @@ async function isAdminUser(userId) {
 async function checkEntitlement(userId) {
   const supabase = getServiceSupabase();
   if (!supabase) return { allowed: true }; // 判定不能なら通す（fail-open）
-  // 管理者（運営）は課金不要で通す。
-  if (await isAdminUser(userId)) return { allowed: true };
   try {
-    // period_type は supabase_admin_members_tasks.sql で追加された列。未適用 DB では
-    // 選択が失敗するので、schema-error 時は status のみで再取得し従来挙動へ degrade する。
-    let data;
-    let error;
-    ({ data, error } = await supabase
-      .from('subscriptions')
-      .select('status, period_type')
-      .eq('user_id', userId)
-      .maybeSingle());
-    if (error && /period_type/.test(error.message || '')) {
-      ({ data, error } = await supabase
-        .from('subscriptions')
-        .select('status')
-        .eq('user_id', userId)
-        .maybeSingle());
-    }
+    // ⚡ 管理者判定（app_admins）と課金判定（subscriptions）は互いに独立した読み取り
+    // なので直列 await せず並列化する（AI コールの TTFT からサーバー往復を 1 回削る）。
+    // isAdminUser は内部で try/catch し false を返すため Promise.all を reject しない。
+    const [admin, subResult] = await Promise.all([
+      isAdminUser(userId),
+      (async () => {
+        // period_type は supabase_admin_members_tasks.sql で追加された列。未適用 DB では
+        // 選択が失敗するので、schema-error 時は status のみで再取得し従来挙動へ degrade。
+        let { data, error } = await supabase
+          .from('subscriptions')
+          .select('status, period_type')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (error && /period_type/.test(error.message || '')) {
+          ({ data, error } = await supabase
+            .from('subscriptions')
+            .select('status')
+            .eq('user_id', userId)
+            .maybeSingle());
+        }
+        return { data, error };
+      })(),
+    ]);
+    // 管理者（運営）は課金不要で通す。
+    if (admin) return { allowed: true };
+    const { data, error } = subResult;
     if (error) {
       // テーブル未適用（does not exist）含め、取得エラーは fail-open。
       console.warn('[entitlement] check failed (fail-open):', error.message);
