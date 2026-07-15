@@ -157,7 +157,7 @@ function Modal({ open, onClose, children }) {
         inset: 0,
         zIndex: 200,
         background: "rgba(30,25,20,0.45)",
-        backdropFilter: "blur(3px)",
+        backdropFilter: "var(--backdrop-blur)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

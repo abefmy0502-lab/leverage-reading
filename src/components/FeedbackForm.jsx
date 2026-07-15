@@ -19,7 +19,7 @@ const overlayStyle = {
   inset: 0,
   zIndex: 900,
   background: 'rgba(30,25,20,0.45)',
-  backdropFilter: 'blur(3px)',
+  backdropFilter: 'var(--backdrop-blur)',
   display: 'flex',
   alignItems: 'flex-end',
   justifyContent: 'center',

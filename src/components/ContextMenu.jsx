@@ -12,8 +12,8 @@ const backdrop = {
   inset: 0,
   zIndex: 'var(--z-popover)',
   background: 'rgba(30, 25, 20, 0.18)',
-  WebkitBackdropFilter: 'blur(2px)',
-  backdropFilter: 'blur(2px)',
+  WebkitBackdropFilter: 'var(--backdrop-blur)',
+  backdropFilter: 'var(--backdrop-blur)',
   animation: 'lvg-fade-in 150ms ease',
 };
 

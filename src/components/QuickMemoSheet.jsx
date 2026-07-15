@@ -31,8 +31,8 @@ const backdrop = {
   background: 'rgba(30,25,20,0.4)',
   zIndex: 700,
   animation: 'leverage-fade-in .15s ease',
-  WebkitBackdropFilter: 'blur(8px)',
-  backdropFilter: 'blur(8px)',
+  WebkitBackdropFilter: 'var(--backdrop-blur-strong)',
+  backdropFilter: 'var(--backdrop-blur-strong)',
 };
 
 const sheetWrap = {
