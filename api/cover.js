@@ -117,6 +117,31 @@ function ndlTitleMatches(rawItemTitle, wantCoreNorm) {
   return t.includes(wantCoreNorm) || wantCoreNorm.includes(t);
 }
 
+// この ISBN が本当にそのタイトルの本かを NDL で検証する（誤 ISBN ガード）。
+//   背景: 「ISBN が分かっている本はその ISBN で表紙を直接取る」ファストパスは、
+//   ISBN が別の本のもの（例: AI 選書の架空タイトルに無関係な実在本の ISBN が
+//   紐づく）でも「ISBN 通り」の誤表紙を貼ってしまう。タイトルが渡っている時だけ、
+//   ISBN の実書名がタイトルと一致するかを引いてから信用する。
+//   ⚠️ fail-open: NDL に無い / 取得不可 / 障害のときは true（＝従来通り信用）を返し、
+//      ISBN が NDL 未収録の正当な本を誤って弾かない（退行防止）。明確に別書名の
+//      item しか返らなかった時だけ false。
+async function isbnTitleMatches(isbn, title) {
+  const cleaned = cleanIsbn(isbn);
+  if (!cleaned) return true;
+  const want = normTitle(coreTitle(title));
+  if (!want) return true; // タイトル未指定は検証しない（従来挙動）
+  try {
+    const xml = await ndlFetch([`isbn=${encodeURIComponent(cleaned)}`, 'cnt=5']);
+    if (!xml || !/<item[\s>]/i.test(xml)) return true; // 判定不能 → 信用（fail-open）
+    const items = xml.split(/<item[\s>]/i).slice(1);
+    if (items.length === 0) return true;
+    // どれか一つでも書名が一致すれば OK。全て明確に別書名なら誤 ISBN とみなす。
+    return items.some((chunk) => ndlTitleMatches(itemTitle(chunk), want));
+  } catch {
+    return true; // 障害 → fail-open
+  }
+}
+
 // NDL OpenSearch（XML）で ISBN-13 候補を引く。
 //   ⚠️ 誤マッチ根治: 以前は title+creator 検索の応答から ISBN を document 順で
 //   拾っていたため、同じ著者の「別の本（兄弟本）」の ISBN を掴み、まったく違う
@@ -583,7 +608,18 @@ export default async function handler(req, res) {
 
   try {
     // ① ISBN が分かっていれば各ソースを server-side 検証（通れば fast path）。
-    if (isbn) cover = await coverFromIsbn(isbn);
+    //    ただし title も渡っている時は、その ISBN が本当にそのタイトルの本かを
+    //    NDL で検証してから信用する（誤った ISBN で別の本の表紙を貼らない）。
+    //    不一致なら誤 ISBN とみなして破棄し、②③ のタイトル検索で引き直す
+    //    （＝「誤った表紙」より、正しい表紙 or 表紙なし。アプリの既存方針）。
+    if (isbn) {
+      const trust = await isbnTitleMatches(isbn, title);
+      if (trust) {
+        cover = await coverFromIsbn(isbn);
+      } else {
+        isbn = ''; // 誤 ISBN を破棄 → 以降のタイトル検索で正しい ISBN を引き直す
+      }
+    }
 
     // ② 楽天ブックス（和書カバー率が最も高い・タイトル一致必須で兄弟本を除外）。
     //    ISBN 直引き→無ければタイトル検索。表紙 URL は CSP 許可済みの
