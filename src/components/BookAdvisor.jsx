@@ -424,9 +424,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     }
     if (stale()) return;
     const solid = results.filter((r) => !r._suspect);   // 実在確認 or 不明（罰しない）
-    const suspects = results.filter((r) => r._suspect);  // 実在しない疑い
-    // 実在系が 3 冊以上あれば疑わしい本を落とす（予備で埋まる）。少なければ警告付きで残す。
-    const items = (solid.length >= 3 ? solid : [...solid, ...suspects]).slice(0, 5);
+    const suspects = results.filter((r) => r._suspect);  // 実在しない疑い（全ソース0件）
+    // ハルシネーション（実在の著者＋架空の書名）は原則カードに出さない。
+    // A の api/cover タイトル照合ガードで「架空タイトルに実在ISBNが紐づいて実在扱い
+    // される」穴を塞いだため、_suspect はより信頼できる「架空本」シグナルになった。
+    // → 実在系が 1 冊でもあれば疑わしい本は落とす（予備で埋まる）。全部が疑わしい
+    //   時だけは空UIを避けるため警告バッジ付きで残す（ネットワーク不明 null は
+    //   solid 側なので罰しない＝実在本を誤って落とさない）。
+    const items = (solid.length > 0 ? solid : suspects).slice(0, 5);
     setRecommendations((prev) => (prev ? { ...prev, items } : prev));
   };
 
