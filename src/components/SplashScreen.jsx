@@ -107,7 +107,9 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
         <p style={{ fontSize: 13, lineHeight: 1.7, fontStyle: 'italic', margin: 0 }}>
           “{quote.text}”
         </p>
-        <p style={{ fontSize: 11, opacity: 0.75, margin: '4px 0 0' }}>— {quote.author}</p>
+        {quote.author && (
+          <p style={{ fontSize: 11, opacity: 0.75, margin: '4px 0 0' }}>— {quote.author}</p>
+        )}
       </div>
     </div>
   );

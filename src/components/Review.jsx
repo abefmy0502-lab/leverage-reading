@@ -1062,8 +1062,12 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           }}
         >
           “{todayQuote.text}”
-          <br />
-          <span style={{ fontSize: 10, opacity: 0.75 }}>— {todayQuote.author}</span>
+          {todayQuote.author && (
+            <>
+              <br />
+              <span style={{ fontSize: 10, opacity: 0.75 }}>— {todayQuote.author}</span>
+            </>
+          )}
         </p>
       </section>
 

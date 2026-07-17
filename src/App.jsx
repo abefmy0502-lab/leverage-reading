@@ -1791,7 +1791,7 @@ function AuthedApp() {
       const celebrationQuote = getRandomFromCategory('achievement');
       toast.show({
         type: 'success',
-        message: `🎉 1 冊読了！お疲れ様でした\n“${celebrationQuote.text}”\n— ${celebrationQuote.author}`,
+        message: `🎉 1 冊読了！お疲れ様でした\n“${celebrationQuote.text}”${celebrationQuote.author ? `\n— ${celebrationQuote.author}` : ''}`,
         duration: 6500,
         action: { label: '取消', onClick: revert },
       });

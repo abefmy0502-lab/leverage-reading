@@ -248,7 +248,9 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
               <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', fontStyle: 'italic', lineHeight: 1.7, margin: 0 }}>
                 “{welcomeQuote.text}”
               </p>
-              <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '4px 0 0' }}>— {welcomeQuote.author}</p>
+              {welcomeQuote.author && (
+                <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '4px 0 0' }}>— {welcomeQuote.author}</p>
+              )}
             </div>
           )}
         </div>
