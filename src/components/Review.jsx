@@ -21,7 +21,6 @@ import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import Spinner from './Spinner';
-import { getRandomFromCategory } from '../lib/quotes';
 import { relativeJa, recallFraming, pickRecallMemo, recallPatch } from '../lib/recall';
 import { markActivation } from '../lib/activation';
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
@@ -338,10 +337,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const [flipping, setFlipping] = useState(false);
   const flipTimerRef = useRef(null);
   const flipEndTimerRef = useRef(null);
-  // Lazy initializer — runs once on first render, not on module load.
-  const [todayQuote, setTodayQuote] = useState(() =>
-    getRandomFromCategory('reviewAndMemory')
-  );
   const [expanded, setExpanded] = useState(() => new Set());
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -556,7 +551,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // 知識タイプ別のフィルタ (横断検索セクション用)。
   const [kindFilter, setKindFilter] = useState('all');
   // 件数チップ → 横断検索フィルタ連動時に、結果セクションへスクロールさせる先。
-  const searchSectionRef = useRef(null);
 
   // 種類別の件数 — 上部のサマリーチップに表示。
   const kindCounts = useMemo(() => {
@@ -682,8 +676,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
 
   const reroll = () => {
     haptic.light();
-    // Always rotate the inspirational quote alongside the memo swap.
-    setTodayQuote(getRandomFromCategory('reviewAndMemory'));
     if (allNotes.length <= 1) {
       setRandomSeed((s) => s + 1);
       return;
@@ -794,83 +786,17 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         />
       )}
 
-      {/* 🎯 行動タブと同じく、この画面からも直接メモを追加できる導線を出す
-          （付け先の本＝読書中/読了の本がある時だけ）。想起カードが主役なので
-          控えめに右寄せの細いボタンで。 */}
-      {onAddNote && hasMemoableBooks && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={onAddNote}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 40,
-              padding: '7px 14px', borderRadius: 999, border: '1px solid var(--c-hairline-strong)',
-              background: 'var(--c-card)', color: 'var(--c-brand)', fontSize: 12,
-              fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            <Plus size={15} strokeWidth={2} aria-hidden="true" />
-            メモを追加
-          </button>
-        </div>
-      )}
-
-      {/* 知識のタイプ別件数を冒頭に表示。「読書から何が蓄積されているか」が
-          一目で分かる + フィルタ前提の数字感をつかむため。 */}
-      <section
-        aria-label="種類で絞り込む"
-        style={{
-          display: 'flex',
-          gap: 6,
-          flexWrap: 'wrap',
-          padding: '10px 12px',
-          background: 'var(--c-card)',
-          border: '1px solid var(--c-hairline)',
-          borderRadius: 12,
-        }}
-      >
-        {Object.entries(KIND_META).map(([k, meta]) => {
-          const n = kindCounts[k] || 0;
-          if (n === 0) return null;
-          const active = kindFilter === k;
-          return (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={active}
-              aria-label={`${meta.label}のメモ ${n}件で絞り込む`}
-              onClick={() => {
-                setKindFilter(active ? 'all' : k);
-                // 絞り込み結果（横断検索）へスクロールして連動を可視化する。
-                requestAnimationFrame(() =>
-                  searchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-                );
-              }}
-              style={{
-                fontSize: 11,
-                padding: '8px 12px',
-                minHeight: 40,
-                display: 'inline-flex',
-                alignItems: 'center',
-                borderRadius: 999,
-                background: active ? meta.color : `${meta.color}1a`,
-                color: active ? '#fff' : meta.color,
-                border: active ? `1px solid ${meta.color}` : '1px solid transparent',
-                fontWeight: 600,
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              <meta.Icon size={11} aria-hidden="true" style={{ verticalAlign: '-1.5px', marginRight: 4 }} />{meta.label} {n}
-            </button>
-          );
-        })}
-      </section>
+      {/* ⚠️ 動線再設計（2026-07-17 スクショ監査）:
+          - 旧・最上段の「＋メモを追加」単独行（左が全部空白の孤立ボタン）は
+            タイムラインのヘッダー行へ移設（メモ一覧の傍が意味的に正しい住処）。
+          - 旧・種類別チップカードは撤去 — 検索セクションの種類ドロップダウンと
+            機能が完全重複し、種類が1つしか無い初期ユーザーには「メモ 3」だけの
+            壊れたカードに見えていた。件数は検索の絞り込みで足りる。
+          - これで開いた瞬間の1画面が「今日の想起＝ユーザー自身の言葉」だけになる。 */}
 
       {/* ===== 1. 今日の振り返り (random) ===== */}
       <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <h2 style={sectionTitle}>
             <Shuffle size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
             今日の想起
@@ -880,25 +806,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             別のメモを見る
           </button>
         </div>
-        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.7 }}>
-          偶然の再会で、忘れていた気づきを呼び戻します
-        </p>
-        {allNotes.length <= 3 && (
-          <p
-            style={{
-              fontSize: 11,
-              color: 'var(--c-ink-2)',
-              background: '#f4efe7',
-              border: '1px solid var(--c-hairline)',
-              borderRadius: 10,
-              padding: '8px 12px',
-              margin: '0 0 10px',
-              lineHeight: 1.7,
-            }}
-          >
-            メモが貯まるほど、戻ってくる気づきも豊かになります。今は少なくても大丈夫。
-          </p>
-        )}
+        {/* 説明のフレーミング文と「今は少なくても大丈夫」の空きプール文言は撤去 —
+            実際のメモカードと同時に出て矛盾し、主役（ユーザー自身の言葉）より先に
+            読ませる説明ノイズになっていた。ヘッダー＋「N日前のあなたのメモ」ラベルで
+            意味は伝わる（1画面1メッセージ）。 */}
         {randomMemo && recallFraming(randomMemo.createdAt) && (
           <p
             style={{
@@ -998,10 +909,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             )}
           </div>
         )}
-        <p style={{ fontSize: 10, color: 'var(--c-ink-2)', marginTop: 6, lineHeight: 1.6 }}>
-          忘れかけていた気づきを思い出す習慣で、本の内容が定着します。
-        </p>
-
         {/* 🔔 aha 直後の通知 opt-in（初回・1枚戻ってきた時だけ・未許可時のみ） */}
         {randomMemo && recallFraming(randomMemo.createdAt) && !pushOptInDismissed && pushOptInEligible && (
           <div
@@ -1051,35 +958,35 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             )}
           </div>
         )}
-        <p
-          style={{
-            fontSize: 12,
-            color: 'var(--c-ink-2)',
-            fontStyle: 'italic',
-            textAlign: 'center',
-            marginTop: 12,
-            lineHeight: 1.7,
-          }}
-        >
-          “{todayQuote.text}”
-          {todayQuote.author && (
-            <>
-              <br />
-              <span style={{ fontSize: 10, opacity: 0.75 }}>— {todayQuote.author}</span>
-            </>
-          )}
-        </p>
+        {/* 名言はこのタブから撤去 — 想起の主役はユーザー自身の言葉で、毎回の格言は
+            それを薄める（名言はスプラッシュ/オンボに残る）。 */}
       </section>
 
       {/* ===== 2. タイムライン ===== */}
       <section>
-        <h2 style={sectionTitle}>
-          <CalendarDays size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
-          タイムライン
-        </h2>
-        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.7 }}>
-          時系列で読書の軌跡を振り返る。3 ヶ月前・半年前の自分の気づきを見返してみましょう。
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h2 style={{ ...sectionTitle, margin: 0 }}>
+            <CalendarDays size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+            タイムライン
+          </h2>
+          {/* ＋メモを追加 — 旧・最上段の孤立ボタンをここへ（メモ一覧の傍が住処。
+              付け先の本＝読書中/読了の本がある時だけ）。 */}
+          {onAddNote && hasMemoableBooks && (
+            <button
+              type="button"
+              onClick={onAddNote}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 40,
+                padding: '7px 14px', borderRadius: 999, border: '1px solid var(--c-hairline-strong)',
+                background: 'var(--c-card)', color: 'var(--c-brand)', fontSize: 12,
+                fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <Plus size={15} strokeWidth={2} aria-hidden="true" />
+              メモを追加
+            </button>
+          )}
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {memosByMonth.map(([key, group]) => {
             const open = expanded.has(key);
@@ -1128,18 +1035,15 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       </section>
 
       {/* ===== 3. 全メモ検索 ===== */}
-      <section ref={searchSectionRef}>
+      <section>
         <h2 style={sectionTitle}>
           <SearchIcon size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
-          すべての本のメモを横断検索
+          メモを検索
         </h2>
-        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.7 }}>
-          例：「決断」「習慣」「営業」など、気になるキーワードを入れてみてください
-        </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
           <input
             type="search"
-            placeholder="本文・タイトル・著者・タグ"
+            placeholder="キーワード・タイトル・著者・タグ（例: 営業）"
             aria-label="メモ横断検索: 本文・タイトル・著者・タグから探す"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
