@@ -2550,7 +2550,7 @@ function AuthedApp() {
   if (view === "detail" && current) {
     const st = getSt(current.status);
     const nextStatus = { want: "before", before: "reading", reading: "done" };
-    const nextLabel = { want: "📕 積読へ進む", before: "📖 読書を開始する", reading: "✅ 読了にする" };
+    const nextLabel = { want: "積読へ進む", before: "読書を開始する", reading: "読了にする" };
 
     return (
       <Shell>
@@ -2652,7 +2652,9 @@ function AuthedApp() {
                     opacity: coverBusyId === current.id ? 0.6 : 1,
                   }}
                 >
-                  {coverBusyId === current.id ? '⏳ 取得中…' : '🔄 表紙を取り直す'}
+                  {coverBusyId === current.id
+                    ? '取得中…'
+                    : (<><IcRefresh size={11} aria-hidden="true" style={{ verticalAlign: '-1.5px', marginRight: 3 }} />表紙を取り直す</>)}
                 </button>
                 <button
                   type="button"
@@ -3023,9 +3025,10 @@ function AuthedApp() {
                     }
                     advanceStatus(current, nextStatus[current.status]);
                   }}
-                  // 色は「遷移先」のステータス色（押すとどうなるかの予告）。
-                  // 現在色だと「✅ 読了にする」が読書中の青で出て予感が湧かない。
-                  style={{ ...btnS, width: "100%", background: getSt(nextStatus[current.status]).color }}
+                  // 主アクションはボタン正典（ブランド茶）に統一。以前は遷移先の
+                  // ステータス色（紫/青/緑）で塗っており、詳細画面が暖色世界から
+                  // 浮いた3色のサーカスになっていた。遷移先はラベルが十分に語る。
+                  style={{ ...btnS, width: "100%" }}
                 >
                   {nextLabel[current.status]}
                 </button>
@@ -3597,12 +3600,6 @@ function AuthedApp() {
                 onAddBook={() => setAddBookModalOpen(true)}
                 onOpenReview={() => { setReviewSubTab('note'); setTab('review'); }}
               />
-              {/* 月次 1 行サマリー: 読了 (今月) / 読書中 (今) / 読書前 (今)
-                  タップで振り返りタブへ遷移 — 振り返り導線を強化。 */}
-              <BookshelfSummary
-                books={books}
-                onClick={() => { setReviewSubTab('note'); setTab('review'); }}
-              />
               {/* 🔄 今日の想起: 過去メモが 1 枚ふいに戻ってくる控えめなカード。
                   自己完結（fetch / state は HomeRecall 内に閉じる）。
                   メモ十分＋当日未 dismiss のときだけ静かに出る。 */}
@@ -3728,6 +3725,18 @@ function AuthedApp() {
                       onAutoRetry={triggerCoverAutoRetry}
                     />
                   ))}
+                </div>
+              )}
+              {/* 📊 静かな手応え（成果ファネル＋累計/月別読了）は棚の下へ（2026-07-17
+                  実機監査）。以前は最上段に統計カード2枚が並び、本棚なのに本が
+                  ファーストビューから押し出されていた。「自分の積み重ねを静かに
+                  眺める」ものなので、棚を見たあとの footer が正位置。 */}
+              {filtered.length > 0 && (
+                <div style={{ marginTop: 24 }}>
+                  <BookshelfSummary
+                    books={books}
+                    onClick={() => { setReviewSubTab('note'); setTab('review'); }}
+                  />
                 </div>
               )}
             </div>

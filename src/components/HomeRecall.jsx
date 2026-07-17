@@ -340,19 +340,22 @@ export default function HomeRecall({ onOpen, onAction }) {
               もう一度
             </button>
           </div>
-          {/* 🎯 想起→行動でループを閉じる。本に紐づくメモのみ。 */}
+          {/* 🎯 想起→行動でループを閉じる。本に紐づくメモのみ。
+              塗りの全幅ボタンだと本棚の上で主張しすぎる（棚の主役は本）ため、
+              振り返りタブ側と同じ控えめなアウトラインに統一。 */}
           {memo.bookId && onAction && (
             <button
               type="button"
               onClick={handleAction}
               disabled={actioning || actioned}
               style={{
-                width: '100%', marginTop: 8, minHeight: 44, borderRadius: 9, border: 'none',
-                background: actioned ? 'var(--c-positive-soft)' : 'var(--c-brand)',
-                color: actioned ? 'var(--c-positive)' : 'var(--c-brand-ink)',
+                marginTop: 8, minHeight: 44, borderRadius: 9, padding: '8px 16px',
+                border: actioned ? 'none' : '1px solid var(--c-brand)',
+                background: actioned ? 'var(--c-positive-soft)' : 'transparent',
+                color: actioned ? 'var(--c-positive)' : 'var(--c-brand)',
                 fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
                 cursor: (actioning || actioned) ? 'default' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
             >
               <Target size={14} aria-hidden="true" />

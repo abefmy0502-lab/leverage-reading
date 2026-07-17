@@ -25,31 +25,40 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
   const onRakuten = (e) => { if (stopPropagation) e.stopPropagation(); };
 
   if (variant === 'cta') {
+    // 旧: Amazon 原色オレンジの全幅塗り + 楽天クリムゾンの太枠が縦に積まれ、
+    // 詳細画面の暖色世界から浮いていた（実機監査 2026-07-17）。ストアの
+    // 認知色は残しつつ淡いティントに落とし、2 列 1 行のソフトボタンに。
+    // 購入導線（want/before では主要アクション）としての存在感は面積で担保する。
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-        <a
-          href={amazon} target="_blank" rel={AMAZON_LINK_REL} onClick={onAmazon}
-          aria-label={`Amazon で『${title}』を${verb}（外部リンク）`}
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%',
-            padding: '12px 16px', background: AMAZON_ORANGE, color: '#000', borderRadius: 10,
-            textDecoration: 'none', fontWeight: 600, fontSize: 14, fontFamily: 'inherit', minHeight: 44, boxSizing: 'border-box',
-          }}
-        >
-          📚 Amazon で{verb}
-        </a>
-        <a
-          href={rakuten} target="_blank" rel={RAKUTEN_LINK_REL} onClick={onRakuten}
-          aria-label={`楽天ブックス で『${title}』を${verb}（外部リンク）`}
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%',
-            padding: '12px 16px', background: 'transparent', color: RAKUTEN_CRIMSON,
-            border: `1.5px solid ${RAKUTEN_CRIMSON}`, borderRadius: 10, textDecoration: 'none',
-            fontWeight: 600, fontSize: 14, fontFamily: 'inherit', minHeight: 44, boxSizing: 'border-box',
-          }}
-        >
-          🛒 楽天ブックス で{verb}
-        </a>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <a
+            href={amazon} target="_blank" rel={AMAZON_LINK_REL} onClick={onAmazon}
+            aria-label={`Amazon で『${title}』を${verb}（外部リンク）`}
+            style={{
+              flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              padding: '12px 8px', background: '#fbf3e2', color: '#7a5500',
+              border: '1px solid #e8d4a8', borderRadius: 10, textDecoration: 'none',
+              fontWeight: 700, fontSize: 13, fontFamily: 'inherit', minHeight: 48,
+              boxSizing: 'border-box', whiteSpace: 'nowrap',
+            }}
+          >
+            Amazon で{verb} ↗
+          </a>
+          <a
+            href={rakuten} target="_blank" rel={RAKUTEN_LINK_REL} onClick={onRakuten}
+            aria-label={`楽天ブックス で『${title}』を${verb}（外部リンク）`}
+            style={{
+              flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              padding: '12px 8px', background: '#faf0ee', color: '#a03030',
+              border: '1px solid #e6c8c2', borderRadius: 10, textDecoration: 'none',
+              fontWeight: 700, fontSize: 13, fontFamily: 'inherit', minHeight: 48,
+              boxSizing: 'border-box', whiteSpace: 'nowrap',
+            }}
+          >
+            楽天で{verb} ↗
+          </a>
+        </div>
         {showDisclosure && (
           <small style={{ fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1.6, textAlign: 'center' }}>{STORE_DISCLOSURE_TEXT}</small>
         )}

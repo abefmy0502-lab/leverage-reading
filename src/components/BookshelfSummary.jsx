@@ -235,8 +235,10 @@ function RoiFunnel({ doneTotal, actionsDone, harvest }) {
         {cell(harvest, '残した収穫', harvest > 0 ? '#a06a30' : 'var(--color-text-tertiary)')}
       </div>
       {noOutcome && doneTotal > 0 && (
+        // 「まだ成果に変わっていません」は開くたびに失敗を宣告する響きだった。
+        // 次の一手が分かる前向きな一文に（判定ではなく案内）。
         <p style={{ fontSize: 11, color: '#9a8c74', margin: '8px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
-          まだ成果に変わっていません。1 冊から、行動を 1 つ決めましょう。
+          メモの「行動にする」から、最初の行動を 1 つ決めてみましょう。
         </p>
       )}
     </div>
