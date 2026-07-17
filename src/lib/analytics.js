@@ -148,6 +148,7 @@ export const EVENTS = {
   EXPORT_USED: 'export_used',
   AI_USED: 'ai_used',
   REVIEW_OPENED: 'review_opened',
+  RECORD_OPENED: 'record_opened', // 振り返り「📊 記録」サブタブの表示
   RECALL_SHOWN: 'recall_shown', // 本物の想起カード表示（当日メモのプレビュー除く）— 初週想起体験率の分子
   ACTION_COMPLETED: 'action_completed',
 };

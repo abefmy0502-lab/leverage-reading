@@ -21,6 +21,7 @@ import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
   History as IcHistory,
   SearchX as IcSearchX, NotebookText as IcNote, Target as IcTarget, Brain as IcBrain,
+  BarChart3 as IcChart,
   Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
   Lightbulb as IcBulb,
   BookOpen as IcBook, Map as IcMap, RefreshCw as IcRefresh, Bot as IcBot,
@@ -53,6 +54,9 @@ const ThemeReport = lazy(() => import('./components/ThemeReport'));
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 import ActionList from './components/ActionList';
 const ActionEditModal = lazy(() => import('./components/ActionEditModal'));
+// 📊 記録サブタブ（読了/メモ/行動の累計・月別推移・成果/定着のつながり・タグ分布）。
+// 開いた時だけロードする。
+const ReadingRecord = lazy(() => import('./components/ReadingRecord'));
 import BottomSheet from './components/BottomSheet';
 const AddBookModal = lazy(() => import('./components/AddBookModal'));
 import { useBookCover } from './hooks/useBookCover';
@@ -80,7 +84,6 @@ import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
-import BookshelfSummary from './components/BookshelfSummary';
 import ActivationChecklist from './components/ActivationChecklist';
 import HomeRecall from './components/HomeRecall';
 import AuthorThankYou from './components/AuthorThankYou';
@@ -3727,18 +3730,9 @@ function AuthedApp() {
                   ))}
                 </div>
               )}
-              {/* 📊 静かな手応え（成果ファネル＋累計/月別読了）は棚の下へ（2026-07-17
-                  実機監査）。以前は最上段に統計カード2枚が並び、本棚なのに本が
-                  ファーストビューから押し出されていた。「自分の積み重ねを静かに
-                  眺める」ものなので、棚を見たあとの footer が正位置。 */}
-              {filtered.length > 0 && (
-                <div style={{ marginTop: 24 }}>
-                  <BookshelfSummary
-                    books={books}
-                    onClick={() => { setReviewSubTab('note'); setTab('review'); }}
-                  />
-                </div>
-              )}
+              {/* 📊 統計（成果ファネル＋累計/月別読了）は本棚から撤去し、振り返りの
+                  「記録」サブタブ（ReadingRecord）へ移管（2026-07-17 オーナー裁定）。
+                  本棚は本だけの静かな棚に。 */}
             </div>
           </PullToRefresh>
         )}
@@ -3764,10 +3758,23 @@ function AuthedApp() {
               >
                 <IcTarget size={15} aria-hidden="true" style={subTabIconStyle} />行動
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={reviewSubTab === 'record'}
+                className={`sub-tab ${reviewSubTab === 'record' ? 'active' : ''}`}
+                onClick={() => setReviewSubTab('record')}
+              >
+                <IcChart size={15} aria-hidden="true" style={subTabIconStyle} />記録
+              </button>
             </div>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<Spinner />}>
                 <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); }} />
+              </Suspense>
+            ) : reviewSubTab === 'record' ? (
+              <Suspense fallback={<Spinner />}>
+                <ReadingRecord books={books} />
               </Suspense>
             ) : (
               <ActionList
