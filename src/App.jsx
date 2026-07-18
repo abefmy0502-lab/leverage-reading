@@ -191,7 +191,7 @@ function Modal({ open, onClose, children }) {
 
 function Card({ label, text, bg }) {
   return (
-    <div style={{ background: bg || "#f7f3ec", borderRadius: 10, padding: "10px 12px", marginTop: 8 }}>
+    <div style={{ background: bg || "#f7f3ec", borderRadius: 'var(--radius-md)', padding: "10px 12px", marginTop: 8 }}>
       <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-accent)", marginBottom: 4 }}>{label}</p>
       <p style={{ fontSize: 13, color: "#4a4036", lineHeight: 1.8, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: 0 }}>{text}</p>
     </div>
@@ -2742,7 +2742,7 @@ function AuthedApp() {
 
           {current.tags?.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
-              {current.tags.map((t, i) => (<span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "var(--c-soft-2)", color: "var(--c-ink-2)" }}>#{t}</span>))}
+              {current.tags.map((t, i) => (<span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 'var(--radius-md)', background: "var(--c-soft-2)", color: "var(--c-ink-2)" }}>#{t}</span>))}
             </div>
           )}
 
@@ -2807,7 +2807,7 @@ function AuthedApp() {
                   style={{
                     marginTop: 12,
                     padding: '10px 14px',
-                    borderRadius: 10,
+                    borderRadius: 'var(--radius-md)',
                     background: 'var(--color-success-soft, #eaf5e3)',
                     border: '1px solid #b9d4a3',
                     display: 'flex',
@@ -2848,7 +2848,7 @@ function AuthedApp() {
                   style={{
                     marginTop: 12,
                     padding: '12px 14px',
-                    borderRadius: 10,
+                    borderRadius: 'var(--radius-md)',
                     background: 'var(--color-warning-soft, var(--color-warning-soft))',
                     border: '1px solid #e0c878',
                     display: 'flex',
@@ -2896,7 +2896,7 @@ function AuthedApp() {
           {/* AI 出力（解析 / 読書計画シート）はデフォルト折りたたみ。
               スクロール量を圧縮し、必要な時に展開する。 */}
           {(current.aiAnalysis || current.aiStrategy) && (
-            <details style={{ marginTop: 12, background: "var(--c-card)", border: "1px solid var(--c-hairline)", borderRadius: 10, padding: "10px 12px" }}>
+            <details style={{ marginTop: 12, background: "var(--c-card)", border: "1px solid var(--c-hairline)", borderRadius: 'var(--radius-md)', padding: "10px 12px" }}>
               <summary style={{ fontSize: 13, fontWeight: 600, color: "var(--c-brand)", cursor: "pointer", listStyle: "none" }}>
                 <IcBot size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
                 AI 解析 / 読書計画
@@ -2945,7 +2945,7 @@ function AuthedApp() {
                 padding: "14px 16px",
                 background: "var(--c-card)",
                 border: "1px dashed var(--c-hairline-strong)",
-                borderRadius: 10,
+                borderRadius: 'var(--radius-md)',
                 fontSize: 12,
                 color: "var(--c-ink-2)",
                 lineHeight: 1.7,
@@ -2966,7 +2966,7 @@ function AuthedApp() {
                 onClick={() => { advanceStatus(current, "reading"); setQuickMemoOpen(true); }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
-                  minHeight: 44, padding: "10px 16px", borderRadius: 10, border: "none",
+                  minHeight: 44, padding: "10px 16px", borderRadius: 'var(--radius-md)', border: "none",
                   background: "var(--c-brand)", color: "var(--c-brand-ink)",
                   fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                 }}
@@ -2976,7 +2976,7 @@ function AuthedApp() {
             </div>
           )}
           {current.aiSummary && (
-            <details style={{ marginTop: 12, background: "var(--c-card)", border: "1px solid var(--c-hairline)", borderRadius: 10, padding: "10px 12px" }}>
+            <details style={{ marginTop: 12, background: "var(--c-card)", border: "1px solid var(--c-hairline)", borderRadius: 'var(--radius-md)', padding: "10px 12px" }}>
               <summary style={{ fontSize: 13, fontWeight: 600, color: "#5a7a48", cursor: "pointer", listStyle: "none" }}>
                 🤖 AI まとめ（要点の凝縮）
               </summary>
@@ -3579,7 +3579,7 @@ function AuthedApp() {
                     width: 44,
                     height: 44,
                     flexShrink: 0,
-                    borderRadius: 12,
+                    borderRadius: 'var(--radius-md)',
                     border: "none",
                     background: "var(--c-brand)",
                     color: "var(--c-card)",
@@ -3598,11 +3598,11 @@ function AuthedApp() {
                   出ず本棚はスッキリのまま）。横スクロールで切替。 */}
               {folderNames.length > 0 && (
                 <div className="lvg-no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-                  <button type="button" onClick={() => setFolderFilter(null)} style={bookshelfToolbarBtn(folderFilter === null)}>
+                  <button type="button" onClick={() => setFolderFilter(null)} style={bookshelfToolbarBtn(folderFilter === null)} aria-pressed={folderFilter === null}>
                     すべて <span style={{ opacity: 0.7, fontWeight: 500 }}>{rawBooks.length}</span>
                   </button>
                   {allFolders.map((f) => (
-                    <button key={f.name} type="button" onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)} style={bookshelfToolbarBtn(folderFilter === f.name)}>
+                    <button key={f.name} type="button" onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)} style={bookshelfToolbarBtn(folderFilter === f.name)} aria-pressed={folderFilter === f.name}>
                       <IcFolder size={13} aria-hidden="true" />
                       {f.name} <span style={{ opacity: 0.7, fontWeight: 500 }}>{f.count}</span>
                     </button>
@@ -3702,7 +3702,7 @@ function AuthedApp() {
                           width: 132,
                           background: "var(--c-card)",
                           border: "1px solid var(--c-hairline)",
-                          borderRadius: 10,
+                          borderRadius: 'var(--radius-md)',
                           padding: 10,
                           cursor: "pointer",
                           fontFamily: "inherit",
@@ -4115,7 +4115,7 @@ function AuthedApp() {
                   onClick={() => setAddActionSheet({ step: 'edit', bookId: b.id, prefillText: addActionSheet.prefillText || '' })}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    minHeight: 52, padding: '8px 10px', borderRadius: 10,
+                    minHeight: 52, padding: '8px 10px', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--c-hairline)', background: 'var(--c-card)',
                     cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                   }}
@@ -4174,7 +4174,7 @@ function AuthedApp() {
                   onClick={() => { setBookStatusQuiet(books.find((b) => b.id === statusPickerBook.id) || statusPickerBook, s.key); setStatusPickerBook(null); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, padding: '10px 12px',
-                    borderRadius: 10,
+                    borderRadius: 'var(--radius-md)',
                     border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline)',
                     background: active ? 'var(--c-soft-2)' : 'var(--c-card)',
                     color: 'var(--c-ink)', fontSize: 14, fontWeight: active ? 700 : 500,
@@ -4235,7 +4235,7 @@ function AuthedApp() {
                     aria-pressed={inFolder}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, padding: '10px 12px',
-                      borderRadius: 10,
+                      borderRadius: 'var(--radius-md)',
                       border: inFolder ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline)',
                       background: inFolder ? 'var(--c-soft-2)' : 'var(--c-card)',
                       color: 'var(--c-ink)', fontSize: 14, fontWeight: inFolder ? 700 : 500,
@@ -4260,7 +4260,7 @@ function AuthedApp() {
                 maxLength={40}
                 style={{
                   flex: 1, minWidth: 0, padding: '10px 12px', fontSize: 16,
-                  border: '1px solid var(--c-hairline-strong)', borderRadius: 10,
+                  border: '1px solid var(--c-hairline-strong)', borderRadius: 'var(--radius-md)',
                   background: 'var(--c-card)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box',
                 }}
               />
@@ -4269,7 +4269,7 @@ function AuthedApp() {
                 onClick={createAndAdd}
                 disabled={!newFolderName.trim()}
                 style={{
-                  flexShrink: 0, minHeight: 44, padding: '0 16px', borderRadius: 10, border: 'none',
+                  flexShrink: 0, minHeight: 44, padding: '0 16px', borderRadius: 'var(--radius-md)', border: 'none',
                   background: 'var(--c-brand)', color: 'var(--c-brand-ink)', fontSize: 13, fontWeight: 700,
                   fontFamily: 'inherit', cursor: newFolderName.trim() ? 'pointer' : 'default',
                   opacity: newFolderName.trim() ? 1 : 0.5,
@@ -4301,7 +4301,7 @@ function AuthedApp() {
                   onClick={() => { setAddNoteSheet(null); openDetail(b); setQuickMemoOpen(true); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    minHeight: 52, padding: '8px 10px', borderRadius: 10,
+                    minHeight: 52, padding: '8px 10px', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--c-hairline)', background: 'var(--c-card)',
                     cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                   }}
@@ -4333,7 +4333,7 @@ function AuthedApp() {
               type="button"
               onClick={clearAllFilters}
               disabled={activeFilterCount === 0}
-              style={{ width: '100%', minHeight: 44, borderRadius: 11, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: activeFilterCount === 0 ? 'var(--c-ink-3)' : 'var(--c-critical)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: activeFilterCount === 0 ? 'default' : 'pointer' }}
+              style={{ width: '100%', minHeight: 44, borderRadius: 'var(--radius-md)', border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: activeFilterCount === 0 ? 'var(--c-ink-3)' : 'var(--c-critical)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: activeFilterCount === 0 ? 'default' : 'pointer' }}
             >
               条件をクリア{activeFilterCount > 0 ? `（${activeFilterCount}）` : ''}
             </button>
@@ -4626,7 +4626,7 @@ function WebAppOnlyGate() {
           rel="noopener noreferrer"
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            minHeight: 48, padding: '13px 24px', borderRadius: 12,
+            minHeight: 48, padding: '13px 24px', borderRadius: 'var(--radius-md)',
             background: 'var(--c-brand, #6b5b45)', color: '#fff',
             fontSize: 15, fontWeight: 700, textDecoration: 'none', marginTop: 4,
           }}

@@ -426,12 +426,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     const solid = results.filter((r) => !r._suspect);   // 実在確認 or 不明（罰しない）
     const suspects = results.filter((r) => r._suspect);  // 実在しない疑い（全ソース0件）
     // ハルシネーション（実在の著者＋架空の書名）は原則カードに出さない。
-    // A の api/cover タイトル照合ガードで「架空タイトルに実在ISBNが紐づいて実在扱い
-    // される」穴を塞いだため、_suspect はより信頼できる「架空本」シグナルになった。
-    // → 実在系が 1 冊でもあれば疑わしい本は落とす（予備で埋まる）。全部が疑わしい
-    //   時だけは空UIを避けるため警告バッジ付きで残す（ネットワーク不明 null は
-    //   solid 側なので罰しない＝実在本を誤って落とさない）。
-    const items = (solid.length > 0 ? solid : suspects).slice(0, 5);
+    // api/cover のタイトル照合ガードで「架空タイトルに実在ISBNが紐づき実在扱い」の
+    // 穴は塞ぎ済みで _suspect の精度は高い。ただし solid が 3 冊未満（検証 API が
+    // 不調な日）は suspects を落とすとカードが 1〜2 枚に痩せるため、⚠️警告バッジ
+    // 付きで残して枚数を維持する（正直に「確認できていない」を見せる方を選ぶ）。
+    const items = (solid.length >= 3 ? solid : [...solid, ...suspects]).slice(0, 5);
     setRecommendations((prev) => (prev ? { ...prev, items } : prev));
   };
 
@@ -690,6 +689,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
   // すべてリセットして最初の相談入力に戻す（「別の条件で探す」用）。
   const resetToConcern = () => {
+    // 走行中の実在検証（最長 ~45 秒の外部 API 連打）を stale 化して止める。
+    verifyGenRef.current += 1;
     setMessages([]);
     setRecommendations(null);
     setRecoError(null);

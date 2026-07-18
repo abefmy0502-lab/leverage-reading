@@ -3,19 +3,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
 import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
+import { btnPrimary as uiBtnPrimary } from '../../styles/ui';
 import { isNative } from '../../lib/iap';
 
-const btnPrimary = {
-  padding: '14px 28px',
-  fontSize: 15,
-  background: 'var(--c-brand)',
-  color: 'var(--c-card)',
-  border: 'none',
-  borderRadius: 10,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  width: '100%',
-};
+// ボタン正典（styles/ui.js）に統一。初対面画面のボタンだけ radius/weight が
+// 微妙に別物だと第一印象で「寄せ集め感」が出るため。
+const btnPrimary = { ...uiBtnPrimary, width: '100%' };
 
 const btnLink = {
   background: 'none',
@@ -243,8 +236,8 @@ export default function AuthScreen() {
           <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 20px' }}>
             数分待っても届かない場合は、<strong>迷惑メール / プロモーション</strong>フォルダもご確認ください。
           </p>
-          {error && <p style={{ color: '#b75050', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
-          {info && <p style={{ color: '#5a7a48', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
+          {error && <p style={{ color: 'var(--c-critical)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
+          {info && <p style={{ color: 'var(--c-positive)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
           <button
             type="button"
             onClick={() => { setConfirmSentTo(''); setInfo(''); setError(''); switchMode('signin'); }}
@@ -296,7 +289,7 @@ export default function AuthScreen() {
               style={{
                 width: '100%', minHeight: 48, display: 'inline-flex', alignItems: 'center',
                 justifyContent: 'center', gap: 8, background: '#000', color: '#fff',
-                border: 'none', borderRadius: 10, fontFamily: 'inherit', fontSize: 15,
+                border: 'none', borderRadius: 'var(--radius-md)', fontFamily: 'inherit', fontSize: 15,
                 fontWeight: 600, cursor: appleBusy ? 'default' : 'pointer', opacity: appleBusy ? 0.6 : 1,
               }}
             >
@@ -374,8 +367,8 @@ export default function AuthScreen() {
             </span>
           </label>
         )}
-        {error && <p style={{ color: '#b75050', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
-        {info && <p style={{ color: '#5a7a48', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
+        {error && <p style={{ color: 'var(--c-critical)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
+        {info && <p style={{ color: 'var(--c-positive)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
         <button
           type="submit"
           style={{ ...btnPrimary, opacity: loading || (mode === 'signup' && !agreed) ? 0.6 : 1 }}

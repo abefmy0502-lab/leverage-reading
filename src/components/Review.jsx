@@ -35,10 +35,10 @@ import { track, EVENTS } from '../lib/analytics';
 
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
-const cardBase = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '12px 14px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
+const cardBase = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 'var(--radius-md)', padding: '12px 14px' };
+const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 'var(--radius-md)', background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
 const btnGhost = { ...uiBtnGhost, width: 'auto', padding: '10px 14px', borderRadius: 8, fontSize: 12, minHeight: 44 };
-const pill = { fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
+const pill = { fontSize: 10, padding: '2px 8px', borderRadius: 'var(--radius-md)', background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
 // relativeJa / recallFraming は src/lib/recall.js に切り出して
 // サーバー（api/push-cron.js の想起通知）と文言を共有している。
@@ -91,14 +91,14 @@ const KIND_META = {
   // どちらも「まとめ」だが別ストレージ。フィルタ/バッジで区別できるよう別ラベルにする
   // （両方「まとめメモ」だと種類フィルタに同名の選択肢が2つ並び判別不能になっていた）。
   summary:           { Icon: BookOpen,          label: '本のまとめ',     color: 'var(--c-brand)' },
-  personal:          { Icon: Lightbulb,         label: '学び',          color: '#8a7040' },
+  personal:          { Icon: Lightbulb,         label: '学び',          color: 'var(--status-want)' },
   invest_purpose:    { Icon: BarChart3,         label: '得たいこと',     color: 'var(--c-brand)' },
-  current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: '#a05040' },
-  hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: '#8a7040' },
+  current_challenge: { Icon: AlertTriangle,     label: '現在の課題',     color: 'var(--c-critical)' },
+  hypothesis:        { Icon: FlaskConical,      label: '仮説',          color: 'var(--status-want)' },
   ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: 'var(--c-ink-3)' },
-  roi_summary:       { Icon: Gem,               label: '一番の収穫',     color: '#5f7a55' },
+  roi_summary:       { Icon: Gem,               label: '一番の収穫',     color: 'var(--c-positive)' },
   leverage_memo:     { Icon: FileText,          label: 'まとめメモ',     color: 'var(--c-brand)' },
-  action_reflection: { Icon: MessageSquareQuote, label: '行動の振り返り', color: '#5f7a55' },
+  action_reflection: { Icon: MessageSquareQuote, label: '行動の振り返り', color: 'var(--c-positive)' },
 };
 
 // books から 派生ノート (本フィールド + 行動の振り返り) を生成。
@@ -272,7 +272,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
           <p
             style={{
               fontSize: 13,
-              color: '#4a4036',
+              color: 'var(--c-ink)',
               lineHeight: 1.8,
               whiteSpace: 'pre-wrap',
               margin: '8px 0 0',
@@ -615,7 +615,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     setAddingAction(false);
     if (ok) {
       setActionAddedId(memo.id);
-      toast.success('🎯 行動に追加しました。');
+      toast.success('🎯 行動リストに追加しました。');
     }
   }, [onAddAction, addingAction, booksById, toast]);
 
@@ -856,7 +856,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   disabled={addingAction}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10,
-                    minHeight: 44, padding: '8px 16px', borderRadius: 10,
+                    minHeight: 44, padding: '8px 16px', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--c-brand)', background: 'transparent',
                     color: 'var(--c-brand)', fontSize: 13, fontWeight: 700,
                     fontFamily: 'inherit', cursor: addingAction ? 'default' : 'pointer',
@@ -884,7 +884,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   disabled={flipping}
                   onClick={() => { if (flipping) return; recordRandomRecall(randomMemo, true); reroll(); }}
                   style={{
-                    minHeight: 40, padding: '8px 16px', borderRadius: 10,
+                    minHeight: 44, padding: '8px 16px', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--c-hairline-strong)', background: '#fff',
                     color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
                     fontFamily: 'inherit', cursor: flipping ? 'default' : 'pointer', opacity: flipping ? 0.6 : 1,
@@ -897,7 +897,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   disabled={flipping}
                   onClick={() => { if (flipping) return; recordRandomRecall(randomMemo, false); reroll(); }}
                   style={{
-                    minHeight: 40, padding: '8px 16px', borderRadius: 10,
+                    minHeight: 44, padding: '8px 16px', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--c-hairline-strong)', background: '#fff',
                     color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
                     fontFamily: 'inherit', cursor: flipping ? 'default' : 'pointer', opacity: flipping ? 0.6 : 1,
@@ -913,7 +913,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         {randomMemo && recallFraming(randomMemo.createdAt) && !pushOptInDismissed && pushOptInEligible && (
           <div
             style={{
-              marginTop: 12, padding: '12px 14px', borderRadius: 12,
+              marginTop: 12, padding: '12px 14px', borderRadius: 'var(--radius-md)',
               background: 'var(--c-soft)', border: '1px solid var(--c-hairline)',
             }}
           >
@@ -929,7 +929,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 onClick={enablePushFromOptIn}
                 disabled={pushBusy}
                 style={{
-                  flex: 1, minHeight: 44, borderRadius: 10, border: 'none',
+                  flex: 1, minHeight: 44, borderRadius: 'var(--radius-md)', border: 'none',
                   background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 13,
                   fontWeight: 700, fontFamily: 'inherit', cursor: pushBusy ? 'default' : 'pointer',
                   opacity: pushBusy ? 0.6 : 1,
@@ -942,7 +942,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 onClick={dismissPushOptIn}
                 disabled={pushBusy}
                 style={{
-                  flexShrink: 0, minHeight: 44, padding: '0 16px', borderRadius: 10,
+                  flexShrink: 0, minHeight: 44, padding: '0 16px', borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--c-hairline-strong)', background: 'transparent',
                   color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
                   cursor: 'pointer',
@@ -994,6 +994,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               <div key={key} style={cardBase}>
                 <button
                   type="button"
+                  aria-expanded={open}
                   onClick={() => toggleMonth(key)}
                   style={{
                     background: 'none',
@@ -1072,6 +1073,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               style={{ ...inp, width: 'auto', padding: '8px 10px' }}
+              aria-label="本のステータスで絞り込み"
             >
               <option value="all">全ステータス</option>
               <option value="want">読みたい</option>
@@ -1084,6 +1086,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
                 style={{ ...inp, width: 'auto', padding: '8px 10px' }}
+                aria-label="タグで絞り込み"
               >
                 <option value="">全タグ</option>
                 {allTags.map((t) => (

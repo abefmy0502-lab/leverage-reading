@@ -241,17 +241,11 @@ export default function HomeRecall({ onOpen, onAction }) {
   };
 
   return (
+    // ♿ 外殻は素の div。以前はカード全体を role="button" にして中に実ボタン
+    // （覚えた/もう一度/行動/×）をネストしており ARIA 違反（SR がカード全文を
+    // 1ボタンとして読み、内部ボタンに到達できない）だった。「開く」は本文部分
+    // だけを包む内側の実ボタンに切り出す。
     <div
-      role="button"
-      tabIndex={0}
-      aria-label={memo.title ? `『${memo.title}』のメモを振り返る` : 'メモを振り返る'}
-      onClick={handleOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleOpen();
-        }
-      }}
       className="list-item-enter"
       style={{
         position: 'relative',
@@ -259,13 +253,22 @@ export default function HomeRecall({ onOpen, onAction }) {
         padding: '12px 14px',
         background: 'var(--c-card)',
         border: '1px solid var(--c-hairline)',
-        borderRadius: 12,
-        cursor: 'pointer',
+        borderRadius: 'var(--radius-md)',
         fontFamily: 'inherit',
         textAlign: 'left',
         boxShadow: '0 1px 2px rgba(60, 50, 30, 0.04)',
       }}
     >
+      <button
+        type="button"
+        onClick={handleOpen}
+        aria-label={memo.title ? `『${memo.title}』のメモを振り返る` : 'メモを振り返る'}
+        style={{
+          display: 'block', width: '100%', background: 'none', border: 'none',
+          padding: 0, margin: 0, font: 'inherit', textAlign: 'left',
+          color: 'inherit', cursor: 'pointer',
+        }}
+      >
       {framing && (
         <p
           style={{
@@ -310,6 +313,7 @@ export default function HomeRecall({ onOpen, onAction }) {
           『{memo.title}』
         </p>
       )}
+      </button>
       {/* プレビュー（書きたて）は宣伝文を出さず、メモ本文＋本名だけの静かなカード。
           間隔反復フィードバック（覚えた/もう一度）は本物の想起でのみ出す。 */}
       {isPreview ? null : (
@@ -321,7 +325,7 @@ export default function HomeRecall({ onOpen, onAction }) {
               type="button"
               onClick={(e) => recordRecall(e, true)}
               style={{
-                flex: 1, minHeight: 44, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
+                flex: 1, minHeight: 44, borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-hairline-strong)',
                 background: '#fff', color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
                 fontFamily: 'inherit', cursor: 'pointer',
               }}
@@ -332,7 +336,7 @@ export default function HomeRecall({ onOpen, onAction }) {
               type="button"
               onClick={(e) => recordRecall(e, false)}
               style={{
-                flex: 1, minHeight: 44, borderRadius: 9, border: '1px solid var(--c-hairline-strong)',
+                flex: 1, minHeight: 44, borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-hairline-strong)',
                 background: '#fff', color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
                 fontFamily: 'inherit', cursor: 'pointer',
               }}
@@ -349,7 +353,7 @@ export default function HomeRecall({ onOpen, onAction }) {
               onClick={handleAction}
               disabled={actioning || actioned}
               style={{
-                marginTop: 8, minHeight: 44, borderRadius: 9, padding: '8px 16px',
+                marginTop: 8, minHeight: 44, borderRadius: 'var(--radius-sm)', padding: '8px 16px',
                 border: actioned ? 'none' : '1px solid var(--c-brand)',
                 background: actioned ? 'var(--c-positive-soft)' : 'transparent',
                 color: actioned ? 'var(--c-positive)' : 'var(--c-brand)',

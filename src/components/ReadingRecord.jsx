@@ -476,6 +476,12 @@ export default function ReadingRecord({ books }) {
   const memoTotal = memoStats?.total || 0;
   const hasAnything = (books?.length || 0) > 0 || memoTotal > 0;
 
+  // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で
+  // メモだけあるユーザーに空状態が一瞬チラついてから統計に切り替わるのを防ぐ。
+  if (!hasAnything && memoStats === null) {
+    return <div style={wrap} aria-busy="true" />;
+  }
+
   if (!hasAnything) {
     return (
       <div style={wrap}>
@@ -502,7 +508,7 @@ export default function ReadingRecord({ books }) {
         onClick={() => setTrendMode(mode)}
         aria-pressed={active}
         style={{
-          minHeight: 32, padding: '5px 14px', borderRadius: 999,
+          minHeight: 44, padding: '7px 14px', borderRadius: 999,
           border: active ? '1px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
           background: active ? 'var(--c-brand)' : 'transparent',
           color: active ? 'var(--c-brand-ink)' : 'var(--c-ink-2)',
@@ -589,7 +595,7 @@ export default function ReadingRecord({ books }) {
               <div key={x.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={{ fontSize: 10, color: 'var(--c-ink-3)', lineHeight: 1.3 }}>{x.label}</span>
                 <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-ink)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{x.value}</span>
-                {x.sub && <span style={{ fontSize: 9, color: 'var(--c-ink-3)', lineHeight: 1.3 }}>{x.sub}</span>}
+                {x.sub && <span style={{ fontSize: 10, color: 'var(--c-ink-3)', lineHeight: 1.3 }}>{x.sub}</span>}
               </div>
             ))}
           </div>
@@ -640,7 +646,7 @@ export default function ReadingRecord({ books }) {
           ]}
         />
         {noOutcome && bookStats.doneTotal > 0 && (
-          <p style={{ fontSize: 11, color: '#9a8c74', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
+          <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
             メモの「行動にする」から、最初の行動を 1 つ決めてみましょう。
           </p>
         )}

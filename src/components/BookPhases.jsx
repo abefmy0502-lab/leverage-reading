@@ -86,7 +86,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
               }}
               aria-label="表紙写真をアップロード"
             >
-              {uploading ? '...' : '📷\n表紙'}
+              {uploading ? '…' : '📷\n表紙'}
             </button>
           )}
           {form.cover && (
@@ -509,7 +509,7 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAn
           <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：明日の朝、学んだ手法を1つ試す" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} maxLength={LIMITS.actionText} />
-              <button onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", margin: "-8px -10px -8px -4px" }}>×</button>
+              <button onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", fontSize: 16, color: 'var(--c-critical)', cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", margin: "-8px -10px -8px -4px" }}>×</button>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <span style={{ fontSize: 11, color: "var(--c-ink-2)", minWidth: 56 }}><IcCal size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限</span>
@@ -575,7 +575,7 @@ export function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, a
           <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：営業会議で結論ファーストを実践" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} maxLength={LIMITS.actionText} />
-              <button onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", fontSize: 16, color: "#c4a0a0", cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", margin: "-8px -10px -8px -4px" }}>×</button>
+              <button onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", fontSize: 16, color: 'var(--c-critical)', cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", margin: "-8px -10px -8px -4px" }}>×</button>
             </div>
             {/* 期限のみをインラインで。優先度・繰り返しなどの詳細は「行動」タブの
                 編集（ActionEditModal）に集約し、本詳細はまず"何をやるか"を素早く

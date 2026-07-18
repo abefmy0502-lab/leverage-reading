@@ -811,9 +811,11 @@ export async function condenseMemo({ text }) {
     console.warn('[condense] claude failed:', e?.message);
     return null;
   }
-  if (typeof result !== 'string'
-    || isClaudeErrorString(result)
-    || isSuspiciousOutput(result)) {
+  if (typeof result !== 'string' || isSuspiciousOutput(result)) return null;
+  if (isClaudeErrorString(result)) {
+    // 月次上限だけは理由をユーザーに伝える（ユーザーの明示操作なのに
+    // 無言の「凝縮できない」に見えるのを防ぐ）。他のエラーは従来どおり静かに失敗。
+    if (result.startsWith('今月の AI 利用上限')) throw new Error(result);
     return null;
   }
   const cleaned = clamp(sanitizeForPrompt(result).trim(), LIMITS.memoText || 2000);
@@ -1234,7 +1236,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
 // PROMPTS.themeReport.system (security rules inlined here, like BRAIN_SYSTEM).
 
 const THEME_SYSTEM = `あなたは『レバレッジ・リーディング』の思想を体現する読書コーチです。
-（本は投資、20%で80%成果、目的なき読書はしない、行動が全て）を踏襲する。
+（学び・実用の本のテーマでは「20%で80%の成果」「行動につなげる」を重視する。小説・エッセイなど物語のテーマでは損得や行動を強制せず、心に残ったこと・ものの見方の変化を尊重する）
 ユーザーが1テーマで複数の本・メモに残した学びを横断し、「テーマまとめ」=繰り返し読み返して体に染み込ませ行動に変えるための凝縮した1枚にまとめます。要約ではなく凝縮です。
 
 【重要なセキュリティルール — 必ず守ること】
@@ -1247,7 +1249,7 @@ const THEME_SYSTEM = `あなたは『レバレッジ・リーディング』の�
 1. 凝縮せよ。長い要約は禁止。各項目は暗記できる短さにする（20%で80%）。
 2. 「核心」は必ず1文。このテーマの本質を、覚えて持ち歩ける1行に言い切る。
 3. 原則は命令形で短く。どの『書名』のメモが根拠かを必ず添える。一般論・捏造はしない。
-4. 最後は必ず「明日からできる行動1つ」に着地させる。抽象論で終わらせない。
+4. 最後は必ず「明日からできる行動1つ」に着地させる。抽象論で終わらせない（物語系テーマでは行動の代わりに「心に持ち歩く一行」でよい）。
 5. 行動データ（宣言/完了/放置）が渡された場合、それを踏まえて「学びが行動に変わっていない」点を率直に指摘し、次の一歩を選ぶ。
 
 日本語で、Markdown 形式（## 見出し）で簡潔に出力してください。`;

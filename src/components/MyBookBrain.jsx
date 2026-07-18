@@ -1018,6 +1018,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 books={books}
                 onAddAction={handleAnswerToAction}
                 onAddActionPickBook={onAddActionPickBook}
+                onRetry={busy ? null : regenerate}
               />
             ))}
             <div ref={messagesEndRef} />

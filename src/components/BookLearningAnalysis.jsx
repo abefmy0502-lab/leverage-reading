@@ -4,7 +4,7 @@
 // 提案された行動は「＋追加」で、その本の行動リスト（フォーム）に1タップで入る。
 // = ユーザー or AI のタスク作成支援（本田哲学: 学び→行動）。
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { analyzeBookLearnings } from '../lib/ai';
 import { toMessage } from '../lib/errors';
 import { useToast } from './Toast';
@@ -67,8 +67,15 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
   const [added, setAdded] = useState(() => new Set());
   const [saved, setSaved] = useState(false);
 
+  // unmount（本詳細を閉じる/タブ切替）で進行中の SMART ストリームを中止する。
+  // これが無いと誰も見ない生成が完走し、AI コストと月次コール枠を空費していた。
+  const abortRef = useRef(null);
+  useEffect(() => () => { try { abortRef.current?.abort(); } catch { /* ignore */ } }, []);
+
   const run = async () => {
     if (state.status === 'loading' || !book?.id) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setState({ status: 'loading' });
     try {
       const r = await analyzeBookLearnings({
@@ -82,9 +89,12 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
         // ⚡ ストリーミング表示 — 全文生成を待たず最初の 1 行から見せる。
         // 行動抽出・保存は完了時（下の 'done'）で確定するので途中文は表示のみ。
         onChunk: (text) => {
+          if (controller.signal.aborted) return;
           setState((st) => (st.status === 'loading' ? { status: 'loading', partial: text } : st));
         },
+        signal: controller.signal,
       });
+      if (controller.signal.aborted) return; // unmount 済み — setState しない
       if (r?.tooThin) { setState({ status: 'thin' }); return; }
       setSaved(false);
       // 再分析では「＋追加」済みマークをリセット（前回のインデックスが新しい
@@ -92,6 +102,7 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
       setAdded(new Set());
       setState({ status: 'done', content: r.content, actions: extractSuggestedActions(r.content), body: stripActionSection(r.content) });
     } catch (e) {
+      if (controller.signal.aborted) return; // 中止はエラー表示しない
       setState({ status: 'error', msg: toMessage(e, '分析に失敗しました。少し時間をおいて再度お試しください。') });
     }
   };

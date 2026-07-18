@@ -69,7 +69,7 @@ const confirmBtnStyle = (danger) => ({
   // 以前の鮮やかな iOS 純赤 #ff3b30 は暖色世界観から浮き、削除メニュー側の
   // --c-critical と2色に割れていた。--color-error はシステムエラー帯専用に隔離。
   background: danger ? 'var(--c-critical)' : 'var(--c-brand)',
-  color: 'var(--c-card)',
+  color: 'var(--c-brand-ink)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontSize: 15,
@@ -119,9 +119,9 @@ export function ConfirmProvider({ children }) {
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
       {pending && (
-        <div style={overlayStyle} onClick={() => finish(false)} role="dialog" aria-modal="true">
+        <div style={overlayStyle} onClick={() => finish(false)} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
           <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
-            <h2 style={titleStyle}>{pending.options.title}</h2>
+            <h2 id="confirm-dialog-title" style={titleStyle}>{pending.options.title}</h2>
             {pending.options.message && <p style={messageStyle}>{pending.options.message}</p>}
             <div style={rowStyle}>
               <button type="button" style={cancelBtnStyle} onClick={() => finish(false)}>

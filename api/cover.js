@@ -682,5 +682,9 @@ export default async function handler(req, res) {
   } else {
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60');
   }
-  return res.status(200).json({ cover: cover || '', isbn: isbn || '', candidates, _diag: diag });
+  // 🛡 診断情報は既存の debug ゲートと同じ条件でのみ返す（未認証エンドポイントで
+  //    構成情報＝楽天キー設定有無・版マーカー・外部 API のエラー断片を常時公開しない）。
+  const out = { cover: cover || '', isbn: isbn || '', candidates };
+  if (process.env.ALLOW_COVER_DEBUG === 'true') out._diag = diag;
+  return res.status(200).json(out);
 }

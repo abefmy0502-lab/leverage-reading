@@ -478,7 +478,41 @@ export default async function handler(req, res) {
       // なったら Anthropic の user-first 要件に合わせて刈る。
       let msgs = body.messages.slice(-MAX_MESSAGES);
       while (msgs.length > 0 && msgs[0]?.role === 'assistant') msgs = msgs.slice(1);
-      payload.messages = msgs;
+      // 🛡 要素の中身も allowlist で再構築する。role は user/assistant のみ、
+      //    content は string か {type:'text'} / {type:'image', source:{type:'base64'}}
+      //    ブロックのみ許可。改造クライアントが document ブロックや URL ソース画像を
+      //    注入して中継を本来と異なる用途（任意 URL の取得等）に使うのを防ぐ
+      //    （sanitizeCachedSystemBlocks と同じ流儀）。不正要素は静かに除去。
+      const cleanMsgs = [];
+      for (const m of msgs) {
+        const role = m?.role === 'assistant' ? 'assistant' : m?.role === 'user' ? 'user' : null;
+        if (!role) continue;
+        const c = m.content;
+        if (typeof c === 'string') { cleanMsgs.push({ role, content: c }); continue; }
+        if (Array.isArray(c)) {
+          const blocks = [];
+          for (const b of c) {
+            if (!b || typeof b !== 'object') continue;
+            if (b.type === 'text' && typeof b.text === 'string') {
+              const blk = { type: 'text', text: b.text };
+              if (b.cache_control?.type === 'ephemeral') blk.cache_control = { type: 'ephemeral' };
+              blocks.push(blk);
+            } else if (
+              b.type === 'image'
+              && b.source?.type === 'base64'
+              && typeof b.source.media_type === 'string'
+              && typeof b.source.data === 'string'
+            ) {
+              blocks.push({ type: 'image', source: { type: 'base64', media_type: b.source.media_type, data: b.source.data } });
+            }
+          }
+          if (blocks.length > 0) cleanMsgs.push({ role, content: blocks });
+        }
+      }
+      // 除去の結果 assistant 先頭になったら user-first を再適用。
+      let finalMsgs = cleanMsgs;
+      while (finalMsgs.length > 0 && finalMsgs[0].role === 'assistant') finalMsgs = finalMsgs.slice(1);
+      payload.messages = finalMsgs;
     }
     // ⚠️ temperature は Anthropic へ転送しない（サーバー側の最終防波堤）。
     // claude-sonnet-5 / haiku-4-5 世代（Opus 4.7 以降と同系）は sampling params

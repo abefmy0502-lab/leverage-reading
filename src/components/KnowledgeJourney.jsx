@@ -56,11 +56,19 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
   // AI 生成は数十秒かかる — タブ離脱（unmount）後の setState を防ぐ alive ガード
   // （上の listThemes と同じパターンに揃える）。
   const aliveRef = useRef(true);
-  useEffect(() => () => { aliveRef.current = false; }, []);
+  // unmount 時は setState を止めるだけでなくストリーム自体を abort する。
+  // これが無いと誰も見ない SMART 生成が完走し、コストと月次コール枠を空費していた。
+  const abortRef = useRef(null);
+  useEffect(() => () => {
+    aliveRef.current = false;
+    try { abortRef.current?.abort(); } catch { /* ignore */ }
+  }, []);
 
   const run = useCallback(async (t) => {
     const theme = (t || '').trim();
     if (!theme || state.status === 'loading') return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setActiveTheme(theme);
     setState({ status: 'loading' });
     try {
@@ -70,6 +78,7 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
           if (!aliveRef.current) return;
           setState((st) => (st.status === 'loading' ? { status: 'loading', partial: text } : st));
         },
+        signal: controller.signal,
       });
       if (!aliveRef.current) return;
       if (r?.tooThin) setState({ status: 'thin' });

@@ -38,7 +38,7 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
             style={{
               flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: '12px 8px', background: '#fbf3e2', color: '#7a5500',
-              border: '1px solid #e8d4a8', borderRadius: 10, textDecoration: 'none',
+              border: '1px solid #e8d4a8', borderRadius: 'var(--radius-md)', textDecoration: 'none',
               fontWeight: 700, fontSize: 13, fontFamily: 'inherit', minHeight: 48,
               boxSizing: 'border-box', whiteSpace: 'nowrap',
             }}
@@ -51,7 +51,7 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
             style={{
               flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: '12px 8px', background: '#faf0ee', color: '#a03030',
-              border: '1px solid #e6c8c2', borderRadius: 10, textDecoration: 'none',
+              border: '1px solid #e6c8c2', borderRadius: 'var(--radius-md)', textDecoration: 'none',
               fontWeight: 700, fontSize: 13, fontFamily: 'inherit', minHeight: 48,
               boxSizing: 'border-box', whiteSpace: 'nowrap',
             }}
