@@ -2600,7 +2600,9 @@ function AuthedApp() {
   if (view === "detail" && current) {
     const st = getSt(current.status);
     const nextStatus = { want: "before", before: "reading", reading: "done" };
-    const nextLabel = { want: "積読へ進む", before: "読書を開始する", reading: "読了にする" };
+    // 「積読へ進む」は日本語として変（積読は進む先ではなく積む場所）。
+    // 定義（読みたい=気になる / 積読=手元にある）に合わせ「積読に積む」へ。
+    const nextLabel = { want: "積読に積む", before: "読書を開始する", reading: "読了にする" };
 
     return (
       <Shell>
@@ -3085,7 +3087,7 @@ function AuthedApp() {
                 {/* Phase 3: その場のガイダンス — 何が起きるか先に伝えて遷移を温かく */}
                 <p className="input-hint" style={{ marginTop: 0, justifyContent: 'center' }}>
                   {current.status === 'want'
-                    ? '💡 得たいことを決めると、AI が読書計画シートを自動生成します'
+                    ? '💡 手元に来たら積読へ。「得たいこと」を決めると AI が読書計画シートを作ります'
                     : current.status === 'before'
                     ? '💡 読書中になると、メモ機能が解放されます'
                     : '💡 完了後、振り返りと「一番の収穫」を残せます'}
@@ -4180,8 +4182,11 @@ function AuthedApp() {
                   }}
                 >
                   <s.Icon size={16} aria-hidden="true" style={{ color: s.color, flexShrink: 0 }} />
-                  {s.label}
-                  {active && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--c-ink-2)' }}>現在</span>}
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, minWidth: 0 }}>
+                    <span>{s.label}</span>
+                    {s.desc && <span style={{ fontSize: 10, color: 'var(--c-ink-3)', fontWeight: 400 }}>{s.desc}</span>}
+                  </span>
+                  {active && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--c-ink-2)', flexShrink: 0 }}>現在</span>}
                 </button>
               );
             })}

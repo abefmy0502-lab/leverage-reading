@@ -136,10 +136,11 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
           読書中 の遷移や投資目的ゲートを経ずに、ここで状態を選んで直接
           読書中/読了で保存 → 保存後すぐ本詳細のメモ欄が開く（メモだけ残したい
           人の入口摩擦を無くす）。 */}
-      <Field label="この本の状態" sub="もう読んだ本は「読了」を選ぶと、保存後すぐメモを書けます">
+      <Field label="この本の状態" sub="積読＝手元にあって、これから読む本。「読了」を選ぶと保存後すぐメモを書けます">
         <div style={{ display: 'flex', gap: 6 }}>
           {[
             { v: 'want', label: '読みたい' },
+            { v: 'before', label: '積読' },
             { v: 'reading', label: '読書中' },
             { v: 'done', label: '読了' },
           ].map((s) => {
