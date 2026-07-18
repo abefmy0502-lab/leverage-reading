@@ -573,6 +573,11 @@ function AuthedApp() {
   const [isAdmin, setIsAdmin] = useState(false);
   // Long-press context menu (book cards on bookshelf)
   const [bookContextMenu, setBookContextMenu] = useState(null); // { x, y, book }
+  // 📗🗂 本棚の長押しから開く「ステータスを変える」「フォルダに入れる」シート。
+  // 本を開かずにその場で管理できるようにする（管理の最頻操作を1手に）。
+  const [statusPickerBook, setStatusPickerBook] = useState(null);
+  const [folderPickerBook, setFolderPickerBook] = useState(null);
+  const [newFolderName, setNewFolderName] = useState('');
   // 詳細画面の「⋯」kebab メニュー位置 (button 近くに表示する)
   const [detailKebab, setDetailKebab] = useState(null);
   const openDetailKebab = (e) => {
@@ -1803,6 +1808,48 @@ function AuthedApp() {
         message: `「${labels[newStatus] || newStatus}」に変更しました`,
         onUndo: revert,
       });
+    }
+  };
+
+  // 🤫 本を開かずに一部フィールドだけを静かに更新する共通経路（本棚の長押し
+  // メニューからのステータス変更 / フォルダ割当て用）。advanceStatus と違い
+  // 画面遷移しない。直列化チェーン + 実行時 rebase + 失敗 rollback は同じ流儀。
+  const applyBookPatchQuiet = (bookId, patch, successMsg) => {
+    const prevRow = booksRef.current.find((b) => b.id === bookId);
+    if (!prevRow) return;
+    const prev = {};
+    for (const k of Object.keys(patch)) prev[k] = prevRow[k];
+    mutateBookLocal(bookId, (b) => ({ ...b, ...patch }));
+    setCurrent((c) => (c && c.id === bookId ? { ...c, ...patch } : c));
+    enqueueBookMutation(bookId, async (entry) => {
+      const base = entry.latest || booksRef.current.find((b) => b.id === bookId);
+      if (!base) return;
+      const toSave = { ...base, ...patch };
+      try {
+        const saved = await saveBook(toSave);
+        entry.latest = saved || toSave;
+        if (successMsg) toast.success(successMsg);
+      } catch (error) {
+        mutateBookLocal(bookId, (b) => ({ ...b, ...prev }));
+        setCurrent((c) => (c && c.id === bookId ? { ...c, ...prev } : c));
+        entry.latest = null;
+        toast.error(toMessage(error, '変更に失敗しました。'));
+      }
+    });
+  };
+
+  // 📗 本棚から直接ステータス変更（長押し → ステータスを変える）。
+  // 日付の補完ルールはクイック追加（WantPhase）と同じ:
+  // 読書中/読了で startDate、読了で doneDate を未設定時のみ埋める。
+  const setBookStatusQuiet = (book, newStatus) => {
+    if (!book || book.status === newStatus) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const patch = { status: newStatus };
+    if ((newStatus === 'reading' || newStatus === 'done') && !book.startDate) patch.startDate = today;
+    if (newStatus === 'done' && !book.doneDate) patch.doneDate = today;
+    applyBookPatchQuiet(book.id, patch, `「${getSt(newStatus).label}」に変更しました`);
+    if (newStatus === 'before' || newStatus === 'reading' || newStatus === 'done') {
+      track('status_changed', { to: newStatus });
     }
   };
 
@@ -3596,6 +3643,29 @@ function AuthedApp() {
               </div>
             </div>
             <div style={{ padding: "0 20px" }}>
+              {/* 🔎 ステータスのワンタップ絞り込み。管理の最頻操作（読書中だけ見る等）を
+                  絞り込みシートの1階層奥から棚の表に昇格。state は絞り込みシートと共有
+                  （statusFilter＝activeFilterCount とも連動）。同じチップの再タップで解除。
+                  本が少ないうちはノイズなので 4 冊未満では出さない。 */}
+              {books.length >= 4 && (
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 4, WebkitOverflowScrolling: 'touch' }} role="group" aria-label="ステータスで絞り込み">
+                  {[{ key: 'all', label: 'すべて', count: stats.total }, ...STATUSES.map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => {
+                    if (s.key !== 'all' && s.count === 0) return null;
+                    const active = statusFilter === s.key;
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setStatusFilter(active && s.key !== 'all' ? 'all' : s.key)}
+                        aria-pressed={active}
+                        style={{ ...bookshelfToolbarBtn(active), flexShrink: 0 }}
+                      >
+                        {s.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>{s.count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {/* 🌱 初週オンボーディング: 新規ユーザーを aha まで運ぶ4ステップ。
                   未完了かつ未 dismiss のときだけ表示（既存ユーザーには出にくい）。 */}
               <ActivationChecklist
@@ -3891,6 +3961,18 @@ function AuthedApp() {
                   onClick: () => { openDetail(bookContextMenu.book); setQuickMemoOpen(true); },
                 }]
               : []),
+            // 📗 本を開かずにその場でステータス変更（管理の最頻操作を1手に）。
+            {
+              label: 'ステータスを変える',
+              icon: '📗',
+              onClick: () => setStatusPickerBook(bookContextMenu.book),
+            },
+            // 🗂 フォルダ割当ても本棚から直接（新規フォルダもその場で作れる）。
+            {
+              label: 'フォルダに入れる',
+              icon: '🗂️',
+              onClick: () => { setNewFolderName(''); setFolderPickerBook(bookContextMenu.book); },
+            },
             {
               label: '編集',
               icon: '✏️',
@@ -4072,6 +4154,129 @@ function AuthedApp() {
       {/* 💭 ノートタブ「＋メモを追加」: どの本のメモかを選ぶ（読書中→読了順）。
           選ぶとその本の詳細を開いてクイックメモを起動する（メモは reading/done
           の本にだけ付くので、その2ステータスのみ候補に出す）。 */}
+      {/* 📗 ステータス変更シート（本棚の長押し → ステータスを変える）。
+          本を開かずその場で 4 ステータスへ移動。日付補完は setBookStatusQuiet 側。 */}
+      {statusPickerBook && (
+        <BottomSheet title="ステータスを変える" onClose={() => setStatusPickerBook(null)}>
+          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            『{statusPickerBook.title}』
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {STATUSES.map((s) => {
+              const active = (books.find((b) => b.id === statusPickerBook.id)?.status || statusPickerBook.status) === s.key;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  disabled={active}
+                  onClick={() => { setBookStatusQuiet(books.find((b) => b.id === statusPickerBook.id) || statusPickerBook, s.key); setStatusPickerBook(null); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, padding: '10px 12px',
+                    borderRadius: 10,
+                    border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline)',
+                    background: active ? 'var(--c-soft-2)' : 'var(--c-card)',
+                    color: 'var(--c-ink)', fontSize: 14, fontWeight: active ? 700 : 500,
+                    fontFamily: 'inherit', cursor: active ? 'default' : 'pointer', width: '100%',
+                  }}
+                >
+                  <s.Icon size={16} aria-hidden="true" style={{ color: s.color, flexShrink: 0 }} />
+                  {s.label}
+                  {active && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--c-ink-2)' }}>現在</span>}
+                </button>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: 10, color: 'var(--c-ink-3)', margin: '10px 0 0', lineHeight: 1.6 }}>
+            メモは「読書中」「読了」の本で書けます。
+          </p>
+        </BottomSheet>
+      )}
+
+      {/* 🗂 フォルダ割当てシート（本棚の長押し → フォルダに入れる）。
+          タップでフォルダの出し入れをトグル（複数フォルダ可）。新規フォルダも
+          その場で作成できる。シートは開いたまま＝複数割当てが一気にできる。 */}
+      {folderPickerBook && (() => {
+        const liveBook = books.find((b) => b.id === folderPickerBook.id) || folderPickerBook;
+        const cols = liveBook.collections || [];
+        const toggleFolder = (name) => {
+          const next = cols.includes(name) ? cols.filter((c) => c !== name) : [...cols, name];
+          // 成功トーストは出さない（シート内のチェックが即時フィードバック）。
+          applyBookPatchQuiet(liveBook.id, { collections: next }, null);
+        };
+        const createAndAdd = () => {
+          const name = newFolderName.trim();
+          if (!name) return;
+          if (!cols.includes(name)) toggleFolder(name);
+          setNewFolderName('');
+        };
+        return (
+          <BottomSheet title="フォルダに入れる" onClose={() => setFolderPickerBook(null)}>
+            <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              『{liveBook.title}』
+            </p>
+            {folderNames.length === 0 && (
+              <p style={{ fontSize: 12, color: 'var(--c-ink-3)', margin: '0 0 10px', lineHeight: 1.6 }}>
+                まだフォルダがありません。下で作って、この本を入れられます。
+              </p>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {folderNames.map((name) => {
+                const inFolder = cols.includes(name);
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => toggleFolder(name)}
+                    aria-pressed={inFolder}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, padding: '10px 12px',
+                      borderRadius: 10,
+                      border: inFolder ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline)',
+                      background: inFolder ? 'var(--c-soft-2)' : 'var(--c-card)',
+                      color: 'var(--c-ink)', fontSize: 14, fontWeight: inFolder ? 700 : 500,
+                      fontFamily: 'inherit', cursor: 'pointer', width: '100%',
+                    }}
+                  >
+                    <IcFolder size={15} aria-hidden="true" style={{ color: 'var(--c-brand)', flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                    {inFolder && <IcCheck size={16} aria-hidden="true" style={{ marginLeft: 'auto', color: 'var(--c-positive)', flexShrink: 0 }} />}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <input
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); createAndAdd(); }
+                }}
+                placeholder="新しいフォルダ名"
+                maxLength={40}
+                style={{
+                  flex: 1, minWidth: 0, padding: '10px 12px', fontSize: 16,
+                  border: '1px solid var(--c-hairline-strong)', borderRadius: 10,
+                  background: 'var(--c-card)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box',
+                }}
+              />
+              <button
+                type="button"
+                onClick={createAndAdd}
+                disabled={!newFolderName.trim()}
+                style={{
+                  flexShrink: 0, minHeight: 44, padding: '0 16px', borderRadius: 10, border: 'none',
+                  background: 'var(--c-brand)', color: 'var(--c-brand-ink)', fontSize: 13, fontWeight: 700,
+                  fontFamily: 'inherit', cursor: newFolderName.trim() ? 'pointer' : 'default',
+                  opacity: newFolderName.trim() ? 1 : 0.5,
+                }}
+              >
+                作って入れる
+              </button>
+            </div>
+          </BottomSheet>
+        );
+      })()}
+
       {addNoteSheet === 'pick' && (
         <BottomSheet title="どの本のメモにしますか？" onClose={() => setAddNoteSheet(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
