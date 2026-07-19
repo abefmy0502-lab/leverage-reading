@@ -717,8 +717,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // Find the last user message; resend it.
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       if (messages[i].role === 'user') {
+        const q = messages[i].content;
+        // 再試行前に、以前のエラー吹き出しを取り除く。エラー行は DB に保存されない
+        // UI 上だけの行（err- id）なので消して安全。残すと再試行成功後も
+        // 「生成できませんでした + 再試行」が新しい回答の上に居座り、もう一度
+        // 押せば同じ質問の回答が二重生成されてしまう。
+        setMessages((arr) => arr.filter((m) => !(m.role === 'assistant' && m.error)));
         // 既存の質問を answer し直すだけ — user 行は再 INSERT しない（重複防止）。
-        await ask(messages[i].content, { skipUserInsert: true });
+        await ask(q, { skipUserInsert: true });
         return;
       }
     }

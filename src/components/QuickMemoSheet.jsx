@@ -252,7 +252,7 @@ export default function QuickMemoSheet({
   // 下スワイプで閉じる（iOS のシート標準所作。ハンドル/ヘッダー起点のみ —
   // 本文 textarea のスクロール/選択とは競合させない）。
   const onDragStart = (e) => {
-    if (busy || closing) return;
+    if (busy || condensing || closing) return;
     // キーボード追従 transform が効いている間はドラッグを開始しない（競合回避）。
     const t = sheetRef.current?.style?.transform || '';
     if (t && t !== 'none' && !t.startsWith('translateY(0')) return;
@@ -274,7 +274,7 @@ export default function QuickMemoSheet({
     const dy = Math.max(0, (e.changedTouches?.[0]?.clientY ?? startY) - startY);
     const el = sheetRef.current;
     el.style.transition = 'transform .22s cubic-bezier(0.2,0.9,0.3,1)';
-    if (dy > 110 && !busy) {
+    if (dy > 110 && !busy && !condensing) {
       el.style.transform = 'translateY(100%)';
       setTimeout(() => onClose?.(), 200);
     } else {
@@ -282,15 +282,18 @@ export default function QuickMemoSheet({
     }
   };
 
-  // Escape closes（保存中は無視）。IME 変換中の Esc（変換キャンセル）で
-  // シートごと閉じて下書きを失わないよう isComposing をガードする。
+  // Escape closes（保存中・AI 凝縮中は無視 — backdrop タップと同じガード）。
+  // IME 変換中の Esc（変換キャンセル）でシートごと閉じて下書きを失わないよう
+  // isComposing をガードする。閉じは slide-down 経由で backdrop と所作を揃える。
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape' && !busy && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
+      if (e.key === 'Escape' && !busy && !condensing && !e.isComposing && !e.nativeEvent?.isComposing) {
+        requestClose();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, busy]);
+  });
 
   const handleSave = async () => {
     if (busy) return;

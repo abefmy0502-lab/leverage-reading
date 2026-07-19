@@ -22,6 +22,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isSchemaError } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
@@ -78,7 +79,12 @@ function bucketize(dates, n = 6) {
 function buildBookStats(books, now = new Date()) {
   const thisYear = now.getFullYear();
   // 前年同期: 前年の 1/1 〜「前年の今日」まで（＝フェアなペース比較）。
-  const lastYearSameEnd = new Date(thisYear - 1, now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  // うるう日（2/29）は前年に存在せず Date が 3/1 へ繰り上がるため、月がずれたら
+  // 前月末日（date=0）に丸めて「前年 2 月末まで」に補正する。
+  let lastYearSameEnd = new Date(thisYear - 1, now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  if (lastYearSameEnd.getMonth() !== now.getMonth()) {
+    lastYearSameEnd = new Date(thisYear - 1, now.getMonth() + 1, 0, 23, 59, 59, 999);
+  }
   let doneTotal = 0;
   let doneThisYear = 0;
   let doneLastYearSame = 0;
@@ -301,8 +307,12 @@ function Heatmap({ dateStrings, weeks = 16 }) {
       out.push({ days, monthLabel: m !== prevMonth ? `${m + 1}月` : '' });
       prevMonth = m;
     }
+    // 「活動があった日数」は表示ウィンドウ内（直近 weeks 週）だけを数える。
+    // counts 全体を数えると全履歴の日数になり、aria-label が見た目と食い違う。
     let act = 0;
-    for (const [, n] of counts) { if (n > 0) act += 1; }
+    for (const col of out) {
+      for (const d of col.days) { if (d && d.count > 0) act += 1; }
+    }
     return { cols: out, activeDays: act };
   }, [dateStrings, weeks]);
 
@@ -418,13 +428,22 @@ export default function ReadingRecord({ books }) {
         return { rows, error: null };
       };
       let recallSupported = true;
-      let { rows } = await fetchPages('id, created_at, book_id, recall_count, last_recalled_at');
+      let { rows, error } = await fetchPages('id, created_at, book_id, recall_count, last_recalled_at');
       if (!rows) {
-        recallSupported = false;
-        ({ rows } = await fetchPages('id, created_at, book_id'));
+        // schema エラー（recall 列未適用）のときだけ「定着セクション非対応」として
+        // 基本列で再取得。ネットワーク等の一時エラーを schema 未適用と混同しない。
+        if (isSchemaError(error)) {
+          recallSupported = false;
+          ({ rows, error } = await fetchPages('id, created_at, book_id'));
+        }
       }
       if (!active) return;
-      if (!rows) { setMemoStats({ total: 0, createdDates: [], recalled: 0, mastered: 0, byBook: {}, recallSupported: false }); return; }
+      if (!rows) {
+        // 取得失敗（通信断など）。0 件と偽装すると「メモが消えた」ように見えるため、
+        // failed を立ててメモ由来のセクションは出さず、控えめな注記だけ出す。
+        setMemoStats({ total: 0, createdDates: [], recalled: 0, mastered: 0, byBook: {}, recallSupported: false, failed: true });
+        return;
+      }
       let recalled = 0;
       let mastered = 0;
       const createdDates = [];
@@ -454,7 +473,7 @@ export default function ReadingRecord({ books }) {
     const byBook = memoStats?.byBook || {};
     const byId = new Map((Array.isArray(books) ? books : []).map((b) => [b.id, b]));
     return Object.entries(byBook)
-      .map(([id, n]) => ({ title: byId.get(id)?.title || '', count: n }))
+      .map(([id, n]) => ({ id, title: byId.get(id)?.title || '', count: n }))
       .filter((x) => x.title)
       .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title, 'ja'))
       .slice(0, 3);
@@ -545,12 +564,18 @@ export default function ReadingRecord({ books }) {
 
   return (
     <div style={wrap}>
-      {/* 1. コアの数字 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      {/* 1. コアの数字 — メモ統計の取得に失敗した時はメモのタイルを隠す
+          （0 と偽装すると「メモが消えた」ように見えるため）。 */}
+      <div style={{ display: 'grid', gridTemplateColumns: memoStats?.failed ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 8 }}>
         <StatTile icon={BookOpenCheck} value={bookStats.doneTotal} label="読了した本" />
-        <StatTile icon={StickyNote} value={memoTotal} label="残したメモ" />
+        {!memoStats?.failed && <StatTile icon={StickyNote} value={memoTotal} label="残したメモ" />}
         <StatTile icon={Target} value={bookStats.actionsDone} label="実行した行動" />
       </div>
+      {memoStats?.failed && (
+        <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
+          メモの統計を読み込めませんでした。通信環境を確認して、開き直してください。
+        </p>
+      )}
 
       {/* 2. 読書の足あと（ヒートマップ） */}
       <section style={card}>
@@ -603,8 +628,8 @@ export default function ReadingRecord({ books }) {
             <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--c-hairline)' }}>
               <p style={{ fontSize: 10, color: 'var(--c-ink-3)', margin: '0 0 6px' }}>今年の星付き</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {bookStats.bestThisYear.map((b) => (
-                  <div key={b.title} style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+                {bookStats.bestThisYear.map((b, i) => (
+                  <div key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
                     <span style={{ fontSize: 10, color: '#b8963f', flexShrink: 0, letterSpacing: 1 }}>{'★'.repeat(b.rating)}</span>
                     <span style={{ fontSize: 12, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
                   </div>
@@ -625,7 +650,7 @@ export default function ReadingRecord({ books }) {
           <p style={cardSub}>メモの数から見た、あなたに一番多くの気づきをくれた本です。</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
             {topMemoBooks.map((b) => (
-              <BarRow key={b.title} label={b.title} count={b.count} max={maxMemoBook} unit="件" labelWidth={128} />
+              <BarRow key={b.id} label={b.title} count={b.count} max={maxMemoBook} unit="件" labelWidth={128} />
             ))}
           </div>
         </section>

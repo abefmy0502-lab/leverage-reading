@@ -157,8 +157,13 @@ export default function HomeRecall({ onOpen, onAction }) {
         // だと、翌日メモ1〜2件のままのユーザーに何も起きない沈黙の谷ができていた）。
         // 1日1枚の静けさは dismiss（×）側が守る。
         if (!isPreviewShown() && notes.length >= 1) {
-          setMemo({ ...notes[0], preview: true });
-          return;
+          // 写真だけのメモ（本文空）は飛ばし、本文のある最新メモを見せる。
+          // 先頭固定だと写真のみメモが最新のとき本文が空白のカードになる。
+          const withText = notes.find((n) => n.text && String(n.text).trim());
+          if (withText) {
+            setMemo({ ...withText, preview: true });
+            return;
+          }
         }
         setMemo(null);
       } catch {

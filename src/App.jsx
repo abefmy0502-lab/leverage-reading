@@ -749,7 +749,9 @@ function AuthedApp() {
   useEffect(() => {
     if (!user?.id) return;
     backfillCovers(supabaseClient, user.id)
-      .then(() => { try { return refreshBooks(); } catch { /* ignore */ } })
+      // 実際に行を書き換えた時だけ再フェッチ。no-op（実行済みフラグ・対象0件）
+      // でも毎回 refreshBooks すると起動のたびに books 全件を二重取得していた。
+      .then((changed) => { if (changed) { try { return refreshBooks(); } catch { /* ignore */ } } })
       .catch(() => {});
   }, [user?.id, refreshBooks]);
 
@@ -1289,7 +1291,13 @@ function AuthedApp() {
       // form.status を見ているのは: editPhaseOverride で BeforePhase を強制
       // 表示しているだけの reading/done 本は対象外にしたいため (既に読書中の
       // 本の読書計画を編集しても再度 reading に戻るのは無意味)。
+      // current.status も 'before' であることを要求する: 編集開始時点で既に積読
+      // だった本だけが対象。「読みたい」の本を編集中にステータスチップで積読へ
+      // 変えただけ（ユーザーの意図は『積読にする』であって『読書開始』ではない）
+      // のケースで、過去に入力済みの投資目的が残っていると意図せず読書中へ
+      // 自動昇格してしまうのを防ぐ。
       const isSetupCompletion = !!current
+        && current.status === 'before'
         && form.status === 'before'
         && !!(form.investPurpose && form.investPurpose.trim());
 
@@ -1338,8 +1346,12 @@ function AuthedApp() {
       // 保存した本にすり替わる。「この本の編集画面に留まっている」ときだけ
       // フル遷移し、それ以外は閲覧中の同じ本の詳細だけ静かに最新化する
       // （advanceStatus の rollback ガードと同じ思想）。
+      // 比較は「保存後の id (next.id)」ではなく「クリック時点の form.id」と行う。
+      // 新規追加では next.id が DB 発行の UUID になり form のローカル id と一致しない
+      // ため、next.id と比較すると新規本が常に「編集画面を離れた」扱いになって
+      // 詳細への遷移・クイックメモ自動オープンが一切走らなくなる。
       const stillEditingThis =
-        viewRef.current === 'edit' && formRef.current && formRef.current.id === next.id;
+        viewRef.current === 'edit' && formRef.current && formRef.current.id === form.id;
       if (!stillEditingThis) {
         setCurrent((c) => (c && c.id === next.id ? next : c));
         toast.success('保存しました。');
@@ -3352,9 +3364,9 @@ function AuthedApp() {
             const phaseLabel = !current
               ? "本を追加"
               : effectivePhase === "want" ? "読みたい本"
-              : effectivePhase === "before" ? "投資設計"
+              : effectivePhase === "before" ? "読書計画"
               : effectivePhase === "reading" ? "読書中"
-              : "投資回収";
+              : "読了の振り返り";
             return (
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, marginBottom: 16 }}>

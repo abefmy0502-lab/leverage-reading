@@ -154,6 +154,29 @@ function buildSyntheticNotes(books) {
   return out;
 }
 
+// 🧠 派生ノート (synth) の想起履歴は DB 行を持たないため端末ローカルに記録する。
+// これが無いと synth ノートは「覚えた」を押しても永遠に due のままで、overdue
+// スコアが毎日積み上がり、実メモを押しのけて想起プールを占拠してしまう。
+// 形式: { [synthId]: { at: ISO, count: number } }。500 件で古い順に間引く。
+const SYNTH_RECALL_KEY = 'orime-synth-recall-v1';
+function loadSynthRecall() {
+  try {
+    const raw = localStorage.getItem(SYNTH_RECALL_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    return map && typeof map === 'object' ? map : {};
+  } catch { return {}; }
+}
+function saveSynthRecall(map) {
+  try {
+    const keys = Object.keys(map);
+    if (keys.length > 500) {
+      keys.sort((a, b) => String(map[a]?.at || '').localeCompare(String(map[b]?.at || '')));
+      for (const k of keys.slice(0, keys.length - 500)) delete map[k];
+    }
+    localStorage.setItem(SYNTH_RECALL_KEY, JSON.stringify(map));
+  } catch { /* プライベートブラウズ等は諦める（次回も due に出るだけ） */ }
+}
+
 function pickCategory(tags) {
   if (!Array.isArray(tags)) return null;
   const cat = tags.find((t) => typeof t === 'string' && t.startsWith('@'));
@@ -337,6 +360,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const [flipping, setFlipping] = useState(false);
   const flipTimerRef = useRef(null);
   const flipEndTimerRef = useRef(null);
+  // 「覚えた/もう一度」のローカル反映をフリップ折り返しへ遅延させるタイマー。
+  const recallApplyTimerRef = useRef(null);
   const [expanded, setExpanded] = useState(() => new Set());
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -541,12 +566,20 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   //   - books の各フィールド: 投資目的 / 課題 / 仮説 / AI まとめ / 投資の効果 / レバレッジメモ
   //   - actions.reflection: 行動の振り返り
   // タイムライン・検索・ランダム想起のすべてがこの allNotes を使う。
+  // synth ノートの想起履歴（端末ローカル）。「覚えた/もう一度」で更新される。
+  const [synthRecall, setSynthRecall] = useState(loadSynthRecall);
+
   const allNotes = useMemo(() => {
-    const synth = buildSyntheticNotes(books);
+    const synth = buildSyntheticNotes(books).map((n) => {
+      const rec = synthRecall[n.id];
+      return rec && rec.at
+        ? { ...n, lastRecalledAt: rec.at, recallCount: rec.count || 0 }
+        : n;
+    });
     const merged = [...memos, ...synth];
     merged.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     return merged;
-  }, [memos, books]);
+  }, [memos, books, synthRecall]);
 
   // 知識タイプ別のフィルタ (横断検索セクション用)。
   const [kindFilter, setKindFilter] = useState('all');
@@ -658,14 +691,29 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // last_recalled_at/recall_count を更新し、次の間隔まで出す/翌日また出す を制御。
   // 書き込み後は次の一枚へ回す（reroll）。列未適用DBでは静かに no-op。
   const recordRandomRecall = useCallback(async (memo, mastered) => {
-    if (!memo || memo.synth) return;
+    if (!memo) return;
     const patch = recallPatch(memo.recallCount, mastered);
-    // 楽観的にローカル state も更新する。これをしないと DB だけ進み、allNotes 上は
-    // 依然 due のままで、直後の reroll(randomSeed++) で同じ 1 枚が再選出されうる
-    // （間隔反復の体験が壊れる）。camelCase に合わせて反映する。
-    setMemos((arr) => arr.map((m) => (m.id === memo.id
-      ? { ...m, lastRecalledAt: patch.last_recalled_at, recallCount: patch.recall_count }
-      : m)));
+    // ローカル state の更新はフリップの折り返し（280ms・reroll の seed 交換と同時刻）
+    // まで遅らせる。即時に更新すると allNotes → randomMemo が seed 交換より先に
+    // 再計算され、カードがフリップ前に一瞬すり替わってから折り返しでもう一度
+    // 替わる（二重スワップ）。更新自体は必要 — しないと allNotes 上は依然 due の
+    // ままで、直後の reroll で同じ 1 枚が再選出されうる。
+    if (recallApplyTimerRef.current) clearTimeout(recallApplyTimerRef.current);
+    recallApplyTimerRef.current = setTimeout(() => {
+      if (memo.synth) {
+        // 派生ノートは DB 行が無いので端末ローカルに記録（上の SYNTH_RECALL_KEY）。
+        setSynthRecall((prev) => {
+          const next = { ...prev, [memo.id]: { at: patch.last_recalled_at, count: patch.recall_count } };
+          saveSynthRecall(next);
+          return next;
+        });
+      } else {
+        setMemos((arr) => arr.map((m) => (m.id === memo.id
+          ? { ...m, lastRecalledAt: patch.last_recalled_at, recallCount: patch.recall_count }
+          : m)));
+      }
+    }, 280);
+    if (memo.synth) return; // DB 書き込みは実メモのみ
     try {
       await supabase
         .from('book_memos')
@@ -695,6 +743,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   useEffect(() => () => {
     if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
     if (flipEndTimerRef.current) clearTimeout(flipEndTimerRef.current);
+    if (recallApplyTimerRef.current) clearTimeout(recallApplyTimerRef.current);
   }, []);
 
   const toggleMonth = (key) => {
@@ -786,6 +835,27 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         />
       )}
 
+      {/* ⚠️ メモ取得だけ失敗し、本由来の派生ノート（まとめ/収穫等）だけで画面が
+          成立してしまった場合の注記。全画面エラーは allNotes が完全に空の時だけ
+          なので、ここが無いと「カードメモが全部消えた」ように見える。 */}
+      {fetchFailed && memos.length === 0 && (
+        <div
+          role="alert"
+          style={{
+            padding: '10px 14px', borderRadius: 'var(--radius-md)',
+            background: 'var(--c-soft)', border: '1px solid var(--c-hairline-strong)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+          }}
+        >
+          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.6 }}>
+            メモの読み込みに失敗しました（メモは消えていません）。
+          </p>
+          <button type="button" style={{ ...btnGhost, flexShrink: 0 }} onClick={() => fetchMemos()}>
+            再読み込み
+          </button>
+        </div>
+      )}
+
       {/* ⚠️ 動線再設計（2026-07-17 スクショ監査）:
           - 旧・最上段の「＋メモを追加」単独行（左が全部空白の孤立ボタン）は
             タイムラインのヘッダー行へ移設（メモ一覧の傍が意味的に正しい住処）。
@@ -868,16 +938,18 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 </button>
               )
             )}
-            {/* 🧠 間隔反復のフィードバック（実メモのみ・当日メモは除く）。
+            {/* 🧠 間隔反復のフィードバック（当日メモは除く）。
                 5 分前に書いた一行に「覚えた?」と聞くのは不自然で、「覚えた」を押すと
                 last_recalled_at が書かれて本来の初回想起がむしろ遅れる。当日メモには
-                正直な予告文だけを出す。 */}
+                正直な予告文だけを出す。synth（まとめ/収穫/行動の振り返り）にもボタンを
+                出す — 出さないと synth は永遠に due のままで想起プールを占拠する
+                （記録は端末ローカル。recordRandomRecall 参照）。 */}
             {!randomMemo.synth && !recallFraming(randomMemo.createdAt) && (
               <p style={{ fontSize: 11, color: 'var(--c-ink-2)', marginTop: 10, lineHeight: 1.7 }}>
                 🌱 これが、忘れた頃にそっと戻ってきます。
               </p>
             )}
-            {!randomMemo.synth && recallFraming(randomMemo.createdAt) && (
+            {recallFraming(randomMemo.createdAt) && (
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                 <button
                   type="button"

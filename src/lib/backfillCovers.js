@@ -25,10 +25,13 @@ import { findIsbnCandidates } from './bookSearch';
 const FLAG_KEY = 'cover-backfill-v4-done';
 const BATCH_LIMIT = 50;
 
+// 戻り値: DB の行を実際に書き換えたら true。呼び出し側（App.jsx）はこれが
+// true のときだけ refreshBooks する — no-op（既に実行済みフラグ等）でも毎回
+// 全 books を再フェッチしていた無駄な二重取得をやめる。
 export async function backfillCovers(supabase, userId) {
-  if (!supabase || !userId) return;
+  if (!supabase || !userId) return false;
   try {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem(FLAG_KEY)) return;
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(FLAG_KEY)) return false;
   } catch { /* ignore */ }
 
   try {
@@ -48,11 +51,11 @@ export async function backfillCovers(supabase, userId) {
       .limit(BATCH_LIMIT);
     if (error) {
       console.warn('[backfillCovers v3] fetch failed:', error?.message || error);
-      return;
+      return false;
     }
     if (!data || data.length === 0) {
       try { localStorage.setItem(FLAG_KEY, String(Date.now())); } catch { /* ignore */ }
-      return;
+      return false;
     }
 
     let resolved = 0;
@@ -120,7 +123,9 @@ export async function backfillCovers(supabase, userId) {
     }
 
     try { localStorage.setItem(FLAG_KEY, String(Date.now())); } catch { /* ignore */ }
+    return resolved + cleared > 0;
   } catch (e) {
     console.warn('[backfillCovers v3] error:', e?.message || e);
+    return false;
   }
 }
