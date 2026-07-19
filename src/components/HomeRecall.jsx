@@ -18,6 +18,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { MessageSquareQuote, X, Target, Check } from 'lucide-react';
 import { recallFraming, memoExcerpt, pickRecallMemo, recallPatch } from '../lib/recall';
+import { useToast } from './Toast';
+import { shouldAskForReview, markReviewAsked, askReviewToast } from '../lib/reviewRequest';
 import { track, EVENTS } from '../lib/analytics';
 
 const DISMISS_KEY = 'orime-home-recall-dismissed';
@@ -72,6 +74,7 @@ let _recallDayCache = { key: '', notes: null };
 export default function HomeRecall({ onOpen, onAction }) {
   const { user } = useAuth();
   const haptic = useHaptic();
+  const toast = useToast();
   const [memo, setMemo] = useState(null); // { id, text, createdAt, book }
   // 当日 dismiss 済みなら最初から描画しない（マウント時に確定）。
   const [dismissed, setDismissed] = useState(() => isDismissedToday());
@@ -224,6 +227,14 @@ export default function HomeRecall({ onOpen, onAction }) {
     e.stopPropagation();
     try { haptic.light(); } catch { /* non-critical */ }
     setDismissed(true);
+    // ⭐️ 初めて「本物の想起に『覚えた』と応えた」直後 = 核心価値を体感した
+    // 感情のピークで、一度だけ App Store レビューを依頼する（一度きり・
+    // 実ストア URL 未設定時は no-op。reviewRequest.js 参照）。プレビュー
+    // （書きたてメモの予告表示）は本物の想起ではないため対象外。
+    if (mastered && !memo.preview && shouldAskForReview()) {
+      markReviewAsked();
+      setTimeout(() => toast.show(askReviewToast()), 1200);
+    }
     // setDismissed は in-memory state なので、本棚⇄詳細の往復（再マウント）で消える。
     // 当日フラグを永続化しないと、日次キャッシュの古い lastRecalledAt を材料に
     // pickRecallMemo が同じメモを同日中に再選出してしまう（1日1枚の約束が壊れる）。

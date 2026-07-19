@@ -45,7 +45,16 @@ function StoreCta({ className, children, tabIndex }) {
   return <a href={APP_STORE_URL} className={className} tabIndex={tabIndex}>{children}</a>;
 }
 
-const PRICE_NOTE = '月 ¥1,480（税込）・いつでも解約できます・解約してもメモは残ります';
+// 🎁 無料トライアル表記（env ゲート）。App Store Connect で Introductory Offer を
+// 設定したら Vercel env に VITE_TRIAL_NOTE（例: 7日間無料）を入れる — ヒーロー・
+// sticky CTA・料金カード・FAQ・最終 CTA に一斉表示される。未設定の間は一切出ない
+// ＝ストアの実態と食い違う虚偽表示にならない（アプリ内 Paywall は iap.js がストア
+// の実プロダクトから無料期間を自動取得するため env 不要）。
+const TRIAL_NOTE = (import.meta.env.VITE_TRIAL_NOTE || '').trim();
+
+const PRICE_NOTE = TRIAL_NOTE
+  ? `${TRIAL_NOTE}・月 ¥1,480（税込）・いつでも解約できます・解約してもメモは残ります`
+  : '月 ¥1,480（税込）・いつでも解約できます・解約してもメモは残ります';
 
 // 🗣 社会的証明（お客様の声）枠。
 // ⚠️ ここには「実在ユーザーの本物の声」だけを入れる。捏造・盛り・架空の数字は
@@ -72,7 +81,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '料金はいくらですか？',
-    a: '月 ¥1,480、または年額 ¥12,800（月あたり約 ¥1,066）で、すべての機能をご利用いただけます。お支払いは App Store 経由（Apple ID）です。',
+    a: `${TRIAL_NOTE ? `まず${TRIAL_NOTE}でお試しいただけます。その後は` : ''}月 ¥1,480、または年額 ¥12,800（月あたり約 ¥1,066）で、すべての機能をご利用いただけます。お支払いは App Store 経由（Apple ID）です。`,
   },
   {
     q: '解約は簡単にできますか？',
@@ -259,7 +268,7 @@ export default function Landing() {
       >
         <div className="sticky-inner">
           <div className="sticky-price">
-            <span className="sticky-price-main">月 ¥1,480（税込）</span>
+            <span className="sticky-price-main">{TRIAL_NOTE ? `${TRIAL_NOTE}・月 ¥1,480` : '月 ¥1,480（税込）'}</span>
             <span className="sticky-price-sub">いつでも解約できます・データは残ります</span>
           </div>
           <StoreCta className="sticky-btn" tabIndex={showStickyCta ? undefined : -1}>
@@ -567,6 +576,11 @@ export default function Landing() {
           </h2>
 
           <div className="price-card">
+            {TRIAL_NOTE && (
+              <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: '#5c5043' }}>
+                🎁 まずは{TRIAL_NOTE}で、想起を体験
+              </p>
+            )}
             <div className="price-num" aria-label="月額1480円">
               <span className="price-yen">¥</span>
               <span className="price-main">1,480</span>

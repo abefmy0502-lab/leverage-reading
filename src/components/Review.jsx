@@ -22,6 +22,7 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import Spinner from './Spinner';
 import { relativeJa, recallFraming, pickRecallMemo, recallPatch } from '../lib/recall';
+import { shouldAskForReview, markReviewAsked, askReviewToast } from '../lib/reviewRequest';
 import { markActivation } from '../lib/activation';
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
 import { isNativePushCapable, getNativePushPermission, subscribeNativePush } from '../lib/nativePush';
@@ -954,7 +955,19 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 <button
                   type="button"
                   disabled={flipping}
-                  onClick={() => { if (flipping) return; recordRandomRecall(randomMemo, true); reroll(); }}
+                  onClick={() => {
+                    if (flipping) return;
+                    recordRandomRecall(randomMemo, true);
+                    reroll();
+                    // ⭐️ 初めて「本物の想起に『覚えた』と応えた」直後 = 核心価値を
+                    // 体感した感情のピークで、一度だけレビューを依頼する。実メモのみ
+                    // （synth は自分の一行ではないため対象外）。実ストア URL 未設定時
+                    // は no-op（reviewRequest.js 参照）。
+                    if (!randomMemo.synth && shouldAskForReview()) {
+                      markReviewAsked();
+                      setTimeout(() => toast.show(askReviewToast()), 1200);
+                    }
+                  }}
                   style={{
                     minHeight: 44, padding: '8px 16px', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--c-hairline-strong)', background: '#fff',

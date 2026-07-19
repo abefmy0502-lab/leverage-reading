@@ -298,7 +298,8 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `VITE_PRICE_MONTHLY_LABEL` | (任意) ペイウォール/設定の月額**表示用**ラベル。未設定なら「月額 ¥1,480（税込）」（`src/lib/billing.js` の既定値）。金額の真実は App Store / Stripe 側 |
 | `VITE_PRICE_ANNUAL_LABEL` | (任意) 年額**表示用**ラベル。未設定なら「年額 ¥12,800（税込・月あたり約¥1,066）」（`src/lib/billing.js` の既定値）。金額の真実は App Store / Stripe 側 |
 | `VITE_PRICE_ANNUAL_NOTE` | (任意) 年額の補足一言（例「まとめてお得」）。誇大表現は避ける |
-| `VITE_APP_STORE_URL` | (任意) App Store の実 URL。LP / Paywall / 設定 / Web 利用ゲートの「App Store で入手」導線が参照。未設定時は暫定 `https://apps.apple.com/jp/app/orime`。公開後に実 URL へ差替 |
+| `VITE_APP_STORE_URL` | (任意) App Store の実 URL。LP / Paywall / 設定 / Web 利用ゲートの「App Store で入手」導線が参照（`src/lib/appStore.js` に一元化・未設定時は「近日公開」表示）。公開後に実 URL へ差替。**実 URL が入ると ⭐️ レビュー依頼（`src/lib/reviewRequest.js`・初回の本物の想起に「覚えた」と応えた直後に一度だけトースト）も自動有効化** |
+| `VITE_TRIAL_NOTE` | (任意) 🎁 無料トライアルの LP 表記（例 `7日間無料`）。App Store Connect で Introductory Offer を設定したら入れる — LP のヒーロー・sticky CTA・料金カード・FAQ・最終 CTA に一斉表示。未設定の間は一切出ない（ストア実態と食い違う虚偽表示にならない）。アプリ内 Paywall は `iap.js` がストアの実プロダクトから無料期間を自動取得するため env 不要 |
 | `VITE_APPLE_SIGNIN_WEB` | (任意) 🍎 Web で「Appleでサインイン」ボタンを出すフラグ。`'true'` の時だけ表示。iOS(ネイティブ)は常時表示なので不要。Apple Developer の Service ID と Supabase Auth の Apple プロバイダ（Web 経路）の設定が済むまでは未設定のままにし、Web での誤爆を防ぐ。認証実装は `src/lib/appleAuth.js`（要外部設定はファイル冒頭コメント参照） |
 | `APNS_KEY_ID` | 🔔📱 ネイティブ想起プッシュ(APNs)の認証キー Key ID（`api/push-cron.js`）。サーバー専用 |
 | `APNS_TEAM_ID` | Apple Developer の Team ID（APNs JWT の iss）。サーバー専用 |
