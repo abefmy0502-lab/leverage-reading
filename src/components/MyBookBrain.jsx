@@ -767,11 +767,20 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       {/* Unified AI section header (AI 選書 と同じフォーマット) */}
       <div className="ai-section-header" style={{ padding: 0 }}>
         <h2>マイ読書脳</h2>
-        <p className="subtitle">
-          {(memoStats.cards + memoStats.summaries + memoStats.personal) > 0
-            ? <>根拠にできる メモ {memoStats.cards} / まとめ {memoStats.summaries} / 学び {memoStats.personal} 件</>
-            : '💡 質問は具体的に書くと精度が上がります'}
-        </p>
+        {/* 件数は表示で終わらせず、タップで 🧠知識ベース（内訳の管理画面）へ。 */}
+        {(memoStats.cards + memoStats.summaries + memoStats.personal) > 0 ? (
+          <button
+            type="button"
+            className="subtitle"
+            onClick={() => setView('knowledge')}
+            aria-label="知識ベースを開いて根拠の内訳を見る"
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', display: 'inline-flex', alignItems: 'center', gap: 2 }}
+          >
+            根拠にできる メモ {memoStats.cards} / まとめ {memoStats.summaries} / 学び {memoStats.personal} 件 ›
+          </button>
+        ) : (
+          <p className="subtitle">💡 質問は具体的に書くと精度が上がります</p>
+        )}
       </div>
 
       {/* Action pills — 中央揃え + コンパクト padding。4 つで画面いっぱい

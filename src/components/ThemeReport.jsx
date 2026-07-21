@@ -653,7 +653,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
 
               {/* 🎯 行動の鏡 — 学びが行動に変わっているかを実データで突きつける */}
               {!generating && !notice && reportText && actionStats && (
-                <ActionMirror stats={actionStats} memoTotal={scope?.memoTotal ?? 0} />
+                <ActionMirror stats={actionStats} memoTotal={scope?.memoTotal ?? 0} onOpenActions={onOpenActions} />
               )}
 
               {/* 📈 前回からの変化（端末ローカル比較・あるときだけ） */}
@@ -860,14 +860,30 @@ function CoreCard({ line }) {
 
 // 🎯 行動の鏡 — 宣言/完了/放置 を実データで表示し、学びが行動に変わっているかを
 // 突きつける（本田哲学の「実践してこそ」）。数値は AI ではなく actions の集計。
-function ActionMirror({ stats, memoTotal }) {
+function ActionMirror({ stats, memoTotal, onOpenActions }) {
   const { declared = 0, completed = 0, idle = 0, blindSpot = false, openSteps = [] } = stats || {};
-  const statBox = (n, k, color) => (
-    <div style={{ flex: 1, background: '#faf6ee', border: '1px solid var(--c-hairline)', borderRadius: 11, padding: '9px 4px', textAlign: 'center' }}>
-      <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color }}>{n}</div>
-      <div style={{ fontSize: 9.5, color: 'var(--c-ink-3)', marginTop: 5, letterSpacing: '.04em' }}>{k}</div>
-    </div>
-  );
+  // 数字が 1 以上 かつ 行動タブへの導線がある時だけタップ可能にする
+  // （数字を見る→中身を確かめる、を 1 タップで。0 件で空タブへ飛ばさない）。
+  const statBox = (n, k, color) => {
+    const base = { flex: 1, background: '#faf6ee', border: '1px solid var(--c-hairline)', borderRadius: 11, padding: '9px 4px', textAlign: 'center' };
+    const inner = (
+      <>
+        <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color }}>{n}</div>
+        <div style={{ fontSize: 9.5, color: 'var(--c-ink-3)', marginTop: 5, letterSpacing: '.04em' }}>{k}{onOpenActions && n > 0 ? ' ›' : ''}</div>
+      </>
+    );
+    if (!onOpenActions || n <= 0) return <div style={base}>{inner}</div>;
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenActions()}
+        aria-label={`${k}の行動を🎯行動タブで見る`}
+        style={{ ...base, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44 }}
+      >
+        {inner}
+      </button>
+    );
+  };
   return (
     <div style={{ ...card, padding: '14px 15px 15px' }}>
       <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 7, color: 'var(--c-ink)' }}>

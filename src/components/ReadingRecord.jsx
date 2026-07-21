@@ -225,20 +225,42 @@ function StatTile({ icon: Icon, value, label, onClick }) {
 }
 
 // N → M → K の「つながり」表示（読書→行動→収穫 / メモ→想起→覚えた の共通形）。
+// cell に onClick を渡すとそのセルがボタンになり、該当する一覧へ移動できる
+// （ラベル横に › が付く）。
 function FlowRow({ cells }) {
   const arrow = (
     <span aria-hidden="true" style={{ color: '#c3b9a4', fontWeight: 700, fontSize: 13, flexShrink: 0, paddingTop: 4 }}>→</span>
   );
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginTop: 12 }}>
-      {cells.map((c, i) => (
-        <FragmentLike key={c.label} first={i === 0} arrow={arrow}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, minWidth: 0, flex: 1 }}>
+      {cells.map((c, i) => {
+        const inner = (
+          <>
             <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
-            <span style={{ fontSize: 10, color: 'var(--c-ink-2)', textAlign: 'center', lineHeight: 1.3 }}>{c.label}</span>
-          </div>
-        </FragmentLike>
-      ))}
+            <span style={{ fontSize: 10, color: 'var(--c-ink-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+              {c.label}
+              {c.onClick && <ChevronRight size={10} aria-hidden="true" style={{ color: 'var(--c-ink-3)', flexShrink: 0 }} />}
+            </span>
+          </>
+        );
+        const base = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, minWidth: 0, flex: 1 };
+        return (
+          <FragmentLike key={c.label} first={i === 0} arrow={arrow}>
+            {c.onClick ? (
+              <button
+                type="button"
+                onClick={c.onClick}
+                aria-label={`${c.label}の一覧を見る`}
+                style={{ ...base, minHeight: 44, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div style={base}>{inner}</div>
+            )}
+          </FragmentLike>
+        );
+      })}
     </div>
   );
 }
@@ -773,8 +795,8 @@ export default function ReadingRecord({
         <p style={cardSub}>読んだ本が、行動の実行、そして学びの収穫へつながった数です。</p>
         <FlowRow
           cells={[
-            { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--c-ink-2)' },
-            { value: bookStats.actionsDone, label: '実行した行動', color: bookStats.actionsDone > 0 ? 'var(--c-positive)' : 'var(--c-ink-3)' },
+            { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--c-ink-2)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },
+            { value: bookStats.actionsDone, label: '実行した行動', color: bookStats.actionsDone > 0 ? 'var(--c-positive)' : 'var(--c-ink-3)', onClick: onShowActions && bookStats.actionsDone > 0 ? onShowActions : undefined },
             { value: bookStats.harvest, label: '残した収穫', color: bookStats.harvest > 0 ? '#a06a30' : 'var(--c-ink-3)' },
           ]}
         />
@@ -795,7 +817,7 @@ export default function ReadingRecord({
           <p style={cardSub}>戻ってきたメモを想起し、「覚えた」で記憶に残っていきます。</p>
           <FlowRow
             cells={[
-              { value: memoTotal, label: '残したメモ', color: 'var(--c-ink-2)' },
+              { value: memoTotal, label: '残したメモ', color: 'var(--c-ink-2)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
               { value: memoStats.recalled, label: '想起した', color: memoStats.recalled > 0 ? 'var(--c-brand)' : 'var(--c-ink-3)' },
               { value: memoStats.mastered, label: '覚えた', color: memoStats.mastered > 0 ? 'var(--c-positive)' : 'var(--c-ink-3)' },
             ]}

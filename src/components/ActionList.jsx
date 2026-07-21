@@ -349,14 +349,25 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 12, color: 'var(--c-brand)' }}>
+                {/* 数字は表示で終わらせず、下のフィルタへ直結する（行き止まり禁止）。 */}
+                <button
+                  type="button"
+                  onClick={() => setFilter('done')}
+                  aria-label="完了した行動の一覧を見る"
+                  style={{ fontSize: 12, color: 'var(--c-brand)', background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit' }}
+                >
                   <AnimatedNumber value={period.completed} duration={500} /> / {period.total} 完了
-                </div>
+                </button>
                 {stats.upcomingThisWeek > 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--c-critical)', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setFilter('upcoming'); setSortBy('deadline'); }}
+                    aria-label="今週期限の行動だけに絞り込む"
+                    style={{ fontSize: 11, color: 'var(--c-critical)', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                  >
                     <AlertCircle size={11} strokeWidth={1.75} aria-hidden="true" />
                     今週期限 {stats.upcomingThisWeek} 件
-                  </div>
+                  </button>
                 )}
               </div>
             </div>
