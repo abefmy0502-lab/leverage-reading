@@ -3858,7 +3858,30 @@ function AuthedApp() {
               </Suspense>
             ) : reviewSubTab === 'record' ? (
               <Suspense fallback={<Spinner />}>
-                <ReadingRecord books={books} />
+                <ReadingRecord
+                  books={books}
+                  // 📊 統計→中身への 1 タップ動線。既存の絞り込みを一度リセット
+                  // してから目的の条件だけを立てる（前の絞り込みが残っていると
+                  // 「読了 5 冊のはずが 2 冊しか出ない」ように見えるため）。
+                  onShowBooks={(status) => {
+                    setSearch(''); setMinRating(0); setTagFilter([]); setFolderFilter(null);
+                    setStatusFilter(status || 'all');
+                    navigateTab('books'); goList();
+                  }}
+                  onShowMemos={() => setReviewSubTab('note')}
+                  onShowActions={() => setReviewSubTab('action')}
+                  onOpenBook={(b) => { setTab('books'); openDetail(b); }}
+                  onFilterTag={(tag) => {
+                    setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter('all');
+                    setTagFilter([tag]);
+                    navigateTab('books'); goList();
+                  }}
+                  onSearchAuthor={(author) => {
+                    setMinRating(0); setTagFilter([]); setFolderFilter(null); setStatusFilter('all');
+                    setSearch(author);
+                    navigateTab('books'); goList();
+                  }}
+                />
               </Suspense>
             ) : (
               <ActionList
