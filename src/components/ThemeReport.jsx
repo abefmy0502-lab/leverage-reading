@@ -16,6 +16,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { useHaptic } from '../hooks/useHaptic';
 import { toMessage } from '../lib/errors';
+import { stripInlineMd } from '../lib/text';
 import { LIMITS } from '../lib/limits';
 import {
   listThemes,
@@ -920,7 +921,7 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
             {openSteps.map((s, i) => (
               <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12, lineHeight: 1.55, color: 'var(--c-ink-soft)' }}>
                 <span aria-hidden="true" style={{ color: '#c08a6a', flexShrink: 0, marginTop: 1, display: 'inline-flex' }}><SquareIcon size={13} /></span>
-                <span style={{ minWidth: 0 }}>{s}</span>
+                <span style={{ minWidth: 0 }}>{stripInlineMd(s)}</span>
               </div>
             ))}
           </div>

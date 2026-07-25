@@ -913,33 +913,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               onLongPress={(payload) => setMemoMenu(payload)}
               showRelative
             />
-            {/* 🔄→🎯 この気づきを、その場で行動に変える（本に紐づくメモのみ） */}
-            {onAddAction && booksById.get(randomMemo.bookId) && (
-              actionAddedId === randomMemo.id ? (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, fontWeight: 600, color: 'var(--c-brand)' }}>
-                  <Check size={15} aria-hidden="true" />
-                  行動リストに追加しました
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleMemoToAction(randomMemo)}
-                  disabled={addingAction}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10,
-                    minHeight: 44, padding: '8px 16px', borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--c-brand)', background: 'transparent',
-                    color: 'var(--c-brand)', fontSize: 13, fontWeight: 700,
-                    fontFamily: 'inherit', cursor: addingAction ? 'default' : 'pointer',
-                    opacity: addingAction ? 0.6 : 1,
-                  }}
-                >
-                  <Target size={15} aria-hidden="true" />
-                  この気づきを行動にする
-                </button>
-              )
-            )}
-            {/* 🧠 間隔反復のフィードバック（当日メモは除く）。
+            {/* 🧠 間隔反復のフィードバック（当日メモは除く）— 想起カードの主アクション
+                なので「行動にする」より先（上）に置く。ホームの想起カードと同じ並び順
+                （覚えた/もう一度 → 行動にする）に統一し、面ごとの学び直しを無くす。
                 5 分前に書いた一行に「覚えた?」と聞くのは不自然で、「覚えた」を押すと
                 last_recalled_at が書かれて本来の初回想起がむしろ遅れる。当日メモには
                 正直な予告文だけを出す。synth（まとめ/収穫/行動の振り返り）にもボタンを
@@ -969,9 +945,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                     }
                   }}
                   style={{
-                    minHeight: 44, padding: '8px 16px', borderRadius: 'var(--radius-md)',
+                    flex: 1, minHeight: 44, padding: '8px 12px', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--c-hairline-strong)', background: '#fff',
-                    color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
+                    color: 'var(--c-brand)', fontSize: 13, fontWeight: 700,
                     fontFamily: 'inherit', cursor: flipping ? 'default' : 'pointer', opacity: flipping ? 0.6 : 1,
                   }}
                 >
@@ -982,15 +958,41 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   disabled={flipping}
                   onClick={() => { if (flipping) return; recordRandomRecall(randomMemo, false); reroll(); }}
                   style={{
-                    minHeight: 44, padding: '8px 16px', borderRadius: 'var(--radius-md)',
+                    flex: 1, minHeight: 44, padding: '8px 12px', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--c-hairline-strong)', background: '#fff',
-                    color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
+                    color: 'var(--c-ink-2)', fontSize: 13, fontWeight: 600,
                     fontFamily: 'inherit', cursor: flipping ? 'default' : 'pointer', opacity: flipping ? 0.6 : 1,
                   }}
                 >
                   もう一度
                 </button>
               </div>
+            )}
+            {/* 🔄→🎯 この気づきを、その場で行動に変える（本に紐づくメモのみ・副アクション） */}
+            {onAddAction && booksById.get(randomMemo.bookId) && (
+              actionAddedId === randomMemo.id ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, fontWeight: 600, color: 'var(--c-brand)' }}>
+                  <Check size={15} aria-hidden="true" />
+                  行動リストに追加しました
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleMemoToAction(randomMemo)}
+                  disabled={addingAction}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8,
+                    width: '100%', minHeight: 44, padding: '8px 16px', borderRadius: 'var(--radius-md)',
+                    border: 'none', background: 'transparent',
+                    color: 'var(--c-brand)', fontSize: 13, fontWeight: 600,
+                    fontFamily: 'inherit', cursor: addingAction ? 'default' : 'pointer',
+                    opacity: addingAction ? 0.6 : 1,
+                  }}
+                >
+                  <Target size={15} aria-hidden="true" />
+                  この気づきを行動にする
+                </button>
+              )
             )}
           </div>
         )}

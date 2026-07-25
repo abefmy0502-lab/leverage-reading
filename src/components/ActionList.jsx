@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react';
 import { useAllActions } from '../hooks/useAllActions';
 import { ensureHttps } from '../lib/url';
+import { stripInlineMd } from '../lib/text';
 import { track, EVENTS } from '../lib/analytics';
 import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
@@ -33,6 +34,9 @@ const pillRow = {
   overflowX: 'auto',
   WebkitOverflowScrolling: 'touch',
   paddingBottom: 4,
+  // 右端をふわっと透過させ「横にまだ続きがある」を示す（本棚のチップ行と同じ流儀）。
+  WebkitMaskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
+  maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
 };
 
 const pill = (active, color = 'var(--c-brand)', bg = '#e8e0d2') => ({
@@ -230,7 +234,12 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
   const period = statsPeriod === 'all'
     ? { rate: stats.pct, completed: stats.completed, total: stats.total }
     : statsPeriod === 'month' ? stats.month : stats.week;
-  const pctColor = period.rate >= 80 ? 'var(--c-positive)' : period.rate >= 50 ? 'var(--color-accent)' : 'var(--c-critical)';
+  // 予定ゼロの期間は「0%（赤）」を出さない — 何も予定していないだけなのに
+  // 減点されたように見える。ニュートラル色 + 「—」表示に倒す。
+  const periodEmpty = period.total === 0;
+  const pctColor = periodEmpty
+    ? 'var(--c-ink-3)'
+    : period.rate >= 80 ? 'var(--c-positive)' : period.rate >= 50 ? 'var(--color-accent)' : 'var(--c-critical)';
 
   const handleKebab = (e, key) => {
     e.stopPropagation();
@@ -341,8 +350,14 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
               <div>
                 <div style={{ fontSize: 11, color: 'var(--c-ink-2)' }}>{periodLabel}の達成率</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, lineHeight: 1.1 }}>
-                  <AnimatedNumber value={period.rate} duration={700} />
-                  <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
+                  {periodEmpty ? (
+                    <span aria-label="この期間の予定はありません">—</span>
+                  ) : (
+                    <>
+                      <AnimatedNumber value={period.rate} duration={700} />
+                      <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
+                    </>
+                  )}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
                   {milestone}
@@ -539,7 +554,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
                       wordBreak: 'break-word',
                     }}
                   >
-                    {a.text}
+                    {stripInlineMd(a.text)}
                   </p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6, alignItems: 'center' }}>
                     <button
