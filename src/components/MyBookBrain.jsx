@@ -982,6 +982,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   </button>
                 </div>
               )}
+              {/* 汎用の質問例は、あなた専用の提案（上の「こんな質問から始められます」）
+                  が無い時だけ出す。両方並べると提案が二重になり、入力欄まで遠くなる。 */}
+              {suggestedQuestions.length === 0 && (
               <div style={card}>
                 <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: '0 0 8px', fontWeight: 500 }}>
                   <Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
@@ -1017,6 +1020,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   ))}
                 </div>
               </div>
+              )}
               </div>
             )
           )}

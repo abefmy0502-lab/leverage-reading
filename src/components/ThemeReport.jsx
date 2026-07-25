@@ -819,7 +819,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                 submitCustom();
               }
             }}
-            placeholder="例：営業 / リーダーシップ / 習慣"
+            placeholder="例：営業、習慣"
             maxLength={LIMITS.theme}
             style={{ ...inp, flex: 1, minWidth: 160 }}
           />

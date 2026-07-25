@@ -1162,11 +1162,15 @@ export async function generateWeeklyQuestion(userId) {
     || isSuspiciousOutput(result)) {
     return null;
   }
-  // 前置き・記号・カギ括弧を落として 1 文に整える。
-  const cleaned = clamp(
-    sanitizeForPrompt(result).replace(/^[「『"'\-\d.\s]+/, '').replace(/[」』"']+$/, '').trim(),
-    90,
-  );
+  // 前置き・記号を落として 1 文に整える。
+  // ⚠️ カギ括弧は「全体が括弧で包まれている時」だけ剥がす — 先頭から無条件に
+  // 剥がすと『無敗営業』のような書名で始まる問いの開き『だけが食われ、
+  // 「無敗営業』で…」という壊れた表示になる（実機で発生していた）。
+  let q = sanitizeForPrompt(result).trim();
+  const wrapped = /^[「『"'](.+)[」』"']$/s.exec(q);
+  if (wrapped) q = wrapped[1].trim();
+  q = q.replace(/^[-\d.\s]+/, '').trim();
+  const cleaned = clamp(q, 90);
   if (!cleaned) return null;
   track('ai_used', { feature: 'weekly_q' });
   return cleaned;

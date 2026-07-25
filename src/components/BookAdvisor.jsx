@@ -1005,6 +1005,30 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         </div>
       )}
 
+      {/* 🧭 初期状態の「この先どうなるか」プレビュー。以前はチップの下から
+          入力欄まで広大な空白で、何が起きるのか分からないまま入力を求めていた。
+          流れを 3 歩で静かに見せる（装飾ではなく不安の除去）。 */}
+      {showConcernInput && !interviewLoading && (
+        <div style={{ margin: '18px 0 0', padding: '14px 15px', background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 'var(--radius-md)' }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-ink-3)', letterSpacing: '.08em', margin: '0 0 10px' }}>
+            この後の流れ
+          </p>
+          {[
+            ['1', '課題や気分をひとこと送る'],
+            ['2', 'AI が 2〜3 問だけ、あなたに合わせて聞き返す'],
+            ['3', 'いま読むべき日本語の本を、理由つきで提案'],
+          ].map(([n, t]) => (
+            <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
+              <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 999, background: 'var(--c-soft-2)', color: 'var(--c-brand)', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{n}</span>
+              <span style={{ fontSize: 12.5, color: 'var(--c-ink-soft)', lineHeight: 1.6 }}>{t}</span>
+            </div>
+          ))}
+          <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '8px 0 0', lineHeight: 1.6 }}>
+            気に入った本は 1 タップで本棚の「読みたい」へ。
+          </p>
+        </div>
+      )}
+
       {/* ガイド付きヒアリング — 質問生成中のローディング（初回 or 深掘り） */}
       {interviewLoading && (
         <div style={advisorWizardCard}>
