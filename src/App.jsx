@@ -117,6 +117,7 @@ import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
 import { getRandomFromCategory } from './lib/quotes';
+import { loadNavState, saveNavState } from './lib/navState';
 import {
   BookOpen,
   RotateCcw,
@@ -401,6 +402,11 @@ function AuthedApp() {
 
   // アプリを離れて戻ると（特に iOS PWA の再読込で）毎回 books に戻るのを防ぐ。
   // 直近のタブを localStorage に保存し、起動時に復元する。'books'/'review'/'ai' のみ許可。
+  // 🔁 画面復元スナップショット（lib/navState.js）。iOS はアプリを少し離れた
+  // だけでプロセスを破棄→リロードすることがあるため、60 分以内の再起動なら
+  // 直前の画面（タブ/サブタブ/開いていた本）に静かに戻す。初回マウントで
+  // 一度だけ読む（以後の保存で上書きされるスナップショットを固定するため）。
+  const [resumeNav] = useState(() => loadNavState());
   const [tab, setTab] = useState(() => {
     try {
       const saved = localStorage.getItem('activeTab');
@@ -438,8 +444,14 @@ function AuthedApp() {
   // タブ名「振り返り」・アイコン(RotateCcw)・LP の筆頭訴求「忘れた頃に戻る」と
   // 入口の実体を一致させるため（CPO 監査 2-2: 旧・行動起点は名前と中身の不一致）。
   // 個別画面への明示遷移（想起ディープリンク等）は setReviewSubTab/setAiSubTab で上書きする。
-  const [reviewSubTab, setReviewSubTab] = useState('note');
-  const [aiSubTab, setAiSubTab] = useState('advisor');
+  // 例外: 60 分以内のプロセス破棄→再起動（resumeNav あり）は「ユーザーの遷移」では
+  // なく OS 都合のリロードなので、直前に見ていたサブタブへそのまま戻す。
+  const [reviewSubTab, setReviewSubTab] = useState(() => (
+    ['note', 'action', 'record'].includes(resumeNav?.reviewSubTab) ? resumeNav.reviewSubTab : 'note'
+  ));
+  const [aiSubTab, setAiSubTab] = useState(() => (
+    ['advisor', 'brain', 'report'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'advisor'
+  ));
   // 📐→🕰 テーマまとめから「このテーマの足あとを見る」で、マイ読書脳の足あとビューへ
   // テーマを引き継いで遷移するためのプリセット。nonce で毎回の遷移を区別する。
   const [journeyPreset, setJourneyPreset] = useState(null); // { theme, nonce } | null
@@ -540,19 +552,20 @@ function AuthedApp() {
 
   // ── 画面復帰（iOS PWA リロード対策）─────────────────────────────────
   // バックグラウンドでメモリから落とされると、戻った時にアプリがまるごと
-  // リロードされ state が初期化される。タブに加えて「開いていた本/詳細」も
-  // 保存し、books 読込後に同じ画面へ戻す。
-  // ※ 初回マウントで下の persist effect が navState を上書きする前に、
-  //    前回保存値を ref に退避しておく（こうしないと復元前に消える）。
-  const initialNavRef = useRef(undefined);
-  if (initialNavRef.current === undefined) {
-    try { initialNavRef.current = JSON.parse(localStorage.getItem('navState') || 'null'); }
-    catch { initialNavRef.current = null; }
-  }
+  // リロードされ state が初期化される。タブ（activeTab で別途復元）に加えて
+  // サブタブと「開いていた本/詳細」を lib/navState.js（60 分 TTL）に保存し、
+  // 一定時間内の再起動なら同じ画面へ静かに戻す。復元スナップショットは
+  // 上の resumeNav（初回マウントで一度だけ読む）— この persist effect が
+  // 上書きする前に確定している。
   useEffect(() => {
-    try { localStorage.setItem('navState', JSON.stringify({ view, bookId: current?.id || null })); }
-    catch { /* ignore */ }
-  }, [view, current]);
+    saveNavState({
+      tab,
+      reviewSubTab,
+      aiSubTab,
+      view,
+      bookId: current?.id || null,
+    });
+  }, [tab, reviewSubTab, aiSubTab, view, current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const navRestoredRef = useRef(false);
   const [form, setForm] = useState(emptyBook());
   const [search, setSearch] = useState("");
@@ -1169,19 +1182,22 @@ function AuthedApp() {
   }, [pendingRecallMemoId, booksLoading, rawBooks, openDetail]);
 
   // 🔁 リロード後（books 読込完了）に一度だけ、離脱直前に開いていた本の詳細へ復帰。
-  // タブは 'activeTab' で別途復元済み。詳細/編集だった時のみ、その本を開き直す
-  // （編集は未保存フォームが失われているので detail に着地させる）。本が削除済み
-  // なら何もしない（一覧のまま）。想起ディープリンク処理中はそちらに譲る。
+  // タブは 'activeTab'、サブタブは resumeNav の初期値で復元済み。詳細/編集だった
+  // 時のみ、その本を開き直す（編集は未保存フォームが失われているので detail に
+  // 着地させる）。本が削除済みなら何もしない（一覧のまま）。想起ディープリンク
+  // 処理中はそちらに譲る。60 分超の再起動は resumeNav=null で通常起動。
   useEffect(() => {
     if (navRestoredRef.current || booksLoading) return;
     navRestoredRef.current = true;
     if (pendingRecallMemoId) return;
-    const nav = initialNavRef.current;
+    const nav = resumeNav;
     if (nav && (nav.view === 'detail' || nav.view === 'edit') && nav.bookId) {
+      // ユーザーが復元より先に自分で画面を動かしていたら邪魔しない。
+      if (viewRef.current !== 'list') return;
       const b = rawBooks.find((x) => x.id === nav.bookId);
       if (b) openDetail(b);
     }
-  }, [booksLoading, pendingRecallMemoId, rawBooks, openDetail]);
+  }, [booksLoading, pendingRecallMemoId, rawBooks, openDetail, resumeNav]);
 
   // 本棚カードの long-press から context menu を開く安定参照。payload には
   // long-press フックが {x, y, book} を載せてくるのでそのまま state へ。
