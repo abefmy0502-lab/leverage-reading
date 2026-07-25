@@ -95,10 +95,15 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  // 取得失敗（通信断など）は「候補 0 件」と区別する。混同すると「この本には
+  // 表紙が存在しない」と誤解させ、再試行せず手動アップロードに追い込んでしまう。
+  const [fetchFailed, setFetchFailed] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setFetchFailed(false);
       try {
         const meta = await findIsbnCandidatesWithMetadata(book.title, book.author);
         // 自分自身の ISBN を先頭に置く (現在の表紙の出典として認識しやすい)
@@ -129,12 +134,14 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
         if (cancelled) return;
         const list = resolved.filter(Boolean);
         setCandidates(list);
+      } catch {
+        if (!cancelled) setFetchFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [book.title, book.author, book.isbn, book.id]);
+  }, [book.title, book.author, book.isbn, book.id, retryNonce]);
 
   if (typeof document === 'undefined') return null;
 
@@ -167,6 +174,28 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                 }}
               />
               <span style={{ fontSize: 12 }}>候補を取得中…</span>
+            </div>
+          ) : fetchFailed ? (
+            <div
+              style={{
+                padding: '20px 16px',
+                background: 'var(--c-soft)',
+                border: '1px solid var(--c-hairline)',
+                borderRadius: 10,
+                fontSize: 13,
+                color: 'var(--c-brand)',
+                lineHeight: 1.7,
+                textAlign: 'center',
+              }}
+            >
+              表紙を探せませんでした。通信環境を確認してください。
+              <button
+                type="button"
+                onClick={() => setRetryNonce((n) => n + 1)}
+                style={{ display: 'block', margin: '10px auto 0', minHeight: 44, padding: '10px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--c-hairline-strong)', background: 'var(--c-card)', color: 'var(--c-brand)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                もう一度探す
+              </button>
             </div>
           ) : candidates.length === 0 ? (
             <div

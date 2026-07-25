@@ -1248,11 +1248,13 @@ function AuthedApp() {
     const existing = findDuplicateBook(books, candidate);
     if (!existing) return false;
     const statusLabel = STATUS_LABEL[existing.status] || '本棚';
+    // ボタンは「押したら何が起きるか」を正確に言う（既存本を開くと今の入力は
+    // 保存されない。旧: 「📖 既存の本を見る / ← 戻る」で入力破棄が伝わらなかった）。
     const ok = await confirm({
       title: 'この本は既に本棚にあります',
-      message: `「${existing.title}」は ${statusLabel} として登録済みです。`,
-      confirmLabel: '📖 既存の本を見る',
-      cancelLabel: '← 戻る',
+      message: `『${existing.title}』は「${statusLabel}」として登録済みです。既存の本を開くと、いま入力中の内容は保存されません。`,
+      confirmLabel: '既存の本を開く',
+      cancelLabel: 'このまま編集を続ける',
     });
     if (ok) openDetail(existing);
     return true;
@@ -1777,15 +1779,16 @@ function AuthedApp() {
     if (newStatus === "done" && !fresh.doneDate) patch.doneDate = new Date().toISOString().slice(0, 10);
     const updated = { ...fresh, ...patch };
 
-    // Optimistic update。読了・読書開始は「読む体験」の節目なので、編集フォームでは
-    // なく本詳細に着地させる（読了の祝福・新バッジが自然な場所で出る／読書中はその場で
-    // メモを始められる）。積読(before)は設計シートが主役なので従来どおり編集へ。
+    // Optimistic update。ステータスを 1 つ進めるタップは、どの遷移でも本詳細に
+    // 着地させる（旧: want→before だけ長い編集フォームに強制連行され「積読に
+    // 積んだだけなのに入力を迫られる」非可逆感が最大の離脱ポイントだった）。
+    // before の読書計画は、詳細上部の「AI 読書計画を完了しよう」カードが導線を持つ。
     // books state（booksRef 経由の並行操作の読み取り元）にも即時反映する — ここを
     // 更新しないと、保存ラウンドトリップ中の行動トグル等が旧ステータスを読み、
     // その stale UPDATE がステータス変更を DB 上で巻き戻す。
     setCurrent(updated);
     setForm({ ...emptyBook(), ...updated, tags: updated.tags || [], actions: updated.actions || [] });
-    setView((newStatus === 'done' || newStatus === 'reading') ? 'detail' : 'edit');
+    setView('detail');
     mutateBookLocal(book.id, (b) => ({ ...b, ...patch }));
 
     // Persist on the per-book serialization chain; roll back on failure.
@@ -2912,7 +2915,12 @@ function AuthedApp() {
           {current.startDate && <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginTop: 10 }}>📅 開始: {current.startDate}</p>}
           {current.doneDate && <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginTop: 2 }}>📅 完了: {current.doneDate}</p>}
 
-          {current.investPurpose && <Card label="目的・課題・仮説" text={current.investPurpose} />}
+          {/* ラベルは中身と一致させる。旧: 1 枚だけなのに「目的・課題・仮説」と
+              名乗り、課題(currentChallenge)・仮説(hypothesis)はどこにも表示されず
+              「入力したのに消えた」ように見えていた。 */}
+          {current.investPurpose && <Card label="この本から得たいこと" text={current.investPurpose} />}
+          {current.currentChallenge && <Card label="現在の課題" text={current.currentChallenge} />}
+          {current.hypothesis && <Card label="仮説" text={current.hypothesis} />}
 
           {/* AI 出力（解析 / 読書計画シート）はデフォルト折りたたみ。
               スクロール量を圧縮し、必要な時に展開する。 */}
@@ -2982,17 +2990,21 @@ function AuthedApp() {
                   ? "📚 心が動いた一行は、いつでも残せます。"
                   : "📊 今は読む準備をする段階です。読み始めたら、一行メモを残していきましょう。"}
               </p>
+              {/* 進行の主ボタン（下部の「積読に積む」等）と同じ茶ベタを並べると
+                  正道が読めなくなるため、こちらは控えめなテキスト調に降格。
+                  絵文字と引用符強調も外す（翻訳調の解消）。 */}
               <button
                 type="button"
                 onClick={() => { advanceStatus(current, "reading"); setQuickMemoOpen(true); }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
-                  minHeight: 44, padding: "10px 16px", borderRadius: 'var(--radius-md)', border: "none",
-                  background: "var(--c-brand)", color: "var(--c-brand-ink)",
-                  fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                  minHeight: 44, padding: "10px 4px", border: "none",
+                  background: "none", color: "var(--c-brand)",
+                  fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  textDecoration: "underline", textUnderlineOffset: 3,
                 }}
               >
-                ✍️ 「読書中」にして、いま一行メモを残す
+                もう読み始めている？ 読書中にして一行メモを残す
               </button>
             </div>
           )}
@@ -3201,10 +3213,30 @@ function AuthedApp() {
               }
               onClose={() => setQuickMemoOpen(false)}
               onCreate={async (payload) => {
-                await currentMemoOps.createMemo(payload);
+                const result = await currentMemoOps.createMemo(payload);
                 // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
                 haptic.success();
-                toast.success('メモを保存しました。');
+                // 🎯 保存直後に「行動にする」を 1 タップで提案（カード式と同じ動線）。
+                // クイックメモは最頻の書き込み経路なので、ここが出ないと大多数の
+                // メモが「保存して終わり」になる。
+                const actionText = (result?.text ?? payload?.text ?? '').trim();
+                if (actionText && current?.id) {
+                  toast.show({
+                    type: 'success',
+                    message: 'メモを保存しました。',
+                    duration: 6000,
+                    action: {
+                      label: '🎯 行動にする',
+                      onClick: () => addActionFromMemo(current.id, {
+                        text: actionText,
+                        sourceMemoId: typeof result?.id === 'string' ? result.id : null,
+                        sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
+                      }),
+                    },
+                  });
+                } else {
+                  toast.success('メモを保存しました。');
+                }
               }}
               onOpenFullEditor={(prefill) => {
                 setQuickMemoOpen(false);
@@ -3271,22 +3303,29 @@ function AuthedApp() {
                     onClick: () => openSetup(current),
                   }]
                 : []),
-              ...(current.status === 'reading' || current.status === 'done'
-                ? [{
-                    label: '積読に戻す',
-                    icon: '📚',
-                    onClick: async () => {
-                      const ok = await confirm({
-                        title: '積読に戻しますか？',
-                        message: 'ステータスを「積読」に戻します。メモや行動などのデータは保持されます。',
-                        confirmLabel: '戻す',
-                        cancelLabel: 'キャンセル',
-                      });
-                      if (!ok) return;
-                      advanceStatus(current, 'before');
-                    },
-                  }]
-                : []),
+              // どのステータスからも「1 つ前」に戻せる（旧: reading/done→積読 の
+              // 2 段戻りしか無く、読了を読書中に戻したい・積読を読みたいに戻したい
+              // 人の行き場が無かった）。データは常に保持される。
+              ...((() => {
+                const prevOf = { before: 'want', reading: 'before', done: 'reading' };
+                const prev = prevOf[current.status];
+                if (!prev) return [];
+                const prevLabel = STATUS_LABEL[prev] || prev;
+                return [{
+                  label: `「${prevLabel}」に戻す`,
+                  icon: '↩️',
+                  onClick: async () => {
+                    const ok = await confirm({
+                      title: `「${prevLabel}」に戻しますか？`,
+                      message: `ステータスを「${prevLabel}」に戻します。メモや行動などのデータは保持されます。`,
+                      confirmLabel: '戻す',
+                      cancelLabel: 'キャンセル',
+                    });
+                    if (!ok) return;
+                    advanceStatus(current, prev);
+                  },
+                }];
+              })()),
               { label: '表紙を取り直す', icon: '🔄', onClick: () => refreshCoverFor(current) },
               { label: '表紙を手動でアップロード', icon: '🖼', onClick: () => triggerManualCoverUpload(current) },
               ...(current.cover ? [{ label: '表紙を削除', icon: '🗑', onClick: () => removeCoverFor(current) }] : []),

@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { analyzeBookLearnings } from '../lib/ai';
 import { toMessage } from '../lib/errors';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
 import { Sparkles, Target, Check, Plus } from 'lucide-react';
@@ -63,6 +64,7 @@ const addChip = (added) => ({
 
 export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBook }) {
   const toast = useToast();
+  const confirmDialog = useConfirm();
   const [state, setState] = useState({ status: 'idle' }); // idle|loading|done|thin|error
   const [added, setAdded] = useState(() => new Set());
   const [saved, setSaved] = useState(false);
@@ -198,7 +200,20 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
             </div>
           )}
 
-          <button type="button" style={{ ...analyzeBtn, background: 'transparent', color: 'var(--c-ink-2)', border: '1px solid var(--c-hairline-strong)', minHeight: 40 }} onClick={run}>
+          <button
+            type="button"
+            style={{ ...analyzeBtn, background: 'transparent', color: 'var(--c-ink-2)', border: '1px solid var(--c-hairline-strong)', minHeight: 44 }}
+            onClick={async () => {
+              // 今の結果は破棄される（AI コールも再消費）。無警告でやり直さない。
+              const ok = await confirmDialog({
+                title: 'もう一度分析しますか？',
+                message: '今の分析結果は新しい結果に置き換わります。',
+                confirmLabel: '分析し直す',
+                cancelLabel: 'キャンセル',
+              });
+              if (ok) run();
+            }}
+          >
             もう一度分析する
           </button>
         </div>

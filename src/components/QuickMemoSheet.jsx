@@ -9,6 +9,7 @@ import { LIMITS } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import { BookOpen, Sparkles, Undo2, Mic, X } from 'lucide-react';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
@@ -132,6 +133,9 @@ const detailLink = {
   fontFamily: 'inherit',
   textDecoration: 'underline',
   padding: '8px 4px',
+  minHeight: 44,
+  display: 'inline-flex',
+  alignItems: 'center',
   flex: 1,
   textAlign: 'left',
 };
@@ -177,6 +181,7 @@ export default function QuickMemoSheet({
   // ♿ Tab をシート内に閉じ込め、閉じたら元の要素へ復帰（aria-modal と実挙動を一致）。
   const trapRef = useFocusTrap(true);
   const toast = useToast();
+  const confirmDialog = useConfirm();
 
   const handleCondense = async () => {
     if (condensing) return;
@@ -247,7 +252,22 @@ export default function QuickMemoSheet({
   // (errorMsg) がアンマウントで消え、ユーザーに結果が届かない。
   // condensing（AI 凝縮中）も閉じさせない — backdrop/Esc で閉じると結果と下書きが
   // 破棄され AI コストだけ消費する。busy と同格のガードにする。
-  const requestClose = () => { if (busy || condensing) return; animateClose(); };
+  // 書きかけの本文がある時は、backdrop/Esc/下スワイプのどこから閉じても
+  // 一度だけ確認を挟む（誤タップ 1 回で下書きが消える事故を防ぐ）。
+  const requestClose = async () => {
+    if (busy || condensing) return;
+    if (text.trim()) {
+      const ok = await confirmDialog({
+        title: '書きかけのメモを破棄しますか？',
+        message: '保存されていない内容は失われます。',
+        confirmLabel: '破棄する',
+        cancelLabel: '書き続ける',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    animateClose();
+  };
 
   // 下スワイプで閉じる（iOS のシート標準所作。ハンドル/ヘッダー起点のみ —
   // 本文 textarea のスクロール/選択とは競合させない）。
@@ -275,6 +295,13 @@ export default function QuickMemoSheet({
     const el = sheetRef.current;
     el.style.transition = 'transform .22s cubic-bezier(0.2,0.9,0.3,1)';
     if (dy > 110 && !busy && !condensing) {
+      // 書きかけがある時は勝手に閉じず、シートを戻してから確認を出す
+      // （backdrop / Esc と同じガードに合流）。
+      if (text.trim()) {
+        el.style.transform = '';
+        requestClose();
+        return;
+      }
       el.style.transform = 'translateY(100%)';
       setTimeout(() => onClose?.(), 200);
     } else {

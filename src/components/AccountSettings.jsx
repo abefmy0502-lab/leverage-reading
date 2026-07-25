@@ -24,7 +24,7 @@ import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
 import { isNative, purchasePlan, openManageSubscriptions, APP_PLAN_LABELS, getStoreLabels } from '../lib/iap';
-import { btnPrimary as uiBtnPrimary, btnDanger as uiBtnDanger } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnDanger as uiBtnDanger } from '../styles/ui';
 import {
   Settings as IcSettings, CreditCard as IcCard, Bell as IcBell, Download as IcDownload,
   FileText as IcFileText, BarChart3 as IcBar, RefreshCw as IcRefresh, Mail as IcMail,
@@ -138,6 +138,9 @@ function GroupLabel({ children }) {
 // iOS 風トグルスイッチ。on/off が「色＋ノブ位置」で一目で分かるので、
 // 「オン（タップでオフ）」のように状態と操作をラベルに詰め込む分かりにくさを解消する。
 function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaLabel }) {
+  // ボタン自体は 44px 以上のヒット領域（透明）にし、見た目のトラック（51×31）は
+  // 内側の span に持たせる。旧: button=トラックだったため実タップ高 31px で
+  // iOS 最低ライン（44px）未満だった。
   return (
     <button
       type="button"
@@ -148,19 +151,32 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
       disabled={disabled || busy}
       onClick={onChange}
       style={{
-        position: 'relative',
         flexShrink: 0,
-        width: 51,
-        height: 31,
-        borderRadius: 999,
+        minWidth: 59,
+        minHeight: 44,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         border: 'none',
         padding: 0,
+        background: 'none',
         cursor: disabled || busy ? 'default' : 'pointer',
-        background: checked ? 'var(--c-brand)' : '#d6cfc2',
-        transition: 'background 220ms ease',
         opacity: busy ? 0.6 : 1,
+        fontFamily: 'inherit',
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'relative',
+          display: 'inline-block',
+          width: 51,
+          height: 31,
+          borderRadius: 999,
+          background: checked ? 'var(--c-brand)' : '#d6cfc2',
+          transition: 'background 220ms ease',
+        }}
+      >
       <span
         aria-hidden="true"
         style={{
@@ -175,6 +191,7 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
           transition: 'left 220ms cubic-bezier(0.3, 1.3, 0.6, 1)',
         }}
       />
+      </span>
     </button>
   );
 }
@@ -209,6 +226,7 @@ const sectionDescStyle = { fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 1
 const sectionNoteStyle = { fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 };
 
 const btnPrimary = uiBtnPrimary;
+const btnGhost = uiBtnGhost;
 const btnDanger = uiBtnDanger;
 
 const inputStyle = {
@@ -515,7 +533,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = await confirm({
       title: 'データを初期化しますか？',
       message:
-        '本・メモ・写真・行動リスト・対話履歴・タグ・テーマ履歴など、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
+        '本・メモ・写真・行動リスト・対話履歴・タグ・テーマまとめなど、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
       confirmLabel: '初期化する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -586,7 +604,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = await confirm({
       title: '本当にすべて削除しますか？',
       message:
-        '本・メモ・写真・対話履歴・行動リスト・タグ — すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
+        '本・メモ・写真・行動リスト・対話履歴・タグ・テーマまとめ・AI 選書の履歴など、すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -710,9 +728,22 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         </div>
 
         <div style={bodyStyle}>
-          <div>
-            <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0 }}>ログイン中</p>
-            <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0 }}>ログイン中</p>
+              <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
+            </div>
+            {/* ログアウトはここが唯一の導線。以前は退会ボタンしか無く、アカウントを
+                切り替えたい人が行き止まりだった。 */}
+            <button
+              type="button"
+              style={{ ...btnGhost, width: 'auto', minHeight: 44, padding: '8px 14px', fontSize: 13, flexShrink: 0 }}
+              onClick={async () => {
+                try { await signOut(); onClose?.(); } catch { toast.error('ログアウトに失敗しました。'); }
+              }}
+            >
+              ログアウト
+            </button>
           </div>
 
           {/* 🛰️ 運営（管理者のみ表示） */}
@@ -755,8 +786,19 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     ? '解約・プラン変更は App Store のサブスク設定から。いつでも解約でき、データは保持されます。'
                     : subscription?.stripeCustomerId
                       ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
-                      : 'いつでも解約でき、データは保持されます。解約・変更のご希望は、画面下部の「お問い合わせ」よりご連絡ください。'}
+                      : 'いつでも解約でき、データは保持されます。'}
                 </p>
+                {/* 管理ボタンを出せない契約状態では、探させずにその場で連絡導線を置く
+                    （旧: 「画面下部のお問い合わせから」と 12px の下端リンクを自力で
+                    探させる行き止まりだった）。 */}
+                {!isNative && !subscription?.stripeCustomerId && (
+                  <a
+                    href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更の相談')}`}
+                    style={{ ...btnGhost, textDecoration: 'none' }}
+                  >
+                    解約・変更を問い合わせる
+                  </a>
+                )}
                 {isNative ? (
                   <button
                     type="button"
@@ -799,15 +841,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     type="button"
                     aria-label={`${planLabels.monthly.price} で契約`}
                     style={{
-                      ...btnPrimary,
+                      ...btnGhost,
                       flexDirection: 'column',
                       gap: 2,
                       height: 'auto',
                       paddingTop: 12,
                       paddingBottom: 12,
-                      background: 'transparent',
-                      color: 'var(--c-brand)',
-                      border: '1px solid var(--c-hairline-strong)',
                       opacity: billingBusy ? 0.6 : 1,
                     }}
                     disabled={billingBusy}
@@ -908,7 +947,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 14px', lineHeight: 1.6 }}>
               本・メモ・タグ・行動・対話履歴をまとめた表。Excel / Numbers で開けます。
             </p>
-            <button type="button" aria-label="文章で読み返す（Markdown で書き出す）" style={{ ...btnPrimary, background: 'transparent', color: 'var(--c-brand)', border: '1px solid var(--c-hairline-strong)', opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
+            <button type="button" aria-label="文章で読み返す（Markdown で書き出す）" style={{ ...btnGhost, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
               {exportingMd ? '書き出し中…' : '文章で読み返す（Markdown）'}
             </button>
             <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 0', lineHeight: 1.6 }}>
@@ -943,13 +982,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <button
               type="button"
               aria-label="読み込み直す"
-              style={{
-                ...btnPrimary,
-                background: 'transparent',
-                color: 'var(--c-brand)',
-                border: '1px solid var(--c-hairline-strong)',
-                opacity: updating ? 0.6 : 1,
-              }}
+              style={{ ...btnGhost, opacity: updating ? 0.6 : 1 }}
               disabled={updating}
               onClick={handleForceUpdate}
             >
@@ -975,12 +1008,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           <section style={sectionStyle} aria-label="データを初期化">
             <SecTitle icon={IcEraser}>データを初期化（ログインは残す）</SecTitle>
             <p style={sectionDescStyle}>
-              <strong>ログインはそのまま、データだけ</strong>をすべて消して、まっさらな状態から始め直します。本・メモ・写真・行動・対話履歴・テーマ履歴が対象です。この操作は取り消せません。
+              <strong>ログインはそのまま、データだけ</strong>をすべて消して、まっさらな状態から始め直します。本・メモ・写真・行動・対話履歴・テーマまとめが対象です。この操作は取り消せません。
             </p>
             <button
               type="button"
               aria-label="データを初期化する"
-              style={{ ...btnPrimary, background: 'transparent', color: 'var(--c-critical)', border: '1px solid var(--c-critical-line)', boxShadow: 'none', opacity: resetting ? 0.6 : 1 }}
+              style={{ ...btnPrimary, background: 'var(--c-critical-soft)', color: 'var(--c-critical)', border: '1px solid var(--c-critical)', boxShadow: 'none', opacity: resetting ? 0.6 : 1 }}
               disabled={resetting}
               onClick={handleResetData}
             >
@@ -1000,8 +1033,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               <p style={{ fontSize: 12, color: 'var(--c-critical)', margin: '0 0 10px', lineHeight: 1.7, fontWeight: 600 }}>
                 ⚠️ 退会してもサブスクの課金は自動で止まりません。
                 {isNative
-                  ? '先に「プラン管理」から App Store でサブスクを解約してください。'
-                  : '先に「プラン管理」からサブスクを解約してください。'}
+                  ? '先に上の「サブスクリプションを管理（App Store）」から解約してください。'
+                  : '先に上の「プランを管理する」から解約してください。'}
               </p>
             )}
             {!deleteOpen ? (
@@ -1025,47 +1058,63 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   autoCorrect="off"
                   spellCheck={false}
                 />
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    type="button"
-                    aria-label="削除をキャンセル"
-                    style={{ ...btnPrimary, background: 'transparent', color: 'var(--c-brand)', border: '1px solid var(--c-hairline-strong)', flex: 1 }}
-                    onClick={() => { setDeleteOpen(false); setConfirmText(''); }}
-                    disabled={deleting}
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="アカウントを完全に削除"
-                    style={{ ...btnDanger, flex: 1, opacity: deleting || confirmText.trim() !== expectedConfirm ? 0.5 : 1 }}
-                    disabled={deleting || confirmText.trim() !== expectedConfirm}
-                    onClick={handleDelete}
-                  >
-                    {deleting ? '削除中…' : '完全に削除'}
-                  </button>
-                </div>
+                {/* 活性判定は handleDelete と同じ正規化（trim + 小文字化）で統一する。
+                    旧: ここだけ大文字小文字を区別していたため、メールを大文字混じりで
+                    入力した人はボタンが薄いまま理由も分からず退会が詰んでいた。 */}
+                {(() => {
+                  const confirmMatches =
+                    confirmText.trim().toLowerCase() === String(expectedConfirm || '').toLowerCase();
+                  return (
+                    <>
+                      {confirmText.trim() !== '' && !confirmMatches && (
+                        <p style={{ fontSize: 11, color: 'var(--c-critical)', margin: 0, lineHeight: 1.6 }}>
+                          メールアドレスが一致しません。
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          type="button"
+                          aria-label="削除をキャンセル"
+                          style={{ ...btnGhost, flex: 1 }}
+                          onClick={() => { setDeleteOpen(false); setConfirmText(''); }}
+                          disabled={deleting}
+                        >
+                          キャンセル
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="アカウントを完全に削除"
+                          style={{ ...btnDanger, flex: 1, opacity: deleting || !confirmMatches ? 0.5 : 1 }}
+                          disabled={deleting || !confirmMatches}
+                          onClick={handleDelete}
+                        >
+                          {deleting ? '削除中…' : '完全に削除'}
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             )}
           </section>
 
           {/* Legal links — LP と同じ /legal/* ページを参照 (単一ソース)。
               新規タブで開いて、設定モーダルの状態を保つ。 */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginTop: 4 }}>
-            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center', marginTop: 4 }}>
+            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 6px' }}>
               利用規約
             </a>
-            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 6px' }}>
               プライバシーポリシー
             </a>
             {/* 特商法リンクはネイティブでは反ステアリング順守のため非表示にし、価格開示は
                 App Store に委ねる（特商法ページ自体は ¥1,480 / App Store 課金前提に更新済み）。 */}
             {!isNative && (
-              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
+              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 6px' }}>
                 特定商取引法に基づく表記
               </a>
             )}
-            <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline' }}>
+            <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 6px' }}>
               お問い合わせ
             </a>
           </div>

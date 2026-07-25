@@ -208,7 +208,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
           disabled={generating}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            alignSelf: 'flex-start', minHeight: 38, padding: '8px 14px', borderRadius: 10,
+            alignSelf: 'flex-start', minHeight: 44, padding: '8px 14px', borderRadius: 10,
             border: '1px solid var(--c-hairline-strong)', background: 'var(--c-soft)',
             color: 'var(--c-brand)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
             cursor: generating ? 'default' : 'pointer', opacity: generating ? 0.6 : 1,
@@ -381,7 +381,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     if (onMakeAction && actionText && result?.id) {
       toast.show({
         type: 'success',
-        message: 'メモを保存しました',
+        message: 'メモを保存しました。',
         duration: 6000,
         action: {
           label: '🎯 行動にする',
@@ -456,7 +456,21 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   };
 
   // Swipe-driven delete (gesture itself = intent, no confirm modal).
-  const handleSwipeDelete = (memo) => performDelete(memo);
+  // 例外: 写真付きメモだけは確認を挟む — Undo（取消）を押しても写真は
+  // Storage から即削除されて戻らないため、誤スワイプ＝写真の恒久消失になる。
+  const handleSwipeDelete = async (memo) => {
+    if (memo.photoPath) {
+      const ok = await confirm({
+        title: 'このメモを削除しますか？',
+        message: '写真も削除されます。（取消した場合、本文は復元されますが写真は戻りません）',
+        confirmLabel: '削除する',
+        cancelLabel: 'キャンセル',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    performDelete(memo);
+  };
 
   // Long-press → ContextMenu state
   const [memoMenu, setMemoMenu] = useState(null); // { x, y, memo }
@@ -477,30 +491,37 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     </div>
   ) : (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft)', borderRadius: 10 }}>
-        <button type="button" style={sortTab(sortBy === 'page')} onClick={() => setSortBy('page')}>
-          <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-          ページ順
-        </button>
-        <button
-          type="button"
-          style={sortTab(sortBy === 'created_desc')}
-          onClick={() => setSortBy('created_desc')}
-        >
-          <Clock size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-          新しい順
-        </button>
-      </div>
+      {/* 並べ替え・絞り込みは、並べ替える対象（メモ）ができてから出す。
+          0 件の画面で最初に見えるのが「ページ順/新しい順/引用のみ」だと、
+          書き始めのボタンがその下に埋もれる。 */}
+      {memos.length > 0 && (
+        <>
+          <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft)', borderRadius: 10 }}>
+            <button type="button" style={sortTab(sortBy === 'page')} onClick={() => setSortBy('page')}>
+              <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+              ページ順
+            </button>
+            <button
+              type="button"
+              style={sortTab(sortBy === 'created_desc')}
+              onClick={() => setSortBy('created_desc')}
+            >
+              <Clock size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+              新しい順
+            </button>
+          </div>
 
-      <button
-        type="button"
-        style={quoteChip(quoteOnly)}
-        onClick={() => setQuoteOnly((v) => !v)}
-        aria-pressed={quoteOnly}
-      >
-        <Quote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-        引用のみ
-      </button>
+          <button
+            type="button"
+            style={quoteChip(quoteOnly)}
+            onClick={() => setQuoteOnly((v) => !v)}
+            aria-pressed={quoteOnly}
+          >
+            <Quote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+            引用のみ
+          </button>
+        </>
+      )}
 
       <button type="button" onClick={openCreate} style={addBtn}>
         <Plus size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
@@ -514,6 +535,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           icon={<StickyNote size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="まだメモがありません"
           description="読みながら気になった一行を、ひとつ残してみましょう。"
+          actions={[{ label: '最初のメモを書く', onClick: openCreate, variant: 'primary', icon: <Plus size={18} aria-hidden="true" /> }]}
           tip="残した一行は、あとで「振り返り」の想起として、ふいに戻ってきます。"
         />
       )}
@@ -523,6 +545,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           icon={<BookOpen size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="ページ番号付きのメモがまだありません"
           description="メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。"
+          actions={[{ label: '引用フィルタを解除', onClick: () => setQuoteOnly(false), variant: 'secondary' }]}
         />
       )}
 
@@ -540,15 +563,15 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           }}
         >
           <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7, flex: 1 }}>
-            最初の気づきが残りました。下の「🔄 振り返り」を開くと、これが忘れた頃に想起されて、そっと戻ってきます。
+            最初の気づきが残りました。下の「振り返り」タブを開くと、これが忘れた頃に想起されて、そっと戻ってきます。
           </p>
           <button
             type="button"
             onClick={dismissRecallHint}
             style={{
               flexShrink: 0,
-              minHeight: 32,
-              padding: '4px 10px',
+              minHeight: 44,
+              padding: '4px 12px',
               border: '1px solid var(--c-hairline-strong)',
               background: 'var(--c-card)',
               color: 'var(--c-brand)',
@@ -597,7 +620,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         lineHeight: 1.7,
       }}
     >
-      この画面ではまとめメモを編集できません。
+      まとめメモは、本の詳細画面から編集できます。
     </div>
   );
 
@@ -613,6 +636,10 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           まとめ
         </button>
       </div>
+      {/* 初見で 2 タブの違いが分かる 1 行（説明はまとめタブの中にしか無かった） */}
+      <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '-4px 2px 0', lineHeight: 1.5 }}>
+        カード＝一行ずつ残す / まとめ＝1冊を1枚のテキストに
+      </p>
 
       {/* Both sections stay mounted so unsaved typing is preserved across tab switches. */}
       <div style={{ display: mode === 'card' ? 'block' : 'none' }}>{cardSection}</div>

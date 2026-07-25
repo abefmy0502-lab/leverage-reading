@@ -199,7 +199,7 @@ function ResultCard({ book, onPick, existing, statusLabel }) {
               fontWeight: 600,
             }}
           >
-            <Check size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />追加済み（{statusLabel || '本棚'}）— タップで開く
+            <Check size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{statusLabel || '本棚'}に追加済み・タップで開く
           </div>
         )}
       </div>
@@ -369,7 +369,7 @@ function BarcodeScanner({ onDetect, onClose }) {
           const denied = e?.name === 'NotAllowedError' || e?.name === 'SecurityError';
           setScanError(
             denied
-              ? 'カメラの使用が許可されませんでした。端末の「設定」からカメラを許可するか、ISBN を手入力してください。'
+              ? 'カメラを使えませんでした。ISBN の手入力でも同じように追加できます（端末の「設定」からカメラを許可し直すこともできます）。'
               : 'カメラを起動できませんでした。ISBN を手入力してください。',
           );
         }
@@ -391,7 +391,7 @@ function BarcodeScanner({ onDetect, onClose }) {
         const denied = e?.name === 'NotAllowedError' || e?.name === 'SecurityError';
         setScanError(
           denied
-            ? 'カメラの使用が許可されませんでした。ブラウザの設定でカメラを許可するか、ISBN を手入力してください。'
+            ? 'カメラを使えませんでした。ISBN の手入力でも同じように追加できます（ブラウザの設定でカメラを許可し直すこともできます）。'
             : 'カメラを起動できませんでした。ISBN を手入力してください。',
         );
         return;
@@ -490,9 +490,14 @@ function BarcodeScanner({ onDetect, onClose }) {
           <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: '#fff', maxWidth: 360 }}>
             <div aria-hidden="true" style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}><Camera size={36} /></div>
             <p role="alert" style={{ fontSize: 14, lineHeight: 1.7, margin: 0, fontFamily: 'inherit' }}>{scanError}</p>
+            {/* 行き止まり防止: 本文で「ISBN を手入力」と案内するなら、その一手を
+                主ボタンとして置く（閉じて自力で ISBN 欄を探させない）。 */}
             <button
               type="button"
-              onClick={handleClose}
+              onClick={() => {
+                handleClose();
+                setTimeout(() => { try { document.getElementById('add-book-isbn')?.focus(); } catch { /* ignore */ } }, 180);
+              }}
               style={{
                 marginTop: 'var(--space-5)',
                 padding: '12px 20px',
@@ -505,6 +510,27 @@ function BarcodeScanner({ onDetect, onClose }) {
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 minHeight: 44,
+                width: '100%',
+              }}
+            >
+              ISBN を手入力する
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              style={{
+                marginTop: 'var(--space-3)',
+                padding: '12px 20px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid rgba(255,255,255,0.5)',
+                background: 'transparent',
+                color: '#fff',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                minHeight: 44,
+                width: '100%',
               }}
             >
               閉じる
@@ -702,7 +728,6 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             placeholder="例：レバレッジ・リーディング"
             style={inpStyle}
             maxLength={LIMITS.bookTitle}
-            disabled={isSearching}
           />
         </div>
         <div>
@@ -717,7 +742,6 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             placeholder="例：山田 太郎"
             style={inpStyle}
             maxLength={LIMITS.bookAuthor}
-            disabled={isSearching}
           />
         </div>
         <div>
@@ -736,7 +760,6 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
-            disabled={isSearching}
           />
         </div>
 

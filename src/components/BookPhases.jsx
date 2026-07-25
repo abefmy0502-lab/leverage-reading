@@ -464,13 +464,18 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAn
     <div>
       <p style={phaseDesc}><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読みながら気づいたことを、メモに残しましょう</p>
 
+      {/* 詳細画面と同じ様式（details + MarkdownSections）に統一。
+          旧: 生 Markdown（## や **）を pre-wrap でそのまま出し、maxHeight+内側
+          スクロールが iOS でページスクロールと競合して詰まっていた。 */}
       {form.aiStrategy && (
-        <div style={{ background: "var(--c-soft)", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: "#7a5080", marginBottom: 4 }}>📋 読書計画シート要約</p>
-          <p style={{ fontSize: 12, color: "var(--c-ink-soft)", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: 0 }}>
-            {form.aiStrategy}
-          </p>
-        </div>
+        <details style={{ background: "var(--c-soft)", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
+          <summary style={{ fontSize: 12, fontWeight: 600, color: "var(--c-ink-soft)", cursor: "pointer", minHeight: 32, display: "flex", alignItems: "center" }}>
+            📋 読書計画シートを見る
+          </summary>
+          <div style={{ marginTop: 8 }}>
+            <MarkdownSections text={form.aiStrategy} />
+          </div>
+        </details>
       )}
 
       <Field label="メモ・感想" sub="気づきや感想を、気軽に。1メモ=1カードで残すか、1冊まるごと1つのテキストにまとめるか、タブで選べます。">

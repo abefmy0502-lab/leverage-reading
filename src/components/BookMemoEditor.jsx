@@ -6,6 +6,7 @@ import { LIMITS, validateImageFile } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
 import { BookOpen, Sparkles, Undo2, Camera, Mic, ArrowLeft } from 'lucide-react';
@@ -133,6 +134,7 @@ export default function BookMemoEditor({
   const [condensing, setCondensing] = useState(false);
   const [condensedFrom, setCondensedFrom] = useState(null);
   const toast = useToast();
+  const confirmDialog = useConfirm();
 
   const handleCondense = async () => {
     if (condensing) return;
@@ -371,7 +373,26 @@ export default function BookMemoEditor({
       <div style={headerBar}>
         <button
           type="button"
-          onClick={() => { if (!busy) onClose?.(); }}
+          onClick={async () => {
+            if (busy) return;
+            // 下書きを打ち込んだ状態の「戻る」は無確認で捨てない（本文・写真・
+            // タグのいずれかが初期値から変わっている時だけ確認を挟む）。
+            const dirty =
+              text !== (initial?.text || defaultText || '')
+              || !!photoFile
+              || JSON.stringify(tags) !== JSON.stringify(initial?.tags || []);
+            if (dirty) {
+              const ok = await confirmDialog({
+                title: '編集中の内容を破棄しますか？',
+                message: '書きかけの内容は保存されません。',
+                confirmLabel: '破棄する',
+                cancelLabel: '編集を続ける',
+                danger: true,
+              });
+              if (!ok) return;
+            }
+            onClose?.();
+          }}
           style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--c-brand)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.4 : 1, padding: '11px 8px', margin: '-11px -8px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
           aria-disabled={busy}
           aria-label="戻る"

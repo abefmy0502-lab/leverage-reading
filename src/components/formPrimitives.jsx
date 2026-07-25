@@ -18,7 +18,7 @@ export const inp = { width: "100%", minWidth: 0, padding: "12px 14px", fontSize:
 export const ta = { ...inp, resize: "vertical", lineHeight: "var(--leading-relaxed)" };
 export const btnS = { ...uiBtnPrimary, width: "auto", padding: "12px 0" };
 export const btnO = { ...uiBtnGhost, width: "auto", padding: "12px 0", fontSize: 15 };
-export const aiB = { width: "100%", padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px dashed #c4b8a6", background: "var(--color-accent-soft)", color: "#6b5d4f", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: "var(--weight-medium)" };
+export const aiB = { width: "100%", minHeight: 44, padding: "10px 0", borderRadius: "var(--radius-sm)", border: "1px dashed #c4b8a6", background: "var(--color-accent-soft)", color: "var(--c-ink-soft)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: "var(--weight-medium)" };
 export const phaseDesc = { fontSize: 12, color: "var(--color-tertiary)", marginBottom: "var(--space-4)", lineHeight: "var(--leading-base)" };
 
 // ── 星評価 ──────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ export function TagInput({ tags, onChange, allTags }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
           <span style={{ fontSize: 10, color: "var(--c-ink-3)", lineHeight: "22px" }}>過去のタグ:</span>
           {suggestions.map((t) => (
-            <button key={t} onClick={() => add(t)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, border: "1px dashed var(--c-hairline-strong)", background: "transparent", color: "var(--c-ink-2)", cursor: "pointer", fontFamily: "inherit" }}>+ {t}</button>
+            <button key={t} onClick={() => add(t)} style={{ fontSize: 11, padding: "6px 10px", minHeight: 32, borderRadius: 10, border: "1px dashed var(--c-hairline-strong)", background: "transparent", color: "var(--c-ink-2)", cursor: "pointer", fontFamily: "inherit" }}>+ {t}</button>
           ))}
         </div>
       )}
