@@ -9,7 +9,7 @@ import AuthCallback from './components/auth/AuthCallback';
 import BookMemoList from './components/BookMemoList';
 import BookSearchModal from './components/BookSearchModal';
 import StatusBadge from './components/StatusBadge';
-import { BookCoverCard, SwipeableBookCard } from './components/BookCards';
+import { BookCoverCard, SwipeableBookCard, MiniCover } from './components/BookCards';
 import { STATUSES, getSt } from './lib/status';
 import { isStrictMatch } from './lib/bookMatch';
 const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
@@ -189,11 +189,35 @@ function Modal({ open, onClose, children }) {
 
 
 
+// 長文（目的・課題・仮説 等）は 4 行で畳み「すべて表示」で開く。
+// 旧: maxHeight 400 + 内部スクロールで、詳細のファーストビューを長文が
+// 独占し、ページ内スクロールと入れ子スクロールが競合していた。
 function Card({ label, text, bg }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = (text || '').length > 130;
   return (
     <div style={{ background: bg || "#f7f3ec", borderRadius: 'var(--radius-md)', padding: "10px 12px", marginTop: 8 }}>
       <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-accent)", marginBottom: 4 }}>{label}</p>
-      <p style={{ fontSize: 13, color: "#4a4036", lineHeight: 1.8, whiteSpace: "pre-wrap", maxHeight: 400, overflowY: "auto", paddingRight: 8, margin: 0 }}>{text}</p>
+      <p
+        style={{
+          fontSize: 13, color: "#4a4036", lineHeight: 1.8, whiteSpace: "pre-wrap", margin: 0,
+          ...(isLong && !expanded
+            ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+            : {}),
+        }}
+      >
+        {text}
+      </p>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          style={{ background: 'none', border: 'none', padding: '8px 0 2px', minHeight: 32, fontSize: 12, fontWeight: 600, color: 'var(--c-brand)', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          {expanded ? '閉じる' : 'すべて表示'}
+        </button>
+      )}
     </div>
   );
 }
@@ -2685,60 +2709,29 @@ function AuthedApp() {
                   📚
                 </div>
               )}
-              {/* 表紙の出典 (ISBN)。manual アップロード済みは表示しない。 */}
-              {current.coverIsbn && current.coverIsbn !== 'manual' && (
-                <span style={{ fontSize: 9, color: 'var(--c-ink-2)', whiteSpace: 'nowrap' }}>
-                  ISBN: {current.coverIsbn}
-                </span>
-              )}
-              {/* 表紙関連の 2 アクション。常時可視で「⋯ メニューに埋もれて
-                  見つけにくい」問題を解消。「取り直す」は同じ ISBN で再 fetch、
-                  「違う?」は別エディション候補から選び直し or 手動 upload。 */}
-              {/* タップ領域: 見た目は小さな text link のまま、padding で
-                  実効ヒットを広げる（隣接誤タップ防止のため gap も確保）。 */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start', marginTop: 2 }}>
-                <button
-                  type="button"
-                  onClick={() => refreshCoverFor(current)}
-                  disabled={coverBusyId === current.id}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: '8px 4px',
-                    margin: '-6px 0 -6px -4px',
-                    minHeight: 32,
-                    fontSize: 10,
-                    color: '#5C4A2E',
-                    cursor: coverBusyId === current.id ? 'wait' : 'pointer',
-                    fontFamily: 'inherit',
-                    textDecoration: 'underline',
-                    fontWeight: 600,
-                    opacity: coverBusyId === current.id ? 0.6 : 1,
-                  }}
-                >
-                  {coverBusyId === current.id
-                    ? '取得中…'
-                    : (<><IcRefresh size={11} aria-hidden="true" style={{ verticalAlign: '-1.5px', marginRight: 3 }} />表紙を取り直す</>)}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCoverFixForBook(current)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: '8px 4px',
-                    margin: '-6px 0 -6px -4px',
-                    minHeight: 32,
-                    fontSize: 10,
-                    color: 'var(--color-accent)',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  表紙が違う？
-                </button>
-              </div>
+              {/* 表紙の救済導線はここに 1 本だけ（「違う?」→ 候補から選び直し /
+                  手動アップロードのモーダル）。旧: ISBN 表記 + 「取り直す」+
+                  「違う?」の 3 行が書名より先に目に入る技術ノイズになっていた。
+                  自動取り直しは ⋯ メニューの「表紙を取り直す」に引き続きある。 */}
+              <button
+                type="button"
+                onClick={() => setCoverFixForBook(current)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px 4px',
+                  margin: '-4px 0 -6px -4px',
+                  minHeight: 32,
+                  fontSize: 10,
+                  color: 'var(--c-ink-3)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: 2,
+                }}
+              >
+                表紙が違う？
+              </button>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* 書名＝この画面の主役。本文サイズ(17/500)だと .btn と同格に埋もれる。
@@ -3662,7 +3655,18 @@ function AuthedApp() {
                   （statusFilter＝activeFilterCount とも連動）。同じチップの再タップで解除。
                   本が少ないうちはノイズなので 4 冊未満では出さない。 */}
               {books.length >= 4 && (
-                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 4, WebkitOverflowScrolling: 'touch' }} role="group" aria-label="ステータスで絞り込み">
+                <div
+                  style={{
+                    display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 4,
+                    WebkitOverflowScrolling: 'touch',
+                    // 右端をふわっと透過させ「まだ続きがある（横スクロールできる）」を示す。
+                    // フェードなしだと「読了」チップが硬く見切れて壊れて見えていた。
+                    WebkitMaskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
+                    maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
+                  }}
+                  role="group"
+                  aria-label="ステータスで絞り込み"
+                >
                   {[{ key: 'all', label: 'すべて', count: stats.total }, ...STATUSES.map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => {
                     if (s.key !== 'all' && s.count === 0) return null;
                     const active = statusFilter === s.key;
@@ -3703,7 +3707,11 @@ function AuthedApp() {
               {recentBooks.length > 0 && !search && (
                 <div style={{ marginBottom: 14 }}>
                   <p style={{ fontSize: 11, color: "var(--color-accent)", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}><IcHistory size={13} aria-hidden="true" /> 続きから</p>
-                  <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+                  {/* 縦長のミニ表紙 + 2行タイトルの横型カード。旧: 縦長表紙を
+                      横長 90px に切り抜く生 <img>（onError なし）で、読み込み中/
+                      失敗時に白い空き枠が並んでいた。MiniCover はグリッドと同じ
+                      プレースホルダ+フェード+失敗検知を持つ。 */}
+                  <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
                     {recentBooks.map((b) => (
                       <button
                         key={b.id}
@@ -3711,7 +3719,7 @@ function AuthedApp() {
                         onClick={() => openDetail(b)}
                         style={{
                           flex: "0 0 auto",
-                          width: 132,
+                          width: 196,
                           background: "var(--c-card)",
                           border: "1px solid var(--c-hairline)",
                           borderRadius: 'var(--radius-md)',
@@ -3720,21 +3728,26 @@ function AuthedApp() {
                           fontFamily: "inherit",
                           textAlign: "left",
                           display: "flex",
-                          flexDirection: "column",
-                          gap: 6,
+                          alignItems: "center",
+                          gap: 10,
                         }}
                       >
-                        {b.cover ? (
-                          <img src={ensureHttps(b.cover)} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid var(--c-hairline-strong)" }} />
-                        ) : (
-                          <div style={{ width: "100%", height: 90, background: "var(--c-soft-2)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📕</div>
-                        )}
-                        <div style={{ fontSize: 12, color: "var(--c-ink)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
-                        <div><StatusBadge status={b.status} /></div>
+                        <MiniCover book={b} width={44} onAutoRetry={triggerCoverAutoRetry} />
+                        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div style={{ fontSize: 12, color: "var(--c-ink)", fontWeight: 600, lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.title}</div>
+                          <div><StatusBadge status={b.status} /></div>
+                        </div>
                       </button>
                     ))}
                   </div>
                 </div>
+              )}
+              {/* 「続きから」がある時だけ、下の一覧に見出しを付けて切れ目を作る
+                  （無い時は一覧が主役なので見出しは冗長）。 */}
+              {recentBooks.length > 0 && !search && filtered.length > 0 && (
+                <p style={{ fontSize: 11, color: "var(--color-accent)", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                  <IcLibrary size={13} aria-hidden="true" /> すべての本
+                </p>
               )}
               {booksLoading && rawBooks.length === 0 ? (
                 effectiveBookshelfView === 'grid' ? (

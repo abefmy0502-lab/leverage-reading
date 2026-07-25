@@ -104,6 +104,56 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
   );
 });
 
+// 🖼 小さな表紙サムネ（縦長比率固定）。「続きから」等のミニカード用。
+// BookCoverCard と同じ流儀 — タイトル入りの色付きプレースホルダを常に下敷きにし、
+// 画像は onLoad でフェードイン・失敗(onError/1×1ダミー)時はプレースホルダに退避。
+// 生の <img> を直接置くと、読み込み中/失敗時に「白い空き枠」になる（本棚の
+// 続きからで実際に起きていた）。
+export function MiniCover({ book, width = 44, radius = 6, onAutoRetry }) {
+  const [from, to] = paletteFor(book.title);
+  const [broken, setBroken] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setBroken(false); setLoaded(false); }, [book.id, book.cover]);
+  const show = !!book.cover && !broken;
+  useEffect(() => {
+    if (!show) onAutoRetry?.(book);
+  }, [show, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const height = Math.round(width * 1.42); // 一般的な書籍の縦横比
+  return (
+    <div style={{ position: 'relative', width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, boxShadow: '0 1px 2px rgba(30,25,20,0.12)' }}>
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute', inset: 0,
+          background: `linear-gradient(135deg, ${from}, ${to})`,
+          color: 'rgba(255,255,255,0.92)', fontSize: 8, fontWeight: 700,
+          padding: '5px 4px', lineHeight: 1.35, overflow: 'hidden',
+          wordBreak: 'break-word',
+        }}
+      >
+        {book.title}
+      </div>
+      {show && (
+        <img
+          src={ensureHttps(book.cover)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          ref={(el) => { if (el && el.complete && el.naturalWidth > 1 && !loaded) setLoaded(true); }}
+          onError={() => setBroken(true)}
+          onLoad={(e) => {
+            const t = e?.target;
+            if (!t) return;
+            if ((t.naturalWidth || 0) <= 1 || (t.naturalHeight || 0) <= 1) { setBroken(true); return; }
+            setLoaded(true);
+          }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 1 : 0, transition: 'opacity .25s ease' }}
+        />
+      )}
+    </div>
+  );
+}
+
 // Swipeable + long-pressable book row used on the bookshelf list.
 export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry }) {
   const longPress = useLongPress({

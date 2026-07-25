@@ -210,7 +210,12 @@ const stepCard = {
   boxSizing: 'border-box',
   overflow: 'hidden',
 };
-const stepNumber = { fontSize: 22, fontWeight: 700, lineHeight: 1, marginRight: 8, color: 'var(--c-brand)' };
+const stepNumber = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  width: 24, height: 24, borderRadius: 999, flexShrink: 0,
+  background: 'var(--c-brand)', color: 'var(--c-brand-ink, #fff)',
+  fontSize: 13, fontWeight: 700, lineHeight: 1, marginRight: 8,
+};
 const stepTitle = {
   fontSize: 16,
   fontWeight: 600,
@@ -238,10 +243,11 @@ const tipBox = {
 };
 
 // 数字絵文字に変換 (1〜10)。それ以上は数字をそのまま返す。
-const NUM_EMOJI = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+// 番号はブランド色の丸バッジで描く（stepNumber スタイル）。以前の青い
+// keycap 絵文字（1️⃣2️⃣…）はアプリの茶系の世界観から浮いていた。
 function numberFor(step, index) {
   if (step.number) return step.number;
-  return NUM_EMOJI[index] || `${index + 1}.`;
+  return String(index + 1);
 }
 
 // 改行されたくない語を自動 nowrap 化 — `word-break: keep-all` は CSS 仕様上
