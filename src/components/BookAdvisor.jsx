@@ -431,7 +431,35 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     // 不調な日）は suspects を落とすとカードが 1〜2 枚に痩せるため、⚠️警告バッジ
     // 付きで残して枚数を維持する（正直に「確認できていない」を見せる方を選ぶ）。
     const items = (solid.length >= 3 ? solid : [...solid, ...suspects]).slice(0, 5);
-    setRecommendations((prev) => (prev ? { ...prev, items } : prev));
+    // 🧹 カードから落とした架空疑いの本は、本文（読む順番・まとめ）からも消す。
+    // 旧: 検証はカードだけを差し替え、本文には『実在しない書名』が残り続けて
+    // いた（実例: 『御用聞きから提案営業へ』が読む順番に居座った）。
+    // プロンプト側でも「JSON に入れていない書名を本文に出すな」と縛ったが、
+    // 表示側でも二重に防衛する。行単位で落とし、番号リストは振り直す。
+    const kept = new Set(items.map((r) => r.title));
+    const dropped = results.filter((r) => r._suspect && !kept.has(r.title) && r.title);
+    const scrubProse = (text) => {
+      if (!text || dropped.length === 0) return text;
+      const lines = text
+        .split('\n')
+        .filter((ln) => !dropped.some((d) => ln.includes(d.title)));
+      // 連続する番号リスト（1. 2. …）を振り直す（行削除で 1,2,4 と飛ぶのを防ぐ）。
+      // 空行はリストの継続とみなし、見出し等の実文が来たら採番をリセットする。
+      let n = 0;
+      return lines
+        .map((ln) => {
+          if (/^\s*\d+\.\s/.test(ln)) {
+            n += 1;
+            return ln.replace(/^(\s*)\d+\./, `$1${n}.`);
+          }
+          if (ln.trim() !== '') n = 0;
+          return ln;
+        })
+        .join('\n');
+    };
+    setRecommendations((prev) => (prev
+      ? { ...prev, items, before: scrubProse(prev.before), after: scrubProse(prev.after) }
+      : prev));
   };
 
   // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
