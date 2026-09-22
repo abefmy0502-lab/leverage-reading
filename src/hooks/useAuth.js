@@ -8,6 +8,13 @@ import { unsubscribeFromPush } from '../lib/push';
 export function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // 🔴 Supabase が応答しない場合（プロジェクトの一時停止・ネットワーク不調・
+  // キー不整合等）の保険。getSession() には元々タイムアウトが無く、応答が
+  // 永久に来ないと loading=true のまま固まり、画面がローディングドットで
+  // 無限に止まる事故が起きていた（実例: 数週間アクセスが無く Supabase 無料
+  // プランのプロジェクトが自動一時停止 → 起動画面が永久ロード）。
+  // タイムアウト後も購読は生かしたままにする — 遅れて応答が来れば正しく反映される。
+  const [authTimedOut, setAuthTimedOut] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -16,21 +23,37 @@ export function useAuth() {
     }
 
     let active = true;
+    const AUTH_TIMEOUT_MS = 10000;
+    const timeoutId = setTimeout(() => {
+      if (!active) return;
+      setLoading(false);
+      setAuthTimedOut(true);
+    }, AUTH_TIMEOUT_MS);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!active) return;
+      clearTimeout(timeoutId);
       setUser(session?.user ?? null);
       setLoading(false);
+      setAuthTimedOut(false);
+    }).catch(() => {
+      if (!active) return;
+      clearTimeout(timeoutId);
+      setLoading(false);
+      setAuthTimedOut(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
+      clearTimeout(timeoutId);
       setUser(session?.user ?? null);
       setLoading(false);
+      setAuthTimedOut(false);
     });
 
     return () => {
       active = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
@@ -97,6 +120,7 @@ export function useAuth() {
   return {
     user,
     loading,
+    authTimedOut,
     signUpWithEmail,
     signInWithEmail,
     sendPasswordResetEmail,

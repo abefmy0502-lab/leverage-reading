@@ -4573,7 +4573,7 @@ function hashHasAuthParams() {
 }
 
 function AppShell() {
-  const { user, loading } = useAuth();
+  const { user, loading, authTimedOut } = useAuth();
   const toast = useToast();
 
   // 🔄 PWA 自動更新の初期化。新版検出時は window event を dispatch するだけ。
@@ -4601,6 +4601,24 @@ function AppShell() {
       <Shell>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Dots />
+        </div>
+      </Shell>
+    );
+  }
+  // 🔴 認証確認がタイムアウトした（10秒応答無し）。無限ローディングで
+  // 固まるより、状況を伝えて再読み込みを促す（useAuth.js 参照）。
+  if (authTimedOut && !user) {
+    return (
+      <Shell>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <ErrorMessage
+            icon="📡"
+            title="読み込みに時間がかかっています"
+            description="通信状況をご確認のうえ、もう一度お試しください。"
+            actions={[
+              { label: '再読み込み', onClick: () => window.location.reload(), variant: 'primary' },
+            ]}
+          />
         </div>
       </Shell>
     );
