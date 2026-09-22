@@ -106,6 +106,11 @@ export default function AuthScreen() {
     } catch (err) {
       // ユーザーキャンセルはエラー表示しない（静かに戻す）。
       if (!err?.canceled) {
+        // 画面には安全な汎用文のみ表示し、生のエラーはコンソールにだけ残す
+        // （ユーザー本人がブラウザの開発者ツールを開かない限り見えない・
+        // 原因切り分け用。CLAUDE.md の「スタックトレースを画面に出さない」
+        // 方針とは矛盾しない）。
+        console.error('[auth] apple sign-in failed:', err);
         setError(err?.code === 'plugin_missing'
           ? 'この端末では Apple サインインを利用できません。メールでご登録ください。'
           : humanizeError(err));
@@ -161,6 +166,8 @@ export default function AuthScreen() {
         setInfo('パスワードリセット用のメールを送信しました。');
       }
     } catch (err) {
+      // 画面には安全な汎用文のみ、生のエラーはコンソールにだけ残す（原因切り分け用）。
+      console.error(`[auth] ${mode} failed:`, err);
       setError(humanizeError(err));
     } finally {
       setLoading(false);
@@ -182,6 +189,7 @@ export default function AuthScreen() {
       await resendConfirmation(confirmSentTo);
       setInfo('確認メールを再送しました。');
     } catch (err) {
+      console.error('[auth] resend confirmation failed:', err);
       setError(humanizeError(err));
     } finally {
       setResending(false);
