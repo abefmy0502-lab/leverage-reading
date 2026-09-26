@@ -18,7 +18,7 @@
 //   見た目をブラウザで撮れる（showNative）。demoScenario は本番では常に null。
 //   プレビュー中は実際の購入・復元（RevenueCat）を一切呼ばない（isNative のときだけ呼ぶ）。
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { MessageCircle, Target, RotateCcw, Circle, CircleCheck } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -36,6 +36,18 @@ import { exportMemosAsMarkdown } from '../lib/exportData';
 import { track, EVENTS } from '../lib/analytics';
 import { demoScenario } from '../lib/supabase';
 import { btnPrimary, btnText, card } from '../styles/ui';
+import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
+
+// 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
+const AccountSettings = lazy(() => import('./AccountSettings'));
+
+// 価格の「（税込・月あたり約¥1,066）」のような括弧書きは途中で折り返さない。
+function PriceText({ text }) {
+  const s = String(text || '');
+  const i = s.indexOf('（');
+  if (i <= 0) return s;
+  return <>{s.slice(0, i)}<span style={{ whiteSpace: 'nowrap' }}>{s.slice(i)}</span></>;
+}
 
 // 開発専用のネイティブ表示プレビュー（本番は demoScenario=null で常に false）。
 function readNativePreview() {
@@ -105,7 +117,7 @@ function PlanOption({ label, selected, onSelect }) {
           {label.name}
         </span>
         <span style={{ display: 'block', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, marginTop: 'var(--space-1)' }}>
-          {label.price}
+          <PriceText text={label.price} />
         </span>
       </span>
     </button>
@@ -123,6 +135,7 @@ export default function Paywall({ onPurchased }) {
   const [pending, setPending] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // 表示ラベル: ネイティブ=App 既定 → ストア価格で上書き / Web=billing.js（env で上書き可）。
   const [labels, setLabels] = useState(() => (
     showNative
@@ -273,8 +286,12 @@ export default function Paywall({ onPurchased }) {
 
             {/* 無料期間（App Store Connect で設定した時だけ・ストアの実プロダクトから取得） */}
             {labels.trial && (
-              <p style={{ fontSize: 'var(--text-sub)', lineHeight: 1.5, margin: 'var(--space-4) 0 0' }}>
-                {labels.trial}。その後 {selected.price}で自動更新
+              // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。
+              <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-4) 0 0' }}>
+                {labels.trial}
+                <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+                  その後 {String(selected.price || '').split('（')[0].trim()} で自動更新
+                </span>
               </p>
             )}
 
@@ -297,8 +314,8 @@ export default function Paywall({ onPurchased }) {
               <button type="button" onClick={handleRestore} disabled={restoring} style={linkStyle}>
                 {restoring ? '復元中…' : '購入を復元'}
               </button>
-              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={linkStyle}>利用規約</a>
-              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={linkStyle}>プライバシーポリシー</a>
+              <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={linkStyle}>利用規約</a>
+              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={linkStyle}>プライバシーポリシー</a>
             </div>
           </>
         ) : (
@@ -339,10 +356,10 @@ export default function Paywall({ onPurchased }) {
             </p>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0 var(--space-2)', marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-2))' }}>
-              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={linkStyle}>利用規約</a>
-              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={linkStyle}>プライバシーポリシー</a>
+              <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={linkStyle}>利用規約</a>
+              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={linkStyle}>プライバシーポリシー</a>
               {/* 特商法リンクはネイティブでは反ステアリング順守のため非表示（Web のみ） */}
-              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={linkStyle}>特定商取引法に基づく表記</a>
+              <a href={SCT_URL} target="_blank" rel="noopener noreferrer" style={linkStyle}>特定商取引法に基づく表記</a>
             </div>
           </>
         )}
@@ -366,10 +383,15 @@ export default function Paywall({ onPurchased }) {
             </button>
             <button
               type="button"
-              onClick={async () => { try { await signOut(); } catch { /* オフライン等 — 再タップで再試行できる */ } }}
+              onClick={async () => {
+                try { await signOut(); } catch (e) { toast.error(toMessage(e, 'ログアウトできませんでした。もう一度お試しください。')); }
+              }}
               style={quietStyle}
             >
               別のアカウントでログイン
+            </button>
+            <button type="button" onClick={() => setSettingsOpen(true)} style={quietStyle}>
+              アカウントを削除
             </button>
             {/* LP は価格と比較表を含むため、反ステアリング順守でネイティブでは出さない（Web のみ） */}
             {!showNative && (
@@ -378,6 +400,11 @@ export default function Paywall({ onPurchased }) {
           </div>
         </div>
       </div>
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <AccountSettings onClose={() => setSettingsOpen(false)} onAfterDelete={() => setSettingsOpen(false)} focusDelete />
+        </Suspense>
+      )}
     </main>
   );
 }

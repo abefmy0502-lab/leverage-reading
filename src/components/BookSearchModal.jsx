@@ -88,16 +88,16 @@ export async function searchBooksByQuery(raw, { signal } = {}) {
     ]);
   }
 
+  let failed = null;
   for (const step of steps) {
     // eslint-disable-next-line no-await-in-loop
     const responses = await Promise.all(step.map((p) => searchBooksAdvanced(p, { signal })));
     const merged = mergeResults(responses.map((r) => (r.ok ? r.results : [])));
     if (merged.length > 0) return { ok: true, results: merged };
-    // 失敗した問い合わせがあるなら「0 件」とは言い切れない。次へ進まずエラーを返す。
-    const failed = responses.find((r) => !r.ok);
-    if (failed) return failed;
+    failed = failed || responses.find((r) => !r.ok) || null;
   }
-  return { ok: true, results: [] };
+  // 途中で失敗した問い合わせがあるなら「0 件」とは言い切れないのでエラーとして返す。
+  return failed || { ok: true, results: [] };
 }
 
 // 生のエラー文から、見出しと重なる前置き・先頭の絵文字を外す。

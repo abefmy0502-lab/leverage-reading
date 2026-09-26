@@ -170,7 +170,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   useEffect(() => { track('quickstart_started'); }, []);
   useEffect(() => { if (step === 'memo') memoRef.current?.focus(); }, [step, idx]);
 
-  // 本棚にすでにある読書中・読了の本（メモはあるが 0 件の人向け）。未検索のときだけ出す。
+  // 本棚にすでにある読書中・読了の本（本はあるがメモ 0 件の人向け）。未検索のときだけ出す。
   const shelfBooks = books.filter((b) => b.status === 'done' || b.status === 'reading').slice(0, 8);
 
   const runSearch = async (raw = query) => {
@@ -324,7 +324,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                 <EmptyState
                   icon={<Search size={28} aria-hidden="true" />}
                   title="見つかりませんでした"
-                  description={`「${searched}」を書名だけで追加できます`}
+                  description="書名だけでも追加できます"
                   actions={[{
                     label: titlePicked ? '追加しました' : '書名だけで追加',
                     ariaLabel: titlePicked ? `「${searched}」を外す` : `「${searched}」を書名だけで追加`,
@@ -475,7 +475,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             ) : (
               <>
                 {/* メモが無いと相談の根拠が無いので「相談相手ができた」とは言わない（正直に）。 */}
-                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{summary.books.length}冊を<br />本棚に入れました</h1>
+                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{summary.books.length}冊を本棚に入れました</h1>
                 <p style={sub}>本を開いてメモを 1 件書くと、相談できます</p>
               </>
             )}

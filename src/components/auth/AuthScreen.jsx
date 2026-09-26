@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { TERMS_URL, PRIVACY_URL } from '../../lib/legalLinks';
 import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
@@ -395,8 +396,8 @@ export default function AuthScreen() {
               <span>利用規約とプライバシーポリシーに同意します</span>
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', paddingLeft: `calc(${checkboxSize} + var(--space-2))` }}>
-              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={legalLink}>利用規約</a>
-              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={legalLink}>プライバシーポリシー</a>
+              <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={legalLink}>利用規約</a>
+              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={legalLink}>プライバシーポリシー</a>
             </div>
           </div>
         )}

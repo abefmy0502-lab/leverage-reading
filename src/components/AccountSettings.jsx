@@ -12,7 +12,8 @@
 // 塗りの主ボタンは「その状態で一番大事な 1 つ」だけ（未契約時の購入/入手）。
 // 削除の塗りボタン（btnDanger）は退会の最終確定だけに使う。
 
-import { useEffect, useState } from 'react';
+import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
+import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { SUPPORT_EMAIL } from '../lib/contact';
@@ -323,8 +324,15 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
   return all;
 }
 
-export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpenAdmin }) {
+export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpenAdmin, focusDelete = false }) {
   const { user, signOut } = useAuth();
+  // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
+  const deleteRef = useRef(null);
+  useEffect(() => {
+    if (!focusDelete) return undefined;
+    const t = setTimeout(() => { try { deleteRef.current?.scrollIntoView({ block: 'center' }); } catch { /* ignore */ } }, 150);
+    return () => clearTimeout(t);
+  }, [focusDelete]);
   const toast = useToast();
   const confirm = useConfirm();
   const [exporting, setExporting] = useState(false);
@@ -1015,7 +1023,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             </div>
 
             {/* アカウント削除 */}
-            <div style={{ ...blockStyle, ...divider }} role="group" aria-label="アカウント削除">
+            <div ref={deleteRef} style={{ ...blockStyle, ...divider }} role="group" aria-label="アカウント削除">
               <div>
                 <p style={{ ...rowTitleStyle, fontWeight: 600, color: 'var(--error)' }}>アカウント削除（退会）</p>
                 <p style={rowDescStyle}>
@@ -1097,16 +1105,16 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           {/* Legal links — LP と同じ /legal/* ページを参照 (単一ソース)。
               新規タブで開いて、設定モーダルの状態を保つ。 */}
           <nav aria-label="規約とお問い合わせ" style={{ display: 'flex', flexWrap: 'wrap', gap: '0 var(--space-2)', justifyContent: 'center' }}>
-            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
+            <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
               利用規約
             </a>
-            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
+            <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
               プライバシーポリシー
             </a>
             {/* 特商法リンクはネイティブでは反ステアリング順守のため非表示にし、価格開示は
                 App Store に委ねる（特商法ページ自体は ¥1,480 / App Store 課金前提に更新済み）。 */}
             {!isNative && (
-              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
+              <a href={SCT_URL} target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
                 特定商取引法に基づく表記
               </a>
             )}

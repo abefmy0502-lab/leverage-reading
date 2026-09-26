@@ -4583,6 +4583,22 @@ function readEmailConfirmedFlag() {
 // 一般ユーザーを App Store へ誘導する。サインアウトで別アカウントへ切替も可能。
 function WebAppOnlyGate() {
   const { signOut, user } = useAuth();
+  const toast = useToast();
+  // アプリが公開前でも、自分のメモを持ち出せるように（「データは残る」の約束）。
+  const [exporting, setExporting] = useState(false);
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const { exportMemosAsMarkdown } = await import('./lib/exportData');
+      const { memos } = await exportMemosAsMarkdown(user?.id);
+      toast.success(`メモ ${memos} 件を書き出しました。`);
+    } catch (e) {
+      toast.error(toMessage(e, 'メモを書き出せませんでした。'));
+    } finally {
+      setExporting(false);
+    }
+  };
   // 📩 AuthCallback がメール確認リンク（type=signup）経由の着地時に立てる一回きり
   // のフラグ。アプリで登録 → 確認メールのリンクが Safari で開く → ここに着地、
   // という遷移で「確認は済んだのに何も起きない」と迷子になるのを防ぐ。
@@ -4619,10 +4635,10 @@ function WebAppOnlyGate() {
             margin: emailJustConfirmed ? 'var(--space-2) 0 0' : 'var(--space-6) 0 0',
           }}
         >
-          {emailJustConfirmed ? 'アプリに戻ってサインインしてください' : 'アプリでご利用ください'}
+          {emailJustConfirmed ? 'アプリに戻ってログインしてください' : 'アプリでご利用ください'}
         </h1>
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-3) 0 0' }}>
-          iPhone・iPad のアプリに同じアカウントでサインインすると、メモもそのまま使えます。
+          iPhone・iPad のアプリに<br />同じアカウントでログインすると、メモもそのまま使えます。
         </p>
         {isAppStoreLive ? (
           <a
@@ -4641,16 +4657,28 @@ function WebAppOnlyGate() {
         <div style={{ marginTop: 'var(--space-8)' }}>
           {user?.email && (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 0, wordBreak: 'break-all' }}>
-              {user.email} でサインイン中
+              {user.email} でログイン中
             </p>
           )}
-          <button
-            type="button"
-            onClick={async () => { try { await signOut(); } catch { /* オフライン等 — 再タップで再試行できる */ } }}
-            style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}
-          >
-            別のアカウントでサインイン
-          </button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-2)' }}>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting}
+              style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}
+            >
+              {exporting ? '書き出し中…' : 'メモをダウンロード'}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                try { await signOut(); } catch (e) { toast.error(toMessage(e, 'ログアウトできませんでした。もう一度お試しください。')); }
+              }}
+              style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}
+            >
+              別のアカウントでログイン
+            </button>
+          </div>
         </div>
       </div>
     </main>
