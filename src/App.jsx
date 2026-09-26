@@ -131,6 +131,7 @@ import {
   MoreHorizontal,
   ImagePlus,
   ImageOff,
+  ShoppingBag,
   Upload,
   Share,
   Trash2,
@@ -641,6 +642,8 @@ function AuthedApp() {
   const [newFolderName, setNewFolderName] = useState('');
   // 詳細画面の「⋯」kebab メニュー位置 (button 近くに表示する)
   const [detailKebab, setDetailKebab] = useState(null);
+  // 読書中・読了の本の購入リンクは「⋯ → この本を買う」のシートへ（2026-09-26 オーナー判断）。
+  const [storeSheetOpen, setStoreSheetOpen] = useState(false);
   const openDetailKebab = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setDetailKebab({ x: rect.right - 8, y: rect.bottom + 4 });
@@ -3049,12 +3052,10 @@ function AuthedApp() {
                 行動が主役であるべき画面の佇まいを崩す（本田哲学）。 */}
             {/* 購入導線: Amazon + 楽天ブックスの両方を出す（統一）。want/before は
                 買う導線を主役に全幅ボタン、reading/done は控えめな横並びリンク。 */}
-            {(current.status === 'want' || current.status === 'before') ? (
+            {/* 購入リンクは、まだ買っていない可能性が高い 読みたい・積読 だけ画面に出す。
+                読書中・読了は「⋯ → この本を買う」のシート（開示文ごと）へ（2026-09-26 オーナー判断）。 */}
+            {(current.status === 'want' || current.status === 'before') && (
               <BookStoreLinks book={current} variant="cta" buy />
-            ) : (
-              <div>
-                <BookStoreLinks book={current} variant="compact" />
-              </div>
             )}
             {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。下部の「← 本棚に戻る」は左上の戻ると
                 二重なので撤去（左端スワイプでも戻れる）。 */}
@@ -3185,6 +3186,11 @@ function AuthedApp() {
         {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
         {quickstartOverlay}
 
+        {storeSheetOpen && (
+          <BottomSheet title="この本を買う" onClose={() => setStoreSheetOpen(false)}>
+            <BookStoreLinks book={current} variant="cta" buy />
+          </BottomSheet>
+        )}
         {detailKebab && (
           <ContextMenu
             x={detailKebab.x}
@@ -3228,6 +3234,9 @@ function AuthedApp() {
               { label: '表紙を取り直す', icon: <IcRefresh size={16} aria-hidden="true" />, onClick: () => refreshCoverFor(current) },
               { label: '表紙を手動でアップロード', icon: <Upload size={16} aria-hidden="true" />, onClick: () => triggerManualCoverUpload(current) },
               ...(current.cover ? [{ label: '表紙を削除', icon: <ImageOff size={16} aria-hidden="true" />, onClick: () => removeCoverFor(current) }] : []),
+              ...((current.status === 'reading' || current.status === 'done')
+                ? [{ label: 'この本を買う', icon: <ShoppingBag size={16} aria-hidden="true" />, onClick: () => setStoreSheetOpen(true) }]
+                : []),
               { label: '共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => shareBook(current) },
               { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
             ]}

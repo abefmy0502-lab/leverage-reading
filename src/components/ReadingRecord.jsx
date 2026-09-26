@@ -4,15 +4,10 @@
 // バッジ / 連続日数カウンタ / 目標 / チャレンジは一切やらない。積み重ねと傾向を
 // そのまま映すだけ。ヒートマップも「足あと」であって streak ではない）。
 //
-//   1. コアの数字     : 読了した本・残したメモ・実行した行動（累計）
+//   1. 読書 → メモ → 行動 : 読んだ本・残したメモ・実行した行動（累計。各数字からその一覧へ）
 //   2. 読書の足あと   : 直近16週のアクティビティ・ヒートマップ（メモ+読了）
-//   3. 月別のあゆみ   : 直近 6 ヶ月の 読了 ⇄ メモ をワンタップで切替できるバー
-//   4. 今年のハイライト: 今年の読了（前年同期比）・メモ・推定ページ・1冊平均日数・星付きベスト
-//   5. 一番学んだ本   : メモ数/冊 Top3（どの本から一番学んだか＝このアプリ固有）
-//   6. 読書 → 行動 → 収穫 : 「読みっぱなしをやめる」が実際に起きているか
-//   7. 記憶への定着   : メモ → 想起した → 覚えた（間隔反復の進捗）
-//   8. あなたの読書リズム : メモを書いた時間帯（朝/昼/夜/深夜）＋やさしい一言
-//   9. よく読むテーマ / 10. よく読む著者 : 関心の地図
+//   3. 月別の読了     : 直近 6 ヶ月の読了数のバー
+//   （2026-09-26 オーナー判断で 3 区画に絞った。旧: ハイライト/一番学んだ本/定着/リズム/テーマ/著者）
 //
 // データ:
 //   - 本由来（読了/行動/収穫/タグ/著者/評価/ページ）は props.books から純粋に集計。
@@ -26,10 +21,7 @@ import { isSchemaError } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
 import EmptyState from './EmptyState';
 import { track, EVENTS } from '../lib/analytics';
-import {
-  BarChart3, BookOpenCheck, StickyNote, Target, TrendingUp, Brain, Tags,
-  CalendarDays, Footprints, Clock3, PenLine, BookMarked, ChevronRight,
-} from 'lucide-react';
+import { BarChart3, ChevronRight } from 'lucide-react';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
 
@@ -185,38 +177,6 @@ const BAR_MIN_H = 3;
 
 /* ---------- 小さな表示部品 ---------- */
 
-// onClick を渡すとタイル全体がボタンになり、その一覧へ移動できる
-// （読了した本→本棚の読了絞り込み / メモ→ノート / 行動→行動タブ）。
-// 「数字を見る→中身を確かめる」の自然な動線を 1 タップで閉じる。
-function StatTile({ icon: Icon, value, label, onClick }) {
-  const inner = (
-    <>
-      <Icon size={16} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-      {/* 数字は動かさない（カウントアップは演出＝反ゲーミフィケーション方針）。 */}
-      <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.1, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.3, textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-        {label}
-        {onClick && <ChevronRight size={12} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
-      </span>
-    </>
-  );
-  const base = { ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', padding: 'var(--space-3) var(--space-2)' };
-  if (!onClick) return <div style={base}>{inner}</div>;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={`${label}の一覧を見る`}
-      style={{ ...base, cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
-    >
-      {inner}
-    </button>
-  );
-}
-
-// N → M → K の「つながり」表示（読書→行動→収穫 / メモ→想起→覚えた の共通形）。
-// cell に onClick を渡すとそのセルがボタンになり、該当する一覧へ移動できる
-// （ラベル横に › が付く）。
 function FlowRow({ cells }) {
   const arrow = (
     <span aria-hidden="true" style={{ color: 'var(--text-3)', fontWeight: 600, fontSize: 'var(--text-meta)', flexShrink: 0, paddingTop: 'var(--space-1)' }}>→</span>
@@ -388,72 +348,13 @@ function Heatmap({ dateStrings, weeks = 16 }) {
   );
 }
 
-// 横バー行（テーマ / 著者 / 一番学んだ本 で共通の見た目）。
-// onClick を渡すと行全体がボタンになり、末尾に › が付く（本を開く / 絞り込みへ）。
-function BarRow({ label, count, max, unit, labelWidth = 88, onClick, ariaLabel }) {
-  const inner = (
-    <>
-      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text)', width: labelWidth, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      <div style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--fill)', overflow: 'hidden' }}>
-        <div style={{ width: `${max > 0 ? Math.max(8, Math.round((count / max) * 100)) : 0}%`, height: '100%', borderRadius: 999, background: 'var(--accent)', transition: 'width var(--duration-base, 0.3s) var(--ease-out, ease)' }} />
-      </div>
-      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', width: 40, textAlign: 'right', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{count} {unit}</span>
-    </>
-  );
-  if (!onClick) {
-    return <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>{inner}</div>;
-  }
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel || `${label}を開く`}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 44,
-        background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-        fontFamily: 'inherit', textAlign: 'left',
-      }}
-    >
-      {inner}
-      <ChevronRight size={14} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0, marginLeft: -2 }} />
-    </button>
-  );
-}
-
-// 🕰 読書リズム（メモを書いた時間帯）。やさしい一言つき — 判定ではなく発見。
-const RHYTHMS = [
-  { key: 'morning', label: '朝', range: '5-11時', from: 5, to: 10 },
-  { key: 'day', label: '昼', range: '11-17時', from: 11, to: 16 },
-  { key: 'evening', label: '夜', range: '17-23時', from: 17, to: 22 },
-  { key: 'night', label: '深夜', range: '23-5時', from: 23, to: 4 },
-];
-function buildRhythm(createdDates) {
-  const counts = { morning: 0, day: 0, evening: 0, night: 0 };
-  for (const s of createdDates) {
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) continue;
-    const h = d.getHours();
-    if (h >= 5 && h <= 10) counts.morning += 1;
-    else if (h >= 11 && h <= 16) counts.day += 1;
-    else if (h >= 17 && h <= 22) counts.evening += 1;
-    else counts.night += 1;
-  }
-  let top = null;
-  for (const r of RHYTHMS) {
-    if (!top || counts[r.key] > counts[top.key]) top = r;
-  }
-  return { counts, top };
-}
-
 /* ---------- 本体 ---------- */
 
 // ナビゲーション props（すべて任意 — 渡された時だけ該当要素がタップ可能になる）:
 //   onShowBooks(status) … 本棚をそのステータスで絞り込んで開く（読了タイル）
-//   onShowMemos()       … 振り返り「ノート」サブタブへ（メモタイル）
-//   onShowActions()     … 振り返り「行動」サブタブへ（行動タイル）
-//   onOpenBook(book)    … 本詳細を開く（一番学んだ本 / 今年の星付き）
-//   onFilterTag(tag)    … 本棚をそのタグで絞り込んで開く（よく読むテーマ）
-//   onSearchAuthor(a)   … 本棚をその著者名で検索して開く（よく読む著者）
+//   onShowMemos()       … 振り返り「メモ」サブタブへ
+//   onShowActions()     … 振り返り「行動」サブタブへ
+//   （onOpenBook / onFilterTag / onSearchAuthor は旧区画用。呼び出し側の互換のため受け取るだけ）
 export default function ReadingRecord({
   books,
   onShowBooks,
@@ -464,11 +365,6 @@ export default function ReadingRecord({
   onSearchAuthor,
 }) {
   const { user } = useAuth();
-  // 行タップ → 本詳細（一番学んだ本 / 星付き）用のルックアップ。
-  const bookById = useMemo(
-    () => new Map((Array.isArray(books) ? books : []).map((b) => [b.id, b])),
-    [books],
-  );
 
   // メモ統計（自己完結 fetch）。null = 取得中/未取得。
   const [memoStats, setMemoStats] = useState(null);
@@ -535,37 +431,11 @@ export default function ReadingRecord({
 
   const bookStats = useMemo(() => buildBookStats(books), [books]);
   const doneBuckets = useMemo(() => bucketize(bookStats.doneDates), [bookStats.doneDates]);
-  const memoBuckets = useMemo(() => bucketize(memoStats?.createdDates || []), [memoStats]);
   // 足あと = メモ + 読了（読書に触れた日すべて）。
   const footprints = useMemo(
     () => [...(memoStats?.createdDates || []), ...bookStats.doneDates],
     [memoStats, bookStats.doneDates],
   );
-  const rhythm = useMemo(() => buildRhythm(memoStats?.createdDates || []), [memoStats]);
-  // 一番学んだ本 Top3（メモ数/冊）。
-  const topMemoBooks = useMemo(() => {
-    const byBook = memoStats?.byBook || {};
-    const byId = new Map((Array.isArray(books) ? books : []).map((b) => [b.id, b]));
-    return Object.entries(byBook)
-      .map(([id, n]) => ({ id, title: byId.get(id)?.title || '', count: n }))
-      .filter((x) => x.title)
-      .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title, 'ja'))
-      .slice(0, 3);
-  }, [memoStats, books]);
-  // 今年のメモ件数（ハイライト用）。
-  const memosThisYear = useMemo(() => {
-    const y = new Date().getFullYear();
-    let n = 0;
-    for (const s of memoStats?.createdDates || []) {
-      const d = new Date(s);
-      if (!Number.isNaN(d.getTime()) && d.getFullYear() === y) n += 1;
-    }
-    return n;
-  }, [memoStats]);
-
-  // 月別のあゆみ: 読了 ⇄ メモ 切替。
-  const [trendMode, setTrendMode] = useState('done');
-
   const memoTotal = memoStats?.total || 0;
   const hasAnything = (books?.length || 0) > 0 || memoTotal > 0;
 
@@ -581,302 +451,46 @@ export default function ReadingRecord({
         <EmptyState
           icon={<BarChart3 size={34} aria-hidden="true" />}
           title="記録は、これから"
-          description={(
-            <>
-              本を読み、一行メモを残すと、<br />
-              ここにあなたのあゆみが静かに積み上がります。
-            </>
-          )}
+          description="本を読み、メモを残すと、ここに積み上がります。"
         />
       </div>
     );
   }
 
-  const trendChip = (mode, label) => {
-    const active = trendMode === mode;
-    return (
-      <button
-        type="button"
-        onClick={() => setTrendMode(mode)}
-        aria-pressed={active}
-        style={{
-          // 切替チップ（DESIGN §5: 選択中は --accent-soft 地・--accent 文字。塗りの主ボタンと区別）
-          minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', border: 'none',
-          background: active ? 'var(--accent-soft)' : 'transparent',
-          color: active ? 'var(--accent)' : 'var(--text-2)',
-          fontSize: 'var(--text-sub)', fontWeight: active ? 600 : 400, fontFamily: 'inherit', cursor: 'pointer',
-        }}
-      >
-        {label}
-      </button>
-    );
-  };
-
-  const maxTag = bookStats.topTags.reduce((m, [, n]) => Math.max(m, n), 0);
-  const maxAuthor = bookStats.topAuthors.reduce((m, [, n]) => Math.max(m, n), 0);
-  const maxMemoBook = topMemoBooks.reduce((m, x) => Math.max(m, x.count), 0);
-  const rhythmMax = Math.max(...RHYTHMS.map((r) => rhythm.counts[r.key]), 0);
-  const thisYear = new Date().getFullYear();
-  const yearDelta = bookStats.doneThisYear - bookStats.doneLastYearSame;
-  const showHighlight = bookStats.doneThisYear > 0 || memosThisYear > 0;
-
-  // ハイライトのミニ統計（値が無いものは行ごと出さない＝空の 0 を並べない）。
-  const highlightItems = [
-    {
-      label: `${thisYear}年の読了`,
-      value: `${bookStats.doneThisYear} 冊`,
-      // 前年比は「前年の実績がある人」にだけ意味がある。初年度ユーザーに
-      // 「前年同期より +1 冊」（前年 0 冊との比較）を見せるのはノイズ。
-      sub: bookStats.doneLastYearSame > 0
-        ? (yearDelta === 0 ? '前年同期と同じペース' : `前年同期より ${yearDelta > 0 ? '+' : ''}${yearDelta} 冊`)
-        : '',
-      show: true,
-    },
-    { label: `${thisYear}年のメモ`, value: `${memosThisYear} 件`, sub: '', show: memosThisYear > 0 },
-    { label: '読んだページ（概算）', value: `約 ${bookStats.pagesThisYear.toLocaleString()} ページ`, sub: 'ページ数が分かる本のみ', show: bookStats.pagesThisYear > 0 },
-    { label: '1冊にかける日数', value: `平均 ${bookStats.avgDays} 日`, sub: '開始日と読了日がある本から', show: bookStats.avgDays != null },
-  ].filter((x) => x.show);
-
+  // 記録は 3 区画だけ（2026-09-26 オーナー判断・SPEC §0「情報が多くて目が迷う」）:
+  //   1. 読書 → メモ → 行動（積み重ね＝相談の質・行動の柱。各数字からその一覧へ）
+  //   2. 読書の足あと（ヒートマップ）
+  //   3. 月別の読了
+  // 旧: 統計タイル／今年のハイライト／一番学んだ本／記憶への定着／読書リズム／テーマ／著者 は撤去。
   return (
     <div style={wrap}>
-      {/* 1. コアの数字 — メモ統計の取得に失敗した時はメモのタイルを隠す
-          （0 と偽装すると「メモが消えた」ように見えるため）。 */}
-      <div style={{ display: 'grid', gridTemplateColumns: memoStats?.failed ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 'var(--space-2)' }}>
-        {/* 件数が 1 以上のタイルだけタップ可能にする（0 件で空の一覧へ飛ばすと
-            「押したのに何もない」体験になるため）。 */}
-        <StatTile
-          icon={BookOpenCheck}
-          value={bookStats.doneTotal}
-          label="読了した本"
-          onClick={onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined}
-        />
-        {!memoStats?.failed && (
-          <StatTile
-            icon={StickyNote}
-            value={memoTotal}
-            label="残したメモ"
-            onClick={onShowMemos && memoTotal > 0 ? onShowMemos : undefined}
-          />
-        )}
-        <StatTile
-          icon={Target}
-          value={bookStats.actionsDone}
-          label="実行した行動"
-          onClick={onShowActions && bookStats.actionsDone > 0 ? onShowActions : undefined}
-        />
-      </div>
-      {memoStats?.failed && (
-        <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
-          メモの統計を読み込めませんでした。通信環境を確認して、開き直してください。
-        </p>
-      )}
-
-      {/* 2. 読書の足あと（ヒートマップ） */}
       <section style={card}>
-        <h3 style={cardTitle}>
-          <Footprints size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-          読書の足あと
-        </h3>
+        <h3 style={cardTitle}>読書 → メモ → 行動</h3>
+        <FlowRow
+          cells={[
+            { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--text)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },
+            // メモ統計の取得に失敗した時は 0 と偽装しない（「メモが消えた」ように見えるため）。
+            { value: memoStats?.failed ? '—' : memoTotal, label: '残したメモ', color: 'var(--text)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
+            { value: bookStats.actionsDone, label: '実行した行動', color: 'var(--text)', onClick: onShowActions && bookStats.actionsDone > 0 ? onShowActions : undefined },
+          ]}
+        />
+        {memoStats?.failed && (
+          <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-3) 0 0', lineHeight: 1.5 }}>
+            メモの数を読み込めませんでした。通信環境を確認して、開き直してください。
+          </p>
+        )}
+      </section>
+
+      <section style={card}>
+        <h3 style={cardTitle}>読書の足あと</h3>
         <Heatmap dateStrings={footprints} weeks={16} />
       </section>
 
-      {/* 3. 月別のあゆみ（読了 ⇄ メモ） */}
       <section style={card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
-          <div>
-            <h3 style={cardTitle}>
-              <TrendingUp size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-              月別のあゆみ
-            </h3>
-          </div>
-          <div style={{ display: 'flex', gap: 'var(--space-1)', flexShrink: 0 }}>
-            {trendChip('done', '読了')}
-            {trendChip('memo', 'メモ')}
-          </div>
-        </div>
-        <MonthBars
-          buckets={trendMode === 'done' ? doneBuckets : memoBuckets}
-          activeColor="var(--accent)"
-        />
+        <h3 style={cardTitle}>月別の読了</h3>
+        <MonthBars buckets={doneBuckets} activeColor="var(--accent)" />
       </section>
-
-      {/* 4. 今年のハイライト */}
-      {showHighlight && (
-        <section style={card}>
-          <h3 style={cardTitle}>
-            <CalendarDays size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-            {thisYear}年のハイライト
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
-            {highlightItems.map((x) => (
-              <div key={x.label} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-                <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.3 }}>{x.label}</span>
-                <span style={{ fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{x.value}</span>
-                {x.sub && <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.3 }}>{x.sub}</span>}
-              </div>
-            ))}
-          </div>
-          {bookStats.bestThisYear.length > 0 && (
-            <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--separator)' }}>
-              <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: '0 0 var(--space-1)' }}>今年の星付き</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-                {bookStats.bestThisYear.map((b, i) => {
-                  const book = bookById.get(b.id);
-                  const clickable = !!(onOpenBook && book);
-                  const row = (
-                    <>
-                      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', flexShrink: 0, letterSpacing: 1 }}>{'★'.repeat(b.rating)}</span>
-                      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>{b.title}</span>
-                      {clickable && <ChevronRight size={13} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
-                    </>
-                  );
-                  return clickable ? (
-                    <button
-                      key={`${b.title}-${i}`}
-                      type="button"
-                      onClick={() => onOpenBook(book)}
-                      aria-label={`『${b.title}』を開く`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0, minHeight: 44, width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
-                    >
-                      {row}
-                    </button>
-                  ) : (
-                    <div key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', minWidth: 0 }}>{row}</div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* 5. 一番学んだ本（メモ数/冊 Top3） */}
-      {topMemoBooks.length > 0 && (
-        <section style={card}>
-          <h3 style={cardTitle}>
-            <BookMarked size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-            一番学んだ本
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-            {topMemoBooks.map((b) => {
-              const book = bookById.get(b.id);
-              return (
-                <BarRow
-                  key={b.id}
-                  label={b.title}
-                  count={b.count}
-                  max={maxMemoBook}
-                  unit="件"
-                  labelWidth={128}
-                  onClick={onOpenBook && book ? () => onOpenBook(book) : undefined}
-                  ariaLabel={`『${b.title}』を開く`}
-                />
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* 6. 読書 → 行動 → 収穫 */}
-      <section style={card}>
-        <h3 style={cardTitle}>
-          <Target size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-          読書 → 行動 → 収穫
-        </h3>
-        <FlowRow
-          cells={[
-            { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--text-2)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },
-            { value: bookStats.actionsDone, label: '実行した行動', color: bookStats.actionsDone > 0 ? 'var(--success)' : 'var(--text-3)', onClick: onShowActions && bookStats.actionsDone > 0 ? onShowActions : undefined },
-            { value: bookStats.harvest, label: '残した収穫', color: bookStats.harvest > 0 ? 'var(--accent)' : 'var(--text-3)' },
-          ]}
-        />
-      </section>
-
-      {/* 7. 記憶への定着（間隔反復の進捗） */}
-      {memoStats?.recallSupported && memoTotal > 0 && (
-        <section style={card}>
-          <h3 style={cardTitle}>
-            <Brain size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-            記憶への定着
-          </h3>
-          <FlowRow
-            cells={[
-              { value: memoTotal, label: '残したメモ', color: 'var(--text-2)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
-              { value: memoStats.recalled, label: '思い出した', color: memoStats.recalled > 0 ? 'var(--accent)' : 'var(--text-3)' },
-              { value: memoStats.mastered, label: '覚えた', color: memoStats.mastered > 0 ? 'var(--success)' : 'var(--text-3)' },
-            ]}
-          />
-        </section>
-      )}
-
-      {/* 8. あなたの読書リズム（メモを書いた時間帯） */}
-      {memoTotal >= 5 && rhythmMax > 0 && (
-        <section style={card}>
-          <h3 style={cardTitle}>
-            <Clock3 size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-            あなたの読書リズム
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-            {RHYTHMS.map((r) => (
-              <BarRow
-                key={r.key}
-                label={`${r.label}（${r.range}）`}
-                count={rhythm.counts[r.key]}
-                max={rhythmMax}
-                unit="件"
-                labelWidth={92}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 9. よく読むテーマ（タグ Top6） */}
-      {bookStats.topTags.length > 0 && (
-        <section style={card}>
-          <h3 style={cardTitle}>
-            <Tags size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-            よく読むテーマ
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-            {bookStats.topTags.map(([tag, n]) => (
-              <BarRow
-                key={tag}
-                label={tag}
-                count={n}
-                max={maxTag}
-                unit="冊"
-                onClick={onFilterTag ? () => onFilterTag(tag) : undefined}
-                ariaLabel={`タグ「${tag}」で本棚を絞り込む`}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 10. よく読む著者（2冊以上・Top5） */}
-      {bookStats.topAuthors.length > 0 && (
-        <section style={card}>
-          <h3 style={cardTitle}>
-            <PenLine size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-            よく読む著者
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-            {bookStats.topAuthors.map(([author, n]) => (
-              <BarRow
-                key={author}
-                label={author}
-                count={n}
-                max={maxAuthor}
-                unit="冊"
-                labelWidth={110}
-                onClick={onSearchAuthor ? () => onSearchAuthor(author) : undefined}
-                ariaLabel={`著者「${author}」の本を本棚で見る`}
-              />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
+
 }

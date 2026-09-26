@@ -248,9 +248,10 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   // 長文メモ（AI 選書のヒアリング Q&A など）はタイムラインで畳んでおき、
   // 「もっと見る」で展開。カード内スクロールの読みづらさを解消。
   const [expanded, setExpanded] = useState(false);
-  // 思い出しカード（showRelative）は小さく見せる（SPEC §4）: 4 行で畳む。一覧は 6 行。
-  const clampN = showRelative ? 4 : 6;
-  const isLongText = (memo.text || '').length > (showRelative ? 80 : 140);
+  // 思い出しカード（showRelative）は小さく見せる（SPEC §4・2026-09-26 オーナー判断）:
+  // 本文 2 行で畳み、本文をタップ（または「続きを読む」）で全文。一覧は 6 行。
+  const clampN = showRelative ? 2 : 6;
+  const isLongText = (memo.text || '').length > (showRelative ? 40 : 140);
 
   // 種類は色の帯ではなく、小さなアイコン＋文字で示す（色はニュートラル＋栗色 1 色・DESIGN §3）。
   const cardStyle = cardBase;
@@ -306,7 +307,10 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
                     overflow: 'hidden',
                   }
                 : {}),
+              ...(isLongText ? { cursor: 'pointer' } : {}),
             }}
+            // 長いときは本文そのものをタップして開閉できる（「続きを読む」と同じ）。
+            onClick={isLongText ? (e) => { e.stopPropagation(); setExpanded((v) => !v); } : undefined}
           >
             {memo.text}
           </p>
