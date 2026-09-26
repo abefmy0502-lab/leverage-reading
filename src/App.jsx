@@ -112,6 +112,7 @@ import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Dots, Stars, inp, btnS } from './components/formPrimitives';
+import { btnGhost, btnText } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase } from './components/BookPhases';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -126,6 +127,8 @@ import {
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
+  MoreHorizontal,
   RotateCcw,
   Brain,
   HelpCircle,
@@ -198,15 +201,15 @@ function Modal({ open, onClose, children }) {
 // 長文（目的・課題・仮説 等）は 4 行で畳み「すべて表示」で開く。
 // 旧: maxHeight 400 + 内部スクロールで、詳細のファーストビューを長文が
 // 独占し、ページ内スクロールと入れ子スクロールが競合していた。
-function Card({ label, text, bg }) {
+function Card({ label, text }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = (text || '').length > 130;
   return (
-    <div style={{ background: bg || "#f7f3ec", borderRadius: 'var(--radius-md)', padding: "10px 12px", marginTop: 8 }}>
-      <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-accent)", marginBottom: 4 }}>{label}</p>
+    <div style={{ background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)', marginTop: 'var(--space-2)' }}>
+      <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' }}>{label}</p>
       <p
         style={{
-          fontSize: 13, color: "#4a4036", lineHeight: 1.8, whiteSpace: "pre-wrap", margin: 0,
+          fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0,
           ...(isLong && !expanded
             ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
             : {}),
@@ -219,7 +222,7 @@ function Card({ label, text, bg }) {
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          style={{ background: 'none', border: 'none', padding: '8px 0 2px', minHeight: 32, fontSize: 12, fontWeight: 600, color: 'var(--c-brand)', cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' }}
         >
           {expanded ? '閉じる' : 'すべて表示'}
         </button>
@@ -2699,6 +2702,11 @@ function AuthedApp() {
     // 定義（読みたい=気になる / 積読=手元にある）に合わせ「積読に積む」へ。
     const nextLabel = { want: "積読に積む", before: "読書を開始する", reading: "読了にする" };
     const isMemoPhase = current.status === "reading" || current.status === "done";
+    // 詳細画面の部品（DESIGN.md のトークンのみ）。
+    const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
+    const detailsStyle = { ...cardStyle, marginTop: 'var(--space-3)', padding: '0 var(--space-4)' };
+    const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 52, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
+    const subLabelStyle = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: 'var(--space-3) 0 var(--space-2)' };
     // 読書計画・目的・課題・仮説・AI 解析（旧: 書名の直下）。読書中・読了では下へ回す。
     const planBlock = (
       <>
@@ -2718,79 +2726,27 @@ function AuthedApp() {
             if (current.status === 'before') {
               if (isIncomplete) {
                 return (
-                  <div
-                    style={{
-                      marginTop: 16,
-                      padding: '20px 18px',
-                      borderRadius: 16,
-                      background: 'var(--c-brand)',
-                      color: 'var(--accent-ink)',
-                      textAlign: 'center',
-                      boxShadow: '0 6px 18px rgba(92, 74, 46, 0.22)',
-                    }}
-                  >
-                    <div style={{ fontSize: 30, lineHeight: 1, marginBottom: 6 }}>📋</div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: 0.2 }}>
-                      AI 読書計画を完了しよう
+                  <div style={{ ...cardStyle, marginTop: 'var(--space-4)' }}>
+                    <h3 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+                      AI 読書計画を作る
                     </h3>
-                    <p style={{ margin: '8px 0 14px', fontSize: 12, lineHeight: 1.6, opacity: 0.92 }}>
+                    <p style={{ margin: 'var(--space-2) 0 var(--space-4)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text-2)' }}>
                       この本から得たいことを決めると、AI があなた専用の読み方を提案します
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => openSetup(current)}
-                      style={{
-                        background: 'var(--c-card)',
-                        color: '#5C4A2E',
-                        padding: '11px 22px',
-                        borderRadius: 999,
-                        border: 'none',
-                        fontWeight: 700,
-                        fontSize: 14,
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        minHeight: 44,
-                      }}
-                    >
-                      📋 読書計画を始める →
+                    <button type="button" onClick={() => openSetup(current)} style={btnGhost}>
+                      読書計画を始める
                     </button>
                   </div>
                 );
               }
               // 完了済み: 控えめな完了表示 + 編集導線
               return (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-success-soft, #eaf5e3)',
-                    border: '1px solid #b9d4a3',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 10,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <p style={{ fontSize: 12, color: '#4a6e3a', margin: 0, fontWeight: 600 }}>
-                    ✅ AI 読書計画 完了
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0 }}>
+                    <CheckCircle2 size={16} aria-hidden="true" style={{ color: 'var(--success)' }} />
+                    AI 読書計画ができています
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => openSetup(current)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 8,
-                      border: '1px solid #b9d4a3',
-                      background: 'transparent',
-                      color: '#4a6e3a',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
+                  <button type="button" onClick={() => openSetup(current)} style={{ ...btnText, fontSize: 'var(--text-sub)' }}>
                     編集する
                   </button>
                 </div>
@@ -2799,42 +2755,15 @@ function AuthedApp() {
 
             if (current.status === 'reading' && isIncomplete) {
               return (
-                <div
-                  role="alert"
-                  style={{
-                    marginTop: 12,
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-warning-soft, var(--color-warning-soft))',
-                    border: '1px solid #e0c878',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 8,
-                  }}
-                >
-                  <p style={{ fontSize: 13, color: '#8a6010', margin: 0, fontWeight: 600 }}>
-                    ⚠️ 読書計画が未完了です
+                <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
+                  <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600 }}>
+                    この本から得たいことが、まだありません
                   </p>
-                  <p style={{ fontSize: 11, color: '#9a7030', margin: 0, lineHeight: 1.6 }}>
-                    得たいこと・AI 解析・読書計画シートをいま埋めると、この本から得られるものが増えます。
+                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', lineHeight: 1.6 }}>
+                    得たいこと・AI 解析・読書計画をいま決めると、この本から得られるものが増えます。
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => openSetup(current)}
-                    style={{
-                      alignSelf: 'flex-start',
-                      padding: '8px 14px',
-                      borderRadius: 8,
-                      border: 'none',
-                      background: 'var(--color-accent)',
-                      color: 'var(--accent-ink)',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    📋 読書計画を完了する
+                  <button type="button" onClick={() => openSetup(current)} style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 0 }}>
+                    読書計画を作る
                   </button>
                 </div>
               );
@@ -2860,14 +2789,14 @@ function AuthedApp() {
           {/* AI 出力（解析 / 読書計画シート）はデフォルト折りたたみ。
               スクロール量を圧縮し、必要な時に展開する。 */}
           {(current.aiAnalysis || current.aiStrategy) && (
-            <details style={{ marginTop: 12, background: "var(--c-card)", border: "1px solid var(--c-hairline)", borderRadius: 'var(--radius-md)', padding: "10px 12px" }}>
-              <summary style={{ fontSize: 13, fontWeight: 600, color: "var(--c-brand)", cursor: "pointer", listStyle: "none" }}>
-                <IcBot size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
-                AI 解析 / 読書計画
+            <details style={detailsStyle}>
+              <summary style={summaryStyle}>
+                AI 解析・読書計画
+                <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
               </summary>
               {current.aiAnalysis && (
-                <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}><IcSearch size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />AI 本の解析</p>
+                <div style={{ paddingBottom: 'var(--space-4)' }}>
+                  <p style={subLabelStyle}>AI 本の解析</p>
                   <MarkdownSections
                     text={current.aiAnalysis}
                     onAddRelatedBook={addRelatedBookFromAi}
@@ -2876,8 +2805,8 @@ function AuthedApp() {
                 </div>
               )}
               {current.aiStrategy && (
-                <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}><IcMap size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読書計画シート</p>
+                <div style={{ paddingBottom: 'var(--space-4)' }}>
+                  <p style={subLabelStyle}>読書計画シート</p>
                   <MarkdownSections
                     text={current.aiStrategy}
                     onAddRelatedBook={addRelatedBookFromAi}
@@ -2903,18 +2832,18 @@ function AuthedApp() {
             overflowX: 'hidden',
             overscrollBehaviorY: 'contain',
             WebkitOverflowScrolling: 'touch',
-            padding: "20px 20px 80px",
+            padding: 'var(--space-2) var(--space-4) 112px', // 下は「メモを書く」ボタンに隠れない分
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
-            <button onClick={goList} style={{ ...lnk, color: "var(--c-brand)", fontSize: 15, fontWeight: 600 }}>
+            <button onClick={goList} style={{ ...btnText, padding: '8px 0', fontSize: 'var(--text-body)', fontWeight: 400 }}>
               ‹ {tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: -10 }}>
               <button
                 onClick={openHelp}
-                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
                 aria-label="この画面のヘルプを見る"
                 title="ヘルプ"
               >
@@ -2923,82 +2852,38 @@ function AuthedApp() {
               {/* ⋯ kebab — 編集 / 共有 / 削除 を集約。下部の 3 ボタン廃止。 */}
               <button
                 onClick={openDetailKebab}
-                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-brand)", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 20, fontWeight: 700 }}
+                style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
                 aria-label="その他の操作"
                 title="その他"
               >
-                ⋯
+                <MoreHorizontal size={22} aria-hidden="true" />
               </button>
             </div>
           </div>
 
           {/* Book header */}
-          <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
-            {/* 表紙ブロックは cover 有無に関わらず常に表示。
-                cover が無い時はプレースホルダ + 「取り直す」「違う?」を案内。
-                旧実装は cover && (...) で全体を隠していたため、表紙が無い本では
-                取り直しボタンに辿り着けなかった (⋯ メニューを開く必要があった)。 */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-              {current.cover ? (
-                <img src={ensureHttps(current.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid var(--c-hairline-strong)" }} />
-              ) : (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    width: 60,
-                    height: 84,
-                    borderRadius: 6,
-                    border: '1px dashed var(--c-hairline-strong)',
-                    background: 'var(--c-card)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 22,
-                    color: 'var(--c-ink-2)',
-                  }}
-                >
-                  📚
-                </div>
-              )}
-              {/* 表紙の救済導線はここに 1 本だけ（「違う?」→ 候補から選び直し /
-                  手動アップロードのモーダル）。旧: ISBN 表記 + 「取り直す」+
-                  「違う?」の 3 行が書名より先に目に入る技術ノイズになっていた。
-                  自動取り直しは ⋯ メニューの「表紙を取り直す」に引き続きある。 */}
-              <button
-                type="button"
-                onClick={() => setCoverFixForBook(current)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '8px 4px',
-                  margin: '-4px 0 -6px -4px',
-                  minHeight: 32,
-                  fontSize: 10,
-                  color: 'var(--c-ink-3)',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  textDecoration: 'underline',
-                  textUnderlineOffset: 2,
-                }}
-              >
-                表紙が違う？
-              </button>
-            </div>
+          <div style={{ display: "flex", gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
+            {/* 表紙の選び直し・取り直し・アップロードは「⋯」メニューへ（表紙の下の小さな
+                リンクは 10pt・高さ 32 で DESIGN 基準に届かないため撤去）。 */}
+            {current.cover ? (
+              <img src={ensureHttps(current.cover)} alt="" style={{ width: 72, height: 100, flexShrink: 0, objectFit: "cover", borderRadius: 4, border: '1px solid var(--separator)' }} />
+            ) : (
+              <MiniCover book={current} width={72} />
+            )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              {/* 書名＝この画面の主役。本文サイズ(17/500)だと .btn と同格に埋もれる。
-                  20px/bold で立て、著者は ink-3 に沈めて二段階の階層を作る。 */}
-              <h2 style={{ fontSize: "var(--type-title-3)", fontWeight: 700, color: "var(--c-ink)", lineHeight: 1.25, letterSpacing: "-0.01em", margin: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>{current.title}</h2>
-              {current.author && <p style={{ fontSize: 13, color: "var(--c-ink-3)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "var(--space-2)", flexWrap: "wrap" }}>
+              {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
+              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "break-word", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{current.title}</h1>
+              {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
+              <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
                 <StatusBadge status={current.status} />
-                {current.rating > 0 && <Stars r={current.rating} size={13} />}
+                {current.rating > 0 && <Stars r={current.rating} size={14} />}
               </div>
             </div>
           </div>
 
           {current.tags?.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
-              {current.tags.map((t, i) => (<span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 'var(--radius-md)', background: "var(--c-soft-2)", color: "var(--c-ink-2)" }}>#{t}</span>))}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+              {current.tags.map((t, i) => (<span key={i} style={{ fontSize: 'var(--text-meta)', padding: '4px 8px', borderRadius: 'var(--radius)', background: "var(--fill)", color: "var(--text-2)" }}>#{t}</span>))}
             </div>
           )}
 
@@ -3087,11 +2972,12 @@ function AuthedApp() {
             </div>
           )}
           {current.aiSummary && (
-            <details style={{ marginTop: 12, background: "var(--c-card)", border: "1px solid var(--c-hairline)", borderRadius: 'var(--radius-md)', padding: "10px 12px" }}>
-              <summary style={{ fontSize: 13, fontWeight: 600, color: "#5a7a48", cursor: "pointer", listStyle: "none" }}>
-                🤖 AI まとめ（要点の凝縮）
+            <details style={{ ...detailsStyle, marginTop: 'var(--space-6)' }}>
+              <summary style={summaryStyle}>
+                AI まとめ（要点の凝縮）
+                <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
               </summary>
-              <div style={{ marginTop: 10 }}>
+              <div style={{ paddingBottom: 'var(--space-4)' }}>
                 <MarkdownSections
                   text={current.aiSummary}
                   onAddRelatedBook={addRelatedBookFromAi}
@@ -3128,34 +3014,24 @@ function AuthedApp() {
 
           {isMemoPhase && planBlock}
 
-          {current.roiSummary && <Card label={<><IcBulb size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />一番の収穫</>} text={current.roiSummary} bg="var(--c-soft)" />}
+          {current.roiSummary && <div style={{ marginTop: 'var(--space-6)' }}><Card label="一番の収穫" text={current.roiSummary} /></div>}
 
           {/* 💡 読了直後の「一番の収穫」導線 — 感情のピークで 1 行の言語化を促す
               （レバレッジ読書の核心。未記入のときだけ出る＝書けば消える）。 */}
           {current.status === 'done' && !(current.roiSummary || '').trim() && (
-            <button
-              type="button"
-              onClick={() => openEdit(current)}
-              style={{
-                marginTop: 16, width: '100%', padding: '16px 18px', borderRadius: 16,
-                background: 'var(--c-brand)', color: 'var(--accent-ink)', border: 'none',
-                textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-                display: 'flex', alignItems: 'center', gap: 12, minHeight: 44,
-                boxShadow: '0 6px 18px rgba(92,74,46,0.22)',
-              }}
-            >
-              <span aria-hidden="true" style={{ fontSize: 26, lineHeight: 1 }}>💡</span>
-              <span>
-                <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>一番の収穫を1行だけ残す</span>
-                <span style={{ display: 'block', fontSize: 12, opacity: 0.9, marginTop: 3, lineHeight: 1.5 }}>
-                  この本で得た価値を1行にすると、振り返りで確実に思い出せます
-                </span>
-              </span>
-            </button>
+            <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
+              <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>一番の収穫を 1 行だけ残す</p>
+              <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', lineHeight: 1.6 }}>
+                この本で得た価値を 1 行にすると、相談にも振り返りにも活きます。
+              </p>
+              <button type="button" onClick={() => openEdit(current)} style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 0 }}>
+                1 行を書く
+              </button>
+            </div>
           )}
 
           {/* Action buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)', marginTop: 'var(--space-8)' }}>
             {nextStatus[current.status] && (
               <>
                 <button
@@ -3195,17 +3071,19 @@ function AuthedApp() {
                   // 主アクションはボタン正典（ブランド茶）に統一。以前は遷移先の
                   // ステータス色（紫/青/緑）で塗っており、詳細画面が暖色世界から
                   // 浮いた3色のサーカスになっていた。遷移先はラベルが十分に語る。
-                  style={{ ...btnS, width: "100%" }}
+                  // 読書中は右下の「メモを書く」が主ボタン（1 画面 1 つ・DESIGN §0）なので、
+                  // 「読了にする」は副ボタンに下げる。読みたい・積読では従来どおり主ボタン。
+                  style={{ ...(isMemoPhase ? btnGhost : btnS), width: "100%" }}
                 >
                   {nextLabel[current.status]}
                 </button>
                 {/* Phase 3: その場のガイダンス — 何が起きるか先に伝えて遷移を温かく */}
-                <p className="input-hint" style={{ marginTop: 0, justifyContent: 'center' }}>
+                <p style={{ margin: 0, textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
                   {current.status === 'want'
-                    ? '💡 手元に来たら積読へ。「得たいこと」を決めると AI が読書計画シートを作ります'
+                    ? '手元に来たら積読へ。「得たいこと」を決めると AI が読書計画シートを作ります'
                     : current.status === 'before'
-                    ? '💡 読書中になると、メモ機能が解放されます'
-                    : '💡 完了後、振り返りと「一番の収穫」を残せます'}
+                    ? '読書中になると、メモを書けるようになります'
+                    : '読み終えたら、一番の収穫を 1 行残せます'}
                 </p>
               </>
             )}
@@ -3217,34 +3095,12 @@ function AuthedApp() {
             {(current.status === 'want' || current.status === 'before') ? (
               <BookStoreLinks book={current} variant="cta" buy />
             ) : (
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <div>
                 <BookStoreLinks book={current} variant="compact" />
               </div>
             )}
-            {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。下部のボタン群は撤去。 */}
-            {/* 本棚に戻る — 上部 ← 一覧 が text link で目立たないため、
-                どのフェーズの本詳細でも下部に大きめの secondary ボタンで提供。
-                スクロールで上に戻らずに本棚へ帰れる。 */}
-            <button
-              type="button"
-              onClick={goList}
-              style={{
-                width: "100%",
-                padding: "12px 16px",
-                background: "transparent",
-                border: "1px solid var(--c-hairline-strong)",
-                borderRadius: 'var(--radius-md)',
-                color: "var(--c-brand)",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                marginTop: 16,
-                minHeight: 44,
-              }}
-            >
-              {tab === 'review' ? '← 振り返りに戻る' : tab === 'ai' ? '← AI に戻る' : '← 本棚に戻る'}
-            </button>
+            {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。下部の「← 本棚に戻る」は左上の戻ると
+                二重なので撤去（左端スワイプでも戻れる）。 */}
           </div>
         </div>
 
@@ -3411,6 +3267,7 @@ function AuthedApp() {
                   },
                 }];
               })()),
+              { label: '表紙を選び直す', icon: '🖼', onClick: () => setCoverFixForBook(current) },
               { label: '表紙を取り直す', icon: '🔄', onClick: () => refreshCoverFor(current) },
               { label: '表紙を手動でアップロード', icon: '🖼', onClick: () => triggerManualCoverUpload(current) },
               ...(current.cover ? [{ label: '表紙を削除', icon: '🗑', onClick: () => removeCoverFor(current) }] : []),

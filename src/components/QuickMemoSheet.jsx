@@ -1,7 +1,7 @@
 // メモを書くシート（SPEC §2「読みながら片手でサッと」）。
-// 最初に見えるのは本文だけ。ページ番号・写真から書き起こすは「＋ ページ・写真」で開く
-// （ページ番号は直前のメモ＋1 を既定値として覚えておく＝開かなくても保存される）。
-// 「写真・タグもつける」は全画面の BookMemoEditor へ引き継ぐ。
+// 最初に見えるのは本文だけ。ページ番号・写真から書き起こす・写真やタグ（全画面の
+// BookMemoEditor へ引き継ぐ）は「＋ 詳しく」で開く（SPEC §2）。
+// ページ番号は直前のメモ＋1 を既定値として覚えておく（開かなくても保存される）。
 // 見た目は DESIGN.md のトークンのみ。
 
 import { useEffect, useRef, useState } from 'react';
@@ -12,7 +12,7 @@ import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { Sparkles, Undo2, X, Plus, Minus } from 'lucide-react';
+import { Sparkles, Undo2, X, Plus, Minus, ChevronRight } from 'lucide-react';
 import { btnPrimary, btnText } from '../styles/ui';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
@@ -116,7 +116,7 @@ const inp = {
 
 const ta = {
   ...inp,
-  resize: 'vertical',
+  resize: 'none', // Web のサイズ変更つまみは iOS の作法にない
   minHeight: 160,
   // メモは「読む文章」（DESIGN §2: 明朝 18・行間 1.6）
   fontFamily: 'var(--font-read)',
@@ -132,7 +132,7 @@ const footerStyle = {
   borderTop: '1px solid var(--separator)',
 };
 
-const detailLink = { ...btnText, fontSize: 'var(--text-sub)', padding: '8px 0', flex: 1, justifyContent: 'flex-start', textAlign: 'left' };
+const detailLink = { ...btnText, fontSize: 'var(--text-sub)', padding: '8px 0', gap: 4 };
 
 // 本文の下の小さな副ボタン（DESIGN §5 btnRow と同じ寸法: 高さ 44・15・600）。
 const rowBtn = {
@@ -143,7 +143,7 @@ const rowBtn = {
 };
 
 // 主ボタン（DESIGN §5: 高さ 48・17・600）。
-const saveBtn = (busy) => ({ ...btnPrimary, width: 'auto', minWidth: 112, opacity: busy ? 0.6 : 1 });
+const saveBtn = (busy) => ({ ...btnPrimary, opacity: busy ? 0.6 : 1 });
 
 export default function QuickMemoSheet({
   bookTitle,
@@ -155,8 +155,15 @@ export default function QuickMemoSheet({
   ensureKeyframes();
   const [pageNumber, setPageNumber] = useState(defaultPageNumber !== '' ? String(defaultPageNumber) : '');
   const [text, setText] = useState('');
-  // ＋ ページ・写真（最初は閉じる＝本文だけを見せる）。
+  // ＋ 詳しく（最初は閉じる＝本文だけを見せる）。
   const [moreOpen, setMoreOpen] = useState(false);
+  // ページ番号を自分で触ったか。触っていなければ、既定値（直前＋1）が後から届いたときに
+  // 反映する（ホームから開くと、メモ一覧の読み込みより先にシートが開くため）。
+  const pageTouchedRef = useRef(false);
+  useEffect(() => {
+    if (pageTouchedRef.current) return;
+    setPageNumber(defaultPageNumber !== '' && defaultPageNumber != null ? String(defaultPageNumber) : '');
+  }, [defaultPageNumber]);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   // 閉じアニメーション中（入りが滑らかなのに出だけ瞬間消滅、の非対称を解消）。
@@ -366,6 +373,7 @@ export default function QuickMemoSheet({
         }}
         role="dialog"
         aria-modal="true"
+        aria-label="メモを書く"
       >
         {/* ハンドル+ヘッダー = 掴んで下に振ると閉じる（iOS シートの標準所作） */}
         <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}>
@@ -405,7 +413,7 @@ export default function QuickMemoSheet({
                   e.preventDefault();
                 }
               }}
-              placeholder="心が動いた一行を、そのまま書き留めましょう"
+              placeholder="心が動いた一行を、そのまま"
               style={ta}
               maxLength={LIMITS.memoText}
             />
@@ -439,7 +447,7 @@ export default function QuickMemoSheet({
             </div>
           )}
 
-          {/* ＋ ページ・写真 — 閉じていても、ページ番号（直前＋1）は保存される。 */}
+          {/* ＋ 詳しく — 閉じていても、ページ番号（直前＋1）は保存される。 */}
           <div>
             <button
               type="button"
@@ -448,7 +456,7 @@ export default function QuickMemoSheet({
               style={{ ...btnText, fontSize: 'var(--text-sub)', padding: '8px 0', gap: 4, color: 'var(--text-2)' }}
             >
               {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
-              ページ・写真
+              詳しく（ページ・写真・タグ）
               {!moreOpen && pageNumber !== '' && (
                 <span style={{ fontWeight: 400, color: 'var(--text-3)', marginLeft: 4 }}>（p.{pageNumber}）</span>
               )}
@@ -464,7 +472,7 @@ export default function QuickMemoSheet({
                     min={0}
                     max={99999}
                     value={pageNumber}
-                    onChange={(e) => setPageNumber(e.target.value)}
+                    onChange={(e) => { pageTouchedRef.current = true; setPageNumber(e.target.value); }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                         e.preventDefault();
@@ -483,6 +491,11 @@ export default function QuickMemoSheet({
                 />
               </div>
             )}
+            {moreOpen && onOpenFullEditor && (
+              <button type="button" style={{ ...detailLink, marginTop: 'var(--space-2)' }} onClick={handleDetailHandoff}>
+                写真やタグもつける（全画面で書く）<ChevronRight size={16} aria-hidden="true" />
+              </button>
+            )}
           </div>
 
           {errorMsg && (
@@ -491,9 +504,6 @@ export default function QuickMemoSheet({
         </div>
 
         <div style={footerStyle}>
-          <button type="button" style={detailLink} onClick={handleDetailHandoff}>
-            写真・タグもつける
-          </button>
           <button type="button" style={saveBtn(busy)} onClick={handleSave} disabled={busy}>
             {busy ? '保存中…' : '保存'}
           </button>

@@ -52,7 +52,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
   return (
     <section aria-labelledby="home-reading-title">
       <h2 id="home-reading-title" style={sectionTitle}>いま読んでいる本</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {shown.map((b) => (
             <div key={b.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
               <button

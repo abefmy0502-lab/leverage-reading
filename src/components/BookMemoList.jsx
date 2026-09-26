@@ -12,7 +12,7 @@ import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import ShareCardModal from './ShareCardModal';
-import { BookOpen, Clock, Quote, Pencil, Copy, Image, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
+import { BookOpen, PencilLine, Clock, Quote, Pencil, Copy, Image, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
 import { btnGhost } from '../styles/ui';
 
 // SPEC §2（2026-09-26）: 「カード｜まとめ」の切替タブと、二段の並び替え・引用チップ・
@@ -411,9 +411,11 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
       {!loading && memos.length === 0 && (
         // 入口は画面右下の「メモを書く」1 つ（ここに同じボタンを置かない・SPEC §2）。
-        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, padding: 'var(--space-6) 0', textAlign: 'center' }}>
-          心が動いた一行を、ひとつ残しましょう。<br />右下の「メモを書く」から書けます。
-        </p>
+        <EmptyState
+          icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
+          title="まだメモはありません"
+          description="心が動いた一行を、ひとつ残しましょう。右下の「メモを書く」から書けます。"
+        />
       )}
 
       {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (

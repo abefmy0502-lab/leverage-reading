@@ -282,7 +282,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
         <div
           className="skeleton"
           aria-hidden="true"
-          style={{ width: '80%', aspectRatio: '4 / 3', borderRadius: 8 }}
+          style={{ width: '80%', aspectRatio: '4 / 3', borderRadius: 'var(--radius)' }}
         />
       )}
       {photoUrl && (
@@ -309,8 +309,8 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
             style={{
               width: '100%',
               height: 'auto',
-              borderRadius: 8,
-              border: '1px solid var(--c-hairline)',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--separator)',
               display: 'block',
               opacity: photoLoaded ? 1 : 0,
               transition: 'opacity var(--duration-fast) var(--ease-out)',
@@ -331,7 +331,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
               margin: 0,
-              paddingRight: 32, // 右上の ⋮ と重ならない
+              paddingRight: 'var(--space-8)', // 右上の ⋮ と重ならない
               overflowWrap: 'anywhere',
               ...(isLongBody && !expanded
                 ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
