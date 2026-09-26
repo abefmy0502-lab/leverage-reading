@@ -26,3 +26,6 @@ ios/App/build/
 ios/DerivedData/
 *.xcuserstate
 .cap/
+
+# UI スクリーンショット（scripts/ui-shots.mjs の出力）
+ui-shots/

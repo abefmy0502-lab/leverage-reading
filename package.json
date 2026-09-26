@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node scripts/generate-icons.js",
-    "demo": "VITE_DEMO=true vite"
+    "demo": "VITE_DEMO=true vite",
+    "ui:shots": "node scripts/ui-shots.mjs"
   },
   "dependencies": {
     "@capacitor-community/apple-sign-in": "^7.1.0",

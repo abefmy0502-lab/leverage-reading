@@ -45,6 +45,32 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 | 凝縮 | 3行に凝縮 / 要約 | メモの AI 凝縮ボタン |
 | AI 選書 | アドバイザー / 選書アドバイザー | ヘルプキーは `aiAdvisor` のまま |
 
+## 🎨 UI のルール（2026-09-26〜・必ず守る）
+
+見た目の唯一のルールは **`DESIGN.md`**（余白・文字・色・角丸・影・アクセシビリティの数値）、画面の役割は **`SPEC.md`**。下の「開発時の注意」にある古いデザイン記述（ボタンの正典・ダークモード一時停止 など）と食い違うときは、DESIGN.md を優先する。
+
+1. **トークン必須・直書き禁止**：UI は必ず `src/styles/tokens.css` のトークン（`var(--…)`）を使う。**色（#hex・rgb）・文字サイズ・余白・角丸の数値を直書きしない**。JS から使うときは `src/styles/ui.js` の定数経由。
+   - 既存コードには直書きが大量に残っている（色 約290・文字サイズ 約820・角丸 約250 か所）。**触ったファイルの直書きは、その変更のついでにトークンへ置き換える**（DESIGN.md §8 の順で段階移行）
+   - 使ってよい値：余白 4/8/12/16/24/32/48/64、角丸 12 の 1 種類（円は例外）、文字 12 以上、太さ 400/600/700、色はニュートラル＋アクセント（栗色）1 色＋状態色 3 色
+2. **既存部品を先に使う**：新しい部品を作る前に、`src/styles/ui.js`（`btnPrimary` / `btnGhost` / `btnDanger` / `input` / `card`）、`components.css`（`.btn` `.card` など）、`EmptyState` / `ErrorMessage` / `SectionHeader` / `StatCard` / `Skeleton` / `BottomSheet` / `ContextMenu` を探して再利用する。無いときだけ作り、作ったら DESIGN.md §5 の表に追記する
+3. **UI を変えたら、明暗両方のスクショで比較してから直す**
+   1. 変更前に `npm run demo`（別ターミナル）→ `npm run ui:shots -- before <画面名…>` で撮る
+   2. 変更後に `npm run ui:shots -- after <画面名…>` で撮る（`ui-shots/<ラベル>/<画面>-light.png` / `-dark.png`・git 管理外）
+   3. before / after（または DESIGN.md の手本）を見比べて**差分を箇条書きにしてから**修正する
+   4. サブエージェント **`ui-critic`**（`.claude/agents/ui-critic.md`）に採点させ、**20 点中 16 点以上**で完了。実装した本人の目だけで合格にしない
+   - iOS 実機に近い確認は Mac の iOS シミュレータで行う（`ios-simulator-mcp`・手順は下の「iOS シミュレータでの確認」）。Web 版で先に確認し、節目でシミュレータでも撮る
+4. 画面の構成を変えたら `SPEC.md`、トークン・部品を変えたら `DESIGN.md` も同じコミットで更新する
+
+### iOS シミュレータでの確認（Mac でのみ・任意）
+
+このアプリは **React + Vite の Web アプリを Capacitor で iOS アプリに包んだ構成**（React Native / Expo / SwiftUI ではない）。そのため Expo MCP は使えず、iOS の見た目確認は `ios-simulator-mcp` を使う。**クラウドの作業環境（Linux）では動かない**ので、オーナーの Mac で次をセットアップする（未実施・実行前にオーナーの承認を取ること）:
+
+1. 前提：macOS・Xcode と iOS シミュレータ・Node.js 20 以上
+2. Facebook IDB を入れる：`brew tap facebook/fb && brew install idb-companion` と `pip3 install fb-idb`
+3. Claude Code に登録：`claude mcp add ios-simulator npx ios-simulator-mcp`
+4. アプリをシミュレータで起動：`npm run build && npx cap sync ios && npx cap run ios`
+5. 以後 Claude が `screenshot` / `ui_view` / `ui_tap` などのツールで撮影・操作できる。明暗は シミュレータの「Features → Toggle Appearance」（⇧⌘A）で切り替えて両方撮る
+
 ### 過去に削除された機能（履歴メモ）
 
 以下は過去に存在したが現在は完全に削除されており、コードベースには残っていません。再実装する場合は git history (`git log --all -- src/components/CapitalDashboard.jsx` 等) から参照可能。
@@ -63,8 +89,11 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 ├── api/claude.js                       # Vercel Serverless Function (Claude 中継 + RLS Auth)
 ├── public/                             # 静的アセット (manifest.json, icons/, sw.js)
 ├── scripts/generate-icons.js           # PWA アイコン生成 (`npm run icons`)
+├── scripts/ui-shots.mjs                # 📸 主要画面の明暗スクショ（`npm run ui:shots -- <ラベル> [画面名…]`）
+├── SPEC.md / DESIGN.md                 # 🎨 画面の役割 / 見た目のルール（UI を触る前に必ず読む）
 ├── src/
 │   ├── App.jsx                         # メインルーティング、状態管理、画面切替
+│   ├── demo/                           # 🧪 お試しモード（npm run demo・開発専用・本番バンドル外）
 │   ├── index.css                       # ベース reset + 既存 .lvg-* 互換クラス（tokens / components を import）
 │   ├── styles/
 │   │   ├── tokens.css                  # ⭐ Phase 1: デザイントークン唯一の真実（color / type / space / radius / shadow / motion）+ ダークモード
@@ -377,7 +406,7 @@ update feedback
 - **数値カウントアップ**: `src/components/AnimatedNumber.jsx` を使うと requestAnimationFrame で ease-out cubic でカウントアップ。`prefers-reduced-motion` 時は即スナップ。行動完了率 / 完了数で採用済み
 - **デザインシステム Phase 3 完了（コンテンツ精緻化）**: 共通コンポーネント 4 種を新設 — `EmptyState` / `SectionHeader` / `ErrorMessage` / `StatCard`。それぞれ `components.css` の `.empty-state*` / `.section-header*` / `.error-message*` / `.stat-card*` を消費する。新しい空状態 / エラー / 数値カードは必ずこれらを使うこと（独自インラインを書かない）。長文（メモ本文 / セットアップシート / ROI）には `.long-text` クラスを適用すると行間 1.7 + 段落間 16px が揃う
 - **デザインシステム Phase 4 → 簡素化（縮退）**: 「シンプル・直感的」優先のフィードバックを受け、Phase 4 の装飾は **大半を撤去**。残置は `lib/greeting.js`（時刻別挨拶 + 名前解決）と `components/AuthorThankYou.jsx`（ロゴ長押し easter egg）のみ。**削除済み**: `lib/streak.js` / `lib/milestones.js` / `lib/season.js` / `hooks/useStreak.js` / `hooks/useBookMilestones.js` / `components/SeasonalEffect.jsx` / `components/StreakBadge.jsx` / `components/MilestoneCelebration.jsx`。再導入する場合も Apple Notes / Reminders レベルの控えめさを基準に判断すること
-- **ダークモード一時停止**: `tokens.css` の `@media (prefers-color-scheme: dark)` ブロックを削除。コードベースは light hex リテラルが多数残るため部分的な dark mode は破綻する（AI 選書の入力欄だけ黒くなる等）。完全実装するときに再開
+- **ダークモード一時停止**（⚠️ 2026-09-26 に方針変更：DESIGN.md により明暗両方で作る。トークン化が済んだ画面から順に有効化）: `tokens.css` の `@media (prefers-color-scheme: dark)` ブロックを削除。コードベースは light hex リテラルが多数残るため部分的な dark mode は破綻する（AI 選書の入力欄だけ黒くなる等）。完全実装するときに再開
 - **AI プロンプトは `src/lib/prompts.js` で一元管理**: `bookAnalysis` / `setupSheet` / `setupSheetEdit` / `roiSummary` / `bookAdvisor` / `advisorInterview` / `advisorSummary` / `helpAi` / `myBookBrain` / `themeReport` / `weeklyQuestion` / `condense`。各エントリは `{ system, user(args) }`。プロンプトを変えたいときはこのファイルだけを編集する（App.jsx や ai.js にインライン定義してはいけない）。出力は基本 Markdown（`## <emoji> <heading>`）で、`<MarkdownSections>` でレンダリング。`bookAdvisor` だけは `RECOMMENDATIONS_START ... _END` の JSON ブロックも同梱する設計（リッチカードのデータ用）。max_tokens は 2048 が標準
 - **ジェスチャー基盤**（Phase B 完了済み・全 surface に展開済み）: 以下のフック/コンポーネントを使うとネイティブ感が出る — 新画面でも同じ仕組みを再利用できる
   - 適用済み: 本棚カード（swipe + long-press + PTR + edge-swipe back）/ メモカード `BookMemoCard` `BookMemoList`（swipe + long-press）/ 振り返りタブ `Review`（swipe + long-press + PTR）/ 知識管理 `KnowledgeManager`（swipe + long-press + PTR、まとめは🧹クリア表示）/ マイ読書脳の履歴ビュー（PTR）

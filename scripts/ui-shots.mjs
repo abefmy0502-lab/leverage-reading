@@ -1,0 +1,102 @@
+#!/usr/bin/env node
+// 📸 UI スクリーンショット撮影（明るい画面 / 暗い画面の両方）
+//
+// DESIGN.md / CLAUDE.md の「UI を変えたら明暗両方のスクショを撮って比較する」ルール用。
+// お試しモード（npm run demo・Supabase/AI 不要のサンプルデータ）で主要画面を順に開き、
+// iPhone 相当（390×844 @2x）で撮る。
+//
+// 使い方:
+//   1. 別ターミナルで  npm run demo            （http://localhost:5173）
+//   2. npm run ui:shots -- after              → ui-shots/after/*.png
+//      npm run ui:shots -- before             → 変更前に撮っておくと比較できる
+//      npm run ui:shots -- after home detail  → 画面を絞って撮る
+//   ブラウザ: 環境変数 PW_EXE（Chromium の実行ファイル）→ /opt/pw-browsers/chromium →
+//            インストール済みの Google Chrome の順に使う。
+//
+// 撮った画像は ui-shots/<ラベル>/<画面>-light.png / -dark.png（git 管理外）。
+// レビューは .claude/agents/ui-critic.md のエージェントに渡して採点する。
+
+import { existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { chromium } from 'playwright-core';
+
+const BASE = process.env.UI_SHOTS_URL || 'http://localhost:5173';
+const [label = 'current', ...only] = process.argv.slice(2);
+const outDir = join('ui-shots', label);
+
+const nav = (name) => `nav button[aria-label="${name}"]`;
+
+// 画面の定義: url（お試しモードのシナリオ）と、そこに至る操作。
+const SCREENS = [
+  { name: 'home', url: '/' },
+  { name: 'home-new-user', url: '/?demo=new', steps: [{ role: 'あとで' }] },
+  { name: 'onboarding', url: '/?demo=new' },
+  { name: 'quickstart', url: '/?demo=new', steps: [{ role: '次へ' }, { role: '次へ' }, { role: '次へ' }, { role: 'これまで読んだ本から始める' }] },
+  { name: 'book-detail', url: '/', steps: [{ css: 'button:has-text("1兆ドルコーチ")' }] },
+  { name: 'consult', url: '/', steps: [{ css: nav('相談') }] },
+  {
+    name: 'consult-answer', url: '/',
+    steps: [
+      { css: nav('相談') },
+      { fill: ['textarea[aria-label="マイ読書脳への質問"]', '部下が報告をくれなくて困っています'] },
+      { css: 'button[aria-label="送信"]' },
+      { wait: 6000 },
+    ],
+  },
+  { name: 'consult-scope', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label^="相談相手を選ぶ"]' }] },
+  { name: 'review', url: '/', steps: [{ css: nav('振り返り') }] },
+  { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
+  { name: 'auth', url: '/?demo=auth&auth=signin' },
+  { name: 'landing', url: '/?demo=auth' },
+];
+
+function browserOptions() {
+  if (process.env.PW_EXE) return { executablePath: process.env.PW_EXE };
+  if (existsSync('/opt/pw-browsers/chromium')) return { executablePath: '/opt/pw-browsers/chromium' };
+  return { channel: 'chrome' };
+}
+
+async function run(step, page) {
+  if (step.wait) return page.waitForTimeout(step.wait);
+  if (step.role) await page.getByRole('button', { name: step.role }).first().click();
+  if (step.css) await page.locator(step.css).first().click();
+  if (step.fill) await page.locator(step.fill[0]).first().fill(step.fill[1]);
+  await page.waitForTimeout(900);
+}
+
+const targets = only.length ? SCREENS.filter((s) => only.includes(s.name)) : SCREENS;
+if (targets.length === 0) {
+  console.error(`画面名が見つかりません。使える名前: ${SCREENS.map((s) => s.name).join(', ')}`);
+  process.exit(1);
+}
+mkdirSync(outDir, { recursive: true });
+
+const browser = await chromium.launch(browserOptions());
+let failed = 0;
+for (const scheme of ['light', 'dark']) {
+  const ctx = await browser.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+    locale: 'ja-JP', colorScheme: scheme,
+  });
+  for (const s of targets) {
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    try {
+      await page.goto(BASE + s.url, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1200);
+      for (const step of s.steps || []) await run(step, page);
+      const file = join(outDir, `${s.name}-${scheme}.png`);
+      await page.screenshot({ path: file });
+      console.log(`✓ ${file}${errors.length ? `  ⚠️ ${errors[0]}` : ''}`);
+    } catch (e) {
+      failed += 1;
+      console.error(`✗ ${s.name} (${scheme}): ${e.message.split('\n')[0]}`);
+    } finally {
+      await page.close();
+    }
+  }
+  await ctx.close();
+}
+await browser.close();
+if (failed) process.exit(1);

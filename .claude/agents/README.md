@@ -33,3 +33,13 @@ Orime の集客・信頼構築・課金転換を、note.com で継続運用す�
 ## 各役が参照するブランド資産（`company/`）
 `brand-messaging.md` / `marketing-playbook.md` / `product-north-star.md` /
 `sns-sales-plan-july.md` / `seo-articles-batch1.md` ほか。声と既存戦略に齟齬を出さないため、作業前に必ず確認する。
+
+---
+
+# UI レビュー（カスタムサブエージェント）
+
+| 役 | サブエージェント | 担当 |
+|---|---|---|
+| UI レビュー | `ui-critic` | 明暗のスクショを `DESIGN.md` / `SPEC.md` と 10 項目×2 点で採点（16/20 以上で合格）。実装した本人とは別の目。コードは直さない |
+
+使い方：`npm run demo` を起動 → `npm run ui:shots -- after <画面名>` → 「`ui-critic` で ui-shots/after の home を採点して（比較は ui-shots/before）」。
