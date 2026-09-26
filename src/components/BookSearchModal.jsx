@@ -1,278 +1,468 @@
-// 🔍 本を検索して追加するモーダル（タイトル/著者/ISBN の 3 入力・詳細検索）。
-// App.jsx から切り出した自己完結コンポーネント（props のみ・App の state に非依存）。
+// 本の検索（1 つの検索欄）と、その部品。
+//
+// App Store / Apple ブックの検索と同じく、入力欄は 1 つだけ。書名・著者・ISBN の
+// どれを入れても探せるよう、中で次の順に既存の詳細検索（searchBooksAdvanced）へ振り分ける:
+//   1. ISBN（10 桁 / 13 桁。ハイフン・空白・全角数字も可）→ ISBN 検索
+//   2. 書名として検索 → 0 件なら著者として検索
+//   3. それでも 0 件で語が 2 つ以上なら「書名 著者」「著者 書名」の組み合わせで検索
+// 見つかった時点で止めるので、よくある書名検索は 1 回の問い合わせで済む。
+//
+// ここにある部品（useBookQuerySearch / BookSearchField / BookResultList /
+// BookResultSkeleton）は AddBookModal（本を追加）でも使う。AddBookModal は遅延読み込み
+// なので、共通部品は常に読み込まれているこのファイル側に置く。
+//
+// 既定の export（BookSearchModal）は本の編集画面（WantPhase）の「検索して追加」から
+// App.jsx の Modal の中に出す検索ダイアログ。
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Search, CircleX, Check, ChevronRight, SearchX } from 'lucide-react';
 import { toMessage } from '../lib/errors';
-import { Search as IcSearch, Plus as IcPlus, Lightbulb as IcBulb, X as IcClose } from 'lucide-react';
-import { searchBooksAdvanced as searchBooksAPIAdvanced, pickSuggestions } from '../lib/bookSearch';
-import { ensureHttps } from '../lib/url';
+import { searchBooksAdvanced } from '../lib/bookSearch';
 import { LIMITS } from '../lib/limits';
-import { inp, btnS, Dots } from './formPrimitives';
+import { btnPrimary, btnGhost, input } from '../styles/ui';
+import { MiniCover } from './BookCards';
+import { SkeletonBlock } from './Skeleton';
+import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 
-const closeBtn = { background: 'none', border: 'none', fontSize: 20, color: 'var(--color-tertiary)', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, borderRadius: 10 };
+// 表示件数: 最初は 20、「さらに表示」で +10、50 で打ち止め（API 負荷と見やすさの釣り合い）。
+const INITIAL_DISPLAY = 20;
+const DISPLAY_STEP = 10;
+const MAX_DISPLAY = 50;
 
-function BookResultCard({ book, onSelect }) {
+const SEARCH_FALLBACK_ERROR = '通信環境を確認して、もう一度お試しください。';
+
+// ---------------------------------------------------------------------------
+// 検索の振り分け
+// ---------------------------------------------------------------------------
+
+// 全角→半角・前後の空白を整える。
+export function normalizeBookQuery(raw) {
+  return String(raw || '').normalize('NFKC').replace(/\s+/g, ' ').trim();
+}
+
+// ISBN として読めるなら、ハイフン・空白を除いた ISBN を返す（読めなければ ''）。
+export function isbnFromQuery(raw) {
+  const compact = normalizeBookQuery(raw).replace(/[-\s]/g, '').toUpperCase();
+  return /^(\d{13}|\d{9}[\dX])$/.test(compact) ? compact : '';
+}
+
+// 手動入力へ引き継ぐ値（ISBN なら ISBN 欄、それ以外は書名欄へ）。
+export function manualSeedFromQuery(raw) {
+  const isbn = isbnFromQuery(raw);
+  if (isbn) return { title: '', author: '', isbn };
+  return { title: normalizeBookQuery(raw), author: '', isbn: '' };
+}
+
+const bookKey = (b) => (b.isbn ? `i:${b.isbn}` : `t:${b.title}|${b.author || ''}`);
+
+function mergeResults(lists) {
+  const seen = new Set();
+  const out = [];
+  lists.forEach((list) => {
+    (list || []).forEach((b) => {
+      const k = bookKey(b);
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(b);
+    });
+  });
+  return out;
+}
+
+// 1 つの検索語で本を探す。戻り値は searchBooksAdvanced と同じ { ok, results, error }。
+// AbortError はそのまま投げる（呼び出し側で「新しい検索に置き換わった」と判断する）。
+export async function searchBooksByQuery(raw, { signal } = {}) {
+  const q = normalizeBookQuery(raw);
+  if (!q) return { ok: true, results: [] };
+
+  const isbn = isbnFromQuery(q);
+  if (isbn) return searchBooksAdvanced({ isbn }, { signal });
+
+  const words = q.split(' ');
+  const steps = [[{ title: q }], [{ author: q }]];
+  if (words.length >= 2) {
+    steps.push([
+      { title: words.slice(0, -1).join(' '), author: words[words.length - 1] },
+      { title: words.slice(1).join(' '), author: words[0] },
+    ]);
+  }
+
+  for (const step of steps) {
+    // eslint-disable-next-line no-await-in-loop
+    const responses = await Promise.all(step.map((p) => searchBooksAdvanced(p, { signal })));
+    const merged = mergeResults(responses.map((r) => (r.ok ? r.results : [])));
+    if (merged.length > 0) return { ok: true, results: merged };
+    // 失敗した問い合わせがあるなら「0 件」とは言い切れない。次へ進まずエラーを返す。
+    const failed = responses.find((r) => !r.ok);
+    if (failed) return failed;
+  }
+  return { ok: true, results: [] };
+}
+
+// 生のエラー文から、見出しと重なる前置き・先頭の絵文字を外す。
+const errorDetail = (msg) =>
+  String(msg || '')
+    .replace(/^[\p{Extended_Pictographic}️\s]+/u, '')
+    .replace(/^検索(でエラーが発生しました|エラーが発生しました|できませんでした)。?\s*/, '')
+    .trim() || SEARCH_FALLBACK_ERROR;
+
+// 検索の状態（'idle' | 'searching' | 'results' | 'notfound' | 'error'）を持つフック。
+// 連続で検索したとき、古い問い合わせは中断して後着の結果で上書きしない。
+export function useBookQuerySearch() {
+  const [status, setStatus] = useState('idle');
+  const [results, setResults] = useState([]);
+  const [error, setError] = useState('');
+  const abortRef = useRef(null);
+
+  useEffect(() => () => { try { abortRef.current?.abort(); } catch { /* ignore */ } }, []);
+
+  const run = useCallback(async (raw) => {
+    if (!normalizeBookQuery(raw)) return;
+    try { abortRef.current?.abort(); } catch { /* ignore */ }
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    setStatus('searching');
+    setError('');
+    setResults([]);
+
+    let res;
+    try {
+      res = await searchBooksByQuery(raw, { signal: ctrl.signal });
+    } catch (e) {
+      if (e?.name === 'AbortError' || ctrl.signal.aborted) return;
+      setError(errorDetail(toMessage(e, SEARCH_FALLBACK_ERROR)));
+      setStatus('error');
+      return;
+    }
+    if (ctrl.signal.aborted) return;
+    if (!res.ok) {
+      setError(errorDetail(toMessage(res.error, SEARCH_FALLBACK_ERROR)));
+      setStatus('error');
+      return;
+    }
+    if (!res.results || res.results.length === 0) {
+      setStatus('notfound');
+      return;
+    }
+    setResults(res.results);
+    setStatus('results');
+  }, []);
+
+  return { status, results, error, run };
+}
+
+// ---------------------------------------------------------------------------
+// 部品
+// ---------------------------------------------------------------------------
+
+// 検索欄（虫めがね＋入力＋消すボタン）。Enter は変換中を除いて onSubmit。
+// 案内文（placeholder）は全体の ::placeholder（--text-3・4.5:1）のまま薄めない。
+export function BookSearchField({ id, value, onChange, onSubmit, inputRef, autoFocus = false }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <Search
+        size={20}
+        aria-hidden="true"
+        style={{ position: 'absolute', left: 'var(--space-4)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }}
+      />
+      <input
+        id={id}
+        ref={inputRef}
+        type="text"
+        enterKeyHint="search"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        aria-label="書名・著者・ISBN"
+        placeholder="書名・著者・ISBN"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            onSubmit();
+          }
+        }}
+        maxLength={LIMITS.bookTitle}
+        autoFocus={autoFocus}
+        style={{
+          ...input,
+          outline: 'none',
+          paddingLeft: 'var(--space-12)',
+          paddingRight: value ? 'var(--space-12)' : 'var(--space-4)',
+          // DESIGN §5: 入力中の枠はアクセント
+          ...(focused ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 3px var(--accent-soft)' } : {}),
+        }}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => {
+            onChange('');
+            inputRef?.current?.focus();
+          }}
+          aria-label="入力を消す"
+          style={{
+            position: 'absolute', top: 0, right: 0, width: 48, height: 48,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+            color: 'var(--text-3)',
+          }}
+        >
+          <CircleX size={20} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// 検索ボタン（1 画面 1 つの主ボタン）。見た目は常に主ボタンのまま（DESIGN §7 の「相談する」と
+// 同じ作法）: 空欄で押したら検索欄へ戻し、検索中は「検索中…」にして二重に走らせない。
+export function SearchButton({ empty, searching, onSearch, onEmpty }) {
   return (
     <button
       type="button"
-      onClick={() => onSelect(book)}
-      aria-label={`『${book.title}』を選択`}
-      style={{
-        display: 'flex',
-        gap: 10,
-        alignItems: 'flex-start',
-        padding: '10px 12px',
-        borderRadius: 10,
-        border: '1px solid var(--c-hairline)',
-        background: 'var(--c-card)',
-        cursor: 'pointer',
-        textAlign: 'left',
-        fontFamily: 'inherit',
-        width: '100%',
+      onClick={() => {
+        if (searching) return;
+        if (empty) onEmpty?.();
+        else onSearch();
       }}
+      aria-busy={searching || undefined}
+      style={{ ...btnPrimary, ...(searching ? { cursor: 'progress' } : {}) }}
     >
-      {book.cover ? (
-        <img
-          src={ensureHttps(book.cover)}
-          alt=""
-          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--c-hairline-strong)' }}
-        />
-      ) : (
-        <div style={{ width: 44, height: 60, background: 'var(--fill)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📕</div>
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', lineHeight: 1.4, marginBottom: 2 }}>{book.title}</div>
-        {book.author && <div style={{ fontSize: 11, color: 'var(--c-ink-2)' }}>✍️ {book.author}</div>}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-          {book.publisher && <span style={{ fontSize: 10, color: 'var(--c-ink-2)' }}>🏢 {book.publisher}</span>}
-          {book.pubYear && <span style={{ fontSize: 10, color: 'var(--c-ink-2)' }}>📅 {book.pubYear}</span>}
-        </div>
-        {book.isbn && <div style={{ fontSize: 10, color: 'var(--c-ink-3)', marginTop: 3 }}>🔢 ISBN: {book.isbn}</div>}
-      </div>
-      <span style={{ fontSize: 11, color: 'var(--c-brand)', alignSelf: 'center', whiteSpace: 'nowrap', padding: '4px 8px', border: '1px solid var(--c-hairline-strong)', borderRadius: 6 }}>
-        <IcPlus size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />これを追加
-      </span>
+      {searching ? '検索中…' : '検索'}
     </button>
   );
 }
 
-export default function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor = '', initialIsbn = '' }) {
-  // 3 inputs always visible. Phase 5: 簡素化方針により simple/advanced
-  // タブを廃止し、最初から詳細検索 (title + author + isbn) を 1 画面で。
-  const [advTitle, setAdvTitle] = useState(initialQuery);
-  const [advAuthor, setAdvAuthor] = useState(initialAuthor);
-  const [advIsbn, setAdvIsbn] = useState(initialIsbn);
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [notFound, setNotFound] = useState(false);
-  const [error, setError] = useState(null);
-  const [lastQuery, setLastQuery] = useState('');
-  const [cached, setCached] = useState(false);
-  const [sortBy, setSortBy] = useState('relevance');
+const listStyle = {
+  listStyle: 'none',
+  margin: 0,
+  padding: 0,
+  background: 'var(--surface)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  overflow: 'hidden',
+};
 
-  const runSearch = async (override) => {
-    const t = (override?.title ?? advTitle).trim();
-    const a = (override?.author ?? advAuthor).trim();
-    const i = (override?.isbn ?? advIsbn).trim();
-    if (!t && !a && !i) {
-      setError('タイトル・著者・ISBN のいずれかを入力してください。');
-      return;
-    }
-    setSearching(true); setNotFound(false); setError(null); setResults([]); setCached(false);
-    setLastQuery([t, a, i].filter(Boolean).join(' / '));
-    const res = await searchBooksAPIAdvanced({ title: t, author: a, isbn: i });
-    if (!res.ok) {
-      // 生のエラー文字列を将来混入させない — AddBookModal と同じく humanize して表示。
-      setError(toMessage(res.error, '検索でエラーが発生しました。少し時間をおいて再度お試しください。'));
-    } else if (res.results.length === 0) {
-      setNotFound(true);
-    } else {
-      setResults(res.results);
-      if (res.cached) setCached(true);
-    }
-    setSearching(false);
-  };
+const rowStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
+  width: '100%',
+  minHeight: 44,
+  padding: 'var(--space-3) var(--space-4)',
+  background: 'none',
+  border: 'none',
+  textAlign: 'left',
+  fontFamily: 'inherit',
+  color: 'var(--text)',
+  cursor: 'pointer',
+};
 
-  // Auto-search if seeded from AddBookModal (any of title / author / isbn).
-  useEffect(() => {
-    if (initialQuery?.trim() || initialAuthor?.trim() || initialIsbn?.trim()) {
-      runSearch({ title: initialQuery, author: initialAuthor, isbn: initialIsbn });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+const oneLine = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
-  const retry = () => runSearch();
-  const hasAnyInput = advTitle.trim() || advAuthor.trim() || advIsbn.trim();
+function ResultRow({ book, existing, onPick, divider }) {
+  const statusLabel = existing ? (existing.statusLabel || '本棚') : '';
+  const meta = [book.publisher, book.pubYear].filter(Boolean).join('・');
+  return (
+    <li style={divider ? { borderTop: '1px solid var(--separator)' } : undefined}>
+      <button
+        type="button"
+        onClick={() => onPick(book, existing ? { isExisting: true, existing: existing.book } : {})}
+        aria-label={existing ? `『${book.title}』追加済み（${statusLabel}）。開く` : `『${book.title}』を追加`}
+        style={rowStyle}
+      >
+        <MiniCover book={{ id: bookKey(book), title: book.title, cover: book.cover }} width={44} />
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <span
+            style={{
+              fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)',
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}
+          >
+            {book.title}
+          </span>
+          {book.author && (
+            <span style={{ ...oneLine, fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{book.author}</span>
+          )}
+          {existing ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
+              <Check size={14} aria-hidden="true" />
+              追加済み・{statusLabel}
+            </span>
+          ) : meta ? (
+            <span style={{ ...oneLine, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>{meta}</span>
+          ) : null}
+        </span>
+        <ChevronRight size={20} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
+      </button>
+    </li>
+  );
+}
 
-  // Apply sort over a stable copy. Empty pubYear sorts to the bottom.
-  const sortedResults = useMemo(() => {
-    if (!results.length) return results;
-    const arr = [...results];
-    if (sortBy === 'year-desc') {
-      arr.sort((a, b) => {
-        const ay = parseInt(a.pubYear || '0', 10);
-        const by = parseInt(b.pubYear || '0', 10);
-        return by - ay;
-      });
-    } else if (sortBy === 'title') {
-      arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ja'));
-    }
-    return arr;
-  }, [results, sortBy]);
+// 検索結果の一覧（1 枚のカードに行を並べる・行の間は区切り線）。
+// getExisting(book) が { book, statusLabel } を返すと「追加済み」として表示し、
+// 押すと onPick(book, { isExisting: true, existing }) を呼ぶ。
+export function BookResultList({ results, onPick, getExisting }) {
+  const [count, setCount] = useState(INITIAL_DISPLAY);
+  useEffect(() => { setCount(INITIAL_DISPLAY); }, [results]);
 
-  const suggestions = useMemo(() => {
-    // Only surface the suggest section if there's enough noise to wade
-    // through. Below that, the regular list already serves as the answer.
-    if (results.length < 5) return [];
-    return pickSuggestions(results, 3);
-  }, [results]);
-
-  const tooMany = results.length >= 20;
+  const limit = Math.min(results.length, MAX_DISPLAY);
+  const visible = results.slice(0, Math.min(count, limit));
+  const remaining = limit - visible.length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 500, color: 'var(--c-ink)' }}>
-          <IcSearch size={16} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
-          本を検索
-        </h3>
-        <button onClick={onClose} style={closeBtn} aria-label="閉じる"><IcClose size={20} aria-hidden="true" /></button>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div>
-          <label htmlFor="adv-title" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-secondary)', display: 'block', marginBottom: 4 }}>タイトル</label>
-          <input
-            id="adv-title"
-            value={advTitle}
-            onChange={(e) => setAdvTitle(e.target.value)}
-            placeholder="例：レバレッジ・リーディング"
-            style={inp}
-            maxLength={LIMITS.bookTitle}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
-            autoFocus
+    <section aria-label="検索結果" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+        {results.length} 件
+      </p>
+      <ul className="list-item-stagger" style={listStyle}>
+        {visible.map((b, i) => (
+          <ResultRow
+            key={`${bookKey(b)}-${i}`}
+            book={b}
+            existing={getExisting ? getExisting(b) : null}
+            onPick={onPick}
+            divider={i > 0}
           />
-        </div>
-        <div>
-          <label htmlFor="adv-author" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-secondary)', display: 'block', marginBottom: 4 }}>
-            著者 <span style={{ fontWeight: 400, color: 'var(--color-tertiary)' }}>（任意）</span>
-          </label>
-          <input
-            id="adv-author"
-            value={advAuthor}
-            onChange={(e) => setAdvAuthor(e.target.value)}
-            placeholder="例：山田 太郎"
-            style={inp}
-            maxLength={LIMITS.bookAuthor}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
-          />
-        </div>
-        <div>
-          <label htmlFor="adv-isbn" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-secondary)', display: 'block', marginBottom: 4 }}>
-            ISBN <span style={{ fontWeight: 400, color: 'var(--color-tertiary)' }}>（任意）</span>
-          </label>
-          <input
-            id="adv-isbn"
-            value={advIsbn}
-            onChange={(e) => setAdvIsbn(e.target.value)}
-            placeholder="978-4-7631-9742-3"
-            style={inp}
-            inputMode="numeric"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
-          />
-        </div>
+        ))}
+      </ul>
+      {remaining > 0 && (
         <button
           type="button"
-          onClick={() => runSearch()}
-          disabled={searching || !hasAnyInput}
+          onClick={() => setCount((n) => Math.min(n + DISPLAY_STEP, limit))}
+          style={btnGhost}
+        >
+          さらに表示
+        </button>
+      )}
+      {remaining === 0 && results.length > MAX_DISPLAY && (
+        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center' }}>
+          語を足すと絞り込めます
+        </p>
+      )}
+    </section>
+  );
+}
+
+// 読み込み中: 結果の行と同じ形のスケルトン。
+export function BookResultSkeleton({ rows = 3 }) {
+  return (
+    <div aria-hidden="true" style={listStyle}>
+      {Array.from({ length: rows }, (_, i) => (
+        <div
+          key={i}
           style={{
-            ...btnS,
-            padding: '12px 14px',
-            fontSize: 14,
-            minHeight: 44,
-            opacity: searching || !hasAnyInput ? 0.5 : 1,
+            ...rowStyle,
+            cursor: 'default',
+            borderTop: i > 0 ? '1px solid var(--separator)' : 'none',
           }}
         >
-          🔍 検索
-        </button>
-      </div>
+          <SkeletonBlock width={44} height={62} radius={4} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <SkeletonBlock width="80%" height={16} radius="var(--radius-full)" />
+            <SkeletonBlock width="45%" height={12} radius="var(--radius-full)" />
+            <SkeletonBlock width="30%" height={12} radius="var(--radius-full)" />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-      {searching && <Dots />}
+// 検索の結果エリア（読み込み中・エラー・0 件・結果）。
+export function BookSearchStatus({ search, onRetry, onManual, onPick, getExisting }) {
+  const { status, results, error } = search;
+  return (
+    <div aria-live="polite" aria-busy={status === 'searching'}>
+      {status === 'searching' && <BookResultSkeleton />}
 
-      {error && !searching && (
+      {status === 'error' && (
         <ErrorMessage
-          title="検索でエラーが発生しました"
+          title="検索できませんでした"
           description={error}
-          actions={[{ label: '↻ もう一度試す', onClick: retry, variant: 'primary' }]}
-          hint="ネット接続が不安定な時は、少し時間をおいてからお試しください 🙏"
+          actions={[
+            { label: 'もう一度試す', onClick: onRetry, variant: 'secondary' },
+            ...(onManual ? [{ label: '手動で入力する', onClick: onManual, variant: 'ghost' }] : []),
+          ]}
         />
       )}
 
-      {notFound && !searching && (
-        <div style={{ textAlign: 'center', padding: 18 }}>
-          <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0, lineHeight: 1.7 }}>
-            「{lastQuery}」に一致する本が見つかりません
-          </p>
-          <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: '6px 0 0' }}>
-            別のキーワードでお試しください
-          </p>
+      {status === 'notfound' && (
+        <EmptyState
+          icon={<SearchX size={28} aria-hidden="true" />}
+          title="見つかりませんでした"
+          description="書名を短くするか、ISBN で探してください"
+          actions={onManual ? [{ label: '手動で入力する', onClick: onManual, variant: 'secondary' }] : []}
+        />
+      )}
+
+      {status === 'results' && (
+        <BookResultList results={results} onPick={onPick} getExisting={getExisting} />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 本の編集画面から開く検索ダイアログ
+// ---------------------------------------------------------------------------
+
+export default function BookSearchModal({ onSelect, onClose, initialQuery = '', initialAuthor = '', initialIsbn = '' }) {
+  const [query, setQuery] = useState(() => (
+    (initialIsbn || '').trim() || [initialQuery, initialAuthor].map((s) => (s || '').trim()).filter(Boolean).join(' ')
+  ));
+  const inputRef = useRef(null);
+  const search = useBookQuerySearch();
+  const hasQuery = !!normalizeBookQuery(query);
+
+  // 編集画面の書名などが入っていれば、開いた時点で検索する。
+  useEffect(() => {
+    if (hasQuery) search.run(query);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
+          <h3 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>本を検索</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', padding: 0, minWidth: 44, minHeight: 44, cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', color: 'var(--text-2)' }}
+          >
+            キャンセル
+          </button>
         </div>
-      )}
+        <BookSearchField
+          id="book-search-query"
+          value={query}
+          onChange={setQuery}
+          onSubmit={() => search.run(query)}
+          inputRef={inputRef}
+          autoFocus
+        />
+        <SearchButton
+          empty={!hasQuery}
+          searching={search.status === 'searching'}
+          onSearch={() => search.run(query)}
+          onEmpty={() => inputRef.current?.focus()}
+        />
+      </div>
 
-      {results.length > 0 && cached && (
-        <p style={{ fontSize: 10, color: 'var(--color-tertiary)', margin: '0 2px', fontStyle: 'italic' }}>
-          ⚡ キャッシュから即時表示
-        </p>
-      )}
-
-      {tooMany && !searching && (
-        <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: 0, padding: '0 4px' }}>
-          💡 結果 {results.length} 件 — 著者や ISBN を入れると絞り込めます
-        </p>
-      )}
-
-      {suggestions.length > 0 && !searching && (
-        <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline)', borderRadius: 10, padding: '10px 12px' }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 6px' }}>
-            <IcBulb size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-            もしかしてこの本？
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {suggestions.map((b, i) => (
-              <BookResultCard key={`sug-${i}`} book={b} onSelect={onSelect} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {results.length > 0 && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0 }}>{results.length} 件ヒット</p>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={{ ...inp, width: 'auto', padding: '6px 8px' }}
-              aria-label="並び順"
-            >
-              <option value="relevance">関連度順</option>
-              <option value="year-desc">出版年が新しい順</option>
-              <option value="title">タイトル順</option>
-            </select>
-          </div>
-          <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
-            {sortedResults.map((b, i) => (
-              <div key={`r-${i}`} className="list-item-enter">
-                <BookResultCard book={b} onSelect={onSelect} />
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      <BookSearchStatus
+        search={search}
+        onRetry={() => search.run(query)}
+        onPick={(book) => onSelect(book)}
+      />
     </div>
   );
 }

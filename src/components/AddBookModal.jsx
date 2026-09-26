@@ -1,252 +1,64 @@
-// 📚 AddBookModal — 全画面シート式の本追加 UI（検索 + 結果 + 手動入力切替を 1 画面で完結）。
+// AddBookModal — 全画面の「本を追加」。検索欄 1 つ＋結果＋バーコード＋手動入力を 1 画面で完結。
 //
-// シンプル化第 2 弾: 旧フローは AddBookModal → 「検索」ボタン → 別の
-// BookSearchModal に遷移、という 2 段階だった。今回はそれを撤廃し、
-// 同じモーダル内に 3 入力欄・検索ボタン・結果リスト・手動入力リンク
-// すべてを収めて、画面遷移なしで完結させる。
+// 検索欄・結果一覧・検索の振り分け（書名 / 著者 / ISBN）は BookSearchModal.jsx の共通部品を使う
+// （このファイルは遅延読み込みなので、共通部品は常に読み込まれている側に置いてある）。
 //
-// 状態マシン:
-//   'idle'      : 初期。フォームのみ + 手動入力リンク
-//   'searching' : 検索中（フォーム disabled、下にスピナー）
-//   'results'   : 結果あり
-//   'notfound'  : 結果 0 件
-//   'error'     : 検索エラー（リトライ可能）
+// 状態（useBookQuerySearch）:
+//   'idle'      : 初期。検索欄＋バーコード＋手動入力
+//   'searching' : 検索中（結果の形のスケルトン）
+//   'results'   : 結果あり（本棚にある本は「追加済み」・押すとその本を開く）
+//   'notfound'  : 0 件（手動入力へ）
+//   'error'     : 検索エラー（もう一度試す / 手動入力）
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Library, Search, Camera, Pencil, AlertTriangle, RefreshCw, ChevronDown, Lightbulb, Check, X } from 'lucide-react';
+import { ScanBarcode, Camera, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
-import { searchBooksAdvanced } from '../lib/bookSearch';
-import { ensureHttps } from '../lib/url';
-import { LIMITS } from '../lib/limits';
-import { toMessage } from '../lib/errors';
-import { SkeletonBlock } from './Skeleton';
-
-// 表示件数のページング基準。最初は 20、「もっと見る」で +10 ずつ増やし、
-// API 負荷とユーザビリティの観点から 50 で打ち止め。
-const INITIAL_DISPLAY = 20;
-const DISPLAY_STEP = 10;
-const MAX_DISPLAY = 50;
+import { btnPrimary, btnGhost, btnText } from '../styles/ui';
+import {
+  BookSearchField,
+  BookSearchStatus,
+  SearchButton,
+  manualSeedFromQuery,
+  normalizeBookQuery,
+  useBookQuerySearch,
+} from './BookSearchModal';
 
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 200,
-  background: 'var(--color-bg, var(--color-bg))',
+  background: 'var(--bg)',
   display: 'flex',
   flexDirection: 'column',
-  fontFamily: "var(--font-app)",
+  fontFamily: 'var(--font-ui)',
   paddingTop: 'env(safe-area-inset-top, 0px)',
   paddingBottom: 'env(safe-area-inset-bottom, 0px)',
 };
 
 const headerStyle = {
-  padding: 'var(--space-3) var(--space-4)',
-  borderBottom: '1px solid var(--color-separator)',
-  display: 'flex',
+  display: 'grid',
+  gridTemplateColumns: '1fr auto 1fr',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 'var(--space-2)',
-  background: 'var(--color-surface)',
-  position: 'sticky',
-  top: 0,
-  zIndex: 1,
-};
-
-const closeBtn = {
-  background: 'none',
-  border: 'none',
-  fontSize: 22,
-  color: 'var(--color-secondary)',
-  cursor: 'pointer',
-  width: 44,
-  height: 44,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontFamily: 'inherit',
+  minHeight: 44,
+  padding: 'var(--space-1) var(--space-4)',
+  borderBottom: '1px solid var(--separator)',
 };
 
 const bodyStyle = {
   flex: 1,
   overflowY: 'auto',
   WebkitOverflowScrolling: 'touch',
-  padding: 'var(--space-5) var(--space-4) var(--space-8)',
+  overscrollBehavior: 'contain',
+  padding: 'var(--space-4) var(--space-4) var(--space-8)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-4)',
+  gap: 'var(--space-6)',
 };
 
-const labelStyle = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: 'var(--color-secondary)',
-  display: 'block',
-  marginBottom: 6,
-};
-
-const inpStyle = {
-  width: '100%',
-  padding: '12px 14px',
-  fontSize: 16,
-  border: '1px solid var(--color-separator)',
-  borderRadius: 'var(--radius-md)',
-  background: 'var(--color-surface)',
-  outline: 'none',
-  color: 'var(--color-label)',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
-};
-
-const searchBtnStyle = {
-  width: '100%',
-  padding: '14px 0',
-  borderRadius: 'var(--radius-md)',
-  border: 'none',
-  background: 'var(--color-accent-strong)',
-  color: 'var(--color-text-inverse)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 15,
-  fontWeight: 600,
-  letterSpacing: 0.5,
-  minHeight: 48,
-};
-
-const dividerStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-3)',
-  color: 'var(--color-tertiary)',
-  fontSize: 11,
-  margin: 'var(--space-4) 0 var(--space-2)',
-};
-const dividerLine = { flex: 1, height: 1, background: 'var(--color-separator)' };
-
-const manualBtnStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 6,
-  padding: '12px 16px',
-  border: '1px solid var(--color-separator)',
-  borderRadius: 'var(--radius-md)',
-  background: 'transparent',
-  color: 'var(--color-secondary)',
-  fontSize: 13,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  width: '100%',
-  minHeight: 44,
-};
-
-const resultCardStyle = {
-  display: 'flex',
-  gap: 10,
-  alignItems: 'flex-start',
-  padding: '10px 12px',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--color-separator)',
-  background: 'var(--color-surface)',
-  cursor: 'pointer',
-  textAlign: 'left',
-  fontFamily: 'inherit',
-  width: '100%',
-};
-
-function ResultCard({ book, onPick, existing, statusLabel }) {
-  // 既に本棚にある本は「✅ 追加済み」バッジを表示し、タップで既存本へ遷移する
-  // ように onPick(existing, { isExisting: true }) を呼ぶ。
-  const isExisting = !!existing;
-  return (
-    <button
-      type="button"
-      onClick={() => onPick(book, { isExisting, existing })}
-      aria-label={isExisting ? `『${book.title}』 (既に本棚にあり、開く)` : `『${book.title}』を選択`}
-      style={{
-        ...resultCardStyle,
-        ...(isExisting ? { background: 'var(--fill)', borderColor: 'var(--separator)' } : {}),
-      }}
-    >
-      {book.cover ? (
-        <img
-          src={ensureHttps(book.cover)}
-          alt=""
-          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--color-separator)', opacity: isExisting ? 0.7 : 1 }}
-        />
-      ) : (
-        <div style={{ width: 44, height: 60, background: 'var(--color-bg-hover)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📕</div>
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-label)', lineHeight: 1.4, marginBottom: 2 }}>{book.title}</div>
-        {book.author && <div style={{ fontSize: 11, color: 'var(--color-secondary)' }}>✍️ {book.author}</div>}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-          {book.publisher && <span style={{ fontSize: 10, color: 'var(--color-tertiary)' }}>🏢 {book.publisher}</span>}
-          {book.pubYear && <span style={{ fontSize: 10, color: 'var(--color-tertiary)' }}>📅 {book.pubYear}</span>}
-        </div>
-        {book.isbn && <div style={{ fontSize: 10, color: 'var(--color-tertiary)', marginTop: 3 }}>🔢 {book.isbn}</div>}
-        {isExisting && (
-          <div
-            style={{
-              marginTop: 6,
-              display: 'inline-block',
-              padding: '3px 8px',
-              borderRadius: 999,
-              background: 'var(--success-soft)',
-              border: '1px solid var(--separator)',
-              color: 'var(--success)',
-              fontSize: 10,
-              fontWeight: 600,
-            }}
-          >
-            <Check size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{statusLabel || '本棚'}に追加済み・タップで開く
-          </div>
-        )}
-      </div>
-    </button>
-  );
-}
-
-// 検索中の placeholder。スピナー単体より「結果がもうすぐ来る」ことが
-// 伝わるよう、実際の結果カードと同じ骨格（表紙 + 2 行）の skeleton を
-// 数枚並べる。すべて components.css の .skeleton（shimmer）を再利用し、
-// prefers-reduced-motion は global で抑制済み。
-function SearchSkeletonRow() {
-  return (
-    <div style={{ ...resultCardStyle, cursor: 'default' }} aria-hidden="true">
-      <SkeletonBlock width={44} height={60} radius={4} style={{ flexShrink: 0 }} />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 2 }}>
-        <SkeletonBlock width="80%" height={13} radius="var(--radius-full)" />
-        <SkeletonBlock width="45%" height={10} radius="var(--radius-full)" />
-        <SkeletonBlock width="30%" height={9} radius="var(--radius-full)" />
-      </div>
-    </div>
-  );
-}
-
-function SearchSkeleton({ rows = 3 }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '4px 0 8px', color: 'var(--color-tertiary)' }}>
-        <div
-          aria-hidden="true"
-          style={{
-            width: 16,
-            height: 16,
-            border: '2px solid var(--color-separator)',
-            borderTopColor: 'var(--color-accent-strong)',
-            borderRadius: '50%',
-            animation: 'lvg-ptr-spin 0.8s linear infinite',
-          }}
-        />
-        <span style={{ fontSize: 12 }}>本を探しています…</span>
-      </div>
-      {Array.from({ length: rows }, (_, i) => (
-        <SearchSkeletonRow key={i} />
-      ))}
-    </div>
-  );
-}
+// ---------------------------------------------------------------------------
+// 📷 バーコード読み取り
+// ---------------------------------------------------------------------------
 
 // ネイティブの Web 標準 BarcodeDetector が使えるか（Android Chrome 等）。
 // あれば最速・最省電力なのでこちらを優先する。
@@ -261,21 +73,30 @@ const BARCODE_SUPPORTED =
   !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) &&
   window.isSecureContext !== false;
 
+// カメラ画面は明るい画面・暗い画面どちらでも黒地（ファインダーは UI ではなく映像そのもの）。
+// 上に載せる文字・枠は --on-cover（明暗で変えない白）で描く。
+const CAMERA_BG = 'black';
+const onCoverAlpha = (pct) => `color-mix(in srgb, var(--on-cover) ${pct}%, transparent)`;
+
 const camOverlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 300,
-  background: '#000',
+  background: CAMERA_BG,
+  color: 'var(--on-cover)',
   display: 'flex',
   flexDirection: 'column',
+  fontFamily: 'var(--font-ui)',
   paddingTop: 'env(safe-area-inset-top, 0px)',
   paddingBottom: 'env(safe-area-inset-bottom, 0px)',
 };
 
-// 📷 BarcodeScanner — カメラを起動して書籍バーコード(EAN-13/EAN-8)を読み取り、
+const ISBN_HINT = 'ISBN を入力してください。';
+
+// BarcodeScanner — カメラを起動して書籍バーコード(EAN-13/EAN-8)を読み取り、
 // 成功したら onDetect(isbn) を呼ぶ。停止は確実に: アンマウント・close・読取成功
 // いずれでも stopStream() が走り、全 track を stop する（カメラ消し忘れ防止）。
-function BarcodeScanner({ onDetect, onClose }) {
+function BarcodeScanner({ onDetect, onClose, onTypeIsbn }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const detectorRef = useRef(null);
@@ -321,7 +142,7 @@ function BarcodeScanner({ onDetect, onClose }) {
     async function start() {
       // 二重ガード: 親が出すのは BARCODE_SUPPORTED 時のみだが、ここでも防御。
       if (!BARCODE_SUPPORTED) {
-        setScanError('お使いの端末ではバーコード読取に未対応です。ISBN を手入力してください。');
+        setScanError(`この端末ではバーコードを読み取れません。${ISBN_HINT}`);
         return;
       }
       // ===== 経路A: ネイティブ BarcodeDetector（あれば最優先・最省電力）=====
@@ -369,8 +190,8 @@ function BarcodeScanner({ onDetect, onClose }) {
           const denied = e?.name === 'NotAllowedError' || e?.name === 'SecurityError';
           setScanError(
             denied
-              ? 'カメラを使えませんでした。ISBN の手入力でも同じように追加できます（端末の「設定」からカメラを許可し直すこともできます）。'
-              : 'カメラを起動できませんでした。ISBN を手入力してください。',
+              ? `カメラを使えませんでした。端末の「設定」でカメラを許可するか、${ISBN_HINT}`
+              : `カメラを起動できませんでした。${ISBN_HINT}`,
           );
         }
         return;
@@ -391,8 +212,8 @@ function BarcodeScanner({ onDetect, onClose }) {
         const denied = e?.name === 'NotAllowedError' || e?.name === 'SecurityError';
         setScanError(
           denied
-            ? 'カメラを使えませんでした。ISBN の手入力でも同じように追加できます（ブラウザの設定でカメラを許可し直すこともできます）。'
-            : 'カメラを起動できませんでした。ISBN を手入力してください。',
+            ? `カメラを使えませんでした。ブラウザの設定でカメラを許可するか、${ISBN_HINT}`
+            : `カメラを起動できませんでした。${ISBN_HINT}`,
         );
         return;
       }
@@ -450,88 +271,56 @@ function BarcodeScanner({ onDetect, onClose }) {
   }, [stopStream, onDetect]);
 
   return (
-    <div ref={trapRef} style={camOverlayStyle} role="dialog" aria-modal="true" aria-label="バーコードをスキャン">
+    <div ref={trapRef} style={camOverlayStyle} role="dialog" aria-modal="true" aria-label="バーコードを読み取る">
       <div
         style={{
-          padding: 'var(--space-3) var(--space-4)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 'var(--space-2)',
-          color: 'var(--on-cover)',
+          padding: 'var(--space-2) var(--space-4)',
         }}
       >
-        <span style={{ fontSize: 15, fontWeight: 600, fontFamily: 'inherit' }}><Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />バーコードをスキャン</span>
+        <h2 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600 }}>バーコードを読み取る</h2>
         <button
           type="button"
           onClick={handleClose}
           aria-label="閉じる"
           style={{
-            background: 'rgba(255,255,255,0.15)',
-            border: 'none',
-            color: 'var(--on-cover)',
-            fontSize: 22,
-            cursor: 'pointer',
             width: 44,
             height: 44,
-            borderRadius: '50%',
+            borderRadius: 'var(--radius-full)',
+            border: 'none',
+            padding: 0,
+            background: onCoverAlpha(16),
+            color: 'var(--on-cover)',
+            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontFamily: 'inherit',
           }}
         >
-          ×
+          <X size={20} aria-hidden="true" />
         </button>
       </div>
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {scanError ? (
-          <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--on-cover)', maxWidth: 360 }}>
-            <div aria-hidden="true" style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}><Camera size={36} /></div>
-            <p role="alert" style={{ fontSize: 14, lineHeight: 1.7, margin: 0, fontFamily: 'inherit' }}>{scanError}</p>
-            {/* 行き止まり防止: 本文で「ISBN を手入力」と案内するなら、その一手を
-                主ボタンとして置く（閉じて自力で ISBN 欄を探させない）。 */}
+          <div style={{ width: '100%', maxWidth: 360, padding: 'var(--space-6) var(--space-4)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center' }}><Camera size={32} /></div>
+            <p role="alert" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-body)', lineHeight: 1.5 }}>{scanError}</p>
+            {/* 行き止まり防止: 案内している「ISBN を入力」を、そのまま押せる主ボタンにする。 */}
             <button
               type="button"
-              onClick={() => {
-                handleClose();
-                setTimeout(() => { try { document.getElementById('add-book-isbn')?.focus(); } catch { /* ignore */ } }, 180);
-              }}
-              style={{
-                marginTop: 'var(--space-5)',
-                padding: '12px 20px',
-                borderRadius: 'var(--radius-md)',
-                border: 'none',
-                background: 'var(--surface)',
-                color: '#111',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                minHeight: 44,
-                width: '100%',
-              }}
+              onClick={() => { handleClose(); onTypeIsbn?.(); }}
+              style={btnPrimary}
             >
-              ISBN を手入力する
+              ISBN を入力する
             </button>
             <button
               type="button"
               onClick={handleClose}
-              style={{
-                marginTop: 'var(--space-3)',
-                padding: '12px 20px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid rgba(255,255,255,0.5)',
-                background: 'transparent',
-                color: 'var(--on-cover)',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                minHeight: 44,
-                width: '100%',
-              }}
+              style={{ ...btnGhost, color: 'var(--on-cover)', borderColor: onCoverAlpha(60) }}
             >
               閉じる
             </button>
@@ -545,7 +334,7 @@ function BarcodeScanner({ onDetect, onClose }) {
               autoPlay
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
-            {/* 読取ガイド枠 */}
+            {/* 読取ガイド枠（枠の外は暗く落とす） */}
             <div
               aria-hidden="true"
               style={{
@@ -556,30 +345,27 @@ function BarcodeScanner({ onDetect, onClose }) {
                 width: '72%',
                 maxWidth: 320,
                 height: 120,
-                border: '2px solid rgba(255,255,255,0.9)',
-                borderRadius: 'var(--radius-md)',
-                boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
+                border: '2px solid var(--on-cover)',
+                borderRadius: 'var(--radius)',
+                boxShadow: '0 0 0 100vmax var(--backdrop)',
               }}
             />
-            <div
+            <p
               aria-live="polite"
               style={{
                 position: 'absolute',
                 left: 0,
                 right: 0,
-                bottom: 'calc(var(--space-6) + env(safe-area-inset-bottom, 0px))',
+                bottom: 'var(--space-8)',
+                margin: 0,
+                padding: '0 var(--space-4)',
                 textAlign: 'center',
-                color: 'var(--on-cover)',
-                fontSize: 13,
-                lineHeight: 1.6,
-                padding: '0 var(--space-5)',
-                fontFamily: 'inherit',
+                fontSize: 'var(--text-sub)',
+                lineHeight: 1.5,
               }}
             >
-              {ready
-                ? '本の裏のバーコードを枠内に合わせてください'
-                : 'カメラを起動しています…'}
-            </div>
+              {ready ? 'バーコードを枠に合わせてください' : 'カメラを起動しています…'}
+            </p>
           </>
         )}
       </div>
@@ -587,103 +373,52 @@ function BarcodeScanner({ onDetect, onClose }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// 本を追加
+// ---------------------------------------------------------------------------
+
 export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting }) {
-  const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
-  const [isbn, setIsbn] = useState('');
-  const [state, setState] = useState('idle'); // 'idle' | 'searching' | 'results' | 'notfound' | 'error'
-  const [results, setResults] = useState([]);
-  const [error, setError] = useState(null);
-  const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY);
+  const [query, setQuery] = useState('');
   const [scanning, setScanning] = useState(false);
-  // 直近の検索 AbortController を保持。新しい検索 / モーダル close 時に
-  // 既存リクエストを中断して、後着の応答が state を上書きする race を防ぐ。
-  const abortRef = useRef(null);
-  useEffect(() => () => { try { abortRef.current?.abort(); } catch { /* ignore */ } }, []);
+  const inputRef = useRef(null);
+  const search = useBookQuerySearch();
   // バーコードスキャナ（入れ子ダイアログ）を開いている間は、そちらのトラップに
   // 譲るため本体のトラップを無効化する。
   const trapRef = useFocusTrap(!scanning);
 
-  const hasInput = !!(title.trim() || author.trim() || isbn.trim());
-  const isSearching = state === 'searching';
+  const hasQuery = !!normalizeBookQuery(query);
+  const isSearching = search.status === 'searching';
 
-  const runSearch = async (override) => {
-    // override は { title, author, isbn } の部分指定。バーコード読取直後など
-    // setState の反映前に最新値で検索したいケースで使う。
-    const q = {
-      title: (override?.title ?? title).trim(),
-      author: (override?.author ?? author).trim(),
-      isbn: (override?.isbn ?? isbn).trim(),
-    };
-    if (!q.title && !q.author && !q.isbn) return;
-    // 直前の検索があれば中断 — 連続検索で後着の結果が state を上書きして
-    // 「画面が固まる」現象を起こすのを防ぐ最大の対策。
-    try { abortRef.current?.abort(); } catch { /* ignore */ }
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
+  // 開いたらすぐ打てるように検索欄へ（フォーカストラップが先頭のボタンへ当てた後に上書き）。
+  useEffect(() => {
+    try { inputRef.current?.focus(); } catch { /* ignore */ }
+  }, []);
 
-    setState('searching');
-    setError(null);
-    setResults([]);
-    setDisplayCount(INITIAL_DISPLAY);
+  const runSearch = (q = query) => search.run(q);
+  const openManual = () => onManual(manualSeedFromQuery(query));
 
-    let res;
-    try {
-      res = await searchBooksAdvanced(
-        { title: q.title, author: q.author, isbn: q.isbn },
-        { signal: ctrl.signal },
-      );
-    } catch (e) {
-      // abort で投げられた AbortError は最新の検索が支配しているので、
-      // 古いハンドラはここで早期 return する。state は触らない。
-      if (e?.name === 'AbortError' || ctrl.signal.aborted) return;
-      // 生エラーが万一漏れても toMessage で humanize（生スタック/SQL を出さない）
-      setError(toMessage(e, '検索でエラーが発生しました。'));
-      setState('error');
-      return;
-    }
-
-    // 自分が aborted されている = 後続の検索が始まっている = state を上書きしない
-    if (ctrl.signal.aborted) return;
-
-    if (!res.ok) {
-      // res.error は bookSearch 側で用意済みの安全な日本語だが、念のため
-      // toMessage を通して将来の生エラー混入を防ぐ。
-      setError(toMessage(res.error, '検索でエラーが発生しました。'));
-      setState('error');
-      return;
-    }
-    if (!res.results || res.results.length === 0) {
-      setState('notfound');
-      return;
-    }
-    setResults(res.results);
-    setState('results');
-  };
-
-  const onEnter = (e) => {
-    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      runSearch();
-    }
-  };
-
-  // 📷 バーコード読取成功 → ISBN 欄に流し込み、他条件をクリアして既存検索へ委譲。
-  // BarcodeScanner の effect 依存に入るため useCallback で参照を安定させる
-  // （不安定だと親の再レンダーごとにカメラが停止→再取得されて一瞬固まる）。
+  // 📷 読み取った ISBN を検索欄に入れて、そのまま検索。
+  // BarcodeScanner の effect 依存に入るため参照を安定させる（不安定だと親の再レンダーの
+  // たびにカメラが止まって取り直され、一瞬固まる）。
+  const { run } = search;
   const handleScanDetect = useCallback((scannedIsbn) => {
     setScanning(false);
     if (!scannedIsbn) return;
-    setIsbn(scannedIsbn);
-    setTitle('');
-    setAuthor('');
-    // setState の反映を待たず override で即検索（既存 runSearch をそのまま利用）。
-    runSearch({ isbn: scannedIsbn, title: '', author: '' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setQuery(scannedIsbn);
+    run(scannedIsbn);
+  }, [run]);
+  const closeScanner = useCallback(() => setScanning(false), []);
+  const focusQuery = useCallback(() => {
+    setTimeout(() => { try { inputRef.current?.focus(); } catch { /* ignore */ } }, 180);
   }, []);
 
+  const getExisting = (book) => {
+    const existing = findDuplicateBook(existingBooks, book);
+    return existing ? { book: existing, statusLabel: STATUS_LABEL[existing.status] || '本棚' } : null;
+  };
+
   const handlePick = (book, opts = {}) => {
-    // 既に本棚にある本は追加せず、親に既存本を開かせる。
+    // 既に本棚にある本は追加せず、その本を開く。
     if (opts.isExisting && opts.existing) {
       onOpenExisting?.(opts.existing);
       return;
@@ -691,219 +426,78 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
     onSelect?.(book);
   };
 
-  // 表示件数 = min(displayCount, results.length, MAX_DISPLAY)
-  const visibleCount = Math.min(displayCount, results.length, MAX_DISPLAY);
-  const visibleResults = results.slice(0, visibleCount);
-  // 「もっと見る」が押せるのは: ロード済み結果が残っていて、かつ 50 上限未満。
-  const canShowMore = visibleCount < Math.min(results.length, MAX_DISPLAY);
-  const tooMany = results.length >= 20;
+  const showManualLink = search.status === 'idle' || search.status === 'searching' || search.status === 'results';
 
   return (
-    <div ref={trapRef} style={overlayStyle} role="dialog" aria-modal="true">
+    <div ref={trapRef} style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="add-book-title">
       {scanning && (
-        <BarcodeScanner
-          onDetect={handleScanDetect}
-          onClose={() => setScanning(false)}
-        />
+        <BarcodeScanner onDetect={handleScanDetect} onClose={closeScanner} onTypeIsbn={focusQuery} />
       )}
+
       <div style={headerStyle}>
-        <h2 style={{ fontSize: 16, color: 'var(--color-label)', margin: 0, fontWeight: 600, flex: 1 }}><Library size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />本を追加</h2>
-        {/* 検索中でも閉じられるようにする。fetch がハングするとモーダルに数分閉じ込められる
-            ため。アンマウント時の cleanup effect が abortRef.abort() で安全に中断する。 */}
-        <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
+        <span />
+        <h2 id="add-book-title" style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)' }}>
+          本を追加
+        </h2>
+        {/* 検索中でも閉じられる（応答が返らなくても閉じ込めない。中断はフック側が行う）。 */}
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            justifySelf: 'end',
+            minWidth: 44,
+            minHeight: 44,
+            padding: 0,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            fontSize: 'var(--text-body)',
+            lineHeight: 1.3,
+            color: 'var(--text-2)',
+          }}
+        >
+          キャンセル
+        </button>
       </div>
 
       <div style={bodyStyle}>
-        <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: 0, lineHeight: 1.7 }}>
-          ISBN（本の裏のバーコード番号）・書名・著者で検索できます
-        </p>
-        {/* === Form (常に上部に表示) === */}
-        <div>
-          <label htmlFor="add-book-title" style={labelStyle}>タイトル</label>
-          <input
-            id="add-book-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={onEnter}
-            placeholder="例：レバレッジ・リーディング"
-            style={inpStyle}
-            maxLength={LIMITS.bookTitle}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <BookSearchField
+            id="add-book-query"
+            value={query}
+            onChange={setQuery}
+            onSubmit={() => runSearch()}
+            inputRef={inputRef}
           />
-        </div>
-        <div>
-          <label htmlFor="add-book-author" style={labelStyle}>
-            著者 <span style={{ fontWeight: 400, color: 'var(--color-tertiary)' }}>（任意）</span>
-          </label>
-          <input
-            id="add-book-author"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            onKeyDown={onEnter}
-            placeholder="例：山田 太郎"
-            style={inpStyle}
-            maxLength={LIMITS.bookAuthor}
+          <SearchButton
+            empty={!hasQuery}
+            searching={isSearching}
+            onSearch={() => runSearch()}
+            onEmpty={() => inputRef.current?.focus()}
           />
-        </div>
-        <div>
-          <label htmlFor="add-book-isbn" style={labelStyle}>
-            ISBN <span style={{ fontWeight: 400, color: 'var(--color-tertiary)' }}>（任意）</span>
-          </label>
-          <input
-            id="add-book-isbn"
-            value={isbn}
-            onChange={(e) => setIsbn(e.target.value)}
-            onKeyDown={onEnter}
-            placeholder="978-4-7631-9742-3"
-            style={inpStyle}
-            maxLength={LIMITS.bookIsbn}
-            inputMode="numeric"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-          />
+          {/* カメラが使える環境だけ（使えない環境ではボタン自体を出さない）。 */}
+          {BARCODE_SUPPORTED && (
+            <button type="button" onClick={() => setScanning(true)} style={btnGhost}>
+              <ScanBarcode size={20} aria-hidden="true" />
+              バーコードで探す
+            </button>
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => runSearch()}
-          disabled={!hasInput || isSearching}
-          style={{ ...searchBtnStyle, opacity: !hasInput || isSearching ? 0.5 : 1 }}
-        >
-          {isSearching ? '検索中…' : (<><Search size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />検索</>)}
-        </button>
+        <BookSearchStatus
+          search={search}
+          onRetry={() => runSearch()}
+          onManual={openManual}
+          onPick={handlePick}
+          getExisting={getExisting}
+        />
 
-        {/* 📷 バーコードで追加（対応端末のみ）。iOS Safari 等 BarcodeDetector
-            未対応の端末では BARCODE_SUPPORTED=false → ボタン自体を非表示。 */}
-        {BARCODE_SUPPORTED && (
-          <button
-            type="button"
-            onClick={() => setScanning(true)}
-            disabled={isSearching}
-            style={{ ...manualBtnStyle, opacity: isSearching ? 0.5 : 1 }}
-          >
-            <Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />バーコードで追加
+        {showManualLink && (
+          <button type="button" onClick={openManual} style={{ ...btnText, alignSelf: 'center' }}>
+            手動で入力する
           </button>
         )}
-
-        {/* === 結果エリア (状態に応じて切替) === */}
-
-        {state === 'idle' && (
-          <>
-            <div style={dividerStyle}>
-              <div style={dividerLine} />
-              <span>または</span>
-              <div style={dividerLine} />
-            </div>
-            <button type="button" onClick={() => onManual({ title: title.trim(), author: author.trim(), isbn: isbn.trim() })} style={manualBtnStyle}>
-              <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />検索でヒットしない場合は手動入力
-            </button>
-          </>
-        )}
-
-        {/* === 動的領域: 状態遷移を支援技術へ通知（過剰でない polite） === */}
-        <div aria-live="polite" aria-busy={isSearching} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {isSearching && <SearchSkeleton />}
-
-        {state === 'error' && (
-          <div role="alert" style={{ background: 'var(--color-error-soft)', border: '1px solid var(--color-error)', borderLeft: '4px solid var(--color-error)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
-            <p style={{ fontSize: 14, color: 'var(--color-label)', margin: 0, fontWeight: 600 }}><AlertTriangle size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />検索でエラーが発生しました</p>
-            <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: '6px 0 10px', lineHeight: 1.7, whiteSpace: 'pre-line' }}>{error}</p>
-            <button
-              type="button"
-              onClick={() => runSearch()}
-              style={{
-                padding: '10px 16px', borderRadius: 'var(--radius-md)', border: 'none',
-                background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
-                fontSize: 13, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 600,
-                minHeight: 44,
-              }}
-            >
-              <RefreshCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />もう一度試す
-            </button>
-            <button
-              type="button"
-              onClick={() => onManual({ title: title.trim(), author: author.trim(), isbn: isbn.trim() })}
-              style={{ ...manualBtnStyle, marginTop: 'var(--space-3)' }}
-            >
-              <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />手動で追加する
-            </button>
-          </div>
-        )}
-
-        {state === 'notfound' && (
-          <div style={{ textAlign: 'center', padding: 'var(--space-4) var(--space-2)' }}>
-            <div aria-hidden="true" style={{ marginBottom: 'var(--space-2)', display: 'flex', justifyContent: 'center' }}><Search size={32} /></div>
-            <p style={{ fontSize: 14, color: 'var(--color-label)', margin: 0, fontWeight: 600, lineHeight: 1.6 }}>
-              該当する本が見つかりませんでした
-            </p>
-            <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: '6px 0 16px', lineHeight: 1.7 }}>
-              書名を変えて再検索するか、ISBN（本の裏のバーコード番号）で検索すると見つかりやすくなります。
-            </p>
-            <button type="button" onClick={() => onManual({ title: title.trim(), author: author.trim(), isbn: isbn.trim() })} style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              width: '100%', minHeight: 48, padding: '13px 18px', borderRadius: 'var(--radius-md)',
-              border: 'none', background: 'var(--color-accent-strong)', color: 'var(--color-text-inverse)',
-              fontWeight: 700, fontSize: 14, fontFamily: 'inherit', cursor: 'pointer',
-            }}>
-              <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />このまま手動で追加する
-            </button>
-          </div>
-        )}
-
-        {state === 'results' && (
-          <>
-            <p style={{ fontSize: 12, color: 'var(--color-secondary)', margin: 0, fontWeight: 500 }}>
-              {results.length} 件中 {visibleCount} 件を表示
-            </p>
-            {tooMany && (
-              <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: 0 }}>
-                <Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />著者や ISBN を追加で絞り込めます
-              </p>
-            )}
-            <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {visibleResults.map((b, i) => {
-                // ISBN がある時は ISBN ベース、無い時は title+index で衝突回避。
-                // 連続検索後に key が前回と被ると React の reconcile が崩れるバグを防ぐ。
-                const existing = findDuplicateBook(existingBooks, b);
-                const statusLabel = existing ? (STATUS_LABEL[existing.status] || '本棚') : null;
-                return (
-                  <div key={`r-${b.isbn || `${b.title}-${i}`}`} className="list-item-enter">
-                    <ResultCard book={b} onPick={handlePick} existing={existing} statusLabel={statusLabel} />
-                  </div>
-                );
-              })}
-            </div>
-            {canShowMore && (
-              <button
-                type="button"
-                onClick={() => setDisplayCount((n) => Math.min(n + DISPLAY_STEP, MAX_DISPLAY, results.length))}
-                aria-label={`さらに ${Math.min(DISPLAY_STEP, results.length - visibleCount, MAX_DISPLAY - visibleCount)} 件表示`}
-                style={{
-                  ...manualBtnStyle,
-                  background: 'var(--color-accent-soft)',
-                  border: '1px solid var(--color-separator)',
-                  color: 'var(--color-accent-strong)',
-                  fontWeight: 600,
-                }}
-              >
-                <ChevronDown size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />もっと見る（あと {Math.min(DISPLAY_STEP, results.length - visibleCount, MAX_DISPLAY - visibleCount)} 件）
-              </button>
-            )}
-            {!canShowMore && results.length > MAX_DISPLAY && (
-              <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: 0, textAlign: 'center' }}>
-                これ以上は表示しません。著者や ISBN を追加して絞り込めます。
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => onManual({ title: title.trim(), author: author.trim(), isbn: isbn.trim() })}
-              style={{ ...manualBtnStyle, marginTop: 'var(--space-3)' }}
-            >
-              <Pencil size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />該当が無ければ手動入力
-            </button>
-          </>
-        )}
-        </div>
       </div>
     </div>
   );

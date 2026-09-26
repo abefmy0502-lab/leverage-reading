@@ -138,7 +138,7 @@ import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Dots, Stars, inp, btnS } from './components/formPrimitives';
-import { btnGhost, btnText } from './styles/ui';
+import { btnGhost, btnText, btnPrimary } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase } from './components/BookPhases';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -167,6 +167,7 @@ import {
   Settings as SettingsIcon,
   Target,
   MessageCircle,
+  Smartphone,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 
@@ -4587,66 +4588,72 @@ function WebAppOnlyGate() {
   // という遷移で「確認は済んだのに何も起きない」と迷子になるのを防ぐ。
   const emailJustConfirmed = readEmailConfirmedFlag();
   return (
-    <div
+    <main
+      aria-labelledby="webgate-title"
       style={{
         flex: 1, minHeight: 0, overflowY: 'auto',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        textAlign: 'center', padding: '32px 24px', gap: 16,
-        background: 'var(--c-bg, #fdf9f2)', color: 'var(--c-ink, #3d362c)',
+        textAlign: 'center',
+        padding: 'calc(var(--space-12) + env(safe-area-inset-top, 0px)) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom, 0px))',
+        background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)',
       }}
     >
-      <div style={{ fontSize: 34 }} aria-hidden="true">📱</div>
-      {emailJustConfirmed && (
-        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-accent-strong, #5a7a48)', margin: 0, lineHeight: 1.7 }}>
-          ✅ メールアドレスの確認が完了しました
-        </p>
-      )}
-      <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, lineHeight: 1.5 }}>
-        {emailJustConfirmed
-          ? 'アプリに戻ってサインインしてください'
-          : 'Orime は iPhone / iPad アプリでご利用いただけます'}
-      </h1>
-      <p style={{ fontSize: 14, color: 'var(--c-ink-2, #6b6155)', margin: 0, lineHeight: 1.8, maxWidth: 360 }}>
-        App Store から Orime アプリを入手して、同じアカウントでサインインしてください。
-        メモも読書記録もそのまま引き継がれます。
-      </p>
-      {isAppStoreLive ? (
-        <a
-          href={APP_STORE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            minHeight: 48, padding: '13px 24px', borderRadius: 'var(--radius-md)',
-            background: 'var(--accent)', color: 'var(--accent-ink)',
-            fontSize: 15, fontWeight: 700, textDecoration: 'none', marginTop: 4,
-          }}
-        >
-          App Store で Orime を入手
-        </a>
-      ) : (
-        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-ink-2, #6b6155)', margin: '4px 0 0' }}>
-          iOS アプリは App Store で近日公開予定です
-        </p>
-      )}
-      <div style={{ marginTop: 8 }}>
-        {user?.email && (
-          <p style={{ fontSize: 11, color: 'var(--c-ink-3, #9a8f80)', margin: '0 0 6px', wordBreak: 'break-all' }}>
-            {user.email} でサインイン中
+      <div style={{ width: '100%', maxWidth: '24em', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Smartphone size={48} strokeWidth={1.5} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
+        {emailJustConfirmed && (
+          <p
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)',
+              fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)',
+              lineHeight: 1.5, margin: 'var(--space-6) 0 0',
+            }}
+          >
+            <CheckCircle2 size={20} aria-hidden="true" />
+            メールアドレスの確認が完了しました
           </p>
         )}
-        <button
-          type="button"
-          onClick={() => { try { signOut(); } catch { /* ignore */ } }}
+        <h1
+          id="webgate-title"
           style={{
-            background: 'none', border: 'none', color: 'var(--c-ink-3, #9a8f80)',
-            fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: '8px 12px', minHeight: 44,
+            fontSize: 'var(--text-title)', fontWeight: 700, lineHeight: 1.3,
+            margin: emailJustConfirmed ? 'var(--space-2) 0 0' : 'var(--space-6) 0 0',
           }}
         >
-          別のアカウントでサインイン
-        </button>
+          {emailJustConfirmed ? 'アプリに戻ってサインインしてください' : 'アプリでご利用ください'}
+        </h1>
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-3) 0 0' }}>
+          iPhone・iPad のアプリに同じアカウントでサインインすると、メモもそのまま使えます。
+        </p>
+        {isAppStoreLive ? (
+          <a
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ ...btnPrimary, boxSizing: 'border-box', textDecoration: 'none', marginTop: 'var(--space-8)' }}
+          >
+            App Store で入手
+          </a>
+        ) : (
+          <p style={{ fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-6) 0 0' }}>
+            App Store で近日公開予定です
+          </p>
+        )}
+        <div style={{ marginTop: 'var(--space-8)' }}>
+          {user?.email && (
+            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 0, wordBreak: 'break-all' }}>
+              {user.email} でサインイン中
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={async () => { try { await signOut(); } catch { /* オフライン等 — 再タップで再試行できる */ } }}
+            style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}
+          >
+            別のアカウントでサインイン
+          </button>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
 
