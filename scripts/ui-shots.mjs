@@ -69,6 +69,11 @@ const SCREENS = [
   { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
   { name: 'auth', url: '/?demo=auth&auth=signin' },
   { name: 'landing', url: '/?demo=auth' },
+  { name: 'add-book', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }] },
+  { name: 'paywall', url: '/?demo=paywall' },
+  { name: 'paywall-native', url: '/?demo=paywall&native=1' },
+  { name: 'paywall-bottom', url: '/?demo=paywall&native=1', steps: [{ scrollBottom: true }] },
+  { name: 'webgate', url: '/?demo=webgate' },
 ];
 
 function browserOptions() {

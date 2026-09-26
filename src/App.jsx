@@ -104,7 +104,7 @@ const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
 const SctPage = lazy(() => import('./legal/SctPage'));
-import { supabase as supabaseClient, isDemo } from './lib/supabase';
+import { supabase as supabaseClient, isDemo, demoScenario } from './lib/supabase';
 import { track } from './lib/analytics';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
@@ -4733,7 +4733,7 @@ function PaywallGate() {
   //    ネイティブ(isNative)は当然すべて通常フロー。
   //    お試しモード（開発専用・isDemo）はブラウザでアプリ本体を確認するための
   //    ものなので素通しする（本番ビルドでは isDemo は常に false）。
-  if (!isNative && !adminBypass && !isDemo) {
+  if (!isNative && !adminBypass && (!isDemo || demoScenario === 'webgate')) {
     return (
       <Shell>
         <WebAppOnlyGate />

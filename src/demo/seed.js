@@ -121,6 +121,8 @@ export function buildSeed(scenario) {
     }],
   };
   if (scenario === 'new') return db;
+  // ?demo=paywall: 使い込んだデータのまま、購読だけ無い（有料プランの画面の確認用）。
+  if (scenario === 'paywall') db.subscriptions = [];
 
   const bookIds = BOOKS.map((_, i) => `00000000-0000-4000-8000-0000000b00${String(i).padStart(2, '0')}`);
   BOOKS.forEach(([title, author, isbn, status, started, done, rating, purpose, tags], i) => {
