@@ -112,6 +112,7 @@ import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
+import { useFocusTrap } from './hooks/useFocusTrap';
 import HomeScreen from './components/HomeScreen';
 import AuthorThankYou from './components/AuthorThankYou';
 import { initServiceWorker } from './lib/swUpdate';
@@ -192,6 +193,13 @@ import { useBookMemos } from './hooks/useBookMemos';
 /* ========== Primitives ========== */
 
 function Modal({ open, onClose, children, ariaLabel }) {
+  const trapRef = useFocusTrap(open);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing) onClose?.(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
   if (!open) return null;
   // 本の編集画面から開く検索。iPhone では下からのシート（本の追加と同じ・キーボードで結果が隠れにくい）。
   return (
@@ -215,17 +223,19 @@ function Modal({ open, onClose, children, ariaLabel }) {
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
+        ref={trapRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--surface)",
           borderRadius: "var(--radius) var(--radius) 0 0",
-          padding: "var(--space-4) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom, 0px))",
+          padding: "var(--space-2) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom, 0px))",
           width: "min(520px, 100%)",
           maxHeight: "92dvh",
           overflowY: "auto",
           boxShadow: "var(--shadow-overlay)",
         }}
       >
+        <div className="lvg-sheet-handle" aria-hidden="true" />
         {children}
       </div>
     </div>
@@ -3370,7 +3380,7 @@ function AuthedApp() {
             ><ChevronLeft size={22} aria-hidden="true" />{current ? '詳細' : 'すべての本'}</button>
             <button
               onClick={openHelp}
-              style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+              style={{ width: 44, height: 44, marginRight: 'calc(-1 * var(--space-3))', display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
               aria-label="この画面のヘルプを見る"
               title="ヘルプ"
             >
@@ -3392,10 +3402,11 @@ function AuthedApp() {
             return (
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', margin: 'var(--space-3) 0 var(--space-4)' }}>
-                  <StatusBadge status={form.status} />
+                  {/* 本を追加するときは、状態は下の「この本の状態」で選ぶので見出しには出さない。 */}
+                  {current && <StatusBadge status={form.status} />}
                   <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: "var(--text)", margin: 0, lineHeight: 1.3 }}>{phaseLabel}</h2>
                   {editPhaseOverride && editPhaseOverride !== form.status && (
-                    <span style={{ fontSize: 11, color: 'var(--color-tertiary)' }}>
+                    <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>
                       （読書計画を仕切り直し中）
                     </span>
                   )}
@@ -3468,7 +3479,8 @@ function AuthedApp() {
             navigateTab(t);
             goList();
           }}
-          hidden={keyboardOpen}
+          // 本を追加しているあいだは下のタブを出さない（iOS の作成画面の作法・保存ボタンを隠さない）。
+          hidden={keyboardOpen || !current}
         />
       </Shell>
     );

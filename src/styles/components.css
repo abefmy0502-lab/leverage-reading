@@ -571,9 +571,10 @@
 .empty-state-description {
   font-size: var(--type-callout);
   color: var(--color-text-secondary);
-  line-height: var(--leading-relaxed);
+  line-height: 1.5;
   margin-bottom: var(--space-4);
 }
+.empty-state-description:last-child { margin-bottom: 0; }
 .empty-state-actions {
   display: flex;
   flex-direction: column;

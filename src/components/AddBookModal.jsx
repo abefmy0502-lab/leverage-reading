@@ -479,19 +479,22 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           )}
         </div>
 
-        <BookSearchStatus
-          search={search}
-          onRetry={() => runSearch()}
-          onManual={openManual}
-          onPick={handlePick}
-          getExisting={getExisting}
-        />
+        {/* 0 件・エラーのときは、説明と「手動で入力する」を 1 まとまりに（次の操作が離れて浮かないように）。 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: (search.status === 'notfound' || search.status === 'error') ? 0 : 'var(--space-6)' }}>
+          <BookSearchStatus
+            search={search}
+            onRetry={() => runSearch()}
+            onManual={openManual}
+            onPick={handlePick}
+            getExisting={getExisting}
+          />
 
-        {showManualLink && (
-          <button type="button" onClick={openManual} style={{ ...btnText, alignSelf: 'center' }}>
-            手動で入力する
-          </button>
-        )}
+          {showManualLink && (
+            <button type="button" onClick={openManual} style={{ ...btnText, alignSelf: 'center' }}>
+              手動で入力する
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

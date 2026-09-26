@@ -70,6 +70,17 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
   const pickCover = () => fileInputRef.current?.click();
   const clearCover = () => setForm({ ...form, cover: '' });
   const canSave = !!form.title.trim();
+  // 書名が空で「保存」を押したとき: ボタンは薄くせず（白文字が読めなくなる）、書名の欄へ戻して 1 行で知らせる。
+  const titleRef = useRef(null);
+  const [titleMissing, setTitleMissing] = useState(false);
+  const handleSaveClick = () => {
+    if (!canSave) {
+      setTitleMissing(true);
+      try { titleRef.current?.focus(); } catch { /* ignore */ }
+      return;
+    }
+    onSave();
+  };
 
   return (
     <div>
@@ -131,17 +142,12 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
           />
         </div>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="タイトル *" aria-label="タイトル（必須）" style={inp} maxLength={LIMITS.bookTitle} />
+          <input ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} placeholder="タイトル *" aria-label="タイトル（必須）" aria-invalid={titleMissing || undefined} style={inp} maxLength={LIMITS.bookTitle} />
+          {titleMissing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入れてください</p>}
           <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" aria-label="著者" style={inp} maxLength={LIMITS.bookAuthor} />
         </div>
       </div>
 
-      <Field label="タグ">
-        <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
-      </Field>
-      <Field label="フォルダ">
-        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
-      </Field>
 
       {/* 📖 既読クイック追加: 「もう読んだ／読んでいる」本は、読みたい→読書前→
           読書中 の遷移や投資目的ゲートを経ずに、ここで状態を選んで直接
@@ -176,9 +182,19 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
         </div>
       </Field>
 
-      <button type="button" onClick={onSave} disabled={!canSave} style={{ ...btnPrimary, marginTop: 'var(--space-2)', opacity: canSave ? 1 : 0.5, cursor: canSave ? 'pointer' : 'default' }}>
+      <button type="button" onClick={handleSaveClick} style={{ ...btnPrimary, marginTop: 'var(--space-2)' }}>
         {(form.status === 'reading' || form.status === 'done') ? '保存してメモを書く' : '保存'}
       </button>
+
+      {/* タグ・フォルダは任意なので、主ボタンより下に（最初の画面で「保存」が見えるように）。 */}
+      <div style={{ marginTop: 'var(--space-8)' }}>
+      <Field label="タグ">
+        <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
+      </Field>
+      <Field label="フォルダ">
+        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
+      </Field>
+      </div>
     </div>
   );
 }
