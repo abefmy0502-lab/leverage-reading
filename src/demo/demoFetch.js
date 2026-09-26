@@ -163,7 +163,9 @@ export function installDemoFetch(store) {
       return json({ content: [{ type: 'text', text }], stop_reason: 'end_turn' });
     }
     if (url.includes('/api/cover')) return json({ cover: null });
-    if (url.includes('/api/')) return json({ error: 'お試しモードでは使えません' }, 503);
+    // 自前の /api/ だけを止める（NDL の /api/opensearch まで止めると、該当なしが常にエラーに見える）。
+    const isOwnApi = url.startsWith('/api/') || url.startsWith(`${window.location.origin}/api/`);
+    if (isOwnApi) return json({ error: 'お試しモードでは使えません' }, 503);
     if (url.includes('googleapis.com/books')) return googleBooks(url);
     if (url.includes('api.openbd.jp')) {
       const n = ((url.match(/isbn=([^&]*)/) || [])[1] || '').split(',').length;
