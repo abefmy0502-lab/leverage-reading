@@ -96,6 +96,8 @@ const transformBook = (book) => ({
 export function useBooks() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  // 読み込みに失敗したか（画面は「本がない」ではなく「読み込めなかった」を出す）。
+  const [loadError, setLoadError] = useState(false);
   const { user } = useAuth();
   // 🏷 世代トークン（useBookMemos と同じ流儀）。PTR・バックフィル完了・復元・
   // AI 面の onBooksMutated など発火源が多く、遅い旧リクエストが後着すると
@@ -128,10 +130,12 @@ export function useBooks() {
       if (error) throw error;
       if (gen !== fetchGenRef.current) return; // stale fetch — 後着の旧応答は捨てる
       setBooks((data || []).map(transformBook));
+      setLoadError(false);
     } catch (error) {
       if (gen !== fetchGenRef.current) return;
       console.error('本の取得エラー:', error);
-      setBooks([]);
+      // 手元の一覧は消さない（再読込の失敗で本棚が空に見えないように）。
+      setLoadError(true);
     } finally {
       if (gen === fetchGenRef.current) setLoading(false);
     }
@@ -589,6 +593,7 @@ export function useBooks() {
   return {
     books,
     loading,
+    loadError,
     saveBook,
     deleteBook,
     mutateBookLocal,

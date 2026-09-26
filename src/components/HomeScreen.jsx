@@ -23,7 +23,8 @@ const sectionTitle = {
 function StartCard({ onQuickstart, onAddBook, onAdvisor }) {
   return (
     <section aria-labelledby="home-start-title" style={card}>
-      <h2 id="home-start-title" style={{ ...sectionTitle, margin: '0 0 var(--space-4)' }}>読むほど、<br />自分だけの相談相手が育つ</h2>
+      {/* 「読むほど、自分だけの相談相手が育つ」はログインと初回ガイドで伝え済み。ここは行動だけを示す（同じことを二度言わない）。 */}
+      <h2 id="home-start-title" style={{ ...sectionTitle, margin: '0 0 var(--space-4)' }}>はじめましょう</h2>
       <button type="button" onClick={onQuickstart} style={btnPrimary}>これまで読んだ本から始める</button>
       <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>いま読んでいる本を追加する</button>
       {/* 文字ボタン自体の上下余白（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}

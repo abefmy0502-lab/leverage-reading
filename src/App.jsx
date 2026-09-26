@@ -26,31 +26,25 @@ import {
   BarChart3 as IcChart,
   Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
   Lightbulb as IcBulb,
-  BookOpen as IcBook, Map as IcMap, RefreshCw as IcRefresh, Bot as IcBot,
+  BookOpen as IcBook, Map as IcMap, RefreshCw as IcRefresh, WifiOff as IcWifiOff, Bot as IcBot,
   CheckCircle2 as IcCheck,
-  SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar, Folder as IcFolder,
+  SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar, Folder as IcFolder, X as IcX,
 } from 'lucide-react';
 
 // サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
 const subTabIconStyle = { verticalAlign: '-2px', marginRight: 5 };
 
 // 本棚ツールバー（シート化）用の共通スタイル。
+const SHELF_CHIP_ORDER = ['reading', 'done', 'before', 'want'];
 const SORT_LABELS = { updated: '更新順', created: '登録順', title: 'タイトル順', rating: '評価順' };
-// すべての本の切替チップ（DESIGN §5: 選択中は --accent-soft 地・--accent 文字。枠なし・角丸 12）。
-const bookshelfToolbarBtn = (active) => ({
-  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44,
-  padding: '0 var(--space-3)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', fontFamily: 'inherit',
-  cursor: 'pointer', fontWeight: active ? 600 : 400, border: 'none', whiteSpace: 'nowrap',
-  background: active ? 'var(--accent-soft)' : 'var(--fill)',
-  color: active ? 'var(--accent)' : 'var(--text)',
-});
 // 状態・フォルダのチップ（DESIGN §5: 見た目は --fill 面・13px・高さ 32、押せる範囲は 44）。
-function ShelfChip({ active, onClick, children }) {
+function ShelfChip({ active, onClick, children, ariaLabel }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      aria-label={ariaLabel}
       style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
     >
       <span
@@ -66,6 +60,17 @@ function ShelfChip({ active, onClick, children }) {
     </button>
   );
 }
+// すべての本から開くシート（絞り込み・並び替え・状態・フォルダ・本を選ぶ）の共通スタイル。
+const sheetLabel = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' };
+const sheetChips = { display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginBottom: 'var(--space-4)' };
+const sheetSubtitle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: '0 0 var(--space-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+const sheetOption = (active) => ({
+  display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 48,
+  padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)',
+  border: '1px solid var(--separator)', background: active ? 'var(--accent-soft)' : 'var(--surface)',
+  color: 'var(--text)', fontSize: 'var(--text-body)', fontWeight: active ? 600 : 400,
+  fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer',
+});
 const bookshelfIconBtn = {
   width: 44, height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
   background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit',
@@ -420,6 +425,7 @@ function AuthedApp() {
   const {
     books: rawBooks,
     loading: booksLoading,
+    loadError: booksLoadError,
     saveBook,
     deleteBook,
     mutateBookLocal,
@@ -2677,8 +2683,8 @@ function AuthedApp() {
   }, [books]);
 
   // アクティブな絞り込み数（ツールバーのバッジ表示用）。
-  const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (minRating > 0 ? 1 : 0) + tagFilter.length;
-  const clearAllFilters = () => { setStatusFilter('all'); setMinRating(0); setTagFilter([]); };
+  const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (minRating > 0 ? 1 : 0) + tagFilter.length + (folderFilter ? 1 : 0);
+  const clearAllFilters = () => { setStatusFilter('all'); setMinRating(0); setTagFilter([]); setFolderFilter(null); };
 
 
   const stats = useMemo(() => ({ total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length }), [books]);
@@ -3652,23 +3658,8 @@ function AuthedApp() {
                     autoFocus={librarySearchOpen && !search}
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                    style={{ ...inp, flex: 1, minHeight: 44, background: "var(--surface)", border: '1px solid var(--border)', borderRadius: 'var(--radius)', paddingLeft: 'calc(var(--space-3) + 18px + var(--space-2))' }}
+                    style={{ ...inp, flex: 1, minHeight: 48, background: "var(--surface)", border: '1px solid var(--border)', borderRadius: 'var(--radius)', paddingLeft: 'calc(var(--space-3) + 18px + var(--space-2))' }}
                   />
-                </div>
-              )}
-              {/* フォルダ行 — フォルダが1つ以上あるときだけ出す（新規ユーザーには
-                  出ず本棚はスッキリのまま）。横スクロールで切替。 */}
-              {folderNames.length > 0 && (
-                <div className="lvg-no-scrollbar" style={{ display: "flex", gap: 'var(--space-2)', overflowX: "auto" }}>
-                  <ShelfChip onClick={() => setFolderFilter(null)} active={folderFilter === null}>
-                    すべてのフォルダ
-                  </ShelfChip>
-                  {allFolders.map((f) => (
-                    <ShelfChip key={f.name} onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)} active={folderFilter === f.name}>
-                      <IcFolder size={14} aria-hidden="true" />
-                      {f.name} <span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{f.count}</span>
-                    </ShelfChip>
-                  ))}
                 </div>
               )}
             </div>
@@ -3693,7 +3684,7 @@ function AuthedApp() {
                   絞り込みシートの1階層奥から棚の表に昇格。state は絞り込みシートと共有
                   （statusFilter＝activeFilterCount とも連動）。同じチップの再タップで解除。
                   本が少ないうちはノイズなので 4 冊未満では出さない。 */}
-              {books.length >= 4 && (
+              {(books.length >= 4 || folderFilter) && (
                 <div
                   style={{
                     display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-2)',
@@ -3706,7 +3697,14 @@ function AuthedApp() {
                   role="group"
                   aria-label="ステータスで絞り込み"
                 >
-                  {[{ key: 'all', label: 'すべて', count: stats.total }, ...STATUSES.map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => {
+                  {/* フォルダで絞っている間だけ、先頭にそのフォルダのチップ（押すと解除）。フォルダの選択は「…」→ 絞り込み。 */}
+                  {folderFilter && (
+                    <ShelfChip active onClick={() => setFolderFilter(null)} ariaLabel={`フォルダ「${folderFilter}」の絞り込みを解除`}>
+                      <IcFolder size={14} aria-hidden="true" />{folderFilter}<IcX size={14} aria-hidden="true" />
+                    </ShelfChip>
+                  )}
+                  {/* 並びは管理でよく使う順（読書中・読了を先に）。 */}
+                  {[{ key: 'all', label: 'すべて', count: stats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => {
                     if (s.key !== 'all' && s.count === 0) return null;
                     const active = statusFilter === s.key;
                     return (
@@ -3729,6 +3727,14 @@ function AuthedApp() {
                 ) : (
                   <BookListSkeleton rows={4} />
                 )
+              ) : booksLoadError && rawBooks.length === 0 ? (
+                // 読み込みに失敗したときは「本がない」ではなく、読み込めなかったことを出す。
+                <ErrorMessage
+                  icon={<IcRefresh size={28} aria-hidden="true" />}
+                  title="本を読み込めませんでした"
+                  description="通信の状態を確かめて、もう一度お試しください。"
+                  actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
+                />
               ) : filtered.length === 0 ? (
                 rawBooks.length === 0 ? (
                   <EmptyState
@@ -4117,7 +4123,7 @@ function AuthedApp() {
           AI 回答の「明日の一歩」を、本を選んで行動化できるようにする）。 */}
       {addActionSheet?.step === 'pick' && (
         <BottomSheet title="どの本の行動にしますか？" onClose={() => setAddActionSheet(null)}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {[...books]
               .sort((a, b) => {
                 const rank = { reading: 0, done: 1, before: 2, want: 3 };
@@ -4131,23 +4137,12 @@ function AuthedApp() {
                   key={b.id}
                   type="button"
                   onClick={() => setAddActionSheet({ step: 'edit', bookId: b.id, prefillText: addActionSheet.prefillText || '' })}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    minHeight: 52, padding: '8px 10px', borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--c-hairline)', background: 'var(--c-card)',
-                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-                  }}
+                  style={{ ...sheetOption(false), minHeight: 56 }}
                 >
-                  {b.cover ? (
-                    <img src={ensureHttps(b.cover)} alt="" style={{ width: 26, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
-                  ) : (
-                    <span style={{ width: 26, height: 36, borderRadius: 4, background: 'var(--c-soft-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} aria-hidden="true">
-                      <IcBook size={14} />
-                    </span>
-                  )}
+                  <MiniCover book={b} width={28} />
                   <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-                    <span style={{ display: 'block', fontSize: 11, color: 'var(--c-ink-2)' }}>{STATUS_LABEL[b.status] || b.status}</span>
+                    <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                    <span style={{ display: 'block', fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>{STATUS_LABEL[b.status] || b.status}</span>
                   </span>
                 </button>
               ))}
@@ -4178,10 +4173,10 @@ function AuthedApp() {
           本を開かずその場で 4 ステータスへ移動。日付補完は setBookStatusQuiet 側。 */}
       {statusPickerBook && (
         <BottomSheet title="ステータスを変える" onClose={() => setStatusPickerBook(null)}>
-          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={sheetSubtitle}>
             『{statusPickerBook.title}』
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {STATUSES.map((s) => {
               const active = (books.find((b) => b.id === statusPickerBook.id)?.status || statusPickerBook.status) === s.key;
               return (
@@ -4190,28 +4185,18 @@ function AuthedApp() {
                   type="button"
                   disabled={active}
                   onClick={() => { setBookStatusQuiet(books.find((b) => b.id === statusPickerBook.id) || statusPickerBook, s.key); setStatusPickerBook(null); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, padding: '10px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline)',
-                    background: active ? 'var(--c-soft-2)' : 'var(--c-card)',
-                    color: 'var(--c-ink)', fontSize: 14, fontWeight: active ? 700 : 500,
-                    fontFamily: 'inherit', cursor: active ? 'default' : 'pointer', width: '100%',
-                  }}
+                  style={{ ...sheetOption(active), cursor: active ? 'default' : 'pointer' }}
                 >
-                  <s.Icon size={16} aria-hidden="true" style={{ color: s.color, flexShrink: 0 }} />
-                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, minWidth: 0 }}>
+                  <s.Icon size={18} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
                     <span>{s.label}</span>
-                    {s.desc && <span style={{ fontSize: 10, color: 'var(--c-ink-3)', fontWeight: 400 }}>{s.desc}</span>}
+                    {s.desc && <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', fontWeight: 400 }}>{s.desc}</span>}
                   </span>
-                  {active && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--c-ink-2)', flexShrink: 0 }}>現在</span>}
+                  {active && <IcCheck size={18} aria-label="現在" style={{ marginLeft: 'auto', color: 'var(--accent)', flexShrink: 0 }} />}
                 </button>
               );
             })}
           </div>
-          <p style={{ fontSize: 10, color: 'var(--c-ink-3)', margin: '10px 0 0', lineHeight: 1.6 }}>
-            メモは「読書中」「読了」の本で書けます。
-          </p>
         </BottomSheet>
       )}
 
@@ -4234,15 +4219,10 @@ function AuthedApp() {
         };
         return (
           <BottomSheet title="フォルダに入れる" onClose={() => setFolderPickerBook(null)}>
-            <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <p style={sheetSubtitle}>
               『{liveBook.title}』
             </p>
-            {folderNames.length === 0 && (
-              <p style={{ fontSize: 12, color: 'var(--c-ink-3)', margin: '0 0 10px', lineHeight: 1.6 }}>
-                まだフォルダがありません。下で作って、この本を入れられます。
-              </p>
-            )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               {folderNames.map((name) => {
                 const inFolder = cols.includes(name);
                 return (
@@ -4251,24 +4231,18 @@ function AuthedApp() {
                     type="button"
                     onClick={() => toggleFolder(name)}
                     aria-pressed={inFolder}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, padding: '10px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: inFolder ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline)',
-                      background: inFolder ? 'var(--c-soft-2)' : 'var(--c-card)',
-                      color: 'var(--c-ink)', fontSize: 14, fontWeight: inFolder ? 700 : 500,
-                      fontFamily: 'inherit', cursor: 'pointer', width: '100%',
-                    }}
+                    style={sheetOption(inFolder)}
                   >
-                    <IcFolder size={15} aria-hidden="true" style={{ color: 'var(--c-brand)', flexShrink: 0 }} />
+                    <IcFolder size={18} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-                    {inFolder && <IcCheck size={16} aria-hidden="true" style={{ marginLeft: 'auto', color: 'var(--c-positive)', flexShrink: 0 }} />}
+                    {inFolder && <IcCheck size={18} aria-hidden="true" style={{ marginLeft: 'auto', color: 'var(--accent)', flexShrink: 0 }} />}
                   </button>
                 );
               })}
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
               <input
+                aria-label="新しいフォルダ名"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => {
@@ -4276,21 +4250,15 @@ function AuthedApp() {
                 }}
                 placeholder="新しいフォルダ名"
                 maxLength={40}
-                style={{
-                  flex: 1, minWidth: 0, padding: '10px 12px', fontSize: 16,
-                  border: '1px solid var(--c-hairline-strong)', borderRadius: 'var(--radius-md)',
-                  background: 'var(--c-card)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box',
-                }}
+                style={{ ...inp, flex: 1, minWidth: 0, minHeight: 48, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}
               />
               <button
                 type="button"
                 onClick={createAndAdd}
                 disabled={!newFolderName.trim()}
                 style={{
-                  flexShrink: 0, minHeight: 44, padding: '0 16px', borderRadius: 'var(--radius-md)', border: 'none',
-                  background: 'var(--c-brand)', color: 'var(--c-brand-ink)', fontSize: 13, fontWeight: 700,
-                  fontFamily: 'inherit', cursor: newFolderName.trim() ? 'pointer' : 'default',
-                  opacity: newFolderName.trim() ? 1 : 0.5,
+                  ...btnGhost, width: 'auto', flexShrink: 0, padding: '0 var(--space-4)', fontSize: 'var(--text-sub)',
+                  cursor: newFolderName.trim() ? 'pointer' : 'default', opacity: newFolderName.trim() ? 1 : 0.5,
                 }}
               >
                 作って入れる
@@ -4302,7 +4270,7 @@ function AuthedApp() {
 
       {addNoteSheet === 'pick' && (
         <BottomSheet title="どの本のメモにしますか？" onClose={() => setAddNoteSheet(null)}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {[...books]
               .filter((b) => b.status === 'reading' || b.status === 'done')
               .sort((a, b) => {
@@ -4317,23 +4285,12 @@ function AuthedApp() {
                   key={b.id}
                   type="button"
                   onClick={() => { setAddNoteSheet(null); openDetail(b); setQuickMemoOpen(true); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    minHeight: 52, padding: '8px 10px', borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--c-hairline)', background: 'var(--c-card)',
-                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-                  }}
+                  style={{ ...sheetOption(false), minHeight: 56 }}
                 >
-                  {b.cover ? (
-                    <img src={ensureHttps(b.cover)} alt="" style={{ width: 26, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
-                  ) : (
-                    <span style={{ width: 26, height: 36, borderRadius: 4, background: 'var(--c-soft-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} aria-hidden="true">
-                      <IcBook size={14} />
-                    </span>
-                  )}
+                  <MiniCover book={b} width={28} />
                   <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-                    <span style={{ display: 'block', fontSize: 11, color: 'var(--c-ink-2)' }}>{STATUS_LABEL[b.status] || b.status}</span>
+                    <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                    <span style={{ display: 'block', fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>{STATUS_LABEL[b.status] || b.status}</span>
                   </span>
                 </button>
               ))}
@@ -4351,70 +4308,68 @@ function AuthedApp() {
               type="button"
               onClick={clearAllFilters}
               disabled={activeFilterCount === 0}
-              style={{ width: '100%', minHeight: 44, borderRadius: 'var(--radius-md)', border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: activeFilterCount === 0 ? 'var(--c-ink-3)' : 'var(--c-critical)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: activeFilterCount === 0 ? 'default' : 'pointer' }}
+              style={{ ...btnGhost, color: activeFilterCount === 0 ? 'var(--text-3)' : 'var(--error)', cursor: activeFilterCount === 0 ? 'default' : 'pointer' }}
             >
               条件をクリア{activeFilterCount > 0 ? `（${activeFilterCount}）` : ''}
             </button>
           )}
         >
-          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>ステータス</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 18 }}>
-            {[{ key: 'all', label: '全て', count: stats.total }, ...STATUSES.map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => {
-              const active = statusFilter === s.key;
-              return (
-                <button key={s.key} type="button" onClick={() => setStatusFilter(s.key)} style={bookshelfToolbarBtn(active)}>
-                  {s.label} <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>({s.count})</span>
-                </button>
-              );
-            })}
+          <p style={sheetLabel}>ステータス</p>
+          <div style={sheetChips}>
+            {[{ key: 'all', label: 'すべて', count: stats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => (
+              <ShelfChip key={s.key} active={statusFilter === s.key} onClick={() => setStatusFilter(s.key)}>
+                {s.label}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{s.count}</span>
+              </ShelfChip>
+            ))}
           </div>
 
-          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>評価（その星以上）</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 18 }}>
-            {[1, 2, 3, 4, 5].map((n) => {
-              const active = minRating === n;
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  // 同じ星をもう一度押すと解除（指定なしに戻す）。
-                  onClick={() => setMinRating((cur) => (cur === n ? 0 : n))}
-                  style={bookshelfToolbarBtn(active)}
-                  aria-label={`★${n} 以上で絞り込む`}
-                >
-                  <IcStar size={13} aria-hidden="true" />
-                  {n}{n < 5 ? '+' : ''}
-                </button>
-              );
-            })}
-          </div>
-
-          {availableTags.length > 0 ? (
+          {/* フォルダ（作っている人だけ）。棚の上にはチップ行を 2 段に積まず、ここで選ぶ。 */}
+          {allFolders.length > 0 && (
             <>
-              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>タグ</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {availableTags.map((t) => {
-                  const active = tagFilter.includes(t);
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTagFilter((arr) => (active ? arr.filter((x) => x !== t) : [...arr, t]))}
-                      style={bookshelfToolbarBtn(active)}
-                    >
-                      {t}
-                    </button>
-                  );
-                })}
+              <p style={sheetLabel}>フォルダ</p>
+              <div style={sheetChips}>
+                {allFolders.map((f) => (
+                  <ShelfChip key={f.name} active={folderFilter === f.name} onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)}>
+                    <IcFolder size={14} aria-hidden="true" />
+                    {f.name}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{f.count}</span>
+                  </ShelfChip>
+                ))}
               </div>
             </>
+          )}
+
+          <p style={sheetLabel}>評価（その星以上）</p>
+          <div style={sheetChips}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <ShelfChip
+                key={n}
+                active={minRating === n}
+                // 同じ星をもう一度押すと解除（指定なしに戻す）。
+                onClick={() => setMinRating((cur) => (cur === n ? 0 : n))}
+                ariaLabel={`★${n} 以上で絞り込む`}
+              >
+                <IcStar size={13} aria-hidden="true" />
+                {n}{n < 5 ? '+' : ''}
+              </ShelfChip>
+            ))}
+          </div>
+
+          <p style={sheetLabel}>タグ</p>
+          {availableTags.length > 0 ? (
+            <div style={{ ...sheetChips, marginBottom: 0 }}>
+              {availableTags.map((t) => {
+                const active = tagFilter.includes(t);
+                return (
+                  <ShelfChip key={t} active={active} onClick={() => setTagFilter((arr) => (active ? arr.filter((x) => x !== t) : [...arr, t]))}>
+                    {t}
+                  </ShelfChip>
+                );
+              })}
+            </div>
           ) : (
-            <>
-              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-2)', margin: '0 0 8px' }}>タグ</p>
-              <p style={{ fontSize: 12, color: 'var(--c-ink-3)', margin: 0, lineHeight: 1.7 }}>
-                本を開いて「タグ」欄にキーワード（例：営業 / 名著 / 再読したい）を付けると、ここでタグ絞り込みができるようになります。
-              </p>
-            </>
+            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
+              本の「タグ」欄にキーワードを付けると、ここで選べます。
+            </p>
           )}
         </BottomSheet>
       )}
@@ -4422,15 +4377,15 @@ function AuthedApp() {
       {/* 本棚: 並びシート */}
       {sortSheetOpen && (
         <BottomSheet title="並び替え" onClose={() => setSortSheetOpen(false)}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {Object.entries(SORT_LABELS).map(([key, label]) => {
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {Object.entries(SORT_LABELS).map(([key, label], i, arr) => {
               const active = sortBy === key;
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => { setSortBy(key); setSortSheetOpen(false); }}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 48, padding: '0 4px', background: 'none', border: 'none', borderBottom: '1px solid var(--c-hairline)', fontSize: 15, fontFamily: 'inherit', cursor: 'pointer', color: active ? 'var(--c-brand)' : 'var(--c-ink)', fontWeight: active ? 700 : 400 }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: 48, padding: '0 var(--space-1)', background: 'none', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--separator)' : 'none', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer', color: active ? 'var(--accent)' : 'var(--text)', fontWeight: active ? 600 : 400 }}
                 >
                   {label}
                   {active && <IcCheck size={18} aria-hidden="true" />}
@@ -4525,9 +4480,9 @@ function AppShell() {
   if (authTimedOut && !user) {
     return (
       <Shell>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-6) var(--space-4)' }}>
           <ErrorMessage
-            icon="📡"
+            icon={<IcWifiOff size={28} aria-hidden="true" />}
             title="読み込みに時間がかかっています"
             description="通信状況をご確認のうえ、もう一度お試しください。"
             actions={[
