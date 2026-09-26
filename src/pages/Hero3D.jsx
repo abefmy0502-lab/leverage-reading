@@ -127,7 +127,7 @@ function makeCardTexture(memo, textInset = 0) {
   const title = wrapLines(ctx, memo.title, innerW - 110, 1)[0];
   ctx.fillText(title, left, PAD + 34);
   const tw = ctx.measureText(title).width;
-  ctx.font = `600 24px ${FONT}`;
+  ctx.font = `600 26px ${FONT}`;
   const pw = ctx.measureText(memo.page).width + 28;
   ctxRoundRect(ctx, left + tw + 16, PAD + 30, pw, 40, 20);
   ctx.fillStyle = fill;
@@ -179,8 +179,8 @@ function loadImage(src) {
 function layoutFor(narrow, availRight = Infinity) {
   if (narrow) {
     return [
-      { memo: 0, x: -0.2, y: SCREEN_H / 2 - 0.01, z: 0.16, ry: 0.12, rz: 0.03, w: 0.5, inset: 0 },
-      { memo: 1, x: 0.22, y: -SCREEN_H / 2 + 0.02, z: 0.16, ry: -0.12, rz: -0.03, w: 0.5, inset: 0 },
+      // スマホは 1 枚を大きく（文字が 12px 以上になる幅）。本体の上端（見出しの辺り）に重ねる。
+      { memo: 0, x: 0, y: SCREEN_H / 2 - 0.1, z: 0.16, ry: 0.1, rz: 0.025, w: 0.76, inset: 0 },
     ];
   }
   const fit = (l) => ({ ...l, x: Math.min(l.x, availRight - l.w * 0.56) });
@@ -191,7 +191,7 @@ function layoutFor(narrow, availRight = Infinity) {
   ].map(fit);
 }
 
-export default function Hero3D({ stageRef, imgRef, onReady }) {
+export default function Hero3D({ stageRef, imgRef, onReady, onLost }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -376,10 +376,15 @@ export default function Hero3D({ stageRef, imgRef, onReady }) {
     io.observe(stage);
     const onVis = () => (document.hidden ? pause() : play());
     document.addEventListener('visibilitychange', onVis);
-    const ro = new ResizeObserver(() => { resize(); if (reduceMotion) requestAnimationFrame(frame); });
+    // 大きさが変わると canvas は消えるので、その場で 1 枚描き直す
+    const ro = new ResizeObserver(() => { resize(); renderer.render(scene, camera); });
     ro.observe(stage);
     const onScheme = () => { applyTheme().then(() => requestAnimationFrame(frame)).catch(() => {}); };
     darkMq.addEventListener('change', onScheme);
+
+    // GPU が落ちたら写真に戻す
+    const onContextLost = (e) => { e.preventDefault(); pause(); onLost?.(); };
+    canvas.addEventListener('webglcontextlost', onContextLost);
 
     let cancelled = false;
     applyTheme().then(() => {
@@ -399,12 +404,13 @@ export default function Hero3D({ stageRef, imgRef, onReady }) {
       document.removeEventListener('visibilitychange', onVis);
       darkMq.removeEventListener('change', onScheme);
       window.removeEventListener('pointermove', onPointer);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       cards.forEach(({ mesh }) => { mesh.material.map?.dispose(); mesh.material.dispose(); mesh.geometry.dispose(); });
       screenMat.map?.dispose();
       disposables.forEach((d) => d.dispose?.());
       renderer.dispose();
     };
-  }, [stageRef, imgRef, onReady]);
+  }, [stageRef, imgRef, onReady, onLost]);
 
   return <canvas ref={canvasRef} className="lp-hero-canvas" aria-hidden="true" />;
 }

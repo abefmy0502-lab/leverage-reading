@@ -180,6 +180,7 @@ export default function Landing() {
   const [want3D, setWant3D] = useState(false);
   const [ready3D, setReady3D] = useState(false);
   const on3DReady = useCallback(() => setReady3D(true), []);
+  const on3DLost = useCallback(() => { setReady3D(false); setWant3D(false); }, []);
 
   // 写真（LCP）を出し終えてから 3D を読み込む。
   useEffect(() => {
@@ -352,7 +353,7 @@ export default function Landing() {
                 />
                 {want3D && (
                   <Suspense fallback={null}>
-                    <Hero3D stageRef={heroStageRef} imgRef={heroImgRef} onReady={on3DReady} />
+                    <Hero3D stageRef={heroStageRef} imgRef={heroImgRef} onReady={on3DReady} onLost={on3DLost} />
                   </Suspense>
                 )}
               </div>

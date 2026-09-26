@@ -475,6 +475,7 @@ body.lp-active {
   font-size: 15px;
   line-height: 1.5;
   text-align: left;
+  word-break: auto-phrase;
   cursor: pointer;
   transition: border-color var(--duration-fast, 150ms) ease, background-color var(--duration-fast, 150ms) ease;
 }
@@ -551,7 +552,7 @@ body.lp-active {
 .lp-demo-src-memo { color: var(--text-2); font-size: var(--lp-small); line-height: 1.7; }
 .lp-demo-empty { margin-top: var(--space-8) !important; color: var(--text-3); text-align: center; }
 .lp-demo-cta { margin-top: var(--space-6); text-align: center; animation: lp-rise 400ms 200ms ease both; }
-.lp-demo-cta-lead { margin-bottom: var(--space-3) !important; font-weight: 700; }
+.lp-demo-cta-lead { word-break: auto-phrase; margin-bottom: var(--space-3) !important; font-weight: 700; }
 
 @media (prefers-reduced-motion: reduce) {
   .lp-demo-after, .lp-demo-cta, .lp-demo-dots i, .lp-demo-caret { animation: none; }
@@ -582,3 +583,38 @@ body.lp-active {
 }
 .lp-motion .lp-step-flip .lp-reveal { transform: perspective(1200px) rotateY(14deg) rotateX(6deg) translateY(32px); }
 .lp-motion .lp-reveal.is-in { opacity: 1; transform: none; }
+
+/* 体験欄: 自分の悩みで試す・約束 */
+.lp-demo-form { margin-top: var(--space-6); }
+.lp-demo-form-row { display: flex; gap: var(--space-2); }
+.lp-demo-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.lp-demo-input::placeholder { color: var(--text-3); }
+.lp-demo-send {
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lp-demo-send:disabled { border-color: var(--separator); color: var(--text-3); cursor: default; }
+.lp-demo-promises { list-style: none; margin: var(--space-6) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.lp-demo-promises li { display: flex; gap: var(--space-2); align-items: flex-start; color: var(--text-2); font-size: var(--lp-small); line-height: 1.6; }
+.lp-demo-promises svg { flex-shrink: 0; margin-top: 3px; color: var(--success); }
+.lp-demo-nomatch { margin-top: var(--space-3) !important; color: var(--text-2); font-size: var(--lp-small); line-height: 1.7; }

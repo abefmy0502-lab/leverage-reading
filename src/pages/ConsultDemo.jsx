@@ -40,6 +40,24 @@ const SCENARIOS = [
   },
 ];
 
+// 自由に書かれた悩みを、例のどれかに当てる。例ごとの言葉がいくつ含まれるかで決め、
+// どれも含まれなければ「近いメモが無い」と正直に返す（アプリの振る舞いと同じ）。
+const KEYWORDS = [
+  ['部下', '報告', '1on1', 'メンバー', 'チーム', '後輩', '上司', '連絡', '相談してくれ', '育て', '関係'],
+  ['会議', '打ち合わせ', 'ミーティング', '議論', 'まとま', '結論', '長引', '決まらな', '企画', '資料', 'プレゼン'],
+  ['忙し', '抱え', '手が回', '時間', '断れ', '断る', '残業', 'やること', 'タスク', '締め切', '優先', '余裕'],
+];
+function nearestScenario(text) {
+  const t = String(text).toLowerCase();
+  let best = -1;
+  let bestHit = 0;
+  KEYWORDS.forEach((words, i) => {
+    const hit = words.filter((w) => t.includes(w.toLowerCase())).length;
+    if (hit > bestHit) { bestHit = hit; best = i; }
+  });
+  return best;
+}
+
 const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export default function ConsultDemo({ cta }) {
@@ -48,13 +66,18 @@ export default function ConsultDemo({ cta }) {
   const [phase, setPhase] = useState('idle'); // idle | thinking | typing | done
   const [shown, setShown] = useState(0); // 流れた文字数
   const [added, setAdded] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [draft, setDraft] = useState('');
+  const [noMatch, setNoMatch] = useState(false);
   const timers = useRef([]);
 
   const clearTimers = () => { timers.current.forEach((t) => clearTimeout(t)); timers.current = []; };
 
-  const play = (i) => {
+  const play = (i, customQ) => {
     clearTimers();
     setActive(i);
+    setQuestion(customQ || SCENARIOS[i].q);
+    setNoMatch(false);
     setAdded(false);
     if (reduceMotion()) {
       setShown(SCENARIOS[i].a.length);
@@ -93,6 +116,22 @@ export default function ConsultDemo({ cta }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const ask = (e) => {
+    e.preventDefault();
+    const text = draft.trim();
+    if (!text) return;
+    const i = nearestScenario(text);
+    setDraft('');
+    if (i >= 0) { play(i, text); return; }
+    clearTimers();
+    setActive(-2);
+    setQuestion(text);
+    setAdded(false);
+    setNoMatch(true);
+    setPhase(reduceMotion() ? 'done' : 'thinking');
+    if (!reduceMotion()) timers.current.push(setTimeout(() => setPhase('done'), 900));
+  };
+
   const s = active >= 0 ? SCENARIOS[active] : null;
 
   return (
@@ -112,16 +151,49 @@ export default function ConsultDemo({ cta }) {
             </button>
           ))}
         </div>
+        <form className="lp-demo-form" onSubmit={ask}>
+          <label className="lp-demo-label" htmlFor="lp-demo-input">自分の悩みで試す</label>
+          <div className="lp-demo-form-row">
+            <input
+              id="lp-demo-input"
+              className="lp-demo-input"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
+              maxLength={100}
+              placeholder="例：会議が長引く"
+              enterKeyHint="send"
+            />
+            <button type="submit" className="lp-demo-send" disabled={!draft.trim()}>相談する</button>
+          </div>
+        </form>
         <p className="lp-demo-note">
           サンプルのメモ（10 冊・30 件）から作った答えの例です。アプリでは、あなたのメモをもとに AI が答えます。
         </p>
+        <ul className="lp-demo-promises">
+          <li><Check size={16} aria-hidden="true" />メモが 1 件からでも相談できます</li>
+          <li><Check size={16} aria-hidden="true" />答えにはいつも、もとになったメモが付きます</li>
+          <li><Check size={16} aria-hidden="true" />関係するメモが無いときは、無理に答えを作りません</li>
+        </ul>
       </div>
 
       <div className="lp-demo-chat" aria-live="polite">
         <p className="lp-demo-head">あなたのメモ 30 件から答えます</p>
-        {s ? (
+        {noMatch ? (
           <>
-            <p className="lp-demo-q">{s.q}</p>
+            <p className="lp-demo-q">{question}</p>
+            {phase === 'thinking' ? (
+              <p className="lp-demo-thinking">メモから探しています<span className="lp-demo-dots" aria-hidden="true"><i /><i /><i /></span></p>
+            ) : (
+              <div className="lp-demo-answer lp-demo-after">
+                <p className="lp-demo-a">サンプルのメモには、この悩みに近いものがありませんでした。</p>
+                <p className="lp-demo-nomatch">アプリでは、あなたが残したメモの中から探して答えます。関係するメモが無いときは、このように無理に答えを作りません。</p>
+              </div>
+            )}
+          </>
+        ) : s ? (
+          <>
+            <p className="lp-demo-q">{question}</p>
             {phase === 'thinking' ? (
               <p className="lp-demo-thinking">メモから探しています<span className="lp-demo-dots" aria-hidden="true"><i /><i /><i /></span></p>
             ) : (
