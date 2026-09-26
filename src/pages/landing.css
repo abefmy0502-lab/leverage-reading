@@ -181,6 +181,22 @@ body.lp-active {
   color: var(--text);
 }
 .lp-hero-shot { margin: 0; text-align: center; }
+/* 3D の舞台: 写真の上下にカードが出る余白。キャンバスは写真より広く、押す操作は受けない */
+.lp-hero-stage { position: relative; padding: var(--space-16) 0; }
+.lp-hero-canvas {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 100vw;
+  height: 100%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+.lp-hero-stage .lp-shot { transition: opacity 500ms ease; }
+.lp-hero-stage.is-3d .lp-hero-canvas { opacity: 1; }
+.lp-hero-stage.is-3d .lp-shot { opacity: 0; }
 .lp-hero-shot figcaption {
   word-break: auto-phrase;
   margin-top: var(--space-3);
@@ -401,6 +417,7 @@ body.lp-active {
 .lp-sticky .lp-btn { flex: 1; }
 
 @media (prefers-reduced-motion: reduce) {
+  .lp-hero-canvas, .lp-hero-stage .lp-shot,
   .lp-sticky, .lp-sticky.is-visible, .lp-faq-mark, .lp-btn { transition: none; }
 }
 
@@ -415,6 +432,11 @@ body.lp-active {
   .lp-hero-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); align-items: center; gap: var(--space-16); }
   .lp-lead { font-size: 19px; }
   .lp-shot { width: 300px; }
+  /* 本体は列の左寄せ（右にカードが扇状に出る余白を作る） */
+  .lp-hero-stage .lp-shot { margin: 0; }
+  /* 広い画面: カードは本体の右後ろに出るので、キャンバスを右へ広げる */
+  .lp-hero-canvas { left: -160px; width: calc(100% + 480px); transform: none; }
+  .lp-hero-shot figcaption { width: 300px; }
 
   /* 文と画面写真を近づけ、左端は見出しにそろえる（左右は段ごとに入れ替える） */
   .lp-step { grid-template-columns: minmax(0, 26em) auto; justify-content: start; gap: var(--space-16); }
@@ -435,4 +457,128 @@ body.lp-active {
 @media (min-width: 1100px) {
   .lp-root { --lp-sec: 128px; }
   .lp-shot { width: 320px; }
+  .lp-hero-shot figcaption { width: 320px; }
 }
+
+/* ============ 体験: 試しに、相談してみる（ConsultDemo.jsx） ============ */
+.lp-demo { display: grid; gap: var(--space-8); margin-top: var(--space-8); }
+.lp-demo-label { color: var(--text-2); font-size: var(--lp-small); font-weight: 600; margin-bottom: var(--space-3) !important; }
+.lp-demo-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.lp-demo-chip {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast, 150ms) ease, background-color var(--duration-fast, 150ms) ease;
+}
+.lp-demo-chip:hover { border-color: var(--border); }
+.lp-demo-chip.is-active { border-color: var(--accent); background: var(--accent-soft); color: var(--text); font-weight: 600; }
+.lp-demo-note { margin-top: var(--space-4) !important; color: var(--text-2); font-size: var(--lp-small); line-height: 1.7; }
+
+.lp-demo-chat {
+  min-height: 420px;
+  padding: var(--space-4);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--shadow-overlay);
+}
+.lp-demo-head { color: var(--text-2); font-size: var(--lp-small); padding-bottom: var(--space-3) !important; border-bottom: 1px solid var(--separator); }
+.lp-demo-q {
+  margin: var(--space-4) 0 0 auto !important;
+  width: fit-content;
+  max-width: 85%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--fill);
+  line-height: 1.6;
+}
+.lp-demo-thinking { margin-top: var(--space-4) !important; color: var(--text-2); font-size: var(--lp-small); }
+.lp-demo-dots { display: inline-flex; gap: 4px; margin-left: var(--space-2); }
+.lp-demo-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); animation: lp-dot 1s ease-in-out infinite; }
+.lp-demo-dots i:nth-child(2) { animation-delay: 0.15s; }
+.lp-demo-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes lp-dot { 0%, 100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+
+.lp-demo-answer {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.lp-demo-a { font-family: var(--font-read); font-size: 17px; line-height: 1.85; }
+.lp-demo-caret { display: inline-block; width: 2px; height: 1.1em; margin-left: 2px; vertical-align: -0.15em; background: var(--accent); animation: lp-caret 0.8s steps(1) infinite; }
+@keyframes lp-caret { 50% { opacity: 0; } }
+.lp-demo-after { animation: lp-rise 400ms ease both; }
+@keyframes lp-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.lp-demo-step { margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius); background: var(--fill); }
+.lp-demo-step-label, .lp-demo-src-label { color: var(--text-2); font-size: var(--lp-caption); font-weight: 700; margin-bottom: var(--space-1) !important; }
+.lp-demo-step p:not(.lp-demo-step-label):not(.lp-demo-added-note) { font-family: var(--font-read); line-height: 1.8; }
+.lp-demo-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  margin-top: var(--space-3);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lp-demo-add svg { color: var(--accent); }
+.lp-demo-add.is-added { border-color: var(--success); color: var(--success); }
+.lp-demo-add.is-added svg { color: var(--success); }
+.lp-demo-added-note { margin-top: var(--space-2) !important; color: var(--text-2); font-size: var(--lp-small); }
+.lp-demo-src-label { margin-top: var(--space-4) !important; }
+.lp-demo-src { list-style: none; margin: 0; padding: 0; }
+.lp-demo-src li { display: grid; gap: 2px; padding: var(--space-2) 0; border-top: 1px solid var(--separator); }
+.lp-demo-src li:first-child { border-top: 0; }
+.lp-demo-src-book { color: var(--accent); font-size: 15px; font-weight: 600; }
+.lp-demo-src-book span { margin-left: var(--space-2); color: var(--text-2); font-weight: 400; font-size: var(--lp-small); }
+.lp-demo-src-memo { color: var(--text-2); font-size: var(--lp-small); line-height: 1.7; }
+.lp-demo-empty { margin-top: var(--space-8) !important; color: var(--text-3); text-align: center; }
+.lp-demo-cta { margin-top: var(--space-6); text-align: center; animation: lp-rise 400ms 200ms ease both; }
+.lp-demo-cta-lead { margin-bottom: var(--space-3) !important; font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-demo-after, .lp-demo-cta, .lp-demo-dots i, .lp-demo-caret { animation: none; }
+}
+@media (min-width: 768px) {
+  .lp-demo { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-12); align-items: start; }
+  .lp-demo-chips { flex-direction: column; align-items: stretch; }
+  .lp-demo-chat { padding: var(--space-6); min-height: 520px; }
+}
+.lp-demo-step .lp-demo-step-label + p { margin-top: var(--space-1) !important; }
+
+/* ============ PC 向けの QR コード（App Store の URL があるときだけ） ============ */
+.lp-cta-row { display: flex; align-items: center; gap: var(--space-6); flex-wrap: wrap; }
+.lp-final-inner .lp-cta-row { justify-content: center; }
+.lp-qr { display: none; align-items: center; gap: var(--space-3); }
+.lp-qr svg { border-radius: 8px; flex-shrink: 0; }
+.lp-qr p { color: var(--text-2); font-size: var(--lp-caption); line-height: 1.6; text-align: left; }
+/* スマホ・タブレット（タッチ操作の端末）では出さない */
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .lp-qr { display: flex; }
+}
+
+/* ============ 画面写真の登場（奥から手前へ起き上がる・JS が動くときだけ） ============ */
+.lp-motion .lp-reveal {
+  opacity: 0;
+  transform: perspective(1200px) rotateY(-14deg) rotateX(6deg) translateY(32px);
+  transition: opacity 700ms ease, transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.lp-motion .lp-step-flip .lp-reveal { transform: perspective(1200px) rotateY(14deg) rotateX(6deg) translateY(32px); }
+.lp-motion .lp-reveal.is-in { opacity: 1; transform: none; }

@@ -71,8 +71,21 @@ function siteUrlInHtml() {
   };
 }
 
+// 📱 iPhone の Safari で LP を開いた人に、画面上部の「App Store で入手」バナー（Smart App Banner）を出す。
+// VITE_APP_STORE_URL（…/id1234567890）が入っているときだけ、その ID で <meta name="apple-itunes-app"> を足す。
+function smartAppBanner() {
+  const m = /id(\d{6,})/.exec(process.env.VITE_APP_STORE_URL || '');
+  return {
+    name: 'smart-app-banner',
+    transformIndexHtml(html) {
+      if (!m) return html;
+      return html.replace('</head>', `  <meta name="apple-itunes-app" content="app-id=${m[1]}" />\n</head>`);
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml()],
+  plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml(), smartAppBanner()],
   define: {
     __BUILD_COMMIT__: JSON.stringify(BUILD_COMMIT),
     __BUILD_DATE__: JSON.stringify(BUILD_DATE),
@@ -96,6 +109,8 @@ export default defineConfig({
           if (id.includes('iceberg-js')) return undefined;
           if (id.includes('ts-custom-error')) return undefined;
           if (id.includes('browser-image-compression')) return undefined;
+          // three.js は LP ヒーローの 3D（Hero3D.jsx）専用。アプリ利用者に読ませない。
+          if (/[\\/]three[\\/]/.test(id)) return undefined;
           if (/[\\/]react(-dom)?[\\/]|[\\/]scheduler[\\/]/.test(id)) return 'vendor-react';
           if (id.includes('@supabase')) return 'vendor-supabase';
           if (id.includes('lucide-react')) return 'vendor-icons';

@@ -21,13 +21,30 @@
 //     （SNS のクローラ向けの静的な og:* は index.html 側）
 //   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
 import { savingsLabel } from '../lib/iap';
+import ConsultDemo from './ConsultDemo';
+import qrcode from 'qrcode-generator';
 import './landing.css';
+
+// 🌱 ヒーローの 3D（three.js）は別チャンクで、写真を出したあとに読み込む。
+const Hero3D = lazy(() => import('./Hero3D'));
+
+// 3D を出してよい端末か（データ節約モードと WebGL 非対応は写真のまま）。
+function canUse3D() {
+  if (typeof window === 'undefined') return false;
+  if (navigator.connection?.saveData) return false;
+  try {
+    const c = document.createElement('canvas');
+    return Boolean(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
 
 // 📱 App Store の URL は src/lib/appStore.js に一元化。VITE_APP_STORE_URL が未設定の間は
 // 押せない「近日公開」表示に倒す（プレースホルダー URL で App Store の 404 に落とさない）。
@@ -36,6 +53,29 @@ function StoreCta({ className, children, tabIndex }) {
     return <span className={`${className} is-soon`} aria-disabled="true">App Store で近日公開</span>;
   }
   return <a href={APP_STORE_URL} className={className} tabIndex={tabIndex}>{children}</a>;
+}
+
+// 📷 PC で見ている人向けの QR コード（スマホのカメラで読んで App Store へ）。
+// App Store の URL があるときだけ・広い画面だけ（CSS で出し分け）。読み取りやすいよう白地に黒で描く。
+function StoreQr() {
+  if (!isAppStoreLive) return null;
+  const qr = qrcode(0, 'M');
+  qr.addData(APP_STORE_URL);
+  qr.make();
+  const n = qr.getModuleCount();
+  const cells = [];
+  for (let r = 0; r < n; r += 1) {
+    for (let c = 0; c < n; c += 1) if (qr.isDark(r, c)) cells.push(`M${c} ${r}h1v1h-1z`);
+  }
+  return (
+    <div className="lp-qr">
+      <svg viewBox={`-2 -2 ${n + 4} ${n + 4}`} width="88" height="88" role="img" aria-label="App Store のページを開く QR コード" shapeRendering="crispEdges">
+        <rect x="-2" y="-2" width={n + 4} height={n + 4} fill="#fff" />
+        <path d={cells.join('')} fill="#000" />
+      </svg>
+      <p>スマホのカメラで<br />読み取って入手</p>
+    </div>
+  );
 }
 
 // 🎁 無料トライアル表記（env ゲート・未設定の間は一切出さない）。
@@ -109,13 +149,14 @@ const setMeta = (name, content, attr = 'name') => {
 };
 
 // アプリの実画面（お試しモードで撮影）。暗い画面の端末には暗い画面の写真を出す。
-function Shot({ name, alt, eager = false, ratio = [390, 844] }) {
+function Shot({ name, alt, eager = false, ratio = [390, 844], imgRef }) {
   const set = (scheme) => `/lp/${name}-${scheme}-390.webp 390w, /lp/${name}-${scheme}-780.webp 780w`;
   const sizes = '(min-width: 768px) 300px, 72vw';
   return (
     <picture>
       <source media="(prefers-color-scheme: dark)" type="image/webp" srcSet={set('dark')} sizes={sizes} />
       <img
+        ref={imgRef}
         className="lp-shot"
         src={`/lp/${name}-light-780.webp`}
         srcSet={set('light')}
@@ -134,6 +175,19 @@ function Shot({ name, alt, eager = false, ratio = [390, 844] }) {
 export default function Landing() {
   const heroCtaRef = useRef(null);
   const [showSticky, setShowSticky] = useState(false);
+  const heroStageRef = useRef(null);
+  const heroImgRef = useRef(null);
+  const [want3D, setWant3D] = useState(false);
+  const [ready3D, setReady3D] = useState(false);
+  const on3DReady = useCallback(() => setReady3D(true), []);
+
+  // 写真（LCP）を出し終えてから 3D を読み込む。
+  useEffect(() => {
+    if (!canUse3D()) return undefined;
+    const kick = () => setWant3D(true);
+    const id = 'requestIdleCallback' in window ? window.requestIdleCallback(kick, { timeout: 1500 }) : window.setTimeout(kick, 600);
+    return () => ('cancelIdleCallback' in window ? window.cancelIdleCallback(id) : window.clearTimeout(id));
+  }, []);
 
   useEffect(() => {
     const prevTitle = document.title;
@@ -205,6 +259,17 @@ export default function Landing() {
     }
 
     // 下部の固定ボタンは、ヒーローのボタンが画面から外れたときだけ出す（スマホのみ・CSS で制御）。
+    // 画面写真が画面に入ったら、奥から手前へ起き上がる（ヒーローの 3D とそろえた動き）。
+    let revealIo = null;
+    if (typeof IntersectionObserver !== 'undefined' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const root = document.querySelector('.lp-root');
+      root?.classList.add('lp-motion');
+      revealIo = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('is-in'); revealIo.unobserve(e.target); } });
+      }, { threshold: 0.2 });
+      document.querySelectorAll('.lp-reveal').forEach((el) => revealIo.observe(el));
+    }
+
     const onScroll = () => {
       const el = heroCtaRef.current;
       setShowSticky(el ? el.getBoundingClientRect().bottom < 0 : window.scrollY > 480);
@@ -221,6 +286,7 @@ export default function Landing() {
       canonical.parentElement?.removeChild(canonical);
       ld.parentElement?.removeChild(ld);
       window.removeEventListener('scroll', onScroll);
+      revealIo?.disconnect();
       document.documentElement.classList.remove('lp-active');
       document.body.classList.remove('lp-active');
       if (root) root.classList.remove('lp-active');
@@ -269,16 +335,27 @@ export default function Landing() {
                 困っていることを書くと、あなたが読んで残したメモから答えが返ってくるアプリです。答えには、根拠にした本とページが付きます。
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
-                <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+                <div className="lp-cta-row">
+                  <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+                  <StoreQr />
+                </div>
                 <p className="lp-cta-note">{PRICE_LINE}。いつでも解約でき、解約してもメモは残ります。</p>
               </div>
             </div>
             <figure className="lp-hero-shot">
-              <Shot
-                name="answer"
-                eager
-                alt="相談の画面。「部下が報告をくれなくて困っています」という相談に、『イシューからはじめよ』と『1兆ドルコーチ』のメモを根拠にした答えと、明日からできる一歩が返っている"
-              />
+              <div className={`lp-hero-stage${ready3D ? ' is-3d' : ''}`} ref={heroStageRef}>
+                <Shot
+                  name="answer"
+                  eager
+                  imgRef={heroImgRef}
+                  alt="相談の画面。「部下が報告をくれなくて困っています」という相談に、『イシューからはじめよ』と『1兆ドルコーチ』のメモを根拠にした答えと、明日からできる一歩が返っている"
+                />
+                {want3D && (
+                  <Suspense fallback={null}>
+                    <Hero3D stageRef={heroStageRef} imgRef={heroImgRef} onReady={on3DReady} />
+                  </Suspense>
+                )}
+              </div>
               <figcaption>画面は、サンプルのメモを入れた実際のアプリです</figcaption>
             </figure>
           </div>
@@ -300,6 +377,23 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ============ 体験: 試しに、相談してみる ============ */}
+        <section className="lp-sec lp-try" aria-labelledby="lp-try">
+          <div className="lp-wrap">
+            <h2 className="lp-h2" id="lp-try">
+              <span>試しに、</span><span>相談してみる。</span>
+            </h2>
+            <ConsultDemo
+              cta={(
+                <>
+                  <p className="lp-demo-cta-lead">自分の本とメモで、相談してみませんか。</p>
+                  <StoreCta className="lp-btn">App Store でダウンロード</StoreCta>
+                </>
+              )}
+            />
+          </div>
+        </section>
+
         {/* ============ 使い方（本当の手順なので番号を振る） ============ */}
         <section className="lp-sec lp-steps" aria-labelledby="lp-steps">
           <div className="lp-wrap">
@@ -313,7 +407,7 @@ export default function Landing() {
                   <h3 className="lp-h3">読みながら、一行だけ残す</h3>
                   <p>心が動いた一行を、その場でメモします。本文だけで保存でき、ページ番号や写真はあとから足せます。ページを撮影すれば、AI が文字に起こします。</p>
                 </div>
-                <div className="lp-step-shot">
+                <div className="lp-step-shot lp-reveal">
                   <Shot name="memo" ratio={[390, 421]} alt="メモを書く画面。『1兆ドルコーチ』に「部下の話は、結論を急がずに最後まで聞く。」と入力している" />
                 </div>
               </li>
@@ -324,7 +418,7 @@ export default function Landing() {
                   <p>悩みを書いて送ると、これまでのメモを根拠に答えが返ってきます。何冊ぶんのメモでもつなげて考え、使った本とページは一覧で確かめられます。</p>
                   <p>相談する本を、1 冊や数冊に絞ることもできます。</p>
                 </div>
-                <div className="lp-step-shot">
+                <div className="lp-step-shot lp-reveal">
                   <Shot name="sources" alt="相談の答えの下に「もとになった本」として『イシューからはじめよ』『1兆ドルコーチ』P.95『数値化の鬼』が並ぶ画面" />
                 </div>
               </li>
@@ -334,7 +428,7 @@ export default function Landing() {
                   <h3 className="lp-h3">答えを、今週やることに</h3>
                   <p>答えに付く「明日からできる一歩」は、ボタン 1 つで行動リストに入ります。期限を過ぎたもの・今日・今週の順に並ぶので、やることを見失いません。</p>
                 </div>
-                <div className="lp-step-shot">
+                <div className="lp-step-shot lp-reveal">
                   <Shot name="action" alt="行動の画面。本から生まれた行動が、今週と来週以降に分かれて期限つきで並ぶ" />
                 </div>
               </li>
@@ -355,12 +449,12 @@ export default function Landing() {
               <article className="lp-grow-item">
                 <h3 className="lp-h3">思い出しカード</h3>
                 <p>忘れかけた頃のメモが、1 枚ずつ戻ってきます。「覚えた」を押すと次は間隔を空け、「もう一度」なら翌日にまた出ます。通知は多くても週に 1 回で、オフにもできます。</p>
-                <Shot name="recall" alt="思い出しカードの画面。5 か月前に『イシューからはじめよ』P.88 に残したメモが表示され、「覚えた」「もう一度」を選べる" />
+                <div className="lp-reveal"><Shot name="recall" alt="思い出しカードの画面。5 か月前に『イシューからはじめよ』P.88 に残したメモが表示され、「覚えた」「もう一度」を選べる" /></div>
               </article>
               <article className="lp-grow-item">
                 <h3 className="lp-h3">テーマまとめ</h3>
                 <p>「マネジメント」などのテーマを選ぶと、何冊ものメモを「核心」「繰り返す原則」「次の一歩」にまとめます。次の一歩は、そのまま行動リストに入れられます。</p>
-                <Shot name="theme" alt="テーマまとめの画面。マネジメントについて本 3 冊のメモから、核心の一文、繰り返す原則 3 つ、次の一歩がまとめられている" />
+                <div className="lp-reveal"><Shot name="theme" alt="テーマまとめの画面。マネジメントについて本 3 冊のメモから、核心の一文、繰り返す原則 3 つ、次の一歩がまとめられている" /></div>
               </article>
             </div>
           </div>
@@ -491,7 +585,10 @@ export default function Landing() {
               <span>今日残した一行が、</span><span>一年後のあなたの</span><span>相談に答える。</span>
             </h2>
             <div className="lp-cta-block">
-              <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+              <div className="lp-cta-row">
+                <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+                <StoreQr />
+              </div>
               <p className="lp-cta-note">{PRICE_LINE}。いつでも解約できます。</p>
             </div>
             <p className="lp-story">
