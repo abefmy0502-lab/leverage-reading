@@ -5,7 +5,7 @@
 // 🧠 マイ読書脳へそのまま渡して送信する（onAsk）。
 // 「あなたの本 N 冊・メモ N 件から答えます」で、積み重ね＝相談の質を毎回伝える。
 //   - 本 0 冊: 出さない（本棚の空状態と「はじめの一歩」が案内する）
-//   - メモ 0 件: 入力欄の代わりに「メモが 1 件でもあれば相談できる」と予告だけ出す
+//   - メモ 0 件: 入力欄の代わりに予告と「これまで読んだ本から始める」（初日クイックスタート）
 import { useEffect, useState } from 'react';
 import { MessageCircle, Send } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -13,7 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
 
-export default function HomeConsult({ books = [], onAsk }) {
+export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
   const { user } = useAuth();
   const [memoCount, setMemoCount] = useState(null);
   const [text, setText] = useState('');
@@ -68,6 +68,19 @@ export default function HomeConsult({ books = [], onAsk }) {
           ? <>あなたが読んだ <strong style={{ color: 'var(--c-ink)' }}>{bookCount}冊</strong>{memoCount != null && <>・メモ <strong style={{ color: 'var(--c-ink)' }}>{memoCount}件</strong></>} から答えます</>
           : '本を読みながらメモを残すと、そのメモを根拠に、あなただけの答えが返ってくるようになります。'}
       </p>
+      {!hasMemos && onQuickstart && (
+        <button
+          type="button"
+          onClick={onQuickstart}
+          style={{
+            width: '100%', minHeight: 44, padding: '10px 12px', borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--c-hairline-strong)', background: 'var(--c-soft)', color: 'var(--c-ink)',
+            fontSize: 13, fontWeight: 600, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          📚 これまで読んだ本の「覚えていること」から始める
+        </button>
+      )}
       {hasMemos && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
           <textarea

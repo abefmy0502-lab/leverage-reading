@@ -17,6 +17,7 @@ const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
 import BookMemoEditor from './components/BookMemoEditor';
 import BookLearningAnalysis from './components/BookLearningAnalysis';
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
+const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
@@ -460,6 +461,8 @@ function AuthedApp() {
   const [journeyPreset, setJourneyPreset] = useState(null); // { theme, nonce } | null
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
+  // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
+  const [showQuickstart, setShowQuickstart] = useState(false);
 
   // 下部ナビでタブを切り替えるときの共通処理。同一セッション内で前回見ていた
   // サブタブが状態に残っていても、入口を「振り返り＝ノート / 相談＝マイ読書脳」に
@@ -1616,6 +1619,28 @@ function AuthedApp() {
   // BookAdvisor から呼ばれる本追加。第 2 引数は AI 構造化要約の結果を含む
   // 拡張ペイロード。後方互換性のため string も受け付け、その場合は
   // sourceQuery のみセット (ユーザーは投資目的だけを引き継ぐ旧挙動)。
+  // 📚 初日クイックスタートから本を 1 冊保存する（状態は読了・表紙は裏で解決）。
+  // 重複チェックは PastBooksQuickstart 側（既存本には一言だけ足す）。
+  const saveQuickstartBook = async (b) => {
+    const isbn = b.isbn ? String(b.isbn).replace(/[-\s]/g, '') : '';
+    const saved = await saveBook({
+      ...emptyBook(),
+      title: b.title,
+      author: b.author || '',
+      isbn,
+      cover: b.cover || '',
+      coverIsbn: b.cover && isbn ? isbn : '',
+      totalPages: b.pages || 0,
+      status: 'done',
+      addedVia: b.manual ? 'manual' : 'search',
+    });
+    if (saved) {
+      track('book_added', { via: 'quickstart' });
+      resolveCoverInBackground(saved);
+    }
+    return saved;
+  };
+
   const addFromAdvisor = async (rec, payloadOrQuery = '') => {
     // 既に本棚にある本ならダイアログ → 既存本へジャンプ。null を返して
     // BookAdvisor 側に「追加されなかった」を伝える。
@@ -2656,6 +2681,26 @@ function AuthedApp() {
     && !bookContextMenu
   );
 
+  // 📚 初日クイックスタート。初回ガイドはどの画面（一覧/詳細/編集）でも出るので、
+  // その隣に同じものを置く（下の各 return で {quickstartOverlay} を描画）。
+  const quickstartOverlay = showQuickstart ? (
+    <Suspense fallback={null}>
+      <PastBooksQuickstart
+        books={books}
+        onSaveBook={saveQuickstartBook}
+        onAsk={(question) => {
+          setShowQuickstart(false);
+          refreshBooks();
+          setAskPreset({ question, nonce: Date.now() });
+          setView('list');
+          setAiSubTab('brain');
+          setTab('ai');
+        }}
+        onClose={() => { setShowQuickstart(false); refreshBooks(); }}
+      />
+    </Suspense>
+  ) : null;
+
   // ===== DETAIL =====
   if (view === "detail" && current) {
     const st = getSt(current.status);
@@ -3290,7 +3335,8 @@ function AuthedApp() {
             otherwise tapping "アプリ全体の使い方を最初から見る" from the help
             modal here looks like nothing happens until the user navigates
             back to the bookshelf. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
+        {quickstartOverlay}
 
         {detailKebab && (
           <ContextMenu
@@ -3487,7 +3533,8 @@ function AuthedApp() {
         )}
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
+        {quickstartOverlay}
         <BottomNav
           tab={tab}
           setTab={async (t) => {
@@ -3750,11 +3797,13 @@ function AuthedApp() {
                 books={books}
                 onAddBook={() => setAddBookModalOpen(true)}
                 onOpenConsult={() => { setAiSubTab('brain'); setTab('ai'); }}
+                onQuickstart={() => setShowQuickstart(true)}
               />
               {/* 💬 相談する: 一番の価値（自分だけの相談相手）の入口。ホーム最上段に置き、
                   書いた困りごとを 相談タブ の 🧠 マイ読書脳 へそのまま渡して送信する。 */}
               <HomeConsult
                 books={books}
+                onQuickstart={() => setShowQuickstart(true)}
                 onAsk={(question) => {
                   setAskPreset({ question, nonce: Date.now() });
                   setAiSubTab('brain');
@@ -4060,7 +4109,8 @@ function AuthedApp() {
         )}
       </div>
 
-      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} />}
+      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
+        {quickstartOverlay}
 
       {bookContextMenu && (
         <ContextMenu

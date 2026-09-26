@@ -131,7 +131,7 @@ const closeBtnStyle = {
   justifyContent: 'center',
 };
 
-export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
+export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQuickstart }) {
   const [step, setStep] = useState(0);
   const slide = slides[step];
   const isLast = step === slides.length - 1;
@@ -171,6 +171,14 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
     markOnboardingCompleted();
     onClose?.();
     (onStartAdvisor || onStart)?.();
+  };
+
+  // 📚 これまで読んだ本で相談相手をつくる（初日クイックスタート）。一番の価値
+  // 「自分だけの相談相手」を初日に体験させる主導線（2026-09-26）。未配線なら本追加へ。
+  const startQuickstart = () => {
+    markOnboardingCompleted();
+    onClose?.();
+    (onStartQuickstart || onStart)?.();
   };
 
   // Track the latest dismiss in a ref so the Escape-key effect doesn't need to
@@ -286,15 +294,22 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor }) {
                 </div>
               )}
             </div>
-            {/* 主CTA＝いま読んでいる本を追加してメモを残す＝想起→行動の核ループに
-                最短で入る道（＝継続の aha）。AI選書は本が手元に無い人向けの副導線に降格
-                （選書は取得/読前フェーズでコストも掛かり、継続の核ではないため）。 */}
+            {/* 主CTA＝これまで読んだ本と覚えている一言を入れて、その場で相談する
+                （初日に「自分だけの相談相手」を体験する最短路・2026-09-26）。
+                いま読んでいる本の追加・AI 選書は副導線。 */}
             <button
               type="button"
               style={{ ...btnPrimary, flex: 'unset', width: '100%' }}
+              onClick={startQuickstart}
+            >
+              📚 これまで読んだ本から始める
+            </button>
+            <button
+              type="button"
+              style={{ ...btnGhost, flex: 'unset', width: '100%' }}
               onClick={startAdding}
             >
-              📚 いま読んでいる本を追加する
+              いま読んでいる本を追加する
             </button>
             <button
               type="button"

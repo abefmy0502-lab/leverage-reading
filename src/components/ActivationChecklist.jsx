@@ -16,7 +16,7 @@ const STEP_META = {
   consult: { label: '「相談」で、自分のメモから答えをもらう', hint: '困っていることを書くと、あなたが読んだ本のメモを根拠に答えます', cta: '開く' },
 };
 
-export default function ActivationChecklist({ books = [], onAddBook, onOpenConsult }) {
+export default function ActivationChecklist({ books = [], onAddBook, onOpenConsult, onQuickstart }) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const on = () => setTick((t) => t + 1);
@@ -64,6 +64,19 @@ export default function ActivationChecklist({ books = [], onAddBook, onOpenConsu
       <p style={{ margin: '0 0 12px', fontSize: 12, color: C.ink2, lineHeight: 1.6 }}>
         一行を残すほど、あなただけの相談相手が育っていきます。まずはこの順で試してみてください。
       </p>
+      {!hasBook && onQuickstart && (
+        <button
+          type="button"
+          onClick={onQuickstart}
+          style={{
+            display: 'block', width: '100%', margin: '0 0 10px', padding: '10px 12px', minHeight: 44,
+            borderRadius: 12, border: `1px solid ${C.hairlineStrong}`, background: C.soft,
+            color: C.ink, fontSize: 13, fontWeight: 600, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          📚 これまで読んだ本から、まとめて始める（5分）
+        </button>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {steps.map((s) => (
           <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
