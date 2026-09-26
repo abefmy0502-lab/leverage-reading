@@ -59,7 +59,8 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 'var(--space-4)',
+  // 中央に浮くモーダルなので、セーフエリアは外側の余白で受ける（ヘッダーには足さない）。
+  padding: 'max(var(--space-4), env(safe-area-inset-top, 0px)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom, 0px))',
   fontFamily: 'var(--font-ui)',
 };
 
@@ -81,7 +82,7 @@ const headerStyle = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
-  padding: 'calc(var(--space-2) + env(safe-area-inset-top, 0px)) var(--space-2) var(--space-2) var(--space-4)',
+  padding: 'var(--space-2) var(--space-2) var(--space-2) var(--space-4)',
   borderBottom: '1px solid var(--separator)',
 };
 
@@ -145,7 +146,7 @@ const rowButtonStyle = {
 };
 
 // 文章＋ボタンのまとまり（プラン・初期化・退会など）。
-const blockStyle = { padding: 'var(--space-4) 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
+const blockStyle = { padding: 'var(--space-3) 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
 // 破壊的操作の副ボタン（枠線＋エラー色の文字）。塗りの btnDanger は最終確定だけ。
 const btnDestructiveGhost = { ...btnGhost, color: 'var(--error)' };
@@ -155,7 +156,7 @@ const groupLabelStyle = {
   fontSize: 'var(--text-caption)',
   fontWeight: 600,
   color: 'var(--text-2)',
-  margin: '0 0 var(--space-2) var(--space-1)',
+  margin: '0 0 var(--space-2) var(--space-4)',
   lineHeight: 1.3,
 };
 
@@ -772,7 +773,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="アカウント設定" onClick={onClose}>
       <div ref={trapRef} style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 700, flex: 1, lineHeight: 1.3 }}>アカウント設定</h2>
+          <h2 style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, lineHeight: 1.3 }}>アカウント設定</h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><IcClose size={22} aria-hidden="true" /></button>
         </div>
 
@@ -924,11 +925,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             )}
           </Group>
 
-          {/* ── 通知 ── */}
+          {/* ── 通知 ── 準備中（鍵が未設定）の間はグループごと出さない。 */}
+          {pushConfigured && (
           <Group label="通知" ariaLabel="思い出しの通知">
             <SettingRow
               title="思い出しの通知"
-              desc="週1回ほど、過去のあなたの気づきがそっと戻ってきます。"
               extra={pushNote}
               control={canTogglePush ? (
                 <ToggleSwitch
@@ -940,6 +941,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               ) : null}
             />
           </Group>
+          )}
 
           {/* ── データをダウンロード ── */}
           <Group label="データをダウンロード">

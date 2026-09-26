@@ -32,7 +32,7 @@ export function Stars({ r, onChange, size = 18 }) {
     return (
       <span aria-label={`評価 ${r || 0} / 5`} style={{ userSelect: "none" }}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <span key={n} aria-hidden="true" style={{ fontSize: size, color: n <= r ? "var(--accent)" : "var(--separator)", marginRight: 2 }}>
+          <span key={n} aria-hidden="true" style={{ fontSize: size, color: n <= r ? "var(--text-2)" : "var(--text-3)", marginRight: 2 }}>
             {n <= r ? STAR : EMPTY_STAR}
           </span>
         ))}
@@ -51,7 +51,7 @@ export function Stars({ r, onChange, size = 18 }) {
           onClick={() => onChange(r === n ? 0 : n)}
           style={{
             background: "none", border: "none", padding: 0, cursor: "pointer",
-            fontSize: size, color: n <= r ? "var(--accent)" : "var(--separator)", marginRight: 2,
+            fontSize: size, color: n <= r ? "var(--text-2)" : "var(--text-3)", marginRight: 2,
             // タップ領域は iOS HIG の 44px を下限に（グリフは fontSize のまま）。
             minWidth: Math.max(44, size + 8), minHeight: Math.max(44, size + 8),
             display: "inline-flex", alignItems: "center", justifyContent: "center",

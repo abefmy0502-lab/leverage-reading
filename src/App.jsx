@@ -44,6 +44,28 @@ const bookshelfToolbarBtn = (active) => ({
   background: active ? 'var(--accent-soft)' : 'var(--fill)',
   color: active ? 'var(--accent)' : 'var(--text)',
 });
+// 状態・フォルダのチップ（DESIGN §5: 見た目は --fill 面・13px・高さ 32、押せる範囲は 44）。
+function ShelfChip({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+    >
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 32, padding: '0 var(--space-3)',
+          borderRadius: 'var(--radius)', fontSize: 'var(--text-meta)', fontWeight: active ? 600 : 400, whiteSpace: 'nowrap',
+          background: active ? 'var(--accent-soft)' : 'var(--fill)',
+          color: active ? 'var(--accent)' : 'var(--text)',
+        }}
+      >
+        {children}
+      </span>
+    </button>
+  );
+}
 const bookshelfIconBtn = {
   width: 44, height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
   background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit',
@@ -3427,6 +3449,8 @@ function AuthedApp() {
   // ===== TAB CONTENT =====
   return (
     <Shell>
+   {/* すべての本は押し込まれた画面なので、ナビゲーション行（‹ ホーム）1 本だけにする（全体ヘッダーと二段にしない）。 */}
+   {!(tab === "books" && shelfMode === 'library') && (
    <header
      style={{
        flexShrink: 0,
@@ -3469,7 +3493,8 @@ function AuthedApp() {
         />
       </button>
     </div>
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+    {/* 右端は左のロゴの補正と対称に（アイコンの見た目の右余白を 16 に）。 */}
+    <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
       <button
         onClick={openHelp}
         style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
@@ -3488,6 +3513,7 @@ function AuthedApp() {
       </button>
     </div>
   </header>
+   )}
 
       {/* Shell が flex column になったため、ここは flex: 1 / minHeight: 0
           で残りスペースを取る。AI タブは内側で flex column を構成、
@@ -3572,7 +3598,7 @@ function AuthedApp() {
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <div
               style={{
-                padding: "var(--space-2) var(--space-4) var(--space-3)",
+                padding: "max(env(safe-area-inset-top, 0px), var(--space-2)) var(--space-4) var(--space-3)",
                 display: "flex",
                 flexDirection: "column",
                 gap: 'var(--space-3)',
@@ -3613,7 +3639,7 @@ function AuthedApp() {
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
                 <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>すべての本</h1>
-                <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{filtered.length} 冊</span>
+                <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{filtered.length} 冊</span>
               </div>
               {(librarySearchOpen || search) && (
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
@@ -3626,7 +3652,7 @@ function AuthedApp() {
                     autoFocus={librarySearchOpen && !search}
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                    style={{ ...inp, flex: 1, minHeight: 44, background: "var(--surface)", border: '1px solid var(--border)', borderRadius: 'var(--radius)', paddingLeft: 40 }}
+                    style={{ ...inp, flex: 1, minHeight: 44, background: "var(--surface)", border: '1px solid var(--border)', borderRadius: 'var(--radius)', paddingLeft: 'calc(var(--space-3) + 18px + var(--space-2))' }}
                   />
                 </div>
               )}
@@ -3634,14 +3660,14 @@ function AuthedApp() {
                   出ず本棚はスッキリのまま）。横スクロールで切替。 */}
               {folderNames.length > 0 && (
                 <div className="lvg-no-scrollbar" style={{ display: "flex", gap: 'var(--space-2)', overflowX: "auto" }}>
-                  <button type="button" onClick={() => setFolderFilter(null)} style={bookshelfToolbarBtn(folderFilter === null)} aria-pressed={folderFilter === null}>
-                    すべて <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{rawBooks.length}</span>
-                  </button>
+                  <ShelfChip onClick={() => setFolderFilter(null)} active={folderFilter === null}>
+                    すべてのフォルダ
+                  </ShelfChip>
                   {allFolders.map((f) => (
-                    <button key={f.name} type="button" onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)} style={bookshelfToolbarBtn(folderFilter === f.name)} aria-pressed={folderFilter === f.name}>
+                    <ShelfChip key={f.name} onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)} active={folderFilter === f.name}>
                       <IcFolder size={14} aria-hidden="true" />
-                      {f.name} <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{f.count}</span>
-                    </button>
+                      {f.name} <span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{f.count}</span>
+                    </ShelfChip>
                   ))}
                 </div>
               )}
@@ -3657,6 +3683,8 @@ function AuthedApp() {
                   effectiveBookshelfView === 'grid'
                     ? { label: 'リストで表示', icon: <IcList size={16} aria-hidden="true" />, onClick: () => setBookshelfViewMode('list') }
                     : { label: '表紙で表示', icon: <IcGrid size={16} aria-hidden="true" />, onClick: () => setBookshelfViewMode('grid') },
+                  // 押し込まれた画面では全体ヘッダー（？）を出さないので、ヘルプはここから。
+                  { label: 'ヘルプ', icon: <HelpCircle size={16} aria-hidden="true" />, onClick: openHelp },
                 ]}
               />
             )}
@@ -3668,7 +3696,7 @@ function AuthedApp() {
               {books.length >= 4 && (
                 <div
                   style={{
-                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-3)',
+                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-2)',
                     WebkitOverflowScrolling: 'touch',
                     // 右端をふわっと透過させ「まだ続きがある（横スクロールできる）」を示す。
                     // フェードなしだと「読了」チップが硬く見切れて壊れて見えていた。
@@ -3682,15 +3710,13 @@ function AuthedApp() {
                     if (s.key !== 'all' && s.count === 0) return null;
                     const active = statusFilter === s.key;
                     return (
-                      <button
+                      <ShelfChip
                         key={s.key}
-                        type="button"
                         onClick={() => setStatusFilter(active && s.key !== 'all' ? 'all' : s.key)}
-                        aria-pressed={active}
-                        style={{ ...bookshelfToolbarBtn(active), flexShrink: 0 }}
+                        active={active}
                       >
-                        {s.label} <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{s.count}</span>
-                      </button>
+                        {s.label}{s.key !== 'all' && <span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{s.count}</span>}
+                      </ShelfChip>
                     );
                   })}
                 </div>
@@ -3712,7 +3738,7 @@ function AuthedApp() {
                       { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
                     ]}
                     tip={(
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
                         <span>悩みから</span>
                         <button
                           type="button"
@@ -3756,7 +3782,7 @@ function AuthedApp() {
                   ))}
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}>
                   {filtered.map((b, i) => (
                     <SwipeableBookCard
                       key={b.id}

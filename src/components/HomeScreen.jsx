@@ -14,10 +14,10 @@ import { SkeletonBlock } from './Skeleton';
 import { btnPrimary, btnGhost, btnText, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（高さ 44・文字 15・600）。
-const btnRow = { ...btnGhost, width: 'auto', flexShrink: 0, padding: '8px 12px', minHeight: 44, fontSize: 'var(--text-sub)' };
+const btnRow = { ...btnGhost, width: 'auto', flexShrink: 0, padding: 'var(--space-2) var(--space-3)', minHeight: 44, fontSize: 'var(--text-sub)' };
 
 const sectionTitle = {
-  fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 12px', lineHeight: 1.3,
+  fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3,
 };
 
 function StartCard({ onQuickstart, onAddBook, onAdvisor }) {
@@ -25,8 +25,9 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor }) {
     <section aria-labelledby="home-start-title" style={card}>
       <h2 id="home-start-title" style={{ ...sectionTitle, margin: '0 0 var(--space-4)' }}>読むほど、<br />自分だけの相談相手が育つ</h2>
       <button type="button" onClick={onQuickstart} style={btnPrimary}>これまで読んだ本から始める</button>
-      <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 12 }}>いま読んでいる本を追加する</button>
-      <div style={{ textAlign: 'center', marginTop: 8 }}>
+      <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>いま読んでいる本を追加する</button>
+      {/* 文字ボタン自体の上下余白（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
+      <div style={{ textAlign: 'center', margin: 'var(--space-1) 0 calc(-1 * var(--space-3))' }}>
         <button type="button" onClick={onAdvisor} style={btnText}>悩みから、次に読む本を選んでもらう</button>
       </div>
     </section>

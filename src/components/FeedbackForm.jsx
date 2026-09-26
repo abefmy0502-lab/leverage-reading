@@ -45,7 +45,7 @@ const headerStyle = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
-  padding: 'calc(var(--space-2) + env(safe-area-inset-top, 0px)) var(--space-4) var(--space-2) var(--space-2)',
+  padding: 'var(--space-2) var(--space-4) var(--space-2) var(--space-2)',
   borderBottom: '1px solid var(--separator)',
 };
 
@@ -204,7 +204,7 @@ export default function FeedbackForm({ onClose }) {
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
           <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={busy}><X size={20} aria-hidden="true" /></button>
-          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 700, flex: 1, lineHeight: 1.3 }}>フィードバック・要望</h2>
+          <h2 style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, lineHeight: 1.3 }}>フィードバック・要望</h2>
         </div>
 
         <div style={bodyStyle}>

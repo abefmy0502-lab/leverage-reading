@@ -5,7 +5,7 @@
 import { useEffect, useState, useRef } from 'react';
 
 const PANEL_WIDTH = 220;
-const PANEL_MARGIN = 12;
+const PANEL_MARGIN = 16;
 
 const backdrop = {
   position: 'fixed',
@@ -22,7 +22,7 @@ const panelBase = {
   zIndex: 881,
   width: PANEL_WIDTH,
   background: 'var(--surface)',
-  borderRadius: 'var(--radius-md)',
+  borderRadius: 'var(--radius)',
   boxShadow: 'var(--shadow-overlay)',
   overflow: 'hidden',
   fontFamily: "var(--font-app)",
@@ -46,18 +46,19 @@ function ensureKeyframes() {
 
 const itemBase = {
   width: '100%',
-  padding: '14px 16px',
+  padding: 'var(--space-3) var(--space-4)',
+  minHeight: 48,
   background: 'none',
   border: 'none',
-  borderBottom: '1px solid var(--c-soft-2)',
+  borderBottom: '1px solid var(--separator)',
   textAlign: 'left',
   fontFamily: 'inherit',
   fontSize: 'var(--text-body)',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
-  color: 'var(--c-ink)',
+  gap: 'var(--space-3)',
+  color: 'var(--text)',
 };
 
 export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
@@ -130,7 +131,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
                 borderBottom: isLast ? 'none' : itemBase.borderBottom,
               }}
             >
-              {it.icon && <span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{it.icon}</span>}
+              {it.icon && <span style={{ display: 'inline-flex', width: 20, justifyContent: 'center' }}>{it.icon}</span>}
               <span style={{ flex: 1 }}>{it.label}</span>
             </button>
           );

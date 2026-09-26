@@ -55,7 +55,7 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
           <img
             className={`book-cover-img${loaded ? ' is-loaded' : ''}`}
             src={ensureHttps(book.cover)}
-            alt={book.title}
+            alt=""
             loading="lazy"
             decoding="async"
             // キャッシュ済み画像は onLoad が発火しないことがあるため、
