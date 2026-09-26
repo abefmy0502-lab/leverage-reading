@@ -964,10 +964,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </section>
             ) : (
               <section aria-labelledby="brain-empty-title">
-                <h2 id="brain-empty-title" style={headingStyle}>困っていることを、相談してください</h2>
-                <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-6)', lineHeight: 1.6 }}>
-                  あなたが読んだ本のメモを根拠に、結論と明日の一歩を答えます。
-                </p>
+                <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: '0 0 var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {examples.map((q) => (

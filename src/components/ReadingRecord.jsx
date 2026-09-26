@@ -179,12 +179,6 @@ const cardTitle = {
   gap: 'var(--space-2)',
 };
 
-const cardSub = {
-  fontSize: 'var(--text-meta)',
-  color: 'var(--text-3)',
-  margin: 'var(--space-1) 0 0',
-  lineHeight: 1.5,
-};
 
 const BAR_MAX_H = 52;
 const BAR_MIN_H = 3;
@@ -428,10 +422,10 @@ function BarRow({ label, count, max, unit, labelWidth = 88, onClick, ariaLabel }
 
 // 🕰 読書リズム（メモを書いた時間帯）。やさしい一言つき — 判定ではなく発見。
 const RHYTHMS = [
-  { key: 'morning', label: '朝', range: '5-11時', from: 5, to: 10, persona: '朝、気づきが生まれるタイプのようです。' },
-  { key: 'day', label: '昼', range: '11-17時', from: 11, to: 16, persona: '昼の時間に、本と向き合うタイプのようです。' },
-  { key: 'evening', label: '夜', range: '17-23時', from: 17, to: 22, persona: '一日の終わりに、気づきをまとめるタイプのようです。' },
-  { key: 'night', label: '深夜', range: '23-5時', from: 23, to: 4, persona: '深夜にひらめきが訪れるタイプのようです。' },
+  { key: 'morning', label: '朝', range: '5-11時', from: 5, to: 10 },
+  { key: 'day', label: '昼', range: '11-17時', from: 11, to: 16 },
+  { key: 'evening', label: '夜', range: '17-23時', from: 17, to: 22 },
+  { key: 'night', label: '深夜', range: '23-5時', from: 23, to: 4 },
 ];
 function buildRhythm(createdDates) {
   const counts = { morning: 0, day: 0, evening: 0, night: 0 };
@@ -684,7 +678,6 @@ export default function ReadingRecord({
           <Footprints size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
           読書の足あと
         </h3>
-        <p style={cardSub}>メモや読了があった日が、静かに色づきます。</p>
         <Heatmap dateStrings={footprints} weeks={16} />
       </section>
 
@@ -696,7 +689,6 @@ export default function ReadingRecord({
               <TrendingUp size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
               月別のあゆみ
             </h3>
-            <p style={cardSub}>直近 6 ヶ月の{trendMode === 'done' ? '読了' : 'メモ'}の数</p>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-1)', flexShrink: 0 }}>
             {trendChip('done', '読了')}
@@ -766,7 +758,6 @@ export default function ReadingRecord({
             <BookMarked size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             一番学んだ本
           </h3>
-          <p style={cardSub}>メモの数から見た、あなたに一番多くの気づきをくれた本です。</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             {topMemoBooks.map((b) => {
               const book = bookById.get(b.id);
@@ -793,7 +784,6 @@ export default function ReadingRecord({
           <Target size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
           読書 → 行動 → 収穫
         </h3>
-        <p style={cardSub}>読んだ本が、行動の実行、そして学びの収穫へつながった数です。</p>
         <FlowRow
           cells={[
             { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--text-2)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },
@@ -815,7 +805,6 @@ export default function ReadingRecord({
             <Brain size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             記憶への定着
           </h3>
-          <p style={cardSub}>戻ってきたメモを思い出し、「覚えた」で記憶に残っていきます。</p>
           <FlowRow
             cells={[
               { value: memoTotal, label: '残したメモ', color: 'var(--text-2)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
@@ -833,7 +822,6 @@ export default function ReadingRecord({
             <Clock3 size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             あなたの読書リズム
           </h3>
-          <p style={cardSub}>メモを書いた時間帯から。{rhythm.top ? rhythm.top.persona : ''}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             {RHYTHMS.map((r) => (
               <BarRow
@@ -856,7 +844,6 @@ export default function ReadingRecord({
             <Tags size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             よく読むテーマ
           </h3>
-          <p style={cardSub}>本につけたタグから見た、あなたの関心の地図です。</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             {bookStats.topTags.map(([tag, n]) => (
               <BarRow
@@ -880,7 +867,6 @@ export default function ReadingRecord({
             <PenLine size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             よく読む著者
           </h3>
-          <p style={cardSub}>2 冊以上読んでいる著者です。相性のいい書き手かもしれません。</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             {bookStats.topAuthors.map(([author, n]) => (
               <BarRow
