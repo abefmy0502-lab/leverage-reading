@@ -36,6 +36,8 @@ import { exportMemosAsMarkdown } from '../lib/exportData';
 import { track, EVENTS } from '../lib/analytics';
 import { demoScenario } from '../lib/supabase';
 import { btnPrimary, btnText, card } from '../styles/ui';
+import ErrorMessage from './ErrorMessage';
+import { SkeletonBlock } from './Skeleton';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
@@ -46,14 +48,16 @@ function PriceText({ text }) {
   const s = String(text || '');
   const i = s.indexOf('（');
   if (i <= 0) return s;
-  return <>{s.slice(0, i)}<span style={{ whiteSpace: 'nowrap' }}>{s.slice(i)}</span></>;
+  // halt: 全角の「（」の前の空きを詰め、折り返したときに行頭が右にずれて見えないように。
+  return <>{s.slice(0, i)}<span style={{ whiteSpace: 'nowrap', fontFeatureSettings: '"halt"' }}>{s.slice(i)}</span></>;
 }
 
 // 開発専用のネイティブ表示プレビュー（本番は demoScenario=null で常に false）。
 function readNativePreview() {
-  if (demoScenario !== 'paywall' || typeof window === 'undefined') return { on: false, trial: '' };
+  if (demoScenario !== 'paywall' || typeof window === 'undefined') return { on: false, trial: '', price: '' };
   const sp = new URLSearchParams(window.location.search);
-  return { on: sp.get('native') === '1', trial: sp.get('trial') || '' };
+  // &price=loading / fail で、ストア価格の読み込み中・失敗の表示を確かめられる。
+  return { on: sp.get('native') === '1', trial: sp.get('trial') || '', price: sp.get('price') || '' };
 }
 const preview = readNativePreview();
 // 見た目の分岐だけに使う。購入・復元の実行可否は必ず isNative で判定する。
@@ -139,21 +143,35 @@ export default function Paywall({ onPurchased }) {
   // 表示ラベル: ネイティブ=App 既定 → ストア価格で上書き / Web=billing.js（env で上書き可）。
   const [labels, setLabels] = useState(() => (
     showNative
-      ? { ...APP_PLAN_LABELS, trial: isNative ? '' : preview.trial }
+      ? {
+        monthly: { ...APP_PLAN_LABELS.monthly, trial: isNative ? '' : preview.trial },
+        annual: { ...APP_PLAN_LABELS.annual, trial: isNative ? '' : preview.trial },
+      }
       : PLAN_LABELS
   ));
+  // ストア価格の読み込み: 'loading' | 'ready' | 'failed'（ネイティブだけ。プレビュー・Web は最初から ready）。
+  const [priceState, setPriceState] = useState(
+    isNative ? 'loading' : preview.price === 'fail' ? 'failed' : preview.price === 'loading' ? 'loading' : 'ready',
+  );
+  const [priceTry, setPriceTry] = useState(0);
 
-  // ネイティブ時のみ、App Store のローカライズ価格と無料期間をストアから取得して上書きする。
+  // ネイティブ時のみ、App Store のローカライズ価格と無料期間をストアから取得する。
+  // 取れるまでコードに書いた ¥ は見せない（他国のストアで通貨・金額が食い違うため）。
   useEffect(() => {
     if (!isNative) return undefined;
     let alive = true;
+    setPriceState('loading');
     getStoreLabels(user?.id)
-      .then((l) => { if (alive && l) setLabels(l); })
-      .catch(() => {});
+      .then((l) => {
+        if (!alive) return;
+        if (l?.ok) { setLabels(l); setPriceState('ready'); } else setPriceState('failed');
+      })
+      .catch(() => { if (alive) setPriceState('failed'); });
     return () => { alive = false; };
-  }, [user?.id]);
+  }, [user?.id, priceTry]);
 
   const selected = labels[plan] || labels.annual;
+  const trial = selected.trial || '';
 
   const handleSubscribe = async () => {
     if (pending) return;
@@ -222,7 +240,7 @@ export default function Paywall({ onPurchased }) {
 
   const ctaLabel = pending
     ? '購入手続き中…'
-    : labels.trial ? `${labels.trial}で始める` : `${selected.name}で始める`;
+    : trial ? `${trial}で始める` : `${selected.name}で始める`;
 
   return (
     <main
@@ -274,21 +292,32 @@ export default function Paywall({ onPurchased }) {
               aria-label="プラン"
               style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-8)' }}
             >
-              {['annual', 'monthly'].map((id) => (
-                <PlanOption
-                  key={id}
-                  label={labels[id]}
-                  selected={plan === id}
-                  onSelect={() => { if (!pending) setPlan(id); }}
+              {priceState === 'failed' ? (
+                <ErrorMessage
+                  icon={null}
+                  title="価格を読み込めませんでした"
+                  description="通信の状態を確かめて、もう一度お試しください。"
+                  actions={[{ label: '再読み込み', onClick: () => setPriceTry((n) => n + 1) }]}
                 />
-              ))}
+              ) : priceState === 'loading' ? (
+                ['annual', 'monthly'].map((id) => <SkeletonBlock key={id} height={72} radius="var(--radius)" />)
+              ) : (
+                ['annual', 'monthly'].map((id) => (
+                  <PlanOption
+                    key={id}
+                    label={labels[id]}
+                    selected={plan === id}
+                    onSelect={() => { if (!pending) setPlan(id); }}
+                  />
+                ))
+              )}
             </div>
 
-            {/* 無料期間（App Store Connect で設定した時だけ・ストアの実プロダクトから取得） */}
-            {labels.trial && (
+            {/* 無料期間（ストアに設定があり、この人が使えるときだけ・プランごと） */}
+            {priceState === 'ready' && trial && (
               // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。
               <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-4) 0 0' }}>
-                {labels.trial}
+                {trial}
                 <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                   その後 {String(selected.price || '').split('（')[0].trim()} で自動更新
                 </span>
@@ -298,8 +327,8 @@ export default function Paywall({ onPurchased }) {
             <button
               type="button"
               onClick={handleSubscribe}
-              disabled={!!pending}
-              style={{ ...btnPrimary, marginTop: 'var(--space-4)', cursor: pending ? 'default' : 'pointer' }}
+              disabled={!!pending || priceState !== 'ready'}
+              style={{ ...btnPrimary, marginTop: 'var(--space-4)', cursor: pending || priceState !== 'ready' ? 'default' : 'pointer', opacity: priceState !== 'ready' ? 0.5 : 1 }}
             >
               {ctaLabel}
             </button>

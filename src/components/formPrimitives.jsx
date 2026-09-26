@@ -11,14 +11,15 @@
 
 import { useState, isValidElement, cloneElement } from 'react';
 import { LIMITS } from '../lib/limits';
+import { Plus, X } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 
 // ── 共通スタイル定数（iOS ズーム対策で input は 16px 維持） ──────────────
-export const inp = { width: "100%", minWidth: 0, minHeight: 48, padding: "12px", fontSize: "max(16px, var(--text-body))", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--surface)", outline: "none", color: "var(--text)", fontFamily: "inherit", WebkitAppearance: "none", appearance: "none" };
+export const inp = { width: "100%", minWidth: 0, minHeight: 48, padding: "var(--space-3)", fontSize: "max(16px, var(--text-body))", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--surface)", outline: "none", color: "var(--text)", fontFamily: "inherit", WebkitAppearance: "none", appearance: "none" };
 export const ta = { ...inp, resize: "vertical", lineHeight: "var(--leading-relaxed)" };
-export const btnS = { ...uiBtnPrimary, width: "auto", padding: "12px 0" };
-export const btnO = { ...uiBtnGhost, width: "auto", padding: "12px 0" };
-export const aiB = { width: "100%", minHeight: 48, padding: "12px 0", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--accent-soft)", color: "var(--accent)", cursor: "pointer", fontFamily: "inherit", fontSize: "var(--text-sub)", fontWeight: 600 };
+export const btnS = { ...uiBtnPrimary, width: "auto", padding: "var(--space-3) 0" };
+export const btnO = { ...uiBtnGhost, width: "auto", padding: "var(--space-3) 0" };
+export const aiB = { width: "100%", minHeight: 48, padding: "var(--space-3) 0", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--accent-soft)", color: "var(--accent)", cursor: "pointer", fontFamily: "inherit", fontSize: "var(--text-sub)", fontWeight: 600 };
 export const phaseDesc = { fontSize: "var(--text-meta)", color: "var(--text-3)", marginBottom: "var(--space-4)", lineHeight: "var(--leading-base)" };
 
 // ── 星評価 ──────────────────────────────────────────────────────────
@@ -68,9 +69,9 @@ export function Stars({ r, onChange, size = 18 }) {
 // ── ローディングドット ──────────────────────────────────────────────
 export function Dots() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "12px 0" }}>
+    <div style={{ display: "flex", justifyContent: "center", gap: "var(--space-1)", padding: "var(--space-3) 0" }}>
       {[0, 1, 2].map((i) => (
-        <span key={i} style={{ width: 6, height: 6, borderRadius: 3, background: "var(--text-3)", animation: `pulse 1s infinite ${i * 0.2}s` }} />
+        <span key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-3)", animation: `pulse 1s infinite ${i * 0.2}s` }} />
       ))}
     </div>
   );
@@ -88,44 +89,81 @@ export function Field({ label, sub, children }) {
       ? cloneElement(children, { 'aria-label': label })
       : children;
   return (
-    <div style={{ marginBottom: 12 }}>
-      <label style={{ fontSize: "var(--text-meta)", color: "var(--text-2)", fontWeight: 600, display: "block", marginBottom: sub ? 4 : 8 }}>{label}</label>
-      {sub && <p style={{ fontSize: "var(--text-caption)", color: "var(--text-3)", marginBottom: 8, lineHeight: 1.5 }}>{sub}</p>}
+    <div style={{ marginBottom: "var(--space-6)" }}>
+      <label style={{ fontSize: "var(--text-meta)", color: "var(--text-2)", fontWeight: 600, display: "block", marginBottom: sub ? "var(--space-1)" : "var(--space-2)" }}>{label}</label>
+      {sub && <p style={{ fontSize: "var(--text-caption)", color: "var(--text-3)", marginBottom: "var(--space-2)", lineHeight: "var(--leading-base)" }}>{sub}</p>}
       {labelled}
     </div>
   );
 }
 
+// ── チップ（DESIGN §5: 見た目 32・押せる範囲 44） ─────────────────────
+// App.jsx の ShelfChip と同じ形。選択中は --accent-soft 面＋--accent 文字、
+// それ以外は --fill 面＋--text 文字（アクセントは選択中だけ）。
+// stretch: 横一列を等分する選択肢（本の状態など）で使う。
+const CHIP_HEIGHT = 32;
+export function Chip({ active = false, stretch = false, onClick, children, ...rest }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      {...rest}
+      style={{
+        display: "inline-flex", alignItems: "center", minHeight: 44, minWidth: 44, padding: 0,
+        background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
+        flex: stretch ? "1 1 0" : "0 0 auto",
+      }}
+    >
+      <span
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1)",
+          height: CHIP_HEIGHT, padding: "0 var(--space-3)", width: stretch ? "100%" : "auto",
+          borderRadius: "var(--radius)", fontSize: "var(--text-meta)", fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
+          background: active ? "var(--accent-soft)" : "var(--fill)",
+          color: active ? "var(--accent)" : "var(--text)",
+        }}
+      >
+        {children}
+      </span>
+    </button>
+  );
+}
+
+// チップの並び。行間は 44 の押せる範囲が作るので、横の間隔だけ付ける。
+const chipRow = { display: "flex", flexWrap: "wrap", columnGap: "var(--space-2)", marginBottom: "var(--space-1)" };
+
 // ── タグ入力（過去タグのサジェスト付き） ────────────────────────────
-export function TagInput({ tags, onChange, allTags }) {
+// 付けたもの＝選択中のチップ（タップで外す）、候補＝＋付きのチップ（タップで付ける）。
+// placeholder はフォルダ欄でも使うので呼び出し側から変えられる。
+export function TagInput({ tags, onChange, allTags, placeholder = "タグを追加", "aria-label": ariaLabel }) {
   const [input, setInput] = useState("");
   const add = (t) => { const tag = (t || input).trim(); if (tag && !tags.includes(tag)) onChange([...tags, tag]); setInput(""); };
   const suggestions = (allTags || []).filter((t) => !tags.includes(t));
   return (
     <div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: tags.length ? 6 : 0 }}>
-        {tags.map((t, i) => (
-          <span key={i} style={{ fontSize: "var(--text-meta)", padding: "4px 8px", borderRadius: "var(--radius)", background: "var(--fill)", color: "var(--text-2)", display: "flex", alignItems: "center", gap: 4 }}>
-            {t}
-            <button
-              onClick={() => onChange(tags.filter((_, j) => j !== i))}
-              aria-label={`「${t}」を削除`}
-              style={{ background: "none", border: "none", fontSize: "var(--text-meta)", color: "var(--text-2)", cursor: "pointer", lineHeight: 1, minWidth: 44, minHeight: 44, margin: "-12px -12px -12px -4px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-            >×</button>
-          </span>
-        ))}
-      </div>
-      {suggestions.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
-          <span style={{ fontSize: "var(--text-caption)", color: "var(--text-3)", lineHeight: "32px" }}>過去のタグ:</span>
-          {suggestions.map((t) => (
-            <button key={t} onClick={() => add(t)} style={{ fontSize: "var(--text-meta)", padding: "8px 12px", minHeight: 44, borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit" }}>+ {t}</button>
+      {tags.length > 0 && (
+        <div style={chipRow}>
+          {tags.map((t, i) => (
+            <Chip key={t} active onClick={() => onChange(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`}>
+              {t}
+              <X size={14} aria-hidden="true" />
+            </Chip>
           ))}
         </div>
       )}
-      <div style={{ display: "flex", gap: 6 }}>
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="タグを追加" style={{ ...inp, flex: 1 }} maxLength={LIMITS.tag} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
-        <button onClick={() => add()} style={{ ...btnO, padding: "8px 16px", minHeight: 44, fontSize: "var(--text-sub)" }}>追加</button>
+      {suggestions.length > 0 && (
+        <div style={chipRow}>
+          {suggestions.map((t) => (
+            <Chip key={t} onClick={() => add(t)} aria-label={`「${t}」を追加`}>
+              <Plus size={14} aria-hidden="true" />
+              {t}
+            </Chip>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: "var(--space-2)" }}>
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={placeholder} aria-label={ariaLabel || placeholder} style={{ ...inp, flex: 1 }} maxLength={LIMITS.tag} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
+        <button type="button" onClick={() => add()} style={{ ...uiBtnGhost, width: "auto", flexShrink: 0, padding: "0 var(--space-4)" }}>追加</button>
       </div>
     </div>
   );
@@ -134,7 +172,7 @@ export function TagInput({ tags, onChange, allTags }) {
 // ── セクション見出し ────────────────────────────────────────────────
 export function SectionHeader({ icon, title }) {
   return (
-    <h3 style={{ fontSize: "var(--text-body)", fontWeight: 600, color: "var(--text)", marginBottom: 12, marginTop: 24 }}>
+    <h3 style={{ fontSize: "var(--text-body)", fontWeight: 600, color: "var(--text)", marginBottom: "var(--space-3)", marginTop: "var(--space-6)" }}>
       {icon} {title}
     </h3>
   );

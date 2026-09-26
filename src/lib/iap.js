@@ -116,28 +116,40 @@ function formatFreeTrial(product) {
 }
 
 // ストアのローカライズ価格ラベルを返す。失敗時は App 既定ラベル。
+// 戻り値の ok=false は「ストアの価格が取れなかった」。料金画面はコードに書いた ¥ を見せず、
+// 「読み込めませんでした＋再読み込み」にする（他国のストアで通貨・金額が食い違わないように）。
 export async function getStoreLabels(userId) {
-  const fallback = APP_PLAN_LABELS;
+  const fallback = { ...APP_PLAN_LABELS, ok: false };
   if (!(await ensureConfigured(userId))) return fallback;
   try {
     const offering = await getCurrentOffering();
     if (!offering) return fallback;
     const m = pickPackage(offering, 'monthly');
     const a = pickPackage(offering, 'annual');
+    if (!m?.product?.priceString || !a?.product?.priceString) return fallback;
+    const eligible = await trialEligibility([m.product, a.product]);
     return {
-      monthly: {
-        ...fallback.monthly,
-        price: m?.product?.priceString ? `月額 ${m.product.priceString}` : fallback.monthly.price,
-      },
-      annual: {
-        ...fallback.annual,
-        price: a?.product?.priceString ? `年額 ${a.product.priceString}` : fallback.annual.price,
-      },
-      // 無料トライアル（設定時のみ）。例: '5日間無料'
-      trial: formatFreeTrial(m?.product) || formatFreeTrial(a?.product) || '',
+      ok: true,
+      monthly: { ...APP_PLAN_LABELS.monthly, price: `月額 ${m.product.priceString}`, trial: eligible(m.product) ? formatFreeTrial(m.product) : '' },
+      annual: { ...APP_PLAN_LABELS.annual, price: `年額 ${a.product.priceString}`, trial: eligible(a.product) ? formatFreeTrial(a.product) : '' },
     };
   } catch {
     return fallback;
+  }
+}
+
+// 無料期間を「使える人」にだけ出す（過去に試用した人に「無料で始める」と出さない）。
+// 判定できなかったときは出さない側に倒す（誤解を招く表示を避ける）。
+async function trialEligibility(products) {
+  try {
+    const Purchases = await loadPurchases();
+    const ids = products.map((p) => p?.identifier).filter(Boolean);
+    if (!Purchases || ids.length === 0) return () => false;
+    const res = await Purchases.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: ids });
+    // INTRO_ELIGIBILITY_STATUS_ELIGIBLE = 2
+    return (p) => Number(res?.[p?.identifier]?.status) === 2;
+  } catch {
+    return () => false;
   }
 }
 

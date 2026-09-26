@@ -4638,7 +4638,7 @@ function WebAppOnlyGate() {
           {emailJustConfirmed ? 'アプリに戻ってログインしてください' : 'アプリでご利用ください'}
         </h1>
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-3) 0 0' }}>
-          iPhone・iPad のアプリに<br />同じアカウントでログインすると、メモもそのまま使えます。
+          アプリに同じアカウントでログインすると、<br />メモもそのまま使えます。
         </p>
         {isAppStoreLive ? (
           <a
