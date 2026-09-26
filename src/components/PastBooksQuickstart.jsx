@@ -42,7 +42,7 @@ const overlay = {
 };
 const headerRow = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: 'var(--space-1) var(--space-1) 0', flexShrink: 0,
+  padding: 'var(--space-2) var(--space-1) 0', flexShrink: 0,
 };
 const iconBtn = {
   width: 44, height: 44, border: 'none', background: 'none', cursor: 'pointer', padding: 0,
@@ -267,7 +267,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
       ) : <span style={{ width: 44 }} aria-hidden="true" />}
       {/* 題名で「相談相手をつくっている」ことを 3 ステップの間ずっと見せる（補足文ではなく題名で伝える）。 */}
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.3 }}>
-        <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談相手をつくる</span>
+        {/* 3/3 は見出しが「できました」を言うので、題名は出さない（同じ言葉を二度言わない）。 */}
+        {step !== 'done' && <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談相手をつくる</span>}
         {stepLabel && (
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{stepLabel}</span>
         )}
@@ -326,7 +327,12 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                   actions={[
                     { label: 'もう一度', onClick: () => runSearch(searched) },
                     // 検索が落ちていても先へ進めるように（書名だけでも相談相手にできる）。
-                    ...(searched ? [{ label: titlePicked ? '追加しました' : '書名だけで追加', variant: 'ghost', onClick: () => toggle(titleOnlyBook) }] : []),
+                    ...(searched ? [{
+                      label: titlePicked ? '追加しました' : '書名だけで追加',
+                      ariaLabel: titlePicked ? `「${searched}」を外す` : `「${searched}」を書名だけで追加`,
+                      variant: 'ghost',
+                      onClick: () => toggle(titleOnlyBook),
+                    }] : []),
                   ]}
                 />
               )}
@@ -487,7 +493,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
               <>
                 {/* メモが無いと相談の根拠が無いので「相談相手ができた」とは言わない（正直に）。 */}
                 <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{summary.books.length} 冊を本棚に入れました</h1>
-                <p style={sub}>本を開いてメモを 1 件書くと、相談できます</p>
+                <p style={sub}>まだメモがありません</p>
               </>
             )}
 
