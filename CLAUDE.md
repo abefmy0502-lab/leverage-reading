@@ -314,7 +314,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `REVENUECAT_WEBHOOK_AUTH` | 💳 RevenueCat Webhook の認証トークン（`api/revenuecat-webhook.js` が `Authorization` ヘッダーと突き合わせる）。RevenueCat ダッシュボードの Webhook 設定と同じ値を設定。**未設定だと Webhook を全拒否**（fail-closed）。サーバー専用 |
 | `VITE_VAPID_PUBLIC_KEY` | 🔔 Web Push（想起通知）の VAPID 公開鍵（クライアント `src/lib/push.js` が購読時に使用）。`npx web-push generate-vapid-keys` で生成 |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 🔔 Web Push 送信側（`api/push-cron.js`）の VAPID 鍵ペアと連絡先（`mailto:...`）。`VAPID_PRIVATE_KEY` は**クライアント露出厳禁** |
-| `CRON_SECRET` | 🔔 `api/push-cron.js` の起動認証（Vercel Cron が `Authorization: Bearer` で送る）。未設定/不一致は 401 |
+| `CRON_SECRET` | 🔔 `api/push-cron.js` / 🫀 `api/keepalive.js` の起動認証（Vercel Cron が `Authorization: Bearer` で送る）。未設定/不一致は 401。**keepalive は毎日 03:00 JST に DB へ極小クエリを 1 回投げ、Supabase 無料プランの自動一時停止（7日無アクセスで pause）を防ぐ**（2026-08 に実際に停止→本番ログイン不能になった再発防止）。CRON_SECRET 未設定だと keepalive も動かないので必ず設定すること。本番公開後の根本対策は Supabase Pro 移行 |
 | `GOOGLE_BOOKS_API_KEY` | (任意) 表紙解決サーバー（`api/cover.js`）の Google Books API キー。未設定でもキー無しで動くが、レート制限が緩和される |
 | `ALLOW_COVER_DEBUG` | (任意) `'true'` で `api/cover.js` の `?debug=1` 診断出力を本番でも許可。既定は無効（内部情報の露出防止）。通常は未設定のまま |
 

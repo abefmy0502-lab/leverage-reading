@@ -1,11 +1,80 @@
-import { useState, useEffect } from 'react';
+import { createContext, createElement, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 // push.js は App.jsx 等から static import 済み（= 主バンドルに常在）。ここだけ
 // dynamic import すると「同一モジュールの static/dynamic 混在」でビルド警告が出て
 // コード分割も効かないため、static に統一する。
 import { unsubscribeFromPush } from '../lib/push';
 
-export function useAuth() {
+// 🔐 認証状態はアプリ全体で 1 つだけ持つ（AuthProvider）。
+// 以前は useAuth() を呼ぶ約 20 箇所がそれぞれ getSession() と onAuthStateChange を
+// 張っていたため、supabase-js 内部のセッション lock を奪い合い、通信不調時に
+// 「Lock was not released within 5000ms」「Lock broken by another request with the
+// 'steal' option」が大量に出て、トークン更新のリトライも多重化していた。
+// 各画面の useAuth() は Context を読むだけにし、戻り値の形は従来と同一に保つ。
+const AuthContext = createContext(null);
+
+const AUTH_TIMEOUT_MS = 10000;
+
+async function signUpWithEmail(email, password, displayName) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: displayName ? { display_name: displayName } : undefined,
+      emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+    },
+  });
+  if (error) throw error;
+  return data;
+}
+
+async function signInWithEmail(email, password) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return data;
+}
+
+async function resendConfirmation(email) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: {
+      emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+    },
+  });
+  if (error) throw error;
+}
+
+async function sendPasswordResetEmail(email) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+  });
+  if (error) throw error;
+}
+
+async function signOut() {
+  if (!isSupabaseConfigured) return;
+  // 共有端末対策①: 想起プッシュの購読をこの端末から解除する（サインアウト前・
+  // RLS で自分の行を消せるうちに）。解除しないと、次に別のアカウントが使う
+  // 端末に前ユーザーのメモ通知（本文抜粋つき）が届き続ける。失敗しても
+  // サインアウト自体は止めない。
+  try {
+    await unsubscribeFromPush();
+  } catch { /* ignore */ }
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+  // 共有端末対策②: 弱い PII になりうる自前 localStorage キャッシュ（書影検索の
+  // クエリ/結果）をサインアウト時に消す。設定（オンボ完了・メモモード・解析
+  // オプトアウト等）は保持。in-memory のメモ/写真キャッシュは AppDataCache 側で
+  // onAuthStateChange('SIGNED_OUT') を購読して clearAll される。
+  try { window.localStorage.removeItem('bookSearchCache'); } catch { /* ignore */ }
+}
+
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   // 🔴 Supabase が応答しない場合（プロジェクトの一時停止・ネットワーク不調・
@@ -19,11 +88,10 @@ export function useAuth() {
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setLoading(false);
-      return;
+      return undefined;
     }
 
     let active = true;
-    const AUTH_TIMEOUT_MS = 10000;
     const timeoutId = setTimeout(() => {
       if (!active) return;
       setLoading(false);
@@ -58,66 +126,7 @@ export function useAuth() {
     };
   }, []);
 
-  const signUpWithEmail = async (email, password, displayName) => {
-    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: displayName ? { display_name: displayName } : undefined,
-        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-      },
-    });
-    if (error) throw error;
-    return data;
-  };
-
-  const signInWithEmail = async (email, password) => {
-    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    return data;
-  };
-
-  const resendConfirmation = async (email) => {
-    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email,
-      options: {
-        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-      },
-    });
-    if (error) throw error;
-  };
-
-  const sendPasswordResetEmail = async (email) => {
-    if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-    });
-    if (error) throw error;
-  };
-
-  const signOut = async () => {
-    if (!isSupabaseConfigured) return;
-    // 共有端末対策①: 想起プッシュの購読をこの端末から解除する（サインアウト前・
-    // RLS で自分の行を消せるうちに）。解除しないと、次に別のアカウントが使う
-    // 端末に前ユーザーのメモ通知（本文抜粋つき）が届き続ける。失敗しても
-    // サインアウト自体は止めない。
-    try {
-      await unsubscribeFromPush();
-    } catch { /* ignore */ }
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    // 共有端末対策②: 弱い PII になりうる自前 localStorage キャッシュ（書影検索の
-    // クエリ/結果）をサインアウト時に消す。設定（オンボ完了・メモモード・解析
-    // オプトアウト等）は保持。in-memory のメモ/写真キャッシュは AppDataCache 側で
-    // onAuthStateChange('SIGNED_OUT') を購読して clearAll される。
-    try { window.localStorage.removeItem('bookSearchCache'); } catch { /* ignore */ }
-  };
-
-  return {
+  const value = useMemo(() => ({
     user,
     loading,
     authTimedOut,
@@ -126,5 +135,17 @@ export function useAuth() {
     sendPasswordResetEmail,
     resendConfirmation,
     signOut,
-  };
+  }), [user, loading, authTimedOut]);
+
+  return createElement(AuthContext.Provider, { value }, children);
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    // Provider の外で呼ぶのはプログラムの誤り。黙って loading=true を返すと
+    // 「永久ローディング」の再来になるので、はっきり落として気づけるようにする。
+    throw new Error('useAuth must be used within <AuthProvider>');
+  }
+  return ctx;
 }

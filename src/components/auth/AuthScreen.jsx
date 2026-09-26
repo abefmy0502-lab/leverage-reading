@@ -37,6 +37,18 @@ const inp = {
 
 function humanizeError(err) {
   const msg = (err?.message || '').toLowerCase();
+  // 通信そのものが失敗（オフライン・サーバー停止・DNS 解決不可など）。
+  // 以前はここが未分類で「予期せぬエラー」になり、原因の見当がつかなかった
+  // （実例: Supabase の自動一時停止でログイン不能 → 汎用文しか出なかった）。
+  if (
+    err?.name === 'AuthRetryableFetchError' ||
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('load failed')
+  ) {
+    return 'サーバーに接続できませんでした。通信環境をご確認のうえ、しばらくしてから再度お試しください。';
+  }
   if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
     return 'メールアドレスまたはパスワードが正しくありません。';
   }

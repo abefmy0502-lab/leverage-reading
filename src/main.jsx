@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { ConfirmProvider } from './components/ConfirmDialog';
 import { AppDataCacheProvider } from './state/AppDataCache';
+import { AuthProvider } from './hooks/useAuth';
 import { initSentry } from './lib/sentry';
 import { initNative } from './lib/native';
 
@@ -20,13 +21,15 @@ initNative();
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <AppDataCacheProvider>
-        <ToastProvider>
-          <ConfirmProvider>
-            <App />
-          </ConfirmProvider>
-        </ToastProvider>
-      </AppDataCacheProvider>
+      <AuthProvider>
+        <AppDataCacheProvider>
+          <ToastProvider>
+            <ConfirmProvider>
+              <App />
+            </ConfirmProvider>
+          </ToastProvider>
+        </AppDataCacheProvider>
+      </AuthProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );
