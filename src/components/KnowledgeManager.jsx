@@ -256,7 +256,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
         )}
       </button>
       {onOpenMenu && (
-        <button type="button" onClick={openMenuFromButton} aria-label="操作" aria-haspopup="menu" style={moreBtn}>
+        <button type="button" onClick={openMenuFromButton} aria-label={`${kindLine}${item.book?.title ? `「${item.book.title}」` : ''}の操作`} aria-haspopup="menu" style={moreBtn}>
           <MoreHorizontal size={20} aria-hidden="true" />
         </button>
       )}

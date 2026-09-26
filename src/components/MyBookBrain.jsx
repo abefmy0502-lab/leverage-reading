@@ -212,7 +212,7 @@ function LearningInline({ onSaved }) {
           )}
         </button>
         {moreOpen && (
-          <div id="learning-more" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
+          <div id="learning-more" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', margin: 'var(--space-2) 0 var(--space-3)' }}>
             <div>
               <span style={label}>どこで生まれた気づきか</span>
               <div role="radiogroup" aria-label="どこで生まれた気づきか" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>

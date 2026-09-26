@@ -546,12 +546,13 @@
 .empty-state-icon {
   /* 線アイコン（lucide）を淡い角丸スクエアに収める。絵文字の巨大イラストから
      プロダクトらしい控えめなアイコンへ。脱・個人開発感の中心。 */
-  width: 76px;
-  height: 76px;
+  width: 64px;
+  height: 64px;
   margin: 0 auto var(--space-4);
   border-radius: var(--radius);
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
+  /* 飾りなので栗色は使わない（DESIGN §3-2）。 */
+  background: var(--fill);
+  color: var(--text-2);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -16,7 +16,7 @@ import {
 
 // minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
 // 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。
-const wrap = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-2)', minWidth: 0 };
+const wrap = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', minWidth: 0 }; // 上との間は呼び出す側の gap に任せる
 const sectionStyle = {
   background: 'var(--surface)',
   border: '1px solid var(--separator)',
