@@ -536,7 +536,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           title="まだメモがありません"
           description="読みながら気になった一行を、ひとつ残してみましょう。"
           actions={[{ label: '最初のメモを書く', onClick: openCreate, variant: 'primary', icon: <Plus size={18} aria-hidden="true" /> }]}
-          tip="残した一行は、あとで「振り返り」の想起として、ふいに戻ってきます。"
+          tip="残した一行は、あとで「振り返り」の思い出しカードとして、ふいに戻ってきます。"
         />
       )}
 
@@ -563,7 +563,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           }}
         >
           <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7, flex: 1 }}>
-            最初の気づきが残りました。下の「振り返り」タブを開くと、これが忘れた頃に想起されて、そっと戻ってきます。
+            最初の気づきが残りました。下の「振り返り」タブを開くと、これが忘れた頃に思い出しカードとして、そっと戻ってきます。
           </p>
           <button
             type="button"

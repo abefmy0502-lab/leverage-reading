@@ -814,11 +814,11 @@ export default function ReadingRecord({
             <Brain size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
             記憶への定着
           </h3>
-          <p style={cardSub}>戻ってきたメモを想起し、「覚えた」で記憶に残っていきます。</p>
+          <p style={cardSub}>戻ってきたメモを思い出し、「覚えた」で記憶に残っていきます。</p>
           <FlowRow
             cells={[
               { value: memoTotal, label: '残したメモ', color: 'var(--c-ink-2)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
-              { value: memoStats.recalled, label: '想起した', color: memoStats.recalled > 0 ? 'var(--c-brand)' : 'var(--c-ink-3)' },
+              { value: memoStats.recalled, label: '思い出した', color: memoStats.recalled > 0 ? 'var(--c-brand)' : 'var(--c-ink-3)' },
               { value: memoStats.mastered, label: '覚えた', color: memoStats.mastered > 0 ? 'var(--c-positive)' : 'var(--c-ink-3)' },
             ]}
           />

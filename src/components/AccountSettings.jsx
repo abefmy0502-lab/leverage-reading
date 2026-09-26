@@ -391,7 +391,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         // OFF にする — 購読解除 + DB 行削除。失敗しても静かに。
         if (isNative) await unsubscribeNativePush(); else await unsubscribeFromPush();
         setPushOn(false);
-        toast.info('想起の通知をオフにしました。');
+        toast.info('思い出しの通知をオフにしました。');
       } else {
         // ON にする — ここは必ずユーザージェスチャ内なので許可要求してよい。
         const res = isNative
@@ -887,20 +887,20 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           <GroupLabel>通知</GroupLabel>
 
           {/* 🔔 想起の通知 */}
-          <section style={sectionStyle} aria-label="想起の通知">
+          <section style={sectionStyle} aria-label="思い出しの通知">
             {/* 操作可能な状態（許可要求できる）のときだけ右にスイッチを出す。
                 準備中 / A2HS 必要 / 非対応 / OS で拒否済み の各状態は案内文に倒す。 */}
             {(() => {
               const canToggle = pushConfigured && pushSupported && !pushNeedsA2HS && !(pushDenied && !pushOn);
               return (
                 <SettingRow
-                  title={<><IcBell size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />想起の通知</>}
+                  title={<><IcBell size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />思い出しの通知</>}
                   desc="週1回ほど、過去のあなたの気づきがそっと戻ってきます。"
                   control={canToggle ? (
                     <ToggleSwitch
                       checked={pushOn}
                       busy={pushBusy}
-                      ariaLabel="想起の通知"
+                      ariaLabel="思い出しの通知"
                       onChange={handleTogglePush}
                     />
                   ) : null}

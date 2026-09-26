@@ -195,7 +195,7 @@ export default function BookLearningAnalysis({ book, onAddToActions, onSaveToBoo
                 {saved ? <><Check size={15} aria-hidden="true" />保存しました</> : <><Plus size={15} aria-hidden="true" />この学びを保存して、全体に活かす</>}
               </button>
               <p style={{ fontSize: 10.5, color: 'var(--c-ink-3)', margin: '2px 2px 0', lineHeight: 1.6 }}>
-                保存すると、この学びがマイ読書脳・テーマまとめ・足あと・振り返りの想起にも使われます。
+                保存すると、この学びがマイ読書脳・テーマまとめ・足あと・振り返りの思い出しカードにも使われます。
               </p>
             </div>
           )}

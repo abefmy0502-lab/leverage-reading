@@ -93,7 +93,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '通知がしつこくなりませんか？',
-    a: '想起の通知は週に数回、そっと届く程度です。設定からいつでもオフにできます。「そっと届く」を大切にしているので、煽るような通知は送りません。',
+    a: '思い出しの通知は週に数回、そっと届く程度です。設定からいつでもオフにできます。「そっと届く」を大切にしているので、煽るような通知は送りません。',
   },
   {
     q: '忙しくて、使う時間が取れるか不安です',
@@ -335,7 +335,7 @@ export default function Landing() {
 
         {/* ============ 3. 仕掛け 01 — 想起 ============ */}
         <section className="feature fade-in" aria-labelledby="f-recall">
-          <p className="section-eyebrow">仕掛け 01 — 想起</p>
+          <p className="section-eyebrow">仕掛け 01 — 思い出しカード</p>
           <h2 className="section-headline" id="f-recall">
             忘れた頃に、<br />
             もう一度出会う。
@@ -347,7 +347,7 @@ export default function Landing() {
           </p>
 
           {/* 想起カードのスタイライズドUIモック（実スクショ差し替え予定） */}
-          <div className="ui-mock recall-mock" role="img" aria-label="想起カードのイメージ。過去のメモが一枚表示され、「覚えた」「もう一度」を選べる">
+          <div className="ui-mock recall-mock" role="img" aria-label="思い出しカードのイメージ。過去のメモが一枚表示され、「覚えた」「もう一度」を選べる">
             <p className="recall-mock-label">今日の一行</p>
             <p className="recall-mock-quote">「結果を管理するな、<br />結果を生む行動を管理せよ」</p>
             <p className="recall-mock-source">『最高の結果を出す KPI マネジメント』のメモ・42日前</p>
@@ -578,7 +578,7 @@ export default function Landing() {
           <div className="price-card">
             {TRIAL_NOTE && (
               <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: '#5c5043' }}>
-                🎁 まずは{TRIAL_NOTE}で、想起を体験
+                🎁 まずは{TRIAL_NOTE}で、思い出しカードを体験
               </p>
             )}
             <div className="price-num" aria-label="月額1480円">
@@ -591,7 +591,7 @@ export default function Landing() {
             </p>
 
             <ul className="price-features">
-              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 想起・行動・凝縮・マイ読書脳 すべて利用可</li>
+              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 思い出しカード・行動・凝縮・マイ読書脳 すべて利用可</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> AI 選書・読書計画・写真の書き起こしも込み</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 本の登録数・メモ数は無制限</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> いつでも解約できます・違約金なし</li>

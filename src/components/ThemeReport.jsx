@@ -379,7 +379,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
       if (res?.ok) {
         setRecallSet(true);
         haptic.success();
-        toast.success('想起ループにセットしました。振り返り・通知でそっと戻ってきます。');
+        toast.success('思い出しカードに加えました。振り返り・通知でそっと戻ってきます。');
       } else {
         toast.error('セットできませんでした。少し時間をおいて再度お試しください。');
       }
@@ -942,14 +942,14 @@ function RecallBanner({ busy, done, onSet }) {
         <span style={{ lineHeight: 1.2, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><RotateCw size={21} /></span>
         <div style={{ fontSize: 12, lineHeight: 1.7, color: '#5b4f3c' }}>
           <b style={{ color: 'var(--c-ink)', fontWeight: 800 }}>このメモは、読んで終わりにしません。</b><br />
-          核心を <b style={{ color: 'var(--c-ink)' }}>振り返りタブ</b> と <b style={{ color: 'var(--c-ink)' }}>想起通知</b> に乗せると、忘れた頃にそっと戻ってきて、無意識に動けるまで体に入れます。
+          核心を <b style={{ color: 'var(--c-ink)' }}>振り返りタブ</b> と <b style={{ color: 'var(--c-ink)' }}>思い出しの通知</b> に乗せると、忘れた頃にそっと戻ってきて、無意識に動けるまで体に入れます。
         </div>
       </div>
       <button
         type="button"
         onClick={onSet}
         disabled={busy || done}
-        aria-label={done ? '想起ループにセット済み' : '核心を想起ループにセット'}
+        aria-label={done ? '思い出しカードに追加済み' : '核心を思い出しカードに加える'}
         style={{
           minHeight: 46, borderRadius: 13, border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
           cursor: busy || done ? 'default' : 'pointer',
@@ -960,9 +960,9 @@ function RecallBanner({ busy, done, onSet }) {
         }}
       >
         {done ? (
-          <><RotateCw size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />想起ループにセット済み ✓</>
+          <><RotateCw size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />思い出しカードに追加済み ✓</>
         ) : busy ? 'セット中…' : (
-          <><RotateCw size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />想起ループにセット</>
+          <><RotateCw size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />思い出しカードに加える</>
         )}
       </button>
     </div>

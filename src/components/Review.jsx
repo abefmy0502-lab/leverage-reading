@@ -870,7 +870,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <h2 style={sectionTitle}>
             <Shuffle size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
-            今日の想起
+            思い出しカード
           </h2>
           <button type="button" style={btnGhost} onClick={reroll} disabled={flipping}>
             <RotateCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
