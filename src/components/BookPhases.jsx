@@ -142,7 +142,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
           />
         </div>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <input ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} placeholder="タイトル *" aria-label="タイトル（必須）" aria-invalid={titleMissing || undefined} style={inp} maxLength={LIMITS.bookTitle} />
+          <input ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} placeholder="書名（必須）" aria-label="書名（必須）" aria-invalid={titleMissing || undefined} style={inp} maxLength={LIMITS.bookTitle} />
           {titleMissing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入れてください</p>}
           <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" aria-label="著者" style={inp} maxLength={LIMITS.bookAuthor} />
         </div>
@@ -182,7 +182,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
         </div>
       </Field>
 
-      <button type="button" onClick={handleSaveClick} style={{ ...btnPrimary, marginTop: 'var(--space-2)' }}>
+      <button type="button" onClick={handleSaveClick} style={btnPrimary}>
         {(form.status === 'reading' || form.status === 'done') ? '保存してメモを書く' : '保存'}
       </button>
 

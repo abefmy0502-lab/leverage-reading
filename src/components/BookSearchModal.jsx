@@ -423,6 +423,11 @@ export default function BookSearchModal({ onSelect, onClose, initialQuery = '', 
     (initialIsbn || '').trim() || [initialQuery, initialAuthor].map((s) => (s || '').trim()).filter(Boolean).join(' ')
   ));
   const inputRef = useRef(null);
+  // シートのフォーカストラップ（親）は子より後に動いて「キャンセル」へ移すので、その後で検索欄へ戻す。
+  useEffect(() => {
+    const t = setTimeout(() => { try { inputRef.current?.focus(); } catch { /* ignore */ } }, 0);
+    return () => clearTimeout(t);
+  }, []);
   const search = useBookQuerySearch();
   const hasQuery = !!normalizeBookQuery(query);
 
