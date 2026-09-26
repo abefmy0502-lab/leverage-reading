@@ -37,7 +37,7 @@ import { Square, History, Trash2, RotateCw, Inbox, AlertTriangle, Ruler, Refresh
 // 見た目は DESIGN.md のトークンのみ。
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
 const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' };
-const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-3) var(--space-4) var(--space-8)' };
+const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-2) var(--space-4) var(--space-8)' }; // 上 8＝AI 選書と見出しの高さを揃える
 const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const inp = { ...uiInput, flex: 1, minWidth: 0, width: 'auto' };
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', flexShrink: 0 };

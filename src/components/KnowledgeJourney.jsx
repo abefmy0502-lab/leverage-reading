@@ -59,9 +59,14 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
   // unmount 時は setState を止めるだけでなくストリーム自体を abort する。
   // これが無いと誰も見ない SMART 生成が完走し、コストと月次コール枠を空費していた。
   const abortRef = useRef(null);
-  useEffect(() => () => {
-    aliveRef.current = false;
-    try { abortRef.current?.abort(); } catch { /* ignore */ }
+  useEffect(() => {
+    // StrictMode（開発）は mount→unmount→mount と 2 回走るので、mount のたびに戻す
+    // （戻さないと以後の setState がすべて止まり、生成中のまま終わらない）。
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      try { abortRef.current?.abort(); } catch { /* ignore */ }
+    };
   }, []);
 
   const run = useCallback(async (t) => {
