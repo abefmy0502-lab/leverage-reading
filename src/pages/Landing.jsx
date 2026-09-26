@@ -1,112 +1,96 @@
-// 🌱 Landing Page — Orime（2026-07 全面リニューアル版）
+// 🌱 Landing Page — Orime（2026-09-26 作り直し版）
 //
-// コンセプト: 「"読んだあと" が主役の一本道ストーリー」。
-// 忘れる(共感) → 忘れない3つの仕掛け(想起/行動/凝縮) → 貯まるほど効く(読書脳)
-// → 読む前もAIが支える → 記録アプリとの違い → 折り目のブランドストーリー
-// → 料金 → FAQ → 最終CTA、の順に一本の物語で語る。
+// 目的はひとつ: App Store からダウンロードしてもらうこと（主 CTA は全部同じ行動）。
+// 流れ: ヒーロー（一番の価値＝相談の答えの実画面）→ 課題 → 使い方 3 ステップ
+// （残す→相談する→行動にする）→ メモを育てる仕組み（思い出しカード・テーマまとめ）
+// → 読む前と読み終えた本にも → 記録アプリとの違い → 料金（年額をおすすめ）→ FAQ → 最終 CTA。
 //
-// 設計上の約束（旧版から継承する誠実さの原則）:
-//   - 架空のユーザー数・お客様の声・効果数値は絶対に書かない
-//   - 実装されていない機能を約束しない（無料トライアルは App Store 設定依存
-//     のため LP では言及しない）
-//   - スクショが無い機能は「スタイライズドUIモック」で表現し、実画面と紛れ
-//     ないよう注記する
+// 見た目はアプリと同じトークン（src/styles/tokens.css）で書く。色はニュートラル＋
+// 栗色のアクセント 1 色（押せるものと最重要の情報だけ）。明暗はアプリと同じく端末に従う。
+// 端末名（iPhone）は打ち出さない（将来 Android も出すため・2026-09-26 オーナー指示）。
+//
+// 誠実さの約束（旧版から継承）:
+//   - 架空のユーザー数・お客様の声・効果数値は書かない（声は TESTIMONIALS に実在のものだけ）
+//   - 実装されていない機能を約束しない。画面写真はお試しモード（サンプルのメモ）で撮った
+//     実際のアプリ（public/lp/*.webp。撮り直しは npm run demo → npm run lp:shots）
+//   - 無料トライアルは App Store の設定しだいなので env（VITE_TRIAL_NOTE）がある時だけ出す
 //
 // 技術ノート:
-//   - CSP は default-src 'self'。外部 JS/画像は使えない（すべてローカル資産）
-//   - フォントは OS 標準（明朝=Yu Mincho/Hiragino Mincho）。Google Fonts は
-//     過去に LCP 悪化で撤去済みのため再導入しない（index.html 参照）
-//   - SEO: SPA のためランタイムで meta/canonical/JSON-LD を注入し、unmount で
-//     復元する。JSON-LD は SoftwareApplication + FAQPage
-//   - CTA は <a href>（コピー/長押し/中クリック等のネイティブ挙動を尊重）
+//   - CSP は default-src 'self'。外部 JS/画像/フォントは使わない
+//   - SEO: SPA のためランタイムで meta/canonical/JSON-LD を注入し、unmount で戻す
+//     （SNS のクローラ向けの静的な og:* は index.html 側）
+//   - CTA は <a href>（長押し・中クリック等のネイティブ挙動を尊重）
 
-import { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
-import PhoneFrame from '../components/PhoneFrame';
+import { useEffect, useRef, useState } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
 import { savingsLabel } from '../lib/iap';
 import './landing.css';
 
-// 📱 App Store ダウンロード URL は src/lib/appStore.js に一元化。
-// VITE_APP_STORE_URL 未設定（= 実 URL 未確定）の間、CTA は自動で「近日公開」
-// 表示に倒れる — プレースホルダー URL を踏ませて App Store の 404 に落とさない。
-// 審査通過後に env へ実 URL（.../idXXXXXXXXXX）を入れれば全 CTA が一斉に有効化。
-
-// StoreCta: App Store 導線の共通 CTA。実 URL があるときだけリンクにする。
+// 📱 App Store の URL は src/lib/appStore.js に一元化。VITE_APP_STORE_URL が未設定の間は
+// 押せない「近日公開」表示に倒す（プレースホルダー URL で App Store の 404 に落とさない）。
 function StoreCta({ className, children, tabIndex }) {
   if (!isAppStoreLive) {
-    return (
-      <span className={className} aria-disabled="true" style={{ opacity: 0.65, pointerEvents: 'none' }}>
-        App Store で近日公開
-      </span>
-    );
+    return <span className={`${className} is-soon`} aria-disabled="true">App Store で近日公開</span>;
   }
   return <a href={APP_STORE_URL} className={className} tabIndex={tabIndex}>{children}</a>;
 }
 
-// 🎁 無料トライアル表記（env ゲート）。App Store Connect で Introductory Offer を
-// 設定したら Vercel env に VITE_TRIAL_NOTE（例: 7日間無料）を入れる — ヒーロー・
-// sticky CTA・料金カード・FAQ・最終 CTA に一斉表示される。未設定の間は一切出ない
-// ＝ストアの実態と食い違う虚偽表示にならない（アプリ内 Paywall は iap.js がストア
-// の実プロダクトから無料期間を自動取得するため env 不要）。
+// 🎁 無料トライアル表記（env ゲート・未設定の間は一切出さない）。
 const TRIAL_NOTE = (import.meta.env.VITE_TRIAL_NOTE || '').trim();
 
-const PRICE_NOTE = TRIAL_NOTE
-  ? `${TRIAL_NOTE}・月 ¥1,480（税込）・いつでも解約できます・解約してもメモは残ります`
-  : '月 ¥1,480（税込）・いつでも解約できます・解約してもメモは残ります';
+const MONTHLY = 1480;
+const ANNUAL = 12800;
+const SAVE = savingsLabel(MONTHLY, ANNUAL);
+const PRICE_LINE = `${TRIAL_NOTE ? `${TRIAL_NOTE}。その後は` : ''}月額 ¥1,480 または年額 ¥12,800（税込）`;
 
-// 🗣 社会的証明（お客様の声）枠。
-// ⚠️ ここには「実在ユーザーの本物の声」だけを入れる。捏造・盛り・架空の数字は
-//    絶対にNG（景表法・ステマ規制・ブランド思想の誠実さに反する）。許可を得た
-//    実際の声が出てきたら 1〜2 件でも入れる。空の間はセクションごと非表示になる。
-// 形式: { quote: 'ユーザーの言葉', attribution: '匿名可。例: 30代・営業' }
+// 🗣 お客様の声。実在ユーザーの許可を得た本物の声だけを入れる（捏造・盛りは絶対 NG）。
+// 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
 const TESTIMONIALS = [];
 
-// 比較表: 「記録するアプリ」と「読んだ本に相談できるアプリ」の違い。
-// cold 流入の最大の反論「無料で記録できるのに、なぜ有料？」に料金の前で答える。
-// ※存在しない機能は書かない。
+// 記録アプリとの比較（料金の前で「今のアプリで足りる」に答える）。存在しない機能は書かない。
 const COMPARE_ROWS = [
-  { label: '困ったとき', others: '見返すのは、自分しだい', us: '読んだ本から、答えが返る' },
-  { label: 'メモ', others: '貯まるほど、埋もれる', us: '貯まるほど、相談相手が育つ' },
-  { label: '行動', others: 'アプリの外で、別管理', us: '一行から、一歩に変わる' },
+  { label: '困ったとき', others: '自分で見返して探す', us: '相談すると、メモから答えが返る' },
+  { label: 'メモが増えると', others: '探すのが大変になる', us: '答えの材料が増える' },
+  { label: '行動', others: 'アプリの外で管理する', us: ['答えから、', '行動リストへ'] },
   { label: '見返すきっかけ', others: '自分で思い出したとき', us: '忘れかけた頃に、メモが戻ってくる' },
 ];
 
-// FAQ はここが唯一の真実（表示と FAQPage JSON-LD の両方がこの配列から生成される）。
+// FAQ は「申し込みの手前で止まる理由」を書く場所。表示と FAQPage JSON-LD の両方の元。
 const FAQ_ITEMS = [
   {
-    q: 'iPhone 以外でも使えますか？',
-    a: '現在 Orime は iPhone（iOS）専用アプリとして App Store で公開しています。Android 版は今後検討中です。このページはサービスのご紹介ページで、ご利用には App Store からのインストールが必要です。',
+    q: 'メモが少なくても相談できますか？',
+    a: 'メモが 1 件からでも相談できます。答えの根拠はあなたのメモだけなので、メモが増えるほど答えは具体的になります。関係するメモが無いときは、無理に答えを作らず、そう伝えます。',
+  },
+  {
+    q: 'これまでに読んだ本も使えますか？',
+    a: '使えます。読み終えた本を選んで、覚えている一行を書くだけで、その日から相談の材料になります。',
+  },
+  {
+    q: '忙しくて、続けられるか不安です',
+    a: '読みながら、心が動いた一行を残すだけで始められます。メモは本文だけで保存でき、ページ番号や写真はあとから足せます。',
+  },
+  {
+    q: 'メモは AI\u00a0の学習に使われますか？',
+    a: '使われません。相談などの AI 機能では、メモを Anthropic 社の Claude API に送って答えを作ります。API 経由で送られたデータは、同社の規約で AI の再学習に使われません。詳しくはプライバシーポリシーをご覧ください。',
   },
   {
     q: '料金はいくらですか？',
-    a: `${TRIAL_NOTE ? `まず${TRIAL_NOTE}でお試しいただけます。その後は` : ''}月 ¥1,480、または年額 ¥12,800（月あたり約 ¥1,066）で、すべての機能をご利用いただけます。お支払いは App Store 経由（Apple ID）です。`,
+    a: `${TRIAL_NOTE ? `まず${TRIAL_NOTE}でお試しいただけます。その後は` : ''}月額 ¥1,480、または年額 ¥12,800（月あたり約 ¥1,066）で、すべての機能を使えます。お支払いは App Store（Apple ID）です。`,
   },
   {
-    q: '解約は簡単にできますか？',
-    a: 'iPhone の「設定 → 自分の名前 → サブスクリプション」からいつでも解約できます（App Store の標準の仕組みです）。違約金や解約手数料は一切ありません。',
-  },
-  {
-    q: '解約すると、データは消えますか？',
-    a: '消えません。解約後もアカウントとメモはすべて保持され、再開すればそのまま戻ります。契約期間の終わりまでは引き続き全機能をご利用いただけます。',
-  },
-  {
-    q: 'メモが少なくても相談できますか？',
-    a: 'メモが 1 件からでも相談できます。答えの根拠はあなたのメモだけなので、メモが増えるほど、答えがあなたらしく具体的になっていきます。関係するメモが無いときは、無理に答えを作らず、正直にそうお伝えします。',
+    q: '解約すると、メモは消えますか？',
+    a: '消えません。解約は App Store のサブスクリプション設定からいつでもでき、違約金もありません。解約後もアカウントとメモは残り、再開すればそのまま使えます。',
   },
   {
     q: '通知がしつこくなりませんか？',
     a: '思い出しの通知は、多くても週に 1 回です。届くのは、あなたが前に残したメモ 1 件だけ。設定からいつでもオフにできます。',
   },
   {
-    q: '忙しくて、続けられるか不安です',
-    a: '読みながら、心が動いた一行を残すだけで始められます。メモは本文だけで保存でき、ページ番号や写真はあとから足せます。これまでに読んだ本を思い出して書くところから始めることもできます。',
-  },
-  {
-    q: 'メモの内容は、AI\u00a0の学習に使われますか？',
-    a: '使われません。相談などの AI 機能では、メモを Anthropic 社の Claude API に送って答えを作ります。API 経由で送られたデータは、同社の規約で AI の再学習に使われません。詳しくはプライバシーポリシーをご覧ください。',
+    q: 'Android でも使えますか？',
+    a: 'いまは App Store で配信しています。Android 版は準備ができしだいお知らせします。',
   },
 ];
 
@@ -121,21 +105,44 @@ const setMeta = (name, content, attr = 'name') => {
   }
   const prev = created ? null : el.getAttribute('content');
   el.setAttribute('content', content);
-  // cleanup 用に「作ったなら消す / 上書きしたなら戻す」情報を返す
   return { el, created, prev };
 };
 
+// アプリの実画面（お試しモードで撮影）。暗い画面の端末には暗い画面の写真を出す。
+function Shot({ name, alt, eager = false, ratio = [390, 844] }) {
+  const set = (scheme) => `/lp/${name}-${scheme}-390.webp 390w, /lp/${name}-${scheme}-780.webp 780w`;
+  const sizes = '(min-width: 768px) 300px, 72vw';
+  return (
+    <picture>
+      <source media="(prefers-color-scheme: dark)" type="image/webp" srcSet={set('dark')} sizes={sizes} />
+      <img
+        className="lp-shot"
+        src={`/lp/${name}-light-780.webp`}
+        srcSet={set('light')}
+        sizes={sizes}
+        width={ratio[0]}
+        height={ratio[1]}
+        alt={alt}
+        loading={eager ? 'eager' : 'lazy'}
+        fetchpriority={eager ? 'high' : undefined}
+        decoding={eager ? undefined : 'async'}
+      />
+    </picture>
+  );
+}
+
 export default function Landing() {
-  const [showStickyCta, setShowStickyCta] = useState(false);
+  const heroCtaRef = useRef(null);
+  const [showSticky, setShowSticky] = useState(false);
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'Orime（オリメ）｜読むほど、自分だけの相談相手が育つ iPhone 読書アプリ';
+    document.title = 'Orime｜読むほど、自分だけの相談相手が育つ読書アプリ';
     const metas = [
       setMeta('description',
-        '読みながら心が動いた一行をメモするだけ。困ったときに相談すると、あなたが読んだ複数の本のメモから答えが返ってくる iPhone 読書アプリ。月¥1,480・いつでも解約できます・解約してもメモは残ります。'),
-      setMeta('og:title', '読むほど、自分だけの相談相手が育つ。| Orime（オリメ）', 'property'),
-      setMeta('og:description', '困ったとき、あなたが読んだ本のメモから答えが返ってくる。読んだ本を、使える知恵に変える iPhone アプリ。', 'property'),
+        '読みながら残したメモをもとに、困ったときの相談に答えるアプリ。答えには根拠にした本とメモが付き、明日からの一歩は行動リストへ。月額 ¥1,480・年額 ¥12,800、いつでも解約できます。'),
+      setMeta('og:title', 'Orime｜読むほど、自分だけの相談相手が育つ読書アプリ', 'property'),
+      setMeta('og:description', '読みながら残したメモをもとに、困ったときの相談に答えるアプリ。答えには、根拠にした本とメモが付きます。', 'property'),
       setMeta('og:type', 'website', 'property'),
     ];
 
@@ -145,7 +152,6 @@ export default function Landing() {
     canonical.href = `${window.location.origin}/`;
     document.head.appendChild(canonical);
 
-    // 構造化データ: アプリ情報 + FAQ（Google のリッチリザルト対象）
     const ld = document.createElement('script');
     ld.type = 'application/ld+json';
     ld.textContent = JSON.stringify([
@@ -155,8 +161,11 @@ export default function Landing() {
         name: 'Orime',
         operatingSystem: 'iOS',
         applicationCategory: 'LifestyleApplication',
-        description: '読むほど、自分だけの相談相手が育つ読書メモアプリ。困ったときに相談すると、読んだ複数の本のメモを根拠に答えが返り、答えを行動に変えられる。',
-        offers: { '@type': 'Offer', price: '1480', priceCurrency: 'JPY' },
+        description: '読みながら残したメモをもとに、困ったときの相談に答える読書アプリ。答えには根拠にした本とメモが付き、明日からの一歩を行動リストに入れられる。',
+        offers: [
+          { '@type': 'Offer', name: '月額プラン', price: String(MONTHLY), priceCurrency: 'JPY' },
+          { '@type': 'Offer', name: '年額プラン', price: String(ANNUAL), priceCurrency: 'JPY' },
+        ],
         url: `${window.location.origin}/`,
       },
       {
@@ -195,45 +204,23 @@ export default function Landing() {
       root.style.display = 'block';
     }
 
-    const handleScroll = () => setShowStickyCta(window.scrollY > 480);
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    // スクロール連動のフェードイン（reduced-motion 時は CSS 側で無効化）。
-    // observer が使えない/発火しない環境でも 1.5s 後に必ず可視化する。
-    const lpRoot = document.querySelector('.lp-root');
-    if (lpRoot) lpRoot.classList.add('js-ready');
-    const sections = document.querySelectorAll('.fade-in');
-    const fallbackTimers = [];
-    let observer = null;
-    if (typeof IntersectionObserver !== 'undefined') {
-      observer = new IntersectionObserver((entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            e.target.classList.add('visible');
-            observer.unobserve(e.target);
-          }
-        });
-      }, { threshold: 0.08 });
-      sections.forEach((s) => {
-        observer.observe(s);
-        fallbackTimers.push(setTimeout(() => s.classList.add('visible'), 1500));
-      });
-    } else {
-      sections.forEach((s) => s.classList.add('visible'));
-    }
+    // 下部の固定ボタンは、ヒーローのボタンが画面から外れたときだけ出す（スマホのみ・CSS で制御）。
+    const onScroll = () => {
+      const el = heroCtaRef.current;
+      setShowSticky(el ? el.getBoundingClientRect().bottom < 0 : window.scrollY > 480);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
 
     return () => {
       document.title = prevTitle;
       metas.forEach(({ el, created, prev: prevContent }) => {
-        if (created) { el.parentElement?.removeChild(el); }
-        else if (prevContent != null) { el.setAttribute('content', prevContent); }
+        if (created) el.parentElement?.removeChild(el);
+        else if (prevContent != null) el.setAttribute('content', prevContent);
       });
       canonical.parentElement?.removeChild(canonical);
       ld.parentElement?.removeChild(ld);
-      window.removeEventListener('scroll', handleScroll);
-      if (observer) observer.disconnect();
-      fallbackTimers.forEach(clearTimeout);
+      window.removeEventListener('scroll', onScroll);
       document.documentElement.classList.remove('lp-active');
       document.body.classList.remove('lp-active');
       if (root) root.classList.remove('lp-active');
@@ -251,408 +238,283 @@ export default function Landing() {
 
   return (
     <div className="lp-root">
-      {/* a11y: キーボード利用者向けスキップリンク */}
-      <a className="skip-link" href="#lp-main">本文へスキップ</a>
+      <a className="lp-skip" href="#lp-main">本文へスキップ</a>
 
-      {/* ============ 0. Header（常時ブランド + デスクトップの常設CTA） ============ */}
       <header className="lp-header">
-        <div className="lp-header-inner">
+        <div className="lp-wrap lp-header-inner">
           <a href="/" className="lp-brand" aria-label="Orime トップ">
-            <img src="/icons/icon-192.png" alt="" width="28" height="28" className="lp-brand-mark" />
-            <span className="lp-brand-name">Orime</span>
+            <img src="/icons/icon-192.png" alt="" width="28" height="28" />
+            <span>Orime</span>
           </a>
           <nav className="lp-header-nav" aria-label="ヘッダー">
             <a href="/?auth=signin" className="lp-header-login">ログイン</a>
-            <StoreCta className="lp-header-cta">App Store で入手</StoreCta>
+            <StoreCta className="lp-btn lp-btn-small lp-header-cta">App Store でダウンロード</StoreCta>
           </nav>
         </div>
       </header>
 
-      {/* ============ Sticky 下部 CTA（モバイル・スクロール後） ============ */}
-      <div
-        className={`sticky-cta${showStickyCta ? ' is-visible' : ''}`}
-        role="region"
-        aria-label="ダウンロード"
-        aria-hidden={showStickyCta ? undefined : 'true'}
-      >
-        <div className="sticky-inner">
-          <div className="sticky-price">
-            <span className="sticky-price-main">{TRIAL_NOTE ? `${TRIAL_NOTE}・月 ¥1,480` : '月 ¥1,480（税込）'}</span>
-            <span className="sticky-price-sub">いつでも解約できます・データは残ります</span>
-          </div>
-          <StoreCta className="sticky-btn" tabIndex={showStickyCta ? undefined : -1}>
-            App Store で入手
-          </StoreCta>
-        </div>
+      <div className={`lp-sticky${showSticky ? ' is-visible' : ''}`} aria-hidden={showSticky ? undefined : 'true'}>
+        <StoreCta className="lp-btn" tabIndex={showSticky ? undefined : -1}>App Store でダウンロード</StoreCta>
       </div>
 
       <main id="lp-main">
-        {/* ============ 1. Hero ============ */}
-        <section className="hero">
-          <p className="hero-eyebrow">iPhone 専用・読書アプリ</p>
-          <h1 className="hero-headline">
-            読むほど、<br />
-            自分だけの<br />
-            {/* 句点だけが次の行に落ちないよう、最後の語と句点をつなぐ。 */}
-            相談相手が<span style={{ whiteSpace: 'nowrap' }}>育つ。</span>
-          </h1>
-          <p className="hero-subhead">
-            読みながら、心が動いた一行を残す。<br />
-            困ったときは、Orime に相談する。<br />
-            あなたが読んだ本のメモから、答えが返ってくる。
-          </p>
-          <div className="hero-cta-block">
-            <StoreCta className="cta-primary cta-hero">App Store でダウンロード</StoreCta>
-            <p className="hero-note">{PRICE_NOTE}</p>
-            <p className="hero-login">
-              すでにアカウントをお持ちの方は <a href="/?auth=signin" className="hero-login-link">ログイン</a>
-            </p>
-          </div>
-
-          <div className="hero-mockup">
-            <PhoneFrame
-              src="/lp/hero-bookshelf.jpg"
-              alt="Orime の本棚画面。読みたい・積読・読了のステータス付きで本の表紙が並ぶ"
-              size="medium"
-              float
-              eager
-              ratio="868/1424"
-            />
-          </div>
-        </section>
-
-        {/* ============ 2. Problem（読んだのに、いざという時に使えない） ============ */}
-        <section className="problem fade-in">
-          <p className="section-eyebrow">なぜ、使えないのか</p>
-          <h2 className="section-headline">
-            前に読んだ本に、<br />
-            答えがあったはずなのに。
-          </h2>
-          <p className="problem-body">
-            仕事で迷ったとき、人間関係に悩んだとき。<br />
-            「あの本に何か書いてあった」と思っても、中身が出てこない。<br />
-            読んだだけなら記憶は薄れていく。それが人間の仕様です。
-          </p>
-          <p className="problem-body">
-            足りないのは、記憶力より<br className="sp-only" />
-            <strong>読んだことを、困ったときに引き出す仕組みです。</strong>
-          </p>
-          <p className="problem-turn">
-            Orime は、その仕組みを<br />
-            <em>「相談相手」</em>というかたちにしました。
-          </p>
-        </section>
-
-        {/* ============ 3. 仕掛け 01 — 相談（一番の価値・マイ読書脳） ============ */}
-        <section className="feature fade-in" aria-labelledby="f-brain">
-          <p className="section-eyebrow">相談</p>
-          <h2 className="section-headline" id="f-brain">
-            困ったときは、<br />
-            読んだ本たちに相談する。
-          </h2>
-          <p className="feature-body">
-            「チームの成果を上げるには？」と聞くと、<strong>あなたがこれまで残したメモだけ</strong>を根拠に答えが返ってきます。何冊ぶんのメモもつなげて答え、どの本のどのメモを使ったかも見られます。
-          </p>
-          <p className="feature-body">
-            答えの材料は、あなたが読んで残したものだけ。<br className="sp-only" />
-            メモが増えるほど、<br className="sp-only" />答えはあなたの状況に近づいていきます。
-          </p>
-          <div className="screenshot-pair">
-            <figure className="screenshot-step">
-              <figcaption className="screenshot-step-label">① 質問する</figcaption>
-              <PhoneFrame
-                src="/lp/mybook-brain-asking.jpg"
-                alt="相談に「チームの営業成績を上げるには？」と入力している画面"
-                size="small"
-                ratio="868/1427"
-              />
-            </figure>
-            <div className="screenshot-arrow" aria-hidden="true">→</div>
-            <figure className="screenshot-step">
-              <figcaption className="screenshot-step-label">② 自分のメモから回答</figcaption>
-              <PhoneFrame
-                src="/lp/mybook-brain-answer-bottom.jpg"
-                alt="参照した本とメモの一覧つきで返ってくる AI の回答画面"
-                size="small"
-                ratio="869/1131"
-              />
-            </figure>
-          </div>
-        </section>
-
-        {/* ============ 4. 仕掛け 02 — 行動 ============ */}
-        <section className="feature feature-alt fade-in" aria-labelledby="f-action">
-          <p className="section-eyebrow">行動</p>
-          <h2 className="section-headline" id="f-action">
-            「いつかやろう」を、<br />
-            期限つきの一歩に。
-          </h2>
-          <div className="feature-split">
-            <div className="feature-split-text">
-              <p className="feature-body">
-                相談の答えやメモの一行から、そのまま行動を作れます。<br />
-                期限、優先度、毎週の繰り返し。
+        {/* ============ ヒーロー ============ */}
+        <section className="lp-hero">
+          <div className="lp-wrap lp-hero-grid">
+            <div className="lp-hero-text">
+              <h1 className="lp-h1">
+                <span>読むほど、</span><span>自分だけの</span><span>相談相手が育つ。</span>
+              </h1>
+              <p className="lp-lead">
+                困っていることを書くと、あなたが読んで残したメモから答えが返ってくるアプリです。答えには、根拠にした本とページが付きます。
               </p>
-              <p className="feature-body">
-                本をまたいだ「やること」は、<br className="pc-only" />
-                期限を過ぎたもの・今日・今週の順に並びます。<br />
-                今週いくつ終えたかも、<strong>ひと目で分かります</strong>。
-              </p>
-            </div>
-            <div className="feature-split-image">
-              <PhoneFrame
-                src="/lp/action-management.jpg"
-                alt="行動の画面。本ごとの行動が期限・繰り返し付きで並ぶ"
-                size="medium"
-                ratio="1179/1926"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* ============ 5. 仕掛け 03 — 凝縮 ============ */}
-        <section className="feature fade-in" aria-labelledby="f-condense">
-          <p className="section-eyebrow">テーマまとめ</p>
-          <h2 className="section-headline" id="f-condense">
-            散らばったメモが、<br />
-            一枚の知恵になる。
-          </h2>
-          <p className="feature-body">
-            メモが貯まったら、<br className="sp-only" />AI がテーマごとに削ぎ落とします。<br />
-            残るのは「核心の一行」「繰り返す原則」「次の一歩」だけ。<br />
-            使えるかたちまで磨かれた、<strong>あなた自身の言葉</strong>です。
-          </p>
-
-          {/* テーマまとめのスタイライズドUIモック（実スクショ差し替え予定） */}
-          <div className="ui-mock condense-mock" role="img" aria-label="テーマまとめのイメージ。営業というテーマのメモが核心の一行・繰り返す原則・次の一歩に凝縮されている">
-            <p className="condense-mock-theme">テーマ：営業</p>
-            <div className="condense-mock-row">
-              <span className="condense-mock-key">核心の一行</span>
-              <span className="condense-mock-val">売り込むな。相手に「必要だ」と気づかせよ。</span>
-            </div>
-            <div className="condense-mock-row">
-              <span className="condense-mock-key">繰り返す原則</span>
-              <span className="condense-mock-val">質問で導く／数字で語る／翌日に必ず動く</span>
-            </div>
-            <div className="condense-mock-row">
-              <span className="condense-mock-key">次の一歩</span>
-              <span className="condense-mock-val">次の商談で SPIN の質問リストを試す</span>
-            </div>
-          </div>
-          <p className="mock-caption">画面はイメージです（3 冊のメモから生成した例）</p>
-        </section>
-
-        {/* ============ 6. 仕掛け 04 — 思い出しカード（相談相手を育てる手段） ============ */}
-        <section className="feature feature-alt fade-in" aria-labelledby="f-recall">
-          <p className="section-eyebrow">思い出しカード</p>
-          <h2 className="section-headline" id="f-recall">
-            忘れかけたメモは、<br />
-            向こうから戻ってくる。
-          </h2>
-          <p className="feature-body">
-            残した一行は、忘れかけた頃にふいに戻ってきます。<br />
-            「覚えた」は間隔を空け、「もう一度」は翌日に。<br />
-            自分の頭にも残るから、相談の答えもすっと入ってきます。
-          </p>
-          {/* 想起カードのスタイライズドUIモック（実スクショ差し替え予定） */}
-          <div className="ui-mock recall-mock" role="img" aria-label="思い出しカードのイメージ。過去のメモが一枚表示され、「覚えた」「もう一度」を選べる">
-            <p className="recall-mock-label">今日の一行</p>
-            <p className="recall-mock-quote">「結果を管理するな、<br />結果を生む行動を管理せよ」</p>
-            <p className="recall-mock-source">『最高の結果を出す KPI マネジメント』のメモ・42日前</p>
-            <div className="recall-mock-actions" aria-hidden="true">
-              <span className="recall-mock-btn primary">覚えた</span>
-              <span className="recall-mock-btn">もう一度</span>
-            </div>
-          </div>
-          <p className="mock-caption">画面はイメージです</p>
-
-          <p className="feature-sub">
-            通知は多くても週に 1 回。設定からオフにもできます。
-          </p>
-        </section>
-
-        {/* ============ 7. 読む前・読む間 ============ */}
-        <section className="before fade-in" aria-labelledby="f-before">
-          <p className="section-eyebrow">もちろん、読む前から</p>
-          <h2 className="section-headline" id="f-before">
-            何を読むかで、<br />
-            半分決まる。
-          </h2>
-          <div className="before-grid">
-            <div className="before-item">
-              <h3>AI 選書</h3>
-              <p>いまの課題を話すと、AI が深掘りして「そのための本」を提案。読む前から、外さない一冊に出会えます。</p>
-            </div>
-            <div className="before-item">
-              <h3>読書計画</h3>
-              <p>「なぜ読むのか」を先に言葉に。重点的に読む章まで AI が絞るから、1 冊にかける時間が短くなります。</p>
-            </div>
-            <div className="before-item">
-              <h3>一行メモ</h3>
-              <p>読みながら、心が動いた一行だけ。ページを写真に撮れば、AI が書き起こします。</p>
-            </div>
-          </div>
-          <div className="before-screens">
-            <PhoneFrame
-              src="/lp/ai-recommendation.jpg"
-              alt="AI 選書の画面。課題に合わせて本が理由つきで推薦されている"
-              size="small"
-              ratio="868/1424"
-            />
-            <PhoneFrame
-              src="/lp/setup-sheet.jpg"
-              alt="読書計画シートの画面。投資戦略と重点的に読む章が AI によって整理されている"
-              size="small"
-              ratio="868/1490"
-            />
-          </div>
-        </section>
-
-        {/* ============ 8. 比較（記録アプリとの違い） ============ */}
-        <section className="compare fade-in" aria-labelledby="f-compare">
-          <p className="section-eyebrow">記録で、終わらせない</p>
-          <h2 className="section-headline" id="f-compare">
-            「記録するアプリ」と、<br />
-            何が違うのか。
-          </h2>
-          <p className="compare-lead">
-            本を記録できるアプリは、たくさんあります。<br />
-            Orime が向き合うのはその先、<strong>「読んだのに、いざという時に使えない」</strong>です。
-          </p>
-
-          <div className="compare-table" role="table" aria-label="一般的な読書管理アプリとOrimeの比較">
-            <div className="compare-row compare-head" role="row">
-              <span className="compare-axis" role="columnheader" aria-label="比較項目" />
-              <span className="compare-col" role="columnheader">一般的な<br />記録アプリ</span>
-              <span className="compare-col compare-us" role="columnheader">Orime</span>
-            </div>
-            {COMPARE_ROWS.map((r) => (
-              <div className="compare-row" key={r.label} role="row">
-                <span className="compare-axis" role="rowheader">{r.label}</span>
-                <span className="compare-col compare-other" role="cell">{r.others}</span>
-                <span className="compare-col compare-us" role="cell">{r.us}</span>
+              <div className="lp-cta-block" ref={heroCtaRef}>
+                <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+                <p className="lp-cta-note">{PRICE_LINE}。いつでも解約でき、解約してもメモは残ります。</p>
               </div>
-            ))}
+            </div>
+            <figure className="lp-hero-shot">
+              <Shot
+                name="answer"
+                eager
+                alt="相談の画面。「部下が報告をくれなくて困っています」という相談に、『イシューからはじめよ』と『1兆ドルコーチ』のメモを根拠にした答えと、明日からできる一歩が返っている"
+              />
+              <figcaption>画面は、サンプルのメモを入れた実際のアプリです</figcaption>
+            </figure>
           </div>
-
-          <StoreCta className="cta-secondary">違いを試してみる</StoreCta>
         </section>
 
-        {/* ============ 8.5 社会的証明（実在の声がある時だけ表示） ============ */}
-        {TESTIMONIALS.length > 0 && (
-          <section className="testimonials fade-in" aria-label="お客様の声">
-            <p className="section-eyebrow">使った人の声</p>
-            <h2 className="section-headline">
-              読みっぱなしから、<br />
-              抜け出した人たち。
+        {/* ============ 課題 ============ */}
+        <section className="lp-sec lp-problem" aria-labelledby="lp-problem">
+          <div className="lp-wrap lp-narrow">
+            <h2 className="lp-h2" id="lp-problem">
+              <span>前に読んだ本に、</span><span>答えがあったはずなのに。</span>
             </h2>
-            <div className="testimonial-list">
+            <p>
+              部下が報告をくれない。企画がなかなか通らない。そんなとき「あの本に何か書いてあった」と思い出しても、中身までは出てこない。
+            </p>
+            <p>
+              本の内容は、読み終えた日から少しずつ抜けていきます。足りないのは記憶力より、読んだことを困ったときに引き出す仕組みです。
+            </p>
+            <p className="lp-turn">Orime は、その仕組みを「相談相手」というかたちにしました。</p>
+          </div>
+        </section>
+
+        {/* ============ 使い方（本当の手順なので番号を振る） ============ */}
+        <section className="lp-sec lp-steps" aria-labelledby="lp-steps">
+          <div className="lp-wrap">
+            <h2 className="lp-h2" id="lp-steps">
+              <span>残す。</span><span>相談する。</span><span>やってみる。</span>
+            </h2>
+            <ol className="lp-step-list">
+              <li className="lp-step">
+                <div className="lp-step-text">
+                  <p className="lp-step-num" aria-hidden="true">1</p>
+                  <h3 className="lp-h3">読みながら、一行だけ残す</h3>
+                  <p>心が動いた一行を、その場でメモします。本文だけで保存でき、ページ番号や写真はあとから足せます。ページを撮影すれば、AI が文字に起こします。</p>
+                </div>
+                <div className="lp-step-shot">
+                  <Shot name="memo" ratio={[390, 421]} alt="メモを書く画面。『1兆ドルコーチ』に「部下の話は、結論を急がずに最後まで聞く。」と入力している" />
+                </div>
+              </li>
+              <li className="lp-step lp-step-flip">
+                <div className="lp-step-text">
+                  <p className="lp-step-num" aria-hidden="true">2</p>
+                  <h3 className="lp-h3">困ったら、相談する</h3>
+                  <p>悩みを書いて送ると、これまでのメモを根拠に答えが返ってきます。何冊ぶんのメモでもつなげて考え、使った本とページは一覧で確かめられます。</p>
+                  <p>相談する本を、1 冊や数冊に絞ることもできます。</p>
+                </div>
+                <div className="lp-step-shot">
+                  <Shot name="sources" alt="相談の答えの下に「もとになった本」として『イシューからはじめよ』『1兆ドルコーチ』P.95『数値化の鬼』が並ぶ画面" />
+                </div>
+              </li>
+              <li className="lp-step">
+                <div className="lp-step-text">
+                  <p className="lp-step-num" aria-hidden="true">3</p>
+                  <h3 className="lp-h3">答えを、今週やることに</h3>
+                  <p>答えに付く「明日からできる一歩」は、ボタン 1 つで行動リストに入ります。期限を過ぎたもの・今日・今週の順に並ぶので、やることを見失いません。</p>
+                </div>
+                <div className="lp-step-shot">
+                  <Shot name="action" alt="行動の画面。本から生まれた行動が、今週と来週以降に分かれて期限つきで並ぶ" />
+                </div>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        {/* ============ メモを育てる仕組み ============ */}
+        <section className="lp-sec lp-grow" aria-labelledby="lp-grow">
+          <div className="lp-wrap">
+            <div className="lp-narrow lp-sec-head">
+              <h2 className="lp-h2" id="lp-grow">
+                <span>残したメモは、</span><span>しまい込まない。</span>
+              </h2>
+              <p>相談の答えの材料は、あなたのメモです。だから Orime は、残したメモを眠らせない工夫もしています。</p>
+            </div>
+            <div className="lp-grow-grid">
+              <article className="lp-grow-item">
+                <h3 className="lp-h3">思い出しカード</h3>
+                <p>忘れかけた頃のメモが、1 枚ずつ戻ってきます。「覚えた」を押すと次は間隔を空け、「もう一度」なら翌日にまた出ます。通知は多くても週に 1 回で、オフにもできます。</p>
+                <Shot name="recall" alt="思い出しカードの画面。5 か月前に『イシューからはじめよ』P.88 に残したメモが表示され、「覚えた」「もう一度」を選べる" />
+              </article>
+              <article className="lp-grow-item">
+                <h3 className="lp-h3">テーマまとめ</h3>
+                <p>「マネジメント」などのテーマを選ぶと、何冊ものメモを「核心」「繰り返す原則」「次の一歩」にまとめます。次の一歩は、そのまま行動リストに入れられます。</p>
+                <Shot name="theme" alt="テーマまとめの画面。マネジメントについて本 3 冊のメモから、核心の一文、繰り返す原則 3 つ、次の一歩がまとめられている" />
+              </article>
+            </div>
+          </div>
+        </section>
+
+        {/* ============ 読む前と、読み終えた本にも ============ */}
+        <section className="lp-sec lp-more" aria-labelledby="lp-more">
+          <div className="lp-wrap lp-more-grid">
+            <h2 className="lp-h2" id="lp-more">
+              <span>本を選ぶ前から、</span><span>読み終えた本まで。</span>
+            </h2>
+            <dl className="lp-more-list">
+              <div>
+                <dt>AI 選書</dt>
+                <dd>いまの課題を話すと、AI が質問で深掘りし、合う本を理由つきで挙げます。</dd>
+              </div>
+              <div>
+                <dt>読書計画シート</dt>
+                <dd>読む目的を先に書いておくと、重点的に読む章を AI が一緒に絞ります。</dd>
+              </div>
+              <div>
+                <dt>これまで読んだ本から始める</dt>
+                <dd>読み終えた本を選び、覚えている一行を書くだけ。登録したその日から相談できます。</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        {/* ============ 記録アプリとの違い ============ */}
+        <section className="lp-sec lp-compare" aria-labelledby="lp-compare">
+          <div className="lp-wrap lp-narrow-wide">
+            <h2 className="lp-h2" id="lp-compare">
+              <span>記録するアプリとの</span><span>違い</span>
+            </h2>
+            <p>読んだ本を記録できるアプリは、ほかにもあります。Orime が受け持つのは、その記録を困ったときに使うところです。</p>
+            <table className="lp-table">
+              <thead>
+                <tr>
+                  <td />
+                  <th scope="col">記録するアプリ</th>
+                  <th scope="col" className="is-us">Orime</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARE_ROWS.map((r) => (
+                  <tr key={r.label}>
+                    <th scope="row">{r.label}</th>
+                    <td>{r.others}</td>
+                    <td className="is-us">{Array.isArray(r.us) ? r.us.map((t) => <span className="lp-phrase" key={t}>{t}</span>) : r.us}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* ============ 利用者の声（実在の声があるときだけ） ============ */}
+        {TESTIMONIALS.length > 0 && (
+          <section className="lp-sec" aria-labelledby="lp-voices">
+            <div className="lp-wrap lp-narrow">
+              <h2 className="lp-h2" id="lp-voices">使っている人の声</h2>
               {TESTIMONIALS.map((t, i) => (
-                <figure className="testimonial-card" key={i}>
+                <figure className="lp-voice" key={i}>
                   <blockquote>{t.quote}</blockquote>
-                  {t.attribution && <figcaption>— {t.attribution}</figcaption>}
+                  <figcaption>{t.who}{t.how ? `／${t.how}` : ''}</figcaption>
                 </figure>
               ))}
             </div>
           </section>
         )}
 
-        {/* ============ 9. ブランドストーリー（折り目） ============ */}
-        <section className="story fade-in" aria-labelledby="f-story">
-          <div className="story-card">
-            <p className="section-eyebrow">名前の由来</p>
-            <h2 className="section-headline" id="f-story">Orime は、「折り目」。</h2>
-            <p className="story-body">
-              大切なページの角を、そっと折る。<br />
-              いつか戻ってくるための、小さな印。
-            </p>
-            <p className="story-body">
-              Orime がやっているのは、あの折り目と同じことです。<br />
-              心が動いた場所に印をつけて、<br />
-              忘れた頃に、そのページへ連れ戻す。
-            </p>
-            <p className="story-close">読書は、読んだあとが本番だから。</p>
-          </div>
-        </section>
-
-        {/* ============ 10. Pricing ============ */}
-        <section className="pricing fade-in" aria-labelledby="f-pricing">
-          <p className="section-eyebrow">料金</p>
-          <h2 className="section-headline" id="f-pricing">
-            すべての機能が、<br />
-            ひとつのプランに。
-          </h2>
-
-          <div className="price-card">
-            {TRIAL_NOTE && (
-              <p className="price-trial">まずは{TRIAL_NOTE}で、相談を試せます</p>
-            )}
-            <div className="price-num" aria-label="月額1480円">
-              <span className="price-yen">¥</span>
-              <span className="price-main">1,480</span>
-              <span className="price-period">/ 月（税込）</span>
+        {/* ============ 料金（年額をおすすめ） ============ */}
+        <section className="lp-sec lp-pricing" aria-labelledby="lp-pricing">
+          <div className="lp-wrap lp-narrow-wide">
+            <h2 className="lp-h2" id="lp-pricing">
+              <span>すべての機能を、</span><span>月あたり約 ¥1,066 から。</span>
+            </h2>
+            {TRIAL_NOTE && <p className="lp-trial">まずは{TRIAL_NOTE}で、相談を試せます。</p>}
+            <div className="lp-plans">
+              <div className="lp-plan is-recommended">
+                <p className="lp-plan-name">年額プラン<span className="lp-plan-tag">おすすめ</span></p>
+                <p className="lp-plan-price">¥12,800<span>/ 年（税込）</span></p>
+                <p className="lp-plan-sub">月あたり約 ¥1,066。{SAVE}。</p>
+              </div>
+              <div className="lp-plan">
+                <p className="lp-plan-name">月額プラン</p>
+                <p className="lp-plan-price">¥1,480<span>/ 月（税込）</span></p>
+                <p className="lp-plan-sub">1 か月ずつ続けられます。</p>
+              </div>
             </div>
-            <p className="price-equiv">
-              年額プランなら <strong>¥12,800</strong>（月あたり約 ¥1,066）<br />
-              <span className="price-save">{savingsLabel(1480, 12800)}</span>
-            </p>
-
-            <ul className="price-features">
-              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 相談・行動・テーマまとめ・思い出しカード すべて利用可</li>
-              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> AI 選書・読書計画・写真の書き起こしも込み</li>
-              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 本の登録数・メモ数は無制限</li>
-              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> いつでも解約できます・違約金なし</li>
-              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 解約してもメモは消えません</li>
+            <ul className="lp-included" aria-label="どちらのプランにも含まれるもの">
+              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />相談・行動リスト・テーマまとめ・思い出しカード</li>
+              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />AI 選書・読書計画シート・写真からの書き起こし</li>
+              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />本とメモは、何件でも登録できます</li>
             </ul>
-
-            <StoreCta className="cta-primary cta-large">App Store でダウンロード</StoreCta>
-            <p className="price-note">お支払いは App Store（Apple ID）経由です</p>
-          </div>
-
-        </section>
-
-        {/* ============ 11. FAQ ============ */}
-        <section className="faq fade-in" aria-labelledby="f-faq">
-          <p className="section-eyebrow">よくある質問</p>
-          <h2 className="section-headline" id="f-faq">気になることは、<br className="sp-only" />先に。</h2>
-          <div className="faq-list">
-            {FAQ_ITEMS.map((f) => (
-              <details className="faq-item" key={f.q}>
-                <summary>{f.q}<span className="faq-mark" aria-hidden="true" /></summary>
-                <p>{f.a}</p>
-              </details>
-            ))}
+            <div className="lp-cta-block">
+              <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+              <p className="lp-cta-note">
+                お支払いは App Store（Apple ID）です。<br />
+                解約はいつでもでき、違約金はありません。解約後もメモは残ります。
+              </p>
+            </div>
           </div>
         </section>
 
-        {/* ============ 12. Final CTA ============ */}
-        <section className="final-cta fade-in">
-          <h2 className="final-headline">
-            次の一冊から、<br />
-            変えてみませんか。
-          </h2>
-          <p className="final-sub">
-            今日残した一行が、<br className="sp-only" />
-            一年後のあなたを助けにくる。
-          </p>
-          <StoreCta className="cta-primary cta-large cta-final">App Store でダウンロード</StoreCta>
-          <p className="final-note">{PRICE_NOTE}</p>
+        {/* ============ FAQ（申し込みの手前で止まる理由） ============ */}
+        <section className="lp-sec lp-faq" aria-labelledby="lp-faq">
+          <div className="lp-wrap lp-narrow">
+            <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
+            <div className="lp-faq-list">
+              {FAQ_ITEMS.map((f) => (
+                <details className="lp-faq-item" key={f.q}>
+                  <summary>
+                    <span>{f.q}</span>
+                    <ChevronDown size={20} aria-hidden="true" className="lp-faq-mark" />
+                  </summary>
+                  <p>{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ============ 最終 CTA ============ */}
+        <section className="lp-final" aria-labelledby="lp-final">
+          <div className="lp-wrap lp-narrow lp-final-inner">
+            <h2 className="lp-h2" id="lp-final">
+              <span>今日残した一行が、</span><span>一年後のあなたの</span><span>相談に答える。</span>
+            </h2>
+            <div className="lp-cta-block">
+              <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+              <p className="lp-cta-note">{PRICE_LINE}。いつでも解約できます。</p>
+            </div>
+            <p className="lp-story">
+              Orime（オリメ）の名前は「折り目」から。大切なページの角を折るように、心が動いた一行に印をつけておけるアプリを目指しています。
+            </p>
+          </div>
         </section>
       </main>
 
-      {/* ============ Footer ============ */}
       <footer className="lp-footer">
-        <p className="lp-footer-brand">Orime</p>
-        <p className="lp-footer-tag">読むほど、自分だけの相談相手が育つ</p>
-        <div className="footer-links">
-          <a href="/legal/terms">利用規約</a>
-          <a href="/legal/privacy">プライバシーポリシー</a>
-          <a href="/legal/sct">特定商取引法に基づく表記</a>
-          <a href={`mailto:${SUPPORT_EMAIL}`}>お問い合わせ</a>
+        <div className="lp-wrap">
+          <p className="lp-footer-brand">Orime</p>
+          <p className="lp-footer-op">運営：阿部文哉</p>
+          <nav className="lp-footer-links" aria-label="フッター">
+            <a href="/legal/terms">利用規約</a>
+            <a href="/legal/privacy">プライバシーポリシー</a>
+            <a href="/legal/sct">特定商取引法に基づく表記</a>
+            <a href={`mailto:${SUPPORT_EMAIL}`}>お問い合わせ</a>
+          </nav>
+          <p className="lp-footer-copy">© 2026 Orime</p>
+          {/* 🏷️ ビルド識別子。配信中の版が新旧どちらかを一目で判別するための控えめな表記。 */}
+          <p className="lp-footer-build">{BUILD_LABEL}</p>
         </div>
-        <p className="copyright">© 2026 Orime</p>
-        {/* 🏷️ ビルド識別子。配信中の版が新旧どちらかを一目で判別するための控えめな表記。 */}
-        <p className="build-stamp">{BUILD_LABEL}</p>
       </footer>
     </div>
   );

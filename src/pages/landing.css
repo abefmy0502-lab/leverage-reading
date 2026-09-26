@@ -1,42 +1,29 @@
 /* ===========================================================================
- * 🌱 Landing Page CSS — Orime 2026-07 全面リニューアル版
+ * 🌱 Landing Page CSS — Orime（2026-09-26 作り直し版）
  *
- * デザインコンセプト: 「静かな本屋の佇まい」
- *   - 和紙のようなベージュ地 + 微細ノイズ
- *   - 見出しは OS 明朝 (Yu Mincho / Hiragino Mincho)、本文はゴシック
- *   - ブランドモチーフ「折り目」= カード右上の角折り (dog-ear) を CSS で表現
- *   - 動きは控えめ (フェード + わずかな上昇のみ)。prefers-reduced-motion 尊重
- *
- * 実装原則:
- *   - モバイルファースト。768px でデスクトップ拡張
- *   - 横スクロールをどの幅でも出さない (keep-all + overflow-wrap: anywhere)
- *   - 外部フォント読込なし (index.html の方針に従う / LCP 保護)
- *   - フォーカスリング (:focus-visible) を全インタラクティブ要素に
+ * アプリと同じトークン（src/styles/tokens.css）で書く。明暗は端末に従う（アプリと同じ）。
+ *   - 色: 背景 --bg / 面 --surface / 文字 --text・--text-2 / 線 --separator
+ *         アクセント --accent（栗色・ロゴの色）は「押せるもの」と「最重要の情報」だけ
+ *   - 書体: アプリと同じシステム書体（--font-ui = SF / ヒラギノ角ゴ）。見出しは palt で詰める
+ *   - 余白: 4pt 基準（4/8/12/16/24/32/48/64/96/128）。節の間はスマホ 64 / タブレット 96 / PC 128
+ *   - 角丸: 12（--radius）の 1 種類。影は画面写真だけ
+ *   - 動き: 下部の固定ボタンの出入りだけ（prefers-reduced-motion で止める）
  * =========================================================================== */
 
-/* ============ Variables ============ */
-:root {
-  --lp-primary: #5C4A2E;        /* 深い茶 — 見出し/主ボタン */
-  --lp-primary-deep: #43351F;   /* さらに深い茶 — final CTA 地 */
-  --lp-accent: #8B6F47;         /* 金茶 — 装飾/ボーダー用アクセント */
-  --lp-accent-text: #75592F;    /* 金茶の文字用 — ベージュ地でコントラスト 4.5:1 以上 */
-  --lp-bg: #FAF6EC;             /* 和紙ベージュ */
-  --lp-bg-warm: #F3EDDF;        /* 一段濃いベージュ */
-  --lp-card: #FFFFFF;
-  --lp-text: #2B2620;           /* 墨色 */
-  --lp-sub: #5D5546;            /* 補助文 (コントラスト 4.5:1 以上を維持) */
-  --lp-hairline: rgba(92, 74, 46, 0.16);
-  --lp-fold: #E7DCC4;           /* 折り目の裏面色 */
-  --font-serif: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'Noto Serif JP', serif;
-  --font-sans: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Inter', system-ui, -apple-system, sans-serif;
-  --header-h: 56px;
+.lp-root {
+  --lp-sec: 64px;
+  --lp-gutter: 24px;
+  --lp-h1: clamp(34px, 9vw, 56px);
+  --lp-h2: clamp(24px, 6.4vw, 38px);
+  --lp-h3: 20px;
+  --lp-body: 16px;
+  --lp-small: 14px;
+  --lp-caption: 12px;
 }
 
 .lp-root, .lp-root *, .lp-root *::before, .lp-root *::after { box-sizing: border-box; }
 
-/* ============ メインアプリのレイアウト解除 + 横スクロール禁止 ============
- * メインアプリの index.css は html/body/#root を 100dvh + overflow:hidden で
- * 組んでいる。LP 表示中 (lp-active) はこれを解除する。 */
+/* ============ メインアプリのレイアウト解除 + 横スクロール禁止 ============ */
 html.lp-active,
 body.lp-active {
   overflow: auto !important;
@@ -49,1017 +36,403 @@ body.lp-active {
   height: auto !important;
   display: block !important;
 }
-.lp-root {
-  overflow-x: hidden;
-  max-width: 100vw;
-  width: 100%;
-}
-.lp-root section { max-width: 100vw; }
-.lp-root img { max-width: 100%; }
 
 /* ============ ベース ============ */
 .lp-root {
-  font-family: var(--font-sans);
-  color: var(--lp-text);
-  background: var(--lp-bg);
-  line-height: 1.8;
-  -webkit-font-smoothing: antialiased;
-  position: relative;
   min-height: 100vh;
-}
-/* 紙のような微細ノイズ (3%) */
-.lp-root::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.29 0 0 0 0 0.18 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.5;
-  z-index: 0;
-}
-.lp-root > * { position: relative; z-index: 1; }
-
-/* 日本語改行: 熟語の途中で切らない + 禁則強化 + 溢れ時のみ折る */
-.lp-root,
-.lp-root * {
-  word-break: keep-all;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--lp-body);
+  line-height: 1.85;
+  -webkit-font-smoothing: antialiased;
+  word-break: normal;
   line-break: strict;
   overflow-wrap: anywhere;
 }
-
-/* ============ タイポグラフィ ============ */
-.lp-root h1, .lp-root h2, .lp-root h3,
-.section-headline, .final-headline {
-  font-family: var(--font-serif);
-  letter-spacing: 0.01em;
-  text-wrap: balance;
-  color: var(--lp-text);
-}
-.lp-root p { text-wrap: pretty; }
-
-.section-eyebrow {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: var(--lp-accent-text);
-  margin: 0 0 18px;
-}
-.section-headline {
-  font-size: clamp(26px, 6.6vw, 34px);
-  line-height: 1.5;
-  font-weight: 700;
-  margin: 0 0 22px;
-}
-
-/* 表示切替ヘルパ */
-.sp-only { display: inline; }
-.pc-only { display: none; }
-
-/* ============ a11y ============ */
-.skip-link {
-  position: absolute;
-  top: -48px;
-  left: 12px;
-  z-index: 200;
-  background: var(--lp-primary);
-  color: #fff;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  text-decoration: none;
-  transition: top 0.15s ease;
-}
-.skip-link:focus-visible { top: 10px; }
-
-.lp-root a:focus-visible,
-.lp-root button:focus-visible,
-.lp-root summary:focus-visible {
-  outline: 3px solid var(--lp-accent);
+.lp-root img { max-width: 100%; }
+.lp-root p { margin: 0; text-wrap: pretty; }
+.lp-root p + p { margin-top: var(--space-4); }
+.lp-root a { color: inherit; }
+.lp-root :focus-visible {
+  outline: 3px solid var(--accent);
   outline-offset: 3px;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
-/* ============ 0. Header ============ */
-.lp-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 60;
-  background: rgba(250, 246, 236, 0.88);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--lp-hairline);
-}
-.lp-header-inner {
-  max-width: 960px;
+.lp-wrap {
+  width: 100%;
+  max-width: 1080px;
   margin: 0 auto;
-  height: var(--header-h);
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  padding: 0 var(--lp-gutter);
 }
-.lp-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  text-decoration: none;
-  color: var(--lp-text);
-  min-height: 44px;
-}
-.lp-brand-mark { border-radius: 7px; display: block; }
-.lp-brand-name {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.lp-header-nav {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.lp-header-login {
-  color: var(--lp-sub);
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  padding: 10px 12px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  border-radius: 8px;
-}
-.lp-header-login:hover { color: var(--lp-primary); }
-.lp-header-cta {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  padding: 8px 18px;
-  background: var(--lp-primary);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-decoration: none;
-  border-radius: 100px;
-  white-space: nowrap;
-  transition: transform 0.12s ease, box-shadow 0.2s ease;
-}
-.lp-header-cta:hover { box-shadow: 0 4px 14px rgba(92, 74, 46, 0.3); }
-.lp-header-cta:active { transform: scale(0.97); }
-/* 狭い画面（iPhone 390 等）でブランド名・ログインが 1 文字ずつ折り返していた（「Orim / e」）。
-   文字は折り返さず、CTA を少し詰めて 1 行に収める。 */
-.lp-brand, .lp-header-login { white-space: nowrap; flex-shrink: 0; }
-.lp-header-nav { min-width: 0; }
-@media (max-width: 420px) {
-  .lp-header-inner { gap: 8px; }
-  .lp-header-login { padding: 10px 6px; }
-  .lp-header-cta { padding: 8px 12px; font-size: 12px; letter-spacing: 0; }
-}
+/* 節の左端はすべて同じ位置にそろえ、読む幅だけを中身ごとに絞る */
+.lp-narrow > *, .lp-narrow-wide > * { max-width: 42em; }
 
-/* ============ Sticky 下部 CTA (モバイル) ============ */
-.sticky-cta {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.06);
-  z-index: 50;
-  transform: translateY(110%);
-  transition: transform 0.3s ease;
-  visibility: hidden;
+.lp-skip {
+  position: absolute;
+  left: var(--space-4);
+  top: -64px;
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
 }
-.sticky-cta.is-visible {
-  transform: translateY(0);
-  visibility: visible;
+.lp-skip:focus { top: var(--space-4); }
+
+/* ============ 見出し（文節の途中で改行しない） ============ */
+.lp-h1, .lp-h2, .lp-h3 {
+  margin: 0;
+  color: var(--text);
+  font-weight: 700;
+  font-feature-settings: "palt";
+  letter-spacing: 0.02em;
+  word-break: auto-phrase;
+  text-wrap: balance;
 }
-.sticky-inner {
-  max-width: 480px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.sticky-price { display: flex; flex-direction: column; line-height: 1.2; flex-shrink: 0; }
-.sticky-price-main { font-size: 15px; font-weight: 800; color: var(--lp-text); }
-.sticky-price-sub { font-size: 11px; color: var(--lp-sub); margin-top: 2px; }
-.sticky-btn {
-  flex: 1;
+.lp-h1 > span, .lp-h2 > span { display: inline-block; }
+.lp-h1 { font-size: var(--lp-h1); line-height: 1.3; }
+.lp-h2 { font-size: var(--lp-h2); line-height: 1.4; margin-bottom: var(--space-6); }
+.lp-h3 { font-size: var(--lp-h3); line-height: 1.5; margin-bottom: var(--space-3); }
+
+/* ============ ボタン ============ */
+.lp-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 48px;
-  padding: 12px 16px;
-  background: var(--lp-primary);
-  color: #fff;
-  border-radius: 100px;
-  font-size: 14px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-ink) !important;
+  font-size: var(--lp-body);
   font-weight: 700;
-  letter-spacing: 0.03em;
+  line-height: 1.3;
   text-decoration: none;
   white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  transition: transform 0.12s ease;
+  transition: background-color var(--duration-fast, 150ms) ease;
 }
-.sticky-btn:active { transform: scale(0.97); }
-
-/* ============ セクション共通 ============ */
-.lp-root main section {
-  padding: 76px 24px;
-  max-width: 620px;
-  margin: 0 auto;
-}
-
-/* ============ CTA ボタン ============ */
-.cta-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 54px;
-  padding: 15px 38px;
-  background: var(--lp-primary);
-  color: #fff;
-  border: none;
-  border-radius: 100px;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  text-decoration: none;
-  box-shadow: 0 6px 20px rgba(92, 74, 46, 0.28);
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-  font-family: var(--font-sans);
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-.cta-primary:hover { box-shadow: 0 8px 26px rgba(92, 74, 46, 0.36); }
-.cta-primary:active { transform: scale(0.98); }
-.cta-primary { white-space: nowrap; } /* ボタン文言は 1 行厳守 (折返しは見栄えを壊す) */
-.cta-hero { padding: 17px 44px; }
-.cta-large {
-  width: 100%;
-  max-width: 360px;
-  padding-left: 20px;  /* nowrap でも狭幅ではみ出さないよう左右を細く */
-  padding-right: 20px;
-}
-@media (max-width: 350px) {
-  .cta-primary { font-size: 14px; }
+.lp-btn:hover { background: var(--accent-hover); }
+.lp-btn-large { min-height: 56px; padding: 0 var(--space-8); font-size: 17px; }
+.lp-btn-small { min-height: 44px; padding: 0 var(--space-4); font-size: var(--lp-small); }
+/* App Store の URL が未設定の間（近日公開）: 押せないことが分かる静かな見た目 */
+.lp-btn.is-soon {
+  background: var(--fill);
+  color: var(--text-2) !important;
+  cursor: default;
 }
 
-.cta-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 50px;
-  background: var(--lp-card);
-  color: var(--lp-primary);
-  border: 2px solid var(--lp-primary);
-  padding: 12px 30px;
-  border-radius: 100px;
-  font-size: 15px;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  margin-top: 28px;
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-.cta-secondary:active { transform: scale(0.97); background: var(--lp-bg); }
-
-/* ============ 1. Hero ============ */
-.hero {
-  padding: calc(var(--header-h) + 52px) 24px 80px !important;
-  background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-warm) 100%);
-  text-align: center;
-}
-.hero-eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: var(--lp-accent-text);
-  margin: 0 0 20px;
-}
-.hero-headline {
-  font-size: clamp(40px, 11vw, 60px);
-  line-height: 1.32;
-  font-weight: 700;
-  margin: 0 0 26px;
-  color: var(--lp-primary);
-}
-.hero-subhead {
-  font-family: var(--font-serif);
-  font-size: clamp(16px, 4.4vw, 19px);
-  color: var(--lp-text);
-  margin: 0 0 32px;
-  line-height: 2.15;
-}
-.hero-cta-block { display: flex; flex-direction: column; align-items: center; }
-.hero-note {
-  font-size: 12px;
-  color: var(--lp-sub);
-  margin: 14px 0 0;
+.lp-cta-block { margin-top: var(--space-8); }
+.lp-cta-note {
+  word-break: auto-phrase;
+  margin-top: var(--space-3) !important;
+  max-width: 30em;
+  color: var(--text-2);
+  font-size: var(--lp-small);
   line-height: 1.7;
 }
-.hero-login {
-  font-size: 13px;
-  color: var(--lp-sub);
-  margin: 10px 0 0;
-}
-.hero-login-link {
-  color: var(--lp-primary);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  padding: 4px 2px;
-}
-.hero-mockup {
-  margin-top: 52px;
-  display: flex;
-  justify-content: center;
-}
 
-/* ============ iPhone 風スクショフレーム ============ */
-.phone-frame {
-  background: #1a1a1a;
-  border-radius: 36px;
-  box-shadow:
-    0 20px 60px rgba(43, 38, 32, 0.18),
-    0 8px 16px rgba(43, 38, 32, 0.08);
-  position: relative;
-  display: inline-block;
-  margin: 0 auto;
-  overflow: hidden;
-  flex-shrink: 0;
-  max-width: 100%;
+/* ============ ヘッダー ============ */
+.lp-header {
+  border-bottom: 1px solid var(--separator);
+  padding-top: env(safe-area-inset-top);
 }
-.phone-screen-img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 28px;
-  background: var(--lp-bg-warm); /* 読込前のプレースホルダ地 */
-}
-@keyframes phoneFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-.phone-frame.float {
-  animation: phoneFloat 4.5s ease-in-out infinite;
-  will-change: transform;
-}
-@media (max-width: 480px) {
-  .phone-frame { width: min(280px, 72vw) !important; }
-  .phone-frame-small { width: min(210px, 56vw) !important; }
-}
-
-/* ============ 2. Problem ============ */
-.problem { text-align: center; }
-.problem-body {
-  font-size: 15.5px;
-  line-height: 2.1;
-  color: var(--lp-text);
-  margin: 18px 0;
-}
-.problem-body strong { color: var(--lp-primary); }
-.problem-turn {
-  font-family: var(--font-serif);
-  font-size: clamp(17px, 4.6vw, 21px);
-  font-weight: 700;
-  line-height: 2;
-  margin: 40px 0 0;
-  color: var(--lp-text);
-}
-.problem-turn em {
-  font-style: normal;
-  color: var(--lp-primary);
-  border-bottom: 2px solid var(--lp-accent);
-  padding-bottom: 2px;
-}
-
-/* ============ 3-6. Feature 共通 ============ */
-.feature { text-align: center; }
-.feature-alt {
-  background: var(--lp-card);
-  max-width: none !important;
-}
-/* feature-alt は全幅の白帯にし、中身を再度センタリング */
-.feature-alt > * {
-  max-width: 620px;
-  margin-left: auto;
-  margin-right: auto;
-}
-.feature-body {
-  font-size: 15.5px;
-  line-height: 2.05;
-  color: var(--lp-text);
-  margin: 16px 0;
-}
-.feature-body strong { color: var(--lp-primary); font-weight: 700; }
-.feature-sub {
-  font-size: 13px;
-  color: var(--lp-sub);
-  margin: 22px 0 0;
-}
-
-/* テキスト+画像の 2 分割 (モバイルは縦積み) */
-.feature-split {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-  align-items: center;
-  margin-top: 10px;
-}
-.feature-split-text { text-align: center; }
-
-/* ============ スタイライズド UI モック (実スクショが無い機能用) ============
- * 右上の「折り目」= ブランドモチーフ。clip-path で角を落とし、::after の
- * 三角で折り返しの裏面を描く。 */
-.ui-mock {
-  position: relative;
-  background: var(--lp-card);
-  border: 1px solid var(--lp-hairline);
-  border-radius: 18px;
-  padding: 26px 24px;
-  margin: 34px auto 0;
-  max-width: 400px;
-  text-align: left;
-  box-shadow: 0 10px 34px rgba(43, 38, 32, 0.09);
-  clip-path: polygon(0 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 0 100%);
-}
-.ui-mock::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 30px;
-  height: 30px;
-  background: linear-gradient(225deg, transparent 48%, var(--lp-fold) 50%);
-  border-bottom-left-radius: 10px;
-}
-.mock-caption {
-  font-size: 11px;
-  color: var(--lp-sub);
-  margin: 12px 0 0;
-  text-align: center;
-}
-
-/* 想起カードモック */
-.recall-mock-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: var(--lp-accent-text);
-  margin: 0 0 14px;
-}
-.recall-mock-quote {
-  font-family: var(--font-serif);
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1.85;
-  color: var(--lp-text);
-  margin: 0 0 12px;
-}
-.recall-mock-source {
-  font-size: 12px;
-  color: var(--lp-sub);
-  margin: 0 0 20px;
-}
-.recall-mock-actions { display: flex; gap: 10px; }
-.recall-mock-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 42px;
-  border-radius: 100px;
-  font-size: 13.5px;
-  font-weight: 700;
-  border: 1.5px solid var(--lp-hairline);
-  color: var(--lp-sub);
-  background: var(--lp-bg);
-}
-.recall-mock-btn.primary {
-  background: var(--lp-primary);
-  border-color: var(--lp-primary);
-  color: #fff;
-}
-
-/* 凝縮 (テーマまとめ) モック */
-.condense-mock-theme {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--lp-accent-text);
-  margin: 0 0 16px;
-}
-.condense-mock-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 0;
-  border-top: 1px solid var(--lp-hairline);
-}
-.condense-mock-key {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--lp-sub);
-}
-.condense-mock-val {
-  font-family: var(--font-serif);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.8;
-  color: var(--lp-text);
-}
-.condense-mock-row:first-of-type .condense-mock-val {
-  font-size: 17px;
-  color: var(--lp-primary);
-}
-
-/* ============ 6. マイ読書脳 スクショペア ============ */
-.screenshot-pair {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-top: 36px;
-}
-.screenshot-step {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-.screenshot-step-label {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--lp-primary);
-  letter-spacing: 0.05em;
-}
-.screenshot-arrow {
-  font-size: 26px;
-  color: var(--lp-accent);
-  font-weight: 700;
-  line-height: 1;
-  transform: rotate(90deg);
-}
-
-/* ============ 7. 読む前 ============ */
-.before { text-align: center; }
-.before-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin: 30px 0 36px;
-  text-align: left;
-}
-.before-item {
-  background: var(--lp-card);
-  border: 1px solid var(--lp-hairline);
-  border-radius: 14px;
-  padding: 20px 22px;
-}
-.before-item h3 {
-  font-size: 16.5px;
-  font-weight: 700;
-  margin: 0 0 8px;
-  color: var(--lp-primary);
-}
-.before-item p {
-  font-size: 13.5px;
-  line-height: 1.9;
-  color: var(--lp-sub);
-  margin: 0;
-}
-.before-screens {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-
-/* ============ 8. 比較 ============ */
-.compare { text-align: center; }
-.compare-lead {
-  font-size: 14.5px;
-  line-height: 2;
-  color: var(--lp-sub);
-  margin: 0 auto 30px;
-  max-width: 30em;
-}
-.compare-lead strong { color: var(--lp-text); }
-.compare-table {
-  display: flex;
-  flex-direction: column;
-  background: var(--lp-card);
-  border: 1px solid var(--lp-hairline);
-  border-radius: 16px;
-  overflow: hidden;
-  text-align: left;
-}
-.compare-row {
-  display: grid;
-  grid-template-columns: 4.8em minmax(0, 1fr) minmax(0, 1fr);
-}
-.compare-row + .compare-row { border-top: 1px solid var(--lp-hairline); }
-.compare-axis {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--lp-sub);
-  padding: 15px 10px;
-  display: flex;
-  align-items: center;
-  background: var(--lp-bg-warm);
-}
-.compare-col {
-  font-size: 13px;
-  line-height: 1.65;
-  padding: 15px 12px;
-  display: flex;
-  align-items: center;
-}
-.compare-other { color: var(--lp-sub); border-left: 1px solid var(--lp-hairline); }
-.compare-us {
-  color: var(--lp-primary);
-  font-weight: 700;
-  border-left: 1px solid var(--lp-hairline);
-  background: rgba(139, 111, 71, 0.07);
-}
-.compare-head .compare-col {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--lp-text);
-  line-height: 1.5;
-}
-.compare-head .compare-us { color: var(--lp-accent-text); }
-
-/* ============ 8.5 お客様の声 (実在の声がある時だけ) ============ */
-.testimonials { text-align: center; }
-.testimonial-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 32px;
-  text-align: left;
-}
-.testimonial-card {
-  margin: 0;
-  background: var(--lp-card);
-  border: 1px solid var(--lp-hairline);
-  border-left: 3px solid var(--lp-accent);
-  border-radius: 12px;
-  padding: 20px 22px;
-}
-.testimonial-card blockquote {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: 16px;
-  line-height: 1.9;
-}
-.testimonial-card figcaption {
-  margin-top: 12px;
-  font-size: 12px;
-  color: var(--lp-sub);
-}
-
-/* ============ 9. ブランドストーリー (折り目) ============ */
-.story { text-align: center; }
-.story-card {
-  position: relative;
-  background: var(--lp-card);
-  border: 1px solid var(--lp-hairline);
-  border-radius: 20px;
-  padding: 44px 28px;
-  box-shadow: 0 12px 40px rgba(43, 38, 32, 0.08);
-  clip-path: polygon(0 0, calc(100% - 40px) 0, 100% 40px, 100% 100%, 0 100%);
-}
-.story-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(225deg, transparent 48%, var(--lp-fold) 50%);
-  border-bottom-left-radius: 12px;
-}
-.story-card .section-headline { font-size: clamp(24px, 6vw, 30px); }
-.story-body {
-  font-family: var(--font-serif);
-  font-size: 15.5px;
-  line-height: 2.2;
-  color: var(--lp-text);
-  margin: 18px 0;
-}
-.story-close {
-  font-family: var(--font-serif);
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--lp-primary);
-  margin: 30px 0 0;
-}
-
-/* ============ 10. Pricing ============ */
-.pricing {
-  background: var(--lp-bg-warm);
-  max-width: none !important;
-  text-align: center;
-}
-.pricing > * { max-width: 620px; margin-left: auto; margin-right: auto; }
-.price-card {
-  background: var(--lp-card);
-  padding: 38px 26px;
-  border-radius: 24px;
-  margin-top: 30px;
-  box-shadow: 0 12px 32px rgba(43, 38, 32, 0.08);
-  border: 2px solid var(--lp-primary);
-  max-width: 440px !important;
-}
-.price-num {
-  font-family: var(--font-serif);
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 4px;
-  margin-bottom: 10px;
-  color: var(--lp-primary);
-  white-space: nowrap;
-}
-.price-yen { font-size: 24px; font-weight: 700; }
-.price-main {
-  font-size: clamp(48px, 13vw, 62px);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-.price-period { font-size: 15px; color: var(--lp-sub); margin-left: 4px; }
-.price-equiv {
-  font-size: 14px;
-  color: var(--lp-sub);
-  margin: 0 0 22px;
-}
-.price-equiv strong {
-  font-size: 19px;
-  color: var(--lp-primary);
-  font-family: var(--font-serif);
-}
-.price-features {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 26px;
-  text-align: left;
-}
-.price-features li {
-  padding: 11px 0;
-  font-size: 14px;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  color: var(--lp-text);
-  line-height: 1.6;
-}
-.price-features li svg { color: #2E7D32; flex-shrink: 0; margin-top: 3px; }
-.price-features li:last-child { border: none; }
-.price-note {
-  font-size: 11.5px;
-  color: var(--lp-sub);
-  margin: 12px 0 0;
-}
-.price-save {
-  display: inline-block;
-  margin-top: 4px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--lp-primary);
-}
-.price-trial {
-  margin: 0 0 12px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--lp-primary);
-}
-
-/* ============ 11. FAQ ============ */
-.faq { text-align: center; }
-.faq-list { margin-top: 28px; text-align: left; }
-.faq-item {
-  background: var(--lp-card);
-  border: 1px solid var(--lp-hairline);
-  border-radius: 14px;
-  margin-bottom: 10px;
-  overflow: hidden;
-  transition: box-shadow 0.2s ease;
-}
-.faq-item[open] { box-shadow: 0 6px 20px rgba(43, 38, 32, 0.07); }
-.faq-item summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 16px 18px;
-  color: var(--lp-text);
-  font-size: 14.5px;
-  font-weight: 700;
+.lp-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 52px;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  min-height: 60px;
 }
-.faq-item summary::-webkit-details-marker { display: none; }
-.faq-mark { position: relative; width: 14px; height: 14px; flex-shrink: 0; }
-.faq-mark::before,
-.faq-mark::after {
-  content: '';
-  position: absolute;
-  background: var(--lp-accent);
-  border-radius: 1px;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-.faq-mark::before { top: 6px; left: 0; width: 14px; height: 2px; }
-.faq-mark::after { top: 0; left: 6px; width: 2px; height: 14px; }
-.faq-item[open] .faq-mark::after { transform: scaleY(0); opacity: 0; }
-.faq-item p {
-  margin: 0;
-  padding: 0 18px 18px;
-  color: var(--lp-sub);
-  font-size: 13.5px;
-  line-height: 1.95;
-}
-
-/* ============ 12. Final CTA ============ */
-.final-cta {
-  background: linear-gradient(160deg, var(--lp-primary) 0%, var(--lp-primary-deep) 100%);
-  color: #fff;
-  padding: 92px 24px !important;
-  max-width: none !important;
-  text-align: center;
-}
-.final-cta > * { max-width: 620px; margin-left: auto; margin-right: auto; }
-/* .lp-root h2 (0,1,1) が色を上書きして茶地に墨色の見出しになっていたので、同じ強さ以上で白に戻す。 */
-.lp-root .final-headline {
-  font-size: clamp(30px, 8vw, 42px);
-  line-height: 1.45;
+.lp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  text-decoration: none;
+  font-size: 19px;
   font-weight: 700;
-  margin: 0 0 20px;
-  color: #fff;
+  letter-spacing: 0.01em;
 }
-.final-sub {
-  font-family: var(--font-serif);
-  font-size: 16px;
-  line-height: 2.1;
-  margin: 0 0 36px;
-  opacity: 0.94;
+.lp-brand img { border-radius: 6px; }
+.lp-header-nav { display: flex; align-items: center; gap: var(--space-4); }
+.lp-header-login {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  color: var(--text-2) !important;
+  font-size: var(--lp-small);
+  text-decoration: none;
 }
-.final-cta .cta-final {
-  background: #fff;
-  color: var(--lp-primary);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+.lp-header-login:hover { color: var(--text) !important; }
+.lp-header-cta { display: none; }
+
+/* ============ ヒーロー ============ */
+.lp-lead { word-break: auto-phrase; }
+.lp-hero { padding: var(--space-12) 0 var(--lp-sec); }
+.lp-hero-grid { display: grid; gap: var(--space-12); }
+.lp-lead {
+  margin-top: var(--space-6) !important;
+  max-width: 26em;
+  font-size: 17px;
+  line-height: 1.85;
+  color: var(--text);
 }
-.final-note {
-  font-size: 12px;
-  margin: 18px 0 0;
-  opacity: 0.85;
+.lp-hero-shot { margin: 0; text-align: center; }
+.lp-hero-shot figcaption {
+  word-break: auto-phrase;
+  margin-top: var(--space-3);
+  color: var(--text-2);
+  font-size: var(--lp-caption);
 }
 
-/* ============ Footer ============ */
-.lp-footer {
-  background: #1c1a17;
-  color: #fff;
-  padding: 56px 24px calc(56px + env(safe-area-inset-bottom, 0px));
-  text-align: center;
+/* 画面写真: 中身が主役。写真にだけ影を付ける */
+.lp-shot {
+  display: block;
+  width: min(300px, 72vw);
+  height: auto;
+  margin: 0 auto;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-overlay);
+  background: var(--surface);
 }
-.lp-footer-brand {
-  font-family: var(--font-serif);
+
+/* ============ 節の共通 ============ */
+.lp-sec { padding: var(--lp-sec) 0; }
+.lp-sec-head { padding: 0; margin: 0 0 var(--space-12); }
+.lp-sec-head p { color: var(--text-2); }
+
+/* 課題 */
+.lp-problem { background: var(--surface); border-block: 1px solid var(--separator); }
+.lp-problem p { color: var(--text-2); }
+.lp-turn {
+  margin-top: var(--space-8) !important;
+  color: var(--text) !important;
   font-size: 18px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  margin: 0 0 6px;
+  line-height: 1.7;
 }
-.lp-footer-tag {
-  font-size: 12px;
-  opacity: 0.6;
-  margin: 0 0 24px;
+
+/* 使い方 3 ステップ */
+.lp-step-list { list-style: none; margin: var(--space-8) 0 0; padding: 0; display: grid; gap: var(--space-16); }
+.lp-step { display: grid; gap: var(--space-8); align-items: center; }
+.lp-step-text { max-width: 30em; }
+.lp-step-text p { color: var(--text-2); }
+.lp-step-num {
+  margin-bottom: var(--space-2) !important;
+  color: var(--accent);
+  font-size: var(--lp-small);
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
-.footer-links {
+.lp-step-num::before { content: 'ステップ '; }
+
+/* 育てる仕組み */
+.lp-grow { background: var(--surface); border-block: 1px solid var(--separator); }
+.lp-grow-grid { display: grid; gap: var(--space-16); }
+.lp-grow-item p { color: var(--text-2); margin-bottom: var(--space-8); max-width: 30em; }
+
+/* 読む前と、読み終えた本にも */
+.lp-more-grid { display: grid; gap: var(--space-4); }
+.lp-more-list { margin: 0; }
+.lp-more-list > div {
+  padding: var(--space-6) 0;
+  border-top: 1px solid var(--separator);
+}
+.lp-more-list > div:last-child { border-bottom: 1px solid var(--separator); }
+.lp-more-list dt { font-size: 17px; font-weight: 700; margin-bottom: var(--space-1); }
+.lp-more-list dd { margin: 0; color: var(--text-2); }
+
+/* 比較表 */
+.lp-compare { background: var(--surface); border-block: 1px solid var(--separator); }
+.lp-compare > .lp-wrap > p { color: var(--text-2); }
+.lp-table {
+  width: 100%;
+  margin-top: var(--space-8);
+  border-collapse: collapse;
+  font-size: 15px;
+  line-height: 1.6;
+  table-layout: fixed;
+}
+.lp-table th, .lp-table td {
+  word-break: auto-phrase;
+  padding: var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--separator);
+  text-align: left;
+  vertical-align: top;
+}
+.lp-table thead th { font-size: var(--lp-small); color: var(--text-2); font-weight: 600; }
+.lp-table thead th.is-us { color: var(--accent); font-weight: 700; }
+.lp-table tbody th { width: 26%; color: var(--text-2); font-weight: 600; font-size: var(--lp-small); }
+.lp-table td { color: var(--text-2); }
+.lp-table td.is-us { color: var(--text); font-weight: 700; }
+.lp-table .is-us { background: var(--accent-soft); }
+.lp-phrase { display: inline-block; }
+/* スマホ: 3 列だと窮屈なので、項目名を 1 行目に出して 2 列で比べる */
+@media (max-width: 767px) {
+  .lp-table thead tr, .lp-table tbody tr { display: grid; grid-template-columns: 1fr 1fr; }
+  .lp-table thead td { display: none; }
+  .lp-table tbody th[scope="row"] {
+    grid-column: 1 / -1;
+    width: auto;
+    padding-bottom: 0;
+    border-bottom: 0;
+    color: var(--text);
+  }
+  .lp-table tbody td { padding-top: var(--space-2); }
+}
+
+/* 料金 */
+.lp-trial { color: var(--accent); font-weight: 700; margin-bottom: var(--space-4) !important; }
+.lp-plans { display: grid; gap: var(--space-3); }
+.lp-plan {
+  padding: var(--space-6);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.lp-plan.is-recommended { border: 2px solid var(--accent); padding: calc(var(--space-6) - 1px); }
+.lp-plan-name { display: flex; align-items: center; gap: var(--space-2); font-weight: 700; }
+.lp-plan-tag {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--lp-caption);
+  line-height: 22px;
+}
+.lp-plan-price {
+  margin-top: var(--space-2) !important;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.lp-plan-price span { margin-left: var(--space-1); font-size: 15px; font-weight: 400; color: var(--text-2); }
+.lp-plan-sub { word-break: auto-phrase; margin-top: var(--space-1) !important; color: var(--text-2); font-size: 15px; }
+.lp-plan.is-recommended .lp-plan-sub { color: var(--text); font-weight: 600; }
+.lp-included { list-style: none; margin: var(--space-8) 0 0; padding: 0; display: grid; gap: var(--space-3); }
+.lp-included li { display: flex; gap: var(--space-3); align-items: flex-start; }
+.lp-included svg { flex-shrink: 0; margin-top: 5px; color: var(--success); }
+
+/* FAQ */
+.lp-faq { border-top: 1px solid var(--separator); }
+.lp-pricing .lp-cta-note { max-width: none; }
+.lp-faq-list { border-top: 1px solid var(--separator); }
+.lp-faq-item { border-bottom: 1px solid var(--separator); }
+.lp-faq-item summary {
   display: flex;
-  justify-content: center;
-  gap: 8px 24px;
-  margin: 0 0 24px;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 56px;
+  padding: var(--space-4) 0;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  line-height: 1.6;
 }
-.footer-links a {
-  color: #fff;
-  font-size: 12px;
-  opacity: 0.72;
-  text-decoration: none;
-  letter-spacing: 0.05em;
-  padding: 8px 0;
-  display: inline-block;
-}
-.footer-links a:hover { opacity: 1; text-decoration: underline; }
-.copyright { font-size: 11px; opacity: 0.5; margin: 0; }
-.build-stamp {
-  font-size: 10px;
-  color: #9a917f; /* #1c1a17 地でコントラスト 4.5:1 以上 */
-  margin: 8px 0 0;
-  letter-spacing: 0.3px;
+.lp-faq-item summary::-webkit-details-marker { display: none; }
+.lp-faq-mark { flex-shrink: 0; color: var(--text-2); transition: transform var(--duration-fast, 150ms) ease; }
+.lp-faq-item[open] .lp-faq-mark { transform: rotate(180deg); }
+.lp-faq-item p { padding: 0 0 var(--space-6); color: var(--text-2); }
+
+/* 最終 CTA（ここだけ中央揃え） */
+.lp-final { padding: var(--lp-sec) 0; background: var(--surface); border-top: 1px solid var(--separator); }
+.lp-final-inner { text-align: center; }
+.lp-final-inner > * { margin-left: auto; margin-right: auto; }
+.lp-final-inner .lp-cta-note { margin-left: auto; margin-right: auto; }
+.lp-story {
+  margin: var(--space-12) auto 0 !important;
+  max-width: 28em;
+  color: var(--text-2);
+  font-size: var(--lp-small);
+  line-height: 1.8;
 }
 
-/* ============ フェードイン ============ */
-.fade-in {
-  opacity: 1;
+/* 利用者の声（実在の声があるときだけ） */
+.lp-voice { margin: 0 0 var(--space-8); }
+.lp-voice blockquote { margin: 0; font-size: 17px; }
+.lp-voice figcaption { margin-top: var(--space-2); color: var(--text-2); font-size: var(--lp-small); }
+
+/* フッター */
+.lp-footer {
+  padding: var(--space-12) 0 calc(var(--space-12) + 72px + env(safe-area-inset-bottom));
+  color: var(--text-2);
+  font-size: var(--lp-small);
+}
+.lp-footer-brand { color: var(--text); font-size: 17px; font-weight: 700; }
+.lp-footer-op { margin-top: var(--space-1) !important; }
+.lp-footer-links { display: flex; flex-wrap: wrap; gap: 0 var(--space-6); margin-top: var(--space-4); }
+.lp-footer-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--text-2) !important;
+}
+.lp-footer-copy { margin-top: var(--space-4) !important; }
+.lp-footer-build { margin-top: var(--space-1) !important; color: var(--text-3); font-size: var(--lp-caption); }
+
+/* ============ 下部の固定ボタン（スマホ・ヒーローのボタンが外れてから） ============ */
+.lp-sticky {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--lp-gutter) calc(var(--space-3) + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--separator);
+  transform: translateY(110%);
+  visibility: hidden;
+  transition: transform var(--duration-base, 250ms) ease, visibility 0s linear var(--duration-base, 250ms);
+}
+.lp-sticky.is-visible {
   transform: none;
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  visibility: visible;
+  transition: transform var(--duration-base, 250ms) ease;
 }
-.lp-root.js-ready .fade-in:not(.visible) {
-  opacity: 0;
-  transform: translateY(18px);
-}
-.fade-in.visible {
-  opacity: 1 !important;
-  transform: none !important;
-}
+.lp-sticky .lp-btn { flex: 1; }
 
-/* ============ reduced motion ============ */
 @media (prefers-reduced-motion: reduce) {
-  .fade-in,
-  .lp-root.js-ready .fade-in:not(.visible) {
-    opacity: 1 !important;
-    transform: none !important;
-    transition: none;
-  }
-  .sticky-cta { transition: none; }
-  .phone-frame.float { animation: none; }
-  .skip-link { transition: none; }
+  .lp-sticky, .lp-sticky.is-visible, .lp-faq-mark, .lp-btn { transition: none; }
 }
 
-/* ============ Tablet / Desktop (≥768px) ============ */
+/* ============ タブレット以上 ============ */
 @media (min-width: 768px) {
-  .sp-only { display: none; }
-  .pc-only { display: inline; }
+  .lp-root { --lp-sec: 96px; --lp-gutter: 32px; --lp-body: 17px; --lp-h1: clamp(40px, 5.2vw, 56px); }
+  .lp-header-cta { display: inline-flex; }
+  .lp-sticky { display: none; }
+  .lp-footer { padding-bottom: var(--space-12); }
 
-  .lp-root main section { padding: 110px 32px; max-width: 720px; }
-  .lp-header-inner { padding: 0 28px; }
+  .lp-hero { padding: var(--space-16) 0 var(--lp-sec); }
+  .lp-hero-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); align-items: center; gap: var(--space-16); }
+  .lp-lead { font-size: 19px; }
+  .lp-shot { width: 300px; }
 
-  .hero { padding: calc(var(--header-h) + 84px) 32px 110px !important; }
-  .hero-subhead { line-height: 2.3; }
-  .hero-mockup { margin-top: 64px; }
+  /* 文と画面写真を近づけ、左端は見出しにそろえる（左右は段ごとに入れ替える） */
+  .lp-step { grid-template-columns: minmax(0, 26em) auto; justify-content: start; gap: var(--space-16); }
+  .lp-step-flip { grid-template-columns: auto minmax(0, 26em); }
+  .lp-step-flip .lp-step-text { order: 2; }
+  .lp-step-list { gap: var(--space-16); margin-top: var(--space-12); }
 
-  .section-headline { font-size: 38px; }
-  .section-headline br { /* デスクトップでは 1 行に収まる見出しもあるが、リズム優先で改行を維持 */ }
+  .lp-grow-grid { grid-template-columns: 1fr 1fr; gap: var(--space-12); }
+  .lp-grow-item .lp-shot { margin: 0; }
 
-  .sticky-cta { display: none; }
+  .lp-more-grid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-16); align-items: start; }
 
-  /* 行動セクション: 左テキスト / 右スクショの 2 カラム */
-  .feature-split {
-    flex-direction: row;
-    gap: 56px;
-    justify-content: center;
-    align-items: center;
-    text-align: left;
-  }
-  .feature-split-text { text-align: left; flex: 1; max-width: 400px; }
-  .feature-alt .feature-split { max-width: 820px; margin-left: auto; margin-right: auto; }
-
-  /* 読書脳: 横並び Q→A */
-  .screenshot-pair { flex-direction: row; align-items: flex-start; gap: 26px; }
-  .screenshot-arrow { transform: none; margin-top: 220px; }
-
-  /* 読む前: 3 カラムカード */
-  .before-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-  }
-  .before-screens { gap: 32px; }
-
-  .compare-row { grid-template-columns: 6.5em minmax(0, 1fr) minmax(0, 1fr); }
-  .compare-col { font-size: 14px; padding: 17px 16px; }
-
-  .story-card { padding: 56px 56px; }
-
-  .final-cta { padding: 120px 32px !important; }
+  .lp-plans { grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  .lp-table { font-size: var(--lp-body); }
+  .lp-table th, .lp-table td { padding: var(--space-4); }
 }
 
-/* 大画面: 余白をさらに */
 @media (min-width: 1100px) {
-  .lp-root main section { max-width: 760px; }
+  .lp-root { --lp-sec: 128px; }
+  .lp-shot { width: 320px; }
 }

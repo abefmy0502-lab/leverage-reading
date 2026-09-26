@@ -91,6 +91,7 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 ├── public/                             # 静的アセット (manifest.json, icons/, sw.js)
 ├── scripts/generate-icons.js           # PWA アイコン生成 (`npm run icons`)
 ├── scripts/ui-shots.mjs                # 📸 主要画面の明暗スクショ（`npm run ui:shots -- <ラベル> [画面名…]`）
+├── scripts/lp-shots.mjs                # 📸 LP に載せるアプリ画面の写真を撮り直す（`npm run demo` → `npm run lp:shots` → public/lp/*.webp）
 ├── SPEC.md / DESIGN.md                 # 🎨 画面の役割 / 見た目のルール（UI を触る前に必ず読む）
 ├── src/
 │   ├── App.jsx                         # メインルーティング、状態管理、画面切替

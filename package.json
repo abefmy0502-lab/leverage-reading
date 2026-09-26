@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "icons": "node scripts/generate-icons.js",
     "demo": "VITE_DEMO=true vite",
-    "ui:shots": "node scripts/ui-shots.mjs"
+    "ui:shots": "node scripts/ui-shots.mjs",
+    "lp:shots": "node scripts/lp-shots.mjs"
   },
   "dependencies": {
     "@capacitor-community/apple-sign-in": "^7.1.0",
