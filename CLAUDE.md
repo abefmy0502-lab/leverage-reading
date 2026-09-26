@@ -360,6 +360,7 @@ update feedback
 
 ## 開発時の注意
 
+- **🧪 お試しモード（開発専用）**: `npm run demo` → http://localhost:5173/ で、Supabase / AI に繋がずにサンプルデータ入りのアプリを操作できる（`src/demo/`。`?demo=new`=新規ユーザー・`?demo=auth`=未ログイン・既定=半年使い込んだユーザー）。データはメモリのみで再読み込みで初期化。AI はサンプル応答（マイ読書脳だけは入っているメモから質問に近いものを選んで本番と同じ書式で答える）。`lib/supabase.js` の `isDemo` は `import.meta.env.DEV` 限定なので本番バンドルには含まれない。Supabase を使う新しいクエリ（新しい演算子等）を追加したら `src/demo/demoClient.js` の対応範囲も確認する
 - **IME 変換中の Enter** は `e.nativeEvent.isComposing` で必ず保護する（誤送信防止）
 - **iOS Safari ズーム対策**で `input` / `textarea` / `select` は `font-size: 16px 以上` を維持（共通スタイル `inp` / `ta` を使えば自動）
 - **削除操作は楽観的 UI + Undo パターン**: 即 DB DELETE → スナップショットから 5 秒以内なら restore-on-undo（タイマーベースの遅延削除は禁止 — タブ閉じで取り戻せなくなる）

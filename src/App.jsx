@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
 import { sanitizeForPrompt } from './lib/ai';
@@ -76,7 +77,7 @@ const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
 const SctPage = lazy(() => import('./legal/SctPage'));
-import { supabase as supabaseClient } from './lib/supabase';
+import { supabase as supabaseClient, isDemo } from './lib/supabase';
 import { track } from './lib/analytics';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
@@ -128,7 +129,6 @@ import {
   Target,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
 
 
 
@@ -4861,7 +4861,9 @@ function PaywallGate() {
   //    提供する方針のため、管理者でないブラウザ利用者は（課金の有無・スキーマ状態に
   //    関わらず）アプリへ誘導する。管理者(adminBypass)は検証のためブラウザ利用を許可。
   //    ネイティブ(isNative)は当然すべて通常フロー。
-  if (!isNative && !adminBypass) {
+  //    お試しモード（開発専用・isDemo）はブラウザでアプリ本体を確認するための
+  //    ものなので素通しする（本番ビルドでは isDemo は常に false）。
+  if (!isNative && !adminBypass && !isDemo) {
     return (
       <Shell>
         <WebAppOnlyGate />

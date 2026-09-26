@@ -1,0 +1,186 @@
+// 🧪 お試しモード（開発専用）のサンプルデータ。
+// 「半年ほど使い込んだビジネスパーソン」の本棚を再現する。メモは書籍からの
+// 引用ではなく、読み手自身の言葉で書いた気づき（著作物の転載を避けるため）。
+// 日付は起動時点からの相対（daysAgo）で生成するので、いつ開いても自然に見える。
+
+export const DEMO_USER_ID = '00000000-0000-4000-8000-00000000d3e0';
+
+const COLORS = [
+  ['#2f4858', '#f6f1e7'], ['#7a3b2e', '#fbeee0'], ['#1f5f5b', '#eef6f3'],
+  ['#3d3a6b', '#f1effa'], ['#8a5a14', '#fdf4e3'], ['#274060', '#eaf0f8'],
+  ['#5c2a4a', '#f9ecf3'], ['#35553a', '#edf5ea'], ['#6b4b2a', '#f7efe5'],
+  ['#44475a', '#f0f0f4'],
+];
+
+// 表紙は外部画像を使わず SVG を data URI で描く（オフラインでも本棚らしく見せる）。
+function coverSvg(title, author, i) {
+  const [bg, fg] = COLORS[i % COLORS.length];
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const lines = [];
+  for (let k = 0; k < title.length; k += 7) lines.push(title.slice(k, k + 7));
+  const titleSvg = lines.slice(0, 4).map((l, idx) =>
+    `<text x="20" y="${70 + idx * 30}" font-size="24" font-weight="700" fill="${fg}" font-family="serif">${esc(l)}</text>`,
+  ).join('');
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">` +
+    `<rect width="200" height="300" fill="${bg}"/>` +
+    `<rect x="12" y="12" width="176" height="276" fill="none" stroke="${fg}" stroke-opacity="0.35"/>` +
+    titleSvg +
+    `<text x="20" y="270" font-size="13" fill="${fg}" fill-opacity="0.85" font-family="sans-serif">${esc(author)}</text>` +
+    `</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+const iso = (daysAgo, hour = 21) => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  d.setHours(hour, (daysAgo * 7) % 60, 0, 0);
+  return d.toISOString();
+};
+const dateOnly = (daysAgo) => iso(daysAgo).slice(0, 10);
+
+// [title, author, isbn, status, startedDaysAgo, doneDaysAgo, rating, purpose, tags]
+const BOOKS = [
+  ['レバレッジ・リーディング', '本田直之', '9784492555938', 'done', 190, 182, 5,
+    '読んだ本を仕事の成果に変えるやり方を知りたい', ['読書術']],
+  ['イシューからはじめよ', '安宅和人', '9784862760852', 'done', 160, 150, 5,
+    '会議や企画で「何を考えるべきか」を外さないようにしたい', ['思考法', '仕事術']],
+  ['エッセンシャル思考', 'グレッグ・マキューン', '9784761270438', 'done', 130, 121, 4,
+    '仕事を抱えすぎて手が回らない状態を抜け出したい', ['仕事術', '時間']],
+  ['人を動かす', 'D・カーネギー', '9784422100517', 'done', 110, 98, 5,
+    'チームのメンバーとの関係をよくしたい', ['マネジメント', 'コミュニケーション']],
+  ['嫌われる勇気', '岸見一郎・古賀史健', '9784478025819', 'done', 90, 80, 4,
+    '人の評価を気にしすぎる自分を変えたい', ['心理学']],
+  ['アウトプット大全', '樺沢紫苑', '9784864106368', 'done', 70, 64, 4,
+    '学んだことを忘れずに使えるようにしたい', ['読書術', '習慣']],
+  ['数値化の鬼', '安藤広大', '9784478114445', 'reading', 20, null, 0,
+    'チームの成果をきちんと測って伸ばしたい', ['マネジメント']],
+  ['1兆ドルコーチ', 'エリック・シュミット', '9784478107249', 'reading', 9, null, 0,
+    '1on1 でメンバーの力を引き出せるようになりたい', ['マネジメント', 'コミュニケーション']],
+  ['LIFE SHIFT', 'リンダ・グラットン', '9784492533871', 'before', null, null, 0, '', ['キャリア']],
+  ['チーズはどこへ消えた？', 'スペンサー・ジョンソン', '9784594025551', 'want', null, null, 0, '', ['キャリア']],
+];
+
+// [bookIndex | null, page, text, daysAgo, tags, recallCount]
+const MEMOS = [
+  [0, 32, '読書は「投資」。1冊から1つでも行動が変われば元は取れる。全部覚えようとしなくていい。', 188, ['読書術'], 2],
+  [0, 58, '目的を決めてから読むと、必要なところが勝手に目に入ってくる。読む前に「この本で何を解決したいか」を一行書く。', 186, [], 1],
+  [0, 120, '読んだあとに自分用のメモを作り、何度も見返すのが本番。本を読むのは準備にすぎない。', 183, [], 0],
+  [1, 25, '答えを出す前に「本当に答えるべき問い（イシュー）」かを確かめる。忙しさの大半は、解かなくていい問いに取り組んでいることから来る。', 158, ['思考法'], 2],
+  [1, 47, 'よいイシューの条件は「本質的な選択肢であること」「深い仮説があること」「答えを出せること」。', 156, [], 1],
+  [1, 88, '分析の前にストーリーラインと絵コンテを作る。どんなグラフがあれば結論を言えるかを先に考える。', 152, ['仕事術'], 0],
+  [1, null, '部長への報告で、結論より経緯を先に話してしまう癖がある。「この報告で決めてほしいことは何か」から話す。', 151, [], 0],
+  [2, 18, '「全部やる」はできない。やらないことを決めることが、いちばん大事な仕事。', 128, ['仕事術'], 3],
+  [2, 64, '頼まれごとに即答しない。「確認して返事します」と一度持ち帰ると、断る余地が生まれる。', 126, [], 1],
+  [2, 102, '迷ったら「絶対にやりたい」と思えないものは、すべて「やらない」にする（90点ルール）。', 124, [], 0],
+  [2, 150, '予定を詰めすぎない。予備の時間（バッファ）を最初からカレンダーに入れておく。', 122, ['時間'], 0],
+  [3, 30, '人は自分が重要だと感じたいもの。相手の名前を覚えて呼ぶだけで関係が変わる。', 108, ['コミュニケーション'], 2],
+  [3, 76, '批判しても人は変わらない。まず相手の立場で「なぜそうしたのか」を考える。', 105, [], 1],
+  [3, 142, '人に動いてもらうには、命令ではなく質問で。「どうすればうまくいくと思う？」と聞く。', 101, ['マネジメント'], 0],
+  [3, null, '後輩の資料のミスを、みんなの前で指摘してしまった。次は1対1で、先によかった点から伝える。', 99, [], 0],
+  [4, 40, '他人の課題と自分の課題を分ける。相手が自分をどう評価するかは「相手の課題」。', 88, ['心理学'], 2],
+  [4, 132, '承認を求めて生きると、他人の人生を生きることになる。貢献している感覚があれば、それで十分。', 84, [], 1],
+  [4, 210, '「いま、ここ」に集中する。過去の失敗も、将来の不安も、今日やることを変えない。', 81, [], 0],
+  [5, 22, 'インプットとアウトプットの黄金比は 3:7。読んだら話す・書く・行動する。', 68, ['読書術', '習慣'], 1],
+  [5, 71, '2週間に3回使った情報は記憶に残る。読んだ内容は、その週のうちに誰かに話す。', 66, ['習慣'], 0],
+  [5, 180, '寝る前の15分は記憶のゴールデンタイム。1日の学びを3行で書いてから寝る。', 65, [], 0],
+  [6, 15, '「頑張ります」は計測できない。行動を「数」で決める（例：週に3件、先方に電話する）。', 18, ['マネジメント'], 0],
+  [6, 48, '結果の数字より、それを生む行動の数字（KPI）を見る。行動量が足りないのか、やり方が悪いのかを分けて考える。', 14, [], 0],
+  [6, null, 'チームの週次ミーティングで「件数」だけでなく「次の一週間で何件やるか」を各自に言ってもらう。', 12, [], 0],
+  [7, 33, 'よいマネージャーは答えを与えるのではなく、問いで考えさせる。', 7, ['マネジメント'], 0],
+  [7, 61, '1on1 は仕事の話の前に、相手の近況や家族の話から始める。人として関心を持っていることを伝える。', 5, ['コミュニケーション'], 0],
+  [7, 95, 'チームの勝利が最優先。個人の手柄より、チームが勝つための判断をする。', 2, [], 0],
+  [null, null, '会議で意見が割れたときは「そもそも何を決める会議か」を最初に確認すると早く終わる。', 60, ['仕事術'], 0],
+  [null, null, '上司に相談するときは、選択肢を2つ用意して「私はAがいいと思います」まで言う。', 45, ['仕事術'], 0],
+  [null, null, '忙しい週ほど、朝の15分で「今日やらないこと」を決めると夕方に余裕が残る。', 30, ['時間'], 0],
+];
+
+// [bookIndex, text, done, daysAgo, priority, deadlineInDays | null]
+const ACTIONS = [
+  [0, '本を読む前に「解決したいこと」を一行書く', true, 180, 'medium', null],
+  [1, '報告は「決めてほしいこと」から話す', true, 150, 'high', null],
+  [1, '企画書を作る前に、結論のストーリーを箇条書きで作る', false, 148, 'medium', 5],
+  [2, '頼まれごとは一度「確認して返事します」と持ち帰る', true, 125, 'high', null],
+  [2, 'カレンダーに毎日30分のバッファを入れる', false, 120, 'medium', 2],
+  [3, '後輩へのフィードバックは1対1で、よかった点から伝える', true, 98, 'high', null],
+  [4, '人の評価が気になったら「これは誰の課題？」と自分に聞く', true, 80, 'low', null],
+  [5, '読んだ本の内容を、その週のうちに誰かに話す', false, 64, 'medium', 1],
+  [6, '週次ミーティングで各自の行動目標を「数」で言ってもらう', false, 12, 'high', 4],
+  [7, '次の1on1 は近況の話から始める', false, 5, 'medium', 3],
+];
+
+export function buildSeed(scenario) {
+  const now = new Date().toISOString();
+  const db = {
+    books: [], book_tags: [], book_collections: [], actions: [], book_memos: [],
+    chat_messages: [], theme_reports: [], advisor_sessions: [], push_subscriptions: [],
+    analytics_events: [], feedback: [], account_deletion_requests: [],
+    subscriptions: [{
+      user_id: DEMO_USER_ID, status: 'active', provider: 'demo', price_id: 'demo',
+      current_period_end: iso(-30), created_at: iso(200), updated_at: now,
+    }],
+  };
+  if (scenario === 'new') return db;
+
+  const bookIds = BOOKS.map((_, i) => `00000000-0000-4000-8000-0000000b00${String(i).padStart(2, '0')}`);
+  BOOKS.forEach(([title, author, isbn, status, started, done, rating, purpose, tags], i) => {
+    const createdDays = (started ?? 30 - i) + 3;
+    db.books.push({
+      id: bookIds[i], user_id: DEMO_USER_ID, title, author, isbn, asin: '',
+      cover: coverSvg(title, author, i), cover_isbn: 'manual', added_via: 'search',
+      status, rating,
+      start_date: started != null ? dateOnly(started) : null,
+      done_date: done != null ? dateOnly(done) : null,
+      invest_purpose: purpose, current_challenge: '', hypothesis: '', book_reason: '',
+      ai_analysis: '', ai_strategy: '', leverage_memo: '', ai_summary: '', roi_summary: '',
+      source_query: '', current_page: null, total_pages: 240,
+      created_at: iso(createdDays), updated_at: iso(done ?? started ?? createdDays),
+    });
+    tags.forEach((tag) => db.book_tags.push({
+      id: `${bookIds[i]}-t-${tag}`, book_id: bookIds[i], user_id: DEMO_USER_ID, tag_name: tag,
+    }));
+  });
+
+  MEMOS.forEach(([bi, page, text, daysAgo, tags, recallCount], i) => {
+    db.book_memos.push({
+      id: `00000000-0000-4000-8000-0000000c${String(i).padStart(4, '0')}`,
+      user_id: DEMO_USER_ID,
+      book_id: bi == null ? null : bookIds[bi],
+      source_type: bi == null ? 'personal' : 'book',
+      page_number: page, text, photo_path: null, tags,
+      last_recalled_at: recallCount > 0 ? iso(Math.max(1, daysAgo - 20)) : null,
+      recall_count: recallCount,
+      created_at: iso(daysAgo), updated_at: iso(daysAgo),
+    });
+  });
+
+  ACTIONS.forEach(([bi, text, done, daysAgo, priority, deadlineIn], i) => {
+    db.actions.push({
+      id: `00000000-0000-4000-8000-0000000a${String(i).padStart(4, '0')}`,
+      user_id: DEMO_USER_ID, book_id: bookIds[bi], text, done, priority,
+      deadline: deadlineIn != null ? dateOnly(-deadlineIn) : null,
+      recurrence: null, source_memo_id: null, source_page: null, reflection: '',
+      completed_at: done ? iso(Math.max(1, daysAgo - 3)) : null,
+      notify_at: null, scheduled_for: null,
+      created_at: iso(daysAgo), updated_at: iso(daysAgo),
+    });
+  });
+
+  return db;
+}
+
+// 本の検索（Google Books 互換の応答）で返す、追加用の候補カタログ。
+export const SEARCH_CATALOG = [
+  ['7つの習慣', 'スティーブン・R・コヴィー', '9784863940246', 'キングベアー出版', '2013'],
+  ['影響力の武器', 'ロバート・B・チャルディーニ', '9784414304237', '誠信書房', '2014'],
+  ['ファクトフルネス', 'ハンス・ロスリング', '9784822289607', '日経BP', '2019'],
+  ['伝え方が9割', '佐々木圭一', '9784478017234', 'ダイヤモンド社', '2013'],
+  ['メモの魔力', '前田裕二', '9784344034075', '幻冬舎', '2018'],
+  ['FACTFULNESS', 'ハンス・ロスリング', '9784822289607', '日経BP', '2019'],
+  ['思考の整理学', '外山滋比古', '9784480020475', '筑摩書房', '1986'],
+  ['時間術大全', 'ジェイク・ナップ', '9784478107157', 'ダイヤモンド社', '2019'],
+  ['GRIT やり抜く力', 'アンジェラ・ダックワース', '9784478064801', 'ダイヤモンド社', '2016'],
+  ['大事なことに集中する', 'カル・ニューポート', '9784478068540', 'ダイヤモンド社', '2016'],
+  ['レバレッジ時間術', '本田直之', '9784344980372', '幻冬舎', '2007'],
+  ['プロフェッショナルマネジャー', 'ハロルド・ジェニーン', '9784833418485', 'プレジデント社', '2004'],
+];
