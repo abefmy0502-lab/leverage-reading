@@ -84,6 +84,7 @@ Orime をリリースしました。読んだ本のメモが積み重なるほ�
 ## URL
 
 - サポートURL: `https://orime.vercel.app/legal/sct`（または専用問い合わせ）
+- サポートのメール: `orime.support@gmail.com`（App Store Connect の「App Review に関する情報」の連絡先にも使える）
 - マーケティングURL: `https://orime.vercel.app`
 - プライバシーポリシー: `https://orime.vercel.app/legal/privacy`
 - 利用規約(EULA): `https://orime.vercel.app/legal/terms`

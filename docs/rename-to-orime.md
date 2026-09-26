@@ -23,7 +23,7 @@
    - 旧アドレス `leverage-reading.vercel.app` も、そのまま動き続ける。古いリンクは切れない。
    - プロジェクト名（Settings → General → Project Name）も `orime` に変えておくと、管理画面で迷わない。変えなくても動く。
 
-## 手順 2. 問い合わせ用の Gmail を作る（10 分・0 円）
+## 手順 2. 問い合わせ用の Gmail を作る（10 分・0 円）✅ 2026-09-26 完了（orime.support@gmail.com・コードの既定値にも設定済み）
 1. Google アカウントの作成画面で、新しいアカウントを作る。
    - 名前は「Orime」など。
    - アドレスは `orime.support@gmail.com` などを試す。使われていたら `orime.app.support` など、Orime が入った名前で探す。
@@ -52,7 +52,7 @@
    | `VITE_SITE_URL` | `https://orime.vercel.app`（コードの既定値も orime.vercel.app にしたので、入れなくてもよい） |
    | `APP_ORIGIN` | `https://orime.vercel.app` |
    | `RAKUTEN_APP_URL` | `https://orime.vercel.app` |
-   | `VITE_SUPPORT_EMAIL` | 手順 2 で作った Gmail のアドレス |
+   | `VITE_SUPPORT_EMAIL` | 不要（コードの既定値が orime.support@gmail.com） |
 
    - URL の末尾に `/` を付けない。
    - `RAKUTEN_APP_URL` がすでにある場合は、⋯ → Edit で値を書き換える。
