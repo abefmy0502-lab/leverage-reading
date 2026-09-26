@@ -5,7 +5,6 @@
 // so it appears even before Auth state resolves.
 
 import { useEffect, useState } from 'react';
-import { getRandomQuote } from '../lib/quotes';
 
 const KEYFRAMES_ID = '__leverage-splash-keyframes';
 function ensureKeyframes() {
@@ -34,10 +33,6 @@ function ensureKeyframes() {
 export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
   ensureKeyframes();
   const [fading, setFading] = useState(false);
-  // Lazy initializer — runs exactly once on first render, never on module load.
-  const [quote] = useState(() =>
-    getRandomQuote(['reading', 'selfInvestment', 'wisdom', 'encouragement'])
-  );
 
   useEffect(() => {
     const fadeTimer = setTimeout(() => setFading(true), durationMs - 220);
@@ -54,7 +49,8 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
         position: 'fixed',
         inset: 0,
         zIndex: 'var(--z-splash)',
-        background: '#EDE0CA',
+        // 背景は画面の背景と同じ（明るい画面・暗い画面の両方で継ぎ目なく本体へ）。
+        background: 'var(--bg)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -67,49 +63,29 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
       role="presentation"
       aria-hidden="true"
     >
+      {/* アイコンと名前だけ（飾りの名言・旧タグラインは撤去・DESIGN §0）。 */}
       <div
         className="leverage-splash-content"
         style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 6,
+          gap: 'var(--space-3)',
           animation: 'leverage-splash-pop .55s cubic-bezier(0.2,0.9,0.3,1) both',
         }}
       >
         <img
-          src="/logo-lockup.png"
-          alt="Orime"
-          width={208}
-          height={193}
+          src="/icons/icon-192.png"
+          alt=""
+          width={88}
+          height={88}
           loading="eager"
           fetchpriority="high"
-          style={{ width: 208, height: 'auto', aspectRatio: '430 / 400', display: 'block' }}
+          style={{ width: 88, height: 88, borderRadius: 20, display: 'block' }}
         />
-        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', margin: '4px 0 0', letterSpacing: 1 }}>
-          読みっぱなしを、やめる。
+        <p style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, letterSpacing: '0.02em' }}>
+          Orime
         </p>
-      </div>
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 'calc(40px + env(safe-area-inset-bottom, 0px))',
-          left: 20,
-          right: 20,
-          textAlign: 'center',
-          color: 'var(--c-ink-2)',
-          opacity: 0.85,
-          animation: 'leverage-splash-pop .55s cubic-bezier(0.2,0.9,0.3,1) both',
-          animationDelay: '.15s',
-          fontFamily: "var(--font-app)",
-        }}
-      >
-        <p style={{ fontSize: 13, lineHeight: 1.7, fontStyle: 'italic', margin: 0 }}>
-          “{quote.text}”
-        </p>
-        {quote.author && (
-          <p style={{ fontSize: 11, opacity: 0.75, margin: '4px 0 0' }}>— {quote.author}</p>
-        )}
       </div>
     </div>
   );

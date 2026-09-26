@@ -2,15 +2,15 @@
   "id": "/",
   "name": "Orime",
   "short_name": "Orime",
-  "description": "読みっぱなしを、やめる。気づきを後から呼び戻し、行動に変える読書アプリ",
+  "description": "読むほど、自分だけの相談相手が育つ。読んだ本のメモを根拠に、困ったときに答えが返ってくる読書アプリ",
   "lang": "ja",
   "dir": "ltr",
   "categories": ["books", "education", "productivity"],
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#EDE0CA",
-  "theme_color": "#8A7040",
+  "background_color": "#f7f5f1",
+  "theme_color": "#f7f5f1",
   "orientation": "portrait",
   "icons": [
     {

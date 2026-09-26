@@ -18,9 +18,10 @@ initSentry();
 // 初期化する。Web / PWA では内部で即 return するので無害。
 initNative();
 
-// 🌙 暗い画面は、全画面のトークン化が終わるまで開発・お試しモードでだけ有効にする
-// （tokens.css の :root[data-dark-ready]。直書きの色が残る画面で崩れないように）。
-if (import.meta.env.DEV) document.documentElement.setAttribute('data-dark-ready', '');
+// 🌙 暗い画面を有効にする（tokens.css の :root[data-dark-ready]）。
+// 2026-09-26: 全画面のトークン化が終わったので本番でも有効化（DESIGN.md §8 の手順 5）。
+// 端末の設定（ライト／ダーク）に自動で従う。問題が出たら、この 1 行を消せば明るい画面だけに戻る。
+document.documentElement.setAttribute('data-dark-ready', '');
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

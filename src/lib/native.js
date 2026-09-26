@@ -7,7 +7,7 @@
 // (= Web バンドルが膨らまない)。
 //
 // 役割:
-//   - StatusBar: 明るい背景 (#EDE0CA) に合わせて文字色を「濃いめ」に固定
+//   - StatusBar: 端末のライト／ダークに合わせて文字色を自動で切り替える
 //   - SplashScreen: React がマウントし切った後に手動で隠す (白フラッシュ回避)
 //   - Keyboard: ネイティブのリサイズモードに統一 (BottomNav と入力欄の重なり対策)
 
@@ -16,10 +16,11 @@ import { Capacitor } from '@capacitor/core';
 export async function initNative() {
   if (!Capacitor.isNativePlatform()) return;
 
-  // StatusBar — 明るい背景なので Style.Light (= 濃い文字) を使う。
+  // StatusBar — 端末のライト／ダークに自動で合わせる（Style.Default）。
+  // 2026-09-26 に暗い画面を有効化。旧: 明るい背景に固定の Style.Light（濃い文字）。
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar');
-    await StatusBar.setStyle({ style: Style.Light });
+    await StatusBar.setStyle({ style: Style.Default });
   } catch {
     /* StatusBar 未対応プラットフォームでは無視 */
   }
