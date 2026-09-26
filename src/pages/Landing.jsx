@@ -12,7 +12,7 @@
 // 誠実さの約束（旧版から継承）:
 //   - 架空のユーザー数・お客様の声・効果数値は書かない（声は TESTIMONIALS に実在のものだけ）
 //   - 実装されていない機能を約束しない。画面写真はお試しモード（サンプルのメモ）で撮った
-//     実際のアプリ（public/lp/*.webp。撮り直しは npm run demo → npm run lp:shots）
+//     実際のアプリ（public/lp の WebP。撮り直しは npm run demo → npm run lp:shots）
 //   - 無料トライアルは App Store の設定しだいなので env（VITE_TRIAL_NOTE）がある時だけ出す
 //
 // 技術ノート:
