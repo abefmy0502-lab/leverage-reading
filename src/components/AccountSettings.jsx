@@ -419,7 +419,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         if (res.ok) {
           setPushOn(true);
           track(EVENTS.PUSH_ENABLED); // ON 成功時のみ（props なし・fire-and-forget）
-          toast.success('通知をオンにしました。メモが育つと、忘れた頃にそっと戻ってきます。');
+          toast.success('通知をオンにしました');
         } else if (res.reason === 'denied') {
           setPushDenied(true);
           toast.error('通知が許可されていません。端末の設定からオンにできます。');
