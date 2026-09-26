@@ -233,7 +233,7 @@ function FlowRow({ cells }) {
         const inner = (
           <>
             <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
-            <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+            <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
               {c.label}
               {c.onClick && <ChevronRight size={10} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
             </span>
@@ -356,12 +356,12 @@ function Heatmap({ dateStrings, weeks = 16 }) {
   const CELL = 14;
   const GAP = 4;
   return (
-    <div aria-label={`直近${weeks}週間の活動。読書の記録があった日は ${activeDays} 日`}>
-      <div style={{ display: 'flex', gap: GAP, marginTop: 10, justifyContent: 'center' }} aria-hidden="true">
+    <div role="img" aria-label={`直近${weeks}週間の活動。読書の記録があった日は ${activeDays} 日`}>
+      <div style={{ display: 'flex', gap: GAP, marginTop: 'var(--space-3)', justifyContent: 'center' }} aria-hidden="true">
         {/* 曜日ラベル列 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, paddingTop: 16 + GAP }}>
           {['', '月', '', '水', '', '金', ''].map((l, i) => (
-            <span key={i} style={{ height: CELL, fontSize: 'var(--text-caption)', lineHeight: `${CELL}px`, color: 'var(--text-3)', width: 16, textAlign: 'right', paddingRight: 2 }}>{l}</span>
+            <span key={i} style={{ height: CELL, fontSize: 'var(--text-caption)', lineHeight: `${CELL}px`, color: 'var(--text-3)', width: 16, textAlign: 'right', paddingRight: 'var(--space-1)' }}>{l}</span>
           ))}
         </div>
         {cols.map((col, ci) => (
@@ -407,7 +407,7 @@ function BarRow({ label, count, max, unit, labelWidth = 88, onClick, ariaLabel }
     </>
   );
   if (!onClick) {
-    return <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{inner}</div>;
+    return <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>{inner}</div>;
   }
   return (
     <button
@@ -415,7 +415,7 @@ function BarRow({ label, count, max, unit, labelWidth = 88, onClick, ariaLabel }
       onClick={onClick}
       aria-label={ariaLabel || `${label}を開く`}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 44,
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 44,
         background: 'none', border: 'none', padding: 0, cursor: 'pointer',
         fontFamily: 'inherit', textAlign: 'left',
       }}
@@ -648,7 +648,7 @@ export default function ReadingRecord({
     <div style={wrap}>
       {/* 1. コアの数字 — メモ統計の取得に失敗した時はメモのタイルを隠す
           （0 と偽装すると「メモが消えた」ように見えるため）。 */}
-      <div style={{ display: 'grid', gridTemplateColumns: memoStats?.failed ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: memoStats?.failed ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 'var(--space-2)' }}>
         {/* 件数が 1 以上のタイルだけタップ可能にする（0 件で空の一覧へ飛ばすと
             「押したのに何もない」体験になるため）。 */}
         <StatTile
@@ -690,7 +690,7 @@ export default function ReadingRecord({
 
       {/* 3. 月別のあゆみ（読了 ⇄ メモ） */}
       <section style={card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
           <div>
             <h3 style={cardTitle}>
               <TrendingUp size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
@@ -728,13 +728,13 @@ export default function ReadingRecord({
           {bookStats.bestThisYear.length > 0 && (
             <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--separator)' }}>
               <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: '0 0 var(--space-1)' }}>今年の星付き</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
                 {bookStats.bestThisYear.map((b, i) => {
                   const book = bookById.get(b.id);
                   const clickable = !!(onOpenBook && book);
                   const row = (
                     <>
-                      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--accent)', flexShrink: 0, letterSpacing: 1 }}>{'★'.repeat(b.rating)}</span>
+                      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', flexShrink: 0, letterSpacing: 1 }}>{'★'.repeat(b.rating)}</span>
                       <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>{b.title}</span>
                       {clickable && <ChevronRight size={13} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
                     </>
@@ -750,7 +750,7 @@ export default function ReadingRecord({
                       {row}
                     </button>
                   ) : (
-                    <div key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>{row}</div>
+                    <div key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', minWidth: 0 }}>{row}</div>
                   );
                 })}
               </div>
@@ -767,7 +767,7 @@ export default function ReadingRecord({
             一番学んだ本
           </h3>
           <p style={cardSub}>メモの数から見た、あなたに一番多くの気づきをくれた本です。</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             {topMemoBooks.map((b) => {
               const book = bookById.get(b.id);
               return (
@@ -802,7 +802,7 @@ export default function ReadingRecord({
           ]}
         />
         {noOutcome && bookStats.doneTotal > 0 && (
-          <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
+          <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-3) 0 0', lineHeight: 1.5, textAlign: 'center' }}>
             メモの「行動にする」から、最初の行動を 1 つ決めてみましょう。
           </p>
         )}
@@ -834,7 +834,7 @@ export default function ReadingRecord({
             あなたの読書リズム
           </h3>
           <p style={cardSub}>メモを書いた時間帯から。{rhythm.top ? rhythm.top.persona : ''}</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             {RHYTHMS.map((r) => (
               <BarRow
                 key={r.key}
@@ -857,7 +857,7 @@ export default function ReadingRecord({
             よく読むテーマ
           </h3>
           <p style={cardSub}>本につけたタグから見た、あなたの関心の地図です。</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             {bookStats.topTags.map(([tag, n]) => (
               <BarRow
                 key={tag}
@@ -881,7 +881,7 @@ export default function ReadingRecord({
             よく読む著者
           </h3>
           <p style={cardSub}>2 冊以上読んでいる著者です。相性のいい書き手かもしれません。</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             {bookStats.topAuthors.map(([author, n]) => (
               <BarRow
                 key={author}

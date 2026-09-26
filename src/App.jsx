@@ -454,17 +454,11 @@ function AuthedApp() {
   // 相談タブの入口をマイ読書脳にするのは、一番の価値「読むほど、自分だけの相談相手が
   // 育つ」（CLAUDE.md）の本体だから（2026-09-26。旧: 🔍AI選書が入口）。
   // 直前に見ていたサブタブに毎回飛ぶと「タブを押したのに違うものが出る」分かり
-  // にくさになるため、毎回の起点を一定にする。起点をノート(想起)にするのは、
-  // タブ名「振り返り」・アイコン(RotateCcw)・LP の筆頭訴求「忘れた頃に戻る」と
-  // 入口の実体を一致させるため（CPO 監査 2-2: 旧・行動起点は名前と中身の不一致）。
-  // 個別画面への明示遷移（想起ディープリンク等）は setReviewSubTab/setAiSubTab で上書きする。
-  // 例外: 60 分以内のプロセス破棄→再起動（resumeNav あり）は「ユーザーの遷移」では
-  // なく OS 都合のリロードなので、直前に見ていたサブタブへそのまま戻す。
-  const [reviewSubTab, setReviewSubTab] = useState(() => (
-    // 振り返り＝行動をやり切る場所（SPEC §4）。起動時は前回のサブタブに関わらず「行動」から
-    // （以前「ノート」を開いていた人もここから始まる）。
-    'action'
-  ));
+  // にくさになるため、毎回の起点を一定にする。振り返り＝行動をやり切る場所（SPEC §4・
+  // 2026-09-26）なので、起点は常に「行動」（起動時の復元でも、タブの切替でも）。
+  // 個別画面への明示遷移（思い出しの通知→メモ 等）は setReviewSubTab で上書きする。
+  // 相談タブ（aiSubTab）は 60 分以内の再起動なら直前のサブタブへ戻す（下）。
+  const [reviewSubTab, setReviewSubTab] = useState('action');
   const [aiSubTab, setAiSubTab] = useState(() => (
     ['advisor', 'brain', 'report'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
   ));

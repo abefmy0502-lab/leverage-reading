@@ -43,7 +43,7 @@ const inp = { width: '100%', minHeight: 44, padding: 'var(--space-2) var(--space
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
 const btnTextSm = { ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' };
-const pill = { fontSize: 'var(--text-meta)', padding: '4px 8px', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
+const pill = { fontSize: 'var(--text-meta)', padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
 // relativeJa / recallFraming は src/lib/recall.js に切り出して
 // サーバー（api/push-cron.js の想起通知）と文言を共有している。
@@ -257,8 +257,8 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
 
   const inner = (
     <div style={cardStyle} {...(onLongPress && !isSynth ? longPress.bind : {})}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <span
             style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}
             aria-label={`種類: ${meta.label}`}
@@ -958,7 +958,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   type="button"
                   onClick={() => handleMemoToAction(randomMemo)}
                   disabled={addingAction}
-                  style={{ ...btnTextSm, gap: 'var(--space-1)', marginTop: 'var(--space-1)', opacity: addingAction ? 0.6 : 1 }}
+                  // 高さ 48 の下側の余りを相殺し、次の区画との見た目の間隔を 24〜32 に（タップ領域は 44 以上のまま）。
+                  style={{ ...btnTextSm, gap: 'var(--space-1)', marginTop: 'var(--space-1)', marginBottom: 'calc(-1 * var(--space-3))', opacity: addingAction ? 0.6 : 1 }}
                 >
                   <Target size={16} aria-hidden="true" />
                   この気づきを行動にする

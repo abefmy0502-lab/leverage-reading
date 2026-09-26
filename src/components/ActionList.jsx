@@ -93,6 +93,13 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
     return m;
   }, [open]);
   const overdueCount = grouped.get('overdue').length;
+  // 「今週の予定」は見出しの「今週」と同じ定義（期限が今週＝月〜日）で数える。
+  const weekLine = useMemo(() => {
+    const dowLeft = daysLeftInWeek();
+    const dowPast = 6 - dowLeft; // 今週の月曜から今日までの日数
+    const inWeek = allActions.filter((a) => { const n = daysUntil(a.deadline); return n != null && n >= -dowPast && n <= dowLeft; });
+    return { total: inWeek.length, completed: inWeek.filter((a) => a.done).length };
+  }, [allActions]);
   const bookOf = (a) => (books || []).find((b) => b.id === a.bookId);
   const canAdd = !!onAddAction && (books || []).length > 0;
 
@@ -119,15 +126,15 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
     const key = `${a.bookId}:${a.actionIdx}:${a.id || ''}`;
     const n = daysUntil(a.deadline);
     const overdue = !a.done && n != null && n < 0;
+    // メタ行は [本・期限・優先・繰り返し・ページ]。警告色は期限の部分だけ（責めない）。
     const meta = [];
     if (a.bookTitle) meta.push(a.bookTitle);
     if (a.deadline && !a.done) {
-      meta.push(
-        overdue ? `期限 ${fmtShort(a.deadline)}（過ぎています）`
-          : n === 0 ? '今日まで'
-          : n === 1 ? '明日まで'
-          : `期限 ${fmtShort(a.deadline)}`,
-      );
+      const label = overdue ? `期限 ${fmtShort(a.deadline)}（過ぎています）`
+        : n === 0 ? '今日まで'
+        : n === 1 ? '明日まで'
+        : `期限 ${fmtShort(a.deadline)}`;
+      meta.push(overdue ? <span key="dl" style={{ color: 'var(--warning)' }}>{label}</span> : label);
     }
     if (a.priority === 'high') meta.push('優先');
     if (a.recurrence) meta.push(a.recurrence === 'weekly' ? '毎週' : '毎月');
@@ -156,8 +163,8 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
             {stripInlineMd(a.text)}
           </p>
           {meta.length > 0 && (
-            <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: overdue ? 'var(--warning)' : 'var(--text-3)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
-              {meta.join('・')}
+            <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
+              {meta.map((m, i) => <span key={i}>{i > 0 && '・'}{m}</span>)}
             </p>
           )}
           {a.done && a.reflection && (
@@ -185,8 +192,8 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
       {/* 上: 今週の完了数 1 行（数字の演出はしない）＋ 追加。完了一覧は最後の 1 行から。 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
         <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
-          {stats.week?.total > 0
-            ? `今週の予定 ${stats.week.total} 件のうち ${stats.week.completed} 件を完了`
+          {weekLine.total > 0
+            ? `今週が期限の行動 ${weekLine.total} 件のうち ${weekLine.completed} 件を完了`
             : `やること ${open.length} 件`}
         </p>
         {canAdd && (
