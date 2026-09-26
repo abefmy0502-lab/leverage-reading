@@ -60,13 +60,13 @@ function stampServiceWorkerVersion() {
 }
 
 // 🌐 index.html の共有用 URL（og:url / og:image）を本番のドメインに差し替える。
-// VITE_SITE_URL（例 https://orime.app）を設定すると、旧名の入ったドメインを見せずに済む。
+// 既定は https://orime.vercel.app。VITE_SITE_URL（例 https://orime.jp）を設定すると、それに差し替わる。
 function siteUrlInHtml() {
   const site = (process.env.VITE_SITE_URL || '').replace(/\/+$/, '');
   return {
     name: 'site-url-in-html',
     transformIndexHtml(html) {
-      return site ? html.replaceAll('https://leverage-reading.vercel.app', site) : html;
+      return site ? html.replaceAll('https://orime.vercel.app', site) : html;
     },
   };
 }

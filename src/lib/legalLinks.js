@@ -6,10 +6,10 @@
 // ネイティブでは本番サイトの https の絶対 URL にして、外部ブラウザ（Safari）で開かせる。
 // Web は同じサイト内なので相対パスのまま。
 //
-// VITE_SITE_URL: 本番サイトの URL（末尾スラッシュなし）。未設定なら既定のドメイン。
+// VITE_SITE_URL: 本番サイトの URL（末尾スラッシュなし）。未設定なら https://orime.vercel.app（2026-09-26 取得）。
 import { isNative } from './iap';
 
-export const SITE_URL = (import.meta.env.VITE_SITE_URL || 'https://leverage-reading.vercel.app').replace(/\/+$/, '');
+export const SITE_URL = (import.meta.env.VITE_SITE_URL || 'https://orime.vercel.app').replace(/\/+$/, '');
 
 const legal = (path) => (isNative ? `${SITE_URL}${path}` : path);
 

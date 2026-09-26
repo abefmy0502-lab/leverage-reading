@@ -13,7 +13,7 @@
 
 ---
 
-## 手順 1. `orime.vercel.app` を取る（5 分・0 円）
+## 手順 1. `orime.vercel.app` を取る（5 分・0 円）✅ 2026-09-26 完了
 1. Vercel にログインし、Orime のプロジェクトを開く。
 2. 上のメニューの **Settings** → 左の **Domains** を開く。
 3. **Add**（または Add Domain）を押し、`orime.vercel.app` と入力して追加する。
@@ -49,7 +49,7 @@
 
    | Key | Value |
    |---|---|
-   | `VITE_SITE_URL` | `https://orime.vercel.app` |
+   | `VITE_SITE_URL` | `https://orime.vercel.app`（コードの既定値も orime.vercel.app にしたので、入れなくてもよい） |
    | `APP_ORIGIN` | `https://orime.vercel.app` |
    | `RAKUTEN_APP_URL` | `https://orime.vercel.app` |
    | `VITE_SUPPORT_EMAIL` | 手順 2 で作った Gmail のアドレス |
