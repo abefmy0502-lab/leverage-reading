@@ -173,7 +173,7 @@ function Modal({ open, onClose, children }) {
         position: "fixed",
         inset: 0,
         zIndex: 200,
-        background: "rgba(30,25,20,0.45)",
+        background: "var(--backdrop)",
         backdropFilter: "var(--backdrop-blur)",
         display: "flex",
         alignItems: "center",
@@ -4846,4 +4846,4 @@ const lnk = { background: "none", border: "none", color: "var(--color-tertiary)"
 // 主ボタンは ui.js（単一の真実）を継承。幅とパディングは従来の挙動を保つ。
 const navBtn = { padding: "10px 24px", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-secondary)", cursor: "pointer", fontFamily: "inherit", fontSize: 13 };
 const tagBtn = { fontSize: 10, padding: "3px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-separator)", background: "transparent", color: "var(--color-tertiary)", cursor: "pointer", fontFamily: "inherit" };
-const tagBtnActive = { border: "1.5px solid var(--color-tertiary)", background: "#e8e0d2", color: "var(--color-label)" };
+const tagBtnActive = { border: "1.5px solid var(--accent)", background: "var(--accent-soft)", color: "var(--accent)" };

@@ -28,7 +28,7 @@ const indicatorBase = {
   borderRadius: '50%',
   background: 'var(--c-card)',
   border: '1px solid var(--c-hairline)',
-  boxShadow: '0 4px 12px rgba(30, 25, 20, 0.12)',
+  boxShadow: 'var(--shadow-raised)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -77,7 +77,7 @@ export default function PullToRefresh({ onRefresh, threshold = 70, children }) {
           }}
         >
           {showCheck ? (
-            <span style={{ fontSize: 18, color: '#5a7a48' }}>✓</span>
+            <span style={{ fontSize: 18, color: 'var(--success)' }}>✓</span>
           ) : isRefreshing ? (
             <span
               style={{
@@ -97,7 +97,7 @@ export default function PullToRefresh({ onRefresh, threshold = 70, children }) {
                 cy="12"
                 r="9"
                 fill="none"
-                stroke={armed ? '#5a7a48' : 'var(--c-brand)'}
+                stroke={armed ? 'var(--success)' : 'var(--accent)'}
                 strokeWidth="2.5"
                 strokeDasharray={`${progress * 56.5} 56.5`}
                 strokeLinecap="round"

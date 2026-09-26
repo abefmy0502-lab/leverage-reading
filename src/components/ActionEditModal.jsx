@@ -39,7 +39,7 @@ const cardStyle = {
   flexDirection: 'column',
   overflow: 'hidden',
   boxSizing: 'border-box',
-  boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
+  boxShadow: 'var(--shadow-overlay)',
 };
 
 const headerStyle = {
@@ -101,7 +101,7 @@ const chipBtn = (active) => ({
   padding: '8px 10px',
   borderRadius: 10,
   border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
-  background: active ? 'var(--c-soft-2)' : '#fff',
+  background: active ? 'var(--accent-soft)' : 'var(--surface)',
   color: active ? 'var(--c-ink)' : 'var(--c-brand)',
   fontSize: 12,
   fontWeight: active ? 600 : 500,

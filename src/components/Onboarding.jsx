@@ -67,7 +67,7 @@ const overlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 'var(--z-overlay)',
-  background: 'rgba(30,25,20,0.55)',
+  background: 'var(--backdrop)',
   backdropFilter: 'blur(4px)',
   display: 'flex',
   alignItems: 'center',
@@ -87,7 +87,7 @@ const cardStyle = {
   // (ドット + ボタン) は常に見える位置に固定する。
   maxHeight: 'calc(100dvh - 32px)',
   padding: '24px 22px 18px',
-  boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
+  boxShadow: 'var(--shadow-overlay)',
   fontFamily: "var(--font-app)",
   display: 'flex',
   flexDirection: 'column',
@@ -251,8 +251,8 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
               style={{
                 marginTop: 14,
                 padding: '10px 14px',
-                background: '#f5efde',
-                border: '1px solid #e0d0a8',
+                background: 'var(--fill)',
+                border: '1px solid var(--separator)',
                 borderRadius: 10,
                 textAlign: 'center',
               }}

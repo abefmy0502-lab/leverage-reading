@@ -71,8 +71,8 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
                 width: 60,
                 height: 84,
                 borderRadius: 6,
-                border: '1px dashed #c4b8a6',
-                background: '#f5efde',
+                border: '1px dashed var(--border)',
+                background: 'var(--fill)',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 fontSize: 11,
@@ -161,7 +161,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
                 style={{
                   flex: 1, minHeight: 44, padding: '8px 6px', borderRadius: 10,
                   border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
-                  background: active ? 'var(--c-soft-2)' : '#fff',
+                  background: active ? 'var(--accent-soft)' : 'var(--surface)',
                   color: active ? 'var(--c-ink)' : 'var(--c-brand)',
                   fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit',
                 }}
@@ -242,12 +242,12 @@ export function BeforePhase({
             <div
               style={{
                 background: 'var(--color-warning-soft)',
-                border: '1px solid #e0c878',
+                border: '1px solid var(--separator)',
                 padding: '10px 12px',
                 borderRadius: 8,
                 fontSize: 12,
                 marginBottom: 12,
-                color: '#5D4037',
+                color: 'var(--text)',
                 lineHeight: 1.7,
                 display: 'flex',
                 alignItems: 'flex-start',
@@ -360,7 +360,7 @@ export function BeforePhase({
               {/* Refinement: send the existing sheet + a free-form instruction
                   to the AI. Keeps a 1-step history in localStorage so the
                   user can undo. */}
-              <div style={{ marginTop: 12, padding: "12px 14px", background: "#f5efde", border: "1px solid #e0d0a8", borderRadius: 12 }}>
+              <div style={{ marginTop: 12, padding: "12px 14px", background: "var(--fill)", border: "1px solid var(--separator)", borderRadius: "var(--radius)" }}>
                 <p style={{ fontSize: 12, fontWeight: 600, color: "var(--c-brand)", margin: 0 }}>
                   📝 修正リクエスト
                 </p>
@@ -511,7 +511,7 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAn
       <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>読みながら「やってみよう」と思ったことを、行動にしておきましょう。</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {(form.actions || []).map((a, i) => (
-          <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div key={i} style={{ background: "var(--fill)", borderRadius: "var(--radius)", padding: "var(--space-3) var(--space-4)", display: 'flex', flexDirection: 'column', gap: "var(--space-2)" }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：明日の朝、学んだ手法を1つ試す" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} maxLength={LIMITS.actionText} />
               <button onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", fontSize: 16, color: 'var(--c-critical)', cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", margin: "-8px -10px -8px -4px" }}>×</button>
@@ -577,7 +577,7 @@ export function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, a
       <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>本を読みっぱなしにしないために、具体的な行動を 1〜3 つ書きましょう。</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {(form.actions || []).map((a, i) => (
-          <div key={i} style={{ background: "#f7f3ec", borderRadius: 10, padding: "12px 14px", display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div key={i} style={{ background: "var(--fill)", borderRadius: "var(--radius)", padding: "var(--space-3) var(--space-4)", display: 'flex', flexDirection: 'column', gap: "var(--space-2)" }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? "例：営業会議で結論ファーストを実践" : `行動 ${i + 1}`} style={{ ...inp, flex: 1 }} maxLength={LIMITS.actionText} />
               <button onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", fontSize: 16, color: 'var(--c-critical)', cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", margin: "-8px -10px -8px -4px" }}>×</button>

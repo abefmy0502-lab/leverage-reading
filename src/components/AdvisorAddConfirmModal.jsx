@@ -44,7 +44,7 @@ const cardStyle = {
   flexDirection: 'column',
   overflow: 'hidden',
   boxSizing: 'border-box',
-  boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
+  boxShadow: 'var(--shadow-overlay)',
 };
 
 const headerStyle = {
@@ -87,8 +87,8 @@ const bodyStyle = {
 };
 
 const recBoxStyle = {
-  background: '#f5efde',
-  border: '1px solid #e0d0a8',
+  background: 'var(--fill)',
+  border: '1px solid var(--separator)',
   borderRadius: 10,
   padding: '10px 12px',
 };

@@ -165,7 +165,7 @@ function ResultCard({ book, onPick, existing, statusLabel }) {
       aria-label={isExisting ? `『${book.title}』 (既に本棚にあり、開く)` : `『${book.title}』を選択`}
       style={{
         ...resultCardStyle,
-        ...(isExisting ? { background: 'var(--c-soft)', borderColor: '#b9d4a3' } : {}),
+        ...(isExisting ? { background: 'var(--fill)', borderColor: 'var(--separator)' } : {}),
       }}
     >
       {book.cover ? (
@@ -192,9 +192,9 @@ function ResultCard({ book, onPick, existing, statusLabel }) {
               display: 'inline-block',
               padding: '3px 8px',
               borderRadius: 999,
-              background: '#eaf5e3',
-              border: '1px solid #b9d4a3',
-              color: '#4a6e3a',
+              background: 'var(--success-soft)',
+              border: '1px solid var(--separator)',
+              color: 'var(--success)',
               fontSize: 10,
               fontWeight: 600,
             }}

@@ -22,7 +22,7 @@ const sectionStyle = {
   border: '1px solid var(--c-hairline)',
   borderRadius: 'var(--radius-md)',
   padding: '14px 16px',
-  boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
+  boxShadow: 'none',
   minWidth: 0,
   maxWidth: '100%',
 };
@@ -62,7 +62,7 @@ const listStyle = {
 };
 const liStyle = { marginBottom: 6, display: 'flex', gap: 9, alignItems: 'flex-start' };
 // 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。
-const bulletDot = { flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: '#b9a77f', marginTop: 8 };
+const bulletDot = { flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: 'var(--text-3)', marginTop: 8 };
 const olNumStyle = { flexShrink: 0, minWidth: 16, color: 'var(--c-ink-3)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' };
 // 見出し冒頭の絵文字（🏆🔑📚 …）を表示から外す。AI 出力の「素の markdown 感」を
 // 払拭する最大のレバー。ハイライト判定は元テキスト(絵文字込み)で行うので装飾は保つ。
@@ -73,8 +73,8 @@ function stripLeadingEmoji(text) {
 }
 const highlightSection = {
   ...sectionStyle,
-  background: '#f5efde',
-  borderColor: '#d4c089',
+  background: 'var(--fill)',
+  borderColor: 'var(--separator)',
 };
 
 // Markdown 表のレンダリング。モバイル幅で 3 列が潰れないよう、横スクロール
@@ -96,7 +96,7 @@ function renderTable(rows, key) {
                   background: 'var(--c-soft)',
                   color: 'var(--c-brand)',
                   fontWeight: 700,
-                  border: '1px solid #e0d7c6',
+                  border: '1px solid var(--separator)',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -114,7 +114,7 @@ function renderTable(rows, key) {
                   style={{
                     padding: '6px 8px',
                     color: 'var(--c-ink)',
-                    border: '1px solid #e7ddcc',
+                    border: '1px solid var(--separator)',
                     verticalAlign: 'top',
                     // 1 列目（順番など）は折り返さず、それ以外は折り返して読みやすく
                     whiteSpace: ci === 0 ? 'nowrap' : 'normal',
@@ -348,7 +348,7 @@ function renderLines(lines, opts) {
 
 const relatedCardStyle = {
   background: 'var(--surface)',
-  border: '1px solid #e0d0a8',
+  border: '1px solid var(--separator)',
   borderRadius: 10,
   padding: '10px 12px',
   margin: '8px 0',
@@ -383,9 +383,10 @@ const relatedAmazonBtn = {
   flex: 1,
   minWidth: 0,
   padding: '10px 12px',
-  borderRadius: 999,
-  background: '#FF9900',
-  color: '#000',
+  borderRadius: 'var(--radius)',
+  background: 'transparent',
+  border: '1px solid var(--border)',
+  color: 'var(--text)',
   fontSize: 13,
   fontWeight: 600,
   textDecoration: 'none',
@@ -429,17 +430,16 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           aria-label={isAdded ? `『${book.title}』は本棚にあります` : `『${book.title}』を読みたいに追加`}
           style={{
             ...relatedAddBtn,
-            background: isAdded ? '#E0E0E0' : relatedAddBtn.background,
-            color: isAdded ? '#666' : relatedAddBtn.color,
+            background: isAdded ? 'var(--fill)' : relatedAddBtn.background,
+            color: isAdded ? 'var(--text-3)' : relatedAddBtn.color,
             cursor: isAdded ? 'not-allowed' : 'pointer',
             touchAction: 'manipulation',
-            WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
             pointerEvents: 'auto',
             position: 'relative',
             zIndex: 1,
           }}
         >
-          {isAdded ? '✅ 追加済み' : '📚 読みたい'}
+          {isAdded ? '追加済み' : '読みたいに追加'}
         </button>
         <a
           href={amazonHref}
@@ -450,10 +450,9 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
           style={{
             ...relatedAmazonBtn,
             touchAction: 'manipulation',
-            WebkitTapHighlightColor: 'rgba(255,153,0,0.18)',
           }}
         >
-          🛒 Amazon
+          Amazon
         </a>
       </div>
     </div>

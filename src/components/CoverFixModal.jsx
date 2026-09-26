@@ -40,7 +40,7 @@ const cardStyle = {
   maxHeight: 'min(85vh, 85dvh)',
   display: 'flex',
   flexDirection: 'column',
-  boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
+  boxShadow: 'var(--shadow-overlay)',
   overflow: 'hidden',
 };
 
@@ -168,7 +168,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                   width: 24,
                   height: 24,
                   border: '2px solid var(--c-hairline)',
-                  borderTopColor: '#5C4A2E',
+                  borderTopColor: 'var(--accent)',
                   borderRadius: '50%',
                   animation: 'lvg-ptr-spin 0.8s linear infinite',
                 }}
@@ -235,8 +235,8 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
                     alignItems: 'center',
                     gap: 6,
                     padding: 8,
-                    background: c.isCurrent ? 'var(--color-warning-soft)' : '#fff',
-                    border: c.isCurrent ? '2px solid #d4a040' : '2px solid var(--c-hairline)',
+                    background: c.isCurrent ? 'var(--accent-soft)' : 'var(--surface)',
+                    border: c.isCurrent ? '2px solid var(--accent)' : '2px solid var(--separator)',
                     borderRadius: 10,
                     cursor: 'pointer',
                     fontFamily: 'inherit',

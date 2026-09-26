@@ -39,7 +39,7 @@ function BookResultCard({ book, onSelect }) {
           style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, border: '1px solid var(--c-hairline-strong)' }}
         />
       ) : (
-        <div style={{ width: 44, height: 60, background: '#e8e2d6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📕</div>
+        <div style={{ width: 44, height: 60, background: 'var(--fill)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📕</div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', lineHeight: 1.4, marginBottom: 2 }}>{book.title}</div>

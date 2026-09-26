@@ -114,7 +114,7 @@ export default class ErrorBoundary extends React.Component {
             <pre
               style={{
                 fontSize: 11,
-                color: '#b75050',
+                color: 'var(--error)',
                 marginTop: 32,
                 padding: 12,
                 background: 'var(--c-card)',

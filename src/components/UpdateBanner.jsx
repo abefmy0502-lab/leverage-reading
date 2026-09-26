@@ -69,7 +69,7 @@ const overlayStyle = {
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 12,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  boxShadow: 'var(--shadow-overlay)',
   boxSizing: 'border-box',
   fontFamily: "var(--font-app)",
   animation: 'lvg-slide-down 280ms ease both',
@@ -78,7 +78,7 @@ const overlayStyle = {
 const applyBtnStyle = {
   padding: '8px 14px',
   background: 'var(--surface)',
-  color: '#5C4A2E',
+  color: 'var(--accent)',
   border: 'none',
   borderRadius: 999,
   fontSize: 12,
@@ -91,7 +91,7 @@ const applyBtnStyle = {
 
 const dismissBtnStyle = {
   padding: '8px 12px',
-  background: 'rgba(255,255,255,0.18)',
+  background: 'transparent',
   color: 'var(--accent-ink)',
   border: 'none',
   borderRadius: 999,

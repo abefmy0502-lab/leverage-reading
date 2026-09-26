@@ -54,7 +54,7 @@ const overlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 850,
-  background: 'rgba(30,25,20,0.45)',
+  background: 'var(--backdrop)',
   backdropFilter: 'var(--backdrop-blur)',
   display: 'flex',
   alignItems: 'center',
@@ -72,7 +72,7 @@ const cardStyle = {
   maxHeight: 'min(85vh, 85dvh)',
   display: 'flex',
   flexDirection: 'column',
-  boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
+  boxShadow: 'var(--shadow-overlay)',
   overflow: 'hidden',
   boxSizing: 'border-box',
 };
@@ -202,7 +202,7 @@ const stepCard = {
   borderRadius: 12,
   padding: '16px 16px',
   marginBottom: 14,
-  boxShadow: '0 1px 2px rgba(30,25,20,0.04)',
+  boxShadow: 'none',
   wordBreak: 'keep-all',
   overflowWrap: 'anywhere',
   width: '100%',
@@ -213,7 +213,7 @@ const stepCard = {
 const stepNumber = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   width: 24, height: 24, borderRadius: 999, flexShrink: 0,
-  background: 'var(--c-brand)', color: 'var(--c-brand-ink, #fff)',
+  background: 'var(--c-brand)', color: 'var(--accent-ink)',
   fontSize: 13, fontWeight: 700, lineHeight: 1, marginRight: 8,
 };
 const stepTitle = {
@@ -230,12 +230,12 @@ const stepBody = { fontSize: 15, color: 'var(--c-ink-soft)', lineHeight: 1.8, ma
 const stepBulletList = { listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 8 };
 const stepBullet = { fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.7, wordBreak: 'keep-all', display: 'flex', gap: 6, alignItems: 'baseline' };
 const stepBulletMark = { color: 'var(--c-brand)', flexShrink: 0 };
-const stepFooter = { fontSize: 13, color: '#5C4A2E', lineHeight: 1.7, margin: '10px 0 0', fontStyle: 'italic', wordBreak: 'keep-all' };
+const stepFooter = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.7, margin: '10px 0 0', fontStyle: 'italic', wordBreak: 'keep-all' };
 const tipBox = {
   marginTop: 6,
   padding: '13px 15px',
-  background: '#f5efde',
-  border: '1px solid #e0d0a8',
+  background: 'var(--fill)',
+  border: '1px solid var(--separator)',
   borderRadius: 10,
   fontSize: 14,
   color: 'var(--c-brand)',
