@@ -100,19 +100,21 @@
   // ====== ここを編集すると各スライドの中身が変わります ======
   // 順序・コピーの正典は company/aso-store-listing.md §8（1枚目=マイ読書脳が差別化の核）。
   // shotN.png との対応: 1=マイ読書脳 2=想起カード 3=メモ編集 4=AI選書 5=行動リスト 6=本棚
+  // 2026-09-26 改訂: 一番の価値「読むほど、自分だけの相談相手が育つ」に合わせて並びとコピーを変更
+  // （正典は company/aso-store-listing.md §8。shotN.png もその表の順に撮り直すこと）。
   const SLIDES = [
-    { bg:'bg-c', shot:'shot1.png', eyebrow:'MY READING BRAIN',
-      head:'「あの本、なんて言ってた？」に、<br><span class="em">自分のメモが答える。</span>', sub:'過去のあなたの言葉が、根拠になる。' },
-    { bg:'bg-a', shot:'shot2.png', eyebrow:'RECALL',
-      head:'忘れた頃に、<br><span class="em">ふいに戻ってくる。</span>', sub:'読みっぱなしを、やめる。' },
-    { bg:'bg-b', shot:'shot3.png', eyebrow:'JUST ONE LINE',
-      head:'心が動いた一行を、<br><span class="em">残すだけ。</span>', sub:'ページも、想いも、いっしょに。' },
-    { bg:'bg-c', shot:'shot4.png', eyebrow:'AI PICKS',
-      head:'いまの課題に合う本を、<br><span class="em">AI が選ぶ。</span>', sub:'目的のある一冊から。' },
-    { bg:'bg-b', shot:'shot5.png', eyebrow:'INTO ACTION',
-      head:'学びは、ちゃんと<br><span class="em">行動に変わる。</span>', sub:'7日間無料・月¥1,480／年¥12,800・解約自由' },
-    { bg:'bg-a', shot:'shot6.png', eyebrow:'YOUR LIBRARY',
-      head:'読んだ本が、<br><span class="em">あなたの中に残る。</span>', sub:'表紙で揃う、静かな本棚。' },
+    { bg:'bg-c', shot:'shot1.png', eyebrow:'ASK YOUR BOOKS',
+      head:'困ったとき、<br><span class="em">読んだ本たちが答えてくれる。</span>', sub:'何冊ものメモをつなげて、あなたに答える。' },
+    { bg:'bg-a', shot:'shot2.png', eyebrow:'YOUR OWN ADVISOR',
+      head:'読むほど、<br><span class="em">自分だけの相談相手が育つ。</span>', sub:'メモが増えるほど、答えがあなたらしく。' },
+    { bg:'bg-b', shot:'shot3.png', eyebrow:'INTO ACTION',
+      head:'答えは、そのまま<br><span class="em">明日の一歩に。</span>', sub:'期限と完了まで、見届ける。' },
+    { bg:'bg-c', shot:'shot4.png', eyebrow:'JUST ONE LINE',
+      head:'心が動いた一行を、<br><span class="em">残すだけ。</span>', sub:'ページも、写真も、いっしょに。' },
+    { bg:'bg-b', shot:'shot5.png', eyebrow:'CONDENSE',
+      head:'散らばったメモが、<br><span class="em">使える知恵になる。</span>', sub:'忘れかけたメモも、ふいに戻ってくる。' },
+    { bg:'bg-a', shot:'shot6.png', eyebrow:'AI PICKS',
+      head:'次に読む一冊も、<br><span class="em">悩みから選べる。</span>', sub:'7日間無料・月¥1,480／年¥12,800・解約自由' },
   ];
 
   const grid = document.getElementById('grid');

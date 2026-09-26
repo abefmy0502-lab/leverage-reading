@@ -63,12 +63,12 @@ const PRICE_NOTE = TRIAL_NOTE
 // 形式: { quote: 'ユーザーの言葉', attribution: '匿名可。例: 30代・営業' }
 const TESTIMONIALS = [];
 
-// 比較表: 「記録するアプリ」と「思い出して使うアプリ」の違い。
+// 比較表: 「記録するアプリ」と「読んだ本に相談できるアプリ」の違い。
 // cold 流入の最大の反論「無料で記録できるのに、なぜ有料？」に料金の前で答える。
 // ※存在しない機能は書かない。
 const COMPARE_ROWS = [
-  { label: '読んだ後', others: '見返すのは、自分しだい', us: '忘れた頃に、届け直す' },
-  { label: 'メモ', others: '貯まるほど、埋もれる', us: '貯まるほど、「脳」になる' },
+  { label: '困ったとき', others: '見返すのは、自分しだい', us: '読んだ本から、答えが返る' },
+  { label: 'メモ', others: '貯まるほど、埋もれる', us: '貯まるほど、相談相手が育つ' },
   { label: '行動', others: 'アプリの外で、別管理', us: '一行から、一歩に変わる' },
   { label: '続く理由', others: '意志の力', us: '仕組みの力' },
 ];
@@ -90,6 +90,10 @@ const FAQ_ITEMS = [
   {
     q: '解約すると、データは消えますか？',
     a: '消えません。解約後もアカウントとメモはすべて保持され、再開すればそのまま戻ります。契約期間の終わりまでは引き続き全機能をご利用いただけます。',
+  },
+  {
+    q: 'メモが少なくても相談できますか？',
+    a: 'メモが 1 件からでも相談できます。答えの根拠はあなたのメモだけなので、メモが増えるほど、答えがあなたらしく具体的になっていきます。関係するメモが無いときは、無理に答えを作らず、正直にそうお伝えします。',
   },
   {
     q: '通知がしつこくなりませんか？',
@@ -121,12 +125,12 @@ export default function Landing() {
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'Orime（オリメ）｜読んだ本を、忘れない。読書を行動に変える iPhone アプリ';
+    document.title = 'Orime（オリメ）｜読むほど、自分だけの相談相手が育つ iPhone 読書アプリ';
     const metas = [
       setMeta('description',
-        '心が動いた一行をメモすると、忘れた頃に Orime が届け直す。決めた一歩はやり切るまで見届ける。読書の「読んだあと」を設計する iPhone アプリ。月¥1,480・いつでも解約できます・解約してもメモは残ります。'),
-      setMeta('og:title', '読んだ本を、忘れない。| Orime（オリメ）', 'property'),
-      setMeta('og:description', '忘れた頃にメモが戻り、決めた一歩を見届ける。読書の「読んだあと」を設計する iPhone アプリ。', 'property'),
+        '読みながら心が動いた一行をメモするだけ。困ったときに相談すると、あなたが読んだ複数の本のメモから答えが返ってくる iPhone 読書アプリ。月¥1,480・いつでも解約できます・解約してもメモは残ります。'),
+      setMeta('og:title', '読むほど、自分だけの相談相手が育つ。| Orime（オリメ）', 'property'),
+      setMeta('og:description', '困ったとき、あなたが読んだ本のメモから答えが返ってくる。読んだ本を、使える知恵に変える iPhone アプリ。', 'property'),
       setMeta('og:type', 'website', 'property'),
     ];
 
@@ -146,7 +150,7 @@ export default function Landing() {
         name: 'Orime',
         operatingSystem: 'iOS',
         applicationCategory: 'LifestyleApplication',
-        description: '読書の「読んだあと」を設計する読書メモアプリ。メモを忘れた頃に届け直し、行動を見届け、AI が知恵に凝縮する。',
+        description: '読むほど、自分だけの相談相手が育つ読書メモアプリ。困ったときに相談すると、読んだ複数の本のメモを根拠に答えが返り、答えを行動に変えられる。',
         offers: { '@type': 'Offer', price: '1480', priceCurrency: 'JPY' },
         url: `${window.location.origin}/`,
       },
@@ -282,15 +286,16 @@ export default function Landing() {
         <section className="hero">
           <p className="hero-eyebrow">iPhone 専用・読書アプリ</p>
           <h1 className="hero-headline">
-            読んだ本を、<br />
-            忘れない。
+            読むほど、<br />
+            自分だけの<br />
+            相談相手が育つ。
           </h1>
           <p className="hero-subhead">
-            心が動いた一行をメモする。<br />
-            忘れた頃に、Orime が届け直す。<br />
-            決めた一歩は、やり切るまで見届ける。
+            読みながら、心が動いた一行を残す。<br />
+            困ったときは、Orime に相談する。<br />
+            あなたが読んだ本のメモから、答えが返ってくる。
           </p>
-          <p className="hero-tagline">読書の「読んだあと」を設計するアプリです。</p>
+          <p className="hero-tagline">読んだ本を、困ったときに使える知恵に変えるアプリです。</p>
           <div className="hero-cta-block">
             <StoreCta className="cta-primary cta-hero">App Store でダウンロード</StoreCta>
             <p className="hero-note">{PRICE_NOTE}</p>
@@ -311,56 +316,63 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ============ 2. Problem（忘れるのは仕様） ============ */}
+        {/* ============ 2. Problem（読んだのに、いざという時に使えない） ============ */}
         <section className="problem fade-in">
-          <p className="section-eyebrow">なぜ、残らないのか</p>
+          <p className="section-eyebrow">なぜ、使えないのか</p>
           <h2 className="section-headline">
-            先週読み終えた本の内容、<br />
-            3 つ言えますか。
+            前に読んだ本に、<br />
+            答えがあったはずなのに。
           </h2>
           <p className="problem-body">
-            言えなくても、落ち込む必要はありません。<br />
-            どれだけ良い本でも、読んだだけなら記憶は薄れていく。<br />
-            それが人間の仕様です。
+            仕事で迷ったとき、人間関係に悩んだとき。<br />
+            「あの本に何か書いてあった」と思っても、中身が出てこない。<br />
+            読んだだけなら記憶は薄れていく。それが人間の仕様です。
           </p>
           <p className="problem-body">
             問題は記憶力ではなく、<br className="sp-only" />
-            <strong>「思い出す機会」がないこと。</strong>
+            <strong>読んだことを、困ったときに引き出す仕組みがないこと。</strong>
           </p>
           <p className="problem-turn">
             だから Orime は、記録のためではなく、<br />
-            <em>思い出して、使うため</em>に作られています。
+            <em>困ったときに相談できる相手</em>として作られています。
           </p>
         </section>
 
-        {/* ============ 3. 仕掛け 01 — 想起 ============ */}
-        <section className="feature fade-in" aria-labelledby="f-recall">
-          <p className="section-eyebrow">仕掛け 01 — 思い出しカード</p>
-          <h2 className="section-headline" id="f-recall">
-            忘れた頃に、<br />
-            もう一度出会う。
+        {/* ============ 3. 仕掛け 01 — 相談（一番の価値・マイ読書脳） ============ */}
+        <section className="feature fade-in" aria-labelledby="f-brain">
+          <p className="section-eyebrow">仕掛け 01 — 相談</p>
+          <h2 className="section-headline" id="f-brain">
+            困ったときは、<br />
+            読んだ本たちに相談する。
           </h2>
           <p className="feature-body">
-            残した一行は、数日後、ふいに戻ってきます。<br />
-            「覚えた」は間隔を空け、「もう一度」は翌日に。<br />
-            ちょうど忘れかけた頃に届く、忘却曲線に沿った設計です。
+            「チームの成果を上げるには？」と聞けば、<strong>あなたがこれまで残したメモだけ</strong>を根拠に、答えが返ってきます。1 冊ではなく、何冊もの本のメモをつなげて答えるので、どの本の、どのメモから来た答えなのかも分かります。
           </p>
-
-          {/* 想起カードのスタイライズドUIモック（実スクショ差し替え予定） */}
-          <div className="ui-mock recall-mock" role="img" aria-label="思い出しカードのイメージ。過去のメモが一枚表示され、「覚えた」「もう一度」を選べる">
-            <p className="recall-mock-label">今日の一行</p>
-            <p className="recall-mock-quote">「結果を管理するな、<br />結果を生む行動を管理せよ」</p>
-            <p className="recall-mock-source">『最高の結果を出す KPI マネジメント』のメモ・42日前</p>
-            <div className="recall-mock-actions" aria-hidden="true">
-              <span className="recall-mock-btn primary">覚えた</span>
-              <span className="recall-mock-btn">もう一度</span>
-            </div>
+          <p className="feature-body">
+            ネットの一般論ではありません。<br className="sp-only" />
+            読むほど、メモを残すほど、<br className="sp-only" />答えはあなたらしくなっていきます。
+          </p>
+          <div className="screenshot-pair">
+            <figure className="screenshot-step">
+              <figcaption className="screenshot-step-label">① 質問する</figcaption>
+              <PhoneFrame
+                src="/lp/mybook-brain-asking.jpg"
+                alt="マイ読書脳に「チームの営業成績を上げるには？」と質問を入力している画面"
+                size="small"
+                ratio="868/1427"
+              />
+            </figure>
+            <div className="screenshot-arrow" aria-hidden="true">→</div>
+            <figure className="screenshot-step">
+              <figcaption className="screenshot-step-label">② 自分のメモから回答</figcaption>
+              <PhoneFrame
+                src="/lp/mybook-brain-answer-bottom.jpg"
+                alt="参照した本とメモの一覧つきで返ってくる AI の回答画面"
+                size="small"
+                ratio="869/1131"
+              />
+            </figure>
           </div>
-          <p className="mock-caption">画面はイメージです</p>
-
-          <p className="feature-sub">
-            通知は週に数回、そっと届く程度。もちろんオフにもできます。
-          </p>
         </section>
 
         {/* ============ 4. 仕掛け 02 — 行動 ============ */}
@@ -373,7 +385,7 @@ export default function Landing() {
           <div className="feature-split">
             <div className="feature-split-text">
               <p className="feature-body">
-                メモの一行から、そのまま行動を作れます。<br />
+                相談の答えやメモの一行から、そのまま行動を作れます。<br />
                 期限、優先度、毎週の繰り返し。
               </p>
               <p className="feature-body">
@@ -425,42 +437,33 @@ export default function Landing() {
           <p className="mock-caption">画面はイメージです（3 冊のメモから生成した例）</p>
         </section>
 
-        {/* ============ 6. マイ読書脳（貯めるほど効く） ============ */}
-        <section className="feature feature-alt fade-in" aria-labelledby="f-brain">
-          <p className="section-eyebrow">貯めるほど、効く</p>
-          <h2 className="section-headline" id="f-brain">
-            過去の自分に、<br />
-            相談できる。
+        {/* ============ 6. 仕掛け 04 — 思い出しカード（相談相手を育てる手段） ============ */}
+        <section className="feature feature-alt fade-in" aria-labelledby="f-recall">
+          <p className="section-eyebrow">仕掛け 04 — 思い出しカード</p>
+          <h2 className="section-headline" id="f-recall">
+            忘れかけたメモは、<br />
+            向こうから戻ってくる。
           </h2>
           <p className="feature-body">
-            「チームの成果を上げるには？」と聞けば、<strong>あなたがこれまで残したメモだけ</strong>を根拠に、答えが返ってくる。どの本の、どのメモを参照したかも示されます。
+            残した一行は、忘れかけた頃にふいに戻ってきます。<br />
+            「覚えた」は間隔を空け、「もう一度」は翌日に。<br />
+            自分の頭にも残るから、相談の答えもすっと入ってきます。
           </p>
-          <p className="feature-body">
-            ネットの一般論ではない。<br className="sp-only" />
-            自分の言葉でできた、第二の脳です。
-          </p>
-
-          <div className="screenshot-pair">
-            <figure className="screenshot-step">
-              <figcaption className="screenshot-step-label">① 質問する</figcaption>
-              <PhoneFrame
-                src="/lp/mybook-brain-asking.jpg"
-                alt="マイ読書脳に「チームの営業成績を上げるには？」と質問を入力している画面"
-                size="small"
-                ratio="868/1427"
-              />
-            </figure>
-            <div className="screenshot-arrow" aria-hidden="true">→</div>
-            <figure className="screenshot-step">
-              <figcaption className="screenshot-step-label">② 自分のメモから回答</figcaption>
-              <PhoneFrame
-                src="/lp/mybook-brain-answer-bottom.jpg"
-                alt="参照した本とメモの一覧つきで返ってくる AI の回答画面"
-                size="small"
-                ratio="869/1131"
-              />
-            </figure>
+          {/* 想起カードのスタイライズドUIモック（実スクショ差し替え予定） */}
+          <div className="ui-mock recall-mock" role="img" aria-label="思い出しカードのイメージ。過去のメモが一枚表示され、「覚えた」「もう一度」を選べる">
+            <p className="recall-mock-label">今日の一行</p>
+            <p className="recall-mock-quote">「結果を管理するな、<br />結果を生む行動を管理せよ」</p>
+            <p className="recall-mock-source">『最高の結果を出す KPI マネジメント』のメモ・42日前</p>
+            <div className="recall-mock-actions" aria-hidden="true">
+              <span className="recall-mock-btn primary">覚えた</span>
+              <span className="recall-mock-btn">もう一度</span>
+            </div>
           </div>
+          <p className="mock-caption">画面はイメージです</p>
+
+          <p className="feature-sub">
+            通知は週に数回、そっと届く程度。もちろんオフにもできます。
+          </p>
         </section>
 
         {/* ============ 7. 読む前・読む間 ============ */}
@@ -509,7 +512,7 @@ export default function Landing() {
           </h2>
           <p className="compare-lead">
             本を記録できるアプリは、たくさんあります。<br />
-            Orime が向き合うのはその先——<strong>「読んだのに、身につかない」</strong>です。
+            Orime が向き合うのはその先、<strong>「読んだのに、いざという時に使えない」</strong>です。
           </p>
 
           <div className="compare-table" role="table" aria-label="一般的な読書管理アプリとOrimeの比較">
@@ -591,7 +594,7 @@ export default function Landing() {
             </p>
 
             <ul className="price-features">
-              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 思い出しカード・行動・凝縮・マイ読書脳 すべて利用可</li>
+              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 相談（マイ読書脳）・行動・テーマまとめ・思い出しカード すべて利用可</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> AI 選書・読書計画・写真の書き起こしも込み</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 本の登録数・メモ数は無制限</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> いつでも解約できます・違約金なし</li>
@@ -650,7 +653,7 @@ export default function Landing() {
       {/* ============ Footer ============ */}
       <footer className="lp-footer">
         <p className="lp-footer-brand">Orime</p>
-        <p className="lp-footer-tag">読書の「読んだあと」を設計する</p>
+        <p className="lp-footer-tag">読むほど、自分だけの相談相手が育つ</p>
         <div className="footer-links">
           <a href="/legal/terms">利用規約</a>
           <a href="/legal/privacy">プライバシーポリシー</a>
