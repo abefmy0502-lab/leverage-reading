@@ -40,8 +40,17 @@ function brainAnswer(store, question) {
       return { m, hit };
     })
     .sort((a, b) => b.hit - a.hit || (b.m.created_at || '').localeCompare(a.m.created_at || ''))
-    .slice(0, 3)
     .map((x) => x.m);
+  // 本番の回答ルール（必ず複数の本を横断）に合わせ、異なる本から 1 件ずつ選ぶ。
+  const picked = [];
+  const seen = new Set();
+  for (const m of scored) {
+    const key = m.book_id || '__personal';
+    if (seen.has(key)) continue;
+    seen.add(key);
+    picked.push(m);
+    if (picked.length === 3) break;
+  }
 
   const label = (m) => {
     const b = books.get(m.book_id);
@@ -49,19 +58,21 @@ function brainAnswer(store, question) {
     const page = m.page_number ? ` P.${m.page_number}` : '';
     return { ref: `📚 ${b.author}『${b.title}』${page}`, name: `『${b.title}』${page}` };
   };
-  const first = label(scored[0]);
-  const quotes = scored.map((m) => `- ${label(m).name} のメモ：「${m.text}」`).join('\n');
-  const refs = scored.map((m) => `- ${label(m).ref}`).join('\n');
+  const [p1, p2] = picked.map(label);
+  const quotes = picked.map((m) => `- ${label(m).name} のメモ：「${m.text}」`).join('\n');
+  const refs = picked.map((m) => `- ${label(m).ref}`).join('\n');
 
   return [
     '【結論】',
-    `あなたが以前 ${first.name} で残したメモが、今回のいちばんのヒントです。「${scored[0].text.slice(0, 40)}${scored[0].text.length > 40 ? '…' : ''}」を、いまの状況にそのまま当てはめてみましょう。`,
+    p2
+      ? `${p1.name} と ${p2.name} で残したメモを合わせると、答えが見えてきます。1冊だけでは出てこない、あなたの読書をつなげた答えです。`
+      : `この件に関係するメモは ${p1.name} だけでした。「${picked[0].text.slice(0, 40)}${picked[0].text.length > 40 ? '…' : ''}」を、いまの状況に当てはめてみましょう。`,
     '',
     '【参照した本のメモ】',
     quotes,
     '',
     '【あなたの状況に合わせた解釈】',
-    'どのメモも「一度立ち止まって、何に集中するかを自分で決める」という点で共通しています。いまの悩みも、全部を解決しようとせず、いちばん効く一点に絞ると動きやすくなります。',
+    '別々の本で残したメモですが、どれも「相手や状況を責める前に、自分の伝え方・決め方を一つ変える」という点でつながっています。いまの悩みも、全部を解決しようとせず、いちばん効く一点に絞ると動きやすくなります。',
     '',
     '【明日からできる 1 つの行動】',
     '明日の朝、始業前の 10 分で、この件について「やること」と「やらないこと」を 1 つずつ紙に書き出してみてください。',
