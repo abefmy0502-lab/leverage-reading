@@ -1429,7 +1429,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             rows={1}
             disabled={interviewLoading}
             maxLength={LIMITS.aiQuestion}
-            aria-label="AI選書アドバイザーへの相談内容"
+            aria-label="AI 選書への相談内容"
             onKeyDown={(e) => {
               if (e.nativeEvent.isComposing) return;
               if (e.key === "Enter" && (e.shiftKey || e.metaKey || e.ctrlKey)) {

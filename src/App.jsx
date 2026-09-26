@@ -3889,14 +3889,7 @@ function AuthedApp() {
             </div>
             {/* 独自名のサブタブを初対面でも分かるよう、役割を動詞で先頭に置いて注釈する。
                 3 つの違い（選ぶ/聞く/しぼる）を一目で言語化できるようにする。 */}
-            {/* 相談は画面の中で「何を根拠に答えるか」を言うので、説明の 1 行は AI 選書・テーマまとめだけ。 */}
-            {aiSubTab !== 'brain' && (
-              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-2) var(--space-4) 0', lineHeight: 1.5, flexShrink: 0 }}>
-                {aiSubTab === 'advisor'
-                  ? 'いまの課題に合う本を、AI が提案します。'
-                  : 'テーマの学びを「この 1 行」と「次の一歩」に凝縮します。'}
-              </p>
-            )}
+            {/* サブタブの下に説明文は置かない（各画面の見出しで伝わる・DESIGN §0-6）。 */}
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
                 <Suspense fallback={<Spinner />}>

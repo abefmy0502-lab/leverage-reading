@@ -215,7 +215,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `bookDetailBefore` | 「読書前」状態の本詳細 |
 | `bookDetailReading` | 「読書中」状態の本詳細 |
 | `bookDetailDone` | 「読了」状態の本詳細 |
-| `aiAdvisor` | AI 選書アドバイザー（下部ナビ: AI 選書） |
+| `aiAdvisor` | 🔍 AI 選書（相談タブのサブタブ） |
 | `billing` | 💳 プラン・お支払い（ハードペイウォール `Paywall.jsx` / AccountSettings の課金セクション） |
 | `memoEditor` | メモ入力画面（カード式 + クイックメモ + まとめ） |
 | `actions` | （内部用）本詳細フォーム内の行動リスト編集セクション。新しい横断行動タブは `actionList` 参照 |

@@ -16,54 +16,56 @@ import {
 
 // minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
 // 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。
-const wrap = { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8, minWidth: 0 };
+const wrap = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-2)', minWidth: 0 };
 const sectionStyle = {
-  background: 'var(--c-card)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 'var(--radius-md)',
-  padding: '14px 16px',
+  background: 'var(--surface)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  padding: 'var(--space-4)',
   boxShadow: 'none',
   minWidth: 0,
   maxWidth: '100%',
 };
 const headingStyle = {
-  fontSize: 15,
-  fontWeight: 700,
-  color: 'var(--c-ink)',
-  margin: '0 0 9px',
+  fontSize: 'var(--text-body)',
+  fontWeight: 600,
+  color: 'var(--text)',
+  margin: '0 0 var(--space-2)',
   lineHeight: 1.4,
-  letterSpacing: '-0.01em',
   overflowWrap: 'anywhere',
 };
 const subHeadingStyle = {
-  fontSize: 13,
-  fontWeight: 700,
-  color: 'var(--c-ink)',
-  margin: '10px 0 3px',
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
+  color: 'var(--text)',
+  margin: 'var(--space-3) 0 var(--space-1)',
   overflowWrap: 'anywhere',
 };
+// AI の答え・まとめ・解析の本文＝読む文章（明朝 18・行間 1.6・DESIGN §2/§7）。
 const paraStyle = {
-  fontSize: 13,
-  color: 'var(--c-ink)',
-  lineHeight: 1.85,
-  margin: '6px 0',
+  fontFamily: 'var(--font-read)',
+  fontSize: 'var(--text-read)',
+  color: 'var(--text)',
+  lineHeight: 1.6,
+  margin: 'var(--space-2) 0',
   whiteSpace: 'pre-wrap',
   // 長い英語タイトル/URL でカードが横にはみ出して「横幅が合わない」現象を防ぐ。
   overflowWrap: 'anywhere',
 };
 const listStyle = {
-  fontSize: 13,
-  color: 'var(--c-ink)',
-  lineHeight: 1.8,
-  margin: '8px 0 8px 2px',
+  fontFamily: 'var(--font-read)',
+  fontSize: 'var(--text-read)',
+  color: 'var(--text)',
+  lineHeight: 1.6,
+  margin: 'var(--space-2) 0',
   paddingLeft: 0,
   listStyleType: 'none',
   overflowWrap: 'anywhere',
 };
-const liStyle = { marginBottom: 6, display: 'flex', gap: 9, alignItems: 'flex-start' };
+const liStyle = { marginBottom: 'var(--space-2)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
 // 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。
-const bulletDot = { flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: 'var(--text-3)', marginTop: 8 };
-const olNumStyle = { flexShrink: 0, minWidth: 16, color: 'var(--c-ink-3)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' };
+const bulletDot = { flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: 'var(--text-3)', marginTop: 12 };
+const olNumStyle = { flexShrink: 0, minWidth: 16, color: 'var(--text-3)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' };
 // 見出し冒頭の絵文字（🏆🔑📚 …）を表示から外す。AI 出力の「素の markdown 感」を
 // 払拭する最大のレバー。ハイライト判定は元テキスト(絵文字込み)で行うので装飾は保つ。
 function stripLeadingEmoji(text) {
@@ -84,7 +86,7 @@ function renderTable(rows, key) {
   const [head, ...body] = rows;
   return (
     <div key={key} style={{ overflowX: 'auto', maxWidth: '100%', margin: 'var(--space-2) 0', WebkitOverflowScrolling: 'touch' }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12, lineHeight: 1.6 }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-caption)', lineHeight: 1.6 }}>
         <thead>
           <tr>
             {head.map((c, j) => (
@@ -93,9 +95,9 @@ function renderTable(rows, key) {
                 style={{
                   textAlign: 'left',
                   padding: '6px 8px',
-                  background: 'var(--c-soft)',
-                  color: 'var(--c-brand)',
-                  fontWeight: 700,
+                  background: 'var(--fill)',
+                  color: 'var(--text)',
+                  fontWeight: 600,
                   border: '1px solid var(--separator)',
                   whiteSpace: 'nowrap',
                 }}
@@ -150,7 +152,7 @@ function renderInline(text) {
   let i = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > cursor) parts.push(text.slice(cursor, m.index));
-    parts.push(<strong key={`b-${i}`} style={{ color: 'var(--c-ink)' }}>{m[1]}</strong>);
+    parts.push(<strong key={`b-${i}`} style={{ color: 'var(--text)', fontWeight: 600 }}>{m[1]}</strong>);
     cursor = m.index + m[0].length;
     i += 1;
   }
@@ -349,12 +351,12 @@ function renderLines(lines, opts) {
 const relatedCardStyle = {
   background: 'var(--surface)',
   border: '1px solid var(--separator)',
-  borderRadius: 10,
-  padding: '10px 12px',
-  margin: '8px 0',
+  borderRadius: 'var(--radius)',
+  padding: 'var(--space-3) var(--space-4)',
+  margin: 'var(--space-2) 0',
   display: 'flex',
   flexDirection: 'column',
-  gap: 6,
+  gap: 'var(--space-2)',
 };
 // flex: 1 で 2 ボタンを均等幅、padding を抑えめに、whiteSpace: nowrap で
 // 「Amazon で買 / う」のような縦割れを物理的に防ぐ。minHeight: 44 で
@@ -363,12 +365,12 @@ const relatedCardStyle = {
 const relatedAddBtn = {
   flex: 1,
   minWidth: 0,
-  padding: '10px 12px',
-  borderRadius: 999,
-  border: '1px solid var(--c-hairline-strong)',
-  background: 'var(--c-brand)',
-  color: 'var(--accent-ink)',
-  fontSize: 13,
+  padding: 'var(--space-2) var(--space-3)',
+  borderRadius: 'var(--radius)',
+  border: '1px solid var(--border)',
+  background: 'transparent',
+  color: 'var(--text)',
+  fontSize: 'var(--text-sub)',
   fontWeight: 600,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -382,12 +384,12 @@ const relatedAddBtn = {
 const relatedAmazonBtn = {
   flex: 1,
   minWidth: 0,
-  padding: '10px 12px',
+  padding: 'var(--space-2) var(--space-3)',
   borderRadius: 'var(--radius)',
   background: 'transparent',
   border: '1px solid var(--border)',
   color: 'var(--text)',
-  fontSize: 13,
+  fontSize: 'var(--text-sub)',
   fontWeight: 600,
   textDecoration: 'none',
   fontFamily: 'inherit',
@@ -407,12 +409,12 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
   const amazonHref = getAmazonSearchLink(book.title, book.author);
   return (
     <div style={relatedCardStyle}>
-      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-ink)', margin: 0, lineHeight: 1.5 }}>
+      <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
         📚 『{book.title}』
-        {book.author && <span style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 400 }}> — {book.author}</span>}
+        {book.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 400 }}> — {book.author}</span>}
       </p>
       {description && (
-        <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
           {description}
         </p>
       )}
@@ -511,7 +513,7 @@ function MarkdownSections({ text, density = 'normal', onAddRelatedBook, addingTi
             {s.heading && <h3 style={headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && (
-              <small style={{ display: 'block', fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1.6, marginTop: 8 }}>
+              <small style={{ display: 'block', fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5, marginTop: 'var(--space-2)' }}>
                 {AMAZON_DISCLOSURE_TEXT}
               </small>
             )}
