@@ -161,14 +161,7 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
-  const [broken, setBroken] = useState(false);
-  useEffect(() => { setBroken(false); }, [book.id, book.cover]);
-  const [from, to] = paletteFor(book.title);
-  const hasCover = !!(book.cover && !broken);
-  // 表紙不在 → 裏で再解決を試行 (セッション内 1 回のみ、キュー処理)
-  useEffect(() => {
-    if (!hasCover) onAutoRetry?.(book);
-  }, [hasCover, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 表紙の読込・失敗検知・裏での再解決（onAutoRetry）は MiniCover が受け持つ。
   return (
     <SwipeableCard onDelete={() => onSwipeDelete?.(book)}>
       <div
@@ -184,13 +177,10 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
         }}
         {...longPress.bind}
         style={{
-          background: "var(--c-card)",
-          borderRadius: 'var(--radius-md)',
-          padding: "12px 14px",
-          border: "1px solid var(--c-hairline)",
-          boxShadow: isJustDone
-            ? "0 0 18px rgba(212,160,64,0.55), 0 2px 8px rgba(30,25,20,0.08)"
-            : "0 2px 6px rgba(30,25,20,0.06)",
+          background: "var(--surface)",
+          borderRadius: 'var(--radius)',
+          padding: "var(--space-3) var(--space-4)",
+          border: "1px solid var(--separator)",
           cursor: "pointer",
           transition: "background .12s ease, box-shadow .35s ease, transform .12s ease",
           animation: isJustDone
@@ -204,50 +194,20 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
           WebkitTouchCallout: "none",
         }}
       >
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          {hasCover ? (
-            <img
-              src={ensureHttps(book.cover)}
-              alt={book.title}
-              loading="lazy"
-              onError={() => setBroken(true)}
-              onLoad={(e) => {
-                // 1×1 dummy + Google Books "No cover" placeholder (128×170, h/w 1.33)
-                // を弾く (bookCover.js の checkImageExists と同じ 1.35 閾値)。
-                const t = e?.target;
-                if (!t) return;
-                const w = t.naturalWidth || 0;
-                const h = t.naturalHeight || 0;
-                if (w <= 1 || h <= 1) { setBroken(true); return; }
-                if (w >= 50 && h / w < 1.35) { setBroken(true); return; }
-              }}
-              style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 5, border: "1px solid var(--c-hairline-strong)", flexShrink: 0, boxShadow: "0 1px 3px rgba(30,25,20,0.12)" }}
-            />
-          ) : (
-            <div
-              aria-hidden="true"
-              style={{
-                width: 42, height: 60, borderRadius: 5, flexShrink: 0,
-                background: `linear-gradient(135deg, ${from}, ${to})`,
-                color: 'var(--on-cover)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 9, fontWeight: 600, padding: 4, textAlign: 'center', lineHeight: 1.2,
-                overflow: 'hidden', wordBreak: 'break-word',
-              }}
-            >
-              {(book.title || '').slice(0, 8)}
-            </div>
-          )}
+        <div style={{ display: "flex", gap: 'var(--space-3)', alignItems: "center" }}>
+          {/* 表紙は共通の MiniCover（読込フェード・失敗検知・代用表紙つき・角丸 4）。 */}
+          <MiniCover book={book} width={44} onAutoRetry={onAutoRetry} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--c-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: 0.2 }}>{book.title}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-              {book.author && <span style={{ fontSize: 11, color: "var(--c-ink-2)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.author}</span>}
-              {book.rating > 0 && <Stars r={book.rating} size={11} />}
+            <div style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.title}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
+              {book.author && <span style={{ fontSize: 'var(--text-meta)', color: "var(--text-2)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.author}</span>}
+              {book.rating > 0 && <Stars r={book.rating} size={12} />}
             </div>
-            <div style={{ marginTop: 6 }}>
+            <div style={{ marginTop: 'var(--space-2)' }}>
               <StatusBadge status={book.status} />
             </div>
           </div>
-          <ChevronRight size={16} strokeWidth={1.75} color="var(--c-ink-3)" aria-hidden="true" />
+          <ChevronRight size={18} strokeWidth={1.75} color="var(--text-3)" aria-hidden="true" />
         </div>
       </div>
     </SwipeableCard>

@@ -36,18 +36,17 @@ const subTabIconStyle = { verticalAlign: '-2px', marginRight: 5 };
 
 // 本棚ツールバー（シート化）用の共通スタイル。
 const SORT_LABELS = { updated: '更新順', created: '登録順', title: 'タイトル順', rating: '評価順' };
+// すべての本の切替チップ（DESIGN §5: 選択中は --accent-soft 地・--accent 文字。枠なし・角丸 12）。
 const bookshelfToolbarBtn = (active) => ({
-  display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 44,
-  padding: '7px 12px', borderRadius: 999, fontSize: 12, fontFamily: 'inherit',
-  cursor: 'pointer', fontWeight: active ? 600 : 500,
-  border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
-  background: active ? 'var(--c-soft)' : 'transparent',
-  color: active ? 'var(--c-brand)' : 'var(--c-ink-2)',
+  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44,
+  padding: '0 var(--space-3)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', fontFamily: 'inherit',
+  cursor: 'pointer', fontWeight: active ? 600 : 400, border: 'none', whiteSpace: 'nowrap',
+  background: active ? 'var(--accent-soft)' : 'var(--fill)',
+  color: active ? 'var(--accent)' : 'var(--text)',
 });
-const bookshelfToolbarBadge = {
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999,
-  background: 'var(--c-brand)', color: 'var(--accent-ink)', fontSize: 10, fontWeight: 700,
+const bookshelfIconBtn = {
+  width: 44, height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit',
 };
 const HelpModal = lazy(() => import('./components/HelpModal'));
 const Review = lazy(() => import('./components/Review'));
@@ -642,6 +641,9 @@ function AuthedApp() {
   const [newFolderName, setNewFolderName] = useState('');
   // 詳細画面の「⋯」kebab メニュー位置 (button 近くに表示する)
   const [detailKebab, setDetailKebab] = useState(null);
+  // すべての本: 検索欄の開閉と「…」メニュー（並び替え・絞り込み・表示）。
+  const [librarySearchOpen, setLibrarySearchOpen] = useState(false);
+  const [libraryMenu, setLibraryMenu] = useState(null);
   // 読書中・読了の本の購入リンクは「⋯ → この本を買う」のシートへ（2026-09-26 オーナー判断）。
   const [storeSheetOpen, setStoreSheetOpen] = useState(false);
   const openDetailKebab = (e) => {
@@ -767,6 +769,20 @@ function AuthedApp() {
       });
     }
   }, [view, tab]);
+
+  // ホーム ⇄ すべての本 の切替は別の画面への移動なので、先頭から見せる（前の画面の
+  // スクロール位置を持ち越さない）。本詳細から戻ったときの復元（上）はそのまま。
+  const prevShelfModeRef = useRef(shelfMode);
+  useEffect(() => {
+    if (prevShelfModeRef.current === shelfMode) return;
+    prevShelfModeRef.current = shelfMode;
+    savedShelfScroll.current = 0;
+    requestAnimationFrame(() => {
+      if (listScrollRef.current) {
+        try { listScrollRef.current.scrollTop = 0; } catch { /* ignore */ }
+      }
+    });
+  }, [shelfMode]);
 
   // 編集に入った瞬間の form をベースラインとして控える（編集中の変更検知用）。
   // form は deps に入れない＝編集中の変更で再スナップショットしない（入った時だけ）。
@@ -3556,113 +3572,94 @@ function AuthedApp() {
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <div
               style={{
-                padding: "8px var(--space-4)",
+                padding: "var(--space-2) var(--space-4) var(--space-3)",
                 display: "flex",
                 flexDirection: "column",
-                gap: 8,
+                gap: 'var(--space-3)',
                 position: "sticky",
                 top: 0,
                 background: "var(--bg)",
                 zIndex: 10,
               }}
             >
-              {/* すべての本（ライブラリ）: ホームから押し込まれた画面。iOS の戻る＋大見出し。 */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              {/* すべての本（ライブラリ）: ホームから押し込まれた画面。iOS の戻る＋大見出し。
+                  操作は右上のアイコン（検索・…・追加）に寄せ、本の前に積むのはステータスのチップ 1 行だけ。
+                  並び替え・絞り込み・表示の切替は「…」へ（SPEC §1・2026-09-26）。 */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-1)' }}>
                 <button
                   type="button"
                   onClick={() => setShelfMode('home')}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 44, padding: '0 8px 0 0', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
                 >
                   <ChevronLeft size={22} aria-hidden="true" />ホーム
                 </button>
+                <div style={{ display: 'flex', alignItems: 'center', marginRight: 'calc(-1 * var(--space-3))' }}>
+                  <button type="button" onClick={() => setLibrarySearchOpen((v) => !v)} aria-label="本を検索" aria-expanded={librarySearchOpen || !!search} style={bookshelfIconBtn}>
+                    <IcSearch size={22} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setLibraryMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
+                    aria-label={activeFilterCount > 0 ? `並び替え・絞り込み・表示（絞り込み ${activeFilterCount} 件）` : '並び替え・絞り込み・表示'}
+                    style={{ ...bookshelfIconBtn, position: 'relative' }}
+                  >
+                    <MoreHorizontal size={22} aria-hidden="true" />
+                    {activeFilterCount > 0 && <span aria-hidden="true" style={{ position: 'absolute', top: 10, right: 8, width: 8, height: 8, borderRadius: 999, background: 'var(--accent)' }} />}
+                  </button>
+                  <button type="button" onClick={openAdd} aria-label="本を追加" title="本を追加" style={{ ...bookshelfIconBtn, color: 'var(--accent)' }}>
+                    <IcPlus size={24} aria-hidden="true" />
+                  </button>
+                </div>
               </div>
-              <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>すべての本</h1>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center" }}>
-                  <IcSearch size={17} aria-hidden="true" style={{ position: "absolute", left: 13, color: "var(--c-ink-3)", pointerEvents: "none" }} />
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
+                <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>すべての本</h1>
+                <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{filtered.length} 冊</span>
+              </div>
+              {(librarySearchOpen || search) && (
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <IcSearch size={18} aria-hidden="true" style={{ position: "absolute", left: 'var(--space-3)', color: "var(--text-3)", pointerEvents: "none" }} />
                   <input
                     type="search"
                     aria-label="本を検索（タイトル・著者・タグ）"
-                    placeholder="タイトル・著者・タグで検索"
+                    placeholder="タイトル・著者・タグ"
                     value={search}
+                    autoFocus={librarySearchOpen && !search}
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                    style={{ ...inp, flex: 1, background: "var(--c-card)", paddingLeft: 38 }}
+                    style={{ ...inp, flex: 1, minHeight: 44, background: "var(--surface)", border: '1px solid var(--border)', borderRadius: 'var(--radius)', paddingLeft: 40 }}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={openAdd}
-                  aria-label="本を追加"
-                  title="本を追加"
-                  style={{
-                    width: 44,
-                    height: 44,
-                    flexShrink: 0,
-                    borderRadius: 'var(--radius)',
-                    border: "none",
-                    background: "var(--accent)",
-                    color: "var(--accent-ink)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  <IcPlus size={22} aria-hidden="true" />
-                </button>
-              </div>
+              )}
               {/* フォルダ行 — フォルダが1つ以上あるときだけ出す（新規ユーザーには
                   出ず本棚はスッキリのまま）。横スクロールで切替。 */}
               {folderNames.length > 0 && (
-                <div className="lvg-no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+                <div className="lvg-no-scrollbar" style={{ display: "flex", gap: 'var(--space-2)', overflowX: "auto" }}>
                   <button type="button" onClick={() => setFolderFilter(null)} style={bookshelfToolbarBtn(folderFilter === null)} aria-pressed={folderFilter === null}>
                     すべて <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{rawBooks.length}</span>
                   </button>
                   {allFolders.map((f) => (
                     <button key={f.name} type="button" onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)} style={bookshelfToolbarBtn(folderFilter === f.name)} aria-pressed={folderFilter === f.name}>
-                      <IcFolder size={13} aria-hidden="true" />
+                      <IcFolder size={14} aria-hidden="true" />
                       {f.name} <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{f.count}</span>
                     </button>
                   ))}
                 </div>
               )}
-              {/* コンパクトなツールバー — 絞り込み・並びはシートに隠し、本棚を
-                  スッキリさせる（本の前に積まれていたピル列＋セレクトを撤去）。 */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button type="button" onClick={() => setFilterSheetOpen(true)} style={bookshelfToolbarBtn(activeFilterCount > 0)} aria-label="絞り込み">
-                    <IcFilter size={15} aria-hidden="true" />
-                    絞り込み
-                    {activeFilterCount > 0 && <span style={bookshelfToolbarBadge}>{activeFilterCount}</span>}
-                  </button>
-                  <button type="button" onClick={() => setSortSheetOpen(true)} style={bookshelfToolbarBtn(false)} aria-label="並び替え">
-                    <IcSort size={15} aria-hidden="true" />
-                    {SORT_LABELS[sortBy] || '並び'}
-                  </button>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-meta)", color: "var(--text-3)" }}>
-                  <span>{filtered.length} 件</span>
-                  <div className="view-mode-switch" role="group" aria-label="表示モード">
-                    <button
-                      type="button"
-                      className={effectiveBookshelfView === 'grid' ? 'active' : ''}
-                      onClick={() => setBookshelfViewMode('grid')}
-                      aria-label="表紙グリッド表示"
-                      title="表紙グリッド"
-                    ><IcGrid size={17} aria-hidden="true" /></button>
-                    <button
-                      type="button"
-                      className={effectiveBookshelfView === 'list' ? 'active' : ''}
-                      onClick={() => setBookshelfViewMode('list')}
-                      aria-label="リスト表示"
-                      title="リスト"
-                    ><IcList size={17} aria-hidden="true" /></button>
-                  </div>
-                </div>
-              </div>
             </div>
+            {libraryMenu && (
+              <ContextMenu
+                x={libraryMenu.x}
+                y={libraryMenu.y}
+                onClose={() => setLibraryMenu(null)}
+                items={[
+                  { label: `並び替え（${SORT_LABELS[sortBy] || '更新順'}）`, icon: <IcSort size={16} aria-hidden="true" />, onClick: () => setSortSheetOpen(true) },
+                  { label: activeFilterCount > 0 ? `絞り込み（${activeFilterCount}）` : '絞り込み', icon: <IcFilter size={16} aria-hidden="true" />, onClick: () => setFilterSheetOpen(true) },
+                  effectiveBookshelfView === 'grid'
+                    ? { label: 'リストで表示', icon: <IcList size={16} aria-hidden="true" />, onClick: () => setBookshelfViewMode('list') }
+                    : { label: '表紙で表示', icon: <IcGrid size={16} aria-hidden="true" />, onClick: () => setBookshelfViewMode('grid') },
+                ]}
+              />
+            )}
             <div style={{ padding: "0 var(--space-4)" }}>
               {/* 🔎 ステータスのワンタップ絞り込み。管理の最頻操作（読書中だけ見る等）を
                   絞り込みシートの1階層奥から棚の表に昇格。state は絞り込みシートと共有
@@ -3671,7 +3668,7 @@ function AuthedApp() {
               {books.length >= 4 && (
                 <div
                   style={{
-                    display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 4,
+                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-3)',
                     WebkitOverflowScrolling: 'touch',
                     // 右端をふわっと透過させ「まだ続きがある（横スクロールできる）」を示す。
                     // フェードなしだと「読了」チップが硬く見切れて壊れて見えていた。
@@ -3711,21 +3708,18 @@ function AuthedApp() {
                   <EmptyState
                     icon={<IcLibrary size={34} aria-hidden="true" />}
                     title="最初の1冊から"
-                    description="読んだ気づきが、ここに少しずつ積み上がります。積み重なるほど、困ったときに相談できる、あなただけの相談相手に育ちます。"
                     actions={[
                       { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
                     ]}
                     tip={(
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'center' }}>
-                        <IcSparkles size={15} aria-hidden="true" style={{ color: 'var(--color-accent)' }} />
                         <span>悩みから</span>
                         <button
                           type="button"
                           onClick={() => { setAiSubTab('advisor'); setTab('ai'); }}
                           style={{
                             background: 'none', border: 'none', padding: 0,
-                            color: 'var(--color-accent)', fontWeight: 600,
-                            borderBottom: '1px solid var(--c-hairline-strong)',
+                            color: 'var(--accent)', fontWeight: 600, minHeight: 44,
                             cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit',
                           }}
                         >
@@ -3738,7 +3732,6 @@ function AuthedApp() {
                   <EmptyState
                     icon={<IcSearchX size={32} aria-hidden="true" />}
                     title="該当する本がありません"
-                    description="別のキーワードや、フィルタを試してみてください。"
                     actions={[
                       {
                         label: '条件をクリア',

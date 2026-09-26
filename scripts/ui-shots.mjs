@@ -31,6 +31,8 @@ const SCREENS = [
   { name: 'home', url: '/' },
   { name: 'home-new-user', url: '/?demo=new', steps: [{ role: 'あとで' }] },
   { name: 'library', url: '/', steps: [{ css: 'button:has-text("すべての本")' }] },
+  { name: 'library-list', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label^="並び替え・絞り込み・表示"]' }, { css: 'button:has-text("リストで表示")' }] },
+  { name: 'library-menu', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label^="並び替え・絞り込み・表示"]' }] },
   { name: 'home-write-memo', url: '/', steps: [{ css: 'button[aria-label$="にメモを書く"]' }] },
   { name: 'onboarding', url: '/?demo=new' },
   { name: 'quickstart', url: '/?demo=new', steps: [{ role: '次へ' }, { role: '次へ' }, { role: '次へ' }, { role: 'これまで読んだ本から始める' }] },
