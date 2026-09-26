@@ -1,12 +1,16 @@
 // 🛡️ AccountSettings — Modal opened from the header settings menu.
 //
 // Two destructive / sensitive operations:
-//   1. 📥 データをダウンロード — exports books / memos / tags / actions /
-//      chat history as a single JSON file. Photo paths only (signed URLs are
+//   1. データをダウンロード — exports books / memos / tags / actions /
+//      chat history (CSV) or memos (Markdown). Photo paths only (signed URLs are
 //      time-limited and would expire by the time the user opens the export).
-//   2. ⚠️ アカウント削除 — wipes all user-owned rows + Storage photos, then
+//   2. アカウント削除 — wipes all user-owned rows + Storage photos, then
 //      writes an account_deletion_requests row that the admin must process to
 //      delete the auth.users entry (service_role required for that final step).
+//
+// 見た目は DESIGN.md のトークンのみ（iOS「設定」風: グループ見出し＋カード＋44 以上の行）。
+// 塗りの主ボタンは「その状態で一番大事な 1 つ」だけ（未契約時の購入/入手）。
+// 削除の塗りボタン（btnDanger）は退会の最終確定だけに使う。
 
 import { useEffect, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -24,12 +28,8 @@ import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
 import { isNative, purchasePlan, openManageSubscriptions, APP_PLAN_LABELS, getStoreLabels } from '../lib/iap';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnDanger as uiBtnDanger } from '../styles/ui';
-import {
-  Settings as IcSettings, CreditCard as IcCard, Bell as IcBell, Download as IcDownload,
-  FileText as IcFileText, BarChart3 as IcBar, RefreshCw as IcRefresh, Mail as IcMail,
-  Eraser as IcEraser, AlertTriangle as IcWarn, X as IcClose,
-} from 'lucide-react';
+import { btnPrimary, btnGhost, btnDanger, input as uiInput } from '../styles/ui';
+import { X as IcClose, ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
   isPushSupported,
@@ -53,42 +53,46 @@ const overlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 'var(--z-popover)',
-  background: 'rgba(30,25,20,0.45)',
+  background: 'var(--backdrop)',
+  WebkitBackdropFilter: 'var(--backdrop-blur)',
   backdropFilter: 'var(--backdrop-blur)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 20,
-  fontFamily: "var(--font-app)",
+  padding: 'var(--space-4)',
+  fontFamily: 'var(--font-ui)',
 };
 
-const cardStyle = {
-  background: 'var(--c-card)',
-  borderRadius: 'var(--radius-md)',
+// モーダル本体は --bg（iOS「設定」のグループ背景）、中のカードは --surface。
+// 暗い画面では影が消えるので、縁は --separator の枠で見せる。
+const modalStyle = {
+  background: 'var(--bg)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
   width: 'min(440px, 100%)',
   maxHeight: 'min(85vh, 85dvh)',
   display: 'flex',
   flexDirection: 'column',
-  boxShadow: '0 16px 48px rgba(30,25,20,0.18)',
+  boxShadow: 'var(--shadow-overlay)',
   overflow: 'hidden',
 };
 
 const headerStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 14px',
-  borderBottom: '1px solid var(--c-hairline)',
+  gap: 'var(--space-2)',
+  padding: 'calc(var(--space-2) + env(safe-area-inset-top, 0px)) var(--space-2) var(--space-2) var(--space-4)',
+  borderBottom: '1px solid var(--separator)',
 };
 
 const closeBtnStyle = {
   background: 'none',
   border: 'none',
-  fontSize: 22,
-  color: 'var(--c-brand)',
+  color: 'var(--text-2)',
   cursor: 'pointer',
   width: 44,
   height: 44,
+  flexShrink: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -97,42 +101,71 @@ const closeBtnStyle = {
 };
 
 const bodyStyle = {
-  padding: '16px 18px',
+  padding: 'var(--space-4) var(--space-4) var(--space-6)',
   overflowY: 'auto',
   flex: 1,
   WebkitOverflowScrolling: 'touch',
+  overscrollBehavior: 'contain',
   display: 'flex',
   flexDirection: 'column',
-  gap: 14,
+  gap: 'var(--space-6)', // グループ間は 24（グループ内 8〜12 より必ず広く）
 };
 
-const sectionStyle = {
-  padding: 14,
+// カード＝行を縦に並べる器。左右 16 の内側余白、上下は各行が持つ。
+const groupCardStyle = {
   background: 'var(--surface)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 12,
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  padding: '0 var(--space-4)',
 };
 
-const dangerSection = { ...sectionStyle, border: '1px solid #d8b8b0', background: '#faf2ee' };
+// カード内の行と行の区切り線。
+const divider = { borderTop: '1px solid var(--separator)' };
 
-// グループ見出し — 関連セクションを束ねる小さなラベル。モーダルのクリーム/ブラウン
-// 配色（serif）に合わせ、SectionHeader（sans 系トークン）ではなく軽量なインライン
-// 見出しを使う。表示専用で挙動には一切関与しない。
+// 行のタイトル（17・400）と、その下の説明（13・--text-2）。
+const rowTitleStyle = { fontSize: 'var(--text-body)', fontWeight: 400, color: 'var(--text)', margin: 0, lineHeight: 1.5 };
+const rowDescStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0', lineHeight: 1.5 };
+// ボタンを出さず案内だけのときの一行（状態の説明）。
+const noteStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 };
+
+// 行全体が押せるボタン（iOS「設定」の一覧行）。
+const rowButtonStyle = {
+  width: '100%',
+  minHeight: 44,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
+  padding: 'var(--space-3) 0',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  textAlign: 'left',
+  color: 'var(--text)',
+};
+
+// 文章＋ボタンのまとまり（プラン・初期化・退会など）。
+const blockStyle = { padding: 'var(--space-4) 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
+
+// 破壊的操作の副ボタン（枠線＋エラー色の文字）。塗りの btnDanger は最終確定だけ。
+const btnDestructiveGhost = { ...btnGhost, color: 'var(--error)' };
+
+// グループ見出し（12・600・--text-2）。直下のカードと結びつけるため下は 8 だけ空ける。
 const groupLabelStyle = {
-  fontSize: 11,
-  color: 'var(--c-ink-3)',
-  // 5 グループに整理したので、前のカードとの間を少し広めに取り、グループの
-  // 切れ目を分かりやすくする（body の gap:14 に加算される）。下は詰めて
-  // 直下のカードと結びつける（iOS「設定」のセクション見出し相当）。
-  margin: '10px 0 2px 2px',
+  fontSize: 'var(--text-caption)',
   fontWeight: 600,
-  letterSpacing: 0.6,
+  color: 'var(--text-2)',
+  margin: '0 0 var(--space-2) var(--space-1)',
+  lineHeight: 1.3,
 };
 
-function GroupLabel({ children }) {
-  // 装飾的な見出しラベル。各 section は自前の見出し <p> を持つため、
-  // グループラベルはスクリーンリーダーでは補助的な小見出しとして読み上げる。
-  return <p style={groupLabelStyle} role="heading" aria-level={2}>{children}</p>;
+function Group({ label, ariaLabel, children }) {
+  return (
+    <section aria-label={ariaLabel || label}>
+      {label && <h3 style={groupLabelStyle}>{label}</h3>}
+      <div style={groupCardStyle}>{children}</div>
+    </section>
+  );
 }
 
 // iOS 風トグルスイッチ。on/off が「色＋ノブ位置」で一目で分かるので、
@@ -156,7 +189,7 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
         minHeight: 44,
         display: 'inline-flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-end',
         border: 'none',
         padding: 0,
         background: 'none',
@@ -165,6 +198,8 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
         fontFamily: 'inherit',
       }}
     >
+      {/* トラック/ノブの寸法は iOS のスイッチの形そのもの（UI の余白ではない）。
+          オフのトラックは操作部品の枠と同じ --border（3:1 以上）で、明暗どちらでも見える。 */}
       <span
         aria-hidden="true"
         style={{
@@ -173,24 +208,24 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
           width: 51,
           height: 31,
           borderRadius: 999,
-          background: checked ? 'var(--c-brand)' : '#d6cfc2',
-          transition: 'background 220ms ease',
+          background: checked ? 'var(--accent)' : 'var(--border)',
+          transition: 'background var(--duration-fast) ease',
         }}
       >
-      <span
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          top: 2,
-          left: checked ? 22 : 2,
-          width: 27,
-          height: 27,
-          borderRadius: '50%',
-          background: 'var(--surface)',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-          transition: 'left 220ms cubic-bezier(0.3, 1.3, 0.6, 1)',
-        }}
-      />
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: 2,
+            left: checked ? 22 : 2,
+            width: 27,
+            height: 27,
+            borderRadius: '50%',
+            background: 'var(--surface)',
+            boxShadow: 'var(--shadow-raised)',
+            transition: 'left var(--duration-fast) cubic-bezier(0.3, 1.3, 0.6, 1)',
+          }}
+        />
       </span>
     </button>
   );
@@ -198,48 +233,31 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
 
 // 設定行: 左にタイトル＋説明、右にスイッチ（or 任意のコントロール）。
 // iOS「設定」アプリと同じ並びで、トグル系の設定はこれで統一する。
-function SettingRow({ title, desc, control, titleColor }) {
+function SettingRow({ title, desc, extra, control, style }) {
+  // タイトルとスイッチを 1 行に並べ、説明は下に全幅で置く（iOS「設定」の脚注と同じ）。
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ ...sectionTitleStyle, margin: 0, ...(titleColor ? { color: titleColor } : null) }}>{title}</p>
-        {desc && <p style={{ ...sectionDescStyle, margin: '4px 0 0' }}>{desc}</p>}
+    <div style={{ padding: 'var(--space-3) 0', ...style }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44 }}>
+        <p style={{ ...rowTitleStyle, flex: 1, minWidth: 0 }}>{title}</p>
+        {control}
       </div>
-      {control && <div style={{ paddingTop: 2 }}>{control}</div>}
+      {desc && <p style={rowDescStyle}>{desc}</p>}
+      {extra && <p style={{ ...rowDescStyle, marginTop: 'var(--space-2)' }}>{extra}</p>}
     </div>
   );
 }
 
-// 全 section 共通の見出し（13px / 600）。色だけ差し替え可能（破壊操作は赤）。
-const sectionTitleStyle = { fontSize: 13, margin: '0 0 4px', fontWeight: 600, color: 'var(--c-ink)' };
-// 見出し＝lucide 線アイコン＋テキスト（脱・絵文字）。色はオプションで上書き。
-function SecTitle({ icon: Icon, children, color }) {
+// 値を右に出すだけの行（状態・次回更新など）。
+function ValueRow({ label, value, style }) {
   return (
-    <p style={{ ...sectionTitleStyle, display: 'flex', alignItems: 'center', gap: 7, ...(color ? { color } : null) }}>
-      <Icon size={15} aria-hidden="true" /> {children}
-    </p>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...style }}>
+      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>{label}</span>
+      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right' }}>{value}</span>
+    </div>
   );
 }
-// 全 section 共通の説明文（11px / 行間 1.7 / ボタンとの間隔 10px）。
-const sectionDescStyle = { fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.7 };
-// 無効/準備中など、ボタンを出さず案内文のみのときの末尾余白なしバリアント。
-const sectionNoteStyle = { fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 };
 
-const btnPrimary = uiBtnPrimary;
-const btnGhost = uiBtnGhost;
-const btnDanger = uiBtnDanger;
-
-const inputStyle = {
-  width: '100%',
-  padding: '10px 12px',
-  fontSize: 16,
-  border: '1px solid var(--c-hairline-strong)',
-  borderRadius: 10,
-  background: 'var(--surface)',
-  color: 'var(--c-ink)',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
-};
+const inputStyle = uiInput;
 
 // Stripe の status を日本語の短いラベルに。entitlement 判定そのものは
 // useSubscription（status==='active'）が真実。ここは表示専用。
@@ -719,123 +737,146 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     }
   };
 
+
+  // 通知: 操作可能な状態（許可要求できる）のときだけ右にスイッチを出す。
+  // 準備中 / A2HS 必要 / 非対応 / OS で拒否済み の各状態は案内文に倒す。
+  const canTogglePush = pushConfigured && pushSupported && !pushNeedsA2HS && !(pushDenied && !pushOn);
+  const pushNote = !pushConfigured ? (
+    // VAPID 鍵未設定 = 機能準備中（env 投入前）。静かに案内のみ。
+    'ただいま準備中です。もう少しお待ちください。'
+  ) : pushNeedsA2HS ? (
+    // iOS タブ内 = ホーム画面に追加しないと通知は使えない。
+    <>
+      iPhone / iPad では、<strong style={{ fontWeight: 600 }}>ホーム画面に追加</strong>したアプリから開くと通知を受け取れます。<br />
+      共有メニュー（□↑）→「ホーム画面に追加」→ 追加したアイコンから開いてください。
+    </>
+  ) : !pushSupported ? (
+    // 非対応ブラウザ等。
+    'この端末・ブラウザでは通知に対応していません。'
+  ) : pushDenied && !pushOn ? (
+    // OS で拒否済み = 自前ダイアログは出せない。設定からの手動許可を案内。
+    '通知がオフになっています。端末の「設定 → 通知」から Orime の通知を許可すると受け取れます。'
+  ) : null;
+
+  const legalLinkStyle = {
+    fontSize: 'var(--text-meta)',
+    color: 'var(--text-2)',
+    textDecoration: 'underline',
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 44,
+    padding: '0 var(--space-2)',
+  };
+
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="アカウント設定" onClick={onClose}>
-      <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 500, flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}><IcSettings size={18} aria-hidden="true" /> アカウント設定</h2>
-          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><IcClose size={20} aria-hidden="true" /></button>
+          <h2 style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 700, flex: 1, lineHeight: 1.3 }}>アカウント設定</h2>
+          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><IcClose size={22} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0 }}>ログイン中</p>
-              <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '2px 0 0', fontWeight: 500, wordBreak: 'break-all' }}>{user?.email || '(未取得)'}</p>
+          <Group ariaLabel="ログイン中のアカウント">
+            <div style={{ padding: 'var(--space-3) 0' }}>
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>ログイン中</p>
+              <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{user?.email || '(未取得)'}</p>
             </div>
             {/* ログアウトはここが唯一の導線。以前は退会ボタンしか無く、アカウントを
                 切り替えたい人が行き止まりだった。 */}
             <button
               type="button"
-              style={{ ...btnGhost, width: 'auto', minHeight: 44, padding: '8px 14px', fontSize: 13, flexShrink: 0 }}
+              style={{ ...rowButtonStyle, ...divider, color: 'var(--accent)', fontSize: 'var(--text-body)' }}
               onClick={async () => {
                 try { await signOut(); onClose?.(); } catch { toast.error('ログアウトに失敗しました。'); }
               }}
             >
               ログアウト
             </button>
-          </div>
+          </Group>
 
-          {/* 🛰️ 運営（管理者のみ表示） */}
+          {/* 運営（管理者のみ表示） */}
           {isAdmin && (
-            <>
-              <GroupLabel>運営</GroupLabel>
-              <section style={sectionStyle} aria-label="運営ダッシュボード">
-                <SecTitle icon={IcBar}>運営ダッシュボード</SecTitle>
-                <p style={sectionDescStyle}>
-                  アクティブ人数・売上・AI コスト・機能別の利用状況・問い合わせを一画面で確認できます。
-                </p>
-                <button type="button" style={btnPrimary} onClick={onOpenAdmin}>
-                  ダッシュボードを開く
-                </button>
-              </section>
-            </>
+            <Group label="運営" ariaLabel="運営ダッシュボード">
+              <button type="button" style={rowButtonStyle} onClick={onOpenAdmin}>
+                <span style={{ ...rowTitleStyle, flex: 1 }}>運営ダッシュボード</span>
+                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </button>
+            </Group>
           )}
 
           {/* ── プラン・お支払い ── */}
-          <GroupLabel>プラン・お支払い</GroupLabel>
-
-          {/* 💳 Billing / プラン */}
-          <section style={sectionStyle} aria-label="プラン・お支払い">
-            <SecTitle icon={IcCard}>プラン</SecTitle>
+          <Group label="プラン・お支払い">
             {subLoading ? (
-              <p style={sectionNoteStyle}>確認中…</p>
+              <div style={{ padding: 'var(--space-3) 0' }}>
+                <p style={noteStyle}>確認中…</p>
+              </div>
             ) : isActive ? (
               <>
-                <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '0 0 4px', lineHeight: 1.7 }}>
-                  状態：<strong style={{ color: 'var(--c-ink)' }}>{subscription?.status ? billingStatusLabel(subscription.status) : '利用中'}</strong>
-                  {formatPeriodEnd(subscription?.currentPeriodEnd) && (
-                    <>（次回更新 {formatPeriodEnd(subscription.currentPeriodEnd)}）</>
-                  )}
-                </p>
-                {/* 管理ボタンを出せる状態かどうかで説明文を出し分ける。
-                    出せない（Web で stripeCustomerId 未同期 / 付与契約 等）のに
-                    「こちらから」と書くと、ボタンが無いのに導線を匂わせて分かりにくいため。 */}
-                <p style={sectionDescStyle}>
-                  {isNative
-                    ? '解約・プラン変更は App Store のサブスク設定から。いつでも解約でき、データは保持されます。'
-                    : subscription?.stripeCustomerId
-                      ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
-                      : 'いつでも解約でき、データは保持されます。'}
-                </p>
-                {/* 管理ボタンを出せない契約状態では、探させずにその場で連絡導線を置く
-                    （旧: 「画面下部のお問い合わせから」と 12px の下端リンクを自力で
-                    探させる行き止まりだった）。 */}
-                {!isNative && !subscription?.stripeCustomerId && (
-                  <a
-                    href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更の相談')}`}
-                    style={{ ...btnGhost, textDecoration: 'none' }}
-                  >
-                    解約・変更を問い合わせる
-                  </a>
+                <ValueRow label="状態" value={subscription?.status ? billingStatusLabel(subscription.status) : '利用中'} />
+                {formatPeriodEnd(subscription?.currentPeriodEnd) && (
+                  <ValueRow label="次回更新" value={formatPeriodEnd(subscription.currentPeriodEnd)} style={divider} />
                 )}
-                {isNative ? (
-                  <button
-                    type="button"
-                    aria-label="サブスクリプションを管理する"
-                    style={{ ...btnPrimary, opacity: billingBusy ? 0.6 : 1 }}
-                    disabled={billingBusy}
-                    onClick={handleManageBilling}
-                  >
-                    {billingBusy ? '移動中…' : '⚙️ サブスクリプションを管理（App Store）'}
-                  </button>
-                ) : subscription?.stripeCustomerId ? (
-                  <button
-                    type="button"
-                    aria-label="プランを管理する"
-                    style={{ ...btnPrimary, opacity: billingBusy ? 0.6 : 1 }}
-                    disabled={billingBusy}
-                    onClick={handleManageBilling}
-                  >
-                    {billingBusy ? '移動中…' : '⚙️ プランを管理する'}
-                  </button>
-                ) : null}
+                <div style={{ ...blockStyle, ...divider }}>
+                  {/* 管理ボタンを出せる状態かどうかで説明文を出し分ける。
+                      出せない（Web で stripeCustomerId 未同期 / 付与契約 等）のに
+                      「こちらから」と書くと、ボタンが無いのに導線を匂わせて分かりにくいため。 */}
+                  <p style={noteStyle}>
+                    {isNative
+                      ? '解約・プラン変更は App Store のサブスク設定から。いつでも解約でき、データは保持されます。'
+                      : subscription?.stripeCustomerId
+                        ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
+                        : 'いつでも解約でき、データは保持されます。'}
+                  </p>
+                  {/* 管理ボタンを出せない契約状態では、探させずにその場で連絡導線を置く
+                      （旧: 「画面下部のお問い合わせから」と下端リンクを自力で
+                      探させる行き止まりだった）。 */}
+                  {!isNative && !subscription?.stripeCustomerId && (
+                    <a
+                      href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更の相談')}`}
+                      style={{ ...btnGhost, textDecoration: 'none', boxSizing: 'border-box' }}
+                    >
+                      解約・変更を問い合わせる
+                    </a>
+                  )}
+                  {isNative ? (
+                    <button
+                      type="button"
+                      aria-label="サブスクリプションを管理する"
+                      style={{ ...btnGhost, opacity: billingBusy ? 0.6 : 1 }}
+                      disabled={billingBusy}
+                      onClick={handleManageBilling}
+                    >
+                      {billingBusy ? '移動中…' : 'サブスクリプションを管理（App Store）'}
+                    </button>
+                  ) : subscription?.stripeCustomerId ? (
+                    <button
+                      type="button"
+                      aria-label="プランを管理する"
+                      style={{ ...btnGhost, opacity: billingBusy ? 0.6 : 1 }}
+                      disabled={billingBusy}
+                      onClick={handleManageBilling}
+                    >
+                      {billingBusy ? '移動中…' : 'プランを管理する'}
+                    </button>
+                  ) : null}
+                </div>
               </>
             ) : isNative ? (
-              <>
-                <p style={sectionDescStyle}>
+              <div style={blockStyle}>
+                <p style={noteStyle}>
                   すべての機能を使うにはご契約が必要です。いつでも解約でき、データは保持されます。
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                   <button
                     type="button"
                     aria-label={`${planLabels.annual.price} で契約（おすすめ）`}
-                    style={{ ...btnPrimary, flexDirection: 'column', gap: 2, height: 'auto', paddingTop: 12, paddingBottom: 12, opacity: billingBusy ? 0.6 : 1 }}
+                    style={{ ...btnPrimary, flexDirection: 'column', gap: 'var(--space-1)', height: 'auto', paddingTop: 'var(--space-3)', paddingBottom: 'var(--space-3)', opacity: billingBusy ? 0.6 : 1 }}
                     disabled={billingBusy}
                     onClick={() => handleUpgrade('annual')}
                   >
                     <span>{billingBusy ? '移動中…' : `${planLabels.annual.price}`}</span>
-                    <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>おすすめ・{planLabels.annual.note}</span>
+                    <span style={{ fontSize: 'var(--text-caption)', fontWeight: 400 }}>おすすめ・{planLabels.annual.note}</span>
                   </button>
                   <button
                     type="button"
@@ -843,26 +884,26 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     style={{
                       ...btnGhost,
                       flexDirection: 'column',
-                      gap: 2,
+                      gap: 'var(--space-1)',
                       height: 'auto',
-                      paddingTop: 12,
-                      paddingBottom: 12,
+                      paddingTop: 'var(--space-3)',
+                      paddingBottom: 'var(--space-3)',
                       opacity: billingBusy ? 0.6 : 1,
                     }}
                     disabled={billingBusy}
                     onClick={() => handleUpgrade('monthly')}
                   >
                     <span>{planLabels.monthly.price}</span>
-                    <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.75 }}>{planLabels.monthly.note}</span>
+                    <span style={{ fontSize: 'var(--text-caption)', fontWeight: 400, color: 'var(--text-2)' }}>{planLabels.monthly.note}</span>
                   </button>
                 </div>
-              </>
+              </div>
             ) : (
-              <>
+              <div style={blockStyle}>
                 {/* App-only 配信: Orime は App Store の iOS アプリでのみ提供・課金。
                     Web/PWA から開かれた場合も、契約・利用ともアプリへ誘導する
                     （「Web 版」という別プロダクトは存在しないため、そう見せない）。 */}
-                <p style={sectionDescStyle}>
+                <p style={noteStyle}>
                   Orime のご契約・ご利用は iOS アプリ（App Store）から行えます。アプリを入手して、同じアカウントでログインしてください。
                 </p>
                 {isAppStoreLive ? (
@@ -870,95 +911,52 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     href={APP_STORE_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ ...btnPrimary, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ ...btnPrimary, textDecoration: 'none', boxSizing: 'border-box' }}
                   >
-                    📱 App Store で Orime を入手
+                    App Store で Orime を入手
                   </a>
                 ) : (
-                  <p style={{ ...sectionDescStyle, fontWeight: 600, margin: 0 }}>
-                    📱 iOS アプリは App Store で近日公開予定です
+                  <p style={{ ...noteStyle, fontWeight: 600, color: 'var(--text)' }}>
+                    iOS アプリは App Store で近日公開予定です
                   </p>
                 )}
-              </>
+              </div>
             )}
-          </section>
+          </Group>
 
           {/* ── 通知 ── */}
-          <GroupLabel>通知</GroupLabel>
-
-          {/* 🔔 想起の通知 */}
-          <section style={sectionStyle} aria-label="思い出しの通知">
-            {/* 操作可能な状態（許可要求できる）のときだけ右にスイッチを出す。
-                準備中 / A2HS 必要 / 非対応 / OS で拒否済み の各状態は案内文に倒す。 */}
-            {(() => {
-              const canToggle = pushConfigured && pushSupported && !pushNeedsA2HS && !(pushDenied && !pushOn);
-              return (
-                <SettingRow
-                  title={<><IcBell size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />思い出しの通知</>}
-                  desc="週1回ほど、過去のあなたの気づきがそっと戻ってきます。"
-                  control={canToggle ? (
-                    <ToggleSwitch
-                      checked={pushOn}
-                      busy={pushBusy}
-                      ariaLabel="思い出しの通知"
-                      onChange={handleTogglePush}
-                    />
-                  ) : null}
-                />
-              );
-            })()}
-
-            {!pushConfigured ? (
-              // VAPID 鍵未設定 = 機能準備中（env 投入前）。静かに案内のみ。
-              <p style={{ ...sectionNoteStyle, color: 'var(--c-ink-2)', marginTop: 10 }}>
-                ただいま準備中です。もう少しお待ちください。
-              </p>
-            ) : pushNeedsA2HS ? (
-              // iOS タブ内 = ホーム画面に追加しないと通知は使えない。
-              <p style={{ ...sectionNoteStyle, marginTop: 10 }}>
-                📲 iPhone / iPad では、<strong>ホーム画面に追加</strong>したアプリから開くと通知を受け取れます。<br />
-                共有メニュー（□↑）→「ホーム画面に追加」→ 追加したアイコンから開いてください。
-              </p>
-            ) : !pushSupported ? (
-              // 非対応ブラウザ等。
-              <p style={{ ...sectionNoteStyle, color: 'var(--c-ink-2)', marginTop: 10 }}>
-                この端末・ブラウザでは通知に対応していません。
-              </p>
-            ) : pushDenied && !pushOn ? (
-              // OS で拒否済み = 自前ダイアログは出せない。設定からの手動許可を案内。
-              <p style={{ ...sectionNoteStyle, marginTop: 10 }}>
-                通知がオフになっています。端末の「設定 → 通知」から Orime の通知を許可すると受け取れます。
-              </p>
-            ) : null}
-          </section>
-
-          {/* ── データとプライバシー ── */}
-          <GroupLabel>データとプライバシー</GroupLabel>
-
-          {/* Export */}
-          <section style={sectionStyle} aria-label="データをダウンロード">
-            <SecTitle icon={IcDownload}>データをダウンロード</SecTitle>
-            <p style={sectionDescStyle}>
-              あなたのデータはいつでも書き出せます。用途に合わせて選んでください。
-            </p>
-            <button type="button" aria-label="表で見る（CSV をダウンロード）" style={{ ...btnPrimary, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
-              {exporting ? '準備中…' : '表で見る（CSV）'}
-            </button>
-            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 14px', lineHeight: 1.6 }}>
-              本・メモ・タグ・行動・対話履歴をまとめた表。Excel / Numbers で開けます。
-            </p>
-            <button type="button" aria-label="文章で読み返す（Markdown で書き出す）" style={{ ...btnGhost, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
-              {exportingMd ? '書き出し中…' : '文章で読み返す（Markdown）'}
-            </button>
-            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 0 0', lineHeight: 1.6 }}>
-              メモを 1 枚の読み物に。NotebookLM や Obsidian、AI への読み込みにも。
-            </p>
-          </section>
-
-          {/* 📊 利用状況の記録（製品改善のためのファーストパーティ計測） */}
-          <section style={sectionStyle} aria-label="利用状況の記録">
+          <Group label="通知" ariaLabel="思い出しの通知">
             <SettingRow
-              title={<><IcBar size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />利用状況の記録（製品改善のため）</>}
+              title="思い出しの通知"
+              desc="週1回ほど、過去のあなたの気づきがそっと戻ってきます。"
+              extra={pushNote}
+              control={canTogglePush ? (
+                <ToggleSwitch
+                  checked={pushOn}
+                  busy={pushBusy}
+                  ariaLabel="思い出しの通知"
+                  onChange={handleTogglePush}
+                />
+              ) : null}
+            />
+          </Group>
+
+          {/* ── データをダウンロード ── */}
+          <Group label="データをダウンロード">
+            <button type="button" aria-label="表で見る（CSV をダウンロード）" style={{ ...rowButtonStyle, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
+              <span style={{ ...rowTitleStyle, flex: 1 }}>{exporting ? '準備中…' : '表で見る（CSV）'}</span>
+              <IcDownload size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            </button>
+            <button type="button" aria-label="文章で読み返す（Markdown で書き出す）" style={{ ...rowButtonStyle, ...divider, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
+              <span style={{ ...rowTitleStyle, flex: 1 }}>{exportingMd ? '書き出し中…' : '文章で読み返す（Markdown）'}</span>
+              <IcDownload size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            </button>
+          </Group>
+
+          {/* ── プライバシー: 利用状況の記録（製品改善のためのファーストパーティ計測） ── */}
+          <Group label="プライバシー" ariaLabel="利用状況の記録">
+            <SettingRow
+              title="利用状況の記録"
               desc="どの機能がよく使われているかを、機能名や回数だけ（個人を特定する内容は含めず）そっと記録し、Orime の改善に役立てます。外部のサービスには送らず、いつでもオフにできます。"
               control={(
                 <ToggleSwitch
@@ -968,156 +966,152 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 />
               )}
             />
-          </section>
+          </Group>
 
           {/* ── アプリ・サポート ── */}
-          <GroupLabel>アプリ・サポート</GroupLabel>
-
-          {/* App update — 通常は自動更新（autoApply）。困った時の復旧用に顧客語で控えめに置く。 */}
-          <section style={sectionStyle} aria-label="画面がうまく表示されないとき">
-            <SecTitle icon={IcRefresh}>画面がうまく表示されないとき</SecTitle>
-            <p style={sectionDescStyle}>
-              表示が古いまま・崩れている場合に、いったん読み込み直します。書きかけのメモや入力中の文章は失われます。
-            </p>
+          <Group label="アプリ・サポート">
+            {/* 通常は自動更新（autoApply）。困った時の復旧用に顧客語で控えめに置く。
+                書きかけが消える注意は押した後の確認ダイアログで伝える。 */}
             <button
               type="button"
               aria-label="読み込み直す"
-              style={{ ...btnGhost, opacity: updating ? 0.6 : 1 }}
+              style={{ ...rowButtonStyle, opacity: updating ? 0.6 : 1 }}
               disabled={updating}
               onClick={handleForceUpdate}
             >
-              {updating ? '更新中…' : '読み込み直す'}
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ ...rowTitleStyle, display: 'block' }}>{updating ? '更新中…' : '画面を読み込み直す'}</span>
+                <span style={{ ...rowDescStyle, display: 'block' }}>表示が古いまま・崩れているとき</span>
+              </span>
+              <IcRefresh size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
-          </section>
-
-          {/* Feedback */}
-          <section style={sectionStyle} aria-label="フィードバック・要望を送る">
-            <SecTitle icon={IcMail}>フィードバック・要望を送る</SecTitle>
-            <p style={sectionDescStyle}>
-              バグ報告 / 機能要望 / 感想など、運営に直接届きます。いただいた声はサービス改善に活用します。
-            </p>
-            <button type="button" aria-label="フィードバックを送る" style={btnPrimary} onClick={() => setFeedbackOpen(true)}>
-              フィードバックを送る
+            <button type="button" aria-label="フィードバックを送る" style={{ ...rowButtonStyle, ...divider }} onClick={() => setFeedbackOpen(true)}>
+              <span style={{ ...rowTitleStyle, flex: 1 }}>フィードバック・要望を送る</span>
+              <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
-          </section>
+          </Group>
 
           {/* ── アカウント（破壊的操作・最下部に分離） ── */}
-          <GroupLabel>アカウント</GroupLabel>
-
-          {/* 🧹 データ初期化（アカウントは残す） */}
-          <section style={sectionStyle} aria-label="データを初期化">
-            <SecTitle icon={IcEraser}>データを初期化（ログインは残す）</SecTitle>
-            <p style={sectionDescStyle}>
-              <strong>ログインはそのまま、データだけ</strong>をすべて消して、まっさらな状態から始め直します。本・メモ・写真・行動・対話履歴・テーマまとめが対象です。この操作は取り消せません。
-            </p>
-            <button
-              type="button"
-              aria-label="データを初期化する"
-              style={{ ...btnPrimary, background: 'var(--c-critical-soft)', color: 'var(--c-critical)', border: '1px solid var(--c-critical)', boxShadow: 'none', opacity: resetting ? 0.6 : 1 }}
-              disabled={resetting}
-              onClick={handleResetData}
-            >
-              {resetting ? '初期化中…' : 'データをすべて初期化する'}
-            </button>
-          </section>
-
-          {/* Delete */}
-          <section style={dangerSection} aria-label="アカウント削除">
-            <SecTitle icon={IcWarn} color="var(--c-critical)">アカウント削除（退会）</SecTitle>
-            <p style={sectionDescStyle}>
-              <strong>アカウントごと退会</strong>します。本・メモ・写真・対話履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
-            </p>
-            {/* 退会してもサブスク（App Store / 決済）は自動では止まらない旨を明示。
-                Apple ガイドライン要件＋過剰請求トラブルの防止。 */}
-            {isActive && (
-              <p style={{ fontSize: 12, color: 'var(--c-critical)', margin: '0 0 10px', lineHeight: 1.7, fontWeight: 600 }}>
-                ⚠️ 退会してもサブスクの課金は自動で止まりません。
-                {isNative
-                  ? '先に上の「サブスクリプションを管理（App Store）」から解約してください。'
-                  : '先に上の「プランを管理する」から解約してください。'}
-              </p>
-            )}
-            {!deleteOpen ? (
-              <button type="button" aria-label="アカウントの削除を開始" style={btnDanger} onClick={() => setDeleteOpen(true)}>
-                アカウントの削除を開始
-              </button>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
-                  確認のため、ご自身のメールアドレス <strong>{expectedConfirm}</strong> を入力してください。
+          <Group label="アカウント">
+            {/* データ初期化（アカウントは残す） */}
+            <div style={blockStyle} role="group" aria-label="データを初期化">
+              <div>
+                <p style={{ ...rowTitleStyle, fontWeight: 600 }}>データを初期化（ログインは残す）</p>
+                <p style={rowDescStyle}>
+                  <strong style={{ fontWeight: 600 }}>ログインはそのまま、データだけ</strong>をすべて消して、まっさらな状態から始め直します。本・メモ・写真・行動・対話履歴・テーマまとめが対象です。この操作は取り消せません。
                 </p>
-                <input
-                  type="text"
-                  value={confirmText}
-                  onChange={(e) => setConfirmText(e.target.value)}
-                  placeholder={expectedConfirm}
-                  aria-label="確認用メールアドレス"
-                  style={inputStyle}
-                  maxLength={LIMITS.email}
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                />
-                {/* 活性判定は handleDelete と同じ正規化（trim + 小文字化）で統一する。
-                    旧: ここだけ大文字小文字を区別していたため、メールを大文字混じりで
-                    入力した人はボタンが薄いまま理由も分からず退会が詰んでいた。 */}
-                {(() => {
-                  const confirmMatches =
-                    confirmText.trim().toLowerCase() === String(expectedConfirm || '').toLowerCase();
-                  return (
-                    <>
-                      {confirmText.trim() !== '' && !confirmMatches && (
-                        <p style={{ fontSize: 11, color: 'var(--c-critical)', margin: 0, lineHeight: 1.6 }}>
-                          メールアドレスが一致しません。
-                        </p>
-                      )}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          type="button"
-                          aria-label="削除をキャンセル"
-                          style={{ ...btnGhost, flex: 1 }}
-                          onClick={() => { setDeleteOpen(false); setConfirmText(''); }}
-                          disabled={deleting}
-                        >
-                          キャンセル
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="アカウントを完全に削除"
-                          style={{ ...btnDanger, flex: 1, opacity: deleting || !confirmMatches ? 0.5 : 1 }}
-                          disabled={deleting || !confirmMatches}
-                          onClick={handleDelete}
-                        >
-                          {deleting ? '削除中…' : '完全に削除'}
-                        </button>
-                      </div>
-                    </>
-                  );
-                })()}
               </div>
-            )}
-          </section>
+              <button
+                type="button"
+                aria-label="データを初期化する"
+                style={{ ...btnDestructiveGhost, opacity: resetting ? 0.6 : 1 }}
+                disabled={resetting}
+                onClick={handleResetData}
+              >
+                {resetting ? '初期化中…' : 'データをすべて初期化する'}
+              </button>
+            </div>
+
+            {/* アカウント削除 */}
+            <div style={{ ...blockStyle, ...divider }} role="group" aria-label="アカウント削除">
+              <div>
+                <p style={{ ...rowTitleStyle, fontWeight: 600, color: 'var(--error)' }}>アカウント削除（退会）</p>
+                <p style={rowDescStyle}>
+                  <strong style={{ fontWeight: 600 }}>アカウントごと退会</strong>します。本・メモ・写真・対話履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
+                </p>
+              </div>
+              {/* 退会してもサブスク（App Store / 決済）は自動では止まらない旨を明示。
+                  Apple ガイドライン要件＋過剰請求トラブルの防止。 */}
+              {isActive && (
+                <p style={{ fontSize: 'var(--text-sub)', color: 'var(--error)', margin: 0, lineHeight: 1.5, fontWeight: 600 }}>
+                  退会してもサブスクの課金は自動で止まりません。
+                  {isNative
+                    ? '先に上の「サブスクリプションを管理（App Store）」から解約してください。'
+                    : '先に上の「プランを管理する」から解約してください。'}
+                </p>
+              )}
+              {!deleteOpen ? (
+                <button type="button" aria-label="アカウントの削除を開始" style={btnDestructiveGhost} onClick={() => setDeleteOpen(true)}>
+                  アカウントの削除を開始
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
+                    確認のため、ご自身のメールアドレス <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{expectedConfirm}</strong> を入力してください。
+                  </p>
+                  <input
+                    type="text"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder={expectedConfirm}
+                    aria-label="確認用メールアドレス"
+                    style={inputStyle}
+                    maxLength={LIMITS.email}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                  {/* 活性判定は handleDelete と同じ正規化（trim + 小文字化）で統一する。
+                      旧: ここだけ大文字小文字を区別していたため、メールを大文字混じりで
+                      入力した人はボタンが薄いまま理由も分からず退会が詰んでいた。 */}
+                  {(() => {
+                    const confirmMatches =
+                      confirmText.trim().toLowerCase() === String(expectedConfirm || '').toLowerCase();
+                    return (
+                      <>
+                        {confirmText.trim() !== '' && !confirmMatches && (
+                          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--error)', margin: 0, lineHeight: 1.5 }}>
+                            メールアドレスが一致しません。
+                          </p>
+                        )}
+                        <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
+                          <button
+                            type="button"
+                            aria-label="削除をキャンセル"
+                            style={{ ...btnGhost, flex: 1 }}
+                            onClick={() => { setDeleteOpen(false); setConfirmText(''); }}
+                            disabled={deleting}
+                          >
+                            キャンセル
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="アカウントを完全に削除"
+                            style={{ ...btnDanger, flex: 1, opacity: deleting || !confirmMatches ? 0.5 : 1 }}
+                            disabled={deleting || !confirmMatches}
+                            onClick={handleDelete}
+                          >
+                            {deleting ? '削除中…' : '完全に削除'}
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          </Group>
 
           {/* Legal links — LP と同じ /legal/* ページを参照 (単一ソース)。
               新規タブで開いて、設定モーダルの状態を保つ。 */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center', marginTop: 4 }}>
-            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 6px' }}>
+          <nav aria-label="規約とお問い合わせ" style={{ display: 'flex', flexWrap: 'wrap', gap: '0 var(--space-2)', justifyContent: 'center' }}>
+            <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
               利用規約
             </a>
-            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 6px' }}>
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
               プライバシーポリシー
             </a>
             {/* 特商法リンクはネイティブでは反ステアリング順守のため非表示にし、価格開示は
                 App Store に委ねる（特商法ページ自体は ¥1,480 / App Store 課金前提に更新済み）。 */}
             {!isNative && (
-              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 6px' }}>
+              <a href="/legal/sct" target="_blank" rel="noopener noreferrer" style={legalLinkStyle}>
                 特定商取引法に基づく表記
               </a>
             )}
-            <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 12, color: 'var(--c-ink-2)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 6px' }}>
+            <a href={`mailto:${SUPPORT_EMAIL}`} style={legalLinkStyle}>
               お問い合わせ
             </a>
-          </div>
+          </nav>
         </div>
       </div>
 

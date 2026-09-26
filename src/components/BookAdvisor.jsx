@@ -4,13 +4,17 @@
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
-  BookOpen as IcBook,
-  Lightbulb as IcBulb,
-  CheckCircle2 as IcCheck,
+  ArrowUp as IcSend,
+  Check as IcCheck,
+  ChevronLeft as IcBack,
   History as IcHistory,
   MessageSquarePlus as IcNewChat,
-  RefreshCw as IcRefresh,
-  Sparkles as IcSparkles,
+  PencilLine as IcPencil,
+  Plus as IcPlus,
+  RotateCw as IcRetry,
+  Square as IcBox,
+  SquareCheck as IcBoxChecked,
+  TriangleAlert as IcAlert,
 } from 'lucide-react';
 import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext } from '../lib/ai';
 import { streamClaude } from '../lib/streamClaude';
@@ -24,42 +28,57 @@ import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { summarizeAdvisorConversation } from '../lib/aiSetupSummary';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
-import { btnO } from './formPrimitives';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
+import ErrorMessage from './ErrorMessage';
 import BookStoreLinks from './BookStoreLinks';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
 const AdvisorAddConfirmModal = lazy(() => import('./AdvisorAddConfirmModal'));
 
-const advisorWizardCard = {
-  background: 'var(--c-soft)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 16,
-  padding: '16px 16px',
-  marginTop: 8,
-  animation: 'fadeIn .25s',
-};
+// ── AI 選書の部品（DESIGN.md のトークンのみ。見た目は 相談＝MyBookBrain に揃える） ──
+// カード: --surface ＋ 枠 --separator ＋ 角丸 12 ＋ 内側 16。影なし。
+const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
+const advisorWizardCard = { ...cardStyle, animation: 'fadeIn .25s' };
+const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
+const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 };
+// 読む文章（AI の答え・推薦理由）＝明朝 18・行間 1.6。
+const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
+// カード内の小見出しラベルと本文。
+const fieldLabel = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: 0 };
+const fieldText = { fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, margin: 'var(--space-1) 0 0' };
+// 行の中の副ボタン（DESIGN §5 btnRow: 44・15・600）。
+const rowBtn = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', flexShrink: 0 };
+// 答えの選択肢＝チップ（--fill 面・枠なし・角丸 12。選択中は --accent-soft ＋ --accent 600）。
 const advisorOptionChip = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-2)',
   width: '100%',
+  minHeight: 44,
+  padding: 'var(--space-3)',
   textAlign: 'left',
-  padding: '14px 16px',
-  borderRadius: 12,
-  border: '1px solid var(--c-hairline-strong)',
-  background: 'var(--c-card)',
-  color: 'var(--c-ink)',
-  fontSize: 15,
+  background: 'var(--fill)',
+  border: 'none',
+  borderRadius: 'var(--radius)',
+  color: 'var(--text)',
+  fontSize: 'var(--text-sub)',
   fontFamily: 'inherit',
   lineHeight: 1.5,
   cursor: 'pointer',
-  minHeight: 48,
   touchAction: 'manipulation',
 };
+// 「読みたいに追加」後の表示（押せない状態はボタンではなく文字で示す。相談の「行動に追加しました」と同じ）。
+const addedNote = { display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' };
+// ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
+const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' };
+const advisorOptionChipSelected = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
 
 const ADVISOR_EXAMPLES = [
   '営業成績を上げたい',
@@ -71,6 +90,17 @@ const ADVISOR_EXAMPLES = [
 
 // ヒアリングの最大ラウンド数。AI は途中で done を返せるが、上限で必ず締める。
 const MAX_INTERVIEW_ROUNDS = 3;
+
+// 表示用: 保存された相談文（AI 向けに組み立てたテンプレート「【相談内容】…【ヒアリングの回答】…
+// 以上で…推薦してください。」）から、本人の言葉（相談と回答）だけを取り出す。
+// AI への文脈（chatHistory）は生テキストのまま。AdvisorHistory.jsx にも同じ関数がある。
+function displayUserText(raw) {
+  const s = String(raw || '');
+  const m = s.match(/^【相談内容】\n([\s\S]*?)\n\n【ヒアリングの回答】\n([\s\S]*?)\n\n/);
+  if (!m) return s;
+  const answers = m[2].split('\n').filter((l) => l.startsWith('A. ')).map((l) => l.slice(3).trim()).filter(Boolean);
+  return answers.length ? `${m[1].trim()}\n${answers.map((a) => `・${a}`).join('\n')}` : m[1].trim();
+}
 
 export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
@@ -768,7 +798,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
           // 表示は RECOMMENDATIONS ブロック（マーカー + 生 JSON）を剥がす。
           text: m.role === 'assistant'
             ? stripRecoBlock((m.content ?? m.text ?? '').toString())
-            : (m.content ?? m.text ?? '').toString(),
+            : displayUserText((m.content ?? m.text ?? '').toString()),
         }))
         .filter((m) => m.text), // 剥がして空になった吹き出しは出さない
     );
@@ -779,6 +809,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     setLastUserQuery((lastUser?.content || lastUser?.text || '').toString());
     setCurrentSessionId(s.id);
     setSelectedSession(null);
+    // 表示用: 直前の会話の相談（concern）の吹き出しを、再開した会話に持ち越さない。
+    setConcern('');
     setView('chat');
   };
 
@@ -790,6 +822,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // （recommended_books 空）で messages だけがあると、入力欄も再スタート
   // 導線も無い袋小路になっていた。
   const showConcernInput = !inInterview && !recommendations;
+  // はじめの画面（まだ何も話していない）だけ見出しを出す。
+  const showStartHeading = showConcernInput && messages.length === 0;
   const chatScrollRef = useRef(null);
 
   // ---------------------------------------------------------------------------
@@ -919,7 +953,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   if (view === 'history') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <div className="chat-scroll">
+        {/* 余白は履歴側が持つ（左右 16 を二重にしない）。 */}
+        <div className="chat-scroll" style={{ padding: 0 }}>
           <Suspense fallback={<Spinner />}>
             <AdvisorHistoryList
               sessions={sessionApi?.sessions || []}
@@ -952,7 +987,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   if (view === 'detail' && selectedSession) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <div className="chat-scroll">
+        <div className="chat-scroll" style={{ padding: 0 }}>
           <Suspense fallback={<Spinner />}>
             <AdvisorSessionDetail
               session={selectedSession}
@@ -977,24 +1012,22 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* Scroll 領域: ヘッダー / 例チップ / メッセージ / 推薦カード をまとめる */}
-      <div ref={chatScrollRef} className="chat-scroll">
-      {/* Unified AI section header (マイ読書脳 と同じフォーマット)。
-          ✕ ボタンはタブ画面では不要なので撤去。 */}
-      <div className="ai-section-header" style={{ padding: 0, marginBottom: 8, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2>AI 選書アドバイザー</h2>
-        </div>
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+      <div ref={chatScrollRef} className="chat-scroll" style={{ padding: 'var(--space-2) var(--space-4) var(--space-4)' }}>
+      {/* 上の行（相談と同じ形）: はじめは見出し、右に履歴・新規のアイコンボタン。 */}
+      {(showStartHeading || sessionApi?.available || messages.length > 0 || recommendations) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, marginRight: 'calc(-1 * var(--space-2))' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {showStartHeading && <h2 style={headingStyle}>どんな本を探していますか</h2>}
+          </div>
           {sessionApi?.available && (
             <button
               type="button"
               onClick={() => setView('history')}
               aria-label="履歴を見る"
               title="履歴"
-              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
+              style={iconBtn}
             >
-              <IcHistory size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
-              履歴
+              <IcHistory size={22} strokeWidth={1.75} aria-hidden="true" />
             </button>
           )}
           {(messages.length > 0 || recommendations) && (
@@ -1003,23 +1036,18 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
               onClick={startNewSession}
               aria-label="新しい会話を始める"
               title="新規"
-              style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-brand)', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', minHeight: 32 }}
+              style={iconBtn}
             >
-              <IcNewChat size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
-              新規
+              <IcNewChat size={22} strokeWidth={1.75} aria-hidden="true" />
             </button>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Example chips — タップで textarea に流し込む。挨拶 seed が
-          消えたので、何を入力すれば良いかをここで提示する */}
+      {/* Example chips — タップで textarea に流し込む（送信はしない）。 */}
       {showConcernInput && (
-        <div className="example-chips">
-          <p className="example-chips-label">
-            <IcBulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-            例（タップで入力）
-          </p>
+        <div className="example-chips" style={{ marginTop: showStartHeading ? 'var(--space-6)' : 'var(--space-2)' }}>
+          <p className="example-chips-label">たとえば</p>
           {ADVISOR_EXAMPLES.map((ex) => (
             <button
               type="button"
@@ -1033,39 +1061,28 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         </div>
       )}
 
-      {/* 🧭 初期状態の「この先どうなるか」プレビュー。以前はチップの下から
-          入力欄まで広大な空白で、何が起きるのか分からないまま入力を求めていた。
-          流れを 3 歩で静かに見せる（装飾ではなく不安の除去）。 */}
-      {showConcernInput && !interviewLoading && (
-        <div style={{ margin: '18px 0 0', padding: '14px 15px', background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 'var(--radius-md)' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-ink-3)', letterSpacing: '.08em', margin: '0 0 10px' }}>
-            この後の流れ
-          </p>
-          {[
-            ['1', '課題や気分をひとこと送る'],
-            ['2', 'AI が 2〜3 問だけ、あなたに合わせて聞き返す'],
-            ['3', 'いま読むべき日本語の本を、理由つきで提案'],
-          ].map(([n, t]) => (
-            <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
-              <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 999, background: 'var(--c-soft-2)', color: 'var(--c-brand)', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{n}</span>
-              <span style={{ fontSize: 12.5, color: 'var(--c-ink-soft)', lineHeight: 1.6 }}>{t}</span>
-            </div>
-          ))}
-          <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '8px 0 0', lineHeight: 1.6 }}>
-            気に入った本は 1 タップで本棚の「読みたい」へ。
-          </p>
+      {/* 会話（相談 → 質問 → 推薦）。chat-scroll が overflow を担うため、ここは縦並びのみ。 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
+
+      {/* ユーザーの相談（右寄せの --fill 吹き出し。相談と同じ） */}
+      {concern && !showConcernInput && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの相談">
+          <div style={userBubble}>{concern}</div>
         </div>
       )}
 
       {/* ガイド付きヒアリング — 質問生成中のローディング（初回 or 深掘り） */}
       {interviewLoading && (
         <div style={advisorWizardCard}>
-          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
-            {interviewAnswers.length > 0
-              ? '🔎 回答をもとに、さらに深掘りしています…'
-              : '🤔 あなたに合わせた質問を準備しています…'}
-          </p>
-          <div className="ai-skeleton" aria-label="質問を準備中" style={{ marginTop: 12 }}>
+          <div className="ai-thinking">
+            <span className="ai-thinking-dot" aria-hidden="true" />
+            <span>
+              {interviewAnswers.length > 0
+                ? '回答をもとに、さらに深掘りしています…'
+                : 'あなたに合わせた質問を準備しています…'}
+            </span>
+          </div>
+          <div className="ai-skeleton" aria-label="質問を準備中" style={{ marginTop: 'var(--space-2)' }}>
             <div className="ai-skeleton-line" style={{ width: '82%' }} />
             <div className="ai-skeleton-line" style={{ width: '64%' }} />
           </div>
@@ -1084,62 +1101,75 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             prev.includes(opt) ? prev.filter((x) => x !== opt) : [...prev, opt],
           );
         };
+        const submitOther = () => {
+          if (!otherText.trim()) return;
+          if (isMulti) {
+            toggleMulti(otherText.trim());
+            setOtherText('');
+            setOtherMode(false);
+          } else {
+            answerQuestion(otherText);
+          }
+        };
         return (
           <div style={advisorWizardCard}>
-            {/* 進捗バー + 戻る */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            {/* 戻る + 進捗 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-3)) 0 var(--space-2) calc(-1 * var(--space-3))' }}>
               <button
                 type="button"
                 onClick={goBackQuestion}
                 aria-label={interviewStep === 0 ? '相談入力に戻る' : '前の質問に戻る'}
-                style={{ background: 'none', border: 'none', color: 'var(--c-ink-2)', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1, minHeight: 32, minWidth: 32 }}
+                style={iconBtn}
               >
-                ←
+                <IcBack size={22} aria-hidden="true" />
               </button>
-              <div style={{ flex: 1, display: 'flex', gap: 4 }} aria-hidden="true">
+              <div style={{ flex: 1, display: 'flex', gap: 'var(--space-1)' }} aria-hidden="true">
                 {interview.map((_, i) => (
                   <div
                     key={i}
                     style={{
                       flex: 1,
                       height: 4,
-                      borderRadius: 2,
-                      background: i <= interviewStep ? 'var(--c-brand)' : 'var(--c-hairline)',
+                      borderRadius: 999,
+                      background: i <= interviewStep ? 'var(--text-2)' : 'var(--separator)',
                       transition: 'background .25s',
                     }}
                   />
                 ))}
               </div>
-              <span style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 600, flexShrink: 0 }}>
+              <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>
                 {interviewRound > 1 ? `深掘り${interviewRound} · ` : ''}{stepNo}/{total}
               </span>
             </div>
 
             {/* これまでの回答（小チップ） */}
             {interviewAnswers.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
                 {interviewAnswers.map((x, i) => (
                   <span
                     key={i}
-                    style={{ fontSize: 10, padding: '3px 8px', borderRadius: 999, background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', maxWidth: '100%', fontSize: 'var(--text-meta)', padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)' }}
                   >
-                    ✓ {x.a}
+                    <IcCheck size={14} aria-hidden="true" style={{ flexShrink: 0 }} />
+                    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.a}</span>
                   </span>
                 ))}
               </div>
             )}
 
             {/* 質問文 */}
-            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--c-ink)', lineHeight: 1.6, margin: '0 0 4px' }}>
+            <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>
               {q.q}
             </p>
-            {/* 複数選択できる質問は明示（タップで複数選べる安心感） */}
-            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 12px' }}>
-              {isMulti ? '当てはまるものを選んでください（複数可）' : '1 つ選んでください'}
-            </p>
+            {/* 複数選択できる質問だけ明示する */}
+            {isMulti && (
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-1) 0 0' }}>
+                複数選べます
+              </p>
+            )}
 
             {/* 選択肢チップ（縦並び・全幅タップ） */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
               {q.options.map((opt) => {
                 const selected = isMulti && multiSelected.includes(opt);
                 return (
@@ -1148,14 +1178,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     key={opt}
                     onClick={() => (isMulti ? toggleMulti(opt) : answerQuestion(opt))}
                     aria-pressed={isMulti ? selected : undefined}
-                    style={{
-                      ...advisorOptionChip,
-                      ...(selected
-                        ? { background: 'var(--c-soft-2)', borderColor: 'var(--c-brand)', color: 'var(--c-ink)', fontWeight: 600 }
-                        : null),
-                    }}
+                    style={{ ...advisorOptionChip, ...(selected ? advisorOptionChipSelected : null) }}
                   >
-                    {isMulti ? `${selected ? '☑️' : '⬜️'} ${opt}` : opt}
+                    {isMulti && (selected
+                      ? <IcBoxChecked size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
+                      : <IcBox size={20} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />)}
+                    <span style={{ minWidth: 0 }}>{opt}</span>
                   </button>
                 );
               })}
@@ -1165,12 +1193,13 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                 <button
                   type="button"
                   onClick={() => setOtherMode(true)}
-                  style={{ ...advisorOptionChip, color: 'var(--c-ink-2)', borderStyle: 'dashed' }}
+                  style={{ ...uiBtnText, alignSelf: 'flex-start', minHeight: 44, padding: 'var(--space-2) 0', fontSize: 'var(--text-sub)' }}
                 >
-                  ✏️ その他（自由に入力）
+                  <IcPencil size={18} aria-hidden="true" />
+                  その他（自由に入力）
                 </button>
               ) : (
-                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                   <input
                     type="text"
                     autoFocus
@@ -1183,60 +1212,37 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                       if (e.nativeEvent.isComposing) return;
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        if (!otherText.trim()) return;
-                        if (isMulti) {
-                          toggleMulti(otherText.trim());
-                          setOtherText('');
-                          setOtherMode(false);
-                        } else {
-                          answerQuestion(otherText);
-                        }
+                        submitOther();
                       }
                     }}
-                    style={{ flex: 1, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--c-hairline-strong)', background: 'var(--surface)', color: 'var(--c-ink)', fontSize: 16, fontFamily: 'inherit', minHeight: 48 }}
+                    style={{ ...uiInput, flex: 1, minWidth: 0, minHeight: 44, padding: 'var(--space-2) var(--space-3)' }}
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!otherText.trim()) return;
-                      if (isMulti) {
-                        toggleMulti(otherText.trim());
-                        setOtherText('');
-                        setOtherMode(false);
-                      } else {
-                        answerQuestion(otherText);
-                      }
-                    }}
+                    onClick={submitOther}
                     disabled={!otherText.trim()}
                     aria-label={isMulti ? '選択肢に追加' : 'この内容で回答'}
-                    style={{ flexShrink: 0, padding: '0 16px', borderRadius: 12, border: 'none', background: otherText.trim() ? 'var(--c-brand)' : 'var(--c-hairline-strong)', color: 'var(--accent-ink)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: otherText.trim() ? 'pointer' : 'not-allowed', minHeight: 48 }}
+                    style={{ ...rowBtn, opacity: otherText.trim() ? 1 : 0.4, cursor: otherText.trim() ? 'pointer' : 'not-allowed' }}
                   >
                     {isMulti ? '追加' : '決定'}
                   </button>
                 </div>
               )}
 
-              {/* 複数選択モードの確定ボタン */}
+              {/* 複数選択モードの確定ボタン（この画面の主ボタン） */}
               {isMulti && (
                 <button
                   type="button"
                   onClick={() => { if (multiSelected.length) answerQuestion(multiSelected.join('、')); }}
                   disabled={multiSelected.length === 0}
                   style={{
-                    marginTop: 4,
-                    padding: '13px 0',
-                    borderRadius: 12,
-                    border: 'none',
-                    background: multiSelected.length ? 'var(--c-brand)' : 'var(--c-hairline-strong)',
-                    color: 'var(--accent-ink)',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    fontFamily: 'inherit',
+                    ...uiBtnPrimary,
+                    marginTop: 'var(--space-2)',
+                    opacity: multiSelected.length ? 1 : 0.4,
                     cursor: multiSelected.length ? 'pointer' : 'not-allowed',
-                    minHeight: 48,
                   }}
                 >
-                  {multiSelected.length ? `決定（${multiSelected.length}件）→` : '1つ以上選んでください'}
+                  {multiSelected.length ? `決定（${multiSelected.length}件）` : '1つ以上選んでください'}
                 </button>
               )}
             </div>
@@ -1247,16 +1253,18 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       {/* 推薦生成中のローディング */}
       {recoLoading && (
         <div style={advisorWizardCard} aria-live="polite">
-          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
-<IcSparkles size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />あなたにぴったりの本を選んでいます…
-          </p>
+          <div className="ai-thinking">
+            <span className="ai-thinking-dot" aria-hidden="true" />
+            <span>あなたにぴったりの本を選んでいます…</span>
+          </div>
           {recoStream ? (
             // 生成中の前置き文をライブ表示（動く文字＝進行が見える）。カードは完了時に出る。
-            <p style={{ fontSize: 13.5, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '12px 0 0', whiteSpace: 'pre-wrap' }}>
+            <p style={{ ...readText, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>
               {recoStream}
+              <span className="streaming-cursor" aria-hidden="true" />
             </p>
           ) : (
-            <div className="ai-skeleton" aria-label="本を選んでいます" style={{ marginTop: 12 }}>
+            <div className="ai-skeleton" aria-label="本を選んでいます" style={{ marginTop: 'var(--space-2)' }}>
               <div className="ai-skeleton-line" style={{ width: '90%' }} />
               <div className="ai-skeleton-line" style={{ width: '76%' }} />
               <div className="ai-skeleton-line" style={{ width: '58%' }} />
@@ -1267,147 +1275,145 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
       {/* 推薦生成エラー（リトライ可能） */}
       {recoError && !recoLoading && (
-        <div style={{ ...advisorWizardCard, borderColor: '#e0b8a8' }}>
-          <p style={{ fontSize: 13, color: 'var(--c-critical)', margin: 0, lineHeight: 1.7 }}>{recoError}</p>
-          <button
-            type="button"
-            onClick={resetToConcern}
-            style={{ ...btnO, padding: '10px 0', fontSize: 12, marginTop: 12 }}
-          >
-            <IcRefresh size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-            もう一度はじめから
-          </button>
-        </div>
+        <ErrorMessage
+          icon={null}
+          description={recoError}
+          actions={[{ label: 'もう一度はじめから', onClick: resetToConcern, variant: 'secondary', icon: <IcRetry size={16} /> }]}
+        />
       )}
 
-      {/* Messages — chat-scroll が overflow を担うため、ここは
-          flex column のレイアウトのみ。height: auto。 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 12 }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-            <div style={{
-              maxWidth: "85%", padding: "10px 14px", borderRadius: 'var(--radius-md)',
-              background: m.role === "user" ? "var(--c-brand)" : "var(--c-soft)",
-              color: m.role === "user" ? "var(--c-card)" : "var(--c-ink)",
-              fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap",
-              borderBottomRightRadius: m.role === "user" ? 4 : 14,
-              borderBottomLeftRadius: m.role === "user" ? 14 : 4,
-            }}>
-              {/* 空の assistant 吹き出し (= 最初の delta 到達前) は
-                  skeleton + thinking dot で「待っている感覚」を最小化。
-                  delta が来始めたら通常テキスト + 点滅カーソルに切り替え。 */}
-              {m.streaming && !m.text ? (
-                <div className="ai-skeleton" aria-label="AI が回答を作成しています">
-                  <div className="ai-skeleton-line" style={{ width: '88%' }} />
-                  <div className="ai-skeleton-line" style={{ width: '74%' }} />
-                  <div className="ai-skeleton-line" style={{ width: '62%' }} />
-                </div>
-              ) : (
-                <>
-                  {m.text}
-                  {m.streaming && m.text && <span className="streaming-cursor" aria-hidden="true" />}
-                </>
-              )}
-            </div>
+      {/* Messages — ユーザーは右寄せの --fill 吹き出し、AI は読むカード（相談と同じ）。 */}
+      {messages.map((m, i) => {
+        const body = m.streaming && !m.text ? (
+          // 空の assistant 吹き出し (= 最初の delta 到達前) は skeleton で待ち時間を埋める。
+          <div className="ai-skeleton" aria-label="AI が回答を作成しています">
+            <div className="ai-skeleton-line" style={{ width: '88%' }} />
+            <div className="ai-skeleton-line" style={{ width: '74%' }} />
+            <div className="ai-skeleton-line" style={{ width: '62%' }} />
           </div>
-        ))}
+        ) : (
+          <>
+            {m.text}
+            {m.streaming && m.text && <span className="streaming-cursor" aria-hidden="true" />}
+          </>
+        );
+        return m.role === 'user' ? (
+          <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={userBubble}>{body}</div>
+          </div>
+        ) : m.streaming ? (
+          <div key={i} style={{ ...cardStyle, ...readText, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {body}
+          </div>
+        ) : (
+          // 完成した AI の文章は Markdown（見出し・箇条書き）として描画（生の ## を出さない）。
+          <MarkdownSections key={i} text={m.text} />
+        );
+      })}
 
-        {/* Recommendations — richer per-book card with reasoning */}
-        {recommendations && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeIn .3s" }}>
-            {/* 「## 👋 はじめに」等の前置きを Markdown として描画（生の ## を出さない）。
-                末尾の空見出し「## 📚 おすすめの本」は本カードと重複するので除去。 */}
-            {recommendations.before && (() => {
-              const intro = recommendations.before.replace(/\n*##\s*📚\s*おすすめの本\s*$/u, '').trim();
-              return intro ? <MarkdownSections text={intro} /> : null;
-            })()}
-            {recommendations.items.map((rec, i) => (
-              <div key={i} style={{ background: "var(--c-card)", borderRadius: 16, border: "1px solid var(--c-hairline)", padding: "16px 16px", overflow: "hidden", boxShadow: "0 1px 3px rgba(60, 48, 30, 0.06)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                  {/* 実在検証で先読みした表紙（あれば）。追加前に表紙が見えて信頼が上がる。 */}
+      {/* Recommendations — 1 冊 1 カード（理由つき） */}
+      {recommendations && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', animation: 'fadeIn .3s' }}>
+          {/* 「## 👋 はじめに」等の前置きを Markdown として描画（生の ## を出さない）。
+              末尾の空見出し「## 📚 おすすめの本」は本カードと重複するので除去。 */}
+          {recommendations.before && (() => {
+            const intro = recommendations.before.replace(/\n*##\s*📚\s*おすすめの本\s*$/u, '').trim();
+            return intro ? <MarkdownSections text={intro} /> : null;
+          })()}
+          {recommendations.items.map((rec, i) => {
+            const added = addedTitles.has(rec.title);
+            return (
+              <div key={i} style={{ ...cardStyle, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+                  {/* 実在検証で先読みした表紙（あれば）。本の表紙は本の形として角丸 4。 */}
                   {rec.cover && (
                     <img
                       src={rec.cover}
                       alt=""
                       width="52"
                       loading="lazy"
-                      style={{ width: 52, height: 74, objectFit: 'cover', borderRadius: 6, flexShrink: 0, boxShadow: '0 1px 3px rgba(60,48,30,0.15)' }}
+                      style={{ width: 52, height: 74, objectFit: 'cover', borderRadius: 4, flexShrink: 0, background: 'var(--fill)' }}
                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 11, color: "var(--c-ink-2)", margin: 0, fontWeight: 600 }}>#{i + 1}</p>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: "var(--c-ink)", margin: '2px 0 0' }}>『{rec.title}』</p>
-                    <p style={{ fontSize: 12, color: "var(--c-ink-2)", marginTop: 2 }}>{rec.author}</p>
+                    <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>#{i + 1}</p>
+                    <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, margin: 'var(--space-1) 0 0' }}>『{rec.title}』</p>
+                    {rec.author && (
+                      <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{rec.author}</p>
+                    )}
                   </div>
                 </div>
-                {/* ⚠️ 実在を確認できなかった本（AI が実在しない書名を挙げた疑い）。
+                {/* 実在を確認できなかった本（AI が実在しない書名を挙げた疑い）。
                     削除はせず注意喚起に留める（実在するのに検証を取りこぼした本を
                     誤って葬らないため）。 */}
                 {rec._suspect && (
-                  <div style={{ marginTop: 10, padding: '8px 10px', background: '#fdf6e3', border: '1px solid #efe2c0', borderRadius: 8 }}>
-                    <p style={{ fontSize: 11, color: '#8a6d3b', lineHeight: 1.6, margin: 0 }}>
-                      ⚠️ この本は書誌情報が見つかりませんでした。書名・著者が正しいか、実在する本かご確認ください。
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-soft)', borderRadius: 'var(--radius)' }}>
+                    <IcAlert size={16} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
+                    <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>
+                      この本は書誌情報が見つかりませんでした。書名・著者が正しいか、実在する本かご確認ください。
                     </p>
                   </div>
                 )}
                 {rec.why && (
-                  <div style={{ marginTop: 10, padding: '10px 12px', background: '#f5efde', borderRadius: 10, border: '1px solid #e8dcc0' }}>
-                    <p style={{ fontSize: 11, color: '#9a7e44', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>なぜあなたに</p>
-                    <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '4px 0 0' }}>{rec.why}</p>
+                  <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)' }}>
+                    <p style={fieldLabel}>なぜあなたに</p>
+                    <p style={{ ...readText, margin: 'var(--space-1) 0 0' }}>{rec.why}</p>
                   </div>
                 )}
                 {rec.core && (
-                  <div style={{ marginTop: 10 }}>
-                    <p style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>この本の核心</p>
-                    <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.core}</p>
+                  <div style={{ marginTop: 'var(--space-3)' }}>
+                    <p style={fieldLabel}>この本の核心</p>
+                    <p style={fieldText}>{rec.core}</p>
                   </div>
                 )}
                 {rec.focus && (
-                  <div style={{ marginTop: 10 }}>
-                    <p style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 700, letterSpacing: '0.06em', margin: 0 }}>注目ポイント</p>
-                    <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.75, margin: '3px 0 0' }}>{rec.focus}</p>
+                  <div style={{ marginTop: 'var(--space-3)' }}>
+                    <p style={fieldLabel}>注目ポイント</p>
+                    <p style={fieldText}>{rec.focus}</p>
                   </div>
                 )}
                 {rec.duration && (
-                  <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '10px 0 0' }}>
-                    <span style={{ color: 'var(--c-ink-2)', fontWeight: 700, letterSpacing: '0.04em' }}>目安</span>　{rec.duration}
+                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-3) 0 0' }}>
+                    <span style={{ fontWeight: 600 }}>目安</span>　{rec.duration}
                   </p>
                 )}
-                <div style={{ display: "flex", flexDirection: 'column', gap: 8, marginTop: 12 }}>
-                  <button
-                    type="button"
-                    disabled={addedTitles.has(rec.title)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleClickAdd(rec);
-                    }}
-                    style={{ width: '100%', padding: "11px 0", borderRadius: 8, border: "none", background: addedTitles.has(rec.title) ? 'var(--c-soft-2)' : "var(--c-brand)", color: addedTitles.has(rec.title) ? 'var(--c-ink-2)' : "#fff", fontSize: 13, fontFamily: "inherit", cursor: addedTitles.has(rec.title) ? "not-allowed" : "pointer", fontWeight: 700, minHeight: 44, touchAction: 'manipulation' }}
-                  >
-                    {addedTitles.has(rec.title)
-                      ? (<><IcCheck size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />追加済み</>)
-                      : (<><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読みたいに追加</>)}
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+                  {added ? (
+                    <p role="status" style={addedNote}>
+                      <IcCheck size={16} aria-hidden="true" />追加済み
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClickAdd(rec);
+                      }}
+                      style={{ ...rowBtn, touchAction: 'manipulation' }}
+                    >
+                      <IcPlus size={16} aria-hidden="true" />読みたいに追加
+                    </button>
+                  )}
                   {/* Amazon + 楽天 の両方（統一）。カード下にまとめ開示があるので個別開示は省略 */}
                   <BookStoreLinks book={rec} variant="compact" showDisclosure={false} stopPropagation />
                 </div>
               </div>
-            ))}
-            {/* 「## 📋 読む順番」「## 💬 まとめ」等は Markdown（表・見出し・箇条書き）
-                として描画。生の `|---|` パイプや `##` が見えていた問題を解消。 */}
-            {recommendations.after && <MarkdownSections text={recommendations.after} />}
-            <small style={{ fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1.6, padding: '0 4px' }}>
-              {STORE_DISCLOSURE_TEXT}
-            </small>
-            <button onClick={resetToConcern}
-              style={{ ...btnO, padding: "10px 0", fontSize: 12 }}>
-              <IcRefresh size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-              別の条件で探す
-            </button>
-          </div>
-        )}
+            );
+          })}
+          {/* 「## 📋 読む順番」「## 💬 まとめ」等は Markdown（表・見出し・箇条書き）として描画。 */}
+          {recommendations.after && <MarkdownSections text={recommendations.after} />}
+          <small style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+            {STORE_DISCLOSURE_TEXT}
+          </small>
+          <button type="button" onClick={resetToConcern} style={uiBtnGhost}>
+            <IcRetry size={18} aria-hidden="true" />
+            別の条件で探す
+          </button>
+        </div>
+      )}
 
-        <div ref={messagesEndRef} />
+      <div ref={messagesEndRef} />
       </div>
       </div>{/* /chat-scroll */}
 
@@ -1419,7 +1425,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="どんなことで本を探していますか？（例：営業成績を上げたい）"
+            placeholder="いまの課題を書いてください"
             rows={1}
             disabled={interviewLoading}
             maxLength={LIMITS.aiQuestion}
@@ -1441,11 +1447,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             title={interviewLoading ? '準備中…' : '相談する'}
           >
             {interviewLoading ? (
-              <span aria-hidden="true" style={{ fontSize: 11, fontWeight: 600 }}>…</span>
+              <span aria-hidden="true">…</span>
             ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M2 12 22 2 13 22 11 13 2 12Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-              </svg>
+              <IcSend size={20} strokeWidth={2.25} aria-hidden="true" />
             )}
           </button>
         </div>

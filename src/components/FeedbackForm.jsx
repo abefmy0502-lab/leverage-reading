@@ -1,6 +1,6 @@
 // 📩 FeedbackForm — bottom-sheet feedback / feature-request form.
 //
-// Opens from AccountSettings ("📩 フィードバックを送る"). Writes a row to
+// Opens from AccountSettings (「フィードバック・要望を送る」). Writes a row to
 // public.feedback (see supabase_feedback.sql) using useFeedback. Submission
 // is anonymous-ish: name + email are optional; user_id ties back via RLS so
 // only the submitter (and admins via service_role) can read it later.
@@ -12,29 +12,31 @@ import { useFeedback, FEEDBACK_CATEGORIES, FEEDBACK_LIMITS } from '../hooks/useF
 import { useToast } from './Toast';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
 
+// 見た目は DESIGN.md のトークンのみ（シートは BottomSheet と同じ面・影・背景）。
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
   zIndex: 900,
-  background: 'rgba(30,25,20,0.45)',
+  background: 'var(--backdrop)',
+  WebkitBackdropFilter: 'var(--backdrop-blur)',
   backdropFilter: 'var(--backdrop-blur)',
   display: 'flex',
   alignItems: 'flex-end',
   justifyContent: 'center',
-  fontFamily: "var(--font-app)",
+  fontFamily: 'var(--font-ui)',
 };
 
 const sheetStyle = {
   width: 'min(520px, 100%)',
   maxHeight: 'min(92vh, 92dvh)',
-  background: 'var(--c-card)',
-  borderTopLeftRadius: 16,
-  borderTopRightRadius: 16,
+  background: 'var(--surface)',
+  borderTopLeftRadius: 'var(--radius)',
+  borderTopRightRadius: 'var(--radius)',
   display: 'flex',
   flexDirection: 'column',
-  boxShadow: '0 -4px 20px rgba(0,0,0,0.10)',
+  boxShadow: 'var(--shadow-overlay)',
   paddingBottom: 'env(safe-area-inset-bottom, 0px)',
   animation: 'slideUp .25s',
 };
@@ -42,19 +44,19 @@ const sheetStyle = {
 const headerStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: 'calc(8px + env(safe-area-inset-top, 0px)) 16px 12px',
-  borderBottom: '1px solid var(--c-hairline)',
+  gap: 'var(--space-2)',
+  padding: 'calc(var(--space-2) + env(safe-area-inset-top, 0px)) var(--space-4) var(--space-2) var(--space-2)',
+  borderBottom: '1px solid var(--separator)',
 };
 
 const closeBtn = {
   background: 'none',
   border: 'none',
-  fontSize: 22,
-  color: 'var(--c-brand)',
+  color: 'var(--text-2)',
   cursor: 'pointer',
   width: 44,
   height: 44,
+  flexShrink: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -63,75 +65,71 @@ const closeBtn = {
 };
 
 const bodyStyle = {
-  padding: '14px 18px',
+  padding: 'var(--space-4)',
   flex: 1,
   overflowY: 'auto',
   WebkitOverflowScrolling: 'touch',
+  overscrollBehavior: 'contain',
   display: 'flex',
   flexDirection: 'column',
-  gap: 14,
+  gap: 'var(--space-6)',
 };
 
 const labelStyle = {
-  fontSize: 12,
+  fontSize: 'var(--text-caption)',
   fontWeight: 600,
-  color: 'var(--c-brand)',
+  color: 'var(--text-2)',
   display: 'block',
-  marginBottom: 6,
+  marginBottom: 'var(--space-2)',
 };
 
-const inpStyle = {
-  width: '100%',
-  padding: '10px 12px',
-  fontSize: 16,
-  border: '1px solid var(--c-hairline-strong)',
-  borderRadius: 10,
-  background: 'var(--surface)',
-  color: 'var(--c-ink)',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
-  outline: 'none',
-};
+const inpStyle = uiInput;
 
 const taStyle = {
   ...inpStyle,
   resize: 'vertical',
   minHeight: 200,
   maxHeight: 500,
-  lineHeight: 1.7,
+  lineHeight: 1.5,
 };
 
 const radioRowStyle = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 6,
+  gap: 'var(--space-2)',
 };
 
 const radioItemStyle = (active) => ({
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: '10px 12px',
-  borderRadius: 10,
-  border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
-  background: active ? 'var(--c-soft-2)' : '#fff',
+  gap: 'var(--space-3)',
+  padding: 'var(--space-2) var(--space-3)',
+  borderRadius: 'var(--radius)',
+  border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+  background: active ? 'var(--accent-soft)' : 'var(--surface)',
   cursor: 'pointer',
-  fontSize: 14,
-  color: 'var(--c-ink)',
+  fontSize: 'var(--text-body)',
+  color: 'var(--text)',
   minHeight: 44,
+  boxSizing: 'border-box',
   fontFamily: 'inherit',
 });
 
+const metaStyle = { fontSize: 'var(--text-caption)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-1) var(--space-1) 0' };
+
 const footerStyle = {
   display: 'flex',
-  gap: 10,
-  padding: '12px 18px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid var(--c-hairline)',
+  gap: 'var(--space-3)',
+  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  borderTop: '1px solid var(--separator)',
 };
 
-const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1, padding: '12px 18px', fontSize: 14, minHeight: 44 };
+const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
 
-const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1, padding: '12px 18px', fontSize: 14, minHeight: 44 };
+const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
+
+// 「🐛 バグ報告」→「バグ報告」。先頭の絵文字（＋異体字セレクタ）と空白だけを落とす。
+const stripLeadingEmoji = (label) => String(label || '').replace(/^[\p{Extended_Pictographic}\uFE0F\u200D]+\s*/u, '');
 
 export default function FeedbackForm({ onClose }) {
   const { submitFeedback } = useFeedback();
@@ -206,18 +204,13 @@ export default function FeedbackForm({ onClose }) {
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
           <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={busy}><X size={20} aria-hidden="true" /></button>
-          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 500, flex: 1 }}>📩 フィードバック・要望</h2>
+          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 700, flex: 1, lineHeight: 1.3 }}>フィードバック・要望</h2>
         </div>
 
         <div style={bodyStyle}>
-          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
-            アプリの改善のため、ご意見・ご要望をお寄せください。<br />
-            すべての投稿に目を通させていただきます🙏
-          </p>
-
           {/* Category */}
           <div role="radiogroup" aria-label="カテゴリ">
-            <span style={labelStyle}>カテゴリ <span style={{ color: 'var(--c-critical)' }}>*</span></span>
+            <span style={labelStyle}>カテゴリ <span style={{ color: 'var(--error)' }}>*</span></span>
             <div style={radioRowStyle}>
               {FEEDBACK_CATEGORIES.map((c) => (
                 <label key={c.value} style={radioItemStyle(category === c.value)}>
@@ -227,9 +220,11 @@ export default function FeedbackForm({ onClose }) {
                     value={c.value}
                     checked={category === c.value}
                     onChange={() => setCategory(c.value)}
-                    style={{ accentColor: 'var(--c-brand)' }}
+                    style={{ accentColor: 'var(--accent)', margin: 0 }}
                   />
-                  <span>{c.label}</span>
+                  {/* ラベル先頭の絵文字は表示しない（DESIGN §3-2: 絵文字を本文に混ぜない）。
+                      定義（hooks/useFeedback.js）は運営画面等でも使うのでそのまま。 */}
+                  <span>{stripLeadingEmoji(c.label)}</span>
                 </label>
               ))}
             </div>
@@ -238,7 +233,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Content */}
           <div>
             <label htmlFor="feedback-content" style={labelStyle}>
-              内容 <span style={{ color: 'var(--c-critical)' }}>*</span>
+              内容 <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <textarea
               id="feedback-content"
@@ -255,7 +250,7 @@ export default function FeedbackForm({ onClose }) {
               aria-required="true"
               disabled={busy}
             />
-            <p style={{ fontSize: 10, color: 'var(--c-ink-2)', textAlign: 'right', margin: '4px 2px 0' }}>
+            <p style={{ ...metaStyle, textAlign: 'right' }}>
               {content.length} / {FEEDBACK_LIMITS.content}
             </p>
           </div>
@@ -263,7 +258,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Name (optional) */}
           <div>
             <label htmlFor="feedback-name" style={labelStyle}>
-              お名前 <span style={{ color: 'var(--c-ink-2)', fontWeight: 400 }}>（任意）</span>
+              お名前 <span style={{ fontWeight: 400 }}>（任意）</span>
             </label>
             <input
               id="feedback-name"
@@ -281,7 +276,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Email (optional) */}
           <div>
             <label htmlFor="feedback-email" style={labelStyle}>
-              連絡先メールアドレス <span style={{ color: 'var(--c-ink-2)', fontWeight: 400 }}>（任意）</span>
+              連絡先メールアドレス <span style={{ fontWeight: 400 }}>（任意）</span>
             </label>
             <input
               id="feedback-email"
@@ -296,9 +291,6 @@ export default function FeedbackForm({ onClose }) {
               autoCorrect="off"
               disabled={busy}
             />
-            <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '4px 2px 0' }}>
-              返信なしでも構いません。
-            </p>
           </div>
         </div>
 
@@ -313,7 +305,7 @@ export default function FeedbackForm({ onClose }) {
             style={{ ...btnPrimary, opacity: busy || !content.trim() ? 0.6 : 1 }}
             aria-label="フィードバックを送信"
           >
-            {busy ? '送信中…' : '📤 送信する'}
+            {busy ? '送信中…' : '送信する'}
           </button>
         </div>
       </div>

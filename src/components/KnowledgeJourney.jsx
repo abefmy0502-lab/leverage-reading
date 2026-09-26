@@ -11,33 +11,25 @@ import { useToast } from './Toast';
 import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
 import Spinner from './Spinner';
-import { Clock, Pin, Pencil, Copy } from 'lucide-react';
+import { Sprout, Copy } from 'lucide-react';
 import { LIMITS } from '../lib/limits';
+import { btnPrimary, input as uiInput } from '../styles/ui';
 
-const wrap = { display: 'flex', flexDirection: 'column', gap: 16 };
-const hint = { fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: 0 };
+// 見た目は DESIGN.md のトークンのみ。題名「考えの足あと」と「‹ 相談」は親（MyBookBrain）が出す。
+const wrap = { display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
+const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
+// 選択チップ: 選択中＝--accent-soft ＋ --accent 600 / それ以外＝--fill ＋ --text-2。
 const chip = (active) => ({
-  flex: '0 0 auto', whiteSpace: 'nowrap', fontSize: 12, padding: '7px 13px', minHeight: 44,
-  borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontWeight: active ? 600 : 500,
-  border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
-  background: active ? 'var(--c-soft)' : 'transparent',
-  color: active ? 'var(--c-brand)' : 'var(--c-ink-2)',
+  flex: '0 0 auto', whiteSpace: 'nowrap', minHeight: 44, padding: 'var(--space-2) var(--space-3)',
+  borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+  fontSize: 'var(--text-sub)', fontWeight: active ? 600 : 400,
+  background: active ? 'var(--accent-soft)' : 'var(--fill)',
+  color: active ? 'var(--accent)' : 'var(--text-2)',
 });
-const inp = {
-  flex: 1, minWidth: 150, padding: '10px 12px', fontSize: 16,
-  border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: 'var(--surface)',
-  color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box',
-};
-const primaryBtn = {
-  minHeight: 44, padding: '10px 16px', borderRadius: 10, border: 'none',
-  background: 'var(--c-brand)', color: 'var(--accent-ink)', fontSize: 13, fontWeight: 700,
-  fontFamily: 'inherit', cursor: 'pointer',
-};
-const ghostBtn = {
-  display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44, padding: '8px 14px',
-  borderRadius: 10, border: '1px solid var(--c-hairline-strong)', background: 'transparent',
-  color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-};
+const inp = { ...uiInput, flex: 1, minWidth: 0, width: 'auto' };
+const primaryBtn = { ...btnPrimary, width: 'auto', flexShrink: 0 };
+// 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
+const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
 
 export default function KnowledgeJourney({ userId, initialTheme = '' }) {
   const toast = useToast();
@@ -116,39 +108,22 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
 
   return (
     <div style={wrap}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Clock size={18} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
-            あなたの学びは、こう変わってきた
-          </h2>
-        </div>
-        <p style={hint}>
-          テーマを選ぶと、その学びが<strong>日付をたどってどう深まってきたか</strong>を、
-          あなたのメモから振り返ります。いつ何を考え、どう行動し、考えがどう変わったか。
-        </p>
-      </div>
-
       {/* テーマチップ（実際に使っているタグ/カテゴリから） */}
       {themes.length > 0 && (
-        <div>
-          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-soft)', margin: '0 0 8px' }}>
-            <Pin size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-            あなたのメモから見つけたテーマ
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <section aria-labelledby="journey-themes">
+          <h2 id="journey-themes" style={groupTitle}>あなたのメモから見つけたテーマ</h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
             {themes.map((t) => (
-              <button key={t.theme} type="button" style={chip(activeTheme === t.theme)} onClick={() => run(t.theme)}>
+              <button key={t.theme} type="button" style={chip(activeTheme === t.theme)} aria-pressed={activeTheme === t.theme} onClick={() => run(t.theme)}>
                 {t.theme}
               </button>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* 自由入力 */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Pencil size={14} aria-hidden="true" style={{ color: 'var(--c-ink-3)' }} />
+      <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
         <input
           type="text"
           value={custom}
@@ -173,27 +148,27 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
 
       {state.status === 'thin' && (
         <EmptyState
-          icon="🌱"
+          icon={<Sprout size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="まだ追える変化は少なめです"
           description="このテーマのメモが増えるほど、変遷がくっきり見えてきます。今日の一行から。"
         />
       )}
 
       {state.status === 'error' && (
-        <p role="alert" style={{ fontSize: 12, color: 'var(--c-critical)', background: 'var(--c-critical-soft)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.7 }}>
+        <p role="alert" style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--error)', background: 'var(--error-soft)', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', lineHeight: 1.5 }}>
           {state.msg}
         </p>
       )}
 
       {state.status === 'done' && (
-        <div className="tab-content" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: 0 }}>
-            📅 {state.first} 〜 {state.last}・メモ {state.count} 件をたどりました
+        <div className="tab-content" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+            {state.first} 〜 {state.last}・メモ {state.count} 件をたどりました
           </p>
           <MarkdownSections text={state.content} />
           <div>
-            <button type="button" style={ghostBtn} onClick={copy}>
-              <Copy size={14} aria-hidden="true" />コピー
+            <button type="button" style={rowBtn} onClick={copy}>
+              <Copy size={16} aria-hidden="true" />コピー
             </button>
           </div>
         </div>

@@ -7,21 +7,19 @@
 import { useMemo, useState } from 'react';
 import {
   History,
-  ArrowLeft,
+  ChevronLeft,
   BookOpen,
-  CheckCircle2,
+  Check,
   Trash2,
   MessageSquare,
-  Target,
-  Lightbulb,
-  MapPin,
-  Timer,
-  ShoppingCart,
-  CheckCircle,
   Plus,
 } from 'lucide-react';
 import EmptyState from './EmptyState.jsx';
-import { getAmazonLink, handleAmazonClick } from '../lib/amazonLink';
+import MarkdownSections from './MarkdownSections';
+import Spinner from './Spinner';
+import BookStoreLinks from './BookStoreLinks';
+import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
+import { btnPrimary, btnGhost, btnText } from '../styles/ui';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -41,6 +39,17 @@ function firstUserContent(messages) {
   return (m?.content || m?.text || '').toString();
 }
 
+// 表示用: 保存された相談文（AI 向けに組み立てたテンプレート「【相談内容】…【ヒアリングの回答】…
+// 以上で…推薦してください。」）から、本人の言葉（相談と回答）だけを取り出す。
+// BookAdvisor.jsx にも同じ関数がある（遅延読み込みのチャンクを分けたままにするため複製）。
+function displayUserText(raw) {
+  const s = String(raw || '');
+  const m = s.match(/^【相談内容】\n([\s\S]*?)\n\n【ヒアリングの回答】\n([\s\S]*?)\n\n/);
+  if (!m) return s;
+  const answers = m[2].split('\n').filter((l) => l.startsWith('A. ')).map((l) => l.slice(3).trim()).filter(Boolean);
+  return answers.length ? `${m[1].trim()}\n${answers.map((a) => `・${a}`).join('\n')}` : m[1].trim();
+}
+
 // AI 応答から RECOMMENDATIONS_START..END の JSON ブロックを除去して
 // 人間向けのプロセだけ残す。session.messages は永続化用に AI の生テキスト
 // (マーカー込み) を保存しているため、履歴表示時はここで剥がす。
@@ -57,67 +66,86 @@ function stripRecommendations(text) {
   return cleaned;
 }
 
+// ── 見た目は DESIGN.md のトークンのみ（相談＝MyBookBrain と同じ部品の形） ──
+// カード: --surface ＋ 枠 --separator ＋ 角丸 12 ＋ 内側 16。影なし。
+const cardBase = {
+  background: 'var(--surface)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  padding: 'var(--space-4)',
+  boxSizing: 'border-box',
+};
+
+// 一覧の行（押すと会話を開く）。
 const card = {
-  background: 'var(--c-card)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 12,
-  padding: '12px 14px',
+  ...cardBase,
   cursor: 'pointer',
   fontFamily: 'inherit',
   textAlign: 'left',
   width: '100%',
+  minHeight: 44,
   display: 'flex',
   flexDirection: 'column',
-  gap: 6,
+  gap: 'var(--space-2)',
 };
 
 const meta = {
   display: 'flex',
   flexWrap: 'wrap',
-  gap: 8,
-  fontSize: 11,
-  color: 'var(--c-ink-2)',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
+  fontSize: 'var(--text-meta)',
+  color: 'var(--text-3)',
 };
 
-const btnGhost = {
-  background: 'transparent',
-  border: '1px solid var(--c-hairline-strong)',
-  borderRadius: 8,
-  padding: '4px 10px',
-  fontSize: 11,
-  color: 'var(--c-ink-2)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-};
+const metaItem = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' };
+
+// 画面の余白（左右 16）。
+const pageStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) var(--space-6)' };
+
+// iOS のナビゲーションバーの形: 左に戻る・中央に題名・右は同じ幅の空き（相談と同じ）。
+const navRow = { display: 'flex', alignItems: 'center', minHeight: 44 };
+const navSide = { width: 96, flexShrink: 0 };
+const navTitle = { flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 };
+const backBtn = { ...btnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', gap: 'var(--space-1)', lineHeight: 1.3 };
+
+// 行の中の副ボタン（DESIGN §5 btnRow: 44・15・600）。
+const rowBtn = { ...btnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', flexShrink: 0 };
+
+// 読む文章（AI の答え・推薦理由）＝明朝 18・行間 1.6。
+const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
+
+function NavBar({ backLabel, onBack, title }) {
+  return (
+    <div style={navRow}>
+      <div style={navSide}>
+        <button type="button" onClick={onBack} style={backBtn}>
+          <ChevronLeft size={20} aria-hidden="true" />{backLabel}
+        </button>
+      </div>
+      <h2 style={navTitle}>{title}</h2>
+      <div style={navSide} aria-hidden="true" />
+    </div>
+  );
+}
 
 export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDelete }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 16px 24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: 'var(--c-brand)' }}>
-          <ArrowLeft size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />戻る
-        </button>
-        <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0 }}>
-          <History size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
-          AI 選書の履歴
-        </p>
-        <span style={{ width: 50 }} />
-      </div>
+    <div style={pageStyle}>
+      <NavBar backLabel="AI 選書" onBack={onClose} title="履歴" />
 
       {!loaded ? (
-        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', textAlign: 'center', padding: 20 }}>
-          読み込み中…
-        </p>
+        <Spinner message="読み込み中…" />
       ) : sessions.length === 0 ? (
         <EmptyState
-          icon={<History size={40} strokeWidth={1.5} aria-hidden="true" />}
-          title="ここに会話が残ります"
-          description="AI 選書で相談すると、その会話がここに記録されます。あとから読み返したり、続きから相談できます。"
+          icon={<History size={32} strokeWidth={1.5} aria-hidden="true" />}
+          title="まだ履歴がありません"
+          actions={[{ label: '本を探す', onClick: onClose, variant: 'secondary' }]}
         />
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {sessions.map((s) => {
-            const head = firstUserContent(s.messages).slice(0, 80) || '無題';
+            const head = displayUserText(firstUserContent(s.messages)).split('\n')[0].slice(0, 80) || '無題';
             const recCount = Array.isArray(s.recommended_books) ? s.recommended_books.length : 0;
             const addedCount = Array.isArray(s.added_book_ids) ? s.added_book_ids.length : 0;
             return (
@@ -127,20 +155,20 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
                   onClick={() => onSelect(s)}
                   style={card}
                 >
-                  <div style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 500, lineHeight: 1.5, paddingRight: 28 }}>
+                  <div style={{ fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, paddingRight: 'var(--space-8)', overflowWrap: 'anywhere' }}>
                     {head}
                   </div>
                   <div style={meta}>
                     <span>{formatDate(s.created_at)}</span>
                     {recCount > 0 && (
-                      <span>
-                        <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+                      <span style={metaItem}>
+                        <BookOpen size={14} aria-hidden="true" />
                         {recCount} 冊提案
                       </span>
                     )}
                     {addedCount > 0 && (
-                      <span>
-                        <CheckCircle2 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+                      <span style={metaItem}>
+                        <Check size={14} aria-hidden="true" />
                         {addedCount} 冊追加
                       </span>
                     )}
@@ -152,27 +180,26 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
                   aria-label="削除"
                   title="削除"
                   style={{
-                    // 44px ルール: アイコンは 15px のまま実効タップ領域を広げ、
+                    // 44px ルール: アイコンは小さいまま実効タップ領域を広げ、
                     // 隣接する「カードを開く」への誤タップを防ぐ。
                     position: 'absolute',
-                    top: 0,
-                    right: 0,
+                    top: 'var(--space-1)',
+                    right: 'var(--space-1)',
                     background: 'transparent',
                     border: 'none',
-                    fontSize: 14,
-                    color: 'var(--c-ink-2)',
+                    color: 'var(--text-3)',
                     cursor: 'pointer',
                     padding: 0,
-                    minWidth: 44,
-                    minHeight: 44,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 999,
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontFamily: 'inherit',
-                    lineHeight: 0,
                   }}
                 >
-                  <Trash2 size={15} aria-hidden="true" />
+                  <Trash2 size={18} aria-hidden="true" />
                 </button>
               </li>
             );
@@ -184,120 +211,44 @@ export function AdvisorHistoryList({ sessions, loaded, onSelect, onClose, onDele
 }
 
 // ============================================================================
-// 推薦本カード — 履歴詳細用 (live chat と同じ field 構成 + Amazon + 追加 button)
+// 推薦本カード — 履歴詳細用 (live chat と同じ field 構成 + ストアリンク + 追加 button)
 // ============================================================================
 function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
-  const amazonHref = getAmazonLink(book);
   return (
     <div
       style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--c-hairline)',
-        borderRadius: 'var(--radius-md)',
-        padding: 14,
-        boxShadow: '0 1px 4px rgba(30,25,20,0.04)',
+        ...cardBase,
         wordBreak: 'keep-all',
         overflowWrap: 'anywhere',
-        boxSizing: 'border-box',
       }}
     >
-      <p style={{ fontSize: 14, fontWeight: 700, color: '#5C4A2E', margin: 0 }}>
+      <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, margin: 0 }}>
         『{book.title}』
       </p>
       {book.author && (
-        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '2px 0 8px' }}>— {book.author}</p>
+        <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{book.author}</p>
       )}
 
       {book.why && (
-        <RecField
-          label={<><Target size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />なぜあなたに必要か</>}
-          text={book.why}
-        />
-      )}
-      {book.core && (
-        <RecField
-          label={<><Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />この本の核心</>}
-          text={book.core}
-        />
-      )}
-      {book.focus && (
-        <RecField
-          label={<><MapPin size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />注目すべきポイント</>}
-          text={book.focus}
-        />
-      )}
-      {book.duration && (
-        <div
-          style={{
-            background: 'var(--color-warning-soft)',
-            border: '1px solid #e0c878',
-            borderRadius: 8,
-            padding: '8px 10px',
-            margin: '8px 0 0',
-            fontSize: 12,
-            color: '#5D4037',
-            fontWeight: 600,
-            textAlign: 'center',
-          }}
-        >
-          <Timer size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
-          {book.duration}
+        <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)' }}>
+          <p style={fieldLabel}>なぜあなたに</p>
+          <p style={{ ...readText, margin: 'var(--space-1) 0 0' }}>{book.why}</p>
         </div>
       )}
+      {book.core && <RecField label="この本の核心" text={book.core} />}
+      {book.focus && <RecField label="注目ポイント" text={book.focus} />}
+      {book.duration && (
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-3) 0 0' }}>
+          <span style={{ fontWeight: 600 }}>目安</span>　{book.duration}
+        </p>
+      )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-        <a
-          href={amazonHref}
-          target="_blank"
-          rel="sponsored noopener noreferrer"
-          onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazonHref); }}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            padding: '10px 12px',
-            background: '#FF9900',
-            color: '#fff',
-            borderRadius: 10,
-            fontSize: 12,
-            fontWeight: 700,
-            textAlign: 'center',
-            textDecoration: 'none',
-            fontFamily: 'inherit',
-            minHeight: 44,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 4,
-            whiteSpace: 'nowrap',
-            touchAction: 'manipulation',
-            WebkitTapHighlightColor: 'rgba(255,153,0,0.18)',
-          }}
-        >
-          <ShoppingCart size={14} aria-hidden="true" style={{ marginRight: 4 }} />
-          Amazon
-        </a>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
         {isAdded ? (
-          <button
-            type="button"
-            disabled
-            style={{
-              flex: 1,
-              minWidth: 120,
-              padding: '10px 12px',
-              background: '#E0E0E0',
-              color: '#666',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: 'not-allowed',
-              fontFamily: 'inherit',
-              minHeight: 40,
-            }}
-          >
-            <CheckCircle size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
+          <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
+            <Check size={16} aria-hidden="true" />
             追加済み
-          </button>
+          </p>
         ) : (
           <button
             type="button"
@@ -307,37 +258,30 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
             }}
             disabled={isAdding}
             style={{
-              flex: 1,
-              minWidth: 120,
-              padding: '10px 12px',
-              background: 'var(--c-brand)',
-              color: 'var(--accent-ink)',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 12,
-              fontWeight: 700,
+              ...rowBtn,
               cursor: isAdding ? 'wait' : 'pointer',
-              fontFamily: 'inherit',
-              minHeight: 44,
-              opacity: isAdding ? 0.7 : 1,
+              opacity: isAdding ? 0.6 : 1,
               touchAction: 'manipulation',
-              WebkitTapHighlightColor: 'rgba(92,74,46,0.18)',
             }}
           >
-            <Plus size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />
-            {isAdding ? '計画を作成中…' : '読みたい'}
+            <Plus size={16} aria-hidden="true" />
+            {isAdding ? '計画を作成中…' : '読みたいに追加'}
           </button>
         )}
+        {/* Amazon + 楽天 の両方（会話中のカードと同じ部品）。開示はカード群の下にまとめて出す。 */}
+        <BookStoreLinks book={book} variant="compact" showDisclosure={false} stopPropagation />
       </div>
     </div>
   );
 }
 
+const fieldLabel = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: 0 };
+
 function RecField({ label, text }) {
   return (
-    <div style={{ background: 'rgba(92,74,46,0.04)', borderRadius: 8, padding: '8px 10px', margin: '6px 0' }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: '#5C4A2E', margin: '0 0 4px' }}>{label}</p>
-      <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--c-ink)', margin: 0 }}>{text}</p>
+    <div style={{ marginTop: 'var(--space-3)' }}>
+      <p style={fieldLabel}>{label}</p>
+      <p style={{ fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', margin: 'var(--space-1) 0 0' }}>{text}</p>
     </div>
   );
 }
@@ -424,21 +368,14 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 16px 24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button type="button" onClick={onClose} style={{ ...btnGhost, border: 'none', color: 'var(--c-brand)' }}>
-          <ArrowLeft size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />戻る
-        </button>
-        <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0 }}>{formatDate(session?.created_at)} の会話</p>
-        <span style={{ width: 50 }} />
-      </div>
+    <div style={pageStyle}>
+      <NavBar backLabel="履歴" onBack={onClose} title={formatDate(session?.created_at)} />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} role="region" aria-label="AI 選書の会話">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }} role="region" aria-label="AI 選書の会話">
         {messages.length === 0 ? (
           <EmptyState
-            icon={<MessageSquare size={40} strokeWidth={1.5} aria-hidden="true" />}
+            icon={<MessageSquare size={32} strokeWidth={1.5} aria-hidden="true" />}
             title="この会話には記録がありません"
-            description="メッセージのやり取りはまだ残っていません。"
           />
         ) : (
           messages.map((m, i) => {
@@ -446,33 +383,37 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             const raw = (m.content ?? m.text ?? '').toString();
             // assistant メッセージは RECOMMENDATIONS の JSON を剥がして
             // プロセだけにする (永続化フォーマットの都合で生 JSON が混じっているため)
-            const text = isUser ? raw : stripRecommendations(raw);
+            const text = isUser ? displayUserText(raw) : stripRecommendations(raw);
             if (!text) return null; // JSON だけのメッセージは非表示
-            return (
+            return isUser ? (
+              // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
               <div
                 key={i}
-                style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}
+                style={{ display: 'flex', justifyContent: 'flex-end' }}
                 role="article"
-                aria-label={isUser ? 'あなたの相談' : 'AI の提案'}
+                aria-label="あなたの相談"
               >
                 <div
                   style={{
                     maxWidth: '85%',
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    background: isUser ? 'var(--c-brand)' : '#f7f3ec',
-                    color: isUser ? 'var(--c-card)' : 'var(--c-ink)',
-                    fontSize: 13,
-                    lineHeight: 1.7,
+                    padding: 'var(--space-3) var(--space-4)',
+                    borderRadius: 'var(--radius)',
+                    background: 'var(--fill)',
+                    color: 'var(--text)',
+                    fontSize: 'var(--text-body)',
+                    lineHeight: 1.5,
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'keep-all',
                     overflowWrap: 'anywhere',
-                    borderBottomRightRadius: isUser ? 4 : 14,
-                    borderBottomLeftRadius: isUser ? 14 : 4,
                   }}
                 >
                   {text}
                 </div>
+              </div>
+            ) : (
+              // AI の提案＝Markdown（見出し・箇条書き）として描画（生の ## を出さない。会話中と同じ）。
+              <div key={i} role="article" aria-label="AI の提案" style={{ minWidth: 0 }}>
+                <MarkdownSections text={text} />
               </div>
             );
           })
@@ -480,11 +421,10 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
       </div>
 
       {recs.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
-          <p style={{ fontSize: 12, color: 'var(--c-brand)', fontWeight: 600, margin: 0 }}>
-            <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }} aria-labelledby="advisor-history-recs">
+          <h3 id="advisor-history-recs" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 0 }}>
             提案された本
-          </p>
+          </h3>
           {recs.map((b, i) => (
             <RecommendationCard
               key={`${b.title}-${i}`}
@@ -496,53 +436,17 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
               onAdd={() => handleAdd(b)}
             />
           ))}
-          <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '4px 0 0', lineHeight: 1.6 }}>
-            ※ Amazon のリンクはアソシエイトリンクです (購入時に運営に紹介料が入ります)
-          </p>
-        </div>
+          <small style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+            {STORE_DISCLOSURE_TEXT}
+          </small>
+        </section>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          onClick={() => onResume(session)}
-          style={{
-            flex: 1,
-            minWidth: 140,
-            padding: '12px 14px',
-            background: 'var(--c-brand)',
-            color: 'var(--accent-ink)',
-            border: 'none',
-            borderRadius: 10,
-            fontSize: 13,
-            fontFamily: 'inherit',
-            fontWeight: 600,
-            cursor: 'pointer',
-            minHeight: 44,
-          }}
-        >
-          <MessageSquare size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+        <button type="button" onClick={() => onResume(session)} style={btnPrimary}>
           この会話を続ける
         </button>
-        <button
-          type="button"
-          onClick={onNewSession}
-          style={{
-            flex: 1,
-            minWidth: 140,
-            padding: '12px 14px',
-            background: 'transparent',
-            color: 'var(--c-brand)',
-            border: '1px solid var(--c-hairline-strong)',
-            borderRadius: 10,
-            fontSize: 13,
-            fontFamily: 'inherit',
-            fontWeight: 500,
-            cursor: 'pointer',
-            minHeight: 44,
-          }}
-        >
-          <Plus size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+        <button type="button" onClick={onNewSession} style={btnGhost}>
           新しい会話を始める
         </button>
       </div>

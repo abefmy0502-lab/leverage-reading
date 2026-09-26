@@ -30,30 +30,25 @@ import {
 import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
 import PullToRefresh from './PullToRefresh';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
-import { BarChart3, Sparkles, Square, History, Trash2, RotateCw, Inbox, AlertTriangle, Ruler, TrendingUp, Target, Copy, RefreshCw, Pin, Pencil, CheckCircle2, Square as SquareIcon } from 'lucide-react';
+import { SkeletonBlock } from './Skeleton';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
+import { Square, History, Trash2, RotateCw, Inbox, AlertTriangle, Ruler, RefreshCw, CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
 
+// 見た目は DESIGN.md のトークンのみ。
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
 const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' };
-const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '14px 16px 28px' };
-const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '14px 16px' };
-const inp = { width: '100%', padding: '11px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: 'var(--surface)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
-const btnPrimary = { ...uiBtnPrimary, width: 'auto', minHeight: 44, padding: '12px 20px', fontSize: 14 };
-const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: '10px 14px', fontSize: 13 };
-const pill = (active) => ({
-  flex: '0 0 auto',
-  whiteSpace: 'nowrap',
-  minHeight: 44,
-  padding: '6px 12px',
-  border: 'none',
-  background: active ? 'var(--c-brand)' : 'transparent',
-  color: active ? 'var(--c-card)' : 'var(--c-ink-soft)',
-  fontSize: 13,
-  fontWeight: active ? 600 : 500,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  borderRadius: 8,
-});
+const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-3) var(--space-4) var(--space-8)' };
+const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
+const inp = { ...uiInput, flex: 1, minWidth: 0, width: 'auto' };
+const btnPrimary = { ...uiBtnPrimary, width: 'auto', flexShrink: 0 };
+const btnGhost = { ...uiBtnGhost };
+// 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
+const btnRow = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', gap: 'var(--space-1)', flexShrink: 0 };
+const btnText = { ...uiBtnText, minHeight: 44, fontSize: 'var(--text-sub)', gap: 'var(--space-1)', padding: 'var(--space-2) 0' };
+const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
+const metaText = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 };
+// 読む文章（明朝 18・行間 1.6）。
+const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
 
 const STAGE_LABEL = {
   search: 'テーマのメモと行動を集めています…',
@@ -314,7 +309,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
             // 出力上限で途中切れ。画面には表示するが、欠けたレポートを完成品として
             // 履歴に永続化しない（再表示しても欠けたままになる事故を防ぐ）。
             setNoticeKind('info');
-            setNotice('⚠️ テーマまとめが長さの上限に達したため途中までです。メモやテーマを絞って再生成すると最後まで作成できます（このままでは履歴に保存されません）。');
+            setNotice('テーマまとめが長さの上限に達したため途中までです。メモやテーマを絞って再生成すると最後まで作成できます（このままでは履歴に保存されません）。');
           } else {
             // Persist (no-op + history stays hidden if the table isn't applied).
             const saved = await saveThemeReport({ userId: user.id, theme, content: finalText });
@@ -400,7 +395,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
         setActionAdded(true);
         haptic.success();
         try { onActionAdded?.(); } catch { /* ignore */ }
-        toast.success('🎯 振り返りタブ →「行動」に追加しました。');
+        toast.success('振り返りタブ →「行動」に追加しました。');
       } else {
         toast.error('追加できませんでした。少し時間をおいて再度お試しください。');
       }
@@ -455,61 +450,62 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const showStageBlock = generating && reportText.length === 0 && !notice;
 
   // ---- Render --------------------------------------------------------------
+  // 切り替え（作成 / 履歴）はサブタブの下に 2 段目のタブとして重ねない（DESIGN §5）。
+  // 履歴へは画面内の「履歴」文字ボタンから入り、「‹ テーマまとめ」で戻る。
+
+  const reportDone = !generating && !notice && !!reportText;
+  const nextStep = reportDone && primaryBook?.id ? extractNextStep(reportText) : '';
 
   return (
     <div style={wrap}>
-      {/* sub navigation */}
-      {/* 履歴が使える時だけタブを出す — 「新規」単独の pill は初見に意味不明な
-          謎ボタンだった（切替先が無いのにタブだけ浮く）。ラベルも「作成」に。 */}
-      {historyAvailable && (
-        <div
-          className="lvg-no-scrollbar"
-          style={{ display: 'flex', gap: 6, padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid #ece5d8', flex: '0 0 auto' }}
-          role="tablist"
-          aria-label="テーマまとめの表示切替"
-        >
-          <button style={pill(view === 'create')} onClick={() => setView('create')} role="tab" aria-selected={view === 'create'}>
-            <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />作成
-          </button>
-          <button style={pill(view === 'history')} onClick={() => setView('history')} role="tab" aria-selected={view === 'history'}>
-            <History size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />履歴{history.length > 0 ? `（${history.length}）` : ''}
-          </button>
-        </div>
-      )}
-
       {view === 'history' ? (
         <PullToRefresh onRefresh={refreshHistory}>
           <div style={viewScroll}>
-            {history.length === 0 ? (
-              <EmptyState
-                icon={<History size={40} aria-hidden="true" />}
-                title="まだテーマまとめがありません"
-                description="「新規」からテーマを選んでテーマまとめを作ると、ここに保存されていきます。"
-              />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {history.map((row) => (
-                  <div key={row.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <button
-                      onClick={() => openHistoryReport(row)}
-                      style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
-                    >
-                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />{row.theme}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--c-ink-2)', marginTop: 2 }}>{fmtDate(row.generated_at)}</div>
-                    </button>
-                    <button
-                      onClick={() => removeHistory(row)}
-                      style={{ ...btnGhost, minHeight: 44, padding: '6px 10px', color: 'var(--c-critical)', borderColor: '#e0cabf' }}
-                      aria-label={`「${row.theme}」のテーマまとめを削除`}
-                    >
-                      <Trash2 size={15} aria-hidden="true" />
-                    </button>
-                  </div>
-                ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <div>
+                <button type="button" onClick={() => setView('create')} style={{ ...btnText, fontSize: 'var(--text-body)', fontWeight: 400, gap: 2 }}>
+                  <ChevronLeft size={20} aria-hidden="true" />テーマまとめ
+                </button>
               </div>
-            )}
+              {history.length === 0 ? (
+                <EmptyState
+                  icon={<History size={32} strokeWidth={1.5} aria-hidden="true" />}
+                  title="まだテーマまとめがありません"
+                  actions={[{ label: 'テーマまとめを作る', onClick: () => setView('create'), variant: 'secondary' }]}
+                />
+              ) : (
+                <>
+                  <p style={metaText}>{history.length} 件</p>
+                  <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    {history.map((row) => (
+                      <li key={row.id} style={{ ...card, padding: 'var(--space-1) var(--space-1) var(--space-1) var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <button
+                          type="button"
+                          onClick={() => openHistoryReport(row)}
+                          style={{ flex: 1, minWidth: 0, minHeight: 44, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 'var(--space-2) 0', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+                        >
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>
+                              {row.theme}
+                            </span>
+                            <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)' }}>{fmtDate(row.generated_at)}</span>
+                          </span>
+                          <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeHistory(row)}
+                          style={{ width: 44, height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius)', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
+                          aria-label={`「${row.theme}」のテーマまとめを削除`}
+                        >
+                          <Trash2 size={18} aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
           </div>
         </PullToRefresh>
       ) : (
@@ -519,10 +515,10 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
               /* メモ 0 件では何を入力しても「関連するメモが見つかりません」で空振りする。
                  誘ってから外すのではなく、先回りして最初の一歩（メモを書く）へ案内する。 */
               <EmptyState
-                icon="📐"
+                icon={<Ruler size={32} strokeWidth={1.5} aria-hidden="true" />}
                 title="メモが貯まると、テーマまとめが作れます"
-                description={'テーマまとめは、あなたのメモを横断して「核心1行と次の一歩」に凝縮する機能です。まず本を開いて、気づきを1行メモに残すところから始めましょう。'}
-                actions={onGoBookshelf ? [{ label: '📚 本棚で1冊ひらく', onClick: onGoBookshelf }] : []}
+                description="まず本を開いて、気づきを1行メモに残しましょう。"
+                actions={onGoBookshelf ? [{ label: '本を開く', onClick: onGoBookshelf }] : []}
               />
             ) : (
             <ThemePicker
@@ -531,39 +527,46 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
               customTheme={customTheme}
               setCustomTheme={setCustomTheme}
               onGenerate={generate}
+              historyCount={historyAvailable ? history.length : null}
+              onOpenHistory={() => setView('history')}
             />
             )
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* report header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <BarChart3 size={18} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
-                <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--c-ink)', margin: 0, flex: 1, minWidth: 0 }}>
-                  {activeTheme}
-                </h2>
-                {generating ? (
-                  <button
-                    onClick={stopGeneration}
-                    disabled={aborting}
-                    style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', gap: 6, opacity: aborting ? 0.6 : 1 }}
-                    aria-label={aborting ? '中止しています' : 'テーマまとめの作成を中止'}
-                  >
-                    <Square size={13} aria-hidden="true" /> {aborting ? '中止中…' : '中止'}
-                  </button>
-                ) : (
-                  <button onClick={resetToPicker} style={btnGhost} aria-label="テーマ選択に戻る"><RefreshCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />別のテーマ</button>
-                )}
-              </div>
-
-              {/* レバレッジメモ + 根拠スコープ */}
-              {!notice && (
-                <div style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '-4px 0 2px', letterSpacing: '.02em' }}>
-                  <Ruler size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />テーマまとめ
-                  {scope && (scope.memoTotal > 0 || scope.bookCount > 0) && (
-                    <> ・ 本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件を横断</>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+              {/* 見出し: テーマ名 ＋ 中止 / 別のテーマ ＋ 根拠の範囲（データだけ） */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, flex: 1, minWidth: 0, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
+                    {activeTheme}
+                  </h2>
+                  {generating ? (
+                    <button
+                      type="button"
+                      onClick={stopGeneration}
+                      disabled={aborting}
+                      style={{ ...btnRow, opacity: aborting ? 0.6 : 1 }}
+                      aria-label={aborting ? '中止しています' : 'テーマまとめの作成を中止'}
+                    >
+                      <Square size={14} aria-hidden="true" />{aborting ? '中止中…' : '中止'}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={resetToPicker} style={btnRow} aria-label="テーマ選択に戻る">
+                      <RefreshCw size={16} aria-hidden="true" />別のテーマ
+                    </button>
                   )}
                 </div>
-              )}
+                {!notice && scope && (scope.memoTotal > 0 || scope.bookCount > 0) && (
+                  <p style={metaText}>本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件を横断</p>
+                )}
+                {/* 前回からの変化（端末ローカル比較・あるときだけ） */}
+                {reportDone && delta && (
+                  <p style={metaText}>
+                    前回からの変化{delta.at && <>（前回 {fmtDate(delta.at)}）</>}：
+                    {delta.book > 0 && <>本 +{delta.book} 冊　</>}
+                    {delta.memo > 0 ? <>メモ +{delta.memo} 件を追加</> : delta.memo < 0 ? <>メモ {delta.memo} 件</> : <>新しい根拠が増えました</>}
+                  </p>
+                )}
+              </div>
 
               {/* body */}
               {notice ? (
@@ -571,30 +574,29 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   role={noticeKind === 'error' ? 'alert' : 'status'}
                   style={{
                     ...card,
-                    background: noticeKind === 'error' ? '#fbf2ee' : card.background,
-                    borderColor: noticeKind === 'error' ? 'var(--c-critical-line)' : card.border,
+                    background: noticeKind === 'error' ? 'var(--error-soft)' : 'var(--surface)',
+                    borderColor: noticeKind === 'error' ? 'var(--error-line)' : 'var(--separator)',
                     display: 'flex',
-                    gap: 10,
+                    gap: 'var(--space-3)',
                   }}
                 >
-                  <span aria-hidden="true" style={{ lineHeight: 1.5, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}>
+                  <span aria-hidden="true" style={{ flex: '0 0 auto', display: 'inline-flex', paddingTop: 2, color: noticeKind === 'error' ? 'var(--error)' : 'var(--text-3)' }}>
                     {noticeKind === 'error' ? <AlertTriangle size={18} /> : <Inbox size={18} />}
                   </span>
-                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: 13, color: 'var(--c-ink-soft)', minWidth: 0 }}>
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 'var(--text-sub)', color: 'var(--text)', minWidth: 0 }}>
                     {notice}
                   </div>
                 </div>
               ) : showStageBlock ? (
-                <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }} aria-live="polite" aria-busy="true">
-                  <div className="ai-thinking">
-                    <span className="ai-thinking-dot" aria-hidden="true" />
-                    <span>{STAGE_LABEL[stage] || 'テーマまとめを準備中…'}</span>
-                  </div>
-                  <div className="ai-skeleton" aria-hidden="true">
-                    <div className="ai-skeleton-line" style={{ width: '90%' }} />
-                    <div className="ai-skeleton-line" style={{ width: '76%' }} />
-                    <div className="ai-skeleton-line" style={{ width: '84%' }} />
-                    <div className="ai-skeleton-line" style={{ width: '64%' }} />
+                <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} aria-live="polite" aria-busy="true">
+                  <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                    {STAGE_LABEL[stage] || 'テーマまとめを準備中…'}
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <SkeletonBlock width="90%" height={14} radius="var(--radius-full)" />
+                    <SkeletonBlock width="76%" height={14} radius="var(--radius-full)" />
+                    <SkeletonBlock width="84%" height={14} radius="var(--radius-full)" />
+                    <SkeletonBlock width="64%" height={14} radius="var(--radius-full)" />
                   </div>
                 </div>
               ) : generating ? (
@@ -604,8 +606,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   <span className="streaming-cursor" aria-hidden="true" />
                 </div>
               ) : (
-                // 完成後は「核心」を専用ヒーローカードで強調し、残り(原則/次の一歩)を下に。
-                <div aria-live="polite">
+                // 完成後は「核心」を先頭のカードで示し、残り(原則/次の一歩)を下に。
+                <div aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                   {extractCore(reportText) && <CoreCard line={extractCore(reportText)} />}
                   <MarkdownSections text={stripCoreSection(reportText)} />
                 </div>
@@ -613,92 +615,61 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
 
               {/* error notice → offer a retry of the same theme */}
               {!generating && notice && noticeKind === 'error' && activeTheme && (
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
-                  <button onClick={() => generate(activeTheme)} style={btnPrimary} aria-label={`テーマ「${activeTheme}」でもう一度作成`}>
-                    <RefreshCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />もう一度試す
-                  </button>
-                </div>
+                <button type="button" onClick={() => generate(activeTheme)} style={{ ...uiBtnPrimary }} aria-label={`テーマ「${activeTheme}」でもう一度作成`}>
+                  <RefreshCw size={18} aria-hidden="true" />もう一度試す
+                </button>
               )}
 
-              {/* 🎯→✅ 次の一歩を 1 タップで行動リストへ（残す→活かすの輪を閉じる） */}
-              {!generating && !notice && reportText && primaryBook?.id && extractNextStep(reportText) && (
-                <>
+              {/* 次の一歩を 1 タップで行動リストへ（この画面の主ボタン・残す→活かすの輪を閉じる） */}
+              {nextStep && (
                 <button
                   type="button"
                   onClick={actionAdded ? (() => onOpenActions?.()) : handleAddNextStep}
                   disabled={actionBusy}
                   aria-label={actionAdded ? '追加した行動を行動リストで見る' : '次の一歩を行動リストに追加'}
                   style={{
-                    width: '100%', minHeight: 48, borderRadius: 13, border: 'none', fontFamily: 'inherit',
-                    fontSize: 14, fontWeight: 700, cursor: actionBusy ? 'default' : 'pointer',
-                    background: actionAdded ? 'var(--c-positive-soft)' : 'var(--c-positive)',
-                    color: actionAdded ? 'var(--c-positive)' : 'var(--c-card)',
-                    boxShadow: actionAdded ? 'none' : '0 1px 2px rgba(60,48,30,.18)',
+                    ...(actionAdded ? btnGhost : uiBtnPrimary),
+                    cursor: actionBusy ? 'default' : 'pointer',
                     opacity: actionBusy ? 0.6 : 1,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                   }}
                 >
                   {actionAdded ? (
-                    <><CheckCircle2 size={14} aria-hidden="true" />追加済み ・ <Target size={14} aria-hidden="true" />行動リストで見る →</>
+                    <><CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)' }} />追加済み・行動リストで見る<ChevronRight size={18} aria-hidden="true" /></>
                   ) : actionBusy ? '追加中…' : (
-                    <><CheckCircle2 size={14} aria-hidden="true" />この一歩を行動リストに入れる</>
+                    <>この一歩を行動リストに入れる</>
                   )}
                 </button>
-                {!actionAdded && (
-                  <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '-4px 2px 0', lineHeight: 1.5 }}>
-                    追加先は「振り返り」タブ →「<Target size={11} aria-hidden="true" style={{ verticalAlign: '-1px' }} /> 行動」（最も関連が深い本に紐づきます）
-                  </p>
-                )}
-                </>
               )}
 
-              {/* 🎯 行動の鏡 — 学びが行動に変わっているかを実データで突きつける */}
-              {!generating && !notice && reportText && actionStats && (
+              {/* 行動の鏡 — 学びが行動に変わっているかを実データで示す */}
+              {reportDone && actionStats && (
                 <ActionMirror stats={actionStats} memoTotal={scope?.memoTotal ?? 0} onOpenActions={onOpenActions} />
               )}
 
-              {/* 📈 前回からの変化（端末ローカル比較・あるときだけ） */}
-              {!generating && !notice && reportText && delta && (
-                <div style={{ ...card, padding: '12px 14px' }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--c-ink)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <TrendingUp size={14} aria-hidden="true" />前回からの変化
-                    {delta.at && <span style={{ fontWeight: 500, color: 'var(--c-ink-3)', fontSize: 11 }}>（前回 {fmtDate(delta.at)}）</span>}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.6 }}>
-                    {delta.book > 0 && <>本 +{delta.book} 冊　</>}
-                    {delta.memo > 0 ? <>メモ +{delta.memo} 件を追加</> : delta.memo < 0 ? <>メモ {delta.memo} 件</> : <>新しい根拠が増えました</>}
-                  </div>
-                </div>
-              )}
-
-              {/* 🔄 想起ループ接続 — 読んで終わりにしない仕組み */}
-              {!generating && !notice && reportText && (
-                <RecallBanner busy={recallBusy} done={recallSet} onSet={handleSetRecall} />
-              )}
-
-              {/* actions (only when a finished report is shown) */}
-              {!generating && !notice && reportText && (
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
-                  {onOpenJourney && activeTheme && (
-                    <button
-                      onClick={() => onOpenJourney(activeTheme)}
-                      style={btnGhost}
-                      aria-label={`テーマ「${activeTheme}」の変遷（足あと）を見る`}
-                    >
-                      🕰 このテーマの変遷を見る
+              {/* 想起ループ接続 ＋ そのほかの操作（すべて副ボタン） */}
+              {reportDone && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  <RecallButton busy={recallBusy} done={recallSet} onSet={handleSetRecall} />
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                    {onOpenJourney && activeTheme && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenJourney(activeTheme)}
+                        style={btnRow}
+                        aria-label={`テーマ「${activeTheme}」の変遷（足あと）を見る`}
+                      >
+                        このテーマの足あと
+                      </button>
+                    )}
+                    <button type="button" onClick={copyReport} style={btnRow} aria-label="テーマまとめをクリップボードにコピー">
+                      コピー
                     </button>
-                  )}
-                  <button onClick={copyReport} style={btnGhost} aria-label="テーマまとめをクリップボードにコピー">
-                    <Copy size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />コピー
-                  </button>
-                  {historyAvailable && (
-                    <button onClick={() => setView('history')} style={btnGhost} aria-label="保存済みのテーマまとめ履歴を見る">
-                      <History size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />履歴
-                    </button>
-                  )}
-                  <button onClick={resetToPicker} style={btnPrimary} aria-label="別のテーマでテーマまとめを作成">
-                    <RefreshCw size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />別のテーマで作る
-                  </button>
+                    {historyAvailable && (
+                      <button type="button" onClick={() => setView('history')} style={btnRow} aria-label="保存済みのテーマまとめ履歴を見る">
+                        履歴
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -709,104 +680,82 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   );
 }
 
-function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGenerate }) {
+function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGenerate, historyCount, onOpenHistory }) {
   const canGenerate = customTheme.trim().length > 0;
   const submitCustom = () => {
     if (canGenerate) onGenerate(customTheme.trim());
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* intro */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Sparkles size={18} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>
-            あなたの読書が、1 枚のテーマまとめに
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      {/* detected theme chips（履歴があるときだけ右に「履歴」） */}
+      <section aria-labelledby="theme-detected">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44, marginBottom: 'var(--space-1)' }}>
+          <h2 id="theme-detected" style={{ ...groupTitle, margin: 0 }}>
+            あなたのメモから見つけたテーマ
+            {!themesLoading && themes.length > 0 && <>（{themes.length}）</>}
           </h2>
-        </div>
-        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
-          テーマを選ぶと、そのメモをまとめて<strong>「この1行」と「次の一歩」</strong>にしぼります。あとで振り返りや通知でそっと思い出せます。
-        </p>
-      </div>
-
-      {/* detected theme chips */}
-      <div>
-        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-soft)', margin: '0 0 8px' }}>
-          <Pin size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />あなたのメモから見つけたテーマ
-          {!themesLoading && themes.length > 0 && (
-            <span style={{ fontWeight: 500, color: 'var(--c-ink-2)' }}>（{themes.length}）</span>
+          {historyCount != null && (
+            <button type="button" onClick={onOpenHistory} style={btnText} aria-label="保存済みのテーマまとめ履歴を見る">
+              <History size={16} aria-hidden="true" />履歴{historyCount > 0 ? `（${historyCount}）` : ''}
+            </button>
           )}
-        </p>
+        </div>
         {themesLoading ? (
-          <div className="ai-skeleton" aria-hidden="true" style={{ maxWidth: 360 }}>
-            <div className="ai-skeleton-line" style={{ width: '70%' }} />
-            <div className="ai-skeleton-line" style={{ width: '52%' }} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }} aria-hidden="true">
+            <SkeletonBlock width={96} height={44} radius="var(--radius)" />
+            <SkeletonBlock width={128} height={44} radius="var(--radius)" />
+            <SkeletonBlock width={80} height={44} radius="var(--radius)" />
           </div>
         ) : themes.length === 0 ? (
-          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
             まだ候補はありません。下の欄にテーマを入力して始めましょう。
           </p>
         ) : (
           <div
-            style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}
+            style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}
             role="list"
             aria-label="メモから見つかったテーマ候補"
           >
             {themes.map((t) => (
               <button
                 key={t.theme}
+                type="button"
                 onClick={() => onGenerate(t.theme)}
                 role="listitem"
                 aria-label={`テーマ「${t.theme}」（メモ ${t.count} 件）でテーマまとめを作成`}
                 style={{
                   minHeight: 44,
-                  padding: '8px 8px 8px 14px',
-                  borderRadius: 999,
-                  border: '1px solid var(--c-hairline-strong)',
-                  background: 'var(--surface)',
-                  color: 'var(--c-ink)',
+                  padding: 'var(--space-2) var(--space-3)',
+                  borderRadius: 'var(--radius)',
+                  border: 'none',
+                  background: 'var(--fill)',
+                  color: 'var(--text)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
-                  fontSize: 13,
+                  fontSize: 'var(--text-sub)',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 8,
+                  gap: 'var(--space-2)',
                   touchAction: 'manipulation',
                 }}
               >
-                <span style={{ fontWeight: 600 }}>{t.theme}</span>
-                <span
-                  aria-hidden="true"
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: '#7a6f5c',
-                    background: '#f0eadd',
-                    borderRadius: 999,
-                    minWidth: 20,
-                    height: 20,
-                    padding: '0 6px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    lineHeight: 1,
-                  }}
-                >
+                <span>{t.theme}</span>
+                <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>
                   {t.count}
                 </span>
               </button>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* free-text theme */}
-      <div style={card}>
-        <label htmlFor="theme-custom" style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink-soft)', display: 'block', marginBottom: 8 }}>
-          <Pencil size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />テーマを自分で入力
+      <div>
+        <label htmlFor="theme-custom" style={{ ...groupTitle, display: 'block' }}>
+          テーマを自分で入力
         </label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
           <input
             id="theme-custom"
             type="text"
@@ -821,14 +770,15 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             }}
             placeholder="例：営業、習慣"
             maxLength={LIMITS.theme}
-            style={{ ...inp, flex: 1, minWidth: 160 }}
+            style={inp}
           />
           <button
+            type="button"
             onClick={submitCustom}
             disabled={!canGenerate}
             style={{ ...btnPrimary, opacity: canGenerate ? 1 : 0.5, cursor: canGenerate ? 'pointer' : 'default' }}
           >
-            <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />作成
+            作成
           </button>
         </div>
       </div>
@@ -836,41 +786,30 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
   );
 }
 
-// 🧭 核心 — レバレッジメモの中心。暗記して持ち歩く「この1行」をヒーロー表示する。
+// 核心 — 持ち歩く「この1行」。読む文章（明朝）で、カード 1 枚に。
 function CoreCard({ line }) {
   return (
-    <div
-      style={{
-        position: 'relative', overflow: 'hidden',
-        background: 'var(--c-soft)',
-        border: '1px solid var(--c-hairline)', borderRadius: 16,
-        padding: '18px 18px 18px 22px', marginBottom: 14,
-        boxShadow: '0 1px 3px rgba(60,48,30,.06)',
-      }}
-    >
-      <span aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'var(--c-brand)' }} />
-      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--c-ink-3)', letterSpacing: '.18em', marginBottom: 8 }}>
-        核心 — この1行
-      </div>
-      <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.55, color: 'var(--c-ink)' }}>
+    <div style={card}>
+      <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>核心</p>
+      <p style={{ ...readText, fontWeight: 600, margin: 0, overflowWrap: 'anywhere' }}>
         {line}
-      </div>
+      </p>
     </div>
   );
 }
 
-// 🎯 行動の鏡 — 宣言/完了/放置 を実データで表示し、学びが行動に変わっているかを
-// 突きつける（本田哲学の「実践してこそ」）。数値は AI ではなく actions の集計。
+// 行動の鏡 — 宣言/完了/放置 を実データで表示し、学びが行動に変わっているかを
+// 示す（本田哲学の「実践してこそ」）。数値は AI ではなく actions の集計。
 function ActionMirror({ stats, memoTotal, onOpenActions }) {
   const { declared = 0, completed = 0, idle = 0, blindSpot = false, openSteps = [] } = stats || {};
   // 数字が 1 以上 かつ 行動タブへの導線がある時だけタップ可能にする
   // （数字を見る→中身を確かめる、を 1 タップで。0 件で空タブへ飛ばさない）。
   const statBox = (n, k, color) => {
-    const base = { flex: 1, background: '#faf6ee', border: '1px solid var(--c-hairline)', borderRadius: 11, padding: '9px 4px', textAlign: 'center' };
+    const base = { flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 'var(--space-2) 0', textAlign: 'center', borderRadius: 'var(--radius)' };
     const inner = (
       <>
-        <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color }}>{n}</div>
-        <div style={{ fontSize: 9.5, color: 'var(--c-ink-3)', marginTop: 5, letterSpacing: '.04em' }}>{k}{onOpenActions && n > 0 ? ' ›' : ''}</div>
+        <span style={{ display: 'block', fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.3, color, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginTop: 'var(--space-1)' }}>{k}{onOpenActions && n > 0 ? ' ›' : ''}</span>
       </>
     );
     if (!onOpenActions || n <= 0) return <div style={base}>{inner}</div>;
@@ -878,93 +817,72 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
       <button
         type="button"
         onClick={() => onOpenActions()}
-        aria-label={`${k}の行動を🎯行動タブで見る`}
+        aria-label={`${k}の行動を行動タブで見る`}
         style={{ ...base, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44 }}
       >
         {inner}
       </button>
     );
   };
+  const nudge = { margin: 'var(--space-3) 0 0', background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)' };
   return (
-    <div style={{ ...card, padding: '14px 15px 15px' }}>
-      <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 7, color: 'var(--c-ink)' }}>
-        <Target size={15} aria-hidden="true" />行動できてる？
+    <section style={card} aria-labelledby="theme-mirror">
+      <h3 id="theme-mirror" style={{ fontSize: 'var(--text-body)', fontWeight: 600, margin: '0 0 var(--space-2)', color: 'var(--text)', lineHeight: 1.3 }}>
+        行動できてる？
       </h3>
-      <div style={{ display: 'flex', gap: 8, marginBottom: declared > 0 || blindSpot ? 12 : 0 }}>
-        {statBox(declared, '決めた行動', 'var(--c-ink)')}
-        {statBox(completed, '完了', 'var(--c-positive)')}
-        {statBox(idle, '放置中', idle > 0 ? 'var(--c-critical)' : 'var(--c-ink)')}
+      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        {statBox(declared, '決めた行動', 'var(--text)')}
+        {statBox(completed, '完了', completed > 0 ? 'var(--success)' : 'var(--text)')}
+        {statBox(idle, '放置中', idle > 0 ? 'var(--warning)' : 'var(--text)')}
       </div>
       {declared === 0 ? (
-        <div style={{ background: 'var(--c-critical-soft)', border: '1px solid var(--c-critical-line)', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
-          <span style={{ lineHeight: 1.4, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><AlertTriangle size={16} /></span>
-          <div style={{ fontSize: 12, lineHeight: 1.65, color: '#6e4a3c' }}>
-            このテーマに紐づく行動が<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>まだ0件</b>。学びを、まず1つだけ行動に落としましょう。
-          </div>
-        </div>
+        <p style={nudge}>
+          このテーマに紐づく行動が<strong style={{ fontWeight: 600 }}>まだ0件</strong>。学びを、まず1つだけ行動に落としましょう。
+        </p>
       ) : blindSpot ? (
-        <div style={{ background: 'var(--c-critical-soft)', border: '1px solid var(--c-critical-line)', borderRadius: 12, padding: '11px 13px', display: 'flex', gap: 9 }}>
-          <span style={{ lineHeight: 1.4, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><AlertTriangle size={16} /></span>
-          <div style={{ fontSize: 12, lineHeight: 1.65, color: '#6e4a3c' }}>
-            メモは<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>{memoTotal}件</b>あるのに、完了した行動は<b style={{ color: 'var(--c-critical)', fontWeight: 800 }}>0件</b>。学びが行動に変わっていません。
-          </div>
-        </div>
+        <p style={nudge}>
+          メモは<strong style={{ fontWeight: 600 }}>{memoTotal}件</strong>あるのに、完了した行動は<strong style={{ fontWeight: 600 }}>0件</strong>。学びが行動に変わっていません。
+        </p>
       ) : null}
 
-      {/* 🔸 やり残しの一歩を名指しで突き返す（本田: 宣言した一歩がどうなったか） */}
+      {/* やり残しの一歩を名指しで示す（本田: 宣言した一歩がどうなったか） */}
       {openSteps.length > 0 && (
-        <div style={{ marginTop: 11 }}>
-          <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-critical)', letterSpacing: '.06em', margin: '0 0 6px' }}>
-            <AlertTriangle size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />まだやれていない一歩
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--separator)' }}>
+          <p style={{ ...groupTitle }}>まだやれていない一歩</p>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {openSteps.map((s, i) => (
-              <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12, lineHeight: 1.55, color: 'var(--c-ink-soft)' }}>
-                <span aria-hidden="true" style={{ color: '#c08a6a', flexShrink: 0, marginTop: 1, display: 'inline-flex' }}><SquareIcon size={13} /></span>
-                <span style={{ minWidth: 0 }}>{stripInlineMd(s)}</span>
-              </div>
+              <li key={i} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)' }}>
+                <Circle size={16} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0, marginTop: 3 }} />
+                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{stripInlineMd(s)}</span>
+              </li>
             ))}
-          </div>
-          <p style={{ fontSize: 11, color: '#9a8c74', margin: '7px 0 0', lineHeight: 1.5 }}>
-            <Target size={11} aria-hidden="true" style={{ verticalAlign: '-1px', marginRight: 4 }} />行動タブで完了にすると、ここから消えます。
-          </p>
+          </ul>
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
-// 🔄 想起ループ接続 — 核心を「振り返り・通知」に乗せる仕組みの説明＋セットボタン。
-function RecallBanner({ busy, done, onSet }) {
+// 想起ループ接続 — 核心を「振り返り・通知」に乗せる副ボタン。
+function RecallButton({ busy, done, onSet }) {
   return (
-    <div style={{ background: 'var(--c-soft)', border: '1px solid var(--c-hairline-strong)', borderRadius: 16, padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-        <span style={{ lineHeight: 1.2, flex: '0 0 auto', display: 'inline-flex' }} aria-hidden="true"><RotateCw size={21} /></span>
-        <div style={{ fontSize: 12, lineHeight: 1.7, color: '#5b4f3c' }}>
-          <b style={{ color: 'var(--c-ink)', fontWeight: 800 }}>このメモは、読んで終わりにしません。</b><br />
-          核心を <b style={{ color: 'var(--c-ink)' }}>振り返りタブ</b> と <b style={{ color: 'var(--c-ink)' }}>思い出しの通知</b> に乗せると、忘れた頃にそっと戻ってきて、無意識に動けるまで体に入れます。
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onSet}
-        disabled={busy || done}
-        aria-label={done ? '思い出しカードに追加済み' : '核心を思い出しカードに加える'}
-        style={{
-          minHeight: 46, borderRadius: 13, border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-          cursor: busy || done ? 'default' : 'pointer',
-          background: done ? 'var(--c-positive-soft)' : 'var(--c-brand)',
-          color: done ? 'var(--c-positive)' : 'var(--c-card)',
-          boxShadow: done ? 'none' : '0 1px 2px rgba(60,48,30,.18)',
-          opacity: busy ? 0.6 : 1,
-        }}
-      >
-        {done ? (
-          <><RotateCw size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />思い出しカードに追加済み ✓</>
-        ) : busy ? 'セット中…' : (
-          <><RotateCw size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />思い出しカードに加える</>
-        )}
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={onSet}
+      disabled={busy || done}
+      aria-label={done ? '思い出しカードに追加済み' : '核心を思い出しカードに加える'}
+      style={{
+        ...btnGhost,
+        cursor: busy || done ? 'default' : 'pointer',
+        color: done ? 'var(--text-2)' : 'var(--text)',
+        opacity: busy ? 0.6 : 1,
+      }}
+    >
+      {done ? (
+        <><CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)' }} />思い出しカードに追加済み</>
+      ) : busy ? 'セット中…' : (
+        <><RotateCw size={18} aria-hidden="true" />思い出しカードに加える</>
+      )}
+    </button>
   );
 }

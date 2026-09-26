@@ -780,8 +780,9 @@
      align-items: start で各カードが行の最大高に伸びないようにする
      (1 つのカードが大きいと grid のデフォルトでは他も縦に伸びてしまう)。*/
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  padding: 12px;
+  /* 横は 12、縦（行と行）は 24。左右の余白は親（var(--space-4)）に任せて見出しと左端をそろえる。 */
+  gap: var(--space-6) var(--space-3);
+  padding: 0 0 var(--space-6);
   align-items: start;
 }
 @media (min-width: 768px) {
@@ -836,21 +837,12 @@
   position: relative;
   aspect-ratio: 2 / 3;
   background: var(--color-bg-secondary);
-  border-radius: var(--radius-sm);
+  /* 本の表紙は「本の形」として角丸 4（DESIGN §4 の例外）。影は使わず細い内枠で輪郭だけ。 */
+  border-radius: 4px;
   overflow: hidden;
   margin-bottom: var(--space-2);
-  /* 本らしい立体感 — 右側に少し影を落とす */
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.06),
-    2px 4px 10px rgba(40, 30, 20, 0.18);
-  transition: transform var(--duration-base) var(--ease-spring),
-    box-shadow var(--duration-base) var(--ease-out);
-}
-.book-cover-card:hover .book-cover-image-wrap {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.06),
-    4px 8px 16px rgba(40, 30, 20, 0.22);
+  box-shadow: inset 0 0 0 1px var(--separator);
+  transition: transform var(--duration-base) var(--ease-spring);
 }
 .book-cover-card:active .book-cover-image-wrap {
   transform: scale(0.97);
@@ -958,7 +950,7 @@
   font-weight: var(--weight-semibold);
   line-height: 1.4;
   color: var(--text);
-  margin: 8px 0 4px;
+  margin: 0 0 var(--space-1);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -971,7 +963,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
 }
 
 /* View-mode switch (grid / list) */
@@ -1135,31 +1126,34 @@ body.keyboard-open .ai-input-area {
 
 /* 例チップ — タップで textarea に流し込む。AI 選書の中央余白を埋め、
    入力のハードルを下げる。 */
+/* DESIGN §5 チップ: --fill 面・枠なし・角丸 12・タップ領域 44（相談の例と同じ）。
+   左右の余白は親（.chat-scroll の 16）が持つので、ここでは付けない。 */
 .example-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4) 0;
 }
 .example-chips-label {
   width: 100%;
-  font-size: var(--type-caption);
-  color: var(--color-text-tertiary);
-  margin: 0 0 4px;
+  font-size: var(--text-meta);
+  color: var(--text-3);
+  margin: 0;
 }
 .example-chip {
-  padding: 8px 14px;
-  border: 1px solid var(--color-separator);
-  border-radius: 9999px;
-  background: var(--color-surface);
-  color: var(--color-label);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius);
+  background: var(--fill);
+  color: var(--text);
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-sub);
+  line-height: 1.5;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--duration-fast) var(--ease-out);
+  transition: opacity var(--duration-fast) var(--ease-out);
 }
-.example-chip:hover { background: var(--color-bg-hover); }
+.example-chip:hover { opacity: 0.8; }
 
 /* =========================================================================
  * Sub-tabs (used by 振り返り and AI parent-tabs to split into ノート/行動 や

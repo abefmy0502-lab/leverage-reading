@@ -35,6 +35,7 @@ import {
   Eraser,
   X,
 } from 'lucide-react';
+import { MemoListSkeleton } from './Skeleton';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -46,30 +47,31 @@ import EmptyState from './EmptyState.jsx';
 import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
 import { useLongPress } from '../hooks/useLongPress';
 
-const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
-const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '12px 14px' };
-const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: 'var(--surface)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
-const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
-const btnGhost = { ...uiBtnGhost, width: 'auto', padding: '6px 14px', borderRadius: 8, fontSize: 11, minHeight: 44 };
-const btnPrimary = { ...uiBtnPrimary, width: 'auto', padding: '12px 18px', fontSize: 14, minHeight: 44 };
-const dangerBtn = { ...btnGhost, color: 'var(--c-critical)', borderColor: '#c4a0a0' };
-const pill = (active) => ({
-  flex: 1,
-  minHeight: 44,
-  padding: '6px 0',
-  border: 'none',
-  background: active ? 'var(--c-brand)' : 'transparent',
-  color: active ? 'var(--c-card)' : 'var(--c-ink-soft)',
-  fontSize: 12,
-  fontWeight: active ? 600 : 500,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  borderRadius: 8,
-});
+// 見た目は DESIGN.md のトークンのみ。題名「根拠にできる情報」と「‹ 相談」は親（MyBookBrain）が出し、
+// 左右の余白 16 も親の viewScroll が持つ（ここで重ねない）。
+const wrap = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
+const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
+const inp = { ...uiInput, minHeight: 44, padding: 'var(--space-2) var(--space-3)' };
+// 本文の編集欄＝読む文章（明朝 18・行間 1.6）。
+const ta = { ...uiInput, resize: 'vertical', minHeight: 200, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6 };
+// 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
+const btnRow = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
+const dangerBtn = { ...btnRow, color: 'var(--error)' };
+const btnPrimary = { ...uiBtnPrimary, width: 'auto' };
+const btnGhost = { ...uiBtnGhost, width: 'auto' };
+const selectStyle = { ...inp, flex: 1, minWidth: 0, width: 'auto', cursor: 'pointer' };
+
+// 種類の絞り込み（切り替えを 2 段重ねにしないよう、並び順と同じ 1 行のメニューにする・DESIGN §5）。
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'すべての種類' },
+  { value: 'memo', label: 'メモ' },
+  { value: 'summary', label: 'まとめ' },
+  { value: 'plan', label: '計画' },
+  { value: 'learning', label: '学び' },
+];
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -102,14 +104,6 @@ const KIND_META = {
   // gatherKnowledge が AI コンテキストに含める列は全てここに出す（透明性と
   // 除外手段の担保）。選書理由も AI が参照するため、見えない・消せないは NG。
   book_reason:       { Icon: Bot,          label: '選書理由',     group: 'plan',    column: 'book_reason' },
-};
-
-// グループごとの badge 色 (既存配色をベースに plan を追加)
-const GROUP_BADGE = {
-  memo:     { bg: '#e2ecd8', fg: '#4a6a3a' }, // 4.0:1→約5.4:1（11px 文字の WCAG AA 対応）
-  summary:  { bg: 'var(--c-soft-2)', fg: 'var(--c-brand)' },
-  learning: { bg: '#f5e6c8', fg: 'var(--color-accent)' },
-  plan:     { bg: '#e3eaf3', fg: '#3a5a78' },
 };
 
 // ============================================================================
@@ -152,17 +146,17 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
   return (
     <div
       ref={trapRef}
-      style={{ position: 'fixed', inset: 0, zIndex: 870, background: 'rgba(30,25,20,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "var(--font-app)" }}
+      style={{ position: 'fixed', inset: 0, zIndex: 870, background: 'var(--backdrop)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)', fontFamily: 'var(--font-ui)' }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
-      <div style={{ background: 'var(--c-card)', borderRadius: 'var(--radius-md)', width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--c-hairline)' }}>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--c-brand)', cursor: 'pointer', width: 44, height: 44, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
-          <p style={{ fontSize: 14, color: 'var(--c-ink)', fontWeight: 500, margin: 0, flex: 1 }}>{title}</p>
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-overlay)', width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-1) var(--space-4) var(--space-1) var(--space-1)', borderBottom: '1px solid var(--separator)' }}>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', width: 44, height: 44, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
+          <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', fontWeight: 600, margin: 0, flex: 1, minWidth: 0, lineHeight: 1.3 }}>{title}</p>
         </div>
-        <div style={{ padding: '14px 16px', flex: 1, overflowY: 'auto' }}>
+        <div style={{ padding: 'var(--space-4)', flex: 1, overflowY: 'auto' }}>
           <textarea
             ref={taRef}
             value={text}
@@ -173,10 +167,10 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
             style={ta}
             maxLength={maxLength}
           />
-          {errorMsg && <p style={{ color: 'var(--c-critical)', fontSize: 12, marginTop: 8 }}>{errorMsg}</p>}
+          {errorMsg && <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-meta)', margin: 'var(--space-2) 0 0', lineHeight: 1.5 }}>{errorMsg}</p>}
         </div>
-        <div style={{ display: 'flex', gap: 10, padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--c-hairline)' }}>
-          <button type="button" onClick={onClose} style={{ ...btnGhost, flex: 1, minHeight: 44 }}>キャンセル</button>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--separator)' }}>
+          <button type="button" onClick={onClose} style={{ ...btnGhost, flex: 1 }}>キャンセル</button>
           <button type="button" onClick={save} disabled={busy} style={{ ...btnPrimary, flex: 1, opacity: busy ? 0.6 : 1 }}>
             {busy ? '保存中…' : '保存'}
           </button>
@@ -194,7 +188,6 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
   const isPersonal = item.kind === 'personal';
   const isCard = item.kind === 'card';
   const isField = !!meta.column; // books の列 (summary を含む 7 種類)
-  const badge = GROUP_BADGE[meta.group] || GROUP_BADGE.memo;
   const category = isPersonal ? pickCategory(item.tags) : null;
   const visibleTags = isPersonal
     ? (item.tags || []).filter((t) => !t.startsWith('@'))
@@ -203,39 +196,43 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, item }),
   });
 
+  const metaLine = [
+    isCard && Number.isFinite(item.page_number) ? `P.${item.page_number}` : null,
+    isPersonal && category ? `カテゴリ: ${category}` : null,
+  ].filter(Boolean).join('・');
+
   const inner = (
     <div style={card} {...(onLongPress ? longPress.bind : {})}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: badge.bg, color: badge.fg, fontWeight: 600 }}>
-          {meta.Icon && <meta.Icon size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />}
+      {/* 種類は文字＋線のアイコンで示す（色で分けない・DESIGN §3-2） */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' }}>
+          {meta.Icon && <meta.Icon size={14} aria-hidden="true" />}
           {meta.label}
         </span>
-        <span style={{ fontSize: 10, color: 'var(--c-ink-2)' }}>{fmtDate(item.created_at)}</span>
+        <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>{fmtDate(item.created_at)}</span>
       </div>
       {item.book && (
-        <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 500, margin: '4px 0 2px' }}>
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600, margin: 'var(--space-2) 0 0', lineHeight: 1.5 }}>
           {item.book.title || '（タイトル不明）'}
-          {item.book.author && <span style={{ fontSize: 11, color: 'var(--c-ink-2)', fontWeight: 400 }}>　{item.book.author}</span>}
+          {item.book.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', fontWeight: 400 }}>　{item.book.author}</span>}
         </p>
       )}
-      {(isCard && Number.isFinite(item.page_number)) || (isPersonal && category) ? (
-        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 4px' }}>
-          {isCard && Number.isFinite(item.page_number) && <>P.{item.page_number}　</>}
-          {isPersonal && category && <>カテゴリ: {category}</>}
-        </p>
-      ) : null}
-      <p style={{ fontSize: 13, color: '#4a4036', lineHeight: 1.7, margin: '6px 0', whiteSpace: 'pre-wrap', maxHeight: 240, overflowY: 'auto', paddingRight: 6 }}>
+      {metaLine && (
+        <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-1) 0 0', lineHeight: 1.5 }}>{metaLine}</p>
+      )}
+      {/* 本文＝読む文章（明朝 18・行間 1.6） */}
+      <p style={{ fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 240, overflowY: 'auto' }}>
         {item.text}
       </p>
       {visibleTags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', marginTop: 'var(--space-2)' }}>
           {visibleTags.map((t) => (
-            <span key={t} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'var(--c-soft)', color: 'var(--c-ink-2)' }}>#{t}</span>
+            <span key={t} style={{ fontSize: 'var(--text-meta)', padding: '0 var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)', lineHeight: 1.8 }}>#{t}</span>
           ))}
         </div>
       )}
-      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-        <button type="button" style={btnGhost} onClick={() => onEdit(item)}>編集</button>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+        <button type="button" style={btnRow} onClick={() => onEdit(item)}>編集</button>
         <button type="button" style={dangerBtn} onClick={() => onDelete(item)}>
           {isField ? 'クリア' : '削除'}
         </button>
@@ -248,7 +245,7 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
       <SwipeableCard
         onDelete={() => onSwipeDelete(item)}
         actionLabel={isField ? (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
             <Eraser size={16} strokeWidth={1.75} aria-hidden="true" />
             クリア
           </span>
@@ -681,74 +678,54 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
           ]}
         />
       )}
-      {/* Hero — 「作業量/データモデルの可視化」(9マスの 0 だらけグリッド) は本田哲学に
-          反する（進捗バー撤去と同じ判断）。AI が参照する知識の総数を 1 行に凝縮する。 */}
-      <div style={card}>
-        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', margin: 0 }}>
-          <Brain size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
-          相談の根拠にできる情報
-        </p>
-        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.7 }}>
-          AI が答えるとき参照する、あなたの知識は
-          <strong style={{ color: 'var(--c-brand)', fontSize: 18, margin: '0 4px', fontVariantNumeric: 'tabular-nums' }}>{items.length}</strong>
-          件。下のリストから編集・削除すると、次回の答えに即反映されます。
-        </p>
+      {/* 検索＋絞り込み＋並び順。題名・説明文は置かない（親が題名を出す・DESIGN 原則 6）。 */}
+      <div style={{ position: 'relative' }}>
+        <Search size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
+        <input
+          type="search"
+          placeholder="本文・タイトル・著者・タグ"
+          aria-label="根拠にできる情報を検索"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
+          style={{ ...inp, paddingLeft: 'calc(var(--space-8) + var(--space-2))' }}
+        />
       </div>
-
-      {/* Search + filter + sort */}
-      <input
-        type="search"
-        placeholder="🔍 本文・タイトル・著者・タグ"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
-        style={inp}
-      />
-      <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft-2)', borderRadius: 10 }}>
-        <button type="button" style={pill(filterKind === 'all')} onClick={() => setFilterKind('all')}>全て</button>
-        <button type="button" style={pill(filterKind === 'memo')} onClick={() => setFilterKind('memo')}>
-          <StickyNote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />メモ
-        </button>
-        <button type="button" style={pill(filterKind === 'summary')} onClick={() => setFilterKind('summary')}>
-          <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />まとめ
-        </button>
-        <button type="button" style={pill(filterKind === 'plan')} onClick={() => setFilterKind('plan')}>
-          <BarChart3 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />計画
-        </button>
-        <button type="button" style={pill(filterKind === 'learning')} onClick={() => setFilterKind('learning')}>
-          <Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />学び
-        </button>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--c-ink-2)' }}>
-        <span>並び順</span>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inp, width: 'auto', padding: '6px 10px' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <select value={filterKind} onChange={(e) => setFilterKind(e.target.value)} aria-label="種類で絞り込む" style={selectStyle}>
+          {FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="並び順" style={selectStyle}>
           <option value="newest">新しい順</option>
           <option value="oldest">古い順</option>
           <option value="title">本のタイトル順</option>
         </select>
-        <span style={{ marginLeft: 'auto' }}>{filtered.length} 件</span>
       </div>
+      {!loading && items.length > 0 && (
+        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+          {filtered.length === items.length ? `${items.length} 件` : `${items.length} 件中 ${filtered.length} 件`}
+        </p>
+      )}
 
       {/* List */}
       {loading ? (
-        <p style={{ fontSize: 12, color: 'var(--c-ink-2)', textAlign: 'center', padding: 20 }}>読み込み中…</p>
+        <MemoListSkeleton rows={3} />
       ) : filtered.length === 0 ? (
         items.length === 0 ? (
           <EmptyState
-            icon={<Brain size={40} strokeWidth={1.5} aria-hidden="true" />}
-            title="ここに知識が集まります"
-            description="本を読んでメモを残すと、AI があなたの答えを作るための材料がここに蓄積されます。"
+            icon={<Brain size={32} strokeWidth={1.5} aria-hidden="true" />}
+            title="まだ根拠にできる情報はありません"
+            description="本のメモや学びを書くと、ここに並びます。"
           />
         ) : (
           <EmptyState
-            icon={<Search size={40} strokeWidth={1.5} aria-hidden="true" />}
+            icon={<Search size={32} strokeWidth={1.5} aria-hidden="true" />}
             title="見つかりませんでした"
-            description="検索やフィルタの条件に合う知識はありませんでした。"
-            tip="条件を変えるか「全て」に戻すと、ほかの知識が見つかります。"
+            description="条件を変えるか、「すべての種類」に戻してください。"
           />
         )
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {filtered.map((it) => (
             <KnowledgeCard
               // book-field 系は item.id がすでに `${kind}-${book_id}` で
