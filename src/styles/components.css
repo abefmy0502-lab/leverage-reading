@@ -510,7 +510,9 @@
   }
 }
 .detail-enter {
-  animation: lvg-detail-enter var(--duration-base) var(--ease-spring) both;
+  /* backwards: 終わった後に transform を残さない（残ると中の position:fixed なシートや全画面の編集が
+     この箱に閉じ込められ、下のタブの裏に隠れる）。 */
+  animation: lvg-detail-enter var(--duration-base) var(--ease-spring) backwards;
 }
 
 /* prefers-reduced-motion is already handled globally in index.css — every
@@ -666,12 +668,12 @@
   background: var(--color-error-soft);
   border-left: 4px solid var(--color-error);
   padding: var(--space-4);
-  border-radius: var(--radius-sm);
-  margin: var(--space-3) 0;
+  border-radius: var(--radius);
+  margin: 0; /* 周りとの間は置く側の gap に任せる */
 }
 .error-message-icon {
-  font-size: 24px;
   line-height: 1;
+  color: var(--error);
   margin-bottom: var(--space-2);
 }
 .error-message-title {

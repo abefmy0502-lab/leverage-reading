@@ -34,8 +34,13 @@ const screenStyle = {
 
 // エラー / 完了の一言（色だけに頼らず文でも伝わる。読み上げにも届くよう role を付ける）。
 const errorText = { color: 'var(--error)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
-// 日本語の折り返しを文節単位に（対応ブラウザのみ。非対応でも通常の折り返し）。
-const jpWrap = { wordBreak: 'auto-phrase', textWrap: 'pretty' };
+// 日本語の折り返し: iOS Safari は word-break: auto-phrase が効かないので、短い案内文は
+// 文そのものを短く切り、<br /> で改行位置を決める（358pt 幅で 1 文字だけの行を出さない）。
+const jpWrap = { textWrap: 'pretty' };
+// 規約・プライバシーポリシーのリンク（文字ボタン・押せる範囲は高さ 44）。
+const legalLink = { display: 'inline-flex', alignItems: 'center', minHeight: 44, color: 'var(--accent)', fontSize: 'var(--text-meta)', fontWeight: 600, textDecoration: 'none' };
+// 同意のチェックボックス（24 角）。リンク行はチェックボックス＋間隔ぶん字下げして文字の頭に揃える。
+const checkboxSize = 'var(--space-6)';
 
 const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
@@ -255,11 +260,12 @@ export default function AuthScreen() {
             {isNative
               // ネイティブでは確認リンクは Safari（Web）で開く — 「そのまま進める」と
               // 約束すると迷子になる。確認後にこのアプリへ戻る導線を正しく案内する。
-              ? 'メール内のリンクを開いて確認が完了したら、このアプリに戻ってログインしてください。'
-              : 'メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。'}
+              ? <>メール内のリンクで確認が済んだら、<br />このアプリに戻ってログインしてください。</>
+              : <>メール内のリンクをタップすると<br />登録が完了し、そのままアプリに進めます。</>}
           </p>
           <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-6)' }}>
-            数分待っても届かない場合は、<strong style={{ fontWeight: 600 }}>迷惑メール / プロモーション</strong>フォルダもご確認ください。
+            数分待っても届かないときは、<br />
+            <strong style={{ fontWeight: 600 }}>迷惑メール・プロモーション</strong>も確認してください。
           </p>
           {error && <p role="alert" style={errorText}>{error}</p>}
           {info && <p role="status" style={infoText}>{info}</p>}
@@ -329,9 +335,9 @@ export default function AuthScreen() {
           /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */
           <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-4)', textAlign: 'center' }}>
-            Orime は iPhone / iPad アプリでのご利用となります。<br />
-            ここで登録したアカウントで、アプリからログインできます。{' '}
-            <a href="/lp" style={{ color: 'var(--accent)' }}>サービス紹介を見る</a>
+            Orime は iPhone / iPad のアプリです。<br />
+            登録後は、アプリからログインしてください。<br />
+            <a href="/lp" style={{ ...legalLink, justifyContent: 'center' }}>サービス紹介を見る</a>
           </p>
         )}
         {mode === 'signup' && (
@@ -375,21 +381,24 @@ export default function AuthScreen() {
           />
         )}
         {mode === 'signup' && (
-          // 押せる範囲は 44 以上（DESIGN §6）。チェックボックスは文字と横並びで中央揃え。
-          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, marginBottom: 'var(--space-3)', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              style={{ width: 20, height: 20, margin: 0, flexShrink: 0, accentColor: 'var(--accent)' }}
-            />
-            <span>
-              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>利用規約</a>
-              {' '}と{' '}
-              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>プライバシーポリシー</a>
-              {' '}に同意します
-            </span>
-          </label>
+          <div style={{ marginBottom: 'var(--space-3)' }}>
+            {/* ラベルの中はチェックボックスと「同意します」の文だけ（行の高さ 44）。
+                リンクを同じ行に置くと、リンクの近くを押しただけでチェックが切り替わるため、
+                リンクは下の行に文字ボタンとして分ける。 */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                style={{ width: checkboxSize, height: checkboxSize, margin: 0, flexShrink: 0, accentColor: 'var(--accent)' }}
+              />
+              <span>利用規約とプライバシーポリシーに同意します</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', paddingLeft: `calc(${checkboxSize} + var(--space-2))` }}>
+              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={legalLink}>利用規約</a>
+              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={legalLink}>プライバシーポリシー</a>
+            </div>
+          </div>
         )}
         {error && <p role="alert" style={errorText}>{error}</p>}
         {info && <p role="status" style={infoText}>{info}</p>}

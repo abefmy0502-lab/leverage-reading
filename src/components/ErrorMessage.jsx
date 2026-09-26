@@ -6,12 +6,14 @@
 // most cases — this component is the visual envelope).
 //
 // Props:
-//   icon         — emoji (default ⚠️)
+//   icon         — 線のアイコン（lucide）。既定は AlertCircle。null で出さない
 //   title        — 「何が起きたか」short
 //   description  — 1〜2 文の説明（「どうすればいいか」を含める）
 //   hint         — optional 補足（小さく・寄り添い形）
 //   actions      — [{ label, onClick, variant?, icon? }]
 //                  variant: 'primary' | 'secondary' | 'ghost' (default secondary)
+
+import { AlertCircle } from 'lucide-react';
 
 const variantClass = {
   primary: 'btn btn-primary btn-sm',
@@ -20,7 +22,7 @@ const variantClass = {
 };
 
 export default function ErrorMessage({
-  icon = '⚠️',
+  icon = <AlertCircle size={24} aria-hidden="true" />,
   title,
   description,
   hint,

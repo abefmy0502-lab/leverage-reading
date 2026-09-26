@@ -93,13 +93,13 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
         signal: controller.signal,
       });
       if (!aliveRef.current) return;
-      if (controller.signal.aborted) { setState({ status: 'idle' }); return; }
+      if (controller.signal.aborted) { setActiveTheme(''); setState({ status: 'idle' }); return; }
       if (r?.tooThin) setState({ status: 'thin' });
       else setState({ status: 'done', ...r });
     } catch (e) {
       if (!aliveRef.current) return;
       // 中止＝キャンセル扱い（テーマまとめと同じ）。エラーにせず選択の状態へ戻す。
-      if (controller.signal.aborted || e?.name === 'AbortError') { setState({ status: 'idle' }); return; }
+      if (controller.signal.aborted || e?.name === 'AbortError') { setActiveTheme(''); setState({ status: 'idle' }); return; }
       // 先頭の絵文字（toMessage が付ける 🌐 等）は外す — アイコンに絵文字を使わない（DESIGN §3-2）。
       const msg = toMessage(e, '足あとの生成に失敗しました。').replace(/^[\p{Extended_Pictographic}️\s]+/u, '');
       setState({ status: 'error', msg });

@@ -329,9 +329,10 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
       }
     } catch (e) {
       if (isLive() && !(controller.signal.aborted || (e && e.name === 'AbortError'))) {
-        toast.error(toMessage(e, 'テーマまとめの作成に失敗しました。'));
+        // 失敗は画面内の ErrorMessage 1 か所で伝える（トーストと二重に出さない・考えの足あとと同じ）。
+        // 先頭の絵文字（toMessage が付ける 🌐 等）は外す — アイコンに絵文字を使わない（DESIGN §3-2）。
         setNoticeKind('error');
-        setNotice('テーマまとめの作成に失敗しました。少し時間をおいて再度お試しください。');
+        setNotice(toMessage(e, 'テーマまとめを作れませんでした。').replace(/^[\p{Extended_Pictographic}️\s]+/u, ''));
       }
     } finally {
       // runId が進んでいる（履歴を開いた/新しい生成が始まった）場合、この古い

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useAppDataCache } from '../state/AppDataCache';
 import { toMessage } from '../lib/errors';
@@ -7,14 +8,15 @@ import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
-import { BookOpen, Sparkles, Undo2, Camera, Mic, ArrowLeft } from 'lucide-react';
+import { BookOpen, Sparkles, Undo2, Camera, ChevronLeft, X } from 'lucide-react';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
 // 100dvh respects iOS Safari's dynamic URL bar; modern targets all support it.
 // We also bind height to visualViewport via JS below for on-screen-keyboard fitting.
+// 見た目は DESIGN.md のトークンのみ（QuickMemoSheet と同じ部品・同じ値）。
 const overlay = {
   position: 'fixed',
   left: 0,
@@ -23,88 +25,134 @@ const overlay = {
   bottom: 0,
   height: '100dvh',
   zIndex: 300,
-  background: 'var(--color-bg)',
+  background: 'var(--bg)',
   display: 'flex',
   flexDirection: 'column',
-  fontFamily: "var(--font-app)",
-  color: 'var(--c-ink)',
+  fontFamily: 'var(--font-ui)',
+  color: 'var(--text)',
   paddingTop: 'env(safe-area-inset-top, 0px)',
 };
 
 const headerBar = {
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
-  padding: '14px 18px',
-  borderBottom: '1px solid var(--c-hairline)',
-  background: 'var(--c-card)',
+  gap: 'var(--space-3)',
+  padding: 'var(--space-1) var(--space-4)',
+  borderBottom: '1px solid var(--separator)',
+  background: 'var(--surface)',
+  flexShrink: 0,
+};
+
+// アプリ標準の iOS の戻る（‹ ＋ 文字・--accent・高さ 44。すべての本の「‹ ホーム」と同じ形）。
+const backBtn = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 'var(--space-1)',
+  minHeight: 44,
+  padding: '0 var(--space-2) 0 0',
+  background: 'none',
+  border: 'none',
+  color: 'var(--accent)',
+  fontSize: 'var(--text-body)',
+  fontFamily: 'inherit',
   flexShrink: 0,
 };
 
 const body = {
   flex: 1,
   overflowY: 'auto',
-  padding: '16px 18px 24px',
+  padding: 'var(--space-4) var(--space-4) var(--space-6)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 14,
+  gap: 'var(--space-6)',
 };
 
 const footer = {
   display: 'flex',
-  gap: 10,
-  padding: '12px 18px calc(12px + env(safe-area-inset-bottom))',
-  borderTop: '1px solid var(--c-hairline)',
-  background: 'var(--c-card)',
+  gap: 'var(--space-3)',
+  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom))',
+  borderTop: '1px solid var(--separator)',
+  background: 'var(--surface)',
   flexShrink: 0,
 };
 
-const inp = {
-  width: '100%',
-  padding: '10px 12px',
-  fontSize: 16,
-  border: '1px solid var(--c-hairline-strong)',
-  borderRadius: 10,
-  background: 'var(--surface)',
-  outline: 'none',
-  color: 'var(--c-ink)',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
+const inp = { ...uiInput };
+
+// メモは「読む文章」（DESIGN §2: 明朝 18・行間 1.6）。QuickMemoSheet と同じ。
+const ta = {
+  ...inp,
+  resize: 'vertical',
+  minHeight: 200,
+  fontFamily: 'var(--font-read)',
+  fontSize: 'var(--text-read)',
+  lineHeight: 1.6,
 };
 
-const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
+const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
 
-const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1, padding: '12px 0', fontSize: 14 };
+const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
 
-const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1, padding: '12px 0', fontSize: 14 };
+// 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600・文字は本文色）。
+const btnRow = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 'var(--space-1)',
+  minHeight: 44,
+  padding: 'var(--space-2) var(--space-3)',
+  borderRadius: 'var(--radius)',
+  border: '1px solid var(--border)',
+  background: 'transparent',
+  color: 'var(--text)',
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+};
+
+// 文字ボタン（DESIGN §5「文字」: --accent・押せる範囲は高さ 44）。
+const btnTextSm = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 'var(--space-1)',
+  minHeight: 44,
+  padding: 'var(--space-2) 0',
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--accent)',
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+};
 
 const fieldLabel = {
-  fontSize: 13,
-  color: 'var(--c-ink-soft)',
-  fontWeight: 500,
+  fontSize: 'var(--text-caption)',
+  color: 'var(--text-2)',
+  fontWeight: 600,
   display: 'block',
-  marginBottom: 4,
+  marginBottom: 'var(--space-2)',
 };
 
+// チップ（DESIGN §5: --fill 面・13px・見た目 32・押せる範囲 44）。
 const tagPill = {
-  fontSize: 11,
-  padding: '2px 8px',
-  borderRadius: 10,
-  background: 'var(--c-soft-2)',
-  color: 'var(--c-ink-2)',
-  display: 'flex',
+  fontSize: 'var(--text-meta)',
+  minHeight: 32,
+  padding: '0 0 0 var(--space-3)',
+  borderRadius: 'var(--radius)',
+  background: 'var(--fill)',
+  color: 'var(--text)',
+  display: 'inline-flex',
   alignItems: 'center',
-  gap: 4,
 };
 
 const tagSuggestionBtn = {
-  fontSize: 10,
-  padding: '8px 8px',
-  minHeight: 32,
-  borderRadius: 10,
-  border: '1px dashed var(--c-hairline-strong)',
+  fontSize: 'var(--text-meta)',
+  padding: '0 var(--space-3)',
+  minHeight: 44,
+  borderRadius: 'var(--radius)',
+  border: '1px dashed var(--border)',
   background: 'transparent',
-  color: 'var(--c-ink-2)',
+  color: 'var(--text-2)',
   cursor: 'pointer',
   fontFamily: 'inherit',
 };
@@ -368,8 +416,11 @@ export default function BookMemoEditor({
     return parts.join(' ');
   })();
 
-  return (
-    <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true">
+  // body 直下へ portal で描く。本の詳細の .detail-enter は入場アニメの transform が残るため、
+  // その中に置くと position: fixed が画面ではなく親基準になり、z-index も親の重なりに閉じ込め
+  // られて、下のタブバーと「メモを書く」ボタンが保存ボタンの上に重なっていた。
+  return createPortal(
+    <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true" aria-label={isEdit ? 'メモを編集' : 'メモを追加'}>
       <div style={headerBar}>
         <button
           type="button"
@@ -393,27 +444,28 @@ export default function BookMemoEditor({
             }
             onClose?.();
           }}
-          style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--c-brand)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.4 : 1, padding: '11px 8px', margin: '-11px -8px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+          style={{ ...backBtn, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.4 : 1 }}
           aria-disabled={busy}
-          aria-label="戻る"
         >
-          <ArrowLeft size={15} aria-hidden="true" style={{ marginRight: 3 }} />戻る
+          <ChevronLeft size={22} aria-hidden="true" />戻る
         </button>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0 }}>{isEdit ? 'メモを編集' : 'メモを追加'}</p>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.3 }}>{isEdit ? 'メモを編集' : 'メモを追加'}</p>
           <p
             style={{
-              fontSize: 14,
-              color: 'var(--c-ink)',
-              fontWeight: 500,
+              fontSize: 'var(--text-sub)',
+              color: 'var(--text)',
+              fontWeight: 600,
               margin: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              lineHeight: 1.3,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-1)',
+              minWidth: 0,
             }}
           >
-            <BookOpen size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
-            {bookTitle || '本'}
+            <BookOpen size={14} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookTitle || '本'}</span>
           </p>
         </div>
       </div>
@@ -444,12 +496,7 @@ export default function BookMemoEditor({
             style={ta}
             maxLength={LIMITS.memoText}
           />
-          {/* 💡 OS 標準のディクテーションへの導線（自前録音は持たない＝速い・無料・端末内）。 */}
-          <p style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '6px 0 0', fontSize: 11, color: 'var(--c-ink-3)' }}>
-            <Mic size={12} aria-hidden="true" />
-            キーボードの🎤を押すと、話して入力できます
-          </p>
-          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <div style={{ marginTop: 'var(--space-2)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', alignItems: 'center' }}>
             <PhotoToTextButton
               onText={(t) =>
                 setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
@@ -462,14 +509,9 @@ export default function BookMemoEditor({
                 onClick={handleCondense}
                 disabled={condensing}
                 aria-label="メモを凝縮する"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40,
-                  padding: '8px 14px', borderRadius: 10, border: '1px solid var(--c-hairline-strong)',
-                  background: 'transparent', color: 'var(--c-brand)', fontSize: 13, fontWeight: 600,
-                  fontFamily: 'inherit', cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1,
-                }}
+                style={{ ...btnRow, cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1 }}
               >
-                <Sparkles size={14} aria-hidden="true" style={{ marginRight: 5 }} />
+                <Sparkles size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
                 {condensing ? '凝縮中…' : '凝縮'}
               </button>
             )}
@@ -478,14 +520,9 @@ export default function BookMemoEditor({
                 type="button"
                 onClick={undoCondense}
                 aria-label="凝縮を元に戻す"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 40,
-                  padding: '8px 12px', borderRadius: 10, border: 'none',
-                  background: 'transparent', color: 'var(--c-ink-3)', fontSize: 12, fontWeight: 600,
-                  fontFamily: 'inherit', cursor: 'pointer',
-                }}
+                style={{ ...btnTextSm, padding: 'var(--space-2) var(--space-1)' }}
               >
-                <Undo2 size={13} aria-hidden="true" style={{ marginRight: 4 }} />
+                <Undo2 size={16} aria-hidden="true" />
                 元に戻す
               </button>
             )}
@@ -499,16 +536,9 @@ export default function BookMemoEditor({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                style={{
-                  ...btnGhost,
-                  flex: 'none',
-                  display: 'inline-block',
-                  padding: '12px 16px',
-                  minHeight: 44,
-                  fontSize: 13,
-                }}
+                style={btnRow}
               >
-                <Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+                <Camera size={16} aria-hidden="true" />
                 写真を追加
               </button>
               <input
@@ -521,36 +551,24 @@ export default function BookMemoEditor({
             </>
           )}
           {shownPreview && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', alignItems: 'flex-start' }}>
               <img
                 src={ensureHttps(shownPreview)}
                 alt={previewAlt}
                 style={{
                   maxWidth: '100%',
                   maxHeight: 280,
-                  borderRadius: 8,
-                  border: '1px solid var(--c-hairline)',
+                  borderRadius: 'var(--radius)',
+                  border: '1px solid var(--separator)',
                   display: 'block',
                 }}
               />
               <button
                 type="button"
                 onClick={clearPhoto}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: 12,
-                  color: 'var(--c-critical)',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  padding: '11px 8px',
-                  margin: '-7px -8px',
-                  minHeight: 44,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                }}
+                style={{ ...btnTextSm, color: 'var(--error)' }}
               >
-                ✕ 写真を削除
+                <X size={16} aria-hidden="true" />写真を削除
               </button>
               <input
                 ref={fileInputRef}
@@ -565,38 +583,37 @@ export default function BookMemoEditor({
 
         <div>
           <label style={fieldLabel}>タグ（任意）</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: tags.length ? 6 : 0 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: tags.length ? 'var(--space-2)' : 0 }}>
             {tags.map((t, i) => (
               <span key={`${t}-${i}`} style={tagPill}>
                 {t}
                 <button
                   type="button"
                   onClick={() => removeTag(i)}
-                  aria-label="タグを削除"
+                  aria-label={`タグ「${t}」を削除`}
                   style={{
                     background: 'none',
                     border: 'none',
-                    fontSize: 14,
-                    color: 'var(--c-ink-2)',
+                    color: 'var(--text-2)',
                     cursor: 'pointer',
-                    padding: '6px 8px',
-                    margin: '-6px -6px -6px 0',
-                    minWidth: 28,
-                    minHeight: 28,
+                    padding: 0,
+                    // 見た目はチップ（32）に収め、押せる範囲は 44×44（DESIGN §6）。
+                    width: 44,
+                    height: 44,
+                    margin: 'calc(-1 * var(--space-2)) 0',
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    lineHeight: 1,
                   }}
                 >
-                  ×
+                  <X size={14} aria-hidden="true" />
                 </button>
               </span>
             ))}
           </div>
           {suggestions.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-              <span style={{ fontSize: 10, color: 'var(--c-ink-3)', lineHeight: '22px' }}>過去のタグ:</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+              <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-3)' }}>過去のタグ</span>
               {suggestions.map((t) => (
                 <button
                   key={t}
@@ -609,12 +626,12 @@ export default function BookMemoEditor({
               ))}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <input
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               placeholder="タグを追加"
-              style={{ ...inp, flex: 1 }}
+              style={{ ...inp, flex: 1, minWidth: 0, width: 'auto' }}
               maxLength={LIMITS.tag}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
@@ -626,7 +643,7 @@ export default function BookMemoEditor({
             <button
               type="button"
               onClick={() => addTag()}
-              style={{ ...btnGhost, flex: 'none', padding: '6px 14px', minHeight: 44, fontSize: 12 }}
+              style={{ ...btnGhost, flex: 'none', padding: '0 var(--space-4)' }}
             >
               追加
             </button>
@@ -634,7 +651,7 @@ export default function BookMemoEditor({
         </div>
 
         {errorMsg && (
-          <p style={{ color: 'var(--c-critical)', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
+          <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: 0 }}>{errorMsg}</p>
         )}
       </div>
 
@@ -658,6 +675,7 @@ export default function BookMemoEditor({
           {busy ? '保存中…' : '保存'}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

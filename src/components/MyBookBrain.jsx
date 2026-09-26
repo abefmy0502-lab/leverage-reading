@@ -214,8 +214,9 @@ function LearningInline({ onSaved }) {
         {moreOpen && (
           <div id="learning-more" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', margin: 'var(--space-2) 0 var(--space-3)' }}>
             <div>
-              <span style={label}>どこで生まれた気づきか</span>
-              <div role="radiogroup" aria-label="どこで生まれた気づきか" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+              {/* 見出しは「学び」— 選択肢の「気づき」と意味が重ならないように。保存値（@会話 など）は不変。 */}
+              <span style={label}>どこで得た学びか</span>
+              <div role="radiogroup" aria-label="どこで得た学びか" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
                 {CATEGORIES.map((c) => (
                   <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} style={chip(category === c)}>
                     {c}
@@ -231,7 +232,7 @@ function LearningInline({ onSaved }) {
                   {tags.map((t, i) => (
                     <span key={`${t}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 32, padding: '0 0 0 var(--space-3)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-sub)' }}>
                       {t}
-                      <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`} style={{ width: 44, height: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}>
+                      <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`} style={{ width: 44, height: 44, margin: 'calc(-1 * var(--space-2)) 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}>
                         <X size={16} aria-hidden="true" />
                       </button>
                     </span>
@@ -1426,7 +1427,7 @@ function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
         onClick={onOpen}
         disabled={disabled}
         aria-haspopup="dialog"
-        style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc(-1 * var(--space-2)) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
       >
         <span style={{
           minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 32, padding: '0 var(--space-3)',
@@ -1439,7 +1440,7 @@ function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
         </span>
       </button>
       {scoped && (
-        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', flexShrink: 0 }}>
+        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc(-1 * var(--space-2)) 0', flexShrink: 0 }}>
           すべてに戻す
         </button>
       )}

@@ -205,7 +205,6 @@ export default function BookSearchModal({ onSelect, onClose, initialQuery = '', 
 
       {error && !searching && (
         <ErrorMessage
-          icon="⚠️"
           title="検索でエラーが発生しました"
           description={error}
           actions={[{ label: '↻ もう一度試す', onClick: retry, variant: 'primary' }]}
