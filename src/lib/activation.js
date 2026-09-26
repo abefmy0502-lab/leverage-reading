@@ -12,7 +12,10 @@
 
 const KEY = 'orime-activation-v1';
 const DISMISS_KEY = 'orime-activation-v1:dismiss';
-export const ACTIVATION_STEPS = ['book', 'memo', 'review'];
+// 3 つ目は 2026-09-26 に review（想起体験）→ consult（相談で答えを受け取る）へ変更。
+// 一番の価値「自分だけの相談相手」を初週の aha に据えるため。旧 review 完了済みの端末は
+// ActivationChecklist 側で consult 完了扱いにして、チェックリストを再出現させない。
+export const ACTIVATION_STEPS = ['book', 'memo', 'consult'];
 const EVENT_TO_STEP = {
   book_added: 'book',
   memo_added: 'memo',

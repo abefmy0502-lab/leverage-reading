@@ -87,6 +87,7 @@ import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import ActivationChecklist from './components/ActivationChecklist';
 import HomeRecall from './components/HomeRecall';
+import HomeConsult from './components/HomeConsult';
 import AuthorThankYou from './components/AuthorThankYou';
 import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
@@ -123,10 +124,10 @@ import {
   BookOpen,
   RotateCcw,
   Brain,
-  Sparkles,
   HelpCircle,
   Settings as SettingsIcon,
   Target,
+  MessageCircle,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 
@@ -265,7 +266,7 @@ function BottomNav({ tab, setTab, hidden = false }) {
   const tabs = [
     { key: "books", Icon: BookOpen, label: "本棚" },
     { key: "review", Icon: RotateCcw, label: "振り返り" },
-    { key: "ai", Icon: Sparkles, label: "AI" },
+    { key: "ai", Icon: MessageCircle, label: "相談" },
   ];
   return (
     <nav
@@ -437,8 +438,10 @@ function AuthedApp() {
   const effectiveBookshelfView = bookshelfViewMode === 'auto'
     ? (rawBooks.length <= 3 ? 'list' : 'grid')
     : bookshelfViewMode;
-  // 親タブ「振り返り」「AI」内のサブタブ。
-  // 入口は常に固定（永続化しない）: 振り返り＝💭ノート(想起) / AI＝🔍AI選書。
+  // 親タブ「振り返り」「相談」内のサブタブ。
+  // 入口は常に固定（永続化しない）: 振り返り＝💭ノート / 相談＝🧠マイ読書脳。
+  // 相談タブの入口をマイ読書脳にするのは、一番の価値「読むほど、自分だけの相談相手が
+  // 育つ」（CLAUDE.md）の本体だから（2026-09-26。旧: 🔍AI選書が入口）。
   // 直前に見ていたサブタブに毎回飛ぶと「タブを押したのに違うものが出る」分かり
   // にくさになるため、毎回の起点を一定にする。起点をノート(想起)にするのは、
   // タブ名「振り返り」・アイコン(RotateCcw)・LP の筆頭訴求「忘れた頃に戻る」と
@@ -450,14 +453,16 @@ function AuthedApp() {
     ['note', 'action', 'record'].includes(resumeNav?.reviewSubTab) ? resumeNav.reviewSubTab : 'note'
   ));
   const [aiSubTab, setAiSubTab] = useState(() => (
-    ['advisor', 'brain', 'report'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'advisor'
+    ['advisor', 'brain', 'report'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
   ));
   // 📐→🕰 テーマまとめから「このテーマの足あとを見る」で、マイ読書脳の足あとビューへ
   // テーマを引き継いで遷移するためのプリセット。nonce で毎回の遷移を区別する。
   const [journeyPreset, setJourneyPreset] = useState(null); // { theme, nonce } | null
+  // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
+  const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
 
   // 下部ナビでタブを切り替えるときの共通処理。同一セッション内で前回見ていた
-  // サブタブが状態に残っていても、入口を「振り返り＝行動 / AI＝AI選書」に
+  // サブタブが状態に残っていても、入口を「振り返り＝ノート / 相談＝マイ読書脳」に
   // 必ずリセットしてから切り替える（タブを押すたびに起点が一定になる）。
   const navigateTab = (t) => {
     // 既にアクティブなタブの再タップではサブタブをリセットしない —
@@ -466,7 +471,7 @@ function AuthedApp() {
     // 切り替えてきた時」だけの仕事。
     if (t === tab) return;
     if (t === 'review') setReviewSubTab('note');
-    else if (t === 'ai') setAiSubTab('advisor');
+    else if (t === 'ai') setAiSubTab('brain');
     setTab(t);
   };
 
@@ -2677,7 +2682,7 @@ function AuthedApp() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             <button onClick={goList} style={{ ...lnk, color: "var(--c-brand)", fontSize: 15, fontWeight: 600 }}>
-              ‹ {tab === 'review' ? '振り返り' : tab === 'ai' ? 'AI' : '本棚'}
+              ‹ {tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : '本棚'}
             </button>
             <div style={{ display: "flex", gap: 6 }}>
               <button
@@ -3744,9 +3749,19 @@ function AuthedApp() {
               <ActivationChecklist
                 books={books}
                 onAddBook={() => setAddBookModalOpen(true)}
-                onOpenReview={() => { setReviewSubTab('note'); setTab('review'); }}
+                onOpenConsult={() => { setAiSubTab('brain'); setTab('ai'); }}
               />
-              {/* 🔄 今日の想起: 過去メモが 1 枚ふいに戻ってくる控えめなカード。
+              {/* 💬 相談する: 一番の価値（自分だけの相談相手）の入口。ホーム最上段に置き、
+                  書いた困りごとを 相談タブ の 🧠 マイ読書脳 へそのまま渡して送信する。 */}
+              <HomeConsult
+                books={books}
+                onAsk={(question) => {
+                  setAskPreset({ question, nonce: Date.now() });
+                  setAiSubTab('brain');
+                  setTab('ai');
+                }}
+              />
+              {/* 🔄 思い出しカード: 過去メモが 1 枚ふいに戻ってくる控えめなカード。
                   自己完結（fetch / state は HomeRecall 内に閉じる）。
                   メモ十分＋当日未 dismiss のときだけ静かに出る。 */}
               <HomeRecall
@@ -3815,7 +3830,7 @@ function AuthedApp() {
                   <EmptyState
                     icon={<IcLibrary size={34} aria-hidden="true" />}
                     title="最初の1冊から"
-                    description="読んだ気づきが、ここに少しずつ積み上がります。忘れた頃に、振り返りでそっと戻ってきます。"
+                    description="読んだ気づきが、ここに少しずつ積み上がります。積み重なるほど、困ったときに相談できる、あなただけの相談相手に育ちます。"
                     actions={[
                       { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
                     ]}
@@ -3967,16 +3982,7 @@ function AuthedApp() {
 
         {tab === "ai" && (
           <div key={`tab-${tab}`} className="tab-content ai-page">
-            <div className="sub-tabs" role="tablist" aria-label="AI のサブタブ" style={{ flexShrink: 0 }}>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={aiSubTab === 'advisor'}
-                className={`sub-tab ${aiSubTab === 'advisor' ? 'active' : ''}`}
-                onClick={() => setAiSubTab('advisor')}
-              >
-                <IcSearch size={15} aria-hidden="true" style={subTabIconStyle} />AI 選書
-              </button>
+            <div className="sub-tabs" role="tablist" aria-label="相談のサブタブ" style={{ flexShrink: 0 }}>
               <button
                 type="button"
                 role="tab"
@@ -3985,6 +3991,15 @@ function AuthedApp() {
                 onClick={() => setAiSubTab('brain')}
               >
                 <IcBrain size={15} aria-hidden="true" style={subTabIconStyle} />マイ読書脳
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aiSubTab === 'advisor'}
+                className={`sub-tab ${aiSubTab === 'advisor' ? 'active' : ''}`}
+                onClick={() => setAiSubTab('advisor')}
+              >
+                <IcSearch size={15} aria-hidden="true" style={subTabIconStyle} />AI 選書
               </button>
               <button
                 type="button"
@@ -4002,7 +4017,7 @@ function AuthedApp() {
               {aiSubTab === 'advisor'
                 ? <><strong style={{ color: 'var(--c-ink)' }}>選ぶ</strong> — いまの課題に合う本を、AI が提案します。</>
                 : aiSubTab === 'brain'
-                ? <><strong style={{ color: 'var(--c-ink)' }}>聞く</strong> — あなたのメモに質問して、答えと「明日の一歩」を得ます。</>
+                ? <><strong style={{ color: 'var(--c-ink)' }}>相談する</strong> — 困りごとに、あなたが読んだ本のメモを根拠に答えます。</>
                 : <><strong style={{ color: 'var(--c-ink)' }}>しぼる</strong> — テーマの学びを「この1行」と「次の一歩」に凝縮します。</>}
             </p>
             <div className="ai-page-body">
@@ -4036,6 +4051,7 @@ function AuthedApp() {
                     onAddActionPickBook={(text) => setAddActionSheet({ step: 'pick', prefillText: text })}
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
                     journeyPreset={journeyPreset}
+                    askPreset={askPreset}
                   />
                 </Suspense>
               )}

@@ -9,6 +9,7 @@
 // are written for personal learnings and surface in the Review tab too.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { markActivation } from '../lib/activation';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -270,7 +271,7 @@ function LearningInline({ onCancel, onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, journeyPreset }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, journeyPreset, askPreset }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -641,7 +642,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         toast.error('回答は表示できましたが、履歴への保存に失敗しました。');
       }
       // AI 応答を正常に得て確定できた時のみ計測 (中止/中断パスは除外、PII なし)。
-      if (!wasAborted) track(EVENTS.AI_USED, { feature: 'brain' });
+      if (!wasAborted) {
+        track(EVENTS.AI_USED, { feature: 'brain' });
+        // 🌱 初週の aha「自分のメモから答えが返ってきた」を体験した＝活性化ステップ完了。
+        // メモ 0 件の案内文（AI を呼ばない空応答）は体験に数えない。
+        if (memoCount > 0) markActivation('consult');
+      }
       // 新しい AI 回答が来たら resolution prompt を再表示できるよう dismiss を解除
       setPromptDismissed(false);
     } catch (e) {
@@ -682,6 +688,18 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       setAborting(false);
     }
   };
+
+  // 🏠→🧠 本棚ホームの「相談する」から来た質問を、履歴の読込完了後に 1 回だけ送る。
+  // 履歴読込（fetchHistory）より先に送ると、読込結果で画面の会話が上書きされるため待つ。
+  const askPresetDoneRef = useRef(null);
+  useEffect(() => {
+    if (!askPreset?.question || !historyLoaded) return;
+    if (askPresetDoneRef.current === askPreset.nonce) return;
+    askPresetDoneRef.current = askPreset.nonce;
+    setView('chat');
+    ask(askPreset.question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askPreset?.nonce, historyLoaded]);
 
   // 「中止」ボタン: 進行中のストリームを止める。abort 後は streamMyBookBrain が
   // 途中までの内容で正常終了し、ask() の try ブロックがその時点で確定する。
