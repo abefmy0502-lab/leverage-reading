@@ -86,7 +86,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
     <div>
       <button type="button" onClick={onSearchOpen} style={{ ...btnGhost, marginBottom: 'var(--space-6)' }}>
         <IcSearch size={20} aria-hidden="true" />
-        タイトル・ISBNで検索して追加
+        書名・著者・ISBN で探す
       </button>
 
       <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', marginBottom: 'var(--space-6)' }}>
