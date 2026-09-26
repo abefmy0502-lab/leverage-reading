@@ -76,7 +76,7 @@
 
 .btn-secondary {
   background: transparent;
-  color: var(--accent);
+  color: var(--text);
   border: 1px solid var(--border);
 }
 .btn-secondary:hover {

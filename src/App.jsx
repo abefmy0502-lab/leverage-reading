@@ -3650,6 +3650,7 @@ function AuthedApp() {
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <HomeScreen
               books={books}
+              loading={booksLoading}
               onAsk={(question) => {
                 setAskPreset({ question, nonce: Date.now() });
                 setAiSubTab('brain');
@@ -3658,7 +3659,6 @@ function AuthedApp() {
               onQuickstart={() => setShowQuickstart(true)}
               onAddBook={() => openAdd('reading')}
               onAdvisor={() => { setAiSubTab('advisor'); setTab('ai'); }}
-              onOpenConsult={() => { setAiSubTab('brain'); setTab('ai'); }}
               onOpenBook={(b) => openDetail(b)}
               onWriteMemo={(b) => setHomeMemoBook(b)}
               onOpenLibrary={() => setShelfMode('library')}

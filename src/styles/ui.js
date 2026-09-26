@@ -79,7 +79,8 @@ export const btnPrimary = {
 export const btnGhost = {
   ...btnBase,
   background: 'transparent',
-  color: 'var(--accent)',
+  // DESIGN §3-2: アクセントは主ボタン・リンク・選択中・入力中だけ。副ボタンの文字は本文色。
+  color: 'var(--text)',
   border: '1px solid var(--border)', // 操作部品の枠は 3:1 以上
 };
 

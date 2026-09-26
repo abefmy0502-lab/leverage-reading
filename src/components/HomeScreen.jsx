@@ -4,14 +4,17 @@
 //   1. 困ったときは、相談する（HomeConsult）← 主役・主ボタンはこれ 1 つ
 //   2. いま読んでいる本（最大 3 冊・各本に「メモを書く」＝ 1 タップでクイックメモ）
 //   3. すべての本（N 冊）› → ライブラリ画面（検索・絞り込み・並び替えはそちらへ）
-// 本 0 冊のときは「はじめる」カード 1 枚だけ（はじめの一歩・空状態と同じことを
-// 二度言わない）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
+// 本 0 冊のときは「はじめる」カード 1 枚だけ。はじめの一歩（ActivationChecklist）は
+// 相談カードと同じ入口を二重に出すことになるためホームには置かない（ui-critic 指摘・SPEC §1）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 見た目は DESIGN.md のトークンのみ。
 import { Library, ChevronRight, PencilLine } from 'lucide-react';
 import HomeConsult from './HomeConsult';
-import ActivationChecklist from './ActivationChecklist';
 import { MiniCover } from './BookCards';
+import { SkeletonBlock } from './Skeleton';
 import { btnPrimary, btnGhost, btnText, card } from '../styles/ui';
+
+// DESIGN §5「行の中の小さい副ボタン」（高さ 44・文字 15・600）。
+const btnRow = { ...btnGhost, width: 'auto', flexShrink: 0, padding: '8px 12px', minHeight: 44, fontSize: 'var(--text-sub)' };
 
 const sectionTitle = {
   fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 12px', lineHeight: 1.3,
@@ -68,7 +71,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
                 type="button"
                 onClick={() => onWriteMemo(b)}
                 aria-label={`『${b.title}』にメモを書く`}
-                style={{ ...btnGhost, width: 'auto', flexShrink: 0, padding: '8px 12px', minHeight: 44, fontSize: 'var(--text-sub)', color: 'var(--text)' }}
+                style={btnRow}
               >
                 <PencilLine size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />メモ
               </button>
@@ -85,20 +88,26 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
 }
 
 export default function HomeScreen({
-  books = [],
-  onAsk, onQuickstart, onAddBook, onAdvisor, onOpenConsult,
+  books = [], loading = false,
+  onAsk, onQuickstart, onAddBook, onAdvisor,
   onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading,
 }) {
   return (
     <div style={{ padding: '8px var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-      <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>ホーム</h1>
+      <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>ホーム</h1>
 
-      {books.length === 0 ? (
+      {loading && books.length === 0 ? (
+        // 読み込み中は形だけ（既存ユーザーに新規用の「はじめる」カードを一瞬見せない）。
+        <div aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          <SkeletonBlock height={240} radius="var(--radius)" />
+          <SkeletonBlock height={72} radius="var(--radius)" />
+          <SkeletonBlock height={72} radius="var(--radius)" />
+        </div>
+      ) : books.length === 0 ? (
         <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} />
       ) : (
         <>
           <HomeConsult books={books} onAsk={onAsk} onQuickstart={onQuickstart} />
-          <ActivationChecklist books={books} onAddBook={onAddBook} onOpenConsult={onOpenConsult} onQuickstart={onQuickstart} />
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} />
           <button
             type="button"

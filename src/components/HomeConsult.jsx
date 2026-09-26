@@ -58,7 +58,8 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
     setText('');
   };
 
-  const hasMemos = memoCount == null || memoCount > 0;
+  // 書きかけの文字があるときは、件数が後から 0 と分かっても入力欄を消さない。
+  const hasMemos = memoCount == null || memoCount > 0 || text.trim().length > 0;
 
   return (
     <section aria-labelledby="home-consult-title" style={card}>
@@ -67,7 +68,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
       </h2>
       <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '8px 0 16px', lineHeight: 1.5 }}>
         {hasMemos
-          ? <>あなたの {bookCount}冊{memoCount != null && <>・メモ {memoCount}件</>} から答えます</>
+          ? <>あなたの{bookCount}冊{memoCount != null && <>・メモ{memoCount}件</>}から答えます</>
           : '本を読みながらメモを残すと、そのメモを根拠に、あなただけの答えが返ってきます。'}
       </p>
 
@@ -105,7 +106,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
                 type="button"
                 onClick={() => send(q)}
                 style={{
-                  display: 'block', width: '100%', minHeight: 44, padding: '10px 12px', textAlign: 'left',
+                  display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left',
                   background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer',
                   fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5,
                 }}

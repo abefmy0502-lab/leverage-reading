@@ -127,8 +127,9 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
         style={{
           position: 'absolute', inset: 0,
           background: `linear-gradient(135deg, ${from}, ${to})`,
-          color: 'rgba(255,255,255,0.92)', fontSize: 8, fontWeight: 700,
-          padding: '5px 4px', lineHeight: 1.35, overflow: 'hidden',
+          color: 'var(--on-cover)', fontSize: 'var(--text-caption)', fontWeight: 600,
+          padding: '4px', lineHeight: 1.3, overflow: 'hidden',
+          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
           wordBreak: 'break-word',
         }}
       >
