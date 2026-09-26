@@ -361,13 +361,8 @@ body.lp-active {
   font-family: var(--font-serif);
   font-size: clamp(16px, 4.4vw, 19px);
   color: var(--lp-text);
-  margin: 0 0 14px;
+  margin: 0 0 32px;
   line-height: 2.15;
-}
-.hero-tagline {
-  font-size: 14px;
-  color: var(--lp-sub);
-  margin: 0 0 34px;
 }
 .hero-cta-block { display: flex; flex-direction: column; align-items: center; }
 .hero-note {
@@ -847,36 +842,18 @@ body.lp-active {
   color: var(--lp-sub);
   margin: 12px 0 0;
 }
-.guarantee-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  max-width: 460px !important;
-  margin-top: 26px;
-}
-.g-item {
-  background: var(--lp-card);
-  padding: 16px 10px;
-  border-radius: 12px;
-  text-align: center;
-  border: 1px solid var(--lp-hairline);
-}
-.g-item strong {
-  display: block;
-  font-size: 13px;
-  margin-bottom: 4px;
+.price-save {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--lp-primary);
 }
-.g-item p {
-  font-size: 11.5px;
-  color: var(--lp-sub);
-  margin: 0;
-  line-height: 1.6;
-}
-@media (max-width: 480px) {
-  .guarantee-row { grid-template-columns: 1fr; gap: 10px; }
-  .g-item { display: flex; align-items: baseline; gap: 10px; text-align: left; padding: 13px 16px; }
-  .g-item strong { margin: 0; flex-shrink: 0; }
+.price-trial {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--lp-primary);
 }
 
 /* ============ 11. FAQ ============ */
@@ -936,7 +913,8 @@ body.lp-active {
   text-align: center;
 }
 .final-cta > * { max-width: 620px; margin-left: auto; margin-right: auto; }
-.final-headline {
+/* .lp-root h2 (0,1,1) が色を上書きして茶地に墨色の見出しになっていたので、同じ強さ以上で白に戻す。 */
+.lp-root .final-headline {
   font-size: clamp(30px, 8vw, 42px);
   line-height: 1.45;
   font-weight: 700;

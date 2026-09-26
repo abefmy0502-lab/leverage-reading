@@ -26,6 +26,7 @@ import PhoneFrame from '../components/PhoneFrame';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
+import { savingsLabel } from '../lib/iap';
 import './landing.css';
 
 // 📱 App Store ダウンロード URL は src/lib/appStore.js に一元化。
@@ -70,7 +71,7 @@ const COMPARE_ROWS = [
   { label: '困ったとき', others: '見返すのは、自分しだい', us: '読んだ本から、答えが返る' },
   { label: 'メモ', others: '貯まるほど、埋もれる', us: '貯まるほど、相談相手が育つ' },
   { label: '行動', others: 'アプリの外で、別管理', us: '一行から、一歩に変わる' },
-  { label: '続く理由', others: '意志の力', us: '仕組みの力' },
+  { label: '見返すきっかけ', others: '自分で思い出したとき', us: '忘れかけた頃に、メモが戻ってくる' },
 ];
 
 // FAQ はここが唯一の真実（表示と FAQPage JSON-LD の両方がこの配列から生成される）。
@@ -97,11 +98,15 @@ const FAQ_ITEMS = [
   },
   {
     q: '通知がしつこくなりませんか？',
-    a: '思い出しの通知は週に数回、そっと届く程度です。設定からいつでもオフにできます。「そっと届く」を大切にしているので、煽るような通知は送りません。',
+    a: '思い出しの通知は、多くても週に 1 回です。届くのは、あなたが前に残したメモ 1 件だけ。設定からいつでもオフにできます。',
   },
   {
-    q: '忙しくて、使う時間が取れるか不安です',
-    a: '1 日 5 分から始められます。読みながら心が動いた一行を残すだけ。読む前の計画も AI が「重点的に読む章」を絞ってくれるので、忙しい方ほど短い時間で効果を出しやすい設計です。',
+    q: '忙しくて、続けられるか不安です',
+    a: '読みながら、心が動いた一行を残すだけで始められます。メモは本文だけで保存でき、ページ番号や写真はあとから足せます。これまでに読んだ本を思い出して書くところから始めることもできます。',
+  },
+  {
+    q: 'メモの内容は、AI\u00a0の学習に使われますか？',
+    a: '使われません。相談などの AI 機能では、メモを Anthropic 社の Claude API に送って答えを作ります。API 経由で送られたデータは、同社の規約で AI の再学習に使われません。詳しくはプライバシーポリシーをご覧ください。',
   },
 ];
 
@@ -296,7 +301,6 @@ export default function Landing() {
             困ったときは、Orime に相談する。<br />
             あなたが読んだ本のメモから、答えが返ってくる。
           </p>
-          <p className="hero-tagline">読んだ本を、困ったときに使える知恵に変えるアプリです。</p>
           <div className="hero-cta-block">
             <StoreCta className="cta-primary cta-hero">App Store でダウンロード</StoreCta>
             <p className="hero-note">{PRICE_NOTE}</p>
@@ -330,28 +334,28 @@ export default function Landing() {
             読んだだけなら記憶は薄れていく。それが人間の仕様です。
           </p>
           <p className="problem-body">
-            問題は記憶力ではなく、<br className="sp-only" />
-            <strong>読んだことを、困ったときに引き出す仕組みがないこと。</strong>
+            足りないのは、記憶力より<br className="sp-only" />
+            <strong>読んだことを、困ったときに引き出す仕組みです。</strong>
           </p>
           <p className="problem-turn">
-            だから Orime は、記録のためではなく、<br />
-            <em>困ったときに相談できる相手</em>として作られています。
+            Orime は、その仕組みを<br />
+            <em>「相談相手」</em>というかたちにしました。
           </p>
         </section>
 
         {/* ============ 3. 仕掛け 01 — 相談（一番の価値・マイ読書脳） ============ */}
         <section className="feature fade-in" aria-labelledby="f-brain">
-          <p className="section-eyebrow">仕掛け 01 — 相談</p>
+          <p className="section-eyebrow">相談</p>
           <h2 className="section-headline" id="f-brain">
             困ったときは、<br />
             読んだ本たちに相談する。
           </h2>
           <p className="feature-body">
-            「チームの成果を上げるには？」と聞けば、<strong>あなたがこれまで残したメモだけ</strong>を根拠に、答えが返ってきます。1 冊ではなく、何冊もの本のメモをつなげて答えるので、どの本の、どのメモから来た答えなのかも分かります。
+            「チームの成果を上げるには？」と聞くと、<strong>あなたがこれまで残したメモだけ</strong>を根拠に答えが返ってきます。何冊ぶんのメモもつなげて答え、どの本のどのメモを使ったかも見られます。
           </p>
           <p className="feature-body">
-            ネットの一般論ではありません。<br className="sp-only" />
-            読むほど、メモを残すほど、<br className="sp-only" />答えはあなたらしくなっていきます。
+            答えの材料は、あなたが読んで残したものだけ。<br className="sp-only" />
+            メモが増えるほど、<br className="sp-only" />答えはあなたの状況に近づいていきます。
           </p>
           <div className="screenshot-pair">
             <figure className="screenshot-step">
@@ -378,7 +382,7 @@ export default function Landing() {
 
         {/* ============ 4. 仕掛け 02 — 行動 ============ */}
         <section className="feature feature-alt fade-in" aria-labelledby="f-action">
-          <p className="section-eyebrow">仕掛け 02 — 行動</p>
+          <p className="section-eyebrow">行動</p>
           <h2 className="section-headline" id="f-action">
             「いつかやろう」を、<br />
             期限つきの一歩に。
@@ -390,15 +394,15 @@ export default function Landing() {
                 期限、優先度、毎週の繰り返し。
               </p>
               <p className="feature-body">
-                本をまたいで「やること」が一覧になり、<br className="pc-only" />
-                今週の達成率が見える。<br />
-                読書が、リストの先の<strong>習慣</strong>まで届きます。
+                本をまたいだ「やること」は、<br className="pc-only" />
+                期限を過ぎたもの・今日・今週の順に並びます。<br />
+                今週いくつ終えたかも、<strong>ひと目で分かります</strong>。
               </p>
             </div>
             <div className="feature-split-image">
               <PhoneFrame
                 src="/lp/action-management.jpg"
-                alt="行動タブの画面。今週の達成率 100%、本ごとの行動が期限・繰り返し付きで並ぶ"
+                alt="行動の画面。本ごとの行動が期限・繰り返し付きで並ぶ"
                 size="medium"
                 ratio="1179/1926"
               />
@@ -408,7 +412,7 @@ export default function Landing() {
 
         {/* ============ 5. 仕掛け 03 — 凝縮 ============ */}
         <section className="feature fade-in" aria-labelledby="f-condense">
-          <p className="section-eyebrow">仕掛け 03 — 凝縮</p>
+          <p className="section-eyebrow">テーマまとめ</p>
           <h2 className="section-headline" id="f-condense">
             散らばったメモが、<br />
             一枚の知恵になる。
@@ -440,7 +444,7 @@ export default function Landing() {
 
         {/* ============ 6. 仕掛け 04 — 思い出しカード（相談相手を育てる手段） ============ */}
         <section className="feature feature-alt fade-in" aria-labelledby="f-recall">
-          <p className="section-eyebrow">仕掛け 04 — 思い出しカード</p>
+          <p className="section-eyebrow">思い出しカード</p>
           <h2 className="section-headline" id="f-recall">
             忘れかけたメモは、<br />
             向こうから戻ってくる。
@@ -463,7 +467,7 @@ export default function Landing() {
           <p className="mock-caption">画面はイメージです</p>
 
           <p className="feature-sub">
-            通知は週に数回、そっと届く程度。もちろんオフにもできます。
+            通知は多くても週に 1 回。設定からオフにもできます。
           </p>
         </section>
 
@@ -575,15 +579,13 @@ export default function Landing() {
         <section className="pricing fade-in" aria-labelledby="f-pricing">
           <p className="section-eyebrow">料金</p>
           <h2 className="section-headline" id="f-pricing">
-            迷わない、<br />
-            ひとつの料金。
+            すべての機能が、<br />
+            ひとつのプランに。
           </h2>
 
           <div className="price-card">
             {TRIAL_NOTE && (
-              <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: '#5c5043' }}>
-                🎁 まずは{TRIAL_NOTE}で、思い出しカードを体験
-              </p>
+              <p className="price-trial">まずは{TRIAL_NOTE}で、相談を試せます</p>
             )}
             <div className="price-num" aria-label="月額1480円">
               <span className="price-yen">¥</span>
@@ -591,7 +593,8 @@ export default function Landing() {
               <span className="price-period">/ 月（税込）</span>
             </div>
             <p className="price-equiv">
-              年額プランなら <strong>¥12,800</strong>（月あたり約 ¥1,066）
+              年額プランなら <strong>¥12,800</strong>（月あたり約 ¥1,066）<br />
+              <span className="price-save">{savingsLabel(1480, 12800)}</span>
             </p>
 
             <ul className="price-features">
@@ -606,20 +609,6 @@ export default function Landing() {
             <p className="price-note">お支払いは App Store（Apple ID）経由です</p>
           </div>
 
-          <div className="guarantee-row">
-            <div className="g-item">
-              <strong>解約は App Store で</strong>
-              <p>サブスク設定からいつでも</p>
-            </div>
-            <div className="g-item">
-              <strong>違約金ゼロ</strong>
-              <p>解約手数料も一切なし</p>
-            </div>
-            <div className="g-item">
-              <strong>データ保持</strong>
-              <p>解約してもメモは残る</p>
-            </div>
-          </div>
         </section>
 
         {/* ============ 11. FAQ ============ */}
