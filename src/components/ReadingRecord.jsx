@@ -24,7 +24,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { isSchemaError } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
-import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
 import { track, EVENTS } from '../lib/analytics';
 import {
@@ -155,7 +154,7 @@ const wrap = {
   padding: 'var(--space-3) var(--space-4) var(--space-8)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-3)',
+  gap: 'var(--space-6)', // 役割の違う区画の間はグループ間 24（DESIGN §1）
   fontFamily: 'var(--font-app)',
   maxWidth: 560,
   margin: '0 auto',
@@ -177,7 +176,7 @@ const cardTitle = {
   margin: 0,
   display: 'flex',
   alignItems: 'center',
-  gap: 6,
+  gap: 'var(--space-2)',
 };
 
 const cardSub = {
@@ -198,19 +197,16 @@ const BAR_MIN_H = 3;
 function StatTile({ icon: Icon, value, label, onClick }) {
   const inner = (
     <>
-      <Icon size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
-      <AnimatedNumber
-        value={value}
-        duration={700}
-        style={{ fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.1, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}
-      />
-      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.3, textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+      <Icon size={16} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
+      {/* 数字は動かさない（カウントアップは演出＝反ゲーミフィケーション方針）。 */}
+      <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.1, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.3, textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
         {label}
-        {onClick && <ChevronRight size={11} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
+        {onClick && <ChevronRight size={12} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
       </span>
     </>
   );
-  const base = { ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '14px 6px' };
+  const base = { ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', padding: 'var(--space-3) var(--space-2)' };
   if (!onClick) return <div style={base}>{inner}</div>;
   return (
     <button
@@ -229,21 +225,21 @@ function StatTile({ icon: Icon, value, label, onClick }) {
 // （ラベル横に › が付く）。
 function FlowRow({ cells }) {
   const arrow = (
-    <span aria-hidden="true" style={{ color: 'var(--text-3)', fontWeight: 700, fontSize: 'var(--text-meta)', flexShrink: 0, paddingTop: 4 }}>→</span>
+    <span aria-hidden="true" style={{ color: 'var(--text-3)', fontWeight: 600, fontSize: 'var(--text-meta)', flexShrink: 0, paddingTop: 'var(--space-1)' }}>→</span>
   );
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginTop: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-1)', marginTop: 'var(--space-3)' }}>
       {cells.map((c, i) => {
         const inner = (
           <>
-            <span style={{ fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
+            <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
             <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
               {c.label}
               {c.onClick && <ChevronRight size={10} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
             </span>
           </>
         );
-        const base = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, minWidth: 0, flex: 1 };
+        const base = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', minWidth: 0, flex: 1 };
         return (
           <FragmentLike key={c.label} first={i === 0} arrow={arrow}>
             {c.onClick ? (
@@ -276,7 +272,7 @@ function MonthBars({ buckets, activeColor }) {
   const lastIdx = buckets.length - 1;
   return (
     <div
-      style={{ display: 'flex', alignItems: 'flex-end', gap: 6, justifyContent: 'space-between', marginTop: 10 }}
+      style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', justifyContent: 'space-between', marginTop: 'var(--space-3)' }}
       aria-label={`月別の推移: ${buckets.map((k) => `${k.month + 1}月 ${k.count}件`).join(', ')}`}
     >
       {buckets.map((k, i) => {
@@ -284,7 +280,7 @@ function MonthBars({ buckets, activeColor }) {
         const active = k.count > 0;
         const isCurrent = i === lastIdx;
         return (
-          <div key={`${k.year}-${k.month}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flex: 1, minWidth: 0 }} aria-hidden="true">
+          <div key={`${k.year}-${k.month}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', flex: 1, minWidth: 0 }} aria-hidden="true">
             <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1, minHeight: 11, fontVariantNumeric: 'tabular-nums' }}>
               {active ? k.count : ''}
             </span>
@@ -383,12 +379,16 @@ function Heatmap({ dateStrings, weeks = 16 }) {
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 8 }} aria-hidden="true">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+      {/* 色だけに頼らない（DESIGN §6）: 記録があった日数を文字でも。 */}
+      <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>直近 {weeks} 週で記録した日 {activeDays} 日</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }} aria-hidden="true">
         <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>少</span>
         {HEAT_COLORS.map((c) => (
           <span key={c} style={{ width: 12, height: 12, borderRadius: 3, background: c }} />
         ))}
         <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>多</span>
+      </div>
       </div>
     </div>
   );
@@ -681,7 +681,7 @@ export default function ReadingRecord({
       {/* 2. 読書の足あと（ヒートマップ） */}
       <section style={card}>
         <h3 style={cardTitle}>
-          <Footprints size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+          <Footprints size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
           読書の足あと
         </h3>
         <p style={cardSub}>メモや読了があった日が、静かに色づきます。</p>
@@ -693,12 +693,12 @@ export default function ReadingRecord({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
           <div>
             <h3 style={cardTitle}>
-              <TrendingUp size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+              <TrendingUp size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
               月別のあゆみ
             </h3>
             <p style={cardSub}>直近 6 ヶ月の{trendMode === 'done' ? '読了' : 'メモ'}の数</p>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 'var(--space-1)', flexShrink: 0 }}>
             {trendChip('done', '読了')}
             {trendChip('memo', 'メモ')}
           </div>
@@ -713,21 +713,21 @@ export default function ReadingRecord({
       {showHighlight && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <CalendarDays size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+            <CalendarDays size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             {thisYear}年のハイライト
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
             {highlightItems.map((x) => (
-              <div key={x.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div key={x.label} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
                 <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.3 }}>{x.label}</span>
-                <span style={{ fontSize: 'var(--text-sub)', fontWeight: 700, color: 'var(--text)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{x.value}</span>
+                <span style={{ fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{x.value}</span>
                 {x.sub && <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.3 }}>{x.sub}</span>}
               </div>
             ))}
           </div>
           {bookStats.bestThisYear.length > 0 && (
-            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--separator)' }}>
-              <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: '0 0 6px' }}>今年の星付き</p>
+            <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--separator)' }}>
+              <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: '0 0 var(--space-1)' }}>今年の星付き</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {bookStats.bestThisYear.map((b, i) => {
                   const book = bookById.get(b.id);
@@ -745,7 +745,7 @@ export default function ReadingRecord({
                       type="button"
                       onClick={() => onOpenBook(book)}
                       aria-label={`『${b.title}』を開く`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, minHeight: 36, width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0, minHeight: 44, width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
                     >
                       {row}
                     </button>
@@ -763,7 +763,7 @@ export default function ReadingRecord({
       {topMemoBooks.length > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <BookMarked size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+            <BookMarked size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             一番学んだ本
           </h3>
           <p style={cardSub}>メモの数から見た、あなたに一番多くの気づきをくれた本です。</p>
@@ -790,7 +790,7 @@ export default function ReadingRecord({
       {/* 6. 読書 → 行動 → 収穫 */}
       <section style={card}>
         <h3 style={cardTitle}>
-          <Target size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+          <Target size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
           読書 → 行動 → 収穫
         </h3>
         <p style={cardSub}>読んだ本が、行動の実行、そして学びの収穫へつながった数です。</p>
@@ -812,7 +812,7 @@ export default function ReadingRecord({
       {memoStats?.recallSupported && memoTotal > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <Brain size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+            <Brain size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             記憶への定着
           </h3>
           <p style={cardSub}>戻ってきたメモを思い出し、「覚えた」で記憶に残っていきます。</p>
@@ -830,7 +830,7 @@ export default function ReadingRecord({
       {memoTotal >= 5 && rhythmMax > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <Clock3 size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+            <Clock3 size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             あなたの読書リズム
           </h3>
           <p style={cardSub}>メモを書いた時間帯から。{rhythm.top ? rhythm.top.persona : ''}</p>
@@ -853,7 +853,7 @@ export default function ReadingRecord({
       {bookStats.topTags.length > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <Tags size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+            <Tags size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             よく読むテーマ
           </h3>
           <p style={cardSub}>本につけたタグから見た、あなたの関心の地図です。</p>
@@ -877,7 +877,7 @@ export default function ReadingRecord({
       {bookStats.topAuthors.length > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <PenLine size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+            <PenLine size={14} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
             よく読む著者
           </h3>
           <p style={cardSub}>2 冊以上読んでいる著者です。相性のいい書き手かもしれません。</p>

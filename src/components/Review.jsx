@@ -21,6 +21,7 @@ import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import Spinner from './Spinner';
+import { SkeletonBlock } from './Skeleton';
 import { relativeJa, recallFraming, pickRecallMemo, recallPatch } from '../lib/recall';
 import { shouldAskForReview, markReviewAsked, askReviewToast } from '../lib/reviewRequest';
 import { markActivation } from '../lib/activation';
@@ -36,7 +37,7 @@ import { track, EVENTS } from '../lib/analytics';
 
 // 見た目は DESIGN.md のトークンのみ（2026-09-26・SPEC §4 でメモのサブタブを整理）。
 const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
-const sectionTitle = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
+const sectionTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
 const cardBase = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' };
 const inp = { width: '100%', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'max(16px, var(--text-body))', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit', boxSizing: 'border-box' };
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
@@ -247,7 +248,9 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   // 長文メモ（AI 選書のヒアリング Q&A など）はタイムラインで畳んでおき、
   // 「もっと見る」で展開。カード内スクロールの読みづらさを解消。
   const [expanded, setExpanded] = useState(false);
-  const isLongText = (memo.text || '').length > 140;
+  // 思い出しカード（showRelative）は小さく見せる（SPEC §4）: 4 行で畳む。一覧は 6 行。
+  const clampN = showRelative ? 4 : 6;
+  const isLongText = (memo.text || '').length > (showRelative ? 80 : 140);
 
   // 種類は色の帯ではなく、小さなアイコン＋文字で示す（色はニュートラル＋栗色 1 色・DESIGN §3）。
   const cardStyle = cardBase;
@@ -275,7 +278,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
         <button
           type="button"
           onClick={() => book && onOpenBook?.(book)}
-          style={{ background: 'none', border: 'none', padding: 0, minHeight: 32, fontSize: 'var(--text-meta)', color: 'var(--accent)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: 'var(--accent)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
           {book?.title || '（本のデータが見つかりません）'}
           {book?.author && <span style={{ color: 'var(--text-3)', marginLeft: 'var(--space-2)' }}>{book.author}</span>}
@@ -298,7 +301,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
               ...(isLongText && !expanded
                 ? {
                     display: '-webkit-box',
-                    WebkitLineClamp: 6,
+                    WebkitLineClamp: clampN,
                     WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
                   }
@@ -403,7 +406,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         : await subscribeToPush({ frequency: 'weekly' });
       if (res?.ok) {
         try { haptic.success(); } catch { /* non-critical */ }
-        toast.success('🔔 通知をオンにしました。忘れた頃にそっとお届けします。');
+        toast.success('通知をオンにしました。忘れた頃にそっとお届けします。');
         dismissPushOptIn();
       } else if (res?.reason === 'denied') {
         toast.info('通知は端末の設定でブロックされています。設定から許可できます。');
@@ -644,7 +647,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     setAddingAction(false);
     if (ok) {
       setActionAddedId(memo.id);
-      toast.success('🎯 行動リストに追加しました。');
+      toast.success('行動に追加しました。');
     }
   }, [onAddAction, addingAction, booksById, toast]);
 
@@ -756,7 +759,12 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   if (loading) {
     return (
       <div style={wrap}>
-        <Spinner message="あなたの気づきを集めています…" />
+        {/* 読み込み中は形だけ（DESIGN §5: Skeleton） */}
+        <div aria-busy="true" aria-label="メモを読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <SkeletonBlock height={20} width="40%" radius="var(--radius)" />
+          <SkeletonBlock height={180} radius="var(--radius)" />
+          <SkeletonBlock height={120} radius="var(--radius)" />
+        </div>
       </div>
     );
   }
@@ -873,11 +881,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             実際のメモカードと同時に出て矛盾し、主役（ユーザー自身の言葉）より先に
             読ませる説明ノイズになっていた。ヘッダー＋「N日前のあなたのメモ」ラベルで
             意味は伝わる（1画面1メッセージ）。 */}
-        {randomMemo && recallFraming(randomMemo.createdAt) && (
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: '0 0 var(--space-2)' }}>
-            {recallFraming(randomMemo.createdAt)}
-          </p>
-        )}
+        {/* 「◯ヶ月前のあなたのメモ」はカード右上の「◯ヶ月前」と同じなので出さない（重複をなくす）。 */}
         {randomMemo && (
           <div
             style={{
@@ -930,7 +934,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   }}
                   style={{ ...btnGhost, flex: 1, justifyContent: 'center', opacity: flipping ? 0.6 : 1 }}
                 >
-                  <Check size={16} strokeWidth={2.5} style={{ color: 'var(--accent)' }} aria-hidden="true" />覚えた
+                  <Check size={16} strokeWidth={2.5} aria-hidden="true" />覚えた
                 </button>
                 <button
                   type="button"
@@ -1020,11 +1024,12 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             </button>
           )}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        {/* 月は素の開閉行（カードの中にカードを入れない＝左端をメモカードとそろえる）。 */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           {memosByMonth.map(([key, group]) => {
             const open = expanded.has(key);
             return (
-              <div key={key} style={cardBase}>
+              <div key={key} style={{ borderTop: '1px solid var(--separator)' }}>
                 <button
                   type="button"
                   aria-expanded={open}
@@ -1051,7 +1056,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   </span>
                 </button>
                 {open && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', margin: 'var(--space-2) 0 var(--space-1)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', margin: 'var(--space-1) 0 var(--space-4)' }}>
                     {group.map((m) => (
                       <ReviewMemoCard
                         key={m.id}

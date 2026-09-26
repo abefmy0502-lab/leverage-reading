@@ -461,8 +461,9 @@ function AuthedApp() {
   // 例外: 60 分以内のプロセス破棄→再起動（resumeNav あり）は「ユーザーの遷移」では
   // なく OS 都合のリロードなので、直前に見ていたサブタブへそのまま戻す。
   const [reviewSubTab, setReviewSubTab] = useState(() => (
-    // 振り返り＝行動をやり切る場所（SPEC §4）。開いたら「行動」から。
-    ['note', 'action', 'record'].includes(resumeNav?.reviewSubTab) ? resumeNav.reviewSubTab : 'action'
+    // 振り返り＝行動をやり切る場所（SPEC §4）。起動時は前回のサブタブに関わらず「行動」から
+    // （以前「ノート」を開いていた人もここから始まる）。
+    'action'
   ));
   const [aiSubTab, setAiSubTab] = useState(() => (
     ['advisor', 'brain', 'report'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'

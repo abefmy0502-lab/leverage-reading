@@ -1,7 +1,8 @@
 // 🎯 行動 — 本を横断した行動リスト（振り返りタブの最初のサブタブ・SPEC §4）。
 //
 // 役割: 相談や読書で決めた行動を、やり切るまで見届ける場所。最重要アクション＝完了にする。
-//   - 既定は「やること」。期限で 期限を過ぎた / 今日 / 今週 / そのあと に分けて上から並べる
+//   - やることを 期限を過ぎた / 今日 / 今週（月〜日の暦の週） / 来週以降・期限なし に分けて上から並べる
+//   - 完了した行動は一覧の最後の「完了した行動（N）」1 行から開く（切り替えを 2 段重ねにしない・DESIGN §5）
 //   - 期限切れは控えめな警告色（責めない）。多いときだけ「期限を見直す」をそっと出す
 //   - 達成率などの数字の演出はしない（反ゲーミフィケーション）。今週の完了数を 1 行だけ
 //   - 行動 0 件は「相談の答えや、メモから行動を作れます」＋相談へのボタン
@@ -14,13 +15,12 @@ import { stripInlineMd } from '../lib/text';
 import { track, EVENTS } from '../lib/analytics';
 import EmptyState from './EmptyState';
 import ContextMenu from './ContextMenu';
-import { MoreVertical, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle } from 'lucide-react';
+import { MoreVertical, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight } from 'lucide-react';
 
 const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
-const groupTitle = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
-const card = { position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-12) var(--space-3) var(--space-3)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
+const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
+const card = { position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4) var(--space-12) var(--space-4) var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 };
-const segBtn = (on) => ({ minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', border: 'none', background: on ? 'var(--accent-soft)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-sub)', fontWeight: on ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit' });
 
 // 期限('YYYY-MM-DD' の日付のみ文字列)をローカル0時で解釈する。素の new Date('YYYY-MM-DD')
 // は UTC0時扱いになり JST(+9) で1日ずれ、「期限切れ/今週期限」判定が日付境界でずれる。
@@ -49,15 +49,21 @@ const GROUPS = [
   { key: 'overdue', label: '期限を過ぎた行動' },
   { key: 'today', label: '今日' },
   { key: 'week', label: '今週' },
-  { key: 'later', label: 'そのあと・期限なし' },
+  { key: 'later', label: '来週以降・期限なし' },
 ];
+
+// 今日から今週の日曜までの日数（月曜はじまり＝useAllActions の「今週の予定」と同じ暦の週）。
+function daysLeftInWeek() {
+  const dow = new Date().getDay() || 7; // 日曜=7
+  return 7 - dow;
+}
 
 function groupOf(a) {
   const n = daysUntil(a.deadline);
   if (n == null) return 'later';
   if (n < 0) return 'overdue';
   if (n === 0) return 'today';
-  if (n <= 7) return 'week';
+  if (n <= daysLeftInWeek()) return 'week';
   return 'later';
 }
 
@@ -73,7 +79,7 @@ const byDeadline = (a, b) => {
 
 export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult }) {
   const { allActions, stats } = useAllActions(books);
-  const [view, setView] = useState('open'); // 'open' | 'done'
+  const [showDone, setShowDone] = useState(false);
   const [menu, setMenu] = useState(null); // { x, y, action }
 
   const open = useMemo(() => allActions.filter((a) => !a.done).sort(byDeadline), [allActions]);
@@ -139,13 +145,13 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
             if (!a.done) track(EVENTS.ACTION_COMPLETED);
             onToggleAction?.(a.bookId, a.actionIdx);
           }}
-          style={{ flexShrink: 0, width: 44, height: 44, margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+          style={{ flexShrink: 0, width: 44, height: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
         >
           {a.done
             ? <span key="on" className="check-pop" style={{ display: 'flex' }}><CheckCircle2 size={24} aria-hidden="true" style={{ color: 'var(--success)' }} /></span>
             : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)' }} />}
         </button>
-        <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: a.done ? 'var(--text-3)' : 'var(--text)', textDecoration: a.done ? 'line-through' : 'none', wordBreak: 'break-word' }}>
             {stripInlineMd(a.text)}
           </p>
@@ -176,44 +182,31 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
 
   return (
     <div style={wrap}>
-      {/* 上: やること／完了 の切替 ＋ 追加。今週の完了数は 1 行だけ（数字の演出はしない）。 */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
-          <div role="tablist" aria-label="行動の表示" style={{ display: 'flex', gap: 'var(--space-1)' }}>
-            <button type="button" role="tab" aria-selected={view === 'open'} onClick={() => setView('open')} style={segBtn(view === 'open')}>
-              やること {open.length}
-            </button>
-            <button type="button" role="tab" aria-selected={view === 'done'} onClick={() => setView('done')} style={segBtn(view === 'done')}>
-              完了 {done.length}
-            </button>
-          </div>
-          {canAdd && (
-            <button type="button" onClick={onAddAction} style={rowBtn}>
-              <Plus size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />追加
-            </button>
-          )}
-        </div>
-        {view === 'open' && stats.week?.total > 0 && (
-          <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-            今週の予定 {stats.week.total} 件のうち {stats.week.completed} 件を完了
-          </p>
+      {/* 上: 今週の完了数 1 行（数字の演出はしない）＋ 追加。完了一覧は最後の 1 行から。 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+        <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+          {stats.week?.total > 0
+            ? `今週の予定 ${stats.week.total} 件のうち ${stats.week.completed} 件を完了`
+            : `やること ${open.length} 件`}
+        </p>
+        {canAdd && (
+          <button type="button" onClick={onAddAction} style={rowBtn}>
+            <Plus size={16} aria-hidden="true" />追加
+          </button>
         )}
       </div>
 
-      {view === 'open' && open.length === 0 && (
+      {open.length === 0 && (
         <EmptyState
           icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="やることはすべて完了しています"
           description="次の一歩は、相談の答えやメモから作れます。"
-          actions={[
-            ...(onGoConsult ? [{ label: '相談する', onClick: onGoConsult, variant: 'secondary' }] : []),
-            { label: '完了した行動を見る', onClick: () => setView('done'), variant: 'secondary' },
-          ]}
+          actions={onGoConsult ? [{ label: '相談する', onClick: onGoConsult, variant: 'secondary' }] : []}
         />
       )}
 
       {/* 期限切れが多いとき: 責めずに、見直しをそっと促す。 */}
-      {view === 'open' && overdueCount >= 3 && (
+      {overdueCount >= 3 && (
         <div style={{ background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
           <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6 }}>
             期限を過ぎた行動が {overdueCount} 件あります。いまの予定に合う日に、置き直してみませんか。
@@ -230,7 +223,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
         </div>
       )}
 
-      {view === 'open' && GROUPS.map((g) => {
+      {GROUPS.map((g) => {
         const items = grouped.get(g.key);
         if (!items.length) return null;
         return (
@@ -241,16 +234,22 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
         );
       })}
 
-      {view === 'done' && (
-        done.length === 0 ? (
-          <EmptyState
-            icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden="true" />}
-            title="完了した行動はまだありません"
-            description="やり終えたら、丸をタップして完了にしましょう。"
-          />
-        ) : (
-          <ul style={listStyle}>{done.map(renderRow)}</ul>
-        )
+      {/* 完了した行動は一覧の最後の 1 行から開く。 */}
+      {done.length > 0 && (
+        <section aria-label="完了した行動">
+          <button
+            type="button"
+            onClick={() => setShowDone((v) => !v)}
+            aria-expanded={showDone}
+            style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', background: 'none', border: 'none', borderTop: '1px solid var(--separator)', padding: 'var(--space-2) 0 0', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+          >
+            <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>完了した行動（{done.length}）</span>
+            {showDone
+              ? <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+              : <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />}
+          </button>
+          {showDone && <ul style={{ ...listStyle, marginTop: 'var(--space-3)' }}>{done.map(renderRow)}</ul>}
+        </section>
       )}
 
       {menu && (
