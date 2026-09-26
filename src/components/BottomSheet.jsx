@@ -108,7 +108,7 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
             type="button"
             onClick={animateClose}
             aria-label="閉じる"
-            style={{ background: 'none', border: 'none', padding: '8px 0 2px', cursor: 'pointer', alignSelf: 'center', width: '100%' }}
+            style={{ background: 'none', border: 'none', padding: 'var(--space-2) 0 var(--space-1)', cursor: 'pointer', alignSelf: 'center', width: '100%' }}
           >
             <div className="lvg-sheet-handle" aria-hidden="true" />
           </button>

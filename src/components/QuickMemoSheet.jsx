@@ -405,6 +405,7 @@ export default function QuickMemoSheet({
           <div>
             <textarea
               aria-label="メモ本文"
+              data-font-lg=""
               ref={textRef}
               value={text}
               onChange={(e) => setText(e.target.value)}

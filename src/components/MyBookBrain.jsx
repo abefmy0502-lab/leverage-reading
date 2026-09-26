@@ -348,7 +348,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const el = inputRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = Math.min(Math.max(el.scrollHeight, 60), 200) + 'px';
+    // 空のときは 1 行（44）。書くほど伸び、200 を超えたらスクロール。
+    el.style.height = 'auto';
+    el.style.height = Math.min(Math.max(el.scrollHeight + 2, 44), 200) + 'px';
   }, [input]);
 
   const fetchHistory = useCallback(async () => {
@@ -505,7 +507,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const answers = el.querySelectorAll('[aria-label="相談への答え"]');
       const last = answers[answers.length - 1];
       if (!last) return;
-      const top = last.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 8;
+      // 自分の相談の最後の行が少し見える位置（何への答えかが分かるように）。
+      const top = last.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 48;
       el.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }, 60);
   }, [busy, view]);
@@ -849,13 +852,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         ) : (
           <>
             {/* iOS のナビゲーションバーの形: 左に戻る・中央に題名・右は同じ幅の空き。 */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <button type="button" onClick={() => setView('chat')} style={{ ...uiBtnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: '8px 0', gap: 2 }}>
+            <div style={{ width: 96, flexShrink: 0 }}>
+              <button type="button" onClick={() => setView('chat')} style={{ ...uiBtnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', gap: 2, lineHeight: 1.3 }}>
                 <ChevronLeft size={20} aria-hidden="true" />相談
               </button>
             </div>
-            <h2 style={{ flexShrink: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{viewTitle}</h2>
-            <div style={{ flex: 1 }} aria-hidden="true" />
+            <h2 style={{ flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>{viewTitle}</h2>
+            {/* 行の右の余白（8）が左（16）より狭い分、右の空きを 8 広げて題名を画面中央に。 */}
+            <div style={{ width: 104, flexShrink: 0 }} aria-hidden="true" />
           </>
         )}
       </div>
@@ -1002,10 +1006,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
           {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
-              <button type="button" onClick={regenerate} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: '8px 0' }}>
+              <button type="button" onClick={regenerate} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
                 別の角度で答えて
               </button>
-              <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: '8px 0' }}>
+              <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
                 新しい相談をはじめる
               </button>
             </div>
@@ -1418,13 +1422,15 @@ function scopeLabelFor(ids, books) {
 // 固定表示の高さを抑えて、会話に使える面積を残す。
 function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-1) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: '1px solid var(--separator)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: '1px solid var(--separator)' }}>
+      {/* 見た目の文字（相談相手：…）がそのまま読み上げ名になる（label-in-name）。
+          押せる範囲 44 は保ったまま、上下のはみ出し（(32-44)/2）を負の余白で打ち消す。 */}
       <button
         type="button"
         onClick={onOpen}
         disabled={disabled}
-        aria-label={`相談相手を選ぶ（いま: ${label}）`}
-        style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        aria-haspopup="dialog"
+        style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
       >
         <span style={{
           minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 32, padding: '0 var(--space-3)',
@@ -1437,7 +1443,7 @@ function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
         </span>
       </button>
       {scoped && (
-        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, flexShrink: 0 }}>
+        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', flexShrink: 0 }}>
           すべてに戻す
         </button>
       )}
