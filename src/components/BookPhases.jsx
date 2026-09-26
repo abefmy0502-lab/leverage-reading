@@ -12,23 +12,39 @@ import { toMessage } from '../lib/errors';
 import {
   BookOpen as IcBook, Ruler as IcRuler, Search as IcSearch, Map as IcMap,
   BarChart3 as IcBar, AlertTriangle as IcAlert, Lightbulb as IcBulb, Bot as IcBot,
-  Zap as IcZap, CalendarDays as IcCal, CheckCircle2 as IcCheck,
+  Zap as IcZap, CalendarDays as IcCal, CheckCircle2 as IcCheck, ImagePlus as IcImagePlus,
 } from 'lucide-react';
+import { btnPrimary, btnGhost, btnText } from '../styles/ui';
+import { MiniCover } from './BookCards';
 import { LIMITS } from '../lib/limits';
-import { ensureHttps } from '../lib/url';
 import { useBookCover } from '../hooks/useBookCover';
 import { useToast } from './Toast';
 import MarkdownSections from './MarkdownSections';
 import BookMemoList from './BookMemoList';
 import BookLearningAnalysis from './BookLearningAnalysis';
 import {
-  Field, SectionHeader, Dots, Stars, TagInput,
+  Field, SectionHeader, Dots, Stars, TagInput, Chip,
   inp, ta, btnS, btnO, aiB, phaseDesc,
 } from './formPrimitives';
 
 /* ========== Phase Screens ========== */
 
 // Phase 1: 読みたい → just register
+// 本を追加するときのフォーム（検索結果を選んだ後・手動入力の両方）。既存の「読みたい」本の編集でも使う。
+// DESIGN: 主ボタンは「保存」1 つ・説明の補足文なし・チップは 32/44・表紙は本の形（角丸 4）。
+
+// 本の状態の選択肢。定義は GLOSSARY（読みたい=気になる本 / 積読=手元にあって、これから読む本）。
+// 画面には説明文を出さず、title（長押し・ホバー）にだけ定義を持たせる。
+const ADD_STATUSES = [
+  { v: 'want', label: '読みたい', def: '気になる本' },
+  { v: 'before', label: '積読', def: '手元にあって、これから読む本' },
+  { v: 'reading', label: '読書中', def: 'いま読んでいる本' },
+  { v: 'done', label: '読了', def: '読み終えた本' },
+];
+const COVER_W = 60;
+const COVER_H = Math.round(COVER_W * 1.42); // MiniCover と同じ縦横比
+const COVER_RADIUS = 4; // DESIGN §4 の例外: 本の表紙は本の形として角丸 4
+
 export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFolders }) {
   const fileInputRef = useRef(null);
   const { uploadCover } = useBookCover();
@@ -41,6 +57,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
     if (!file) return;
     setUploading(true);
     try {
+      // uploadCover の中で validateImageFile（10MB / JPEG・PNG・WebP）を通す。
       const url = await uploadCover(file);
       if (url) setForm({ ...form, cover: url });
     } catch (err) {
@@ -50,63 +67,56 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
     }
   };
 
+  const pickCover = () => fileInputRef.current?.click();
   const clearCover = () => setForm({ ...form, cover: '' });
+  const canSave = !!form.title.trim();
 
   return (
     <div>
-      <p style={phaseDesc}><IcBook size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />読みたい本を追加しましょう</p>
-      <button onClick={onSearchOpen} style={{ ...btnO, width: "100%", padding: "14px 0", borderStyle: "dashed", fontSize: 14, marginBottom: 12 }}>
-        🔍 タイトル・ISBNで検索して追加
+      <button type="button" onClick={onSearchOpen} style={{ ...btnGhost, marginBottom: 'var(--space-6)' }}>
+        <IcSearch size={20} aria-hidden="true" />
+        タイトル・ISBNで検索して追加
       </button>
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
+
+      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', marginBottom: 'var(--space-6)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: COVER_W }}>
           {form.cover ? (
-            <img src={ensureHttps(form.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid var(--c-hairline-strong)" }} />
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              style={{
-                width: 60,
-                height: 84,
-                borderRadius: 6,
-                border: '1px dashed var(--border)',
-                background: 'var(--fill)',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontSize: 11,
-                color: 'var(--c-ink-2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                lineHeight: 1.3,
-                padding: 4,
-                textAlign: 'center',
-              }}
-              aria-label="表紙写真をアップロード"
-            >
-              {uploading ? '…' : '📷\n表紙'}
-            </button>
-          )}
-          {form.cover && (
-            <div style={{ display: 'flex', gap: 4 }}>
+            <>
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={pickCover}
                 disabled={uploading}
-                style={{ background: 'none', border: 'none', fontSize: 10, color: 'var(--color-accent)', cursor: 'pointer', padding: 2, fontFamily: 'inherit' }}
+                aria-label="表紙写真を変更"
+                style={{ display: 'block', padding: 0, border: 'none', background: 'none', borderRadius: COVER_RADIUS, cursor: 'pointer', opacity: uploading ? 0.5 : 1 }}
               >
-                変更
+                <MiniCover book={{ id: form.id || 'new', title: form.title, cover: form.cover }} width={COVER_W} radius={COVER_RADIUS} />
               </button>
               <button
                 type="button"
                 onClick={clearCover}
-                style={{ background: 'none', border: 'none', fontSize: 10, color: 'var(--c-critical)', cursor: 'pointer', padding: 2, fontFamily: 'inherit' }}
+                disabled={uploading}
+                aria-label="表紙写真を削除"
+                style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--error)' }}
               >
                 削除
               </button>
-            </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={pickCover}
+              disabled={uploading}
+              aria-label="表紙写真をアップロード"
+              aria-busy={uploading || undefined}
+              style={{
+                width: COVER_W, height: COVER_H, borderRadius: COVER_RADIUS,
+                border: '1px solid var(--border)', background: 'var(--fill)', color: 'var(--text-2)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)',
+                padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-caption)', fontWeight: 600,
+              }}
+            >
+              {uploading ? '…' : (<><IcImagePlus size={20} aria-hidden="true" />表紙</>)}
+            </button>
           )}
           <input
             ref={fileInputRef}
@@ -120,35 +130,35 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
             style={{ display: 'none' }}
           />
         </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="タイトル *" style={inp} maxLength={LIMITS.bookTitle} />
-          <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" style={inp} maxLength={LIMITS.bookAuthor} />
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="タイトル *" aria-label="タイトル（必須）" style={inp} maxLength={LIMITS.bookTitle} />
+          <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" aria-label="著者" style={inp} maxLength={LIMITS.bookAuthor} />
         </div>
       </div>
+
       <Field label="タグ">
         <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
       </Field>
-      <Field label="フォルダ" sub="本棚をグループ分け（任意・複数可）">
-        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} />
+      <Field label="フォルダ">
+        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
       </Field>
 
       {/* 📖 既読クイック追加: 「もう読んだ／読んでいる」本は、読みたい→読書前→
           読書中 の遷移や投資目的ゲートを経ずに、ここで状態を選んで直接
           読書中/読了で保存 → 保存後すぐ本詳細のメモ欄が開く（メモだけ残したい
-          人の入口摩擦を無くす）。 */}
-      <Field label="この本の状態" sub="積読＝手元にあって、これから読む本。「読了」を選ぶと保存後すぐメモを書けます">
-        <div style={{ display: 'flex', gap: 6 }}>
-          {[
-            { v: 'want', label: '読みたい' },
-            { v: 'before', label: '積読' },
-            { v: 'reading', label: '読書中' },
-            { v: 'done', label: '読了' },
-          ].map((s) => {
+          人の入口摩擦を無くす）。保存ボタンの文言（保存してメモを書く）がそれを伝える。 */}
+      <Field label="この本の状態">
+        <div role="radiogroup" style={{ display: 'flex', columnGap: 'var(--space-2)' }}>
+          {ADD_STATUSES.map((s) => {
             const active = (form.status || 'want') === s.v;
             return (
-              <button
+              <Chip
                 key={s.v}
-                type="button"
+                stretch
+                active={active}
+                role="radio"
+                aria-checked={active}
+                title={s.def}
                 onClick={() => {
                   const today = new Date().toISOString().slice(0, 10);
                   setForm((f) => ({
@@ -158,22 +168,15 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
                     doneDate: s.v === 'done' && !f.doneDate ? today : f.doneDate,
                   }));
                 }}
-                style={{
-                  flex: 1, minHeight: 44, padding: '8px 6px', borderRadius: 10,
-                  border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
-                  background: active ? 'var(--accent-soft)' : 'var(--surface)',
-                  color: active ? 'var(--c-ink)' : 'var(--c-brand)',
-                  fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit',
-                }}
               >
                 {s.label}
-              </button>
+              </Chip>
             );
           })}
         </div>
       </Field>
 
-      <button onClick={onSave} disabled={!form.title.trim()} style={{ ...btnS, width: "100%", marginTop: 8, opacity: form.title.trim() ? 1 : 0.5 }}>
+      <button type="button" onClick={onSave} disabled={!canSave} style={{ ...btnPrimary, marginTop: 'var(--space-2)', opacity: canSave ? 1 : 0.5, cursor: canSave ? 'pointer' : 'default' }}>
         {(form.status === 'reading' || form.status === 'done') ? '保存してメモを書く' : '保存'}
       </button>
     </div>
@@ -492,8 +495,8 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAn
       <Field label="タグ">
         <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
       </Field>
-      <Field label="フォルダ" sub="本棚をグループ分け（任意・複数可）">
-        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} />
+      <Field label="フォルダ">
+        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
       </Field>
 
       {/* 📊 読書中でも：メモ→目的照合→学び/視点→行動提案（AI がタスク作成を支援） */}
@@ -615,8 +618,8 @@ export function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, a
       <Field label="タグ">
         <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />
       </Field>
-      <Field label="フォルダ" sub="本棚をグループ分け（任意・複数可）">
-        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} />
+      <Field label="フォルダ">
+        <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
       </Field>
 
       <button onClick={onSave} style={{ ...btnS, width: "100%", marginTop: 8 }}>保存</button>

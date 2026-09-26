@@ -152,7 +152,10 @@ function ResultsSkeleton() {
   );
 }
 
-export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose }) {
+// 押せない主ボタン。薄くすると「あと N 冊」が読めなくなるので、面と文字の色で押せないことを示す。
+const btnPrimaryOff = { ...btnPrimary, background: 'var(--fill)', color: 'var(--text-2)', cursor: 'default' };
+
+export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose, onWriteMemo }) {
   const { user } = useAuth();
   const toast = useToast();
   const trapRef = useFocusTrap(true);
@@ -262,8 +265,12 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
           <ChevronLeft size={28} aria-hidden="true" />
         </button>
       ) : <span style={{ width: 44 }} aria-hidden="true" />}
-      <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
-        {stepLabel}
+      {/* 題名で「相談相手をつくっている」ことを 3 ステップの間ずっと見せる（補足文ではなく題名で伝える）。 */}
+      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.3 }}>
+        <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談相手をつくる</span>
+        {stepLabel && (
+          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{stepLabel}</span>
+        )}
       </span>
       <button type="button" aria-label="閉じる" onClick={onClose} disabled={step === 'saving'}
         style={{ ...iconBtn, opacity: step === 'saving' ? 0.4 : 1 }}>
@@ -316,7 +323,11 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                 <ErrorMessage
                   title="検索できませんでした"
                   description="通信状況を確かめて、もう一度お試しください。"
-                  actions={[{ label: 'もう一度', onClick: () => runSearch(searched) }]}
+                  actions={[
+                    { label: 'もう一度', onClick: () => runSearch(searched) },
+                    // 検索が落ちていても先へ進めるように（書名だけでも相談相手にできる）。
+                    ...(searched ? [{ label: titlePicked ? '追加しました' : '書名だけで追加', variant: 'ghost', onClick: () => toggle(titleOnlyBook) }] : []),
+                  ]}
                 />
               )}
 
@@ -365,7 +376,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
 
           <div style={footer}>
             {picked.length > 0 && (
-              <div style={{ display: 'flex', columnGap: 'var(--space-2)', overflowX: 'auto', margin: '0 calc(-1 * var(--space-4)) var(--space-1)', padding: '0 var(--space-4)', scrollbarWidth: 'none' }}>
+              <div style={{ display: 'flex', columnGap: 'var(--space-2)', overflowX: 'auto', margin: '0 calc(-1 * var(--space-4)) var(--space-2)', padding: '0 var(--space-4)', scrollbarWidth: 'none' }}>
                 {picked.map((p) => (
                   <button key={bookKey(p.book)} type="button" onClick={() => toggle(p.book)} aria-label={`『${p.book.title}』を外す`} style={chipHit}>
                     <span style={chipFace}>
@@ -376,7 +387,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                 ))}
               </div>
             )}
-            <button type="button" style={{ ...btnPrimary, opacity: picked.length >= MIN_BOOKS ? 1 : 0.4 }}
+            <button type="button" style={picked.length >= MIN_BOOKS ? btnPrimary : btnPrimaryOff}
               disabled={picked.length < MIN_BOOKS}
               onClick={() => { setIdx(0); setStep('memo'); }}>
               {picked.length >= MIN_BOOKS ? `次へ（${picked.length} 冊）` : `あと ${MIN_BOOKS - picked.length} 冊`}
@@ -425,8 +436,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
               }}
             />
           </div>
-          <div style={{ ...footer, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-            <button type="button" style={{ ...btnPrimary, opacity: current.memo.trim() ? 1 : 0.4 }}
+          <div style={{ ...footer, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <button type="button" style={current.memo.trim() ? btnPrimary : btnPrimaryOff}
               disabled={!current.memo.trim()} onClick={nextMemo}>
               {idx < picked.length - 1 ? '次の本へ' : '相談相手をつくる'}
             </button>
@@ -470,12 +481,12 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             {summary.memos > 0 ? (
               <>
                 <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>あなたの相談相手が<br />できました</h1>
-                <p style={sub}>あなたの{summary.books.length}冊・メモ{summary.memos}件から答えます</p>
+                <p style={sub}>あなたの {summary.books.length} 冊・メモ {summary.memos} 件から答えます</p>
               </>
             ) : (
               <>
                 {/* メモが無いと相談の根拠が無いので「相談相手ができた」とは言わない（正直に）。 */}
-                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{summary.books.length}冊を本棚に入れました</h1>
+                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{summary.books.length} 冊を本棚に入れました</h1>
                 <p style={sub}>本を開いてメモを 1 件書くと、相談できます</p>
               </>
             )}
@@ -498,8 +509,19 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             )}
           </div>
           <div style={footer}>
-            {/* 相談例がある時はそちらが主役なので、閉じるは副ボタン。無い時はこれが唯一の行き先。 */}
-            <button type="button" style={summary.memos > 0 ? btnGhost : btnPrimary} onClick={onClose}>完了</button>
+            {/* 相談例がある時はそちらが主役なので、完了は副ボタン。
+                メモが 0 件なら行き止まりにせず「メモを書く」（1 冊目を開いてメモのシート）を主役に。 */}
+            {summary.memos > 0 ? (
+              <button type="button" style={btnGhost} onClick={onClose}>完了</button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                <button type="button" style={btnPrimary}
+                  onClick={() => (onWriteMemo && summary.books[0]?.id ? onWriteMemo(summary.books[0].id) : onClose())}>
+                  メモを書く
+                </button>
+                <button type="button" style={{ ...btnText, width: '100%' }} onClick={onClose}>あとで</button>
+              </div>
+            )}
           </div>
         </>
       )}

@@ -381,17 +381,20 @@ export function BookResultSkeleton({ rows = 3 }) {
 export function BookSearchStatus({ search, onRetry, onManual, onPick, getExisting }) {
   const { status, results, error } = search;
   return (
-    <div aria-live="polite" aria-busy={status === 'searching'}>
+    // 何も無いとき（idle）は読み上げ用の領域だけ残し、並びの隙間（gap）に数えられないようにする。
+    <div
+      aria-live="polite"
+      aria-busy={status === 'searching'}
+      style={status === 'idle' ? { position: 'absolute', width: 1, height: 1, overflow: 'hidden' } : undefined}
+    >
       {status === 'searching' && <BookResultSkeleton />}
 
       {status === 'error' && (
         <ErrorMessage
           title="検索できませんでした"
           description={error}
-          actions={[
-            { label: 'もう一度試す', onClick: onRetry, variant: 'secondary' },
-            ...(onManual ? [{ label: '手動で入力する', onClick: onManual, variant: 'ghost' }] : []),
-          ]}
+          // やり直しは上の「検索」、手動入力は下の「手動で入力する」で 1 か所ずつ（同じ操作を 2 か所に出さない）。
+          actions={onManual ? [] : [{ label: 'もう一度試す', onClick: onRetry, variant: 'secondary' }]}
         />
       )}
 
@@ -400,7 +403,7 @@ export function BookSearchStatus({ search, onRetry, onManual, onPick, getExistin
           icon={<SearchX size={28} aria-hidden="true" />}
           title="見つかりませんでした"
           description="書名を短くするか、ISBN で探してください"
-          actions={onManual ? [{ label: '手動で入力する', onClick: onManual, variant: 'secondary' }] : []}
+          actions={[]}
         />
       )}
 
@@ -437,7 +440,7 @@ export default function BookSearchModal({ onSelect, onClose, initialQuery = '', 
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', padding: 0, minWidth: 44, minHeight: 44, cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', color: 'var(--text-2)' }}
+            style={{ background: 'none', border: 'none', padding: 0, minWidth: 44, minHeight: 44, cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', color: 'var(--accent)' }}
           >
             キャンセル
           </button>

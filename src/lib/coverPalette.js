@@ -2,14 +2,8 @@
 // から常に同じ色のグラデーションを割り当てる（同じ本は毎回同じ色＝視認の安定）。
 // 純粋関数のため App.jsx から切り出して単一責務化。
 
-const PLACEHOLDER_PALETTE = [
-  ['var(--color-accent)', '#5d4a28'], // brown
-  ['#7a5080', '#5a3a60'], // plum
-  ['#4a6e8a', '#2c4d68'], // slate blue
-  ['#5a7a48', '#3a5a30'], // moss
-  ['var(--c-critical)', '#703528'], // brick
-  ['#9b7b5c', '#6a5340'], // sand
-];
+// 色は tokens.css の --cover-* に置く（明暗で変えない・白い書名が読める暗さ）。
+const PLACEHOLDER_PALETTE = [1, 2, 3, 4, 5, 6].map((n) => [`var(--cover-${n}a)`, `var(--cover-${n}b)`]);
 
 // タイトルから決定論的に [from, to] のグラデ色ペアを返す。
 export function paletteFor(title) {

@@ -128,12 +128,13 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
           position: 'absolute', inset: 0,
           background: `linear-gradient(135deg, ${from}, ${to})`,
           color: 'var(--on-cover)', fontSize: 'var(--text-caption)', fontWeight: 600,
-          padding: '4px', lineHeight: 1.3, overflow: 'hidden',
-          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
-          wordBreak: 'break-word',
+          padding: 'var(--space-1)', lineHeight: 1.3, overflow: 'hidden',
         }}
       >
-        {book.title}
+        {/* 行の切り詰めは内側の文字にかける（箱全体にかけると、下の行が半分だけ見えてしまう）。 */}
+        <span style={{ display: '-webkit-box', WebkitLineClamp: Math.max(1, Math.floor((height - 8) / 16)), WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
+          {book.title}
+        </span>
       </div>
       {show && (
         <img

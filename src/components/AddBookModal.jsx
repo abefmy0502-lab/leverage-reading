@@ -306,7 +306,7 @@ function BarcodeScanner({ onDetect, onClose, onTypeIsbn }) {
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {scanError ? (
-          <div style={{ width: '100%', maxWidth: 360, padding: 'var(--space-6) var(--space-4)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div style={{ width: '100%', padding: 'var(--space-6) var(--space-4)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center' }}><Camera size={32} /></div>
             <p role="alert" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-body)', lineHeight: 1.5 }}>{scanError}</p>
             {/* 行き止まり防止: 案内している「ISBN を入力」を、そのまま押せる主ボタンにする。 */}
@@ -316,13 +316,6 @@ function BarcodeScanner({ onDetect, onClose, onTypeIsbn }) {
               style={btnPrimary}
             >
               ISBN を入力する
-            </button>
-            <button
-              type="button"
-              onClick={handleClose}
-              style={{ ...btnGhost, color: 'var(--on-cover)', borderColor: onCoverAlpha(60) }}
-            >
-              閉じる
             </button>
           </div>
         ) : (
@@ -426,7 +419,8 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
     onSelect?.(book);
   };
 
-  const showManualLink = search.status === 'idle' || search.status === 'searching' || search.status === 'results';
+  // 手動入力の入口は、どの状態でも下の文字ボタン 1 か所だけ。
+  const showManualLink = true;
 
   return (
     <div ref={trapRef} style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="add-book-title">
@@ -454,7 +448,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             fontFamily: 'inherit',
             fontSize: 'var(--text-body)',
             lineHeight: 1.3,
-            color: 'var(--text-2)',
+            color: 'var(--accent)',
           }}
         >
           キャンセル

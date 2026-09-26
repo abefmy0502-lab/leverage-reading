@@ -191,8 +191,9 @@ import { useBookMemos } from './hooks/useBookMemos';
 
 /* ========== Primitives ========== */
 
-function Modal({ open, onClose, children }) {
+function Modal({ open, onClose, children, ariaLabel }) {
   if (!open) return null;
+  // 本の編集画面から開く検索。iPhone では下からのシート（本の追加と同じ・キーボードで結果が隠れにくい）。
   return (
     <div
       className="modal-backdrop"
@@ -203,8 +204,9 @@ function Modal({ open, onClose, children }) {
         zIndex: 200,
         background: "var(--backdrop)",
         backdropFilter: "var(--backdrop-blur)",
+        WebkitBackdropFilter: "var(--backdrop-blur)",
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-end",
         justifyContent: "center",
       }}
     >
@@ -212,15 +214,16 @@ function Modal({ open, onClose, children }) {
         className="modal"
         role="dialog"
         aria-modal="true"
+        aria-label={ariaLabel}
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--color-surface)",
-          borderRadius: "var(--radius-lg)",
-          padding: "var(--space-5) var(--space-5)",
-          width: "min(420px,92vw)",
-          maxHeight: "88vh",
+          background: "var(--surface)",
+          borderRadius: "var(--radius) var(--radius) 0 0",
+          padding: "var(--space-4) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom, 0px))",
+          width: "min(520px, 100%)",
+          maxHeight: "92dvh",
           overflowY: "auto",
-          boxShadow: "var(--shadow-4)",
+          boxShadow: "var(--shadow-overlay)",
         }}
       >
         {children}
@@ -504,6 +507,8 @@ function AuthedApp() {
   const [homeMemoBook, setHomeMemoBook] = useState(null);
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
   const [showQuickstart, setShowQuickstart] = useState(false);
+  // クイックスタートをメモ 0 件で終えたとき「メモを書く」→ 本が読み込まれたらその本を開いてメモのシートを出す。
+  const [pendingMemoBookId, setPendingMemoBookId] = useState(null);
 
   // 下部ナビでタブを切り替えるときの共通処理。同一セッション内で前回見ていた
   // サブタブが状態に残っていても、入口を「振り返り＝ノート / 相談＝マイ読書脳」に
@@ -1215,6 +1220,16 @@ function AuthedApp() {
   // 本棚カードに渡る安定参照 (memo 化したカードの再 render 抑止用)。
   // setCurrent / setEditPhaseOverride / setView は安定なので deps は空でよい。
   const openDetail = useCallback((b) => { setCurrent(b); setEditPhaseOverride(null); setView("detail"); }, []);
+
+  useEffect(() => {
+    if (!pendingMemoBookId) return;
+    const b = books.find((x) => x.id === pendingMemoBookId);
+    if (!b) return;
+    setPendingMemoBookId(null);
+    setTab('books');
+    openDetail(b);
+    setQuickMemoOpen(true);
+  }, [pendingMemoBookId, books, openDetail]);
 
   // 想起ディープリンクの解決: books 読込が済んだら、対象メモの本を直接開く
   // （HomeRecall カードと同じ着地）。本が特定できない時のみ 💭ノートへ退避。
@@ -2739,6 +2754,11 @@ function AuthedApp() {
           setTab('ai');
         }}
         onClose={() => { setShowQuickstart(false); refreshBooks(); }}
+        onWriteMemo={(bookId) => {
+          setShowQuickstart(false);
+          setPendingMemoBookId(bookId);
+          refreshBooks();
+        }}
       />
     </Suspense>
   ) : null;
@@ -3371,9 +3391,9 @@ function AuthedApp() {
               : "読了の振り返り";
             return (
               <>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', margin: 'var(--space-3) 0 var(--space-4)' }}>
                   <StatusBadge status={form.status} />
-                  <h2 style={{ fontSize: 17, fontWeight: 500, color: "var(--c-ink)" }}>{phaseLabel}</h2>
+                  <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: "var(--text)", margin: 0, lineHeight: 1.3 }}>{phaseLabel}</h2>
                   {editPhaseOverride && editPhaseOverride !== form.status && (
                     <span style={{ fontSize: 11, color: 'var(--color-tertiary)' }}>
                       （読書計画を仕切り直し中）
@@ -3412,7 +3432,7 @@ function AuthedApp() {
           })()}
         </div>
 
-        <Modal open={searchOpen} onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}>
+        <Modal open={searchOpen} ariaLabel="本を検索" onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}>
           <BookSearchModal
             onSelect={handleBookSelect}
             onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}
