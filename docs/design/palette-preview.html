@@ -1,0 +1,29 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
+body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;display:flex;gap:0}
+.col{width:390px;padding:16px;box-sizing:border-box}
+.light{--bg:#f7f5f1;--sf:#fffefb;--fill:#efece6;--t1:#2b2825;--t2:#5f5a53;--t3:#716b63;--sep:#dcd7ce;--bd:#868076;--ok:#3f7042;--warn:#8a5d00;--err:#b0392b;--sh:0 1px 3px rgba(40,30,20,.08),0 1px 1px rgba(40,30,20,.04)}
+.dark{--bg:#1b1a18;--sf:#252321;--fill:#2f2c29;--t1:#f2efea;--t2:#bdb7ae;--t3:#9e978d;--sep:#3a3632;--bd:#76706a;--ok:#8cc08a;--warn:#e2b45c;--err:#f0877a;--sh:none}
+.a1.light{--ac:#5c5043;--acink:#fffefb}.a1.dark{--ac:#d8c8b0;--acink:#1b1a18}
+.a2.light{--ac:#8a4b2a;--acink:#fffefb}.a2.dark{--ac:#e0a07a;--acink:#1b1a18}
+.col{background:var(--bg);color:var(--t1)}
+h3{font-size:13px;font-weight:600;color:var(--t2);margin:0 0 8px}
+.card{background:var(--sf);border:1px solid var(--sep);border-radius:12px;padding:16px;margin-bottom:24px;box-shadow:var(--sh)}
+.title{font-size:22px;font-weight:700;margin:0 0 4px}.sub{font-size:15px;color:var(--t2);margin:0 0 16px}
+.read{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;font-size:17px;line-height:1.6;margin:0 0 8px}
+.meta{font-size:13px;color:var(--t3)}
+.btn{display:flex;align-items:center;justify-content:center;height:48px;border-radius:12px;font-size:17px;font-weight:600;margin-top:12px}
+.p{background:var(--ac);color:var(--acink)}.s{border:1px solid var(--bd);color:var(--ac)}.link{color:var(--ac);font-size:15px;font-weight:600;margin-top:12px}
+.chips span{display:inline-block;padding:6px 12px;border-radius:12px;background:var(--fill);font-size:13px;color:var(--t2);margin:0 8px 8px 0}
+.state{display:flex;gap:8px;font-size:13px;font-weight:600}.state span{padding:4px 8px;border-radius:12px;background:var(--fill)}
+.label{font-size:12px;font-weight:600;color:var(--t3);letter-spacing:.04em;margin-bottom:8px}
+</style></head><body>
+<script>
+const cols=[['a1 light','A 今の茶（明）'],['a2 light','B 栗色（明）'],['a1 dark','A 今の茶（暗）'],['a2 dark','B 栗色（暗）']];
+for(const [c,l] of cols){document.write(`<div class="col ${c}"><div class="label">${l}</div>
+<div class="card"><p class="title">困ったときは、相談する</p><p class="sub">あなたが読んだ 10冊・メモ 30件 から答えます</p>
+<div class="btn p">相談する</div><div class="btn s">これまで読んだ本から始める</div><div class="link">すべての本を見る ›</div></div>
+<div class="card"><p class="read">「全部やる」はできない。やらないことを決めることが、いちばん大事な仕事。</p><p class="meta">『エッセンシャル思考』 P.18 ・ 5ヶ月前</p>
+<div class="chips" style="margin-top:12px"><span>#仕事術</span><span>#時間</span></div></div>
+<div class="state"><span style="color:var(--ok)">完了</span><span style="color:var(--warn)">期限が近い</span><span style="color:var(--err)">保存できませんでした</span></div>
+</div>`)}
+</script></body></html>
