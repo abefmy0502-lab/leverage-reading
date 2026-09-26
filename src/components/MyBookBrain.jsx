@@ -22,7 +22,7 @@ import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
-import { MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square } from 'lucide-react';
+import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import KnowledgeJourney from './KnowledgeJourney';
 import BottomSheet from './BottomSheet';
@@ -50,11 +50,11 @@ const subLabel = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--
 // 根拠の本文（参照したメモ・解釈）も答えの一部＝読む文章（明朝 18・行間 1.6・DESIGN §2/§7）。
 const subText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6 };
 const refBtn = { width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, padding: 'var(--space-2) 0', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--accent)', lineHeight: 1.5 };
-const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '12px 14px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: 'var(--surface)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
-const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
-const btnPrimary = { ...uiBtnPrimary, width: 'auto', padding: '12px 20px', fontSize: 14 };
-const btnGhost = { ...uiBtnGhost, width: 'auto', padding: '8px 12px', borderRadius: 8, fontSize: 12 };
+const inp = { width: '100%', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'max(16px, var(--text-body))', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit', boxSizing: 'border-box' };
+// 学びの本文＝読む文章（明朝 18・行間 1.6）。
+const ta = { ...inp, resize: 'none', minHeight: 160, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6 };
+// 行の中の副ボタン（DESIGN §5 btnRow）。
+const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', flexShrink: 0 };
 
 const QUESTION_EXAMPLES = [
   '営業で結果を出すには？',
@@ -156,7 +156,7 @@ function LearningInline({ onCancel, onSaved }) {
         },
       ]);
       if (error) throw error;
-      toast.success('💡 学びを記録しました。');
+      toast.success('学びを記録しました。');
       onSaved?.();
     } catch (e) {
       toast.error(toMessage(e, '保存に失敗しました。'));
@@ -165,58 +165,20 @@ function LearningInline({ onCancel, onSaved }) {
     }
   };
 
+  // 上の「‹ 相談」と題名「学びを書く」は親の上部の行が出す（ここでは戻るを重ねない）。
+  const label = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', display: 'block', margin: '0 0 var(--space-2)' };
+  const chip = (on) => ({
+    minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+    background: on ? 'var(--accent-soft)' : 'var(--fill)', color: on ? 'var(--accent)' : 'var(--text)',
+    fontSize: 'var(--text-sub)', fontWeight: on ? 600 : 400,
+  });
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--color-secondary)', fontSize: 14,
-            fontFamily: 'inherit', padding: 0, minHeight: 32,
-          }}
-          aria-label="戻る"
-        >
-          <ArrowLeft size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 3 }} />戻る
-        </button>
-        <p style={{ fontSize: 14, color: 'var(--color-label)', fontWeight: 600, margin: 0 }}>💡 学びを追加</p>
-      </div>
-
-      <p style={{ fontSize: 11, color: 'var(--color-tertiary)', margin: 0, lineHeight: 1.7 }}>
-        本以外の気づきも追加。会話・経験・観察など、日常の学びを記録すると、相談の答えがよりあなたらしくなります。
-      </p>
-
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       <div>
-        <label style={{ fontSize: 12, color: 'var(--c-ink-soft)', fontWeight: 500, display: 'block', marginBottom: 4 }}>カテゴリ</label>
-        <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '0 0 6px' }}>気づきが生まれた場所を選んでください</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCategory(c)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 999,
-                fontSize: 12,
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-                border: category === c ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
-                background: category === c ? 'var(--c-soft-2)' : 'transparent',
-                color: category === c ? 'var(--c-ink)' : 'var(--c-ink-2)',
-                fontWeight: category === c ? 600 : 400,
-              }}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label style={{ fontSize: 12, color: 'var(--c-ink-soft)', fontWeight: 500, display: 'block', marginBottom: 4 }}>学んだ内容</label>
+        <label htmlFor="learning-text" style={label}>学んだこと</label>
         <textarea
+          id="learning-text"
+          data-font-lg=""
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -229,18 +191,33 @@ function LearningInline({ onCancel, onSaved }) {
       </div>
 
       <div>
-        <label style={{ fontSize: 12, color: 'var(--c-ink-soft)', fontWeight: 500, display: 'block', marginBottom: 4 }}>タグ（任意）</label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-          {tags.map((t, i) => (
-            <span key={`${t}-${i}`} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-              {t}
-              {/* 共通 TagInput と同じ a11y/タップ仕様（aria-label + 28px 実効領域を負マージンで確保） */}
-              <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--c-ink-2)', cursor: 'pointer', padding: 0, minWidth: 28, minHeight: 28, margin: '-8px -6px -8px -2px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-            </span>
+        <span style={label}>どこで生まれた気づきか</span>
+        <div role="radiogroup" aria-label="どこで生まれた気づきか" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+          {CATEGORIES.map((c) => (
+            <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} style={chip(category === c)}>
+              {c}
+            </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+      </div>
+
+      <div>
+        <label htmlFor="learning-tag" style={label}>タグ（任意）</label>
+        {tags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+            {tags.map((t, i) => (
+              <span key={`${t}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 32, padding: '0 0 0 var(--space-3)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-sub)' }}>
+                {t}
+                <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`} style={{ width: 44, height: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}>
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <input
+            id="learning-tag"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={(e) => {
@@ -257,11 +234,11 @@ function LearningInline({ onCancel, onSaved }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-        <button type="button" onClick={onCancel} style={{ ...btnGhost, flex: 1, minHeight: 44 }}>
+      <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+        <button type="button" onClick={onCancel} style={{ ...uiBtnText, flex: 1, justifyContent: 'center', color: 'var(--text-2)', fontWeight: 400 }}>
           キャンセル
         </button>
-        <button type="button" onClick={save} disabled={busy} style={{ ...btnPrimary, flex: 1, minHeight: 44, opacity: busy ? 0.6 : 1 }}>
+        <button type="button" onClick={save} disabled={busy} style={{ ...uiBtnPrimary, flex: 2, width: 'auto', opacity: busy ? 0.6 : 1 }}>
           {busy ? '保存中…' : '保存'}
         </button>
       </div>
