@@ -8,14 +8,13 @@ import { MoreVertical, Image, Target } from 'lucide-react';
 
 const cardWrap = {
   position: 'relative',
-  background: 'var(--c-card)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 'var(--radius-md)',
-  padding: '14px 16px',
+  background: 'var(--surface)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  padding: 'var(--space-4)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 8,
-  boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
+  gap: 'var(--space-2)',
   // 大量メモ時、画面外カードのレイアウト/ペイントをスキップ（未対応環境は無視）。
   contentVisibility: 'auto',
   containIntrinsicSize: 'auto 140px',
@@ -25,19 +24,19 @@ const cardWrap = {
 // 控えめなインラインラベルに落とし、本文を主役に保つ。
 const pageBadge = {
   alignSelf: 'flex-start',
-  fontSize: 'var(--type-meta)',
+  fontSize: 'var(--text-meta)',
   padding: 0,
   background: 'none',
-  color: 'var(--c-ink-3)',
-  fontWeight: 500,
+  color: 'var(--text-3)',
+  fontWeight: 400,
 };
 
 const tagPill = {
-  fontSize: 10,
+  fontSize: 'var(--text-caption)',
   padding: '2px 8px',
-  borderRadius: 10,
-  background: 'var(--c-soft)',
-  color: 'var(--c-ink-2)',
+  borderRadius: 'var(--radius)',
+  background: 'var(--fill)',
+  color: 'var(--text-2)',
   maxWidth: '100%',
   overflowWrap: 'anywhere',
   wordBreak: 'break-word',
@@ -51,8 +50,8 @@ const kebabBtn = {
   height: 44,
   background: 'none',
   border: 'none',
-  fontSize: 18,
-  color: 'var(--c-ink-2)',
+  fontSize: 'var(--text-body)',
+  color: 'var(--text-2)',
   cursor: 'pointer',
   padding: 0,
   lineHeight: 1,
@@ -65,9 +64,9 @@ const kebabBtn = {
 const menuStyle = {
   position: 'fixed',
   background: 'var(--surface)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 8,
-  boxShadow: '0 4px 14px rgba(30,25,20,0.12)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  boxShadow: 'var(--shadow-overlay)',
   zIndex: 300,
   display: 'flex',
   flexDirection: 'column',
@@ -80,11 +79,11 @@ const menuItem = {
   border: 'none',
   padding: '12px 16px',
   minHeight: 44,
-  fontSize: 13,
+  fontSize: 'var(--text-body)',
   textAlign: 'left',
   fontFamily: 'inherit',
   cursor: 'pointer',
-  color: 'var(--c-ink)',
+  color: 'var(--text)',
   WebkitTapHighlightColor: 'transparent',
 };
 
@@ -163,7 +162,9 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
   const swipeEnabled = Boolean(onSwipeDelete);
 
   // 本文が長い場合は行間広めの .long-text を当てて読みやすく（短い断片は据え置き）
-  const isLongBody = (memo.text || '').length > 120;
+  // 18px・1 行約 20 字なので、約 4 行を超える（80 字超 or 改行 4 つ以上）メモを畳む。
+  const isLongBody = (memo.text || '').length > 80 || (memo.text || '').split('\n').length > 4;
+  const [expanded, setExpanded] = useState(false);
 
   // スクリーンリーダー向けのカード要約（事実ベース・1メモ＝1記事として読める）
   const cardAria = (() => {
@@ -319,23 +320,36 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
       )}
 
       {memo.text && (
-        <p
-          style={{
-            fontSize: 13,
-            color: 'var(--c-ink)',
-            // 長文ほど行間をわずかに広げて可読性を上げる（短文は詰めすぎない）
-            lineHeight: isLongBody ? 1.85 : 1.7,
-            whiteSpace: 'pre-wrap',
-            margin: 0,
-            maxHeight: 400,
-            overflowY: 'auto',
-            paddingRight: 8,
-            // 長い URL や英単語でカードが横に膨らむのを防ぐ
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {memo.text}
-        </p>
+        <>
+          {/* メモ本文は「読む文章」（DESIGN §2: 明朝 18・行間 1.6）。長文は 4 行で畳み、
+              「続きを読む」で全文（カード内の入れ子スクロールはやめた・SPEC §2）。 */}
+          <p
+            style={{
+              fontFamily: 'var(--font-read)',
+              fontSize: 'var(--text-read)',
+              color: 'var(--text)',
+              lineHeight: 1.6,
+              whiteSpace: 'pre-wrap',
+              margin: 0,
+              paddingRight: 32, // 右上の ⋮ と重ならない
+              overflowWrap: 'anywhere',
+              ...(isLongBody && !expanded
+                ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+                : {}),
+            }}
+          >
+            {memo.text}
+          </p>
+          {isLongBody && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+              style={{ alignSelf: 'flex-start', minHeight: 44, padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontFamily: 'inherit', cursor: 'pointer' }}
+            >
+              {expanded ? '閉じる' : '続きを読む'}
+            </button>
+          )}
+        </>
       )}
 
       {memo.tags?.length > 0 && (
@@ -350,7 +364,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
       )}
 
       <p
-        style={{ fontSize: 10, color: 'var(--c-ink-3)', margin: 0 }}
+        style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}
         aria-label={`作成日 ${formatDate(memo.createdAt)}`}
       >
         {formatDate(memo.createdAt)}

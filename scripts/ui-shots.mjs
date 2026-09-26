@@ -35,6 +35,8 @@ const SCREENS = [
   { name: 'onboarding', url: '/?demo=new' },
   { name: 'quickstart', url: '/?demo=new', steps: [{ role: '次へ' }, { role: '次へ' }, { role: '次へ' }, { role: 'これまで読んだ本から始める' }] },
   { name: 'book-detail', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }] },
+  { name: 'book-detail-memos', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollTo: 'h2:has-text("メモ")' }] },
+  { name: 'book-memo-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }] },
   { name: 'consult', url: '/', steps: [{ css: nav('相談') }] },
   {
     name: 'consult-answer', url: '/',
@@ -62,6 +64,7 @@ async function run(step, page) {
   if (step.wait) return page.waitForTimeout(step.wait);
   if (step.role) await page.getByRole('button', { name: step.role }).first().click();
   if (step.css) await page.locator(step.css).first().click();
+  if (step.scrollTo) await page.locator(step.scrollTo).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
   if (step.fill) await page.locator(step.fill[0]).first().fill(step.fill[1]);
   await page.waitForTimeout(900);
 }
@@ -76,11 +79,12 @@ mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch(browserOptions());
 let failed = 0;
 for (const scheme of ['light', 'dark']) {
-  const ctx = await browser.newContext({
-    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
-    locale: 'ja-JP', colorScheme: scheme,
-  });
   for (const s of targets) {
+    // 画面ごとに新しいコンテキスト（前の画面の localStorage＝開いていたタブ等を持ち越さない）。
+    const ctx = await browser.newContext({
+      viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+      locale: 'ja-JP', colorScheme: scheme,
+    });
     const page = await ctx.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
@@ -95,10 +99,9 @@ for (const scheme of ['light', 'dark']) {
       failed += 1;
       console.error(`✗ ${s.name} (${scheme}): ${e.message.split('\n')[0]}`);
     } finally {
-      await page.close();
+      await ctx.close();
     }
   }
-  await ctx.close();
 }
 await browser.close();
 if (failed) process.exit(1);

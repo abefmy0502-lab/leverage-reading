@@ -12,109 +12,33 @@ import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import ShareCardModal from './ShareCardModal';
-import { StickyNote, FileText, BookOpen, Clock, Quote, Plus, Pencil, Copy, Image, Trash2, Sparkles, Target } from 'lucide-react';
+import { BookOpen, Clock, Quote, Pencil, Copy, Image, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
+import { btnGhost } from '../styles/ui';
 
-const MODE_KEY = 'leverageMemoMode';
-
-const modeTab = (active) => ({
-  flex: 1,
-  minHeight: 44,
-  padding: '10px 0',
-  border: 'none',
-  background: active ? 'var(--c-brand)' : 'transparent',
-  color: active ? 'var(--c-card)' : 'var(--c-ink-soft)',
-  fontSize: 13,
-  fontWeight: active ? 600 : 500,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  borderRadius: 8,
-  transition: 'background .15s, color .15s',
-});
-
-const sortTab = (active) => ({
-  flex: 1,
-  padding: '8px 0',
-  minHeight: 44,
-  border: 'none',
-  background: active ? 'var(--c-brand)' : 'transparent',
-  color: active ? 'var(--c-card)' : 'var(--c-ink-2)',
-  fontSize: 12,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  borderRadius: 8,
-  transition: 'background .15s',
-});
-
-const quoteChip = (active) => ({
-  alignSelf: 'flex-start',
-  minHeight: 44,
-  padding: '8px 14px',
-  border: active ? '1px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
-  background: active ? 'var(--c-brand)' : 'var(--c-card)',
-  color: active ? 'var(--c-card)' : 'var(--c-ink-soft)',
-  fontSize: 12,
-  fontWeight: active ? 600 : 500,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  borderRadius: 999,
-  transition: 'background .15s, color .15s, border-color .15s',
-});
-
-const addBtn = {
-  width: '100%',
-  padding: '12px 0',
-  minHeight: 44,
-  borderRadius: 10,
-  border: '1px dashed #c4b8a6',
-  background: 'var(--c-card)',
-  color: 'var(--c-brand)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 13,
-  fontWeight: 500,
-};
-
+// SPEC §2（2026-09-26）: 「カード｜まとめ」の切替タブと、二段の並び替え・引用チップ・
+// 点線の「新しいメモ」は撤去。メモはカード式が基本で、並び順は小さなメニュー 1 つ。
+// まとめは一覧の下の「この本のまとめ」（折りたたみ）1 か所に寄せた。
+// 新しいメモの入口は、本の詳細画面右下の「メモを書く」1 つだけ（二重の入口をなくす）。
 const summaryTextarea = {
   width: '100%',
-  minHeight: 300,
+  minHeight: 240,
   maxHeight: 600,
-  padding: '12px 14px',
-  fontSize: 16,
-  border: '1px solid var(--c-hairline-strong)',
-  borderRadius: 10,
+  padding: 'var(--space-3)',
+  fontSize: 'var(--text-read)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
   background: 'var(--surface)',
-  color: 'var(--c-ink)',
-  fontFamily: 'inherit',
-  lineHeight: 1.8,
+  color: 'var(--text)',
+  fontFamily: 'var(--font-read)', // まとめは「読む文章」（DESIGN §2）
+  lineHeight: 1.6,
   resize: 'vertical',
   outline: 'none',
   boxSizing: 'border-box',
 };
 
-const summarySaveBtn = (saving) => ({
-  width: '100%',
-  padding: '12px 0',
-  borderRadius: 10,
-  border: 'none',
-  background: 'var(--c-brand)',
-  color: 'var(--accent-ink)',
-  cursor: saving ? 'default' : 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 14,
-  letterSpacing: 1,
-  opacity: saving ? 0.6 : 1,
-  marginTop: 10,
-});
+// まとめの保存は副ボタン（詳細画面の主ボタンは「メモを書く」1 つ・DESIGN §0）。
+const summarySaveBtn = (saving) => ({ ...btnGhost, opacity: saving ? 0.6 : 1 });
 
-function loadInitialMode() {
-  if (typeof window === 'undefined') return 'card';
-  try {
-    const v = window.localStorage.getItem(MODE_KEY);
-    return v === 'summary' ? 'summary' : 'card';
-  } catch {
-    return 'card';
-  }
-}
 
 function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSummary }) {
   const [text, setText] = useState(summaryText || '');
@@ -195,12 +119,9 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div>
-        <p style={{ fontSize: 13, color: 'var(--c-ink-soft)', fontWeight: 600, margin: 0 }}>まとめメモ</p>
-        <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '2px 0 8px', lineHeight: 1.6 }}>
-          本全体の感想・学びを1枚に。カードがたまっていれば AI が下書きを作れます。
-        </p>
-      </div>
+      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6 }}>
+        本全体の感想・学びを1枚に。メモがたまっていれば AI が下書きを作れます。
+      </p>
       {canGenerate && (
         <button
           type="button"
@@ -208,14 +129,14 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
           disabled={generating}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            alignSelf: 'flex-start', minHeight: 44, padding: '8px 14px', borderRadius: 10,
-            border: '1px solid var(--c-hairline-strong)', background: 'var(--c-soft)',
-            color: 'var(--c-brand)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+            alignSelf: 'flex-start', minHeight: 44, padding: '8px 12px', borderRadius: 'var(--radius)',
+            border: '1px solid var(--border)', background: 'transparent',
+            color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit',
             cursor: generating ? 'default' : 'pointer', opacity: generating ? 0.6 : 1,
           }}
         >
-          <Sparkles size={14} aria-hidden="true" />
-          {generating ? 'まとめを生成中…' : 'カードからまとめを生成'}
+          <Sparkles size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+          {generating ? 'まとめを生成中…' : 'メモからまとめを作る'}
         </button>
       )}
       <textarea
@@ -231,7 +152,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
         maxLength={LIMITS.summaryMemo}
       />
       {errorMsg && (
-        <p style={{ color: 'var(--c-critical)', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
+        <p style={{ color: 'var(--error)', fontSize: 'var(--text-sub)', lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
       )}
       <button
         type="button"
@@ -246,8 +167,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 }
 
 export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction }) {
-  const [mode, setMode] = useState(loadInitialMode);
   const [sortBy, setSortBy] = useState('page');
+  const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   const [quoteOnly, setQuoteOnly] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState(null);
@@ -278,28 +199,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     restoreMemoFromSnapshot,
   } = useBookMemos(bookId, { sortBy });
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(MODE_KEY, mode);
-    } catch {
-      /* ignore quota errors */
-    }
-  }, [mode]);
-
-  // Scroll the BookMemoList into view on tab change so the new tab's content
-  // starts at the top of the viewport. We use scrollIntoView (not window
-  // scrollTo 0) because the BookMemoList sits inside the page below the book
-  // header — jumping to absolute top would hide context the user expects.
   const rootRef = useRef(null);
-  const isFirstModeRender = useRef(true);
-  useEffect(() => {
-    if (isFirstModeRender.current) {
-      isFirstModeRender.current = false;
-      return;
-    }
-    rootRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
-  }, [mode]);
 
   const allTags = useMemo(() => {
     const s = new Set();
@@ -356,13 +256,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       sourceMemoId: memo.id || null,
       sourcePage: memo.pageNumber ?? memo.page_number ?? null,
     });
-    if (ok) { haptic.success(); toast.success('🎯 行動に追加しました。'); }
+    if (ok) { haptic.success(); toast.success('行動に追加しました。'); }
   };
 
-  const openCreate = () => {
-    setEditingMemo(null);
-    setEditorOpen(true);
-  };
   const openEdit = (memo) => {
     setEditingMemo(memo);
     setEditorOpen(true);
@@ -490,54 +386,34 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       本を一度保存するとカード形式のメモを追加できます。
     </div>
   ) : (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {/* 並べ替え・絞り込みは、並べ替える対象（メモ）ができてから出す。
           0 件の画面で最初に見えるのが「ページ順/新しい順/引用のみ」だと、
           書き始めのボタンがその下に埋もれる。 */}
       {memos.length > 0 && (
-        <>
-          <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft)', borderRadius: 10 }}>
-            <button type="button" style={sortTab(sortBy === 'page')} onClick={() => setSortBy('page')}>
-              <BookOpen size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-              ページ順
-            </button>
-            <button
-              type="button"
-              style={sortTab(sortBy === 'created_desc')}
-              onClick={() => setSortBy('created_desc')}
-            >
-              <Clock size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-              新しい順
-            </button>
-          </div>
-
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+            {quoteOnly ? `ページ番号つき ${visibleMemos.length}件` : `${memos.length}件`}
+          </span>
           <button
             type="button"
-            style={quoteChip(quoteOnly)}
-            onClick={() => setQuoteOnly((v) => !v)}
-            aria-pressed={quoteOnly}
+            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSortMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
+            aria-label="並び順と絞り込み"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 44, padding: '0 4px', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontFamily: 'inherit', cursor: 'pointer' }}
           >
-            <Quote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-            引用のみ
+            {sortBy === 'page' ? 'ページ順' : '新しい順'}{quoteOnly ? '・ページ番号つき' : ''}
+            <ChevronDown size={16} aria-hidden="true" />
           </button>
-        </>
+        </div>
       )}
-
-      <button type="button" onClick={openCreate} style={addBtn}>
-        <Plus size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-        新しいメモ
-      </button>
 
       {loading && memos.length === 0 && <MemoListSkeleton rows={3} />}
 
       {!loading && memos.length === 0 && (
-        <EmptyState
-          icon={<StickyNote size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title="まだメモがありません"
-          description="読みながら気になった一行を、ひとつ残してみましょう。"
-          actions={[{ label: '最初のメモを書く', onClick: openCreate, variant: 'primary', icon: <Plus size={18} aria-hidden="true" /> }]}
-          tip="残した一行は、あとで「振り返り」の思い出しカードとして、ふいに戻ってきます。"
-        />
+        // 入口は画面右下の「メモを書く」1 つ（ここに同じボタンを置かない・SPEC §2）。
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, padding: 'var(--space-6) 0', textAlign: 'center' }}>
+          心が動いた一行を、ひとつ残しましょう。<br />右下の「メモを書く」から書けます。
+        </p>
       )}
 
       {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (
@@ -545,7 +421,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           icon={<BookOpen size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="ページ番号付きのメモがまだありません"
           description="メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。"
-          actions={[{ label: '引用フィルタを解除', onClick: () => setQuoteOnly(false), variant: 'secondary' }]}
+          actions={[{ label: 'すべてのメモを表示', onClick: () => setQuoteOnly(false), variant: 'secondary' }]}
         />
       )}
 
@@ -555,15 +431,13 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             display: 'flex',
             alignItems: 'flex-start',
             gap: 10,
-            background: '#f4efe7',
-            border: '1px solid var(--c-hairline)',
-            borderRadius: 10,
-            padding: '10px 12px',
-            marginBottom: 10,
+            background: 'var(--fill)',
+            borderRadius: 'var(--radius)',
+            padding: 'var(--space-3)',
           }}
         >
-          <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7, flex: 1 }}>
-            最初の気づきが残りました。下の「振り返り」タブを開くと、これが忘れた頃に思い出しカードとして、そっと戻ってきます。
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6, flex: 1 }}>
+            最初の気づきが残りました。メモが増えるほど、「相談」であなただけの答えが返ってきます。
           </p>
           <button
             type="button"
@@ -572,11 +446,12 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
               flexShrink: 0,
               minHeight: 44,
               padding: '4px 12px',
-              border: '1px solid var(--c-hairline-strong)',
-              background: 'var(--c-card)',
-              color: 'var(--c-brand)',
-              borderRadius: 8,
-              fontSize: 11,
+              border: 'none',
+              background: 'none',
+              color: 'var(--accent)',
+              borderRadius: 'var(--radius)',
+              fontSize: 'var(--text-sub)',
+              fontWeight: 600,
               cursor: 'pointer',
               fontFamily: 'inherit',
             }}
@@ -587,7 +462,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {visibleMemos.map((m) => (
           <BookMemoCard
             key={m.id}
@@ -625,25 +500,30 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   );
 
   return (
-    <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--c-soft-2)', borderRadius: 10 }}>
-        <button type="button" style={modeTab(mode === 'card')} onClick={() => setMode('card')}>
-          <StickyNote size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-          カード
-        </button>
-        <button type="button" style={modeTab(mode === 'summary')} onClick={() => setMode('summary')}>
-          <FileText size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
-          まとめ
-        </button>
-      </div>
-      {/* 初見で 2 タブの違いが分かる 1 行（説明はまとめタブの中にしか無かった） */}
-      <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '-4px 2px 0', lineHeight: 1.5 }}>
-        カード＝一行ずつ残す / まとめ＝1冊を1枚のテキストに
-      </p>
+    <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      {cardSection}
 
-      {/* Both sections stay mounted so unsaved typing is preserved across tab switches. */}
-      <div style={{ display: mode === 'card' ? 'block' : 'none' }}>{cardSection}</div>
-      <div style={{ display: mode === 'summary' ? 'block' : 'none' }}>{summarySection}</div>
+      {/* この本のまとめ（旧「まとめ」タブ）。一覧の下に 1 か所だけ・普段は畳む。 */}
+      <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
+        <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
+          この本のまとめ
+          <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{(summaryText || '').trim() ? '書いてあります' : 'まだありません'}</span>
+        </summary>
+        <div style={{ paddingBottom: 'var(--space-4)' }}>{summarySection}</div>
+      </details>
+
+      {sortMenu && (
+        <ContextMenu
+          x={sortMenu.x}
+          y={sortMenu.y}
+          onClose={() => setSortMenu(null)}
+          items={[
+            { label: 'ページ順', icon: sortBy === 'page' ? <Check size={16} aria-hidden="true" /> : <BookOpen size={16} aria-hidden="true" />, onClick: () => setSortBy('page') },
+            { label: '新しい順', icon: sortBy === 'created_desc' ? <Check size={16} aria-hidden="true" /> : <Clock size={16} aria-hidden="true" />, onClick: () => setSortBy('created_desc') },
+            { label: quoteOnly ? 'すべてのメモを表示' : 'ページ番号つきだけ', icon: <Quote size={16} aria-hidden="true" />, onClick: () => setQuoteOnly((v) => !v) },
+          ]}
+        />
+      )}
 
       {memoMenu && (
         <ContextMenu

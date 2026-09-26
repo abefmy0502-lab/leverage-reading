@@ -19,17 +19,18 @@ import { Camera } from 'lucide-react';
 
 const baseStyle = {
   minHeight: 44,
-  padding: '10px 14px',
-  borderRadius: 10,
-  border: '1px solid var(--c-hairline-strong)',
+  padding: '8px 12px',
+  borderRadius: 'var(--radius)',
+  border: '1px solid var(--border)',
   background: 'transparent',
-  color: 'var(--c-brand)',
+  color: 'var(--text)',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  fontSize: 13,
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 6,
+  gap: 4,
 };
 
 export default function PhotoToTextButton({ onText, disabled = false, style }) {
@@ -84,7 +85,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         aria-label="写真から文章を書き起こす"
         aria-busy={loading || undefined}
       >
-        <Camera size={14} aria-hidden="true" style={{ marginRight: 5 }} />
+        <Camera size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
         {loading ? '読み取り中…' : '写真から起こす'}
       </button>
       <input

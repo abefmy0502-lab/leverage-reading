@@ -121,6 +121,10 @@ import { loadNavState, saveNavState } from './lib/navState';
 import {
   BookOpen,
   Home,
+  PencilLine,
+  Circle,
+  CheckCircle2,
+  ChevronRight,
   ChevronLeft,
   RotateCcw,
   Brain,
@@ -2694,118 +2698,10 @@ function AuthedApp() {
     // 「積読へ進む」は日本語として変（積読は進む先ではなく積む場所）。
     // 定義（読みたい=気になる / 積読=手元にある）に合わせ「積読に積む」へ。
     const nextLabel = { want: "積読に積む", before: "読書を開始する", reading: "読了にする" };
-
-    return (
-      <Shell>
-        <div
-          ref={detailScrollRef}
-          className="detail-enter"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            overscrollBehaviorY: 'contain',
-            WebkitOverflowScrolling: 'touch',
-            padding: "20px 20px 80px",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
-            <button onClick={goList} style={{ ...lnk, color: "var(--c-brand)", fontSize: 15, fontWeight: 600 }}>
-              ‹ {tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
-            </button>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                onClick={openHelp}
-                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
-                aria-label="この画面のヘルプを見る"
-                title="ヘルプ"
-              >
-                <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
-              </button>
-              {/* ⋯ kebab — 編集 / 共有 / 削除 を集約。下部の 3 ボタン廃止。 */}
-              <button
-                onClick={openDetailKebab}
-                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-brand)", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 20, fontWeight: 700 }}
-                aria-label="その他の操作"
-                title="その他"
-              >
-                ⋯
-              </button>
-            </div>
-          </div>
-
-          {/* Book header */}
-          <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
-            {/* 表紙ブロックは cover 有無に関わらず常に表示。
-                cover が無い時はプレースホルダ + 「取り直す」「違う?」を案内。
-                旧実装は cover && (...) で全体を隠していたため、表紙が無い本では
-                取り直しボタンに辿り着けなかった (⋯ メニューを開く必要があった)。 */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-              {current.cover ? (
-                <img src={ensureHttps(current.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid var(--c-hairline-strong)" }} />
-              ) : (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    width: 60,
-                    height: 84,
-                    borderRadius: 6,
-                    border: '1px dashed var(--c-hairline-strong)',
-                    background: 'var(--c-card)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 22,
-                    color: 'var(--c-ink-2)',
-                  }}
-                >
-                  📚
-                </div>
-              )}
-              {/* 表紙の救済導線はここに 1 本だけ（「違う?」→ 候補から選び直し /
-                  手動アップロードのモーダル）。旧: ISBN 表記 + 「取り直す」+
-                  「違う?」の 3 行が書名より先に目に入る技術ノイズになっていた。
-                  自動取り直しは ⋯ メニューの「表紙を取り直す」に引き続きある。 */}
-              <button
-                type="button"
-                onClick={() => setCoverFixForBook(current)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '8px 4px',
-                  margin: '-4px 0 -6px -4px',
-                  minHeight: 32,
-                  fontSize: 10,
-                  color: 'var(--c-ink-3)',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  textDecoration: 'underline',
-                  textUnderlineOffset: 2,
-                }}
-              >
-                表紙が違う？
-              </button>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {/* 書名＝この画面の主役。本文サイズ(17/500)だと .btn と同格に埋もれる。
-                  20px/bold で立て、著者は ink-3 に沈めて二段階の階層を作る。 */}
-              <h2 style={{ fontSize: "var(--type-title-3)", fontWeight: 700, color: "var(--c-ink)", lineHeight: 1.25, letterSpacing: "-0.01em", margin: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>{current.title}</h2>
-              {current.author && <p style={{ fontSize: 13, color: "var(--c-ink-3)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "var(--space-2)", flexWrap: "wrap" }}>
-                <StatusBadge status={current.status} />
-                {current.rating > 0 && <Stars r={current.rating} size={13} />}
-              </div>
-            </div>
-          </div>
-
-          {current.tags?.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
-              {current.tags.map((t, i) => (<span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 'var(--radius-md)', background: "var(--c-soft-2)", color: "var(--c-ink-2)" }}>#{t}</span>))}
-            </div>
-          )}
-
+    const isMemoPhase = current.status === "reading" || current.status === "done";
+    // 読書計画・目的・課題・仮説・AI 解析（旧: 書名の直下）。読書中・読了では下へ回す。
+    const planBlock = (
+      <>
           {/* AI 読書計画導線 — どのステータスでも setup フィールドが
               足りていなければ目立つ位置で促す。
               - before:    まだ読んでいないので「最初のメインアクション」として
@@ -2948,8 +2844,11 @@ function AuthedApp() {
           })()}
 
           {/* Phase-specific content */}
-          {current.startDate && <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginTop: 10 }}>📅 開始: {current.startDate}</p>}
-          {current.doneDate && <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginTop: 2 }}>📅 完了: {current.doneDate}</p>}
+          {(current.startDate || current.doneDate) && (
+            <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-3) 0 0' }}>
+              {current.startDate && <>開始 {current.startDate}</>}{current.startDate && current.doneDate && '　'}{current.doneDate && <>読了 {current.doneDate}</>}
+            </p>
+          )}
 
           {/* ラベルは中身と一致させる。旧: 1 枚だけなのに「目的・課題・仮説」と
               名乗り、課題(currentChallenge)・仮説(hypothesis)はどこにも表示されず
@@ -2989,10 +2888,140 @@ function AuthedApp() {
             </details>
           )}
 
+      </>
+    );
+
+    return (
+      <Shell>
+        <div
+          ref={detailScrollRef}
+          className="detail-enter"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            overscrollBehaviorY: 'contain',
+            WebkitOverflowScrolling: 'touch',
+            padding: "20px 20px 80px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
+            <button onClick={goList} style={{ ...lnk, color: "var(--c-brand)", fontSize: 15, fontWeight: 600 }}>
+              ‹ {tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
+            </button>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={openHelp}
+                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                aria-label="この画面のヘルプを見る"
+                title="ヘルプ"
+              >
+                <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+              {/* ⋯ kebab — 編集 / 共有 / 削除 を集約。下部の 3 ボタン廃止。 */}
+              <button
+                onClick={openDetailKebab}
+                style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-brand)", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 20, fontWeight: 700 }}
+                aria-label="その他の操作"
+                title="その他"
+              >
+                ⋯
+              </button>
+            </div>
+          </div>
+
+          {/* Book header */}
+          <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
+            {/* 表紙ブロックは cover 有無に関わらず常に表示。
+                cover が無い時はプレースホルダ + 「取り直す」「違う?」を案内。
+                旧実装は cover && (...) で全体を隠していたため、表紙が無い本では
+                取り直しボタンに辿り着けなかった (⋯ メニューを開く必要があった)。 */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+              {current.cover ? (
+                <img src={ensureHttps(current.cover)} alt="" style={{ width: 60, height: 84, objectFit: "cover", borderRadius: 6, border: "1px solid var(--c-hairline-strong)" }} />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: 60,
+                    height: 84,
+                    borderRadius: 6,
+                    border: '1px dashed var(--c-hairline-strong)',
+                    background: 'var(--c-card)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 22,
+                    color: 'var(--c-ink-2)',
+                  }}
+                >
+                  📚
+                </div>
+              )}
+              {/* 表紙の救済導線はここに 1 本だけ（「違う?」→ 候補から選び直し /
+                  手動アップロードのモーダル）。旧: ISBN 表記 + 「取り直す」+
+                  「違う?」の 3 行が書名より先に目に入る技術ノイズになっていた。
+                  自動取り直しは ⋯ メニューの「表紙を取り直す」に引き続きある。 */}
+              <button
+                type="button"
+                onClick={() => setCoverFixForBook(current)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px 4px',
+                  margin: '-4px 0 -6px -4px',
+                  minHeight: 32,
+                  fontSize: 10,
+                  color: 'var(--c-ink-3)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: 2,
+                }}
+              >
+                表紙が違う？
+              </button>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* 書名＝この画面の主役。本文サイズ(17/500)だと .btn と同格に埋もれる。
+                  20px/bold で立て、著者は ink-3 に沈めて二段階の階層を作る。 */}
+              <h2 style={{ fontSize: "var(--type-title-3)", fontWeight: 700, color: "var(--c-ink)", lineHeight: 1.25, letterSpacing: "-0.01em", margin: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>{current.title}</h2>
+              {current.author && <p style={{ fontSize: 13, color: "var(--c-ink-3)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "var(--space-2)", flexWrap: "wrap" }}>
+                <StatusBadge status={current.status} />
+                {current.rating > 0 && <Stars r={current.rating} size={13} />}
+              </div>
+            </div>
+          </div>
+
+          {current.tags?.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
+              {current.tags.map((t, i) => (<span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 'var(--radius-md)', background: "var(--c-soft-2)", color: "var(--c-ink-2)" }}>#{t}</span>))}
+            </div>
+          )}
+
+          {/* 読みたい・積読は「読む準備」が主役なので、計画・目的・AI 解析を上に置く。
+              読書中・読了はメモが主役（SPEC §2）なので、これらは画面の下（行動の後）へ。 */}
+          {!isMemoPhase && planBlock}
+
           {/* 📖 進捗バー（ページ）は撤去（本田哲学=作業量より成果。ROI は行動で測る）。 */}
 
           {(current.status === "reading" || current.status === "done") ? (
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+              {/* SPEC §2 の並び: メモ一覧 → この本に相談する → 行動（→ 計画・AI 解析は下）。 */}
+              <section aria-labelledby="detail-memo-title">
+                <h2 id="detail-memo-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 12px', lineHeight: 1.3 }}>メモ</h2>
+                <BookMemoList
+                  bookId={current.id}
+                  bookTitle={current.title}
+                  bookAuthor={current.author || ""}
+                  summaryText={current.leverageMemo || ""}
+                  onSaveSummary={handleSaveSummaryFromCurrent}
+                  onMakeAction={addActionFromMemo}
+                />
+              </section>
               {/* 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。 */}
               <button
                 type="button"
@@ -3003,26 +3032,18 @@ function AuthedApp() {
                   setTab('ai');
                 }}
                 style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
-                  padding: '10px 14px', minHeight: 52, marginBottom: 12, cursor: 'pointer', fontFamily: 'inherit',
-                  background: 'var(--c-card)', border: '1px solid var(--c-hairline-strong)', borderRadius: 'var(--radius-md)',
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
+                  padding: 'var(--space-3) var(--space-4)', minHeight: 56, cursor: 'pointer', fontFamily: 'inherit',
+                  background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
                 }}
               >
-                <MessageCircle size={20} aria-hidden="true" style={{ color: 'var(--c-brand)', flexShrink: 0 }} />
+                <MessageCircle size={20} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
                 <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--c-ink)' }}>この本に相談する</span>
-                  <span style={{ display: 'block', fontSize: 11, color: 'var(--c-ink-2)' }}>この本のメモだけを根拠に答えます</span>
+                  <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>この本に相談する</span>
+                  <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 2 }}>この本のメモだけを根拠に答えます</span>
                 </span>
+                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}><IcNote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />まとめメモ</p>
-              <BookMemoList
-                bookId={current.id}
-                bookTitle={current.title}
-                bookAuthor={current.author || ""}
-                summaryText={current.leverageMemo || ""}
-                onSaveSummary={handleSaveSummaryFromCurrent}
-                onMakeAction={addActionFromMemo}
-              />
             </div>
           ) : (
             <div
@@ -3081,8 +3102,8 @@ function AuthedApp() {
           )}
 
           {(current.actions || []).filter((a) => a.text?.trim()).length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}>⚡ 行動リスト</p>
+            <section style={{ marginTop: 'var(--space-6)' }} aria-labelledby="detail-action-title">
+              <h2 id="detail-action-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.3 }}>行動</h2>
               {/* その場で完了できる（読み取り専用だと行動タブへの往復を強制する）。
                   filter だと index がズレるので生 index で回す。 */}
               {current.actions.map((a, i) => (a.text?.trim() ? (
@@ -3091,17 +3112,21 @@ function AuthedApp() {
                   type="button"
                   onClick={() => toggleAction(current.id, i)}
                   aria-label={a.done ? `「${a.text}」を未完了に戻す` : `「${a.text}」を完了にする`}
-                  style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 44 }}
+                  style={{ display: "flex", gap: 12, alignItems: "center", padding: "8px 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 48 }}
                 >
-                  <span style={{ fontSize: 16 }} aria-hidden="true">{a.done ? "✅" : "⬜"}</span>
+                  {a.done
+                    ? <CheckCircle2 size={24} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0 }} />
+                    : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0 }} />}
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 13, color: a.done ? "#9a8e7a" : "#4a4036", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "break-word" }}>{a.text}</p>
-                    {a.deadline && <p style={{ fontSize: 10, color: "var(--c-ink-3)", margin: 0 }}>📅 {a.deadline}</p>}
+                    <p style={{ fontSize: 'var(--text-body)', color: a.done ? "var(--text-3)" : "var(--text)", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "break-word", lineHeight: 1.5 }}>{a.text}</p>
+                    {a.deadline && <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: '2px 0 0' }}>期限 {a.deadline}</p>}
                   </div>
                 </button>
               ) : null))}
-            </div>
+            </section>
           )}
+
+          {isMemoPhase && planBlock}
 
           {current.roiSummary && <Card label={<><IcBulb size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />一番の収穫</>} text={current.roiSummary} bg="var(--c-soft)" />}
 
@@ -3229,30 +3254,32 @@ function AuthedApp() {
           <button
             type="button"
             onClick={() => setQuickMemoOpen(true)}
-            aria-label="クイックメモを追加"
             style={{
+              // 本の詳細の主ボタン（1 画面 1 つ・DESIGN §0）。＋記号だけだと何が起きるか
+              // 分からないので「メモを書く」と文字で言う（SPEC §2）。
               position: "fixed",
-              right: "var(--space-5)",
+              right: "var(--space-4)",
               bottom: "calc(76px + env(safe-area-inset-bottom, 0px))",
-              width: 56,
-              height: 56,
-              borderRadius: "var(--radius-full)",
+              minHeight: 48,
+              padding: "0 var(--space-4)",
+              borderRadius: "var(--radius)",
               border: "none",
-              background: "var(--color-accent-strong)",
-              color: "var(--color-text-inverse)",
-              fontSize: 26,
-              fontWeight: 300,
-              lineHeight: 1,
+              background: "var(--accent)",
+              color: "var(--accent-ink)",
+              fontSize: "var(--text-body)",
+              fontWeight: 600,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
               cursor: "pointer",
-              // ブランド色で色付けした、やわらかく上質な浮遊シャドウ。
-              boxShadow: "0 6px 18px rgba(93, 74, 40, 0.30), 0 2px 6px rgba(93, 74, 40, 0.18)",
+              boxShadow: "var(--shadow-raised)",
               // メモ編集(300)・写真拡大(400)等のオーバーレイより下に置く
-              // （600 だと全画面エディタの上に ＋ が浮いてしまう）。
+              // （600 だと全画面エディタの上に浮いてしまう）。
               zIndex: 100,
               fontFamily: "inherit",
             }}
           >
-            ＋
+            <PencilLine size={18} aria-hidden="true" />メモを書く
           </button>
         )}
 

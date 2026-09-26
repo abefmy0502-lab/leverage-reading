@@ -1,6 +1,8 @@
-// Bottom-sheet quick-memo composer. Page number + body only — for the user who
-// just wants to dump a thought without leaving the book detail screen.
-// "詳細入力 →" hands off to the full BookMemoEditor for photos/tags.
+// メモを書くシート（SPEC §2「読みながら片手でサッと」）。
+// 最初に見えるのは本文だけ。ページ番号・写真から書き起こすは「＋ ページ・写真」で開く
+// （ページ番号は直前のメモ＋1 を既定値として覚えておく＝開かなくても保存される）。
+// 「写真・タグもつける」は全画面の BookMemoEditor へ引き継ぐ。
+// 見た目は DESIGN.md のトークンのみ。
 
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -10,7 +12,8 @@ import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { BookOpen, Sparkles, Undo2, Mic, X } from 'lucide-react';
+import { Sparkles, Undo2, X, Plus, Minus } from 'lucide-react';
+import { btnPrimary, btnText } from '../styles/ui';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
@@ -29,7 +32,7 @@ function ensureKeyframes() {
 const backdrop = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(30,25,20,0.4)',
+  background: 'var(--backdrop)',
   zIndex: 700,
   animation: 'leverage-fade-in .15s ease',
   WebkitBackdropFilter: 'var(--backdrop-blur-strong)',
@@ -42,10 +45,10 @@ const sheetWrap = {
   right: 0,
   bottom: 0,
   zIndex: 701,
-  background: 'var(--c-card)',
-  borderTopLeftRadius: 18,
-  borderTopRightRadius: 18,
-  boxShadow: '0 -10px 30px rgba(30,25,20,0.18)',
+  background: 'var(--surface)',
+  borderTopLeftRadius: 'var(--radius)',
+  borderTopRightRadius: 'var(--radius)',
+  boxShadow: 'var(--shadow-overlay)',
   display: 'flex',
   flexDirection: 'column',
   maxHeight: '85vh',
@@ -58,16 +61,16 @@ const sheetWrap = {
 const headerStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: '14px 16px',
-  borderBottom: '1px solid var(--c-hairline)',
+  gap: 8,
+  padding: 'var(--space-2) var(--space-4) var(--space-3)',
+  borderBottom: '1px solid var(--separator)',
 };
 
 const closeBtn = {
   background: 'none',
   border: 'none',
-  fontSize: 22,
-  color: 'var(--c-brand)',
+  fontSize: 'var(--text-heading)',
+  color: 'var(--text-2)',
   cursor: 'pointer',
   fontFamily: 'inherit',
   width: 44,
@@ -76,35 +79,37 @@ const closeBtn = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: 0,
-  borderRadius: 10,
+  margin: '0 0 0 -12px',
+  borderRadius: 'var(--radius)',
 };
 
 const bodyStyle = {
-  padding: '14px 16px',
+  padding: 'var(--space-4)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 12,
+  gap: 'var(--space-3)',
   flex: 1,
   overflowY: 'auto',
   WebkitOverflowScrolling: 'touch',
 };
 
 const fieldLabel = {
-  fontSize: 12,
-  color: 'var(--c-ink-soft)',
-  fontWeight: 500,
+  fontSize: 'var(--text-meta)',
+  color: 'var(--text-2)',
+  fontWeight: 600,
   display: 'block',
-  marginBottom: 4,
+  marginBottom: 'var(--space-2)',
 };
 
 const inp = {
   width: '100%',
-  padding: '10px 12px',
-  fontSize: 16,
-  border: '1px solid var(--c-hairline-strong)',
-  borderRadius: 10,
+  minHeight: 48,
+  padding: 'var(--space-3)',
+  fontSize: 'max(16px, var(--text-body))',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
   background: 'var(--surface)',
-  color: 'var(--c-ink)',
+  color: 'var(--text)',
   fontFamily: 'inherit',
   boxSizing: 'border-box',
 };
@@ -112,48 +117,33 @@ const inp = {
 const ta = {
   ...inp,
   resize: 'vertical',
-  minHeight: 140,
-  lineHeight: 1.7,
+  minHeight: 160,
+  // メモは「読む文章」（DESIGN §2: 明朝 18・行間 1.6）
+  fontFamily: 'var(--font-read)',
+  fontSize: 'var(--text-read)',
+  lineHeight: 1.6,
 };
 
 const footerStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid var(--c-hairline)',
+  gap: 12,
+  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  borderTop: '1px solid var(--separator)',
 };
 
-const detailLink = {
-  background: 'none',
-  border: 'none',
-  fontSize: 13,
-  color: 'var(--c-brand)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  textDecoration: 'underline',
-  padding: '8px 4px',
-  minHeight: 44,
-  display: 'inline-flex',
-  alignItems: 'center',
-  flex: 1,
-  textAlign: 'left',
+const detailLink = { ...btnText, fontSize: 'var(--text-sub)', padding: '8px 0', flex: 1, justifyContent: 'flex-start', textAlign: 'left' };
+
+// 本文の下の小さな副ボタン（DESIGN §5 btnRow と同じ寸法: 高さ 44・15・600）。
+const rowBtn = {
+  display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 44,
+  padding: '8px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+  background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600,
+  fontFamily: 'inherit', cursor: 'pointer',
 };
 
-const saveBtn = (busy) => ({
-  padding: '12px 22px',
-  borderRadius: 10,
-  border: 'none',
-  background: 'var(--c-brand)',
-  color: 'var(--accent-ink)',
-  cursor: busy ? 'default' : 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 15,
-  letterSpacing: 1,
-  opacity: busy ? 0.6 : 1,
-  minWidth: 96,
-  minHeight: 44,
-});
+// 主ボタン（DESIGN §5: 高さ 48・17・600）。
+const saveBtn = (busy) => ({ ...btnPrimary, width: 'auto', minWidth: 112, opacity: busy ? 0.6 : 1 });
 
 export default function QuickMemoSheet({
   bookTitle,
@@ -165,6 +155,8 @@ export default function QuickMemoSheet({
   ensureKeyframes();
   const [pageNumber, setPageNumber] = useState(defaultPageNumber !== '' ? String(defaultPageNumber) : '');
   const [text, setText] = useState('');
+  // ＋ ページ・写真（最初は閉じる＝本文だけを見せる）。
+  const [moreOpen, setMoreOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   // 閉じアニメーション中（入りが滑らかなのに出だけ瞬間消滅、の非対称を解消）。
@@ -383,19 +375,18 @@ export default function QuickMemoSheet({
             <X size={18} aria-hidden="true" />
           </button>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0 }}>クイックメモ</p>
+            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>メモを書く</p>
             <p
               style={{
-                fontSize: 14,
-                color: 'var(--c-ink)',
-                fontWeight: 500,
+                fontSize: 'var(--text-body)',
+                color: 'var(--text)',
+                fontWeight: 600,
                 margin: 0,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}
             >
-              <BookOpen size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
               {bookTitle || '本'}
             </p>
           </div>
@@ -403,11 +394,9 @@ export default function QuickMemoSheet({
         </div>{/* /drag zone (handle + header) */}
 
         <div style={bodyStyle}>
-          {/* 本文を最上段の主役に。ページ番号は従属情報として本文の下へ置く
-              （「一行を吐き出す」情緒の瞬間に、数字入力の逡巡を先に挟まない）。 */}
           <div>
-            <label style={fieldLabel}>メモ本文</label>
             <textarea
+              aria-label="メモ本文"
               ref={textRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -420,80 +409,90 @@ export default function QuickMemoSheet({
               style={ta}
               maxLength={LIMITS.memoText}
             />
-            {/* 💡 OS 標準のディクテーションへの導線（自前録音は持たない＝速い・無料・端末内）。 */}
-            <p style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '6px 0 0', fontSize: 11, color: 'var(--c-ink-3)' }}>
-              <Mic size={12} aria-hidden="true" />
-              キーボードの🎤を押すと、話して入力できます
+            {/* OS 標準のディクテーションへの導線（自前録音は持たない＝速い・無料・端末内）。 */}
+            <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+              キーボードのマイクを押すと、話して入力できます
             </p>
-            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-              <PhotoToTextButton
-                onText={(t) =>
-                  setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
-                }
-              />
-              {/* ✨ 凝縮 — 十分な長さの時だけ出す（話した冗長メモを核心1行へ）。 */}
+          </div>
+
+          {/* 凝縮 — 十分な長さの時だけ出す（話した冗長メモを核心 1 行へ）。 */}
+          {(text.trim().replace(/\s/g, '').length >= 60 || condensedFrom != null) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
               {text.trim().replace(/\s/g, '').length >= 60 && (
                 <button
                   type="button"
                   onClick={handleCondense}
                   disabled={condensing}
                   aria-label="メモを凝縮する"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 40,
-                    padding: '8px 14px', borderRadius: 10, border: '1px solid var(--c-hairline-strong)',
-                    background: 'transparent', color: 'var(--c-brand)', fontSize: 13, fontWeight: 600,
-                    fontFamily: 'inherit', cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1,
-                  }}
+                  style={{ ...rowBtn, cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1 }}
                 >
-                  <Sparkles size={14} aria-hidden="true" />
+                  <Sparkles size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
                   {condensing ? '凝縮中…' : '凝縮'}
                 </button>
               )}
               {condensedFrom != null && (
-                <button
-                  type="button"
-                  onClick={undoCondense}
-                  aria-label="凝縮を元に戻す"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 40,
-                    padding: '8px 12px', borderRadius: 10, border: 'none',
-                    background: 'transparent', color: 'var(--c-ink-3)', fontSize: 12, fontWeight: 600,
-                    fontFamily: 'inherit', cursor: 'pointer',
-                  }}
-                >
-                  <Undo2 size={13} aria-hidden="true" />
+                <button type="button" onClick={undoCondense} aria-label="凝縮を元に戻す" style={{ ...rowBtn, border: 'none', color: 'var(--text-2)' }}>
+                  <Undo2 size={16} aria-hidden="true" />
                   元に戻す
                 </button>
               )}
             </div>
-          </div>
+          )}
+
+          {/* ＋ ページ・写真 — 閉じていても、ページ番号（直前＋1）は保存される。 */}
           <div>
-            <label style={fieldLabel}>ページ番号（任意）</label>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={99999}
-              value={pageNumber}
-              onChange={(e) => setPageNumber(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  textRef.current?.focus();
-                }
-              }}
-              placeholder="78"
-              style={{ ...inp, width: 140, textAlign: 'center' }}
-            />
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-expanded={moreOpen}
+              style={{ ...btnText, fontSize: 'var(--text-sub)', padding: '8px 0', gap: 4, color: 'var(--text-2)' }}
+            >
+              {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+              ページ・写真
+              {!moreOpen && pageNumber !== '' && (
+                <span style={{ fontWeight: 400, color: 'var(--text-3)', marginLeft: 4 }}>（p.{pageNumber}）</span>
+              )}
+            </button>
+            {moreOpen && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+                <div>
+                  <label htmlFor="quick-memo-page" style={fieldLabel}>ページ番号</label>
+                  <input
+                    id="quick-memo-page"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={99999}
+                    value={pageNumber}
+                    onChange={(e) => setPageNumber(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        textRef.current?.focus();
+                      }
+                    }}
+                    placeholder="78"
+                    style={{ ...inp, width: 112, textAlign: 'center' }}
+                  />
+                </div>
+                <PhotoToTextButton
+                  style={{ minHeight: 48 }}
+                  onText={(t) =>
+                    setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
+                  }
+                />
+              </div>
+            )}
           </div>
+
           {errorMsg && (
-            <p style={{ color: 'var(--c-critical)', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
+            <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-sub)', lineHeight: 1.5, margin: 0 }}>{errorMsg}</p>
           )}
         </div>
 
         <div style={footerStyle}>
           <button type="button" style={detailLink} onClick={handleDetailHandoff}>
-            詳細入力（写真・タグ）→
+            写真・タグもつける
           </button>
           <button type="button" style={saveBtn(busy)} onClick={handleSave} disabled={busy}>
             {busy ? '保存中…' : '保存'}
