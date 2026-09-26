@@ -18,6 +18,7 @@ import BookMemoEditor from './components/BookMemoEditor';
 import BookLearningAnalysis from './components/BookLearningAnalysis';
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
+const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
@@ -462,6 +463,8 @@ function AuthedApp() {
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
   // 🏠 ホームタブ（tab キー 'books'）の中の画面: 'home'＝ホーム / 'library'＝すべての本（SPEC §1）。
   const [shelfMode, setShelfMode] = useState('home');
+  // 🏠✍️ ホームの「メモ」で開くクイックメモの対象本（詳細画面に移らずホームの上に重ねる）。
+  const [homeMemoBook, setHomeMemoBook] = useState(null);
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
   const [showQuickstart, setShowQuickstart] = useState(false);
 
@@ -3579,7 +3582,9 @@ function AuthedApp() {
         aria-label="ロゴ（長押しで開発者からのメッセージ）"
         style={{
           lineHeight: 0,
-          padding: 2,
+          // 押せる範囲 44×44（DESIGN §6）。見た目の左端は余白 16 に揃えるため左へ 8 戻す。
+          padding: 8,
+          margin: '0 0 0 -8px',
           background: "none",
           border: "none",
           cursor: "pointer",
@@ -3655,11 +3660,47 @@ function AuthedApp() {
               onAdvisor={() => { setAiSubTab('advisor'); setTab('ai'); }}
               onOpenConsult={() => { setAiSubTab('brain'); setTab('ai'); }}
               onOpenBook={(b) => openDetail(b)}
-              onWriteMemo={(b) => { openDetail(b); setQuickMemoOpen(true); }}
+              onWriteMemo={(b) => setHomeMemoBook(b)}
               onOpenLibrary={() => setShelfMode('library')}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
             />
           </PullToRefresh>
+        )}
+        {homeMemoBook && (
+          <Suspense fallback={null}>
+            <HomeQuickMemo
+              book={homeMemoBook}
+              onClose={() => setHomeMemoBook(null)}
+              onSaved={(result, payload) => {
+                haptic.success();
+                const b = homeMemoBook;
+                const actionText = (result?.text ?? payload?.text ?? '').trim();
+                if (actionText && b?.id) {
+                  toast.show({
+                    type: 'success',
+                    message: 'メモを保存しました。',
+                    duration: 6000,
+                    action: {
+                      label: '行動にする',
+                      onClick: () => addActionFromMemo(b.id, {
+                        text: actionText,
+                        sourceMemoId: typeof result?.id === 'string' ? result.id : null,
+                        sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
+                      }),
+                    },
+                  });
+                } else {
+                  toast.success('メモを保存しました。');
+                }
+              }}
+              onOpenFullEditor={(prefill) => {
+                const b = homeMemoBook;
+                setHomeMemoBook(null);
+                openDetail(b);
+                setFullEditorPrefill(prefill);
+              }}
+            />
+          </Suspense>
         )}
         {tab === "books" && shelfMode === 'library' && (
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>

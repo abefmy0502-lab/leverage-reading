@@ -109,7 +109,7 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
 // 画像は onLoad でフェードイン・失敗(onError/1×1ダミー)時はプレースホルダに退避。
 // 生の <img> を直接置くと、読み込み中/失敗時に「白い空き枠」になる（本棚の
 // 続きからで実際に起きていた）。
-export function MiniCover({ book, width = 44, radius = 6, onAutoRetry }) {
+export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
   const [from, to] = paletteFor(book.title);
   const [broken, setBroken] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -120,7 +120,8 @@ export function MiniCover({ book, width = 44, radius = 6, onAutoRetry }) {
   }, [show, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const height = Math.round(width * 1.42); // 一般的な書籍の縦横比
   return (
-    <div style={{ position: 'relative', width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, boxShadow: '0 1px 2px rgba(30,25,20,0.12)' }}>
+    // 表紙は「本の形」（DESIGN §4 の例外: 角丸 4）。影は使わず、極細の枠で面と分ける（暗い画面でも成立）。
+    <div style={{ position: 'relative', width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, boxShadow: 'inset 0 0 0 1px var(--separator)' }}>
       <div
         aria-hidden="true"
         style={{

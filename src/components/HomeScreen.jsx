@@ -38,25 +38,27 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
     .filter((b) => b.status === 'reading')
     .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
   const shown = reading.slice(0, 3);
+  // 読書中 0 冊: 見出しもカードも出さず、1 行だけ（SPEC §1 のエッジケース）。
+  if (shown.length === 0) {
+    return (
+      <button type="button" onClick={onAddBook} style={{ ...btnText, alignSelf: 'flex-start', gap: 4 }}>
+        読み始めた本を追加<ChevronRight size={18} aria-hidden="true" />
+      </button>
+    );
+  }
   return (
     <section aria-labelledby="home-reading-title">
       <h2 id="home-reading-title" style={sectionTitle}>いま読んでいる本</h2>
-      {shown.length === 0 ? (
-        <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>読んでいる本はまだありません</span>
-          <button type="button" onClick={onAddBook} style={{ ...btnText, flexShrink: 0 }}>本を追加</button>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {shown.map((b) => (
-            <div key={b.id} style={{ ...card, padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div key={b.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
               <button
                 type="button"
                 onClick={() => onOpenBook(b)}
                 aria-label={`『${b.title}』を開く`}
                 style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
               >
-                <MiniCover book={b} width={40} radius={4} />
+                <MiniCover book={b} width={40} />
                 <span style={{ minWidth: 0 }}>
                   <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{b.title}</span>
                   {b.author && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.author}</span>}
@@ -66,9 +68,9 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
                 type="button"
                 onClick={() => onWriteMemo(b)}
                 aria-label={`『${b.title}』にメモを書く`}
-                style={{ ...btnGhost, width: 'auto', flexShrink: 0, padding: '8px 12px', minHeight: 44, fontSize: 'var(--text-sub)' }}
+                style={{ ...btnGhost, width: 'auto', flexShrink: 0, padding: '8px 12px', minHeight: 44, fontSize: 'var(--text-sub)', color: 'var(--text)' }}
               >
-                <PencilLine size={16} aria-hidden="true" />メモ
+                <PencilLine size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />メモ
               </button>
             </div>
           ))}
@@ -77,8 +79,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
               ほか {reading.length - shown.length} 冊を見る
             </button>
           )}
-        </div>
-      )}
+      </div>
     </section>
   );
 }

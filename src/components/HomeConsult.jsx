@@ -7,12 +7,12 @@
 //   - 本 0 冊: 出さない（ホームの「はじめる」カードが案内する）
 //   - メモ 0 件: 入力欄の代わりに予告と「これまで読んだ本から始める」（初日クイックスタート）
 // 見た目は DESIGN.md のトークンのみ（主ボタン＝相談する の 1 つだけ）。
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
-import { btnPrimary, btnGhost, card, input } from '../styles/ui';
+import { btnPrimary, card, input } from '../styles/ui';
 
 // 相談例（AI を使わない＝原価ゼロ）。いま読んでいる本があればそれを使う。
 function examplesFor(books) {
@@ -25,6 +25,7 @@ function examplesFor(books) {
 
 export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
   const { user } = useAuth();
+  const inputRef = useRef(null);
   const [memoCount, setMemoCount] = useState(null);
   const [text, setText] = useState('');
   const bookCount = books.length;
@@ -49,7 +50,9 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
 
   const send = (q) => {
     const question = (q ?? text).trim();
-    if (!question) return;
+    // 空のまま押されたら入力欄へ案内する（主ボタンを薄く無効化すると「主役」が
+    // 脇役より弱く見えるため、見た目は常に主ボタンのままにする・DESIGN §0）。
+    if (!question) { inputRef.current?.focus(); return; }
     track('home_consult_sent', { example: q != null });
     onAsk?.(question);
     setText('');
@@ -77,30 +80,35 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
       {hasMemos && (
         <>
           <textarea
+            ref={inputRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={2}
             maxLength={LIMITS.aiQuestion}
-            placeholder="困っていることを、そのまま書いてください"
+            placeholder="困っていることを書いてください"
             aria-label="相談したいこと"
             style={{ ...input, resize: 'none', lineHeight: 1.5, display: 'block' }}
           />
           <button
             type="button"
             onClick={() => send()}
-            disabled={!text.trim()}
-            style={{ ...btnPrimary, marginTop: 12, opacity: text.trim() ? 1 : 0.4 }}
+            style={{ ...btnPrimary, marginTop: 12 }}
           >
             相談する
           </button>
           <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: '16px 0 8px' }}>たとえば</p>
+          {/* 相談例はチップ（--fill 面・枠なし）。入力欄（枠あり）と見分けがつくように。 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {examples.map((q) => (
               <button
                 key={q}
                 type="button"
                 onClick={() => send(q)}
-                style={{ ...btnGhost, justifyContent: 'flex-start', textAlign: 'left', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text)', lineHeight: 1.5 }}
+                style={{
+                  display: 'block', width: '100%', minHeight: 44, padding: '10px 12px', textAlign: 'left',
+                  background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5,
+                }}
               >
                 {q}
               </button>
