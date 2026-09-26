@@ -53,6 +53,7 @@ const SCREENS = [
   { name: 'consult-answer-open', url: '/', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }, { css: 'summary:has-text("根拠を見る")' }, { scrollBottom: true }] },
   { name: 'consult-history', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="過去の相談を見る"]' }] },
   { name: 'consult-scope', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label^="相談相手を選ぶ"]' }] },
+  { name: 'advisor', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }] },
   { name: 'review', url: '/', steps: [{ css: nav('振り返り') }] },
   { name: 'settings', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }] },
   { name: 'auth', url: '/?demo=auth&auth=signin' },

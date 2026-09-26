@@ -1068,37 +1068,36 @@
   flex-shrink: 0;
   background: var(--bg);
   /* ホームインジケータ（iPhone）に被らないよう、常時 safe-area を吸収する。 */
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
   margin: 0;
-  border-top: 1px solid var(--color-separator);
+  border-top: 1px solid var(--separator);
   display: flex;
   gap: var(--space-2);
   align-items: flex-end;
 }
 /* キーボード開時も同じ safe-area を維持（BottomNav が消えるため）。 */
 body.keyboard-open .ai-input-area {
-  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
 }
 .ai-input-area textarea {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   max-height: 120px;
-  padding: 9px 14px;
-  /* LINE っぽい大きな丸み */
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius);
-  border: 1px solid var(--color-separator);
-  background: var(--color-surface);
-  color: var(--color-label);
+  /* 入力欄の枠は操作部品のコントラスト 3:1（DESIGN §5・§6） */
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   font-family: inherit;
-  font-size: 16px; /* iOS のズーム防止 */
+  font-size: max(16px, var(--text-body)); /* iOS のズーム防止（16 以上） */
   line-height: 1.4;
   resize: none;
   outline: none;
   box-sizing: border-box;
 }
 .ai-input-area textarea:focus {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  border-color: var(--accent);
 }
 .ai-input-area .send-btn {
   flex-shrink: 0;
@@ -1108,10 +1107,10 @@ body.keyboard-open .ai-input-area {
   padding: 0;
   border-radius: 50%;
   border: none;
-  background: var(--color-accent-strong);
-  color: var(--color-text-inverse);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-family: inherit;
-  font-size: 16px;
+  font-size: var(--text-body);
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;

@@ -71,7 +71,7 @@ function brainAnswer(store, question, memoBlock = '') {
   return [
     '【結論】',
     p2
-      ? `${p1.name} と ${p2.name} で残したメモを合わせると、答えが見えてきます。1冊だけでは出てこない、あなたの読書をつなげた答えです。`
+      ? `相手を変えようとする前に、あなたの「伝え方」を一つだけ変えてみましょう。${p1.name} と ${p2.name} のメモは、どちらも「最初に決めてほしいことを言う」ことを勧めています。`
       : memos.every((m) => m.book_id === picked[0].book_id)
         ? `${p1.name} に相談した答えです。「${picked[0].text.slice(0, 40)}${picked[0].text.length > 40 ? '…' : ''}」を、いまの状況に当てはめてみましょう。`
         : `この件に関係するメモは ${p1.name} だけでした。「${picked[0].text.slice(0, 40)}${picked[0].text.length > 40 ? '…' : ''}」を、いまの状況に当てはめてみましょう。`,

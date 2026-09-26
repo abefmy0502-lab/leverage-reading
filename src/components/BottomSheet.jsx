@@ -34,7 +34,7 @@ const sheetWrap = {
   paddingBottom: 'env(safe-area-inset-bottom, 0px)',
 };
 
-export default function BottomSheet({ title, onClose, children, footer }) {
+export default function BottomSheet({ title, onClose, children, footer, dismissLabel = '完了' }) {
   const sheetRef = useRef(null);
   // ♿ aria-modal の宣言どおり Tab を内部に閉じ込め、閉じたら元へ復帰。
   const trapRef = useFocusTrap(true);
@@ -113,24 +113,25 @@ export default function BottomSheet({ title, onClose, children, footer }) {
             <div className="lvg-sheet-handle" aria-hidden="true" />
           </button>
           {title && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 18px 10px', borderBottom: '1px solid var(--c-hairline)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-1) var(--space-4) var(--space-2)', borderBottom: '1px solid var(--separator)' }}>
               <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>{title}</h3>
+              {/* 既定は「完了」（変更がその場で効くシート）。下に決定ボタンがあるシートは
+                  dismissLabel="キャンセル" を渡す（決定の入口を 2 つにしない・iOS で「完了」は決定の意味）。 */}
               <button
                 type="button"
                 onClick={animateClose}
-                aria-label="閉じる"
-                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44 }}
+                style={{ background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0 }}
               >
-                完了
+                {dismissLabel}
               </button>
             </div>
           )}
         </div>
-        <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '14px 18px 18px' }}>
+        <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: 'var(--space-4)' }}>
           {children}
         </div>
         {footer && (
-          <div style={{ borderTop: '1px solid var(--c-hairline)', padding: '12px 18px calc(12px + env(safe-area-inset-bottom, 0px))' }}>
+          <div style={{ borderTop: '1px solid var(--separator)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
             {footer}
           </div>
         )}

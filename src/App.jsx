@@ -3887,7 +3887,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'brain' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('brain')}
               >
-                <MessageCircle size={16} aria-hidden="true" style={subTabIconStyle} />相談
+                <MessageCircle size={15} aria-hidden="true" style={subTabIconStyle} />相談
               </button>
               <button
                 type="button"
