@@ -283,17 +283,13 @@ export default function AuthScreen() {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)' }}>
       {/* ロゴをページ見出し(h1)として提供。alt="Orime" がアクセシブルな見出し名になる。
           aspectRatio で読み込み前にスペースを確保しCLSを防ぐ。 */}
-      <h1 style={{ margin: '0 0 14px' }}>
-        <img
-          src="/logo-lockup.png"
-          alt="Orime"
-          width={168}
-          height={156}
-          style={{ width: 168, height: 'auto', aspectRatio: '430 / 400', display: 'block' }}
-        />
+      {/* アプリアイコン＋文字のワードマーク（暗い画面でも読める。旧: 茶色の文字入り画像は暗い面で沈んでいた）。 */}
+      <h1 style={{ margin: '0 0 var(--space-3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
+        <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 72, height: 72, borderRadius: 16, display: 'block' }} />
+        <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', letterSpacing: '0.02em' }}>Orime</span>
       </h1>
-      <p style={{ fontSize: 14, color: 'var(--c-ink-2)', marginBottom: 28, textAlign: 'center' }}>
-        読みっぱなしを、やめる。<br />気づきを後から呼び戻し、行動に変える読書アプリ。
+      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-8)', textAlign: 'center' }}>
+        読むほど、自分だけの相談相手が育つ
       </p>
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 340 }}>
         <h2 style={{ fontSize: 16, color: 'var(--c-ink)', marginBottom: 16, textAlign: 'center', fontWeight: 500 }}>{title}</h2>

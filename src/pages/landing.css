@@ -211,6 +211,15 @@ body.lp-active {
 }
 .lp-header-cta:hover { box-shadow: 0 4px 14px rgba(92, 74, 46, 0.3); }
 .lp-header-cta:active { transform: scale(0.97); }
+/* 狭い画面（iPhone 390 等）でブランド名・ログインが 1 文字ずつ折り返していた（「Orim / e」）。
+   文字は折り返さず、CTA を少し詰めて 1 行に収める。 */
+.lp-brand, .lp-header-login { white-space: nowrap; flex-shrink: 0; }
+.lp-header-nav { min-width: 0; }
+@media (max-width: 420px) {
+  .lp-header-inner { gap: 8px; }
+  .lp-header-login { padding: 10px 6px; }
+  .lp-header-cta { padding: 8px 12px; font-size: 12px; letter-spacing: 0; }
+}
 
 /* ============ Sticky 下部 CTA (モバイル) ============ */
 .sticky-cta {

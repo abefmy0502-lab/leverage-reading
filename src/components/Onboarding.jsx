@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { getRandomFromCategory } from '../lib/quotes';
 import { track } from '../lib/analytics';
+import { BookOpen, PencilLine, MessageCircle, Target } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
 
 const STORAGE_KEY = 'onboardingCompleted';
@@ -12,22 +12,22 @@ const STORAGE_KEY = 'onboardingCompleted';
 // 文体注意: 引用符強調（"凝縮" 等）とダーシ（——）は翻訳調に見えるため使わない。
 const slides = [
   {
-    icon: '📖',
+    Icon: BookOpen,
     title: '読むほど、自分だけの相談相手が育つ',
     body: '困ったとき、前に読んだ本にヒントがあったはずなのに、思い出せない。\nOrime は、あなたが読んだ本とメモを覚えておいて、困ったときの相談相手になる読書アプリです。',
   },
   {
-    icon: '✍️',
+    Icon: PencilLine,
     title: 'まず、一行を残す',
     body: '本を読みながら、心が動いた一行をメモするだけ。\n完璧じゃなくていい。長くなくていい。\nその一行が、あなたの相談相手の材料になります。',
   },
   {
-    icon: '💬',
+    Icon: MessageCircle,
     title: '困ったら、相談する',
     body: '仕事や人間関係で迷ったら、Orime に相談してください。\nあなたが残したメモを根拠に、どの本のどの気づきが使えるかを答えます。\nメモが増えるほど、答えはあなたらしくなっていきます。',
   },
   {
-    icon: '🎯',
+    Icon: Target,
     title: '答えを、行動に変える',
     body: '相談の答えには、明日からできる一歩がつきます。\nそのまま行動リストに入れて、読んだ本をあなたの変化につなげましょう。\n忘れかけたメモは、思い出しカードとしてときどき戻ってきます。',
   },
@@ -136,7 +136,6 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
   const slide = slides[step];
   const isLast = step === slides.length - 1;
   // Lazy initializer — runs once on first render, never on module load.
-  const [welcomeQuote] = useState(() => getRandomFromCategory('encouragement'));
   // 📊 signup_source: 「どこで知りましたか」の1タップ計測（任意・スキップ可）。
   // チャネル別の獲得効率（note/X/検索）を測る唯一の一次データ。値は analytics の
   // sanitizer 適合（≤32字の固定スラッグ）。1度選んだら変更なしで送信済み扱い。
@@ -221,24 +220,23 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
               width: 78,
               height: 78,
               borderRadius: '50%',
-              background: 'var(--c-soft-2)',
+              background: 'var(--accent-soft)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 36,
-              color: 'var(--c-brand)',
+              color: 'var(--accent)',
             }}
           >
-            {slide.icon}
+            <slide.Icon size={34} strokeWidth={1.75} aria-hidden="true" />
           </div>
-          <h2 style={{ fontSize: 18, color: 'var(--c-ink)', margin: '6px 0 0', fontWeight: 500 }}>
+          <h2 style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 'var(--space-2) 0 0', fontWeight: 600, lineHeight: 1.35, textAlign: 'center' }}>
             {slide.title}
           </h2>
           <p
             style={{
-              fontSize: 13,
-              color: 'var(--c-ink-soft)',
-              lineHeight: 1.8,
+              fontSize: 'var(--text-sub)',
+              color: 'var(--text-2)',
+              lineHeight: 1.6,
               textAlign: 'center',
               margin: 0,
               whiteSpace: 'pre-line',
@@ -246,25 +244,6 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
           >
             {slide.body}
           </p>
-          {step === 0 && (
-            <div
-              style={{
-                marginTop: 14,
-                padding: '10px 14px',
-                background: 'var(--fill)',
-                border: '1px solid var(--separator)',
-                borderRadius: 10,
-                textAlign: 'center',
-              }}
-            >
-              <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', fontStyle: 'italic', lineHeight: 1.7, margin: 0 }}>
-                “{welcomeQuote.text}”
-              </p>
-              {welcomeQuote.author && (
-                <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '4px 0 0' }}>— {welcomeQuote.author}</p>
-              )}
-            </div>
-          )}
         </div>
 
         <div style={dotsRow}>

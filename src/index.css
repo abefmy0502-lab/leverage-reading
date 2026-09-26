@@ -318,7 +318,7 @@ button:disabled:active {
   position: fixed;
   inset: 0;
   z-index: 700;
-  background: rgba(30, 25, 20, 0.45);
+  background: var(--backdrop);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   animation: lvg-fade-in var(--duration-base) var(--ease-out-quart) both;
@@ -456,9 +456,10 @@ select:focus-visible {
 
 /* ----- Existing keyframes used by JS-injected styles (kept for back-compat) -- */
 @keyframes leverage-card-celebrate {
-  0% { box-shadow: 0 0 0 rgba(212, 160, 64, 0); transform: scale(1); }
-  30% { box-shadow: 0 0 28px rgba(212, 160, 64, 0.7); transform: scale(1.015); }
-  100% { box-shadow: 0 0 0 rgba(212, 160, 64, 0); transform: scale(1); }
+  /* 読了のお祝い: 光る影はやめ、わずかな拡大だけ（DESIGN §4: 影は 3 段階まで）。 */
+  0% { transform: scale(1); }
+  30% { transform: scale(1.015); }
+  100% { transform: scale(1); }
 }
 @keyframes leverage-card-flip {
   0% { transform: perspective(800px) rotateY(0deg); opacity: 1; }

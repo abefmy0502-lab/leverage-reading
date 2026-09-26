@@ -288,7 +288,8 @@ export default function Landing() {
           <h1 className="hero-headline">
             読むほど、<br />
             自分だけの<br />
-            相談相手が育つ。
+            {/* 句点だけが次の行に落ちないよう、最後の語と句点をつなぐ。 */}
+            相談相手が<span style={{ whiteSpace: 'nowrap' }}>育つ。</span>
           </h1>
           <p className="hero-subhead">
             読みながら、心が動いた一行を残す。<br />
