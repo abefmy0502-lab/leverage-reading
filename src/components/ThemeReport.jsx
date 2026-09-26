@@ -29,10 +29,11 @@ import {
 } from '../lib/ai';
 import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
+import ErrorMessage from './ErrorMessage';
 import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
-import { Square, History, Trash2, RotateCw, Inbox, AlertTriangle, Ruler, RefreshCw, CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Square, History, Trash2, RotateCw, Inbox, Ruler, RefreshCw, CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // 見た目は DESIGN.md のトークンのみ。
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
@@ -166,6 +167,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const [aborting, setAborting] = useState(false);
   const [notice, setNotice] = useState(''); // shown when a theme has no memos yet
   const [noticeKind, setNoticeKind] = useState('info'); // 'info' (メモ0件) | 'error'
+  // 出力上限で途中切れ。notice と違い本文を置き換えず、本文の下に 1 行添えるだけ。
+  const [truncated, setTruncated] = useState(false);
   const abortRef = useRef(null);
   const runIdRef = useRef(0); // 生成の実行トークン（履歴を開いたら無効化）
 
@@ -251,6 +254,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
     setReportText('');
     setNotice('');
     setNoticeKind('info');
+    setTruncated(false);
     setStage('search');
     setGenerating(true);
     setAborting(false);
@@ -310,8 +314,9 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
           if (result?.truncated) {
             // 出力上限で途中切れ。画面には表示するが、欠けたレポートを完成品として
             // 履歴に永続化しない（再表示しても欠けたままになる事故を防ぐ）。
-            setNoticeKind('info');
-            setNotice('テーマまとめが長さの上限に達したため途中までです。メモやテーマを絞って再生成すると最後まで作成できます（このままでは履歴に保存されません）。');
+            // 以前は notice に入れていたため本文が案内カードに置き換わっていた — 本文は残し、
+            // 下に 1 行の注記だけを出す。
+            setTruncated(true);
           } else {
             // Persist (no-op + history stays hidden if the table isn't applied).
             const saved = await saveThemeReport({ userId: user.id, theme, content: finalText });
@@ -353,6 +358,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
     setReportText('');
     setNotice('');
     setNoticeKind('info');
+    setTruncated(false);
   }, []);
 
   const copyReport = useCallback(async () => {
@@ -416,6 +422,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
     setReportText(row.content || '');
     setNotice('');
     setNoticeKind('info');
+    setTruncated(false);
     // 履歴は保存済み Markdown のみ。ライブ集計（行動の鏡・スコープ・前回比）は持た
     // ないのでクリアし、想起セットは核心から再実行できるよう false に。
     setActionStats(null);
@@ -456,7 +463,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   // 履歴へは画面内の「履歴」文字ボタンから入り、「‹ テーマまとめ」で戻る。
 
   const reportDone = !generating && !notice && !!reportText;
-  const nextStep = reportDone && primaryBook?.id ? extractNextStep(reportText) : '';
+  // 途中切れでは末尾が欠けた断片になりうるので、次の一歩の 1 タップ追加は出さない。
+  const nextStep = reportDone && !truncated && primaryBook?.id ? extractNextStep(reportText) : '';
 
   return (
     <div style={wrap}>
@@ -465,7 +473,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
           <div style={viewScroll}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
               <div>
-                <button type="button" onClick={() => setView('create')} style={{ ...btnText, fontSize: 'var(--text-body)', fontWeight: 400, gap: 2 }}>
+                <button type="button" onClick={() => setView('create')} style={{ ...btnText, fontSize: 'var(--text-body)', fontWeight: 400, gap: 'var(--space-1)' }}>
                   <ChevronLeft size={20} aria-hidden="true" />テーマまとめ
                 </button>
               </div>
@@ -571,19 +579,22 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
               </div>
 
               {/* body */}
-              {notice ? (
-                <div
-                  role={noticeKind === 'error' ? 'alert' : 'status'}
-                  style={{
-                    ...card,
-                    background: noticeKind === 'error' ? 'var(--error-soft)' : 'var(--surface)',
-                    borderColor: noticeKind === 'error' ? 'var(--error-line)' : 'var(--separator)',
-                    display: 'flex',
-                    gap: 'var(--space-3)',
-                  }}
-                >
-                  <span aria-hidden="true" style={{ flex: '0 0 auto', display: 'inline-flex', paddingTop: 2, color: noticeKind === 'error' ? 'var(--error)' : 'var(--text-3)' }}>
-                    {noticeKind === 'error' ? <AlertTriangle size={18} /> : <Inbox size={18} />}
+              {notice && noticeKind === 'error' ? (
+                <ErrorMessage
+                  icon={null}
+                  description={notice}
+                  actions={activeTheme ? [{
+                    label: 'もう一度試す',
+                    ariaLabel: `テーマ「${activeTheme}」でもう一度作成`,
+                    onClick: () => generate(activeTheme),
+                    variant: 'secondary',
+                    icon: <RotateCw size={16} />,
+                  }] : []}
+                />
+              ) : notice ? (
+                <div role="status" style={{ ...card, display: 'flex', gap: 'var(--space-3)' }}>
+                  <span aria-hidden="true" style={{ flex: '0 0 auto', display: 'inline-flex', paddingTop: 'var(--space-1)', color: 'var(--text-3)' }}>
+                    <Inbox size={18} />
                   </span>
                   <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 'var(--text-sub)', color: 'var(--text)', minWidth: 0 }}>
                     {notice}
@@ -612,14 +623,10 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                 <div aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                   {extractCore(reportText) && <CoreCard line={extractCore(reportText)} />}
                   <MarkdownSections text={stripCoreSection(reportText)} />
+                  {truncated && (
+                    <p role="status" style={metaText}>長さの上限で途中までです（履歴に保存しません）</p>
+                  )}
                 </div>
-              )}
-
-              {/* error notice → offer a retry of the same theme */}
-              {!generating && notice && noticeKind === 'error' && activeTheme && (
-                <button type="button" onClick={() => generate(activeTheme)} style={{ ...uiBtnPrimary }} aria-label={`テーマ「${activeTheme}」でもう一度作成`}>
-                  <RefreshCw size={18} aria-hidden="true" />もう一度試す
-                </button>
               )}
 
               {/* 次の一歩を 1 タップで行動リストへ（この画面の主ボタン・残す→活かすの輪を閉じる） */}
@@ -865,7 +872,7 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {openSteps.map((s, i) => (
               <li key={i} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)' }}>
-                <Circle size={16} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0, marginTop: 3 }} />
+                <Circle size={16} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
                 <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{stripInlineMd(s)}</span>
               </li>
             ))}

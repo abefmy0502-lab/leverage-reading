@@ -11,9 +11,8 @@ import { useToast } from './Toast';
 import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
-import Spinner from './Spinner';
 import { SkeletonBlock } from './Skeleton';
-import { Sprout, Copy, RotateCw } from 'lucide-react';
+import { Sprout, Copy, RotateCw, Square } from 'lucide-react';
 import { LIMITS } from '../lib/limits';
 import { btnPrimary, input as uiInput } from '../styles/ui';
 
@@ -33,6 +32,10 @@ const inp = { ...uiInput, flex: 1, minWidth: 0, width: 'auto' };
 const primaryBtn = { ...btnPrimary, width: 'auto', flexShrink: 0 };
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
+// 文字ボタン（--accent・高さ 44）。生成中の「中止」に使う。
+const textBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) 0', border: 'none', background: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 };
+// 生成中のカード（テーマまとめの生成中と同じ形）。
+const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 
 export default function KnowledgeJourney({ userId, initialTheme = '' }) {
   const toast = useToast();
@@ -41,6 +44,9 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
   const [custom, setCustom] = useState('');
   const [activeTheme, setActiveTheme] = useState('');
   const [state, setState] = useState({ status: 'idle' }); // idle|loading|done|thin|error
+  const [aborting, setAborting] = useState(false);
+  // 生成が始まったら結果の欄を画面に入れる（テーマ選択の下に隠れて見えないのを防ぐ）。
+  const resultRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -75,6 +81,7 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
     const controller = new AbortController();
     abortRef.current = controller;
     setActiveTheme(theme);
+    setAborting(false);
     setState({ status: 'loading' });
     try {
       const r = await generateKnowledgeJourney(userId, theme, {
@@ -86,15 +93,35 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
         signal: controller.signal,
       });
       if (!aliveRef.current) return;
+      if (controller.signal.aborted) { setState({ status: 'idle' }); return; }
       if (r?.tooThin) setState({ status: 'thin' });
       else setState({ status: 'done', ...r });
     } catch (e) {
       if (!aliveRef.current) return;
+      // 中止＝キャンセル扱い（テーマまとめと同じ）。エラーにせず選択の状態へ戻す。
+      if (controller.signal.aborted || e?.name === 'AbortError') { setState({ status: 'idle' }); return; }
       // 先頭の絵文字（toMessage が付ける 🌐 等）は外す — アイコンに絵文字を使わない（DESIGN §3-2）。
       const msg = toMessage(e, '足あとの生成に失敗しました。').replace(/^[\p{Extended_Pictographic}️\s]+/u, '');
       setState({ status: 'error', msg });
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+      if (aliveRef.current) setAborting(false);
     }
   }, [userId, state.status]);
+
+  const stop = useCallback(() => {
+    const controller = abortRef.current;
+    if (!controller || controller.signal.aborted) return;
+    setAborting(true);
+    try { controller.abort(); } catch { /* ignore */ }
+  }, []);
+
+  // 生成が始まったら結果の欄までスクロールする。
+  const isLoading = state.status === 'loading';
+  useEffect(() => {
+    if (!isLoading) return;
+    try { resultRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); } catch { /* ignore */ }
+  }, [isLoading]);
 
   // 📐→🕰 テーマまとめから「このテーマの足あとを見る」で遷移してきた時、
   // テーマを引き継いで自動で変遷を生成する（一度だけ）。
@@ -165,46 +192,78 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
         </div>
       </div>
 
-      {state.status === 'loading' && !state.partial && <Spinner message="あなたのメモを時系列で読んでいます…" />}
-      {state.status === 'loading' && state.partial && (
-        <div aria-live="polite" aria-busy="true">
-          <MarkdownSections text={state.partial} />
-        </div>
-      )}
+      {state.status !== 'idle' && (
+        <div ref={resultRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', scrollMarginTop: 'var(--space-4)' }}>
+          {activeTheme && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44 }}>
+              <h3 style={{ ...headingStyle, margin: 0, flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{activeTheme}</h3>
+              {state.status === 'loading' && (
+                <button
+                  type="button"
+                  onClick={stop}
+                  disabled={aborting}
+                  style={{ ...textBtn, opacity: aborting ? 0.6 : 1 }}
+                  aria-label={aborting ? '中止しています' : '足あとの生成を中止'}
+                >
+                  <Square size={14} aria-hidden="true" />{aborting ? '中止中…' : '中止'}
+                </button>
+              )}
+            </div>
+          )}
+          {state.status === 'loading' && !state.partial && (
+            <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} aria-live="polite" aria-busy="true">
+              <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                あなたのメモを時系列で読んでいます…
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                <SkeletonBlock width="90%" height={14} radius="var(--radius-full)" />
+                <SkeletonBlock width="76%" height={14} radius="var(--radius-full)" />
+                <SkeletonBlock width="84%" height={14} radius="var(--radius-full)" />
+                <SkeletonBlock width="64%" height={14} radius="var(--radius-full)" />
+              </div>
+            </div>
+          )}
+          {state.status === 'loading' && state.partial && (
+            <div aria-live="polite" aria-busy="true">
+              <MarkdownSections text={state.partial} />
+            </div>
+          )}
 
-      {state.status === 'thin' && (
-        <EmptyState
-          icon={<Sprout size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title="まだ追える変化は少なめです"
-          description="このテーマのメモが増えるほど、変遷がくっきり見えてきます。今日の一行から。"
-        />
-      )}
+          {state.status === 'thin' && (
+            <EmptyState
+              icon={<Sprout size={32} strokeWidth={1.5} aria-hidden="true" />}
+              title="まだ追える変化は少なめです"
+              description="このテーマのメモが増えるほど、変遷がくっきり見えてきます。今日の一行から。"
+            />
+          )}
 
-      {state.status === 'error' && (
-        <ErrorMessage
-          icon={null}
-          description={state.msg}
-          actions={activeTheme ? [{
-            label: 'もう一度試す',
-            ariaLabel: `テーマ「${activeTheme}」の足あとをもう一度たどる`,
-            onClick: () => run(activeTheme),
-            variant: 'secondary',
-            icon: <RotateCw size={16} />,
-          }] : []}
-        />
-      )}
+          {state.status === 'error' && (
+            <ErrorMessage
+              icon={null}
+              description={state.msg}
+              actions={activeTheme ? [{
+                label: 'もう一度試す',
+                ariaLabel: `テーマ「${activeTheme}」の足あとをもう一度たどる`,
+                onClick: () => run(activeTheme),
+                variant: 'secondary',
+                icon: <RotateCw size={16} />,
+              }] : []}
+            />
+          )}
 
-      {state.status === 'done' && (
-        <div className="tab-content" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
-            {state.first} 〜 {state.last}・メモ {state.count} 件をたどりました
-          </p>
-          <MarkdownSections text={state.content} />
-          <div>
-            <button type="button" style={rowBtn} onClick={copy}>
-              <Copy size={16} aria-hidden="true" />コピー
-            </button>
-          </div>
+          {state.status === 'done' && (
+            <div className="tab-content" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+                {state.first} 〜 {state.last}・メモ {state.count} 件をたどりました
+              </p>
+              <MarkdownSections text={state.content} />
+              <div>
+                <button type="button" style={rowBtn} onClick={copy}>
+                  <Copy size={16} aria-hidden="true" />コピー
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
