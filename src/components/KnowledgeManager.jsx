@@ -686,7 +686,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
       <div style={card}>
         <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-ink)', margin: 0 }}>
           <Brain size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
-          マイ読書脳の知識ベース
+          相談の根拠にできる情報
         </p>
         <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '8px 0 0', lineHeight: 1.7 }}>
           AI が答えるとき参照する、あなたの知識は

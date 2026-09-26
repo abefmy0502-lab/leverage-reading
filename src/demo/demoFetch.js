@@ -36,7 +36,7 @@ function brainAnswer(store, question, memoBlock = '') {
   };
   const memos = store.table('book_memos').filter((m) => (m.text || '').trim() && inBlock(m));
   if (!memos.length) {
-    return 'まだメモが 1 件も保存されていません。本を読んでメモを書くと、ここでマイ読書脳があなただけのアドバイザーになります。';
+    return 'まだメモが 1 件も保存されていません。本を読んでメモを書くと、ここがあなただけの相談相手になります。';
   }
   const scored = memos
     .map((m) => {
@@ -110,7 +110,7 @@ function aiReply(store, payload) {
     'これはお試しモードの仮の応答です。本番では、ここに AI の回答が表示されます。',
     '',
     '- 画面の流れや文言の確認用に、固定の文章を返しています',
-    '- マイ読書脳の相談だけは、実際に入っているメモから答えます',
+    '- 相談だけは、実際に入っているメモから答えます',
   ].join('\n');
 }
 

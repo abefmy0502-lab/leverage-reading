@@ -357,7 +357,7 @@ export default function Landing() {
               <figcaption className="screenshot-step-label">① 質問する</figcaption>
               <PhoneFrame
                 src="/lp/mybook-brain-asking.jpg"
-                alt="マイ読書脳に「チームの営業成績を上げるには？」と質問を入力している画面"
+                alt="相談に「チームの営業成績を上げるには？」と入力している画面"
                 size="small"
                 ratio="868/1427"
               />
@@ -594,7 +594,7 @@ export default function Landing() {
             </p>
 
             <ul className="price-features">
-              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 相談（マイ読書脳）・行動・テーマまとめ・思い出しカード すべて利用可</li>
+              <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 相談・行動・テーマまとめ・思い出しカード すべて利用可</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> AI 選書・読書計画・写真の書き起こしも込み</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> 本の登録数・メモ数は無制限</li>
               <li><Check size={16} strokeWidth={2.5} aria-hidden="true" /> いつでも解約できます・違約金なし</li>

@@ -307,7 +307,7 @@ function formatMemo(memo, opts) {
   return `【${parts.join(' / ')}】${safeText}${truncated}`;
 }
 
-const BRAIN_SYSTEM = `あなたは「マイ読書脳」AI です。
+const BRAIN_SYSTEM = `あなたは、ユーザーが読んだ本のメモを根拠に相談に乗る「相談」AI です。
 ユーザーが過去に読んだ本・残したメモから、パーソナライズされた回答を生成します。
 
 【重要なセキュリティルール — 必ず守ること】
@@ -764,7 +764,7 @@ async function buildBrainContext({ userId, question, onStage, bookIds }) {
       payload: {
         body: scoped
           ? '選んだ本には、まだメモがありません。本を開いて心が動いた一行をメモするか、相談相手を「すべての本」に戻してください。'
-          : 'まだメモが 1 件も保存されていません。本を読んでメモを書くと、ここでマイ読書脳があなただけのアドバイザーになります。',
+          : 'まだメモが 1 件も保存されていません。本を読んでメモを書くと、ここがあなただけの相談相手になります。',
         refs: [],
         memoCount: 0,
         memoTotal: 0,

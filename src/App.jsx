@@ -3887,7 +3887,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'brain' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('brain')}
               >
-                <IcBrain size={15} aria-hidden="true" style={subTabIconStyle} />マイ読書脳
+                <MessageCircle size={16} aria-hidden="true" style={subTabIconStyle} />相談
               </button>
               <button
                 type="button"
@@ -3910,13 +3910,14 @@ function AuthedApp() {
             </div>
             {/* 独自名のサブタブを初対面でも分かるよう、役割を動詞で先頭に置いて注釈する。
                 3 つの違い（選ぶ/聞く/しぼる）を一目で言語化できるようにする。 */}
-            <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '6px 12px 0', lineHeight: 1.6, flexShrink: 0 }}>
-              {aiSubTab === 'advisor'
-                ? <><strong style={{ color: 'var(--c-ink)' }}>選ぶ</strong> — いまの課題に合う本を、AI が提案します。</>
-                : aiSubTab === 'brain'
-                ? <><strong style={{ color: 'var(--c-ink)' }}>相談する</strong> — 困りごとに、あなたが読んだ本のメモを根拠に答えます。</>
-                : <><strong style={{ color: 'var(--c-ink)' }}>しぼる</strong> — テーマの学びを「この1行」と「次の一歩」に凝縮します。</>}
-            </p>
+            {/* 相談は画面の中で「何を根拠に答えるか」を言うので、説明の 1 行は AI 選書・テーマまとめだけ。 */}
+            {aiSubTab !== 'brain' && (
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-2) var(--space-4) 0', lineHeight: 1.5, flexShrink: 0 }}>
+                {aiSubTab === 'advisor'
+                  ? 'いまの課題に合う本を、AI が提案します。'
+                  : 'テーマの学びを「この 1 行」と「次の一歩」に凝縮します。'}
+              </p>
+            )}
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
                 <Suspense fallback={<Spinner />}>
@@ -3947,6 +3948,7 @@ function AuthedApp() {
                     onBooksMutated={refreshBooks}
                     onAddActionPickBook={(text) => setAddActionSheet({ step: 'pick', prefillText: text })}
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
+                    onQuickstart={() => setShowQuickstart(true)}
                     journeyPreset={journeyPreset}
                     askPreset={askPreset}
                     scopePreset={scopePreset}

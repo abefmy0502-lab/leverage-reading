@@ -568,7 +568,7 @@ export function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, a
 
       {/* この本の AI まとめ（学び分析の保存先・編集可・全体に活かされる） */}
       {form.aiSummary?.trim() && (
-        <Field label={<><IcBot size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />この本のAI まとめ</>} sub="「学びを分析」で保存した内容です。自由に編集でき、マイ読書脳・テーマまとめ・振り返りに活かされます。">
+        <Field label={<><IcBot size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />この本のAI まとめ</>} sub="「学びを分析」で保存した内容です。自由に編集でき、相談・テーマまとめ・振り返りに活かされます。">
           <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={5} style={ta} maxLength={LIMITS.memoText} />
         </Field>
       )}
