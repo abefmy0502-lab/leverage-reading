@@ -461,6 +461,8 @@ function AuthedApp() {
   const [journeyPreset, setJourneyPreset] = useState(null); // { theme, nonce } | null
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
+  // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
+  const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
   const [showQuickstart, setShowQuickstart] = useState(false);
 
@@ -3007,6 +3009,27 @@ function AuthedApp() {
 
           {(current.status === "reading" || current.status === "done") ? (
             <div style={{ marginTop: 12 }}>
+              {/* 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。 */}
+              <button
+                type="button"
+                onClick={() => {
+                  setScopePreset({ bookIds: [current.id], nonce: Date.now() });
+                  setView('list');
+                  setAiSubTab('brain');
+                  setTab('ai');
+                }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+                  padding: '10px 14px', minHeight: 52, marginBottom: 12, cursor: 'pointer', fontFamily: 'inherit',
+                  background: 'var(--c-card)', border: '1px solid var(--c-hairline-strong)', borderRadius: 'var(--radius-md)',
+                }}
+              >
+                <MessageCircle size={20} aria-hidden="true" style={{ color: 'var(--c-brand)', flexShrink: 0 }} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--c-ink)' }}>この本に相談する</span>
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--c-ink-2)' }}>この本のメモだけを根拠に答えます</span>
+                </span>
+              </button>
               <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-accent)", marginBottom: 6 }}><IcNote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />まとめメモ</p>
               <BookMemoList
                 bookId={current.id}
@@ -4101,6 +4124,7 @@ function AuthedApp() {
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
                     journeyPreset={journeyPreset}
                     askPreset={askPreset}
+                    scopePreset={scopePreset}
                   />
                 </Suspense>
               )}

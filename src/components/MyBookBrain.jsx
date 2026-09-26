@@ -25,6 +25,7 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import { MessageCircle, Lightbulb, History, BookOpenCheck, Sprout, MessageCircleQuestion, Target, Check, Clock, ArrowLeft, RotateCw } from 'lucide-react';
 import KnowledgeJourney from './KnowledgeJourney';
+import BottomSheet from './BottomSheet';
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
 // 収める flex column。chat 時は内側 .chat-scroll + .ai-input-area で
@@ -271,7 +272,7 @@ function LearningInline({ onCancel, onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, journeyPreset, askPreset }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, journeyPreset, askPreset, scopePreset }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -287,6 +288,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   }, [journeyPreset?.nonce]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  // 🎯 相談相手（2026-09-26）: [] = すべての本（＋学びログ）/ [id] = その 1 冊だけ /
+  //   [id, id, …] = 選んだ数冊だけ。質問ごとに streamMyBookBrain へ bookIds で渡す。
+  const [scopeIds, setScopeIds] = useState([]);
+  const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
+  // 本詳細の「この本に相談する」から来たら、相談相手をその本に絞って質問画面へ。
+  useEffect(() => {
+    if (!scopePreset?.bookIds) return;
+    setScopeIds(scopePreset.bookIds);
+    setView('chat');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopePreset?.nonce]);
   const [busy, setBusy] = useState(false);
   // 🧠→🎯 回答の行動を、紐づく本の行動リストへ追加（成功時にトースト）。
   const handleAnswerToAction = useCallback(async (bookId, text) => {
@@ -537,6 +549,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }
     const q = (questionText ?? input).trim();
     if (!q || busy) return;
+    const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
+    const askScopeLabel = scopeLabelFor(askBookIds, books);
 
     setBusy(true);
     setAborting(false);
@@ -559,7 +573,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           .select()
           .single();
         if (error) throw error;
-        userRow = transformMessage(data);
+        userRow = { ...transformMessage(data), scopeLabel: askScopeLabel };
         setMessages((arr) => [...arr, userRow]);
       } catch (e) {
         setBusy(false);
@@ -591,6 +605,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const { body, refs, memoCount, memoTotal, cardCount, summaryCount, personalCount } = await streamMyBookBrain({
         userId: user.id,
         question: q,
+        bookIds: askBookIds,
         signal: controller.signal,
         onStage: (s) => setStage(s),
         onChunk: (visibleText) => {
@@ -697,7 +712,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (askPresetDoneRef.current === askPreset.nonce) return;
     askPresetDoneRef.current = askPreset.nonce;
     setView('chat');
-    ask(askPreset.question);
+    if (Array.isArray(askPreset.bookIds)) setScopeIds(askPreset.bookIds);
+    ask(askPreset.question, Array.isArray(askPreset.bookIds) ? { bookIds: askPreset.bookIds } : {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [askPreset?.nonce, historyLoaded]);
 
@@ -1119,6 +1135,22 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* Input area — flex 末尾。.ai-page (100dvh flex) の構造で
               キーボード直上 / BottomNav 直上に自動で張り付く (LINE 風)。
               Enter = 改行 / Shift+Enter or Cmd+Enter = 送信 / IME ガード継続。 */}
+          <ScopeBar
+            label={scopeLabelFor(scopeIds, books)}
+            scoped={scopeIds.length > 0}
+            onOpen={() => setScopeSheetOpen(true)}
+            onReset={() => setScopeIds([])}
+            disabled={busy}
+          />
+          {scopeSheetOpen && (
+            <ScopeSheet
+              books={books}
+              userId={user?.id}
+              initial={scopeIds}
+              onClose={() => setScopeSheetOpen(false)}
+              onApply={(ids) => { setScopeIds(ids); setScopeSheetOpen(false); track('brain_scope_set', { count: ids.length }); }}
+            />
+          )}
           <div className="ai-input-area">
             <textarea
               ref={inputRef}
@@ -1357,7 +1389,12 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
             </div>
           </div>
         ) : isUser ? (
-          message.content
+          <>
+            {message.scopeLabel && message.scopeLabel !== SCOPE_ALL_LABEL && (
+              <span style={{ display: 'block', fontSize: 11, opacity: 0.8, marginBottom: 4 }}>相談相手：{message.scopeLabel}</span>
+            )}
+            {message.content}
+          </>
         ) : isStreaming ? (
           <>
             {message.content}
@@ -1452,5 +1489,137 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
         )}
       </div>
     </div>
+  );
+}
+
+
+// ===== 🎯 相談相手の選択（すべての本 / 1 冊 / 数冊） =====
+const SCOPE_ALL_LABEL = 'すべての本';
+
+function scopeLabelFor(ids, books) {
+  if (!ids || ids.length === 0) return SCOPE_ALL_LABEL;
+  if (ids.length === 1) {
+    const b = (books || []).find((x) => x.id === ids[0]);
+    return b ? `『${b.title}』` : '1冊';
+  }
+  return `選んだ ${ids.length} 冊`;
+}
+
+function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px 0', flexShrink: 0, minWidth: 0 }}>
+      <span style={{ fontSize: 12, color: 'var(--c-ink-2)', flexShrink: 0 }}>相談相手</span>
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={disabled}
+        aria-label={`相談相手を選ぶ（いま: ${label}）`}
+        style={{
+          minWidth: 0, maxWidth: '100%', display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '6px 12px', minHeight: 36, borderRadius: 99, cursor: 'pointer', fontFamily: 'inherit',
+          border: `1px solid ${scoped ? 'var(--c-brand)' : 'var(--c-hairline-strong)'}`,
+          background: scoped ? 'var(--c-soft)' : 'var(--c-card)', color: 'var(--c-ink)', fontSize: 13, fontWeight: 600,
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        <span aria-hidden="true" style={{ fontSize: 10, color: 'var(--c-ink-2)' }}>▼</span>
+      </button>
+      {scoped && (
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={disabled}
+          style={{ background: 'none', border: 'none', padding: '6px 4px', minHeight: 36, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: 'var(--c-brand)', textDecoration: 'underline', flexShrink: 0 }}
+        >
+          すべてに戻す
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
+  const [mode, setMode] = useState(initial.length ? 'pick' : 'all');
+  const [picked, setPicked] = useState(new Set(initial));
+  const [counts, setCounts] = useState(null); // Map<bookId, メモ件数>
+
+  // 本ごとのメモ件数（メモの無い本は根拠が無いので選べない）。
+  useEffect(() => {
+    if (!userId || !isSupabaseConfigured) return undefined;
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.from('book_memos').select('book_id').eq('user_id', userId);
+      if (!alive) return;
+      const m = new Map();
+      (data || []).forEach((r) => { if (r.book_id) m.set(r.book_id, (m.get(r.book_id) || 0) + 1); });
+      setCounts(m);
+    })();
+    return () => { alive = false; };
+  }, [userId]);
+
+  const hasKnowledge = (b) => (counts?.get(b.id) || 0) > 0 || !!(b.leverageMemo || '').trim() || !!(b.aiSummary || '').trim();
+  const list = [...books]
+    .filter((b) => b.status === 'reading' || b.status === 'done' || (counts?.get(b.id) || 0) > 0)
+    .sort((a, b) => (counts?.get(b.id) || 0) - (counts?.get(a.id) || 0));
+
+  const toggle = (id) => {
+    setMode('pick');
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const canApply = mode === 'all' || picked.size > 0;
+  const apply = () => onApply(mode === 'all' ? [] : [...picked]);
+
+  const rowStyle = (on) => ({
+    width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', minHeight: 48,
+    borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+    border: `1px solid ${on ? 'var(--c-brand)' : 'var(--c-hairline)'}`, background: on ? 'var(--c-soft)' : 'var(--c-card)',
+  });
+  const mark = (on) => (
+    <span aria-hidden="true" style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, border: `1.5px solid ${on ? 'var(--c-brand)' : 'var(--c-hairline-strong)'}`, background: on ? 'var(--c-brand)' : 'transparent', color: 'var(--c-brand-ink)', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{on ? '✓' : ''}</span>
+  );
+
+  return (
+    <BottomSheet
+      title="誰に相談しますか？"
+      onClose={onClose}
+      footer={(
+        <button type="button" onClick={apply} disabled={!canApply} style={{ ...uiBtnPrimary, opacity: canApply ? 1 : 0.5 }}>
+          {mode === 'all' ? 'すべての本に相談する' : picked.size === 1 ? 'この本に相談する' : `${picked.size} 冊に相談する`}
+        </button>
+      )}
+    >
+      <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '0 0 10px', lineHeight: 1.6 }}>
+        すべての本をまとめて根拠にするか、1 冊・数冊に絞って相談できます。
+      </p>
+      <button type="button" onClick={() => { setMode('all'); setPicked(new Set()); }} aria-pressed={mode === 'all'} style={{ ...rowStyle(mode === 'all'), marginBottom: 12 }}>
+        {mark(mode === 'all')}
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--c-ink)' }}>すべての本（おすすめ）</span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--c-ink-2)' }}>読んだ本と学びログのすべてを根拠に、複数の本をつなげて答えます</span>
+        </span>
+      </button>
+      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink-2)', margin: '0 0 6px' }}>本に絞る（1 冊でも、数冊でも）</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {list.length === 0 && <p style={{ fontSize: 12, color: 'var(--c-ink-2)' }}>読書中・読了の本がまだありません。</p>}
+        {list.map((b) => {
+          const on = mode === 'pick' && picked.has(b.id);
+          const ok = counts == null || hasKnowledge(b);
+          const n = counts?.get(b.id) || 0;
+          return (
+            <button key={b.id} type="button" onClick={() => ok && toggle(b.id)} disabled={!ok} aria-pressed={on} style={{ ...rowStyle(on), opacity: ok ? 1 : 0.5 }}>
+              {mark(on)}
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 14, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                <span style={{ display: 'block', fontSize: 11, color: 'var(--c-ink-2)' }}>{ok ? (n > 0 ? `メモ ${n} 件` : 'まとめメモあり') : 'メモがまだありません'}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </BottomSheet>
   );
 }

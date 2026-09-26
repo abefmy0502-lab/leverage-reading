@@ -25,10 +25,16 @@ const bigrams = (s) => {
   return out;
 };
 
-function brainAnswer(store, question) {
+function brainAnswer(store, question, memoBlock = '') {
   const q = bigrams(question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));
-  const memos = store.table('book_memos').filter((m) => (m.text || '').trim());
+  // 本番と同じく、AI に渡されたメモ一覧（相談相手で絞り込み済み）に載っている本だけを使う。
+  const inBlock = (m) => {
+    if (!memoBlock) return true;
+    const b = books.get(m.book_id);
+    return b ? memoBlock.includes(`本: ${b.title}`) : memoBlock.includes("自分の学び");
+  };
+  const memos = store.table('book_memos').filter((m) => (m.text || '').trim() && inBlock(m));
   if (!memos.length) {
     return 'まだメモが 1 件も保存されていません。本を読んでメモを書くと、ここでマイ読書脳があなただけのアドバイザーになります。';
   }
@@ -66,7 +72,9 @@ function brainAnswer(store, question) {
     '【結論】',
     p2
       ? `${p1.name} と ${p2.name} で残したメモを合わせると、答えが見えてきます。1冊だけでは出てこない、あなたの読書をつなげた答えです。`
-      : `この件に関係するメモは ${p1.name} だけでした。「${picked[0].text.slice(0, 40)}${picked[0].text.length > 40 ? '…' : ''}」を、いまの状況に当てはめてみましょう。`,
+      : memos.every((m) => m.book_id === picked[0].book_id)
+        ? `${p1.name} に相談した答えです。「${picked[0].text.slice(0, 40)}${picked[0].text.length > 40 ? '…' : ''}」を、いまの状況に当てはめてみましょう。`
+        : `この件に関係するメモは ${p1.name} だけでした。「${picked[0].text.slice(0, 40)}${picked[0].text.length > 40 ? '…' : ''}」を、いまの状況に当てはめてみましょう。`,
     '',
     '【参照した本のメモ】',
     quotes,
@@ -89,7 +97,10 @@ function aiReply(store, payload) {
   const last = [...(payload.messages || [])].reverse().find((m) => m.role === 'user');
   const userText = textOf(last?.content);
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
-  if (q) return brainAnswer(store, q[1]);
+  if (q) {
+    const block = (userText.match(/MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '';
+    return brainAnswer(store, q[1], block);
+  }
   const system = textOf(payload.system);
   if (system.includes('今週ひとつだけ「問い」')) {
     return '『エッセンシャル思考』で「やらないことを決める」とメモしていましたね。今週、あえて手放せそうな仕事はどれでしょう？';
