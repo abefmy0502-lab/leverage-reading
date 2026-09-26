@@ -21,7 +21,6 @@ const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
-  History as IcHistory,
   SearchX as IcSearchX, NotebookText as IcNote, Target as IcTarget, Brain as IcBrain,
   BarChart3 as IcChart,
   Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
@@ -86,11 +85,8 @@ import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
-import ActivationChecklist from './components/ActivationChecklist';
-import HomeRecall from './components/HomeRecall';
-import HomeConsult from './components/HomeConsult';
+import HomeScreen from './components/HomeScreen';
 import AuthorThankYou from './components/AuthorThankYou';
-import { buildGreeting } from './lib/greeting';
 import { initServiceWorker } from './lib/swUpdate';
 import { ensurePushSubscription } from './lib/push';
 import { isNative } from './lib/iap';
@@ -123,6 +119,8 @@ import { getRandomFromCategory } from './lib/quotes';
 import { loadNavState, saveNavState } from './lib/navState';
 import {
   BookOpen,
+  Home,
+  ChevronLeft,
   RotateCcw,
   Brain,
   HelpCircle,
@@ -265,7 +263,7 @@ function BottomNav({ tab, setTab, hidden = false }) {
   // hidden=true (= キーボード開) のときは .is-hidden クラスで畳む。
   // body.keyboard-open とのダブルセレクタ + !important で確実に勝たせる。
   const tabs = [
-    { key: "books", Icon: BookOpen, label: "本棚" },
+    { key: "books", Icon: Home, label: "ホーム" },
     { key: "review", Icon: RotateCcw, label: "振り返り" },
     { key: "ai", Icon: MessageCircle, label: "相談" },
   ];
@@ -462,6 +460,8 @@ function AuthedApp() {
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
+  // 🏠 ホームタブ（tab キー 'books'）の中の画面: 'home'＝ホーム / 'library'＝すべての本（SPEC §1）。
+  const [shelfMode, setShelfMode] = useState('home');
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
   const [showQuickstart, setShowQuickstart] = useState(false);
 
@@ -473,7 +473,11 @@ function AuthedApp() {
     // リセットするとサブ画面（🧠 マイ読書脳等）がアンマウントされ、
     // 入力中の質問ドラフトが黙って消える。入口リセットは「別のタブから
     // 切り替えてきた時」だけの仕事。
-    if (t === tab) return;
+    if (t === tab) {
+      // ホームタブの再タップは「すべての本」からホームへ戻る（iOS のタブの作法）。
+      if (t === 'books') setShelfMode('home');
+      return;
+    }
     if (t === 'review') setReviewSubTab('note');
     else if (t === 'ai') setAiSubTab('brain');
     setTab(t);
@@ -630,6 +634,11 @@ function AuthedApp() {
     const rect = e.currentTarget.getBoundingClientRect();
     setDetailKebab({ x: rect.right - 8, y: rect.bottom + 4 });
   };
+  // 「すべての本」から左端スワイプでホームへ戻る。
+  useEdgeSwipeBack({
+    enabled: tab === 'books' && view === 'list' && shelfMode === 'library',
+    onBack: () => setShelfMode('home'),
+  });
   // Edge-swipe back: only listens while we're on a detail or edit view.
   useEdgeSwipeBack({
     enabled: view === 'detail' || view === 'edit',
@@ -685,20 +694,12 @@ function AuthedApp() {
   const currentRef = useRef(null);
   useEffect(() => { currentRef.current = current; }, [current]);
 
-  // 時刻に応じた挨拶 + 名前。1 時間ごとに再評価して開きっぱなしでも
-  // スロットラベルがズレないようにする。達成バッジ系の演出は撤去。
-  const [greetingTick, setGreetingTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setGreetingTick((n) => n + 1), 60 * 60 * 1000);
-    return () => clearInterval(t);
-  }, []);
   // 「読了グロー」用の 8 秒タイマーは advanceStatus 内で張られるが、その間に
   // アンマウント (ログアウト / サブスク失効で PaywallGate に戻る等) すると
   // unmount 後 setRecentlyDoneId が走って警告になる。アンマウント時に解放する。
   useEffect(() => () => {
     if (recentlyDoneTimerRef.current) clearTimeout(recentlyDoneTimerRef.current);
   }, []);
-  const greeting = useMemo(() => buildGreeting(user), [user, greetingTick]);
 
   // Easter egg: long-press the bookshelf logo (📚) to reveal a thank-you.
   const [thanksOpen, setThanksOpen] = useState(false);
@@ -2627,25 +2628,6 @@ function AuthedApp() {
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (minRating > 0 ? 1 : 0) + tagFilter.length;
   const clearAllFilters = () => { setStatusFilter('all'); setMinRating(0); setTagFilter([]); };
 
-  const recentBooks = useMemo(() => {
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const seen = new Set();
-    const out = [];
-    // 1) 「読書中」の本を最優先（＝続きから読む主対象。最終更新の新しい順）。
-    //    冊数が少ない新規でも、読みかけが1冊あれば必ず出すことで「続きから」が機能する。
-    books
-      .filter((b) => b.status === 'reading')
-      .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
-      .forEach((b) => { if (b?.id && !seen.has(b.id)) { seen.add(b.id); out.push(b); } });
-    // 2) 直近7日に更新した本で補完。
-    books
-      .filter((b) => {
-        const stamp = b.updated_at ? Date.parse(b.updated_at) : NaN;
-        return Number.isFinite(stamp) && stamp >= cutoff;
-      })
-      .forEach((b) => { if (b?.id && !seen.has(b.id)) { seen.add(b.id); out.push(b); } });
-    return out.slice(0, 3);
-  }, [books]);
 
   const stats = useMemo(() => ({ total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length }), [books]);
   const actionCount = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0), [books]);
@@ -2728,7 +2710,7 @@ function AuthedApp() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             <button onClick={goList} style={{ ...lnk, color: "var(--c-brand)", fontSize: 15, fontWeight: 600 }}>
-              ‹ {tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : '本棚'}
+              ‹ {tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 6 }}>
               <button
@@ -3615,24 +3597,6 @@ function AuthedApp() {
           style={{ borderRadius: "22%", display: "block" }}
         />
       </button>
-      {/* 挨拶は最初の数秒だけ表示してフェードアウト。ヘッダーの上下余白を
-          食わないよう font 11px + 上下 0 の inline テキストに留める。 */}
-      <span
-        style={{
-          fontSize: "var(--text-caption)",
-          color: "var(--text-3)",
-          lineHeight: 1.2,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          maxWidth: "60vw",
-          animation: "lvg-greeting-fade 4s var(--ease-out, ease) forwards",
-          willChange: "opacity",
-        }}
-      >
-        {/* DESIGN: 絵文字は見出し・本文に混ぜない（挨拶の絵文字を撤去） */}
-        {greeting.text}
-      </span>
     </div>
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <button
@@ -3677,21 +3641,51 @@ function AuthedApp() {
           WebkitOverflowScrolling: tab === 'ai' ? undefined : 'touch',
         }}
       >
-        {tab === "books" && (
+        {tab === "books" && shelfMode === 'home' && (
+          <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
+            <HomeScreen
+              books={books}
+              onAsk={(question) => {
+                setAskPreset({ question, nonce: Date.now() });
+                setAiSubTab('brain');
+                setTab('ai');
+              }}
+              onQuickstart={() => setShowQuickstart(true)}
+              onAddBook={() => openAdd('reading')}
+              onAdvisor={() => { setAiSubTab('advisor'); setTab('ai'); }}
+              onOpenConsult={() => { setAiSubTab('brain'); setTab('ai'); }}
+              onOpenBook={(b) => openDetail(b)}
+              onWriteMemo={(b) => { openDetail(b); setQuickMemoOpen(true); }}
+              onOpenLibrary={() => setShelfMode('library')}
+              onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
+            />
+          </PullToRefresh>
+        )}
+        {tab === "books" && shelfMode === 'library' && (
           <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
             <div
               style={{
-                padding: "10px 20px",
+                padding: "8px var(--space-4)",
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
-                borderTop: "1px solid var(--separator)",
                 position: "sticky",
                 top: 0,
-                background: "var(--color-bg, var(--color-bg))",
+                background: "var(--bg)",
                 zIndex: 10,
               }}
             >
+              {/* すべての本（ライブラリ）: ホームから押し込まれた画面。iOS の戻る＋大見出し。 */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setShelfMode('home')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 44, padding: '0 8px 0 0', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+                >
+                  <ChevronLeft size={22} aria-hidden="true" />ホーム
+                </button>
+              </div>
+              <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>すべての本</h1>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center" }}>
                   <IcSearch size={17} aria-hidden="true" style={{ position: "absolute", left: 13, color: "var(--c-ink-3)", pointerEvents: "none" }} />
@@ -3714,15 +3708,14 @@ function AuthedApp() {
                     width: 44,
                     height: 44,
                     flexShrink: 0,
-                    borderRadius: 'var(--radius-md)',
+                    borderRadius: 'var(--radius)',
                     border: "none",
-                    background: "var(--c-brand)",
+                    background: "var(--accent)",
                     color: "var(--accent-ink)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     cursor: "pointer",
-                    boxShadow: "0 2px 6px rgba(30,25,20,0.18)",
                     fontFamily: "inherit",
                   }}
                 >
@@ -3734,12 +3727,12 @@ function AuthedApp() {
               {folderNames.length > 0 && (
                 <div className="lvg-no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
                   <button type="button" onClick={() => setFolderFilter(null)} style={bookshelfToolbarBtn(folderFilter === null)} aria-pressed={folderFilter === null}>
-                    すべて <span style={{ opacity: 0.7, fontWeight: 500 }}>{rawBooks.length}</span>
+                    すべて <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{rawBooks.length}</span>
                   </button>
                   {allFolders.map((f) => (
                     <button key={f.name} type="button" onClick={() => setFolderFilter(folderFilter === f.name ? null : f.name)} style={bookshelfToolbarBtn(folderFilter === f.name)} aria-pressed={folderFilter === f.name}>
                       <IcFolder size={13} aria-hidden="true" />
-                      {f.name} <span style={{ opacity: 0.7, fontWeight: 500 }}>{f.count}</span>
+                      {f.name} <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{f.count}</span>
                     </button>
                   ))}
                 </div>
@@ -3758,7 +3751,7 @@ function AuthedApp() {
                     {SORT_LABELS[sortBy] || '並び'}
                   </button>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--c-ink-2)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-meta)", color: "var(--text-3)" }}>
                   <span>{filtered.length} 件</span>
                   <div className="view-mode-switch" role="group" aria-label="表示モード">
                     <button
@@ -3779,7 +3772,7 @@ function AuthedApp() {
                 </div>
               </div>
             </div>
-            <div style={{ padding: "0 20px" }}>
+            <div style={{ padding: "0 var(--space-4)" }}>
               {/* 🔎 ステータスのワンタップ絞り込み。管理の最頻操作（読書中だけ見る等）を
                   絞り込みシートの1階層奥から棚の表に昇格。state は絞り込みシートと共有
                   （statusFilter＝activeFilterCount とも連動）。同じチップの再タップで解除。
@@ -3808,89 +3801,14 @@ function AuthedApp() {
                         aria-pressed={active}
                         style={{ ...bookshelfToolbarBtn(active), flexShrink: 0 }}
                       >
-                        {s.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>{s.count}</span>
+                        {s.label} <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{s.count}</span>
                       </button>
                     );
                   })}
                 </div>
               )}
-              {/* 🌱 初週オンボーディング: 新規ユーザーを aha まで運ぶ4ステップ。
-                  未完了かつ未 dismiss のときだけ表示（既存ユーザーには出にくい）。 */}
-              <ActivationChecklist
-                books={books}
-                onAddBook={() => setAddBookModalOpen(true)}
-                onOpenConsult={() => { setAiSubTab('brain'); setTab('ai'); }}
-                onQuickstart={() => setShowQuickstart(true)}
-              />
-              {/* 💬 相談する: 一番の価値（自分だけの相談相手）の入口。ホーム最上段に置き、
-                  書いた困りごとを 相談タブ の 🧠 マイ読書脳 へそのまま渡して送信する。 */}
-              <HomeConsult
-                books={books}
-                onQuickstart={() => setShowQuickstart(true)}
-                onAsk={(question) => {
-                  setAskPreset({ question, nonce: Date.now() });
-                  setAiSubTab('brain');
-                  setTab('ai');
-                }}
-              />
-              {/* 🔄 思い出しカード: 過去メモが 1 枚ふいに戻ってくる控えめなカード。
-                  自己完結（fetch / state は HomeRecall 内に閉じる）。
-                  メモ十分＋当日未 dismiss のときだけ静かに出る。 */}
-              <HomeRecall
-                onOpen={(bookId) => {
-                  const b = bookId && books.find((x) => x.id === bookId);
-                  if (b) { openDetail(b); setTab('books'); }
-                  else { setReviewSubTab('note'); setTab('review'); }
-                }}
-                onAction={({ bookId, text, sourceMemoId }) => addActionFromMemo(bookId, { text, sourceMemoId })}
-              />
-              {/* 「続きから」はフィルタから独立して出す（本田指摘: 営業本だけ絞っている
-                  時こそ読みかけにすぐ戻れるべき）。テキスト検索中だけは検索結果を優先して隠す。 */}
-              {recentBooks.length > 0 && !search && (
-                <div style={{ marginBottom: 14 }}>
-                  <p style={{ fontSize: 11, color: "var(--color-accent)", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}><IcHistory size={13} aria-hidden="true" /> 続きから</p>
-                  {/* 縦長のミニ表紙 + 2行タイトルの横型カード。旧: 縦長表紙を
-                      横長 90px に切り抜く生 <img>（onError なし）で、読み込み中/
-                      失敗時に白い空き枠が並んでいた。MiniCover はグリッドと同じ
-                      プレースホルダ+フェード+失敗検知を持つ。 */}
-                  <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
-                    {recentBooks.map((b) => (
-                      <button
-                        key={b.id}
-                        type="button"
-                        onClick={() => openDetail(b)}
-                        style={{
-                          flex: "0 0 auto",
-                          width: 196,
-                          background: "var(--c-card)",
-                          border: "1px solid var(--c-hairline)",
-                          borderRadius: 'var(--radius-md)',
-                          padding: 10,
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                          textAlign: "left",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                        }}
-                      >
-                        <MiniCover book={b} width={44} onAutoRetry={triggerCoverAutoRetry} />
-                        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                          <div style={{ fontSize: 12, color: "var(--c-ink)", fontWeight: 600, lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.title}</div>
-                          <div><StatusBadge status={b.status} /></div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {/* 「続きから」がある時だけ、下の一覧に見出しを付けて切れ目を作る
-                  （無い時は一覧が主役なので見出しは冗長）。 */}
-              {recentBooks.length > 0 && !search && filtered.length > 0 && (
-                <p style={{ fontSize: 11, color: "var(--color-accent)", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
-                  <IcLibrary size={13} aria-hidden="true" /> すべての本
-                </p>
-              )}
+              {/* ホームに移した: 相談カード・はじめの一歩・いま読んでいる本（HomeScreen.jsx）。
+                  思い出しカードは「振り返り」へ（SPEC §1）。ここは本の一覧だけに集中する。 */}
               {booksLoading && rawBooks.length === 0 ? (
                 effectiveBookshelfView === 'grid' ? (
                   <BookGridSkeleton count={6} />
@@ -4538,7 +4456,7 @@ function AuthedApp() {
               const active = statusFilter === s.key;
               return (
                 <button key={s.key} type="button" onClick={() => setStatusFilter(s.key)} style={bookshelfToolbarBtn(active)}>
-                  {s.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>({s.count})</span>
+                  {s.label} <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>({s.count})</span>
                 </button>
               );
             })}

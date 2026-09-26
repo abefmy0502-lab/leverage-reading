@@ -1,0 +1,116 @@
+// 🏠 ホーム（下のタブ「ホーム」。コード上の tab キーは 'books' のまま）。
+//
+// SPEC.md §1 の構成そのもの。置くのは 3 ブロックだけ:
+//   1. 困ったときは、相談する（HomeConsult）← 主役・主ボタンはこれ 1 つ
+//   2. いま読んでいる本（最大 3 冊・各本に「メモを書く」＝ 1 タップでクイックメモ）
+//   3. すべての本（N 冊）› → ライブラリ画面（検索・絞り込み・並び替えはそちらへ）
+// 本 0 冊のときは「はじめる」カード 1 枚だけ（はじめの一歩・空状態と同じことを
+// 二度言わない）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
+// 見た目は DESIGN.md のトークンのみ。
+import { Library, ChevronRight, PencilLine } from 'lucide-react';
+import HomeConsult from './HomeConsult';
+import ActivationChecklist from './ActivationChecklist';
+import { MiniCover } from './BookCards';
+import { btnPrimary, btnGhost, btnText, card } from '../styles/ui';
+
+const sectionTitle = {
+  fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 12px', lineHeight: 1.3,
+};
+
+function StartCard({ onQuickstart, onAddBook, onAdvisor }) {
+  return (
+    <section aria-labelledby="home-start-title" style={card}>
+      <h2 id="home-start-title" style={{ ...sectionTitle, margin: 0 }}>読むほど、<br />自分だけの相談相手が育つ</h2>
+      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: '8px 0 16px' }}>
+        これまで読んだ本と、覚えている一言を入れるだけ。5 分ほどで、今日から相談できるようになります。
+      </p>
+      <button type="button" onClick={onQuickstart} style={btnPrimary}>これまで読んだ本から始める</button>
+      <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 12 }}>いま読んでいる本を追加する</button>
+      <div style={{ textAlign: 'center', marginTop: 8 }}>
+        <button type="button" onClick={onAdvisor} style={btnText}>悩みから、次に読む本を選んでもらう</button>
+      </div>
+    </section>
+  );
+}
+
+function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading }) {
+  const reading = books
+    .filter((b) => b.status === 'reading')
+    .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+  const shown = reading.slice(0, 3);
+  return (
+    <section aria-labelledby="home-reading-title">
+      <h2 id="home-reading-title" style={sectionTitle}>いま読んでいる本</h2>
+      {shown.length === 0 ? (
+        <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>読んでいる本はまだありません</span>
+          <button type="button" onClick={onAddBook} style={{ ...btnText, flexShrink: 0 }}>本を追加</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {shown.map((b) => (
+            <div key={b.id} style={{ ...card, padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => onOpenBook(b)}
+                aria-label={`『${b.title}』を開く`}
+                style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
+              >
+                <MiniCover book={b} width={40} radius={4} />
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{b.title}</span>
+                  {b.author && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.author}</span>}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onWriteMemo(b)}
+                aria-label={`『${b.title}』にメモを書く`}
+                style={{ ...btnGhost, width: 'auto', flexShrink: 0, padding: '8px 12px', minHeight: 44, fontSize: 'var(--text-sub)' }}
+              >
+                <PencilLine size={16} aria-hidden="true" />メモ
+              </button>
+            </div>
+          ))}
+          {reading.length > shown.length && (
+            <button type="button" onClick={onSeeAllReading} style={{ ...btnText, alignSelf: 'flex-start' }}>
+              ほか {reading.length - shown.length} 冊を見る
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export default function HomeScreen({
+  books = [],
+  onAsk, onQuickstart, onAddBook, onAdvisor, onOpenConsult,
+  onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading,
+}) {
+  return (
+    <div style={{ padding: '8px var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>ホーム</h1>
+
+      {books.length === 0 ? (
+        <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} />
+      ) : (
+        <>
+          <HomeConsult books={books} onAsk={onAsk} onQuickstart={onQuickstart} />
+          <ActivationChecklist books={books} onAddBook={onAddBook} onOpenConsult={onOpenConsult} onQuickstart={onQuickstart} />
+          <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} />
+          <button
+            type="button"
+            onClick={onOpenLibrary}
+            style={{ ...card, width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+          >
+            <Library size={20} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
+            <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{books.length}冊</span>
+            <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+          </button>
+        </>
+      )}
+    </div>
+  );
+}

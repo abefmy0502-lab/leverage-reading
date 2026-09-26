@@ -30,9 +30,11 @@ const nav = (name) => `nav button[aria-label="${name}"]`;
 const SCREENS = [
   { name: 'home', url: '/' },
   { name: 'home-new-user', url: '/?demo=new', steps: [{ role: 'あとで' }] },
+  { name: 'library', url: '/', steps: [{ css: 'button:has-text("すべての本")' }] },
+  { name: 'home-write-memo', url: '/', steps: [{ css: 'button[aria-label$="にメモを書く"]' }] },
   { name: 'onboarding', url: '/?demo=new' },
   { name: 'quickstart', url: '/?demo=new', steps: [{ role: '次へ' }, { role: '次へ' }, { role: '次へ' }, { role: 'これまで読んだ本から始める' }] },
-  { name: 'book-detail', url: '/', steps: [{ css: 'button:has-text("1兆ドルコーチ")' }] },
+  { name: 'book-detail', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }] },
   { name: 'consult', url: '/', steps: [{ css: nav('相談') }] },
   {
     name: 'consult-answer', url: '/',

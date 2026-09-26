@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, X } from 'lucide-react';
-import { C } from '../styles/ui';
+import { card, btnGhost, btnText } from '../styles/ui';
 import { getActivation, isActivationDismissed, dismissActivation, ACTIVATION_STEPS } from '../lib/activation';
 
 const STEP_META = {
@@ -44,54 +44,47 @@ export default function ActivationChecklist({ books = [], onAddBook, onOpenConsu
 
   return (
     <div
-      style={{
-        margin: '4px 0 14px', padding: 16, borderRadius: 16,
-        background: C.card, border: `1px solid ${C.hairline}`, boxShadow: 'var(--shadow-1)',
-      }}
+      style={card}
       className="detail-enter"
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>はじめの一歩</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <h2 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>はじめの一歩</h2>
         <button
           type="button"
           onClick={dismissActivation}
           aria-label="閉じる"
-          style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: C.ink3, cursor: 'pointer', padding: 4, marginRight: -4, display: 'inline-flex' }}
+          style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', width: 44, height: 44, marginRight: -12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <X size={16} />
+          <X size={18} aria-hidden="true" />
         </button>
       </div>
-      <p style={{ margin: '0 0 12px', fontSize: 12, color: C.ink2, lineHeight: 1.6 }}>
+      <p style={{ margin: '0 0 12px', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6 }}>
         一行を残すほど、あなただけの相談相手が育っていきます。まずはこの順で試してみてください。
       </p>
       {!hasBook && onQuickstart && (
         <button
           type="button"
           onClick={onQuickstart}
-          style={{
-            display: 'block', width: '100%', margin: '0 0 10px', padding: '10px 12px', minHeight: 44,
-            borderRadius: 12, border: `1px solid ${C.hairlineStrong}`, background: C.soft,
-            color: C.ink, fontSize: 13, fontWeight: 600, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-          }}
+          style={{ ...btnGhost, marginBottom: 12 }}
         >
-          📚 これまで読んだ本から、まとめて始める（5分）
+          これまで読んだ本から始める
         </button>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {steps.map((s) => (
-          <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
+          <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0', minHeight: 44 }}>
             {s.done
-              ? <CheckCircle2 size={20} strokeWidth={2} color={C.brand} style={{ flex: '0 0 auto' }} />
-              : <Circle size={20} strokeWidth={1.75} color={C.hairlineStrong} style={{ flex: '0 0 auto' }} />}
+              ? <CheckCircle2 size={22} strokeWidth={2} color="var(--success)" aria-label="完了" style={{ flex: '0 0 auto' }} />
+              : <Circle size={22} strokeWidth={1.75} color="var(--border)" aria-hidden="true" style={{ flex: '0 0 auto' }} />}
             <div style={{ minWidth: 0, flex: 1 }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: s.done ? C.ink3 : C.ink, textDecoration: s.done ? 'line-through' : 'none' }}>{s.label}</p>
-              {!s.done && s.hint && <p style={{ margin: '2px 0 0', fontSize: 11, color: C.ink3 }}>{s.hint}</p>}
+              <p style={{ margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: s.done ? 'var(--text-3)' : 'var(--text)', textDecoration: s.done ? 'line-through' : 'none', lineHeight: 1.4 }}>{s.label}</p>
+              {!s.done && s.hint && <p style={{ margin: '4px 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>{s.hint}</p>}
             </div>
             {!s.done && s.cta && (
               <button
                 type="button"
                 onClick={() => onCta(s.key)}
-                style={{ flex: '0 0 auto', minHeight: 44, padding: '10px 16px', borderRadius: 10, border: 'none', background: C.brand, color: C.brandInk, fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}
+                style={{ ...btnText, flex: '0 0 auto', fontSize: 'var(--text-sub)' }}
               >
                 {s.cta}
               </button>

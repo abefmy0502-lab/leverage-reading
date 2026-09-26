@@ -24,7 +24,7 @@
 ### ナビゲーション構造
 
 下部ナビは **3 タブ**（旧 5 タブから整理。2026-09-26 に「AI」→「相談」へ改名）：
-- 📚 **本棚** — 最上段に 💬「困ったときは、相談する」カード（`HomeConsult.jsx`。送るとマイ読書脳へ渡して回答。メモ0件時は初日クイックスタート `PastBooksQuickstart.jsx`＝これまで読んだ本3〜5冊＋覚えている一言で初日から相談できる状態を作る、への入口）→ 思い出しカード（`HomeRecall.jsx`）→ 本一覧（検索 / フィルタ / ソート / 続きから / 表紙グリッド or リスト切替）
+- 🏠 **ホーム**（2026-09-26 に「本棚」から改名・コード上の tab キーは `books` のまま。`HomeScreen.jsx`／SPEC §1）— 置くのは 3 ブロックだけ: 💬「困ったときは、相談する」（`HomeConsult.jsx`。主ボタンは『相談する』1 つ＋相談例 2 つ。送るとマイ読書脳へ渡して回答。メモ0件時は初日クイックスタート `PastBooksQuickstart.jsx` への入口）→ はじめの一歩（未完了時）→ いま読んでいる本（最大3冊・『メモ』で1タップのクイックメモ）→「すべての本（N冊）›」。本0冊のときは「これまで読んだ本から始める」を主役にした1枚だけ。**すべての本**（`shelfMode === 'library'`）＝本一覧（検索 / フィルタ / ソート / 表紙グリッド or リスト切替 / 状態チップ・‹ ホーム／左端スワイプ／ホームタブ再タップで戻る）。思い出しカードはホームから外した（旧 `HomeRecall.jsx` は削除。振り返りの思い出しカードが本体）
 - 🔄 **振り返り** — サブタブで切替: 💭 ノート（ランダム想起 / タイムライン / 横断検索）/ 🎯 行動（本横断アクション + 完了率 + 期限色分け）/ 📊 記録（読了・メモ・行動の累計 + 読書の足あと（16週ヒートマップ）+ 月別のあゆみ（読了⇄メモ）+ 今年のハイライト（前年比/ページ概算/平均日数/星付きベスト）+ 一番学んだ本（メモ数/冊）+ 読書→行動→収穫 + 記憶への定着（メモ→想起→覚えた）+ 読書リズム（時間帯）+ よく読むテーマ/著者。`ReadingRecord.jsx`・反ゲーミフィケーション＝バッジ/連続日数/目標なし・データが無いセクションは非表示）
 - 💬 **相談**（コード上の tab キーは `ai` のまま）— サブタブで切替: 🧠 マイ読書脳（**入口・一番の価値の本体**。メモ根拠の相談 + 学びログ + 履歴。入力欄上の「相談相手」で すべての本〈既定〉／1冊／選んだ数冊 を切替＝`streamMyBookBrain({ bookIds })`。本詳細の「この本に相談する」は1冊に絞って開く）/ 🔍 AI 選書（課題ヒアリング → 推薦）/ 📐 テーマまとめ（旧称レバレッジメモ。テーマの学びを「核心1行＋繰り返す原則＋次の一歩」に凝縮 + 🎯行動の鏡 + 🔄想起ループ接続 + 履歴）
 
@@ -205,7 +205,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 
 | キー | 対応画面 |
 |---|---|
-| `bookList` | 本棚画面（下部ナビ: 本棚） |
+| `bookList` | ホーム・すべての本（下部ナビ: ホーム） |
 | `review` | 振り返りタブ（ランダム想起 / タイムライン / 横断検索） |
 | `actionList` | 行動リストタブ（本横断 + 完了率 + 期限色分け、`ActionList.jsx`） |
 | `myBookBrain` | マイ読書脳（メモ根拠の AI Q&A + 学びログ + 履歴） |
@@ -405,7 +405,7 @@ update feedback
 - **デザインシステム Phase 2 完了（マイクロインタラクション）**: `components.css` に大量のキーフレーム + ユーティリティクラス追加 — `.icon-btn`（リング展開）/ `.list-item-enter` `.list-item-stagger`（最大 8 件で 40ms ずつ stagger）/ `.list-item-exit` / `.modal` `.modal-backdrop` / `.progress-bar` `.progress-fill`（白光シマー）/ `.skeleton`（200% グラデの shimmer）/ `.toast-enter` `.toast-exit` / `.tab-content`（フェード上昇）/ `.check-pop` / `.just-added` / `.list-refreshed` / `.badge-swap-in/out` / `.detail-enter`。すべて `transform` / `opacity` / `background-position` のみで GPU 駆動。`prefers-reduced-motion` は index.css の global で抑制済み
 - **数値カウントアップ**: `src/components/AnimatedNumber.jsx` を使うと requestAnimationFrame で ease-out cubic でカウントアップ。`prefers-reduced-motion` 時は即スナップ。行動完了率 / 完了数で採用済み
 - **デザインシステム Phase 3 完了（コンテンツ精緻化）**: 共通コンポーネント 4 種を新設 — `EmptyState` / `SectionHeader` / `ErrorMessage` / `StatCard`。それぞれ `components.css` の `.empty-state*` / `.section-header*` / `.error-message*` / `.stat-card*` を消費する。新しい空状態 / エラー / 数値カードは必ずこれらを使うこと（独自インラインを書かない）。長文（メモ本文 / セットアップシート / ROI）には `.long-text` クラスを適用すると行間 1.7 + 段落間 16px が揃う
-- **デザインシステム Phase 4 → 簡素化（縮退）**: 「シンプル・直感的」優先のフィードバックを受け、Phase 4 の装飾は **大半を撤去**。残置は `lib/greeting.js`（時刻別挨拶 + 名前解決）と `components/AuthorThankYou.jsx`（ロゴ長押し easter egg）のみ。**削除済み**: `lib/streak.js` / `lib/milestones.js` / `lib/season.js` / `hooks/useStreak.js` / `hooks/useBookMilestones.js` / `components/SeasonalEffect.jsx` / `components/StreakBadge.jsx` / `components/MilestoneCelebration.jsx`。再導入する場合も Apple Notes / Reminders レベルの控えめさを基準に判断すること
+- **デザインシステム Phase 4 → 簡素化（縮退）**: 「シンプル・直感的」優先のフィードバックを受け、Phase 4 の装飾は **大半を撤去**。残置は `components/AuthorThankYou.jsx`（ロゴ長押し easter egg）のみ（`lib/greeting.js` のヘッダー挨拶は 2026-09-26 のホーム作り直しで撤去）。**削除済み**: `lib/streak.js` / `lib/milestones.js` / `lib/season.js` / `hooks/useStreak.js` / `hooks/useBookMilestones.js` / `components/SeasonalEffect.jsx` / `components/StreakBadge.jsx` / `components/MilestoneCelebration.jsx`。再導入する場合も Apple Notes / Reminders レベルの控えめさを基準に判断すること
 - **ダークモード一時停止**（⚠️ 2026-09-26 に方針変更：DESIGN.md により明暗両方で作る。トークン化が済んだ画面から順に有効化）: `tokens.css` の `@media (prefers-color-scheme: dark)` ブロックを削除。コードベースは light hex リテラルが多数残るため部分的な dark mode は破綻する（AI 選書の入力欄だけ黒くなる等）。完全実装するときに再開
 - **AI プロンプトは `src/lib/prompts.js` で一元管理**: `bookAnalysis` / `setupSheet` / `setupSheetEdit` / `roiSummary` / `bookAdvisor` / `advisorInterview` / `advisorSummary` / `helpAi` / `myBookBrain` / `themeReport` / `weeklyQuestion` / `condense`。各エントリは `{ system, user(args) }`。プロンプトを変えたいときはこのファイルだけを編集する（App.jsx や ai.js にインライン定義してはいけない）。出力は基本 Markdown（`## <emoji> <heading>`）で、`<MarkdownSections>` でレンダリング。`bookAdvisor` だけは `RECOMMENDATIONS_START ... _END` の JSON ブロックも同梱する設計（リッチカードのデータ用）。max_tokens は 2048 が標準
 - **ジェスチャー基盤**（Phase B 完了済み・全 surface に展開済み）: 以下のフック/コンポーネントを使うとネイティブ感が出る — 新画面でも同じ仕組みを再利用できる

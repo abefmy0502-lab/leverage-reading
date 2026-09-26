@@ -1,23 +1,34 @@
-// 💬 本棚ホーム最上段の「相談する」入口。
+// 💬 ホーム最上段の「困ったときは、相談する」カード（SPEC §1 の主役）。
 //
 // Orime の一番の価値＝「読むほど、自分だけの相談相手が育つ」（CLAUDE.md）を、
-// アプリを開いた瞬間に見せるためのカード。ここで書いた困りごとは「相談」タブの
-// 🧠 マイ読書脳へそのまま渡して送信する（onAsk）。
-// 「あなたの本 N 冊・メモ N 件から答えます」で、積み重ね＝相談の質を毎回伝える。
-//   - 本 0 冊: 出さない（本棚の空状態と「はじめの一歩」が案内する）
+// アプリを開いた瞬間に見せる。ここで書いた困りごとは「相談」タブの
+// マイ読書脳へそのまま渡して送信する（onAsk）。
+// 「あなたが読んだ N 冊・メモ N 件から答えます」で、積み重ね＝相談の質を毎回伝える。
+//   - 本 0 冊: 出さない（ホームの「はじめる」カードが案内する）
 //   - メモ 0 件: 入力欄の代わりに予告と「これまで読んだ本から始める」（初日クイックスタート）
-import { useEffect, useState } from 'react';
-import { MessageCircle, Send } from 'lucide-react';
+// 見た目は DESIGN.md のトークンのみ（主ボタン＝相談する の 1 つだけ）。
+import { useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
+import { btnPrimary, btnGhost, card, input } from '../styles/ui';
+
+// 相談例（AI を使わない＝原価ゼロ）。いま読んでいる本があればそれを使う。
+function examplesFor(books) {
+  const reading = books.find((b) => b.status === 'reading') || books.find((b) => b.status === 'done');
+  const out = [];
+  if (reading?.title) out.push(`『${reading.title}』の学びで、明日から使えるものは？`);
+  out.push('最近、判断に迷うことがあります。私が読んだ本から、ヒントをください');
+  return out;
+}
 
 export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
   const { user } = useAuth();
   const [memoCount, setMemoCount] = useState(null);
   const [text, setText] = useState('');
   const bookCount = books.length;
+  const examples = useMemo(() => examplesFor(books), [books]);
 
   useEffect(() => {
     if (!user || !isSupabaseConfigured || bookCount === 0) return undefined;
@@ -36,88 +47,66 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
 
   if (bookCount === 0) return null;
 
-  const submit = () => {
-    const q = text.trim();
-    if (!q) return;
-    track('home_consult_sent');
-    onAsk?.(q);
+  const send = (q) => {
+    const question = (q ?? text).trim();
+    if (!question) return;
+    track('home_consult_sent', { example: q != null });
+    onAsk?.(question);
     setText('');
   };
 
   const hasMemos = memoCount == null || memoCount > 0;
 
   return (
-    <section
-      aria-label="相談する"
-      className="list-item-enter"
-      style={{
-        marginBottom: 14,
-        padding: '14px 14px 12px',
-        background: 'var(--c-card)',
-        border: '1px solid var(--c-hairline)',
-        borderRadius: 'var(--radius-md)',
-        boxShadow: '0 1px 2px rgba(60, 50, 30, 0.04)',
-      }}
-    >
-      <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-ink)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <MessageCircle size={17} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+    <section aria-labelledby="home-consult-title" style={card}>
+      <h2 id="home-consult-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>
         困ったときは、相談する
       </h2>
-      <p style={{ fontSize: 12, color: 'var(--c-ink-2)', margin: '4px 0 10px', lineHeight: 1.6 }}>
+      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '8px 0 16px', lineHeight: 1.5 }}>
         {hasMemos
-          ? <>あなたが読んだ <strong style={{ color: 'var(--c-ink)' }}>{bookCount}冊</strong>{memoCount != null && <>・メモ <strong style={{ color: 'var(--c-ink)' }}>{memoCount}件</strong></>} から答えます</>
-          : '本を読みながらメモを残すと、そのメモを根拠に、あなただけの答えが返ってくるようになります。'}
+          ? <>あなたの {bookCount}冊{memoCount != null && <>・メモ {memoCount}件</>} から答えます</>
+          : '本を読みながらメモを残すと、そのメモを根拠に、あなただけの答えが返ってきます。'}
       </p>
+
       {!hasMemos && onQuickstart && (
-        <button
-          type="button"
-          onClick={onQuickstart}
-          style={{
-            width: '100%', minHeight: 44, padding: '10px 12px', borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--c-hairline-strong)', background: 'var(--c-soft)', color: 'var(--c-ink)',
-            fontSize: 13, fontWeight: 600, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          📚 これまで読んだ本の「覚えていること」から始める
+        <button type="button" onClick={onQuickstart} style={btnPrimary}>
+          これまで読んだ本から始める
         </button>
       )}
+
       {hasMemos && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+        <>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                submit();
-              }
-            }}
             rows={2}
             maxLength={LIMITS.aiQuestion}
-            placeholder="例：部下が報告をくれなくて困っています"
+            placeholder="困っていることを、そのまま書いてください"
             aria-label="相談したいこと"
-            style={{
-              flex: 1, minWidth: 0, fontSize: 16, lineHeight: 1.5, padding: '10px 12px',
-              border: '1px solid var(--c-hairline-strong)', borderRadius: 'var(--radius-md)',
-              background: 'var(--color-surface)', color: 'var(--c-ink)', fontFamily: 'inherit',
-              resize: 'none', outline: 'none',
-            }}
+            style={{ ...input, resize: 'none', lineHeight: 1.5, display: 'block' }}
           />
           <button
             type="button"
-            onClick={submit}
+            onClick={() => send()}
             disabled={!text.trim()}
-            aria-label="相談する"
-            style={{
-              flexShrink: 0, width: 48, height: 48, borderRadius: 'var(--radius-md)', border: 'none',
-              background: text.trim() ? 'var(--c-brand)' : 'var(--c-hairline-strong)',
-              color: 'var(--c-brand-ink)', cursor: text.trim() ? 'pointer' : 'default',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
+            style={{ ...btnPrimary, marginTop: 12, opacity: text.trim() ? 1 : 0.4 }}
           >
-            <Send size={20} aria-hidden="true" />
+            相談する
           </button>
-        </div>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: '16px 0 8px' }}>たとえば</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {examples.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => send(q)}
+                style={{ ...btnGhost, justifyContent: 'flex-start', textAlign: 'left', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text)', lineHeight: 1.5 }}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </section>
   );
