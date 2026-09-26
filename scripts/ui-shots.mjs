@@ -35,7 +35,7 @@ const SCREENS = [
   { name: 'library-menu', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label^="並び替え・絞り込み・表示"]' }] },
   { name: 'home-write-memo', url: '/', steps: [{ css: 'button[aria-label$="にメモを書く"]' }] },
   { name: 'onboarding', url: '/?demo=new' },
-  { name: 'quickstart', url: '/?demo=new', steps: [{ role: '次へ' }, { role: '次へ' }, { role: '次へ' }, { role: 'これまで読んだ本から始める' }] },
+  { name: 'quickstart', url: '/?demo=new', steps: [{ role: '次へ' }, { role: '次へ' }, { role: '次へ' }, { css: '[role=dialog] button:has-text("これまで読んだ本から始める")' }] },
   { name: 'book-detail', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }] },
   { name: 'book-detail-memos', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollTo: 'h2:has-text("メモ")' }] },
   { name: 'book-memo-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }] },

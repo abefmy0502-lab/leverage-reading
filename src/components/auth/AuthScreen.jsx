@@ -34,6 +34,9 @@ const screenStyle = {
 
 // エラー / 完了の一言（色だけに頼らず文でも伝わる。読み上げにも届くよう role を付ける）。
 const errorText = { color: 'var(--error)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
+// 日本語の折り返しを文節単位に（対応ブラウザのみ。非対応でも通常の折り返し）。
+const jpWrap = { wordBreak: 'auto-phrase', textWrap: 'pretty' };
+
 const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
 function humanizeError(err) {
@@ -247,15 +250,15 @@ export default function AuthScreen() {
         <div style={{ width: '100%', maxWidth: 400, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <MailCheck size={44} strokeWidth={1.5} color="var(--text-2)" aria-hidden="true" style={{ marginBottom: 'var(--space-3)' }} />
           <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)' }}>確認メールを送りました</h1>
-          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: '0 0 var(--space-2)' }}>
-            <strong style={{ fontWeight: 600, wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛にメールを送りました。<br />
+          <p style={{ ...jpWrap, fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: '0 0 var(--space-2)' }}>
+            <strong style={{ fontWeight: 600, wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛<br />
             {isNative
               // ネイティブでは確認リンクは Safari（Web）で開く — 「そのまま進める」と
               // 約束すると迷子になる。確認後にこのアプリへ戻る導線を正しく案内する。
               ? 'メール内のリンクを開いて確認が完了したら、このアプリに戻ってログインしてください。'
               : 'メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。'}
           </p>
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-6)' }}>
+          <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-6)' }}>
             数分待っても届かない場合は、<strong style={{ fontWeight: 600 }}>迷惑メール / プロモーション</strong>フォルダもご確認ください。
           </p>
           {error && <p role="alert" style={errorText}>{error}</p>}
@@ -325,7 +328,7 @@ export default function AuthScreen() {
         {mode === 'signup' && !isNative && (
           /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-4)', textAlign: 'center' }}>
+          <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-4)', textAlign: 'center' }}>
             Orime は iPhone / iPad アプリでのご利用となります。<br />
             ここで登録したアカウントで、アプリからログインできます。{' '}
             <a href="/lp" style={{ color: 'var(--accent)' }}>サービス紹介を見る</a>

@@ -121,7 +121,7 @@ const dot = (active) => ({
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
 const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
 // 最後の画面の 3 番手以下（AI 選書・あとで）。
-const btnLink = { ...btnText, minHeight: 44 };
+const btnLink = { ...btnText, minHeight: 44, fontSize: 'var(--text-sub)' };
 
 const closeBtnStyle = {
   position: 'absolute',
@@ -272,11 +272,11 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
             id="onb-title"
             ref={titleRef}
             tabIndex={-1}
-            style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', outline: 'none' }}
+            style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', outline: 'none', wordBreak: 'auto-phrase', textWrap: 'balance' }}
           >
             {slide.title}
           </h2>
-          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', margin: 0 }}>
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', margin: 0, wordBreak: 'auto-phrase', textWrap: 'pretty' }}>
             {slide.body}
           </p>
         </div>
@@ -314,12 +314,12 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
                 {srcPicked ? 'ありがとうございます' : 'Orime をどこで知りましたか？（任意）'}
               </p>
               <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 0, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {SOURCES.map(([key, label]) => (
+                {/* 選んだ後は選んだチップだけを残す（選択中＝--accent-soft 面・--accent 文字）。 */}
+                {SOURCES.filter(([key]) => !srcPicked || srcPicked === key).map(([key, label]) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => pickSource(key)}
-                    disabled={!!srcPicked}
                     aria-pressed={srcPicked === key}
                     style={{ ...chipHit, cursor: srcPicked ? 'default' : 'pointer' }}
                   >
