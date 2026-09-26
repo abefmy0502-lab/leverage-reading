@@ -64,8 +64,8 @@ Orime（オリメ）は、あなたが読んだ本とメモを覚えておいて
 
 ・サブスクリプションは購入後に自動更新されます。現在の期間終了の24時間以上前に解約しない限り、同額で更新されます。
 ・解約は App Store のサブスクリプション管理から行えます。
-・利用規約：https://orime.jp/legal/terms
-・プライバシーポリシー：https://orime.jp/legal/privacy
+・利用規約：https://orime.vercel.app/legal/terms
+・プライバシーポリシー：https://orime.vercel.app/legal/privacy
 
 読むほど、自分だけの相談相手が育つ。Orime で、読んだ本を困ったときの知恵に変えましょう。
 ```
@@ -83,10 +83,10 @@ Orime をリリースしました。読んだ本のメモが積み重なるほ�
 
 ## URL
 
-- サポートURL: `https://orime.jp/legal/sct`（または専用問い合わせ）
-- マーケティングURL: `https://orime.jp`
-- プライバシーポリシー: `https://orime.jp/legal/privacy`
-- 利用規約(EULA): `https://orime.jp/legal/terms`
+- サポートURL: `https://orime.vercel.app/legal/sct`（または専用問い合わせ）
+- マーケティングURL: `https://orime.vercel.app`
+- プライバシーポリシー: `https://orime.vercel.app/legal/privacy`
+- 利用規約(EULA): `https://orime.vercel.app/legal/terms`
 
 ## 審査メモ（Review Notes 用テンプレ）
 

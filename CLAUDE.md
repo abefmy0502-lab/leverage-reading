@@ -348,13 +348,13 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `RAKUTEN_ACCESS_KEY` | 🔑 楽天 API の**アクセスキー（`pk_...` 形式）**（`api/cover.js` サーバー専用）。2026 年の刷新で `applicationId` と**両方必須**（片方だけだと楽天が 400）。アプリ詳細の「アクセスキー」欄の値。**クライアント露出厳禁**（サーバーからのクエリにのみ付与） |
 | `RAKUTEN_AFFILIATE_ID` | (現在未使用) 楽天アフィリエイト ID。旧「話題の本を探す」の楽天リンクに付与していたが、当該機能（`api/discover.js`）の撤去に伴い参照なし。将来アフィリエイト導線を復活させる場合の予約枠 |
 | `RC_ALLOW_SANDBOX` | (任意) `'true'` で RevenueCat の SANDBOX イベント（TestFlight/開発ビルド課金）も subscriptions に書き込む。既定はスキップ（テスト課金で顧客指標を汚さないため。テスターの解除は RevenueCat SDK 直読で成立） |
-| `RAKUTEN_APP_URL` | **（2026 刷新後は実質必須）** 楽天アプリ登録の「許可されたWebサイト」に登録した本番ドメイン URL（例 `https://orime.jp`）。`api/cover.js` がサーバー→楽天へのリクエストに `Referer` として付与する。**新 API は Referer/Origin ヘッダーが無いと 403**。未設定なら Referer を送らないため楽天ソースの表紙が取れない |
+| `RAKUTEN_APP_URL` | **（2026 刷新後は実質必須）** 楽天アプリ登録の「許可されたWebサイト」に登録した本番ドメイン URL（例 `https://orime.vercel.app`）。`api/cover.js` がサーバー→楽天へのリクエストに `Referer` として付与する。**新 API は Referer/Origin ヘッダーが無いと 403**。未設定なら Referer を送らないため楽天ソースの表紙が取れない |
 | `REVENUECAT_WEBHOOK_AUTH` | 💳 RevenueCat Webhook の認証トークン（`api/revenuecat-webhook.js` が `Authorization` ヘッダーと突き合わせる）。RevenueCat ダッシュボードの Webhook 設定と同じ値を設定。**未設定だと Webhook を全拒否**（fail-closed）。サーバー専用 |
 | `VITE_VAPID_PUBLIC_KEY` | 🔔 Web Push（想起通知）の VAPID 公開鍵（クライアント `src/lib/push.js` が購読時に使用）。`npx web-push generate-vapid-keys` で生成 |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 🔔 Web Push 送信側（`api/push-cron.js`）の VAPID 鍵ペアと連絡先（`mailto:...`）。`VAPID_PRIVATE_KEY` は**クライアント露出厳禁** |
 | `CRON_SECRET` | 🔔 `api/push-cron.js` / 🫀 `api/keepalive.js` の起動認証（Vercel Cron が `Authorization: Bearer` で送る）。未設定/不一致は 401。**keepalive は毎日 03:00 JST に DB へ極小クエリを 1 回投げ、Supabase 無料プランの自動一時停止（7日無アクセスで pause）を防ぐ**（2026-08 に実際に停止→本番ログイン不能になった再発防止）。CRON_SECRET 未設定だと keepalive も動かないので必ず設定すること。本番公開後の根本対策は Supabase Pro 移行 |
 | `GOOGLE_BOOKS_API_KEY` | (任意) 表紙解決サーバー（`api/cover.js`）の Google Books API キー。未設定でもキー無しで動くが、レート制限が緩和される |
-| `VITE_SITE_URL` | (任意・推奨) 🏷 本番サイトの URL（本番は `https://orime.jp`・末尾スラッシュなし）。アプリ内の利用規約・プライバシーポリシーのリンク（`src/lib/legalLinks.js`・ネイティブは Safari で開く絶対 URL）と、`index.html` の共有用 URL（og:url / og:image。`vite.config.js` の `siteUrlInHtml` がビルド時に差し替え）に使う。未設定なら旧ドメイン `leverage-reading.vercel.app`。**旧名を利用者に見せないため、Orime 名のドメインを用意したら設定する**（あわせて Supabase Auth の Redirect URLs・`RAKUTEN_APP_URL`・`APP_ORIGIN` も新ドメインに） |
+| `VITE_SITE_URL` | (任意・推奨) 🏷 本番サイトの URL（本番は `https://orime.vercel.app`（2026-09-26 決定・無料）。将来独自ドメインに移るときはここを差し替える・末尾スラッシュなし）。アプリ内の利用規約・プライバシーポリシーのリンク（`src/lib/legalLinks.js`・ネイティブは Safari で開く絶対 URL）と、`index.html` の共有用 URL（og:url / og:image。`vite.config.js` の `siteUrlInHtml` がビルド時に差し替え）に使う。未設定なら旧ドメイン `leverage-reading.vercel.app`。**旧名を利用者に見せないため、Orime 名のドメインを用意したら設定する**（あわせて Supabase Auth の Redirect URLs・`RAKUTEN_APP_URL`・`APP_ORIGIN` も新ドメインに） |
 | `VITE_SUPPORT_EMAIL` | (任意・推奨) 🏷 問い合わせ先メール（`src/lib/contact.js`。設定・エラー画面・特商法などに表示）。未設定なら旧アドレス。Orime 名のアドレスを用意したら設定する |
 | `VITE_AMAZON_TAG` | (任意・推奨) 🏷 Amazon アソシエイトのトラッキング ID（`src/lib/amazonLink.js`・Amazon のリンクの URL に出る）。アソシエイト・セントラル →「トラッキング ID の管理」で Orime 名の ID を追加して設定。未設定なら旧 ID |
 | `ALLOW_COVER_DEBUG` | (任意) `'true'` で `api/cover.js` の `?debug=1` 診断出力を本番でも許可。既定は無効（内部情報の露出防止）。通常は未設定のまま |
