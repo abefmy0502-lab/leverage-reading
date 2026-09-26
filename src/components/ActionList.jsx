@@ -1,729 +1,269 @@
-// 🎯 行動リスト — cross-book action page.
+// 🎯 行動 — 本を横断した行動リスト（振り返りタブの最初のサブタブ・SPEC §4）。
 //
-// Aggregates `book.actions` rows from every book so the user can see "what
-// did I commit to do?" at a glance, with completion %, deadline-aware
-// coloring, and quick toggle/delete. The actual edit flow stays in the book
-// detail view (kebab → 「本を開く」navigates there).
+// 役割: 相談や読書で決めた行動を、やり切るまで見届ける場所。最重要アクション＝完了にする。
+//   - 既定は「やること」。期限で 期限を過ぎた / 今日 / 今週 / そのあと に分けて上から並べる
+//   - 期限切れは控えめな警告色（責めない）。多いときだけ「期限を見直す」をそっと出す
+//   - 達成率などの数字の演出はしない（反ゲーミフィケーション）。今週の完了数を 1 行だけ
+//   - 行動 0 件は「相談の答えや、メモから行動を作れます」＋相談へのボタン
+// 編集は ⋮ → 編集（App の編集シート）、本の詳細へは ⋮ → 本を開く。
+// 見た目は DESIGN.md のトークンのみ。
 
 import { useMemo, useState } from 'react';
 import { useAllActions } from '../hooks/useAllActions';
-import { ensureHttps } from '../lib/url';
 import { stripInlineMd } from '../lib/text';
 import { track, EVENTS } from '../lib/analytics';
-import AnimatedNumber from './AnimatedNumber';
 import EmptyState from './EmptyState';
-import { Target, MoreVertical, BookOpen, Trash2, Calendar, AlertCircle, Edit3, CheckCircle2, SearchX, ListTodo, ArrowUp, Repeat, Link2, MessageSquareQuote, Check, Plus } from 'lucide-react';
+import ContextMenu from './ContextMenu';
+import { MoreVertical, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle } from 'lucide-react';
 
-const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 };
-const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
-
-const summaryCard = {
-  background: 'var(--c-card)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 16,
-  padding: '16px 18px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 10,
-  boxShadow: '0 1px 3px rgba(60, 48, 30, 0.06)',
-};
-
-const pillRow = {
-  display: 'flex',
-  gap: 6,
-  overflowX: 'auto',
-  WebkitOverflowScrolling: 'touch',
-  paddingBottom: 4,
-  // 右端をふわっと透過させ「横にまだ続きがある」を示す（本棚のチップ行と同じ流儀）。
-  WebkitMaskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
-  maskImage: 'linear-gradient(90deg, #000 90%, transparent 100%)',
-};
-
-const pill = (active, color = 'var(--c-brand)', bg = '#e8e0d2') => ({
-  flex: '0 0 auto',
-  whiteSpace: 'nowrap',
-  fontSize: 12,
-  padding: '6px 14px',
-  minHeight: 44,
-  borderRadius: 999,
-  border: active ? `1.5px solid ${color}` : '1px solid var(--c-hairline-strong)',
-  background: active ? bg : 'transparent',
-  color: active ? color : 'var(--c-ink-2)',
-  fontWeight: active ? 600 : 400,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-});
-
-const cardBase = {
-  position: 'relative',
-  background: 'var(--c-card)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 'var(--radius-md)',
-  padding: '14px 40px 14px 16px',
-  display: 'flex',
-  gap: 10,
-  alignItems: 'flex-start',
-  boxShadow: '0 1px 3px rgba(60, 48, 30, 0.05)',
-};
-
-const kebabBtn = {
-  position: 'absolute',
-  top: 2,
-  right: 4,
-  width: 44,
-  height: 44,
-  background: 'none',
-  border: 'none',
-  color: 'var(--c-ink-2)',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: 6,
-  padding: 0,
-};
-
-const menuStyle = {
-  position: 'absolute',
-  top: 32,
-  right: 8,
-  background: 'var(--surface)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 8,
-  boxShadow: '0 4px 14px rgba(30,25,20,0.12)',
-  zIndex: 5,
-  display: 'flex',
-  flexDirection: 'column',
-  minWidth: 140,
-  overflow: 'hidden',
-};
-
-const menuItem = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  background: 'none',
-  border: 'none',
-  padding: '10px 14px',
-  fontSize: 13,
-  textAlign: 'left',
-  fontFamily: 'inherit',
-  cursor: 'pointer',
-  color: 'var(--c-ink)',
-};
-
-function fmtDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-}
+const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
+const groupTitle = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
+const card = { position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-12) var(--space-3) var(--space-3)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
+const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 };
+const segBtn = (on) => ({ minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', border: 'none', background: on ? 'var(--accent-soft)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-sub)', fontWeight: on ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit' });
 
 // 期限('YYYY-MM-DD' の日付のみ文字列)をローカル0時で解釈する。素の new Date('YYYY-MM-DD')
-// は UTC0時扱いになり JST(+9) で1日ずれ、「期限切れ/今週期限」判定や達成率が日付境界でずれる。
+// は UTC0時扱いになり JST(+9) で1日ずれ、「期限切れ/今週期限」判定が日付境界でずれる。
 function parseDeadline(s) {
   if (!s) return new Date(NaN);
-  // 既に時刻付き(ISO)ならそのまま、日付のみなら T00:00:00 を補ってローカル0時に。
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T00:00:00') : new Date(s);
 }
 
-function deadlineState(deadline, done) {
-  if (done || !deadline) return { kind: 'none' };
+// 期限までの日数（今日=0・過ぎたら負）。期限なし・不正は null。
+function daysUntil(deadline) {
+  if (!deadline) return null;
+  const d = parseDeadline(deadline);
+  if (Number.isNaN(d.getTime())) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const d = parseDeadline(deadline);
-  if (Number.isNaN(d.getTime())) return { kind: 'none' };
-  const diffDays = Math.round((d - today) / 86400000);
-  if (diffDays < 0) return { kind: 'overdue', days: diffDays };
-  if (diffDays === 0) return { kind: 'today', days: 0 };
-  if (diffDays <= 3) return { kind: 'soon', days: diffDays };
-  return { kind: 'later', days: diffDays };
+  return Math.round((d - today) / 86400000);
 }
 
-// 既定は「未完了」を先頭に。タスク管理アプリの基本＝「いま やること」を最初に
-// 見せ、完了済みは脇に置く。「全て」「完了」はタップで切替。
-const FILTERS = [
-  { key: 'open', label: '未完了' },
-  { key: 'all', label: '全て' },
-  { key: 'done', label: '完了' },
-  { key: 'overdue', label: (<><AlertCircle size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限切れ</>), color: 'var(--c-critical)', bg: 'var(--c-critical-soft)' },
-  { key: 'today', label: '今日まで', color: 'var(--color-accent)', bg: 'var(--color-accent-soft)' },
-  { key: 'upcoming', label: '今週期限', color: 'var(--c-brand)', bg: 'var(--c-soft)' },
+function fmtShort(deadline) {
+  const d = parseDeadline(deadline);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+const GROUPS = [
+  { key: 'overdue', label: '期限を過ぎた行動' },
+  { key: 'today', label: '今日' },
+  { key: 'week', label: '今週' },
+  { key: 'later', label: 'そのあと・期限なし' },
 ];
 
-const SORTS = [
-  { key: 'deadline', label: '期限順' },
-  { key: 'priority', label: '優先度順' },
-  { key: 'created', label: '作成順' },
-  { key: 'title', label: '本タイトル順' },
-];
+function groupOf(a) {
+  const n = daysUntil(a.deadline);
+  if (n == null) return 'later';
+  if (n < 0) return 'overdue';
+  if (n === 0) return 'today';
+  if (n <= 7) return 'week';
+  return 'later';
+}
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+const byDeadline = (a, b) => {
+  const ad = a.deadline || '9999-99-99';
+  const bd = b.deadline || '9999-99-99';
+  if (ad !== bd) return ad.localeCompare(bd);
+  const pr = (PRIORITY_RANK[a.priority || 'medium'] ?? 1) - (PRIORITY_RANK[b.priority || 'medium'] ?? 1);
+  if (pr !== 0) return pr;
+  return (a.created_at || '').localeCompare(b.created_at || '');
+};
 
-export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction }) {
+export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult }) {
   const { allActions, stats } = useAllActions(books);
-  const [filter, setFilter] = useState('open');
-  const [sortBy, setSortBy] = useState('deadline');
-  const [openMenuKey, setOpenMenuKey] = useState(null);
-  // 達成率の集計期間: 'week' | 'month' | 'all'。
-  // 旧: 全期間ベースで母数が無限膨張 → 達成率が下がり続ける問題があった
-  // ため、デフォルトは「今週」で rolling window 集計を見せる。
-  const [statsPeriod, setStatsPeriod] = useState('week');
+  const [view, setView] = useState('open'); // 'open' | 'done'
+  const [menu, setMenu] = useState(null); // { x, y, action }
 
-  const visible = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(today);
-    weekEnd.setDate(today.getDate() + 7);
+  const open = useMemo(() => allActions.filter((a) => !a.done).sort(byDeadline), [allActions]);
+  const done = useMemo(
+    () => allActions.filter((a) => a.done).sort((a, b) => (b.completedAt || b.created_at || '').localeCompare(a.completedAt || a.created_at || '')),
+    [allActions],
+  );
+  const grouped = useMemo(() => {
+    const m = new Map(GROUPS.map((g) => [g.key, []]));
+    open.forEach((a) => m.get(groupOf(a)).push(a));
+    return m;
+  }, [open]);
+  const overdueCount = grouped.get('overdue').length;
+  const bookOf = (a) => (books || []).find((b) => b.id === a.bookId);
+  const canAdd = !!onAddAction && (books || []).length > 0;
 
-    let list = allActions;
-    if (filter === 'open') list = list.filter((a) => !a.done);
-    else if (filter === 'done') list = list.filter((a) => a.done);
-    else if (filter === 'overdue') {
-      // 期限切れ = 未完了 + deadline が today より前
-      list = list.filter((a) => {
-        if (a.done || !a.deadline) return false;
-        const d = parseDeadline(a.deadline);
-        return !Number.isNaN(d.getTime()) && d < today;
-      });
-    } else if (filter === 'today') {
-      // 今日まで = 未完了 + deadline が today 以前 (期限切れも含む)
-      list = list.filter((a) => {
-        if (a.done || !a.deadline) return false;
-        const d = parseDeadline(a.deadline);
-        return !Number.isNaN(d.getTime()) && d <= today;
-      });
-    } else if (filter === 'upcoming') {
-      list = list.filter((a) => {
-        if (a.done || !a.deadline) return false;
-        const d = parseDeadline(a.deadline);
-        return d >= today && d < weekEnd;
-      });
+  // 行動 0 件: 作り方の案内だけ（相談が主な入口・SPEC §4 エッジケース）。
+  if (stats.total === 0) {
+    return (
+      <div style={wrap}>
+        <EmptyState
+          icon={<ListTodo size={32} strokeWidth={1.5} aria-hidden="true" />}
+          title="まだ行動はありません"
+          description="相談の答えや、メモから行動を作れます。読んで決めた一歩を、ここでやり切りましょう。"
+          actions={[
+            ...(onGoConsult ? [{ label: '相談する', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: onGoConsult }] : []),
+            ...(canAdd
+              ? [{ label: '行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction, variant: 'secondary' }]
+              : onGoToBooks ? [{ label: '本を追加する', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks, variant: 'secondary' }] : []),
+          ]}
+        />
+      </div>
+    );
+  }
+
+  const renderRow = (a) => {
+    const key = `${a.bookId}:${a.actionIdx}:${a.id || ''}`;
+    const n = daysUntil(a.deadline);
+    const overdue = !a.done && n != null && n < 0;
+    const meta = [];
+    if (a.bookTitle) meta.push(a.bookTitle);
+    if (a.deadline && !a.done) {
+      meta.push(
+        overdue ? `期限 ${fmtShort(a.deadline)}（過ぎています）`
+          : n === 0 ? '今日まで'
+          : n === 1 ? '明日まで'
+          : `期限 ${fmtShort(a.deadline)}`,
+      );
     }
-
-    const sorted = [...list];
-    if (sortBy === 'deadline') {
-      // Open with deadline first (soonest), then open without deadline,
-      // then completed at the end.
-      sorted.sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1;
-        const ad = a.deadline || '9999-99-99';
-        const bd = b.deadline || '9999-99-99';
-        if (ad !== bd) return ad.localeCompare(bd);
-        return (a.created_at || '').localeCompare(b.created_at || '');
-      });
-    } else if (sortBy === 'priority') {
-      // 優先度順: 高 → 中 → 低、未完了が先、期限がある方が先。
-      sorted.sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1;
-        const pr = (PRIORITY_RANK[a.priority || 'medium'] ?? 1) - (PRIORITY_RANK[b.priority || 'medium'] ?? 1);
-        if (pr !== 0) return pr;
-        const ad = a.deadline || '9999-99-99';
-        const bd = b.deadline || '9999-99-99';
-        return ad.localeCompare(bd);
-      });
-    } else if (sortBy === 'created') {
-      sorted.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    } else if (sortBy === 'title') {
-      sorted.sort((a, b) => (a.bookTitle || '').localeCompare(b.bookTitle || '', 'ja'));
-    }
-    return sorted;
-  }, [allActions, filter, sortBy]);
-
-  // 期間ベースの達成率表示用 — week / month / all で切替
-  const period = statsPeriod === 'all'
-    ? { rate: stats.pct, completed: stats.completed, total: stats.total }
-    : statsPeriod === 'month' ? stats.month : stats.week;
-  // 予定ゼロの期間は「0%（赤）」を出さない — 何も予定していないだけなのに
-  // 減点されたように見える。ニュートラル色 + 「—」表示に倒す。
-  const periodEmpty = period.total === 0;
-  const pctColor = periodEmpty
-    ? 'var(--c-ink-3)'
-    : period.rate >= 80 ? 'var(--c-positive)' : period.rate >= 50 ? 'var(--color-accent)' : 'var(--c-critical)';
-
-  const handleKebab = (e, key) => {
-    e.stopPropagation();
-    setOpenMenuKey((cur) => (cur === key ? null : key));
+    if (a.priority === 'high') meta.push('優先');
+    if (a.recurrence) meta.push(a.recurrence === 'weekly' ? '毎週' : '毎月');
+    if (a.sourcePage) meta.push(`p.${a.sourcePage}`);
+    return (
+      <li key={key} style={card}>
+        {/* 完了チェック（この画面の最頻操作・押せる範囲 44）。本の詳細の行動と同じ丸。 */}
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={a.done}
+          aria-label={a.done ? `「${stripInlineMd(a.text)}」を未完了に戻す` : `「${stripInlineMd(a.text)}」を完了にする`}
+          onClick={() => {
+            // 未完了→完了の瞬間だけ計測（PII なし）。ハプティクスは applyActionToggle が一元発火。
+            if (!a.done) track(EVENTS.ACTION_COMPLETED);
+            onToggleAction?.(a.bookId, a.actionIdx);
+          }}
+          style={{ flexShrink: 0, width: 44, height: 44, margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        >
+          {a.done
+            ? <span key="on" className="check-pop" style={{ display: 'flex' }}><CheckCircle2 size={24} aria-hidden="true" style={{ color: 'var(--success)' }} /></span>
+            : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)' }} />}
+        </button>
+        <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+          <p style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: a.done ? 'var(--text-3)' : 'var(--text)', textDecoration: a.done ? 'line-through' : 'none', wordBreak: 'break-word' }}>
+            {stripInlineMd(a.text)}
+          </p>
+          {meta.length > 0 && (
+            <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: overdue ? 'var(--warning)' : 'var(--text-3)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
+              {meta.join('・')}
+            </p>
+          )}
+          {a.done && a.reflection && (
+            <p style={{ margin: 'var(--space-2) 0 0', padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {a.reflection}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          aria-label="この行動の操作"
+          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 8, y: r.bottom + 4, action: a }); }}
+          style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
+        >
+          <MoreVertical size={18} aria-hidden="true" />
+        </button>
+      </li>
+    );
   };
 
-  const closeMenu = () => setOpenMenuKey(null);
+  const listStyle = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
   return (
-    <div style={wrap} onClick={closeMenu}>
-      {/* Page header — 「＋追加」をこのタブの一等地に置く（「行動が全て」の
-          哲学に対し、追加動線が本詳細の編集画面の奥にしか無いのは自己矛盾）。 */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--c-ink)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Target size={18} strokeWidth={1.75} aria-hidden="true" />
-            本から決めた次の行動を管理
-          </h2>
-          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', marginTop: 2, lineHeight: 1.7 }}>
-            完了したらチェックを入れて、習慣化していきましょう
-          </p>
+    <div style={wrap}>
+      {/* 上: やること／完了 の切替 ＋ 追加。今週の完了数は 1 行だけ（数字の演出はしない）。 */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
+          <div role="tablist" aria-label="行動の表示" style={{ display: 'flex', gap: 'var(--space-1)' }}>
+            <button type="button" role="tab" aria-selected={view === 'open'} onClick={() => setView('open')} style={segBtn(view === 'open')}>
+              やること {open.length}
+            </button>
+            <button type="button" role="tab" aria-selected={view === 'done'} onClick={() => setView('done')} style={segBtn(view === 'done')}>
+              完了 {done.length}
+            </button>
+          </div>
+          {canAdd && (
+            <button type="button" onClick={onAddAction} style={rowBtn}>
+              <Plus size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />追加
+            </button>
+          )}
         </div>
-        {onAddAction && (books || []).length > 0 && (
-          <button
-            type="button"
-            onClick={onAddAction}
-            style={{
-              flexShrink: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              minHeight: 44,
-              padding: '8px 14px',
-              borderRadius: 999,
-              border: 'none',
-              background: 'var(--c-brand)',
-              color: 'var(--accent-ink)',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            <Plus size={15} strokeWidth={2} aria-hidden="true" />
-            追加
-          </button>
+        {view === 'open' && stats.week?.total > 0 && (
+          <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+            今週の予定 {stats.week.total} 件のうち {stats.week.completed} 件を完了
+          </p>
         )}
       </div>
 
-      {/* Summary card — 期間ベース達成率 (今週 / 今月 / 全期間 で切替) +
-          今週期限件数。母数膨張問題を防ぐため
-          デフォルトは「今週」だが、必要なら全期間も見られる。
-          ※「連続達成日数」は煽り（連続日数=ゲーミフィケーション）のため撤去。 */}
-      {stats.total > 0 && (() => {
-        const periodLabel = statsPeriod === 'week' ? '今週' : statsPeriod === 'month' ? '今月' : '全期間';
-        const remaining = Math.max(0, period.total - period.completed);
-        const milestone =
-          period.total === 0
-            ? `${periodLabel}に予定された行動はまだありません`
-            : period.rate >= 100
-            ? `${periodLabel}の予定をすべて完了しました`
-            : `あと ${remaining} 件で ${periodLabel}を完了`;
-        return (
-          <div style={summaryCard}>
-            {/* 期間切替タブ */}
-            <div
-              style={{
-                display: 'flex',
-                gap: 4,
-                padding: 3,
-                background: 'var(--c-soft-2)',
-                borderRadius: 10,
-                alignSelf: 'flex-start',
-              }}
-              role="tablist"
-              aria-label="達成率の表示期間を選択"
-            >
-              {[
-                { key: 'week', label: '今週' },
-                { key: 'month', label: '今月' },
-                { key: 'all', label: '全期間' },
-              ].map((p) => (
-                <button
-                  key={p.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={statsPeriod === p.key}
-                  onClick={() => setStatsPeriod(p.key)}
-                  style={{
-                    padding: '10px 14px',
-                    minHeight: 44,
-                    borderRadius: 8,
-                    border: 'none',
-                    background: statsPeriod === p.key ? 'var(--c-brand)' : 'transparent',
-                    color: statsPeriod === p.key ? 'var(--c-card)' : 'var(--c-ink-soft)',
-                    fontSize: 12,
-                    fontWeight: statsPeriod === p.key ? 600 : 500,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--c-ink-2)' }}>{periodLabel}の達成率</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, lineHeight: 1.1 }}>
-                  {periodEmpty ? (
-                    <span aria-label="この期間の予定はありません">—</span>
-                  ) : (
-                    <>
-                      <AnimatedNumber value={period.rate} duration={700} />
-                      <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 2 }}>%</span>
-                    </>
-                  )}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
-                  {milestone}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                {/* 数字は表示で終わらせず、下のフィルタへ直結する（行き止まり禁止）。 */}
-                <button
-                  type="button"
-                  onClick={() => setFilter('done')}
-                  aria-label="完了した行動の一覧を見る"
-                  style={{ fontSize: 12, color: 'var(--c-brand)', background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit' }}
-                >
-                  <AnimatedNumber value={period.completed} duration={500} /> / {period.total} 完了
-                </button>
-                {stats.upcomingThisWeek > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => { setFilter('upcoming'); setSortBy('deadline'); }}
-                    aria-label="今週期限の行動だけに絞り込む"
-                    style={{ fontSize: 11, color: 'var(--c-critical)', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
-                  >
-                    <AlertCircle size={11} strokeWidth={1.75} aria-hidden="true" />
-                    今週期限 {stats.upcomingThisWeek} 件
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="progress-bar" role="progressbar" aria-valuenow={period.rate} aria-valuemin={0} aria-valuemax={100}>
-              <div
-                className="progress-fill"
-                style={{
-                  width: `${period.rate}%`,
-                  background: `linear-gradient(90deg, ${pctColor}, var(--color-accent-strong))`,
-                }}
-              />
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Filter pills */}
-      {stats.total > 0 && (
-        <div style={pillRow} className="lvg-no-scrollbar">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setFilter(f.key)}
-              style={pill(filter === f.key, f.color, f.bg)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Sort */}
-      {stats.total > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--c-ink-2)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>並び順</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={{ fontSize: 16, padding: '8px 8px', minHeight: 44, borderRadius: 8, border: '1px solid var(--c-hairline-strong)', background: 'var(--c-card)', color: 'var(--c-ink)', fontFamily: 'inherit' }}
-            >
-              {SORTS.map((s) => (
-                <option key={s.key} value={s.key}>{s.label}</option>
-              ))}
-            </select>
-          </div>
-          <span>{visible.length}件</span>
-        </div>
-      )}
-
-      {/* List */}
-      {stats.total === 0 ? (
+      {view === 'open' && open.length === 0 && (
         <EmptyState
-          icon={<ListTodo size={34} aria-hidden="true" />}
-          title="次の一歩が、ここに集まります"
-          description={(
-            <>
-              本のメモから「やってみること」を決めると、<br />
-              本を横断してここに並びます。
-            </>
-          )}
+          icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden="true" />}
+          title="やることはすべて完了しています"
+          description="次の一歩は、相談の答えやメモから作れます。"
           actions={[
-            // 本があれば「＋ 行動を追加」が最短の一歩。本がまだ無ければ本棚へ。
-            ...(onAddAction && (books || []).length > 0
-              ? [{ label: '行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction }]
-              : []),
-            ...(onGoToBooks ? [{ label: '本棚へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks }] : []),
+            ...(onGoConsult ? [{ label: '相談する', onClick: onGoConsult, variant: 'secondary' }] : []),
+            { label: '完了した行動を見る', onClick: () => setView('done'), variant: 'secondary' },
           ]}
-          tip="振り返りのメモカードの「→ 行動にする」からも追加できます"
         />
-      ) : visible.length === 0 ? (
-        filter === 'open' ? (
-          // 未完了が 0 = やることを全部こなした状態。ネガティブに見せず讃える。
+      )}
+
+      {/* 期限切れが多いとき: 責めずに、見直しをそっと促す。 */}
+      {view === 'open' && overdueCount >= 3 && (
+        <div style={{ background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
+          <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6 }}>
+            期限を過ぎた行動が {overdueCount} 件あります。いまの予定に合う日に、置き直してみませんか。
+          </p>
+          {onEditAction && (
+            <button
+              type="button"
+              onClick={() => { const a = grouped.get('overdue')[0]; onEditAction(a.bookId, a.actionIdx, a); }}
+              style={{ ...rowBtn, marginTop: 'var(--space-2)' }}
+            >
+              期限を見直す
+            </button>
+          )}
+        </div>
+      )}
+
+      {view === 'open' && GROUPS.map((g) => {
+        const items = grouped.get(g.key);
+        if (!items.length) return null;
+        return (
+          <section key={g.key} aria-labelledby={`act-${g.key}`}>
+            <h2 id={`act-${g.key}`} style={groupTitle}>{g.label}</h2>
+            <ul style={listStyle}>{items.map(renderRow)}</ul>
+          </section>
+        );
+      })}
+
+      {view === 'done' && (
+        done.length === 0 ? (
           <EmptyState
-            icon={<CheckCircle2 size={34} aria-hidden="true" />}
-            title="未完了の行動はありません"
-            description="いまやるべきことは全部完了しています。お見事です。"
-            actions={[{ label: '完了した行動を見る', icon: <CheckCircle2 size={18} aria-hidden="true" />, onClick: () => setFilter('done') }]}
+            icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden="true" />}
+            title="完了した行動はまだありません"
+            description="やり終えたら、丸をタップして完了にしましょう。"
           />
         ) : (
-          <EmptyState
-            icon={<SearchX size={32} aria-hidden="true" />}
-            title="条件に合う行動がありません"
-            description="フィルタや並び順を変えてみてください。"
-          />
+          <ul style={listStyle}>{done.map(renderRow)}</ul>
         )
-      ) : (
-        <div className="list-item-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {visible.map((a) => {
-            const ds = deadlineState(a.deadline, a.done);
-            const key = `${a.bookId}:${a.actionIdx}:${a.id || ''}`;
-            const cardStyle = {
-              ...cardBase,
-              background: a.done ? 'var(--c-soft)' : ds.kind === 'overdue' ? 'var(--c-critical-soft)' : 'var(--c-card)',
-              borderColor: ds.kind === 'overdue' && !a.done ? 'var(--c-critical-line)' : 'var(--c-hairline)',
-            };
-            return (
-              <div key={key} className="list-item-enter" style={cardStyle}>
-                {/* Checkbox — `key={a.done}` resets the inner ✓ so the
-                    pop keyframe replays on every toggle. */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // 未完了→完了の瞬間だけ計測（PII なし・fire-and-forget）。
-                    // ハプティクスは共通経路 applyActionToggle が becomingDone を見て
-                    // 一元発火する（ここで鳴らすと二重ブザーになるため鳴らさない）。
-                    if (!a.done) track(EVENTS.ACTION_COMPLETED);
-                    onToggleAction?.(a.bookId, a.actionIdx);
-                  }}
-                  aria-label={a.done ? '未完了に戻す' : '完了にする'}
-                  aria-checked={a.done}
-                  role="checkbox"
-                  style={{
-                    // タップ領域は 44×44（この画面の最頻操作。24px だと隣の
-                    // 本タイトルリンクを誤タップする）。視覚は内側の 24px ボックス。
-                    flexShrink: 0,
-                    width: 44,
-                    height: 44,
-                    margin: '-10px -10px -10px -10px',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0,
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 'var(--radius-sm)',
-                      border: a.done ? 'none' : '1.5px solid var(--color-border)',
-                      background: a.done ? 'var(--success)' : 'transparent',
-                      color: 'var(--accent-ink)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 14,
-                      lineHeight: 1,
-                      transition: 'background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring)',
-                      transform: a.done ? 'scale(1.05)' : 'scale(1)',
-                    }}
-                  >
-                    {a.done && (
-                      <span key={`${key}-on`} className="check-pop" aria-hidden="true" style={{ display: 'flex' }}>
-                        <Check size={15} strokeWidth={3} aria-hidden="true" />
-                      </span>
-                    )}
-                  </span>
-                </button>
+      )}
 
-                {/* Body */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p
-                    style={{
-                      // カードの主役＝行動文。13px だと 10-11px のメタ群と
-                      // コントラストが無く、スキャン時に主題が立たない。
-                      fontSize: 'var(--type-callout)',
-                      lineHeight: 1.5,
-                      color: a.done ? 'var(--c-ink-3)' : 'var(--c-ink)',
-                      textDecoration: a.done ? 'line-through' : 'none',
-                      margin: 0,
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {stripInlineMd(a.text)}
-                  </p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6, alignItems: 'center' }}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const book = (books || []).find((b) => b.id === a.bookId);
-                        if (book) onOpenBook?.(book);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        fontSize: 11,
-                        color: 'var(--color-accent)',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontFamily: 'inherit',
-                        maxWidth: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {a.bookCover ? (
-                        <img
-                          src={ensureHttps(a.bookCover)}
-                          alt=""
-                          style={{ width: 14, height: 18, objectFit: 'cover', borderRadius: 2, flexShrink: 0 }}
-                        />
-                      ) : (
-                        <BookOpen size={11} strokeWidth={1.75} aria-hidden="true" />
-                      )}
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {a.bookTitle}
-                      </span>
-                    </button>
-                    {a.deadline && (() => {
-                      // 期限の状態で色とラベルを切替。期限切れ=赤 / 今日=橙(警告) /
-                      // 数日以内=アクセント / それ以降=控えめグレー。色はトークン参照。
-                      const dColor =
-                        ds.kind === 'overdue'
-                          ? 'var(--c-critical)'
-                          : ds.kind === 'today'
-                            ? 'var(--color-accent)'
-                            : ds.kind === 'soon'
-                              ? 'var(--color-accent)'
-                              : 'var(--c-ink-3)';
-                      const emphasized = ds.kind === 'overdue' || ds.kind === 'today';
-                      return (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            color: dColor,
-                            fontWeight: emphasized ? 600 : 400,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 3,
-                          }}
-                        >
-                          {ds.kind === 'overdue' || ds.kind === 'today' ? (
-                            <AlertCircle size={10} strokeWidth={1.75} aria-hidden="true" />
-                          ) : (
-                            <Calendar size={10} strokeWidth={1.75} aria-hidden="true" />
-                          )}
-                          {fmtDate(a.deadline)}
-                          {ds.kind === 'overdue' && ' (期限切れ)'}
-                          {ds.kind === 'today' && ' (今日まで)'}
-                          {ds.kind === 'soon' && ` (あと${ds.days}日)`}
-                        </span>
-                      );
-                    })()}
-                    {/* 優先度バッジ — 'medium' は default なので表示しない。
-                        「低」も無表記が最も静か（既定より下は出さない＝引き算）。
-                        色は accent 系: 赤（critical）は「期限切れ＝時間切迫」専用に
-                        予約し、赤の意味の一意性を守る。 */}
-                    {a.priority === 'high' && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--color-accent-soft)', color: 'var(--color-accent-strong)', fontWeight: 600 }}>
-                        <ArrowUp size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />高
-                      </span>
-                    )}
-                    {/* 繰り返し */}
-                    {a.recurrence && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--c-soft-2)', color: 'var(--c-brand)' }}>
-                        <Repeat size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{a.recurrence === 'weekly' ? '毎週' : '毎月'}
-                      </span>
-                    )}
-                    {/* 引用ページ */}
-                    {a.sourcePage && (
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--color-accent-soft)', color: 'var(--c-ink-2)' }}>
-                        <Link2 size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />p.{a.sourcePage}
-                      </span>
-                    )}
-                  </div>
-                  {/* 完了後の振り返りメモ */}
-                  {a.done && a.reflection && (
-                    <div
-                      style={{
-                        marginTop: 8,
-                        padding: '8px 10px',
-                        background: 'var(--color-accent-soft)',
-                        border: '1px solid var(--c-hairline-strong)',
-                        borderRadius: 8,
-                        fontSize: 12,
-                        color: 'var(--c-brand)',
-                        lineHeight: 1.6,
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
-                      <MessageSquareQuote size={12} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{a.reflection}
-                    </div>
-                  )}
-                </div>
-
-                {/* Kebab */}
-                <button
-                  type="button"
-                  onClick={(e) => handleKebab(e, key)}
-                  style={kebabBtn}
-                  aria-label="メニューを開く"
-                >
-                  <MoreVertical size={16} strokeWidth={1.75} aria-hidden="true" />
-                </button>
-                {openMenuKey === key && (
-                  <div style={menuStyle} onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      style={menuItem}
-                      onClick={() => {
-                        setOpenMenuKey(null);
-                        // a は useAllActions で transform 済みなので
-                        // text/deadline/priority/recurrence/reflection を含む
-                        onEditAction?.(a.bookId, a.actionIdx, a);
-                      }}
-                    >
-                      <Edit3 size={14} strokeWidth={1.75} aria-hidden="true" />
-                      編集
-                    </button>
-                    <button
-                      type="button"
-                      style={menuItem}
-                      onClick={() => {
-                        setOpenMenuKey(null);
-                        const book = (books || []).find((b) => b.id === a.bookId);
-                        if (book) onOpenBook?.(book);
-                      }}
-                    >
-                      <BookOpen size={14} strokeWidth={1.75} aria-hidden="true" />
-                      本を開く
-                    </button>
-                    <button
-                      type="button"
-                      style={{ ...menuItem, color: 'var(--c-critical)' }}
-                      onClick={() => {
-                        setOpenMenuKey(null);
-                        onDeleteAction?.(a.bookId, a.actionIdx);
-                      }}
-                    >
-                      <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
-                      削除
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            ...(onEditAction ? [{ label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onEditAction(menu.action.bookId, menu.action.actionIdx, menu.action) }] : []),
+            { label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => { const b = bookOf(menu.action); if (b) onOpenBook?.(b); } },
+            { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => onDeleteAction?.(menu.action.bookId, menu.action.actionIdx) },
+          ]}
+        />
       )}
     </div>
   );

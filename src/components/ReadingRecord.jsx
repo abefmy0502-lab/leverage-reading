@@ -152,10 +152,10 @@ function buildBookStats(books, now = new Date()) {
 /* ---------- 共通スタイル ---------- */
 
 const wrap = {
-  padding: '12px 16px calc(90px + env(safe-area-inset-bottom, 0px))',
+  padding: 'var(--space-3) var(--space-4) var(--space-8)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 12,
+  gap: 'var(--space-3)',
   fontFamily: 'var(--font-app)',
   maxWidth: 560,
   margin: '0 auto',
@@ -164,16 +164,16 @@ const wrap = {
 };
 
 const card = {
-  background: 'var(--c-card)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 'var(--radius-md)',
-  padding: 14,
+  background: 'var(--surface)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  padding: 'var(--space-4)',
 };
 
 const cardTitle = {
-  fontSize: 12,
-  fontWeight: 700,
-  color: 'var(--c-ink)',
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
+  color: 'var(--text)',
   margin: 0,
   display: 'flex',
   alignItems: 'center',
@@ -181,9 +181,9 @@ const cardTitle = {
 };
 
 const cardSub = {
-  fontSize: 11,
-  color: 'var(--c-ink-3)',
-  margin: '2px 0 0',
+  fontSize: 'var(--text-meta)',
+  color: 'var(--text-3)',
+  margin: 'var(--space-1) 0 0',
   lineHeight: 1.5,
 };
 
@@ -198,15 +198,15 @@ const BAR_MIN_H = 3;
 function StatTile({ icon: Icon, value, label, onClick }) {
   const inner = (
     <>
-      <Icon size={16} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+      <Icon size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
       <AnimatedNumber
         value={value}
         duration={700}
-        style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.1, color: 'var(--c-ink)', fontVariantNumeric: 'tabular-nums' }}
+        style={{ fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1.1, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}
       />
-      <span style={{ fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1.3, textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1.3, textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: 1 }}>
         {label}
-        {onClick && <ChevronRight size={11} aria-hidden="true" style={{ color: 'var(--c-ink-3)', flexShrink: 0 }} />}
+        {onClick && <ChevronRight size={11} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
       </span>
     </>
   );
@@ -229,17 +229,17 @@ function StatTile({ icon: Icon, value, label, onClick }) {
 // （ラベル横に › が付く）。
 function FlowRow({ cells }) {
   const arrow = (
-    <span aria-hidden="true" style={{ color: '#c3b9a4', fontWeight: 700, fontSize: 13, flexShrink: 0, paddingTop: 4 }}>→</span>
+    <span aria-hidden="true" style={{ color: 'var(--text-3)', fontWeight: 700, fontSize: 'var(--text-meta)', flexShrink: 0, paddingTop: 4 }}>→</span>
   );
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginTop: 12 }}>
       {cells.map((c, i) => {
         const inner = (
           <>
-            <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
-            <span style={{ fontSize: 10, color: 'var(--c-ink-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+            <span style={{ fontSize: 'var(--text-heading)', fontWeight: 700, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
+            <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
               {c.label}
-              {c.onClick && <ChevronRight size={10} aria-hidden="true" style={{ color: 'var(--c-ink-3)', flexShrink: 0 }} />}
+              {c.onClick && <ChevronRight size={10} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
             </span>
           </>
         );
@@ -285,7 +285,7 @@ function MonthBars({ buckets, activeColor }) {
         const isCurrent = i === lastIdx;
         return (
           <div key={`${k.year}-${k.month}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flex: 1, minWidth: 0 }} aria-hidden="true">
-            <span style={{ fontSize: 10, color: 'var(--c-ink-2)', lineHeight: 1, minHeight: 11, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1, minHeight: 11, fontVariantNumeric: 'tabular-nums' }}>
               {active ? k.count : ''}
             </span>
             <div style={{ width: '100%', maxWidth: 22, height: BAR_MAX_H, display: 'flex', alignItems: 'flex-end' }}>
@@ -294,12 +294,12 @@ function MonthBars({ buckets, activeColor }) {
                   width: '100%',
                   height: h,
                   borderRadius: 'var(--radius-xs)',
-                  background: active ? activeColor : 'var(--c-hairline-strong)',
+                  background: active ? activeColor : 'var(--border)',
                   transition: 'height var(--duration-base, 0.3s) var(--ease-out, ease)',
                 }}
               />
             </div>
-            <span style={{ fontSize: 10, lineHeight: 1, fontVariantNumeric: 'tabular-nums', fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--c-ink)' : 'var(--c-ink-3)' }}>
+            <span style={{ fontSize: 'var(--text-caption)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--text)' : 'var(--text-3)' }}>
               {k.month + 1}月
             </span>
           </div>
@@ -311,7 +311,8 @@ function MonthBars({ buckets, activeColor }) {
 
 // 🟫 読書の足あと（GitHub 風ヒートマップ・日曜はじまり・直近 weeks 週）。
 // streak カウンタは出さない — 色づいた日々をただ眺める「足あと」。
-const HEAT_COLORS = ['var(--c-soft)', '#dccfb2', '#b5a17e', 'var(--c-brand)'];
+// 濃さはアクセント 1 色の混ぜ具合で表す（暗い画面でも同じトークンで破綻しない）。
+const HEAT_COLORS = ['var(--fill)', 'color-mix(in srgb, var(--accent) 30%, var(--surface))', 'color-mix(in srgb, var(--accent) 60%, var(--surface))', 'var(--accent)'];
 function heatColor(n) {
   if (n <= 0) return HEAT_COLORS[0];
   if (n === 1) return HEAT_COLORS[1];
@@ -356,20 +357,20 @@ function Heatmap({ dateStrings, weeks = 16 }) {
     return { cols: out, activeDays: act };
   }, [dateStrings, weeks]);
 
-  const CELL = 11;
-  const GAP = 3;
+  const CELL = 14;
+  const GAP = 4;
   return (
     <div aria-label={`直近${weeks}週間の活動。読書の記録があった日は ${activeDays} 日`}>
       <div style={{ display: 'flex', gap: GAP, marginTop: 10, justifyContent: 'center' }} aria-hidden="true">
         {/* 曜日ラベル列 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, paddingTop: 13 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, paddingTop: 16 + GAP }}>
           {['', '月', '', '水', '', '金', ''].map((l, i) => (
-            <span key={i} style={{ height: CELL, fontSize: 8, lineHeight: `${CELL}px`, color: 'var(--c-ink-3)', width: 14, textAlign: 'right', paddingRight: 2 }}>{l}</span>
+            <span key={i} style={{ height: CELL, fontSize: 'var(--text-caption)', lineHeight: `${CELL}px`, color: 'var(--text-3)', width: 16, textAlign: 'right', paddingRight: 2 }}>{l}</span>
           ))}
         </div>
         {cols.map((col, ci) => (
           <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
-            <span style={{ height: 10, fontSize: 8, lineHeight: '10px', color: 'var(--c-ink-3)', whiteSpace: 'nowrap' }}>{col.monthLabel}</span>
+            <span style={{ height: 16, fontSize: 'var(--text-caption)', lineHeight: '16px', color: 'var(--text-3)', whiteSpace: 'nowrap', width: CELL, overflow: 'visible' }}>{col.monthLabel}</span>
             {col.days.map((d, di) => (
               <span
                 key={di}
@@ -383,11 +384,11 @@ function Heatmap({ dateStrings, weeks = 16 }) {
         ))}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 8 }} aria-hidden="true">
-        <span style={{ fontSize: 9, color: 'var(--c-ink-3)' }}>少</span>
+        <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>少</span>
         {HEAT_COLORS.map((c) => (
-          <span key={c} style={{ width: 9, height: 9, borderRadius: 2, background: c }} />
+          <span key={c} style={{ width: 12, height: 12, borderRadius: 3, background: c }} />
         ))}
-        <span style={{ fontSize: 9, color: 'var(--c-ink-3)' }}>多</span>
+        <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>多</span>
       </div>
     </div>
   );
@@ -398,11 +399,11 @@ function Heatmap({ dateStrings, weeks = 16 }) {
 function BarRow({ label, count, max, unit, labelWidth = 88, onClick, ariaLabel }) {
   const inner = (
     <>
-      <span style={{ fontSize: 11, color: 'var(--c-ink)', width: labelWidth, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      <div style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--c-soft)', overflow: 'hidden' }}>
-        <div style={{ width: `${max > 0 ? Math.max(8, Math.round((count / max) * 100)) : 0}%`, height: '100%', borderRadius: 999, background: 'var(--c-brand)', transition: 'width var(--duration-base, 0.3s) var(--ease-out, ease)' }} />
+      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text)', width: labelWidth, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <div style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--fill)', overflow: 'hidden' }}>
+        <div style={{ width: `${max > 0 ? Math.max(8, Math.round((count / max) * 100)) : 0}%`, height: '100%', borderRadius: 999, background: 'var(--accent)', transition: 'width var(--duration-base, 0.3s) var(--ease-out, ease)' }} />
       </div>
-      <span style={{ fontSize: 11, color: 'var(--c-ink-2)', width: 40, textAlign: 'right', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{count} {unit}</span>
+      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', width: 40, textAlign: 'right', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{count} {unit}</span>
     </>
   );
   if (!onClick) {
@@ -420,7 +421,7 @@ function BarRow({ label, count, max, unit, labelWidth = 88, onClick, ariaLabel }
       }}
     >
       {inner}
-      <ChevronRight size={14} aria-hidden="true" style={{ color: 'var(--c-ink-3)', flexShrink: 0, marginLeft: -2 }} />
+      <ChevronRight size={14} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0, marginLeft: -2 }} />
     </button>
   );
 }
@@ -606,11 +607,11 @@ export default function ReadingRecord({
         onClick={() => setTrendMode(mode)}
         aria-pressed={active}
         style={{
-          minHeight: 44, padding: '7px 14px', borderRadius: 999,
-          border: active ? '1px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
-          background: active ? 'var(--c-brand)' : 'transparent',
-          color: active ? 'var(--c-brand-ink)' : 'var(--c-ink-2)',
-          fontSize: 11, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+          // 切替チップ（DESIGN §5: 選択中は --accent-soft 地・--accent 文字。塗りの主ボタンと区別）
+          minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', border: 'none',
+          background: active ? 'var(--accent-soft)' : 'transparent',
+          color: active ? 'var(--accent)' : 'var(--text-2)',
+          fontSize: 'var(--text-sub)', fontWeight: active ? 600 : 400, fontFamily: 'inherit', cursor: 'pointer',
         }}
       >
         {label}
@@ -672,7 +673,7 @@ export default function ReadingRecord({
         />
       </div>
       {memoStats?.failed && (
-        <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
+        <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
           メモの統計を読み込めませんでした。通信環境を確認して、開き直してください。
         </p>
       )}
@@ -680,7 +681,7 @@ export default function ReadingRecord({
       {/* 2. 読書の足あと（ヒートマップ） */}
       <section style={card}>
         <h3 style={cardTitle}>
-          <Footprints size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+          <Footprints size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
           読書の足あと
         </h3>
         <p style={cardSub}>メモや読了があった日が、静かに色づきます。</p>
@@ -692,7 +693,7 @@ export default function ReadingRecord({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
           <div>
             <h3 style={cardTitle}>
-              <TrendingUp size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+              <TrendingUp size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
               月別のあゆみ
             </h3>
             <p style={cardSub}>直近 6 ヶ月の{trendMode === 'done' ? '読了' : 'メモ'}の数</p>
@@ -704,7 +705,7 @@ export default function ReadingRecord({
         </div>
         <MonthBars
           buckets={trendMode === 'done' ? doneBuckets : memoBuckets}
-          activeColor="var(--c-brand)"
+          activeColor="var(--accent)"
         />
       </section>
 
@@ -712,30 +713,30 @@ export default function ReadingRecord({
       {showHighlight && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <CalendarDays size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+            <CalendarDays size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
             {thisYear}年のハイライト
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 12 }}>
             {highlightItems.map((x) => (
               <div key={x.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--c-ink-3)', lineHeight: 1.3 }}>{x.label}</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-ink)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{x.value}</span>
-                {x.sub && <span style={{ fontSize: 10, color: 'var(--c-ink-3)', lineHeight: 1.3 }}>{x.sub}</span>}
+                <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.3 }}>{x.label}</span>
+                <span style={{ fontSize: 'var(--text-sub)', fontWeight: 700, color: 'var(--text)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{x.value}</span>
+                {x.sub && <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.3 }}>{x.sub}</span>}
               </div>
             ))}
           </div>
           {bookStats.bestThisYear.length > 0 && (
-            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--c-hairline)' }}>
-              <p style={{ fontSize: 10, color: 'var(--c-ink-3)', margin: '0 0 6px' }}>今年の星付き</p>
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--separator)' }}>
+              <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: '0 0 6px' }}>今年の星付き</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {bookStats.bestThisYear.map((b, i) => {
                   const book = bookById.get(b.id);
                   const clickable = !!(onOpenBook && book);
                   const row = (
                     <>
-                      <span style={{ fontSize: 10, color: '#b8963f', flexShrink: 0, letterSpacing: 1 }}>{'★'.repeat(b.rating)}</span>
-                      <span style={{ fontSize: 12, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>{b.title}</span>
-                      {clickable && <ChevronRight size={13} aria-hidden="true" style={{ color: 'var(--c-ink-3)', flexShrink: 0 }} />}
+                      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--accent)', flexShrink: 0, letterSpacing: 1 }}>{'★'.repeat(b.rating)}</span>
+                      <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>{b.title}</span>
+                      {clickable && <ChevronRight size={13} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
                     </>
                   );
                   return clickable ? (
@@ -762,7 +763,7 @@ export default function ReadingRecord({
       {topMemoBooks.length > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <BookMarked size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+            <BookMarked size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
             一番学んだ本
           </h3>
           <p style={cardSub}>メモの数から見た、あなたに一番多くの気づきをくれた本です。</p>
@@ -789,19 +790,19 @@ export default function ReadingRecord({
       {/* 6. 読書 → 行動 → 収穫 */}
       <section style={card}>
         <h3 style={cardTitle}>
-          <Target size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+          <Target size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
           読書 → 行動 → 収穫
         </h3>
         <p style={cardSub}>読んだ本が、行動の実行、そして学びの収穫へつながった数です。</p>
         <FlowRow
           cells={[
-            { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--c-ink-2)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },
-            { value: bookStats.actionsDone, label: '実行した行動', color: bookStats.actionsDone > 0 ? 'var(--c-positive)' : 'var(--c-ink-3)', onClick: onShowActions && bookStats.actionsDone > 0 ? onShowActions : undefined },
-            { value: bookStats.harvest, label: '残した収穫', color: bookStats.harvest > 0 ? '#a06a30' : 'var(--c-ink-3)' },
+            { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--text-2)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },
+            { value: bookStats.actionsDone, label: '実行した行動', color: bookStats.actionsDone > 0 ? 'var(--success)' : 'var(--text-3)', onClick: onShowActions && bookStats.actionsDone > 0 ? onShowActions : undefined },
+            { value: bookStats.harvest, label: '残した収穫', color: bookStats.harvest > 0 ? 'var(--accent)' : 'var(--text-3)' },
           ]}
         />
         {noOutcome && bookStats.doneTotal > 0 && (
-          <p style={{ fontSize: 11, color: 'var(--c-ink-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
+          <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
             メモの「行動にする」から、最初の行動を 1 つ決めてみましょう。
           </p>
         )}
@@ -811,15 +812,15 @@ export default function ReadingRecord({
       {memoStats?.recallSupported && memoTotal > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <Brain size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+            <Brain size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
             記憶への定着
           </h3>
           <p style={cardSub}>戻ってきたメモを思い出し、「覚えた」で記憶に残っていきます。</p>
           <FlowRow
             cells={[
-              { value: memoTotal, label: '残したメモ', color: 'var(--c-ink-2)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
-              { value: memoStats.recalled, label: '思い出した', color: memoStats.recalled > 0 ? 'var(--c-brand)' : 'var(--c-ink-3)' },
-              { value: memoStats.mastered, label: '覚えた', color: memoStats.mastered > 0 ? 'var(--c-positive)' : 'var(--c-ink-3)' },
+              { value: memoTotal, label: '残したメモ', color: 'var(--text-2)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
+              { value: memoStats.recalled, label: '思い出した', color: memoStats.recalled > 0 ? 'var(--accent)' : 'var(--text-3)' },
+              { value: memoStats.mastered, label: '覚えた', color: memoStats.mastered > 0 ? 'var(--success)' : 'var(--text-3)' },
             ]}
           />
         </section>
@@ -829,7 +830,7 @@ export default function ReadingRecord({
       {memoTotal >= 5 && rhythmMax > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <Clock3 size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+            <Clock3 size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
             あなたの読書リズム
           </h3>
           <p style={cardSub}>メモを書いた時間帯から。{rhythm.top ? rhythm.top.persona : ''}</p>
@@ -852,7 +853,7 @@ export default function ReadingRecord({
       {bookStats.topTags.length > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <Tags size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+            <Tags size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
             よく読むテーマ
           </h3>
           <p style={cardSub}>本につけたタグから見た、あなたの関心の地図です。</p>
@@ -876,7 +877,7 @@ export default function ReadingRecord({
       {bookStats.topAuthors.length > 0 && (
         <section style={card}>
           <h3 style={cardTitle}>
-            <PenLine size={14} aria-hidden="true" style={{ color: 'var(--c-brand)' }} />
+            <PenLine size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
             よく読む著者
           </h3>
           <p style={cardSub}>2 冊以上読んでいる著者です。相性のいい書き手かもしれません。</p>

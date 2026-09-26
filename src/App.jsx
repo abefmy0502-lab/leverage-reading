@@ -461,7 +461,8 @@ function AuthedApp() {
   // 例外: 60 分以内のプロセス破棄→再起動（resumeNav あり）は「ユーザーの遷移」では
   // なく OS 都合のリロードなので、直前に見ていたサブタブへそのまま戻す。
   const [reviewSubTab, setReviewSubTab] = useState(() => (
-    ['note', 'action', 'record'].includes(resumeNav?.reviewSubTab) ? resumeNav.reviewSubTab : 'note'
+    // 振り返り＝行動をやり切る場所（SPEC §4）。開いたら「行動」から。
+    ['note', 'action', 'record'].includes(resumeNav?.reviewSubTab) ? resumeNav.reviewSubTab : 'action'
   ));
   const [aiSubTab, setAiSubTab] = useState(() => (
     ['advisor', 'brain', 'report'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
@@ -493,7 +494,7 @@ function AuthedApp() {
       if (t === 'books') setShelfMode('home');
       return;
     }
-    if (t === 'review') setReviewSubTab('note');
+    if (t === 'review') setReviewSubTab('action');
     else if (t === 'ai') setAiSubTab('brain');
     setTab(t);
   };
@@ -3804,15 +3805,7 @@ function AuthedApp() {
         {tab === "review" && (
           <div key={`tab-${tab}`} className="tab-content">
             <div className="sub-tabs" role="tablist" aria-label="振り返りのサブタブ">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={reviewSubTab === 'note'}
-                className={`sub-tab ${reviewSubTab === 'note' ? 'active' : ''}`}
-                onClick={() => setReviewSubTab('note')}
-              >
-                <IcNote size={15} aria-hidden="true" style={subTabIconStyle} />ノート
-              </button>
+              {/* 並び: 行動｜メモ｜記録（SPEC §4。「ノート」は GLOSSARY どおり「メモ」）。 */}
               <button
                 type="button"
                 role="tab"
@@ -3821,6 +3814,15 @@ function AuthedApp() {
                 onClick={() => setReviewSubTab('action')}
               >
                 <IcTarget size={15} aria-hidden="true" style={subTabIconStyle} />行動
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={reviewSubTab === 'note'}
+                className={`sub-tab ${reviewSubTab === 'note' ? 'active' : ''}`}
+                onClick={() => setReviewSubTab('note')}
+              >
+                <IcNote size={15} aria-hidden="true" style={subTabIconStyle} />メモ
               </button>
               <button
                 type="button"
@@ -3872,6 +3874,7 @@ function AuthedApp() {
                 onOpenBook={(b) => { openDetail(b); }}
                 onGoToBooks={() => setTab("books")}
                 onAddAction={() => setAddActionSheet({ step: 'pick', prefillText: '' })}
+                onGoConsult={() => { setView('list'); setAiSubTab('brain'); setTab('ai'); }}
               />
             )}
           </div>
