@@ -10,21 +10,24 @@ import { toMessage } from '../lib/errors';
 import { useToast } from './Toast';
 import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
+import ErrorMessage from './ErrorMessage';
 import Spinner from './Spinner';
-import { Sprout, Copy } from 'lucide-react';
+import { SkeletonBlock } from './Skeleton';
+import { Sprout, Copy, RotateCw } from 'lucide-react';
 import { LIMITS } from '../lib/limits';
 import { btnPrimary, input as uiInput } from '../styles/ui';
 
 // 見た目は DESIGN.md のトークンのみ。題名「考えの足あと」と「‹ 相談」は親（MyBookBrain）が出す。
 const wrap = { display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
+const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3 };
 const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
-// 選択チップ: 選択中＝--accent-soft ＋ --accent 600 / それ以外＝--fill ＋ --text-2。
+// 選択チップ: 選択中＝--accent-soft ＋ --accent 600 / それ以外＝--fill ＋ --text（テーマまとめと同じ）。
 const chip = (active) => ({
   flex: '0 0 auto', whiteSpace: 'nowrap', minHeight: 44, padding: 'var(--space-2) var(--space-3)',
   borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
   fontSize: 'var(--text-sub)', fontWeight: active ? 600 : 400,
   background: active ? 'var(--accent-soft)' : 'var(--fill)',
-  color: active ? 'var(--accent)' : 'var(--text-2)',
+  color: active ? 'var(--accent)' : 'var(--text)',
 });
 const inp = { ...uiInput, flex: 1, minWidth: 0, width: 'auto' };
 const primaryBtn = { ...btnPrimary, width: 'auto', flexShrink: 0 };
@@ -34,14 +37,19 @@ const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space
 export default function KnowledgeJourney({ userId, initialTheme = '' }) {
   const toast = useToast();
   const [themes, setThemes] = useState([]);
+  const [themesLoading, setThemesLoading] = useState(true);
   const [custom, setCustom] = useState('');
   const [activeTheme, setActiveTheme] = useState('');
   const [state, setState] = useState({ status: 'idle' }); // idle|loading|done|thin|error
 
   useEffect(() => {
     let alive = true;
-    if (!userId) return undefined;
-    listThemes(userId).then((list) => { if (alive) setThemes(list || []); }).catch(() => {});
+    if (!userId) { setThemesLoading(false); return undefined; }
+    setThemesLoading(true);
+    listThemes(userId)
+      .then((list) => { if (alive) setThemes(list || []); })
+      .catch(() => {})
+      .finally(() => { if (alive) setThemesLoading(false); });
     return () => { alive = false; };
   }, [userId]);
 
@@ -108,10 +116,16 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
 
   return (
     <div style={wrap}>
-      {/* テーマチップ（実際に使っているタグ/カテゴリから） */}
-      {themes.length > 0 && (
-        <section aria-labelledby="journey-themes">
-          <h2 id="journey-themes" style={groupTitle}>あなたのメモから見つけたテーマ</h2>
+      {/* 問いかけの見出し ＋ テーマチップ（実際に使っているタグ/カテゴリから） */}
+      <section aria-labelledby="journey-themes">
+        <h2 id="journey-themes" style={headingStyle}>どのテーマの変化をたどりますか</h2>
+        {themesLoading ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }} aria-hidden="true">
+            <SkeletonBlock width={96} height={44} radius="var(--radius)" />
+            <SkeletonBlock width={128} height={44} radius="var(--radius)" />
+            <SkeletonBlock width={80} height={44} radius="var(--radius)" />
+          </div>
+        ) : themes.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
             {themes.map((t) => (
               <button key={t.theme} type="button" style={chip(activeTheme === t.theme)} aria-pressed={activeTheme === t.theme} onClick={() => run(t.theme)}>
@@ -119,24 +133,29 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
               </button>
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
-      {/* 自由入力 */}
-      <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-        <input
-          type="text"
-          value={custom}
-          onChange={(e) => setCustom(e.target.value.slice(0, LIMITS.theme))}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); submitCustom(); } }}
-          placeholder="例：営業 / リーダーシップ / 習慣"
-          maxLength={LIMITS.theme}
-          aria-label="テーマを入力"
-          style={inp}
-        />
-        <button type="button" style={{ ...primaryBtn, opacity: custom.trim() ? 1 : 0.5, cursor: custom.trim() ? 'pointer' : 'default' }} disabled={!custom.trim()} onClick={submitCustom}>
-          たどる
-        </button>
+      {/* 自由入力（見えるラベルはテーマまとめと揃える） */}
+      <div>
+        <label htmlFor="journey-custom" style={{ ...groupTitle, display: 'block' }}>
+          テーマを自分で入力
+        </label>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+          <input
+            id="journey-custom"
+            type="text"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value.slice(0, LIMITS.theme))}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); submitCustom(); } }}
+            placeholder="例：営業、習慣"
+            maxLength={LIMITS.theme}
+            style={inp}
+          />
+          <button type="button" style={{ ...primaryBtn, opacity: custom.trim() ? 1 : 0.5, cursor: custom.trim() ? 'pointer' : 'default' }} disabled={!custom.trim()} onClick={submitCustom}>
+            たどる
+          </button>
+        </div>
       </div>
 
       {state.status === 'loading' && !state.partial && <Spinner message="あなたのメモを時系列で読んでいます…" />}
@@ -155,9 +174,17 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
       )}
 
       {state.status === 'error' && (
-        <p role="alert" style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--error)', background: 'var(--error-soft)', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', lineHeight: 1.5 }}>
-          {state.msg}
-        </p>
+        <ErrorMessage
+          icon={null}
+          description={state.msg}
+          actions={activeTheme ? [{
+            label: 'もう一度試す',
+            ariaLabel: `テーマ「${activeTheme}」の足あとをもう一度たどる`,
+            onClick: () => run(activeTheme),
+            variant: 'secondary',
+            icon: <RotateCw size={16} />,
+          }] : []}
+        />
       )}
 
       {state.status === 'done' && (

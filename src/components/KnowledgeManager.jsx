@@ -30,6 +30,7 @@ import {
   Gem,
   Map as MapIcon,
   Search,
+  MoreHorizontal,
   Pencil,
   Trash2,
   Eraser,
@@ -52,14 +53,15 @@ import { useLongPress } from '../hooks/useLongPress';
 
 // 見た目は DESIGN.md のトークンのみ。題名「根拠にできる情報」と「‹ 相談」は親（MyBookBrain）が出し、
 // 左右の余白 16 も親の viewScroll が持つ（ここで重ねない）。
-const wrap = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
+const wrap = { display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
 const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
-const inp = { ...uiInput, minHeight: 44, padding: 'var(--space-2) var(--space-3)' };
+const inp = { ...uiInput };
 // 本文の編集欄＝読む文章（明朝 18・行間 1.6）。
 const ta = { ...uiInput, resize: 'vertical', minHeight: 200, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6 };
-// 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
-const btnRow = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
-const dangerBtn = { ...btnRow, color: 'var(--error)' };
+// カード全体＝編集を開くボタン（見た目はカードのまま）。
+const cardTap = { display: 'block', width: '100%', padding: 'var(--space-4)', background: 'none', border: 'none', borderRadius: 'var(--radius)', textAlign: 'left', fontFamily: 'inherit', color: 'inherit', cursor: 'pointer', touchAction: 'manipulation' };
+// 日付の右の「…」（44×44）。1 行目の中央に揃える。
+const moreBtn = { position: 'absolute', top: 'var(--space-1)', right: 'var(--space-1)', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', color: 'var(--text-2)', cursor: 'pointer', padding: 0 };
 const btnPrimary = { ...uiBtnPrimary, width: 'auto' };
 const btnGhost = { ...uiBtnGhost, width: 'auto' };
 const selectStyle = { ...inp, flex: 1, minWidth: 0, width: 'auto', cursor: 'pointer' };
@@ -183,60 +185,81 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
 // ============================================================================
 // Knowledge card (display-only; parent provides handlers)
 // ============================================================================
-function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
+function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
   const meta = KIND_META[item.kind] || KIND_META.card;
   const isPersonal = item.kind === 'personal';
   const isCard = item.kind === 'card';
-  const isField = !!meta.column; // books の列 (summary を含む 7 種類)
   const category = isPersonal ? pickCategory(item.tags) : null;
   const visibleTags = isPersonal
     ? (item.tags || []).filter((t) => !t.startsWith('@'))
     : item.tags || [];
+  // 長押しでメニューを開いた直後の click（指を離した瞬間）で編集が開かないようにする。
+  const longPressAtRef = useRef(0);
   const longPress = useLongPress({
-    onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, item }),
+    onLongPress: ({ clientX, clientY }) => {
+      longPressAtRef.current = Date.now();
+      onOpenMenu?.({ x: clientX, y: clientY, item });
+    },
   });
 
-  const metaLine = [
+  // 1 行目: 種類・ページ番号（または学びの分類）をまとめて「カード式メモ・P.95」の形に。
+  const kindLine = [
+    meta.label,
     isCard && Number.isFinite(item.page_number) ? `P.${item.page_number}` : null,
-    isPersonal && category ? `カテゴリ: ${category}` : null,
+    isPersonal && category ? category : null,
   ].filter(Boolean).join('・');
+  const snippet = (item.text || '').trim().replace(/\s+/g, ' ').slice(0, 24);
+
+  const openEdit = () => {
+    if (Date.now() - longPressAtRef.current < 800) return;
+    onEdit(item);
+  };
+  const openMenuFromButton = (e) => {
+    e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect();
+    onOpenMenu?.({ x: r.right - 8, y: r.bottom + 4, item });
+  };
 
   const inner = (
-    <div style={card} {...(onLongPress ? longPress.bind : {})}>
-      {/* 種類は文字＋線のアイコンで示す（色で分けない・DESIGN §3-2） */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' }}>
-          {meta.Icon && <meta.Icon size={14} aria-hidden="true" />}
-          {meta.label}
+    <div style={{ ...card, position: 'relative', padding: 0 }} {...(onOpenMenu ? longPress.bind : {})}>
+      {/* カード全体のタップで編集。操作（編集・削除）は右上の「…」か長押し・スワイプから。 */}
+      <button
+        type="button"
+        onClick={openEdit}
+        aria-label={`編集：${kindLine}${item.book?.title ? `「${item.book.title}」` : ''} ${snippet}`}
+        style={cardTap}
+      >
+        {/* 種類は文字＋線のアイコンで示す（色で分けない・DESIGN §3-2）。右は「…」の分だけ空ける。 */}
+        <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', paddingRight: 'var(--space-8)' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minWidth: 0, fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.5 }}>
+            {meta.Icon && <meta.Icon size={14} aria-hidden="true" style={{ flexShrink: 0 }} />}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kindLine}</span>
+          </span>
+          <span style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>{fmtDate(item.created_at)}</span>
         </span>
-        <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>{fmtDate(item.created_at)}</span>
-      </div>
-      {item.book && (
-        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600, margin: 'var(--space-2) 0 0', lineHeight: 1.5 }}>
-          {item.book.title || '（タイトル不明）'}
-          {item.book.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', fontWeight: 400 }}>　{item.book.author}</span>}
-        </p>
-      )}
-      {metaLine && (
-        <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-1) 0 0', lineHeight: 1.5 }}>{metaLine}</p>
-      )}
-      {/* 本文＝読む文章（明朝 18・行間 1.6） */}
-      <p style={{ fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 240, overflowY: 'auto' }}>
-        {item.text}
-      </p>
-      {visibleTags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', marginTop: 'var(--space-2)' }}>
-          {visibleTags.map((t) => (
-            <span key={t} style={{ fontSize: 'var(--text-meta)', padding: '0 var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)', lineHeight: 1.8 }}>#{t}</span>
-          ))}
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-        <button type="button" style={btnRow} onClick={() => onEdit(item)}>編集</button>
-        <button type="button" style={dangerBtn} onClick={() => onDelete(item)}>
-          {isField ? 'クリア' : '削除'}
+        {item.book && (
+          <span style={{ display: 'block', fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600, marginTop: 'var(--space-2)', lineHeight: 1.5 }}>
+            {item.book.title || '（タイトル不明）'}
+            {item.book.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', fontWeight: 400 }}>　{item.book.author}</span>}
+          </span>
+        )}
+        {/* 本文＝読む文章（明朝 18・行間 1.6）。長い本文は 6 行で畳み、全文は編集で開く。 */}
+        <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 6, overflow: 'hidden', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6, marginTop: 'var(--space-2)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          {item.text}
+        </span>
+        {visibleTags.length > 0 && (
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', marginTop: 'var(--space-2)' }}>
+            {visibleTags.map((t) => (
+              <span key={t} style={{ fontSize: 'var(--text-meta)', padding: '0 var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)', lineHeight: 1.8 }}>#{t}</span>
+            ))}
+          </span>
+        )}
+      </button>
+      {onOpenMenu && (
+        <button type="button" onClick={openMenuFromButton} aria-label="操作" aria-haspopup="menu" style={moreBtn}>
+          <MoreHorizontal size={20} aria-hidden="true" />
         </button>
-      </div>
+      )}
     </div>
   );
 
@@ -244,7 +267,7 @@ function KnowledgeCard({ item, onEdit, onDelete, onSwipeDelete, onLongPress }) {
     return (
       <SwipeableCard
         onDelete={() => onSwipeDelete(item)}
-        actionLabel={isField ? (
+        actionLabel={meta.column ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
             <Eraser size={16} strokeWidth={1.75} aria-hidden="true" />
             クリア
@@ -678,34 +701,36 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
           ]}
         />
       )}
-      {/* 検索＋絞り込み＋並び順。題名・説明文は置かない（親が題名を出す・DESIGN 原則 6）。 */}
-      <div style={{ position: 'relative' }}>
-        <Search size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
-        <input
-          type="search"
-          placeholder="本文・タイトル・著者・タグ"
-          aria-label="根拠にできる情報を検索"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
-          style={{ ...inp, paddingLeft: 'calc(var(--space-8) + var(--space-2))' }}
-        />
+      {/* 検索＋絞り込み＋並び順＋件数を 1 つのまとまりに。題名・説明文は置かない（親が題名を出す・DESIGN 原則 6）。 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
+          <input
+            type="search"
+            placeholder="本文・タイトル・著者・タグ"
+            aria-label="根拠にできる情報を検索"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
+            style={{ ...inp, paddingLeft: 'calc(var(--space-8) + var(--space-2))' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <select value={filterKind} onChange={(e) => setFilterKind(e.target.value)} aria-label="種類で絞り込む" style={selectStyle}>
+            {FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="並び順" style={selectStyle}>
+            <option value="newest">新しい順</option>
+            <option value="oldest">古い順</option>
+            <option value="title">本のタイトル順</option>
+          </select>
+        </div>
+        {!loading && items.length > 0 && (
+          <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+            {filtered.length === items.length ? `${items.length} 件` : `${items.length} 件中 ${filtered.length} 件`}
+          </p>
+        )}
       </div>
-      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-        <select value={filterKind} onChange={(e) => setFilterKind(e.target.value)} aria-label="種類で絞り込む" style={selectStyle}>
-          {FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="並び順" style={selectStyle}>
-          <option value="newest">新しい順</option>
-          <option value="oldest">古い順</option>
-          <option value="title">本のタイトル順</option>
-        </select>
-      </div>
-      {!loading && items.length > 0 && (
-        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
-          {filtered.length === items.length ? `${items.length} 件` : `${items.length} 件中 ${filtered.length} 件`}
-        </p>
-      )}
 
       {/* List */}
       {loading ? (
@@ -734,9 +759,8 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
               key={KIND_META[it.kind]?.column ? it.id : `${it.kind}-${it.id}`}
               item={it}
               onEdit={handleEdit}
-              onDelete={handleDelete}
               onSwipeDelete={handleSwipeDelete}
-              onLongPress={(payload) => setItemMenu(payload)}
+              onOpenMenu={(payload) => setItemMenu(payload)}
             />
           ))}
         </div>

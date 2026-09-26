@@ -1215,14 +1215,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                         submitOther();
                       }
                     }}
-                    style={{ ...uiInput, flex: 1, minWidth: 0, minHeight: 44, padding: 'var(--space-2) var(--space-3)' }}
+                    style={{ ...uiInput, flex: 1, minWidth: 0, width: 'auto' }}
                   />
                   <button
                     type="button"
                     onClick={submitOther}
                     disabled={!otherText.trim()}
                     aria-label={isMulti ? '選択肢に追加' : 'この内容で回答'}
-                    style={{ ...rowBtn, opacity: otherText.trim() ? 1 : 0.4, cursor: otherText.trim() ? 'pointer' : 'not-allowed' }}
+                    style={{ ...rowBtn, minHeight: 48, opacity: otherText.trim() ? 1 : 0.5, cursor: otherText.trim() ? 'pointer' : 'default' }}
                   >
                     {isMulti ? '追加' : '決定'}
                   </button>

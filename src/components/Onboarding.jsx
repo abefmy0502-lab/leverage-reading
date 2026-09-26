@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
-import { BookOpen, PencilLine, MessageCircle, Target } from 'lucide-react';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
+import { BookOpen, PencilLine, MessageCircle, Target, X } from 'lucide-react';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText } from '../styles/ui';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
@@ -10,28 +10,32 @@ const STORAGE_KEY = 'onboardingCompleted';
 // 一番の価値「読むほど、自分だけの相談相手が育つ」（CLAUDE.md・2026-09-26 裁定）を
 // 3 枚目に置く。思い出しカード（旧「想起」）は手段なので 4 枚目で一言だけ触れる。
 // 文体注意: 引用符強調（"凝縮" 等）とダーシ（——）は翻訳調に見えるため使わない。
+// 本文は 2 行程度まで（DESIGN 原則 6: なくても伝わる補足は置かない）。
 const slides = [
   {
     Icon: BookOpen,
     title: '読むほど、自分だけの相談相手が育つ',
-    body: '困ったとき、前に読んだ本にヒントがあったはずなのに、思い出せない。\nOrime は、あなたが読んだ本とメモを覚えておいて、困ったときの相談相手になる読書アプリです。',
+    body: 'Orime は、あなたが読んだ本とメモを覚えておいて、困ったときの相談相手になる読書アプリです。',
   },
   {
     Icon: PencilLine,
     title: 'まず、一行を残す',
-    body: '本を読みながら、心が動いた一行をメモするだけ。\n完璧じゃなくていい。長くなくていい。\nその一行が、あなたの相談相手の材料になります。',
+    body: '心が動いた一行をメモするだけ。その一行が、相談の材料になります。',
   },
   {
     Icon: MessageCircle,
     title: '困ったら、相談する',
-    body: '仕事や人間関係で迷ったら、Orime に相談してください。\nあなたが残したメモを根拠に、どの本のどの気づきが使えるかを答えます。\nメモが増えるほど、答えはあなたらしくなっていきます。',
+    body: 'あなたのメモを根拠に答えます。メモが増えるほど、答えはあなたらしくなります。',
   },
   {
     Icon: Target,
     title: '答えを、行動に変える',
-    body: '相談の答えには、明日からできる一歩がつきます。\nそのまま行動リストに入れて、読んだ本をあなたの変化につなげましょう。\n忘れかけたメモは、思い出しカードとしてときどき戻ってきます。',
+    body: '答えには、明日からできる一歩がつきます。そのまま行動に追加できます。',
   },
 ];
+
+// 「どこで知りましたか」の選択肢（analytics の sanitizer 適合＝≤32字の固定スラッグ）。
+const SOURCES = [['note', 'note'], ['x', 'X (Twitter)'], ['appstore', 'App Store検索'], ['friend', '知人'], ['other', 'その他']];
 
 export function isOnboardingCompleted() {
   if (typeof window === 'undefined') return true;
@@ -68,68 +72,96 @@ const overlayStyle = {
   inset: 0,
   zIndex: 'var(--z-overlay)',
   background: 'var(--backdrop)',
-  backdropFilter: 'blur(4px)',
+  backdropFilter: 'var(--backdrop-blur)',
+  WebkitBackdropFilter: 'var(--backdrop-blur)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   // 小型端末でカードがビューポートより高くなったら overlay 自体をスクロール
   // させて CTA が画面外に押し出されないようにする。セーフエリアも加味。
   overflowY: 'auto',
-  padding: 'max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))',
+  padding: 'max(var(--space-4), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right)) max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left))',
 };
 
 const cardStyle = {
-  background: 'var(--c-card)',
-  borderRadius: 16,
+  position: 'relative',
+  background: 'var(--surface)',
+  borderRadius: 'var(--radius)',
   width: 'min(420px, 100%)',
   // 低い画面高 (iPhone SE 等) でも CTA が必ず収まるよう、カード全体の高さを
   // ビューポートに収める。内側のスライド本文だけをスクロールさせ、フッター
   // (ドット + ボタン) は常に見える位置に固定する。
-  maxHeight: 'calc(100dvh - 32px)',
-  padding: '24px 22px 18px',
+  maxHeight: 'calc(100dvh - var(--space-8))',
+  padding: 'var(--space-6) var(--space-4) var(--space-4)',
   boxShadow: 'var(--shadow-overlay)',
-  fontFamily: "var(--font-app)",
+  fontFamily: 'var(--font-ui)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 14,
+  gap: 'var(--space-4)',
+  boxSizing: 'border-box',
 };
 
 const dotsRow = {
   display: 'flex',
   justifyContent: 'center',
-  gap: 6,
-  marginTop: 4,
+  gap: 'var(--space-2)',
   flexShrink: 0,
 };
 
+// ページ位置のドット（形そのもの＝円）。現在地だけアクセント（選択中の表示）。
 const dot = (active) => ({
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  background: active ? 'var(--c-brand)' : 'var(--c-hairline-strong)',
+  width: 'var(--space-2)',
+  height: 'var(--space-2)',
+  borderRadius: '50%',
+  background: active ? 'var(--accent)' : 'var(--border)',
   transition: 'background .15s',
 });
 
-const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1, minHeight: 44, padding: '12px 0', fontSize: 14 };
-
-const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1, minHeight: 44, padding: '12px 0', fontSize: 14, color: 'var(--c-ink-soft)' };
+// ボタンは正典そのまま（17・600・高さ 48）。横並び用に幅だけ変える。
+const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
+const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
+// 最後の画面の 3 番手以下（AI 選書・あとで）。
+const btnLink = { ...btnText, minHeight: 44 };
 
 const closeBtnStyle = {
   position: 'absolute',
-  top: 2,
-  right: 6,
+  top: 'var(--space-2)',
+  right: 'var(--space-2)',
   background: 'none',
   border: 'none',
-  fontSize: 22,
-  color: 'var(--c-ink-2)',
+  color: 'var(--text-2)',
   cursor: 'pointer',
   padding: 0,
   width: 44,
   height: 44,
+  borderRadius: 'var(--radius)',
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
 };
+
+// 「どこで知りましたか」のチップ。見た目は高さ 32（--fill 面・13px）、押せる範囲は 44（DESIGN §5・§6）。
+const chipHit = {
+  background: 'transparent',
+  border: 'none',
+  padding: 0,
+  minHeight: 44,
+  display: 'inline-flex',
+  alignItems: 'center',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+const chipFace = (selected) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  height: 32,
+  padding: '0 var(--space-3)',
+  borderRadius: 'var(--radius)',
+  background: selected ? 'var(--accent-soft)' : 'var(--fill)',
+  color: selected ? 'var(--accent)' : 'var(--text)',
+  fontSize: 'var(--text-meta)',
+  fontWeight: selected ? 600 : 400,
+});
 
 export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQuickstart }) {
   const [step, setStep] = useState(0);
@@ -146,6 +178,12 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
     track('signup_source', { ch: key });
   };
   const trapRef = useFocusTrap(true);
+  // 開いたときのフォーカスは × ではなく見出しへ（読み上げが「閉じる」から始まらないように）。
+  // useFocusTrap の初期フォーカス（最初のボタン＝×）の後に実行されるよう、この effect を後に置く。
+  const titleRef = useRef(null);
+  useEffect(() => {
+    try { titleRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+  }, []);
 
   // Every dismissal path marks the onboarding as completed.
   // The user can re-trigger it explicitly via the "ヘルプ" button
@@ -195,10 +233,10 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
   }, []);
 
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true">
-      <div ref={trapRef} style={{ ...cardStyle, position: 'relative' }}>
+    <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="onb-title">
+      <div ref={trapRef} style={cardStyle}>
         <button type="button" style={closeBtnStyle} onClick={dismiss} aria-label="閉じる">
-          ×
+          <X size={22} aria-hidden="true" />
         </button>
 
         <div
@@ -206,8 +244,7 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 10,
-            paddingTop: 6,
+            gap: 'var(--space-3)',
             // 本文だけをスクロールさせる領域。フッターは下に固定されるので、
             // 低い画面高でもボタンは常に押せる位置に残る。
             overflowY: 'auto',
@@ -215,101 +252,88 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
             WebkitOverflowScrolling: 'touch',
           }}
         >
+          {/* アイコンの丸は飾りなのでアクセントを使わない（DESIGN §3-2）。 */}
           <div
             style={{
-              width: 78,
-              height: 78,
+              width: 64,
+              height: 64,
               borderRadius: '50%',
-              background: 'var(--accent-soft)',
+              background: 'var(--fill)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--accent)',
+              color: 'var(--text-2)',
+              flexShrink: 0,
             }}
           >
-            <slide.Icon size={34} strokeWidth={1.75} aria-hidden="true" />
+            <slide.Icon size={30} strokeWidth={1.75} aria-hidden="true" />
           </div>
-          <h2 style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 'var(--space-2) 0 0', fontWeight: 600, lineHeight: 1.35, textAlign: 'center' }}>
+          <h2
+            id="onb-title"
+            ref={titleRef}
+            tabIndex={-1}
+            style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', outline: 'none' }}
+          >
             {slide.title}
           </h2>
-          <p
-            style={{
-              fontSize: 'var(--text-sub)',
-              color: 'var(--text-2)',
-              lineHeight: 1.6,
-              textAlign: 'center',
-              margin: 0,
-              whiteSpace: 'pre-line',
-            }}
-          >
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', margin: 0 }}>
             {slide.body}
           </p>
         </div>
 
-        <div style={dotsRow}>
+        <div style={dotsRow} aria-hidden="true">
           {slides.map((_, i) => (
             <span key={i} style={dot(i === step)} />
           ))}
         </div>
 
         {isLast ? (
-          // 最後のカードは「行動」で締める。主 CTA は本追加を直接開き、
-          // 説明で終わらせない。下に控えめな「あとで」を残して逃げ道も確保。
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6, flexShrink: 0 }}>
-            {/* 📊 signup_source（任意）: 押しつけないよう1行・小さく。選択後はお礼だけ。 */}
-            <div style={{ marginBottom: 2 }}>
-              <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '0 0 6px' }}>
-                {srcPicked ? 'ありがとうございます 🙏' : 'Orime をどこで知りましたか？（任意）'}
-              </p>
-              {!srcPicked && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  {[['note', 'note'], ['x', 'X (Twitter)'], ['appstore', 'App Store検索'], ['friend', '知人'], ['other', 'その他']].map(([key, label]) => (
-                    <button key={key} type="button" onClick={() => pickSource(key)}
-                      style={{ padding: '7px 12px', borderRadius: 99, fontSize: 12, cursor: 'pointer',
-                        border: '1px solid var(--c-hairline-strong)', background: 'transparent', color: 'var(--c-ink-2)', minHeight: 34 }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
+          // 最後の画面は主役を 1 つに（DESIGN 原則 2）。主＝これまで読んだ本から始める
+          // （初日に「自分だけの相談相手」を体験する最短路）、副＝いま読んでいる本を追加。
+          // AI 選書と「あとで」は文字ボタンに下げ、「どこで知りましたか」は一番下へ。
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
+              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startQuickstart}>
+                これまで読んだ本から始める
+              </button>
+              <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startAdding}>
+                いま読んでいる本を追加する
+              </button>
+              <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: 'var(--space-6)' }}>
+                <button type="button" style={btnLink} onClick={startAdvisor}>
+                  悩みから AI 選書で探す
+                </button>
+                <button type="button" style={btnLink} onClick={dismiss}>
+                  あとで
+                </button>
+              </div>
             </div>
-            {/* 主CTA＝これまで読んだ本と覚えている一言を入れて、その場で相談する
-                （初日に「自分だけの相談相手」を体験する最短路・2026-09-26）。
-                いま読んでいる本の追加・AI 選書は副導線。 */}
-            <button
-              type="button"
-              style={{ ...btnPrimary, flex: 'unset', width: '100%' }}
-              onClick={startQuickstart}
-            >
-              📚 これまで読んだ本から始める
-            </button>
-            <button
-              type="button"
-              style={{ ...btnGhost, flex: 'unset', width: '100%' }}
-              onClick={startAdding}
-            >
-              いま読んでいる本を追加する
-            </button>
-            <button
-              type="button"
-              style={{ ...btnGhost, flex: 'unset', width: '100%' }}
-              onClick={startAdvisor}
-            >
-              🤖 まだ無い／悩みからAIに選んでもらう
-            </button>
-            <button
-              type="button"
-              style={{ ...btnGhost, flex: 'unset', width: '100%', border: 'none' }}
-              onClick={dismiss}
-            >
-              あとで
-            </button>
-          </div>
+            {/* signup_source（任意）: 押しつけないよう一番下に小さく。選択後は選んだチップを残してお礼だけ。 */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0, borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-3)' }}>
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, textAlign: 'center' }} aria-live="polite">
+                {srcPicked ? 'ありがとうございます' : 'Orime をどこで知りましたか？（任意）'}
+              </p>
+              <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 0, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {SOURCES.map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => pickSource(key)}
+                    disabled={!!srcPicked}
+                    aria-pressed={srcPicked === key}
+                    style={{ ...chipHit, cursor: srcPicked ? 'default' : 'pointer' }}
+                  >
+                    <span style={chipFace(srcPicked === key)}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
         ) : (
-          <div style={{ display: 'flex', gap: 10, marginTop: 6, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', flexShrink: 0 }}>
             {step > 0 ? (
               <button type="button" style={btnGhost} onClick={() => setStep((s) => Math.max(0, s - 1))}>
-                ← 戻る
+                戻る
               </button>
             ) : (
               <button type="button" style={btnGhost} onClick={dismiss}>
@@ -317,7 +341,7 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
               </button>
             )}
             <button type="button" style={btnPrimary} onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}>
-              次へ →
+              次へ
             </button>
           </div>
         )}

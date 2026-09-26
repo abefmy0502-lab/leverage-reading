@@ -46,6 +46,8 @@ const btnGhost = { ...uiBtnGhost };
 const btnRow = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', gap: 'var(--space-1)', flexShrink: 0 };
 const btnText = { ...uiBtnText, minHeight: 44, fontSize: 'var(--text-sub)', gap: 'var(--space-1)', padding: 'var(--space-2) 0' };
 const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
+// アイコンだけのボタン（44×44・AI 選書／相談の上部と同じ）。
+const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 };
 const metaText = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 };
 // 読む文章（明朝 18・行間 1.6）。
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
@@ -688,19 +690,30 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-      {/* detected theme chips（履歴があるときだけ右に「履歴」） */}
+      {/* 見出し行（AI 選書と同じ形）: 左に問いかけの見出し、右に履歴のアイコンボタン。 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, marginRight: 'calc(-1 * var(--space-2))' }}>
+        <h2 style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>
+          どのテーマをまとめますか
+        </h2>
+        {historyCount != null && (
+          <button
+            type="button"
+            onClick={onOpenHistory}
+            style={iconBtn}
+            aria-label={historyCount > 0 ? `テーマまとめの履歴を見る（${historyCount} 件）` : 'テーマまとめの履歴を見る'}
+            title="履歴"
+          >
+            <History size={22} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+        )}
+      </div>
+
+      {/* detected theme chips */}
       <section aria-labelledby="theme-detected">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44, marginBottom: 'var(--space-1)' }}>
-          <h2 id="theme-detected" style={{ ...groupTitle, margin: 0 }}>
-            あなたのメモから見つけたテーマ
-            {!themesLoading && themes.length > 0 && <>（{themes.length}）</>}
-          </h2>
-          {historyCount != null && (
-            <button type="button" onClick={onOpenHistory} style={btnText} aria-label="保存済みのテーマまとめ履歴を見る">
-              <History size={16} aria-hidden="true" />履歴{historyCount > 0 ? `（${historyCount}）` : ''}
-            </button>
-          )}
-        </div>
+        <h3 id="theme-detected" style={groupTitle}>
+          あなたのメモから見つけたテーマ
+          {!themesLoading && themes.length > 0 && <>（{themes.length}）</>}
+        </h3>
         {themesLoading ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }} aria-hidden="true">
             <SkeletonBlock width={96} height={44} radius="var(--radius)" />
@@ -741,7 +754,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                 }}
               >
                 <span>{t.theme}</span>
-                <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>
+                <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
                   {t.count}
                 </span>
               </button>

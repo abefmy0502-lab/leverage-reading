@@ -3,37 +3,38 @@ import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
 import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
-import { btnPrimary as uiBtnPrimary } from '../../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnText, input } from '../../styles/ui';
 import { isNative } from '../../lib/iap';
+import { MailCheck } from 'lucide-react';
 
 // ボタン正典（styles/ui.js）に統一。初対面画面のボタンだけ radius/weight が
 // 微妙に別物だと第一印象で「寄せ集め感」が出るため。
 const btnPrimary = { ...uiBtnPrimary, width: '100%' };
 
-const btnLink = {
-  background: 'none',
-  border: 'none',
-  fontSize: 12,
-  // WCAG AA: #8a7e6b はクリーム背景で約2.7:1 と不足 → var(--c-ink-2)（約4.6:1）へ。
-  color: 'var(--c-ink-2)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  padding: '12px 8px',
-  minHeight: 44,
-};
+// 文字だけのボタン（DESIGN §5「文字」＝リンク風・--accent）。補助リンクなので文字は --text-sub。
+const btnLink = { ...btnText, fontSize: 'var(--text-sub)', minHeight: 44 };
 
-const inp = {
-  width: '100%',
-  padding: '12px 14px',
-  fontSize: 16,
-  border: '1px solid var(--c-hairline-strong)',
-  borderRadius: 8,
-  fontFamily: 'inherit',
-  background: 'var(--c-card)',
-  color: 'var(--c-ink)',
-  marginBottom: 10,
+// 入力欄の正典（ui.js の input: 角丸 12・枠 --border・高さ 48）。
+const inp = { ...input, marginBottom: 'var(--space-3)' };
+
+// 画面の外側余白: 左右 16（DESIGN §1）。ノッチ・ホームインジケータがある端末はセーフエリアを優先。
+const screenPadding =
+  'max(env(safe-area-inset-top, 0px), var(--space-4)) max(env(safe-area-inset-right, 0px), var(--space-4)) ' +
+  'max(env(safe-area-inset-bottom, 0px), var(--space-4)) max(env(safe-area-inset-left, 0px), var(--space-4))';
+
+const screenStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '100vh',
+  padding: screenPadding,
   boxSizing: 'border-box',
 };
+
+// エラー / 完了の一言（色だけに頼らず文でも伝わる。読み上げにも届くよう role を付ける）。
+const errorText = { color: 'var(--error)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
+const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
 function humanizeError(err) {
   const msg = (err?.message || '').toLowerCase();
@@ -214,7 +215,8 @@ export default function AuthScreen() {
     }
   };
 
-  const title = mode === 'signin' ? 'ログイン' : mode === 'signup' ? '新規登録' : 'パスワードリセット';
+  // ログイン画面では見出しを出さない（主ボタン「ログイン」と重複するため）。新規登録・リセットだけ出す。
+  const title = mode === 'signup' ? '新規登録' : mode === 'reset' ? 'パスワードリセット' : '';
   const submitLabel = loading
     ? '処理中…'
     : mode === 'signin'
@@ -225,39 +227,39 @@ export default function AuthScreen() {
 
   if (!isSupabaseConfigured) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'max(env(safe-area-inset-top, 0px), 20px) max(env(safe-area-inset-right, 0px), 20px) max(env(safe-area-inset-bottom, 0px), 20px) max(env(safe-area-inset-left, 0px), 20px)', textAlign: 'center' }}>
-        <h1 style={{ fontSize: 20, color: 'var(--c-ink)', marginBottom: 12 }}>⚠️ 設定が未完了です</h1>
-        <p style={{ fontSize: 13, color: 'var(--c-ink-2)', lineHeight: 1.8, maxWidth: 360 }}>
+      <div style={{ ...screenStyle, textAlign: 'center' }}>
+        <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)' }}>設定が未完了です</h1>
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, maxWidth: 360, margin: 0 }}>
           Supabase の環境変数が設定されていません。<br />
-          <code style={{ fontSize: 11 }}>VITE_SUPABASE_URL</code> と{' '}
-          <code style={{ fontSize: 11 }}>VITE_SUPABASE_ANON_KEY</code> を設定してください。
+          <code style={{ fontSize: 'var(--text-meta)' }}>VITE_SUPABASE_URL</code> と{' '}
+          <code style={{ fontSize: 'var(--text-meta)' }}>VITE_SUPABASE_ANON_KEY</code> を設定してください。
         </p>
       </div>
     );
   }
 
-  // 📩 確認メール待ちの全画面ステップ。signup 後にフォームへ小さく緑文字を出すだけ
-  //    だと多くの人がメール離脱後に迷子になり離脱（中断離脱の最大谷）。宛先・次の
-  //    行動・迷惑メール案内・再送・ログイン戻りを明示して取りこぼしを減らす。
+  // 確認メール待ちの全画面ステップ。signup 後にフォームへ小さく緑文字を出すだけ
+  // だと多くの人がメール離脱後に迷子になり離脱（中断離脱の最大谷）。宛先・次の
+  // 行動・迷惑メール案内・再送・ログイン戻りを明示して取りこぼしを減らす。
   if (confirmSentTo) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)' }}>
-        <div style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
-          <div style={{ fontSize: 44, marginBottom: 8 }} aria-hidden="true">📩</div>
-          <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--c-ink)', margin: '0 0 12px' }}>確認メールを送りました</h1>
-          <p style={{ fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.9, margin: '0 0 8px' }}>
-            <strong style={{ wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛にメールを送りました。<br />
+      <div style={screenStyle}>
+        <div style={{ width: '100%', maxWidth: 400, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <MailCheck size={44} strokeWidth={1.5} color="var(--text-2)" aria-hidden="true" style={{ marginBottom: 'var(--space-3)' }} />
+          <h1 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)' }}>確認メールを送りました</h1>
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: '0 0 var(--space-2)' }}>
+            <strong style={{ fontWeight: 600, wordBreak: 'break-all' }}>{confirmSentTo}</strong> 宛にメールを送りました。<br />
             {isNative
               // ネイティブでは確認リンクは Safari（Web）で開く — 「そのまま進める」と
               // 約束すると迷子になる。確認後にこのアプリへ戻る導線を正しく案内する。
               ? 'メール内のリンクを開いて確認が完了したら、このアプリに戻ってログインしてください。'
               : 'メール内のリンクをタップすると登録が完了し、そのままアプリに進めます。'}
           </p>
-          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 20px' }}>
-            数分待っても届かない場合は、<strong>迷惑メール / プロモーション</strong>フォルダもご確認ください。
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-6)' }}>
+            数分待っても届かない場合は、<strong style={{ fontWeight: 600 }}>迷惑メール / プロモーション</strong>フォルダもご確認ください。
           </p>
-          {error && <p style={{ color: 'var(--c-critical)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
-          {info && <p style={{ color: 'var(--c-positive)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
+          {error && <p role="alert" style={errorText}>{error}</p>}
+          {info && <p role="status" style={infoText}>{info}</p>}
           <button
             type="button"
             onClick={() => { setConfirmSentTo(''); setInfo(''); setError(''); switchMode('signin'); }}
@@ -269,32 +271,32 @@ export default function AuthScreen() {
             type="button"
             onClick={handleResend}
             disabled={resending}
-            style={{ ...btnLink, opacity: resending ? 0.6 : 1 }}
+            style={{ ...btnLink, marginTop: 'var(--space-3)', opacity: resending ? 0.6 : 1 }}
           >
             {resending ? '再送中…' : '確認メールを再送する'}
           </button>
-
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 'env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 20px) env(safe-area-inset-bottom, 0px) max(env(safe-area-inset-left, 0px), 20px)' }}>
-      {/* ロゴをページ見出し(h1)として提供。alt="Orime" がアクセシブルな見出し名になる。
-          aspectRatio で読み込み前にスペースを確保しCLSを防ぐ。 */}
-      {/* アプリアイコン＋文字のワードマーク（暗い画面でも読める。旧: 茶色の文字入り画像は暗い面で沈んでいた）。 */}
+    <div style={screenStyle}>
+      {/* アプリアイコン＋文字のワードマークをページ見出し(h1)として提供（暗い画面でも読める）。 */}
       <h1 style={{ margin: '0 0 var(--space-3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
+        {/* アプリアイコン画像は iOS のアイコン形状（DESIGN §4 の例外＝中身の形）。 */}
         <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 72, height: 72, borderRadius: 16, display: 'block' }} />
         <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', letterSpacing: '0.02em' }}>Orime</span>
       </h1>
       <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-8)', textAlign: 'center' }}>
         読むほど、自分だけの相談相手が育つ
       </p>
-      <form onSubmit={submit} style={{ width: '100%', maxWidth: 340 }}>
-        <h2 style={{ fontSize: 16, color: 'var(--c-ink)', marginBottom: 16, textAlign: 'center', fontWeight: 500 }}>{title}</h2>
-        {/* 🍎 Sign in with Apple — メール確認の往復が不要でワンタップ。HIG 準拠で
-            メール認証より目立つ位置（上）に、公式カラー（黒）で置く。 */}
+      <form onSubmit={submit} style={{ width: '100%', maxWidth: 400 }}>
+        {title && (
+          <h2 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-4)', textAlign: 'center' }}>{title}</h2>
+        )}
+        {/* Sign in with Apple — メール確認の往復が不要でワンタップ。HIG 準拠でメール認証より
+            目立つ位置（上）に置く。色は Apple のブランド規定（黒地・白文字）に従う例外。 */}
         {showAppleButton && mode !== 'reset' && (
           <>
             <button
@@ -303,10 +305,9 @@ export default function AuthScreen() {
               disabled={appleBusy}
               aria-label="Appleでサインイン"
               style={{
-                width: '100%', minHeight: 48, display: 'inline-flex', alignItems: 'center',
-                justifyContent: 'center', gap: 8, background: '#000', color: 'var(--on-cover)',
-                border: 'none', borderRadius: 'var(--radius-md)', fontFamily: 'inherit', fontSize: 15,
-                fontWeight: 600, cursor: appleBusy ? 'default' : 'pointer', opacity: appleBusy ? 0.6 : 1,
+                ...btnPrimary,
+                background: '#000', color: 'var(--on-cover)',
+                cursor: appleBusy ? 'default' : 'pointer', opacity: appleBusy ? 0.6 : 1,
               }}
             >
               <svg width="16" height="19" viewBox="0 0 16 19" fill="currentColor" aria-hidden="true">
@@ -314,20 +315,20 @@ export default function AuthScreen() {
               </svg>
               {appleBusy ? 'サインイン中…' : 'Appleでサインイン'}
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0' }}>
-              <span style={{ flex: 1, height: 1, background: 'var(--c-hairline)' }} />
-              <span style={{ fontSize: 11, color: 'var(--c-ink-3)' }}>または</span>
-              <span style={{ flex: 1, height: 1, background: 'var(--c-hairline)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-4) 0' }}>
+              <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />
+              <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>または</span>
+              <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />
             </div>
           </>
         )}
         {mode === 'signup' && !isNative && (
           /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */
-          <p style={{ fontSize: 12, color: 'var(--c-ink-2)', lineHeight: 1.8, margin: '0 0 12px', textAlign: 'center' }}>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-4)', textAlign: 'center' }}>
             Orime は iPhone / iPad アプリでのご利用となります。<br />
             ここで登録したアカウントで、アプリからログインできます。{' '}
-            <a href="/lp" style={{ color: 'var(--c-ink-2)' }}>サービス紹介を見る</a>
+            <a href="/lp" style={{ color: 'var(--accent)' }}>サービス紹介を見る</a>
           </p>
         )}
         {mode === 'signup' && (
@@ -335,6 +336,7 @@ export default function AuthScreen() {
             style={inp}
             type="text"
             placeholder="表示名（任意）"
+            aria-label="表示名（任意）"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             onKeyDown={blockEnterWhileComposing}
@@ -346,6 +348,7 @@ export default function AuthScreen() {
           style={inp}
           type="email"
           placeholder="メールアドレス"
+          aria-label="メールアドレス"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={blockEnterWhileComposing}
@@ -358,6 +361,7 @@ export default function AuthScreen() {
             style={inp}
             type="password"
             placeholder={mode === 'signup' ? 'パスワード（8文字以上、英字＋数字）' : 'パスワード'}
+            aria-label="パスワード"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={blockEnterWhileComposing}
@@ -368,23 +372,24 @@ export default function AuthScreen() {
           />
         )}
         {mode === 'signup' && (
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--c-ink-soft)', lineHeight: 1.6, marginBottom: 12, cursor: 'pointer' }}>
+          // 押せる範囲は 44 以上（DESIGN §6）。チェックボックスは文字と横並びで中央揃え。
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, marginBottom: 'var(--space-3)', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
-              style={{ marginTop: 3, flexShrink: 0 }}
+              style={{ width: 20, height: 20, margin: 0, flexShrink: 0, accentColor: 'var(--accent)' }}
             />
             <span>
-              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-brand)' }}>利用規約</a>
+              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>利用規約</a>
               {' '}と{' '}
-              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-brand)' }}>プライバシーポリシー</a>
+              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>プライバシーポリシー</a>
               {' '}に同意します
             </span>
           </label>
         )}
-        {error && <p style={{ color: 'var(--c-critical)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{error}</p>}
-        {info && <p style={{ color: 'var(--c-positive)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>{info}</p>}
+        {error && <p role="alert" style={errorText}>{error}</p>}
+        {info && <p role="status" style={infoText}>{info}</p>}
         <button
           type="submit"
           style={{ ...btnPrimary, opacity: loading || (mode === 'signup' && !agreed) ? 0.6 : 1 }}
@@ -393,10 +398,10 @@ export default function AuthScreen() {
           {submitLabel}
         </button>
       </form>
-      <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 6, width: '100%', maxWidth: 340, alignItems: 'center' }}>
+      <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 0, width: '100%', maxWidth: 400, alignItems: 'center' }}>
         {mode !== 'signin' && (
           <button type="button" onClick={() => switchMode('signin')} style={btnLink}>
-            ← ログインに戻る
+            ログインに戻る
           </button>
         )}
         {mode === 'signin' && (

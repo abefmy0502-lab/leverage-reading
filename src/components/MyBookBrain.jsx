@@ -15,14 +15,14 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { streamMyBookBrain, generateWeeklyQuestion, prewarmKnowledge } from '../lib/ai';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
-import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square } from 'lucide-react';
+import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import KnowledgeJourney from './KnowledgeJourney';
 import BottomSheet from './BottomSheet';
@@ -50,9 +50,10 @@ const subLabel = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--
 // 根拠の本文（参照したメモ・解釈）も答えの一部＝読む文章（明朝 18・行間 1.6・DESIGN §2/§7）。
 const subText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6 };
 const refBtn = { width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, padding: 'var(--space-2) 0', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--accent)', lineHeight: 1.5 };
-const inp = { width: '100%', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'max(16px, var(--text-body))', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit', boxSizing: 'border-box' };
-// 学びの本文＝読む文章（明朝 18・行間 1.6）。
-const ta = { ...inp, resize: 'none', minHeight: 160, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6 };
+// 学びを書くの入力欄は ui.js の input（高さ 48）をそのまま使う。
+const inp = uiInput;
+// 学びの本文＝読む文章（明朝 18・行間 1.6）。display:block で下の余白のずれ（inline のベースライン分）を消す。
+const ta = { ...uiInput, display: 'block', resize: 'none', minHeight: 160, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6 };
 // 行の中の副ボタン（DESIGN §5 btnRow）。
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', flexShrink: 0 };
 
@@ -116,10 +117,12 @@ function transformMessage(row) {
 // していたが、iOS Safari で上端が見切れる + 下に元画面が透ける問題が
 // あった。タブ画面なのでモーダルにする必然性も薄く、インライン展開に
 // 変更。
-function LearningInline({ onCancel, onSaved }) {
+function LearningInline({ onSaved }) {
   const { user } = useAuth();
   const toast = useToast();
   const [text, setText] = useState('');
+  // ＋ 分類・タグ（最初は閉じる＝本文と保存だけを見せる。QuickMemoSheet の「＋ 詳しく」と同じ）。
+  const [moreOpen, setMoreOpen] = useState(false);
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState([]);
@@ -172,8 +175,9 @@ function LearningInline({ onCancel, onSaved }) {
     background: on ? 'var(--accent-soft)' : 'var(--fill)', color: on ? 'var(--accent)' : 'var(--text)',
     fontSize: 'var(--text-sub)', fontWeight: on ? 600 : 400,
   });
+  const canSave = !busy && text.trim().length > 0;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <div>
         <label htmlFor="learning-text" style={label}>学んだこと</label>
         <textarea
@@ -190,58 +194,80 @@ function LearningInline({ onCancel, onSaved }) {
         />
       </div>
 
+      {/* ＋ 分類・タグ — 閉じていても分類は既定（会話）で保存される。 */}
       <div>
-        <span style={label}>どこで生まれた気づきか</span>
-        <div role="radiogroup" aria-label="どこで生まれた気づきか" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-          {CATEGORIES.map((c) => (
-            <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} style={chip(category === c)}>
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>
+        <button
+          type="button"
+          onClick={() => setMoreOpen((v) => !v)}
+          aria-expanded={moreOpen}
+          aria-controls="learning-more"
+          style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0', gap: 'var(--space-1)', color: 'var(--text-2)' }}
+        >
+          {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+          分類・タグ
+          {!moreOpen && (
+            <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>
+              （{[category, ...tags].join('・')}）
+            </span>
+          )}
+        </button>
+        {moreOpen && (
+          <div id="learning-more" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', marginTop: 'var(--space-2)' }}>
+            <div>
+              <span style={label}>どこで生まれた気づきか</span>
+              <div role="radiogroup" aria-label="どこで生まれた気づきか" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                {CATEGORIES.map((c) => (
+                  <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} style={chip(category === c)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      <div>
-        <label htmlFor="learning-tag" style={label}>タグ（任意）</label>
-        {tags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
-            {tags.map((t, i) => (
-              <span key={`${t}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 32, padding: '0 0 0 var(--space-3)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-sub)' }}>
-                {t}
-                <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`} style={{ width: 44, height: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}>
-                  <X size={16} aria-hidden="true" />
-                </button>
-              </span>
-            ))}
+            <div>
+              <label htmlFor="learning-tag" style={label}>タグ（任意）</label>
+              {tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                  {tags.map((t, i) => (
+                    <span key={`${t}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 32, padding: '0 0 0 var(--space-3)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-sub)' }}>
+                      {t}
+                      <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`} style={{ width: 44, height: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}>
+                        <X size={16} aria-hidden="true" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <input
+                  id="learning-tag"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      addTag();
+                    }
+                  }}
+                  placeholder="タグを追加"
+                  style={{ ...inp, flex: 1, minWidth: 0, width: 'auto' }}
+                  maxLength={LIMITS.tag}
+                />
+                <button type="button" onClick={addTag} style={{ ...btnGhost, minHeight: 48 }}>追加</button>
+              </div>
+            </div>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <input
-            id="learning-tag"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                addTag();
-              }
-            }}
-            placeholder="タグを追加"
-            style={{ ...inp, flex: 1 }}
-            maxLength={LIMITS.tag}
-          />
-          <button type="button" onClick={addTag} style={btnGhost}>追加</button>
-        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-        <button type="button" onClick={onCancel} style={{ ...uiBtnText, flex: 1, justifyContent: 'center', color: 'var(--text-2)', fontWeight: 400 }}>
-          キャンセル
-        </button>
-        <button type="button" onClick={save} disabled={busy} style={{ ...uiBtnPrimary, flex: 2, width: 'auto', opacity: busy ? 0.6 : 1 }}>
-          {busy ? '保存中…' : '保存'}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={save}
+        disabled={!canSave}
+        style={{ ...uiBtnPrimary, opacity: canSave ? 1 : 0.5, cursor: canSave ? 'pointer' : 'default' }}
+      >
+        {busy ? '保存中…' : '保存'}
+      </button>
     </div>
   );
 }
