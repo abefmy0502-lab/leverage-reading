@@ -85,6 +85,7 @@ function getAllowedOrigins() {
   const list = [];
   if (process.env.APP_ORIGIN) list.push(process.env.APP_ORIGIN.replace(/\/+$/, ''));
   if (process.env.VERCEL_URL) list.push(`https://${process.env.VERCEL_URL}`);
+  list.push('https://orime.jp', 'https://www.orime.jp');
   list.push('https://leverage-reading.vercel.app');
   return [...new Set(list)];
 }

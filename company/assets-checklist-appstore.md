@@ -73,8 +73,8 @@
 |---|---|---|
 | 5-1 | デモアカウント | 新規メール（例: review用の捨てアドレス）でサインアップ→メール確認→**launch-plan §3.5 のデータ投入＋SQL で課金済み化**。ID/PW を ASC 審査メモに記載 |
 | 5-2 | 審査メモ（英語） | ✅ ひな形あり: `launch-plan-appstore-2026-07-27.md` §3.5（コピペで可） |
-| 5-3 | サポート URL | ✅ `https://leverage-reading.vercel.app/legal/sct`（または LP）。ASC の App 情報欄に入力 |
-| 5-4 | プライバシーポリシー URL | ✅ `https://leverage-reading.vercel.app/legal/privacy` |
+| 5-3 | サポート URL | ✅ `https://orime.jp/legal/sct`（または LP）。ASC の App 情報欄に入力 |
+| 5-4 | プライバシーポリシー URL | ✅ `https://orime.jp/legal/privacy` |
 
 ## 6. マーケ素材（リリース週）
 
