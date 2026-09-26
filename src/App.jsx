@@ -2869,15 +2869,16 @@ function AuthedApp() {
             overflowX: 'hidden',
             overscrollBehaviorY: 'contain',
             WebkitOverflowScrolling: 'touch',
-            padding: 'var(--space-2) var(--space-4) 112px', // 下は「メモを書く」ボタンに隠れない分
+            padding: 'var(--space-2) var(--space-4) calc(var(--space-16) + var(--space-12))', // 下は「メモを書く」ボタンに隠れない分（112）
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
-            <button onClick={goList} style={{ ...btnText, padding: '8px 0', fontSize: 'var(--text-body)', fontWeight: 400 }}>
-              ‹ {tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
+            {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 22・本文サイズ・--accent）。 */}
+            <button onClick={goList} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-1))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
+              <ChevronLeft size={22} aria-hidden="true" />{tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
-            <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: -10 }}>
+            <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
               <button
                 onClick={openHelp}
                 style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
@@ -2939,7 +2940,7 @@ function AuthedApp() {
             <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
               {/* SPEC §2 の並び: メモ一覧 → この本に相談する → 行動（→ 計画・AI 解析は下）。 */}
               <section aria-labelledby="detail-memo-title">
-                <h2 id="detail-memo-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 12px', lineHeight: 1.3 }}>メモ</h2>
+                <h2 id="detail-memo-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-1)', lineHeight: 1.3 }}>メモ</h2>
                 <BookMemoList
                   bookId={current.id}
                   bookTitle={current.title}
@@ -3344,8 +3345,8 @@ function AuthedApp() {
                 else goList();
               }}
               // 詳細画面の「‹ 本棚」と同じ iOS ナビ様式に統一（旧: 沈む極小グレー「← 戻る」）。
-              style={{ ...lnk, color: "var(--c-brand)", fontSize: 15, fontWeight: 600 }}
-            >‹ {current ? '詳細' : '本棚'}</button>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+            ><ChevronLeft size={22} aria-hidden="true" />{current ? '詳細' : 'すべての本'}</button>
             <button
               onClick={openHelp}
               style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
@@ -4303,14 +4304,13 @@ function AuthedApp() {
         <BottomSheet
           title="絞り込み"
           onClose={() => setFilterSheetOpen(false)}
-          footer={(
+          footer={activeFilterCount > 0 && (
             <button
               type="button"
               onClick={clearAllFilters}
-              disabled={activeFilterCount === 0}
-              style={{ ...btnGhost, color: activeFilterCount === 0 ? 'var(--text-3)' : 'var(--error)', cursor: activeFilterCount === 0 ? 'default' : 'pointer' }}
+              style={{ ...btnGhost, color: 'var(--error)' }}
             >
-              条件をクリア{activeFilterCount > 0 ? `（${activeFilterCount}）` : ''}
+              条件をクリア（{activeFilterCount}）
             </button>
           )}
         >

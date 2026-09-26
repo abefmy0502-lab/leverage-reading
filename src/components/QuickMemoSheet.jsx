@@ -143,7 +143,7 @@ const rowBtn = {
 };
 
 // 主ボタン（DESIGN §5: 高さ 48・17・600）。
-const saveBtn = (busy) => ({ ...btnPrimary, opacity: busy ? 0.6 : 1 });
+const saveBtn = (disabled) => ({ ...btnPrimary, opacity: disabled ? 0.5 : 1, cursor: disabled ? 'default' : 'pointer' });
 
 export default function QuickMemoSheet({
   bookTitle,
@@ -450,12 +450,12 @@ export default function QuickMemoSheet({
               type="button"
               onClick={() => setMoreOpen((v) => !v)}
               aria-expanded={moreOpen}
-              style={{ ...btnText, fontSize: 'var(--text-sub)', padding: '8px 0', gap: 4, color: 'var(--text-2)' }}
+              style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0', gap: 'var(--space-1)' }}
             >
               {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
               詳しく（ページ・写真・タグ）
               {!moreOpen && pageNumber !== '' && (
-                <span style={{ fontWeight: 400, color: 'var(--text-3)', marginLeft: 4 }}>（p.{pageNumber}）</span>
+                <span style={{ fontWeight: 400, color: 'var(--text-2)', marginLeft: 'var(--space-1)' }}>（p.{pageNumber}）</span>
               )}
             </button>
             {moreOpen && (
@@ -501,7 +501,7 @@ export default function QuickMemoSheet({
         </div>
 
         <div style={footerStyle}>
-          <button type="button" style={saveBtn(busy)} onClick={handleSave} disabled={busy}>
+          <button type="button" style={saveBtn(busy || !text.trim())} onClick={handleSave} disabled={busy || !text.trim()}>
             {busy ? '保存中…' : '保存'}
           </button>
         </div>

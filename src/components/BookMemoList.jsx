@@ -391,7 +391,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           0 件の画面で最初に見えるのが「ページ順/新しい順/引用のみ」だと、
           書き始めのボタンがその下に埋もれる。 */}
       {memos.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        // 行の高さ 44 は押せる範囲のため。見た目では見出しとカードに寄せる（グループ内は詰める）。
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-2)) 0' }}>
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
             {quoteOnly ? `ページ番号つき ${visibleMemos.length}件` : `${memos.length}件`}
           </span>

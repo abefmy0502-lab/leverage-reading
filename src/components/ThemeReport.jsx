@@ -33,7 +33,7 @@ import ErrorMessage from './ErrorMessage';
 import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
-import { Square, History, Trash2, RotateCw, Inbox, Ruler, RefreshCw, CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { History, Trash2, RotateCw, BookmarkPlus, Inbox, Ruler, RefreshCw, CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // 見た目は DESIGN.md のトークンのみ。
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
@@ -555,10 +555,10 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                       type="button"
                       onClick={stopGeneration}
                       disabled={aborting}
-                      style={{ ...btnRow, opacity: aborting ? 0.6 : 1 }}
+                      style={{ ...btnText, minHeight: 44, opacity: aborting ? 0.6 : 1 }}
                       aria-label={aborting ? '中止しています' : 'テーマまとめの作成を中止'}
                     >
-                      <Square size={14} aria-hidden="true" />{aborting ? '中止中…' : '中止'}
+                      {aborting ? '中止中…' : '中止'}
                     </button>
                   ) : (
                     <button type="button" onClick={resetToPicker} style={btnRow} aria-label="テーマ選択に戻る">
@@ -902,7 +902,7 @@ function RecallButton({ busy, done, onSet }) {
       {done ? (
         <><CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)' }} />思い出しカードに追加済み</>
       ) : busy ? 'セット中…' : (
-        <><RotateCw size={18} aria-hidden="true" />思い出しカードに加える</>
+        <><BookmarkPlus size={18} aria-hidden="true" />思い出しカードに加える</>
       )}
     </button>
   );

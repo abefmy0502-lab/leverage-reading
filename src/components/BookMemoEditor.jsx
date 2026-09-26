@@ -10,7 +10,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
-import { BookOpen, Sparkles, Undo2, Camera, ChevronLeft, X } from 'lucide-react';
+import { BookOpen, Sparkles, Undo2, ImagePlus, ChevronLeft, X } from 'lucide-react';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -150,9 +150,9 @@ const tagSuggestionBtn = {
   padding: '0 var(--space-3)',
   minHeight: 44,
   borderRadius: 'var(--radius)',
-  border: '1px dashed var(--border)',
-  background: 'transparent',
-  color: 'var(--text-2)',
+  border: 'none',
+  background: 'var(--fill)',
+  color: 'var(--text)',
   cursor: 'pointer',
   fontFamily: 'inherit',
 };
@@ -472,23 +472,9 @@ export default function BookMemoEditor({
 
       <div style={body}>
         <div>
-          <label style={fieldLabel}>ページ番号（任意）</label>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={99999}
-            value={pageNumber}
-            onChange={(e) => setPageNumber(e.target.value)}
-            onKeyDown={blockEnter}
-            placeholder="78"
-            style={{ ...inp, width: 140, textAlign: 'center' }}
-          />
-        </div>
-
-        <div>
-          <label style={fieldLabel}>メモ本文</label>
+          <label htmlFor="memo-body" style={fieldLabel}>メモ本文</label>
           <textarea
+            id="memo-body"
             ref={bodyRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -511,7 +497,7 @@ export default function BookMemoEditor({
                 aria-label="メモを凝縮する"
                 style={{ ...btnRow, cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1 }}
               >
-                <Sparkles size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+                <Sparkles size={16} aria-hidden="true" />
                 {condensing ? '凝縮中…' : '凝縮'}
               </button>
             )}
@@ -530,6 +516,22 @@ export default function BookMemoEditor({
         </div>
 
         <div>
+          <label htmlFor="memo-page" style={fieldLabel}>ページ番号（任意）</label>
+          <input
+            id="memo-page"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={99999}
+            value={pageNumber}
+            onChange={(e) => setPageNumber(e.target.value)}
+            onKeyDown={blockEnter}
+            placeholder="78"
+            style={{ ...inp, width: 140, textAlign: 'center' }}
+          />
+        </div>
+
+        <div>
           <label style={fieldLabel}>写真（任意）</label>
           {!shownPreview && (
             <>
@@ -538,7 +540,7 @@ export default function BookMemoEditor({
                 onClick={() => fileInputRef.current?.click()}
                 style={btnRow}
               >
-                <Camera size={16} aria-hidden="true" />
+                <ImagePlus size={16} aria-hidden="true" />
                 写真を追加
               </button>
               <input
@@ -582,7 +584,7 @@ export default function BookMemoEditor({
         </div>
 
         <div>
-          <label style={fieldLabel}>タグ（任意）</label>
+          <label htmlFor="memo-tag" style={fieldLabel}>タグ（任意）</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: tags.length ? 'var(--space-2)' : 0 }}>
             {tags.map((t, i) => (
               <span key={`${t}-${i}`} style={tagPill}>
@@ -628,6 +630,7 @@ export default function BookMemoEditor({
           )}
           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <input
+              id="memo-tag"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               placeholder="タグを追加"

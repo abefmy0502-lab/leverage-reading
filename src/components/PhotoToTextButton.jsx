@@ -15,7 +15,7 @@ import { extractTextFromImage } from '../lib/ai';
 import { toMessage } from '../lib/errors';
 import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
-import { Camera } from 'lucide-react';
+import { ScanText } from 'lucide-react';
 
 const baseStyle = {
   minHeight: 44,
@@ -85,7 +85,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         aria-label="写真から文章を書き起こす"
         aria-busy={loading || undefined}
       >
-        <Camera size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+        <ScanText size={16} aria-hidden="true" />
         {loading ? '読み取り中…' : '写真から起こす'}
       </button>
       <input
