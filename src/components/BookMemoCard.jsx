@@ -331,7 +331,8 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
               margin: 0,
-              paddingRight: 'var(--space-8)', // 右上の ⋮ と重ならない
+              // ⋮ はページ番号の行にある。ページ番号が無いときだけ本文 1 行目と並ぶので空ける。
+              paddingRight: memo.pageNumber != null ? 0 : 'var(--space-8)',
               overflowWrap: 'anywhere',
               ...(isLongBody && !expanded
                 ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }

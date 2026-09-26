@@ -413,7 +413,7 @@ export default function QuickMemoSheet({
                   e.preventDefault();
                 }
               }}
-              placeholder="心が動いた一行を、そのまま"
+              placeholder="心が動いた一行を書き留める"
               style={ta}
               maxLength={LIMITS.memoText}
             />

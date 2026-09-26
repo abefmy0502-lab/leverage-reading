@@ -44,14 +44,16 @@ export default function SwipeableCard({
 
   if (disabled) return children;
 
-  const transformValue = `translate3d(${-offset}px, 0, 0)`;
+  const transformValue = offset > 0 ? `translate3d(${-offset}px, 0, 0)` : 'none';
   const useTransition = offset === 0 || isDeleting;
 
   return (
     <div
       style={{
         position: 'relative',
-        overflow: 'hidden',
+        // 切り抜きはスワイプ中だけ（静止中も hidden だと、端数の高さのカードで下端の枠線と
+        // 角が 1px 欠けて描かれていた）。静止中は赤い引き出しも visibility:hidden。
+        overflow: offset > 0 || isDeleting ? 'hidden' : 'visible',
         borderRadius: 'var(--radius)',
         // Background sits behind the foreground card; the action drawer paints
         // its own colour above it.
@@ -97,7 +99,9 @@ export default function SwipeableCard({
           transition: useTransition
             ? 'transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1)'
             : 'none',
-          willChange: 'transform',
+          // 静止中は合成レイヤーにしない（overflow:hidden＋角丸の親の中で常時レイヤー化すると、
+          // 端数の高さのカードで下端の枠線と角が 1px 欠けて描かれることがあった）。
+          willChange: offset > 0 ? 'transform' : 'auto',
           // Inherit so the card's own background continues to cover the drawer
           // when at rest.
           background: 'transparent',

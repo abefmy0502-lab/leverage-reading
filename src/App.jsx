@@ -129,6 +129,11 @@ import {
   ChevronLeft,
   ChevronDown,
   MoreHorizontal,
+  ImagePlus,
+  ImageOff,
+  Upload,
+  Share,
+  Trash2,
   RotateCcw,
   Brain,
   HelpCircle,
@@ -2773,11 +2778,6 @@ function AuthedApp() {
           })()}
 
           {/* Phase-specific content */}
-          {(current.startDate || current.doneDate) && (
-            <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-3) 0 0' }}>
-              {current.startDate && <>開始 {current.startDate}</>}{current.startDate && current.doneDate && '　'}{current.doneDate && <>読了 {current.doneDate}</>}
-            </p>
-          )}
 
           {/* ラベルは中身と一致させる。旧: 1 枚だけなのに「目的・課題・仮説」と
               名乗り、課題(currentChallenge)・仮説(hypothesis)はどこにも表示されず
@@ -2878,6 +2878,11 @@ function AuthedApp() {
                 <StatusBadge status={current.status} />
                 {current.rating > 0 && <Stars r={current.rating} size={14} />}
               </div>
+              {(current.startDate || current.doneDate) && (
+                <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-2) 0 0' }}>
+                  {current.startDate && <>開始 {current.startDate}</>}{current.startDate && current.doneDate && '　'}{current.doneDate && <>読了 {current.doneDate}</>}
+                </p>
+              )}
             </div>
           </div>
 
@@ -2931,43 +2936,19 @@ function AuthedApp() {
               </button>
             </div>
           ) : (
-            <div
-              style={{
-                marginTop: 12,
-                padding: "14px 16px",
-                background: "var(--c-card)",
-                border: "1px dashed var(--c-hairline-strong)",
-                borderRadius: 'var(--radius-md)',
-                fontSize: 12,
-                color: "var(--c-ink-2)",
-                lineHeight: 1.7,
-              }}
-            >
+            <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
               {/* コールドスタート緩和: 行き止まりの説明で終わらせず、ワンタップで
-                  「読書中」に昇格して即メモを開く。核ループ（メモ→想起）の入口の
-                  摩擦を最小化する（メモが貯まらないと想起もマイ読書脳も効かないため、
-                  初日に一行残せるかが継続の分岐点）。設計（メモは reading/done に住む）
-                  は反転せず、その状態への移行を一手で済ませる。 */}
-              <p style={{ margin: "0 0 10px" }}>
-                {current.status === "want"
-                  ? "📚 心が動いた一行は、いつでも残せます。"
-                  : "📊 今は読む準備をする段階です。読み始めたら、一行メモを残していきましょう。"}
+                  「読書中」に昇格して即メモを開く（メモは reading/done に住む設計は不変）。
+                  進行の主ボタン（下部の「積読に積む」等）と並ぶので、こちらは文字ボタン。 */}
+              <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6 }}>
+                読み始めたら、メモが書けます。心が動いた一行は、あとで相談の根拠になります。
               </p>
-              {/* 進行の主ボタン（下部の「積読に積む」等）と同じ茶ベタを並べると
-                  正道が読めなくなるため、こちらは控えめなテキスト調に降格。
-                  絵文字と引用符強調も外す（翻訳調の解消）。 */}
               <button
                 type="button"
                 onClick={() => { advanceStatus(current, "reading"); setQuickMemoOpen(true); }}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  minHeight: 44, padding: "10px 4px", border: "none",
-                  background: "none", color: "var(--c-brand)",
-                  fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                  textDecoration: "underline", textUnderlineOffset: 3,
-                }}
+                style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 0 }}
               >
-                もう読み始めている？ 読書中にして一行メモを残す
+                もう読み始めている？ 読書中にしてメモを書く
               </button>
             </div>
           )}
@@ -3031,9 +3012,10 @@ function AuthedApp() {
           )}
 
           {/* Action buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)', marginTop: 'var(--space-8)' }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-6)', marginTop: 'var(--space-8)' }}>
             {nextStatus[current.status] && (
-              <>
+              // ボタンと補足文は 1 つのまとまり（8）。購入リンクとは 24 離す（DESIGN §1）。
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 <button
                   onClick={async () => {
                     if (current.status === 'before') {
@@ -3085,7 +3067,7 @@ function AuthedApp() {
                     ? '読書中になると、メモを書けるようになります'
                     : '読み終えたら、一番の収穫を 1 行残せます'}
                 </p>
-              </>
+              </div>
             )}
             {/* 購入導線は「まだ買っていない可能性が高い」want / before だけ主役。
                 reading / done で全幅オレンジが最強の視覚要素になるのは、収穫・
@@ -3234,13 +3216,13 @@ function AuthedApp() {
             y={detailKebab.y}
             onClose={() => setDetailKebab(null)}
             items={[
-              { label: '編集', icon: '✏️', onClick: () => openEdit(current) },
+              { label: '編集', icon: <PencilLine size={16} aria-hidden="true" />, onClick: () => openEdit(current) },
               // 📋 AI 読書計画は before / reading / done のどこからでも
               // 仕切り直せる。want は本格的な読書計画前なので除外。
               ...(current.status !== 'want'
                 ? [{
                     label: 'AI 読書計画を編集',
-                    icon: '📋',
+                    icon: <IcMap size={16} aria-hidden="true" />,
                     onClick: () => openSetup(current),
                   }]
                 : []),
@@ -3254,7 +3236,7 @@ function AuthedApp() {
                 const prevLabel = STATUS_LABEL[prev] || prev;
                 return [{
                   label: `「${prevLabel}」に戻す`,
-                  icon: '↩️',
+                  icon: <RotateCcw size={16} aria-hidden="true" />,
                   onClick: async () => {
                     const ok = await confirm({
                       title: `「${prevLabel}」に戻しますか？`,
@@ -3267,12 +3249,12 @@ function AuthedApp() {
                   },
                 }];
               })()),
-              { label: '表紙を選び直す', icon: '🖼', onClick: () => setCoverFixForBook(current) },
-              { label: '表紙を取り直す', icon: '🔄', onClick: () => refreshCoverFor(current) },
-              { label: '表紙を手動でアップロード', icon: '🖼', onClick: () => triggerManualCoverUpload(current) },
-              ...(current.cover ? [{ label: '表紙を削除', icon: '🗑', onClick: () => removeCoverFor(current) }] : []),
-              { label: '共有', icon: '📤', onClick: () => shareBook(current) },
-              { label: '削除', icon: '🗑️', destructive: true, onClick: () => requestDeleteBook(current) },
+              { label: '表紙を選び直す', icon: <ImagePlus size={16} aria-hidden="true" />, onClick: () => setCoverFixForBook(current) },
+              { label: '表紙を取り直す', icon: <IcRefresh size={16} aria-hidden="true" />, onClick: () => refreshCoverFor(current) },
+              { label: '表紙を手動でアップロード', icon: <Upload size={16} aria-hidden="true" />, onClick: () => triggerManualCoverUpload(current) },
+              ...(current.cover ? [{ label: '表紙を削除', icon: <ImageOff size={16} aria-hidden="true" />, onClick: () => removeCoverFor(current) }] : []),
+              { label: '共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => shareBook(current) },
+              { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
             ]}
           />
         )}
