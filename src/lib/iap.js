@@ -38,8 +38,20 @@ export const APP_PLAN_LABELS = {
     name: '年額プラン',
     price: '年額 ¥12,800（税込・月あたり約¥1,066）',
     note: 'まとめてお得・いつでも解約OK',
+    // 月額 12 か月分と比べた割引（既定ラベル用。ストアから取れたときはストアの実数で計算し直す）。
+    save: savingsLabel(1480, 12800),
   },
 };
+
+// 「月額プランより N% お得」。どちらも同じストア（同じ通貨）の実数から計算するので、
+// 価格を変えても表示がずれない。差が小さい（5% 未満）ときは出さない。
+export function savingsLabel(monthlyPrice, annualPrice) {
+  const m = Number(monthlyPrice);
+  const a = Number(annualPrice);
+  if (!(m > 0) || !(a > 0)) return '';
+  const pct = Math.floor((1 - a / (m * 12)) * 100);
+  return pct >= 5 ? `月額プランより ${pct}% お得` : '';
+}
 
 let _Purchases = null;
 let _configured = false;
@@ -131,7 +143,15 @@ export async function getStoreLabels(userId) {
     return {
       ok: true,
       monthly: { ...APP_PLAN_LABELS.monthly, price: `月額 ${m.product.priceString}`, trial: eligible(m.product) ? formatFreeTrial(m.product) : '' },
-      annual: { ...APP_PLAN_LABELS.annual, price: `年額 ${a.product.priceString}`, trial: eligible(a.product) ? formatFreeTrial(a.product) : '' },
+      annual: {
+        ...APP_PLAN_LABELS.annual,
+        // 月あたりの額もストアの値から（「年額 ¥12,800（月あたり ¥1,066）」）。
+        price: a.product.pricePerMonthString
+          ? `年額 ${a.product.priceString}（月あたり ${a.product.pricePerMonthString}）`
+          : `年額 ${a.product.priceString}`,
+        save: savingsLabel(m.product.price, a.product.price),
+        trial: eligible(a.product) ? formatFreeTrial(a.product) : '',
+      },
     };
   } catch {
     return fallback;

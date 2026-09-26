@@ -1290,7 +1290,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
 // the output is a synthesis, not an answer. THEME_SYSTEM mirrors
 // PROMPTS.themeReport.system (security rules inlined here, like BRAIN_SYSTEM).
 
-const THEME_SYSTEM = `あなたは『レバレッジ・リーディング』の思想を体現する読書コーチです。
+const THEME_SYSTEM = `あなたは「読書は行動に変えてこそ」という考え方を体現する読書コーチです。
 （学び・実用の本のテーマでは「20%で80%の成果」「行動につなげる」を重視する。小説・エッセイなど物語のテーマでは損得や行動を強制せず、心に残ったこと・ものの見方の変化を尊重する）
 ユーザーが1テーマで複数の本・メモに残した学びを横断し、「テーマまとめ」=繰り返し読み返して体に染み込ませ行動に変えるための凝縮した1枚にまとめます。要約ではなく凝縮です。
 

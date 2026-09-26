@@ -117,12 +117,23 @@ function PlanOption({ label, selected, onSelect }) {
         ? <CircleCheck size={24} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
         : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0 }} />}
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3 }}>
+        <span style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3 }}>
           {label.name}
+          {/* 年額への後押し: 「おすすめ」と、ストアの実数から計算した割引。 */}
+          {label.save && (
+            <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--accent-ink)', background: 'var(--accent)', borderRadius: 'var(--radius)', padding: '0 var(--space-2)', lineHeight: 1.7 }}>
+              おすすめ
+            </span>
+          )}
         </span>
         <span style={{ display: 'block', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, marginTop: 'var(--space-1)' }}>
           <PriceText text={label.price} />
         </span>
+        {label.save && (
+          <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+            {label.save}
+          </span>
+        )}
       </span>
     </button>
   );

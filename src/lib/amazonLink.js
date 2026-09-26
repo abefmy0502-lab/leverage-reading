@@ -4,7 +4,9 @@
 // tag, URL shape, and disclosure copy live in exactly one place. Keep
 // AMAZON_TAG in sync with the merchant account on Amazon Associates JP.
 
-export const AMAZON_TAG = 'leveragereading-22';
+// VITE_AMAZON_TAG で差し替え可（アソシエイト・セントラルの「トラッキング ID の管理」で
+// Orime 名の ID を追加して設定する。URL に出るので旧名を見せないため）。
+export const AMAZON_TAG = import.meta.env.VITE_AMAZON_TAG || 'leveragereading-22';
 
 const AMAZON_BASE = 'https://www.amazon.co.jp';
 
