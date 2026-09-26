@@ -145,16 +145,14 @@ const tagPill = {
   alignItems: 'center',
 };
 
+// 候補のタグ（DESIGN §5 のチップ: 見た目 32、押せる範囲 44 は外側のボタンで取る）。
 const tagSuggestionBtn = {
-  fontSize: 'var(--text-meta)',
-  padding: '0 var(--space-3)',
-  minHeight: 44,
-  borderRadius: 'var(--radius)',
-  border: 'none',
-  background: 'var(--fill)',
-  color: 'var(--text)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
+  display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: 0,
+  background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+};
+const tagSuggestionFace = {
+  display: 'inline-flex', alignItems: 'center', height: 32, padding: '0 var(--space-3)',
+  borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-meta)',
 };
 
 function blockEnter(e) {
@@ -614,7 +612,7 @@ export default function BookMemoEditor({
             ))}
           </div>
           {suggestions.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
               <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-3)' }}>過去のタグ</span>
               {suggestions.map((t) => (
                 <button
@@ -623,7 +621,7 @@ export default function BookMemoEditor({
                   onClick={() => addTag(t)}
                   style={tagSuggestionBtn}
                 >
-                  + {t}
+                  <span style={tagSuggestionFace}>+ {t}</span>
                 </button>
               ))}
             </div>

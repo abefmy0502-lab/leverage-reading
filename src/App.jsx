@@ -3334,7 +3334,7 @@ function AuthedApp() {
             overflowY: 'auto',
             overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
-            padding: "20px 20px 80px",
+            padding: "var(--space-6) var(--space-4) var(--space-16)",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
