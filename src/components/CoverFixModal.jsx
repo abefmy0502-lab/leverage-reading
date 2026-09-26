@@ -292,7 +292,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
               padding: '12px 14px',
               borderRadius: 10,
               border: '1px solid var(--c-hairline-strong)',
-              background: '#fff',
+              background: 'var(--surface)',
               color: 'var(--c-brand)',
               fontSize: 13,
               fontFamily: 'inherit',

@@ -52,7 +52,7 @@ export default function SwipeableCard({
       style={{
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius)',
         // Background sits behind the foreground card; the action drawer paints
         // its own colour above it.
       }}
@@ -66,14 +66,18 @@ export default function SwipeableCard({
           top: 0,
           bottom: 0,
           width: ACTION_WIDTH,
-          background: 'var(--color-error, #ff3b30)',
+          background: 'var(--error)',
+          // 🩹 静止中は赤を描かない。カードの角丸（直書きの 14/16 等）と外枠の角丸が
+          // 違うと、角のすき間から赤がにじんで見えていた（SPEC の違和感 1）。
+          // スワイプが始まった時だけ出す。
+          visibility: offset > 0 || isDeleting ? 'visible' : 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-start',
           paddingLeft: 24,
-          color: '#fff',
+          color: 'var(--accent-ink)',
           fontWeight: 600,
-          fontSize: 15,
+          fontSize: 'var(--text-sub)',
           letterSpacing: 1,
           // The drawer pulses a bit when the swipe crosses the arm threshold
           // so the user sees their gesture is "loaded".

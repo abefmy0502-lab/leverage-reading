@@ -11,8 +11,23 @@
 //   <button style={btnPrimary}>保存</button>
 //   <button style={{ ...btnGhost, minHeight: 40 }}>小さめ</button>  // サイズはspreadで上書き
 
-// 暖色ブランドパレット（tokens.css の var(--c-*) を参照）。
+// 色（tokens.css を参照）。DESIGN.md のトークン名（text / accent / surface …）が正。
+// 旧名（ink / brand / card …）は既存コード用の別名で、同じトークンを指す。
 export const C = {
+  bg: 'var(--bg)',
+  surface: 'var(--surface)',
+  fill: 'var(--fill)',
+  text: 'var(--text)',
+  text2: 'var(--text-2)',
+  text3: 'var(--text-3)',
+  separator: 'var(--separator)',
+  border: 'var(--border)',
+  accent: 'var(--accent)',
+  accentInk: 'var(--accent-ink)',
+  accentSoft: 'var(--accent-soft)',
+  success: 'var(--success)',
+  warning: 'var(--warning)',
+  error: 'var(--error)',
   ink: 'var(--c-ink)',
   ink2: 'var(--c-ink-2)',
   ink3: 'var(--c-ink-3)',
@@ -40,12 +55,12 @@ const btnBase = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 6,
+  gap: 8,
   minHeight: 48,
-  padding: '13px 18px',
-  borderRadius: 'var(--radius-md)',
+  padding: '12px 16px',
+  borderRadius: 'var(--radius)',
   fontFamily: 'inherit',
-  fontSize: 15,
+  fontSize: 'var(--text-body)', // DESIGN: ボタンは 17・600
   fontWeight: 600,
   letterSpacing: '0.01em',
   cursor: 'pointer',
@@ -53,45 +68,55 @@ const btnBase = {
   width: '100%',
 };
 
-// 主アクション（茶ベタ）。
+// 主アクション（アクセント塗り）。DESIGN: 1 画面に 1 つだけ。
 export const btnPrimary = {
   ...btnBase,
-  background: C.brand,
-  color: C.brandInk,
-  boxShadow: 'var(--shadow-1)',
+  background: 'var(--accent)',
+  color: 'var(--accent-ink)',
 };
 
 // 副アクション（枠線ゴースト）。
 export const btnGhost = {
   ...btnBase,
   background: 'transparent',
-  color: C.brand,
-  border: `1px solid ${C.hairlineStrong}`,
+  color: 'var(--accent)',
+  border: '1px solid var(--border)', // 操作部品の枠は 3:1 以上
+};
+
+// 文字だけのボタン（リンク風）。
+export const btnText = {
+  ...btnBase,
+  width: 'auto',
+  background: 'transparent',
+  color: 'var(--accent)',
+  padding: '12px 4px',
 };
 
 // 破壊的アクション（レンガ色ベタ）。
 export const btnDanger = {
   ...btnPrimary,
-  background: C.critical,
+  background: 'var(--error)',
 };
 
 // 共通カード面。
+// DESIGN: 影なし・枠線で区切る・角丸 12・内側 16。
 export const card = {
-  background: C.card,
-  border: `1px solid ${C.hairline}`,
-  borderRadius: 'var(--radius-md)',
-  padding: '14px 16px',
+  background: 'var(--surface)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  padding: 16,
 };
 
 // 共通入力欄（iOS ズーム回避で font-size 16px）。
 export const input = {
   width: '100%',
-  padding: '11px 12px',
-  fontSize: 16,
-  border: `1px solid ${C.hairlineStrong}`,
-  borderRadius: 'var(--radius-sm)',
-  background: '#fff',
-  color: C.ink,
+  minHeight: 48,
+  padding: '12px',
+  fontSize: 'max(16px, var(--text-body))', // iOS の入力ズーム防止に 16 以上
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
+  background: 'var(--surface)',
+  color: 'var(--text)',
   fontFamily: 'inherit',
   boxSizing: 'border-box',
 };

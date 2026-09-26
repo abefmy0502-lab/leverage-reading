@@ -36,13 +36,13 @@
  * 同一の見た目に揃える（唯一の正典=ui.js）。EmptyState / ErrorMessage が消費。
  * 値: min-height 48 / radius-md(12) / type-callout(15) / --c-brand(#5c5043) 系。 */
 .btn {
-  font-family: var(--font-app);
-  font-size: var(--type-callout);
+  font-family: var(--font-ui);
+  font-size: var(--text-body); /* DESIGN: ボタンは 17・600 */
   font-weight: var(--weight-semibold);
   letter-spacing: 0.01em;
   line-height: var(--leading-tight);
-  padding: 13px 18px;
-  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
   border: none;
   cursor: pointer;
   display: inline-flex;
@@ -61,16 +61,14 @@
 }
 .btn:active {
   transform: scale(0.96);
-  box-shadow: var(--shadow-1);
 }
 .btn-primary:active {
   filter: brightness(0.92);
 }
 
 .btn-primary {
-  background: var(--c-brand);
-  color: var(--c-brand-ink);
-  box-shadow: var(--shadow-1);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .btn-primary:hover {
   filter: brightness(0.95);
@@ -78,39 +76,39 @@
 
 .btn-secondary {
   background: transparent;
-  color: var(--c-brand);
-  border: 1px solid var(--c-hairline-strong);
+  color: var(--accent);
+  border: 1px solid var(--border);
 }
 .btn-secondary:hover {
-  background: var(--c-soft);
+  background: var(--fill);
 }
 
 .btn-ghost {
   background: transparent;
-  color: var(--c-brand);
+  color: var(--accent);
 }
 .btn-ghost:hover {
-  background: var(--c-soft);
+  background: var(--fill);
 }
 
 .btn-danger {
-  background: var(--c-critical);
-  color: var(--c-brand-ink);
+  background: var(--error);
+  color: var(--accent-ink);
 }
 .btn-danger:hover {
   filter: brightness(0.95);
 }
 
 .btn-sm {
-  min-height: 36px;
+  min-height: 44px; /* DESIGN: タップ領域 44 以上 */
   padding: var(--space-2) var(--space-3);
-  font-size: var(--type-callout);
+  font-size: var(--text-sub);
 }
 
 .btn-lg {
-  min-height: 52px;
-  padding: var(--space-4) var(--space-6);
-  font-size: var(--type-headline);
+  min-height: 48px;
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--text-body);
 }
 
 .btn-block {
@@ -126,11 +124,12 @@
 }
 
 /* ===== Cards ============================================================== */
+/* DESIGN: 普通のカードは影なし・枠線で区切る・角丸 12・内側 16 */
 .card {
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  box-shadow: var(--shadow-2);
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  padding: var(--space-4);
   transition: transform var(--duration-fast) var(--ease-spring),
     box-shadow var(--duration-base) var(--ease-out);
 }
@@ -540,7 +539,7 @@
    半分弱に縮める。 */
 .empty-state {
   text-align: center;
-  padding: var(--space-6) var(--space-4) var(--space-5);
+  padding: var(--space-6) var(--space-4);
   max-width: 420px;
   margin: 0 auto;
 }
@@ -550,7 +549,7 @@
   width: 76px;
   height: 76px;
   margin: 0 auto var(--space-4);
-  border-radius: 22px;
+  border-radius: var(--radius);
   background: var(--color-accent-soft);
   color: var(--color-accent-strong);
   display: flex;
@@ -892,8 +891,8 @@
   inset: 0;
   text-align: center;
   padding: 8px;
-  color: #fff;
-  font-size: 11px;
+  color: var(--on-cover);
+  font-size: var(--text-caption);
   font-weight: var(--weight-semibold);
   line-height: 1.35;
   letter-spacing: 0.01em;
@@ -936,17 +935,13 @@
   position: absolute;
   bottom: 4px;
   right: 4px;
-  padding: 2px 6px;
-  border-radius: 9999px;
-  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  font-size: var(--text-caption);
   font-weight: 600;
   line-height: 1.4;
-  letter-spacing: 0.02em;
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--color-label);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+  background: var(--surface);
+  color: var(--text-2);
   white-space: nowrap;
   pointer-events: none;
   z-index: 2;
@@ -959,11 +954,11 @@
 .book-cover-title {
   /* 3 列スマホ表示で 1 冊 ~110px 幅。タイトルは 12px / 2 行で省略。
      line-height 1.4 で読みやすさを確保。 */
-  font-size: 12px;
+  font-size: var(--text-meta);
   font-weight: var(--weight-semibold);
   line-height: 1.4;
-  color: var(--color-text-primary);
-  margin: 6px 0 2px;
+  color: var(--text);
+  margin: 8px 0 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -971,8 +966,8 @@
   word-break: break-word;
 }
 .book-cover-author {
-  font-size: 10px;
-  color: var(--color-text-tertiary);
+  font-size: var(--text-caption);
+  color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1071,7 +1066,7 @@
    入力欄と BottomNav の間に「謎の隙間」が生まれるので明示的に 0 にする。 */
 .ai-input-area {
   flex-shrink: 0;
-  background: var(--color-bg, #f5f0e8);
+  background: var(--bg);
   /* ホームインジケータ（iPhone）に被らないよう、常時 safe-area を吸収する。 */
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
   margin: 0;
@@ -1090,7 +1085,7 @@ body.keyboard-open .ai-input-area {
   max-height: 120px;
   padding: 9px 14px;
   /* LINE っぽい大きな丸み */
-  border-radius: 22px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-separator);
   background: var(--color-surface);
   color: var(--color-label);
@@ -1133,7 +1128,7 @@ body.keyboard-open .ai-input-area {
    進行を止める破壊的アクションなので少しトーンを変える (落ち着いた
    グレー系)。アイコンは ■ 停止記号。 */
 .ai-input-area .send-btn.stop-btn {
-  background: var(--color-secondary, #5c5043);
+  background: var(--text-2);
 }
 .ai-input-area .send-btn.stop-btn:disabled {
   opacity: 0.5;
@@ -1175,25 +1170,25 @@ body.keyboard-open .ai-input-area {
   display: flex;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4) var(--space-2);
-  border-bottom: 1px solid var(--color-separator);
+  border-bottom: 1px solid var(--separator);
   position: sticky;
   top: 0;
-  background: var(--color-bg, #f5f0e8);
+  background: var(--bg);
   z-index: 10;
 }
 .sub-tab {
   flex: 1;
   padding: var(--space-2) var(--space-1);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius);
   border: none;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--text-2);
   font-family: inherit;
-  font-size: var(--type-footnote);
-  font-weight: var(--weight-medium);
+  font-size: var(--text-sub);
+  font-weight: var(--weight-regular);
   text-align: center;
   cursor: pointer;
-  min-height: 40px;
+  min-height: 44px;
   /* 3 等分の狭い列でラベルが「テーマレ / ポート」のように
      不自然に途中改行するのを防ぐ。長い語は 1 行で詰めて表示。 */
   white-space: nowrap;
@@ -1203,8 +1198,8 @@ body.keyboard-open .ai-input-area {
 }
 .sub-tab:hover { background: var(--color-bg-hover); }
 .sub-tab.active {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-weight: var(--weight-semibold);
 }
 
@@ -1244,7 +1239,7 @@ body.keyboard-open .bottom-nav {
 
 .thanks-modal {
   text-align: center;
-  padding: var(--space-8) var(--space-5);
+  padding: var(--space-8) var(--space-4);
   animation: lvg-modal-in var(--duration-base) var(--ease-spring) both;
 }
 .thanks-icon {
@@ -1318,7 +1313,7 @@ body.keyboard-open .bottom-nav {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--color-text-tertiary, #8a7e6b);
+  color: var(--text-3);
   padding: 4px 0;
   line-height: 1.4;
 }
@@ -1327,7 +1322,7 @@ body.keyboard-open .bottom-nav {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-accent, #5c5043);
+  background: var(--accent);
   animation: lvg-ai-pulse 1.2s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -1346,8 +1341,8 @@ body.keyboard-open .bottom-nav {
 
 .ai-skeleton-line {
   height: 12px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #ece6da 25%, #f5f1e7 50%, #ece6da 75%);
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--fill) 25%, var(--surface) 50%, var(--fill) 75%);
   background-size: 200% 100%;
   animation: lvg-ai-shimmer 1.6s ease-in-out infinite;
 }

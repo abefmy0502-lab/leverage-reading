@@ -191,7 +191,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
   return (
     <div
       style={{
-        background: '#fff',
+        background: 'var(--surface)',
         border: '1px solid var(--c-hairline)',
         borderRadius: 'var(--radius-md)',
         padding: 14,
@@ -311,7 +311,7 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
               minWidth: 120,
               padding: '10px 12px',
               background: 'var(--c-brand)',
-              color: 'var(--c-card)',
+              color: 'var(--accent-ink)',
               border: 'none',
               borderRadius: 10,
               fontSize: 12,
@@ -511,7 +511,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             minWidth: 140,
             padding: '12px 14px',
             background: 'var(--c-brand)',
-            color: 'var(--c-card)',
+            color: 'var(--accent-ink)',
             border: 'none',
             borderRadius: 10,
             fontSize: 13,

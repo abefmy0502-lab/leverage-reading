@@ -105,7 +105,7 @@ const btnPrimary = (disabled) => ({
   borderRadius: 12,
   border: 'none',
   background: 'var(--c-brand)',
-  color: 'var(--c-card)',
+  color: 'var(--accent-ink)',
   cursor: disabled ? 'default' : 'pointer',
   opacity: disabled ? 0.5 : 1,
   fontFamily: 'inherit',

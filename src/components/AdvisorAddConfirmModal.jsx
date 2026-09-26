@@ -54,7 +54,7 @@ const headerStyle = {
   gap: 10,
   padding: '14px 16px',
   borderBottom: '1px solid var(--c-hairline)',
-  background: '#fff',
+  background: 'var(--surface)',
 };
 
 const closeBtnStyle = {
@@ -114,7 +114,7 @@ const footerStyle = {
   gap: 8,
   padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
   borderTop: '1px solid var(--c-hairline)',
-  background: '#fff',
+  background: 'var(--surface)',
 };
 
 export default function AdvisorAddConfirmModal({ original, candidates, onConfirm, onCancel }) {
@@ -238,7 +238,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
               padding: '12px 14px',
               borderRadius: 10,
               border: '1px solid var(--c-hairline-strong)',
-              background: '#fff',
+              background: 'var(--surface)',
               color: 'var(--c-brand)',
               fontSize: 13,
               fontFamily: 'inherit',
@@ -259,7 +259,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
               borderRadius: 10,
               border: 'none',
               background: selected ? 'var(--c-brand)' : 'var(--c-hairline-strong)',
-              color: 'var(--c-card)',
+              color: 'var(--accent-ink)',
               fontSize: 13,
               fontFamily: 'inherit',
               fontWeight: 700,

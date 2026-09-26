@@ -342,7 +342,7 @@ export default function HomeRecall({ onOpen, onAction }) {
               onClick={(e) => recordRecall(e, true)}
               style={{
                 flex: 1, minHeight: 44, borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-hairline-strong)',
-                background: '#fff', color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
+                background: 'var(--surface)', color: 'var(--c-brand)', fontSize: 12, fontWeight: 600,
                 fontFamily: 'inherit', cursor: 'pointer',
               }}
             >
@@ -353,7 +353,7 @@ export default function HomeRecall({ onOpen, onAction }) {
               onClick={(e) => recordRecall(e, false)}
               style={{
                 flex: 1, minHeight: 44, borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-hairline-strong)',
-                background: '#fff', color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
+                background: 'var(--surface)', color: 'var(--c-ink-2)', fontSize: 12, fontWeight: 600,
                 fontFamily: 'inherit', cursor: 'pointer',
               }}
             >

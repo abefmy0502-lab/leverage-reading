@@ -13,66 +13,66 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 20,
+  padding: 16,
 };
 
 const cardStyle = {
   background: 'var(--c-card)',
-  borderRadius: 'var(--radius-lg)',
-  padding: '20px 22px',
+  borderRadius: 'var(--radius)',
+  padding: 24,
   width: 'min(380px, 100%)',
-  boxShadow: 'var(--shadow-5)',
+  boxShadow: 'var(--shadow-overlay)',
   fontFamily: "var(--font-app)",
 };
 
 const titleStyle = {
-  fontSize: 16,
-  color: 'var(--c-ink)',
-  fontWeight: 500,
+  fontSize: 'var(--text-body)',
+  color: 'var(--text)',
+  fontWeight: 600,
   margin: '0 0 8px',
 };
 
 const messageStyle = {
-  fontSize: 13,
-  color: 'var(--c-ink-soft)',
-  lineHeight: 1.7,
-  margin: '0 0 18px',
+  fontSize: 'var(--text-sub)',
+  color: 'var(--text-2)',
+  lineHeight: 1.6,
+  margin: '0 0 24px',
   whiteSpace: 'pre-line',
 };
 
 const rowStyle = {
   display: 'flex',
-  gap: 10,
+  gap: 12,
 };
 
 const cancelBtnStyle = {
   flex: 1,
-  minHeight: 44,
+  minHeight: 48,
   padding: '12px 0',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--c-hairline-strong)',
+  borderRadius: 'var(--radius)',
+  border: '1px solid var(--border)',
   background: 'transparent',
-  color: 'var(--c-ink-soft)',
+  color: 'var(--text)',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  fontSize: 15,
+  fontSize: 'var(--text-body)',
   fontWeight: 600,
 };
 
 const confirmBtnStyle = (danger) => ({
   flex: 1,
-  minHeight: 44,
+  minHeight: 48,
   padding: '12px 0',
-  borderRadius: 'var(--radius-md)',
+  borderRadius: 'var(--radius)',
   border: 'none',
   // 破壊的アクションの色はブランドのレンガ色（--c-critical）に統一。
   // 以前の鮮やかな iOS 純赤 #ff3b30 は暖色世界観から浮き、削除メニュー側の
   // --c-critical と2色に割れていた。--color-error はシステムエラー帯専用に隔離。
-  background: danger ? 'var(--c-critical)' : 'var(--c-brand)',
-  color: 'var(--c-brand-ink)',
+  background: danger ? 'var(--error)' : 'var(--accent)',
+  color: 'var(--accent-ink)',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  fontSize: 15,
+  fontSize: 'var(--text-body)',
   fontWeight: 600,
 });
 

@@ -65,7 +65,7 @@ const inp = {
   fontSize: 16,
   border: '1px solid var(--c-hairline-strong)',
   borderRadius: 10,
-  background: '#fff',
+  background: 'var(--surface)',
   outline: 'none',
   color: 'var(--c-ink)',
   fontFamily: 'inherit',

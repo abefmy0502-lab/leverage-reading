@@ -108,7 +108,7 @@ const bodyStyle = {
 
 const sectionStyle = {
   padding: 14,
-  background: '#fff',
+  background: 'var(--surface)',
   border: '1px solid var(--c-hairline)',
   borderRadius: 12,
 };
@@ -186,7 +186,7 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
           width: 27,
           height: 27,
           borderRadius: '50%',
-          background: '#fff',
+          background: 'var(--surface)',
           boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
           transition: 'left 220ms cubic-bezier(0.3, 1.3, 0.6, 1)',
         }}
@@ -235,7 +235,7 @@ const inputStyle = {
   fontSize: 16,
   border: '1px solid var(--c-hairline-strong)',
   borderRadius: 10,
-  background: '#fff',
+  background: 'var(--surface)',
   color: 'var(--c-ink)',
   fontFamily: 'inherit',
   boxSizing: 'border-box',

@@ -458,7 +458,7 @@ function BarcodeScanner({ onDetect, onClose }) {
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 'var(--space-2)',
-          color: '#fff',
+          color: 'var(--on-cover)',
         }}
       >
         <span style={{ fontSize: 15, fontWeight: 600, fontFamily: 'inherit' }}><Camera size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />バーコードをスキャン</span>
@@ -469,7 +469,7 @@ function BarcodeScanner({ onDetect, onClose }) {
           style={{
             background: 'rgba(255,255,255,0.15)',
             border: 'none',
-            color: '#fff',
+            color: 'var(--on-cover)',
             fontSize: 22,
             cursor: 'pointer',
             width: 44,
@@ -487,7 +487,7 @@ function BarcodeScanner({ onDetect, onClose }) {
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {scanError ? (
-          <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: '#fff', maxWidth: 360 }}>
+          <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--on-cover)', maxWidth: 360 }}>
             <div aria-hidden="true" style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}><Camera size={36} /></div>
             <p role="alert" style={{ fontSize: 14, lineHeight: 1.7, margin: 0, fontFamily: 'inherit' }}>{scanError}</p>
             {/* 行き止まり防止: 本文で「ISBN を手入力」と案内するなら、その一手を
@@ -503,7 +503,7 @@ function BarcodeScanner({ onDetect, onClose }) {
                 padding: '12px 20px',
                 borderRadius: 'var(--radius-md)',
                 border: 'none',
-                background: '#fff',
+                background: 'var(--surface)',
                 color: '#111',
                 fontSize: 14,
                 fontWeight: 600,
@@ -524,7 +524,7 @@ function BarcodeScanner({ onDetect, onClose }) {
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid rgba(255,255,255,0.5)',
                 background: 'transparent',
-                color: '#fff',
+                color: 'var(--on-cover)',
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -569,7 +569,7 @@ function BarcodeScanner({ onDetect, onClose }) {
                 right: 0,
                 bottom: 'calc(var(--space-6) + env(safe-area-inset-bottom, 0px))',
                 textAlign: 'center',
-                color: '#fff',
+                color: 'var(--on-cover)',
                 fontSize: 13,
                 lineHeight: 1.6,
                 padding: '0 var(--space-5)',

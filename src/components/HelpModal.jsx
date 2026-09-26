@@ -83,7 +83,7 @@ const headerStyle = {
   gap: 10,
   padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 14px',
   borderBottom: '1px solid var(--c-hairline)',
-  background: '#fff',
+  background: 'var(--surface)',
   flexShrink: 0,           // ★ 必須: body content が大きくても header が潰れない
   position: 'relative',
   zIndex: 1,
@@ -136,7 +136,7 @@ const sectionTitleStyle = {
 const faqItemStyle = {
   border: '1px solid var(--c-hairline)',
   borderRadius: 10,
-  background: '#fff',
+  background: 'var(--surface)',
   overflow: 'hidden',
 };
 const faqQuestionStyle = {
@@ -185,7 +185,7 @@ const footerStyle = {
   fontSize: 11,
   color: 'var(--c-ink-2)',
   textAlign: 'center',
-  background: '#fff',
+  background: 'var(--surface)',
   flexShrink: 0,           // ★ header と同様、潰れないように固定
   position: 'relative',
   zIndex: 1,
@@ -197,7 +197,7 @@ const footerStyle = {
 
 const stepSubtitle = { fontSize: 14, color: 'var(--c-ink-2)', lineHeight: 1.7, margin: '0 0 14px' };
 const stepCard = {
-  background: '#fff',
+  background: 'var(--surface)',
   border: '1px solid var(--c-hairline)',
   borderRadius: 12,
   padding: '16px 16px',

@@ -63,7 +63,7 @@ const overlayStyle = {
   right: 0,
   zIndex: 'var(--z-banner)',
   background: 'var(--c-brand)',
-  color: '#fff',
+  color: 'var(--accent-ink)',
   padding: '12px 16px',
   display: 'flex',
   alignItems: 'center',
@@ -77,7 +77,7 @@ const overlayStyle = {
 
 const applyBtnStyle = {
   padding: '8px 14px',
-  background: '#fff',
+  background: 'var(--surface)',
   color: '#5C4A2E',
   border: 'none',
   borderRadius: 999,
@@ -92,7 +92,7 @@ const applyBtnStyle = {
 const dismissBtnStyle = {
   padding: '8px 12px',
   background: 'rgba(255,255,255,0.18)',
-  color: '#fff',
+  color: 'var(--accent-ink)',
   border: 'none',
   borderRadius: 999,
   fontSize: 12,

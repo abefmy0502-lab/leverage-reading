@@ -25,12 +25,12 @@ const chip = (active) => ({
 });
 const inp = {
   flex: 1, minWidth: 150, padding: '10px 12px', fontSize: 16,
-  border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff',
+  border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: 'var(--surface)',
   color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box',
 };
 const primaryBtn = {
   minHeight: 44, padding: '10px 16px', borderRadius: 10, border: 'none',
-  background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 13, fontWeight: 700,
+  background: 'var(--c-brand)', color: 'var(--accent-ink)', fontSize: 13, fontWeight: 700,
   fontFamily: 'inherit', cursor: 'pointer',
 };
 const ghostBtn = {

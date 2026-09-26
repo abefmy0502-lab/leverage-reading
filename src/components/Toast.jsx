@@ -13,9 +13,10 @@ const ToastContext = createContext({
 // 下部バー（error / undo / info 用）の配色。success は下部バーを使わず、
 // 中央の上品な ✓ HUD（toast-hud）で表現する。
 const palette = {
-  info: { bg: 'rgba(61,54,44,0.94)', fg: 'var(--c-card)', Icon: Info },
-  error: { bg: 'rgba(160,80,64,0.96)', fg: 'var(--c-card)', Icon: AlertTriangle },
-  undo: { bg: 'rgba(61,54,44,0.94)', fg: 'var(--c-card)', Icon: Trash2 },
+  // トーストは画面と反転した色（明るい画面では濃い面・暗い画面では明るい面）。
+  info: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Info },
+  error: { bg: 'var(--error)', fg: 'var(--accent-ink)', Icon: AlertTriangle },
+  undo: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Trash2 },
 };
 
 const containerStyle = {
@@ -35,22 +36,21 @@ const toastStyleBase = {
   pointerEvents: 'auto',
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: '12px 14px',
-  borderRadius: 'var(--radius-lg)',
-  fontSize: 13,
+  gap: 8,
+  padding: '12px 16px',
+  borderRadius: 'var(--radius)',
+  fontSize: 'var(--text-sub)',
   fontFamily: 'var(--font-app)',
   lineHeight: 'var(--leading-base)',
-  boxShadow: 'var(--shadow-4)',
-  WebkitBackdropFilter: 'blur(10px)',
-  backdropFilter: 'blur(10px)',
+  boxShadow: 'var(--shadow-overlay)',
 };
 
 const closeBtnStyle = {
   background: 'none',
   border: 'none',
-  color: 'rgba(250,246,240,0.7)',
-  fontSize: 16,
+  color: 'inherit',
+  opacity: 0.8,
+  fontSize: 'var(--text-body)',
   cursor: 'pointer',
   padding: 0,
   minWidth: 44,
@@ -63,12 +63,13 @@ const closeBtnStyle = {
 };
 
 const actionBtnStyle = {
-  background: 'rgba(250,246,240,0.18)',
-  border: '1px solid rgba(250,246,240,0.4)',
-  color: 'var(--c-card)',
-  padding: '7px 14px',
-  borderRadius: 999,
-  fontSize: 12,
+  background: 'transparent',
+  border: '1px solid currentColor',
+  color: 'inherit',
+  padding: '8px 12px',
+  minHeight: 44,
+  borderRadius: 'var(--radius)',
+  fontSize: 'var(--text-sub)',
   fontWeight: 600,
   fontFamily: 'inherit',
   cursor: 'pointer',
@@ -129,16 +130,14 @@ function ToastHud({ toast }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 10,
-        padding: '20px 24px',
+        gap: 12,
+        padding: '24px',
         minWidth: 132,
         maxWidth: 'min(280px, calc(100vw - 48px))',
-        background: 'rgba(40,34,28,0.92)',
-        color: '#fff',
-        borderRadius: 20,
-        boxShadow: 'var(--shadow-5)',
-        WebkitBackdropFilter: 'blur(12px)',
-        backdropFilter: 'blur(12px)',
+        background: 'var(--text)',
+        color: 'var(--bg)',
+        borderRadius: 'var(--radius)',
+        boxShadow: 'var(--shadow-overlay)',
       }}
     >
       <span
@@ -146,18 +145,18 @@ function ToastHud({ toast }) {
         style={{
           width: 48,
           height: 48,
-          borderRadius: 999,
-          background: 'rgba(95,122,85,0.22)',
+          borderRadius: '50%',
+          border: '2px solid currentColor',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#9ec48a',
+          color: 'inherit',
         }}
       >
         <Check size={28} strokeWidth={2.4} aria-hidden="true" />
       </span>
       {message && (
-        <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'center', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+        <span style={{ fontSize: 'var(--text-sub)', fontWeight: 600, textAlign: 'center', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
           {message}
         </span>
       )}

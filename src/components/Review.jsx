@@ -37,7 +37,7 @@ import { track, EVENTS } from '../lib/analytics';
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 18 };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
 const cardBase = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 'var(--radius-md)', padding: '12px 14px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 'var(--radius-md)', background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
+const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 'var(--radius-md)', background: 'var(--surface)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
 const btnGhost = { ...uiBtnGhost, width: 'auto', padding: '10px 14px', borderRadius: 8, fontSize: 12, minHeight: 44 };
 const pill = { fontSize: 10, padding: '2px 8px', borderRadius: 'var(--radius-md)', background: 'var(--c-soft-2)', color: 'var(--c-ink-2)', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
@@ -946,7 +946,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   }}
                   style={{
                     flex: 1, minHeight: 44, padding: '8px 12px', borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--c-hairline-strong)', background: '#fff',
+                    border: '1px solid var(--c-hairline-strong)', background: 'var(--surface)',
                     color: 'var(--c-brand)', fontSize: 13, fontWeight: 700,
                     fontFamily: 'inherit', cursor: flipping ? 'default' : 'pointer', opacity: flipping ? 0.6 : 1,
                   }}
@@ -959,7 +959,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   onClick={() => { if (flipping) return; recordRandomRecall(randomMemo, false); reroll(); }}
                   style={{
                     flex: 1, minHeight: 44, padding: '8px 12px', borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--c-hairline-strong)', background: '#fff',
+                    border: '1px solid var(--c-hairline-strong)', background: 'var(--surface)',
                     color: 'var(--c-ink-2)', fontSize: 13, fontWeight: 600,
                     fontFamily: 'inherit', cursor: flipping ? 'default' : 'pointer', opacity: flipping ? 0.6 : 1,
                   }}
@@ -1017,7 +1017,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 disabled={pushBusy}
                 style={{
                   flex: 1, minHeight: 44, borderRadius: 'var(--radius-md)', border: 'none',
-                  background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 13,
+                  background: 'var(--c-brand)', color: 'var(--accent-ink)', fontSize: 13,
                   fontWeight: 700, fontFamily: 'inherit', cursor: pushBusy ? 'default' : 'pointer',
                   opacity: pushBusy ? 0.6 : 1,
                 }}

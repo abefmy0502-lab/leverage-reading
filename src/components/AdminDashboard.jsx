@@ -66,7 +66,7 @@ const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 
 const grid3 = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 };
 const inp = {
   width: '100%', padding: '10px 12px', fontSize: 16, boxSizing: 'border-box',
-  border: `1px solid ${C.hairlineStrong}`, borderRadius: 10, background: '#fff',
+  border: `1px solid ${C.hairlineStrong}`, borderRadius: 10, background: 'var(--surface)',
   color: C.ink, fontFamily: 'inherit',
 };
 

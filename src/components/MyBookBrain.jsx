@@ -35,7 +35,7 @@ const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, 
 // chat 以外の view 共通: ヘッダ/pill 下にスクロール可能な領域を提供。
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '12px 16px 24px' };
 const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '12px 14px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
+const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: 'var(--surface)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', padding: '12px 20px', fontSize: 14 };
 const btnGhost = { ...uiBtnGhost, width: 'auto', padding: '8px 12px', borderRadius: 8, fontSize: 12 };
@@ -953,7 +953,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     onClick={onGoBookshelf}
                     style={{
                       marginTop: 12, minHeight: 44, padding: '10px 18px', borderRadius: 12,
-                      border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)',
+                      border: 'none', background: 'var(--c-brand)', color: 'var(--accent-ink)',
                       fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
                     }}
                   >
@@ -1010,7 +1010,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   <button
                     type="button"
                     onClick={answerWeekly}
-                    style={{ minHeight: 44, width: '100%', borderRadius: 11, border: 'none', background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 1px 2px rgba(60,48,30,.18)' }}
+                    style={{ minHeight: 44, width: '100%', borderRadius: 11, border: 'none', background: 'var(--c-brand)', color: 'var(--accent-ink)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 1px 2px rgba(60,48,30,.18)' }}
                   >
                     この問いに答える →
                   </button>
@@ -1038,7 +1038,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                         // タップしやすいよう 44px の最小高さを確保（iOS HIG）。
                         minHeight: 44,
                         padding: '8px 14px',
-                        background: '#fff',
+                        background: 'var(--surface)',
                         border: '1px solid var(--c-hairline)',
                         borderRadius: 10,
                         fontSize: 13,
@@ -1326,10 +1326,10 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
     // AI 吹き出しはわずかな影で背景から浮かせ、読み出しの起点を明確にする。
-    background: isUser ? 'var(--c-brand)' : '#fbf8f2',
-    color: isUser ? 'var(--c-card)' : '#332d23',
-    border: isUser ? 'none' : '1px solid #ece5d8',
-    boxShadow: isUser ? 'none' : '0 1px 2px rgba(60,54,44,0.04)',
+    background: isUser ? 'var(--accent)' : 'var(--surface)',
+    color: isUser ? 'var(--accent-ink)' : 'var(--text)',
+    border: isUser ? 'none' : '1px solid var(--separator)',
+    boxShadow: 'none',
     borderBottomRightRadius: isUser ? 4 : 14,
     borderBottomLeftRadius: isUser ? 14 : 4,
   };

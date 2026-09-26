@@ -52,7 +52,7 @@ import { useLongPress } from '../hooks/useLongPress';
 const wrap = { padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 };
 const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '12px 14px' };
 const sectionTitle = { fontSize: 13, fontWeight: 600, color: 'var(--c-brand)', margin: '0 0 8px' };
-const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
+const inp = { width: '100%', padding: '10px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: 'var(--surface)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
 const ta = { ...inp, resize: 'vertical', minHeight: 200, lineHeight: 1.7 };
 const btnGhost = { ...uiBtnGhost, width: 'auto', padding: '6px 14px', borderRadius: 8, fontSize: 11, minHeight: 44 };
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', padding: '12px 18px', fontSize: 14, minHeight: 44 };

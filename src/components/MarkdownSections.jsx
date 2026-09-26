@@ -347,7 +347,7 @@ function renderLines(lines, opts) {
 }
 
 const relatedCardStyle = {
-  background: '#fff',
+  background: 'var(--surface)',
   border: '1px solid #e0d0a8',
   borderRadius: 10,
   padding: '10px 12px',
@@ -367,7 +367,7 @@ const relatedAddBtn = {
   borderRadius: 999,
   border: '1px solid var(--c-hairline-strong)',
   background: 'var(--c-brand)',
-  color: 'var(--c-card)',
+  color: 'var(--accent-ink)',
   fontSize: 13,
   fontWeight: 600,
   cursor: 'pointer',

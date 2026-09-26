@@ -64,7 +64,7 @@ const kebabBtn = {
 // (b) position:fixed が transform を containing block として全画面にならない。
 const menuStyle = {
   position: 'fixed',
-  background: '#fff',
+  background: 'var(--surface)',
   border: '1px solid var(--c-hairline)',
   borderRadius: 8,
   boxShadow: '0 4px 14px rgba(30,25,20,0.12)',
@@ -395,7 +395,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
             style={{
               position: 'absolute', top: 'max(env(safe-area-inset-top, 0px), 12px)', right: 12,
               width: 44, height: 44, borderRadius: 999, border: 'none', cursor: 'pointer',
-              background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 20, lineHeight: 1,
+              background: 'rgba(255,255,255,0.16)', color: 'var(--on-cover)', fontSize: 20, lineHeight: 1,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >

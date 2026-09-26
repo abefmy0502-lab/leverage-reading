@@ -69,7 +69,7 @@ export default class ErrorBoundary extends React.Component {
               style={{
                 padding: '12px 24px',
                 background: 'var(--c-brand)',
-                color: 'var(--c-card)',
+                color: 'var(--accent-ink)',
                 border: 'none',
                 borderRadius: 999,
                 cursor: 'pointer',

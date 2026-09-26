@@ -51,7 +51,7 @@ const card = {
 const analyzeBtn = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
   width: '100%', minHeight: 44, padding: '11px 16px', borderRadius: 11, border: 'none',
-  background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 13, fontWeight: 700,
+  background: 'var(--c-brand)', color: 'var(--accent-ink)', fontSize: 13, fontWeight: 700,
   fontFamily: 'inherit', cursor: 'pointer',
 };
 const addChip = (added) => ({

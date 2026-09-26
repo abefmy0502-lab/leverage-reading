@@ -308,7 +308,7 @@ export default function AuthScreen() {
               aria-label="Appleでサインイン"
               style={{
                 width: '100%', minHeight: 48, display: 'inline-flex', alignItems: 'center',
-                justifyContent: 'center', gap: 8, background: '#000', color: '#fff',
+                justifyContent: 'center', gap: 8, background: '#000', color: 'var(--on-cover)',
                 border: 'none', borderRadius: 'var(--radius-md)', fontFamily: 'inherit', fontSize: 15,
                 fontWeight: 600, cursor: appleBusy ? 'default' : 'pointer', opacity: appleBusy ? 0.6 : 1,
               }}

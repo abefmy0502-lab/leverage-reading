@@ -19,14 +19,69 @@
  * ========================================================================= */
 
 :root {
+  /* =========================================================================
+   * 🎨 DESIGN.md トークン（2026-09-26〜・唯一の真実）
+   * 値の根拠・使い分けは DESIGN.md。ここより下の旧トークン（--c-* / --color-* /
+   * --radius-* / --shadow-* …）はすべて、この新トークンへの別名にしてある。
+   * 新しいコードはこのブロックの名前だけを使うこと。
+   * ========================================================================= */
+  color-scheme: light;
+
+  /* 色: ニュートラル（わずかに暖色のグレー） */
+  --bg: #f7f5f1;          /* 画面の背景 */
+  --surface: #fffefb;     /* カード・シート */
+  --fill: #efece6;        /* チップ・入力欄・選択中の面 */
+  --text: #2b2825;        /* 本文 13.5:1 */
+  --text-2: #5f5a53;      /* 補足 6.3:1 */
+  --text-3: #716b63;      /* 付随情報 4.8:1 */
+  --separator: #dcd7ce;   /* 区切り線・カード枠（装飾） */
+  --border: #868076;      /* 入力欄・副ボタンの枠（操作部品 3.6:1） */
+
+  /* 色: アクセント 1 色（B 栗色）＋状態色 3 色 */
+  --accent: #8a4b2a;
+  --accent-hover: #74401f;
+  --accent-ink: #fffefb;  /* アクセント塗りの上の文字 6.7:1 */
+  --accent-soft: #f3e7df; /* 選択中の淡い面 */
+  --success: #3f7042;
+  --success-soft: #e6efe4;
+  --warning: #8a5d00;
+  --warning-soft: #f6ecd6;
+  --error: #b0392b;
+  --error-soft: #f7e3df;
+  --error-line: #e5b8ae;
+
+  /* 書体（2 つまで）: UI＝ゴシック / 読む文章＝明朝 */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+  --font-read: "Hiragino Mincho ProN", "YuMincho", "Yu Mincho", "Noto Serif JP", serif;
+
+  /* 文字サイズ（rem＝iOS の文字サイズ設定に追従。17px = 1rem） */
+  --text-title: calc(1rem * 28 / 17);
+  --text-heading: calc(1rem * 20 / 17);
+  --text-body: 1rem;
+  --text-read: calc(1rem * 18 / 17);
+  --text-sub: calc(1rem * 15 / 17);
+  --text-meta: calc(1rem * 13 / 17);
+  --text-caption: calc(1rem * 12 / 17); /* これより小さい文字は使わない */
+
+  /* 表紙の色面（本ごとの生成色）の上に載せる文字。明暗で変えない */
+  --on-cover: #ffffff;
+
+  /* 角丸は 1 種類（円は例外として --radius-full） */
+  --radius: 12px;
+
+  /* 影は「浮いている」「上に重なる」の 2 段階だけ（普通のカードは影なし・枠線で区切る） */
+  --shadow-raised: 0 2px 8px rgba(43, 40, 37, 0.14), 0 1px 2px rgba(43, 40, 37, 0.08);
+  --shadow-overlay: 0 12px 32px rgba(43, 40, 37, 0.18), 0 2px 8px rgba(43, 40, 37, 0.08);
+
   /* === 色: ベース ============================================================ */
-  --color-bg-primary: #faf7f2;        /* メイン背景（暖色ベージュ） */
+  --color-bg-primary: var(--bg);        /* メイン背景（暖色ベージュ） */
   /* カード背景は実際には全画面で生成り #fffdf8（インライン）を使っている。
      トークン値が #ffffff（純白）のままだと .card クラスや AddBookModal だけ白く浮き、
      生成りのインラインカードと対比が不安定になっていた。実態に合わせ生成りへ統一。 */
-  --color-bg-secondary: #fffdf8;      /* カード背景（生成り＝--c-card と一致） */
-  --color-bg-elevated: #fffdf8;       /* 浮いた要素 */
-  --color-bg-hover: #f5f1ea;          /* ホバー */
+  --color-bg-secondary: var(--surface);      /* カード背景（生成り＝--c-card と一致） */
+  --color-bg-elevated: var(--surface);       /* 浮いた要素 */
+  --color-bg-hover: var(--fill);          /* ホバー */
 
   /* === 色: テキスト ==========================================================
    * トークン2系統の統一: テキスト色は暖色ブランド（--c-ink*）を単一の真実とする。
@@ -36,36 +91,36 @@
   --color-text-primary: var(--c-ink);       /* = #3d362c（旧 #1f1f1f） */
   --color-text-secondary: var(--c-ink-2);   /* = #5a4f3e（旧 #595959） */
   --color-text-tertiary: var(--c-ink-3);    /* = #8a7d6a（旧 #8c8c8c） */
-  --color-text-quaternary: #bfbfbf;         /* 極淡プレースホルダ（暖色等価が無いため据置） */
-  --color-text-inverse: #ffffff;
+  --color-text-quaternary: var(--text-3);   /* プレースホルダも 4.5:1 を確保 */
+  --color-text-inverse: var(--accent-ink);
 
   /* === 色: アクセント ========================================================
    * インタラクティブ・アクセント（タブ選択 / 入力フォーカス / 進捗 / チップ /
    * 空状態アイコン等）をブランドの茶（--c-brand 系）に一本化。以前は主ボタンが
    * 茶なのに選択・フォーカス・進捗だけ金茶(#8a7040)で、一画面に二色が同居して
    * 「寄せ集め感」の主因になっていた。金茶は装飾（読みたいステータス等）にのみ残す。 */
-  --color-accent: #5c5043;            /* = --c-brand（主ボタンと同じ茶） */
-  --color-accent-hover: #4a4033;
-  --color-accent-soft: #efeae0;       /* 選択タブ/チップの淡い暖色面 */
-  --color-accent-strong: #4a4033;     /* チップ文字・進捗グラデ終端の濃い茶 */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-strong: var(--accent);
 
   /* === 色: 状態 ============================================================== */
-  --color-success: #34c759;
-  --color-success-soft: #e8f5e9;
-  --color-warning: #ff9500;
-  --color-warning-soft: #fff8e1;
-  --color-error: #ff3b30;
-  --color-error-soft: #ffebee;
-  --color-info: #007aff;
-  --color-info-soft: #e3f2fd;
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-error: var(--error);
+  --color-error-soft: var(--error-soft);
+  --color-info: var(--accent);
+  --color-info-soft: var(--accent-soft);
 
   /* === 色: 構造 ============================================================== */
   /* 暖色テーマに合わせ、構造線も冷たいグレーから生成り系のヘアラインへ統一。
      これでカードの枠・区切り線・入力欄の枠が画面間でちぐはぐにならない。 */
-  --color-separator: #ece5d9;         /* = --c-hairline */
-  --color-border-light: #f3efe6;
-  --color-border: #e0d8ca;            /* = --c-hairline-strong */
-  --color-border-strong: #b8ab95;
+  --color-separator: var(--separator);
+  --color-border-light: var(--separator);
+  --color-border: var(--border);
+  --color-border-strong: var(--border);
 
   /* === タイポグラフィ ======================================================== */
   /* Default = system font (iOS / Android / Windows). The brand serif font
@@ -76,12 +131,11 @@
     "Hiragino Sans", "Yu Gothic", "Helvetica Neue", sans-serif;
   --font-rounded: -apple-system-ui-rounded, "SF Pro Rounded", "Hiragino Sans", sans-serif;
   --font-mono: "SF Mono", "Menlo", "Monaco", "Courier New", monospace;
-  --font-serif: "Noto Serif JP", Georgia, serif;
+  --font-serif: var(--font-read);
   /* アプリ本体の標準フォント。Apple 純正アプリと同じゴシック（サンセリフ）。
      iOS は -apple-system が日本語を Hiragino Sans に解決。明朝（Noto Serif JP）から
      これへ全面移行して「個人開発感」を払拭し、上質で読みやすい印象にする。 */
-  --font-app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans",
-    "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+  --font-app: var(--font-ui);
 
   /* === タイポスケール ======================================================== */
   --type-display: 34px;
@@ -94,12 +148,12 @@
   --type-caption: 12px;
   /* メタ/補助テキストの意味層（追加のみ・既存 --type-* とは不変換）。
      新規・局所改修はこれを使い、9/10/11px の直値散乱を止める。 */
-  --type-meta: 11px;    /* タグ・ページ番号・日付・ピル等の補助情報 */
-  --type-meta-sm: 10px; /* グリッド内の著者など極小の従属情報 */
+  --type-meta: 12px;    /* タグ・ページ番号・日付・ピル等の補助情報（DESIGN: 12 未満は使わない） */
+  --type-meta-sm: 12px; /* 旧 10px。DESIGN により 12 に引き上げ */
 
   /* === ウェイト ============================================================== */
   --weight-regular: 400;
-  --weight-medium: 500;
+  --weight-medium: 400; /* DESIGN: 太さは 400/600/700 の 3 段階。500 は 400 に統合 */
   --weight-semibold: 600;
   --weight-bold: 700;
 
@@ -122,19 +176,19 @@
   --space-20: 80px;
 
   /* === 角丸 ================================================================== */
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-xs: var(--radius);
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius);
   --radius-full: 9999px;
 
   /* === 影（エレベーション） ================================================== */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-3: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --shadow-4: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
-  --shadow-5: 0 16px 40px rgba(0, 0, 0, 0.16), 0 8px 16px rgba(0, 0, 0, 0.08);
+  --shadow-1: none; /* DESIGN: 普通のカードは影なし */
+  --shadow-2: none;
+  --shadow-3: var(--shadow-raised);
+  --shadow-4: var(--shadow-overlay);
+  --shadow-5: var(--shadow-overlay);
 
   /* === アニメーション ======================================================== */
   --duration-instant: 100ms;
@@ -184,9 +238,9 @@
   /* Brand background was a slightly cooler beige in the original palette. We
      keep the legacy --color-bg name for components that opt-in to the warmer
      brand surface (e.g. <Shell>'s gradient). */
-  --color-bg: #f5f0e8;
-  --color-surface: #fffdf8;
-  --color-surface-2: #f0ebe2;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--fill);
 
   /* ============================================================================
    * ☕ Warm brand palette（実際にインライン style で多用されている暖色系の単一の
@@ -195,22 +249,22 @@
    * これらに置換しても見た目は一切変わらない（= 退行ゼロのトークン化）。
    * 新規・既存コードはこの var(--c-*) を使い、hex 直書きをやめること。
    * ========================================================================== */
-  --c-ink: #3d362c;            /* 本文・主テキスト（暖色の黒に近い茶） */
-  --c-ink-2: #5a4f3e;          /* 副テキスト */
-  --c-ink-3: #6f6353;          /* 三次テキスト・キャプション（WCAG AA: cream 背景で約4.6:1。旧 #8a7d6a は約3.95:1 で未達だったため濃色化） */
-  --c-ink-soft: #5c5548;       /* 本文より少し淡い説明文 */
-  --c-brand: #5c5043;          /* 主ボタン・アクセントの茶 */
-  --c-brand-ink: #fffdf8;      /* 茶ボタン上の文字（=カード面と同じ生成り） */
-  --c-card: #fffdf8;           /* カード面（生成り） */
-  --c-hairline: #ece5d9;       /* カードの細い枠線 */
-  --c-hairline-strong: #e0d8ca;/* 入力欄・濃いめの枠線 */
-  --c-soft: #f0ebe2;           /* 淡い面（要約ボックス等） */
-  --c-soft-2: #eae3d6;         /* タグ・サブタブ背景 */
-  --c-positive: #5f7a55;       /* 完了・達成のグリーン */
-  --c-positive-soft: #eef2e9;  /* グリーンの淡い面 */
-  --c-critical: #a05040;       /* 破壊的・警告のレンガ色 */
-  --c-critical-soft: #fbf3ee;  /* 警告の淡い面 */
-  --c-critical-line: #e6c9bd;  /* 警告枠線 */
+  --c-ink: var(--text);            /* 本文・主テキスト（暖色の黒に近い茶） */
+  --c-ink-2: var(--text-2);          /* 副テキスト */
+  --c-ink-3: var(--text-3);          /* 三次テキスト・キャプション（WCAG AA: cream 背景で約4.6:1。旧 #8a7d6a は約3.95:1 で未達だったため濃色化） */
+  --c-ink-soft: var(--text-2);       /* 本文より少し淡い説明文 */
+  --c-brand: var(--accent);          /* 主ボタン・アクセントの茶 */
+  --c-brand-ink: var(--accent-ink);      /* 茶ボタン上の文字（=カード面と同じ生成り） */
+  --c-card: var(--surface);           /* カード面（生成り） */
+  --c-hairline: var(--separator);       /* カードの細い枠線 */
+  --c-hairline-strong: var(--border);/* 入力欄・濃いめの枠線 */
+  --c-soft: var(--fill);           /* 淡い面（要約ボックス等） */
+  --c-soft-2: var(--fill);         /* タグ・サブタブ背景 */
+  --c-positive: var(--success);       /* 完了・達成のグリーン */
+  --c-positive-soft: var(--success-soft);  /* グリーンの淡い面 */
+  --c-critical: var(--error);       /* 破壊的・警告のレンガ色 */
+  --c-critical-soft: var(--error-soft);  /* 警告の淡い面 */
+  --c-critical-line: var(--error-line);  /* 警告枠線 */
 
   /* モーダル/シートの背景オーバーレイの単一の真実（各所で 0.4/0.42/0.45/0.55 と
    * blur 2/8px に割れていたのを統一）。BottomSheet の値に揃える。 */
@@ -222,10 +276,10 @@
    * 本棚カードの表紙ピル(CSS)と詳細/バッジ(JS)で色が二系統に割れていた
    * （CSS は Material 原色 #6A1B9A 等、JS は落ち着いた暖色トーン）。
    * 暖色トーンに統一し、JS の STATUSES と CSS の .book-status-pill 両方がこれを使う。 */
-  --status-want: #8a7040;      /* 読みたい（金茶。装飾用に残す。旧 --color-accent 値） */
-  --status-before: #7a5080;    /* 積読（落ち着いた紫） */
-  --status-reading: #4a6e8a;   /* 読書中（落ち着いた青） */
-  --status-done: #5a7a48;      /* 読了（落ち着いた緑） */
+  --status-want: var(--text-2);      /* 読みたい（金茶。装飾用に残す。旧 --color-accent 値） */
+  --status-before: var(--text-2);    /* 積読（落ち着いた紫） */
+  --status-reading: var(--text-2);   /* 読書中（落ち着いた青） */
+  --status-done: var(--text-2);      /* 読了（落ち着いた緑） */
 
   --color-label: var(--color-text-primary);
   --color-secondary: var(--color-text-secondary);
@@ -241,7 +295,7 @@
   --shadow-card: var(--shadow-2);
   --shadow-card-active: var(--shadow-1);
   --shadow-fab: var(--shadow-3);
-  --shadow-sheet: 0 -4px 20px rgba(0, 0, 0, 0.10);
+  --shadow-sheet: var(--shadow-overlay);
 
   --radius-card: var(--radius-md);
   --radius-button: var(--radius-md);
@@ -249,10 +303,38 @@
 }
 
 /* =========================================================================
- * Dark mode — DISABLED.
+ * 🌙 暗い画面（DESIGN.md §3・§4）
+ * 新トークンだけを暗い値に差し替える（旧トークンは別名なので自動で追従する）。
+ * 影は使わず、上に重なるものほど明るい面（--bg → --surface → --fill）で表す。
  *
- * Phase 1 で先回り実装したが、コードベース全体は依然として light モードの
- * hex リテラルで作られているため、`prefers-color-scheme: dark` を有効に
- * すると「AI 選書の入力欄だけ黒くなる」など部分破綻が発生した。
- * 完全なダークモードを Phase 5 以降で扱うまで、ここは無効にしておく。
+ * ⚠️ まだ直書きの色（#fff 等）が残る画面があるため、<html data-dark-ready> が
+ * 付いているときだけ有効（main.jsx が開発・お試しモードでのみ付ける）。
+ * 全画面のトークン化が終わったら本番でも付ける（DESIGN.md §8 の手順 5）。
  * ========================================================================= */
+@media (prefers-color-scheme: dark) {
+  :root[data-dark-ready] {
+    color-scheme: dark;
+    --bg: #1b1a18;
+    --surface: #252321;
+    --fill: #2f2c29;
+    --text: #f2efea;
+    --text-2: #bdb7ae;
+    --text-3: #9e978d;
+    --separator: #3a3632;
+    --border: #76706a;
+    --accent: #e0a07a;
+    --accent-hover: #eab496;
+    --accent-ink: #1b1a18;
+    --accent-soft: #3a2a21;
+    --success: #8cc08a;
+    --success-soft: #22301f;
+    --warning: #e2b45c;
+    --warning-soft: #3a2f18;
+    --error: #f0877a;
+    --error-soft: #3b221e;
+    --error-line: #6a3a33;
+    --shadow-raised: none;
+    --shadow-overlay: none;
+    --backdrop: rgba(0, 0, 0, 0.6);
+  }
+}

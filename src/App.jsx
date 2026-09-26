@@ -47,7 +47,7 @@ const bookshelfToolbarBtn = (active) => ({
 const bookshelfToolbarBadge = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999,
-  background: 'var(--c-brand)', color: 'var(--c-card)', fontSize: 10, fontWeight: 700,
+  background: 'var(--c-brand)', color: 'var(--accent-ink)', fontSize: 10, fontWeight: 700,
 };
 const HelpModal = lazy(() => import('./components/HelpModal'));
 const Review = lazy(() => import('./components/Review'));
@@ -276,10 +276,9 @@ function BottomNav({ tab, setTab, hidden = false }) {
       style={{
         flexShrink: 0,
         // iOS タブバー風: 半透明＋うっすらブラー＋極細ヘアライン。
-        background: "rgba(250, 247, 242, 0.92)",
-        backdropFilter: "saturate(180%) blur(12px)",
-        WebkitBackdropFilter: "saturate(180%) blur(12px)",
-        borderTop: "0.5px solid rgba(60, 48, 30, 0.12)",
+        // iOS タブバー風: 背景と同じ面＋極細の区切り線（明暗ともトークンで切り替わる）。
+        background: "var(--bg)",
+        borderTop: "0.5px solid var(--separator)",
         display: "flex",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
@@ -312,13 +311,13 @@ function BottomNav({ tab, setTab, hidden = false }) {
               position: "relative",
               minHeight: 56,
               // 非アクティブも secondary 色にして「ある」と視認できるように。
-              color: active ? "var(--color-accent-strong)" : "var(--color-secondary)",
-              opacity: active ? 1 : 0.78,
+              // 非選択は --text-2（半透明にするとコントラストが落ちるので opacity は使わない）。
+              color: active ? "var(--accent)" : "var(--text-2)",
               transition: "color var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring)",
             }}
           >
             <Icon size={24} strokeWidth={active ? 2.2 : 1.7} aria-hidden="true" />
-            <span style={{ fontSize: 11, letterSpacing: "0.02em", fontWeight: active ? "var(--weight-semibold)" : "var(--weight-medium)" }}>{t.label}</span>
+            <span style={{ fontSize: "var(--text-caption)", letterSpacing: "0.02em", fontWeight: active ? 600 : 400 }}>{t.label}</span>
             {/* iOS タブバーはアクセントバーを使わず、アイコン/ラベルの色で示す。 */}
           </button>
         );
@@ -2844,7 +2843,7 @@ function AuthedApp() {
                       padding: '20px 18px',
                       borderRadius: 16,
                       background: 'var(--c-brand)',
-                      color: 'var(--c-card)',
+                      color: 'var(--accent-ink)',
                       textAlign: 'center',
                       boxShadow: '0 6px 18px rgba(92, 74, 46, 0.22)',
                     }}
@@ -2947,7 +2946,7 @@ function AuthedApp() {
                       borderRadius: 8,
                       border: 'none',
                       background: 'var(--color-accent)',
-                      color: 'var(--c-card)',
+                      color: 'var(--accent-ink)',
                       fontSize: 13,
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -3129,7 +3128,7 @@ function AuthedApp() {
               onClick={() => openEdit(current)}
               style={{
                 marginTop: 16, width: '100%', padding: '16px 18px', borderRadius: 16,
-                background: 'var(--c-brand)', color: 'var(--c-card)', border: 'none',
+                background: 'var(--c-brand)', color: 'var(--accent-ink)', border: 'none',
                 textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', gap: 12, minHeight: 44,
                 boxShadow: '0 6px 18px rgba(92,74,46,0.22)',
@@ -3580,15 +3579,15 @@ function AuthedApp() {
    <header
      style={{
        flexShrink: 0,
-       padding: "max(env(safe-area-inset-top, 6px), 6px) 14px 4px",
-       minHeight: 36,
+       padding: "max(env(safe-area-inset-top, 4px), 4px) 16px 4px",
+       minHeight: 44,
        display: "flex",
        justifyContent: "space-between",
        alignItems: "center",
-       gap: 6,
+       gap: 8,
        /* ページ（クリーム）と同色にして上部を一体化（iOS ナビバー流儀）。
           白いカードが下で浮く構図になる。 */
-       background: "var(--color-bg, var(--color-bg))",
+       background: "var(--bg)",
      }}
    >
     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
@@ -3612,15 +3611,16 @@ function AuthedApp() {
           alt="Orime"
           width={28}
           height={28}
-          style={{ borderRadius: 7, display: "block", boxShadow: "0 1px 2px rgba(60,48,30,0.12)" }}
+          // アプリアイコン画像は iOS のアイコン形状（角丸 UI の対象外・DESIGN §4 の例外）。
+          style={{ borderRadius: "22%", display: "block" }}
         />
       </button>
       {/* 挨拶は最初の数秒だけ表示してフェードアウト。ヘッダーの上下余白を
           食わないよう font 11px + 上下 0 の inline テキストに留める。 */}
       <span
         style={{
-          fontSize: 11,
-          color: "var(--color-tertiary)",
+          fontSize: "var(--text-caption)",
+          color: "var(--text-3)",
           lineHeight: 1.2,
           whiteSpace: "nowrap",
           overflow: "hidden",
@@ -3630,14 +3630,14 @@ function AuthedApp() {
           willChange: "opacity",
         }}
       >
-        <span aria-hidden="true" style={{ marginRight: 3 }}>{greeting.emoji}</span>
+        {/* DESIGN: 絵文字は見出し・本文に混ぜない（挨拶の絵文字を撤去） */}
         {greeting.text}
       </span>
     </div>
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <button
         onClick={openHelp}
-        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="この画面のヘルプを開く"
         title="ヘルプ"
       >
@@ -3645,7 +3645,7 @@ function AuthedApp() {
       </button>
       <button
         onClick={() => setSettingsOpen(true)}
-        style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--c-ink-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+        style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
         aria-label="アカウント設定を開く"
         title="設定"
       >
@@ -3685,7 +3685,7 @@ function AuthedApp() {
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
-                borderTop: "1px solid #e8e2d6",
+                borderTop: "1px solid var(--separator)",
                 position: "sticky",
                 top: 0,
                 background: "var(--color-bg, var(--color-bg))",
@@ -3717,7 +3717,7 @@ function AuthedApp() {
                     borderRadius: 'var(--radius-md)',
                     border: "none",
                     background: "var(--c-brand)",
-                    color: "var(--c-card)",
+                    color: "var(--accent-ink)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -4838,7 +4838,7 @@ function WebAppOnlyGate() {
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             minHeight: 48, padding: '13px 24px', borderRadius: 'var(--radius-md)',
-            background: 'var(--c-brand, #6b5b45)', color: '#fff',
+            background: 'var(--accent)', color: 'var(--accent-ink)',
             fontSize: 15, fontWeight: 700, textDecoration: 'none', marginTop: 4,
           }}
         >

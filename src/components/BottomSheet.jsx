@@ -9,7 +9,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 const backdrop = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(30,25,20,0.4)',
+  background: 'var(--backdrop)',
   zIndex: 700,
   animation: 'leverage-fade-in .15s ease',
   WebkitBackdropFilter: 'var(--backdrop-blur-strong)',
@@ -22,10 +22,10 @@ const sheetWrap = {
   right: 0,
   bottom: 0,
   zIndex: 701,
-  background: 'var(--c-card)',
-  borderTopLeftRadius: 18,
-  borderTopRightRadius: 18,
-  boxShadow: '0 -10px 30px rgba(30,25,20,0.18)',
+  background: 'var(--surface)',
+  borderTopLeftRadius: 'var(--radius)',
+  borderTopRightRadius: 'var(--radius)',
+  boxShadow: 'var(--shadow-overlay)',
   display: 'flex',
   flexDirection: 'column',
   maxHeight: '85vh',
@@ -114,12 +114,12 @@ export default function BottomSheet({ title, onClose, children, footer }) {
           </button>
           {title && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 18px 10px', borderBottom: '1px solid var(--c-hairline)' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-ink)', margin: 0 }}>{title}</h3>
+              <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>{title}</h3>
               <button
                 type="button"
                 onClick={animateClose}
                 aria-label="閉じる"
-                style={{ background: 'none', border: 'none', color: 'var(--c-brand)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 32 }}
+                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44 }}
               >
                 完了
               </button>

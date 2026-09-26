@@ -42,7 +42,7 @@ const btn = {
   marginTop: 18,
   padding: '12px 24px',
   background: 'var(--c-brand)',
-  color: 'var(--c-card)',
+  color: 'var(--accent-ink)',
   border: 'none',
   borderRadius: 10,
   cursor: 'pointer',

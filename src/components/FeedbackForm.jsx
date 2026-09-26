@@ -86,7 +86,7 @@ const inpStyle = {
   fontSize: 16,
   border: '1px solid var(--c-hairline-strong)',
   borderRadius: 10,
-  background: '#fff',
+  background: 'var(--surface)',
   color: 'var(--c-ink)',
   fontFamily: 'inherit',
   boxSizing: 'border-box',

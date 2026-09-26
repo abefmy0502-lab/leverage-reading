@@ -227,7 +227,7 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
               style={{
                 width: 42, height: 60, borderRadius: 5, flexShrink: 0,
                 background: `linear-gradient(135deg, ${from}, ${to})`,
-                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--on-cover)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 9, fontWeight: 600, padding: 4, textAlign: 'center', lineHeight: 1.2,
                 overflow: 'hidden', wordBreak: 'break-word',
               }}

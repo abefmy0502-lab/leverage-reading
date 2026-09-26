@@ -11,7 +11,7 @@ const backdrop = {
   position: 'fixed',
   inset: 0,
   zIndex: 'var(--z-popover)',
-  background: 'rgba(30, 25, 20, 0.18)',
+  background: 'var(--backdrop)',
   WebkitBackdropFilter: 'var(--backdrop-blur)',
   backdropFilter: 'var(--backdrop-blur)',
   animation: 'lvg-fade-in 150ms ease',
@@ -21,9 +21,9 @@ const panelBase = {
   position: 'fixed',
   zIndex: 881,
   width: PANEL_WIDTH,
-  background: '#fff',
+  background: 'var(--surface)',
   borderRadius: 'var(--radius-md)',
-  boxShadow: '0 10px 30px rgba(30, 25, 20, 0.25)',
+  boxShadow: 'var(--shadow-overlay)',
   overflow: 'hidden',
   fontFamily: "var(--font-app)",
   animation: 'lvg-context-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
@@ -52,7 +52,7 @@ const itemBase = {
   borderBottom: '1px solid var(--c-soft-2)',
   textAlign: 'left',
   fontFamily: 'inherit',
-  fontSize: 15,
+  fontSize: 'var(--text-body)',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -126,7 +126,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
               }}
               style={{
                 ...itemBase,
-                color: it.destructive ? 'var(--color-error, #ff3b30)' : 'var(--c-ink)',
+                color: it.destructive ? 'var(--error)' : 'var(--text)',
                 borderBottom: isLast ? 'none' : itemBase.borderBottom,
               }}
             >

@@ -37,7 +37,7 @@ import { BarChart3, Sparkles, Square, History, Trash2, RotateCw, Inbox, AlertTri
 const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' };
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '14px 16px 28px' };
 const card = { background: 'var(--c-card)', border: '1px solid var(--c-hairline)', borderRadius: 12, padding: '14px 16px' };
-const inp = { width: '100%', padding: '11px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: '#fff', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
+const inp = { width: '100%', padding: '11px 12px', fontSize: 16, border: '1px solid var(--c-hairline-strong)', borderRadius: 10, background: 'var(--surface)', color: 'var(--c-ink)', fontFamily: 'inherit', boxSizing: 'border-box' };
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', minHeight: 44, padding: '12px 20px', fontSize: 14 };
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: '10px 14px', fontSize: 13 };
 const pill = (active) => ({
@@ -764,7 +764,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                   padding: '8px 8px 8px 14px',
                   borderRadius: 999,
                   border: '1px solid var(--c-hairline-strong)',
-                  background: '#fff',
+                  background: 'var(--surface)',
                   color: 'var(--c-ink)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',

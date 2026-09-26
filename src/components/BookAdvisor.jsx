@@ -1193,7 +1193,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                         }
                       }
                     }}
-                    style={{ flex: 1, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--c-hairline-strong)', background: '#fff', color: 'var(--c-ink)', fontSize: 16, fontFamily: 'inherit', minHeight: 48 }}
+                    style={{ flex: 1, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--c-hairline-strong)', background: 'var(--surface)', color: 'var(--c-ink)', fontSize: 16, fontFamily: 'inherit', minHeight: 48 }}
                   />
                   <button
                     type="button"
@@ -1209,7 +1209,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     }}
                     disabled={!otherText.trim()}
                     aria-label={isMulti ? '選択肢に追加' : 'この内容で回答'}
-                    style={{ flexShrink: 0, padding: '0 16px', borderRadius: 12, border: 'none', background: otherText.trim() ? 'var(--c-brand)' : 'var(--c-hairline-strong)', color: 'var(--c-card)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: otherText.trim() ? 'pointer' : 'not-allowed', minHeight: 48 }}
+                    style={{ flexShrink: 0, padding: '0 16px', borderRadius: 12, border: 'none', background: otherText.trim() ? 'var(--c-brand)' : 'var(--c-hairline-strong)', color: 'var(--accent-ink)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: otherText.trim() ? 'pointer' : 'not-allowed', minHeight: 48 }}
                   >
                     {isMulti ? '追加' : '決定'}
                   </button>
@@ -1228,7 +1228,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     borderRadius: 12,
                     border: 'none',
                     background: multiSelected.length ? 'var(--c-brand)' : 'var(--c-hairline-strong)',
-                    color: 'var(--c-card)',
+                    color: 'var(--accent-ink)',
                     fontSize: 14,
                     fontWeight: 700,
                     fontFamily: 'inherit',
