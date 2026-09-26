@@ -130,6 +130,7 @@
 | カード | `--surface` ＋ 枠線 `--separator` ＋ 角丸 12 ＋ 内側余白 16。影なし | `components.css` の `.card` |
 | 一覧の行 | 高さ 44 以上。左に表紙/アイコン、右に › | （統一部品なし → 作る） |
 | チップ | `--fill` 面 ＋ 13px ＋ 高さ 32（タップ領域は 44 を確保） | 各所に直書き → 統一する |
+| Apple でサインイン | ブランド規定の例外: `--apple-btn-bg` / `--apple-btn-ink`（明るい画面は黒・暗い画面は白）。形は主ボタンと同じ | `AuthScreen.jsx` |
 | 切り替え（セグメント） | **1 画面に 1 つまで**。2 段重ねにしない | `.sub-tabs` |
 | 入力欄 | 文字 17（iOS の拡大防止に 16 以上）、枠 `--border`、フォーカス時は `--accent` | `ui.js` の `input`、`formPrimitives` の `inp` |
 | シート | 上端に細いハンドル、背景は `--backdrop` | `BottomSheet.jsx` |

@@ -309,7 +309,7 @@ export default function AuthScreen() {
               aria-label="Appleでサインイン"
               style={{
                 ...btnPrimary,
-                background: '#000', color: 'var(--on-cover)',
+                background: 'var(--apple-btn-bg)', color: 'var(--apple-btn-ink)',
                 cursor: appleBusy ? 'default' : 'pointer', opacity: appleBusy ? 0.6 : 1,
               }}
             >

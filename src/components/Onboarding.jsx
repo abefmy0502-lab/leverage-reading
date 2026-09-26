@@ -183,7 +183,7 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
   const titleRef = useRef(null);
   useEffect(() => {
     try { titleRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
-  }, []);
+  }, [step]); // 画面を切り替えるたびに見出しへ（押したボタンが消えてフォーカスが外れないように）
 
   // Every dismissal path marks the onboarding as completed.
   // The user can re-trigger it explicitly via the "ヘルプ" button
@@ -314,8 +314,8 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
                 {srcPicked ? 'ありがとうございます' : 'Orime をどこで知りましたか？（任意）'}
               </p>
               <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 0, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {/* 選んだ後は選んだチップだけを残す（選択中＝--accent-soft 面・--accent 文字）。 */}
-                {SOURCES.filter(([key]) => !srcPicked || srcPicked === key).map(([key, label]) => (
+                {/* 選んだ後も全チップを残し、選んだものだけ選択中（--accent-soft 面・--accent 文字）に。カードの高さが跳ねないように。 */}
+                {SOURCES.map(([key, label]) => (
                   <button
                     key={key}
                     type="button"
