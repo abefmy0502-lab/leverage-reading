@@ -418,10 +418,6 @@ export default function QuickMemoSheet({
               style={ta}
               maxLength={LIMITS.memoText}
             />
-            {/* OS 標準のディクテーションへの導線（自前録音は持たない＝速い・無料・端末内）。 */}
-            <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
-              キーボードのマイクを押すと、話して入力できます
-            </p>
           </div>
 
           {/* 凝縮 — 十分な長さの時だけ出す（話した冗長メモを核心 1 行へ）。 */}

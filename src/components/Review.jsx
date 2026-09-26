@@ -909,11 +909,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 正直な予告文だけを出す。synth（まとめ/収穫/行動の振り返り）にもボタンを
                 出す — 出さないと synth は永遠に due のままで想起プールを占拠する
                 （記録は端末ローカル。recordRandomRecall 参照）。 */}
-            {!randomMemo.synth && !recallFraming(randomMemo.createdAt) && (
-              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-2) 0 0', lineHeight: 1.5 }}>
-                これが、忘れた頃にそっと戻ってきます。
-              </p>
-            )}
             {recallFraming(randomMemo.createdAt) && (
               <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
                 <button
@@ -1149,9 +1144,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           </div>
         </div>
         {!isSearching ? (
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
-            言葉を入れるか、種類・状態・タグを選ぶと、ここに結果が出ます。
-          </p>
+          null
         ) : filteredSearch.length === 0 ? (
           <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', textAlign: 'center', padding: 'var(--space-3) 0', lineHeight: 1.6 }}>
             このキーワードに関連するメモはまだありません。<br />

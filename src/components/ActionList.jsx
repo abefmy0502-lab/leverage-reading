@@ -110,7 +110,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
         <EmptyState
           icon={<ListTodo size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="まだ行動はありません"
-          description="相談の答えや、メモから行動を作れます。読んで決めた一歩を、ここでやり切りましょう。"
+          description="相談の答えや、メモから行動を作れます。"
           actions={[
             ...(onGoConsult ? [{ label: '相談する', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: onGoConsult }] : []),
             ...(canAdd
@@ -207,7 +207,6 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
         <EmptyState
           icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="やることはすべて完了しています"
-          description="次の一歩は、相談の答えやメモから作れます。"
           actions={onGoConsult ? [{ label: '相談する', onClick: onGoConsult, variant: 'secondary' }] : []}
         />
       )}

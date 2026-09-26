@@ -23,10 +23,7 @@ const sectionTitle = {
 function StartCard({ onQuickstart, onAddBook, onAdvisor }) {
   return (
     <section aria-labelledby="home-start-title" style={card}>
-      <h2 id="home-start-title" style={{ ...sectionTitle, margin: 0 }}>読むほど、<br />自分だけの相談相手が育つ</h2>
-      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: '8px 0 16px' }}>
-        これまで読んだ本と、覚えている一言を入れるだけ。5 分ほどで、今日から相談できるようになります。
-      </p>
+      <h2 id="home-start-title" style={{ ...sectionTitle, margin: '0 0 var(--space-4)' }}>読むほど、<br />自分だけの相談相手が育つ</h2>
       <button type="button" onClick={onQuickstart} style={btnPrimary}>これまで読んだ本から始める</button>
       <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 12 }}>いま読んでいる本を追加する</button>
       <div style={{ textAlign: 'center', marginTop: 8 }}>

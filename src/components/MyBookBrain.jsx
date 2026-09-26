@@ -916,7 +916,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <EmptyState
                 icon={<MessageCircle size={32} strokeWidth={1.5} aria-hidden="true" />}
                 title="まだ相談していません"
-                description="困ったことを書くと、あなたのメモを根拠に答えます。"
                 actions={[{ label: '相談する', onClick: () => setView('chat'), variant: 'secondary' }]}
               />
             )}
@@ -952,10 +951,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             knowledgeTotal === 0 ? (
               // メモ 0 件: 質問させる前に「これまで読んだ本から始める」（根拠が無いと空振りするため）。
               <section style={cardStyle} aria-labelledby="brain-start-title">
-                <h2 id="brain-start-title" style={headingStyle}>まだ、相談の根拠になるメモがありません</h2>
-                <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.6 }}>
-                  これまで読んだ本と、覚えている一言を入れるだけで、今日から相談できます。
-                </p>
+                <h2 id="brain-start-title" style={{ ...headingStyle, marginBottom: 'var(--space-4)' }}>まだ、相談の根拠になるメモがありません</h2>
                 {onQuickstart ? (
                   <button type="button" onClick={onQuickstart} style={uiBtnPrimary}>これまで読んだ本から始める</button>
                 ) : onGoBookshelf ? (
@@ -1505,9 +1501,6 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
         </button>
       )}
     >
-      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-3)', lineHeight: 1.6 }}>
-        すべての本をまとめて根拠にするか、1 冊・数冊に絞って相談できます。
-      </p>
       <button type="button" onClick={() => { setMode('all'); setPicked(new Set()); }} aria-pressed={mode === 'all'} style={{ ...rowStyle(mode === 'all'), marginBottom: 'var(--space-6)' }}>
         {mark(mode === 'all')}
         <span style={{ flex: 1, minWidth: 0 }}>

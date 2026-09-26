@@ -414,7 +414,6 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         <EmptyState
           icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="まだメモはありません"
-          description="心が動いた一行を、ひとつ残しましょう。右下の「メモを書く」から書けます。"
         />
       )}
 

@@ -592,7 +592,6 @@ export default function ReadingRecord({
     );
   }
 
-  const noOutcome = bookStats.actionsDone === 0 && bookStats.harvest === 0;
   const trendChip = (mode, label) => {
     const active = trendMode === mode;
     return (
@@ -791,11 +790,6 @@ export default function ReadingRecord({
             { value: bookStats.harvest, label: '残した収穫', color: bookStats.harvest > 0 ? 'var(--accent)' : 'var(--text-3)' },
           ]}
         />
-        {noOutcome && bookStats.doneTotal > 0 && (
-          <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-3) 0 0', lineHeight: 1.5, textAlign: 'center' }}>
-            メモの「行動にする」から、最初の行動を 1 つ決めてみましょう。
-          </p>
-        )}
       </section>
 
       {/* 7. 記憶への定着（間隔反復の進捗） */}

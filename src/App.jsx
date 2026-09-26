@@ -2731,10 +2731,7 @@ function AuthedApp() {
                     <h3 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                       AI 読書計画を作る
                     </h3>
-                    <p style={{ margin: 'var(--space-2) 0 var(--space-4)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text-2)' }}>
-                      この本から得たいことを決めると、AI があなた専用の読み方を提案します
-                    </p>
-                    <button type="button" onClick={() => openSetup(current)} style={btnGhost}>
+                    <button type="button" onClick={() => openSetup(current)} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>
                       読書計画を始める
                     </button>
                   </div>
@@ -2759,9 +2756,6 @@ function AuthedApp() {
                 <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
                   <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600 }}>
                     この本から得たいことが、まだありません
-                  </p>
-                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', lineHeight: 1.6 }}>
-                    得たいこと・AI 解析・読書計画をいま決めると、この本から得られるものが増えます。
                   </p>
                   <button type="button" onClick={() => openSetup(current)} style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 0 }}>
                     読書計画を作る
@@ -2926,19 +2920,15 @@ function AuthedApp() {
                 <MessageCircle size={20} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>この本に相談する</span>
-                  <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 2 }}>この本のメモだけを根拠に答えます</span>
                 </span>
                 <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
             </div>
           ) : (
-            <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
-              {/* コールドスタート緩和: 行き止まりの説明で終わらせず、ワンタップで
-                  「読書中」に昇格して即メモを開く（メモは reading/done に住む設計は不変）。
-                  進行の主ボタン（下部の「積読に積む」等）と並ぶので、こちらは文字ボタン。 */}
-              <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6 }}>
-                読み始めたら、メモが書けます。心が動いた一行は、あとで相談の根拠になります。
-              </p>
+            <div style={{ marginTop: 'var(--space-4)' }}>
+              {/* コールドスタート緩和: ワンタップで「読書中」に昇格して即メモを開く
+                  （メモは reading/done に住む設計は不変）。進行の主ボタン（下部の「積読に積む」等）
+                  と並ぶので、こちらは文字ボタン。説明文は置かない（DESIGN §0-6）。 */}
               <button
                 type="button"
                 onClick={() => { advanceStatus(current, "reading"); setQuickMemoOpen(true); }}
@@ -2998,9 +2988,6 @@ function AuthedApp() {
           {current.status === 'done' && !(current.roiSummary || '').trim() && (
             <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
               <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>一番の収穫を 1 行だけ残す</p>
-              <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', lineHeight: 1.6 }}>
-                この本で得た価値を 1 行にすると、相談にも振り返りにも活きます。
-              </p>
               <button type="button" onClick={() => openEdit(current)} style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 0 }}>
                 1 行を書く
               </button>
@@ -3055,14 +3042,6 @@ function AuthedApp() {
                 >
                   {nextLabel[current.status]}
                 </button>
-                {/* Phase 3: その場のガイダンス — 何が起きるか先に伝えて遷移を温かく */}
-                <p style={{ margin: 0, textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
-                  {current.status === 'want'
-                    ? '手元に来たら積読へ。「得たいこと」を決めると AI が読書計画シートを作ります'
-                    : current.status === 'before'
-                    ? '読書中になると、メモを書けるようになります'
-                    : '読み終えたら、一番の収穫を 1 行残せます'}
-                </p>
               </div>
             )}
             {/* 購入導線は「まだ買っていない可能性が高い」want / before だけ主役。
