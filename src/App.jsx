@@ -3630,7 +3630,7 @@ function AuthedApp() {
                     style={{ ...bookshelfIconBtn, position: 'relative' }}
                   >
                     <MoreHorizontal size={22} aria-hidden="true" />
-                    {activeFilterCount > 0 && <span aria-hidden="true" style={{ position: 'absolute', top: 10, right: 8, width: 8, height: 8, borderRadius: 999, background: 'var(--accent)' }} />}
+                    {activeFilterCount > 0 && <span aria-hidden="true" style={{ position: 'absolute', top: 'var(--space-2)', right: 'var(--space-2)', width: 8, height: 8, borderRadius: 999, background: 'var(--accent)' }} />}
                   </button>
                   <button type="button" onClick={openAdd} aria-label="本を追加" title="本を追加" style={{ ...bookshelfIconBtn, color: 'var(--accent)' }}>
                     <IcPlus size={24} aria-hidden="true" />
