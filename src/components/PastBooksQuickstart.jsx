@@ -153,7 +153,7 @@ function ResultsSkeleton() {
 }
 
 // 押せない主ボタン。薄くすると「あと N 冊」が読めなくなるので、面と文字の色で押せないことを示す。
-const btnPrimaryOff = { ...btnPrimary, background: 'var(--fill)', color: 'var(--text-2)', cursor: 'default' };
+const btnPrimaryOff = { ...btnPrimary, background: 'var(--fill)', color: 'var(--text-2)', cursor: 'default', opacity: 1 }; // 全体の button:disabled{opacity:.4} を打ち消す
 
 export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose, onWriteMemo }) {
   const { user } = useAuth();
