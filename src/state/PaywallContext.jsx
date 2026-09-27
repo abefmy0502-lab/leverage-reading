@@ -1,13 +1,21 @@
-// 🎁 お試し中の状態と「有料プランの画面を開く」を、アプリの中から使うための入口。
-// 値を出すのは App.jsx の PaywallGate。契約中・管理者は freeMode=false。
+// 🎁 プラン（フリーミアム）・残りのトークン・「有料プランの画面を開く」を、アプリの中から使うための入口。
+// 値を出すのは App.jsx の PaywallGate。
+//   plan: 'free'（契約なし・AI は相談だけ）| 'trial'（7 日間無料）| 'paid' | 'admin'
+//   tokensRemaining / tokenAllowance: 今月（無料期間はまるごと）の残り・量（src/lib/tokens.js。null＝不明）
 import { createContext, useContext } from 'react';
 
 const noop = () => {};
 export const PaywallContext = createContext({
-  freeMode: false, // お試し中（未課金で、登録直後の枠の中）
-  freeRemaining: 0, // お試しで残っている AI の回数（目安。真実はサーバー）
-  refreshFree: noop, // AI を使ったあとに残りを取り直す
-  openPaywall: noop, // 有料プランの画面を開く（reason: 'free_used' 等）
+  plan: null,
+  freeMode: false, // 無料プラン（契約なし）
+  trialEndsAt: null, // 無料期間が終わる日時（無料期間のときだけ）
+  tokenAllowance: null,
+  tokensRemaining: null,
+  refreshTokens: noop, // AI を使ったあとに残りを取り直す
+  freeRemaining: null, // 旧名: 無料プランの残りのトークン
+  refreshFree: noop, // 旧名: refreshTokens
+  openPaywall: noop, // 有料プランの画面を開く（reason: 'free_used' | 'feature' | null, feature: 機能の名前）
+  requirePlan: () => true, // プランの AI 機能の入口で呼ぶ。無料プランなら画面を開いて false
 });
 
 export const usePaywall = () => useContext(PaywallContext);

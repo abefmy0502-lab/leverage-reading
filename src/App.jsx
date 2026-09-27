@@ -137,7 +137,8 @@ import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
-import { FREE_AI_CALLS, inFreeWindow, fetchFreeUsed, PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
+import { PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
+import { periodKeyFor, fetchUsedMjpy, remainingTokens, allowanceFor as allowanceForPlan } from './lib/tokens';
 import { PaywallContext } from './state/PaywallContext';
 import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
@@ -5016,25 +5017,20 @@ function shouldShowMarketingLanding() {
   }
 }
 
-// 💳 PaywallGate — Web ハードペイウォール（全機能有料）。
+// 💳 PaywallGate — 契約の状態を確かめて、アプリを開く（フリーミアム・2026-09-27）。
 //
 // 認証済みユーザーに対して useSubscription で entitlement を確認し、
-//   - loading 中           → スピナー（判定が固まるまで本棚を見せない）
-//   - isActive            → 通常アプリ（AuthedApp）
-//   - !isActive && !loading → 全画面ペイウォール（Paywall）
-// を出し分ける。AuthedApp の手前で return ガードするのが肝。
+//   - loading 中 → ホームの形のスケルトン（判定が固まるまで）
+//   - それ以外   → 通常アプリ（AuthedApp）。契約が無くても開く（無料プラン）
+// 有料プランの画面（Paywall）は、無料のトークンを使い切ったとき・プランの AI 機能を押したとき・
+// 設定の「プランを見る」のときだけ、アプリの上に重ねて開く（いつでも閉じられる）。
+// プランと残りのトークンは PaywallContext で配る（state/PaywallContext.jsx）。
 //
-// ★ 詰み防止 / fail-open:
+// ★ fail-open:
 //   useSubscription は subscriptions テーブル未適用（schema-error）を
 //   「未課金扱い（isActive=false）」ではなく schema-error として握りつぶす実装。
-//   そのままだとテーブル未適用環境で全員ロックされて詰む。
-//   そこで「テーブル未適用 = 判定不能」のときは fail-open（通す）に倒す。
-//   判定は useSubscription が返す error が schema-error かどうかで行う
+//   テーブル未適用 = 判定不能のときはサーバーも AI を通すので、ここでも有料扱いにする
 //   （lib/errors.js の isSchemaError = マイグレーション未適用判定の唯一の真実）。
-//   通常運用（テーブルあり・未課金）では error=null なので、ちゃんとロックされる。
-//
-// ※ 将来 Capacitor（IAP）対応時は、ここで Capacitor.isNativePlatform() を見て
-//   native は別の entitlement ソース（RevenueCat 等）に切替える想定。今は Web 専用。
 function isSchemaUnappliedError(error) {
   return isSchemaError(error);
 }
@@ -5181,62 +5177,18 @@ function WebAppOnlyGate() {
 }
 
 function PaywallGate() {
-  const { isActive, loading, error, refresh } = useSubscription();
+  const { isActive, loading, error, refresh, subscription } = useSubscription();
   const { user } = useAuth();
 
-  // 🎁 登録直後のお試し（src/lib/freeTrial.js）。未課金でも、登録から 72 時間以内で
-  //    お試しの AI 回数が残っていれば、有料プランの画面の前にアプリへ入れる。
-  //    一度入れたら、この起動中は途中で締め出さない（使い切ったら画面を開いて案内するだけ）。
-  const [freeUsed, setFreeUsed] = useState(null); // null=未確認
-  const [freeSession, setFreeSession] = useState(false);
-  const refreshFree = useCallback(async () => {
-    if (!user?.id) return;
-    setFreeUsed(await fetchFreeUsed(user.id));
-  }, [user?.id]);
-  const freeEligible = !!user && inFreeWindow(user);
-  useEffect(() => {
-    if (!loading && !isActive && freeEligible && freeUsed === null) refreshFree();
-  }, [loading, isActive, freeEligible, freeUsed, refreshFree]);
-  const freeRemaining = Math.max(0, FREE_AI_CALLS - (freeUsed || 0));
-  // どの機能で AI を使っても（写真の書き起こし・凝縮・テーマまとめ・AI 選書…）残りを取り直す。
-  useEffect(() => {
-    if (isActive || !freeEligible) return undefined;
-    const onUsed = () => { refreshFree(); };
-    window.addEventListener(AI_USED_EVENT, onUsed);
-    return () => window.removeEventListener(AI_USED_EVENT, onUsed);
-  }, [isActive, freeEligible, refreshFree]);
-  useEffect(() => {
-    if (!isActive && freeEligible && freeUsed !== null && freeRemaining > 0) setFreeSession(true);
-  }, [isActive, freeEligible, freeUsed, freeRemaining]);
-  const freeChecking = !loading && !isActive && freeEligible && freeUsed === null;
-  const freeMode = !isActive && freeSession;
-
-  // アプリの中から開く有料プランの画面（お試しを使い切った・AI が 402 を返した）。
-  const [paywallReason, setPaywallReason] = useState(null);
-  useEffect(() => {
-    const onReq = (e) => setPaywallReason(e?.detail?.reason || 'free_used');
-    window.addEventListener(PAYWALL_EVENT, onReq);
-    return () => window.removeEventListener(PAYWALL_EVENT, onReq);
-  }, []);
-  // 契約できたら閉じる
-  useEffect(() => { if (isActive) setPaywallReason(null); }, [isActive]);
-  const paywallCtx = useMemo(() => ({
-    freeMode,
-    freeRemaining,
-    refreshFree,
-    openPaywall: (reason = 'free_used') => setPaywallReason(reason),
-  }), [freeMode, freeRemaining, refreshFree]);
-
-  // 🛰️ 管理者（運営）はペイウォールを素通り。オーナーが課金なしでアプリ／運営
-  //    ダッシュボードを使えるようにする。is_app_admin RPC で判定（未適用 DB や
-  //    非管理者は false のまま＝通常のペイウォール挙動）。
+  // 🛰️ 管理者（運営）は課金なしで AI をすべて使える（トークンも数えない）。is_app_admin RPC で判定
+  //    （未適用 DB や非管理者は false のまま＝通常の判定）。
   const [adminBypass, setAdminBypass] = useState(false);
   const [adminChecked, setAdminChecked] = useState(false);
   useEffect(() => {
     let alive = true;
-    // is_app_admin はゲート全体（spinner）を止めるので、決して返らない通信で
+    // is_app_admin はゲート全体（読み込み表示）を止めるので、決して返らない通信で
     // アプリが永久に固まらないよう 8 秒でタイムアウトして先へ進む（adminBypass は
-    // false のまま＝通常のペイウォール/Web ゲート判定に倒れる＝安全側）。
+    // false のまま＝通常の判定/Web ゲート判定に倒れる＝安全側）。
     const timeout = setTimeout(() => { if (alive) setAdminChecked(true); }, 8000);
     (async () => {
       try {
@@ -5247,6 +5199,70 @@ function PaywallGate() {
     })();
     return () => { alive = false; clearTimeout(timeout); };
   }, []);
+
+  // 🎁 プラン（フリーミアム・2026-09-27）: 'admin' | 'paid' | 'trial' | 'free'。
+  //    契約が無くてもアプリはすべて使える（無料＝相談だけ AI・毎月のトークン）。subscriptions 表が
+  //    未適用（判定不能）のときはサーバーも通す（fail-open）ので、こちらも有料扱いにする。
+  const periodType = subscription?.periodType || null;
+  const plan = adminBypass
+    ? 'admin'
+    : (isActive || isSchemaUnappliedError(error))
+      ? ((periodType === 'trial' || periodType === 'intro') ? 'trial' : 'paid')
+      : 'free';
+  const trialEndsAt = plan === 'trial' ? (subscription?.currentPeriodEnd || null) : null;
+
+  // 🪙 残りのトークン（src/lib/tokens.js・表示だけ。止めるのはサーバー）。
+  const [usedMjpy, setUsedMjpy] = useState(null); // null=未確認・読めない
+  const tokenKey = plan === 'admin' ? null : periodKeyFor(plan, { periodEnd: trialEndsAt });
+  const refreshTokens = useCallback(async () => {
+    if (!user?.id || !tokenKey) { setUsedMjpy(null); return; }
+    setUsedMjpy(await fetchUsedMjpy(user.id, tokenKey));
+  }, [user?.id, tokenKey]);
+  useEffect(() => {
+    if (loading || !adminChecked) return;
+    refreshTokens();
+  }, [loading, adminChecked, refreshTokens]);
+  // どの機能で AI を使っても（相談・写真の書き起こし・テーマまとめ…）残りを取り直す。
+  useEffect(() => {
+    const onUsed = () => { refreshTokens(); };
+    window.addEventListener(AI_USED_EVENT, onUsed);
+    return () => window.removeEventListener(AI_USED_EVENT, onUsed);
+  }, [refreshTokens]);
+  const tokenAllowance = allowanceForPlan(plan);
+  const tokensRemaining = usedMjpy == null || tokenAllowance == null ? null : remainingTokens(tokenAllowance, usedMjpy);
+  const freeMode = plan === 'free';
+
+  // アプリの上に重ねて開く有料プランの画面（{ reason, feature }）。いつでも × / 「あとで」で閉じられる。
+  //   reason: 'free_used'（今月の無料のトークンを使い切った）/ 'feature'（プランで使える機能）/ null（プランを見る）
+  const [paywall, setPaywall] = useState(null);
+  useEffect(() => {
+    const onReq = (e) => setPaywall({ reason: e?.detail?.reason ?? 'feature', feature: e?.detail?.feature || '' });
+    window.addEventListener(PAYWALL_EVENT, onReq);
+    return () => window.removeEventListener(PAYWALL_EVENT, onReq);
+  }, []);
+  // 契約できたら閉じる（無料期間を含む）
+  useEffect(() => { if (isActive) setPaywall(null); }, [isActive]);
+  const paywallCtx = useMemo(() => {
+    const openPaywall = (reason = null, feature = '') => setPaywall({ reason, feature });
+    return {
+      plan,
+      freeMode,
+      trialEndsAt,
+      tokenAllowance,
+      tokensRemaining,
+      refreshTokens,
+      // 旧名（お試しの頃の呼び方）。無料プランの残りのトークン。
+      freeRemaining: freeMode ? tokensRemaining : null,
+      refreshFree: refreshTokens,
+      openPaywall,
+      // プランで使える AI 機能の入口で呼ぶ。無料プランなら有料プランの画面を開いて false。
+      requirePlan: (feature = '') => {
+        if (!freeMode) return true;
+        openPaywall('feature', feature);
+        return false;
+      },
+    };
+  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, refreshTokens]);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。
@@ -5284,14 +5300,8 @@ function PaywallGate() {
     };
   }, [refresh]);
 
-  // ペイウォールが実際に表示される条件（判定確定 + 非管理者 + 未課金 + schema 適用済み）。
-  const paywallShown = !loading && adminChecked && !adminBypass && !isActive && !freeMode && !freeChecking && !isSchemaUnappliedError(error);
-  // 📊 ペイウォール露出の計測（転換率の分母）。PII なし・表示時 1 回。
-  useEffect(() => { if (paywallShown) track('paywall_viewed'); }, [paywallShown]);
-
-  // 判定が確定するまで（課金 or 管理者）は読み込み表示。管理者チェックを待つ
-  // ことでペイウォールが一瞬チラつくのを防ぐ。
-  if (loading || !adminChecked || freeChecking) {
+  // 判定が確定するまで（課金 or 管理者）は読み込み表示（ホームの形のスケルトン）。
+  if (loading || !adminChecked) {
     return (
       <Shell>
         <HomeLoadingSkeleton />
@@ -5313,36 +5323,25 @@ function PaywallGate() {
     );
   }
 
-  // fail-open: 管理者 / 課金中 / subscriptions テーブル未適用 → ロックせず通す。
-  // お試し中（freeMode）も通す。契約した瞬間に AuthedApp を作り直さないよう、
-  // どの場合も同じ形（Provider > AuthedApp）で返す。
-  if (adminBypass || isActive || isSchemaUnappliedError(error) || freeMode) {
-    return (
-      <PaywallContext.Provider value={adminBypass || isActive ? { ...paywallCtx, freeMode: false } : paywallCtx}>
-        <AuthedApp />
-        {paywallReason && !isActive && (
-          // アプリの上に重ねる（閉じればアプリに戻る＝書きかけも消えない）。
-          <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
-            <Suspense fallback={<Spinner />}>
-              <Paywall
-                onPurchased={refresh}
-                reason={paywallReason}
-                onClose={() => setPaywallReason(null)}
-              />
-            </Suspense>
-          </div>
-        )}
-      </PaywallContext.Provider>
-    );
-  }
-
+  // 契約の有無にかかわらず、アプリはいつも開く（起動時の有料プランの画面は無い）。
+  // 契約した瞬間に AuthedApp を作り直さないよう、どの場合も同じ形（Provider > AuthedApp）で返す。
   return (
-    <Shell>
-      <Suspense fallback={<Spinner />}>
-        {/* お試しを使い切って開き直した人にも、自分の本の表紙を並べた版を出す（育てた相談相手を見せる・SPEC §1-3）。 */}
-        <Paywall onPurchased={refresh} reason={freeEligible && freeUsed != null && freeUsed >= FREE_AI_CALLS ? 'free_used' : null} />
-      </Suspense>
-    </Shell>
+    <PaywallContext.Provider value={paywallCtx}>
+      <AuthedApp />
+      {paywall && !isActive && (
+        // アプリの上に重ねる（閉じればアプリに戻る＝書きかけも消えない）。
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+          <Suspense fallback={<Spinner />}>
+            <Paywall
+              onPurchased={refresh}
+              reason={paywall.reason}
+              feature={paywall.feature}
+              onClose={() => setPaywall(null)}
+            />
+          </Suspense>
+        </div>
+      )}
+    </PaywallContext.Provider>
   );
 }
 

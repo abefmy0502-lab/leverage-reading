@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import { isPaywallError, requestPaywall, notifyAiUsed } from './freeTrial';
+import { isPaywallError, requestPaywall, paywallReasonFor, notifyAiUsed } from './freeTrial';
 import { isSchemaError } from './errors';
 import { LIMITS, clamp } from './limits';
 import { streamClaude } from './streamClaude';
@@ -61,10 +61,10 @@ async function postClaude(payload, signal) {
 
   if (!res.ok) {
     if (res.status === 401) return 'AI機能を使うにはログインが必要です。';
-    // お試しを使い切った／未課金 → 有料プランの画面を開く（PaywallGate が受ける）。
+    // 無料のトークンを使い切った／プランの機能 → 有料プランの画面を重ねて開く（PaywallGate が受ける）。
     if (isPaywallError(res.status, data?.error_code)) {
-      requestPaywall(data.error_code === 'free_limit_reached' ? 'free_used' : 'subscription_required');
-      return data?.error?.message || 'AI 機能のご利用にはプランへのご登録が必要です。';
+      requestPaywall(paywallReasonFor(data.error_code));
+      return data?.error?.message || 'この AI 機能は、プランでご利用いただけます。';
     }
     if (res.status === 429) {
       // 月次上限超過（monthly_limit_exceeded）はサーバーが具体的な日本語文言を
@@ -142,18 +142,21 @@ export default callClaude;
 // 返し得る全エラー文字列（閉集合）:
 //   '通信エラー' / 'レスポンス解析エラー' / 'エラー' / 'エラー: ...'
 //   'AI機能を使うにはログインが必要です。' / 'リクエストが多すぎます...'
-//   '今月の AI の利用上限に達しました...'（api/claude.js の monthly_limit_exceeded / monthly_budget_exceeded）
-//   'AI 機能のご利用には…' / 'お試しの相談は、ここまでです…'（402）
+//   '今月のトークンは、ここまでです…' / '無料期間のトークンは…'（api/claude.js の 429・402 free_limit_reached）
+//   'この AI 機能は、プランで…'（402 plan_required）・旧文言（'今月の AI の利用上限…' 'AI 機能のご利用…' 'お試しの相談…'）
+// 上限・プランの案内（エラーではなく案内として見せる文）。AI_NOTICE_RE で見分ける。
+export const AI_NOTICE_RE = /^(今月のトークン|無料期間のトークン|この AI 機能は|今月の AI|AI 機能のご利用|お試しの相談)/;
+export function isAiNoticeString(s) {
+  return typeof s === 'string' && AI_NOTICE_RE.test(s);
+}
 export function isClaudeErrorString(s) {
   if (typeof s !== 'string') return true;
   if (s === '通信エラー' || s === 'レスポンス解析エラー' || s === 'エラー') return true;
   if (s.startsWith('エラー: ')) return true;
   if (s.startsWith('AI機能')) return true;
   if (s.startsWith('リクエストが多すぎます')) return true;
-  // 月の上限（回数・原価）: サーバーの文言は「今月の AI の利用上限…」。旧文言「今月の AI 利用上限」も含めて前方一致で見る。
-  if (s.startsWith('今月の AI')) return true;
-  // 未契約・お試しの終了（402）: 有料プランの画面を開いた後に返る文言
-  if (s.startsWith('AI 機能のご利用') || s.startsWith('お試しの相談')) return true;
+  // トークンの上限・プランの案内（429 / 402）。旧文言も含めて前方一致で見る。
+  if (isAiNoticeString(s)) return true;
   // 安全機構による回答の見送り（postClaude の refusal 文言）— メモや要約に入れない
   if (s.startsWith('AI が今回の内容への回答を控えました')) return true;
   return false;
@@ -1320,9 +1323,9 @@ export async function condenseMemo({ text }) {
   }
   if (typeof result !== 'string' || isSuspiciousOutput(result)) return null;
   if (isClaudeErrorString(result)) {
-    // 月次上限だけは理由をユーザーに伝える（ユーザーの明示操作なのに
+    // トークンの上限・プランの案内だけは理由をユーザーに伝える（ユーザーの明示操作なのに
     // 無言の「凝縮できない」に見えるのを防ぐ）。他のエラーは従来どおり静かに失敗。
-    if (result.startsWith('今月の AI')) throw new Error(result);
+    if (isAiNoticeString(result)) { const err = new Error(result); err.notice = true; throw err; }
     return null;
   }
   const cleaned = clamp(sanitizeForPrompt(result).trim(), LIMITS.memoText || 2000);
@@ -1356,10 +1359,8 @@ export async function summarizeCards({ title, cards }) {
     console.warn('[summarizeCards] claude failed:', e?.message);
     return null;
   }
-  // 月の上限・お試しの終了は理由をそのまま伝える（「カードを増やして」と誤案内しない）
-  if (typeof result === 'string' && (result.startsWith('今月の AI') || result.startsWith('お試しの相談') || result.startsWith('AI 機能のご利用'))) {
-    throw new Error(result);
-  }
+  // トークンの上限・プランの案内は理由をそのまま伝える（「カードを増やして」と誤案内しない）
+  if (isAiNoticeString(result)) { const err = new Error(result); err.notice = true; throw err; }
   if (typeof result !== 'string'
     || isClaudeErrorString(result)
     || isSuspiciousOutput(result)) {

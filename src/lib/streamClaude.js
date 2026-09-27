@@ -21,7 +21,7 @@
 // await the whole exchange when convenient.
 
 import { supabase, isSupabaseConfigured } from './supabase';
-import { isPaywallError, requestPaywall, notifyAiUsed } from './freeTrial';
+import { isPaywallError, requestPaywall, paywallReasonFor, notifyAiUsed } from './freeTrial';
 import { MODEL_SMART } from './models';
 import { apiUrl } from './apiUrl';
 
@@ -121,16 +121,17 @@ export async function streamClaude({
       } catch { /* fallthrough */ }
       if (res.status === 401) throw new Error('AI機能を使うにはログインが必要です。');
       if (isPaywallError(res.status, errorCode)) {
-        requestPaywall(errorCode === 'free_limit_reached' ? 'free_used' : 'subscription_required');
-        const err = new Error(detail || 'AI 機能のご利用にはプランへのご登録が必要です。');
+        requestPaywall(paywallReasonFor(errorCode));
+        const err = new Error(detail || 'この AI 機能は、プランでご利用いただけます。');
         err.paywall = true; // 呼び出し側はエラーの案内を重ねて出さない
+        err.code = errorCode; // 'free_limit_reached'（今月の無料のトークン）/ 'plan_required'
         throw err;
       }
       if (res.status === 429) {
         // 月次上限超過（回数・原価）はサーバーの具体文言を優先。それ以外の 429 は汎用文言。
         if ((errorCode === 'monthly_limit_exceeded' || errorCode === 'monthly_budget_exceeded') && detail) {
           const err = new Error(detail);
-          err.monthlyLimit = true; // 呼び出し側は「エラー」ではなく案内として見せる
+          err.monthlyLimit = true; // 呼び出し側は「エラー」ではなく案内として見せる（トークンの上限）
           throw err;
         }
         throw new Error('リクエストが多すぎます。少し時間をおいて再試行してください。');

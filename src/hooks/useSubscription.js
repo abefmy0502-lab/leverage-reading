@@ -6,7 +6,7 @@ import { isSchemaError } from '../lib/errors';
 
 // 💳 ログインユーザーの課金状態を取得するフック。
 //
-// 全機能有料モデル（フリーミアム無し）の entitlement 判定に使う。
+// フリーミアム（2026-09-27〜）: 契約が無くてもアプリは使える（無料プラン）。ここはプランの判定に使う。
 // `isActive = status === 'active'` のみを「有料権利あり」とみなす。
 //   - App Store の Introductory Offer（無料期間）は RevenueCat 経由でも
 //     status='active'（subscriptions.period_type='trial'/'intro' で区別）として
@@ -58,6 +58,8 @@ const transformSubscription = (row) => {
     status: row.status || null,
     priceId: row.price_id || null,
     currentPeriodEnd: row.current_period_end || null,
+    // 'trial' / 'intro' = 無料期間（7 日間無料）。'normal' / null = 有料。トークンの量と行が変わる。
+    periodType: row.period_type || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
   };

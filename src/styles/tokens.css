@@ -107,6 +107,17 @@
   --share-cover-ink-3: rgba(255, 255, 255, 0.72);
   --share-cover-accent: rgba(255, 255, 255, 0.6);
   --share-cover-shadow: rgba(0, 0, 0, 0.35);
+  /* 写真（自分の写真の上に白い文字）と透明（ステッカー）。アクセントはロゴの i の点の橙。
+     幕（scrim）は写真の明るさに合わせて濃さを変える黒（r, g, b だけ・透明度は描くときに決める）。 */
+  --share-photo-ink: #ffffff;
+  --share-photo-ink-2: rgba(255, 255, 255, 0.86);
+  --share-photo-accent: #e3a93f;
+  --share-photo-shadow: rgba(0, 0, 0, 0.35);
+  --share-photo-scrim: 14, 12, 10;
+  --share-sticker-shadow: rgba(0, 0, 0, 0.55);
+  /* 透明のステッカーの見本の地（白い文字が見える暗い市松）。画像には入らない */
+  --share-sticker-backdrop-a: #2b2926;
+  --share-sticker-backdrop-b: #3a3733;
 
   /* 角丸は 1 種類（円は例外として --radius-full） */
   --radius: 12px;

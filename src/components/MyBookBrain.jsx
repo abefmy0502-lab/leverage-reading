@@ -981,7 +981,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const askAboutBook = (bookId, title, question) => {
     if (!bookId || busy) return;
     const q0 = String(question || '').replace(/\s+/g, ' ').trim();
-    const base = q0.length > 80 ? `${q0.slice(0, 80)}…` : q0;
+    const base = q0.length > 50 ? `${q0.slice(0, 50)}…` : q0;
     const q = base ? `「${base}」について、『${title}』の視点でくわしく教えて` : `『${title}』の視点で、くわしく教えて`;
     setView('chat');
     setScopeIds([bookId]);

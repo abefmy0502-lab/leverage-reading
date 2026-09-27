@@ -8,15 +8,20 @@
 //   - orderLineCandidates … 「どの一文にする？」の並び（ページつき → 新しい順）
 //   - buildShareText   … 共有の文（『書名』より＋一文＋#Orime＋URL。画像に入れた文だけ）
 //   - coverTone        … 表紙の画素から、白い文字が読める落ち着いた地の色を作る
+//   - photoPlacement / panView / zoomView … 写真を枠いっぱいに敷く位置（ずらす・拡大しても枠からはみ出さない）
+//   - scrimAlpha       … 写真の明るさから、白い文字が読める暗さの幕（黒の透明度）を決める
+//   - coverProxyPath   … 外部の表紙を自前の中継（/api/cover-image）経由の URL にする
 
 export const LINE_MAX_CHARS = 120;
 
-// 画像の大きさ（幅はどちらも 1080）。
+// 画像の大きさ（幅はどれも 1080）。
 export const FORMATS = {
   story: { w: 1080, h: 1920 }, // ストーリー 9:16
   post: { w: 1080, h: 1350 }, // 投稿 4:5
+  square: { w: 1080, h: 1080 }, // 正方形 1:1
 };
-export const STYLES = ['paper', 'night', 'cover'];
+// photo＝自分の写真の上に白い文字 / sticker＝透明の地（ストーリーの写真に重ねる用）
+export const STYLES = ['photo', 'paper', 'night', 'cover', 'sticker'];
 
 // ---------------------------------------------------------------- 一文を整える
 
@@ -299,3 +304,69 @@ export function coverTone(pixels) {
 }
 
 export const rgbCss = (rgb) => `rgb(${rgb.map((v) => Math.round(v)).join(', ')})`;
+
+// ---------------------------------------------------------------- 写真
+
+// 写真（pw×ph）を W×H の枠いっぱいに敷く位置。zoom は 1〜4（1＝ちょうど覆う）、
+// panX / panY は -1〜1（はみ出している分の範囲で、どこまでずらすか。0＝中央）。
+export function photoPlacement({ pw, ph, W, H, panX = 0, panY = 0, zoom = 1 }) {
+  const z = Math.min(4, Math.max(1, Number(zoom) || 1));
+  const s = Math.max(W / pw, H / ph) * z;
+  const dw = pw * s;
+  const dh = ph * s;
+  const maxX = Math.max(0, (dw - W) / 2);
+  const maxY = Math.max(0, (dh - H) / 2);
+  const cx = Math.min(1, Math.max(-1, Number(panX) || 0));
+  const cy = Math.min(1, Math.max(-1, Number(panY) || 0));
+  return { x: (W - dw) / 2 + cx * maxX, y: (H - dh) / 2 + cy * maxY, w: dw, h: dh, maxX, maxY };
+}
+
+// 指で dx, dy（画像の座標）だけずらした後の表示。枠からはみ出さない範囲に収める。
+export function panView(view, dx, dy, dims) {
+  const { maxX, maxY } = photoPlacement({ ...dims, ...view });
+  const clamp = (v) => Math.min(1, Math.max(-1, v));
+  return {
+    ...view,
+    panX: maxX > 0 ? clamp((view.panX || 0) + dx / maxX) : 0,
+    panY: maxY > 0 ? clamp((view.panY || 0) + dy / maxY) : 0,
+  };
+}
+
+export function zoomView(view, factor) {
+  const zoom = Math.min(4, Math.max(1, (view.zoom || 1) * factor));
+  return { ...view, zoom };
+}
+
+// 文字の後ろの写真の明るさ（相対輝度 0〜1・明るい画素寄りの値）から、黒い幕の濃さを決める。
+// 幕をかけた後の明るさが 0.18 以下（白い文字と 4.5:1 以上）になるように。最低 0.3・最大 0.82。
+export function scrimAlpha(luminance) {
+  const L = Math.min(1, Math.max(0, Number(luminance) || 0));
+  const need = L > 0.18 ? 1 - 0.18 / L : 0;
+  return Math.round(Math.min(0.82, Math.max(0.3, need)) * 100) / 100;
+}
+
+// 画素（[r,g,b] の配列）の相対輝度の、明るいほうから 15% の値（白い文字にかかりやすい明るい部分を基準に）。
+export function brightLuminance(pixels) {
+  if (!Array.isArray(pixels) || pixels.length === 0) return 0;
+  const lums = pixels.map(relLum).sort((a, b) => a - b);
+  return lums[Math.min(lums.length - 1, Math.floor(lums.length * 0.85))];
+}
+
+// ---------------------------------------------------------------- 表紙の中継
+
+// 表紙を canvas に描ける URL（の path）にする。data: / blob: / 同じサイトはそのまま、
+// 外部は /api/cover-image?url=…（http は https に）。使えない URL は null。
+export function coverProxyPath(url, origin = '') {
+  const u = String(url || '').trim();
+  if (!u) return null;
+  if (/^(data:image\/|blob:)/i.test(u)) return { direct: true, src: u };
+  if (u.startsWith('/') && !u.startsWith('//')) return { direct: true, src: u };
+  const https = u.replace(/^http:/i, 'https:');
+  if (!/^https:\/\//i.test(https)) return null;
+  try {
+    if (origin && new URL(https).origin === origin) return { direct: true, src: https };
+  } catch {
+    return null;
+  }
+  return { direct: false, src: `/api/cover-image?url=${encodeURIComponent(https)}` };
+}
