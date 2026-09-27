@@ -123,7 +123,6 @@ import { APP_STORE_URL, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
 import UpdateBanner from './components/UpdateBanner';
 import { BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
-import { fireConfetti } from './lib/confetti';
 import SwipeableCard from './components/SwipeableCard';
 import ContextMenu from './components/ContextMenu';
 import PullToRefresh from './components/PullToRefresh';
@@ -148,7 +147,6 @@ import { WantPhase, BeforePhase, ReadingPhase, DonePhase } from './components/Bo
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
-import { getRandomFromCategory } from './lib/quotes';
 import { loadNavState, saveNavState } from './lib/navState';
 import {
   BookOpen,
@@ -2102,13 +2100,11 @@ function AuthedApp() {
       if (recentlyDoneTimerRef.current) clearTimeout(recentlyDoneTimerRef.current);
       setRecentlyDoneId(book.id);
       recentlyDoneTimerRef.current = setTimeout(() => setRecentlyDoneId(null), 8000);
-      try { fireConfetti(); } catch { /* non-critical */ }
+      // 控えめに祝う（紙吹雪・「1 冊読了！」・出典の確かでない名言はやめた・反ゲーミフィケーション／作り話にしない）。
       try { haptic.success(); } catch { /* non-critical */ }
-      // Pick a celebration quote at click time (never at module load).
-      const celebrationQuote = getRandomFromCategory('achievement');
       toast.show({
         type: 'success',
-        message: `🎉 1 冊読了！お疲れ様でした\n“${celebrationQuote.text}”${celebrationQuote.author ? `\n— ${celebrationQuote.author}` : ''}`,
+        message: `「${book.title}」を読了にしました。心に残ったことを 1 行メモしておくと、あとで相談に生きます。`,
         duration: 6500,
         action: { label: '取消', onClick: revert },
       });

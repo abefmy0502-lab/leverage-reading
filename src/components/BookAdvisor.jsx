@@ -38,6 +38,7 @@ import ErrorMessage from './ErrorMessage';
 import BookStoreLinks from './BookStoreLinks';
 import { displayUserText, concernOf, interviewPairsOf } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
+import { findDuplicateBook } from '../lib/checkDuplicate';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
@@ -1378,6 +1379,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                   {added ? (
                     <p role="status" style={addedNote}>
                       <IcCheck size={16} aria-hidden="true" />追加済み
+                    </p>
+                  ) : findDuplicateBook(books || [], rec) ? (
+                    // すでに本棚にある本は追加させない（押すと重複の確認が出て戻るだけだった）
+                    <p role="status" style={{ ...addedNote, color: 'var(--text-2)' }}>
+                      <IcCheck size={16} aria-hidden="true" />本棚にあります
                     </p>
                   ) : (
                     <button

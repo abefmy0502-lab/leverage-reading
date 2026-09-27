@@ -206,7 +206,9 @@ export function ToastProvider({ children }) {
   const show = useCallback(
     (opts) => {
       const id = makeId();
-      const type = opts.type || 'info';
+      // ボタン（取消・行動にする・開く など）付きの成功は、押せない中央の ✓ ではなく
+      // 下のバーで出す（中央の ✓ はボタンを持てず、押せる操作が黙って消えていた・2026-09-27）。
+      const type = opts.type === 'success' && opts.action ? 'info' : (opts.type || 'info');
       const duration =
         typeof opts.duration === 'number'
           ? opts.duration

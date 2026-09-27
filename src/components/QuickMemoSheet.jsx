@@ -5,6 +5,7 @@
 // 見た目は DESIGN.md のトークンのみ。
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
@@ -357,7 +358,9 @@ export default function QuickMemoSheet({
     onClose?.();
   };
 
-  return (
+  // body 直下に出す。画面の中（アニメーションの transform がかかった要素の中）に置くと
+  // position: fixed が画面ではなくその要素に対して効き、下のタブが保存ボタンを覆っていた（2026-09-27）。
+  const sheet = (
     <>
       <div
         style={{ ...backdrop, ...(closing ? { opacity: 0, transition: 'opacity .18s ease' } : {}) }}
@@ -509,4 +512,5 @@ export default function QuickMemoSheet({
       </div>
     </>
   );
+  return typeof document !== 'undefined' ? createPortal(sheet, document.body) : sheet;
 }

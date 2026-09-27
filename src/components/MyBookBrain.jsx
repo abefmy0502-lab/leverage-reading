@@ -297,6 +297,18 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   [id, id, …] = 選んだ数冊だけ。質問ごとに streamMyBookBrain へ bookIds で渡す。
   const [scopeIds, setScopeIds] = useState([]);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
+  // 絞った本のメモの件数（上部の「〜件から答えます」を相談相手に合わせる）
+  const [scopeMemoCount, setScopeMemoCount] = useState(null);
+  useEffect(() => {
+    if (!scopeIds.length || !user?.id || !isSupabaseConfigured) { setScopeMemoCount(null); return undefined; }
+    let alive = true;
+    (async () => {
+      const { count } = await supabase.from('book_memos').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id).in('book_id', scopeIds);
+      if (alive) setScopeMemoCount(typeof count === 'number' ? count : null);
+    })();
+    return () => { alive = false; };
+  }, [scopeIds, user?.id]);
   // 本詳細の「この本に相談する」から来たら、相談相手をその本に絞って質問画面へ。
   useEffect(() => {
     if (!scopePreset?.bookIds || !consumePreset('scope', scopePreset.nonce)) return;
@@ -530,6 +542,18 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 最初の摩擦を消し、メモ資産→質問の接続を作る。会話が空のときだけ表示。
   const suggestedQuestions = useMemo(() => {
     const qs = [];
+    // 相談相手を本に絞っているときは、その本からだけ例を作る（ほかの本やタグの例を出さない）
+    if (scopeIds.length > 0) {
+      const picked = (books || []).filter((b) => scopeIds.includes(b.id));
+      const first = picked[0];
+      if (first?.title) {
+        qs.push(`『${first.title}』の学びで、明日から使えるものは？`);
+        qs.push(`『${first.title}』でいちばん大事なことを、私のメモから教えて`);
+      }
+      if (picked.length > 1) qs.push('選んだ本に共通する考え方は？');
+      qs.push('この本から、今週やる一歩を1つ提案して');
+      return qs.slice(0, 3);
+    }
     const tagCount = new Map();
     (books || []).forEach((b) => (Array.isArray(b.tags) ? b.tags : []).forEach((t) => {
       const k = String(t || '').trim();
@@ -541,7 +565,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (recent?.title) qs.push(`『${recent.title}』の学びで、明日から使えるものは？`);
     qs.push('最近のメモから、今週やるべき一歩を1つ提案して');
     return qs.slice(0, 3);
-  }, [books]);
+  }, [books, scopeIds]);
 
   const ask = async (questionText, opts = {}) => {
     if (!user) {
@@ -840,7 +864,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         {view === 'chat' ? (
           <>
             <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.4 }}>
-              {noteCount > 0 ? <>あなたのメモ {noteCount} 件から答えます</> : '読んだ本のメモを根拠に答えます'}
+              {scopeIds.length > 0
+                ? (scopeMemoCount != null
+                  ? (scopeIds.length === 1
+                    ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』のメモ {scopeMemoCount} 件から答えます</>
+                    : <>選んだ {scopeIds.length} 冊のメモ {scopeMemoCount} 件から答えます</>)
+                  : '選んだ本のメモから答えます')
+                : (noteCount > 0 ? <>あなたのメモ {noteCount} 件から答えます</> : '読んだ本のメモを根拠に答えます')}
               {freeMode && freeRemaining > 0 && (
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                   お試しで、あと {freeRemaining} 回相談できます
