@@ -347,12 +347,9 @@ export function BeforePhase({
 
           {/* 修正のお願い: 今のシート＋自由文の指示を AI に渡す。1 つ前は端末に残し、元に戻せる。 */}
           <div style={{ ...softBox, marginTop: 'var(--space-3)' }}>
-            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
+            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' }}>
               <IcPencil size={13} aria-hidden="true" style={labelIcon} />
               直したいところ
-            </p>
-            <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-1) 0 var(--space-2)', lineHeight: 1.6 }}>
-              例：もっと簡潔に / 営業視点を強化 / 章番号を増やして
             </p>
             <textarea
               value={editInstruction}
@@ -364,7 +361,7 @@ export function BeforePhase({
                   submitEdit();
                 }
               }}
-              placeholder="修正したい点を入力"
+              placeholder="例：もっと簡潔に / 営業視点を強化"
               rows={2}
               style={{ ...ta, minHeight: 64, maxHeight: 200 }}
               maxLength={LIMITS.memoText}
@@ -488,8 +485,8 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
       {/* 「この本の学びを分析」は 2026-09-27 に廃止（本詳細の「この本に相談する」と重なる）。
           以前に保存した分析は「この本のAI まとめ」に残り、編集できる。 */}
       {form.aiSummary?.trim() && (
-        <Field label={<><IcBot size={13} aria-hidden="true" style={labelIcon} />この本のAI まとめ</>}>
-          <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={5} style={ta} maxLength={LIMITS.memoText} />
+        <Field label={<><IcBot size={13} aria-hidden="true" style={labelIcon} />この本の AI まとめ</>}>
+          <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={3} style={ta} maxLength={LIMITS.memoText} />
         </Field>
       )}
 
@@ -501,8 +498,8 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
           value={form.roiSummary || ""}
           onChange={(e) => setForm({ ...form, roiSummary: e.target.value })}
           placeholder="例：意思決定が速くなる思考法を獲得"
-          rows={3}
-          style={{ ...ta, minHeight: 84 }}
+          rows={2}
+          style={ta}
           maxLength={LIMITS.memoText}
           aria-label="一番の収穫（1行）"
         />
@@ -539,9 +536,9 @@ function ActionsEditor({ form, setForm, title, placeholder }) {
           <div key={i} style={{ background: "var(--fill)", borderRadius: "var(--radius)", padding: "var(--space-3) var(--space-4)", display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? placeholder : `行動 ${i + 1}`} style={inp} maxLength={LIMITS.actionText} aria-label={`行動 ${i + 1}`} />
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>
                 期限
-                <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={inp} />
+                <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={inp} aria-label={`行動 ${i + 1} の期限`} />
               </label>
             </div>
             <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
