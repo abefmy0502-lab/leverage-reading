@@ -122,7 +122,7 @@ function PlanOption({ label, selected, onSelect }) {
           {label.name}
           {/* 年額への後押し: 「おすすめ」と、ストアの実数から計算した割引。 */}
           {label.save && (
-            <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--accent-ink)', background: 'var(--accent)', borderRadius: 'var(--radius)', padding: '0 var(--space-2)', lineHeight: 1.7 }}>
+            <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text)', background: 'var(--fill)', borderRadius: 'var(--radius)', padding: '0 var(--space-2)', lineHeight: 1.7 }}>
               おすすめ
             </span>
           )}
@@ -294,7 +294,7 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
         {/* 見出し（一番の価値）。お試しのあとは「自分の相談相手」を主語にする */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44 }}>
           <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
-            {fromFree ? 'お試しの相談は、ここまでです' : 'Orime'}
+            Orime
           </p>
           {onClose && (
             <button
@@ -320,7 +320,7 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
               {myBooks.map((b) => <MiniCover key={b.id} book={b} width={60} />)}
             </div>
             <p style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, margin: 'var(--space-4) 0 0' }}>
-              {myBooks.slice(0, 2).map((b) => `『${b.title}』`).join('')}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。読むほど、答えが確かになっていきます。
+              {myBooks.slice(0, 2).map((b) => `『${b.title}』`).join('')}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
             </p>
           </>
         )}

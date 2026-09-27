@@ -883,14 +883,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     <div style={wrap}>
       {/* 上部は 1 行だけ（SPEC §3: 二重タブをやめる）。会話のときは「何を根拠に答えるか」＋
           履歴（時計）＋その他（…）。会話以外の画面では「‹ 相談」で戻る。 */}
-      <div style={topRow}>
+      {/* お試し中は上部が 2 行になるので、下に線を引いて「下に潜っている」ことを示す */}
+      <div style={freeMode ? { ...topRow, borderBottom: '1px solid var(--separator)' } : topRow}>
         {view === 'chat' ? (
           <>
             <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.4 }}>
               {noteCount > 0 ? <>あなたのメモ {noteCount} 件から答えます</> : '読んだ本のメモを根拠に答えます'}
-              {freeMode && (
+              {freeMode && freeRemaining > 0 && (
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                  {freeRemaining > 0 ? `お試しで、あと ${freeRemaining} 回相談できます` : 'お試しの相談は使い切りました'}
+                  お試しで、あと {freeRemaining} 回相談できます
                 </span>
               )}
             </p>
@@ -1059,13 +1060,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {freeMode && freeRemaining <= 0 && !busy && lastIsAssistant && (
             <section
               aria-label="お試しの相談は、ここまで"
-              style={{ marginTop: 'var(--space-6)', padding: 'var(--space-4)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}
+              style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}
             >
               <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
                 お試しの相談は、ここまでです
-              </p>
-              <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                メモが増えるほど、答えは確かになります。この相談相手を使い続けますか？
               </p>
               <button type="button" onClick={() => openPaywall('free_used')} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
                 この相談相手を使い続ける
@@ -1075,9 +1073,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
           {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
-              <button type="button" onClick={regenerate} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
-                別の角度で答えて
-              </button>
+              {/* お試しを使い切ったら、できない操作を出さない */}
+              {!(freeMode && freeRemaining <= 0) && (
+                <button type="button" onClick={regenerate} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
+                  別の角度で答えて
+                </button>
+              )}
               <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
                 新しい相談をはじめる
               </button>

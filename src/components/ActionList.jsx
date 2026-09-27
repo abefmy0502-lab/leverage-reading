@@ -271,15 +271,12 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
             enterKeyHint="done"
             style={uiInput}
           />
-          <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
-            ひとことでも残すと、次の相談で踏まえて答えます（任意）
-          </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
             <button
               type="button"
               onClick={saveReflection}
               disabled={!reflection.trim() || reflecting}
-              style={{ ...rowBtn, ...(reflection.trim() && !reflecting ? {} : { color: 'var(--text-3)', borderColor: 'var(--separator)', cursor: 'default' }) }}
+              style={{ ...rowBtn, ...(reflection.trim() && !reflecting ? {} : { opacity: 1, background: 'var(--fill)', borderColor: 'transparent', color: 'var(--text-3)', cursor: 'default' }) }}
             >
               {reflecting ? '保存中…' : '残す'}
             </button>
