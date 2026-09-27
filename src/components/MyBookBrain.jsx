@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
-import { streamMyBookBrain, generateWeeklyQuestion, prewarmKnowledge, invalidateKnowledgeCache } from '../lib/ai';
+import { streamMyBookBrain, generateWeeklyQuestion, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
@@ -22,7 +22,7 @@ import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
-import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus } from 'lucide-react';
+import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import KnowledgeJourney from './KnowledgeJourney';
 import { usePaywall } from '../state/PaywallContext';
@@ -678,7 +678,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 走らなくても、ここに溜めた本文をそのまま確定できるよう保持する。
     let lastVisible = '';
     try {
-      const { body, refs, memoCount, memoTotal, cardCount, summaryCount, personalCount } = await streamMyBookBrain({
+      const { body, refs, memoCount, memoTotal, cardCount, summaryCount, personalCount, evidence } = await streamMyBookBrain({
         userId: user.id,
         question: q,
         bookIds: askBookIds,
@@ -710,7 +710,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         : finalBody;
       // 中止した場合は末尾に控えめな注記を付ける (refs は付けない)。
       const assistantContent = wasAborted ? `${base}\n\n— ここで中止しました` : base;
-      const persistRefs = wasAborted ? [] : refs;
+      const persistRefs = wasAborted ? [] : (evidence ? [`${EVIDENCE_PREFIX}${evidence}`, ...(refs || [])] : refs);
       // 保存（履歴への insert）は「回答の表示」と切り離す。回答生成は成功して
       // いるのに保存だけ失敗した場合、画面の回答をエラー文言で消さない。
       try {
@@ -1329,7 +1329,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   const canAct = !isUser && !isStreaming && !message.error && (!!onAddAction || !!onAddActionPickBook);
   const actionLine = canAct ? extractActionLine(message.content) : '';
   // 参照メモから本を特定できれば直接その本へ。特定できない一般回答は本選択シートへ。
-  const actionBookId = actionLine && onAddAction ? resolveActionBookId(message.refs, books) : null;
+  const actionBookId = actionLine && onAddAction ? resolveActionBookId((message.refs || []).filter((r) => !String(r).startsWith(EVIDENCE_PREFIX)), books) : null;
   const canShowAction = !!actionLine && (!!actionBookId || !!onAddActionPickBook);
   const handleAddAction = async () => {
     if (!actionLine || actionBusy) return;
@@ -1363,8 +1363,11 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   }
 
   const parsed = !isStreaming && !message.error ? parseAnswer(message.content) : null;
-  const nBooks = refBookCount(message.refs);
-  const refsList = Array.isArray(message.refs) ? message.refs : [];
+  // 🌱 「使ったメモ」の一行は refs の先頭に目印付きで保存している（表を増やさずに履歴にも残す）。
+  const allRefs = Array.isArray(message.refs) ? message.refs : [];
+  const evidence = (allRefs.find((r) => String(r).startsWith(EVIDENCE_PREFIX)) || '').slice(EVIDENCE_PREFIX.length);
+  const refsList = allRefs.filter((r) => !String(r).startsWith(EVIDENCE_PREFIX));
+  const nBooks = refBookCount(refsList);
 
   return (
     <div
@@ -1426,6 +1429,13 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                 )
               )}
             </div>
+          )}
+          {/* 積み重ねが効いていることを、事実だけで一行（盛らない・渡したメモと一致したものだけ） */}
+          {evidence && (
+            <p style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+              <Sprout size={16} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0, marginTop: 2 }} />
+              <span>{evidence}</span>
+            </p>
           )}
           {/* 3. 根拠（参照したメモ・解釈）は畳む */}
           {(parsed.refs || parsed.interp || refsList.length > 0) && (

@@ -1034,7 +1034,57 @@ async function buildBrainContext({ userId, question, onStage, bookIds }) {
     { type: 'text', text: questionBlockText },
   ];
 
-  return { empty: false, userPrompt, userBlocks, stats };
+  // 答えの下の「使ったメモ」の一行（evidenceFromRefs）のために、渡したメモの目印を返す。
+  const sources = [...ranked, ...related].map((m) => ({
+    title: m.book?.title || '',
+    page: m.page_number ?? null,
+    created_at: m.created_at || null,
+    personal: m.source_type === 'personal' || (!m.book && !m.book_id),
+    card: !SYNTH_LABEL[m.source_type],
+  }));
+  return { empty: false, userPrompt, userBlocks, stats, sources };
+}
+
+// 🌱 答えの下に出す「使ったメモ」の一行（#3・2026-09-27）。AI が REFS に挙げた本・ページ・
+// 学びの日付を、実際に渡したメモと突き合わせる（渡していないものは数えない＝盛らない）。
+// 例: 「あなたのメモ 3 件から答えました（いちばん古いのは 4 か月前）」。
+// 日付は、ページまで一致したメモと、日付が一致した学びだけから出す（書名だけの一致では出さない）。
+export const EVIDENCE_PREFIX = '🌱 ';
+const normTitle = (t) => String(t || '').replace(/[\s　「」『』()（）]/g, '').toLowerCase();
+export function evidenceFromRefs(refs, sources, now = Date.now()) {
+  if (!Array.isArray(refs) || !Array.isArray(sources) || sources.length === 0) return null;
+  let count = 0;
+  let oldest = null;
+  for (const raw of refs) {
+    const r = String(raw || '');
+    const title = (r.match(/『([^』]+)』/) || [])[1] || '';
+    const page = Number((r.match(/[pP]\.?\s*(\d+)/) || [])[1]);
+    const date = (r.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || '';
+    let hit = [];
+    if (!title && date) {
+      hit = sources.filter((sr) => sr.personal && String(sr.created_at || '').startsWith(date));
+    } else if (title) {
+      const same = sources.filter((sr) => !sr.personal && normTitle(sr.title) === normTitle(title));
+      hit = Number.isFinite(page) ? same.filter((sr) => Number(sr.page) === page) : [];
+      // 本は一致・ページが無い／合わない → 1 件と数えるが、日付には使わない（古さを盛らない）
+      if (hit.length === 0 && same.length > 0) { count += 1; continue; }
+    }
+    if (hit.length === 0) continue;
+    count += 1;
+    for (const h of hit) {
+      const t = Date.parse(h.created_at || '');
+      if (Number.isFinite(t) && (oldest == null || t < oldest)) oldest = t;
+    }
+  }
+  if (count === 0) return null;
+  let ago = '';
+  if (oldest != null) {
+    const days = (now - oldest) / 86400000;
+    if (days >= 365) ago = `${Math.floor(days / 365)} 年前`;
+    else if (days >= 60) ago = `${Math.floor(days / 30)} か月前`;
+    else if (days >= 14) ago = `${Math.floor(days / 7)} 週間前`;
+  }
+  return `あなたのメモ ${count} 件から答えました${ago ? `（いちばん古いのは ${ago}）` : ''}`;
 }
 
 // Strip REFS_START..REFS_END from the visible streaming text. The block is
@@ -1523,7 +1573,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   const body = truncated
     ? `${parsed.body}\n\n※ 回答が長さの上限に達したため途中までです。質問を絞ると最後まで生成できます。`
     : parsed.body;
-  return { body, refs: parsed.refs, ...ctx.stats, truncated };
+  return { body, refs: parsed.refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(parsed.refs, ctx.sources) };
 }
 
 // ============================================================================
