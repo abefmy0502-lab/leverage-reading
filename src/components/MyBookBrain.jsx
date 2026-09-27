@@ -53,6 +53,18 @@ const STOPPED_EMPTY = '回答を中止しました。';
 // 戻ってきたら、その質問と答えを会話に出す。画面を作り直しても消えない場所に覚えておく。
 let backgroundAsk = null; // { questionAt, done, finishedAt, leftWhileRunning, promise }
 
+// 相談の画面を離れて（下のタブ・上のサブタブを切り替えて）戻ってきたときは、同じ会話と
+// 同じ相談相手のまま続ける。新しい会話になるのは、アプリを開き直したとき（再読み込み）と
+// 「新しい相談をはじめる」を押したときだけ。画面を作り直しても消えない場所に覚えておく。
+// { userId, clearedAt, scopeIds, messages, scrollTop }
+let session = null;
+const sessionFor = (userId) => (session && userId && session.userId === userId ? session : null);
+const rememberSession = (userId, patch) => {
+  if (!userId) return;
+  if (!session || session.userId !== userId) session = { userId, clearedAt: undefined, scopeIds: [], messages: [], scrollTop: 0 };
+  Object.assign(session, patch);
+};
+
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
 // 収める flex column。chat 時は内側 .chat-scroll + .ai-input-area で
 // LINE 風レイアウト、それ以外 (learning/history/knowledge) は普通の
@@ -305,11 +317,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const isPushed = view !== 'chat';
   useEffect(() => { pushedCbRef.current?.(isPushed); }, [isPushed]);
   useEffect(() => () => { pushedCbRef.current?.(false); }, []);
-  const [messages, setMessages] = useState([]);
+  // 同じアプリの起動中に戻ってきたら、前の会話と相談相手をそのまま出す（上の session）。
+  const resumed = useRef(sessionFor(user?.id)).current;
+  const [messages, setMessages] = useState(() => (resumed
+    ? resumed.messages.filter((m) => !m.streaming && !/^(streaming|bg-wait)-/.test(String(m.id)))
+    : []));
+  useEffect(() => { rememberSession(user?.id, { messages }); }, [messages, user?.id]);
   const [input, setInput] = useState('');
   // 🎯 相談相手（2026-09-26）: [] = すべての本（＋学びログ）/ [id] = その 1 冊だけ /
   //   [id, id, …] = 選んだ数冊だけ。質問ごとに streamMyBookBrain へ bookIds で渡す。
-  const [scopeIds, setScopeIds] = useState([]);
+  const [scopeIds, setScopeIds] = useState(() => (resumed ? resumed.scopeIds : []));
+  useEffect(() => { rememberSession(user?.id, { scopeIds }); }, [scopeIds, user?.id]);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   // 絞った本のメモの件数（上部の「〜件から答えます」を相談相手に合わせる）
   const [scopeMemoCount, setScopeMemoCount] = useState(null);
@@ -356,6 +374,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 以降のメッセージのみ表示する。history view は全件表示。localStorage に
   // 永続化して mount/unmount を跨いでも保持。
   const [clearedAt, setClearedAt] = useState(() => {
+    if (resumed && resumed.clearedAt !== undefined) return resumed.clearedAt;
     try {
       if (typeof localStorage === 'undefined') return null;
       return localStorage.getItem('brain-cleared-at') || null;
@@ -449,7 +468,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 境界は「読み込んだ履歴の最新（サーバ時刻）」。読み込み中に送った質問は境界より
     // 後なので表示される。履歴が空なら隠すものは無い（端末の時計は使わない＝時計が
     // 進んでいる端末で初回の相談が隠れる不具合の防止）。
-    let cut = historyLatestRef.current || '1970-01-01T00:00:00.000Z';
+    // 同じアプリの起動中に戻ってきたときは、前の境界をそのまま使う（会話を空にしない）。
+    let cut = resumed && resumed.clearedAt !== undefined
+      ? resumed.clearedAt
+      : (historyLatestRef.current || '1970-01-01T00:00:00.000Z');
     // 答えを待っている途中で画面を離れていたら、その質問から会話に出す。
     const bg = backgroundAsk && backgroundAsk.leftWhileRunning
       && (!backgroundAsk.done || Date.now() - (backgroundAsk.finishedAt || 0) < 10 * 60 * 1000)
@@ -473,8 +495,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       else bg.leftWhileRunning = false;
     }
     setClearedAt(cut);
+    rememberSession(user?.id, { clearedAt: cut });
     try { localStorage.setItem('brain-cleared-at', cut); } catch { /* ignore */ }
-  }, [historyLoaded, messages]);
+  }, [historyLoaded, messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 📚 メモのある本（相談例に「メモの無い本」を出さないため。新しいメモから最大 1000 件で十分）。
   const [memoBookIds, setMemoBookIds] = useState(null); // Set<bookId> | null（読み込み前）
@@ -866,6 +889,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       ? saved.reduce((a, m) => (m.createdAt > a ? m.createdAt : a), saved[0].createdAt)
       : new Date().toISOString();
     setClearedAt(now);
+    rememberSession(user?.id, { clearedAt: now });
     setPromptDismissed(false);
     try {
       if (typeof localStorage !== 'undefined') {
@@ -1276,11 +1300,13 @@ const STAGE_LABEL = {
   generate: '答えを書いています…',
 };
 
-// 『』「」の前後に AI が入れがちな空白（「と 『本』 P.95」）を詰める。改行は残す。
+// 『』「」の前後に AI が入れがちな空白（「と 『本』 p.95」）を詰める。改行は残す。
+// ページの書き方は画面と同じ「p.95」に揃える（以前の答え・履歴に残る「P.95」も）。
 function tidyQuotes(text) {
   return String(text || '')
     .replace(/[ \u3000]+([『「])/g, '$1')
-    .replace(/([』」])[ \u3000]+/g, '$1');
+    .replace(/([』」])[ \u3000]+/g, '$1')
+    .replace(/(^|[^A-Za-z])P\.\s?(\d)/g, '$1p.$2');
 }
 
 // **bold** の軽量インラインパーサ。

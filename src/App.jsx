@@ -517,6 +517,8 @@ function AuthedApp() {
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
   // 🏠 ホームタブ（tab キー 'books'）の中の画面: 'home'＝ホーム / 'library'＝すべての本（SPEC §1）。
   const [shelfMode, setShelfMode] = useState('home');
+  // 「すべての本」をどこから開いたか。'record'＝振り返りの記録（「‹ 記録」で記録へ戻す）/ null＝ホーム。
+  const [libraryFrom, setLibraryFrom] = useState(null);
   // 🏠✍️ ホームの「メモ」で開くクイックメモの対象本（詳細画面に移らずホームの上に重ねる）。
   const [homeMemoBook, setHomeMemoBook] = useState(null);
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
@@ -1651,9 +1653,8 @@ function AuthedApp() {
         .catch(() => { /* 写真の掃除に失敗しても本の削除は済んでいる */ });
     };
 
-    // 確認ダイアログ経由の削除（undo=false）では、既にユーザーが意思確認済み
-    // なので下部の「取消」トーストは出さない（本が消えること自体が手応え）。
-    // スワイプ削除（ジェスチャー＝確認なし）のときだけ取消トーストを出す。
+    // undo=false は取消トーストを出さない経路（現在は未使用）。確認ダイアログ経由でも
+    // メモ・行動ごと消えるので、スワイプ削除と同じく 5 秒の「元に戻す」を出す（2026-09-27）。
     if (!undo) {
       deletionPromise.catch(() => {});
       removePhotos();
@@ -1691,13 +1692,13 @@ function AuthedApp() {
     if (!book) return;
     const ok = await confirm({
       title: 'この本を削除しますか？',
-      message: `「${book.title}」のメモ・写真・行動リストもすべて削除されます。`,
+      message: `「${book.title}」のメモ（写真を含む）と行動も、いっしょに削除されます。\n削除した直後なら「元に戻す」で戻せます。`,
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
     });
     if (!ok) return;
-    await performBookDelete(book, { undo: false });
+    await performBookDelete(book);
   };
 
   // Swipe-driven delete from the list — gesture itself counts as confirmation.

@@ -314,7 +314,7 @@ function formatMemo(memo, opts) {
   // Card memo (book_memos with book_id)
   const parts = [`${dateTag}本: ${safeTitle}`];
   if (safeAuthor) parts.push(`著者: ${safeAuthor}`);
-  if (Number.isFinite(memo.page_number)) parts.push(`P.${memo.page_number}`);
+  if (Number.isFinite(memo.page_number)) parts.push(`p.${memo.page_number}`);
   const tagText = (memo.tags || [])
     .filter((t) => typeof t === 'string' && !t.startsWith('@'))
     .map((t) => `#${sanitizeForPrompt(t).slice(0, 30)}`)
@@ -399,7 +399,7 @@ REFS を除いて 600 字前後に収める（スマホで一度に読める長�
 印象的な一節や味わいの気づきで締めてよい。）
 
 REFS_START
-- 📚 著者『本のタイトル』P.◯◯
+- 📚 著者『本のタイトル』p.◯◯
 - 📖 著者『本のタイトル』まとめメモ
 - 💡 自分の学び (YYYY-MM-DD / カテゴリ)
 REFS_END

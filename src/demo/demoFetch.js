@@ -61,7 +61,7 @@ function brainAnswer(store, question, memoBlock = '') {
   const label = (m) => {
     const b = books.get(m.book_id);
     if (!b) return { ref: `💡 自分の学び (${(m.created_at || '').slice(0, 10)})`, name: 'あなたの学びログ' };
-    const page = m.page_number ? ` P.${m.page_number}` : '';
+    const page = m.page_number ? ` p.${m.page_number}` : '';
     return { ref: `📚 ${b.author}『${b.title}』${page}`, name: `『${b.title}』${page}` };
   };
   const [p1, p2] = picked.map(label);
