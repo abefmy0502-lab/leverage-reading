@@ -975,7 +975,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               )}
               <button
                 type="button"
-                style={{ ...btnLink, flexShrink: 0 }}
+                style={{ ...btnLink, flexShrink: 0, paddingRight: 0 }}
                 onClick={() => {
                   setSearch('');
                   setTagFilter('');
@@ -989,9 +989,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           )}
         </div>
         {isSearching && (filteredSearch.length === 0 ? (
-          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', textAlign: 'center', padding: 'var(--space-6) 0 0', margin: 0, lineHeight: 1.6 }}>
-            このキーワードに関連するメモはまだありません。
-          </p>
+          <EmptyState
+            icon={<SearchIcon size={32} strokeWidth={1.5} aria-hidden="true" />}
+            title="このキーワードに関連するメモはまだありません"
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{filteredSearch.length} 件</p>
@@ -1130,9 +1131,12 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       </section>
 
       {/* ===== 3. タイムライン ===== */}
+      {/* メモが 1 件だけのときは思い出しカードと同じメモになるので、月ごとの一覧は出さない。 */}
+      {allNotes.length > 1 && (
       <section>
-        {/* 「メモを追加」（高さ 44）と並ぶので、行の下の余白は付けない（見出しの文字から一覧まで約 8〜12）。 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* 「メモを追加」（高さ 44）と並ぶので、行の下の余白は付けない（見出しの文字から一覧まで約 8〜12）。
+            行の高さ 44 の上側の空き（約 12）ぶん引き上げ、思い出しカードから見出しの文字までを約 24 にそろえる。 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'calc(-1 * var(--space-3))' }}>
           <h2 style={{ ...sectionTitle, margin: 0 }}>月ごとのメモ</h2>
           {/* ＋メモを追加 — 旧・最上段の孤立ボタンをここへ（メモ一覧の傍が住処。
               付け先の本＝読書中/読了の本がある時だけ）。 */}
@@ -1197,6 +1201,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           })}
         </div>
       </section>
+      )}
       </>)}
     </div>
     </PullToRefresh>

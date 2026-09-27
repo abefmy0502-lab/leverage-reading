@@ -125,7 +125,15 @@ class Query {
   then(resolve, reject) {
     // &load=slow: 読み込みがなかなか終わらない（読み込み中の表示の確認用）。読み出しだけ遅らせる。
     const qs = new URLSearchParams(window.location.search);
-    const slow = this.op === 'select' && qs.get('load') === 'slow';
+    // 本とメモの読み出しだけ遅らせる（課金・ログインの確認まで遅らせると、その待ち画面で止まってしまう）。
+    const slow = this.op === 'select' && qs.get('load') === 'slow' && ['books', 'book_memos'].includes(this.table);
+    // &dbfail=books,book_memos: 指定した表の読み出しを失敗させる（読み込み失敗の表示の確認用）。
+    const failTables = (qs.get('dbfail') || '').split(',').filter(Boolean);
+    if (this.op === 'select' && failTables.includes(this.table)) {
+      return new Promise((r) => setTimeout(r, 300))
+        .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
+        .then(resolve, reject);
+    }
     // &db=fail: 過去の相談の読み込みが失敗する（失敗の表示の確認用）。
     if (this.op === 'select' && qs.get('db') === 'fail' && this.table === 'chat_messages') {
       return new Promise((r) => setTimeout(r, 300))
@@ -266,7 +274,7 @@ export function createDemoClient() {
     user_metadata: { display_name: scenario === 'new' ? '' : 'さとう' },
     app_metadata: { provider: 'email' },
     // ?demo=free: 登録したばかり（お試しの枠の中）の未課金ユーザー。
-    created_at: new Date(Date.now() - (scenario === 'free' ? 600000 : 200 * 86400000)).toISOString(),
+    created_at: new Date(Date.now() - ((scenario === 'free' || scenario === 'freeused') ? 600000 : 200 * 86400000)).toISOString(),
   };
 
   const store = {

@@ -15,6 +15,8 @@
 .lp-root {
   --lp-sec: var(--space-16);
   --lp-gutter: var(--space-4);
+  /* 下部の固定ボタンの高さ（ボタン 48＋上下 12）。フッターがこの下に隠れないよう余白に足す */
+  --lp-sticky-h: calc(var(--space-12) + 2 * var(--space-3));
   /* 見出しだけ LP 専用の大きさ（tokens.css の --text-display / --text-display-2・画面幅で伸びる）。
      本文・補足・付随情報はアプリのトークン */
 }
@@ -115,7 +117,8 @@ body.lp-active {
   transition: background-color var(--duration-fast, 150ms) ease;
 }
 .lp-btn:hover { background: var(--accent-hover); }
-.lp-btn-large { min-height: 56px; padding: 0 var(--space-8); font-size: var(--text-body); }
+/* ボタンの高さは 48 の 1 種類（DESIGN §5）。大きいボタンは横の余白だけ広げる */
+.lp-btn-large { min-height: 48px; padding: 0 var(--space-8); font-size: var(--text-body); }
 .lp-btn-small { min-height: 44px; padding: 0 var(--space-4); font-size: var(--text-sub); }
 /* App Store の URL が未設定の間（近日公開）: 押せないことが分かる静かな見た目 */
 .lp-btn.is-soon {
@@ -332,10 +335,10 @@ body.lp-active {
 }
 .lp-plan-price span { margin-left: var(--space-1); font-size: var(--text-sub); font-weight: 400; color: var(--text-2); }
 .lp-plan-sub { word-break: auto-phrase; margin-top: var(--space-1) !important; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
-.lp-plan.is-recommended .lp-plan-sub { color: var(--text); font-weight: 600; }
 .lp-included { list-style: none; margin: var(--space-8) 0 0; padding: 0; display: grid; gap: var(--space-3); }
 .lp-included li { display: flex; gap: var(--space-3); align-items: flex-start; }
-.lp-included svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--success); }
+/* 含まれるもののチェックは状態（完了）ではないので --success にしない */
+.lp-included svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
 
 /* FAQ */
 .lp-faq { border-top: 1px solid var(--separator); }
@@ -379,7 +382,7 @@ body.lp-active {
 
 /* フッター */
 .lp-footer {
-  padding: var(--space-12) 0 calc(var(--space-12) + 72px + env(safe-area-inset-bottom));
+  padding: var(--space-12) 0 calc(var(--space-12) + var(--lp-sticky-h) + env(safe-area-inset-bottom));
   color: var(--text-2);
   font-size: var(--text-sub);
 }
@@ -622,7 +625,7 @@ body.lp-active {
 .lp-demo-send:disabled { border-color: var(--separator); color: var(--text-3); cursor: default; }
 .lp-demo-promises { list-style: none; margin: var(--space-6) 0 0; padding: 0; display: grid; gap: var(--space-2); }
 .lp-demo-promises li { display: flex; gap: var(--space-2); align-items: flex-start; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
-.lp-demo-promises svg { flex-shrink: 0; margin-top: 3px; color: var(--success); }
+.lp-demo-promises svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
 .lp-demo-nomatch { margin-top: var(--space-3) !important; color: var(--text-2); font-size: var(--text-sub); line-height: 1.6; }
 
 /* ============ 作り手と約束 ============ */

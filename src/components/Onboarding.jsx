@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
-import { BookOpen, PencilLine, MessageCircle, Target, X } from 'lucide-react';
+import { BookOpen, PencilLine, MessageCircle, Target, X, ChevronLeft } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText } from '../styles/ui';
 
 const STORAGE_KEY = 'onboardingCompleted';
@@ -139,6 +139,11 @@ const closeBtnStyle = {
   alignItems: 'center',
   justifyContent: 'center',
 };
+// 2 枚目以降の「戻る」: × と左右対称の位置・大きさ（最後の画面でも戻れるように）。
+const backBtnStyle = { ...closeBtnStyle, right: 'auto', left: 'var(--space-2)' };
+
+// 横スワイプでページを送る（左へ＝次・右へ＝前）。縦スクロールと取り違えないよう、横の動きが十分大きいときだけ。
+const SWIPE_MIN_PX = 48;
 
 // 「どこで知りましたか」のチップ。見た目は高さ 32（--fill 面・13px）、押せる範囲は 44（DESIGN §5・§6）。
 const chipHit = {
@@ -178,6 +183,23 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
     track('signup_source', { ch: key });
   };
   const trapRef = useFocusTrap(true);
+  const goPrev = () => setStep((s) => Math.max(0, s - 1));
+  const goNext = () => setStep((s) => Math.min(slides.length - 1, s + 1));
+  const touchStart = useRef(null);
+  const onTouchStart = (e) => {
+    const t = e.touches?.[0];
+    touchStart.current = t ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onTouchEnd = (e) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    const t = e.changedTouches?.[0];
+    if (!start || !t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) goNext(); else goPrev();
+  };
   // 開いたときのフォーカスは × ではなく見出しへ（読み上げが「閉じる」から始まらないように）。
   // useFocusTrap の初期フォーカス（最初のボタン＝×）の後に実行されるよう、この effect を後に置く。
   const titleRef = useRef(null);
@@ -234,7 +256,12 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="onb-title">
-      <div ref={trapRef} style={cardStyle}>
+      <div ref={trapRef} style={cardStyle} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {step > 0 && (
+          <button type="button" style={backBtnStyle} onClick={goPrev} aria-label="戻る">
+            <ChevronLeft size={24} aria-hidden="true" />
+          </button>
+        )}
         <button type="button" style={closeBtnStyle} onClick={dismiss} aria-label="閉じる">
           <X size={22} aria-hidden="true" />
         </button>
@@ -331,13 +358,8 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
           </>
         ) : (
           <div style={{ display: 'flex', gap: 'var(--space-3)', flexShrink: 0 }}>
-            {/* 最初の画面は「戻る」が無い。閉じるのは右上の × だけ（同じ操作を 2 か所に出さない）→「次へ」を全幅に。 */}
-            {step > 0 && (
-              <button type="button" style={btnGhost} onClick={() => setStep((s) => Math.max(0, s - 1))}>
-                戻る
-              </button>
-            )}
-            <button type="button" style={btnPrimary} onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}>
+            {/* 戻るは左上の ‹ だけ（最後の画面でも同じ場所にある・同じ操作を 2 か所に出さない）→「次へ」は常に全幅。 */}
+            <button type="button" style={btnPrimary} onClick={goNext}>
               次へ
             </button>
           </div>

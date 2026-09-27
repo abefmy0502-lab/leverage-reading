@@ -110,7 +110,9 @@ const doneBtnStyle = {
   fontFamily: 'inherit',
   fontSize: 'var(--text-body)',
   fontWeight: 600,
-  padding: 0,
+  // 押せる範囲は 44 のまま、文字の右端を画面の右余白 16 にそろえる（左右に 12 の内側・右へ 12 はみ出す）。
+  padding: '0 var(--space-3)',
+  marginRight: 'calc(-1 * var(--space-3))',
 };
 
 const bodyStyle = {
@@ -1042,10 +1044,10 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               </button>
             </div>
 
-            {/* ログアウト（アカウントを切り替えたい人の導線・削除のすぐ上）。 */}
+            {/* ログアウト（アカウントを切り替えたい人の導線・削除のすぐ上）。ふつうの一覧の行（本文色）。 */}
             <button
               type="button"
-              style={{ ...rowButtonStyle, ...divider, color: 'var(--accent)', fontSize: 'var(--text-body)' }}
+              style={{ ...rowButtonStyle, ...divider, fontSize: 'var(--text-body)' }}
               onClick={async () => {
                 try { await signOut(); onClose?.(); } catch { toast.error('ログアウトに失敗しました。'); }
               }}
@@ -1056,21 +1058,17 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             {/* アカウント削除 */}
             <div ref={deleteRef} style={{ ...blockStyle, ...divider }} role="group" aria-label="アカウント削除">
               <div>
-                <p style={{ ...rowTitleStyle, fontWeight: 600, color: 'var(--error)' }}>アカウント削除（退会）</p>
+                <p style={{ ...rowTitleStyle, fontWeight: 600, color: 'var(--text)' }}>アカウント削除（退会）</p>
                 <p style={rowDescStyle}>
                   <strong style={{ fontWeight: 600 }}>アカウントごと退会</strong>します。本・メモ・写真・相談の履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
                 </p>
               </div>
               {/* 退会してもサブスク（App Store / 決済）は自動では止まらない旨を明示。
-                  Apple ガイドライン要件＋過剰請求トラブルの防止。 */}
+                  Apple ガイドライン要件＋過剰請求トラブルの防止。解約の手順は上の「プラン」の欄の 1 か所だけ。
+                  赤は削除の 2 つのボタンだけにして、ここは補足の文字色の 1 文。 */}
               {isActive && (
-                <p style={{ fontSize: 'var(--text-sub)', color: 'var(--error)', margin: 0, lineHeight: 1.5, fontWeight: 600 }}>
-                  退会してもサブスクの課金は自動で止まりません。
-                  {isNative
-                    ? '先に上の「サブスクリプションを管理（App Store）」から解約してください。'
-                    : subscription?.stripeCustomerId
-                      ? '先に上の「プランを管理する」から解約してください。'
-                      : 'App で購入した場合は、先に iPhone の「設定」→ 名前 →「サブスクリプション」から解約してください。'}
+                <p style={{ ...rowDescStyle, margin: 0 }}>
+                  退会してもサブスクの課金は止まりません。先に上の方法で解約してください。
                 </p>
               )}
               {!deleteOpen ? (

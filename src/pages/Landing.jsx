@@ -604,7 +604,8 @@ export default function Landing() {
         <section className="lp-sec lp-pricing" aria-labelledby="lp-pricing">
           <div className="lp-wrap lp-narrow-wide">
             <h2 className="lp-h2" id="lp-pricing">
-              <span>すべての機能を、</span><span>月あたり約 ¥1,066 から。</span>
+              {/* 月あたりの額を請求額より大きく見せない（見出しに金額を置かない・2026-09-27） */}
+              <span>どちらのプランでも、</span><span>すべての機能が使えます。</span>
             </h2>
             {TRIAL_NOTE && <p className="lp-trial">まずは{TRIAL_NOTE}で、相談を試せます。</p>}
             <div className="lp-plans">
@@ -675,7 +676,7 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="lp-footer">
+      <footer className="lp-footer" data-build={BUILD_LABEL}>
         <div className="lp-wrap">
           <p className="lp-footer-brand">Orime</p>
           <p className="lp-footer-op">運営：阿部文哉</p>
@@ -686,8 +687,9 @@ export default function Landing() {
             <a href={`mailto:${SUPPORT_EMAIL}`}>お問い合わせ</a>
           </nav>
           <p className="lp-footer-copy">© 2026 Orime</p>
-          {/* 🏷️ ビルド識別子。配信中の版が新旧どちらかを一目で判別するための控えめな表記。 */}
-          <p className="lp-footer-build">{BUILD_LABEL}</p>
+          {/* 🏷️ ビルド識別子。訪問者には見せない（開発中だけ表示）。配信中の版は
+              フッターの data-build 属性（開発者ツール）で確認できる。 */}
+          {import.meta.env.DEV && <p className="lp-footer-build">{BUILD_LABEL}</p>}
         </div>
       </footer>
     </div>

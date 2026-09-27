@@ -188,6 +188,8 @@ export function buildSeed(scenario) {
   if (scenario === 'new') return db;
   // ?demo=free: 新規ユーザーで、購読なし（お試しの相談 3 回 → 有料プランの画面の確認用）。
   if (scenario === 'free') { db.subscriptions = []; db.ai_usage = []; return db; }
+  // ?demo=freeused: お試しの 3 回を使い切った、本もメモもある未課金の人（お試し後の有料プランの画面の確認用）。
+  if (scenario === 'freeused') { db.subscriptions = []; db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: 'free', calls: 3 }]; }
   // ?demo=paywall: 使い込んだデータのまま、購読だけ無い（有料プランの画面の確認用）。
   if (scenario === 'paywall') db.subscriptions = [];
   // ?demo=limit: 今月の AI の原価が上限に近い人（上部の「上限に近づいています」と、上限の案内の確認用）。

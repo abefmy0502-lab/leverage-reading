@@ -43,7 +43,8 @@ const overlay = {
 };
 const headerRow = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: 'var(--space-2) var(--space-1) 0', flexShrink: 0,
+  // 左右 0: 44 のボタン内の余白＋アイコン内の余白で、× の見た目の右端がちょうど 16 になる（DESIGN §5）。
+  padding: 'var(--space-2) 0 0', flexShrink: 0,
 };
 const iconBtn = {
   width: 44, height: 44, border: 'none', background: 'none', cursor: 'pointer', padding: 0,
@@ -391,7 +392,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                     ))}
                   </ul>
                   <button type="button" onClick={() => toggle(titleOnlyBook)} aria-pressed={!!titlePicked}
-                    style={{ ...btnLink, padding: 'var(--space-3) 0', marginTop: 'var(--space-1)', justifyContent: 'flex-start', textAlign: 'left', maxWidth: '100%' }}>
+                    style={{ ...btnLink, padding: 'var(--space-3) 0', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', justifyContent: 'flex-start', textAlign: 'left', maxWidth: '100%' }}>
                     {titlePicked ? <Check size={20} aria-hidden="true" style={{ flexShrink: 0 }} /> : <Plus size={20} aria-hidden="true" style={{ flexShrink: 0 }} />}
                     <span style={{ ...oneLine, minWidth: 0 }}>「{searched}」を書名だけで追加</span>
                   </button>

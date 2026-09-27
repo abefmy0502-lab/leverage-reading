@@ -517,7 +517,8 @@ function AuthedApp() {
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
   // 🏠 ホームタブ（tab キー 'books'）の中の画面: 'home'＝ホーム / 'library'＝すべての本（SPEC §1）。
-  const [shelfMode, setShelfMode] = useState('home');
+  // お試しモードだけ ?shelf=library で「すべての本」から開ける（読み込み中・失敗の表示の確認用）。
+  const [shelfMode, setShelfMode] = useState(() => (isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('shelf') === 'library' ? 'library' : 'home'));
   // 「すべての本」をどこから開いたか。'record'＝振り返りの記録（「‹ 記録」で記録へ戻す）/ null＝ホーム。
   const [libraryFrom, setLibraryFrom] = useState(null);
   // 🏠✍️ ホームの「メモ」で開くクイックメモの対象本（詳細画面に移らずホームの上に重ねる）。

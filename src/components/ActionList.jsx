@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '../lib/limits';
-import { input as uiInput, btnLink, groupTitle as uiGroupTitle } from '../styles/ui';
+import { input as uiInput, btnLink, btnGhostOff, groupTitle as uiGroupTitle } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
 import { stripInlineMd } from '../lib/text';
 import { track, EVENTS } from '../lib/analytics';
@@ -23,6 +23,8 @@ const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display:
 const groupTitle = { ...uiGroupTitle, margin: '0 0 var(--space-2)' };
 const card = { position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4) var(--space-12) var(--space-4) var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 };
+// 押せない行の副ボタン（DESIGN §5「押せないボタン」＝ ui.js の btnGhostOff の色・枠を行サイズで使う）。
+const rowBtnOff = { ...rowBtn, color: btnGhostOff.color, border: btnGhostOff.border, opacity: btnGhostOff.opacity, cursor: btnGhostOff.cursor };
 
 // 期限('YYYY-MM-DD' の日付のみ文字列)をローカル0時で解釈する。素の new Date('YYYY-MM-DD')
 // は UTC0時扱いになり JST(+9) で1日ずれ、「期限切れ/今週期限」判定が日付境界でずれる。
@@ -178,7 +180,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       const label = overdue ? `期限 ${fmtShort(a.deadline)}（過ぎています）`
         : n === 0 || n === 1 ? null
         : `期限 ${fmtShort(a.deadline)}${dow}`;
-      if (label) meta.push(overdue ? <span key="dl" style={{ color: 'var(--warning)' }}>{label}</span> : label);
+      if (label) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap', ...(overdue ? { color: 'var(--warning)' } : {}) }}>{label}</span>);
     }
     if (a.priority === 'high') meta.push('優先');
     if (a.recurrence) meta.push(a.recurrence === 'weekly' ? '毎週' : '毎月');
@@ -282,7 +284,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
               type="button"
               onClick={saveReflection}
               disabled={!reflection.trim() || reflecting}
-              style={{ ...rowBtn, ...(reflection.trim() && !reflecting ? {} : { opacity: 1, border: '1px solid var(--separator)', color: 'var(--text-3)', cursor: 'default' }) }}
+              style={reflection.trim() && !reflecting ? rowBtn : rowBtnOff}
             >
               {reflecting ? '保存中…' : '残す'}
             </button>
@@ -307,30 +309,26 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         />
       )}
 
-      {/* 期限切れが多いとき: 責めずに、見直しをそっと促す。 */}
-      {overdueCount >= 3 && (
-        <div style={{ background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
-          <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6 }}>
-            期限を過ぎた行動 {overdueCount} 件
-          </p>
-          {onEditAction && (
-            <button
-              type="button"
-              onClick={() => { const a = grouped.get('overdue')[0]; onEditAction(a.bookId, a.actionIdx, a); }}
-              style={{ ...rowBtn, marginTop: 'var(--space-2)' }}
-            >
-              期限を見直す
-            </button>
-          )}
-        </div>
-      )}
-
       {GROUPS.map((g) => {
         const items = grouped.get(g.key);
         if (!items.length) return null;
         return (
           <section key={g.key} aria-labelledby={`act-${g.key}`}>
-            <h2 id={`act-${g.key}`} style={groupTitle}>{g.label}</h2>
+            {/* 期限切れが多い（3 件以上）ときだけ、見出しの右に「期限を見直す」（責めない・見出しは 1 つ）。 */}
+            {g.key === 'overdue' && overdueCount >= 3 && onEditAction ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', margin: 'calc(-1 * var(--space-3)) 0 calc(var(--space-2) - var(--space-3))' }}>
+                <h2 id={`act-${g.key}`} style={{ ...uiGroupTitle }}>{g.label}（{overdueCount}）</h2>
+                <button
+                  type="button"
+                  onClick={() => { const a = items[0]; onEditAction(a.bookId, a.actionIdx, a); }}
+                  style={{ ...btnLink, marginRight: 'calc(-1 * var(--space-1))' }}
+                >
+                  期限を見直す
+                </button>
+              </div>
+            ) : (
+              <h2 id={`act-${g.key}`} style={groupTitle}>{g.label}</h2>
+            )}
             <ul style={listStyle}>{items.map(renderRow)}</ul>
           </section>
         );

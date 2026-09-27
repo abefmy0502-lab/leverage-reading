@@ -191,10 +191,10 @@ function FlowRow({ cells }) {
       {cells.map((c, i) => {
         const inner = (
           <>
-            {/* › は数字の横に置く（320px でもラベル「実行した行動」を 1 行に収めるため）。 */}
-            <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums', display: 'inline-flex', alignItems: 'center' }}>
+            {/* › は数字の右に浮かせる（数字そのものはラベルの真上の中央。320px でもラベルを 1 行に収める）。 */}
+            <span style={{ position: 'relative', fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>
               {c.value}
-              {c.onClick && <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
+              {c.onClick && <ChevronRight size={16} aria-hidden="true" style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />}
             </span>
             <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
               {c.label}
@@ -243,10 +243,13 @@ function MonthBars({ buckets, activeColor }) {
         const isCurrent = i === lastIdx;
         return (
           <div key={`${k.year}-${k.month}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', flex: 1, minWidth: 0 }} aria-hidden="true">
-            <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1, minHeight: '1em', fontVariantNumeric: 'tabular-nums' }}>
-              {active ? k.count : ''}
-            </span>
-            <div style={{ width: '100%', maxWidth: 22, height: BAR_MAX_H, display: 'flex', alignItems: 'flex-end' }}>
+            {/* 件数は棒のすぐ上（4）に乗せる。枠の高さ＝棒の最大＋件数 1 行（13）＋間 4。 */}
+            <div style={{ width: '100%', maxWidth: 22, height: BAR_MAX_H + 17, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)' }}>
+              {active && (
+                <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                  {k.count}
+                </span>
+              )}
               <div
                 style={{
                   width: '100%',
@@ -270,8 +273,9 @@ function MonthBars({ buckets, activeColor }) {
 // 🟫 読書の足あと（GitHub 風ヒートマップ・月曜はじまり＝行動の「今週（月〜日）」とそろえる・直近 weeks 週）。
 // streak カウンタは出さない — 色づいた日々をただ眺める「足あと」。
 // 濃さはアクセント 1 色の混ぜ具合で表す（暗い画面でも同じトークンで破綻しない）。
-// 記録の無い日は区切り線の色（--separator）で、いちばん薄い段（55%）と見分けやすくする。
-const HEAT_COLORS = ['var(--separator)', 'color-mix(in srgb, var(--accent) 55%, var(--surface))', 'color-mix(in srgb, var(--accent) 75%, var(--surface))', 'var(--accent)'];
+// 記録の無い日は区切り線の色（--separator）。いちばん薄い段（65%）でもカードの面と 3:1 以上
+// （明るい画面 3.1・暗い画面 3.8）にして、記録のあった日が見落とされないようにする。
+const HEAT_COLORS = ['var(--separator)', 'color-mix(in srgb, var(--accent) 65%, var(--surface))', 'color-mix(in srgb, var(--accent) 82%, var(--surface))', 'var(--accent)'];
 function heatColor(n) {
   if (n <= 0) return HEAT_COLORS[0];
   if (n === 1) return HEAT_COLORS[1];

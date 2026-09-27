@@ -6,7 +6,7 @@ import { LIMITS, validatePassword } from '../../lib/limits';
 import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, input } from '../../styles/ui';
 import { isNative } from '../../lib/iap';
-import { MailCheck } from 'lucide-react';
+import { MailCheck, Check } from 'lucide-react';
 
 // ボタン正典（styles/ui.js）に統一。初対面画面のボタンだけ radius/weight が
 // 微妙に別物だと第一印象で「寄せ集め感」が出るため。
@@ -40,10 +40,23 @@ const errorText = { color: 'var(--error)', fontSize: 'var(--text-meta)', lineHei
 // 日本語の折り返し: iOS Safari は word-break: auto-phrase が効かないので、短い案内文は
 // 文そのものを短く切り、<br /> で改行位置を決める（358pt 幅で 1 文字だけの行を出さない）。
 const jpWrap = { textWrap: 'pretty' };
-// 規約・プライバシーポリシーのリンク（文字ボタン・押せる範囲は高さ 44）。
-const legalLink = { display: 'inline-flex', alignItems: 'center', minHeight: 44, color: 'var(--accent)', fontSize: 'var(--text-meta)', fontWeight: 600, textDecoration: 'none' };
-// 同意のチェックボックス（24 角）。リンク行はチェックボックス＋間隔ぶん字下げして文字の頭に揃える。
+// 規約・プライバシーポリシーのリンク（文字ボタン＝btnLink の 15/600・高さ 44）。字下げで文字の頭に揃えるので左右の余白は 0。
+const legalLink = { ...uiBtnLink, padding: 0, textDecoration: 'none' };
+// 同意のチェック（24 の丸・初日クイックスタートの選択と同じ見た目）。リンク行はチェック＋間隔ぶん字下げして文字の頭に揃える。
 const checkboxSize = 'var(--space-6)';
+const checkCircle = (on, focused) => ({
+  width: checkboxSize, height: checkboxSize, borderRadius: '50%', boxSizing: 'border-box',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+  background: on ? 'var(--accent)' : 'transparent',
+  border: on ? 'none' : '2px solid var(--border)',
+  color: 'var(--accent-ink)',
+  // キーボード操作のときだけ、入力欄と同じ --accent-soft の輪で位置を示す。
+  boxShadow: focused ? '0 0 0 3px var(--accent-soft)' : 'none',
+});
+// 本物のチェックボックスは丸の上に透明で重ねる（押せる・読み上げ・キーボードはそのまま）。
+const checkboxNative = { position: 'absolute', inset: 0, width: '100%', height: '100%', margin: 0, opacity: 0, cursor: 'pointer' };
+// パスワードの決まり（新規登録のときだけ・入力欄の下に常に出す）。
+const fieldHint = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
 const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
@@ -109,6 +122,7 @@ export default function AuthScreen() {
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [agreeFocus, setAgreeFocus] = useState(false);
   // signup 成功後、確認メール待ちの全画面ステップへ切替える宛先（中断離脱の最大谷を緩和）。
   const [confirmSentTo, setConfirmSentTo] = useState('');
   const [resending, setResending] = useState(false);
@@ -371,10 +385,11 @@ export default function AuthScreen() {
         />
         {mode !== 'reset' && (
           <input
-            style={inp}
+            style={mode === 'signup' ? { ...inp, marginBottom: 'var(--space-1)' } : inp}
             type="password"
-            placeholder={mode === 'signup' ? 'パスワード（8文字以上、英字＋数字）' : 'パスワード'}
+            placeholder="パスワード"
             aria-label="パスワード"
+            aria-describedby={mode === 'signup' ? 'auth-pw-hint' : undefined}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={blockEnterWhileComposing}
@@ -385,17 +400,27 @@ export default function AuthScreen() {
           />
         )}
         {mode === 'signup' && (
+          <p id="auth-pw-hint" style={fieldHint}>パスワードは8文字以上で、英字と数字を含めてください</p>
+        )}
+        {mode === 'signup' && (
           <div style={{ marginBottom: 'var(--space-3)' }}>
             {/* ラベルの中はチェックボックスと「同意します」の文だけ（行の高さ 44）。
                 リンクを同じ行に置くと、リンクの近くを押しただけでチェックが切り替わるため、
                 リンクは下の行に文字ボタンとして分ける。 */}
             <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                style={{ width: checkboxSize, height: checkboxSize, margin: 0, flexShrink: 0, accentColor: 'var(--accent)' }}
-              />
+              <span style={{ position: 'relative', width: checkboxSize, height: checkboxSize, flexShrink: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  onFocus={(e) => { let v = true; try { v = e.target.matches(':focus-visible'); } catch { /* ignore */ } setAgreeFocus(v); }}
+                  onBlur={() => setAgreeFocus(false)}
+                  style={checkboxNative}
+                />
+                <span aria-hidden="true" style={checkCircle(agreed, agreeFocus)}>
+                  {agreed && <Check size={16} strokeWidth={3} />}
+                </span>
+              </span>
               <span>利用規約とプライバシーポリシーに同意します</span>
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', paddingLeft: `calc(${checkboxSize} + var(--space-2))` }}>

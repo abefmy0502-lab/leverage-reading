@@ -78,7 +78,7 @@ function PriceText({ text }) {
 
 // 開発専用のネイティブ表示プレビュー（本番は demoScenario=null で常に false）。
 function readNativePreview() {
-  if ((demoScenario !== 'paywall' && demoScenario !== 'free') || typeof window === 'undefined') return { on: false, trial: '', price: '' };
+  if (!['paywall', 'free', 'freeused'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '' };
   const sp = new URLSearchParams(window.location.search);
   // &price=loading / fail で、ストア価格の読み込み中・失敗の表示を確かめられる。
   return { on: sp.get('native') === '1', trial: sp.get('trial') || '', price: sp.get('price') || '' };
