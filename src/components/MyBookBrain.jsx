@@ -1853,7 +1853,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
       {canShowAction && (
         actionAdded ? (
           <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
-            <Check size={16} aria-hidden="true" />行動に追加しました
+            <Check size={16} aria-hidden="true" />行動に追加しました（期限は明日）
           </p>
         ) : (
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
@@ -2055,7 +2055,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
       {!parsed && canShowAction && !message.error && (
         actionAdded ? (
           <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
-            <Check size={16} aria-hidden="true" />行動に追加しました
+            <Check size={16} aria-hidden="true" />行動に追加しました（期限は明日）
           </p>
         ) : (
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)' }}>
