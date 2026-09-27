@@ -442,10 +442,13 @@ const AI_FALLBACK_CALL_LIMIT = (() => {
 })();
 
 // 「来月 1 日」（上限に達したときの案内用・日本時間）。
-function nextResetLabel() {
+// 案内文の中では noBreak=true で、見えない結合文字（U+2060 WORD JOINER）を挟み、
+// 「10月」と「1日」の間などで改行されないようにする（どの画面が表示しても崩れない）。
+function nextResetLabel(noBreak = false) {
   const jst = new Date(Date.now() + 9 * 3600 * 1000);
   const m = jst.getUTCMonth() + 2; // 来月（1〜13）
-  return `${m > 12 ? 1 : m}月1日`;
+  const month = m > 12 ? 1 : m;
+  return noBreak ? `${month}\u2060月\u20601\u2060日` : `${month}月1日`;
 }
 
 // 原子的な「予約」= check-and-increment を 1 往復で行う（TOCTOU 是正）。
@@ -633,7 +636,7 @@ export default async function handler(req, res) {
     const rc = await reserveCost(userId, monthKey, est.total, budget);
     if (rc.metered && !rc.allowed) {
       return res.status(429).json({
-        error: { message: `今月の AI の利用上限に達しました。${nextResetLabel()}からまた使えます。` },
+        error: { message: `今月の AI の利用上限に達しました。${nextResetLabel(true)}からまた使えます。` },
         error_code: 'monthly_budget_exceeded',
         reset_label: nextResetLabel(),
       });
@@ -662,7 +665,7 @@ export default async function handler(req, res) {
   if (!usage.allowed) {
     settleCost(null); // 回数の上限で止めたので、原価の予約も戻す
     return res.status(429).json({
-      error: { message: `今月の AI の利用上限に達しました。${nextResetLabel()}からまた使えます。` },
+      error: { message: `今月の AI の利用上限に達しました。${nextResetLabel(true)}からまた使えます。` },
       error_code: 'monthly_limit_exceeded',
     });
   }

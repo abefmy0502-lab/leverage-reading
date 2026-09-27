@@ -142,6 +142,12 @@ function introTextOf(md) {
 // 前置き＝本のカードより控えめな 1 段落（15/--text-2）。
 const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0 };
 
+// 案内文の「10月1日」を途中で改行させない（サーバーの文に結合文字が無い場合の保険）。
+function keepDateTogether(text) {
+  const re = /(\d{1,2}\u2060?月\u2060?\d{1,2}\u2060?日)/;
+  return String(text || '').split(re).map((p, i) => (i % 2 === 1 ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : p));
+}
+
 const ADVISOR_EXAMPLES = [
   '営業成績を上げたい',
   'チームマネジメント',
@@ -1378,7 +1384,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       {/* 推薦生成エラー（リトライ可能） */}
       {recoError && !recoLoading && recoNotice && (
         <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
-          {recoError}
+          {keepDateTogether(recoError)}
         </p>
       )}
       {recoError && !recoLoading && !recoNotice && (

@@ -60,6 +60,12 @@ const metaText = { fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin:
 // 読む文章（明朝 18・行間 1.6）。
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
 
+// 案内文の「10月1日」を途中で改行させない（サーバーの文に結合文字が無い場合の保険）。
+function keepDateTogether(text) {
+  const re = /(\d{1,2}\u2060?月\u2060?\d{1,2}\u2060?日)/;
+  return String(text || '').split(re).map((p, i) => (i % 2 === 1 ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : p));
+}
+
 const STAGE_LABEL = {
   search: 'テーマのメモと行動を集めています…',
   generate: 'テーマまとめを作成中…',
@@ -680,7 +686,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
               ) : notice ? (
                 // 案内（月の上限・関連するメモが無い 等）は AI 選書の案内カードと同じ形（カード＋15/--text・アイコンなし）。
                 <p role="status" style={{ ...card, margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 'var(--text-sub)', color: 'var(--text)', wordBreak: 'auto-phrase' }}>
-                  {notice}
+                  {keepDateTogether(notice)}
                 </p>
               ) : showStageBlock ? (
                 <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} aria-live="polite" aria-busy="true">
