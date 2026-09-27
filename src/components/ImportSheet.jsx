@@ -145,7 +145,8 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     const memos = outcome.memosAdded || 0;
     const reviews = outcome.reviewsAdded || 0;
     const any = memos + reviews > 0;
-    const headParts = [memos > 0 ? `メモ ${memos} 件` : '', reviews > 0 ? `まとめ ${reviews} 件` : ''].filter(Boolean);
+    // 数と「件」は離さない（改行を許さない空白）。改行してよいのは「〜を」のあとだけ（<wbr>）。
+    const headParts = [memos > 0 ? `メモ\u00a0${memos}\u00a0件` : '', reviews > 0 ? `まとめ\u00a0${reviews}\u00a0件` : ''].filter(Boolean);
     // したことを 1 文に（例「本 2 冊を追加・1 冊にメモを足しました。」）。最後だけ「〜ました」。
     const did = any ? [
       outcome.booksAdded > 0 ? [`本 ${outcome.booksAdded} 冊を追加`, `本 ${outcome.booksAdded} 冊を追加しました`] : null,
@@ -156,7 +157,9 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     content = (
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
         <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}>
-          {any ? `${headParts.join('・')}を取り込みました` : outcome.booksAdded > 0 ? `本 ${outcome.booksAdded} 冊を取り込みました` : '新しく取り込むものはありませんでした'}
+          {any ? <>{headParts.join('・')}を<wbr />取り込みました</>
+            : outcome.booksAdded > 0 ? <>本{'\u00a0'}{outcome.booksAdded}{'\u00a0'}冊を<wbr />取り込みました</>
+            : <>新しく取り込むものは<wbr />ありませんでした</>}
         </p>
         <p style={body}>
           {[
