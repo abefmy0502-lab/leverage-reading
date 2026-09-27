@@ -545,7 +545,7 @@ async function gatherKnowledge(userId) {
 // 📦 知識スキャンのセッションキャッシュ（速度の最重要レバー）
 // ============================================================================
 // gatherKnowledge は「全メモ + 全 books の synth 化」を行う最も重いクエリで、
-// マイ読書脳 / テーマまとめ / テーマ候補 / 足あと / 今週の問い の 5 経路が
+// マイ読書脳 / テーマまとめ / テーマ候補 / 足あと の 4 経路が
 // それぞれ毎回実行していた。同一ユーザーの結果を短TTLで共有し、
 //   ・同じ画面での連続質問（マイ読書脳の会話）
 //   ・タブを開いた時のテーマ候補スキャン → 直後のテーマ生成
@@ -1468,76 +1468,6 @@ export async function integrateFloor({ reports = [], stateLine = '', order = '' 
   const cleaned = clamp(result.trim(), 6000);
   if (!cleaned) return null;
   track('ai_used', { feature: 'ops_integration' });
-  return cleaned;
-}
-
-// 💭 今週の問い — マイ読書脳の能動化。ユーザー自身のメモから「立ち止まって
-// 考え・行動したくなる問い」を1つだけ生成して返す（向こうから問いを投げる）。
-// 失敗・メモ不足・エラー時は null（呼び出し側は静かに定型の問いへフォールバック）。
-// 呼び出し側で週次キャッシュするので、ここは「毎回新規生成」でよい。
-export async function generateWeeklyQuestion(userId) {
-  if (!isSupabaseConfigured || !userId) return null;
-  let all;
-  try {
-    ({ all } = await gatherKnowledgeCached(userId));
-  } catch (e) {
-    console.warn('[weekly-question] gather failed:', e?.message);
-    return null;
-  }
-  // メモが薄い新規ユーザーには出さない（空振りを避ける）。
-  if (!Array.isArray(all) || all.length < 3) return null;
-
-  const ranked = [...all]
-    .map((m, i) => ({ memo: m, score: memoPriority(m) - i * 0.01 }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 30)
-    .map((x) => x.memo);
-  // メモ・読書準備の各行に記録日を付ける（いつ何を考えていたかを AI が追えるように）。
-  const formatted = ranked.map((m) => formatMemo(m, { withDate: true })).join('\n\n');
-
-  // 🎯 やり残しの一歩（未完了アクション）を渡し、AI が「先週決めた〇〇、やれた？」
-  // と実名で問えるようにする＝行動の輪を閉じる。失敗は静かに無視（問いはメモ発に倒れる）。
-  let openSteps = [];
-  try {
-    const { data } = await supabase
-      .from('actions')
-      .select('text, done, created_at')
-      .eq('user_id', userId)
-      .eq('done', false)
-      .order('created_at', { ascending: false })
-      .limit(3);
-    openSteps = (data || [])
-      .map((a) => clamp(sanitizeForPrompt(a.text || ''), 80))
-      .filter(Boolean);
-  } catch { /* graceful: 行動なしとして扱う */ }
-
-  let result;
-  try {
-    result = await callClaude(
-      PROMPTS.weeklyQuestion.system,
-      PROMPTS.weeklyQuestion.user({ memos: formatted, openSteps }),
-      { max_tokens: 200, cacheSystem: true, model: MODEL_FAST },
-    );
-  } catch (e) {
-    console.warn('[weekly-question] claude failed:', e?.message);
-    return null;
-  }
-  if (typeof result !== 'string'
-    || isClaudeErrorString(result)
-    || isSuspiciousOutput(result)) {
-    return null;
-  }
-  // 前置き・記号を落として 1 文に整える。
-  // ⚠️ カギ括弧は「全体が括弧で包まれている時」だけ剥がす — 先頭から無条件に
-  // 剥がすと『無敗営業』のような書名で始まる問いの開き『だけが食われ、
-  // 「無敗営業』で…」という壊れた表示になる（実機で発生していた）。
-  let q = sanitizeForPrompt(result).trim();
-  const wrapped = /^[「『"'](.+)[」』"']$/s.exec(q);
-  if (wrapped) q = wrapped[1].trim();
-  q = q.replace(/^[-\d.\s]+/, '').trim();
-  const cleaned = clamp(q, 90);
-  if (!cleaned) return null;
-  track('ai_used', { feature: 'weekly_q' });
   return cleaned;
 }
 

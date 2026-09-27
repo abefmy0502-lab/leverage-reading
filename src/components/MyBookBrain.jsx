@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
-import { streamMyBookBrain, generateWeeklyQuestion, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
+import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
@@ -81,32 +81,6 @@ const QUESTION_EXAMPLES = [
 ];
 
 const CATEGORIES = ['会話', '経験', '観察', '気づき', 'その他'];
-
-// 💭 今週の問い — AI 生成に失敗/未接続のときの定型フォールバック（メモに依らず
-// 立ち止まれる普遍的な問い）。曜日や週で固定的に1つ選ぶ。
-const FALLBACK_WEEKLY = [
-  'この1週間で、本から学んだことを1つでも行動に移せましたか？',
-  '今いちばん向き合っている課題に、過去のメモはどう答えますか？',
-  '繰り返し心に残っている学びは何ですか？それは行動になっていますか？',
-  'もし明日1つだけ実践するなら、どの学びを選びますか？',
-];
-
-// 文字列 → 安定したハッシュ（定型問いを週で固定選択するため）。
-function hashStr(s) {
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) { h = (h * 31 + s.charCodeAt(i)) | 0; }
-  return h;
-}
-
-// ISO 風の「年-週」キー（端末ローカルの週次キャッシュ用）。
-function isoWeekKey(d = new Date()) {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  const week = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
-  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
-}
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -373,10 +347,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // learningOpen state は廃止 — view === 'learning' で表現する。
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
   const [statsTick, setStatsTick] = useState(0);
-  // 💭 今週の問い（能動化）— マイ読書脳が向こうから問いを投げる。週1キャッシュ。
-  const [weeklyQ, setWeeklyQ] = useState(null);
-  const [weeklyDismissed, setWeeklyDismissed] = useState(false);
-  const weeklyTriedRef = useRef(false);
   const messagesEndRef = useRef(null);
   // ストリーミング中の AbortController。送信ごとに作り直し、「中止」ボタンで
   // abort() する。abort 後は streamMyBookBrain が途中までの内容で正常終了する
@@ -452,48 +422,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setClearedAt(cut);
     try { localStorage.setItem('brain-cleared-at', cut); } catch { /* ignore */ }
   }, [historyLoaded, messages]);
-
-  // 💭 今週の問い — マイ読書脳を能動化（向こうから問いを投げる）。
-  //   メモがある人にだけ、週1で AI が自分のメモ発の問いを 1 つ用意する。
-  //   端末ローカルで週次キャッシュ（同じ週は再生成しない）。生成不可なら定型へ。
-  //   その週に dismiss されたら出さない。新規ユーザー（メモ無し）には出さない。
-  useEffect(() => {
-    if (weeklyTriedRef.current || !historyLoaded) return;
-    const hasMemos = (memoStats.cards + memoStats.summaries + memoStats.personal) > 0;
-    if (!hasMemos) return; // memoStats 反映後に再評価される
-    weeklyTriedRef.current = true;
-    const wk = isoWeekKey();
-    // お試し中は AI で問いを作らない（お試しの回数を、本人の相談のために残す）。
-    // 上限が近い人も同じ（残り少ない枠を、本人の相談に残す）。
-    if (freeMode || nearMonthLimit || monthLimitHit) { setWeeklyQ(FALLBACK_WEEKLY[Math.abs(hashStr(wk)) % FALLBACK_WEEKLY.length]); return; }
-    try {
-      if (localStorage.getItem('brain-weekly-dismissed') === wk) { setWeeklyDismissed(true); return; }
-      const raw = localStorage.getItem('brain-weekly-q');
-      const cached = raw ? JSON.parse(raw) : null;
-      if (cached && cached.week === wk && cached.q) { setWeeklyQ(cached.q); return; }
-    } catch { /* ignore cache */ }
-    let alive = true;
-    (async () => {
-      let q = null;
-      try { q = await generateWeeklyQuestion(user.id); } catch { q = null; }
-      if (!q) q = FALLBACK_WEEKLY[Math.abs(hashStr(wk)) % FALLBACK_WEEKLY.length];
-      if (!alive) return;
-      setWeeklyQ(q);
-      try { localStorage.setItem('brain-weekly-q', JSON.stringify({ week: wk, q })); } catch { /* ignore */ }
-    })();
-    return () => { alive = false; };
-  }, [historyLoaded, memoStats, user?.id]);
-
-  const answerWeekly = useCallback(() => {
-    if (!weeklyQ) return;
-    setInput(weeklyQ);
-    setTimeout(() => { try { inputRef.current?.focus(); } catch { /* ignore */ } }, 0);
-  }, [weeklyQ]);
-
-  const dismissWeekly = useCallback(() => {
-    setWeeklyDismissed(true);
-    try { localStorage.setItem('brain-weekly-dismissed', isoWeekKey()); } catch { /* ignore */ }
-  }, []);
 
   // Knowledge counts for the header (cards / summaries / personal)。
   // summaries は books の 7 フィールド (leverage_memo + invest_purpose +
@@ -884,15 +812,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
   const noteCount = memoStats.cards + memoStats.personal;
   const knowledgeTotal = memoStats.cards + memoStats.summaries + memoStats.personal;
-  // 相談例は 3 つだけ（SPEC §3）。今週の問い → あなたのタグ・本から → 汎用 の順で重複なく。
+  // 相談例は 3 つだけ（SPEC §3）。あなたのタグ・本から → 汎用 の順で重複なく。
+  // （AI で作る「今週の問い」は 2026-09-27 に廃止＝開くだけで AI が動かないように）
   const examples = useMemo(() => {
     const out = [];
     const push = (q) => { if (q && !out.includes(q) && out.length < 3) out.push(q); };
-    if (weeklyQ && !weeklyDismissed) push(weeklyQ);
     suggestedQuestions.forEach(push);
     QUESTION_EXAMPLES.forEach(push);
     return out;
-  }, [weeklyQ, weeklyDismissed, suggestedQuestions]);
+  }, [suggestedQuestions]);
   const [moreMenu, setMoreMenu] = useState(null); // { x, y }
   const viewTitle = { learning: '学びを書く', history: '過去の相談', knowledge: '根拠にできる情報', journey: '考えの足あと' }[view];
 
