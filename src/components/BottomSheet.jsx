@@ -120,12 +120,16 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
               <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>{title}</h3>
               {/* 既定は「完了」（変更がその場で効くシート）。下に決定ボタンがあるシートは
                   dismissLabel="キャンセル" を渡す（決定の入口を 2 つにしない・iOS で「完了」は決定の意味）。 */}
-              {dismissLabel && dismissible && (
+              {/* 閉じられない間（取り込み中など）も場所は残して隠す（見出しの行の高さを変えない）。 */}
+              {dismissLabel && (
                 <button
                   type="button"
                   onClick={animateClose}
+                  disabled={!dismissible}
+                  aria-hidden={!dismissible || undefined}
+                  tabIndex={dismissible ? undefined : -1}
                   // 押せる範囲は 44 のまま、文字の右端を画面の余白 16 にそろえる（右寄せ）。
-                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0, visibility: dismissible ? 'visible' : 'hidden' }}
                 >
                   {dismissLabel}
                 </button>

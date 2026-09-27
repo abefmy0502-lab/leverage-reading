@@ -89,7 +89,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       const text = await extractTextFromImage({ base64, mediaType });
       if (!text) {
         // 同じ写真を送り直しても変わらないので、撮り直し（選び直し）を案内する。
-        setFailure({ message: '文字を読み取れませんでした。明るく・まっすぐ撮ると精度が上がります。', retry: false });
+        setFailure({ title: '文字を読み取れませんでした', message: '明るく・まっすぐ撮ると精度が上がります。', retry: false });
         return;
       }
       haptic.success();
@@ -99,7 +99,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
     } catch (e2) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。
       if (e2?.notice) { if (!/^この AI 機能は/.test(e2.message)) toast.info(e2.message); return; }
-      setFailure({ message: `写真を読み取れませんでした。${toMessage(e2, '')}`, retry: true });
+      setFailure({ title: '写真を読み取れませんでした', message: toMessage(e2, 'もう一度お試しください。'), retry: true });
     } finally {
       setLoading(false);
     }
@@ -130,11 +130,12 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         // 並べ方（グリッド／折り返す横並び）どちらでも、ボタンの下の 1 行ぶんを使う。
         <div style={{ gridColumn: '1 / -1', flexBasis: '100%', marginTop: 'var(--space-2)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
           {thumbUrl && (
-            <img src={thumbUrl} alt="読み取れなかった写真" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius)', flexShrink: 0 }} />
+            <img src={thumbUrl} alt="読み取れなかった写真" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)', flexShrink: 0 }} />
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
           <ErrorMessage
             icon={null}
+            title={failure.title}
             description={failure.message}
             actions={[
               failure.retry && lastFileRef.current

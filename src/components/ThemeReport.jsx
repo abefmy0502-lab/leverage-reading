@@ -745,7 +745,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   )}
                   {truncated && (
                     <div role="status" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>長さの上限で、ここまでになりました（履歴には残しません）。</p>
+                      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>長さの上限で、ここまでになりました。<span style={{ whiteSpace: 'nowrap' }}>履歴には残しません。</span></p>
                       <button type="button" onClick={resetToPicker} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>テーマを絞って作り直す</button>
                     </div>
                   )}

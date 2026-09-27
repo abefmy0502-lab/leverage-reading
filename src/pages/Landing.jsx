@@ -434,7 +434,7 @@ export default function Landing() {
             <p>
               本の内容は、読み終えた日から少しずつ抜けていきます。足りないのは記憶力より、読んだことを困ったときに引き出す仕組みです。
             </p>
-            <p className="lp-turn">Orime は、その仕組みを「相談相手」というかたちにしました。</p>
+            <p className="lp-turn"><span>Orime は、その仕組みを</span><span>「相談相手」というかたちにしました。</span></p>
           </div>
         </section>
 

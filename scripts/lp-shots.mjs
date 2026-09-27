@@ -69,7 +69,9 @@ const SHOTS = {
     for (let i = 0; i < 8; i++) {
       const card = await p.evaluate(() => (document.body.innerText || '').split('月ごとのメモ')[0]);
       if (!/レバレッジ/.test(card)) break;
-      await p.locator('button:has-text("別のメモを見る")').first().click(); await p.waitForTimeout(900);
+      // 「別のメモを見る」は思い出しカードの「…」の中（2026-09-27〜）。
+      await p.locator('button[aria-haspopup="menu"]').first().click(); await p.waitForTimeout(400);
+      await p.locator('[role="menuitem"]:has-text("別のメモを見る"), button:has-text("別のメモを見る")').first().click(); await p.waitForTimeout(900);
     }
   },
   theme: async (p) => {

@@ -371,6 +371,9 @@ body.lp-active {
 .lp-final-inner { text-align: center; }
 .lp-final-inner > * { margin-left: auto; margin-right: auto; }
 .lp-final-inner .lp-cta-note { margin-left: auto; margin-right: auto; }
+/* 中央ぞろえの長い注記は 1 行を短くして行の幅をそろえる */
+.lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { max-width: 20em; text-wrap: balance; }
+.lp-turn > span { display: inline-block; }
 .lp-story {
   margin: var(--space-12) auto 0 !important;
   max-width: 28em;
