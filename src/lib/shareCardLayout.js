@@ -43,6 +43,10 @@ export function clampLine(text, max = LINE_MAX_CHARS) {
 // ---------------------------------------------------------------- 改行位置
 
 const HIRA = /[ぁ-ゟ]/;
+const KANJI = /[㐀-䶿一-鿿々〆]/;
+// 漢字＋送り仮名 1 字＋漢字 は複合語（取り組む・読み終える・書き出す）なので割らない。
+// を・は・が・に・で・と・の などの助詞はここに入れない（「本を｜読む」は割ってよい）。
+const RENYO = /[りみきちびぎひえけせねべめれ]/;
 const LATIN = /[A-Za-z0-9]/;
 const LATIN_JOIN = /[A-Za-z0-9.,'’%\-+/:&]/; // 英単語・数字のひとかたまり
 // 行頭に来てはいけない字（閉じ括弧・句読点・小さいかな・長音）
@@ -62,7 +66,10 @@ function canBreakBefore(chars, i) {
   if (BREAK_AFTER.test(a)) return true;
   if (NO_END.test(b)) return true; // 開き括弧の前
   if (/\s/.test(b)) return false;
-  if (HIRA.test(a) && !HIRA.test(b)) return true; // 「〜は｜投資」のような文節の切れ目
+  if (HIRA.test(a) && !HIRA.test(b)) {
+    if (KANJI.test(b) && RENYO.test(a) && KANJI.test(chars[i - 2] || '')) return false;
+    return true; // 「〜は｜投資」のような文節の切れ目
+  }
   if (LATIN.test(a) !== LATIN.test(b)) return true; // 英数字と和文の境目
   return false;
 }
@@ -151,18 +158,33 @@ export function hasOrphan(lines) {
   return Array.from(lines[lines.length - 1]).length <= 2;
 }
 
+// 最後の行が短すぎる（いちばん長い行の 1/3 未満＝「来る。」だけが残る）か。
+function shortLastLine(lines, measure) {
+  if (lines.length < 2) return false;
+  const widths = lines.map((l) => measure(l));
+  return widths[widths.length - 1] < Math.max(...widths) / 3;
+}
+
 // 枠（maxWidth × maxHeight）に収まる、いちばん大きな文字サイズと行。
+// 収まる中でも、最後の行が短すぎる組み方は避けて、2 段階までは小さい大きさも試す
+// （どれも短ければ、収まったいちばん大きなものに戻す）。
 // measureAt(size) は「その大きさの文字の幅を返す関数」を返す。
 export function fitQuote(text, { maxWidth, maxHeight, sizes, lineHeight = 1.6, measureAt }) {
   let last = null;
+  let firstFit = null;
+  let tried = 0;
   for (const size of sizes) {
     const measure = measureAt(size);
     const lines = wrapBalanced(text, maxWidth, measure);
     const h = lines.length * size * lineHeight;
     last = { size, lines, lineHeight: size * lineHeight };
-    if (h <= maxHeight) return last;
+    if (h > maxHeight) continue;
+    if (!shortLastLine(lines, measure)) return last;
+    if (!firstFit) firstFit = last;
+    tried += 1;
+    if (tried > 2) break;
   }
-  return last;
+  return firstFit || last;
 }
 
 // ---------------------------------------------------------------- 一文の候補

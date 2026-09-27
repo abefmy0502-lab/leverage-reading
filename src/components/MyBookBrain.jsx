@@ -778,6 +778,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         refs: [],
         createdAt: new Date().toISOString(),
         streaming: true,
+        mode: askMode, // 本ごとには、書いている途中から本のカードの形で見せる（出来上がりで形が跳ねないように）
       },
     ]);
     setStage('search');
@@ -790,6 +791,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         userId: user.id,
         question: q,
         bookIds: askBookIds,
+        mode: askMode,
         signal: controller.signal,
         onStage: (s) => setStage(s),
         onChunk: (visibleText) => {
@@ -843,7 +845,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       }
       // AI 応答を正常に得て確定できた時のみ計測 (中止/中断パスは除外、PII なし)。
       if (!wasAborted) {
-        track(EVENTS.AI_USED, { feature: 'brain' });
+        track(EVENTS.AI_USED, { feature: 'brain', mode: askMode });
         // 🌱 初週の aha「自分のメモから答えが返ってきた」を体験した＝活性化ステップ完了。
         // メモ 0 件の案内文（AI を呼ばない空応答）は体験に数えない。
         if (memoCount > 0) markActivation('consult');
@@ -972,6 +974,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         return;
       }
     }
+  };
+
+  // 📚 本ごとの答えの「この本にくわしく聞く」: 相談相手をその 1 冊に絞り、同じ相談を
+  // その本の視点で聞き直す（答え方は「まとめて」＝1 冊の本の答え）。
+  const askAboutBook = (bookId, title, question) => {
+    if (!bookId || busy) return;
+    const q0 = String(question || '').replace(/\s+/g, ' ').trim();
+    const base = q0.length > 80 ? `${q0.slice(0, 80)}…` : q0;
+    const q = base ? `「${base}」について、『${title}』の視点でくわしく教えて` : `『${title}』の視点で、くわしく教えて`;
+    setView('chat');
+    setScopeIds([bookId]);
+    track('brain_perbook_drill', {});
+    ask(q, { bookIds: [bookId], mode: 'fused' });
   };
 
   const clearHistory = async () => {
@@ -1190,7 +1205,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {historyGroups.map((g) => (
               <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                 {g.map((m) => (
-                  <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} />
+                  <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} />
                 ))}
               </div>
             ))}
@@ -1266,7 +1281,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {!historyLoaded && <Spinner message="読み込み中…" />}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            {visibleMessages.map((m) => (
+            {visibleMessages.map((m, i) => (
               <ChatMessage
                 key={m.id}
                 message={m}
@@ -1277,6 +1292,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 onAddActionPickBook={onAddActionPickBook}
                 onRetry={busy ? null : regenerate}
                 onWriteLearning={() => setView('learning')}
+                question={m.role === 'assistant' ? precedingQuestion(visibleMessages, i) : ''}
+                onAskBook={askAboutBook}
+                askBusy={busy}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -1328,7 +1346,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             onOpen={() => setScopeSheetOpen(true)}
             onReset={() => setScopeIds([])}
             disabled={busy}
+            mode={modeApplies ? answerMode : null}
+            onOpenMode={() => setModeSheetOpen(true)}
           />
+          {modeSheetOpen && (
+            <AnswerModeSheet
+              value={answerMode}
+              onClose={() => setModeSheetOpen(false)}
+              onSelect={(id) => { setAnswerMode(id); setModeSheetOpen(false); track('brain_answer_mode', { mode: id }); }}
+            />
+          )}
           {scopeSheetOpen && (
             <ScopeSheet
               books={books}
@@ -1475,6 +1502,8 @@ export function parseAnswer(text) {
     if (h) {
       const name = h[1];
       key = /結論/.test(name) ? 'conclusion'
+        : /本ごと/.test(name) ? 'books'
+        : /(共通点|違い)/.test(name) ? 'compare'
         : /参照/.test(name) ? 'refs'
         : /解釈/.test(name) ? 'interp'
         : /(明日|行動|一歩|心に残る)/.test(name) ? 'action'
@@ -1492,6 +1521,8 @@ export function parseAnswer(text) {
   if (!conclusion) return null;
   // 一歩は最初の段落だけ。後ろに続く補足（お試しモードの注記など）は note へ。
   const [actionHead, ...actionRest] = join('action').replace(/^[\s:：・\-*>]+/, '').split(/\n\s*\n/);
+  // 📚 答え方「本ごとに」（【本ごとの視点】があるときだけ books を返す。無ければ null＝いつもの答え）
+  const bookViews = sections.books ? parseBookViews(join('books')) : null;
   return {
     conclusion,
     refs: join('refs'),
@@ -1499,7 +1530,64 @@ export function parseAnswer(text) {
     action: (actionHead || '').trim(),
     actionLabel,
     note: [...actionRest.map((t) => t.trim()).filter(Boolean), ...notes].join('\n'),
+    books: bookViews ? bookViews.books : null,
+    // ◆ の形が崩れて本を 1 冊も取り出せなかったときは、その節をそのまま段落で見せる（捨てない）
+    booksRaw: bookViews && bookViews.books.length === 0 ? join('books') : '',
+    booksLead: bookViews ? bookViews.lead : '',
+    compare: join('compare'),
   };
+}
+
+// 【本ごとの視点】の中身を本ごとに分ける。
+//   ◆『書名』｜著者
+//   視点：…（続く行も視点に足す）
+//   根拠：p.25「…」
+// 書いている途中（閉じていない『）でも、その時点までの書名で 1 冊として返す。
+export function parseBookViews(text) {
+  const books = [];
+  const lead = [];
+  let cur = null;
+  let field = 'view';
+  const add = (a, b) => (a ? `${a}\n${b}` : b);
+  String(text || '').split('\n').forEach((raw) => {
+    const line = raw.trim();
+    if (!line) return;
+    const h = line.match(/^(?:[-*・]\s*)?[◆◇■]\s*(.*)$/);
+    if (h) {
+      const rest = h[1].trim();
+      let title = '';
+      let author = '';
+      const closed = rest.match(/^『([^』]*)』(.*)$/);
+      if (closed) { title = closed[1]; author = closed[2]; }
+      else if (rest.startsWith('『')) title = rest.slice(1);
+      else { const [t, ...a] = rest.split(/[｜|]/); title = t; author = a.join(' '); }
+      author = author.replace(/^[\s｜|／/:：・\-—（(]+/, '').replace(/[)）]\s*$/, '').trim();
+      cur = { title: title.replace(/\*\*/g, '').trim(), author, view: '', basis: '', page: null };
+      books.push(cur);
+      field = 'view';
+      return;
+    }
+    if (!cur) { lead.push(line); return; }
+    const f = line.match(/^(?:[-*・]\s*)?(?:\*\*)?(視点|根拠|引用)(?:\*\*)?\s*[：:]\s*(.*)$/);
+    if (f) {
+      field = f[1] === '視点' ? 'view' : 'basis';
+      if (f[2]) cur[field] = add(cur[field], f[2]);
+      return;
+    }
+    cur[field] = add(cur[field], line);
+  });
+  const out = books.filter((b) => b.title || b.view);
+  out.forEach((b) => {
+    const pm = b.basis.match(/(?:^|[^A-Za-z])[pP]\.?\s*(\d+)/);
+    b.page = pm ? Number(pm[1]) : null;
+  });
+  return { books: out, lead: lead.join('\n') };
+}
+
+// 答えの直前の相談（本ごとの答えの「この本にくわしく聞く」で、同じ相談をその本に聞き直すため）。
+function precedingQuestion(list, idx) {
+  for (let j = idx - 1; j >= 0; j -= 1) if (list[j].role === 'user') return list[j].content || '';
+  return '';
 }
 
 // 回答末尾の「【明日からできる 1 つの行動】」セクション本文を取り出す。
@@ -1582,7 +1670,44 @@ function renderNoticeText(text) {
   return parts.map((p, i) => (/^\d{1,2}月\d{1,2}日$/.test(p) ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : p));
 }
 
-function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false }) {
+// 📚 本ごとの答えの 1 冊分（DESIGN §5 カード）。見出し『書名』17/600 → 著者 13/--text-2 →
+// 視点（読む文章＝明朝 18）→ 根拠 13/--text-2（p.N「メモの一節」）→ 文字ボタン「この本にくわしく聞く」。
+function PerBookCard({ book, streaming, onAsk, askBusy }) {
+  const cursor = streaming ? <span className="streaming-cursor" aria-hidden="true" /> : null;
+  const basis = tidyQuotes(String(book.basis || '').replace(/\*\*/g, ''));
+  return (
+    <article aria-label={`『${book.title}』の視点`} style={cardStyle}>
+      <h4 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'auto-phrase' }}>『{book.title}』</h4>
+      {book.author && (
+        <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{book.author}</p>
+      )}
+      {book.view && (
+        <div style={{ ...readText, marginTop: 'var(--space-3)' }}>
+          {book.view.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
+            <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(l)}{!basis && i === arr.length - 1 && cursor}</p>
+          ))}
+        </div>
+      )}
+      {basis && (
+        <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{basis}{cursor}</p>
+      )}
+      {!book.view && !basis && cursor}
+      {onAsk && (
+        // 文字の端をカードの内側の余白（16）にそろえる（btnLink の左右 4 を負の余白で打ち消す）。
+        <button
+          type="button"
+          onClick={onAsk}
+          disabled={askBusy}
+          style={{ ...uiBtnLink, margin: 'var(--space-2) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-1))', ...(askBusy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
+        >
+          この本にくわしく聞く
+        </button>
+      )}
+    </article>
+  );
+}
+
+function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -1634,6 +1759,149 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   const evidence = (allRefs.find((r) => String(r).startsWith(EVIDENCE_PREFIX)) || '').slice(EVIDENCE_PREFIX.length);
   const refsList = allRefs.filter((r) => !String(r).startsWith(EVIDENCE_PREFIX));
   const nBooks = refBookCount(refsList);
+  // 📚 本ごとの答え。書いている途中も同じ形で見せる（出来上がりで形が跳ねないように）。
+  //   ただし「本ごとに」で送っても、並べる本が足りずに「まとめて」で答えたとき（参照・解釈の節がある）は、いつもの形。
+  const live = isStreaming && hasBody && message.mode === 'perbook' ? parseAnswer(message.content) : null;
+  const perBook = parsed && Array.isArray(parsed.books)
+    ? parsed
+    : (live && !live.refs && !live.interp ? live : null);
+  const cursor = <span className="streaming-cursor" aria-hidden="true" />;
+  const perBookTail = !isStreaming || !perBook ? null
+    : perBook.action ? 'action' : perBook.compare ? 'compare' : perBook.books?.length ? 'book' : 'conclusion';
+
+  // 明日からできる一歩（＋ 行動に追加）
+  const renderAction = (p, marginTop) => (p.action ? (
+    <div style={{ marginTop, background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
+      <p style={subLabel}>{p.actionLabel}</p>
+      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap' }}>{renderBoldInline(p.action)}{perBookTail === 'action' && cursor}</p>
+      {canShowAction && (
+        actionAdded ? (
+          <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
+            <Check size={16} aria-hidden="true" />行動に追加しました
+          </p>
+        ) : (
+          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
+            <Target size={16} aria-hidden="true" />行動に追加
+          </button>
+        )
+      )}
+    </div>
+  ) : null);
+  // 積み重ねが効いていることを、事実だけで一行（盛らない・渡したメモと一致したものだけ）
+  const renderEvidence = () => (evidence ? (
+    <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+      <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      <span>{evidence}</span>
+    </p>
+  ) : null);
+  // 根拠（参照したメモ・解釈・もとになった本）は畳む
+  const renderDetails = (p) => ((p.refs || p.interp || refsList.length > 0) ? (
+    <details style={{ marginTop: 'var(--space-3)' }}>
+      <summary style={summaryStyle}>
+        <span>根拠を見る{nBooks > 0 && !evidence ? `（${nBooks} 冊のメモ）` : ''}</span>
+        <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+      </summary>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-1)' }}>
+        {p.refs && (
+          <div>
+            <p style={subLabel}>参照したメモ</p>
+            <div style={subText}><PlainAnswer text={p.refs} /></div>
+          </div>
+        )}
+        {p.interp && (
+          <div>
+            <p style={subLabel}>あなたの状況に合わせると</p>
+            <div style={subText}><PlainAnswer text={p.interp} /></div>
+          </div>
+        )}
+        {refsList.length > 0 && (
+          <div>
+            <p style={subLabel}>もとになった本</p>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {refsList.map((r, i) => {
+                const refBookId = onOpenBook ? resolveRefBookId(r, books) : null;
+                return (
+                  <li key={i}>
+                    {refBookId ? (
+                      <button type="button" onClick={() => onOpenBook(refBookId)} style={refBtn} aria-label={`${refText(r)} を開く`}>
+                        <RefLines r={r} />
+                        <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', minHeight: 44, padding: 'var(--space-2) 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 }}><RefLines r={r} /></div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
+    </details>
+  ) : null);
+  const renderNote = (p) => (p.note ? <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>{p.note}</p> : null);
+
+  if (perBook) {
+    const lastBook = (perBook.books || []).length - 1;
+    const hasBooks = (perBook.books || []).length > 0 || !!perBook.booksRaw || !!perBook.booksLead;
+    const showFoot = !!(perBook.compare || perBook.action || (!isStreaming && (evidence || refsList.length > 0 || perBook.note)));
+    return (
+      // 本ごとの答えは、結論のカード → 本のカード（1 冊 1 枚）→ 共通点と違い・一歩・根拠のカード。
+      // 外側は枠を付けない（カードの中にカードを入れない）。
+      <div role="article" aria-label="相談への答え" aria-busy={isStreaming || undefined} style={{ display: 'flex', flexDirection: 'column', wordBreak: 'break-word' }}>
+        <div style={answerCard}>
+          <div style={readText}>
+            {perBook.conclusion.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
+              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(l)}{perBookTail === 'conclusion' && i === arr.length - 1 && cursor}</p>
+            ))}
+          </div>
+        </div>
+        {hasBooks && (
+          <section aria-label="本ごとの視点" style={{ marginTop: 'var(--space-6)' }}>
+            <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本ごとの視点</h3>
+            {perBook.booksLead && <p style={{ ...readText, margin: '0 0 var(--space-3)' }}>{renderBoldInline(perBook.booksLead)}</p>}
+            {perBook.booksRaw ? (
+              <div style={answerCard}><div style={readText}><PlainAnswer text={perBook.booksRaw} /></div></div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                {perBook.books.map((b, i) => {
+                  const bookId = !isStreaming && onAskBook && b.title ? resolveRefBookId(`『${b.title}』`, books) : null;
+                  return (
+                    <PerBookCard
+                      key={i}
+                      book={b}
+                      streaming={perBookTail === 'book' && i === lastBook}
+                      onAsk={bookId ? () => onAskBook(bookId, b.title, question) : null}
+                      askBusy={askBusy}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+        {showFoot && (
+          <div style={{ ...answerCard, marginTop: 'var(--space-6)' }}>
+            {perBook.compare && (
+              <>
+                <p style={subLabel}>共通点と違い</p>
+                <div style={readText}>
+                  {perBook.compare.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
+                    <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(l)}{perBookTail === 'compare' && i === arr.length - 1 && cursor}</p>
+                  ))}
+                </div>
+              </>
+            )}
+            {renderAction(perBook, perBook.compare ? 'var(--space-4)' : 0)}
+            {!isStreaming && renderEvidence()}
+            {!isStreaming && renderDetails(perBook)}
+            {!isStreaming && renderNote(perBook)}
+          </div>
+        )}
+        {time}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1695,77 +1963,11 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
               <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(l)}</p>
             ))}
           </div>
-          {/* 2. 明日からできる一歩（＋ 行動に追加） */}
-          {parsed.action && (
-            <div style={{ marginTop: 'var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
-              <p style={subLabel}>{parsed.actionLabel}</p>
-              <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap' }}>{renderBoldInline(parsed.action)}</p>
-              {canShowAction && (
-                actionAdded ? (
-                  <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
-                    <Check size={16} aria-hidden="true" />行動に追加しました
-                  </p>
-                ) : (
-                  <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
-                    <Target size={16} aria-hidden="true" />行動に追加
-                  </button>
-                )
-              )}
-            </div>
-          )}
-          {/* 積み重ねが効いていることを、事実だけで一行（盛らない・渡したメモと一致したものだけ） */}
-          {evidence && (
-            <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-              <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-              <span>{evidence}</span>
-            </p>
-          )}
-          {/* 3. 根拠（参照したメモ・解釈）は畳む */}
-          {(parsed.refs || parsed.interp || refsList.length > 0) && (
-            <details style={{ marginTop: 'var(--space-3)' }}>
-              <summary style={summaryStyle}>
-                <span>根拠を見る{nBooks > 0 && !evidence ? `（${nBooks} 冊のメモ）` : ''}</span>
-                <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-              </summary>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-1)' }}>
-                {parsed.refs && (
-                  <div>
-                    <p style={subLabel}>参照したメモ</p>
-                    <div style={subText}><PlainAnswer text={parsed.refs} /></div>
-                  </div>
-                )}
-                {parsed.interp && (
-                  <div>
-                    <p style={subLabel}>あなたの状況に合わせると</p>
-                    <div style={subText}><PlainAnswer text={parsed.interp} /></div>
-                  </div>
-                )}
-                {refsList.length > 0 && (
-                  <div>
-                    <p style={subLabel}>もとになった本</p>
-                    <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                      {refsList.map((r, i) => {
-                        const refBookId = onOpenBook ? resolveRefBookId(r, books) : null;
-                        return (
-                          <li key={i}>
-                            {refBookId ? (
-                              <button type="button" onClick={() => onOpenBook(refBookId)} style={refBtn} aria-label={`${refText(r)} を開く`}>
-                                <RefLines r={r} />
-                                <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-                              </button>
-                            ) : (
-                              <div style={{ display: 'flex', minHeight: 44, padding: 'var(--space-2) 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 }}><RefLines r={r} /></div>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </details>
-          )}
-          {parsed.note && <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>{parsed.note}</p>}
+          {/* 2. 明日からできる一歩（＋ 行動に追加）→ 使ったメモの一行 → 3. 根拠（畳む） */}
+          {renderAction(parsed, 'var(--space-4)')}
+          {renderEvidence()}
+          {renderDetails(parsed)}
+          {renderNote(parsed)}
         </>
       ) : (
         <div style={readText}><PlainAnswer text={message.content} /></div>
@@ -1800,37 +2002,80 @@ function scopeLabelFor(ids, books) {
   return `選んだ ${ids.length} 冊`;
 }
 
-// 入力欄のすぐ上のチップ 1 つ（見た目 32・押せる範囲 44。DESIGN §5 チップ）。
-// 固定表示の高さを抑えて、会話に使える面積を残す。
-function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
+// 入力欄のすぐ上のチップ（見た目 32・押せる範囲 44。DESIGN §5 チップ）。
+// 見た目の文字（相談相手：…）がそのまま読み上げ名になる（label-in-name）。
+// 押せる範囲 44 は保ったまま、上下のはみ出し（(32-44)/2）を負の余白で打ち消す。
+// 既定から変えているとき（絞った相談相手・本ごとに）は --accent-soft の面。
+function BarChip({ name, value, active, disabled, onClick }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: '1px solid var(--separator)' }}>
-      {/* 見た目の文字（相談相手：…）がそのまま読み上げ名になる（label-in-name）。
-          押せる範囲 44 は保ったまま、上下のはみ出し（(32-44)/2）を負の余白で打ち消す。 */}
-      <button
-        type="button"
-        onClick={onOpen}
-        disabled={disabled}
-        aria-haspopup="dialog"
-        // 答えを作っている間も薄くしない（DESIGN §5 押せないボタン）。文字色を 1 段落として示す。
-        style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
-      >
-        <span style={{
-          minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 32, padding: '0 var(--space-3)',
-          borderRadius: 'var(--radius)', background: scoped ? 'var(--accent-soft)' : 'var(--fill)', color: disabled ? 'var(--text-2)' : 'var(--text)',
-          fontSize: 'var(--text-meta)', fontWeight: 600,
-        }}>
-          <span style={{ color: 'var(--text-2)', fontWeight: 400, flexShrink: 0 }}>相談相手：</span>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-          <ChevronDown size={16} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-        </span>
-      </button>
-      {scoped && (
-        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', flexShrink: 0, ...(disabled ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-haspopup="dialog"
+      // 答えを作っている間も薄くしない（DESIGN §5 押せないボタン）。文字色を 1 段落として示す。
+      style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
+    >
+      <span style={{
+        minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 32, padding: '0 var(--space-3)',
+        borderRadius: 'var(--radius)', background: active ? 'var(--accent-soft)' : 'var(--fill)', color: disabled ? 'var(--text-2)' : 'var(--text)',
+        fontSize: 'var(--text-meta)', fontWeight: 600,
+      }}>
+        <span style={{ color: 'var(--text-2)', fontWeight: 400, flexShrink: 0 }}>{name}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+        <ChevronDown size={16} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+      </span>
+    </button>
+  );
+}
+
+// 相談相手 ＋ 答え方（2026-09-27）。答え方は相談相手が 1 冊のときは出さない（mode=null・並べる本が無い）。
+// 1 行に収めるため、「すべてに戻す」は答え方のチップが無いとき（1 冊に絞ったとき）だけ。
+// 数冊に絞ったときは相談相手のシートの「すべての本」から戻す。
+function ScopeBar({ label, scoped, onOpen, onReset, disabled, mode = null, onOpenMode }) {
+  const showMode = mode != null && !!onOpenMode;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: '1px solid var(--separator)' }}>
+      <BarChip name="相談相手：" value={label} active={scoped} disabled={disabled} onClick={onOpen} />
+      {showMode && (
+        <BarChip name="答え方：" value={answerModeLabel(mode)} active={mode === 'perbook'} disabled={disabled} onClick={onOpenMode} />
+      )}
+      {scoped && !showMode && (
+        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc((32px - 44px) / 2) 0 calc((32px - 44px) / 2) var(--space-1)', flexShrink: 0, ...(disabled ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}>
           すべてに戻す
         </button>
       )}
     </div>
+  );
+}
+
+// 📚 答え方のシート（まとめて / 本ごとに）。選んだらその場で効く＝右上は「完了」・下の決定ボタンは無し。
+// 行の形は相談相手のシートと同じ（選んだ行は右端のチェックだけ）。
+function AnswerModeSheet({ value, onClose, onSelect }) {
+  const rowStyle = {
+    width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', minHeight: 56,
+    borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+    border: '1px solid var(--separator)', background: 'var(--surface)',
+  };
+  return (
+    <BottomSheet title="答え方" onClose={onClose}>
+      <div role="radiogroup" aria-label="答え方" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingBottom: 'var(--space-2)' }}>
+        {ANSWER_MODES.map((m) => {
+          const on = value === m.id;
+          return (
+            <button key={m.id} type="button" role="radio" aria-checked={on} onClick={() => onSelect(m.id)} style={rowStyle}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>{m.label}</span>
+                <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{m.sub}</span>
+              </span>
+              <span aria-hidden="true" style={{ width: 24, height: 24, flexShrink: 0, color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {on && <Check size={22} strokeWidth={2} />}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </BottomSheet>
   );
 }
 

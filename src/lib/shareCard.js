@@ -166,6 +166,16 @@ function ellipsize(ctx, text, maxWidth) {
   return `${s.join('').replace(/[、。\s]+$/u, '')}…`;
 }
 
+// 行頭が開き括弧のとき、字の枠の左端から墨（実際に描かれる線）の左端までの距離。
+// その分だけ左へずらすと、括弧の墨が他の行の文字の左端とそろう。
+function inkLeftOffset(ctx, line) {
+  const first = Array.from(line)[0] || '';
+  if (!/[「『（(【〈《“]/.test(first)) return 0;
+  const m = ctx.measureText(first);
+  const inkLeft = -(m.actualBoundingBoxLeft || 0); // 正の値＝墨が枠の左端より右から始まる
+  return Math.max(0, Math.min(inkLeft, m.width * 0.6));
+}
+
 function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts }) {
   const r = Math.round(w * 0.035); // 本の形（DESIGN §4 の例外・角丸 4 相当）
   ctx.save();
@@ -225,11 +235,11 @@ function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts }) {
 const LAYOUT = {
   story: {
     margin: 112, top: 300, bottom: 1560, footerBaseline: 1712,
-    mark: 168, sizes: [92, 84, 76, 70, 64, 60, 56, 52, 48, 44], coverW: 128, titleSize: 38, metaSize: 28,
+    mark: 220, markInk: 76, sizes: [92, 84, 76, 70, 64, 60, 56, 52, 48, 44], coverW: 128, titleSize: 38, metaSize: 28,
   },
   post: {
     margin: 104, top: 128, bottom: 1128, footerBaseline: 1262,
-    mark: 132, sizes: [76, 70, 64, 60, 56, 52, 48, 44, 40, 38], coverW: 112, titleSize: 34, metaSize: 26,
+    mark: 176, markInk: 60, sizes: [76, 70, 64, 60, 56, 52, 48, 44, 40, 38], coverW: 112, titleSize: 34, metaSize: 26,
   },
 };
 
@@ -269,14 +279,17 @@ export async function renderLineCard({ line, page = null, title = '', author = '
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 
-  // 引用符の実寸（書体で位置が違うので、描く字の枠を測る）
-  const markFont = `400 ${L.mark}px ${fonts.read}`;
+  // 引用符: 書体によって字の大きさ・位置が違うので、墨の高さが markInk になる大きさを測って決める。
+  ctx.font = `400 100px ${fonts.read}`;
+  const probe = ctx.measureText('“');
+  const probeInk = (probe.actualBoundingBoxAscent ?? 70) + (probe.actualBoundingBoxDescent ?? -35); // 字の墨の高さ
+  const markSize = Math.round(Math.min(L.mark * 3, Math.max(L.mark * 0.6, (L.markInk / Math.max(10, probeInk)) * 100)));
+  const markFont = `400 ${markSize}px ${fonts.read}`;
   ctx.font = markFont;
   const mm = ctx.measureText('“');
-  const markAscent = mm.actualBoundingBoxAscent || L.mark * 0.7;
-  const markDescent = mm.actualBoundingBoxDescent || -L.mark * 0.35;
-  const markH = Math.max(L.mark * 0.25, markAscent + markDescent);
-  const markGap = Math.round(L.mark * 0.26);
+  const markAscent = mm.actualBoundingBoxAscent || markSize * 0.7;
+  const markH = L.markInk;
+  const markGap = Math.round(L.sizes[0] * 0.55);
 
   // 本の行（表紙＋書名・著者）の高さ
   const coverW = L.coverW;
@@ -305,9 +318,9 @@ export async function renderLineCard({ line, page = null, title = '', author = '
 
   // 1. 引用符
   ctx.font = markFont;
-  setSpacing(0, L.mark);
+  setSpacing(0, markSize);
   ctx.fillStyle = theme.accent;
-  ctx.fillText('“', left - (mm.actualBoundingBoxLeft ? -mm.actualBoundingBoxLeft : 0), y + markAscent);
+  ctx.fillText('“', left + (mm.actualBoundingBoxLeft || 0), y + markAscent); // 墨の左端を本文の左端に
   y += markH + markGap;
 
   // 2. 一文
@@ -317,7 +330,8 @@ export async function renderLineCard({ line, page = null, title = '', author = '
   const ascent = fit.size * 0.88; // 行の箱の上から字の基線まで（明朝のおおよそ）
   const half = (fit.lineHeight - fit.size) / 2;
   fit.lines.forEach((ln, i) => {
-    ctx.fillText(ln, left, y + i * fit.lineHeight + half + ascent);
+    // 行頭の開き括弧（「『（）は、字の墨の左端を本文の左端にそろえる（括弧の前の空きを詰める）。
+    ctx.fillText(ln, left - inkLeftOffset(ctx, ln), y + i * fit.lineHeight + half + ascent);
   });
   y += quoteH + ruleGap;
 
@@ -336,7 +350,7 @@ export async function renderLineCard({ line, page = null, title = '', author = '
   let titleLines = wrapBalanced(`『${title || '無題'}』`, colW, measurer(ctx, titleFont));
   if (titleLines.length > 2) titleLines = [titleLines[0], ellipsize(ctx, `${titleLines[1]}${titleLines.slice(2).join('')}`, colW)];
   const titleLH = Math.round(L.titleSize * 1.4);
-  const metaParts = [String(author || '').trim(), Number.isFinite(page) && page > 0 ? `p.${page}` : ''].filter(Boolean);
+  const metaParts = [String(author || '').trim(), Number.isFinite(page) && page > 0 ? `p.${page}` : ''].filter(Boolean); // 著者・ページ
   const metaLH = Math.round(L.metaSize * 1.5);
   const colH = titleLines.length * titleLH + (metaParts.length ? 12 + metaLH : 0);
   let cy = y + (coverH - colH) / 2;
@@ -344,7 +358,7 @@ export async function renderLineCard({ line, page = null, title = '', author = '
   titleLines.forEach((tl) => {
     ctx.font = titleFont;
     setSpacing(0.02, L.titleSize);
-    ctx.fillText(tl, colX - L.titleSize * 0.5 * (tl.startsWith('『') ? 1 : 0), cy + titleLH * 0.78);
+    ctx.fillText(tl, colX - inkLeftOffset(ctx, tl), cy + titleLH * 0.78);
     cy += titleLH;
   });
   if (metaParts.length) {
@@ -352,14 +366,14 @@ export async function renderLineCard({ line, page = null, title = '', author = '
     const metaFont = `400 ${L.metaSize}px ${fonts.ui}`;
     ctx.font = metaFont;
     setSpacing(0.02, L.metaSize);
-    const authorText = ellipsize(ctx, metaParts[0] && !metaParts[0].startsWith('p.') ? metaParts[0] : '', colW - 120);
+    const [authorText, pageText] = [String(author || '').trim(), Number.isFinite(page) && page > 0 ? `p.${page}` : ''];
     let mx = colX;
     if (authorText) {
+      const a = ellipsize(ctx, authorText, colW - (pageText ? 120 : 0));
       ctx.fillStyle = theme.ink2;
-      ctx.fillText(authorText, mx, cy + metaLH * 0.72);
-      mx += ctx.measureText(authorText).width + 20;
+      ctx.fillText(a, mx, cy + metaLH * 0.72);
+      mx += ctx.measureText(a).width + 24;
     }
-    const pageText = metaParts.find((p) => p.startsWith('p.'));
     if (pageText) {
       ctx.fillStyle = theme.ink3;
       ctx.fillText(pageText, mx, cy + metaLH * 0.72);
@@ -367,9 +381,9 @@ export async function renderLineCard({ line, page = null, title = '', author = '
   }
 
   // 5. 下: ロゴ文字とサイト
-  const markSize = format === 'post' ? 32 : 36;
-  ctx.font = `700 ${markSize}px ${fonts.ui}`;
-  setSpacing(0.04, markSize);
+  const wordSize = format === 'post' ? 32 : 36;
+  ctx.font = `700 ${wordSize}px ${fonts.ui}`;
+  setSpacing(0.04, wordSize);
   ctx.fillStyle = theme.ink;
   ctx.fillText('Orime', left, L.footerBaseline);
   ctx.font = `400 ${L.metaSize - 2}px ${fonts.ui}`;

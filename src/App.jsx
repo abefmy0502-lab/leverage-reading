@@ -98,6 +98,8 @@ import { MODEL_SMART } from './lib/models';
 import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrategyHistory } from './lib/strategyHistory';
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
+// 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
+const ShareSheet = lazy(() => import('./components/ShareSheet'));
 const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
@@ -742,6 +744,8 @@ function AuthedApp() {
   const [libraryMenu, setLibraryMenu] = useState(null);
   // 読書中・読了の本の購入リンクは「⋯ → この本を買う」のシートへ（2026-09-26 オーナー判断）。
   const [storeSheetOpen, setStoreSheetOpen] = useState(false);
+  // 📤 一文をシェアのシート: { book, initialMemoId? }（本の詳細・メモの「…」・本棚の長押しから）。
+  const [shareSheet, setShareSheet] = useState(null);
   const openDetailKebab = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setDetailKebab({ x: rect.right - 8, y: rect.bottom + 4 });
@@ -3203,6 +3207,18 @@ function AuthedApp() {
               >
                 <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
               </button>
+              {/* 📤 この本の一文をシェア（読書中・読了で、本文のあるメモがあるときだけ・SPEC §2-1）。 */}
+              {isMemoPhase && (currentMemoOps.memos || []).some((m) => (m.text || '').trim()) && (
+                <button
+                  type="button"
+                  onClick={() => setShareSheet({ book: current })}
+                  style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                  aria-label="この本の一文をシェア"
+                  title="一文をシェア"
+                >
+                  <Share size={20} strokeWidth={1.75} aria-hidden="true" />
+                </button>
+              )}
               {/* ⋯ kebab — 編集 / 共有 / 削除 を集約。下部の 3 ボタン廃止。 */}
               <button
                 onClick={openDetailKebab}
@@ -3265,6 +3281,7 @@ function AuthedApp() {
                   summaryText={current.leverageMemo || ""}
                   onSaveSummary={handleSaveSummaryFromCurrent}
                   onMakeAction={addActionFromMemo}
+                  onShareMemo={(memo) => setShareSheet({ book: current, initialMemoId: memo.id })}
                   afterList={
                     // 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。
                     <button
@@ -3576,6 +3593,17 @@ function AuthedApp() {
         {quickstartOverlay}
         {importOverlay}
 
+        {shareSheet && (
+          <Suspense fallback={null}>
+            <ShareSheet
+              book={shareSheet.book}
+              memos={shareSheet.book?.id === current.id ? currentMemoOps.memos : undefined}
+              initialMemoId={shareSheet.initialMemoId || null}
+              onWriteMemo={() => { setShareSheet(null); setQuickMemoOpen(true); }}
+              onClose={() => setShareSheet(null)}
+            />
+          </Suspense>
+        )}
         {storeSheetOpen && (
           <BottomSheet title="この本を買う" onClose={() => setStoreSheetOpen(false)}>
             <BookStoreLinks book={current} variant="cta" buy />
@@ -3627,7 +3655,10 @@ function AuthedApp() {
               ...((current.status === 'reading' || current.status === 'done')
                 ? [{ label: 'この本を買う', icon: <ShoppingBag size={16} aria-hidden="true" />, onClick: () => setStoreSheetOpen(true) }]
                 : []),
-              { label: '共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => shareBook(current) },
+              // 読書中・読了は「この本の一文」を画像でシェア。読みたい・積読は書名とお店のリンクの文を共有。
+              isMemoPhase
+                ? { label: '一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => setShareSheet({ book: current }) }
+                : { label: '共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => shareBook(current) },
               { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
             ]}
           />
@@ -4442,11 +4473,18 @@ function AuthedApp() {
               icon: <IcRefresh size={16} aria-hidden="true" />,
               onClick: () => refreshCoverFor(bookContextMenu.book),
             },
-            {
-              label: '共有',
-              icon: <Share size={16} aria-hidden="true" />,
-              onClick: () => shareBook(bookContextMenu.book),
-            },
+            // 読書中・読了は「この本の一文」を画像でシェア（メモはシートが読み込む）。読みたい・積読は文を共有。
+            (bookContextMenu.book.status === 'reading' || bookContextMenu.book.status === 'done')
+              ? {
+                  label: '一文をシェア',
+                  icon: <Share size={16} aria-hidden="true" />,
+                  onClick: () => setShareSheet({ book: bookContextMenu.book }),
+                }
+              : {
+                  label: '共有',
+                  icon: <Share size={16} aria-hidden="true" />,
+                  onClick: () => shareBook(bookContextMenu.book),
+                },
             {
               label: '削除',
               icon: <Trash2 size={16} aria-hidden="true" />,
@@ -4455,6 +4493,18 @@ function AuthedApp() {
             },
           ]}
         />
+      )}
+
+      {/* 📤 本棚の長押し →「一文をシェア」。本の詳細の同じ mount とは片方の画面しか return されない。 */}
+      {shareSheet && (
+        <Suspense fallback={null}>
+          <ShareSheet
+            book={shareSheet.book}
+            initialMemoId={shareSheet.initialMemoId || null}
+            onWriteMemo={() => { const b = shareSheet.book; setShareSheet(null); openDetail(b); }}
+            onClose={() => setShareSheet(null)}
+          />
+        </Suspense>
       )}
 
       {settingsOpen && (
