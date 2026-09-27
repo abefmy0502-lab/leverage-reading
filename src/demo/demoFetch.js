@@ -193,6 +193,16 @@ export function installDemoFetch(store) {
     if (url.includes('/api/claude')) {
       let payload = {};
       try { payload = JSON.parse(init.body || '{}'); } catch { /* ignore */ }
+      // ?demo=free: 購読が無い間は、本番と同じくお試し 3 回まで（ai_usage の 'free' 行で数える）。
+      if (!store.table('subscriptions').some((r) => r.status === 'active')) {
+        const rows = store.table('ai_usage');
+        let row = rows.find((r) => r.period_month === 'free');
+        if (!row) { row = { user_id: store.session?.user?.id, period_month: 'free', calls: 0 }; rows.push(row); }
+        if (row.calls >= 3) {
+          return json({ error: { message: 'お試しの相談は、ここまでです。続けるにはプランへのご登録が必要です。' }, error_code: 'free_limit_reached' }, 402);
+        }
+        row.calls += 1;
+      }
       await new Promise((r) => setTimeout(r, 500));
       const text = aiReply(store, payload);
       if (payload.stream) return sseResponse(text);

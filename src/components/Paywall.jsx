@@ -19,7 +19,7 @@
 //   プレビュー中は実際の購入・復元（RevenueCat）を一切呼ばない（isNative のときだけ呼ぶ）。
 
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { MessageCircle, Target, RotateCcw, Circle, CircleCheck } from 'lucide-react';
+import { MessageCircle, Target, RotateCcw, Circle, CircleCheck, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { PLAN_LABELS } from '../lib/billing';
@@ -34,7 +34,8 @@ import { toMessage } from '../lib/errors';
 import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
 import { exportMemosAsMarkdown } from '../lib/exportData';
 import { track, EVENTS } from '../lib/analytics';
-import { demoScenario } from '../lib/supabase';
+import { demoScenario, supabase, isSupabaseConfigured } from '../lib/supabase';
+import { MiniCover } from './BookCards';
 import { btnPrimary, btnText, card } from '../styles/ui';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
@@ -54,7 +55,7 @@ function PriceText({ text }) {
 
 // 開発専用のネイティブ表示プレビュー（本番は demoScenario=null で常に false）。
 function readNativePreview() {
-  if (demoScenario !== 'paywall' || typeof window === 'undefined') return { on: false, trial: '', price: '' };
+  if ((demoScenario !== 'paywall' && demoScenario !== 'free') || typeof window === 'undefined') return { on: false, trial: '', price: '' };
   const sp = new URLSearchParams(window.location.search);
   // &price=loading / fail で、ストア価格の読み込み中・失敗の表示を確かめられる。
   return { on: sp.get('native') === '1', trial: sp.get('trial') || '', price: sp.get('price') || '' };
@@ -139,9 +140,30 @@ function PlanOption({ label, selected, onSelect }) {
   );
 }
 
-export default function Paywall({ onPurchased }) {
+// reason: 'free_used'（お試しの相談を使い切った）のときは、本人の本の表紙を並べて
+//   「あなたの相談相手が、できました」から始める（一般的な特長より、自分の本が強い）。
+// onClose: アプリの上に重ねて開いたとき（お試し中）だけ渡る。閉じるとアプリに戻る。
+export default function Paywall({ onPurchased, reason = null, onClose = null }) {
   const { signOut, user } = useAuth();
   const toast = useToast();
+  const [myBooks, setMyBooks] = useState([]);
+  useEffect(() => {
+    if (reason !== 'free_used' || !user?.id || !isSupabaseConfigured) return undefined;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('books')
+          .select('id, title, author, cover')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(4);
+        if (alive) setMyBooks(data || []);
+      } catch { /* 表紙が無くても画面は出す */ }
+    })();
+    return () => { alive = false; };
+  }, [reason, user?.id]);
+  const fromFree = reason === 'free_used';
   // 📊 課金転換率（CVR = purchase÷view）の分母。
   useEffect(() => { track(EVENTS.PAYWALL_VIEWED); }, []);
   // 選んだプラン（年額が既定）。
@@ -269,19 +291,42 @@ export default function Paywall({ onPurchased }) {
       }}
     >
       <div style={{ maxWidth: '36em', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
-        {/* 見出し（一番の価値） */}
-        <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
-          Orime
-        </p>
+        {/* 見出し（一番の価値）。お試しのあとは「自分の相談相手」を主語にする */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44 }}>
+          <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+            {fromFree ? 'お試しの相談は、ここまでです' : 'Orime'}
+          </p>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="閉じる"
+              style={{ width: 44, height: 44, marginRight: 'calc(-1 * var(--space-3))', display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', flexShrink: 0 }}
+            >
+              <X size={22} aria-hidden="true" />
+            </button>
+          )}
+        </div>
         <h1
           id="paywall-title"
           style={{ fontSize: 'var(--text-title)', fontWeight: 700, lineHeight: 1.3, margin: 'var(--space-2) 0 0' }}
         >
-          読むほど、<br />自分だけの相談相手が育つ
+          {fromFree ? <>この相談相手を、<br />育てていきませんか</> : <>読むほど、<br />自分だけの相談相手が育つ</>}
         </h1>
 
-        {/* 価値の 3 行 */}
-        <ul
+        {fromFree && myBooks.length > 0 && (
+          <>
+            <div aria-hidden="true" style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+              {myBooks.map((b) => <MiniCover key={b.id} book={b} width={60} />)}
+            </div>
+            <p style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, margin: 'var(--space-4) 0 0' }}>
+              {myBooks.slice(0, 2).map((b) => `『${b.title}』`).join('')}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。読むほど、答えが確かになっていきます。
+            </p>
+          </>
+        )}
+
+        {/* 価値の 3 行（お試しのあとで本人の本が出せるときは省く＝主ボタンを 1 画面に収める） */}
+        {!(fromFree && myBooks.length > 0) && <ul
           style={{
             listStyle: 'none', margin: 'var(--space-6) 0 0', padding: 0,
             display: 'flex', flexDirection: 'column', gap: 'var(--space-3)',
@@ -293,7 +338,7 @@ export default function Paywall({ onPurchased }) {
               <span style={{ fontSize: 'var(--text-body)', lineHeight: 1.5 }}>{text}</span>
             </li>
           ))}
-        </ul>
+        </ul>}
 
         {showNative ? (
           <>
@@ -433,6 +478,11 @@ export default function Paywall({ onPurchased }) {
             <button type="button" onClick={() => setSettingsOpen(true)} style={quietStyle}>
               アカウントを削除
             </button>
+            {onClose && (
+              <button type="button" onClick={onClose} style={quietStyle}>
+                あとで
+              </button>
+            )}
             {/* LP は価格と比較表を含むため、反ステアリング順守でネイティブでは出さない（Web のみ） */}
             {!showNative && (
               <a href="/lp" style={quietStyle}>サービス紹介を見る</a>

@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { isPaywallError, requestPaywall } from './freeTrial';
 import { isSchemaError } from './errors';
 import { LIMITS, clamp } from './limits';
 import { streamClaude } from './streamClaude';
@@ -59,6 +60,11 @@ async function postClaude(payload, signal) {
 
   if (!res.ok) {
     if (res.status === 401) return 'AI機能を使うにはログインが必要です。';
+    // お試しを使い切った／未課金 → 有料プランの画面を開く（PaywallGate が受ける）。
+    if (isPaywallError(res.status, data?.error_code)) {
+      requestPaywall(data.error_code === 'free_limit_reached' ? 'free_used' : 'subscription_required');
+      return data?.error?.message || 'AI 機能のご利用にはプランへのご登録が必要です。';
+    }
     if (res.status === 429) {
       // 月次上限超過（monthly_limit_exceeded）はサーバーが具体的な日本語文言を
       // 返すのでそれを優先。それ以外の 429（分間レート制限など）は汎用文言。

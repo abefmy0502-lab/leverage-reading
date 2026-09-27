@@ -137,6 +137,8 @@ import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
+import { FREE_AI_CALLS, inFreeWindow, fetchFreeUsed, PAYWALL_EVENT } from './lib/freeTrial';
+import { PaywallContext } from './state/PaywallContext';
 import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Dots, Stars, inp, btnS } from './components/formPrimitives';
@@ -2611,7 +2613,38 @@ function AuthedApp() {
     }
   };
 
-  const toggleAction = async (bookId, actionIdx) => {
+  // 🔁 完了した行動に「やってみてどうだった？」の 1 行を残す（行動タブの完了直後の欄から）。
+  //    残したふりかえりは相談の材料（ai.js の buildGrowthBlock「最近の完了とふりかえり」）になる。
+  const saveActionReflection = async (bookId, actionIdx, action, reflection) => {
+    const text = String(reflection || '').trim().slice(0, LIMITS.memoText || 2000);
+    if (!text) return false;
+    let ok = false;
+    await enqueueBookMutation(bookId, async (entry) => {
+      const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
+      if (!book) return;
+      const acts = [...(book.actions || [])];
+      const idx = resolveActionIndex(acts, action, actionIdx);
+      if (idx < 0 || idx >= acts.length) return;
+      acts[idx] = { ...acts[idx], reflection: text };
+      const updated = { ...book, actions: acts };
+      mutateBookLocal(bookId, () => updated);
+      syncActionSnapshots(updated);
+      try {
+        const saved = await saveBook(updated);
+        entry.latest = saved || updated;
+        syncActionSnapshots(saved || updated);
+        ok = true;
+      } catch (error) {
+        mutateBookLocal(bookId, () => book);
+        entry.latest = book;
+        syncActionSnapshots(book);
+        toast.error(toMessage(error, 'ふりかえりを保存できませんでした。'));
+      }
+    });
+    return ok;
+  };
+
+  const toggleAction = async (bookId, actionIdx, opts = {}) => {
     const book = books.find((b) => b.id === bookId);
     if (!book) return;
     const target = (book.actions || [])[actionIdx];
@@ -2622,7 +2655,8 @@ function AuthedApp() {
     // いつでも編集可能。
     await applyActionToggle(bookId, actionIdx);
     // 完了は一瞬で一覧から消えるので、取り消せるようにする（押し間違いの救済）。
-    if (!target.done) {
+    // silent: 行動タブは自分の欄（ふりかえり＋元に戻す）を出すので、案内を重ねない。
+    if (!target.done && !opts.silent) {
       toast.info('行動を完了しました', {
         duration: 5000,
         action: { label: '元に戻す', onClick: () => { applyActionToggle(bookId, actionIdx); } },
@@ -3921,6 +3955,7 @@ function AuthedApp() {
               <ActionList
                 books={books}
                 onToggleAction={toggleAction}
+                onReflect={saveActionReflection}
                 onDeleteAction={deleteActionFromBook}
                 onEditAction={(bookId, actionIdx, action) => setEditingAction({ bookId, actionIdx, action })}
                 onOpenBook={(b) => { openDetail(b); }}
@@ -4729,6 +4764,43 @@ function WebAppOnlyGate() {
 
 function PaywallGate() {
   const { isActive, loading, error, refresh } = useSubscription();
+  const { user } = useAuth();
+
+  // 🎁 登録直後のお試し（src/lib/freeTrial.js）。未課金でも、登録から 72 時間以内で
+  //    お試しの AI 回数が残っていれば、有料プランの画面の前にアプリへ入れる。
+  //    一度入れたら、この起動中は途中で締め出さない（使い切ったら画面を開いて案内するだけ）。
+  const [freeUsed, setFreeUsed] = useState(null); // null=未確認
+  const [freeSession, setFreeSession] = useState(false);
+  const refreshFree = useCallback(async () => {
+    if (!user?.id) return;
+    setFreeUsed(await fetchFreeUsed(user.id));
+  }, [user?.id]);
+  const freeEligible = !!user && inFreeWindow(user);
+  useEffect(() => {
+    if (!loading && !isActive && freeEligible && freeUsed === null) refreshFree();
+  }, [loading, isActive, freeEligible, freeUsed, refreshFree]);
+  const freeRemaining = Math.max(0, FREE_AI_CALLS - (freeUsed || 0));
+  useEffect(() => {
+    if (!isActive && freeEligible && freeUsed !== null && freeRemaining > 0) setFreeSession(true);
+  }, [isActive, freeEligible, freeUsed, freeRemaining]);
+  const freeChecking = !loading && !isActive && freeEligible && freeUsed === null;
+  const freeMode = !isActive && freeSession;
+
+  // アプリの中から開く有料プランの画面（お試しを使い切った・AI が 402 を返した）。
+  const [paywallReason, setPaywallReason] = useState(null);
+  useEffect(() => {
+    const onReq = (e) => setPaywallReason(e?.detail?.reason || 'free_used');
+    window.addEventListener(PAYWALL_EVENT, onReq);
+    return () => window.removeEventListener(PAYWALL_EVENT, onReq);
+  }, []);
+  // 契約できたら閉じる
+  useEffect(() => { if (isActive) setPaywallReason(null); }, [isActive]);
+  const paywallCtx = useMemo(() => ({
+    freeMode,
+    freeRemaining,
+    refreshFree,
+    openPaywall: (reason = 'free_used') => setPaywallReason(reason),
+  }), [freeMode, freeRemaining, refreshFree]);
 
   // 🛰️ 管理者（運営）はペイウォールを素通り。オーナーが課金なしでアプリ／運営
   //    ダッシュボードを使えるようにする。is_app_admin RPC で判定（未適用 DB や
@@ -4788,13 +4860,13 @@ function PaywallGate() {
   }, [refresh]);
 
   // ペイウォールが実際に表示される条件（判定確定 + 非管理者 + 未課金 + schema 適用済み）。
-  const paywallShown = !loading && adminChecked && !adminBypass && !isActive && !isSchemaUnappliedError(error);
+  const paywallShown = !loading && adminChecked && !adminBypass && !isActive && !freeMode && !freeChecking && !isSchemaUnappliedError(error);
   // 📊 ペイウォール露出の計測（転換率の分母）。PII なし・表示時 1 回。
   useEffect(() => { if (paywallShown) track('paywall_viewed'); }, [paywallShown]);
 
   // 判定が確定するまで（課金 or 管理者）は読み込み表示。管理者チェックを待つ
   // ことでペイウォールが一瞬チラつくのを防ぐ。
-  if (loading || !adminChecked) {
+  if (loading || !adminChecked || freeChecking) {
     return (
       <Shell>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4819,8 +4891,26 @@ function PaywallGate() {
   }
 
   // fail-open: 管理者 / 課金中 / subscriptions テーブル未適用 → ロックせず通す。
-  if (adminBypass || isActive || isSchemaUnappliedError(error)) {
-    return <AuthedApp />;
+  // お試し中（freeMode）も通す。契約した瞬間に AuthedApp を作り直さないよう、
+  // どの場合も同じ形（Provider > AuthedApp）で返す。
+  if (adminBypass || isActive || isSchemaUnappliedError(error) || freeMode) {
+    return (
+      <PaywallContext.Provider value={adminBypass || isActive ? { ...paywallCtx, freeMode: false } : paywallCtx}>
+        <AuthedApp />
+        {paywallReason && !isActive && (
+          // アプリの上に重ねる（閉じればアプリに戻る＝書きかけも消えない）。
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+            <Suspense fallback={<Spinner />}>
+              <Paywall
+                onPurchased={refresh}
+                reason={paywallReason}
+                onClose={() => setPaywallReason(null)}
+              />
+            </Suspense>
+          </div>
+        )}
+      </PaywallContext.Provider>
+    );
   }
 
   return (

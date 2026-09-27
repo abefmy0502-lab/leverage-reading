@@ -87,6 +87,22 @@ const AI_TRIAL_CALL_LIMIT = (() => {
 })();
 
 // 'YYYY-MM'（UTC 基準の当月）。月をまたぐと別キーになり自動でリセット。
+// 🎁 登録直後のお試し（価値を感じる前に有料プランの画面を出さない・2026-09-27）。
+// 未課金でも、アカウント作成から AI_FREE_WINDOW_HOURS（既定 72 時間）以内なら、
+// 生涯で AI_FREE_CALL_LIMIT 回（既定 3 回）まで AI を使える。数えるのは ai_usage の
+// period_month='free' の行（月の行とは別枠）。原価の青天井を防ぐため、この枠だけは
+// fail-closed（数えられないときは使わせない）。クライアントの既定値（src/lib/billing.js の
+// FREE_AI_CALLS / FREE_WINDOW_HOURS）と揃えること。
+const AI_FREE_CALL_LIMIT = (() => {
+  const raw = Number(process.env.AI_FREE_CALL_LIMIT);
+  return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 3;
+})();
+const FREE_WINDOW_MS = (() => {
+  const raw = Number(process.env.AI_FREE_WINDOW_HOURS);
+  return (Number.isFinite(raw) && raw >= 0 ? raw : 72) * 3600 * 1000;
+})();
+const FREE_PERIOD_KEY = 'free';
+
 function currentPeriodMonth() {
   return new Date().toISOString().slice(0, 7);
 }
@@ -317,13 +333,13 @@ async function checkEntitlement(userId) {
 // 成功したコールの後に当月カウントを原子的に +1 する。
 // fire-and-forget で呼んでよい（失敗してもユーザー応答には影響させない）。
 // RPC が無い古い DB / service_role 未設定 / インフラエラーは握り潰す（fail-open）。
-async function incrementMonthlyUsage(userId) {
+async function incrementMonthlyUsage(userId, periodKey = currentPeriodMonth()) {
   const supabase = getServiceSupabase();
   if (!supabase) return;
   try {
     const { error } = await supabase.rpc('increment_ai_usage', {
       p_user_id: userId,
-      p_period_month: currentPeriodMonth(),
+      p_period_month: periodKey,
     });
     if (error) {
       console.warn('[ai-usage] increment failed (ignored):', error.message);
@@ -337,13 +353,13 @@ async function incrementMonthlyUsage(userId) {
 // +1 するため、Anthropic が 4xx/5xx を返した（=課金されないコールが多い）時に
 // そのままだと quota だけ消費される。release_ai_usage RPC で原子的に -1 する。
 // RPC 未適用/障害は握り潰す（fail-open・従来挙動のまま）。fire-and-forget 可。
-async function releaseMonthlyUsage(userId) {
+async function releaseMonthlyUsage(userId, periodKey = currentPeriodMonth()) {
   const supabase = getServiceSupabase();
   if (!supabase) return;
   try {
     const { error } = await supabase.rpc('release_ai_usage', {
       p_user_id: userId,
-      p_period_month: currentPeriodMonth(),
+      p_period_month: periodKey,
     });
     if (error) console.warn('[ai-usage] release failed (ignored):', error.message);
   } catch (e) {
@@ -357,7 +373,7 @@ async function releaseMonthlyUsage(userId) {
 //   { allowed: false, reserved: true  } — 上限到達（加算されていない・拒否する）
 //   { allowed: true,  reserved: false } — RPC 未適用/未設定/障害 → fail-open。
 //                                          呼び出し側は従来どおり成功後 increment に委ねる。
-async function reserveMonthlyUsage(userId, limit) {
+async function reserveMonthlyUsage(userId, limit, periodKey = currentPeriodMonth()) {
   const supabase = getServiceSupabase();
   if (!supabase) return { allowed: true, reserved: false }; // fail-open
   // entitlement 由来の上限（トライアルは低め）を優先。未指定/不正は通常上限に倒す。
@@ -365,7 +381,7 @@ async function reserveMonthlyUsage(userId, limit) {
   try {
     const { data, error } = await supabase.rpc('reserve_ai_usage', {
       p_user_id: userId,
-      p_period_month: currentPeriodMonth(),
+      p_period_month: periodKey,
       p_limit: effectiveLimit,
     });
     if (error) {
@@ -469,11 +485,21 @@ export default async function handler(req, res) {
 
   // 課金 entitlement（サーバー側ゲート）。fail-open（未設定 / 未適用 / 障害は通す）。
   // 明確に未課金（テーブルあり & status!=='active'）の時だけ 402 で止める。
+  // 未課金でも、登録直後（FREE_WINDOW_MS 以内）ならお試し枠（'free' の行）で通す。
+  let periodKey = currentPeriodMonth();
+  let freeCall = false;
   if (!ent.allowed) {
-    return res.status(402).json({
-      error: { message: 'AI 機能のご利用にはプランへのご登録が必要です。' },
-      error_code: 'subscription_required',
-    });
+    const createdAt = Date.parse(userData.user.created_at || '');
+    const inFreeWindow = AI_FREE_CALL_LIMIT > 0
+      && Number.isFinite(createdAt) && Date.now() - createdAt < FREE_WINDOW_MS;
+    if (!inFreeWindow) {
+      return res.status(402).json({
+        error: { message: 'AI 機能のご利用にはプランへのご登録が必要です。' },
+        error_code: 'subscription_required',
+      });
+    }
+    freeCall = true;
+    periodKey = FREE_PERIOD_KEY;
   }
 
   // body の大きさの上限（過大トークン課金 / メモリ肥大の予防）。月次枠を予約する前に弾く
@@ -501,7 +527,14 @@ export default async function handler(req, res) {
   // TOCTOU（並行リクエストが同じ pre-increment 値を読んで全通過）を封じる。
   // entitlement 通過後にだけ予約する（未課金の予約を作らない）。fail-open（RPC 未適用/
   // 障害）の時は reserved=false になり、従来どおり成功後に increment する。
-  const usage = await reserveMonthlyUsage(userId, ent.limit);
+  const usage = await reserveMonthlyUsage(userId, freeCall ? AI_FREE_CALL_LIMIT : ent.limit, periodKey);
+  if (freeCall && (!usage.reserved || !usage.allowed)) {
+    // お試し枠は数えられないとき（RPC 未適用・障害）も通さない（fail-closed）。
+    return res.status(402).json({
+      error: { message: 'お試しの相談は、ここまでです。続けるにはプランへのご登録が必要です。' },
+      error_code: usage.reserved ? 'free_limit_reached' : 'subscription_required',
+    });
+  }
   if (!usage.allowed) {
     return res.status(429).json({
       error: { message: '今月の AI 利用上限に達しました。来月またご利用いただけます。' },
@@ -657,7 +690,7 @@ export default async function handler(req, res) {
       if (fetchErr?.name === 'AbortError' || upstreamController.signal.aborted) {
         upstreamDone = true;
         // レスポンス到達前の切断 = upstream 課金は発生していない。予約分を払い戻す。
-        if (usageReserved) releaseMonthlyUsage(userId);
+        if (usageReserved) releaseMonthlyUsage(userId, periodKey);
         try { res.end(); } catch { /* socket may already be closed */ }
         return;
       }
@@ -711,7 +744,7 @@ export default async function handler(req, res) {
         // 注: 途中で中断（クライアント切断）してもストリームは開始済みであり、
         // upstream への課金コールは発生しているため、1 カウントは妥当。
         // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
-        if (!usageReserved) incrementMonthlyUsage(userId);
+        if (!usageReserved) incrementMonthlyUsage(userId, periodKey);
         return;
       }
     }
@@ -735,10 +768,10 @@ export default async function handler(req, res) {
     // 上流が 2xx の成功レスポンスの時だけ当月カウントを +1。失敗（4xx/5xx）は
     // 課金されないコールが多いので quota を消費させない。fire-and-forget。
     // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
-    if (response.ok && !usageReserved) incrementMonthlyUsage(userId);
+    if (response.ok && !usageReserved) incrementMonthlyUsage(userId, periodKey);
     // reserve 済みで upstream が失敗した時は予約分を払い戻す（非 reserve 経路の
     // 「2xx のときだけ increment」と対称にする）。
-    if (!response.ok && usageReserved) releaseMonthlyUsage(userId);
+    if (!response.ok && usageReserved) releaseMonthlyUsage(userId, periodKey);
     if (!response.ok) {
       // 上流（Anthropic）の生エラー JSON（英語の内部メッセージ・request-id 等）を
       // クライアントへ verbatim 転送しない — 内部構成のヒントになる上、postClaude が
@@ -757,7 +790,7 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Claude API error:', error);
     // upstream に到達できずに失敗（ネットワーク等）。reserve 済みの予約分を払い戻す。
-    if (usageReserved) releaseMonthlyUsage(userId);
+    if (usageReserved) releaseMonthlyUsage(userId, periodKey);
     return res.status(500).json({ error: 'API request failed' });
   }
 }

@@ -21,6 +21,7 @@
 // await the whole exchange when convenient.
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import { isPaywallError, requestPaywall } from './freeTrial';
 import { MODEL_SMART } from './models';
 import { apiUrl } from './apiUrl';
 
@@ -114,6 +115,12 @@ export async function streamClaude({
         errorCode = j?.error_code || '';
       } catch { /* fallthrough */ }
       if (res.status === 401) throw new Error('AI機能を使うにはログインが必要です。');
+      if (isPaywallError(res.status, errorCode)) {
+        requestPaywall(errorCode === 'free_limit_reached' ? 'free_used' : 'subscription_required');
+        const err = new Error(detail || 'AI 機能のご利用にはプランへのご登録が必要です。');
+        err.paywall = true; // 呼び出し側はエラーの案内を重ねて出さない
+        throw err;
+      }
       if (res.status === 429) {
         // 月次上限超過はサーバーの具体文言を優先。それ以外の 429 は汎用文言。
         if (errorCode === 'monthly_limit_exceeded' && detail) throw new Error(detail);

@@ -121,6 +121,8 @@ export function buildSeed(scenario) {
     }],
   };
   if (scenario === 'new') return db;
+  // ?demo=free: 新規ユーザーで、購読なし（お試しの相談 3 回 → 有料プランの画面の確認用）。
+  if (scenario === 'free') { db.subscriptions = []; db.ai_usage = []; return db; }
   // ?demo=paywall: 使い込んだデータのまま、購読だけ無い（有料プランの画面の確認用）。
   if (scenario === 'paywall') db.subscriptions = [];
 

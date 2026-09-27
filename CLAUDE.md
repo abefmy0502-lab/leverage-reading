@@ -330,6 +330,8 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `SUPABASE_SERVICE_ROLE_KEY` | サーバー専用 service_role キー (`api/claude.js` の AI 利用量メータリング書込 / Stripe・RevenueCat webhook の subscriptions 書込)。RLS バイパス。**クライアント露出厳禁** |
 | `ANTHROPIC_API_KEY` | Claude API キー |
 | `AI_MONTHLY_CALL_LIMIT` | (任意) AI 月次コール上限。未設定なら既定 120。ローンチ後に実データで調整するための env スイッチ |
+| `AI_FREE_CALL_LIMIT` | (任意) 🎁 登録直後のお試し（未課金）で使える AI の回数（生涯・既定 3）。`api/claude.js` が `ai_usage` の `period_month='free'` 行で数える（既存の `reserve_ai_usage` RPC を流用・新しい SQL 不要）。この枠だけは fail-closed（RPC 未適用・障害なら使わせない＝原価の青天井防止）。クライアントの表示用の既定は `src/lib/freeTrial.js` の `FREE_AI_CALLS`（変えるときは両方）。`0` でお試しをやめる（従来のハードペイウォール） |
+| `AI_FREE_WINDOW_HOURS` | (任意) 🎁 お試しを使える期間＝アカウント作成からの時間（既定 72）。過ぎた未課金の人は起動時に有料プランの画面。クライアントの `FREE_WINDOW_HOURS` と揃える |
 | `AI_TRIAL_CALL_LIMIT` | (任意) 🎁 無料トライアル/導入価格期間中の AI 月次上限。未設定なら既定 40。`subscriptions.period_type` が `'trial'`/`'intro'`（無料期間）の時だけ適用し、`'normal'`/`null`（有料）は必ず `AI_MONTHLY_CALL_LIMIT`。トライアル中は収益ゼロで AI 原価だけ出るため、冷やかしユーザーの青天井を防ぐ原価ガード。`period_type` 列（`supabase_admin_members_tasks.sql`）が未適用なら schema-error fallback で通常上限に degrade（無害） |
 | `STRIPE_SECRET_KEY` | サーバー専用 Stripe シークレットキー (`api/stripe-*.js`)。**クライアント露出厳禁** |
 | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名シークレット (`whsec_...`、`api/stripe-webhook.js`) |
@@ -398,7 +400,7 @@ update feedback
 
 ## 開発時の注意
 
-- **🧪 お試しモード（開発専用）**: `npm run demo` → http://localhost:5173/ で、Supabase / AI に繋がずにサンプルデータ入りのアプリを操作できる（`src/demo/`。`?demo=new`=新規ユーザー・`?demo=auth`=未ログイン・既定=半年使い込んだユーザー）。データはメモリのみで再読み込みで初期化。AI はサンプル応答（マイ読書脳だけは入っているメモから質問に近いものを選んで本番と同じ書式で答える）。`lib/supabase.js` の `isDemo` は `import.meta.env.DEV` 限定なので本番バンドルには含まれない。Supabase を使う新しいクエリ（新しい演算子等）を追加したら `src/demo/demoClient.js` の対応範囲も確認する
+- **🧪 お試しモード（開発専用）**: `npm run demo` → http://localhost:5173/ で、Supabase / AI に繋がずにサンプルデータ入りのアプリを操作できる（`src/demo/`。`?demo=new`=新規ユーザー・`?demo=auth`=未ログイン・`?demo=free`=登録直後の未課金＝お試し 3 回→有料プランの画面（`&native=1` でネイティブの見た目）・既定=半年使い込んだユーザー）。データはメモリのみで再読み込みで初期化。AI はサンプル応答（マイ読書脳だけは入っているメモから質問に近いものを選んで本番と同じ書式で答える）。`lib/supabase.js` の `isDemo` は `import.meta.env.DEV` 限定なので本番バンドルには含まれない。Supabase を使う新しいクエリ（新しい演算子等）を追加したら `src/demo/demoClient.js` の対応範囲も確認する
 - **IME 変換中の Enter** は `e.nativeEvent.isComposing` で必ず保護する（誤送信防止）
 - **iOS Safari ズーム対策**で `input` / `textarea` / `select` は `font-size: 16px 以上` を維持（共通スタイル `inp` / `ta` を使えば自動）
 - **削除操作は楽観的 UI + Undo パターン**: 即 DB DELETE → スナップショットから 5 秒以内なら restore-on-undo（タイマーベースの遅延削除は禁止 — タブ閉じで取り戻せなくなる）

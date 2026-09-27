@@ -240,7 +240,7 @@ function makeSession(user) {
 export function createDemoClient() {
   const params = new URLSearchParams(window.location.search);
   const scenario = params.get('demo') || 'full';
-  if (scenario === 'new' || scenario === 'auth') {
+  if (scenario === 'new' || scenario === 'auth' || scenario === 'free') {
     // 新規ユーザー体験を毎回まっさらに見るため、端末ローカルの既読フラグも消す。
     try { window.localStorage.clear(); } catch { /* ignore */ }
   } else {
@@ -256,7 +256,8 @@ export function createDemoClient() {
     email: 'demo@example.com',
     user_metadata: { display_name: scenario === 'new' ? '' : 'さとう' },
     app_metadata: { provider: 'email' },
-    created_at: new Date(Date.now() - 200 * 86400000).toISOString(),
+    // ?demo=free: 登録したばかり（お試しの枠の中）の未課金ユーザー。
+    created_at: new Date(Date.now() - (scenario === 'free' ? 600000 : 200 * 86400000)).toISOString(),
   };
 
   const store = {

@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X, Search, Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { usePaywall } from '../state/PaywallContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -158,6 +159,7 @@ const btnPrimaryOff = { ...btnPrimary, background: 'var(--fill)', color: 'var(--
 export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose, onWriteMemo }) {
   const { user } = useAuth();
   const toast = useToast();
+  const { freeMode, freeRemaining } = usePaywall();
   const trapRef = useFocusTrap(true);
   const [step, setStep] = useState('pick'); // 'pick' | 'memo' | 'saving' | 'done'
   const [query, setQuery] = useState('');
@@ -516,6 +518,9 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                 <h2 id="qs-ask" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)' }}>
                   相談してみる
                 </h2>
+                {freeMode && freeRemaining > 0 && (
+                  <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)' }}>お試しで {freeRemaining} 回まで、無料で相談できます</p>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {suggestQuestions(picked).map((q) => (
                     <button key={q} type="button" style={askChip}

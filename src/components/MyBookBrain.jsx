@@ -25,6 +25,7 @@ import EmptyState from './EmptyState';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import KnowledgeJourney from './KnowledgeJourney';
+import { usePaywall } from '../state/PaywallContext';
 
 // ホーム・本の詳細・テーマまとめから渡される「最初の一手」（preset）は、App 側では
 // 消えずに残る。相談タブを開き直すと MyBookBrain が作り直されるので、使い終わった
@@ -297,6 +298,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   useEffect(() => { prewarmKnowledge(user?.id); }, [user?.id]);
   const toast = useToast();
   const confirm = useConfirm();
+  // 🎁 お試し中（未課金・登録直後）: 残り回数の表示と、使い切ったら有料プランの画面へ。
+  const { freeMode, freeRemaining, refreshFree, openPaywall } = usePaywall();
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
   // 📐→🕰 テーマまとめの「このテーマの足あとを見る」から遷移してきたら、
   // 足あとビューへ切替（テーマ本体は KnowledgeJourney に initialTheme で渡す）。
@@ -450,6 +453,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (!hasMemos) return; // memoStats 反映後に再評価される
     weeklyTriedRef.current = true;
     const wk = isoWeekKey();
+    // お試し中は AI で問いを作らない（お試しの回数を、本人の相談のために残す）。
+    if (freeMode) { setWeeklyQ(FALLBACK_WEEKLY[Math.abs(hashStr(wk)) % FALLBACK_WEEKLY.length]); return; }
     try {
       if (localStorage.getItem('brain-weekly-dismissed') === wk) { setWeeklyDismissed(true); return; }
       const raw = localStorage.getItem('brain-weekly-q');
@@ -609,6 +614,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }
     const q = (questionText ?? input).trim();
     if (!q || busy) return;
+    // お試しを使い切っていたら、送らずに有料プランの画面を開く（入力は残す）。
+    if (freeMode && freeRemaining <= 0) { openPaywall('free_used'); return; }
     const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
     const askScopeLabel = scopeLabelFor(askBookIds, books);
 
@@ -728,7 +735,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     } catch (e) {
       // abort はエラーではない (streamMyBookBrain は正常 resolve するため通常
       // ここには来ないが、念のため abort 由来の例外はトーストしない)。
-      if (!(controller.signal.aborted || (e && e.name === 'AbortError'))) {
+      // 有料プランの画面を開いたとき（e.paywall）は、エラーの案内を重ねない。
+      if (!(controller.signal.aborted || (e && e.name === 'AbortError') || e?.paywall)) {
         toast.error(toMessage(e, '回答の生成に失敗しました。'));
       }
       // 楽観的な streaming 行を差し替える。途中まで本文が生成されていた場合は
@@ -742,6 +750,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               role: 'assistant',
               content: controller.signal.aborted
                 ? '回答を中止しました。'
+                : e?.paywall
+                  ? 'お試しの相談は、ここまでです。続けて相談するには、プランを始めてください。'
                 : partial
                   ? `${partial}\n\n— 通信が中断されたため、回答はここまでです。`
                   : '回答を生成できませんでした。少し時間をおいて再度お試しください。',
@@ -749,7 +759,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               createdAt: new Date().toISOString(),
               // 通信エラー（ユーザーの中止ではない）はその場で再試行できるように
               // フラグを立てる。行き止まりで打ち直しを強いると看板機能で最悪の離脱に。
-              error: !controller.signal.aborted,
+              error: !controller.signal.aborted && !e?.paywall,
             }
           : m
       ));
@@ -761,6 +771,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       setStage(null);
       setBusy(false);
       setAborting(false);
+      if (freeMode) refreshFree(); // お試しの残りを取り直す（数えるのはサーバー）
     }
   };
 
@@ -877,6 +888,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <>
             <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.4 }}>
               {noteCount > 0 ? <>あなたのメモ {noteCount} 件から答えます</> : '読んだ本のメモを根拠に答えます'}
+              {freeMode && (
+                <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+                  {freeRemaining > 0 ? `お試しで、あと ${freeRemaining} 回相談できます` : 'お試しの相談は使い切りました'}
+                </span>
+              )}
             </p>
             <button type="button" style={iconBtn} onClick={() => setView('history')} aria-label="過去の相談を見る" title="過去の相談">
               <History size={22} strokeWidth={1.75} aria-hidden="true" />
@@ -1038,6 +1054,24 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             ))}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* お試しを使い切ったら、答えの下で静かに案内（読み終えるまで画面を奪わない） */}
+          {freeMode && freeRemaining <= 0 && !busy && lastIsAssistant && (
+            <section
+              aria-label="お試しの相談は、ここまで"
+              style={{ marginTop: 'var(--space-6)', padding: 'var(--space-4)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}
+            >
+              <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+                お試しの相談は、ここまでです
+              </p>
+              <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                メモが増えるほど、答えは確かになります。この相談相手を使い続けますか？
+              </p>
+              <button type="button" onClick={() => openPaywall('free_used')} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+                この相談相手を使い続ける
+              </button>
+            </section>
+          )}
 
           {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>

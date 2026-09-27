@@ -9,13 +9,15 @@
 // 編集は ⋮ → 編集（App の編集シート）、本の詳細へは ⋮ → 本を開く。
 // 見た目は DESIGN.md のトークンのみ。
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { LIMITS } from '../lib/limits';
+import { input as uiInput, btnText } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
 import { stripInlineMd } from '../lib/text';
 import { track, EVENTS } from '../lib/analytics';
 import EmptyState from './EmptyState';
 import ContextMenu from './ContextMenu';
-import { MoreVertical, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { MoreVertical, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
 
 const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
 const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
@@ -82,9 +84,37 @@ const byDeadline = (a, b) => {
   return (a.created_at || '').localeCompare(b.created_at || '');
 };
 
-export default function ActionList({ books, onToggleAction, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult }) {
+export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult }) {
   const { allActions, stats } = useAllActions(books);
   const [showDone, setShowDone] = useState(false);
+  // 🔁 完了した直後の欄（ふりかえりの 1 行＋元に戻す）。閉じるか次を完了するまで上に出す。
+  //    入力は任意・画面を奪わない（旧「完了おめでとう」モーダルは毎回の手間で撤去済み）。
+  const [justDone, setJustDone] = useState(null); // { bookId, actionIdx, action }
+  const [reflection, setReflection] = useState('');
+  const [reflecting, setReflecting] = useState(false);
+  const complete = (a) => {
+    track(EVENTS.ACTION_COMPLETED);
+    onToggleAction?.(a.bookId, a.actionIdx, { silent: !!onReflect });
+    if (onReflect) { setJustDone({ bookId: a.bookId, actionIdx: a.actionIdx, action: a }); setReflection(''); }
+  };
+  const undoJustDone = () => {
+    if (!justDone) return;
+    onToggleAction?.(justDone.bookId, justDone.actionIdx, { silent: true });
+    setJustDone(null);
+  };
+  const saveReflection = async () => {
+    if (!justDone || !reflection.trim() || reflecting) return;
+    setReflecting(true);
+    const ok = await onReflect?.(justDone.bookId, justDone.actionIdx, { ...justDone.action, done: true }, reflection);
+    setReflecting(false);
+    if (ok) { setJustDone(null); setReflection(''); setShowSaved(true); }
+  };
+  const [showSaved, setShowSaved] = useState(false);
+  useEffect(() => {
+    if (!showSaved) return undefined;
+    const t = setTimeout(() => setShowSaved(false), 4000);
+    return () => clearTimeout(t);
+  }, [showSaved]);
   const [menu, setMenu] = useState(null); // { x, y, action }
 
   const open = useMemo(() => allActions.filter((a) => !a.done).sort(byDeadline), [allActions]);
@@ -157,7 +187,7 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
           aria-label={a.done ? `「${stripInlineMd(a.text)}」を未完了に戻す` : `「${stripInlineMd(a.text)}」を完了にする`}
           onClick={() => {
             // 未完了→完了の瞬間だけ計測（PII なし）。ハプティクスは applyActionToggle が一元発火。
-            if (!a.done) track(EVENTS.ACTION_COMPLETED);
+            if (!a.done) { complete(a); return; }
             onToggleAction?.(a.bookId, a.actionIdx);
           }}
           style={{ flexShrink: 0, width: 44, height: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
@@ -210,6 +240,60 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
           </button>
         )}
       </div>
+
+      {justDone && (
+        <section
+          aria-label="完了した行動のふりかえり"
+          style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', position: 'relative' }}
+        >
+          <button
+            type="button"
+            aria-label="閉じる"
+            onClick={() => setJustDone(null)}
+            style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'grid', placeItems: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer' }}
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+          <p style={{ margin: 0, paddingRight: 'var(--space-8)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+            <CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0, marginTop: 2 }} />
+            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>「{stripInlineMd(justDone.action.text)}」を完了しました</span>
+          </p>
+          <label htmlFor="act-reflection" style={{ display: 'block', margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+            やってみて、どうでしたか？
+          </label>
+          <input
+            id="act-reflection"
+            value={reflection}
+            onChange={(e) => setReflection(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); saveReflection(); } }}
+            maxLength={LIMITS.memoText}
+            placeholder="例：先に話を聞いたら、早く終わった"
+            enterKeyHint="done"
+            style={uiInput}
+          />
+          <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+            ひとことでも残すと、次の相談で踏まえて答えます（任意）
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+            <button
+              type="button"
+              onClick={saveReflection}
+              disabled={!reflection.trim() || reflecting}
+              style={{ ...rowBtn, ...(reflection.trim() && !reflecting ? {} : { color: 'var(--text-3)', borderColor: 'var(--separator)', cursor: 'default' }) }}
+            >
+              {reflecting ? '保存中…' : '残す'}
+            </button>
+            <button type="button" onClick={undoJustDone} style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400 }}>
+              元に戻す
+            </button>
+          </div>
+        </section>
+      )}
+      {showSaved && (
+        <p role="status" style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+          ふりかえりを残しました。次の相談で使います。
+        </p>
+      )}
 
       {open.length === 0 && (
         <EmptyState
