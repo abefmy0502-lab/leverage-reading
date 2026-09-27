@@ -156,7 +156,7 @@ function ResultsSkeleton() {
 // 押せない主ボタン。薄くすると「あと N 冊」が読めなくなるので、面と文字の色で押せないことを示す。
 const btnPrimaryOff = { ...btnPrimary, background: 'var(--fill)', color: 'var(--text-2)', cursor: 'default', opacity: 1 }; // 全体の button:disabled{opacity:.4} を打ち消す
 
-export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose, onWriteMemo }) {
+export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose, onWriteMemo, onImport }) {
   const { user } = useAuth();
   const toast = useToast();
   const { freeMode, freeRemaining } = usePaywall();
@@ -298,6 +298,11 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
           <div style={body}>
             <h1 style={title}>これまで読んで、<br />印象に残っている本は？</h1>
             <p style={sub}>{MIN_BOOKS}〜{MAX_BOOKS} 冊えらんでください</p>
+            {onImport && (
+              <button type="button" onClick={onImport} style={{ ...btnText, padding: 0, marginTop: 'var(--space-1)' }}>
+                ブクログ・Kindle の記録から取り込む
+              </button>
+            )}
 
             <div role="search" style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-6)' }}>
               <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>

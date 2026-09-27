@@ -47,6 +47,12 @@ export function AppDataCacheProvider({ children }) {
   const notifyAnyMemo = () => {
     anyMemoSubsRef.current.forEach((cb) => { try { cb(); } catch { /* ignore */ } });
   };
+  // まとめて取り込んだ（ImportSheet）など、キャッシュを通さずにメモが増えたときに呼ぶ。
+  const notifyMemosChanged = useCallback(() => {
+    memoStoreRef.current.clear(); // 本ごとのメモは次に開いたときに読み直す
+    invalidateKnowledgeCache();
+    notifyAnyMemo();
+  }, []);
   const subscribeAnyMemo = useCallback((cb) => {
     if (typeof cb !== 'function') return () => {};
     anyMemoSubsRef.current.add(cb);
@@ -244,6 +250,7 @@ export function AppDataCacheProvider({ children }) {
       patchMemos,
       subscribeMemos,
       subscribeAnyMemo,
+      notifyMemosChanged,
       dedupeMemoFetch,
       clearMemos,
       getCachedPhotoUrl,
@@ -258,6 +265,7 @@ export function AppDataCacheProvider({ children }) {
       patchMemos,
       subscribeMemos,
       subscribeAnyMemo,
+      notifyMemosChanged,
       dedupeMemoFetch,
       clearMemos,
       getCachedPhotoUrl,

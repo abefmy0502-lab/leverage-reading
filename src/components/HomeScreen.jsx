@@ -21,7 +21,7 @@ const sectionTitle = {
   fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3,
 };
 
-function StartCard({ onQuickstart, onAddBook, onAdvisor }) {
+function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
   return (
     <section aria-labelledby="home-start-title" style={card}>
       {/* 「読むほど、自分だけの相談相手が育つ」はログインと初回ガイドで伝え済み。ここは行動だけを示す（同じことを二度言わない）。 */}
@@ -31,6 +31,9 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor }) {
       {/* 文字ボタン自体の上下余白（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
       <div style={{ textAlign: 'center', margin: 'var(--space-1) 0 calc(-1 * var(--space-3))' }}>
         <button type="button" onClick={onAdvisor} style={btnText}>悩みから、次に読む本を選んでもらう</button>
+        {onImport && (
+          <button type="button" onClick={onImport} style={btnText}>ブクログ・Kindle から取り込む</button>
+        )}
       </div>
     </section>
   );
@@ -89,7 +92,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
 
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
-  onAsk, onQuickstart, onAddBook, onAdvisor,
+  onAsk, onQuickstart, onAddBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading,
 }) {
   return (
@@ -111,7 +114,7 @@ export default function HomeScreen({
           actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
         />
       ) : books.length === 0 ? (
-        <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} />
+        <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
       ) : (
         <>
           <HomeConsult books={books} onAsk={onAsk} onQuickstart={onQuickstart} />

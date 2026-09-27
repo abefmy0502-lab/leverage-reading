@@ -324,7 +324,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
   return all;
 }
 
-export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpenAdmin, focusDelete = false }) {
+export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpenAdmin, onOpenImport, focusDelete = false }) {
   const { user, signOut } = useAuth();
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
   const deleteRef = useRef(null);
@@ -949,6 +949,16 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               ) : null}
             />
           </Group>
+          )}
+
+          {/* ── ほかのアプリから取り込む（ブクログ・Kindle） ── */}
+          {onOpenImport && (
+            <Group label="取り込む">
+              <button type="button" style={rowButtonStyle} onClick={onOpenImport}>
+                <span style={{ ...rowTitleStyle, flex: 1 }}>ほかのアプリから取り込む（ブクログ・Kindle）</span>
+                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </button>
+            </Group>
           )}
 
           {/* ── データをダウンロード ── */}

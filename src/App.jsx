@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
-import { sanitizeForPrompt } from './lib/ai';
+import { sanitizeForPrompt, invalidateKnowledgeCache } from './lib/ai';
+import { markActivation } from './lib/activation';
+import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
 import MarkdownSections from './components/MarkdownSections';
@@ -18,6 +20,7 @@ import BookMemoEditor from './components/BookMemoEditor';
 import BookLearningAnalysis from './components/BookLearningAnalysis';
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
+const ImportSheet = lazy(() => import('./components/ImportSheet'));
 const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
@@ -416,6 +419,7 @@ function Shell({ children }) {
 /* ========== MAIN APP ========== */
 function AuthedApp() {
   const { signOut, user } = useAuth();
+  const appCache = useAppDataCache();
   // 仮想キーボード表示中は BottomNav を消し、入力欄に重ならないようにする。
   // viewport meta の interactive-widget=resizes-content と併用すると iOS
   // で「BottomNav が押し上げられる」現象が完全になくなる。
@@ -520,6 +524,7 @@ function AuthedApp() {
   const [homeMemoBook, setHomeMemoBook] = useState(null);
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
   const [showQuickstart, setShowQuickstart] = useState(false);
+  const [showImport, setShowImport] = useState(false); // 📥 ほかのアプリから取り込む
   // クイックスタートをメモ 0 件で終えたとき「メモを書く」→ 本が読み込まれたらその本を開いてメモのシートを出す。
   const [pendingMemoBookId, setPendingMemoBookId] = useState(null);
 
@@ -1730,6 +1735,91 @@ function AuthedApp() {
     return saved;
   };
 
+  // 📥 ほかのアプリ（ブクログ・Kindle）から取り込む（ImportSheet → ここで保存）。
+  //   本: 本棚に同じ本があればそこに足す・無ければ追加（状態・評価・読了日・タグ・レビューはまとめへ）。
+  //   メモ: 元の日付を残す（「いちばん古いのは ◯ か月前」や相談の歩みに効く）。同じ本の同じ文は足さない
+  //         （同じファイルを 2 回取り込んでも二重にならない）。AI は使わない。
+  const importLibrary = async (result, onProgress) => {
+    let reviewsAdded = 0;
+    const items = Array.isArray(result?.books) ? result.books : [];
+    let booksAdded = 0;
+    let booksMatched = 0;
+    const pending = []; // { bookId, memos }
+    const newBooks = [];
+    for (let i = 0; i < items.length; i += 1) {
+      const b = items[i];
+      onProgress?.(i, items.length);
+      const isbn = String(b.isbn || '').replace(/[^0-9Xx]/g, '');
+      let target = findDuplicateBook(booksRef.current, { title: b.title, author: b.author, isbn });
+      const memos = [...(b.memos || [])];
+      if (target) {
+        booksMatched += 1;
+        if (b.review) memos.push({ text: b.review, page: null, createdAt: null });
+      } else {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          target = await saveBook({
+            ...emptyBook(),
+            title: String(b.title || '').slice(0, LIMITS.bookTitle || 200),
+            author: String(b.author || '').slice(0, 200),
+            isbn,
+            status: ['want', 'before', 'reading', 'done'].includes(b.status) ? b.status : 'done',
+            rating: Number(b.rating) || 0,
+            doneDate: b.doneDate || '',
+            tags: Array.isArray(b.tags) ? b.tags : [],
+            leverageMemo: b.review || '',
+            addedVia: isbn ? 'search' : 'manual',
+          });
+          if (target) { booksAdded += 1; newBooks.push(target); if (b.review) reviewsAdded += 1; }
+        } catch (e) {
+          console.warn('[import] book save failed:', e?.message || e);
+          target = null;
+        }
+      }
+      if (target?.id && memos.length) pending.push({ bookId: target.id, memos });
+    }
+    onProgress?.(items.length, items.length);
+
+    // 既にあるメモの本文（同じ本の同じ文は足さない）
+    let memosAdded = 0;
+    const ids = [...new Set(pending.map((p) => p.bookId))];
+    const existing = new Set();
+    for (let i = 0; i < ids.length; i += 100) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data } = await supabaseClient.from('book_memos').select('book_id, text').in('book_id', ids.slice(i, i + 100));
+      (data || []).forEach((m) => existing.add(`${m.book_id}\u0000${(m.text || '').trim()}`));
+    }
+    const rows = [];
+    for (const p of pending) {
+      for (const m of p.memos) {
+        const text = String(m.text || '').trim().slice(0, LIMITS.memoText || 2000);
+        const key = `${p.bookId}\u0000${text}`;
+        if (!text || existing.has(key)) continue;
+        existing.add(key);
+        const row = { user_id: user.id, book_id: p.bookId, text, page_number: Number.isFinite(m.page) ? m.page : null, tags: [], photo_path: null };
+        if (m.createdAt && !Number.isNaN(Date.parse(m.createdAt))) row.created_at = new Date(m.createdAt).toISOString();
+        rows.push(row);
+      }
+    }
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i + 200);
+      // eslint-disable-next-line no-await-in-loop
+      const { error } = await supabaseClient.from('book_memos').insert(chunk);
+      if (error) throw error;
+      memosAdded += chunk.length;
+    }
+    invalidateKnowledgeCache();
+    appCache?.notifyMemosChanged?.(); // ホームの相談カードの件数などを取り直させる
+    refreshBooks();
+    // 表紙は最初の 20 冊だけ裏で探す（残りは本棚に表示されたときに探す）
+    newBooks.slice(0, 20).forEach((bk) => { try { resolveCoverInBackground(bk); } catch { /* 表紙は後で */ } });
+    // 新しい本のレビューは「この本のまとめ」に入れたので、メモの件数に含めて伝える
+    memosAdded += reviewsAdded;
+    track('import_done', { source: result?.source || 'unknown', books: booksAdded, matched: booksMatched, memos: memosAdded });
+    if (memosAdded > 0) markActivation('memo');
+    return { booksAdded, booksMatched, memosAdded };
+  };
+
   const addFromAdvisor = async (rec, payloadOrQuery = '') => {
     // 既に本棚にある本ならダイアログ → 既存本へジャンプ。null を返して
     // BookAdvisor 側に「追加されなかった」を伝える。
@@ -2794,9 +2884,25 @@ function AuthedApp() {
 
   // 📚 初日クイックスタート。初回ガイドはどの画面（一覧/詳細/編集）でも出るので、
   // その隣に同じものを置く（下の各 return で {quickstartOverlay} を描画）。
+  const importOverlay = showImport ? (
+    <Suspense fallback={null}>
+      <ImportSheet
+        onImport={importLibrary}
+        onClose={() => setShowImport(false)}
+        onAsk={(question) => {
+          setShowImport(false);
+          setAskPreset({ question, nonce: Date.now() });
+          setView('list');
+          setAiSubTab('brain');
+          setTab('ai');
+        }}
+      />
+    </Suspense>
+  ) : null;
   const quickstartOverlay = showQuickstart ? (
     <Suspense fallback={null}>
       <PastBooksQuickstart
+        onImport={() => { setShowQuickstart(false); setShowImport(true); }}
         books={books}
         onSaveBook={saveQuickstartBook}
         onAsk={(question) => {
@@ -3303,6 +3409,7 @@ function AuthedApp() {
             back to the bookshelf. */}
         {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
         {quickstartOverlay}
+        {importOverlay}
 
         {storeSheetOpen && (
           <BottomSheet title="この本を買う" onClose={() => setStoreSheetOpen(false)}>
@@ -3511,6 +3618,7 @@ function AuthedApp() {
             from the edit-screen help modal without requiring a tab switch. */}
         {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
         {quickstartOverlay}
+        {importOverlay}
         <BottomNav
           tab={tab}
           setTab={async (t) => {
@@ -3633,6 +3741,7 @@ function AuthedApp() {
                 setTab('ai');
               }}
               onQuickstart={() => setShowQuickstart(true)}
+              onImport={() => setShowImport(true)}
               onAddBook={() => openAdd('reading')}
               onAdvisor={() => { setAiSubTab('advisor'); setTab('ai'); }}
               onOpenBook={(b) => openDetail(b)}
@@ -4045,6 +4154,7 @@ function AuthedApp() {
 
       {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
         {quickstartOverlay}
+        {importOverlay}
 
       {bookContextMenu && (
         <ContextMenu
@@ -4112,6 +4222,7 @@ function AuthedApp() {
             onAfterDelete={() => setSettingsOpen(false)}
             isAdmin={isAdmin}
             onOpenAdmin={() => { setSettingsOpen(false); setAdminOpen(true); }}
+            onOpenImport={() => { setSettingsOpen(false); setShowImport(true); }}
           />
         </Suspense>
       )}
