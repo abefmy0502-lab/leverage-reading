@@ -136,7 +136,7 @@ export default function TokenSheet({ onClose, onPurchased }) {
       )}
     >
       {showNative && priceState === 'failed' && (
-        <div style={{ marginBottom: 'var(--space-3)' }}>
+        <div style={{ marginBottom: 'var(--space-6)' }}>
           <ErrorMessage
             title="価格を読み込めませんでした"
             description="通信の状態を確かめて、もう一度お試しください。"
@@ -147,7 +147,7 @@ export default function TokenSheet({ onClose, onPurchased }) {
       <div role="radiogroup" aria-label="追加するトークン" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {TOKEN_PACKS.map((p) => {
           const off = unavailable(p.id);
-          const on = !off && current === p.id;
+          const on = !off && current === p.id && !(showNative && priceState === 'failed');
           // 価格の欄: Web は既定の表示・アプリ版はストアの値だけ（読み込み中は骨組み・取れなければ何も出さない）。
           let price = null;
           if (!showNative) price = prices[p.id] || p.fallbackPrice;

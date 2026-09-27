@@ -2230,7 +2230,7 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
         <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本（おすすめ）</span>
         {mark(mode === 'all')}
       </button>
-      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{noneToPick ? '本に絞る' : '本に絞る（複数選べます）'}</p>
+      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{(countsLoading || pickable.length > 1) ? '本に絞る（複数選べます）' : '本に絞る'}</p>
       {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。 */}
       {countsLoading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -2252,7 +2252,7 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
                     {counts != null && (
-                      <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{n > 0 ? `メモ ${n} 件` : 'まとめメモあり'}</span>
+                      <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{n > 0 ? `メモ ${n} 件` : 'この本のまとめあり'}</span>
                     )}
                   </span>
                   {mark(on)}
@@ -2264,13 +2264,14 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
           {notPickable.length > 0 && (
             <>
               <p style={{ ...groupTitle, margin: 'var(--space-6) 0 var(--space-2)' }}>メモがまだない本</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {notPickable.map((b) => (
-                  <button key={b.id} type="button" disabled aria-disabled="true" style={{ ...rowStyle, opacity: 1, cursor: 'default' }}>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text-3)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-                  </button>
+              {/* 押せる行（枠つきのカード）と見分けがつくよう、枠のない 1 行の一覧にする。 */}
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {notPickable.map((b, i) => (
+                  <li key={b.id} style={{ display: 'flex', alignItems: 'center', minHeight: 44, borderTop: i > 0 ? '1px solid var(--separator)' : 'none', fontSize: 'var(--text-sub)', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.title}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </>
           )}
         </>

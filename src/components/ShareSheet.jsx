@@ -212,7 +212,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
     const canvas = canvasRef.current;
     if (!canvas || !chosen || !assets) return false;
     try {
-      if (DEMO_SHARE === 'fail') throw new Error('地を変えるか、もう一度お試しください。');
+      if (DEMO_SHARE === 'fail') throw new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。');
       const r = drawShareCard(canvas, {
         line: chosen.text,
         page: Number.isFinite(chosen.pageNumber) ? chosen.pageNumber : null,
@@ -235,7 +235,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
       return true;
     } catch (e) {
       console.error('share card draw error', e);
-      setError(toMessage(e, '地を変えるか、もう一度お試しください。'));
+      setError(toMessage(e, '紙・夜など、ほかの色を選ぶか、もう一度お試しください。'));
       setStatus('error');
       return false;
     }
@@ -255,7 +255,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
         })
         .catch((e) => {
           if (keyRef.current !== key) return;
-          setError(toMessage(e, '地を変えるか、もう一度お試しください。'));
+          setError(toMessage(e, '紙・夜など、ほかの色を選ぶか、もう一度お試しください。'));
           setStatus('error');
         });
     }, 180);
