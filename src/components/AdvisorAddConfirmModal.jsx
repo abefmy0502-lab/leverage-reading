@@ -149,9 +149,9 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
             {original.author && <p style={metaText}>{original.author}</p>}
           </div>
 
-          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6 }}>
             {candidates.length === 1
-              ? '見つかった本を確かめてから追加してください。'
+              ? '見つかった本を確かめて、追加してください。'
               : '候補がいくつか見つかりました。表紙を見て、正しい本を選んでください。'}
           </p>
 
