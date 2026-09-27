@@ -24,7 +24,7 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
-import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout } from 'lucide-react';
+import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2 } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { AI_MONTHLY_BUDGET_JPY, fetchMonthCostJpy, nextResetLabelJa } from '../lib/freeTrial';
@@ -85,7 +85,8 @@ const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'va
 const answerCard = { ...cardStyle, wordBreak: 'break-word' };
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
-const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer', listStyle: 'none' };
+// 畳む見出し（DESIGN §5: 高さ 48・17/600/--text・右端にシェブロン 20）。
+const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
 // 根拠の中の小さな見出し（DESIGN §5 groupTitle: 12/600/--text-2）。
 const subLabel = { ...groupTitle, margin: '0 0 var(--space-1)' };
 // 根拠の本文（参照したメモ・解釈）も答えの一部＝読む文章（明朝 18・行間 1.6・DESIGN §2/§7）。
@@ -95,8 +96,6 @@ const refBtn = { width: '100%', display: 'flex', alignItems: 'center', gap: 'var
 const inp = uiInput;
 // 学びの本文＝読む文章（明朝 18・行間 1.6）。display:block で下の余白のずれ（inline のベースライン分）を消す。
 const ta = { ...uiInput, display: 'block', resize: 'none', minHeight: 160, fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6 };
-// 行の中の副ボタン（DESIGN §5 btnRow）。
-const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', flexShrink: 0 };
 
 const QUESTION_EXAMPLES = [
   '営業で結果を出すには？',
@@ -186,10 +185,15 @@ function LearningInline({ onSaved }) {
 
   // 上の「‹ 相談」と題名「学びを書く」は親の上部の行が出す（ここでは戻るを重ねない）。
   const label = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', display: 'block', margin: '0 0 var(--space-2)' };
+  // チップ（DESIGN §5）: 見た目は高さ 32・13px、押せる範囲は 44（上下のはみ出しを負の余白で打ち消す＝相談相手のチップと同じ）。
+  const chipHit = {
+    minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center',
+    padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+  };
   const chip = (on) => ({
-    minHeight: 44, padding: '0 var(--space-3)', borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+    display: 'inline-flex', alignItems: 'center', height: 32, padding: '0 var(--space-3)', borderRadius: 'var(--radius)',
     background: on ? 'var(--accent-soft)' : 'var(--fill)', color: on ? 'var(--accent)' : 'var(--text)',
-    fontSize: 'var(--text-sub)', fontWeight: on ? 600 : 400,
+    fontSize: 'var(--text-meta)', fontWeight: on ? 600 : 400,
   });
   const canSave = !busy && text.trim().length > 0;
   return (
@@ -234,8 +238,8 @@ function LearningInline({ onSaved }) {
               <span style={label}>どこで得た学びか</span>
               <div role="radiogroup" aria-label="どこで得た学びか" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
                 {CATEGORIES.map((c) => (
-                  <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} style={chip(category === c)}>
-                    {c}
+                  <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} style={chipHit}>
+                    <span style={chip(category === c)}>{c}</span>
                   </button>
                 ))}
               </div>
@@ -246,7 +250,7 @@ function LearningInline({ onSaved }) {
               {tags.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
                   {tags.map((t, i) => (
-                    <span key={`${t}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 32, padding: '0 0 0 var(--space-3)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-sub)' }}>
+                    <span key={`${t}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 32, padding: '0 0 0 var(--space-3)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-meta)' }}>
                       {t}
                       <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`} style={{ width: 44, height: 44, margin: 'calc(-1 * var(--space-2)) 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}>
                         <X size={16} aria-hidden="true" />
@@ -255,7 +259,7 @@ function LearningInline({ onSaved }) {
                   ))}
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                 <input
                   id="learning-tag"
                   value={tagInput}
@@ -270,7 +274,8 @@ function LearningInline({ onSaved }) {
                   style={{ ...inp, flex: 1, minWidth: 0, width: 'auto' }}
                   maxLength={LIMITS.tag}
                 />
-                <button type="button" onClick={addTag} style={{ ...btnGhost, minHeight: 48 }}>追加</button>
+                {/* 入力欄（48）の隣なので、副ボタンの標準（48・17/600）。 */}
+                <button type="button" onClick={addTag} style={{ ...uiBtnGhost, width: 'auto', flexShrink: 0 }}>追加</button>
               </div>
             </div>
           </div>
@@ -396,6 +401,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [historyError, setHistoryError] = useState(false);
   // learningOpen state は廃止 — view === 'learning' で表現する。
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
+  const [memoStatsLoaded, setMemoStatsLoaded] = useState(false);
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
   // ストリーミング中の AbortController。送信ごとに作り直し、「中止」ボタンで
@@ -539,6 +545,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (!user || !isSupabaseConfigured) return undefined;
     let cancelled = false;
     (async () => {
+     try {
       const [cardsRes, personalRes, booksFieldsRes] = await Promise.all([
         supabase
           .from('book_memos')
@@ -580,6 +587,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         personal: personalRes.count || 0,
         summaries: summariesCount,
       });
+     } catch (e) {
+      console.warn('memo stats fetch error:', e?.message || e);
+     } finally {
+      // 数え終わるまで空の画面（相談例 / 初日の入口）を出さない（出してから入れ替わるちらつきの防止）。
+      if (!cancelled) setMemoStatsLoaded(true);
+     }
     })();
     return () => {
       cancelled = true;
@@ -672,7 +685,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const recent = (books || []).find((b) => (b.status === 'reading' || b.status === 'done') && hasMemo(b))
       || (memoBookIds ? (books || []).find((b) => memoBookIds.has(b.id)) : null);
     if (recent?.title) qs.push(`『${recent.title}』の学びで、明日から使えるものは？`);
-    qs.push('最近のメモから、今週やるべき一歩を1つ提案して');
+    // 本のメモがあるときだけ（メモが無いのに「最近のメモから」とは聞けない）。
+    if (memoBookIds?.size > 0) qs.push('最近のメモから、今週やるべき一歩を1つ提案して');
     return qs.slice(0, 3);
   }, [books, scopeIds, memoBookIds]);
 
@@ -978,6 +992,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return groups.reverse();
   }, [messages]);
   const knowledgeTotal = memoStats.cards + memoStats.summaries + memoStats.personal;
+  // 空の画面の出し分けはメモ（カード式＋学び）の件数で決める（SPEC §3）。読書計画やまとめだけの人も
+  // 「これまで読んだ本から始める」へ（相談例の「最近のメモから…」が空振りしないように）。
+  const ownMemoTotal = memoStats.cards + memoStats.personal;
   // 相談例は 3 つだけ（SPEC §3）。あなたのタグ・本から → 汎用 の順で重複なく。
   // （AI で作る「今週の問い」は 2026-09-27 に廃止＝開くだけで AI が動かないように）
   const examples = useMemo(() => {
@@ -988,6 +1005,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return out;
   }, [suggestedQuestions]);
   const [moreMenu, setMoreMenu] = useState(null); // { x, y }
+  const [historyMenu, setHistoryMenu] = useState(null); // 過去の相談の「…」{ x, y }
   const viewTitle = { learning: '学びを書く', history: '過去の相談', knowledge: '根拠にできる情報' }[view];
   // 中身を下へ送ったか（上部の行の下に線を出す）。画面を切り替えたら戻す。
   const [scrolled, setScrolled] = useState(false);
@@ -1016,7 +1034,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       <div
         style={{
           ...topRow,
-          ...((view === 'chat' && (freeMode || nearMonthLimit || monthLimitHit)) || scrolled ? { borderBottom: '1px solid var(--separator)' } : null),
+          ...((view === 'chat' && (freeMode || nearMonthLimit)) || scrolled ? { borderBottom: '1px solid var(--separator)' } : null),
           ...(isPushed && onPushedViewChange ? { paddingTop: 'max(var(--space-1), env(safe-area-inset-top, 0px))', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))' } : null),
         }}
       >
@@ -1046,11 +1064,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   今月の相談は、残りわずかです
                 </span>
               )}
-              {monthLimitHit && (
-                <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                  今月の相談は、<span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>から使えます
-                </span>
-              )}
+              {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
             </p>
             <button type="button" style={iconBtn} onClick={() => setView('history')} aria-label="過去の相談を見る" title="過去の相談">
               <History size={22} strokeWidth={1.75} aria-hidden="true" />
@@ -1075,8 +1089,22 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </button>
             </div>
             <h2 style={{ flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>{viewTitle}</h2>
-            {/* 左の戻ると同じ幅の空きで、題名を画面中央に。 */}
-            <div style={{ width: 96, flexShrink: 0 }} aria-hidden="true" />
+            {/* 左の戻ると同じ幅で、題名を画面中央に。過去の相談だけ、右端に「…」（すべて削除はこの中＝一番目立つ場所に赤を置かない）。 */}
+            {view === 'history' && messages.length > 0 ? (
+              <div style={{ width: 96, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  style={{ ...iconBtn, marginRight: 'calc(-1 * var(--space-3))' }}
+                  onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setHistoryMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
+                  aria-label="過去の相談の操作"
+                  aria-haspopup="menu"
+                >
+                  <MoreHorizontal size={22} aria-hidden="true" />
+                </button>
+              </div>
+            ) : (
+              <div style={{ width: 96, flexShrink: 0 }} aria-hidden="true" />
+            )}
           </>
         )}
       </div>
@@ -1088,6 +1116,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           items={[
             { label: '学びを書く', icon: <PencilLine size={16} aria-hidden="true" />, onClick: () => setView('learning') },
             { label: '根拠にできる情報', icon: <BookOpenCheck size={16} aria-hidden="true" />, onClick: () => setView('knowledge') },
+          ]}
+        />
+      )}
+      {historyMenu && (
+        <ContextMenu
+          x={historyMenu.x}
+          y={historyMenu.y}
+          onClose={() => setHistoryMenu(null)}
+          items={[
+            { label: 'すべて削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: clearHistory },
           ]}
         />
       )}
@@ -1109,14 +1147,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         <PullToRefresh onRefresh={fetchHistory}>
           {/* 履歴は静的な過去ログなので live region にはしない（mount 時の過剰読み上げを避ける）。 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} role="region" aria-label="過去の相談">
-            {messages.length > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{messages.filter((m) => m.role === 'user').length} 件の相談</p>
-              {messages.length > 0 && (
-                <button type="button" style={{ ...uiBtnText, fontSize: 'var(--text-sub)', color: 'var(--error)', padding: 'var(--space-2) 0' }} onClick={clearHistory}>
-                  すべて削除
-                </button>
-              )}
-            </div>}
+            {messages.length > 0 && (
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>{messages.filter((m) => m.role === 'user').length} 件の相談</p>
+            )}
             {!historyLoaded && <HistorySkeleton />}
             {historyLoaded && historyError && (
               <ErrorMessage
@@ -1166,7 +1199,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             aria-label="相談の会話"
             aria-busy={busy}
           >
-          {isEmpty && historyLoaded && (
+          {isEmpty && historyLoaded && memoStatsLoaded && (
             scopeIds.length > 0 && scopeMemoCount === 0 ? (
               // 相談相手に絞った本にメモが無い（SPEC §3）: 空振りさせず、すべての本へ戻す道だけを出す。
               <section aria-labelledby="brain-scope-empty-title">
@@ -1177,10 +1210,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   すべての本に相談する
                 </button>
               </section>
-            ) : knowledgeTotal === 0 ? (
-              // メモ 0 件: 質問させる前に「これまで読んだ本から始める」（根拠が無いと空振りするため）。
+            ) : ownMemoTotal === 0 ? (
+              // メモ（カード式＋学び）0 件: 質問させる前に「これまで読んだ本から始める」（根拠が無いと空振りするため）。
+              // 読書計画・まとめだけの人もここ（上の行の件数とは別に、メモの件数で決める・SPEC §3）。
               <section style={cardStyle} aria-labelledby="brain-start-title">
-                <h2 id="brain-start-title" style={{ ...headingStyle, marginBottom: 'var(--space-4)' }}>まだ、相談の根拠になるメモがありません</h2>
+                <h2 id="brain-start-title" style={{ ...headingStyle, marginBottom: 'var(--space-4)' }}>まだメモがありません</h2>
                 {onQuickstart ? (
                   <button type="button" onClick={onQuickstart} style={uiBtnPrimary}>これまで読んだ本から始める</button>
                 ) : onGoBookshelf ? (
@@ -1259,8 +1293,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           )}
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? (knowledgeTotal > 0 && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
-            <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-4) 0 0', lineHeight: 1.5 }}>
+          {historyLoaded && !busy && (isEmpty ? (memoStatsLoaded && ownMemoTotal > 0 && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
+            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-4) 0 0', lineHeight: 1.5 }}>
               AI の回答には誤りが含まれることがあります
             </p>
           )}
@@ -1293,10 +1327,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 if (e.nativeEvent.isComposing) return;
                 if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
-                  ask();
+                  if (!monthLimitHit) ask();
                 }
               }}
-              placeholder="例：上司への報告がうまくいかない"
+              placeholder={monthLimitHit ? `${nextResetLabelJa()}から相談できます` : '例：上司への報告がうまくいかない'}
               rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}
@@ -1319,7 +1353,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 type="button"
                 className="send-btn"
                 onClick={() => ask()}
-                disabled={!input.trim()}
+                // 今月の上限に達したら送れない（押せない主ボタンの見た目＝--fill の面・DESIGN §5）。
+                disabled={!input.trim() || monthLimitHit}
                 aria-label="送信"
                 title="送信"
               >
@@ -1554,7 +1589,8 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   };
 
   const time = showTime && !isStreaming && message.createdAt ? (
-    <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-2) 0 0' }}>{fmtDate(message.createdAt)}</p>
+    // 相談の吹き出し（--fill の面）の上では --text-2（--text-3 は --fill の上で 4.5:1 に届かない・DESIGN §6）。
+    <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: isUser ? 'var(--text-2)' : 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0' }}>{fmtDate(message.createdAt)}</p>
   ) : null;
 
   if (isUser) {
@@ -1668,7 +1704,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
             <details style={{ marginTop: 'var(--space-3)' }}>
               <summary style={summaryStyle}>
                 <span>根拠を見る{nBooks > 0 && !evidence ? `（${nBooks} 冊のメモ）` : ''}</span>
-                <ChevronDown size={18} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+                <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-1)' }}>
                 {parsed.refs && (
@@ -1708,7 +1744,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
               </div>
             </details>
           )}
-          {parsed.note && <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>{parsed.note}</p>}
+          {parsed.note && <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>{parsed.note}</p>}
         </>
       ) : (
         <div style={readText}><PlainAnswer text={message.content} /></div>

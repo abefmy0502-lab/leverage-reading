@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Check, Trash2, AlertTriangle, Info } from 'lucide-react';
+import { Check, Trash2, AlertTriangle, Info, X } from 'lucide-react';
 
 const ToastContext = createContext({
   show: () => '',
@@ -19,16 +19,26 @@ const palette = {
   undo: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Trash2 },
 };
 
+// 下のタブバー（またはシートの決定ボタンの欄）が出ているときは、その上に浮かべる（タブを隠さない）。
+// どちらも無い画面（ログイン・キーボード表示中など）は下端から 16。
+const BOTTOM_WITH_BAR = 'calc(var(--tabbar-h) + var(--space-2) + env(safe-area-inset-bottom, 0px))';
+const BOTTOM_PLAIN = 'calc(var(--space-4) + env(safe-area-inset-bottom, 0px))';
+function hasBottomBar() {
+  if (typeof document === 'undefined') return false;
+  if (document.body?.classList.contains('keyboard-open')) return false;
+  return !!document.querySelector('.bottom-nav:not(.is-hidden), [role="dialog"][aria-modal="true"]');
+}
+
 const containerStyle = {
   position: 'fixed',
   left: '50%',
-  bottom: 'calc(20px + env(safe-area-inset-bottom))',
+  bottom: BOTTOM_PLAIN,
   transform: 'translateX(-50%)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 8,
+  gap: 'var(--space-2)',
   zIndex: 'var(--z-toast)',
-  width: 'min(420px, calc(100vw - 24px))',
+  width: 'min(420px, calc(100vw - 2 * var(--space-4)))',
   pointerEvents: 'none',
 };
 
@@ -36,8 +46,10 @@ const toastStyleBase = {
   pointerEvents: 'auto',
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
-  padding: '12px 16px',
+  gap: 'var(--space-2)',
+  // 右は閉じるボタン（押せる範囲 44）の内側の空きで足りるので詰める。
+  padding: 'var(--space-1) var(--space-1) var(--space-1) var(--space-4)',
+  minHeight: 52,
   borderRadius: 'var(--radius)',
   fontSize: 'var(--text-sub)',
   fontFamily: 'var(--font-app)',
@@ -49,8 +61,6 @@ const closeBtnStyle = {
   background: 'none',
   border: 'none',
   color: 'inherit',
-  opacity: 0.8,
-  fontSize: 'var(--text-body)',
   cursor: 'pointer',
   padding: 0,
   minWidth: 44,
@@ -66,7 +76,7 @@ const actionBtnStyle = {
   background: 'transparent',
   border: '1px solid currentColor',
   color: 'inherit',
-  padding: '8px 12px',
+  padding: 'var(--space-2) var(--space-3)',
   minHeight: 44,
   borderRadius: 'var(--radius)',
   fontSize: 'var(--text-sub)',
@@ -75,6 +85,8 @@ const actionBtnStyle = {
   cursor: 'pointer',
   flexShrink: 0,
 };
+
+const stripLeadingEmoji = (m) => String(m || '').replace(/^[←-⯿\u{1F000}-\u{1FAFF}️‍\s]+/u, '');
 
 // 下部バー（error / undo / info）。success はここには来ない。
 function ToastItem({ toast, onDismiss, onAction }) {
@@ -88,7 +100,8 @@ function ToastItem({ toast, onDismiss, onAction }) {
       aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
     >
       {Icon && <Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
-      <span style={{ flex: 1, whiteSpace: 'pre-line' }}>{toast.message}</span>
+      {/* 左のアイコンがあるので、文の先頭の絵文字は外す（DESIGN §3-2・中央の ✓ と同じ）。 */}
+      <span style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-line', padding: 'var(--space-2) 0' }}>{stripLeadingEmoji(toast.message)}</span>
       {toast.action && (
         <button type="button" style={actionBtnStyle} onClick={() => onAction(toast)}>
           {toast.action.label}
@@ -100,7 +113,7 @@ function ToastItem({ toast, onDismiss, onAction }) {
         onClick={() => onDismiss(toast.id, { byUser: true })}
         aria-label="閉じる"
       >
-        ×
+        <X size={18} aria-hidden="true" />
       </button>
     </div>
   );
@@ -120,7 +133,7 @@ const hudContainerStyle = {
 
 function ToastHud({ toast }) {
   // HUD 自体が ✓ を出すので、メッセージ先頭の絵文字（✅ / 💾 / 🎯 等）は除去。
-  const message = (toast.message || '').replace(/^[←-⯿\u{1F000}-\u{1FAFF}️‍\s]+/u, '');
+  const message = stripLeadingEmoji(toast.message);
   return (
     <div
       className="toast-hud"
@@ -130,10 +143,10 @@ function ToastHud({ toast }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 12,
-        padding: '24px',
+        gap: 'var(--space-3)',
+        padding: 'var(--space-6)',
         minWidth: 132,
-        maxWidth: 'min(280px, calc(100vw - 48px))',
+        maxWidth: 'min(280px, calc(100vw - 2 * var(--space-6)))',
         background: 'var(--text)',
         color: 'var(--bg)',
         borderRadius: 'var(--radius)',
@@ -285,7 +298,7 @@ export function ToastProvider({ children }) {
       {(() => {
         const barHasError = barToasts.some((t) => t.type === 'error');
         return (
-          <div style={containerStyle} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
+          <div style={{ ...containerStyle, bottom: barToasts.length > 0 && hasBottomBar() ? BOTTOM_WITH_BAR : BOTTOM_PLAIN }} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
             {barToasts.map((toast) => (
               <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onAction={handleAction} />
             ))}

@@ -37,6 +37,11 @@ import './landing.css';
 // 🌱 ヒーローの 3D（three.js）は別チャンクで、写真を出したあとに読み込む。
 const Hero3D = lazy(() => import('./Hero3D'));
 
+// 🏷️ フッターにビルド識別子を出すのは URL に ?rev があるときだけ（訪問者には見せない）。
+const SHOW_BUILD = (() => {
+  try { return typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('rev'); } catch { return false; }
+})();
+
 // 3D を出してよい端末か（データ節約モードと WebGL 非対応は写真のまま）。
 function canUse3D() {
   if (typeof window === 'undefined') return false;
@@ -687,9 +692,9 @@ export default function Landing() {
             <a href={`mailto:${SUPPORT_EMAIL}`}>お問い合わせ</a>
           </nav>
           <p className="lp-footer-copy">© 2026 Orime</p>
-          {/* 🏷️ ビルド識別子。訪問者には見せない（開発中だけ表示）。配信中の版は
-              フッターの data-build 属性（開発者ツール）で確認できる。 */}
-          {import.meta.env.DEV && <p className="lp-footer-build">{BUILD_LABEL}</p>}
+          {/* 🏷️ ビルド識別子。訪問者には見せない。配信中の版は URL に ?rev を付けると
+              ここに出る（フッターの data-build 属性でも確認できる）。 */}
+          {SHOW_BUILD && <p className="lp-footer-build">{BUILD_LABEL}</p>}
         </div>
       </footer>
     </div>

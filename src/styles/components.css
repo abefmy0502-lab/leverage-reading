@@ -575,20 +575,26 @@ select:not(.no-focus-ring):focus {
 }
 .empty-state-icon svg { stroke-width: 1.5; }
 .empty-state-title {
-  font-size: var(--type-title-3);
-  font-weight: var(--weight-semibold);
-  color: var(--color-text-primary);
+  /* DESIGN §2: セクション見出し 20/600・見出しの行間 1.3。改行位置は文節で整える。 */
+  font-size: var(--text-heading);
+  font-weight: 600;
+  color: var(--text);
   margin-bottom: var(--space-2);
-  line-height: var(--leading-tight);
+  line-height: 1.3;
+  text-wrap: pretty;
+  word-break: auto-phrase;
 }
 /* 説明文が無いときは、見出しの下の余白を残さない。 */
 .empty-state-title:last-child { margin-bottom: 0; }
 .empty-state--flush-bottom .empty-state { padding-bottom: 0; }
 .empty-state-description {
-  font-size: var(--type-callout);
-  color: var(--color-text-secondary);
+  /* DESIGN §2: 補足 15・--text-2。 */
+  font-size: var(--text-sub);
+  color: var(--text-2);
   line-height: 1.5;
   margin-bottom: var(--space-4);
+  text-wrap: pretty;
+  word-break: auto-phrase;
 }
 .empty-state-description:last-child { margin-bottom: 0; }
 .empty-state-actions {
@@ -1295,18 +1301,19 @@ body.keyboard-open .bottom-nav {
 .ai-thinking {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-3);
-  padding: 4px 0;
-  line-height: 1.4;
+  gap: var(--space-2);
+  font-size: var(--text-sub);
+  color: var(--text-2);
+  padding: var(--space-1) 0;
+  line-height: 1.5;
 }
 
 .ai-thinking-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent);
+  /* 飾りなので栗色は使わない（DESIGN §3-2: アクセントは主ボタン・リンク・選択中・入力中だけ）。 */
+  background: var(--text-3);
   animation: lvg-ai-pulse 1.2s ease-in-out infinite;
   flex-shrink: 0;
 }

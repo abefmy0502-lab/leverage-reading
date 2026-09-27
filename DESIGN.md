@@ -130,26 +130,31 @@
 | 部品 | ルール | 今あるもの |
 |---|---|---|
 | ボタン | 4 種類だけ：**主**（アクセント塗り・1 画面 1 つ）／**副**（枠線 `--border`・文字は本文色 `--text`）／**文字**（リンク風・`--accent`）／**削除**（エラー色）。高さ 48、文字 17・600。一覧の行の中に置く副ボタンだけは高さ 44・文字 15・600（`btnRow`） | `src/styles/ui.js` の `btnPrimary` `btnGhost` `btnDanger`、CSS の `.btn` |
-| カード | `--surface` ＋ 枠線 `--separator` ＋ 角丸 12 ＋ 内側余白 16。影なし | `components.css` の `.card` |
+| カード | `--surface` ＋ 枠線 `--separator` ＋ 角丸 12 ＋ 内側余白 16。影なし。ラベル付きの短文カード（積読の「現在の課題」「仮説」・読了の「一番の収穫」）も同じ面（`--fill` の面にしない） | `components.css` の `.card`、`ui.js` の `card`、`App.jsx` の `Card` |
 | 一覧の行 | 高さ 44 以上。左に表紙/アイコン、右に › | （統一部品なし → 作る） |
 | チップ | `--fill` 面 ＋ 13px ＋ 高さ 32（タップ領域は 44 を確保） | 各所に直書き → 統一する |
 | Apple でサインイン | ブランド規定の例外: `--apple-btn-bg` / `--apple-btn-ink`（明るい画面は黒・暗い画面は白）。形は主ボタンと同じ | `AuthScreen.jsx` |
 | 切り替え（セグメント） | **1 画面に 1 つまで**。2 段重ねにしない | `.sub-tabs` |
-| 入力欄 | 文字 17（iOS の拡大防止に 16 以上）、枠 `--border`、フォーカス時は枠 `--accent`＋外側 3px の `--accent-soft` の輪。フォーカスの見た目は `components.css` の全体ルール（文字の入力欄・textarea・select に効き、インラインの枠色にも勝つ。チェックボックス・ボタンには効かない。枠の無い入力欄は `className="no-focus-ring"` で外す）なので、部品ごとに書かない | `ui.js` の `input`、`formPrimitives` の `inp` |
+| 入力欄 | 文字 17（iOS の拡大防止に 16 以上）、枠 `--border`、フォーカス時は枠 `--accent`＋外側 3px の `--accent-soft` の輪。フォーカスの見た目は `components.css` の全体ルール（文字の入力欄・textarea・select に効き、インラインの枠色にも勝つ。チェックボックス・ボタンには効かない。枠の無い入力欄は `className="no-focus-ring"` で外す）なので、部品ごとに書かない。パスワードの条件などの決まりは placeholder だけに書かず、欄の下に 13/`--text-2` で常に出して `aria-describedby` で結ぶ（2026-09-27） | `ui.js` の `input`、`formPrimitives` の `inp` |
 | シート | 上端に細いハンドル（押す部品にしない＝`div`・掴んで下へ振ると閉じる目印）、背景は `--backdrop`。下の安全域は 1 回だけ（決定ボタンの欄があればそちら）。右上は「完了」（その場で効く）／下に決定ボタンがあるときは `dismissLabel="キャンセル"`／出さないときは `null`。途中で閉じると困る処理のあいだは `dismissible={false}`（背景・Esc・スワイプでも閉じない） | `BottomSheet.jsx` |
-| 空・エラー・読み込み | 必ずこの部品を使う | `EmptyState` `ErrorMessage` `Skeleton` |
-| 画面上部の 1 行（押し込まれた画面） | 左に「‹ 戻り先」（シェブロンの見た目の左端を 16 に）・中央に題名・右は左と同じ幅の空き。全体の見出しと 2 段にしない（ノッチは `env(safe-area-inset-top)` をこの行が吸収）。右端のアイコンは押せる範囲 44 のまま負の余白で見た目の右端を 16 に。中身を下へ送ったら下に `--separator` の線 | `MyBookBrain.jsx` の `topRow`（すべての本の「‹ ホーム」も同じ形） |
+| 空・エラー・読み込み | 必ずこの部品を使う。点（Dots）やスピナーだけの読み込み画面にしない（起動直後の確認待ちもホームの形のスケルトン・2026-09-27） | `EmptyState` `ErrorMessage` `Skeleton`（`App.jsx` の `HomeLoadingSkeleton`） |
+| 画面上部の 1 行（押し込まれた画面） | 左に「‹ 戻り先」（シェブロンの見た目の左端を 16 に）・中央に題名・右は左と同じ幅の空き（その画面だけの操作があるときは、空きの右端に「…」＝`MoreHorizontal` 44×44・例: 過去の相談の「すべて削除」）。全体の見出しと 2 段にしない（ノッチは `env(safe-area-inset-top)` をこの行が吸収）。右端のアイコンは押せる範囲 44 のまま負の余白で見た目の右端を 16 に。中身を下へ送ったら下に `--separator` の線 | `MyBookBrain.jsx` の `topRow`（すべての本の「‹ ホーム」も同じ形） |
 | 行動の編集欄（本の編集画面） | 見出しアイコンは `Target`（🎯 行動専用）・カード `--surface`＋枠 `--separator`＋角丸 12（暗い画面で中の入力欄がカードより暗くならないように）・行動の文は 2 行の入力欄・カード間 12・「＋ 行動を追加」は副ボタン・期限だけをここで決める（優先度・繰り返しは「振り返り」→「行動」）・ブロックの下に 24 | `BookPhases.jsx` の `ActionsEditor`（読書中・読了で共通） |
 | 畳む見出し（details） | 高さ 48・右端にシェブロン（20）・`list-style: none`。面は `--surface`＋枠 `--separator`＋角丸 12、見出しは 17/600/`--text`。右に中身の要約を置くときは 13/400/`--text-3`（「まだありません」「得たいこと・シート」）。続けて並べるときは間 12 | 本の詳細（`App.jsx` の `detailsStyle` / `summaryStyle`）、`BookPhases.jsx` の `softBox` / `foldSummary`、`MyBookBrain.jsx` の `summaryStyle` |
 | 下に固定の保存（編集画面） | 画面の下に固定・上に区切り線 `--separator`・内側 12/16＋セーフエリア・主ボタン 1 つ。出ている間は下のタブを出さない | `BookPhases.jsx` の `EditSaveBar`（2026-09-27） |
 | 押せないボタン | **薄くしない**（opacity で白い文字がかすれる）。主ボタンは `--fill` の面＋`--text-2` の文字、副ボタンは `--separator` の枠＋`--text-3` の文字、アイコンだけのボタン（×など）は `--text-3` の色。処理中（「サインイン中…」など）も薄くせず文言だけ変える。App Store 公開前の「App Store で近日公開」は、公開後の「App Store で入手」と同じ場所・形の押せない主ボタン（LP・有料プランの画面・Web 利用の案内で共通） | `ui.js` の `btnPrimaryOff` `btnGhostOff`（2026-09-27） |
-| 文字ボタン | `--accent`・15/600・高さ 44。脇役の操作（規約・ログアウト・取り込み等）も色を変えず、並び順と区切り線で控えめにする。削除だけは `--error` | `ui.js` の `btnLink`（`btnText` の 44 版）。AI 選書のおすすめカードの Amazon・楽天ブックス（`BookAdvisor.jsx` の `AdvisorStoreLinks`・↗ アイコン）、テーマまとめの「別のテーマ」「中止」もこれ |
-| 小さな見出し | 12/600/`--text-2`（「たとえば」「今日」「完了した行動」など）。13 や `--text-3` の版を作らない | `ui.js` の `groupTitle` |
+| 文字ボタン | `--accent`・15/600・高さ 44。脇役の操作（規約・取り込み等）も色を変えず、並び順と区切り線で控えめにする。削除だけは `--error`（設定の「ログアウト」は一覧の 1 行＝本文色 `--text`・2026-09-27） | `ui.js` の `btnLink`（`btnText` の 44 版）。AI 選書のおすすめカードの Amazon・楽天ブックス（`BookAdvisor.jsx` の `AdvisorStoreLinks`・↗ アイコン）、テーマまとめの「別のテーマ」「中止」もこれ |
+| 小さな見出し | 12/600/`--text-2`（「たとえば」「今日」「完了した行動」など）。13 や `--text-3` の版を作らない。右に操作を 1 つ添えるときは同じ行の右端に `btnLink`（「期限を過ぎた行動（N）」＋「期限を見直す」）。見出しと別に塗りの欄を足さない | `ui.js` の `groupTitle` |
 | 表示用ラベル（押せない） | **面を付けない**。アイコン 14＋`--text-2` 13 の文字。`--fill` の丸い面は押せるチップだけ。表紙の上にも重ねない（すべての本の表紙表示は著者の下に 1 行・リストは「状態 → 評価 · 著者」で長さの変わる著者を最後に） | `BookCards.jsx` の `StatusLabel`（状態）・タグの表示。旧 `StatusBadge.jsx`（面つき）と表紙の上の `.book-status-pill` は 2026-09-27 に削除 |
 | メニュー（長押し・「…」） | `--surface`・角丸 12・行の高さ 48・`--shadow-overlay`。背景は `--backdrop` だけ（ぼかさない） | `ContextMenu.jsx` |
 | 切り替えスイッチ | トラック 51×31（オン `--accent`・オフ `--border`）、つまみは **`--switch-knob`（明暗とも白・iOS と同じ）**＋`--shadow-raised`。押せる範囲 44。処理中も薄くせず `aria-busy` で伝える（2026-09-27） | `AccountSettings.jsx` の `ToggleSwitch` |
 | 処理中の一覧の行 | 薄くしない。文字を `--text-3`・`cursor: default`・`aria-busy`（「準備中…」などの文言で状態を示す） | `AccountSettings.jsx` の `rowButtonBusy` |
+| 選択の丸いチェック | 24 の円。未選択は枠 2px `--border`、選択中は `--accent` の塗り＋`--accent-ink` の ✓（iOS の選択リストの作法）。ブラウザ既定のチェックボックスは見せず、本物の `input` を透明にして丸の上に重ねる（押せる・読み上げ・キーボードはそのまま・キーボードで触れたときだけ `--accent-soft` の輪）（2026-09-27） | `PastBooksQuickstart.jsx` の `checkCircle`、`AuthScreen.jsx` の同意 |
+| 料金の行 | いちばん強いのは実際に請求される金額（17/600/`--text`）。プラン名は 15/400/`--text-2`、「おすすめ」は 12/600/`--text-2`（面なし）、「月あたり」「N% お得」は同じ 13/`--text-2`。読み込み中は同じ中身を見えなくして Skeleton を重ね、高さを跳ねさせない（2026-09-27） | `Paywall.jsx` の `PlanOption` |
+| ページ送りのカード（初回ガイド） | 2 枚目以降は左上に ‹（押せる範囲 44・`aria-label="戻る"`）を右上の × と左右対称に置く（最後の画面も同じ）。下は主ボタン「次へ」1 つ（全幅）。横スワイプでも前後に送れる（2026-09-27） | `Onboarding.jsx` |
 | 「…」メニューのアイコン | 横の `MoreHorizontal` に統一（縦の ⋮ は使わない） | lucide |
+| トースト（下のバー） | 画面と反転した面（`--text` 面・`--bg` 文字。失敗は `--error`）・角丸 12・`--shadow-overlay`。幅 `calc(100vw - 2 * var(--space-4))`（最大 420）。下のタブ（またはシートの決定欄）が出ているときは `calc(var(--tabbar-h) + var(--space-2) + env(safe-area-inset-bottom))` の高さに浮かべてタブを隠さない（`--tabbar-h`＝66・BottomNav の実測）。閉じるは lucide の `X`（18・押せる範囲 44）。文の先頭の絵文字は出さない。成功は中央の ✓（ボタン付きの成功だけ下のバー） | `Toast.jsx`（2026-09-27） |
+| エラーの文 | 先頭の「エラー:」と絵文字を外して見せる（`toMessage` が整える。`ai.js` は接頭辞で失敗を見分けるので変えない） | `lib/errors.js`（2026-09-27） |
 | シート・モーダルの「キャンセル」 | `--text-2`・17/400（取り消しは脇役。決定・完了がある側を強く） | `BottomSheet.jsx`・`QuickMemoSheet.jsx`・`BookSearchModal.jsx` |
 
 - **＋の入口は 1 つ**：同じ操作のボタンを 2 か所に出さない（SPEC の違和感 3）

@@ -141,12 +141,12 @@ select {
   font-size: 16px;
 }
 @media (max-width: 768px) {
-  /* iOS のズーム防止（16 未満の入力欄を 16 に）。16 以上を意図的に指定した入力欄
-     （読む文字＝明朝 18 のメモ本文など）は data-font-lg で除外する。 */
+  /* iOS のズーム防止（16 未満の入力欄を 16 以上に）。大きさは本文サイズ（17・DESIGN §5 入力欄）。
+     16 以上を意図的に指定した入力欄（読む文字＝明朝 18 のメモ本文など）は data-font-lg で除外する。 */
   input:not([data-font-lg]),
   textarea:not([data-font-lg]),
   select:not([data-font-lg]) {
-    font-size: 16px !important;
+    font-size: max(16px, var(--text-body)) !important;
   }
   /* 相談・AI 選書の入力欄は本文サイズ（17・DESIGN §5）。 */
   .ai-input-area textarea {

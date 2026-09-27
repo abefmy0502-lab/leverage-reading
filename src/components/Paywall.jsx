@@ -70,7 +70,7 @@ function PriceText({ text }) {
     <>
       <span style={{ display: 'block' }}>{main}</span>
       {perMonth && (
-        <span style={{ display: 'block', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 }}>{perMonth}</span>
+        <span style={planNote}>{perMonth}</span>
       )}
     </>
   );
@@ -109,14 +109,24 @@ const metaText = {
   margin: 0,
 };
 
-function PlanOption({ label, selected, onSelect }) {
+// プラン名は脇役（15/400/--text-2）。いちばん強いのは実際に請求される金額（17/600・審査 3.1.2）。
+const planName = { fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.3 };
+// 「おすすめ」は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。
+const recommendTag = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)' };
+const billedAmount = { display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, marginTop: 'var(--space-1)', fontVariantNumeric: 'tabular-nums' };
+// 補足の 2 行（月あたり・割引）は同じ大きさ・色にそろえる。
+const planNote = { display: 'block', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 };
+
+// placeholder: 価格の読み込み中。本物の行と同じ中身を見えなくして重ね、読み込み後に高さが跳ねないようにする。
+function PlanOption({ label, selected, onSelect, placeholder = false }) {
+  const Tag = placeholder ? 'div' : 'button';
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
+    <Tag
+      {...(placeholder
+        ? { 'aria-hidden': true }
+        : { type: 'button', role: 'radio', 'aria-checked': selected, onClick: onSelect })}
       style={{
+        position: 'relative',
         display: 'flex',
         alignItems: 'center',
         gap: 'var(--space-3)',
@@ -130,34 +140,28 @@ function PlanOption({ label, selected, onSelect }) {
         borderRadius: 'var(--radius)',
         color: 'var(--text)',
         fontFamily: 'inherit',
-        cursor: 'pointer',
+        cursor: placeholder ? 'default' : 'pointer',
       }}
     >
       {selected
         ? <CircleCheck size={24} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
-        : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0 }} />}
-      <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3 }}>
+        : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0, visibility: placeholder ? 'hidden' : undefined }} />}
+      <span style={{ minWidth: 0, visibility: placeholder ? 'hidden' : undefined }}>
+        <span style={{ ...planName, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
           {label.name}
-          {/* 年額への後押し: 「おすすめ」と、ストアの実数から計算した割引。
-              「おすすめ」は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
-          {label.save && (
-            <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)' }}>
-              おすすめ
-            </span>
-          )}
+          {/* 年額への後押し: 「おすすめ」と、ストアの実数から計算した割引。 */}
+          {label.save && <span style={recommendTag}>おすすめ</span>}
         </span>
         {/* 実際に請求される金額をいちばん強く（審査 3.1.2）。割引は補足として弱く。 */}
-        <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, marginTop: 'var(--space-1)', fontVariantNumeric: 'tabular-nums' }}>
+        <span style={billedAmount}>
           <PriceText text={label.price} />
         </span>
-        {label.save && (
-          <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 }}>
-            {label.save}
-          </span>
-        )}
+        {label.save && <span style={planNote}>{label.save}</span>}
       </span>
-    </button>
+      {placeholder && (
+        <SkeletonBlock height="auto" radius="var(--radius)" style={{ position: 'absolute', inset: 'var(--space-3) var(--space-4)', width: 'auto' }} />
+      )}
+    </Tag>
   );
 }
 
@@ -363,21 +367,25 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
 
         {showNative ? (
           <>
-            {/* プラン（名前・期間・価格）。年額が既定 */}
-            <div
-              role="radiogroup"
-              aria-label="プラン"
-              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-8)' }}
-            >
-              {priceState === 'failed' ? (
+            {/* プラン（名前・期間・価格）。年額が既定。読み込めなかったときの案内は選択肢の外に出す。 */}
+            {priceState === 'failed' ? (
+              <div style={{ marginTop: 'var(--space-8)' }}>
                 <ErrorMessage
                   icon={null}
                   title="価格を読み込めませんでした"
                   description="通信の状態を確かめて、もう一度お試しください。"
                   actions={[{ label: '再読み込み', onClick: () => setPriceTry((n) => n + 1) }]}
                 />
-              ) : priceState === 'loading' ? (
-                ['annual', 'monthly'].map((id) => <SkeletonBlock key={id} height={72} radius="var(--radius)" />)
+              </div>
+            ) : (
+            <div
+              role={priceState === 'ready' ? 'radiogroup' : undefined}
+              aria-label={priceState === 'ready' ? 'プラン' : undefined}
+              aria-busy={priceState === 'loading' || undefined}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-8)' }}
+            >
+              {priceState === 'loading' ? (
+                ['annual', 'monthly'].map((id) => <PlanOption key={id} label={labels[id]} selected={false} placeholder />)
               ) : (
                 ['annual', 'monthly'].map((id) => (
                   <PlanOption
@@ -389,6 +397,7 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
                 ))
               )}
             </div>
+            )}
 
             {/* 無料期間（ストアに設定があり、この人が使えるときだけ・プランごと） */}
             {priceState === 'ready' && trial && (
@@ -437,9 +446,12 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
                     borderTop: i === 0 ? 'none' : '1px solid var(--separator)',
                   }}
                 >
-                  <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, margin: 0 }}>{labels[id].name}</p>
-                  {/* 金額はネイティブ版と同じく本文の大きさ・600（割引や月あたりは補足の文字） */}
-                  <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, margin: 'var(--space-1) 0 0', fontVariantNumeric: 'tabular-nums' }}><PriceText text={labels[id].price} /></p>
+                  <p style={{ ...planName, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', margin: 0 }}>
+                    {labels[id].name}
+                    {id === 'annual' && <span style={recommendTag}>おすすめ</span>}
+                  </p>
+                  {/* 金額はネイティブ版と同じく本文の大きさ・600＝いちばん強く（月あたりは補足の文字） */}
+                  <p style={{ ...billedAmount, margin: 'var(--space-1) 0 0' }}><PriceText text={labels[id].price} /></p>
                 </div>
               ))}
             </section>

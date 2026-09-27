@@ -92,7 +92,24 @@ export function isSchemaError(err) {
   );
 }
 
+// 人に見せる直前の整え（2026-09-27）:
+//   - 先頭の「エラー:」「エラー：」を外す（ai.js の postClaude はこの接頭辞でエラーを見分けるので
+//     ai.js 側は変えず、画面に出す手前のここで外す＝「サーバーで問題が起きました。」とだけ見せる）
+//   - 先頭の絵文字を外す（DESIGN §3-2: 絵文字を本文に混ぜない。トースト・エラー欄はアイコンを自前で持つ）
+// 外して空になったら fallback。
+function tidyUserMessage(text, fallback) {
+  const s = String(text || '')
+    .replace(/^[\s\p{Extended_Pictographic}\uFE0F\u200D]+/u, '')
+    .replace(/^エラー\s*[:：]\s*/, '')
+    .trim();
+  return s || fallback;
+}
+
 export function toMessage(err, fallback = '予期せぬエラーが発生しました。') {
+  return tidyUserMessage(toMessageRaw(err, fallback), tidyUserMessage(fallback, '予期せぬエラーが発生しました。'));
+}
+
+function toMessageRaw(err, fallback) {
   if (!err) return fallback;
   // 文字列で渡されたものは「呼び出し側が意図的に渡した人間語」とみなして
   // 基本通すが、生ログを文字列化して渡された事故に備え安全判定を通す。

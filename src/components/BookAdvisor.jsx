@@ -29,7 +29,7 @@ import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
 import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput, card as uiCard } from '../styles/ui';
+import { groupTitle, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
@@ -50,13 +50,14 @@ const AdvisorAddConfirmModal = lazy(() => import('./AdvisorAddConfirmModal'));
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const advisorWizardCard = { ...cardStyle, animation: 'fadeIn .25s' };
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
-// 相談（MyBookBrain）の上の行と同じ寸法（高さ 52・左 16・右 8）。
-const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, padding: '0 var(--space-2) 0 var(--space-4)' };
+// 相談（MyBookBrain）の上の行と同じ寸法（高さ 52・左 16）。右端のアイコンは押せる範囲 44 のまま
+// 右の余白を 4 にして、見た目の右端を相談と同じ位置（16）にそろえる（DESIGN §5「画面上部の 1 行」）。
+const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, padding: '0 var(--space-1) 0 var(--space-4)' };
 const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 };
 // 読む文章（AI の答え・推薦理由）＝明朝 18・行間 1.6。
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
-// カード内の小見出しラベルと本文。
-const fieldLabel = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: 0 };
+// カード内の小見出しラベル（DESIGN §5 groupTitle: 12/600/--text-2）と本文。
+const fieldLabel = { ...groupTitle, margin: 0 };
 const fieldText = { fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, margin: 'var(--space-1) 0 0' };
 // 行の中の副ボタン（DESIGN §5 btnRow: 44・15・600）。
 const rowBtn = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', flexShrink: 0 };
@@ -127,6 +128,19 @@ function dropSummarySection(md) {
   }
   return out.join('\n').trim();
 }
+
+// 推薦の前置き（「## 👋 はじめに」＋共感の数行）から、見出し行を落として 1 段落の文にする。
+function introTextOf(md) {
+  if (!md || typeof md !== 'string') return '';
+  return md
+    .split('\n')
+    .filter((l) => !/^#{1,6}\s/.test(l.trim()))
+    .map((l) => l.trim().replace(/^[-*]\s+/, '').replace(/\*\*(.+?)\*\*/g, '$1'))
+    .filter(Boolean)
+    .join('');
+}
+// 前置き＝本のカードより控えめな 1 段落（15/--text-2）。
+const introText = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0 };
 
 const ADVISOR_EXAMPLES = [
   '営業成績を上げたい',
@@ -725,6 +739,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     // ヒアリング開始と同時に読書傾向コンテキストを裏で先読み（推薦時の待ちを隠す）。
     // マウント時の prewarm から時間が経ち TTL 切れの場合の再ウォーム。
     prewarmAdvisorContext(advisorUser?.id);
+    setRecoError(null);
+    setRecoNotice(false);
     setConcern(c);
     setInput('');
     setOtherMode(false);
@@ -893,9 +909,18 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // （recommended_books 空）で messages だけがあると、入力欄も再スタート
   // 導線も無い袋小路になっていた。
   const showConcernInput = !inInterview && !recommendations;
+  // 失敗・月の上限の案内が出ている間は、送った相談を残し、はじめの見出しと例は出さない
+  // （何を送って失敗したのかが見えなくなるため）。入力欄は出したまま＝別の相談も送れる。
+  const showErrorState = !!recoError && !recoLoading;
   // はじめの画面（まだ何も話していない）だけ見出しを出す。
-  const showStartHeading = showConcernInput && messages.length === 0;
+  const showStartHeading = showConcernInput && messages.length === 0 && !showErrorState;
   const chatScrollRef = useRef(null);
+  // 中身を下へ送ったら、上の行の下に線を出す（相談と同じ・iOS のナビゲーションバーと同じ）。
+  const [scrolled, setScrolled] = useState(false);
+  const onChatScroll = (e) => {
+    const s = e.currentTarget.scrollTop > 0;
+    if (s !== scrolled) setScrolled(s);
+  };
 
   // ---------------------------------------------------------------------------
   // 「📚 読みたいに追加」フロー
@@ -1094,7 +1119,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* 上の行（相談と同じ形・同じ高さ）: 右に履歴・新規のアイコンボタン。見出しはその下（スクロール領域の先頭）に置き、
           相談 ⇄ AI 選書 を切り替えても見出しの位置が動かないようにする。 */}
-      <div style={topRow}>
+      <div style={{ ...topRow, ...(scrolled ? { borderBottom: '1px solid var(--separator)' } : null) }}>
           <div style={{ flex: 1, minWidth: 0 }} />
           {sessionApi?.available && (
             <button
@@ -1121,11 +1146,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
           )}
       </div>
       {/* Scroll 領域: 見出し / 例チップ / メッセージ / 推薦カード をまとめる */}
-      <div ref={chatScrollRef} className="chat-scroll" style={{ padding: 'var(--space-2) var(--space-4) var(--space-4)' }}>
+      <div ref={chatScrollRef} onScroll={onChatScroll} className="chat-scroll" style={{ padding: 'var(--space-2) var(--space-4) var(--space-4)' }}>
       {showStartHeading && <h2 style={headingStyle}>どんな本を探していますか</h2>}
 
       {/* Example chips — タップで textarea に流し込む（送信はしない）。 */}
-      {showConcernInput && (
+      {showConcernInput && !showErrorState && (
         <div className="example-chips" style={{ marginTop: showStartHeading ? 'var(--space-6)' : 'var(--space-2)' }}>
           <p className="example-chips-label">たとえば</p>
           {ADVISOR_EXAMPLES.map((ex) => (
@@ -1145,7 +1170,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
 
       {/* ユーザーの相談（右寄せの --fill 吹き出し。相談と同じ） */}
-      {concern && !showConcernInput && (
+      {concern && (!showConcernInput || showErrorState) && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの相談">
           <div style={userBubble}>{concern}</div>
         </div>
@@ -1194,12 +1219,13 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         return (
           <div style={advisorWizardCard}>
             {/* 戻る + 進捗 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-3)) 0 var(--space-2) calc(-1 * var(--space-3))' }}>
+            {/* 戻るの「‹」の見た目の左端を質問文の左端にそろえる（押せる範囲 44 は保ったまま左へ寄せる）。 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-3)) 0 var(--space-2) calc(-1 * var(--space-2))' }}>
               <button
                 type="button"
                 onClick={goBackQuestion}
                 aria-label={interviewStep === 0 ? '相談入力に戻る' : '前の質問に戻る'}
-                style={iconBtn}
+                style={{ ...iconBtn, justifyContent: 'flex-start' }}
               >
                 <IcBack size={22} aria-hidden="true" />
               </button>
@@ -1334,7 +1360,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
           </div>
           {recoStream ? (
             // 生成中の前置き文をライブ表示（動く文字＝進行が見える）。カードは完了時に出る。
-            <p style={{ ...readText, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>
+            // 完成後の前置きと同じ見た目（15/--text-2）にして、出来上がった瞬間に文字が跳ねないようにする。
+            <p style={{ ...introText, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>
               {recoStream}
               <span className="streaming-cursor" aria-hidden="true" />
             </p>
@@ -1406,11 +1433,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         // 3 つのまとまり（前置き＋本のカード → 読む順番 → 注記＋やり直し）。中は 12・間は 24（DESIGN §1）。
         <div ref={recoBlockRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', animation: 'fadeIn .3s', scrollMarginTop: 'var(--space-2)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {/* 「## 👋 はじめに」等の前置きを Markdown として描画（生の ## を出さない）。
-              末尾の空見出し「## 📚 おすすめの本」は本カードと重複するので除去。 */}
+          {/* 前置き（「## 👋 はじめに」）は、本のカードより控えめな 1 段落（15/--text-2・カードも見出しも付けない）。
+              見出し行と、末尾の空見出し「## 📚 おすすめの本」（本のカードと重複）は落とす。 */}
           {recommendations.before && (() => {
-            const intro = recommendations.before.replace(/\n*##\s*📚\s*おすすめの本\s*$/u, '').trim();
-            return intro ? <MarkdownSections text={intro} /> : null;
+            const intro = introTextOf(recommendations.before);
+            return intro ? <p style={introText}>{intro}</p> : null;
           })()}
           {recommendations.items.map((rec, i) => {
             const added = addedTitles.has(rec.title);
@@ -1430,7 +1457,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>#{i + 1}</p>
-                    <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, margin: 'var(--space-1) 0 0' }}>『{rec.title}』</p>
+                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere' }}>『{rec.title}』</p>
                     {rec.author && (
                       <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{rec.author}</p>
                     )}
@@ -1466,9 +1493,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                   </div>
                 )}
                 {rec.duration && (
-                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-3) 0 0' }}>
-                    <span style={{ fontWeight: 600 }}>目安</span>　{rec.duration}
-                  </p>
+                  <div style={{ marginTop: 'var(--space-3)' }}>
+                    <p style={fieldLabel}>目安</p>
+                    <p style={fieldText}>{rec.duration}</p>
+                  </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
                   {added ? (
@@ -1487,10 +1515,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                         e.stopPropagation();
                         handleClickAdd(rec);
                       }}
-                      // カードの主役の操作なので全幅（ストアの文字リンクより強く見せる）。
-                      style={{ ...rowBtn, width: '100%', touchAction: 'manipulation' }}
+                      // カードの主役の操作なので全幅の副ボタン（48・17/600）。下の「別の条件で探す」より強く見せる。
+                      style={{ ...uiBtnGhost, touchAction: 'manipulation' }}
                     >
-                      <IcPlus size={16} aria-hidden="true" />読みたいに追加
+                      <IcPlus size={18} aria-hidden="true" />読みたいに追加
                     </button>
                   )}
                   {/* Amazon + 楽天 の両方（統一）は控えめな文字リンク。開示は推薦の最後にまとめて 1 回 */}
@@ -1509,8 +1537,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
           <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5, margin: 0 }}>
             {STORE_DISCLOSURE_TEXT}
           </p>
-          <button type="button" onClick={resetToConcern} style={uiBtnGhost}>
-            <IcRetry size={18} aria-hidden="true" />
+          {/* やり直しは脇役＝文字ボタン（本のカードの「読みたいに追加」より弱く）。文字の左端を注記にそろえる。 */}
+          <button type="button" onClick={resetToConcern} style={{ ...uiBtnLink, gap: 'var(--space-1)', alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>
+            <IcRetry size={16} aria-hidden="true" />
             別の条件で探す
           </button>
         </div>

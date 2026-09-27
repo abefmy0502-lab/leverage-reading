@@ -34,7 +34,7 @@ import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
 import ContextMenu from './ContextMenu';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput } from '../styles/ui';
-import { History, Trash2, RotateCw, BookmarkPlus, Inbox, Ruler, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Copy } from 'lucide-react';
+import { History, Trash2, RotateCw, BookmarkPlus, Ruler, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Copy } from 'lucide-react';
 
 // 見た目は DESIGN.md のトークンのみ。
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
@@ -48,7 +48,10 @@ const btnGhost = { ...uiBtnGhost };
 // 文字ボタン（DESIGN §5「文字」: --accent・15/600・高さ 44）。
 const btnLink = { ...uiBtnLink, gap: 'var(--space-1)', flexShrink: 0 };
 // 上の行（相談・AI 選書と同じ高さ 52・右端にアイコン）。親の上の余白 8 は打ち消す。
-const topRow = { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', minHeight: 52, margin: 'calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0 0' };
+// 右端のアイコンは押せる範囲 44 のまま右へ 12 はみ出させ、見た目の右端を相談と同じ位置（16）にそろえる。
+const topRow = { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', minHeight: 52, margin: 'calc(-1 * var(--space-2)) calc(-1 * var(--space-3)) 0 0' };
+// 見出しの横の文字ボタンは、文字の右端を画面の右余白（16）にそろえる（btnLink の左右 4 を打ち消す）。
+const btnLinkEnd = { ...btnLink, marginRight: 'calc(-1 * var(--space-1))' };
 const btnText = { ...uiBtnText, minHeight: 44, fontSize: 'var(--text-sub)', gap: 'var(--space-1)', padding: 'var(--space-2) 0' };
 const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
 // アイコンだけのボタン（44×44・AI 選書／相談の上部と同じ）。
@@ -636,13 +639,13 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                       type="button"
                       onClick={stopGeneration}
                       disabled={aborting}
-                      style={{ ...btnLink, ...(aborting ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
+                      style={{ ...btnLinkEnd, ...(aborting ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
                       aria-label={aborting ? '中止しています' : 'テーマまとめの作成を中止'}
                     >
                       {aborting ? '中止中…' : '中止'}
                     </button>
                   ) : (
-                    <button type="button" onClick={resetToPicker} style={btnLink} aria-label="別のテーマを選ぶ">
+                    <button type="button" onClick={resetToPicker} style={btnLinkEnd} aria-label="別のテーマを選ぶ">
                       <RefreshCw size={16} aria-hidden="true" />別のテーマ
                     </button>
                   )}
@@ -675,14 +678,10 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   }] : []}
                 />
               ) : notice ? (
-                <div role="status" style={{ ...card, display: 'flex', gap: 'var(--space-3)' }}>
-                  <span aria-hidden="true" style={{ flex: '0 0 auto', display: 'inline-flex', paddingTop: 'var(--space-1)', color: 'var(--text-3)' }}>
-                    <Inbox size={18} />
-                  </span>
-                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 'var(--text-sub)', color: 'var(--text)', minWidth: 0 }}>
-                    {notice}
-                  </div>
-                </div>
+                // 案内（月の上限・関連するメモが無い 等）は AI 選書の案内カードと同じ形（カード＋15/--text・アイコンなし）。
+                <p role="status" style={{ ...card, margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 'var(--text-sub)', color: 'var(--text)', wordBreak: 'auto-phrase' }}>
+                  {notice}
+                </p>
               ) : showStageBlock ? (
                 <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} aria-live="polite" aria-busy="true">
                   <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
@@ -939,7 +938,8 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
               <li key={i} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)' }}>
                 {/* 押せない一覧なので、チェックボックスに見える丸ではなく小さな点（MarkdownSections の箇条書きと同じ） */}
                 <span aria-hidden="true" style={{ flexShrink: 0, width: 6, height: 6, borderRadius: 'var(--radius-full)', background: 'var(--text-3)', marginTop: 'calc(0.75em - 3px)' }} />
-                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{stripInlineMd(s)}</span>
+                {/* 長い一歩は 2 行で止める（一覧の役目は「まだやれていない」を思い出すこと。全文は行動リストで見る） */}
+                <span title={stripInlineMd(s)} style={{ minWidth: 0, overflowWrap: 'anywhere', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' }}>{stripInlineMd(s)}</span>
               </li>
             ))}
           </ul>

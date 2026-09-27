@@ -33,9 +33,9 @@ export function Stars({ r, onChange, size = 18 }) {
   // 表示専用（onChange なし）は従来どおり装飾 span。
   if (!onChange) {
     return (
-      <span aria-label={`評価 ${r || 0} / 5`} style={{ userSelect: "none" }}>
+      <span aria-label={`評価 ${r || 0} / 5`} style={{ userSelect: "none", display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <span key={n} aria-hidden="true" style={{ fontSize: size, color: n <= r ? "var(--text-2)" : "var(--text-3)", marginRight: 2 }}>
+          <span key={n} aria-hidden="true" style={{ fontSize: size, color: n <= r ? "var(--text-2)" : "var(--text-3)" }}>
             {n <= r ? STAR : EMPTY_STAR}
           </span>
         ))}

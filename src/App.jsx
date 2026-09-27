@@ -119,7 +119,7 @@ import { isNative } from './lib/iap';
 import { APP_STORE_URL, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
 import UpdateBanner from './components/UpdateBanner';
-import { BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
+import { SkeletonBlock, BookListSkeleton, BookGridSkeleton } from './components/Skeleton';
 import SwipeableCard from './components/SwipeableCard';
 import ContextMenu from './components/ContextMenu';
 import PullToRefresh from './components/PullToRefresh';
@@ -139,7 +139,7 @@ import { FREE_AI_CALLS, inFreeWindow, fetchFreeUsed, PAYWALL_EVENT, AI_USED_EVEN
 import { PaywallContext } from './state/PaywallContext';
 import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
-import { Dots, Stars, inp, btnS } from './components/formPrimitives';
+import { Stars, inp, btnS } from './components/formPrimitives';
 import { btnGhost, btnText, btnPrimary, btnPrimaryOff, btnLink, groupTitle } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar, saveLabelFor } from './components/BookPhases';
 import { getAmazonLink } from './lib/amazonLink';
@@ -245,6 +245,27 @@ function Modal({ open, onClose, children, ariaLabel }) {
 
 
 
+// 起動直後（ログイン確認・課金の確認待ち）の読み込み表示。ホームの形（相談カード・見出し・
+// いま読んでいる本 2 冊・すべての本の行）のスケルトン（DESIGN §5「読み込みは Skeleton」）。
+// グループの間は 24、いま読んでいる本（見出し＋2 冊）の中は一覧と同じ 12（DESIGN §1）。
+function HomeLoadingSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-label="読み込み中"
+      style={{ flex: 1, padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}
+    >
+      <SkeletonBlock height={400} radius="var(--radius)" />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
+        <SkeletonBlock height={90} radius="var(--radius)" />
+        <SkeletonBlock height={90} radius="var(--radius)" />
+      </div>
+      <SkeletonBlock height={56} radius="var(--radius)" />
+    </div>
+  );
+}
+
 // 長文（目的・課題・仮説 等）は 4 行で畳み「すべて表示」で開く。
 // 旧: maxHeight 400 + 内部スクロールで、詳細のファーストビューを長文が
 // 独占し、ページ内スクロールと入れ子スクロールが競合していた。
@@ -252,7 +273,8 @@ function Card({ label, text, style }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = (text || '').length > 130;
   return (
-    <div style={{ background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)', marginTop: 'var(--space-2)', ...style }}>
+    // DESIGN §5 のカード（--surface＋枠 --separator＋角丸 12＋内側 16・影なし）。
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', marginTop: 'var(--space-2)', ...style }}>
       <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' }}>{label}</p>
       <p
         style={{
@@ -3000,8 +3022,7 @@ function AuthedApp() {
     const hasHarvestBlock = !!current.roiSummary || (current.status === 'done' && !(current.roiSummary || '').trim());
     // 読書中・読了では直前に行動のまとまり（0 件でも「＋ 行動を追加」）があるので、いつも 24 空ける。
     const planFoldTop = 'var(--space-6)';
-    // 読書計画・目的・課題・仮説・AI 解析（旧: 書名の直下）。読書中・読了では下へ回す。
-    const planBlock = (
+    const planCta = (
       <>
           {/* AI 読書計画導線 — どのステータスでも setup フィールドが
               足りていなければ目立つ位置で促す。
@@ -3019,8 +3040,9 @@ function AuthedApp() {
             if (current.status === 'before') {
               if (isIncomplete) {
                 // 見出しとボタンが同じことを言っていたので、副ボタン 1 つだけ（主ボタンは下の「読書を開始する」）。
+                // 課題・仮説のカードがあれば、その下 12 に置く（SPEC §2）。
                 return (
-                  <button type="button" onClick={() => openSetup(current)} style={{ ...btnGhost, marginTop: 'var(--space-6)' }}>
+                  <button type="button" onClick={() => openSetup(current)} style={{ ...btnGhost, marginTop: hasPlanFold ? 'var(--space-3)' : 'var(--space-6)' }}>
                     読書計画シートを作る
                   </button>
                 );
@@ -3054,6 +3076,13 @@ function AuthedApp() {
 
             return null;
           })()}
+      </>
+    );
+    // 読書計画・目的・課題・仮説・AI 解析（旧: 書名の直下）。読書中・読了では下へ回す。
+    const planBlock = (
+      <>
+          {/* 積読の「読書計画シートを作る」は、得たいこと・課題・仮説のカードの下（planCta を後ろで出す）。 */}
+          {current.status !== 'before' && planCta}
 
           {/* Phase-specific content */}
 
@@ -3102,10 +3131,10 @@ function AuthedApp() {
           {/* 読みたい・積読: 読む準備が主役なので、得たいこと・課題・仮説は開いて見せる。
               シートは、あるときだけ畳んで置く。 */}
           {!isMemoPhase && hasPlanFold && (
-          <section style={{ marginTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <section style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
           {current.aiStrategy && (
-            <details style={{ ...detailsStyle, marginTop: planItems.length ? 'var(--space-1)' : 0 }}>
+            <details style={{ ...detailsStyle, marginTop: 0 }}>
               <summary style={summaryStyle}>
                 読書計画シート
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
@@ -3121,6 +3150,8 @@ function AuthedApp() {
           )}
           </section>
           )}
+
+          {current.status === 'before' && planCta}
 
           {/* 「AIで本を解析する」は 2026-09-27 に廃止。以前の結果だけ、別の畳む見出しで残す。 */}
           {current.aiAnalysis && (
@@ -3159,9 +3190,9 @@ function AuthedApp() {
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
-            {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 22・本文サイズ・--accent）。 */}
-            <button onClick={goList} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-1))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
-              <ChevronLeft size={22} aria-hidden="true" />{tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
+            {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 20・間 0・見た目の左端 16・本文サイズ・--accent）。 */}
+            <button onClick={goList} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
+              <ChevronLeft size={20} aria-hidden="true" />{tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
               <button
@@ -3393,6 +3424,12 @@ function AuthedApp() {
                   >
                     読書中にしてメモを書く
                   </button>
+                )}
+                {/* 積読: メモ欄は無いので、理由だけを 1 行（SPEC §2 エッジケース）。 */}
+                {current.status === 'before' && (
+                  <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
+                    読み始めるとメモが書けます
+                  </p>
                 )}
               </div>
             )}
@@ -3970,9 +4007,10 @@ function AuthedApp() {
                 <button
                   type="button"
                   onClick={leaveLibrary}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+                  // シェブロンの見た目の左端を余白 16 に（相談の ‹ 相談 と同じ形・DESIGN §5「画面上部の 1 行」）。
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
                 >
-                  <ChevronLeft size={22} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : 'ホーム'}
+                  <ChevronLeft size={20} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : 'ホーム'}
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 'calc(-1 * var(--space-3))' }}>
                   <button
@@ -4057,7 +4095,8 @@ function AuthedApp() {
                   絞り込みシートの1階層奥から棚の表に昇格。state は絞り込みシートと共有
                   （statusFilter＝activeFilterCount とも連動）。同じチップの再タップで解除。
                   本が少ないうちはノイズなので 4 冊未満では出さない。 */}
-              {(books.length >= 4 || folderFilter || minRating > 0 || tagFilter.length > 0) && (
+              {/* 検索で 0 件のときはチップ行を出さない（下の「該当する本がありません」だけにする）。 */}
+              {(books.length >= 4 || folderFilter || minRating > 0 || tagFilter.length > 0) && !(filtered.length === 0 && search.trim() && rawBooks.length > 0) && (
                 <div
                   style={{
                     display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-4)',
@@ -4155,10 +4194,10 @@ function AuthedApp() {
                     title="該当する本がありません"
                     actions={[
                       {
-                        label: '条件をクリア',
+                        // 検索語だけで絞っているときは「検索をクリア」、状態・フォルダ等もあれば「条件をクリア」。
+                        label: search.trim() && activeFilterCount === 0 ? '検索をクリア' : '条件をクリア',
                         onClick: () => { setSearch(''); setFolderFilter(null); clearAllFilters(); },
                         variant: 'primary',
-                        icon: <IcRefresh size={18} aria-hidden="true" />,
                       },
                     ]}
                   />
@@ -4861,9 +4900,7 @@ function AppShell() {
   if (loading) {
     return (
       <Shell>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Dots />
-        </div>
+        <HomeLoadingSkeleton />
       </Shell>
     );
   }
@@ -5049,7 +5086,8 @@ function WebAppOnlyGate() {
             App Store で近日公開
           </button>
         )}
-        <div style={{ marginTop: 'var(--space-8)' }}>
+        {/* 幅は主ボタンとそろえる（削除の上の区切り線が主ボタンより短く見えないように）。 */}
+        <div style={{ marginTop: 'var(--space-8)', width: '100%' }}>
           {user?.email && (
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 0, wordBreak: 'break-all' }}>
               {user.email} でログイン中
@@ -5206,9 +5244,7 @@ function PaywallGate() {
   if (loading || !adminChecked || freeChecking) {
     return (
       <Shell>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Dots />
-        </div>
+        <HomeLoadingSkeleton />
       </Shell>
     );
   }
@@ -5253,7 +5289,8 @@ function PaywallGate() {
   return (
     <Shell>
       <Suspense fallback={<Spinner />}>
-        <Paywall onPurchased={refresh} />
+        {/* お試しを使い切って開き直した人にも、自分の本の表紙を並べた版を出す（育てた相談相手を見せる・SPEC §1-3）。 */}
+        <Paywall onPurchased={refresh} reason={freeEligible && freeUsed != null && freeUsed >= FREE_AI_CALLS ? 'free_used' : null} />
       </Suspense>
     </Shell>
   );

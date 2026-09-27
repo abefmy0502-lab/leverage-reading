@@ -25,7 +25,9 @@ import {
   StickyNote,
   BookOpen,
   Lightbulb,
-  BarChart3,
+  Flag,
+  FlaskConical,
+  BookMarked,
   AlertTriangle,
   Bot,
   Gem,
@@ -123,15 +125,15 @@ const KIND_META = {
   card:              { Icon: StickyNote,   label: 'メモ', group: 'memo' },
   summary:           { Icon: BookOpen,     label: 'まとめメモ',   group: 'summary', column: 'leverage_memo' },
   personal:          { Icon: Lightbulb,    label: '学び',         group: 'learning' },
-  invest_purpose:    { Icon: BarChart3,    label: '得たいこと',   group: 'plan',    column: 'invest_purpose' },
+  invest_purpose:    { Icon: Flag,         label: '得たいこと',   group: 'plan',    column: 'invest_purpose' },
   current_challenge: { Icon: AlertTriangle, label: '現在の課題',  group: 'plan',    column: 'current_challenge' },
-  hypothesis:        { Icon: Lightbulb,    label: '仮説',         group: 'plan',    column: 'hypothesis' },
+  hypothesis:        { Icon: FlaskConical, label: '仮説',         group: 'plan',    column: 'hypothesis' },
   ai_summary:        { Icon: Bot,          label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },
   roi_summary:       { Icon: Gem,          label: '一番の収穫',   group: 'summary', column: 'roi_summary' },
   ai_strategy:       { Icon: MapIcon,      label: '読書計画シート', group: 'plan',   column: 'ai_strategy' },
   // gatherKnowledge が AI コンテキストに含める列は全てここに出す（透明性と
   // 除外手段の担保）。選書理由も AI が参照するため、見えない・消せないは NG。
-  book_reason:       { Icon: Bot,          label: '選書理由',     group: 'plan',    column: 'book_reason' },
+  book_reason:       { Icon: BookMarked,   label: '選書理由',     group: 'plan',    column: 'book_reason' },
 };
 
 // ============================================================================
@@ -740,16 +742,29 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <div style={{ position: 'relative' }}>
           <Search size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
+          {/* type="search" は端末の青い × が出るので、ふつうの入力欄＋自前の消すボタンにする（すべての本の検索と同じ）。 */}
           <input
-            type="search"
+            type="text"
+            inputMode="search"
+            enterKeyHint="search"
             placeholder="本文・タイトル・著者・タグ"
             aria-label="根拠にできる情報を検索"
             maxLength={100}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}
-            style={{ ...inp, paddingLeft: 'calc(var(--space-8) + var(--space-2))' }}
+            style={{ ...inp, paddingLeft: 'calc(var(--space-8) + var(--space-2))', paddingRight: 44 }}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="検索の言葉を消す"
+              style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0 }}
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <SelectMenu value={filterKind} onChange={(e) => setFilterKind(e.target.value)} label="種類で絞り込む">

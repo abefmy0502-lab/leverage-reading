@@ -152,7 +152,7 @@ const SCREENS = [
   { name: 'settings-free', url: '/?demo=free', steps: [{ css: 'button[aria-label="閉じる"]' }, { css: 'button[aria-label="アカウント設定を開く"]' }] },
   { name: 'landing-sticky', url: '/?demo=auth', steps: [{ scrollTo: '#lp-problem' }] },
   { name: 'paywall-trial', url: '/?demo=paywall&native=1&trial=7日間無料' },
-  { name: 'paywall-free-covers', url: '/?demo=freeused&native=1', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: 'free_used' } }))" }] },
+  { name: 'paywall-free-covers', url: '/?demo=freeused&native=1' },
   { name: 'webgate-confirmed', url: '/?demo=webgate', steps: [{ eval: "sessionStorage.setItem('orime-email-confirmed', 'true')" }, { reload: true }] },
   { name: 'report-empty', url: '/?demo=nomemo', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }] },
   { name: 'report-generating', url: '/?ai=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { wait: 1500 }] },
