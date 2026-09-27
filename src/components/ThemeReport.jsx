@@ -744,7 +744,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                     </button>
                   )}
                   {truncated && (
-                    <p role="status" style={metaText}>長さの上限で途中までです（履歴に保存しません）</p>
+                    <p role="status" style={metaText}>長さの上限で、途中までになりました。テーマを絞ると最後まで作れます（途中までのものは履歴に残しません）。</p>
                   )}
                 </div>
               )}

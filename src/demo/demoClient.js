@@ -8,7 +8,7 @@
 // 使い方: `npm run demo` → http://localhost:5173/
 //   - 既定: 半年使い込んだユーザーのデータ入り
 //   - ?demo=new  : 新規ユーザー（本0冊・初回ガイドから）
-//   - ?demo=auth : 未ログイン状態（ログイン画面・LP の確認用）
+//   - ?demo=auth : 未ログイン状態（ログイン画面・LP の確認用。&authfail=1 でログインが通信エラーになる）
 //   - ?demo=paywall : 購読なし（有料プランの画面の確認用。&native=1 でアプリ版の表示）
 //   - ?demo=free / freeused / freenew : 無料プラン（相談だけ AI・毎月 30 トークン）/ 使い切った / 新規
 //   - ?demo=trial : 7 日間無料の途中 / ?demo=limit : 今月の 800 トークンを使い切った
@@ -129,7 +129,15 @@ class Query {
     // &load=slow: 読み込みがなかなか終わらない（読み込み中の表示の確認用）。読み出しだけ遅らせる。
     const qs = new URLSearchParams(window.location.search);
     // 本とメモの読み出しだけ遅らせる（課金・ログインの確認まで遅らせると、その待ち画面で止まってしまう）。
-    const slow = this.op === 'select' && qs.get('load') === 'slow' && ['books', 'book_memos'].includes(this.table);
+    // &load=chat: 過去の相談（chat_messages）の読み出しだけ遅らせる（相談の読み込み中の表示の確認用）。
+    const slow = this.op === 'select' && ((qs.get('load') === 'slow' && ['books', 'book_memos'].includes(this.table))
+      || (qs.get('load') === 'chat' && this.table === 'chat_messages'));
+    // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
+    if (['insert', 'upsert', 'update'].includes(this.op) && (qs.get('writefail') || '').split(',').includes(this.table)) {
+      return new Promise((r) => setTimeout(r, 300))
+        .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
+        .then(resolve, reject);
+    }
     // &dbfail=books,book_memos: 指定した表の読み出しを失敗させる（読み込み失敗の表示の確認用）。
     const failTables = (qs.get('dbfail') || '').split(',').filter(Boolean);
     if (this.op === 'select' && failTables.includes(this.table)) {
@@ -143,7 +151,9 @@ class Query {
         .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
         .then(resolve, reject);
     }
-    return new Promise((r) => setTimeout(r, slow ? 60000 : 40)).then(() => this._exec()).then(resolve, reject);
+    // &save=slow: 本の保存がなかなか終わらない（取り込み中の表示の確認用）。書き込みだけ遅らせる。
+    const slowSave = this.op !== 'select' && qs.get('save') === 'slow' && this.table === 'books';
+    return new Promise((r) => setTimeout(r, slow || slowSave ? 60000 : 40)).then(() => this._exec()).then(resolve, reject);
   }
 
   _rows() { return this.store.table(this.table); }
@@ -308,7 +318,10 @@ export function createDemoClient() {
         setTimeout(() => { try { cb('INITIAL_SESSION', store.session); } catch { /* ignore */ } }, 0);
         return { data: { subscription: { unsubscribe: () => listeners.delete(cb) } } };
       },
-      signInWithPassword: async ({ email }) => signIn(email),
+      // &authfail=1: 通信の失敗（ログイン画面のエラー表示の確認用）。
+      signInWithPassword: async ({ email }) => (params.get('authfail')
+        ? { data: null, error: { name: 'AuthRetryableFetchError', message: 'Failed to fetch' } }
+        : signIn(email)),
       signUp: async ({ email }) => signIn(email),
       signOut: async () => { store.session = null; setTimeout(() => emit('SIGNED_OUT'), 0); return { error: null }; },
       updateUser: async (attrs) => {

@@ -46,14 +46,15 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
       <div style={{ display: 'flex', flexDirection: cta ? 'column' : 'row', gap: 'var(--space-3)', alignItems: cta ? 'stretch' : 'center', flexWrap: cta ? 'nowrap' : 'wrap' }}>
         <a
           href={amazon} target="_blank" rel={AMAZON_LINK_REL} onClick={onAmazon}
-          aria-label={`Amazon で『${title}』を${verb}（外部リンク）`}
+          // 読み上げ名は見えている文字から始める（音声操作で「Amazon で…」と言えば押せるように）。
+          aria-label={cta ? `Amazon で${verb}（『${title}』・外部リンク）` : `Amazon（『${title}』を${verb}・外部リンク）`}
           style={linkStyle}
         >
           {cta ? `Amazon で${verb}` : 'Amazon'}{icon}
         </a>
         <a
           href={rakuten} target="_blank" rel={RAKUTEN_LINK_REL} onClick={onRakuten}
-          aria-label={`楽天ブックス で『${title}』を${verb}（外部リンク）`}
+          aria-label={cta ? `楽天で${verb}（楽天ブックス・『${title}』・外部リンク）` : `楽天ブックス（『${title}』を${verb}・外部リンク）`}
           style={linkStyle}
         >
           {cta ? `楽天で${verb}` : '楽天ブックス'}{icon}

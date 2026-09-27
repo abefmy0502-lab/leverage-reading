@@ -94,20 +94,24 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     );
   } else if (step === 'preview' && result) {
     const shown = result.books.slice(0, 20);
+    // 件数は完了画面と同じ分け方（メモ＝カードのメモ・まとめ＝レビュー）。完了画面と数字がずれないように。
+    const memoCount = result.books.reduce((n, b) => n + (b.memos?.length || 0), 0);
+    const reviewCount = result.books.filter((b) => b.review).length;
+    const countParts = [`本 ${sum.books} 冊`, memoCount > 0 ? `メモ ${memoCount} 件` : '', reviewCount > 0 ? `まとめ ${reviewCount} 件` : ''].filter(Boolean);
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
         <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}>
-          {SOURCE_LABEL[result.source] || ''}：本 {sum.books} 冊・メモ {sum.memos} 件
+          {SOURCE_LABEL[result.source] || ''}：{countParts.join('・')}
         </p>
         <ul style={{ ...list, gap: 0 }}>
           {shown.map((b, i) => (
             <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
               <BookOpen size={18} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-              {((b.memos?.length || 0) + (b.review ? 1 : 0)) > 0 && (
+              {(b.memos?.length || 0) > 0 && (
                 <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>
-                  メモ {(b.memos?.length || 0) + (b.review ? 1 : 0)}
+                  メモ {b.memos.length}
                 </span>
               )}
             </li>
@@ -117,7 +121,8 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
           <p style={{ ...body, fontSize: 'var(--text-meta)' }}>ほか {result.books.length - shown.length} 冊</p>
         )}
         <p style={{ ...body, fontSize: 'var(--text-meta)' }}>
-          本棚に同じ本があるときは、その本にメモを足します。同じメモは二重になりません。{result.source === 'kindle' ? '本の状態は「読了」で入ります（あとで変えられます）。' : ''}
+          {/* 「本棚に同じ本があるときは、その本に足す」はヘルプ（bookList の取り込み）へ。 */}
+          同じメモは二重になりません。{result.source === 'kindle' ? '本の状態は「読了」で入ります（あとで変えられます）。' : ''}
         </p>
       </div>
     );
@@ -141,20 +146,24 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     const reviews = outcome.reviewsAdded || 0;
     const any = memos + reviews > 0;
     const headParts = [memos > 0 ? `メモ ${memos} 件` : '', reviews > 0 ? `まとめ ${reviews} 件` : ''].filter(Boolean);
+    // したことを 1 文に（例「本 2 冊を追加・1 冊にメモを足しました。」）。最後だけ「〜ました」。
+    const did = any ? [
+      outcome.booksAdded > 0 ? [`本 ${outcome.booksAdded} 冊を追加`, `本 ${outcome.booksAdded} 冊を追加しました`] : null,
+      outcome.booksMatched > 0 ? [`${outcome.booksMatched} 冊にメモを足し`, `${outcome.booksMatched} 冊にメモを足しました`] : null,
+      reviews > 0 ? ['レビューを「この本のまとめ」に入れ', 'レビューを「この本のまとめ」に入れました'] : null,
+    ].filter(Boolean) : [];
+    const didSentence = did.length ? `${[...did.slice(0, -1).map((d) => d[0]), did[did.length - 1][1]].join('・')}。` : '';
     content = (
-      <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 'var(--space-4) 0' }}>
-        <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>
+      <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
+        <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}>
           {any ? `${headParts.join('・')}を取り込みました` : outcome.booksAdded > 0 ? `本 ${outcome.booksAdded} 冊を取り込みました` : '新しく取り込むものはありませんでした'}
         </p>
         <p style={body}>
           {[
-            outcome.booksAdded > 0 && any ? `本 ${outcome.booksAdded} 冊を本棚に追加しました。` : '',
-            reviews > 0 ? `レビュー ${reviews} 件は、その本の「この本のまとめ」に入れました。` : '',
-            outcome.booksMatched > 0 && any ? `すでにある ${outcome.booksMatched} 冊には、まだ無いメモだけを足しました。` : '',
+            didSentence,
             !any && outcome.booksAdded > 0 ? '本棚に並べました。読みながらメモを残すと、相談の根拠になります。' : '',
             !any && outcome.booksAdded > 0 && outcome.booksMatched > 0 ? `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。` : '',
             !any && outcome.booksAdded === 0 ? 'このファイルの本とメモは、すでに取り込み済みです。' : '',
-            any ? 'これからの相談は、ここで取り込んだ記録も根拠にして答えます。' : '',
           ].filter(Boolean).join('')}
         </p>
       </div>

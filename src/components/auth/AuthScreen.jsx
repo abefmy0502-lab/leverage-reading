@@ -7,6 +7,7 @@ import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../li
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, input } from '../../styles/ui';
 import { isNative } from '../../lib/iap';
 import { MailCheck, Check } from 'lucide-react';
+import ErrorMessage from '../ErrorMessage';
 
 // ボタン正典（styles/ui.js）に統一。初対面画面のボタンだけ radius/weight が
 // 微妙に別物だと第一印象で「寄せ集め感」が出るため。
@@ -60,6 +61,31 @@ const fieldHint = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHe
 
 const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
+// 通信やサーバー側の失敗（入力を直しても解決しない）。入力の誤りとは見せ方を分け、ErrorMessage の面で出す。
+const NETWORK_ERROR = 'サーバーに接続できませんでした。通信環境をご確認のうえ、しばらくしてから再度お試しください。';
+const RATE_LIMIT_ERROR = 'リクエストが多すぎます。しばらく経ってから再度お試しください。';
+const UNEXPECTED_ERROR = '予期せぬエラーが発生しました。時間をおいて再度お試しください。';
+const NOT_CONFIGURED_ERROR = 'アプリの設定が未完了です。管理者にお問い合わせください。';
+const SYSTEM_ERRORS = new Set([NETWORK_ERROR, RATE_LIMIT_ERROR, UNEXPECTED_ERROR, NOT_CONFIGURED_ERROR]);
+const ERROR_ID = 'auth-error';
+
+// エラーの表示: 通信・サーバーの失敗は ErrorMessage（1 文目を見出し・残りを説明）、
+// 入力の誤りは入力欄の下の小さな --error の文（入力欄の aria-describedby で結ぶ）。
+function AuthError({ error }) {
+  if (!error) return null;
+  if (SYSTEM_ERRORS.has(error)) {
+    const i = error.indexOf('。');
+    const title = i >= 0 ? error.slice(0, i) : error;
+    const description = i >= 0 ? error.slice(i + 1).trim() : '';
+    return (
+      <div style={{ margin: '0 0 var(--space-3)' }}>
+        <ErrorMessage icon={null} title={title} description={description || undefined} />
+      </div>
+    );
+  }
+  return <p id={ERROR_ID} role="alert" style={errorText}>{error}</p>;
+}
+
 function humanizeError(err) {
   const msg = (err?.message || '').toLowerCase();
   // 通信そのものが失敗（オフライン・サーバー停止・DNS 解決不可など）。
@@ -72,7 +98,7 @@ function humanizeError(err) {
     msg.includes('network request failed') ||
     msg.includes('load failed')
   ) {
-    return 'サーバーに接続できませんでした。通信環境をご確認のうえ、しばらくしてから再度お試しください。';
+    return NETWORK_ERROR;
   }
   if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
     return 'メールアドレスまたはパスワードが正しくありません。';
@@ -87,17 +113,17 @@ function humanizeError(err) {
     return 'メールアドレスの形式が正しくありません。';
   }
   if (msg.includes('rate limit') || msg.includes('too many')) {
-    return 'リクエストが多すぎます。しばらく経ってから再度お試しください。';
+    return RATE_LIMIT_ERROR;
   }
   if (msg.includes('email not confirmed')) {
     return 'メール確認が完了していません。確認メールをご確認ください。';
   }
   if (msg.includes('not configured')) {
-    return 'アプリの設定が未完了です。管理者にお問い合わせください。';
+    return NOT_CONFIGURED_ERROR;
   }
   // 未マッチのエラーは生の Supabase メッセージ（英語の技術文字列・内部 ID など）を
   // そのまま表示せず、安全な汎用文へ倒す（CLAUDE.md セキュリティ方針）。
-  return '予期せぬエラーが発生しました。時間をおいて再度お試しください。';
+  return UNEXPECTED_ERROR;
 }
 
 // LP の「始める」CTA は /?auth=signup で着地する。初見の購入希望者を
@@ -240,6 +266,9 @@ export default function AuthScreen() {
     }
   };
 
+  // 入力の誤り（通信・サーバーの失敗以外）のときだけ、入力欄とエラー文を結ぶ。
+  const fieldError = !!error && !SYSTEM_ERRORS.has(error);
+
   // ログイン画面では見出しを出さない（主ボタン「ログイン」と重複するため）。新規登録・リセットだけ出す。
   const title = mode === 'signup' ? '新規登録' : mode === 'reset' ? 'パスワードリセット' : '';
   const submitLabel = loading
@@ -284,7 +313,7 @@ export default function AuthScreen() {
             数分待っても届かないときは、<br />
             <strong style={{ fontWeight: 600 }}>迷惑メール・プロモーション</strong>も確認してください。
           </p>
-          {error && <p role="alert" style={errorText}>{error}</p>}
+          <AuthError error={error} />
           {info && <p role="status" style={infoText}>{info}</p>}
           <button
             type="button"
@@ -376,6 +405,8 @@ export default function AuthScreen() {
           type="email"
           placeholder="メールアドレス"
           aria-label="メールアドレス"
+          aria-describedby={fieldError ? ERROR_ID : undefined}
+          aria-invalid={fieldError || undefined}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={blockEnterWhileComposing}
@@ -389,7 +420,8 @@ export default function AuthScreen() {
             type="password"
             placeholder="パスワード"
             aria-label="パスワード"
-            aria-describedby={mode === 'signup' ? 'auth-pw-hint' : undefined}
+            aria-describedby={[mode === 'signup' ? 'auth-pw-hint' : '', fieldError ? ERROR_ID : ''].filter(Boolean).join(' ') || undefined}
+            aria-invalid={fieldError || undefined}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={blockEnterWhileComposing}
@@ -429,7 +461,7 @@ export default function AuthScreen() {
             </div>
           </div>
         )}
-        {error && <p role="alert" style={errorText}>{error}</p>}
+        <AuthError error={error} />
         {info && <p role="status" style={infoText}>{info}</p>}
         <button
           type="submit"

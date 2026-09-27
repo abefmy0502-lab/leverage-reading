@@ -67,6 +67,8 @@ function canBreakBefore(chars, i) {
   const b = chars[i];
   if (NO_START.test(b) || NO_END.test(a)) return false;
   if (LATIN_JOIN.test(a) && LATIN_JOIN.test(b)) return false; // 英単語・数字の途中
+  // 閉じ括弧のすぐ後ろの助詞・送り仮名（「（イシュー）かを」「『本』を」）は括弧から離さない。
+  if (/[）)」』】］\]〉》”’]/.test(a) && HIRA.test(b)) return false;
   if (BREAK_AFTER.test(a)) return true;
   if (NO_END.test(b)) return true; // 開き括弧の前
   if (/\s/.test(b)) return false;

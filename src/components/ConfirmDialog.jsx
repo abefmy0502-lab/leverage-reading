@@ -13,13 +13,13 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 16,
+  padding: 'var(--space-4)',
 };
 
 const cardStyle = {
   background: 'var(--c-card)',
   borderRadius: 'var(--radius)',
-  padding: 24,
+  padding: 'var(--space-6)',
   width: 'min(380px, 100%)',
   boxShadow: 'var(--shadow-overlay)',
   fontFamily: "var(--font-app)",
@@ -29,26 +29,26 @@ const titleStyle = {
   fontSize: 'var(--text-body)',
   color: 'var(--text)',
   fontWeight: 600,
-  margin: '0 0 8px',
+  margin: '0 0 var(--space-2)',
 };
 
 const messageStyle = {
   fontSize: 'var(--text-sub)',
   color: 'var(--text-2)',
   lineHeight: 1.6,
-  margin: '0 0 24px',
+  margin: '0 0 var(--space-6)',
   whiteSpace: 'pre-line',
 };
 
 const rowStyle = {
   display: 'flex',
-  gap: 12,
+  gap: 'var(--space-3)',
 };
 
 const cancelBtnStyle = {
   flex: 1,
   minHeight: 48,
-  padding: '12px 0',
+  padding: 'var(--space-3) 0',
   borderRadius: 'var(--radius)',
   border: '1px solid var(--border)',
   background: 'transparent',
@@ -62,7 +62,7 @@ const cancelBtnStyle = {
 const confirmBtnStyle = (danger) => ({
   flex: 1,
   minHeight: 48,
-  padding: '12px 0',
+  padding: 'var(--space-3) 0',
   borderRadius: 'var(--radius)',
   border: 'none',
   // 破壊的アクションの色はブランドのレンガ色（--c-critical）に統一。

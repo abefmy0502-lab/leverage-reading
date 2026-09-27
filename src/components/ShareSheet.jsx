@@ -402,7 +402,8 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
         type="button"
         onClick={handleSave}
         disabled={!ready}
-        style={{ ...btnLink, color: ready ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: ready ? 'pointer' : 'default', flexShrink: 0 }}
+        // 文字の端をシートの余白 16 に揃える（btnLink の左右 4 を負の余白で打ち消す）。
+        style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', color: ready ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: ready ? 'pointer' : 'default', flexShrink: 0 }}
       >
         画像を保存
       </button>
@@ -509,7 +510,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
                 ))}
               </div>
               {effStyle === 'photo' && (
-                <div role="radiogroup" aria-label="文字の位置" style={{ display: 'inline-flex', gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-2))' }}>
+                <div role="radiogroup" aria-label="文字の位置" style={{ display: 'inline-flex', gap: 0 }}>
                   {POS_OPTIONS.map(({ v, label, Icon }) => (
                     <button key={v} type="button" role="radio" aria-checked={textPos === v} aria-label={label} title={label} onClick={() => setTextPos(v)} style={iconBtn(textPos === v)}>
                       <Icon size={20} aria-hidden="true" />

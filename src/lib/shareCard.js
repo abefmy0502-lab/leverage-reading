@@ -561,11 +561,13 @@ function drawFooter(ctx, { W, margin, baseline, wordH, logo, theme, fonts, metaS
 
 // ---------------------------------------------------------------- 紙・夜・表紙の色
 
-// 形ごとの寸法。ストーリーは Instagram などの上下の帯（約 250px）に文字をかけない。
+// 形ごとの寸法。ストーリーは Instagram などの上下の帯（約 250px）に文字をかけない
+// （下の帯は 1920 − 250 ＝ 1670 から。ロゴと URL の基線は 1630）。
+// 著者・ページ・URL は、スマホで縮めて見ても読める大きさ（ストーリー 36・URL 34 以上）。書名はそれより大きく。
 const POSTER = {
-  story: { margin: 112, top: 300, bottom: 1540, footerBaseline: 1716, markInk: 76, sizes: [92, 84, 76, 70, 64, 60, 56, 52, 48, 44], coverW: 128, titleSize: 38, metaSize: 28, wordH: 44 },
-  post: { margin: 104, top: 128, bottom: 1110, footerBaseline: 1258, markInk: 60, sizes: [76, 70, 64, 60, 56, 52, 48, 44, 40, 38], coverW: 112, titleSize: 34, metaSize: 26, wordH: 38 },
-  square: { margin: 96, top: 104, bottom: 870, footerBaseline: 1000, markInk: 50, sizes: [68, 62, 56, 52, 48, 44, 40, 36, 34, 32], coverW: 96, titleSize: 30, metaSize: 24, wordH: 34 },
+  story: { margin: 112, top: 300, bottom: 1460, footerBaseline: 1630, markInk: 76, sizes: [92, 84, 76, 70, 64, 60, 56, 52, 48, 44], coverW: 140, titleSize: 46, metaSize: 36, wordH: 44 },
+  post: { margin: 104, top: 128, bottom: 1110, footerBaseline: 1258, markInk: 60, sizes: [76, 70, 64, 60, 56, 52, 48, 44, 40, 38], coverW: 124, titleSize: 42, metaSize: 35, wordH: 38 },
+  square: { margin: 96, top: 104, bottom: 870, footerBaseline: 1000, markInk: 50, sizes: [68, 62, 56, 52, 48, 44, 40, 36, 34, 32], coverW: 112, titleSize: 40, metaSize: 34, wordH: 34 },
 };
 
 function drawPoster(ctx, o) {
@@ -615,9 +617,9 @@ function drawPoster(ctx, o) {
 // ---------------------------------------------------------------- 写真
 
 const PHOTO = {
-  story: { margin: 88, safeTop: 270, footerBaseline: 1704, markInk: 50, sizes: [84, 76, 70, 64, 60, 56, 52, 48, 44, 40], maxBlock: 0.5, titleSize: 32, metaSize: 27, wordH: 46 },
-  post: { margin: 80, safeTop: 96, footerBaseline: 1266, markInk: 44, sizes: [72, 66, 60, 56, 52, 48, 44, 40, 36], maxBlock: 0.52, titleSize: 30, metaSize: 25, wordH: 40 },
-  square: { margin: 72, safeTop: 80, footerBaseline: 1008, markInk: 40, sizes: [64, 58, 54, 50, 46, 42, 38, 34, 32], maxBlock: 0.56, titleSize: 28, metaSize: 24, wordH: 36 },
+  story: { margin: 88, safeTop: 270, footerBaseline: 1630, markInk: 50, sizes: [84, 76, 70, 64, 60, 56, 52, 48, 44, 40], maxBlock: 0.5, titleSize: 44, metaSize: 36, wordH: 46 },
+  post: { margin: 80, safeTop: 96, footerBaseline: 1266, markInk: 44, sizes: [72, 66, 60, 56, 52, 48, 44, 40, 36], maxBlock: 0.52, titleSize: 42, metaSize: 35, wordH: 40 },
+  square: { margin: 72, safeTop: 80, footerBaseline: 1008, markInk: 40, sizes: [64, 58, 54, 50, 46, 42, 38, 34, 32], maxBlock: 0.56, titleSize: 40, metaSize: 34, wordH: 36 },
 };
 
 // 文字の塊（引用符・一文・書名・著者）の組み。
@@ -744,7 +746,8 @@ function drawSticker(ctx, o, size) {
   ctx.shadowOffsetY = 3;
   drawOverlay(ctx, o.fonts, { ...o, W: 1080 }, L, lay, pad, o.theme);
   const baseline = pad + lay.height + logoGap + L.wordH;
-  drawLogo(ctx, o.logo, 'white', { x: L.margin, baseline, wordH: L.wordH, fonts: o.fonts, ink: o.theme.ink });
+  // ロゴ＋URL（ほかの地と同じ・SPEC §2-1）。
+  drawFooter(ctx, { W: 1080, margin: L.margin, baseline, wordH: L.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts, metaSize: L.metaSize - 2 });
   ctx.restore();
 }
 

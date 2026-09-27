@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
 import { BookOpen, PencilLine, MessageCircle, Target, X, ChevronLeft } from 'lucide-react';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
@@ -120,8 +120,6 @@ const dot = (active) => ({
 // ボタンは正典そのまま（17・600・高さ 48）。横並び用に幅だけ変える。
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
 const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
-// 最後の画面の 3 番手（AI 選書）。
-const btnLink = { ...btnText, minHeight: 44, fontSize: 'var(--text-sub)' };
 
 const closeBtnStyle = {
   position: 'absolute',
@@ -168,7 +166,7 @@ const chipFace = (selected) => ({
   fontWeight: selected ? 600 : 400,
 });
 
-export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQuickstart }) {
+export default function Onboarding({ onClose, onStart, onImport, onStartQuickstart }) {
   const [step, setStep] = useState(0);
   const slide = slides[step];
   const isLast = step === slides.length - 1;
@@ -224,12 +222,12 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
     onStart?.();
   };
 
-  // 🤖 AI 選書へ直行（初日の最短 time-to-value）。手元に登録したい本が無くても、
-  // 「いまの悩み」を話すだけで価値（本の提案）を体験できる＝空アプリで手が止まらない。
-  const startAdvisor = () => {
+  // 📥 ブクログ・Kindle の記録から取り込む（無料の最初の一歩・2026-09-27）。
+  // 旧「悩みから AI 選書で探す」は AI 選書がプランの機能になったため差し替え（無料は相談だけ）。
+  const startImport = () => {
     markOnboardingCompleted();
     onClose?.();
-    (onStartAdvisor || onStart)?.();
+    (onImport || onStart)?.();
   };
 
   // 📚 これまで読んだ本で相談相手をつくる（初日クイックスタート）。一番の価値
@@ -318,7 +316,7 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
         {isLast ? (
           // 最後の画面は主役を 1 つに（DESIGN 原則 2）。主＝これまで読んだ本から始める
           // （初日に「自分だけの相談相手」を体験する最短路）、副＝いま読んでいる本を追加。
-          // AI 選書と「スキップ」は文字ボタンに下げ、「どこで知りましたか」は一番下へ。
+          // 取り込み（ブクログ・Kindle）は文字ボタンに下げ、「どこで知りましたか」は一番下へ。
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
               <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startQuickstart}>
@@ -330,8 +328,8 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
               {/* 閉じるのは右上の × だけ（同じ操作を 2 か所に出さない・DESIGN §5）。
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <button type="button" style={btnLink} onClick={startAdvisor}>
-                  悩みから AI 選書で探す
+                <button type="button" style={btnLink} onClick={startImport}>
+                  ブクログ・Kindle の記録から取り込む
                 </button>
               </div>
             </div>

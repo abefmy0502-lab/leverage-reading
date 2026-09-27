@@ -460,9 +460,8 @@ export default function QuickMemoSheet({
 
           {/* ＋ ページ・写真 — 一度開いて欄を見たときだけページ番号を保存する（開かなければページなし）。
               欄には直前＋1 を入れておく（続けて書くときの手間を省く）。
-              高さ 44 の文字ボタンの上の余り（約 12）を詰め、見た目で本文欄の下 約 8 に置く。 */}
-          {/* 凝縮の行があるときは詰めすぎると押せる範囲が重なるので、詰めを 12 にする。 */}
-          <div style={{ marginTop: (text.trim().replace(/\s/g, '').length >= 60 || condensedFrom != null) ? 'calc(-1 * var(--space-3))' : 'calc(-1 * var(--space-4))' }}>
+              高さ 44 の文字ボタンの上の余りを 12 だけ詰める（16 詰めると押せる範囲が本文欄に重なる）。 */}
+          <div style={{ marginTop: 'calc(-1 * var(--space-3))' }}>
             <button
               type="button"
               onClick={() => { setMoreOpen((v) => !v); setPageUsed(true); }}
@@ -477,7 +476,7 @@ export default function QuickMemoSheet({
             </button>
             {moreOpen && (
               // ページ番号（112）と「写真から書き起こす」（残りの幅いっぱい）を 1 行に。
-              <div style={{ display: 'grid', gridTemplateColumns: '112px 1fr', columnGap: 'var(--space-3)', alignItems: 'end', marginTop: 'var(--space-2)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '112px 1fr', columnGap: 'var(--space-3)', alignItems: 'end', marginTop: 'calc(-1 * var(--space-2))' }}>
                 <div>
                   <label htmlFor="quick-memo-page" style={fieldLabel}>ページ番号</label>
                   <input

@@ -133,6 +133,7 @@
 | カード | `--surface` ＋ 枠線 `--separator` ＋ 角丸 12 ＋ 内側余白 16。影なし。ラベル付きの短文カード（積読の「現在の課題」「仮説」・読了の「一番の収穫」）も同じ面（`--fill` の面にしない） | `components.css` の `.card`、`ui.js` の `card`、`App.jsx` の `Card` |
 | 一覧の行 | 高さ 44 以上。左に表紙/アイコン、右に › | （統一部品なし → 作る） |
 | チップ | `--fill` 面 ＋ 13px ＋ 高さ 32（タップ領域は 44 を確保） | 各所に直書き → 統一する |
+| 操作のチップ（押すとすぐ動く・選ぶ） | 小さなチップ（13・32）ではなく、見た目も高さ 44・文字 15/`--text`。`--fill` 面・枠なし・角丸 12・内側 8/12。横に並べる行は折り返し・間 8（読み込み中は同じ高さ 44 の `SkeletonBlock` を並べて高さを跳ねさせない）。文が長い選択肢・相談例は全幅で縦に並べる（間 8・左揃え・行間 1.5）。件数を添えるときは 13/`--text-2`（数字は等幅）。選択中は `--accent-soft` の面＋`--accent`/600 | `ThemeReport.jsx` のテーマの候補・`BookAdvisor.jsx` の `advisorOptionChip`（答えの選択肢）・`MyBookBrain.jsx` の `chipStyle` / `HomeConsult.jsx` の相談例（2026-09-27） |
 | Apple でサインイン | ブランド規定の例外: `--apple-btn-bg` / `--apple-btn-ink`（明るい画面は黒・暗い画面は白）。形は主ボタンと同じ | `AuthScreen.jsx` |
 | 切り替え（セグメント） | **1 画面に 1 つまで**。2 段重ねにしない | `.sub-tabs` |
 | 入力欄 | 文字 17（iOS の拡大防止に 16 以上）、枠 `--border`、フォーカス時は枠 `--accent`＋外側 3px の `--accent-soft` の輪。フォーカスの見た目は `components.css` の全体ルール（文字の入力欄・textarea・select に効き、インラインの枠色にも勝つ。チェックボックス・ボタンには効かない。枠の無い入力欄は `className="no-focus-ring"` で外す）なので、部品ごとに書かない。パスワードの条件などの決まりは placeholder だけに書かず、欄の下に 13/`--text-2` で常に出して `aria-describedby` で結ぶ（2026-09-27） | `ui.js` の `input`、`formPrimitives` の `inp` |

@@ -605,13 +605,13 @@ select:not(.no-focus-ring):focus {
   max-width: 300px;
 }
 .empty-state-tip {
-  font-size: var(--type-caption);
-  color: var(--color-text-tertiary);
-  background: var(--color-accent-soft);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  /* 面は付けない（押せない補足文に色の面を敷くと、押せるものに見える・DESIGN §5）。 */
+  font-size: var(--text-sub);
+  color: var(--text-2);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
   margin: var(--space-3) auto 0;
-  line-height: var(--leading-base);
+  line-height: 1.5;
   max-width: 300px;
 }
 

@@ -18,7 +18,6 @@ import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, groupTitle, input as uiInput } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
-import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
@@ -28,6 +27,7 @@ import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, More
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
+import { PAID_TOKENS, monthDayLabelJa } from '../lib/tokens';
 
 // ホーム・本の詳細・テーマまとめから渡される「最初の一手」（preset）は、App 側では
 // 消えずに残る。相談タブを開き直すと MyBookBrain が作り直されるので、使い終わった
@@ -103,7 +103,7 @@ const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 's
 const subLabel = { ...groupTitle, margin: '0 0 var(--space-1)' };
 // 根拠の本文（参照したメモ・解釈）も答えの一部＝読む文章（明朝 18・行間 1.6・DESIGN §2/§7）。
 const subText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6 };
-const refBtn = { width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, padding: 'var(--space-2) 0', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--accent)', lineHeight: 1.5 };
+const refBtn = { width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, padding: 'var(--space-2) 0', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
 // 学びを書くの入力欄は ui.js の input（高さ 48）をそのまま使う。
 const inp = uiInput;
 // 学びの本文＝読む文章（明朝 18・行間 1.6）。display:block で下の余白のずれ（inline のベースライン分）を消す。
@@ -318,7 +318,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const confirm = useConfirm();
   // 🪙 プランと残りのトークン（src/lib/tokens.js・止めるのはサーバー）。上部に 1 行「今月の残り N トークン」。
   //    無料プラン（相談だけ）で使い切ったら、答えの下で静かに案内＋有料プランの画面へ。
-  const { plan, freeMode, tokensRemaining, tokenAllowance, purchasedTokens, tokensAvailable, canBuyTokens, openTokenSheet, refreshTokens, openPaywall } = usePaywall();
+  const { plan, freeMode, trialEndsAt, tokensRemaining, tokenAllowance, purchasedTokens, tokensAvailable, canBuyTokens, openTokenSheet, refreshTokens, openPaywall } = usePaywall();
   const [monthLimitHit, setMonthLimitHit] = useState(false); // トークンの上限に達した（サーバーの 429）
   // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
   useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
@@ -326,6 +326,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // プランの人（有料・無料期間）がトークンを使い切った（サーバーの 429 か、残りが 0）。
   const planOut = canBuyTokens && (monthLimitHit || (tokensAvailable != null && tokensAvailable <= 0));
   const outOfTokens = monthLimitHit || planOut;
+  // 無料期間が終わる日（「◯月◯日から、毎月 800 トークン使えます」）。分からなければ空。
+  const trialEndLabel = plan === 'trial' ? monthDayLabelJa(trialEndsAt) : '';
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
   // 押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）のあいだは、親がサブタブを隠せるように知らせる
   // （見出しが 3 段に重ならないように）。離れるときは必ず false に戻す。
@@ -722,6 +724,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (!q || busy) return;
     // 無料プランで今月のトークンを使い切っていたら、送らずに有料プランの画面を開く（入力は残す）。
     if (freeUsedUp) { openPaywall('free_used'); return; }
+    // プランのトークンを使い切っていたら送らない（入力は残す。案内とトークンの追加は会話の下に出ている）。
+    if (outOfTokens) return;
     const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
     const askScopeLabel = scopeLabelFor(askBookIds, books);
     const askMode = opts.mode || (askBookIds.length === 1 ? 'fused' : answerMode);
@@ -786,7 +790,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 走らなくても、ここに溜めた本文をそのまま確定できるよう保持する。
     let lastVisible = '';
     try {
-      const { body, refs, memoCount, memoTotal, cardCount, summaryCount, personalCount, evidence } = await streamMyBookBrain({
+      const { body, refs, memoCount, evidence } = await streamMyBookBrain({
         userId: user.id,
         question: q,
         bookIds: askBookIds,
@@ -813,10 +817,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         : (lastVisible && lastVisible.trim())
           ? lastVisible
           : (wasAborted ? STOPPED_EMPTY : body);
-      const breakdown = `カード ${cardCount || 0} / まとめ ${summaryCount || 0} / 学び ${personalCount || 0}`;
-      const base = (!wasAborted && memoTotal > memoCount && memoCount > 0)
-        ? `${finalBody}\n\n（参照: ${memoCount}/${memoTotal} 件、内訳: ${breakdown}）`
-        : finalBody;
+      // 「（参照: 10/43 件、内訳: …）」の内部向けの注記は答えに付けない（2026-09-27）。
+      const base = finalBody;
       // 中止した場合は末尾に控えめな注記を付ける (refs は付けない)。
       // 1 文字も出る前に止めたときは、注記を重ねない（「中止しました」を 2 回出さない）。
       const assistantContent = wasAborted && finalBody !== STOPPED_EMPTY ? `${base}\n\n— ここで中止しました` : base;
@@ -1087,7 +1089,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>から答えます</>)
                   : '選んだ本のメモから答えます')
                 // 件数は「根拠にできる情報」の一覧と同じもの（メモ・学び・まとめ・読書計画＝AI に渡す材料すべて）。
-                : (knowledgeTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>メモ・学びなど</span> <span style={{ whiteSpace: 'nowrap' }}>{knowledgeTotal} 件</span>から答えます</> : '読んだ本のメモを根拠に答えます')}
+                // メモ（カード式＋学び）が 0 件のときは件数を出さない（下の「まだメモがありません」と食い違わないように）。
+                : (knowledgeTotal > 0 && ownMemoTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>メモ・学びなど</span> <span style={{ whiteSpace: 'nowrap' }}>{knowledgeTotal} 件</span>から答えます</> : '読んだ本のメモを根拠に答えます')}
               {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
               {tokensRemaining != null && (
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
@@ -1222,7 +1225,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             ref={chatScrollRef}
             className="chat-scroll"
             onScroll={onBodyScroll}
-            style={{ padding: 'var(--space-2) var(--space-4) var(--space-4)' }}
+            // 上部の行の下は、空の画面で 24・会話があるときは 16。
+            style={{ padding: `${isEmpty ? 'var(--space-6)' : 'var(--space-4)'} var(--space-4) var(--space-4)` }}
             role="log"
             aria-live="polite"
             aria-relevant="additions text"
@@ -1260,9 +1264,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     <button
                       key={q}
                       type="button"
-                      onClick={() => { if (!busy) ask(q); }}
-                      disabled={busy}
-                      style={busy ? { ...chipStyle, color: 'var(--text-2)', opacity: 1, cursor: 'default' } : chipStyle}
+                      onClick={() => { if (!busy && !outOfTokens) ask(q); }}
+                      disabled={busy || outOfTokens}
+                      style={busy || outOfTokens ? { ...chipStyle, color: 'var(--text-2)', opacity: 1, cursor: 'default' } : chipStyle}
                     >
                       {q}
                     </button>
@@ -1272,7 +1276,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             )
           )}
 
-          {!historyLoaded && <Spinner message="読み込み中…" />}
+          {/* 読み込み中は相談例のチップの形（高さ 44 × 3）で待つ（出来上がりで形が跳ねないように）。 */}
+          {(!historyLoaded || (isEmpty && !memoStatsLoaded && !!user && isSupabaseConfigured)) && (
+            <div role="status" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {['100%', '88%', '94%'].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--radius)" />)}
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             {visibleMessages.map((m, i) => (
@@ -1322,11 +1331,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
                   {plan === 'trial' ? '無料期間のトークンは、ここまでです' : '今月のトークンは、ここまでです'}
                 </p>
-                {plan !== 'trial' && (
+                {plan !== 'trial' ? (
                   <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
                     <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{tokenAllowance} トークン</span>に戻ります
                   </p>
-                )}
+                ) : trialEndLabel ? (
+                  <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                    無料期間が終わる<span style={{ whiteSpace: 'nowrap' }}>{trialEndLabel}</span>から、毎月 <span style={{ whiteSpace: 'nowrap' }}>{PAID_TOKENS} トークン</span>使えます。
+                  </p>
+                ) : null}
                 <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
                   トークンを追加
                 </button>
@@ -1401,7 +1414,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   if (!outOfTokens) ask();
                 }
               }}
-              placeholder={outOfTokens ? (plan === 'trial' ? '無料期間のトークンは、ここまでです' : `${nextResetLabelJa()}から相談できます`) : freeUsedUp ? `${nextResetLabelJa()}にまた相談できます` : '例：上司への報告がうまくいかない'}
+              placeholder={outOfTokens
+                ? (plan === 'trial'
+                  ? (trialEndLabel ? `無料期間が終わる${trialEndLabel}から相談できます` : '無料期間のトークンは、ここまでです')
+                  : canBuyTokens ? 'トークンを追加すると、すぐ相談できます' : `${nextResetLabelJa()}から相談できます`)
+                : freeUsedUp ? `${nextResetLabelJa()}にまた相談できます` : '例：上司への報告がうまくいかない'}
               rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}
@@ -1489,11 +1506,14 @@ function renderBoldInline(raw) {
   return parts.length ? parts : text;
 }
 
+// 以前の答え（履歴）の末尾に付いていた内部向けの注記「（参照: 10/43 件、内訳: …）」。
+const REF_NOTE_RE = /^（参照:[^）]*）$/;
+
 // 見出し（【】）の無い回答（旧形式・エラー文など）はそのまま段落で。
 function PlainAnswer({ text }) {
   return (
     <>
-      {(text || '').split('\n').filter((l) => l.trim()).map((line, idx) => (
+      {(text || '').split('\n').filter((l) => l.trim() && !REF_NOTE_RE.test(l.trim())).map((line, idx) => (
         <p key={idx} style={{ margin: idx ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(
           // Markdown の見出し記号・箇条書き記号をそのまま見せない（「- 『…』」→「・『…』」）
           line.replace(/^【(.+?)】\s*/, '$1：').replace(/^\s*#{1,6}\s*/, '').replace(/^\s*[-*]\s+/, '・'),
@@ -1513,7 +1533,9 @@ export function parseAnswer(text) {
     .split('\n')
     .filter((line) => {
       const t = line.trim();
-      if (/^（参照:/.test(t) || /^—\s/.test(t)) { notes.push(t.replace(/^—\s*/, '')); return false; }
+      // 以前の答えに付いていた内部向けの「（参照: 10/43 件、内訳: …）」は見せない（2026-09-27）。
+      if (REF_NOTE_RE.test(t)) return false;
+      if (/^—\s/.test(t)) { notes.push(t.replace(/^—\s*/, '')); return false; }
       return true;
     })
     .join('\n');
@@ -1601,10 +1623,22 @@ export function parseBookViews(text) {
   });
   const out = books.filter((b) => b.title || b.view);
   out.forEach((b) => {
+    // 視点の書き出しの「『書名』の視点では、」は見出しの繰り返しなので外す。
+    b.view = stripViewLead(b.view, b.title);
     const pm = b.basis.match(/(?:^|[^A-Za-z])[pP]\.?\s*(\d+)/);
     b.page = pm ? Number(pm[1]) : null;
   });
   return { books: out, lead: lead.join('\n') };
+}
+
+// 「『書名』の視点では、」「『書名』では、」など、見出しと同じ書名で始まる書き出しを外す。
+function stripViewLead(view, title) {
+  const v = String(view || '');
+  const t = String(title || '').trim();
+  if (!t || !v.startsWith(`『${t}』`)) return v;
+  const rest = v.slice(t.length + 2);
+  const m = rest.match(/^(?:の視点(?:では|から(?:見ると|は)?|で)?|では|からは|から見ると)[、,，]\s*/);
+  return m ? rest.slice(m[0].length) : v;
 }
 
 // 答えの直前の相談（本ごとの答えの「この本にくわしく聞く」で、同じ相談をその本に聞き直すため）。
@@ -1671,7 +1705,8 @@ function RefLines({ r }) {
   const meta = m ? [m[1], m[3]].map((x) => x.trim()).filter(Boolean) : [];
   return (
     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+      {/* 『 はぶら下げる（かぎ括弧の空きの分だけ左へ出して、文字の端を揃える）。 */}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(title.startsWith('『') ? { marginLeft: '-0.5em' } : null) }}>{title}</span>
       {meta.length > 0 && (
         <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 400 }}>
           {meta.map((x, i) => <span key={i}>{x}</span>)}
@@ -1700,7 +1735,8 @@ function PerBookCard({ book, streaming, onAsk, askBusy }) {
   const basis = tidyQuotes(String(book.basis || '').replace(/\*\*/g, ''));
   return (
     <article aria-label={`『${book.title}』の視点`} style={cardStyle}>
-      <h4 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'auto-phrase' }}>『{book.title}』</h4>
+      {/* 『 はぶら下げる（1 行目だけ。折り返した行はカードの余白 16 に揃う）。 */}
+      <h4 style={{ margin: 0, textIndent: '-0.5em', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'auto-phrase' }}>『{book.title}』</h4>
       {book.author && (
         <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{book.author}</p>
       )}
@@ -1757,7 +1793,8 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
     }
   };
 
-  const time = showTime && !isStreaming && message.createdAt ? (
+  // 日時は相談（user）の吹き出しにだけ出す（答えの下に同じ時刻を重ねない）。
+  const time = showTime && isUser && !isStreaming && message.createdAt ? (
     // 相談の吹き出し（--fill の面）の上では --text-2（--text-3 は --fill の上で 4.5:1 に届かない・DESIGN §6）。
     <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: isUser ? 'var(--text-2)' : 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0' }}>{fmtDate(message.createdAt)}</p>
   ) : null;
@@ -1812,8 +1849,11 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   ) : null);
   // 積み重ねが効いていることを、事実だけで一行（盛らない・渡したメモと一致したものだけ）
   const renderEvidence = () => (evidence ? (
-    <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-      <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+    <p style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+      {/* 2 行に折り返しても、アイコンは 1 行目の高さの中央に置く。 */}
+      <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
+        <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+      </span>
       <span>{evidence}</span>
     </p>
   ) : null);
@@ -1822,7 +1862,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
     <details style={{ marginTop: 'var(--space-3)' }}>
       <summary style={summaryStyle}>
         <span>根拠を見る{nBooks > 0 && !evidence ? `（${nBooks} 冊のメモ）` : ''}</span>
-        <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+        <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </summary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-1)' }}>
         {p.refs && (
@@ -2113,7 +2153,10 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
     let alive = true;
     (async () => {
       // 1000 件を超えても本ごとの件数が狂わないよう、ページを分けて全部数える。
-      const { data } = await fetchAllRows(() => supabase.from('book_memos').select('id, book_id').eq('user_id', userId).order('id', { ascending: true }));
+      let data = null;
+      try {
+        ({ data } = await fetchAllRows(() => supabase.from('book_memos').select('id, book_id').eq('user_id', userId).order('id', { ascending: true })));
+      } catch { /* 数えられなければ件数なし（本の状態で並べる） */ }
       if (!alive) return;
       const m = new Map();
       (data || []).forEach((r) => { if (r.book_id) m.set(r.book_id, (m.get(r.book_id) || 0) + 1); });
@@ -2122,6 +2165,7 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
     return () => { alive = false; };
   }, [userId]);
 
+  const countsLoading = counts == null && !!userId && isSupabaseConfigured;
   const hasKnowledge = (b) => (counts?.get(b.id) || 0) > 0 || !!(b.leverageMemo || '').trim() || !!(b.aiSummary || '').trim();
   const list = [...books]
     .filter((b) => b.status === 'reading' || b.status === 'done' || (counts?.get(b.id) || 0) > 0)
@@ -2167,8 +2211,15 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
       </button>
       <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本に絞る（複数選べます）</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        {list.length === 0 && <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>読書中・読了の本がまだありません。</p>}
-        {list.map((b) => {
+        {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。 */}
+        {countsLoading && [0, 1, 2].map((i) => <SkeletonBlock key={i} height={56} radius="var(--radius)" />)}
+        {!countsLoading && list.length === 0 && (
+          <EmptyState
+            icon={<BookOpenCheck size={32} strokeWidth={1.5} aria-hidden="true" />}
+            title="読書中・読了の本がまだありません"
+          />
+        )}
+        {!countsLoading && list.map((b) => {
           const on = mode === 'pick' && picked.has(b.id);
           const ok = counts == null || hasKnowledge(b);
           const n = counts?.get(b.id) || 0;
@@ -2176,7 +2227,7 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
             // 選べない本は薄くせず（opacity を使わない）、文字色を落として示す。
             <button key={b.id} type="button" onClick={() => ok && toggle(b.id)} disabled={!ok} aria-pressed={on} style={{ ...rowStyle, opacity: 1, cursor: ok ? 'pointer' : 'default' }}>
               <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 'var(--text-body)', color: ok ? 'var(--text)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: ok ? 'var(--text)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: ok ? 'var(--text-2)' : 'var(--text-3)' }}>{ok ? (n > 0 ? `メモ ${n} 件` : 'まとめメモあり') : 'メモがまだありません'}</span>
               </span>
               {mark(on)}

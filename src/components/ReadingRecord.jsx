@@ -22,7 +22,7 @@ import { useAuth } from '../hooks/useAuth';
 import EmptyState from './EmptyState';
 import { SkeletonBlock } from './Skeleton';
 import { track, EVENTS } from '../lib/analytics';
-import { BarChart3, ChevronRight } from 'lucide-react';
+import { BarChart3, BookOpen, ChevronRight } from 'lucide-react';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
 
@@ -148,7 +148,7 @@ const wrap = {
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-6)', // 役割の違う区画の間はグループ間 24（DESIGN §1）
-  fontFamily: 'var(--font-app)',
+  fontFamily: 'var(--font-ui)',
   maxWidth: 560,
   margin: '0 auto',
   width: '100%',
@@ -163,7 +163,7 @@ const card = {
 };
 
 const cardTitle = {
-  fontSize: 'var(--text-sub)',
+  fontSize: 'var(--text-body)',
   fontWeight: 600,
   color: 'var(--text)',
   margin: 0,
@@ -388,6 +388,7 @@ export default function ReadingRecord({
   onOpenBook,
   onFilterTag,
   onSearchAuthor,
+  onGoToShelf,
 }) {
   const { user } = useAuth();
 
@@ -483,6 +484,7 @@ export default function ReadingRecord({
         <EmptyState
           icon={<BarChart3 size={34} aria-hidden="true" />}
           title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>本を読み、メモを残すと、</span><span style={{ display: 'inline-block' }}>ここに積み上がります</span></>}
+          actions={onGoToShelf ? [{ label: 'すべての本へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToShelf, variant: 'secondary' }] : []}
         />
       </div>
     );
@@ -496,7 +498,8 @@ export default function ReadingRecord({
   return (
     <div style={wrap}>
       <section style={card}>
-        <h3 style={cardTitle}>読書 → メモ → 行動</h3>
+        {/* 中の数字の間に → があるので、見出しには矢印を入れない（二重の矢印を避ける）。 */}
+        <h3 style={cardTitle}>読書・メモ・行動</h3>
         <FlowRow
           cells={[
             { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--text)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },

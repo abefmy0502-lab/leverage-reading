@@ -5,6 +5,7 @@
 // マイ読書脳へそのまま渡して送信する（onAsk）。
 // 「あなたが読んだ N 冊・メモ N 件から答えます」で、積み重ね＝相談の質を毎回伝える。
 //   - 本 0 冊: 出さない（ホームの「はじめる」カードが案内する）
+//   - 本を読み込めなかった（countUnknown）: 冊数が分からないので「あなたの本から答えます」で出す
 //   - メモ 0 件: 入力欄の代わりに「これまで読んだ本から始める」（初日クイックスタート・SPEC §1）
 // 見た目は DESIGN.md のトークンのみ（主ボタン＝相談する の 1 つだけ）。
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -39,7 +40,8 @@ function examplesFor(books, memoBookIds) {
   return out;
 }
 
-export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
+// countUnknown: 本の読み込みに失敗して冊数が分からないとき。0 冊扱いで隠さず、件数なしの 1 行で出す。
+export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnknown = false }) {
   const { user } = useAuth();
   const cache = useAppDataCache();
   const inputRef = useRef(null);
@@ -80,7 +82,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
     return () => { alive = false; };
   }, [user?.id, bookCount, memoTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (bookCount === 0) return null;
+  if (bookCount === 0 && !countUnknown) return null;
 
   const send = (q) => {
     const question = (q ?? text).trim();
@@ -102,7 +104,9 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
       </h2>
       <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5 }}>
         {/* メモ 0 件でも同じ 1 行（説明の補足文は置かない・DESIGN §0-6）。 */}
-        あなたの {bookCount} 冊{memoCount > 0 && <>・メモ {memoCount} 件</>}から答えます
+        {countUnknown && bookCount === 0
+          ? 'あなたの本から答えます'
+          : <>あなたの {bookCount} 冊{memoCount > 0 && <>・メモ {memoCount} 件</>}から答えます</>}
       </p>
 
       {!hasMemos && onQuickstart && (

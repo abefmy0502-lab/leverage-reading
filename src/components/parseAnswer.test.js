@@ -28,10 +28,10 @@ describe('parseAnswer', () => {
     expect(p.action).toBe('明日の朝、10 分で書き出す。');
     expect(p.actionLabel).toBe('明日からできる一歩');
   });
-  it('一歩の後ろの補足と参照件数は note に回す', () => {
+  it('一歩の後ろの補足は note に回し、内部向けの参照件数は出さない', () => {
     const p = parseAnswer(sample);
     expect(p.note).toContain('お試しモード');
-    expect(p.note).toContain('参照: 3/10');
+    expect(p.note).not.toContain('参照: 3/10');
     expect(p.action).not.toContain('参照');
   });
   it('「心に残るもの」の見出しはそのままラベルにする', () => {

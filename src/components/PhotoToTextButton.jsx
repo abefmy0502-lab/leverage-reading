@@ -15,8 +15,9 @@ import { extractTextFromImage } from '../lib/ai';
 import { toMessage } from '../lib/errors';
 import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
-import { ScanText } from 'lucide-react';
+import { ScanText, RotateCw } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
+import ErrorMessage from './ErrorMessage';
 
 const baseStyle = {
   minHeight: 44,
@@ -40,6 +41,9 @@ const offStyle = { border: '1px solid var(--separator)', color: 'var(--text-3)',
 export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
+  // 読み取りに失敗したときの案内（シートの中に出す）。写真は持っておき「もう一度試す」で同じ写真を送り直す。
+  const [failure, setFailure] = useState(null);
+  const lastFileRef = useRef(null);
   const toast = useToast();
   const haptic = useHaptic();
   // 写真から書き起こすはプランの機能（フリーミアム）。無料プランなら撮る前に有料プランの画面を開く。
@@ -62,23 +66,31 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       toast.error(err);
       return;
     }
+    lastFileRef.current = file;
+    await run(file);
+  };
 
+  const run = async (file) => {
+    if (!file || loading) return;
+    setFailure(null);
     setLoading(true);
     haptic.light();
     try {
       const { base64, mediaType } = await downscaleImageForVision(file);
       const text = await extractTextFromImage({ base64, mediaType });
       if (!text) {
-        toast.error('文字を読み取れませんでした。明るく・まっすぐ撮ると精度が上がります。');
+        // 同じ写真を送り直しても変わらないので、撮り直し（選び直し）を案内する。
+        setFailure({ message: '文字を読み取れませんでした。明るく・まっすぐ撮ると精度が上がります。', retry: false });
         return;
       }
       haptic.success();
+      lastFileRef.current = null;
       onText(text);
       toast.success('写真から書き起こしました。');
     } catch (e2) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。
       if (e2?.notice) { if (!/^この AI 機能は/.test(e2.message)) toast.info(e2.message); return; }
-      toast.error(toMessage(e2, '読み取りに失敗しました。'));
+      setFailure({ message: toMessage(e2, '読み取りに失敗しました。'), retry: true });
     } finally {
       setLoading(false);
     }
@@ -91,7 +103,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         onClick={pick}
         disabled={loading || disabled}
         style={{ ...baseStyle, ...style, ...(loading || disabled ? offStyle : { opacity: 1 }) }}
-        aria-label="写真から文章を書き起こす"
+        aria-label={loading ? '読み取り中…' : '写真から書き起こす（ページの文章をメモに入れる）'}
         aria-busy={loading || undefined}
       >
         <ScanText size={16} aria-hidden="true" />
@@ -100,11 +112,25 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       <input
         ref={inputRef}
         type="file"
+        // capture を付けない: 撮影だけでなく、写真ライブラリからも選べるように（iOS の選択シートが出る）。
         accept="image/*"
-        capture="environment"
         onChange={onFile}
         style={{ display: 'none' }}
       />
+      {failure && !loading && (
+        // 並べ方（グリッド／折り返す横並び）どちらでも、ボタンの下の 1 行ぶんを使う。
+        <div style={{ gridColumn: '1 / -1', flexBasis: '100%', marginTop: 'var(--space-2)' }}>
+          <ErrorMessage
+            icon={null}
+            description={failure.message}
+            actions={[
+              failure.retry && lastFileRef.current
+                ? { label: 'もう一度試す', onClick: () => run(lastFileRef.current), variant: 'secondary', icon: <RotateCw size={16} /> }
+                : { label: '写真を選び直す', onClick: pick, variant: 'secondary' },
+            ]}
+          />
+        </div>
+      )}
     </>
   );
 }

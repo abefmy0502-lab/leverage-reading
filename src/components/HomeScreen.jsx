@@ -121,11 +121,16 @@ export default function HomeScreen({
         </div>
       ) : loadError && books.length === 0 ? (
         // 読み込みに失敗したときに、既存ユーザーへ初回用の「はじめましょう」を見せない。
-        <ErrorMessage
-          title="本を読み込めませんでした"
-          description="通信の状態を確かめて、もう一度お試しください。"
-          actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
-        />
+        // 相談（ホームの主役）は冊数が分からなくても出し、その下に読み込めなかったことを出す。
+        // 主ボタンは「相談する」1 つにしたいので、やり直しは副ボタン。
+        <>
+          <HomeConsult books={books} onAsk={onAsk} countUnknown />
+          <ErrorMessage
+            title="本を読み込めませんでした"
+            description="通信の状態を確かめて、もう一度お試しください。"
+            actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }] : []}
+          />
+        </>
       ) : books.length === 0 ? (
         <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
       ) : (

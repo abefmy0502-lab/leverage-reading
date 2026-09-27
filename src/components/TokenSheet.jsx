@@ -10,6 +10,8 @@
 import { useEffect, useState } from 'react';
 import { Circle, CircleCheck } from 'lucide-react';
 import BottomSheet from './BottomSheet';
+import ErrorMessage from './ErrorMessage';
+import { SkeletonBlock } from './Skeleton';
 import { useToast } from './Toast';
 import { useAuth } from '../hooks/useAuth';
 import { TOKEN_PACKS, TOKEN_LOT_DAYS } from '../lib/tokens';
@@ -25,6 +27,15 @@ const optionBase = {
 };
 const meta = { display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 };
 
+// 🧪 開発専用: お試しモードの &native=1&price=loading|fail で、アプリ版の価格の読み込み中・失敗を撮る
+// （本番は isDemo=false で常に off。購入の実行可否は isNative / isDemo で決める）。
+const preview = (() => {
+  if (!isDemo || typeof window === 'undefined') return { on: false, price: '' };
+  const sp = new URLSearchParams(window.location.search);
+  return { on: sp.get('native') === '1', price: sp.get('price') || '' };
+})();
+const showNative = isNative || preview.on;
+
 // onPurchased: 買えたあとに残りを取り直す（増えたら true を返す）。
 export default function TokenSheet({ onClose, onPurchased }) {
   const { user } = useAuth();
@@ -32,15 +43,30 @@ export default function TokenSheet({ onClose, onPurchased }) {
   const [selected, setSelected] = useState(TOKEN_PACKS[TOKEN_PACKS.length - 1]?.id);
   const [prices, setPrices] = useState({});
   const [busy, setBusy] = useState(false);
+  // アプリ版の価格（ストアの値）: 'loading' | 'ready' | 'failed'。Web は既定の表示のまま（最初から ready）。
+  const [priceState, setPriceState] = useState(
+    isNative ? 'loading' : preview.on && preview.price === 'fail' ? 'failed' : preview.on && preview.price === 'loading' ? 'loading' : 'ready',
+  );
+  const [priceTry, setPriceTry] = useState(0);
 
   useEffect(() => {
     if (!isNative) return undefined;
     let alive = true;
-    getTokenPackPrices(TOKEN_PACKS.map((p) => p.id), user?.id).then((m) => { if (alive) setPrices(m || {}); });
+    setPriceState('loading');
+    getTokenPackPrices(TOKEN_PACKS.map((p) => p.id), user?.id)
+      .then((m) => {
+        if (!alive) return;
+        const got = m || {};
+        setPrices(got);
+        // ストアから 1 つも取れなければ失敗（その国の通貨と違う既定の ¥ で買わせない）。
+        setPriceState(Object.keys(got).length > 0 ? 'ready' : 'failed');
+      })
+      .catch(() => { if (alive) setPriceState('failed'); });
     return () => { alive = false; };
-  }, [user?.id]);
+  }, [user?.id, priceTry]);
 
-  const canBuy = isNative || isDemo;
+  const pricesReady = !showNative || priceState === 'ready';
+  const canBuy = (isNative || isDemo) && pricesReady;
 
   const buy = async () => {
     if (busy || !selected) return;
@@ -89,10 +115,19 @@ export default function TokenSheet({ onClose, onPurchased }) {
           disabled={busy || !canBuy}
           style={{ ...(canBuy ? btnPrimary : btnPrimaryOff), cursor: busy || !canBuy ? 'default' : 'pointer', opacity: 1 }}
         >
-          {busy ? '購入手続き中…' : canBuy ? '購入する' : 'App Store のアプリで購入できます'}
+          {busy ? '購入手続き中…' : (isNative || isDemo) ? '購入する' : 'App Store のアプリで購入できます'}
         </button>
       )}
     >
+      {showNative && priceState === 'failed' && (
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <ErrorMessage
+            title="価格を読み込めませんでした"
+            description="通信の状態を確かめて、もう一度お試しください。"
+            actions={[{ label: '再読み込み', onClick: () => { if (isNative) setPriceTry((n) => n + 1); } }]}
+          />
+        </div>
+      )}
       <div role="radiogroup" aria-label="追加するトークン" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {TOKEN_PACKS.map((p) => {
           const on = selected === p.id;
@@ -114,14 +149,19 @@ export default function TokenSheet({ onClose, onPurchased }) {
                 ? <CircleCheck size={24} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
                 : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0 }} />}
               <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.5 }}>
+                {/* 量は脇（15/400/--text-2）・価格が主（17/600/--text）。 */}
+                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 }}>
                   <span style={{ whiteSpace: 'nowrap' }}>{p.tokens.toLocaleString()} トークン</span>
                   {p.tag && <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)' }}>{p.tag}</span>}
                 </span>
                 <span style={meta}>相談 {p.consults}</span>
               </span>
-              <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                {prices[p.id] || p.fallbackPrice}
+              <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                {!showNative
+                  ? (prices[p.id] || p.fallbackPrice)
+                  : priceState === 'loading'
+                    ? <SkeletonBlock width={56} height="var(--text-body)" radius="var(--radius)" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
+                    : priceState === 'ready' ? (prices[p.id] || p.fallbackPrice) : '—'}
               </span>
             </button>
           );

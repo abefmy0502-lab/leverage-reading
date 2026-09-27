@@ -32,7 +32,7 @@ import { useSubscription } from '../hooks/useSubscription';
 import { openBillingPortal } from '../lib/billing';
 import { isNative, openManageSubscriptions } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
-import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
+import { PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
@@ -295,12 +295,32 @@ function billingStatusLabel(status) {
   }
 }
 
-// current_period_end（ISO 文字列）を「YYYY/MM/DD」へ。失敗時は null。
+// 日付を「10月27日」（今年でなければ「2027年2月25日」）へ（日本時間）。失敗時は null。
+// 次回更新・無料期間の終わり・追加分の期限で同じ書き方にそろえる（2026/10/27 と 2月25日を混ぜない）。
+function dateLabelJa(time) {
+  const t = typeof time === 'number' ? time : Date.parse(time || '');
+  if (!Number.isFinite(t)) return null;
+  const JST = 9 * 3600 * 1000;
+  const d = new Date(t + JST);
+  const y = d.getUTCFullYear();
+  const thisYear = new Date(Date.now() + JST).getUTCFullYear();
+  return `${y !== thisYear ? `${y}年` : ''}${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+}
+
+// current_period_end（ISO 文字列）を日付の表示へ。失敗時は null。
 function formatPeriodEnd(iso) {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  return dateLabelJa(iso);
+}
+
+// 値が読み込み中の行（ValueRow と同じ高さ）。
+function ValueRowSkeleton({ label, style }) {
+  return (
+    <div role="status" aria-label={`${label}を読み込んでいます`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...style }}>
+      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>{label}</span>
+      <SkeletonBlock width="30%" height="var(--text-body)" radius="var(--radius)" />
+    </div>
+  );
 }
 
 async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
@@ -371,13 +391,26 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   //    （価格・自動更新の条件・復元・規約を 1 か所で見せる＝審査 3.1.2）。
   const { plan, tokensRemaining, tokenAllowance, openPaywall, purchasedTokens, purchasedExpiresAt, canBuyTokens, openTokenSheet } = usePaywall();
   // 🪙➕ 追加トークンの行（残りがあるときだけ・いちばん近い期限つき）。
+  //    2 行: 量（本文 17）と、その下に右寄せで期限（13）。
+  const lotExpiry = purchasedExpiresAt ? dateLabelJa(purchasedExpiresAt) : null;
   const lotRow = purchasedTokens > 0 ? (
-    <ValueRow
-      label="追加分"
-      value={`${purchasedTokens.toLocaleString()} トークン${purchasedExpiresAt ? `（${monthDayLabelJa(purchasedExpiresAt)}まで）` : ''}`}
-      style={divider}
-    />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...divider }}>
+      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>追加分</span>
+      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
+        <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{purchasedTokens.toLocaleString()} トークン</span>
+        {lotExpiry && (
+          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{lotExpiry}まで</span>
+        )}
+      </span>
+    </div>
   ) : null;
+  // 残りのトークンは契約の確認のあとに読み込む。読み込み中（最大 4 秒）は同じ高さの枠を出す（行が後から差し込まれて画面が跳ねないように）。
+  const [tokenWaitOver, setTokenWaitOver] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setTokenWaitOver(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
+  const tokensLoading = tokensRemaining == null && tokenAllowance != null && !tokenWaitOver;
   const [billingBusy, setBillingBusy] = useState(false);
 
   // 📊 利用状況の記録（製品改善のためのファーストパーティ計測）。既定 ON。
@@ -809,9 +842,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {formatPeriodEnd(subscription?.currentPeriodEnd) && (
                   <ValueRow label={plan === 'trial' ? '無料期間の終わり' : '次回更新'} value={formatPeriodEnd(subscription.currentPeriodEnd)} style={divider} />
                 )}
-                {tokensRemaining != null && (
+                {tokensRemaining != null ? (
                   <ValueRow label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
-                )}
+                ) : tokensLoading ? (
+                  <ValueRowSkeleton label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} style={divider} />
+                ) : null}
                 {lotRow}
                 {canBuyTokens && (
                   <button type="button" onClick={openTokenSheet} style={{ ...rowButtonStyle, ...divider }}>
@@ -868,13 +903,15 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             ) : (
               <>
                 <ValueRow label="プラン" value="無料プラン" />
-                {tokensRemaining != null && (
+                {tokensRemaining != null ? (
                   <ValueRow label="今月の残り" value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
-                )}
+                ) : tokensLoading ? (
+                  <ValueRowSkeleton label="今月の残り" style={divider} />
+                ) : null}
                 {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
-                    AI は相談だけ（1 回 約 {TOKEN_COSTS.consult} トークン）。プランは毎月 {PAID_TOKENS} トークンで、すべての AI 機能。
+                    AI は相談だけ（1 回 約 {TOKEN_COSTS.consult} トークン）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS} トークン</span>で、すべての AI 機能。
                   </p>
                   <button
                     type="button"
@@ -977,9 +1014,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <div style={blockStyle} role="group" aria-label="データを初期化">
               <div>
                 <p style={{ ...rowTitleStyle, fontWeight: 600 }}>データを初期化（ログインは残す）</p>
-                <p style={rowDescStyle}>
-                  <strong style={{ fontWeight: 600 }}>ログインはそのまま、データだけ</strong>をすべて消して、まっさらな状態から始め直します。本・メモ・写真・行動・相談の履歴・テーマまとめが対象です。この操作は取り消せません。
-                </p>
+                <p style={rowDescStyle}>本・メモ・行動をすべて消します。ログインは残ります。</p>
               </div>
               <button
                 type="button"
@@ -1008,9 +1043,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <div ref={deleteRef} style={{ ...blockStyle, ...divider }} role="group" aria-label="アカウント削除">
               <div>
                 <p style={{ ...rowTitleStyle, fontWeight: 600, color: 'var(--text)' }}>アカウント削除（退会）</p>
-                <p style={rowDescStyle}>
-                  <strong style={{ fontWeight: 600 }}>アカウントごと退会</strong>します。本・メモ・写真・相談の履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
-                </p>
+                <p style={rowDescStyle}>アカウントごと退会します。</p>
               </div>
               {/* 退会してもサブスク（App Store / 決済）は自動では止まらない旨を明示。
                   Apple ガイドライン要件＋過剰請求トラブルの防止。解約の手順は上の「プラン」の欄の 1 か所だけ。
@@ -1026,6 +1059,10 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 </button>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  {/* 詳しい説明は開いてから（閉じた状態は 1 行だけ）。 */}
+                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
+                    本・メモ・写真・相談の履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
+                  </p>
                   <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
                     確認のため、ご自身のメールアドレス <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{expectedConfirm}</strong> を入力してください。
                   </p>

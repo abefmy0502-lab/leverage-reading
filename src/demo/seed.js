@@ -199,11 +199,12 @@ export function buildSeed(scenario) {
   // ?demo=paywall: 使い込んだデータのまま、購読だけ無い（有料プランの画面の確認用）。
   if (scenario === 'paywall') db.subscriptions = [];
   // ?demo=trial: 7 日間無料の途中（あと 5 日・150 トークンのうち 40 を使った）。
-  if (scenario === 'trial') {
+  // ?demo=trialout: 7 日間無料の途中で 150 トークンを使い切った（無料期間が終わる日の案内の確認用）。
+  if (scenario === 'trial' || scenario === 'trialout') {
     const end = iso(-5);
     db.subscriptions[0] = { ...db.subscriptions[0], period_type: 'trial', current_period_end: end };
     const endDay = new Date(Date.parse(end) + 9 * 3600 * 1000).toISOString().slice(0, 10);
-    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `trial-${endDay}`, calls: 4, cost_mjpy: 12000 }];
+    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `trial-${endDay}`, calls: scenario === 'trialout' ? 15 : 4, cost_mjpy: scenario === 'trialout' ? 45000 : 12000 }];
   }
   // ?demo=limit: 今月の 800 トークンを使い切った人（上限の案内の確認用）。
   if (scenario === 'limit') {
@@ -254,6 +255,19 @@ export function buildSeed(scenario) {
       created_at: iso(daysAgo), updated_at: iso(daysAgo),
     });
   });
+
+  // ?demo=longmemo: 『1兆ドルコーチ』の先頭（ページ順で最初）に長いメモが 1 件ある人（メモカードの長文の確認用）。
+  if (scenario === 'longmemo') {
+    const bi = BOOKS.findIndex(([t]) => t === '1兆ドルコーチ');
+    db.book_memos.push({
+      id: '00000000-0000-4000-8000-0000000cffff',
+      user_id: DEMO_USER_ID, book_id: bookIds[bi], source_type: 'book',
+      page_number: 3, photo_path: null, tags: ['マネジメント', 'コミュニケーション'],
+      text: 'ビル・キャンベルは、1on1 をいつも仕事の話から始めなかった。家族のこと、週末のこと、最近気になっていること。相手を「役割」ではなく「人」として見ていると伝わってはじめて、本当の課題が出てくる。\n\n自分の 1on1 は、最初の 1 分で進捗の確認に入ってしまう。これでは相手は報告しかしない。来週から、最初の 5 分は仕事以外の話を聞くと決める。聞いたことはメモに残し、次の 1on1 でその続きを聞く。\n\nもう 1 つ。キャンベルは「チームが第一」を繰り返した。個人の成果より、チームがうまく回ることを先に考える。評価面談でも、この人がチームのために何をしたかを必ず聞く。',
+      last_recalled_at: null, recall_count: 0,
+      created_at: iso(2), updated_at: iso(2),
+    });
+  }
 
   ACTIONS.forEach(([bi, text, done, daysAgo, priority, deadlineIn], i) => {
     db.actions.push({
@@ -306,4 +320,6 @@ export const SEARCH_CATALOG = [
   ['大事なことに集中する', 'カル・ニューポート', '9784478068540', 'ダイヤモンド社', '2016'],
   ['レバレッジ時間術', '本田直之', '9784344980372', '幻冬舎', '2007'],
   ['プロフェッショナルマネジャー', 'ハロルド・ジェニーン', '9784833418485', 'プレジデント社', '2004'],
+  // 本棚にある本（同じ ISBN）。検索結果に「追加済み」が出ることを確かめる用（ui-shots の add-book-existing）。
+  ['1兆ドルコーチ', 'エリック・シュミット', '9784478107249', 'ダイヤモンド社', '2019'],
 ];

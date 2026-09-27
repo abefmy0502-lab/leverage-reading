@@ -50,6 +50,10 @@ describe('segmentPhrases（改行してよい位置）', () => {
     expect(segmentPhrases('毎週3件、KPIを見る')).toEqual(['毎週3件、', 'KPIを', '見る']);
     expect(segmentPhrases('LIFE SHIFTを読む').join('|')).not.toMatch(/LIF\|E/);
   });
+  it('閉じ括弧のすぐ後ろのひらがなは括弧から離さない', () => {
+    expect(segmentPhrases('本当に解くべき問い（イシュー）かを確かめる').join('|')).not.toMatch(/）\|か/);
+    expect(segmentPhrases('『嫌われる勇気』を読む').join('|')).not.toMatch(/』\|を/);
+  });
 });
 
 describe('wrapBalanced', () => {

@@ -29,7 +29,6 @@ import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inp
 import { MiniCover } from './BookCards';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
-import Spinner from './Spinner';
 import { SkeletonBlock } from './Skeleton';
 
 const MIN_BOOKS = 3;
@@ -171,6 +170,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   const [picked, setPicked] = useState([]); // [{ book, memo }]
   const [idx, setIdx] = useState(0);
   const [summary, setSummary] = useState({ books: [], memos: 0 });
+  const [saveProgress, setSaveProgress] = useState({ done: 0, total: 0 }); // 保存中の進み具合（冊）
   const memoRef = useRef(null);
   const searchRef = useRef(null);
 
@@ -237,6 +237,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   const saveAll = async (entries = picked) => {
     if (!user || !isSupabaseConfigured) return;
     setStep('saving');
+    setSaveProgress({ done: 0, total: entries.length });
     const savedBooks = [];
     const memoRows = [];
     for (const e of entries) {
@@ -253,6 +254,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
       } catch (err) {
         console.warn('[quickstart] book save failed:', err?.message || err);
       }
+      setSaveProgress((p) => ({ ...p, done: Math.min(p.done + 1, p.total) }));
     }
     let memoCount = 0;
     if (memoRows.length) {
@@ -489,8 +491,20 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
 
       {/* ===== 保存中 ===== */}
       {step === 'saving' && (
-        <div style={{ ...body, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Spinner message="本棚に入れています…" />
+        // できあがりの画面と同じ形（えらんだ本の表紙＋見出し 2 行）の骨組みで待たせる（跳ねない）。
+        <div style={body} role="status" aria-live="polite">
+          <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }} aria-hidden="true">
+            {picked.map((p) => <MiniCover key={bookKey(p.book)} book={p.book} width={56} />)}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-6)' }}>
+            <SkeletonBlock width="70%" height="var(--text-title)" radius="var(--radius)" />
+            <SkeletonBlock width="45%" height="var(--text-title)" radius="var(--radius)" />
+          </div>
+          <p style={sub}>
+            {saveProgress.total > 0
+              ? `本棚に入れています（${saveProgress.done} / ${saveProgress.total} 冊）`
+              : '本棚に入れています'}
+          </p>
         </div>
       )}
 

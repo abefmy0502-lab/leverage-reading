@@ -30,7 +30,8 @@ describe('parseAnswer（本ごとに）', () => {
     expect(p.conclusion).toBe('焦りを分けて、動かせる一点に集中する。');
     expect(p.books).toHaveLength(2);
     expect(p.books[0]).toMatchObject({ title: '嫌われる勇気', author: '岸見一郎・古賀史健', page: 40 });
-    expect(p.books[0].view).toContain('評価は相手の課題');
+    // 見出しの繰り返し「『嫌われる勇気』の視点では、」は外す
+    expect(p.books[0].view).toBe('評価は相手の課題です。');
     expect(p.books[0].basis).toBe('p.40「他人の課題と自分の課題を分ける」');
     expect(p.compare).toBe('どちらも自分で変えられることに集中する。');
     expect(p.action).toBe('明日の朝、10 分で商談を 1 つ選ぶ。');

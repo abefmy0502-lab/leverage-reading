@@ -7,7 +7,7 @@
 // Display is read-only here. Tapping a memo opens its book in the book detail
 // view, where the user can edit/delete via the existing BookMemoList flow.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -29,7 +29,7 @@ import { markActivation } from '../lib/activation';
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
 import { isNativePushCapable, getNativePushPermission, subscribeNativePush } from '../lib/nativePush';
 import { isNative } from '../lib/iap';
-import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink, groupTitle, card as uiCard } from '../styles/ui';
+import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink, groupTitle, card as uiCard, input as uiInput } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
   StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight, MoreHorizontal,
@@ -46,7 +46,6 @@ const cardBase = { ...uiCard, padding: 'var(--space-4)' };
 const inp = { width: '100%', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'max(16px, var(--text-body))', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit', boxSizing: 'border-box' };
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
-const btnGhostOff = { ...uiBtnGhostOff, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
 
 // relativeJa / recallFraming は src/lib/recall.js に切り出して
 // サーバー（api/push-cron.js の想起通知）と文言を共有している。
@@ -254,7 +253,18 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   // 思い出しカード（showRelative）は小さく見せる（SPEC §4・2026-09-26 オーナー判断）:
   // 本文 2 行で畳み、本文をタップ（または「続きを読む」）で全文。一覧は 6 行。
   const clampN = showRelative ? 2 : 6;
-  const isLongText = (memo.text || '').length > (showRelative ? 40 : 140);
+  // 「続きを読む」は文字数ではなく、実際に畳んだ行からはみ出しているときだけ出す（幅・改行で変わるため測る）。
+  const bodyRef = useRef(null);
+  const [isLongText, setIsLongText] = useState(false);
+  useLayoutEffect(() => {
+    if (expanded) return undefined; // 開いている間は測れない（畳んだときの結果を保つ）
+    const el = bodyRef.current;
+    if (!el) return undefined;
+    const measure = () => setIsLongText(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [expanded, memo.text, clampN]);
 
   // 種類は色の帯ではなく、小さなアイコン＋文字で示す（色はニュートラル＋栗色 1 色・DESIGN §3）。
   // ふつうのメモ（card）は種類を出さない（ほとんどがこれなので、出すと毎枚「メモ」が並ぶだけ）。
@@ -316,6 +326,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
       {memo.text && (
         <>
           <p
+            ref={bodyRef}
             style={{
               // メモ本文＝読む文章（明朝 18・行間 1.6・DESIGN §2）
               fontFamily: 'var(--font-read)',
@@ -324,7 +335,8 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
               margin: 'var(--space-2) 0 0',
-              ...(isLongText && !expanded
+              // 畳むのは常に（思い出しカードは最大 2 行・一覧は 6 行）。はみ出すかは上の測定で判断。
+              ...(!expanded
                 ? {
                     display: '-webkit-box',
                     WebkitLineClamp: clampN,
@@ -938,7 +950,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
               }}
-              style={{ ...inp, paddingLeft: 'calc(var(--space-8) + var(--space-2))' }}
+              style={{ ...uiInput, paddingLeft: 'calc(var(--space-8) + var(--space-2))' }}
             />
           </div>
           {/* 絞り込みは検索欄に触れてから出す（開いた瞬間の画面を、思い出しカードとメモだけにする）。 */}
@@ -1067,7 +1079,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                       setTimeout(() => toast.show(askReviewToast()), 1200);
                     }
                   }}
-                  style={{ ...(flipping ? btnGhostOff : btnGhost), flex: 1, justifyContent: 'center' }}
+                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1 }}
                 >
                   <Check size={16} strokeWidth={2.5} aria-hidden="true" />覚えた
                 </button>
@@ -1075,7 +1087,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   type="button"
                   disabled={flipping}
                   onClick={() => { if (flipping) return; recordRandomRecall(randomMemo, false); reroll(); }}
-                  style={{ ...(flipping ? btnGhostOff : btnGhost), flex: 1, justifyContent: 'center' }}
+                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1 }}
                 >
                   もう一度
                 </button>
@@ -1131,13 +1143,14 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       </section>
 
       {/* ===== 3. タイムライン ===== */}
-      {/* メモが 1 件だけのときは思い出しカードと同じメモになるので、月ごとの一覧は出さない。 */}
-      {allNotes.length > 1 && (
+      {/* メモが 1 件だけのときは思い出しカードと同じメモになるので、月ごとの一覧は出さない
+          （「メモを追加」の行は 1 件から出す）。 */}
+      {allNotes.length >= 1 && (allNotes.length > 1 || (onAddNote && hasMemoableBooks)) && (
       <section>
         {/* 「メモを追加」（高さ 44）と並ぶので、行の下の余白は付けない（見出しの文字から一覧まで約 8〜12）。
             行の高さ 44 の上側の空き（約 12）ぶん引き上げ、思い出しカードから見出しの文字までを約 24 にそろえる。 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'calc(-1 * var(--space-3))' }}>
-          <h2 style={{ ...sectionTitle, margin: 0 }}>月ごとのメモ</h2>
+        <div style={{ display: 'flex', justifyContent: allNotes.length > 1 ? 'space-between' : 'flex-end', alignItems: 'center', marginTop: 'calc(-1 * var(--space-3))' }}>
+          {allNotes.length > 1 && <h2 style={{ ...sectionTitle, margin: 0 }}>月ごとのメモ</h2>}
           {/* ＋メモを追加 — 旧・最上段の孤立ボタンをここへ（メモ一覧の傍が住処。
               付け先の本＝読書中/読了の本がある時だけ）。 */}
           {onAddNote && hasMemoableBooks && (
@@ -1152,6 +1165,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           )}
         </div>
         {/* 月は素の開閉行（カードの中にカードを入れない＝左端をメモカードとそろえる）。 */}
+        {allNotes.length > 1 && (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {memosByMonth.map(([key, group]) => {
             const open = expanded.has(key);
@@ -1200,6 +1214,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             );
           })}
         </div>
+        )}
       </section>
       )}
       </>)}

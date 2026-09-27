@@ -7,6 +7,7 @@ import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
 import MarkdownSections from './components/MarkdownSections';
+import { loadDefaultJapaneseParser } from 'budoux';
 import AuthScreen from './components/auth/AuthScreen';
 import AuthCallback from './components/auth/AuthCallback';
 import BookMemoList from './components/BookMemoList';
@@ -274,6 +275,19 @@ function HomeLoadingSkeleton() {
 // 長文（目的・課題・仮説 等）は 4 行で畳み「すべて表示」で開く。
 // 旧: maxHeight 400 + 内部スクロールで、詳細のファーストビューを長文が
 // 独占し、ページ内スクロールと入れ子スクロールが競合していた。
+// 書名を文節で折り返す（BudouX）。「1兆ドル／コーチ」のような語の途中の改行を避ける。
+// word-break: keep-all と組み合わせ、文節の切れ目（<wbr>）でだけ折り返す。
+// 英語などで 1 文節が行より長いときは overflow-wrap: anywhere で折る。
+const jaPhraseParser = loadDefaultJapaneseParser();
+function titleWithPhraseBreaks(title) {
+  const text = String(title || '');
+  if (!text) return text;
+  let phrases;
+  try { phrases = jaPhraseParser.parse(text); } catch { return text; }
+  if (!phrases || phrases.length <= 1) return text;
+  return phrases.flatMap((p, i) => (i === 0 ? [p] : [<wbr key={i} />, p]));
+}
+
 function Card({ label, text, style }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = (text || '').length > 130;
@@ -520,6 +534,19 @@ function AuthedApp() {
   const effectiveBookshelfView = bookshelfViewMode === 'auto'
     ? (rawBooks.length <= 3 ? 'list' : 'grid')
     : bookshelfViewMode;
+  // 読み込み中（rawBooks がまだ空）は auto だと必ず list になり、読み終わると grid に
+  // 切り替わって形が跳ねる。前回実際に出した形を覚えておき、読み込み中の骨組みに使う。
+  const [lastBookshelfView] = useState(() => {
+    try {
+      const v = localStorage.getItem('bookshelfViewLast');
+      return v === 'grid' || v === 'list' ? v : 'list';
+    } catch { return 'list'; }
+  });
+  useEffect(() => {
+    if (booksLoading || rawBooks.length === 0) return;
+    try { localStorage.setItem('bookshelfViewLast', effectiveBookshelfView); } catch { /* ignore */ }
+  }, [booksLoading, rawBooks.length, effectiveBookshelfView]);
+  const skeletonBookshelfView = bookshelfViewMode === 'auto' ? lastBookshelfView : bookshelfViewMode;
   // 親タブ「振り返り」「相談」内のサブタブ。
   // 入口は常に固定（永続化しない）: 振り返り＝💭ノート / 相談＝🧠マイ読書脳。
   // 相談タブの入口をマイ読書脳にするのは、一番の価値「読むほど、自分だけの相談相手が
@@ -1018,15 +1045,6 @@ function AuthedApp() {
     // （いま読んでいる本 → すぐメモ）に対して状態セレクタの一段が折れる。
     addStatusPresetRef.current = typeof presetStatus === 'string' ? presetStatus : '';
     setAddBookModalOpen(true);
-  };
-
-  // 🤖 AI 選書（advisor）へ直行。AI 選書は「メモ0件の初日でも価値が出る」唯一の
-  // 機能なので、新規ユーザーの time-to-value 最短ルートとしてオンボーディングから
-  // 直接ここへ送る（本棚が空でも"おっ"を体験させる）。
-  const openAdvisor = () => {
-    setView("list");
-    setAiSubTab('advisor');
-    setTab('ai');
   };
 
   // AddBookModal は今や検索結果リストまで内包する 1 画面モーダル。
@@ -3252,7 +3270,7 @@ function AuthedApp() {
             <MiniCover book={current} width={72} />
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
-              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "break-word", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{current.title}</h1>
+              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "keep-all", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{titleWithPhraseBreaks(current.title)}</h1>
               {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
@@ -3603,7 +3621,7 @@ function AuthedApp() {
             otherwise tapping "アプリ全体の使い方を最初から見る" from the help
             modal here looks like nothing happens until the user navigates
             back to the bookshelf. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} />}
         {quickstartOverlay}
         {importOverlay}
 
@@ -3743,8 +3761,8 @@ function AuthedApp() {
             overflowY: 'auto',
             overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
-            // 上は本の詳細と同じ 8（戻るの行の位置をそろえる）。下は固定の保存があれば 24。
-            padding: `${current ? 'var(--space-2)' : 'var(--space-6)'} var(--space-4) ${hasSaveBar ? 'var(--space-6)' : 'var(--space-16)'}`,
+            // 上は本の詳細・すべての本と同じ 8（新しく追加するときも戻るの行の位置をそろえる）。下は固定の保存があれば 24。
+            padding: `var(--space-2) var(--space-4) ${hasSaveBar ? 'var(--space-6)' : 'var(--space-16)'}`,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -3754,10 +3772,10 @@ function AuthedApp() {
                 if (current) { setEditPhaseOverride(null); setView("detail"); }
                 else goList();
               }}
-              // 詳細画面の「‹ 本棚」と同じ iOS ナビ様式に統一（旧: 沈む極小グレー「← 戻る」）。シェブロンの位置も詳細と同じ。
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-1))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+              // 詳細画面・すべての本の戻ると同じ形（ChevronLeft 20・間 0・見た目の左端 16）。
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
             >{/* iOS の作法: 戻る先の画面名（＝書名）。長い書名は収まらないので「戻る」。 */}
-              <ChevronLeft size={22} aria-hidden="true" />{current ? ((current.title || '').length <= 8 && current.title ? current.title : '戻る') : 'すべての本'}</button>
+              <ChevronLeft size={20} aria-hidden="true" />{current ? ((current.title || '').length <= 8 && current.title ? current.title : '戻る') : 'すべての本'}</button>
             <button
               onClick={openHelp}
               style={{ width: 44, height: 44, marginRight: 'calc(-1 * var(--space-3))', display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
@@ -3856,7 +3874,7 @@ function AuthedApp() {
         )}
         {/* Same reason as in the detail view — keep onboarding reachable
             from the edit-screen help modal without requiring a tab switch. */}
-        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
+        {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} />}
         {quickstartOverlay}
         {importOverlay}
         <BottomNav
@@ -4080,14 +4098,20 @@ function AuthedApp() {
                     <MoreHorizontal size={22} aria-hidden="true" />
                     {activeFilterCount > 0 && <span aria-hidden="true" style={{ position: 'absolute', top: 'var(--space-2)', right: 'var(--space-2)', width: 8, height: 8, borderRadius: 999, background: 'var(--accent)' }} />}
                   </button>
-                  <button type="button" onClick={openAdd} aria-label="本を追加" title="本を追加" style={{ ...bookshelfIconBtn, color: 'var(--accent)' }}>
-                    <IcPlus size={24} aria-hidden="true" />
-                  </button>
+                  {/* 本が 0 冊のときは下の空の案内に「本を追加」があるので、右上の＋は出さない。 */}
+                  {!(rawBooks.length === 0 && !booksLoading && !booksLoadError) && (
+                    <button type="button" onClick={openAdd} aria-label="本を追加" title="本を追加" style={{ ...bookshelfIconBtn, color: 'var(--accent)' }}>
+                      <IcPlus size={24} aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
                 <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>すべての本</h1>
-                <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{filtered.length} 冊</span>
+                {/* 読み込み中・読み込めなかったときに「0 冊」と見せない（本があるまま更新中なら出す）。 */}
+                {!((booksLoading || booksLoadError) && rawBooks.length === 0) && (
+                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{filtered.length} 冊</span>
+                )}
               </div>
               {(librarySearchOpen || search) && (
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
@@ -4195,7 +4219,7 @@ function AuthedApp() {
               {/* ホームに移した: 相談カード・はじめの一歩・いま読んでいる本（HomeScreen.jsx）。
                   思い出しカードは「振り返り」へ（SPEC §1）。ここは本の一覧だけに集中する。 */}
               {booksLoading && rawBooks.length === 0 ? (
-                effectiveBookshelfView === 'grid' ? (
+                skeletonBookshelfView === 'grid' ? (
                   <BookGridSkeleton count={6} />
                 ) : (
                   <BookListSkeleton rows={4} />
@@ -4325,6 +4349,7 @@ function AuthedApp() {
               <Suspense fallback={<Spinner />}>
                 <ReadingRecord
                   books={books}
+                  onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
                   // 📊 統計→中身への 1 タップ動線。既存の絞り込みを一度リセット
                   // してから目的の条件だけを立てる（前の絞り込みが残っていると
                   // 「読了 5 冊のはずが 2 冊しか出ない」ように見えるため）。
@@ -4439,7 +4464,7 @@ function AuthedApp() {
         )}
       </div>
 
-      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onStartAdvisor={openAdvisor} onStartQuickstart={() => setShowQuickstart(true)} />}
+      {showOnboarding && <Onboarding onClose={() => setShowOnboarding(false)} onStart={() => openAdd('reading')} onImport={() => setShowImport(true)} onStartQuickstart={() => setShowQuickstart(true)} />}
         {quickstartOverlay}
         {importOverlay}
 
@@ -5121,11 +5146,12 @@ function WebAppOnlyGate() {
         <h1
           id="webgate-title"
           style={{
-            fontSize: 'var(--text-title)', fontWeight: 700, lineHeight: 1.3,
+            fontSize: 'var(--text-title)', fontWeight: 700, lineHeight: 1.3, textWrap: 'balance',
             margin: emailJustConfirmed ? 'var(--space-2) 0 0' : 'var(--space-6) 0 0',
           }}
         >
-          {emailJustConfirmed ? 'アプリに戻ってログインしてください' : 'アプリでご利用ください'}
+          {/* 「ログインしてくだ／さい」と語の途中で折れないよう、意味の切れ目で改行する。 */}
+          {emailJustConfirmed ? <>アプリに戻って<br />ログインしてください</> : 'アプリでご利用ください'}
         </h1>
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-3) 0 0' }}>
           アプリに同じアカウントでログインすると、<br />メモもそのまま使えます。

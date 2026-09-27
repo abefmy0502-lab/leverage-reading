@@ -23,7 +23,7 @@
 //   プレビュー中は実際の購入・復元（RevenueCat）を一切呼ばない（isNative のときだけ呼ぶ）。
 
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { Circle, CircleCheck, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { PLAN_LABELS } from '../lib/billing';
@@ -95,7 +95,8 @@ const showNative = isNative || preview.on;
 // 無料とプランの違い（2 行・DESIGN §0-6: 説明の文は置かない）。量（トークン）を強く、中身は補足で。
 const PLAN_COMPARE = [
   { name: '無料', amount: `毎月 ${FREE_TOKENS} トークン`, scope: '相談だけ', text: 'メモ・記録・シェアは、ずっと無料' },
-  { name: 'プラン', amount: `毎月 ${PAID_TOKENS} トークン`, scope: 'すべての AI', text: 'AI 選書・テーマまとめ・読書計画シート・写真から書き起こし' },
+  // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
+  { name: 'プラン', amount: `毎月 ${PAID_TOKENS} トークン`, scope: 'すべての AI', items: ['AI 選書', 'テーマまとめ', '読書計画シート', '写真から書き起こし'] },
 ];
 // トークンの目安（1 行）。
 const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
@@ -112,7 +113,11 @@ function PlanCompare({ onlyPlan = false }) {
             <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
             <span style={{ fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>（{row.scope}）</span>
           </p>
-          <p style={{ ...metaText, marginTop: 'var(--space-1)' }}>{row.text}</p>
+          <p style={{ ...metaText, marginTop: 'var(--space-1)' }}>
+            {row.items
+              ? row.items.map((f, j) => <span key={f}>{j > 0 && '・'}<span style={{ whiteSpace: 'nowrap' }}>{f}</span></span>)
+              : row.text}
+          </p>
         </div>
       ))}
       <p style={{ ...metaText, padding: 'var(--space-2) var(--space-4) var(--space-3)', borderTop: '1px solid var(--separator)' }}>{TOKEN_EXAMPLE}</p>
@@ -169,9 +174,19 @@ function PlanOption({ label, selected, onSelect, placeholder = false }) {
         cursor: placeholder ? 'default' : 'pointer',
       }}
     >
-      {selected
-        ? <CircleCheck size={24} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
-        : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0, visibility: placeholder ? 'hidden' : undefined }} />}
+      {/* 選択の印（はじめの一歩の本選びの丸と同じ形: 選択中は塗りの丸＋チェック、未選択は 2px の輪）。 */}
+      <span
+        aria-hidden="true"
+        style={{
+          width: 24, height: 24, borderRadius: '50%', flexShrink: 0, boxSizing: 'border-box',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: selected ? 'var(--accent)' : 'transparent',
+          border: selected ? 'none' : '2px solid var(--border)',
+          visibility: placeholder ? 'hidden' : undefined,
+        }}
+      >
+        {selected && <Check size={16} strokeWidth={3} color="var(--accent-ink)" />}
+      </span>
       <span style={{ minWidth: 0, visibility: placeholder ? 'hidden' : undefined }}>
         <span style={{ ...planName, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
           {label.name}
@@ -504,6 +519,15 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
           </>
         )}
 
+        {/* 「あとで」は主ボタンのまとまり（自動更新の文・規約の行）のすぐ下に、1 行だけで中央に置く（区切り線より上）。 */}
+        {onClose && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-2)' }}>
+            <button type="button" onClick={onClose} style={{ ...linkStyle, width: '100%' }}>
+              あとで
+            </button>
+          </div>
+        )}
+
         {/* 脇役: メモの書き出し・アカウント切替（・Web のみサービス紹介） */}
         <div
           style={{
@@ -530,11 +554,6 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             >
               別のアカウントでログイン
             </button>
-            {onClose && (
-              <button type="button" onClick={onClose} style={linkStyle}>
-                あとで
-              </button>
-            )}
             {/* LP は価格と比較表を含むため、反ステアリング順守でネイティブでは出さない（Web のみ） */}
             {!showNative && (
               <a href="/lp" style={linkStyle}>サービス紹介を見る</a>

@@ -137,7 +137,8 @@ export function Chip({ active = false, stretch = false, onClick, children, ...re
 }
 
 // チップの並び。行間は 44 の押せる範囲が作るので、横の間隔だけ付ける。
-const chipRow = { display: "flex", flexWrap: "wrap", columnGap: "var(--space-2)", marginBottom: "var(--space-1)" };
+// 上は 44 の押せる範囲の余りぶん少し詰める（見出し・入力欄との間を他の欄とそろえる）。
+const chipRow = { display: "flex", flexWrap: "wrap", columnGap: "var(--space-2)", marginTop: "calc(-1 * var(--space-1))", marginBottom: "var(--space-1)" };
 
 // ── タグ入力（過去タグのサジェスト付き） ────────────────────────────
 // 付けたもの＝選択中のチップ（タップで外す）、候補＝＋付きのチップ（タップで付ける）。

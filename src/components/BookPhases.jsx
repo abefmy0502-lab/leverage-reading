@@ -474,8 +474,9 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
       </Field>
 
       <Field label="評価（読んでよかった度）">
-        {/* 星の押せる範囲（44）の中央に星があるので、左へ寄せて星の左端を他の欄の左端（16）にそろえる。 */}
-        <div style={{ marginLeft: 'calc(-1 * var(--space-2))' }}>
+        {/* 星の押せる範囲（44）の中央に星があるので、左へ寄せて星の左端を他の欄の左端（16）にそろえる。
+            上下も押せる範囲の余りぶん詰め、見出し・次の欄との間を他の欄とそろえる。 */}
+        <div style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) calc(-1 * var(--space-2))' }}>
           <Stars r={form.rating} onChange={(r) => setForm({ ...form, rating: r })} size={28} />
         </div>
       </Field>

@@ -342,6 +342,13 @@ export function installDemoFetch(store) {
     // 自前の /api/ だけを止める（NDL の /api/opensearch まで止めると、該当なしが常にエラーに見える）。
     const isOwnApi = url.startsWith('/api/') || url.startsWith(`${window.location.origin}/api/`);
     if (isOwnApi) return json({ error: 'お試しモードでは使えません' }, 503);
+    // &search=fail: 本の検索（Google Books・openBD・NDL）がすべて失敗する（検索のエラー表示の確認用）。
+    const isBookSearch = url.includes('googleapis.com/books') || url.includes('api.openbd.jp')
+      || url.includes('ndlsearch.ndl.go.jp') || url.includes('iss.ndl.go.jp');
+    if (isBookSearch && new URLSearchParams(window.location.search).get('search') === 'fail') {
+      await new Promise((r) => setTimeout(r, 300));
+      return json({ error: 'unavailable' }, 503);
+    }
     if (url.includes('googleapis.com/books')) return googleBooks(url);
     if (url.includes('api.openbd.jp')) {
       const n = ((url.match(/isbn=([^&]*)/) || [])[1] || '').split(',').length;
