@@ -62,7 +62,7 @@ const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, 
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-2) var(--space-4) var(--space-6)' };
 // ── 相談画面の部品（DESIGN.md のトークンのみ） ──
 // 左右の余白は 16。右端のアイコン（押せる範囲 44）は負の余白で外へ出し、見た目の右端を 16 に揃える。
-const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, padding: '0 var(--space-4)' };
+const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, padding: 'var(--space-1) var(--space-4)' };
 const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 };
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
@@ -783,8 +783,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       if ((e?.paywall || e?.monthlyLimit) && savedUserId) {
         supabase.from('chat_messages').delete().eq('id', savedUserId).eq('user_id', user.id).then(() => {}, () => {});
       }
+      // 失敗は答えの吹き出しに「もう一度」つきで出す（SPEC §3）。トーストを重ねない。
       if (!(controller.signal.aborted || (e && e.name === 'AbortError') || e?.paywall || e?.monthlyLimit)) {
-        toast.error(toMessage(e, '回答の生成に失敗しました。'));
+        console.warn('consult failed:', toMessage(e, '回答の生成に失敗しました。'));
       }
       // 楽観的な streaming 行を差し替える。途中まで本文が生成されていた場合は
       // 捨てずに残し、末尾に中断注記を付ける（8 割生成済みの回答がエラーで全文
@@ -957,12 +958,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         style={{
           ...topRow,
           ...((view === 'chat' && (freeMode || nearMonthLimit || monthLimitHit)) || scrolled ? { borderBottom: '1px solid var(--separator)' } : null),
-          ...(isPushed && onPushedViewChange ? { paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))' } : null),
+          ...(isPushed && onPushedViewChange ? { paddingTop: 'max(var(--space-1), env(safe-area-inset-top, 0px))', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))' } : null),
         }}
       >
         {view === 'chat' ? (
           <>
-            <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+            <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase' }}>
               {scopeIds.length > 0
                 ? (scopeMemoCount != null
                   ? (scopeIds.length === 1
@@ -1164,7 +1165,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
               {/* お試しを使い切ったら、できない操作を出さない */}
-              {!(freeMode && freeRemaining <= 0) && !visibleMessages[visibleMessages.length - 1]?.notice && (
+              {/* 失敗した答えには吹き出しの「もう一度」があるので、ここでは出さない */}
+              {!(freeMode && freeRemaining <= 0) && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error && (
                 <button type="button" onClick={regenerate} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
                   {visibleMessages[visibleMessages.length - 1]?.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて'}
                 </button>
@@ -1177,7 +1179,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           )}
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? knowledgeTotal > 0 : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice)) && (
+          {historyLoaded && !busy && (isEmpty ? knowledgeTotal > 0 : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
             <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-4) 0 0', lineHeight: 1.5 }}>
               AI の回答には誤りが含まれることがあります
             </p>
@@ -1671,11 +1673,12 @@ function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
         onClick={onOpen}
         disabled={disabled}
         aria-haspopup="dialog"
-        style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        // 答えを作っている間も薄くしない（DESIGN §5 押せないボタン）。文字色を 1 段落として示す。
+        style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
       >
         <span style={{
           minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 32, padding: '0 var(--space-3)',
-          borderRadius: 'var(--radius)', background: scoped ? 'var(--accent-soft)' : 'var(--fill)', color: 'var(--text)',
+          borderRadius: 'var(--radius)', background: scoped ? 'var(--accent-soft)' : 'var(--fill)', color: disabled ? 'var(--text-2)' : 'var(--text)',
           fontSize: 'var(--text-meta)', fontWeight: 600,
         }}>
           <span style={{ color: 'var(--text-2)', fontWeight: 400, flexShrink: 0 }}>相談相手：</span>
@@ -1684,7 +1687,7 @@ function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
         </span>
       </button>
       {scoped && (
-        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', flexShrink: 0 }}>
+        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', flexShrink: 0, ...(disabled ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}>
           すべてに戻す
         </button>
       )}

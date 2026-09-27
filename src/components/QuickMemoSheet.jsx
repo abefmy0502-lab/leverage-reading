@@ -462,7 +462,7 @@ export default function QuickMemoSheet({
               {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
               ページ・写真
               {!moreOpen && pageNumber !== '' && (
-                <span style={{ fontWeight: 400, color: 'var(--text-2)', marginLeft: 'var(--space-1)' }}>（p.{pageNumber}）</span>
+                <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>（p.{pageNumber}）</span>
               )}
             </button>
             {moreOpen && (

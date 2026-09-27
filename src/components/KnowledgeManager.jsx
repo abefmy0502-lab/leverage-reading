@@ -59,7 +59,8 @@ import { fetchAllRows } from '../lib/fetchAllRows';
 function plainPreview(text) {
   return String(text || '')
     .split('\n')
-    .map((l) => l.replace(/^\s*#{1,6}\s*/, '').replace(/^\s*[-*]\s+/, '・').replace(/\*\*(.+?)\*\*/g, '$1'))
+    // 行頭の絵文字（AI の読書計画の「🎯 重点的に…」など）は一覧では外す（DESIGN §3-2: 絵文字を本文に混ぜない）。
+    .map((l) => l.replace(/^\s*#{1,6}\s*/, '').replace(/^\s*(?:\p{Extended_Pictographic}️?\s*)+/u, '').replace(/^\s*[-*]\s+/, '・').replace(/\*\*(.+?)\*\*/g, '$1'))
     .join('\n');
 }
 

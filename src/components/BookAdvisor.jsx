@@ -148,6 +148,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   const unmountedRef = useRef(false);
   // 実在検証の世代トークン（再生成で旧検証の結果適用を無効化する）。
   const verifyGenRef = useRef(0);
+  // 直前の推薦の依頼（{ userMsg, sourceQuery }）。エラーの「もう一度試す」用。
+  const lastRecoArgsRef = useRef(null);
   useEffect(() => {
     // StrictMode（dev）の疑似 unmount → 再マウントでフラグが立ちっぱなしに
     // ならないよう、マウント時に必ずリセットする。
@@ -548,6 +550,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // source_query（投資目的プレフィル）に使う「ユーザーの元の課題」。
   const generateRecommendations = async (userMsg, sourceQuery) => {
     if (!userMsg || recoLoading) return;
+    // 失敗したときの「もう一度試す」で同じ条件をそのまま送り直せるように控える。
+    lastRecoArgsRef.current = { userMsg, sourceQuery };
+    const historyBefore = chatHistory;
     setRecoError(null);
     setRecoStream('');
     setRecoLoading(true);
@@ -625,6 +630,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       const expected = !!(e?.monthlyLimit || e?.paywall);
       setRecoNotice(expected);
       setRecoError(expected ? e.message : toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
+      setChatHistory(historyBefore); // 答えの無い相談を履歴に残さない（送り直しで二重にならないように）
       setRecoStream('');
       setRecoLoading(false);
       return;
@@ -636,6 +642,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       // ストール中断かつ 1 文字も生成されていない → エラーとして再試行を促す。
       setRecoNotice(false);
       setRecoError('通信が途切れました。電波の良い場所でもう一度お試しください。');
+      setChatHistory(historyBefore);
       setRecoLoading(false);
       return;
     }
@@ -1351,7 +1358,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         <ErrorMessage
           icon={null}
           description={recoError}
-          actions={[{ label: 'もう一度はじめから', onClick: resetToConcern, variant: 'secondary', icon: <IcRetry size={16} /> }]}
+          actions={[{
+            label: 'もう一度試す',
+            // 同じ相談・同じ答えで送り直す（控えが無いときだけ最初から）。
+            onClick: () => {
+              const a = lastRecoArgsRef.current;
+              if (a) generateRecommendations(a.userMsg, a.sourceQuery);
+              else resetToConcern();
+            },
+            variant: 'secondary',
+            icon: <IcRetry size={16} />,
+          }]}
         />
       )}
 

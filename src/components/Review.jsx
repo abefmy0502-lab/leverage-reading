@@ -829,7 +829,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       <div style={wrap}>
         <EmptyState
           icon={<StickyNote size={34} aria-hidden="true" />}
-          title="メモを残すと、忘れた頃にここへ戻ってきます"
+          title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>メモを残すと、</span><span style={{ display: 'inline-block' }}>忘れた頃にここへ戻ってきます</span></>}
           actions={
             onAddNote && hasMemoableBooks
               ? [{ label: 'メモを追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote }]
@@ -924,8 +924,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           <div style={{ position: 'relative' }}>
             <SearchIcon size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
+            {/* type="search" だとブラウザ既定の青い × が出る（トークン外の色）。消すのは下の「クリア」に任せる。 */}
             <input
-              type="search"
+              type="text"
+              inputMode="search"
+              enterKeyHint="search"
               maxLength={100}
               placeholder="メモを検索"
               aria-label="メモ横断検索: 本文・タイトル・著者・タグから探す"
@@ -940,11 +943,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           </div>
           {/* 絞り込みは検索欄に触れてから出す（開いた瞬間の画面を、思い出しカードとメモだけにする）。 */}
           {(searchActive || isSearching) && (
-            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
               <select
                 value={kindFilter}
                 onChange={(e) => setKindFilter(e.target.value)}
-                style={{ ...inp, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
+                style={{ ...inp, flex: '1 1 0', minWidth: 0, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
                 aria-label="種類で絞り込み"
               >
                 <option value="all">全種類</option>
@@ -961,7 +964,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 <select
                   value={tagFilter}
                   onChange={(e) => setTagFilter(e.target.value)}
-                  style={{ ...inp, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
+                  style={{ ...inp, flex: '1 1 0', minWidth: 0, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
                   aria-label="タグで絞り込み"
                 >
                   <option value="">全タグ</option>
@@ -972,7 +975,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               )}
               <button
                 type="button"
-                style={btnLink}
+                style={{ ...btnLink, flexShrink: 0 }}
                 onClick={() => {
                   setSearch('');
                   setTagFilter('');

@@ -152,7 +152,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       <div style={wrap}>
         <EmptyState
           icon={<ListTodo size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title="相談の答えや、メモから行動を作れます"
+          title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>相談の答えや、</span><span style={{ display: 'inline-block' }}>メモから行動を作れます</span></>}
           actions={onGoConsult
             ? [{ label: '相談する', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: onGoConsult, variant: 'secondary' }]
             : canAdd
