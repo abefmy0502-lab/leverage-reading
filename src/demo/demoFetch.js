@@ -93,6 +93,59 @@ function brainAnswer(store, question, memoBlock = '') {
   ].join('\n');
 }
 
+// 📚 答え方「本ごとに」— 本番と同じ形（【結論】【本ごとの視点】◆『書名』｜著者／視点：／根拠：
+// 【共通点と違い】【明日からできる 1 つの行動】REFS）を、AI に渡された本ごとのメモ（PERSPECTIVE_BOOKS）から組み立てる。
+const PERBOOK_VIEWS = {
+  '嫌われる勇気': '『嫌われる勇気』の視点では、焦りの多くは「どう評価されるか」を気にするところから来ます。評価は相手の課題と割り切り、いま相手に何を貢献できるかに意識を戻すと、次の打ち手が見えてきます。',
+  'エッセンシャル思考': '『エッセンシャル思考』の視点では、成果が落ちたときほど、全部を取り戻そうとしないことが大切です。まず「やらないこと」を決め、いちばん効く一点に時間を集めると、焦りそのものが小さくなります。',
+  'イシューからはじめよ': '『イシューからはじめよ』の視点では、動く前に「本当に解くべき問い」を確かめます。落ちた理由が量なのか、やり方なのか、相手選びなのか。問いを 1 つに絞れば、忙しさの大半は消えます。',
+  '人を動かす': '『人を動かす』の視点では、成果を急ぐほど相手を「動かそう」としがちです。説得より先に、相手の立場で「なぜそうするのか」を考え、質問で一緒に答えを探すと、相手が自分から動いてくれます。',
+  '数値化の鬼': '『数値化の鬼』の視点では、「頑張る」を数に置き換えます。結果の数字ではなく、それを生む行動の数を見て、足りないのが量なのか、やり方なのかを分けて考えます。',
+  '1兆ドルコーチ': '『1兆ドルコーチ』の視点では、ひとりで抱えるより、問いで考えを引き出してくれる相手を持つことが近道です。チームで勝つための判断を先に置くと、焦りが個人の問題でなくなります。',
+};
+
+function perBookAnswer(block) {
+  const books = [];
+  let cur = null;
+  block.split('\n').forEach((line) => {
+    const h = line.match(/^◆『([^』]*)』｜(.*)$/);
+    if (h) { cur = { title: h[1], author: h[2].trim(), memos: [] }; books.push(cur); return; }
+    const m = line.match(/^- (?:\(([^)]*)\) )?(.*)$/);
+    if (cur && m) {
+      const page = ((m[1] || '').match(/p\.(\d+)/) || [])[1] || null;
+      cur.memos.push({ page, text: m[2].trim() });
+    }
+  });
+  const quote = (t) => {
+    const s = t.split(/[。\n]/)[0].replace(/[「」]/g, '').trim();
+    return s.length > 28 ? `${s.slice(0, 28)}…` : s;
+  };
+  const views = books.map((b) => {
+    const m = b.memos.find((x) => x.page) || b.memos[0] || { text: '' };
+    const view = PERBOOK_VIEWS[b.title]
+      || `『${b.title}』の視点では、メモに残した「${quote(m.text)}」を、いまの悩みに当てはめてみることができます。`;
+    return { ...b, view, basis: `${m.page ? `p.${m.page}` : ''}「${quote(m.text)}」`, ref: `📚 ${b.author}『${b.title}』${m.page ? ` p.${m.page}` : ''}` };
+  });
+  return [
+    '【結論】',
+    '焦りの正体を分けて、いま自分で動かせる一点に集中しましょう。評価や結果は、追いかけるほど遠くなります。',
+    '',
+    '【本ごとの視点】',
+    ...views.flatMap((v) => [`◆『${v.title}』｜${v.author}`, `視点：${v.view}`, `根拠：${v.basis}`, '']),
+    '【共通点と違い】',
+    `${views.length} 冊とも「自分で変えられることに力を集める」点で重なります。違うのは入り口で、何を手放すか、誰の課題かを分けるか、相手とどう向き合うかが分かれます。`,
+    '',
+    '【明日からできる 1 つの行動】',
+    '明日の朝、始業前の 10 分で今週の商談を 1 つだけ選び、「この商談で相手に何を貢献できるか」を 1 行書いてから臨んでください。',
+    '',
+    '（お試しモードの応答です。本番では AI があなたのメモを本ごとに読んで答えます）',
+    '',
+    'REFS_START',
+    ...views.map((v) => `- ${v.ref}`),
+    'REFS_END',
+  ].join('\n');
+}
+
 // テーマまとめ（本番と同じ「核心 / 繰り返す原則 / 次の一歩」の形）を、渡されたメモから組み立てる。
 function themeAnswer(store, theme, memoBlock) {
   const books = new Map(store.table('books').map((b) => [b.id, b]));
@@ -127,6 +180,8 @@ function themeAnswer(store, theme, memoBlock) {
 function aiReply(store, payload) {
   const last = [...(payload.messages || [])].reverse().find((m) => m.role === 'user');
   const userText = textOf(last?.content);
+  const perBook = userText.match(/PERSPECTIVE_BOOKS_START =====\n([\s\S]*?)\n===== PERSPECTIVE_BOOKS_END/);
+  if (perBook) return perBookAnswer(perBook[1]);
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     const block = (userText.match(/MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '';
