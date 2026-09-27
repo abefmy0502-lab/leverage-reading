@@ -1031,8 +1031,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   別の角度で答えて
                 </button>
               )}
-              {/* 脇役（2 番目）は文字色を落として、「別の角度で答えて」と同じ重さに見せない。 */}
-              <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', fontWeight: 400, padding: 'var(--space-2) 0', color: 'var(--text-2)' }}>
+              {/* 文字ボタンは 1 種類（DESIGN §5）。脇役は並び順（2 番目）で控えめにする。 */}
+              <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
                 新しい相談をはじめる
               </button>
             </div>
@@ -1569,7 +1569,7 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
         <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本（おすすめ）</span>
         {mark(mode === 'all')}
       </button>
-      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本に絞る</p>
+      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本に絞る（複数選べます）</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {list.length === 0 && <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>読書中・読了の本がまだありません。</p>}
         {list.map((b) => {

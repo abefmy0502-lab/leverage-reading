@@ -446,7 +446,7 @@ export default function BookSearchModal({ onSelect, onClose, initialQuery = '', 
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', padding: 0, minWidth: 44, minHeight: 44, cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', color: 'var(--accent)' }}
+            style={{ background: 'none', border: 'none', padding: 0, minWidth: 44, minHeight: 44, cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-body)', color: 'var(--text-2)' }}
           >
             キャンセル
           </button>

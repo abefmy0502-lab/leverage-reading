@@ -58,7 +58,7 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
       </div>
       {showDisclosure && (
         // 複数行の注記は左揃え（中央揃えだと行頭がそろわず読みにくい）。
-        <small style={{ ...disclosureStyle, textAlign: 'left' }}>{STORE_DISCLOSURE_TEXT}</small>
+        <small style={{ ...disclosureStyle, textAlign: 'left', paddingBottom: 'var(--space-4)' }}>{STORE_DISCLOSURE_TEXT}</small>
       )}
     </div>
   );

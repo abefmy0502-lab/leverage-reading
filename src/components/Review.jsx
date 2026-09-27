@@ -46,7 +46,6 @@ const inp = { width: '100%', minHeight: 44, padding: 'var(--space-2) var(--space
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
 const btnGhostOff = { ...uiBtnGhostOff, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
 const btnTextSm = { ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' };
-const pill = { fontSize: 'var(--text-meta)', padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
 // relativeJa / recallFraming は src/lib/recall.js に切り出して
 // サーバー（api/push-cron.js の想起通知）と文言を共有している。
@@ -301,7 +300,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
         </button>
       )}
       {memo.pageNumber != null && !isPersonal && (
-        <span style={{ ...pill, display: 'inline-block', marginTop: 'var(--space-1)' }}>P.{memo.pageNumber}</span>
+        <span style={{ display: 'inline-block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>p.{memo.pageNumber}</span>
       )}
       {memo.text && (
         <>
@@ -344,7 +343,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
       {visibleTags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
           {visibleTags.map((t) => (
-            <span key={t} style={pill}>#{t}</span>
+            <span key={t} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>#{t}</span>
           ))}
         </div>
       )}

@@ -129,8 +129,8 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
                   fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5,
                 }}
               >
-                {/* 1 行で止める（ホームのカードを短く保つ）。全文は読み上げ・送信にそのまま使う。 */}
-                <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 1, overflow: 'hidden', wordBreak: 'break-all' }}>{q}</span>
+                {/* 2 行で止める（1 行だと何を聞く例か読めない）。全文は読み上げ・送信にそのまま使う。 */}
+                <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' }}>{q}</span>
               </button>
             ))}
           </div>

@@ -218,10 +218,10 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
     },
   });
 
-  // 1 行目: 種類・ページ番号（または学びの分類）をまとめて「カード式メモ・P.95」の形に。
+  // 1 行目: 種類・ページ番号（または学びの分類）をまとめて「カード式メモ・p.95」の形に。
   const kindLine = [
     meta.label,
-    isCard && Number.isFinite(item.page_number) ? `P.${item.page_number}` : null,
+    isCard && Number.isFinite(item.page_number) ? `p.${item.page_number}` : null,
     isPersonal && category ? category : null,
   ].filter(Boolean).join('・');
   const snippet = (item.text || '').trim().replace(/\s+/g, ' ').slice(0, 24);
@@ -266,7 +266,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
         {visibleTags.length > 0 && (
           <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', marginTop: 'var(--space-2)' }}>
             {visibleTags.map((t) => (
-              <span key={t} style={{ fontSize: 'var(--text-meta)', padding: '0 var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)', lineHeight: 1.8 }}>#{t}</span>
+              <span key={t} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.8 }}>#{t}</span>
             ))}
           </span>
         )}
