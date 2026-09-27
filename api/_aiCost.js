@@ -1,13 +1,13 @@
 // 💴 AI の原価を円で見積もる・数えるための小道具（api/claude.js から使う）。
 //
-// 目的: 有料会員 1 人から毎月 ¥1,000 が手元に残るように、1 人・1 か月の AI の原価に
+// 目的: 有料会員 1 人から毎月 ¥900 が手元に残るように（2026-09-27 に ¥1,000 → ¥900 へ）、1 人・1 か月の AI の原価に
 // 上限を設ける（supabase_ai_cost.sql）。上限の既定は次の式で出す（env で上書き可）:
 //
 //   月額（税込）÷ 1.1（消費税）×（1 − App Store の手数料）− 残したい額
-//   = 1,480 ÷ 1.1 × 0.85 − 1,000 ≈ ¥143
+//   = 1,480 ÷ 1.1 × 0.85 − 900 ≈ ¥243
 //
 // App Store の手数料は、日本の小規模事業者プログラム（10%）＋App 内課金の決済（5%）＝15%
-// （2025-12-18 からの日本の新しい条件）。年額プランは 1 か月あたりの手取りが ¥1,000 に
+// （2025-12-18 からの日本の新しい条件）。年額プランは 1 か月あたりの手取りが ¥900 に
 // 届かないが、オーナーの判断で例外として同じ上限を使う（2026-09-27）。
 //
 // 単位は「1/1000 円」（mjpy）の整数。DB（ai_usage.cost_mjpy）と同じ。
@@ -36,7 +36,7 @@ export function monthlyBudgetJpy(env = process.env) {
   if (Number.isFinite(direct) && direct >= 0) return Math.floor(direct);
   const price = num(env.AI_PLAN_PRICE_JPY, 1480);
   const fee = num(env.AI_STORE_FEE_RATE, 0.15);
-  const target = num(env.AI_TARGET_NET_JPY, 1000);
+  const target = num(env.AI_TARGET_NET_JPY, 900);
   return Math.max(0, Math.floor((price / 1.1) * (1 - fee) - target));
 }
 

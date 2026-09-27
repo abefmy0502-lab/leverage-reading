@@ -49,9 +49,9 @@ export function isPaywallError(status, code) {
 }
 
 // 💴 1 人・1 か月の AI の原価の上限（円）。サーバー（api/_aiCost.js の monthlyBudgetJpy）の
-// 既定と同じ式: 月額 ¥1,480 ÷ 1.1 × (1 − 手数料 15%) − 手取り ¥1,000 ≈ ¥143。
+// 既定と同じ式: 月額 ¥1,480 ÷ 1.1 × (1 − 手数料 15%) − 手取り ¥900 ≈ ¥243（2026-09-27 に ¥1,000 → ¥900）。
 // 画面の「上限が近い」案内にだけ使う（止めるのはサーバー）。
-export const AI_MONTHLY_BUDGET_JPY = 143;
+export const AI_MONTHLY_BUDGET_JPY = 243;
 
 // 今月使った AI の原価（円）。ai_usage の cost_mjpy（本人の行だけ読める）。読めなければ null。
 export async function fetchMonthCostJpy(userId) {

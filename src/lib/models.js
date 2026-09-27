@@ -1,20 +1,25 @@
 // 🤖 AI モデルの単一の真実（コスト/スピード最適化の 2 層ルーティング）。
 //
 // 方針:
-//   - SMART: 推論品質が体験を左右する機能に使う。
-//       選書の推薦 / マイ読書脳(自分のメモ根拠の回答) / テーマまとめ / 学び分析 /
-//       知識の足あと / 読書計画シート / 運営の作戦会議。
-//   - FAST : 定型・低リスクで品質差が出にくい処理に使う（約 1/3 価格・高速）。
-//       写真OCRの書き起こし / 凝縮 / カード→まとめ要約 / 週の問い / ヒアリング質問生成。
+//   - ADVISOR: AI 選書の推薦だけ（実在の本を挙げる＝知識量が効く）。Sonnet 5。
+//   - SMART: 相談 / テーマまとめ / 学び分析 / 知識の足あと / 読書計画シート / 運営の作戦会議。
+//       2026-09-27 から Haiku 4.5（原価を約半分に。有料会員 1 人から ¥900 を残す上限 ¥243 で
+//       相談なら月 80 回前後）。品質を戻すときはこの定数を 'claude-sonnet-5' に。
+//   - FAST : 写真OCRの書き起こし / 凝縮 / カード→まとめ要約 / 週の問い / ヒアリング質問生成。
 //
 // コスト目安（Anthropic, 入力/出力 per 1M tokens）:
-//   SMART = Sonnet 5   … $2 / $10（導入価格がそのまま正式価格に・2026-09-27 に公式で確認）
-//   FAST  = Haiku 4.5  … $1 / $5
+//   ADVISOR = Sonnet 5 … $2 / $10（2026-09-27 に公式で確認）
+//   SMART = FAST = Haiku 4.5 … $1 / $5
 //
-// ⚠️ モデルを戻したい/変えたい時は **この 2 定数だけ** を変更する。あわせて
+// ⚠️ モデルを戻したい/変えたい時は **この 3 定数だけ** を変更する。あわせて
 //    api/claude.js の ALLOWED_MODELS（サーバー側の許可リスト）と、原価の単価表
 //    api/_aiCost.js の PRICES も更新すること（無い単価は高めに数えて上限が早く来る）。
-export const MODEL_SMART = 'claude-sonnet-5';
+// 2026-09-27 オーナー裁定: AI 選書（推薦）だけ Sonnet 5、ほかはすべて Haiku 4.5（原価を約半分に・
+// 同じ上限で相談できる回数を約 2 倍に）。MODEL_SMART は「品質が効く機能」の名前のまま Haiku を指す。
+export const MODEL_SMART = 'claude-haiku-4-5';
+// 🔍 AI 選書の推薦だけに使う（実在の本を AI の知識から挙げるので、存在しない本・著者違いを
+//    減らすため大きいモデルに残す）。BookAdvisor.jsx の推薦の呼び出しが使う。
+export const MODEL_ADVISOR = 'claude-sonnet-5';
 export const MODEL_FAST = 'claude-haiku-4-5';
 
-export default { MODEL_SMART, MODEL_FAST };
+export default { MODEL_SMART, MODEL_FAST, MODEL_ADVISOR };

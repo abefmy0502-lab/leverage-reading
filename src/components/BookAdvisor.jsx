@@ -19,7 +19,7 @@ import {
 import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext } from '../lib/ai';
 import { streamClaude } from '../lib/streamClaude';
 import { PROMPTS } from '../lib/prompts';
-import { MODEL_SMART, MODEL_FAST } from '../lib/models';
+import { MODEL_FAST, MODEL_ADVISOR } from '../lib/models';
 import { LIMITS, clamp } from '../lib/limits';
 import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
@@ -553,7 +553,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         // JSON が途中で切れて推薦カードが全滅しないよう余裕を持たせる
         // （Sonnet 5 の新トークナイザは同じ日本語で約 3 割トークン増）。
         max_tokens: 4096,
-        model: MODEL_SMART,
+        // 推薦は実在の本を挙げるので Sonnet 5 に残す（models.js の MODEL_ADVISOR・2026-09-27）
+        model: MODEL_ADVISOR,
         signal: controller.signal,
         // チャンク受信のたびに (1) 無通信ウォッチドッグを再武装し、(2) 生成中の
         // 前置き文（「👋 はじめに」の共感コメント）をライブ表示する。死んだスケルトン

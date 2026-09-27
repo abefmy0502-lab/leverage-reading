@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { monthlyBudgetJpy, trialBudgetJpy, costFromUsage, estimateCost, createUsageSniffer } from './_aiCost.js';
 
 describe('monthlyBudgetJpy', () => {
-  it('¥1,480・手数料 15%・消費税 10%・手取り ¥1,000 → 約 ¥143', () => {
-    expect(monthlyBudgetJpy({})).toBe(143);
+  it('¥1,480・手数料 15%・消費税 10%・手取り ¥900 → 約 ¥243', () => {
+    expect(monthlyBudgetJpy({})).toBe(243);
   });
   it('env で直接指定・式の値を上書きできる', () => {
     expect(monthlyBudgetJpy({ AI_MONTHLY_BUDGET_JPY: '200' })).toBe(200);
-    expect(monthlyBudgetJpy({ AI_PLAN_PRICE_JPY: '1980' })).toBe(529);
+    expect(monthlyBudgetJpy({ AI_PLAN_PRICE_JPY: '1980' })).toBe(629);
     expect(monthlyBudgetJpy({ AI_PLAN_PRICE_JPY: '1000' })).toBe(0); // 手取りが足りないときは 0（AI を使わせない）
   });
   it('無料期間は小さめ', () => {

@@ -43,14 +43,15 @@ const MAX_MESSAGES = 60;
 // の高単価モデルを指定して原価を吊り上げられる（KGI ガードの穴）。allowlist 外
 // は既定モデルに矯正する（拒否ではなく安全側に倒す＝正規利用を妨げない）。
 // コスト最適化の 2 層ルーティング（src/lib/models.js と一致させる）:
-//   SMART = claude-sonnet-5（品質必須の機能）/ FAST = claude-haiku-4-5（定型処理・安価高速）。
+//   2026-09-27 から: AI 選書の推薦だけ claude-sonnet-5（MODEL_ADVISOR）、ほかは claude-haiku-4-5。
 //   旧 claude-sonnet-4-6 も後方互換で許可（未デプロイのクライアントからの要求を弾かない）。
 //   許可外は DEFAULT_MODEL に矯正（拒否ではなく安全側）。
 const ALLOWED_MODELS = new Set(['claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
-const DEFAULT_MODEL = 'claude-sonnet-5';
+// 指定なし・許可外はいちばん安い Haiku に寄せる（原価の安全側）。
+const DEFAULT_MODEL = 'claude-haiku-4-5';
 // 💬 相談（purpose: 'consult'）だけに使うモデル。env で差し替えられる（アプリの出し直し不要）。
-//   未設定なら、アプリが指定したモデル（Sonnet 5）のまま。'claude-haiku-4-5' にすると
-//   1 回あたりの原価が約半分になり、同じ上限（¥143/月）で相談できる回数が約 2 倍になる。
+//   未設定なら、アプリが指定したモデル（2026-09-27 から Haiku 4.5）のまま。品質を上げたいときに
+//   'claude-sonnet-5' にすると、1 回あたりの原価が約 2 倍・相談できる回数は約半分になる。
 const CONSULT_MODEL_OVERRIDE = ['claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6'].includes(process.env.AI_CONSULT_MODEL)
   ? process.env.AI_CONSULT_MODEL
   : null;
@@ -419,10 +420,11 @@ async function adjustCost(userId, periodKey, deltaMjpy) {
 }
 
 // 原価を数えられない DB（supabase_ai_cost.sql 未適用）での、1 か月の回数の上限。
-// 相談 1 回 ≈ ¥6〜8（2026-09-27 に材料を絞った後）なので、上限 ¥143 を超えにくい回数にしておく。
+// 相談 1 回 ≈ ¥3（Haiku 4.5・2026-09-27）、重い機能（テーマまとめ等）でも ¥5 前後なので、
+// 上限 ¥243 を超えにくい回数にしておく。
 const AI_FALLBACK_CALL_LIMIT = (() => {
   const raw = Number(process.env.AI_FALLBACK_CALL_LIMIT);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 20;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 45;
 })();
 
 // 「来月 1 日」（上限に達したときの案内用・日本時間）。
