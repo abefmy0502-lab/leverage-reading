@@ -16,8 +16,11 @@ import { track } from '../lib/analytics';
 import { btnPrimary, card, input, groupTitle } from '../styles/ui';
 
 // 相談例（AI を使わない＝原価ゼロ）。いま読んでいる本があればそれを使う。
-function examplesFor(books) {
-  const reading = books.find((b) => b.status === 'reading') || books.find((b) => b.status === 'done');
+// memoBookIds: メモのある本の id（null＝まだ分からない）。メモの無い本の名前は例に出さない。
+function examplesFor(books, memoBookIds) {
+  const ok = (b) => memoBookIds == null || memoBookIds.has(b.id);
+  const reading = books.find((b) => b.status === 'reading' && ok(b)) || books.find((b) => b.status === 'done' && ok(b))
+    || (memoBookIds ? books.find((b) => memoBookIds.has(b.id)) : null);
   const out = [];
   if (reading?.title) out.push(`『${reading.title}』の学びで、明日から使えるものは？`);
   // 2 つ目は、よく付けているタグから（相談タブの例と同じ作り方）。タグが無いときだけ一般的な例。
@@ -42,7 +45,8 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
   const [memoCount, setMemoCount] = useState(null);
   const [text, setText] = useState('');
   const bookCount = books.length;
-  const examples = useMemo(() => examplesFor(books), [books]);
+  const [memoBookIds, setMemoBookIds] = useState(null);
+  const examples = useMemo(() => examplesFor(books, memoBookIds), [books, memoBookIds]);
 
   // メモが動いたら（ホームのクイックメモ・本の詳細など）件数を取り直す。
   // 最初のメモを書いた直後に、案内から入力欄へ切り替わるように。
@@ -54,11 +58,22 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
     let alive = true;
     (async () => {
       try {
-        const { count, error } = await supabase
-          .from('book_memos')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+        const [{ count, error }, idsRes] = await Promise.all([
+          supabase
+            .from('book_memos')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id),
+          // 相談例に出す本を「メモのある本」に限るため（新しい順に最大 1000 件で十分）。
+          supabase
+            .from('book_memos')
+            .select('book_id')
+            .eq('user_id', user.id)
+            .not('book_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1000),
+        ]);
         if (alive && !error) setMemoCount(count || 0);
+        if (alive && !idsRes.error) setMemoBookIds(new Set((idsRes.data || []).map((r) => r.book_id)));
       } catch { /* 件数が取れなくても入口自体は出す */ }
     })();
     return () => { alive = false; };

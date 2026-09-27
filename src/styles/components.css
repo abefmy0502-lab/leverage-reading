@@ -1202,6 +1202,12 @@ body.keyboard-open .ai-input-area {
   transition: background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }
+/* 320px 幅（iPhone SE 初代など）では 3 等分の列に「テーマまとめ」が収まらないので、
+   アイコンを外し、左右の余白と間隔を詰めて文字を切らさない。 */
+@media (max-width: 359px) {
+  .sub-tabs { gap: var(--space-1); padding-left: var(--space-2); padding-right: var(--space-2); }
+  .sub-tab svg { display: none; }
+}
 .sub-tab:hover { background: var(--color-bg-hover); }
 .sub-tab.active {
   background: var(--accent-soft);

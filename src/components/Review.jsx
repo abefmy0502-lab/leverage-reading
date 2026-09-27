@@ -619,11 +619,14 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   //  手動で開いた過去月が畳まれ「3ヶ月前を見返す」主目的を阻害していた。）
   const didInitExpand = useRef(false);
   useEffect(() => {
-    if (didInitExpand.current || allNotes.length === 0) return;
+    // メモの読み込みが終わってから決める（本だけが先に並んだ時点の古い月を開かない）。
+    if (didInitExpand.current || loading || allNotes.length === 0) return;
     didInitExpand.current = true;
-    const firstMonth = monthKey(allNotes[0].createdAt);
+    // いちばん新しい月を開く（並び順に頼らず、日付で選ぶ）
+    const newest = allNotes.reduce((a, n) => ((n.createdAt || '') > (a.createdAt || '') ? n : a), allNotes[0]);
+    const firstMonth = monthKey(newest.createdAt);
     if (firstMonth) setExpanded(new Set([firstMonth]));
-  }, [allNotes]);
+  }, [allNotes, loading]);
 
   const randomMemo = useMemo(() => {
     if (allNotes.length === 0) return null;

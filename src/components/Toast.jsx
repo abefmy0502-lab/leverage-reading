@@ -263,7 +263,7 @@ export function ToastProvider({ children }) {
         message,
         duration,
         onExpire,
-        action: { label: '取消', onClick: onUndo },
+        action: { label: '元に戻す', onClick: onUndo },
       }),
     dismiss,
   };

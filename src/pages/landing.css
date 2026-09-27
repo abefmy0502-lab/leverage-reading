@@ -237,7 +237,7 @@ body.lp-active {
 
 /* 使い方 3 ステップ */
 .lp-step-list { list-style: none; margin: var(--space-8) 0 0; padding: 0; display: grid; gap: var(--space-16); }
-.lp-step { display: grid; gap: var(--space-8); align-items: center; }
+.lp-step { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); align-items: center; }
 .lp-step-text { max-width: 30em; }
 .lp-step-text p { color: var(--text-2); }
 .lp-step-num {
@@ -468,7 +468,7 @@ body.lp-active {
 }
 
 /* ============ 体験: 試しに、相談してみる（ConsultDemo.jsx） ============ */
-.lp-demo { display: grid; gap: var(--space-8); margin-top: var(--space-8); }
+.lp-demo { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); margin-top: var(--space-8); }
 .lp-demo-label { color: var(--text-2); font-size: var(--text-sub); font-weight: 600; margin-bottom: var(--space-3) !important; }
 .lp-demo-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .lp-demo-chip {

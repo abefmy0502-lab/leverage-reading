@@ -342,8 +342,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     const ok = await confirm({
       title: 'このメモを削除しますか？',
       message: memo.photoPath
-        ? '写真も Storage から削除されます。\n（取消した場合、本文は復元されますが写真は戻りません）'
-        : '元に戻すには取消ボタンを押してください。',
+        ? '写真も Storage から削除されます。\n（元に戻しても、写真は戻りません）'
+        : '5 秒以内なら「元に戻す」で戻せます。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -359,7 +359,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     if (memo.photoPath) {
       const ok = await confirm({
         title: 'このメモを削除しますか？',
-        message: '写真も削除されます。（取消した場合、本文は復元されますが写真は戻りません）',
+        message: '写真も削除されます。（元に戻しても、写真は戻りません）',
         confirmLabel: '削除する',
         cancelLabel: 'キャンセル',
         danger: true,
@@ -428,7 +428,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         />
       )}
 
-      {!loading && memos.length > 0 && !recallHintSeen && (
+      {/* 使い始め（この本のメモが 3 件まで）だけ出す。使い込んだ人に「最初の」を言わない。 */}
+      {!loading && memos.length > 0 && memos.length <= 3 && !recallHintSeen && (
         <div
           style={{
             display: 'flex',
@@ -440,7 +441,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           }}
         >
           <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6, flex: 1 }}>
-            最初の気づきが残りました。メモが増えるほど、「相談」であなただけの答えが返ってきます。
+            メモが残りました。メモが増えるほど、「相談」であなただけの答えが返ってきます。
           </p>
           <button
             type="button"

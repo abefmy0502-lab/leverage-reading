@@ -27,7 +27,7 @@ import { isStrictMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, input as uiInput, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
@@ -162,6 +162,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   const [recoLoading, setRecoLoading] = useState(false); // 推薦生成中
   const [recoStream, setRecoStream] = useState(''); // 推薦生成中のライブ前置き文（体感速度）
   const [recoError, setRecoError] = useState(null);
+  // 月の上限・プラン案内は「失敗」ではないので、再試行ボタンのない案内として出す（相談と同じ）。
+  const [recoNotice, setRecoNotice] = useState(false);
   // Strict auto-scroll: only when a real append happens. Initial seed
   // message + any case where we would scroll from a zero baseline are
   // explicitly excluded so re-mounting the component (sub-tab switch)
@@ -568,7 +570,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         },
       });
     } catch (e) {
-      setRecoError(toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
+      const expected = !!(e?.monthlyLimit || e?.paywall);
+      setRecoNotice(expected);
+      setRecoError(expected ? e.message : toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
       setRecoStream('');
       setRecoLoading(false);
       return;
@@ -578,6 +582,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
     if (controller.signal.aborted && !finalText.trim()) {
       // ストール中断かつ 1 文字も生成されていない → エラーとして再試行を促す。
+      setRecoNotice(false);
       setRecoError('通信が途切れました。電波の良い場所でもう一度お試しください。');
       setRecoLoading(false);
       return;
@@ -1271,7 +1276,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       )}
 
       {/* 推薦生成エラー（リトライ可能） */}
-      {recoError && !recoLoading && (
+      {recoError && !recoLoading && recoNotice && (
+        <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
+          {recoError}
+        </p>
+      )}
+      {recoError && !recoLoading && !recoNotice && (
         <ErrorMessage
           icon={null}
           description={recoError}

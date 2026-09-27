@@ -114,7 +114,7 @@ export const btnPrimaryOff = {
 export const btnGhostOff = {
   ...btnGhost,
   color: 'var(--text-3)',
-  borderColor: 'var(--separator)',
+  border: '1px solid var(--separator)', // border と borderColor を混ぜない（React の警告・切り替え時の表示崩れ）
   opacity: 1,
   cursor: 'default',
 };

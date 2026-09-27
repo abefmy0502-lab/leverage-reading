@@ -144,6 +144,8 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
           {[
             outcome.booksAdded > 0 && outcome.memosAdded > 0 ? `本 ${outcome.booksAdded} 冊を本棚に追加しました。` : '',
             outcome.booksMatched > 0 && outcome.memosAdded > 0 ? `すでにある ${outcome.booksMatched} 冊には、まだ無いメモだけを足しました。` : '',
+            outcome.memosAdded === 0 && outcome.booksAdded > 0 ? '本棚に並べました。読みながらメモを残すと、相談の根拠になります。' : '',
+            outcome.memosAdded === 0 && outcome.booksAdded > 0 && outcome.booksMatched > 0 ? `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。` : '',
             outcome.memosAdded === 0 && outcome.booksAdded === 0 ? 'このファイルの本とメモは、すでに取り込み済みです。' : '',
             outcome.memosAdded > 0 ? 'これからの相談は、このメモも根拠にして答えます。' : '',
           ].filter(Boolean).join('')}

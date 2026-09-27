@@ -54,6 +54,14 @@ import PullToRefresh from './PullToRefresh';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
 import { useLongPress } from '../hooks/useLongPress';
 
+// 一覧の本文は、読書計画シートなど Markdown で書かれたものも記号を見せずに出す（「## 🎯 …」「- …」）。
+function plainPreview(text) {
+  return String(text || '')
+    .split('\n')
+    .map((l) => l.replace(/^\s*#{1,6}\s*/, '').replace(/^\s*[-*]\s+/, '・').replace(/\*\*(.+?)\*\*/g, '$1'))
+    .join('\n');
+}
+
 // 見た目は DESIGN.md のトークンのみ。題名「根拠にできる情報」と「‹ 相談」は親（MyBookBrain）が出し、
 // 左右の余白 16 も親の viewScroll が持つ（ここで重ねない）。
 const wrap = { display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
@@ -261,7 +269,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
         )}
         {/* 本文＝読む文章（明朝 18・行間 1.6）。長い本文は 6 行で畳み、全文は編集で開く。 */}
         <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 6, overflow: 'hidden', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6, marginTop: 'var(--space-2)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-          {item.text}
+          {plainPreview(item.text)}
         </span>
         {visibleTags.length > 0 && (
           <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', marginTop: 'var(--space-2)' }}>
@@ -584,8 +592,8 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
 
     toast.undo({
       message: snapshot.photo_path
-        ? '知識を削除しました\n※写真は復元できません'
-        : '知識を削除しました',
+        ? '削除しました\n※写真は元に戻せません'
+        : '削除しました',
       onUndo: async () => {
         try {
           await promise.catch(() => {});
@@ -670,7 +678,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
     if (meta?.column) {
       const ok = await confirm({
         title: `${meta.label} をクリアしますか？`,
-        message: '本自体は残ります。AI の参照対象からは外れます。\n5 秒以内なら「取消」で復元できます。',
+        message: '本自体は残ります。相談の根拠からは外れます。\n5 秒以内なら「元に戻す」で戻せます。',
         confirmLabel: 'クリアする',
         cancelLabel: 'キャンセル',
         danger: true,
@@ -679,8 +687,8 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
       performClearField(item);
     } else {
       const ok = await confirm({
-        title: 'この知識を削除しますか？',
-        message: 'AI の参照対象から除外されます。\n5 秒以内なら「取消」で復元できます。',
+        title: 'これを削除しますか？',
+        message: '相談の根拠から外れます。\n5 秒以内なら「元に戻す」で戻せます。',
         confirmLabel: '削除する',
         cancelLabel: 'キャンセル',
         danger: true,

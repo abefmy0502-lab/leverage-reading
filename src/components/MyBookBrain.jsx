@@ -39,7 +39,11 @@ const consumePreset = (kind, nonce) => {
   consumedPresets.add(key);
   return true;
 };
+
 import BottomSheet from './BottomSheet';
+
+// 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
+const STOPPED_EMPTY = '回答を中止しました。';
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
 // 収める flex column。chat 時は内側 .chat-scroll + .ai-input-area で
@@ -431,6 +435,26 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     try { localStorage.setItem('brain-cleared-at', cut); } catch { /* ignore */ }
   }, [historyLoaded, messages]);
 
+  // 📚 メモのある本（相談例に「メモの無い本」を出さないため。新しいメモから最大 1000 件で十分）。
+  const [memoBookIds, setMemoBookIds] = useState(null); // Set<bookId> | null（読み込み前）
+  useEffect(() => {
+    if (!user || !isSupabaseConfigured) return undefined;
+    let alive = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('book_memos')
+          .select('book_id')
+          .eq('user_id', user.id)
+          .not('book_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1000);
+        if (alive && !error) setMemoBookIds(new Set((data || []).map((r) => r.book_id)));
+      } catch { /* 取れなければ従来どおり（本の状態で選ぶ） */ }
+    })();
+    return () => { alive = false; };
+  }, [user?.id, view, statsTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Knowledge counts for the header (cards / summaries / personal)。
   // summaries は books の 7 フィールド (leverage_memo + invest_purpose +
   // current_challenge + hypothesis + ai_summary + roi_summary + ai_strategy)
@@ -561,11 +585,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }));
     const topTags = [...tagCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([t]) => t);
     topTags.forEach((t) => qs.push(`「${t}」について、私のメモから要点を3つにまとめて`));
-    const recent = (books || []).find((b) => b.status === 'reading' || b.status === 'done');
+    // メモの無い本の名前は出さない（聞いても根拠が無い）。メモの有無が分かるまでは状態で選ぶ。
+    const hasMemo = (b) => memoBookIds == null || memoBookIds.has(b.id);
+    const recent = (books || []).find((b) => (b.status === 'reading' || b.status === 'done') && hasMemo(b))
+      || (memoBookIds ? (books || []).find((b) => memoBookIds.has(b.id)) : null);
     if (recent?.title) qs.push(`『${recent.title}』の学びで、明日から使えるものは？`);
     qs.push('最近のメモから、今週やるべき一歩を1つ提案して');
     return qs.slice(0, 3);
-  }, [books, scopeIds]);
+  }, [books, scopeIds, memoBookIds]);
 
   const ask = async (questionText, opts = {}) => {
     if (!user) {
@@ -660,13 +687,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         ? body
         : (lastVisible && lastVisible.trim())
           ? lastVisible
-          : (wasAborted ? '（回答を中止しました）' : body);
+          : (wasAborted ? STOPPED_EMPTY : body);
       const breakdown = `カード ${cardCount || 0} / まとめ ${summaryCount || 0} / 学び ${personalCount || 0}`;
       const base = (!wasAborted && memoTotal > memoCount && memoCount > 0)
         ? `${finalBody}\n\n（参照: ${memoCount}/${memoTotal} 件、内訳: ${breakdown}）`
         : finalBody;
       // 中止した場合は末尾に控えめな注記を付ける (refs は付けない)。
-      const assistantContent = wasAborted ? `${base}\n\n— ここで中止しました` : base;
+      // 1 文字も出る前に止めたときは、注記を重ねない（「中止しました」を 2 回出さない）。
+      const assistantContent = wasAborted && finalBody !== STOPPED_EMPTY ? `${base}\n\n— ここで中止しました` : base;
       const persistRefs = wasAborted ? [] : (evidence ? [`${EVIDENCE_PREFIX}${evidence}`, ...(refs || [])] : refs);
       // 保存（履歴への insert）は「回答の表示」と切り離す。回答生成は成功して
       // いるのに保存だけ失敗した場合、画面の回答をエラー文言で消さない。
@@ -1058,7 +1086,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               {/* お試しを使い切ったら、できない操作を出さない */}
               {!(freeMode && freeRemaining <= 0) && !visibleMessages[visibleMessages.length - 1]?.notice && (
                 <button type="button" onClick={regenerate} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
-                  別の角度で答えて
+                  {visibleMessages[visibleMessages.length - 1]?.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて'}
                 </button>
               )}
               {/* 文字ボタンは 1 種類（DESIGN §5）。脇役は並び順（2 番目）で控えめにする。 */}
@@ -1170,7 +1198,10 @@ function PlainAnswer({ text }) {
   return (
     <>
       {(text || '').split('\n').filter((l) => l.trim()).map((line, idx) => (
-        <p key={idx} style={{ margin: idx ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(line.replace(/^【(.+?)】\s*/, '$1：'))}</p>
+        <p key={idx} style={{ margin: idx ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(
+          // Markdown の見出し記号・箇条書き記号をそのまま見せない（「- 『…』」→「・『…』」）
+          line.replace(/^【(.+?)】\s*/, '$1：').replace(/^\s*#{1,6}\s*/, '').replace(/^\s*[-*]\s+/, '・'),
+        )}</p>
       ))}
     </>
   );
@@ -1458,7 +1489,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                                 <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                               </button>
                             ) : (
-                              <p className="text-pretty" style={{ ...subText, margin: 0, padding: 'var(--space-2) 0' }}>{refText(r)}</p>
+                              <p className="text-pretty" style={{ margin: 0, padding: 'var(--space-2) 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 }}>{refText(r)}</p>
                             )}
                           </li>
                         );

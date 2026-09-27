@@ -103,7 +103,11 @@ function extractNextStep(md) {
     }
     if (inSec && line) buf.push(line.replace(/^[-*\d.]+\s+/, ''));
   }
-  const step = buf.join(' ').trim();
+  // 「（原則1）」のような番号参照と太字記号は、行動リストでは意味が通らないので外す。
+  const step = buf.join(' ')
+    .replace(/[（(]\s*原則\s*\d+\s*[)）]/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .trim();
   if (step) return step;
   // フォールバック: 「次の一歩」見出しが崩れても行動追加を不発にしない。
   // 末尾の非空・非見出し行（次の一歩は通常ドキュメント末尾）を採用する。
@@ -332,8 +336,14 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
       if (isLive() && !(controller.signal.aborted || (e && e.name === 'AbortError'))) {
         // 失敗は画面内の ErrorMessage 1 か所で伝える（トーストと二重に出さない・考えの足あとと同じ）。
         // 先頭の絵文字（toMessage が付ける 🌐 等）は外す — アイコンに絵文字を使わない（DESIGN §3-2）。
-        setNoticeKind('error');
-        setNotice(toMessage(e, 'テーマまとめを作れませんでした。').replace(/^[\p{Extended_Pictographic}️\s]+/u, ''));
+        if (e?.monthlyLimit || e?.paywall) {
+          // 月の上限・プラン案内は失敗ではない（相談と同じく、案内として出す・再試行ボタンなし）。
+          setNoticeKind('info');
+          setNotice(e.message);
+        } else {
+          setNoticeKind('error');
+          setNotice(toMessage(e, 'テーマまとめを作れませんでした。').replace(/^[\p{Extended_Pictographic}️\s]+/u, ''));
+        }
       }
     } finally {
       // runId が進んでいる（履歴を開いた/新しい生成が始まった）場合、この古い
@@ -405,7 +415,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
         setActionAdded(true);
         haptic.success();
         try { onActionAdded?.(); } catch { /* ignore */ }
-        toast.success('振り返りタブ →「行動」に追加しました。');
+        toast.success('行動に追加しました（期限は明日）。');
       } else {
         toast.error('追加できませんでした。少し時間をおいて再度お試しください。');
       }
@@ -844,7 +854,7 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
         {statBox(declared, '決めた行動', 'var(--text)')}
         {statBox(completed, '完了', completed > 0 ? 'var(--success)' : 'var(--text)')}
-        {statBox(idle, '放置中', idle > 0 ? 'var(--warning)' : 'var(--text)')}
+        {statBox(idle, 'まだ', 'var(--text)')}
       </div>
       {declared === 0 ? (
         <p style={nudge}>
@@ -852,7 +862,7 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
         </p>
       ) : blindSpot ? (
         <p style={nudge}>
-          メモは<strong style={{ fontWeight: 600 }}>{memoTotal}件</strong>あるのに、完了した行動は<strong style={{ fontWeight: 600 }}>0件</strong>。学びが行動に変わっていません。
+          メモは<strong style={{ fontWeight: 600 }}>{memoTotal}件</strong>あるのに、完了した行動は<strong style={{ fontWeight: 600 }}>0件</strong>。下の「次の一歩」から1つ始めてみましょう。
         </p>
       ) : null}
 

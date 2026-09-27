@@ -214,8 +214,9 @@ export async function streamClaude({
     }
     if (onError) {
       try { onError(e); } catch { /* swallow */ }
-    } else {
+    } else if (!e?.monthlyLimit && !e?.paywall) {
       // Surface in console so silent stalls don't go unnoticed in dev.
+      // 月の上限・プラン案内は想定内の結果なのでエラーとして出さない。
       // eslint-disable-next-line no-console
       console.error('[streamClaude] error:', e);
     }

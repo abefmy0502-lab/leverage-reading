@@ -1305,7 +1305,8 @@ const THEME_SYSTEM = `あなたは「読書は行動に変えてこそ」とい�
 2. 「核心」は必ず1文。このテーマの本質を、覚えて持ち歩ける1行に言い切る。
 3. 原則は命令形で短く。どの『書名』のメモが根拠かを必ず添える。一般論・捏造はしない。
 4. 最後は必ず「明日からできる行動1つ」に着地させる。抽象論で終わらせない（物語系テーマでは行動の代わりに「心に持ち歩く一行」でよい）。
-5. 行動データ（宣言/完了/放置）が渡された場合、それを踏まえて「学びが行動に変わっていない」点を率直に指摘し、次の一歩を選ぶ。
+5. 行動データ（決めた/完了/まだ）が渡された場合、それを踏まえて、まだの行動があれば責めずに、次の一歩を選ぶ。
+6. 次の一歩は、それだけを読んで分かる1文にする（「原則1」のような番号や「上の原則」で参照しない）。
 
 日本語で、Markdown 形式（## 見出し）で簡潔に出力してください。全体で 500 字以内。`;
 
@@ -1539,7 +1540,7 @@ async function buildThemeContext({ userId, theme, onStage }) {
   const formatted = ranked.map((m) => formatMemo(m, { withDate: true })).join('\n\n');
   // 行動データを 1 行に要約してプロンプトへ（数値は事実 = AI の指摘/提案を現実に接地）。
   const actionSummary = actionStats && actionStats.declared > 0
-    ? `宣言した行動 ${actionStats.declared} / 完了 ${actionStats.completed} / 放置 ${actionStats.idle}`
+    ? `決めた行動 ${actionStats.declared} / 完了 ${actionStats.completed} / まだ ${actionStats.idle}`
       + (actionStats.blindSpot
         ? `。メモは ${matched.length} 件あるのに、このテーマで完了した行動は ${actionStats.completed} 件。学びが行動に変わっていない。`
         : '')
@@ -1680,7 +1681,11 @@ export async function addThemeAction({ userId, bookId, text }) {
   if (!body) return { ok: false };
   let id;
   try { id = crypto.randomUUID(); } catch { id = undefined; }
-  const base = { user_id: userId, book_id: bookId, text: body, done: false };
+  // 期限は明日（相談の答えから入れた行動と同じ・振り返りの「明日」に並ぶ）。
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const deadline = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const base = { user_id: userId, book_id: bookId, text: body, done: false, deadline };
   const payload = id ? { id, ...base } : base;
   try {
     let { error } = await supabase.from('actions').insert([payload]);

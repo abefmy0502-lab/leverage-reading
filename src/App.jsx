@@ -512,8 +512,8 @@ function AuthedApp() {
   // サブタブの行を隠す（押し込まれた画面は「‹ 相談」の 1 行だけ・切り替えを 2 段にしない）。
   // MyBookBrain が onPushedViewChange で知らせる。相談タブ・相談サブタブを離れたら戻す。
   const [consultPushed, setConsultPushed] = useState(false);
-  // 📐→🕰 テーマまとめから「このテーマの足あとを見る」で、マイ読書脳の足あとビューへ
-  // テーマを引き継いで遷移するためのプリセット。nonce で毎回の遷移を区別する。
+  // 📊 記録の「実行した行動」から行動を開いたとき、完了した行動を開いて見せる（押した時刻で毎回区別）。
+  const [actionShowDoneNonce, setActionShowDoneNonce] = useState(null);
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
@@ -541,7 +541,7 @@ function AuthedApp() {
       if (t === 'books') setShelfMode('home');
       return;
     }
-    if (t === 'review') setReviewSubTab('action');
+    if (t === 'review') { setActionShowDoneNonce(null); setReviewSubTab('action'); }
     else if (t === 'ai') setAiSubTab('brain');
     setTab(t);
   };
@@ -2106,7 +2106,7 @@ function AuthedApp() {
         type: 'success',
         message: `「${book.title}」を読了にしました。心に残ったことを 1 行メモしておくと、あとで相談に生きます。`,
         duration: 6500,
-        action: { label: '取消', onClick: revert },
+        action: { label: '元に戻す', onClick: revert },
       });
     } else {
       toast.undo({
@@ -3160,8 +3160,9 @@ function AuthedApp() {
                 />
               </section>
             </div>
-          ) : (
+          ) : current.status === 'want' ? (
             <div style={{ marginTop: 'var(--space-4)' }}>
+              {/* 積読では下の主ボタン「読み始める」と同じ行き先になり二重なので、読みたいだけに出す。 */}
               {/* コールドスタート緩和: ワンタップで「読書中」に昇格して即メモを開く
                   （メモは reading/done に住む設計は不変）。進行の主ボタン（下部の「積読に積む」等）
                   と並ぶので、こちらは文字ボタン。説明文は置かない（DESIGN §0-6）。 */}
@@ -3173,7 +3174,7 @@ function AuthedApp() {
                 もう読み始めている？ 読書中にしてメモを書く
               </button>
             </div>
-          )}
+          ) : null}
           {current.aiSummary && (
             <details style={{ ...detailsStyle, marginTop: 'var(--space-6)' }}>
               <summary style={summaryStyle}>
@@ -3569,7 +3570,8 @@ function AuthedApp() {
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', margin: 'var(--space-3) 0 var(--space-4)' }}>
                   {/* 本を追加するときは、状態は下の「この本の状態」で選ぶので見出しには出さない。 */}
-                  {current && <StatusLabel status={form.status} />}
+                  {/* 見出しが状態と同じ言葉になる（「読書中 読書中」）ので、状態は仕切り直しのときだけ出す。 */}
+                  {current && editPhaseOverride && editPhaseOverride !== form.status && <StatusLabel status={form.status} />}
                   <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: "var(--text)", margin: 0, lineHeight: 1.3 }}>{phaseLabel}</h2>
                   {editPhaseOverride && editPhaseOverride !== form.status && (
                     <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>
@@ -3892,7 +3894,7 @@ function AuthedApp() {
                   絞り込みシートの1階層奥から棚の表に昇格。state は絞り込みシートと共有
                   （statusFilter＝activeFilterCount とも連動）。同じチップの再タップで解除。
                   本が少ないうちはノイズなので 4 冊未満では出さない。 */}
-              {(books.length >= 4 || folderFilter) && (
+              {(books.length >= 4 || folderFilter || minRating > 0 || tagFilter.length > 0) && (
                 <div
                   style={{
                     display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-2)',
@@ -3911,6 +3913,17 @@ function AuthedApp() {
                       <IcFolder size={14} aria-hidden="true" />{folderFilter}<IcX size={14} aria-hidden="true" />
                     </ShelfChip>
                   )}
+                  {/* 評価・タグの絞り込みも、効いている間は先頭に見せる（押すと解除）。「すべて」が選ばれて見えても、何かで絞っていると分かるように。 */}
+                  {minRating > 0 && (
+                    <ShelfChip active onClick={() => setMinRating(0)} ariaLabel={`評価 ${minRating} 以上の絞り込みを解除`}>
+                      <IcStar size={14} aria-hidden="true" />{minRating}以上<IcX size={14} aria-hidden="true" />
+                    </ShelfChip>
+                  )}
+                  {tagFilter.map((t) => (
+                    <ShelfChip key={`tag-${t}`} active onClick={() => setTagFilter((prev) => prev.filter((x) => x !== t))} ariaLabel={`タグ「${t}」の絞り込みを解除`}>
+                      <IcTag size={14} aria-hidden="true" />{t}<IcX size={14} aria-hidden="true" />
+                    </ShelfChip>
+                  ))}
                   {/* 並びは管理でよく使う順（読書中・読了を先に）。 */}
                   {[{ key: 'all', label: 'すべて', count: stats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => {
                     if (s.key !== 'all' && s.count === 0) return null;
@@ -4029,7 +4042,7 @@ function AuthedApp() {
                 role="tab"
                 aria-selected={reviewSubTab === 'action'}
                 className={`sub-tab ${reviewSubTab === 'action' ? 'active' : ''}`}
-                onClick={() => setReviewSubTab('action')}
+                onClick={() => { setActionShowDoneNonce(null); setReviewSubTab('action'); }}
               >
                 <IcTarget size={15} aria-hidden="true" style={subTabIconStyle} />行動
               </button>
@@ -4069,7 +4082,7 @@ function AuthedApp() {
                     navigateTab('books'); goList(); setShelfMode('library');
                   }}
                   onShowMemos={() => setReviewSubTab('note')}
-                  onShowActions={() => setReviewSubTab('action')}
+                  onShowActions={() => { setActionShowDoneNonce(Date.now()); setReviewSubTab('action'); }}
                   onOpenBook={(b) => { setTab('books'); openDetail(b); }}
                   onFilterTag={(tag) => {
                     setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter('all');
@@ -4086,6 +4099,7 @@ function AuthedApp() {
             ) : (
               <ActionList
                 books={books}
+                showDoneNonce={actionShowDoneNonce}
                 onToggleAction={toggleAction}
                 onReflect={saveActionReflection}
                 onDeleteAction={deleteActionFromBook}

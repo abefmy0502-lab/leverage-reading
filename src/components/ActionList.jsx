@@ -9,7 +9,7 @@
 // 編集は「…」→ 編集（App の編集シート）、本の詳細へは「…」→ 本を開く（横の MoreHorizontal・DESIGN §5）。
 // 見た目は DESIGN.md のトークンのみ。
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '../lib/limits';
 import { input as uiInput, btnText } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
@@ -84,9 +84,17 @@ const byDeadline = (a, b) => {
   return (a.created_at || '').localeCompare(b.created_at || '');
 };
 
-export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult }) {
+// showDoneNonce: 記録の「実行した行動」から来たときに変わる。完了した行動を開いた状態で見せる。
+export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, showDoneNonce = null }) {
   const { allActions, stats } = useAllActions(books);
-  const [showDone, setShowDone] = useState(false);
+  const [showDone, setShowDone] = useState(showDoneNonce != null);
+  const doneSectionRef = useRef(null);
+  useEffect(() => {
+    if (showDoneNonce == null) return undefined;
+    setShowDone(true);
+    const t = setTimeout(() => { try { doneSectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch { /* ignore */ } }, 80);
+    return () => clearTimeout(t);
+  }, [showDoneNonce]);
   // 🔁 完了した直後の欄（ふりかえりの 1 行＋元に戻す）。閉じるか次を完了するまで上に出す。
   //    入力は任意・画面を奪わない（旧「完了おめでとう」モーダルは毎回の手間で撤去済み）。
   const [justDone, setJustDone] = useState(null); // { bookId, actionIdx, action }
@@ -276,7 +284,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
               type="button"
               onClick={saveReflection}
               disabled={!reflection.trim() || reflecting}
-              style={{ ...rowBtn, ...(reflection.trim() && !reflecting ? {} : { opacity: 1, borderColor: 'var(--separator)', color: 'var(--text-3)', cursor: 'default' }) }}
+              style={{ ...rowBtn, ...(reflection.trim() && !reflecting ? {} : { opacity: 1, border: '1px solid var(--separator)', color: 'var(--text-3)', cursor: 'default' }) }}
             >
               {reflecting ? '保存中…' : '残す'}
             </button>
@@ -331,7 +339,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
 
       {/* 完了した行動は一覧の最後の 1 行から開く。 */}
       {done.length > 0 && (
-        <section aria-label="完了した行動">
+        <section ref={doneSectionRef} aria-label="完了した行動">
           <button
             type="button"
             onClick={() => setShowDone((v) => !v)}
