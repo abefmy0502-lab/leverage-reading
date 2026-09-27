@@ -41,9 +41,15 @@ const consumePreset = (kind, nonce) => {
 };
 
 import BottomSheet from './BottomSheet';
+import { fetchAllRows } from '../lib/fetchAllRows';
 
 // 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
 const STOPPED_EMPTY = '回答を中止しました。';
+
+// 答えを作っている途中で相談の画面を離れても、答えは最後まで作って履歴に残す
+// （以前は離れた瞬間に止めていたため、原価だけかかって答えは途中で切れていた）。
+// 戻ってきたら、その質問と答えを会話に出す。画面を作り直しても消えない場所に覚えておく。
+let backgroundAsk = null; // { questionAt, done, finishedAt, leftWhileRunning, promise }
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
 // 収める flex column。chat 時は内側 .chat-scroll + .ai-input-area で
@@ -411,11 +417,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     fetchHistory();
   }, [fetchHistory]);
 
-  // アンマウント時に進行中のストリームを中止する（ThemeReport と同じ防御）。
-  // AI サブタブ（選書/レバレッジメモ）や下部ナビへ切り替えると本コンポーネントは
-  // unmount されるが、これが無いと /api/claude ストリームが走り続けて月次 AI
-  // コール枠を空費し、完了時に unmount 済みへ setState してしまう。
-  useEffect(() => () => { try { abortRef.current?.abort(); } catch { /* ignore */ } }, []);
+  // 別のタブへ移っても（この画面が消えても）答えは止めない。原価はもう払っているので
+  // 最後まで作って履歴に残し、戻ったときに会話へ出す（上の backgroundAsk）。
+  useEffect(() => () => {
+    if (backgroundAsk && !backgroundAsk.done) backgroundAsk.leftWhileRunning = true;
+  }, []);
 
   // マイ読書脳を開くたびに、💬 質問 は「新しい会話」から始める。
   // 過去のやりとりは 📜 履歴 にすべて残るので失われない。「開いた瞬間に前回の
@@ -430,7 +436,29 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 境界は「読み込んだ履歴の最新（サーバ時刻）」。読み込み中に送った質問は境界より
     // 後なので表示される。履歴が空なら隠すものは無い（端末の時計は使わない＝時計が
     // 進んでいる端末で初回の相談が隠れる不具合の防止）。
-    const cut = historyLatestRef.current || '1970-01-01T00:00:00.000Z';
+    let cut = historyLatestRef.current || '1970-01-01T00:00:00.000Z';
+    // 答えを待っている途中で画面を離れていたら、その質問から会話に出す。
+    const bg = backgroundAsk && backgroundAsk.leftWhileRunning
+      && (!backgroundAsk.done || Date.now() - (backgroundAsk.finishedAt || 0) < 10 * 60 * 1000)
+      ? backgroundAsk : null;
+    if (bg?.questionAt) {
+      const before = new Date(Date.parse(bg.questionAt) - 1).toISOString();
+      if (before < cut) cut = before;
+      if (!bg.done) {
+        // まだ作っている途中なら、終わるまで「作っています」を出し、終わったら履歴を読み直す。
+        const waitId = `bg-wait-${Date.now()}`;
+        setBusy(true);
+        setMessages((arr) => [...arr, { id: waitId, role: 'assistant', content: '', refs: [], createdAt: new Date().toISOString(), streaming: true }]);
+        bg.promise.then(async () => {
+          setMessages((arr) => arr.filter((m) => m.id !== waitId));
+          await fetchHistory();
+          setBusy(false);
+        });
+      }
+      // 一度出したら忘れる（次に開いたときは、いつもどおり新しい会話から）。
+      if (bg.done) backgroundAsk = null;
+      else bg.leftWhileRunning = false;
+    }
     setClearedAt(cut);
     try { localStorage.setItem('brain-cleared-at', cut); } catch { /* ignore */ }
   }, [historyLoaded, messages]);
@@ -623,6 +651,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // user 行を再 INSERT しない（skipUserInsert）。しないと押すたびに同じ質問が
     // chat_messages に重複保存され、履歴と「会話 N 件」が水増しされる。
     let savedUserId = null; // 上限・お試し終了で答えられなかったら、履歴から質問を取り下げる
+    let questionAt = opts.questionAt || null; // 質問の保存時刻（サーバー時刻・画面を離れて戻ったとき用）
     if (!opts.skipUserInsert) {
       let userRow = null;
       try {
@@ -634,6 +663,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         if (error) throw error;
         userRow = { ...transformMessage(data), scopeLabel: askScopeLabel };
         savedUserId = data?.id || null;
+        questionAt = data?.created_at || null;
         setMessages((arr) => [...arr, userRow]);
       } catch (e) {
         setBusy(false);
@@ -641,6 +671,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         return;
       }
     }
+
+    let finishBackground = () => {};
+    const bgPromise = new Promise((resolve) => { finishBackground = resolve; });
+    backgroundAsk = { questionAt, done: false, finishedAt: 0, leftWhileRunning: false, promise: bgPromise };
+    const myBackground = backgroundAsk;
 
     // ★ 送信後すぐに assistant 吹き出しを optimistically 追加。空文字 +
     //   streaming:true で skeleton/cursor を出し、TTFT を体感的に短縮する。
@@ -771,6 +806,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       // この run の controller が現役なら掃除する (新しい送信が始まっていれば
       // 上書きしない)。
       if (abortRef.current === controller) abortRef.current = null;
+      myBackground.done = true;
+      myBackground.finishedAt = Date.now();
+      finishBackground();
       setStage(null);
       setBusy(false);
       setAborting(false);
@@ -807,7 +845,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // clearedAt を「今」にすることで、それ以降の新規メッセージだけが chat に
   // 出るようになる。
   const handleResolveAndClear = () => {
-    const now = new Date().toISOString();
+    // 境界は「保存済みの最新メッセージの時刻（サーバー時刻）」。端末の時計を使うと、
+    // 時計が進んでいる端末で次の質問と答えが会話から消えていた。
+    const saved = messages.filter((m) => m.createdAt && !/^(err|streaming|bg-wait)-/.test(String(m.id)));
+    const now = saved.length > 0
+      ? saved.reduce((a, m) => (m.createdAt > a ? m.createdAt : a), saved[0].createdAt)
+      : new Date().toISOString();
     setClearedAt(now);
     setPromptDismissed(false);
     try {
@@ -834,7 +877,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         // 押せば同じ質問の回答が二重生成されてしまう。
         setMessages((arr) => arr.filter((m) => !(m.role === 'assistant' && m.error)));
         // 既存の質問を answer し直すだけ — user 行は再 INSERT しない（重複防止）。
-        await ask(q, { skipUserInsert: true });
+        await ask(q, { skipUserInsert: true, questionAt: messages[i].createdAt });
         return;
       }
     }
@@ -1578,7 +1621,8 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
     if (!userId || !isSupabaseConfigured) return undefined;
     let alive = true;
     (async () => {
-      const { data } = await supabase.from('book_memos').select('book_id').eq('user_id', userId);
+      // 1000 件を超えても本ごとの件数が狂わないよう、ページを分けて全部数える。
+      const { data } = await fetchAllRows(() => supabase.from('book_memos').select('id, book_id').eq('user_id', userId).order('id', { ascending: true }));
       if (!alive) return;
       const m = new Map();
       (data || []).forEach((r) => { if (r.book_id) m.set(r.book_id, (m.get(r.book_id) || 0) + 1); });

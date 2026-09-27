@@ -1769,6 +1769,7 @@ function AuthedApp() {
     let booksMatched = 0;
     const pending = []; // { bookId, memos }
     const newBooks = [];
+    const srcDoneDate = new Map(); // もとからあった本 → 取り込み元の読了日
     for (let i = 0; i < items.length; i += 1) {
       const b = items[i];
       onProgress?.(i, items.length);
@@ -1777,6 +1778,7 @@ function AuthedApp() {
       const memos = [...(b.memos || [])];
       if (target) {
         booksMatched += 1;
+        if (b.doneDate) srcDoneDate.set(target.id, b.doneDate);
         // レビューは初回の取り込みで「まとめ」に入る。同じレビューをもう一度カードにしない。
         if (b.review && String(b.review).trim() !== String(target.leverageMemo || '').trim()) {
           memos.push({ text: b.review, page: null, createdAt: null });
@@ -1847,7 +1849,10 @@ function AuthedApp() {
     const withMemo = new Set(rows.map((r) => r.book_id).filter((id) => !newIds.has(id)));
     for (const id of withMemo) {
       const bk = booksRef.current.find((b) => b.id === id);
-      if (bk && (bk.status === 'want' || bk.status === 'before')) applyBookPatchQuiet(id, { status: 'done' });
+      // 読了日が無いと「月別の読了」に出ないので、取り込み元の読了日（無ければ今日）を入れる。
+      if (bk && (bk.status === 'want' || bk.status === 'before')) {
+        applyBookPatchQuiet(id, { status: 'done', doneDate: bk.doneDate || srcDoneDate.get(id) || todayLocal() });
+      }
     }
     invalidateKnowledgeCache();
     appCache?.notifyMemosChanged?.(); // ホームの相談カードの件数などを取り直させる

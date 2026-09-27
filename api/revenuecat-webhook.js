@@ -273,6 +273,7 @@ export default async function handler(req, res) {
             current_period_end: expIso,
           };
           if (status === 'canceled') row.canceled_at = new Date().toISOString();
+          else if (status === 'active') row.canceled_at = null;
           await upsertSubscriptionRow(supabase, row);
         }));
       }
@@ -311,6 +312,8 @@ export default async function handler(req, res) {
     if (['trial', 'intro', 'normal'].includes(periodType)) patch.period_type = periodType;
     // 📉 チャーン計測: canceled への遷移時刻を残す（supabase_subscriptions_canceled_at.sql）。
     if (status === 'canceled') patch.canceled_at = new Date().toISOString();
+    // 再開したら解約時刻を消す（戻ってきた人を解約に数え続けないように）。
+    else if (status === 'active') patch.canceled_at = null;
 
     // 二重 provider(Web=Stripe と IAP=RevenueCat)対策。subscriptions は user_id 1 行
     // なので、RC の expire/cancel イベントが「現在 active な Stripe 購読」を上書きして

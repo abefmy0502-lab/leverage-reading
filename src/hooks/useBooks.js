@@ -364,8 +364,10 @@ export function useBooks() {
         // ⚠️ 畳み込みは「未完了の増殖 spawn」対策に限定する。完了済み行は
         //   完了時期・振り返りが違う正当な履歴（同じ習慣を複数回完了した等）
         //   なので畳まない — 畳むと片方が差分 DELETE で静かに消える。
-        const key = a.done
-          ? `done#${a.id || `new-${doneSeq++}`}`
+        // 畳むのは「繰り返し」の行動だけ（増殖の原因はそこ）。繰り返しでない同じ文の行動は、
+        //   本人が 2 回入れたもの＝行動リストにも 2 件出ているので、黙って消さない。
+        const key = (a.done || !a.recurrence)
+          ? `keep#${a.id || `new-${doneSeq++}`}`
           : `${a.text.trim()}|${a.deadline || ''}|0|${a.recurrence || ''}`;
         const prev = dedupMap.get(key);
         // id を持つ行（永続済み）を優先的に残す。

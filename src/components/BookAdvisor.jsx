@@ -388,11 +388,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     } catch {
       return null;
     }
+    // 月の上限・お試しの終了なら、推薦にも進まず案内だけ出す（もう一度 AI を呼んでも同じ結果なので呼ばない）。
+    if (typeof text === 'string' && /^(今月の AI|AI 機能のご利用|お試しの相談)/.test(text)) return { stop: text };
     const parsed = parseInterview(text);
     if (!parsed) return null;
     // done でも質問が来ていても、最終ラウンドなら締める。
     if (parsed.done || round > MAX_INTERVIEW_ROUNDS) return [];
     return parsed.questions;
+  };
+
+  // 月の上限・お試しの終了: 失敗ではないので、再試行ボタンのない案内として出す（相談と同じ）。
+  const showLimitNotice = (message) => {
+    setRecoNotice(true);
+    setRecoError(message);
   };
 
   // 集めた回答を束ねて推薦生成へ。
@@ -680,6 +688,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
       qs = await runInterviewRound(c, [], 1);
       setInterviewLoading(false);
     }
+    if (qs?.stop) { showLimitNotice(qs.stop); return; }
     if (qs === null || qs.length === 0) {
       // 質問を組めなかった / いきなり done → 相談内容だけで直接推薦（graceful）
       // 注: concern state はまだ反映前なので c を直接渡す。
@@ -722,6 +731,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     (async () => {
       const qs = await runInterviewRound(concern, nextAnswers, nextRound);
       setInterviewLoading(false);
+      if (qs?.stop) { showLimitNotice(qs.stop); return; }
       if (qs === null || qs.length === 0) {
         // done もしくは失敗 → 集めた回答で推薦へ
         proceedToRecommend(nextAnswers);

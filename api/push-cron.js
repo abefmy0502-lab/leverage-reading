@@ -316,14 +316,23 @@ async function gatherUserNotes(supabase, userId, now) {
   // これらの列が未適用の DB では error が返るため、staged fallback で基本列のみ再取得する
   // （エラーで空配列に倒すと「間隔反復未適用の DB では通知が来ない」退行になるのを防ぐ）。
   const fetchMemos = async () => {
-    const full = await supabase
-      .from('book_memos')
-      .select('id, text, created_at, last_recalled_at, recall_count, source_type')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(500)
-      .then((r) => r, () => ({ data: null, error: true }));
-    if (full && !full.error && Array.isArray(full.data)) return full.data;
+    // 新しいメモ 250 件と、思い出していない期間がいちばん長いメモ 250 件を合わせる
+    // （新しい順だけだと、メモが多い人ほど古い＝忘れかけたメモが通知に出てこなかった）。
+    const cols = 'id, text, created_at, last_recalled_at, recall_count, source_type';
+    const [recent, oldest] = await Promise.all([
+      supabase.from('book_memos').select(cols).eq('user_id', userId)
+        .order('created_at', { ascending: false }).limit(250)
+        .then((r) => r, () => ({ data: null, error: true })),
+      supabase.from('book_memos').select(cols).eq('user_id', userId)
+        .order('last_recalled_at', { ascending: true, nullsFirst: true })
+        .order('created_at', { ascending: true }).limit(250)
+        .then((r) => r, () => ({ data: null, error: true })),
+    ]);
+    if (recent && !recent.error && Array.isArray(recent.data)) {
+      const seen = new Set();
+      return [...recent.data, ...((oldest && !oldest.error && oldest.data) || [])]
+        .filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
+    }
     // schema-error fallback: 間隔反復列なしで再取得（未適用 DB でも従来どおり動く）。
     const base = await supabase
       .from('book_memos')

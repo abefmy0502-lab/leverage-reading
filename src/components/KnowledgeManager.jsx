@@ -53,6 +53,7 @@ import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
 import { useLongPress } from '../hooks/useLongPress';
+import { fetchAllRows } from '../lib/fetchAllRows';
 
 // 一覧の本文は、読書計画シートなど Markdown で書かれたものも記号を見せずに出す（「## 🎯 …」「- …」）。
 function plainPreview(text) {
@@ -371,11 +372,13 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
       };
 
       const [memosRes, bookRows] = await Promise.all([
-        supabase
+        // 1000 件を超えても古いメモが消えないように、ページを分けて全部取る。
+        fetchAllRows(() => supabase
           .from('book_memos')
           .select('*, book:books(id, title, author)')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })),
         fetchBookFields(),
       ]);
       if (cancelled) return;
@@ -737,6 +740,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
             type="search"
             placeholder="本文・タイトル・著者・タグ"
             aria-label="根拠にできる情報を検索"
+            maxLength={100}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault(); }}

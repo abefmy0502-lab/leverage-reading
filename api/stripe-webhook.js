@@ -88,9 +88,10 @@ function subscriptionFields(sub) {
     current_period_end: toIso(sub?.current_period_end),
     // 📉 チャーン計測: 解約時刻（Stripe の canceled_at、無ければ現在時刻）。
     // canceled 以外では書かない（undefined キーは下の upsert ヘルパーが除去）。
+    // 再開（active / trialing）したら解約時刻を消す（戻ってきた人を解約に数え続けないように）。
     ...(sub?.status === 'canceled'
       ? { canceled_at: toIso(sub?.canceled_at) || new Date().toISOString() }
-      : {}),
+      : (sub?.status === 'active' || sub?.status === 'trialing') ? { canceled_at: null } : {}),
     // ⚠️ provider を必ず刻む。これが無いと revenuecat-webhook.js の
     // 「Stripe active 保護ガード」(provider==='stripe' 判定) が一度も発火せず、
     // iOS の失効イベントが Web 課金中ユーザーの行を canceled で上書きして

@@ -7,6 +7,7 @@ import { PROMPTS } from './prompts';
 import { track } from './analytics';
 import { MODEL_SMART, MODEL_FAST } from './models';
 import { apiUrl } from './apiUrl';
+import { fetchAllRows } from './fetchAllRows';
 
 const DEFAULT_MODEL = MODEL_SMART;
 const DEFAULT_MAX_TOKENS = 1024;
@@ -840,12 +841,15 @@ export async function buildGrowthBlock(userId, { scopeSet = null } = {}) {
   const acts = (actions || []).filter((a) => inScope(a.book_id));
   if (acts.length > 0) {
     const now = Date.now();
+    // 期限（'YYYY-MM-DD'）はその日の 0 時（端末の時刻）として読む。Date.parse だけだと
+    // 世界標準時の 0 時＝日本の朝 9 時になり、期限切れの判定が 9 時間ずれていた。
+    const dlOf = (d) => Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? `${d}T00:00:00` : d);
     const done = acts.filter((a) => a.done);
     const open = acts.filter((a) => !a.done);
-    const overdue = open.filter((a) => a.deadline && Date.parse(a.deadline) < now - 86400000);
+    const overdue = open.filter((a) => a.deadline && dlOf(a.deadline) < now - 86400000);
     const rate = Math.round((done.length / acts.length) * 100);
     const since30 = now - 30 * 86400000;
-    const due30 = acts.filter((a) => a.deadline && Date.parse(a.deadline) >= since30 && Date.parse(a.deadline) <= now);
+    const due30 = acts.filter((a) => a.deadline && dlOf(a.deadline) >= since30 && dlOf(a.deadline) <= now);
     const due30Done = due30.filter((a) => a.done);
     lines.push('', '■ 行動の実行状況');
     lines.push(`- これまでに決めた行動 ${acts.length} 件・完了 ${done.length} 件（完了率 ${rate}%）・まだ ${open.length} 件（うち期限切れ ${overdue.length} 件）`);
@@ -867,7 +871,7 @@ export async function buildGrowthBlock(userId, { scopeSet = null } = {}) {
     if (pending.length > 0) {
       lines.push('- まだの行動:');
       pending.forEach((a) => {
-        const late = a.deadline && Date.parse(a.deadline) < now - 86400000 ? '（期限切れ）' : '';
+        const late = a.deadline && dlOf(a.deadline) < now - 86400000 ? '（期限切れ）' : '';
         const dl = a.deadline ? `期限 ${day(a.deadline)}${late} ` : '期限なし ';
         const book = titleOf.get(a.book_id) ? `『${titleOf.get(a.book_id)}』から ` : '';
         lines.push(`  - ${dl}${book}${safeLine(a.text, 80)}`);
@@ -882,7 +886,8 @@ export async function buildGrowthBlock(userId, { scopeSet = null } = {}) {
     if (m.role !== 'user') return;
     const ans = asc.slice(i + 1).find((n) => n.role === 'assistant');
     // 答えの付いていない相談（いま送った問い・途中で止めたもの）は歩みに入れない
-    if (ans) pairs.push({ at: day(m.created_at), q: safeLine(m.content, 80), a: conclusionOf(ans.content) });
+    // 何も出る前に止めた答えも入れない（結論が無い）。
+    if (ans && !/^回答を中止しました/.test(String(ans.content || '').trim())) pairs.push({ at: day(m.created_at), q: safeLine(m.content, 80), a: conclusionOf(ans.content) });
   });
   const recentPairs = pairs.slice(-GROWTH_MAX_CHATS).reverse();
   if (recentPairs.length > 0) {
@@ -1382,15 +1387,19 @@ export async function listThemes(userId) {
 async function fetchUserActions(userId) {
   if (!isSupabaseConfigured || !userId) return [];
   try {
-    const { data, error } = await supabase
+    // 1000 件を超えても行動が欠けないよう、ページを分けて全部取る。
+    const { data, error } = await fetchAllRows(() => supabase
       .from('actions')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .order('id', { ascending: true }));
     if (error) {
       console.warn('[leverage-memo] actions fetch skipped:', error.message);
       return [];
     }
-    return data || [];
+    // 繰り返しの「次回分」（表示開始が未来）は行動リストでも出していないので、AI にも渡さない。
+    const now = Date.now();
+    return (data || []).filter((a) => !(a.scheduled_for && Date.parse(a.scheduled_for) > now));
   } catch (e) {
     console.warn('[leverage-memo] actions fetch threw:', e?.message);
     return [];
@@ -1712,18 +1721,9 @@ export async function setLeverageRecall({ userId, theme, core }) {
   const text = clamp(sanitizeForPrompt(String(core)), 280);
   if (!text) return { ok: false };
   try {
-    // 同テーマの旧・核心を削除（マーカー + テーマタグ の両方を持つ personal メモ）。
-    // マーカーは新旧両方を照合（旧名タグの既存行も置き換わるように）。
-    for (const marker of [LEVERAGE_RECALL_MARKER, LEVERAGE_RECALL_MARKER_LEGACY]) {
-      // eslint-disable-next-line no-await-in-loop
-      await supabase
-        .from('book_memos')
-        .delete()
-        .eq('user_id', userId)
-        .eq('source_type', 'personal')
-        .contains('tags', [marker, themeTag]);
-    }
-    const { error } = await supabase.from('book_memos').insert([{
+    // 先に新しい核心を保存し、成功してから同じテーマの古い核心を消す
+    // （逆の順だと、保存に失敗したときに古い核心だけが消えていた）。
+    const { data: inserted, error } = await supabase.from('book_memos').insert([{
       user_id: userId,
       book_id: null,
       source_type: 'personal',
@@ -1731,10 +1731,22 @@ export async function setLeverageRecall({ userId, theme, core }) {
       tags: [themeTag, LEVERAGE_RECALL_MARKER],
       page_number: null,
       photo_path: null,
-    }]);
+    }]).select('id').single();
     if (error) {
       console.warn('[leverage-memo] recall set skipped:', error.message);
       return { ok: false };
+    }
+    // 古い核心（マーカー + テーマタグ の両方を持つ personal メモ）。旧名のマーカーも照合する。
+    for (const marker of [LEVERAGE_RECALL_MARKER, LEVERAGE_RECALL_MARKER_LEGACY]) {
+      let q = supabase
+        .from('book_memos')
+        .delete()
+        .eq('user_id', userId)
+        .eq('source_type', 'personal')
+        .contains('tags', [marker, themeTag]);
+      if (inserted?.id) q = q.neq('id', inserted.id);
+      // eslint-disable-next-line no-await-in-loop
+      await q;
     }
     invalidateKnowledgeCache();
     return { ok: true };

@@ -14,6 +14,10 @@ const MAX_TOKENS_HARD_CAP = 4096; // アプリの最大要求（テーマまと�
 // メモリ肥大の予防）。Vercel の bodyParser 既定上限とは別の、アプリ層のガード。
 const MAX_BODY_BYTES = 1.5 * 1024 * 1024;
 const MAX_TEXT_CHARS = 150_000;
+// 🎁 お試し（未課金）の 1 回の上限。相談の材料（約 9,000 字＋歩み）が入る大きさ。
+const FREE_MAX_TEXT_CHARS = 30_000;
+const FREE_MAX_TOKENS = 3000;
+const FREE_MODEL = 'claude-haiku-4-5';
 
 // system + messages に含まれる文字の総数（画像は数えない）。
 function countTextChars(body) {
@@ -593,7 +597,10 @@ export default async function handler(req, res) {
     } catch {
       bodyBytes = 0; // 文字列化不能（循環参照等）は 0 扱いで先へ（実質起きない）
     }
-    if (bodyBytes > MAX_BODY_BYTES || countTextChars(body) > MAX_TEXT_CHARS) {
+    // 🎁 お試し（未課金）は原価の予約をしないので、1 回の大きさをここで小さく抑える
+    //    （改ざんしたアプリから大きな文章を送って原価を膨らませるのを防ぐ）。
+    const textCap = freeCall ? FREE_MAX_TEXT_CHARS : MAX_TEXT_CHARS;
+    if (bodyBytes > MAX_BODY_BYTES || countTextChars(body) > textCap) {
       return res.status(413).json({
         error: { message: 'リクエストが大きすぎます。画像のサイズを小さくして再度お試しください。' },
         error_code: 'payload_too_large',
@@ -667,11 +674,12 @@ export default async function handler(req, res) {
     const requestedTokens = Number.isFinite(body.max_tokens)
       ? Math.max(1, Math.floor(body.max_tokens))
       : MAX_TOKENS_DEFAULT;
-    const maxTokens = Math.min(requestedTokens, MAX_TOKENS_HARD_CAP);
+    const maxTokens = Math.min(requestedTokens, freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP);
     const wantsStream = body.stream === true;
 
     // モデルを allowlist で矯正（高単価モデルへの差し替え悪用を封じる）。
-    const model = pickModel(body);
+    // お試しは、いちばん安いモデルに固定する（相談・写真の書き起こし等はもともと Haiku）。
+    const model = freeCall ? FREE_MODEL : pickModel(body);
 
     // ★ 想定キーだけを allowlist で再構築する（client body の丸ごと転送をやめる）。
     // これまでは `{ ...body }` で tools / tool_choice / metadata / stop_sequences /
