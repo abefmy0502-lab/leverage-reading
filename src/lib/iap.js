@@ -217,6 +217,52 @@ export async function purchasePlan(plan, userId) {
   }
 }
 
+// 🪙➕ 追加トークン（消耗型の App 内課金）。
+// ⚠️ 消耗型は RevenueCat の entitlement に付けない（付けると hasActiveEntitlement が「契約中」と誤判定する）。
+//    消耗型は「購入を復元」の対象外（使えば無くなるため）。届いたトークンの真実は ai_token_lots（webhook が足す）。
+// ストアの価格（priceString）。取れなければ {}（画面は fallbackPrice を出す）。
+export async function getTokenPackPrices(productIds, userId) {
+  if (!(await ensureConfigured(userId))) return {};
+  try {
+    const Purchases = await loadPurchases();
+    const res = await Purchases.getProducts({ productIdentifiers: productIds, type: 'NON_SUBSCRIPTION' });
+    const out = {};
+    for (const p of res?.products || []) {
+      if (p?.identifier && p.priceString) out[p.identifier] = p.priceString;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+// 追加トークンを買う。戻り値 { ok: true } / { ok: false, cancelled: true }。その他の失敗は throw。
+export async function purchaseTokenPack(productId, userId) {
+  if (!(await ensureConfigured(userId))) {
+    throw new Error('App内課金を初期化できませんでした。');
+  }
+  if (userId && _loggedInAs !== userId) {
+    throw new Error('購入の準備ができませんでした。通信の良い場所で、もう一度お試しください。');
+  }
+  const Purchases = await loadPurchases();
+  let product = null;
+  try {
+    const res = await Purchases.getProducts({ productIdentifiers: [productId], type: 'NON_SUBSCRIPTION' });
+    product = (res?.products || []).find((p) => p?.identifier === productId) || null;
+  } catch { /* 下で案内 */ }
+  if (!product) throw new Error('購入できる商品が見つかりませんでした。');
+  try {
+    await Purchases.purchaseStoreProduct({ product });
+    return { ok: true };
+  } catch (e) {
+    const code = String(e?.code || '');
+    const msg = String(e?.message || e?.underlyingErrorMessage || '').toLowerCase();
+    const cancelled = e?.userCancelled === true || code === 'PURCHASE_CANCELLED_ERROR' || code === 'PURCHASE_CANCELLED' || /cancel/.test(msg);
+    if (cancelled) return { ok: false, cancelled: true };
+    throw e;
+  }
+}
+
 // 端末ローカルの entitlement（RevenueCat customerInfo）が有効か。
 // webhook→DB 反映を待たずに、購入/復元直後の本人を即アンロックするための即時判定。
 // （Web では isNative=false で即 false。RevenueCat SDK もロードされない＝無害）

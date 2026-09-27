@@ -179,7 +179,7 @@ export function buildSeed(scenario) {
   const db = {
     books: [], book_tags: [], book_collections: [], actions: [], book_memos: [],
     chat_messages: [], theme_reports: [], advisor_sessions: [], push_subscriptions: [],
-    analytics_events: [], feedback: [], account_deletion_requests: [],
+    analytics_events: [], feedback: [], account_deletion_requests: [], ai_token_lots: [],
     subscriptions: [{
       user_id: DEMO_USER_ID, status: 'active', provider: 'demo', price_id: 'demo',
       current_period_end: iso(-30), created_at: iso(200), updated_at: now,
@@ -208,6 +208,15 @@ export function buildSeed(scenario) {
   // ?demo=limit: 今月の 800 トークンを使い切った人（上限の案内の確認用）。
   if (scenario === 'limit') {
     db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: jstMonth, calls: 80, cost_mjpy: 240000 }];
+  }
+  // ?demo=tokens: 今月の 800 トークンを使い切り、買い足した分が 120 トークン残っている人。
+  if (scenario === 'tokens') {
+    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: jstMonth, calls: 98, cost_mjpy: 294000, lot_tokens: 180 }];
+    db.ai_token_lots = [{
+      id: '00000000-0000-4000-8000-0000000d0001', user_id: DEMO_USER_ID, tokens_total: 300, tokens_left: 120,
+      source: 'iap', transaction_id: 'demo-seed', product_id: 'orime_tokens_300', environment: 'sandbox',
+      purchased_at: iso(30), expires_at: iso(-150),
+    }];
   }
 
   const bookIds = BOOKS.map((_, i) => `00000000-0000-4000-8000-0000000b00${String(i).padStart(2, '0')}`);

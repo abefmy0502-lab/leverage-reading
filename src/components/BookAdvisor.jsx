@@ -163,7 +163,7 @@ const MAX_INTERVIEW_ROUNDS = 3;
 export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
-  const { requirePlan } = usePaywall();
+  const { requirePlan, canBuyTokens, openTokenSheet } = usePaywall();
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
   const activeControllerRef = useRef(null);
   const unmountedRef = useRef(false);
@@ -1398,6 +1398,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
           {keepDateTogether(recoError)}
         </p>
+      )}
+      {/* 🪙➕ プランの人がトークンを使い切ったら、案内のすぐ下に「トークンを追加」 */}
+      {recoError && !recoLoading && recoNotice && canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(recoError) && (
+        <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+          トークンを追加
+        </button>
       )}
       {recoError && !recoLoading && !recoNotice && (
         <ErrorMessage

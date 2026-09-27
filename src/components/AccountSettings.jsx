@@ -32,7 +32,7 @@ import { useSubscription } from '../hooks/useSubscription';
 import { openBillingPortal } from '../lib/billing';
 import { isNative, openManageSubscriptions } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
-import { PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
+import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
@@ -369,7 +369,15 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const { subscription, isActive, loading: subLoading } = useSubscription();
   // 🪙 プランと残りのトークン（PaywallGate が配る）。契約は「プランを見る」→ 有料プランの画面で
   //    （価格・自動更新の条件・復元・規約を 1 か所で見せる＝審査 3.1.2）。
-  const { plan, tokensRemaining, tokenAllowance, openPaywall } = usePaywall();
+  const { plan, tokensRemaining, tokenAllowance, openPaywall, purchasedTokens, purchasedExpiresAt, canBuyTokens, openTokenSheet } = usePaywall();
+  // 🪙➕ 追加トークンの行（残りがあるときだけ・いちばん近い期限つき）。
+  const lotRow = purchasedTokens > 0 ? (
+    <ValueRow
+      label="追加分"
+      value={`${purchasedTokens.toLocaleString()} トークン${purchasedExpiresAt ? `（${monthDayLabelJa(purchasedExpiresAt)}まで）` : ''}`}
+      style={divider}
+    />
+  ) : null;
   const [billingBusy, setBillingBusy] = useState(false);
 
   // 📊 利用状況の記録（製品改善のためのファーストパーティ計測）。既定 ON。
@@ -804,6 +812,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {tokensRemaining != null && (
                   <ValueRow label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
                 )}
+                {lotRow}
+                {canBuyTokens && (
+                  <button type="button" onClick={openTokenSheet} style={{ ...rowButtonStyle, ...divider }}>
+                    <span style={{ ...rowTitleStyle, flex: 1 }}>トークンを追加</span>
+                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  </button>
+                )}
                 <div style={{ ...blockStyle, ...divider }}>
                   {/* 管理ボタンを出せる状態かどうかで説明文を出し分ける。
                       出せない（Web で stripeCustomerId 未同期 / 付与契約 等）のに
@@ -856,6 +871,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {tokensRemaining != null && (
                   <ValueRow label="今月の残り" value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
                 )}
+                {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
                     AI は相談だけ（1 回 約 {TOKEN_COSTS.consult} トークン）。プランは毎月 {PAID_TOKENS} トークンで、すべての AI 機能。

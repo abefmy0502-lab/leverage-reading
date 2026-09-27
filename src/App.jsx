@@ -138,7 +138,9 @@ import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 import { PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
-import { periodKeyFor, fetchUsedMjpy, remainingTokens, allowanceFor as allowanceForPlan } from './lib/tokens';
+import { periodKeyFor, fetchUsedMjpy, fetchLotBalance, remainingTokens, allowanceFor as allowanceForPlan } from './lib/tokens';
+// 🪙➕ トークンを追加（買い足し）のシート
+const TokenSheet = lazy(() => import('./components/TokenSheet'));
 import { PaywallContext, usePaywall } from './state/PaywallContext';
 import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
@@ -5221,9 +5223,18 @@ function PaywallGate() {
   // 🪙 残りのトークン（src/lib/tokens.js・表示だけ。止めるのはサーバー）。
   const [usedMjpy, setUsedMjpy] = useState(null); // null=未確認・読めない
   const tokenKey = plan === 'admin' ? null : periodKeyFor(plan, { periodEnd: trialEndsAt });
+  // 🪙➕ 追加トークン（買い足し・期限内の合計といちばん近い期限）。表が無ければ null＝出さない。
+  const [lots, setLots] = useState(null);
+  const lotsRef = useRef(null);
+  // 戻り値: 追加分が前より増えたか（買ったあとの取り直しに使う）。
   const refreshTokens = useCallback(async () => {
-    if (!user?.id || !tokenKey) { setUsedMjpy(null); return; }
-    setUsedMjpy(await fetchUsedMjpy(user.id, tokenKey));
+    if (!user?.id || !tokenKey) { setUsedMjpy(null); setLots(null); lotsRef.current = null; return false; }
+    const [used, lot] = await Promise.all([fetchUsedMjpy(user.id, tokenKey), fetchLotBalance(user.id)]);
+    const grew = (lot?.balance || 0) > (lotsRef.current?.balance || 0);
+    lotsRef.current = lot;
+    setUsedMjpy(used);
+    setLots(lot);
+    return grew;
   }, [user?.id, tokenKey]);
   useEffect(() => {
     if (loading || !adminChecked) return;
@@ -5237,13 +5248,21 @@ function PaywallGate() {
   }, [refreshTokens]);
   const tokenAllowance = allowanceForPlan(plan);
   const tokensRemaining = usedMjpy == null || tokenAllowance == null ? null : remainingTokens(tokenAllowance, usedMjpy);
+  const purchasedTokens = plan === 'admin' ? 0 : (lots?.balance || 0);
   const freeMode = plan === 'free';
+  // 買い足せるのはプランの人（有料・7 日間無料）だけ。
+  const canBuyTokens = plan === 'paid' || plan === 'trial';
+  const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
 
   // アプリの上に重ねて開く有料プランの画面（{ reason, feature }）。いつでも × / 「あとで」で閉じられる。
   //   reason: 'free_used'（今月の無料のトークンを使い切った）/ 'feature'（プランで使える機能）/ null（プランを見る）
   const [paywall, setPaywall] = useState(null);
   useEffect(() => {
-    const onReq = (e) => setPaywall({ reason: e?.detail?.reason ?? 'feature', feature: e?.detail?.feature || '' });
+    // reason: null は「プランを見る」（見出しは一般の価値）。指定が無いときは機能の案内。
+    const onReq = (e) => {
+      const d = e?.detail || {};
+      setPaywall({ reason: 'reason' in d ? d.reason : 'feature', feature: d.feature || '' });
+    };
     window.addEventListener(PAYWALL_EVENT, onReq);
     return () => window.removeEventListener(PAYWALL_EVENT, onReq);
   }, []);
@@ -5257,6 +5276,12 @@ function PaywallGate() {
       trialEndsAt,
       tokenAllowance,
       tokensRemaining,
+      // 追加トークン（買い足し）の残りと、いちばん近い期限。使えるのは その月の分＋追加分。
+      purchasedTokens,
+      purchasedExpiresAt: lots?.nextExpiry || null,
+      tokensAvailable: tokensRemaining == null ? null : tokensRemaining + purchasedTokens,
+      canBuyTokens,
+      openTokenSheet: () => { if (canBuyTokens) setTokenSheetOpen(true); },
       refreshTokens,
       // 旧名（お試しの頃の呼び方）。無料プランの残りのトークン。
       freeRemaining: freeMode ? tokensRemaining : null,
@@ -5269,7 +5294,7 @@ function PaywallGate() {
         return false;
       },
     };
-  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, refreshTokens]);
+  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens]);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。
@@ -5347,6 +5372,11 @@ function PaywallGate() {
             />
           </Suspense>
         </div>
+      )}
+      {tokenSheetOpen && canBuyTokens && (
+        <Suspense fallback={null}>
+          <TokenSheet onClose={() => setTokenSheetOpen(false)} onPurchased={refreshTokens} />
+        </Suspense>
       )}
     </PaywallContext.Provider>
   );

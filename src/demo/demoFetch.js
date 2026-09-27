@@ -294,7 +294,13 @@ export function installDemoFetch(store) {
       let row = rows.find((r) => r.period_month === key);
       if (!row) { row = { user_id: store.session?.user?.id, period_month: key, calls: 0, cost_mjpy: 0 }; rows.push(row); }
       const used = Math.ceil((row.cost_mjpy || 0) / 300 - 1e-9);
-      if (used >= allowance) {
+      // 追加トークン（買い足し）: その月の分を使い切ったら、期限の近いロットから使う（supabase_ai_token_credits.sql と同じ）。
+      const nowIso = new Date().toISOString();
+      const lots = store.table('ai_token_lots')
+        .filter((l) => l.tokens_left > 0 && l.expires_at > nowIso)
+        .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)));
+      const lotBalance = lots.reduce((n, l) => n + l.tokens_left, 0);
+      if (used >= allowance + (row.lot_tokens || 0) + lotBalance) {
         if (tier === 'free') {
           return json({ error: { message: `今月のトークンは、ここまでです。${nextFirst}に 30 トークンに戻ります。` }, error_code: 'free_limit_reached' }, 402);
         }
@@ -306,6 +312,17 @@ export function installDemoFetch(store) {
       // 使った量（目安）: 相談 約 9 トークン・AI 選書 約 20・そのほか 約 3。
       row.calls += 1;
       row.cost_mjpy = (row.cost_mjpy || 0) + (payload.purpose === 'consult' ? 2760 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900);
+      // その月の分を超えた分を、追加分から差し引く（settle_token_overflow）。
+      let need = Math.max(0, Math.ceil(row.cost_mjpy / 300 - 1e-9) - allowance) - (row.lot_tokens || 0);
+      if (need > 0) {
+        row.lot_tokens = (row.lot_tokens || 0) + need;
+        for (const l of lots) {
+          if (need <= 0) break;
+          const take = Math.min(l.tokens_left, need);
+          l.tokens_left -= take;
+          need -= take;
+        }
+      }
       await new Promise((r) => setTimeout(r, 500));
       const text = aiReply(store, payload);
       if (payload.stream) return sseResponse(text);

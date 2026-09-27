@@ -195,7 +195,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const confirm = useConfirm();
   const haptic = useHaptic();
   // テーマまとめはプランの機能（フリーミアム）。無料プランなら作る前に有料プランの画面を開く。
-  const { requirePlan } = usePaywall();
+  const { requirePlan, canBuyTokens, openTokenSheet } = usePaywall();
 
   const [view, setView] = useState('create'); // 'create' | 'history'
   const [themes, setThemes] = useState([]);
@@ -691,9 +691,17 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                 />
               ) : notice ? (
                 // 案内（月の上限・関連するメモが無い 等）は AI 選書の案内カードと同じ形（カード＋15/--text・アイコンなし）。
-                <p role="status" style={{ ...card, margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 'var(--text-sub)', color: 'var(--text)', wordBreak: 'auto-phrase' }}>
-                  {keepDateTogether(notice)}
-                </p>
+                <>
+                  <p role="status" style={{ ...card, margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 'var(--text-sub)', color: 'var(--text)', wordBreak: 'auto-phrase' }}>
+                    {keepDateTogether(notice)}
+                  </p>
+                  {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」 */}
+                  {canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(notice) && (
+                    <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+                      トークンを追加
+                    </button>
+                  )}
+                </>
               ) : showStageBlock ? (
                 <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} aria-live="polite" aria-busy="true">
                   <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>

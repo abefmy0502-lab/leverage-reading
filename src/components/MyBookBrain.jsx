@@ -318,9 +318,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const confirm = useConfirm();
   // 🪙 プランと残りのトークン（src/lib/tokens.js・止めるのはサーバー）。上部に 1 行「今月の残り N トークン」。
   //    無料プラン（相談だけ）で使い切ったら、答えの下で静かに案内＋有料プランの画面へ。
-  const { plan, freeMode, tokensRemaining, tokenAllowance, refreshTokens, openPaywall } = usePaywall();
+  const { plan, freeMode, tokensRemaining, tokenAllowance, purchasedTokens, tokensAvailable, canBuyTokens, openTokenSheet, refreshTokens, openPaywall } = usePaywall();
   const [monthLimitHit, setMonthLimitHit] = useState(false); // トークンの上限に達した（サーバーの 429）
-  const freeUsedUp = freeMode && tokensRemaining != null && tokensRemaining <= 0;
+  // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
+  useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
+  const freeUsedUp = freeMode && tokensAvailable != null && tokensAvailable <= 0;
+  // プランの人（有料・無料期間）がトークンを使い切った（サーバーの 429 か、残りが 0）。
+  const planOut = canBuyTokens && (monthLimitHit || (tokensAvailable != null && tokensAvailable <= 0));
+  const outOfTokens = monthLimitHit || planOut;
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
   // 押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）のあいだは、親がサブタブを隠せるように知らせる
   // （見出しが 3 段に重ならないように）。離れるときは必ず false に戻す。
@@ -1086,7 +1091,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
               {tokensRemaining != null && (
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                  {plan === 'trial' ? '無料期間' : '今月'}の残り <span style={{ whiteSpace: 'nowrap' }}>{tokensRemaining} トークン</span>
+                  {plan === 'trial' ? '無料期間' : '今月'}の残り <span style={{ whiteSpace: 'nowrap' }}>{tokensRemaining}{purchasedTokens > 0 ? <> ＋追加 {purchasedTokens}</> : null} トークン</span>
                 </span>
               )}
               {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
@@ -1307,6 +1312,31 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </button>
             </section>
           )}
+          {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているときはボタンだけ） */}
+          {planOut && !busy && (lastIsAssistant || isEmpty) && (
+            isEmpty ? (
+              <section
+                aria-label="トークンは、ここまで"
+                style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}
+              >
+                <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+                  {plan === 'trial' ? '無料期間のトークンは、ここまでです' : '今月のトークンは、ここまでです'}
+                </p>
+                {plan !== 'trial' && (
+                  <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                    <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{tokenAllowance} トークン</span>に戻ります
+                  </p>
+                )}
+                <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+                  トークンを追加
+                </button>
+              </section>
+            ) : (
+              <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)' }}>
+                トークンを追加
+              </button>
+            )
+          )}
 
           {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
@@ -1368,10 +1398,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 if (e.nativeEvent.isComposing) return;
                 if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
-                  if (!monthLimitHit) ask();
+                  if (!outOfTokens) ask();
                 }
               }}
-              placeholder={monthLimitHit ? (plan === 'trial' ? '無料期間のトークンは、ここまでです' : `${nextResetLabelJa()}から相談できます`) : freeUsedUp ? `${nextResetLabelJa()}にまた相談できます` : '例：上司への報告がうまくいかない'}
+              placeholder={outOfTokens ? (plan === 'trial' ? '無料期間のトークンは、ここまでです' : `${nextResetLabelJa()}から相談できます`) : freeUsedUp ? `${nextResetLabelJa()}にまた相談できます` : '例：上司への報告がうまくいかない'}
               rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}
@@ -1395,7 +1425,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 className="send-btn"
                 onClick={() => ask()}
                 // 今月の上限に達したら送れない（押せない主ボタンの見た目＝--fill の面・DESIGN §5）。
-                disabled={!input.trim() || monthLimitHit}
+                disabled={!input.trim() || outOfTokens}
                 aria-label="送信"
                 title="送信"
               >

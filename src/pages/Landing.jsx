@@ -634,7 +634,7 @@ export default function Landing() {
               </div>
             </div>
             <ul className="lp-included" aria-label="どちらのプランにも含まれるもの">
-              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />相談が毎月 {PAID_TOKENS} トークン（約 80 回）</li>
+              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />相談が毎月 {PAID_TOKENS} トークン（約 80 回）。足りない月は追加もできます</li>
               <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />AI 選書・テーマまとめ・読書計画シート・写真からの書き起こし</li>
               <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />本とメモは、無料でも何件でも登録できます</li>
             </ul>

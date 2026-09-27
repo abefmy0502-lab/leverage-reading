@@ -8,6 +8,7 @@
 //   無料（契約なし）: 相談だけ・毎月 30 トークン（行 'free-YYYY-MM'）
 //   無料期間（7 日間）: すべての AI・期間まるごとで 150 トークン（行 'trial-YYYY-MM-DD'＝終わる日）
 //   プラン: すべての AI・毎月 800 トークン（行 'YYYY-MM'）
+//   追加トークン: プランの人が買い足せる（TOKEN_PACKS・購入から 180 日）
 
 import { supabase, isSupabaseConfigured } from './supabase';
 
@@ -28,6 +29,49 @@ export const TOKEN_COSTS = {
   condense: 1, // 凝縮
   cardsToSummary: 3, // メモからまとめを作る
 };
+
+// 🪙➕ 追加トークン（買い足し・プランの人だけ）。App Store の消耗型の App 内課金（RevenueCat）。
+// サーバーの api/_tokenLots.js（AI_TOKEN_PACKS）と揃える。VITE_TOKEN_PACKS='id:tokens:¥価格,…' で上書き。
+// 価格の真実は App Store（ストアの値が取れないときだけ fallbackPrice を出す）。consults＝相談の目安。
+// 期限は購入から TOKEN_LOT_DAYS 日（資金決済法: 6 か月以内）。使う順は その月の分 → 追加分（期限の近い順）。
+export const TOKEN_LOT_DAYS = 180;
+const DEFAULT_TOKEN_PACKS = [
+  { id: 'orime_tokens_300', tokens: 300, fallbackPrice: '¥300', tag: '' },
+  { id: 'orime_tokens_1000', tokens: 1000, fallbackPrice: '¥800', tag: 'お得' },
+];
+function parsePacks(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const packs = raw.split(',').map((p) => {
+    const [id, n, price] = p.split(':').map((x) => (x || '').trim());
+    const tokens = Math.floor(Number(n));
+    return id && tokens > 0 ? { id, tokens, fallbackPrice: price || '', tag: '' } : null;
+  }).filter(Boolean);
+  return packs.length ? packs : null;
+}
+export const TOKEN_PACKS = (parsePacks(import.meta.env?.VITE_TOKEN_PACKS) || DEFAULT_TOKEN_PACKS)
+  .map((p) => ({ ...p, consults: `約 ${Math.round(p.tokens / TOKEN_COSTS.consult)} 回分` }));
+
+// 追加分の残り（期限内の合計）といちばん近い期限（本人の行だけ読める）。表が無い・読めないときは null。
+export async function fetchLotBalance(userId) {
+  if (!isSupabaseConfigured || !userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('ai_token_lots')
+      .select('tokens_left, expires_at')
+      .eq('user_id', userId)
+      .gt('tokens_left', 0)
+      .gt('expires_at', new Date().toISOString())
+      .order('expires_at', { ascending: true });
+    if (error) return null;
+    const rows = Array.isArray(data) ? data : [];
+    return {
+      balance: rows.reduce((n, r) => n + Math.max(0, Math.floor(Number(r.tokens_left) || 0)), 0),
+      nextExpiry: rows[0]?.expires_at || null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 const TOKEN_MJPY = Math.round(AI_TOKEN_JPY * 1000);
 
