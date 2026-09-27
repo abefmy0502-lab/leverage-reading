@@ -14,6 +14,7 @@
 // 出力: { cover, isbn }（cover が '' なら未発見）。認証なし・公開書誌の読み取り専用。
 
 import https from 'node:https';
+import { applyCors } from './_cors.js';
 
 function clean(s) {
   return (s || '').toString().trim().slice(0, 300);
@@ -94,8 +95,12 @@ function extractIsbns(xml, limit = 5) {
   return found;
 }
 
+// 外部 1 回あたりの待ち時間の上限。1 つの取得元が固まっても、表紙の解決全体が
+// 関数の実行時間（課金）を食いつぶさないようにする。
+const FETCH_TIMEOUT_MS = 4000;
+
 async function ndlFetch(params) {
-  const r = await fetch(`https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`);
+  const r = await fetch(`https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!r.ok) { ndlFetch._lastStatus = r.status; return ''; }
   ndlFetch._lastStatus = r.status;
   return r.text();
@@ -226,6 +231,7 @@ async function googleFetchVolumes(q, max = 10) {
   try {
     const r = await fetch(
       `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=${max}&country=JP${key}`,
+      { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
     );
     googleFetchVolumes._lastStatus = r.status;
     if (!r.ok) return [];
@@ -332,7 +338,7 @@ function rakutenGet(urlStr, referer) {
       },
     );
     req.on('error', reject);
-    req.setTimeout(8000, () => req.destroy(new Error('timeout')));
+    req.setTimeout(FETCH_TIMEOUT_MS, () => req.destroy(new Error('timeout')));
     req.end();
   });
 }
@@ -442,7 +448,7 @@ const BROWSER_HEADERS = {
 async function imageIsReal(url) {
   if (!url) return false;
   try {
-    const r = await fetch(url, { method: 'GET', headers: BROWSER_HEADERS });
+    const r = await fetch(url, { method: 'GET', headers: BROWSER_HEADERS, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!r.ok) return false;
     const ct = r.headers.get('content-type') || '';
     if (!/^image\//i.test(ct)) return false;
@@ -520,6 +526,8 @@ function clientKey(req) {
 }
 
 export default async function handler(req, res) {
+  // iOS アプリ（capacitor://localhost）からの呼び出しを許可。
+  if (applyCors(req, res, 'GET, OPTIONS')) return undefined;
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });

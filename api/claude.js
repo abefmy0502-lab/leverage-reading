@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import { applyCors } from './_cors.js';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
 const MAX_TOKENS_DEFAULT = 4096;
-const MAX_TOKENS_HARD_CAP = 8192;
+const MAX_TOKENS_HARD_CAP = 4096; // アプリの最大要求（テーマまとめ等）と同じ。改造クライアントでの出力青天井を防ぐ
 
 // リクエスト body の上限バイト数。vision（写真→AI 書き起こし / 表紙）は
 // クライアントで長辺 1568px JPEG に縮小済み（src/lib/image.js）なので、正規利用
@@ -11,6 +12,26 @@ const MAX_TOKENS_HARD_CAP = 8192;
 // メッセージの注入）」とみなして 413 で弾く（upstream への過大トークン課金 +
 // メモリ肥大の予防）。Vercel の bodyParser 既定上限とは別の、アプリ層のガード。
 const MAX_BODY_BYTES = 1.5 * 1024 * 1024;
+const MAX_TEXT_CHARS = 150_000;
+
+// system + messages に含まれる文字の総数（画像は数えない）。
+function countTextChars(body) {
+  let n = 0;
+  const add = (v) => {
+    if (typeof v === 'string') { n += v.length; return; }
+    if (Array.isArray(v)) {
+      for (const b of v) {
+        if (typeof b === 'string') n += b.length;
+        else if (b && typeof b.text === 'string') n += b.text.length;
+        else if (b && Array.isArray(b.content)) add(b.content);
+        else if (b && typeof b.content === 'string') n += b.content.length;
+      }
+    }
+  };
+  add(body?.system);
+  if (Array.isArray(body?.messages)) add(body.messages);
+  return n;
+}
 // 1 リクエストの最大メッセージ数。会話履歴（AI 選書 / マイ読書脳）でも通常 30
 // 前後。汎用 LLM プロキシ悪用で巨大配列を投げられるのを防ぐ安全側の上限。
 const MAX_MESSAGES = 60;
@@ -196,6 +217,49 @@ async function isAdminUser(userId) {
   }
 }
 
+// 🧾 RevenueCat に直接たずねる（subscriptions に有効な行が無いときの確認）。
+// ・App Review / TestFlight のサンドボックス購入（webhook は既定で書き込まない）
+// ・購入直後で webhook がまだ届いていない
+// ・webhook が匿名 ID で届き、行を作れなかった
+// のいずれでも、課金済みの人を 402 で止めない。env REVENUECAT_SECRET_API_KEY（RevenueCat の
+// Secret API key・sk_...）が無ければ何もしない。結果は 10 分だけ覚えて、呼び出しを増やさない。
+const RC_CACHE_MS = 10 * 60 * 1000;
+const rcCache = new Map();
+async function checkRevenueCat(userId) {
+  const key = process.env.REVENUECAT_SECRET_API_KEY;
+  if (!key) return null;
+  const hit = rcCache.get(userId);
+  if (hit && Date.now() - hit.at < RC_CACHE_MS) return hit.value;
+  let value = null;
+  try {
+    const r = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      const sub = d?.subscriber || {};
+      const now = Date.now();
+      const active = Object.values(sub.entitlements || {}).find((e) => !e?.expires_date || Date.parse(e.expires_date) > now);
+      if (active) {
+        const product = sub.subscriptions?.[active.product_identifier] || {};
+        value = { allowed: true, trial: product.period_type === 'trial' || product.period_type === 'intro' };
+      } else {
+        value = { allowed: false };
+      }
+    }
+  } catch (e) {
+    console.warn('[entitlement] revenuecat check failed:', e?.message);
+    return null; // 分からないときは覚えない
+  }
+  if (rcCache.size > 5000) rcCache.clear();
+  rcCache.set(userId, { at: Date.now(), value });
+  return value;
+}
+
+// 期限切れの猶予（webhook の遅れを吸収する）
+const PERIOD_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+
 async function checkEntitlement(userId) {
   const supabase = getServiceSupabase();
   if (!supabase) return { allowed: true }; // 判定不能なら通す（fail-open）
@@ -210,13 +274,13 @@ async function checkEntitlement(userId) {
         // 選択が失敗するので、schema-error 時は status のみで再取得し従来挙動へ degrade。
         let { data, error } = await supabase
           .from('subscriptions')
-          .select('status, period_type')
+          .select('status, period_type, current_period_end')
           .eq('user_id', userId)
           .maybeSingle();
         if (error && /period_type/.test(error.message || '')) {
           ({ data, error } = await supabase
             .from('subscriptions')
-            .select('status')
+            .select('status, current_period_end')
             .eq('user_id', userId)
             .maybeSingle());
         }
@@ -231,11 +295,19 @@ async function checkEntitlement(userId) {
       console.warn('[entitlement] check failed (fail-open):', error.message);
       return { allowed: true };
     }
-    const allowed = data?.status === 'active';
+    // active でも、期限（current_period_end）を猶予 3 日以上過ぎていれば有効とみなさない
+    // （EXPIRATION の取りこぼし・遅れて届いた古いイベントで active が残る事故の防止）。
+    const end = data?.current_period_end ? Date.parse(data.current_period_end) : NaN;
+    const expired = Number.isFinite(end) && end < Date.now() - PERIOD_GRACE_MS;
+    const allowed = data?.status === 'active' && !expired;
     // 無料期間（trial/intro）中だけ低い AI 上限を適用。有料（normal/null）は通常上限。
     const pt = data?.period_type;
     const limit = (pt === 'trial' || pt === 'intro') ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT;
-    return { allowed, limit };
+    if (allowed) return { allowed, limit };
+    // 行が無い・有効でないときは、RevenueCat に直接確認（審査のサンドボックス購入・webhook の遅れ）。
+    const rc = await checkRevenueCat(userId);
+    if (rc?.allowed) return { allowed: true, limit: rc.trial ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT };
+    return { allowed: false, limit };
   } catch (e) {
     console.warn('[entitlement] check threw (fail-open):', e?.message);
     return { allowed: true };
@@ -341,6 +413,8 @@ function getBearerToken(req) {
 }
 
 export default async function handler(req, res) {
+  // iOS アプリ（capacitor://localhost）からの呼び出しを許可（プリフライト込み）。
+  if (applyCors(req, res, 'POST, OPTIONS')) return undefined;
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -402,6 +476,27 @@ export default async function handler(req, res) {
     });
   }
 
+  // body の大きさの上限（過大トークン課金 / メモリ肥大の予防）。月次枠を予約する前に弾く
+  // （弾かれたリクエストで今月の回数を減らさない）。
+  // ① JSON のバイト長（画像込み）② 文字の総量（画像を除く system + messages の文字数）。
+  //    ②はアプリの最大（相談の根拠ブロック 約 6 万字）の 2 倍強。改造クライアントで
+  //    1 回に何十万字も送って入力トークン課金を膨らませるのを防ぐ。
+  {
+    const body = req.body || {};
+    let bodyBytes = 0;
+    try {
+      bodyBytes = Buffer.byteLength(JSON.stringify(body), 'utf8');
+    } catch {
+      bodyBytes = 0; // 文字列化不能（循環参照等）は 0 扱いで先へ（実質起きない）
+    }
+    if (bodyBytes > MAX_BODY_BYTES || countTextChars(body) > MAX_TEXT_CHARS) {
+      return res.status(413).json({
+        error: { message: 'リクエストが大きすぎます。画像のサイズを小さくして再度お試しください。' },
+        error_code: 'payload_too_large',
+      });
+    }
+  }
+
   // 月次累積上限（KGI 原価ガード）。原子的な reserve で check-and-increment を行い
   // TOCTOU（並行リクエストが同じ pre-increment 値を読んで全通過）を封じる。
   // entitlement 通過後にだけ予約する（未課金の予約を作らない）。fail-open（RPC 未適用/
@@ -417,21 +512,6 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {};
-
-    // body サイズの上限ガード（過大トークン課金 / メモリ肥大の予防）。
-    // JSON 文字列のバイト長で概算。超過なら upstream に流す前に 413 で弾く。
-    let bodyBytes = 0;
-    try {
-      bodyBytes = Buffer.byteLength(JSON.stringify(body), 'utf8');
-    } catch {
-      bodyBytes = 0; // 文字列化不能（循環参照等）は 0 扱いで先へ（実質起きない）
-    }
-    if (bodyBytes > MAX_BODY_BYTES) {
-      return res.status(413).json({
-        error: { message: 'リクエストが大きすぎます。画像のサイズを小さくして再度お試しください。' },
-        error_code: 'payload_too_large',
-      });
-    }
 
     const requestedTokens = Number.isFinite(body.max_tokens)
       ? Math.max(1, Math.floor(body.max_tokens))
@@ -563,6 +643,8 @@ export default async function handler(req, res) {
       // アカウント未対応でも全 AI 停止を回避する（過去の同種事故の恒久対策）。
       if (response && response.status === 404 && payload.model !== FALLBACK_MODEL) {
         console.warn('[claude] model not found, falling back:', payload.model, '→', FALLBACK_MODEL);
+        // 404 の本文は読まないので閉じておく（接続を握ったままにしない）
+        try { await response.body?.cancel(); } catch { /* no-op */ }
         payload.model = FALLBACK_MODEL;
         // sonnet-4-6 は thinking 省略 = OFF（既定）。sonnet-5 向けに付けた明示
         // disabled は 4.6 では非対応の可能性があるため外す（挙動は同じ OFF）。

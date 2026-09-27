@@ -127,8 +127,13 @@ function resolveStatus(type, expirationMs) {
     case 'INITIAL_PURCHASE':
     case 'RENEWAL':
     case 'UNCANCELLATION':
-    case 'PRODUCT_CHANGE':
+    case 'PRODUCT_CHANGE': {
+      // 遅れて届いた RENEWAL などで、すでに期限が過ぎているなら active にしない
+      // （EXPIRATION の後に古いイベントが着いて、ずっと active のまま残る事故の防止）。
+      const exp = Number(expirationMs);
+      if (Number.isFinite(exp) && exp > 0 && exp <= Date.now()) return 'canceled';
       return 'active';
+    }
     case 'BILLING_ISSUE':
       return 'past_due';
     case 'CANCELLATION':

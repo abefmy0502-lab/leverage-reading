@@ -14,6 +14,7 @@
 //   ではなくストア課金フローへ振り分ける想定（今回は Web 専用でスコープ外）。
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import { apiUrl } from './apiUrl';
 
 // ───────────────────────────────────────────────────────────────────
 // プラン表示ラベル（表示専用 / 金額の真実ではない）
@@ -56,7 +57,7 @@ async function postJson(path, body) {
   if (!accessToken) {
     throw new Error('ログインが必要です。');
   }
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

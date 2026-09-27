@@ -76,14 +76,23 @@ export async function ensureConfigured(userId) {
     _configured = true;
   }
   if (userId) {
-    try {
-      await Purchases.logIn({ appUserID: userId });
-    } catch {
-      /* ログイン失敗は致命ではない (匿名IDのまま購入は可能) */
+    // 匿名 ID のまま購入されると、サーバー（webhook）がどのユーザーの購入か分からず、
+    // 課金したのに AI が使えない状態になる。1 回だけやり直し、それでも駄目なら false を返す
+    // （購入の前に呼ぶ purchasePlan はここで止めて、あとで試すよう案内する）。
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await Purchases.logIn({ appUserID: userId });
+        _loggedInAs = userId;
+        break;
+      } catch {
+        _loggedInAs = null;
+      }
     }
   }
   return true;
 }
+let _loggedInAs = null;
 
 async function getCurrentOffering() {
   const Purchases = await loadPurchases();
@@ -180,6 +189,9 @@ async function trialEligibility(products) {
 export async function purchasePlan(plan, userId) {
   if (!(await ensureConfigured(userId))) {
     throw new Error('App内課金を初期化できませんでした。');
+  }
+  if (userId && _loggedInAs !== userId) {
+    throw new Error('購入の準備ができませんでした。通信の良い場所で、もう一度お試しください。');
   }
   const Purchases = await loadPurchases();
   const offering = await getCurrentOffering();

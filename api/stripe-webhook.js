@@ -102,6 +102,18 @@ function subscriptionFields(sub) {
 // subscriptions への upsert。canceled_at 列が未適用の DB では列を抜いて再試行する
 // （supabase_subscriptions_canceled_at.sql 未適用でも webhook を止めない）。
 async function upsertSubscriptionRow(supabase, row) {
+  // App 課金（RevenueCat）で有効な人の行を、古い Stripe 購読の解約・支払い失敗で上書きしない
+  // （Web で解約 → iOS で再開した人が AI を 402 で止められる事故の防止。revenuecat 側の逆向きガードと対）。
+  if (row.user_id && row.status !== 'active') {
+    try {
+      const { data: cur } = await supabase
+        .from('subscriptions')
+        .select('provider, status')
+        .eq('user_id', row.user_id)
+        .maybeSingle();
+      if (cur && cur.provider === 'revenuecat' && cur.status === 'active') return;
+    } catch { /* 読めなければ従来どおり書く */ }
+  }
   let { error } = await supabase.from('subscriptions').upsert(row, { onConflict: 'user_id' });
   if (error && 'canceled_at' in row && /canceled_at/i.test(error.message || '')) {
     const { canceled_at: _omit, ...rest } = row;

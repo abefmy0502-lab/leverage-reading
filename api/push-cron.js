@@ -34,6 +34,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { timingSafeEqual as cryptoTimingSafeEqual, sign as cryptoSign } from 'node:crypto';
 import http2 from 'node:http2';
+// package.json は "type":"module" なので require は使えない（以前は require('web-push') が常に失敗し、
+// Web Push が一度も送られていなかった）。依存に入っているので静的に読み込む。
+import webpushLib from 'web-push';
 
 // ── 想起ロジック（src/lib/recall.js のサーバー版ミラー）─────────────
 // recall.js は ESM・ブラウザ向けなので、ここでは同じアルゴリズムを Node 用に
@@ -131,12 +134,8 @@ let webpushMod = null;
 let webpushConfigured = false;
 function getWebPush() {
   if (webpushMod) return webpushMod;
-  try {
-    // eslint-disable-next-line global-require
-    webpushMod = require('web-push');
-  } catch {
-    return null; // 未インストール = 機能無効（fail-safe）
-  }
+  webpushMod = webpushLib;
+  if (!webpushMod) return null;
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
   const subject = process.env.VAPID_SUBJECT || 'mailto:f.abe@pntwhere.com';
@@ -486,6 +485,33 @@ export default async function handler(req, res) {
       // テーブル自体が未適用なら graceful に no-op。
       return res.status(200).json({ ok: true, skipped: 'subscriptions-unavailable', sent: 0 });
     }
+  }
+
+  // 同じ iPhone（同じ APNs トークン）に複数アカウントの行が残っている場合は、updated_at が
+  // いちばん新しい 1 行だけに送る（アカウントを替えた端末に前の人のメモが届かないように）。
+  // updated_at が取れないときは、誤配信を避けてそのトークンには送らない。
+  const iosByToken = new Map();
+  subs.filter((x) => x.platform === 'ios' && x.apns_token).forEach((x) => {
+    const list = iosByToken.get(x.apns_token) || [];
+    list.push(x);
+    iosByToken.set(x.apns_token, list);
+  });
+  const dupTokens = [...iosByToken.entries()].filter(([, list]) => list.length > 1);
+  if (dupTokens.length > 0) {
+    const ids = dupTokens.flatMap(([, list]) => list.map((x) => x.id));
+    let latestById = new Map();
+    try {
+      const { data } = await supabase.from('push_subscriptions').select('id, updated_at').in('id', ids);
+      latestById = new Map((data || []).map((r) => [r.id, r.updated_at || '']));
+    } catch { /* 取れなければ下の既定（どれにも送らない）へ */ }
+    const drop = new Set();
+    dupTokens.forEach(([, list]) => {
+      const sorted = [...list].sort((a, b) => String(latestById.get(b.id) || '').localeCompare(String(latestById.get(a.id) || '')));
+      // 最新が判定できないときは、誤配信を避けてこのトークンには送らない
+      const keep = latestById.size > 0 ? sorted[0].id : null;
+      list.forEach((x) => { if (x.id !== keep) drop.add(x.id); });
+    });
+    subs = subs.filter((x) => !drop.has(x.id));
   }
 
   // ユーザーごとにノートを一度だけ集めてキャッシュ（同一ユーザーが複数端末を持つ場合）。

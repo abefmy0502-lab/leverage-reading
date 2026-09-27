@@ -16,6 +16,8 @@
 //
 // このモジュールは pure。React に依存しない。
 
+import { apiUrl } from './apiUrl';
+
 export const normalizeIsbn = (isbn) => {
   if (!isbn) return '';
   return String(isbn).replace(/[-\s]/g, '');
@@ -42,7 +44,7 @@ export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
   //        表紙が取れなかった。例: 楠木建・杉浦泰）。旧応答（空）を CDN から無効化。
   params.set('cv', '6');
   try {
-    const r = await fetch(`/api/cover?${params.toString()}`);
+    const r = await fetch(apiUrl(`/api/cover?${params.toString()}`));
     if (!r.ok) return null;
     const d = await r.json();
     if (!d) return null;
@@ -81,7 +83,7 @@ export const verifyBookExists = async ({ title, author, isbn } = {}) => {
   params.set('cv', '6');
   if ([...params.keys()].length === 0) return { exists: false };
   try {
-    const r = await fetch(`/api/cover?${params.toString()}`);
+    const r = await fetch(apiUrl(`/api/cover?${params.toString()}`));
     if (!r.ok) return { exists: null };
     const d = await r.json();
     if (!d) return { exists: null };

@@ -15,7 +15,7 @@
     { "source": "/lp/contact", "destination": "/legal/sct", "permanent": true }
   ],
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

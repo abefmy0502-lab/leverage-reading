@@ -22,6 +22,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { MODEL_SMART } from './models';
+import { apiUrl } from './apiUrl';
 
 const DEFAULT_MODEL = MODEL_SMART;
 const DEFAULT_MAX_TOKENS = 2048;
@@ -93,7 +94,7 @@ export async function streamClaude({
       throw new Error('AI機能を使うにはログインが必要です。');
     }
 
-    const res = await fetch('/api/claude', {
+    const res = await fetch(apiUrl('/api/claude'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

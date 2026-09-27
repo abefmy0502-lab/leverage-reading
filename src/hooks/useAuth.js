@@ -4,6 +4,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 // dynamic import すると「同一モジュールの static/dynamic 混在」でビルド警告が出て
 // コード分割も効かないため、static に統一する。
 import { unsubscribeFromPush } from '../lib/push';
+import { isNative } from '../lib/iap';
+import { unsubscribeNativePush } from '../lib/nativePush';
 
 // 🔐 認証状態はアプリ全体で 1 つだけ持つ（AuthProvider）。
 // 以前は useAuth() を呼ぶ約 20 箇所がそれぞれ getSession() と onAuthStateChange を
@@ -62,8 +64,14 @@ async function signOut() {
   // RLS で自分の行を消せるうちに）。解除しないと、次に別のアカウントが使う
   // 端末に前ユーザーのメモ通知（本文抜粋つき）が届き続ける。失敗しても
   // サインアウト自体は止めない。
+  // iOS アプリは APNs の購読（platform='ios'）なので、Web 用とは別に解除する（以前は Web 用しか
+  // 解除しておらず、同じ iPhone で別アカウントに替えると前の人のメモが届いていた）。
   try {
-    await unsubscribeFromPush();
+    if (isNative) {
+      await unsubscribeNativePush();
+    } else {
+      await unsubscribeFromPush();
+    }
   } catch { /* ignore */ }
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
