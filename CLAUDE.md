@@ -281,6 +281,8 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 
 | `supabase_subscriptions_canceled_at.sql` | 💳 解約時刻の記録 — `subscriptions.canceled_at timestamptz` を idempotent 追加。チャーン率（月次解約÷月初active）の正確な算出用。書くのは stripe/revenuecat 両 webhook（service_role）で、status='canceled' 遷移時に刻む。未適用 DB でも両 webhook は schema fallback（列抜き再試行）で止まらない。冪等 |
 
+| `supabase_lp_events.sql` | 📊 LP（紹介ページ）の閲覧状況 — `lp_events(session_id, event, variant '3d'/'photo', props jsonb<1KB, device, ref_host, utm_*)` 新規 + index + RLS 有効・ポリシー無し（service_role のみ）。書き手は `api/lp-event.js`（未ログインの訪問者から sendBeacon で受け、イベント名の許可リスト・型と長さで絞って insert・IP/入力文は保存しない・同一 IP 60 件/分まで）。送り手は `src/lib/lpTrack.js`（ボタンの押下場所・体験欄・スクロール深さ・FAQ・3D 可否。Do Not Track と開発中は送らない）。ヒーローの A/B（3D ↔ 写真）の振り分けも同ファイル。集計例は `docs/lp-measurement.md`。未適用でも LP は動く（記録されないだけ）。冪等 |
+
 新機能で DB スキーマを変える場合は、この `supabase_*.sql` ファイルとして追加し、ここにも一行追記する。
 
 ## 🛡️ セキュリティ チェックリスト
@@ -338,7 +340,8 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `VITE_PRICE_ANNUAL_LABEL` | (任意) 年額**表示用**ラベル。未設定なら「年額 ¥12,800（税込・月あたり約¥1,066）」（`src/lib/billing.js` の既定値）。金額の真実は App Store / Stripe 側 |
 | `VITE_PRICE_ANNUAL_NOTE` | (任意) 年額の補足一言（例「まとめてお得」）。誇大表現は避ける |
 | `VITE_APP_STORE_URL` | (任意) App Store の実 URL。LP / Paywall / 設定 / Web 利用ゲートの「App Store で入手」導線が参照（`src/lib/appStore.js` に一元化・未設定時は「近日公開」表示）。公開後に実 URL へ差替。実 URL が入ると LP の PC 向け QR コードと、iPhone Safari の Smart App Banner（`vite.config.js` の `smartAppBanner` が URL の id から `apple-itunes-app` を index.html に入れる）も出る。**実 URL が入ると ⭐️ レビュー依頼（`src/lib/reviewRequest.js`・初回の本物の想起に「覚えた」と応えた直後に一度だけトースト）も自動有効化** |
-| `VITE_TRIAL_NOTE` | (任意) 🎁 無料トライアルの LP 表記（例 `7日間無料`）。App Store Connect で Introductory Offer を設定したら入れる — LP のヒーロー・sticky CTA・料金カード・FAQ・最終 CTA に一斉表示。未設定の間は一切出ない（ストア実態と食い違う虚偽表示にならない）。アプリ内 Paywall は `iap.js` がストアの実プロダクトから無料期間を自動取得するため env 不要 |
+| `VITE_APP_STORE_PT` | (任意・推奨) 📊 App Store Connect の **provider token**（「App 分析 → キャンペーン」で生成するリンクの `pt=` の値）。入れると LP の各ボタンが `ct=lp_<場所>_<3d|photo>` 付きで App Store に飛び、App Store Connect でボタンごとの**実際の入手数**が見られる（`src/lib/lpTrack.js` の `storeUrlFor`）。未設定なら URL はそのまま |
+| `VITE_TRIAL_NOTE` | (任意) 🎁 無料トライアルの LP 表記。**未設定なら正典どおり `7日間無料`**（`company/launch-plan-appstore-2026-07-27.md`・月額/年額とも 7 日間の Introductory Offer）。App Store 側の無料期間を変えたら合わせて設定し、無料期間をやめたら `off` を入れる（LP のボタンが「App Store でダウンロード」に戻り、無料の表記が一斉に消える）。アプリ内 Paywall は `iap.js` がストアの実プロダクトから無料期間を自動取得するため env 不要 |
 | `VITE_APPLE_SIGNIN_WEB` | (任意) 🍎 Web で「Appleでサインイン」ボタンを出すフラグ。`'true'` の時だけ表示。iOS(ネイティブ)は常時表示なので不要。Apple Developer の Service ID と Supabase Auth の Apple プロバイダ（Web 経路）の設定が済むまでは未設定のままにし、Web での誤爆を防ぐ。認証実装は `src/lib/appleAuth.js`（要外部設定はファイル冒頭コメント参照） |
 | `APNS_KEY_ID` | 🔔📱 ネイティブ想起プッシュ(APNs)の認証キー Key ID（`api/push-cron.js`）。サーバー専用 |
 | `APNS_TEAM_ID` | Apple Developer の Team ID（APNs JWT の iss）。サーバー専用 |

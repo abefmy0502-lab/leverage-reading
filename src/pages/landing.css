@@ -618,3 +618,36 @@ body.lp-active {
 .lp-demo-promises li { display: flex; gap: var(--space-2); align-items: flex-start; color: var(--text-2); font-size: var(--lp-small); line-height: 1.6; }
 .lp-demo-promises svg { flex-shrink: 0; margin-top: 3px; color: var(--success); }
 .lp-demo-nomatch { margin-top: var(--space-3) !important; color: var(--text-2); font-size: var(--lp-small); line-height: 1.7; }
+
+/* ============ 作り手と約束 ============ */
+.lp-promise-grid { display: grid; gap: var(--space-8); }
+.lp-promise-head > p { color: var(--text-2); max-width: 30em; }
+.lp-promise-sign { margin-top: var(--space-6) !important; color: var(--text) !important; font-weight: 700; letter-spacing: 0.04em; }
+.lp-promise-list { list-style: none; margin: 0; padding: 0; counter-reset: promise; }
+.lp-promise-list li {
+  position: relative;
+  padding: var(--space-4) 0 var(--space-4) var(--space-12);
+  border-top: 1px solid var(--separator);
+  counter-increment: promise;
+}
+.lp-promise-list li:last-child { border-bottom: 1px solid var(--separator); }
+.lp-promise-list li::before {
+  content: counter(promise);
+  position: absolute;
+  left: 0;
+  top: var(--space-4);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 32px;
+  text-align: center;
+}
+.lp-promise-title { font-size: 17px; font-weight: 700; }
+.lp-promise-list li p:not(.lp-promise-title) { margin-top: var(--space-1) !important; color: var(--text-2); }
+@media (min-width: 768px) {
+  .lp-promise-grid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-16); align-items: start; }
+}

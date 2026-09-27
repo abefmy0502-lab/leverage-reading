@@ -13,7 +13,8 @@
 //   - 架空のユーザー数・お客様の声・効果数値は書かない（声は TESTIMONIALS に実在のものだけ）
 //   - 実装されていない機能を約束しない。画面写真はお試しモード（サンプルのメモ）で撮った
 //     実際のアプリ（public/lp の WebP。撮り直しは npm run demo → npm run lp:shots）
-//   - 無料トライアルは App Store の設定しだいなので env（VITE_TRIAL_NOTE）がある時だけ出す
+//   - 無料トライアルは正典（company/launch-plan-appstore-2026-07-27.md）の「月額・年額とも 7 日間無料」を既定で出す。
+//     App Store の設定を変えたら VITE_TRIAL_NOTE で文言を変える（'off' で非表示）
 //
 // 技術ノート:
 //   - CSP は default-src 'self'。外部 JS/画像/フォントは使わない
@@ -25,10 +26,12 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react';
 import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
-import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
+import { isAppStoreLive } from '../lib/appStore';
 import { savingsLabel } from '../lib/iap';
 import ConsultDemo from './ConsultDemo';
 import qrcode from 'qrcode-generator';
+import { lpTrack, lpVariant, storeUrlFor } from '../lib/lpTrack';
+import { inject as injectVercelAnalytics } from '@vercel/analytics';
 import './landing.css';
 
 // 🌱 ヒーローの 3D（three.js）は別チャンクで、写真を出したあとに読み込む。
@@ -48,11 +51,16 @@ function canUse3D() {
 
 // 📱 App Store の URL は src/lib/appStore.js に一元化。VITE_APP_STORE_URL が未設定の間は
 // 押せない「近日公開」表示に倒す（プレースホルダー URL で App Store の 404 に落とさない）。
-function StoreCta({ className, children, tabIndex }) {
+// loc = 押した場所（header / sticky / hero / demo / pricing / final）。記録と App Store のキャンペーン名に使う。
+function StoreCta({ className, children, tabIndex, loc = 'other' }) {
   if (!isAppStoreLive) {
     return <span className={`${className} is-soon`} aria-disabled="true">App Store で近日公開</span>;
   }
-  return <a href={APP_STORE_URL} className={className} tabIndex={tabIndex}>{children}</a>;
+  return (
+    <a href={storeUrlFor(loc)} className={className} tabIndex={tabIndex} onClick={() => lpTrack('cta_click', { loc })}>
+      {children}
+    </a>
+  );
 }
 
 // 📷 PC で見ている人向けの QR コード（スマホのカメラで読んで App Store へ）。
@@ -60,7 +68,7 @@ function StoreCta({ className, children, tabIndex }) {
 function StoreQr() {
   if (!isAppStoreLive) return null;
   const qr = qrcode(0, 'M');
-  qr.addData(APP_STORE_URL);
+  qr.addData(storeUrlFor('qr'));
   qr.make();
   const n = qr.getModuleCount();
   const cells = [];
@@ -79,12 +87,19 @@ function StoreQr() {
 }
 
 // 🎁 無料トライアル表記（env ゲート・未設定の間は一切出さない）。
-const TRIAL_NOTE = (import.meta.env.VITE_TRIAL_NOTE || '').trim();
+// 既定は正典どおり「7日間無料」。App Store の Introductory Offer を変えたら env で合わせる（'off' で出さない）。
+const TRIAL_RAW = (import.meta.env.VITE_TRIAL_NOTE ?? '7日間無料').trim();
+const TRIAL_NOTE = TRIAL_RAW === 'off' ? '' : TRIAL_RAW;
+// ボタンの文言: 無料期間があるなら「7日間無料で試す」（押すと App Store）。
+const CTA_LABEL = TRIAL_NOTE ? `${TRIAL_NOTE}で試す` : 'App Store でダウンロード';
+const CTA_SHORT = TRIAL_NOTE ? '無料で試す' : 'App Store で入手';
 
 const MONTHLY = 1480;
 const ANNUAL = 12800;
 const SAVE = savingsLabel(MONTHLY, ANNUAL);
-const PRICE_LINE = `${TRIAL_NOTE ? `${TRIAL_NOTE}。その後は` : ''}月額 ¥1,480 または年額 ¥12,800（税込）`;
+const PRICE_LINE = TRIAL_NOTE
+  ? `App Store から。${TRIAL_NOTE}、その後は月額 ¥1,480 または年額 ¥12,800（税込）。無料期間中に解約すれば料金はかかりません`
+  : '月額 ¥1,480 または年額 ¥12,800（税込）';
 
 // 🗣 お客様の声。実在ユーザーの許可を得た本物の声だけを入れる（捏造・盛りは絶対 NG）。
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
@@ -96,6 +111,16 @@ const COMPARE_ROWS = [
   { label: 'メモが増えると', others: '探すのが大変になる', us: '答えの材料が増える' },
   { label: '行動', others: 'アプリの外で管理する', us: ['答えから、', '行動リストへ'] },
   { label: '見返すきっかけ', others: '自分で思い出したとき', us: '忘れかけた頃に、メモが戻ってくる' },
+];
+
+// 作り手の約束（信頼の材料）。すべて実装・規約で裏付けのある事実だけ。作り手の体験談は、
+// 本人の言葉が届くまで書かない（架空の声を作らない）。
+const PROMISES = [
+  { head: 'メモは、あなたのもの', body: '設定からいつでも全部ダウンロードできます。退会を申し込めば、すべて消去します。解約しても、メモは残ります。' },
+  { head: 'AI の学習に使わない', body: '相談のために送るメモは、Anthropic 社の API の規約により、AI の再学習に使われません。' },
+  { head: '答えを作り話にしない', body: '答えには必ず、もとになったメモが付きます。関係するメモが無いときは、無理に答えずそう伝えます。' },
+  { head: '急かさない', body: '通知は多くても週に 1 回。バッジや連続日数で、使うことを急かす仕組みは入れていません。' },
+  { head: '声は、作り手に直接届く', body: `要望や不具合は ${SUPPORT_EMAIL} へ。個人で開発しているので、開発者本人に届きます。` },
 ];
 
 // FAQ は「申し込みの手前で止まる理由」を書く場所。表示と FAQPage JSON-LD の両方の元。
@@ -120,6 +145,10 @@ const FAQ_ITEMS = [
     q: '料金はいくらですか？',
     a: `${TRIAL_NOTE ? `まず${TRIAL_NOTE}でお試しいただけます。その後は` : ''}月額 ¥1,480、または年額 ¥12,800（月あたり約 ¥1,066）で、すべての機能を使えます。お支払いは App Store（Apple ID）です。`,
   },
+  ...(TRIAL_NOTE ? [{
+    q: '無料期間のあとは、自動で料金がかかりますか？',
+    a: `${TRIAL_NOTE}の期間が終わると、選んだプラン（月額か年額）で自動更新されます。期間中に App Store のサブスクリプション設定から解約すれば、料金はかかりません。無料期間は、初めて登録する方が対象です。`,
+  }] : []),
   {
     q: '解約すると、メモは消えますか？',
     a: '消えません。解約は App Store のサブスクリプション設定からいつでもでき、違約金もありません。解約後もアカウントとメモは残り、再開すればそのまま使えます。',
@@ -179,12 +208,13 @@ export default function Landing() {
   const heroImgRef = useRef(null);
   const [want3D, setWant3D] = useState(false);
   const [ready3D, setReady3D] = useState(false);
-  const on3DReady = useCallback(() => setReady3D(true), []);
+  const on3DReady = useCallback(() => { setReady3D(true); lpTrack('hero_3d', { ok: true }); }, []);
   const on3DLost = useCallback(() => { setReady3D(false); setWant3D(false); }, []);
 
-  // 写真（LCP）を出し終えてから 3D を読み込む。
+  // 写真（LCP）を出し終えてから 3D を読み込む。A/B で「写真」に振り分けた人には出さない。
   useEffect(() => {
-    if (!canUse3D()) return undefined;
+    if (lpVariant() !== '3d') return undefined;
+    if (!canUse3D()) { lpTrack('hero_3d', { ok: false }); return undefined; }
     const kick = () => setWant3D(true);
     const id = 'requestIdleCallback' in window ? window.requestIdleCallback(kick, { timeout: 1500 }) : window.setTimeout(kick, 600);
     return () => ('cancelIdleCallback' in window ? window.cancelIdleCallback(id) : window.clearTimeout(id));
@@ -271,9 +301,19 @@ export default function Landing() {
       document.querySelectorAll('.lp-reveal').forEach((el) => revealIo.observe(el));
     }
 
+    // Vercel Web Analytics（閲覧数・参照元・端末。Cookie なし）。LP でだけ読み込み、開発中は出さない。
+    if (!import.meta.env.DEV) { try { injectVercelAnalytics({ mode: 'production' }); } catch { /* 無くても LP は動く */ } }
+    // 記録: 表示 1 回と、読み進めた深さ（25/50/75/100%）をそれぞれ 1 回ずつ。
+    lpTrack('lp_view', {});
+    const depthSent = new Set();
     const onScroll = () => {
       const el = heroCtaRef.current;
       setShowSticky(el ? el.getBoundingClientRect().bottom < 0 : window.scrollY > 480);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = max > 0 ? (window.scrollY / max) * 100 : 100;
+      [25, 50, 75, 100].forEach((d) => {
+        if (pct >= d - 1 && !depthSent.has(d)) { depthSent.add(d); lpTrack('scroll_depth', { pct: d }); }
+      });
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -315,13 +355,13 @@ export default function Landing() {
           </a>
           <nav className="lp-header-nav" aria-label="ヘッダー">
             <a href="/?auth=signin" className="lp-header-login">ログイン</a>
-            <StoreCta className="lp-btn lp-btn-small lp-header-cta">App Store でダウンロード</StoreCta>
+            <StoreCta className="lp-btn lp-btn-small lp-header-cta" loc="header">{CTA_SHORT}</StoreCta>
           </nav>
         </div>
       </header>
 
       <div className={`lp-sticky${showSticky ? ' is-visible' : ''}`} aria-hidden={showSticky ? undefined : 'true'}>
-        <StoreCta className="lp-btn" tabIndex={showSticky ? undefined : -1}>App Store でダウンロード</StoreCta>
+        <StoreCta className="lp-btn" loc="sticky" tabIndex={showSticky ? undefined : -1}>{CTA_LABEL}</StoreCta>
       </div>
 
       <main id="lp-main">
@@ -337,10 +377,10 @@ export default function Landing() {
               </p>
               <div className="lp-cta-block" ref={heroCtaRef}>
                 <div className="lp-cta-row">
-                  <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+                  <StoreCta className="lp-btn lp-btn-large" loc="hero">{CTA_LABEL}</StoreCta>
                   <StoreQr />
                 </div>
-                <p className="lp-cta-note">{PRICE_LINE}。いつでも解約でき、解約してもメモは残ります。</p>
+                <p className="lp-cta-note">{PRICE_LINE}。解約してもメモは残ります。</p>
               </div>
             </div>
             <figure className="lp-hero-shot">
@@ -385,10 +425,11 @@ export default function Landing() {
               <span>試しに、</span><span>相談してみる。</span>
             </h2>
             <ConsultDemo
+              onEvent={lpTrack}
               cta={(
                 <>
                   <p className="lp-demo-cta-lead">自分の本とメモで、相談してみませんか。</p>
-                  <StoreCta className="lp-btn">App Store でダウンロード</StoreCta>
+                  <StoreCta className="lp-btn" loc="demo">{CTA_LABEL}</StoreCta>
                 </>
               )}
             />
@@ -512,6 +553,29 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ============ 作り手と約束（信頼） ============ */}
+        <section className="lp-sec lp-promise" aria-labelledby="lp-promise">
+          <div className="lp-wrap lp-promise-grid">
+            <div className="lp-promise-head">
+              <h2 className="lp-h2" id="lp-promise">
+                <span>Orime は、</span><span>ひとりで作っています。</span>
+              </h2>
+              <p>
+                開発と運営は、阿部文哉（個人）です。読んだ本が、困ったときにちゃんと役に立つように。そのために、次のことを約束して作っています。
+              </p>
+              <p className="lp-promise-sign">Orime 開発者　阿部文哉</p>
+            </div>
+            <ol className="lp-promise-list">
+              {PROMISES.map((p) => (
+                <li key={p.head}>
+                  <p className="lp-promise-title">{p.head}</p>
+                  <p>{p.body}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
         {/* ============ 利用者の声（実在の声があるときだけ） ============ */}
         {TESTIMONIALS.length > 0 && (
           <section className="lp-sec" aria-labelledby="lp-voices">
@@ -552,7 +616,7 @@ export default function Landing() {
               <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />本とメモは、何件でも登録できます</li>
             </ul>
             <div className="lp-cta-block">
-              <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+              <StoreCta className="lp-btn lp-btn-large" loc="pricing">{CTA_LABEL}</StoreCta>
               <p className="lp-cta-note">
                 お支払いは App Store（Apple ID）です。<br />
                 解約はいつでもでき、違約金はありません。解約後もメモは残ります。
@@ -566,8 +630,8 @@ export default function Landing() {
           <div className="lp-wrap lp-narrow">
             <h2 className="lp-h2" id="lp-faq">よくある質問</h2>
             <div className="lp-faq-list">
-              {FAQ_ITEMS.map((f) => (
-                <details className="lp-faq-item" key={f.q}>
+              {FAQ_ITEMS.map((f, i) => (
+                <details className="lp-faq-item" key={f.q} onToggle={(e) => { if (e.currentTarget.open) lpTrack('faq_open', { i }); }}>
                   <summary>
                     <span>{f.q}</span>
                     <ChevronDown size={20} aria-hidden="true" className="lp-faq-mark" />
@@ -587,7 +651,7 @@ export default function Landing() {
             </h2>
             <div className="lp-cta-block">
               <div className="lp-cta-row">
-                <StoreCta className="lp-btn lp-btn-large">App Store でダウンロード</StoreCta>
+                <StoreCta className="lp-btn lp-btn-large" loc="final">{CTA_LABEL}</StoreCta>
                 <StoreQr />
               </div>
               <p className="lp-cta-note">{PRICE_LINE}。いつでも解約できます。</p>

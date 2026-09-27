@@ -60,7 +60,8 @@ function nearestScenario(text) {
 
 const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export default function ConsultDemo({ cta }) {
+// onEvent(event, props): LP の記録（src/lib/lpTrack.js）。入力された文章は渡さない。
+export default function ConsultDemo({ cta, onEvent = () => {} }) {
   const rootRef = useRef(null);
   const [active, setActive] = useState(-1);
   const [phase, setPhase] = useState('idle'); // idle | thinking | typing | done
@@ -107,7 +108,7 @@ export default function ConsultDemo({ cta }) {
     const io = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) {
         io.disconnect();
-        setActive((cur) => { if (cur === -1) setTimeout(() => play(0), 0); return cur; });
+        setActive((cur) => { if (cur === -1) setTimeout(() => { play(0); onEvent('demo_pick', { i: 0, auto: true }); }, 0); return cur; });
       }
     }, { threshold: 0.35 });
     io.observe(el);
@@ -122,6 +123,7 @@ export default function ConsultDemo({ cta }) {
     if (!text) return;
     const i = nearestScenario(text);
     setDraft('');
+    onEvent('demo_ask', { match: i >= 0, i });
     if (i >= 0) { play(i, text); return; }
     clearTimers();
     setActive(-2);
@@ -145,7 +147,7 @@ export default function ConsultDemo({ cta }) {
               type="button"
               className={`lp-demo-chip${active === i ? ' is-active' : ''}`}
               aria-pressed={active === i}
-              onClick={() => play(i)}
+              onClick={() => { play(i); onEvent('demo_pick', { i, auto: false }); }}
             >
               {sc.q}
             </button>
@@ -204,7 +206,7 @@ export default function ConsultDemo({ cta }) {
                     <div className="lp-demo-step">
                       <p className="lp-demo-step-label">明日からできる一歩</p>
                       <p>{s.step}</p>
-                      <button type="button" className={`lp-demo-add${added ? ' is-added' : ''}`} onClick={() => setAdded(true)} aria-pressed={added}>
+                      <button type="button" className={`lp-demo-add${added ? ' is-added' : ''}`} onClick={() => { if (!added) onEvent('demo_add', { i: active }); setAdded(true); }} aria-pressed={added}>
                         {added ? <Check size={16} aria-hidden="true" /> : <Target size={16} aria-hidden="true" />}
                         {added ? '行動に追加しました' : '行動に追加'}
                       </button>

@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       title="プライバシーポリシー"
       description="Orime のプライバシーポリシー。取得情報・利用目的・委託先・国外移転・AI 連携・データ保管について。"
     >
-      <p className="effective-date">最終更新日:2026年6月21日</p>
+      <p className="effective-date">最終更新日:2026年9月27日</p>
       <p className="effective-date">施行日:2026年5月3日</p>
 
       <p>
@@ -96,7 +96,7 @@ export default function PrivacyPage() {
       <p>当方は、本サービスの提供のため、以下の事業者に個人データの取扱いを委託します。</p>
       <ul>
         <li><strong>Supabase, Inc.(米国):</strong> データベースおよび認証基盤の提供</li>
-        <li><strong>Vercel, Inc.(米国):</strong> ホスティングサービスの提供</li>
+        <li><strong>Vercel, Inc.(米国):</strong> ホスティングサービスの提供、紹介用 Web ページの閲覧状況の集計(Vercel Web Analytics)</li>
         <li><strong>Anthropic, PBC(米国):</strong> AI 機能(選書、要約、質問応答)の提供</li>
         <li><strong>Apple Inc.(米国):</strong> App Store でのアプリ内課金・決済処理(iOS アプリ)</li>
         <li><strong>RevenueCat, Inc.(米国):</strong> 購読状態(課金ステータス・トランザクション識別子等)の管理</li>
@@ -139,6 +139,7 @@ export default function PrivacyPage() {
       <ol>
         <li>本サービスは iOS アプリ(App Store)として提供され、アプリ本体の利用に Cookie は使用しません。</li>
         <li>当方のマーケティング用 Web ページでは、閲覧状況の把握のため Cookie および類似の技術を使用することがあります。ユーザーはブラウザの設定によりこれを拒否できますが、その場合でも iOS アプリ本体のご利用には影響しません。</li>
+        <li>紹介用 Web ページ(Orime の紹介ページ)では、ページの改善のため、次の閲覧状況を記録します。①Vercel Web Analytics によるページの閲覧数・参照元・端末の種類等の集計(Cookie を使用せず、訪問者個人を特定しない方式です)。②当方のデータベース(委託先である Supabase)への記録として、押したボタンの場所、体験欄の操作、読み進めた深さ、表示した画面の方式、参照元のドメイン名、キャンペーン名(URL の utm 値)、端末がスマートフォンかどうか。②は閲覧中のタブごとに無作為に作る識別子で束ねるだけで、IP アドレスや入力された文章は保存しません。ブラウザの「トラッキング拒否(Do Not Track)」がオンのときは②を記録しません。</li>
       </ol>
 
       <h2>第10条(利用状況の記録について)</h2>
