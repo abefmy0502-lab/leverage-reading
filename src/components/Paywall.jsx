@@ -390,7 +390,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             <div aria-hidden="true" style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
               {myBooks.map((b) => <MiniCover key={b.id} book={b} width={60} />)}
             </div>
-            <p style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, margin: 'var(--space-4) 0 0' }}>
+            <p style={{ fontSize: 'var(--text-body)', lineHeight: 1.6, margin: 'var(--space-4) 0 0', wordBreak: 'auto-phrase', textWrap: 'pretty' }}>
               {myBooks.slice(0, 2).map((b) => `『${b.title}』`).join('')}{myBooks.length > 2 ? 'など' : ''}のメモを根拠に答える、あなただけの相談相手です。
             </p>
           </>

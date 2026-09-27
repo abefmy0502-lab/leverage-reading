@@ -30,9 +30,11 @@ const screenStyle = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  justifyContent: 'center',
+  // 中央寄せにすると、エラーが出たときに全体が上へずれて入力欄が動く。上の位置を固定する。
+  justifyContent: 'flex-start',
   minHeight: '100vh',
   padding: screenPadding,
+  paddingTop: 'calc(var(--space-16) + env(safe-area-inset-top, 0px))',
   boxSizing: 'border-box',
 };
 
@@ -348,7 +350,7 @@ export default function AuthScreen() {
       </p>
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 400 }}>
         {title && (
-          <h2 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-4)', textAlign: 'center' }}>{title}</h2>
+          <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-4)', textAlign: 'center' }}>{title}</h2>
         )}
         {/* Sign in with Apple — メール確認の往復が不要でワンタップ。HIG 準拠でメール認証より
             目立つ位置（上）に置く。色は Apple のブランド規定（黒地・白文字）に従う例外。 */}

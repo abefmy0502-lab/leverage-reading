@@ -340,7 +340,7 @@ body.lp-active {
 .lp-plan-price span { margin-left: var(--space-1); font-size: var(--text-sub); font-weight: 400; color: var(--text-2); }
 .lp-plan-sub { word-break: auto-phrase; margin-top: var(--space-1) !important; color: var(--text-2); font-size: var(--text-sub); line-height: 1.5; }
 .lp-included { list-style: none; margin: var(--space-8) 0 0; padding: 0; display: grid; gap: var(--space-3); }
-.lp-included li { display: flex; gap: var(--space-3); align-items: flex-start; }
+.lp-included li { display: flex; gap: var(--space-3); align-items: flex-start; word-break: auto-phrase; text-wrap: pretty; }
 /* 含まれるもののチェックは状態（完了）ではないので --success にしない */
 .lp-included svg { flex-shrink: 0; margin-top: var(--space-1); color: var(--text-2); }
 
@@ -476,7 +476,7 @@ body.lp-active {
 /* ============ 体験: 試しに、相談してみる（ConsultDemo.jsx） ============ */
 .lp-demo { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); margin-top: var(--space-8); }
 .lp-demo-label { color: var(--text-2); font-size: var(--text-caption); font-weight: 600; margin-bottom: var(--space-3) !important; }
-.lp-demo-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.lp-demo-chips { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); }
 .lp-demo-chip {
   min-height: 44px;
   padding: var(--space-2) var(--space-4);
@@ -572,7 +572,6 @@ body.lp-active {
 }
 @media (min-width: 768px) {
   .lp-demo { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-12); align-items: start; }
-  .lp-demo-chips { flex-direction: column; align-items: stretch; }
   .lp-demo-chat { padding: var(--space-6); min-height: 520px; }
 }
 .lp-demo-step .lp-demo-step-label + p { margin-top: var(--space-1) !important; }

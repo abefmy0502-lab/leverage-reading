@@ -143,7 +143,7 @@ const backBtnStyle = { ...closeBtnStyle, right: 'auto', left: 'var(--space-2)' }
 // 横スワイプでページを送る（左へ＝次・右へ＝前）。縦スクロールと取り違えないよう、横の動きが十分大きいときだけ。
 const SWIPE_MIN_PX = 48;
 
-// 「どこで知りましたか」のチップ。見た目は高さ 32（--fill 面・13px）、押せる範囲は 44（DESIGN §5・§6）。
+// 「どこで知りましたか」のチップ。押すとすぐ記録される操作のチップなので、DESIGN §5「操作のチップ」の 44・15。
 const chipHit = {
   background: 'transparent',
   border: 'none',
@@ -157,12 +157,12 @@ const chipHit = {
 const chipFace = (selected) => ({
   display: 'inline-flex',
   alignItems: 'center',
-  height: 32,
-  padding: '0 var(--space-3)',
+  height: 44,
+  padding: 'var(--space-2) var(--space-3)',
   borderRadius: 'var(--radius)',
   background: selected ? 'var(--accent-soft)' : 'var(--fill)',
   color: selected ? 'var(--accent)' : 'var(--text)',
-  fontSize: 'var(--text-meta)',
+  fontSize: 'var(--text-sub)',
   fontWeight: selected ? 600 : 400,
 });
 
@@ -338,7 +338,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, textAlign: 'center' }} aria-live="polite">
                 {srcPicked ? 'ありがとうございます' : 'Orime をどこで知りましたか？（任意）'}
               </p>
-              <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 0, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
                 {/* 選んだ後も全チップを残し、選んだものだけ選択中（--accent-soft 面・--accent 文字）に。カードの高さが跳ねないように。 */}
                 {SOURCES.map(([key, label]) => (
                   <button
