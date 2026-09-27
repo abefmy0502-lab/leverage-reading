@@ -173,6 +173,18 @@ function shortLastLine(lines, measure) {
 // （どれも短ければ、収まったいちばん大きなものに戻す）。
 // measureAt(size) は「その大きさの文字の幅を返す関数」を返す。
 export function fitQuote(text, { maxWidth, maxHeight, sizes, lineHeight = 1.6, measureAt }) {
+  // 短い一文は、少し小さくしてでも 1 行に収まるなら 1 行で見せる
+  // （「チームの／勝利が最優先。」のように、2 行に割ると不自然に切れるのを防ぐ）。
+  if (sizes.length > 0 && !String(text || '').includes('\n')) {
+    for (const size of sizes) {
+      if (size < sizes[0] * 0.7) break;
+      const measure = measureAt(size);
+      const lines = wrapBalanced(text, maxWidth, measure);
+      if (lines.length === 1 && size * lineHeight <= maxHeight) {
+        return { size, lines, lineHeight: size * lineHeight };
+      }
+    }
+  }
   let last = null;
   let firstFit = null;
   let tried = 0;

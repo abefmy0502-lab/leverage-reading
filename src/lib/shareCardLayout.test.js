@@ -223,3 +223,13 @@ describe('FORMATS', () => {
     expect(FORMATS.square).toEqual({ w: 1080, h: 1080 });
   });
 });
+
+describe('fitQuote（短い一文）', () => {
+  it('少し小さくすれば 1 行に入る短い一文は、1 行で組む', () => {
+    const measureAt = (size) => (t) => Array.from(t).length * size;
+    const text = 'チームの勝利が最優先。'; // 11 字
+    const r = fitQuote(text, { maxWidth: 900, maxHeight: 1000, sizes: [96, 88, 80, 72], measureAt });
+    expect(r.lines).toEqual([text]);
+    expect(r.size).toBe(80);
+  });
+});
