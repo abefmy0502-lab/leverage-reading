@@ -91,7 +91,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
           </li>
           <li>
             <p style={howTitle}>Kindle 端末</p>
-            <p style={body}>パソコンにつないで、documents にある「My Clippings.txt」を選びます。</p>
+            <p style={body}>パソコンにつないで、documents にある「<span style={nowrap}>My Clippings.txt</span>」を選びます。</p>
           </li>
         </ul>
         {/* 「端末の中だけで読み取る」はヘルプ（bookList の取り込み）へ。ここに補足文は置かない（DESIGN §0-6）。 */}

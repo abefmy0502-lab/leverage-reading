@@ -127,7 +127,7 @@ export default function HomeScreen({
           <HomeConsult books={books} onAsk={onAsk} countUnknown />
           <ErrorMessage
             title="本を読み込めませんでした"
-            description="通信の状態を確かめて、もう一度お試しください。"
+            description="通信環境を確認して、もう一度お試しください。"
             actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }] : []}
           />
         </>

@@ -1027,7 +1027,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 「これまで読んだ本から始める」へ（相談例の「最近のメモから…」が空振りしないように）。
   const ownMemoTotal = memoStats.cards + memoStats.personal;
   // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
-  const modeApplies = scopeIds.length !== 1 && ownMemoTotal > 0;
+  // 数え終わるまでは出しておく（メモのある大多数の人で、読み込み後にチップが増えて跳ねないように）。
+  const modeApplies = scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0);
   // 相談例は 3 つだけ（SPEC §3）。あなたのタグ・本から → 汎用 の順で重複なく。
   // （AI で作る「今週の問い」は 2026-09-27 に廃止＝開くだけで AI が動かないように）
   const examples = useMemo(() => {
