@@ -470,3 +470,8 @@ select:focus-visible {
   @keyframes leverage-card-celebrate { 0%, 100% { box-shadow: var(--shadow-card); transform: none; } }
   @keyframes leverage-card-flip { 0%, 100% { transform: none; opacity: 1; } }
 }
+
+/* 日本語の禁則（小さい仮名・約物を行頭に置かない）と、1 文字だけの最終行を避ける。
+   UI 全体の既定（2026-09-27・ui-critic 指摘）。 */
+body { line-break: strict; }
+p, li { text-wrap: pretty; }

@@ -399,8 +399,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           <button
             type="button"
             onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSortMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
-            aria-label="並び順と絞り込み"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 44, padding: '0 4px', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontFamily: 'inherit', cursor: 'pointer' }}
+            aria-haspopup="menu"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 0 0 var(--space-2)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontFamily: 'inherit', cursor: 'pointer' }}
           >
             {sortBy === 'page' ? 'ページ順' : '新しい順'}{quoteOnly ? '・ページ番号つき' : ''}
             <ChevronDown size={16} aria-hidden="true" />

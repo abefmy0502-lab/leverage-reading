@@ -135,11 +135,14 @@ export default function ActionList({ books, onToggleAction, onDeleteAction, onEd
     const meta = [];
     if (a.bookTitle) meta.push(a.bookTitle);
     if (a.deadline && !a.done) {
+      // 「今日」「明日」のグループでは見出しが期限を言っているので繰り返さない。
+      // それより先は曜日も付ける（「9/29」だけだと並びが分かりにくい）。
+      const d = parseDeadline(a.deadline);
+      const dow = Number.isNaN(d.getTime()) ? '' : `（${'日月火水木金土'[d.getDay()]}）`;
       const label = overdue ? `期限 ${fmtShort(a.deadline)}（過ぎています）`
-        : n === 0 ? '今日まで'
-        : n === 1 ? '明日まで'
-        : `期限 ${fmtShort(a.deadline)}`;
-      meta.push(overdue ? <span key="dl" style={{ color: 'var(--warning)' }}>{label}</span> : label);
+        : n === 0 || n === 1 ? null
+        : `期限 ${fmtShort(a.deadline)}${dow}`;
+      if (label) meta.push(overdue ? <span key="dl" style={{ color: 'var(--warning)' }}>{label}</span> : label);
     }
     if (a.priority === 'high') meta.push('優先');
     if (a.recurrence) meta.push(a.recurrence === 'weekly' ? '毎週' : '毎月');

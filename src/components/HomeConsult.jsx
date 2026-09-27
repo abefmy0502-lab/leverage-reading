@@ -20,14 +20,16 @@ function examplesFor(books) {
   const out = [];
   if (reading?.title) out.push(`『${reading.title}』の学びで、明日から使えるものは？`);
   // 2 つ目は、よく付けているタグから（相談タブの例と同じ作り方）。タグが無いときだけ一般的な例。
+  // 1 つ目の本に付いているタグは避ける（2 つの例が同じ本に寄らないように）。
+  const firstTags = new Set((reading?.tags || []).map((t) => String(t || '').trim()));
   const tagCount = new Map();
   books.forEach((b) => (Array.isArray(b.tags) ? b.tags : []).forEach((t) => {
     const k = String(t || '').trim();
-    if (k) tagCount.set(k, (tagCount.get(k) || 0) + 1);
+    if (k && !firstTags.has(k)) tagCount.set(k, (tagCount.get(k) || 0) + 1);
   }));
   const topTag = [...tagCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   out.push(topTag
-    ? `「${topTag}」で迷っています。私が読んだ本から、ヒントをください`
+    ? `「${topTag}」について、私が読んだ本からヒントをください`
     : '最近、判断に迷うことがあります。私が読んだ本から、ヒントをください');
   return out;
 }
@@ -75,7 +77,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
       <h2 id="home-consult-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>
         困ったときは、相談する
       </h2>
-      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '8px 0 16px', lineHeight: 1.5 }}>
+      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5 }}>
         {hasMemos
           ? <>あなたの{bookCount}冊{memoCount != null && <>・メモ{memoCount}件</>}から答えます</>
           : '本を読みながらメモを残すと、そのメモを根拠に、あなただけの答えが返ってきます。'}
@@ -102,13 +104,13 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
           <button
             type="button"
             onClick={() => send()}
-            style={{ ...btnPrimary, marginTop: 12 }}
+            style={{ ...btnPrimary, marginTop: 'var(--space-3)' }}
           >
             相談する
           </button>
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: '16px 0 8px' }}>たとえば</p>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-4) 0 var(--space-2)' }}>たとえば</p>
           {/* 相談例はチップ（--fill 面・枠なし）。入力欄（枠あり）と見分けがつくように。 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {examples.map((q) => (
               <button
                 key={q}

@@ -311,7 +311,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                   enterKeyHint="search"
                   autoComplete="off"
                   ref={searchRef}
-                  style={{ ...inputStyle, paddingLeft: 'calc(var(--space-3) + 20px + var(--space-2))', paddingRight: query ? 44 : undefined }}
+                  style={{ ...inputStyle, paddingLeft: 'calc(var(--space-3) + 20px + var(--space-2))', paddingRight: query ? 'var(--space-12)' : undefined }}
                 />
                 {query && (
                   <button
@@ -326,7 +326,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
               </div>
               {/* 主ボタンは下の「次へ」だけ（DESIGN §0-2）。検索は副ボタン。 */}
               <button type="button" onClick={() => runSearch()} disabled={!query.trim() || searching}
-                style={{ ...btnGhost, width: 'auto', flexShrink: 0, opacity: query.trim() && !searching ? 1 : 0.4 }}>
+                style={{ ...btnGhost, width: 'auto', flexShrink: 0, ...(query.trim() && !searching ? {} : { color: 'var(--text-3)', borderColor: 'var(--separator)', cursor: 'default' }) }}>
                 検索
               </button>
             </div>
