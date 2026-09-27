@@ -89,6 +89,26 @@ function extractCore(md) {
 }
 
 // 「## 〜次の一歩」セクションの本文を取り出す（1タップ行動化のテキスト）。
+// 「繰り返す原則」の見出しの下の「N. 〜 — 『書名』」から、原則の文だけを順に取り出す。
+function principlesOf(lines) {
+  const out = [];
+  let inSec = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (/^#{1,6}\s/.test(line)) {
+      if (inSec) break;
+      inSec = /原則/.test(line);
+      continue;
+    }
+    const m = inSec && line.match(/^\d+[.．)]\s*(.+)$/);
+    if (m) {
+      const text = m[1].replace(/\*\*(.+?)\*\*/g, '$1').replace(/\s*[—–-]+\s*『[^』]*』\s*$/, '').replace(/[。．]$/, '').trim();
+      if (text) out.push(text);
+    }
+  }
+  return out;
+}
+
 function extractNextStep(md) {
   if (!md || typeof md !== 'string') return '';
   const lines = md.split('\n');
@@ -103,10 +123,13 @@ function extractNextStep(md) {
     }
     if (inSec && line) buf.push(line.replace(/^[-*\d.]+\s+/, ''));
   }
-  // 「（原則1）」のような番号参照と太字記号は、行動リストでは意味が通らないので外す。
+  // 「原則 1」のような番号参照は、行動リストだけを見たときに意味が通らない。
+  // 同じまとめの「繰り返す原則」の N 番目の文に置き換える（括弧だけの参照は外す）。
+  const principles = principlesOf(lines);
   const step = buf.join(' ')
-    .replace(/[（(]\s*原則\s*\d+\s*[)）]/g, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/[（(]\s*原則\s*\d+\s*[)）]/g, '')
+    .replace(/原則\s*(\d+)\s?/g, (m, n) => (principles[Number(n) - 1] ? `「${principles[Number(n) - 1]}」` : 'この原則'))
     .trim();
   if (step) return step;
   // フォールバック: 「次の一歩」見出しが崩れても行動追加を不発にしない。

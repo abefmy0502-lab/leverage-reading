@@ -578,15 +578,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       qs.push('この本から、今週やる一歩を1つ提案して');
       return qs.slice(0, 3);
     }
+    // メモの無い本の名前・タグは出さない（聞いても根拠が無い）。メモの有無が分かるまでは状態で選ぶ。
+    const hasMemo = (b) => memoBookIds == null || memoBookIds.has(b.id);
     const tagCount = new Map();
-    (books || []).forEach((b) => (Array.isArray(b.tags) ? b.tags : []).forEach((t) => {
+    (books || []).filter(hasMemo).forEach((b) => (Array.isArray(b.tags) ? b.tags : []).forEach((t) => {
       const k = String(t || '').trim();
       if (k) tagCount.set(k, (tagCount.get(k) || 0) + 1);
     }));
     const topTags = [...tagCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([t]) => t);
     topTags.forEach((t) => qs.push(`「${t}」について、私のメモから要点を3つにまとめて`));
-    // メモの無い本の名前は出さない（聞いても根拠が無い）。メモの有無が分かるまでは状態で選ぶ。
-    const hasMemo = (b) => memoBookIds == null || memoBookIds.has(b.id);
     const recent = (books || []).find((b) => (b.status === 'reading' || b.status === 'done') && hasMemo(b))
       || (memoBookIds ? (books || []).find((b) => memoBookIds.has(b.id)) : null);
     if (recent?.title) qs.push(`『${recent.title}』の学びで、明日から使えるものは？`);

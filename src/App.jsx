@@ -2834,6 +2834,24 @@ function AuthedApp() {
   const clearAllFilters = () => { setStatusFilter('all'); setMinRating(0); setTagFilter([]); setFolderFilter(null); };
 
 
+  // 状態チップの件数は、ほかの絞り込み（評価・タグ・フォルダ・検索）を効かせた数（並ぶ本の数と合わせる）。
+  const chipStats = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const base = books.filter((b) => {
+      if (folderFilter && !((b.collections || []).includes(folderFilter))) return false;
+      if (minRating > 0 && (b.rating || 0) < minRating) return false;
+      if (tagFilter.length > 0) {
+        const bt = (b.tags || []).map((t) => (t || '').toLowerCase());
+        if (!tagFilter.some((t) => bt.includes(t.toLowerCase()))) return false;
+      }
+      if (!q) return true;
+      return (b.title || '').toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q)
+        || (b.tags || []).some((t) => (t || '').toLowerCase().includes(q));
+    });
+    const out = { total: base.length };
+    base.forEach((b) => { out[b.status] = (out[b.status] || 0) + 1; });
+    return out;
+  }, [books, search, minRating, tagFilter, folderFilter]);
   const stats = useMemo(() => ({ total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length }), [books]);
   const actionCount = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0), [books]);
   const actionDone = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0), [books]);
@@ -3925,8 +3943,9 @@ function AuthedApp() {
                     </ShelfChip>
                   ))}
                   {/* 並びは管理でよく使う順（読書中・読了を先に）。 */}
-                  {[{ key: 'all', label: 'すべて', count: stats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: stats[s.key] || 0 }))].map((s) => {
-                    if (s.key !== 'all' && s.count === 0) return null;
+                  {[{ key: 'all', label: 'すべて', count: chipStats.total }, ...SHELF_CHIP_ORDER.map((k) => STATUSES.find((st) => st.key === k)).filter(Boolean).map((s) => ({ key: s.key, label: s.label, count: chipStats[s.key] || 0 }))].map((s) => {
+                    // 選んでいる状態のチップは 0 件でも残す（押して解除できるように）。
+                    if (s.key !== 'all' && s.count === 0 && statusFilter !== s.key) return null;
                     const active = statusFilter === s.key;
                     return (
                       <ShelfChip

@@ -115,8 +115,11 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
   // 参照できるよう ref を同期させ、mutation は updater 関数で書く。
   const rawMemosRef = useRef(rawMemos);
 
-  useEffect(() => () => {
-    aliveRef.current = false;
+  // 開いたら true に戻す（開発中の StrictMode は「開く→閉じる→開く」を二度行うので、
+  // 閉じたときの false のままだと読み込みが終わっても loading が消えなかった）。
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => { aliveRef.current = false; };
   }, []);
 
   // 同じフックのまま別の本に切り替わったら、前の本のメモを持ち越さない

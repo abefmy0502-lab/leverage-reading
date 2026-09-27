@@ -27,7 +27,8 @@ function examplesFor(books, memoBookIds) {
   // 1 つ目の本に付いているタグは避ける（2 つの例が同じ本に寄らないように）。
   const firstTags = new Set((reading?.tags || []).map((t) => String(t || '').trim()));
   const tagCount = new Map();
-  books.forEach((b) => (Array.isArray(b.tags) ? b.tags : []).forEach((t) => {
+  // タグもメモのある本からだけ数える（メモの無い本のタグで聞いても根拠が無い）。
+  books.filter(ok).forEach((b) => (Array.isArray(b.tags) ? b.tags : []).forEach((t) => {
     const k = String(t || '').trim();
     if (k && !firstTags.has(k)) tagCount.set(k, (tagCount.get(k) || 0) + 1);
   }));

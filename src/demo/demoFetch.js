@@ -120,7 +120,7 @@ function themeAnswer(store, theme, memoBlock) {
     ...picked.map((p, i) => `${i + 1}. ${p.text} — 『${p.title}』`),
     '',
     '## 🎯 次の一歩',
-    '明日の最初の打ち合わせで、原則 1 を 1 回だけ試す。終わったら、相手の反応を一行メモに残す。',
+    `明日の最初の打ち合わせで、「${picked[0].text}」を 1 回だけ試す。終わったら、相手の反応を一行メモに残す。`,
   ].join('\n');
 }
 
@@ -232,7 +232,12 @@ export function installDemoFetch(store) {
       if (payload.stream) return sseResponse(text);
       return json({ content: [{ type: 'text', text }], stop_reason: 'end_turn' });
     }
-    if (url.includes('/api/cover')) return json({ cover: null });
+    if (url.includes('/api/cover')) {
+      // 見本の本の一覧にある本は「実在する」と答える（AI 選書の実在確認で全部が疑わしく見えないように）。
+      const title = (() => { try { return new URL(url, window.location.origin).searchParams.get('title') || ''; } catch { return ''; } })();
+      const hit = title && SEARCH_CATALOG.find(([t]) => t === title || t.includes(title) || title.includes(t));
+      return json(hit ? { cover: null, isbn: hit[2] } : { cover: null });
+    }
     // 自前の /api/ だけを止める（NDL の /api/opensearch まで止めると、該当なしが常にエラーに見える）。
     const isOwnApi = url.startsWith('/api/') || url.startsWith(`${window.location.origin}/api/`);
     if (isOwnApi) return json({ error: 'お試しモードでは使えません' }, 503);
