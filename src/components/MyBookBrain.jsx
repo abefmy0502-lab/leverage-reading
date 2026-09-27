@@ -967,10 +967,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               {scopeIds.length > 0
                 ? (scopeMemoCount != null
                   ? (scopeIds.length === 1
-                    ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』のメモ {scopeMemoCount} 件から答えます</>
-                    : <>選んだ {scopeIds.length} 冊のメモ {scopeMemoCount} 件から答えます</>)
+                    ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>から答えます</>
+                    : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>から答えます</>)
                   : '選んだ本のメモから答えます')
-                : (noteCount > 0 ? <>あなたのメモ {noteCount} 件から答えます</> : '読んだ本のメモを根拠に答えます')}
+                : (noteCount > 0 ? <>あなたの<span style={{ whiteSpace: 'nowrap' }}>メモ {noteCount} 件</span>から答えます</> : '読んだ本のメモを根拠に答えます')}
               {freeMode && freeRemaining > 0 && (
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                   お試しで、あと {freeRemaining} 回相談できます

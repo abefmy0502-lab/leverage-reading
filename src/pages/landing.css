@@ -386,11 +386,14 @@ body.lp-active {
 .lp-footer-brand { color: var(--text); font-size: var(--text-body); font-weight: 600; }
 .lp-footer-op { margin-top: var(--space-1) !important; }
 .lp-footer-links { display: flex; flex-wrap: wrap; gap: 0 var(--space-6); margin-top: var(--space-4); }
+/* 文字ボタン（DESIGN §5: 脇役の操作も --accent・600・高さ 44。控えめさは並びと位置で示す） */
 .lp-footer-links a {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  color: var(--text-2) !important;
+  color: var(--accent) !important;
+  font-weight: 600;
+  text-decoration: none;
 }
 .lp-footer-copy { margin-top: var(--space-4) !important; }
 .lp-footer-build { margin-top: var(--space-1) !important; color: var(--text-3); font-size: var(--text-meta); }
@@ -629,7 +632,7 @@ body.lp-active {
 .lp-promise-list { list-style: none; margin: 0; padding: 0; counter-reset: promise; }
 .lp-promise-list li {
   position: relative;
-  padding: var(--space-4) 0 var(--space-4) var(--space-12);
+  padding: var(--space-4) 0 var(--space-4) var(--space-8);
   border-top: 1px solid var(--separator);
   counter-increment: promise;
 }
@@ -639,15 +642,12 @@ body.lp-active {
   position: absolute;
   left: 0;
   top: var(--space-4);
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--fill); /* 押せない番号なのでアクセント色にしない */
+  /* 押せない番号なので面もアクセント色も付けない（DESIGN §5「表示用ラベル」）。見出しの行にそろえる */
   color: var(--text-2);
   font-weight: 600;
-  font-size: var(--text-sub);
-  line-height: 32px;
-  text-align: center;
+  font-size: var(--text-body);
+  line-height: 1.6; /* .lp-promise-title（p・1.6）と同じ行の高さ */
+  font-variant-numeric: tabular-nums;
 }
 .lp-promise-title { font-size: var(--text-body); font-weight: 600; }
 .lp-promise-list li p:not(.lp-promise-title) { margin-top: var(--space-1) !important; color: var(--text-2); }

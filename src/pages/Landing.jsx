@@ -309,7 +309,14 @@ export default function Landing() {
     const depthSent = new Set();
     const onScroll = () => {
       const el = heroCtaRef.current;
-      setShowSticky(el ? el.getBoundingClientRect().bottom < 0 : window.scrollY > 480);
+      // 本文の中の同じボタン（料金・最後）が見えている間は、下の固定ボタンを出さない（同じボタンを 2 つ並べない）。
+      const vh = window.innerHeight;
+      const inlineCtaVisible = Array.from(document.querySelectorAll('.lp-btn')).some((b) => {
+        if (b.closest('.lp-sticky, .lp-header') || el?.contains(b)) return false;
+        const r = b.getBoundingClientRect();
+        return r.bottom > 0 && r.top < vh;
+      });
+      setShowSticky(!inlineCtaVisible && (el ? el.getBoundingClientRect().bottom < 0 : window.scrollY > 480));
       const max = document.documentElement.scrollHeight - window.innerHeight;
       const pct = max > 0 ? (window.scrollY / max) * 100 : 100;
       [25, 50, 75, 100].forEach((d) => {

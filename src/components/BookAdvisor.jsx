@@ -1302,7 +1302,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     onClick={submitOther}
                     disabled={!otherText.trim()}
                     aria-label={isMulti ? '選択肢に追加' : 'この内容で回答'}
-                    style={{ ...rowBtn, minHeight: 48, ...(otherText.trim() ? null : { color: uiBtnGhostOff.color, borderColor: uiBtnGhostOff.borderColor, opacity: 1, cursor: 'default' }) }}
+                    style={{ ...rowBtn, minHeight: 48, ...(otherText.trim() ? null : { color: uiBtnGhostOff.color, border: uiBtnGhostOff.border, opacity: 1, cursor: 'default' }) }}
                   >
                     {isMulti ? '追加' : '決定'}
                   </button>
