@@ -156,7 +156,7 @@ function ResultsSkeleton() {
 // 押せない主ボタン。薄くすると「あと N 冊」が読めなくなるので、面と文字の色で押せないことを示す。
 const btnPrimaryOff = { ...btnPrimary, background: 'var(--fill)', color: 'var(--text-2)', cursor: 'default', opacity: 1 }; // 全体の button:disabled{opacity:.4} を打ち消す
 
-export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose, onWriteMemo, onImport }) {
+export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
   const toast = useToast();
   const { freeMode, freeRemaining } = usePaywall();
@@ -240,6 +240,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
         savedBooks.push({ ...e.book, ...saved });
         const text = clamp(e.memo.trim(), LIMITS.memoText);
         if (text) memoRows.push({ user_id: user.id, book_id: saved.id, text, page_number: null, tags: [], photo_path: null });
+        // 本棚にあった「読みたい・積読」の本に一言を足したら読了にする（メモが本の詳細に出るように）
+        if (text && existing && (existing.status === 'want' || existing.status === 'before')) onMarkRead?.(existing.id);
       } catch (err) {
         console.warn('[quickstart] book save failed:', err?.message || err);
       }
@@ -253,6 +255,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
       } else {
         memoCount = memoRows.length;
         invalidateKnowledgeCache();
+        onMemosAdded?.(); // ホームの相談の件数などを取り直す
         track(EVENTS.MEMO_ADDED, { via: 'quickstart', count: memoCount });
       }
     }

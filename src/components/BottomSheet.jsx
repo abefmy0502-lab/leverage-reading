@@ -5,6 +5,7 @@
 // に絞った。Esc / ハンドルタップ / 背景タップ / 下スワイプ で閉じる。
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 
 const backdrop = {
   position: 'fixed',
@@ -37,6 +38,8 @@ const sheetWrap = {
 // dismissLabel=null で右上の閉じるボタンを出さない。dismissible=false のあいだは
 // 背景タップ・Esc・下スワイプ・ハンドルでも閉じない（取り込み中など、途中で閉じると困るとき）。
 export default function BottomSheet({ title, onClose, children, footer, dismissLabel = '完了', dismissible = true }) {
+  // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
+  useBlockEdgeSwipe(true);
   const sheetRef = useRef(null);
   // ♿ aria-modal の宣言どおり Tab を内部に閉じ込め、閉じたら元へ復帰。
   const trapRef = useFocusTrap(true);

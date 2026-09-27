@@ -170,7 +170,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           <input ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} placeholder="書名（必須）" aria-label="書名（必須）" aria-invalid={titleMissing || undefined} style={inp} maxLength={LIMITS.bookTitle} />
           {titleMissing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入れてください</p>}
-          <input value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" aria-label="著者" style={inp} maxLength={LIMITS.bookAuthor} />
+          <input value={form.author || ""} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" aria-label="著者" style={inp} maxLength={LIMITS.bookAuthor} />
         </div>
       </div>
 
@@ -237,6 +237,7 @@ export function BeforePhase({
   hasStrategyHistory,
   onAddRelatedBook,
   addingTitles,
+  savedAsBefore = true, // 編集を始めたときにすでに積読だったか（そのときだけ保存で読書中に進む）
 }) {
   const [editInstruction, setEditInstruction] = useState('');
   const submitEdit = () => {
@@ -414,7 +415,7 @@ export function BeforePhase({
       {/* 得たいことが書けていれば保存と同時に読書中へ自動遷移する（handleSave と同じ条件・
           status='before' のみ）。読書計画シートは任意の補助で、遷移の条件には含めない。 */}
       <button onClick={onSave} style={{ ...btnPrimary, marginTop: 'var(--space-6)' }}>
-        {form.status === 'before' && planReady ? '保存して読書を開始' : '保存'}
+        {form.status === 'before' && savedAsBefore && planReady ? '保存して読書を開始' : '保存'}
       </button>
     </div>
   );

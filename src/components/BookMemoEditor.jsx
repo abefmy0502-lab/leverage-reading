@@ -11,6 +11,7 @@ import { useConfirm } from './ConfirmDialog';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
 import { BookOpen, Sparkles, Undo2, ImagePlus, ChevronLeft, X } from 'lucide-react';
+import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -171,6 +172,8 @@ export default function BookMemoEditor({
   onCreate,
   onUpdate,
 }) {
+  // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
+  useBlockEdgeSwipe(true);
   const isEdit = Boolean(initial?.id);
   const [pageNumber, setPageNumber] = useState(
     initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '')

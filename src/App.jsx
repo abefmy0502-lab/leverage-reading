@@ -1235,7 +1235,13 @@ function AuthedApp() {
 
   // 本棚カードに渡る安定参照 (memo 化したカードの再 render 抑止用)。
   // setCurrent / setEditPhaseOverride / setView は安定なので deps は空でよい。
-  const openDetail = useCallback((b) => { setCurrent(b); setEditPhaseOverride(null); setView("detail"); }, []);
+  // 本の id（文字列）でも受ける（相談の答えの「根拠の本」は id を渡してくる）。
+  // 本のオブジェクトでないもの・見つからない id は開かない（空の詳細画面から空の本が保存される事故の防止）。
+  const openDetail = useCallback((b) => {
+    const book = typeof b === 'string' ? booksRef.current.find((x) => x.id === b) : b;
+    if (!book || typeof book !== 'object' || !book.id) return;
+    setCurrent(book); setEditPhaseOverride(null); setView("detail");
+  }, []);
 
   useEffect(() => {
     if (!pendingMemoBookId) return;
@@ -1339,7 +1345,7 @@ function AuthedApp() {
   // quickMemoOpen / fullEditorPrefill もリセットする — edge-swipe back や BottomNav
   // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
   // 開いた別の本の詳細でシートが勝手に開いてしまう。
-  const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); };
+  const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); };
 
   // 同じ本が既に本棚にあれば true を返す。ダイアログを出して「📖 既存の本を見る」
   // が押されたらその詳細へジャンプ。呼び出し側はこの戻り値が true なら追加処理
@@ -1559,6 +1565,8 @@ function AuthedApp() {
         // で巻き戻る」不整合になる。明示的に失敗として扱い rollback する。
         if (!saved) throw new Error('まとめメモを保存できませんでした。');
         entry.latest = saved;
+        // 保存済みになったので、編集の「変更あり」の基準も進める（離れるときに破棄の確認を出さない）
+        if (editBaselineRef.current != null) editBaselineRef.current = JSON.stringify({ ...(formRef.current || merged), leverageMemo: text });
         const next = saved;
         // 📊 まとめ式メモ保存の計測（保存成功時のみ・mode の enum だけ・本文は送らない）。
         // カード式の insert と粒度を揃えるため、空→記入の「新規作成」遷移だけ数える
@@ -1631,12 +1639,21 @@ function AuthedApp() {
     });
     if (!fromList) goList();
     haptic.medium();
+    // メモの写真ファイル（非公開の保存場所）も、戻せなくなった時点で消す（本を消しても写真が残る漏れの防止）。
+    const photoPaths = (snapshot.book_memos || []).map((m) => m.photo_path).filter(Boolean);
+    const removePhotos = () => {
+      if (!photoPaths.length) return;
+      deletionPromise
+        .then(() => supabaseClient.storage.from('book-memo-photos').remove(photoPaths))
+        .catch(() => { /* 写真の掃除に失敗しても本の削除は済んでいる */ });
+    };
 
     // 確認ダイアログ経由の削除（undo=false）では、既にユーザーが意思確認済み
     // なので下部の「取消」トーストは出さない（本が消えること自体が手応え）。
     // スワイプ削除（ジェスチャー＝確認なし）のときだけ取消トーストを出す。
     if (!undo) {
       deletionPromise.catch(() => {});
+      removePhotos();
       return;
     }
 
@@ -1644,6 +1661,8 @@ function AuthedApp() {
     // photo_path ごと完全復元される（旧「※写真は復元できません」は誤案内だった）。
     toast.undo({
       message: `「${book.title}」を削除しました。`,
+      // 取り消されずに閉じたら、写真ファイルも消す（取り消し中は写真ごと戻せるよう残しておく）
+      onExpire: removePhotos,
       onUndo: async () => {
         try {
           await deletionPromise.catch(() => {});
@@ -1752,7 +1771,10 @@ function AuthedApp() {
       const memos = [...(b.memos || [])];
       if (target) {
         booksMatched += 1;
-        if (b.review) memos.push({ text: b.review, page: null, createdAt: null });
+        // レビューは初回の取り込みで「まとめ」に入る。同じレビューをもう一度カードにしない。
+        if (b.review && String(b.review).trim() !== String(target.leverageMemo || '').trim()) {
+          memos.push({ text: b.review, page: null, createdAt: null });
+        }
       } else {
         try {
           // eslint-disable-next-line no-await-in-loop
@@ -1782,10 +1804,17 @@ function AuthedApp() {
     let memosAdded = 0;
     const ids = [...new Set(pending.map((p) => p.bookId))];
     const existing = new Set();
+    // 1 回の問い合わせは 1,000 行までしか返らないので、ページを送って全部読む（読めなければ止める＝二重にしない）。
     for (let i = 0; i < ids.length; i += 100) {
-      // eslint-disable-next-line no-await-in-loop
-      const { data } = await supabaseClient.from('book_memos').select('book_id, text').in('book_id', ids.slice(i, i + 100));
-      (data || []).forEach((m) => existing.add(`${m.book_id}\u0000${(m.text || '').trim()}`));
+      const chunk = ids.slice(i, i + 100);
+      for (let from = 0; ; from += 1000) {
+        // eslint-disable-next-line no-await-in-loop
+        const { data, error } = await supabaseClient.from('book_memos').select('book_id, text')
+          .in('book_id', chunk).order('id', { ascending: true }).range(from, from + 999);
+        if (error) throw error;
+        (data || []).forEach((m) => existing.add(`${m.book_id}\u0000${(m.text || '').trim()}`));
+        if (!data || data.length < 1000) break;
+      }
     }
     const rows = [];
     for (const p of pending) {
@@ -1805,6 +1834,14 @@ function AuthedApp() {
       const { error } = await supabaseClient.from('book_memos').insert(chunk);
       if (error) throw error;
       memosAdded += chunk.length;
+    }
+    // メモを足した「読みたい・積読」の本は読了にする（本の詳細はメモを読書中・読了でしか出さないため）
+    //   （いま作った本は取り込み元の状態のまま。もとから本棚にあった本だけ）
+    const newIds = new Set(newBooks.map((b) => b.id));
+    const withMemo = new Set(rows.map((r) => r.book_id).filter((id) => !newIds.has(id)));
+    for (const id of withMemo) {
+      const bk = booksRef.current.find((b) => b.id === id);
+      if (bk && (bk.status === 'want' || bk.status === 'before')) applyBookPatchQuiet(id, { status: 'done' });
     }
     invalidateKnowledgeCache();
     appCache?.notifyMemosChanged?.(); // ホームの相談カードの件数などを取り直させる
@@ -2442,8 +2479,9 @@ function AuthedApp() {
 
   const applyActionToggle = (bookId, actionIdx, options = {}) => {
     // 対象行の「身元」を今の books から掴んでおく（index は実行時に再解決）。
+    //   options.target があれば、それを身元にする（元に戻す等、あとから呼ぶときに並びがずれても同じ行動を掴む）。
     const bookNow = booksRef.current.find((b) => b.id === bookId);
-    const targetAction = bookNow?.actions?.[actionIdx] || null;
+    const targetAction = options.target || bookNow?.actions?.[actionIdx] || null;
     return enqueueBookMutation(bookId, (entry) => doActionToggle(bookId, actionIdx, options, entry, targetAction));
   };
 
@@ -2680,24 +2718,26 @@ function AuthedApp() {
   const toggleAction = async (bookId, actionIdx, opts = {}) => {
     const book = books.find((b) => b.id === bookId);
     if (!book) return;
-    const target = (book.actions || [])[actionIdx];
+    // 呼び出し側が行動そのもの（opts.target）を渡していれば、それで身元を確定する
+    const target = (opts.target && (book.actions || []).find((x) => x && opts.target.id && x.id === opts.target.id))
+      || (book.actions || [])[actionIdx];
     if (!target) return;
     // 旧実装は「完了化」時に振り返りモーダル (✅ 完了おめでとうございます!)
     // を挟んでいたが、毎回フリクションを増やしていたため撤去。タップ即完了 /
     // 即未完了戻しの軽快操作に統一。reflection は ActionEditModal から
     // いつでも編集可能。
-    await applyActionToggle(bookId, actionIdx);
+    await applyActionToggle(bookId, actionIdx, { target });
     // 完了は一瞬で一覧から消えるので、取り消せるようにする（押し間違いの救済）。
     // silent: 行動タブは自分の欄（ふりかえり＋元に戻す）を出すので、案内を重ねない。
     if (!target.done && !opts.silent) {
       toast.info('行動を完了しました', {
         duration: 5000,
-        action: { label: '元に戻す', onClick: () => { applyActionToggle(bookId, actionIdx); } },
+        action: { label: '元に戻す', onClick: () => { applyActionToggle(bookId, actionIdx, { target }); } },
       });
     }
   };
 
-  const deleteActionFromBook = async (bookId, actionIdx, { skipConfirm = false } = {}) => {
+  const deleteActionFromBook = async (bookId, actionIdx, { skipConfirm = false, target = null } = {}) => {
     // ⋮ → 削除は誤タップし得る明示メニュー操作なので、規約どおり確認を挟む
     // （スワイプ削除＝ジェスチャー意図は確認なし + Undo、と役割分担）。
     // ActionEditModal 経由はモーダル側で確認済みなので skipConfirm で二重確認を避ける。
@@ -2714,7 +2754,7 @@ function AuthedApp() {
     // トグルと同じ本ごとの直列化チェーンに乗せる。並行の saveBook（トグル進行中）
     // と競合すると、削除した行動が stale upsert で復活し得るため。
     // 対象行の身元を今掴む（index は実行時に再解決 — 行数がずれても別の行を消さない）。
-    const delTarget = (booksRef.current.find((b) => b.id === bookId)?.actions || [])[actionIdx] || null;
+    const delTarget = target || (booksRef.current.find((b) => b.id === bookId)?.actions || [])[actionIdx] || null;
     await enqueueBookMutation(bookId, async (entry) => {
       const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
       if (!book) return;
@@ -2848,6 +2888,9 @@ function AuthedApp() {
         onImport={() => { setShowQuickstart(false); setShowImport(true); }}
         books={books}
         onSaveBook={saveQuickstartBook}
+        // 一言を書いた本が「読みたい・積読」のままだと、本の詳細にメモが出ない → 読了にする
+        onMarkRead={(bookId) => applyBookPatchQuiet(bookId, { status: 'done' })}
+        onMemosAdded={() => appCache?.notifyMemosChanged?.()}
         onAsk={(question) => {
           setShowQuickstart(false);
           refreshBooks();
@@ -3291,12 +3334,15 @@ function AuthedApp() {
                     message: 'メモを保存しました。',
                     duration: 6000,
                     action: {
-                      label: '🎯 行動にする',
-                      onClick: () => addActionFromMemo(current.id, {
-                        text: actionText,
-                        sourceMemoId: typeof result?.id === 'string' ? result.id : null,
-                        sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
-                      }),
+                      label: '行動にする',
+                      onClick: async () => {
+                        const ok = await addActionFromMemo(current.id, {
+                          text: actionText,
+                          sourceMemoId: typeof result?.id === 'string' ? result.id : null,
+                          sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
+                        });
+                        if (ok) toast.success('行動に追加しました。');
+                      },
                     },
                   });
                 } else {
@@ -3521,6 +3567,7 @@ function AuthedApp() {
                     }
                     onAddRelatedBook={addRelatedBookFromAi}
                     addingTitles={addedRelatedTitles}
+                    savedAsBefore={current?.status === 'before'}
                   />
                 )}
                 {effectivePhase === "reading" && current && (
@@ -3709,11 +3756,14 @@ function AuthedApp() {
                     duration: 6000,
                     action: {
                       label: '行動にする',
-                      onClick: () => addActionFromMemo(b.id, {
-                        text: actionText,
-                        sourceMemoId: typeof result?.id === 'string' ? result.id : null,
-                        sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
-                      }),
+                      onClick: async () => {
+                        const ok = await addActionFromMemo(b.id, {
+                          text: actionText,
+                          sourceMemoId: typeof result?.id === 'string' ? result.id : null,
+                          sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
+                        });
+                        if (ok) toast.success('行動に追加しました。');
+                      },
                     },
                   });
                 } else {
@@ -3781,6 +3831,7 @@ function AuthedApp() {
                   <IcSearch size={18} aria-hidden="true" style={{ position: "absolute", left: 'var(--space-3)', color: "var(--text-3)", pointerEvents: "none" }} />
                   <input
                     type="search"
+                    maxLength={100}
                     aria-label="本を検索（タイトル・著者・タグ）"
                     placeholder="タイトル・著者・タグ"
                     value={search}
@@ -3973,7 +4024,7 @@ function AuthedApp() {
             </div>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<Spinner />}>
-                <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); }} />
+                <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }} />
               </Suspense>
             ) : reviewSubTab === 'record' ? (
               <Suspense fallback={<Spinner />}>
@@ -3985,7 +4036,7 @@ function AuthedApp() {
                   onShowBooks={(status) => {
                     setSearch(''); setMinRating(0); setTagFilter([]); setFolderFilter(null);
                     setStatusFilter(status || 'all');
-                    navigateTab('books'); goList();
+                    navigateTab('books'); goList(); setShelfMode('library');
                   }}
                   onShowMemos={() => setReviewSubTab('note')}
                   onShowActions={() => setReviewSubTab('action')}
@@ -3993,12 +4044,12 @@ function AuthedApp() {
                   onFilterTag={(tag) => {
                     setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter('all');
                     setTagFilter([tag]);
-                    navigateTab('books'); goList();
+                    navigateTab('books'); goList(); setShelfMode('library');
                   }}
                   onSearchAuthor={(author) => {
                     setMinRating(0); setTagFilter([]); setFolderFilter(null); setStatusFilter('all');
                     setSearch(author);
-                    navigateTab('books'); goList();
+                    navigateTab('books'); goList(); setShelfMode('library');
                   }}
                 />
               </Suspense>
@@ -4235,10 +4286,10 @@ function AuthedApp() {
             if (outcome !== 'failed') setEditingAction(null);
           }}
           onDelete={async () => {
-            const { bookId, actionIdx } = editingAction;
+            const { bookId, actionIdx, action } = editingAction;
             setEditingAction(null);
-            // モーダル側で確認済み → 二重確認を避ける。
-            await deleteActionFromBook(bookId, actionIdx, { skipConfirm: true });
+            // モーダル側で確認済み → 二重確認を避ける。開いたときの行動を身元にする（並びがずれても別の行動を消さない）。
+            await deleteActionFromBook(bookId, actionIdx, { skipConfirm: true, target: action });
           }}
         />
         </Suspense>

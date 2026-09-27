@@ -35,6 +35,7 @@ import {
   StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
+import { useConfirm } from './ConfirmDialog';
 
 // 見た目は DESIGN.md のトークンのみ（2026-09-26・SPEC §4 でメモのサブタブを整理）。
 const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
@@ -348,6 +349,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
 export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf }) {
   const { user } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
   const haptic = useHaptic();
   // メモは読書中/読了の本にだけ付けられる。「＋ メモを追加」を出してよいのは
   // 付け先の本がある時だけ（無ければ本棚で本を追加/開始するのが先）。
@@ -841,7 +843,25 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             ...(memoMenu.book
               ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book) }]
               : []),
-            { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => handleSwipeDelete(memoMenu.memo) },
+            {
+              label: '削除',
+              icon: <Trash2 size={16} aria-hidden="true" />,
+              destructive: true,
+              // メニューからの削除は確認する（スワイプは「ジェスチャー＝意図」で確認なし・取り消しつき）
+              onClick: async () => {
+                const m = memoMenu.memo;
+                const ok = await confirm({
+                  title: 'このメモを削除しますか？',
+                  message: m?.photoPath
+                    ? '写真も削除されます。（取り消した場合、本文は戻りますが写真は戻りません）'
+                    : '削除したあと、しばらくは「取り消す」で戻せます。',
+                  confirmLabel: '削除する',
+                  cancelLabel: 'キャンセル',
+                  danger: true,
+                });
+                if (ok) handleSwipeDelete(m);
+              },
+            },
           ]}
         />
       )}
@@ -1084,6 +1104,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
           <input
             type="search"
+            maxLength={100}
             placeholder="キーワード・タイトル・著者・タグ（例: 営業）"
             aria-label="メモ横断検索: 本文・タイトル・著者・タグから探す"
             value={search}

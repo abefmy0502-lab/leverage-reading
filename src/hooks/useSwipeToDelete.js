@@ -3,7 +3,7 @@
 // the current swipe offset (positive = pixels swiped left) and a `bind` for
 // the touch handlers.
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function useSwipeToDelete({ onDelete, threshold = 80, maxSwipe = 200 } = {}) {
   const [offset, setOffset] = useState(0);
@@ -13,6 +13,8 @@ export function useSwipeToDelete({ onDelete, threshold = 80, maxSwipe = 200 } = 
   const startYRef = useRef(null);
   const directionRef = useRef(null); // 'horizontal' | 'vertical' | null
   const offsetRef = useRef(0);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const setOffsetState = useCallback((v) => {
     offsetRef.current = v;
@@ -57,8 +59,15 @@ export function useSwipeToDelete({ onDelete, threshold = 80, maxSwipe = 200 } = 
       setIsDeleting(true);
       // Slide fully off-screen then notify
       setOffsetState(maxSwipe);
-      setTimeout(() => {
-        try { onDelete?.(); } catch { /* ignore */ }
+      setTimeout(async () => {
+        try { await onDelete?.(); } catch { /* ignore */ }
+        // 削除が取り消された（確認で「キャンセル」）・失敗したときは、カードがまだ画面に残る。
+        // ずれたまま・赤い引き出しが出たままにせず、元の位置へ戻す（2026-09-27）。
+        setTimeout(() => {
+          if (!mountedRef.current) return;
+          setIsDeleting(false);
+          setOffsetState(0);
+        }, 400);
       }, 220);
     } else {
       setOffsetState(0);

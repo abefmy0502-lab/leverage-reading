@@ -14,6 +14,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { Sparkles, Undo2, X, Plus, Minus, ChevronRight } from 'lucide-react';
 import { btnPrimary, btnText } from '../styles/ui';
+import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
@@ -152,6 +153,8 @@ export default function QuickMemoSheet({
   onCreate,
   onOpenFullEditor,
 }) {
+  // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
+  useBlockEdgeSwipe(true);
   ensureKeyframes();
   const [pageNumber, setPageNumber] = useState(defaultPageNumber !== '' ? String(defaultPageNumber) : '');
   const [text, setText] = useState('');

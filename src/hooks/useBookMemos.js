@@ -119,6 +119,21 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
     aliveRef.current = false;
   }, []);
 
+  // 同じフックのまま別の本に切り替わったら、前の本のメモを持ち越さない
+  // （前の本のメモが一瞬出る・その間に書いたメモが前の本の一覧ごと新しい本のキャッシュに入る事故の防止）。
+  const lastBookIdRef = useRef(bookId);
+  if (lastBookIdRef.current !== bookId) {
+    lastBookIdRef.current = bookId;
+    const seeded = isUsableBookId ? (cache.getMemos(bookId) || []) : [];
+    rawMemosRef.current = seeded;
+  }
+  useEffect(() => {
+    const seeded = isUsableBookId ? (cache.getMemos(bookId) || []) : [];
+    rawMemosRef.current = seeded;
+    setRawMemos(seeded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId]);
+
   const writeBoth = useCallback(
     (nextOrUpdater) => {
       const next = typeof nextOrUpdater === 'function'

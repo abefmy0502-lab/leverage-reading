@@ -94,12 +94,12 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   const [reflecting, setReflecting] = useState(false);
   const complete = (a) => {
     track(EVENTS.ACTION_COMPLETED);
-    onToggleAction?.(a.bookId, a.actionIdx, { silent: !!onReflect });
+    onToggleAction?.(a.bookId, a.actionIdx, { silent: !!onReflect, target: a });
     if (onReflect) { setJustDone({ bookId: a.bookId, actionIdx: a.actionIdx, action: a }); setReflection(''); }
   };
   const undoJustDone = () => {
     if (!justDone) return;
-    onToggleAction?.(justDone.bookId, justDone.actionIdx, { silent: true });
+    onToggleAction?.(justDone.bookId, justDone.actionIdx, { silent: true, target: justDone.action });
     setJustDone(null);
   };
   const saveReflection = async () => {
