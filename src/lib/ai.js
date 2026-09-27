@@ -461,17 +461,29 @@ async function fetchBooksStaged(userId) {
 //   - books.ai_summary / roi_summary / ai_strategy (AI 生成フィールド)
 // すべて同じ memo shape に整形し、既存の ranking/format パイプラインで処理。
 async function gatherKnowledge(userId) {
-  const [memosRes, allBooks] = await Promise.all([
-    supabase
-      .from('book_memos')
-      .select('*, book:books(id, title, author, rating)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false }),
+  // Supabase は 1 回の取得が最大 1000 行。メモが 1000 件を超える人でも古いメモが
+  // 相談の材料から黙って落ちないよう、1000 件ずつ続けて読む（上限 5000 件）。
+  const fetchAllMemos = async () => {
+    const PAGE = 1000;
+    const rows = [];
+    for (let from = 0; from < 5000; from += PAGE) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await supabase
+        .from('book_memos')
+        .select('*, book:books(id, title, author, rating)')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < PAGE) break;
+    }
+    return rows;
+  };
+  const [memoRows, allBooks] = await Promise.all([
+    fetchAllMemos(),
     fetchBooksStaged(userId),
   ]);
-  if (memosRes.error) throw memosRes.error;
-
-  const memoRows = memosRes.data || [];
 
   // books の各フィールドを別々の memo 行として synthesize
   const synthRows = [];
@@ -2061,6 +2073,7 @@ export async function setLeverageRecall({ userId, theme, core }) {
       console.warn('[leverage-memo] recall set skipped:', error.message);
       return { ok: false };
     }
+    invalidateKnowledgeCache();
     return { ok: true };
   } catch (e) {
     console.warn('[leverage-memo] recall set threw:', e?.message);

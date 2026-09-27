@@ -18,6 +18,7 @@
 //   summary  — clear (set leverage_memo = ''); Undo restores previous text
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { invalidateKnowledgeCache } from '../lib/ai';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   Brain,
@@ -469,6 +470,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
             .eq('id', item.id)
             .eq('user_id', user.id);
           if (error) throw error;
+          invalidateKnowledgeCache(); // 相談の材料を読み直させる
           toast.success('学びログを更新しました。');
           refresh();
         },
@@ -531,6 +533,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
     if (oldPath && (payload.photoFile || payload.removePhotoFlag)) {
       try { await supabase.storage.from('book-memo-photos').remove([oldPath]); } catch { /* ignore */ }
     }
+    invalidateKnowledgeCache();
     toast.success('メモを更新しました。');
     refresh();
   };
@@ -547,6 +550,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
         .eq('id', item.id)
         .eq('user_id', user.id);
       if (error) throw error;
+      invalidateKnowledgeCache(); // 消したメモを相談の材料に使い続けない
       if (item.kind === 'card' && item.photo_path) {
         try {
           await supabase.storage.from('book-memo-photos').remove([item.photo_path]);
@@ -586,6 +590,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
           if (snapshot.created_at) payload.created_at = snapshot.created_at;
           const { error } = await supabase.from('book_memos').insert([payload]);
           if (error) throw error;
+          invalidateKnowledgeCache();
           toast.info('削除を取り消しました。');
           refresh();
         } catch (e) {

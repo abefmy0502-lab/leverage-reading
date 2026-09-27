@@ -42,10 +42,22 @@ export function AppDataCacheProvider({ children }) {
     });
   };
 
+  // どの本のメモでも「動いた」ことだけを知りたい購読者（ホームの相談カードの件数など）。
+  const anyMemoSubsRef = useRef(new Set());
+  const notifyAnyMemo = () => {
+    anyMemoSubsRef.current.forEach((cb) => { try { cb(); } catch { /* ignore */ } });
+  };
+  const subscribeAnyMemo = useCallback((cb) => {
+    if (typeof cb !== 'function') return () => {};
+    anyMemoSubsRef.current.add(cb);
+    return () => { anyMemoSubsRef.current.delete(cb); };
+  }, []);
+
   const setMemos = useCallback((bookId, memos) => {
     if (!bookId) return;
     memoStoreRef.current.set(bookId, memos);
     notifyMemos(bookId, memos);
+    notifyAnyMemo();
     // メモが動いたら AI の知識キャッシュ（gatherKnowledge）を無効化 —
     // 「書いた直後にマイ読書脳へ聞く」でも常に最新の知識で答えるため。
     invalidateKnowledgeCache();
@@ -57,6 +69,7 @@ export function AppDataCacheProvider({ children }) {
     const next = fn(current);
     memoStoreRef.current.set(bookId, next);
     notifyMemos(bookId, next);
+    notifyAnyMemo();
     invalidateKnowledgeCache();
   }, []);
 
@@ -230,6 +243,7 @@ export function AppDataCacheProvider({ children }) {
       setMemos,
       patchMemos,
       subscribeMemos,
+      subscribeAnyMemo,
       dedupeMemoFetch,
       clearMemos,
       getCachedPhotoUrl,
@@ -243,6 +257,7 @@ export function AppDataCacheProvider({ children }) {
       setMemos,
       patchMemos,
       subscribeMemos,
+      subscribeAnyMemo,
       dedupeMemoFetch,
       clearMemos,
       getCachedPhotoUrl,

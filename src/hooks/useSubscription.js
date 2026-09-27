@@ -73,6 +73,10 @@ export function useSubscription() {
   const { user } = useAuth();
   // fetchSubscription の in-flight 混線ガード用（常に最新のユーザー id を参照）。
   const userRef = useRef(user?.id ?? null);
+  // 読み込み表示（loading=true）は、そのユーザーの最初の 1 回だけ。2 回目以降の確認
+  // （購入後の refresh 等）で loading に戻すと、課金の門（PaywallGate）が読み込み表示に
+  // 替わってアプリ全体が作り直され、書きかけが消える。
+  const loadedForRef = useRef(null);
   useEffect(() => { userRef.current = user?.id ?? null; }, [user?.id]);
 
   const fetchSubscription = useCallback(async () => {
@@ -88,7 +92,7 @@ export function useSubscription() {
     // アンロック/ロックされるのを防ぐ）。
     const forUserId = user.id;
     const isCurrent = () => userRef.current === forUserId;
-    setLoading(true);
+    if (loadedForRef.current !== forUserId) setLoading(true);
     let dbActive = false;
     try {
       const { data, error: dbError } = await supabase
@@ -136,19 +140,24 @@ export function useSubscription() {
     } else if (dbActive) {
       setNativeEntitled(false); // DB が真実のときはそちらを優先
     }
+    if (isCurrent()) loadedForRef.current = forUserId;
     setLoading(false);
-  }, [user]);
+  // user オブジェクトではなく id に依存する（同じ人の別オブジェクトで取り直さない）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
     if (user) {
       fetchSubscription();
     } else {
+      loadedForRef.current = null;
       setSubscription(null);
       setNativeEntitled(false);
       setError(null);
       setLoading(false);
     }
-  }, [user, fetchSubscription]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, fetchSubscription]);
 
   // entitlement 判定: DB の status='active'（Stripe/IAP webhook 同期済み）
   // または ネイティブ端末ローカルの RevenueCat entitlement。

@@ -197,7 +197,8 @@ export function BookSearchField({ id, value, onChange, onSubmit, inputRef, autoF
           paddingLeft: 'var(--space-12)',
           paddingRight: value ? 'var(--space-12)' : 'var(--space-4)',
           // DESIGN §5: 入力中の枠はアクセント
-          ...(focused ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 3px var(--accent-soft)' } : {}),
+          // border の一括指定と borderColor を混ぜると React が警告するので、枠は丸ごと差し替える
+          ...(focused ? { border: '1px solid var(--accent)', boxShadow: '0 0 0 3px var(--accent-soft)' } : {}),
         }}
       />
       {value && (

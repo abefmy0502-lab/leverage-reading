@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
-import { streamMyBookBrain, generateWeeklyQuestion, prewarmKnowledge } from '../lib/ai';
+import { streamMyBookBrain, generateWeeklyQuestion, prewarmKnowledge, invalidateKnowledgeCache } from '../lib/ai';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
@@ -25,6 +25,19 @@ import EmptyState from './EmptyState';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import KnowledgeJourney from './KnowledgeJourney';
+
+// ホーム・本の詳細・テーマまとめから渡される「最初の一手」（preset）は、App 側では
+// 消えずに残る。相談タブを開き直すと MyBookBrain が作り直されるので、使い終わった
+// preset の nonce をここ（画面の作り直しでも消えない場所）に覚えて、二度と実行しない。
+// （覚えておかないと、開き直すたびに同じ質問が送られて AI の回数を消費していた）
+const consumedPresets = new Set();
+const consumePreset = (kind, nonce) => {
+  if (nonce == null) return false;
+  const key = `${kind}:${nonce}`;
+  if (consumedPresets.has(key)) return false;
+  consumedPresets.add(key);
+  return true;
+};
 import BottomSheet from './BottomSheet';
 
 // AI tab の .ai-page-body (flex 1, overflow hidden) の中にぴったり
@@ -159,6 +172,7 @@ function LearningInline({ onSaved }) {
         },
       ]);
       if (error) throw error;
+      invalidateKnowledgeCache(); // 直後の相談でこの学びを使えるように
       toast.success('学びを記録しました。');
       onSaved?.();
     } catch (e) {
@@ -286,8 +300,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
   // 📐→🕰 テーマまとめの「このテーマの足あとを見る」から遷移してきたら、
   // 足あとビューへ切替（テーマ本体は KnowledgeJourney に initialTheme で渡す）。
+  // 足あとの自動生成は、この nonce の preset を初めて受け取ったときだけ（開き直しでは再生成しない）。
+  const [journeyAutoTheme, setJourneyAutoTheme] = useState('');
   useEffect(() => {
-    if (journeyPreset?.theme) setView('journey');
+    if (!journeyPreset?.theme || !consumePreset('journey', journeyPreset.nonce)) return;
+    setJourneyAutoTheme(journeyPreset.theme);
+    setView('journey');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [journeyPreset?.nonce]);
   const [messages, setMessages] = useState([]);
@@ -298,7 +316,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   // 本詳細の「この本に相談する」から来たら、相談相手をその本に絞って質問画面へ。
   useEffect(() => {
-    if (!scopePreset?.bookIds) return;
+    if (!scopePreset?.bookIds || !consumePreset('scope', scopePreset.nonce)) return;
     setScopeIds(scopePreset.bookIds);
     setView('chat');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -368,22 +386,28 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     el.style.height = Math.min(Math.max(el.scrollHeight + 2, 44), 200) + 'px';
   }, [input]);
 
+  const historyLatestRef = useRef(null);
   const fetchHistory = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
       setHistoryLoaded(true);
       return;
     }
+    // 新しい順に最大 300 件（過去の相談の一覧に十分。全件だと使うほど重くなる）。
     const { data, error } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: true });
-    if (error) {
-      console.warn('chat history fetch error:', error);
-      setMessages([]);
-    } else {
-      setMessages((data || []).map(transformMessage));
-    }
+      .order('created_at', { ascending: false })
+      .limit(300);
+    // 読み込み中に送られた質問・回答（まだ履歴に無い行）は消さずに後ろへ残す。
+    // 以前は履歴で丸ごと上書きしていたため、開いた直後に送ると質問も答えも消えていた。
+    const hist = error ? [] : (data || []).reverse().map(transformMessage);
+    if (error) console.warn('chat history fetch error:', error);
+    historyLatestRef.current = hist.length > 0 ? hist[hist.length - 1].createdAt : null;
+    setMessages((prev) => {
+      const ids = new Set(hist.map((m) => m.id));
+      return [...hist, ...prev.filter((m) => !ids.has(m.id))];
+    });
     setHistoryLoaded(true);
   }, [user]);
 
@@ -408,8 +432,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   useEffect(() => {
     if (freshOnMountRef.current || !historyLoaded) return;
     freshOnMountRef.current = true;
-    const latest = messages.length > 0 ? messages[messages.length - 1].createdAt : null;
-    const cut = latest || new Date().toISOString();
+    // 境界は「読み込んだ履歴の最新（サーバ時刻）」。読み込み中に送った質問は境界より
+    // 後なので表示される。履歴が空なら隠すものは無い（端末の時計は使わない＝時計が
+    // 進んでいる端末で初回の相談が隠れる不具合の防止）。
+    const cut = historyLatestRef.current || '1970-01-01T00:00:00.000Z';
     setClearedAt(cut);
     try { localStorage.setItem('brain-cleared-at', cut); } catch { /* ignore */ }
   }, [historyLoaded, messages]);
@@ -745,6 +771,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (!askPreset?.question || !historyLoaded) return;
     if (askPresetDoneRef.current === askPreset.nonce) return;
     askPresetDoneRef.current = askPreset.nonce;
+    if (!consumePreset('ask', askPreset.nonce)) return;
     setView('chat');
     if (Array.isArray(askPreset.bookIds)) setScopeIds(askPreset.bookIds);
     ask(askPreset.question, Array.isArray(askPreset.bookIds) ? { bookIds: askPreset.bookIds } : {});
@@ -897,7 +924,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <KnowledgeJourney
             key={journeyPreset?.nonce || 'journey'}
             userId={user?.id}
-            initialTheme={journeyPreset?.theme || ''}
+            initialTheme={journeyAutoTheme}
           />
         </div>
       )}

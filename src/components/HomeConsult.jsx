@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { useAppDataCache } from '../state/AppDataCache';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
 import { btnPrimary, card, input } from '../styles/ui';
@@ -36,11 +37,17 @@ function examplesFor(books) {
 
 export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
   const { user } = useAuth();
+  const cache = useAppDataCache();
   const inputRef = useRef(null);
   const [memoCount, setMemoCount] = useState(null);
   const [text, setText] = useState('');
   const bookCount = books.length;
   const examples = useMemo(() => examplesFor(books), [books]);
+
+  // メモが動いたら（ホームのクイックメモ・本の詳細など）件数を取り直す。
+  // 最初のメモを書いた直後に、案内から入力欄へ切り替わるように。
+  const [memoTick, setMemoTick] = useState(0);
+  useEffect(() => cache?.subscribeAnyMemo?.(() => setMemoTick((t) => t + 1)), [cache]);
 
   useEffect(() => {
     if (!user || !isSupabaseConfigured || bookCount === 0) return undefined;
@@ -55,7 +62,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
       } catch { /* 件数が取れなくても入口自体は出す */ }
     })();
     return () => { alive = false; };
-  }, [user, bookCount]);
+  }, [user?.id, bookCount, memoTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (bookCount === 0) return null;
 

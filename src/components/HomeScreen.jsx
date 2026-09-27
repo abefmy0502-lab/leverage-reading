@@ -11,6 +11,7 @@ import { Library, ChevronRight, PencilLine } from 'lucide-react';
 import HomeConsult from './HomeConsult';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
+import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnGhost, btnText, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（高さ 44・文字 15・600）。
@@ -87,7 +88,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
 }
 
 export default function HomeScreen({
-  books = [], loading = false,
+  books = [], loading = false, loadError = null, onRetry,
   onAsk, onQuickstart, onAddBook, onAdvisor,
   onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading,
 }) {
@@ -102,6 +103,13 @@ export default function HomeScreen({
           <SkeletonBlock height={72} radius="var(--radius)" />
           <SkeletonBlock height={72} radius="var(--radius)" />
         </div>
+      ) : loadError && books.length === 0 ? (
+        // 読み込みに失敗したときに、既存ユーザーへ初回用の「はじめましょう」を見せない。
+        <ErrorMessage
+          title="本を読み込めませんでした"
+          description="通信の状態を確かめて、もう一度お試しください。"
+          actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
+        />
       ) : books.length === 0 ? (
         <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} />
       ) : (

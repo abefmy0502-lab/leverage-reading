@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fmtDateJa } from '../lib/dates';
 import { createPortal } from 'react-dom';
 import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
@@ -87,12 +88,8 @@ const menuItem = {
   WebkitTapHighlightColor: 'transparent',
 };
 
-function formatDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-}
+// 日付の書き方はアプリ全体で 1 つ（今年は「9/20」、違う年は「2025/9/20」）。
+const formatDate = (iso) => fmtDateJa(iso);
 
 export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare, onDelete, onMakeAction, onSwipeDelete, onLongPress }) {
   const cache = useAppDataCache();

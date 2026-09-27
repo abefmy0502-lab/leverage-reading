@@ -135,8 +135,8 @@ describe('recallPatch', () => {
     expect(p.recall_count).toBe(3);
     expect(typeof p.last_recalled_at).toBe('string');
   });
-  it('「もう一度」は recall_count 据え置き', () => {
-    expect(recallPatch(2, false).recall_count).toBe(2);
+  it('「もう一度」は recall_count を 0 に戻す（翌日また出る）', () => {
+    expect(recallPatch(2, false).recall_count).toBe(0);
   });
   it('null/undefined count は 0 起点', () => {
     expect(recallPatch(undefined, true).recall_count).toBe(1);

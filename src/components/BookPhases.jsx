@@ -8,6 +8,7 @@
 // ⚠️ 挙動は抽出前と不変。識別子名・props も不変（App.jsx 側の呼び出しはそのまま）。
 
 import { useState, useRef } from 'react';
+import { todayLocal } from '../lib/dates';
 import { toMessage } from '../lib/errors';
 import {
   BookOpen as IcBook, Ruler as IcRuler, Search as IcSearch, Map as IcMap,
@@ -166,7 +167,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
                 aria-checked={active}
                 title={s.def}
                 onClick={() => {
-                  const today = new Date().toISOString().slice(0, 10);
+                  const today = todayLocal();
                   setForm((f) => ({
                     ...f,
                     status: s.v,

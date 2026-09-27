@@ -137,6 +137,7 @@ import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
+import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Dots, Stars, inp, btnS } from './components/formPrimitives';
 import { btnGhost, btnText, btnPrimary } from './styles/ui';
@@ -1447,7 +1448,7 @@ function AuthedApp() {
         if (isSetupCompletion) {
           p.status = 'reading';
           if (!p.startDate) {
-            p.startDate = new Date().toISOString().slice(0, 10);
+            p.startDate = todayLocal();
           }
         }
         return p;
@@ -1791,9 +1792,9 @@ function AuthedApp() {
       // 4 フィールドが埋まっていれば「読書計画を作成しました」、そうでなければ控えめなトースト。
       const hasPlan = newBook.currentChallenge || newBook.hypothesis || newBook.bookReason;
       const msg = hasPlan
-        ? `✅ 「${rec.title}」を追加。AI 読書計画を作成しました。`
+        ? `✅ 「${rec.title}」を追加。読書計画シートを作成しました。`
         : newBook.sourceQuery
-          ? `「${rec.title}」を追加。AI 読書計画で読み方戦略を立てましょう。`
+          ? `「${rec.title}」を追加。読書計画シートで読み方を決めましょう。`
           : `「${rec.title}」を「読みたい」に追加しました。`;
       // 追加直後に「本棚で探し直す」断絶を無くす — トーストから 1 タップで
       // その本の読書計画（投資目的→戦略）へ直行できるようにする（time-to-value）。
@@ -1891,8 +1892,9 @@ function AuthedApp() {
       doneDate: fresh.doneDate,
     };
     const patch = { status: newStatus };
-    if (newStatus === "before" && !fresh.startDate) patch.startDate = new Date().toISOString().slice(0, 10);
-    if (newStatus === "done" && !fresh.doneDate) patch.doneDate = new Date().toISOString().slice(0, 10);
+    // 開始日は「読み始めた日」＝読書中・読了に進めたとき（積読に積んだ日ではない）。
+    if ((newStatus === "reading" || newStatus === "done") && !fresh.startDate) patch.startDate = todayLocal();
+    if (newStatus === "done" && !fresh.doneDate) patch.doneDate = todayLocal();
     const updated = { ...fresh, ...patch };
 
     // Optimistic update。ステータスを 1 つ進めるタップは、どの遷移でも本詳細に
@@ -1929,7 +1931,7 @@ function AuthedApp() {
         entry.latest = null;
         setCurrent((c) => (c && c.id === book.id ? { ...c, ...prev } : c));
         setForm((f) => (f && f.id === book.id ? { ...f, ...prev } : f));
-        if (currentRef.current?.id === book.id) setView('edit');
+        if (currentRef.current?.id === book.id) setView('detail');
       }
     });
 
@@ -1946,7 +1948,8 @@ function AuthedApp() {
         // 編集中フォームを乗っ取ると isEditDirty 保護も壊れる）。
         setCurrent((c) => (c && c.id === book.id ? reverted : c));
         setForm((f) => (f && f.id === book.id ? { ...emptyBook(), ...reverted, tags: reverted.tags || [], actions: reverted.actions || [] } : f));
-        if (currentRef.current?.id === book.id) setView('edit');
+        // 取り消しは「元の状態の本の詳細」に戻すだけ（編集フォームに飛ばさない）。
+        if (currentRef.current?.id === book.id) setView('detail');
         mutateBookLocal(book.id, (b) => ({ ...b, ...prev }));
         try {
           const saved = await saveBook(reverted);
@@ -2014,7 +2017,7 @@ function AuthedApp() {
   // 読書中/読了で startDate、読了で doneDate を未設定時のみ埋める。
   const setBookStatusQuiet = (book, newStatus) => {
     if (!book || book.status === newStatus) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocal();
     const patch = { status: newStatus };
     if ((newStatus === 'reading' || newStatus === 'done') && !book.startDate) patch.startDate = today;
     if (newStatus === 'done' && !book.doneDate) patch.doneDate = today;
@@ -2814,10 +2817,10 @@ function AuthedApp() {
                 return (
                   <div style={{ ...cardStyle, marginTop: 'var(--space-4)' }}>
                     <h3 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
-                      AI 読書計画を作る
+                      読書計画シートを作る
                     </h3>
                     <button type="button" onClick={() => openSetup(current)} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>
-                      読書計画を始める
+                      読書計画シートを始める
                     </button>
                   </div>
                 );
@@ -2827,7 +2830,7 @@ function AuthedApp() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
                   <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0 }}>
                     <CheckCircle2 size={16} aria-hidden="true" style={{ color: 'var(--success)' }} />
-                    AI 読書計画ができています
+                    読書計画シートができています
                   </p>
                   <button type="button" onClick={() => openSetup(current)} style={{ ...btnText, fontSize: 'var(--text-sub)' }}>
                     編集する
@@ -2953,7 +2956,7 @@ function AuthedApp() {
               </div>
               {(current.startDate || current.doneDate) && (
                 <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-2) 0 0' }}>
-                  {current.startDate && <>開始 {current.startDate}</>}{current.startDate && current.doneDate && '　'}{current.doneDate && <>読了 {current.doneDate}</>}
+                  {current.startDate && <>開始 {fmtDateJa(current.startDate)}</>}{current.startDate && current.doneDate && '　'}{current.doneDate && <>読了 {fmtDateJa(current.doneDate)}</>}
                 </p>
               )}
             </div>
@@ -3037,12 +3040,13 @@ function AuthedApp() {
             </details>
           )}
 
-          {(current.actions || []).filter((a) => a.text?.trim()).length > 0 && (
+          {(current.actions || []).filter((a) => a.text?.trim() && !isScheduledLater(a)).length > 0 && (
             <section style={{ marginTop: 'var(--space-6)' }} aria-labelledby="detail-action-title">
               <h2 id="detail-action-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.3 }}>行動</h2>
               {/* その場で完了できる（読み取り専用だと行動タブへの往復を強制する）。
                   filter だと index がズレるので生 index で回す。 */}
-              {current.actions.map((a, i) => (a.text?.trim() ? (
+              {/* 繰り返しの「次回分」（scheduledFor が未来）は行動タブと同じく出さない＝先取り完了を防ぐ */}
+              {current.actions.map((a, i) => (a.text?.trim() && !isScheduledLater(a) ? (
                 <button
                   key={i}
                   type="button"
@@ -3055,7 +3059,7 @@ function AuthedApp() {
                     : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0 }} />}
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 'var(--text-body)', color: a.done ? "var(--text-3)" : "var(--text)", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "break-word", lineHeight: 1.5 }}>{a.text}</p>
-                    {a.deadline && <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: '2px 0 0' }}>期限 {a.deadline}</p>}
+                    {a.deadline && <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-1) 0 0' }}>期限 {fmtDateJa(a.deadline)}</p>}
                   </div>
                 </button>
               ) : null))}
@@ -3282,7 +3286,7 @@ function AuthedApp() {
               // 仕切り直せる。want は本格的な読書計画前なので除外。
               ...(current.status !== 'want'
                 ? [{
-                    label: 'AI 読書計画を編集',
+                    label: '読書計画シートを編集',
                     icon: <IcMap size={16} aria-hidden="true" />,
                     onClick: () => openSetup(current),
                   }]
@@ -3587,6 +3591,8 @@ function AuthedApp() {
             <HomeScreen
               books={books}
               loading={booksLoading}
+              loadError={booksLoadError}
+              onRetry={() => refreshBooks()}
               onAsk={(question) => {
                 setAskPreset({ question, nonce: Date.now() });
                 setAiSubTab('brain');

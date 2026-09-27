@@ -144,13 +144,14 @@ export function pickRecallMemo(notes, { now = Date.now(), minAgeDays = 14, seed 
 
 // 想起カードのフィードバックで DB に書く patch を返す純関数。
 //   - mastered=true（「覚えた」）: recall_count を +1（次の想起間隔が伸びる = 当面出さない）
-//   - mastered=false（「もう一度」）: recall_count 据え置き（間隔[0]=1 日後に再登場）
+//   - mastered=false（「もう一度」）: recall_count を 0 に戻す（間隔[0]=1 日後に再登場）。
+//     据え置きだと、一度「覚えた」を押したメモは「もう一度」でも 3〜140 日後まで出てこなかった。
 // どちらも last_recalled_at を now に更新して「今日出した」ことを記録する。
 // 呼び出し側:
 //   supabase.from('book_memos').update(recallPatch(count, mastered)).eq('id', memoId)
 export function recallPatch(currentCount, mastered) {
   return {
     last_recalled_at: new Date().toISOString(),
-    recall_count: (currentCount || 0) + (mastered ? 1 : 0),
+    recall_count: mastered ? (currentCount || 0) + 1 : 0,
   };
 }

@@ -122,7 +122,12 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       clearTimeout(timeoutId);
-      setUser(session?.user ?? null);
+      // タブ/App の復帰（SIGNED_IN）や 1 時間ごとの TOKEN_REFRESHED でも、中身が同じ
+      // ユーザーの別オブジェクトが届く。そのまま入れると [user] に依存する処理が全部
+      // 走り直し、課金の確認→読み込み表示でアプリ全体が作り直されて書きかけが消える。
+      // 同じ人（id とメールが同じ）なら前のオブジェクトを使い続ける。
+      const next = session?.user ?? null;
+      setUser((prev) => (prev && next && prev.id === next.id && prev.email === next.email ? prev : next));
       setLoading(false);
       setAuthTimedOut(false);
     });

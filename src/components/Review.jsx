@@ -8,6 +8,7 @@
 // view, where the user can edit/delete via the existing BookMemoList flow.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { invalidateKnowledgeCache } from '../lib/ai';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
@@ -503,6 +504,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           .eq('id', snapshot.id)
           .eq('user_id', user.id);
         if (error) throw error;
+        invalidateKnowledgeCache(); // 消したメモを相談の材料に使い続けない
         if (snapshot.photoPath) {
           try {
             await supabase.storage.from('book-memo-photos').remove([snapshot.photoPath]);
@@ -547,6 +549,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               ({ error } = await supabase.from('book_memos').insert([payload]));
             }
             if (error) throw error;
+            invalidateKnowledgeCache();
             toast.info('削除を取り消しました。');
             fetchMemos();
           } catch (e) {
