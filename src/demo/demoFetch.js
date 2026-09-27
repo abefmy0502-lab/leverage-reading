@@ -138,8 +138,28 @@ function aiReply(store, payload) {
     return themeAnswer(store, theme.trim(), block);
   }
   const system = textOf(payload.system);
-  if (system.includes('今週ひとつだけ「問い」')) {
-    return '『エッセンシャル思考』で「やらないことを決める」とメモしていましたね。今週、あえて手放せそうな仕事はどれでしょう？';
+  // AI 選書: ヒアリング（1 周だけ質問を出し、2 周目で締める）と、おすすめ（本番と同じ JSON ブロック）
+  if (system.includes('ヒアリング設計担当')) {
+    if (userText.includes('まだ回答なし')) {
+      return JSON.stringify({ done: false, questions: [
+        { q: 'いま一番つまずいているのは？', options: ['時間が足りない', '優先順位が決められない', '人に任せられない'], multi: false },
+        { q: '理想に近い状態は？', options: ['定時で帰れる', '大事な仕事に集中できる', 'チームが自走する'], multi: false },
+      ] });
+    }
+    return JSON.stringify({ done: true, questions: [] });
+  }
+  if (system.includes('RECOMMENDATIONS_START')) {
+    const recs = [
+      { title: 'エッセンシャル思考', author: 'グレッグ・マキューン', why: '「全部やる」をやめ、大事な仕事に時間を集める考え方が、いまの状況に直接効きます。', core: 'やらないことを先に決める。', focus: '第2部「見極める」', duration: '2週間で読了、1か月で実践' },
+      { title: 'イシューからはじめよ', author: '安宅和人', why: '取り組む前に「本当に解くべき問い」かを確かめる習慣で、ムダな仕事が減ります。', core: '答えを出す前に、問いを選ぶ。', focus: '序章と第1章', duration: '2週間で読了、1か月で実践' },
+      { title: '1兆ドルコーチ', author: 'エリック・シュミット', why: '人に任せて育てる関わり方が具体的に書かれていて、チームづくりの手がかりになります。', core: 'まず人を見る。', focus: '第2章', duration: '3週間で読了、2か月で実践' },
+    ];
+    return [
+      '## 👋 はじめに', 'お話を伺って、時間の使い方と任せ方の両方に効く本を選びました。', '',
+      '## 📚 おすすめの本', '', 'RECOMMENDATIONS_START', JSON.stringify(recs, null, 2), 'RECOMMENDATIONS_END', '',
+      '## 📋 読む順番のおすすめ', '1. エッセンシャル思考 — まず手放す', '2. イシューからはじめよ — 残した仕事の質を上げる', '3. 1兆ドルコーチ — 任せて育てる', '',
+      '## 💬 まとめ', '一冊ずつ、明日できる一歩に変えていきましょう。',
+    ].join('\n');
   }
   return [
     '## 💡 お試しモードの応答',

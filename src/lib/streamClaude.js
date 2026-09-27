@@ -21,7 +21,7 @@
 // await the whole exchange when convenient.
 
 import { supabase, isSupabaseConfigured } from './supabase';
-import { isPaywallError, requestPaywall } from './freeTrial';
+import { isPaywallError, requestPaywall, notifyAiUsed } from './freeTrial';
 import { MODEL_SMART } from './models';
 import { apiUrl } from './apiUrl';
 
@@ -93,6 +93,7 @@ export async function streamClaude({
 } = {}) {
   let fullText = '';
   let stopReason = null;
+  let sawStop = false; // message_stop が届いたか（届かずに切れた＝通信が途中で切れた）
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -178,15 +179,30 @@ export async function streamClaude({
           if (!delta) continue;
           fullText += delta;
           try { onChunk?.(fullText, delta); } catch { /* swallow render errors */ }
+        } else if (event.type === 'message_stop') {
+          sawStop = true;
         } else if (event.type === 'message_delta' && event.delta?.stop_reason) {
           // 停止理由（end_turn / max_tokens / refusal 等）を捕捉して onDone で通知。
           stopReason = event.delta.stop_reason;
-        } else if (event.type === 'error' && event.error?.message) {
-          throw new Error(`エラー: ${event.error.message}`);
+        } else if (event.type === 'error' && event.error) {
+          // 上流の英語のエラー（Overloaded など）はそのまま見せない。
+          throw new Error(event.error.type === 'overloaded_error'
+            ? 'AI サービスが混み合っています。少し時間をおいて、もう一度お試しください。'
+            : 'AI の答えが途中で止まりました。もう一度お試しください。');
         }
       }
     }
 
+    // 終わりの合図（message_stop / 停止理由）が届かずに切れた＝通信が途中で切れた。
+    // 途中までの答えを「完成」として保存しないよう、エラーとして扱う（2026-09-27）。
+    if (!sawStop && !stopReason && !signal?.aborted) {
+      throw new Error('AI の答えが途中で途切れました。通信の状態を確かめて、もう一度お試しください。');
+    }
+    // 安全機構で答えを控えた（refusal）ときは、空や途中の答えを保存しないようエラーにする。
+    if (stopReason === 'refusal') {
+      throw new Error('AI が今回の内容への回答を控えました。表現を変えて再度お試しください。');
+    }
+    notifyAiUsed();
     onDone?.(fullText, { stopReason, aborted: false });
     return fullText;
   } catch (e) {

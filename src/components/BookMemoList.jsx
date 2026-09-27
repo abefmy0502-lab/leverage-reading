@@ -71,7 +71,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
     try {
       const result = await summarizeCards({ title: bookTitle, cards: cardTexts });
       if (!result) {
-        toast.error('まとめを生成できませんでした。カードを増やして再度お試しください。');
+        toast.error('まとめを作れませんでした。少し時間をおいて、もう一度お試しください。');
         return;
       }
       setText(result);

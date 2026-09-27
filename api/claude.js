@@ -115,8 +115,10 @@ const FREE_WINDOW_MS = (() => {
 })();
 const FREE_PERIOD_KEY = 'free';
 
+// 月の区切りは日本時間（2026-09-27）。以前は UTC で、1 日の 0〜9 時に「来月 1 日から」と
+// 案内がずれていた。表示（nextResetLabel）・クライアント（freeTrial.js）と同じ区切りにする。
 function currentPeriodMonth() {
-  return new Date().toISOString().slice(0, 7);
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
 }
 
 // 🔐 構成チェック（H1 監視）。service_role が未設定だと entitlement（ペイウォール）
@@ -129,6 +131,12 @@ if (
   console.error(
     '[SECURITY] SUPABASE_SERVICE_ROLE_KEY is NOT set in production — AI paywall and monthly cost cap are DISABLED (fail-open). Set it in the production environment immediately.',
   );
+}
+
+// RevenueCat の Secret key が無いと、購入直後（webhook 到着前）やテスト購入の人を
+// サーバーが「未購読」と判定して AI を止める。審査の前に必ず設定する。
+if (!process.env.REVENUECAT_SECRET_API_KEY && process.env.VERCEL_ENV === 'production') {
+  console.error('[BILLING] REVENUECAT_SECRET_API_KEY is not set — just-purchased / sandbox users may get 402 until the webhook arrives.');
 }
 
 // In-memory rate limit (per serverless instance — sufficient for low volume).
@@ -252,12 +260,14 @@ async function isAdminUser(userId) {
 // のいずれでも、課金済みの人を 402 で止めない。env REVENUECAT_SECRET_API_KEY（RevenueCat の
 // Secret API key・sk_...）が無ければ何もしない。結果は 10 分だけ覚えて、呼び出しを増やさない。
 const RC_CACHE_MS = 10 * 60 * 1000;
+// 「未購読」は 30 秒だけ覚える（買った直後の人を 10 分止めないため・審査でも起きやすい）
+const RC_NEGATIVE_CACHE_MS = 30 * 1000;
 const rcCache = new Map();
 async function checkRevenueCat(userId) {
   const key = process.env.REVENUECAT_SECRET_API_KEY;
   if (!key) return null;
   const hit = rcCache.get(userId);
-  if (hit && Date.now() - hit.at < RC_CACHE_MS) return hit.value;
+  if (hit && Date.now() - hit.at < (hit.value?.allowed ? RC_CACHE_MS : RC_NEGATIVE_CACHE_MS)) return hit.value;
   let value = null;
   try {
     const r = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`, {
@@ -529,7 +539,7 @@ export default async function handler(req, res) {
   const rl = checkRateLimit(userId);
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter));
-    return res.status(429).json({ error: 'Too Many Requests', retry_after: rl.retryAfter });
+    return res.status(429).json({ error: { message: '短い時間にたくさん送られました。少し待ってから、もう一度お試しください。' }, error_code: 'rate_limited', retry_after: rl.retryAfter });
   }
 
   // 以下 3 チェックはいずれも userId だけを入力に取る独立クエリ（互いの結果に
@@ -547,13 +557,14 @@ export default async function handler(req, res) {
   // 合算の上限を超えていれば 429。未適用 DB は fail-open（in-memory が一次防御）。
   if (!rlShared.ok) {
     res.setHeader('Retry-After', String(rlShared.retryAfter));
-    return res.status(429).json({ error: 'Too Many Requests', retry_after: rlShared.retryAfter });
+    return res.status(429).json({ error: { message: '短い時間にたくさん送られました。少し待ってから、もう一度お試しください。' }, error_code: 'rate_limited', retry_after: rlShared.retryAfter });
   }
 
   // 課金 entitlement（サーバー側ゲート）。fail-open（未設定 / 未適用 / 障害は通す）。
   // 明確に未課金（テーブルあり & status!=='active'）の時だけ 402 で止める。
   // 未課金でも、登録直後（FREE_WINDOW_MS 以内）ならお試し枠（'free' の行）で通す。
-  let periodKey = currentPeriodMonth();
+  const monthKey = currentPeriodMonth(); // この 1 回の間は同じ月で数える（月末の日付またぎでずれない）
+  let periodKey = monthKey;
   let freeCall = false;
   if (!ent.allowed) {
     const createdAt = Date.parse(userData.user.created_at || '');
@@ -612,7 +623,7 @@ export default async function handler(req, res) {
       : 0;
     const est = estimateCost(estModel, { textChars: countTextChars(b), images, maxTokens: estMax });
     const budget = ent.trial ? trialBudgetJpy() : monthlyBudgetJpy();
-    const rc = await reserveCost(userId, currentPeriodMonth(), est.total, budget);
+    const rc = await reserveCost(userId, monthKey, est.total, budget);
     if (rc.metered && !rc.allowed) {
       return res.status(429).json({
         error: { message: `今月の AI の利用上限に達しました。${nextResetLabel()}からまた使えます。` },
@@ -629,10 +640,11 @@ export default async function handler(req, res) {
   const settleCost = (actualMjpy) => {
     if (!costMetered || costSettled) return;
     costSettled = true;
-    adjustCost(userId, currentPeriodMonth(), (actualMjpy == null ? 0 : actualMjpy) - costReserved);
+    adjustCost(userId, monthKey, (actualMjpy == null ? 0 : actualMjpy) - costReserved);
   };
 
-  const usage = await reserveMonthlyUsage(userId, callLimit, periodKey);
+  // 管理者は回数も数えない（上限なし）。
+  const usage = ent.admin ? { allowed: true, reserved: true } : await reserveMonthlyUsage(userId, callLimit, periodKey);
   if (freeCall && (!usage.reserved || !usage.allowed)) {
     // お試し枠は数えられないとき（RPC 未適用・障害）も通さない（fail-closed）。
     return res.status(402).json({
@@ -796,7 +808,7 @@ export default async function handler(req, res) {
       if (fetchErr?.name === 'AbortError' || upstreamController.signal.aborted) {
         upstreamDone = true;
         // レスポンス到達前の切断 = upstream 課金は発生していない。予約分を払い戻す。
-        if (usageReserved) releaseMonthlyUsage(userId, periodKey);
+        if (usageReserved && !ent.admin) releaseMonthlyUsage(userId, periodKey);
         settleCost(null);
         try { res.end(); } catch { /* socket may already be closed */ }
         return;
@@ -892,7 +904,7 @@ export default async function handler(req, res) {
     if (response.ok && !usageReserved) incrementMonthlyUsage(userId, periodKey);
     // reserve 済みで upstream が失敗した時は予約分を払い戻す（非 reserve 経路の
     // 「2xx のときだけ increment」と対称にする）。
-    if (!response.ok && usageReserved) releaseMonthlyUsage(userId, periodKey);
+    if (!response.ok && usageReserved && !ent.admin) releaseMonthlyUsage(userId, periodKey);
     // 💴 精算（成功は usage の実額・失敗は予約を戻す）
     settleCost(response.ok ? (data?.usage ? costFromUsage(payload.model, data.usage) : costReserved) : null);
     if (!response.ok) {
@@ -913,8 +925,8 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Claude API error:', error);
     // upstream に到達できずに失敗（ネットワーク等）。reserve 済みの予約分を払い戻す。
-    if (usageReserved) releaseMonthlyUsage(userId, periodKey);
+    if (usageReserved && !ent.admin) releaseMonthlyUsage(userId, periodKey);
     settleCost(null);
-    return res.status(500).json({ error: 'API request failed' });
+    return res.status(500).json({ error: { message: 'AI につながりませんでした。通信の状態を確かめて、もう一度お試しください。' } });
   }
 }

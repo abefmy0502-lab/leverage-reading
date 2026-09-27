@@ -559,6 +559,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // ただし再生成（regenerate）は既存の質問を answer し直すだけなので、
     // user 行を再 INSERT しない（skipUserInsert）。しないと押すたびに同じ質問が
     // chat_messages に重複保存され、履歴と「会話 N 件」が水増しされる。
+    let savedUserId = null; // 上限・お試し終了で答えられなかったら、履歴から質問を取り下げる
     if (!opts.skipUserInsert) {
       let userRow = null;
       try {
@@ -569,6 +570,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           .single();
         if (error) throw error;
         userRow = { ...transformMessage(data), scopeLabel: askScopeLabel };
+        savedUserId = data?.id || null;
         setMessages((arr) => [...arr, userRow]);
       } catch (e) {
         setBusy(false);
@@ -665,6 +667,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       // ここには来ないが、念のため abort 由来の例外はトーストしない)。
       // 有料プランの画面を開いたとき（e.paywall）は、エラーの案内を重ねない。
       if (e?.monthlyLimit) setMonthLimitHit(true);
+      // 答えが返らない理由が上限・お試し終了なら、質問だけの履歴を残さない（過去の相談に空の相談が並ばないように）。
+      if ((e?.paywall || e?.monthlyLimit) && savedUserId) {
+        supabase.from('chat_messages').delete().eq('id', savedUserId).eq('user_id', user.id).then(() => {}, () => {});
+      }
       if (!(controller.signal.aborted || (e && e.name === 'AbortError') || e?.paywall || e?.monthlyLimit)) {
         toast.error(toMessage(e, '回答の生成に失敗しました。'));
       }

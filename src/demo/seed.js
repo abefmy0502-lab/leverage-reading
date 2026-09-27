@@ -145,7 +145,7 @@ export function buildSeed(scenario) {
   if (scenario === 'paywall') db.subscriptions = [];
   // ?demo=limit: 今月の AI の原価が上限に近い人（上部の「上限に近づいています」と、上限の案内の確認用）。
   if (scenario === 'limit') {
-    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: new Date().toISOString().slice(0, 7), calls: 11, cost_mjpy: 138000 }];
+    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7), calls: 11, cost_mjpy: 138000 }];
   }
 
   const bookIds = BOOKS.map((_, i) => `00000000-0000-4000-8000-0000000b00${String(i).padStart(2, '0')}`);

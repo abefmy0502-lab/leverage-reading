@@ -20,6 +20,7 @@ import Spinner from './Spinner';
 import BookStoreLinks from './BookStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnText } from '../styles/ui';
+import { displayUserText, concernOf, interviewPairsOf } from '../lib/advisorText';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -39,16 +40,6 @@ function firstUserContent(messages) {
   return (m?.content || m?.text || '').toString();
 }
 
-// 表示用: 保存された相談文（AI 向けに組み立てたテンプレート「【相談内容】…【ヒアリングの回答】…
-// 以上で…推薦してください。」）から、本人の言葉（相談と回答）だけを取り出す。
-// BookAdvisor.jsx にも同じ関数がある（遅延読み込みのチャンクを分けたままにするため複製）。
-function displayUserText(raw) {
-  const s = String(raw || '');
-  const m = s.match(/^【相談内容】\n([\s\S]*?)\n\n【ヒアリングの回答】\n([\s\S]*?)\n\n/);
-  if (!m) return s;
-  const answers = m[2].split('\n').filter((l) => l.startsWith('A. ')).map((l) => l.slice(3).trim()).filter(Boolean);
-  return answers.length ? `${m[1].trim()}\n${answers.map((a) => `・${a}`).join('\n')}` : m[1].trim();
-}
 
 // AI 応答から RECOMMENDATIONS_START..END の JSON ブロックを除去して
 // 人間向けのプロセだけ残す。session.messages は永続化用に AI の生テキスト
@@ -314,10 +305,16 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
   // 失敗時のみ rollback する。背景処理 (DB insert / 表紙取得 / AI 要約) は
   // 一切 await しないので、ボタンは < 5ms で「✅ 追加済み」に切り替わる。
   const [locallyAdded, setLocallyAdded] = useState(() => new Set());
-  const lastUserQuery = useMemo(() => {
+  // 直近の相談文（AI 向けのテンプレートのまま保存されている）から、本人の言葉だけを使う。
+  const lastUserRaw = useMemo(() => {
     const lastUser = [...messages].reverse().find((m) => m?.role === 'user');
     return (lastUser?.content || lastUser?.text || '').toString();
   }, [messages]);
+  const lastUserQuery = useMemo(() => concernOf(lastUserRaw), [lastUserRaw]);
+  const lastChallenge = useMemo(
+    () => interviewPairsOf(lastUserRaw).map((p) => p.a).join('／').slice(0, 400),
+    [lastUserRaw],
+  );
 
   const recKey = (rec) => {
     const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, '');
@@ -341,8 +338,8 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
         const saved = await onAddBook(rec, {
           sourceQuery: lastUserQuery,
           investPurpose: lastUserQuery || '',
-          currentChallenge: '',
-          hypothesis: '',
+          currentChallenge: lastChallenge,
+          hypothesis: String(rec.core || '').slice(0, 300),
           bookReason: rec.why || '',
         });
         // onAddBook は失敗時に throw せず null を返す契約。falsy は失敗として巻き戻す。

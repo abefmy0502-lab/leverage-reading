@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import { isPaywallError, requestPaywall } from './freeTrial';
+import { isPaywallError, requestPaywall, notifyAiUsed } from './freeTrial';
 import { isSchemaError } from './errors';
 import { LIMITS, clamp } from './limits';
 import { streamClaude } from './streamClaude';
@@ -84,6 +84,7 @@ async function postClaude(payload, signal) {
     return 'AI が今回の内容への回答を控えました。表現を変えて再度お試しください。';
   }
   if (Array.isArray(data?.content)) {
+    notifyAiUsed();
     // 成功レスポンスの本文。text ブロックだけを結合する（Sonnet 5 世代は thinking
     // ブロックが混ざり得るため type で選別。thinking はサーバー側で無効化済みだが
     // 二重防衛）。空文字も「正常な空応答」として尊重する
@@ -152,6 +153,8 @@ export function isClaudeErrorString(s) {
   if (s.startsWith('今月の AI')) return true;
   // 未契約・お試しの終了（402）: 有料プランの画面を開いた後に返る文言
   if (s.startsWith('AI 機能のご利用') || s.startsWith('お試しの相談')) return true;
+  // 安全機構による回答の見送り（postClaude の refusal 文言）— メモや要約に入れない
+  if (s.startsWith('AI が今回の内容への回答を控えました')) return true;
   return false;
 }
 
@@ -1046,7 +1049,8 @@ async function buildBrainContext({ userId, question, onStage, bookIds }) {
   // 構造化 content（メモ=キャッシュ対象 / 質問=毎回変わる）。
   const userBlocks = [
     // キャッシュはしない: 相談はたいてい 1 回ずつで 5 分以内に続かないため、書き込みの割増
-    // （1.25 倍）が損になる。指示文（system）は全員で同じなのでキャッシュが効く。
+    // （1.25 倍）が損になる。指示文（system）には cache_control を付けているが、Haiku 4.5 は
+    // 4,096 トークン未満をキャッシュしないので、いまは実際には効いていない（追加の料金もない）。
     { type: 'text', text: memoBlockText },
     ...(relatedBlockText ? [{ type: 'text', text: relatedBlockText }] : []),
     ...(growthBlock ? [{ type: 'text', text: growthBlock }] : []),
@@ -1172,6 +1176,10 @@ export async function summarizeCards({ title, cards }) {
   } catch (e) {
     console.warn('[summarizeCards] claude failed:', e?.message);
     return null;
+  }
+  // 月の上限・お試しの終了は理由をそのまま伝える（「カードを増やして」と誤案内しない）
+  if (typeof result === 'string' && (result.startsWith('今月の AI') || result.startsWith('お試しの相談') || result.startsWith('AI 機能のご利用'))) {
+    throw new Error(result);
   }
   if (typeof result !== 'string'
     || isClaudeErrorString(result)
@@ -1299,7 +1307,7 @@ const THEME_SYSTEM = `あなたは「読書は行動に変えてこそ」とい�
 4. 最後は必ず「明日からできる行動1つ」に着地させる。抽象論で終わらせない（物語系テーマでは行動の代わりに「心に持ち歩く一行」でよい）。
 5. 行動データ（宣言/完了/放置）が渡された場合、それを踏まえて「学びが行動に変わっていない」点を率直に指摘し、次の一歩を選ぶ。
 
-日本語で、Markdown 形式（## 見出し）で簡潔に出力してください。`;
+日本語で、Markdown 形式（## 見出し）で簡潔に出力してください。全体で 500 字以内。`;
 
 // Normalize a string for forgiving theme matching (case/space-insensitive).
 function normTheme(s) {

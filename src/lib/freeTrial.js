@@ -38,6 +38,13 @@ export async function fetchFreeUsed(userId) {
 export const PAYWALL_EVENT = 'orime:paywall';
 
 // 有料プランの画面を開いてもらう（reason: 'free_used' | 'subscription_required'）。
+// AI を 1 回使った（成功した）合図。お試しの「あと N 回」をどの機能から使っても取り直す。
+export const AI_USED_EVENT = 'orime:ai-used';
+export function notifyAiUsed() {
+  if (typeof window === 'undefined') return;
+  try { window.dispatchEvent(new Event(AI_USED_EVENT)); } catch { /* ignore */ }
+}
+
 export function requestPaywall(reason = 'free_used') {
   if (typeof window === 'undefined') return;
   try { window.dispatchEvent(new CustomEvent(PAYWALL_EVENT, { detail: { reason } })); } catch { /* ignore */ }
@@ -57,7 +64,7 @@ export const AI_MONTHLY_BUDGET_JPY = 243;
 export async function fetchMonthCostJpy(userId) {
   if (!isSupabaseConfigured || !userId) return null;
   try {
-    const period = new Date().toISOString().slice(0, 7); // サーバーと同じ UTC の月
+    const period = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7); // サーバーと同じ日本時間の月
     const { data, error } = await supabase
       .from('ai_usage')
       .select('cost_mjpy')

@@ -139,7 +139,7 @@ import { useConfirm } from './components/ConfirmDialog';
 import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
-import { FREE_AI_CALLS, inFreeWindow, fetchFreeUsed, PAYWALL_EVENT } from './lib/freeTrial';
+import { FREE_AI_CALLS, inFreeWindow, fetchFreeUsed, PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
 import { PaywallContext } from './state/PaywallContext';
 import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
@@ -2167,7 +2167,7 @@ function AuthedApp() {
     const prevStrategy = form?.aiStrategy || '';
     setForm((f) => ({ ...f, aiStrategy: '' }));
     try {
-      await streamClaude({
+      const sheet = await streamClaude({
         system: PROMPTS.setupSheet.system,
         cacheSystem: true,
         messages: [{
@@ -2191,12 +2191,14 @@ function AuthedApp() {
           setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: fullText } : f));
         },
       });
+      // 何も返らなかったときは、前のシートを消さずに戻す（空のまま保存すると DB のシートが消える）。
+      if (!String(sheet || '').trim()) throw new Error('読書計画シートを作れませんでした。少し時間をおいて、もう一度お試しください。');
       // Fresh generation invalidates any prior 修正リクエスト history.
       if (targetId) clearStrategyHistory(targetId);
     } catch (error) {
       // 失敗時は元の計画シートに戻す（クリアしたまま保存すると DB のシートが消える）。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prevStrategy } : f));
-      toast.error(toMessage(error, 'AI戦略の生成に失敗しました。'));
+      toast.error(toMessage(error, '読書計画シートを作れませんでした。'));
     } finally {
       setAiLoading(false);
     }
@@ -4826,6 +4828,13 @@ function PaywallGate() {
     if (!loading && !isActive && freeEligible && freeUsed === null) refreshFree();
   }, [loading, isActive, freeEligible, freeUsed, refreshFree]);
   const freeRemaining = Math.max(0, FREE_AI_CALLS - (freeUsed || 0));
+  // どの機能で AI を使っても（写真の書き起こし・凝縮・テーマまとめ・AI 選書…）残りを取り直す。
+  useEffect(() => {
+    if (isActive || !freeEligible) return undefined;
+    const onUsed = () => { refreshFree(); };
+    window.addEventListener(AI_USED_EVENT, onUsed);
+    return () => window.removeEventListener(AI_USED_EVENT, onUsed);
+  }, [isActive, freeEligible, refreshFree]);
   useEffect(() => {
     if (!isActive && freeEligible && freeUsed !== null && freeRemaining > 0) setFreeSession(true);
   }, [isActive, freeEligible, freeUsed, freeRemaining]);

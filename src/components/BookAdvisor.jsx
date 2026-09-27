@@ -36,6 +36,8 @@ import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
 import ErrorMessage from './ErrorMessage';
 import BookStoreLinks from './BookStoreLinks';
+import { displayUserText, concernOf, interviewPairsOf } from '../lib/advisorText';
+import { usePaywall } from '../state/PaywallContext';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
@@ -90,18 +92,10 @@ const ADVISOR_EXAMPLES = [
 // ヒアリングの最大ラウンド数。AI は途中で done を返せるが、上限で必ず締める。
 const MAX_INTERVIEW_ROUNDS = 3;
 
-// 表示用: 保存された相談文（AI 向けに組み立てたテンプレート「【相談内容】…【ヒアリングの回答】…
-// 以上で…推薦してください。」）から、本人の言葉（相談と回答）だけを取り出す。
-// AI への文脈（chatHistory）は生テキストのまま。AdvisorHistory.jsx にも同じ関数がある。
-function displayUserText(raw) {
-  const s = String(raw || '');
-  const m = s.match(/^【相談内容】\n([\s\S]*?)\n\n【ヒアリングの回答】\n([\s\S]*?)\n\n/);
-  if (!m) return s;
-  const answers = m[2].split('\n').filter((l) => l.startsWith('A. ')).map((l) => l.slice(3).trim()).filter(Boolean);
-  return answers.length ? `${m[1].trim()}\n${answers.map((a) => `・${a}`).join('\n')}` : m[1].trim();
-}
 
 export default function BookAdvisor({ onAddBook, sessionApi, books }) {
+  // 🎁 お試し中は、ヒアリングの質問作りに回数を使わず、相談からすぐおすすめを出す（3 回を大事に使う）。
+  const { freeMode } = usePaywall();
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
   const activeControllerRef = useRef(null);
   const unmountedRef = useRef(false);
@@ -608,7 +602,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         before: prose?.before || '',
         after: prose?.after || '',
       });
-      setLastUserQuery(sourceQuery || safeMsg);
+      setLastUserQuery(concernOf(sourceQuery || safeMsg));
       nextRecs = finalList;
       // 🔎 実在検証＋表紙先読み（並列・非ブロッキング）。表示は上で済ませているので
       //    体感は落ちない。検証結果で「実在しない本」を除外/警告し、実在本には
@@ -671,9 +665,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     setInterviewAnswers([]);
     setInterviewStep(0);
     setInterviewRound(1);
-    setInterviewLoading(true);
-    const qs = await runInterviewRound(c, [], 1);
-    setInterviewLoading(false);
+    let qs = null;
+    if (!freeMode) {
+      setInterviewLoading(true);
+      qs = await runInterviewRound(c, [], 1);
+      setInterviewLoading(false);
+    }
     if (qs === null || qs.length === 0) {
       // 質問を組めなかった / いきなり done → 相談内容だけで直接推薦（graceful）
       // 注: concern state はまだ反映前なので c を直接渡す。
@@ -805,8 +802,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     const recsList = Array.isArray(s.recommended_books) ? s.recommended_books : [];
     setRecommendations(recsList.length > 0 ? { items: recsList, before: '', after: '' } : null);
     // 直近の user 発話を lastUserQuery として復元 → 「読みたいに追加」時の sourceQuery に使う
+    //   （保存は AI 向けのテンプレートなので、本人の相談だけを取り出す。ヒアリングの答えも
+    //    この会話のものに入れ替える＝前の会話の答えが「現在の課題」に混ざらないように）
     const lastUser = [...histMessages].reverse().find((m) => m.role === 'user');
-    setLastUserQuery((lastUser?.content || lastUser?.text || '').toString());
+    const lastRaw = (lastUser?.content || lastUser?.text || '').toString();
+    setLastUserQuery(concernOf(lastRaw));
+    setInterviewAnswers(interviewPairsOf(lastRaw));
     setCurrentSessionId(s.id);
     setSelectedSession(null);
     // 表示用: 直前の会話の相談（concern）の吹き出しを、再開した会話に持ち越さない。
