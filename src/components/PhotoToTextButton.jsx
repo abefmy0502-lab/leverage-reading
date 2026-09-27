@@ -86,7 +86,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         aria-busy={loading || undefined}
       >
         <ScanText size={16} aria-hidden="true" />
-        {loading ? '読み取り中…' : '写真から起こす'}
+        {loading ? '読み取り中…' : '写真から書き起こす'}
       </button>
       <input
         ref={inputRef}

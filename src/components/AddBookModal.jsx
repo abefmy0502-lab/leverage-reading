@@ -429,16 +429,13 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
       )}
 
       <div style={headerStyle}>
-        <span />
-        <h2 id="add-book-title" style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)' }}>
-          本を追加
-        </h2>
-        {/* 検索中でも閉じられる（応答が返らなくても閉じ込めない。中断はフック側が行う）。 */}
+        {/* iOS の全画面モーダルの作法: 「キャンセル」は左上（右上は決定の場所）。
+            検索中でも閉じられる（応答が返らなくても閉じ込めない。中断はフック側が行う）。 */}
         <button
           type="button"
           onClick={onClose}
           style={{
-            justifySelf: 'end',
+            justifySelf: 'start',
             minWidth: 44,
             minHeight: 44,
             padding: 0,
@@ -453,6 +450,10 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
         >
           キャンセル
         </button>
+        <h2 id="add-book-title" style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)' }}>
+          本を追加
+        </h2>
+        <span />
       </div>
 
       <div style={bodyStyle}>

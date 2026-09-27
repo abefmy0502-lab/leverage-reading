@@ -10,12 +10,26 @@ import { paletteFor } from '../lib/coverPalette';
 import { ensureHttps } from '../lib/url';
 import { ChevronRight } from 'lucide-react';
 import SwipeableCard from './SwipeableCard';
-import StatusBadge from './StatusBadge';
 import { Stars } from './formPrimitives';
+import { getSt } from '../lib/status';
+
+// 状態の表示用ラベル（押せない）。DESIGN §5「表示用ラベル」: 面を付けず、アイコン＋--text-2 13 の文字。
+// 本の一覧の行（著者の横）と本の詳細の見出しで共有する。
+export function StatusLabel({ status, style }) {
+  const s = getSt(status);
+  const Icon = s.Icon;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', whiteSpace: 'nowrap', flexShrink: 0, ...style }}>
+      {Icon && <Icon size={14} strokeWidth={1.75} aria-hidden="true" />}
+      {s.label}
+    </span>
+  );
+}
 
 // グリッド表示用の本カード（表紙主役）。表紙無し / 画像 404 時は
 // タイトルベースの色付きプレースホルダにフォールバック。
-export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry }) {
+// showStatus: 状態で絞り込んでいるときは全部同じ状態なので、表紙の上の状態を出さない（App が「すべて」のときだけ true）。
+export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onOpen, onLongPress, onAutoRetry, showStatus = true }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
@@ -79,11 +93,9 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
             }}
           />
         )}
-        {/* ステータスを右下に小さなテキスト pill で常時表示。
-            旧: 'done' だけ大きな ✅ を出していたが、すべての状態で
-            視認できるよう「読みたい/読書前/読書中/読了」テキストに変更。
-            book-status-pill.{status} で色を切替。 */}
-        {book.status && (() => {
+        {/* ステータスを右下に小さなテキスト pill で表示。状態で絞り込んでいるときは
+            全部同じなので出さない（showStatus=false）。 */}
+        {showStatus && book.status && (() => {
           const labels = { want: '読みたい', before: '積読', reading: '読書中', done: '読了' };
           const label = labels[book.status];
           if (!label) return null;
@@ -158,7 +170,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
 }
 
 // Swipeable + long-pressable book row used on the bookshelf list.
-export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry }) {
+export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry, showStatus = true }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
@@ -200,12 +212,12 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
           <MiniCover book={book} width={44} onAutoRetry={onAutoRetry} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.title}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
-              {book.author && <span style={{ fontSize: 'var(--text-meta)', color: "var(--text-2)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.author}</span>}
-              {book.rating > 0 && <Stars r={book.rating} size={12} />}
-            </div>
-            <div style={{ marginTop: 'var(--space-2)' }}>
-              <StatusBadge status={book.status} />
+            {/* 著者 · 状態 を 1 行に（行を短く）。状態は押せないラベル＝面なし。 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: 'var(--space-1)', minWidth: 0 }}>
+              {book.author && <span style={{ fontSize: 'var(--text-meta)', color: "var(--text-2)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.author}</span>}
+              {book.author && showStatus && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
+              {showStatus && <StatusLabel status={book.status} />}
+              {book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size={12} /></span>}
             </div>
           </div>
           <ChevronRight size={18} strokeWidth={1.75} color="var(--text-3)" aria-hidden="true" />

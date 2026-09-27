@@ -12,7 +12,7 @@ import HomeConsult from './HomeConsult';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
-import { btnPrimary, btnGhost, btnText, card } from '../styles/ui';
+import { btnPrimary, btnGhost, btnText, btnLink, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（高さ 44・文字 15・600）。
 const btnRow = { ...btnGhost, width: 'auto', flexShrink: 0, padding: 'var(--space-2) var(--space-3)', minHeight: 44, fontSize: 'var(--text-sub)' };
@@ -21,23 +21,28 @@ const sectionTitle = {
   fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3,
 };
 
-const textRow = { ...btnText, minHeight: 44, paddingTop: 0, paddingBottom: 0 };
+// 文字ボタン（DESIGN §5: btnLink＝高さ 44・15/600・栗色）。
+const textRow = btnLink;
 
 function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
   return (
     <section aria-labelledby="home-start-title" style={card}>
       {/* 「読むほど、自分だけの相談相手が育つ」はログインと初回ガイドで伝え済み。ここは行動だけを示す（同じことを二度言わない）。 */}
-      <h2 id="home-start-title" style={{ ...sectionTitle, margin: '0 0 var(--space-4)' }}>はじめましょう</h2>
+      {/* 題名で目的を伝える（初日クイックスタートの題名「相談相手をつくる」とそろえる・SPEC §1-1）。 */}
+      <h2 id="home-start-title" style={{ ...sectionTitle, margin: '0 0 var(--space-4)' }}>相談相手をつくる</h2>
       <button type="button" onClick={onQuickstart} style={btnPrimary}>これまで読んだ本から始める</button>
       <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>いま読んでいる本を追加する</button>
-      {/* 文字ボタン自体の上下余白（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
-      {/* 文字ボタンは高さ 44 のまま上下の余白を 0 にして、2 つの間が副ボタンとの間より広く見えないように。 */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
-        <button type="button" onClick={onAdvisor} style={textRow}>悩みから、次に読む本を選んでもらう</button>
-        {onImport && (
+      {/* 脇役の文字ボタンは 1 つだけ（2 つ並ぶとアクセント色が強すぎる）。AI 選書は「相談」タブから開ける。
+          文字ボタンの上下の余り（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
+      {onImport ? (
+        <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
           <button type="button" onClick={onImport} style={textRow}>ブクログ・Kindle から取り込む</button>
-        )}
-      </div>
+        </div>
+      ) : onAdvisor ? (
+        <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
+          <button type="button" onClick={onAdvisor} style={textRow}>悩みから、次に読む本を選んでもらう</button>
+        </div>
+      ) : null}
     </section>
   );
 }

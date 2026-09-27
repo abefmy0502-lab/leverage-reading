@@ -33,13 +33,14 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
   const onRakuten = (e) => { if (stopPropagation) e.stopPropagation(); };
   const cta = variant === 'cta';
   const linkStyle = cta
-    ? { ...linkBase, flex: 1, minHeight: 48, padding: '8px', fontSize: 'var(--text-sub)' }
-    : { ...linkBase, minHeight: 44, padding: '8px 12px', fontSize: 'var(--text-sub)' };
+    ? { ...linkBase, flex: 1, minHeight: 48, padding: 'var(--space-2)', fontSize: 'var(--text-sub)' }
+    : { ...linkBase, minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
   const icon = <ExternalLink size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: cta ? '100%' : undefined }}>
-      <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: cta ? 'nowrap' : 'wrap' }}>
+      {/* ボタン同士は 12（DESIGN §1）。 */}
+      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: cta ? 'nowrap' : 'wrap' }}>
         <a
           href={amazon} target="_blank" rel={AMAZON_LINK_REL} onClick={onAmazon}
           aria-label={`Amazon で『${title}』を${verb}（外部リンク）`}
@@ -56,7 +57,8 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
         </a>
       </div>
       {showDisclosure && (
-        <small style={{ ...disclosureStyle, textAlign: cta ? 'center' : 'left' }}>{STORE_DISCLOSURE_TEXT}</small>
+        // 複数行の注記は左揃え（中央揃えだと行頭がそろわず読みにくい）。
+        <small style={{ ...disclosureStyle, textAlign: 'left' }}>{STORE_DISCLOSURE_TEXT}</small>
       )}
     </div>
   );

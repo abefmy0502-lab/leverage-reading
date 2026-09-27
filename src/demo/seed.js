@@ -12,14 +12,61 @@ const COLORS = [
   ['#44475a', '#f0f0f4'],
 ];
 
+// 表紙の書名を折り返す。英数字の単語はひとかたまり、日本語は 1 字ずつ折り返せる単位にする。
+// 幅は概算（全角 1em・太字の英大文字 0.72em・ほかの半角 0.58em・空白 0.3em）。
+const COVER_TITLE_W = 160;
+const COVER_TITLE_H = 205;
+function unitWidth(u, size) {
+  let w = 0;
+  for (const ch of u) w += /\s/.test(ch) ? 0.3 : /[A-Z]/.test(ch) ? 0.72 : /[\x21-\x7e]/.test(ch) ? 0.58 : 1;
+  return w * size;
+}
+function wrapTitle(title, size) {
+  // 行頭に来てはいけない字（小さいかな・ー・閉じ括弧・句読点）は前の字とひとかたまりにする。
+  const units = [];
+  for (const u of title.match(/[A-Za-z0-9.,'!?&:\-]+|\s+|./gu) || []) {
+    if (units.length && /^[ぁぃぅぇぉっゃゅょァィゥェォッャュョー）」』、。・！？]$/.test(u) && !/^\s+$/.test(units[units.length - 1])) units[units.length - 1] += u;
+    else units.push(u);
+  }
+  const lines = [];
+  let cur = '';
+  for (const u of units) {
+    if (/^\s+$/.test(u)) { if (cur) cur += ' '; continue; }
+    // 1 単語が 1 行に入らないときだけ、その単語を文字で切る。
+    if (unitWidth(u, size) > COVER_TITLE_W) {
+      for (const ch of u) {
+        if (unitWidth(cur + ch, size) > COVER_TITLE_W && cur.trim()) { lines.push(cur.trim()); cur = ''; }
+        cur += ch;
+      }
+      continue;
+    }
+    if (unitWidth(cur + u, size) > COVER_TITLE_W && cur.trim()) { lines.push(cur.trim()); cur = ''; }
+    cur += u;
+  }
+  if (cur.trim()) lines.push(cur.trim());
+  return lines;
+}
+function layoutCoverTitle(title) {
+  for (let size = 24; size >= 14; size -= 2) {
+    const lines = wrapTitle(title, size);
+    const maxLines = Math.floor(COVER_TITLE_H / (size * 1.25));
+    const tooLongWord = (title.match(/[A-Za-z0-9.,'!?&:\-]+/g) || []).some((w) => unitWidth(w, size) > COVER_TITLE_W);
+    if (lines.length <= maxLines && !tooLongWord) return { lines, size };
+  }
+  const size = 14;
+  return { lines: wrapTitle(title, size).slice(0, Math.floor(COVER_TITLE_H / (size * 1.25))), size };
+}
+
 // 表紙は外部画像を使わず SVG を data URI で描く（オフラインでも本棚らしく見せる）。
 function coverSvg(title, author, i) {
   const [bg, fg] = COLORS[i % COLORS.length];
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const lines = [];
-  for (let k = 0; k < title.length; k += 7) lines.push(title.slice(k, k + 7));
-  const titleSvg = lines.slice(0, 4).map((l, idx) =>
-    `<text x="20" y="${70 + idx * 30}" font-size="24" font-weight="700" fill="${fg}" font-family="serif">${esc(l)}</text>`,
+  // 書名は枠（x 20〜180・y 40〜245）の中に収める。英単語は途中で切らず（「LIFE SH/IFT」にしない）、
+  // 収まらないときは文字を小さくする（LP の画面写真にも使うため）。
+  const { lines, size } = layoutCoverTitle(title);
+  const lineH = Math.round(size * 1.25);
+  const titleSvg = lines.map((l, idx) =>
+    `<text x="20" y="${40 + size + idx * lineH}" font-size="${size}" font-weight="700" fill="${fg}" font-family="serif">${esc(l)}</text>`,
   ).join('');
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">` +

@@ -11,8 +11,7 @@ import AuthScreen from './components/auth/AuthScreen';
 import AuthCallback from './components/auth/AuthCallback';
 import BookMemoList from './components/BookMemoList';
 import BookSearchModal from './components/BookSearchModal';
-import StatusBadge from './components/StatusBadge';
-import { BookCoverCard, SwipeableBookCard, MiniCover } from './components/BookCards';
+import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
 import { STATUSES, getSt } from './lib/status';
 import { isStrictMatch } from './lib/bookMatch';
 const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
@@ -144,7 +143,7 @@ import { PaywallContext } from './state/PaywallContext';
 import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Dots, Stars, inp, btnS } from './components/formPrimitives';
-import { btnGhost, btnText, btnPrimary } from './styles/ui';
+import { btnGhost, btnText, btnPrimary, btnLink } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase } from './components/BookPhases';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -174,6 +173,7 @@ import {
   Target,
   MessageCircle,
   Smartphone,
+  Tag as IcTag,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
 
@@ -252,11 +252,11 @@ function Modal({ open, onClose, children, ariaLabel }) {
 // 長文（目的・課題・仮説 等）は 4 行で畳み「すべて表示」で開く。
 // 旧: maxHeight 400 + 内部スクロールで、詳細のファーストビューを長文が
 // 独占し、ページ内スクロールと入れ子スクロールが競合していた。
-function Card({ label, text }) {
+function Card({ label, text, style }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = (text || '').length > 130;
   return (
-    <div style={{ background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)', marginTop: 'var(--space-2)' }}>
+    <div style={{ background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)', marginTop: 'var(--space-2)', ...style }}>
       <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' }}>{label}</p>
       <p
         style={{
@@ -510,6 +510,10 @@ function AuthedApp() {
   const [aiSubTab, setAiSubTab] = useState(() => (
     ['advisor', 'brain', 'report'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
   ));
+  // 相談の中で押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）を開いている間は、
+  // サブタブの行を隠す（押し込まれた画面は「‹ 相談」の 1 行だけ・切り替えを 2 段にしない）。
+  // MyBookBrain が onPushedViewChange で知らせる。相談タブ・相談サブタブを離れたら戻す。
+  const [consultPushed, setConsultPushed] = useState(false);
   // 📐→🕰 テーマまとめから「このテーマの足あとを見る」で、マイ読書脳の足あとビューへ
   // テーマを引き継いで遷移するためのプリセット。nonce で毎回の遷移を区別する。
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
@@ -622,6 +626,10 @@ function AuthedApp() {
   // まだ編集画面にいるか」を判定する用。formRef/booksRef と同じ流儀）。
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
+  // 相談タブ・相談サブタブ・一覧画面を離れたら、押し込まれた画面の状態を戻す（戻ったときは会話から）。
+  useEffect(() => {
+    if (tab !== 'ai' || aiSubTab !== 'brain' || view !== 'list') setConsultPushed(false);
+  }, [tab, aiSubTab, view]);
   const [current, setCurrent] = useState(null);
 
   // ── 画面復帰（iOS PWA リロード対策）─────────────────────────────────
@@ -2920,7 +2928,11 @@ function AuthedApp() {
     // 詳細画面の部品（DESIGN.md のトークンのみ）。
     const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
     const detailsStyle = { ...cardStyle, marginTop: 'var(--space-3)', padding: '0 var(--space-4)' };
-    const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 52, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
+    const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
+    // 見出し「メモ」「行動」「読書計画」は同じ形（20・600・下 8）。
+    const detailH2Style = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-2)', lineHeight: 1.3 };
+    // 押せる行（この本に相談する）の中の文字ボタンの縦の余り（高さ 44 のうち文字の上下）を詰める。
+    const textBtnInCard = { ...btnText, fontSize: 'var(--text-sub)', padding: 0, marginBottom: 'calc(-1 * var(--space-3))' };
     const subLabelStyle = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: 'var(--space-3) 0 var(--space-2)' };
     // 読書計画・目的・課題・仮説・AI 解析（旧: 書名の直下）。読書中・読了では下へ回す。
     const planBlock = (
@@ -2971,7 +2983,7 @@ function AuthedApp() {
                   <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600 }}>
                     この本から得たいことが、まだありません
                   </p>
-                  <button type="button" onClick={() => openSetup(current)} style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 0 }}>
+                  <button type="button" onClick={() => openSetup(current)} style={textBtnInCard}>
                     読書計画を作る
                   </button>
                 </div>
@@ -2986,17 +2998,25 @@ function AuthedApp() {
           {/* ラベルは中身と一致させる。旧: 1 枚だけなのに「目的・課題・仮説」と
               名乗り、課題(currentChallenge)・仮説(hypothesis)はどこにも表示されず
               「入力したのに消えた」ように見えていた。 */}
-          {current.investPurpose && <Card label="この本から得たいこと" text={current.investPurpose} />}
-          {current.currentChallenge && <Card label="現在の課題" text={current.currentChallenge} />}
-          {current.hypothesis && <Card label="仮説" text={current.hypothesis} />}
+          {/* 得たいこと・課題・仮説と読書計画シートは 1 つのまとまり（間 8）。
+              読書中・読了では行動の下に置くので、上と 24 離して見出しを付ける。 */}
+          {(current.investPurpose || current.currentChallenge || current.hypothesis || current.aiAnalysis || current.aiStrategy) && (
+          <section
+            aria-labelledby={isMemoPhase ? 'detail-plan-title' : undefined}
+            style={{ marginTop: isMemoPhase ? 'var(--space-6)' : 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+          >
+          {isMemoPhase && <h2 id="detail-plan-title" style={{ ...detailH2Style, margin: 0 }}>読書計画</h2>}
+          {current.investPurpose && <Card label="この本から得たいこと" text={current.investPurpose} style={{ marginTop: 0 }} />}
+          {current.currentChallenge && <Card label="現在の課題" text={current.currentChallenge} style={{ marginTop: 0 }} />}
+          {current.hypothesis && <Card label="仮説" text={current.hypothesis} style={{ marginTop: 0 }} />}
 
           {/* AI 出力（解析 / 読書計画シート）はデフォルト折りたたみ。
               スクロール量を圧縮し、必要な時に展開する。 */}
           {(current.aiAnalysis || current.aiStrategy) && (
-            <details style={detailsStyle}>
+            <details style={{ ...detailsStyle, marginTop: 0 }}>
               <summary style={summaryStyle}>
                 {current.aiAnalysis ? 'AI 解析・読書計画' : '読書計画シート'}
-                <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+                <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
               {current.aiAnalysis && (
                 <div style={{ paddingBottom: 'var(--space-4)' }}>
@@ -3019,6 +3039,8 @@ function AuthedApp() {
                 </div>
               )}
             </details>
+          )}
+          </section>
           )}
 
       </>
@@ -3077,7 +3099,8 @@ function AuthedApp() {
               <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "break-word", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{current.title}</h1>
               {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
-                <StatusBadge status={current.status} />
+                {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
+                <StatusLabel status={current.status} />
                 {current.rating > 0 && <Stars r={current.rating} size={14} />}
               </div>
               {(current.startDate || current.doneDate) && (
@@ -3088,9 +3111,11 @@ function AuthedApp() {
             </div>
           </div>
 
+          {/* タグも押せない表示＝面なしのアイコン＋文字（DESIGN §5「表示用ラベル」）。 */}
           {current.tags?.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-              {current.tags.map((t, i) => (<span key={i} style={{ fontSize: 'var(--text-meta)', padding: '4px 8px', borderRadius: 'var(--radius)', background: "var(--fill)", color: "var(--text-2)" }}>#{t}</span>))}
+            <div style={{ display: "flex", alignItems: 'center', flexWrap: "wrap", columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginTop: 'var(--space-3)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
+              <IcTag size={14} strokeWidth={1.75} aria-label="タグ" style={{ flexShrink: 0, marginRight: 'calc(-1 * var(--space-2))' }} />
+              {current.tags.map((t, i) => (<span key={i}>#{t}</span>))}
             </div>
           )}
 
@@ -3102,9 +3127,10 @@ function AuthedApp() {
 
           {(current.status === "reading" || current.status === "done") ? (
             <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-              {/* SPEC §2 の並び: メモ一覧 → この本に相談する → 行動（→ 計画・AI 解析は下）。 */}
+              {/* SPEC §2 の並び: メモ一覧 → この本に相談する → この本のまとめ → 行動（→ 計画・AI 解析は下）。
+                  「この本に相談する」は BookMemoList の afterList で一覧のすぐ下（まとめの上）に置く。 */}
               <section aria-labelledby="detail-memo-title">
-                <h2 id="detail-memo-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-1)', lineHeight: 1.3 }}>メモ</h2>
+                <h2 id="detail-memo-title" style={detailH2Style}>メモ</h2>
                 <BookMemoList
                   bookId={current.id}
                   bookTitle={current.title}
@@ -3112,29 +3138,31 @@ function AuthedApp() {
                   summaryText={current.leverageMemo || ""}
                   onSaveSummary={handleSaveSummaryFromCurrent}
                   onMakeAction={addActionFromMemo}
+                  afterList={
+                    // 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScopePreset({ bookIds: [current.id], nonce: Date.now() });
+                        setView('list');
+                        setAiSubTab('brain');
+                        setTab('ai');
+                      }}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', textAlign: 'left',
+                        padding: 'var(--space-3) var(--space-4)', minHeight: 56, cursor: 'pointer', fontFamily: 'inherit',
+                        background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
+                      }}
+                    >
+                      <MessageCircle size={20} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>この本に相談する</span>
+                      </span>
+                      <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                    </button>
+                  }
                 />
               </section>
-              {/* 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。 */}
-              <button
-                type="button"
-                onClick={() => {
-                  setScopePreset({ bookIds: [current.id], nonce: Date.now() });
-                  setView('list');
-                  setAiSubTab('brain');
-                  setTab('ai');
-                }}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
-                  padding: 'var(--space-3) var(--space-4)', minHeight: 56, cursor: 'pointer', fontFamily: 'inherit',
-                  background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
-                }}
-              >
-                <MessageCircle size={20} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>この本に相談する</span>
-                </span>
-                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-              </button>
             </div>
           ) : (
             <div style={{ marginTop: 'var(--space-4)' }}>
@@ -3153,8 +3181,8 @@ function AuthedApp() {
           {current.aiSummary && (
             <details style={{ ...detailsStyle, marginTop: 'var(--space-6)' }}>
               <summary style={summaryStyle}>
-                AI まとめ（要点の凝縮）
-                <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
+                以前の AI まとめ
+                <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
                 <MarkdownSections
@@ -3168,17 +3196,21 @@ function AuthedApp() {
 
           {(current.actions || []).filter((a) => a.text?.trim() && !isScheduledLater(a)).length > 0 && (
             <section style={{ marginTop: 'var(--space-6)' }} aria-labelledby="detail-action-title">
-              <h2 id="detail-action-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.3 }}>行動</h2>
+              <h2 id="detail-action-title" style={detailH2Style}>行動</h2>
               {/* その場で完了できる（読み取り専用だと行動タブへの往復を強制する）。
-                  filter だと index がズレるので生 index で回す。 */}
+                  filter だと index がズレるので生 index を持ったまま並べる。まだの行動を先、完了は後。 */}
               {/* 繰り返しの「次回分」（scheduledFor が未来）は行動タブと同じく出さない＝先取り完了を防ぐ */}
-              {current.actions.map((a, i) => (a.text?.trim() && !isScheduledLater(a) ? (
+              {current.actions
+                .map((a, i) => ({ a, i }))
+                .filter(({ a }) => a.text?.trim() && !isScheduledLater(a))
+                .sort((x, y) => Number(!!x.a.done) - Number(!!y.a.done))
+                .map(({ a, i }) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => toggleAction(current.id, i)}
                   aria-label={a.done ? `「${a.text}」を未完了に戻す` : `「${a.text}」を完了にする`}
-                  style={{ display: "flex", gap: 12, alignItems: "center", padding: "8px 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 48 }}
+                  style={{ display: "flex", gap: 'var(--space-3)', alignItems: "center", padding: "var(--space-2) 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 48 }}
                 >
                   {a.done
                     ? <CheckCircle2 size={24} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0 }} />
@@ -3188,20 +3220,20 @@ function AuthedApp() {
                     {a.deadline && <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-1) 0 0' }}>期限 {fmtDateJa(a.deadline)}</p>}
                   </div>
                 </button>
-              ) : null))}
+              ))}
             </section>
           )}
 
           {isMemoPhase && planBlock}
 
-          {current.roiSummary && <div style={{ marginTop: 'var(--space-6)' }}><Card label="一番の収穫" text={current.roiSummary} /></div>}
+          {current.roiSummary && <Card label="一番の収穫" text={current.roiSummary} style={{ marginTop: 'var(--space-6)' }} />}
 
           {/* 💡 読了直後の「一番の収穫」導線 — 感情のピークで 1 行の言語化を促す
               （レバレッジ読書の核心。未記入のときだけ出る＝書けば消える）。 */}
           {current.status === 'done' && !(current.roiSummary || '').trim() && (
             <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
               <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>一番の収穫を 1 行だけ残す</p>
-              <button type="button" onClick={() => openEdit(current)} style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 0 }}>
+              <button type="button" onClick={() => openEdit(current)} style={textBtnInCard}>
                 1 行を書く
               </button>
             </div>
@@ -3541,7 +3573,7 @@ function AuthedApp() {
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', margin: 'var(--space-3) 0 var(--space-4)' }}>
                   {/* 本を追加するときは、状態は下の「この本の状態」で選ぶので見出しには出さない。 */}
-                  {current && <StatusBadge status={form.status} />}
+                  {current && <StatusLabel status={form.status} />}
                   <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: "var(--text)", margin: 0, lineHeight: 1.3 }}>{phaseLabel}</h2>
                   {editPhaseOverride && editPhaseOverride !== form.status && (
                     <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>
@@ -3964,6 +3996,7 @@ function AuthedApp() {
                       onOpen={openDetail}
                       onLongPress={handleBookLongPress}
                       onAutoRetry={triggerCoverAutoRetry}
+                      showStatus={statusFilter === 'all'}
                     />
                   ))}
                 </div>
@@ -3979,6 +4012,7 @@ function AuthedApp() {
                       onSwipeDelete={swipeDeleteBook}
                       onLongPress={handleBookLongPress}
                       onAutoRetry={triggerCoverAutoRetry}
+                      showStatus={statusFilter === 'all'}
                     />
                   ))}
                 </div>
@@ -4071,6 +4105,7 @@ function AuthedApp() {
 
         {tab === "ai" && (
           <div key={`tab-${tab}`} className="tab-content ai-page">
+            {!(aiSubTab === 'brain' && consultPushed) && (
             <div className="sub-tabs" role="tablist" aria-label="相談のサブタブ" style={{ flexShrink: 0 }}>
               <button
                 type="button"
@@ -4100,6 +4135,7 @@ function AuthedApp() {
                 <IcRuler size={15} aria-hidden="true" style={subTabIconStyle} />テーマまとめ
               </button>
             </div>
+            )}
             {/* 独自名のサブタブを初対面でも分かるよう、役割を動詞で先頭に置いて注釈する。
                 3 つの違い（選ぶ/聞く/しぼる）を一目で言語化できるようにする。 */}
             {/* サブタブの下に説明文は置かない（各画面の見出しで伝わる・DESIGN §0-6）。 */}
@@ -4132,6 +4168,7 @@ function AuthedApp() {
                     onQuickstart={() => setShowQuickstart(true)}
                     askPreset={askPreset}
                     scopePreset={scopePreset}
+                    onPushedViewChange={setConsultPushed}
                   />
                 </Suspense>
               )}
@@ -4779,6 +4816,9 @@ function WebAppOnlyGate() {
   // のフラグ。アプリで登録 → 確認メールのリンクが Safari で開く → ここに着地、
   // という遷移で「確認は済んだのに何も起きない」と迷子になるのを防ぐ。
   const emailJustConfirmed = readEmailConfirmedFlag();
+  // アプリを使えない Web の利用者も、ここからアカウントを削除できるように（有料プランの画面と同じく
+  // 設定の削除欄をそのまま開く・App Store 審査 5.1.1(v)／データの削除請求）。
+  const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <main
       aria-labelledby="webgate-title"
@@ -4836,12 +4876,13 @@ function WebAppOnlyGate() {
               {user.email} でログイン中
             </p>
           )}
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-2)' }}>
+          {/* 脇役の操作は文字ボタン（DESIGN §5: 栗色・15/600・高さ 44）。 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
             <button
               type="button"
               onClick={handleExport}
               disabled={exporting}
-              style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}
+              style={{ ...btnLink, opacity: 1 }}
             >
               {exporting ? '書き出し中…' : 'メモをダウンロード'}
             </button>
@@ -4850,13 +4891,24 @@ function WebAppOnlyGate() {
               onClick={async () => {
                 try { await signOut(); } catch (e) { toast.error(toMessage(e, 'ログアウトできませんでした。もう一度お試しください。')); }
               }}
-              style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}
+              style={btnLink}
             >
               別のアカウントでログイン
             </button>
           </div>
+          {/* 削除は取り消せない操作なので、ほかの文字ボタンと行を分け、エラー色で示す（有料プランの画面と同じ形）。 */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-2)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--separator)' }}>
+            <button type="button" onClick={() => setSettingsOpen(true)} style={{ ...btnLink, color: 'var(--error)' }}>
+              アカウントを削除
+            </button>
+          </div>
         </div>
       </div>
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <AccountSettings onClose={() => setSettingsOpen(false)} onAfterDelete={() => setSettingsOpen(false)} focusDelete />
+        </Suspense>
+      )}
     </main>
   );
 }

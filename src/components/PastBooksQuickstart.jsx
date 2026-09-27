@@ -24,7 +24,7 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { LIMITS, clamp } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
-import { btnPrimary, btnGhost, btnText, input as inputStyle, card } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnText, input as inputStyle, card } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
@@ -154,7 +154,6 @@ function ResultsSkeleton() {
 }
 
 // 押せない主ボタン。薄くすると「あと N 冊」が読めなくなるので、面と文字の色で押せないことを示す。
-const btnPrimaryOff = { ...btnPrimary, background: 'var(--fill)', color: 'var(--text-2)', cursor: 'default', opacity: 1 }; // 全体の button:disabled{opacity:.4} を打ち消す
 
 export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
@@ -336,7 +335,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
               </div>
               {/* 主ボタンは下の「次へ」だけ（DESIGN §0-2）。検索は副ボタン。 */}
               <button type="button" onClick={() => runSearch()} disabled={!query.trim() || searching}
-                style={{ ...btnGhost, width: 'auto', flexShrink: 0, ...(query.trim() && !searching ? {} : { color: 'var(--text-3)', borderColor: 'var(--separator)', cursor: 'default' }) }}>
+                style={{ ...(query.trim() && !searching ? btnGhost : btnGhostOff), width: 'auto', flexShrink: 0 }}>
                 検索
               </button>
             </div>

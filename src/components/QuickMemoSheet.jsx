@@ -1,6 +1,6 @@
 // メモを書くシート（SPEC §2「読みながら片手でサッと」）。
-// 最初に見えるのは本文だけ。ページ番号・写真から書き起こす・写真やタグ（全画面の
-// BookMemoEditor へ引き継ぐ）は「＋ 詳しく」で開く（SPEC §2）。
+// 最初に見えるのは本文だけ。ページ番号・写真から書き起こす・タグ（全画面の
+// BookMemoEditor へ引き継ぐ）は「＋ ページ・写真」で開く（SPEC §2）。
 // ページ番号は直前のメモ＋1 を既定値として覚えておく（開かなくても保存される）。
 // 見た目は DESIGN.md のトークンのみ。
 
@@ -12,8 +12,8 @@ import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { Sparkles, Undo2, X, Plus, Minus, ChevronRight } from 'lucide-react';
-import { btnPrimary, btnText } from '../styles/ui';
+import { Sparkles, Undo2, Plus, Minus, ChevronRight } from 'lucide-react';
+import { btnPrimary, btnPrimaryOff, btnText } from '../styles/ui';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
@@ -62,26 +62,24 @@ const sheetWrap = {
 const headerStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  gap: 'var(--space-2)',
   padding: 'var(--space-2) var(--space-4) var(--space-3)',
   borderBottom: '1px solid var(--separator)',
 };
 
-const closeBtn = {
+// DESIGN §5: 下に決定ボタン（保存）があるシートは、右上に「キャンセル」（BottomSheet と同じ見た目）。
+const cancelBtn = {
   background: 'none',
   border: 'none',
-  fontSize: 'var(--text-heading)',
+  fontSize: 'var(--text-body)',
+  fontWeight: 400,
   color: 'var(--text-2)',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  width: 44,
-  height: 44,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  minWidth: 44,
+  minHeight: 44,
   padding: 0,
-  margin: '0 0 0 -12px',
-  borderRadius: 'var(--radius)',
+  flexShrink: 0,
 };
 
 const bodyStyle = {
@@ -128,23 +126,23 @@ const ta = {
 const footerStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
+  gap: 'var(--space-3)',
   padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
   borderTop: '1px solid var(--separator)',
 };
 
-const detailLink = { ...btnText, fontSize: 'var(--text-sub)', padding: '8px 0', gap: 4 };
+const detailLink = { ...btnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0', gap: 'var(--space-1)' };
 
 // 本文の下の小さな副ボタン（DESIGN §5 btnRow と同じ寸法: 高さ 44・15・600）。
 const rowBtn = {
-  display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 44,
-  padding: '8px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)',
+  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44,
+  padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)',
   background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600,
   fontFamily: 'inherit', cursor: 'pointer',
 };
 
-// 主ボタン（DESIGN §5: 高さ 48・17・600）。
-const saveBtn = (disabled) => ({ ...btnPrimary, opacity: disabled ? 0.5 : 1, cursor: disabled ? 'default' : 'pointer' });
+// 主ボタン（DESIGN §5: 高さ 48・17・600）。押せないときは薄くせず btnPrimaryOff。
+const saveBtn = (disabled) => (disabled ? btnPrimaryOff : btnPrimary);
 
 export default function QuickMemoSheet({
   bookTitle,
@@ -158,7 +156,7 @@ export default function QuickMemoSheet({
   ensureKeyframes();
   const [pageNumber, setPageNumber] = useState(defaultPageNumber !== '' ? String(defaultPageNumber) : '');
   const [text, setText] = useState('');
-  // ＋ 詳しく（最初は閉じる＝本文だけを見せる）。
+  // ＋ ページ・写真（最初は閉じる＝本文だけを見せる）。
   const [moreOpen, setMoreOpen] = useState(false);
   // ページ番号を自分で触ったか。触っていなければ、既定値（直前＋1）が後から届いたときに
   // 反映する（ホームから開くと、メモ一覧の読み込みより先にシートが開くため）。
@@ -382,9 +380,6 @@ export default function QuickMemoSheet({
         <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}>
         <div className="lvg-sheet-handle" aria-hidden="true" />
         <div style={headerStyle}>
-          <button type="button" className="icon-btn" style={closeBtn} onClick={requestClose} aria-label="閉じる">
-            <X size={18} aria-hidden="true" />
-          </button>
           <div style={{ minWidth: 0, flex: 1 }}>
             <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>メモを書く</p>
             <p
@@ -401,6 +396,9 @@ export default function QuickMemoSheet({
               {bookTitle || '本'}
             </p>
           </div>
+          <button type="button" style={cancelBtn} onClick={requestClose}>
+            キャンセル
+          </button>
         </div>
         </div>{/* /drag zone (handle + header) */}
 
@@ -447,7 +445,7 @@ export default function QuickMemoSheet({
             </div>
           )}
 
-          {/* ＋ 詳しく — 閉じていても、ページ番号（直前＋1）は保存される。 */}
+          {/* ＋ ページ・写真 — 閉じていても、ページ番号（直前＋1）は保存される。 */}
           <div>
             <button
               type="button"
@@ -456,7 +454,7 @@ export default function QuickMemoSheet({
               style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0', gap: 'var(--space-1)' }}
             >
               {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
-              詳しく（ページ・写真・タグ）
+              ページ・写真
               {!moreOpen && pageNumber !== '' && (
                 <span style={{ fontWeight: 400, color: 'var(--text-2)', marginLeft: 'var(--space-1)' }}>（p.{pageNumber}）</span>
               )}
@@ -493,7 +491,7 @@ export default function QuickMemoSheet({
             )}
             {moreOpen && onOpenFullEditor && (
               <button type="button" style={{ ...detailLink, marginTop: 'var(--space-2)' }} onClick={handleDetailHandoff}>
-                写真やタグもつける（全画面で書く）<ChevronRight size={16} aria-hidden="true" />
+                タグもつける（全画面で書く）<ChevronRight size={16} aria-hidden="true" />
               </button>
             )}
           </div>

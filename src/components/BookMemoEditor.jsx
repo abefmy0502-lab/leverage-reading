@@ -413,7 +413,7 @@ export default function BookMemoEditor({
   const previewAlt = (() => {
     const parts = ['メモに添付する写真のプレビュー'];
     if (bookTitle) parts.push(`『${bookTitle}』`);
-    if (pageNumber !== '' && pageNumber != null) parts.push(`P.${pageNumber}`);
+    if (pageNumber !== '' && pageNumber != null) parts.push(`p.${pageNumber}`);
     return parts.join(' ');
   })();
 

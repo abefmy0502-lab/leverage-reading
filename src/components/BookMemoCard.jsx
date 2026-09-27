@@ -5,7 +5,7 @@ import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
 import SwipeableCard from './SwipeableCard';
-import { MoreVertical, Image, Target } from 'lucide-react';
+import { MoreHorizontal, Image, Target, X } from 'lucide-react';
 
 const cardWrap = {
   position: 'relative',
@@ -21,22 +21,21 @@ const cardWrap = {
   containIntrinsicSize: 'auto 140px',
 };
 
-// ページ番号は「従」— 塗り+bold だと本文より先に視線が落ちる（階層の逆転）。
-// 控えめなインラインラベルに落とし、本文を主役に保つ。
-const pageBadge = {
-  alignSelf: 'flex-start',
+// ページ番号と日付は「従」— 1 行にまとめた控えめなラベル（「p.33 · 9/20」）で本文を主役に保つ。
+// 右上の「…」と同じ行に並ぶので、右は「…」の分だけ空ける。
+const metaLine = {
+  alignSelf: 'stretch',
   fontSize: 'var(--text-meta)',
-  padding: 0,
-  background: 'none',
   color: 'var(--text-3)',
   fontWeight: 400,
+  margin: 0,
+  paddingRight: 'var(--space-8)',
+  minHeight: 20,
 };
 
-const tagPill = {
-  fontSize: 'var(--text-caption)',
-  padding: '2px 8px',
-  borderRadius: 'var(--radius)',
-  background: 'var(--fill)',
+// タグは押せない表示＝面を付けない（DESIGN §5「表示用ラベル」）。
+const tagLabel = {
+  fontSize: 'var(--text-meta)',
   color: 'var(--text-2)',
   maxWidth: '100%',
   overflowWrap: 'anywhere',
@@ -45,8 +44,8 @@ const tagPill = {
 
 const kebabBtn = {
   position: 'absolute',
-  top: 2,
-  right: 2,
+  top: 'var(--space-1)',
+  right: 'var(--space-1)',
   width: 44,
   height: 44,
   background: 'none',
@@ -78,7 +77,7 @@ const menuStyle = {
 const menuItem = {
   background: 'none',
   border: 'none',
-  padding: '12px 16px',
+  padding: 'var(--space-3) var(--space-4)',
   minHeight: 44,
   fontSize: 'var(--text-body)',
   textAlign: 'left',
@@ -108,7 +107,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
   // 文脈のある alt（事実ベース）: ページ番号 + 本文先頭を補う
   const photoAlt = (() => {
     const parts = ['メモの写真'];
-    if (memo.pageNumber != null) parts.push(`P.${memo.pageNumber}`);
+    if (memo.pageNumber != null) parts.push(`p.${memo.pageNumber}`);
     const snippet = (memo.text || '').trim().replace(/\s+/g, ' ').slice(0, 20);
     if (snippet) parts.push(`「${snippet}${(memo.text || '').trim().length > 20 ? '…' : ''}」`);
     return parts.join(' ');
@@ -195,7 +194,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
         style={{ ...kebabBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         aria-label="メニューを開く"
       >
-        <MoreVertical size={18} strokeWidth={1.75} aria-hidden="true" />
+        <MoreHorizontal size={20} strokeWidth={1.75} aria-hidden="true" />
       </button>
       {menuOpen && createPortal(
         <div
@@ -239,7 +238,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
                 onMakeAction(memo);
               }}
             >
-              <Target size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+              <Target size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-1)' }} />
               行動にする
             </button>
           )}
@@ -252,13 +251,13 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
                 onShare(memo);
               }}
             >
-              <Image size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />
+              <Image size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-1)' }} />
               画像で共有
             </button>
           )}
           <button
             type="button"
-            style={{ ...menuItem, color: 'var(--c-critical)' }}
+            style={{ ...menuItem, color: 'var(--error)' }}
             onClick={() => {
               setMenuOpen(false);
               onDelete?.(memo);
@@ -270,7 +269,11 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
         document.body,
       )}
 
-      {memo.pageNumber != null && <span style={pageBadge}>P.{memo.pageNumber}</span>}
+      {/* ページ番号と日付を 1 行に（「p.33 · 9/20」）。 */}
+      <p style={metaLine} aria-hidden="true">
+        {memo.pageNumber != null && <>p.{memo.pageNumber}<span style={{ margin: '0 var(--space-1)' }}>·</span></>}
+        {formatDate(memo.createdAt)}
+      </p>
 
       {/* 署名 URL 解決待ちの間、写真の場所を先に確保（skeleton シマー）。
           「テキストだけ → 数百ms後にカードがガクッと伸びて写真出現」の
@@ -328,8 +331,6 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
               margin: 0,
-              // ⋮ はページ番号の行にある。ページ番号が無いときだけ本文 1 行目と並ぶので空ける。
-              paddingRight: memo.pageNumber != null ? 0 : 'var(--space-8)',
               overflowWrap: 'anywhere',
               ...(isLongBody && !expanded
                 ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
@@ -352,21 +353,14 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
 
       {memo.tags?.length > 0 && (
         <div
-          style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}
+          style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', rowGap: 'var(--space-1)' }}
           aria-label={`タグ: ${memo.tags.join('、')}`}
         >
           {memo.tags.map((t) => (
-            <span key={t} style={tagPill} aria-hidden="true">#{t}</span>
+            <span key={t} style={tagLabel} aria-hidden="true">#{t}</span>
           ))}
         </div>
       )}
-
-      <p
-        style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}
-        aria-label={`作成日 ${formatDate(memo.createdAt)}`}
-      >
-        {formatDate(memo.createdAt)}
-      </p>
 
       {zoom && photoUrl && createPortal(
         <div
@@ -388,14 +382,14 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 20,
+            padding: 'var(--space-4)',
             cursor: 'zoom-out',
           }}
         >
           <img
             src={ensureHttps(photoUrl)}
             alt={`${photoAlt}（拡大表示）`}
-            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8 }}
+            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 'var(--radius)' }}
           />
           {/* ♿ aria-modal ダイアログ内にフォーカス可能要素がゼロだと、SR ユーザーは
               背景が隠された状態で移動先を失う。閉じるボタンを内包し開時にフォーカス。 */}
@@ -405,13 +399,14 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
             onClick={(e) => { e.stopPropagation(); setZoom(false); }}
             aria-label="拡大表示を閉じる"
             style={{
-              position: 'absolute', top: 'max(env(safe-area-inset-top, 0px), 12px)', right: 12,
+              position: 'absolute', top: 'max(env(safe-area-inset-top, 0px), var(--space-3))', right: 'var(--space-3)',
               width: 44, height: 44, borderRadius: 999, border: 'none', cursor: 'pointer',
-              background: 'rgba(255,255,255,0.16)', color: 'var(--on-cover)', fontSize: 20, lineHeight: 1,
+              // 写真の上は明暗どちらでも暗いので、白（--on-cover）を薄く混ぜた丸ボタン。
+              background: 'color-mix(in srgb, var(--on-cover) 16%, transparent)', color: 'var(--on-cover)', lineHeight: 1,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
-            ×
+            <X size={20} aria-hidden="true" />
           </button>
         </div>,
         document.body,

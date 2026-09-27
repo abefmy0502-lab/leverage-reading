@@ -166,7 +166,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   );
 }
 
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction }) {
+// afterList: メモ一覧のすぐ下（「この本のまとめ」の上）に置く要素（本の詳細の「この本に相談する」・SPEC §2 の並び）。
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, afterList = null }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   const [quoteOnly, setQuoteOnly] = useState(false);
@@ -374,13 +375,13 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const cardSection = !isUsableBookId ? (
     <div
       style={{
-        padding: '14px',
-        background: 'var(--c-card)',
-        border: '1px dashed var(--c-hairline-strong)',
-        borderRadius: 10,
-        fontSize: 12,
-        color: 'var(--c-ink-2)',
-        lineHeight: 1.7,
+        padding: 'var(--space-4)',
+        background: 'var(--surface)',
+        border: '1px solid var(--separator)',
+        borderRadius: 'var(--radius)',
+        fontSize: 'var(--text-sub)',
+        color: 'var(--text-2)',
+        lineHeight: 1.6,
       }}
     >
       本を一度保存するとカード形式のメモを追加できます。
@@ -432,7 +433,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           style={{
             display: 'flex',
             alignItems: 'flex-start',
-            gap: 10,
+            gap: 'var(--space-3)',
             background: 'var(--fill)',
             borderRadius: 'var(--radius)',
             padding: 'var(--space-3)',
@@ -447,7 +448,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             style={{
               flexShrink: 0,
               minHeight: 44,
-              padding: '4px 12px',
+              padding: 'var(--space-1) var(--space-3)',
               border: 'none',
               background: 'none',
               color: 'var(--accent)',
@@ -483,36 +484,31 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     </div>
   );
 
+  // 保存先（onSaveSummary）が無い呼び出しでは「この本のまとめ」を出さない（呼び出し側はどちらも渡している）。
   const summarySection = onSaveSummary ? (
     <SummarySection bookId={bookId} bookTitle={bookTitle} cards={memos.map((m) => m.text)} summaryText={summaryText} onSaveSummary={onSaveSummary} />
-  ) : (
-    <div
-      style={{
-        padding: '14px',
-        background: 'var(--c-card)',
-        border: '1px dashed var(--c-hairline-strong)',
-        borderRadius: 10,
-        fontSize: 12,
-        color: 'var(--c-ink-2)',
-        lineHeight: 1.7,
-      }}
-    >
-      まとめメモは、本の詳細画面から編集できます。
-    </div>
-  );
+  ) : null;
 
   return (
     <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       {cardSection}
 
-      {/* この本のまとめ（旧「まとめ」タブ）。一覧の下に 1 か所だけ・普段は畳む。 */}
-      <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
-        <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
-          この本のまとめ
-          <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{(summaryText || '').trim() ? '書いてあります' : 'まだありません'}</span>
-        </summary>
-        <div style={{ paddingBottom: 'var(--space-4)' }}>{summarySection}</div>
-      </details>
+      {afterList}
+
+      {/* この本のまとめ（旧「まとめ」タブ）。一覧の下に 1 か所だけ・普段は畳む。
+          畳む見出しは DESIGN §5: 高さ 48・右端にシェブロン（開くと回る）・list-style なし。 */}
+      {summarySection && (
+        <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
+          <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
+            この本のまとめ
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)' }}>{(summaryText || '').trim() ? '書いてあります' : 'まだありません'}</span>
+              <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            </span>
+          </summary>
+          <div style={{ paddingBottom: 'var(--space-4)' }}>{summarySection}</div>
+        </details>
+      )}
 
       {sortMenu && (
         <ContextMenu

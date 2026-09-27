@@ -120,7 +120,7 @@ const dot = (active) => ({
 // ボタンは正典そのまま（17・600・高さ 48）。横並び用に幅だけ変える。
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
 const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
-// 最後の画面の 3 番手以下（AI 選書・あとで）。
+// 最後の画面の 3 番手以下（AI 選書・スキップ）。
 const btnLink = { ...btnText, minHeight: 44, fontSize: 'var(--text-sub)' };
 
 const closeBtnStyle = {
@@ -281,16 +281,17 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
           </p>
         </div>
 
-        <div style={dotsRow} aria-hidden="true">
+        {/* 読み上げでは「1 / 4」と今の位置を伝える（点そのものは読ませない）。 */}
+        <div style={dotsRow} role="img" aria-label={`${step + 1} / ${slides.length}`}>
           {slides.map((_, i) => (
-            <span key={i} style={dot(i === step)} />
+            <span key={i} style={dot(i === step)} aria-hidden="true" />
           ))}
         </div>
 
         {isLast ? (
           // 最後の画面は主役を 1 つに（DESIGN 原則 2）。主＝これまで読んだ本から始める
           // （初日に「自分だけの相談相手」を体験する最短路）、副＝いま読んでいる本を追加。
-          // AI 選書と「あとで」は文字ボタンに下げ、「どこで知りましたか」は一番下へ。
+          // AI 選書と「スキップ」は文字ボタンに下げ、「どこで知りましたか」は一番下へ。
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
               <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startQuickstart}>
@@ -303,8 +304,9 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
                 <button type="button" style={btnLink} onClick={startAdvisor}>
                   悩みから AI 選書で探す
                 </button>
+                {/* 「あとで」と言っても二度と出ないので「スキップ」（ガイドはヘルプの「使い方を最初から見る」で見直せる）。 */}
                 <button type="button" style={btnLink} onClick={dismiss}>
-                  あとで
+                  スキップ
                 </button>
               </div>
             </div>
@@ -337,7 +339,7 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
               </button>
             ) : (
               <button type="button" style={btnGhost} onClick={dismiss}>
-                あとで
+                スキップ
               </button>
             )}
             <button type="button" style={btnPrimary} onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}>
