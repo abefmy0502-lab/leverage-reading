@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { applyCors } from './_cors.js';
+import { monthlyBudgetJpy, trialBudgetJpy, estimateCost, costFromUsage, createUsageSniffer } from './_aiCost.js';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
@@ -303,8 +304,8 @@ async function checkEntitlement(userId) {
         return { data, error };
       })(),
     ]);
-    // 管理者（運営）は課金不要で通す。
-    if (admin) return { allowed: true };
+    // 管理者（運営）は課金不要で通す（原価の上限も掛けない）。
+    if (admin) return { allowed: true, admin: true };
     const { data, error } = subResult;
     if (error) {
       // テーブル未適用（does not exist）含め、取得エラーは fail-open。
@@ -319,10 +320,10 @@ async function checkEntitlement(userId) {
     // 無料期間（trial/intro）中だけ低い AI 上限を適用。有料（normal/null）は通常上限。
     const pt = data?.period_type;
     const limit = (pt === 'trial' || pt === 'intro') ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT;
-    if (allowed) return { allowed, limit };
+    if (allowed) return { allowed, limit, trial: pt === 'trial' || pt === 'intro' };
     // 行が無い・有効でないときは、RevenueCat に直接確認（審査のサンドボックス購入・webhook の遅れ）。
     const rc = await checkRevenueCat(userId);
-    if (rc?.allowed) return { allowed: true, limit: rc.trial ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT };
+    if (rc?.allowed) return { allowed: true, limit: rc.trial ? AI_TRIAL_CALL_LIMIT : AI_MONTHLY_CALL_LIMIT, trial: !!rc.trial };
     return { allowed: false, limit };
   } catch (e) {
     console.warn('[entitlement] check threw (fail-open):', e?.message);
@@ -365,6 +366,60 @@ async function releaseMonthlyUsage(userId, periodKey = currentPeriodMonth()) {
   } catch (e) {
     console.warn('[ai-usage] release threw (ignored):', e?.message);
   }
+}
+
+// 💴 円の原価の予約と精算（supabase_ai_cost.sql）。
+// 戻り値 { metered, allowed }:
+//   metered=false … RPC が無い・障害 → 呼び出し側は回数の上限（AI_FALLBACK_CALL_LIMIT）で守る
+//   allowed=false … 予約すると今月の上限を超える → 呼ばない
+async function reserveCost(userId, periodKey, amountMjpy, budgetJpy) {
+  const supabase = getServiceSupabase();
+  if (!supabase) return { metered: false, allowed: true };
+  try {
+    const { data, error } = await supabase.rpc('reserve_ai_cost', {
+      p_user_id: userId,
+      p_period_month: periodKey,
+      p_amount: amountMjpy,
+      p_budget: Math.floor(budgetJpy * 1000),
+    });
+    if (error) {
+      console.warn('[ai-cost] reserve failed (fallback to call limit):', error.message);
+      return { metered: false, allowed: true };
+    }
+    const v = typeof data === 'number' ? data : Number(Array.isArray(data) ? data[0] : data);
+    if (!Number.isFinite(v)) return { metered: false, allowed: true };
+    return { metered: true, allowed: v !== -1 };
+  } catch (e) {
+    console.warn('[ai-cost] reserve threw (fallback to call limit):', e?.message);
+    return { metered: false, allowed: true };
+  }
+}
+async function adjustCost(userId, periodKey, deltaMjpy) {
+  if (!deltaMjpy) return;
+  const supabase = getServiceSupabase();
+  if (!supabase) return;
+  try {
+    const { error } = await supabase.rpc('adjust_ai_cost', {
+      p_user_id: userId, p_period_month: periodKey, p_delta: Math.round(deltaMjpy),
+    });
+    if (error) console.warn('[ai-cost] adjust failed:', error.message);
+  } catch (e) {
+    console.warn('[ai-cost] adjust threw:', e?.message);
+  }
+}
+
+// 原価を数えられない DB（supabase_ai_cost.sql 未適用）での、1 か月の回数の上限。
+// 相談 1 回 ≈ ¥10〜14 なので、上限 ¥143 を超えにくい回数にしておく。
+const AI_FALLBACK_CALL_LIMIT = (() => {
+  const raw = Number(process.env.AI_FALLBACK_CALL_LIMIT);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 12;
+})();
+
+// 「来月 1 日」（上限に達したときの案内用・日本時間）。
+function nextResetLabel() {
+  const jst = new Date(Date.now() + 9 * 3600 * 1000);
+  const m = jst.getUTCMonth() + 2; // 来月（1〜13）
+  return `${m > 12 ? 1 : m}月1日`;
 }
 
 // 原子的な「予約」= check-and-increment を 1 往復で行う（TOCTOU 是正）。
@@ -527,7 +582,45 @@ export default async function handler(req, res) {
   // TOCTOU（並行リクエストが同じ pre-increment 値を読んで全通過）を封じる。
   // entitlement 通過後にだけ予約する（未課金の予約を作らない）。fail-open（RPC 未適用/
   // 障害）の時は reserved=false になり、従来どおり成功後に increment する。
-  const usage = await reserveMonthlyUsage(userId, freeCall ? AI_FREE_CALL_LIMIT : ent.limit, periodKey);
+  // 💴 原価の上限（有料・無料期間の人。管理者とお試し枠は対象外）。この 1 回の最大の原価を
+  //    先に予約し、足りなければ呼ばない。数えられない DB では回数の上限で守る。
+  let costReserved = 0; // 予約した額（mjpy）。精算で実際の額との差を戻す
+  let costOutputPart = 0; // 予約のうち出力の分（途中で切れたときの精算に使う）
+  let costMetered = false;
+  let callLimit = freeCall ? AI_FREE_CALL_LIMIT : ent.limit;
+  if (!freeCall && !ent.admin) {
+    const b = req.body || {};
+    const estModel = ALLOWED_MODELS.has(b.model) ? b.model : DEFAULT_MODEL;
+    const estMax = Math.min(
+      Number.isFinite(b.max_tokens) ? Math.max(1, Math.floor(b.max_tokens)) : MAX_TOKENS_DEFAULT,
+      MAX_TOKENS_HARD_CAP,
+    );
+    const images = Array.isArray(b.messages)
+      ? b.messages.reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter((c) => c?.type === 'image').length : 0), 0)
+      : 0;
+    const est = estimateCost(estModel, { textChars: countTextChars(b), images, maxTokens: estMax });
+    const budget = ent.trial ? trialBudgetJpy() : monthlyBudgetJpy();
+    const rc = await reserveCost(userId, currentPeriodMonth(), est.total, budget);
+    if (rc.metered && !rc.allowed) {
+      return res.status(429).json({
+        error: { message: `今月の AI の利用上限に達しました。${nextResetLabel()}からまた使えます。` },
+        error_code: 'monthly_budget_exceeded',
+        reset_label: nextResetLabel(),
+      });
+    }
+    costMetered = rc.metered;
+    if (costMetered) { costReserved = est.total; costOutputPart = est.output; }
+    else callLimit = Math.min(callLimit || AI_MONTHLY_CALL_LIMIT, AI_FALLBACK_CALL_LIMIT);
+  }
+  // 精算: 実際の原価（mjpy）が分かったら差額を戻す。null＝AI が答えていない → 予約をまるごと戻す。
+  let costSettled = false;
+  const settleCost = (actualMjpy) => {
+    if (!costMetered || costSettled) return;
+    costSettled = true;
+    adjustCost(userId, currentPeriodMonth(), (actualMjpy == null ? 0 : actualMjpy) - costReserved);
+  };
+
+  const usage = await reserveMonthlyUsage(userId, callLimit, periodKey);
   if (freeCall && (!usage.reserved || !usage.allowed)) {
     // お試し枠は数えられないとき（RPC 未適用・障害）も通さない（fail-closed）。
     return res.status(402).json({
@@ -536,8 +629,9 @@ export default async function handler(req, res) {
     });
   }
   if (!usage.allowed) {
+    settleCost(null); // 回数の上限で止めたので、原価の予約も戻す
     return res.status(429).json({
-      error: { message: '今月の AI 利用上限に達しました。来月またご利用いただけます。' },
+      error: { message: `今月の AI の利用上限に達しました。${nextResetLabel()}からまた使えます。` },
       error_code: 'monthly_limit_exceeded',
     });
   }
@@ -691,6 +785,7 @@ export default async function handler(req, res) {
         upstreamDone = true;
         // レスポンス到達前の切断 = upstream 課金は発生していない。予約分を払い戻す。
         if (usageReserved) releaseMonthlyUsage(userId, periodKey);
+        settleCost(null);
         try { res.end(); } catch { /* socket may already be closed */ }
         return;
       }
@@ -717,12 +812,16 @@ export default async function handler(req, res) {
         if (typeof res.flushHeaders === 'function') res.flushHeaders();
 
         const reader = response.body.getReader();
+        const sniffer = createUsageSniffer(); // 流しながら usage（トークン数）を拾う
         try {
           while (true) {
             // eslint-disable-next-line no-await-in-loop
             const { done, value } = await reader.read();
             if (done) break;
-            if (value) res.write(Buffer.from(value));
+            if (value) {
+              res.write(Buffer.from(value));
+              try { sniffer.push(value); } catch { /* 数えられなくても応答は止めない */ }
+            }
           }
           // 正常に message_stop まで読み切った。以後の遅延 'close' で abort
           // しないようフラグを立てる（二重 abort / 余計な例外を避ける）。
@@ -738,6 +837,15 @@ export default async function handler(req, res) {
         } finally {
           upstreamDone = true; // どの経路でも以降の abort を抑止
           try { res.end(); } catch { /* socket may already be closed */ }
+          // 💴 精算。入力が分かれば入力は実額、出力は最後まで届いたら実額・途中で切れたら
+          //    予約した出力の分（上振れ側）。何も分からなければ予約をそのまま残す。
+          const u = sniffer.usage;
+          if (u.seenStart) {
+            const inputOnly = costFromUsage(payload.model, { ...u, output_tokens: 0 });
+            settleCost(u.seenDelta ? costFromUsage(payload.model, u) : inputOnly + costOutputPart);
+          } else {
+            settleCost(costReserved);
+          }
         }
         // ストリームが開始 = 成功コールとして当月カウントを +1。
         // fire-and-forget（失敗してもユーザー応答には影響させない）。
@@ -759,6 +867,7 @@ export default async function handler(req, res) {
       // upstream 完了前なら発生しないため increment しない）。
       if (jsonErr?.name === 'AbortError' || upstreamController.signal.aborted) {
         upstreamDone = true;
+        settleCost(costReserved); // 生成は進んでいたかもしれないので予約は残す（安全側）
         try { res.end(); } catch { /* socket may already be closed */ }
         return;
       }
@@ -772,6 +881,8 @@ export default async function handler(req, res) {
     // reserve 済みで upstream が失敗した時は予約分を払い戻す（非 reserve 経路の
     // 「2xx のときだけ increment」と対称にする）。
     if (!response.ok && usageReserved) releaseMonthlyUsage(userId, periodKey);
+    // 💴 精算（成功は usage の実額・失敗は予約を戻す）
+    settleCost(response.ok ? (data?.usage ? costFromUsage(payload.model, data.usage) : costReserved) : null);
     if (!response.ok) {
       // 上流（Anthropic）の生エラー JSON（英語の内部メッセージ・request-id 等）を
       // クライアントへ verbatim 転送しない — 内部構成のヒントになる上、postClaude が
@@ -791,6 +902,7 @@ export default async function handler(req, res) {
     console.error('Claude API error:', error);
     // upstream に到達できずに失敗（ネットワーク等）。reserve 済みの予約分を払い戻す。
     if (usageReserved) releaseMonthlyUsage(userId, periodKey);
+    settleCost(null);
     return res.status(500).json({ error: 'API request failed' });
   }
 }

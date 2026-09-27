@@ -47,3 +47,33 @@ export function requestPaywall(reason = 'free_used') {
 export function isPaywallError(status, code) {
   return status === 402 && (code === 'free_limit_reached' || code === 'subscription_required');
 }
+
+// 💴 1 人・1 か月の AI の原価の上限（円）。サーバー（api/_aiCost.js の monthlyBudgetJpy）の
+// 既定と同じ式: 月額 ¥1,480 ÷ 1.1 × (1 − 手数料 15%) − 手取り ¥1,000 ≈ ¥143。
+// 画面の「上限が近い」案内にだけ使う（止めるのはサーバー）。
+export const AI_MONTHLY_BUDGET_JPY = 143;
+
+// 今月使った AI の原価（円）。ai_usage の cost_mjpy（本人の行だけ読める）。読めなければ null。
+export async function fetchMonthCostJpy(userId) {
+  if (!isSupabaseConfigured || !userId) return null;
+  try {
+    const period = new Date().toISOString().slice(0, 7); // サーバーと同じ UTC の月
+    const { data, error } = await supabase
+      .from('ai_usage')
+      .select('cost_mjpy')
+      .eq('user_id', userId)
+      .eq('period_month', period)
+      .maybeSingle();
+    if (error) return null;
+    return data ? (Number(data.cost_mjpy) || 0) / 1000 : 0;
+  } catch {
+    return null;
+  }
+}
+
+// 「来月 1 日」（日本時間）。
+export function nextResetLabelJa(now = new Date()) {
+  const jst = new Date(now.getTime() + 9 * 3600 * 1000);
+  const m = jst.getUTCMonth() + 2;
+  return `${m > 12 ? 1 : m}月1日`;
+}

@@ -26,6 +26,7 @@ import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateC
 import ContextMenu from './ContextMenu';
 import KnowledgeJourney from './KnowledgeJourney';
 import { usePaywall } from '../state/PaywallContext';
+import { AI_MONTHLY_BUDGET_JPY, fetchMonthCostJpy } from '../lib/freeTrial';
 
 // ホーム・本の詳細・テーマまとめから渡される「最初の一手」（preset）は、App 側では
 // 消えずに残る。相談タブを開き直すと MyBookBrain が作り直されるので、使い終わった
@@ -300,6 +301,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const confirm = useConfirm();
   // 🎁 お試し中（未課金・登録直後）: 残り回数の表示と、使い切ったら有料プランの画面へ。
   const { freeMode, freeRemaining, refreshFree, openPaywall } = usePaywall();
+  // 💴 今月の AI の利用（円）。上限の 7 割を超えたら、上部に一言だけ出す（止めるのはサーバー）。
+  const [monthCost, setMonthCost] = useState(null);
+  const refreshMonthCost = useCallback(async () => {
+    if (!user?.id || freeMode) return;
+    setMonthCost(await fetchMonthCostJpy(user.id));
+  }, [user?.id, freeMode]);
+  useEffect(() => { refreshMonthCost(); }, [refreshMonthCost]);
+  const nearMonthLimit = !freeMode && monthCost != null && monthCost >= AI_MONTHLY_BUDGET_JPY * 0.7;
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
   // 📐→🕰 テーマまとめの「このテーマの足あとを見る」から遷移してきたら、
   // 足あとビューへ切替（テーマ本体は KnowledgeJourney に initialTheme で渡す）。
@@ -736,7 +745,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       // abort はエラーではない (streamMyBookBrain は正常 resolve するため通常
       // ここには来ないが、念のため abort 由来の例外はトーストしない)。
       // 有料プランの画面を開いたとき（e.paywall）は、エラーの案内を重ねない。
-      if (!(controller.signal.aborted || (e && e.name === 'AbortError') || e?.paywall)) {
+      if (!(controller.signal.aborted || (e && e.name === 'AbortError') || e?.paywall || e?.monthlyLimit)) {
         toast.error(toMessage(e, '回答の生成に失敗しました。'));
       }
       // 楽観的な streaming 行を差し替える。途中まで本文が生成されていた場合は
@@ -752,6 +761,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 ? '回答を中止しました。'
                 : e?.paywall
                   ? 'お試しの相談は、ここまでです。続けて相談するには、プランを始めてください。'
+                : e?.monthlyLimit
+                  ? `${e.message}\n\nそれまでは、メモを残しておくと、次の相談の材料になります。`
                 : partial
                   ? `${partial}\n\n— 通信が中断されたため、回答はここまでです。`
                   : '回答を生成できませんでした。少し時間をおいて再度お試しください。',
@@ -759,7 +770,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               createdAt: new Date().toISOString(),
               // 通信エラー（ユーザーの中止ではない）はその場で再試行できるように
               // フラグを立てる。行き止まりで打ち直しを強いると看板機能で最悪の離脱に。
-              error: !controller.signal.aborted && !e?.paywall,
+              error: !controller.signal.aborted && !e?.paywall && !e?.monthlyLimit,
+              // 上限・お試し終了の案内には「別の角度で答えて」を出さない（押しても答えられない）
+              notice: !!(e?.paywall || e?.monthlyLimit),
             }
           : m
       ));
@@ -772,6 +785,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       setBusy(false);
       setAborting(false);
       if (freeMode) refreshFree(); // お試しの残りを取り直す（数えるのはサーバー）
+      else refreshMonthCost();
     }
   };
 
@@ -884,7 +898,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       {/* 上部は 1 行だけ（SPEC §3: 二重タブをやめる）。会話のときは「何を根拠に答えるか」＋
           履歴（時計）＋その他（…）。会話以外の画面では「‹ 相談」で戻る。 */}
       {/* お試し中は上部が 2 行になるので、下に線を引いて「下に潜っている」ことを示す */}
-      <div style={freeMode ? { ...topRow, borderBottom: '1px solid var(--separator)' } : topRow}>
+      <div style={freeMode || nearMonthLimit ? { ...topRow, borderBottom: '1px solid var(--separator)' } : topRow}>
         {view === 'chat' ? (
           <>
             <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.4 }}>
@@ -892,6 +906,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               {freeMode && freeRemaining > 0 && (
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                   お試しで、あと {freeRemaining} 回相談できます
+                </span>
+              )}
+              {nearMonthLimit && (
+                <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+                  今月の相談は、残りわずかです
                 </span>
               )}
             </p>
@@ -1074,7 +1093,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
               {/* お試しを使い切ったら、できない操作を出さない */}
-              {!(freeMode && freeRemaining <= 0) && (
+              {!(freeMode && freeRemaining <= 0) && !visibleMessages[visibleMessages.length - 1]?.notice && (
                 <button type="button" onClick={regenerate} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
                   別の角度で答えて
                 </button>

@@ -8,11 +8,12 @@
 //       写真OCRの書き起こし / 凝縮 / カード→まとめ要約 / 週の問い / ヒアリング質問生成。
 //
 // コスト目安（Anthropic, 入力/出力 per 1M tokens）:
-//   SMART = Sonnet 5   … $3 / $15（2026-08-31 まで導入価格 $2 / $10）
+//   SMART = Sonnet 5   … $2 / $10（導入価格がそのまま正式価格に・2026-09-27 に公式で確認）
 //   FAST  = Haiku 4.5  … $1 / $5
 //
 // ⚠️ モデルを戻したい/変えたい時は **この 2 定数だけ** を変更する。あわせて
-//    api/claude.js の ALLOWED_MODELS（サーバー側の許可リスト）も更新すること。
+//    api/claude.js の ALLOWED_MODELS（サーバー側の許可リスト）と、原価の単価表
+//    api/_aiCost.js の PRICES も更新すること（無い単価は高めに数えて上限が早く来る）。
 export const MODEL_SMART = 'claude-sonnet-5';
 export const MODEL_FAST = 'claude-haiku-4-5';
 

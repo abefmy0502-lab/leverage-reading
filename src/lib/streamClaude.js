@@ -122,8 +122,12 @@ export async function streamClaude({
         throw err;
       }
       if (res.status === 429) {
-        // 月次上限超過はサーバーの具体文言を優先。それ以外の 429 は汎用文言。
-        if (errorCode === 'monthly_limit_exceeded' && detail) throw new Error(detail);
+        // 月次上限超過（回数・原価）はサーバーの具体文言を優先。それ以外の 429 は汎用文言。
+        if ((errorCode === 'monthly_limit_exceeded' || errorCode === 'monthly_budget_exceeded') && detail) {
+          const err = new Error(detail);
+          err.monthlyLimit = true; // 呼び出し側は「エラー」ではなく案内として見せる
+          throw err;
+        }
         throw new Error('リクエストが多すぎます。少し時間をおいて再試行してください。');
       }
       throw new Error(detail ? `エラー: ${detail}` : `エラー (${res.status})`);

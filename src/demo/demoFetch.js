@@ -193,6 +193,10 @@ export function installDemoFetch(store) {
     if (url.includes('/api/claude')) {
       let payload = {};
       try { payload = JSON.parse(init.body || '{}'); } catch { /* ignore */ }
+      // ?demo=limit: 今月の AI の原価の上限に達した人（上限の案内の確認用）。
+      if (new URLSearchParams(window.location.search).get('demo') === 'limit') {
+        return json({ error: { message: `今月の AI の利用上限に達しました。${(new Date().getMonth() + 2) % 12 || 12}月1日からまた使えます。` }, error_code: 'monthly_budget_exceeded' }, 429);
+      }
       // ?demo=free: 購読が無い間は、本番と同じくお試し 3 回まで（ai_usage の 'free' 行で数える）。
       if (!store.table('subscriptions').some((r) => r.status === 'active')) {
         const rows = store.table('ai_usage');

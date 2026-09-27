@@ -68,7 +68,7 @@ async function postClaude(payload, signal) {
     if (res.status === 429) {
       // 月次上限超過（monthly_limit_exceeded）はサーバーが具体的な日本語文言を
       // 返すのでそれを優先。それ以外の 429（分間レート制限など）は汎用文言。
-      if (data?.error_code === 'monthly_limit_exceeded' && data?.error?.message) {
+      if ((data?.error_code === 'monthly_limit_exceeded' || data?.error_code === 'monthly_budget_exceeded') && data?.error?.message) {
         return data.error.message;
       }
       return 'リクエストが多すぎます。少し時間をおいて再試行してください。';
@@ -957,7 +957,10 @@ async function buildBrainContext({ userId, question, onStage, bookIds }) {
   // （Sonnet 5 の新トークナイザで約 10 万トークン級）まで膨らみ、1 コールの入力
   // コストが原価見積りを大きく超え得る。優先度順に積んで総文字数で打ち切り、
   // 入力コストの上限を構造的に保証する（上位優先なので回答品質への影響は最小）。
-  const RAG_TOTAL_CHARS = 60000;
+  // 💴 2026-09-27: 6 万字 → 1.2 万字（＋質問に近いメモ 0.8 万字）。1 人・月 約 ¥143 の原価の上限の
+  //    中で相談を 10 回以上できるように（1 回 約 ¥11）。質問に近いメモを別に足すので、
+  //    減らしても「忘れかけていた、関係のあるメモ」は落ちない。
+  const RAG_TOTAL_CHARS = 12000;
   let ragUsed = 0;
   const ranked = [];
   for (const m of rankedAll) {
@@ -972,7 +975,7 @@ async function buildBrainContext({ userId, question, onStage, bookIds }) {
   //   古いけれど質問にぴったりのメモが外れる。「忘れかけていたこと」を根拠にするのが
   //   この相談の価値なので、質問の言葉を含むメモを別の塊（キャッシュしない）で渡す。
   const rankedSet = new Set(ranked);
-  const related = pickRelatedMemos(safeQuestion, all.filter((m) => !rankedSet.has(m)));
+  const related = pickRelatedMemos(safeQuestion, all.filter((m) => !rankedSet.has(m)), { max: 15, budget: 8000 });
 
   const stats = {
     memoCount: ranked.length + related.length,
@@ -1001,11 +1004,8 @@ async function buildBrainContext({ userId, question, onStage, bookIds }) {
 
   // メモ・読書準備の各行に記録日を付ける（いつ何を考えていたかを AI が追えるように）。
   const formatted = ranked.map((m) => formatMemo(m, { withDate: true })).join('\n\n');
-  // 🧠 コスト最適化（RAG 文脈のプロンプトキャッシュ）:
-  //   メモ一覧ブロックはセッション内で不変（同じユーザー・同じメモ）なので、
-  //   質問と分けて cache_control を付ける。5 分以内の連続質問で最大の入力コスト
-  //   （最大 ~80 メモ ≈ 数万トークン）が cache read（約 1/10）で済む。質問文だけが
-  //   毎回変わる可変サフィックス。api/claude.js は messages の content を素通しする。
+  // メモ一覧（重要度順・1.2 万字まで）→ 質問に近いメモ → 歩み → 質問 の順に渡す。
+  // 2026-09-27 からメモ一覧はキャッシュしない（下の userBlocks のコメント）。
   const memoBlockText =
     `ユーザーのメモ一覧（重要度順、合計 ${ranked.length}/${all.length} 件を抜粋。先頭の日付は記録日）:\n\n` +
     `===== MEMOS_START =====\n${formatted}\n===== MEMOS_END =====\n\n` +
@@ -1026,7 +1026,9 @@ async function buildBrainContext({ userId, question, onStage, bookIds }) {
   const userPrompt = memoBlockText + relatedBlockText + (growthBlock ? `\n${growthBlock}` : '') + questionBlockText;
   // 構造化 content（メモ=キャッシュ対象 / 質問=毎回変わる）。
   const userBlocks = [
-    { type: 'text', text: memoBlockText, cache_control: { type: 'ephemeral' } },
+    // キャッシュはしない: 相談はたいてい 1 回ずつで 5 分以内に続かないため、書き込みの割増
+    // （1.25 倍）が損になる。指示文（system）は全員で同じなのでキャッシュが効く。
+    { type: 'text', text: memoBlockText },
     ...(relatedBlockText ? [{ type: 'text', text: relatedBlockText }] : []),
     ...(growthBlock ? [{ type: 'text', text: growthBlock }] : []),
     { type: 'text', text: questionBlockText },
@@ -1165,7 +1167,7 @@ export async function analyzeBookLearnings({ bookId, title, author, purpose, cha
   const allCard = (data || [])
     .map((m) => clamp(sanitizeForPrompt(m.text || ''), LIMITS.promptMemoExcerpt))
     .filter(Boolean);
-  const LEARN_TOTAL_CHARS = 30000;
+  const LEARN_TOTAL_CHARS = 15000; // 💴 原価の上限に合わせて 3 万→1.5 万字
   let cardMemos = allCard;
   const sumLen = (arr) => arr.reduce((n, t) => n + t.length + 8, 0);
   while (cardMemos.length > 8 && sumLen(cardMemos) > LEARN_TOTAL_CHARS) {
@@ -1493,7 +1495,6 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   await streamClaude({
     system: BRAIN_SYSTEM,
     cacheSystem: true,
-    // メモ文脈をキャッシュ対象ブロックに（連続質問で入力コストを削減）。
     messages: [{ role: 'user', content: ctx.userBlocks }],
     // Sonnet 5 の新トークナイザ（同じ日本語で約 3 割増）に合わせて上限を拡大。
     max_tokens: 3072,
@@ -1713,7 +1714,7 @@ async function buildThemeContext({ userId, theme, onStage }) {
 
   // 💰 文字数の予算（約 4 万字）。件数上限（80 件）だけだと長文メモで 16 万字級まで膨らむ。
   // 優先度の高い順に、予算に収まるところまで入れる。
-  const THEME_TOTAL_CHARS = 40000;
+  const THEME_TOTAL_CHARS = 20000; // 💴 原価の上限に合わせて 4 万→2 万字
   let themeUsed = 0;
   const ranked = [];
   for (const x of [...matched]
@@ -1933,7 +1934,7 @@ export async function generateKnowledgeJourney(userId, theme, { onChunk, signal 
   // 20 万字級まで膨らみ得る。予算超過の間は件数を減らして「等間隔サンプリングを
   // やり直す」— 末尾を切り落とすと『変遷の最新側』が失われるため、時系列の両端を
   // 保ったまま密度を下げる。
-  const JOURNEY_TOTAL_CHARS = 60000;
+  const JOURNEY_TOTAL_CHARS = 24000; // 💴 原価の上限に合わせて 6 万→2.4 万字
   const memoLen = (m) => Math.min((m.text || '').length, LIMITS.promptMemoExcerpt || 2000) + 120;
   let journeyTotal = picked.reduce((s, m) => s + memoLen(m), 0);
   while (journeyTotal > JOURNEY_TOTAL_CHARS && picked.length > 8) {
