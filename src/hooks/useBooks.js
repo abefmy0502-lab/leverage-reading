@@ -104,6 +104,15 @@ export function useBooks() {
   // setBooks の全置換が直近の楽観更新/保存結果を見た目上巻き戻すため、
   // 「自分が最新の fetch でなければ結果を捨てる」。
   const fetchGenRef = useRef(0);
+  // 🧷 行動の「この端末が知っている id」（本ごと）。読み込み・保存に成功した時点のものだけを入れる。
+  //   保存のときは、この中で今回の一覧に無いものだけを消す（ほかの端末で足した行動や、
+  //   テーマまとめから直接足した行動を、知らないまま消さない・2026-09-27）。
+  const knownActionIdsRef = useRef(new Map());
+  const rememberActionIds = (book) => {
+    if (!book?.id) return;
+    knownActionIdsRef.current.set(book.id, new Set((book.actions || []).map((a) => a?.id).filter(Boolean)));
+  };
+  const lastFetchAtRef = useRef(0);
 
   const fetchBooks = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
@@ -129,7 +138,10 @@ export function useBooks() {
       }
       if (error) throw error;
       if (gen !== fetchGenRef.current) return; // stale fetch — 後着の旧応答は捨てる
-      setBooks((data || []).map(transformBook));
+      const list = (data || []).map(transformBook);
+      list.forEach(rememberActionIds);
+      lastFetchAtRef.current = Date.now();
+      setBooks(list);
       setLoadError(false);
     } catch (error) {
       if (gen !== fetchGenRef.current) return;
@@ -148,6 +160,19 @@ export function useBooks() {
       setBooks([]);
       setLoading(false);
     }
+  }, [user, fetchBooks]);
+
+  // アプリに戻ってきたとき（しばらく離れていたら）読み直す。ほかの端末での変更を取り込み、
+  // 古い一覧のまま保存して上書きしないように。
+  useEffect(() => {
+    if (!user || typeof document === 'undefined') return undefined;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastFetchAtRef.current < 60 * 1000) return;
+      fetchBooks();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [user, fetchBooks]);
 
   const saveBook = async (book) => {
@@ -351,18 +376,15 @@ export function useBooks() {
         .map((a) => a.id)
         .filter((id) => typeof id === 'string' && UUID_RE.test(id));
 
-      if (existingIds.length === 0) {
-        const { error: delErr } = await supabase
-          .from('actions')
-          .delete()
-          .eq('book_id', savedBookId);
-        if (delErr) throw delErr;
-      } else {
+      // 消すのは「この端末が知っていて、今回の一覧から外れた行動」だけ。
+      const keep = new Set(existingIds);
+      const toDelete = [...(knownActionIdsRef.current.get(savedBookId) || [])].filter((id) => !keep.has(id));
+      if (toDelete.length > 0) {
         const { error: delErr } = await supabase
           .from('actions')
           .delete()
           .eq('book_id', savedBookId)
-          .not('id', 'in', `(${existingIds.join(',')})`);
+          .in('id', toDelete);
         if (delErr) throw delErr;
       }
 
@@ -451,6 +473,7 @@ export function useBooks() {
       if (freshErr) throw freshErr;
 
       const savedBook = transformBook(freshRow);
+      rememberActionIds(savedBook);
       // 全件再フェッチ（setBooks 全置換）はしない。保存した本だけを差し替える。
       // 全置換は (a) 余計な 1 往復、(b) 並行して楽観更新中の「別の本」の
       // チェック表示を一時的に巻き戻す（消えて→再点灯のちらつき）ため。
@@ -552,6 +575,7 @@ export function useBooks() {
     if (actions.length > 0) {
       const actionRows = actions.map((a) => ({ ...a }));
       const { error: aErr } = await supabase.from('actions').insert(actionRows);
+      if (!aErr) knownActionIdsRef.current.set(bookRow.id, new Set(actionRows.map((r) => r.id).filter(Boolean)));
       if (aErr) {
         console.error('行動リスト復元の一部失敗:', aErr);
         failed.push('行動リスト');

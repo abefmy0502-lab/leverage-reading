@@ -99,6 +99,45 @@ export const btnDanger = {
   background: 'var(--error)',
 };
 
+// 押せない主ボタン（SPEC 1-1・2026-09-27 に共通化）。薄く（opacity）せず、面と文字の色で示す。
+// 使い方: style={disabled ? btnPrimaryOff : btnPrimary} ＋ disabled 属性。
+// 全体の button:disabled{opacity:.4} を打ち消すため opacity: 1 を明示する。
+export const btnPrimaryOff = {
+  ...btnPrimary,
+  background: 'var(--fill)',
+  color: 'var(--text-2)',
+  opacity: 1,
+  cursor: 'default',
+};
+
+// 押せない副ボタン（枠線の副ボタンの無効状態）。
+export const btnGhostOff = {
+  ...btnGhost,
+  color: 'var(--text-3)',
+  borderColor: 'var(--separator)',
+  opacity: 1,
+  cursor: 'default',
+};
+
+// 文字ボタン（リンク風・DESIGN §5 の「文字」）。画面の下のほうの脇役の操作（規約・ログアウト等）も
+// 色を変えずにこれを使い、並び順と区切り線で控えめにする。高さ 44・15/600・栗色。
+export const btnLink = {
+  ...btnText,
+  minHeight: 44,
+  padding: '0 var(--space-1)',
+  fontSize: 'var(--text-sub)',
+  fontWeight: 600,
+};
+
+// 一覧・区画の小さな見出し（「たとえば」「今日」「完了した行動」など）。12/600/--text-2。
+export const groupTitle = {
+  fontSize: 'var(--text-caption)',
+  fontWeight: 600,
+  color: 'var(--text-2)',
+  margin: 0,
+  letterSpacing: '0.02em',
+};
+
 // 共通カード面。
 // DESIGN: 影なし・枠線で区切る・角丸 12・内側 16。
 export const card = {

@@ -1176,7 +1176,9 @@ body.keyboard-open .ai-input-area {
   z-index: 10;
 }
 .sub-tab {
-  flex: 1;
+  /* 3 つのタブを同じ幅に（文字の長さで幅が変わらないように） */
+  flex: 1 1 0;
+  min-width: 0;
   padding: var(--space-2) var(--space-1);
   border-radius: var(--radius);
   border: none;
@@ -1356,3 +1358,9 @@ body.keyboard-open .bottom-nav {
 summary::-webkit-details-marker { display: none; }
 .fold-chevron { transition: transform var(--duration-fast) var(--ease-out-quart); }
 details[open] > summary .fold-chevron { transform: rotate(180deg); }
+
+/* 空状態: 説明文が無いときも、題名とボタンの間を詰めすぎない */
+.empty-state-title + .empty-state-actions { margin-top: var(--space-4); }
+
+/* 読む文章・一覧の題名の最後の行に 1〜2 文字だけ残る折り返しを避ける */
+.text-pretty { text-wrap: pretty; }
