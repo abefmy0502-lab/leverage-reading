@@ -17,6 +17,8 @@ export function useBlockEdgeSwipe(active = true) {
     return () => { blockers = Math.max(0, blockers - 1); };
   }, [active]);
 }
+// ブラウザの「戻る」（useHistoryBack）も同じ条件で止める。
+export const isBackBlocked = () => blockers > 0;
 
 const DEFAULT_EDGE_WIDTH = 24;
 const DEFAULT_THRESHOLD = 80;

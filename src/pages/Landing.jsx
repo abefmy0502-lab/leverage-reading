@@ -470,7 +470,7 @@ export default function Landing() {
                   <p>いつ何を読んだか、決めた行動をどこまでやれたか、前にどんな相談をしたかも踏まえて答えます。相談する本を、1 冊や数冊に絞ることもできます。</p>
                 </div>
                 <div className="lp-step-shot lp-reveal">
-                  <Shot name="sources" alt="相談の答えの下に「もとになった本」として『イシューからはじめよ』『1兆ドルコーチ』P.95『数値化の鬼』が並ぶ画面" />
+                  <Shot name="sources" alt="相談の答えの下に「もとになった本」として『イシューからはじめよ』『1兆ドルコーチ』p.95『数値化の鬼』が並ぶ画面" />
                 </div>
               </li>
               <li className="lp-step">
@@ -500,7 +500,7 @@ export default function Landing() {
               <article className="lp-grow-item">
                 <h3 className="lp-h3">思い出しカード</h3>
                 <p>忘れかけた頃のメモが、1 枚ずつ戻ってきます。「覚えた」を押すと次は間隔を空け、「もう一度」なら翌日にまた出ます。通知は多くても週に 1 回で、オフにもできます。</p>
-                <div className="lp-reveal"><Shot name="recall" alt="思い出しカードの画面。5 か月前に『イシューからはじめよ』P.88 に残したメモが表示され、「覚えた」「もう一度」を選べる" /></div>
+                <div className="lp-reveal"><Shot name="recall" alt="思い出しカードの画面。5 か月前に『イシューからはじめよ』p.88 に残したメモが表示され、「覚えた」「もう一度」を選べる" /></div>
               </article>
               <article className="lp-grow-item">
                 <h3 className="lp-h3">テーマまとめ</h3>

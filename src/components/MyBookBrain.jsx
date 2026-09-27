@@ -58,7 +58,8 @@ let backgroundAsk = null; // { questionAt, done, finishedAt, leftWhileRunning, p
 // 「新しい相談をはじめる」を押したときだけ。画面を作り直しても消えない場所に覚えておく。
 // { userId, clearedAt, scopeIds, messages, scrollTop }
 let session = null;
-const sessionFor = (userId) => (session && userId && session.userId === userId ? session : null);
+// 境界（clearedAt）が決まる前に離れたときは、覚えていないのと同じ扱い（初めて開いたときと同じ手順）。
+const sessionFor = (userId) => (session && userId && session.userId === userId && session.clearedAt !== undefined ? session : null);
 const rememberSession = (userId, patch) => {
   if (!userId) return;
   if (!session || session.userId !== userId) session = { userId, clearedAt: undefined, scopeIds: [], messages: [], scrollTop: 0 };
@@ -74,7 +75,7 @@ const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, 
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-2) var(--space-4) var(--space-6)' };
 // ── 相談画面の部品（DESIGN.md のトークンのみ） ──
 // 左右の余白は 16。右端のアイコン（押せる範囲 44）は負の余白で外へ出し、見た目の右端を 16 に揃える。
-const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, padding: 'var(--space-1) var(--space-4)' };
+const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, paddingTop: 'var(--space-1)', paddingBottom: 'var(--space-1)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)' }; // 押し込まれた画面で paddingTop だけ上書きするので、個別の指定で書く（padding と混ぜない＝React の警告）
 const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 };
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
@@ -317,6 +318,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const isPushed = view !== 'chat';
   useEffect(() => { pushedCbRef.current?.(isPushed); }, [isPushed]);
   useEffect(() => () => { pushedCbRef.current?.(false); }, []);
+  // ブラウザ / Android の「戻る」（App の useHistoryBack）は「‹ 相談」と同じく会話へ戻す。
+  useEffect(() => {
+    const onBack = () => setView('chat');
+    window.addEventListener('orime:consult-back', onBack);
+    return () => window.removeEventListener('orime:consult-back', onBack);
+  }, []);
   // 同じアプリの起動中に戻ってきたら、前の会話と相談相手をそのまま出す（上の session）。
   const resumed = useRef(sessionFor(user?.id)).current;
   const [messages, setMessages] = useState(() => (resumed
@@ -364,7 +371,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       .replace(/してください[。！!]?$/, 'する')
       .replace(/しましょう[。！!]?$/, 'する');
     const ok = await onAddAction(bookId, { text: plain, sourceMemoId: null, sourcePage: null, deadline: tomorrow });
-    if (ok) toast.success('行動に追加しました（期限は明日）');
+    if (ok) toast.success('行動に追加しました（期限は明日）。');
     return ok;
   }, [onAddAction, toast]);
   // 段階的ステータス表示: 'search' = 過去のメモを取得中, 'generate' = Claude が回答生成中,
@@ -384,7 +391,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // (= 「💬 続けて質問する」を押したか)。dismiss されたら次の AI 回答までは
   // プロンプトを再表示しない。
   const [promptDismissed, setPromptDismissed] = useState(false);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
+  // 戻ってきたときは覚えていた会話をすぐ出す（読み直しは裏で行い、出ている会話は消さない）。
+  const [historyLoaded, setHistoryLoaded] = useState(() => !!resumed);
   const [historyError, setHistoryError] = useState(false);
   // learningOpen state は廃止 — view === 'learning' で表現する。
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
@@ -458,9 +466,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (backgroundAsk && !backgroundAsk.done) backgroundAsk.leftWhileRunning = true;
   }, []);
 
-  // マイ読書脳を開くたびに、💬 質問 は「新しい会話」から始める。
-  // 過去のやりとりは 📜 履歴 にすべて残るので失われない。「開いた瞬間に前回の
-  // 会話がそのまま出てきて違和感」を解消する。
+  // アプリを開いて最初に相談を開いたときは「新しい会話」から始める（過去のやりとりは
+  // 過去の相談にすべて残る）。同じ起動中にほかのタブから戻ってきたときは、前の会話の
+  // まま（上の session の境界を使う・2026-09-27）。
   // クロックずれ対策で、クライアント時刻ではなく「読み込んだ最新メッセージの
   // 作成時刻(サーバ時刻)」を境界にする → 以降に送る質問(サーバ now() で必ず
   // 後)は確実に chat に表示される。
@@ -542,10 +550,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id)
           .eq('source_type', 'personal'),
+        // 選書理由（book_reason）も根拠にできる情報に並ぶので数える（上部の件数と一覧の件数を揃える）。
+        // 列の無い古い DB では外して数え直す。
         supabase
           .from('books')
-          .select('leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy')
-          .eq('user_id', user.id),
+          .select('leverage_memo, invest_purpose, current_challenge, hypothesis, book_reason, ai_summary, roi_summary, ai_strategy')
+          .eq('user_id', user.id)
+          .then((r) => (r.error
+            ? supabase.from('books').select('leverage_memo, invest_purpose, current_challenge, hypothesis, ai_summary, roi_summary, ai_strategy').eq('user_id', user.id)
+            : r)),
       ]);
       if (cancelled) return;
       // 埋まっている (非 null + 空文字でない) フィールドだけ数える
@@ -556,6 +569,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         if (isFilled(b.invest_purpose)) n += 1;
         if (isFilled(b.current_challenge)) n += 1;
         if (isFilled(b.hypothesis)) n += 1;
+        if (isFilled(b.book_reason)) n += 1;
         if (isFilled(b.ai_summary)) n += 1;
         if (isFilled(b.roi_summary)) n += 1;
         if (isFilled(b.ai_strategy)) n += 1;
@@ -653,7 +667,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       if (k) tagCount.set(k, (tagCount.get(k) || 0) + 1);
     }));
     const topTags = [...tagCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([t]) => t);
-    topTags.forEach((t) => qs.push(`「${t}」について、私のメモから要点を3つにまとめて`));
+    // タグの例も相談の形に（「要点を3つにまとめて」はテーマまとめの仕事で、結論→一歩の答えと噛み合わない）。
+    topTags.forEach((t) => qs.push(`「${t}」で迷ったとき、私のメモからヒントをください`));
     const recent = (books || []).find((b) => (b.status === 'reading' || b.status === 'done') && hasMemo(b))
       || (memoBookIds ? (books || []).find((b) => memoBookIds.has(b.id)) : null);
     if (recent?.title) qs.push(`『${recent.title}』の学びで、明日から使えるものは？`);
@@ -953,7 +968,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const isEmpty = visibleMessages.length === 0;
   const lastIsAssistant = visibleMessages.length > 0 && visibleMessages[visibleMessages.length - 1].role === 'assistant';
 
-  const noteCount = memoStats.cards + memoStats.personal;
+  // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
+  const historyGroups = useMemo(() => {
+    const groups = [];
+    messages.forEach((m) => {
+      if (m.role === 'user' || groups.length === 0) groups.push([m]);
+      else groups[groups.length - 1].push(m);
+    });
+    return groups.reverse();
+  }, [messages]);
   const knowledgeTotal = memoStats.cards + memoStats.summaries + memoStats.personal;
   // 相談例は 3 つだけ（SPEC §3）。あなたのタグ・本から → 汎用 の順で重複なく。
   // （AI で作る「今週の問い」は 2026-09-27 に廃止＝開くだけで AI が動かないように）
@@ -970,9 +993,18 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => { setScrolled(false); }, [view]);
   const onBodyScroll = (e) => {
-    const s = e.currentTarget.scrollTop > 0;
+    const top = e.currentTarget.scrollTop;
+    if (view === 'chat') rememberSession(user?.id, { scrollTop: top });
+    const s = top > 0;
     if (s !== scrolled) setScrolled(s);
   };
+  // 戻ってきたときは、会話を読んでいた位置から続ける。
+  const resumedScrollRef = useRef(resumed?.scrollTop || 0);
+  useEffect(() => {
+    const top = resumedScrollRef.current;
+    const el = chatScrollRef.current;
+    if (top > 0 && el) el.scrollTop = top;
+  }, []);
 
   return (
     <div style={wrap}>
@@ -992,12 +1024,18 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <>
             <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase' }}>
               {scopeIds.length > 0
-                ? (scopeMemoCount != null
+                ? (scopeMemoCount === 0
+                  // メモが無いことは会話の場所で大きく伝えるので、上の行は相談相手の名前だけ（同じ文を 2 回出さない）。
+                  ? (scopeIds.length === 1
+                    ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』に相談します</>
+                    : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>に相談します</>)
+                  : scopeMemoCount != null
                   ? (scopeIds.length === 1
                     ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>から答えます</>
                     : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>から答えます</>)
                   : '選んだ本のメモから答えます')
-                : (noteCount > 0 ? <>あなたの<span style={{ whiteSpace: 'nowrap' }}>メモ {noteCount} 件</span>から答えます</> : '読んだ本のメモを根拠に答えます')}
+                // 件数は「根拠にできる情報」の一覧と同じもの（メモ・学び・まとめ・読書計画＝AI に渡す材料すべて）。
+                : (knowledgeTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>メモ・学びなど</span> <span style={{ whiteSpace: 'nowrap' }}>{knowledgeTotal} 件</span>から答えます</> : '読んだ本のメモを根拠に答えます')}
               {freeMode && freeRemaining > 0 && (
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                   お試しで、あと {freeRemaining} 回相談できます
@@ -1094,8 +1132,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 title="まだ相談していません"
               />
             )}
-            {messages.map((m) => (
-              <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} />
+            {/* 新しい相談から上に並べる（開いてすぐ最近の相談が見える）。相談とその答えは 1 組のまま。 */}
+            {historyGroups.map((g) => (
+              <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                {g.map((m) => (
+                  <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} />
+                ))}
+              </div>
             ))}
           </div>
         </PullToRefresh>
@@ -1124,7 +1167,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             aria-busy={busy}
           >
           {isEmpty && historyLoaded && (
-            knowledgeTotal === 0 ? (
+            scopeIds.length > 0 && scopeMemoCount === 0 ? (
+              // 相談相手に絞った本にメモが無い（SPEC §3）: 空振りさせず、すべての本へ戻す道だけを出す。
+              <section aria-labelledby="brain-scope-empty-title">
+                <h2 id="brain-scope-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-2)' }}>
+                  {scopeIds.length === 1 ? 'この本にはまだメモがありません' : '選んだ本にはまだメモがありません'}
+                </h2>
+                <button type="button" onClick={() => setScopeIds([])} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
+                  すべての本に相談する
+                </button>
+              </section>
+            ) : knowledgeTotal === 0 ? (
               // メモ 0 件: 質問させる前に「これまで読んだ本から始める」（根拠が無いと空振りするため）。
               <section style={cardStyle} aria-labelledby="brain-start-title">
                 <h2 id="brain-start-title" style={{ ...headingStyle, marginBottom: 'var(--space-4)' }}>まだ、相談の根拠になるメモがありません</h2>
@@ -1206,7 +1259,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           )}
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? knowledgeTotal > 0 : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
+          {historyLoaded && !busy && (isEmpty ? (knowledgeTotal > 0 && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
             <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-4) 0 0', lineHeight: 1.5 }}>
               AI の回答には誤りが含まれることがあります
             </p>

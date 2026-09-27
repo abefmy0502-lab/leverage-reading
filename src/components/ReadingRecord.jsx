@@ -191,10 +191,13 @@ function FlowRow({ cells }) {
       {cells.map((c, i) => {
         const inner = (
           <>
-            <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
-            <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', whiteSpace: 'nowrap' }}>
+            {/* › は数字の横に置く（320px でもラベル「実行した行動」を 1 行に収めるため）。 */}
+            <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums', display: 'inline-flex', alignItems: 'center' }}>
+              {c.value}
+              {c.onClick && <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
+            </span>
+            <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
               {c.label}
-              {c.onClick && <ChevronRight size={14} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
             </span>
           </>
         );
@@ -232,7 +235,7 @@ function MonthBars({ buckets, activeColor }) {
   return (
     <div
       style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', justifyContent: 'space-between', marginTop: 'var(--space-3)' }}
-      aria-label={`月別の推移: ${buckets.map((k) => `${k.month + 1}月 ${k.count}件`).join(', ')}`}
+      aria-label={`月別の推移: ${buckets.map((k) => `${k.month + 1}月 ${k.count} 件`).join(', ')}`}
     >
       {buckets.map((k, i) => {
         const h = peak > 0 ? Math.max(BAR_MIN_H, Math.round((k.count / peak) * BAR_MAX_H)) : BAR_MIN_H;
@@ -313,38 +316,48 @@ function Heatmap({ dateStrings, weeks = 16 }) {
     return { cols: out, activeDays: act };
   }, [dateStrings, weeks]);
 
-  const CELL = 14; // マスは「形そのもの」（DESIGN §4 の例外）
+  const CELL = 14; // マスの最大（「形そのもの」DESIGN §4 の例外）。狭い画面では幅に合わせて縮む
   const GAP = 'var(--space-1)';
   const LABEL_H = 'var(--space-4)'; // 月ラベルの行の高さ・曜日ラベルの列幅
+  const label = { fontSize: 'var(--text-meta)', lineHeight: 1, color: 'var(--text-3)', whiteSpace: 'nowrap', alignSelf: 'center' };
   return (
-    <div role="img" aria-label={`直近${weeks}週間の活動。読書の記録があった日は ${activeDays} 日`}>
-      {/* 左端は曜日ラベルを本文の左にそろえ、右端のマスは凡例の右端にそろえる（space-between）。 */}
-      <div style={{ display: 'flex', gap: GAP, marginTop: 'var(--space-3)', justifyContent: 'space-between' }} aria-hidden="true">
+    <div role="img" aria-label={`直近 ${weeks} 週間の活動。読書の記録があった日は ${activeDays} 日`}>
+      {/* 列は「曜日ラベル＋週の数」の格子。マスは幅に合わせて最大 14 まで（320px でもカードからはみ出さない）。
+          左端は曜日ラベルを本文の左にそろえ、右端のマスは凡例の右端にそろえる（space-between）。 */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `${LABEL_H} repeat(${cols.length}, minmax(0, ${CELL}px))`,
+          gridTemplateRows: `${LABEL_H} repeat(7, auto)`,
+          gridAutoFlow: 'column',
+          gap: GAP,
+          justifyContent: 'space-between',
+          marginTop: 'var(--space-3)',
+        }}
+        aria-hidden="true"
+      >
         {/* 曜日ラベル列（月曜はじまり） */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, paddingTop: `calc(${LABEL_H} + ${GAP})` }}>
-          {['月', '', '水', '', '金', '', ''].map((l, i) => (
-            <span key={i} style={{ height: CELL, fontSize: 'var(--text-meta)', lineHeight: `${CELL}px`, color: 'var(--text-3)', width: LABEL_H, textAlign: 'left' }}>{l}</span>
-          ))}
-        </div>
-        {cols.map((col, ci) => (
-          <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
-            <span style={{ height: LABEL_H, fontSize: 'var(--text-meta)', lineHeight: LABEL_H, color: 'var(--text-3)', whiteSpace: 'nowrap', width: CELL, overflow: 'visible' }}>{col.monthLabel}</span>
-            {col.days.map((d, di) => (
-              <span
-                key={di}
-                style={{
-                  width: CELL, height: CELL, borderRadius: CHART_RADIUS,
-                  background: d ? heatColor(d.count) : 'transparent',
-                }}
-              />
-            ))}
-          </div>
+        <span />
+        {['月', '', '水', '', '金', '', ''].map((l, i) => (
+          <span key={`dow-${i}`} style={label}>{l}</span>
         ))}
+        {cols.map((col, ci) => [
+          <span key={`m-${ci}`} style={{ ...label, overflow: 'visible', width: 0 }}>{col.monthLabel}</span>,
+          ...col.days.map((d, di) => (
+            <span
+              key={`d-${ci}-${di}`}
+              style={{
+                width: '100%', aspectRatio: '1 / 1', alignSelf: 'center', borderRadius: CHART_RADIUS,
+                background: d ? heatColor(d.count) : 'transparent',
+              }}
+            />
+          )),
+        ])}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
       {/* 色だけに頼らない（DESIGN §6）: 記録があった日数を文字でも。 */}
       <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>直近 {weeks} 週で記録した日 {activeDays} 日</p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }} aria-hidden="true">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'auto' }} aria-hidden="true">
         <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>少</span>
         {HEAT_COLORS.map((c) => (
           <span key={c} style={{ width: 12, height: 12, borderRadius: CHART_RADIUS, background: c }} />

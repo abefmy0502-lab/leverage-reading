@@ -540,7 +540,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       const summary = await exportUserDataAsCSV(user.id);
       const total = summary.reduce((acc, s) => acc + (s.count || 0), 0);
       track(EVENTS.EXPORT_USED, { kind: 'csv' }); // 成功確定後のみ（fire-and-forget）
-      toast.success(`CSV ${summary.filter((s) => !s.skipped).length} 件をダウンロードしました（計 ${total} 行）。`);
+      toast.success(`CSV を 1 つのファイルにまとめてダウンロードしました（計 ${total} 行）。`);
     } catch (e) {
       toast.error(toMessage(e, 'エクスポートに失敗しました。'));
     } finally {
@@ -576,7 +576,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = await confirm({
       title: 'データを初期化しますか？',
       message:
-        '本・メモ・写真・行動リスト・対話履歴・タグ・テーマまとめなど、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
+        '本・メモ・写真・行動・相談の履歴・タグ・テーマまとめなど、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
       confirmLabel: '初期化する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -647,7 +647,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = await confirm({
       title: '本当にすべて削除しますか？',
       message:
-        '本・メモ・写真・行動リスト・対話履歴・タグ・テーマまとめ・AI 選書の履歴など、すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
+        '本・メモ・写真・行動・相談の履歴・タグ・テーマまとめ・AI 選書の履歴など、すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -1027,7 +1027,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               <div>
                 <p style={{ ...rowTitleStyle, fontWeight: 600 }}>データを初期化（ログインは残す）</p>
                 <p style={rowDescStyle}>
-                  <strong style={{ fontWeight: 600 }}>ログインはそのまま、データだけ</strong>をすべて消して、まっさらな状態から始め直します。本・メモ・写真・行動・対話履歴・テーマまとめが対象です。この操作は取り消せません。
+                  <strong style={{ fontWeight: 600 }}>ログインはそのまま、データだけ</strong>をすべて消して、まっさらな状態から始め直します。本・メモ・写真・行動・相談の履歴・テーマまとめが対象です。この操作は取り消せません。
                 </p>
               </div>
               <button
@@ -1058,7 +1058,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               <div>
                 <p style={{ ...rowTitleStyle, fontWeight: 600, color: 'var(--error)' }}>アカウント削除（退会）</p>
                 <p style={rowDescStyle}>
-                  <strong style={{ fontWeight: 600 }}>アカウントごと退会</strong>します。本・メモ・写真・対話履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
+                  <strong style={{ fontWeight: 600 }}>アカウントごと退会</strong>します。本・メモ・写真・相談の履歴はすぐ削除され、ログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。
                 </p>
               </div>
               {/* 退会してもサブスク（App Store / 決済）は自動では止まらない旨を明示。

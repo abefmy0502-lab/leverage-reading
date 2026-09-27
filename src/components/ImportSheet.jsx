@@ -131,7 +131,8 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     content = (
       <div role="status" aria-live="polite" style={{ padding: 'var(--space-8) 0', textAlign: 'center' }}>
         <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>取り込んでいます…</p>
-        <p style={{ ...body, marginTop: 'var(--space-2)', fontVariantNumeric: 'tabular-nums' }}>{progress.done} / {progress.total} 冊</p>
+        {/* margin は一括指定だけで書く（margin と marginTop を混ぜると、段の切替で React が警告する）。 */}
+        <p style={{ ...body, margin: 'var(--space-2) 0 0', fontVariantNumeric: 'tabular-nums' }}>{progress.done} / {progress.total} 冊</p>
       </div>
     );
   } else if (step === 'done' && outcome) {

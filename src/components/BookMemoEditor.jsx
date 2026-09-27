@@ -435,8 +435,8 @@ export default function BookMemoEditor({
               || JSON.stringify(tags) !== JSON.stringify(initial?.tags || []);
             if (dirty) {
               const ok = await confirmDialog({
-                title: '編集中の内容を破棄しますか？',
-                message: '書きかけの内容は保存されません。',
+                title: '保存していない変更があります',
+                message: '破棄すると、この変更は失われます。',
                 confirmLabel: '破棄する',
                 cancelLabel: '編集を続ける',
                 danger: true,

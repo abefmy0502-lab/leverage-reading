@@ -252,7 +252,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
       <button
         type="button"
         onClick={openEdit}
-        aria-label={`編集：${kindLine}${item.book?.title ? `「${item.book.title}」` : ''} ${snippet}`}
+        aria-label={`編集：${kindLine}${item.book?.title ? `『${item.book.title}』` : ''} ${snippet}`}
         style={cardTap}
       >
         {/* 種類は文字＋線のアイコンで示す（色で分けない・DESIGN §3-2）。右は「…」の分だけ空ける。 */}
@@ -282,7 +282,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
         )}
       </button>
       {onOpenMenu && (
-        <button type="button" onClick={openMenuFromButton} aria-label={`${kindLine}${item.book?.title ? `「${item.book.title}」` : ''}の操作`} aria-haspopup="menu" style={moreBtn}>
+        <button type="button" onClick={openMenuFromButton} aria-label={`${kindLine}${item.book?.title ? `『${item.book.title}』` : ''}の操作`} aria-haspopup="menu" style={moreBtn}>
           <MoreHorizontal size={20} aria-hidden="true" />
         </button>
       )}

@@ -385,7 +385,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         // 行の高さ 44 は押せる範囲のため。見た目では見出しとカードに寄せる（グループ内は詰める）。
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-2)) 0' }}>
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-            {quoteOnly ? `ページ番号つき ${visibleMemos.length}件` : `${memos.length}件`}
+            {quoteOnly ? `ページ番号つき ${visibleMemos.length} 件` : `${memos.length} 件`}
           </span>
           <button
             type="button"

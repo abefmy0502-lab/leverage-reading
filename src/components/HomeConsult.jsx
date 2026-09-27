@@ -34,7 +34,7 @@ function examplesFor(books, memoBookIds) {
   }));
   const topTag = [...tagCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   out.push(topTag
-    ? `「${topTag}」について、私が読んだ本からヒントをください`
+    ? `「${topTag}」で迷ったとき、私のメモからヒントをください`
     : '最近、判断に迷うことがあります。私が読んだ本から、ヒントをください');
   return out;
 }
@@ -102,7 +102,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
       </h2>
       <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5 }}>
         {/* メモ 0 件でも同じ 1 行（説明の補足文は置かない・DESIGN §0-6）。 */}
-        あなたの{bookCount}冊{memoCount > 0 && <>・メモ{memoCount}件</>}から答えます
+        あなたの {bookCount} 冊{memoCount > 0 && <>・メモ {memoCount} 件</>}から答えます
       </p>
 
       {!hasMemos && onQuickstart && (

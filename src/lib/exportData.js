@@ -1,11 +1,11 @@
-// 📥 Data export — CSV per table.
+// 📥 Data export — one CSV for every table.
 //
 // The previous JSON export was complete but Excel-unfriendly. CSV is the
-// pragmatic interchange format users actually open. We emit one CSV per
-// table (books / book_memos / book_tags / actions / chat_messages /
-// theme_reports / advisor_sessions / book_collections) and
-// trigger sequential downloads. ZIP packaging would require pulling in
-// JSZip (~100 KB) — the user-spec marked it optional, so we skip it.
+// pragmatic interchange format users actually open. All tables (books /
+// book_memos / book_tags / actions / chat_messages / theme_reports /
+// advisor_sessions / book_collections) go into ONE file with a leading
+// `table` column (2026-09-27: 8 sequential downloads were blocked on iOS).
+// ZIP packaging would require a new dependency, so we skip it.
 //
 // Encoding: UTF-8 with BOM (﻿) so Excel auto-detects 日本語 instead
 // of treating it as Shift_JIS and corrupting characters.
@@ -90,13 +90,9 @@ function downloadBlob(filename, blob) {
 }
 
 /**
- * Fetch every supported table for the user, build a CSV per table, and
- * trigger downloads. Returns a summary array describing each file
- * (table / row count) for the caller's UI confirmation.
- *
- * Sequential downloads with a small spacer delay so browsers don't
- * collapse them into a single prompt and don't hit the "block multiple
- * downloads?" warning. ~250ms is the sweet spot we tested.
+ * Fetch every supported table for the user, build ONE CSV (first column
+ * `table`), and trigger a single download. Returns a summary array
+ * (table / row count / skipped) for the caller's UI confirmation.
  */
 
 // Supabase 既定の max-rows (1000) を超えるテーブルでも黙って切り捨てないよう
@@ -135,6 +131,8 @@ export async function exportUserDataAsCSV(userId, { onProgress } = {}) {
   if (!userId) throw new Error('ログインが必要です。');
   const date = todayYMD();
   const summary = [];
+  const allRows = [];
+  const filename = `orime-data-${date}.csv`;
 
   for (let i = 0; i < EXPORT_TABLES.length; i += 1) {
     const table = EXPORT_TABLES[i];
@@ -148,18 +146,14 @@ export async function exportUserDataAsCSV(userId, { onProgress } = {}) {
       continue;
     }
 
-    const csv = arrayToCSV(rows);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const filename = `orime-${table}-${date}.csv`;
-    downloadBlob(filename, blob);
+    // 先頭の列「table」でどの表の行かを示す（1 つのファイルにまとめるため）。
+    rows.forEach((r) => allRows.push({ table, ...r }));
     summary.push({ table, count: rows.length, filename, skipped: false });
-
-    // Pace the downloads — without this, several browsers (Chrome, Brave)
-    // collapse the prompts and only the last file lands.
-    if (i < EXPORT_TABLES.length - 1) {
-      await new Promise((r) => setTimeout(r, 250));
-    }
   }
+  // 1 つの CSV にまとめてダウンロードする（2026-09-27）。以前は表ごとに 8 回ダウンロードが走り、
+  // iPhone では 2 つ目以降が止められていた。ZIP は依存を増やすので使わない。
+  const csv = arrayToCSV(allRows);
+  downloadBlob(filename, new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
   return summary;
 }
 

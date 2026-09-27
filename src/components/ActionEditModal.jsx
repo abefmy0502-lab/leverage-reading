@@ -13,7 +13,8 @@ import { createPortal } from 'react-dom';
 import { LIMITS } from '../lib/limits';
 import { useConfirm } from './ConfirmDialog';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { Pencil, ClipboardList, CalendarDays, Target, Repeat, MessageSquareQuote, Trash2, Save, ArrowUp, Minus, ArrowDown, X } from 'lucide-react';
+import { ArrowUp, Minus, ArrowDown, X } from 'lucide-react';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, groupTitle, input as uiInput } from '../styles/ui';
 
 const overlayStyle = {
   position: 'fixed',
@@ -24,14 +25,15 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 16,
-  fontFamily: "var(--font-app)",
+  padding: 'var(--space-4)',
+  fontFamily: 'var(--font-ui)',
   boxSizing: 'border-box',
 };
 
+// 見た目はトークンと ui.js の部品だけ（角丸 12・文字 12 以上・栗色は主ボタンと選択中だけ・2026-09-27）。
 const cardStyle = {
-  background: 'var(--c-card)',
-  borderRadius: 16,
+  background: 'var(--surface)',
+  borderRadius: 'var(--radius)',
   width: '100%',
   maxWidth: 'min(440px, 100vw - 16px)',
   maxHeight: 'min(90vh, 90dvh)',
@@ -46,17 +48,16 @@ const headerStyle = {
   flexShrink: 0,
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: '14px 16px',
-  borderBottom: '1px solid var(--c-hairline)',
-  background: 'var(--c-card)',
+  gap: 'var(--space-2)',
+  padding: 'var(--space-2) var(--space-2) var(--space-2) var(--space-4)',
+  borderBottom: '1px solid var(--separator)',
+  background: 'var(--surface)',
 };
 
 const closeBtn = {
   background: 'none',
   border: 'none',
-  fontSize: 22,
-  color: 'var(--c-brand)',
+  color: 'var(--text-2)',
   cursor: 'pointer',
   width: 44,
   height: 44,
@@ -65,7 +66,7 @@ const closeBtn = {
   justifyContent: 'center',
   fontFamily: 'inherit',
   padding: 0,
-  borderRadius: 10,
+  borderRadius: 'var(--radius)',
 };
 
 const bodyStyle = {
@@ -73,56 +74,51 @@ const bodyStyle = {
   overflowY: 'auto',
   overflowX: 'hidden',
   minHeight: 0,
-  padding: '14px 16px',
+  padding: 'var(--space-4)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 14,
+  gap: 'var(--space-4)',
   WebkitOverflowScrolling: 'touch',
   boxSizing: 'border-box',
 };
 
-const labelStyle = { fontSize: 12, color: 'var(--c-brand)', fontWeight: 600, marginBottom: 4, display: 'block' };
-const inpStyle = {
-  width: '100%',
-  padding: '10px 12px',
-  fontSize: 16,
-  border: '1px solid var(--c-hairline-strong)',
-  borderRadius: 10,
-  background: 'var(--surface)',
-  color: 'var(--c-ink)',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
-  outline: 'none',
-};
-const taStyle = { ...inpStyle, resize: 'vertical', minHeight: 80, lineHeight: 1.6 };
+// 欄の見出し（12/600/--text-2・DESIGN §5 groupTitle）。
+const labelStyle = { ...groupTitle, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginBottom: 'var(--space-2)' };
+const inpStyle = { ...uiInput, outline: 'none' };
+const taStyle = { ...inpStyle, resize: 'none', minHeight: 96, lineHeight: 1.6 };
 
+// 優先度の選択（高さ 44・選んでいるものだけ栗色の枠と淡い面）。
 const chipBtn = (active) => ({
   flex: 1,
-  padding: '8px 10px',
-  borderRadius: 10,
-  border: active ? '1.5px solid var(--c-brand)' : '1px solid var(--c-hairline-strong)',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 'var(--space-1)',
+  padding: 'var(--space-2) var(--space-3)',
+  borderRadius: 'var(--radius)',
+  border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
   background: active ? 'var(--accent-soft)' : 'var(--surface)',
-  color: active ? 'var(--c-ink)' : 'var(--c-brand)',
-  fontSize: 12,
-  fontWeight: active ? 600 : 500,
+  color: 'var(--text)',
+  fontSize: 'var(--text-sub)',
+  fontWeight: active ? 600 : 400,
   cursor: 'pointer',
   fontFamily: 'inherit',
-  minHeight: 36,
+  minHeight: 44,
 });
 
 const footerStyle = {
   flexShrink: 0,
   display: 'flex',
-  gap: 8,
-  padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid var(--c-hairline)',
-  background: 'var(--c-card)',
+  gap: 'var(--space-2)',
+  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  borderTop: '1px solid var(--separator)',
+  background: 'var(--surface)',
 };
 
 const PRIORITIES = [
-  { v: 'high',   label: (<><ArrowUp size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />高</>) },
-  { v: 'medium', label: (<><Minus size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />中</>) },
-  { v: 'low',    label: (<><ArrowDown size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />低</>) },
+  { v: 'high',   label: (<><ArrowUp size={16} aria-hidden="true" />高</>) },
+  { v: 'medium', label: (<><Minus size={16} aria-hidden="true" />中</>) },
+  { v: 'low',    label: (<><ArrowDown size={16} aria-hidden="true" />低</>) },
 ];
 
 const RECURRENCES = [
@@ -200,13 +196,13 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={() => { if (!busy) onClose?.(); }}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}><Pencil size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />{isCreate ? '行動を追加' : '行動を編集'}</h2>
+          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{isCreate ? '行動を追加' : '行動を編集'}</h2>
           <button type="button" style={closeBtn} onClick={() => { if (!busy) onClose?.(); }} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>
           <div>
-            <label style={labelStyle} htmlFor="ae-text"><ClipboardList size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />行動内容</label>
+            <label style={labelStyle} htmlFor="ae-text">行動</label>
             <textarea
               id="ae-text"
               value={text}
@@ -221,7 +217,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
           </div>
 
           <div>
-            <label style={labelStyle} htmlFor="ae-deadline"><CalendarDays size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />期限</label>
+            <label style={labelStyle} htmlFor="ae-deadline">期限</label>
             <input
               id="ae-deadline"
               type="date"
@@ -232,12 +228,13 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
           </div>
 
           <div>
-            <span style={labelStyle}><Target size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />優先度</span>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <span style={labelStyle} id="ae-priority">優先度</span>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }} role="group" aria-labelledby="ae-priority">
               {PRIORITIES.map((p) => (
                 <button
                   key={p.v}
                   type="button"
+                  aria-pressed={priority === p.v}
                   onClick={() => setPriority(p.v)}
                   style={chipBtn(priority === p.v)}
                 >
@@ -248,7 +245,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
           </div>
 
           <div>
-            <label style={labelStyle} htmlFor="ae-rec"><Repeat size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />繰り返し</label>
+            <label style={labelStyle} htmlFor="ae-rec">繰り返し</label>
             <select
               id="ae-rec"
               value={recurrence || ''}
@@ -263,7 +260,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
 
           {!isCreate && (
             <div>
-              <label style={labelStyle} htmlFor="ae-ref"><MessageSquareQuote size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />振り返り (任意)</label>
+              <label style={labelStyle} htmlFor="ae-ref">ふりかえり（任意）</label>
               <textarea
                 id="ae-ref"
                 value={reflection}
@@ -284,39 +281,17 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
             type="button"
             onClick={handleDelete}
             disabled={busy}
-            style={{
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--c-critical-line)',
-              background: 'var(--c-critical-soft)',
-              color: 'var(--c-critical)',
-              fontSize: 13,
-              fontFamily: 'inherit',
-              fontWeight: 600,
-              cursor: busy ? 'wait' : 'pointer',
-              minHeight: 44,
-              opacity: busy ? 0.6 : 1,
-            }}
+            // 削除は文字色だけ赤の副ボタン（押せないときは薄くせず文字色で示す）。
+            style={{ ...(busy ? btnGhostOff : btnGhost), width: 'auto', flexShrink: 0, color: busy ? 'var(--text-3)' : 'var(--error)' }}
           >
-            <Trash2 size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />削除
+            削除
           </button>
           )}
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            style={{
-              flex: 1,
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--c-hairline-strong)',
-              background: 'var(--c-card)',
-              color: 'var(--c-brand)',
-              fontSize: 13,
-              fontFamily: 'inherit',
-              cursor: busy ? 'wait' : 'pointer',
-              minHeight: 44,
-            }}
+            style={{ ...(busy ? btnGhostOff : btnGhost), flex: 1, width: 'auto' }}
           >
             キャンセル
           </button>
@@ -324,21 +299,9 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
             type="button"
             onClick={handleSave}
             disabled={busy || !text.trim()}
-            style={{
-              flex: 1.4,
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: 'none',
-              background: busy || !text.trim() ? 'var(--c-hairline-strong)' : 'var(--c-brand)',
-              color: 'var(--accent-ink)',
-              fontSize: 13,
-              fontFamily: 'inherit',
-              fontWeight: 700,
-              cursor: busy || !text.trim() ? 'not-allowed' : 'pointer',
-              minHeight: 44,
-            }}
+            style={{ ...(busy || !text.trim() ? btnPrimaryOff : btnPrimary), flex: 1.4, width: 'auto' }}
           >
-            {busy ? '保存中…' : (<><Save size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />{isCreate ? '追加' : '保存'}</>)}
+            {busy ? '保存中…' : (isCreate ? '追加' : '保存')}
           </button>
         </div>
       </div>

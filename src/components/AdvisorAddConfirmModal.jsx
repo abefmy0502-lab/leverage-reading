@@ -14,11 +14,14 @@
 // 任せる (search が strict match に通ればそれを採用、ダメなら ISBN 空で
 // 保存して bg resolver が title+author で再探索)。
 
+// 見た目はトークンと ui.js の部品だけ（2026-09-27: 絵文字・点線の仮表紙・等幅 9px の ISBN・
+// 警告色の「表紙未取得」をやめ、表紙が無いときはアプリ共通の自動の表紙（MiniCover）を出す）。
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Library, Sparkles, AlertTriangle, Lightbulb, Check, X } from 'lucide-react';
-import { ensureHttps } from '../lib/url';
+import { Check, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { MiniCover } from './BookCards';
+import { btnPrimary, btnPrimaryOff, btnGhost, groupTitle } from '../styles/ui';
 
 const overlayStyle = {
   position: 'fixed',
@@ -29,14 +32,14 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 16,
-  fontFamily: "var(--font-app)",
+  padding: 'var(--space-4)',
+  fontFamily: 'var(--font-ui)',
   boxSizing: 'border-box',
 };
 
 const cardStyle = {
-  background: 'var(--c-card)',
-  borderRadius: 16,
+  background: 'var(--surface)',
+  borderRadius: 'var(--radius)',
   width: '100%',
   maxWidth: 'min(440px, 100vw - 16px)',
   maxHeight: 'min(90vh, 90dvh)',
@@ -51,17 +54,16 @@ const headerStyle = {
   flexShrink: 0,
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: '14px 16px',
-  borderBottom: '1px solid var(--c-hairline)',
+  gap: 'var(--space-2)',
+  padding: 'var(--space-2) var(--space-2) var(--space-2) var(--space-4)',
+  borderBottom: '1px solid var(--separator)',
   background: 'var(--surface)',
 };
 
 const closeBtnStyle = {
   background: 'none',
   border: 'none',
-  fontSize: 22,
-  color: 'var(--c-brand)',
+  color: 'var(--text-2)',
   cursor: 'pointer',
   width: 44,
   height: 44,
@@ -70,7 +72,7 @@ const closeBtnStyle = {
   justifyContent: 'center',
   fontFamily: 'inherit',
   padding: 0,
-  borderRadius: 10,
+  borderRadius: 'var(--radius)',
 };
 
 const bodyStyle = {
@@ -78,42 +80,45 @@ const bodyStyle = {
   overflowY: 'auto',
   overflowX: 'hidden',
   minHeight: 0,
-  padding: '14px 16px',
+  padding: 'var(--space-4)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 14,
+  gap: 'var(--space-4)',
   WebkitOverflowScrolling: 'touch',
   boxSizing: 'border-box',
 };
 
 const recBoxStyle = {
   background: 'var(--fill)',
-  border: '1px solid var(--separator)',
-  borderRadius: 10,
-  padding: '10px 12px',
+  borderRadius: 'var(--radius)',
+  padding: 'var(--space-3) var(--space-4)',
 };
 
+// 候補（選んでいるものだけ栗色の枠と淡い面・右にチェック）。
 const candidateBtn = (selected) => ({
   display: 'flex',
-  gap: 10,
-  padding: 10,
-  background: selected ? 'var(--color-warning-soft)' : 'var(--c-card)',
-  border: selected ? '2px solid var(--color-accent)' : '1px solid var(--c-hairline)',
-  borderRadius: 10,
+  gap: 'var(--space-3)',
+  padding: 'var(--space-3)',
+  background: selected ? 'var(--accent-soft)' : 'var(--surface)',
+  border: selected ? '1px solid var(--accent)' : '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
   cursor: 'pointer',
   textAlign: 'left',
   fontFamily: 'inherit',
+  color: 'var(--text)',
   width: '100%',
   boxSizing: 'border-box',
   alignItems: 'flex-start',
 });
 
+const metaText = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0', lineHeight: 1.5 };
+
 const footerStyle = {
   flexShrink: 0,
   display: 'flex',
-  gap: 8,
-  padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid var(--c-hairline)',
+  gap: 'var(--space-2)',
+  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  borderTop: '1px solid var(--separator)',
   background: 'var(--surface)',
 };
 
@@ -129,145 +134,73 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onCancel}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
-            <Library size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />追加する本を確認
+          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>
+            追加する本を確認
           </h2>
           <button type="button" style={closeBtnStyle} onClick={onCancel} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>
           <div style={recBoxStyle}>
-            <p style={{ fontSize: 11, color: 'var(--color-accent)', margin: 0, fontWeight: 600 }}><Sparkles size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />AI からのおすすめ</p>
-            <p style={{ fontSize: 14, color: 'var(--c-ink)', margin: '4px 0 0', fontWeight: 600, wordBreak: 'keep-all' }}>
+            <p style={groupTitle}>AI のおすすめ</p>
+            <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 'var(--space-1) 0 0', fontWeight: 600, lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
               『{original.title}』
             </p>
-            {original.author && (
-              <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '2px 0 0' }}>{original.author}</p>
-            )}
+            {original.author && <p style={metaText}>{original.author}</p>}
           </div>
 
-          <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7, wordBreak: 'keep-all' }}>
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {candidates.length === 1
-              ? '見つかった本を確認してから追加してください。'
-              : '複数の候補が見つかりました。表紙を見て正しい本を選んでください。'}
+              ? '見つかった本を確かめてから追加してください。'
+              : '候補がいくつか見つかりました。表紙を見て、正しい本を選んでください。'}
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }} role="radiogroup" aria-label="追加する本の候補">
             {candidates.map((c, i) => {
               const isSelected = selectedIdx === i;
               return (
                 <button
                   key={c.isbn || `${c.title}-${i}`}
                   type="button"
+                  role="radio"
+                  aria-checked={isSelected}
                   onClick={() => setSelectedIdx(i)}
                   style={candidateBtn(isSelected)}
                 >
-                  {c.cover ? (
-                    <img
-                      src={ensureHttps(c.cover)}
-                      alt=""
-                      loading="lazy"
-                      style={{
-                        width: 56,
-                        height: 80,
-                        objectFit: 'cover',
-                        borderRadius: 4,
-                        flexShrink: 0,
-                        border: '1px solid var(--c-hairline)',
-                      }}
-                    />
-                  ) : (
-                    <div
-                      aria-hidden="true"
-                      style={{
-                        width: 56,
-                        height: 80,
-                        flexShrink: 0,
-                        borderRadius: 4,
-                        background: 'var(--c-soft)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 18,
-                        color: 'var(--c-ink-2)',
-                        border: '1px dashed var(--c-hairline-strong)',
-                      }}
-                    >
-                      📚
-                    </div>
-                  )}
+                  {/* 表紙が無い・読めないときはアプリ共通の自動の表紙（書名入りの色面）。 */}
+                  <MiniCover book={{ id: c.isbn || `cand-${i}`, title: c.title, cover: c.cover || '' }} width={56} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, margin: 0, lineHeight: 1.4, wordBreak: 'keep-all' }}>
+                    <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600, margin: 0, lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                       {c.title}
                     </p>
-                    {c.author && (
-                      <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: '2px 0 0' }}>{c.author}</p>
-                    )}
+                    {c.author && <p style={metaText}>{c.author}</p>}
                     {(c.publisher || c.pubYear) && (
-                      <p style={{ fontSize: 10, color: 'var(--c-ink-2)', margin: '2px 0 0' }}>
-                        {[c.publisher, c.pubYear].filter(Boolean).join(' · ')}
-                      </p>
+                      <p style={metaText}>{[c.publisher, c.pubYear].filter(Boolean).join(' · ')}</p>
                     )}
-                    {c.isbn && (
-                      <p style={{ fontSize: 9, color: 'var(--c-ink-2)', margin: '4px 0 0', fontFamily: 'monospace' }}>
-                        ISBN {c.isbn}
-                      </p>
-                    )}
-                    {!c.cover && (
-                      <p style={{ fontSize: 10, color: 'var(--c-critical)', margin: '4px 0 0' }}>
-                        <AlertTriangle size={11} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />表紙未取得
-                      </p>
-                    )}
+                    {c.isbn && <p style={{ ...metaText, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>ISBN {c.isbn}</p>}
                   </div>
+                  {isSelected && <Check size={20} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />}
                 </button>
               );
             })}
           </div>
 
-          <p style={{ fontSize: 11, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.6 }}>
-            <Lightbulb size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />該当する本がここに無い場合は「キャンセル」して、本棚の「+ 本を追加」から検索してください。
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            ここに無いときは「キャンセル」して、「すべての本」の右上の ＋ から探してください。
           </p>
         </div>
 
         <div style={footerStyle}>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{
-              flex: 1,
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--c-hairline-strong)',
-              background: 'var(--surface)',
-              color: 'var(--c-brand)',
-              fontSize: 13,
-              fontFamily: 'inherit',
-              fontWeight: 500,
-              cursor: 'pointer',
-              minHeight: 44,
-            }}
-          >
+          <button type="button" onClick={onCancel} style={{ ...btnGhost, flex: 1, width: 'auto' }}>
             キャンセル
           </button>
           <button
             type="button"
             disabled={!selected}
             onClick={() => onConfirm(selected)}
-            style={{
-              flex: 1,
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: 'none',
-              background: selected ? 'var(--c-brand)' : 'var(--c-hairline-strong)',
-              color: 'var(--accent-ink)',
-              fontSize: 13,
-              fontFamily: 'inherit',
-              fontWeight: 700,
-              cursor: selected ? 'pointer' : 'not-allowed',
-              minHeight: 44,
-            }}
+            style={{ ...(selected ? btnPrimary : btnPrimaryOff), flex: 1, width: 'auto' }}
           >
-            <Check size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />この本を追加
+            この本を追加
           </button>
         </div>
       </div>

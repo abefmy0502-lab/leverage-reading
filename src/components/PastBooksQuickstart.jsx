@@ -196,14 +196,21 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
     }
   };
 
-  const isPicked = (b) => picked.some((p) => bookKey(p.book) === bookKey(b));
+  // 同じ本か（ISBN の一致、または書名の一致＝著者は両方あるときだけ比べる）。
+  // 検索結果の本と「『X』を書名だけで追加」が同じ本として二重に入らないように（2026-09-27）。
+  const pickedMatch = (b) => {
+    const hit = findDuplicateBook(picked.map((p) => p.book), b);
+    return hit ? picked.find((p) => p.book === hit) : null;
+  };
+  const isPicked = (b) => !!pickedMatch(b);
   const toggle = (b) => {
-    if (isPicked(b)) {
-      setPicked((arr) => arr.filter((p) => bookKey(p.book) !== bookKey(b)));
+    const hit = pickedMatch(b);
+    if (hit) {
+      setPicked((arr) => arr.filter((p) => p !== hit));
       return;
     }
     if (picked.length >= MAX_BOOKS) {
-      toast.info(`えらべるのは ${MAX_BOOKS} 冊までです`);
+      toast.info(`えらべるのは ${MAX_BOOKS} 冊までです。`);
       return;
     }
     setPicked((arr) => [...arr, { book: b, memo: '' }]);

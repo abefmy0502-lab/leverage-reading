@@ -7,8 +7,9 @@
 //
 // ⚠️ 挙動は抽出前と不変。識別子名・props も不変（App.jsx 側の呼び出しはそのまま）。
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { todayLocal } from '../lib/dates';
+import { ensureHttps } from '../lib/url';
 import { toMessage } from '../lib/errors';
 import {
   Search as IcSearch, Map as IcMap, Bot as IcBot, ImagePlus as IcImagePlus,
@@ -94,6 +95,19 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
 
   const pickCover = () => fileInputRef.current?.click();
   const clearCover = () => setForm({ ...form, cover: '' });
+  // 表紙の画像が本当に読めたときだけ「削除」を出す（読めない URL だと自動で作った表紙が出るので、
+  // その下に「削除」があると消すものが無いのに赤い文字だけ見える・2026-09-27）。
+  const [coverOk, setCoverOk] = useState(false);
+  useEffect(() => {
+    setCoverOk(false);
+    if (!form.cover) return undefined;
+    let alive = true;
+    const img = new Image();
+    img.onload = () => { if (alive) setCoverOk((img.naturalWidth || 0) > 1 && (img.naturalHeight || 0) > 1); };
+    img.onerror = () => { if (alive) setCoverOk(false); };
+    img.src = ensureHttps(form.cover);
+    return () => { alive = false; };
+  }, [form.cover]);
   const canSave = !!form.title.trim();
   // 書名が空で「保存」を押したとき: ボタンは薄くせず（白文字が読めなくなる）、書名の欄へ戻して 1 行で知らせる。
   const titleRef = useRef(null);
@@ -127,15 +141,17 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
               >
                 <MiniCover book={{ id: form.id || 'new', title: form.title, cover: form.cover }} width={COVER_W} radius={COVER_RADIUS} />
               </button>
-              <button
-                type="button"
-                onClick={clearCover}
-                disabled={uploading}
-                aria-label="表紙写真を削除"
-                style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--error)' }}
-              >
-                削除
-              </button>
+              {coverOk && (
+                <button
+                  type="button"
+                  onClick={clearCover}
+                  disabled={uploading}
+                  aria-label="表紙写真を削除"
+                  style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--error)' }}
+                >
+                  削除
+                </button>
+              )}
             </>
           ) : (
             <button
@@ -473,7 +489,7 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
       {/* 「この本の学びを分析」は 2026-09-27 に廃止（本詳細の「この本に相談する」と重なる）。
           以前に保存した分析は「この本のAI まとめ」に残り、編集できる。 */}
       {form.aiSummary?.trim() && (
-        <Field label="この本の AI まとめ">
+        <Field label="以前の AI まとめ">
           <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={3} style={ta} maxLength={LIMITS.memoText} />
         </Field>
       )}

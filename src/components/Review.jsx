@@ -106,7 +106,7 @@ const KIND_META = {
   ai_summary:        { Icon: Bot,               label: 'AI まとめ',      color: 'var(--c-ink-3)' },
   roi_summary:       { Icon: Gem,               label: '一番の収穫',     color: 'var(--c-positive)' },
   leverage_memo:     { Icon: FileText,          label: 'まとめメモ',     color: 'var(--c-brand)' },
-  action_reflection: { Icon: MessageSquareQuote, label: '行動の振り返り', color: 'var(--c-positive)' },
+  action_reflection: { Icon: MessageSquareQuote, label: '行動のふりかえり', color: 'var(--c-positive)' },
 };
 
 // books から 派生ノート (本フィールド + 行動の振り返り) を生成。

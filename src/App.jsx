@@ -125,7 +125,8 @@ import ContextMenu from './components/ContextMenu';
 import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
 import { useLongPress } from './hooks/useLongPress';
-import { useEdgeSwipeBack } from './hooks/useEdgeSwipeBack';
+import { useEdgeSwipeBack, isBackBlocked } from './hooks/useEdgeSwipeBack';
+import { useHistoryBack } from './hooks/useHistoryBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
 import { useSubscription } from './hooks/useSubscription';
 const Paywall = lazy(() => import('./components/Paywall'));
@@ -737,6 +738,24 @@ function AuthedApp() {
       else goList();
     },
   });
+  // ブラウザ / Android の「戻る」: 深い画面では ‹・左端スワイプと同じ 1 段戻る（一番上では普通に離れる）。
+  useHistoryBack({
+    depth: (tab === 'books' && shelfMode === 'library' ? 1 : 0)
+      + (view === 'detail' ? 1 : view === 'edit' ? (current ? 2 : 1) : 0)
+      + (tab === 'ai' && aiSubTab === 'brain' && consultPushed && view === 'list' ? 1 : 0),
+    onBack: async () => {
+      if (isBackBlocked()) return false; // 書きかけのシートが開いている間は戻らない
+      if (view === 'edit') {
+        if (!(await confirmDiscardEdit())) return false;
+        if (current) { setEditPhaseOverride(null); setView('detail'); } else goList();
+        return true;
+      }
+      if (view === 'detail') { goList(); return true; }
+      if (tab === 'ai' && consultPushed) { window.dispatchEvent(new Event('orime:consult-back')); return true; }
+      if (tab === 'books' && shelfMode === 'library') { leaveLibrary(); return true; }
+      return true;
+    },
+  });
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
@@ -872,10 +891,10 @@ function AuthedApp() {
   const confirmDiscardEdit = async () => {
     if (!isEditDirty()) return true;
     return confirm({
-      title: '編集を破棄しますか？',
-      message: '保存していない変更があります。移動すると失われます。',
-      confirmLabel: '破棄して移動',
-      cancelLabel: '編集に戻る',
+      title: '保存していない変更があります',
+      message: '破棄すると、この変更は失われます。',
+      confirmLabel: '破棄する',
+      cancelLabel: '編集を続ける',
       danger: true,
     });
   };
@@ -1180,7 +1199,7 @@ function AuthedApp() {
         // 自動取得が完璧になることはあり得ない → 手動アップロードを促す。
         toast.show({
           type: 'info',
-          message: '自動では見つかりませんでした。📷 手動アップロードをお試しください',
+          message: '表紙が自動では見つかりませんでした。写真をアップロードできます。',
           duration: 6000,
           action: { label: 'アップロード', onClick: () => triggerManualCoverUpload(book) },
         });
@@ -1441,7 +1460,7 @@ function AuthedApp() {
               resolvedCoverIsbn = '';
               toast.show({
                 type: 'info',
-                message: '📷 表紙が見つかりませんでした。手動アップロードできます',
+                message: '表紙が見つかりませんでした。写真をアップロードできます。',
                 duration: 4000,
               });
             }
@@ -1681,7 +1700,7 @@ function AuthedApp() {
     // 本の削除→Undo では Storage の写真ファイルを消していないため、
     // photo_path ごと完全復元される（旧「※写真は復元できません」は誤案内だった）。
     toast.undo({
-      message: `「${book.title}」を削除しました。`,
+      message: `『${book.title}』を削除しました。`,
       // 取り消されずに閉じたら、写真ファイルも消す（取り消し中は写真ごと戻せるよう残しておく）
       onExpire: removePhotos,
       onUndo: async () => {
@@ -1709,7 +1728,7 @@ function AuthedApp() {
     if (!book) return;
     const ok = await confirm({
       title: 'この本を削除しますか？',
-      message: `「${book.title}」のメモ（写真を含む）と行動も、いっしょに削除されます。\n削除した直後なら「元に戻す」で戻せます。`,
+      message: `『${book.title}』のメモ（写真を含む）と行動も、いっしょに削除されます。\n削除した直後なら「元に戻す」で戻せます。`,
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -1944,10 +1963,10 @@ function AuthedApp() {
       // 4 フィールドが埋まっていれば「話した内容を引き継ぎました」、そうでなければ控えめなトースト。
       const hasPlan = newBook.currentChallenge || newBook.hypothesis || newBook.bookReason;
       const msg = hasPlan
-        ? `「${rec.title}」を追加。AI 選書で話した内容を引き継ぎました。`
+        ? `『${rec.title}』を追加。AI 選書で話した内容を引き継ぎました。`
         : newBook.sourceQuery
-          ? `「${rec.title}」を追加。読書計画シートで読み方を決めましょう。`
-          : `「${rec.title}」を「読みたい」に追加しました。`;
+          ? `『${rec.title}』を追加。読書計画シートで読み方を決めましょう。`
+          : `『${rec.title}』を「読みたい」に追加しました。`;
       // 追加直後に「本棚で探し直す」断絶を無くす — トーストから 1 タップで
       // その本の読書計画（投資目的→戦略）へ直行できるようにする（time-to-value）。
       toast.show({
@@ -2123,13 +2142,13 @@ function AuthedApp() {
       try { haptic.success(); } catch { /* non-critical */ }
       toast.show({
         type: 'success',
-        message: `「${book.title}」を読了にしました。心に残ったことを 1 行メモしておくと、あとで相談に生きます。`,
+        message: `『${book.title}』を読了にしました。心に残ったことを 1 行メモしておくと、あとで相談に生きます。`,
         duration: 6500,
         action: { label: '元に戻す', onClick: revert },
       });
     } else {
       toast.undo({
-        message: `「${labels[newStatus] || newStatus}」に変更しました`,
+        message: `「${labels[newStatus] || newStatus}」に変更しました。`,
         onUndo: revert,
       });
     }
@@ -2171,7 +2190,7 @@ function AuthedApp() {
     const patch = { status: newStatus };
     if ((newStatus === 'reading' || newStatus === 'done') && !book.startDate) patch.startDate = today;
     if (newStatus === 'done' && !book.doneDate) patch.doneDate = today;
-    applyBookPatchQuiet(book.id, patch, `「${getSt(newStatus).label}」に変更しました`);
+    applyBookPatchQuiet(book.id, patch, `「${getSt(newStatus).label}」に変更しました。`);
     if (newStatus === 'before' || newStatus === 'reading' || newStatus === 'done') {
       track('status_changed', { to: newStatus });
     }
@@ -2187,7 +2206,7 @@ function AuthedApp() {
     const lines = [
       `📚 おすすめの本`,
       ``,
-      `「${book.title}」${book.author ? `（${book.author}）` : ""}`,
+      `『${book.title}』${book.author ? `（${book.author}）` : ""}`,
     ];
     if (book.rating > 0) lines.push(`${"★".repeat(book.rating)}${"☆".repeat(5 - book.rating)}`);
     lines.push(``);
@@ -2410,7 +2429,7 @@ function AuthedApp() {
 
         const saved = await saveBook(newBook);
         resolveCoverInBackground(saved);
-        toast.success(`「${trimmedTitle}」を「読みたい」に追加しました。`);
+        toast.success(`『${trimmedTitle}』を「読みたい」に追加しました。`);
       } catch (error) {
         // 失敗時は UI rollback してエラー表示
         setAddedRelatedTitles((prev) => {
@@ -2767,7 +2786,7 @@ function AuthedApp() {
     if (!skipConfirm) {
       const ok = await confirm({
         title: '行動を削除しますか？',
-        message: 'この行動（期限・振り返り含む）を完全に削除します。元に戻せません。',
+        message: 'この行動を、期限とふりかえりも含めて削除します。元に戻せません。',
         confirmLabel: '削除する',
         cancelLabel: 'キャンセル',
         danger: true,
@@ -3025,7 +3044,7 @@ function AuthedApp() {
                     この本から得たいことが、まだありません
                   </p>
                   <button type="button" onClick={() => openSetup(current)} style={textBtnInCard}>
-                    読書計画を作る
+                    読書計画シートを作る
                   </button>
                 </div>
               );
@@ -3257,9 +3276,9 @@ function AuthedApp() {
             </details>
           )}
 
-          {(current.actions || []).filter((a) => a.text?.trim() && !isScheduledLater(a)).length > 0 && (
-            // 行の上下の余り（padding 8）を詰め、見た目の間隔を 24 にそろえる。
-            <section style={{ marginTop: 'var(--space-6)', marginBottom: 'calc(-1 * var(--space-2))' }} aria-labelledby="detail-action-title">
+          {((current.actions || []).filter((a) => a.text?.trim() && !isScheduledLater(a)).length > 0 || isMemoPhase) && (
+            // 下の「＋ 行動を追加」（高さ 44）の余り（約 12）を詰め、見た目の間隔を 24 にそろえる。
+            <section style={{ marginTop: 'var(--space-6)', marginBottom: 'calc(-1 * var(--space-3))' }} aria-labelledby="detail-action-title">
               <h2 id="detail-action-title" style={detailH2Style}>行動</h2>
               {/* その場で完了できる（読み取り専用だと行動タブへの往復を強制する）。
                   filter だと index がズレるので生 index を持ったまま並べる。まだの行動を先、完了は後。 */}
@@ -3285,6 +3304,14 @@ function AuthedApp() {
                   </div>
                 </button>
               ))}
+              {/* この本の行動をその場で足す（行動タブの「＋ 追加」と同じ入力を、この本を選んだ状態で開く）。 */}
+              <button
+                type="button"
+                onClick={() => setAddActionSheet({ step: 'edit', bookId: current.id, prefillText: '' })}
+                style={{ ...btnLink, padding: 0, justifyContent: 'flex-start', gap: 'var(--space-1)' }}
+              >
+                <IcPlus size={18} aria-hidden="true" />行動を追加
+              </button>
             </section>
           )}
 
@@ -3328,11 +3355,11 @@ function AuthedApp() {
                       // 投資目的はあるが読書計画が未作成 → 任意なので警告のみ（AI 解析は 2026-09-27 に廃止）。
                       if (!current.aiStrategy) {
                         const ok = await confirm({
-                          title: '読書計画を作っておきますか？',
+                          title: '読書計画シートを作っておきますか？',
                           message:
                             '読書計画シートがまだありません。作っておくと、学びの本では「どの 20% を読むか」が分かります（任意）。',
                           confirmLabel: 'このまま読書を開始',
-                          cancelLabel: '読書計画を作る',
+                          cancelLabel: '読書計画シートを作る',
                         });
                         if (!ok) {
                           openSetup(current);
@@ -3593,6 +3620,22 @@ function AuthedApp() {
           </Suspense>
         )}
 
+        {/* 🎯 行動の「＋ 行動を追加」（本の詳細から・この本を選んだ状態）。一覧の画面の同じ mount とは
+            片方の画面しか return されないので二重には出ない（CoverFixModal と同じ置き方）。 */}
+        {addActionSheet?.step === 'edit' && addActionSheet.bookId && (
+          <Suspense fallback={<Spinner />}>
+            <ActionEditModal
+              mode="create"
+              action={addActionSheet.prefillText ? { text: addActionSheet.prefillText } : null}
+              onClose={() => setAddActionSheet(null)}
+              onSave={async (patch) => {
+                const ok = await createActionForBook(addActionSheet.bookId, patch);
+                if (ok) setAddActionSheet(null);
+              }}
+            />
+          </Suspense>
+        )}
+
         <BottomNav tab={tab} setTab={(t) => { navigateTab(t); goList(); }} hidden={keyboardOpen} />
       </Shell>
     );
@@ -3626,7 +3669,8 @@ function AuthedApp() {
               }}
               // 詳細画面の「‹ 本棚」と同じ iOS ナビ様式に統一（旧: 沈む極小グレー「← 戻る」）。シェブロンの位置も詳細と同じ。
               style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-1))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
-            ><ChevronLeft size={22} aria-hidden="true" />{current ? '詳細' : 'すべての本'}</button>
+            >{/* iOS の作法: 戻る先の画面名（＝書名）。長い書名は収まらないので「戻る」。 */}
+              <ChevronLeft size={22} aria-hidden="true" />{current ? ((current.title || '').length <= 8 && current.title ? current.title : '戻る') : 'すべての本'}</button>
             <button
               onClick={openHelp}
               style={{ width: 44, height: 44, marginRight: 'calc(-1 * var(--space-3))', display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
@@ -4466,7 +4510,7 @@ function AuthedApp() {
           prefillText があれば ② の入力欄に初期表示する（本を解決できなかった
           AI 回答の「明日の一歩」を、本を選んで行動化できるようにする）。 */}
       {addActionSheet?.step === 'pick' && (
-        <BottomSheet title="どの本の行動にしますか？" onClose={() => setAddActionSheet(null)}>
+        <BottomSheet title="どの本の行動にしますか？" onClose={() => setAddActionSheet(null)} dismissLabel="キャンセル">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {[...books]
               .sort((a, b) => {

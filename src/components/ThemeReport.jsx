@@ -355,7 +355,9 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
             const saved = await saveThemeReport({ userId: user.id, theme, content: finalText });
             if (saved) {
               setHistoryAvailable(true);
-              setHistory((prev2) => [saved, ...prev2.filter((r) => r.id !== saved.id)]);
+              // 作った日時は必ず持たせる（一覧で日付が空にならないように）。
+              const row = { ...saved, generated_at: saved.generated_at || saved.created_at || new Date().toISOString() };
+              setHistory((prev2) => [row, ...prev2.filter((r) => r.id !== row.id)]);
             }
           }
         }
@@ -441,6 +443,13 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
       const res = await addThemeAction({ userId: user.id, bookId: primaryBook.id, text: step });
       if (res?.ok) {
         setActionAdded(true);
+        // 「行動できてる？」の数をその場で合わせる（決めた +1・まだ +1・やれていない一歩の先頭へ）。
+        setActionStats((prev) => (prev ? {
+          ...prev,
+          declared: (prev.declared || 0) + 1,
+          idle: (prev.idle || 0) + 1,
+          openSteps: [step, ...(prev.openSteps || []).filter((s) => s !== step)].slice(0, 3),
+        } : prev));
         haptic.success();
         try { onActionAdded?.(); } catch { /* ignore */ }
         toast.success('行動に追加しました（期限は明日）。');
@@ -538,7 +547,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                             <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>
                               {row.theme}
                             </span>
-                            <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)' }}>{fmtDate(row.generated_at)}</span>
+                            <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)' }}>{fmtDate(row.generated_at || row.created_at)}</span>
                           </span>
                           <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                         </button>
@@ -913,11 +922,11 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
       </div>
       {declared === 0 ? (
         <p style={nudge}>
-          このテーマに紐づく行動が<strong style={{ fontWeight: 600 }}>まだ0件</strong>。学びを、まず1つだけ行動に落としましょう。
+          このテーマに紐づく行動が<strong style={{ fontWeight: 600 }}>まだ 0 件</strong>。学びを、まず1つだけ行動に落としましょう。
         </p>
       ) : blindSpot ? (
         <p style={nudge}>
-          メモは<strong style={{ fontWeight: 600 }}>{memoTotal}件</strong>あるのに、完了した行動は<strong style={{ fontWeight: 600 }}>0件</strong>。下の「次の一歩」から1つ始めてみましょう。
+          メモは <strong style={{ fontWeight: 600 }}>{memoTotal} 件</strong> あるのに、完了した行動は <strong style={{ fontWeight: 600 }}>0 件</strong>。下の「次の一歩」から1つ始めてみましょう。
         </p>
       ) : null}
 

@@ -263,10 +263,10 @@ export default function QuickMemoSheet({
     if (busy || condensing) return;
     if (text.trim()) {
       const ok = await confirmDialog({
-        title: '書きかけのメモを破棄しますか？',
-        message: '保存されていない内容は失われます。',
+        title: '保存していない変更があります',
+        message: '破棄すると、この変更は失われます。',
         confirmLabel: '破棄する',
-        cancelLabel: '書き続ける',
+        cancelLabel: '編集を続ける',
         danger: true,
       });
       if (!ok) return;
@@ -354,7 +354,7 @@ export default function QuickMemoSheet({
 
   const handleDetailHandoff = () => {
     if (busy) return; // 保存の在空中に引き継ぐと同内容メモが二重作成される
-    const parsed = parseInt(pageNumber, 10);
+    const parsed = pageUsed ? parseInt(pageNumber, 10) : NaN;
     onOpenFullEditor?.({
       pageNumber: Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 99999) : null,
       text,
@@ -453,18 +453,19 @@ export default function QuickMemoSheet({
             </div>
           )}
 
-          {/* ＋ ページ・写真 — 閉じていても、ページ番号（直前＋1）は保存される。
+          {/* ＋ ページ・写真 — 一度開いて欄を見たときだけページ番号を保存する（開かなければページなし）。
+              欄には直前＋1 を入れておく（続けて書くときの手間を省く）。
               高さ 44 の文字ボタンの上の余り（約 12）を詰め、見た目で本文欄の下 約 8 に置く。 */}
           <div style={{ marginTop: 'calc(-1 * var(--space-4))' }}>
             <button
               type="button"
-              onClick={() => setMoreOpen((v) => !v)}
+              onClick={() => { setMoreOpen((v) => !v); setPageUsed(true); }}
               aria-expanded={moreOpen}
               style={detailLink}
             >
               {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
               ページ・写真
-              {!moreOpen && pageNumber !== '' && (
+              {!moreOpen && pageUsed && pageNumber !== '' && (
                 <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>（p.{pageNumber}）</span>
               )}
             </button>
@@ -480,7 +481,7 @@ export default function QuickMemoSheet({
                     min={0}
                     max={99999}
                     value={pageNumber}
-                    onChange={(e) => { pageTouchedRef.current = true; setPageNumber(e.target.value); }}
+                    onChange={(e) => { pageTouchedRef.current = true; setPageUsed(true); setPageNumber(e.target.value); }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                         e.preventDefault();

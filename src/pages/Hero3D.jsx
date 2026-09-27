@@ -21,9 +21,9 @@ import {
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 const MEMOS = [
-  { title: 'イシューからはじめよ', page: 'P.25', text: '答えを出す前に、本当に答えるべき問いかを確かめる。' },
-  { title: '1兆ドルコーチ', page: 'P.95', text: 'チームの勝利が最優先。個人の手柄より、チームが勝つ判断をする。' },
-  { title: '数値化の鬼', page: 'P.15', text: '「頑張ります」は計測できない。行動を「数」で決める。' },
+  { title: 'イシューからはじめよ', page: 'p.25', text: '答えを出す前に、本当に答えるべき問いかを確かめる。' },
+  { title: '1兆ドルコーチ', page: 'p.95', text: 'チームの勝利が最優先。個人の手柄より、チームが勝つ判断をする。' },
+  { title: '数値化の鬼', page: 'p.15', text: '「頑張ります」は計測できない。行動を「数」で決める。' },
 ];
 
 // 寸法（ワールド単位）。画面写真は 780×1688。

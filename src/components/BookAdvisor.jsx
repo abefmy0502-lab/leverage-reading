@@ -1317,7 +1317,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                   disabled={multiSelected.length === 0}
                   style={{ ...(multiSelected.length ? uiBtnPrimary : uiBtnPrimaryOff), marginTop: 'var(--space-2)' }}
                 >
-                  {multiSelected.length ? `決定（${multiSelected.length}件）` : '1つ以上選んでください'}
+                  {multiSelected.length ? `決定（${multiSelected.length} 件）` : '1つ以上選んでください'}
                 </button>
               )}
             </div>

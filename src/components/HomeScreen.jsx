@@ -139,7 +139,7 @@ export default function HomeScreen({
           >
             <Library size={20} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
-            <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{books.length}冊</span>
+            <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>{books.length} 冊</span>
             <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
           </button>
         </>

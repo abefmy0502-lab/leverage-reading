@@ -157,7 +157,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
 
         <div style={bodyStyle}>
           <p style={{ fontSize: 12, color: 'var(--c-ink-soft)', margin: 0, lineHeight: 1.7 }}>
-            「{book.title}」の別エディションを含めて、見つかった表紙の中から正しいものを選んでください。
+            『{book.title}』の別エディションを含めて、見つかった表紙の中から正しいものを選んでください。
           </p>
 
           {loading ? (
