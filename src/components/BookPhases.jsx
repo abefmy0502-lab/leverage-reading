@@ -277,7 +277,7 @@ export function BeforePhase({
               <IcBulb size={14} aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }} />
               <span>
                 {form.bookReason
-                  ? 'AI 選書で話した内容を元に、AI が読書計画を作成しました。編集して自分の言葉に直すと、より効果的です。'
+                  ? 'AI 選書で話した内容と、おすすめの理由を引き継ぎました。自分の言葉に直すと、より効果的です。'
                   : 'AI 選書で入力した内容を引き継ぎました。必要に応じて編集してください。'}
               </span>
             </div>

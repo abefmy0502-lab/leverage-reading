@@ -37,7 +37,7 @@ const textBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--spac
 // 生成中のカード（テーマまとめの生成中と同じ形）。
 const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 
-export default function KnowledgeJourney({ userId, initialTheme = '' }) {
+export default function KnowledgeJourney({ userId, initialTheme = '', onInitialThemeUsed }) {
   const toast = useToast();
   const [themes, setThemes] = useState([]);
   const [themesLoading, setThemesLoading] = useState(true);
@@ -130,6 +130,9 @@ export default function KnowledgeJourney({ userId, initialTheme = '' }) {
     if (initialRanRef.current || !initialTheme || !userId) return;
     initialRanRef.current = true;
     run(initialTheme);
+    // 親に「使った」と知らせて消してもらう。残っていると、ほかの画面から「考えの足あと」に
+    // 戻るたびに同じテーマを AI で作り直していた（2026-09-27・見えない原価）。
+    onInitialThemeUsed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTheme, userId]);
 

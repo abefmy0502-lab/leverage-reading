@@ -897,6 +897,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             key={journeyPreset?.nonce || 'journey'}
             userId={user?.id}
             initialTheme={journeyAutoTheme}
+            onInitialThemeUsed={() => setJourneyAutoTheme('')}
           />
         </div>
       )}

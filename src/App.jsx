@@ -1881,10 +1881,10 @@ function AuthedApp() {
       const saved = await saveBook(newBook);
       // 📊 AI 選書経由の本追加（PII なし・via の enum だけ）。
       track('book_added', { via: 'advisor' });
-      // 4 フィールドが埋まっていれば「読書計画を作成しました」、そうでなければ控えめなトースト。
+      // 4 フィールドが埋まっていれば「話した内容を引き継ぎました」、そうでなければ控えめなトースト。
       const hasPlan = newBook.currentChallenge || newBook.hypothesis || newBook.bookReason;
       const msg = hasPlan
-        ? `✅ 「${rec.title}」を追加。読書計画シートを作成しました。`
+        ? `「${rec.title}」を追加。AI 選書で話した内容を引き継ぎました。`
         : newBook.sourceQuery
           ? `「${rec.title}」を追加。読書計画シートで読み方を決めましょう。`
           : `「${rec.title}」を「読みたい」に追加しました。`;

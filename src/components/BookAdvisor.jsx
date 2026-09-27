@@ -26,7 +26,6 @@ import { track } from '../lib/analytics';
 import { isStrictMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
-import { summarizeAdvisorConversation } from '../lib/aiSetupSummary';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
@@ -841,22 +840,21 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   const proceedAdd = (verifiedRec) => {
     // すべての I/O を Promise.resolve().then で次の tick へ。handler 同期維持。
     Promise.resolve().then(async () => {
-      let summary = null;
-      try {
-        // 正常系（推薦カードが出る）では会話は chatHistory に積まれ、messages は空。
-        // ヒアリングで集めた本人の言葉を読書計画シートに反映するため chatHistory を優先する。
-        const convo = chatHistory.length ? chatHistory : messages;
-        summary = await summarizeAdvisorConversation(convo, verifiedRec);
-      } catch {
-        /* 要約失敗は非クリティカル。空のまま保存に進む。 */
-      }
+      // 読書準備の 4 項目は、AI を呼ばずに手元の材料から埋める（2026-09-27・原価の節約）。
+      //   以前は追加のたびに会話を AI で要約していた（本人は AI を頼んでいない＝見えない原価）。
+      //   得たいこと＝最初の相談 / 課題＝ヒアリングで答えたこと / 仮説＝推薦の「核心」/
+      //   理由＝推薦の「なぜ」。どれも本人がその場で見た言葉なので、ずれない。
+      const challenge = interviewAnswers
+        .map((x) => clamp(sanitizeForPrompt(String(x?.a || '')), 120).trim())
+        .filter(Boolean)
+        .join('／');
       try {
         const saved = await onAddBook(verifiedRec, {
           sourceQuery: lastUserQuery,
-          investPurpose: summary?.investPurpose || lastUserQuery || '',
-          currentChallenge: summary?.currentChallenge || '',
-          hypothesis: summary?.hypothesis || '',
-          bookReason: summary?.bookReason || (verifiedRec.why || ''),
+          investPurpose: lastUserQuery || '',
+          currentChallenge: clamp(challenge, 400),
+          hypothesis: clamp(String(verifiedRec.core || ''), 300),
+          bookReason: clamp(String(verifiedRec.why || ''), 400),
         });
         // onAddBook (addFromAdvisor) は失敗を内部 catch で握りつぶし null を
         // 返す（throw しない）。falsy を失敗として扱わないと rollback が
