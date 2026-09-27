@@ -86,6 +86,28 @@
   /* 切り替えスイッチのつまみ（iOS と同じく明暗とも白。DESIGN §5 の例外） */
   --switch-knob: #ffffff;
 
+  /* 一文カード（シェア画像・lib/shareCard.js が canvas に描くときに getComputedStyle で読む）。
+     画像は外に出る「形そのもの」なので、明暗で変えない（暗い画面の設定の人も同じ画像を作る）。
+     3 つの地: 紙 / 夜 / 表紙の色（表紙から作った地の上に白い文字）。本文は明朝。
+     ink は本文（紙 13.1:1・夜 15.6:1）、ink-2 は書名・著者、ink-3 は URL などの付随情報（4.5:1 以上）。 */
+  --share-paper-bg: #f4efe6;
+  --share-paper-ink: #2b2825;
+  --share-paper-ink-2: #5f5a53;
+  --share-paper-ink-3: #6e685f;
+  --share-paper-accent: #8a4b2a;   /* 引用符・短い線だけ（アクセント 1 色） */
+  --share-paper-shadow: rgba(43, 40, 37, 0.22);
+  --share-night-bg: #1a1917;
+  --share-night-ink: #f2efea;
+  --share-night-ink-2: #c9c2b8;
+  --share-night-ink-3: #a39c92;
+  --share-night-accent: #e0a07a;
+  --share-night-shadow: rgba(0, 0, 0, 0.5);
+  --share-cover-ink: #ffffff;
+  --share-cover-ink-2: rgba(255, 255, 255, 0.84);
+  --share-cover-ink-3: rgba(255, 255, 255, 0.72);
+  --share-cover-accent: rgba(255, 255, 255, 0.6);
+  --share-cover-shadow: rgba(0, 0, 0, 0.35);
+
   /* 角丸は 1 種類（円は例外として --radius-full） */
   --radius: 12px;
   /* アプリアイコン画像の形（iOS のアイコン形状≒幅の 22.37%）。UI の角丸ではなく「中身の形」の例外（DESIGN §4） */
