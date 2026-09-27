@@ -1937,7 +1937,7 @@ function AuthedApp() {
         type: 'success',
         message: msg,
         duration: 6000,
-        action: { label: '📖 開く', onClick: () => openSetup(saved) },
+        action: { label: '開く', onClick: () => openSetup(saved) },
       });
       // 表紙取得をバックグラウンドで実行 (await しない)。失敗しても UX に影響なし。
       resolveCoverInBackground(saved);
@@ -4278,7 +4278,7 @@ function AuthedApp() {
           items={[
             {
               label: '詳細を開く',
-              icon: '📖',
+              icon: <BookOpen size={16} aria-hidden="true" />,
               onClick: () => openDetail(bookContextMenu.book),
             },
             // 読書中/読了の本は、本棚の長押しから直接メモを書けるように
@@ -4286,42 +4286,42 @@ function AuthedApp() {
             ...((bookContextMenu.book?.status === 'reading' || bookContextMenu.book?.status === 'done')
               ? [{
                   label: 'メモを書く',
-                  icon: '✍️',
+                  icon: <PencilLine size={16} aria-hidden="true" />,
                   onClick: () => { openDetail(bookContextMenu.book); setQuickMemoOpen(true); },
                 }]
               : []),
             // 📗 本を開かずにその場でステータス変更（管理の最頻操作を1手に）。
             {
               label: 'ステータスを変える',
-              icon: '📗',
+              icon: <IcCheck size={16} aria-hidden="true" />,
               onClick: () => setStatusPickerBook(bookContextMenu.book),
             },
             // 🗂 フォルダ割当ても本棚から直接（新規フォルダもその場で作れる）。
             {
               label: 'フォルダに入れる',
-              icon: '🗂️',
+              icon: <IcFolder size={16} aria-hidden="true" />,
               onClick: () => { setNewFolderName(''); setFolderPickerBook(bookContextMenu.book); },
             },
             {
               label: '編集',
-              icon: '✏️',
+              icon: <PencilLine size={16} aria-hidden="true" />,
               onClick: () => openEdit(bookContextMenu.book),
             },
             // 本棚から直接「表紙を取り直す」できるように追加。本詳細を開かず
             // 1 タップで再 fetch まで完結する (誤表紙への対処を 3 秒以内に)。
             {
               label: '表紙を取り直す',
-              icon: '🔄',
+              icon: <IcRefresh size={16} aria-hidden="true" />,
               onClick: () => refreshCoverFor(bookContextMenu.book),
             },
             {
               label: '共有',
-              icon: '📤',
+              icon: <Share size={16} aria-hidden="true" />,
               onClick: () => shareBook(bookContextMenu.book),
             },
             {
               label: '削除',
-              icon: '🗑️',
+              icon: <Trash2 size={16} aria-hidden="true" />,
               destructive: true,
               onClick: () => requestDeleteBook(bookContextMenu.book),
             },
