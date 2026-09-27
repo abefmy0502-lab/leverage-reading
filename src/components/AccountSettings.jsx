@@ -394,7 +394,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   //    2 行: 量（本文 17）と、その下に右寄せで期限（13）。
   const lotExpiry = purchasedExpiresAt ? dateLabelJa(purchasedExpiresAt) : null;
   const lotRow = purchasedTokens > 0 ? (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...divider }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...divider }}>
       <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>追加分</span>
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
         <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{purchasedTokens.toLocaleString()} トークン</span>
@@ -1014,7 +1014,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <div style={blockStyle} role="group" aria-label="データを初期化">
               <div>
                 <p style={{ ...rowTitleStyle, fontWeight: 600 }}>データを初期化（ログインは残す）</p>
-                <p style={rowDescStyle}>本・メモ・行動をすべて消します。ログインは残ります。</p>
+                <p style={rowDescStyle}>本・メモ・行動をすべて消します。</p>
               </div>
               <button
                 type="button"
@@ -1043,14 +1043,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <div ref={deleteRef} style={{ ...blockStyle, ...divider }} role="group" aria-label="アカウント削除">
               <div>
                 <p style={{ ...rowTitleStyle, fontWeight: 600, color: 'var(--text)' }}>アカウント削除（退会）</p>
-                <p style={rowDescStyle}>アカウントごと退会します。</p>
+                <p style={rowDescStyle}>本・メモ・写真・相談の履歴が消えます。</p>
               </div>
               {/* 退会してもサブスク（App Store / 決済）は自動では止まらない旨を明示。
                   Apple ガイドライン要件＋過剰請求トラブルの防止。解約の手順は上の「プラン」の欄の 1 か所だけ。
                   赤は削除の 2 つのボタンだけにして、ここは補足の文字色の 1 文。 */}
               {isActive && (
                 <p style={{ ...rowDescStyle, margin: 0 }}>
-                  退会してもサブスクの課金は止まりません。先に上の方法で解約してください。
+                  退会してもサブスクの課金は止まりません。先に「プラン・お支払い」の方法で解約してください。
                 </p>
               )}
               {!deleteOpen ? (

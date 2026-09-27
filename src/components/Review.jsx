@@ -284,7 +284,6 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
     </button>
   );
   // 「続きを読む」がカードの最後なら、ボタンの下の余り（44 の押せる範囲の余白）をカードの内側余白に重ねる。
-  const readMoreIsLast = !memo.photoPath && visibleTags.length === 0;
 
   const inner = (
     <div style={cardStyle} {...(onLongPress && !isSynth ? longPress.bind : {})}>
@@ -355,7 +354,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-              style={{ ...btnLink, padding: 0, ...(readMoreIsLast ? { marginBottom: 'calc(-1 * var(--space-3))' } : {}) }}
+              style={{ ...btnLink, padding: 0, margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-3))' }}
             >
               {expanded ? '閉じる' : '続きを読む'}
             </button>
@@ -844,11 +843,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>メモを残すと、</span><span style={{ display: 'inline-block' }}>忘れた頃にここへ戻ってきます</span></>}
           actions={
             onAddNote && hasMemoableBooks
-              ? [{ label: 'メモを追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote }]
+              ? [{ label: 'メモを追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote, variant: 'secondary' }]
               // メモできる本がまだ無い（＝本が無い/全て読みたい積読）ときは行き止まりに
               // せず、本棚へ誘導する（そこで本を追加・読書中にできる）。
               : onGoToShelf
-                ? [{ label: 'すべての本へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToShelf }]
+                ? [{ label: 'すべての本へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToShelf, variant: 'secondary' }]
                 : []
           }
         />
@@ -1149,7 +1148,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       <section>
         {/* 「メモを追加」（高さ 44）と並ぶので、行の下の余白は付けない（見出しの文字から一覧まで約 8〜12）。
             行の高さ 44 の上側の空き（約 12）ぶん引き上げ、思い出しカードから見出しの文字までを約 24 にそろえる。 */}
-        <div style={{ display: 'flex', justifyContent: allNotes.length > 1 ? 'space-between' : 'flex-end', alignItems: 'center', marginTop: 'calc(-1 * var(--space-3))' }}>
+        <div style={{ display: 'flex', justifyContent: allNotes.length > 1 ? 'space-between' : 'flex-start', alignItems: 'center', marginTop: 'calc(-1 * var(--space-3))' }}>
           {allNotes.length > 1 && <h2 style={{ ...sectionTitle, margin: 0 }}>月ごとのメモ</h2>}
           {/* ＋メモを追加 — 旧・最上段の孤立ボタンをここへ（メモ一覧の傍が住処。
               付け先の本＝読書中/読了の本がある時だけ）。 */}
@@ -1157,7 +1156,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             <button
               type="button"
               onClick={onAddNote}
-              style={{ ...btnLink, gap: 'var(--space-1)', paddingRight: 0 }}
+              style={{ ...btnLink, gap: 'var(--space-1)', ...(allNotes.length > 1 ? { paddingRight: 0 } : { paddingLeft: 0 }) }}
             >
               <Plus size={16} strokeWidth={2} aria-hidden="true" />
               メモを追加

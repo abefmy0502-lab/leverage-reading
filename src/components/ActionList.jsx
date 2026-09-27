@@ -353,7 +353,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
               ? <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
               : <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />}
           </button>
-          {showDone && <ul style={{ ...listStyle, marginTop: 'var(--space-3)' }}>{done.map(renderRow)}</ul>}
+          {showDone && <ul style={{ ...listStyle, marginTop: 0 }}>{done.map(renderRow)}</ul>}
         </section>
       )}
 
