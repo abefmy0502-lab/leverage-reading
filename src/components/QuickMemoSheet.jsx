@@ -160,6 +160,9 @@ export default function QuickMemoSheet({
   const [text, setText] = useState('');
   // ＋ ページ・写真（最初は閉じる＝本文だけを見せる）。
   const [moreOpen, setMoreOpen] = useState(false);
+  // ページ番号を使うか: 「＋ ページ・写真」を開いて欄を見た（＝既定値を確かめた）か、自分で入れたときだけ保存する。
+  // 開かずに保存したメモに直前＋1 のページが黙って付き、相談の根拠に誤ったページが載るのを防ぐ（2026-09-27）。
+  const [pageUsed, setPageUsed] = useState(false);
   // ページ番号を自分で触ったか。触っていなければ、既定値（直前＋1）が後から届いたときに
   // 反映する（ホームから開くと、メモ一覧の読み込みより先にシートが開くため）。
   const pageTouchedRef = useRef(false);
@@ -331,7 +334,7 @@ export default function QuickMemoSheet({
       setErrorMsg('メモ本文を入力してください。');
       return;
     }
-    const parsed = parseInt(pageNumber, 10);
+    const parsed = pageUsed ? parseInt(pageNumber, 10) : NaN;
     setBusy(true);
     setErrorMsg('');
     try {

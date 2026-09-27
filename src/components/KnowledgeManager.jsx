@@ -97,7 +97,7 @@ const FILTER_OPTIONS = [
   { value: 'all', label: 'すべての種類' },
   { value: 'memo', label: 'メモ' },
   { value: 'summary', label: 'まとめ' },
-  { value: 'plan', label: '計画' },
+  { value: 'plan', label: '読書計画' },
   { value: 'learning', label: '学び' },
 ];
 
@@ -122,13 +122,13 @@ function pickCategory(tags) {
 const KIND_META = {
   card:              { Icon: StickyNote,   label: 'メモ', group: 'memo' },
   summary:           { Icon: BookOpen,     label: 'まとめメモ',   group: 'summary', column: 'leverage_memo' },
-  personal:          { Icon: Lightbulb,    label: '学びログ',     group: 'learning' },
+  personal:          { Icon: Lightbulb,    label: '学び',         group: 'learning' },
   invest_purpose:    { Icon: BarChart3,    label: '得たいこと',   group: 'plan',    column: 'invest_purpose' },
   current_challenge: { Icon: AlertTriangle, label: '現在の課題',  group: 'plan',    column: 'current_challenge' },
   hypothesis:        { Icon: Lightbulb,    label: '仮説',         group: 'plan',    column: 'hypothesis' },
   ai_summary:        { Icon: Bot,          label: 'AI まとめ',    group: 'summary', column: 'ai_summary' },
   roi_summary:       { Icon: Gem,          label: '一番の収穫',   group: 'summary', column: 'roi_summary' },
-  ai_strategy:       { Icon: MapIcon,      label: '戦略',         group: 'plan',    column: 'ai_strategy' },
+  ai_strategy:       { Icon: MapIcon,      label: '読書計画シート', group: 'plan',   column: 'ai_strategy' },
   // gatherKnowledge が AI コンテキストに含める列は全てここに出す（透明性と
   // 除外手段の担保）。選書理由も AI が参照するため、見えない・消せないは NG。
   book_reason:       { Icon: Bot,          label: '選書理由',     group: 'plan',    column: 'book_reason' },
@@ -296,7 +296,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
         actionLabel={meta.column ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
             <Eraser size={16} strokeWidth={1.75} aria-hidden="true" />
-            クリア
+            消す
           </span>
         ) : undefined}
       >
@@ -468,7 +468,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
       // / hypothesis / ai_summary / roi_summary / ai_strategy)
       const isSummaryLike = item.kind === 'summary'; // text が長い系は summary 上限
       setTextEdit({
-        title: `${meta.label} を編集${item.book?.title ? `: ${item.book.title}` : ''}`,
+        title: `${meta.label}を編集${item.book?.title ? `：${item.book.title}` : ''}`,
         initialText: item.text || '',
         maxLength: isSummaryLike ? LIMITS.summaryMemo : LIMITS.memoText,
         onSave: async (newText) => {
@@ -478,7 +478,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
             .eq('id', item.book_id)
             .eq('user_id', user.id);
           if (error) throw error;
-          toast.success(`${meta.label} を更新しました。`);
+          toast.success(`${meta.label}を更新しました。`);
           refresh();
           notifyBooksMutated();
         },
@@ -487,7 +487,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
     }
     if (item.kind === 'personal') {
       setTextEdit({
-        title: '学びログを編集',
+        title: '学びを編集',
         initialText: item.text || '',
         maxLength: LIMITS.memoText,
         onSave: async (newText) => {
@@ -498,7 +498,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
             .eq('user_id', user.id);
           if (error) throw error;
           invalidateKnowledgeCache(); // 相談の材料を読み直させる
-          toast.success('学びログを更新しました。');
+          toast.success('学びを更新しました。');
           refresh();
         },
       });
@@ -646,7 +646,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
       })
       .catch((e) => {
         clearFailed = true;
-        toast.error(toMessage(e, 'クリアに失敗しました。'));
+        toast.error(toMessage(e, '消せませんでした。'));
         // rollback: 楽観的に消したアイテムを戻す（rethrow しない）。
         setItems((arr) => (arr.some((x) => x.id === item.id) ? arr : [item, ...arr]));
       });
@@ -654,7 +654,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
     setItems((arr) => arr.filter((x) => x.id !== item.id));
 
     toast.undo({
-      message: `${meta.label} をクリアしました`,
+      message: `${meta.label}を消しました`,
       onUndo: async () => {
         try {
           await promise.catch(() => {});
@@ -666,7 +666,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
             .eq('id', item.book_id)
             .eq('user_id', user.id);
           if (error) throw error;
-          toast.info('クリアを取り消しました。');
+          toast.info('元に戻しました。');
           refresh();
           notifyBooksMutated();
         } catch (e) {
@@ -681,18 +681,21 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
     const meta = KIND_META[item.kind];
     if (meta?.column) {
       const ok = await confirm({
-        title: `${meta.label} をクリアしますか？`,
-        message: '本自体は残ります。相談の根拠からは外れます。\n5 秒以内なら「元に戻す」で戻せます。',
-        confirmLabel: 'クリアする',
+        title: `${meta.label}を消しますか？`,
+        message: '本とメモは残ります。相談の根拠には使わなくなります。\n5 秒以内なら「元に戻す」で戻せます。',
+        confirmLabel: '消す',
         cancelLabel: 'キャンセル',
         danger: true,
       });
       if (!ok) return;
       performClearField(item);
     } else {
+      const isPersonal = item.kind === 'personal';
       const ok = await confirm({
-        title: 'これを削除しますか？',
-        message: '相談の根拠から外れます。\n5 秒以内なら「元に戻す」で戻せます。',
+        title: isPersonal ? 'この学びを削除しますか？' : 'このメモを削除しますか？',
+        message: isPersonal
+          ? '相談の根拠からも外れます。\n5 秒以内なら「元に戻す」で戻せます。'
+          : `本のメモからも削除されます。\n5 秒以内なら「元に戻す」で戻せます。${item.photo_path ? '\n写真は元に戻せません。' : ''}`,
         confirmLabel: '削除する',
         cancelLabel: 'キャンセル',
         danger: true,
@@ -723,7 +726,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
           items={[
             { label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => handleEdit(itemMenu.item) },
             {
-              label: KIND_META[itemMenu.item.kind]?.column ? 'クリア' : '削除',
+              label: KIND_META[itemMenu.item.kind]?.column ? '消す' : '削除',
               icon: KIND_META[itemMenu.item.kind]?.column
                 ? <Eraser size={16} aria-hidden="true" />
                 : <Trash2 size={16} aria-hidden="true" />,

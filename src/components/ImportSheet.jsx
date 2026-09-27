@@ -135,25 +135,31 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
       </div>
     );
   } else if (step === 'done' && outcome) {
+    // メモ＝カードのメモ。新しい本のレビューは「この本のまとめ」に入るので別に数える（件数を水増ししない）。
+    const memos = outcome.memosAdded || 0;
+    const reviews = outcome.reviewsAdded || 0;
+    const any = memos + reviews > 0;
+    const headParts = [memos > 0 ? `メモ ${memos} 件` : '', reviews > 0 ? `まとめ ${reviews} 件` : ''].filter(Boolean);
     content = (
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 'var(--space-4) 0' }}>
         <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>
-          {outcome.memosAdded > 0 ? `メモ ${outcome.memosAdded} 件を取り込みました` : outcome.booksAdded > 0 ? `本 ${outcome.booksAdded} 冊を取り込みました` : '新しく取り込むものはありませんでした'}
+          {any ? `${headParts.join('・')}を取り込みました` : outcome.booksAdded > 0 ? `本 ${outcome.booksAdded} 冊を取り込みました` : '新しく取り込むものはありませんでした'}
         </p>
         <p style={body}>
           {[
-            outcome.booksAdded > 0 && outcome.memosAdded > 0 ? `本 ${outcome.booksAdded} 冊を本棚に追加しました。` : '',
-            outcome.booksMatched > 0 && outcome.memosAdded > 0 ? `すでにある ${outcome.booksMatched} 冊には、まだ無いメモだけを足しました。` : '',
-            outcome.memosAdded === 0 && outcome.booksAdded > 0 ? '本棚に並べました。読みながらメモを残すと、相談の根拠になります。' : '',
-            outcome.memosAdded === 0 && outcome.booksAdded > 0 && outcome.booksMatched > 0 ? `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。` : '',
-            outcome.memosAdded === 0 && outcome.booksAdded === 0 ? 'このファイルの本とメモは、すでに取り込み済みです。' : '',
-            outcome.memosAdded > 0 ? 'これからの相談は、このメモも根拠にして答えます。' : '',
+            outcome.booksAdded > 0 && any ? `本 ${outcome.booksAdded} 冊を本棚に追加しました。` : '',
+            reviews > 0 ? `レビュー ${reviews} 件は、その本の「この本のまとめ」に入れました。` : '',
+            outcome.booksMatched > 0 && any ? `すでにある ${outcome.booksMatched} 冊には、まだ無いメモだけを足しました。` : '',
+            !any && outcome.booksAdded > 0 ? '本棚に並べました。読みながらメモを残すと、相談の根拠になります。' : '',
+            !any && outcome.booksAdded > 0 && outcome.booksMatched > 0 ? `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。` : '',
+            !any && outcome.booksAdded === 0 ? 'このファイルの本とメモは、すでに取り込み済みです。' : '',
+            any ? 'これからの相談は、ここで取り込んだ記録も根拠にして答えます。' : '',
           ].filter(Boolean).join('')}
         </p>
       </div>
     );
     // 閉じる入口は 1 つだけ: 相談できるときは右上の「完了」、何も入らなかったときは下の「閉じる」。
-    footer = outcome.memosAdded > 0 && onAsk ? (
+    footer = any && onAsk ? (
       <button type="button" onClick={() => onAsk('取り込んだメモから、いまの私にいちばん役立ちそうな学びを教えて')} style={btnPrimary}>
         相談してみる
       </button>
@@ -170,7 +176,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
       // 取り込み中は閉じない（途中で閉じるとシートだけ消えて画面が固まる）。
       dismissible={step !== 'importing'}
       // 選ぶ・確かめる: 決定は下のボタンなので右上は「キャンセル」。完了画面: 相談できるときだけ右上「完了」。
-      dismissLabel={step === 'done' ? (outcome?.memosAdded > 0 && onAsk ? '完了' : null) : 'キャンセル'}
+      dismissLabel={step === 'done' ? ((outcome?.memosAdded || 0) + (outcome?.reviewsAdded || 0) > 0 && onAsk ? '完了' : null) : 'キャンセル'}
     >
       <input
         ref={inputRef}

@@ -439,7 +439,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     historyLatestRef.current = hist.length > 0 ? hist[hist.length - 1].createdAt : null;
     setMessages((prev) => {
       const ids = new Set(hist.map((m) => m.id));
-      return [...hist, ...prev.filter((m) => !ids.has(m.id))];
+      // 画面の上だけで持っている「相談相手：〇〇」の札は、読み直しても消さない。
+      const labels = new Map(prev.filter((m) => m.scopeLabel).map((m) => [m.id, m.scopeLabel]));
+      const merged = labels.size ? hist.map((m) => (labels.has(m.id) ? { ...m, scopeLabel: labels.get(m.id) } : m)) : hist;
+      return [...merged, ...prev.filter((m) => !ids.has(m.id))];
     });
     setHistoryLoaded(true);
   }, [user]);

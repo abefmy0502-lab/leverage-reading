@@ -537,12 +537,29 @@ function AuthedApp() {
     // 切り替えてきた時」だけの仕事。
     if (t === tab) {
       // ホームタブの再タップは「すべての本」からホームへ戻る（iOS のタブの作法）。
-      if (t === 'books') setShelfMode('home');
+      if (t === 'books') { setShelfMode('home'); setLibraryFrom(null); }
       return;
     }
+    // 記録から開いた「すべての本」は寄り道なので、別のタブへ移ったらホームに戻しておく。
+    if (tab === 'books' && libraryFrom) { setShelfMode('home'); setLibraryFrom(null); }
     if (t === 'review') { setActionShowDoneNonce(null); setReviewSubTab('action'); }
     else if (t === 'ai') setAiSubTab('brain');
     setTab(t);
+  };
+  // 📊 記録の数字・タグ・著者から「すべての本」を開く（‹ 記録 で記録へ戻れるように印を付ける）。
+  const openLibraryFromRecord = () => {
+    navigateTab('books'); goList(); setShelfMode('library'); setLibraryFrom('record');
+  };
+  // 「すべての本」から戻る: 記録から来たなら 振り返り → 記録 へ、それ以外はホームへ。
+  const leaveLibrary = () => {
+    if (libraryFrom === 'record') {
+      setLibraryFrom(null);
+      setShelfMode('home');
+      setReviewSubTab('record');
+      setTab('review');
+      return;
+    }
+    setShelfMode('home');
   };
 
   // 🔔 想起プッシュ通知のディープリンク受信。
@@ -705,10 +722,10 @@ function AuthedApp() {
     const rect = e.currentTarget.getBoundingClientRect();
     setDetailKebab({ x: rect.right - 8, y: rect.bottom + 4 });
   };
-  // 「すべての本」から左端スワイプでホームへ戻る。
+  // 「すべての本」から左端スワイプでホームへ戻る（記録から開いたときは記録へ）。
   useEdgeSwipeBack({
     enabled: tab === 'books' && view === 'list' && shelfMode === 'library',
-    onBack: () => setShelfMode('home'),
+    onBack: () => leaveLibrary(),
   });
   // Edge-swipe back: only listens while we're on a detail or edit view.
   useEdgeSwipeBack({
@@ -1857,11 +1874,10 @@ function AuthedApp() {
     refreshBooks();
     // 表紙は最初の 20 冊だけ裏で探す（残りは本棚に表示されたときに探す）
     newBooks.slice(0, 20).forEach((bk) => { try { resolveCoverInBackground(bk); } catch { /* 表紙は後で */ } });
-    // 新しい本のレビューは「この本のまとめ」に入れたので、メモの件数に含めて伝える
-    memosAdded += reviewsAdded;
-    track('import_done', { source: result?.source || 'unknown', books: booksAdded, matched: booksMatched, memos: memosAdded });
-    if (memosAdded > 0) markActivation('memo');
-    return { booksAdded, booksMatched, memosAdded };
+    // 新しい本のレビューは「この本のまとめ」に入れたので、メモ（カード）とは分けて数えて伝える
+    track('import_done', { source: result?.source || 'unknown', books: booksAdded, matched: booksMatched, memos: memosAdded, reviews: reviewsAdded });
+    if (memosAdded + reviewsAdded > 0) markActivation('memo');
+    return { booksAdded, booksMatched, memosAdded, reviewsAdded };
   };
 
   const addFromAdvisor = async (rec, payloadOrQuery = '') => {
@@ -3904,13 +3920,23 @@ function AuthedApp() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-1)' }}>
                 <button
                   type="button"
-                  onClick={() => setShelfMode('home')}
+                  onClick={leaveLibrary}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
                 >
-                  <ChevronLeft size={22} aria-hidden="true" />ホーム
+                  <ChevronLeft size={22} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : 'ホーム'}
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 'calc(-1 * var(--space-3))' }}>
-                  <button type="button" onClick={() => setLibrarySearchOpen((v) => !v)} aria-label="本を検索" aria-expanded={librarySearchOpen || !!search} style={bookshelfIconBtn}>
+                  <button
+                    type="button"
+                    // 開いているときにもう一度押すと閉じる（入っていた言葉も消して一覧を元に戻す）。
+                    onClick={() => {
+                      if (librarySearchOpen || search) { setLibrarySearchOpen(false); setSearch(''); }
+                      else setLibrarySearchOpen(true);
+                    }}
+                    aria-label={librarySearchOpen || search ? '検索を閉じる' : '本を検索'}
+                    aria-expanded={librarySearchOpen || !!search}
+                    style={bookshelfIconBtn}
+                  >
                     <IcSearch size={22} aria-hidden="true" />
                   </button>
                   <button
@@ -3934,17 +3960,30 @@ function AuthedApp() {
               {(librarySearchOpen || search) && (
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <IcSearch size={18} aria-hidden="true" style={{ position: "absolute", left: 'var(--space-3)', color: "var(--text-3)", pointerEvents: "none" }} />
+                  {/* type="search" は端末の青い × が出るので、ふつうの入力欄＋自前の消すボタンにする。 */}
                   <input
-                    type="search"
+                    type="text"
+                    inputMode="search"
+                    enterKeyHint="search"
                     maxLength={100}
-                    aria-label="本を検索（タイトル・著者・タグ）"
-                    placeholder="タイトル・著者・タグ"
+                    aria-label="本を検索（書名・著者・タグ）"
+                    placeholder="書名・著者・タグ"
                     value={search}
                     autoFocus={librarySearchOpen && !search}
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && e.nativeEvent.isComposing) e.preventDefault(); }}
-                    style={{ ...inp, flex: 1, minHeight: 48, background: "var(--surface)", border: '1px solid var(--border)', borderRadius: 'var(--radius)', paddingLeft: 'calc(var(--space-3) + 18px + var(--space-2))' }}
+                    style={{ ...inp, flex: 1, minHeight: 48, background: "var(--surface)", border: '1px solid var(--border)', borderRadius: 'var(--radius)', paddingLeft: 'calc(var(--space-3) + 18px + var(--space-2))', paddingRight: 44 }}
                   />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      aria-label="検索の言葉を消す"
+                      style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: 0 }}
+                    >
+                      <IcX size={18} aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -4159,7 +4198,7 @@ function AuthedApp() {
                   onShowBooks={(status) => {
                     setSearch(''); setMinRating(0); setTagFilter([]); setFolderFilter(null);
                     setStatusFilter(status || 'all');
-                    navigateTab('books'); goList(); setShelfMode('library');
+                    openLibraryFromRecord();
                   }}
                   onShowMemos={() => setReviewSubTab('note')}
                   onShowActions={() => { setActionShowDoneNonce(Date.now()); setReviewSubTab('action'); }}
@@ -4167,12 +4206,12 @@ function AuthedApp() {
                   onFilterTag={(tag) => {
                     setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter('all');
                     setTagFilter([tag]);
-                    navigateTab('books'); goList(); setShelfMode('library');
+                    openLibraryFromRecord();
                   }}
                   onSearchAuthor={(author) => {
                     setMinRating(0); setTagFilter([]); setFolderFilter(null); setStatusFilter('all');
                     setSearch(author);
-                    navigateTab('books'); goList(); setShelfMode('library');
+                    openLibraryFromRecord();
                   }}
                 />
               </Suspense>
