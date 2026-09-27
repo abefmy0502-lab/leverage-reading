@@ -8,7 +8,7 @@ import { useRef, useState } from 'react';
 import { FileUp, BookOpen } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
-import { btnPrimary, btnGhost, btnText } from '../styles/ui';
+import { btnPrimary, btnText } from '../styles/ui';
 import { decodeImportBytes, parseImportText, summarizeImport, IMPORT_MAX_BYTES } from '../lib/importers';
 import { track } from '../lib/analytics';
 
@@ -68,8 +68,8 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
   let footer = null;
   if (step === 'pick') {
     content = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        <p style={body}>これまでに残した本とメモを取り込むと、最初から、あなたの記録を根拠に相談できます。ファイルはこの端末の中だけで読み取ります。</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+        {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
         <ul style={list}>
           <li>
             <p style={howTitle}>ブクログ</p>
@@ -84,7 +84,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
             <p style={body}>パソコンにつないで、documents にある「My Clippings.txt」を選びます。</p>
           </li>
         </ul>
-        {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
+        <p style={{ ...body, fontSize: 'var(--text-meta)' }}>ファイルはこの端末の中だけで読み取ります。</p>
       </div>
     );
     footer = (
@@ -96,17 +96,20 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     const shown = result.books.slice(0, 20);
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
-          {SOURCE_LABEL[result.source] || ''}から、本 {sum.books} 冊・メモ {sum.memos} 件が見つかりました
+        {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
+        <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}>
+          {SOURCE_LABEL[result.source] || ''}：本 {sum.books} 冊・メモ {sum.memos} 件
         </p>
         <ul style={{ ...list, gap: 0 }}>
           {shown.map((b, i) => (
             <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
               <BookOpen size={18} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-              <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>
-                メモ {(b.memos?.length || 0) + (b.review ? 1 : 0)}
-              </span>
+              {((b.memos?.length || 0) + (b.review ? 1 : 0)) > 0 && (
+                <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>
+                  メモ {(b.memos?.length || 0) + (b.review ? 1 : 0)}
+                </span>
+              )}
             </li>
           ))}
         </ul>
@@ -116,11 +119,10 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
         <p style={{ ...body, fontSize: 'var(--text-meta)' }}>
           本棚に同じ本があるときは、その本にメモを足します。同じメモは二重になりません。{result.source === 'kindle' ? '本の状態は「読了」で入ります（あとで変えられます）。' : ''}
         </p>
-        {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
       </div>
     );
     footer = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <button type="button" onClick={runImport} style={btnPrimary}>取り込む</button>
         <button type="button" onClick={pickFile} style={{ ...btnText, width: '100%' }}>別のファイルを選ぶ</button>
       </div>
@@ -148,20 +150,26 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
         </p>
       </div>
     );
-    footer = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        {outcome.memosAdded > 0 && onAsk && (
-          <button type="button" onClick={() => onAsk('取り込んだメモから、いまの私にいちばん役立ちそうな学びを教えて')} style={btnPrimary}>
-            相談してみる
-          </button>
-        )}
-        <button type="button" onClick={onClose} style={outcome.memosAdded > 0 && onAsk ? btnGhost : btnPrimary}>閉じる</button>
-      </div>
+    // 閉じる入口は 1 つだけ: 相談できるときは右上の「完了」、何も入らなかったときは下の「閉じる」。
+    footer = outcome.memosAdded > 0 && onAsk ? (
+      <button type="button" onClick={() => onAsk('取り込んだメモから、いまの私にいちばん役立ちそうな学びを教えて')} style={btnPrimary}>
+        相談してみる
+      </button>
+    ) : (
+      <button type="button" onClick={onClose} style={btnPrimary}>閉じる</button>
     );
   }
 
   return (
-    <BottomSheet title="ほかのアプリから取り込む" onClose={step === 'importing' ? () => {} : onClose} footer={footer}>
+    <BottomSheet
+      title="ほかのアプリから取り込む"
+      onClose={onClose}
+      footer={footer}
+      // 取り込み中は閉じない（途中で閉じるとシートだけ消えて画面が固まる）。
+      dismissible={step !== 'importing'}
+      // 選ぶ・確かめる: 決定は下のボタンなので右上は「キャンセル」。完了画面: 相談できるときだけ右上「完了」。
+      dismissLabel={step === 'done' ? (outcome?.memosAdded > 0 && onAsk ? '完了' : null) : 'キャンセル'}
+    >
       <input
         ref={inputRef}
         type="file"

@@ -134,7 +134,7 @@
 | Apple でサインイン | ブランド規定の例外: `--apple-btn-bg` / `--apple-btn-ink`（明るい画面は黒・暗い画面は白）。形は主ボタンと同じ | `AuthScreen.jsx` |
 | 切り替え（セグメント） | **1 画面に 1 つまで**。2 段重ねにしない | `.sub-tabs` |
 | 入力欄 | 文字 17（iOS の拡大防止に 16 以上）、枠 `--border`、フォーカス時は `--accent` | `ui.js` の `input`、`formPrimitives` の `inp` |
-| シート | 上端に細いハンドル、背景は `--backdrop` | `BottomSheet.jsx` |
+| シート | 上端に細いハンドル、背景は `--backdrop`。右上は「完了」（その場で効く）／下に決定ボタンがあるときは `dismissLabel="キャンセル"`／出さないときは `null`。途中で閉じると困る処理のあいだは `dismissible={false}`（背景・Esc・スワイプでも閉じない） | `BottomSheet.jsx` |
 | 空・エラー・読み込み | 必ずこの部品を使う | `EmptyState` `ErrorMessage` `Skeleton` |
 
 - **＋の入口は 1 つ**：同じ操作のボタンを 2 か所に出さない（SPEC の違和感 3）

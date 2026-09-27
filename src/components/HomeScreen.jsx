@@ -21,6 +21,8 @@ const sectionTitle = {
   fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-3)', lineHeight: 1.3,
 };
 
+const textRow = { ...btnText, minHeight: 44, paddingTop: 0, paddingBottom: 0 };
+
 function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
   return (
     <section aria-labelledby="home-start-title" style={card}>
@@ -29,10 +31,11 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
       <button type="button" onClick={onQuickstart} style={btnPrimary}>これまで読んだ本から始める</button>
       <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>いま読んでいる本を追加する</button>
       {/* 文字ボタン自体の上下余白（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
-      <div style={{ textAlign: 'center', margin: 'var(--space-1) 0 calc(-1 * var(--space-3))' }}>
-        <button type="button" onClick={onAdvisor} style={btnText}>悩みから、次に読む本を選んでもらう</button>
+      {/* 文字ボタンは高さ 44 のまま上下の余白を 0 にして、2 つの間が副ボタンとの間より広く見えないように。 */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
+        <button type="button" onClick={onAdvisor} style={textRow}>悩みから、次に読む本を選んでもらう</button>
         {onImport && (
-          <button type="button" onClick={onImport} style={btnText}>ブクログ・Kindle から取り込む</button>
+          <button type="button" onClick={onImport} style={textRow}>ブクログ・Kindle から取り込む</button>
         )}
       </div>
     </section>

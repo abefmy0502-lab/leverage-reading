@@ -34,7 +34,9 @@ const sheetWrap = {
   paddingBottom: 'env(safe-area-inset-bottom, 0px)',
 };
 
-export default function BottomSheet({ title, onClose, children, footer, dismissLabel = '完了' }) {
+// dismissLabel=null で右上の閉じるボタンを出さない。dismissible=false のあいだは
+// 背景タップ・Esc・下スワイプ・ハンドルでも閉じない（取り込み中など、途中で閉じると困るとき）。
+export default function BottomSheet({ title, onClose, children, footer, dismissLabel = '完了', dismissible = true }) {
   const sheetRef = useRef(null);
   // ♿ aria-modal の宣言どおり Tab を内部に閉じ込め、閉じたら元へ復帰。
   const trapRef = useFocusTrap(true);
@@ -43,7 +45,7 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
   // 閉じは slide-down を経由（入りだけ滑らかで出が瞬間消滅、の非対称を解消）。
   const [closing, setClosing] = useState(false);
   const animateClose = () => {
-    if (closing) return;
+    if (closing || !dismissible) return;
     setClosing(true);
     setTimeout(() => onClose?.(), 220);
   };
@@ -53,11 +55,11 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, closing]);
+  }, [onClose, closing, dismissible]);
 
   // 掴んで下に振ると閉じる（iOS シートの標準所作。ハンドル/ヘッダー起点のみ）。
   const onDragStart = (e) => {
-    if (closing) return;
+    if (closing || !dismissible) return;
     dragStartYRef.current = e.touches?.[0]?.clientY ?? null;
   };
   const onDragMove = (e) => {
@@ -117,13 +119,15 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
               <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>{title}</h3>
               {/* 既定は「完了」（変更がその場で効くシート）。下に決定ボタンがあるシートは
                   dismissLabel="キャンセル" を渡す（決定の入口を 2 つにしない・iOS で「完了」は決定の意味）。 */}
-              <button
-                type="button"
-                onClick={animateClose}
-                style={{ background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0 }}
-              >
-                {dismissLabel}
-              </button>
+              {dismissLabel && dismissible && (
+                <button
+                  type="button"
+                  onClick={animateClose}
+                  style={{ background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0 }}
+                >
+                  {dismissLabel}
+                </button>
+              )}
             </div>
           )}
         </div>
