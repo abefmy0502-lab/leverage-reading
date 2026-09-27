@@ -548,10 +548,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
         system: PROMPTS.bookAdvisor.system,
         cacheSystem: true,
         messages: sendMessages,
-        // 前置き + 3〜5冊の JSON + 読む順番 + まとめを 1 応答で要求するため、
-        // JSON が途中で切れて推薦カードが全滅しないよう余裕を持たせる
-        // （Sonnet 5 の新トークナイザは同じ日本語で約 3 割トークン増）。
-        max_tokens: 4096,
+        // 前置き + 3〜4 冊の JSON + 読む順番 + まとめ（ふだん 1,500 トークン前後）。JSON が途中で
+        // 切れて推薦カードが全滅しないよう余裕は残しつつ、原価の予約（最大の出力で見積もる）を
+        // 小さくするため 4096 → 3000（2026-09-27）。
+        max_tokens: 3000,
         // 推薦は実在の本を挙げるので Sonnet 5 に残す（models.js の MODEL_ADVISOR・2026-09-27）
         model: MODEL_ADVISOR,
         signal: controller.signal,

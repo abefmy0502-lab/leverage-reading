@@ -1118,36 +1118,6 @@ function stripRefsBlock(text) {
   return text.slice(0, start).trimEnd();
 }
 
-export async function callMyBookBrain({ userId, question, bookIds }) {
-  const ctx = await buildBrainContext({ userId, question, bookIds });
-  if (ctx.empty) return ctx.payload;
-
-  // 引用に基づく一貫性は BRAIN_SYSTEM のプロンプト側で担保する (同じメモを毎回同じ角度で
-  // 引用してほしい)。creativity は低めで OK。
-  const result = await callClaude(
-    [{ role: 'user', content: ctx.userBlocks }],
-    { system: BRAIN_SYSTEM, cacheSystem: true, max_tokens: CONSULT_MAX_TOKENS, purpose: 'consult' },
-  );
-
-  // callClaude returns string for both success and known errors. Treat error
-  // strings as plain content but with no refs.
-  if (isClaudeErrorString(result)) {
-    return { body: result || 'エラー', refs: [], ...ctx.stats };
-  }
-
-  if (isSuspiciousOutput(result)) {
-    console.warn('AI output flagged by content guard');
-    return {
-      body: '安全なフォーマットで回答できませんでした。質問を変えて再度お試しください。',
-      refs: [],
-      ...ctx.stats,
-    };
-  }
-
-  const parsed = parseRefs(result);
-  return { body: parsed.body, refs: parsed.refs, ...ctx.stats };
-}
-
 // ✨ メモの凝縮 — 長い抜き書き/OCR テキストを最大3行の本質に削る（本田流レバレッジ
 // メモ化）。成功で凝縮後テキストを返し、失敗・短すぎ・エラーは null（呼び出し側で案内）。
 export async function condenseMemo({ text }) {
@@ -1214,91 +1184,12 @@ export async function summarizeCards({ title, cards }) {
   return cleaned;
 }
 
-// 🗺 運営ロードマップ — 年の目標と現状から、月別の目標人数/売上/施策を AI が引く。
-// 入力は数値/短い文字列のみ（管理者ダッシュボードが渡す）。返り値は Markdown / 失敗 null。
 function todayISO() {
   // 実行時の今日（YYYY-MM-DD）。AI に現在日付を渡して年ズレを防ぐ。
   const d = new Date();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
-}
-
-export async function generateOpsRoadmap(state = {}) {
-  const args = {
-    today: todayISO(),
-    goalLabel: String(state.goalLabel || '月次粗利').slice(0, 40),
-    target: Math.max(0, Math.round(Number(state.target) || 0)),
-    deadline: String(state.deadline || '').slice(0, 10),
-    monthsLeft: Math.max(1, Math.round(Number(state.monthsLeft) || 12)),
-    price: Math.max(0, Math.round(Number(state.price) || 0)),
-    feeRate: Number(state.feeRate) || 0.15,
-    currentPaid: Math.max(0, Math.round(Number(state.currentPaid) || 0)),
-    currentUsers: Math.max(0, Math.round(Number(state.currentUsers) || 0)),
-    mrr: Math.max(0, Math.round(Number(state.mrr) || 0)),
-    grossProfit: Math.max(0, Math.round(Number(state.grossProfit) || 0)),
-  };
-  let result;
-  try {
-    result = await callClaude(
-      PROMPTS.opsRoadmap.system,
-      PROMPTS.opsRoadmap.user(args),
-      { max_tokens: 3072, cacheSystem: true },
-    );
-  } catch (e) {
-    console.warn('[opsRoadmap] claude failed:', e?.message);
-    return null;
-  }
-  if (typeof result !== 'string'
-    || isClaudeErrorString(result)
-    || isSuspiciousOutput(result)) {
-    return null;
-  }
-  const cleaned = clamp(result.trim(), 8000);
-  if (!cleaned) return null;
-  track('ai_used', { feature: 'ops_roadmap' });
-  return cleaned;
-}
-
-// 🗓 日次タスク生成 — 「今やるべきこと」を約30日分の日次タスクに分解。
-// 返り値は [{ due_date:'YYYY-MM-DD', dept, title }]（パース済み）/ 失敗 null。
-const TASK_DEPTS = ['経営', 'マーケ営業', '開発', '経理'];
-export async function generateOpsTasks(state = {}) {
-  const args = {
-    today: todayISO(),
-    goalLabel: String(state.goalLabel || '月次粗利').slice(0, 40),
-    target: Math.max(0, Math.round(Number(state.target) || 0)),
-    deadline: String(state.deadline || '').slice(0, 10),
-    currentUsers: Math.max(0, Math.round(Number(state.currentUsers) || 0)),
-    currentPaid: Math.max(0, Math.round(Number(state.currentPaid) || 0)),
-    mrr: Math.max(0, Math.round(Number(state.mrr) || 0)),
-    grossProfit: Math.max(0, Math.round(Number(state.grossProfit) || 0)),
-  };
-  let result;
-  try {
-    result = await callClaude(
-      PROMPTS.opsTasks.system,
-      PROMPTS.opsTasks.user(args),
-      { max_tokens: 3072, cacheSystem: true },
-    );
-  } catch (e) {
-    console.warn('[opsTasks] claude failed:', e?.message);
-    return null;
-  }
-  if (typeof result !== 'string' || isClaudeErrorString(result) || isSuspiciousOutput(result)) return null;
-  const rows = [];
-  for (const raw of result.split('\n')) {
-    const line = raw.trim().replace(/^[-*•]\s*/, '');
-    const m = line.match(/^(\d{4}-\d{2}-\d{2})\s*[|｜]\s*([^|｜]+?)\s*[|｜]\s*(.+)$/);
-    if (!m) continue;
-    const dept = TASK_DEPTS.find((d) => m[2].includes(d)) || '経営';
-    const title = clamp(sanitizeForPrompt(m[3]).trim(), 200);
-    if (title) rows.push({ due_date: m[1], dept, title });
-    if (rows.length >= 60) break;
-  }
-  if (rows.length === 0) return null;
-  track('ai_used', { feature: 'ops_tasks' });
-  return rows;
 }
 
 // 🧠 AI 参謀（作戦会議）— 元帥と対話して打ち手を一緒に作る。会話履歴 messages
@@ -1325,74 +1216,6 @@ export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
   const cleaned = clamp(result.trim(), 6000);
   if (!cleaned) return null;
   track('ai_used', { feature: 'ops_advisor' });
-  return cleaned;
-}
-
-// 🏢 AI 社員（作戦司令室）— 1 名の専門家に現状 or 元帥の指示を渡し、成果物を1つ得る。
-// member は src/lib/aiCompany.js のエントリ（deptLabel を付けて渡すこと）。
-// 返り値: { status, body } / 失敗時 null。コスト境界のため 1 コール = 1 成果物。
-export async function consultSpecialist({ member, stateLine = '', order = '' } = {}) {
-  if (!member || typeof member.name !== 'string') return null;
-  const system = PROMPTS.opsSpecialist.system({
-    member,
-    today: todayISO(),
-    stateLine: clamp(String(stateLine || ''), 800),
-  });
-  const userMsg = PROMPTS.opsSpecialist.user({
-    member,
-    order: clamp(sanitizeForPrompt(order || ''), 1000),
-  });
-  let result;
-  try {
-    result = await callClaude([{ role: 'user', content: userMsg }], { system, max_tokens: 1600 });
-  } catch (e) {
-    console.warn('[consultSpecialist] claude failed:', e?.message);
-    return null;
-  }
-  if (typeof result !== 'string' || isClaudeErrorString(result) || isSuspiciousOutput(result)) {
-    return null;
-  }
-  const cleaned = clamp(result.trim(), 6000);
-  if (!cleaned) return null;
-  // 1 行目の「STATUS: 〜」をフロア表示用に抽出し、本体から取り除く。
-  let status = '';
-  let body = cleaned;
-  const m = cleaned.match(/^\s*STATUS[:：]\s*(.+)$/im);
-  if (m) {
-    status = m[1].trim().replace(/[。.]+$/, '').slice(0, 40);
-    body = cleaned.replace(m[0], '').trim();
-  }
-  track('ai_used', { feature: 'ops_specialist' });
-  return { status, body };
-}
-
-// 🎖 CEO室 統合ブリーフ — 各社員の報告を1つに束ね「今日の意思決定」に収束させる。
-// reports: [{ name, title, dept, status, body }]。1 コールで全社を統合。
-// 返り値: 統合ブリーフの Markdown 文字列 / 失敗・材料不足時 null。
-export async function integrateFloor({ reports = [], stateLine = '', order = '' } = {}) {
-  const valid = (Array.isArray(reports) ? reports : []).filter((r) => r && typeof r.body === 'string' && r.body.trim());
-  if (valid.length === 0) return null;
-  const reportsText = clamp(
-    valid.map((r) =>
-      `【${r.dept || ''}／${r.title || ''} ${r.name || ''}】${r.status ? `(${r.status})` : ''}\n${clamp(String(r.body), 700)}`,
-    ).join('\n\n'),
-    8000,
-  );
-  const system = PROMPTS.opsIntegration.system({ today: todayISO(), stateLine: clamp(String(stateLine || ''), 800) });
-  const userMsg = PROMPTS.opsIntegration.user({ reportsText, order: clamp(sanitizeForPrompt(order || ''), 1000) });
-  let result;
-  try {
-    result = await callClaude([{ role: 'user', content: userMsg }], { system, max_tokens: 2048 });
-  } catch (e) {
-    console.warn('[integrateFloor] claude failed:', e?.message);
-    return null;
-  }
-  if (typeof result !== 'string' || isClaudeErrorString(result) || isSuspiciousOutput(result)) {
-    return null;
-  }
-  const cleaned = clamp(result.trim(), 6000);
-  if (!cleaned) return null;
-  track('ai_used', { feature: 'ops_integration' });
   return cleaned;
 }
 
@@ -1637,9 +1460,11 @@ async function buildThemeContext({ userId, theme, onStage }) {
   const { all } = await knowledgePromise;
   const matched = all.filter((m) => memoMatchesTheme(m, themeNorm));
 
-  // 💰 文字数の予算（約 4 万字）。件数上限（80 件）だけだと長文メモで 16 万字級まで膨らむ。
+  // 💰 文字数の予算（約 1.2 万字）。件数上限（80 件）だけだと長文メモで 16 万字級まで膨らむ。
   // 優先度の高い順に、予算に収まるところまで入れる。
-  const THEME_TOTAL_CHARS = 20000; // 💴 原価の上限に合わせて 4 万→2 万字
+  // 💴 原価の大半はこの入力（2026-09-27 に 2 万 → 1.2 万字。優先度の高いメモから入るので、
+  //    核心 1 行＋原則 3 つ＋次の一歩 1 つを作るには十分）
+  const THEME_TOTAL_CHARS = 12000;
   let themeUsed = 0;
   const ranked = [];
   for (const x of [...matched]
@@ -1739,9 +1564,8 @@ export async function streamThemeReport({ userId, theme, onStage, onChunk, signa
     system: THEME_SYSTEM,
     cacheSystem: true,
     messages: [{ role: 'user', content: ctx.userPrompt }],
-    // Sonnet 5 の新トークナイザは同じ日本語で約 3 割トークンが増えるため、
-    // 旧 2048 のままだと途中切れリスクが上がる（忠実性はプロンプト側で担保）。
-    max_tokens: 3072,
+    // 出力は「核心 1 行＋原則 3 つ＋次の一歩 1 つ・500 字以内」。3072 → 1200（2026-09-27）。
+    max_tokens: 1200,
     signal,
     onDone: (_t, meta) => { streamMeta = meta; },
     onChunk: (text) => {

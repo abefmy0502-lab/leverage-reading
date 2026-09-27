@@ -2180,7 +2180,8 @@ function AuthedApp() {
             topTags: allTags.slice(0, 3),
           }),
         }],
-        max_tokens: 2048,
+        // 読書計画シートは「各節 3 行・900 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
+        max_tokens: 1600,
         model: MODEL_SMART,
         onChunk: (fullText) => {
           // 関連書籍カードのパース (= 「読みたい」ボタン押下可能) は
@@ -2227,7 +2228,8 @@ function AuthedApp() {
             author: clamp(sanitizeForPrompt(form.author || ''), LIMITS.bookAuthor),
           }),
         }],
-        max_tokens: 2048,
+        // 読書計画シートは「各節 3 行・900 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
+        max_tokens: 1600,
         model: MODEL_SMART,
         onChunk: (fullText) => {
           didStreamAny = true;
