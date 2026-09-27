@@ -29,3 +29,8 @@ ios/DerivedData/
 
 # UI スクリーンショット（scripts/ui-shots.mjs の出力）
 ui-shots/
+
+# 確認用の一時スクリプト（リポジトリのルートに一時的に置くもの）
+/*-tmp.mjs
+/.*-tmp.mjs
+/*.tmp.mjs
