@@ -858,7 +858,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 )}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
-                    無料プランの AI は相談だけです（相談 1 回 約 {TOKEN_COSTS.consult} トークン）。プランは毎月 {PAID_TOKENS} トークンと、AI 選書・テーマまとめ・読書計画シート・写真から書き起こし。
+                    AI は相談だけ（1 回 約 {TOKEN_COSTS.consult} トークン）。プランは毎月 {PAID_TOKENS} トークンで、すべての AI 機能。
                   </p>
                   <button
                     type="button"

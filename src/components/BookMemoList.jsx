@@ -62,7 +62,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   const { requirePlan } = usePaywall();
   const handleGenerate = async () => {
     if (generating || !canGenerate) return;
-    if (!requirePlan('メモからまとめを作る')) return;
+    if (!requirePlan('メモからのまとめ作成')) return;
     if (text.trim()) {
       const ok = await confirm({
         title: 'まとめを生成しますか？',

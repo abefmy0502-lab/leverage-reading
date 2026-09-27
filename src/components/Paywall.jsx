@@ -92,21 +92,27 @@ const preview = readNativePreview();
 // 見た目の分岐だけに使う。購入・復元の実行可否は必ず isNative で判定する。
 const showNative = isNative || preview.on;
 
-// 無料とプランの違い（2 行・DESIGN §0-6: 説明の文は置かない）。
+// 無料とプランの違い（2 行・DESIGN §0-6: 説明の文は置かない）。量（トークン）を強く、中身は補足で。
 const PLAN_COMPARE = [
-  { name: '無料', text: `メモ・記録・シェア、相談（毎月 ${FREE_TOKENS} トークン）` },
-  { name: 'プラン', text: `相談をたっぷり（毎月 ${PAID_TOKENS} トークン）と、AI 選書・テーマまとめ・読書計画シート・写真から書き起こし` },
+  { name: '無料', amount: `毎月 ${FREE_TOKENS} トークン`, scope: '相談だけ', text: 'メモ・記録・シェアは、ずっと無料' },
+  { name: 'プラン', amount: `毎月 ${PAID_TOKENS} トークン`, scope: 'すべての AI', text: 'AI 選書・テーマまとめ・読書計画シート・写真から書き起こし' },
 ];
 // トークンの目安（1 行）。
 const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
 
-function PlanCompare() {
+// onlyPlan: 無料のトークンを使い切ったあと（本人の本の表紙を出すとき）はプランの行だけ（主ボタンを近くに）。
+function PlanCompare({ onlyPlan = false }) {
+  const rows = onlyPlan ? PLAN_COMPARE.filter((r) => r.name === 'プラン') : PLAN_COMPARE;
   return (
-    <section aria-label="無料とプランの違い" style={{ ...card, padding: 0, marginTop: 'var(--space-6)' }}>
-      {PLAN_COMPARE.map((row, i) => (
+    <section aria-label={onlyPlan ? 'プランでできること' : '無料とプランの違い'} style={{ ...card, padding: 0, marginTop: 'var(--space-6)' }}>
+      {rows.map((row, i) => (
         <div key={row.name} style={{ padding: 'var(--space-3) var(--space-4)', borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
           <p style={{ ...groupTitle, margin: 0 }}>{row.name}</p>
-          <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 }}>{row.text}</p>
+          <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+            <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
+            <span style={{ fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>（{row.scope}）</span>
+          </p>
+          <p style={{ ...metaText, marginTop: 'var(--space-1)' }}>{row.text}</p>
         </div>
       ))}
       <p style={{ ...metaText, padding: 'var(--space-2) var(--space-4) var(--space-3)', borderTop: '1px solid var(--separator)' }}>{TOKEN_EXAMPLE}</p>
@@ -360,7 +366,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
           {fromFree
             ? <>この相談相手と、<br />もっと話しませんか</>
             : fromFeature
-              ? <>{feature || 'この機能'}は、<br />プランでご利用いただけます</>
+              ? <>{feature || 'この機能'}は、<br />プランで使えます</>
               : <>読むほど、<br />自分だけの相談相手が育つ</>}
         </h1>
 
@@ -376,7 +382,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         )}
 
         {/* 無料とプランの違い（トークンの量と、プランで増える機能） */}
-        <PlanCompare />
+        <PlanCompare onlyPlan={fromFree && myBooks.length > 0} />
 
         {showNative ? (
           <>

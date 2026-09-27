@@ -86,7 +86,7 @@ const SCREENS = [
   { name: 'import-sheet', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ブクログ・Kindle")' }] },
 
   // ── 状態（空・読み込み中・エラー・上限など）。お試しモードの切り替え:
-  //    ?demo=new / nomemo / overdue / limit / free / paywall、&ai=slow|fail、&load=slow、&db=fail、&price=loading|fail
+  //    ?demo=new / nomemo / overdue / limit / free / freeused / freenew / trial / paywall、&ai=slow|fail、&load=slow、&db=fail、&price=loading|fail
   { name: 'home-nomemo', url: '/?demo=nomemo' },
   { name: 'home-loading', url: '/?load=slow' },
   { name: 'home-focus', url: '/', steps: [{ css: 'textarea[aria-label="相談したいこと"]' }] },
@@ -100,7 +100,7 @@ const SCREENS = [
   { name: 'landing-pricing', url: '/?demo=auth', steps: [{ scrollTo: '#lp-pricing' }] },
   { name: 'paywall-price-loading', url: '/?demo=paywall&native=1&price=loading' },
   { name: 'paywall-price-fail', url: '/?demo=paywall&native=1&price=fail' },
-  { name: 'paywall-free-used', url: '/?demo=free&native=1', steps: [{ css: 'button[aria-label="閉じる"]' }, { eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: 'free_used' } }))" }] },
+  { name: 'paywall-free-used', url: '/?demo=freeused&native=1', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: 'free_used' } }))" }] },
   { name: 'book-detail-plan-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { css: 'summary:has-text("読書計画")' }, { scrollBottom: true }] },
   { name: 'book-detail-summary-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'summary:has-text("この本のまとめ")' }, { scrollTo: 'summary:has-text("この本のまとめ")' }] },
   { name: 'book-detail-nomemo', url: '/?demo=nomemo', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }] },
@@ -153,19 +153,30 @@ const SCREENS = [
   { name: 'book-memo-sheet-discard', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { fill: ['textarea[aria-label="メモ本文"]', '書きかけのメモ'] }, { css: 'button:has-text("キャンセル")' }] },
   { name: 'review-memo-zero', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }] },
   { name: 'review-record-zero', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
-  { name: 'settings-free', url: '/?demo=free', steps: [{ css: 'button[aria-label="閉じる"]' }, { css: 'button[aria-label="アカウント設定を開く"]' }] },
+  { name: 'settings-free', url: '/?demo=free', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"], h2:has-text("プラン・お支払い")' }] },
   { name: 'landing-sticky', url: '/?demo=auth', steps: [{ scrollTo: '#lp-problem' }] },
   { name: 'paywall-trial', url: '/?demo=paywall&native=1&trial=7日間無料' },
-  { name: 'paywall-free-covers', url: '/?demo=freeused&native=1' },
+  { name: 'paywall-free-covers', url: '/?demo=freeused&native=1', steps: [{ css: nav('相談') }, { css: 'button:has-text("プランを見る")' }] },
   { name: 'webgate-confirmed', url: '/?demo=webgate', steps: [{ eval: "sessionStorage.setItem('orime-email-confirmed', 'true')" }, { reload: true }] },
   { name: 'report-empty', url: '/?demo=nomemo', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }] },
   { name: 'report-generating', url: '/?ai=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { wait: 1500 }] },
+  // ── フリーミアム（2026-09-27）: 無料プラン・トークン・プランの機能
+  { name: 'free-home', url: '/?demo=free' },
+  { name: 'free-consult', url: '/?demo=free', steps: [{ css: nav('相談') }] },
+  { name: 'free-consult-used', url: '/?demo=freeused', steps: [{ css: nav('相談') }] },
+  { name: 'free-consult-answer', url: '/?demo=free', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }] },
+  { name: 'free-feature-gate', url: '/?demo=free', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="相談する"]' }] },
+  { name: 'paywall-feature', url: '/?demo=free&native=1', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }] },
+  { name: 'free-new-home', url: '/?demo=freenew', steps: [{ css: 'button[aria-label="閉じる"]' }] },
+  { name: 'trial-consult', url: '/?demo=trial', steps: [{ css: nav('相談') }] },
   { name: 'report-error', url: '/?ai=fail', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { wait: 2500 }] },
   // ── 一文をシェア（2026-09-27・SPEC §2-1）
   { name: 'share-line', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1500 }] },
   { name: 'share-line-post', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1200 }, { css: '[role=radio]:has-text("投稿")' }, { wait: 1500 }] },
   { name: 'share-line-night', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1200 }, { css: '[role=radio][aria-label="夜"]' }, { wait: 1500 }] },
   { name: 'share-line-from-memo', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="メニューを開く"]' }, { css: 'button:has-text("この一文をシェア")' }, { wait: 1500 }] },
+  { name: 'share-line-photo', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1200 }, { upload: ['[role=dialog] input[type=file]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 1500 }] },
+  { name: 'share-line-sticker', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1200 }, { css: '[role=radio][aria-label="透明"]' }, { wait: 1500 }] },
   { name: 'share-finished-nomemo', url: '/?demo=nomemo', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("一文をシェア")' }, { wait: 1200 }] },
 ];
 

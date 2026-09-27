@@ -37,6 +37,9 @@ describe('isClaudeErrorString', () => {
     expect(isClaudeErrorString('今月の AI 利用上限に達しました。')).toBe(true);
     expect(isClaudeErrorString('お試しの相談は、ここまでです。')).toBe(true);
     expect(isClaudeErrorString('AI 機能のご利用にはプランへのご登録が必要です。')).toBe(true);
+    expect(isClaudeErrorString('今月のトークンは、ここまでです。10\u2060月\u20601\u2060日に 800 トークンに戻ります。')).toBe(true);
+    expect(isClaudeErrorString('無料期間のトークンは、ここまでです。無料期間が終わると、毎月 800 トークン使えます。')).toBe(true);
+    expect(isClaudeErrorString('この AI 機能は、プランでご利用いただけます。')).toBe(true);
     expect(isClaudeErrorString('今週、あえて手放せそうな仕事はどれでしょう？')).toBe(false);
   });
 });

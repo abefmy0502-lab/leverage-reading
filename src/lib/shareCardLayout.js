@@ -52,7 +52,6 @@ const KANJI = /[㐀-䶿一-鿿々〆]/;
 // 漢字＋送り仮名 1 字＋漢字 は複合語（取り組む・読み終える・書き出す）なので割らない。
 // を・は・が・に・で・と・の などの助詞はここに入れない（「本を｜読む」は割ってよい）。
 const RENYO = /[りみきちびぎひえけせねべめれ]/;
-const LATIN = /[A-Za-z0-9]/;
 const LATIN_JOIN = /[A-Za-z0-9.,'’%\-+/:&]/; // 英単語・数字のひとかたまり
 // 行頭に来てはいけない字（閉じ括弧・句読点・小さいかな・長音）
 const NO_START = /[、。，．,.！？!?：:；;）)」』】］\]〉》”’…‥・ーぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュョヮヵヶ々ゝゞヽヾ]/;
@@ -75,7 +74,6 @@ function canBreakBefore(chars, i) {
     if (KANJI.test(b) && RENYO.test(a) && KANJI.test(chars[i - 2] || '')) return false;
     return true; // 「〜は｜投資」のような文節の切れ目
   }
-  if (LATIN.test(a) !== LATIN.test(b)) return true; // 英数字と和文の境目
   return false;
 }
 
@@ -407,8 +405,9 @@ export function underlineStroke({ x0, x1, y, weight, seed }) {
   const ex = x1 + over1;
   const tilt = (rnd() - 0.5) * weight * 0.9; // 全体の傾き（右端の上下）
   const lift = -(0.3 + rnd() * 0.7) * weight * 0.55; // 書き終わりが少し上がる
-  const f1 = 1.2 + rnd() * 1.4; const p1 = rnd() * Math.PI * 2; const a1 = weight * (0.12 + rnd() * 0.14);
-  const f2 = 3.1 + rnd() * 2.4; const p2 = rnd() * Math.PI * 2; const a2 = weight * (0.05 + rnd() * 0.06);
+  const bow = (rnd() < 0.7 ? 1 : -1) * weight * (0.25 + rnd() * 0.45); // 全体のゆるい弧（多くは下にふくらむ）
+  const f1 = 1.2 + rnd() * 1.4; const p1 = rnd() * Math.PI * 2; const a1 = weight * (0.18 + rnd() * 0.16);
+  const f2 = 3.1 + rnd() * 2.4; const p2 = rnd() * Math.PI * 2; const a2 = weight * (0.06 + rnd() * 0.07);
   const w1 = 1.5 + rnd() * 1.5; const wp = rnd() * Math.PI * 2;
   const N = Math.max(24, Math.round(len / 12));
   const top = [];
@@ -416,11 +415,11 @@ export function underlineStroke({ x0, x1, y, weight, seed }) {
   for (let i = 0; i <= N; i += 1) {
     const t = i / N;
     const x = sx + (ex - sx) * t;
-    const cy = y + tilt * t + lift * t ** 3
+    const cy = y + tilt * t + lift * t ** 3 + bow * Math.sin(Math.PI * t)
       + a1 * Math.sin(t * Math.PI * f1 + p1) + a2 * Math.sin(t * Math.PI * f2 + p2);
     // 太さ: 書き出しは素早く太く、終わりにかけて細る（筆圧）
     const taper = Math.min(1, t / 0.06) * Math.min(1, (1 - t) / 0.16);
-    const w = weight * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, t * 1.05))) * (0.9 + 0.1 * Math.sin(t * Math.PI * w1 + wp)) * Math.max(0.18, taper);
+    const w = weight * (0.5 + 0.5 * Math.sin(Math.PI * Math.min(1, t * 1.08))) * (0.82 + 0.18 * Math.sin(t * Math.PI * w1 + wp)) * Math.max(0.18, taper);
     top.push([x, cy - w / 2]);
     bottom.push([x, cy + w / 2]);
   }

@@ -275,20 +275,37 @@ export function installDemoFetch(store) {
         return json({ error: { message: 'サーバーで問題が起きました。' } }, 500);
       }
       if (aiMode === 'slow') await new Promise((r) => setTimeout(r, 60000));
-      // ?demo=limit: 今月の AI の原価の上限に達した人（上限の案内の確認用）。
-      if (new URLSearchParams(window.location.search).get('demo') === 'limit') {
-        return json({ error: { message: `今月の AI の利用上限に達しました。${(new Date().getMonth() + 2) % 12 || 12}月1日からまた使えます。` }, error_code: 'monthly_budget_exceeded' }, 429);
+      // 本番（api/claude.js・api/_aiAccess.js）と同じ決まりをまねる:
+      //   契約なし＝無料プラン: 相談（purpose 'consult'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
+      //   無料期間: 150 トークン（'trial-終わる日'）/ 有料: 毎月 800 トークン（'YYYY-MM'）→ 使い切ったら 429
+      //   「最後の 1 回」: 使ったトークン（切り上げ）が上限未満なら始められる。
+      const jstNow = new Date(Date.now() + 9 * 3600 * 1000);
+      const month = jstNow.toISOString().slice(0, 7);
+      const nextFirst = `${(jstNow.getUTCMonth() + 1) % 12 + 1}\u2060月\u20601\u2060日`;
+      const sub = store.table('subscriptions').find((r) => r.status === 'active');
+      const tier = !sub ? 'free' : (sub.period_type === 'trial' || sub.period_type === 'intro') ? 'trial' : 'paid';
+      if (tier === 'free' && payload.purpose !== 'consult') {
+        return json({ error: { message: 'この AI 機能は、プランでご利用いただけます。' }, error_code: 'plan_required' }, 402);
       }
-      // ?demo=free: 購読が無い間は、本番と同じくお試し 3 回まで（ai_usage の 'free' 行で数える）。
-      if (!store.table('subscriptions').some((r) => r.status === 'active')) {
-        const rows = store.table('ai_usage');
-        let row = rows.find((r) => r.period_month === 'free');
-        if (!row) { row = { user_id: store.session?.user?.id, period_month: 'free', calls: 0 }; rows.push(row); }
-        if (row.calls >= 3) {
-          return json({ error: { message: 'お試しの相談は、ここまでです。続けるにはプランへのご登録が必要です。' }, error_code: 'free_limit_reached' }, 402);
+      const trialEnd = sub?.current_period_end ? new Date(Date.parse(sub.current_period_end) + 9 * 3600 * 1000) : null;
+      const key = tier === 'free' ? `free-${month}` : tier === 'trial' ? `trial-${trialEnd ? trialEnd.toISOString().slice(0, 10) : month}` : month;
+      const allowance = tier === 'free' ? 30 : tier === 'trial' ? 150 : 800;
+      const rows = store.table('ai_usage');
+      let row = rows.find((r) => r.period_month === key);
+      if (!row) { row = { user_id: store.session?.user?.id, period_month: key, calls: 0, cost_mjpy: 0 }; rows.push(row); }
+      const used = Math.ceil((row.cost_mjpy || 0) / 300 - 1e-9);
+      if (used >= allowance) {
+        if (tier === 'free') {
+          return json({ error: { message: `今月のトークンは、ここまでです。${nextFirst}に 30 トークンに戻ります。` }, error_code: 'free_limit_reached' }, 402);
         }
-        row.calls += 1;
+        const message = tier === 'trial'
+          ? `無料期間のトークンは、ここまでです。無料期間が終わる${trialEnd.getUTCMonth() + 1}\u2060月\u2060${trialEnd.getUTCDate()}\u2060日から、毎月 800 トークン使えます。`
+          : `今月のトークンは、ここまでです。${nextFirst}に 800 トークンに戻ります。`;
+        return json({ error: { message }, error_code: 'monthly_budget_exceeded', ...(tier === 'trial' ? { trial: true } : null) }, 429);
       }
+      // 使った量（目安）: 相談 約 9 トークン・AI 選書 約 20・そのほか 約 3。
+      row.calls += 1;
+      row.cost_mjpy = (row.cost_mjpy || 0) + (payload.purpose === 'consult' ? 2760 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900);
       await new Promise((r) => setTimeout(r, 500));
       const text = aiReply(store, payload);
       if (payload.stream) return sseResponse(text);

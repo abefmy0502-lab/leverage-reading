@@ -311,6 +311,8 @@ body.lp-active {
 /* 料金 */
 .lp-trial { color: var(--text); font-weight: 600; margin-bottom: var(--space-4) !important; }
 .lp-plans { display: grid; gap: var(--space-3); }
+/* 無料（フリーミアム・2026-09-27）: プランの 2 枚の上に 1 枚。プランの見出しの前に間を空ける */
+.lp-plan-free { margin-bottom: var(--space-8); }
 .lp-plan {
   padding: var(--space-6);
   border: 1px solid var(--separator);

@@ -47,7 +47,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
 
   const pick = () => {
     if (loading || disabled) return;
-    if (!requirePlan('写真から書き起こし')) return;
+    if (!requirePlan('写真からの書き起こし')) return;
     inputRef.current?.click();
   };
 
