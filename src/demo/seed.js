@@ -61,6 +61,24 @@ const BOOKS = [
   ['チーズはどこへ消えた？', 'スペンサー・ジョンソン', '9784594025551', 'want', null, null, 0, '', ['キャリア']],
 ];
 
+// 読書準備・AI の出力が入っている本（編集画面の「以前の AI 解析」「AI 選書から引き継いだ内容」
+// 「読書計画シート」「この本のAI まとめ」を、お試しモードでも確かめられるように）。
+const BOOK_EXTRAS = {
+  'LIFE SHIFT': {
+    source_query: '40代からのキャリアの考え方を知りたい',
+    current_challenge: 'いまの会社で定年まで働くイメージが持てない',
+    hypothesis: '人生を複数のステージで考える視点が身につく',
+    book_reason: '長く働く時代の「無形の資産」の育て方を、具体的な事例で考えられるため。',
+    ai_analysis: '## 🧭 この本の核心\n寿命が延びると、教育→仕事→引退の 3 段階では足りなくなる。\n\n## 🔑 キーコンセプト\n- 無形の資産（スキル・健康・人間関係）\n- マルチステージの人生',
+  },
+  '1兆ドルコーチ': {
+    ai_strategy: '## 🎯 重点的に読む箇所\n- 第2章 1on1 の進め方\n\n## ⏩ 流し読みでよい箇所\n- 第5章 チームファースト',
+  },
+  'イシューからはじめよ': {
+    ai_summary: '報告や企画は「決めてほしいこと」から話す。分析の前にストーリーラインを作る。',
+  },
+};
+
 // [bookIndex | null, page, text, daysAgo, tags, recallCount]
 const MEMOS = [
   [0, 32, '読書は「投資」。1冊から1つでも行動が変われば元は取れる。全部覚えようとしなくていい。', 188, ['読書術'], 2],
@@ -143,6 +161,7 @@ export function buildSeed(scenario) {
       ai_analysis: '', ai_strategy: '', leverage_memo: '', ai_summary: '', roi_summary: '',
       source_query: '', current_page: null, total_pages: 240,
       created_at: iso(createdDays), updated_at: iso(done ?? started ?? createdDays),
+      ...(BOOK_EXTRAS[title] || {}),
     });
     tags.forEach((tag) => db.book_tags.push({
       id: `${bookIds[i]}-t-${tag}`, book_id: bookIds[i], user_id: DEMO_USER_ID, tag_name: tag,

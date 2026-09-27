@@ -136,6 +136,8 @@
 | 入力欄 | 文字 17（iOS の拡大防止に 16 以上）、枠 `--border`、フォーカス時は `--accent` | `ui.js` の `input`、`formPrimitives` の `inp` |
 | シート | 上端に細いハンドル、背景は `--backdrop`。右上は「完了」（その場で効く）／下に決定ボタンがあるときは `dismissLabel="キャンセル"`／出さないときは `null`。途中で閉じると困る処理のあいだは `dismissible={false}`（背景・Esc・スワイプでも閉じない） | `BottomSheet.jsx` |
 | 空・エラー・読み込み | 必ずこの部品を使う | `EmptyState` `ErrorMessage` `Skeleton` |
+| 行動の編集欄（本の編集画面） | 見出しアイコンは `Target`（🎯 行動専用）・カード `--fill`＋角丸 12・カード間 12・「＋ 行動を追加」は副ボタン・期限だけをここで決める（優先度・繰り返しは「振り返り」→「行動」）・ブロックの下に 24 | `BookPhases.jsx` の `ActionsEditor`（読書中・読了で共通） |
+| 畳む見出し（details） | 高さ 48・右端にシェブロン・`list-style: none` | `BookPhases.jsx` の `foldSummary`、`MyBookBrain.jsx` の `summaryStyle` |
 
 - **＋の入口は 1 つ**：同じ操作のボタンを 2 か所に出さない（SPEC の違和感 3）
 - **スワイプ削除の赤い背景**は、カードと同じ角丸の内側に収める（SPEC の違和感 1）

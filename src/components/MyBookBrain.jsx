@@ -1,7 +1,7 @@
 // 💬 相談（旧称「マイ読書脳」・コード識別子は MyBookBrain のまま）— 自分のメモを根拠に答える AI。
 //
 // SPEC §3: 画面の中は会話だけ。上部は 1 行（何を根拠に答えるか＋履歴の時計＋「…」）。
-//   会話（既定）/ 過去の相談（時計）/ 学びを書く・根拠にできる情報・考えの足あと（「…」）
+//   会話（既定）/ 過去の相談（時計）/ 学びを書く・根拠にできる情報（「…」）
 // 答えは「結論 → 明日からできる一歩（行動に追加）→ 根拠を見る（畳む）」の順に組み替えて見せる。
 //
 // chat_messages live in Supabase; book_memos with source_type='personal'
@@ -872,7 +872,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           y={moreMenu.y}
           onClose={() => setMoreMenu(null)}
           items={[
-            { label: '学びを書く（本以外）', icon: <PencilLine size={16} aria-hidden="true" />, onClick: () => setView('learning') },
+            { label: '学びを書く', icon: <PencilLine size={16} aria-hidden="true" />, onClick: () => setView('learning') },
             { label: '根拠にできる情報', icon: <BookOpenCheck size={16} aria-hidden="true" />, onClick: () => setView('knowledge') },
           ]}
         />
