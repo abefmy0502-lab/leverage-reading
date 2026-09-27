@@ -280,7 +280,13 @@ function ResultRow({ book, existing, onPick, divider }) {
         aria-label={existing ? `『${book.title}』追加済み（${statusLabel}）。開く` : `『${book.title}』を追加`}
         style={rowStyle}
       >
-        <MiniCover book={{ id: bookKey(book), title: book.title, cover: book.cover }} width={44} />
+        {/* 追加済みの本は本棚の表紙（取り直し・手動の表紙を含む）をそのまま出し、本棚と見た目をそろえる。 */}
+        <MiniCover
+          book={existing?.book
+            ? { id: existing.book.id, title: existing.book.title || book.title, cover: existing.book.cover }
+            : { id: bookKey(book), title: book.title, cover: book.cover }}
+          width={44}
+        />
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
           <span
             style={{

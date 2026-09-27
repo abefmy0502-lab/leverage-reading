@@ -8,7 +8,7 @@ import { useRef, useState } from 'react';
 import { FileUp, BookOpen } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
-import { btnPrimary, btnLink } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
 import { decodeImportBytes, parseImportText, summarizeImport, IMPORT_MAX_BYTES } from '../lib/importers';
 import { track } from '../lib/analytics';
 
@@ -19,6 +19,9 @@ const body = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 
 const heading = { margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' };
 // 1 語として離したくない部分（「この本のまとめ」など）。
 const nowrap = { whiteSpace: 'nowrap' };
+// 見出しの数の区切り。keep-all でも「・」のあとは改行できてしまうので、前後を単語結合子（U+2060）で
+// つなぐ（「本 3 冊・」で終わる行を作らない）。改行は <wbr> を置いた所だけ。
+const KEEP_DOT = '\u2060・\u2060';
 const howTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0 };
 const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
@@ -106,14 +109,15 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     // 件数は完了画面と同じ分け方（メモ＝カードのメモ・まとめ＝レビュー）。完了画面と数字がずれないように。
     const memoCount = result.books.reduce((n, b) => n + (b.memos?.length || 0), 0);
     const reviewCount = result.books.filter((b) => b.review).length;
-    // 数と単位は離さない（改行しない空白）。改行してよいのは「：」のあとと「・」のあとだけ。
+    // 数と単位は離さない（改行しない空白）。改行してよいのは「ブクログ：」のあとだけ
+    // （keep-all なので「・」の前後では切れない＝「・」で終わる行ができない）。
     const countParts = [`本 ${sum.books} 冊`, memoCount > 0 ? `メモ ${memoCount} 件` : '', reviewCount > 0 ? `まとめ ${reviewCount} 件` : ''].filter(Boolean);
+    const source = SOURCE_LABEL[result.source];
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
         <p style={heading}>
-          {SOURCE_LABEL[result.source] ? <>{SOURCE_LABEL[result.source]}<wbr />：</> : null}
-          {countParts.map((p, i) => <span key={p}>{i > 0 ? <>・<wbr /></> : null}{p}</span>)}
+          {source ? <>{source}：<wbr /></> : null}{countParts.join(KEEP_DOT)}
         </p>
         <ul style={{ ...list, gap: 0 }}>
           {shown.map((b, i) => (
@@ -137,18 +141,29 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
         </p>
       </div>
     );
+    // 取り込み中: 主ボタンを押せない形にして進み具合を出す。「別のファイルを選ぶ」は場所だけ残して隠す（高さを変えない）。
+    const progressLabel = progress.total > 0
+      ? `取り込んでいます（${Math.min(progress.done + 1, progress.total)} / ${progress.total} 冊）`
+      : '取り込んでいます…';
     footer = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        <button type="button" onClick={runImport} style={btnPrimary}>取り込む</button>
-        <button type="button" onClick={pickFile} style={{ ...btnLink, width: '100%' }}>別のファイルを選ぶ</button>
-      </div>
-    );
-  } else if (step === 'importing') {
-    content = (
-      <div role="status" aria-live="polite" style={{ padding: 'var(--space-8) 0', textAlign: 'center' }}>
-        <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>取り込んでいます…</p>
-        {/* margin は一括指定だけで書く（margin と marginTop を混ぜると、段の切替で React が警告する）。 */}
-        <p style={{ ...body, margin: 'var(--space-2) 0 0', fontVariantNumeric: 'tabular-nums' }}>{progress.done} / {progress.total} 冊</p>
+        {importing ? (
+          <button type="button" disabled aria-disabled="true" style={{ ...btnPrimaryOff, fontVariantNumeric: 'tabular-nums' }}>
+            <span role="status" aria-live="polite">{progressLabel}</span>
+          </button>
+        ) : (
+          <button type="button" onClick={runImport} style={btnPrimary}>取り込む</button>
+        )}
+        <button
+          type="button"
+          onClick={pickFile}
+          disabled={importing}
+          aria-hidden={importing || undefined}
+          tabIndex={importing ? -1 : undefined}
+          style={{ ...btnLink, width: '100%', visibility: importing ? 'hidden' : 'visible' }}
+        >
+          別のファイルを選ぶ
+        </button>
       </div>
     );
   } else if (step === 'done' && outcome) {
@@ -159,26 +174,27 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     // 数と「件」は離さない（改行を許さない空白）。改行してよいのは「〜を」のあとだけ（<wbr>）。
     const headParts = [memos > 0 ? `メモ\u00a0${memos}\u00a0件` : '', reviews > 0 ? `まとめ\u00a0${reviews}\u00a0件` : ''].filter(Boolean);
     // したことを 1 文に（例「本 2 冊を追加・1 冊にメモを足しました。」）。最後だけ「〜ました」。
+    // 数と単位は改行しない空白でつなぐ。「この本のまとめ」はかぎかっこの中で切らない（nowrap）。
+    const matome = <span style={nowrap}>「この本のまとめ」</span>;
     const did = any ? [
-      outcome.booksAdded > 0 ? [`本 ${outcome.booksAdded} 冊を追加`, `本 ${outcome.booksAdded} 冊を追加しました`] : null,
-      outcome.booksMatched > 0 ? [`${outcome.booksMatched} 冊にメモを足し`, `${outcome.booksMatched} 冊にメモを足しました`] : null,
-      reviews > 0 ? ['レビューを「この本のまとめ」に入れ', 'レビューを「この本のまとめ」に入れました'] : null,
+      outcome.booksAdded > 0 ? [`本 ${outcome.booksAdded} 冊を追加`, `本 ${outcome.booksAdded} 冊を追加しました`] : null,
+      outcome.booksMatched > 0 ? [`${outcome.booksMatched} 冊にメモを足し`, `${outcome.booksMatched} 冊にメモを足しました`] : null,
+      reviews > 0 ? [<>レビューを{matome}に入れ</>, <>レビューを{matome}に<span style={nowrap}>入れました</span></>] : null,
     ].filter(Boolean) : [];
-    const didSentence = did.length ? `${[...did.slice(0, -1).map((d) => d[0]), did[did.length - 1][1]].join('・')}。` : '';
+    const didParts = did.map((d, i) => (i === did.length - 1 ? d[1] : d[0]));
     content = (
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
-        <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}>
-          {any ? <>{headParts.join('・')}を<wbr />取り込みました</>
+        <p style={heading}>
+          {any ? <>{headParts.join(KEEP_DOT)}を<wbr />取り込みました</>
             : outcome.booksAdded > 0 ? <>本{'\u00a0'}{outcome.booksAdded}{'\u00a0'}冊を<wbr />取り込みました</>
             : <>新しく取り込むものは<wbr />ありませんでした</>}
         </p>
         <p style={body}>
-          {[
-            didSentence,
-            !any && outcome.booksAdded > 0 ? '本棚に並べました。読みながらメモを残すと、相談の根拠になります。' : '',
-            !any && outcome.booksAdded > 0 && outcome.booksMatched > 0 ? `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。` : '',
-            !any && outcome.booksAdded === 0 ? 'このファイルの本とメモは、すでに取り込み済みです。' : '',
-          ].filter(Boolean).join('')}
+          {didParts.length > 0 && <>{didParts.map((p, i) => <span key={i}>{i > 0 ? '・' : ''}{p}</span>)}。</>}
+          {!any && outcome.booksAdded > 0 && '本棚に並べました。読みながらメモを残すと、相談の根拠になります。'}
+          {!any && outcome.booksAdded > 0 && outcome.booksMatched > 0 && `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。`}
+          {/* 「です。」だけが次の行に残らないよう、最後の句はまとめて折り返す。 */}
+          {!any && outcome.booksAdded === 0 && <>このファイルの本とメモは、<span style={nowrap}>すでに取り込み済みです。</span></>}
         </p>
       </div>
     );

@@ -8,7 +8,7 @@
 // 🧪 お試しモード（開発専用）では、購入の代わりにその場でロットを 1 つ足す（画面の確認用）。
 
 import { useEffect, useState } from 'react';
-import { Circle, CircleCheck } from 'lucide-react';
+import { Check } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
@@ -26,6 +26,14 @@ const optionBase = {
   color: 'var(--text)', fontFamily: 'inherit', cursor: 'pointer',
 };
 const meta = { display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 };
+// 選択の印（DESIGN §5・はじめの一歩の本選び / 有料プランの画面と同じ形）:
+// 選択中は --accent の塗りの丸＋白抜きのチェック、未選択は 2px の --border の輪。
+const checkCircle = (on) => ({
+  width: 24, height: 24, borderRadius: 'var(--radius-full)', flexShrink: 0, boxSizing: 'border-box',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: on ? 'var(--accent)' : 'transparent',
+  border: on ? 'none' : '2px solid var(--border)',
+});
 
 // 🧪 開発専用: お試しモードの &native=1&price=loading|fail で、アプリ版の価格の読み込み中・失敗を撮る
 // （本番は isDemo=false で常に off。購入の実行可否は isNative / isDemo で決める）。
@@ -41,7 +49,10 @@ export default function TokenSheet({ onClose, onPurchased }) {
   const { user } = useAuth();
   const toast = useToast();
   const [selected, setSelected] = useState(TOKEN_PACKS[TOKEN_PACKS.length - 1]?.id);
-  const [prices, setPrices] = useState({});
+  // 🧪 お試しモードのアプリ版の見た目（&native=1）では、ストアの値の代わりに既定の表示を「取れた価格」とみなす。
+  const [prices, setPrices] = useState(() => (
+    preview.on && !isNative ? Object.fromEntries(TOKEN_PACKS.map((p) => [p.id, p.fallbackPrice])) : {}
+  ));
   const [busy, setBusy] = useState(false);
   // アプリ版の価格（ストアの値）: 'loading' | 'ready' | 'failed'。Web は既定の表示のまま（最初から ready）。
   const [priceState, setPriceState] = useState(
@@ -66,15 +77,20 @@ export default function TokenSheet({ onClose, onPurchased }) {
   }, [user?.id, priceTry]);
 
   const pricesReady = !showNative || priceState === 'ready';
-  const canBuy = (isNative || isDemo) && pricesReady;
+  // アプリ版では、ストアから価格が取れなかった商品は選べない（既定の ¥ を出して買わせない）。Web は従来どおり。
+  const unavailable = (id) => showNative && priceState === 'ready' && !prices[id];
+  const current = !unavailable(selected)
+    ? selected
+    : [...TOKEN_PACKS].reverse().find((p) => !unavailable(p.id))?.id;
+  const canBuy = (isNative || isDemo) && pricesReady && !!current;
 
   const buy = async () => {
-    if (busy || !selected) return;
-    const pack = TOKEN_PACKS.find((p) => p.id === selected);
+    if (busy || !current || !canBuy) return;
+    const pack = TOKEN_PACKS.find((p) => p.id === current);
     setBusy(true);
     try {
       if (isNative) {
-        const res = await purchaseTokenPack(selected, user?.id);
+        const res = await purchaseTokenPack(current, user?.id);
         if (res?.cancelled) { setBusy(false); return; }
       } else if (isDemo) {
         // お試しモード: webhook の代わりにその場で 1 ロット足す。
@@ -130,39 +146,47 @@ export default function TokenSheet({ onClose, onPurchased }) {
       )}
       <div role="radiogroup" aria-label="追加するトークン" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {TOKEN_PACKS.map((p) => {
-          const on = selected === p.id;
+          const off = unavailable(p.id);
+          const on = !off && current === p.id;
+          // 価格の欄: Web は既定の表示・アプリ版はストアの値だけ（読み込み中は骨組み・取れなければ何も出さない）。
+          let price = null;
+          if (!showNative) price = prices[p.id] || p.fallbackPrice;
+          else if (priceState === 'loading') price = <SkeletonBlock width={56} height="var(--text-body)" radius="var(--radius)" style={{ display: 'inline-block', verticalAlign: 'middle' }} />;
+          else if (priceState === 'ready' && prices[p.id]) price = prices[p.id];
           return (
             <button
               key={p.id}
               type="button"
               role="radio"
               aria-checked={on}
-              onClick={() => { if (!busy) setSelected(p.id); }}
+              aria-disabled={off || undefined}
+              disabled={off}
+              onClick={() => { if (!busy && !off) setSelected(p.id); }}
               style={{
                 ...optionBase,
                 background: on ? 'var(--accent-soft)' : 'var(--surface)',
                 border: `1px solid ${on ? 'var(--accent)' : 'var(--separator)'}`,
                 boxShadow: on ? 'inset 0 0 0 1px var(--accent)' : 'none',
+                color: off ? 'var(--text-3)' : 'var(--text)',
+                cursor: off ? 'default' : 'pointer',
               }}
             >
-              {on
-                ? <CircleCheck size={24} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0 }} />}
+              <span style={checkCircle(on)} aria-hidden="true">
+                {on && <Check size={16} strokeWidth={3} color="var(--accent-ink)" />}
+              </span>
               <span style={{ flex: 1, minWidth: 0 }}>
-                {/* 量は脇（15/400/--text-2）・価格が主（17/600/--text）。 */}
-                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                {/* 量は脇（15/400/--text-2）・価格が主（17/600/--text）。選べない行は --text-3。 */}
+                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400, color: off ? 'var(--text-3)' : 'var(--text-2)', lineHeight: 1.5 }}>
                   <span style={{ whiteSpace: 'nowrap' }}>{p.tokens.toLocaleString()} トークン</span>
-                  {p.tag && <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)' }}>{p.tag}</span>}
+                  {p.tag && <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: off ? 'var(--text-3)' : 'var(--text-2)' }}>{p.tag}</span>}
                 </span>
-                <span style={meta}>相談 {p.consults}</span>
+                <span style={{ ...meta, color: off ? 'var(--text-3)' : meta.color }}>相談 {p.consults}</span>
               </span>
-              <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                {!showNative
-                  ? (prices[p.id] || p.fallbackPrice)
-                  : priceState === 'loading'
-                    ? <SkeletonBlock width={56} height="var(--text-body)" radius="var(--radius)" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
-                    : priceState === 'ready' ? (prices[p.id] || p.fallbackPrice) : '—'}
-              </span>
+              {price != null && (
+                <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                  {price}
+                </span>
+              )}
             </button>
           );
         })}

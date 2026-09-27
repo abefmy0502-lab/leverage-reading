@@ -3,8 +3,9 @@
 // canvas も DOM も触らない（テストで検証できるように）。描くのは shareCard.js。
 //   - clampLine        … 画像に入れる一文を 120 字までに整える（超えたら文の切れ目か「…」）
 //   - segmentPhrases   … 日本語を「ここなら改行してよい」まとまりに分ける（文節もどき＋禁則）
-//   - wrapBalanced     … まとまり単位で折り返し、行の長さをそろえる（最後の行が 1〜2 字にならない）
-//   - fitQuote         … 決められた枠に収まる、いちばん大きな文字サイズを選ぶ
+//   - wrapBalanced     … まとまり単位で折り返す。いくつもの組み方から wrapCost（行の長さのばらつき・短い行・
+//                        文の切れ目・次の文のぶら下がり・短い最後の行）がいちばん小さいものを選ぶ
+//   - fitQuote         … 決められた枠に収まる文字サイズを選ぶ（組み方が悪ければ 70% まで小さくしてみる）
 //   - orderLineCandidates … 「どの一文にする？」の並び（ページつき → 新しい順）
 //   - buildShareText   … 共有の文（『書名』より＋一文＋#Orime＋URL。画像に入れた文だけ）
 //   - coverTone        … 表紙の画素から、白い文字が読める落ち着いた地の色を作る
@@ -113,12 +114,21 @@ function splitLongPhrase(phrase, maxWidth, measure) {
 // 行末の空白は幅に数えない（英語の単語間）。
 const trimEnd = (s) => s.replace(/\s+$/u, '');
 
-function greedy(phrases, maxWidth, measure) {
+// 文の終わり（。！？＋閉じ括弧）で終わっているか。
+const SENTENCE_END = /[。！？!?][」』）)”’]*$/u;
+// 行の途中にある文の終わり（その後ろに次の文が始まっている）。
+const SENTENCE_END_G = /[。！？!?][」』）)”’]*/gu;
+
+// 幅 maxWidth で左から詰める。sentenceMin を渡すと、文の終わり（。！？）の後ろは、
+// 行がその割合（幅に対して）まで埋まっていれば、次の文を詰めずに改行する。
+function greedy(phrases, maxWidth, measure, sentenceMin = null) {
   const lines = [];
   let cur = '';
   for (const p of phrases) {
     const next = cur + p;
-    if (!cur || measure(trimEnd(next)) <= maxWidth) {
+    const sentenceBreak = sentenceMin != null && cur && SENTENCE_END.test(trimEnd(cur))
+      && measure(trimEnd(cur)) >= maxWidth * sentenceMin;
+    if (!cur || (!sentenceBreak && measure(trimEnd(next)) <= maxWidth)) {
       cur = next;
     } else {
       lines.push(trimEnd(cur));
@@ -129,32 +139,89 @@ function greedy(phrases, maxWidth, measure) {
   return lines;
 }
 
-// 1 段落を折り返す。行数が変わらない範囲で幅を狭め、行の長さをそろえる（CSS の text-wrap: balance）。
+// 1 段落の組み方の悪さ（小さいほどよい）。
+//   - 行の長さのばらつき（いちばん長い行に対して）
+//   - 最後以外の行が、いちばん長い行の 60% 未満（文の終わりで切った行は除く）
+//   - 文の終わり（。！？）の直後で改行している … よい（引く）
+//   - 行の終わりに次の文の書き出しがぶら下がっている（「作る。どんな／グラフが」）… 短いほど悪い
+//   - 最後の行がいちばん長い行の 1/3 未満（「来る。」だけが残る）
+export function wrapCost(lines, measure) {
+  if (!Array.isArray(lines) || lines.length < 2) return 0;
+  const widths = lines.map((l) => measure(l));
+  const max = Math.max(...widths, 1e-6);
+  let cost = 0;
+  for (let i = 0; i < lines.length - 1; i += 1) {
+    const r = widths[i] / max;
+    const line = lines[i];
+    if (SENTENCE_END.test(line)) {
+      cost += 0.3 * (1 - r) ** 2 - 0.6;
+      continue;
+    }
+    cost += (1 - r) ** 2;
+    if (r < 0.6) cost += 2;
+    let tailStart = -1;
+    for (const m of line.matchAll(SENTENCE_END_G)) {
+      const end = m.index + m[0].length;
+      if (end < line.length) tailStart = end;
+    }
+    if (tailStart > 0) {
+      const tail = line.slice(tailStart).trim();
+      if (tail) cost += 0.6 + 1.2 * (1 - Math.min(1, measure(tail) / max));
+    }
+  }
+  if (widths[widths.length - 1] < max / 3) cost += 2;
+  return cost;
+}
+
+// 1 段落を折り返す。行数はいちばん少ないまま、幅を変えた組み方・文の終わりで切る組み方を
+// いくつも作り、wrapCost がいちばん小さいものを選ぶ（行の長さをそろえる＝CSS の text-wrap: balance
+// ＋ 文の切れ目で改行する）。戻り値: { lines, cost }
 function wrapParagraph(text, maxWidth, measure) {
-  if (!text) return [''];
+  if (!text) return { lines: [''], cost: 0 };
   const phrases = [];
   for (const p of segmentPhrases(text)) {
     if (measure(trimEnd(p)) > maxWidth) phrases.push(...splitLongPhrase(p, maxWidth, measure));
     else phrases.push(p);
   }
   const base = greedy(phrases, maxWidth, measure);
-  if (base.length <= 1) return base;
-  let lo = maxWidth * 0.4;
-  let hi = maxWidth;
-  let best = base;
-  for (let k = 0; k < 14; k += 1) {
-    const mid = (lo + hi) / 2;
-    // 狭めた幅でも、まとまりが 1 行に入らないなら狭めすぎ。
-    const fits = phrases.every((p) => measure(trimEnd(p)) <= mid);
-    const lines = fits ? greedy(phrases, mid, measure) : null;
-    if (lines && lines.length === base.length) { best = lines; hi = mid; } else { lo = mid; }
+  if (base.length <= 1) return { lines: base, cost: 0 };
+  // まとまりが 1 行に入らないほど狭めない。
+  const lo = Math.max(maxWidth * 0.4, ...phrases.map((p) => measure(trimEnd(p))));
+  const seen = new Set();
+  let best = null;
+  const consider = (lines) => {
+    if (lines.length !== base.length) return;
+    const key = lines.join('\n');
+    if (seen.has(key)) return;
+    seen.add(key);
+    const cost = wrapCost(lines, measure);
+    if (!best || cost < best.cost - 1e-9) best = { lines, cost };
+  };
+  const STEPS = 32;
+  for (let k = 0; k <= STEPS; k += 1) {
+    const w = maxWidth - ((maxWidth - lo) * k) / STEPS;
+    consider(greedy(phrases, w, measure));
+    consider(greedy(phrases, w, measure, 0.3));
+    consider(greedy(phrases, w, measure, 0.5));
   }
-  return best;
+  return best || { lines: base, cost: wrapCost(base, measure) };
+}
+
+// 段落（明示の改行）ごとに折り返した行と、組み方の悪さの合計。
+function wrapScored(text, maxWidth, measure) {
+  let cost = 0;
+  const lines = [];
+  for (const para of String(text || '').split('\n')) {
+    const r = wrapParagraph(para, maxWidth, measure);
+    lines.push(...r.lines);
+    cost += r.cost;
+  }
+  return { lines, cost };
 }
 
 // 段落（明示の改行）ごとに折り返した行の列。
 export function wrapBalanced(text, maxWidth, measure) {
-  return String(text || '').split('\n').flatMap((para) => wrapParagraph(para, maxWidth, measure));
+  return wrapScored(text, maxWidth, measure).lines;
 }
 
 // 行の配列の最後が 1〜2 字だけになっていないか（テスト・確認用）。
@@ -163,16 +230,15 @@ export function hasOrphan(lines) {
   return Array.from(lines[lines.length - 1]).length <= 2;
 }
 
-// 最後の行が短すぎる（いちばん長い行の 1/3 未満＝「来る。」だけが残る）か。
-function shortLastLine(lines, measure) {
-  if (lines.length < 2) return false;
-  const widths = lines.map((l) => measure(l));
-  return widths[widths.length - 1] < Math.max(...widths) / 3;
-}
+// 文字を小さくする重み（収まるいちばん大きな大きさから 25% 小さくすると 2＝短い行 1 つ分）。
+const SIZE_WEIGHT = 8;
+// 組み方をよくするために小さくしてよいのは、収まるいちばん大きな大きさの 70% まで。
+const MIN_SIZE_RATIO = 0.7;
 
-// 枠（maxWidth × maxHeight）に収まる、いちばん大きな文字サイズと行。
-// 収まる中でも、最後の行が短すぎる組み方は避けて、2 段階までは小さい大きさも試す
-// （どれも短ければ、収まったいちばん大きなものに戻す）。
+// 枠（maxWidth × maxHeight）に収まる文字サイズと行。
+// 収まるいちばん大きな大きさから 70% までの大きさを試し、「組み方の悪さ（wrapCost）＋小さくした分」が
+// いちばん小さいものを選ぶ（「分析の前に／…作る。どんな／」のように短い行やぶら下がりが出るなら、
+// 少し小さくして文の切れ目で改行する）。
 // measureAt(size) は「その大きさの文字の幅を返す関数」を返す。
 export function fitQuote(text, { maxWidth, maxHeight, sizes, lineHeight = 1.6, measureAt }) {
   // 短い一文は、少し小さくしてでも 1 行に収まるなら 1 行で見せる
@@ -188,20 +254,23 @@ export function fitQuote(text, { maxWidth, maxHeight, sizes, lineHeight = 1.6, m
     }
   }
   let last = null;
-  let firstFit = null;
-  let tried = 0;
+  let firstSize = null;
+  let best = null;
   for (const size of sizes) {
+    if (firstSize != null && size < firstSize * MIN_SIZE_RATIO) break;
     const measure = measureAt(size);
-    const lines = wrapBalanced(text, maxWidth, measure);
+    const { lines, cost } = wrapScored(text, maxWidth, measure);
     const h = lines.length * size * lineHeight;
     last = { size, lines, lineHeight: size * lineHeight };
     if (h > maxHeight) continue;
-    if (!shortLastLine(lines, measure)) return last;
-    if (!firstFit) firstFit = last;
-    tried += 1;
-    if (tried > 2) break;
+    if (firstSize == null) firstSize = size;
+    const score = cost + SIZE_WEIGHT * (1 - size / firstSize);
+    if (!best || score < best.score - 1e-9) best = { ...last, score };
+    if (cost <= 0) break; // 直すところの無い組み方＝これより小さくする理由が無い
   }
-  return firstFit || last;
+  if (!best) return last;
+  const { score, ...fit } = best; // eslint-disable-line no-unused-vars
+  return fit;
 }
 
 // ---------------------------------------------------------------- 一文の候補

@@ -197,15 +197,12 @@ function LearningInline({ onSaved }) {
 
   // 上の「‹ 相談」と題名「学びを書く」は親の上部の行が出す（ここでは戻るを重ねない）。
   const label = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', display: 'block', margin: '0 0 var(--space-2)' };
-  // チップ（DESIGN §5）: 見た目は高さ 32・13px、押せる範囲は 44（上下のはみ出しを負の余白で打ち消す＝相談相手のチップと同じ）。
-  const chipHit = {
-    minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center',
-    padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-  };
+  // 選ぶチップ（DESIGN §5）: 押して選ぶ操作なので、見た目も押せる範囲も高さ 44・15px（負の余白で重ねない）。
   const chip = (on) => ({
-    display: 'inline-flex', alignItems: 'center', height: 32, padding: '0 var(--space-3)', borderRadius: 'var(--radius)',
+    display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)',
+    border: 'none', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.3,
     background: on ? 'var(--accent-soft)' : 'var(--fill)', color: on ? 'var(--accent)' : 'var(--text)',
-    fontSize: 'var(--text-meta)', fontWeight: on ? 600 : 400,
+    fontSize: 'var(--text-sub)', fontWeight: on ? 600 : 400,
   });
   const canSave = !busy && text.trim().length > 0;
   return (
@@ -250,8 +247,8 @@ function LearningInline({ onSaved }) {
               <span style={label}>どこで得た学びか</span>
               <div role="radiogroup" aria-label="どこで得た学びか" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
                 {CATEGORIES.map((c) => (
-                  <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} style={chipHit}>
-                    <span style={chip(category === c)}>{c}</span>
+                  <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} style={chip(category === c)}>
+                    {c}
                   </button>
                 ))}
               </div>
@@ -361,7 +358,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     try { localStorage.setItem(ANSWER_MODE_KEY, answerMode); } catch { /* ignore */ }
   }, [answerMode, user?.id]);
   const [modeSheetOpen, setModeSheetOpen] = useState(false);
-  const modeApplies = scopeIds.length !== 1;
   // 絞った本のメモの件数（上部の「〜件から答えます」を相談相手に合わせる）
   const [scopeMemoCount, setScopeMemoCount] = useState(null);
   useEffect(() => {
@@ -382,7 +378,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopePreset?.nonce]);
   const [busy, setBusy] = useState(false);
-  // 🧠→🎯 回答の行動を、紐づく本の行動リストへ追加（成功時にトースト）。
+  // 🧠→🎯 回答の行動を、紐づく本の行動リストへ追加。
   const handleAnswerToAction = useCallback(async (bookId, text) => {
     if (!onAddAction || !bookId || !text) return false;
     // 相談の「明日からできる…」なので期限は明日を既定にする（期限なしだと一覧の最後に沈む）。
@@ -396,10 +392,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       .replace(/でみてください[。！!]?$/, 'でみる')
       .replace(/してください[。！!]?$/, 'する')
       .replace(/しましょう[。！!]?$/, 'する');
-    const ok = await onAddAction(bookId, { text: plain, sourceMemoId: null, sourcePage: null, deadline: tomorrow });
-    if (ok) toast.success('行動に追加しました（期限は明日）。');
-    return ok;
-  }, [onAddAction, toast]);
+    // 追加できたことは答えの中の「行動に追加しました」で伝える（同じ文をトーストで重ねない）。
+    return onAddAction(bookId, { text: plain, sourceMemoId: null, sourcePage: null, deadline: tomorrow });
+  }, [onAddAction]);
   // 段階的ステータス表示: 'search' = 過去のメモを取得中, 'generate' = Claude が回答生成中,
   // null = 未送信 or ストリーミング中で本文が出始めた。
   const [stage, setStage] = useState(null);
@@ -1031,6 +1026,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 空の画面の出し分けはメモ（カード式＋学び）の件数で決める（SPEC §3）。読書計画やまとめだけの人も
   // 「これまで読んだ本から始める」へ（相談例の「最近のメモから…」が空振りしないように）。
   const ownMemoTotal = memoStats.cards + memoStats.personal;
+  // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
+  const modeApplies = scopeIds.length !== 1 && ownMemoTotal > 0;
   // 相談例は 3 つだけ（SPEC §3）。あなたのタグ・本から → 汎用 の順で重複なく。
   // （AI で作る「今週の問い」は 2026-09-27 に廃止＝開くだけで AI が動かないように）
   const examples = useMemo(() => {
@@ -1183,6 +1180,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {messages.length > 0 && (
               <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>{messages.filter((m) => m.role === 'user').length} 件の相談</p>
             )}
+            {/* 「N 件の相談」の行の形も一緒に待つ（読み込み後に一覧が下へ跳ねないように）。 */}
+            {!historyLoaded && messages.length === 0 && <SkeletonBlock width={72} height={20} radius="var(--radius)" />}
             {!historyLoaded && <HistorySkeleton />}
             {historyLoaded && historyError && (
               <ErrorMessage
@@ -1255,6 +1254,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   <button type="button" onClick={onGoBookshelf} style={uiBtnGhost}>本を開いてメモを書く</button>
                 ) : null}
               </section>
+            ) : planOut ? (
+              // 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 押せない相談例は出さず、案内カードを一番上に。
+              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} />
             ) : (
               <section aria-labelledby="brain-empty-title">
                 <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
@@ -1276,10 +1278,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             )
           )}
 
-          {/* 読み込み中は相談例のチップの形（高さ 44 × 3）で待つ（出来上がりで形が跳ねないように）。 */}
+          {/* 読み込み中は空の画面と同じ形（見出し → 「たとえば」 → 相談例のチップ 3 つ）で待つ（出来上がりで形が跳ねないように）。 */}
           {(!historyLoaded || (isEmpty && !memoStatsLoaded && !!user && isSupabaseConfigured)) && (
-            <div role="status" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              {['100%', '88%', '94%'].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--radius)" />)}
+            <div role="status" aria-label="読み込み中">
+              <SkeletonBlock width="70%" height={26} radius="var(--radius)" style={{ marginBottom: 'var(--space-6)' }} />
+              <SkeletonBlock width={64} height={18} radius="var(--radius)" style={{ marginBottom: 'var(--space-2)' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                {[0, 1, 2].map((i) => <SkeletonBlock key={i} width="100%" height={69} radius="var(--radius)" />)}
+              </div>
             </div>
           )}
 
@@ -1300,7 +1306,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 askBusy={busy}
               />
             ))}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
@@ -1308,7 +1313,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {freeUsedUp && !busy && (lastIsAssistant || isEmpty) && (
             <section
               aria-label="今月のトークンは、ここまで"
-              style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}
+              style={{ marginTop: 'var(--space-6)', padding: 'var(--space-4)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}
             >
               <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
                 今月のトークンは、ここまでです
@@ -1321,55 +1326,35 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </button>
             </section>
           )}
-          {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているときはボタンだけ） */}
-          {planOut && !busy && (lastIsAssistant || isEmpty) && (
-            isEmpty ? (
-              <section
-                aria-label="トークンは、ここまで"
-                style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}
-              >
-                <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
-                  {plan === 'trial' ? '無料期間のトークンは、ここまでです' : '今月のトークンは、ここまでです'}
-                </p>
-                {plan !== 'trial' ? (
-                  <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                    <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{tokenAllowance} トークン</span>に戻ります
-                  </p>
-                ) : trialEndLabel ? (
-                  <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                    無料期間が終わる<span style={{ whiteSpace: 'nowrap' }}>{trialEndLabel}</span>から、毎月 <span style={{ whiteSpace: 'nowrap' }}>{PAID_TOKENS} トークン</span>使えます。
-                  </p>
-                ) : null}
-                <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
-                  トークンを追加
-                </button>
-              </section>
-            ) : (
-              <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)' }}>
-                トークンを追加
-              </button>
-            )
+          {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているのでボタンだけ。
+              まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}
+          {planOut && !busy && lastIsAssistant && !isEmpty && (
+            <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)' }}>
+              トークンを追加
+            </button>
           )}
 
           {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
+            // 答えのカード → 文字ボタンの文字まで約 20（8 ＋ 押せる範囲 44 の上の空き）。文字の左端は余白 16 に揃える。
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
               {/* 無料のトークンを使い切ったら、できない操作を出さない */}
               {/* 失敗した答えには吹き出しの「もう一度」があるので、ここでは出さない */}
               {!freeUsedUp && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error && (
-                <button type="button" onClick={regenerate} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
+                <button type="button" onClick={regenerate} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
                   {visibleMessages[visibleMessages.length - 1]?.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて'}
                 </button>
               )}
               {/* 文字ボタンは 1 種類（DESIGN §5）。脇役は並び順（2 番目）で控えめにする。 */}
-              <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
+              <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
                 新しい相談をはじめる
               </button>
             </div>
           )}
+          <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? (memoStatsLoaded && ownMemoTotal > 0 && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
-            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-4) 0 0', lineHeight: 1.5 }}>
+          {historyLoaded && !busy && (isEmpty ? (memoStatsLoaded && ownMemoTotal > 0 && !planOut && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
+            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-6) 0 0', lineHeight: 1.5 }}>
               AI の回答には誤りが含まれることがあります
             </p>
           )}
@@ -1416,8 +1401,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               }}
               placeholder={outOfTokens
                 ? (plan === 'trial'
-                  ? (trialEndLabel ? `無料期間が終わる${trialEndLabel}から相談できます` : '無料期間のトークンは、ここまでです')
-                  : canBuyTokens ? 'トークンを追加すると、すぐ相談できます' : `${nextResetLabelJa()}から相談できます`)
+                  ? (trialEndLabel ? `${trialEndLabel}から相談できます` : '無料期間のトークンは、ここまでです')
+                  : `${nextResetLabelJa()}から相談できます`)
                 : freeUsedUp ? `${nextResetLabelJa()}にまた相談できます` : '例：上司への報告がうまくいかない'}
               rows={1}
               disabled={busy}
@@ -1453,6 +1438,31 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         </div>
       )}
     </div>
+  );
+}
+
+// 🪙➕ プランの人（有料・無料期間）がトークンを使い切って、まだ話していないときの案内カード。
+// 押せない相談例の代わりに、会話の場所の一番上に置く（SPEC §3）。
+function TokensOutCard({ plan, trialEndLabel, tokenAllowance, onAdd }) {
+  const sub = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 };
+  return (
+    <section aria-label="トークンは、ここまで" style={cardStyle}>
+      <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+        {plan === 'trial' ? '無料期間のトークンは、ここまでです' : '今月のトークンは、ここまでです'}
+      </p>
+      {plan !== 'trial' ? (
+        <p style={sub}>
+          <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{tokenAllowance} トークン</span>に戻ります
+        </p>
+      ) : trialEndLabel ? (
+        <p style={sub}>
+          無料期間が終わる<span style={{ whiteSpace: 'nowrap' }}>{trialEndLabel}</span>から、<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS} トークン使えます。</span>
+        </p>
+      ) : null}
+      <button type="button" onClick={onAdd} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+        トークンを追加
+      </button>
+    </section>
   );
 }
 
@@ -1513,12 +1523,17 @@ const REF_NOTE_RE = /^（参照:[^）]*）$/;
 function PlainAnswer({ text }) {
   return (
     <>
-      {(text || '').split('\n').filter((l) => l.trim() && !REF_NOTE_RE.test(l.trim())).map((line, idx) => (
-        <p key={idx} style={{ margin: idx ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(
-          // Markdown の見出し記号・箇条書き記号をそのまま見せない（「- 『…』」→「・『…』」）
-          line.replace(/^【(.+?)】\s*/, '$1：').replace(/^\s*#{1,6}\s*/, '').replace(/^\s*[-*]\s+/, '・'),
-        )}</p>
-      ))}
+      {(text || '').split('\n').filter((l) => l.trim() && !REF_NOTE_RE.test(l.trim())).map((line, idx) => {
+        // Markdown の見出し記号・箇条書き記号をそのまま見せない（「- 『…』」→「・『…』」）
+        const shown = line.replace(/^【(.+?)】\s*/, '$1：').replace(/^\s*#{1,6}\s*/, '').replace(/^\s*[-*]\s+/, '・');
+        // 「・」で始まる行はぶら下げ（折り返した 2 行目を「・」の後ろの文字の頭に揃える）。
+        const bullet = /^\s*・/.test(shown);
+        return (
+          <p key={idx} style={{ margin: idx ? 'var(--space-2) 0 0' : 0, ...(bullet ? { paddingLeft: '1em', textIndent: '-1em' } : null) }}>
+            {renderBoldInline(bullet ? shown.trimStart() : shown)}
+          </p>
+        );
+      })}
     </>
   );
 }
@@ -1836,7 +1851,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
       <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap' }}>{renderBoldInline(p.action)}{perBookTail === 'action' && cursor}</p>
       {canShowAction && (
         actionAdded ? (
-          <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
+          <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
             <Check size={16} aria-hidden="true" />行動に追加しました
           </p>
         ) : (
@@ -2038,7 +2053,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
       {/* 旧形式（見出しなし）でも行動化できるように */}
       {!parsed && canShowAction && !message.error && (
         actionAdded ? (
-          <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
+          <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
             <Check size={16} aria-hidden="true" />行動に追加しました
           </p>
         ) : (
@@ -2167,9 +2182,14 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
 
   const countsLoading = counts == null && !!userId && isSupabaseConfigured;
   const hasKnowledge = (b) => (counts?.get(b.id) || 0) > 0 || !!(b.leverageMemo || '').trim() || !!(b.aiSummary || '').trim();
+  const canPick = (b) => counts == null || hasKnowledge(b);
   const list = [...books]
     .filter((b) => b.status === 'reading' || b.status === 'done' || (counts?.get(b.id) || 0) > 0)
     .sort((a, b) => (counts?.get(b.id) || 0) - (counts?.get(a.id) || 0));
+  // 選べる本（メモ・まとめのある本）を上に、メモがまだない本はその下にまとめる（「メモがまだありません」を行ごとに繰り返さない）。
+  const pickable = list.filter(canPick);
+  const notPickable = list.filter((b) => !canPick(b));
+  const noneToPick = !countsLoading && pickable.length === 0;
 
   const toggle = (id) => {
     setMode('pick');
@@ -2209,32 +2229,51 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
         <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本（おすすめ）</span>
         {mark(mode === 'all')}
       </button>
-      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本に絞る（複数選べます）</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。 */}
-        {countsLoading && [0, 1, 2].map((i) => <SkeletonBlock key={i} height={56} radius="var(--radius)" />)}
-        {!countsLoading && list.length === 0 && (
-          <EmptyState
-            icon={<BookOpenCheck size={32} strokeWidth={1.5} aria-hidden="true" />}
-            title="読書中・読了の本がまだありません"
-          />
-        )}
-        {!countsLoading && list.map((b) => {
-          const on = mode === 'pick' && picked.has(b.id);
-          const ok = counts == null || hasKnowledge(b);
-          const n = counts?.get(b.id) || 0;
-          return (
-            // 選べない本は薄くせず（opacity を使わない）、文字色を落として示す。
-            <button key={b.id} type="button" onClick={() => ok && toggle(b.id)} disabled={!ok} aria-pressed={on} style={{ ...rowStyle, opacity: 1, cursor: ok ? 'pointer' : 'default' }}>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: ok ? 'var(--text)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-                <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: ok ? 'var(--text-2)' : 'var(--text-3)' }}>{ok ? (n > 0 ? `メモ ${n} 件` : 'まとめメモあり') : 'メモがまだありません'}</span>
-              </span>
-              {mark(on)}
-            </button>
-          );
-        })}
-      </div>
+      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{noneToPick ? '本に絞る' : '本に絞る（複数選べます）'}</p>
+      {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。 */}
+      {countsLoading && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {[0, 1, 2].map((i) => <SkeletonBlock key={i} height={56} radius="var(--radius)" />)}
+        </div>
+      )}
+      {/* 選べる本が 1 冊も無い: 行を並べず 1 行だけ（選べない行を並べても押せないので）。 */}
+      {noneToPick && (
+        <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>メモのある本はまだありません</p>
+      )}
+      {!noneToPick && !countsLoading && (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            {pickable.map((b) => {
+              const on = mode === 'pick' && picked.has(b.id);
+              const n = counts?.get(b.id) || 0;
+              return (
+                <button key={b.id} type="button" onClick={() => toggle(b.id)} aria-pressed={on} style={rowStyle}>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                    {counts != null && (
+                      <span style={{ display: 'block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{n > 0 ? `メモ ${n} 件` : 'まとめメモあり'}</span>
+                    )}
+                  </span>
+                  {mark(on)}
+                </button>
+              );
+            })}
+          </div>
+          {/* メモがまだない本は、見出し 1 つの下にまとめて（押せない・文字色を落とす。薄くはしない）。 */}
+          {notPickable.length > 0 && (
+            <>
+              <p style={{ ...groupTitle, margin: 'var(--space-6) 0 var(--space-2)' }}>メモがまだない本</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                {notPickable.map((b) => (
+                  <button key={b.id} type="button" disabled aria-disabled="true" style={{ ...rowStyle, opacity: 1, cursor: 'default' }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text-3)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
     </BottomSheet>
   );
 }

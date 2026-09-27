@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  clampLine, segmentPhrases, wrapBalanced, hasOrphan, fitQuote, orderLineCandidates,
+  clampLine, segmentPhrases, wrapBalanced, wrapCost, hasOrphan, fitQuote, orderLineCandidates,
   buildShareText, shareFilename, coverTone, contrastRatio, photoPlacement, panView, zoomView,
   scrimAlpha, brightLuminance, coverProxyPath, seedFrom, mulberry32, underlineStroke, tabPosition, FORMATS,
 } from './shareCardLayout.js';
@@ -225,6 +225,32 @@ describe('FORMATS', () => {
     expect(FORMATS.story).toEqual({ w: 1080, h: 1920 });
     expect(FORMATS.post).toEqual({ w: 1080, h: 1350 });
     expect(FORMATS.square).toEqual({ w: 1080, h: 1080 });
+  });
+});
+
+describe('改行の選び方（文の切れ目・短い行・ぶら下がり）', () => {
+  const t = '分析の前にストーリーラインと絵コンテを作る。どんなグラフがあれば結論を言えるかを先に考える。';
+  it('幅に余裕があれば「。」の直後で改行し、次の文の書き出しを行末にぶら下げない', () => {
+    const lines = wrapBalanced(t, 15, mono());
+    expect(lines.join('')).toBe(t);
+    expect(lines.some((l) => l.endsWith('作る。'))).toBe(true);
+    expect(lines.some((l) => /。どんな$/.test(l))).toBe(false);
+  });
+  it('1 行目が「分析の前に」だけになる大きさは避け、少し小さくして「作る。」の後ろで改行する', () => {
+    // ストーリー・紙の枠（幅 856・一文に使える高さ 724）に近い条件。
+    const r = fitQuote(t, {
+      maxWidth: 856, maxHeight: 724, sizes: [92, 84, 76, 70, 64, 60, 56, 52, 48, 44], lineHeight: 1.62, measureAt: (size) => mono(size),
+    });
+    expect(r.lines.join('')).toBe(t);
+    expect(r.lines[0]).not.toBe('分析の前に');
+    expect(r.lines.some((l) => l.endsWith('作る。'))).toBe(true);
+    expect(r.lines.some((l) => /。.+$/.test(l))).toBe(false);
+    expect(r.lines.length * r.lineHeight).toBeLessThanOrEqual(724);
+  });
+  it('wrapCost: 文の切れ目で改行した組み方のほうが小さい', () => {
+    const good = ['分析の前にストーリーラインと', '絵コンテを作る。', 'どんなグラフがあれば結論を', '言えるかを先に考える。'];
+    const bad = ['分析の前に', 'ストーリーラインと', '絵コンテを作る。どんな', 'グラフがあれば結論を', '言えるかを先に考える。'];
+    expect(wrapCost(good, mono())).toBeLessThan(wrapCost(bad, mono()));
   });
 });
 

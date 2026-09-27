@@ -365,15 +365,31 @@ function drawQuoteMark(ctx, mark, x, top, color) {
   ctx.fillText('“', x + mark.left, top + mark.ascent); // 墨の左端を本文の左端に
 }
 
-// 一文の組み（枠に収まるいちばん大きな大きさ）。
+// 一文の組み（枠に収まる大きさと改行）。いくつもの組み方を比べるので、同じ条件の結果は覚えておく
+// （写真を指で動かしている間は毎フレーム描き直すため）。
+const quoteLayoutCache = new Map();
 function layoutQuote(ctx, fonts, text, { maxWidth, maxHeight, sizes, lineHeight }) {
-  return fitQuote(text, {
+  const key = JSON.stringify([fonts.read, text, maxWidth, Math.round(maxHeight), sizes, lineHeight]);
+  const hit = quoteLayoutCache.get(key);
+  if (hit) return hit;
+  const fit = fitQuote(text, {
     maxWidth,
     maxHeight,
     sizes,
     lineHeight,
-    measureAt: (size) => measurer(ctx, `400 ${size}px ${fonts.read}`, 0.02),
+    measureAt: (size) => {
+      const m = measurer(ctx, `400 ${size}px ${fonts.read}`, 0.02);
+      const trail = Math.round(0.02 * size * 10) / 10; // 行末の字間は墨にならないので数えない
+      const memo = new Map();
+      return (s) => {
+        if (!memo.has(s)) memo.set(s, s ? Math.max(0, m(s) - trail) : 0);
+        return memo.get(s);
+      };
+    },
   });
+  if (quoteLayoutCache.size > 40) quoteLayoutCache.delete(quoteLayoutCache.keys().next().value);
+  quoteLayoutCache.set(key, fit);
+  return fit;
 }
 
 // 手描きの傍線（最後の行の下・文字より先に描いて文字の後ろに回す）。
@@ -702,13 +718,14 @@ function drawPhoto(ctx, o) {
   // 幕: 文字の後ろの明るさに合わせて濃さを決める（白い文字と 4.5:1 以上を目安に）。
   const a = scrimAlpha(bandLuminance(o.photo, place, W, H, top, bottom));
   const aFoot = scrimAlpha(bandLuminance(o.photo, place, W, H, footerTop, L.footerBaseline + 8));
+  // 幕は文字の塊の上端（引用符）より手前で決めた濃さに届かせる＝一文の 1 行目から白い文字が読める。
   const fade = H * 0.2;
   if (pos === 'bottom') {
-    drawScrim(ctx, W, H, theme.scrim, [[top - fade, 0], [top + lay.height * 0.25, a], [H, Math.max(a, aFoot)]]);
+    drawScrim(ctx, W, H, theme.scrim, [[top - fade, 0], [top - fade * 0.2, a], [H, Math.max(a, aFoot)]]);
   } else {
     const stops = pos === 'top'
-      ? [[0, a], [bottom, a], [bottom + fade, 0]]
-      : [[top - fade, 0], [top, a], [bottom, a], [bottom + fade, 0]];
+      ? [[0, a], [bottom + fade * 0.2, a], [bottom + fade, 0]]
+      : [[top - fade, 0], [top - fade * 0.2, a], [bottom + fade * 0.2, a], [bottom + fade, 0]];
     drawScrim(ctx, W, H, theme.scrim, stops);
     drawScrim(ctx, W, H, theme.scrim, [[footerTop - fade * 0.8, 0], [H, aFoot]]);
   }
@@ -765,7 +782,7 @@ export function drawShareCard(canvas, opts = {}) {
   if (style === 'photo' && !opts.photo) style = 'night';
   const theme = readShareTheme(style, { tone: opts.cover?.tone, title: opts.title });
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('この端末では画像を作れませんでした。');
+  if (!ctx) throw new Error('地を変えるか、もう一度お試しください。');
   const base = {
     ...opts, text, fonts, theme, style,
     seed: seedFrom(`${opts.seedKey || ''}|${text}`),
@@ -796,7 +813,7 @@ export function drawShareCard(canvas, opts = {}) {
 export function canvasToBlob(canvas) {
   return new Promise((resolve, reject) => {
     try {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('画像の書き出しに失敗しました。'))), 'image/png');
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('地を変えるか、もう一度お試しください。'))), 'image/png');
     } catch (e) {
       reject(e);
     }

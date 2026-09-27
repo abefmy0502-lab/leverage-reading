@@ -212,7 +212,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
     const canvas = canvasRef.current;
     if (!canvas || !chosen || !assets) return false;
     try {
-      if (DEMO_SHARE === 'fail') throw new Error('この端末では画像を作れませんでした。');
+      if (DEMO_SHARE === 'fail') throw new Error('地を変えるか、もう一度お試しください。');
       const r = drawShareCard(canvas, {
         line: chosen.text,
         page: Number.isFinite(chosen.pageNumber) ? chosen.pageNumber : null,
@@ -235,7 +235,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
       return true;
     } catch (e) {
       console.error('share card draw error', e);
-      setError(toMessage(e, '画像を作れませんでした。'));
+      setError(toMessage(e, '地を変えるか、もう一度お試しください。'));
       setStatus('error');
       return false;
     }
@@ -255,7 +255,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
         })
         .catch((e) => {
           if (keyRef.current !== key) return;
-          setError(toMessage(e, '画像を作れませんでした。'));
+          setError(toMessage(e, '地を変えるか、もう一度お試しください。'));
           setStatus('error');
         });
     }, 180);
@@ -443,8 +443,10 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           {/* プレビュー＝外に出る画像そのもの（写真のときは指で動かせる） */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
+            {/* 失敗したときは枠を隠して（canvas は残す＝地を変えるとその場で描き直せる）、全幅の ErrorMessage を出す */}
             <div
               style={{
+                display: status === 'error' ? 'none' : 'block',
                 position: 'relative', height: PREVIEW_H, aspectRatio: aspect, maxWidth: '100%',
                 borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'inset 0 0 0 1px var(--separator)',
                 background: effStyle === 'sticker' ? checker(16) : 'var(--fill)',
@@ -470,16 +472,16 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
                   <SkeletonBlock width="100%" height="100%" radius="var(--radius)" />
                 </div>
               )}
-              {status === 'error' && (
-                <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', display: 'flex', alignItems: 'center', background: 'var(--surface)' }}>
-                  <ErrorMessage
-                    title="画像を作れませんでした"
-                    description={error}
-                    actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); setRetry((n) => n + 1); } }]}
-                  />
-                </div>
-              )}
             </div>
+            {status === 'error' && (
+              <div style={{ alignSelf: 'stretch' }}>
+                <ErrorMessage
+                  title="画像を作れませんでした"
+                  description={error && !error.startsWith('画像を作れませんでした') ? error : undefined}
+                  actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); setRetry((n) => n + 1); } }]}
+                />
+              </div>
+            )}
             {canPan && (
               <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>指で動かす・2 本の指で拡大</p>
             )}
@@ -502,7 +504,10 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
             </button>
             {['paper', 'night', 'cover', 'sticker'].map((v) => (
               <button key={v} type="button" role="radio" aria-checked={effStyle === v} aria-label={STYLE_LABELS[v]} title={STYLE_LABELS[v]} onClick={() => setStyle(v)} style={swatchBtn}>
-                <span aria-hidden="true" style={swatchDot(v === 'sticker' ? checker(8) : swatchColor(v), effStyle === v)} />
+                {v === 'cover' && !assets?.cover
+                  // 表紙を読み込むまでは、表紙の色が分からないので骨組みの丸（代用の色を一瞬出さない）。
+                  ? <SkeletonBlock width={28} height={28} radius="var(--radius-full)" style={{ boxShadow: ring(effStyle === v) }} />
+                  : <span aria-hidden="true" style={swatchDot(v === 'sticker' ? checker(8) : swatchColor(v), effStyle === v)} />}
               </button>
             ))}
           </div>

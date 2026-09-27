@@ -738,7 +738,9 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
           ]}
         />
       )}
-      {/* 検索＋絞り込み＋並び順＋件数を 1 つのまとまりに。題名・説明文は置かない（親が題名を出す・DESIGN 原則 6）。 */}
+      {/* 検索＋絞り込み＋並び順＋件数を 1 つのまとまりに。題名・説明文は置かない（親が題名を出す・DESIGN 原則 6）。
+          1 件も無いときは探すものが無いので出さない（「学びを書く」の空の画面を一番上に）。 */}
+      {(loading || items.length > 0) && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <div style={{ position: 'relative' }}>
           <Search size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
@@ -782,6 +784,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
           </p>
         )}
       </div>
+      )}
 
       {/* List */}
       {loading ? (

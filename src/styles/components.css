@@ -712,6 +712,9 @@ select:not(.no-focus-ring):focus {
   color: var(--color-text-secondary);
   line-height: 1.5;
   margin: 0;
+  /* 文節で折り返す（「く／ださい。」のような切れ方をしない）。非対応の端末は通常どおり。 */
+  word-break: auto-phrase;
+  text-wrap: pretty;
 }
 .error-message-actions {
   display: flex;
@@ -1102,11 +1105,12 @@ body.keyboard-open .ai-input-area {
   color: var(--text-2);
   cursor: not-allowed;
 }
-/* ストリーミング中の「中止」ボタン。送信ボタンと同じ円形だが、
-   進行を止める破壊的アクションなので少しトーンを変える (落ち着いた
-   グレー系)。アイコンは ■ 停止記号。 */
+/* ストリーミング中の「中止」ボタン。送信ボタンと同じ場所・同じ円・同じ色
+   （送った直後に色が変わって別の部品に見えないように）。違いはアイコン
+   ■ 停止記号と aria-label だけ。 */
 .ai-input-area .send-btn.stop-btn {
-  background: var(--text-2);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .ai-input-area .send-btn.stop-btn:disabled {
   opacity: 1;
