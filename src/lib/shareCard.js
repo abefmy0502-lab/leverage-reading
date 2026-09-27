@@ -1,225 +1,390 @@
-// 🖼 共有できる引用カード（画像生成）
+// 🖼 一文カード（シェア画像）を canvas で描く。
 //
-// メモ（引用）を「美しい1枚の画像」にして保存・共有できるようにする。
-// 共有1枚ごとが無料マーケになる＝獲得の複利。SNS化はしない（1枚だけ外に出す）。
+// 「この本の一文」を主役に、雑誌の引用ページのように組む:
+//   引用符（アクセント色）→ 一文（明朝・大きく・行の長さをそろえる）→ 短い線 →
+//   小さな表紙＋『書名』著者 p.N → 下に Orime のロゴ文字とサイトの URL。
+// 読了日・メモ件数などの数字は入れない（2026-09-27 オーナー判断）。
 //
-// renderQuoteCardBlob({ quote, bookTitle, author, page }) → Promise<Blob>(PNG)
-//
-// Canvas で固定 1080×1350（縦長 4:5、Instagram / X 映え）を描く。
-// devicePixelRatio 非依存（常に 1080px 出力）。Noto Serif JP を待ってから描画し、
-// 失敗時は serif にフォールバック。例外は throw（呼び出し側が humanize）。
+// 色は tokens.css の --share-* を getComputedStyle で読む（canvas は var() を解決できない）。
+// 書体は --font-read / --font-ui の並びをそのまま使い、document.fonts.ready を待つ。
+// 大きさは幅 1080 固定（ストーリー 1080×1920 / 投稿 1080×1350）。端末の解像度に依存しない。
+// 例外は throw（呼び出し側が toMessage で整える）。
 
-const W = 1080;
-const H = 1350;
+import { FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss } from './shareCardLayout';
+import { paletteFor } from './coverPalette';
+import { apiUrl } from './apiUrl';
+import { SITE_URL } from './legalLinks';
 
-// クリーム / ブラウンの世界観（tokens.css と同系統）。
-// ※ canvas の fillStyle は CSS 変数 var(--*) を解決できないため、ここは
-//   必ずリテラル hex で持つこと（--c-card / --c-ink と同値）。
-const BG = '#fffdf8';
-const INK = '#3d362c'; // 本文ブラウン（= --c-ink）
-const SUB = '#8a7e6b'; // 書名・著者
-const FAINT = '#c9bfac'; // 枠・装飾
-const WORDMARK = '#a89e8c';
+export const SITE_LABEL = SITE_URL.replace(/^https?:\/\//, '');
 
-const SERIF_FALLBACK = 'Georgia, serif';
+// ---------------------------------------------------------------- トークン・書体
 
-// フォント確定を待つ。未ロードのまま描くと sans に化けるため、必要なウェイトを
-// 明示ロードする。失敗しても描画は続行（serif フォールバック）。
-async function ensureFonts() {
-  let ok = true;
+function cssVar(name) {
   try {
-    if (typeof document !== 'undefined' && document.fonts) {
-      await Promise.all([
-        document.fonts.load("400 40px 'Noto Serif JP'"),
-        document.fonts.load("700 64px 'Noto Serif JP'"),
-        document.fonts.load("900 64px 'Noto Serif JP'"),
-      ]).catch(() => { ok = false; });
-      await document.fonts.ready.catch(() => {});
-      // 実際に使えるか最終確認（環境によっては load 解決しても未準備のことがある）
-      try {
-        if (!document.fonts.check("700 64px 'Noto Serif JP'")) ok = false;
-      } catch {
-        ok = false;
-      }
-    } else {
-      ok = false;
-    }
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   } catch {
-    ok = false;
+    return '';
   }
-  return ok;
 }
 
-function serifFamily(useNoto, weight) {
-  return useNoto ? `${weight} __px 'Noto Serif JP', ${SERIF_FALLBACK}` : `${weight} __px ${SERIF_FALLBACK}`;
+// 'var(--cover-1a)' のような値をそのときの色に。
+function resolveVar(value) {
+  const m = /^var\((--[\w-]+)\)$/.exec(String(value || '').trim());
+  return m ? cssVar(m[1]) : value;
 }
 
-// font 文字列のサイズ部分を差し替えるヘルパ（__px をピクセルに置換）
-function fontAt(template, sizePx) {
-  return template.replace('__px', `${Math.round(sizePx)}px`);
-}
-
-// 与えられた幅に収まるよう、文字単位で行に折り返す（日本語は単語境界が無いため
-// measureText で 1 文字ずつ詰める。英単語の途中改行も許容＝引用は短文前提）。
-function wrapLines(ctx, text, maxWidth) {
-  const lines = [];
-  // 明示改行は尊重しつつ、各段落をワードラップ
-  const paragraphs = String(text).replace(/\r\n?/g, '\n').split('\n');
-  for (const para of paragraphs) {
-    if (para.length === 0) {
-      lines.push('');
-      continue;
-    }
-    let current = '';
-    for (const ch of para) {
-      const next = current + ch;
-      if (ctx.measureText(next).width > maxWidth && current.length > 0) {
-        lines.push(current);
-        current = ch;
-      } else {
-        current = next;
-      }
-    }
-    if (current.length > 0) lines.push(current);
+// 紙 / 夜 / 表紙の色。表紙の色は、表紙の画素から作った地（無ければ代用表紙の濃い方の色）。
+export function readShareTheme(style, { tone = null, title = '' } = {}) {
+  const key = style === 'night' ? 'night' : style === 'cover' ? 'cover' : 'paper';
+  const t = (n) => cssVar(`--share-${key}-${n}`);
+  if (key === 'cover') {
+    const [, b] = paletteFor(title);
+    return {
+      bg: tone ? rgbCss(tone) : (resolveVar(b) || '#5d3a22'),
+      ink: t('ink') || '#ffffff',
+      ink2: t('ink-2') || 'rgba(255,255,255,0.84)',
+      ink3: t('ink-3') || 'rgba(255,255,255,0.72)',
+      accent: t('accent') || 'rgba(255,255,255,0.6)',
+      shadow: t('shadow') || 'rgba(0,0,0,0.35)',
+      key,
+    };
   }
-  return lines;
+  return {
+    bg: t('bg'), ink: t('ink'), ink2: t('ink-2'), ink3: t('ink-3'), accent: t('accent'), shadow: t('shadow'), key,
+  };
 }
 
-export async function renderQuoteCardBlob({ quote, bookTitle, author, page } = {}) {
-  const body = (quote || '').trim();
-  if (!body) {
-    throw new Error('引用にする本文がありません。');
-  }
+// CSS の書体の並びから、最後の総称（serif / sans-serif）を外して、Linux・Android 向けの
+// 和文書体を足してから総称で閉じる（iOS はヒラギノが先に見つかるので影響しない）。
+function stack(varName, extra, generic) {
+  const raw = cssVar(varName) || generic;
+  const list = raw.split(',').map((s) => s.trim()).filter((s) => s && s !== generic && s !== 'system-ui');
+  return [...list, ...extra, generic].join(', ');
+}
 
-  const useNoto = await ensureFonts();
+export function fontStacks() {
+  return {
+    read: stack('--font-read', ['"IPAPMincho"', '"IPAMincho"', '"Noto Serif CJK JP"'], 'serif'),
+    ui: stack('--font-ui', ['"IPAPGothic"', '"Noto Sans CJK JP"'], 'sans-serif'),
+  };
+}
+
+async function ensureFonts(fonts, sample) {
+  try {
+    if (typeof document === 'undefined' || !document.fonts) return;
+    await Promise.all([
+      document.fonts.load(`400 64px ${fonts.read}`, sample),
+      document.fonts.load(`600 36px ${fonts.read}`, sample),
+      document.fonts.load(`600 32px ${fonts.ui}`, 'Orime'),
+    ]).catch(() => {});
+    await document.fonts.ready;
+  } catch {
+    /* 書体が確かめられなくても、並びの先頭から描ける */
+  }
+}
+
+// ---------------------------------------------------------------- 表紙
+
+// 表紙を canvas に描ける URL にする。外部の画像は自前の中継（/api/cover-image）経由。
+// data: / blob: / 同じサイトの画像はそのまま。
+export function coverImageSrc(url, { origin = (typeof location !== 'undefined' ? location.origin : '') } = {}) {
+  const u = String(url || '').trim();
+  if (!u) return null;
+  if (/^(data:image\/|blob:)/i.test(u)) return u;
+  if (u.startsWith('/') && !u.startsWith('//')) return u;
+  const https = u.replace(/^http:/i, 'https:');
+  if (!/^https:\/\//i.test(https)) return null;
+  try {
+    if (origin && new URL(https).origin === origin) return https;
+  } catch {
+    return null;
+  }
+  return apiUrl(`/api/cover-image?url=${encodeURIComponent(https)}`);
+}
+
+function loadImage(src, timeoutMs = 6000) {
+  return new Promise((resolve) => {
+    if (!src) { resolve(null); return; }
+    const img = new Image();
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    if (!/^data:/i.test(src)) img.crossOrigin = 'anonymous';
+    img.decoding = 'async';
+    img.onload = () => { clearTimeout(timer); finish(img.naturalWidth > 1 && img.naturalHeight > 1 ? img : null); };
+    img.onerror = () => { clearTimeout(timer); finish(null); };
+    img.src = src;
+  });
+}
+
+// 表紙の画素を少しだけ読む（汚れた canvas なら読めないので null）。
+function samplePixels(img) {
+  try {
+    const c = document.createElement('canvas');
+    c.width = 24; c.height = 36;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    const { data } = ctx.getImageData(0, 0, c.width, c.height);
+    const out = [];
+    for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 200) out.push([data[i], data[i + 1], data[i + 2]]);
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+// 表紙を読み込み、canvas に描けるか確かめる。描けない・無いときは image=null（代用表紙を描く）。
+export async function prepareCover(book) {
+  const img = await loadImage(coverImageSrc(book?.cover));
+  if (!img) return { image: null, tone: null };
+  const pixels = samplePixels(img);
+  if (!pixels) return { image: null, tone: null }; // 汚れる画像は描かない（書き出せなくなる）
+  return { image: img, tone: coverTone(pixels) };
+}
+
+// ---------------------------------------------------------------- 描画の部品
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function measurer(ctx, font) {
+  return (s) => { ctx.font = font; return ctx.measureText(s).width; };
+}
+
+// 行に収まらなければ末尾を「…」で切る。
+function ellipsize(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let s = Array.from(text);
+  while (s.length > 0 && ctx.measureText(`${s.join('')}…`).width > maxWidth) s = s.slice(0, -1);
+  return `${s.join('').replace(/[、。\s]+$/u, '')}…`;
+}
+
+function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts }) {
+  const r = Math.round(w * 0.035); // 本の形（DESIGN §4 の例外・角丸 4 相当）
+  ctx.save();
+  ctx.shadowColor = theme.shadow;
+  ctx.shadowBlur = Math.round(w * 0.22);
+  ctx.shadowOffsetY = Math.round(w * 0.07);
+  roundRectPath(ctx, x, y, w, h, r);
+  ctx.fillStyle = theme.bg;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, r);
+  ctx.clip();
+  if (cover?.image) {
+    const img = cover.image;
+    const s = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+    const dw = img.naturalWidth * s;
+    const dh = img.naturalHeight * s;
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+  } else {
+    // 代用表紙（アプリの表紙が無い本と同じ色の組・書名入り）。
+    const [a, b] = paletteFor(title).map(resolveVar);
+    const g = ctx.createLinearGradient(x, y, x + w, y + h);
+    g.addColorStop(0, a || '#7d4a2e');
+    g.addColorStop(1, b || '#5d3a22');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+    const size = Math.round(w * 0.13);
+    const font = `600 ${size}px ${fonts.read}`;
+    ctx.font = font;
+    ctx.fillStyle = cssVar('--on-cover') || '#ffffff';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    const pad = Math.round(w * 0.1);
+    const lines = wrapBalanced(title || '', w - pad * 2, measurer(ctx, font));
+    const maxLines = Math.max(1, Math.floor((h - pad * 2) / (size * 1.35)));
+    lines.slice(0, maxLines).forEach((l, i) => {
+      const text = i === maxLines - 1 && lines.length > maxLines ? ellipsize(ctx, `${l}…`, w - pad * 2) : l;
+      ctx.fillText(text, x + pad, y + pad + i * size * 1.35);
+    });
+  }
+  ctx.restore();
+
+  // ごく細い縁（表紙の白い部分が地に溶けないように）。
+  ctx.save();
+  roundRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, r);
+  ctx.strokeStyle = theme.key === 'paper' ? 'rgba(43,40,37,0.12)' : 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- 本体
+
+// 形ごとの寸法。ストーリーは Instagram などの上下の帯（約 250px）に文字をかけない。
+const LAYOUT = {
+  story: {
+    margin: 112, top: 300, bottom: 1560, footerBaseline: 1712,
+    mark: 168, sizes: [92, 84, 76, 70, 64, 60, 56, 52, 48, 44], coverW: 128, titleSize: 38, metaSize: 28,
+  },
+  post: {
+    margin: 104, top: 128, bottom: 1128, footerBaseline: 1262,
+    mark: 132, sizes: [76, 70, 64, 60, 56, 52, 48, 44, 40, 38], coverW: 112, titleSize: 34, metaSize: 26,
+  },
+};
+
+// line: 画像に入れる一文（clampLine 済みでなくてよい）/ page: ページ番号 / title・author: 書名・著者
+// cover: prepareCover() の結果 / style: 'paper' | 'night' | 'cover' / format: 'story' | 'post'
+// 戻り値: { blob, line }（line は実際に画像に入れた文＝共有の文にも同じものを使う）
+export async function renderLineCard({ line, page = null, title = '', author = '', cover = null, style = 'paper', format = 'story' } = {}) {
+  const { text } = clampLine(line);
+  if (!text) throw new Error('画像にする一文がありません。');
+  const { w: W, h: H } = FORMATS[format] || FORMATS.story;
+  const L = LAYOUT[format] || LAYOUT.story;
+  const fonts = fontStacks();
+  await ensureFonts(fonts, `${text}${title}${author}“`);
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    throw new Error('この端末では画像を生成できませんでした。');
+  if (!ctx) throw new Error('この端末では画像を作れませんでした。');
+  const theme = readShareTheme(style, { tone: cover?.tone, title });
+  const setSpacing = (em, size) => { if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(em * size * 10) / 10}px`; };
+
+  // 地
+  ctx.fillStyle = theme.bg;
+  ctx.fillRect(0, 0, W, H);
+  if (theme.key === 'cover') {
+    // 表紙の色の地は、下に向かってわずかに沈める（平板にしない）。
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, 'rgba(255,255,255,0.06)');
+    g.addColorStop(1, 'rgba(0,0,0,0.22)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
   }
 
+  const left = L.margin;
+  const contentW = W - L.margin * 2;
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
+
+  // 引用符の実寸（書体で位置が違うので、描く字の枠を測る）
+  const markFont = `400 ${L.mark}px ${fonts.read}`;
+  ctx.font = markFont;
+  const mm = ctx.measureText('“');
+  const markAscent = mm.actualBoundingBoxAscent || L.mark * 0.7;
+  const markDescent = mm.actualBoundingBoxDescent || -L.mark * 0.35;
+  const markH = Math.max(L.mark * 0.25, markAscent + markDescent);
+  const markGap = Math.round(L.mark * 0.26);
+
+  // 本の行（表紙＋書名・著者）の高さ
+  const coverW = L.coverW;
+  const coverH = Math.round(coverW * 1.45);
+  const ruleGap = Math.round(L.sizes[0] * 0.8);
+  const bookGap = 48;
+  const bookH = coverH;
+
+  // 一文: 枠に収まるいちばん大きな大きさ
+  const fixedH = markH + markGap + ruleGap + 3 + bookGap + bookH;
+  const quoteMaxH = (L.bottom - L.top) - fixedH;
+  const fit = fitQuote(text, {
+    maxWidth: contentW,
+    maxHeight: quoteMaxH,
+    sizes: L.sizes,
+    lineHeight: 1.62,
+    measureAt: (size) => {
+      const font = `400 ${size}px ${fonts.read}`;
+      return (s) => { ctx.font = font; setSpacing(0.02, size); return ctx.measureText(s).width; };
+    },
+  });
+  const quoteH = fit.lines.length * fit.lineHeight;
+  const totalH = fixedH + quoteH;
+  // 目で見た中心（数学の中心より少し上）に置く。
+  let y = L.top + Math.max(0, (L.bottom - L.top - totalH) * 0.44);
+
+  // 1. 引用符
+  ctx.font = markFont;
+  setSpacing(0, L.mark);
+  ctx.fillStyle = theme.accent;
+  ctx.fillText('“', left - (mm.actualBoundingBoxLeft ? -mm.actualBoundingBoxLeft : 0), y + markAscent);
+  y += markH + markGap;
+
+  // 2. 一文
+  ctx.font = `400 ${fit.size}px ${fonts.read}`;
+  setSpacing(0.02, fit.size);
+  ctx.fillStyle = theme.ink;
+  const ascent = fit.size * 0.88; // 行の箱の上から字の基線まで（明朝のおおよそ）
+  const half = (fit.lineHeight - fit.size) / 2;
+  fit.lines.forEach((ln, i) => {
+    ctx.fillText(ln, left, y + i * fit.lineHeight + half + ascent);
+  });
+  y += quoteH + ruleGap;
+
+  // 3. 短い線
+  ctx.fillStyle = theme.accent;
+  ctx.fillRect(left, y, 64, 3);
+  y += 3 + bookGap;
+
+  // 4. 表紙＋書名・著者・ページ
+  drawCover(ctx, { x: left, y, w: coverW, h: coverH, cover, title, theme, fonts });
+  const colX = left + coverW + 40;
+  const colW = W - L.margin - colX;
+  const titleFont = `600 ${L.titleSize}px ${fonts.read}`;
+  ctx.font = titleFont;
+  setSpacing(0.02, L.titleSize);
+  let titleLines = wrapBalanced(`『${title || '無題'}』`, colW, measurer(ctx, titleFont));
+  if (titleLines.length > 2) titleLines = [titleLines[0], ellipsize(ctx, `${titleLines[1]}${titleLines.slice(2).join('')}`, colW)];
+  const titleLH = Math.round(L.titleSize * 1.4);
+  const metaParts = [String(author || '').trim(), Number.isFinite(page) && page > 0 ? `p.${page}` : ''].filter(Boolean);
+  const metaLH = Math.round(L.metaSize * 1.5);
+  const colH = titleLines.length * titleLH + (metaParts.length ? 12 + metaLH : 0);
+  let cy = y + (coverH - colH) / 2;
+  ctx.fillStyle = theme.ink;
+  titleLines.forEach((tl) => {
+    ctx.font = titleFont;
+    setSpacing(0.02, L.titleSize);
+    ctx.fillText(tl, colX - L.titleSize * 0.5 * (tl.startsWith('『') ? 1 : 0), cy + titleLH * 0.78);
+    cy += titleLH;
+  });
+  if (metaParts.length) {
+    cy += 12;
+    const metaFont = `400 ${L.metaSize}px ${fonts.ui}`;
+    ctx.font = metaFont;
+    setSpacing(0.02, L.metaSize);
+    const authorText = ellipsize(ctx, metaParts[0] && !metaParts[0].startsWith('p.') ? metaParts[0] : '', colW - 120);
+    let mx = colX;
+    if (authorText) {
+      ctx.fillStyle = theme.ink2;
+      ctx.fillText(authorText, mx, cy + metaLH * 0.72);
+      mx += ctx.measureText(authorText).width + 20;
+    }
+    const pageText = metaParts.find((p) => p.startsWith('p.'));
+    if (pageText) {
+      ctx.fillStyle = theme.ink3;
+      ctx.fillText(pageText, mx, cy + metaLH * 0.72);
+    }
+  }
+
+  // 5. 下: ロゴ文字とサイト
+  const markSize = format === 'post' ? 32 : 36;
+  ctx.font = `700 ${markSize}px ${fonts.ui}`;
+  setSpacing(0.04, markSize);
+  ctx.fillStyle = theme.ink;
+  ctx.fillText('Orime', left, L.footerBaseline);
+  ctx.font = `400 ${L.metaSize - 2}px ${fonts.ui}`;
+  setSpacing(0.02, L.metaSize - 2);
+  ctx.fillStyle = theme.ink3;
+  ctx.textAlign = 'right';
+  ctx.fillText(SITE_LABEL, W - L.margin, L.footerBaseline);
   ctx.textAlign = 'left';
 
-  // 背景（クリーム）
-  ctx.fillStyle = BG;
-  ctx.fillRect(0, 0, W, H);
-
-  // 控えめな内枠
-  const margin = 72;
-  ctx.strokeStyle = FAINT;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(margin, margin, W - margin * 2, H - margin * 2);
-
-  // 上部に控えめな引用符（装飾）
-  ctx.fillStyle = FAINT;
-  ctx.font = fontAt(serifFamily(useNoto, 900), 150);
-  ctx.textAlign = 'center';
-  ctx.fillText('“', W / 2, margin + 190);
-
-  // 本文：枠内に収まるフォントサイズを探索しつつ、長すぎる場合は末尾を省略。
-  const contentLeft = margin + 56;
-  const contentRight = W - margin - 56;
-  const maxWidth = contentRight - contentLeft;
-  // 本文を描ける縦の領域（引用符の下〜フッターの上）
-  const bodyTop = margin + 260;
-  const bodyBottom = H - margin - 230;
-  const bodyHeight = bodyBottom - bodyTop;
-
-  // フォントサイズを段階的に下げて、行数 × 行高が領域に収まる最大サイズを採用。
-  const SIZES = [72, 64, 58, 52, 46, 42, 38, 34];
-  let chosen = { size: SIZES[SIZES.length - 1], lines: [], lineHeight: 0 };
-  for (const size of SIZES) {
-    ctx.font = fontAt(serifFamily(useNoto, 700), size);
-    const lineHeight = Math.round(size * 1.7);
-    const lines = wrapLines(ctx, body, maxWidth);
-    if (lines.length * lineHeight <= bodyHeight) {
-      chosen = { size, lines, lineHeight };
-      break;
-    }
-    // 最小サイズでも収まらなければ、この最小サイズで行数を切り詰める（後段で省略）
-    chosen = { size, lines, lineHeight };
-  }
-
-  // 領域に収まる最大行数で切り詰め、溢れたら末尾に「…」を付ける
-  let { lines, lineHeight, size } = chosen;
-  ctx.font = fontAt(serifFamily(useNoto, 700), size);
-  const maxLines = Math.max(1, Math.floor(bodyHeight / lineHeight));
-  if (lines.length > maxLines) {
-    lines = lines.slice(0, maxLines);
-    // 最終行に … を収める（必要なら末尾文字を削る）
-    let last = lines[maxLines - 1];
-    while (last.length > 0 && ctx.measureText(last + '…').width > maxWidth) {
-      last = last.slice(0, -1);
-    }
-    lines[maxLines - 1] = (last + '…');
-  }
-
-  // 本文を縦中央寄せで描画（ブラウン）
-  ctx.fillStyle = INK;
-  ctx.textAlign = 'center';
-  const totalTextHeight = lines.length * lineHeight;
-  let y = bodyTop + (bodyHeight - totalTextHeight) / 2 + lineHeight * 0.78;
-  for (const line of lines) {
-    ctx.fillText(line, W / 2, y);
-    y += lineHeight;
-  }
-
-  // 区切りの細線
-  const footerY = H - margin - 168;
-  ctx.strokeStyle = FAINT;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(W / 2 - 60, footerY);
-  ctx.lineTo(W / 2 + 60, footerY);
-  ctx.stroke();
-
-  // 書名 / 著者 / ページ（下部に小さく）
-  ctx.textAlign = 'center';
-  ctx.fillStyle = SUB;
-  const titleText = (bookTitle || '').trim();
-  if (titleText) {
-    ctx.font = fontAt(serifFamily(useNoto, 700), 32);
-    let t = titleText;
-    while (t.length > 0 && ctx.measureText('『' + t + '』').width > maxWidth) {
-      t = t.slice(0, -1);
-    }
-    const ellip = t.length < titleText.length ? '…' : '';
-    ctx.fillText('『' + t + ellip + '』', W / 2, footerY + 56);
-  }
-
-  const metaParts = [];
-  if ((author || '').trim()) metaParts.push((author || '').trim());
-  if (page != null && page !== '' && Number.isFinite(Number(page))) metaParts.push(`p.${page}`);
-  if (metaParts.length > 0) {
-    ctx.font = fontAt(serifFamily(useNoto, 400), 26);
-    let meta = metaParts.join('　/　');
-    while (meta.length > 0 && ctx.measureText(meta).width > maxWidth) {
-      meta = meta.slice(0, -1);
-    }
-    ctx.fillText(meta, W / 2, footerY + 100);
-  }
-
-  // ワードマーク「Orime」（控えめ・最下部）
-  ctx.font = fontAt(serifFamily(useNoto, 700), 30);
-  ctx.fillStyle = WORDMARK;
-  ctx.fillText('Orime', W / 2, H - margin - 36);
-
-  // PNG Blob 化
   const blob = await new Promise((resolve, reject) => {
     try {
-      canvas.toBlob((b) => {
-        if (b) resolve(b);
-        else reject(new Error('画像の書き出しに失敗しました。'));
-      }, 'image/png');
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('画像の書き出しに失敗しました。'))), 'image/png');
     } catch (e) {
       reject(e);
     }
   });
-  return blob;
+  return { blob, line: text };
 }
-
-export default renderQuoteCardBlob;

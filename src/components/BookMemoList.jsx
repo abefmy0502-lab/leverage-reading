@@ -11,8 +11,8 @@ import { LIMITS } from '../lib/limits';
 import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
-import ShareCardModal from './ShareCardModal';
-import { BookOpen, PencilLine, Clock, Quote, Pencil, Copy, Image, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
+import ShareSheet from './ShareSheet';
+import { BookOpen, PencilLine, Clock, Quote, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
 import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 
 // SPEC §2（2026-09-26）: 「カード｜まとめ」の切替タブと、二段の並び替え・引用チップ・
@@ -161,7 +161,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 }
 
 // afterList: メモ一覧のすぐ下（「この本のまとめ」の上）に置く要素（本の詳細の「この本に相談する」・SPEC §2 の並び）。
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, afterList = null }) {
+// onShareMemo(memo): 「この一文をシェア」を親（本の詳細）の一文シェアのシートで開く。無ければこの一覧の中で開く。
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   const [quoteOnly, setQuoteOnly] = useState(false);
@@ -221,15 +222,16 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     }
   };
 
-  // 🖼 引用カード（画像）を生成するモーダルを開く。本文が空のメモは導線が出ない
-  // ので（コピー同様）ここでは到達しない想定だが、念のためガードする。
+  // 🖼 この一文をシェア（一文カードのシートを、このメモを選んだ状態で開く）。本文が空のメモは
+  // 導線が出ないので（コピー同様）ここでは到達しない想定だが、念のためガードする。
   const handleShare = (memo) => {
     if (!(memo?.text || '').trim()) {
-      toast.error('共有できる本文がありません。');
+      toast.error('シェアできる本文がありません。');
       return;
     }
     haptic.light();
-    setShareMemo(memo);
+    if (onShareMemo) onShareMemo(memo);
+    else setShareMemo(memo);
   };
 
   // 🎯 このメモを、その場で行動に変える（メモ本文＋ページを起点に紐づけ）。
@@ -486,7 +488,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
               ? [{ label: '行動にする', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMakeAction(memoMenu.memo) }]
               : []),
             ...((memoMenu.memo?.text || '').trim()
-              ? [{ label: '画像で共有', icon: <Image size={16} aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]
+              ? [{ label: 'この一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]
               : []),
             { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => handleDelete(memoMenu.memo) },
           ]}
@@ -508,10 +510,10 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       )}
 
       {shareMemo && (
-        <ShareCardModal
-          memo={shareMemo}
-          bookTitle={bookTitle}
-          author={bookAuthor}
+        <ShareSheet
+          book={{ id: bookId, title: bookTitle, author: bookAuthor }}
+          memos={memos}
+          initialMemoId={shareMemo.id}
           onClose={() => setShareMemo(null)}
         />
       )}

@@ -56,8 +56,20 @@ let backgroundAsk = null; // { questionAt, done, finishedAt, leftWhileRunning, p
 // 相談の画面を離れて（下のタブ・上のサブタブを切り替えて）戻ってきたときは、同じ会話と
 // 同じ相談相手のまま続ける。新しい会話になるのは、アプリを開き直したとき（再読み込み）と
 // 「新しい相談をはじめる」を押したときだけ。画面を作り直しても消えない場所に覚えておく。
-// { userId, clearedAt, scopeIds, messages, scrollTop }
+// { userId, clearedAt, scopeIds, answerMode, messages, scrollTop }
 let session = null;
+
+// 📚 答え方（2026-09-27）: 'fused'＝まとめて（選んだ本の考え方を合わせて 1 つの答えに・既定）/
+//   'perbook'＝本ごとに（本ごとの視点を並べてくらべる）。見る人ごとの好みなので端末にも覚える。
+const ANSWER_MODE_KEY = 'brain-answer-mode';
+const ANSWER_MODES = [
+  { id: 'fused', label: 'まとめて', sub: '選んだ本の考え方を合わせて、1 つの答えに' },
+  { id: 'perbook', label: '本ごとに', sub: '本ごとの視点を並べて、くらべる' },
+];
+const answerModeLabel = (id) => (ANSWER_MODES.find((m) => m.id === id) || ANSWER_MODES[0]).label;
+const loadAnswerMode = () => {
+  try { return localStorage.getItem(ANSWER_MODE_KEY) === 'perbook' ? 'perbook' : 'fused'; } catch { return 'fused'; }
+};
 // 境界（clearedAt）が決まる前に離れたときは、覚えていないのと同じ扱い（初めて開いたときと同じ手順）。
 const sessionFor = (userId) => (session && userId && session.userId === userId && session.clearedAt !== undefined ? session : null);
 const rememberSession = (userId, patch) => {
@@ -341,6 +353,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [scopeIds, setScopeIds] = useState(() => (resumed ? resumed.scopeIds : []));
   useEffect(() => { rememberSession(user?.id, { scopeIds }); }, [scopeIds, user?.id]);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
+  // 📚 答え方（まとめて / 本ごとに）。相談相手が 1 冊のときは「まとめて」で答える（並べる本が無い）。
+  const [answerMode, setAnswerMode] = useState(() => (resumed?.answerMode === 'perbook' || resumed?.answerMode === 'fused' ? resumed.answerMode : loadAnswerMode()));
+  useEffect(() => {
+    rememberSession(user?.id, { answerMode });
+    try { localStorage.setItem(ANSWER_MODE_KEY, answerMode); } catch { /* ignore */ }
+  }, [answerMode, user?.id]);
+  const [modeSheetOpen, setModeSheetOpen] = useState(false);
+  const modeApplies = scopeIds.length !== 1;
   // 絞った本のメモの件数（上部の「〜件から答えます」を相談相手に合わせる）
   const [scopeMemoCount, setScopeMemoCount] = useState(null);
   useEffect(() => {
@@ -705,6 +725,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (freeMode && freeRemaining <= 0) { openPaywall('free_used'); return; }
     const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
     const askScopeLabel = scopeLabelFor(askBookIds, books);
+    const askMode = opts.mode || (askBookIds.length === 1 ? 'fused' : answerMode);
 
     setBusy(true);
     setAborting(false);
