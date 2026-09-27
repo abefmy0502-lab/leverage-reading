@@ -9,6 +9,9 @@
 //      delete the auth.users entry (service_role required for that final step).
 //
 // 見た目は DESIGN.md のトークンのみ（iOS「設定」風: グループ見出し＋カード＋44 以上の行）。
+// 形は下から上がる全画面のシート（2026-09-27〜。以前の中央のモーダルは、枠・カード・本文の余白が
+// 三重になり本文の幅が狭かった）。面は「上に重なるものほど明るく」（DESIGN §4）: 明るい画面は
+// シート --bg ＋カード --surface、暗い画面はシート --surface ＋カード --fill。
 // 塗りの主ボタンは「その状態で一番大事な 1 つ」だけ（未契約時の購入/入手）。
 // 削除の塗りボタン（btnDanger）は退会の最終確定だけに使う。
 
@@ -29,8 +32,9 @@ import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
 import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
 import { isNative, purchasePlan, openManageSubscriptions, APP_PLAN_LABELS, getStoreLabels } from '../lib/iap';
-import { btnPrimary, btnGhost, btnDanger, input as uiInput } from '../styles/ui';
-import { X as IcClose, ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
+import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
+import { SkeletonBlock } from './Skeleton';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
   isPushSupported,
@@ -50,6 +54,7 @@ import {
   unsubscribeNativePush,
 } from '../lib/nativePush';
 
+// 下から上がる全画面のシート。上端だけステータスバーぶん空けて、後ろの画面が少し見える（iOS のシート）。
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
@@ -58,52 +63,58 @@ const overlayStyle = {
   WebkitBackdropFilter: 'var(--backdrop-blur)',
   backdropFilter: 'var(--backdrop-blur)',
   display: 'flex',
-  alignItems: 'center',
+  alignItems: 'flex-end',
   justifyContent: 'center',
-  // 中央に浮くモーダルなので、セーフエリアは外側の余白で受ける（ヘッダーには足さない）。
-  padding: 'max(var(--space-4), env(safe-area-inset-top, 0px)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom, 0px))',
+  paddingTop: 'calc(env(safe-area-inset-top, 0px) + var(--space-3))',
   fontFamily: 'var(--font-ui)',
+  animation: 'leverage-fade-in .15s ease',
 };
 
-// モーダル本体は --bg（iOS「設定」のグループ背景）、中のカードは --surface。
-// 暗い画面では影が消えるので、縁は --separator の枠で見せる。
+// シートの面と中のカードの面は、明暗で重ね方が変わるので CSS 変数で切り替える（下の SHEET_CSS）。
 const modalStyle = {
-  background: 'var(--bg)',
-  border: '1px solid var(--separator)',
-  borderRadius: 'var(--radius)',
-  width: 'min(440px, 100%)',
-  maxHeight: 'min(85vh, 85dvh)',
+  background: 'var(--settings-sheet-bg)',
+  borderTopLeftRadius: 'var(--radius)',
+  borderTopRightRadius: 'var(--radius)',
+  width: 'min(560px, 100%)',
+  height: '100%',
   display: 'flex',
   flexDirection: 'column',
   boxShadow: 'var(--shadow-overlay)',
   overflow: 'hidden',
+  animation: 'leverage-sheet-up .25s cubic-bezier(0.2,0.9,0.3,1)',
 };
+
+const SHEET_CSS = `
+.lvg-settings-sheet { --settings-sheet-bg: var(--bg); --settings-card: var(--surface); }
+@media (prefers-color-scheme: dark) {
+  :root[data-dark-ready] .lvg-settings-sheet { --settings-sheet-bg: var(--surface); --settings-card: var(--fill); }
+}`;
 
 const headerStyle = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
-  padding: 'var(--space-2) var(--space-2) var(--space-2) var(--space-4)',
+  padding: '0 var(--space-4) var(--space-2)',
   borderBottom: '1px solid var(--separator)',
 };
 
-const closeBtnStyle = {
+// 右上の「完了」（設定はその場で効くので、閉じる＝完了。DESIGN §5 のシート）。
+const doneBtnStyle = {
   background: 'none',
   border: 'none',
-  color: 'var(--text-2)',
+  color: 'var(--accent)',
   cursor: 'pointer',
-  width: 44,
-  height: 44,
+  minWidth: 44,
+  minHeight: 44,
   flexShrink: 0,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
   fontFamily: 'inherit',
+  fontSize: 'var(--text-body)',
+  fontWeight: 600,
   padding: 0,
 };
 
 const bodyStyle = {
-  padding: 'var(--space-4) var(--space-4) var(--space-6)',
+  padding: 'var(--space-4) var(--space-4) calc(var(--space-8) + env(safe-area-inset-bottom, 0px))',
   overflowY: 'auto',
   flex: 1,
   WebkitOverflowScrolling: 'touch',
@@ -115,7 +126,7 @@ const bodyStyle = {
 
 // カード＝行を縦に並べる器。左右 16 の内側余白、上下は各行が持つ。
 const groupCardStyle = {
-  background: 'var(--surface)',
+  background: 'var(--settings-card)',
   border: '1px solid var(--separator)',
   borderRadius: 'var(--radius)',
   padding: '0 var(--space-4)',
@@ -767,41 +778,28 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     '通知がオフになっています。端末の「設定 → 通知」から Orime の通知を許可すると受け取れます。'
   ) : null;
 
-  const legalLinkStyle = {
-    fontSize: 'var(--text-meta)',
-    color: 'var(--text-2)',
-    textDecoration: 'underline',
-    display: 'inline-flex',
-    alignItems: 'center',
-    minHeight: 44,
-    padding: '0 var(--space-2)',
-  };
+  // 規約・お問い合わせは文字ボタン（DESIGN §5 の btnLink。脇役でも色は変えず、並びと位置で控えめに）。
+  const legalLinkStyle = { ...btnLink, textDecoration: 'none' };
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="アカウント設定" onClick={onClose}>
-      <div ref={trapRef} style={modalStyle} onClick={(e) => e.stopPropagation()}>
+      <style>{SHEET_CSS}</style>
+      <div ref={trapRef} className="lvg-settings-sheet" style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <div aria-hidden="true" style={{ padding: 'var(--space-2) 0 var(--space-1)' }}>
+          <div className="lvg-sheet-handle" />
+        </div>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, lineHeight: 1.3 }}>アカウント設定</h2>
-          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><IcClose size={22} aria-hidden="true" /></button>
+          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, lineHeight: 1.3 }}>アカウント設定</h2>
+          <button type="button" style={doneBtnStyle} onClick={onClose}>完了</button>
         </div>
 
         <div style={bodyStyle}>
+          {/* 上はメールアドレスだけ。ログアウトは下の「アカウント」の欄（削除の上）に置く。 */}
           <Group ariaLabel="ログイン中のアカウント">
             <div style={{ padding: 'var(--space-3) 0' }}>
               <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>ログイン中</p>
               <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{user?.email || '(未取得)'}</p>
             </div>
-            {/* ログアウトはここが唯一の導線。以前は退会ボタンしか無く、アカウントを
-                切り替えたい人が行き止まりだった。 */}
-            <button
-              type="button"
-              style={{ ...rowButtonStyle, ...divider, color: 'var(--accent)', fontSize: 'var(--text-body)' }}
-              onClick={async () => {
-                try { await signOut(); onClose?.(); } catch { toast.error('ログアウトに失敗しました。'); }
-              }}
-            >
-              ログアウト
-            </button>
           </Group>
 
           {/* 運営（管理者のみ表示） */}
@@ -817,8 +815,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           {/* ── プラン・お支払い ── */}
           <Group label="プラン・お支払い">
             {subLoading ? (
-              <div style={{ padding: 'var(--space-3) 0' }}>
-                <p style={noteStyle}>確認中…</p>
+              <div role="status" aria-label="契約の状態を確認しています" style={{ padding: 'var(--space-3) 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                <SkeletonBlock width="40%" height="var(--text-body)" radius="var(--radius)" />
+                <SkeletonBlock width="70%" height="var(--text-meta)" radius="var(--radius)" />
               </div>
             ) : isActive ? (
               <>
@@ -837,22 +836,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                         ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
                         : 'App で購入した場合、解約は iPhone の「設定」→ 名前 →「サブスクリプション」から、いつでもできます。データは保持されます。'}
                   </p>
-                  {/* 管理ボタンを出せない契約状態では、探させずにその場で連絡導線を置く
-                      （旧: 「画面下部のお問い合わせから」と下端リンクを自力で
-                      探させる行き止まりだった）。 */}
-                  {!isNative && !subscription?.stripeCustomerId && (
-                    <a
-                      href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更の相談')}`}
-                      style={{ ...btnGhost, textDecoration: 'none', boxSizing: 'border-box' }}
-                    >
-                      解約・変更について問い合わせる
-                    </a>
-                  )}
                   {isNative ? (
                     <button
                       type="button"
                       aria-label="サブスクリプションを管理する"
-                      style={{ ...btnGhost, opacity: billingBusy ? 0.6 : 1 }}
+                      style={billingBusy ? btnGhostOff : btnGhost}
                       disabled={billingBusy}
                       onClick={handleManageBilling}
                     >
@@ -862,7 +850,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     <button
                       type="button"
                       aria-label="プランを管理する"
-                      style={{ ...btnGhost, opacity: billingBusy ? 0.6 : 1 }}
+                      style={billingBusy ? btnGhostOff : btnGhost}
                       disabled={billingBusy}
                       onClick={handleManageBilling}
                     >
@@ -870,6 +858,18 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     </button>
                   ) : null}
                 </div>
+                {/* 管理ボタンを出せない契約状態では、探させずにその場で連絡導線を置く
+                    （旧: 「画面下部のお問い合わせから」と下端リンクを自力で
+                    探させる行き止まりだった）。一覧の行として置く（枠のボタンにしない）。 */}
+                {!isNative && !subscription?.stripeCustomerId && (
+                  <a
+                    href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更の相談')}`}
+                    style={{ ...rowButtonStyle, ...divider, textDecoration: 'none', boxSizing: 'border-box' }}
+                  >
+                    <span style={{ ...rowTitleStyle, flex: 1 }}>解約・変更の相談</span>
+                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  </a>
+                )}
               </>
             ) : isNative ? (
               <div style={blockStyle}>
@@ -880,7 +880,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   <button
                     type="button"
                     aria-label={`${planLabels.annual.price} で契約（おすすめ）`}
-                    style={{ ...btnPrimary, flexDirection: 'column', gap: 'var(--space-1)', height: 'auto', paddingTop: 'var(--space-3)', paddingBottom: 'var(--space-3)', opacity: billingBusy ? 0.6 : 1 }}
+                    style={{ ...(billingBusy ? btnPrimaryOff : btnPrimary), flexDirection: 'column', gap: 'var(--space-1)', height: 'auto', paddingTop: 'var(--space-3)', paddingBottom: 'var(--space-3)' }}
                     disabled={billingBusy}
                     onClick={() => handleUpgrade('annual')}
                   >
@@ -891,13 +891,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     type="button"
                     aria-label={`${planLabels.monthly.price} で契約`}
                     style={{
-                      ...btnGhost,
+                      ...(billingBusy ? btnGhostOff : btnGhost),
                       flexDirection: 'column',
                       gap: 'var(--space-1)',
                       height: 'auto',
                       paddingTop: 'var(--space-3)',
                       paddingBottom: 'var(--space-3)',
-                      opacity: billingBusy ? 0.6 : 1,
                     }}
                     disabled={billingBusy}
                     onClick={() => handleUpgrade('monthly')}
@@ -955,7 +954,10 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           {onOpenImport && (
             <Group label="取り込む">
               <button type="button" style={rowButtonStyle} onClick={onOpenImport}>
-                <span style={{ ...rowTitleStyle, flex: 1 }}>ほかのアプリから取り込む（ブクログ・Kindle）</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ ...rowTitleStyle, display: 'block' }}>ほかのアプリから取り込む</span>
+                  <span style={{ ...rowDescStyle, display: 'block' }}>ブクログ・Kindle</span>
+                </span>
                 <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
             </Group>
@@ -1032,6 +1034,17 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               </button>
             </div>
 
+            {/* ログアウト（アカウントを切り替えたい人の導線・削除のすぐ上）。 */}
+            <button
+              type="button"
+              style={{ ...rowButtonStyle, ...divider, color: 'var(--accent)', fontSize: 'var(--text-body)' }}
+              onClick={async () => {
+                try { await signOut(); onClose?.(); } catch { toast.error('ログアウトに失敗しました。'); }
+              }}
+            >
+              ログアウト
+            </button>
+
             {/* アカウント削除 */}
             <div ref={deleteRef} style={{ ...blockStyle, ...divider }} role="group" aria-label="アカウント削除">
               <div>
@@ -1099,7 +1112,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                           <button
                             type="button"
                             aria-label="アカウントを完全に削除"
-                            style={{ ...btnDanger, flex: 1, opacity: deleting || !confirmMatches ? 0.5 : 1 }}
+                            // 一致するまでは押せない見た目（薄くしない・DESIGN §5）。削除中は塗りのまま文言で示す。
+                            style={{ ...(confirmMatches ? btnDanger : btnPrimaryOff), flex: 1, opacity: 1 }}
                             disabled={deleting || !confirmMatches}
                             onClick={handleDelete}
                           >

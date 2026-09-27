@@ -69,27 +69,68 @@ function ctxRoundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// 1 文字ずつ測って折り返す（和文用）。最大行数を超えたら末尾を「…」。
+// 和文の折り返し。文字ごとではなく「文節のかたまり」で折り返し、かな 1 文字や句読点が
+// 行頭に取り残されないようにする。
+//   1. Intl.Segmenter（語の区切り）で分け、無ければ 1 文字ずつ
+//   2. 句読点・閉じ括弧・小書きのかな・助詞などのかな 1〜2 文字は前のかたまりに、開き括弧は次へくっつける
+//   3. かたまりごとに詰め、1 つで幅を超えるときだけ文字で折る（そのときも行頭禁則を守る）
+// 最大行数を超えたら末尾を「…」。
+const NO_LINE_START = /^[、。，．・：；？！ー」』）】〉》ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ々…]/;
+const NO_LINE_END = /[「『（【〈《]$/;
+const SHORT_KANA = /^[ぁ-ゖ]{1,2}$/;
+
+function segmentJa(text) {
+  let parts;
+  try {
+    const seg = new Intl.Segmenter('ja', { granularity: 'word' });
+    parts = Array.from(seg.segment(text), (x) => x.segment);
+  } catch {
+    parts = Array.from(text);
+  }
+  const chunks = [];
+  parts.forEach((p) => {
+    const prev = chunks[chunks.length - 1];
+    if (prev && (NO_LINE_START.test(p) || SHORT_KANA.test(p) || NO_LINE_END.test(prev))) {
+      chunks[chunks.length - 1] = prev + p;
+    } else {
+      chunks.push(p);
+    }
+  });
+  return chunks;
+}
+
 function wrapLines(ctx, text, maxW, maxLines) {
+  const fits = (s) => ctx.measureText(s).width <= maxW;
   const lines = [];
   let line = '';
-  for (const ch of text) {
-    if (ctx.measureText(line + ch).width > maxW) {
-      lines.push(line);
+  const push = (s) => { lines.push(s); };
+  for (const chunk of segmentJa(text)) {
+    if (lines.length >= maxLines) break;
+    if (fits(line + chunk)) { line += chunk; continue; }
+    if (line) { push(line); line = ''; if (lines.length >= maxLines) break; }
+    if (fits(chunk)) { line = chunk; continue; }
+    // かたまり 1 つで幅を超える: 文字で折る（行頭に句読点・小書きのかなを置かない）
+    for (const ch of chunk) {
+      if (fits(line + ch) || !line) { line += ch; continue; }
+      if (NO_LINE_START.test(ch)) { line += ch; continue; } // ぶら下げ
+      push(line);
       line = ch;
-      if (lines.length === maxLines) break;
-    } else {
-      line += ch;
+      if (lines.length >= maxLines) break;
     }
   }
-  if (lines.length < maxLines && line) lines.push(line);
-  if (lines.length === maxLines && lines.join('').length < text.length) {
-    lines[maxLines - 1] = `${lines[maxLines - 1].slice(0, -1)}…`;
+  if (lines.length < maxLines && line) push(line);
+  const out = lines.slice(0, maxLines);
+  if (out.join('').length < text.length) {
+    let last = out[out.length - 1] || '';
+    while (last && !fits(`${last}…`)) last = last.slice(0, -1);
+    out[out.length - 1] = `${last}…`;
   }
-  return lines;
+  return out;
 }
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif';
+// 読む文章の書体はトークン（--font-read）の実際の値を使う（canvas は CSS 変数を読めないため）。
+const READ_FONT = () => cssVar('--font-read', '"Hiragino Mincho ProN", "YuMincho", "Yu Mincho", "Noto Serif JP", serif');
 
 // メモのカード（影つき・角丸・透過）。textInset は左側が本体に隠れるカード用の余白（割合）。
 function makeCardTexture(memo, textInset = 0) {
@@ -103,7 +144,6 @@ function makeCardTexture(memo, textInset = 0) {
   const surface = cssVar('--surface', '#fffefb');
   const text = cssVar('--text', '#2b2825');
   const text2 = cssVar('--text-2', '#5f5a53');
-  const accent = cssVar('--accent', '#8a4b2a');
   const fill = cssVar('--fill', '#efece6');
   const sep = cssVar('--separator', '#dcd7ce');
   ctx.save();
@@ -122,8 +162,9 @@ function makeCardTexture(memo, textInset = 0) {
   const left = PAD + 36 + W * textInset;
   const innerW = W - 72 - W * textInset;
   ctx.textBaseline = 'top';
-  ctx.font = `700 30px ${FONT}`;
-  ctx.fillStyle = accent;
+  // 書名は押せる場所ではないので、アクセント色ではなく本文色・600。
+  ctx.font = `600 30px ${FONT}`;
+  ctx.fillStyle = text;
   const title = wrapLines(ctx, memo.title, innerW - 110, 1)[0];
   ctx.fillText(title, left, PAD + 34);
   const tw = ctx.measureText(title).width;
@@ -134,9 +175,10 @@ function makeCardTexture(memo, textInset = 0) {
   ctx.fill();
   ctx.fillStyle = text2;
   ctx.fillText(memo.page, left + tw + 30, PAD + 38);
-  ctx.font = `400 32px ${FONT}`;
+  // メモ本文は「読む文章」なので明朝（--font-read）で、UI より 1 段大きく。
+  ctx.font = `400 34px ${READ_FONT()}`;
   ctx.fillStyle = text;
-  wrapLines(ctx, memo.text, innerW, 3).forEach((l, i) => ctx.fillText(l, left, PAD + 98 + i * 50));
+  wrapLines(ctx, memo.text, innerW, 3).forEach((l, i) => ctx.fillText(l, left, PAD + 98 + i * 54));
 
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;

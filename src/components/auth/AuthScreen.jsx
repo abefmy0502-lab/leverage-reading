@@ -4,16 +4,18 @@ import { useAuth } from '../../hooks/useAuth';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { LIMITS, validatePassword } from '../../lib/limits';
 import { signInWithApple, isNativeApple, isAppleSignInAvailable } from '../../lib/appleAuth';
-import { btnPrimary as uiBtnPrimary, btnText, input } from '../../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink as uiBtnLink, input } from '../../styles/ui';
 import { isNative } from '../../lib/iap';
 import { MailCheck } from 'lucide-react';
 
 // ボタン正典（styles/ui.js）に統一。初対面画面のボタンだけ radius/weight が
 // 微妙に別物だと第一印象で「寄せ集め感」が出るため。
 const btnPrimary = { ...uiBtnPrimary, width: '100%' };
+// 押せない主ボタン（同意前など）。薄くせず、面と文字の色で示す（DESIGN §5）。
+const btnPrimaryOff = { ...uiBtnPrimaryOff, width: '100%' };
 
-// 文字だけのボタン（DESIGN §5「文字」＝リンク風・--accent）。補助リンクなので文字は --text-sub。
-const btnLink = { ...btnText, fontSize: 'var(--text-sub)', minHeight: 44 };
+// 文字ボタン（DESIGN §5「文字」＝ui.js の btnLink・--accent・15/600・高さ 44）。
+const btnLink = uiBtnLink;
 
 // 入力欄の正典（ui.js の input: 角丸 12・枠 --border・高さ 48）。
 const inp = { ...input, marginBottom: 'var(--space-3)' };
@@ -281,7 +283,7 @@ export default function AuthScreen() {
             type="button"
             onClick={handleResend}
             disabled={resending}
-            style={{ ...btnLink, marginTop: 'var(--space-3)', opacity: resending ? 0.6 : 1 }}
+            style={{ ...btnLink, marginTop: 'var(--space-3)', ...(resending ? { color: 'var(--text-2)', opacity: 1 } : null) }}
           >
             {resending ? '再送中…' : '確認メールを再送する'}
           </button>
@@ -405,7 +407,8 @@ export default function AuthScreen() {
         {info && <p role="status" style={infoText}>{info}</p>}
         <button
           type="submit"
-          style={{ ...btnPrimary, opacity: loading || (mode === 'signup' && !agreed) ? 0.6 : 1 }}
+          // 同意前は押せない見た目（btnPrimaryOff）。処理中は塗りのまま「処理中…」の文言で示す。
+          style={mode === 'signup' && !agreed ? btnPrimaryOff : { ...btnPrimary, opacity: 1, cursor: loading ? 'default' : 'pointer' }}
           disabled={loading || (mode === 'signup' && !agreed)}
         >
           {submitLabel}
@@ -420,7 +423,7 @@ export default function AuthScreen() {
         {mode === 'signin' && (
           <>
             <button type="button" onClick={() => switchMode('signup')} style={btnLink}>
-              アカウントをお持ちでない方はこちら
+              アカウントを作成
             </button>
             <button type="button" onClick={() => switchMode('reset')} style={btnLink}>
               パスワードをお忘れの方

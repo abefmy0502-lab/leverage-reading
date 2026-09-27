@@ -381,7 +381,8 @@ export default function Landing() {
                   <StoreCta className="lp-btn lp-btn-large" loc="hero">{CTA_LABEL}</StoreCta>
                   <StoreQr />
                 </div>
-                <p className="lp-cta-note">{PRICE_LINE}。解約してもメモは残ります。</p>
+                {/* 料金の説明はヒーローに置かない（スマホの最初の画面に答えの画面写真を入れるため）。
+                    料金・無料期間・自動更新は下の「料金」と最後のボタンの下に書く。 */}
               </div>
             </div>
             <figure className="lp-hero-shot">
@@ -619,8 +620,11 @@ export default function Landing() {
             <div className="lp-cta-block">
               <StoreCta className="lp-btn lp-btn-large" loc="pricing">{CTA_LABEL}</StoreCta>
               <p className="lp-cta-note">
-                お支払いは App Store（Apple ID）です。<br />
-                解約はいつでもでき、違約金はありません。解約後もメモは残ります。
+                {TRIAL_NOTE
+                  ? `${TRIAL_NOTE}のあとは、選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。無料期間中に解約すれば、料金はかかりません。`
+                  : '選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。'}
+                <br />
+                お支払いは App Store（Apple ID）です。解約はいつでもでき、違約金はありません。解約後もメモは残ります。
               </p>
             </div>
           </div>
