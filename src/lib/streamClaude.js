@@ -55,13 +55,16 @@ function cachedSystemBlock(text) {
   return [{ type: 'text', text, cache_control: { type: 'ephemeral' } }];
 }
 
-function buildPayload({ system, messages, model, max_tokens, temperature, cacheSystem }) {
+function buildPayload({ system, messages, model, max_tokens, temperature, cacheSystem, purpose }) {
   const payload = {
     model: model || DEFAULT_MODEL,
     max_tokens: max_tokens || DEFAULT_MAX_TOKENS,
     messages: messages || [],
     stream: true,
   };
+  // 用途（'consult' など）。サーバーが用途ごとのモデルを env で差し替えるための目印
+  // （AI_CONSULT_MODEL。アプリを出し直さずに安いモデルへ切り替えられる）。
+  if (purpose) payload.purpose = purpose;
   if (system) payload.system = cacheSystem ? cachedSystemBlock(system) : system;
   // ⚠️ temperature は payload に含めない。sonnet-5 / haiku-4-5 世代は sampling
   // params を受け付けず 400（「deprecated for this model」）になる。引数は後方
@@ -82,6 +85,7 @@ export async function streamClaude({
   max_tokens,
   temperature,
   cacheSystem,
+  purpose,
   signal,
   onChunk,
   onDone,
@@ -101,7 +105,7 @@ export async function streamClaude({
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(buildPayload({ system, messages, model, max_tokens, temperature, cacheSystem })),
+      body: JSON.stringify(buildPayload({ system, messages, model, max_tokens, temperature, cacheSystem, purpose })),
       signal,
     });
 

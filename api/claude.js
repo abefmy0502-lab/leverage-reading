@@ -48,6 +48,16 @@ const MAX_MESSAGES = 60;
 //   許可外は DEFAULT_MODEL に矯正（拒否ではなく安全側）。
 const ALLOWED_MODELS = new Set(['claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
 const DEFAULT_MODEL = 'claude-sonnet-5';
+// 💬 相談（purpose: 'consult'）だけに使うモデル。env で差し替えられる（アプリの出し直し不要）。
+//   未設定なら、アプリが指定したモデル（Sonnet 5）のまま。'claude-haiku-4-5' にすると
+//   1 回あたりの原価が約半分になり、同じ上限（¥143/月）で相談できる回数が約 2 倍になる。
+const CONSULT_MODEL_OVERRIDE = ['claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6'].includes(process.env.AI_CONSULT_MODEL)
+  ? process.env.AI_CONSULT_MODEL
+  : null;
+const pickModel = (b) => {
+  if (b?.purpose === 'consult' && CONSULT_MODEL_OVERRIDE) return CONSULT_MODEL_OVERRIDE;
+  return ALLOWED_MODELS.has(b?.model) ? b.model : DEFAULT_MODEL;
+};
 // 実績のある既知モデル。指定モデルが upstream に 404（model not found）で拒否された
 // 時のフォールバック先。過去に廃止スナップショット ID の指定で全 AI が停止した事故が
 // あったため、新モデル ID がアカウント未対応でも AI を止めないための保険。
@@ -409,10 +419,10 @@ async function adjustCost(userId, periodKey, deltaMjpy) {
 }
 
 // 原価を数えられない DB（supabase_ai_cost.sql 未適用）での、1 か月の回数の上限。
-// 相談 1 回 ≈ ¥10〜14 なので、上限 ¥143 を超えにくい回数にしておく。
+// 相談 1 回 ≈ ¥6〜8（2026-09-27 に材料を絞った後）なので、上限 ¥143 を超えにくい回数にしておく。
 const AI_FALLBACK_CALL_LIMIT = (() => {
   const raw = Number(process.env.AI_FALLBACK_CALL_LIMIT);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 12;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 20;
 })();
 
 // 「来月 1 日」（上限に達したときの案内用・日本時間）。
@@ -590,7 +600,7 @@ export default async function handler(req, res) {
   let callLimit = freeCall ? AI_FREE_CALL_LIMIT : ent.limit;
   if (!freeCall && !ent.admin) {
     const b = req.body || {};
-    const estModel = ALLOWED_MODELS.has(b.model) ? b.model : DEFAULT_MODEL;
+    const estModel = pickModel(b);
     const estMax = Math.min(
       Number.isFinite(b.max_tokens) ? Math.max(1, Math.floor(b.max_tokens)) : MAX_TOKENS_DEFAULT,
       MAX_TOKENS_HARD_CAP,
@@ -647,7 +657,7 @@ export default async function handler(req, res) {
     const wantsStream = body.stream === true;
 
     // モデルを allowlist で矯正（高単価モデルへの差し替え悪用を封じる）。
-    const model = ALLOWED_MODELS.has(body.model) ? body.model : DEFAULT_MODEL;
+    const model = pickModel(body);
 
     // ★ 想定キーだけを allowlist で再構築する（client body の丸ごと転送をやめる）。
     // これまでは `{ ...body }` で tools / tool_choice / metadata / stop_sequences /
