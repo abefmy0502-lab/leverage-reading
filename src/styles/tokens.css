@@ -83,6 +83,9 @@
   --apple-btn-bg: #000000;
   --apple-btn-ink: #ffffff;
 
+  /* 切り替えスイッチのつまみ（iOS と同じく明暗とも白。DESIGN §5 の例外） */
+  --switch-knob: #ffffff;
+
   /* 角丸は 1 種類（円は例外として --radius-full） */
   --radius: 12px;
   /* アプリアイコン画像の形（iOS のアイコン形状≒幅の 22.37%）。UI の角丸ではなく「中身の形」の例外（DESIGN §4） */

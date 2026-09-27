@@ -116,6 +116,7 @@ const inp = {
 const ta = {
   ...inp,
   resize: 'none', // Web のサイズ変更つまみは iOS の作法にない
+  display: 'block', // 行の下の余り（インラインの隙間 約 7）を出さない
   minHeight: 160,
   // メモは「読む文章」（DESIGN §2: 明朝 18・行間 1.6）
   fontFamily: 'var(--font-read)',

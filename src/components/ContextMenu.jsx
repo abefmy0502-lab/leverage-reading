@@ -11,21 +11,20 @@ const backdrop = {
   position: 'fixed',
   inset: 0,
   zIndex: 'var(--z-popover)',
+  // DESIGN §5「メニュー」: 背景は --backdrop だけ（ぼかさない）。
   background: 'var(--backdrop)',
-  WebkitBackdropFilter: 'var(--backdrop-blur)',
-  backdropFilter: 'var(--backdrop-blur)',
   animation: 'lvg-fade-in 150ms ease',
 };
 
 const panelBase = {
   position: 'fixed',
-  zIndex: 881,
+  zIndex: 'calc(var(--z-popover) + 1)', // 背景（--z-popover）のすぐ上
   width: PANEL_WIDTH,
   background: 'var(--surface)',
   borderRadius: 'var(--radius)',
   boxShadow: 'var(--shadow-overlay)',
   overflow: 'hidden',
-  fontFamily: "var(--font-app)",
+  fontFamily: 'var(--font-ui)',
   animation: 'lvg-context-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
 };
 

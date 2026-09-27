@@ -110,9 +110,14 @@ export default function HomeScreen({
       {loading && books.length === 0 ? (
         // 読み込み中は形だけ（既存ユーザーに新規用の「はじめる」カードを一瞬見せない）。
         <div aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-          <SkeletonBlock height={240} radius="var(--radius)" />
-          <SkeletonBlock height={72} radius="var(--radius)" />
-          <SkeletonBlock height={72} radius="var(--radius)" />
+          {/* 実際の 3 ブロック（相談カード／いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔／すべての本 ›）と同じ形・間隔。 */}
+          <SkeletonBlock height={400} radius="var(--radius)" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <SkeletonBlock width="50%" height={26} radius="var(--radius)" />
+            <SkeletonBlock height={90} radius="var(--radius)" />
+            <SkeletonBlock height={90} radius="var(--radius)" />
+          </div>
+          <SkeletonBlock height={56} radius="var(--radius)" />
         </div>
       ) : loadError && books.length === 0 ? (
         // 読み込みに失敗したときに、既存ユーザーへ初回用の「はじめましょう」を見せない。

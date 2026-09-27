@@ -20,6 +20,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { isSchemaError } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
 import EmptyState from './EmptyState';
+import { SkeletonBlock } from './Skeleton';
 import { track, EVENTS } from '../lib/analytics';
 import { BarChart3, ChevronRight } from 'lucide-react';
 
@@ -185,12 +186,13 @@ function FlowRow({ cells }) {
     <span aria-hidden="true" style={{ color: 'var(--text-3)', fontWeight: 600, fontSize: 'var(--text-meta)', flexShrink: 0, paddingTop: 'var(--space-1)' }}>→</span>
   );
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-1)', marginTop: 'var(--space-3)' }}>
+    // 3 つのラベル（「実行した行動 ›」が最長）を 1 行に収めるため、矢印との間は空けない（中身は中央寄せ）。
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 'var(--space-3)' }}>
       {cells.map((c, i) => {
         const inner = (
           <>
             <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
-            <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+            <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', whiteSpace: 'nowrap' }}>
               {c.label}
               {c.onClick && <ChevronRight size={14} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
             </span>
@@ -238,7 +240,7 @@ function MonthBars({ buckets, activeColor }) {
         const isCurrent = i === lastIdx;
         return (
           <div key={`${k.year}-${k.month}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', flex: 1, minWidth: 0 }} aria-hidden="true">
-            <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', lineHeight: 1, minHeight: 11, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1, minHeight: '1em', fontVariantNumeric: 'tabular-nums' }}>
               {active ? k.count : ''}
             </span>
             <div style={{ width: '100%', maxWidth: 22, height: BAR_MAX_H, display: 'flex', alignItems: 'flex-end' }}>
@@ -252,7 +254,7 @@ function MonthBars({ buckets, activeColor }) {
                 }}
               />
             </div>
-            <span style={{ fontSize: 'var(--text-caption)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--text)' : 'var(--text-3)' }}>
+            <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', fontWeight: isCurrent ? 600 : 400, color: isCurrent ? 'var(--text)' : 'var(--text-3)' }}>
               {k.month + 1}月
             </span>
           </div>
@@ -262,11 +264,11 @@ function MonthBars({ buckets, activeColor }) {
   );
 }
 
-// 🟫 読書の足あと（GitHub 風ヒートマップ・日曜はじまり・直近 weeks 週）。
+// 🟫 読書の足あと（GitHub 風ヒートマップ・月曜はじまり＝行動の「今週（月〜日）」とそろえる・直近 weeks 週）。
 // streak カウンタは出さない — 色づいた日々をただ眺める「足あと」。
 // 濃さはアクセント 1 色の混ぜ具合で表す（暗い画面でも同じトークンで破綻しない）。
-// 記録の無い日は区切り線の色（--separator）で、いちばん薄い段（45%）と見分けやすくする。
-const HEAT_COLORS = ['var(--separator)', 'color-mix(in srgb, var(--accent) 45%, var(--surface))', 'color-mix(in srgb, var(--accent) 60%, var(--surface))', 'var(--accent)'];
+// 記録の無い日は区切り線の色（--separator）で、いちばん薄い段（55%）と見分けやすくする。
+const HEAT_COLORS = ['var(--separator)', 'color-mix(in srgb, var(--accent) 55%, var(--surface))', 'color-mix(in srgb, var(--accent) 75%, var(--surface))', 'var(--accent)'];
 function heatColor(n) {
   if (n <= 0) return HEAT_COLORS[0];
   if (n === 1) return HEAT_COLORS[1];
@@ -286,7 +288,7 @@ function Heatmap({ dateStrings, weeks = 16 }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const currentWeekStart = new Date(today);
-    currentWeekStart.setDate(today.getDate() - today.getDay()); // 日曜はじまり
+    currentWeekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // 月曜はじまり
     const out = [];
     let prevMonth = -1;
     for (let w = weeks - 1; w >= 0; w -= 1) {
@@ -311,20 +313,22 @@ function Heatmap({ dateStrings, weeks = 16 }) {
     return { cols: out, activeDays: act };
   }, [dateStrings, weeks]);
 
-  const CELL = 14;
-  const GAP = 4;
+  const CELL = 14; // マスは「形そのもの」（DESIGN §4 の例外）
+  const GAP = 'var(--space-1)';
+  const LABEL_H = 'var(--space-4)'; // 月ラベルの行の高さ・曜日ラベルの列幅
   return (
     <div role="img" aria-label={`直近${weeks}週間の活動。読書の記録があった日は ${activeDays} 日`}>
-      <div style={{ display: 'flex', gap: GAP, marginTop: 'var(--space-3)', justifyContent: 'center' }} aria-hidden="true">
-        {/* 曜日ラベル列 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, paddingTop: 16 + GAP }}>
-          {['', '月', '', '水', '', '金', ''].map((l, i) => (
-            <span key={i} style={{ height: CELL, fontSize: 'var(--text-caption)', lineHeight: `${CELL}px`, color: 'var(--text-3)', width: 16, textAlign: 'right', paddingRight: 'var(--space-1)' }}>{l}</span>
+      {/* 左端は曜日ラベルを本文の左にそろえ、右端のマスは凡例の右端にそろえる（space-between）。 */}
+      <div style={{ display: 'flex', gap: GAP, marginTop: 'var(--space-3)', justifyContent: 'space-between' }} aria-hidden="true">
+        {/* 曜日ラベル列（月曜はじまり） */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, paddingTop: `calc(${LABEL_H} + ${GAP})` }}>
+          {['月', '', '水', '', '金', '', ''].map((l, i) => (
+            <span key={i} style={{ height: CELL, fontSize: 'var(--text-meta)', lineHeight: `${CELL}px`, color: 'var(--text-3)', width: LABEL_H, textAlign: 'left' }}>{l}</span>
           ))}
         </div>
         {cols.map((col, ci) => (
           <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
-            <span style={{ height: 16, fontSize: 'var(--text-caption)', lineHeight: '16px', color: 'var(--text-3)', whiteSpace: 'nowrap', width: CELL, overflow: 'visible' }}>{col.monthLabel}</span>
+            <span style={{ height: LABEL_H, fontSize: 'var(--text-meta)', lineHeight: LABEL_H, color: 'var(--text-3)', whiteSpace: 'nowrap', width: CELL, overflow: 'visible' }}>{col.monthLabel}</span>
             {col.days.map((d, di) => (
               <span
                 key={di}
@@ -339,13 +343,13 @@ function Heatmap({ dateStrings, weeks = 16 }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
       {/* 色だけに頼らない（DESIGN §6）: 記録があった日数を文字でも。 */}
-      <p style={{ margin: 0, fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>直近 {weeks} 週で記録した日 {activeDays} 日</p>
+      <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>直近 {weeks} 週で記録した日 {activeDays} 日</p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }} aria-hidden="true">
-        <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>少</span>
+        <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>少</span>
         {HEAT_COLORS.map((c) => (
           <span key={c} style={{ width: 12, height: 12, borderRadius: CHART_RADIUS, background: c }} />
         ))}
-        <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>多</span>
+        <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>多</span>
       </div>
       </div>
     </div>
@@ -445,8 +449,15 @@ export default function ReadingRecord({
 
   // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で
   // メモだけあるユーザーに空状態が一瞬チラついてから統計に切り替わるのを防ぐ。
-  if (!hasAnything && memoStats === null) {
-    return <div style={wrap} aria-busy="true" />;
+  // メモ集計が返るまでは 3 区画の形だけ出す（DESIGN §5: Skeleton。「残したメモ 0」が一瞬出るのも防ぐ）。
+  if (memoStats === null) {
+    return (
+      <div style={wrap} aria-busy="true" aria-label="記録を読み込み中">
+        <SkeletonBlock height={120} radius="var(--radius)" />
+        <SkeletonBlock height={200} radius="var(--radius)" />
+        <SkeletonBlock height={120} radius="var(--radius)" />
+      </div>
+    );
   }
 
   if (!hasAnything) {
@@ -454,8 +465,7 @@ export default function ReadingRecord({
       <div style={wrap}>
         <EmptyState
           icon={<BarChart3 size={34} aria-hidden="true" />}
-          title="記録は、これから"
-          description="本を読み、メモを残すと、ここに積み上がります。"
+          title="本を読み、メモを残すと、ここに積み上がります"
         />
       </div>
     );
@@ -479,7 +489,7 @@ export default function ReadingRecord({
           ]}
         />
         {memoStats?.failed && (
-          <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-3) 0 0', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-3) 0 0', lineHeight: 1.5 }}>
             メモの数を読み込めませんでした。通信環境を確認して、開き直してください。
           </p>
         )}

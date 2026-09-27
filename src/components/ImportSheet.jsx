@@ -8,7 +8,7 @@ import { useRef, useState } from 'react';
 import { FileUp, BookOpen } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
-import { btnPrimary, btnText } from '../styles/ui';
+import { btnPrimary, btnLink } from '../styles/ui';
 import { decodeImportBytes, parseImportText, summarizeImport, IMPORT_MAX_BYTES } from '../lib/importers';
 import { track } from '../lib/analytics';
 
@@ -84,7 +84,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
             <p style={body}>パソコンにつないで、documents にある「My Clippings.txt」を選びます。</p>
           </li>
         </ul>
-        <p style={{ ...body, fontSize: 'var(--text-meta)' }}>ファイルはこの端末の中だけで読み取ります。</p>
+        {/* 「端末の中だけで読み取る」はヘルプ（bookList の取り込み）へ。ここに補足文は置かない（DESIGN §0-6）。 */}
       </div>
     );
     footer = (
@@ -124,7 +124,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     footer = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <button type="button" onClick={runImport} style={btnPrimary}>取り込む</button>
-        <button type="button" onClick={pickFile} style={{ ...btnText, width: '100%' }}>別のファイルを選ぶ</button>
+        <button type="button" onClick={pickFile} style={{ ...btnLink, width: '100%' }}>別のファイルを選ぶ</button>
       </div>
     );
   } else if (step === 'importing') {

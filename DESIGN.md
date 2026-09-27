@@ -133,15 +133,17 @@
 | チップ | `--fill` 面 ＋ 13px ＋ 高さ 32（タップ領域は 44 を確保） | 各所に直書き → 統一する |
 | Apple でサインイン | ブランド規定の例外: `--apple-btn-bg` / `--apple-btn-ink`（明るい画面は黒・暗い画面は白）。形は主ボタンと同じ | `AuthScreen.jsx` |
 | 切り替え（セグメント） | **1 画面に 1 つまで**。2 段重ねにしない | `.sub-tabs` |
-| 入力欄 | 文字 17（iOS の拡大防止に 16 以上）、枠 `--border`、フォーカス時は `--accent` | `ui.js` の `input`、`formPrimitives` の `inp` |
-| シート | 上端に細いハンドル、背景は `--backdrop`。右上は「完了」（その場で効く）／下に決定ボタンがあるときは `dismissLabel="キャンセル"`／出さないときは `null`。途中で閉じると困る処理のあいだは `dismissible={false}`（背景・Esc・スワイプでも閉じない） | `BottomSheet.jsx` |
+| 入力欄 | 文字 17（iOS の拡大防止に 16 以上）、枠 `--border`、フォーカス時は枠 `--accent`＋外側 3px の `--accent-soft` の輪。フォーカスの見た目は `components.css` の全体ルール（文字の入力欄・textarea・select に効き、インラインの枠色にも勝つ。チェックボックス・ボタンには効かない。枠の無い入力欄は `className="no-focus-ring"` で外す）なので、部品ごとに書かない | `ui.js` の `input`、`formPrimitives` の `inp` |
+| シート | 上端に細いハンドル（押す部品にしない＝`div`・掴んで下へ振ると閉じる目印）、背景は `--backdrop`。下の安全域は 1 回だけ（決定ボタンの欄があればそちら）。右上は「完了」（その場で効く）／下に決定ボタンがあるときは `dismissLabel="キャンセル"`／出さないときは `null`。途中で閉じると困る処理のあいだは `dismissible={false}`（背景・Esc・スワイプでも閉じない） | `BottomSheet.jsx` |
 | 空・エラー・読み込み | 必ずこの部品を使う | `EmptyState` `ErrorMessage` `Skeleton` |
 | 行動の編集欄（本の編集画面） | 見出しアイコンは `Target`（🎯 行動専用）・カード `--fill`＋角丸 12・カード間 12・「＋ 行動を追加」は副ボタン・期限だけをここで決める（優先度・繰り返しは「振り返り」→「行動」）・ブロックの下に 24 | `BookPhases.jsx` の `ActionsEditor`（読書中・読了で共通） |
-| 畳む見出し（details） | 高さ 48・右端にシェブロン・`list-style: none` | `BookPhases.jsx` の `foldSummary`、`MyBookBrain.jsx` の `summaryStyle` |
+| 畳む見出し（details） | 高さ 48・右端にシェブロン（20）・`list-style: none`。面は `--surface`＋枠 `--separator`＋角丸 12、見出しは 17/600/`--text`。右に中身の要約を置くときは 13/400/`--text-3`（「まだありません」「得たいこと・シート」）。続けて並べるときは間 12 | 本の詳細（`App.jsx` の `detailsStyle` / `summaryStyle`）、`BookPhases.jsx` の `softBox` / `foldSummary`、`MyBookBrain.jsx` の `summaryStyle` |
+| 下に固定の保存（編集画面） | 画面の下に固定・上に区切り線 `--separator`・内側 12/16＋セーフエリア・主ボタン 1 つ。出ている間は下のタブを出さない | `BookPhases.jsx` の `EditSaveBar`（2026-09-27） |
 | 押せないボタン | **薄くしない**（opacity で白い文字がかすれる）。主ボタンは `--fill` の面＋`--text-2` の文字、副ボタンは `--separator` の枠＋`--text-3` の文字 | `ui.js` の `btnPrimaryOff` `btnGhostOff`（2026-09-27） |
 | 文字ボタン | `--accent`・15/600・高さ 44。脇役の操作（規約・ログアウト・取り込み等）も色を変えず、並び順と区切り線で控えめにする。削除だけは `--error` | `ui.js` の `btnLink`（`btnText` の 44 版） |
 | 小さな見出し | 12/600/`--text-2`（「たとえば」「今日」「完了した行動」など）。13 や `--text-3` の版を作らない | `ui.js` の `groupTitle` |
-| 表示用ラベル（押せない） | **面を付けない**。アイコン＋`--text-2` 13 の文字。`--fill` の丸い面は押せるチップだけ | `BookCards.jsx` の `StatusLabel`（状態）・タグの表示。旧 `StatusBadge.jsx`（面つき）は 2026-09-27 に削除 |
+| 表示用ラベル（押せない） | **面を付けない**。アイコン 14＋`--text-2` 13 の文字。`--fill` の丸い面は押せるチップだけ。表紙の上にも重ねない（すべての本の表紙表示は著者の下に 1 行・リストは「状態 → 評価 · 著者」で長さの変わる著者を最後に） | `BookCards.jsx` の `StatusLabel`（状態）・タグの表示。旧 `StatusBadge.jsx`（面つき）と表紙の上の `.book-status-pill` は 2026-09-27 に削除 |
+| メニュー（長押し・「…」） | `--surface`・角丸 12・行の高さ 48・`--shadow-overlay`。背景は `--backdrop` だけ（ぼかさない） | `ContextMenu.jsx` |
 | 「…」メニューのアイコン | 横の `MoreHorizontal` に統一（縦の ⋮ は使わない） | lucide |
 | シート・モーダルの「キャンセル」 | `--text-2`・17/400（取り消しは脇役。決定・完了がある側を強く） | `BottomSheet.jsx`・`QuickMemoSheet.jsx`・`BookSearchModal.jsx` |
 

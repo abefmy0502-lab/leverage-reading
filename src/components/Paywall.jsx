@@ -438,7 +438,8 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
                   }}
                 >
                   <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, margin: 0 }}>{labels[id].name}</p>
-                  <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-1) 0 0' }}><PriceText text={labels[id].price} /></p>
+                  {/* 金額はネイティブ版と同じく本文の大きさ・600（割引や月あたりは補足の文字） */}
+                  <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, margin: 'var(--space-1) 0 0', fontVariantNumeric: 'tabular-nums' }}><PriceText text={labels[id].price} /></p>
                 </div>
               ))}
             </section>

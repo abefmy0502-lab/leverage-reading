@@ -22,6 +22,8 @@ import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
+import ErrorMessage from './ErrorMessage';
+import { SkeletonBlock } from './Skeleton';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
@@ -59,18 +61,20 @@ const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, 
 // chat 以外の view 共通: ヘッダ/pill 下にスクロール可能な領域を提供。
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-2) var(--space-4) var(--space-6)' };
 // ── 相談画面の部品（DESIGN.md のトークンのみ） ──
-const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, padding: '0 var(--space-2) 0 var(--space-4)' };
+// 左右の余白は 16。右端のアイコン（押せる範囲 44）は負の余白で外へ出し、見た目の右端を 16 に揃える。
+const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, padding: '0 var(--space-4)' };
 const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 };
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 // 相談例＝チップ（--fill 面・枠なし。入力欄と見分けがつくように。ホームと同じ）。
-const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
+const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'auto-phrase', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
 // 答え＝読むカード（全幅）。ユーザーの相談は右寄せの --fill 吹き出し。
 const answerCard = { ...cardStyle, wordBreak: 'break-word' };
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
-const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer', listStyle: 'none' };
-const subLabel = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' };
+const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer', listStyle: 'none' };
+// 根拠の中の小さな見出し（DESIGN §5 groupTitle: 12/600/--text-2）。
+const subLabel = { ...groupTitle, margin: '0 0 var(--space-1)' };
 // 根拠の本文（参照したメモ・解釈）も答えの一部＝読む文章（明朝 18・行間 1.6・DESIGN §2/§7）。
 const subText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6 };
 const refBtn = { width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, padding: 'var(--space-2) 0', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--accent)', lineHeight: 1.5 };
@@ -362,6 +366,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // プロンプトを再表示しない。
   const [promptDismissed, setPromptDismissed] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
   // learningOpen state は廃止 — view === 'learning' で表現する。
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
   const [statsTick, setStatsTick] = useState(0);
@@ -394,12 +399,20 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       return;
     }
     // 新しい順に最大 300 件（過去の相談の一覧に十分。全件だと使うほど重くなる）。
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(300);
+    let data = null;
+    let error = null;
+    try {
+      ({ data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(300));
+    } catch (e) {
+      error = e;
+    }
+    // 読み込めなかったことを「まだ相談していません」と見分けて出す（過去の相談の画面）。
+    setHistoryError(!!error);
     // 読み込み中に送られた質問・回答（まだ履歴に無い行）は消さずに後ろへ残す。
     // 以前は履歴で丸ごと上書きしていたため、開いた直後に送ると質問も答えも消えていた。
     const hist = error ? [] : (data || []).reverse().map(transformMessage);
@@ -925,16 +938,31 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   }, [suggestedQuestions]);
   const [moreMenu, setMoreMenu] = useState(null); // { x, y }
   const viewTitle = { learning: '学びを書く', history: '過去の相談', knowledge: '根拠にできる情報' }[view];
+  // 中身を下へ送ったか（上部の行の下に線を出す）。画面を切り替えたら戻す。
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => { setScrolled(false); }, [view]);
+  const onBodyScroll = (e) => {
+    const s = e.currentTarget.scrollTop > 0;
+    if (s !== scrolled) setScrolled(s);
+  };
 
   return (
     <div style={wrap}>
       {/* 上部は 1 行だけ（SPEC §3: 二重タブをやめる）。会話のときは「何を根拠に答えるか」＋
           履歴（時計）＋その他（…）。会話以外の画面では「‹ 相談」で戻る。 */}
       {/* お試し中は上部が 2 行になるので、下に線を引いて「下に潜っている」ことを示す */}
-      <div style={freeMode || nearMonthLimit || monthLimitHit ? { ...topRow, borderBottom: '1px solid var(--separator)' } : topRow}>
+      {/* 会話・一覧を下へ送ったときも、上部の行との境目に線を引く（iOS のナビゲーションバーと同じ）。
+          押し込まれた画面では親が全体の見出しを隠すので、この行が画面の最上部になる（ノッチを避ける）。 */}
+      <div
+        style={{
+          ...topRow,
+          ...((view === 'chat' && (freeMode || nearMonthLimit || monthLimitHit)) || scrolled ? { borderBottom: '1px solid var(--separator)' } : null),
+          ...(isPushed && onPushedViewChange ? { paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))' } : null),
+        }}
+      >
         {view === 'chat' ? (
           <>
-            <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.4 }}>
+            <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
               {scopeIds.length > 0
                 ? (scopeMemoCount != null
                   ? (scopeIds.length === 1
@@ -963,7 +991,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             </button>
             <button
               type="button"
-              style={iconBtn}
+              style={{ ...iconBtn, marginRight: 'calc(-1 * var(--space-3))' }}
               onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMoreMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
               aria-label="その他の操作"
               title="その他"
@@ -975,13 +1003,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <>
             {/* iOS のナビゲーションバーの形: 左に戻る・中央に題名・右は同じ幅の空き。 */}
             <div style={{ width: 96, flexShrink: 0 }}>
-              <button type="button" onClick={() => setView('chat')} style={{ ...uiBtnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', gap: 2, lineHeight: 1.3 }}>
+              {/* シェブロンの見た目の左端を余白 16 に揃える（アイコンの内側の空きの分だけ左へ戻す）。 */}
+              <button type="button" onClick={() => setView('chat')} style={{ ...uiBtnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3 }}>
                 <ChevronLeft size={20} aria-hidden="true" />相談
               </button>
             </div>
             <h2 style={{ flex: 1, minWidth: 0, margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>{viewTitle}</h2>
-            {/* 行の右の余白（8）が左（16）より狭い分、右の空きを 8 広げて題名を画面中央に。 */}
-            <div style={{ width: 104, flexShrink: 0 }} aria-hidden="true" />
+            {/* 左の戻ると同じ幅の空きで、題名を画面中央に。 */}
+            <div style={{ width: 96, flexShrink: 0 }} aria-hidden="true" />
           </>
         )}
       </div>
@@ -1000,7 +1029,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
       {/* 学びを書く（本以外の学びログ） */}
       {view === 'learning' && (
-        <div style={viewScroll}>
+        <div style={viewScroll} onScroll={onBodyScroll}>
           <LearningInline
             onCancel={() => setView('chat')}
             onSaved={() => { setView('chat'); setStatsTick((t) => t + 1); }}
@@ -1010,24 +1039,31 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
       {/* 過去の相談 */}
       {view === 'history' && (
-        <div style={viewScroll}>
+        <div style={viewScroll} onScroll={onBodyScroll}>
         <PullToRefresh onRefresh={fetchHistory}>
           {/* 履歴は静的な過去ログなので live region にはしない（mount 時の過剰読み上げを避ける）。 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} role="region" aria-label="過去の相談">
             {messages.length > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{messages.filter((m) => m.role === 'user').length} 件の相談</p>
               {messages.length > 0 && (
-                <button type="button" style={{ ...uiBtnText, fontSize: 'var(--text-sub)', color: 'var(--error)', padding: '8px 0' }} onClick={clearHistory}>
+                <button type="button" style={{ ...uiBtnText, fontSize: 'var(--text-sub)', color: 'var(--error)', padding: 'var(--space-2) 0' }} onClick={clearHistory}>
                   すべて削除
                 </button>
               )}
             </div>}
-            {!historyLoaded && <Spinner message="読み込み中…" />}
-            {historyLoaded && messages.length === 0 && (
+            {!historyLoaded && <HistorySkeleton />}
+            {historyLoaded && historyError && (
+              <ErrorMessage
+                title="過去の相談を読み込めませんでした"
+                description="通信の状態を確かめて、もう一度お試しください。"
+                actions={[{ label: 'もう一度', onClick: () => { setHistoryError(false); setHistoryLoaded(false); fetchHistory(); } }]}
+              />
+            )}
+            {/* 戻るは上の「‹ 相談」だけ（同じ操作のボタンを 2 か所に出さない）。 */}
+            {historyLoaded && !historyError && messages.length === 0 && (
               <EmptyState
                 icon={<MessageCircle size={32} strokeWidth={1.5} aria-hidden="true" />}
                 title="まだ相談していません"
-                actions={[{ label: '相談する', onClick: () => setView('chat'), variant: 'secondary' }]}
               />
             )}
             {messages.map((m) => (
@@ -1040,7 +1076,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
       {/* 根拠にできる情報（旧: 知識） */}
       {view === 'knowledge' && (
-        <div style={viewScroll}>
+        <div style={viewScroll} onScroll={onBodyScroll}>
           <KnowledgeManager onChanged={() => setStatsTick((t) => t + 1)} onBooksMutated={onBooksMutated} onWriteMemo={() => setView('learning')} />
         </div>
       )}
@@ -1051,6 +1087,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <div
             ref={chatScrollRef}
             className="chat-scroll"
+            onScroll={onBodyScroll}
             style={{ padding: 'var(--space-2) var(--space-4) var(--space-4)' }}
             role="log"
             aria-live="polite"
@@ -1214,13 +1251,39 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   );
 }
 
+// 過去の相談を読み込むあいだの形（相談の吹き出し＋答えのカードを 2 組）。
+function HistorySkeleton() {
+  return (
+    <div role="status" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      {[0, 1].map((i) => (
+        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <SkeletonBlock width="70%" height={56} radius="var(--radius)" style={{ alignSelf: 'flex-end' }} />
+          <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <SkeletonBlock width="92%" height={16} radius="var(--radius)" />
+            <SkeletonBlock width="80%" height={16} radius="var(--radius)" />
+            <SkeletonBlock width="56%" height={16} radius="var(--radius)" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const STAGE_LABEL = {
   search: 'メモを探しています…',
   generate: '答えを書いています…',
 };
 
+// 『』「」の前後に AI が入れがちな空白（「と 『本』 P.95」）を詰める。改行は残す。
+function tidyQuotes(text) {
+  return String(text || '')
+    .replace(/[ \u3000]+([『「])/g, '$1')
+    .replace(/([』」])[ \u3000]+/g, '$1');
+}
+
 // **bold** の軽量インラインパーサ。
-function renderBoldInline(text) {
+function renderBoldInline(raw) {
+  const text = tidyQuotes(raw);
   const parts = [];
   let cursor = 0;
   const re = /\*\*([^*]+)\*\*/g;
@@ -1349,6 +1412,24 @@ function refText(r) {
   return String(r || '').replace(/^[^\p{L}\p{N}『「(（]+/u, '').trim();
 }
 
+// 参照 1 件を 2 行に: 1 行目『書名』（長ければ …）、2 行目 著者・ページ（付随情報）。
+function RefLines({ r }) {
+  const t = tidyQuotes(refText(r));
+  const m = t.match(/^(.*?)(『[^』]+』)(.*)$/);
+  const title = m ? m[2] : t;
+  const meta = m ? [m[1], m[3]].map((x) => x.trim()).filter(Boolean) : [];
+  return (
+    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+      {meta.length > 0 && (
+        <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 400 }}>
+          {meta.map((x, i) => <span key={i}>{x}</span>)}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function refBookCount(refs) {
   const titles = new Set();
   (refs || []).forEach((r) => { const m = String(r).match(/『([^』]+)』/); if (m) titles.add(m[1].trim()); });
@@ -1395,7 +1476,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   if (isUser) {
     return (
       <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの相談">
-        <div style={{ maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <div className="text-pretty" style={{ maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'auto-phrase', overflowWrap: 'break-word' }}>
           {message.scopeLabel && message.scopeLabel !== SCOPE_ALL_LABEL && (
             <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginBottom: 'var(--space-1)' }}>相談相手：{message.scopeLabel}</span>
           )}
@@ -1476,8 +1557,8 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
           {/* 2. 明日からできる一歩（＋ 行動に追加） */}
           {parsed.action && (
             <div style={{ marginTop: 'var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
-              <p style={{ margin: 0, fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)' }}>{parsed.actionLabel}</p>
-              <p style={{ ...readText, margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap' }}>{renderBoldInline(parsed.action)}</p>
+              <p style={subLabel}>{parsed.actionLabel}</p>
+              <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap' }}>{renderBoldInline(parsed.action)}</p>
               {canShowAction && (
                 actionAdded ? (
                   <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
@@ -1485,7 +1566,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                   </p>
                 ) : (
                   <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
-                    <Target size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />行動に追加
+                    <Target size={16} aria-hidden="true" />行動に追加
                   </button>
                 )
               )}
@@ -1527,12 +1608,12 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                         return (
                           <li key={i}>
                             {refBookId ? (
-                              <button type="button" onClick={() => onOpenBook(refBookId)} style={refBtn} aria-label={`${r} を開く`}>
-                                <span className="text-pretty" style={{ flex: 1, minWidth: 0 }}>{refText(r)}</span>
+                              <button type="button" onClick={() => onOpenBook(refBookId)} style={refBtn} aria-label={`${refText(r)} を開く`}>
+                                <RefLines r={r} />
                                 <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                               </button>
                             ) : (
-                              <p className="text-pretty" style={{ margin: 0, padding: 'var(--space-2) 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 }}>{refText(r)}</p>
+                              <div style={{ display: 'flex', minHeight: 44, padding: 'var(--space-2) 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 }}><RefLines r={r} /></div>
                             )}
                           </li>
                         );
@@ -1556,7 +1637,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
           </p>
         ) : (
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)' }}>
-            <Target size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />行動に追加
+            <Target size={16} aria-hidden="true" />行動に追加
           </button>
         )
       )}
@@ -1655,7 +1736,7 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
   };
   const mark = (on) => (
     <span aria-hidden="true" style={{ width: 24, height: 24, flexShrink: 0, color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {on && <Check size={22} strokeWidth={3} />}
+      {on && <Check size={22} strokeWidth={2} />}
     </span>
   );
 

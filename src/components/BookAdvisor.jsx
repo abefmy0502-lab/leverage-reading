@@ -7,6 +7,7 @@ import {
   ArrowUp as IcSend,
   Check as IcCheck,
   ChevronLeft as IcBack,
+  ExternalLink as IcExternal,
   History as IcHistory,
   MessageSquarePlus as IcNewChat,
   PencilLine as IcPencil,
@@ -26,8 +27,9 @@ import { track } from '../lib/analytics';
 import { isStrictMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
-import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, input as uiInput, card as uiCard } from '../styles/ui';
+import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
+import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
@@ -35,7 +37,6 @@ import { useConfirm } from './ConfirmDialog';
 import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
 import ErrorMessage from './ErrorMessage';
-import BookStoreLinks from './BookStoreLinks';
 import { displayUserText, concernOf, interviewPairsOf } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
@@ -83,6 +84,49 @@ const addedNote = { display: 'flex', alignItems: 'center', gap: 'var(--space-1)'
 // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
 const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' };
 const advisorOptionChipSelected = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
+// 推薦カードの購入リンク＝文字ボタン（btnLink: --accent・15/600・高さ 44・枠なし）。
+// 主役は「読みたいに追加」なので、ストアは控えめな文字リンクにする（外部リンクは ↗ と aria-label で伝える）。
+const storeLink = { ...uiBtnLink, gap: 'var(--space-1)', textDecoration: 'none', whiteSpace: 'nowrap', boxSizing: 'border-box' };
+
+function AdvisorStoreLinks({ book }) {
+  const title = book?.title || '';
+  const amazon = getAmazonLink(book);
+  const rakuten = getRakutenLink(book);
+  return (
+    // 文字の左端をカードの本文にそろえる（btnLink の左右 4 を打ち消す）。
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+      <a
+        href={amazon} target="_blank" rel={AMAZON_LINK_REL}
+        onClick={(e) => { e.stopPropagation(); handleAmazonClick(e, amazon); }}
+        aria-label={`Amazon で『${title}』を見る（外部リンク）`}
+        style={storeLink}
+      >
+        Amazon<IcExternal size={16} aria-hidden="true" />
+      </a>
+      <a
+        href={rakuten} target="_blank" rel={RAKUTEN_LINK_REL}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={`楽天ブックス で『${title}』を見る（外部リンク）`}
+        style={storeLink}
+      >
+        楽天ブックス<IcExternal size={16} aria-hidden="true" />
+      </a>
+    </div>
+  );
+}
+
+// 推薦の後ろの文から「## 💬 まとめ」（励ましの一言だけの区画）を取り除く。
+// 読む順番など他の区画は残す。古い応答・履歴の再開にも効くよう表示側で落とす。
+function dropSummarySection(md) {
+  if (!md || typeof md !== 'string') return md || '';
+  const out = [];
+  let dropping = false;
+  for (const raw of md.split('\n')) {
+    if (/^#{1,6}\s/.test(raw.trim())) dropping = /まとめ/.test(raw);
+    if (!dropping) out.push(raw);
+  }
+  return out.join('\n').trim();
+}
 
 const ADVISOR_EXAMPLES = [
   '営業成績を上げたい',
@@ -964,9 +1008,20 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
   // 新メッセージ追加時に最下部へオートスクロール (LINE 挙動)。
   useEffect(() => {
-    if (!chatScrollRef.current) return;
+    if (!chatScrollRef.current || messages.length === 0) return;
     chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages.length, recommendations]);
+  }, [messages.length]);
+  // 推薦が出たときは、最下部ではなく推薦の先頭（前置き → 1 冊目のカードと「読みたいに追加」）へ。
+  // 表紙の後追い（verifyAndEnrich）で items が差し替わっても、もう一度は動かさない（出た瞬間だけ）。
+  const recoBlockRef = useRef(null);
+  const hadRecoRef = useRef(false);
+  useEffect(() => {
+    const has = !!recommendations;
+    const appeared = has && !hadRecoRef.current;
+    hadRecoRef.current = has;
+    if (!appeared) return;
+    setTimeout(() => recoBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+  }, [recommendations]);
 
   // 履歴サブビューでは入力欄を出さず、専用 UI に切り替える。
   if (view === 'history') {
@@ -1045,7 +1100,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
               <IcHistory size={22} strokeWidth={1.75} aria-hidden="true" />
             </button>
           )}
-          {(messages.length > 0 || recommendations) && (
+          {/* 推薦が出ている間は、やり直しの入口を下の「別の条件で探す」1 つにする（同じ操作を 2 か所に出さない）。 */}
+          {messages.length > 0 && !recommendations && (
             <button
               type="button"
               onClick={startNewSession}
@@ -1330,7 +1386,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
       {/* Recommendations — 1 冊 1 カード（理由つき） */}
       {recommendations && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', animation: 'fadeIn .3s' }}>
+        // 3 つのまとまり（前置き＋本のカード → 読む順番 → 注記＋やり直し）。中は 12・間は 24（DESIGN §1）。
+        <div ref={recoBlockRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', animation: 'fadeIn .3s', scrollMarginTop: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {/* 「## 👋 はじめに」等の前置きを Markdown として描画（生の ## を出さない）。
               末尾の空見出し「## 📚 おすすめの本」は本カードと重複するので除去。 */}
           {recommendations.before && (() => {
@@ -1395,7 +1453,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     <span style={{ fontWeight: 600 }}>目安</span>　{rec.duration}
                   </p>
                 )}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
                   {added ? (
                     <p role="status" style={addedNote}>
                       <IcCheck size={16} aria-hidden="true" />追加済み
@@ -1412,26 +1470,33 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                         e.stopPropagation();
                         handleClickAdd(rec);
                       }}
-                      style={{ ...rowBtn, touchAction: 'manipulation' }}
+                      // カードの主役の操作なので全幅（ストアの文字リンクより強く見せる）。
+                      style={{ ...rowBtn, width: '100%', touchAction: 'manipulation' }}
                     >
                       <IcPlus size={16} aria-hidden="true" />読みたいに追加
                     </button>
                   )}
-                  {/* Amazon + 楽天 の両方（統一）。カード下にまとめ開示があるので個別開示は省略 */}
-                  <BookStoreLinks book={rec} variant="compact" showDisclosure={false} stopPropagation />
+                  {/* Amazon + 楽天 の両方（統一）は控えめな文字リンク。開示は推薦の最後にまとめて 1 回 */}
+                  <AdvisorStoreLinks book={rec} />
                 </div>
               </div>
             );
           })}
-          {/* 「## 📋 読む順番」「## 💬 まとめ」等は Markdown（表・見出し・箇条書き）として描画。 */}
-          {recommendations.after && <MarkdownSections text={recommendations.after} />}
-          <small style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+        </div>
+          {/* 「## 📋 読む順番」等は Markdown（表・見出し・箇条書き）として描画。励ましだけの「まとめ」は出さない。 */}
+          {(() => {
+            const after = dropSummarySection(recommendations.after);
+            return after ? <MarkdownSections text={after} /> : null;
+          })()}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5, margin: 0 }}>
             {STORE_DISCLOSURE_TEXT}
-          </small>
+          </p>
           <button type="button" onClick={resetToConcern} style={uiBtnGhost}>
             <IcRetry size={18} aria-hidden="true" />
             別の条件で探す
           </button>
+        </div>
         </div>
       )}
 

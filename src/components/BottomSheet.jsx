@@ -2,7 +2,7 @@
 // 隠して必要なときだけ引き出すための iOS 風シート。QuickMemoSheet の見た目
 // （backdrop blur + sheet-up + ドラッグハンドル + safe-area）を踏襲し、
 // アプリ全体で再利用できるよう最小の API（title / onClose / children / footer）
-// に絞った。Esc / ハンドルタップ / 背景タップ / 下スワイプ で閉じる。
+// に絞った。Esc / 右上の文字 / 背景タップ / 下スワイプ で閉じる（ハンドルは目印だけ）。
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
@@ -31,8 +31,7 @@ const sheetWrap = {
   flexDirection: 'column',
   maxHeight: '85vh',
   animation: 'leverage-sheet-up .25s cubic-bezier(0.2,0.9,0.3,1)',
-  fontFamily: 'var(--font-app)',
-  paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+  fontFamily: 'var(--font-ui)',
 };
 
 // dismissLabel=null で右上の閉じるボタンを出さない。dismissible=false のあいだは
@@ -100,6 +99,8 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
         ref={(el) => { sheetRef.current = el; trapRef.current = el; }}
         style={{
           ...sheetWrap,
+          // 下の安全域は 1 回だけ: 決定ボタンの欄（footer）があればそちらが持つ。
+          paddingBottom: footer ? 0 : 'env(safe-area-inset-bottom, 0px)',
           animation: closing
             ? 'leverage-sheet-down .22s cubic-bezier(0.3,0,0.8,0.3) forwards'
             : sheetWrap.animation,
@@ -109,14 +110,11 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
         aria-label={title || 'シート'}
       >
         <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}>
-          <button
-            type="button"
-            onClick={animateClose}
-            aria-label="閉じる"
-            style={{ background: 'none', border: 'none', padding: 'var(--space-2) 0 var(--space-1)', cursor: 'pointer', alignSelf: 'center', width: '100%' }}
-          >
+          {/* ハンドルは押す部品ではなく「掴んで下へ」の目印（押せる範囲が 44 に満たないボタンにしない）。
+              閉じるのは右上の文字・背景・Esc・下スワイプ。 */}
+          <div style={{ padding: 'var(--space-2) 0 var(--space-1)' }}>
             <div className="lvg-sheet-handle" aria-hidden="true" />
-          </button>
+          </div>
           {title && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-1) var(--space-4) var(--space-2)', borderBottom: '1px solid var(--separator)' }}>
               <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>{title}</h3>

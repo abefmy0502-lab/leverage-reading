@@ -11,18 +11,15 @@ import { useState, useRef } from 'react';
 import { todayLocal } from '../lib/dates';
 import { toMessage } from '../lib/errors';
 import {
-  Search as IcSearch, Map as IcMap,
-  BarChart3 as IcBar, AlertTriangle as IcAlert, Lightbulb as IcBulb, Bot as IcBot,
-  CalendarDays as IcCal, ImagePlus as IcImagePlus,
-  Target as IcTarget, ChevronDown as IcChevron, PencilLine as IcPencil, X as IcX,
+  Search as IcSearch, Map as IcMap, Bot as IcBot, ImagePlus as IcImagePlus,
+  Target as IcTarget, ChevronDown as IcChevron, X as IcX,
 } from 'lucide-react';
-import { btnPrimary, btnGhost, btnText } from '../styles/ui';
+import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import { LIMITS } from '../lib/limits';
 import { useBookCover } from '../hooks/useBookCover';
 import { useToast } from './Toast';
 import MarkdownSections from './MarkdownSections';
-import BookMemoList from './BookMemoList';
 import {
   Field, SectionHeader, Dots, Stars, TagInput, Chip,
   inp, ta,
@@ -31,14 +28,14 @@ import {
 /* ========== Phase Screens ========== */
 
 // 積読・読書中・読了の編集画面で共通の小道具（DESIGN のトークンだけ）。
-const labelIcon = { verticalAlign: '-2px', marginRight: 'var(--space-1)' };
+// 面・枠・見出しは本の詳細の畳む見出し（App.jsx の detailsStyle / summaryStyle）と同じ。
+// ラベルに飾りのアイコンは付けない（DESIGN §3-2・見出しは文字だけ）。
 const softBox = {
-  background: 'var(--fill)',
+  background: 'var(--surface)',
   border: '1px solid var(--separator)',
   borderRadius: 'var(--radius)',
   padding: 'var(--space-3) var(--space-4)',
-  marginBottom: 'var(--space-3)',
-  fontSize: 'var(--text-meta)',
+  marginBottom: 'var(--space-6)',
   lineHeight: 'var(--leading-base)',
 };
 // 畳む見出し（details の summary）。押せると分かるよう右端にシェブロンを置く。
@@ -50,10 +47,12 @@ const foldSummary = {
   gap: 'var(--space-2)',
   listStyle: 'none',
   cursor: 'pointer',
-  fontSize: 'var(--text-sub)',
+  fontSize: 'var(--text-body)',
   fontWeight: 600,
-  color: 'var(--text-2)',
+  color: 'var(--text)',
 };
+// 空の日付欄は付随情報の色（未入力と分かる）。
+const dateInp = (value) => ({ ...inp, color: value ? 'var(--text)' : 'var(--text-3)' });
 
 // Phase 1: 読みたい → just register
 // 本を追加するときのフォーム（検索結果を選んだ後・手動入力の両方）。既存の「読みたい」本の編集でも使う。
@@ -249,8 +248,8 @@ export function BeforePhase({
   const planReady = !!form.investPurpose?.trim();
   return (
     <div>
-      <Field label={<><IcCal size={13} aria-hidden="true" style={labelIcon} />読書開始日</>}>
-        <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={inp} />
+      <Field label="読書開始日">
+        <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
       </Field>
 
       {/* ⚠️ 得たいこと〜読書計画シートは AI にゲートしない。AI を使わない / 月次上限 /
@@ -263,7 +262,7 @@ export function BeforePhase({
         </p>
       )}
 
-      <Field label={<><IcBar size={13} aria-hidden="true" style={labelIcon} />この本から得たいこと（必須）</>}>
+      <Field label="この本から得たいこと（必須）">
         <textarea
           value={form.investPurpose || ""}
           onChange={(e) => setForm({ ...form, investPurpose: e.target.value })}
@@ -284,7 +283,7 @@ export function BeforePhase({
         </button>
       )}
 
-      <Field label={<><IcAlert size={13} aria-hidden="true" style={labelIcon} />現在の課題</>}>
+      <Field label="現在の課題">
         <textarea
           value={form.currentChallenge || ""}
           onChange={(e) => setForm({ ...form, currentChallenge: e.target.value })}
@@ -295,7 +294,7 @@ export function BeforePhase({
         />
       </Field>
 
-      <Field label={<><IcBulb size={13} aria-hidden="true" style={labelIcon} />仮説</>}>
+      <Field label="仮説">
         <textarea
           value={form.hypothesis || ""}
           onChange={(e) => setForm({ ...form, hypothesis: e.target.value })}
@@ -308,10 +307,7 @@ export function BeforePhase({
 
       {form.bookReason && (
         <div style={softBox}>
-          <p style={{ fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>
-            <IcBot size={13} aria-hidden="true" style={labelIcon} />
-            AI の選書理由
-          </p>
+          <p style={groupTitle}>AI の選書理由</p>
           <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 'var(--leading-base)', margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap' }}>
             {form.bookReason}
           </p>
@@ -323,16 +319,16 @@ export function BeforePhase({
         onClick={onRunStrategy}
         disabled={!planReady || aiLoading}
         aria-busy={aiLoading || undefined}
-        // 押せないのは「得たいこと」が空のときだけ薄くする。作成中は文言で示す（薄くしない）。
-        style={{ ...btnGhost, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', opacity: planReady ? 1 : 0.5, cursor: planReady && !aiLoading ? 'pointer' : 'default' }}
+        // 押せない（「得たいこと」が空・作成中）は薄くせず btnGhostOff（DESIGN §5）。作成中は文言でも示す。
+        style={planReady && !aiLoading ? btnGhost : btnGhostOff}
       >
         <IcMap size={16} aria-hidden="true" />
         {aiLoading ? "作成中…" : (form.aiStrategy ? "読書計画シートを作り直す" : "読書計画シートを作成")}
       </button>
       {aiLoading && !form.aiStrategy && <Dots />}
       {form.aiStrategy && (
-        <div style={{ marginTop: 'var(--space-3)' }}>
-          <p style={{ fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' }}>
+        <div style={{ marginTop: 'var(--space-6)' }}>
+          <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>
             読書計画シート
             {aiLoading && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 'var(--space-1)' }} />}
           </p>
@@ -347,9 +343,8 @@ export function BeforePhase({
           />
 
           {/* 修正のお願い: 今のシート＋自由文の指示を AI に渡す。1 つ前は端末に残し、元に戻せる。 */}
-          <div style={{ ...softBox, marginTop: 'var(--space-3)' }}>
-            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' }}>
-              <IcPencil size={13} aria-hidden="true" style={labelIcon} />
+          <div style={{ ...softBox, marginTop: 'var(--space-3)', marginBottom: 0 }}>
+            <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>
               直したいところ
             </p>
             <textarea
@@ -375,7 +370,8 @@ export function BeforePhase({
                 onClick={submitEdit}
                 disabled={!editInstruction.trim() || aiLoading}
                 aria-busy={aiLoading || undefined}
-                style={{ ...btnGhost, width: 'auto', minHeight: 44, padding: '0 var(--space-4)', fontSize: 'var(--text-sub)', opacity: editInstruction.trim() ? 1 : 0.5 }}
+                // 押せないときは薄くせず btnGhostOff（DESIGN §5）。行の中の副ボタンなので 44・15。
+                style={{ ...(editInstruction.trim() && !aiLoading ? btnGhost : btnGhostOff), width: 'auto', minHeight: 44, padding: '0 var(--space-4)', fontSize: 'var(--text-sub)' }}
               >
                 {aiLoading ? "修正中…" : "修正する"}
               </button>
@@ -397,12 +393,12 @@ export function BeforePhase({
       {/* 「AIで本を解析する」は 2026-09-27 に廃止（読書計画シートと役割が重なる・原価の節約）。
           以前に解析した本だけ、結果を畳んで残す（相談の材料＝著者の意図として使い続ける）。 */}
       {form.aiAnalysis && (
-        <details style={{ marginTop: 'var(--space-6)' }}>
+        <details style={{ ...softBox, padding: '0 var(--space-4)', marginTop: 'var(--space-6)', marginBottom: 0 }}>
           <summary style={foldSummary}>
             以前の AI 解析を見る
-            <IcChevron size={18} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            <IcChevron size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </summary>
-          <div style={{ marginTop: 'var(--space-2)' }}>
+          <div style={{ paddingBottom: 'var(--space-4)' }}>
             <MarkdownSections
               text={form.aiAnalysis}
               onAddRelatedBook={aiLoading ? undefined : onAddRelatedBook}
@@ -412,11 +408,23 @@ export function BeforePhase({
         </details>
       )}
 
-      {/* 得たいことが書けていれば保存と同時に読書中へ自動遷移する（handleSave と同じ条件・
+      {/* 保存は画面の下に固定（App.jsx の編集画面の footer・EditSaveBar）。
+          得たいことが書けていれば保存と同時に読書中へ自動遷移する（handleSave と同じ条件・
           status='before' のみ）。読書計画シートは任意の補助で、遷移の条件には含めない。 */}
-      <button onClick={onSave} style={{ ...btnPrimary, marginTop: 'var(--space-6)' }}>
-        {form.status === 'before' && savedAsBefore && planReady ? '保存して読書を開始' : '保存'}
-      </button>
+    </div>
+  );
+}
+
+// 編集画面（積読・読書中・読了）の「保存」。画面の下に固定し、上に区切り線（iOS の作成画面の作法）。
+// 本を追加する画面（WantPhase）は従来どおり本文中の主ボタン（タグ・フォルダより上）。
+export function saveLabelFor(form, savedAsBefore) {
+  const planReady = !!form?.investPurpose?.trim();
+  return form?.status === 'before' && savedAsBefore && planReady ? '保存して読書を開始' : '保存';
+}
+export function EditSaveBar({ onSave, label = '保存' }) {
+  return (
+    <div style={{ flexShrink: 0, borderTop: '1px solid var(--separator)', background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
+      <button type="button" onClick={onSave} style={btnPrimary}>{label}</button>
     </div>
   );
 }
@@ -429,32 +437,13 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeActio
   // UI には出さない。データ列は dormant（復活は容易・既存値は保持）。
   return (
     <div>
-      {/* 読書計画シートは畳んでおき、迷ったときに開く（詳細画面と同じ様式）。 */}
-      {form.aiStrategy && (
-        <details style={{ ...softBox, padding: '0 var(--space-4)', marginBottom: 'var(--space-4)' }}>
-          <summary style={foldSummary}>
-            読書計画シートを見る
-            <IcChevron size={18} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-          </summary>
-          <div style={{ paddingBottom: 'var(--space-3)' }}>
-            <MarkdownSections text={form.aiStrategy} />
-          </div>
-        </details>
-      )}
-
-      <Field label="メモ・感想">
-        <BookMemoList
-          bookId={form.id}
-          bookTitle={form.title}
-          bookAuthor={form.author || ""}
-          summaryText={form.leverageMemo || ""}
-          onSaveSummary={onSaveSummary}
-          onMakeAction={onMakeAction}
-        />
+      {/* 2026-09-27: 編集画面は「本の情報・行動・タグ・フォルダ」だけ。メモ一覧・この本のまとめ・
+          読書計画シートは本の詳細にあるので、ここに二重に置かない（SPEC §2）。
+          並びは読了と同じ: 日付 → 行動 → タグ・フォルダ →（下に固定の）保存。 */}
+      <Field label="読書開始日">
+        <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
       </Field>
 
-      {/* 「この本の学びを分析」は 2026-09-27 に廃止（本詳細の「この本に相談する」と重なる）。
-          並びは読了と同じ: メモ → 行動 → タグ・フォルダ → 保存。 */}
       <ActionsEditor form={form} setForm={setForm} title="この本から決めた行動" placeholder="例：明日の朝、学んだ手法を1つ試す" />
 
       <Field label="タグ">
@@ -463,8 +452,6 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeActio
       <Field label="フォルダ">
         <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
       </Field>
-
-      <button onClick={onSave} style={{ ...btnPrimary, marginTop: 'var(--space-6)' }}>保存</button>
     </div>
   );
 }
@@ -473,8 +460,8 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeActio
 export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
   return (
     <div>
-      <Field label={<><IcCal size={13} aria-hidden="true" style={labelIcon} />読書完了日</>}>
-        <input type="date" value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={inp} />
+      <Field label="読書完了日">
+        <input type="date" value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={dateInp(form.doneDate)} />
       </Field>
 
       <Field label="評価（読んでよかった度）">
@@ -486,7 +473,7 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
       {/* 「この本の学びを分析」は 2026-09-27 に廃止（本詳細の「この本に相談する」と重なる）。
           以前に保存した分析は「この本のAI まとめ」に残り、編集できる。 */}
       {form.aiSummary?.trim() && (
-        <Field label={<><IcBot size={13} aria-hidden="true" style={labelIcon} />この本の AI まとめ</>}>
+        <Field label="この本の AI まとめ">
           <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={3} style={ta} maxLength={LIMITS.memoText} />
         </Field>
       )}
@@ -494,7 +481,7 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
       <ActionsEditor form={form} setForm={setForm} title="この本から決めた行動" placeholder="例：営業会議で結論ファーストを実践" />
 
       <section style={{ marginBottom: 'var(--space-6)' }}>
-        <SectionHeader icon={<IcBulb size={16} aria-hidden="true" />} title="一番の収穫（1行）" />
+        <SectionHeader title="一番の収穫（1行）" />
         <textarea
           value={form.roiSummary || ""}
           onChange={(e) => setForm({ ...form, roiSummary: e.target.value })}
@@ -512,8 +499,6 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
       <Field label="フォルダ">
         <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
       </Field>
-
-      <button onClick={onSave} style={{ ...btnPrimary, marginTop: 'var(--space-6)' }}>保存</button>
     </div>
   );
 }
@@ -537,9 +522,9 @@ function ActionsEditor({ form, setForm, title, placeholder }) {
           <div key={i} style={{ background: "var(--fill)", borderRadius: "var(--radius)", padding: "var(--space-3) var(--space-4)", display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? placeholder : `行動 ${i + 1}`} style={inp} maxLength={LIMITS.actionText} aria-label={`行動 ${i + 1}`} />
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>
+              <label style={{ ...groupTitle, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
                 期限
-                <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={inp} aria-label={`行動 ${i + 1} の期限`} />
+                <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...dateInp(a.deadline), fontWeight: 400, letterSpacing: 'normal' }} aria-label={`行動 ${i + 1} の期限`} />
               </label>
             </div>
             <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

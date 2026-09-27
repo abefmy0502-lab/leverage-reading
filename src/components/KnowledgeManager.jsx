@@ -257,7 +257,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
         {/* 種類は文字＋線のアイコンで示す（色で分けない・DESIGN §3-2）。右は「…」の分だけ空ける。 */}
         <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', paddingRight: 'var(--space-8)' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minWidth: 0, fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5 }}>
-            {meta.Icon && <meta.Icon size={14} aria-hidden="true" style={{ flexShrink: 0 }} />}
+            {meta.Icon && <meta.Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kindLine}</span>
           </span>
           <span style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>{fmtDate(item.created_at)}</span>
@@ -265,7 +265,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
         {item.book && (
           <span style={{ display: 'block', fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600, marginTop: 'var(--space-2)', lineHeight: 1.5 }}>
             {item.book.title || '（タイトル不明）'}
-            {item.book.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', fontWeight: 400 }}>　{item.book.author}</span>}
+            {item.book.author && <span style={{ marginLeft: 'var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-3)', fontWeight: 400 }}>{item.book.author}</span>}
           </span>
         )}
         {/* 本文＝読む文章（明朝 18・行間 1.6）。長い本文は 6 行で畳み、全文は編集で開く。 */}
@@ -275,7 +275,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
         {visibleTags.length > 0 && (
           <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', marginTop: 'var(--space-2)' }}>
             {visibleTags.map((t) => (
-              <span key={t} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.8 }}>#{t}</span>
+              <span key={t} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>#{t}</span>
             ))}
           </span>
         )}
@@ -773,7 +773,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
             icon={<Brain size={32} strokeWidth={1.5} aria-hidden="true" />}
             title="まだ根拠にできる情報はありません"
             description="本のメモや学びを書くと、ここに並びます。"
-            actions={onWriteMemo ? [{ label: 'メモを書く', icon: <PencilLine size={18} aria-hidden="true" />, onClick: onWriteMemo }] : []}
+            actions={onWriteMemo ? [{ label: '学びを書く', icon: <PencilLine size={18} aria-hidden="true" />, onClick: onWriteMemo }] : []}
           />
         ) : (
           <EmptyState

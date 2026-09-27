@@ -29,7 +29,7 @@ import { markActivation } from '../lib/activation';
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
 import { isNativePushCapable, getNativePushPermission, subscribeNativePush } from '../lib/nativePush';
 import { isNative } from '../lib/iap';
-import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff } from '../styles/ui';
+import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink, groupTitle, card as uiCard } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
   StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight, MoreHorizontal,
@@ -39,13 +39,14 @@ import { useConfirm } from './ConfirmDialog';
 
 // 見た目は DESIGN.md のトークンのみ（2026-09-26・SPEC §4 でメモのサブタブを整理）。
 const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
-const sectionTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
-const cardBase = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' };
+// 小さな見出し（ui.js groupTitle）と中身の間は 8（DESIGN §1 グループ内）。
+const sectionTitle = { ...groupTitle, margin: '0 0 var(--space-2)' };
+// カード（ui.js card・内側 16）。
+const cardBase = { ...uiCard, padding: 'var(--space-4)' };
 const inp = { width: '100%', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'max(16px, var(--text-body))', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit', boxSizing: 'border-box' };
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
 const btnGhostOff = { ...uiBtnGhostOff, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
-const btnTextSm = { ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' };
 
 // relativeJa / recallFraming は src/lib/recall.js に切り出して
 // サーバー（api/push-cron.js の想起通知）と文言を共有している。
@@ -256,22 +257,41 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   const isLongText = (memo.text || '').length > (showRelative ? 40 : 140);
 
   // 種類は色の帯ではなく、小さなアイコン＋文字で示す（色はニュートラル＋栗色 1 色・DESIGN §3）。
+  // ふつうのメモ（card）は種類を出さない（ほとんどがこれなので、出すと毎枚「メモ」が並ぶだけ）。
+  // そのときは本の名前を 1 行目の左に置く。学び・まとめ系だけ種類を出す。
   const cardStyle = cardBase;
+  const showKind = kind !== 'card';
+  const hasBookLink = !isPersonal && !!(book || memo.bookId);
+  const bookInHeader = !showKind && hasBookLink;
+  const bookButton = (inHeader) => (
+    <button
+      type="button"
+      onClick={() => book && onOpenBook?.(book)}
+      style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: inHeader ? 'calc(-1 * var(--space-3)) 0' : 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(inHeader ? { flex: 1 } : {}) }}
+    >
+      {book?.title || '（本のデータが見つかりません）'}
+      {book?.author && <span style={{ color: 'var(--text-3)', marginLeft: 'var(--space-2)' }}>{book.author}</span>}
+    </button>
+  );
+  // 「続きを読む」がカードの最後なら、ボタンの下の余り（44 の押せる範囲の余白）をカードの内側余白に重ねる。
+  const readMoreIsLast = !memo.photoPath && visibleTags.length === 0;
 
   const inner = (
     <div style={cardStyle} {...(onLongPress && !isSynth ? longPress.bind : {})}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', flexWrap: bookInHeader ? 'nowrap' : 'wrap' }}>
+        {bookInHeader ? bookButton(true) : (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <span
+          {showKind && <span
             style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}
             aria-label={`種類: ${meta.label}`}
           >
             <meta.Icon size={14} aria-hidden="true" />{meta.label}
-          </span>
+          </span>}
           {category && (
             <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>・{category}</span>
           )}
         </div>
+        )}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
           {showRelative ? relativeJa(memo.createdAt) : fmtDate(memo.createdAt)}
           {/* 「…」（横・DESIGN §5）。押せる範囲 44 は保ち、行の高さは負の余白で増やさない。 */}
@@ -289,16 +309,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
         </span>
       </div>
       {/* 本へのリンク (個人学び以外) */}
-      {!isPersonal && (book || memo.bookId) && (
-        <button
-          type="button"
-          onClick={() => book && onOpenBook?.(book)}
-          style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: showRelative ? 'var(--text-2)' : 'var(--accent)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        >
-          {book?.title || '（本のデータが見つかりません）'}
-          {book?.author && <span style={{ color: 'var(--text-3)', marginLeft: 'var(--space-2)' }}>{book.author}</span>}
-        </button>
-      )}
+      {hasBookLink && !bookInHeader && bookButton(false)}
       {memo.pageNumber != null && !isPersonal && (
         <span style={{ display: 'inline-block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>p.{memo.pageNumber}</span>
       )}
@@ -332,7 +343,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-              style={btnTextSm}
+              style={{ ...btnLink, padding: 0, ...(readMoreIsLast ? { marginBottom: 'calc(-1 * var(--space-3))' } : {}) }}
             >
               {expanded ? '閉じる' : '続きを読む'}
             </button>
@@ -818,13 +829,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       <div style={wrap}>
         <EmptyState
           icon={<StickyNote size={34} aria-hidden="true" />}
-          title="ここに、あなたの気づきが戻ってきます"
-          description={(
-            <>
-              本を読んでメモを残すと、忘れた頃に<br />
-              ここへふいに戻ってきます。まずは一行から。
-            </>
-          )}
+          title="メモを残すと、忘れた頃にここへ戻ってきます"
           actions={
             onAddNote && hasMemoableBooks
               ? [{ label: 'メモを追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote }]
@@ -834,7 +839,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 ? [{ label: 'すべての本へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToShelf }]
                 : []
           }
-          tip="残したメモや学びが、すべてここに集まります"
         />
       </div>
     );
@@ -854,6 +858,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             // handleMemoToAction を長押しメニューにも露出する。
             ...(memoMenu.book && onAddAction
               ? [{ label: '行動にする', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMemoToAction(memoMenu.memo) }]
+              : []),
+            // 思い出しカードの「…」だけ: 別の 1 枚へ（SPEC §4: 覚えた／もう一度 ＋ …）。
+            ...(memoMenu.recall
+              ? [{ label: '別のメモを見る', icon: <Shuffle size={16} aria-hidden="true" />, onClick: () => { if (!flipping) reroll(); } }]
               : []),
             ...(memoMenu.book
               ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book) }]
@@ -964,7 +972,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               )}
               <button
                 type="button"
-                style={btnTextSm}
+                style={btnLink}
                 onClick={() => {
                   setSearch('');
                   setTagFilter('');
@@ -1001,14 +1009,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       {!isSearching && (<>
       {/* ===== 2. 今日の振り返り (random) ===== */}
       <section>
-        {/* 思い出しカード（SPEC §4: メモの一番上に小さく）。見出しは小さなラベル、切替は文字ボタン。 */}
-        {/* 文字ボタン（高さ 48）の上下の余りを打ち消し、検索欄との間を区画の間隔（24）に揃える。 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-1))' }}>
-          <h2 style={{ ...sectionTitle, margin: 0 }}>思い出しカード</h2>
-          <button type="button" style={btnTextSm} onClick={reroll} disabled={flipping}>
-            別のメモを見る
-          </button>
-        </div>
+        {/* 思い出しカード（SPEC §4: メモの一番上に小さく）。見出しは小さなラベルだけ。
+            「別のメモを見る」はカードの「…」の中（覚えた／もう一度 ＋ …）。 */}
+        <h2 style={sectionTitle}>思い出しカード</h2>
         {/* 説明のフレーミング文と「今は少なくても大丈夫」の空きプール文言は撤去 —
             実際のメモカードと同時に出て矛盾し、主役（ユーザー自身の言葉）より先に
             読ませる説明ノイズになっていた。ヘッダー＋「N日前のあなたのメモ」ラベルで
@@ -1030,8 +1033,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               book={booksById.get(randomMemo.bookId)}
               onOpenBook={onOpenBook}
               onSwipeDelete={handleSwipeDelete}
-              onLongPress={(payload) => setMemoMenu(payload)}
-              onOpenMenu={(payload) => setMemoMenu(payload)}
+              onLongPress={(payload) => setMemoMenu({ ...payload, recall: true })}
+              onOpenMenu={(payload) => setMemoMenu({ ...payload, recall: true })}
               showRelative
             />
             {/* 🧠 間隔反復のフィードバック（当日メモは除く）— 想起カードの主アクション
@@ -1113,7 +1116,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               </button>
             </div>
             {!isNative && isIOS() && !isStandalonePWA() && (
-              <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-2) 0 0', lineHeight: 1.5 }}>
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-2) 0 0', lineHeight: 1.5 }}>
                 ※ iPhone / iPad は「ホーム画面に追加」したアプリから開くと通知を使えます。
               </p>
             )}
@@ -1125,7 +1128,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
 
       {/* ===== 3. タイムライン ===== */}
       <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)' }}>
+        {/* 「メモを追加」（高さ 44）と並ぶので、行の下の余白は付けない（見出しの文字から一覧まで約 8〜12）。 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ ...sectionTitle, margin: 0 }}>月ごとのメモ</h2>
           {/* ＋メモを追加 — 旧・最上段の孤立ボタンをここへ（メモ一覧の傍が住処。
               付け先の本＝読書中/読了の本がある時だけ）。 */}
@@ -1133,7 +1137,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             <button
               type="button"
               onClick={onAddNote}
-              style={{ ...btnTextSm, gap: 'var(--space-1)' }}
+              style={{ ...btnLink, gap: 'var(--space-1)', paddingRight: 0 }}
             >
               <Plus size={16} strokeWidth={2} aria-hidden="true" />
               メモを追加
@@ -1163,10 +1167,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                     fontFamily: 'inherit',
                   }}
                 >
-                  <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)', fontWeight: 600 }}>
+                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', fontWeight: 600 }}>
                     {monthLabel(key)}
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-sub)', color: 'var(--text-3)' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                     {group.length} 件
                     {open ? <ChevronDown size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
                   </span>

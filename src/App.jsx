@@ -139,8 +139,8 @@ import { PaywallContext } from './state/PaywallContext';
 import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Dots, Stars, inp, btnS } from './components/formPrimitives';
-import { btnGhost, btnText, btnPrimary, btnLink } from './styles/ui';
-import { WantPhase, BeforePhase, ReadingPhase, DonePhase } from './components/BookPhases';
+import { btnGhost, btnText, btnPrimary, btnPrimaryOff, btnLink, groupTitle } from './styles/ui';
+import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar, saveLabelFor } from './components/BookPhases';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
@@ -2949,7 +2949,19 @@ function AuthedApp() {
     const detailH2Style = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-2)', lineHeight: 1.3 };
     // 押せる行（この本に相談する）の中の文字ボタンの縦の余り（高さ 44 のうち文字の上下）を詰める。
     const textBtnInCard = { ...btnText, fontSize: 'var(--text-sub)', padding: 0, marginBottom: 'calc(-1 * var(--space-3))' };
-    const subLabelStyle = { fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: 'var(--space-3) 0 var(--space-2)' };
+    // 畳んだ中の小さな見出し（DESIGN §5 groupTitle・12/600/--text-2）。
+    const subLabelStyle = { ...groupTitle, margin: 'var(--space-3) 0 var(--space-2)' };
+    // 読書計画の中身（得たいこと・課題・仮説・シート）。読書中・読了では 1 つの「読書計画」に畳む。
+    const planItems = [
+      current.investPurpose && { label: 'この本から得たいこと', text: current.investPurpose },
+      current.currentChallenge && { label: '現在の課題', text: current.currentChallenge },
+      current.hypothesis && { label: '仮説', text: current.hypothesis },
+    ].filter(Boolean);
+    const hasPlanFold = planItems.length > 0 || !!current.aiStrategy;
+    // 読書中・読了の画面の下で、直前が「行動」「一番の収穫」なら 24、畳む見出しが続くなら 12。
+    const visibleActionCount = (current.actions || []).filter((a) => a.text?.trim() && !isScheduledLater(a)).length;
+    const hasHarvestBlock = !!current.roiSummary || (current.status === 'done' && !(current.roiSummary || '').trim());
+    const planFoldTop = isMemoPhase && visibleActionCount === 0 && !hasHarvestBlock ? 'var(--space-3)' : 'var(--space-6)';
     // 読書計画・目的・課題・仮説・AI 解析（旧: 書名の直下）。読書中・読了では下へ回す。
     const planBlock = (
       <>
@@ -2968,15 +2980,11 @@ function AuthedApp() {
 
             if (current.status === 'before') {
               if (isIncomplete) {
+                // 見出しとボタンが同じことを言っていたので、副ボタン 1 つだけ（主ボタンは下の「読書を開始する」）。
                 return (
-                  <div style={{ ...cardStyle, marginTop: 'var(--space-4)' }}>
-                    <h3 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
-                      読書計画シートを作る
-                    </h3>
-                    <button type="button" onClick={() => openSetup(current)} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>
-                      読書計画シートを始める
-                    </button>
-                  </div>
+                  <button type="button" onClick={() => openSetup(current)} style={{ ...btnGhost, marginTop: 'var(--space-6)' }}>
+                    読書計画シートを作る
+                  </button>
                 );
               }
               // 完了済み: 控えめな完了表示 + 編集導線
@@ -3016,47 +3024,81 @@ function AuthedApp() {
               「入力したのに消えた」ように見えていた。 */}
           {/* 得たいこと・課題・仮説と読書計画シートは 1 つのまとまり（間 8）。
               読書中・読了では行動の下に置くので、上と 24 離して見出しを付ける。 */}
-          {(current.investPurpose || current.currentChallenge || current.hypothesis || current.aiAnalysis || current.aiStrategy) && (
-          <section
-            aria-labelledby={isMemoPhase ? 'detail-plan-title' : undefined}
-            style={{ marginTop: isMemoPhase ? 'var(--space-6)' : 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
-          >
-          {isMemoPhase && <h2 id="detail-plan-title" style={{ ...detailH2Style, margin: 0 }}>読書計画</h2>}
-          {current.investPurpose && <Card label="この本から得たいこと" text={current.investPurpose} style={{ marginTop: 0 }} />}
-          {current.currentChallenge && <Card label="現在の課題" text={current.currentChallenge} style={{ marginTop: 0 }} />}
-          {current.hypothesis && <Card label="仮説" text={current.hypothesis} style={{ marginTop: 0 }} />}
-
-          {/* AI 出力（解析 / 読書計画シート）はデフォルト折りたたみ。
-              スクロール量を圧縮し、必要な時に展開する。 */}
-          {(current.aiAnalysis || current.aiStrategy) && (
-            <details style={{ ...detailsStyle, marginTop: 0 }}>
+          {/* 読書中・読了: 得たいこと・課題・仮説・シートを 1 つの「読書計画」に畳む（メモが主役・SPEC §2）。
+              右に中身の一覧を 13 の --text-3 で（「この本のまとめ」と同じ形）。 */}
+          {isMemoPhase && hasPlanFold && (
+            <details style={{ ...detailsStyle, marginTop: planFoldTop }}>
               <summary style={summaryStyle}>
-                {current.aiAnalysis ? 'AI 解析・読書計画' : '読書計画シート'}
+                読書計画
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                  <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {[
+                      ...planItems.map((p) => (p.label === 'この本から得たいこと' ? '得たいこと' : p.label === '現在の課題' ? '課題' : p.label)),
+                      ...(current.aiStrategy ? ['シート'] : []),
+                    ].join('・')}
+                  </span>
+                  <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                </span>
+              </summary>
+              <div style={{ paddingBottom: 'var(--space-4)' }}>
+                {planItems.map((p) => (
+                  <div key={p.label}>
+                    <p style={subLabelStyle}>{p.label}</p>
+                    <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{p.text}</p>
+                  </div>
+                ))}
+                {current.aiStrategy && (
+                  <>
+                    <p style={subLabelStyle}>読書計画シート</p>
+                    <MarkdownSections
+                      text={current.aiStrategy}
+                      onAddRelatedBook={addRelatedBookFromAi}
+                      addingTitles={addedRelatedTitles}
+                    />
+                  </>
+                )}
+              </div>
+            </details>
+          )}
+
+          {/* 読みたい・積読: 読む準備が主役なので、得たいこと・課題・仮説は開いて見せる。
+              シートは、あるときだけ畳んで置く。 */}
+          {!isMemoPhase && hasPlanFold && (
+          <section style={{ marginTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
+          {current.aiStrategy && (
+            <details style={{ ...detailsStyle, marginTop: planItems.length ? 'var(--space-1)' : 0 }}>
+              <summary style={summaryStyle}>
+                読書計画シート
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </summary>
-              {current.aiAnalysis && (
-                <div style={{ paddingBottom: 'var(--space-4)' }}>
-                  <p style={subLabelStyle}>AI 本の解析（以前の結果）</p>
-                  <MarkdownSections
-                    text={current.aiAnalysis}
-                    onAddRelatedBook={addRelatedBookFromAi}
-                    addingTitles={addedRelatedTitles}
-                  />
-                </div>
-              )}
-              {current.aiStrategy && (
-                <div style={{ paddingBottom: 'var(--space-4)' }}>
-                  <p style={subLabelStyle}>読書計画シート</p>
-                  <MarkdownSections
-                    text={current.aiStrategy}
-                    onAddRelatedBook={addRelatedBookFromAi}
-                    addingTitles={addedRelatedTitles}
-                  />
-                </div>
-              )}
+              <div style={{ paddingBottom: 'var(--space-4)' }}>
+                <MarkdownSections
+                  text={current.aiStrategy}
+                  onAddRelatedBook={addRelatedBookFromAi}
+                  addingTitles={addedRelatedTitles}
+                />
+              </div>
             </details>
           )}
           </section>
+          )}
+
+          {/* 「AIで本を解析する」は 2026-09-27 に廃止。以前の結果だけ、別の畳む見出しで残す。 */}
+          {current.aiAnalysis && (
+            <details style={{ ...detailsStyle, marginTop: hasPlanFold ? 'var(--space-3)' : (isMemoPhase ? planFoldTop : 'var(--space-3)') }}>
+              <summary style={summaryStyle}>
+                以前の AI 解析を見る
+                <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </summary>
+              <div style={{ paddingBottom: 'var(--space-4)' }}>
+                <MarkdownSections
+                  text={current.aiAnalysis}
+                  onAddRelatedBook={addRelatedBookFromAi}
+                  addingTitles={addedRelatedTitles}
+                />
+              </div>
+            </details>
           )}
 
       </>
@@ -3180,23 +3222,10 @@ function AuthedApp() {
                 />
               </section>
             </div>
-          ) : current.status === 'want' ? (
-            <div style={{ marginTop: 'var(--space-4)' }}>
-              {/* 積読では下の主ボタン「読み始める」と同じ行き先になり二重なので、読みたいだけに出す。 */}
-              {/* コールドスタート緩和: ワンタップで「読書中」に昇格して即メモを開く
-                  （メモは reading/done に住む設計は不変）。進行の主ボタン（下部の「積読に積む」等）
-                  と並ぶので、こちらは文字ボタン。説明文は置かない（DESIGN §0-6）。 */}
-              <button
-                type="button"
-                onClick={() => { advanceStatus(current, "reading"); setQuickMemoOpen(true); }}
-                style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 0 }}
-              >
-                もう読み始めている？ 読書中にしてメモを書く
-              </button>
-            </div>
           ) : null}
+          {/* 畳む見出しが続くときは 12（「この本のまとめ」の直後）。 */}
           {current.aiSummary && (
-            <details style={{ ...detailsStyle, marginTop: 'var(--space-6)' }}>
+            <details style={{ ...detailsStyle, marginTop: isMemoPhase ? 'var(--space-3)' : 'var(--space-6)' }}>
               <summary style={summaryStyle}>
                 以前の AI まとめ
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
@@ -3212,7 +3241,8 @@ function AuthedApp() {
           )}
 
           {(current.actions || []).filter((a) => a.text?.trim() && !isScheduledLater(a)).length > 0 && (
-            <section style={{ marginTop: 'var(--space-6)' }} aria-labelledby="detail-action-title">
+            // 行の上下の余り（padding 8）を詰め、見た目の間隔を 24 にそろえる。
+            <section style={{ marginTop: 'var(--space-6)', marginBottom: 'calc(-1 * var(--space-2))' }} aria-labelledby="detail-action-title">
               <h2 id="detail-action-title" style={detailH2Style}>行動</h2>
               {/* その場で完了できる（読み取り専用だと行動タブへの往復を強制する）。
                   filter だと index がズレるので生 index を持ったまま並べる。まだの行動を先、完了は後。 */}
@@ -3241,12 +3271,10 @@ function AuthedApp() {
             </section>
           )}
 
-          {isMemoPhase && planBlock}
-
           {current.roiSummary && <Card label="一番の収穫" text={current.roiSummary} style={{ marginTop: 'var(--space-6)' }} />}
 
           {/* 💡 読了直後の「一番の収穫」導線 — 感情のピークで 1 行の言語化を促す
-              （レバレッジ読書の核心。未記入のときだけ出る＝書けば消える）。 */}
+              （レバレッジ読書の核心。未記入のときだけ出る＝書けば消える）。行動のすぐ後・読書計画より上。 */}
           {current.status === 'done' && !(current.roiSummary || '').trim() && (
             <div style={{ ...cardStyle, marginTop: 'var(--space-6)' }}>
               <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>一番の収穫を 1 行だけ残す</p>
@@ -3255,6 +3283,8 @@ function AuthedApp() {
               </button>
             </div>
           )}
+
+          {isMemoPhase && planBlock}
 
           {/* Action buttons */}
           <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-6)', marginTop: 'var(--space-8)' }}>
@@ -3304,6 +3334,17 @@ function AuthedApp() {
                 >
                   {nextLabel[current.status]}
                 </button>
+                {/* 読みたいだけ: 主ボタン「積読に積む」のすぐ下に文字ボタン（積読では「読書を開始する」と
+                    行き先が同じで二重になるので出さない）。ワンタップで読書中にして、そのままメモを開く。 */}
+                {current.status === 'want' && (
+                  <button
+                    type="button"
+                    onClick={() => { advanceStatus(current, "reading"); setQuickMemoOpen(true); }}
+                    style={{ ...btnLink, alignSelf: 'center' }}
+                  >
+                    読書中にしてメモを書く
+                  </button>
+                )}
               </div>
             )}
             {/* 購入導線は「まだ買っていない可能性が高い」want / before だけ主役。
@@ -3542,6 +3583,9 @@ function AuthedApp() {
 
   // ===== EDIT (renders different phase based on status) =====
   if (view === "edit") {
+    // 積読・読書中・読了の編集は「保存」を画面の下に固定する（EditSaveBar）。本を追加・読みたいは本文中の主ボタン。
+    const editPhaseNow = editPhaseOverride || form.status;
+    const hasSaveBar = !!current && editPhaseNow !== 'want';
     return (
       <Shell>
         <div
@@ -3552,7 +3596,8 @@ function AuthedApp() {
             overflowY: 'auto',
             overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
-            padding: "var(--space-6) var(--space-4) var(--space-16)",
+            // 上は本の詳細と同じ 8（戻るの行の位置をそろえる）。下は固定の保存があれば 24。
+            padding: `${current ? 'var(--space-2)' : 'var(--space-6)'} var(--space-4) ${hasSaveBar ? 'var(--space-6)' : 'var(--space-16)'}`,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -3562,8 +3607,8 @@ function AuthedApp() {
                 if (current) { setEditPhaseOverride(null); setView("detail"); }
                 else goList();
               }}
-              // 詳細画面の「‹ 本棚」と同じ iOS ナビ様式に統一（旧: 沈む極小グレー「← 戻る」）。
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+              // 詳細画面の「‹ 本棚」と同じ iOS ナビ様式に統一（旧: 沈む極小グレー「← 戻る」）。シェブロンの位置も詳細と同じ。
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-1))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
             ><ChevronLeft size={22} aria-hidden="true" />{current ? '詳細' : 'すべての本'}</button>
             <button
               onClick={openHelp}
@@ -3588,17 +3633,21 @@ function AuthedApp() {
               : "読了の振り返り";
             return (
               <>
-                <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', margin: 'var(--space-3) 0 var(--space-4)' }}>
-                  {/* 本を追加するときは、状態は下の「この本の状態」で選ぶので見出しには出さない。 */}
-                  {/* 見出しが状態と同じ言葉になる（「読書中 読書中」）ので、状態は仕切り直しのときだけ出す。 */}
-                  {current && editPhaseOverride && editPhaseOverride !== form.status && <StatusLabel status={form.status} />}
-                  <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: "var(--text)", margin: 0, lineHeight: 1.3 }}>{phaseLabel}</h2>
-                  {editPhaseOverride && editPhaseOverride !== form.status && (
-                    <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>
-                      （読書計画を仕切り直し中）
-                    </span>
-                  )}
-                </div>
+                {current ? (
+                  // 既存の本の編集: 書名が画面の主題（28・700・本の詳細と同じ）。上に小さく「編集」、下に状態。
+                  <div style={{ margin: 'var(--space-2) 0 var(--space-6)' }}>
+                    <p style={{ ...groupTitle, margin: '0 0 var(--space-1)' }}>
+                      {effectivePhase === 'before' ? '読書計画を編集' : '編集'}
+                    </p>
+                    <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', lineHeight: 1.25, margin: 0, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{current.title}</h1>
+                    <div style={{ marginTop: 'var(--space-2)' }}><StatusLabel status={form.status} /></div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', margin: 'var(--space-3) 0 var(--space-4)' }}>
+                    {/* 本を追加するときは、状態は下の「この本の状態」で選ぶので見出しには出さない。 */}
+                    <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: "var(--text)", margin: 0, lineHeight: 1.3 }}>{phaseLabel}</h2>
+                  </div>
+                )}
 
                 {(effectivePhase === "want" || !current) && (
                   <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={() => setSearchOpen(true)} allTags={allTags} allFolders={folderNames} />
@@ -3630,6 +3679,10 @@ function AuthedApp() {
             );
           })()}
         </div>
+
+        {hasSaveBar && (
+          <EditSaveBar onSave={handleSave} label={editPhaseNow === 'before' ? saveLabelFor(form, current?.status === 'before') : '保存'} />
+        )}
 
         <Modal open={searchOpen} ariaLabel="本を検索" onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}>
           <BookSearchModal
@@ -3668,8 +3721,8 @@ function AuthedApp() {
             navigateTab(t);
             goList();
           }}
-          // 本を追加しているあいだは下のタブを出さない（iOS の作成画面の作法・保存ボタンを隠さない）。
-          hidden={keyboardOpen || !current}
+          // 本を追加・編集しているあいだは下のタブを出さない（iOS の作成・編集画面の作法・下に固定の保存を隠さない）。
+          hidden
         />
       </Shell>
     );
@@ -3679,7 +3732,8 @@ function AuthedApp() {
   return (
     <Shell>
    {/* すべての本は押し込まれた画面なので、ナビゲーション行（‹ ホーム）1 本だけにする（全体ヘッダーと二段にしない）。 */}
-   {!(tab === "books" && shelfMode === 'library') && (
+   {/* 相談の押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）も同じく「‹ 相談」の行 1 本だけ。 */}
+   {!(tab === "books" && shelfMode === 'library') && !(tab === "ai" && aiSubTab === 'brain' && consultPushed) && (
    <header
      style={{
        flexShrink: 0,
@@ -3917,7 +3971,11 @@ function AuthedApp() {
               {(books.length >= 4 || folderFilter || minRating > 0 || tagFilter.length > 0) && (
                 <div
                   style={{
-                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-2)',
+                    display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-4)',
+                    // チップの見た目は 32・押せる範囲は 44。上下の余り（6 ずつ）を行の外側で相殺し、
+                    // 見た目の間隔を 見出し→チップ 12・チップ→一覧 16 にそろえる（チップ自体に負の余白を
+                    // 付けると横スクロールの枠で押せる範囲が切れ、シートの折り返しでは行が詰まるため行の側で）。
+                    margin: 'calc((32px - 44px) / 2) 0',
                     WebkitOverflowScrolling: 'touch',
                     // 右端をふわっと透過させ「まだ続きがある（横スクロールできる）」を示す。
                     // フェードなしだと「読了」チップが硬く見切れて壊れて見えていた。
@@ -4897,9 +4955,10 @@ function WebAppOnlyGate() {
             App Store で入手
           </a>
         ) : (
-          <p style={{ fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-6) 0 0' }}>
-            App Store で近日公開予定です
-          </p>
+          // 公開前は、公開後と同じ場所・形の押せない主ボタン（LP・有料プランの画面と同じ・薄くしない）。
+          <button type="button" disabled style={{ ...btnPrimaryOff, marginTop: 'var(--space-8)' }}>
+            App Store で近日公開
+          </button>
         )}
         <div style={{ marginTop: 'var(--space-8)' }}>
           {user?.email && (

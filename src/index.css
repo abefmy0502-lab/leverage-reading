@@ -429,12 +429,13 @@ button:disabled:active {
   outline-offset: 2px;
   border-radius: 4px;
 }
-/* 自前の box-shadow フォーカスリングを持つ入力系は outline を重ねない
-   （キーボードフォーカス時の「二重リング」を防ぐ）。 */
+/* 自前の box-shadow フォーカスリング（components.css の入力欄のフォーカス）を持つ入力系は
+   outline を重ねない（キーボードフォーカス時の「二重リング」を防ぐ）。
+   チェックボックス・ラジオは輪を持たないので、上の outline を残す。 */
 .input:focus-visible,
 .textarea:focus-visible,
 .ai-input-area textarea:focus-visible,
-input:focus-visible,
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   outline: none;

@@ -157,6 +157,10 @@ const rowButtonStyle = {
   color: 'var(--text)',
 };
 
+// 処理中の行（薄くしない・DESIGN §5「押せないボタン」）。文字を --text-3 にして、押せないことを色で示す。
+// 全体の button:disabled{opacity:.4} を打ち消すため opacity: 1 を明示する。
+const rowButtonBusy = { ...rowButtonStyle, color: 'var(--text-3)', cursor: 'default', opacity: 1 };
+
 // 文章＋ボタンのまとまり（プラン・初期化・退会など）。
 const blockStyle = { padding: 'var(--space-3) 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
@@ -207,7 +211,7 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
         padding: 0,
         background: 'none',
         cursor: disabled || busy ? 'default' : 'pointer',
-        opacity: busy ? 0.6 : 1,
+        opacity: 1, // 処理中も薄くしない（DESIGN §5「押せないボタン」）。状態は aria-busy で伝える
         fontFamily: 'inherit',
       }}
     >
@@ -234,7 +238,8 @@ function ToggleSwitch({ checked, onChange, disabled = false, busy = false, ariaL
             width: 27,
             height: 27,
             borderRadius: '50%',
-            background: 'var(--surface)',
+            // つまみは iOS と同じく明暗とも白（--surface だと暗い画面で黒くなり、オフのトラックに沈む）。
+            background: 'var(--switch-knob)',
             boxShadow: 'var(--shadow-raised)',
             transition: 'left var(--duration-fast) cubic-bezier(0.3, 1.3, 0.6, 1)',
           }}
@@ -782,14 +787,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const legalLinkStyle = { ...btnLink, textDecoration: 'none' };
 
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="アカウント設定" onClick={onClose}>
+    <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="設定" onClick={onClose}>
       <style>{SHEET_CSS}</style>
       <div ref={trapRef} className="lvg-settings-sheet" style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div aria-hidden="true" style={{ padding: 'var(--space-2) 0 var(--space-1)' }}>
           <div className="lvg-sheet-handle" />
         </div>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, lineHeight: 1.3 }}>アカウント設定</h2>
+          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, lineHeight: 1.3 }}>設定</h2>
           <button type="button" style={doneBtnStyle} onClick={onClose}>完了</button>
         </div>
 
@@ -885,7 +890,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     onClick={() => handleUpgrade('annual')}
                   >
                     <span>{billingBusy ? '移動中…' : `${planLabels.annual.price}`}</span>
-                    <span style={{ fontSize: 'var(--text-caption)', fontWeight: 400 }}>おすすめ・{planLabels.annual.note}</span>
+                    <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400 }}>おすすめ・{planLabels.annual.note}</span>
                   </button>
                   <button
                     type="button"
@@ -902,7 +907,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     onClick={() => handleUpgrade('monthly')}
                   >
                     <span>{planLabels.monthly.price}</span>
-                    <span style={{ fontSize: 'var(--text-caption)', fontWeight: 400, color: 'var(--text-2)' }}>{planLabels.monthly.note}</span>
+                    <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)' }}>{planLabels.monthly.note}</span>
                   </button>
                 </div>
               </div>
@@ -965,12 +970,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
 
           {/* ── データをダウンロード ── */}
           <Group label="データをダウンロード">
-            <button type="button" aria-label="表で見る（CSV をダウンロード）" style={{ ...rowButtonStyle, opacity: exporting ? 0.6 : 1 }} disabled={exporting} onClick={handleExport}>
-              <span style={{ ...rowTitleStyle, flex: 1 }}>{exporting ? '準備中…' : '表で見る（CSV）'}</span>
+            <button type="button" aria-label="表で見る（CSV をダウンロード）" style={exporting ? rowButtonBusy : rowButtonStyle} aria-busy={exporting || undefined} disabled={exporting} onClick={handleExport}>
+              <span style={{ ...rowTitleStyle, flex: 1, color: 'inherit' }}>{exporting ? '準備中…' : '表で見る（CSV）'}</span>
               <IcDownload size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
-            <button type="button" aria-label="文章で読み返す（Markdown で書き出す）" style={{ ...rowButtonStyle, ...divider, opacity: exportingMd ? 0.6 : 1 }} disabled={exportingMd} onClick={handleExportMarkdown}>
-              <span style={{ ...rowTitleStyle, flex: 1 }}>{exportingMd ? '書き出し中…' : '文章で読み返す（Markdown）'}</span>
+            <button type="button" aria-label="文章で読み返す（Markdown で書き出す）" style={{ ...(exportingMd ? rowButtonBusy : rowButtonStyle), ...divider }} aria-busy={exportingMd || undefined} disabled={exportingMd} onClick={handleExportMarkdown}>
+              <span style={{ ...rowTitleStyle, flex: 1, color: 'inherit' }}>{exportingMd ? '書き出し中…' : '文章で読み返す（Markdown）'}</span>
               <IcDownload size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
           </Group>
@@ -979,7 +984,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           <Group label="プライバシー" ariaLabel="利用状況の記録">
             <SettingRow
               title="利用状況の記録"
-              desc="どの機能がよく使われているかを、機能名や回数だけ（個人を特定する内容は含めず）そっと記録し、Orime の改善に役立てます。外部のサービスには送らず、いつでもオフにできます。"
+              desc="機能名と回数だけ。外部には送りません。"
               control={(
                 <ToggleSwitch
                   checked={analyticsOn}
@@ -997,12 +1002,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             <button
               type="button"
               aria-label="読み込み直す"
-              style={{ ...rowButtonStyle, opacity: updating ? 0.6 : 1 }}
+              style={updating ? rowButtonBusy : rowButtonStyle}
+              aria-busy={updating || undefined}
               disabled={updating}
               onClick={handleForceUpdate}
             >
               <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ ...rowTitleStyle, display: 'block' }}>{updating ? '更新中…' : '画面を読み込み直す'}</span>
+                <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>{updating ? '更新中…' : '画面を読み込み直す'}</span>
                 <span style={{ ...rowDescStyle, display: 'block' }}>表示が古いまま・崩れているとき</span>
               </span>
               <IcRefresh size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
@@ -1026,7 +1032,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               <button
                 type="button"
                 aria-label="データを初期化する"
-                style={{ ...btnDestructiveGhost, opacity: resetting ? 0.6 : 1 }}
+                style={resetting ? btnGhostOff : btnDestructiveGhost}
+                aria-busy={resetting || undefined}
                 disabled={resetting}
                 onClick={handleResetData}
               >

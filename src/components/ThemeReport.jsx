@@ -32,8 +32,9 @@ import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, input as uiInput } from '../styles/ui';
-import { History, Trash2, RotateCw, BookmarkPlus, Inbox, Ruler, RefreshCw, CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
+import ContextMenu from './ContextMenu';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput } from '../styles/ui';
+import { History, Trash2, RotateCw, BookmarkPlus, Inbox, Ruler, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Copy } from 'lucide-react';
 
 // 見た目は DESIGN.md のトークンのみ。
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
@@ -44,8 +45,10 @@ const inp = { ...uiInput, flex: 1, minWidth: 0, width: 'auto' };
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', flexShrink: 0 };
 const btnPrimaryOff = { ...uiBtnPrimaryOff, width: 'auto', flexShrink: 0 };
 const btnGhost = { ...uiBtnGhost };
-// 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
-const btnRow = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', gap: 'var(--space-1)', flexShrink: 0 };
+// 文字ボタン（DESIGN §5「文字」: --accent・15/600・高さ 44）。
+const btnLink = { ...uiBtnLink, gap: 'var(--space-1)', flexShrink: 0 };
+// 上の行（相談・AI 選書と同じ高さ 52・右端にアイコン）。親の上の余白 8 は打ち消す。
+const topRow = { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', minHeight: 52, margin: 'calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0 0' };
 const btnText = { ...uiBtnText, minHeight: 44, fontSize: 'var(--text-sub)', gap: 'var(--space-1)', padding: 'var(--space-2) 0' };
 const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
 // アイコンだけのボタン（44×44・AI 選書／相談の上部と同じ）。
@@ -210,6 +213,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const [primaryBook, setPrimaryBook] = useState(null); // { id, title }
   const [actionAdded, setActionAdded] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
+  // 右上の「…」メニュー（コピー）。{ x, y } | null
+  const [moreMenu, setMoreMenu] = useState(null);
 
   // History (optional persistence)
   const [history, setHistory] = useState([]);
@@ -578,8 +583,41 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
             )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+              {/* 上の行（テーマを選ぶ画面と同じ位置）: 履歴の時計 ＋ 完成後は「…」（コピー） */}
+              <div>
+              <div style={topRow}>
+                {historyAvailable && (
+                  <HistoryButton count={history.length} onOpen={() => setView('history')} />
+                )}
+                {reportDone && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setMoreMenu({ x: r.left + r.width / 2, y: r.bottom });
+                    }}
+                    style={iconBtn}
+                    aria-label="その他の操作"
+                    aria-haspopup="menu"
+                    aria-expanded={!!moreMenu}
+                    title="その他"
+                  >
+                    <MoreHorizontal size={22} strokeWidth={1.75} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              {moreMenu && (
+                <ContextMenu
+                  x={moreMenu.x}
+                  y={moreMenu.y}
+                  onClose={() => setMoreMenu(null)}
+                  items={[
+                    { label: 'コピー', icon: <Copy size={16} aria-hidden="true" />, onClick: copyReport },
+                  ]}
+                />
+              )}
               {/* 見出し: テーマ名 ＋ 中止 / 別のテーマ ＋ 根拠の範囲（データだけ） */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', marginTop: 'var(--space-2)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                   <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, flex: 1, minWidth: 0, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
                     {activeTheme}
@@ -589,13 +627,13 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                       type="button"
                       onClick={stopGeneration}
                       disabled={aborting}
-                      style={{ ...btnText, minHeight: 44, ...(aborting ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
+                      style={{ ...btnLink, ...(aborting ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
                       aria-label={aborting ? '中止しています' : 'テーマまとめの作成を中止'}
                     >
                       {aborting ? '中止中…' : '中止'}
                     </button>
                   ) : (
-                    <button type="button" onClick={resetToPicker} style={btnRow} aria-label="テーマ選択に戻る">
+                    <button type="button" onClick={resetToPicker} style={btnLink} aria-label="別のテーマを選ぶ">
                       <RefreshCw size={16} aria-hidden="true" />別のテーマ
                     </button>
                   )}
@@ -611,6 +649,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                     {delta.memo > 0 ? <>メモ +{delta.memo} 件を追加</> : delta.memo < 0 ? <>メモ {delta.memo} 件</> : <>新しい根拠が増えました</>}
                   </p>
                 )}
+              </div>
               </div>
 
               {/* body */}
@@ -658,27 +697,26 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                 <div aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                   {extractCore(reportText) && <CoreCard line={extractCore(reportText)} />}
                   <MarkdownSections text={stripCoreSection(reportText)} />
+                  {/* 次の一歩を 1 タップで行動リストへ（この画面の主ボタン）。「次の一歩」のカードのすぐ下に置く */}
+                  {nextStep && (
+                    <button
+                      type="button"
+                      onClick={actionAdded ? (() => onOpenActions?.()) : handleAddNextStep}
+                      disabled={actionBusy}
+                      aria-label={actionAdded ? '追加した行動を行動リストで見る' : '次の一歩を行動リストに追加'}
+                      style={actionAdded ? btnGhost : actionBusy ? uiBtnPrimaryOff : uiBtnPrimary}
+                    >
+                      {actionAdded ? (
+                        <><CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)' }} />追加済み・行動リストで見る<ChevronRight size={18} aria-hidden="true" /></>
+                      ) : actionBusy ? '追加中…' : (
+                        <>この一歩を行動リストに入れる</>
+                      )}
+                    </button>
+                  )}
                   {truncated && (
                     <p role="status" style={metaText}>長さの上限で途中までです（履歴に保存しません）</p>
                   )}
                 </div>
-              )}
-
-              {/* 次の一歩を 1 タップで行動リストへ（この画面の主ボタン・残す→活かすの輪を閉じる） */}
-              {nextStep && (
-                <button
-                  type="button"
-                  onClick={actionAdded ? (() => onOpenActions?.()) : handleAddNextStep}
-                  disabled={actionBusy}
-                  aria-label={actionAdded ? '追加した行動を行動リストで見る' : '次の一歩を行動リストに追加'}
-                  style={actionAdded ? btnGhost : actionBusy ? uiBtnPrimaryOff : uiBtnPrimary}
-                >
-                  {actionAdded ? (
-                    <><CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)' }} />追加済み・行動リストで見る<ChevronRight size={18} aria-hidden="true" /></>
-                  ) : actionBusy ? '追加中…' : (
-                    <>この一歩を行動リストに入れる</>
-                  )}
-                </button>
               )}
 
               {/* 行動の鏡 — 学びが行動に変わっているかを実データで示す */}
@@ -686,21 +724,9 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                 <ActionMirror stats={actionStats} memoTotal={scope?.memoTotal ?? 0} onOpenActions={onOpenActions} />
               )}
 
-              {/* 想起ループ接続 ＋ そのほかの操作（すべて副ボタン） */}
+              {/* 想起ループ接続（副ボタン）。コピーは右上の「…」、履歴は右上の時計 */}
               {reportDone && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <RecallButton busy={recallBusy} done={recallSet} onSet={handleSetRecall} />
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                    <button type="button" onClick={copyReport} style={btnRow} aria-label="テーマまとめをクリップボードにコピー">
-                      コピー
-                    </button>
-                    {historyAvailable && (
-                      <button type="button" onClick={() => setView('history')} style={btnRow} aria-label="保存済みのテーマまとめ履歴を見る">
-                        履歴
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <RecallButton busy={recallBusy} done={recallSet} onSet={handleSetRecall} />
               )}
             </div>
           )}
@@ -721,18 +747,8 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
       {/* 上の行（相談・AI 選書と同じ高さ 52・右端に履歴の時計）→ その下に見出し。サブタブを切り替えても
           見出しの位置が動かないように、相談の上の行と同じ寸法にそろえる（上の余白 8 は打ち消す）。 */}
       <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', minHeight: 52, margin: 'calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0 0' }}>
-        {historyCount != null && (
-          <button
-            type="button"
-            onClick={onOpenHistory}
-            style={iconBtn}
-            aria-label={historyCount > 0 ? `テーマまとめの履歴を見る（${historyCount} 件）` : 'テーマまとめの履歴を見る'}
-            title="履歴"
-          >
-            <History size={22} strokeWidth={1.75} aria-hidden="true" />
-          </button>
-        )}
+      <div style={topRow}>
+        {historyCount != null && <HistoryButton count={historyCount} onOpen={onOpenHistory} />}
       </div>
       <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 'var(--space-2) 0 0', lineHeight: 1.3 }}>
         どのテーマをまとめますか
@@ -830,12 +846,28 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
   );
 }
 
-// 核心 — 持ち歩く「この1行」。読む文章（明朝）で、カード 1 枚に。
+// 右上の履歴の時計（テーマを選ぶ画面・まとめの画面で同じ位置・同じ名前）。
+function HistoryButton({ count, onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      style={iconBtn}
+      aria-label={count > 0 ? `テーマまとめの履歴を見る（${count} 件）` : 'テーマまとめの履歴を見る'}
+      title="履歴"
+    >
+      <History size={22} strokeWidth={1.75} aria-hidden="true" />
+    </button>
+  );
+}
+
+// 核心 — 持ち歩く「この1行」。読む文章（明朝 400）で、カード 1 枚に。
+// 見出しは下の「繰り返す原則」「次の一歩」（MarkdownSections）の見出しと同じ 17/600/--text。
 function CoreCard({ line }) {
   return (
     <div style={card}>
-      <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>核心</p>
-      <p style={{ ...readText, fontWeight: 600, margin: 0, overflowWrap: 'anywhere' }}>
+      <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-2)', lineHeight: 1.4 }}>核心</h3>
+      <p style={{ ...readText, fontWeight: 400, margin: 0, overflowWrap: 'anywhere' }}>
         {line}
       </p>
     </div>
@@ -896,7 +928,8 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {openSteps.map((s, i) => (
               <li key={i} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: 'var(--text)' }}>
-                <Circle size={16} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
+                {/* 押せない一覧なので、チェックボックスに見える丸ではなく小さな点（MarkdownSections の箇条書きと同じ） */}
+                <span aria-hidden="true" style={{ flexShrink: 0, width: 6, height: 6, borderRadius: 'var(--radius-full)', background: 'var(--text-3)', marginTop: 'calc(0.75em - 3px)' }} />
                 <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{stripInlineMd(s)}</span>
               </li>
             ))}

@@ -187,6 +187,19 @@
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
+/* 入力中の枠（DESIGN §5「入力欄」: フォーカス時は --accent）。ui.js の input・formPrimitives の inp など
+   インライン style の入力欄にもまとめて効かせる。インラインの border 色に勝つよう border-color だけ !important。
+   チェックボックス・ラジオ・ボタン類には効かせない。枠の無い入力欄（全画面の本文など）で輪を出したくないときは
+   className="no-focus-ring" を付ける。 */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="color"]):not([type="image"]):not(.no-focus-ring):focus,
+textarea:not(.no-focus-ring):focus,
+select:not(.no-focus-ring):focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
 .input:disabled,
 .textarea:disabled {
   opacity: 0.6;
@@ -988,7 +1001,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
 }
 
 .ai-section-header {
@@ -1043,7 +1056,7 @@ body.keyboard-open .ai-input-area {
   color: var(--text);
   font-family: inherit;
   font-size: max(16px, var(--text-body)); /* iOS のズーム防止（16 以上） */
-  line-height: 1.4;
+  line-height: 1.5;
   resize: none;
   outline: none;
   box-sizing: border-box;

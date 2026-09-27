@@ -120,7 +120,7 @@ const dot = (active) => ({
 // ボタンは正典そのまま（17・600・高さ 48）。横並び用に幅だけ変える。
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
 const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
-// 最後の画面の 3 番手以下（AI 選書・スキップ）。
+// 最後の画面の 3 番手（AI 選書）。
 const btnLink = { ...btnText, minHeight: 44, fontSize: 'var(--text-sub)' };
 
 const closeBtnStyle = {
@@ -300,13 +300,11 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
               <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startAdding}>
                 いま読んでいる本を追加する
               </button>
-              <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: 'var(--space-6)' }}>
+              {/* 閉じるのは右上の × だけ（同じ操作を 2 か所に出さない・DESIGN §5）。
+                  ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <button type="button" style={btnLink} onClick={startAdvisor}>
                   悩みから AI 選書で探す
-                </button>
-                {/* 「あとで」と言っても二度と出ないので「スキップ」（ガイドはヘルプの「使い方を最初から見る」で見直せる）。 */}
-                <button type="button" style={btnLink} onClick={dismiss}>
-                  スキップ
                 </button>
               </div>
             </div>
