@@ -35,14 +35,15 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
   const cta = variant === 'cta';
   const linkStyle = cta
     // 高さ 48 のボタンは DESIGN §5 どおり 17/600（44 の行ボタンだけ 15）。
-    ? { ...linkBase, flex: 1, minHeight: 48, padding: 'var(--space-2)', fontSize: 'var(--text-body)' }
+    // 目立つ版は全幅で縦に 2 つ（横並びだと狭い端末・大きい文字ではみ出す・DESIGN §6）。
+    ? { ...linkBase, width: '100%', minHeight: 48, padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-body)' }
     : { ...linkBase, minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
   const icon = <ExternalLink size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: cta ? '100%' : undefined }}>
       {/* ボタン同士は 12（DESIGN §1）。 */}
-      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: cta ? 'nowrap' : 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: cta ? 'column' : 'row', gap: 'var(--space-3)', alignItems: cta ? 'stretch' : 'center', flexWrap: cta ? 'nowrap' : 'wrap' }}>
         <a
           href={amazon} target="_blank" rel={AMAZON_LINK_REL} onClick={onAmazon}
           aria-label={`Amazon で『${title}』を${verb}（外部リンク）`}
@@ -60,7 +61,7 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
       </div>
       {showDisclosure && (
         // 複数行の注記は左揃え（中央揃えだと行頭がそろわず読みにくい）。
-        <small style={{ ...disclosureStyle, textAlign: 'left', paddingBottom: 'var(--space-4)' }}>{STORE_DISCLOSURE_TEXT}</small>
+        <small className="text-pretty" style={{ ...disclosureStyle, textAlign: 'left', paddingBottom: 'var(--space-4)' }}>{STORE_DISCLOSURE_TEXT}</small>
       )}
     </div>
   );

@@ -2997,7 +2997,8 @@ function AuthedApp() {
     // 読書中・読了の画面の下で、直前が「行動」「一番の収穫」なら 24、畳む見出しが続くなら 12。
     const visibleActionCount = (current.actions || []).filter((a) => a.text?.trim() && !isScheduledLater(a)).length;
     const hasHarvestBlock = !!current.roiSummary || (current.status === 'done' && !(current.roiSummary || '').trim());
-    const planFoldTop = isMemoPhase && visibleActionCount === 0 && !hasHarvestBlock ? 'var(--space-3)' : 'var(--space-6)';
+    // 読書中・読了では直前に行動のまとまり（0 件でも「＋ 行動を追加」）があるので、いつも 24 空ける。
+    const planFoldTop = 'var(--space-6)';
     // 読書計画・目的・課題・仮説・AI 解析（旧: 書名の直下）。読書中・読了では下へ回す。
     const planBlock = (
       <>
@@ -3190,7 +3191,7 @@ function AuthedApp() {
             <MiniCover book={current} width={72} />
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
-              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "break-word", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{current.title}</h1>
+              <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "break-word", textWrap: "balance", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{current.title}</h1>
               {current.author && <p style={{ fontSize: 'var(--text-sub)', color: "var(--text-2)", margin: "var(--space-1) 0 0" }}>{current.author}</p>}
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: "var(--space-2)", flexWrap: "wrap" }}>
                 {/* 状態は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
@@ -3293,11 +3294,14 @@ function AuthedApp() {
                   type="button"
                   onClick={() => toggleAction(current.id, i)}
                   aria-label={a.done ? `「${a.text}」を未完了に戻す` : `「${a.text}」を完了にする`}
-                  style={{ display: "flex", gap: 'var(--space-3)', alignItems: "center", padding: "var(--space-2) 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 48 }}
+                  style={{ display: "flex", gap: 'var(--space-3)', alignItems: "flex-start", padding: "var(--space-2) 0", width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", minHeight: 48 }}
                 >
-                  {a.done
-                    ? <CheckCircle2 size={24} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0 }} />
-                    : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)', flexShrink: 0 }} />}
+                  {/* ○ は 1 行目にそろえる（iOS のリマインダーと同じ）。1 行目の高さの箱の上下中央に置く。 */}
+                  <span aria-hidden="true" style={{ height: 'calc(var(--text-body) * 1.5)', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                    {a.done
+                      ? <CheckCircle2 size={24} style={{ color: 'var(--success)' }} />
+                      : <Circle size={24} style={{ color: 'var(--border)' }} />}
+                  </span>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 'var(--text-body)', color: a.done ? "var(--text-3)" : "var(--text)", textDecoration: a.done ? "line-through" : "none", margin: 0, wordBreak: "break-word", lineHeight: 1.5 }}>{a.text}</p>
                     {a.deadline && <p style={{ fontSize: 'var(--text-meta)', color: "var(--text-3)", margin: 'var(--space-1) 0 0' }}>期限 {fmtDateJa(a.deadline)}</p>}

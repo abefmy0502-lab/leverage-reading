@@ -57,12 +57,16 @@ const listStyle = {
   fontSize: 'var(--text-read)',
   color: 'var(--text)',
   lineHeight: 1.6,
-  margin: 'var(--space-2) 0',
+  // 項目の間は gap で 8（最後の項目の下に余りを作らない＝カードの上下の余白をそろえる）。
+  margin: 'var(--space-2) 0 0',
   paddingLeft: 0,
   listStyleType: 'none',
   overflowWrap: 'anywhere',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--space-2)',
 };
-const liStyle = { marginBottom: 'var(--space-2)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
+const liStyle = { display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
 // 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。
 const bulletDot = { flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: 'var(--text-3)', marginTop: 12 };
 const olNumStyle = { flexShrink: 0, minWidth: 16, color: 'var(--text-3)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' };
@@ -70,7 +74,8 @@ const olNumStyle = { flexShrink: 0, minWidth: 16, color: 'var(--text-3)', fontWe
 // 払拭する最大のレバー。ハイライト判定は元テキスト(絵文字込み)で行うので装飾は保つ。
 function stripLeadingEmoji(text) {
   if (typeof text !== 'string') return text;
-  const stripped = text.replace(/^(?:[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}\u{2122}\u{2139}\u{2194}-\u{2199}\u{231A}-\u{231B}\u{2934}-\u{2935}]+\s*)+/u, '').trim();
+  // 絵文字の範囲を網羅する（⏩⌛ など U+23xx も含む）。
+  const stripped = text.replace(/^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]+\s*)+/u, '').trim();
   return stripped || text;
 }
 const highlightSection = {
@@ -509,7 +514,7 @@ function MarkdownSections({ text, density = 'normal', onAddRelatedBook, addingTi
         const styles = isHighlight(s.heading || '') ? highlightSection : sectionStyle;
         const related = onAddRelatedBook && isRelatedBooksHeading(s.heading);
         return (
-          <section key={i} className="long-text" style={styles}>
+          <section key={i} className="long-text md-section" style={styles}>
             {s.heading && <h3 style={headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && (

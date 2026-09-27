@@ -581,6 +581,9 @@ select:not(.no-focus-ring):focus {
   margin-bottom: var(--space-2);
   line-height: var(--leading-tight);
 }
+/* 説明文が無いときは、見出しの下の余白を残さない。 */
+.empty-state-title:last-child { margin-bottom: 0; }
+.empty-state--flush-bottom .empty-state { padding-bottom: 0; }
 .empty-state-description {
   font-size: var(--type-callout);
   color: var(--color-text-secondary);
@@ -1344,3 +1347,6 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 
 /* 読む文章・一覧の題名の最後の行に 1〜2 文字だけ残る折り返しを避ける */
 .text-pretty { text-wrap: pretty; }
+
+/* AI の答え・計画シートのカード: 最後の要素の下の余白を 0 にして、カードの上下の内側余白をそろえる。 */
+.md-section > :last-child { margin-bottom: 0 !important; }

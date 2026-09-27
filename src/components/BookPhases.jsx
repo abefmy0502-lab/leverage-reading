@@ -12,7 +12,7 @@ import { todayLocal } from '../lib/dates';
 import { ensureHttps } from '../lib/url';
 import { toMessage } from '../lib/errors';
 import {
-  Search as IcSearch, Map as IcMap, Bot as IcBot, ImagePlus as IcImagePlus,
+  Search as IcSearch, Map as IcMap, ImagePlus as IcImagePlus,
   Target as IcTarget, ChevronDown as IcChevron, X as IcX,
 } from 'lucide-react';
 import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
@@ -270,13 +270,6 @@ export function BeforePhase({
 
       {/* ⚠️ 得たいこと〜読書計画シートは AI にゲートしない。AI を使わない / 月次上限 /
           オフラインのユーザーも、得たいことさえ書けば読書を開始できる（AI は任意の補助）。 */}
-      {/* AI 選書から引き継いだ本は、「なぜ既に文字が入っているのか」を 1 行で示す。 */}
-      {(form.bookReason || form.sourceQuery) && (
-        <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: '0 0 var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-          <IcBot size={14} aria-hidden="true" style={{ flexShrink: 0 }} />
-          AI 選書の相談から入力しました
-        </p>
-      )}
 
       <Field label="この本から得たいこと（必須）">
         <textarea
@@ -481,7 +474,8 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
       </Field>
 
       <Field label="評価（読んでよかった度）">
-        <div style={{ padding: "var(--space-1) 0" }}>
+        {/* 星の押せる範囲（44）の中央に星があるので、左へ寄せて星の左端を他の欄の左端（16）にそろえる。 */}
+        <div style={{ marginLeft: 'calc(-1 * var(--space-2))' }}>
           <Stars r={form.rating} onChange={(r) => setForm({ ...form, rating: r })} size={28} />
         </div>
       </Field>
@@ -535,9 +529,11 @@ function ActionsEditor({ form, setForm, title, placeholder }) {
       <SectionHeader icon={<IcTarget size={16} aria-hidden="true" />} title={title} />
       <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}>
         {actions.map((a, i) => (
-          <div key={i} style={{ background: "var(--fill)", borderRadius: "var(--radius)", padding: "var(--space-3) var(--space-4)", display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
+          // カードは DESIGN §5 のカード（--surface＋枠）。--fill だと暗い画面で中の入力欄がカードより暗くなる。
+          <div key={i} style={{ background: "var(--surface)", border: "1px solid var(--separator)", borderRadius: "var(--radius)", padding: "var(--space-3) var(--space-4)", display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              <input value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? placeholder : `行動 ${i + 1}`} style={inp} maxLength={LIMITS.actionText} aria-label={`行動 ${i + 1}`} />
+              {/* 長い行動も全文見えるように 2 行の入力欄（1 行の欄だと途中で切れて見えなかった）。 */}
+              <textarea rows={2} value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? placeholder : `行動 ${i + 1}`} style={{ ...ta, minHeight: 48 }} maxLength={LIMITS.actionText} aria-label={`行動 ${i + 1}`} />
               <label style={{ ...groupTitle, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
                 期限
                 <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...dateInp(a.deadline), fontWeight: 400, letterSpacing: 'normal' }} aria-label={`行動 ${i + 1} の期限`} />

@@ -13,7 +13,7 @@ import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import ShareCardModal from './ShareCardModal';
 import { BookOpen, PencilLine, Clock, Quote, Pencil, Copy, Image, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
-import { btnGhost, btnGhostOff } from '../styles/ui';
+import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
 
 // SPEC §2（2026-09-26）: 「カード｜まとめ」の切替タブと、二段の並び替え・引用チップ・
 // 点線の「新しいメモ」は撤去。メモはカード式が基本で、並び順は小さなメニュー 1 つ。
@@ -119,24 +119,17 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   const label = saving ? '保存中…' : savedFlash ? '保存しました ✓' : '保存';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6 }}>
-        本全体の感想・学びを1枚に。メモがたまっていれば AI が下書きを作れます。
-      </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+      {/* 説明の補足文は置かない（DESIGN §0-6）。入力欄の案内文とこの文字ボタンで伝わる。 */}
       {canGenerate && (
         <button
           type="button"
           onClick={handleGenerate}
           disabled={generating}
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
-            alignSelf: 'flex-start', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)',
-            border: `1px solid ${generating ? 'var(--separator)' : 'var(--border)'}`, background: 'transparent',
-            color: generating ? 'var(--text-3)' : 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit',
-            cursor: generating ? 'default' : 'pointer', opacity: 1,
-          }}
+          // 文字ボタン（DESIGN §5）。作成中は薄くせず、文字色だけ --text-3 に。
+          style={{ ...btnLink, alignSelf: 'flex-start', padding: 0, gap: 'var(--space-1)', ...(generating ? { color: 'var(--text-3)', cursor: 'default' } : null) }}
         >
-          <Sparkles size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+          <Sparkles size={16} aria-hidden="true" />
           {generating ? 'まとめを生成中…' : 'メモからまとめを作る'}
         </button>
       )}
@@ -403,10 +396,13 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
       {!loading && memos.length === 0 && (
         // 入口は画面右下の「メモを書く」1 つ（ここに同じボタンを置かない・SPEC §2）。
-        <EmptyState
-          icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title="心が動いた一行を残しましょう"
-        />
+        // 下の余白は次のまとまりとの間（24）に任せる（上下の余白の偏りをなくす）。
+        <div className="empty-state--flush-bottom">
+          <EmptyState
+            icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
+            title="心が動いた一行を残しましょう"
+          />
+        </div>
       )}
 
       {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (
@@ -418,6 +414,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         />
       )}
 
+      {visibleMemos.length > 0 && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {visibleMemos.map((m) => (
           <BookMemoCard
@@ -434,6 +431,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           />
         ))}
       </div>
+      )}
     </div>
   );
 

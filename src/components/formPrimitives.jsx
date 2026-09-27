@@ -17,7 +17,8 @@ import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, groupTitle as uiGro
 // ── 共通スタイル定数（iOS ズーム対策で input は 16px 維持） ──────────────
 export const inp = { width: "100%", minWidth: 0, minHeight: 48, padding: "var(--space-3)", fontSize: "max(16px, var(--text-body))", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--surface)", outline: "none", color: "var(--text)", fontFamily: "inherit", WebkitAppearance: "none", appearance: "none" };
 // 入力欄の角のつまみ（resize）は出さない（iOS の入力欄と同じ・角丸 12 を崩さない）。
-export const ta = { ...inp, resize: "none", lineHeight: "var(--leading-relaxed)" };
+// display:block で、インラインの下の余り（約 8）が入力欄の下に付かないようにする。
+export const ta = { ...inp, display: "block", resize: "none", lineHeight: "var(--leading-relaxed)" };
 export const btnS = { ...uiBtnPrimary, width: "auto", padding: "var(--space-3) 0" };
 export const btnO = { ...uiBtnGhost, width: "auto", padding: "var(--space-3) 0" };
 export const aiB = { width: "100%", minHeight: 48, padding: "var(--space-3) 0", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--accent-soft)", color: "var(--accent)", cursor: "pointer", fontFamily: "inherit", fontSize: "var(--text-sub)", fontWeight: 600 };
@@ -53,7 +54,7 @@ export function Stars({ r, onChange, size = 18 }) {
           onClick={() => onChange(r === n ? 0 : n)}
           style={{
             background: "none", border: "none", padding: 0, cursor: "pointer",
-            fontSize: size, color: n <= r ? "var(--text-2)" : "var(--text-3)", marginRight: 2,
+            fontSize: size, color: n <= r ? "var(--text-2)" : "var(--text-3)",
             // タップ領域は iOS HIG の 44px を下限に（グリフは fontSize のまま）。
             minWidth: Math.max(44, size + 8), minHeight: Math.max(44, size + 8),
             display: "inline-flex", alignItems: "center", justifyContent: "center",
