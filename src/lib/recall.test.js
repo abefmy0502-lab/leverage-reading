@@ -26,12 +26,12 @@ describe('relativeJa', () => {
   });
   it('直近はさっき/分/時間/日/週/月/年で区切る', () => {
     expect(relativeJa(iso(30 * 1000), NOW)).toBe('さっき');
-    expect(relativeJa(iso(5 * 60 * 1000), NOW)).toBe('5分前');
-    expect(relativeJa(iso(3 * 3600 * 1000), NOW)).toBe('3時間前');
-    expect(relativeJa(iso(5 * DAY), NOW)).toBe('5日前');
-    expect(relativeJa(iso(14 * DAY), NOW)).toBe('2週間前');
-    expect(relativeJa(iso(90 * DAY), NOW)).toBe('3ヶ月前');
-    expect(relativeJa(iso(400 * DAY), NOW)).toBe('1年前');
+    expect(relativeJa(iso(5 * 60 * 1000), NOW)).toBe('5 分前');
+    expect(relativeJa(iso(3 * 3600 * 1000), NOW)).toBe('3 時間前');
+    expect(relativeJa(iso(5 * DAY), NOW)).toBe('5 日前');
+    expect(relativeJa(iso(14 * DAY), NOW)).toBe('2 週間前');
+    expect(relativeJa(iso(90 * DAY), NOW)).toBe('3 か月前');
+    expect(relativeJa(iso(400 * DAY), NOW)).toBe('1 年前');
   });
 });
 
@@ -40,7 +40,7 @@ describe('recallFraming', () => {
     expect(recallFraming(iso(3 * 3600 * 1000), NOW)).toBe('');
   });
   it('1日以上前は「◯◯のあなたのメモ」', () => {
-    expect(recallFraming(iso(90 * DAY), NOW)).toBe('3ヶ月前のあなたのメモ');
+    expect(recallFraming(iso(90 * DAY), NOW)).toBe('3 か月前のあなたのメモ');
   });
 });
 

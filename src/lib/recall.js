@@ -9,7 +9,8 @@
 // ⚠️ このファイルは副作用ゼロ・I/O ゼロを厳守する（DRY 共有のため）。
 
 // 経過時間を日本語の相対表現にする。
-// 例: 90日前 → "3ヶ月前" / 5日前 → "5日前" / 30秒前 → "さっき"
+// 例: 90日前 → "3 か月前" / 5日前 → "5 日前" / 30秒前 → "さっき"
+// 表記は相談の「いちばん古いのは 4 か月前」（ai.js）と揃える: 「か月」・数字の前後に半角スペース。
 export function relativeJa(iso, now = Date.now()) {
   if (!iso) return '';
   const t = new Date(iso).getTime();
@@ -17,18 +18,18 @@ export function relativeJa(iso, now = Date.now()) {
   const diff = Math.floor((now - t) / 1000);
   if (diff < 60) return 'さっき';
   const min = Math.floor(diff / 60);
-  if (min < 60) return `${min}分前`;
+  if (min < 60) return `${min} 分前`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}時間前`;
+  if (hr < 24) return `${hr} 時間前`;
   const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}日前`;
-  if (day < 30) return `${Math.floor(day / 7)}週間前`;
-  if (day < 365) return `${Math.floor(day / 30)}ヶ月前`;
-  return `${Math.floor(day / 365)}年前`;
+  if (day < 7) return `${day} 日前`;
+  if (day < 30) return `${Math.floor(day / 7)} 週間前`;
+  if (day < 365) return `${Math.floor(day / 30)} か月前`;
+  return `${Math.floor(day / 365)} 年前`;
 }
 
 // ランダム想起カード / 通知タイトル専用の "久しぶりに戻ってきた感" を出す一行。
-// 例: 3ヶ月前のメモなら「3ヶ月前のあなたのメモ」。
+// 例: 3 か月前のメモなら「3 か月前のあなたのメモ」。
 // 今日書いたばかりのものは空文字（まだ「戻ってきた」感がないので抑制）。
 export function recallFraming(iso, now = Date.now()) {
   if (!iso) return '';

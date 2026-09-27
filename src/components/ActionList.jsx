@@ -6,7 +6,7 @@
 //   - 期限切れは控えめな警告色（責めない）。多いときだけ「期限を見直す」をそっと出す
 //   - 達成率などの数字の演出はしない（反ゲーミフィケーション）。今週の完了数を 1 行だけ
 //   - 行動 0 件は「相談の答えや、メモから行動を作れます」＋相談へのボタン
-// 編集は ⋮ → 編集（App の編集シート）、本の詳細へは ⋮ → 本を開く。
+// 編集は「…」→ 編集（App の編集シート）、本の詳細へは「…」→ 本を開く（横の MoreHorizontal・DESIGN §5）。
 // 見た目は DESIGN.md のトークンのみ。
 
 import { useEffect, useMemo, useState } from 'react';
@@ -17,7 +17,7 @@ import { stripInlineMd } from '../lib/text';
 import { track, EVENTS } from '../lib/analytics';
 import EmptyState from './EmptyState';
 import ContextMenu from './ContextMenu';
-import { MoreVertical, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { MoreHorizontal, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
 
 const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
 const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
@@ -197,7 +197,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
             : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)' }} />}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: a.done ? 'var(--text-3)' : 'var(--text)', textDecoration: a.done ? 'line-through' : 'none', wordBreak: 'break-word' }}>
+          <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: a.done ? 'var(--text-3)' : 'var(--text)', textDecoration: a.done ? 'line-through' : 'none', wordBreak: 'break-word' }}>
             {stripInlineMd(a.text)}
           </p>
           {meta.length > 0 && (
@@ -217,7 +217,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 8, y: r.bottom + 4, action: a }); }}
           style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
         >
-          <MoreVertical size={18} aria-hidden="true" />
+          <MoreHorizontal size={20} aria-hidden="true" />
         </button>
       </li>
     );
@@ -276,7 +276,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
               type="button"
               onClick={saveReflection}
               disabled={!reflection.trim() || reflecting}
-              style={{ ...rowBtn, ...(reflection.trim() && !reflecting ? {} : { opacity: 1, background: 'var(--fill)', borderColor: 'transparent', color: 'var(--text-3)', cursor: 'default' }) }}
+              style={{ ...rowBtn, ...(reflection.trim() && !reflecting ? {} : { opacity: 1, borderColor: 'var(--separator)', color: 'var(--text-3)', cursor: 'default' }) }}
             >
               {reflecting ? '保存中…' : '残す'}
             </button>

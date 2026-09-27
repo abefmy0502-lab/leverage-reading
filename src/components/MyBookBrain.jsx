@@ -15,7 +15,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, groupTitle, input as uiInput } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import Spinner from './Spinner';
@@ -190,7 +190,7 @@ function LearningInline({ onSaved }) {
           onClick={() => setMoreOpen((v) => !v)}
           aria-expanded={moreOpen}
           aria-controls="learning-more"
-          style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0', gap: 'var(--space-1)', color: 'var(--text-2)' }}
+          style={{ ...uiBtnLink, padding: 0, gap: 'var(--space-1)' }}
         >
           {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
           分類・タグ
@@ -254,7 +254,7 @@ function LearningInline({ onSaved }) {
         type="button"
         onClick={save}
         disabled={!canSave}
-        style={{ ...uiBtnPrimary, opacity: canSave ? 1 : 0.5, cursor: canSave ? 'pointer' : 'default' }}
+        style={canSave ? uiBtnPrimary : uiBtnPrimaryOff}
       >
         {busy ? '保存中…' : '保存'}
       </button>
@@ -265,7 +265,7 @@ function LearningInline({ onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, askPreset, scopePreset }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, askPreset, scopePreset, onPushedViewChange }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -284,6 +284,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [monthLimitHit, setMonthLimitHit] = useState(false); // この月の上限に達した（サーバーの 429）
   const nearMonthLimit = !freeMode && !monthLimitHit && monthCost != null && monthCost >= AI_MONTHLY_BUDGET_JPY * 0.7;
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
+  // 押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）のあいだは、親がサブタブを隠せるように知らせる
+  // （見出しが 3 段に重ならないように）。離れるときは必ず false に戻す。
+  const pushedCbRef = useRef(onPushedViewChange);
+  useEffect(() => { pushedCbRef.current = onPushedViewChange; });
+  const isPushed = view !== 'chat';
+  useEffect(() => { pushedCbRef.current?.(isPushed); }, [isPushed]);
+  useEffect(() => () => { pushedCbRef.current?.(false); }, []);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   // 🎯 相談相手（2026-09-26）: [] = すべての本（＋学びログ）/ [id] = その 1 冊だけ /
@@ -481,8 +488,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const answers = el.querySelectorAll('[aria-label="相談への答え"]');
       const last = answers[answers.length - 1];
       if (!last) return;
-      // 自分の相談の最後の行が少し見える位置（何への答えかが分かるように）。
-      const top = last.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 48;
+      // 自分の相談の吹き出しの上端から見せる（何への答えかが分かるように）。相談が長すぎて
+      // 答えが画面の下に隠れてしまうときだけ、答えの先頭に合わせる。
+      const q = last.previousElementSibling;
+      const isQ = q && q.getAttribute('aria-label') === 'あなたの相談';
+      const target = isQ && q.offsetHeight < el.clientHeight * 0.4 ? q : last;
+      const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
+      const top = target.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - gap;
       el.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }, 60);
   }, [busy, view]);
@@ -928,7 +940,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       {/* 根拠にできる情報（旧: 知識） */}
       {view === 'knowledge' && (
         <div style={viewScroll}>
-          <KnowledgeManager onChanged={() => setStatsTick((t) => t + 1)} onBooksMutated={onBooksMutated} />
+          <KnowledgeManager onChanged={() => setStatsTick((t) => t + 1)} onBooksMutated={onBooksMutated} onWriteMemo={() => setView('learning')} />
         </div>
       )}
 
@@ -959,7 +971,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             ) : (
               <section aria-labelledby="brain-empty-title">
                 <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
-                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: '0 0 var(--space-2)' }}>たとえば</p>
+                <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {examples.map((q) => (
                     <button
@@ -967,7 +979,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       type="button"
                       onClick={() => { if (!busy) ask(q); }}
                       disabled={busy}
-                      style={{ ...chipStyle, opacity: busy ? 0.6 : 1 }}
+                      style={busy ? { ...chipStyle, color: 'var(--text-2)', opacity: 1, cursor: 'default' } : chipStyle}
                     >
                       {q}
                     </button>
@@ -1019,7 +1031,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   別の角度で答えて
                 </button>
               )}
-              <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
+              {/* 脇役（2 番目）は文字色を落として、「別の角度で答えて」と同じ重さに見せない。 */}
+              <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', fontWeight: 400, padding: 'var(--space-2) 0', color: 'var(--text-2)' }}>
                 新しい相談をはじめる
               </button>
             </div>
@@ -1063,7 +1076,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   ask();
                 }
               }}
-              placeholder="困っていることを書いてください"
+              placeholder="例：上司への報告がうまくいかない"
               rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}
@@ -1367,7 +1380,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                     <Check size={16} aria-hidden="true" />行動に追加しました
                   </p>
                 ) : (
-                  <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', opacity: actionBusy ? 0.6 : 1 }}>
+                  <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
                     <Target size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />行動に追加
                   </button>
                 )
@@ -1388,7 +1401,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                 <span>根拠を見る{nBooks > 0 && !evidence ? `（${nBooks} 冊のメモ）` : ''}</span>
                 <ChevronDown size={18} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
               </summary>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingBottom: 'var(--space-1)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-1)' }}>
                 {parsed.refs && (
                   <div>
                     <p style={subLabel}>参照したメモ</p>
@@ -1411,11 +1424,11 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                           <li key={i}>
                             {refBookId ? (
                               <button type="button" onClick={() => onOpenBook(refBookId)} style={refBtn} aria-label={`${r} を開く`}>
-                                <span style={{ flex: 1, minWidth: 0 }}>{refText(r)}</span>
+                                <span className="text-pretty" style={{ flex: 1, minWidth: 0 }}>{refText(r)}</span>
                                 <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                               </button>
                             ) : (
-                              <p style={{ ...subText, margin: 0, padding: 'var(--space-2) 0' }}>{refText(r)}</p>
+                              <p className="text-pretty" style={{ ...subText, margin: 0, padding: 'var(--space-2) 0' }}>{refText(r)}</p>
                             )}
                           </li>
                         );
@@ -1473,7 +1486,7 @@ function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
         onClick={onOpen}
         disabled={disabled}
         aria-haspopup="dialog"
-        style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc(-1 * var(--space-2)) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
       >
         <span style={{
           minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 32, padding: '0 var(--space-3)',
@@ -1486,7 +1499,7 @@ function ScopeBar({ label, scoped, onOpen, onReset, disabled }) {
         </span>
       </button>
       {scoped && (
-        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc(-1 * var(--space-2)) 0', flexShrink: 0 }}>
+        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', flexShrink: 0 }}>
           すべてに戻す
         </button>
       )}
@@ -1529,14 +1542,15 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
   const canApply = mode === 'all' || picked.size > 0;
   const apply = () => onApply(mode === 'all' ? [] : [...picked]);
 
-  const rowStyle = (on) => ({
-    width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3)', minHeight: 56,
+  // iOS の一覧の形: 選んだ行は右端のチェックだけで示す（丸いラジオ風の印や色の面は使わない）。
+  const rowStyle = {
+    width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', minHeight: 56,
     borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-    border: `1px solid ${on ? 'var(--accent)' : 'var(--separator)'}`, background: on ? 'var(--accent-soft)' : 'var(--surface)',
-  });
+    border: '1px solid var(--separator)', background: 'var(--surface)',
+  };
   const mark = (on) => (
-    <span aria-hidden="true" style={{ width: 22, height: 22, borderRadius: 999, flexShrink: 0, border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'var(--accent)' : 'transparent', color: 'var(--accent-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {on && <Check size={14} strokeWidth={3} />}
+    <span aria-hidden="true" style={{ width: 24, height: 24, flexShrink: 0, color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {on && <Check size={22} strokeWidth={3} />}
     </span>
   );
 
@@ -1546,32 +1560,30 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
       onClose={onClose}
       dismissLabel="キャンセル"
       footer={(
-        <button type="button" onClick={apply} disabled={!canApply} style={{ ...uiBtnPrimary, opacity: canApply ? 1 : 0.5 }}>
+        <button type="button" onClick={apply} disabled={!canApply} style={canApply ? uiBtnPrimary : uiBtnPrimaryOff}>
           {mode === 'all' ? 'すべての本に相談する' : picked.size === 1 ? 'この本に相談する' : `${picked.size} 冊に相談する`}
         </button>
       )}
     >
-      <button type="button" onClick={() => { setMode('all'); setPicked(new Set()); }} aria-pressed={mode === 'all'} style={{ ...rowStyle(mode === 'all'), marginBottom: 'var(--space-6)' }}>
+      <button type="button" onClick={() => { setMode('all'); setPicked(new Set()); }} aria-pressed={mode === 'all'} style={{ ...rowStyle, marginBottom: 'var(--space-6)' }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本（おすすめ）</span>
         {mark(mode === 'all')}
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本（おすすめ）</span>
-          <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>読んだ本と学びのすべてを根拠に、複数の本をつなげて答えます</span>
-        </span>
       </button>
-      <p style={{ fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' }}>本に絞る（1 冊でも、数冊でも）</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本に絞る</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {list.length === 0 && <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>読書中・読了の本がまだありません。</p>}
         {list.map((b) => {
           const on = mode === 'pick' && picked.has(b.id);
           const ok = counts == null || hasKnowledge(b);
           const n = counts?.get(b.id) || 0;
           return (
-            <button key={b.id} type="button" onClick={() => ok && toggle(b.id)} disabled={!ok} aria-pressed={on} style={{ ...rowStyle(on), opacity: ok ? 1 : 0.5 }}>
-              {mark(on)}
+            // 選べない本は薄くせず（opacity を使わない）、文字色を落として示す。
+            <button key={b.id} type="button" onClick={() => ok && toggle(b.id)} disabled={!ok} aria-pressed={on} style={{ ...rowStyle, opacity: 1, cursor: ok ? 'pointer' : 'default' }}>
               <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 'var(--text-body)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-                <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{ok ? (n > 0 ? `メモ ${n} 件` : 'まとめメモあり') : 'メモがまだありません'}</span>
+                <span style={{ display: 'block', fontSize: 'var(--text-body)', color: ok ? 'var(--text)' : 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: ok ? 'var(--text-2)' : 'var(--text-3)' }}>{ok ? (n > 0 ? `メモ ${n} 件` : 'まとめメモあり') : 'メモがまだありません'}</span>
               </span>
+              {mark(on)}
             </button>
           );
         })}

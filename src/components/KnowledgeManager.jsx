@@ -36,6 +36,8 @@ import {
   Trash2,
   Eraser,
   X,
+  ChevronDown,
+  PencilLine,
 } from 'lucide-react';
 import { MemoListSkeleton } from './Skeleton';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -49,7 +51,7 @@ import EmptyState from './EmptyState.jsx';
 import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
 import { useLongPress } from '../hooks/useLongPress';
 
 // 見た目は DESIGN.md のトークンのみ。題名「根拠にできる情報」と「‹ 相談」は親（MyBookBrain）が出し、
@@ -64,8 +66,21 @@ const cardTap = { display: 'block', width: '100%', padding: 'var(--space-4)', ba
 // 日付の右の「…」（44×44）。1 行目の中央に揃える。
 const moreBtn = { position: 'absolute', top: 'var(--space-1)', right: 'var(--space-1)', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', color: 'var(--text-2)', cursor: 'pointer', padding: 0 };
 const btnPrimary = { ...uiBtnPrimary, width: 'auto' };
+const btnPrimaryOff = { ...uiBtnPrimaryOff, width: 'auto' };
 const btnGhost = { ...uiBtnGhost, width: 'auto' };
-const selectStyle = { ...inp, flex: 1, minWidth: 0, width: 'auto', cursor: 'pointer' };
+// 絞り込み・並び順のメニュー。端末ごとに違う既定の矢印を消し（appearance: none）、左右対称の余白 16 ＋
+// 右端に同じシェブロンを重ねる（SelectMenu）。
+const selectStyle = { ...inp, width: '100%', minWidth: 0, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', padding: '0 calc(var(--space-4) + var(--space-6)) 0 var(--space-4)' };
+function SelectMenu({ value, onChange, label, children }) {
+  return (
+    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+      <select value={value} onChange={onChange} aria-label={label} style={selectStyle}>
+        {children}
+      </select>
+      <ChevronDown size={18} aria-hidden="true" style={{ position: 'absolute', right: 'var(--space-4)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-2)', pointerEvents: 'none' }} />
+    </div>
+  );
+}
 
 // 種類の絞り込み（切り替えを 2 段重ねにしないよう、並び順と同じ 1 行のメニューにする・DESIGN §5）。
 const FILTER_OPTIONS = [
@@ -174,7 +189,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--separator)' }}>
           <button type="button" onClick={onClose} style={{ ...btnGhost, flex: 1 }}>キャンセル</button>
-          <button type="button" onClick={save} disabled={busy} style={{ ...btnPrimary, flex: 1, opacity: busy ? 0.6 : 1 }}>
+          <button type="button" onClick={save} disabled={busy} style={{ ...(busy ? btnPrimaryOff : btnPrimary), flex: 1 }}>
             {busy ? '保存中…' : '保存'}
           </button>
         </div>
@@ -232,7 +247,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
       >
         {/* 種類は文字＋線のアイコンで示す（色で分けない・DESIGN §3-2）。右は「…」の分だけ空ける。 */}
         <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', paddingRight: 'var(--space-8)' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minWidth: 0, fontSize: 'var(--text-meta)', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.5 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minWidth: 0, fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5 }}>
             {meta.Icon && <meta.Icon size={14} aria-hidden="true" style={{ flexShrink: 0 }} />}
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kindLine}</span>
           </span>
@@ -285,7 +300,7 @@ function KnowledgeCard({ item, onEdit, onSwipeDelete, onOpenMenu }) {
 // ============================================================================
 // Main component
 // ============================================================================
-export default function KnowledgeManager({ onChanged, onBooksMutated }) {
+export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMemo }) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -721,14 +736,14 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
           />
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <select value={filterKind} onChange={(e) => setFilterKind(e.target.value)} aria-label="種類で絞り込む" style={selectStyle}>
+          <SelectMenu value={filterKind} onChange={(e) => setFilterKind(e.target.value)} label="種類で絞り込む">
             {FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="並び順" style={selectStyle}>
+          </SelectMenu>
+          <SelectMenu value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="並び順">
             <option value="newest">新しい順</option>
             <option value="oldest">古い順</option>
             <option value="title">本のタイトル順</option>
-          </select>
+          </SelectMenu>
         </div>
         {!loading && items.length > 0 && (
           <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
@@ -746,12 +761,13 @@ export default function KnowledgeManager({ onChanged, onBooksMutated }) {
             icon={<Brain size={32} strokeWidth={1.5} aria-hidden="true" />}
             title="まだ根拠にできる情報はありません"
             description="本のメモや学びを書くと、ここに並びます。"
+            actions={onWriteMemo ? [{ label: 'メモを書く', icon: <PencilLine size={18} aria-hidden="true" />, onClick: onWriteMemo }] : []}
           />
         ) : (
           <EmptyState
             icon={<Search size={32} strokeWidth={1.5} aria-hidden="true" />}
             title="見つかりませんでした"
-            description="条件を変えるか、「すべての種類」に戻してください。"
+            actions={[{ label: '条件を外す', variant: 'secondary', onClick: () => { setSearch(''); setFilterKind('all'); } }]}
           />
         )
       ) : (

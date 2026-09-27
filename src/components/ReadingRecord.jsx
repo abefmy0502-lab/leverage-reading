@@ -174,6 +174,9 @@ const cardTitle = {
 
 const BAR_MAX_H = 52;
 const BAR_MIN_H = 3;
+// グラフの目（棒・ヒートマップのマス・凡例）の角丸。UI の角丸（--radius 12）ではなく「形そのもの」
+// として 3 を使う（DESIGN §4 の例外）。tokens.css には置かず、グラフ部品のここだけで使う。
+const CHART_RADIUS = 3;
 
 /* ---------- 小さな表示部品 ---------- */
 
@@ -189,7 +192,7 @@ function FlowRow({ cells }) {
             <span style={{ fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span>
             <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.3, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
               {c.label}
-              {c.onClick && <ChevronRight size={10} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
+              {c.onClick && <ChevronRight size={14} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
             </span>
           </>
         );
@@ -243,7 +246,7 @@ function MonthBars({ buckets, activeColor }) {
                 style={{
                   width: '100%',
                   height: h,
-                  borderRadius: 'var(--radius-xs)',
+                  borderRadius: CHART_RADIUS,
                   background: active ? activeColor : 'var(--border)',
                   transition: 'height var(--duration-base, 0.3s) var(--ease-out, ease)',
                 }}
@@ -262,7 +265,8 @@ function MonthBars({ buckets, activeColor }) {
 // 🟫 読書の足あと（GitHub 風ヒートマップ・日曜はじまり・直近 weeks 週）。
 // streak カウンタは出さない — 色づいた日々をただ眺める「足あと」。
 // 濃さはアクセント 1 色の混ぜ具合で表す（暗い画面でも同じトークンで破綻しない）。
-const HEAT_COLORS = ['var(--fill)', 'color-mix(in srgb, var(--accent) 30%, var(--surface))', 'color-mix(in srgb, var(--accent) 60%, var(--surface))', 'var(--accent)'];
+// 記録の無い日は区切り線の色（--separator）で、いちばん薄い段（45%）と見分けやすくする。
+const HEAT_COLORS = ['var(--separator)', 'color-mix(in srgb, var(--accent) 45%, var(--surface))', 'color-mix(in srgb, var(--accent) 60%, var(--surface))', 'var(--accent)'];
 function heatColor(n) {
   if (n <= 0) return HEAT_COLORS[0];
   if (n === 1) return HEAT_COLORS[1];
@@ -325,7 +329,7 @@ function Heatmap({ dateStrings, weeks = 16 }) {
               <span
                 key={di}
                 style={{
-                  width: CELL, height: CELL, borderRadius: 3,
+                  width: CELL, height: CELL, borderRadius: CHART_RADIUS,
                   background: d ? heatColor(d.count) : 'transparent',
                 }}
               />
@@ -339,7 +343,7 @@ function Heatmap({ dateStrings, weeks = 16 }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }} aria-hidden="true">
         <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>少</span>
         {HEAT_COLORS.map((c) => (
-          <span key={c} style={{ width: 12, height: 12, borderRadius: 3, background: c }} />
+          <span key={c} style={{ width: 12, height: 12, borderRadius: CHART_RADIUS, background: c }} />
         ))}
         <span style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)' }}>多</span>
       </div>

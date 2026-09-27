@@ -29,10 +29,10 @@ import { markActivation } from '../lib/activation';
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
 import { isNativePushCapable, getNativePushPermission, subscribeNativePush } from '../lib/nativePush';
 import { isNative } from '../lib/iap';
-import { btnGhost as uiBtnGhost, btnText as uiBtnText, btnPrimary as uiBtnPrimary } from '../styles/ui';
+import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
-  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight,
+  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight, MoreHorizontal,
 } from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
 import { useConfirm } from './ConfirmDialog';
@@ -44,6 +44,7 @@ const cardBase = { background: 'var(--surface)', border: '1px solid var(--separa
 const inp = { width: '100%', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'max(16px, var(--text-body))', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit', boxSizing: 'border-box' };
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
+const btnGhostOff = { ...uiBtnGhostOff, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
 const btnTextSm = { ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' };
 const pill = { fontSize: 'var(--text-meta)', padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text-2)', maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
@@ -235,7 +236,7 @@ function MemoPhoto({ path }) {
   );
 }
 
-function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeDelete, onLongPress }) {
+function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeDelete, onLongPress, onOpenMenu }) {
   const kind = memo.kind || (memo.sourceType === 'personal' ? 'personal' : memo.sourceType === 'summary' ? 'summary' : 'card');
   const meta = KIND_META[kind] || KIND_META.card;
   const isSynth = memo.synth === true;
@@ -272,8 +273,20 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
             <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>・{category}</span>
           )}
         </div>
-        <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
           {showRelative ? relativeJa(memo.createdAt) : fmtDate(memo.createdAt)}
+          {/* 「…」（横・DESIGN §5）。押せる範囲 44 は保ち、行の高さは負の余白で増やさない。 */}
+          {onOpenMenu && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); onOpenMenu({ x: r.right - 8, y: r.bottom + 4, memo, book }); }}
+              aria-label="このメモの操作"
+              aria-haspopup="menu"
+              style={{ width: 44, height: 44, margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
+            >
+              <MoreHorizontal size={20} aria-hidden="true" />
+            </button>
+          )}
         </span>
       </div>
       {/* 本へのリンク (個人学び以外) */}
@@ -281,7 +294,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
         <button
           type="button"
           onClick={() => book && onOpenBook?.(book)}
-          style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: 'var(--accent)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: showRelative ? 'var(--text-2)' : 'var(--accent)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
           {book?.title || '（本のデータが見つかりません）'}
           {book?.author && <span style={{ color: 'var(--text-3)', marginLeft: 'var(--space-2)' }}>{book.author}</span>}
@@ -370,7 +383,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const recallApplyTimerRef = useRef(null);
   const [expanded, setExpanded] = useState(() => new Set());
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('');
   // 想起カードから「→行動にする」したメモ id（直後のボタン表示を ✓ に切替）。
   const [actionAddedId, setActionAddedId] = useState(null);
@@ -668,11 +680,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
 
   const filteredSearch = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q && statusFilter === 'all' && !tagFilter && kindFilter === 'all') return [];
+    if (!q && !tagFilter && kindFilter === 'all') return [];
     return allNotes.filter((m) => {
       if (kindFilter !== 'all' && m.kind !== kindFilter) return false;
       const book = booksById.get(m.bookId);
-      if (statusFilter !== 'all' && book?.status !== statusFilter) return false;
       if (tagFilter && !m.tags?.includes(tagFilter)) return false;
       if (!q) return true;
       const title = (book?.title || '').toLowerCase();
@@ -681,7 +692,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       const tagHit = (m.tags || []).some((t) => t.toLowerCase().includes(q));
       return title.includes(q) || author.includes(q) || text.includes(q) || tagHit;
     });
-  }, [allNotes, booksById, search, statusFilter, tagFilter, kindFilter]);
+  }, [allNotes, booksById, search, tagFilter, kindFilter]);
 
   const memosByMonth = useMemo(() => {
     const groups = new Map();
@@ -763,7 +774,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     });
   };
 
-  const isSearching = search.trim() || statusFilter !== 'all' || tagFilter || kindFilter !== 'all';
+  const isSearching = search.trim() || tagFilter || kindFilter !== 'all';
+  // 絞り込みのメニューは、検索欄に触れてから出す（開いた瞬間の画面を思い出しカードとメモだけにする）。
+  const [searchActive, setSearchActive] = useState(false);
 
   if (loading) {
     return (
@@ -843,7 +856,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             ...(memoMenu.book
               ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book) }]
               : []),
-            {
+            // 派生ノート（まとめ・収穫など）は DB の 1 行ではないので削除を出さない。
+            ...(memoMenu.memo?.synth ? [] : [{
               label: '削除',
               icon: <Trash2 size={16} aria-hidden="true" />,
               destructive: true,
@@ -861,7 +875,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 });
                 if (ok) handleSwipeDelete(m);
               },
-            },
+            }]),
           ]}
         />
       )}
@@ -895,10 +909,99 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             壊れたカードに見えていた。件数は検索の絞り込みで足りる。
           - これで開いた瞬間の1画面が「今日の想起＝ユーザー自身の言葉」だけになる。 */}
 
-      {/* ===== 1. 今日の振り返り (random) ===== */}
+      {/* ===== 1. 全メモ検索（一番上・SPEC §4）===== 検索中は結果をすぐ下に出し、思い出しカードと月ごとのメモは隠す。 */}
+      <section aria-label="メモを検索">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <div style={{ position: 'relative' }}>
+            <SearchIcon size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
+            <input
+              type="search"
+              maxLength={100}
+              placeholder="メモを検索"
+              aria-label="メモ横断検索: 本文・タイトル・著者・タグから探す"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => setSearchActive(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
+              }}
+              style={{ ...inp, paddingLeft: 'calc(var(--space-8) + var(--space-2))' }}
+            />
+          </div>
+          {/* 絞り込みは検索欄に触れてから出す（開いた瞬間の画面を、思い出しカードとメモだけにする）。 */}
+          {(searchActive || isSearching) && (
+            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={kindFilter}
+                onChange={(e) => setKindFilter(e.target.value)}
+                style={{ ...inp, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
+                aria-label="種類で絞り込み"
+              >
+                <option value="all">全種類</option>
+                {/* 実際に存在する種類だけを出す（0件になる選択肢＝投資目的/仮説等の
+                    未生成カテゴリを並べない。現在選択中の種類は件数0でも残す）。 */}
+                {Object.entries(KIND_META)
+                  .filter(([k]) => (kindCounts[k] || 0) > 0 || kindFilter === k)
+                  .map(([k, meta]) => (
+                    <option key={k} value={k}>{meta.label}</option>
+                  ))}
+              </select>
+              {/* 本の状態での絞り込みは廃止（メモが付くのは読書中・読了の本だけで、選ぶ意味が薄い）。 */}
+              {allTags.length > 0 && (
+                <select
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                  style={{ ...inp, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
+                  aria-label="タグで絞り込み"
+                >
+                  <option value="">全タグ</option>
+                  {allTags.map((t) => (
+                    <option key={t} value={t}>#{t}</option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                style={btnTextSm}
+                onClick={() => {
+                  setSearch('');
+                  setTagFilter('');
+                  setKindFilter('all');
+                  setSearchActive(false);
+                }}
+              >
+                {isSearching ? 'クリア' : '閉じる'}
+              </button>
+            </div>
+          )}
+        </div>
+        {isSearching && (filteredSearch.length === 0 ? (
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', textAlign: 'center', padding: 'var(--space-6) 0 0', margin: 0, lineHeight: 1.6 }}>
+            このキーワードに関連するメモはまだありません。
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{filteredSearch.length} 件</p>
+            {filteredSearch.map((m) => (
+              <ReviewMemoCard
+                key={m.id}
+                memo={m}
+                book={booksById.get(m.bookId)}
+                onOpenBook={onOpenBook}
+                onSwipeDelete={handleSwipeDelete}
+                onLongPress={(payload) => setMemoMenu(payload)}
+              />
+            ))}
+          </div>
+        ))}
+      </section>
+
+      {!isSearching && (<>
+      {/* ===== 2. 今日の振り返り (random) ===== */}
       <section>
         {/* 思い出しカード（SPEC §4: メモの一番上に小さく）。見出しは小さなラベル、切替は文字ボタン。 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'calc(-1 * var(--space-2)) 0 0' }}>
+        {/* 文字ボタン（高さ 48）の上下の余りを打ち消し、検索欄との間を区画の間隔（24）に揃える。 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-1))' }}>
           <h2 style={{ ...sectionTitle, margin: 0 }}>思い出しカード</h2>
           <button type="button" style={btnTextSm} onClick={reroll} disabled={flipping}>
             別のメモを見る
@@ -926,6 +1029,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               onOpenBook={onOpenBook}
               onSwipeDelete={handleSwipeDelete}
               onLongPress={(payload) => setMemoMenu(payload)}
+              onOpenMenu={(payload) => setMemoMenu(payload)}
               showRelative
             />
             {/* 🧠 間隔反復のフィードバック（当日メモは除く）— 想起カードの主アクション
@@ -954,7 +1058,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                       setTimeout(() => toast.show(askReviewToast()), 1200);
                     }
                   }}
-                  style={{ ...btnGhost, flex: 1, justifyContent: 'center', opacity: flipping ? 0.6 : 1 }}
+                  style={{ ...(flipping ? btnGhostOff : btnGhost), flex: 1, justifyContent: 'center' }}
                 >
                   <Check size={16} strokeWidth={2.5} aria-hidden="true" />覚えた
                 </button>
@@ -962,31 +1066,18 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   type="button"
                   disabled={flipping}
                   onClick={() => { if (flipping) return; recordRandomRecall(randomMemo, false); reroll(); }}
-                  style={{ ...btnGhost, flex: 1, justifyContent: 'center', opacity: flipping ? 0.6 : 1 }}
+                  style={{ ...(flipping ? btnGhostOff : btnGhost), flex: 1, justifyContent: 'center' }}
                 >
                   もう一度
                 </button>
               </div>
             )}
-            {/* 🔄→🎯 この気づきを、その場で行動に変える（本に紐づくメモのみ・副アクション） */}
-            {onAddAction && booksById.get(randomMemo.bookId) && (
-              actionAddedId === randomMemo.id ? (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, marginTop: 'var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
-                  <Check size={16} aria-hidden="true" />
-                  行動に追加しました
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleMemoToAction(randomMemo)}
-                  disabled={addingAction}
-                  // 高さ 48 の下側の余りを相殺し、次の区画との見た目の間隔を 24〜32 に（タップ領域は 44 以上のまま）。
-                  style={{ ...btnTextSm, gap: 'var(--space-1)', marginTop: 'var(--space-1)', marginBottom: 'calc(-1 * var(--space-3))', opacity: addingAction ? 0.6 : 1 }}
-                >
-                  <Target size={16} aria-hidden="true" />
-                  この気づきを行動にする
-                </button>
-              )
+            {/* 🔄→🎯 この気づきを行動にするは、カード右上の「…」（と長押し）のメニューへ。追加できたら一言だけ残す。 */}
+            {actionAddedId === randomMemo.id && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, marginTop: 'var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
+                <Check size={16} aria-hidden="true" />
+                行動に追加しました
+              </div>
             )}
           </div>
         )}
@@ -1006,7 +1097,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 type="button"
                 onClick={enablePushFromOptIn}
                 disabled={pushBusy}
-                style={{ ...uiBtnPrimary, flex: 1, width: 'auto', opacity: pushBusy ? 0.6 : 1 }}
+                style={{ ...(pushBusy ? uiBtnPrimaryOff : uiBtnPrimary), flex: 1, width: 'auto' }}
               >
                 {pushBusy ? '設定中…' : '通知を受け取る'}
               </button>
@@ -1030,7 +1121,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             それを薄める（名言はスプラッシュ/オンボに残る）。 */}
       </section>
 
-      {/* ===== 2. タイムライン ===== */}
+      {/* ===== 3. タイムライン ===== */}
       <section>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)' }}>
           <h2 style={{ ...sectionTitle, margin: 0 }}>月ごとのメモ</h2>
@@ -1097,103 +1188,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           })}
         </div>
       </section>
-
-      {/* ===== 3. 全メモ検索 ===== */}
-      <section>
-        <h2 style={sectionTitle}>メモを検索</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-          <input
-            type="search"
-            maxLength={100}
-            placeholder="キーワード・タイトル・著者・タグ（例: 営業）"
-            aria-label="メモ横断検索: 本文・タイトル・著者・タグから探す"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
-            }}
-            style={inp}
-          />
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select
-              value={kindFilter}
-              onChange={(e) => setKindFilter(e.target.value)}
-              style={{ ...inp, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
-              aria-label="種類で絞り込み"
-            >
-              <option value="all">全種類</option>
-              {/* 実際に存在する種類だけを出す（0件になる選択肢＝投資目的/仮説等の
-                  未生成カテゴリを並べない。現在選択中の種類は件数0でも残す）。 */}
-              {Object.entries(KIND_META)
-                .filter(([k]) => (kindCounts[k] || 0) > 0 || kindFilter === k)
-                .map(([k, meta]) => (
-                  <option key={k} value={k}>{meta.label}</option>
-                ))}
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ ...inp, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
-              aria-label="本のステータスで絞り込み"
-            >
-              <option value="all">全ステータス</option>
-              <option value="want">読みたい</option>
-              <option value="before">積読</option>
-              <option value="reading">読書中</option>
-              <option value="done">読了</option>
-            </select>
-            {allTags.length > 0 && (
-              <select
-                value={tagFilter}
-                onChange={(e) => setTagFilter(e.target.value)}
-                style={{ ...inp, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
-                aria-label="タグで絞り込み"
-              >
-                <option value="">全タグ</option>
-                {allTags.map((t) => (
-                  <option key={t} value={t}>#{t}</option>
-                ))}
-              </select>
-            )}
-            {isSearching && (
-              <button
-                type="button"
-                style={btnTextSm}
-                onClick={() => {
-                  setSearch('');
-                  setStatusFilter('all');
-                  setTagFilter('');
-                  setKindFilter('all');
-                }}
-              >
-                クリア
-              </button>
-            )}
-          </div>
-        </div>
-        {!isSearching ? (
-          null
-        ) : filteredSearch.length === 0 ? (
-          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', textAlign: 'center', padding: 'var(--space-3) 0', lineHeight: 1.6 }}>
-            このキーワードに関連するメモはまだありません。<br />
-            読書中・読了の本にメモを残すと、後から検索できます。
-          </p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{filteredSearch.length} 件</p>
-            {filteredSearch.map((m) => (
-              <ReviewMemoCard
-                key={m.id}
-                memo={m}
-                book={booksById.get(m.bookId)}
-                onOpenBook={onOpenBook}
-                onSwipeDelete={handleSwipeDelete}
-                onLongPress={(payload) => setMemoMenu(payload)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      </>)}
     </div>
     </PullToRefresh>
   );

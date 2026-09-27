@@ -3,7 +3,7 @@
 // 役割:
 //   1. service_role で push_subscriptions（enabled=true）を全件取得
 //   2. ユーザーごとに「忘れた頃のあなたのメモ」を 1 件選定（src/lib/recall の思想）
-//   3. web-push でその端末へ通知を送信（タイトル「💭 Nヶ月前のあなたのメモ」/ 本文=抜粋）
+//   3. web-push でその端末へ通知を送信（タイトル「💭 N か月前のあなたのメモ」/ 本文=抜粋）
 //   4. 失効した購読（410 Gone / 404）は push_subscriptions から DELETE
 //   5. last_sent_at を更新（多重送信ガード）
 //
@@ -49,14 +49,15 @@ function relativeJa(iso, now) {
   const diff = Math.floor((now - t) / 1000);
   if (diff < 60) return 'さっき';
   const min = Math.floor(diff / 60);
-  if (min < 60) return `${min}分前`;
+  // 表記はアプリ（src/lib/recall.js・ai.js）と同じ「5 か月前」（数字の前後に半角スペース）
+  if (min < 60) return `${min} 分前`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}時間前`;
+  if (hr < 24) return `${hr} 時間前`;
   const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}日前`;
-  if (day < 30) return `${Math.floor(day / 7)}週間前`;
-  if (day < 365) return `${Math.floor(day / 30)}ヶ月前`;
-  return `${Math.floor(day / 365)}年前`;
+  if (day < 7) return `${day} 日前`;
+  if (day < 30) return `${Math.floor(day / 7)} 週間前`;
+  if (day < 365) return `${Math.floor(day / 30)} か月前`;
+  return `${Math.floor(day / 365)} 年前`;
 }
 
 function recallFraming(iso, now) {

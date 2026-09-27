@@ -13,7 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
-import { btnPrimary, card, input } from '../styles/ui';
+import { btnPrimary, card, input, groupTitle } from '../styles/ui';
 
 // 相談例（AI を使わない＝原価ゼロ）。いま読んでいる本があればそれを使う。
 function examplesFor(books) {
@@ -104,7 +104,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
             onChange={(e) => setText(e.target.value)}
             rows={2}
             maxLength={LIMITS.aiQuestion}
-            placeholder="困っていることを書いてください"
+            placeholder="例：上司への報告がうまくいかない"
             aria-label="相談したいこと"
             style={{ ...input, resize: 'none', lineHeight: 1.5, display: 'block' }}
           />
@@ -115,7 +115,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
           >
             相談する
           </button>
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 'var(--space-4) 0 var(--space-2)' }}>たとえば</p>
+          <p style={{ ...groupTitle, margin: 'var(--space-4) 0 var(--space-2)' }}>たとえば</p>
           {/* 相談例はチップ（--fill 面・枠なし）。入力欄（枠あり）と見分けがつくように。 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {examples.map((q) => (
@@ -129,7 +129,8 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
                   fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5,
                 }}
               >
-                {q}
+                {/* 1 行で止める（ホームのカードを短く保つ）。全文は読み上げ・送信にそのまま使う。 */}
+                <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 1, overflow: 'hidden', wordBreak: 'break-all' }}>{q}</span>
               </button>
             ))}
           </div>

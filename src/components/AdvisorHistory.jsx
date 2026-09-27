@@ -19,7 +19,7 @@ import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
 import BookStoreLinks from './BookStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
-import { btnPrimary, btnGhost, btnText } from '../styles/ui';
+import { btnPrimary, btnGhost, btnGhostOff, btnText } from '../styles/ui';
 import { displayUserText, concernOf, interviewPairsOf } from '../lib/advisorText';
 
 function formatDate(iso) {
@@ -251,7 +251,9 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
             style={{
               ...rowBtn,
               cursor: isAdding ? 'wait' : 'pointer',
-              opacity: isAdding ? 0.6 : 1,
+              // 押せない間は薄くせず、副ボタンの無効の色（btnGhostOff）で示す。
+              ...(isAdding ? { color: btnGhostOff.color, borderColor: btnGhostOff.borderColor } : null),
+              opacity: 1,
               touchAction: 'manipulation',
             }}
           >

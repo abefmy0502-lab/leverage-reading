@@ -32,7 +32,7 @@ import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, input as uiInput } from '../styles/ui';
 import { History, Trash2, RotateCw, BookmarkPlus, Inbox, Ruler, RefreshCw, CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // 見た目は DESIGN.md のトークンのみ。
@@ -42,6 +42,7 @@ const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScr
 const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const inp = { ...uiInput, flex: 1, minWidth: 0, width: 'auto' };
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', flexShrink: 0 };
+const btnPrimaryOff = { ...uiBtnPrimaryOff, width: 'auto', flexShrink: 0 };
 const btnGhost = { ...uiBtnGhost };
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
 const btnRow = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)', gap: 'var(--space-1)', flexShrink: 0 };
@@ -555,7 +556,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                       type="button"
                       onClick={stopGeneration}
                       disabled={aborting}
-                      style={{ ...btnText, minHeight: 44, opacity: aborting ? 0.6 : 1 }}
+                      style={{ ...btnText, minHeight: 44, ...(aborting ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
                       aria-label={aborting ? '中止しています' : 'テーマまとめの作成を中止'}
                     >
                       {aborting ? '中止中…' : '中止'}
@@ -637,11 +638,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   onClick={actionAdded ? (() => onOpenActions?.()) : handleAddNextStep}
                   disabled={actionBusy}
                   aria-label={actionAdded ? '追加した行動を行動リストで見る' : '次の一歩を行動リストに追加'}
-                  style={{
-                    ...(actionAdded ? btnGhost : uiBtnPrimary),
-                    cursor: actionBusy ? 'default' : 'pointer',
-                    opacity: actionBusy ? 0.6 : 1,
-                  }}
+                  style={actionAdded ? btnGhost : actionBusy ? uiBtnPrimaryOff : uiBtnPrimary}
                 >
                   {actionAdded ? (
                     <><CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)' }} />追加済み・行動リストで見る<ChevronRight size={18} aria-hidden="true" /></>
@@ -688,11 +685,10 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-      {/* 見出し行（AI 選書と同じ形）: 左に問いかけの見出し、右に履歴のアイコンボタン。 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, marginRight: 'calc(-1 * var(--space-2))' }}>
-        <h2 style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>
-          どのテーマをまとめますか
-        </h2>
+      {/* 上の行（相談・AI 選書と同じ高さ 52・右端に履歴の時計）→ その下に見出し。サブタブを切り替えても
+          見出しの位置が動かないように、相談の上の行と同じ寸法にそろえる（上の余白 8 は打ち消す）。 */}
+      <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', minHeight: 52, margin: 'calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0 0' }}>
         {historyCount != null && (
           <button
             type="button"
@@ -704,6 +700,10 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             <History size={22} strokeWidth={1.75} aria-hidden="true" />
           </button>
         )}
+      </div>
+      <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 'var(--space-2) 0 0', lineHeight: 1.3 }}>
+        どのテーマをまとめますか
+      </h2>
       </div>
 
       {/* detected theme chips */}
@@ -787,7 +787,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             type="button"
             onClick={submitCustom}
             disabled={!canGenerate}
-            style={{ ...btnPrimary, opacity: canGenerate ? 1 : 0.5, cursor: canGenerate ? 'pointer' : 'default' }}
+            style={canGenerate ? btnPrimary : btnPrimaryOff}
           >
             作成
           </button>
@@ -882,11 +882,11 @@ function RecallButton({ busy, done, onSet }) {
       onClick={onSet}
       disabled={busy || done}
       aria-label={done ? '思い出しカードに追加済み' : '核心を思い出しカードに加える'}
-      style={{
+      style={busy ? uiBtnGhostOff : {
         ...btnGhost,
-        cursor: busy || done ? 'default' : 'pointer',
+        cursor: done ? 'default' : 'pointer',
         color: done ? 'var(--text-2)' : 'var(--text)',
-        opacity: busy ? 0.6 : 1,
+        opacity: 1,
       }}
     >
       {done ? (

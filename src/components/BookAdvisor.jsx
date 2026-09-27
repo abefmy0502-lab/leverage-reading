@@ -27,7 +27,7 @@ import { isStrictMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnText as uiBtnText, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, input as uiInput } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
@@ -48,6 +48,8 @@ const AdvisorAddConfirmModal = lazy(() => import('./AdvisorAddConfirmModal'));
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const advisorWizardCard = { ...cardStyle, animation: 'fadeIn .25s' };
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
+// 相談（MyBookBrain）の上の行と同じ寸法（高さ 52・左 16・右 8）。
+const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, padding: '0 var(--space-2) 0 var(--space-4)' };
 const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 };
 // 読む文章（AI の答え・推薦理由）＝明朝 18・行間 1.6。
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
@@ -184,7 +186,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     const el = inputRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = Math.min(Math.max(el.scrollHeight, 60), 200) + 'px';
+    // 空のときは 1 行（44）。相談の入力欄と同じ高さから伸びる。
+    el.style.height = Math.min(Math.max(el.scrollHeight + 2, 44), 200) + 'px';
   }, [input]);
 
   // Parse the new richer response: leading prose + JSON recs + trailing prose.
@@ -1011,14 +1014,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      {/* Scroll 領域: ヘッダー / 例チップ / メッセージ / 推薦カード をまとめる */}
-      <div ref={chatScrollRef} className="chat-scroll" style={{ padding: 'var(--space-2) var(--space-4) var(--space-4)' }}>
-      {/* 上の行（相談と同じ形）: はじめは見出し、右に履歴・新規のアイコンボタン。 */}
-      {(showStartHeading || sessionApi?.available || messages.length > 0 || recommendations) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, marginRight: 'calc(-1 * var(--space-2))' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {showStartHeading && <h2 style={headingStyle}>どんな本を探していますか</h2>}
-          </div>
+      {/* 上の行（相談と同じ形・同じ高さ）: 右に履歴・新規のアイコンボタン。見出しはその下（スクロール領域の先頭）に置き、
+          相談 ⇄ AI 選書 を切り替えても見出しの位置が動かないようにする。 */}
+      <div style={topRow}>
+          <div style={{ flex: 1, minWidth: 0 }} />
           {sessionApi?.available && (
             <button
               type="button"
@@ -1041,8 +1040,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
               <IcNewChat size={22} strokeWidth={1.75} aria-hidden="true" />
             </button>
           )}
-        </div>
-      )}
+      </div>
+      {/* Scroll 領域: 見出し / 例チップ / メッセージ / 推薦カード をまとめる */}
+      <div ref={chatScrollRef} className="chat-scroll" style={{ padding: 'var(--space-2) var(--space-4) var(--space-4)' }}>
+      {showStartHeading && <h2 style={headingStyle}>どんな本を探していますか</h2>}
 
       {/* Example chips — タップで textarea に流し込む（送信はしない）。 */}
       {showConcernInput && (
@@ -1222,7 +1223,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     onClick={submitOther}
                     disabled={!otherText.trim()}
                     aria-label={isMulti ? '選択肢に追加' : 'この内容で回答'}
-                    style={{ ...rowBtn, minHeight: 48, opacity: otherText.trim() ? 1 : 0.5, cursor: otherText.trim() ? 'pointer' : 'default' }}
+                    style={{ ...rowBtn, minHeight: 48, ...(otherText.trim() ? null : { color: uiBtnGhostOff.color, borderColor: uiBtnGhostOff.borderColor, opacity: 1, cursor: 'default' }) }}
                   >
                     {isMulti ? '追加' : '決定'}
                   </button>
@@ -1235,12 +1236,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                   type="button"
                   onClick={() => { if (multiSelected.length) answerQuestion(multiSelected.join('、')); }}
                   disabled={multiSelected.length === 0}
-                  style={{
-                    ...uiBtnPrimary,
-                    marginTop: 'var(--space-2)',
-                    opacity: multiSelected.length ? 1 : 0.4,
-                    cursor: multiSelected.length ? 'pointer' : 'not-allowed',
-                  }}
+                  style={{ ...(multiSelected.length ? uiBtnPrimary : uiBtnPrimaryOff), marginTop: 'var(--space-2)' }}
                 >
                   {multiSelected.length ? `決定（${multiSelected.length}件）` : '1つ以上選んでください'}
                 </button>
