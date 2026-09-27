@@ -433,6 +433,8 @@ const helpAi = {
 // 注意: 実際に callMyBookBrain で送信される system prompt は src/lib/ai.js の
 // BRAIN_SYSTEM (security ルール込み)。ここはドキュメント / A/B テスト用の
 // ミラー。両者を同じ文言で保つこと。
+// ⚠️ 実際の相談の指示文は src/lib/ai.js の BRAIN_SYSTEM（歩み＝GROWTH ブロックの扱いを含む）。
+//    このエントリは旧来の参照用で、呼び出し元は無い。変えるときは BRAIN_SYSTEM を編集する。
 const myBookBrain = {
   system:
     `あなたは、ユーザーが読んだ本のメモを根拠に相談に乗る「相談」AI です。${BASE_PERSONA}\n` +
