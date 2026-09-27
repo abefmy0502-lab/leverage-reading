@@ -19,7 +19,16 @@ function examplesFor(books) {
   const reading = books.find((b) => b.status === 'reading') || books.find((b) => b.status === 'done');
   const out = [];
   if (reading?.title) out.push(`『${reading.title}』の学びで、明日から使えるものは？`);
-  out.push('最近、判断に迷うことがあります。私が読んだ本から、ヒントをください');
+  // 2 つ目は、よく付けているタグから（相談タブの例と同じ作り方）。タグが無いときだけ一般的な例。
+  const tagCount = new Map();
+  books.forEach((b) => (Array.isArray(b.tags) ? b.tags : []).forEach((t) => {
+    const k = String(t || '').trim();
+    if (k) tagCount.set(k, (tagCount.get(k) || 0) + 1);
+  }));
+  const topTag = [...tagCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  out.push(topTag
+    ? `「${topTag}」で迷っています。私が読んだ本から、ヒントをください`
+    : '最近、判断に迷うことがあります。私が読んだ本から、ヒントをください');
   return out;
 }
 

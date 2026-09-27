@@ -2512,13 +2512,13 @@ function AuthedApp() {
   // 🔄→🎯 想起から行動への橋渡し。振り返り（Review）で戻ってきたメモから
   // 「→行動にする」で、メモ本文（とページ）を引いた行動を1タップで作る。
   // 「読んで終わりにしない＝行動に変える」中核ループを想起面でも閉じる。
-  const addActionFromMemo = async (bookId, { text, sourceMemoId = null, sourcePage = null }) => {
+  const addActionFromMemo = async (bookId, { text, sourceMemoId = null, sourcePage = null, deadline = '' }) => {
     const body = (text || '').trim();
     if (!body) return false;
     if (!booksRef.current.find((b) => b.id === bookId)) return false;
     const newAction = {
       text: body.slice(0, LIMITS.actionText || 500),
-      deadline: '',
+      deadline: /^\d{4}-\d{2}-\d{2}$/.test(deadline) ? deadline : '',
       done: false,
       priority: 'medium',
       sourceMemoId,
@@ -2618,6 +2618,13 @@ function AuthedApp() {
     // 即未完了戻しの軽快操作に統一。reflection は ActionEditModal から
     // いつでも編集可能。
     await applyActionToggle(bookId, actionIdx);
+    // 完了は一瞬で一覧から消えるので、取り消せるようにする（押し間違いの救済）。
+    if (!target.done) {
+      toast.info('行動を完了しました', {
+        duration: 5000,
+        action: { label: '元に戻す', onClick: () => { applyActionToggle(bookId, actionIdx); } },
+      });
+    }
   };
 
   const deleteActionFromBook = async (bookId, actionIdx, { skipConfirm = false } = {}) => {
@@ -2934,11 +2941,8 @@ function AuthedApp() {
           <div style={{ display: "flex", gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
             {/* 表紙の選び直し・取り直し・アップロードは「⋯」メニューへ（表紙の下の小さな
                 リンクは 10pt・高さ 32 で DESIGN 基準に届かないため撤去）。 */}
-            {current.cover ? (
-              <img src={ensureHttps(current.cover)} alt="" style={{ width: 72, height: 100, flexShrink: 0, objectFit: "cover", borderRadius: 4, border: '1px solid var(--separator)' }} />
-            ) : (
-              <MiniCover book={current} width={72} />
-            )}
+            {/* MiniCover は表紙が読めない（壊れた URL・1×1 のダミー）ときも書名入りの表紙に切り替わる */}
+            <MiniCover book={current} width={72} />
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* 書名＝この画面の主題（28・700）。見出し「メモ」「行動」（20・600）と差をつける。 */}
               <h1 style={{ fontSize: "var(--text-title)", fontWeight: 700, color: "var(--text)", lineHeight: 1.25, margin: 0, overflowWrap: "anywhere", wordBreak: "break-word", display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{current.title}</h1>

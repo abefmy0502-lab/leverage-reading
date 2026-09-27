@@ -94,7 +94,7 @@ function pickCategory(tags) {
 // 行ごと delete + undo (既存挙動)。`group` は フィルタピル用 (memo / summary /
 // plan / learning) のグルーピングタグ。
 const KIND_META = {
-  card:              { Icon: StickyNote,   label: 'カード式メモ', group: 'memo' },
+  card:              { Icon: StickyNote,   label: 'メモ', group: 'memo' },
   summary:           { Icon: BookOpen,     label: 'まとめメモ',   group: 'summary', column: 'leverage_memo' },
   personal:          { Icon: Lightbulb,    label: '学びログ',     group: 'learning' },
   invest_purpose:    { Icon: BarChart3,    label: '得たいこと',   group: 'plan',    column: 'invest_purpose' },

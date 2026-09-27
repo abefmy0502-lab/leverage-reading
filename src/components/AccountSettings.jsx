@@ -835,7 +835,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                       ? '解約・プラン変更は App Store のサブスク設定から。いつでも解約でき、データは保持されます。'
                       : subscription?.stripeCustomerId
                         ? '解約・カード変更・請求履歴は下のボタンから。いつでも解約でき、データは保持されます。'
-                        : 'いつでも解約でき、データは保持されます。'}
+                        : 'App で購入した場合、解約は iPhone の「設定」→ 名前 →「サブスクリプション」から、いつでもできます。データは保持されます。'}
                   </p>
                   {/* 管理ボタンを出せない契約状態では、探させずにその場で連絡導線を置く
                       （旧: 「画面下部のお問い合わせから」と下端リンクを自力で
@@ -845,7 +845,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                       href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更の相談')}`}
                       style={{ ...btnGhost, textDecoration: 'none', boxSizing: 'border-box' }}
                     >
-                      解約・変更を問い合わせる
+                      解約・変更について問い合わせる
                     </a>
                   )}
                   {isNative ? (
@@ -1037,7 +1037,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   退会してもサブスクの課金は自動で止まりません。
                   {isNative
                     ? '先に上の「サブスクリプションを管理（App Store）」から解約してください。'
-                    : '先に上の「プランを管理する」から解約してください。'}
+                    : subscription?.stripeCustomerId
+                      ? '先に上の「プランを管理する」から解約してください。'
+                      : 'App で購入した場合は、先に iPhone の「設定」→ 名前 →「サブスクリプション」から解約してください。'}
                 </p>
               )}
               {!deleteOpen ? (

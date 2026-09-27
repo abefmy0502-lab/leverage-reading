@@ -307,8 +307,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🧠→🎯 回答の行動を、紐づく本の行動リストへ追加（成功時にトースト）。
   const handleAnswerToAction = useCallback(async (bookId, text) => {
     if (!onAddAction || !bookId || !text) return false;
-    const ok = await onAddAction(bookId, { text, sourceMemoId: null, sourcePage: null });
-    if (ok) toast.success('行動に追加しました。');
+    // 相談の「明日からできる…」なので期限は明日を既定にする（期限なしだと一覧の最後に沈む）。
+    // 「〜してみてください」の呼びかけは、行動リストの言い切りの形に直す。
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const tomorrow = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const plain = String(text).trim()
+      .replace(/してみてください[。！!]?$/, 'してみる')
+      .replace(/てみてください[。！!]?$/, 'てみる')
+      .replace(/でみてください[。！!]?$/, 'でみる')
+      .replace(/してください[。！!]?$/, 'する')
+      .replace(/しましょう[。！!]?$/, 'する');
+    const ok = await onAddAction(bookId, { text: plain, sourceMemoId: null, sourcePage: null, deadline: tomorrow });
+    if (ok) toast.success('行動に追加しました（期限は明日）');
     return ok;
   }, [onAddAction, toast]);
   // 段階的ステータス表示: 'search' = 過去のメモを取得中, 'generate' = Claude が回答生成中,

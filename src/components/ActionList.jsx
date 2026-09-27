@@ -1,7 +1,7 @@
 // 🎯 行動 — 本を横断した行動リスト（振り返りタブの最初のサブタブ・SPEC §4）。
 //
 // 役割: 相談や読書で決めた行動を、やり切るまで見届ける場所。最重要アクション＝完了にする。
-//   - やることを 期限を過ぎた / 今日 / 今週（月〜日の暦の週） / 来週以降・期限なし に分けて上から並べる
+//   - やることを 期限を過ぎた / 今日 / 明日 / 今週（月〜日の暦の週） / 来週以降 / 期限なし に分けて上から並べる
 //   - 完了した行動は一覧の最後の「完了した行動（N）」1 行から開く（切り替えを 2 段重ねにしない・DESIGN §5）
 //   - 期限切れは控えめな警告色（責めない）。多いときだけ「期限を見直す」をそっと出す
 //   - 達成率などの数字の演出はしない（反ゲーミフィケーション）。今週の完了数を 1 行だけ
@@ -48,8 +48,10 @@ function fmtShort(deadline) {
 const GROUPS = [
   { key: 'overdue', label: '期限を過ぎた行動' },
   { key: 'today', label: '今日' },
+  { key: 'tomorrow', label: '明日' },
   { key: 'week', label: '今週' },
-  { key: 'later', label: '来週以降・期限なし' },
+  { key: 'later', label: '来週以降' },
+  { key: 'none', label: '期限なし' },
 ];
 
 // 今日から今週の日曜までの日数（月曜はじまり＝useAllActions の「今週の予定」と同じ暦の週）。
@@ -60,9 +62,12 @@ function daysLeftInWeek() {
 
 function groupOf(a) {
   const n = daysUntil(a.deadline);
-  if (n == null) return 'later';
+  if (n == null) return 'none';
   if (n < 0) return 'overdue';
   if (n === 0) return 'today';
+  // 明日は週をまたいでも（日曜の翌日＝月曜でも）「明日」に出す。日曜に「明日まで」の行動が
+  // 来週以降に沈まないように。
+  if (n === 1) return 'tomorrow';
   if (n <= daysLeftInWeek()) return 'week';
   return 'later';
 }

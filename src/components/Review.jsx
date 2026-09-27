@@ -811,7 +811,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               // メモできる本がまだ無い（＝本が無い/全て読みたい積読）ときは行き止まりに
               // せず、本棚へ誘導する（そこで本を追加・読書中にできる）。
               : onGoToShelf
-                ? [{ label: '本棚へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToShelf }]
+                ? [{ label: 'すべての本へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToShelf }]
                 : []
           }
           tip="残したメモや学びが、すべてここに集まります"

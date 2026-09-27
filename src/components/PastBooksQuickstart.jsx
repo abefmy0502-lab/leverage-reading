@@ -169,6 +169,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   const [idx, setIdx] = useState(0);
   const [summary, setSummary] = useState({ books: [], memos: 0 });
   const memoRef = useRef(null);
+  const searchRef = useRef(null);
 
   useEffect(() => { track('quickstart_started'); }, []);
   useEffect(() => { if (step === 'memo') memoRef.current?.focus(); }, [step, idx]);
@@ -205,6 +206,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
       return;
     }
     setPicked((arr) => [...arr, { book: b, memo: '' }]);
+    // 次の 1 冊をすぐ打てるように、入力欄を空にする（結果の一覧はそのまま残す）。
+    setQuery('');
   };
   const titleOnlyBook = searched
     ? { title: clamp(searched, LIMITS.bookTitle), author: '', isbn: '', cover: '', manual: true }
@@ -307,8 +310,19 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                   maxLength={LIMITS.bookTitle}
                   enterKeyHint="search"
                   autoComplete="off"
-                  style={{ ...inputStyle, paddingLeft: 'calc(var(--space-3) + 20px + var(--space-2))' }}
+                  ref={searchRef}
+                  style={{ ...inputStyle, paddingLeft: 'calc(var(--space-3) + 20px + var(--space-2))', paddingRight: query ? 44 : undefined }}
                 />
+                {query && (
+                  <button
+                    type="button"
+                    aria-label="入力を消す"
+                    onClick={() => { setQuery(''); searchRef.current?.focus(); }}
+                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
+                  >
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                )}
               </div>
               {/* 主ボタンは下の「次へ」だけ（DESIGN §0-2）。検索は副ボタン。 */}
               <button type="button" onClick={() => runSearch()} disabled={!query.trim() || searching}
