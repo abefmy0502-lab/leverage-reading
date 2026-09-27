@@ -52,6 +52,12 @@ const POS_OPTIONS = [
   { v: 'bottom', label: '文字を下に', Icon: AlignVerticalJustifyEnd },
 ];
 
+// 🧪 開発専用（お試しモード）: &share=slow で画像を作っている途中、&share=fail で作れなかったときの表示を撮る。
+// 本番は import.meta.env.DEV=false で常に null。
+const DEMO_SHARE = import.meta.env.DEV && import.meta.env.VITE_DEMO === 'true' && typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search).get('share')
+  : null;
+
 // アプリを開いている間だけ覚える（写真そのものは覚えない）。
 const session = { style: 'paper', format: 'story', textPos: 'bottom' };
 
@@ -186,6 +192,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
   // 表紙・書体・ロゴを 1 回だけ準備する（外部の表紙は自前の中継を通す・読めなければ代用表紙）。
   useEffect(() => {
     let alive = true;
+    if (DEMO_SHARE === 'slow') return () => { alive = false; };
     const sample = `${book?.title || ''}${book?.author || ''}${(memos || []).map((m) => m.text || '').join('').slice(0, 1500)}`;
     Promise.all([
       prepareCover(book).catch(() => ({ image: null, tone: null })),
@@ -205,6 +212,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
     const canvas = canvasRef.current;
     if (!canvas || !chosen || !assets) return false;
     try {
+      if (DEMO_SHARE === 'fail') throw new Error('この端末では画像を作れませんでした。');
       const r = drawShareCard(canvas, {
         line: chosen.text,
         page: Number.isFinite(chosen.pageNumber) ? chosen.pageNumber : null,
