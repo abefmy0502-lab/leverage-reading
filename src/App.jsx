@@ -3041,7 +3041,7 @@ function AuthedApp() {
     // 押せる行（この本に相談する）の中の文字ボタンの縦の余り（高さ 44 のうち文字の上下）を詰める。
     const textBtnInCard = { ...btnText, fontSize: 'var(--text-sub)', padding: 0, marginBottom: 'calc(-1 * var(--space-3))' };
     // 畳んだ中の小さな見出し（DESIGN §5 groupTitle・12/600/--text-2）。
-    const subLabelStyle = { ...groupTitle, margin: 'var(--space-3) 0 var(--space-2)' };
+    const subLabelStyle = { ...groupTitle, margin: '0 0 var(--space-2)' };
     // 読書計画の中身（得たいこと・課題・仮説・シート）。読書中・読了では 1 つの「読書計画」に畳む。
     const planItems = [
       current.investPurpose && { label: 'この本から得たいこと', text: current.investPurpose },
@@ -3139,7 +3139,7 @@ function AuthedApp() {
                   <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                 </span>
               </summary>
-              <div style={{ paddingBottom: 'var(--space-4)' }}>
+              <div style={{ paddingBottom: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                 {planItems.map((p) => (
                   <div key={p.label}>
                     <p style={subLabelStyle}>{p.label}</p>
@@ -3147,15 +3147,12 @@ function AuthedApp() {
                   </div>
                 ))}
                 {current.aiStrategy && (
-                  <>
-                    <p style={subLabelStyle}>読書計画シート</p>
-                    <MarkdownSections
-                      flat
-                      text={current.aiStrategy}
-                      onAddRelatedBook={addRelatedBookFromAi}
-                      addingTitles={addedRelatedTitles}
-                    />
-                  </>
+                  <MarkdownSections
+                    flat
+                    text={current.aiStrategy}
+                    onAddRelatedBook={addRelatedBookFromAi}
+                    addingTitles={addedRelatedTitles}
+                  />
                 )}
               </div>
             </details>
@@ -3508,7 +3505,7 @@ function AuthedApp() {
               // 分からないので「メモを書く」と文字で言う（SPEC §2）。
               position: "fixed",
               right: "var(--space-4)",
-              bottom: "calc(var(--space-16) + var(--space-3) + env(safe-area-inset-bottom, 0px))",
+              bottom: "calc(var(--tabbar-h) + var(--space-3) + env(safe-area-inset-bottom, 0px))",
               minHeight: 48,
               padding: "0 var(--space-4)",
               borderRadius: "var(--radius)",

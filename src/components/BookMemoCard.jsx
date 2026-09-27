@@ -343,7 +343,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-              style={{ alignSelf: 'flex-start', minHeight: 44, padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{ alignSelf: 'flex-start', minHeight: 44, padding: 0, margin: 'calc(-1 * var(--space-2)) 0', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
             >
               {expanded ? '閉じる' : '続きを読む'}
             </button>
