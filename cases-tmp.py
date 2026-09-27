@@ -17,4 +17,14 @@ cases=[
  dict(name=f'{prefix}-post-paper-long', line=q4, page=None, title='レバレッジ・リーディング', author='本田直之', style='paper', format='post'),
  dict(name=f'{prefix}-post-night-short', line=q2, page=18, title='エッセンシャル思考 最少の時間で成果を最大にする', author='グレッグ・マキューン', style='night', format='post', coverSvg=ess),
 ]
+if len(sys.argv) > 2 and sys.argv[2] == 'photo':
+    ph='/scripts/fixtures/share-photo.jpg'
+    cases=[
+     dict(name=f'{prefix}-photo-story-bottom', line=q2, page=18, title='エッセンシャル思考', author='グレッグ・マキューン', style='photo', format='story', photo=ph),
+     dict(name=f'{prefix}-photo-square-bottom', line=q1, page=25, title='イシューからはじめよ', author='安宅和人', style='photo', format='square', photo=ph),
+     dict(name=f'{prefix}-photo-post-top', line=q2, page=18, title='エッセンシャル思考', author='グレッグ・マキューン', style='photo', format='post', photo=ph, textPos='top'),
+     dict(name=f'{prefix}-sticker', line=q2, page=18, title='エッセンシャル思考', author='グレッグ・マキューン', style='sticker', format='story'),
+     dict(name=f'{prefix}-paper-square', line=q1, page=25, title='イシューからはじめよ', author='安宅和人', style='paper', format='square', coverSvg=issue),
+     dict(name=f'{prefix}-night-story', line=q3, page=95, title='1兆ドルコーチ', author='エリック・シュミット', style='night', format='story'),
+    ]
 print(json.dumps(cases, ensure_ascii=False))

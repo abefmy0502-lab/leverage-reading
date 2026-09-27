@@ -27,7 +27,7 @@ import { SkeletonBlock } from './Skeleton';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2 } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
-import { AI_MONTHLY_BUDGET_JPY, fetchMonthCostJpy, nextResetLabelJa } from '../lib/freeTrial';
+import { nextResetLabelJa } from '../lib/freeTrial';
 
 // ホーム・本の詳細・テーマまとめから渡される「最初の一手」（preset）は、App 側では
 // 消えずに残る。相談タブを開き直すと MyBookBrain が作り直されるので、使い終わった
@@ -316,17 +316,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   useEffect(() => { prewarmKnowledge(user?.id); }, [user?.id]);
   const toast = useToast();
   const confirm = useConfirm();
-  // 🎁 お試し中（未課金・登録直後）: 残り回数の表示と、使い切ったら有料プランの画面へ。
-  const { freeMode, freeRemaining, refreshFree, openPaywall } = usePaywall();
-  // 💴 今月の AI の利用（円）。上限の 7 割を超えたら、上部に一言だけ出す（止めるのはサーバー）。
-  const [monthCost, setMonthCost] = useState(null);
-  const refreshMonthCost = useCallback(async () => {
-    if (!user?.id || freeMode) return;
-    setMonthCost(await fetchMonthCostJpy(user.id));
-  }, [user?.id, freeMode]);
-  useEffect(() => { refreshMonthCost(); }, [refreshMonthCost]);
-  const [monthLimitHit, setMonthLimitHit] = useState(false); // この月の上限に達した（サーバーの 429）
-  const nearMonthLimit = !freeMode && !monthLimitHit && monthCost != null && monthCost >= AI_MONTHLY_BUDGET_JPY * 0.7;
+  // 🪙 プランと残りのトークン（src/lib/tokens.js・止めるのはサーバー）。上部に 1 行「今月の残り N トークン」。
+  //    無料プラン（相談だけ）で使い切ったら、答えの下で静かに案内＋有料プランの画面へ。
+  const { plan, freeMode, tokensRemaining, tokenAllowance, refreshTokens, openPaywall } = usePaywall();
+  const [monthLimitHit, setMonthLimitHit] = useState(false); // トークンの上限に達した（サーバーの 429）
+  const freeUsedUp = freeMode && tokensRemaining != null && tokensRemaining <= 0;
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
   // 押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）のあいだは、親がサブタブを隠せるように知らせる
   // （見出しが 3 段に重ならないように）。離れるときは必ず false に戻す。
@@ -721,8 +715,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }
     const q = (questionText ?? input).trim();
     if (!q || busy) return;
-    // お試しを使い切っていたら、送らずに有料プランの画面を開く（入力は残す）。
-    if (freeMode && freeRemaining <= 0) { openPaywall('free_used'); return; }
+    // 無料プランで今月のトークンを使い切っていたら、送らずに有料プランの画面を開く（入力は残す）。
+    if (freeUsedUp) { openPaywall('free_used'); return; }
     const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
     const askScopeLabel = scopeLabelFor(askBookIds, books);
     const askMode = opts.mode || (askBookIds.length === 1 ? 'fused' : answerMode);
@@ -877,7 +871,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               content: controller.signal.aborted
                 ? '回答を中止しました。'
                 : e?.paywall
-                  ? 'お試しの相談は、ここまでです。続けて相談するには、プランを始めてください。'
+                  ? (e.message || '今月のトークンは、ここまでです。')
                 : e?.monthlyLimit
                   ? e.message
                 : partial
@@ -904,8 +898,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       setStage(null);
       setBusy(false);
       setAborting(false);
-      if (freeMode) refreshFree(); // お試しの残りを取り直す（数えるのはサーバー）
-      else refreshMonthCost();
+      refreshTokens(); // 残りのトークンを取り直す（数えるのはサーバー）
     }
   };
 
@@ -1064,13 +1057,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     <div style={wrap}>
       {/* 上部は 1 行だけ（SPEC §3: 二重タブをやめる）。会話のときは「何を根拠に答えるか」＋
           履歴（時計）＋その他（…）。会話以外の画面では「‹ 相談」で戻る。 */}
-      {/* お試し中は上部が 2 行になるので、下に線を引いて「下に潜っている」ことを示す */}
+      {/* 残りのトークンの行で上部が 2 行になるので、下に線を引いて「下に潜っている」ことを示す */}
       {/* 会話・一覧を下へ送ったときも、上部の行との境目に線を引く（iOS のナビゲーションバーと同じ）。
           押し込まれた画面では親が全体の見出しを隠すので、この行が画面の最上部になる（ノッチを避ける）。 */}
       <div
         style={{
           ...topRow,
-          ...((view === 'chat' && (freeMode || nearMonthLimit)) || scrolled ? { borderBottom: '1px solid var(--separator)' } : null),
+          ...((view === 'chat' && tokensRemaining != null) || scrolled ? { borderBottom: '1px solid var(--separator)' } : null),
           ...(isPushed && onPushedViewChange ? { paddingTop: 'max(var(--space-1), env(safe-area-inset-top, 0px))', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))' } : null),
         }}
       >
@@ -1090,14 +1083,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   : '選んだ本のメモから答えます')
                 // 件数は「根拠にできる情報」の一覧と同じもの（メモ・学び・まとめ・読書計画＝AI に渡す材料すべて）。
                 : (knowledgeTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>メモ・学びなど</span> <span style={{ whiteSpace: 'nowrap' }}>{knowledgeTotal} 件</span>から答えます</> : '読んだ本のメモを根拠に答えます')}
-              {freeMode && freeRemaining > 0 && (
+              {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
+              {tokensRemaining != null && (
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                  お試しで、あと {freeRemaining} 回相談できます
-                </span>
-              )}
-              {nearMonthLimit && (
-                <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                  今月の相談は、残りわずかです
+                  {plan === 'trial' ? '無料期間' : '今月'}の残り <span style={{ whiteSpace: 'nowrap' }}>{tokensRemaining} トークン</span>
                 </span>
               )}
               {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
@@ -1300,26 +1289,30 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             <div ref={messagesEndRef} />
           </div>
 
-          {/* お試しを使い切ったら、答えの下で静かに案内（読み終えるまで画面を奪わない） */}
-          {freeMode && freeRemaining <= 0 && !busy && lastIsAssistant && (
+          {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
+              （読み終えるまで画面を奪わない） */}
+          {freeUsedUp && !busy && (lastIsAssistant || isEmpty) && (
             <section
-              aria-label="お試しの相談は、ここまで"
+              aria-label="今月のトークンは、ここまで"
               style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}
             >
               <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
-                お試しの相談は、ここまでです
+                今月のトークンは、ここまでです
+              </p>
+              <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{tokenAllowance} トークン</span>に戻ります
               </p>
               <button type="button" onClick={() => openPaywall('free_used')} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
-                この相談相手を使い続ける
+                プランを見る
               </button>
             </section>
           )}
 
           {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
-              {/* お試しを使い切ったら、できない操作を出さない */}
+              {/* 無料のトークンを使い切ったら、できない操作を出さない */}
               {/* 失敗した答えには吹き出しの「もう一度」があるので、ここでは出さない */}
-              {!(freeMode && freeRemaining <= 0) && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error && (
+              {!freeUsedUp && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error && (
                 <button type="button" onClick={regenerate} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
                   {visibleMessages[visibleMessages.length - 1]?.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて'}
                 </button>
@@ -1378,7 +1371,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   if (!monthLimitHit) ask();
                 }
               }}
-              placeholder={monthLimitHit ? `${nextResetLabelJa()}から相談できます` : '例：上司への報告がうまくいかない'}
+              placeholder={monthLimitHit ? (plan === 'trial' ? '無料期間のトークンは、ここまでです' : `${nextResetLabelJa()}から相談できます`) : freeUsedUp ? `${nextResetLabelJa()}にまた相談できます` : '例：上司への報告がうまくいかない'}
               rows={1}
               disabled={busy}
               maxLength={LIMITS.aiQuestion}

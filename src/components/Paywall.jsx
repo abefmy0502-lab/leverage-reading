@@ -1,7 +1,11 @@
-// 💳 Paywall — 有料プランの画面（全機能有料のハードペイウォール）。
+// 💳 Paywall — 有料プランの画面（フリーミアム・2026-09-27〜）。
 //
-// 認証済みかつ未課金（useSubscription の !isActive && !loading）のとき、
-// AuthedApp の手前で全画面表示する。ここを越えないと本棚等に入れない。
+// 契約が無くてもアプリは使える（無料プラン: メモ・記録・シェア・相談 毎月 30 トークン）。この画面は
+// アプリの上に重ねて開く（App の PaywallGate・いつでも × / 「あとで」で閉じられる）:
+//   reason 'free_used' … 無料のトークンを使い切った（本人の本の表紙を並べる）
+//   reason 'feature'   … プランで使える AI 機能を押した（feature＝機能の名前）
+//   reason null        … 設定の「プランを見る」
+// 無料とプランの違いは 2 行の比較（トークンの量と、プランで増える機能）だけで見せる。
 //
 // 設計方針（DESIGN.md / brand-messaging.md 準拠）:
 //   - 静か・誠実・控えめ（Apple メモ級）。煽らない・断定しない。絵文字は使わない（lucide の線アイコン）。
@@ -19,7 +23,7 @@
 //   プレビュー中は実際の購入・復元（RevenueCat）を一切呼ばない（isNative のときだけ呼ぶ）。
 
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { MessageCircle, Target, RotateCcw, Circle, CircleCheck, X } from 'lucide-react';
+import { Circle, CircleCheck, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { PLAN_LABELS } from '../lib/billing';
@@ -40,6 +44,7 @@ import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, card } from '../styles/
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
+import { FREE_TOKENS, PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
 const AccountSettings = lazy(() => import('./AccountSettings'));
@@ -87,12 +92,27 @@ const preview = readNativePreview();
 // 見た目の分岐だけに使う。購入・復元の実行可否は必ず isNative で判定する。
 const showNative = isNative || preview.on;
 
-// 価値の 3 行（相談＝主役 → 行動＝柱 → 思い出しカード＝手段）。
-const VALUE_POINTS = [
-  { Icon: MessageCircle, text: '自分のメモを根拠に、相談できる' },
-  { Icon: Target, text: '答えを、明日の行動につなげる' },
-  { Icon: RotateCcw, text: '読んだことを、思い出しカードで残す' },
+// 無料とプランの違い（2 行・DESIGN §0-6: 説明の文は置かない）。
+const PLAN_COMPARE = [
+  { name: '無料', text: `メモ・記録・シェア、相談（毎月 ${FREE_TOKENS} トークン）` },
+  { name: 'プラン', text: `相談をたっぷり（毎月 ${PAID_TOKENS} トークン）と、AI 選書・テーマまとめ・読書計画シート・写真から書き起こし` },
 ];
+// トークンの目安（1 行）。
+const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
+
+function PlanCompare() {
+  return (
+    <section aria-label="無料とプランの違い" style={{ ...card, padding: 0, marginTop: 'var(--space-6)' }}>
+      {PLAN_COMPARE.map((row, i) => (
+        <div key={row.name} style={{ padding: 'var(--space-3) var(--space-4)', borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
+          <p style={{ ...groupTitle, margin: 0 }}>{row.name}</p>
+          <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 }}>{row.text}</p>
+        </div>
+      ))}
+      <p style={{ ...metaText, padding: 'var(--space-2) var(--space-4) var(--space-3)', borderTop: '1px solid var(--separator)' }}>{TOKEN_EXAMPLE}</p>
+    </section>
+  );
+}
 
 // 文字ボタン（DESIGN §5 の btnLink＝アクセント色・15/600・高さ 44）。規約・復元・書き出し・
 // アカウント切替もすべて同じ見た目にし、脇役であることは並び順と区切り線で示す。
@@ -165,10 +185,10 @@ function PlanOption({ label, selected, onSelect, placeholder = false }) {
   );
 }
 
-// reason: 'free_used'（お試しの相談を使い切った）のときは、本人の本の表紙を並べて
-//   「あなたの相談相手が、できました」から始める（一般的な特長より、自分の本が強い）。
-// onClose: アプリの上に重ねて開いたとき（お試し中）だけ渡る。閉じるとアプリに戻る。
-export default function Paywall({ onPurchased, reason = null, onClose = null }) {
+// reason: 'free_used'（今月の無料のトークンを使い切った）のときは、本人の本の表紙を並べる
+//   （一般的な特長より、自分の本が強い）。'feature' のときは見出しで機能の名前を出す。
+// onClose: アプリの上に重ねて開いたときに渡る。閉じるとアプリに戻る。
+export default function Paywall({ onPurchased, reason = null, feature = '', onClose = null }) {
   const { signOut, user } = useAuth();
   const toast = useToast();
   const [myBooks, setMyBooks] = useState([]);
@@ -189,8 +209,9 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
     return () => { alive = false; };
   }, [reason, user?.id]);
   const fromFree = reason === 'free_used';
-  // 📊 課金転換率（CVR = purchase÷view）の分母。
-  useEffect(() => { track(EVENTS.PAYWALL_VIEWED); }, []);
+  const fromFeature = reason === 'feature';
+  // 📊 課金転換率（CVR = purchase÷view）の分母。どこから開いたか（enum だけ）も添える。
+  useEffect(() => { track(EVENTS.PAYWALL_VIEWED, { reason: reason || 'plan' }); }, [reason]);
   // 選んだプラン（年額が既定）。
   const [plan, setPlan] = useState('annual');
   // 購入手続き中のプラン（二度押し防止）。
@@ -316,7 +337,7 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
       }}
     >
       <div style={{ maxWidth: '36em', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
-        {/* 見出し（一番の価値）。お試しのあとは「自分の相談相手」を主語にする */}
+        {/* 見出し。無料のトークンを使い切ったあとは「自分の相談相手」、機能から開いたときは機能の名前 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44 }}>
           <p style={{ ...groupTitle, lineHeight: 1.5 }}>
             Orime
@@ -336,7 +357,11 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
           id="paywall-title"
           style={{ fontSize: 'var(--text-title)', fontWeight: 700, lineHeight: 1.3, margin: 'var(--space-2) 0 0' }}
         >
-          {fromFree ? <>この相談相手を、<br />育てていきませんか</> : <>読むほど、<br />自分だけの相談相手が育つ</>}
+          {fromFree
+            ? <>この相談相手と、<br />もっと話しませんか</>
+            : fromFeature
+              ? <>{feature || 'この機能'}は、<br />プランでご利用いただけます</>
+              : <>読むほど、<br />自分だけの相談相手が育つ</>}
         </h1>
 
         {fromFree && myBooks.length > 0 && (
@@ -350,20 +375,8 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
           </>
         )}
 
-        {/* 価値の 3 行（お試しのあとで本人の本が出せるときは省く＝主ボタンを 1 画面に収める） */}
-        {!(fromFree && myBooks.length > 0) && <ul
-          style={{
-            listStyle: 'none', margin: 'var(--space-6) 0 0', padding: 0,
-            display: 'flex', flexDirection: 'column', gap: 'var(--space-3)',
-          }}
-        >
-          {VALUE_POINTS.map(({ Icon, text }) => (
-            <li key={text} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-              <Icon size={24} strokeWidth={1.75} aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-              <span style={{ fontSize: 'var(--text-body)', lineHeight: 1.5 }}>{text}</span>
-            </li>
-          ))}
-        </ul>}
+        {/* 無料とプランの違い（トークンの量と、プランで増える機能） */}
+        <PlanCompare />
 
         {showNative ? (
           <>

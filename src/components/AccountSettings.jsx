@@ -366,19 +366,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   // 💳 課金状態。subscriptions 未適用なら subscription=null / isActive=false で
   // 静かに縮退する（useSubscription 側で schema-error を握りつぶす）。
   const { subscription, isActive, loading: subLoading, refresh: refreshSub } = useSubscription();
-  // 表示ラベルはチャネル別（ネイティブ=App / Web パスは休眠中）。
-  // ネイティブでは App Store のローカライズ価格をストアから取得して上書きする
-  // （Paywall と同じ。App Store Connect の設定価格と表示を一致させ、審査での
-  //  価格不一致リスクを避ける）。取れない時だけ既定ラベルにフォールバック。
-  const [planLabels, setPlanLabels] = useState(isNative ? APP_PLAN_LABELS : PLAN_LABELS);
-  useEffect(() => {
-    if (!isNative) return undefined;
-    let alive = true;
-    getStoreLabels(user?.id)
-      .then((l) => { if (alive && l) setPlanLabels(l); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [user?.id]);
+  // 🪙 プランと残りのトークン（PaywallGate が配る）。契約は「プランを見る」→ 有料プランの画面で
+  //    （価格・自動更新の条件・復元・規約を 1 か所で見せる＝審査 3.1.2）。
+  const { plan, tokensRemaining, tokenAllowance, openPaywall } = usePaywall();
   const [billingBusy, setBillingBusy] = useState(false);
 
   // 📊 利用状況の記録（製品改善のためのファーストパーティ計測）。既定 ON。
@@ -474,28 +464,6 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       await openBillingPortal();
     } catch (e) {
       toast.error(toMessage(e, 'プラン管理ページを開けませんでした。'));
-      setBillingBusy(false);
-    }
-  };
-
-  const handleUpgrade = async (plan) => {
-    if (billingBusy) return;
-    setBillingBusy(true);
-    // 📊 課金転換ファネル（PII なし・plan の enum だけ）。
-    if (plan === 'monthly' || plan === 'annual') track(EVENTS.CHECKOUT_STARTED, { plan });
-    try {
-      if (isNative) {
-        // ネイティブ(IAP): App Store の購入シート。成功後は端末ローカル権利で即反映。
-        const res = await purchasePlan(plan, user?.id);
-        if (res?.cancelled) { setBillingBusy(false); return; }
-        toast.success('ご契約ありがとうございます。');
-        await refreshSub?.();
-        setBillingBusy(false);
-        return;
-      }
-      await startCheckout(plan);
-    } catch (e) {
-      toast.error(toMessage(e, '購入手続きを開始できませんでした。'));
       setBillingBusy(false);
     }
   };
@@ -830,7 +798,10 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               <>
                 <ValueRow label="状態" value={subscription?.status ? billingStatusLabel(subscription.status) : '利用中'} />
                 {formatPeriodEnd(subscription?.currentPeriodEnd) && (
-                  <ValueRow label="次回更新" value={formatPeriodEnd(subscription.currentPeriodEnd)} style={divider} />
+                  <ValueRow label={plan === 'trial' ? '無料期間の終わり' : '次回更新'} value={formatPeriodEnd(subscription.currentPeriodEnd)} style={divider} />
+                )}
+                {tokensRemaining != null && (
+                  <ValueRow label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
                 )}
                 <div style={{ ...blockStyle, ...divider }}>
                   {/* 管理ボタンを出せる状態かどうかで説明文を出し分ける。
@@ -878,65 +849,26 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   </a>
                 )}
               </>
-            ) : isNative ? (
-              <div style={blockStyle}>
-                <p style={noteStyle}>
-                  すべての機能を使うにはご契約が必要です。いつでも解約でき、データは保持されます。
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            ) : (
+              <>
+                <ValueRow label="プラン" value="無料プラン" />
+                {tokensRemaining != null && (
+                  <ValueRow label="今月の残り" value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
+                )}
+                <div style={{ ...blockStyle, ...divider }}>
+                  <p style={noteStyle}>
+                    無料プランの AI は相談だけです（相談 1 回 約 {TOKEN_COSTS.consult} トークン）。プランは毎月 {PAID_TOKENS} トークンと、AI 選書・テーマまとめ・読書計画シート・写真から書き起こし。
+                  </p>
                   <button
                     type="button"
-                    aria-label={`${planLabels.annual.price} で契約（おすすめ）`}
-                    style={{ ...(billingBusy ? btnPrimaryOff : btnPrimary), flexDirection: 'column', gap: 'var(--space-1)', height: 'auto', paddingTop: 'var(--space-3)', paddingBottom: 'var(--space-3)' }}
-                    disabled={billingBusy}
-                    onClick={() => handleUpgrade('annual')}
+                    style={btnPrimary}
+                    // 設定の上に重ねると隠れるので、設定を閉じてから開く。
+                    onClick={() => { onClose?.(); openPaywall(null); }}
                   >
-                    <span>{billingBusy ? '移動中…' : `${planLabels.annual.price}`}</span>
-                    <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400 }}>おすすめ・{planLabels.annual.note}</span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`${planLabels.monthly.price} で契約`}
-                    style={{
-                      ...(billingBusy ? btnGhostOff : btnGhost),
-                      flexDirection: 'column',
-                      gap: 'var(--space-1)',
-                      height: 'auto',
-                      paddingTop: 'var(--space-3)',
-                      paddingBottom: 'var(--space-3)',
-                    }}
-                    disabled={billingBusy}
-                    onClick={() => handleUpgrade('monthly')}
-                  >
-                    <span>{planLabels.monthly.price}</span>
-                    <span style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)' }}>{planLabels.monthly.note}</span>
+                    プランを見る
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div style={blockStyle}>
-                {/* App-only 配信: Orime は App Store の iOS アプリでのみ提供・課金。
-                    Web/PWA から開かれた場合も、契約・利用ともアプリへ誘導する
-                    （「Web 版」という別プロダクトは存在しないため、そう見せない）。 */}
-                <p style={noteStyle}>
-                  Orime のご契約・ご利用は iOS アプリ（App Store）から行えます。アプリを入手して、同じアカウントでログインしてください。
-                </p>
-                {isAppStoreLive ? (
-                  <a
-                    href={APP_STORE_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ ...btnPrimary, textDecoration: 'none', boxSizing: 'border-box' }}
-                  >
-                    App Store で Orime を入手
-                  </a>
-                ) : (
-                  // 公開前も、公開後と同じ場所・同じ形（押せない主ボタン）で見せる（LP・有料プランの画面と同じ）。
-                  <button type="button" disabled style={btnPrimaryOff}>
-                    App Store で近日公開
-                  </button>
-                )}
-              </div>
+              </>
             )}
           </Group>
 
