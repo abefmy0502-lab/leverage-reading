@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { monthlyBudgetJpy, trialBudgetJpy, costFromUsage, estimateCost, createUsageSniffer } from './_aiCost.js';
+import { monthlyBudgetJpy, costFromUsage, estimateCost, createUsageSniffer } from './_aiCost.js';
 
 describe('monthlyBudgetJpy', () => {
   it('¥1,480・手数料 15%・消費税 10%・手取り ¥900 → 約 ¥243', () => {
@@ -9,9 +9,6 @@ describe('monthlyBudgetJpy', () => {
     expect(monthlyBudgetJpy({ AI_MONTHLY_BUDGET_JPY: '200' })).toBe(200);
     expect(monthlyBudgetJpy({ AI_PLAN_PRICE_JPY: '1980' })).toBe(629);
     expect(monthlyBudgetJpy({ AI_PLAN_PRICE_JPY: '1000' })).toBe(0); // 手取りが足りないときは 0（AI を使わせない）
-  });
-  it('無料期間は小さめ', () => {
-    expect(trialBudgetJpy({})).toBe(50);
   });
 });
 
