@@ -1350,3 +1350,9 @@ body.keyboard-open .bottom-nav {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* 畳む見出し（details > summary）: Safari の三角を消し、右端のシェブロンを開閉で回す。
+   使い方: <summary> の中の lucide ChevronDown に className="fold-chevron"（DESIGN §5「畳む見出し」）。 */
+summary::-webkit-details-marker { display: none; }
+.fold-chevron { transition: transform var(--duration-fast) var(--ease-out-quart); }
+details[open] > summary .fold-chevron { transform: rotate(180deg); }

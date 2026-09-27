@@ -9,7 +9,7 @@
 //
 // ⚠️ ここは表示専用のプリミティブのみ。ドメインロジック / 状態 / I/O は持たない。
 
-import { useState, isValidElement, cloneElement } from 'react';
+import { useState, useId, isValidElement, cloneElement } from 'react';
 import { LIMITS } from '../lib/limits';
 import { Plus, X } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
@@ -79,18 +79,22 @@ export function Dots() {
 
 // ── ラベル付きフィールド ────────────────────────────────────────────
 export function Field({ label, sub, children }) {
-  // a11y: <label> は見た目のみで children(input/textarea) と関連付いていなかった。
-  // 全呼び出し箇所に htmlFor/id を配るのは大がかりなので、単一子要素なら
-  // aria-label をラベル文字列から注入してアクセシブルネームを与える
-  // （既に aria-label / aria-labelledby がある子は尊重して上書きしない）。
-  const labelled =
-    isValidElement(children) && typeof label === 'string'
-      && !children.props['aria-label'] && !children.props['aria-labelledby']
-      ? cloneElement(children, { 'aria-label': label })
-      : children;
+  // a11y: 単一の子（input / textarea）には id を付けて <label htmlFor> と結ぶ。
+  // ラベルにアイコンが入っていても（文字列でなくても）読み上げの名前が付く（2026-09-27）。
+  // 文字列ラベルは従来どおり aria-label も入れる（既にある aria-label / id は尊重）。
+  const autoId = useId();
+  const single = isValidElement(children) && typeof children.type === 'string';
+  const childId = single ? (children.props.id || autoId) : undefined;
+  let labelled = children;
+  if (single) {
+    const extra = {};
+    if (!children.props.id) extra.id = childId;
+    if (typeof label === 'string' && !children.props['aria-label'] && !children.props['aria-labelledby']) extra['aria-label'] = label;
+    labelled = Object.keys(extra).length ? cloneElement(children, extra) : children;
+  }
   return (
     <div style={{ marginBottom: "var(--space-6)" }}>
-      <label style={{ fontSize: "var(--text-meta)", color: "var(--text-2)", fontWeight: 600, display: "block", marginBottom: sub ? "var(--space-1)" : "var(--space-2)" }}>{label}</label>
+      <label htmlFor={childId} style={{ fontSize: "var(--text-meta)", color: "var(--text-2)", fontWeight: 600, display: "block", marginBottom: sub ? "var(--space-1)" : "var(--space-2)" }}>{label}</label>
       {sub && <p style={{ fontSize: "var(--text-caption)", color: "var(--text-3)", marginBottom: "var(--space-2)", lineHeight: "var(--leading-base)" }}>{sub}</p>}
       {labelled}
     </div>
