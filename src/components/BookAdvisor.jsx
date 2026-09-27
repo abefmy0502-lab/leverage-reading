@@ -939,7 +939,20 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   //   3. candidates が 0 件なら確認モーダル skip → そのまま proceedAdd (rec
   //      は title/author だけ。addFromAdvisor 側の bg resolver に解決を任せる)
   // ---------------------------------------------------------------------------
+  // 本のカードの「読みたいに追加」の行（タイトル → 要素）。追加の完了トーストが画面の下に出るので、
+  // 「追加済み」がトーストに隠れないよう、行が画面の下のほうにあるときは中央まで送る。
+  const addRowRefs = useRef({});
+  const revealAddedRow = (title) => {
+    const el = addRowRefs.current[title];
+    if (!el || typeof window === 'undefined') return;
+    const r = el.getBoundingClientRect();
+    if (r.bottom <= window.innerHeight * 0.6) return;
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+    el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+  };
   const proceedAdd = (verifiedRec) => {
+    revealAddedRow(verifiedRec.title);
     // すべての I/O を Promise.resolve().then で次の tick へ。handler 同期維持。
     Promise.resolve().then(async () => {
       // 読書準備の 4 項目は、AI を呼ばずに手元の材料から埋める（2026-09-27・原価の節約）。
@@ -1504,7 +1517,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     <p style={fieldText}>{rec.duration}</p>
                   </div>
                 )}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+                <div ref={(el) => { if (el) addRowRefs.current[rec.title] = el; else delete addRowRefs.current[rec.title]; }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
                   {added ? (
                     <p role="status" style={addedNote}>
                       <IcCheck size={16} aria-hidden="true" />追加済み

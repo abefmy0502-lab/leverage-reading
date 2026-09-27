@@ -584,8 +584,10 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                  誘ってから外すのではなく、先回りして最初の一歩（メモを書く）へ案内する。 */
               <EmptyState
                 icon={<Ruler size={32} strokeWidth={1.5} aria-hidden="true" />}
-                title="メモが貯まると、テーマまとめが作れます"
-                description="まず本を開いて、気づきを1行メモに残しましょう。"
+                // 文節の途中（「テーマまと／め」）で改行しないよう、意味の切れ目ごとに折り返さない塊にする
+                // （iOS の Safari は word-break: auto-phrase に未対応のため）。
+                title={<><span style={{ whiteSpace: 'nowrap' }}>メモが貯まると、</span><span style={{ whiteSpace: 'nowrap' }}>テーマまとめが作れます</span></>}
+                description={<><span style={{ whiteSpace: 'nowrap' }}>まず本を開いて、</span><span style={{ whiteSpace: 'nowrap' }}>気づきを1行メモに残しましょう。</span></>}
                 actions={onGoBookshelf ? [{ label: '本を開く', onClick: onGoBookshelf }] : []}
               />
             ) : (
