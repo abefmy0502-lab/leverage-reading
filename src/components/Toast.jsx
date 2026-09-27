@@ -17,6 +17,8 @@ const palette = {
   info: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Info },
   error: { bg: 'var(--error)', fg: 'var(--accent-ink)', Icon: AlertTriangle },
   undo: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Trash2 },
+  // ボタン付きの成功（下のバーで出す）。印は成功と同じ ✓。
+  done: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Check },
 };
 
 // 下のタブバー（またはシートの決定ボタンの欄）が出ているときは、その上に浮かべる（タブを隠さない）。
@@ -221,7 +223,8 @@ export function ToastProvider({ children }) {
       const id = makeId();
       // ボタン（取消・行動にする・開く など）付きの成功は、押せない中央の ✓ ではなく
       // 下のバーで出す（中央の ✓ はボタンを持てず、押せる操作が黙って消えていた・2026-09-27）。
-      const type = opts.type === 'success' && opts.action ? 'info' : (opts.type || 'info');
+      // 印は成功と同じ ✓（palette.done）。
+      const type = opts.type === 'success' && opts.action ? 'done' : (opts.type || 'info');
       const duration =
         typeof opts.duration === 'number'
           ? opts.duration

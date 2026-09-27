@@ -8,6 +8,7 @@ import { summarizeCards } from '../lib/ai';
 import { usePaywall } from '../state/PaywallContext';
 import { MemoListSkeleton } from './Skeleton';
 import EmptyState from './EmptyState';
+import ErrorMessage from './ErrorMessage';
 import { LIMITS } from '../lib/limits';
 import ContextMenu from './ContextMenu';
 import BookMemoCard from './BookMemoCard';
@@ -47,6 +48,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  // 失敗した操作（'save' | 'generate'）。エラーの「もう一度」で同じ操作をやり直す。
+  const [errorKind, setErrorKind] = useState(null);
   const [generating, setGenerating] = useState(false);
   const flashTimerRef = useRef(null);
   const haptic = useHaptic();
@@ -84,7 +87,10 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
       toast.success('カードからまとめを生成しました。確認して保存してください。');
     } catch (e) {
       // プランの案内（402）は有料プランの画面が開くので、ここには出さない。
-      if (!(e?.notice && /^この AI 機能は/.test(e.message))) setErrorMsg(toMessage(e, 'まとめの生成に失敗しました。'));
+      if (!(e?.notice && /^この AI 機能は/.test(e.message))) {
+        setErrorMsg(toMessage(e, 'まとめの生成に失敗しました。'));
+        setErrorKind('generate');
+      }
     } finally {
       setGenerating(false);
     }
@@ -116,6 +122,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
     } catch (e) {
       console.error('summary save error', e);
       setErrorMsg(toMessage(e, 'まとめメモの保存に失敗しました。'));
+      setErrorKind('save');
     } finally {
       setSaving(false);
     }
@@ -151,7 +158,10 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
         maxLength={LIMITS.summaryMemo}
       />
       {errorMsg && (
-        <p style={{ color: 'var(--error)', fontSize: 'var(--text-sub)', lineHeight: 1.6, margin: 0 }}>{errorMsg}</p>
+        <ErrorMessage
+          description={errorMsg}
+          actions={[{ label: 'もう一度', onClick: errorKind === 'generate' ? handleGenerate : handleSave }]}
+        />
       )}
       <button
         type="button"
@@ -182,6 +192,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const {
     memos,
     loading,
+    error: loadError,
+    refresh,
     isUsableBookId,
     createMemo,
     updateMemo,
@@ -391,7 +403,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             type="button"
             onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSortMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
             aria-haspopup="menu"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 0 0 var(--space-2)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontFamily: 'inherit', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 0 0 var(--space-2)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
           >
             {sortBy === 'page' ? 'ページ順' : '新しい順'}{quoteOnly ? '・ページ番号つき' : ''}
             <ChevronDown size={16} aria-hidden="true" />
@@ -401,7 +413,16 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
       {loading && memos.length === 0 && <MemoListSkeleton rows={3} />}
 
-      {!loading && memos.length === 0 && (
+      {/* 読み込みに失敗したときは、空（「一行を残しましょう」）と見せずにやり直しを出す。 */}
+      {!loading && memos.length === 0 && loadError && (
+        <ErrorMessage
+          title="メモを読み込めませんでした"
+          description="通信の状態を確かめて、もう一度お試しください。"
+          actions={[{ label: 'もう一度', onClick: () => refresh() }]}
+        />
+      )}
+
+      {!loading && memos.length === 0 && !loadError && (
         // 入口は画面右下の「メモを書く」1 つ（ここに同じボタンを置かない・SPEC §2）。
         // 下の余白は次のまとまりとの間（24）に任せる（上下の余白の偏りをなくす）。
         <div className="empty-state--flush-bottom">
@@ -451,7 +472,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       {cardSection}
 
-      {afterList}
+      {/* 「この本に相談する」などはメモが 1 件以上あるときだけ（材料が無いと相談しても答えられない）。 */}
+      {memos.length > 0 && afterList}
 
       {/* この本のまとめ（旧「まとめ」タブ）。一覧の下に 1 か所だけ・普段は畳む。
           畳む見出しは DESIGN §5: 高さ 48・右端にシェブロン（開くと回る）・list-style なし。 */}

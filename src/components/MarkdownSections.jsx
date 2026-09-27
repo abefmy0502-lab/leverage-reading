@@ -13,6 +13,7 @@ import {
   AMAZON_DISCLOSURE_TEXT,
   AMAZON_LINK_REL,
 } from '../lib/amazonLink';
+import { groupTitle } from '../styles/ui';
 
 // minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
 // 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。
@@ -68,21 +69,21 @@ const listStyle = {
 };
 const liStyle = { display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
 // 「ChatGPT 出力」っぽさを消すための上品な箇条書きマーカー（小さなアクセントの点）。
-const bulletDot = { flexShrink: 0, width: 5, height: 5, borderRadius: '50%', background: 'var(--text-3)', marginTop: 12 };
-const olNumStyle = { flexShrink: 0, minWidth: 16, color: 'var(--text-3)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' };
+const bulletDot = { flexShrink: 0, width: 'var(--space-1)', height: 'var(--space-1)', borderRadius: '50%', background: 'var(--text-3)', marginTop: 'var(--space-3)' };
+const olNumStyle = { flexShrink: 0, minWidth: 'var(--space-4)', color: 'var(--text-3)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' };
 // 見出し冒頭の絵文字（🏆🔑📚 …）を表示から外す。AI 出力の「素の markdown 感」を
-// 払拭する最大のレバー。ハイライト判定は元テキスト(絵文字込み)で行うので装飾は保つ。
+// 払拭する最大のレバー。
 function stripLeadingEmoji(text) {
   if (typeof text !== 'string') return text;
   // 絵文字の範囲を網羅する（⏩⌛ など U+23xx も含む）。
   const stripped = text.replace(/^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]+\s*)+/u, '').trim();
   return stripped || text;
 }
-const highlightSection = {
-  ...sectionStyle,
-  background: 'var(--fill)',
-  borderColor: 'var(--separator)',
-};
+// flat: 本の詳細の畳み（<details>）の中など、すでに面の上にあるときの見た目。
+// 区画に面・枠・内側の余白を付けず、見出しは ui.js の groupTitle と同じ小見出しにする。
+const flatWrap = { ...wrap, gap: 'var(--space-4)' };
+const flatSectionStyle = { minWidth: 0, maxWidth: '100%' };
+const flatHeadingStyle = { ...groupTitle, margin: '0 0 var(--space-2)', lineHeight: 1.4, overflowWrap: 'anywhere' };
 
 // Markdown 表のレンダリング。モバイル幅で 3 列が潰れないよう、横スクロール
 // 可能なコンテナに収める。先頭行をヘッダーとして強調。
@@ -99,7 +100,7 @@ function renderTable(rows, key) {
                 key={j}
                 style={{
                   textAlign: 'left',
-                  padding: '6px 8px',
+                  padding: 'var(--space-1) var(--space-2)',
                   background: 'var(--fill)',
                   color: 'var(--text)',
                   fontWeight: 600,
@@ -119,8 +120,8 @@ function renderTable(rows, key) {
                 <td
                   key={ci}
                   style={{
-                    padding: '6px 8px',
-                    color: 'var(--c-ink)',
+                    padding: 'var(--space-1) var(--space-2)',
+                    color: 'var(--text)',
                     border: '1px solid var(--separator)',
                     verticalAlign: 'top',
                     // 1 列目（順番など）は折り返さず、それ以外は折り返して読みやすく
@@ -136,15 +137,6 @@ function renderTable(rows, key) {
         </tbody>
       </table>
     </div>
-  );
-}
-
-// Some headings deserve emphasis. Match by emoji or keyword fragments.
-function isHighlight(headingText) {
-  return (
-    /重点|👉|⭐|🌟|🏆|💎|🎯/.test(headingText) === false
-      ? false
-      : /(重点|TOP3|TOP 3|アクション|次の行動|主要|投資の効果|投資対効果|投資戦略|戦略|評価|心に残|味わい)/.test(headingText)
   );
 }
 
@@ -384,7 +376,7 @@ const relatedAddBtn = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 4,
+  gap: 'var(--space-1)',
 };
 const relatedAmazonBtn = {
   flex: 1,
@@ -403,7 +395,7 @@ const relatedAmazonBtn = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 4,
+  gap: 'var(--space-1)',
 };
 
 function RelatedBookCard({ book, description, onAdd, isAdding }) {
@@ -425,7 +417,7 @@ function RelatedBookCard({ book, description, onAdd, isAdding }) {
       )}
       {/* flexWrap を撤去し常に横並び。狭幅でもラベル短縮 + nowrap で
           縦割れを防ぐ。touch-action: manipulation で iOS の 300ms 遅延も解消 */}
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
         <button
           type="button"
           onClick={(e) => {
@@ -495,27 +487,27 @@ function isRelatedBooksHeading(heading) {
 // memo 化: 編集フォームの毎キーストローク（setForm → 親再レンダー）で、不変の
 // text（AI 解析 / 計画シート）に対する数百要素の Markdown ツリー再構築を防ぐ。
 // props はどれも参照安定（text=string / addingTitles=state の Set / handler=useCallback）。
-function MarkdownSections({ text, density = 'normal', onAddRelatedBook, addingTitles }) {
+function MarkdownSections({ text, density = 'normal', flat = false, onAddRelatedBook, addingTitles }) {
   const sections = useMemo(() => parseSections(text), [text]);
   if (sections.length === 0) return null;
 
   // If the whole text has no `## ` headings, fall back to a single card.
   if (sections.length === 1 && !sections[0].heading) {
     return (
-      <div style={sectionStyle}>
+      <div style={flat ? flatSectionStyle : sectionStyle}>
         {renderLines(sections[0].lines)}
       </div>
     );
   }
 
   return (
-    <div style={wrap}>
+    <div style={flat ? flatWrap : wrap}>
       {sections.map((s, i) => {
-        const styles = isHighlight(s.heading || '') ? highlightSection : sectionStyle;
+        const styles = flat ? flatSectionStyle : sectionStyle;
         const related = onAddRelatedBook && isRelatedBooksHeading(s.heading);
         return (
           <section key={i} className="long-text md-section" style={styles}>
-            {s.heading && <h3 style={headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
+            {s.heading && <h3 style={flat ? flatHeadingStyle : headingStyle}>{stripLeadingEmoji(s.heading)}</h3>}
             {renderLines(s.lines, related ? { relatedBooks: true, onAddRelatedBook, addingTitles } : undefined)}
             {related && (
               <small style={{ display: 'block', fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5, marginTop: 'var(--space-2)' }}>

@@ -171,6 +171,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     const overdue = !a.done && n != null && n < 0;
     // メタ行は [本・期限・優先・繰り返し・ページ]。警告色は期限の部分だけ（責めない）。
     const meta = [];
+    let overdueLine = null;
     if (a.bookTitle) meta.push(a.bookTitle);
     if (a.deadline && !a.done) {
       // 「今日」「明日」のグループでは見出しが期限を言っているので繰り返さない。
@@ -180,11 +181,15 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       const label = overdue ? `期限 ${fmtShort(a.deadline)}（過ぎています）`
         : n === 0 || n === 1 ? null
         : `期限 ${fmtShort(a.deadline)}${dow}`;
-      if (label) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap', ...(overdue ? { color: 'var(--warning)' } : {}) }}>{label}</span>);
+      // 期限切れは独立した 1 行に（行末に「・」が残らないよう、前の区切りも付けない）。
+      // 期限切れはメタ行の最後に独立した 1 行で出す（display:block・下の区切り「・」も付けない）。
+      if (label && !overdue) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap' }}>{label}</span>);
+      if (label && overdue) overdueLine = <span key="dl" style={{ display: 'block', whiteSpace: 'nowrap', color: 'var(--warning)' }}>{label}</span>;
     }
     if (a.priority === 'high') meta.push('優先');
     if (a.recurrence) meta.push(a.recurrence === 'weekly' ? '毎週' : '毎月');
     if (a.sourcePage) meta.push(`p.${a.sourcePage}`);
+    if (overdueLine) meta.push(overdueLine);
     return (
       <li key={key} style={card}>
         {/* 完了チェック（この画面の最頻操作・押せる範囲 44）。本の詳細の行動と同じ丸。 */}
@@ -210,7 +215,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
           </p>
           {meta.length > 0 && (
             <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
-              {meta.map((m, i) => <span key={i}>{i > 0 && '・'}{m}</span>)}
+              {meta.map((m, i) => <span key={i}>{i > 0 && !(overdue && m?.key === 'dl') && '・'}{m}</span>)}
             </p>
           )}
           {a.done && a.reflection && (
@@ -343,7 +348,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
             aria-expanded={showDone}
             style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', background: 'none', border: 'none', borderTop: '1px solid var(--separator)', padding: 'var(--space-2) 0 0', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
           >
-            <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>完了した行動（{done.length}）</span>
+            <span style={uiGroupTitle}>完了した行動（{done.length}）</span>
             {showDone
               ? <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
               : <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />}

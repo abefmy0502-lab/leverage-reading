@@ -691,27 +691,29 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                 />
               ) : notice ? (
                 // 案内（月の上限・関連するメモが無い 等）は AI 選書の案内カードと同じ形（カード＋15/--text・アイコンなし）。
-                <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                   <p role="status" style={{ ...card, margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 'var(--text-sub)', color: 'var(--text)', wordBreak: 'auto-phrase' }}>
                     {keepDateTogether(notice)}
                   </p>
                   {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」 */}
                   {canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(notice) && (
-                    <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+                    <button type="button" onClick={openTokenSheet} style={uiBtnPrimary}>
                       トークンを追加
                     </button>
                   )}
-                </>
+                </div>
               ) : showStageBlock ? (
-                <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} aria-live="polite" aria-busy="true">
-                  <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                    {STAGE_LABEL[stage] || 'テーマまとめを準備中…'}
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                    <SkeletonBlock width="90%" height={14} radius="var(--radius-full)" />
-                    <SkeletonBlock width="76%" height={14} radius="var(--radius-full)" />
-                    <SkeletonBlock width="84%" height={14} radius="var(--radius-full)" />
-                    <SkeletonBlock width="64%" height={14} radius="var(--radius-full)" />
+                // 相談・AI 選書と同じ「考え中」の形（.ai-thinking＋.ai-skeleton）。
+                <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }} aria-live="polite" aria-busy="true">
+                  <div className="ai-thinking">
+                    <span className="ai-thinking-dot" aria-hidden="true" />
+                    <span>{STAGE_LABEL[stage] || 'テーマまとめを準備中…'}</span>
+                  </div>
+                  <div className="ai-skeleton" aria-hidden="true">
+                    <div className="ai-skeleton-line" style={{ width: '90%' }} />
+                    <div className="ai-skeleton-line" style={{ width: '76%' }} />
+                    <div className="ai-skeleton-line" style={{ width: '84%' }} />
+                    <div className="ai-skeleton-line" style={{ width: '64%' }} />
                   </div>
                 </div>
               ) : generating ? (

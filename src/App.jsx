@@ -280,10 +280,10 @@ function Card({ label, text, style }) {
   return (
     // DESIGN §5 のカード（--surface＋枠 --separator＋角丸 12＋内側 16・影なし）。
     <div style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', marginTop: 'var(--space-2)', ...style }}>
-      <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' }}>{label}</p>
+      <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' }}>{label}</p>
       <p
         style={{
-          fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0,
+          fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap', margin: 0,
           ...(isLong && !expanded
             ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
             : {}),
@@ -3132,6 +3132,7 @@ function AuthedApp() {
                   <>
                     <p style={subLabelStyle}>読書計画シート</p>
                     <MarkdownSections
+                      flat
                       text={current.aiStrategy}
                       onAddRelatedBook={addRelatedBookFromAi}
                       addingTitles={addedRelatedTitles}
@@ -3155,6 +3156,7 @@ function AuthedApp() {
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
                 <MarkdownSections
+                  flat
                   text={current.aiStrategy}
                   onAddRelatedBook={addRelatedBookFromAi}
                   addingTitles={addedRelatedTitles}
@@ -3176,6 +3178,7 @@ function AuthedApp() {
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
                 <MarkdownSections
+                  flat
                   text={current.aiAnalysis}
                   onAddRelatedBook={addRelatedBookFromAi}
                   addingTitles={addedRelatedTitles}
@@ -3328,6 +3331,7 @@ function AuthedApp() {
               </summary>
               <div style={{ paddingBottom: 'var(--space-4)' }}>
                 <MarkdownSections
+                  flat
                   text={current.aiSummary}
                   onAddRelatedBook={addRelatedBookFromAi}
                   addingTitles={addedRelatedTitles}

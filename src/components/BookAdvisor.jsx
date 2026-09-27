@@ -1395,15 +1395,17 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
       {/* 推薦生成エラー（リトライ可能） */}
       {recoError && !recoLoading && recoNotice && (
-        <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
-          {keepDateTogether(recoError)}
-        </p>
-      )}
-      {/* 🪙➕ プランの人がトークンを使い切ったら、案内のすぐ下に「トークンを追加」 */}
-      {recoError && !recoLoading && recoNotice && canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(recoError) && (
-        <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
-          トークンを追加
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <p role="status" style={{ ...uiCard, margin: 0, fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
+            {keepDateTogether(recoError)}
+          </p>
+          {/* 🪙➕ プランの人がトークンを使い切ったら、案内のすぐ下に「トークンを追加」 */}
+          {canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(recoError) && (
+            <button type="button" onClick={openTokenSheet} style={uiBtnPrimary}>
+              トークンを追加
+            </button>
+          )}
+        </div>
       )}
       {recoError && !recoLoading && !recoNotice && (
         <ErrorMessage
@@ -1481,7 +1483,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>#{i + 1}</p>
-                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere' }}>『{rec.title}』</p>
+                    <p style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere', textIndent: '-0.5em' }}>『{rec.title}』</p>
                     {rec.author && (
                       <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{rec.author}</p>
                     )}
@@ -1499,7 +1501,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                   </div>
                 )}
                 {rec.why && (
-                  <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)' }}>
+                  <div style={{ marginTop: 'var(--space-3)' }}>
                     <p style={fieldLabel}>なぜあなたに</p>
                     <p style={{ ...readText, margin: 'var(--space-1) 0 0' }}>{rec.why}</p>
                   </div>

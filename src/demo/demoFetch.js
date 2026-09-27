@@ -225,7 +225,7 @@ function aiReply(store, payload) {
   ].join('\n');
 }
 
-function sseResponse(text) {
+function sseResponse(text, stopReason = 'end_turn') {
   const enc = new TextEncoder();
   const chunks = text.match(/[\s\S]{1,14}/g) || [''];
   const stream = new ReadableStream({
@@ -237,7 +237,7 @@ function sseResponse(text) {
         // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 18));
       }
-      send({ type: 'message_delta', delta: { stop_reason: 'end_turn' } });
+      send({ type: 'message_delta', delta: { stop_reason: stopReason } });
       send({ type: 'message_stop' });
       controller.close();
     },
@@ -268,7 +268,8 @@ export function installDemoFetch(store) {
     if (url.includes('/api/claude')) {
       let payload = {};
       try { payload = JSON.parse(init.body || '{}'); } catch { /* ignore */ }
-      // &ai=fail: AI がエラーを返す（エラー表示の確認用）/ &ai=slow: 答えがなかなか返らない（読み込み中の確認用）。
+      // &ai=fail: AI がエラーを返す（エラー表示の確認用）/ &ai=slow: 答えがなかなか返らない（読み込み中の確認用）
+      // / &ai=cut: 答えが長さの上限で途中まで（stop_reason 'max_tokens'・途中切れの表示の確認用）。
       const aiMode = new URLSearchParams(window.location.search).get('ai');
       if (aiMode === 'fail') {
         await new Promise((r) => setTimeout(r, 400));
@@ -324,9 +325,13 @@ export function installDemoFetch(store) {
         }
       }
       await new Promise((r) => setTimeout(r, 500));
-      const text = aiReply(store, payload);
-      if (payload.stream) return sseResponse(text);
-      return json({ content: [{ type: 'text', text }], stop_reason: 'end_turn' });
+      const full = aiReply(store, payload);
+      const cut = aiMode === 'cut';
+      // 途中切れ: 本文の前半だけ返す（文の途中で切れる）。
+      const text = cut ? full.slice(0, Math.max(40, Math.floor(full.length * 0.6))) : full;
+      const stopReason = cut ? 'max_tokens' : 'end_turn';
+      if (payload.stream) return sseResponse(text, stopReason);
+      return json({ content: [{ type: 'text', text }], stop_reason: stopReason });
     }
     if (url.includes('/api/cover')) {
       // 見本の本の一覧にある本は「実在する」と答える（AI 選書の実在確認で全部が疑わしく見えないように）。
