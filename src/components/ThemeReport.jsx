@@ -744,7 +744,10 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                     </button>
                   )}
                   {truncated && (
-                    <p role="status" style={metaText}>長さの上限で、途中までになりました。テーマを絞ると最後まで作れます（途中までのものは履歴に残しません）。</p>
+                    <div role="status" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>長さの上限で、ここまでになりました（履歴には残しません）。</p>
+                      <button type="button" onClick={resetToPicker} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>テーマを絞って作り直す</button>
+                    </div>
                   )}
                 </div>
               )}

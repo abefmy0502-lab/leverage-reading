@@ -12,7 +12,7 @@
 import { useState, useId, isValidElement, cloneElement } from 'react';
 import { LIMITS } from '../lib/limits';
 import { Plus, X } from 'lucide-react';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, groupTitle as uiGroupTitle } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, groupTitle as uiGroupTitle } from '../styles/ui';
 
 // ── 共通スタイル定数（iOS ズーム対策で input は 16px 維持） ──────────────
 export const inp = { width: "100%", minWidth: 0, minHeight: 48, padding: "var(--space-3)", fontSize: "max(16px, var(--text-body))", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--surface)", outline: "none", color: "var(--text)", fontFamily: "inherit", WebkitAppearance: "none", appearance: "none" };
@@ -171,7 +171,7 @@ export function TagInput({ tags, onChange, allTags, placeholder = "タグを追�
       )}
       <div style={{ display: "flex", gap: "var(--space-2)" }}>
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={placeholder} aria-label={ariaLabel || placeholder} style={{ ...inp, flex: 1 }} maxLength={LIMITS.tag} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
-        <button type="button" onClick={() => add()} style={{ ...uiBtnGhost, width: "auto", flexShrink: 0, padding: "0 var(--space-4)" }}>追加</button>
+        <button type="button" onClick={() => add()} disabled={!input.trim()} style={{ ...(input.trim() ? uiBtnGhost : uiBtnGhostOff), width: "auto", flexShrink: 0, padding: "0 var(--space-4)" }}>追加</button>
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ import {
   Search as IcSearch, Map as IcMap, ImagePlus as IcImagePlus,
   Target as IcTarget, ChevronDown as IcChevron, X as IcX,
 } from 'lucide-react';
-import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
+import { btnPrimary, btnGhost, btnGhostOff, btnText, btnLink, groupTitle } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import { LIMITS } from '../lib/limits';
 import { useBookCover } from '../hooks/useBookCover';
@@ -195,7 +195,9 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
           読書中/読了で保存 → 保存後すぐ本詳細のメモ欄が開く（メモだけ残したい
           人の入口摩擦を無くす）。保存ボタンの文言（保存してメモを書く）がそれを伝える。 */}
       <Field label="この本の状態">
-        <div role="radiogroup" style={{ display: 'flex', columnGap: 'var(--space-2)' }}>
+        {/* チップの見た目は 32・押せる範囲は 44。上下の余り（6 ずつ）を行の外側で相殺し、
+            見出し→チップ 8・チップ→保存 24 にそろえる（すべての本のチップ行と同じやり方）。 */}
+        <div role="radiogroup" style={{ display: 'flex', columnGap: 'var(--space-2)', margin: 'calc((32px - 44px) / 2) 0' }}>
           {ADD_STATUSES.map((s) => {
             const active = (form.status || 'want') === s.v;
             return (
@@ -286,7 +288,8 @@ export function BeforePhase({
         <button
           type="button"
           onClick={() => setForm({ ...form, investPurpose: form.sourceQuery })}
-          style={{ ...btnText, minHeight: 44, fontSize: 'var(--text-meta)', padding: '0 var(--space-1)', margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)' }}
+          // 属する「得たいこと」の欄のすぐ下に付ける（Field の下の 24 を打ち消す）。左の 4 も打ち消して文字の端を 16 に。
+          style={{ ...btnLink, alignSelf: 'flex-start', margin: 'calc(-1 * var(--space-6)) 0 var(--space-3) calc(-1 * var(--space-1))' }}
         >
           AI 選書で入力した内容に戻す
         </button>
@@ -498,18 +501,16 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
 
       <ActionsEditor form={form} setForm={setForm} title="この本から決めた行動" placeholder="例：営業会議で結論ファーストを実践" />
 
-      <section style={{ marginBottom: 'var(--space-6)' }}>
-        <SectionHeader title="一番の収穫（1行）" />
+      <Field label="一番の収穫">
         <textarea
           value={form.roiSummary || ""}
           onChange={(e) => setForm({ ...form, roiSummary: e.target.value })}
-          placeholder="例：意思決定が速くなる思考法を獲得"
+          placeholder="1 行で（例：意思決定が速くなる思考法を獲得）"
           rows={2}
           style={ta}
           maxLength={LIMITS.memoText}
-          aria-label="一番の収穫（1行）"
         />
-      </section>
+      </Field>
 
       <Field label="タグ">
         <TagInput tags={form.tags || []} onChange={(t) => setForm({ ...form, tags: t })} allTags={allTags} />

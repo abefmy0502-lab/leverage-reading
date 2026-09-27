@@ -476,7 +476,7 @@ export default function QuickMemoSheet({
             </button>
             {moreOpen && (
               // ページ番号（112）と「写真から書き起こす」（残りの幅いっぱい）を 1 行に。
-              <div style={{ display: 'grid', gridTemplateColumns: '112px 1fr', columnGap: 'var(--space-3)', alignItems: 'end', marginTop: 'calc(-1 * var(--space-2))' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '112px 1fr', columnGap: 'var(--space-3)', alignItems: 'end' }}>
                 <div>
                   <label htmlFor="quick-memo-page" style={fieldLabel}>ページ番号</label>
                   <input

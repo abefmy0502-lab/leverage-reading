@@ -8,7 +8,7 @@
 // 送る（body サイズ・トークン・レイテンシを抑える）。AI 利用量メータリングは
 // /api/claude 経由で自動適用。
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { validateImageFile } from '../lib/limits';
 import { downscaleImageForVision } from '../lib/image';
 import { extractTextFromImage } from '../lib/ai';
@@ -43,6 +43,15 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const [loading, setLoading] = useState(false);
   // 読み取りに失敗したときの案内（シートの中に出す）。写真は持っておき「もう一度試す」で同じ写真を送り直す。
   const [failure, setFailure] = useState(null);
+  // 失敗したとき、送り直す写真を小さく見せる（何をもう一度送るのか分かるように）。
+  const [thumbUrl, setThumbUrl] = useState(null);
+  useEffect(() => {
+    const file = failure?.retry ? lastFileRef.current : null;
+    if (!file || typeof URL === 'undefined' || !URL.createObjectURL) { setThumbUrl(null); return undefined; }
+    const url = URL.createObjectURL(file);
+    setThumbUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [failure]);
   const lastFileRef = useRef(null);
   const toast = useToast();
   const haptic = useHaptic();
@@ -90,7 +99,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
     } catch (e2) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。
       if (e2?.notice) { if (!/^この AI 機能は/.test(e2.message)) toast.info(e2.message); return; }
-      setFailure({ message: toMessage(e2, '読み取りに失敗しました。'), retry: true });
+      setFailure({ message: `写真を読み取れませんでした。${toMessage(e2, '')}`, retry: true });
     } finally {
       setLoading(false);
     }
@@ -119,7 +128,11 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       />
       {failure && !loading && (
         // 並べ方（グリッド／折り返す横並び）どちらでも、ボタンの下の 1 行ぶんを使う。
-        <div style={{ gridColumn: '1 / -1', flexBasis: '100%', marginTop: 'var(--space-2)' }}>
+        <div style={{ gridColumn: '1 / -1', flexBasis: '100%', marginTop: 'var(--space-2)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+          {thumbUrl && (
+            <img src={thumbUrl} alt="読み取れなかった写真" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius)', flexShrink: 0 }} />
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
           <ErrorMessage
             icon={null}
             description={failure.message}
@@ -129,6 +142,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
                 : { label: '写真を選び直す', onClick: pick, variant: 'secondary' },
             ]}
           />
+          </div>
         </div>
       )}
     </>

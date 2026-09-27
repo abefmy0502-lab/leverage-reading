@@ -29,6 +29,7 @@ import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
 import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
+import { nextResetLabelJa } from '../lib/freeTrial';
 import { groupTitle, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
@@ -1578,15 +1579,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
 
       {/* Input — flex column の末尾に置かれ、親 (.ai-page) の 100dvh 構造で
           自動的にキーボード直上 / BottomNav 直上に張り付く (LINE 風)。 */}
-      {showConcernInput && (
+      {showConcernInput && (() => {
+        // トークンを使い切った間は、送っても同じ案内に戻るだけなので送れない形にする（相談と同じ）。
+        const tokensOut = !!(recoError && recoNotice && /^(今月のトークン|無料期間のトークン)/.test(recoError));
+        const monthOut = tokensOut && /^今月のトークン/.test(recoError);
+        return (
         <div className="ai-input-area">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="いまの課題を書いてください"
+            placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : 'トークンを使い切りました') : 'いまの課題を書いてください'}
             rows={1}
-            disabled={interviewLoading}
+            disabled={interviewLoading || tokensOut}
             maxLength={LIMITS.aiQuestion}
             aria-label="AI 選書への相談内容"
             onKeyDown={(e) => {
@@ -1601,7 +1606,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             type="button"
             className="send-btn"
             onClick={() => startInterview(input)}
-            disabled={!input.trim() || interviewLoading}
+            disabled={!input.trim() || interviewLoading || tokensOut}
             aria-label={interviewLoading ? '準備中' : '相談する'}
             title={interviewLoading ? '準備中…' : '相談する'}
           >
@@ -1612,7 +1617,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             )}
           </button>
         </div>
-      )}
+        );
+      })()}
       {confirmAdd && (
         <Suspense fallback={<Spinner />}>
           <AdvisorAddConfirmModal
