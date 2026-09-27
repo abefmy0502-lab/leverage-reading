@@ -36,7 +36,7 @@ import { exportMemosAsMarkdown } from '../lib/exportData';
 import { track, EVENTS } from '../lib/analytics';
 import { demoScenario, supabase, isSupabaseConfigured } from '../lib/supabase';
 import { MiniCover } from './BookCards';
-import { btnPrimary, btnPrimaryOff, btnLink, card } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, card } from '../styles/ui';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
@@ -70,7 +70,7 @@ function PriceText({ text }) {
     <>
       <span style={{ display: 'block' }}>{main}</span>
       {perMonth && (
-        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{perMonth}</span>
+        <span style={{ display: 'block', fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 }}>{perMonth}</span>
       )}
     </>
   );
@@ -139,18 +139,20 @@ function PlanOption({ label, selected, onSelect }) {
       <span style={{ minWidth: 0 }}>
         <span style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3 }}>
           {label.name}
-          {/* 年額への後押し: 「おすすめ」と、ストアの実数から計算した割引。 */}
+          {/* 年額への後押し: 「おすすめ」と、ストアの実数から計算した割引。
+              「おすすめ」は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」）。 */}
           {label.save && (
-            <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text)', background: 'var(--fill)', borderRadius: 'var(--radius)', padding: '0 var(--space-2)', lineHeight: 1.7 }}>
+            <span style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)' }}>
               おすすめ
             </span>
           )}
         </span>
-        <span style={{ display: 'block', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, marginTop: 'var(--space-1)' }}>
+        {/* 実際に請求される金額をいちばん強く（審査 3.1.2）。割引は補足として弱く。 */}
+        <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, marginTop: 'var(--space-1)', fontVariantNumeric: 'tabular-nums' }}>
           <PriceText text={label.price} />
         </span>
         {label.save && (
-          <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+          <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 }}>
             {label.save}
           </span>
         )}
@@ -312,7 +314,7 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
       <div style={{ maxWidth: '36em', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
         {/* 見出し（一番の価値）。お試しのあとは「自分の相談相手」を主語にする */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44 }}>
-          <p style={{ fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+          <p style={{ ...groupTitle, lineHeight: 1.5 }}>
             Orime
           </p>
           {onClose && (
@@ -451,9 +453,10 @@ export default function Paywall({ onPurchased, reason = null, onClose = null }) 
                 App Store で入手
               </a>
             ) : (
-              <p style={{ fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-4) 0 0' }}>
-                iOS アプリは App Store で近日公開予定です
-              </p>
+              // 公開前は、公開後と同じ場所・形の押せない主ボタン（LP・Web 利用の案内と同じ・薄くしない）。
+              <button type="button" disabled style={{ ...btnPrimaryOff, marginTop: 'var(--space-4)' }}>
+                App Store で近日公開
+              </button>
             )}
 
             <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>

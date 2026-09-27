@@ -14,7 +14,7 @@ import { condenseMemo } from '../lib/ai';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { Sparkles, Undo2, Plus, Minus, ChevronRight } from 'lucide-react';
-import { btnPrimary, btnPrimaryOff, btnText } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnLink, groupTitle } from '../styles/ui';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
@@ -93,10 +93,9 @@ const bodyStyle = {
   WebkitOverflowScrolling: 'touch',
 };
 
+// 小さな見出し（DESIGN §5・ui.js groupTitle）。
 const fieldLabel = {
-  fontSize: 'var(--text-meta)',
-  color: 'var(--text-2)',
-  fontWeight: 600,
+  ...groupTitle,
   display: 'block',
   marginBottom: 'var(--space-2)',
 };
@@ -132,7 +131,8 @@ const footerStyle = {
   borderTop: '1px solid var(--separator)',
 };
 
-const detailLink = { ...btnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0', gap: 'var(--space-1)' };
+// 文字ボタン（DESIGN §5・ui.js btnLink＝高さ 44・15/600）。左端を本文の端にそろえる。
+const detailLink = { ...btnLink, padding: 0, gap: 'var(--space-1)' };
 
 // 本文の下の小さな副ボタン（DESIGN §5 btnRow と同じ寸法: 高さ 44・15・600）。
 const rowBtn = {
@@ -433,7 +433,8 @@ export default function QuickMemoSheet({
                   onClick={handleCondense}
                   disabled={condensing}
                   aria-label="メモを凝縮する"
-                  style={{ ...rowBtn, cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1 }}
+                  // 凝縮中は薄くせず、枠と文字の色＋文言で示す（DESIGN §5「押せないボタン」）。
+                  style={condensing ? { ...rowBtn, border: '1px solid var(--separator)', color: 'var(--text-3)', cursor: 'default', opacity: 1 } : rowBtn}
                 >
                   <Sparkles size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
                   {condensing ? '凝縮中…' : '凝縮'}
@@ -448,13 +449,14 @@ export default function QuickMemoSheet({
             </div>
           )}
 
-          {/* ＋ ページ・写真 — 閉じていても、ページ番号（直前＋1）は保存される。 */}
-          <div>
+          {/* ＋ ページ・写真 — 閉じていても、ページ番号（直前＋1）は保存される。
+              高さ 44 の文字ボタンの上の余り（約 12）を詰め、見た目で本文欄の下 約 8 に置く。 */}
+          <div style={{ marginTop: 'calc(-1 * var(--space-4))' }}>
             <button
               type="button"
               onClick={() => setMoreOpen((v) => !v)}
               aria-expanded={moreOpen}
-              style={{ ...btnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0', gap: 'var(--space-1)' }}
+              style={detailLink}
             >
               {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
               ページ・写真
@@ -463,7 +465,8 @@ export default function QuickMemoSheet({
               )}
             </button>
             {moreOpen && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+              // ページ番号（112）と「写真から書き起こす」（残りの幅いっぱい）を 1 行に。
+              <div style={{ display: 'grid', gridTemplateColumns: '112px 1fr', columnGap: 'var(--space-3)', alignItems: 'end', marginTop: 'var(--space-2)' }}>
                 <div>
                   <label htmlFor="quick-memo-page" style={fieldLabel}>ページ番号</label>
                   <input
@@ -481,11 +484,11 @@ export default function QuickMemoSheet({
                       }
                     }}
                     placeholder="78"
-                    style={{ ...inp, width: 112, textAlign: 'center' }}
+                    style={{ ...inp, width: '100%', textAlign: 'center' }}
                   />
                 </div>
                 <PhotoToTextButton
-                  style={{ minHeight: 48 }}
+                  style={{ minHeight: 48, width: '100%' }}
                   onText={(t) =>
                     setText((prev) => (prev ? `${prev}\n${t}` : t).slice(0, LIMITS.memoText))
                   }
@@ -493,7 +496,7 @@ export default function QuickMemoSheet({
               </div>
             )}
             {moreOpen && onOpenFullEditor && (
-              <button type="button" style={{ ...detailLink, marginTop: 'var(--space-2)' }} onClick={handleDetailHandoff}>
+              <button type="button" style={{ ...detailLink, marginTop: 0 }} onClick={handleDetailHandoff}>
                 タグもつける（全画面で書く）<ChevronRight size={16} aria-hidden="true" />
               </button>
             )}

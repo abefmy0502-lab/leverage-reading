@@ -5,7 +5,7 @@
 // マイ読書脳へそのまま渡して送信する（onAsk）。
 // 「あなたが読んだ N 冊・メモ N 件から答えます」で、積み重ね＝相談の質を毎回伝える。
 //   - 本 0 冊: 出さない（ホームの「はじめる」カードが案内する）
-//   - メモ 0 件: 入力欄の代わりに予告と「これまで読んだ本から始める」（初日クイックスタート）
+//   - メモ 0 件: 入力欄の代わりに「これまで読んだ本から始める」（初日クイックスタート・SPEC §1）
 // 見た目は DESIGN.md のトークンのみ（主ボタン＝相談する の 1 つだけ）。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -101,9 +101,8 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart }) {
         困ったときは、相談する
       </h2>
       <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5 }}>
-        {hasMemos
-          ? <>あなたの{bookCount}冊{memoCount != null && <>・メモ{memoCount}件</>}から答えます</>
-          : '本を読みながらメモを残すと、そのメモを根拠に、あなただけの答えが返ってきます。'}
+        {/* メモ 0 件でも同じ 1 行（説明の補足文は置かない・DESIGN §0-6）。 */}
+        あなたの{bookCount}冊{memoCount > 0 && <>・メモ{memoCount}件</>}から答えます
       </p>
 
       {!hasMemos && onQuickstart && (

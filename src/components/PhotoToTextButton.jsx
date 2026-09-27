@@ -19,7 +19,7 @@ import { ScanText } from 'lucide-react';
 
 const baseStyle = {
   minHeight: 44,
-  padding: '8px 12px',
+  padding: 'var(--space-2) var(--space-3)',
   borderRadius: 'var(--radius)',
   border: '1px solid var(--border)',
   background: 'transparent',
@@ -30,8 +30,11 @@ const baseStyle = {
   fontWeight: 600,
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 4,
+  justifyContent: 'center',
+  gap: 'var(--space-1)',
 };
+// 読み取り中は薄くせず、枠と文字の色で押せないことを示す（DESIGN §5「押せないボタン」）。
+const offStyle = { border: '1px solid var(--separator)', color: 'var(--text-3)', cursor: 'default', opacity: 1 };
 
 export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const inputRef = useRef(null);
@@ -81,7 +84,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         type="button"
         onClick={pick}
         disabled={loading || disabled}
-        style={{ ...baseStyle, ...style, opacity: loading || disabled ? 0.6 : 1 }}
+        style={{ ...baseStyle, ...style, ...(loading || disabled ? offStyle : { opacity: 1 }) }}
         aria-label="写真から文章を書き起こす"
         aria-busy={loading || undefined}
       >

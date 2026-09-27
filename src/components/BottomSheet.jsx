@@ -126,7 +126,8 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
                 <button
                   type="button"
                   onClick={animateClose}
-                  style={{ background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0 }}
+                  // 押せる範囲は 44 のまま、文字の右端を画面の余白 16 にそろえる（右寄せ）。
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', color: dismissLabel === '完了' ? 'var(--accent)' : 'var(--text-2)', fontSize: 'var(--text-body)', fontWeight: dismissLabel === '完了' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, minWidth: 44, padding: 0 }}
                 >
                   {dismissLabel}
                 </button>

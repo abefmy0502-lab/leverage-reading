@@ -213,6 +213,13 @@ export function installDemoFetch(store) {
     if (url.includes('/api/claude')) {
       let payload = {};
       try { payload = JSON.parse(init.body || '{}'); } catch { /* ignore */ }
+      // &ai=fail: AI がエラーを返す（エラー表示の確認用）/ &ai=slow: 答えがなかなか返らない（読み込み中の確認用）。
+      const aiMode = new URLSearchParams(window.location.search).get('ai');
+      if (aiMode === 'fail') {
+        await new Promise((r) => setTimeout(r, 400));
+        return json({ error: { message: 'サーバーで問題が起きました。' } }, 500);
+      }
+      if (aiMode === 'slow') await new Promise((r) => setTimeout(r, 60000));
       // ?demo=limit: 今月の AI の原価の上限に達した人（上限の案内の確認用）。
       if (new URLSearchParams(window.location.search).get('demo') === 'limit') {
         return json({ error: { message: `今月の AI の利用上限に達しました。${(new Date().getMonth() + 2) % 12 || 12}月1日からまた使えます。` }, error_code: 'monthly_budget_exceeded' }, 429);

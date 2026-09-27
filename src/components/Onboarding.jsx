@@ -333,13 +333,10 @@ export default function Onboarding({ onClose, onStart, onStartAdvisor, onStartQu
           </>
         ) : (
           <div style={{ display: 'flex', gap: 'var(--space-3)', flexShrink: 0 }}>
-            {step > 0 ? (
+            {/* 最初の画面は「戻る」が無い。閉じるのは右上の × だけ（同じ操作を 2 か所に出さない）→「次へ」を全幅に。 */}
+            {step > 0 && (
               <button type="button" style={btnGhost} onClick={() => setStep((s) => Math.max(0, s - 1))}>
                 戻る
-              </button>
-            ) : (
-              <button type="button" style={btnGhost} onClick={dismiss}>
-                スキップ
               </button>
             )}
             <button type="button" style={btnPrimary} onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}>

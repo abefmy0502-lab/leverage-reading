@@ -13,7 +13,7 @@ import BookMemoCard from './BookMemoCard';
 import BookMemoEditor from './BookMemoEditor';
 import ShareCardModal from './ShareCardModal';
 import { BookOpen, PencilLine, Clock, Quote, Pencil, Copy, Image, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
-import { btnGhost } from '../styles/ui';
+import { btnGhost, btnGhostOff } from '../styles/ui';
 
 // SPEC §2（2026-09-26）: 「カード｜まとめ」の切替タブと、二段の並び替え・引用チップ・
 // 点線の「新しいメモ」は撤去。メモはカード式が基本で、並び順は小さなメニュー 1 つ。
@@ -31,13 +31,14 @@ const summaryTextarea = {
   color: 'var(--text)',
   fontFamily: 'var(--font-read)', // まとめは「読む文章」（DESIGN §2）
   lineHeight: 1.6,
-  resize: 'vertical',
+  resize: 'none',
   outline: 'none',
   boxSizing: 'border-box',
 };
 
 // まとめの保存は副ボタン（詳細画面の主ボタンは「メモを書く」1 つ・DESIGN §0）。
-const summarySaveBtn = (saving) => ({ ...btnGhost, opacity: saving ? 0.6 : 1 });
+// 保存中は薄くせず btnGhostOff（DESIGN §5「押せないボタン」）。
+const summarySaveBtn = (saving) => (saving ? btnGhostOff : btnGhost);
 
 
 function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSummary }) {
@@ -128,11 +129,11 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
           onClick={handleGenerate}
           disabled={generating}
           style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            alignSelf: 'flex-start', minHeight: 44, padding: '8px 12px', borderRadius: 'var(--radius)',
-            border: '1px solid var(--border)', background: 'transparent',
-            color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit',
-            cursor: generating ? 'default' : 'pointer', opacity: generating ? 0.6 : 1,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
+            alignSelf: 'flex-start', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)',
+            border: `1px solid ${generating ? 'var(--separator)' : 'var(--border)'}`, background: 'transparent',
+            color: generating ? 'var(--text-3)' : 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit',
+            cursor: generating ? 'default' : 'pointer', opacity: 1,
           }}
         >
           <Sparkles size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
@@ -176,17 +177,6 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const [shareMemo, setShareMemo] = useState(null);
   // 直近に追加したメモ id — 1.5 秒だけ .just-added グローを当てる。
   const [justAddedId, setJustAddedId] = useState(null);
-  // 「最初の気づきを残したあと、想起の体験へ繋ぐ」一度きりの控えめなヒント。
-  // 新規ユーザーが"記録して終わり"でなく振り返り(想起)に辿り着けるよう、初メモ後に
-  // 1回だけ出す。localStorage で既読管理し、二度は出さない(Apple Notes 級の控えめさ)。
-  const [recallHintSeen, setRecallHintSeen] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    try { return window.localStorage.getItem('recallHintSeen') === 'true'; } catch { return true; }
-  });
-  const dismissRecallHint = () => {
-    setRecallHintSeen(true);
-    try { window.localStorage.setItem('recallHintSeen', 'true'); } catch { /* ignore */ }
-  };
   const toast = useToast();
   const haptic = useHaptic();
   const confirm = useConfirm();
@@ -415,7 +405,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         // 入口は画面右下の「メモを書く」1 つ（ここに同じボタンを置かない・SPEC §2）。
         <EmptyState
           icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title="まだメモはありません"
+          title="心が動いた一行を残しましょう"
         />
       )}
 
@@ -426,44 +416,6 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           description="メモにページ番号を入れておくと、引用したい一行をここから素早く取り出せます。"
           actions={[{ label: 'すべてのメモを表示', onClick: () => setQuoteOnly(false), variant: 'secondary' }]}
         />
-      )}
-
-      {/* 使い始め（この本のメモが 3 件まで）だけ出す。使い込んだ人に「最初の」を言わない。 */}
-      {!loading && memos.length > 0 && memos.length <= 3 && !recallHintSeen && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 'var(--space-3)',
-            background: 'var(--fill)',
-            borderRadius: 'var(--radius)',
-            padding: 'var(--space-3)',
-          }}
-        >
-          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6, flex: 1 }}>
-            メモが残りました。メモが増えるほど、「相談」であなただけの答えが返ってきます。
-          </p>
-          <button
-            type="button"
-            onClick={dismissRecallHint}
-            style={{
-              flexShrink: 0,
-              minHeight: 44,
-              padding: 'var(--space-1) var(--space-3)',
-              border: 'none',
-              background: 'none',
-              color: 'var(--accent)',
-              borderRadius: 'var(--radius)',
-              fontSize: 'var(--text-sub)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-            aria-label="ヒントを閉じる"
-          >
-            わかった
-          </button>
-        </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

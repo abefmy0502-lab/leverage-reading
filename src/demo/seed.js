@@ -215,6 +215,9 @@ export function buildSeed(scenario) {
     }));
   });
 
+  // ?demo=nomemo: 本はあるが、メモも行動もまだ無い人（相談・ホームの「メモ 0 件」の確認用）。
+  if (scenario === 'nomemo') return db;
+
   MEMOS.forEach(([bi, page, text, daysAgo, tags, recallCount], i) => {
     db.book_memos.push({
       id: `00000000-0000-4000-8000-0000000c${String(i).padStart(4, '0')}`,
@@ -238,6 +241,28 @@ export function buildSeed(scenario) {
       notify_at: null, scheduled_for: null,
       created_at: iso(daysAgo), updated_at: iso(daysAgo),
     });
+  });
+
+  // ?demo=overdue: 期限を過ぎた行動が 3 件と、今日が期限の行動が 1 件ある人（行動タブの確認用）。
+  if (scenario === 'overdue') {
+    [['上司への報告を、結論から 3 行で送る', -3], ['週次の振り返りを 15 分だけやる', -2], ['読んだ本を 1 冊、同僚にすすめる', -1], ['朝いちばんに今日の一番大事な仕事を書く', 0]]
+      .forEach(([text, deadlineIn], i) => db.actions.push({
+        id: `00000000-0000-4000-8000-0000000a9${String(i).padStart(3, '0')}`,
+        user_id: DEMO_USER_ID, book_id: bookIds[i % 3], text, done: false, priority: 'medium',
+        deadline: dateOnly(-deadlineIn), recurrence: null, source_memo_id: null, source_page: null,
+        reflection: '', completed_at: null, notify_at: null, scheduled_for: null,
+        created_at: iso(7), updated_at: iso(7),
+      }));
+  }
+
+  // 過去の相談（「過去の相談」の一覧の確認用）。答えは本番と同じ【結論】…の書式。
+  const CHATS = [
+    [12, '会議で意見を言えないのをどうにかしたい', '【結論】\n最初の 5 分で、ひとことだけ「確認の質問」をしてみましょう。\n\n【明日からできる 1 つの行動】\n次の会議の前に、聞きたいことを 1 つだけメモに書いておく。', ['📚 D・カーネギー『人を動かす』 P.64']],
+    [5, '部下に任せた仕事がいつも遅れる', '【結論】\n任せる前に「終わった状態」を一文で決めて、相手と合わせましょう。\n\n【明日からできる 1 つの行動】\n任せる仕事を 1 つ選び、完了の形を一文で書いて渡す。', ['📚 安宅和人『イシューからはじめよ』 P.25']],
+  ];
+  CHATS.forEach(([daysAgo, q, a, refs], i) => {
+    db.chat_messages.push({ id: `00000000-0000-4000-8000-0000000d${String(i * 2).padStart(4, '0')}`, user_id: DEMO_USER_ID, role: 'user', content: q, refs: [], created_at: iso(daysAgo, 20) });
+    db.chat_messages.push({ id: `00000000-0000-4000-8000-0000000d${String(i * 2 + 1).padStart(4, '0')}`, user_id: DEMO_USER_ID, role: 'assistant', content: a, refs, created_at: iso(daysAgo, 21) });
   });
 
   return db;

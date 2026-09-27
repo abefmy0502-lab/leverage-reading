@@ -132,24 +132,49 @@ const FONT = '-apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku
 // 読む文章の書体はトークン（--font-read）の実際の値を使う（canvas は CSS 変数を読めないため）。
 const READ_FONT = () => cssVar('--font-read', '"Hiragino Mincho ProN", "YuMincho", "Yu Mincho", "Noto Serif JP", serif');
 
-// メモのカード（影つき・角丸・透過）。textInset は左側が本体に隠れるカード用の余白（割合）。
+// 影はトークン --shadow-overlay の 1 層目（例 "0 12px 32px rgba(…)"）を canvas 用に読む。
+// 暗い画面ではトークンが none なので影を描かない（DESIGN §4: 暗い画面では影を使わない・枠線で区切る）。
+function overlayShadow() {
+  const v = cssVar('--shadow-overlay', 'none');
+  if (!v || v === 'none') return null;
+  const m = v.match(/(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px\s+(rgba?\([^)]*\))/);
+  if (!m) return null;
+  return { x: Number(m[1]), y: Number(m[2]), blur: Number(m[3]), color: m[4] };
+}
+
+// メモのカード（角丸・透過・明るい画面だけ影）。textInset は左側が本体に隠れるカード用の余白（割合）。
+// 高さは本文の行数から決め、上下の余白（書名の上＝本文の下）をそろえる。
 function makeCardTexture(memo, textInset = 0) {
-  const PAD = 44;
+  const PAD = 44; // 影のための外側の余白（暗い画面でも寸法を変えないよう常に取る）
   const W = 640;
-  const H = 272;
+  const INSET = 36; // カードの内側の余白（左右・上下とも同じ）
+  const TITLE_TOP = INSET;
+  const BODY_TOP = TITLE_TOP + 64; // 書名（30px）＋ 間
+  const BODY_SIZE = 34;
+  const BODY_LEAD = 54;
   const c = document.createElement('canvas');
-  c.width = W + PAD * 2;
-  c.height = H + PAD * 2;
   const ctx = c.getContext('2d');
+  const left = PAD + INSET + W * textInset;
+  const innerW = W - INSET * 2 - W * textInset;
+  // メモ本文は「読む文章」なので明朝（--font-read）で、UI より 1 段大きく。先に折り返して行数を出す。
+  const bodyFont = `400 ${BODY_SIZE}px ${READ_FONT()}`;
+  ctx.font = bodyFont;
+  const lines = wrapLines(ctx, memo.text, innerW, 3);
+  const H = BODY_TOP + (lines.length - 1) * BODY_LEAD + BODY_SIZE + INSET;
+  c.width = W + PAD * 2; // 寸法を変えると描画状態がリセットされるので、ここから描く
+  c.height = H + PAD * 2;
   const surface = cssVar('--surface', '#fffefb');
   const text = cssVar('--text', '#2b2825');
   const text2 = cssVar('--text-2', '#5f5a53');
-  const fill = cssVar('--fill', '#efece6');
   const sep = cssVar('--separator', '#dcd7ce');
+  const shadow = overlayShadow();
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.22)';
-  ctx.shadowBlur = 36;
-  ctx.shadowOffsetY = 12;
+  if (shadow) {
+    ctx.shadowColor = shadow.color;
+    ctx.shadowBlur = shadow.blur;
+    ctx.shadowOffsetX = shadow.x;
+    ctx.shadowOffsetY = shadow.y;
+  }
   ctxRoundRect(ctx, PAD, PAD, W, H, 28);
   ctx.fillStyle = surface;
   ctx.fill();
@@ -159,26 +184,20 @@ function makeCardTexture(memo, textInset = 0) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  const left = PAD + 36 + W * textInset;
-  const innerW = W - 72 - W * textInset;
   ctx.textBaseline = 'top';
   // 書名は押せる場所ではないので、アクセント色ではなく本文色・600。
   ctx.font = `600 30px ${FONT}`;
   ctx.fillStyle = text;
   const title = wrapLines(ctx, memo.title, innerW - 110, 1)[0];
-  ctx.fillText(title, left, PAD + 34);
+  ctx.fillText(title, left, PAD + TITLE_TOP);
   const tw = ctx.measureText(title).width;
-  ctx.font = `600 26px ${FONT}`;
-  const pw = ctx.measureText(memo.page).width + 28;
-  ctxRoundRect(ctx, left + tw + 16, PAD + 30, pw, 40, 20);
-  ctx.fillStyle = fill;
-  ctx.fill();
+  // ページ番号は押せない付随情報なので面を付けず、補足の文字色だけ（DESIGN §5「表示用ラベル」）。
+  ctx.font = `400 26px ${FONT}`;
   ctx.fillStyle = text2;
-  ctx.fillText(memo.page, left + tw + 30, PAD + 38);
-  // メモ本文は「読む文章」なので明朝（--font-read）で、UI より 1 段大きく。
-  ctx.font = `400 34px ${READ_FONT()}`;
+  ctx.fillText(memo.page, left + tw + 16, PAD + TITLE_TOP + 4);
+  ctx.font = bodyFont;
   ctx.fillStyle = text;
-  wrapLines(ctx, memo.text, innerW, 3).forEach((l, i) => ctx.fillText(l, left, PAD + 98 + i * 54));
+  lines.forEach((l, i) => ctx.fillText(l, left, PAD + BODY_TOP + i * BODY_LEAD));
 
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;

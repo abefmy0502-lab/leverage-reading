@@ -63,6 +63,10 @@
   --text-sub: calc(1rem * 15 / 17);
   --text-meta: calc(1rem * 13 / 17);
   --text-caption: calc(1rem * 12 / 17); /* これより小さい文字は使わない */
+  /* LP（紹介ページ）専用の見出し。画面幅で伸びる。アプリの画面では使わない（DESIGN §2）。
+     タブレット以上の値は下の @media (min-width: 768px) で上書きする */
+  --text-display: clamp(34px, 9vw, 56px);   /* LP の h1 */
+  --text-display-2: clamp(24px, 6.4vw, 38px); /* LP の h2 */
 
   /* 表紙の色面（本ごとの生成色）の上に載せる文字。明暗で変えない */
   --on-cover: #ffffff;
@@ -81,6 +85,8 @@
 
   /* 角丸は 1 種類（円は例外として --radius-full） */
   --radius: 12px;
+  /* アプリアイコン画像の形（iOS のアイコン形状≒幅の 22.37%）。UI の角丸ではなく「中身の形」の例外（DESIGN §4） */
+  --radius-app-icon: 22.37%;
 
   /* 影は「浮いている」「上に重なる」の 2 段階だけ（普通のカードは影なし・枠線で区切る） */
   --shadow-raised: 0 2px 8px rgba(43, 40, 37, 0.14), 0 1px 2px rgba(43, 40, 37, 0.08);
@@ -312,6 +318,11 @@
   --radius-card: var(--radius-md);
   --radius-button: var(--radius-md);
   --radius-pill: var(--radius-full);
+}
+
+/* LP の h1 はタブレット以上で伸び方をゆるめる（768px で 40px から始める） */
+@media (min-width: 768px) {
+  :root { --text-display: clamp(40px, 5.2vw, 56px); }
 }
 
 /* =========================================================================

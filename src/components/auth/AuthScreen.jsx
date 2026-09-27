@@ -297,7 +297,7 @@ export default function AuthScreen() {
       {/* アプリアイコン＋文字のワードマークをページ見出し(h1)として提供（暗い画面でも読める）。 */}
       <h1 style={{ margin: '0 0 var(--space-3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
         {/* アプリアイコン画像は iOS のアイコン形状（DESIGN §4 の例外＝中身の形）。 */}
-        <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 72, height: 72, borderRadius: 16, display: 'block' }} />
+        <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 72, height: 72, borderRadius: 'var(--radius-app-icon)', display: 'block' }} />
         <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', letterSpacing: '0.02em' }}>Orime</span>
       </h1>
       <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-8)', textAlign: 'center' }}>
@@ -319,7 +319,8 @@ export default function AuthScreen() {
               style={{
                 ...btnPrimary,
                 background: 'var(--apple-btn-bg)', color: 'var(--apple-btn-ink)',
-                cursor: appleBusy ? 'default' : 'pointer', opacity: appleBusy ? 0.6 : 1,
+                // 処理中は薄くせず（DESIGN §5）、文言「サインイン中…」だけで示す。
+                cursor: appleBusy ? 'default' : 'pointer', opacity: 1,
               }}
             >
               <svg width="16" height="19" viewBox="0 0 16 19" fill="currentColor" aria-hidden="true">

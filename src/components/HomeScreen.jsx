@@ -12,7 +12,7 @@ import HomeConsult from './HomeConsult';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
-import { btnPrimary, btnGhost, btnText, btnLink, card } from '../styles/ui';
+import { btnPrimary, btnGhost, btnLink, card } from '../styles/ui';
 
 // DESIGN §5「行の中の小さい副ボタン」（高さ 44・文字 15・600）。
 const btnRow = { ...btnGhost, width: 'auto', flexShrink: 0, padding: 'var(--space-2) var(--space-3)', minHeight: 44, fontSize: 'var(--text-sub)' };
@@ -55,7 +55,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
   // 読書中 0 冊: 見出しもカードも出さず、1 行だけ（SPEC §1 のエッジケース）。
   if (shown.length === 0) {
     return (
-      <button type="button" onClick={onAddBook} style={{ ...btnText, alignSelf: 'flex-start', gap: 'var(--space-1)' }}>
+      <button type="button" onClick={onAddBook} style={{ ...btnLink, alignSelf: 'flex-start', gap: 'var(--space-1)' }}>
         読み始めた本を追加<ChevronRight size={18} aria-hidden="true" />
       </button>
     );
@@ -89,7 +89,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
             </div>
           ))}
           {reading.length > shown.length && (
-            <button type="button" onClick={onSeeAllReading} style={{ ...btnText, alignSelf: 'flex-start' }}>
+            <button type="button" onClick={onSeeAllReading} style={{ ...btnLink, alignSelf: 'flex-start' }}>
               ほか {reading.length - shown.length} 冊を見る
             </button>
           )}

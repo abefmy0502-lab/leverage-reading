@@ -901,51 +901,8 @@
   overflow: hidden;
 }
 
-/* 小さい円形チップで右上に。表紙を出来るだけ見せたいので絵文字のみ。
-   半透明白 + blur で背景をうっすら透かし、表紙を主役のままにする。
-   (現状 JSX からは未参照だが他箇所で再利用される可能性あるため残置) */
-.book-status-badge-overlay {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border-radius: 9999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  line-height: 1;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--color-label);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-}
-
-/* 本のステータスを右下にテキストで表示する pill。表紙を主役にする
-   ため半透明白 + blur で軽く乗せる。色味は status クラスで切替。
-   絵文字 ✅ オーバーレイより小さく、全状態で常時表示する設計。 */
-.book-status-pill {
-  position: absolute;
-  bottom: var(--space-1);
-  right: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius);
-  font-size: var(--text-caption);
-  font-weight: 600;
-  line-height: 1.4;
-  background: var(--surface);
-  color: var(--text-2);
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 2;
-}
-.book-status-pill.want { color: var(--status-want); }
-.book-status-pill.before { color: var(--status-before); }
-.book-status-pill.reading { color: var(--status-reading); }
-.book-status-pill.done { color: var(--status-done); }
+/* 状態は表紙に重ねない（旧 .book-status-pill / .book-status-badge-overlay は 2026-09-27 に削除）。
+   著者の下に面なしの StatusLabel（BookCards.jsx）を置く・DESIGN §5「表示用ラベル」。 */
 
 .book-cover-title {
   /* 3 列スマホ表示で 1 冊 ~110px 幅。タイトルは 12px / 2 行で省略。
@@ -962,8 +919,8 @@
   word-break: break-word;
 }
 .book-cover-author {
-  font-size: var(--text-caption);
-  color: var(--text-3);
+  font-size: var(--text-meta);
+  color: var(--text-2); /* リスト表示の著者と同じ（DESIGN §5） */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1202,11 +1159,10 @@ body.keyboard-open .ai-input-area {
   transition: background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }
-/* 320px 幅（iPhone SE 初代など）では 3 等分の列に「テーマまとめ」が収まらないので、
-   アイコンを外し、左右の余白と間隔を詰めて文字を切らさない。 */
+/* 切り替えは文字だけ（iOS の切り替えと同じ・3 等分の列に「テーマまとめ」を余白つきで収める）。
+   320px 幅（iPhone SE 初代など）では左右の余白と間隔を詰める。 */
 @media (max-width: 359px) {
   .sub-tabs { gap: var(--space-1); padding-left: var(--space-2); padding-right: var(--space-2); }
-  .sub-tab svg { display: none; }
 }
 .sub-tab:hover { background: var(--color-bg-hover); }
 .sub-tab.active {

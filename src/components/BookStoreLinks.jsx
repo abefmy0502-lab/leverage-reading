@@ -19,7 +19,8 @@ const linkBase = {
   color: 'var(--text)', fontWeight: 600, fontFamily: 'inherit', textDecoration: 'none',
   boxSizing: 'border-box', whiteSpace: 'nowrap',
 };
-const disclosureStyle = { fontSize: 'var(--text-caption)', color: 'var(--text-3)', lineHeight: 1.5 };
+// 注記は付随情報（DESIGN §2 --text-meta 13/400）。
+const disclosureStyle = { fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', lineHeight: 1.5 };
 
 export default function BookStoreLinks({ book, variant = 'compact', showDisclosure = true, stopPropagation = false, buy = false }) {
   const amazon = getAmazonLink(book);
@@ -33,7 +34,8 @@ export default function BookStoreLinks({ book, variant = 'compact', showDisclosu
   const onRakuten = (e) => { if (stopPropagation) e.stopPropagation(); };
   const cta = variant === 'cta';
   const linkStyle = cta
-    ? { ...linkBase, flex: 1, minHeight: 48, padding: 'var(--space-2)', fontSize: 'var(--text-sub)' }
+    // 高さ 48 のボタンは DESIGN §5 どおり 17/600（44 の行ボタンだけ 15）。
+    ? { ...linkBase, flex: 1, minHeight: 48, padding: 'var(--space-2)', fontSize: 'var(--text-body)' }
     : { ...linkBase, minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
   const icon = <ExternalLink size={16} aria-hidden="true" style={{ color: 'var(--text-3)' }} />;
 

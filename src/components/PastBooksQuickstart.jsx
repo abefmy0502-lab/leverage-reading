@@ -24,7 +24,7 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { LIMITS, clamp } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnText, input as inputStyle, card } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inputStyle, card } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
@@ -280,8 +280,9 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{stepLabel}</span>
         )}
       </span>
+      {/* 保存中は閉じられない。薄くせず（opacity）文字色で示す（DESIGN §5「押せないボタン」）。 */}
       <button type="button" aria-label="閉じる" onClick={onClose} disabled={step === 'saving'}
-        style={{ ...iconBtn, opacity: step === 'saving' ? 0.4 : 1 }}>
+        style={{ ...iconBtn, opacity: 1, color: step === 'saving' ? 'var(--text-3)' : 'var(--text)', cursor: step === 'saving' ? 'default' : 'pointer' }}>
         <X size={24} aria-hidden="true" />
       </button>
     </div>
@@ -301,7 +302,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             <h1 style={title}>これまで読んで、<br />印象に残っている本は？</h1>
             <p style={sub}>{MIN_BOOKS}〜{MAX_BOOKS} 冊えらんでください</p>
             {onImport && (
-              <button type="button" onClick={onImport} style={{ ...btnText, padding: 0, marginTop: 'var(--space-1)' }}>
+              <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-1)' }}>
                 ブクログ・Kindle の記録から取り込む
               </button>
             )}
@@ -383,7 +384,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                     ))}
                   </ul>
                   <button type="button" onClick={() => toggle(titleOnlyBook)} aria-pressed={!!titlePicked}
-                    style={{ ...btnText, minHeight: 44, padding: 'var(--space-3) 0', marginTop: 'var(--space-1)', fontSize: 'var(--text-sub)', justifyContent: 'flex-start', textAlign: 'left', maxWidth: '100%' }}>
+                    style={{ ...btnLink, padding: 'var(--space-3) 0', marginTop: 'var(--space-1)', justifyContent: 'flex-start', textAlign: 'left', maxWidth: '100%' }}>
                     {titlePicked ? <Check size={20} aria-hidden="true" style={{ flexShrink: 0 }} /> : <Plus size={20} aria-hidden="true" style={{ flexShrink: 0 }} />}
                     <span style={{ ...oneLine, minWidth: 0 }}>「{searched}」を書名だけで追加</span>
                   </button>
@@ -470,7 +471,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
               disabled={!current.memo.trim()} onClick={nextMemo}>
               {idx < picked.length - 1 ? '次の本へ' : '相談相手をつくる'}
             </button>
-            <button type="button" style={{ ...btnText, width: '100%' }} onClick={skipMemo}>
+            <button type="button" style={{ ...btnLink, width: '100%' }} onClick={skipMemo}>
               思い出せないので飛ばす
             </button>
           </div>
@@ -551,7 +552,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                   onClick={() => (onWriteMemo && summary.books[0]?.id ? onWriteMemo(summary.books[0].id) : onClose())}>
                   メモを書く
                 </button>
-                <button type="button" style={{ ...btnText, width: '100%' }} onClick={onClose}>あとで</button>
+                <button type="button" style={{ ...btnLink, width: '100%' }} onClick={onClose}>あとで</button>
               </div>
             )}
           </div>

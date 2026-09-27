@@ -23,17 +23,14 @@ const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
-  SearchX as IcSearchX, NotebookText as IcNote, Target as IcTarget, Brain as IcBrain,
-  BarChart3 as IcChart,
-  Ruler as IcRuler, LayoutGrid as IcGrid, List as IcList,
+  SearchX as IcSearchX, Brain as IcBrain,
+  LayoutGrid as IcGrid, List as IcList,
   Lightbulb as IcBulb,
   BookOpen as IcBook, Map as IcMap, RefreshCw as IcRefresh, WifiOff as IcWifiOff, Bot as IcBot,
   CheckCircle2 as IcCheck,
   SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar, Folder as IcFolder, X as IcX,
 } from 'lucide-react';
 
-// サブタブのラベル: 絵文字をやめ lucide 線アイコン＋テキストで統一（脱・個人開発感）。
-const subTabIconStyle = { verticalAlign: '-2px', marginRight: 5 };
 
 // 本棚ツールバー（シート化）用の共通スタイル。
 const SHELF_CHIP_ORDER = ['reading', 'done', 'before', 'want'];
@@ -3335,7 +3332,7 @@ function AuthedApp() {
               // 分からないので「メモを書く」と文字で言う（SPEC §2）。
               position: "fixed",
               right: "var(--space-4)",
-              bottom: "calc(76px + env(safe-area-inset-bottom, 0px))",
+              bottom: "calc(var(--space-16) + var(--space-3) + env(safe-area-inset-bottom, 0px))",
               minHeight: 48,
               padding: "0 var(--space-4)",
               borderRadius: "var(--radius)",
@@ -3346,7 +3343,7 @@ function AuthedApp() {
               fontWeight: 600,
               display: "inline-flex",
               alignItems: "center",
-              gap: 8,
+              gap: "var(--space-2)",
               cursor: "pointer",
               boxShadow: "var(--shadow-raised)",
               // メモ編集(300)・写真拡大(400)等のオーバーレイより下に置く
@@ -4068,7 +4065,7 @@ function AuthedApp() {
                 className={`sub-tab ${reviewSubTab === 'action' ? 'active' : ''}`}
                 onClick={() => { setActionShowDoneNonce(null); setReviewSubTab('action'); }}
               >
-                <IcTarget size={15} aria-hidden="true" style={subTabIconStyle} />行動
+                行動
               </button>
               <button
                 type="button"
@@ -4077,7 +4074,7 @@ function AuthedApp() {
                 className={`sub-tab ${reviewSubTab === 'note' ? 'active' : ''}`}
                 onClick={() => setReviewSubTab('note')}
               >
-                <IcNote size={15} aria-hidden="true" style={subTabIconStyle} />メモ
+                メモ
               </button>
               <button
                 type="button"
@@ -4086,7 +4083,7 @@ function AuthedApp() {
                 className={`sub-tab ${reviewSubTab === 'record' ? 'active' : ''}`}
                 onClick={() => setReviewSubTab('record')}
               >
-                <IcChart size={15} aria-hidden="true" style={subTabIconStyle} />記録
+                記録
               </button>
             </div>
             {reviewSubTab === 'note' ? (
@@ -4148,7 +4145,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'brain' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('brain')}
               >
-                <MessageCircle size={15} aria-hidden="true" style={subTabIconStyle} />相談
+                相談
               </button>
               <button
                 type="button"
@@ -4157,7 +4154,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'advisor' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('advisor')}
               >
-                <IcSearch size={15} aria-hidden="true" style={subTabIconStyle} />AI 選書
+                AI 選書
               </button>
               <button
                 type="button"
@@ -4166,7 +4163,7 @@ function AuthedApp() {
                 className={`sub-tab ${aiSubTab === 'report' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('report')}
               >
-                <IcRuler size={15} aria-hidden="true" style={subTabIconStyle} />テーマまとめ
+                テーマまとめ
               </button>
             </div>
             )}

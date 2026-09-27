@@ -12,11 +12,12 @@
 import { useState, useId, isValidElement, cloneElement } from 'react';
 import { LIMITS } from '../lib/limits';
 import { Plus, X } from 'lucide-react';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, groupTitle as uiGroupTitle } from '../styles/ui';
 
 // ── 共通スタイル定数（iOS ズーム対策で input は 16px 維持） ──────────────
 export const inp = { width: "100%", minWidth: 0, minHeight: 48, padding: "var(--space-3)", fontSize: "max(16px, var(--text-body))", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--surface)", outline: "none", color: "var(--text)", fontFamily: "inherit", WebkitAppearance: "none", appearance: "none" };
-export const ta = { ...inp, resize: "vertical", lineHeight: "var(--leading-relaxed)" };
+// 入力欄の角のつまみ（resize）は出さない（iOS の入力欄と同じ・角丸 12 を崩さない）。
+export const ta = { ...inp, resize: "none", lineHeight: "var(--leading-relaxed)" };
 export const btnS = { ...uiBtnPrimary, width: "auto", padding: "var(--space-3) 0" };
 export const btnO = { ...uiBtnGhost, width: "auto", padding: "var(--space-3) 0" };
 export const aiB = { width: "100%", minHeight: 48, padding: "var(--space-3) 0", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--accent-soft)", color: "var(--accent)", cursor: "pointer", fontFamily: "inherit", fontSize: "var(--text-sub)", fontWeight: 600 };
@@ -94,7 +95,8 @@ export function Field({ label, sub, children }) {
   }
   return (
     <div style={{ marginBottom: "var(--space-6)" }}>
-      <label htmlFor={childId} style={{ fontSize: "var(--text-meta)", color: "var(--text-2)", fontWeight: 600, display: "block", marginBottom: sub ? "var(--space-1)" : "var(--space-2)" }}>{label}</label>
+      {/* ラベルは DESIGN §5「小さな見出し」（ui.js groupTitle・12/600/--text-2）。 */}
+      <label htmlFor={childId} style={{ ...uiGroupTitle, display: "block", marginBottom: sub ? "var(--space-1)" : "var(--space-2)" }}>{label}</label>
       {sub && <p style={{ fontSize: "var(--text-caption)", color: "var(--text-3)", marginBottom: "var(--space-2)", lineHeight: "var(--leading-base)" }}>{sub}</p>}
       {labelled}
     </div>

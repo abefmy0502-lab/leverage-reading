@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScanBarcode, Camera, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { findDuplicateBook, STATUS_LABEL } from '../lib/checkDuplicate';
-import { btnPrimary, btnGhost, btnText } from '../styles/ui';
+import { btnPrimary, btnGhost, btnLink } from '../styles/ui';
 import {
   BookSearchField,
   BookSearchStatus,
@@ -444,8 +444,10 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             cursor: 'pointer',
             fontFamily: 'inherit',
             fontSize: 'var(--text-body)',
+            fontWeight: 400,
             lineHeight: 1.3,
-            color: 'var(--accent)',
+            // DESIGN §5: シートの「キャンセル」は脇役（--text-2・17/400）。
+            color: 'var(--text-2)',
           }}
         >
           キャンセル
@@ -491,7 +493,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           />
 
           {showManualLink && (
-            <button type="button" onClick={openManual} style={{ ...btnText, alignSelf: 'center' }}>
+            <button type="button" onClick={openManual} style={{ ...btnLink, alignSelf: 'center' }}>
               手動で入力する
             </button>
           )}

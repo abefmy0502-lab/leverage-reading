@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '../lib/limits';
-import { input as uiInput, btnText } from '../styles/ui';
+import { input as uiInput, btnLink, groupTitle as uiGroupTitle } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
 import { stripInlineMd } from '../lib/text';
 import { track, EVENTS } from '../lib/analytics';
@@ -20,7 +20,7 @@ import ContextMenu from './ContextMenu';
 import { MoreHorizontal, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
 
 const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
-const groupTitle = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-2)' };
+const groupTitle = { ...uiGroupTitle, margin: '0 0 var(--space-2)' };
 const card = { position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4) var(--space-12) var(--space-4) var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 };
 
@@ -152,14 +152,12 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       <div style={wrap}>
         <EmptyState
           icon={<ListTodo size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title="まだ行動はありません"
-          description="相談の答えや、メモから行動を作れます。"
-          actions={[
-            ...(onGoConsult ? [{ label: '相談する', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: onGoConsult }] : []),
-            ...(canAdd
+          title="相談の答えや、メモから行動を作れます"
+          actions={onGoConsult
+            ? [{ label: '相談する', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: onGoConsult, variant: 'secondary' }]
+            : canAdd
               ? [{ label: '行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction, variant: 'secondary' }]
-              : onGoToBooks ? [{ label: '本を追加する', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks, variant: 'secondary' }] : []),
-          ]}
+              : onGoToBooks ? [{ label: '本を追加する', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks, variant: 'secondary' }] : []}
         />
       </div>
     );
@@ -288,7 +286,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
             >
               {reflecting ? '保存中…' : '残す'}
             </button>
-            <button type="button" onClick={undoJustDone} style={{ ...btnText, minHeight: 44, padding: '0 var(--space-2)', fontSize: 'var(--text-sub)', fontWeight: 400 }}>
+            <button type="button" onClick={undoJustDone} style={btnLink}>
               元に戻す
             </button>
           </div>
@@ -300,7 +298,8 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         </p>
       )}
 
-      {open.length === 0 && (
+      {/* ここに来るのは完了した行動があるときだけ（0 件は上の早期 return）。 */}
+      {open.length === 0 && done.length > 0 && (
         <EmptyState
           icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="やることはすべて完了しています"
@@ -312,7 +311,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       {overdueCount >= 3 && (
         <div style={{ background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
           <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6 }}>
-            期限を過ぎた行動が {overdueCount} 件あります。いまの予定に合う日に、置き直してみませんか。
+            期限を過ぎた行動 {overdueCount} 件
           </p>
           {onEditAction && (
             <button
