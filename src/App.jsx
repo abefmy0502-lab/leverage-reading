@@ -17,7 +17,6 @@ import { STATUSES, getSt } from './lib/status';
 import { isStrictMatch } from './lib/bookMatch';
 const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
 import BookMemoEditor from './components/BookMemoEditor';
-import BookLearningAnalysis from './components/BookLearningAnalysis';
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
 const ImportSheet = lazy(() => import('./components/ImportSheet'));
@@ -513,7 +512,6 @@ function AuthedApp() {
   ));
   // 📐→🕰 テーマまとめから「このテーマの足あとを見る」で、マイ読書脳の足あとビューへ
   // テーマを引き継いで遷移するためのプリセット。nonce で毎回の遷移を区別する。
-  const [journeyPreset, setJourneyPreset] = useState(null); // { theme, nonce } | null
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
@@ -2162,42 +2160,7 @@ function AuthedApp() {
   // immediately, which would TDZ. Read `allTags.slice(0, 3)` lazily inside
   // the async handler (runs after the full body has initialized).
 
-  const runAnalysis = async () => {
-    setAiLoading(true);
-    // ストリーミング先の本を固定する。ストリーム中に別の本を開いても、
-    // 結果が「その時開いている form」に混入しないようにする。
-    const targetId = form?.id;
-    const prevAnalysis = form?.aiAnalysis || '';
-    // ストリーミング開始前にフィールドをクリア。古い解析結果が残ると
-    // onChunk で書き換わるまでに違和感が出る。
-    setForm((f) => ({ ...f, aiAnalysis: '' }));
-    try {
-      await streamClaude({
-        system: PROMPTS.bookAnalysis.system,
-        cacheSystem: true,
-        messages: [{
-          role: 'user',
-          content: PROMPTS.bookAnalysis.user({
-            title: clamp(sanitizeForPrompt(form.title || ''), LIMITS.bookTitle),
-            author: clamp(sanitizeForPrompt(form.author || ''), LIMITS.bookAuthor),
-          }),
-        }],
-        max_tokens: 2048,
-        model: MODEL_SMART,
-        onChunk: (fullText) => {
-          setForm((f) => (f && f.id === targetId ? { ...f, aiAnalysis: fullText } : f));
-        },
-      });
-      // 📊 AI 利用の計測（解析が throw せず完了した成功時のみ・feature の enum だけ）。
-      track('ai_used', { feature: 'analysis' });
-    } catch (error) {
-      // 失敗時は元の解析結果に戻す（クリアしたまま保存すると DB の解析が消える）。
-      setForm((f) => (f && f.id === targetId ? { ...f, aiAnalysis: prevAnalysis } : f));
-      toast.error(toMessage(error, 'AI解析に失敗しました。'));
-    } finally {
-      setAiLoading(false);
-    }
-  };
+  // （撤去 2026-09-27）runAnalysis —「AIで本を解析する」。読書計画シートと役割が重なるため廃止。
   const runStrategy = async () => {
     setAiLoading(true);
     const targetId = form?.id;
@@ -2679,30 +2642,6 @@ function AuthedApp() {
     }
   };
 
-  // 📊→♾️ 本の学び分析を ai_summary に保存して全体に還流させる（複利）。
-  // gatherKnowledge が ai_summary を読む → マイ読書脳 / テーマまとめ / 🕰足あと、
-  // 振り返りの想起ノート(ai_summary synth)にも自動で乗る。編集中フォームにも反映。
-  const persistBookLearning = async (text) => {
-    const body = (text || '').trim();
-    if (!form?.id || !body) return false;
-    const bookId = form.id;
-    const clamped = clamp(body, LIMITS.memoText);
-    setForm((f) => ({ ...f, aiSummary: clamped }));
-    // 直列化チェーンに乗せ、実行時点の最新行に rebase して aiSummary だけ
-    // 差し替える（stale スナップショットの全行保存は並行トグルを巻き戻す）。
-    try {
-      await enqueueBookMutation(bookId, async (entry) => {
-        const base = entry.latest || booksRef.current.find((b) => b.id === bookId) || form;
-        const saved = await saveBook({ ...base, aiSummary: clamped });
-        if (saved) entry.latest = saved;
-      });
-      return true;
-    } catch (error) {
-      toast.error(toMessage(error, '保存に失敗しました。'));
-      return false;
-    }
-  };
-
   // 🔁 完了した行動に「やってみてどうだった？」の 1 行を残す（行動タブの完了直後の欄から）。
   //    残したふりかえりは相談の材料（ai.js の buildGrowthBlock「最近の完了とふりかえり」）になる。
   const saveActionReflection = async (bookId, actionIdx, action, reflection) => {
@@ -3009,12 +2948,12 @@ function AuthedApp() {
           {(current.aiAnalysis || current.aiStrategy) && (
             <details style={detailsStyle}>
               <summary style={summaryStyle}>
-                AI 解析・読書計画
+                {current.aiAnalysis ? 'AI 解析・読書計画' : '読書計画シート'}
                 <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
               </summary>
               {current.aiAnalysis && (
                 <div style={{ paddingBottom: 'var(--space-4)' }}>
-                  <p style={subLabelStyle}>AI 本の解析</p>
+                  <p style={subLabelStyle}>AI 本の解析（以前の結果）</p>
                   <MarkdownSections
                     text={current.aiAnalysis}
                     onAddRelatedBook={addRelatedBookFromAi}
@@ -3243,12 +3182,12 @@ function AuthedApp() {
                         if (ok) openSetup(current);
                         return;
                       }
-                      // 投資目的はあるが AI 解析・読書計画が未完了 → 任意なので警告のみ。
-                      if (!current.aiAnalysis || !current.aiStrategy) {
+                      // 投資目的はあるが読書計画が未作成 → 任意なので警告のみ（AI 解析は 2026-09-27 に廃止）。
+                      if (!current.aiStrategy) {
                         const ok = await confirm({
                           title: '読書計画を作っておきますか？',
                           message:
-                            'AI 解析・読書計画シートが未作成です。作っておくと、学びの本では「どの 20% を読むか」が分かります（任意）。',
+                            '読書計画シートがまだありません。作っておくと、学びの本では「どの 20% を読むか」が分かります（任意）。',
                           confirmLabel: 'このまま読書を開始',
                           cancelLabel: '読書計画を作る',
                         });
@@ -3570,7 +3509,6 @@ function AuthedApp() {
                     setForm={setForm}
                     onSave={handleSave}
                     aiLoading={aiLoading}
-                    onRunAnalysis={runAnalysis}
                     onRunStrategy={runStrategy}
                     onRunStrategyEdit={runStrategyEdit}
                     onUndoStrategy={undoStrategy}
@@ -3582,10 +3520,10 @@ function AuthedApp() {
                   />
                 )}
                 {effectivePhase === "reading" && current && (
-                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} onPersistAnalysis={persistBookLearning} onMakeAction={addActionFromMemo} allTags={allTags} allFolders={folderNames} />
+                  <ReadingPhase form={form} setForm={setForm} onSave={handleSave} onSaveSummary={handleSaveSummaryFromForm} onMakeAction={addActionFromMemo} allTags={allTags} allFolders={folderNames} />
                 )}
                 {effectivePhase === "done" && current && (
-                  <DonePhase form={form} setForm={setForm} onSave={handleSave} onPersistAnalysis={persistBookLearning} allTags={allTags} allFolders={folderNames} />
+                  <DonePhase form={form} setForm={setForm} onSave={handleSave} allTags={allTags} allFolders={folderNames} />
                 )}
               </>
             );
@@ -4125,10 +4063,6 @@ function AuthedApp() {
                     onActionAdded={() => { try { refreshBooks(); } catch { /* ignore */ } }}
                     onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
-                    onOpenJourney={(theme) => {
-                      setJourneyPreset({ theme, nonce: Date.now() });
-                      setAiSubTab('brain');
-                    }}
                   />
                 </Suspense>
               ) : (
@@ -4141,7 +4075,6 @@ function AuthedApp() {
                     onAddActionPickBook={(text) => setAddActionSheet({ step: 'pick', prefillText: text })}
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
                     onQuickstart={() => setShowQuickstart(true)}
-                    journeyPreset={journeyPreset}
                     askPreset={askPreset}
                     scopePreset={scopePreset}
                   />

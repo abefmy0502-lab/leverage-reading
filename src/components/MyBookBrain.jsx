@@ -22,9 +22,8 @@ import Spinner from './Spinner';
 import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
-import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout } from 'lucide-react';
+import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout } from 'lucide-react';
 import ContextMenu from './ContextMenu';
-import KnowledgeJourney from './KnowledgeJourney';
 import { usePaywall } from '../state/PaywallContext';
 import { AI_MONTHLY_BUDGET_JPY, fetchMonthCostJpy, nextResetLabelJa } from '../lib/freeTrial';
 
@@ -266,7 +265,7 @@ function LearningInline({ onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, journeyPreset, askPreset, scopePreset }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, askPreset, scopePreset }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -285,16 +284,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [monthLimitHit, setMonthLimitHit] = useState(false); // この月の上限に達した（サーバーの 429）
   const nearMonthLimit = !freeMode && !monthLimitHit && monthCost != null && monthCost >= AI_MONTHLY_BUDGET_JPY * 0.7;
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
-  // 📐→🕰 テーマまとめの「このテーマの足あとを見る」から遷移してきたら、
-  // 足あとビューへ切替（テーマ本体は KnowledgeJourney に initialTheme で渡す）。
-  // 足あとの自動生成は、この nonce の preset を初めて受け取ったときだけ（開き直しでは再生成しない）。
-  const [journeyAutoTheme, setJourneyAutoTheme] = useState('');
-  useEffect(() => {
-    if (!journeyPreset?.theme || !consumePreset('journey', journeyPreset.nonce)) return;
-    setJourneyAutoTheme(journeyPreset.theme);
-    setView('journey');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [journeyPreset?.nonce]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   // 🎯 相談相手（2026-09-26）: [] = すべての本（＋学びログ）/ [id] = その 1 冊だけ /
@@ -822,7 +811,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return out;
   }, [suggestedQuestions]);
   const [moreMenu, setMoreMenu] = useState(null); // { x, y }
-  const viewTitle = { learning: '学びを書く', history: '過去の相談', knowledge: '根拠にできる情報', journey: '考えの足あと' }[view];
+  const viewTitle = { learning: '学びを書く', history: '過去の相談', knowledge: '根拠にできる情報' }[view];
 
   return (
     <div style={wrap}>
@@ -885,22 +874,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           items={[
             { label: '学びを書く（本以外）', icon: <PencilLine size={16} aria-hidden="true" />, onClick: () => setView('learning') },
             { label: '根拠にできる情報', icon: <BookOpenCheck size={16} aria-hidden="true" />, onClick: () => setView('knowledge') },
-            { label: '考えの足あと', icon: <Clock size={16} aria-hidden="true" />, onClick: () => setView('journey') },
           ]}
         />
       )}
 
-      {/* 🕰 考えの足あと（変遷追跡） */}
-      {view === 'journey' && (
-        <div style={viewScroll}>
-          <KnowledgeJourney
-            key={journeyPreset?.nonce || 'journey'}
-            userId={user?.id}
-            initialTheme={journeyAutoTheme}
-            onInitialThemeUsed={() => setJourneyAutoTheme('')}
-          />
-        </div>
-      )}
 
       {/* 学びを書く（本以外の学びログ） */}
       {view === 'learning' && (

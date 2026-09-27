@@ -22,7 +22,6 @@ import { useBookCover } from '../hooks/useBookCover';
 import { useToast } from './Toast';
 import MarkdownSections from './MarkdownSections';
 import BookMemoList from './BookMemoList';
-import BookLearningAnalysis from './BookLearningAnalysis';
 import {
   Field, SectionHeader, Dots, Stars, TagInput, Chip,
   inp, ta, btnS, btnO, aiB, phaseDesc,
@@ -206,7 +205,6 @@ export function BeforePhase({
   setForm,
   onSave,
   aiLoading,
-  onRunAnalysis,
   onRunStrategy,
   onRunStrategyEdit,
   onUndoStrategy,
@@ -229,24 +227,21 @@ export function BeforePhase({
         <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={inp} />
       </Field>
 
-      <SectionHeader icon={<IcSearch size={16} />} title="AI本の解析" />
-      <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>ボタンを押すとAIが本の核心・構造・著者の視点を分析します</p>
-      <button onClick={onRunAnalysis} disabled={!form.title.trim() || aiLoading} style={{ ...aiB, opacity: !form.title.trim() || aiLoading ? 0.5 : 1 }}>
-        {aiLoading && !form.aiAnalysis ? "分析中…" : "🔍 AIで本を解析する"}
-      </button>
-      {aiLoading && !form.aiAnalysis && <Dots />}
+      {/* 「AIで本を解析する」は 2026-09-27 に廃止（読書計画シートと役割が重なる・原価の節約）。
+          以前に解析した本だけ、結果を畳んで残す（相談の材料＝著者の意図として使い続ける）。 */}
       {form.aiAnalysis && (
-        <div style={{ marginTop: 8 }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-accent)", marginBottom: 4 }}>
-            解析結果
-            {aiLoading && !form.aiStrategy && <span className="streaming-cursor" aria-hidden="true" style={{ marginLeft: 6 }} />}
-          </p>
-          <MarkdownSections
-            text={form.aiAnalysis}
-            onAddRelatedBook={aiLoading ? undefined : onAddRelatedBook}
-            addingTitles={addingTitles}
-          />
-        </div>
+        <details style={{ marginBottom: 'var(--space-4)' }}>
+          <summary style={{ minHeight: 44, display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>
+            以前の AI 解析を見る
+          </summary>
+          <div style={{ marginTop: 'var(--space-2)' }}>
+            <MarkdownSections
+              text={form.aiAnalysis}
+              onAddRelatedBook={aiLoading ? undefined : onAddRelatedBook}
+              addingTitles={addingTitles}
+            />
+          </div>
+        </details>
       )}
 
       {/* ⚠️ 投資目的〜読書計画は AI 解析の実行にゲートしない。AI を使わない /
@@ -469,7 +464,7 @@ const clampPage = (v) => {
   return Math.min(n, 100000);
 };
 
-export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAnalysis, onMakeAction, allTags, allFolders }) {
+export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeAction, allTags, allFolders }) {
   // 📖 読書進捗（ページ管理）は撤去（本田哲学=「作業量の可視化」は成果ではない／
   // 進捗を見て満足する病を生む）。totalPages は書誌メタとして裏で保持するのみで
   // UI には出さない。データ列は dormant（復活は容易・既存値は保持）。
@@ -516,16 +511,7 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAn
         <TagInput tags={form.collections || []} onChange={(c) => setForm({ ...form, collections: c })} allTags={allFolders} placeholder="フォルダを追加" />
       </Field>
 
-      {/* 📊 読書中でも：メモ→目的照合→学び/視点→行動提案（AI がタスク作成を支援） */}
-      {form.id && (
-        <div style={{ marginBottom: 14 }}>
-          <BookLearningAnalysis
-            book={form}
-            onAddToActions={(text) => setForm((f) => ({ ...f, actions: [...(f.actions || []), { text, deadline: "", done: false }] }))}
-            onSaveToBook={onPersistAnalysis}
-          />
-        </div>
-      )}
+      {/* 「この本の学びを分析」は 2026-09-27 に廃止（本詳細の「この本に相談する」と重なる）。 */}
 
       <SectionHeader icon={<IcZap size={16} />} title="この本から決めた行動" />
       <p style={{ fontSize: 11, color: "var(--c-ink-2)", marginBottom: 10, lineHeight: 1.5 }}>読みながら「やってみよう」と思ったことを、行動にしておきましょう。</p>
@@ -551,7 +537,7 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onPersistAn
 }
 
 // Phase 4: 読了（投資回収）
-export function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, allFolders }) {
+export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
   const addAction = () => setForm({ ...form, actions: [...(form.actions || []), { text: "", deadline: "", done: false }] });
   const updateAction = (i, key, val) => {
     const a = [...(form.actions || [])];
@@ -574,21 +560,12 @@ export function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, a
         </div>
       </Field>
 
-      {/* 📊 本の AI synthesis は「学びを分析」に一本化（旧「AIでメモを要約」は統合・撤去）。
-          メモ→目的照合→学び/視点→行動提案。提案はタップで行動化、保存で全体に還流。 */}
-      {form.id && (
-        <div style={{ marginBottom: 14 }}>
-          <BookLearningAnalysis
-            book={form}
-            onAddToActions={(text) => setForm((f) => ({ ...f, actions: [...(f.actions || []), { text, deadline: "", done: false }] }))}
-            onSaveToBook={onPersistAnalysis}
-          />
-        </div>
-      )}
+      {/* 「この本の学びを分析」は 2026-09-27 に廃止（本詳細の「この本に相談する」と重なる）。
+          以前に保存した分析は下の「この本のAI まとめ」に残る。 */}
 
       {/* この本の AI まとめ（学び分析の保存先・編集可・全体に活かされる） */}
       {form.aiSummary?.trim() && (
-        <Field label={<><IcBot size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />この本のAI まとめ</>} sub="「学びを分析」で保存した内容です。自由に編集でき、相談・テーマまとめ・振り返りに活かされます。">
+        <Field label={<><IcBot size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 5 }} />この本のAI まとめ</>} sub="以前「学びを分析」で保存した内容です。自由に編集でき、相談・テーマまとめ・振り返りに活かされます。">
           <textarea value={form.aiSummary} onChange={(e) => setForm({ ...form, aiSummary: e.target.value })} rows={5} style={ta} maxLength={LIMITS.memoText} />
         </Field>
       )}
@@ -613,7 +590,7 @@ export function DonePhase({ form, setForm, onSave, onPersistAnalysis, allTags, a
         ))}
         <button onClick={addAction} style={{ ...btnO, padding: "10px 0", fontSize: 12, borderStyle: "dashed" }}>＋ 行動を追加</button>
         {(form.actions || []).length > 0 && (
-          <p style={{ fontSize: 11, color: "var(--c-ink-3)", margin: "2px 2px 0", lineHeight: 1.6 }}>
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: '0 0 var(--space-6)', lineHeight: 1.6 }}>
             優先度・繰り返しは、追加後に「振り返り」タブ →「行動」で設定できます。
           </p>
         )}

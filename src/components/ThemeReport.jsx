@@ -148,7 +148,7 @@ function writeSnap(theme, snap) {
   } catch { /* ignore */ }
 }
 
-export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshelf, onOpenJourney } = {}) {
+export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshelf } = {}) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -661,16 +661,6 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                   <RecallButton busy={recallBusy} done={recallSet} onSet={handleSetRecall} />
                   <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                    {onOpenJourney && activeTheme && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenJourney(activeTheme)}
-                        style={btnRow}
-                        aria-label={`テーマ「${activeTheme}」の変遷（足あと）を見る`}
-                      >
-                        このテーマの足あと
-                      </button>
-                    )}
                     <button type="button" onClick={copyReport} style={btnRow} aria-label="テーマまとめをクリップボードにコピー">
                       コピー
                     </button>
