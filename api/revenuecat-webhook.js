@@ -51,6 +51,7 @@
 //                                  絶対にクライアントへ露出しないこと）
 
 import { createClient } from '@supabase/supabase-js';
+import { isTokenPackEvent, tokenCreditFromEvent } from './_tokenLots.js';
 import { timingSafeEqual } from 'node:crypto';
 
 // 共有シークレットを定数時間で比較する（タイミング攻撃でシークレットを 1 文字ずつ
@@ -184,6 +185,32 @@ export default async function handler(req, res) {
     const event = body.event || {};
     const type = event.type;
     eventId = typeof event.id === 'string' && event.id ? event.id : null;
+
+    // 🪙➕ 追加トークン（消耗型の App 内課金・NON_RENEWING_PURCHASE）。subscriptions は触らず、
+    // ai_token_lots に 1 ロット足す（supabase_ai_token_credits.sql の credit_token_lot）。
+    // 二重に足さない鍵は取引 ID（transaction_id UNIQUE）＋下の event.id の claim の二重。
+    // SANDBOX でも足す（App 審査の官が買ったトークンが届かないと却下になるため・environment='sandbox' で
+    // 見分けられる）。止めたいときは RC_SANDBOX_TOKENS=false。顧客指標（subscriptions）は汚さない。
+    if (isTokenPackEvent(event)) {
+      const r = tokenCreditFromEvent(event, { isUserId: isResolvableUserId });
+      if (r.skip) return res.status(200).json({ received: true, skipped: r.skip });
+      if (eventId) {
+        const { error: dedupErr } = await supabase.from('revenuecat_events').insert({ event_id: eventId, type });
+        if (dedupErr?.code === '23505') return res.status(200).json({ received: true, deduped: true });
+        if (!dedupErr) eventClaimed = true;
+      }
+      const c = r.credit;
+      const { data: credited, error: creditErr } = await supabase.rpc('credit_token_lot', {
+        p_user_id: c.userId,
+        p_transaction_id: c.transactionId,
+        p_product_id: c.productId,
+        p_tokens: c.tokens,
+        p_purchased_at: c.purchasedAt,
+        p_environment: c.environment,
+      });
+      if (creditErr) throw creditErr; // 5xx → RevenueCat が再送（claim は catch で解放）
+      return res.status(200).json({ received: true, credited: Number(credited) || 0 });
+    }
 
     // 🧪 SANDBOX イベント（TestFlight / 開発ビルドの課金）は既定でスキップする。
     // 本番 subscriptions とチャーン/CVR 等の顧客指標をテスト課金で汚さないため。

@@ -3,8 +3,9 @@ import { applyCors } from './_cors.js';
 import { estimateCost, costFromUsage, createUsageSniffer } from './_aiCost.js';
 import {
   decideAiAccess, decideFreeReservation, periodKeyFor, reserveBudgetMjpy, allowanceFor,
-  freeTokens, fallbackCallsFor, nextMonthFirstLabel, planRequiredMessage, limitMessageFor,
+  freeTokens, fallbackCallsFor, nextMonthFirstLabel, planRequiredMessage, limitMessageFor, tokenMjpy,
 } from './_aiAccess.js';
+import { lotBalance, effectiveAllowance } from './_tokenLots.js';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
@@ -419,6 +420,40 @@ async function reserveCost(userId, periodKey, amountMjpy, budgetMjpy) {
     return { metered: false, allowed: true };
   }
 }
+// 🪙➕ 追加トークン（supabase_ai_token_credits.sql）。その期間にもう追加分から払った量（ai_usage.lot_tokens）と、
+// 期限内の追加分の残り。表・列・RPC が無い DB や失敗は ok=false＝追加分は無いものとして扱う（fail-safe）。
+async function getLotState(userId, periodKey) {
+  const supabase = getServiceSupabase();
+  const none = { ok: false, balance: 0, charged: 0 };
+  if (!supabase) return none;
+  try {
+    const nowIso = new Date().toISOString();
+    const [lotsRes, usageRes] = await Promise.all([
+      supabase.from('ai_token_lots').select('id, tokens_left, expires_at, purchased_at')
+        .eq('user_id', userId).gt('tokens_left', 0).gt('expires_at', nowIso),
+      supabase.from('ai_usage').select('lot_tokens').eq('user_id', userId).eq('period_month', periodKey).maybeSingle(),
+    ]);
+    if (lotsRes.error || usageRes.error) return none;
+    const { balance } = lotBalance(lotsRes.data || []);
+    return { ok: true, balance, charged: Math.max(0, Number(usageRes.data?.lot_tokens) || 0) };
+  } catch {
+    return none;
+  }
+}
+// 精算のあと、その月の分を超えた分を追加分から差し引く（settle_token_overflow・行をロックして 1 回ずつ）。
+async function settleTokenOverflow(userId, periodKey, allowanceTokens) {
+  const supabase = getServiceSupabase();
+  if (!supabase) return;
+  try {
+    const { error } = await supabase.rpc('settle_token_overflow', {
+      p_user_id: userId, p_period_month: periodKey, p_allowance_tokens: allowanceTokens, p_token_mjpy: tokenMjpy(),
+    });
+    if (error) console.warn('[ai-tokens] settle overflow failed:', error.message);
+  } catch (e) {
+    console.warn('[ai-tokens] settle overflow threw:', e?.message);
+  }
+}
+
 async function adjustCost(userId, periodKey, deltaMjpy) {
   if (!deltaMjpy) return;
   const supabase = getServiceSupabase();
@@ -623,6 +658,7 @@ export default async function handler(req, res) {
   let costOutputPart = 0; // 予約のうち出力の分（途中で切れたときの精算に使う）
   let costMetered = false;
   let costResult = { metered: false, allowed: true };
+  let lotState = { ok: false, balance: 0, charged: 0 };
   let callLimit = ent.limit;
   if (tier !== 'admin') {
     const b = req.body || {};
@@ -635,7 +671,10 @@ export default async function handler(req, res) {
       ? b.messages.reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter((c) => c?.type === 'image').length : 0), 0)
       : 0;
     const est = estimateCost(estModel, { textChars: countTextChars(b), images, maxTokens: estMax });
-    costResult = await reserveCost(userId, periodKey, est.total, reserveBudgetMjpy(allowanceFor(tier), est.total));
+    // 追加トークン（買い足し）があれば、その月の分＋追加分まで使える（使う順は その月 → 追加分）。
+    lotState = await getLotState(userId, periodKey);
+    const allowance = lotState.ok ? effectiveAllowance(allowanceFor(tier), lotState) : allowanceFor(tier);
+    costResult = await reserveCost(userId, periodKey, est.total, reserveBudgetMjpy(allowance, est.total));
     if (costResult.metered && !costResult.allowed) return limitResponse('monthly_budget_exceeded');
     costMetered = costResult.metered;
     if (costMetered) {
@@ -656,7 +695,11 @@ export default async function handler(req, res) {
   const settleCost = (actualMjpy) => {
     if (!costMetered || costSettled) return;
     costSettled = true;
-    adjustCost(userId, periodKey, (actualMjpy == null ? 0 : actualMjpy) - costReserved);
+    const adjusting = adjustCost(userId, periodKey, (actualMjpy == null ? 0 : actualMjpy) - costReserved);
+    // 追加分がある人は、その月の分を超えた分を追加分から差し引く（精算で原価が決まってから）。
+    if (actualMjpy != null && lotState.ok && (lotState.balance > 0 || lotState.charged > 0)) {
+      Promise.resolve(adjusting).then(() => settleTokenOverflow(userId, periodKey, allowanceFor(tier)));
+    }
   };
 
   // 管理者は回数も数えない（上限なし）。
