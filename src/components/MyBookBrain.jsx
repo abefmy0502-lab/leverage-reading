@@ -26,7 +26,7 @@ import { X, MessageCircle, History, BookOpenCheck, Target, Check, Clock, RotateC
 import ContextMenu from './ContextMenu';
 import KnowledgeJourney from './KnowledgeJourney';
 import { usePaywall } from '../state/PaywallContext';
-import { AI_MONTHLY_BUDGET_JPY, fetchMonthCostJpy } from '../lib/freeTrial';
+import { AI_MONTHLY_BUDGET_JPY, fetchMonthCostJpy, nextResetLabelJa } from '../lib/freeTrial';
 
 // ホーム・本の詳細・テーマまとめから渡される「最初の一手」（preset）は、App 側では
 // 消えずに残る。相談タブを開き直すと MyBookBrain が作り直されるので、使い終わった
@@ -308,7 +308,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setMonthCost(await fetchMonthCostJpy(user.id));
   }, [user?.id, freeMode]);
   useEffect(() => { refreshMonthCost(); }, [refreshMonthCost]);
-  const nearMonthLimit = !freeMode && monthCost != null && monthCost >= AI_MONTHLY_BUDGET_JPY * 0.7;
+  const [monthLimitHit, setMonthLimitHit] = useState(false); // この月の上限に達した（サーバーの 429）
+  const nearMonthLimit = !freeMode && !monthLimitHit && monthCost != null && monthCost >= AI_MONTHLY_BUDGET_JPY * 0.7;
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
   // 📐→🕰 テーマまとめの「このテーマの足あとを見る」から遷移してきたら、
   // 足あとビューへ切替（テーマ本体は KnowledgeJourney に initialTheme で渡す）。
@@ -463,7 +464,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     weeklyTriedRef.current = true;
     const wk = isoWeekKey();
     // お試し中は AI で問いを作らない（お試しの回数を、本人の相談のために残す）。
-    if (freeMode) { setWeeklyQ(FALLBACK_WEEKLY[Math.abs(hashStr(wk)) % FALLBACK_WEEKLY.length]); return; }
+    // 上限が近い人も同じ（残り少ない枠を、本人の相談に残す）。
+    if (freeMode || nearMonthLimit || monthLimitHit) { setWeeklyQ(FALLBACK_WEEKLY[Math.abs(hashStr(wk)) % FALLBACK_WEEKLY.length]); return; }
     try {
       if (localStorage.getItem('brain-weekly-dismissed') === wk) { setWeeklyDismissed(true); return; }
       const raw = localStorage.getItem('brain-weekly-q');
@@ -745,6 +747,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       // abort はエラーではない (streamMyBookBrain は正常 resolve するため通常
       // ここには来ないが、念のため abort 由来の例外はトーストしない)。
       // 有料プランの画面を開いたとき（e.paywall）は、エラーの案内を重ねない。
+      if (e?.monthlyLimit) setMonthLimitHit(true);
       if (!(controller.signal.aborted || (e && e.name === 'AbortError') || e?.paywall || e?.monthlyLimit)) {
         toast.error(toMessage(e, '回答の生成に失敗しました。'));
       }
@@ -762,7 +765,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 : e?.paywall
                   ? 'お試しの相談は、ここまでです。続けて相談するには、プランを始めてください。'
                 : e?.monthlyLimit
-                  ? `${e.message}\n\nそれまでは、メモを残しておくと、次の相談の材料になります。`
+                  ? e.message
                 : partial
                   ? `${partial}\n\n— 通信が中断されたため、回答はここまでです。`
                   : '回答を生成できませんでした。少し時間をおいて再度お試しください。',
@@ -898,7 +901,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       {/* 上部は 1 行だけ（SPEC §3: 二重タブをやめる）。会話のときは「何を根拠に答えるか」＋
           履歴（時計）＋その他（…）。会話以外の画面では「‹ 相談」で戻る。 */}
       {/* お試し中は上部が 2 行になるので、下に線を引いて「下に潜っている」ことを示す */}
-      <div style={freeMode || nearMonthLimit ? { ...topRow, borderBottom: '1px solid var(--separator)' } : topRow}>
+      <div style={freeMode || nearMonthLimit || monthLimitHit ? { ...topRow, borderBottom: '1px solid var(--separator)' } : topRow}>
         {view === 'chat' ? (
           <>
             <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.4 }}>
@@ -911,6 +914,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               {nearMonthLimit && (
                 <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                   今月の相談は、残りわずかです
+                </span>
+              )}
+              {monthLimitHit && (
+                <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+                  今月の相談は、<span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>から使えます
                 </span>
               )}
             </p>
@@ -1070,6 +1078,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 onAddAction={handleAnswerToAction}
                 onAddActionPickBook={onAddActionPickBook}
                 onRetry={busy ? null : regenerate}
+                onWriteLearning={() => setView('learning')}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -1105,7 +1114,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           )}
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? knowledgeTotal > 0 : lastIsAssistant) && (
+          {historyLoaded && !busy && (isEmpty ? knowledgeTotal > 0 : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice)) && (
             <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-3)', margin: 'var(--space-4) 0 0', lineHeight: 1.5 }}>
               AI の回答には誤りが含まれることがあります
             </p>
@@ -1317,7 +1326,13 @@ function refBookCount(refs) {
   return titles.size;
 }
 
-function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook, onRetry, showTime = false }) {
+// 案内文の「10月1日」を途中で改行させない。
+function renderNoticeText(text) {
+  const parts = String(text || '').split(/(\d{1,2}月\d{1,2}日)/);
+  return parts.map((p, i) => (/^\d{1,2}月\d{1,2}日$/.test(p) ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : p));
+}
+
+function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -1362,7 +1377,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
     );
   }
 
-  const parsed = !isStreaming && !message.error ? parseAnswer(message.content) : null;
+  const parsed = !isStreaming && !message.error && !message.notice ? parseAnswer(message.content) : null;
   // 🌱 「使ったメモ」の一行は refs の先頭に目印付きで保存している（表を増やさずに履歴にも残す）。
   const allRefs = Array.isArray(message.refs) ? message.refs : [];
   const evidence = (allRefs.find((r) => String(r).startsWith(EVIDENCE_PREFIX)) || '').slice(EVIDENCE_PREFIX.length);
@@ -1395,6 +1410,23 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
           {message.content}
           <span className="streaming-cursor" aria-hidden="true" />
         </div>
+      ) : message.notice ? (
+        // 運営からの案内（月の上限・お試しの終了）。答え用の明朝ではなく UI の書体で。
+        <>
+          <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+            {renderNoticeText(message.content)}
+          </p>
+          {onWriteLearning && /今月の AI/.test(message.content) && (
+            <>
+              <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                それまでに残したメモや学びは、次の相談の材料になります。
+              </p>
+              <button type="button" onClick={onWriteLearning} style={{ ...rowBtn, marginTop: 'var(--space-3)' }}>
+                <PencilLine size={16} aria-hidden="true" />学びを書く
+              </button>
+            </>
+          )}
+        </>
       ) : message.error ? (
         <>
           <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{message.content}</p>
@@ -1432,8 +1464,8 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
           )}
           {/* 積み重ねが効いていることを、事実だけで一行（盛らない・渡したメモと一致したものだけ） */}
           {evidence && (
-            <p style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-              <Sprout size={16} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0, marginTop: 2 }} />
+            <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+              <Sprout size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               <span>{evidence}</span>
             </p>
           )}
@@ -1441,7 +1473,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
           {(parsed.refs || parsed.interp || refsList.length > 0) && (
             <details style={{ marginTop: 'var(--space-3)' }}>
               <summary style={summaryStyle}>
-                <span>根拠を見る{nBooks > 0 ? `（${nBooks} 冊のメモ）` : ''}</span>
+                <span>根拠を見る{nBooks > 0 && !evidence ? `（${nBooks} 冊のメモ）` : ''}</span>
                 <ChevronDown size={18} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
               </summary>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingBottom: 'var(--space-1)' }}>

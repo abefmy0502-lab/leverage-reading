@@ -29,3 +29,14 @@ describe('evidenceFromRefs', () => {
     expect(evidenceFromRefs(['📚 エリック・シュミット『1兆ドルコーチ』P.61'], src, now)).toBe('あなたのメモ 1 件から答えました（いちばん古いのは 2 週間前）');
   });
 });
+
+import { isClaudeErrorString } from './ai';
+describe('isClaudeErrorString', () => {
+  it('月の上限・お試しの終了の文言はエラー扱い（成果物として保存しない）', () => {
+    expect(isClaudeErrorString('今月の AI の利用上限に達しました。10月1日からまた使えます。')).toBe(true);
+    expect(isClaudeErrorString('今月の AI 利用上限に達しました。')).toBe(true);
+    expect(isClaudeErrorString('お試しの相談は、ここまでです。')).toBe(true);
+    expect(isClaudeErrorString('AI 機能のご利用にはプランへのご登録が必要です。')).toBe(true);
+    expect(isClaudeErrorString('今週、あえて手放せそうな仕事はどれでしょう？')).toBe(false);
+  });
+});

@@ -139,14 +139,18 @@ export default callClaude;
 // 返し得る全エラー文字列（閉集合）:
 //   '通信エラー' / 'レスポンス解析エラー' / 'エラー' / 'エラー: ...'
 //   'AI機能を使うにはログインが必要です。' / 'リクエストが多すぎます...'
-//   '今月の AI 利用上限に達しました...'（api/claude.js の monthly_limit_exceeded）
+//   '今月の AI の利用上限に達しました...'（api/claude.js の monthly_limit_exceeded / monthly_budget_exceeded）
+//   'AI 機能のご利用には…' / 'お試しの相談は、ここまでです…'（402）
 export function isClaudeErrorString(s) {
   if (typeof s !== 'string') return true;
   if (s === '通信エラー' || s === 'レスポンス解析エラー' || s === 'エラー') return true;
   if (s.startsWith('エラー: ')) return true;
   if (s.startsWith('AI機能')) return true;
   if (s.startsWith('リクエストが多すぎます')) return true;
-  if (s.startsWith('今月の AI 利用上限')) return true;
+  // 月の上限（回数・原価）: サーバーの文言は「今月の AI の利用上限…」。旧文言「今月の AI 利用上限」も含めて前方一致で見る。
+  if (s.startsWith('今月の AI')) return true;
+  // 未契約・お試しの終了（402）: 有料プランの画面を開いた後に返る文言
+  if (s.startsWith('AI 機能のご利用') || s.startsWith('お試しの相談')) return true;
   return false;
 }
 
@@ -1150,7 +1154,7 @@ export async function condenseMemo({ text }) {
   if (isClaudeErrorString(result)) {
     // 月次上限だけは理由をユーザーに伝える（ユーザーの明示操作なのに
     // 無言の「凝縮できない」に見えるのを防ぐ）。他のエラーは従来どおり静かに失敗。
-    if (result.startsWith('今月の AI 利用上限')) throw new Error(result);
+    if (result.startsWith('今月の AI')) throw new Error(result);
     return null;
   }
   const cleaned = clamp(sanitizeForPrompt(result).trim(), LIMITS.memoText || 2000);
