@@ -21,24 +21,25 @@ export function SkeletonBlock({ width = '100%', height = 14, radius, style, clas
   );
 }
 
+// 本の一覧（BookCards.jsx の SwipeableBookCard）の行と同じ形: 余白 12/16・表紙 44×62（角丸 4）・
+// 題名 1 行＋状態/著者 1 行。読み込み後に行の高さや位置がずれないようにそろえる。
 function BookRowSkeleton() {
   return (
     <div
       style={{
-        background: 'var(--color-surface)',
-        borderRadius: 'var(--radius-card)',
-        padding: 'var(--space-3) var(--space-3)',
-        border: '1px solid var(--color-separator)',
+        background: 'var(--surface)',
+        borderRadius: 'var(--radius)',
+        padding: 'var(--space-3) var(--space-4)',
+        border: '1px solid var(--separator)',
         display: 'flex',
         gap: 'var(--space-3)',
         alignItems: 'center',
       }}
     >
-      <span className="skeleton skeleton-cover" aria-hidden="true" />
+      <SkeletonBlock width={44} height={62} radius={4} style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        <SkeletonBlock width="70%" height={14} radius="var(--radius-full)" />
-        <SkeletonBlock width="40%" height={10} radius="var(--radius-full)" />
-        <span className="skeleton skeleton-pill" aria-hidden="true" />
+        <SkeletonBlock width="70%" height={16} radius="var(--radius-full)" />
+        <SkeletonBlock width="50%" height={13} radius="var(--radius-full)" />
       </div>
     </div>
   );
@@ -46,7 +47,7 @@ function BookRowSkeleton() {
 
 export function BookListSkeleton({ rows = 4 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {Array.from({ length: rows }, (_, i) => (
         <BookRowSkeleton key={i} />
       ))}
@@ -100,7 +101,7 @@ function BookCoverSkeleton() {
           display: 'block',
           width: '100%',
           aspectRatio: '2 / 3',
-          borderRadius: 'var(--radius-sm)',
+          borderRadius: 4, // 本物の表紙（.book-cover-image）と同じ 4
           marginBottom: 'var(--space-2)',
         }}
       />

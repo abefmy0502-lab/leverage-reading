@@ -4216,17 +4216,33 @@ function AuthedApp() {
               {/* ホームに移した: 相談カード・はじめの一歩・いま読んでいる本（HomeScreen.jsx）。
                   思い出しカードは「振り返り」へ（SPEC §1）。ここは本の一覧だけに集中する。 */}
               {booksLoading && rawBooks.length === 0 ? (
-                skeletonBookshelfView === 'grid' ? (
-                  <BookGridSkeleton count={6} />
-                ) : (
-                  <BookListSkeleton rows={4} />
-                )
+                <>
+                  {/* 上のチップ行と同じ高さ・余白の仮の行（押せる範囲 44・見た目 32・下 16）。
+                      読み込み後にチップ行が出ても、一覧が 44 下へ跳ねないように。 */}
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      display: 'flex', gap: 'var(--space-2)', alignItems: 'center', overflow: 'hidden',
+                      height: 44, margin: 'calc((32px - 44px) / 2) 0', paddingBottom: 'var(--space-4)',
+                      boxSizing: 'content-box',
+                    }}
+                  >
+                    {[72, 88, 64, 80].map((w, i) => (
+                      <SkeletonBlock key={i} width={w} height={32} radius="var(--radius)" style={{ flexShrink: 0 }} />
+                    ))}
+                  </div>
+                  {skeletonBookshelfView === 'grid' ? (
+                    <BookGridSkeleton count={6} />
+                  ) : (
+                    <BookListSkeleton rows={4} />
+                  )}
+                </>
               ) : booksLoadError && rawBooks.length === 0 ? (
                 // 読み込みに失敗したときは「本がない」ではなく、読み込めなかったことを出す。
+                // アイコン・言い方はホーム・本の検索のエラーとそろえる（既定の AlertCircle）。
                 <ErrorMessage
-                  icon={<IcRefresh size={28} aria-hidden="true" />}
                   title="本を読み込めませんでした"
-                  description="通信の状態を確かめて、もう一度お試しください。"
+                  description="通信環境を確認して、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
                 />
               ) : filtered.length === 0 ? (
@@ -4237,21 +4253,12 @@ function AuthedApp() {
                     actions={[
                       { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size={18} aria-hidden="true" /> },
                     ]}
+                    // 脇の入口は「これまで読んだ本から始める」（ホームの本 0 冊と同じ入口・無料で使える）。
+                    // AI 選書は有料プランだけなので、最初の一歩には出さない。
                     tip={(
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
-                        <span>悩みから</span>
-                        <button
-                          type="button"
-                          onClick={() => { setAiSubTab('advisor'); setTab('ai'); }}
-                          style={{
-                            background: 'none', border: 'none', padding: 0,
-                            color: 'var(--accent)', fontWeight: 600, minHeight: 44,
-                            cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit',
-                          }}
-                        >
-                          AI に選んでもらう
-                        </button>
-                      </span>
+                      <button type="button" onClick={() => setShowQuickstart(true)} style={btnLink}>
+                        これまで読んだ本から始める
+                      </button>
                     )}
                   />
                 ) : (

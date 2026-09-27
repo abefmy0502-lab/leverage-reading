@@ -15,8 +15,9 @@
 
 import { AlertCircle } from 'lucide-react';
 
+// 主ボタンはアプリ共通の 48/17（ui.js の btnPrimary と同じ）。副・文字ボタンは控えめな 44/15。
 const variantClass = {
-  primary: 'btn btn-primary btn-sm',
+  primary: 'btn btn-primary',
   secondary: 'btn btn-secondary btn-sm',
   ghost: 'btn btn-ghost btn-sm',
 };

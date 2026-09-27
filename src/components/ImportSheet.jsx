@@ -12,7 +12,13 @@ import { btnPrimary, btnLink } from '../styles/ui';
 import { decodeImportBytes, parseImportText, summarizeImport, IMPORT_MAX_BYTES } from '../lib/importers';
 import { track } from '../lib/analytics';
 
-const body = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0 };
+// 日本語の折り返し: 文節で切る（auto-phrase）＋最後の行に語が 1 つだけ残らない（pretty）。
+// 「」の中や「です。」だけの行ができないように（auto-phrase 非対応の端末は通常の折り返し）。
+const body = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6, margin: 0, textWrap: 'pretty', wordBreak: 'auto-phrase' };
+// 見出し（見つかった数・取り込んだ数）。行間は見出しの 1.3・改行は <wbr> と改行しない空白で決める。
+const heading = { margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' };
+// 1 語として離したくない部分（「この本のまとめ」など）。
+const nowrap = { whiteSpace: 'nowrap' };
 const howTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0 };
 const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
@@ -37,7 +43,8 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
       const text = decodeImportBytes(await file.arrayBuffer());
       const r = parseImportText(file.name, text);
       if (!r.books.length) {
-        setError('読み取れる本が見つかりませんでした。ブクログの CSV か、Kindle の「My Clippings.txt」・ノートブックの HTML を選んでください。');
+        // ファイルの種類は下の一覧に書いてあるので、ここでは繰り返さない。
+        setError('読み取れる本がありませんでした。下のどれかのファイルを選んでください。');
         return;
       }
       setResult(r);
@@ -57,7 +64,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
       setOutcome(o);
       setStep('done');
     } catch {
-      setError('取り込みの途中で止まりました。通信の状態を確かめて、もう一度お試しください（取り込めた分は残っています。同じファイルをもう一度選んでも、同じメモは二重になりません）。');
+      setError('取り込みの途中で止まりました。通信環境を確認して、もう一度お試しください（取り込めた分は残っています。同じファイルをもう一度選んでも、同じメモは二重になりません）。');
       setStep('preview');
     }
   };
@@ -92,17 +99,21 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
         <FileUp size={18} aria-hidden="true" />ファイルを選ぶ
       </button>
     );
-  } else if (step === 'preview' && result) {
+  } else if ((step === 'preview' || step === 'importing') && result) {
+    // 取り込み中も同じ中身を出したまま、下のボタンだけ「取り込んでいます」にする（シートの高さを変えない）。
+    const importing = step === 'importing';
     const shown = result.books.slice(0, 20);
     // 件数は完了画面と同じ分け方（メモ＝カードのメモ・まとめ＝レビュー）。完了画面と数字がずれないように。
     const memoCount = result.books.reduce((n, b) => n + (b.memos?.length || 0), 0);
     const reviewCount = result.books.filter((b) => b.review).length;
-    const countParts = [`本 ${sum.books} 冊`, memoCount > 0 ? `メモ ${memoCount} 件` : '', reviewCount > 0 ? `まとめ ${reviewCount} 件` : ''].filter(Boolean);
+    // 数と単位は離さない（改行しない空白）。改行してよいのは「：」のあとと「・」のあとだけ。
+    const countParts = [`本 ${sum.books} 冊`, memoCount > 0 ? `メモ ${memoCount} 件` : '', reviewCount > 0 ? `まとめ ${reviewCount} 件` : ''].filter(Boolean);
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
-        <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}>
-          {SOURCE_LABEL[result.source] || ''}：{countParts.join('・')}
+        <p style={heading}>
+          {SOURCE_LABEL[result.source] ? <>{SOURCE_LABEL[result.source]}<wbr />：</> : null}
+          {countParts.map((p, i) => <span key={p}>{i > 0 ? <>・<wbr /></> : null}{p}</span>)}
         </p>
         <ul style={{ ...list, gap: 0 }}>
           {shown.map((b, i) => (

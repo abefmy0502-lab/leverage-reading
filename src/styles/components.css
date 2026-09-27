@@ -70,33 +70,34 @@
   background: var(--accent);
   color: var(--accent-ink);
 }
-.btn-primary:hover {
-  filter: brightness(0.95);
-}
 
 .btn-secondary {
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
 }
-.btn-secondary:hover {
-  background: var(--fill);
-}
 
 .btn-ghost {
   background: transparent;
   color: var(--accent);
-}
-.btn-ghost:hover {
-  background: var(--fill);
 }
 
 .btn-danger {
   background: var(--error);
   color: var(--accent-ink);
 }
-.btn-danger:hover {
-  filter: brightness(0.95);
+
+/* ホバーはマウスのある端末だけ。タッチ端末では押したあとも :hover が残り、
+   ボタンが暗いまま（押しっぱなしに見える）になるため。 */
+@media (hover: hover) {
+  .btn-primary:hover,
+  .btn-danger:hover {
+    filter: brightness(0.95);
+  }
+  .btn-secondary:hover,
+  .btn-ghost:hover {
+    background: var(--fill);
+  }
 }
 
 .btn-sm {
@@ -400,7 +401,8 @@ select:not(.no-focus-ring):focus {
 }
 
 /* Skeleton primitives sized like real book-card pieces. */
-.skeleton-cover  { width: 42px; height: 60px; border-radius: var(--radius-xs); flex-shrink: 0; }
+/* 表紙は本物（MiniCover・.book-cover-image-wrap）と同じ 44×62・角丸 4。 */
+.skeleton-cover  { width: 44px; height: 62px; border-radius: 4px; flex-shrink: 0; }
 .skeleton-line   { height: 12px; border-radius: var(--radius-full); }
 .skeleton-line-lg { height: 16px; border-radius: var(--radius-full); }
 .skeleton-pill   { width: 56px; height: 18px; border-radius: var(--radius-full); }
