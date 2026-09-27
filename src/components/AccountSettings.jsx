@@ -25,13 +25,14 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage, isSchemaError } from '../lib/errors';
-import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
 import FeedbackForm from './FeedbackForm';
 import { exportUserDataAsCSV, exportMemosAsMarkdown } from '../lib/exportData';
 import { forceUpdate as forceAppUpdate } from '../lib/swUpdate';
 import { useSubscription } from '../hooks/useSubscription';
-import { startCheckout, openBillingPortal, PLAN_LABELS } from '../lib/billing';
-import { isNative, purchasePlan, openManageSubscriptions, APP_PLAN_LABELS, getStoreLabels } from '../lib/iap';
+import { openBillingPortal } from '../lib/billing';
+import { isNative, openManageSubscriptions } from '../lib/iap';
+import { usePaywall } from '../state/PaywallContext';
+import { PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
@@ -365,7 +366,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const trapRef = useFocusTrap(!feedbackOpen);
   // 💳 課金状態。subscriptions 未適用なら subscription=null / isActive=false で
   // 静かに縮退する（useSubscription 側で schema-error を握りつぶす）。
-  const { subscription, isActive, loading: subLoading, refresh: refreshSub } = useSubscription();
+  const { subscription, isActive, loading: subLoading } = useSubscription();
   // 🪙 プランと残りのトークン（PaywallGate が配る）。契約は「プランを見る」→ 有料プランの画面で
   //    （価格・自動更新の条件・復元・規約を 1 か所で見せる＝審査 3.1.2）。
   const { plan, tokensRemaining, tokenAllowance, openPaywall } = usePaywall();
@@ -862,8 +863,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   <button
                     type="button"
                     style={btnPrimary}
-                    // 設定の上に重ねると隠れるので、設定を閉じてから開く。
-                    onClick={() => { onClose?.(); openPaywall(null); }}
+                    // 有料プランの画面は設定の上に重なる（閉じると設定に戻る）。
+                    onClick={() => openPaywall(null)}
                   >
                     プランを見る
                   </button>

@@ -139,7 +139,7 @@ import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 import { PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
 import { periodKeyFor, fetchUsedMjpy, remainingTokens, allowanceFor as allowanceForPlan } from './lib/tokens';
-import { PaywallContext } from './state/PaywallContext';
+import { PaywallContext, usePaywall } from './state/PaywallContext';
 import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
@@ -2268,7 +2268,10 @@ function AuthedApp() {
   // the async handler (runs after the full body has initialized).
 
   // （撤去 2026-09-27）runAnalysis —「AIで本を解析する」。読書計画シートと役割が重なるため廃止。
+  // 読書計画シート（作る・修正）はプランの機能（フリーミアム）。無料プランなら有料プランの画面を開く。
+  const { requirePlan } = usePaywall();
   const runStrategy = async () => {
+    if (!requirePlan('読書計画シート')) return;
     setAiLoading(true);
     const targetId = form?.id;
     const prevStrategy = form?.aiStrategy || '';
@@ -2305,7 +2308,9 @@ function AuthedApp() {
     } catch (error) {
       // 失敗時は元の計画シートに戻す（クリアしたまま保存すると DB のシートが消える）。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prevStrategy } : f));
-      toast.error(toMessage(error, '読書計画シートを作れませんでした。'));
+      // プランの案内（402）は有料プランの画面が開くので重ねない。トークンの上限は案内として。
+      if (error?.monthlyLimit) toast.info(error.message);
+      else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートを作れませんでした。'));
     } finally {
       setAiLoading(false);
     }
@@ -2317,6 +2322,7 @@ function AuthedApp() {
   const runStrategyEdit = async (instruction) => {
     if (!form?.aiStrategy?.trim()) return;
     if (!instruction?.trim()) return;
+    if (!requirePlan('読書計画シート')) return;
     const prev = form.aiStrategy;
     const targetId = form?.id;
     setAiLoading(true);
@@ -2356,7 +2362,8 @@ function AuthedApp() {
     } catch (error) {
       // ストリーミング失敗時は元のシートを戻す (undo 履歴は触らない)。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prev } : f));
-      toast.error(toMessage(error, '読書計画シートの修正に失敗しました。'));
+      if (error?.monthlyLimit) toast.info(error.message);
+      else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートの修正に失敗しました。'));
     } finally {
       setAiLoading(false);
     }

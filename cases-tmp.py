@@ -20,11 +20,13 @@ cases=[
 if len(sys.argv) > 2 and sys.argv[2] == 'photo':
     ph='/scripts/fixtures/share-photo.jpg'
     cases=[
-     dict(name=f'{prefix}-photo-story-bottom', line=q2, page=18, title='エッセンシャル思考', author='グレッグ・マキューン', style='photo', format='story', photo=ph),
-     dict(name=f'{prefix}-photo-square-bottom', line=q1, page=25, title='イシューからはじめよ', author='安宅和人', style='photo', format='square', photo=ph),
-     dict(name=f'{prefix}-photo-post-top', line=q2, page=18, title='エッセンシャル思考', author='グレッグ・マキューン', style='photo', format='post', photo=ph, textPos='top'),
-     dict(name=f'{prefix}-sticker', line=q2, page=18, title='エッセンシャル思考', author='グレッグ・マキューン', style='sticker', format='story'),
-     dict(name=f'{prefix}-paper-square', line=q1, page=25, title='イシューからはじめよ', author='安宅和人', style='paper', format='square', coverSvg=issue),
-     dict(name=f'{prefix}-night-story', line=q3, page=95, title='1兆ドルコーチ', author='エリック・シュミット', style='night', format='story'),
+     dict(name=f'{prefix}-photo-story-bottom', line=q2, page=18, totalPages=240, seedKey='m1', title='エッセンシャル思考', author='グレッグ・マキューン', style='photo', format='story', photo=ph),
+     dict(name=f'{prefix}-photo-square-bottom', line=q1, page=25, totalPages=240, seedKey='m2', title='イシューからはじめよ', author='安宅和人', style='photo', format='square', photo=ph),
+     dict(name=f'{prefix}-photo-post-top', line=q2, page=180, totalPages=240, seedKey='m3', title='エッセンシャル思考', author='グレッグ・マキューン', style='photo', format='post', photo=ph, textPos='top'),
+     dict(name=f'{prefix}-sticker', line=q2, page=120, totalPages=240, seedKey='m4', title='エッセンシャル思考', author='グレッグ・マキューン', style='sticker', format='story'),
+     dict(name=f'{prefix}-paper-square', line=q1, page=25, totalPages=240, seedKey='m5', title='イシューからはじめよ', author='安宅和人', style='paper', format='square', coverSvg=issue),
+     dict(name=f'{prefix}-paper-story', line=q1, page=88, totalPages=240, seedKey='m7', title='イシューからはじめよ', author='安宅和人', style='paper', format='story', coverSvg=issue),
+     dict(name=f'{prefix}-cover-post', line=q4, page=None, seedKey='m8', title='レバレッジ・リーディング', author='本田直之', style='cover', format='post'),
+     dict(name=f'{prefix}-night-story', line=q3, page=95, totalPages=240, seedKey='m6', title='1兆ドルコーチ', author='エリック・シュミット', style='night', format='story'),
     ]
 print(json.dumps(cases, ensure_ascii=False))

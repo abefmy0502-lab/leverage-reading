@@ -7,6 +7,9 @@
 //   透明（sticker）… 地の無い白い文字（ストーリーの自分の写真の上に貼る用）
 // 下には Orime のロゴ（public/logo-lockup.png から、本の印と文字を切り出して横に並べる。
 // 暗い地・写真・透明では白に変え、i の点の橙だけ残す）とサイトの URL。
+// 2 つの印（Strava の橙のルートにあたる「読んだ跡」）:
+//   傍線 … 一文の最後の行の下に、橙の手描きの線。メモごとに形が決まっている（メモの id と本文から種を作る）
+//   付箋 … 本を横から見た小口（ページの束）に、橙の付箋。その一文が本のどのあたりかを高さで示す（数字は出さない）
 //
 // 色は tokens.css の --share-* を getComputedStyle で読む（canvas は var() を解決できない）。
 // 書体は --font-read / --font-ui の並びをそのまま使い、document.fonts.ready を待つ。
@@ -16,6 +19,7 @@
 import {
   FORMATS, clampLine, fitQuote, wrapBalanced, coverTone, rgbCss,
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
+  seedFrom, underlineStroke, tabPosition,
 } from './shareCardLayout';
 import { paletteFor } from './coverPalette';
 import { apiUrl } from './apiUrl';
@@ -49,7 +53,8 @@ export function readShareTheme(style, { tone = null, title = '' } = {}) {
       ink: p('ink') || '#ffffff',
       ink2: p('ink-2') || 'rgba(255,255,255,0.86)',
       ink3: p('ink-2') || 'rgba(255,255,255,0.86)',
-      accent: p('accent') || '#e3a93f',
+      accent: cssVar('--share-accent') || '#df8e17',
+      edge: p('ink-2') || 'rgba(255,255,255,0.86)',
       shadow: style === 'sticker' ? (cssVar('--share-sticker-shadow') || 'rgba(0,0,0,0.55)') : (p('shadow') || 'rgba(0,0,0,0.35)'),
       scrim: p('scrim') || '14, 12, 10',
       logo: 'white',
@@ -65,14 +70,15 @@ export function readShareTheme(style, { tone = null, title = '' } = {}) {
       ink: t('ink') || '#ffffff',
       ink2: t('ink-2') || 'rgba(255,255,255,0.84)',
       ink3: t('ink-3') || 'rgba(255,255,255,0.72)',
-      accent: t('accent') || 'rgba(255,255,255,0.6)',
+      accent: cssVar('--share-accent') || '#df8e17',
+      edge: t('ink-3') || 'rgba(255,255,255,0.72)',
       shadow: t('shadow') || 'rgba(0,0,0,0.35)',
       // 表紙の色の地は暗いので、ロゴは白（元の焦げ茶の文字は暗い地で読めない）
       logo: 'white',
     };
   }
   return {
-    key, bg: t('bg'), ink: t('ink'), ink2: t('ink-2'), ink3: t('ink-3'), accent: t('accent'), shadow: t('shadow'),
+    key, bg: t('bg'), ink: t('ink'), ink2: t('ink-2'), ink3: t('ink-3'), accent: cssVar('--share-accent') || '#df8e17', edge: t('ink-3'), shadow: t('shadow'),
     logo: key === 'night' ? 'white' : 'color',
   };
 }
@@ -371,16 +377,80 @@ function layoutQuote(ctx, fonts, text, { maxWidth, maxHeight, sizes, lineHeight 
   });
 }
 
-function drawQuoteLines(ctx, fonts, fit, left, top, color) {
+// 手描きの傍線（最後の行の下・文字より先に描いて文字の後ろに回す）。
+function drawUnderline(ctx, { x0, x1, y, weight, seed, color }) {
+  const st = underlineStroke({ x0, x1, y, weight, seed });
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  st.top.forEach(([x, yy], i) => (i ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy)));
+  st.bottom.forEach(([x, yy]) => ctx.lineTo(x, yy));
+  ctx.closePath();
+  ctx.fill();
+  [st.capStart, st.capEnd].forEach(([cx, cy, r]) => { ctx.beginPath(); ctx.arc(cx, cy, Math.max(0.5, r), 0, Math.PI * 2); ctx.fill(); });
+  ctx.restore();
+}
+
+function drawQuoteLines(ctx, fonts, fit, left, top, color, underline = null) {
   ctx.font = `400 ${fit.size}px ${fonts.read}`;
   setSpacing(ctx, 0.02, fit.size);
-  ctx.fillStyle = color;
   const ascent = fit.size * 0.88; // 行の箱の上から字の基線まで（明朝のおおよそ）
   const half = (fit.lineHeight - fit.size) / 2;
+  if (underline && fit.lines.length) {
+    const last = fit.lines[fit.lines.length - 1];
+    const lx = left - inkLeftOffset(ctx, last);
+    const m = ctx.measureText(last);
+    const inkRight = lx + (m.actualBoundingBoxRight || m.width);
+    const baseline = top + (fit.lines.length - 1) * fit.lineHeight + half + ascent;
+    drawUnderline(ctx, { x0: left, x1: inkRight, y: baseline + fit.size * 0.2, weight: Math.max(6, fit.size * 0.15), seed: underline.seed, color: underline.color });
+    ctx.font = `400 ${fit.size}px ${fonts.read}`;
+    setSpacing(ctx, 0.02, fit.size);
+  }
+  ctx.fillStyle = color;
   fit.lines.forEach((ln, i) => {
     // 行頭の開き括弧（「『（）は、字の墨の左端を本文の左端にそろえる（括弧の前の空きを詰める）。
     ctx.fillText(ln, left - inkLeftOffset(ctx, ln), top + i * fit.lineHeight + half + ascent);
   });
+}
+
+// 小口（本を横から見たページの束）と付箋。frac＝本の上 0〜下 1。付箋の分だけ右へ張り出す。
+function foreEdgeSize(h) {
+  return { w: Math.round(h * 0.2), tab: Math.round(h * 0.16) };
+}
+function drawForeEdge(ctx, { x, y, h, frac, lineColor, tabColor }) {
+  const { w, tab } = foreEdgeSize(h);
+  ctx.save();
+  // 表紙の厚み（上下の少し太い線）とページの束（細い線）
+  ctx.fillStyle = lineColor;
+  const cover = Math.max(2, h * 0.025);
+  ctx.globalAlpha = 0.9;
+  ctx.fillRect(x, y, w, cover);
+  ctx.fillRect(x, y + h - cover, w, cover);
+  ctx.globalAlpha = 0.45;
+  const lines = Math.max(8, Math.floor((h - cover * 2) / Math.max(3, h * 0.035)));
+  for (let i = 1; i < lines; i += 1) {
+    const yy = y + cover + ((h - cover * 2) * i) / lines;
+    ctx.fillRect(x + w * 0.04, yy - 0.6, w * 0.94, 1.2);
+  }
+  ctx.restore();
+  if (frac == null) return;
+  // 付箋（橙・右へ張り出す・右端だけ丸く）
+  const th = Math.max(6, h * 0.075);
+  const ty = y + cover + (h - cover * 2 - th) * frac;
+  const tx = x + w * 0.55;
+  const tw = w * 0.45 + tab;
+  const r = th / 2;
+  ctx.save();
+  ctx.fillStyle = tabColor;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(tx + tw - r, ty);
+  ctx.arc(tx + tw - r, ty + r, r, -Math.PI / 2, Math.PI / 2);
+  ctx.lineTo(tx, ty + th);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts }) {
@@ -517,9 +587,8 @@ function drawPoster(ctx, o) {
   const mark = quoteMark(ctx, fonts, L.markInk);
   const markGap = Math.round(L.sizes[0] * 0.55);
   const coverH = Math.round(L.coverW * 1.45);
-  const ruleGap = Math.round(L.sizes[0] * 0.8);
-  const bookGap = Math.round(L.sizes[0] * 0.52);
-  const fixedH = L.markInk + markGap + ruleGap + 3 + bookGap + coverH;
+  const bookGap = Math.round(L.sizes[0] * 1.15); // 傍線の下から本の行まで
+  const fixedH = L.markInk + markGap + bookGap + coverH;
   const fit = layoutQuote(ctx, fonts, text, { maxWidth: contentW, maxHeight: (L.bottom - L.top) - fixedH, sizes: L.sizes, lineHeight: 1.62 });
   const quoteH = fit.lines.length * fit.lineHeight;
   // 目で見た中心（数学の中心より少し上）に置く。
@@ -527,15 +596,19 @@ function drawPoster(ctx, o) {
 
   drawQuoteMark(ctx, mark, left, y, theme.accent);
   y += L.markInk + markGap;
-  drawQuoteLines(ctx, fonts, fit, left, y, theme.ink);
-  y += quoteH + ruleGap;
-  ctx.fillStyle = theme.accent;
-  ctx.fillRect(left, y, 64, 3);
-  y += 3 + bookGap;
+  drawQuoteLines(ctx, fonts, fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
+  y += quoteH + bookGap;
 
   drawCover(ctx, { x: left, y, w: L.coverW, h: coverH, cover: o.cover, title: o.title, theme, fonts });
+  // 右端に小口と付箋（ページがあるときだけ）。書名の列はその分だけ狭める。
+  const edgeH = Math.round(coverH * 0.72);
+  const edge = foreEdgeSize(edgeH);
+  const edgeW = o.frac == null ? 0 : edge.w + edge.tab;
+  if (o.frac != null) {
+    drawForeEdge(ctx, { x: W - L.margin - edgeW, y: y + (coverH - edgeH) / 2, h: edgeH, frac: o.frac, lineColor: theme.edge, tabColor: theme.accent });
+  }
   const colX = left + L.coverW + 40;
-  const colW = W - L.margin - colX;
+  const colW = W - L.margin - colX - (edgeW ? edgeW + 32 : 0);
   const titleFont = `600 ${L.titleSize}px ${fonts.read}`;
   const bl = layoutBookLines(ctx, fonts, { title: o.title, author: o.author, page: o.page, width: colW, titleFont, titleSize: L.titleSize, metaSize: L.metaSize });
   drawBookLines(ctx, fonts, bl, { x: colX, top: y + (coverH - bl.height) / 2, width: colW, titleFont, titleSize: L.titleSize, metaSize: L.metaSize, ink: theme.ink, ink2: theme.ink2, ink3: theme.ink3 });
@@ -556,13 +629,17 @@ function layoutOverlay(ctx, fonts, o, L, maxBlockH) {
   const contentW = o.W - L.margin * 2;
   const mark = quoteMark(ctx, fonts, L.markInk);
   const markGap = Math.round(L.sizes[0] * 0.42);
-  const bookGap = Math.round(L.sizes[0] * 0.5);
+  const bookGap = Math.round(L.sizes[0] * 0.95); // 傍線の下から書名まで
   const titleFont = `600 ${L.titleSize}px ${fonts.ui}`;
-  const bl = layoutBookLines(ctx, fonts, { title: o.title, author: o.author, page: o.page, width: contentW, titleFont, titleSize: L.titleSize, metaSize: L.metaSize });
+  // 書名の行の右に小口と付箋（ページがあるときだけ）。その分だけ書名の幅を狭める。
+  const edgeH = Math.round((L.titleSize * 1.4 + L.metaSize * 1.5 + 10) * 1.05);
+  const edge = foreEdgeSize(edgeH);
+  const edgeW = o.frac == null ? 0 : edge.w + edge.tab;
+  const bl = layoutBookLines(ctx, fonts, { title: o.title, author: o.author, page: o.page, width: contentW - (edgeW ? edgeW + 32 : 0), titleFont, titleSize: L.titleSize, metaSize: L.metaSize });
   const fixedH = L.markInk + markGap + bookGap + bl.height;
   const fit = layoutQuote(ctx, fonts, o.text, { maxWidth: contentW, maxHeight: maxBlockH - fixedH, sizes: L.sizes, lineHeight: 1.55 });
   const quoteH = fit.lines.length * fit.lineHeight;
-  return { mark, markGap, bookGap, titleFont, bl, fit, quoteH, height: fixedH + quoteH, contentW };
+  return { mark, markGap, bookGap, titleFont, bl, fit, quoteH, height: fixedH + quoteH, contentW, edgeH, edgeW };
 }
 
 function drawOverlay(ctx, fonts, o, L, lay, top, theme) {
@@ -570,9 +647,12 @@ function drawOverlay(ctx, fonts, o, L, lay, top, theme) {
   let y = top;
   drawQuoteMark(ctx, lay.mark, left, y, theme.accent);
   y += L.markInk + lay.markGap;
-  drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink);
+  drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
   y += lay.quoteH + lay.bookGap;
-  drawBookLines(ctx, fonts, lay.bl, { x: left, top: y, width: lay.contentW, titleFont: lay.titleFont, titleSize: L.titleSize, metaSize: L.metaSize, ink: theme.ink, ink2: theme.ink2, ink3: theme.ink2 });
+  drawBookLines(ctx, fonts, lay.bl, { x: left, top: y, width: lay.contentW - (lay.edgeW ? lay.edgeW + 32 : 0), titleFont: lay.titleFont, titleSize: L.titleSize, metaSize: L.metaSize, ink: theme.ink, ink2: theme.ink2, ink3: theme.ink2 });
+  if (o.frac != null) {
+    drawForeEdge(ctx, { x: o.W - L.margin - lay.edgeW, y: y + (lay.bl.height - lay.edgeH) / 2, h: lay.edgeH, frac: o.frac, lineColor: theme.edge, tabColor: theme.accent });
+  }
 }
 
 // 写真の、ある帯（y0〜y1）の明るい部分の輝度。
@@ -675,7 +755,8 @@ function drawSticker(ctx, o, size) {
 // ---------------------------------------------------------------- 本体
 
 // canvas に描く（同期）。canvas の大きさもここで決める。
-// opts: { line, page, title, author, cover, style, format, photo, view, textPos, fonts, logo }
+// opts: { line, page, title, author, cover, style, format, photo, view, textPos, fonts, logo,
+//         seedKey（傍線の種＝メモの id）, totalPages / knownMaxPage（付箋の高さ） }
 // 戻り値: { line, width, height }（line は実際に画像に入れた文＝共有の文にも同じものを使う）
 export function drawShareCard(canvas, opts = {}) {
   const { text } = clampLine(opts.line);
@@ -686,7 +767,11 @@ export function drawShareCard(canvas, opts = {}) {
   const theme = readShareTheme(style, { tone: opts.cover?.tone, title: opts.title });
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('この端末では画像を作れませんでした。');
-  const base = { ...opts, text, fonts, theme, style };
+  const base = {
+    ...opts, text, fonts, theme, style,
+    seed: seedFrom(`${opts.seedKey || ''}|${text}`),
+    frac: tabPosition(opts.page, opts.totalPages, opts.knownMaxPage),
+  };
 
   if (style === 'sticker') {
     // 大きさを決めるために一度測る（canvas の大きさを変えると中身が消えるので、測ってから決める）

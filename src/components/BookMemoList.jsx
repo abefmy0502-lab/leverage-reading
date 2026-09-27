@@ -5,6 +5,7 @@ import { useHaptic } from '../hooks/useHaptic';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { summarizeCards } from '../lib/ai';
+import { usePaywall } from '../state/PaywallContext';
 import { MemoListSkeleton } from './Skeleton';
 import EmptyState from './EmptyState';
 import { LIMITS } from '../lib/limits';
@@ -57,8 +58,11 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   const canGenerate = cardTexts.length >= 2;
 
   // 📝 カード→まとめ生成。既存のまとめがあれば上書き確認してから差し替える。
+  // メモからまとめを作るはプランの機能（フリーミアム）。無料プランなら有料プランの画面を開く。
+  const { requirePlan } = usePaywall();
   const handleGenerate = async () => {
     if (generating || !canGenerate) return;
+    if (!requirePlan('メモからまとめを作る')) return;
     if (text.trim()) {
       const ok = await confirm({
         title: 'まとめを生成しますか？',
@@ -79,7 +83,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
       haptic.success();
       toast.success('カードからまとめを生成しました。確認して保存してください。');
     } catch (e) {
-      setErrorMsg(toMessage(e, 'まとめの生成に失敗しました。'));
+      // プランの案内（402）は有料プランの画面が開くので、ここには出さない。
+      if (!(e?.notice && /^この AI 機能は/.test(e.message))) setErrorMsg(toMessage(e, 'まとめの生成に失敗しました。'));
     } finally {
       setGenerating(false);
     }

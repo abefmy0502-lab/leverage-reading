@@ -370,3 +370,78 @@ export function coverProxyPath(url, origin = '') {
   }
   return { direct: false, src: `/api/cover-image?url=${encodeURIComponent(https)}` };
 }
+
+// ---------------------------------------------------------------- 傍線と付箋（カードの印）
+
+// 文字列から決まる 32bit の種（同じメモは毎回同じ線になる）。
+export function seedFrom(str) {
+  let h = 2166136261;
+  for (const ch of String(str || '')) {
+    h ^= ch.codePointAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+// 小さな乱数（mulberry32）。種が同じなら同じ並び。
+export function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 手で引いた傍線（マーカーの 1 本線）の輪郭。x0〜x1 の下、基準の高さ y に、太さ weight。
+// ゆるい揺れ・わずかな傾き・両端の細り・少しのはみ出しを、種から決める。
+// 戻り値: { top: [[x,y]…], bottom: [[x,y]…], capStart: [x,y,r], capEnd: [x,y,r] }（上の縁を左→右、下の縁を右→左で結ぶ）
+export function underlineStroke({ x0, x1, y, weight, seed }) {
+  const rnd = mulberry32(seed);
+  const len = Math.max(1, x1 - x0);
+  const over0 = weight * (0.4 + rnd() * 0.9); // 書き出しのはみ出し
+  const over1 = weight * (0.8 + rnd() * 1.6); // 書き終わりのはみ出し（少し長め）
+  const sx = x0 - over0;
+  const ex = x1 + over1;
+  const tilt = (rnd() - 0.5) * weight * 0.9; // 全体の傾き（右端の上下）
+  const lift = -(0.3 + rnd() * 0.7) * weight * 0.55; // 書き終わりが少し上がる
+  const f1 = 1.2 + rnd() * 1.4; const p1 = rnd() * Math.PI * 2; const a1 = weight * (0.12 + rnd() * 0.14);
+  const f2 = 3.1 + rnd() * 2.4; const p2 = rnd() * Math.PI * 2; const a2 = weight * (0.05 + rnd() * 0.06);
+  const w1 = 1.5 + rnd() * 1.5; const wp = rnd() * Math.PI * 2;
+  const N = Math.max(24, Math.round(len / 12));
+  const top = [];
+  const bottom = [];
+  for (let i = 0; i <= N; i += 1) {
+    const t = i / N;
+    const x = sx + (ex - sx) * t;
+    const cy = y + tilt * t + lift * t ** 3
+      + a1 * Math.sin(t * Math.PI * f1 + p1) + a2 * Math.sin(t * Math.PI * f2 + p2);
+    // 太さ: 書き出しは素早く太く、終わりにかけて細る（筆圧）
+    const taper = Math.min(1, t / 0.06) * Math.min(1, (1 - t) / 0.16);
+    const w = weight * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, t * 1.05))) * (0.9 + 0.1 * Math.sin(t * Math.PI * w1 + wp)) * Math.max(0.18, taper);
+    top.push([x, cy - w / 2]);
+    bottom.push([x, cy + w / 2]);
+  }
+  const mid = (arr, k) => arr[k];
+  const r0 = Math.abs(mid(bottom, 0)[1] - mid(top, 0)[1]) / 2;
+  const rN = Math.abs(mid(bottom, N)[1] - mid(top, N)[1]) / 2;
+  return {
+    top,
+    bottom: bottom.reverse(),
+    capStart: [top[0][0], (top[0][1] + bottom[bottom.length - 1][1]) / 2, r0],
+    capEnd: [top[N][0], (top[N][1] + bottom[0][1]) / 2, rN],
+  };
+}
+
+// 付箋の高さ（本の上＝0・下＝1）。ページが無いメモは null（付箋を出さない）。
+// 総ページが分からないときは、分かっているメモのページの最大か、このページ＋50 の大きいほう。
+export function tabPosition(page, totalPages, knownMaxPage = 0) {
+  const p = Number(page);
+  if (!Number.isFinite(p) || p <= 0) return null;
+  const total = Number(totalPages) > 0 && Number(totalPages) >= p
+    ? Number(totalPages)
+    : Math.max(Number(knownMaxPage) || 0, p + 50);
+  return Math.min(1, Math.max(0, (p - 1) / Math.max(1, total - 1)));
+}

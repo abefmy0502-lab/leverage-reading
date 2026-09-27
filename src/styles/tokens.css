@@ -94,24 +94,23 @@
   --share-paper-ink: #2b2825;
   --share-paper-ink-2: #5f5a53;
   --share-paper-ink-3: #6e685f;
-  --share-paper-accent: #8a4b2a;   /* 引用符・短い線だけ（アクセント 1 色） */
   --share-paper-shadow: rgba(43, 40, 37, 0.22);
   --share-night-bg: #1a1917;
   --share-night-ink: #f2efea;
   --share-night-ink-2: #c9c2b8;
   --share-night-ink-3: #a39c92;
-  --share-night-accent: #e0a07a;
   --share-night-shadow: rgba(0, 0, 0, 0.5);
   --share-cover-ink: #ffffff;
   --share-cover-ink-2: rgba(255, 255, 255, 0.84);
   --share-cover-ink-3: rgba(255, 255, 255, 0.72);
-  --share-cover-accent: rgba(255, 255, 255, 0.6);
   --share-cover-shadow: rgba(0, 0, 0, 0.35);
-  /* 写真（自分の写真の上に白い文字）と透明（ステッカー）。アクセントはロゴの i の点の橙。
+  /* 一文カードのアクセントは全部の地で 1 色＝ロゴの i の点の橙（logo-lockup.png の点の平均色）。
+     引用符・手描きの傍線・小口の付箋にだけ使う（飾りなので文字のコントラストの基準は対象外）。 */
+  --share-accent: #df8e17;
+  /* 写真（自分の写真の上に白い文字）と透明（ステッカー）。
      幕（scrim）は写真の明るさに合わせて濃さを変える黒（r, g, b だけ・透明度は描くときに決める）。 */
   --share-photo-ink: #ffffff;
   --share-photo-ink-2: rgba(255, 255, 255, 0.86);
-  --share-photo-accent: #e3a93f;
   --share-photo-shadow: rgba(0, 0, 0, 0.35);
   --share-photo-scrim: 14, 12, 10;
   --share-sticker-shadow: rgba(0, 0, 0, 0.55);

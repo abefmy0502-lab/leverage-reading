@@ -17,7 +17,7 @@ import {
   SquareCheck as IcBoxChecked,
   TriangleAlert as IcAlert,
 } from 'lucide-react';
-import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext } from '../lib/ai';
+import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext, isAiNoticeString } from '../lib/ai';
 import { streamClaude } from '../lib/streamClaude';
 import { PROMPTS } from '../lib/prompts';
 import { MODEL_FAST, MODEL_ADVISOR } from '../lib/models';
@@ -161,8 +161,9 @@ const MAX_INTERVIEW_ROUNDS = 3;
 
 
 export default function BookAdvisor({ onAddBook, sessionApi, books }) {
-  // 🎁 お試し中は、ヒアリングの質問作りに回数を使わず、相談からすぐおすすめを出す（3 回を大事に使う）。
-  const { freeMode } = usePaywall();
+  // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
+  //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
+  const { requirePlan } = usePaywall();
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
   const activeControllerRef = useRef(null);
   const unmountedRef = useRef(false);
@@ -454,8 +455,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     } catch {
       return null;
     }
-    // 月の上限・お試しの終了なら、推薦にも進まず案内だけ出す（もう一度 AI を呼んでも同じ結果なので呼ばない）。
-    if (typeof text === 'string' && /^(今月の AI|AI 機能のご利用|お試しの相談)/.test(text)) return { stop: text };
+    // トークンの上限・プランの案内なら、推薦にも進まず案内だけ出す（もう一度 AI を呼んでも同じ結果なので呼ばない）。
+    if (isAiNoticeString(text)) return { stop: text };
     const parsed = parseInterview(text);
     if (!parsed) return null;
     // done でも質問が来ていても、最終ラウンドなら締める。
@@ -463,7 +464,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     return parsed.questions;
   };
 
-  // 月の上限・お試しの終了: 失敗ではないので、再試行ボタンのない案内として出す（相談と同じ）。
+  // トークンの上限・プランの案内: 失敗ではないので、再試行ボタンのない案内として出す（相談と同じ）。
   const showLimitNotice = (message) => {
     setRecoNotice(true);
     setRecoError(message);
@@ -742,6 +743,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     if (interviewLoading || recoLoading) return;
     const c = clamp(sanitizeForPrompt(rawConcern || ''), LIMITS.aiQuestion);
     if (!c) return;
+    if (!requirePlan('AI 選書')) return; // 無料プラン: 有料プランの画面を開く（入力は残す）
     // ヒアリング開始と同時に読書傾向コンテキストを裏で先読み（推薦時の待ちを隠す）。
     // マウント時の prewarm から時間が経ち TTL 切れの場合の再ウォーム。
     prewarmAdvisorContext(advisorUser?.id);
@@ -755,12 +757,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     setInterviewAnswers([]);
     setInterviewStep(0);
     setInterviewRound(1);
-    let qs = null;
-    if (!freeMode) {
-      setInterviewLoading(true);
-      qs = await runInterviewRound(c, [], 1);
-      setInterviewLoading(false);
-    }
+    setInterviewLoading(true);
+    const qs = await runInterviewRound(c, [], 1);
+    setInterviewLoading(false);
     if (qs?.stop) { showLimitNotice(qs.stop); return; }
     if (qs === null || qs.length === 0) {
       // 質問を組めなかった / いきなり done → 相談内容だけで直接推薦（graceful）

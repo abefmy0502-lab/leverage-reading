@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Search, Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
+import { TOKEN_COSTS } from '../lib/tokens';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -535,7 +536,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                   相談してみる
                 </h2>
                 {freeMode && freeRemaining > 0 && (
-                  <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)' }}>お試しで {freeRemaining} 回まで、無料で相談できます</p>
+                  <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)' }}>今月の残り {freeRemaining} トークン（相談 1 回 約 {TOKEN_COSTS.consult}）</p>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {suggestQuestions(picked).map((q) => (

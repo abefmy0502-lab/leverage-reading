@@ -18,6 +18,7 @@ import { useHaptic } from '../hooks/useHaptic';
 import { toMessage } from '../lib/errors';
 import { stripInlineMd } from '../lib/text';
 import { LIMITS } from '../lib/limits';
+import { usePaywall } from '../state/PaywallContext';
 import {
   listThemes,
   streamThemeReport,
@@ -193,6 +194,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const toast = useToast();
   const confirm = useConfirm();
   const haptic = useHaptic();
+  // テーマまとめはプランの機能（フリーミアム）。無料プランなら作る前に有料プランの画面を開く。
+  const { requirePlan } = usePaywall();
 
   const [view, setView] = useState('create'); // 'create' | 'history'
   const [themes, setThemes] = useState([]);
@@ -286,6 +289,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const generate = useCallback(async (rawTheme) => {
     const theme = (rawTheme || '').trim();
     if (!theme || generating || !user?.id) return;
+    if (!requirePlan('テーマまとめ')) return;
     haptic.light();
     // 実行トークン: 生成中に履歴レポートを開く等で runId が進んだら、この
     // 実行のストリーム/完了処理は一切 state を触らない（履歴の内容がテーマ
@@ -394,7 +398,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
       }
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [generating, user?.id, haptic, toast]);
+  }, [generating, user?.id, haptic, toast, requirePlan]);
 
   const stopGeneration = useCallback(() => {
     const controller = abortRef.current;

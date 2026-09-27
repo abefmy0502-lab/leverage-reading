@@ -202,7 +202,9 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' })
   // （エラー文言の閉集合の唯一の真実）に委譲 — 独自 regex は将来の文言追加でドリフトし、
   // 書き起こし本文が偶然「エラー」で始まると誤 throw する罠もあった。
   if (isClaudeErrorString(result)) {
-    throw new Error(result);
+    const err = new Error(result);
+    if (isAiNoticeString(result)) err.notice = true; // トークンの上限・プランの案内（エラーの見た目にしない）
+    throw err;
   }
   // 📊 AI 利用の計測（エラー / quota は上で throw 済み = ここは正常応答のみ）。
   // 書き起こした本文は送らず feature の enum だけ。

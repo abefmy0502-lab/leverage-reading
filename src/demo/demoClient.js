@@ -10,6 +10,8 @@
 //   - ?demo=new  : 新規ユーザー（本0冊・初回ガイドから）
 //   - ?demo=auth : 未ログイン状態（ログイン画面・LP の確認用）
 //   - ?demo=paywall : 購読なし（有料プランの画面の確認用。&native=1 でアプリ版の表示）
+//   - ?demo=free / freeused / freenew : 無料プラン（相談だけ AI・毎月 30 トークン）/ 使い切った / 新規
+//   - ?demo=trial : 7 日間無料の途中 / ?demo=limit : 今月の 800 トークンを使い切った
 //   - ?demo=webgate : ブラウザの一般利用者に出す「アプリでご利用ください」の確認用
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
@@ -257,7 +259,7 @@ function makeSession(user) {
 export function createDemoClient() {
   const params = new URLSearchParams(window.location.search);
   const scenario = params.get('demo') || 'full';
-  if (scenario === 'new' || scenario === 'auth' || scenario === 'free') {
+  if (scenario === 'new' || scenario === 'auth' || scenario === 'freenew') {
     // 新規ユーザー体験を毎回まっさらに見るため、端末ローカルの既読フラグも消す。
     try { window.localStorage.clear(); } catch { /* ignore */ }
   } else {
@@ -273,8 +275,8 @@ export function createDemoClient() {
     email: 'demo@example.com',
     user_metadata: { display_name: scenario === 'new' ? '' : 'さとう' },
     app_metadata: { provider: 'email' },
-    // ?demo=free: 登録したばかり（お試しの枠の中）の未課金ユーザー。
-    created_at: new Date(Date.now() - ((scenario === 'free' || scenario === 'freeused') ? 600000 : 200 * 86400000)).toISOString(),
+    // ?demo=freenew: 登録したばかりの人。
+    created_at: new Date(Date.now() - (scenario === 'freenew' ? 600000 : 200 * 86400000)).toISOString(),
   };
 
   const store = {

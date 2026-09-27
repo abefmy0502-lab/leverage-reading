@@ -185,16 +185,29 @@ export function buildSeed(scenario) {
       current_period_end: iso(-30), created_at: iso(200), updated_at: now,
     }],
   };
+  const jstMonth = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+  // ?demo=freenew: 新規ユーザーで、契約なし（無料プラン・初回ガイドから）。
+  if (scenario === 'freenew') { db.subscriptions = []; db.ai_usage = []; return db; }
   if (scenario === 'new') return db;
-  // ?demo=free: 新規ユーザーで、購読なし（お試しの相談 3 回 → 有料プランの画面の確認用）。
-  if (scenario === 'free') { db.subscriptions = []; db.ai_usage = []; return db; }
-  // ?demo=freeused: お試しの 3 回を使い切った、本もメモもある未課金の人（お試し後の有料プランの画面の確認用）。
-  if (scenario === 'freeused') { db.subscriptions = []; db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: 'free', calls: 3 }]; }
+  // ?demo=free: 本もメモもある、契約なしの人（無料プラン＝相談だけ AI・毎月 30 トークン）。
+  if (scenario === 'free') { db.subscriptions = []; db.ai_usage = []; }
+  // ?demo=freeused: 無料プランで今月の 30 トークンを使い切った人（案内と有料プランの画面の確認用）。
+  if (scenario === 'freeused') {
+    db.subscriptions = [];
+    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `free-${jstMonth}`, calls: 3, cost_mjpy: 9000 }];
+  }
   // ?demo=paywall: 使い込んだデータのまま、購読だけ無い（有料プランの画面の確認用）。
   if (scenario === 'paywall') db.subscriptions = [];
-  // ?demo=limit: 今月の AI の原価が上限に近い人（上部の「上限に近づいています」と、上限の案内の確認用）。
+  // ?demo=trial: 7 日間無料の途中（あと 5 日・150 トークンのうち 40 を使った）。
+  if (scenario === 'trial') {
+    const end = iso(-5);
+    db.subscriptions[0] = { ...db.subscriptions[0], period_type: 'trial', current_period_end: end };
+    const endDay = new Date(Date.parse(end) + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: `trial-${endDay}`, calls: 4, cost_mjpy: 12000 }];
+  }
+  // ?demo=limit: 今月の 800 トークンを使い切った人（上限の案内の確認用）。
   if (scenario === 'limit') {
-    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7), calls: 11, cost_mjpy: 138000 }];
+    db.ai_usage = [{ user_id: DEMO_USER_ID, period_month: jstMonth, calls: 80, cost_mjpy: 240000 }];
   }
 
   const bookIds = BOOKS.map((_, i) => `00000000-0000-4000-8000-0000000b00${String(i).padStart(2, '0')}`);

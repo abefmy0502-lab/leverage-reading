@@ -16,6 +16,7 @@ import { toMessage } from '../lib/errors';
 import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
 import { ScanText } from 'lucide-react';
+import { usePaywall } from '../state/PaywallContext';
 
 const baseStyle = {
   minHeight: 44,
@@ -41,9 +42,12 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const [loading, setLoading] = useState(false);
   const toast = useToast();
   const haptic = useHaptic();
+  // 写真から書き起こすはプランの機能（フリーミアム）。無料プランなら撮る前に有料プランの画面を開く。
+  const { requirePlan } = usePaywall();
 
   const pick = () => {
     if (loading || disabled) return;
+    if (!requirePlan('写真から書き起こし')) return;
     inputRef.current?.click();
   };
 
@@ -72,6 +76,8 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       onText(text);
       toast.success('写真から書き起こしました。');
     } catch (e2) {
+      // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。
+      if (e2?.notice) { if (!/^この AI 機能は/.test(e2.message)) toast.info(e2.message); return; }
       toast.error(toMessage(e2, '読み取りに失敗しました。'));
     } finally {
       setLoading(false);

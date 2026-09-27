@@ -11,6 +11,7 @@ import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
+import { usePaywall } from '../state/PaywallContext';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { Sparkles, Undo2, Plus, Minus, ChevronRight } from 'lucide-react';
@@ -188,8 +189,11 @@ export default function QuickMemoSheet({
   const toast = useToast();
   const confirmDialog = useConfirm();
 
+  // 凝縮はプランの機能（フリーミアム）。無料プランなら有料プランの画面を開く（書きかけは残る）。
+  const { requirePlan } = usePaywall();
   const handleCondense = async () => {
     if (condensing) return;
+    if (!requirePlan('凝縮')) return;
     const src = text.trim();
     if (src.replace(/\s/g, '').length < 60) {
       toast.info('もう少し長いメモで凝縮が活きます。');
@@ -207,8 +211,9 @@ export default function QuickMemoSheet({
       }
     } catch (e) {
       // 例外（429/通信断/API エラー）を握り潰すとスピナーが止まるだけで無反応に
-      // 見え、連打を誘発する。必ず失敗を伝える。
-      toast.error(toMessage(e, '凝縮に失敗しました。少し時間をおいて再度お試しください。'));
+      // 見え、連打を誘発する。必ず失敗を伝える（トークンの上限は案内・プランの案内は画面が開くので重ねない）。
+      if (e?.notice) { if (!/^この AI 機能は/.test(e.message)) toast.info(e.message); }
+      else toast.error(toMessage(e, '凝縮に失敗しました。少し時間をおいて再度お試しください。'));
     } finally {
       setCondensing(false);
     }
