@@ -143,7 +143,7 @@
 | 畳む見出し（details） | 高さ 48・右端にシェブロン（20）・`list-style: none`。面は `--surface`＋枠 `--separator`＋角丸 12、見出しは 17/600/`--text`。右に中身の要約を置くときは 13/400/`--text-3`（「まだありません」「得たいこと・シート」）。続けて並べるときは間 12 | 本の詳細（`App.jsx` の `detailsStyle` / `summaryStyle`）、`BookPhases.jsx` の `softBox` / `foldSummary`、`MyBookBrain.jsx` の `summaryStyle` |
 | 下に固定の保存（編集画面） | 画面の下に固定・上に区切り線 `--separator`・内側 12/16＋セーフエリア・主ボタン 1 つ。出ている間は下のタブを出さない | `BookPhases.jsx` の `EditSaveBar`（2026-09-27） |
 | 押せないボタン | **薄くしない**（opacity で白い文字がかすれる）。主ボタンは `--fill` の面＋`--text-2` の文字、副ボタンは `--separator` の枠＋`--text-3` の文字、アイコンだけのボタン（×など）は `--text-3` の色。処理中（「サインイン中…」など）も薄くせず文言だけ変える。App Store 公開前の「App Store で近日公開」は、公開後の「App Store で入手」と同じ場所・形の押せない主ボタン（LP・有料プランの画面・Web 利用の案内で共通） | `ui.js` の `btnPrimaryOff` `btnGhostOff`（2026-09-27） |
-| 文字ボタン | `--accent`・15/600・高さ 44。脇役の操作（規約・ログアウト・取り込み等）も色を変えず、並び順と区切り線で控えめにする。削除だけは `--error` | `ui.js` の `btnLink`（`btnText` の 44 版） |
+| 文字ボタン | `--accent`・15/600・高さ 44。脇役の操作（規約・ログアウト・取り込み等）も色を変えず、並び順と区切り線で控えめにする。削除だけは `--error` | `ui.js` の `btnLink`（`btnText` の 44 版）。AI 選書のおすすめカードの Amazon・楽天ブックス（`BookAdvisor.jsx` の `AdvisorStoreLinks`・↗ アイコン）、テーマまとめの「別のテーマ」「中止」もこれ |
 | 小さな見出し | 12/600/`--text-2`（「たとえば」「今日」「完了した行動」など）。13 や `--text-3` の版を作らない | `ui.js` の `groupTitle` |
 | 表示用ラベル（押せない） | **面を付けない**。アイコン 14＋`--text-2` 13 の文字。`--fill` の丸い面は押せるチップだけ。表紙の上にも重ねない（すべての本の表紙表示は著者の下に 1 行・リストは「状態 → 評価 · 著者」で長さの変わる著者を最後に） | `BookCards.jsx` の `StatusLabel`（状態）・タグの表示。旧 `StatusBadge.jsx`（面つき）と表紙の上の `.book-status-pill` は 2026-09-27 に削除 |
 | メニュー（長押し・「…」） | `--surface`・角丸 12・行の高さ 48・`--shadow-overlay`。背景は `--backdrop` だけ（ぼかさない） | `ContextMenu.jsx` |

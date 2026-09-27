@@ -124,7 +124,14 @@ class Query {
 
   then(resolve, reject) {
     // &load=slow: 読み込みがなかなか終わらない（読み込み中の表示の確認用）。読み出しだけ遅らせる。
-    const slow = this.op === 'select' && new URLSearchParams(window.location.search).get('load') === 'slow';
+    const qs = new URLSearchParams(window.location.search);
+    const slow = this.op === 'select' && qs.get('load') === 'slow';
+    // &db=fail: 過去の相談の読み込みが失敗する（失敗の表示の確認用）。
+    if (this.op === 'select' && qs.get('db') === 'fail' && this.table === 'chat_messages') {
+      return new Promise((r) => setTimeout(r, 300))
+        .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
+        .then(resolve, reject);
+    }
     return new Promise((r) => setTimeout(r, slow ? 60000 : 40)).then(() => this._exec()).then(resolve, reject);
   }
 

@@ -929,9 +929,10 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     App Store で Orime を入手
                   </a>
                 ) : (
-                  <p style={{ ...noteStyle, fontWeight: 600, color: 'var(--text)' }}>
-                    iOS アプリは App Store で近日公開予定です
-                  </p>
+                  // 公開前も、公開後と同じ場所・同じ形（押せない主ボタン）で見せる（LP・有料プランの画面と同じ）。
+                  <button type="button" disabled style={btnPrimaryOff}>
+                    App Store で近日公開
+                  </button>
                 )}
               </div>
             )}
