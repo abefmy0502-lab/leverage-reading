@@ -22,7 +22,7 @@ import { useBookCover } from '../hooks/useBookCover';
 import { useToast } from './Toast';
 import MarkdownSections from './MarkdownSections';
 import {
-  Field, SectionHeader, Dots, Stars, TagInput, Chip,
+  Field, SectionHeader, Stars, TagInput, Chip,
   inp, ta,
 } from './formPrimitives';
 
@@ -334,7 +334,14 @@ export function BeforePhase({
         <IcMap size={16} aria-hidden="true" />
         {aiLoading ? "作成中…" : (form.aiStrategy ? "読書計画シートを作り直す" : "読書計画シートを作成")}
       </button>
-      {aiLoading && !form.aiStrategy && <Dots />}
+      {/* 作成中は点だけにしない（DESIGN §5）。ボタンの「作成中…」＋シートの形のスケルトン。 */}
+      {aiLoading && !form.aiStrategy && (
+        <div className="ai-skeleton" aria-hidden="true" style={{ marginTop: 'var(--space-3)' }}>
+          <div className="ai-skeleton-line" style={{ width: '90%' }} />
+          <div className="ai-skeleton-line" style={{ width: '76%' }} />
+          <div className="ai-skeleton-line" style={{ width: '58%' }} />
+        </div>
+      )}
       {form.aiStrategy && (
         <div style={{ marginTop: 'var(--space-6)' }}>
           <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>
