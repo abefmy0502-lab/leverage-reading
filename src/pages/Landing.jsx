@@ -632,7 +632,7 @@ export default function Landing() {
                 <p className="lp-plan-name">無料プラン</p>
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
                 {/* 含まれるものは各カードの中に（別の一覧にすると、どちらのプランの話か分かりにくい） */}
-                <p className="lp-plan-sub">本とメモは、何件でも登録できます。記録・振り返り・シェアも使え、相談は毎月 {FREE_TOKENS} トークン（約 3 回）。</p>
+                <p className="lp-plan-sub">本とメモは、何件でも登録できます。記録・振り返り・シェアも使え、相談は<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_TOKENS} トークン</span>（約 3 回）。</p>
               </div>
               <div className="lp-plan">
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>

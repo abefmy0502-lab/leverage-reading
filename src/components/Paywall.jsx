@@ -472,6 +472,13 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   </span>
                 </p>
               )}
+              {priceState === 'loading' && (
+                // 読み込み中も請求額の行と同じ高さを取っておく（価格が届いたときに欄が伸びて跳ねないように）。
+                <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', margin: '0 0 var(--space-3)', paddingTop: 'var(--space-1)' }}>
+                  <SkeletonBlock width="40%" height={16} />
+                  <SkeletonBlock width="70%" height={20} />
+                </div>
+              )}
               <button
                 type="button"
                 onClick={handleSubscribe}
