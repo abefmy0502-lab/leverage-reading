@@ -32,6 +32,7 @@ import { useSubscription } from '../hooks/useSubscription';
 import { openBillingPortal } from '../lib/billing';
 import { isNative, openManageSubscriptions } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
+import { planNameFor } from '../lib/trialNudge';
 import { PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
@@ -838,9 +839,18 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               </div>
             ) : isActive ? (
               <>
-                <ValueRow label="状態" value={subscription?.status ? billingStatusLabel(subscription.status) : '利用中'} />
-                {formatPeriodEnd(subscription?.currentPeriodEnd) && (
-                  <ValueRow label={plan === 'trial' ? '無料期間の終わり' : '次回更新'} value={formatPeriodEnd(subscription.currentPeriodEnd)} style={divider} />
+                {/* プランの呼び名は 1 つだけ（無料プラン / 7 日間無料（◯月◯日まで）/ 月額プラン / 年額プラン・GLOSSARY）。
+                    無料期間の終わる日はこの行に入れる（「無料期間の終わり」の行と二重にしない）。
+                    支払いが止まっているなど「利用中」以外の状態のときだけ、状態の行を足す。 */}
+                <ValueRow
+                  label="プラン"
+                  value={planNameFor({ plan, priceId: subscription?.priceId, trialEnd: formatPeriodEnd(subscription?.currentPeriodEnd) || '' })}
+                />
+                {subscription?.status && subscription.status !== 'active' && (
+                  <ValueRow label="状態" value={billingStatusLabel(subscription.status)} style={divider} />
+                )}
+                {plan !== 'trial' && formatPeriodEnd(subscription?.currentPeriodEnd) && (
+                  <ValueRow label="次回更新" value={formatPeriodEnd(subscription.currentPeriodEnd)} style={divider} />
                 )}
                 {tokensRemaining != null ? (
                   <ValueRow label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
@@ -902,7 +912,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               </>
             ) : (
               <>
-                <ValueRow label="プラン" value="無料プラン" />
+                <ValueRow label="プラン" value={planNameFor({ plan: 'free' })} />
                 {tokensRemaining != null ? (
                   <ValueRow label="今月の残り" value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
                 ) : tokensLoading ? (
@@ -911,7 +921,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
-                    AI は相談だけ（1 回 約 {TOKEN_COSTS.consult} トークン）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS} トークン</span>で、すべての AI 機能。
+                    無料プランはずっと無料で、AI は相談だけ（1 回 約 {TOKEN_COSTS.consult} トークン）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
                   </p>
                   <button
                     type="button"

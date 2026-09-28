@@ -5289,7 +5289,8 @@ function PaywallGate() {
   const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
 
   // アプリの上に重ねて開く有料プランの画面（{ reason, feature }）。いつでも × / 「あとで」で閉じられる。
-  //   reason: 'free_used'（今月の無料のトークンを使い切った）/ 'feature'（プランで使える機能）/ null（プランを見る）
+  //   reason: 'free_used'（今月の無料のトークンを使い切った）/ 'feature'（プランで使える機能）/
+  //           'grown'（メモが 10 件たまった＝相談の「相談相手が育ってきました」）/ null（プランを見る）
   const [paywall, setPaywall] = useState(null);
   useEffect(() => {
     // reason: null は「プランを見る」（見出しは一般の価値）。指定が無いときは機能の案内。
@@ -5315,6 +5316,8 @@ function PaywallGate() {
       purchasedExpiresAt: lots?.nextExpiry || null,
       tokensAvailable: tokensRemaining == null ? null : tokensRemaining + purchasedTokens,
       canBuyTokens,
+      // 前にプランを契約していた（いまは無料プラン）。無料期間はもう使えないので、すすめる文を変える（lib/trialNudge.js）。
+      hadPlan: freeMode && !!subscription?.status && subscription.status !== 'active',
       openTokenSheet: () => { if (canBuyTokens) setTokenSheetOpen(true); },
       refreshTokens,
       // 旧名（お試しの頃の呼び方）。無料プランの残りのトークン。
@@ -5328,7 +5331,7 @@ function PaywallGate() {
         return false;
       },
     };
-  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens]);
+  }, [plan, freeMode, trialEndsAt, tokenAllowance, tokensRemaining, purchasedTokens, lots?.nextExpiry, canBuyTokens, refreshTokens, subscription?.status]);
 
   // Checkout 復帰処理: ?checkout=success なら webhook 反映ラグを吸収するため
   // refresh を数秒間隔で数回リトライ。?checkout=cancel は静かに URL を掃除。

@@ -4,7 +4,10 @@
 // アプリの上に重ねて開く（App の PaywallGate・いつでも × / 「あとで」で閉じられる）:
 //   reason 'free_used' … 無料のトークンを使い切った（本人の本の表紙を並べる）
 //   reason 'feature'   … プランで使える AI 機能を押した（feature＝機能の名前）
+//   reason 'grown'     … 自分のメモが 10 件たまった（相談の「相談相手が育ってきました」・本人の本の表紙を並べる）
 //   reason null        … 設定の「プランを見る」
+// 7 日間無料（プランの無料期間）をすすめるのは、この 3 つ（free_used / feature / grown）と設定からだけ
+// （lib/trialNudge.js）。「無料プラン（ずっと無料）」と「7 日間無料」を取り違えない書き方にする。
 // 無料とプランの違いは 2 行の比較（トークンの量と、プランで増える機能）だけで見せる。
 //
 // 設計方針（DESIGN.md / brand-messaging.md 準拠）:
@@ -45,6 +48,7 @@ import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
 import { FREE_TOKENS, PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
+import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
 const AccountSettings = lazy(() => import('./AccountSettings'));
@@ -83,18 +87,19 @@ function PriceText({ text }) {
 
 // 開発専用のネイティブ表示プレビュー（本番は demoScenario=null で常に false）。
 function readNativePreview() {
-  if (!['paywall', 'free', 'freeused'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '' };
+  if (!['paywall', 'free', 'freeused', 'freegrown'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '' };
   const sp = new URLSearchParams(window.location.search);
   // &price=loading / fail で、ストア価格の読み込み中・失敗の表示を確かめられる。
-  return { on: sp.get('native') === '1', trial: sp.get('trial') || '', price: sp.get('price') || '' };
+  return { on: sp.get('native') === '1', trial: normalizeTrialLabel(sp.get('trial') || ''), price: sp.get('price') || '' };
 }
 const preview = readNativePreview();
 // 見た目の分岐だけに使う。購入・復元の実行可否は必ず isNative で判定する。
 const showNative = isNative || preview.on;
 
-// 無料とプランの違い（2 行・DESIGN §0-6: 説明の文は置かない）。量（トークン）を強く、中身は補足で。
+// 無料プランとプランの違い（2 行・DESIGN §0-6: 説明の文は置かない）。量（トークン）を強く、中身は補足で。
+// 「無料」だけの見出しにしない（7 日間無料と取り違えないよう「無料プラン（ずっと無料）」・GLOSSARY）。
 const PLAN_COMPARE = [
-  { name: '無料', amount: `毎月 ${FREE_TOKENS} トークン`, scope: '相談だけ', text: 'メモ・記録・シェアは、ずっと無料' },
+  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS} トークン`, scope: '相談だけ', text: 'メモ・記録・振り返り・シェア' },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   { name: 'プラン', amount: `毎月 ${PAID_TOKENS} トークン`, scope: 'すべての AI', items: ['AI 選書', 'テーマまとめ', '読書計画シート', '写真から書き起こし'] },
 ];
@@ -102,13 +107,14 @@ const PLAN_COMPARE = [
 const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
 
 // onlyPlan: 無料のトークンを使い切ったあと（本人の本の表紙を出すとき）はプランの行だけ（主ボタンを近くに）。
-function PlanCompare({ onlyPlan = false }) {
+// trial: この人が使える無料期間（「7 日間無料」）。あればプランの行の名前に「（最初の 7 日間は無料）」。
+function PlanCompare({ onlyPlan = false, trial = '' }) {
   const rows = onlyPlan ? PLAN_COMPARE.filter((r) => r.name === 'プラン') : PLAN_COMPARE;
   return (
-    <section aria-label={onlyPlan ? 'プランでできること' : '無料とプランの違い'} style={{ ...card, padding: 0, marginTop: 'var(--space-6)' }}>
+    <section aria-label={onlyPlan ? 'プランでできること' : '無料プランとプランの違い'} style={{ ...card, padding: 0, marginTop: 'var(--space-6)' }}>
       {rows.map((row, i) => (
         <div key={row.name} style={{ padding: 'var(--space-3) var(--space-4)', borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
-          <p style={{ ...groupTitle, margin: 0 }}>{row.name}</p>
+          <p style={{ ...groupTitle, margin: 0 }}>{row.name}{row.name === 'プラン' && trial ? `（${trialFirstPhrase(trial)}）` : ''}</p>
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
             <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
             <span style={{ fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>（{row.scope}）</span>
@@ -214,7 +220,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const toast = useToast();
   const [myBooks, setMyBooks] = useState([]);
   useEffect(() => {
-    if (reason !== 'free_used' || !user?.id || !isSupabaseConfigured) return undefined;
+    if ((reason !== 'free_used' && reason !== 'grown') || !user?.id || !isSupabaseConfigured) return undefined;
     let alive = true;
     (async () => {
       try {
@@ -231,6 +237,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   }, [reason, user?.id]);
   const fromFree = reason === 'free_used';
   const fromFeature = reason === 'feature';
+  // メモが 10 件たまって開いたとき（相談の「相談相手が育ってきました」）も、本人の本の表紙を並べる。
+  const fromGrown = reason === 'grown';
   // 📊 課金転換率（CVR = purchase÷view）の分母。どこから開いたか（enum だけ）も添える。
   useEffect(() => { track(EVENTS.PAYWALL_VIEWED, { reason: reason || 'plan' }); }, [reason]);
   // 選んだプラン（年額が既定）。
@@ -271,7 +279,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   }, [user?.id, priceTry]);
 
   const selected = labels[plan] || labels.annual;
-  const trial = selected.trial || '';
+  const trial = normalizeTrialLabel(selected.trial || '');
+  // どちらかのプランに無料期間があれば、比較のプランの行に「（最初の 7 日間は無料）」を出す。
+  const anyTrial = priceState === 'ready' ? normalizeTrialLabel(labels.annual?.trial || labels.monthly?.trial || '') : '';
 
   const handleSubscribe = async () => {
     if (pending) return;
@@ -340,7 +350,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
   const ctaLabel = pending
     ? '購入手続き中…'
-    : trial ? `${trial}で始める` : `${selected.name}で始める`;
+    : trial ? `${trial}で試す` : `${selected.name}で始める`;
 
   return (
     <main
@@ -385,7 +395,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               : <>読むほど、<br />自分だけの相談相手が育つ</>}
         </h1>
 
-        {fromFree && myBooks.length > 0 && (
+        {(fromFree || fromGrown) && myBooks.length > 0 && (
           <>
             <div aria-hidden="true" style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
               {myBooks.map((b) => <MiniCover key={b.id} book={b} width={60} />)}
@@ -396,8 +406,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
           </>
         )}
 
-        {/* 無料とプランの違い（トークンの量と、プランで増える機能） */}
-        <PlanCompare onlyPlan={fromFree && myBooks.length > 0} />
+        {/* 無料プランとプランの違い（トークンの量と、プランで増える機能） */}
+        <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative ? anyTrial : ''} />
 
         {showNative ? (
           <>
@@ -437,7 +447,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             {priceState === 'ready' && trial && (
               // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。
               <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-4) 0 0' }}>
-                {trial}
+                {trialFirstPhrase(trial)}
                 <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                   その後 {String(selected.price || '').split('（')[0].trim()} で自動更新
                 </span>

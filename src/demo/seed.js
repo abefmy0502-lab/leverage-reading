@@ -181,7 +181,7 @@ export function buildSeed(scenario) {
     chat_messages: [], theme_reports: [], advisor_sessions: [], push_subscriptions: [],
     analytics_events: [], feedback: [], account_deletion_requests: [], ai_token_lots: [],
     subscriptions: [{
-      user_id: DEMO_USER_ID, status: 'active', provider: 'demo', price_id: 'demo',
+      user_id: DEMO_USER_ID, status: 'active', provider: 'demo', price_id: 'orime_annual', // 設定の「プラン」は年額プラン
       current_period_end: iso(-30), created_at: iso(200), updated_at: now,
     }],
   };
@@ -191,6 +191,10 @@ export function buildSeed(scenario) {
   if (scenario === 'new') return db;
   // ?demo=free: 本もメモもある、契約なしの人（無料プラン＝相談だけ AI・毎月 30 トークン）。
   if (scenario === 'free') { db.subscriptions = []; db.ai_usage = []; }
+  // ?demo=freegrown: 無料プランで、自分のメモが 10 件以上たまった人（相談のいちばん上の「相談相手が育ってきました」
+  //   ＝7 日間無料をすすめる案内の確認用・lib/trialNudge.js）。ほかのシナリオでは、この案内は閉じたものとして出さない。
+  //   &trial=off で「無料期間はもう使えない人」の文（「プランを見る」）。
+  if (scenario === 'freegrown') { db.subscriptions = []; db.ai_usage = []; }
   // ?demo=freeused: 無料プランで今月の 30 トークンを使い切った人（案内と有料プランの画面の確認用）。
   if (scenario === 'freeused') {
     db.subscriptions = [];

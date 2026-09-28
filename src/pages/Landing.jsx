@@ -29,6 +29,7 @@ import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
 import { savingsLabel } from '../lib/iap';
 import { FREE_TOKENS, PAID_TOKENS } from '../lib/tokens';
+import { normalizeTrialLabel, trialFirstPhrase, trialPeriodOf } from '../lib/trialNudge';
 import ConsultDemo from './ConsultDemo';
 import qrcode from 'qrcode-generator';
 import { lpTrack, lpVariant, storeUrlFor } from '../lib/lpTrack';
@@ -92,12 +93,18 @@ function StoreQr() {
   );
 }
 
-// 🎁 無料トライアル表記（env ゲート・未設定の間は一切出さない）。
-// 既定は正典どおり「7日間無料」。App Store の Introductory Offer を変えたら env で合わせる（'off' で出さない）。
-const TRIAL_RAW = (import.meta.env.VITE_TRIAL_NOTE ?? '7日間無料').trim();
-const TRIAL_NOTE = TRIAL_RAW === 'off' ? '' : TRIAL_RAW;
-// ボタンの文言: アプリは無料で使える（フリーミアム・2026-09-27）ので「無料ではじめる」（押すと App Store）。
-// 無料期間（7日間無料）はプランの話なので、料金の欄とボタンの下の文に書く。
+// 🎁 プランの無料期間の表記（既定は正典どおり「7 日間無料」）。App Store の Introductory Offer を変えたら
+// env（VITE_TRIAL_NOTE）で合わせる（'off' で出さない）。「7日間無料」のような書き方も「7 日間無料」にそろえる。
+// 「無料」が 2 つあるので取り違えない書き方にする（2026-09-28・GLOSSARY）:
+//   無料プラン（ずっと無料）＝契約なし／最初の 7 日間は無料＝プランの無料期間（1 つの Apple ID に 1 回）。
+const TRIAL_RAW = (import.meta.env.VITE_TRIAL_NOTE ?? '7 日間無料').trim();
+const TRIAL_NOTE = TRIAL_RAW === 'off' ? '' : normalizeTrialLabel(TRIAL_RAW);
+// 「最初の 7 日間は無料」（期間が取り出せない書き方はそのまま）。
+const TRIAL_FIRST = TRIAL_NOTE ? trialFirstPhrase(TRIAL_NOTE) : '';
+// 文の中の形（「プランは最初の 7 日間が無料で、…」）。
+const TRIAL_SENT = TRIAL_NOTE ? (trialPeriodOf(TRIAL_NOTE) ? `最初の ${trialPeriodOf(TRIAL_NOTE)}が無料` : TRIAL_NOTE) : '';
+// ボタンの文言: アプリは無料プラン（ずっと無料）で使える（フリーミアム・2026-09-27）ので「無料ではじめる」
+// （押すと App Store）。無料期間はプランの話なので、料金の欄とボタンの下の文に書く。
 const CTA_LABEL = '無料ではじめる';
 const CTA_SHORT = '無料ではじめる';
 
@@ -105,8 +112,8 @@ const MONTHLY = 1480;
 const ANNUAL = 12800;
 const SAVE = savingsLabel(MONTHLY, ANNUAL);
 const PRICE_LINE = TRIAL_NOTE
-  ? `App Store から無料でダウンロード。プランは${TRIAL_NOTE}、その後は月額 ¥1,480 または年額 ¥12,800（税込）。無料期間中に解約すれば料金はかかりません`
-  : 'App Store から無料でダウンロード。プランは月額 ¥1,480 または年額 ¥12,800（税込）';
+  ? `App Store から無料でダウンロード。無料プランはずっと無料。プランは${TRIAL_SENT}で、その後は月額 ¥1,480 または年額 ¥12,800（税込）。無料期間中に解約すれば料金はかかりません`
+  : 'App Store から無料でダウンロード。無料プランはずっと無料。プランは月額 ¥1,480 または年額 ¥12,800（税込）';
 
 // 🗣 お客様の声。実在ユーザーの許可を得た本物の声だけを入れる（捏造・盛りは絶対 NG）。
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
@@ -151,11 +158,11 @@ const FAQ_ITEMS = [
   },
   {
     q: '料金はいくらですか？',
-    a: `メモ・記録・振り返り・シェアは、ずっと無料です。AI は相談だけ毎月 ${FREE_TOKENS} トークン（相談 約 3 回）まで無料で使えます。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・テーマまとめ・読書計画シート・写真からの書き起こしも使えます。${TRIAL_NOTE ? `プランは${TRIAL_NOTE}で試せます。` : ''}お支払いは App Store（Apple ID）です。`,
+    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談だけ、毎月 ${FREE_TOKENS} トークン（相談 約 3 回）です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・テーマまとめ・読書計画シート・写真からの書き起こしも使えます。${TRIAL_NOTE ? `プランは${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
   },
   ...(TRIAL_NOTE ? [{
     q: '無料期間のあとは、自動で料金がかかりますか？',
-    a: `${TRIAL_NOTE}の期間が終わると、選んだプラン（月額か年額）で自動更新されます。期間中に App Store のサブスクリプション設定から解約すれば、料金はかかりません。無料期間は、初めて登録する方が対象です。`,
+    a: `プランの無料期間（${TRIAL_NOTE}）が終わると、選んだプラン（月額か年額）で自動更新されます。期間中に App Store のサブスクリプション設定から解約すれば、料金はかかりません。無料期間は、初めて登録する方が対象です。無料プランは期間の決まりがなく、ずっと無料です。`,
   }] : []),
   {
     q: '解約すると、メモは消えますか？',
@@ -618,39 +625,45 @@ export default function Landing() {
               {/* 月あたりの額を請求額より大きく見せない（見出しに金額を置かない・2026-09-27） */}
               <span>メモと記録は、</span><span>ずっと無料です。</span>
             </h2>
-            {/* 無料（フリーミアム・2026-09-27）: メモ・記録・シェアと、相談だけ毎月のトークン */}
-            <div className="lp-plan lp-plan-free">
-              <p className="lp-plan-name">無料</p>
-              <p className="lp-plan-price">¥0</p>
-              <p className="lp-plan-sub">メモ・記録・振り返り・シェア。相談は毎月 {FREE_TOKENS} トークン（約 3 回）。</p>
-            </div>
-            <p className="lp-trial">プランなら、すべての AI 機能{TRIAL_NOTE ? `（${TRIAL_NOTE}）` : ''}</p>
-            <div className="lp-plans">
-              <div className="lp-plan is-recommended">
-                <p className="lp-plan-name">年額プラン<span className="lp-plan-tag">おすすめ</span></p>
-                <p className="lp-plan-price">¥12,800<span>/ 年（税込）</span></p>
-                <p className="lp-plan-sub">月あたり約 ¥1,066。{SAVE}。</p>
+            {/* 2 枚だけ（2026-09-28）: 無料プラン（ずっと無料）と、プラン（最初の 7 日間は無料）。
+                「無料」だけの見出しにしない（7 日間無料と取り違えないように・GLOSSARY）。 */}
+            <div className="lp-plan-cards">
+              <div className="lp-plan">
+                <p className="lp-plan-name">無料プラン</p>
+                <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
+                <p className="lp-plan-sub">メモ・記録・振り返り・シェア。相談は毎月 {FREE_TOKENS} トークン（約 3 回）。</p>
               </div>
               <div className="lp-plan">
-                <p className="lp-plan-name">月額プラン</p>
-                <p className="lp-plan-price">¥1,480<span>/ 月（税込）</span></p>
-                <p className="lp-plan-sub">1 か月ずつ続けられます。</p>
+                <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
+                <p className="lp-plan-sub">すべての AI 機能が使えます。</p>
+                <div className="lp-plan-rows">
+                  <div className="lp-plan-row">
+                    <p className="lp-plan-label">年額プラン<span className="lp-plan-tag">おすすめ</span></p>
+                    <p className="lp-plan-price">¥12,800<span>/ 年（税込）</span></p>
+                    <p className="lp-plan-sub">月あたり約 ¥1,066。{SAVE}。</p>
+                  </div>
+                  <div className="lp-plan-row">
+                    <p className="lp-plan-label">月額プラン</p>
+                    <p className="lp-plan-price">¥1,480<span>/ 月（税込）</span></p>
+                    <p className="lp-plan-sub">1 か月ずつ続けられます。</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <ul className="lp-included" aria-label="どちらのプランにも含まれるもの">
+            <ul className="lp-included" aria-label="プランに含まれるもの">
               <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />相談が毎月 {PAID_TOKENS} トークン（約 80 回）。足りない月は追加もできます</li>
               <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />AI 選書・テーマまとめ・読書計画シート・写真からの書き起こし</li>
-              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />本とメモは、無料でも何件でも登録できます</li>
+              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />本とメモは、無料プランでも何件でも登録できます</li>
             </ul>
             <div className="lp-cta-block">
               <StoreCta className="lp-btn lp-btn-large" loc="pricing">{CTA_LABEL}</StoreCta>
               <p className="lp-cta-note">
                 アプリは無料でダウンロードできます。
                 {TRIAL_NOTE
-                  ? `プランは${TRIAL_NOTE}のあと、選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。無料期間中に解約すれば、料金はかかりません。`
+                  ? `プランは${TRIAL_SENT}で、そのあと選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。無料期間中に解約すれば、料金はかかりません。`
                   : 'プランは、選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。'}
                 <br />
-                お支払いは App Store（Apple ID）です。解約はいつでもでき、違約金はありません。解約しても無料のまま使え、メモは残ります。
+                お支払いは App Store（Apple ID）です。解約はいつでもでき、違約金はありません。解約しても無料プランで使え、メモは残ります。
               </p>
             </div>
           </div>

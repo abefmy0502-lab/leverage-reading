@@ -129,11 +129,34 @@ function formatFreeTrial(product) {
   const n = Number(ip.periodNumberOfUnits) || 0;
   const unit = String(ip.periodUnit || '').toUpperCase();
   if (!n) return '';
-  const label = unit === 'DAY' ? `${n}日間`
-    : unit === 'WEEK' ? `${n}週間`
-      : unit === 'MONTH' ? `${n}ヶ月`
-        : unit === 'YEAR' ? `${n}年間` : '';
+  // 数字と単位の間に空きを入れる（「7 日間無料」・アプリのほかの数字の書き方とそろえる）。
+  const label = unit === 'DAY' ? `${n} 日間`
+    : unit === 'WEEK' ? `${n} 週間`
+      : unit === 'MONTH' ? `${n} ヶ月`
+        : unit === 'YEAR' ? `${n} 年間` : '';
   return label ? `${label}無料` : '';
+}
+
+// 🌱 この人が無料期間（Introductory Offer）を使えるか（相談の「相談相手が育ってきました」用）。
+//   { status: 'eligible', label: '7 日間無料' } … ストアに無料期間があり、まだ使っていない
+//   { status: 'ineligible', label: '' }          … 無料期間が無い・もう使った
+//   { status: 'unknown', label: '' }             … ネイティブでない・読み込めなかった
+// 分からないときは無料期間を約束しない側に倒す（呼び出し側は「プランを見る」の文にする）。
+// 起動中は 1 回だけ確かめる（ストアへの問い合わせを繰り返さない）。
+let introOfferCache = null;
+export async function getIntroOffer(userId) {
+  if (!isNative) return { status: 'unknown', label: '' };
+  if (introOfferCache && introOfferCache.userId === userId) return introOfferCache.result;
+  let result = { status: 'unknown', label: '' };
+  try {
+    const l = await getStoreLabels(userId);
+    if (l?.ok) {
+      const label = l.annual?.trial || l.monthly?.trial || '';
+      result = label ? { status: 'eligible', label } : { status: 'ineligible', label: '' };
+    }
+  } catch { /* unknown のまま */ }
+  if (result.status !== 'unknown') introOfferCache = { userId, result };
+  return result;
 }
 
 // ストアのローカライズ価格ラベルを返す。失敗時は App 既定ラベル。

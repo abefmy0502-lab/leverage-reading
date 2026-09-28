@@ -87,7 +87,7 @@ const SCREENS = [
   { name: 'import-sheet', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ブクログ・Kindle")' }] },
 
   // ── 状態（空・読み込み中・エラー・上限など）。お試しモードの切り替え:
-  //    ?demo=new / nomemo / overdue / limit / free / freeused / freenew / trial / paywall、&ai=slow|fail|cut、&load=slow、&save=slow、&db=fail、&price=loading|fail
+  //    ?demo=new / nomemo / overdue / limit / free / freeused / freenew / freegrown / trial / paywall、&ai=slow|fail|cut、&load=slow、&save=slow、&db=fail、&price=loading|fail
   { name: 'home-nomemo', url: '/?demo=nomemo' },
   { name: 'home-loading', url: '/?load=slow' },
   { name: 'home-focus', url: '/', steps: [{ css: 'textarea[aria-label="相談したいこと"]' }] },
@@ -189,6 +189,13 @@ const SCREENS = [
   { name: 'paywall-feature', url: '/?demo=free&native=1', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }] },
   { name: 'free-new-home', url: '/?demo=freenew', steps: [{ css: 'button[aria-label="閉じる"]' }] },
   { name: 'trial-consult', url: '/?demo=trial', steps: [{ css: nav('相談') }] },
+  // ── 7 日間無料をすすめる「ちょうどいいとき」（2026-09-28・lib/trialNudge.js）
+  //    無料プランでメモが 10 件たまったら、相談のいちばん上に 1 回だけ。&trial=off は無料期間を使えない人の文。
+  { name: 'free-grown-nudge', url: '/?demo=freegrown', steps: [{ css: nav('相談') }] },
+  { name: 'free-grown-nudge-plan', url: '/?demo=freegrown&trial=off', steps: [{ css: nav('相談') }] },
+  { name: 'free-grown-dismissed', url: '/?demo=freegrown', steps: [{ css: nav('相談') }, { css: 'section[aria-labelledby="brain-nudge-title"] button[aria-label="閉じる"]' }] },
+  { name: 'paywall-grown', url: '/?demo=freegrown&native=1&trial=7日間無料', steps: [{ css: nav('相談') }, { css: 'section[aria-labelledby="brain-nudge-title"] button:has-text("で試す")' }] },
+  { name: 'settings-trial', url: '/?demo=trial', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"]' }] },
   // ── 追加トークン（買い足し）
   { name: 'consult-tokens-out', url: '/?demo=limit', steps: [{ css: nav('相談') }] },
   { name: 'tokens-sheet', url: '/?demo=limit', steps: [{ css: nav('相談') }, { css: 'button:has-text("トークンを追加")' }] },

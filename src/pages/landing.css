@@ -311,17 +311,19 @@ body.lp-active {
 }
 
 /* 料金 */
-.lp-trial { color: var(--text); font-weight: 600; margin-bottom: var(--space-4) !important; }
-.lp-plans { display: grid; gap: var(--space-3); }
-/* 無料（フリーミアム・2026-09-27）: プランの 2 枚の上に 1 枚。プランの見出しの前に間を空ける */
-.lp-plan-free { margin-bottom: var(--space-8); }
+/* 料金は 2 枚だけ（2026-09-28）: 無料プラン（ずっと無料）と、プラン（最初の 7 日間は無料・年額と月額の 2 行） */
+.lp-plan-cards { display: grid; gap: var(--space-3); }
+.lp-plan-trial { font-weight: 400; color: var(--text-2); }
+.lp-plan-rows { margin-top: var(--space-3); display: grid; }
+.lp-plan-row { padding: var(--space-3) 0; border-top: 1px solid var(--separator); }
+.lp-plan-row:last-child { padding-bottom: 0; }
+.lp-plan-label { display: flex; align-items: center; gap: var(--space-2); color: var(--text-2); font-size: var(--text-sub); }
 .lp-plan {
   padding: var(--space-4);
   border: 1px solid var(--separator);
   border-radius: var(--radius);
   background: var(--surface);
 }
-.lp-plan.is-recommended { border: 2px solid var(--border); padding: calc(var(--space-4) - 1px); }
 .lp-plan-name { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; }
 /* 「おすすめ」は押せない表示なので面を付けない（DESIGN §5「表示用ラベル」・アプリの有料プランの画面と同じ） */
 .lp-plan-tag {
@@ -465,7 +467,8 @@ body.lp-active {
 
   .lp-more-grid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-16); align-items: start; }
 
-  .lp-plans { grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  .lp-plan-rows { grid-template-columns: 1fr 1fr; column-gap: var(--space-6); }
+  .lp-plan-row:last-child { padding-bottom: var(--space-3); }
   .lp-table { font-size: var(--text-body); }
   .lp-table th, .lp-table td { padding: var(--space-4); }
 }

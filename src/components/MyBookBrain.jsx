@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { markActivation } from '../lib/activation';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, isDemo, demoScenario } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
@@ -28,6 +28,8 @@ import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, monthDayLabelJa } from '../lib/tokens';
+import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel } from '../lib/trialNudge';
+import { getIntroOffer } from '../lib/iap';
 
 // ホーム・本の詳細・テーマまとめから渡される「最初の一手」（preset）は、App 側では
 // 消えずに残る。相談タブを開き直すと MyBookBrain が作り直されるので、使い終わった
@@ -315,7 +317,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const confirm = useConfirm();
   // 🪙 プランと残りのトークン（src/lib/tokens.js・止めるのはサーバー）。上部に 1 行「今月の残り N トークン」。
   //    無料プラン（相談だけ）で使い切ったら、答えの下で静かに案内＋有料プランの画面へ。
-  const { plan, freeMode, trialEndsAt, tokensRemaining, tokenAllowance, purchasedTokens, tokensAvailable, canBuyTokens, openTokenSheet, refreshTokens, openPaywall } = usePaywall();
+  const { plan, freeMode, trialEndsAt, tokensRemaining, tokenAllowance, purchasedTokens, tokensAvailable, canBuyTokens, openTokenSheet, refreshTokens, openPaywall, hadPlan } = usePaywall();
   const [monthLimitHit, setMonthLimitHit] = useState(false); // トークンの上限に達した（サーバーの 429）
   // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
   useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
@@ -1029,6 +1031,46 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
   // 数え終わるまでは出しておく（メモのある大多数の人で、読み込み後にチップが増えて跳ねないように）。
   const modeApplies = scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0);
+  // 🌱 相談相手が育ってきました（lib/trialNudge.js・2026-09-28）: 無料プランで自分のメモが 10 件たまったら、
+  //    会話の場所のいちばん上に 1 回だけ、7 日間無料（使えないと分かれば「プランを見る」）をすすめる。
+  //    閉じる・押すで二度と出さない。お試しモードでは ?demo=freegrown のときだけ出す（ほかの撮影を変えない）。
+  const [nudgeDone, setNudgeDone] = useState(() => isTrialNudgeDone() || (isDemo && demoScenario !== 'freegrown'));
+  const nudgeWanted = view === 'chat' && historyLoaded && !busy && shouldShowTrialNudge({
+    plan,
+    memoCount: memoStatsLoaded ? ownMemoTotal : null,
+    done: nudgeDone,
+    freeUsedUp,
+    empty: isEmpty && !(scopeIds.length > 0 && scopeMemoCount === 0),
+  });
+  // 無料期間の名前（「7 日間無料」）。'' ＝約束しない文にする。null ＝確かめている途中（まだ出さない＝文が入れ替わらない）。
+  const [trialOffer, setTrialOffer] = useState(null);
+  useEffect(() => {
+    if (!nudgeWanted || trialOffer !== null) return undefined;
+    if (hadPlan) { setTrialOffer(''); return undefined; } // 前に契約していた＝無料期間はもう使えない
+    if (isDemo) {
+      // お試しモード: 使える人として撮る（&trial=off で「使えない人」の文）。
+      const t = new URLSearchParams(window.location.search).get('trial');
+      setTrialOffer(t === 'off' ? '' : normalizeTrialLabel(t || '7日間無料'));
+      return undefined;
+    }
+    let alive = true;
+    getIntroOffer(user?.id)
+      .then((r) => { if (alive) setTrialOffer(r.status === 'eligible' ? normalizeTrialLabel(r.label) : ''); })
+      .catch(() => { if (alive) setTrialOffer(''); });
+    return () => { alive = false; };
+  }, [nudgeWanted, trialOffer, hadPlan, user?.id]);
+  const showNudge = nudgeWanted && trialOffer !== null;
+  const nudgeSeenRef = useRef(false);
+  useEffect(() => {
+    if (!showNudge || nudgeSeenRef.current) return;
+    nudgeSeenRef.current = true;
+    track('trial_nudge', { action: 'shown', offer: trialOffer ? 'trial' : 'plan' });
+  }, [showNudge, trialOffer]);
+  const closeNudge = (action) => {
+    markTrialNudgeDone();
+    setNudgeDone(true);
+    track('trial_nudge', { action, offer: trialOffer ? 'trial' : 'plan' });
+  };
   // 相談例は 3 つだけ（SPEC §3）。あなたのタグ・本から → 汎用 の順で重複なく。
   // （AI で作る「今週の問い」は 2026-09-27 に廃止＝開くだけで AI が動かないように）
   const examples = useMemo(() => {
@@ -1260,6 +1302,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} />
             ) : (
               <section aria-labelledby="brain-empty-title">
+                {showNudge && (
+                  <TrialNudgeCard
+                    copy={trialNudgeCopy({ memoCount: ownMemoTotal, offer: trialOffer })}
+                    onOpen={() => { closeNudge('tap'); openPaywall('grown'); }}
+                    onDismiss={() => closeNudge('dismiss')}
+                  />
+                )}
                 <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
@@ -1439,6 +1488,40 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         </div>
       )}
     </div>
+  );
+}
+
+// 🌱 相談相手が育ってきました（無料プランで自分のメモが 10 件たまったとき・1 回だけ）。
+// 相談例の上に置く案内カード（DESIGN §5 の案内カード＝.card の面・アイコンなし）。右上の × で閉じる。
+// 主ボタンは有料プランの画面を重ねて開く（reason 'grown'）。答えの途中には出さない（親が empty で決める）。
+function TrialNudgeCard({ copy, onOpen, onDismiss }) {
+  return (
+    <section aria-labelledby="brain-nudge-title" style={{ ...cardStyle, marginBottom: 'var(--space-6)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
+        <p id="brain-nudge-title" style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+          {copy.title}
+        </p>
+        {/* 押せる範囲 44 のまま、負の余白で × の見た目をカードの余白 16 の角にそろえる */}
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="閉じる"
+          style={{ ...iconBtn, color: 'var(--text-3)', margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0' }}
+        >
+          <X size={20} aria-hidden="true" />
+        </button>
+      </div>
+      <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase', textWrap: 'pretty' }}>
+        {/* 句読点ごとのまとまりで折り返す（「AI／選書」「を試せます。」のように語の途中で割れないように）。
+            inline-block なので、文字を大きくして 1 行に収まらないまとまりだけは中で折り返す。 */}
+        {copy.body.split(/(?<=[、。])/).map((part, i) => (
+          <span key={i} style={{ display: 'inline-block' }}>{part}</span>
+        ))}
+      </p>
+      <button type="button" onClick={onOpen} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+        {copy.cta}
+      </button>
+    </section>
   );
 }
 
