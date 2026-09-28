@@ -15,6 +15,18 @@ import { useAppDataCache } from '../state/AppDataCache';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
 import { btnPrimary, card, input, groupTitle } from '../styles/ui';
+import { loadDefaultJapaneseParser } from 'budoux';
+
+// 相談例は文節（BudouX）の切れ目でだけ折り返す（「使え／る」「ヒ／ント」のように語の途中で割れないように）。
+// iOS の Safari は word-break: auto-phrase を知らないので、keep-all＋<wbr> で切れ目を渡す（App.jsx の書名と同じ）。
+const jaPhraseParser = loadDefaultJapaneseParser();
+function withPhraseBreaks(text) {
+  const s = String(text || '');
+  let phrases;
+  try { phrases = jaPhraseParser.parse(s); } catch { return s; }
+  if (!phrases || phrases.length <= 1) return s;
+  return phrases.flatMap((p, i) => (i === 0 ? [p] : [<wbr key={i} />, p]));
+}
 
 // 相談例（AI を使わない＝原価ゼロ）。いま読んでいる本があればそれを使う。
 // memoBookIds: メモのある本の id（null＝まだ分からない）。メモの無い本の名前は例に出さない。
@@ -149,7 +161,8 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
                 }}
               >
                 {/* 2 行で止める（1 行だと何を聞く例か読めない）。全文は読み上げ・送信にそのまま使う。 */}
-                <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' }}>{q}</span>
+                {/* 文節の切れ目（<wbr>）でだけ折り返す。1 つの文節が行に収まらないときだけ中で折る（overflowWrap）。 */}
+                <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>{withPhraseBreaks(q)}</span>
               </button>
             ))}
           </div>

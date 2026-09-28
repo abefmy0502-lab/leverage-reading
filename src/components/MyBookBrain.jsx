@@ -1498,9 +1498,10 @@ function TrialNudgeCard({ copy, onOpen, onDismiss }) {
   return (
     <section aria-labelledby="brain-nudge-title" style={{ ...cardStyle, marginBottom: 'var(--space-6)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
-        <p id="brain-nudge-title" style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+        {/* 見出しとして読み上げる（見た目は本文の大きさ・600 のまま） */}
+        <h3 id="brain-nudge-title" style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
           {copy.title}
-        </p>
+        </h3>
         {/* 押せる範囲 44 のまま、負の余白で × の見た目をカードの余白 16 の角にそろえる */}
         <button
           type="button"

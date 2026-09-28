@@ -32,7 +32,7 @@ import { useSubscription } from '../hooks/useSubscription';
 import { openBillingPortal } from '../lib/billing';
 import { isNative, openManageSubscriptions } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
-import { planNameFor } from '../lib/trialNudge';
+import { planNameFor, trialRenewalLine } from '../lib/trialNudge';
 import { PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
@@ -842,10 +842,26 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {/* プランの呼び名は 1 つだけ（無料プラン / 7 日間無料（◯月◯日まで）/ 月額プラン / 年額プラン・GLOSSARY）。
                     無料期間の終わる日はこの行に入れる（「無料期間の終わり」の行と二重にしない）。
                     支払いが止まっているなど「利用中」以外の状態のときだけ、状態の行を足す。 */}
-                <ValueRow
-                  label="プラン"
-                  value={planNameFor({ plan, priceId: subscription?.priceId, trialEnd: formatPeriodEnd(subscription?.currentPeriodEnd) || '' })}
-                />
+                {/* 無料期間は「終わる」だけに読めないよう、同じ行の下に続くプランを添える
+                    （「10月4日から 年額プラン（自動更新）」・月額か年額かは product id から・分からなければ「プラン」）。 */}
+                {plan === 'trial' ? (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0' }}>
+                    <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)', flexShrink: 0 }}>プラン</span>
+                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right', minWidth: 0 }}>
+                      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>
+                        {planNameFor({ plan, priceId: subscription?.priceId, trialEnd: formatPeriodEnd(subscription?.currentPeriodEnd) || '' })}
+                      </span>
+                      <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                        {trialRenewalLine({ priceId: subscription?.priceId, trialEnd: formatPeriodEnd(subscription?.currentPeriodEnd) || '' })}
+                      </span>
+                    </span>
+                  </div>
+                ) : (
+                  <ValueRow
+                    label="プラン"
+                    value={planNameFor({ plan, priceId: subscription?.priceId, trialEnd: formatPeriodEnd(subscription?.currentPeriodEnd) || '' })}
+                  />
+                )}
                 {subscription?.status && subscription.status !== 'active' && (
                   <ValueRow label="状態" value={billingStatusLabel(subscription.status)} style={divider} />
                 )}
@@ -921,7 +937,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
-                    無料プランはずっと無料で、AI は相談だけ（1 回 約 {TOKEN_COSTS.consult} トークン）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
+                    無料プランはずっと無料で、AI は相談だけ（<span style={{ whiteSpace: 'nowrap' }}>1 回 約 {TOKEN_COSTS.consult} トークン</span>）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
                   </p>
                   <button
                     type="button"

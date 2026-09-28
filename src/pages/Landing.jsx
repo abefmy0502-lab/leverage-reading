@@ -631,11 +631,15 @@ export default function Landing() {
               <div className="lp-plan">
                 <p className="lp-plan-name">無料プラン</p>
                 <p className="lp-plan-price">¥0<span>ずっと無料</span></p>
-                <p className="lp-plan-sub">メモ・記録・振り返り・シェア。相談は毎月 {FREE_TOKENS} トークン（約 3 回）。</p>
+                {/* 含まれるものは各カードの中に（別の一覧にすると、どちらのプランの話か分かりにくい） */}
+                <p className="lp-plan-sub">本とメモは、何件でも登録できます。記録・振り返り・シェアも使え、相談は毎月 {FREE_TOKENS} トークン（約 3 回）。</p>
               </div>
               <div className="lp-plan">
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
-                <p className="lp-plan-sub">すべての AI 機能が使えます。</p>
+                <ul className="lp-included" aria-label="プランに含まれるもの">
+                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" />相談が毎月 {PAID_TOKENS} トークン（約 80 回）。足りない月は追加もできます</li>
+                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" />AI 選書・テーマまとめ・読書計画シート・写真からの書き起こし</li>
+                </ul>
                 <div className="lp-plan-rows">
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">年額プラン<span className="lp-plan-tag">おすすめ</span></p>
@@ -650,11 +654,6 @@ export default function Landing() {
                 </div>
               </div>
             </div>
-            <ul className="lp-included" aria-label="プランに含まれるもの">
-              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />相談が毎月 {PAID_TOKENS} トークン（約 80 回）。足りない月は追加もできます</li>
-              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />AI 選書・テーマまとめ・読書計画シート・写真からの書き起こし</li>
-              <li><Check size={18} strokeWidth={2.4} aria-hidden="true" />本とメモは、無料プランでも何件でも登録できます</li>
-            </ul>
             <div className="lp-cta-block">
               <StoreCta className="lp-btn lp-btn-large" loc="pricing">{CTA_LABEL}</StoreCta>
               <p className="lp-cta-note">

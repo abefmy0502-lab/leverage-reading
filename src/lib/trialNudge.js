@@ -34,20 +34,21 @@ export function shouldShowTrialNudge({ plan, memoCount, done, freeUsedUp = false
 
 // 文言。offer はストアから分かった無料期間の名前（「7 日間無料」）。使えないと分かった・
 // 分からないときは空＝無料期間を約束しない文にする。
-export function trialNudgeCopy({ memoCount, offer = '' }) {
-  const n = Number.isFinite(memoCount) ? memoCount : TRIAL_NUDGE_MEMOS;
+// 件数は文に入れない（相談の上部の「メモ・学びなど N 件」と数え方が違い、並ぶと食い違って見えるため）。
+// （呼び出し側が memoCount を渡しても使わない。）
+export function trialNudgeCopy({ offer = '' } = {}) {
   const title = '相談相手が育ってきました';
   if (offer) {
     return {
       title,
-      body: `メモが ${n} 件たまりました。${offer}で、AI 選書・テーマまとめなど、すべての AI を試せます。`,
+      body: `メモがたまってきました。${offer}で、AI 選書・テーマまとめなど、すべての AI を試せます。`,
       cta: `${offer}で試す`,
       kind: 'trial',
     };
   }
   return {
     title,
-    body: `メモが ${n} 件たまりました。AI 選書・テーマまとめなど、すべての AI を使えるプランがあります。`,
+    body: `メモがたまってきました。AI 選書・テーマまとめなど、すべての AI を使えるプランがあります。`,
     cta: 'プランを見る',
     kind: 'plan',
   };
@@ -97,11 +98,27 @@ export function trialFirstPhrase(label) {
 // 無料期間の長さは正典（App Store の Introductory Offer＝月額・年額とも 7 日間）。
 // 月額か年額か分からない契約（Stripe の価格 ID など）は「利用中」とだけ出す。
 export const TRIAL_LABEL = '7 日間無料';
+// 契約の期間（'annual' | 'monthly' | ''）。価格 ID / product_id から読む。分からなければ ''。
+export function planPeriodOf(priceId = '') {
+  const id = String(priceId || '').toLowerCase();
+  if (/(annual|year|p1y)/.test(id)) return 'annual';
+  if (/(month|p1m)/.test(id)) return 'monthly';
+  return '';
+}
 export function planNameFor({ plan, priceId = '', trialEnd = '' }) {
   if (plan === 'free') return '無料プラン';
   if (plan === 'trial') return trialEnd ? `${TRIAL_LABEL}（${trialEnd}まで）` : TRIAL_LABEL;
-  const id = String(priceId || '').toLowerCase();
-  if (/(annual|year|p1y)/.test(id)) return '年額プラン';
-  if (/(month|p1m)/.test(id)) return '月額プラン';
+  const period = planPeriodOf(priceId);
+  if (period === 'annual') return '年額プラン';
+  if (period === 'monthly') return '月額プラン';
   return '利用中';
+}
+
+// 無料期間の人に、終わったあとどうなるか（設定の「プラン」の行の下・2026-09-28）。
+//   「10月4日から 年額プラン（自動更新）」／期間が分からなければ「10月4日から プラン（自動更新）」。
+//   終わる日が分からなければ「無料期間のあと プラン（自動更新）」。
+export function trialRenewalLine({ priceId = '', trialEnd = '' } = {}) {
+  const period = planPeriodOf(priceId);
+  const name = period === 'annual' ? '年額プラン' : period === 'monthly' ? '月額プラン' : 'プラン';
+  return `${trialEnd ? `${trialEnd}から` : '無料期間のあと'} ${name}（自動更新）`;
 }

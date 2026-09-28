@@ -108,6 +108,7 @@ const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 $
 
 // onlyPlan: 無料のトークンを使い切ったあと（本人の本の表紙を出すとき）はプランの行だけ（主ボタンを近くに）。
 // trial: この人が使える無料期間（「7 日間無料」）。あればプランの行の名前に「（最初の 7 日間は無料）」。
+//   選んだプランに無料期間があるときは下に固定の欄（「最初の 7 日間は無料」＋主ボタン）が言うので渡さない（繰り返さない）。
 function PlanCompare({ onlyPlan = false, trial = '' }) {
   const rows = onlyPlan ? PLAN_COMPARE.filter((r) => r.name === 'プラン') : PLAN_COMPARE;
   return (
@@ -134,6 +135,20 @@ function PlanCompare({ onlyPlan = false, trial = '' }) {
 // 文字ボタン（DESIGN §5 の btnLink＝アクセント色・15/600・高さ 44）。規約・復元・書き出し・
 // アカウント切替もすべて同じ見た目にし、脇役であることは並び順と区切り線で示す。
 const linkStyle = { ...btnLink, textDecoration: 'none' };
+// 請求額の行＋主ボタンの欄（DESIGN §5「下に固定の保存」と同じ形）。スクロールする <main> の中で下に固定し、
+// 横は <main> の余白（--space-4）の分だけ外へ広げて画面の幅いっぱいに区切り線を引く。
+// 下の安全域はこの欄が持つ（<main> の下の余白は 0。sticky は親の余白の内側で止まるため）。
+const stickyFooter = {
+  position: 'sticky',
+  bottom: 0,
+  zIndex: 1,
+  marginTop: 'var(--space-4)',
+  marginLeft: 'calc(-1 * var(--space-4))',
+  marginRight: 'calc(-1 * var(--space-4))',
+  padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
+  background: 'var(--bg)',
+  borderTop: '1px solid var(--separator)',
+};
 // 削除だけはエラー色（DESIGN §5）。ほかの文字ボタンとは行を分ける。
 const dangerLinkStyle = { ...linkStyle, color: 'var(--error)' };
 // 文字ボタンの並び（左端は文字の頭をほかの行とそろえる）。
@@ -282,6 +297,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const trial = normalizeTrialLabel(selected.trial || '');
   // どちらかのプランに無料期間があれば、比較のプランの行に「（最初の 7 日間は無料）」を出す。
   const anyTrial = priceState === 'ready' ? normalizeTrialLabel(labels.annual?.trial || labels.monthly?.trial || '') : '';
+  // 下に固定の欄の請求額（「年額 ¥12,800」）。無料期間は同じ欄で言うので、比較の見出しでは繰り返さない。
+  const billedShort = String(selected.price || '').split('（')[0].trim();
 
   const handleSubscribe = async () => {
     if (pending) return;
@@ -360,14 +377,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         minHeight: 0,
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
-        padding:
-          'calc(var(--space-8) + env(safe-area-inset-top, 0px)) var(--space-4) calc(var(--space-8) + env(safe-area-inset-bottom, 0px))',
+        // 下の余白は 0（下に固定の欄が <main> の下端に付くように）。代わりに中身の最後に余白を置く。
+        padding: 'calc(var(--space-8) + env(safe-area-inset-top, 0px)) var(--space-4) 0',
         background: 'var(--bg)',
         color: 'var(--text)',
         fontFamily: 'var(--font-ui)',
       }}
     >
-      <div style={{ maxWidth: '36em', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ maxWidth: '36em', margin: '0 auto', display: 'flex', flexDirection: 'column', paddingBottom: 'calc(var(--space-8) + env(safe-area-inset-bottom, 0px))' }}>
         {/* 見出し。無料のトークンを使い切ったあとは「自分の相談相手」、機能から開いたときは機能の名前 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 44 }}>
           <p style={{ ...groupTitle, lineHeight: 1.5 }}>
@@ -407,7 +424,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
         )}
 
         {/* 無料プランとプランの違い（トークンの量と、プランで増える機能） */}
-        <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative ? anyTrial : ''} />
+        <PlanCompare onlyPlan={(fromFree || fromGrown) && myBooks.length > 0} trial={showNative && !trial ? anyTrial : ''} />
 
         {showNative ? (
           <>
@@ -443,26 +460,28 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             </div>
             )}
 
-            {/* 無料期間（ストアに設定があり、この人が使えるときだけ・プランごと） */}
-            {priceState === 'ready' && trial && (
-              // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。
-              <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-4) 0 0' }}>
-                {trialFirstPhrase(trial)}
-                <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
-                  その後 {String(selected.price || '').split('（')[0].trim()} で自動更新
-                </span>
-              </p>
-            )}
-
-            <button
-              type="button"
-              onClick={handleSubscribe}
-              disabled={!!pending || priceState !== 'ready'}
-              // 価格を読み込むまでは押せない見た目（薄くしない・DESIGN §5）。購入手続き中は塗りのまま文言で示す。
-              style={{ ...(priceState !== 'ready' ? btnPrimaryOff : btnPrimary), marginTop: 'var(--space-4)', cursor: pending || priceState !== 'ready' ? 'default' : 'pointer', opacity: 1 }}
-            >
-              {ctaLabel}
-            </button>
+            {/* 請求額の行＋主ボタンは画面の下に固定（DESIGN §5「下に固定の保存」と同じ形）。
+                スクロールしても、押すボタンと実際に請求される金額がいつも一緒に見える（審査 3.1.2）。 */}
+            <div style={stickyFooter}>
+              {priceState === 'ready' && (
+                // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。無料期間はプランごと・使える人にだけ。
+                <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-3)' }}>
+                  {trial && trialFirstPhrase(trial)}
+                  <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+                    {trial ? 'その後 ' : ''}{billedShort} で自動更新
+                  </span>
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleSubscribe}
+                disabled={!!pending || priceState !== 'ready'}
+                // 価格を読み込むまでは押せない見た目（薄くしない・DESIGN §5）。購入手続き中は塗りのまま文言で示す。
+                style={{ ...(priceState !== 'ready' ? btnPrimaryOff : btnPrimary), cursor: pending || priceState !== 'ready' ? 'default' : 'pointer', opacity: 1 }}
+              >
+                {ctaLabel}
+              </button>
+            </div>
 
             {/* 自動更新の条件（3.1.2 必須開示） */}
             <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>
@@ -500,21 +519,24 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               ))}
             </section>
 
-            {isAppStoreLive ? (
-              <a
-                href={APP_STORE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ ...btnPrimary, boxSizing: 'border-box', textDecoration: 'none', marginTop: 'var(--space-4)' }}
-              >
-                App Store で入手
-              </a>
-            ) : (
-              // 公開前は、公開後と同じ場所・形の押せない主ボタン（LP・Web 利用の案内と同じ・薄くしない）。
-              <button type="button" disabled style={{ ...btnPrimaryOff, marginTop: 'var(--space-4)' }}>
-                App Store で近日公開
-              </button>
-            )}
+            {/* Web でも入手の主ボタンは画面の下に固定（ネイティブと同じ形）。 */}
+            <div style={stickyFooter}>
+              {isAppStoreLive ? (
+                <a
+                  href={APP_STORE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ ...btnPrimary, boxSizing: 'border-box', textDecoration: 'none' }}
+                >
+                  App Store で入手
+                </a>
+              ) : (
+                // 公開前は、公開後と同じ場所・形の押せない主ボタン（LP・Web 利用の案内と同じ・薄くしない）。
+                <button type="button" disabled style={btnPrimaryOff}>
+                  App Store で近日公開
+                </button>
+              )}
+            </div>
 
             <p style={{ ...metaText, marginTop: 'var(--space-3)' }}>
               ご契約・お支払い・解約は iOS アプリ（App Store）で行います。期間終了前に解約しない限り、同じ料金で自動更新されます。解約してもメモは残ります。

@@ -7,6 +7,8 @@ import {
   trialPeriodOf,
   trialFirstPhrase,
   planNameFor,
+  planPeriodOf,
+  trialRenewalLine,
 } from './trialNudge';
 
 const base = { plan: 'free', memoCount: 10, done: false, freeUsedUp: false, empty: true };
@@ -45,7 +47,9 @@ describe('trialNudgeCopy', () => {
     const c = trialNudgeCopy({ memoCount: 12, offer: '7 日間無料' });
     expect(c.kind).toBe('trial');
     expect(c.title).toBe('相談相手が育ってきました');
-    expect(c.body).toBe('メモが 12 件たまりました。7 日間無料で、AI 選書・テーマまとめなど、すべての AI を試せます。');
+    expect(c.body).toBe('メモがたまってきました。7 日間無料で、AI 選書・テーマまとめなど、すべての AI を試せます。');
+    // 件数は入れない（相談の上部の「メモ・学びなど N 件」と食い違わないように）
+    expect(c.body).not.toMatch(/件/);
     expect(c.cta).toBe('7 日間無料で試す');
   });
 
@@ -53,6 +57,7 @@ describe('trialNudgeCopy', () => {
     const c = trialNudgeCopy({ memoCount: 10, offer: '' });
     expect(c.kind).toBe('plan');
     expect(c.body).not.toMatch(/無料/);
+    expect(c.body).toBe('メモがたまってきました。AI 選書・テーマまとめなど、すべての AI を使えるプランがあります。');
     expect(c.cta).toBe('プランを見る');
   });
 });
@@ -88,5 +93,20 @@ describe('planNameFor（設定の「プラン」の行）', () => {
   it('月額か年額か分からない契約は「利用中」', () => {
     expect(planNameFor({ plan: 'paid', priceId: 'price_1Mx2abc' })).toBe('利用中');
     expect(planNameFor({ plan: 'paid' })).toBe('利用中');
+  });
+});
+
+describe('trialRenewalLine（無料期間のあと・設定の「プラン」の行の下）', () => {
+  it('product id から期間を読んで「◯月◯日から 年額プラン（自動更新）」', () => {
+    expect(planPeriodOf('orime_annual')).toBe('annual');
+    expect(planPeriodOf('orime_monthly')).toBe('monthly');
+    expect(planPeriodOf('price_1Mx2abc')).toBe('');
+    expect(trialRenewalLine({ priceId: 'orime_annual', trialEnd: '10月4日' })).toBe('10月4日から 年額プラン（自動更新）');
+    expect(trialRenewalLine({ priceId: 'orime_monthly', trialEnd: '10月4日' })).toBe('10月4日から 月額プラン（自動更新）');
+  });
+
+  it('期間が分からなければ「プラン」・日付が分からなければ「無料期間のあと」', () => {
+    expect(trialRenewalLine({ priceId: '', trialEnd: '10月4日' })).toBe('10月4日から プラン（自動更新）');
+    expect(trialRenewalLine({ priceId: 'orime_annual' })).toBe('無料期間のあと 年額プラン（自動更新）');
   });
 });
