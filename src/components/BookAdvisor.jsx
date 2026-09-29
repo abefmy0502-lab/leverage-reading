@@ -1254,9 +1254,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           <div className="ai-thinking">
             <span className="ai-thinking-dot" aria-hidden="true" />
             <span>
-              {interviewAnswers.length > 0
-                ? '回答をもとに、さらに深掘りしています…'
-                : 'あなたに合わせた質問を準備しています…'}
+              {/* 待っている間の文は、いま何をしているかを 1 つだけ言う（質問を作る／本を選ぶ・2026-09-29） */}
+              追加で聞くことを考えています…
             </span>
           </div>
           <div className="ai-skeleton" aria-label="質問を準備中" style={{ marginTop: 'var(--space-2)' }}>
@@ -1428,7 +1427,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         <div style={advisorWizardCard} aria-live="polite">
           <div className="ai-thinking">
             <span className="ai-thinking-dot" aria-hidden="true" />
-            <span>あなたにぴったりの本を選んでいます…</span>
+            <span>あなたに合う本を選んでいます…</span>
           </div>
           {recoStream ? (
             // 生成中の前置き文をライブ表示（動く文字＝進行が見える）。カードは完了時に出る。
@@ -1517,6 +1516,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {/* 前置き（「## 👋 はじめに」）は、本のカードより控えめな 1 段落（15/--text-2・カードも見出しも付けない）。
               見出し行と、末尾の空見出し「## 📚 おすすめの本」（本のカードと重複）は落とす。 */}
+          {/* 選んだ答えを 1 行で（「何をもとに選ばれたか」が見える・13/--text-2・2026-09-29） */}
+          {interviewAnswers.length > 0 && (
+            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0, overflowWrap: 'anywhere' }}>
+              {interviewAnswers.map((x) => x?.a).filter(Boolean).join('・')}
+            </p>
+          )}
           {recommendations.before && (() => {
             const intro = introTextOf(recommendations.before);
             return intro ? <p style={introText}>{intro}</p> : null;

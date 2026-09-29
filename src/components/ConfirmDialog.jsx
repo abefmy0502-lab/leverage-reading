@@ -123,7 +123,9 @@ export function ConfirmProvider({ children }) {
           <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <h2 id="confirm-dialog-title" style={titleStyle}>{pending.options.title}</h2>
             {pending.options.message && <p style={messageStyle}>{pending.options.message}</p>}
-            <div style={rowStyle}>
+            {/* ボタンの文字が長い（9 字以上）ときは横に並べると語の途中で折り返すので、縦に積む
+                （決める操作を上・やめるを下・iOS のアラートと同じ・2026-09-29）。 */}
+            <div style={Math.max(String(pending.options.confirmLabel).length, String(pending.options.cancelLabel).length) >= 9 ? { ...rowStyle, flexDirection: 'column-reverse' } : rowStyle}>
               <button type="button" style={cancelBtnStyle} onClick={() => finish(false)}>
                 {pending.options.cancelLabel}
               </button>

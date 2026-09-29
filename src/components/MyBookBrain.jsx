@@ -2082,8 +2082,11 @@ function extractActionLine(text) {
 
 // チャット回答の参照（📚 著者『書名』…）から、行動を紐づける本を解決する。
 // クロスブックなので最初に一致した本へ。完全一致 → 部分一致の順。
+// いちばんの根拠が自分の学び（💡・本に結びつかない学びログ）なら、2 つ目の根拠の本に勝手に付けない
+// （null を返す＝本を選ぶシートで、行動の文を入れたまま本を選んでもらう・2026-09-29）。
 function resolveActionBookId(refs, books) {
   if (!Array.isArray(refs) || !Array.isArray(books) || books.length === 0) return null;
+  if (refs.length > 0 && String(refs[0]).trim().startsWith('💡')) return null;
   for (const r of refs) {
     const id = resolveRefBookId(r, books);
     if (id) return id;

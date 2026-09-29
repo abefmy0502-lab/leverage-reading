@@ -547,7 +547,10 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
             </button>
             {/* 丸だけでは何の地か分からないので、下に小さく名前を出す（2026-09-29）。 */}
             {['paper', 'night', 'cover', 'sticker'].map((v) => (
-              <button key={v} type="button" role="radio" aria-checked={effStyle === v} onClick={() => setStyle(v)} style={swatchLabeledBtn}>
+              // 「透明（ステッカー用）」は 390 幅の 1 行に収まらないので、見える名前は「透明」のまま、
+              // 読み上げと長押しの名前で用途まで言う（2026-09-29）。
+              <button key={v} type="button" role="radio" aria-checked={effStyle === v} onClick={() => setStyle(v)} style={swatchLabeledBtn}
+                aria-label={v === 'sticker' ? '透明（ステッカー用）' : undefined} title={v === 'sticker' ? '透明（ステッカー用）' : undefined}>
                 {v === 'cover' && !assets?.cover
                   // 表紙を読み込むまでは、表紙の色が分からないので骨組みの丸（代用の色を一瞬出さない）。
                   ? <SkeletonBlock width={28} height={28} radius="var(--radius-full)" style={{ boxShadow: ring(effStyle === v) }} />
@@ -581,12 +584,14 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
 
           {/* どの一文にする？（候補が 2 つ以上のときだけ） */}
           {candidates.length > 1 && (
-            <section aria-labelledby="share-pick-title">
+            // 下の決定ボタンの欄に候補が詰まって見えないよう、下に 16 の余白（2026-09-29）。
+            <section aria-labelledby="share-pick-title" style={{ paddingBottom: 'var(--space-4)' }}>
               <h4 id="share-pick-title" style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>どの一文にする？</h4>
               <div
                 role="radiogroup"
                 aria-labelledby="share-pick-title"
-                style={{ display: 'flex', gap: 'var(--space-3)', overflowX: 'auto', scrollSnapType: 'x mandatory', margin: '0 calc(-1 * var(--space-4))', padding: '0 var(--space-4)', scrollPaddingLeft: 'var(--space-4)', WebkitOverflowScrolling: 'touch' }}
+                // 横に流す欄は縦も切り取るので、選んだ枠・影が下で欠けないよう上下に 4。
+                style={{ display: 'flex', gap: 'var(--space-3)', overflowX: 'auto', scrollSnapType: 'x mandatory', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-4))', padding: 'var(--space-1) var(--space-4)', scrollPaddingLeft: 'var(--space-4)', WebkitOverflowScrolling: 'touch' }}
               >
                 {candidates.map((m) => {
                   const on = m.id === chosen.id;

@@ -34,6 +34,8 @@ const fmt = (n) => Number(n || 0).toLocaleString('ja-JP');
 const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター', kindle: 'Kindle' };
 // 読書メーターの棚の名前（保存したページの棚。残りのページの案内に使う）。
 const SHELF_LABEL = { done: '読んだ本', reading: '読んでる本', before: '積読本', want: '読みたい本' };
+// 確かめる画面の各行に出す、取り込んだあとの本の状態（アプリの 4 つの状態の名前）。
+const IMPORT_STATUS_LABEL = { done: '読了', reading: '読書中', before: '積読', want: '読みたい' };
 
 // existingBooks: いまの本棚（確かめる画面で「本棚にあります」と数え方を取り込みと揃えるため）。
 // onAddOneLine(books): 完了画面の「覚えている一言を足す（N 冊）」— メモも感想も無い新しい本に、
@@ -181,7 +183,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     // （keep-all なので「・」の前後では切れない＝「・」で終わる行ができない）。
     const countParts = [
       plan.newBooks > 0 ? `新しい本\u00a0${plan.newBooks}\u00a0冊` : `本棚の本\u00a0${plan.existingBooks}\u00a0冊`,
-      plan.memos > 0 ? `メモ\u00a0${plan.memos}\u00a0件` : '',
+      // まとめだけのときは「まとめ N 件」（「メモ N 件（まとめ N 件を含む）」と同じ数を言い直さない・2026-09-29）。
+      plan.memos > 0 ? (plan.summaries === plan.memos ? `まとめ\u00a0${plan.memos}\u00a0件` : `メモ\u00a0${plan.memos}\u00a0件`) : '',
     ].filter(Boolean);
     const source = SOURCE_LABEL[result.source];
     const shortfall = importShortfall(result);
@@ -192,16 +195,18 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
         <p style={heading}>
           {source ? <>{source}：<wbr /></> : null}{countParts.join(KEEP_DOT)}
-          {plan.memos > 0 && plan.summaries > 0 && <><wbr />{`（まとめ\u00a0${plan.summaries}\u00a0件を含む）`}</>}
+          {plan.memos > 0 && plan.summaries > 0 && plan.summaries < plan.memos && <><wbr />{`（まとめ\u00a0${plan.summaries}\u00a0件を含む）`}</>}
         </p>
         <ul style={{ ...list, gap: 0 }}>
           {shown.map(({ book: b, existing, memos: n, summary }, i) => (
-            <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, padding: existing ? 'var(--space-2) 0' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
+            <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, padding: existing || IMPORT_STATUS_LABEL[b.status] ? 'var(--space-2) 0' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
               <BookOpen size={18} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
                 {/* 本棚にある本は新しく作らず、その本にメモとして足す（取り込みと同じ決まり）。 */}
                 {existing && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>本棚にあります（メモとして足す）</span>}
+                {/* 新しい本は、どの状態で入るかを小さく（読了／読書中など・2026-09-29）。 */}
+                {!existing && IMPORT_STATUS_LABEL[b.status] && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{IMPORT_STATUS_LABEL[b.status]}</span>}
               </span>
               {n > 0 ? (
                 // まとめも入る本は「メモ n・まとめ」（各行を足すと見出しの「メモ M 件（まとめ K 件を含む）」になるように）。
@@ -274,9 +279,10 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     // 「を」は前の語（または閉じ括弧）と離さない（「を取り込みました」の「を」が行の頭に来ないように・2026-09-29）。
     const headParts = [
       outcome.booksAdded > 0 ? `新しい本\u00a0${outcome.booksAdded}\u00a0冊` : '',
-      memos > 0 ? `メモ\u00a0${memos}\u00a0件` : '',
+      memos > 0 ? (reviews === memos ? `まとめ\u00a0${memos}\u00a0件` : `メモ\u00a0${memos}\u00a0件`) : '',
     ].filter(Boolean);
-    const summaryNote = memos > 0 && reviews > 0 ? `（まとめ\u00a0${reviews}\u00a0件を含む）` : '';
+    // まとめだけのときは「まとめ N 件」で足りるので、括弧の注は付けない（2026-09-29）。
+    const summaryNote = memos > 0 && reviews > 0 && reviews < memos ? `（まとめ\u00a0${reviews}\u00a0件を含む）` : '';
     const headLead = summaryNote ? headParts.join(KEEP_DOT) : headParts.slice(0, -1).map((part) => part + KEEP_DOT).join('');
     const headTail = `${summaryNote || headParts[headParts.length - 1] || ''}を`;
     const nothingNew = headParts.length === 0;

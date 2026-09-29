@@ -83,6 +83,11 @@ export default function TokenSheet({ onClose, onPurchased }) {
     ? selected
     : [...TOKEN_PACKS].reverse().find((p) => !unavailable(p.id))?.id;
   const canBuy = (isNative || isDemo) && pricesReady && !!current;
+  // 決定ボタンに選んだ商品の価格を入れる（「¥800 で購入する」・押す前に払う額が見える・2026-09-29）。
+  //   アプリ版はストアの値だけ（取れていなければ「購入する」）。
+  const currentPack = TOKEN_PACKS.find((p) => p.id === current);
+  const currentPrice = currentPack ? (showNative ? (priceState === 'ready' ? prices[current] : '') : (prices[current] || currentPack.fallbackPrice)) : '';
+  const buyLabel = currentPrice ? `${currentPrice} で購入する` : '購入する';
 
   const buy = async () => {
     if (busy || !current || !canBuy) return;
@@ -132,7 +137,7 @@ export default function TokenSheet({ onClose, onPurchased }) {
           disabled={busy || !canBuy}
           style={{ ...(canBuy ? btnPrimary : btnPrimaryOff), cursor: busy || !canBuy ? 'default' : 'pointer', opacity: 1 }}
         >
-          {busy ? '購入手続き中…' : (isNative || isDemo) ? '購入する' : 'App Store のアプリで購入できます'}
+          {busy ? '購入手続き中…' : (isNative || isDemo) ? buyLabel : 'App Store のアプリで購入できます'}
         </button>
       )}
     >

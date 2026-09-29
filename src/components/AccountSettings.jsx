@@ -480,6 +480,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     return () => { alive = false; };
   }, []);
 
+  // オンにしたときの知らせ（いつ届くかをその場で言う・読める長さで出す・2026-09-29）。
+  // 中央の ✓ は幅が狭いので、句の切れ目で改行する（「朝／8 時」「週／に」で割れないように・数と単位も離さない）。
+  const PUSH_ON_MESSAGE = 'オンにしました。\n期限の日は朝\u00a08\u00a0時ごろ、\n思い出しは多くても\n週に\u00a01\u00a0回届きます';
   const handleTogglePush = async () => {
     if (pushBusy) return;
     setPushBusy(true);
@@ -487,7 +490,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       if (isDemo) {
         demoPushOn = !pushOn;
         setPushOn(demoPushOn);
-        if (demoPushOn) toast.success('通知をオンにしました'); else toast.info('通知をオフにしました。');
+        if (demoPushOn) toast.success(PUSH_ON_MESSAGE, { duration: 3500 }); else toast.info('通知をオフにしました。');
         return;
       }
       if (pushOn) {
@@ -503,7 +506,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         if (res.ok) {
           setPushOn(true);
           track(EVENTS.PUSH_ENABLED); // ON 成功時のみ（props なし・fire-and-forget）
-          toast.success('通知をオンにしました');
+          toast.success(PUSH_ON_MESSAGE, { duration: 3500 });
         } else if (res.reason === 'denied') {
           setPushDenied(true);
           toast.error('通知が許可されていません。端末の設定からオンにできます。');
@@ -1005,7 +1008,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             {/* 1 つのスイッチで 2 種類（思い出しの通知・行動の期限）をまとめてオン/オフする。 */}
             <SettingRow
               title="思い出しと行動の通知"
-              desc="思い出しの通知（多くても週に 1 回）と、行動の期限の日の朝に 1 回。このスイッチでまとめてオン・オフします。"
+              desc="思い出しの通知（多くても週に 1 回）と、行動の期限の日の朝 8 時ごろに 1 回。このスイッチでまとめてオン・オフします。"
               extra={pushNote}
               control={canTogglePush ? (
                 <ToggleSwitch
@@ -1115,6 +1118,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               type="button"
               style={{ ...rowButtonStyle, ...divider, fontSize: 'var(--text-body)' }}
               onClick={async () => {
+                // 押し間違いで出てしまわないように、ひと声かける（消す操作ではないので赤くしない・2026-09-29）。
+                const ok = await confirm({
+                  title: 'ログアウトしますか？',
+                  message: 'メモはアカウントに残ります',
+                  confirmLabel: 'ログアウト',
+                  cancelLabel: 'キャンセル',
+                });
+                if (!ok) return;
                 try { await signOut(); onClose?.(); } catch { toast.error('ログアウトに失敗しました。'); }
               }}
             >

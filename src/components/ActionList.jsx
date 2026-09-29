@@ -308,7 +308,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
       </div>
       <button
         type="button"
-        aria-label="この行動の操作"
+        // 並んだ「…」を読み上げで見分けられるように、行動の文を入れる（長い文は 40 字で切る・2026-09-29）。
+        aria-label={`「${String(a.text || '').trim().slice(0, 40)}」の操作`}
         onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onOpenMenu?.({ x: r.right - 8, y: r.bottom + 4, action: a }); }}
         style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
       >
