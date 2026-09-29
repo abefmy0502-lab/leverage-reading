@@ -33,7 +33,7 @@ import { openBillingPortal } from '../lib/billing';
 import { isNative, openManageSubscriptions } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
-import { PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
+import { PAID_TOKENS, TOKEN_COSTS, FREE_TOKENS } from '../lib/tokens';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
@@ -898,7 +898,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   <ValueRow label="次回更新" value={formatPeriodEnd(subscription.currentPeriodEnd)} style={divider} />
                 )}
                 {tokensRemaining != null ? (
-                  <ValueRow label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`} style={divider} />
+                  // 有料プランは、いつ戻るかも一緒に（無料プランの行と同じ・2026-09-29）。無料期間のトークンは月で戻らないので出さない。
+                  <ValueRow
+                    label={plan === 'trial' ? '無料期間の残り' : '今月の残り'}
+                    value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`}
+                    sub={plan === 'trial' ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}
+                    style={divider}
+                  />
                 ) : tokensLoading ? (
                   <ValueRowSkeleton label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} style={divider} />
                 ) : null}
@@ -919,6 +925,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   {plan === 'trial' && (
                     <p style={{ ...noteStyle, color: 'var(--text)', marginBottom: 'var(--space-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                       {withPhraseBreaks(trialCancelNote(dateLabelJa(trialCancelByTime(subscription?.currentPeriodEnd)) || ''))}
+                    </p>
+                  )}
+                  {/* 解約したらどうなるか（無料プランで続けられる・メモは消えない）を、解約の案内のすぐ下に（2026-09-29）。 */}
+                  {plan === 'trial' && (
+                    <p style={{ ...noteStyle, marginBottom: 'var(--space-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                      {withPhraseBreaks(`解約しても無料プラン（ずっと無料・相談は毎月 ${fmtTokens(FREE_TOKENS)} トークン）で使い続けられます。メモは残ります。`)}
                     </p>
                   )}
                   <p style={noteStyle}>
