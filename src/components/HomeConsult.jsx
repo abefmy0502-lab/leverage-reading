@@ -6,7 +6,8 @@
 // 「あなたが読んだ N 冊・メモ N 件から答えます」で、積み重ね＝相談の質を毎回伝える。
 //   - 本 0 冊: 出さない（ホームの「はじめる」カードが案内する）
 //   - 本を読み込めなかった（countUnknown）: 冊数が分からないので「あなたの本から答えます」で出す
-//   - メモ 0 件: 入力欄の代わりに「これまで読んだ本から始める」（初日クイックスタート・SPEC §1）
+//   - メモ 0 件（カード式・学び・この本のまとめのどれも無い）: 入力欄の代わりに「これまで読んだ本から始める」
+//     （初日クイックスタート・SPEC §1）
 // 見た目は DESIGN.md のトークンのみ（主ボタン＝相談する の 1 つだけ）。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -15,7 +16,7 @@ import { useAppDataCache } from '../state/AppDataCache';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
 import { btnPrimary, card, input, groupTitle } from '../styles/ui';
-import { buildConsultExamples } from '../lib/consultHelpers';
+import { buildConsultExamples, countSummaryMemos } from '../lib/consultHelpers';
 import { loadDefaultJapaneseParser } from 'budoux';
 
 // 相談例は文節（BudouX）の切れ目でだけ折り返す（「使え／る」「ヒ／ント」のように語の途中で割れないように）。
@@ -37,9 +38,14 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
   const { user } = useAuth();
   const cache = useAppDataCache();
   const inputRef = useRef(null);
-  const [memoCount, setMemoCount] = useState(null);
+  const [cardCount, setCardCount] = useState(null);
   const [text, setText] = useState('');
   const bookCount = books.length;
+  // 「メモ N 件」＝カード式＋学び（book_memos）＋「この本のまとめ」の入っている本（1 冊 1 件）。
+  // 相談・初日クイックスタート・記録と同じ数え方（lib/consultHelpers.js・2026-09-29）。
+  // まとめだけ（読書メーター等の感想を取り込んだ人）でも、相談の入力欄を出す。
+  const summaryCount = useMemo(() => countSummaryMemos(books), [books]);
+  const memoCount = cardCount == null ? null : cardCount + summaryCount;
   const [memoBookIds, setMemoBookIds] = useState(null);
   const [lastQuestion, setLastQuestion] = useState(null); // 前の相談（「前に相談した「…」、その後どう進める？」）
   const examples = useMemo(
@@ -79,7 +85,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
             .order('created_at', { ascending: false })
             .limit(1)).catch(() => ({ data: null, error: true })),
         ]);
-        if (alive && !error) setMemoCount(count || 0);
+        if (alive && !error) setCardCount(count || 0);
         if (alive && !idsRes.error) setMemoBookIds(new Set((idsRes.data || []).map((r) => r.book_id)));
         if (alive && lastRes && !lastRes.error) setLastQuestion(lastRes.data?.[0]?.content || null);
       } catch { /* 件数が取れなくても入口自体は出す */ }

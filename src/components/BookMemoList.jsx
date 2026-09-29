@@ -177,7 +177,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 
 // afterList: メモ一覧のすぐ下（「この本のまとめ」の上）に置く要素（本の詳細の「この本に相談する」・SPEC §2 の並び）。
 // onShareMemo(memo): 「この一文をシェア」を親（本の詳細）の一文シェアのシートで開く。無ければこの一覧の中で開く。
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null }) {
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   const [quoteOnly, setQuoteOnly] = useState(false);
@@ -202,6 +202,30 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   } = useBookMemos(bookId, { sortBy });
 
   const rootRef = useRef(null);
+
+  // 🔎 振り返りの検索などから「このメモ」を指して開いたとき（focusMemoId）: 読み込めたら
+  // そのメモまで送って、少しのあいだ栗色で示す（2026-09-29）。1 つの id につき 1 回だけ。
+  const [focusedId, setFocusedId] = useState(null);
+  const focusDoneRef = useRef(null);
+  const focusTimersRef = useRef([]);
+  useEffect(() => () => { focusTimersRef.current.forEach(clearTimeout); }, []);
+  useEffect(() => {
+    if (!focusMemoId || focusDoneRef.current === focusMemoId || loading) return undefined;
+    if (!memos.some((m) => m.id === focusMemoId)) return undefined;
+    focusDoneRef.current = focusMemoId;
+    if (quoteOnly) setQuoteOnly(false);
+    setFocusedId(focusMemoId);
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+    const id = focusMemoId;
+    // 次の再描画（quoteOnly の解除など）で消されないよう、タイマーは ref で持ってアンマウントでだけ止める。
+    focusTimersRef.current.push(setTimeout(() => {
+      const el = rootRef.current?.querySelector(`[data-memo-id="${typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id)}"]`);
+      el?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+    }, 60));
+    focusTimersRef.current.push(setTimeout(() => setFocusedId((cur) => (cur === id ? null : cur)), 2400));
+    return undefined;
+  }, [focusMemoId, memos, loading, quoteOnly]);
 
   const allTags = useMemo(() => {
     const s = new Set();
@@ -283,7 +307,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         message: 'メモを保存しました。',
         duration: 6000,
         action: {
-          label: '🎯 行動にする',
+          label: '行動に追加',
           onClick: () => handleMakeAction({
             id: result.id,
             text: actionText,
@@ -448,7 +472,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
           <BookMemoCard
             key={m.id}
             memo={m}
-            highlight={m.id === justAddedId}
+            highlight={m.id === focusedId ? 'focus' : m.id === justAddedId}
             onEdit={openEdit}
             onCopy={handleCopy}
             onShare={handleShare}
@@ -512,7 +536,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             { label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => openEdit(memoMenu.memo) },
             { label: 'コピー', icon: <Copy size={16} aria-hidden="true" />, onClick: () => handleCopy(memoMenu.memo) },
             ...(onMakeAction && (memoMenu.memo?.text || '').trim()
-              ? [{ label: '行動にする', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMakeAction(memoMenu.memo) }]
+              ? [{ label: '行動に追加', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMakeAction(memoMenu.memo) }]
               : []),
             ...((memoMenu.memo?.text || '').trim()
               ? [{ label: 'この一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => handleShare(memoMenu.memo) }]

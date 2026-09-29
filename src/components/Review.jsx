@@ -277,7 +277,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   const bookButton = (inHeader) => (
     <button
       type="button"
-      onClick={(e) => { e.stopPropagation(); if (book) onOpenBook?.(book); }}
+      onClick={(e) => { e.stopPropagation(); if (book) onOpenBook?.(book, memo.id); }}
       style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: inHeader ? 'calc(-1 * var(--space-3)) 0' : 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(inHeader ? { flex: 1 } : {}) }}
     >
       {book?.title || '（本のデータが見つかりません）'}
@@ -291,7 +291,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   const inner = (
     <div
       style={tapOpens ? { ...cardStyle, cursor: 'pointer' } : cardStyle}
-      onClick={tapOpens ? () => onOpenBook(book) : undefined}
+      onClick={tapOpens ? () => onOpenBook(book, memo.id) : undefined}
       {...(onLongPress && !isSynth ? longPress.bind : {})}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', flexWrap: bookInHeader ? 'nowrap' : 'wrap' }}>
@@ -387,8 +387,20 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   return inner;
 }
 
+// 🔎 本を開いて戻ってきたとき（画面を作り直しても）、検索の言葉・絞り込み・思い出しカードの 1 枚を
+// そのままにする（相談の session と同じ考え方・2026-09-29）。アプリを開き直したら消える。
+// { userId, search, tagFilter, kindFilter, randomSeed, searchActive }
+let reviewSession = null;
+const reviewSessionFor = (userId) => (reviewSession && userId && reviewSession.userId === userId ? reviewSession : null);
+const rememberReview = (userId, patch) => {
+  if (!userId) return;
+  if (!reviewSession || reviewSession.userId !== userId) reviewSession = { userId };
+  Object.assign(reviewSession, patch);
+};
+
 export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf }) {
   const { user } = useAuth();
+  const resumedReview = useRef(reviewSessionFor(user?.id)).current;
   const toast = useToast();
   const confirm = useConfirm();
   const haptic = useHaptic();
@@ -403,15 +415,17 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // seed=0 固定だと pool が同じ限り毎回同じメモが出て「偶然の再会」にならない。
   // 初期値をランダムにして、開くたびに違う一枚が戻ってくるようにする
   // （「別のメモを見る」の setRandomSeed でさらに回せる）。
-  const [randomSeed, setRandomSeed] = useState(() => Math.floor(Math.random() * 233280));
+  const [randomSeed, setRandomSeed] = useState(() => (
+    Number.isFinite(resumedReview?.randomSeed) ? resumedReview.randomSeed : Math.floor(Math.random() * 233280)
+  ));
   const [flipping, setFlipping] = useState(false);
   const flipTimerRef = useRef(null);
   const flipEndTimerRef = useRef(null);
   // 「覚えた/もう一度」のローカル反映をフリップ折り返しへ遅延させるタイマー。
   const recallApplyTimerRef = useRef(null);
   const [expanded, setExpanded] = useState(() => new Set());
-  const [search, setSearch] = useState('');
-  const [tagFilter, setTagFilter] = useState('');
+  const [search, setSearch] = useState(() => resumedReview?.search || '');
+  const [tagFilter, setTagFilter] = useState(() => resumedReview?.tagFilter || '');
   // 想起カードから「→行動にする」したメモ id（直後のボタン表示を ✓ に切替）。
   const [actionAddedId, setActionAddedId] = useState(null);
   const [addingAction, setAddingAction] = useState(false);
@@ -630,7 +644,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   }, [memos, books, synthRecall]);
 
   // 知識タイプ別のフィルタ (横断検索セクション用)。
-  const [kindFilter, setKindFilter] = useState('all');
+  const [kindFilter, setKindFilter] = useState(() => resumedReview?.kindFilter || 'all');
   // 件数チップ → 横断検索フィルタ連動時に、結果セクションへスクロールさせる先。
 
   // 種類別の件数 — 上部のサマリーチップに表示。
@@ -872,7 +886,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
 
   const isSearching = search.trim() || tagFilter || kindFilter !== 'all';
   // 絞り込みのメニューは、検索欄に触れてから出す（開いた瞬間の画面を思い出しカードとメモだけにする）。
-  const [searchActive, setSearchActive] = useState(false);
+  const [searchActive, setSearchActive] = useState(() => !!resumedReview?.searchActive);
+  useEffect(() => {
+    rememberReview(user?.id, { search, tagFilter, kindFilter, randomSeed, searchActive });
+  }, [user?.id, search, tagFilter, kindFilter, randomSeed, searchActive]);
 
   if (loading) {
     return (
@@ -960,14 +977,14 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             // 検索結果）からでも 1 タップに。ランダム想起カード限定だった
             // handleMemoToAction を長押しメニューにも露出する。
             ...(memoMenu.book && onAddAction
-              ? [{ label: '行動にする', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMemoToAction(memoMenu.memo) }]
+              ? [{ label: '行動に追加', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMemoToAction(memoMenu.memo) }]
               : []),
             // 思い出しカードの「…」だけ: 別の 1 枚へ（SPEC §4: 覚えた／もう一度 ＋ …）。
             ...(memoMenu.recall
               ? [{ label: '別のメモを見る', icon: <Shuffle size={16} aria-hidden="true" />, onClick: () => { if (!flipping) reroll(); } }]
               : []),
             ...(memoMenu.book
-              ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book) }]
+              ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id) }]
               : []),
             // 派生ノート（まとめ・収穫など）は DB の 1 行ではないので削除を出さない。
             ...(memoMenu.memo?.synth ? [] : [{

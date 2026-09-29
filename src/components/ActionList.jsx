@@ -353,7 +353,13 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     if (ok) {
       setReflection('');
       setPhase(c.key, 'collapse');
-      toast.success('ふりかえりを残しました。次の相談で使います。');
+      // 知らせは 1 つだけ: 下の「行動を完了しました／元に戻す」を、この文に差し替える
+      // （中央の ✓ と下のバーが同時に 2 つ出ていた・2026-09-29）。
+      if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
+      lastToastRef.current = toast.success('ふりかえりを残しました。次の相談で使います。', {
+        duration: 6000,
+        action: { label: '元に戻す', onClick: () => undoComplete(c.a) },
+      });
     }
   };
 

@@ -171,12 +171,34 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
     return parts.join('・');
   })();
 
+  // 「…」の読み上げ名に本文の先頭 12 字を入れる（同じ「メニューを開く」が並ぶと区別できない）。
+  const menuLabel = (() => {
+    const chars = Array.from((memo.text || '').trim().replace(/\s+/g, ' '));
+    if (chars.length === 0) return 'メモのメニュー';
+    return `${chars.slice(0, 12).join('')}${chars.length > 12 ? '…' : ''}のメニュー`;
+  })();
+  // カードの本文を押したら編集を開く（「…」→「編集」まで 2 タップだったのを 1 タップに・2026-09-29）。
+  // 「続きを読む」・写真・「…」は自分の動作だけ（stopPropagation）。文字を選んでいる途中は開かない。
+  const openEditFromCard = () => {
+    if (!onEdit) return;
+    try { if (window.getSelection?.()?.toString()) return; } catch { /* ignore */ }
+    onEdit(memo);
+  };
+
   const cardInner = (
     <div
-      style={cardWrap}
-      className={highlight ? 'just-added' : undefined}
+      style={{
+        ...cardWrap,
+        ...(onEdit ? { cursor: 'pointer' } : {}),
+        // highlight === 'focus': 振り返りの検索などから開いた「このメモ」を少しのあいだ栗色で示す。
+        ...(highlight === 'focus' ? { background: 'var(--accent-soft)', borderColor: 'var(--accent)' } : {}),
+        transition: 'background-color var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out)',
+      }}
+      className={highlight && highlight !== 'focus' ? 'just-added' : undefined}
       role="article"
       aria-label={cardAria}
+      data-memo-id={memo.id}
+      onClick={onEdit ? openEditFromCard : undefined}
       {...(onLongPress ? longPress.bind : {})}
     >
       <button
@@ -192,7 +214,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
         }}
         className="icon-btn"
         style={{ ...kebabBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        aria-label="メニューを開く"
+        aria-label={menuLabel}
       >
         <MoreHorizontal size={20} strokeWidth={1.75} aria-hidden="true" />
       </button>
@@ -239,7 +261,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
               }}
             >
               <Target size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-1)' }} />
-              行動にする
+              行動に追加
             </button>
           )}
           {onShare && (memo.text || '').trim() && (
@@ -288,7 +310,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
       {photoUrl && (
         <button
           type="button"
-          onClick={() => setZoom(true)}
+          onClick={(e) => { e.stopPropagation(); setZoom(true); }}
           aria-label="写真を拡大表示"
           style={{
             background: 'none',
@@ -367,7 +389,8 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
           role="dialog"
           aria-modal="true"
           aria-label="写真の拡大表示。タップで閉じる"
-          onClick={() => setZoom(false)}
+          // portal でもクリックは React ツリーを辿ってカードに届く（＝編集が開く）ので止める。
+          onClick={(e) => { e.stopPropagation(); setZoom(false); }}
           // 拡大写真上のパン/長押しが背後のカードのスワイプ削除・長押しメニューに
           // バブリングしてメモが消える事故を防ぐ（portal は React ツリーを辿る）。
           onTouchStart={(e) => e.stopPropagation()}

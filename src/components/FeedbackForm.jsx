@@ -249,7 +249,7 @@ export default function FeedbackForm({ onClose }) {
                 // IME ガード: 変換中の Enter を握らない (デフォルト挙動 = 改行)
                 if (e.nativeEvent.isComposing) return;
               }}
-              placeholder={'どのような改善・要望ですか？\n具体的に書いていただけると助かります。\n\n例：\n・本詳細画面の◯◯ボタンが押しにくい\n・✕✕機能を追加してほしい'}
+              placeholder={'どのような改善・要望ですか？\n具体的に書いていただけると助かります。\n\n例：\n・本の画面の◯◯ボタンが押しにくい\n・✕✕機能を追加してほしい'}
               maxLength={FEEDBACK_LIMITS.content}
               rows={8}
               style={taStyle}

@@ -47,7 +47,7 @@ import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, card } from '../styles/
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
-import { FREE_TOKENS, PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
+import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS } from '../lib/tokens';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
@@ -90,7 +90,11 @@ function readNativePreview() {
   if (!['paywall', 'free', 'freeused', 'freegrown'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '' };
   const sp = new URLSearchParams(window.location.search);
   // &price=loading / fail で、ストア価格の読み込み中・失敗の表示を確かめられる。
-  return { on: sp.get('native') === '1', trial: normalizeTrialLabel(sp.get('trial') || ''), price: sp.get('price') || '' };
+  // freegrown（相談の「相談相手が育ってきました」→ ここ）は、相談の案内（MyBookBrain）と同じく
+  // 「7 日間無料を使える人」を既定にする（案内は 7 日間無料をすすめるのに、開くと無いのを防ぐ）。&trial=off で使えない人。
+  const t = sp.get('trial');
+  const trial = t === 'off' ? '' : normalizeTrialLabel(t || (demoScenario === 'freegrown' ? '7日間無料' : ''));
+  return { on: sp.get('native') === '1', trial, price: sp.get('price') || '' };
 }
 const preview = readNativePreview();
 // 見た目の分岐だけに使う。購入・復元の実行可否は必ず isNative で判定する。
@@ -104,6 +108,8 @@ const PLAN_COMPARE = [
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
   { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, lead: 'すべての AI：', items: ['AI 選書', 'テーマまとめ', '読書計画シート', '写真から書き起こし'] },
 ];
+// 7 日間無料で使えるトークン（期間まるごと・2026-09-29 オーナー裁定で下の固定の欄に出す）。
+const TRIAL_TOKENS_NOTE = `${TRIAL_TOKENS.toLocaleString('ja-JP')} トークン・相談 約 ${Math.round(TRIAL_TOKENS / TOKEN_COSTS.consult).toLocaleString('ja-JP')} 回`;
 // トークンの目安（1 行）。
 const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
 
@@ -469,7 +475,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {priceState === 'ready' && (
                 // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。無料期間はプランごと・使える人にだけ。
                 <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-3)' }}>
-                  {trial && trialFirstPhrase(trial)}
+                  {/* 無料期間に使える量も添える（「無料で何ができるか」が分かる・2026-09-29 オーナー裁定） */}
+                  {trial && <>{trialFirstPhrase(trial)}<span style={{ whiteSpace: 'nowrap' }}>（{TRIAL_TOKENS_NOTE}）</span></>}
                   <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {trial ? 'その後 ' : ''}{billedShort} で自動更新
                   </span>
@@ -494,7 +501,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {/* 無料期間があるときは、ボタンのすぐ下で「期間中にやめれば払わない」を言う（ためらいを減らす・2026-09-29）。 */}
               {trial && priceState === 'ready' && (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
-                  無料期間中に解約すれば、料金はかかりません
+                  無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。
                 </p>
               )}
             </div>

@@ -12,7 +12,7 @@ import { LIMITS, clamp } from '../lib/limits';
 export const FEEDBACK_CATEGORIES = [
   { value: 'bug', label: '🐛 バグ報告（うまく動かない）' },
   { value: 'feature', label: '💡 機能の追加要望' },
-  { value: 'ui', label: '🎨 UI / デザインの改善' },
+  { value: 'ui', label: '🎨 見た目の改善' },
   { value: 'question', label: '📚 使い方の質問' },
   { value: 'thanks', label: '👏 感想・お礼' },
   { value: 'other', label: '📝 その他' },

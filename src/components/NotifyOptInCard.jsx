@@ -1,4 +1,6 @@
-// 🔔 思い出しの通知の案内（1 回だけ・閉じられる）— lib/notifyOptIn.js の決まりで出す。
+// 🔔 通知の案内（1 回だけ・閉じられる）— lib/notifyOptIn.js の決まりで出す。
+// 通知のスイッチは 1 つで、思い出しの通知（多くても週に 1 回）と行動の期限（期限の日の朝に 1 回）の
+// 両方を届ける（2026-09-29 オーナー裁定）。案内の文でも両方を言う（受け取ってから驚かせない）。
 // 見た目は DESIGN §5「閉じられる案内カード」（--surface＋枠 --separator＋角丸 12＋内側 16・アイコンなし・右上の ×）。
 // ボタンは、画面にほかの主ボタンがあるとき（初日クイックスタートの「相談する」）は副ボタン（primary=false）。
 import { useEffect, useState } from 'react';
@@ -49,7 +51,7 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
     try {
       const res = await enableNotify();
       if (res?.ok) {
-        toast.success('思い出しの通知をオンにしました。');
+        toast.success('通知をオンにしました。');
         close('enabled');
       } else if (res?.reason === 'denied') {
         toast.info('通知は端末の設定でオフになっています。設定からオンにできます。');
@@ -69,7 +71,7 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
     <section aria-labelledby={`notify-optin-${where}`} style={{ ...card, ...style }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
         <h3 id={`notify-optin-${where}`} style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
-          思い出しの通知を受け取りますか？
+          通知を受け取りますか？
         </h3>
         <button type="button" onClick={() => close('dismiss')} aria-label="閉じる" style={closeBtn}>
           <X size={20} aria-hidden="true" />
@@ -77,7 +79,7 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
       </div>
       {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（語の途中で割らない） */}
       <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-        {withPhraseBreaks('多くても週に 1\u00a0回、前に残したメモを 1\u00a0件だけお届けします。設定からいつでもオフにできます。')}
+        {withPhraseBreaks('思い出しの通知は多くても週に 1\u00a0回、前に残したメモを 1\u00a0件だけ。行動は期限の日の朝に 1\u00a0回お知らせします。設定からいつでもオフにできます。')}
       </p>
       <button type="button" onClick={enable} disabled={busy} style={{ ...(busy ? off : on), marginTop: 'var(--space-3)' }} aria-busy={busy || undefined}>
         {busy ? '設定しています…' : '通知を受け取る'}

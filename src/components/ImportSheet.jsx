@@ -7,6 +7,7 @@
 import { useRef, useState } from 'react';
 import { FileUp, BookOpen } from 'lucide-react';
 import BottomSheet from './BottomSheet';
+import { useConfirm } from './ConfirmDialog';
 import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
 import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, IMPORT_MAX_BYTES } from '../lib/importers';
@@ -35,6 +36,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [outcome, setOutcome] = useState(null);
   const [undoing, setUndoing] = useState(false);
+  const confirm = useConfirm();
 
   const pickFile = () => { setError(''); inputRef.current?.click(); };
 
@@ -68,8 +70,17 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
   };
 
   // 取り込みを取り消す: この取り込みで入れたものだけを消す（もとからあった本は、足したメモだけ消す）。
+  // 押し間違いで消えないよう、確かめてから消す（2026-09-29）。
   const undoImport = async () => {
     if (!outcome || !onUndoImport || undoing) return;
+    const ok = await confirm({
+      title: '取り込みを取り消しますか？',
+      message: 'この取り込みで入れた本・メモ・まとめを消します。もとから本棚にあった本は残ります。',
+      confirmLabel: '取り消す',
+      cancelLabel: 'やめる',
+      danger: true,
+    });
+    if (!ok) return;
     setUndoing(true);
     try {
       await onUndoImport(outcome);
@@ -121,13 +132,16 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
             <p style={body}>パソコンにつないで、documents にある「<span style={nowrap}>My Clippings.txt</span>」を選びます。</p>
           </li>
         </ul>
-        {/* 「端末の中だけで読み取る」はヘルプ（bookList の取り込み）へ。ここに補足文は置かない（DESIGN §0-6）。 */}
       </div>
     );
+    // 「外に送らない」はファイルを渡す直前に 1 行だけ（読書の記録を渡す不安を、押す前に消す・2026-09-29）。
     footer = (
-      <button type="button" onClick={pickFile} style={btnPrimary}>
-        <FileUp size={18} aria-hidden="true" />ファイルを選ぶ
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <p style={{ ...body, fontSize: 'var(--text-meta)', textAlign: 'center' }}>ファイルはこの端末の中で読み取ります。<span style={nowrap}>外には送りません。</span></p>
+        <button type="button" onClick={pickFile} style={btnPrimary}>
+          <FileUp size={18} aria-hidden="true" />ファイルを選ぶ
+        </button>
+      </div>
     );
   } else if ((step === 'preview' || step === 'importing') && result) {
     // 取り込み中も同じ中身を出したまま、下のボタンだけ「取り込んでいます」にする（シートの高さを変えない）。
@@ -218,7 +232,9 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
         {error && <ErrorMessage icon={null} title="取り消せませんでした" description={error} />}
         <p style={heading}>
-          {any ? <>{headParts.join(KEEP_DOT)}を<wbr />取り込みました</>
+          {/* まとめだけ（読書メーターの感想など）のときは本の冊数も添える（「まとめ 3 件」だけだと何が入ったか分からない）。 */}
+          {any && memos === 0 && outcome.booksAdded > 0 ? <>{`本\u00a0${outcome.booksAdded}\u00a0冊`}{KEEP_DOT}{headParts.join(KEEP_DOT)}を<wbr />取り込みました</>
+            : any ? <>{headParts.join(KEEP_DOT)}を<wbr />取り込みました</>
             : outcome.booksAdded > 0 ? <>本{'\u00a0'}{outcome.booksAdded}{'\u00a0'}冊を<wbr />取り込みました</>
             : <>新しく取り込むものは<wbr />ありませんでした</>}
         </p>
@@ -233,6 +249,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
     );
     // 閉じる入口は 1 つだけ: 相談できるときは右上の「完了」、何も入らなかったときは下の「閉じる」。
     // 「相談してみる」は送らずに相談を開く（入力欄と相談例から、自分で選んで送る＝勝手にトークンを使わない・2026-09-29）。
+    // 出すのは相談の材料が入ったとき（メモ か「この本のまとめ」＝どちらもメモとして相談の根拠になる）だけ。
     const canUndo = !!onUndoImport && ((outcome.createdBookIds?.length || 0) + (outcome.createdMemoIds?.length || 0) > 0);
     const primary = any && onAsk ? (
       <button type="button" onClick={() => onAsk()} disabled={undoing} style={undoing ? btnPrimaryOff : btnPrimary}>

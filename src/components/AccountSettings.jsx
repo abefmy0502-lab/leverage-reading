@@ -472,7 +472,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         // OFF にする — 購読解除 + DB 行削除。失敗しても静かに。
         if (isNative) await unsubscribeNativePush(); else await unsubscribeFromPush();
         setPushOn(false);
-        toast.info('思い出しの通知をオフにしました。');
+        toast.info('通知をオフにしました。');
       } else {
         // ON にする — ここは必ずユーザージェスチャ内なので許可要求してよい。
         const res = isNative
@@ -878,7 +878,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 ) : null}
                 {lotRow}
                 {canBuyTokens && (
-                  <button type="button" onClick={openTokenSheet} style={{ ...rowButtonStyle, ...divider }}>
+                  // 設定を閉じてからシートを開く（設定の上に重ねるとシートが設定の下に隠れる・z-index 880 > 700）。
+                  <button type="button" onClick={() => { onClose?.(); openTokenSheet(); }} style={{ ...rowButtonStyle, ...divider }}>
                     <span style={{ ...rowTitleStyle, flex: 1 }}>トークンを追加</span>
                     <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
@@ -957,15 +958,17 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
 
           {/* ── 通知 ── 準備中（鍵が未設定）の間はグループごと出さない。 */}
           {pushConfigured && (
-          <Group label="通知" ariaLabel="思い出しの通知">
+          <Group label="通知" ariaLabel="通知">
+            {/* 1 つのスイッチで 2 種類（思い出しの通知・行動の期限）をまとめてオン/オフする。 */}
             <SettingRow
-              title="思い出しの通知"
+              title="思い出しと行動の通知"
+              desc="思い出しの通知（多くても週に 1 回）と、行動の期限の日の朝に 1 回。このスイッチでまとめてオン・オフします。"
               extra={pushNote}
               control={canTogglePush ? (
                 <ToggleSwitch
                   checked={pushOn}
                   busy={pushBusy}
-                  ariaLabel="思い出しの通知"
+                  ariaLabel="思い出しと行動の通知"
                   onChange={handleTogglePush}
                 />
               ) : null}

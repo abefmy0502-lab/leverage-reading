@@ -789,6 +789,8 @@ function AuthedApp() {
   // 編集フォームの「未保存変更」検知用ベースライン（編集に入った時点のスナップショット）。
   const editBaselineRef = useRef(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 本の詳細を開いたときに示すメモ（openDetail の 2 つ目の引数）。
+  const [detailFocusMemoId, setDetailFocusMemoId] = useState(null);
   // 🛰️ 運営ダッシュボード（管理者のみ）。isAdmin は起動時に1回だけ判定。
   const [adminOpen, setAdminOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -1380,9 +1382,11 @@ function AuthedApp() {
   // setCurrent / setEditPhaseOverride / setView は安定なので deps は空でよい。
   // 本の id（文字列）でも受ける（相談の答えの「根拠の本」は id を渡してくる）。
   // 本のオブジェクトでないもの・見つからない id は開かない（空の詳細画面から空の本が保存される事故の防止）。
-  const openDetail = useCallback((b) => {
+  // focusMemoId: そのメモまで送って少し示す（振り返りのメモの検索から開いたとき・2026-09-29）。
+  const openDetail = useCallback((b, focusMemoId) => {
     const book = typeof b === 'string' ? booksRef.current.find((x) => x.id === b) : b;
     if (!book || typeof book !== 'object' || !book.id) return;
+    setDetailFocusMemoId(typeof focusMemoId === 'string' ? focusMemoId : null);
     setCurrent(book); setEditPhaseOverride(null); setView("detail");
   }, []);
 
@@ -1500,10 +1504,22 @@ function AuthedApp() {
   // 同じ本が既に本棚にあれば true を返す。ダイアログを出して「📖 既存の本を見る」
   // が押されたらその詳細へジャンプ。呼び出し側はこの戻り値が true なら追加処理
   // をスキップする。
-  const handleDuplicateGate = async (candidate) => {
+  // allowAdd: 手で入力した本の保存（検索で「追加済み」と出た本を手動で入れ直す等）では、
+  // 「開く」か「それでも追加」かを選ばせる（版違いなど別の本として残したいこともある・2026-09-29）。
+  const handleDuplicateGate = async (candidate, { allowAdd = false } = {}) => {
     const existing = findDuplicateBook(books, candidate);
     if (!existing) return false;
     const statusLabel = STATUS_LABEL[existing.status] || '本棚';
+    if (allowAdd) {
+      const openIt = await confirm({
+        title: 'この本はもう本棚にあります。開きますか？',
+        message: `『${existing.title}』（${statusLabel}）。開くと、いま入力した内容は保存されません。`,
+        confirmLabel: '開く',
+        cancelLabel: 'それでも追加',
+      });
+      if (openIt) { openDetail(existing); return true; }
+      return false;
+    }
     // ボタンは「押したら何が起きるか」を正確に言う（既存本を開くと今の入力は
     // 保存されない。旧: 「📖 既存の本を見る / ← 戻る」で入力破棄が伝わらなかった）。
     const ok = await confirm({
@@ -1534,7 +1550,7 @@ function AuthedApp() {
     // 自分自身とマッチさせてしまうので除外。
     if (!current) {
       let dup = false;
-      try { dup = await handleDuplicateGate({ isbn: form.isbn, title: form.title, author: form.author }); } catch { dup = false; }
+      try { dup = await handleDuplicateGate({ isbn: form.isbn, title: form.title, author: form.author }, { allowAdd: true }); } catch { dup = false; }
       if (dup) { savingRef.current = false; setSavingBook(false); return; }
     }
     try {
@@ -3242,7 +3258,9 @@ function AuthedApp() {
             const isIncomplete = !(current.investPurpose || '').trim();
 
             if (current.status === 'before') {
-              if (isIncomplete) {
+              // 「できています」はシート本体（aiStrategy）があるときだけ。得たいこと等を書いただけなら
+              // まだ作れる状態なので副ボタンを出す（開くと書いた欄はそのまま引き継ぐ＝buildFormFromBook）。
+              if (isIncomplete || !(current.aiStrategy || '').trim()) {
                 // 見出しとボタンが同じことを言っていたので、副ボタン 1 つだけ（主ボタンは下の「読書を開始する」）。
                 // 課題・仮説のカードがあれば、その下 12 に置く（SPEC §2）。
                 return (
@@ -3482,6 +3500,7 @@ function AuthedApp() {
                   onSaveSummary={handleSaveSummaryFromCurrent}
                   onMakeAction={addActionFromMemo}
                   onShareMemo={(memo) => setShareSheet({ book: current, initialMemoId: memo.id })}
+                  focusMemoId={detailFocusMemoId}
                   afterList={
                     // 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。
                     <button
@@ -3702,7 +3721,7 @@ function AuthedApp() {
                     message: 'メモを保存しました。',
                     duration: 6000,
                     action: {
-                      label: '行動にする',
+                      label: '行動に追加',
                       onClick: async () => {
                         const ok = await addActionFromMemo(current.id, {
                           text: actionText,
@@ -3918,8 +3937,13 @@ function AuthedApp() {
               }}
               // 詳細画面・すべての本の戻ると同じ形（ChevronLeft 20・間 0・見た目の左端 16）。
               style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
-            >{/* iOS の作法: 戻る先の画面名（＝書名）。長い書名は収まらないので「戻る」。 */}
-              <ChevronLeft size={20} aria-hidden="true" />{current ? ((current.title || '').length <= 8 && current.title ? current.title : '戻る') : newBookBackLabel}</button>
+              aria-label={current ? `${current.title || 'この本'}に戻る` : undefined}
+            >{/* iOS の作法: 戻る先の画面名（＝書名）。長い書名は 10 字＋「…」に縮める（SPEC §2）。 */}
+              <ChevronLeft size={20} aria-hidden="true" />{current ? (() => {
+                const chars = Array.from((current.title || '').trim());
+                if (chars.length === 0) return '戻る';
+                return chars.length <= 10 ? chars.join('') : `${chars.slice(0, 10).join('')}…`;
+              })() : newBookBackLabel}</button>
             <button
               onClick={openHelp}
               style={{ width: 44, height: 44, marginRight: 'calc(-1 * var(--space-3))', display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
@@ -4170,7 +4194,7 @@ function AuthedApp() {
                     message: 'メモを保存しました。',
                     duration: 6000,
                     action: {
-                      label: '行動にする',
+                      label: '行動に追加',
                       onClick: async () => {
                         const ok = await addActionFromMemo(b.id, {
                           text: actionText,
@@ -4497,7 +4521,7 @@ function AuthedApp() {
             </div>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<Spinner />}>
-                <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }} />
+                <Review books={books} onOpenBook={(b, memoId) => { openDetail(b, memoId); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }} />
               </Suspense>
             ) : booksLoadError && rawBooks.length === 0 ? (
               // 本（行動も本に入っている）を読み込めなかったときは、「行動 0 件」「読んだ本 0」を出さない。

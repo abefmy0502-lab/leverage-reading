@@ -6,6 +6,8 @@
 // 押しつけない: 端末が通知を使えない・もう許可／拒否を決めている人には出さない
 // （ブラウザのタブで開いた iPhone など、押しても通知が使えない人には案内しない）。
 // 文は LP・FAQ と同じ約束（思い出しの通知は多くても週に 1 回・メモ 1 件・いつでもオフ）。
+// スイッチは 1 つで、行動の期限の通知（期限の日の朝に 1 回）も同じスイッチで届く（2026-09-29 オーナー裁定）。
+// 案内の文（NotifyOptInCard）・設定の説明にも「行動は期限の日の朝に 1 回」を必ず書く。
 
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush } from './push';
 import { isNativePushCapable, getNativePushPermission, subscribeNativePush } from './nativePush';

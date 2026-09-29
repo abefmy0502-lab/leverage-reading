@@ -8,6 +8,8 @@
 //   「「タグ」で迷ったとき、私のメモからヒントをください」の型は不自然なので 2026-09-29 にやめた。
 // - standaloneAction: 答えの一歩を行動リストに入れるとき、あとで一覧で読んでも分かる文にする
 //     （「この件」「それ」で始まる一歩には、相談の要約を頭に付ける）。
+// - questionGist: 相談の要約。「前に相談した「X」…」の続きの相談は X を要約し、かっこの中では切らない
+//     （かっこは必ず閉じる・2026-09-29）。
 //
 // ⚠️ src では正規表現の後読み（lookbehind）を使わない。
 
@@ -20,12 +22,147 @@ export const WORRY_EXAMPLES = [
 
 const oneLine = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 
+// 🪙 トークンの数は 3 桁ごとに区切る（「1,000」・画面の数字はすべてこれで）。
+export const fmtTokens = (n) => (Number(n) || 0).toLocaleString('ja-JP');
+// 残りのトークンで相談できるおよその回数（相談 1 回 約 perConsult トークン）。
+// 残りが 1 回分に満たなくても、残りがあれば最後の 1 回は始められる（サーバーの「最後の 1 回」）ので 1 回。
+export function consultsLeft(tokens, perConsult = 10) {
+  const t = Math.max(0, Math.floor(Number(tokens) || 0));
+  if (t <= 0) return 0;
+  return Math.max(1, Math.floor(t / Math.max(1, perConsult)));
+}
+
+// 📝 「メモ N 件」の数え方（相談・ホーム・初日クイックスタート・記録で同じ・2026-09-29 オーナー裁定）:
+//   メモ＝カード式＋まとめ式（GLOSSARY）。book_memos の全件（カード式＋学び）に、
+//   「この本のまとめ」（books.leverage_memo）が入っている本を 1 冊 1 件として足す。
+//   読書メーター等の感想を取り込んだ人（まとめだけ）も、相談の入口に進めるように。
+export function hasSummaryMemo(book) {
+  const v = book?.leverageMemo ?? book?.leverage_memo;
+  return typeof v === 'string' && v.trim().length > 0;
+}
+// bookIds を渡すと、その本だけを数える（相談相手を絞ったとき）。
+export function countSummaryMemos(books, bookIds = null) {
+  const list = Array.isArray(books) ? books : [];
+  const only = bookIds ? new Set(bookIds) : null;
+  return list.filter((b) => (!only || only.has(b.id)) && hasSummaryMemo(b)).length;
+}
+
+// 初日クイックスタートの「よく読まれている本」12 冊に 1 つずつ決めた困りごと（2026-09-29）。
+// できあがりの画面の「たとえば」に、えらんだ本の困りごとを先に出す（AI を使わない＝原価ゼロ）。
+// 本を足し替えるときは PastBooksQuickstart.jsx の POPULAR_BOOKS と一緒に直す。
+export const BOOK_WORRIES = {
+  '7つの習慣': '目の前の仕事に追われて、大事なことが後回しになっています',
+  '人を動かす': '相手を説得しようとすると、かえって反発されます',
+  '嫌われる勇気': '人の目が気になって、言いたいことが言えません',
+  'イシューからはじめよ': '頑張っているのに、成果につながっている気がしません',
+  'エッセンシャル思考': '仕事を抱えすぎて手が回りません',
+  'FACTFULNESS': '思い込みで判断して、あとから間違いに気づくことがあります',
+  '影響力の武器': '提案しても、なかなか「はい」と言ってもらえません',
+  '伝え方が9割': '頼みごとをすると、いつも断られてしまいます',
+  '1兆ドルコーチ': 'チームのメンバーが本音を話してくれません',
+  '数値化の鬼': '目標があいまいで、何から手をつければいいか分かりません',
+  '思考の整理学': '考えがまとまらず、企画が出てきません',
+  '夢をかなえるゾウ': '変わりたいのに、いつも三日坊主で終わります',
+};
+const titleKey = (t) => {
+  let s = String(t || '');
+  try { s = s.normalize('NFKC'); } catch { /* そのまま */ }
+  return s.replace(/[\s・:：]/g, '').toLowerCase();
+};
+const WORRY_BY_TITLE = Object.entries(BOOK_WORRIES).map(([t, w]) => [titleKey(t), w]);
+
+// 本の困りごと（書名が一致、または「7つの習慣 人格主義の回復」のように先頭が一致）。無ければ空。
+export function worryForBook(book) {
+  const key = titleKey(book?.title);
+  if (!key) return '';
+  const exact = WORRY_BY_TITLE.find(([k]) => k === key);
+  if (exact) return exact[1];
+  const prefix = WORRY_BY_TITLE.find(([k]) => key.startsWith(k));
+  return prefix ? prefix[1] : '';
+}
+
+// えらんだ本の困りごとを先に、足りない分はよくある困りごとで（同じ文は重ねない）。
+export function quickstartWorries(books, count = 2) {
+  const out = [];
+  [...(Array.isArray(books) ? books : []).map(worryForBook), ...WORRY_EXAMPLES].forEach((w) => {
+    if (w && !out.includes(w) && out.length < count) out.push(w);
+  });
+  return out;
+}
+
+const OPEN = { '「': '」', '『': '』', '（': '）', '(': ')' };
+const CLOSE = new Set(Object.values(OPEN));
+const CONTINUE_HEAD = '前に相談した「';
+
+// 「前に相談した「X」、その後どう進める？」（相談例の「続き」）なら X を取り出す（入れ子もほどく）。
+function unwrapContinue(text) {
+  let s = text;
+  for (let guard = 0; guard < 5 && s.startsWith(CONTINUE_HEAD); guard += 1) {
+    let depth = 0;
+    let end = -1;
+    for (let i = CONTINUE_HEAD.length - 1; i < s.length; i += 1) {
+      if (s[i] === '「') depth += 1;
+      else if (s[i] === '」') { depth -= 1; if (depth === 0) { end = i; break; } }
+    }
+    const inner = (end > 0 ? s.slice(CONTINUE_HEAD.length, end) : s.slice(CONTINUE_HEAD.length)).trim();
+    if (!inner) break;
+    s = inner;
+  }
+  return s;
+}
+
+// 最初の 1 文（かっこの中の「。」「？」では切らない）。
+function firstSentence(text) {
+  const stack = [];
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (OPEN[ch]) stack.push(OPEN[ch]);
+    else if (CLOSE.has(ch)) { if (stack.length && stack[stack.length - 1] === ch) stack.pop(); }
+    else if (stack.length === 0 && /[。？?！!]/.test(ch)) {
+      const head = text.slice(0, i).trim();
+      if (head) return head;
+    }
+  }
+  return text.trim();
+}
+
+// 開いたままのかっこ（閉じの順）。
+function unclosed(text) {
+  const stack = [];
+  for (const ch of text) {
+    if (OPEN[ch]) stack.push(OPEN[ch]);
+    else if (CLOSE.has(ch) && stack.length && stack[stack.length - 1] === ch) stack.pop();
+  }
+  return stack;
+}
+
 // 相談の文の要約（最初の 1 文・末尾の句読点を外して n 文字まで）。
+//   - 相談例の「前に相談した「X」、その後どう進める？」なら X を要約する（「前に相談した「前に相談した…」」にしない）
+//   - かっこ（「」『』（））の中では切らない。切るとかっこが開いたままになるときは、かっこの手前で切る
+//     （手前に何も残らないときだけ中で切り、閉じかっこを補う）
 export function questionGist(question, n = 20) {
-  const first = oneLine(question).split(/[。？?！!\n]/).map((x) => x.trim()).find(Boolean) || '';
-  const t = first.replace(/[、，,\s]+$/, '');
+  const t = firstSentence(unwrapContinue(oneLine(question))).replace(/[、，,\s]+$/, '');
   if (!t) return '';
-  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+  if (t.length <= n) {
+    const rest = unclosed(t);
+    return rest.length ? `${t}${rest.reverse().join('')}` : t;
+  }
+  let cut = t.slice(0, n - 1);
+  // 切り口がかっこの中なら、いちばん外の開いたかっこの手前まで戻す。
+  const stack = [];
+  for (let i = 0; i < cut.length; i += 1) {
+    if (OPEN[cut[i]]) stack.push(i);
+    else if (CLOSE.has(cut[i]) && stack.length) stack.pop();
+  }
+  if (stack.length) {
+    const before = cut.slice(0, stack[0]).replace(/[、，,\s]+$/, '');
+    cut = before.length >= 4 ? before : cut;
+  }
+  cut = cut.replace(/[、，,\s]+$/, '');
+  // 補う閉じかっこの分だけ短くして、全体を n 文字に収める。
+  const need = unclosed(cut).length;
+  if (need) cut = cut.slice(0, Math.max(1, n - 1 - need));
+  return `${cut}…${unclosed(cut).reverse().join('')}`;
 }
 
 // 本の「現在の課題」を相談の形に（「〜。どう考えればいい？」）。
@@ -55,10 +192,11 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
     .sort((a, b) => String(b.updatedAt || b.updated_at || '').localeCompare(String(a.updatedAt || a.updated_at || '')));
   if (withChallenge[0]) push(challengeQuestion(withChallenge[0].currentChallenge), 'challenge');
 
-  const hasMemo = (b) => memoBookIds == null || memoBookIds.has(b.id);
+  // メモのある本＝カード式のメモがある本、または「この本のまとめ」が入っている本（メモ＝カード式＋まとめ式）。
+  const hasMemo = (b) => memoBookIds == null || memoBookIds.has(b.id) || hasSummaryMemo(b);
   const recent = list.find((b) => b.status === 'reading' && hasMemo(b))
     || list.find((b) => b.status === 'done' && hasMemo(b))
-    || (memoBookIds ? list.find((b) => memoBookIds.has(b.id)) : null);
+    || (memoBookIds ? list.find((b) => hasMemo(b)) : null);
   if (recent?.title) push(`『${recent.title}』の学びで、明日から使えるものは？`, 'book');
 
   WORRY_EXAMPLES.forEach((w) => push(w, 'worry'));

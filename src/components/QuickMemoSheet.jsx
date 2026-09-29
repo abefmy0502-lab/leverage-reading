@@ -18,6 +18,7 @@ import { useConfirm } from './ConfirmDialog';
 import { Sparkles, Undo2, Plus, Minus, ChevronRight } from 'lucide-react';
 import { btnPrimary, btnPrimaryOff, btnLink, groupTitle } from '../styles/ui';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
+import { useBackLayer } from '../hooks/useHistoryBack';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
@@ -156,8 +157,6 @@ export default function QuickMemoSheet({
   onOpenFullEditor,
   frequentTags = [], // よく使うタグ（「＋ ページ・写真」の中にチップで並べ、押して付ける・2026-09-29）
 }) {
-  // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
-  useBlockEdgeSwipe(true);
   ensureKeyframes();
   const [pageNumber, setPageNumber] = useState(defaultPageNumber !== '' ? String(defaultPageNumber) : '');
   const [text, setText] = useState('');
@@ -282,6 +281,13 @@ export default function QuickMemoSheet({
     }
     animateClose();
   };
+
+  // 書きかけ（本文あり・保存中・凝縮中）の間は、左端スワイプ・ブラウザの「戻る」で画面を戻さない
+  // （確認なしに下書きが消えないように）。空のときは止めず、「戻る」でこのシートだけを閉じる
+  // （空のシートで「戻る」が効かないと閉じ方が分からない・2026-09-29）。深さはどちらでも 1 段で変わらない。
+  const dirty = !!text.trim() || busy || condensing;
+  useBlockEdgeSwipe(dirty);
+  useBackLayer(!dirty, () => requestClose());
 
   // 下スワイプで閉じる（iOS のシート標準所作。ハンドル/ヘッダー起点のみ —
   // 本文 textarea のスクロール/選択とは競合させない）。

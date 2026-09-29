@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import NotifyOptInCard from './NotifyOptInCard';
-import { WORRY_EXAMPLES } from '../lib/consultHelpers';
+import { quickstartWorries, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
 import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import { TOKEN_COSTS } from '../lib/tokens';
@@ -40,6 +40,7 @@ const MAX_BOOKS = 5;
 
 // 検索欄が空のときに出す、よく読まれているビジネス書（AI を使わない固定の一覧・押すとそのまま選べる）。
 // 表紙は保存のあとに書名・著者から探す（App.jsx の resolveCoverInBackground）。
+// 各本の困りごと（できあがりの画面の「たとえば」に先に出す）は lib/consultHelpers.js の BOOK_WORRIES。
 const POPULAR_BOOKS = [
   ['7つの習慣', 'スティーブン・R・コヴィー'],
   ['人を動かす', 'D・カーネギー'],
@@ -297,11 +298,12 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
       }
     }
     track('quickstart_completed', { books: savedBooks.length, memos: memoCount });
-    // 「メモ N 件」はホーム・相談と同じ数え方（自分のメモ＝カード式＋学びの全件）。数えられなければ今回の件数。
+    // 「メモ N 件」はホーム・相談と同じ数え方（カード式＋学びの全件＋「この本のまとめ」の入っている本）。
+    // 数えられなければ今回の件数。
     let totalMemos = memoCount;
     try {
       const { count, error } = await supabase.from('book_memos').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
-      if (!error && typeof count === 'number') totalMemos = Math.max(count, memoCount);
+      if (!error && typeof count === 'number') totalMemos = Math.max(count, memoCount) + countSummaryMemos(books);
     } catch { /* 今回の件数のまま */ }
     setSummary({ books: savedBooks, memos: memoCount, totalMemos, totalBooks: books.length + newBooks });
     setStep('done');
@@ -614,7 +616,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                   いま困っていること
                 </h2>
                 {freeMode && freeRemaining > 0 && (
-                  <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)' }}>今月の残り {freeRemaining} トークン（相談 1 回 約 {TOKEN_COSTS.consult}）</p>
+                  <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)' }}>今月の残り {fmtTokens(freeRemaining)} トークン（相談 約 {consultsLeft(freeRemaining, TOKEN_COSTS.consult)} 回）</p>
                 )}
                 <textarea
                   ref={askRef}
@@ -641,7 +643,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                 </button>
                 <p style={{ ...groupTitle, margin: 'var(--space-4) 0 var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {WORRY_EXAMPLES.slice(0, 2).map((q) => (
+                  {/* えらんだ本の困りごとを先に（AI を使わない・本ごとに決めた 1 つ）。 */}
+                  {quickstartWorries(summary.books, 2).map((q) => (
                     <button key={q} type="button" style={askChip}
                       onClick={() => { track('quickstart_first_consult', { example: true }); onAsk?.(q); }}>
                       {q}

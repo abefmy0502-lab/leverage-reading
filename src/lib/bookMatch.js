@@ -50,3 +50,13 @@ export function isStrictMatch(candidate, original) {
   }
   return true;
 }
+
+// 書名と著者が（表記の揺れを除いて）完全に同じか。AI 選書で候補が 1 冊だけ・完全に同じなら
+// 確認を出さずにそのまま追加する（2026-09-29）。著者が無いときは同じと言い切れないので false。
+export function isExactMatch(candidate, original) {
+  const ct = _normTitle(candidate?.title);
+  const ot = _normTitle(original?.title);
+  const ca = _normAuthor(candidate?.author);
+  const oa = _normAuthor(original?.author);
+  return !!ct && ct === ot && !!oa && ca === oa;
+}

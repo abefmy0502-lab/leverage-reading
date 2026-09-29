@@ -23,6 +23,7 @@ import EmptyState from './EmptyState';
 import { SkeletonBlock } from './Skeleton';
 import { track, EVENTS } from '../lib/analytics';
 import { BarChart3, BookOpen, ChevronRight } from 'lucide-react';
+import { countSummaryMemos } from '../lib/consultHelpers';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
 
@@ -463,7 +464,9 @@ export default function ReadingRecord({
     () => [...(memoStats?.createdDates || []), ...bookStats.doneDates],
     [memoStats, bookStats.doneDates],
   );
-  const memoTotal = memoStats?.total || 0;
+  // 「メモ」＝カード式＋学び（book_memos の全件）＋「この本のまとめ」の入っている本（1 冊 1 件）。
+  const summaryMemos = useMemo(() => countSummaryMemos(books), [books]);
+  const memoTotal = (memoStats?.total || 0) + summaryMemos;
   const hasAnything = (books?.length || 0) > 0 || memoTotal > 0;
 
   // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で
@@ -505,7 +508,7 @@ export default function ReadingRecord({
           cells={[
             { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--text)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },
             // メモ統計の取得に失敗した時は 0 と偽装しない（「メモが消えた」ように見えるため）。
-            // 「メモ」＝自分のメモ（カード式＋学び）の全件。ホーム・相談・初日クイックスタートの「メモ N 件」と同じ数・同じ言葉（2026-09-29）。
+            // 「メモ」＝自分のメモ（カード式＋学び＋この本のまとめ）。ホーム・相談・初日クイックスタートの「メモ N 件」と同じ数・同じ言葉（2026-09-29）。
             { value: memoStats?.failed ? '—' : memoTotal, label: 'メモ', color: 'var(--text)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
             { value: bookStats.actionsDone, label: '実行した行動', color: 'var(--text)', onClick: onShowActions && bookStats.actionsDone > 0 ? onShowActions : undefined },
           ]}

@@ -25,6 +25,19 @@ describe('evidenceFromRefs', () => {
   it('書名だけの一致は数えるが、日付は出さない', () => {
     expect(evidenceFromRefs(['📖 安宅和人『イシューからはじめよ』まとめメモ'], src, now)).toBe('あなたのメモ 1 件から答えました');
   });
+  it('引用がメモと一致しなかった本は数えない（照合の結果があるとき）', () => {
+    const refs = ['📚 安宅和人『イシューからはじめよ』P.25', '📚 エリック・シュミット『1兆ドルコーチ』P.61'];
+    const verified = [
+      { k: 'r', t: 'イシューからはじめよ', p: 25, s: 'ng' },
+      { k: 'r', t: '1兆ドルコーチ', p: 61, s: 'ok' },
+    ];
+    expect(evidenceFromRefs(refs, src, now, verified)).toBe('あなたのメモ 1 件から答えました（いちばん古いのは 2 週間前）');
+    expect(evidenceFromRefs(refs.slice(0, 1), src, now, verified.slice(0, 1))).toBeNull();
+  });
+  it('照合の対象に入っていない本は、渡したメモとの突き合わせで数える', () => {
+    const verified = [{ k: 'r', t: '1兆ドルコーチ', p: 61, s: 'ok' }];
+    expect(evidenceFromRefs(['📚 安宅和人『イシューからはじめよ』P.25'], src, now, verified)).toContain('1 件');
+  });
   it('新しいメモだけなら日付は付けない', () => {
     expect(evidenceFromRefs(['📚 エリック・シュミット『1兆ドルコーチ』P.61'], src, now)).toBe('あなたのメモ 1 件から答えました（いちばん古いのは 2 週間前）');
   });

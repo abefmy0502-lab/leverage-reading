@@ -2,10 +2,8 @@
 //
 // 旧版は「現在の helpKey に紐づく静的コンテンツ」を出すだけだったが、本版は
 // 困った時の駆け込み寺として以下を 1 画面に集約する:
-//   1. 🤖 AI に質問する     — Claude にアプリ操作を聞ける検索バー
-//   2. 💡 よくある質問       — タップで上の AI に流し込む chips
-//   3. 📖 この画面のヘルプ   — 既存 helpContent.js の steps / sections を踏襲
-//   4. 🔁 他の画面のヘルプ   — 本棚 / 振り返り / AI を切替
+//   1. 📖 この画面のヘルプ   — 既存 helpContent.js の steps / sections を踏襲（いまの画面を先に・2026-09-29）
+//   2. 💡 よくある質問       — タップで確定回答を開く（AI は使わない）
 //
 // 既存 helpContent.js / helpKey ルーティングは破壊しない。新層を上に重ねる
 // だけ。`helpKey` を内部 state にすることで、4. の切替が onClose せずに完結。
@@ -24,15 +22,15 @@ const FAQ_LIST = [
   },
   {
     q: '読書計画シートって何？',
-    a: '読む前に「この本から得たいこと・今の課題・仮説」を整理し、重点的に読む章や読み方を AI が提案する機能です。本の詳細（積読）の「読書計画シートを始める」から作れます（任意）。',
+    a: '読む前に「この本から得たいこと・今の課題・仮説」を整理し、重点的に読む章や読み方を AI が提案する機能です。本の詳細（積読）の「読書計画シートを作る」から作れます（任意）。',
   },
   {
     q: 'メモを編集・削除したい',
-    a: 'メモカードをタップすると編集できます。削除はカードを左スワイプ、または ⋮ メニューから。削除しても Undo（取り消し）が5秒間出るので、うっかり消しても戻せます。',
+    a: 'メモカードをタップすると編集できます。削除はカードを左スワイプ、または右上の「…」から。削除しても Undo（取り消し）が5秒間出るので、うっかり消しても戻せます。',
   },
   {
     q: '行動を完了にする方法',
-    a: '🔄 振り返り →「🎯 行動」タブ、または本詳細の行動リストで、チェックをタップすると完了になります。完了率や期限もそこで確認できます。',
+    a: '🔄 振り返り →「🎯 行動」タブ、または本詳細の行動リストで、チェックをタップすると完了になります。やることは期限の近い順に並びます。',
   },
   {
     q: '相談の答えの精度を上げるには？',
@@ -40,10 +38,10 @@ const FAQ_LIST = [
   },
   {
     q: '過去の AI 選書を見たい',
-    a: '🤖 AI →「🔍 AI 選書」の 🕒 履歴ボタンから、過去の相談・推薦・追加した本を見返せます。「💬 続きから」で会話を再開もできます。',
+    a: '💬 相談 →「🔍 AI 選書」の 🕒 履歴ボタンから、過去の相談・推薦・追加した本を見返せます。「💬 続きから」で会話を再開もできます。',
   },
   {
-    q: '本のステータスを変えたい',
+    q: '本の状態を変えたい',
     a: '本詳細で、今の状態に応じて次へ進めます（読みたい → 積読 → 読書中 → 読了）。読書中・読了にすると、その本にメモを残せるようになります。',
   },
 ];
@@ -59,14 +57,14 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 'min(20px, 2vw)',
+  padding: 'min(var(--space-4), 2vw)',
   fontFamily: "var(--font-app)",
   boxSizing: 'border-box',
 };
 
 const cardStyle = {
   background: 'var(--c-card)',
-  borderRadius: 16,
+  borderRadius: 'var(--radius)',
   width: '100%',
   maxWidth: 'min(460px, 100vw - 16px)',
   maxHeight: 'min(85vh, 85dvh)',
@@ -80,8 +78,8 @@ const cardStyle = {
 const headerStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 14px',
+  gap: 'var(--space-2)',
+  padding: 'calc(var(--space-3) + env(safe-area-inset-top, 0px)) var(--space-4) var(--space-3)',
   borderBottom: '1px solid var(--c-hairline)',
   background: 'var(--surface)',
   flexShrink: 0,           // ★ 必須: body content が大きくても header が潰れない
@@ -92,7 +90,7 @@ const headerStyle = {
 const closeBtnStyle = {
   background: 'none',
   border: 'none',
-  fontSize: 22,
+  fontSize: 'var(--text-heading)',
   color: 'var(--c-brand)',
   cursor: 'pointer',
   width: 44,
@@ -102,11 +100,11 @@ const closeBtnStyle = {
   justifyContent: 'center',
   fontFamily: 'inherit',
   padding: 0,
-  borderRadius: 10,
+  borderRadius: 'var(--radius-full)',
 };
 
 const bodyStyle = {
-  padding: '14px 14px 20px',
+  padding: 'var(--space-4) var(--space-4) var(--space-6)',
   overflowY: 'auto',
   overflowX: 'hidden',
   // flex 子要素を「正しくスクロールさせる」3 点セット:
@@ -121,21 +119,21 @@ const bodyStyle = {
   WebkitOverflowScrolling: 'touch',
   display: 'flex',
   flexDirection: 'column',
-  gap: 16,
+  gap: 'var(--space-6)',
   boxSizing: 'border-box',
 };
 
 const sectionTitleStyle = {
-  fontSize: 13,
+  fontSize: 'var(--text-meta)',
   fontWeight: 600,
   color: 'var(--c-ink)',
-  margin: '0 0 8px',
+  margin: '0 0 var(--space-2)',
 };
 
 // よくある質問（FAQ）アコーディオンのスタイル。答えは確定なので AI は使わない。
 const faqItemStyle = {
   border: '1px solid var(--c-hairline)',
-  borderRadius: 10,
+  borderRadius: 'var(--radius)',
   background: 'var(--surface)',
   overflow: 'hidden',
 };
@@ -145,12 +143,12 @@ const faqQuestionStyle = {
   justifyContent: 'space-between',
   width: '100%',
   textAlign: 'left',
-  padding: '13px 14px',
+  padding: 'var(--space-3) var(--space-4)',
   background: 'none',
   border: 'none',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  fontSize: 14,
+  fontSize: 'var(--text-sub)',
   fontWeight: 600,
   color: 'var(--c-ink)',
   minHeight: 48,
@@ -158,8 +156,8 @@ const faqQuestionStyle = {
 };
 const faqAnswerStyle = {
   margin: 0,
-  padding: '0 14px 14px',
-  fontSize: 14,
+  padding: '0 var(--space-4) var(--space-4)',
+  fontSize: 'var(--text-sub)',
   lineHeight: 1.8,
   color: 'var(--c-ink-soft)',
 };
@@ -167,11 +165,11 @@ const faqAnswerStyle = {
 const onboardingLinkStyle = {
   display: 'block',
   margin: '0',
-  padding: '10px 12px',
+  padding: 'var(--space-3)',
   background: 'var(--c-soft)',
   border: '1px solid var(--c-hairline)',
-  borderRadius: 10,
-  fontSize: 13,
+  borderRadius: 'var(--radius)',
+  fontSize: 'var(--text-meta)',
   color: 'var(--c-brand)',
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -180,9 +178,9 @@ const onboardingLinkStyle = {
 };
 
 const footerStyle = {
-  padding: '10px 18px calc(10px + env(safe-area-inset-bottom, 0px))',
+  padding: 'var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom, 0px))',
   borderTop: '1px solid var(--c-hairline)',
-  fontSize: 11,
+  fontSize: 'var(--text-caption)',
   color: 'var(--c-ink-2)',
   textAlign: 'center',
   background: 'var(--surface)',
@@ -195,13 +193,13 @@ const footerStyle = {
 // すべての helpKey で同じ「番号付きカード」見た目になるよう steps と
 // sections の両方を共通の renderCardSteps で描画する。
 
-const stepSubtitle = { fontSize: 14, color: 'var(--c-ink-2)', lineHeight: 1.7, margin: '0 0 14px' };
+const stepSubtitle = { fontSize: 'var(--text-sub)', color: 'var(--c-ink-2)', lineHeight: 1.7, margin: '0 0 var(--space-3)' };
 const stepCard = {
   background: 'var(--surface)',
   border: '1px solid var(--c-hairline)',
-  borderRadius: 12,
-  padding: '16px 16px',
-  marginBottom: 14,
+  borderRadius: 'var(--radius)',
+  padding: 'var(--space-4)',
+  marginBottom: 'var(--space-3)',
   boxShadow: 'none',
   wordBreak: 'keep-all',
   overflowWrap: 'anywhere',
@@ -212,32 +210,32 @@ const stepCard = {
 };
 const stepNumber = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  width: 24, height: 24, borderRadius: 999, flexShrink: 0,
+  width: 24, height: 24, borderRadius: 'var(--radius-full)', flexShrink: 0,
   background: 'var(--c-brand)', color: 'var(--accent-ink)',
-  fontSize: 13, fontWeight: 700, lineHeight: 1, marginRight: 8,
+  fontSize: 'var(--text-meta)', fontWeight: 700, lineHeight: 1, marginRight: 'var(--space-2)',
 };
 const stepTitle = {
-  fontSize: 16,
+  fontSize: 'var(--text-body)',
   fontWeight: 600,
   color: 'var(--c-ink)',
   margin: 0,
   display: 'flex',
   alignItems: 'center',
-  gap: 4,
+  gap: 'var(--space-1)',
   wordBreak: 'keep-all',
 };
-const stepBody = { fontSize: 15, color: 'var(--c-ink-soft)', lineHeight: 1.8, margin: '10px 0 0', whiteSpace: 'pre-line', wordBreak: 'keep-all' };
-const stepBulletList = { listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 8 };
-const stepBullet = { fontSize: 14, color: 'var(--c-ink-soft)', lineHeight: 1.7, wordBreak: 'keep-all', display: 'flex', gap: 6, alignItems: 'baseline' };
+const stepBody = { fontSize: 'var(--text-sub)', color: 'var(--c-ink-soft)', lineHeight: 1.8, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-line', wordBreak: 'keep-all' };
+const stepBulletList = { listStyle: 'none', padding: 0, margin: 'var(--space-2) 0 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' };
+const stepBullet = { fontSize: 'var(--text-sub)', color: 'var(--c-ink-soft)', lineHeight: 1.7, wordBreak: 'keep-all', display: 'flex', gap: 'var(--space-1)', alignItems: 'baseline' };
 const stepBulletMark = { color: 'var(--c-brand)', flexShrink: 0 };
-const stepFooter = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.7, margin: '10px 0 0', fontStyle: 'italic', wordBreak: 'keep-all' };
+const stepFooter = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.7, margin: 'var(--space-2) 0 0', fontStyle: 'italic', wordBreak: 'keep-all' };
 const tipBox = {
-  marginTop: 6,
-  padding: '13px 15px',
+  marginTop: 'var(--space-2)',
+  padding: 'var(--space-3) var(--space-4)',
   background: 'var(--fill)',
   border: '1px solid var(--separator)',
-  borderRadius: 10,
-  fontSize: 14,
+  borderRadius: 'var(--radius)',
+  fontSize: 'var(--text-sub)',
   color: 'var(--c-brand)',
   lineHeight: 1.8,
 };
@@ -321,39 +319,12 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>📖 ヘルプ</h2>
+          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>📖 ヘルプ</h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div className="lvg-help-body" style={bodyStyle}>
-          {/* ===== よくある質問（確定回答・タップで開く。答えは決まっているので AI は使わない） ===== */}
-          <section>
-            <h3 style={sectionTitleStyle}>💡 よくある質問</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {FAQ_LIST.map((item, i) => {
-                const open = openFaq === i;
-                return (
-                  <div key={item.q} style={faqItemStyle}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenFaq(open ? -1 : i)}
-                      style={faqQuestionStyle}
-                      aria-expanded={open}
-                    >
-                      <span>{item.q}</span>
-                      <span
-                        aria-hidden="true"
-                        style={{ color: 'var(--c-brand)', flexShrink: 0, marginLeft: 8, transition: 'transform .15s ease', transform: open ? 'rotate(180deg)' : 'none' }}
-                      >⌄</span>
-                    </button>
-                    {open && <p style={faqAnswerStyle}>{item.a}</p>}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* ===== 3. この画面のヘルプ (steps / sections を統一カードで描画) ===== */}
+          {/* ===== 1. この画面のヘルプ（いま困っている画面の説明を先に・2026-09-29） ===== */}
           <section>
             <h3 style={sectionTitleStyle}>📖 {entry?.title || 'この画面のヘルプ'}</h3>
             {entry ? (
@@ -386,10 +357,37 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
                 )}
               </>
             ) : (
-              <p style={{ fontSize: 13, color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.8 }}>
-                この画面のヘルプはまだ用意されていません。上の「よくある質問」をご覧ください。
+              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.8 }}>
+                この画面のヘルプはまだ用意されていません。下の「よくある質問」をご覧ください。
               </p>
             )}
+          </section>
+
+          {/* ===== 2. よくある質問（確定回答・タップで開く。答えは決まっているので AI は使わない） ===== */}
+          <section>
+            <h3 style={sectionTitleStyle}>💡 よくある質問</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {FAQ_LIST.map((item, i) => {
+                const open = openFaq === i;
+                return (
+                  <div key={item.q} style={faqItemStyle}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenFaq(open ? -1 : i)}
+                      style={faqQuestionStyle}
+                      aria-expanded={open}
+                    >
+                      <span>{item.q}</span>
+                      <span
+                        aria-hidden="true"
+                        style={{ color: 'var(--c-brand)', flexShrink: 0, marginLeft: 'var(--space-2)', transition: 'transform .15s ease', transform: open ? 'rotate(180deg)' : 'none' }}
+                      >⌄</span>
+                    </button>
+                    {open && <p style={faqAnswerStyle}>{item.a}</p>}
+                  </div>
+                );
+              })}
+            </div>
           </section>
 
           {onShowOnboarding && (

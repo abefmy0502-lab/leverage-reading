@@ -24,7 +24,7 @@ import { MODEL_FAST, MODEL_ADVISOR } from '../lib/models';
 import { LIMITS, clamp } from '../lib/limits';
 import { toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
-import { isStrictMatch } from '../lib/bookMatch';
+import { isStrictMatch, isExactMatch } from '../lib/bookMatch';
 import { verifyBookExists, checkImageExists } from '../lib/bookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
@@ -951,7 +951,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //
   //   1. handleClickAdd(rec): ボタンを即「確かめています…」に切替 (< 5ms)、裏で
   //      searchBooksAPIFlat を走らせる（「追加済み」は実際に追加へ進んだときだけ・2026-09-29）
-  //   2. strict match で絞り込んだ candidates が 1 件以上あれば確認モーダルへ
+  //   2. strict match で絞り込んだ candidates が 1 件だけで書名・著者が完全に同じなら確認なしで追加。
+  //      それ以外で 1 件以上あれば確認モーダルへ
   //      → AdvisorAddConfirmModal で視覚確認 → 選んだ candidate の isbn /
   //      cover を rec に焼き込んで proceedAdd を呼ぶ
   //   3. candidates が 0 件なら確認モーダル skip → そのまま proceedAdd (rec
@@ -1052,7 +1053,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           proceedAdd(rec);
           return;
         }
-        // 1 件以上 → 視覚確認モーダルへ。「追加済み」は確認して追加したときだけ（キャンセルなら元のまま）。
+        // 候補が 1 冊だけで、書名も著者も完全に同じ → 確かめるまでもないので、そのまま追加する（2026-09-29）。
+        if (matched.length === 1 && isExactMatch(matched[0], rec)) {
+          proceedAdd({ ...rec, isbn: matched[0].isbn || rec.isbn || '', cover: matched[0].cover || '' });
+          return;
+        }
+        // それ以外 → 視覚確認モーダルへ。「追加済み」は確認して追加したときだけ（キャンセルなら元のまま）。
         setConfirmAdd({ rec, candidates: matched });
       } catch {
         // search 失敗時は直接追加へフォールバック

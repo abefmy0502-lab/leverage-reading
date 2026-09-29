@@ -28,10 +28,10 @@ import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, More
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
-import { PAID_TOKENS, monthDayLabelJa } from '../lib/tokens';
+import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
 
@@ -371,18 +371,20 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     try { localStorage.setItem(ANSWER_MODE_KEY, answerMode); } catch { /* ignore */ }
   }, [answerMode, user?.id]);
   const [modeSheetOpen, setModeSheetOpen] = useState(false);
-  // 絞った本のメモの件数（上部の「〜件から答えます」を相談相手に合わせる）
-  const [scopeMemoCount, setScopeMemoCount] = useState(null);
+  // 絞った本のメモの件数（上部の「〜件から答えます」を相談相手に合わせる）。
+  // カード式＋「この本のまとめ」（1 冊 1 件）＝ほかの画面の「メモ N 件」と同じ数え方（lib/consultHelpers.js）。
+  const [scopeCardCount, setScopeCardCount] = useState(null);
   useEffect(() => {
-    if (!scopeIds.length || !user?.id || !isSupabaseConfigured) { setScopeMemoCount(null); return undefined; }
+    if (!scopeIds.length || !user?.id || !isSupabaseConfigured) { setScopeCardCount(null); return undefined; }
     let alive = true;
     (async () => {
       const { count } = await supabase.from('book_memos').select('id', { count: 'exact', head: true })
         .eq('user_id', user.id).in('book_id', scopeIds);
-      if (alive) setScopeMemoCount(typeof count === 'number' ? count : null);
+      if (alive) setScopeCardCount(typeof count === 'number' ? count : null);
     })();
     return () => { alive = false; };
   }, [scopeIds, user?.id]);
+  const scopeMemoCount = scopeCardCount == null ? null : scopeCardCount + countSummaryMemos(books, scopeIds);
   // 本詳細の「この本に相談する」から来たら、相談相手をその本に絞って質問画面へ。
   useEffect(() => {
     if (!scopePreset?.bookIds || !consumePreset('scope', scopePreset.nonce)) return;
@@ -431,7 +433,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [historyLoaded, setHistoryLoaded] = useState(() => !!resumed);
   const [historyError, setHistoryError] = useState(false);
   // learningOpen state は廃止 — view === 'learning' で表現する。
-  const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
+  // cards＝カード式 / personal＝学び / summaryBooks＝「この本のまとめ」の入っている本（1 冊 1 件）/
+  // summaries＝根拠にできる情報の合計（読書準備なども含む・件数の表示には使わない）
+  const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0, summaryBooks: 0 });
   const [memoStatsLoaded, setMemoStatsLoaded] = useState(false);
   // メモの件数を数えられなかった（通信断など）。0 件と取り違えて「まだメモがありません」を出さない。
   const [memoStatsFailed, setMemoStatsFailed] = useState(false);
@@ -580,8 +584,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     let cancelled = false;
     (async () => {
      try {
-      // メモの件数（カード式＋学び）は book_memos の全件を 1 回で数える（ホーム・初日クイックスタート・
-      // 記録と同じ数え方＝「メモ N 件」を画面をまたいで同じ数にする・2026-09-29）。
+      // メモの件数（カード式＋学び）は book_memos の全件を 1 回で数え、「この本のまとめ」の入っている本を
+      // 1 冊 1 件として足す（ホーム・初日クイックスタート・記録と同じ数え方＝「メモ N 件」を画面をまたいで
+      // 同じ数にする・2026-09-29）。
       // （source_type が空の古いメモも数える。neq('source_type', 'personal') だと空の行が落ちていた）
       const [cardsRes, personalRes, booksFieldsRes] = await Promise.all([
         supabase
@@ -627,6 +632,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         cards: Math.max(0, (cardsRes.count || 0) - (personalRes.count || 0)),
         personal: personalRes.count || 0,
         summaries: summariesCount,
+        summaryBooks: booksFieldsRes.error ? 0 : (booksFieldsRes.data || []).filter(hasSummaryMemo).length,
       });
      } catch (e) {
       console.warn('memo stats fetch error:', e?.message || e);
@@ -1107,9 +1113,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     });
     return groups.reverse();
   }, [messages]);
-  // 空の画面の出し分けはメモ（カード式＋学び）の件数で決める（SPEC §3）。読書計画やまとめだけの人も
-  // 「これまで読んだ本から始める」へ（相談例の「最近のメモから…」が空振りしないように）。
-  const ownMemoTotal = memoStats.cards + memoStats.personal;
+  // 空の画面の出し分けはメモ（カード式＋学び＋この本のまとめ）の件数で決める（SPEC §3）。メモ＝カード式＋まとめ式
+  // （GLOSSARY）なので、読書メーター等の感想を「この本のまとめ」に取り込んだだけの人も相談できる（2026-09-29 オーナー裁定）。
+  // 読書計画だけの人は「これまで読んだ本から始める」へ（相談例の「最近のメモから…」が空振りしないように）。
+  const ownMemoTotal = memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0);
   // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
   // 数え終わるまでは出しておく（メモのある大多数の人で、読み込み後にチップが増えて跳ねないように）。
   const modeApplies = scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0 || memoStatsFailed);
@@ -1202,13 +1209,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>から答えます</>
                     : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>から答えます</>)
                   : '選んだ本のメモから答えます')
-                // 件数は「メモ N 件」＝自分のメモ（カード式＋学び）。ホームの相談カード・初日クイックスタート・
+                // 件数は「メモ N 件」＝自分のメモ（カード式＋学び＋この本のまとめ）。ホームの相談カード・初日クイックスタート・
                 // 振り返りの記録と同じ数え方・同じ言葉（2026-09-29）。0 件のときは件数を出さない（下の「まだメモがありません」と食い違わないように）。
                 : (ownMemoTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>あなたのメモ {ownMemoTotal} 件</span>から答えます</> : '読んだ本のメモを根拠に答えます')}
               {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
               {tokensRemaining != null && (
                 <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                  {plan === 'trial' ? '無料期間' : '今月'}の残り <span style={{ whiteSpace: 'nowrap' }}>{tokensRemaining}{purchasedTokens > 0 ? <> ＋追加 {purchasedTokens}</> : null} トークン</span>
+                  {plan === 'trial' ? '無料期間' : '今月'}の残り <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
+                  {/* 無料プランは「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29） */}
+                  {freeMode && tokensRemaining > 0 && <span style={{ whiteSpace: 'nowrap' }}>（相談 約 {consultsLeft(tokensRemaining, TOKEN_COSTS.consult)} 回）</span>}
                 </span>
               )}
               {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
@@ -1483,6 +1492,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               {!freeUsedUp && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error && (
                 <button type="button" onClick={regenerate} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
                   {visibleMessages[visibleMessages.length - 1]?.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて'}
+                  {/* 無料プランはトークンが少ないので、押す前に使う量を添える（相談 1 回分・2026-09-29） */}
+                  {freeMode && <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>（約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン）</span>}
                 </button>
               )}
               {/* 文字ボタンは 1 種類（DESIGN §5）。脇役は並び順（2 番目）で控えめにする。 */}
@@ -1631,7 +1642,7 @@ function FreeUsedCard({ tokenAllowance, onOpen, style = null }) {
         今月のトークンは、ここまでです
       </p>
       <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-        <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{tokenAllowance} トークン</span>に戻ります
+        <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span>に戻ります
       </p>
       <button type="button" onClick={onOpen} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
         プランを見る
@@ -1687,11 +1698,11 @@ function TokensOutCard({ plan, trialEndLabel, tokenAllowance, onAdd }) {
       </p>
       {plan !== 'trial' ? (
         <p style={sub}>
-          <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{tokenAllowance} トークン</span>に戻ります
+          <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span>に戻ります
         </p>
       ) : trialEndLabel ? (
         <p style={sub}>
-          無料期間が終わる<span style={{ whiteSpace: 'nowrap' }}>{trialEndLabel}</span>から、<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS} トークン使えます。</span>
+          無料期間が終わる<span style={{ whiteSpace: 'nowrap' }}>{trialEndLabel}</span>から、<span style={{ whiteSpace: 'nowrap' }}>毎月 {fmtTokens(PAID_TOKENS)} トークン使えます。</span>
         </p>
       ) : null}
       <button type="button" onClick={onAdd} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>

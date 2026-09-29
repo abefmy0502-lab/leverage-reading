@@ -8,7 +8,7 @@ import { track } from './analytics';
 import { MODEL_SMART, MODEL_FAST } from './models';
 import { apiUrl } from './apiUrl';
 import { fetchAllRows } from './fetchAllRows';
-import { verifyAnswerQuotes } from './evidenceCheck';
+import { verifyAnswerQuotes, decodeQuoteRefs } from './evidenceCheck';
 
 const DEFAULT_MODEL = MODEL_SMART;
 const DEFAULT_MAX_TOKENS = 1024;
@@ -1281,7 +1281,24 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
 // 日付は、ページまで一致したメモと、日付が一致した学びだけから出す（書名だけの一致では出さない）。
 export const EVIDENCE_PREFIX = '🌱 ';
 const normTitle = (t) => String(t || '').replace(/[\s　「」『』()（）]/g, '').toLowerCase();
-export function evidenceFromRefs(refs, sources, now = Date.now()) {
+// verified: 引用の照合の結果（decodeQuoteRefs の配列・evidenceCheck.js）。照合した本・学びの参照は、
+//   照合を通った（s === 'ok'）ものだけを数える（メモと一致しなかった引用・メモに当たらなかった要約の本は
+//   「使ったメモ」に数えない＝盛らない・2026-09-29）。照合の結果が無い（古い形の答え・確かめられなかった・
+//   その本の行が照合の対象外）ときは、これまでどおり渡したメモとの突き合わせだけで数える。
+function passedVerification(verified, title, page) {
+  if (!Array.isArray(verified) || verified.length === 0) return true;
+  const t = normTitle(title);
+  const same = verified.filter((v) => {
+    const vt = normTitle(v?.t);
+    if (!t) return !vt; // 学び（書名なし）は書名の無い行と
+    return !!vt && (vt === t || vt.includes(t) || t.includes(vt));
+  });
+  // 照合の対象に入っていない参照（本ごとの答えで引用の無い本など）は、渡したメモとの突き合わせに任せる。
+  if (same.length === 0) return true;
+  const pageOk = Number.isFinite(page) ? same.filter((v) => v.p == null || Number(v.p) === page) : same;
+  return (pageOk.length ? pageOk : same).some((v) => v.s === 'ok');
+}
+export function evidenceFromRefs(refs, sources, now = Date.now(), verified = null) {
   if (!Array.isArray(refs) || !Array.isArray(sources) || sources.length === 0) return null;
   let count = 0;
   let oldest = null;
@@ -1290,6 +1307,7 @@ export function evidenceFromRefs(refs, sources, now = Date.now()) {
     const title = (r.match(/『([^』]+)』/) || [])[1] || '';
     const page = Number((r.match(/[pP]\.?\s*(\d+)/) || [])[1]);
     const date = (r.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || '';
+    if (!passedVerification(verified, title, page)) continue;
     let hit = [];
     if (!title && date) {
       hit = sources.filter((sr) => sr.personal && String(sr.created_at || '').startsWith(date));
@@ -1495,7 +1513,10 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   try { quoteRefs = verifyAnswerQuotes(parsed.body, ctx.sources); } catch { /* 確かめられなければ付けない（古い答えと同じ見せ方） */ }
   // 関係するメモが無いと答えたときは、サーバーがトークンを返している（streamClaude の meta.refund）。
   const tokenRefund = streamMeta?.refund && streamMeta.refund.reason ? streamMeta.refund : null;
-  return { body, refs: parsed.refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(parsed.refs, ctx.sources), quoteRefs, tokenRefund, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks };
+  // 「あなたのメモ N 件から答えました」は、照合を通った参照だけで数える（一致しなかった引用は外す）。
+  let verified = null;
+  try { verified = decodeQuoteRefs(quoteRefs); } catch { verified = null; }
+  return { body, refs: parsed.refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(parsed.refs, ctx.sources, Date.now(), verified), quoteRefs, tokenRefund, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks };
 }
 
 // ============================================================================
