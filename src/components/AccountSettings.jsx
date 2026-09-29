@@ -973,13 +973,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
           </Group>
           )}
 
-          {/* ── ほかのアプリから取り込む（ブクログ・Kindle） ── */}
+          {/* ── ほかのアプリから取り込む（ブクログ・読書メーター・Kindle） ── */}
           {onOpenImport && (
             <Group label="取り込む">
               <button type="button" style={rowButtonStyle} onClick={onOpenImport}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ ...rowTitleStyle, display: 'block' }}>ほかのアプリから取り込む</span>
-                  <span style={{ ...rowDescStyle, display: 'block' }}>ブクログ・Kindle</span>
+                  <span style={{ ...rowDescStyle, display: 'block' }}>ブクログ・読書メーター・Kindle</span>
                 </span>
                 <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>

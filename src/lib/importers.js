@@ -7,10 +7,13 @@
 //       見出し行がある CSV（タイトル / 著者 / ISBN などの列名）もそのまま読める。
 //   - Kindle 端末: 「My Clippings.txt」（ハイライトとメモ）。日本語・英語の端末どちらも。
 //   - Kindle アプリ: ノートブックの「エクスポート」で届く HTML（ハイライトとメモ）。
+//   - 読書メーター（2026-09-29）: 保存した「読んだ本」などのページ（HTML）・書き出しツールの CSV / JSON・
+//       自分で作った表（タイトル・著者・読了日・感想 など）。詳しくは下の「読書メーター」の節。
 //
 // 返す形（どの形式でも同じ）:
 //   { source, books: [{ title, author, isbn, status, rating, doneDate, tags, review,
 //                       memos: [{ text, page, createdAt }] }] }
+//   （読書メーターは asin / pages / reviewAt も付く。無ければ App 側は空として扱う）
 // 画面は src/components/ImportSheet.jsx。保存は App 側（重複は既存の本に足す）。
 
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
@@ -69,7 +72,7 @@ const toIsoTimestamp = (v) => {
 // ブクログの読書状況 → Orime の状態
 export function mapStatus(v) {
   const s = String(v || '');
-  if (/読み終|読了|finished|read$/i.test(s)) return 'done';
+  if (/読み終|読了|読んだ|finished|read$/i.test(s)) return 'done';
   if (/いま読|読んでる|読書中|reading/i.test(s)) return 'reading';
   if (/積読|積ん/.test(s)) return 'before';
   if (/読みたい|want/i.test(s)) return 'want';
@@ -110,7 +113,9 @@ export function parseBooklogCsv(text) {
   const books = [];
   for (const r of rows) {
     const title = clean(get(r, 'title'), 200);
-    const isbn = clean(get(r, 'isbn'), 20).replace(/[^0-9Xx]/g, '');
+    // 13桁ISBN が空でも、アイテムID（Amazon の ASIN＝紙の本なら ISBN-10）から ISBN-13 を作る
+    // （読書メーター → ブクログ形式の移行ツールは 13桁ISBN と書名を空で書く）。
+    const isbn = clean(get(r, 'isbn'), 20).replace(/[^0-9Xx]/g, '') || asinToIsbn13(get(r, 'itemId'));
     if (!title && !isbn) continue;
     const memos = [];
     const memo = clean(get(r, 'memo'), 4000);
@@ -210,12 +215,264 @@ export function parseKindleNotebookHtml(html) {
   return { source: 'kindle', books: [{ title, author, isbn: '', status: 'done', rating: 0, doneDate: '', tags: [], review: '', memos }] };
 }
 
+// ── 読書メーター（2026-09-29）────────────────────────────────────────
+// 読書メーターには公式の書き出しが無い。よく使われている 3 つの持ち出し方に対応する:
+//   (1) ブラウザで保存した「読んだ本」「読んでる本」「積読本」「読みたい本」のページ（.html）。
+//       本は <li class="group__book"> 1 つずつ。書名・著者・ASIN・ページ数は data-modal（JSON）と
+//       .detail__title / .detail__authors / .detail__date / .detail__page から読む。感想は「リスト」表示の
+//       ページにだけある（.detail__edit の data-modal の review.text・review.read_at）。
+//   (2) 書き出しツールの CSV / JSON。見出しの名前で読む（どれも UTF-8。BOM があっても可）:
+//       bookmeter-exporter（bookTitle, bookAuthor, bookAsin, bookPage, reviewDate, reviewText, bookcaseNames。
+//         ファイル名 finished-books / reading-books / reading-list-books / wish-list-books で状態を決める）
+//       bookmeterjson（title, author, asin, pages, date, review.text, review.read_at, bookcases・{id}-{read|reading|stacked|wish}-日付.json）
+//       export_bookmeter（title, author(s), cover）／ bookmeter_exporter（見出しなし: ASIN, 読了日, 感想）
+//   (3) 自分で作った表（タイトル/書名・著者・読了日/読んだ日・感想/レビュー・ページ数・ASIN/ISBN・本棚）。
+// 感想はブクログのレビューと同じ扱い（新しい本は「この本のまとめ」・もとからある本はメモ）。本棚はタグ。
+// ASIN が ISBN-10（紙の本）なら ISBN-13 にして重複判定と表紙に使う。Kindle 版の ASIN（B0…）は ASIN のまま。
+
+// ISBN-10（チェックディジットが合うもの）→ ISBN-13。合わなければ ''。
+export function asinToIsbn13(v) {
+  const s = String(v || '').replace(/[^0-9Xx]/g, '').toUpperCase();
+  if (/^97[89]\d{10}$/.test(s)) return s;
+  if (!/^\d{9}[\dX]$/.test(s)) return '';
+  let sum10 = 0;
+  for (let i = 0; i < 10; i += 1) sum10 += (s[i] === 'X' ? 10 : Number(s[i])) * (10 - i);
+  if (sum10 % 11 !== 0) return '';
+  const core = `978${s.slice(0, 9)}`;
+  let sum = 0;
+  for (let i = 0; i < 12; i += 1) sum += Number(core[i]) * (i % 2 === 0 ? 1 : 3);
+  return core + ((10 - (sum % 10)) % 10);
+}
+
+// 読書メーターの棚（URL・ページの題・ファイル名）→ Orime の状態。分からなければ ''。
+export function bookmeterStatusHint(v) {
+  const t = String(v || '').toLowerCase();
+  if (/積読|stacked|reading-list/.test(t)) return 'before';
+  if (/読みたい|wish/.test(t)) return 'want';
+  if (/読んでる|reading/.test(t)) return 'reading';
+  if (/読んだ|finished|(^|[^a-z])read([^a-z]|$)/.test(t)) return 'done';
+  return '';
+}
+
+const normKey = (h) => String(h ?? '').replace(/^﻿/, '').toLowerCase().replace(/[\s_　]/g, '');
+const BM_FIELDS = Object.fromEntries(Object.entries({
+  title: ['タイトル', '書名', '本のタイトル', 'title', 'booktitle', 'book.title'],
+  author: ['著者', '著者名', '作者', '作者名', 'author', 'authors', 'author(s)', 'bookauthor', 'book.author', 'detail_authors'],
+  asin: ['asin', 'bookasin', 'book.asin'],
+  isbn: ['isbn', 'isbn13', 'isbn-13', '13桁isbn', 'isbn10', 'isbn-10'],
+  doneDate: ['読了日', '読んだ日', '読み終わった日', '読了', 'date', 'readdate', 'read_date', 'read_at', 'reviewdate', 'review.read_at', 'finished', 'date read'],
+  review: ['感想', 'レビュー', '感想・レビュー', 'コメント', 'review', 'reviewtext', 'review.text', 'comment'],
+  pages: ['ページ数', 'ページ', 'pages', 'page', 'bookpage', 'book.page', 'detail_pages'],
+  tags: ['本棚', 'タグ', 'bookcasenames', 'bookcases', 'tags'],
+  status: ['読書状況', '状態', 'ステータス', 'status'],
+}).map(([k, names]) => [k, names.map(normKey)]));
+// 読書メーターの CSV だと分かる見出し（ブクログにない名前）
+const BM_HEADER_HINTS = ['booktitle', 'bookasin', 'reviewtext', 'reviewdate', 'bookcasenames', 'author(s)', '感想', '感想・レビュー', '読んだ日', '本棚', 'asin'].map(normKey);
+const BOOKLOG_ONLY = ['サービスid', 'アイテムid', '13桁isbn', '読書メモ(非公開)', '読書状況'].map(normKey);
+
+// { 見出し: 値 } → 読書メーターの 1 冊（読めなければ null）
+function bookmeterBook(rec, statusHint) {
+  const get = (k) => {
+    for (const name of BM_FIELDS[k]) {
+      const v = rec[name];
+      if (v != null && String(v).trim() !== '') return v;
+    }
+    return '';
+  };
+  const asinRaw = clean(get('asin'), 40).replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+  const isbnRaw = clean(get('isbn'), 20);
+  const isbn = asinToIsbn13(isbnRaw) || asinToIsbn13(asinRaw);
+  const asin = /^[0-9A-Z]{10}$/.test(asinRaw) ? asinRaw : '';
+  let title = clean(get('title'), 200);
+  if (!title && !isbn && !asin) return null;
+  // 書名の無い書き出し（見出しなしの ASIN・読了日・感想）は ISBN / ASIN を仮の書名に（あとで直せる）。
+  if (!title) title = isbn ? `ISBN ${isbn}` : `ASIN ${asin}`;
+  const doneDate = isoDate(get('doneDate'));
+  const statusRaw = clean(get('status'), 40);
+  let tags = get('tags');
+  if (typeof tags === 'string' && /^\s*\[/.test(tags)) { try { tags = JSON.parse(tags); } catch { /* 文字のまま */ } }
+  tags = (Array.isArray(tags) ? tags.map((t) => (t && typeof t === 'object' ? t.name : t)).join('、') : clean(tags, 300));
+  const pages = Math.max(0, Math.min(99999, Math.round(Number(String(get('pages')).replace(/[^0-9]/g, '')) || 0)));
+  return {
+    title,
+    author: clean(get('author'), 100),
+    isbn,
+    asin,
+    status: statusRaw ? mapStatus(statusRaw) : (statusHint || 'done'),
+    rating: 0,
+    doneDate,
+    tags: String(tags || '').split(/[,、]+/).map((t) => clean(t, 40)).filter(Boolean).slice(0, 10),
+    review: clean(get('review'), 8000),
+    // 感想をもとからある本のメモにするときの日付（読了日の昼）
+    reviewAt: doneDate ? toIsoTimestamp(doneDate) : null,
+    pages,
+    memos: [],
+  };
+}
+
+const dedupeBooks = (books) => {
+  const seen = new Set();
+  return books.filter((b) => {
+    const key = `${b.title}\u0000${b.author}\u0000${b.isbn || b.asin}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+// CSV の見出しが読書メーターのものか（ファイル名に bookmeter / 読書メーター があるときも）
+export function looksLikeBookmeterCsv(fileName, text) {
+  const name = String(fileName || '').toLowerCase();
+  const rows = parseCsv(String(text || '').slice(0, 4000));
+  if (!rows.length) return false;
+  const head = rows[0].map(normKey);
+  if (head.some((h) => BOOKLOG_ONLY.includes(h))) return false;
+  if (head.some((h) => BM_HEADER_HINTS.includes(h))) return true;
+  if (/bookmeter|読書メーター|finished-books|wish-list-books|reading-list-books|reading-books/.test(name)) return true;
+  // 見出しなしの「ASIN, 読了日, 感想」（bookmeter_exporter）／「ASIN, 書名, 日付, 感想」
+  const r = rows[0];
+  return r.length >= 2 && r.length <= 4 && /^[0-9A-Z]{10}$/.test(String(r[0]).trim()) && !/^\d{1,3}$/.test(String(r[0]).trim());
+}
+
+export function parseBookmeterCsv(text, fileName = '') {
+  const rows = parseCsv(text);
+  if (!rows.length) return { source: 'bookmeter', books: [] };
+  const hint = bookmeterStatusHint(fileName);
+  const head = rows[0].map(normKey);
+  const known = new Set(Object.values(BM_FIELDS).flat());
+  const books = [];
+  if (head.some((h) => known.has(h))) {
+    for (const r of rows.slice(1)) {
+      const rec = {};
+      head.forEach((h, i) => { if (h && rec[h] == null) rec[h] = r[i]; });
+      const b = bookmeterBook(rec, hint);
+      if (b) books.push(b);
+    }
+  } else {
+    // 見出しなし: 3 列＝ASIN・読了日・感想／4 列＝ASIN・書名・日付・感想
+    for (const r of rows) {
+      const rec = r.length >= 4
+        ? { asin: r[0], title: r[1], date: r[2], review: r[3] }
+        : { asin: r[0], date: r[1], review: r[2] };
+      const b = bookmeterBook(rec, hint);
+      if (b) books.push(b);
+    }
+  }
+  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_BOOKS) };
+}
+
+// JSON（書き出しツール）: 配列、または { books: [...] }。入れ子は「review.text」のように平らにする。
+export function parseBookmeterJson(text, fileName = '') {
+  let data;
+  try { data = JSON.parse(String(text || '').replace(/^﻿/, '')); } catch { return { source: 'bookmeter', books: [] }; }
+  const list = Array.isArray(data) ? data : (Array.isArray(data?.books) ? data.books : []);
+  const hint = bookmeterStatusHint(fileName);
+  const books = [];
+  const flat = (obj, prefix, out) => {
+    for (const [k, v] of Object.entries(obj || {})) {
+      const key = normKey(prefix ? `${prefix}.${k}` : k);
+      if (v && typeof v === 'object' && !Array.isArray(v)) flat(v, key, out);
+      else if (out[key] == null) out[key] = v;
+      // 入れ子の名前（book.title）でも、末尾だけ（title）でも引けるように
+      const leaf = normKey(k);
+      if (prefix && !(v && typeof v === 'object' && !Array.isArray(v)) && out[leaf] == null) out[leaf] = v;
+    }
+    return out;
+  };
+  for (const item of list.slice(0, IMPORT_MAX_BOOKS * 2)) {
+    if (!item || typeof item !== 'object') continue;
+    const rec = flat(item, '', {});
+    if (Array.isArray(rec.authors)) rec.authors = rec.authors.join('、');
+    const b = bookmeterBook(rec, hint);
+    if (b) books.push(b);
+  }
+  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_BOOKS) };
+}
+
+// 保存したページ（.html）
+export function isBookmeterHtml(html) {
+  const s = String(html || '');
+  return /class=["'][^"']*\bgroup__book\b/.test(s) || (/bookmeter\.com/.test(s) && /\bdetail__title\b/.test(s));
+}
+
+const attr = (tag, name) => {
+  const m = String(tag || '').match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i'));
+  return m ? decodeHtmlEntities(m[1] ?? m[2] ?? '') : '';
+};
+// class に cls を含む最初の要素の中身（閉じタグ tag まで）
+const inner = (s, cls, tag = 'div') => {
+  const m = String(s || '').match(new RegExp(`class=["'][^"']*\\b${cls}\\b[^"']*["'][^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
+  return m ? m[1] : '';
+};
+
+// ページの棚（読んだ本・読んでる本・積読本・読みたい本）: 保存元の URL → ページの題 → ファイル名の順で見る。
+// 本文のリンク（ほかの棚へのタブ）は見ない。
+function bookmeterPageStatus(s, fileName) {
+  const urls = [
+    (s.match(/<!--\s*saved from url=\(\d+\)(\S+?)\s*-->/i) || [])[1],
+    attr((s.match(/<link\b[^>]*rel=["']canonical["'][^>]*>/i) || [])[0], 'href'),
+    attr((s.match(/<meta\b[^>]*property=["']og:url["'][^>]*>/i) || [])[0], 'content'),
+  ].filter(Boolean);
+  for (const u of urls) {
+    const m = u.match(/\/books\/(read|reading|stacked|wish)(?:[/?#]|$)/);
+    if (m) return { read: 'done', reading: 'reading', stacked: 'before', wish: 'want' }[m[1]];
+  }
+  const title = decodeEntities((s.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '');
+  return bookmeterStatusHint(title) || bookmeterStatusHint(fileName);
+}
+
+export function parseBookmeterHtml(html, fileName = '') {
+  const s = String(html || '');
+  const pageStatus = bookmeterPageStatus(s, fileName);
+  const parts = s.split(/<li\b[^>]*class=["'][^"']*\bgroup__book\b[^"']*["'][^>]*>/i).slice(1);
+  const books = [];
+  for (const block of parts) {
+    // data-modal（JSON）: 「登録」ボタンに book、「編集する」ボタンに review と bookcases。
+    const modal = { book: null, review: null, bookcases: null, author: '', pages: 0 };
+    const re = /data-modal\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+    let m;
+    while ((m = re.exec(block))) {
+      try {
+        const d = JSON.parse(decodeHtmlEntities(m[1] ?? m[2] ?? ''));
+        if (d?.book && !modal.book) modal.book = d.book;
+        if (d?.review && !modal.review) modal.review = d.review;
+        if (Array.isArray(d?.bookcases) && !modal.bookcases) modal.bookcases = d.bookcases;
+        if (d?.author && !modal.author) modal.author = d.author;
+        if (d?.pages && !modal.pages) modal.pages = d.pages;
+      } catch { /* 壊れた JSON は画面の文字から読む */ }
+    }
+    const imgTag = (block.match(/<img\b[^>]*\bcover__image\b[^>]*>/i) || [])[0] || '';
+    const authorsHtml = inner(block, 'detail__authors', 'ul');
+    const authorLinks = [...authorsHtml.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)].map((x) => clean(decodeEntities(x[1]), 100)).filter(Boolean);
+    const dateText = clean(decodeEntities(inner(block, 'detail__date')), 40);
+    const pageText = clean(decodeEntities(inner(block, 'detail__page')), 20);
+    const amazon = (block.match(/amazon\.co\.jp\/(?:[^"'\s]*\/)?dp\/(?:product\/)?([0-9A-Z]{10})/) || [])[1] || '';
+    const rec = {
+      // 一覧の書名（.detail__title）は長いと途中で切れるので、JSON → 表紙の alt → 一覧の順
+      title: modal.book?.title || attr(imgTag, 'alt') || decodeEntities(inner(block, 'detail__title')),
+      author: authorLinks.join('、') || modal.author || modal.book?.author || '',
+      asin: modal.book?.asin || amazon,
+      date: isoDate(dateText) || modal.review?.read_at || '',
+      review: modal.review?.text || '',
+      pages: pageText || modal.pages || modal.book?.page || '',
+      bookcases: modal.bookcases || '',
+    };
+    const b = bookmeterBook(Object.fromEntries(Object.entries(rec).map(([k, v]) => [normKey(k), v])), pageStatus || (rec.date ? 'done' : ''));
+    if (b) books.push(b);
+  }
+  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_BOOKS) };
+}
+
 // ── 入口: ファイル名と中身から形式を当てる ─────────────────────────────
 export function parseImportText(fileName, text) {
   const name = String(fileName || '').toLowerCase();
   const t = String(text || '');
-  if (name.endsWith('.html') || name.endsWith('.htm') || /class=["']noteText["']/.test(t)) return parseKindleNotebookHtml(t);
+  if (name.endsWith('.html') || name.endsWith('.htm') || /class=["']noteText["']/.test(t) || isBookmeterHtml(t)) {
+    return isBookmeterHtml(t) ? parseBookmeterHtml(t, fileName) : parseKindleNotebookHtml(t);
+  }
+  if (name.endsWith('.json') || /^\s*[[{]/.test(t.replace(/^﻿/, ''))) return parseBookmeterJson(t, fileName);
   if (name.endsWith('.txt') || /^={5,}\s*$/m.test(t)) return parseKindleClippings(t);
+  if (looksLikeBookmeterCsv(fileName, t)) return parseBookmeterCsv(t, fileName);
   return parseBooklogCsv(t);
 }
 
@@ -238,6 +495,8 @@ export function mergeImportResults(results) {
       const book = byKey.get(key);
       if (!book.review && b.review) book.review = b.review;
       if (!book.isbn && b.isbn) book.isbn = b.isbn;
+      if (!book.asin && b.asin) book.asin = b.asin;
+      if (!book.doneDate && b.doneDate) { book.doneDate = b.doneDate; book.reviewAt = book.reviewAt || b.reviewAt; }
       for (const m of b.memos || []) {
         if (memoCount >= IMPORT_MAX_MEMOS) break;
         if (book.memos.some((x) => x.text === m.text)) continue;

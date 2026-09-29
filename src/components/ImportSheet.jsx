@@ -1,4 +1,4 @@
-// 📥 ほかのアプリから取り込む（#4・2026-09-27）— ブクログの CSV・Kindle のハイライト。
+// 📥 ほかのアプリから取り込む（#4・2026-09-27）— ブクログの CSV・読書メーター（2026-09-29）・Kindle のハイライト。
 //
 // 役割（1 文）: これまでに残した読書の記録を 1 回で取り込み、初日から相談の材料を揃える。
 // 流れ: ファイルを選ぶ → 見つかった本とメモを確かめる → 取り込む → 相談してみる。
@@ -25,7 +25,7 @@ const KEEP_DOT = '\u2060・\u2060';
 const howTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0 };
 const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
-const SOURCE_LABEL = { booklog: 'ブクログ', kindle: 'Kindle' };
+const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター', kindle: 'Kindle' };
 
 export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) {
   const inputRef = useRef(null);
@@ -106,6 +106,11 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
           <li>
             <p style={howTitle}>ブクログ</p>
             <p style={body}>Web のブクログで「設定」→「エクスポート」から CSV を保存して選びます。レビューと読書メモも取り込みます。</p>
+          </li>
+          <li>
+            {/* 読書メーターには公式の書き出しが無いので、パソコンで保存したページ（.html）を選ぶ。書き出しツールの CSV もそのまま読める（ヘルプ）。 */}
+            <p style={howTitle}>読書メーター</p>
+            <p style={body}>パソコンで「読んだ本」を「リスト」表示にして、ページを保存（.html）して選びます。感想も取り込みます。ページが分かれているときは、まとめて選べます。</p>
           </li>
           <li>
             <p style={howTitle}>Kindle アプリ</p>
@@ -255,7 +260,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
       <input
         ref={inputRef}
         type="file"
-        accept=".csv,.txt,.html,.htm,text/csv,text/plain,text/html"
+        accept=".csv,.txt,.html,.htm,.json,text/csv,text/plain,text/html,application/json"
         multiple
         onChange={onFile}
         style={{ display: 'none' }}

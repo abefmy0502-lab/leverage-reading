@@ -1909,7 +1909,7 @@ function AuthedApp() {
     return saved;
   };
 
-  // 📥 ほかのアプリ（ブクログ・Kindle）から取り込む（ImportSheet → ここで保存）。
+  // 📥 ほかのアプリ（ブクログ・読書メーター・Kindle）から取り込む（ImportSheet → ここで保存）。
   //   本: 本棚に同じ本があればそこに足す・無ければ追加（状態・評価・読了日・タグ・レビューはまとめへ）。
   //   メモ: 元の日付を残す（「いちばん古いのは ◯ か月前」や相談の歩みに効く）。同じ本の同じ文は足さない
   //         （同じファイルを 2 回取り込んでも二重にならない）。AI は使わない。
@@ -1932,7 +1932,7 @@ function AuthedApp() {
         if (b.doneDate) srcDoneDate.set(target.id, b.doneDate);
         // レビューは初回の取り込みで「まとめ」に入る。同じレビューをもう一度カードにしない。
         if (b.review && String(b.review).trim() !== String(target.leverageMemo || '').trim()) {
-          memos.push({ text: b.review, page: null, createdAt: null });
+          memos.push({ text: b.review, page: null, createdAt: b.reviewAt || null }); // 読書メーターは感想の日付（読了日）
         }
       } else {
         try {
@@ -1942,6 +1942,8 @@ function AuthedApp() {
             title: String(b.title || '').slice(0, LIMITS.bookTitle || 200),
             author: String(b.author || '').slice(0, 200),
             isbn,
+            asin: String(b.asin || '').slice(0, 20), // 読書メーター: Kindle 版など ISBN の無い本の Amazon リンク用
+            totalPages: Number(b.pages) || 0,
             status: ['want', 'before', 'reading', 'done'].includes(b.status) ? b.status : 'done',
             rating: Number(b.rating) || 0,
             doneDate: b.doneDate || '',
