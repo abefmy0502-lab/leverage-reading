@@ -37,7 +37,7 @@ import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
 import ContextMenu from './ContextMenu';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput } from '../styles/ui';
-import { History, Trash2, RotateCw, BookmarkPlus, Ruler, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Copy, BookOpen } from 'lucide-react';
+import { History, Trash2, BookmarkPlus, Ruler, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Copy, BookOpen } from 'lucide-react';
 
 // 見た目は DESIGN.md のトークンのみ。
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
@@ -697,15 +697,16 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
 
               {/* body */}
               {notice && noticeKind === 'error' ? (
+                // 題は必ず付け、内部の文（notice）は見せない（DESIGN §5・やり直しは「もう一度」・2026-09-29）。
                 <ErrorMessage
                   icon={null}
-                  description={notice}
+                  title="まとめを作れませんでした"
+                  description="通信の状態を確かめて、もう一度お試しください。"
                   actions={activeTheme ? [{
-                    label: 'もう一度試す',
+                    label: 'もう一度',
                     ariaLabel: `テーマ「${activeTheme}」でもう一度作成`,
                     onClick: () => generate(activeTheme),
                     variant: 'primary',
-                    icon: <RotateCw size={16} />,
                   }] : []}
                 />
               ) : notice ? (

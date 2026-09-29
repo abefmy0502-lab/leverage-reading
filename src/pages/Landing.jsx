@@ -643,7 +643,7 @@ export default function Landing() {
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
                 <ul className="lp-included" aria-label="プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む（文の途中で別の塊に割れないように） */}
-                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>相談が毎月 {PAID_TOKENS} トークン（約 80 回）。{TRIAL_NOTE && <>無料期間中は <span style={{ whiteSpace: 'nowrap' }}>{TRIAL_TOKENS} トークン</span>（相談 約 {TRIAL_CONSULTS} 回）。</>}足りない月は追加もできます</span></li>
+                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>相談が毎月 {PAID_TOKENS} トークン（約 80 回）。{TRIAL_NOTE && <>無料期間中は <span style={{ whiteSpace: 'nowrap' }}>{TRIAL_TOKENS} トークン</span><span style={{ whiteSpace: 'nowrap' }}>（相談 約 {TRIAL_CONSULTS} 回）</span>。</>}足りない月は追加もできます</span></li>
                   <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>AI 選書・テーマまとめ・読書計画シート・写真からの書き起こし</span></li>
                 </ul>
                 <div className="lp-plan-rows">

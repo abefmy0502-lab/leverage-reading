@@ -483,7 +483,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   icon={null}
                   title="価格を読み込めませんでした"
                   description="通信の状態を確かめて、もう一度お試しください。"
-                  actions={[{ label: '再読み込み', onClick: () => setPriceTry((n) => n + 1) }]}
+                  actions={[{ label: 'もう一度', onClick: () => setPriceTry((n) => n + 1) }]}
                 />
               </div>
             ) : (

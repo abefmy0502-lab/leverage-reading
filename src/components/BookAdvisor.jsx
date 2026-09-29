@@ -39,6 +39,7 @@ import { useConfirm } from './ConfirmDialog';
 import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
 import ErrorMessage from './ErrorMessage';
+import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
@@ -84,7 +85,8 @@ const advisorOptionChip = {
 };
 // 「読みたいに追加」後の表示（押せない状態はボタンではなく文字で示す。相談の「行動に追加しました」と同じ）。
 // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
-const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' };
+// 相談の吹き出しと同じ: 文字に沿って縮む（TightBubble・最大 85%）・文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・2026-09-29）。
+const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' };
 const advisorOptionChipSelected = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
 // 推薦カードの購入リンク＝文字ボタン（btnLink: --accent・15/600・高さ 44・枠なし）。
 // 主役は「読みたいに追加」なので、ストアは控えめな文字リンクにする（外部リンクは ↗ と aria-label で伝える）。
@@ -1244,7 +1246,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       {/* ユーザーの相談（右寄せの --fill 吹き出し。相談と同じ） */}
       {concern && (!showConcernInput || showErrorState) && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの相談">
-          <div style={userBubble}>{concern}</div>
+          <TightBubble text={concern} className="text-pretty" style={userBubble}>{withPhraseBreaks(concern)}</TightBubble>
         </div>
       )}
 
@@ -1467,7 +1469,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           title="本を探せませんでした"
           description="通信の状態を確かめて、もう一度お試しください。"
           actions={[{
-            label: 'もう一度試す',
+            label: 'もう一度',
             // 同じ相談・同じ答えで送り直す（控えが無いときだけ最初から）。
             onClick: () => {
               const a = lastRecoArgsRef.current;
@@ -1497,7 +1499,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         );
         return m.role === 'user' ? (
           <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={userBubble}>{body}</div>
+            <TightBubble text={m.text} className="text-pretty" style={userBubble}>{withPhraseBreaks(m.text)}</TightBubble>
           </div>
         ) : m.streaming ? (
           <div key={i} style={{ ...cardStyle, ...readText, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
