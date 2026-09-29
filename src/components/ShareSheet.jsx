@@ -285,7 +285,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
       const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1;
       const targetWidth = Math.max(570, Math.round((canvas.clientWidth || 0) * dpr));
       let ok = false;
-      ok = false;
+      try { ok = drawPhotoDragFrame(canvas, cardOpts(), dragCache.current, { targetWidth }); } catch { ok = false; }
       if (!ok) draw();
     });
   };

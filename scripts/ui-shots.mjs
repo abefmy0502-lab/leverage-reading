@@ -254,6 +254,7 @@ const SCREENS = [
   { name: 'report-picked', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'section[aria-labelledby="theme-detected"] button' }] },
   { name: 'free-advisor-tab', url: '/?demo=free', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }] },
   { name: 'settings-support', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
+  { name: 'home-reading-add', url: '/', steps: [{ scrollTo: 'button:has-text("本を追加")' }] },
   { name: 'feedback-form', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button[aria-label="フィードバックを送る"]' }] },
 ];
 
