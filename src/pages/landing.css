@@ -191,6 +191,8 @@ body.lp-active {
 .lp-hero-shot { margin: 0; text-align: center; }
 /* 3D の舞台: 写真の上下にカードが出る余白。キャンバスは写真より広く、押す操作は受けない */
 .lp-hero-stage { position: relative; padding: var(--space-12) 0; }
+/* 写真の型（3D を使わないとき）は上の余白を取らない（ボタンと写真の間が空きすぎないように） */
+.lp-hero-stage:not(.is-3d) { padding-top: 0; }
 .lp-hero-canvas {
   position: absolute;
   top: 0;
@@ -376,7 +378,7 @@ body.lp-active {
 .lp-final-inner .lp-cta-note { margin-left: auto; margin-right: auto; }
 /* 中央ぞろえの長い注記は 1 行を短くして行の幅をそろえる */
 .lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { max-width: 20em; text-wrap: balance; }
-.lp-turn > span { display: inline-block; }
+.lp-turn > span, .lp-story > span { display: inline-block; }
 .lp-story {
   margin: var(--space-12) auto 0 !important;
   max-width: 28em;

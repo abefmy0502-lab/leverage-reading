@@ -1076,7 +1076,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   赤は削除の 2 つのボタンだけにして、ここは補足の文字色の 1 文。 */}
               {isActive && (
                 <p style={{ ...rowDescStyle, margin: 0 }}>
-                  退会してもサブスクの課金は止まりません。先に「プラン・お支払い」の方法で解約してください。
+                  <span style={{ display: 'inline-block' }}>退会しても、プランの支払いは止まりません。</span><span style={{ display: 'inline-block' }}>先に<span style={{ whiteSpace: 'nowrap' }}>「プラン・お支払い」</span>の方法で</span><span style={{ display: 'inline-block' }}>解約してください。</span>
                 </p>
               )}
               {!deleteOpen ? (

@@ -700,7 +700,7 @@ export default function Landing() {
               <p className="lp-cta-note">{PRICE_LINE}。いつでも解約できます。</p>
             </div>
             <p className="lp-story">
-              Orime（オリメ）の名前は「折り目」から。大切なページの角を折るように、心が動いた一行に印をつけておけるアプリを目指しています。
+              <span>Orime（オリメ）の名前は</span><span>「折り目」から。</span><span>大切なページの角を折るように、</span><span>心が動いた一行に</span><span>印をつけておけるアプリを</span><span>目指しています。</span>
             </p>
           </div>
         </section>

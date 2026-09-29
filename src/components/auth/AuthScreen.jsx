@@ -345,7 +345,7 @@ export default function AuthScreen() {
         <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 72, height: 72, borderRadius: 'var(--radius-app-icon)', display: 'block' }} />
         <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', letterSpacing: '0.02em' }}>Orime</span>
       </h1>
-      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-8)', textAlign: 'center' }}>
+      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-6)', textAlign: 'center' }}>
         読むほど、自分だけの相談相手が育つ
       </p>
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 400 }}>
@@ -384,9 +384,7 @@ export default function AuthScreen() {
           /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */
           <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-4)', textAlign: 'center' }}>
-            Orime は iPhone / iPad のアプリです。<br />
-            登録後は、アプリからログインしてください。<br />
-            <a href="/lp" style={{ ...legalLink, justifyContent: 'center' }}>サービス紹介を見る</a>
+            Orime は iPhone / iPad のアプリです。登録後はアプリからログインしてください。
           </p>
         )}
         {mode === 'signup' && (
@@ -479,6 +477,10 @@ export default function AuthScreen() {
           <button type="button" onClick={() => switchMode('signin')} style={btnLink}>
             ログインに戻る
           </button>
+        )}
+        {/* サービス紹介は入力欄の上に積まず、下の文字リンクの並びに（何を押すかを迷わせない）。 */}
+        {mode === 'signup' && !isNative && (
+          <a href="/lp" style={btnLink}>サービス紹介を見る</a>
         )}
         {mode === 'signin' && (
           <>
