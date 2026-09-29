@@ -164,6 +164,8 @@ export default function QuickMemoSheet({
   const toggleTag = (t) => setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   // ＋ ページ・写真（最初は閉じる＝本文だけを見せる）。
   const [moreOpen, setMoreOpen] = useState(false);
+  // 一度開いたら中身は残す（畳むときも高さを縮める動きで閉じるため・畳んでいる間は visibility: hidden）。
+  const [moreMounted, setMoreMounted] = useState(false);
   // ページ番号を使うか: 「＋ ページ・写真」を開いて欄を見た（＝既定値を確かめた）か、自分で入れたときだけ保存する。
   // 開かずに保存したメモに直前＋1 のページが黙って付き、相談の根拠に誤ったページが載るのを防ぐ（2026-09-27）。
   const [pageUsed, setPageUsed] = useState(false);
@@ -232,6 +234,14 @@ export default function QuickMemoSheet({
     // Auto-focus the textarea when the sheet opens.
     setTimeout(() => textRef.current?.focus(), 80);
   }, []);
+  // 「＋ ページ・写真」の中身は、開き終わって手が空いたら畳んだまま作っておく（押した瞬間に作ると、
+  // 遅い端末では最初のコマまでに広がる動きが終わりかけて、一度に伸びて見えた）。
+  useEffect(() => {
+    if (moreMounted || typeof window === 'undefined') return undefined;
+    const ric = window.requestIdleCallback;
+    const id = ric ? ric(() => setMoreMounted(true), { timeout: 800 }) : window.setTimeout(() => setMoreMounted(true), 400);
+    return () => { if (ric) window.cancelIdleCallback?.(id); else window.clearTimeout(id); };
+  }, [moreMounted]);
 
   // Keyboard push-up: visualViewport changes height when the on-screen
   // keyboard appears. Resize the sheet so its content stays visible.
@@ -485,8 +495,12 @@ export default function QuickMemoSheet({
           <div style={{ marginTop: 'calc(-1 * var(--space-3))' }}>
             <button
               type="button"
-              onClick={() => { setMoreOpen((v) => !v); setPageUsed(true); }}
+              // 押しても本文の欄からフォーカスを外さない（キーボードが閉じてシートが上下に 2 回動いていた・2026-09-29）。
+              onPointerDown={(e) => { if (document.activeElement === textRef.current) e.preventDefault(); }}
+              onMouseDown={(e) => { if (document.activeElement === textRef.current) e.preventDefault(); }}
+              onClick={() => { setMoreMounted(true); setMoreOpen((v) => !v); setPageUsed(true); }}
               aria-expanded={moreOpen}
+              aria-controls="quick-memo-more"
               style={detailLink}
             >
               {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
@@ -497,7 +511,20 @@ export default function QuickMemoSheet({
                 </span>
               )}
             </button>
-            {moreOpen && (
+            {/* 開く・畳むは高さを 200ms で広げる／縮める（シートが一度に 320 伸びて跳ねていた・2026-09-29）。
+                動きを減らす設定では index.css の全体の指定で一瞬になる。 */}
+            <div
+              id="quick-memo-more"
+              style={{
+                display: 'grid',
+                gridTemplateRows: moreOpen ? '1fr' : '0fr',
+                visibility: moreOpen ? 'visible' : 'hidden',
+                transition: `grid-template-rows var(--duration-fast) var(--ease-out), visibility 0s linear ${moreOpen ? '0s' : 'var(--duration-fast)'}`,
+              }}
+            >
+            {/* 内側に 4 の余白を足して同じだけ外へ出す（欄のフォーカスの輪が切れないように）。 */}
+            <div style={{ minHeight: 0, overflow: 'hidden', padding: 'var(--space-1)', margin: 'calc(-1 * var(--space-1))' }}>
+            {moreMounted && (
               // ページ番号（7 × 16 = 112・5 桁が入る幅）と「写真から書き起こす」（残りの幅いっぱい）を 1 行に。
               <div style={{ display: 'grid', gridTemplateColumns: 'calc(7 * var(--space-4)) 1fr', columnGap: 'var(--space-3)', alignItems: 'end' }}>
                 <div>
@@ -531,7 +558,7 @@ export default function QuickMemoSheet({
             {/* よく使うタグ（選ぶためのチップ・押すと付く／もう一度で外す）。見出し→チップ 8・チップ同士 8（DESIGN §5）。
                 ページ・写真の行とは別のまとまりなので間は 24（DESIGN §1 グループの間）。
                 表記は本の編集画面のタグ（TagInput）と同じ: 付ける前は「＋ タグ」、付けたら「タグ ×」（# は付けない）。 */}
-            {moreOpen && frequentTags.length > 0 && (
+            {moreMounted && frequentTags.length > 0 && (
               <div style={{ marginTop: 'var(--space-6)' }}>
                 <p id="quick-memo-tags" style={fieldLabel}>タグ</p>
                 <div role="group" aria-labelledby="quick-memo-tags" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
@@ -549,11 +576,13 @@ export default function QuickMemoSheet({
               </div>
             )}
             {/* 写真を添える・新しいタグを作るは全画面で（写真から書き起こすは、どちらでも同じボタン）。 */}
-            {moreOpen && onOpenFullEditor && (
+            {moreMounted && onOpenFullEditor && (
               <button type="button" style={{ ...detailLink, marginTop: frequentTags.length > 0 ? 'var(--space-1)' : 0 }} onClick={handleDetailHandoff}>
                 写真を添える・新しいタグ（全画面で書く）<ChevronRight size={16} aria-hidden="true" />
               </button>
             )}
+            </div>
+            </div>
           </div>
 
           {errorMsg && (

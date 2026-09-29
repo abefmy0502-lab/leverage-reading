@@ -8,7 +8,7 @@
 // 既存 helpContent.js / helpKey ルーティングは破壊しない。新層を上に重ねる
 // だけ。`helpKey` を内部 state にすることで、4. の切替が onClose せずに完結。
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp } from '../lib/helpContent';
@@ -306,21 +306,35 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
   const [openFaq, setOpenFaq] = useState(-1); // 開いている FAQ の index（-1=全て閉）
   const trapRef = useFocusTrap(true);
 
+  // 開くときは .modal / .modal-backdrop（ほかのダイアログと同じ）、閉じるときは逆の動き（200ms）を見せてから外す
+  // （以前は出も入りも一瞬で、ほかの画面と所作が揃っていなかった・2026-09-29）。動きを減らす設定ではすぐ閉じる。
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
+  const requestClose = useCallback(() => {
+    if (closeTimerRef.current) return;
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+    if (reduce) { onClose?.(); return; }
+    setClosing(true);
+    closeTimerRef.current = setTimeout(() => onClose?.(), 200);
+  }, [onClose]);
+
   useEffect(() => {
     const onKey = (e) => {
       // IME 変換中の Esc はガード（変換キャンセルで質問下書きを失わない）。
-      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
+      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) requestClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [requestClose]);
 
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
-      <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
+    <div className={closing ? 'modal-backdrop-exit' : 'modal-backdrop'} style={overlayStyle} role="dialog" aria-modal="true" onClick={requestClose}>
+      <div ref={trapRef} className={closing ? 'modal-exit' : 'modal'} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>📖 ヘルプ</h2>
-          <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
+          <button type="button" style={closeBtnStyle} onClick={requestClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div className="lvg-help-body" style={bodyStyle}>

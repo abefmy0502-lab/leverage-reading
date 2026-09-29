@@ -62,7 +62,8 @@ export default function MemoFab({ scrollRef, onClick }) {
   }, [scrollRef]);
   if (hidden) return null;
   return (
-    <button type="button" onClick={onClick} style={fabStyle}>
+    // data-fab: 下の知らせ（Toast）が、このボタンの上に浮かぶための目印。
+    <button type="button" data-fab="" onClick={onClick} style={fabStyle}>
       <PencilLine size={18} aria-hidden="true" />メモを書く
     </button>
   );

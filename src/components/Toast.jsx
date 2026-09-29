@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Trash2, Undo2, AlertTriangle, Info, X } from 'lucide-react';
+import { withPhraseBreaks } from './TightBubble';
 
 const ToastContext = createContext({
   show: () => '',
@@ -32,6 +33,18 @@ function hasBottomBar() {
   if (typeof document === 'undefined') return false;
   if (document.body?.classList.contains('keyboard-open')) return false;
   return !!document.querySelector('.bottom-nav:not(.is-hidden), [role="dialog"][aria-modal="true"]');
+}
+// 右下に浮いたボタン（本の詳細の「メモを書く」＝data-fab）が見えているときは、その上に浮かべる
+// （保存の知らせが 2 行になってボタンに重なり、押せなくなっていた・2026-09-29）。シートなどが開いている間は、
+// ボタンはその下に隠れているので気にしない。
+function barBottom() {
+  if (!hasBottomBar()) return BOTTOM_PLAIN;
+  if (!document.querySelector('[role="dialog"][aria-modal="true"]')) {
+    const fab = document.querySelector('[data-fab]');
+    const r = fab ? fab.getBoundingClientRect() : null;
+    if (r && r.height > 0) return `calc(${Math.max(0, Math.round(window.innerHeight - r.top))}px + var(--space-2))`;
+  }
+  return BOTTOM_WITH_BAR;
 }
 
 const containerStyle = {
@@ -106,7 +119,8 @@ function ToastItem({ toast, onDismiss, onAction }) {
     >
       {Icon && <Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
       {/* 左のアイコンがあるので、文の先頭の絵文字は外す（DESIGN §3-2・中央の ✓ と同じ）。 */}
-      <span style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-line', padding: 'var(--space-2) 0' }}>{stripLeadingEmoji(toast.message)}</span>
+      {/* 折り返すときは文節の切れ目で（「保存しまし／た。」と切らない・TightBubble と同じ BudouX）。 */}
+      <span style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-line', wordBreak: 'keep-all', overflowWrap: 'anywhere', padding: 'var(--space-2) 0' }}>{withPhraseBreaks(stripLeadingEmoji(toast.message))}</span>
       {toast.action && (
         <button type="button" style={actionBtnStyle} onClick={() => onAction(toast)}>
           {toast.action.label}
@@ -191,6 +205,7 @@ function makeId() {
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
+  const [barPos, setBarPos] = useState(BOTTOM_PLAIN);
   const timersRef = useRef(new Map());
   const toastsRef = useRef([]);
 
@@ -248,6 +263,7 @@ export function ToastProvider({ children }) {
         onExpire: opts.onExpire,
         duration,
       };
+      if (type !== 'success') setBarPos(barBottom());
       setToasts((arr) => [...arr, toast]);
       if (duration > 0) {
         const t = setTimeout(() => {
@@ -273,7 +289,9 @@ export function ToastProvider({ children }) {
     [clearTimer]
   );
 
-  const value = {
+  // 値は作り直さない（知らせを出す・消すたびに、useToast を使う画面がすべて描き直されていた。
+  // 行動の「元に戻す」など、知らせと一緒に動く操作が遅い端末で重くなっていた・2026-09-29）。
+  const value = useMemo(() => ({
     show,
     success: (message, opts = {}) => show({ ...opts, type: 'success', message }),
     error: (message, opts = {}) => show({ ...opts, type: 'error', message }),
@@ -289,10 +307,22 @@ export function ToastProvider({ children }) {
         action: { label: '元に戻す', onClick: onUndo },
       }),
     dismiss,
-  };
+  }), [show, dismiss]);
 
   const hudToasts = toasts.filter((t) => t.type === 'success');
   const barToasts = toasts.filter((t) => t.type !== 'success');
+
+  // 下部バーの高さ位置は、出ている間だけ見直す（シートが閉じた・キーボードが下りた・浮いたボタンが出たなどで変わる。
+  // 出した瞬間の位置のままだと、タブやボタンに重なったまま残っていた）。出す瞬間の位置は show() で決める。
+  // 動かすのは出たあとだけ（出る瞬間に前の位置から滑ってこないように）。
+  const hasBar = barToasts.length > 0;
+  const [barAnim, setBarAnim] = useState(false);
+  useEffect(() => {
+    if (!hasBar) { setBarAnim(false); return undefined; }
+    const raf = requestAnimationFrame(() => setBarAnim(true));
+    const id = setInterval(() => setBarPos((cur) => { const next = barBottom(); return next === cur ? cur : next; }), 200);
+    return () => { cancelAnimationFrame(raf); clearInterval(id); };
+  }, [hasBar]);
 
   return (
     <ToastContext.Provider value={value}>
@@ -308,7 +338,7 @@ export function ToastProvider({ children }) {
       {(() => {
         const barHasError = barToasts.some((t) => t.type === 'error');
         return (
-          <div style={{ ...containerStyle, bottom: barToasts.length > 0 && hasBottomBar() ? BOTTOM_WITH_BAR : BOTTOM_PLAIN }} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
+          <div style={{ ...containerStyle, bottom: barPos, transition: barAnim ? 'bottom var(--duration-fast) var(--ease-out)' : 'none' }} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
             {barToasts.map((toast) => (
               <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onAction={handleAction} />
             ))}

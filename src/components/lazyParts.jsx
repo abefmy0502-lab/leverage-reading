@@ -175,7 +175,13 @@ export function prefetchAppParts() {
     () => import('./TokenSheet'),
     () => import('./Paywall'),
   ];
+  // 指で触れている間・触れた直後は読まない（読み込んだ部品を組み立てる間は手がふさがり、押した形や
+  // 次の画面が遅れて出ていた・2026-09-29）。触れてから 800ms たってから続きを読む。
+  let lastInput = -Infinity;
+  window.addEventListener('pointerdown', () => { lastInput = performance.now(); }, { capture: true, passive: true });
   const next = () => {
+    const wait = 800 - (performance.now() - lastInput);
+    if (wait > 0) { window.setTimeout(() => idle(next, 2000), wait); return; }
     const load = queue.shift();
     if (!load || navigator.onLine === false) return;
     load().catch(() => { /* 先読みの失敗は無視（使うときにもう一度読む） */ }).finally(() => idle(next, 2000));

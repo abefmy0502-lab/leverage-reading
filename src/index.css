@@ -86,9 +86,11 @@ svg.lucide {
 .toast-hud-check { animation: toast-hud-check-pop 0.4s 0.05s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
 
 /* タップした手応え（タッチ端末）。押下中だけ僅かに沈み、離すと戻る。
-   transition は付けない＝keyframe アニメーション中のボタンと干渉しない。 */
+   transition は付けない＝keyframe アニメーション中のボタンと干渉しない。
+   data-pressed は指で押した瞬間に JS が付ける印（lib/pressFeedback.js・:active が遅れる／付かない端末のため）。 */
 @media (hover: none) and (pointer: coarse) {
-  button:not(:disabled):active { transform: scale(0.97); }
+  button:not(:disabled):active,
+  button:not(:disabled)[data-pressed] { transform: scale(0.97); }
 }
 
 html, body, #root {
@@ -202,7 +204,11 @@ nav {
 button:active,
 [role="button"]:active,
 a:active,
-summary:active {
+summary:active,
+button[data-pressed],
+[role="button"][data-pressed],
+a[data-pressed],
+summary[data-pressed] {
   transform: scale(0.97);
   opacity: 0.85;
 }

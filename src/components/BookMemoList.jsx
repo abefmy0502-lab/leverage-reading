@@ -224,8 +224,6 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   // そのメモまで送って、少しのあいだ栗色で示す（2026-09-29）。1 つの id につき 1 回だけ。
   const [focusedId, setFocusedId] = useState(null);
   const focusDoneRef = useRef(null);
-  const focusTimersRef = useRef([]);
-  useEffect(() => () => { focusTimersRef.current.forEach(clearTimeout); }, []);
   useEffect(() => {
     if (!focusMemoId || focusDoneRef.current === focusMemoId || loading) return undefined;
     if (!memos.some((m) => m.id === focusMemoId)) return undefined;
@@ -235,13 +233,23 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     let reduce = false;
     try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
     const id = focusMemoId;
-    // 次の再描画（quoteOnly の解除など）で消されないよう、タイマーは ref で持ってアンマウントでだけ止める。
-    focusTimersRef.current.push(setTimeout(() => {
+    let scrolled = false;
+    const scrollTimer = setTimeout(() => {
+      scrolled = true;
       const el = rootRef.current?.querySelector(`[data-memo-id="${typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id)}"]`);
       el?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
-    }, 60));
-    focusTimersRef.current.push(setTimeout(() => setFocusedId((cur) => (cur === id ? null : cur)), 2400));
-    return undefined;
+    }, 60);
+    const glowTimer = setTimeout(() => setFocusedId((cur) => (cur === id ? null : cur)), 2400);
+    // 送る前に片付けられたとき（StrictMode の二度呼び・quoteOnly の解除による再実行・アンマウント）は、
+    // 「済んだ」印も戻して次の実行でもう一度送る（印だけ残ってタイマーが消え、送られないことがあった・2026-09-29）。
+    // 送ったあとの片付け（メモの読み直しなど）では、印を残して送り直さない（読んでいる位置を奪わない）。
+    return () => {
+      clearTimeout(scrollTimer);
+      if (!scrolled) {
+        clearTimeout(glowTimer);
+        focusDoneRef.current = null;
+      }
+    };
   }, [focusMemoId, memos, loading, quoteOnly]);
 
   const allTags = useMemo(() => {

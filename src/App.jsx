@@ -181,6 +181,8 @@ import {
   Tag as IcTag,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
+// 重い画面の切り替え（すべての本を開く）は後回しにできる更新にして、押した形を先に描く（lib/pressFeedback.js と組）。
+import { startTransition } from 'react';
 
 
 
@@ -4412,7 +4414,7 @@ function AuthedApp() {
               onAdvisor={() => { setAiSubTab('advisor'); setTab('ai'); }}
               onOpenBook={(b) => openDetail(b)}
               onWriteMemo={(b) => setHomeMemoBook(b)}
-              onOpenLibrary={() => setShelfMode('library')}
+              onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
               onSearchMemos={openMemoSearch}
             />

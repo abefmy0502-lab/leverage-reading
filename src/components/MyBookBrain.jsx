@@ -401,13 +401,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 絞った本のメモの件数（上部の「〜件から答えます」を相談相手に合わせる）。
   // カード式＋「この本のまとめ」（1 冊 1 件）＝ほかの画面の「メモ N 件」と同じ数え方（lib/consultHelpers.js）。
   const [scopeCardCount, setScopeCardCount] = useState(null);
+  // 数えている途中（上部の行を、数が出るまで見えない形で取っておく＝文が入れ替わって見えないように）。
+  const [scopeCountPending, setScopeCountPending] = useState(() => scopeIds.length > 0 && !!user?.id && isSupabaseConfigured);
   useEffect(() => {
-    if (!scopeIds.length || !user?.id || !isSupabaseConfigured) { setScopeCardCount(null); return undefined; }
+    if (!scopeIds.length || !user?.id || !isSupabaseConfigured) { setScopeCardCount(null); setScopeCountPending(false); return undefined; }
     let alive = true;
+    setScopeCountPending(true);
     (async () => {
-      const { count } = await supabase.from('book_memos').select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id).in('book_id', scopeIds);
-      if (alive) setScopeCardCount(typeof count === 'number' ? count : null);
+      let count = null;
+      try {
+        ({ count } = await supabase.from('book_memos').select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id).in('book_id', scopeIds));
+      } catch { /* 数えられなければ「選んだ本のメモから答えます」 */ }
+      if (alive) { setScopeCardCount(typeof count === 'number' ? count : null); setScopeCountPending(false); }
     })();
     return () => { alive = false; };
   }, [scopeIds, user?.id]);
@@ -462,8 +468,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // learningOpen state は廃止 — view === 'learning' で表現する。
   // cards＝カード式 / personal＝学び / summaryBooks＝「この本のまとめ」の入っている本（1 冊 1 件）/
   // summaries＝根拠にできる情報の合計（読書準備なども含む・件数の表示には使わない）
-  const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0, summaryBooks: 0 });
-  const [memoStatsLoaded, setMemoStatsLoaded] = useState(false);
+  // 戻ってきたときは前に数えた件数をすぐ出す（上部の「あなたのメモ N 件から答えます」が数え直すまで空かないように）。
+  const [memoStats, setMemoStats] = useState(() => resumed?.memoStats || { cards: 0, summaries: 0, personal: 0, summaryBooks: 0 });
+  const [memoStatsLoaded, setMemoStatsLoaded] = useState(() => !!resumed?.memoStats);
   // メモの件数を数えられなかった（通信断など）。0 件と取り違えて「まだメモがありません」を出さない。
   const [memoStatsFailed, setMemoStatsFailed] = useState(false);
   const [statsTick, setStatsTick] = useState(0);
@@ -482,6 +489,28 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 動かしたら、書き終わったときの自動の送りをしない（読んでいる場所を奪わない）。次に送るときに戻す。
   const userScrolledRef = useRef(false);
   const sentAtRef = useRef(0);
+  // 📏 送ったら、相談の吹き出しを会話欄の上端へ 1 回のなめらかな送りで揃えるための「下の余白」（2026-09-29）。
+  //   答えが短いうちは欄の下に届かず、上端まで送れない（途中で止まって、答えが伸びるたびに追いかけて 2 段で動いていた）。
+  //   会話のいちばん下に余白を置き、「相談の吹き出しから下」が欄の高さ（−上の余白 16）に満たない分だけ埋める。
+  //   答えが伸びた分だけ余白が縮むので全体の高さは変わらない（書き終わっても縮んで跳ねない）。次に送るまで残す。
+  //   新しい会話（「新しい相談をはじめる」）で外す。
+  const reserveRef = useRef(!!resumed?.reserve);
+  const spacerRef = useRef(null);
+  const messagesColRef = useRef(null);
+  const sizeSpacer = useCallback(() => {
+    const el = chatScrollRef.current;
+    const sp = spacerRef.current;
+    if (!el || !sp) return;
+    const cur = sp.offsetHeight;
+    const target = reserveRef.current ? alignTarget(el) : null;
+    let need = 0;
+    if (target) {
+      const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
+      const targetTop = target.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+      need = Math.max(0, Math.ceil(targetTop - gap + el.clientHeight - (el.scrollHeight - cur)));
+    }
+    if (need !== cur) sp.style.height = need > 0 ? `${need}px` : '0px';
+  }, []);
   // 答えを待つ時間が長いとき（15 秒たっても 1 文字も来ない）に、静かな 1 行を出す（2026-09-29）。
   const [slowWait, setSlowWait] = useState(false);
   const gotTextRef = useRef(false);
@@ -550,8 +579,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // クロックずれ対策で、クライアント時刻ではなく「読み込んだ最新メッセージの
   // 作成時刻(サーバ時刻)」を境界にする → 以降に送る質問(サーバ now() で必ず
   // 後)は確実に chat に表示される。
+  // 境界は描く前（useLayoutEffect）に決める。useEffect だと、履歴が届いた最初の 1〜3 コマだけ
+  // 前の会話（端末に残っていた古い境界より後のやりとり）が見えてから消えていた（2026-09-29）。
   const freshOnMountRef = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (freshOnMountRef.current || !historyLoaded) return;
     freshOnMountRef.current = true;
     // 境界は「読み込んだ履歴の最新（サーバ時刻）」。読み込み中に送った質問は境界より
@@ -662,12 +693,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         return;
       }
       setMemoStatsFailed(false);
-      setMemoStats({
+      const nextStats = {
         cards: Math.max(0, (cardsRes.count || 0) - (personalRes.count || 0)),
         personal: personalRes.count || 0,
         summaries: summariesCount,
         summaryBooks: booksFieldsRes.error ? 0 : (booksFieldsRes.data || []).filter(hasSummaryMemo).length,
-      });
+      };
+      setMemoStats(nextStats);
+      rememberSession(user?.id, { memoStats: nextStats });
      } catch (e) {
       console.warn('memo stats fetch error:', e?.message || e);
       if (!cancelled) setMemoStatsFailed(true);
@@ -734,6 +767,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // （答えの書かれている行が欄の下に隠れないように）。上端に届いたらそこで止まる。
   useEffect(() => {
     if (!busy || view !== 'chat' || userScrolledRef.current) return;
+    // 下の余白（reserveRef）で上端まで送れるときは、送った直後の 1 回で揃っている（追いかけない＝2 段で動かさない）。
+    if (reserveRef.current) return;
     if (Date.now() - sentAtRef.current < 500) return; // 送った直後のなめらかな送りを邪魔しない
     const el = chatScrollRef.current;
     if (!el) return;
@@ -746,6 +781,21 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const t = setTimeout(() => { if (!gotTextRef.current) setSlowWait(true); }, 15000);
     return () => clearTimeout(t);
   }, [busy]);
+  // 余白は描く前に測り直す（送った直後の送りより先に、上端まで送れる高さにしておく）。
+  useLayoutEffect(() => {
+    if (view === 'chat') sizeSpacer();
+  }, [messages, busy, view, sizeSpacer]);
+  // 答えの中を開いた（根拠を見る）・欄の高さが変わった（キーボード）ときも測り直す。
+  useEffect(() => {
+    if (view !== 'chat' || typeof ResizeObserver === 'undefined') return undefined;
+    const el = chatScrollRef.current;
+    const col = messagesColRef.current;
+    if (!el) return undefined;
+    const ro = new ResizeObserver(() => sizeSpacer());
+    ro.observe(el);
+    if (col) ro.observe(col);
+    return () => ro.disconnect();
+  }, [view, sizeSpacer]);
   const prevMsgCountRef = useRef(0);
   const historyHydratedRef = useRef(false);
   const busyRef = useRef(false);
@@ -862,6 +912,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
     userScrolledRef.current = false;
     sentAtRef.current = Date.now();
+    reserveRef.current = true;
+    rememberSession(user?.id, { reserve: true });
     gotTextRef.current = false;
     setSlowWait(false);
     setBusy(true);
@@ -1113,7 +1165,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       ? saved.reduce((a, m) => (m.createdAt > a ? m.createdAt : a), saved[0].createdAt)
       : new Date().toISOString();
     setClearedAt(now);
-    rememberSession(user?.id, { clearedAt: now });
+    reserveRef.current = false;
+    rememberSession(user?.id, { clearedAt: now, reserve: false });
     setPromptDismissed(false);
     setCarry(null);
     try {
@@ -1218,6 +1271,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // （GLOSSARY）なので、読書メーター等の感想を「この本のまとめ」に取り込んだだけの人も相談できる（2026-09-29 オーナー裁定）。
   // 読書計画だけの人は「これまで読んだ本から始める」へ（相談例の「最近のメモから…」が空振りしないように）。
   const ownMemoTotal = memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0);
+  // 上部の「〜件から答えます」の数がまだ分からない（数えている途中）。
+  const headCountPending = scopeIds.length > 0 ? scopeCountPending : (!!user && isSupabaseConfigured && !memoStatsLoaded);
   // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
   // 数え終わるまでは出しておく（メモのある大多数の人で、読み込み後にチップが増えて跳ねないように）。
   const modeApplies = scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0 || memoStatsFailed);
@@ -1299,7 +1354,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <>
             {/* 1 冊に絞ったとき（『書名』…）は 『 をぶら下げる。下の残りトークンの行には引き継がない。 */}
             <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase', ...(scopeIds.length === 1 && scopeMemoCount != null ? { textIndent: '-0.5em' } : null) }}>
-              {scopeIds.length > 0
+              {/* 件数が分かるまでは、同じ 1 行ぶんの高さだけ空けておく（文字は見せない・読み上げない。
+                  「読んだ本のメモを根拠に答えます」→「あなたのメモ N 件から答えます」と入れ替わって見えていた・HomeConsult と同じ） */}
+              {headCountPending
+                ? <span aria-hidden="true" style={{ visibility: 'hidden' }}>{scopeIds.length > 0 ? '選んだ本のメモから答えます' : 'あなたのメモ 0 件から答えます'}</span>
+                : scopeIds.length > 0
                 ? (scopeMemoCount === 0
                   // メモが無いことは会話の場所で大きく伝えるので、上の行は相談相手の名前だけ（同じ文を 2 回出さない）。
                   ? (scopeIds.length === 1
@@ -1543,7 +1602,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div ref={messagesColRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             {/* 過去の相談から持ってきた「前の相談」（この会話の文脈）。まだ送っていない間は × でやめられる。 */}
             {carry && (
               <CarryCard
@@ -1622,6 +1681,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               AI の回答には誤りが含まれることがあります
             </p>
           )}
+          {/* 📏 送った相談を上端へ揃えるための下の余白（高さは sizeSpacer が決める） */}
+          <div ref={spacerRef} aria-hidden="true" style={{ height: 0, flexShrink: 0 }} />
           </div>{/* /chat-scroll */}
 
           {/* 相談相手は入力欄のすぐ上（SPEC §3）。 */}
@@ -1861,13 +1922,22 @@ function prefersReducedMotion() {
 // 会話欄（el）で、いちばん新しい答えの前の「自分の相談の吹き出し」を上端（余白 16）に合わせる scrollTop。
 // 相談が長すぎて答えが画面の下に隠れてしまうとき（欄の 4 割以上）・直前が相談でないとき（別の角度で答える）は、
 // 答えの先頭に合わせる。送れる範囲に収める。答えが無ければ null。
-function questionAlignTop(el) {
+// 送った直後で答えの吹き出しがまだ無いときは、その相談の吹き出し（前の答えに合わせて 2 段で動かさない）。
+function alignTarget(el) {
   const answers = el.querySelectorAll('[aria-label="相談への答え"]');
   const last = answers[answers.length - 1];
+  const questions = el.querySelectorAll('[aria-label="あなたの相談"]');
+  const lastQ = questions[questions.length - 1];
+  if (lastQ && (!last || !(lastQ.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING))) return lastQ;
   if (!last) return null;
   const q = last.previousElementSibling;
   const isQ = q && q.getAttribute('aria-label') === 'あなたの相談';
-  const target = isQ && q.offsetHeight < el.clientHeight * 0.4 ? q : last;
+  return isQ && q.offsetHeight < el.clientHeight * 0.4 ? q : last;
+}
+
+function questionAlignTop(el) {
+  const target = alignTarget(el);
+  if (!target) return null;
   const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
   const top = target.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - gap;
   return Math.max(0, Math.min(top, el.scrollHeight - el.clientHeight));
