@@ -46,9 +46,19 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
   const { plan, freeMode, trialEndsAt, tokensAvailable, canBuyTokens, openTokenSheet, openPaywall } = usePaywall();
   const tokensUsedUp = (freeMode || canBuyTokens) && tokensAvailable != null && tokensAvailable <= 0;
   const inputRef = useRef(null);
-  const [cardCount, setCardCount] = useState(null);
-  const [text, setText] = useState('');
   const bookCount = books.length;
+  const [cardCount, setCardCount] = useState(null);
+  // メモの件数を取りに行った結果が出たか（取れなかったときも true）。
+  // 出るまでは「あなたの N 冊…」の 1 行を同じ高さの空きにしておく。先に「10 冊から」を出して
+  // 200ms ほど後に「・メモ 30 件」が差し込まれると、文字が横に押し出されて動いて見えるため（2026-09-29）。
+  //   回線が止まったままでも 1 行が空き続けないよう、3 秒で件数なしの文を出す。
+  const [countSettled, setCountSettled] = useState(() => !user || !isSupabaseConfigured);
+  useEffect(() => {
+    if (countSettled) return undefined;
+    const t = setTimeout(() => setCountSettled(true), 3000);
+    return () => clearTimeout(t);
+  }, [countSettled]);
+  const [text, setText] = useState('');
   // 「メモ N 件」＝カード式＋学び（book_memos）＋「この本のまとめ」の入っている本（1 冊 1 件）。
   // 相談・初日クイックスタート・記録と同じ数え方（lib/consultHelpers.js・2026-09-29）。
   // まとめだけ（読書メーター等の感想を取り込んだ人）でも、相談の入力欄を出す。
@@ -110,7 +120,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
         if (alive && !idsRes.error) setMemoBookIds(new Set((idsRes.data || []).map((r) => r.book_id)));
         if (alive && lastRes && !lastRes.error) setLastQuestion(lastRes.data?.[0]?.content || null);
       } catch { /* 件数が取れなくても入口自体は出す */ }
-      if (alive) setExamplesReady(true);
+      if (alive) { setExamplesReady(true); setCountSettled(true); }
     })();
     return () => { alive = false; };
   }, [user?.id, bookCount, memoTick]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -137,9 +147,12 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
       </h2>
       <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5 }}>
         {/* メモ 0 件でも同じ 1 行（説明の補足文は置かない・DESIGN §0-6）。 */}
+        {/* 件数が分かるまでは、同じ 1 行ぶんの高さだけ空けておく（文字は見せない・読み上げない）。 */}
         {countUnknown && bookCount === 0
           ? 'あなたの本から答えます'
-          : <>あなたの {bookCount} 冊{memoCount > 0 && <>・メモ {memoCount} 件</>}から答えます</>}
+          : !countSettled
+            ? <span aria-hidden="true" style={{ visibility: 'hidden' }}>あなたの {bookCount} 冊から答えます</span>
+            : <>あなたの {bookCount} 冊{memoCount > 0 && <>・メモ {memoCount} 件</>}から答えます</>}
       </p>
 
       {!hasMemos && onQuickstart && (

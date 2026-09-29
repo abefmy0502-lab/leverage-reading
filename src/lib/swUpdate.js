@@ -22,6 +22,14 @@
 let registrationRef = null;
 let refreshing = false;
 let initialized = false;
+// 初回訪問の再読込を防ぐ。
+//   sw.js の activate は clients.claim() するので、初めて開いた（まだ SW が
+//   ページを制御していない）ときも controllerchange が一度だけ飛ぶ。これで
+//   reload すると、開いた直後の画面が一瞬消えて最初から描き直される。
+//   → 登録前に「すでに制御されていたか」を覚え、制御されていなかった初回は
+//     ユーザー（または自動更新）が更新を頼んだときだけ reload する。
+let hadController = false;
+let updateRequested = false;
 // 🔄 自動更新。true なら新版検出時にユーザーのタップ無しで適用する。
 //   - 起動時に待機版があれば即適用（アプリを開いた直後なので reload は安全）。
 //   - 利用中に検出した場合は「次にアプリを離れた（バックグラウンド）時」に
@@ -103,6 +111,7 @@ export async function getServiceWorkerRegistration() {
 }
 
 export function applyUpdate() {
+  updateRequested = true;
   const reg = registrationRef;
   if (!reg) {
     // SW が登録されてない場合（dev モード等）は素直にリロードのみ。
@@ -125,6 +134,7 @@ export function applyUpdate() {
 }
 
 export async function forceUpdate() {
+  updateRequested = true;
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
     reloadOnce();
     return;
@@ -155,9 +165,20 @@ export function initServiceWorker({ onUpdateAvailable, autoApply = false } = {})
   autoApplyEnabled = !!autoApply;
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
 
+  // 登録する前に「もう SW に制御されていたか」を覚えておく。
+  hadController = !!navigator.serviceWorker.controller;
+
   // 新 SW が controlling になった瞬間にリロード。
   // 1 タブで 1 回だけ走るよう refreshing フラグでガード。
-  navigator.serviceWorker.addEventListener('controllerchange', reloadOnce);
+  // 初回訪問（制御されていなかった）で更新も頼んでいないなら、clients.claim()
+  // による controllerchange なので reload しない（開いた直後の画面を消さない）。
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController && !updateRequested) {
+      hadController = true;
+      return;
+    }
+    reloadOnce();
+  });
 
   navigator.serviceWorker
     .register('/sw.js')

@@ -106,6 +106,9 @@ const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space
 // 畳む見出し（DESIGN §5: 高さ 48・17/600/--text・右端にシェブロン 20）。
 const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
 // 明日からできる一歩の箱（書いている途中の形と、でき上がりの形で同じ）。
+// 書いている途中の「明日からできる一歩」の本文の高さ（ふつうの一歩の 3 行ぶん）。骨組みと書いている途中の両方で使う。
+const STEP_SKELETON_LINES = 3;
+const STEP_SKELETON_HEIGHT = `calc(var(--text-read) * 1.6 * ${STEP_SKELETON_LINES})`;
 const nextStepBox = { background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' };
 // 根拠の中の小さな見出し（DESIGN §5 groupTitle: 12/600/--text-2）。
 const subLabel = { ...groupTitle, margin: '0 0 var(--space-1)' };
@@ -465,29 +468,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // chat-scroll を直接掴んで scrollHeight ベースのオートスクロールを使う
   // (messagesEndRef.scrollIntoView だと document も巻き込んで動くため)。
   const chatScrollRef = useRef(null);
-  // 答えを書き終えたら、最後の答えの「明日からできる一歩」の箱が会話の欄（入力欄の上）に見えるところまで
-  // だけ送る。答えの頭（role=article の上端）が欄の上から出ていくほどは送らない（2026-09-29）。
-  const revealNextStep = useCallback(() => {
-    if (typeof window === 'undefined' || typeof requestAnimationFrame !== 'function') return;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const sc = chatScrollRef.current;
-      if (!sc) return;
-      const boxes = sc.querySelectorAll('[data-next-step]');
-      const el = boxes[boxes.length - 1];
-      if (!el) return;
-      const view = sc.getBoundingClientRect();
-      const box = el.getBoundingClientRect();
-      const overflow = box.bottom - view.bottom + 16; // 箱の下に 16 の余白
-      if (overflow <= 0) return;
-      const article = el.closest('[role="article"]') || el;
-      const room = article.getBoundingClientRect().top - view.top; // 答えの頭が欄の上端に来るまで
-      const delta = Math.min(overflow, Math.max(0, room));
-      if (delta <= 0) return;
-      let reduce = false;
-      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
-      sc.scrollBy({ top: delta, behavior: reduce ? 'auto' : 'smooth' });
-    }));
-  }, []);
+  // 答えを書いている間に、自分で会話を動かしたか（指・ホイール・つまんで動かす）。
+  // 動かしたら、書き終わったときの自動の送りをしない（読んでいる場所を奪わない）。次に送るときに戻す。
+  const userScrolledRef = useRef(false);
+  const sentAtRef = useRef(0);
+  // 答えを待つ時間が長いとき（15 秒たっても 1 文字も来ない）に、静かな 1 行を出す（2026-09-29）。
+  const [slowWait, setSlowWait] = useState(false);
+  const gotTextRef = useRef(false);
   // Auto-grow textarea: 60px min, 200px max, scrolls past 200.
   const inputRef = useRef(null);
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
@@ -691,30 +678,68 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // we will not scroll the page. Combined with historyHydratedRef this
   // makes the chat window feel inert on tab open and never yank the
   // viewport down to the latest message.
-  // 答えが出来上がったら、答えの先頭を会話欄の上端へ（結論と「明日からできる一歩」を最初に見せる）。
+  // 送ったら、自分の相談の吹き出しを会話欄の上端へ（questionAlignTop）。答えはその下に書かれていくので、
+  // 書いている間も見えたまま・書き終わっても動かさずに済む（2026-09-29。以前は送ると最下部へ送り、
+  // 書き終わってから上へ戻していた＝2 回動いていた）。
+  // 書いている間に自分で会話を動かしたら（userScrolledRef）、自動では送らない。
+  useEffect(() => {
+    if (!busy || view !== 'chat') return undefined;
+    const el = chatScrollRef.current;
+    if (!el) return undefined;
+    const mark = () => { userScrolledRef.current = true; };
+    let startY = null;
+    const onPointerDown = (e) => { if (e.pointerType === 'mouse') startY = e.clientY; };
+    const onPointerMove = (e) => { if (startY != null && Math.abs(e.clientY - startY) > 4) mark(); };
+    const onPointerUp = () => { startY = null; };
+    el.addEventListener('touchstart', mark, { passive: true });
+    el.addEventListener('wheel', mark, { passive: true });
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      el.removeEventListener('touchstart', mark);
+      el.removeEventListener('wheel', mark);
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [busy, view]);
+  // 答えが出来上がったとき: 相談の吹き出しが上端にあれば何もしない（ふつうはもう揃っている）。
+  // 相談が短くて上端まで届かなかったときだけ、揃える。自分で動かしていたら何もしない。
   const prevBusyRef = useRef(false);
   useEffect(() => {
     const wasBusy = prevBusyRef.current;
     prevBusyRef.current = busy;
     if (!wasBusy || busy || view !== 'chat') return;
     setTimeout(() => {
+      if (userScrolledRef.current) return;
       const el = chatScrollRef.current;
       if (!el) return;
-      const answers = el.querySelectorAll('[aria-label="相談への答え"]');
-      const last = answers[answers.length - 1];
-      if (!last) return;
-      // 自分の相談の吹き出しの上端から見せる（何への答えかが分かるように）。相談が長すぎて
-      // 答えが画面の下に隠れてしまうときだけ、答えの先頭に合わせる。
-      const q = last.previousElementSibling;
-      const isQ = q && q.getAttribute('aria-label') === 'あなたの相談';
-      const target = isQ && q.offsetHeight < el.clientHeight * 0.4 ? q : last;
-      const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
-      const top = target.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - gap;
-      el.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      const top = questionAlignTop(el);
+      if (top == null || Math.abs(top - el.scrollTop) < 2) return;
+      el.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     }, 60);
   }, [busy, view]);
+  // 書いている間: 答えが伸びて相談の吹き出しがまだ上端に届いていなければ、届くところまでついていく
+  // （答えの書かれている行が欄の下に隠れないように）。上端に届いたらそこで止まる。
+  useEffect(() => {
+    if (!busy || view !== 'chat' || userScrolledRef.current) return;
+    if (Date.now() - sentAtRef.current < 500) return; // 送った直後のなめらかな送りを邪魔しない
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const top = questionAlignTop(el);
+    if (top != null && top > el.scrollTop + 1) el.scrollTop = top;
+  }, [messages, busy, view]);
+  // 15 秒たっても 1 文字も来なければ、静かな 1 行（止めるボタンは入力欄の右にそのまま）。
+  useEffect(() => {
+    if (!busy) { setSlowWait(false); return undefined; }
+    const t = setTimeout(() => { if (!gotTextRef.current) setSlowWait(true); }, 15000);
+    return () => clearTimeout(t);
+  }, [busy]);
   const prevMsgCountRef = useRef(0);
   const historyHydratedRef = useRef(false);
+  const busyRef = useRef(false);
+  busyRef.current = busy;
   useEffect(() => {
     // Initial history load (whether 0 or N rows): just snap the counter
     // and don't scroll. We mark hydrated only AFTER the history fetch
@@ -732,11 +757,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // was appended. Either condition failing skips the scroll entirely.
     if (prev <= 0) return;
     if (messages.length <= prev) return;
-    // chat-scroll の scrollHeight ベースで最下部へ。scrollIntoView だと
-    // document scroll も巻き込んで AI タブ全体が上下する不具合があった。
+    // chat-scroll を直接動かす。scrollIntoView だと document scroll も巻き込んで
+    // AI タブ全体が上下する不具合があった。
+    // 相談を送った直後（busy）は、自分の相談の吹き出しを上端へ（答えがその下に書かれていく）。
+    // それ以外の追加は最下部へ。
     setTimeout(() => {
       const el = chatScrollRef.current;
-      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      if (!el) return;
+      const behavior = prefersReducedMotion() ? 'auto' : 'smooth';
+      const top = busyRef.current ? questionAlignTop(el) : null;
+      el.scrollTo({ top: top != null ? top : el.scrollHeight, behavior });
     }, 30);
   }, [messages, view, historyLoaded]);
 
@@ -810,6 +840,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         .then((r) => (r && !r.error && typeof r.count === 'number' ? r.count : 0), () => 0)
       : Promise.resolve(0);
 
+    userScrolledRef.current = false;
+    sentAtRef.current = Date.now();
+    gotTextRef.current = false;
+    setSlowWait(false);
     setBusy(true);
     setAborting(false);
     setInput('');
@@ -894,6 +928,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           // 本ごとには、書いている間も最後のカードの下に「答えを書いています…」を残す（本のカードが順に増えるので、続きがあると分かるように）。
           if (liveMode !== 'perbook') setStage(null);
           lastVisible = visibleText;
+          if (visibleText && !gotTextRef.current) { gotTextRef.current = true; setSlowWait(false); }
           setMessages((arr) => arr.map((m) =>
             m.id === streamingId
               ? { ...m, content: visibleText, streaming: true }
@@ -960,8 +995,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       }
       // 新しい AI 回答が来たら resolution prompt を再表示できるよう dismiss を解除
       setPromptDismissed(false);
-      // 書き終わったら、一歩の箱が入力欄の上に見えるところまでだけ送る（答えの頭は画面の外へ出さない）。
-      if (!wasAborted) revealNextStep();
     } catch (e) {
       // abort はエラーではない (streamMyBookBrain は正常 resolve するため通常
       // ここには来ないが、念のため abort 由来の例外はトーストしない)。
@@ -1500,6 +1533,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   message={m}
                   onOpenBook={onOpenBook}
                   stage={m.streaming ? stage : null}
+                  slow={!!m.streaming && slowWait && !aborting}
                   books={books}
                   onAddAction={handleAnswerToAction}
                   onAddActionPickBook={onAddActionPickBook}
@@ -1782,6 +1816,25 @@ function HistorySkeleton() {
       ))}
     </div>
   );
+}
+
+function prefersReducedMotion() {
+  try { return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true; } catch { return false; }
+}
+
+// 会話欄（el）で、いちばん新しい答えの前の「自分の相談の吹き出し」を上端（余白 16）に合わせる scrollTop。
+// 相談が長すぎて答えが画面の下に隠れてしまうとき（欄の 4 割以上）・直前が相談でないとき（別の角度で答える）は、
+// 答えの先頭に合わせる。送れる範囲に収める。答えが無ければ null。
+function questionAlignTop(el) {
+  const answers = el.querySelectorAll('[aria-label="相談への答え"]');
+  const last = answers[answers.length - 1];
+  if (!last) return null;
+  const q = last.previousElementSibling;
+  const isQ = q && q.getAttribute('aria-label') === 'あなたの相談';
+  const target = isQ && q.offsetHeight < el.clientHeight * 0.4 ? q : last;
+  const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
+  const top = target.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - gap;
+  return Math.max(0, Math.min(top, el.scrollHeight - el.clientHeight));
 }
 
 const STAGE_LABEL = {
@@ -2111,7 +2164,7 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
   );
 }
 
-function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null }) {
+function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -2226,7 +2279,9 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   const renderAction = (p, marginTop) => (p.action ? (
     <div data-next-step="" style={{ marginTop, ...nextStepBox }}>
       <p style={subLabel}>{p.actionLabel}</p>
-      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap' }}>{renderBoldInline(p.action)}{tail === 'action' && cursor}</p>
+      {/* 書いている間は、書き始める前の形（3 行）と同じ高さを取っておく（一歩の 1 行目が出た瞬間に
+          箱が 2 行ぶん縮み、書き進むとまた伸びて「行動に追加」が上下していた・2026-09-29）。 */}
+      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldInline(p.action)}{tail === 'action' && cursor}</p>
       {/* 書いている間は、押せない形で同じ場所に置く（書き終わったときに下が押し下がらないように） */}
       {isStreaming && (onAddAction || onAddActionPickBook) && (
         <button type="button" disabled aria-hidden="true" tabIndex={-1} style={{ ...rowBtn, marginTop: 'var(--space-3)', color: 'var(--text-3)', borderColor: 'var(--separator)', cursor: 'default' }}>
@@ -2439,6 +2494,12 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
             <div className="ai-skeleton-line" style={{ width: '74%' }} />
             <div className="ai-skeleton-line" style={{ width: '62%' }} />
           </div>
+          {/* 15 秒たっても 1 文字も来ないとき（止めるのは入力欄の右のボタン）。形の下に足すので、骨組みは動かさない。 */}
+          {slow && (
+            <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+              時間がかかっています。もう少しお待ちください
+            </p>
+          )}
         </div>
       ) : liveFused ? (
         <>
@@ -2452,8 +2513,13 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
               （以前は 44 の「答えを書いています…」→ 約 130 の箱に変わって、下が 87px 跳ねていた・2026-09-29）。 */}
           {liveFused.action ? renderAction(liveFused, 'var(--space-4)') : (
             <div aria-hidden="true" style={{ marginTop: 'var(--space-4)', ...nextStepBox }}>
-              <SkeletonBlock width="40%" height={12} style={{ margin: 'var(--space-1) 0 var(--space-2)' }} />
-              {['92%', '64%'].map((w) => (
+              {/* 小さな見出し（subLabel: 12・行間 1.5・下 4）と同じ高さ */}
+              <div style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-caption) * 1.5)', marginBottom: 'var(--space-1)' }}>
+                <SkeletonBlock width="40%" height={12} />
+              </div>
+              {/* 一歩はふつう 3 行（2 行だと、書き終わったときに「行動に追加」が一度上がってから下がっていた）。
+                  書き始めてからも同じ 3 行ぶんを取っておく（renderAction の STEP_SKELETON_HEIGHT）。 */}
+              {['92%', '84%', '56%'].slice(0, STEP_SKELETON_LINES).map((w) => (
                 <div key={w} style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-read) * 1.6)' }}>
                   <SkeletonBlock width={w} height={14} />
                 </div>

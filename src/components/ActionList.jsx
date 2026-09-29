@@ -203,6 +203,49 @@ function MorphItem({ phaseKey, collapsed, first, entering = false, onCollapsed, 
   return <li ref={ref} style={{ listStyle: 'none' }}>{children}</li>;
 }
 
+// 期限ごとのまとまり（見出し＋行）。まとまりの行がすべて畳まれるとき（collapsing）は、見出しごと
+// 行と同じ速さで高さ 0 まで畳む（行だけ畳んで最後に見出しが消えると、下が約 50px 跳ねていた・2026-09-29）。
+// 上の間（一覧の gap = --space-6）も負の余白で打ち消すので、消えた瞬間にも下が動かない。
+// entering: 「元に戻す」で空のまとまりに行が戻るときは、高さ 0 から広げて出す。
+// 高さは grid-template-rows（0fr ⇄ 1fr）で動かす＝中の行の高さが同時に変わっても、本来の高さへ合う。
+function GroupSection({ collapsing = false, entering = false, children, ...rest }) {
+  const [opened, setOpened] = useState(!entering);
+  const [animating, setAnimating] = useState(entering);
+  useLayoutEffect(() => {
+    if (opened) return undefined;
+    let r2 = 0;
+    const r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => setOpened(true)); });
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
+  }, [opened]);
+  const shown = opened && !collapsing;
+  const prevShown = useRef(shown);
+  useLayoutEffect(() => {
+    if (prevShown.current === shown) return undefined;
+    prevShown.current = shown;
+    const dur = fastMs();
+    if (dur === 0) { setAnimating(false); return undefined; }
+    setAnimating(true);
+    const t = setTimeout(() => setAnimating(false), dur + 40);
+    return () => clearTimeout(t);
+  }, [shown]);
+  const dur = fastMs();
+  return (
+    <section
+      {...rest}
+      style={{
+        display: 'grid',
+        gridTemplateRows: shown ? '1fr' : '0fr',
+        opacity: shown ? 1 : 0,
+        marginTop: shown ? 0 : 'calc(-1 * var(--space-6))',
+        transition: dur ? `grid-template-rows ${HEIGHT_EASE}, opacity ${HEIGHT_EASE}, margin ${HEIGHT_EASE}` : undefined,
+      }}
+    >
+      {/* 畳む・広げる間と畳んだあとだけ中身を切る（ふだんは見出しの負の余白・行のスワイプを切らない）。 */}
+      <div style={{ minHeight: 0, ...(animating || !shown ? { overflow: 'hidden' } : null) }}>{children}</div>
+    </section>
+  );
+}
+
 // 行動 1 行の中身（完了チェック・本文・メタ・「…」）。長押しでメニュー。
 function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelete }) {
   const longPress = useLongPress({
@@ -566,8 +609,11 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       {GROUPS.map((g) => {
         const items = grouped.get(g.key);
         if (!items.length) return null;
+        const phaseOf = (a) => completing.find((c) => c.key === rowKeyOf(a));
+        const collapsing = items.every((a) => phaseOf(a)?.phase === 'collapse');
+        const entering = items.every((a) => { const c = phaseOf(a); return c?.phase === 'restore' && c.enter; });
         return (
-          <section key={g.key} aria-labelledby={`act-${g.key}`}>
+          <GroupSection key={g.key} collapsing={collapsing} entering={entering} aria-labelledby={`act-${g.key}`}>
             {/* 期限切れが多い（3 件以上）ときだけ、見出しの右に「期限を見直す」（責めない・見出しは 1 つ）。 */}
             {g.key === 'overdue' && overdueCount >= 3 && onEditAction ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', margin: 'calc(-1 * var(--space-3)) 0 calc(var(--space-2) - var(--space-3))' }}>
@@ -584,7 +630,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
               <h2 id={`act-${g.key}`} style={groupTitle}>{g.label}</h2>
             )}
             <ul style={listStyle}>{items.map(renderItem)}</ul>
-          </section>
+          </GroupSection>
         );
       })}
 

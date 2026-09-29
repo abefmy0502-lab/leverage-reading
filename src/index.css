@@ -102,6 +102,12 @@ html, body, #root {
   padding: 0;
   overflow: hidden;
 }
+html, body {
+  /* 画面の途中から横に払ったときに、ブラウザの「戻る」（Android の Chrome など）が動かないように。
+     横だけ止める（縦の引っ張って更新＝PullToRefresh は各一覧の中で自前で動くので影響しない）。
+     左端からの「戻る」はアプリの useEdgeSwipeBack が受け持つ。 */
+  overscroll-behavior-x: none;
+}
 html {
   /* 1rem = 17px（iOS の本文サイズ）。iOS では下の @supports で「文字サイズ」設定
      （Dynamic Type）に追従する。--text-* トークンは rem なので一緒に拡大・縮小する。 */

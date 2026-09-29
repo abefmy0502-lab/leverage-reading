@@ -270,6 +270,41 @@ export function BeforePhase({
   };
 
   const planReady = !!form.investPurpose?.trim();
+
+  // 開いたとき「得たいこと」が空なら、そこから書けるようにする（必須の欄・2026-09-29）。
+  // 画面を開いたときの親の処理（前の画面の入力を外す・先頭へ戻す）が済んでから当てる。
+  const purposeRef = useRef(null);
+  useEffect(() => {
+    if ((form.investPurpose || '').trim()) return undefined;
+    const t = setTimeout(() => {
+      try { purposeRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+    }, 150);
+    return () => clearTimeout(t);
+    // 開いたときの 1 回だけ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 読書計画シートを作りはじめたら、下に出る形（スケルトン）を 1 回だけ画面に入れる
+  // （ボタンが画面の下の方にあると、押しても何も起きていないように見えるため・2026-09-29）。
+  // すでに全部見えているときは動かさない。上の余白は scrollMarginTop（上に固定の行があっても隠れない）。
+  const planSkeletonRef = useRef(null);
+  const planScrolledRef = useRef(false);
+  const showPlanSkeleton = aiLoading && !form.aiStrategy;
+  useEffect(() => {
+    if (!aiLoading) { planScrolledRef.current = false; return; }
+    if (!showPlanSkeleton || planScrolledRef.current) return;
+    const el = planSkeletonRef.current;
+    if (!el) return;
+    planScrolledRef.current = true;
+    const r = el.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    // 下に固定の「保存」の行があるので、その分（約 1/4 画面）を見えない所として扱う。
+    if (r.top >= 0 && r.bottom <= vh * 0.75) return;
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+    try { el.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+  }, [aiLoading, showPlanSkeleton]);
+
   return (
     <div>
       <Field label="読書開始日">
@@ -281,6 +316,7 @@ export function BeforePhase({
 
       <Field label="この本から得たいこと（必須）">
         <textarea
+          ref={purposeRef}
           value={form.investPurpose || ""}
           onChange={(e) => setForm({ ...form, investPurpose: e.target.value })}
           placeholder="例：営業成績を半年で1.5倍にする／物語をゆっくり味わう"
@@ -344,8 +380,9 @@ export function BeforePhase({
         {aiLoading ? "作成中…" : (form.aiStrategy ? "読書計画シートを作り直す" : "読書計画シートを作る")}
       </button>
       {/* 作成中は点だけにしない（DESIGN §5）。ボタンの「作成中…」＋シートの形のスケルトン。 */}
-      {aiLoading && !form.aiStrategy && (
-        <div className="ai-skeleton" aria-hidden="true" style={{ marginTop: 'var(--space-3)' }}>
+      {showPlanSkeleton && (
+        // 入れるときは「作成中…」のボタンも見えるよう、上にボタンの高さ＋余白ぶん空ける。
+        <div ref={planSkeletonRef} className="ai-skeleton" aria-hidden="true" style={{ marginTop: 'var(--space-3)', scrollMarginTop: 'calc(var(--space-12) + var(--space-4))' }}>
           <div className="ai-skeleton-line" style={{ width: '90%' }} />
           <div className="ai-skeleton-line" style={{ width: '76%' }} />
           <div className="ai-skeleton-line" style={{ width: '58%' }} />

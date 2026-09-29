@@ -815,6 +815,10 @@ function AuthedApp() {
   // prevViewRef = 直前の view（detail/edit から list に戻った時だけ復元）。
   const listScrollRef = useRef(null);
   const savedShelfScroll = useRef(0);
+  // 本棚以外（振り返りの 行動｜メモ｜記録）のスクロール位置。`${tab}:${reviewSubTab}` ごとに控え、
+  // 本の詳細から戻ったとき・タブを行き来したときに同じ位置から続ける（2026-09-29）。
+  const savedTabScroll = useRef({});
+  const scrollKeyFor = (t, sub) => `${t}:${t === 'review' ? sub : ''}`;
   const prevViewRef = useRef('list');
   // 本の詳細・編集から一覧へ戻った直後だけ、一覧を左から出す（押し込みの逆向き・components.css の .screen-pop）。
   // prevViewRef は描画のあとで更新されるので、描画中は「直前の画面」を指している。
@@ -1016,6 +1020,53 @@ function AuthedApp() {
       });
     }
   }, [view, tab]);
+
+  // 振り返りのスクロール位置の復元（本棚は上の savedShelfScroll）。中身（行動の一覧など）は
+  // あとから読み込まれて伸びるので、控えた位置まで送れる高さになるまで数フレーム待って合わせる（最大 1 秒）。
+  // 同じタブの中でサブタブ（行動｜メモ｜記録）を切り替えたときは、新しい画面なので先頭から見せる。
+  const prevScrollNavRef = useRef({ tab, view, sub: reviewSubTab });
+  useEffect(() => {
+    const prev = prevScrollNavRef.current;
+    prevScrollNavRef.current = { tab, view, sub: reviewSubTab };
+    if (view !== 'list' || tab === 'books' || tab === 'ai') return undefined;
+    const key = scrollKeyFor(tab, reviewSubTab);
+    const onlySubChanged = prev.tab === tab && prev.view === view && prev.sub !== reviewSubTab;
+    if (onlySubChanged) {
+      savedTabScroll.current[key] = 0;
+      const el = listScrollRef.current;
+      if (el) { try { el.scrollTop = 0; } catch { /* ignore */ } }
+      return undefined;
+    }
+    const target = savedTabScroll.current[key] || 0;
+    if (target <= 0) return undefined;
+    let raf = 0;
+    let tries = 0;
+    let cancelled = false;
+    const el0 = listScrollRef.current;
+    const stop = () => { cancelled = true; };
+    // 待っている間に自分で動かしたら、合わせるのをやめる。
+    el0?.addEventListener('touchstart', stop, { passive: true, once: true });
+    el0?.addEventListener('wheel', stop, { passive: true, once: true });
+    const step = () => {
+      if (cancelled) return;
+      const el = listScrollRef.current;
+      if (el && el.scrollHeight - el.clientHeight >= target - 1) {
+        try { el.scrollTop = target; } catch { /* ignore */ }
+        return;
+      }
+      tries += 1;
+      if (tries < 60) raf = requestAnimationFrame(step);
+      else if (el) { try { el.scrollTop = target; } catch { /* ignore */ } }
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      el0?.removeEventListener('touchstart', stop);
+      el0?.removeEventListener('wheel', stop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, tab, reviewSubTab]);
 
   // ホーム ⇄ すべての本 の切替は別の画面への移動なので、先頭から見せる（前の画面の
   // スクロール位置を持ち越さない）。本詳細から戻ったときの復元（上）はそのまま。
@@ -4267,6 +4318,8 @@ function AuthedApp() {
         onScroll={(e) => {
           // 本棚スクロール中だけ位置を控える（本を開いて戻った時の復元用）。
           if (view === 'list' && tab === 'books') savedShelfScroll.current = e.currentTarget.scrollTop;
+          // 振り返りはサブタブごとに控える（本の詳細から戻ったときに同じ位置から・2026-09-29）。
+          else if (view === 'list' && tab !== 'ai') savedTabScroll.current[scrollKeyFor(tab, reviewSubTab)] = e.currentTarget.scrollTop;
         }}
         className={tab === 'books' ? `lvg-page ${screenPop ? 'screen-pop' : 'tab-fade-in'}` : 'lvg-page'}
         style={{

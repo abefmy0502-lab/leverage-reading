@@ -8,7 +8,7 @@
 // 手が空いたときに先読みしておく（タブや本の詳細を開いた瞬間に待たせない）。
 import { lazy, memo, Suspense } from 'react';
 import Spinner from './Spinner';
-import { MemoListSkeleton, SkeletonBlock } from './Skeleton';
+import { BookMemoListFallback, SkeletonBlock } from './Skeleton';
 import { btnPrimaryOff } from '../styles/ui';
 import { isNative } from '../lib/iap';
 import { isDemo } from '../lib/supabase';
@@ -30,7 +30,7 @@ function withSuspense(load, fallback) {
   const Impl = lazy(load);
   function LazyPart(props) {
     return (
-      <Suspense fallback={fallback}>
+      <Suspense fallback={typeof fallback === 'function' ? fallback(props) : fallback}>
         <Impl {...props} />
       </Suspense>
     );
@@ -58,7 +58,7 @@ export function OverlayFallback({ solid = false }) {
 }
 
 // 本の詳細のメモ一覧（＋メモカード・一文をシェア・シェア画像づくり）。待つ間は一覧と同じ骨組み。
-export const BookMemoList = withSuspense(loaders.bookMemoList, <MemoListSkeleton />);
+export const BookMemoList = withSuspense(loaders.bookMemoList, (p) => <BookMemoListFallback afterList={p.afterList} withSummary={!!p.onSaveSummary} />);
 // 全画面のメモ編集（画面の上に重ねて開くので、待つ間は何も出さない）。
 export const BookMemoEditor = withSuspense(loaders.bookMemoEditor, null);
 // 本を検索するシート（シートの中に待ち表示）。

@@ -55,23 +55,44 @@ export function BookListSkeleton({ rows = 4 }) {
   );
 }
 
-function MemoCardSkeleton() {
+// 本の詳細のメモカード（BookMemoCard.jsx）と同じ形: 枠 1・余白 16・行の間 8・
+// 「p.33 · 9/20」の行（20）→ 本文（明朝 --text-read・行間 1.6）→ タグの行（--text-meta・行間 1.5）。
+// 以前は 1 枚 96 ほどで、本物（約 120〜176）に替わると下の「行動」の見出しが大きく下がっていた（2026-09-29）。
+// 本物のメモは長さがまちまちなので、3 行＋タグ → 2 行＋タグ → 2 行 の順にくり返す（3 枚で本物の平均に近い高さ）。
+const MEMO_SKELETON_SHAPES = [
+  { lines: ['100%', '92%', '60%'], tag: true },
+  { lines: ['100%', '72%'], tag: true },
+  { lines: ['96%', '48%'], tag: false },
+];
+function MemoCardSkeleton({ shape = MEMO_SKELETON_SHAPES[0] }) {
+  const readLine = { display: 'flex', alignItems: 'center', height: 'calc(var(--text-read) * 1.6)' };
   return (
     <div
       style={{
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-separator)',
-        borderRadius: 'var(--radius-card)',
-        padding: 'var(--space-3) var(--space-4)',
+        background: 'var(--surface)',
+        border: '1px solid var(--separator)',
+        borderRadius: 'var(--radius)',
+        padding: 'var(--space-4)',
         display: 'flex',
         flexDirection: 'column',
         gap: 'var(--space-2)',
       }}
     >
-      <SkeletonBlock width={48} height={16} radius="var(--radius-full)" />
-      <SkeletonBlock width="100%" height={10} radius="var(--radius-full)" />
-      <SkeletonBlock width="92%" height={10} radius="var(--radius-full)" />
-      <SkeletonBlock width="60%" height={10} radius="var(--radius-full)" />
+      <div style={{ display: 'flex', alignItems: 'center', height: 20 }}>
+        <SkeletonBlock width={64} height={12} radius="var(--radius-full)" />
+      </div>
+      <div>
+        {shape.lines.map((w) => (
+          <div key={w} style={readLine}>
+            <SkeletonBlock width={w} height={14} radius="var(--radius-full)" />
+          </div>
+        ))}
+      </div>
+      {shape.tag && (
+        <div style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-meta) * 1.5)' }}>
+          <SkeletonBlock width={72} height={12} radius="var(--radius-full)" />
+        </div>
+      )}
     </div>
   );
 }
@@ -80,8 +101,24 @@ export function MemoListSkeleton({ rows = 3 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {Array.from({ length: rows }, (_, i) => (
-        <MemoCardSkeleton key={i} />
+        <MemoCardSkeleton key={i} shape={MEMO_SKELETON_SHAPES[i % MEMO_SKELETON_SHAPES.length]} />
       ))}
+    </div>
+  );
+}
+
+// 本の詳細のメモ一覧（BookMemoList）を読み込んでいる間の形（lazyParts の待ち表示）。
+// 読み込み後の「件数・並び順」の行（44・上下 -8）→ メモ 3 枚 → 一覧の下の要素（見えないまま）→
+// 「この本のまとめ」の見出し（50）と同じ場所を取る（読み込み後に下の「行動」が跳ねないように・2026-09-29）。
+export function BookMemoListFallback({ afterList = null, withSummary = false }) {
+  return (
+    <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div style={{ height: 44, margin: 'calc(-1 * var(--space-2)) 0' }} />
+        <MemoListSkeleton rows={3} />
+      </div>
+      {afterList && <div style={{ visibility: 'hidden' }}>{afterList}</div>}
+      {withSummary && <div style={{ minHeight: 48, boxSizing: 'content-box', border: '1px solid transparent', borderRadius: 'var(--radius)' }} />}
     </div>
   );
 }

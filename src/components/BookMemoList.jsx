@@ -434,7 +434,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {/* 並べ替え・絞り込みは、並べ替える対象（メモ）ができてから出す。
           0 件の画面で最初に見えるのが「ページ順/新しい順/引用のみ」だと、
           書き始めのボタンがその下に埋もれる。 */}
-      {(memos.length > 0 || (waiting && countHint > 0)) && (
+      {/* 件数がまだ分からない（初めて開いた本）ときも、メモがある形で場所を取る（3 枚の形と同じ前提）。 */}
+      {(memos.length > 0 || (waiting && countHint !== 0)) && (
         // 行の高さ 44 は押せる範囲のため。見た目では見出しとカードに寄せる（グループ内は詰める）。
         <div aria-hidden={waiting || undefined} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-2)) 0', ...(waiting ? hidden : null) }}>
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
@@ -521,14 +522,14 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
       {/* 「この本に相談する」などはメモが 1 件以上あるときだけ（材料が無いと相談しても答えられない）。 */}
       {memos.length > 0 && afterList}
-      {waiting && countHint > 0 && afterList && <div aria-hidden="true" style={hidden}>{afterList}</div>}
+      {waiting && countHint !== 0 && afterList && <div aria-hidden="true" style={hidden}>{afterList}</div>}
 
       {/* この本のまとめ（旧「まとめ」タブ）。一覧の下に 1 か所だけ・普段は畳む。
           畳む見出しは DESIGN §5: 高さ 48・右端にシェブロン（開くと回る）・list-style なし。 */}
       {/* 読み込み中は同じ高さの見えない形で場所を取る（メモの一覧が入ったときに、まとめが下へ押し下げられて見えないように・
           読み込み後に 48 の見出しが足されて下が跳ねないように）。 */}
       {summarySection && loading && (
-        <div aria-hidden="true" style={{ ...hidden, minHeight: 48, border: '1px solid var(--separator)', borderRadius: 'var(--radius)' }} />
+        <div aria-hidden="true" style={{ ...hidden, minHeight: 48, boxSizing: 'content-box', border: '1px solid var(--separator)', borderRadius: 'var(--radius)' }} />
       )}
       {summarySection && !loading && (
         <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
