@@ -8,7 +8,7 @@
 // ⚠️ 挙動は抽出前と不変。識別子名・props も不変（App.jsx 側の呼び出しはそのまま）。
 
 import { useState, useRef, useEffect, useId } from 'react';
-import { todayLocal } from '../lib/dates';
+import { todayLocal, fmtDateJa } from '../lib/dates';
 import { ensureHttps } from '../lib/url';
 import { toMessage } from '../lib/errors';
 import {
@@ -248,6 +248,12 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
             );
           })}
         </div>
+        {/* 読了を選んだら、読み終えた日が何になるかを 1 行で（今日で入る・あとで本の編集から変えられる・2026-09-29）。 */}
+        {form.status === 'done' && (
+          <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+            読み終えた日: {!form.doneDate || form.doneDate === todayLocal() ? '今日' : fmtDateJa(form.doneDate)}（あとで変えられます）
+          </p>
+        )}
       </Field>
 
       {/* 押した瞬間から「保存中…」（薄くしない・文言だけ変える＝DESIGN §5 押せないボタン）。 */}

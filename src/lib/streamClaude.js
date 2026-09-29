@@ -137,9 +137,15 @@ export async function streamClaude({
           err.monthlyLimit = true; // 呼び出し側は「エラー」ではなく案内として見せる（トークンの上限）
           throw err;
         }
-        throw new Error('リクエストが多すぎます。少し時間をおいて、やり直してください。');
+        const err = new Error('リクエストが多すぎます。少し時間をおいて、やり直してください。');
+        err.notCharged = true;
+        throw err;
       }
-      throw new Error(detail ? `エラー: ${detail}` : `エラー (${res.status})`);
+      // 中継が答えを始める前に失敗を返した（上流の失敗・通信の失敗）: サーバーは予約した回数と原価を
+      // 戻している（api/claude.js の releaseMonthlyUsage / settleCost(null)）。画面で「トークンは使っていません」と言える印。
+      const err = new Error(detail ? `エラー: ${detail}` : `エラー (${res.status})`);
+      err.notCharged = true;
+      throw err;
     }
 
     if (!res.body) {

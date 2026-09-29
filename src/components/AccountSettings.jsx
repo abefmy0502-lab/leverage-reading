@@ -391,6 +391,16 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   }, [focusDelete]);
   const toast = useToast();
   const confirm = useConfirm();
+  // 閉じるときも滑り下ろす（入りは下から .25s で上がるのに、出だけ瞬間に消えると所作が非対称・
+  // QuickMemoSheet の animateClose と同じ・2026-09-29）。「完了」・外側のタップ・Esc で使う。
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
+  const animateClose = () => {
+    if (closing) return;
+    setClosing(true);
+    closeTimerRef.current = setTimeout(() => onClose?.(), 220); // アニメの長さと同じ
+  };
   const [exporting, setExporting] = useState(false);
   const [exportingMd, setExportingMd] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -563,11 +573,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       // フィードバックシートが開いている間は、Escape はシート側に任せる
       // （ここで拾うと設定モーダルごと閉じ、送信中の入力が失われる）。
       // IME 変換中の Esc はガード（変換キャンセルで設定ごと閉じない）。
-      if (e.key === 'Escape' && !feedbackOpen && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
+      if (e.key === 'Escape' && !feedbackOpen && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, feedbackOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose, feedbackOpen, closing]);
 
   const expectedConfirm = (user?.email || 'DELETE').trim();
 
@@ -828,15 +839,24 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const legalLinkStyle = { ...btnLink, textDecoration: 'none' };
 
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="設定" onClick={onClose}>
+    <div
+      style={closing ? { ...overlayStyle, background: 'transparent', WebkitBackdropFilter: 'none', backdropFilter: 'none', transition: 'background-color .18s ease' } : overlayStyle}
+      role="dialog" aria-modal="true" aria-label="設定" onClick={animateClose}
+      data-closing={closing ? 'true' : undefined}
+    >
       <style>{SHEET_CSS}</style>
-      <div ref={trapRef} className="lvg-settings-sheet" style={modalStyle} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={trapRef}
+        className="lvg-settings-sheet"
+        style={closing ? { ...modalStyle, animation: 'leverage-sheet-down .22s cubic-bezier(0.3,0,0.8,0.3) forwards' } : modalStyle}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div aria-hidden="true" style={{ padding: 'var(--space-2) 0 var(--space-1)' }}>
           <div className="lvg-sheet-handle" />
         </div>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, lineHeight: 1.3 }}>設定</h2>
-          <button type="button" style={doneBtnStyle} onClick={onClose}>完了</button>
+          <button type="button" style={doneBtnStyle} onClick={animateClose}>完了</button>
         </div>
 
         <div style={bodyStyle}>

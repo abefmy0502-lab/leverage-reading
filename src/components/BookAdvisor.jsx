@@ -43,6 +43,7 @@ import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
+import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
 const AdvisorSessionDetail = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorSessionDetail })));
@@ -226,6 +227,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 履歴サブビュー: 'chat' | 'history' | 'detail'
   const [view, setView] = useState('chat');
   const [selectedSession, setSelectedSession] = useState(null);
+  // 履歴・履歴の中身では、左端から右へ払うと 1 段戻る（左上の ‹ と同じ・2026-09-29）。
+  useEdgeSwipeBack({
+    enabled: view === 'history' || view === 'detail',
+    onBack: () => {
+      if (view === 'detail') { setSelectedSession(null); setView('history'); }
+      else setView('chat');
+    },
+  });
   // 現在進行中のセッション ID。null なら次回送信時に createSession で新規作成。
   const [currentSessionId, setCurrentSessionId] = useState(() => memo0.currentSessionId || null);
   // ── ガイド付きヒアリング（チップ選択ウィザード）の状態 ───────────────────
@@ -1297,7 +1306,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               <button
                 type="button"
                 onClick={goBackQuestion}
-                aria-label={interviewStep === 0 ? '相談入力に戻る' : '前の質問に戻る'}
+                aria-label={interviewStep === 0 ? '最初の入力に戻る' : '前の質問に戻る'}
                 style={{ ...iconBtn, justifyContent: 'flex-start' }}
               >
                 <IcBack size={22} aria-hidden="true" />

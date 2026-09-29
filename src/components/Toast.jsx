@@ -29,17 +29,20 @@ const palette = {
 // どちらも無い画面（ログイン・キーボード表示中など）は下端から 16。
 const BOTTOM_WITH_BAR = 'calc(var(--tabbar-h) + var(--space-2) + env(safe-area-inset-bottom, 0px))';
 const BOTTOM_PLAIN = 'calc(var(--space-4) + env(safe-area-inset-bottom, 0px))';
+// 閉じている途中のシート（data-closing・QuickMemoSheet / 設定）は、もう無いものとして扱う
+// （閉じ終わってから位置が 110px ほど跳ねていた・2026-09-29）。
+const OPEN_DIALOG = '[role="dialog"][aria-modal="true"]:not([data-closing])';
 function hasBottomBar() {
   if (typeof document === 'undefined') return false;
   if (document.body?.classList.contains('keyboard-open')) return false;
-  return !!document.querySelector('.bottom-nav:not(.is-hidden), [role="dialog"][aria-modal="true"]');
+  return !!document.querySelector(`.bottom-nav:not(.is-hidden), ${OPEN_DIALOG}`);
 }
 // 右下に浮いたボタン（本の詳細の「メモを書く」＝data-fab）が見えているときは、その上に浮かべる
 // （保存の知らせが 2 行になってボタンに重なり、押せなくなっていた・2026-09-29）。シートなどが開いている間は、
 // ボタンはその下に隠れているので気にしない。
 function barBottom() {
   if (!hasBottomBar()) return BOTTOM_PLAIN;
-  if (!document.querySelector('[role="dialog"][aria-modal="true"]')) {
+  if (!document.querySelector(OPEN_DIALOG)) {
     const fab = document.querySelector('[data-fab]');
     const r = fab ? fab.getBoundingClientRect() : null;
     if (r && r.height > 0) return `calc(${Math.max(0, Math.round(window.innerHeight - r.top))}px + var(--space-2))`;
@@ -114,8 +117,8 @@ function ToastItem({ toast, onDismiss, onAction }) {
     <div
       className="toast-enter"
       style={{ ...toastStyleBase, background: p.bg, color: p.fg }}
-      role={toast.type === 'error' ? 'alert' : 'status'}
-      aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+      // 読み上げは外側の入れ物（いつもある live region）に任せる。ここにも role を付けると
+      // 入れ子になって 2 回読まれていた（2026-09-29）。
     >
       {Icon && <Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
       {/* 左のアイコンがあるので、文の先頭の絵文字は外す（DESIGN §3-2・中央の ✓ と同じ）。 */}

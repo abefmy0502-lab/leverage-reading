@@ -101,6 +101,10 @@ export function ConfirmProvider({ children }) {
           cancelLabel: options.cancelLabel || 'キャンセル',
           danger: options.danger ?? false,
         },
+        // 外側のタップ / Esc で閉じたときに返す値（既定 false＝キャンセルと同じ）。
+        // キャンセル側のボタンが「それでも追加」のように何かを実行するときは null を渡し、
+        // 閉じただけなら何もしないようにする（2026-09-29）。
+        dismissValue: options.dismissValue === undefined ? false : options.dismissValue,
         resolve,
       });
     });
@@ -120,7 +124,7 @@ export function ConfirmProvider({ children }) {
     if (!pending) return undefined;
     const onKey = (e) => {
       // IME 変換中の Escape は「変換キャンセル」であってダイアログを閉じる意図ではない。
-      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) finish(false);
+      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) finish(pending.dismissValue);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -131,7 +135,7 @@ export function ConfirmProvider({ children }) {
       {children}
       {pending && (
         // 出るときは、ほかのダイアログと同じ .modal / .modal-backdrop（components.css）。
-        <div className="modal-backdrop" style={overlayStyle} onClick={() => finish(false)} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+        <div className="modal-backdrop" style={overlayStyle} onClick={() => finish(pending.dismissValue)} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
           <div ref={trapRef} className="modal" style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <h2 id="confirm-dialog-title" style={titleStyle}>{pending.options.title}</h2>
             {pending.options.message && <p style={messageStyle}>{pending.options.message}</p>}

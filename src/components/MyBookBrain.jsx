@@ -32,7 +32,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix } from '../lib/consultHelpers';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
 
@@ -182,15 +182,15 @@ function transformMessage(row) {
 // していたが、iOS Safari で上端が見切れる + 下に元画面が透ける問題が
 // あった。タブ画面なのでモーダルにする必然性も薄く、インライン展開に
 // 変更。
-function LearningInline({ onSaved }) {
+function LearningInline({ onSaved, initialTags = null }) {
   const { user } = useAuth();
   const toast = useToast();
   const [text, setText] = useState('');
   // ＋ 分類・タグ（最初は閉じる＝本文と保存だけを見せる。QuickMemoSheet の「＋ 詳しく」と同じ）。
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(() => !!initialTags?.length);
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [tagInput, setTagInput] = useState('');
-  const [tags, setTags] = useState([]);
+  const [tags, setTags] = useState(() => (Array.isArray(initialTags) ? initialTags.filter(Boolean) : []));
   const [busy, setBusy] = useState(false);
 
   const addTag = () => {
@@ -345,7 +345,7 @@ function LearningInline({ onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, learningPreset, onPushedViewChange, onSearchMemos }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -429,6 +429,21 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setView('chat');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopePreset?.nonce]);
+  // テーマまとめの「学びを書く」から来たら、学びを書く画面をテーマのタグ入りで開く（2026-09-29）。
+  const [learningTags, setLearningTags] = useState(null);
+  useEffect(() => {
+    if (!learningPreset || !consumePreset('learning', learningPreset.nonce)) return;
+    setLearningTags(Array.isArray(learningPreset.tags) ? learningPreset.tags : null);
+    setView('learning');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [learningPreset?.nonce]);
+  // 学びを書く画面を離れたら、入れておいたタグは忘れる（次にメニューから開いたときに残らないように）。
+  //   （学びを書く画面から出たときだけ。開いた直後の描画で消さないように、前の画面を覚えて比べる）
+  const prevViewRef = useRef(view);
+  useEffect(() => {
+    if (prevViewRef.current === 'learning' && view !== 'learning') setLearningTags(null);
+    prevViewRef.current = view;
+  }, [view]);
   const [busy, setBusy] = useState(false);
   // 🔔 はじめて「行動に追加」した答えの id（その下に、思い出しの通知の案内を 1 回だけ出す）
   const [optinAfterId, setOptinAfterId] = useState(null);
@@ -441,7 +456,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     d.setDate(d.getDate() + 1);
     const tomorrow = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     //   「残してください」→「残す」・「確認してください」→「確認する」（lib/consultHelpers.js の answerStepToAction）。
-    const plain = answerStepToAction(text);
+    //   長い一歩の頭の「「上司への報告」の場面で、」は外す（行動の一覧で 2〜3 行に伸びて、肝心の一歩が埋もれる・2026-09-29）。
+    const plain = stripScenePrefix(answerStepToAction(text));
     // 追加できたことは答えの中の「行動に追加しました」で伝える（同じ文をトーストで重ねない）。
     return onAddAction(bookId, { text: plain, sourceMemoId: null, sourcePage: null, deadline: tomorrow });
   }, [onAddAction]);
@@ -511,7 +527,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }
     if (need !== cur) sp.style.height = need > 0 ? `${need}px` : '0px';
   }, []);
-  // 答えを待つ時間が長いとき（15 秒たっても 1 文字も来ない）に、静かな 1 行を出す（2026-09-29）。
+  // 答えを待つ時間が長いとき（8 秒たっても 1 文字も来ない）に、静かな 1 行を出す（2026-09-29・15 秒 → 8 秒）。
   const [slowWait, setSlowWait] = useState(false);
   const gotTextRef = useRef(false);
   // Auto-grow textarea: 60px min, 200px max, scrolls past 200.
@@ -775,10 +791,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const top = questionAlignTop(el);
     if (top != null && top > el.scrollTop + 1) el.scrollTop = top;
   }, [messages, busy, view]);
-  // 15 秒たっても 1 文字も来なければ、静かな 1 行（止めるボタンは入力欄の右にそのまま）。
+  // 8 秒たっても 1 文字も来なければ、静かな 1 行（止めるボタンは入力欄の右にそのまま）。
   useEffect(() => {
     if (!busy) { setSlowWait(false); return undefined; }
-    const t = setTimeout(() => { if (!gotTextRef.current) setSlowWait(true); }, 15000);
+    const t = setTimeout(() => { if (!gotTextRef.current) setSlowWait(true); }, 8000);
     return () => clearTimeout(t);
   }, [busy]);
   // 余白は描く前に測り直す（送った直後の送りより先に、上端まで送れる高さにしておく）。
@@ -1099,7 +1115,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 : partial
                   ? `${partial}\n\n— 通信が中断されたため、回答はここまでです。`
                   // 下のボタン（もう一度）と同じ言葉を重ねない。題と説明に分けて ErrorMessage で出す（ChatMessage）。
-                  : `${ANSWER_FAILED_TITLE}。${ANSWER_FAILED_DESC}`,
+                  // 答えを書き始める前の失敗は、サーバーがトークンを戻しているので、そのことも言う（streamClaude の notCharged）。
+                  : `${ANSWER_FAILED_TITLE}。${e?.notCharged ? 'トークンは使っていません。' : ''}${ANSWER_FAILED_DESC}`,
               refs: [],
               createdAt: new Date().toISOString(),
               // 通信エラー（ユーザーの中止ではない）はその場で再試行できるように
@@ -1455,6 +1472,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       {view === 'learning' && (
         <div style={viewScroll} onScroll={onBodyScroll}>
           <LearningInline
+            initialTags={learningTags}
             onCancel={() => setView('chat')}
             onSaved={() => { setView('chat'); setStatsTick((t) => t + 1); }}
           />
@@ -2656,7 +2674,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
             <div className="ai-skeleton-line" style={{ width: '74%' }} />
             <div className="ai-skeleton-line" style={{ width: '62%' }} />
           </div>
-          {/* 15 秒たっても 1 文字も来ないとき（止めるのは入力欄の右のボタン）。形の下に足すので、骨組みは動かさない。 */}
+          {/* 8 秒たっても 1 文字も来ないとき（止めるのは入力欄の右のボタン）。形の下に足すので、骨組みは動かさない。 */}
           {slow && (
             <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
               時間がかかっています。もう少しお待ちください
@@ -2726,11 +2744,11 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
             </>
           )}
         </>
-      ) : message.error && message.content === `${ANSWER_FAILED_TITLE}。${ANSWER_FAILED_DESC}` ? (
+      ) : message.error && typeof message.content === 'string' && message.content.startsWith(`${ANSWER_FAILED_TITLE}。`) ? (
         // 答えが 1 文字も返らなかった失敗は、ほかの画面と同じ ErrorMessage（題＋説明＋「もう一度」・DESIGN §5）。
         <ErrorMessage
           title={ANSWER_FAILED_TITLE}
-          description={ANSWER_FAILED_DESC}
+          description={message.content.slice(ANSWER_FAILED_TITLE.length + 1) || ANSWER_FAILED_DESC}
           actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }] : []}
         />
       ) : message.error ? (
@@ -2869,10 +2887,13 @@ function AnswerModeSheet({ value, onClose, onSelect }) {
   );
 }
 
+// 本ごとのメモ件数を、同じアプリの起動中は覚えておく（2 回目からは開いた瞬間に一覧を出す＝
+// 骨組みの短いシートが出てから高さが伸びる、をなくす・数え直しは裏で・2026-09-29）。
+const scopeCountsMemory = { uid: null, counts: null };
 function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
   const [mode, setMode] = useState(initial.length ? 'pick' : 'all');
   const [picked, setPicked] = useState(new Set(initial));
-  const [counts, setCounts] = useState(null); // Map<bookId, メモ件数>
+  const [counts, setCounts] = useState(() => (scopeCountsMemory.uid === userId ? scopeCountsMemory.counts : null)); // Map<bookId, メモ件数>
 
   // 本ごとのメモ件数（メモの無い本は根拠が無いので選べない）。
   useEffect(() => {
@@ -2887,6 +2908,7 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
       if (!alive) return;
       const m = new Map();
       (data || []).forEach((r) => { if (r.book_id) m.set(r.book_id, (m.get(r.book_id) || 0) + 1); });
+      if (data) { scopeCountsMemory.uid = userId; scopeCountsMemory.counts = m; }
       setCounts(m);
     })();
     return () => { alive = false; };
@@ -2942,10 +2964,11 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
         {mark(mode === 'all')}
       </button>
       <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{(countsLoading || pickable.length > 1) ? '本に絞る（複数選べます）' : '本に絞る'}</p>
-      {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。 */}
+      {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。行の数は、読書中・読了の本の数
+          （＝出てくる行のおよその数・最大 6）にして、シートの高さが数え終わってから伸びないようにする（2026-09-29）。 */}
       {countsLoading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {[0, 1, 2].map((i) => <SkeletonBlock key={i} height={56} radius="var(--radius)" />)}
+          {Array.from({ length: Math.min(6, Math.max(3, list.length)) }, (_, i) => <SkeletonBlock key={i} height={56} radius="var(--radius)" />)}
         </div>
       )}
       {/* 選べる本が 1 冊も無い: 行を並べず 1 行だけ（選べない行を並べても押せないので）。 */}

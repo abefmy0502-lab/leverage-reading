@@ -37,6 +37,7 @@ import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
 import ContextMenu from './ContextMenu';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput } from '../styles/ui';
+import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 import { History, Trash2, BookmarkPlus, Ruler, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Copy, BookOpen } from 'lucide-react';
 
 // 見た目は DESIGN.md のトークンのみ。
@@ -191,7 +192,7 @@ function writeSnap(theme, snap) {
   } catch { /* ignore */ }
 }
 
-export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshelf } = {}) {
+export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshelf, onWriteLearning } = {}) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -206,6 +207,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const tokensShort = canBuyTokens && tokensAvailable != null && tokensAvailable <= 0;
 
   const [view, setView] = useState('create'); // 'create' | 'history'
+  // 履歴では、左端から右へ払うと作る画面へ戻る（左上の ‹ と同じ・2026-09-29）。
+  useEdgeSwipeBack({ enabled: view === 'history', onBack: () => setView('create') });
   const [themes, setThemes] = useState([]);
   const [themesLoading, setThemesLoading] = useState(true);
   const [customTheme, setCustomTheme] = useState('');
@@ -682,7 +685,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   )}
                 </div>
                 {!notice && scope && (scope.memoTotal > 0 || scope.bookCount > 0) && (
-                  <p style={metaText}>本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件を横断</p>
+                  <p style={metaText}>本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件{scope.bookCount === 1 ? 'から' : 'を横断'}</p>
                 )}
                 {/* 前回からの変化（端末ローカル比較・あるときだけ） */}
                 {reportDone && delta && (
@@ -719,6 +722,12 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   {canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(notice) && (
                     <button type="button" onClick={openTokenSheet} style={uiBtnPrimary}>
                       トークンを追加
+                    </button>
+                  )}
+                  {/* 関連するメモが無いときの案内は「学びを書く」をすすめるので、その場で開けるように（テーマをタグに入れて・2026-09-29）。 */}
+                  {onWriteLearning && noticeKind === 'info' && notice.includes('「学びを書く」') && (
+                    <button type="button" onClick={() => onWriteLearning(activeTheme)} style={uiBtnGhost}>
+                      学びを書く
                     </button>
                   )}
                 </div>

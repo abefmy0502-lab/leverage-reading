@@ -97,10 +97,21 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
   }, [x, y, items.length]);
 
   // role="menu" のキーボードパターン: 開いたら先頭にフォーカスし、上下/Home/End で移動。
+  // 閉じたら、開く前にフォーカスがあった所（「…」のボタンなど）へ戻す（2026-09-29）。
+  //   ただし閉じる間に別の画面（確認・編集）がフォーカスを取っていたら、そちらを優先する。
   const itemRefs = useRef([]);
+  const panelRef = useRef(null);
   useEffect(() => {
+    const prev = typeof document !== 'undefined' ? document.activeElement : null;
     const t = setTimeout(() => { try { itemRefs.current[0]?.focus(); } catch { /* ignore */ } }, 0);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      if (!prev || prev === document.body || typeof prev.focus !== 'function' || !prev.isConnected) return;
+      const now = document.activeElement;
+      const lost = !now || now === document.body || (panelRef.current && panelRef.current.contains(now));
+      if (!lost) return;
+      try { prev.focus({ preventScroll: true }); } catch { /* ignore */ }
+    };
   }, []);
   const onMenuKeyDown = (e) => {
     const n = items.length;
@@ -118,6 +129,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
     <>
       <div style={backdrop} onClick={onBackdropClick} aria-hidden="true" />
       <div
+        ref={panelRef}
         style={{ ...panelBase, left: position.left, top: position.top }}
         role="menu"
         onClick={(e) => e.stopPropagation()}
