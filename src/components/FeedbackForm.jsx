@@ -7,12 +7,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { X } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useFeedback, FEEDBACK_CATEGORIES, FEEDBACK_LIMITS } from '../hooks/useFeedback';
 import { useToast } from './Toast';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, input as uiInput } from '../styles/ui';
 
 // 見た目は DESIGN.md のトークンのみ（シートは BottomSheet と同じ面・影・背景）。
 const overlayStyle = {
@@ -41,27 +41,31 @@ const sheetStyle = {
   animation: 'slideUp .25s',
 };
 
+// 見出しの行は BottomSheet と同じ形（題名 17/600 を左・右上に「キャンセル」＝--text-2・17/400）。
+// 下に決定ボタン（送信する）があるので、右上は「完了」ではなく「キャンセル」（DESIGN §5「シート」）。
 const headerStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-2)',
-  padding: 'var(--space-2) var(--space-4) var(--space-2) var(--space-2)',
+  justifyContent: 'space-between',
+  minHeight: 44,
+  padding: 'var(--space-1) var(--space-4) var(--space-2)',
   borderBottom: '1px solid var(--separator)',
 };
 
-const closeBtn = {
+const cancelBtn = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
   background: 'none',
   border: 'none',
   color: 'var(--text-2)',
+  fontSize: 'var(--text-body)',
+  fontWeight: 400,
   cursor: 'pointer',
-  width: 44,
-  height: 44,
-  flexShrink: 0,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 0,
   fontFamily: 'inherit',
+  minHeight: 44,
+  minWidth: 44,
+  padding: 0,
 };
 
 const bodyStyle = {
@@ -87,47 +91,60 @@ const inpStyle = uiInput;
 
 const taStyle = {
   ...inpStyle,
-  resize: 'vertical',
+  // 大きさを変えるつまみは出さない（右下の三角が枠に重なって見える・iOS では使えない）。
+  resize: 'none',
   minHeight: 200,
   maxHeight: 500,
   lineHeight: 1.5,
 };
 
+// カテゴリは iOS の選択リストの形（DESIGN §5「選択の丸いチェック」）: 1 枚のカードに行を並べ、
+// 行の間は --separator の線・左に 24 の丸（選ぶと --accent の塗り＋✓）・選んだ行は --accent-soft の面。
+// ブラウザ既定のラジオは見せず、本物の input を透明にして丸の上に重ねる（押せる・読み上げ・キーボードはそのまま）。
 const radioRowStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--space-2)',
+  background: 'var(--surface)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
+  overflow: 'hidden',
 };
 
-const radioItemStyle = (active) => ({
+const radioItemStyle = (active, first) => ({
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-3)',
-  padding: 'var(--space-2) var(--space-3)',
-  borderRadius: 'var(--radius)',
-  border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
-  background: active ? 'var(--accent-soft)' : 'var(--surface)',
+  padding: 'var(--space-3) var(--space-4)',
+  borderTop: first ? 'none' : '1px solid var(--separator)',
+  background: active ? 'var(--accent-soft)' : 'transparent',
   cursor: 'pointer',
   fontSize: 'var(--text-body)',
+  lineHeight: 1.4,
   color: 'var(--text)',
-  minHeight: 44,
+  minHeight: 48,
   boxSizing: 'border-box',
   fontFamily: 'inherit',
 });
 
+const checkSize = 'var(--space-6)'; // 24
+const checkCircle = (on, focused) => ({
+  width: checkSize, height: checkSize, borderRadius: '50%', boxSizing: 'border-box',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+  background: on ? 'var(--accent)' : 'transparent',
+  border: on ? 'none' : '2px solid var(--border)',
+  color: 'var(--accent-ink)',
+  // キーボードで触れたときだけ --accent-soft の輪（AuthScreen の同意と同じ）。
+  boxShadow: focused ? '0 0 0 3px var(--accent-soft)' : 'none',
+});
+const radioNative = { position: 'absolute', inset: 0, width: '100%', height: '100%', margin: 0, opacity: 0, cursor: 'pointer' };
+
+// 「（必須）」「（任意）」は赤い＊ではなく文字で（13/--text-2・色だけに頼らない）。
+const reqStyle = { fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)' };
+
 const metaStyle = { fontSize: 'var(--text-caption)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-1) var(--space-1) 0' };
 
 const footerStyle = {
-  display: 'flex',
-  gap: 'var(--space-3)',
   padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
   borderTop: '1px solid var(--separator)',
 };
-
-const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
-const btnPrimaryOff = { ...uiBtnPrimaryOff, width: 'auto', flex: 1 };
-
-const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
 
 // 「🐛 バグ報告」→「バグ報告」。先頭の絵文字（＋異体字セレクタ）と空白だけを落とす。
 const stripLeadingEmoji = (label) => String(label || '').replace(/^[\p{Extended_Pictographic}\uFE0F\u200D]+\s*/u, '');
@@ -141,6 +158,7 @@ export default function FeedbackForm({ onClose }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
+  const [focusedCat, setFocusedCat] = useState(''); // キーボードで触れている選択肢（輪を出す）
   const sheetRef = useRef(null);
   const trapRef = useFocusTrap(true); // ♿ Tab をフォーム内に閉じ込める
 
@@ -207,39 +225,62 @@ export default function FeedbackForm({ onClose }) {
       }}
     >
       <div ref={sheetRef} style={sheetStyle} onClick={(e) => e.stopPropagation()}>
-        <div className="lvg-sheet-handle" aria-hidden="true" />
+        {/* ハンドルは押す部品ではなく「掴んで下へ」の目印（BottomSheet と同じ）。 */}
+        <div style={{ padding: 'var(--space-2) 0 var(--space-1)' }}>
+          <div className="lvg-sheet-handle" aria-hidden="true" />
+        </div>
         <div style={headerStyle}>
-          <button type="button" onClick={onClose} style={closeBtn} aria-label="閉じる" disabled={busy}><X size={20} aria-hidden="true" /></button>
-          <h2 style={{ fontSize: 'var(--text-heading)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, lineHeight: 1.3 }}>フィードバック・要望</h2>
+          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600 }}>フィードバック・要望</h2>
+          {/* 閉じるのは右上の「キャンセル」だけ（下は「送信する」1 つ・同じ操作を 2 か所に出さない）。送信中は場所を残して隠す。 */}
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-hidden={busy || undefined}
+            tabIndex={busy ? -1 : undefined}
+            style={{ ...cancelBtn, visibility: busy ? 'hidden' : 'visible' }}
+          >
+            キャンセル
+          </button>
         </div>
 
         <div style={bodyStyle}>
           {/* Category */}
-          <div role="radiogroup" aria-label="カテゴリ">
-            <span style={labelStyle}>カテゴリ <span style={{ color: 'var(--error)' }}>*</span></span>
+          <div role="radiogroup" aria-label="カテゴリ（必須）">
+            <span style={labelStyle}>カテゴリ<span style={reqStyle}>（必須）</span></span>
             <div style={radioRowStyle}>
-              {FEEDBACK_CATEGORIES.map((c) => (
-                <label key={c.value} style={radioItemStyle(category === c.value)}>
-                  <input
-                    type="radio"
-                    name="feedback-category"
-                    value={c.value}
-                    checked={category === c.value}
-                    onChange={() => setCategory(c.value)}
-                    style={{ accentColor: 'var(--accent)', margin: 0 }}
-                  />
-                  {/* ラベル先頭の絵文字は表示しない（DESIGN §3-2: 絵文字を本文に混ぜない）。
-                      定義（hooks/useFeedback.js）は運営画面等でも使うのでそのまま。 */}
-                  <span>{stripLeadingEmoji(c.label)}</span>
-                </label>
-              ))}
+              {FEEDBACK_CATEGORIES.map((c, i) => {
+                const on = category === c.value;
+                return (
+                  <label key={c.value} style={radioItemStyle(on, i === 0)}>
+                    <span style={{ position: 'relative', width: checkSize, height: checkSize, flexShrink: 0 }}>
+                      <input
+                        type="radio"
+                        name="feedback-category"
+                        value={c.value}
+                        checked={on}
+                        onChange={() => setCategory(c.value)}
+                        onFocus={(e) => { let v = true; try { v = e.target.matches(':focus-visible'); } catch { /* ignore */ } setFocusedCat(v ? c.value : ''); }}
+                        onBlur={() => setFocusedCat('')}
+                        style={radioNative}
+                      />
+                      <span aria-hidden="true" style={checkCircle(on, focusedCat === c.value)}>
+                        {on && <Check size={16} strokeWidth={3} />}
+                      </span>
+                    </span>
+                    {/* ラベル先頭の絵文字は表示しない（DESIGN §3-2: 絵文字を本文に混ぜない）。
+                        定義（hooks/useFeedback.js）は運営画面等でも使うのでそのまま。 */}
+                    <span style={{ fontWeight: on ? 600 : 400 }}>{stripLeadingEmoji(c.label)}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
           {/* Content */}
           <div>
             <label htmlFor="feedback-content" style={labelStyle}>
-              内容 <span style={{ color: 'var(--error)' }}>*</span>
+              内容<span style={reqStyle}>（必須）</span>
             </label>
             <textarea
               id="feedback-content"
@@ -264,7 +305,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Name (optional) */}
           <div>
             <label htmlFor="feedback-name" style={labelStyle}>
-              お名前 <span style={{ fontWeight: 400 }}>（任意）</span>
+              お名前<span style={reqStyle}>（任意）</span>
             </label>
             <input
               id="feedback-name"
@@ -282,7 +323,7 @@ export default function FeedbackForm({ onClose }) {
           {/* Email (optional) */}
           <div>
             <label htmlFor="feedback-email" style={labelStyle}>
-              連絡先メールアドレス <span style={{ fontWeight: 400 }}>（任意）</span>
+              連絡先メールアドレス<span style={reqStyle}>（任意）</span>
             </label>
             <input
               id="feedback-email"
@@ -301,9 +342,6 @@ export default function FeedbackForm({ onClose }) {
         </div>
 
         <div style={footerStyle}>
-          <button type="button" onClick={onClose} style={btnGhost} disabled={busy}>
-            キャンセル
-          </button>
           <button
             type="button"
             onClick={submit}

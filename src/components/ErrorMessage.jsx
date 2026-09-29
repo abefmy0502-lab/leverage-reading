@@ -6,14 +6,14 @@
 // most cases — this component is the visual envelope).
 //
 // Props:
-//   icon         — 線のアイコン（lucide）。既定は AlertCircle。null で出さない
+//   icon         — 既定は出さない（null）。DESIGN §5: ErrorMessage は --error-soft の面＋題＋説明だけで、
+//                  アイコンは付けない（2026-09-29）。どうしても要るときだけ線のアイコン（lucide）を渡す
 //   title        — 「何が起きたか」short
 //   description  — 1〜2 文の説明（「どうすればいいか」を含める）
 //   hint         — optional 補足（小さく・寄り添い形）
 //   actions      — [{ label, onClick, variant?, icon? }]
+//   className    — 追加のクラス（例: error-message--fill＝置いた場所の高さいっぱいに広げ、中身を上下の真ん中に）
 //                  variant: 'primary' | 'secondary' | 'ghost' (default secondary)
-
-import { AlertCircle } from 'lucide-react';
 
 // 主ボタンはアプリ共通の 48/17（ui.js の btnPrimary と同じ）。副・文字ボタンは控えめな 44/15。
 const variantClass = {
@@ -23,14 +23,15 @@ const variantClass = {
 };
 
 export default function ErrorMessage({
-  icon = <AlertCircle size={24} aria-hidden="true" />,
+  icon = null,
   title,
   description,
   hint,
   actions = [],
+  className = '',
 }) {
   return (
-    <div className="error-message" role="alert">
+    <div className={`error-message ${className}`.trim()} role="alert">
       {icon && <div className="error-message-icon" aria-hidden="true">{icon}</div>}
       {title && <p className="error-message-title">{title}</p>}
       {description && (

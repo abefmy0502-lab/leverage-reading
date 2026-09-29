@@ -15,7 +15,7 @@
 // App.jsx の Modal の中に出す検索ダイアログ。
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, CircleX, Check, ChevronRight, SearchX } from 'lucide-react';
+import { Search, X, Check, ChevronRight, SearchX } from 'lucide-react';
 import { toMessage } from '../lib/errors';
 import { searchBooksAdvanced } from '../lib/bookSearch';
 import { LIMITS } from '../lib/limits';
@@ -216,7 +216,7 @@ export function BookSearchField({ id, value, onChange, onSubmit, inputRef, autoF
             color: 'var(--text-3)',
           }}
         >
-          <CircleX size={20} aria-hidden="true" />
+          <X size={18} aria-hidden="true" />
         </button>
       )}
     </div>
@@ -417,7 +417,7 @@ export function BookSearchStatus({ search, onRetry, onManual, onPick, getExistin
           title="検索できませんでした"
           description={error}
           // やり直しは上の「検索」、手動入力は下の「手動で入力する」で 1 か所ずつ（同じ操作を 2 か所に出さない）。
-          actions={onManual ? [] : [{ label: 'もう一度試す', onClick: onRetry, variant: 'secondary' }]}
+          actions={onManual ? [] : [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }]}
         />
       )}
 

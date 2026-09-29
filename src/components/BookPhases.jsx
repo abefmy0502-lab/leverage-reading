@@ -134,7 +134,8 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
       </button>
       )}
 
-      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+      {/* 表紙は書名の欄の上端にそろえる（「書名を入れてください」が出て右の欄が伸びても、表紙が上下に動かない・2026-09-29）。 */}
+      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', marginBottom: 'var(--space-6)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: COVER_W }}>
           {form.cover ? (
             <>
@@ -339,8 +340,9 @@ export function BeforePhase({
         <button
           type="button"
           onClick={() => setForm({ ...form, investPurpose: form.sourceQuery })}
-          // 属する「得たいこと」の欄のすぐ下に付ける（Field の下の 24 を打ち消す）。左の 4 も打ち消して文字の端を 16 に。
-          style={{ ...btnLink, alignSelf: 'flex-start', margin: 'calc(-1 * var(--space-6)) 0 var(--space-3) calc(-1 * var(--space-1))' }}
+          // 属する「得たいこと」の欄の 8 下に付ける（Field の下の 24 を 8 まで打ち消す）。左の 4 も打ち消して文字の端を 16 に。
+          // 行の箱（inline）だと行の高さのぶん浮くので、ブロックの flex にして幅は文字ぶんだけ（2026-09-29）。
+          style={{ ...btnLink, display: 'flex', width: 'fit-content', margin: 'calc(var(--space-2) - var(--space-6)) 0 var(--space-3) calc(-1 * var(--space-1))' }}
         >
           AI 選書で入力した内容に戻す
         </button>

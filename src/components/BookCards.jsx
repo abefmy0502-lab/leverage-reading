@@ -12,6 +12,7 @@ import { ChevronRight } from 'lucide-react';
 import SwipeableCard from './SwipeableCard';
 import { Stars } from './formPrimitives';
 import { getSt } from '../lib/status';
+import { withPhraseBreaks } from './TightBubble';
 
 // 状態の表示用ラベル（押せない）。DESIGN §5「表示用ラベル」: 面を付けず、アイコン＋--text-2 13 の文字。
 // 本の一覧の行（著者の横）と本の詳細の見出しで共有する。
@@ -131,10 +132,14 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
           padding: 'var(--space-1)', lineHeight: 1.3, overflow: 'hidden',
         }}
       >
-        {/* 行の切り詰めは内側の文字にかける（箱全体にかけると、下の行が半分だけ見えてしまう）。 */}
-        <span style={{ display: '-webkit-box', WebkitLineClamp: Math.max(1, Math.floor((height - 8) / 16)), WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
-          {book.title}
-        </span>
+        {/* 幅 48 未満の小さな表紙には書名を出さない（1 行に 2〜3 字しか入らず「1兆ド／ルコ」のように割れて読めない・
+            書名は横の行に出ている・2026-09-29）。出すときは文節の切れ目（BudouX の <wbr>）でだけ折り返す。
+            行の切り詰めは内側の文字にかける（箱全体にかけると、下の行が半分だけ見えてしまう）。 */}
+        {width >= 48 && (
+          <span style={{ display: '-webkit-box', WebkitLineClamp: Math.max(1, Math.floor((height - 8) / 16)), WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            {withPhraseBreaks(book.title)}
+          </span>
+        )}
       </div>
       {show && (
         <img

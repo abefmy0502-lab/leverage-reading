@@ -19,6 +19,8 @@ const closeBtn = {
   margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0',
 };
 
+const BODY = '思い出しの通知は多くても週に 1\u00a0回、前に残したメモを 1\u00a0件だけ。行動は期限の日の朝に 1\u00a0回お知らせします。設定からいつでもオフにできます。';
+
 // where: 'action'（はじめて行動に追加した直後）| 'quickstart'（初日クイックスタートを終えた直後）— 計測だけに使う
 export default function NotifyOptInCard({ where = 'action', primary = true, style = null }) {
   const toast = useToast();
@@ -77,9 +79,12 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
           <X size={20} aria-hidden="true" />
         </button>
       </div>
-      {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（語の途中で割らない） */}
+      {/* 句読点ごとのまとまりを inline-block にして、そこで折り返す（相談の TrialNudgeCard と同じ・DESIGN §5「閉じられる案内カード」）。
+          文字を大きくして 1 行に収まらないまとまりだけは、中の文節の切れ目（BudouX の <wbr>）で折り返す。 */}
       <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-        {withPhraseBreaks('思い出しの通知は多くても週に 1\u00a0回、前に残したメモを 1\u00a0件だけ。行動は期限の日の朝に 1\u00a0回お知らせします。設定からいつでもオフにできます。')}
+        {(BODY.match(/[^、。]+[、。]?|[、。]/g) || []).map((part, i) => (
+          <span key={i} style={{ display: 'inline-block' }}>{withPhraseBreaks(part)}</span>
+        ))}
       </p>
       <button type="button" onClick={enable} disabled={busy} style={{ ...(busy ? off : on), marginTop: 'var(--space-3)' }} aria-busy={busy || undefined}>
         {busy ? '設定しています…' : '通知を受け取る'}

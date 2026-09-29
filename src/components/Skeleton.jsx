@@ -123,9 +123,12 @@ export function BookMemoListFallback({ afterList = null, withSummary = false }) 
   );
 }
 
-// Mirrors a single .book-cover-card: 2:3 cover block + title/author lines.
-// Geometry is kept in sync with components.css's .book-cover-* so the swap-in
-// from skeleton → real grid feels seamless.
+// Mirrors a single .book-cover-card: 2:3 cover block + title/author/status lines.
+// 本物のカード（BookCards.jsx の BookCoverCard）と同じ高さにそろえる（2026-09-29: 状態の行が無く 28pt 跳ねていた）:
+//   表紙（2:3・角丸 4・内枠 --separator）→ 8 → 書名 2 行ぶん（.book-cover-title の min-height）→ 4 →
+//   著者 1 行（13 の行の高さ）→ 4 → 状態のラベル 1 行（StatusLabel と同じ 13 の行）。
+// 明るい画面で背景に溶けないよう、表紙は本物と同じ内枠 --separator を付ける。
+const coverLine = { height: 'calc(1.4 * var(--text-meta))', display: 'flex', alignItems: 'center' };
 function BookCoverSkeleton() {
   return (
     <div
@@ -138,16 +141,22 @@ function BookCoverSkeleton() {
           display: 'block',
           width: '100%',
           aspectRatio: '2 / 3',
-          borderRadius: 4, // 本物の表紙（.book-cover-image）と同じ 4
+          borderRadius: 4, // 本物の表紙（.book-cover-image-wrap）と同じ 4
           marginBottom: 'var(--space-2)',
+          boxShadow: 'inset 0 0 0 1px var(--separator)',
         }}
       />
-      {/* 書名は本物と同じ 2 行ぶんの高さ（.book-cover-title の min-height）・著者 1 行。 */}
+      {/* 書名は本物と同じ 2 行ぶんの高さ（.book-cover-title の min-height）。 */}
       <div style={{ height: 'calc(2 * 1.4 * var(--text-meta))', marginBottom: 'var(--space-1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--space-1)' }}>
-        <SkeletonBlock width="90%" height={12} radius="var(--radius-full)" />
-        <SkeletonBlock width="70%" height={12} radius="var(--radius-full)" />
+        <SkeletonBlock width="90%" height="var(--text-caption)" radius="var(--radius-full)" />
+        <SkeletonBlock width="70%" height="var(--text-caption)" radius="var(--radius-full)" />
       </div>
-      <SkeletonBlock width="55%" height={12} radius="var(--radius-full)" />
+      <div style={coverLine}>
+        <SkeletonBlock width="55%" height="var(--text-caption)" radius="var(--radius-full)" />
+      </div>
+      <div style={{ ...coverLine, marginTop: 'var(--space-1)' }}>
+        <SkeletonBlock width="40%" height="var(--text-caption)" radius="var(--radius-full)" />
+      </div>
     </div>
   );
 }

@@ -245,46 +245,58 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     const memos = (outcome.memosAdded || 0) + reviews;
     const any = memos > 0;
     // 数と「件」は離さない（改行を許さない空白）。改行してよいのは「（まとめ…）」の前と「〜を」のあとだけ（<wbr>）。
+    // 「を」は前の語（または閉じ括弧）と離さない（「を取り込みました」の「を」が行の頭に来ないように・2026-09-29）。
     const headParts = [
       outcome.booksAdded > 0 ? `新しい本\u00a0${outcome.booksAdded}\u00a0冊` : '',
       memos > 0 ? `メモ\u00a0${memos}\u00a0件` : '',
     ].filter(Boolean);
-    const summaryNote = memos > 0 && reviews > 0 ? <><wbr />{`（まとめ\u00a0${reviews}\u00a0件を含む）`}</> : null;
+    const summaryNote = memos > 0 && reviews > 0 ? `（まとめ\u00a0${reviews}\u00a0件を含む）` : '';
+    const headLead = summaryNote ? headParts.join(KEEP_DOT) : headParts.slice(0, -1).map((part) => part + KEEP_DOT).join('');
+    const headTail = `${summaryNote || headParts[headParts.length - 1] || ''}を`;
+    const nothingNew = headParts.length === 0;
     content = (
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
         {error && <ErrorMessage icon={null} title="取り消せませんでした" description={error} />}
         <p style={heading}>
           {/* 確かめる画面と同じ形「新しい本 N 冊・メモ M 件（まとめ K 件を含む）」。 */}
-          {headParts.length > 0 ? <>{headParts.join(KEEP_DOT)}{summaryNote}を<wbr />取り込みました</>
+          {!nothingNew ? <>{headLead}{summaryNote ? <wbr /> : null}<span style={nowrap}>{headTail}</span><wbr />取り込みました</>
             : <>新しく取り込むものは<wbr />ありませんでした</>}
         </p>
-        {/* したことは見出しの 1 行だけ（同じ数を言い直す 2 行目は置かない・2026-09-29）。 */}
-        {!any && (
+        {/* したことは見出しの 1 行だけ（同じ数を言い直す 2 行目は置かない・2026-09-29）。
+            見出しと同じことを言い直す文（「本棚に並べました」など）は置かず、見出しで言えないことだけを 1 文。 */}
+        {!any && (nothingNew || outcome.booksMatched > 0) && (
         <p style={body}>
-          {outcome.booksAdded > 0 && '本棚に並べました。読みながらメモを残すと、相談の根拠になります。'}
-          {outcome.booksAdded > 0 && outcome.booksMatched > 0 && `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。`}
+          {!nothingNew && `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。`}
           {/* 「です。」だけが次の行に残らないよう、最後の句はまとめて折り返す。 */}
-          {outcome.booksAdded === 0 && <>このファイルの本とメモは、<span style={nowrap}>すでに取り込み済みです。</span></>}
+          {nothingNew && <>このファイルの本とメモは、<span style={nowrap}>すでに取り込み済みです。</span></>}
         </p>
         )}
       </div>
     );
-    // 閉じる入口は 1 つだけ: 相談できるときは右上の「完了」、何も入らなかったときは下の「閉じる」。
-    // 「相談してみる」は送らずに相談を開く（入力欄と相談例から、自分で選んで送る＝勝手にトークンを使わない・2026-09-29）。
-    // 出すのは相談の材料が入ったとき（メモ か「この本のまとめ」＝どちらもメモとして相談の根拠になる）だけ。
+    // 閉じる入口は右上の「完了」1 つだけ（完了の画面ではいつも・2026-09-29）。下の主ボタンは次にすること:
+    //   相談の材料が入った（メモ か「この本のまとめ」＝どちらもメモとして相談の根拠になる）→「相談してみる」
+    //   （送らずに相談を開く＝入力欄と相談例から自分で選んで送る・勝手にトークンを使わない）／
+    //   本だけ入った（メモも感想も無い）→「覚えている一言を足す（N 冊）」／何も新しく入らなかった →「別のファイルを選ぶ」。
     const canUndo = !!onUndoImport && ((outcome.createdBookIds?.length || 0) + (outcome.createdMemoIds?.length || 0) > 0);
-    const primary = any && onAsk ? (
-      <button type="button" onClick={() => onAsk()} disabled={undoing} style={undoing ? btnPrimaryOff : btnPrimary}>
-        相談してみる
-      </button>
-    ) : (
-      <button type="button" onClick={onClose} disabled={undoing} style={undoing ? btnPrimaryOff : btnPrimary}>閉じる</button>
-    );
-    // メモも「この本のまとめ」も無い新しい本は、相談の根拠にならない。一言を足す入口を文字ボタンで（2026-09-29）。
+    // メモも「この本のまとめ」も無い新しい本は、相談の根拠にならない。一言を足す入口（2026-09-29）。
     //   一度に開くのは初日クイックスタートと同じ最大 5 冊（数はボタンに出す冊数と同じ）。
     const bare = (Array.isArray(outcome.bareBooks) ? outcome.bareBooks : []).slice(0, QUICKSTART_MAX_BOOKS);
-    const addOneLine = bare.length > 0 && onAddOneLine ? (
-      <button type="button" onClick={() => { track('import_add_one_line', { books: bare.length }); onAddOneLine(bare); }} disabled={undoing} style={{ ...btnLink, width: '100%' }}>
+    const canAddOneLine = bare.length > 0 && !!onAddOneLine;
+    const addOneLineClick = () => { track('import_add_one_line', { books: bare.length }); onAddOneLine(bare); };
+    // 別のファイルを選ぶ: 選ぶ画面に戻してからファイルを選ぶ（選ばずに戻っても、選ぶ画面にいる）。
+    const pickAnother = () => { setOutcome(null); setResult(null); setStep('pick'); pickFile(); };
+    const primaryStyle = undoing ? btnPrimaryOff : btnPrimary;
+    let primary;
+    if (any && onAsk) {
+      primary = <button type="button" onClick={() => onAsk()} disabled={undoing} style={primaryStyle}>相談してみる</button>;
+    } else if (canAddOneLine) {
+      primary = <button type="button" onClick={addOneLineClick} disabled={undoing} style={primaryStyle}>覚えている一言を足す（{bare.length}&nbsp;冊）</button>;
+    } else {
+      primary = <button type="button" onClick={pickAnother} disabled={undoing} style={primaryStyle}>別のファイルを選ぶ</button>;
+    }
+    // 相談してみるが主のときだけ、一言を足すは脇役の文字ボタンで下に。
+    const addOneLine = any && onAsk && canAddOneLine ? (
+      <button type="button" onClick={addOneLineClick} disabled={undoing} style={{ ...btnLink, width: '100%' }}>
         覚えている一言を足す（{bare.length}&nbsp;冊）
       </button>
     ) : null;
@@ -312,8 +324,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       footer={footer}
       // 取り込み中は閉じない（途中で閉じるとシートだけ消えて画面が固まる）。
       dismissible={step !== 'importing' && !undoing}
-      // 選ぶ・確かめる: 決定は下のボタンなので右上は「キャンセル」。完了画面: 相談できるときだけ右上「完了」。
-      dismissLabel={step === 'done' ? ((outcome?.memosAdded || 0) + (outcome?.reviewsAdded || 0) > 0 && onAsk ? '完了' : null) : 'キャンセル'}
+      // 選ぶ・確かめる: 決定は下のボタンなので右上は「キャンセル」。完了画面: 閉じるのは右上「完了」だけ（下は次にすること）。
+      dismissLabel={step === 'done' ? '完了' : 'キャンセル'}
     >
       <input
         ref={inputRef}

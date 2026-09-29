@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
-import { BookOpen, MessageCircle, X, ChevronLeft } from 'lucide-react';
+import { BookOpen, MessageCircle, X, ChevronLeft, ChevronDown } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 
@@ -168,6 +168,8 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
   // チャネル別の獲得効率（note/X/検索）を測る唯一の一次データ。値は analytics の
   // sanitizer 適合（≤32字の固定スラッグ）。1度選んだら変更なしで送信済み扱い。
   const [srcPicked, setSrcPicked] = useState('');
+  // 「どこで知りましたか」は畳んでおき、押したときだけ選択肢を出す（最後の画面の押せるものを減らす・2026-09-29）。
+  const [srcOpen, setSrcOpen] = useState(false);
   const pickSource = (key) => {
     if (srcPicked) return;
     setSrcPicked(key);
@@ -352,17 +354,32 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               {/* 閉じるのは右上の × だけ（同じ操作を 2 か所に出さない・DESIGN §5）。
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
+                {/* 1 行に収まる短い名前（ホーム・設定と同じ「ほかのアプリから取り込む」・2026-09-29）。
+                    どのアプリから取り込めるか（ブクログ・読書メーター・Kindle）は、開いたシートで言う。 */}
                 <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startImport}>
-                  {/* 語の途中（「読書メー／ター」）で折り返さない: 語はまとめて、折り返すのは「・」「から」の後だけ。 */}
-                  <span style={{ minWidth: 0 }}><span style={{ whiteSpace: 'nowrap' }}>ブクログ・</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>読書メーター・</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>Kindle から</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>取り込む</span></span>
+                  ほかのアプリから取り込む
                 </button>
               </div>
             </div>
-            {/* signup_source（任意）: 押しつけないよう一番下に小さく。選択後は選んだチップを残してお礼だけ。 */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0, borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-3)' }}>
-              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, textAlign: 'center' }} aria-live="polite">
-                {srcPicked ? 'ありがとうございます' : 'Orime をどこで知りましたか？（任意）'}
-              </p>
+            {/* signup_source（任意）: 押しつけないよう一番下に小さく畳んでおく（13/--text-2 の一行＋▾）。
+                押したときだけ選択肢を出し、選んだあとは選んだチップを残してお礼だけ。 */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0, borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-1)' }}>
+              {srcOpen ? (
+                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', textAlign: 'center' }} aria-live="polite">
+                  {srcPicked ? 'ありがとうございます' : 'Orime をどこで知りましたか？（任意）'}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSrcOpen(true)}
+                  aria-expanded={false}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: '0 var(--space-2)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}
+                >
+                  Orime をどこで知りましたか？（任意）
+                  <ChevronDown size={16} aria-hidden="true" />
+                </button>
+              )}
+              {srcOpen && (
               <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
                 {/* 選んだ後も全チップを残し、選んだものだけ選択中（--accent-soft 面・--accent 文字）に。カードの高さが跳ねないように。 */}
                 {SOURCES.map(([key, label]) => (
@@ -377,6 +394,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                   </button>
                 ))}
               </div>
+              )}
             </div>
           </>
         ) : (

@@ -62,7 +62,8 @@ const DEMO_SHARE = import.meta.env.DEV && import.meta.env.VITE_DEMO === 'true' &
 const session = { style: 'paper', format: 'story', textPos: 'bottom' };
 
 // プレビューの高さ（シートが 1 画面に収まるように・形が変わっても高さは同じ）。
-const PREVIEW_H = 'min(40vh, 340px)';
+// 下の「どの一文にする？」の候補が最初の画面で見えるよう、少し低く（2026-09-29: 40vh/340 → 34vh/300）。
+const PREVIEW_H = 'min(34vh, 300px)';
 
 // 形の切り替えは、振り返り・相談のサブタブ（.sub-tab）と同じ見た目（選択中は --accent-soft の面）。
 const segBtn = (on) => ({
@@ -513,9 +514,11 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
                 </div>
               )}
             </div>
+            {/* 失敗の案内はプレビューと同じ高さの場所に出す（地を変えて描き直せたときに、下の部品が上下に動かない）。 */}
             {status === 'error' && (
-              <div style={{ alignSelf: 'stretch' }}>
+              <div style={{ alignSelf: 'stretch', minHeight: PREVIEW_H, display: 'grid' }}>
                 <ErrorMessage
+                  className="error-message--fill"
                   title="画像を作れませんでした"
                   description={error && !error.startsWith('画像を作れませんでした') ? error : undefined}
                   actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); setRetry((n) => n + 1); } }]}
