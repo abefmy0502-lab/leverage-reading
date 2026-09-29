@@ -16,7 +16,7 @@
 //   （読書メーターは asin / pages / reviewAt も付く。無ければ App 側は空として扱う）
 // 画面は src/components/ImportSheet.jsx。保存は App 側（重複は既存の本に足す）。
 
-import { findDuplicateBook } from './checkDuplicate';
+import { findImportDuplicate } from './checkDuplicate';
 
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 // 一度に取り込める新しい本の数（本棚にもうある本は数えない）。ファイルを読むときには切らず、
@@ -560,7 +560,7 @@ export function mergeImportResults(results) {
 }
 
 // 確かめる画面の数え方（2026-09-29）。取り込み（App の importLibrary）と同じ決まりで本棚と突き合わせる:
-//   - 同じ本（findDuplicateBook: ISBN、または書名＋著者）が本棚にあれば、その本にメモとして足す（レビュー・感想もメモに。
+//   - 同じ本（findImportDuplicate: ISBN、または書名＋著者・副題や訳者の違いはゆるく）が本棚にあれば、その本にメモとして足す（レビュー・感想もメモに。
 //     ただし本棚の本の「この本のまとめ」と同じ文なら足さない）
 //   - 新しい本のレビュー・感想は「この本のまとめ」に入る＝メモ 1 件として数える（ホームの「メモ N 件」と同じ）
 //   - 新しい本は一度に IMPORT_MAX_BOOKS（300）冊まで。本棚にもうある本は数えずに先に除き、残りの新しい本を
@@ -573,7 +573,7 @@ export function planImport(result, shelf, maxNew = IMPORT_MAX_BOOKS) {
   const plan = { rows: [], books: [], fileBooks: books.length, remainingBooks: 0, newBooks: 0, existingBooks: 0, memos: 0, summaries: 0 };
   books.forEach((b) => {
     const isbn = String(b.isbn || '').replace(/[^0-9Xx]/g, '');
-    const target = findDuplicateBook(shelf, { title: b.title, author: b.author, isbn });
+    const target = findImportDuplicate(shelf, { title: b.title, author: b.author, isbn });
     const cards = b.memos?.length || 0;
     const review = String(b.review || '').trim();
     if (target) {

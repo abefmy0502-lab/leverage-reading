@@ -99,7 +99,7 @@ import { getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryC
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
-import { findDuplicateBook, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
+import { findDuplicateBook, findImportDuplicate, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrategyHistory } from './lib/strategyHistory';
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 // 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
@@ -2072,7 +2072,8 @@ function AuthedApp() {
       const b = items[i];
       onProgress?.(i, items.length);
       const isbn = String(b.isbn || '').replace(/[^0-9Xx]/g, '');
-      let target = findDuplicateBook(booksRef.current, { title: b.title, author: b.author, isbn });
+      // 副題の有無・訳者の並びの違いでも同じ本とみなす（取り込みだけ・確かめる画面の planImport と同じ）。
+      let target = findImportDuplicate(booksRef.current, { title: b.title, author: b.author, isbn });
       const memos = [...(b.memos || [])];
       if (target) {
         booksMatched += 1;

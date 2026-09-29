@@ -86,6 +86,49 @@ export function findDuplicateBook(books, candidate) {
   );
 }
 
+// 📥 取り込み（ほかのアプリから）だけのゆるい判定（2026-09-29）。
+//   書店・アプリによって書名に副題が付いたり（「エッセンシャル思考」↔「エッセンシャル思考 最少の時間で成果を最大にする」）、
+//   著者に訳者が並んだり（「コヴィー」↔「スティーブン・R・コヴィー, 訳者」）するので、同じ本が 2 冊になっていた。
+//   findDuplicateBook で見つからないとき、次の両方を満たせば同じ本とみなす:
+//     1. 著者がどちらにもあり、正規化して片方がもう片方を含む（カンマ等で区切った名前どうしでも可）
+//     2. 短いほうの書名が長いほうの書名の頭にあり、そのすぐあとが 空白・「:」「：」「―」「-」「(」「（」（または同じ書名）
+//   ただし続きが巻数（「上」「2」「第3巻」など）なら別の本（シリーズの別の巻）とみなす。
+//   手で追加するとき（AddBookModal など）は使わない（副題違いの別の本を黙って足さないため）。
+const TITLE_SEP = new Set([' ', ':', '：', '―', '—', '-', '(', '（']);
+const VOLUME_REST = /^[\s:：―—\-(（]*(\d|[上中下]\s*$|[上中下][巻)）]|第\s*\d|vol)/i;
+const authorKey = (raw) => normalizeText(raw).replace(/[\s・･·.．]/g, '');
+const authorNames = (raw) => normalizeText(raw)
+  .split(/[,、，/／;；&＆]|\s+and\s+/)
+  .map((s) => authorKey(s).replace(/[(（][^)）]*[)）]$/, ''))
+  .filter((s) => s.length >= 2);
+function authorsLooselyMatch(a, b) {
+  const ka = authorKey(a);
+  const kb = authorKey(b);
+  if (ka.length < 2 || kb.length < 2) return false;
+  if (ka.includes(kb) || kb.includes(ka)) return true;
+  const na = authorNames(a);
+  const nb = authorNames(b);
+  return na.some((x) => nb.some((y) => x.includes(y) || y.includes(x)));
+}
+function titlesLooselyMatch(a, b) {
+  const ta = normalizeText(a);
+  const tb = normalizeText(b);
+  if (!ta || !tb) return false;
+  const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  if (short.length < 2) return false;
+  if (short === long) return true;
+  if (!long.startsWith(short)) return false;
+  const rest = long.slice(short.length);
+  if (!TITLE_SEP.has(rest[0])) return false;
+  return !VOLUME_REST.test(rest);
+}
+export function findImportDuplicate(books, candidate) {
+  const hit = findDuplicateBook(books, candidate);
+  if (hit) return hit;
+  if (!Array.isArray(books) || !candidate?.title || !candidate?.author) return null;
+  return books.find((b) => authorsLooselyMatch(b.author, candidate.author) && titlesLooselyMatch(b.title, candidate.title)) || null;
+}
+
 // ステータスラベル (重複ダイアログ表示用)。本棚側でも同じ表記が他箇所にある
 // が、ここから import する循環参照を避けるために再掲する。
 export const STATUS_LABEL = {
