@@ -352,3 +352,38 @@ export function memoSearchQuery(question, max = 3) {
   if (words.length) return words.join(' ');
   return firstSentence(t).replace(/[。．.]+$/, '').slice(0, 20);
 }
+
+// 🎯 相談の答えの一歩（「〜してください」の呼びかけ）を、行動リストの言い切りの形に直す（2026-09-29）。
+//   「してみてください」→「してみる」、「〜てみてください」→「〜てみる」。
+//   「してください」「しましょう」は、前が漢字・カタカナ 2 文字以上（確認／共有／メモ）なら「〜する」、
+//   そうでなければ す で終わる動詞（残す／話す／書き出す／探す／渡す）とみなして「〜す」。
+//   前が無い・「を」「に」・区切り・英字・名詞の「〜し」（「確認をしてください」「大切にしてください」
+//   「後押ししてください」）は「する」。
+//   ただし前の漢字が す の動詞にしかほぼ使わない字（残・探・渡…）なら、漢字が続いていても「〜す」
+//   （「1行残してください」→「1行残す」「全部渡してください」→「全部渡す」）。
+//   「話」は「会話・対話・電話…する」を除いて「〜話す」（「直接話してください」→「直接話す」）。
+//   ※ 後読み（lookbehind）の正規表現は古い Safari で落ちるので使わない。
+const ASK_TAIL = /(してください|しましょう)[。！!]?$/;
+const SURU_NOUN = /[一-鿿々゠-ヿ]{2,}$/;
+const SURU_AFTER = /(^|[をにし、。，,\sA-Za-zＡ-Ｚａ-ｚ])$/;
+const SU_VERB_KANJI = /[残探渡返戻貸押試隠]$/;
+const SURU_WA = /(会話|対話|電話|通話|談話|世話|発話)$/;
+function isSuruHead(head) {
+  if (SURU_AFTER.test(head)) return true;
+  if (SU_VERB_KANJI.test(head)) return false;
+  if (/話$/.test(head)) return SURU_WA.test(head);
+  return SURU_NOUN.test(head);
+}
+export function answerStepToAction(text) {
+  const t = String(text ?? '').trim();
+  if (!t) return '';
+  const tried = t
+    .replace(/してみてください[。！!]?$/, 'してみる')
+    .replace(/てみてください[。！!]?$/, 'てみる')
+    .replace(/でみてください[。！!]?$/, 'でみる');
+  if (tried !== t) return tried;
+  const m = t.match(ASK_TAIL);
+  if (!m) return t;
+  const head = t.slice(0, t.length - m[0].length);
+  return `${head}${isSuruHead(head) ? 'する' : 'す'}`;
+}

@@ -1,5 +1,39 @@
 import { describe, it, expect } from 'vitest';
-import { buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, recentReflectedAction, memoSearchQuery } from './consultHelpers';
+import { buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, recentReflectedAction, memoSearchQuery, answerStepToAction } from './consultHelpers';
+
+describe('答えの一歩を行動の形に（answerStepToAction・2026-09-29）', () => {
+  it('す で終わる動詞は「〜す」', () => {
+    expect(answerStepToAction('気づいたことを1行残してください')).toBe('気づいたことを1行残す');
+    expect(answerStepToAction('上司に話してください。')).toBe('上司に話す');
+    expect(answerStepToAction('紙に書き出してください')).toBe('紙に書き出す');
+    expect(answerStepToAction('資料を探してください')).toBe('資料を探す');
+    expect(answerStepToAction('メモを渡してください')).toBe('メモを渡す');
+    expect(answerStepToAction('結論から話しましょう')).toBe('結論から話す');
+    expect(answerStepToAction('残してください')).toBe('残す');
+    expect(answerStepToAction('確認してください')).toBe('確認する');
+    expect(answerStepToAction('共有してください')).toBe('共有する');
+    expect(answerStepToAction('メモしてください')).toBe('メモする');
+    expect(answerStepToAction('書き出してください')).toBe('書き出す');
+    expect(answerStepToAction('話してください')).toBe('話す');
+    expect(answerStepToAction('資料を全部渡してください')).toBe('資料を全部渡す');
+    expect(answerStepToAction('部下と直接話してください')).toBe('部下と直接話す');
+    expect(answerStepToAction('部下と対話してください')).toBe('部下と対話する');
+    expect(answerStepToAction('同僚を後押ししてください')).toBe('同僚を後押しする');
+  });
+  it('漢字・カタカナ 2 文字以上のあとは「〜する」', () => {
+    expect(answerStepToAction('予定を確認してください')).toBe('予定を確認する');
+    expect(answerStepToAction('チームで共有してください！')).toBe('チームで共有する');
+    expect(answerStepToAction('気づきをメモしてください')).toBe('気づきをメモする');
+    expect(answerStepToAction('週に1回ふりかえりを確認しましょう')).toBe('週に1回ふりかえりを確認する');
+  });
+  it('「を」「に」のあとは「する」・「〜てみてください」は「〜てみる」', () => {
+    expect(answerStepToAction('確認をしてください')).toBe('確認をする');
+    expect(answerStepToAction('時間を大切にしてください')).toBe('時間を大切にする');
+    expect(answerStepToAction('1つだけ試してみてください')).toBe('1つだけ試してみる');
+    expect(answerStepToAction('5分だけ読んでみてください')).toBe('5分だけ読んでみる');
+    expect(answerStepToAction('朝に10分歩く')).toBe('朝に10分歩く');
+  });
+});
 
 describe('やってみた行動の次（相談例の 1 つ目・2026-09-29）', () => {
   const now = Date.parse('2026-09-29T12:00:00+09:00');
