@@ -57,14 +57,31 @@ export function OverlayFallback({ solid = false }) {
   );
 }
 
+// タブの中身（振り返りの行動・記録／相談・AI 選書・テーマまとめ）を読み込んでいる間の形（2026-09-29）。
+// スピナーだけの画面にしない（DESIGN §5「空・エラー・読み込み」）: 見出しの行＋カード 3 枚（枠 --separator）。
+export function TabPanelSkeleton() {
+  return (
+    <div role="status" aria-label="読み込み中" aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4) var(--space-8)' }}>
+      <SkeletonBlock width="55%" height={24} radius="var(--radius)" style={{ marginBottom: 'var(--space-3)' }} />
+      {[0, 1, 2].map((i) => (
+        <div key={i} aria-hidden="true" style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <SkeletonBlock width="88%" height={16} />
+          <SkeletonBlock width={i === 1 ? '64%' : '72%'} height={16} />
+          <SkeletonBlock width={96} height={12} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // 本の詳細のメモ一覧（＋メモカード・一文をシェア・シェア画像づくり）。待つ間は一覧と同じ骨組み。
 export const BookMemoList = withSuspense(loaders.bookMemoList, <MemoListSkeleton />);
 // 全画面のメモ編集（画面の上に重ねて開くので、待つ間は何も出さない）。
 export const BookMemoEditor = withSuspense(loaders.bookMemoEditor, null);
 // 本を検索するシート（シートの中に待ち表示）。
 export const BookSearchModal = withSuspense(loaders.bookSearchModal, <Spinner />);
-// 振り返り › 行動（となりのサブタブと同じ待ち表示）。
-export const ActionList = withSuspense(loaders.actionList, <Spinner />);
+// 振り返り › 行動（となりのサブタブと同じ待ち表示＝カードの形の骨組み）。
+export const ActionList = withSuspense(loaders.actionList, <TabPanelSkeleton />);
 // ログイン画面・ログインのリンクから戻ったとき（ログイン済みの人には要らない）。
 export const AuthScreen = withSuspense(loaders.authScreen, null);
 export const AuthCallback = withSuspense(loaders.authCallback, <Spinner />);

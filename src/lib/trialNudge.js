@@ -117,9 +117,10 @@ export function planNameFor({ plan, priceId = '', trialEnd = '' }) {
 }
 
 // 無料期間の人に、終わったあとどうなるか（設定の「プラン」の行の下・2026-09-28 → 2026-09-29 に金額を入れた）。
-//   「10月4日から 年額 ¥12,800（税込）で自動更新」（金額は billing.js の表示ラベル・「月あたり…」は外す）。
-//   月額か年額か分からなければ「10月4日から プラン（自動更新）」（金額を当て推量で出さない）。
-//   終わる日が分からなければ「無料期間のあと 年額 ¥12,800（税込）で自動更新」。
+//   「その後 年額 ¥12,800（税込）で自動更新」（金額は billing.js の表示ラベル・「月あたり…」は外す）。
+//   終わる日はすぐ上のプランの行「7 日間無料（10月4日まで）」にあるので、ここでは繰り返さない（2026-09-29）。
+//   月額か年額か分からなければ「その後 プラン（自動更新）」（金額を当て推量で出さない）。
+//   終わる日が分からない（プランの行に日付が無い）ときは「無料期間のあと 年額 ¥12,800（税込）で自動更新」。
 //   labels: テスト用の差し替え（既定は PLAN_LABELS）。
 export function shortPriceLabel(label = '') {
   // 「年額 ¥12,800（税込・月あたり約¥1,066）」→「年額 ¥12,800（税込）」。括弧が無ければそのまま。
@@ -131,7 +132,7 @@ export function shortPriceLabel(label = '') {
 }
 export function trialRenewalLine({ priceId = '', trialEnd = '', labels = PLAN_LABELS } = {}) {
   const period = planPeriodOf(priceId);
-  const when = trialEnd ? `${trialEnd}から` : '無料期間のあと';
+  const when = trialEnd ? 'その後' : '無料期間のあと';
   const price = period ? shortPriceLabel(labels?.[period]?.price) : '';
   if (!price) return `${when} プラン（自動更新）`;
   return `${when} ${price}で自動更新`;

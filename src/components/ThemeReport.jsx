@@ -19,7 +19,8 @@ import { toMessage } from '../lib/errors';
 import { stripInlineMd } from '../lib/text';
 import { LIMITS } from '../lib/limits';
 import { usePaywall } from '../state/PaywallContext';
-import { TOKEN_COSTS, runCostLine } from '../lib/tokens';
+import { TOKEN_COSTS, PAID_TOKENS, runCostLine, monthDayLabelJa } from '../lib/tokens';
+import { nextResetLabelJa } from '../lib/freeTrial';
 import {
   listThemes,
   streamThemeReport,
@@ -196,9 +197,12 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const confirm = useConfirm();
   const haptic = useHaptic();
   // テーマまとめはプランの機能（フリーミアム）。無料プランなら作る前に有料プランの画面を開く。
-  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens } = usePaywall();
+  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens, tokensAvailable, tokenAllowance, trialEndsAt } = usePaywall();
   // 「まとめる」のそばに 1 回の目安と残り（相談と同じ言い方・無料プランはプランの機能なので出さない・2026-09-29）。
   const costLine = freeMode ? '' : runCostLine({ plan, remaining: tokensRemaining, purchased: purchasedTokens, cost: TOKEN_COSTS.themeReport });
+  // 🪙 残り（その月の分＋追加分）が 1 回の目安に足りないと分かっているときは、押してから断らない（2026-09-29）:
+  //   「まとめる」を押せない形にし、上限の案内カード＋「トークンを追加」を先に出す（相談の TokensOutCard と同じ）。
+  const tokensShort = canBuyTokens && tokensAvailable != null && tokensAvailable < TOKEN_COSTS.themeReport;
 
   const [view, setView] = useState('create'); // 'create' | 'history'
   const [themes, setThemes] = useState([]);
@@ -293,6 +297,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
     const theme = (rawTheme || '').trim();
     if (!theme || generating || !user?.id) return;
     if (!requirePlan('テーマまとめ')) return;
+    if (tokensShort) return; // 案内カードが出ている（押せない形）。Enter で送られても始めない。
     haptic.light();
     // 実行トークン: 生成中に履歴レポートを開く等で runId が進んだら、この
     // 実行のストリーム/完了処理は一切 state を触らない（履歴の内容がテーマ
@@ -401,7 +406,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
       }
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [generating, user?.id, haptic, toast, requirePlan]);
+  }, [generating, user?.id, haptic, toast, requirePlan, tokensShort]);
 
   const stopGeneration = useCallback(() => {
     const controller = abortRef.current;
@@ -593,8 +598,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                 icon={<Ruler size={32} strokeWidth={1.5} aria-hidden="true" />}
                 // 文節の途中（「テーマまと／め」）で改行しないよう、意味の切れ目ごとに折り返さない塊にする
                 // （iOS の Safari は word-break: auto-phrase に未対応のため）。
-                title={<><span style={{ whiteSpace: 'nowrap' }}>メモが貯まると、</span><span style={{ whiteSpace: 'nowrap' }}>テーマまとめが作れます</span></>}
-                description={<><span style={{ whiteSpace: 'nowrap' }}>まず本を開いて、</span><span style={{ whiteSpace: 'nowrap' }}>気づきを1行メモに残しましょう。</span></>}
+                title={<><span style={{ whiteSpace: 'nowrap' }}>メモがたまると、</span><span style={{ whiteSpace: 'nowrap' }}>テーマまとめが作れます</span></>}
+                description={<><span style={{ whiteSpace: 'nowrap' }}>まず本を開いて、</span><span style={{ whiteSpace: 'nowrap' }}>気づきを 1 行メモに残しましょう。</span></>}
                 actions={onGoBookshelf ? [{ label: 'すべての本へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoBookshelf, variant: 'secondary' }] : []}
               />
             ) : (
@@ -607,6 +612,15 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
               historyCount={historyAvailable ? history.length : null}
               onOpenHistory={() => setView('history')}
               costLine={costLine}
+              tokensOut={tokensShort ? (
+                <TokensShortCard
+                  plan={plan}
+                  available={tokensAvailable}
+                  allowance={tokenAllowance}
+                  trialEndLabel={plan === 'trial' ? monthDayLabelJa(trialEndsAt) : ''}
+                  onAdd={openTokenSheet}
+                />
+              ) : null}
             />
             )
           ) : (
@@ -776,8 +790,9 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   );
 }
 
-function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGenerate, historyCount, onOpenHistory, costLine = '' }) {
-  const canGenerate = customTheme.trim().length > 0;
+function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGenerate, historyCount, onOpenHistory, costLine = '', tokensOut = null }) {
+  // トークンが足りないときは選べても作れない（「まとめる」は押せない形・主ボタンは案内カードの「トークンを追加」）。
+  const canGenerate = customTheme.trim().length > 0 && !tokensOut;
   const submitCustom = () => {
     if (canGenerate) onGenerate(customTheme.trim());
   };
@@ -794,6 +809,9 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
         どのテーマをまとめますか
       </h2>
       </div>
+
+      {/* トークンが 1 回分に足りない: 押してから断らず、先に案内（相談と同じカード） */}
+      {tokensOut}
 
       {/* detected theme chips */}
       <section aria-labelledby="theme-detected">
@@ -814,7 +832,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
         ) : (
           <div
             style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}
-            role="list"
+            role="group"
             aria-label="メモから見つかったテーマ候補"
           >
             {themes.map((t) => {
@@ -825,7 +843,6 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                 key={t.theme}
                 type="button"
                 onClick={() => setCustomTheme(selected ? '' : t.theme)}
-                role="listitem"
                 aria-pressed={selected}
                 aria-label={`テーマ「${t.theme}」（メモ ${t.count} 件）を選ぶ`}
                 style={{
@@ -887,13 +904,46 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             まとめる
           </button>
         </div>
-        {costLine && (
+        {costLine && !tokensOut && (
           <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>
             {costLine}
           </p>
         )}
       </div>
     </div>
+  );
+}
+
+// 🪙 トークンが 1 回分に足りない（プランの人）。相談の TokensOutCard と同じ形・同じ言い方（DESIGN §5「案内カード」）。
+//   0 なら「今月のトークンは、ここまでです」、少し残っていれば「今月の残りは N トークンです」＋1 回の目安。
+function TokensShortCard({ plan, available = 0, allowance, trialEndLabel = '', onAdd }) {
+  const trial = plan === 'trial';
+  const left = Math.max(0, Number(available) || 0);
+  const nowrap = { whiteSpace: 'nowrap' };
+  const sub = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 };
+  return (
+    <section aria-label="トークンが足りません" style={card}>
+      <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
+        {left > 0
+          ? <>{trial ? '無料期間' : '今月'}の残りは <span style={nowrap}>{left.toLocaleString('ja-JP')} トークン</span>です</>
+          : trial ? '無料期間のトークンは、ここまでです' : '今月のトークンは、ここまでです'}
+      </p>
+      {left > 0 && (
+        <p style={sub}>テーマまとめは <span style={nowrap}>1 回 約 {TOKEN_COSTS.themeReport} トークン</span></p>
+      )}
+      {!trial ? (
+        <p style={sub}>
+          <span style={nowrap}>{nextResetLabelJa()}</span>に <span style={nowrap}>{(allowance ?? PAID_TOKENS).toLocaleString('ja-JP')} トークン</span>に戻ります
+        </p>
+      ) : trialEndLabel ? (
+        <p style={sub}>
+          無料期間が終わる<span style={nowrap}>{trialEndLabel}</span>から、<span style={nowrap}>毎月 {PAID_TOKENS.toLocaleString('ja-JP')} トークン使えます。</span>
+        </p>
+      ) : null}
+      <button type="button" onClick={onAdd} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+        トークンを追加
+      </button>
+    </section>
   );
 }
 

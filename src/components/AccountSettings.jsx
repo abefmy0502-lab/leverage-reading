@@ -859,7 +859,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                     無料期間の終わる日はこの行に入れる（「無料期間の終わり」の行と二重にしない）。
                     支払いが止まっているなど「利用中」以外の状態のときだけ、状態の行を足す。 */}
                 {/* 無料期間は「終わる」だけに読めないよう、同じ行の下に続くプランを添える
-                    （「10月4日から 年額プラン（自動更新）」・月額か年額かは product id から・分からなければ「プラン」）。 */}
+                    （「その後 年額 ¥12,800（税込）で自動更新」＝終わる日はすぐ上の行にあるので繰り返さない・月額か年額かは product id から・分からなければ「プラン」）。 */}
                 {plan === 'trial' ? (
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0' }}>
                     <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)', flexShrink: 0 }}>プラン</span>

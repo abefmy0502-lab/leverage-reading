@@ -376,9 +376,10 @@ body.lp-active {
 .lp-final-inner { text-align: center; }
 .lp-final-inner > * { margin-left: auto; margin-right: auto; }
 .lp-final-inner .lp-cta-note { margin-left: auto; margin-right: auto; }
-/* 中央ぞろえの長い注記は 1 行を短くして行の幅をそろえる */
-.lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { max-width: 20em; text-wrap: balance; }
-.lp-turn > span, .lp-story > span { display: inline-block; }
+/* 見出しとボタンは中央、2 行以上になる文（注記・名前の由来）は左ぞろえ（行頭がそろわない中央ぞろえは読みにくい・2026-09-29）。
+   箱は中身の幅に縮めて中央に置き、中の文だけ左から組む。 */
+.lp-final-inner .lp-cta-note, .lp-final-inner .lp-story { width: fit-content; max-width: min(24em, 100%); text-align: left; text-wrap: pretty; }
+.lp-turn > span, .lp-story > span, .lp-final-inner .lp-cta-note > span { display: inline-block; }
 .lp-story {
   margin: var(--space-12) auto 0 !important;
   max-width: 28em;

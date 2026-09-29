@@ -112,6 +112,7 @@ const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import SplashScreen from './components/SplashScreen';
 import Spinner from './components/Spinner';
+import { TabPanelSkeleton } from './components/lazyParts';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import { useFocusTrap } from './hooks/useFocusTrap';
@@ -3080,9 +3081,12 @@ function AuthedApp() {
     // 完了は一瞬で一覧から消えるので、取り消せるようにする（押し間違いの救済）。
     // silent: 行動タブは自分の欄（ふりかえり＋元に戻す）を出すので、案内を重ねない。
     if (!target.done && !opts.silent) {
-      toast.info('行動を完了しました', {
+      // 「元に戻す」つきは toast.undo にそろえる（中立の Undo2 の印・DESIGN §5 トースト・2026-09-29）。
+      toast.undo({
+        message: '行動を完了しました',
         duration: 5000,
-        action: { label: '元に戻す', onClick: () => { applyActionToggle(bookId, actionIdx, { target }); } },
+        destructive: false,
+        onUndo: () => { applyActionToggle(bookId, actionIdx, { target }); },
       });
     }
   };
@@ -4694,7 +4698,7 @@ function AuthedApp() {
                 />
               </div>
             ) : reviewSubTab === 'record' ? (
-              <Suspense fallback={<Spinner />}>
+              <Suspense fallback={<TabPanelSkeleton />}>
                 <ReadingRecord
                   books={books}
                   onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
@@ -4781,7 +4785,7 @@ function AuthedApp() {
             {/* サブタブの下に説明文は置かない（各画面の見出しで伝わる・DESIGN §0-6）。 */}
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
-                <Suspense fallback={<Spinner />}>
+                <Suspense fallback={<TabPanelSkeleton />}>
                   <BookAdvisor
                     onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
                     // 確認の候補に目当ての本が無いとき: 書名で探す（検索を開いて自動で探す）／手動で入力する。戻り先は「‹ AI 選書」。
@@ -4793,7 +4797,7 @@ function AuthedApp() {
                   />
                 </Suspense>
               ) : aiSubTab === 'report' ? (
-                <Suspense fallback={<Spinner />}>
+                <Suspense fallback={<TabPanelSkeleton />}>
                   <ThemeReport
                     onActionAdded={() => { try { refreshBooks(); } catch { /* ignore */ } }}
                     onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
@@ -4801,7 +4805,7 @@ function AuthedApp() {
                   />
                 </Suspense>
               ) : (
-                <Suspense fallback={<Spinner />}>
+                <Suspense fallback={<TabPanelSkeleton />}>
                   <MyBookBrain
                     onOpenBook={(b) => { openDetail(b); }}
                     books={books}
