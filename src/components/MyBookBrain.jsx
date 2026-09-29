@@ -1644,7 +1644,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 トークンを追加
               </button>
               {/* 7 日間無料: 続けないときの解約の期限を日付だけで（2026-09-29・「あと N 日」は出さない） */}
-              {trialCancelLine && <p style={trialCancelLineStyle}>{trialCancelLine}</p>}
+              {trialCancelLine && <p style={trialCancelLineStyle}>{withPhraseBreaks(trialCancelLine)}</p>}
             </>
           )}
 
@@ -1866,7 +1866,8 @@ function CarryCard({ carry, onCancel }) {
 // 🪙➕ プランの人（有料・無料期間）がトークンを使い切って、まだ話していないときの案内カード。
 // 押せない相談例の代わりに、会話の場所の一番上に置く（SPEC §3）。
 // 7 日間無料の「続けないときは M月D日までに解約（無料プランに戻ります）」の小さな 1 行（TokensOutCard・答えの下の「トークンを追加」の下）。
-const trialCancelLineStyle = { margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 };
+//   文節の切れ目（<wbr>）でだけ折り返す（「無料プランに／戻ります」と割らない）。
+const trialCancelLineStyle = { margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 function TokensOutCard({ plan, trialEndLabel, cancelLine = '', tokenAllowance, onAdd, onSearch = null }) {
   const sub = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 };
   return (
@@ -1886,7 +1887,7 @@ function TokensOutCard({ plan, trialEndLabel, cancelLine = '', tokenAllowance, o
       <button type="button" onClick={onAdd} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
         トークンを追加
       </button>
-      {cancelLine && <p style={trialCancelLineStyle}>{cancelLine}</p>}
+      {cancelLine && <p style={trialCancelLineStyle}>{withPhraseBreaks(cancelLine)}</p>}
       {onSearch && <SearchMemosLink onClick={onSearch} />}
     </section>
   );
