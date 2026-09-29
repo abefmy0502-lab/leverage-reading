@@ -111,7 +111,8 @@ export default function HomeScreen({
         // 読み込み中は形だけ（既存ユーザーに新規用の「はじめる」カードを一瞬見せない）。
         <div aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           {/* 実際の 3 ブロック（相談カード／いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔／すべての本 ›）と同じ形・間隔。 */}
-          <SkeletonBlock height={400} radius="var(--radius)" />
+          {/* 相談カードと同じ高さ（実測 約 432）・同じ枠 --separator。 */}
+          <SkeletonBlock height={432} radius="var(--radius)" style={{ border: '1px solid var(--separator)', boxSizing: 'border-box' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <SkeletonBlock width="50%" height={26} radius="var(--radius)" />
             <SkeletonBlock height={90} radius="var(--radius)" />

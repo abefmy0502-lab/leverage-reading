@@ -95,7 +95,8 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
         )}
       </div>
       <p className="book-cover-title">{book.title}</p>
-      {book.author && <p className="book-cover-author">{book.author}</p>}
+      {/* 著者が無い本も 1 行ぶん空けて、状態の行をとなりのカードとそろえる。 */}
+      <p className="book-cover-author" aria-hidden={book.author ? undefined : true}>{book.author || '\u00a0'}</p>
       {/* 状態は表紙に重ねず、著者の下に面なしのラベルで（DESIGN §5「表示用ラベル」）。
           状態で絞り込んでいるときは全部同じなので出さない（showStatus=false）。 */}
       {showStatus && book.status && <StatusLabel status={book.status} style={{ marginTop: 'var(--space-1)', maxWidth: '100%' }} />}

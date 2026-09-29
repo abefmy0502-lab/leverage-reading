@@ -43,15 +43,16 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const [loading, setLoading] = useState(false);
   // 読み取りに失敗したときの案内（シートの中に出す）。写真は持っておき「もう一度試す」で同じ写真を送り直す。
   const [failure, setFailure] = useState(null);
-  // 失敗したとき、送り直す写真を小さく見せる（何をもう一度送るのか分かるように）。
+  // 読み取り中・失敗したときに、送った写真を小さく見せる（何を読んでいるのか・何をもう一度送るのか分かるように）。
+  // 読み取り中と失敗は同じ場所（ボタンの下の 1 行）に出し、写真の位置を動かさない。
+  const [thumbFile, setThumbFile] = useState(null);
   const [thumbUrl, setThumbUrl] = useState(null);
   useEffect(() => {
-    const file = failure?.retry ? lastFileRef.current : null;
-    if (!file || typeof URL === 'undefined' || !URL.createObjectURL) { setThumbUrl(null); return undefined; }
-    const url = URL.createObjectURL(file);
+    if (!thumbFile || typeof URL === 'undefined' || !URL.createObjectURL) { setThumbUrl(null); return undefined; }
+    const url = URL.createObjectURL(thumbFile);
     setThumbUrl(url);
     return () => URL.revokeObjectURL(url);
-  }, [failure]);
+  }, [thumbFile]);
   const lastFileRef = useRef(null);
   const toast = useToast();
   const haptic = useHaptic();
@@ -82,6 +83,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const run = async (file) => {
     if (!file || loading) return;
     setFailure(null);
+    setThumbFile(file);
     setLoading(true);
     haptic.light();
     try {
@@ -94,12 +96,16 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       }
       haptic.success();
       lastFileRef.current = null;
+      setThumbFile(null);
       onText(text);
       toast.success('写真から書き起こしました。');
     } catch (e2) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。
-      if (e2?.notice) { if (!/^この AI 機能は/.test(e2.message)) toast.info(e2.message); return; }
-      setFailure({ title: '写真を読み取れませんでした', message: toMessage(e2, 'もう一度お試しください。'), retry: true });
+      if (e2?.notice) { setThumbFile(null); if (!/^この AI 機能は/.test(e2.message)) toast.info(e2.message); return; }
+      // 理由のあとに次の一歩を 1 文（理由の文がすでに「お試しください」で終わるときは重ねない）。
+      const reason = toMessage(e2, '');
+      const message = /お試しください/.test(reason) ? reason : `${reason} 少し待って、もう一度お試しください。`.trim();
+      setFailure({ title: '写真を読み取れませんでした', message, retry: true });
     } finally {
       setLoading(false);
     }
@@ -126,13 +132,20 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
         onChange={onFile}
         style={{ display: 'none' }}
       />
-      {failure && !loading && (
+      {(loading || failure) && (
         // 並べ方（グリッド／折り返す横並び）どちらでも、ボタンの下の 1 行ぶんを使う。
+        // 読み取り中（写真＋「写真を読み取っています」）と失敗（写真＋理由＋もう一度）は同じ場所・同じ写真の位置。
         <div style={{ gridColumn: '1 / -1', flexBasis: '100%', marginTop: 'var(--space-2)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
           {thumbUrl && (
-            <img src={thumbUrl} alt="読み取れなかった写真" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)', flexShrink: 0 }} />
+            <img src={thumbUrl} alt={loading ? '読み取っている写真' : '読み取れなかった写真'} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)', flexShrink: 0 }} />
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
+          {loading ? (
+            <div className="ai-thinking" role="status" style={{ minHeight: 48 }}>
+              <span className="ai-thinking-dot" aria-hidden="true" />
+              <span>写真を読み取っています</span>
+            </div>
+          ) : (
           <ErrorMessage
             icon={null}
             title={failure.title}
@@ -143,6 +156,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
                 : { label: '写真を選び直す', onClick: pick, variant: 'secondary' },
             ]}
           />
+          )}
           </div>
         </div>
       )}

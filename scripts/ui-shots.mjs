@@ -161,6 +161,8 @@ const SCREENS = [
   { name: 'add-book-error', url: '/?search=fail', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', 'ファクト'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
   { name: 'book-detail-longmemo', url: '/?demo=longmemo', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollTo: 'h2:has-text("メモ")' }] },
   { name: 'add-book-manual', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { css: 'button:has-text("手動で入力する")' }] },
+  // 書名が空のまま「保存」: 書名の欄が --error の枠＋「書名を入れてください」（SPEC 1-2）
+  { name: 'add-book-manual-empty', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { css: 'button:has-text("手動で入力する")' }, { fill: ['input[aria-label="書名（必須）"]', ''] }, { css: 'button:text-is("保存")' }] },
   { name: 'import-preview', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ブクログ・Kindle")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }] },
   { name: 'import-done', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ブクログ・Kindle")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
   { name: 'import-error', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button:has-text("ブクログ・Kindle")' }, { upload: ['input[type=file]', 'scripts/fixtures/broken.txt'] }, { wait: 1200 }] },
@@ -217,10 +219,17 @@ const SCREENS = [
   { name: 'consult-answer-added', url: '/', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }, { css: '[aria-label="相談への答え"] button:has-text("行動に追加")' }, { wait: 800 }] },
   { name: 'consult-history-loading', url: '/?load=chat', steps: [{ css: nav('相談') }, { css: 'button[aria-label="過去の相談を見る"]' }] },
   // メモの無い本（選べない行）の見た目。既定のデータは全冊にメモがあるので nomemo で撮る。
+  // 相談相手を 1 冊に絞った（答え方のチップの代わりに「すべてに戻す」）。
+  { name: 'consult-scope-one', url: '/', steps: [{ css: nav('相談') }, { css: 'button:has-text("相談相手：")' }, { css: '[role=dialog] button[aria-pressed]:has-text("イシューからはじめよ")' }, { css: '[role=dialog] button:has-text("この本に相談する")' }] },
   { name: 'consult-scope-disabled', url: '/?demo=nomemo', steps: [{ css: nav('相談') }, { css: 'button:has-text("相談相手：")' }, { wait: 600 }] },
   { name: 'consult-learning-error', url: '/?writefail=book_memos', steps: [{ css: nav('相談') }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("学びを書く")' }, { fill: ['#learning-text', '人に任せるときは、終わった状態を先に言葉にする'] }, { css: 'button:has-text("保存")' }, { wait: 400 }] },
   { name: 'perbook-middle', url: '/', steps: [{ css: nav('相談') }, { css: 'button:has-text("答え方：")' }, { css: '[role=dialog] [role=radio]:has-text("本ごとに")' }, { fill: ['textarea[aria-label="相談したいこと"]', '営業の成果が落ちて焦っています。人の評価も気になるし、全部を抱えてしまう。どう考えればいい？'] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }, { scrollTo: 'section[aria-label="本ごとの視点"]' }] },
-  { name: 'perbook-streaming', url: '/?ai=slow', steps: [{ css: nav('相談') }, { css: 'button:has-text("答え方：")' }, { css: '[role=dialog] [role=radio]:has-text("本ごとに")' }, { fill: ['textarea[aria-label="相談したいこと"]', '営業の成果が落ちて焦っています。人の評価も気になるし、全部を抱えてしまう。どう考えればいい？'] }, { css: 'button[aria-label="送信"]' }, { wait: 2500 }] },
+  // 書いている途中: &ai=stall で 1 冊目の視点の途中で止め、本ごとの視点の節が出るまで待つ（決め打ちの秒数に頼らない）。
+  { name: 'perbook-streaming', url: '/?ai=stall', steps: [{ css: nav('相談') }, { css: 'button:has-text("答え方：")' }, { css: '[role=dialog] [role=radio]:has-text("本ごとに")' }, { fill: ['textarea[aria-label="相談したいこと"]', '営業の成果が落ちて焦っています。人の評価も気になるし、全部を抱えてしまう。どう考えればいい？'] }, { css: 'button[aria-label="送信"]' }, { waitFor: 'section[aria-label="本ごとの視点"]' }, { wait: 300 }] },
+  // ◆ の形が崩れた本ごとの答え → 【本ごとの視点】の節をそのまま段落で見せる（SPEC §3）。
+  { name: 'perbook-raw', url: '/?ai=broken', steps: [{ css: nav('相談') }, { css: 'button:has-text("答え方：")' }, { css: '[role=dialog] [role=radio]:has-text("本ごとに")' }, { fill: ['textarea[aria-label="相談したいこと"]', '営業の成果が落ちて焦っています。人の評価も気になるし、全部を抱えてしまう。どう考えればいい？'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy])' }, { eval: () => { const sc = document.querySelector('.chat-scroll'); const el = document.querySelector('section[aria-label="本ごとの視点"]'); sc.scrollTop += el.getBoundingClientRect().top - sc.getBoundingClientRect().top - 120; } }] },
+  // 本ごとにを選んでも、メモのある本が 1 冊だけ → 「まとめて」で答える。
+  { name: 'perbook-fallback', url: '/?demo=onebook', steps: [{ css: nav('相談') }, { css: 'button:has-text("答え方：")' }, { css: '[role=dialog] [role=radio]:has-text("本ごとに")' }, { fill: ['textarea[aria-label="相談したいこと"]', '営業の成果が落ちて焦っています。人の評価も気になるし、全部を抱えてしまう。どう考えればいい？'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy])' }, { wait: 400 }] },
   { name: 'trial-consult-out', url: '/?demo=trialout', steps: [{ css: nav('相談') }] },
   { name: 'tokens-sheet-loading', url: '/?demo=limit&native=1&price=loading', steps: [{ css: nav('相談') }, { css: 'button:has-text("トークンを追加")' }] },
   { name: 'tokens-sheet-error', url: '/?demo=limit&native=1&price=fail', steps: [{ css: nav('相談') }, { css: 'button:has-text("トークンを追加")' }] },
@@ -236,6 +245,7 @@ function browserOptions() {
 
 async function run(step, page) {
   if (step.wait) return page.waitForTimeout(step.wait);
+  if (step.waitFor) return page.locator(step.waitFor).first().waitFor({ state: 'visible', timeout: 20000 });
   if (step.role) await page.getByRole('button', { name: step.role }).first().click();
   if (step.css) await page.locator(step.css).first().click();
   if (step.scrollTo) await page.locator(step.scrollTo).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));

@@ -255,7 +255,8 @@ function HomeLoadingSkeleton() {
       aria-label="読み込み中"
       style={{ flex: 1, padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}
     >
-      <SkeletonBlock height={400} radius="var(--radius)" />
+      {/* 相談カードと同じ高さ（実測 約 432）・同じ枠 --separator。 */}
+      <SkeletonBlock height={432} radius="var(--radius)" style={{ border: '1px solid var(--separator)', boxSizing: 'border-box' }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
         <SkeletonBlock height={90} radius="var(--radius)" />
@@ -533,8 +534,9 @@ function AuthedApp() {
   const [lastBookshelfView] = useState(() => {
     try {
       const v = localStorage.getItem('bookshelfViewLast');
-      return v === 'grid' || v === 'list' ? v : 'list';
-    } catch { return 'list'; }
+      // まだ一度も出していないときは、auto が本のある人に実際に出す形（4 冊以上＝表紙）に合わせる。
+      return v === 'grid' || v === 'list' ? v : 'grid';
+    } catch { return 'grid'; }
   });
   useEffect(() => {
     if (booksLoading || rawBooks.length === 0) return;
@@ -728,6 +730,10 @@ function AuthedApp() {
   // The "+" button opens this first; from here the user picks the
   // search path (default) or jumps to manual entry.
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
+  // 新しく本を追加するフォームの「‹ 戻り先」。openAdd を押した場所（'home' / 'library'）と、
+  // 検索（AddBookModal）から来たときの検索語（null＝検索を通っていない）。
+  const [addOrigin, setAddOrigin] = useState('library');
+  const [addFromSearchQuery, setAddFromSearchQuery] = useState(null);
   // Carries an initial query from AddBookModal → BookSearchModal so a search
   // typed there auto-runs without re-typing.
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
@@ -794,6 +800,7 @@ function AuthedApp() {
       // 編集中の未保存変更は破棄前に確認（下部ナビと同じガード）。
       if (view === 'edit' && !(await confirmDiscardEdit())) return;
       if (view === 'edit' && current) { setEditPhaseOverride(null); setView('detail'); }
+      else if (view === 'edit') leaveNewBookForm();
       else goList();
     },
   });
@@ -809,7 +816,7 @@ function AuthedApp() {
       if (isBackBlocked()) return false; // 書きかけのシートが開いている間は戻らない
       if (view === 'edit') {
         if (!(await confirmDiscardEdit())) return false;
-        if (current) { setEditPhaseOverride(null); setView('detail'); } else goList();
+        if (current) { setEditPhaseOverride(null); setView('detail'); } else leaveNewBookForm();
         return true;
       }
       if (view === 'detail') { goList(); return true; }
@@ -1049,6 +1056,8 @@ function AuthedApp() {
     // 「読書中」にプリセットする。既定の「読みたい」のままだと、CTA の約束
     // （いま読んでいる本 → すぐメモ）に対して状態セレクタの一段が折れる。
     addStatusPresetRef.current = typeof presetStatus === 'string' ? presetStatus : '';
+    setAddOrigin(tab === 'books' && shelfMode === 'library' ? 'library' : 'home');
+    setAddFromSearchQuery(null);
     setAddBookModalOpen(true);
   };
 
@@ -1056,8 +1065,9 @@ function AuthedApp() {
   // ここでは「ユーザーが結果から本を選んだ」イベントだけを受け取り、
   // 編集画面を該当本のメタデータでプリフィルして開く。検索フォーム /
   // 結果リスト UI は AddBookModal 側に閉じている。
-  const pickBookFromAdd = (b) => {
+  const pickBookFromAdd = (b, query = '') => {
     setAddBookModalOpen(false);
+    setAddFromSearchQuery(query || '');
     // ★ 検索結果に既に表示されていた cover を「視覚的に確認済み」とみなして
     //   そのまま seed + coverIsbn = primary ISBN で確定する。これで
     //   「ユーザーが見て選んだ表紙」と「DB に保存される表紙」が必ず一致する
@@ -1302,8 +1312,9 @@ function AuthedApp() {
   };
 
   // From AddBookModal → 手動入力. Skip the search step entirely.
-  const openManualFromAdd = (seed) => {
+  const openManualFromAdd = (seed, query = '') => {
     setAddBookModalOpen(false);
+    setAddFromSearchQuery(query || '');
     // 検索モーダルに入力済みのタイトル・著者・ISBN を引き継ぐ。
     // 「このまま手動で追加する」の文言どおり、打ち直しをさせない。
     setForm({
@@ -1440,6 +1451,13 @@ function AuthedApp() {
   // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
   // 開いた別の本の詳細でシートが勝手に開いてしまう。
   const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); };
+  // 新しく本を追加するフォームから 1 段戻る: 検索から来たら検索へ（さっきの言葉のまま）、それ以外は一覧へ。
+  const leaveNewBookForm = () => {
+    const fromSearch = addFromSearchQuery !== null;
+    goList();
+    if (fromSearch) setAddBookModalOpen(true);
+  };
+  const newBookBackLabel = addFromSearchQuery !== null ? '検索' : (addOrigin === 'home' ? 'ホーム' : 'すべての本');
 
   // 同じ本が既に本棚にあれば true を返す。ダイアログを出して「📖 既存の本を見る」
   // が押されたらその詳細へジャンプ。呼び出し側はこの戻り値が true なら追加処理
@@ -3781,12 +3799,12 @@ function AuthedApp() {
               onClick={async () => {
                 if (!(await confirmDiscardEdit())) return;
                 if (current) { setEditPhaseOverride(null); setView("detail"); }
-                else goList();
+                else leaveNewBookForm();
               }}
               // 詳細画面・すべての本の戻ると同じ形（ChevronLeft 20・間 0・見た目の左端 16）。
               style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
             >{/* iOS の作法: 戻る先の画面名（＝書名）。長い書名は収まらないので「戻る」。 */}
-              <ChevronLeft size={20} aria-hidden="true" />{current ? ((current.title || '').length <= 8 && current.title ? current.title : '戻る') : 'すべての本'}</button>
+              <ChevronLeft size={20} aria-hidden="true" />{current ? ((current.title || '').length <= 8 && current.title ? current.title : '戻る') : newBookBackLabel}</button>
             <button
               onClick={openHelp}
               style={{ width: 44, height: 44, marginRight: 'calc(-1 * var(--space-3))', display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
@@ -4949,6 +4967,7 @@ function AuthedApp() {
             onClose={() => setAddBookModalOpen(false)}
             onSelect={pickBookFromAdd}
             onManual={openManualFromAdd}
+            initialQuery={addFromSearchQuery || ''}
             existingBooks={books}
             onOpenExisting={(existing) => {
               setAddBookModalOpen(false);

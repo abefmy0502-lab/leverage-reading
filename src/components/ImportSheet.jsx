@@ -136,10 +136,10 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
         {result.books.length > shown.length && (
           <p style={{ ...body, fontSize: 'var(--text-meta)' }}>ほか {result.books.length - shown.length} 冊</p>
         )}
-        <p style={{ ...body, fontSize: 'var(--text-meta)' }}>
-          {/* 「本棚に同じ本があるときは、その本に足す」はヘルプ（bookList の取り込み）へ。 */}
-          同じメモは二重になりません。{result.source === 'kindle' ? '本の状態は「読了」で入ります（あとで変えられます）。' : ''}
-        </p>
+        {/* 「同じ本には足す・同じメモは二重にならない」はヘルプ（bookList の取り込み）だけに書く（説明の補足文を置かない・DESIGN §0-6）。 */}
+        {result.source === 'kindle' && (
+          <p style={{ ...body, fontSize: 'var(--text-meta)' }}>本の状態は「読了」で入ります（あとで変えられます）。</p>
+        )}
       </div>
     );
     // 取り込み中: 主ボタンを押せない形にして進み具合を出す。「別のファイルを選ぶ」は場所だけ残して隠す（高さを変えない）。

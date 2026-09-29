@@ -105,13 +105,12 @@ function BookCoverSkeleton() {
           marginBottom: 'var(--space-2)',
         }}
       />
-      <SkeletonBlock width="90%" height={12} radius="var(--radius-full)" />
-      <SkeletonBlock
-        width="55%"
-        height={10}
-        radius="var(--radius-full)"
-        style={{ marginTop: 4 }}
-      />
+      {/* 書名は本物と同じ 2 行ぶんの高さ（.book-cover-title の min-height）・著者 1 行。 */}
+      <div style={{ height: 'calc(2 * 1.4 * var(--text-meta))', marginBottom: 'var(--space-1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--space-1)' }}>
+        <SkeletonBlock width="90%" height={12} radius="var(--radius-full)" />
+        <SkeletonBlock width="70%" height={12} radius="var(--radius-full)" />
+      </div>
+      <SkeletonBlock width="55%" height={12} radius="var(--radius-full)" />
     </div>
   );
 }

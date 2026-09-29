@@ -146,6 +146,29 @@ function perBookAnswer(block) {
   ].join('\n');
 }
 
+// &ai=broken: 「本ごとに」の答えの ◆ の形が崩れた答え（◆ も「視点：」も無い）。
+//   画面は【本ごとの視点】の節をそのまま段落で見せる（SPEC §3・parseAnswer の booksRaw）。
+function perBookBrokenAnswer(block) {
+  const titles = [...block.matchAll(/^◆『([^』]*)』/gm)].map((m) => m[1]).slice(0, 3);
+  const views = titles.map((t) => (PERBOOK_VIEWS[t] || `『${t}』では、メモに残したことを、いまの悩みに当てはめて考えます。`));
+  return [
+    '【結論】',
+    '焦りの正体を分けて、いま自分で動かせる一点に集中しましょう。評価や結果は、追いかけるほど遠くなります。',
+    '',
+    '【本ごとの視点】',
+    ...views.flatMap((v) => [v, '']),
+    '【共通点と違い】',
+    `${views.length} 冊とも「自分で変えられることに力を集める」点で重なります。`,
+    '',
+    '【明日からできる 1 つの行動】',
+    '明日の朝、始業前の 10 分で今週の商談を 1 つだけ選び、「この商談で相手に何を貢献できるか」を 1 行書いてから臨んでください。',
+    '',
+    'REFS_START',
+    ...titles.map((t) => `- 📚 『${t}』`),
+    'REFS_END',
+  ].join('\n');
+}
+
 // テーマまとめ（本番と同じ「核心 / 繰り返す原則 / 次の一歩」の形）を、渡されたメモから組み立てる。
 function themeAnswer(store, theme, memoBlock) {
   const books = new Map(store.table('books').map((b) => [b.id, b]));
@@ -177,11 +200,11 @@ function themeAnswer(store, theme, memoBlock) {
   ].join('\n');
 }
 
-function aiReply(store, payload) {
+function aiReply(store, payload, aiMode = '') {
   const last = [...(payload.messages || [])].reverse().find((m) => m.role === 'user');
   const userText = textOf(last?.content);
   const perBook = userText.match(/PERSPECTIVE_BOOKS_START =====\n([\s\S]*?)\n===== PERSPECTIVE_BOOKS_END/);
-  if (perBook) return perBookAnswer(perBook[1]);
+  if (perBook) return aiMode === 'broken' ? perBookBrokenAnswer(perBook[1]) : perBookAnswer(perBook[1]);
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     const block = (userText.match(/MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '';
@@ -225,14 +248,19 @@ function aiReply(store, payload) {
   ].join('\n');
 }
 
-function sseResponse(text, stopReason = 'end_turn') {
+// stallAt: その文字数まで書いたところで長く止まる（書いている途中の画面を撮る &ai=stall 用）。
+function sseResponse(text, stopReason = 'end_turn', stallAt = -1) {
   const enc = new TextEncoder();
-  const chunks = text.match(/[\s\S]{1,14}/g) || [''];
+  const chunks = stallAt > 0
+    ? [...(text.slice(0, stallAt).match(/[\s\S]{1,14}/g) || []), null, ...(text.slice(stallAt).match(/[\s\S]{1,14}/g) || [])]
+    : (text.match(/[\s\S]{1,14}/g) || ['']);
   const stream = new ReadableStream({
     async start(controller) {
       const send = (obj) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
       send({ type: 'message_start' });
       for (const c of chunks) {
+        // eslint-disable-next-line no-await-in-loop
+        if (c === null) { await new Promise((r) => setTimeout(r, 60000)); continue; }
         send({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: c } });
         // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 18));
@@ -269,7 +297,9 @@ export function installDemoFetch(store) {
       let payload = {};
       try { payload = JSON.parse(init.body || '{}'); } catch { /* ignore */ }
       // &ai=fail: AI がエラーを返す（エラー表示の確認用）/ &ai=slow: 答えがなかなか返らない（読み込み中の確認用）
-      // / &ai=cut: 答えが長さの上限で途中まで（stop_reason 'max_tokens'・途中切れの表示の確認用）。
+      // / &ai=cut: 答えが長さの上限で途中まで（stop_reason 'max_tokens'・途中切れの表示の確認用）
+      // / &ai=stall: 書き始めてから、本ごとの答えなら 1 冊目の視点の途中（そのほかは 3 割ほど）で長く止まる
+      //   （書いている途中の形の確認用）/ &ai=broken: 本ごとの答えの ◆ の形が崩れる（段落で見せる確認用）。
       const aiMode = new URLSearchParams(window.location.search).get('ai');
       if (aiMode === 'fail') {
         await new Promise((r) => setTimeout(r, 400));
@@ -325,12 +355,19 @@ export function installDemoFetch(store) {
         }
       }
       await new Promise((r) => setTimeout(r, 500));
-      const full = aiReply(store, payload);
+      const full = aiReply(store, payload, aiMode);
       const cut = aiMode === 'cut';
       // 途中切れ: 本文の前半だけ返す（文の途中で切れる）。
       const text = cut ? full.slice(0, Math.max(40, Math.floor(full.length * 0.6))) : full;
       const stopReason = cut ? 'max_tokens' : 'end_turn';
-      if (payload.stream) return sseResponse(text, stopReason);
+      if (payload.stream) {
+        let stallAt = -1;
+        if (aiMode === 'stall') {
+          const v = text.indexOf('\n視点：');
+          stallAt = v > 0 ? v + 40 : Math.floor(text.length * 0.3);
+        }
+        return sseResponse(text, stopReason, stallAt);
+      }
       return json({ content: [{ type: 'text', text }], stop_reason: stopReason });
     }
     if (url.includes('/api/cover')) {

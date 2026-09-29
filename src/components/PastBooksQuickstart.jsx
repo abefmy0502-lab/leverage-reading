@@ -13,7 +13,7 @@
 // 説明の補足文は置かない（§0-6）・選択はアクセント色の丸いチェック（iOS の選択リストの作法）。
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Search, Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { X, Search, SearchX, Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import { TOKEN_COSTS } from '../lib/tokens';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -377,7 +377,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
 
               {!searching && !searchError && results && results.length === 0 && (
                 <EmptyState
-                  icon={<Search size={28} aria-hidden="true" />}
+                  icon={<SearchX size={32} aria-hidden="true" />}
                   title="見つかりませんでした"
                   description="書名だけでも追加できます"
                   actions={[{

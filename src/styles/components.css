@@ -699,8 +699,8 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 
 /* ---- Error message ----------------------------------------------------- */
 .error-message {
-  background: var(--color-error-soft);
-  border-left: 4px solid var(--color-error);
+  /* 面だけで示す（左の太い線は飾りなので付けない・2026-09-29）。 */
+  background: var(--error-soft);
   padding: var(--space-4);
   border-radius: var(--radius);
   margin: 0; /* 周りとの間は置く側の gap に任せる */
@@ -711,14 +711,17 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   margin-bottom: var(--space-2);
 }
 .error-message-title {
-  font-size: var(--type-headline);
-  font-weight: var(--weight-semibold);
-  color: var(--color-text-primary);
+  /* DESIGN §2: 本文 17/600。 */
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
   margin: 0 0 var(--space-2);
 }
 .error-message-description {
-  font-size: var(--type-body);
-  color: var(--color-text-secondary);
+  /* DESIGN §2: 補足 15・--text-2（空の表示の説明と同じ）。 */
+  font-size: var(--text-sub);
+  color: var(--text-2);
   line-height: 1.5;
   margin: 0;
   /* 文節で折り返す（「く／ださい。」のような切れ方をしない）。非対応の端末は通常どおり。 */
@@ -732,10 +735,10 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   flex-wrap: wrap;
 }
 .error-message-hint {
-  font-size: var(--type-caption);
-  color: var(--color-text-tertiary);
+  font-size: var(--text-meta);
+  color: var(--text-2);
   margin-top: var(--space-2);
-  line-height: var(--leading-relaxed);
+  line-height: 1.5;
 }
 
 /* ---- Input hint -------------------------------------------------------- */
@@ -953,6 +956,8 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+  /* 1 行の書名でも 2 行ぶんの高さを取り、となりのカードと著者・状態の行の位置をそろえる（2026-09-29）。 */
+  min-height: calc(2 * 1.4em);
 }
 .book-cover-author {
   font-size: var(--text-meta);

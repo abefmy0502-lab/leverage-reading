@@ -260,6 +260,13 @@ export function buildSeed(scenario) {
     });
   });
 
+  // ?demo=onebook: メモ（カード式）がある本が 1 冊だけの人（答え方「本ごとに」で並べる本が 2 冊に満たず、
+  //   「まとめて」で答える流れの確認用・ai.js の pickPerspectiveBooks）。学び（personal）は残す。
+  if (scenario === 'onebook') {
+    const keep = bookIds[BOOKS.findIndex(([t]) => t === 'エッセンシャル思考')];
+    db.book_memos = db.book_memos.filter((m) => m.book_id == null || m.book_id === keep);
+  }
+
   // ?demo=longmemo: 『1兆ドルコーチ』の先頭（ページ順で最初）に長いメモが 1 件ある人（メモカードの長文の確認用）。
   if (scenario === 'longmemo') {
     const bi = BOOKS.findIndex(([t]) => t === '1兆ドルコーチ');

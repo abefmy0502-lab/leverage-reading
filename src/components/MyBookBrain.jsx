@@ -22,6 +22,7 @@ import KnowledgeManager from './KnowledgeManager';
 import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
+import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { SkeletonBlock } from './Skeleton';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2 } from 'lucide-react';
 import ContextMenu from './ContextMenu';
@@ -1238,7 +1239,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <ErrorMessage
                 title="過去の相談を読み込めませんでした"
                 description="通信の状態を確かめて、もう一度お試しください。"
-                actions={[{ label: 'もう一度', onClick: () => { setHistoryError(false); setHistoryLoaded(false); fetchHistory(); } }]}
+                actions={[{ label: 'もう一度', variant: 'primary', onClick: () => { setHistoryError(false); setHistoryLoaded(false); fetchHistory(); } }]}
               />
             )}
             {/* 戻るは上の「‹ 相談」だけ（同じ操作のボタンを 2 か所に出さない）。 */}
@@ -1290,7 +1291,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <h2 id="brain-scope-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-2)' }}>
                   {scopeIds.length === 1 ? 'この本にはまだメモがありません' : '選んだ本にはまだメモがありません'}
                 </h2>
-                <button type="button" onClick={() => setScopeIds([])} style={{ ...uiBtnText, fontSize: 'var(--text-sub)', padding: 'var(--space-2) 0' }}>
+                <button type="button" onClick={() => setScopeIds([])} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
                   すべての本に相談する
                 </button>
               </section>
@@ -1686,7 +1687,8 @@ export function parseAnswer(text) {
     books: bookViews ? bookViews.books : null,
     // ◆ の形が崩れて本を 1 冊も取り出せなかったときは、その節をそのまま段落で見せる（捨てない）
     booksRaw: bookViews && bookViews.books.length === 0 ? join('books') : '',
-    booksLead: bookViews ? bookViews.lead : '',
+    // （本を取り出せなかったときは節まるごとが booksRaw に入るので、同じ文を前置きとして二重に出さない）
+    booksLead: bookViews && bookViews.books.length > 0 ? bookViews.lead : '',
     compare: join('compare'),
   };
 }
@@ -1910,13 +1912,18 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   if (isUser) {
     return (
       <div style={{ display: 'flex', justifyContent: 'flex-end' }} role="article" aria-label="あなたの相談">
-        <div className="text-pretty" style={{ maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'auto-phrase', overflowWrap: 'break-word' }}>
+        {/* 文字に沿って縮む（いちばん長い行＋内側余白・最大 85%）。文節の切れ目（BudouX の <wbr>）でだけ折り返す。 */}
+        <TightBubble
+          text={`${message.scopeLabel || ''}\n${message.content || ''}\n${time ? message.createdAt : ''}`}
+          className="text-pretty"
+          style={{ maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}
+        >
           {message.scopeLabel && message.scopeLabel !== SCOPE_ALL_LABEL && (
-            <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginBottom: 'var(--space-1)' }}>相談相手：{message.scopeLabel}</span>
+            <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginBottom: 'var(--space-1)' }}>相談相手：{withPhraseBreaks(message.scopeLabel)}</span>
           )}
-          {message.content}
+          {withPhraseBreaks(message.content)}
           {time}
-        </div>
+        </TightBubble>
       </div>
     );
   }
@@ -2185,10 +2192,10 @@ function BarChip({ name, value, active, disabled, onClick }) {
       disabled={disabled}
       aria-haspopup="dialog"
       // 答えを作っている間も薄くしない（DESIGN §5 押せないボタン）。文字色を 1 段落として示す。
-      style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((32px - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
+      style={{ minWidth: 0, maxWidth: '100%', minHeight: 44, margin: 'calc((var(--space-8) - 44px) / 2) 0', display: 'inline-flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', opacity: 1 }}
     >
       <span style={{
-        minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 32, padding: '0 var(--space-3)',
+        minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', height: 'var(--space-8)', padding: '0 var(--space-3)',
         borderRadius: 'var(--radius)', background: active ? 'var(--accent-soft)' : 'var(--fill)', color: disabled ? 'var(--text-2)' : 'var(--text)',
         fontSize: 'var(--text-meta)', fontWeight: 600,
       }}>
@@ -2206,13 +2213,14 @@ function BarChip({ name, value, active, disabled, onClick }) {
 function ScopeBar({ label, scoped, onOpen, onReset, disabled, mode = null, onOpenMode }) {
   const showMode = mode != null && !!onOpenMode;
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: '1px solid var(--separator)' }}>
+    // 「すべてに戻す」を出すときは折り返さず、長い書名のチップの方を縮めて（… で省略）1 行に収める。
+    <div style={{ display: 'flex', flexWrap: scoped && !showMode ? 'nowrap' : 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: '1px solid var(--separator)' }}>
       <BarChip name="相談相手：" value={label} active={scoped} disabled={disabled} onClick={onOpen} />
       {showMode && (
         <BarChip name="答え方：" value={answerModeLabel(mode)} active={mode === 'perbook'} disabled={disabled} onClick={onOpenMode} />
       )}
       {scoped && !showMode && (
-        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnText, fontSize: 'var(--text-meta)', padding: 0, minHeight: 44, margin: 'calc((32px - 44px) / 2) 0 calc((32px - 44px) / 2) var(--space-1)', flexShrink: 0, ...(disabled ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}>
+        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnLink, margin: 'calc((var(--space-8) - 44px) / 2) 0', flexShrink: 0, whiteSpace: 'nowrap', ...(disabled ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}>
           すべてに戻す
         </button>
       )}
