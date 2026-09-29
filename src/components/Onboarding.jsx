@@ -215,7 +215,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     onStart?.();
   };
 
-  // 📥 ブクログ・Kindle の記録から取り込む（無料の最初の一歩・2026-09-27）。
+  // 📥 ブクログ・読書メーター・Kindle から取り込む（無料の最初の一歩・2026-09-27）。
   // 旧「悩みから AI 選書で探す」は AI 選書がプランの機能になったため差し替え（無料は相談だけ）。
   const startImport = () => {
     markOnboardingCompleted();
@@ -323,7 +323,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <button type="button" style={btnLink} onClick={startImport}>
-                  ブクログ・Kindle の記録から取り込む
+                  ブクログ・読書メーター・Kindle から取り込む
                 </button>
               </div>
             </div>

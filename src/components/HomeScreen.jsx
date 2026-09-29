@@ -36,7 +36,7 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
           文字ボタンの上下の余り（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
       {onImport ? (
         <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
-          <button type="button" onClick={onImport} style={textRow}>ブクログ・Kindle から取り込む</button>
+          <button type="button" onClick={onImport} style={textRow}>ブクログ・読書メーター・Kindle から取り込む</button>
         </div>
       ) : onAdvisor ? (
         <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>

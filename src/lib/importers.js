@@ -484,15 +484,20 @@ export function mergeImportResults(results) {
   if (list.length === 1) return list[0];
   const sources = [...new Set(list.map((r) => r.source).filter(Boolean))];
   const byKey = new Map();
+  // 同じ本: ISBN（または ASIN）が同じ、または書名＋著者が同じ（著者の書き方が違っても ISBN で 1 冊に）。
+  const byId = new Map();
   let memoCount = 0;
   for (const r of list) {
     for (const b of r.books) {
       const key = `${String(b.title || '').trim()}\u0000${String(b.author || '').trim()}`;
-      if (!byKey.has(key)) {
+      const id = b.isbn || b.asin || '';
+      let book = byKey.get(key) || (id ? byId.get(id) : null);
+      if (!book) {
         if (byKey.size >= IMPORT_MAX_BOOKS) continue;
-        byKey.set(key, { ...b, memos: [] });
+        book = { ...b, memos: [] };
+        byKey.set(key, book);
       }
-      const book = byKey.get(key);
+      if (id && !byId.has(id)) byId.set(id, book);
       if (!book.review && b.review) book.review = b.review;
       if (!book.isbn && b.isbn) book.isbn = b.isbn;
       if (!book.asin && b.asin) book.asin = b.asin;
@@ -505,7 +510,7 @@ export function mergeImportResults(results) {
       }
     }
   }
-  return { source: sources.length === 1 ? sources[0] : 'mixed', books: [...byKey.values()] };
+  return { source: sources.length === 1 ? sources[0] : 'mixed', books: [...new Set(byKey.values())] };
 }
 
 export function summarizeImport(result) {

@@ -351,7 +351,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             </p>
             {onImport && (
               <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-1)' }}>
-                ブクログ・Kindle の記録から取り込む
+                ブクログ・読書メーター・Kindle から取り込む
               </button>
             )}
 

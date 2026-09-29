@@ -110,7 +110,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
           <li>
             {/* 読書メーターには公式の書き出しが無いので、パソコンで保存したページ（.html）を選ぶ。書き出しツールの CSV もそのまま読める（ヘルプ）。 */}
             <p style={howTitle}>読書メーター</p>
-            <p style={body}>パソコンで「読んだ本」を「リスト」表示にして、ページを保存（.html）して選びます。感想も取り込みます。ページが分かれているときは、まとめて選べます。</p>
+            <p style={body}>パソコンで「読んだ本」を「リスト」表示にして、ページを保存（.html）して選びます。感想も取り込みます。</p>
           </li>
           <li>
             <p style={howTitle}>Kindle アプリ</p>
@@ -151,11 +151,14 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
             <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
               <BookOpen size={18} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-              {(b.memos?.length || 0) > 0 && (
+              {(b.memos?.length || 0) > 0 ? (
                 <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>
                   メモ {b.memos.length}
                 </span>
-              )}
+              ) : b.review ? (
+                // メモが無く、レビュー・感想だけの本（読書メーターに多い）は「まとめ」と出す（見出しの「まとめ N 件」と対応）。
+                <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>まとめ</span>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -203,10 +206,12 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
     // したことを 1 文に（例「本 2 冊を追加・1 冊にメモを足しました。」）。最後だけ「〜ました」。
     // 数と単位は改行しない空白でつなぐ。「この本のまとめ」はかぎかっこの中で切らない（nowrap）。
     const matome = <span style={nowrap}>「この本のまとめ」</span>;
+    // 読書メーターでは「感想」と呼ぶ（ブクログは「レビュー」）。
+    const reviewWord = result?.source === 'bookmeter' ? '感想' : 'レビュー';
     const did = any ? [
       outcome.booksAdded > 0 ? [`本 ${outcome.booksAdded} 冊を追加`, `本 ${outcome.booksAdded} 冊を追加しました`] : null,
       outcome.booksMatched > 0 ? [`${outcome.booksMatched} 冊にメモを足し`, `${outcome.booksMatched} 冊にメモを足しました`] : null,
-      reviews > 0 ? [<>レビューを{matome}に入れ</>, <>レビューを{matome}に<span style={nowrap}>入れました</span></>] : null,
+      reviews > 0 ? [<>{reviewWord}を{matome}に入れ</>, <>{reviewWord}を{matome}に<span style={nowrap}>入れました</span></>] : null,
     ].filter(Boolean) : [];
     const didParts = did.map((d, i) => (i === did.length - 1 ? d[1] : d[0]));
     content = (
