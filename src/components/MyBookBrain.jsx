@@ -179,15 +179,15 @@ function transformMessage(row) {
 // していたが、iOS Safari で上端が見切れる + 下に元画面が透ける問題が
 // あった。タブ画面なのでモーダルにする必然性も薄く、インライン展開に
 // 変更。
-function LearningInline({ onSaved }) {
+function LearningInline({ onSaved, initialTags = null }) {
   const { user } = useAuth();
   const toast = useToast();
   const [text, setText] = useState('');
   // ＋ 分類・タグ（最初は閉じる＝本文と保存だけを見せる。QuickMemoSheet の「＋ 詳しく」と同じ）。
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(() => !!initialTags?.length);
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [tagInput, setTagInput] = useState('');
-  const [tags, setTags] = useState([]);
+  const [tags, setTags] = useState(() => (Array.isArray(initialTags) ? initialTags.filter(Boolean) : []));
   const [busy, setBusy] = useState(false);
 
   const addTag = () => {
@@ -342,7 +342,7 @@ function LearningInline({ onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, learningPreset, onPushedViewChange, onSearchMemos }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -426,6 +426,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setView('chat');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopePreset?.nonce]);
+  // テーマまとめの「学びを書く」から来たら、学びを書く画面をテーマのタグ入りで開く（2026-09-29）。
+  const [learningTags, setLearningTags] = useState(null);
+  useEffect(() => {
+    if (!learningPreset || !consumePreset('learning', learningPreset.nonce)) return;
+    setLearningTags(Array.isArray(learningPreset.tags) ? learningPreset.tags : null);
+    setView('learning');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [learningPreset?.nonce]);
+  // 学びを書く画面を離れたら、入れておいたタグは忘れる（次にメニューから開いたときに残らないように）。
+  useEffect(() => { if (view !== 'learning') setLearningTags(null); }, [view]);
   const [busy, setBusy] = useState(false);
   // 🔔 はじめて「行動に追加」した答えの id（その下に、思い出しの通知の案内を 1 回だけ出す）
   const [optinAfterId, setOptinAfterId] = useState(null);
@@ -1450,6 +1460,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       {view === 'learning' && (
         <div style={viewScroll} onScroll={onBodyScroll}>
           <LearningInline
+            initialTags={learningTags}
             onCancel={() => setView('chat')}
             onSaved={() => { setView('chat'); setStatsTick((t) => t + 1); }}
           />

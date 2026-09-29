@@ -142,7 +142,7 @@ import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 import { PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
-import { periodKeyFor, fetchUsedMjpy, fetchLotBalance, remainingTokens, allowanceFor as allowanceForPlan } from './lib/tokens';
+import { periodKeyFor, fetchUsedMjpy, fetchLotBalance, remainingTokens, allowanceFor as allowanceForPlan, runCostLine, TOKEN_COSTS } from './lib/tokens';
 // 🪙➕ トークンを追加（買い足し）のシート
 const TokenSheet = lazy(() => import('./components/TokenSheet'));
 import { PaywallContext, usePaywall } from './state/PaywallContext';
@@ -590,6 +590,8 @@ function AuthedApp() {
   const [memoSearchPreset, setMemoSearchPreset] = useState(null); // { query, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
+  // 📐→🧠 テーマまとめの「学びを書く」: 相談の「学びを書く」をテーマのタグ入りで開く（2026-09-29）。
+  const [learningPreset, setLearningPreset] = useState(null); // { tags, nonce } | null
   // 🏠 ホームタブ（tab キー 'books'）の中の画面: 'home'＝ホーム / 'library'＝すべての本（SPEC §1）。
   // お試しモードだけ ?shelf=library で「すべての本」から開ける（読み込み中・失敗の表示の確認用）。
   const [shelfMode, setShelfMode] = useState(() => (isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('shelf') === 'library' ? 'library' : 'home'));
@@ -2376,7 +2378,8 @@ function AuthedApp() {
   };
 
 // Status transitions — optimistic UI with undo toast.
-  const advanceStatus = (book, newStatus) => {
+  // opts.message: 「元に戻す」の知らせの代わりに出す文（読書計画シートを作りに積読に積んだとき等・2026-09-29）。
+  const advanceStatus = (book, newStatus, opts = {}) => {
     if (!book) return;
     // 呼び出し元のスナップショット（current 等）は古い可能性がある。saveBook は
     // 「渡した actions に無い行を DELETE」する差分同期なので、stale なまま保存すると
@@ -2477,6 +2480,10 @@ function AuthedApp() {
         duration: 6500,
         action: { label: '元に戻す', onClick: revert },
       }));
+    } else if (opts.message) {
+      // 状態の変更はついで（読書計画シートを作るために積読に積んだ等）。「元に戻す」は出さず、何をしているかだけ。
+      dismissStatusUndo(book.id);
+      toast.show({ type: 'info', message: opts.message });
     } else {
       dismissStatusUndo(book.id);
       statusUndoToastRef.current.set(book.id, toast.undo({
@@ -2574,7 +2581,7 @@ function AuthedApp() {
 
   // （撤去 2026-09-27）runAnalysis —「AIで本を解析する」。読書計画シートと役割が重なるため廃止。
   // 読書計画シート（作る・修正）はプランの機能（フリーミアム）。無料プランなら有料プランの画面を開く。
-  const { requirePlan, plan: paywallPlan } = usePaywall();
+  const { requirePlan, plan: paywallPlan, freeMode: paywallFree, tokensRemaining: paywallTokens, purchasedTokens: paywallPurchased } = usePaywall();
   // 読書計画シート（と、その材料の得たいこと・課題・仮説）だけを、編集画面を開いたまま保存する。
   // 本の最新の値に重ねて保存（ほかの欄の書きかけは保存しない）し、編集中の「未保存の変更」の基準も
   // シートの分だけ進める（閉じるときに「保存していない変更があります」と言わない）。
@@ -3624,7 +3631,7 @@ function AuthedApp() {
           {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
           {current.aiStrategy && (
             // その場で作り終えた直後は開いたまま（key を変えて、開いた状態で置き直す）。
-            <details key={justMadePlanId === current.id ? 'plan-made' : 'plan'} open={justMadePlanId === current.id || undefined} style={{ ...detailsStyle, marginTop: 0 }}>
+            <details id="plan-sheet-fold" key={justMadePlanId === current.id ? 'plan-made' : 'plan'} open={justMadePlanId === current.id || undefined} style={{ ...detailsStyle, marginTop: 0, scrollMarginTop: 'var(--space-16)' }}>
               <summary style={summaryStyle}>
                 読書計画シート
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
@@ -3924,21 +3931,52 @@ function AuthedApp() {
                 {/* 読みたい: 読書計画シートは積読から作れる。1 行の説明の代わりに、押せば積読に積んで
                     その場で作り始める文字ボタン（2026-09-29）。無料プランは状態を変える前に有料プランの画面を開く。
                     得たいことがまだ無ければ、積読に積んだうえで読書計画の編集画面へ（runStrategyInPlace と同じ）。 */}
-                {current.status === 'want' && (
+                {current.status === 'want' && (current.aiStrategy || '').trim() && (
+                  // もうシートがある読みたい本: 作り直さず、下の「読書計画シート」を開いてそこへ寄せる（2026-09-29）。
                   <button
                     type="button"
-                    disabled={!!planGen}
                     onClick={() => {
-                      if (planGen) return;
-                      if (!requirePlan('読書計画シート')) return;
-                      const book = current;
-                      advanceStatus(book, 'before');
-                      runStrategyInPlace({ ...book, status: 'before' });
+                      setJustMadePlanId(current.id);
+                      requestAnimationFrame(() => {
+                        try { document.getElementById('plan-sheet-fold')?.scrollIntoView({ block: 'start', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+                      });
                     }}
                     style={{ ...btnLink, alignSelf: 'center' }}
                   >
-                    読書計画シートを作る（積読に積みます）
+                    読書計画シートを見る
                   </button>
+                )}
+                {current.status === 'want' && !(current.aiStrategy || '').trim() && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={!!planGen}
+                      onClick={() => {
+                        if (planGen) return;
+                        if (!requirePlan('読書計画シート')) return;
+                        const book = current;
+                        // 状態の変更はついでなので「元に戻す」は出さず、いま何をしているかを言う（2026-09-29）。
+                        //   得たいことがまだ無い本は、積読に積んで編集画面へ（runStrategyInPlace → openSetup）。
+                        const hasPurpose = !!(buildFormFromBook(book).investPurpose || '').trim();
+                        advanceStatus(book, 'before', {
+                          message: hasPurpose
+                            ? '積読に積んで、読書計画シートを作っています'
+                            : '積読に積みました。得たいことを書くと、読書計画シートを作れます',
+                        });
+                        runStrategyInPlace({ ...book, status: 'before' });
+                      }}
+                      style={{ ...btnLink, alignSelf: 'center' }}
+                    >
+                      読書計画シートを作る（積読に積みます）
+                    </button>
+                    {/* 1 回の目安と残り（AI 選書・テーマまとめと同じ言い方・無料プランはプランの機能なので出さない）。 */}
+                    {!paywallFree && (() => {
+                      const line = runCostLine({ plan: paywallPlan, remaining: paywallTokens, purchased: paywallPurchased, cost: TOKEN_COSTS.setupSheet });
+                      return line ? (
+                        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.5 }}>{line}</p>
+                      ) : null;
+                    })()}
+                  </>
                 )}
                 {/* 読みたいだけ: 主ボタン「積読に積む」のすぐ下に文字ボタン（積読では「読書を開始する」と
                     行き先が同じで二重になるので出さない）。ワンタップで読書中にして、そのままメモを開く。 */}
@@ -4946,6 +4984,7 @@ function AuthedApp() {
                     onActionAdded={() => { try { refreshBooks(); } catch { /* ignore */ } }}
                     onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
+                    onWriteLearning={(theme) => { setLearningPreset({ tags: theme ? [theme] : [], nonce: Date.now() }); setAiSubTab('brain'); }}
                   />
                 </Suspense>
               ) : (
@@ -4962,6 +5001,7 @@ function AuthedApp() {
                     onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
                     askPreset={askPreset}
                     scopePreset={scopePreset}
+                    learningPreset={learningPreset}
                     onSearchMemos={openMemoSearch}
                     onPushedViewChange={setConsultPushed}
                   />

@@ -1295,7 +1295,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               <button
                 type="button"
                 onClick={goBackQuestion}
-                aria-label={interviewStep === 0 ? '相談入力に戻る' : '前の質問に戻る'}
+                aria-label={interviewStep === 0 ? '最初の入力に戻る' : '前の質問に戻る'}
                 style={{ ...iconBtn, justifyContent: 'flex-start' }}
               >
                 <IcBack size={22} aria-hidden="true" />

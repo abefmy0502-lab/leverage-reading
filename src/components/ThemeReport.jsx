@@ -191,7 +191,7 @@ function writeSnap(theme, snap) {
   } catch { /* ignore */ }
 }
 
-export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshelf } = {}) {
+export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshelf, onWriteLearning } = {}) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -682,7 +682,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   )}
                 </div>
                 {!notice && scope && (scope.memoTotal > 0 || scope.bookCount > 0) && (
-                  <p style={metaText}>本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件を横断</p>
+                  <p style={metaText}>本 {scope.bookCount} 冊・メモ {scope.memoTotal} 件{scope.bookCount === 1 ? 'から' : 'を横断'}</p>
                 )}
                 {/* 前回からの変化（端末ローカル比較・あるときだけ） */}
                 {reportDone && delta && (
@@ -718,6 +718,12 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   {canBuyTokens && /^(今月のトークン|無料期間のトークン)/.test(notice) && (
                     <button type="button" onClick={openTokenSheet} style={uiBtnPrimary}>
                       トークンを追加
+                    </button>
+                  )}
+                  {/* 関連するメモが無いときの案内は「学びを書く」をすすめるので、その場で開けるように（テーマをタグに入れて・2026-09-29）。 */}
+                  {onWriteLearning && noticeKind === 'info' && notice.includes('「学びを書く」') && (
+                    <button type="button" onClick={() => onWriteLearning(activeTheme)} style={uiBtnGhost}>
+                      学びを書く
                     </button>
                   )}
                 </div>
