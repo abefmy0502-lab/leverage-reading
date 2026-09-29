@@ -656,8 +656,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
         <>
           <div style={body}>
             {/* えらんだ本の表紙を並べる＝「この本たちが相談相手」をひと目で */}
-            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }} aria-hidden="true">
-              {summary.books.map((b) => <MiniCover key={b.id || bookKey(b)} book={b} width={56} />)}
+            {/* 幅 88: 表紙の無い本でも書名の文節（6 字まで）が 1 行に収まる大きさ（56 では語の途中で割れた・2026-09-29） */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }} aria-hidden="true">
+              {summary.books.map((b) => <MiniCover key={b.id || bookKey(b)} book={b} width={88} />)}
             </div>
             {summary.memos > 0 ? (
               <>

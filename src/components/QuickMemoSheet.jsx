@@ -282,8 +282,9 @@ export default function QuickMemoSheet({
     if (busy || condensing) return false;
     if (text.trim()) {
       const ok = await confirmDialog({
-        title: '保存していない変更があります',
-        message: '破棄すると、この変更は失われます。',
+        // 新しいメモの書きかけ（ボタンの「書いたことを消す」と同じ言葉で・2026-09-29）。
+        title: '書きかけのメモがあります',
+        message: '消すと、元に戻せません。',
         confirmLabel: '書いたことを消す',
         cancelLabel: '編集を続ける',
         danger: true,

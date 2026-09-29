@@ -12,7 +12,7 @@ import { ChevronRight } from 'lucide-react';
 import SwipeableCard from './SwipeableCard';
 import { Stars } from './formPrimitives';
 import { getSt } from '../lib/status';
-import { withPhraseBreaks } from './TightBubble';
+import { withPhraseBreaks, longestPhraseLength } from './TightBubble';
 
 // 状態の表示用ラベル（押せない）。DESIGN §5「表示用ラベル」: 面を付けず、アイコン＋--text-2 13 の文字。
 // 本の一覧の行（著者の横）と本の詳細の見出しで共有する。
@@ -120,6 +120,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
     if (!show) onAutoRetry?.(book);
   }, [show, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const height = Math.round(width * 1.42); // 一般的な書籍の縦横比
+  const showTitle = width >= 48 && longestPhraseLength(book.title) * 12 <= width - 8 - 2; // 2: 字幅の端数で行からはみ出さない余裕
   return (
     // 表紙は「本の形」（DESIGN §4 の例外: 角丸 4）。影は使わず、極細の枠で面と分ける（暗い画面でも成立）。
     <div style={{ position: 'relative', width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, boxShadow: 'inset 0 0 0 1px var(--separator)' }}>
@@ -135,7 +136,8 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
         {/* 幅 48 未満の小さな表紙には書名を出さない（1 行に 2〜3 字しか入らず「1兆ド／ルコ」のように割れて読めない・
             書名は横の行に出ている・2026-09-29）。出すときは文節の切れ目（BudouX の <wbr>）でだけ折り返す。
             行の切り詰めは内側の文字にかける（箱全体にかけると、下の行が半分だけ見えてしまう）。 */}
-        {width >= 48 && (
+        {/* さらに、いちばん長い文節が 1 行に収まる表紙にだけ出す（字 12 × 字数 ≦ 幅 − 内側の余白 8・2026-09-29）。 */}
+        {showTitle && (
           <span style={{ display: '-webkit-box', WebkitLineClamp: Math.max(1, Math.floor((height - 8) / 16)), WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
             {withPhraseBreaks(book.title)}
           </span>

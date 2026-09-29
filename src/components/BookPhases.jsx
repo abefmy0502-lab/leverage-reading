@@ -15,7 +15,7 @@ import {
   Search as IcSearch, Map as IcMap, ImagePlus as IcImagePlus,
   Target as IcTarget, ChevronDown as IcChevron, X as IcX,
 } from 'lucide-react';
-import { btnPrimary, btnGhost, btnGhostOff, btnText, btnLink, groupTitle } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnText, btnLink, groupTitle, fieldNote } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import { LIMITS } from '../lib/limits';
 import { useBookCover } from '../hooks/useBookCover';
@@ -115,6 +115,8 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
   const titleRef = useRef(null);
   const [titleMissing, setTitleMissing] = useState(false);
   const titleErrId = useId();
+  const titleInputId = useId();
+  const authorInputId = useId();
   const handleSaveClick = () => {
     if (!canSave) {
       setTitleMissing(true);
@@ -189,10 +191,18 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
             style={{ display: 'none' }}
           />
         </div>
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <input ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} placeholder="書名（必須）" aria-label="書名（必須）" aria-invalid={titleMissing || undefined} aria-describedby={titleMissing ? titleErrId : undefined} style={titleMissing ? { ...inp, borderColor: 'var(--error)' } : inp} maxLength={LIMITS.bookTitle} />
-          {titleMissing && <p id={titleErrId} role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入れてください</p>}
-          <input value={form.author || ""} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" aria-label="著者" style={inp} maxLength={LIMITS.bookAuthor} />
+        {/* 欄の名前は placeholder だけにせず、欄の上に常に出す（書き始めると消えて何の欄か分からなくなる・
+            DESIGN §5 入力欄: 見出し 12/600 ＋「（必須）」「（任意）」13/400/--text-2・2026-09-29）。 */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <label htmlFor={titleInputId} style={groupTitle}>書名<span style={fieldNote}>（必須）</span></label>
+            <input id={titleInputId} aria-label="書名（必須）" ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} aria-invalid={titleMissing || undefined} aria-describedby={titleMissing ? titleErrId : undefined} style={titleMissing ? { ...inp, borderColor: 'var(--error)' } : inp} maxLength={LIMITS.bookTitle} />
+            {titleMissing && <p id={titleErrId} role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入れてください</p>}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <label htmlFor={authorInputId} style={groupTitle}>著者<span style={fieldNote}>（任意）</span></label>
+            <input id={authorInputId} aria-label="著者（任意）" value={form.author || ""} onChange={(e) => setForm({ ...form, author: e.target.value })} style={inp} maxLength={LIMITS.bookAuthor} />
+          </div>
         </div>
       </div>
 
@@ -324,8 +334,9 @@ export function BeforePhase({
       {/* ⚠️ 得たいこと〜読書計画シートは AI にゲートしない。AI を使わない / 月次上限 /
           オフラインのユーザーも、得たいことさえ書けば読書を開始できる（AI は任意の補助）。 */}
 
-      <Field label="この本から得たいこと（必須）">
+      <Field label={<>この本から得たいこと<span style={fieldNote}>（必須）</span></>}>
         <textarea
+          aria-label="この本から得たいこと（必須）"
           ref={purposeRef}
           value={form.investPurpose || ""}
           onChange={(e) => setForm({ ...form, investPurpose: e.target.value })}
@@ -494,10 +505,11 @@ export function saveLabelFor(form, savedAsBefore) {
   const planReady = !!form?.investPurpose?.trim();
   return form?.status === 'before' && savedAsBefore && planReady ? '保存して読書を開始' : '保存';
 }
-export function EditSaveBar({ onSave, label = '保存', saving = false }) {
+// disabled: 読書計画シートを作っている間など、保存するとシートが途中で切れるとき（押せない主ボタン＝薄くしない・2026-09-29）。
+export function EditSaveBar({ onSave, label = '保存', saving = false, disabled = false }) {
   return (
     <div style={{ flexShrink: 0, borderTop: '1px solid var(--separator)', background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
-      <button type="button" onClick={onSave} aria-busy={saving || undefined} style={btnPrimary}>{label}</button>
+      <button type="button" onClick={onSave} disabled={disabled} aria-busy={saving || undefined} style={disabled ? btnPrimaryOff : btnPrimary}>{label}</button>
     </div>
   );
 }
@@ -602,7 +614,8 @@ function ActionsEditor({ form, setForm, title, placeholder }) {
                 <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...dateInp(a.deadline), fontWeight: 400, letterSpacing: 'normal' }} aria-label={`行動 ${i + 1} の期限`} />
               </label>
             </div>
-            <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, padding: 0, marginRight: 'calc(-1 * var(--space-3))', display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {/* 押せる範囲 44 のまま、負の余白で × の見た目の右端をカードの余白 16 にそろえる（2026-09-29）。 */}
               <IcX size={18} aria-hidden="true" />
             </button>
           </div>

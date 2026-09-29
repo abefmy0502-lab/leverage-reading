@@ -137,7 +137,7 @@ export async function streamClaude({
           err.monthlyLimit = true; // 呼び出し側は「エラー」ではなく案内として見せる（トークンの上限）
           throw err;
         }
-        throw new Error('リクエストが多すぎます。少し時間をおいて再試行してください。');
+        throw new Error('リクエストが多すぎます。少し時間をおいて、やり直してください。');
       }
       throw new Error(detail ? `エラー: ${detail}` : `エラー (${res.status})`);
     }

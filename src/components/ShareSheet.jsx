@@ -63,7 +63,7 @@ const session = { style: 'paper', format: 'story', textPos: 'bottom' };
 
 // プレビューの高さ（シートが 1 画面に収まるように・形が変わっても高さは同じ）。
 // 下の「どの一文にする？」の候補が最初の画面で見えるよう、少し低く（2026-09-29: 40vh/340 → 34vh/300）。
-const PREVIEW_H = 'min(34vh, 300px)';
+const PREVIEW_H = 'min(30vh, 264px)';
 
 // 形の切り替えは、振り返り・相談のサブタブ（.sub-tab）と同じ見た目（選択中は --accent-soft の面）。
 const segBtn = (on) => ({
@@ -290,6 +290,14 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
   const pointers = useRef(new Map());
   const gesture = useRef(null);
   const canPan = effStyle === 'photo' && !!photo;
+  // 動かし方の一言は、写真を選んだ直後に 3 秒だけ出して消す（画像の文字・ロゴに重ね続けない・2026-09-29）。
+  const [panHint, setPanHint] = useState(false);
+  useEffect(() => {
+    if (!canPan) { setPanHint(false); return undefined; }
+    setPanHint(true);
+    const t = setTimeout(() => setPanHint(false), 3000);
+    return () => clearTimeout(t);
+  }, [canPan, photo]);
   // 動かしている間は、画面に見える大きさで写真＋重ねる層だけを描く（1 コマを軽く・F8）。指を離したら全部を描き直す。
   const dragCache = useRef({});
   const redrawSoon = () => {
@@ -513,6 +521,15 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
                   <SkeletonBlock width="100%" height="100%" radius="var(--radius)" />
                 </div>
               )}
+              {/* 写真の動かし方は、プレビューの下に 1 行足さず、写真の上に重ねる（下の部品を押し下げない・
+                  写真の上でも読めるよう濃い面＝--photo-backdrop・指の操作は通す・2026-09-29）。 */}
+              {canPan && status === 'ready' && (
+                // 縦長（ストーリー）のプレビューは幅が狭いので、はみ出さず「・」のあとで 2 行に折る。
+                // 置く場所は一文の反対側（一文が上なら下・それ以外は上）。消えるときは薄れて消える。
+                <p aria-hidden={!panHint || undefined} style={{ position: 'absolute', left: '50%', ...(textPos === 'top' ? { bottom: 'var(--space-2)' } : { top: 'var(--space-2)' }), opacity: panHint ? 1 : 0, transition: 'opacity var(--duration-base) var(--ease-out)', transform: 'translateX(-50%)', width: 'max-content', maxWidth: 'calc(100% - 2 * var(--space-2))', boxSizing: 'border-box', margin: 0, padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--photo-backdrop)', color: 'var(--on-cover)', fontSize: 'var(--text-meta)', lineHeight: 1.4, textAlign: 'center', wordBreak: 'keep-all', pointerEvents: 'none' }}>
+                  <span style={{ display: 'inline-block' }}>指で動かす・</span><span style={{ display: 'inline-block' }}>2 本の指で拡大</span>
+                </p>
+              )}
             </div>
             {/* 失敗の案内はプレビューと同じ高さの場所に出す（地を変えて描き直せたときに、下の部品が上下に動かない）。 */}
             {status === 'error' && (
@@ -524,9 +541,6 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
                   actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); setRetry((n) => n + 1); } }]}
                 />
               </div>
-            )}
-            {canPan && (
-              <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>指で動かす・2 本の指で拡大</p>
             )}
           </div>
 

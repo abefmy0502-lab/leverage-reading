@@ -421,13 +421,16 @@ export function BookSearchStatus({ search, onRetry, onManual, onPick, getExistin
         />
       )}
 
+      {/* 下の「手動で入力する」との間を詰める（空状態の下の大きな余白を取らない・2026-09-29）。 */}
       {status === 'notfound' && (
-        <EmptyState
-          icon={<SearchX size={28} aria-hidden="true" />}
-          title="見つかりませんでした"
-          description="書名を短くするか、ISBN で探してください"
-          actions={[]}
-        />
+        <div className="empty-state--flush-bottom">
+          <EmptyState
+            icon={<SearchX size={28} aria-hidden="true" />}
+            title="見つかりませんでした"
+            description="書名を短くするか、ISBN で探してください"
+            actions={[]}
+          />
+        </div>
       )}
 
       {status === 'results' && (

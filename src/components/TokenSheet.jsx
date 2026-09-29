@@ -147,7 +147,7 @@ export default function TokenSheet({ onClose, onPurchased }) {
             icon={null}
             title="価格を読み込めませんでした"
             description="通信の状態を確かめて、もう一度お試しください。"
-            actions={[{ label: '再読み込み', onClick: () => { if (isNative) setPriceTry((n) => n + 1); } }]}
+            actions={[{ label: 'もう一度', onClick: () => { if (isNative) setPriceTry((n) => n + 1); } }]}
           />
         </div>
       )}

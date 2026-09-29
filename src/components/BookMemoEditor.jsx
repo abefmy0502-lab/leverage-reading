@@ -465,8 +465,8 @@ export default function BookMemoEditor({
                 cancelLabel: '編集を続ける',
                 danger: true,
               } : {
-                title: '保存していない変更があります',
-                message: '消すと、書いたことは元に戻せません。',
+                title: '書きかけのメモがあります',
+                message: '消すと、元に戻せません。',
                 confirmLabel: '書いたことを消す',
                 cancelLabel: '編集を続ける',
                 danger: true,

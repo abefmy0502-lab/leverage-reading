@@ -1093,10 +1093,10 @@ export default async function handler(req, res) {
       console.error('Claude upstream error:', response.status, JSON.stringify(data)?.slice(0, 500));
       const message =
         response.status === 429
-          ? 'AI へのリクエストが混み合っています。少し時間をおいて再試行してください。'
+          ? 'AI へのリクエストが混み合っています。少し時間をおいて、やり直してください。'
           : response.status >= 500 || response.status === 529
-            ? 'AI サービスが一時的に不安定です。少し時間をおいて再試行してください。'
-            : 'AI リクエストに失敗しました。時間をおいて再試行してください。';
+            ? 'AI サービスが一時的に不安定です。少し時間をおいて、やり直してください。'
+            : 'AI リクエストに失敗しました。少し時間をおいて、やり直してください。';
       return res.status(response.status).json({ error: { message } });
     }
     if (refund) {

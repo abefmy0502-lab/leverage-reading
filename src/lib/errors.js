@@ -129,13 +129,13 @@ function toMessageRaw(err, fallback) {
 
   // Network-level
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return '🌐 ネット接続が切れています。再接続してから再試行してください。';
+    return '🌐 ネット接続が切れています。つながってから、やり直してください。';
   }
   if (err.name === 'AbortError' || lower.includes('timeout') || lower.includes('timed out')) {
     return '⏱ 処理に時間がかかりすぎました。少し待ってもう一度お試しください。';
   }
   if (err.name === 'TypeError' && lower.includes('fetch')) {
-    return '🌐 サーバーに接続できませんでした。少し待って再試行してください。';
+    return '🌐 サーバーに接続できませんでした。少し時間をおいて、やり直してください。';
   }
   if (
     lower.includes('network') ||
@@ -148,7 +148,7 @@ function toMessageRaw(err, fallback) {
     lower.includes('err_internet') ||
     lower.includes('err_network')
   ) {
-    return '🌐 サーバーに接続できませんでした。少し待って再試行してください。';
+    return '🌐 サーバーに接続できませんでした。少し時間をおいて、やり直してください。';
   }
 
   // Auth

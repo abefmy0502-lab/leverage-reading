@@ -138,6 +138,16 @@ export const groupTitle = {
   letterSpacing: '0.02em',
 };
 
+// 見出しの後ろに添える「（必須）」「（任意）」（DESIGN §5 入力欄・13/400/--text-2・赤い＊にしない）。
+export const fieldNote = {
+  fontSize: 'var(--text-meta)',
+  fontWeight: 400,
+  color: 'var(--text-2)',
+  letterSpacing: 0,
+  // 「（」の左の空きを詰める（見出しと離れて見えない）。
+  fontFeatureSettings: '"palt"',
+};
+
 // 共通カード面。
 // DESIGN: 影なし・枠線で区切る・角丸 12・内側 16。
 export const card = {

@@ -64,7 +64,7 @@ const fieldHint = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHe
 const infoText = { color: 'var(--success)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: '0 0 var(--space-3)' };
 
 // 通信やサーバー側の失敗（入力を直しても解決しない）。入力の誤りとは見せ方を分け、ErrorMessage の面で出す。
-const NETWORK_ERROR = 'サーバーに接続できませんでした。通信環境をご確認のうえ、しばらくしてから再度お試しください。';
+const NETWORK_ERROR = 'サーバーに接続できませんでした。通信環境を確認して、もう一度お試しください。';
 const RATE_LIMIT_ERROR = 'リクエストが多すぎます。しばらく経ってから再度お試しください。';
 const UNEXPECTED_ERROR = '予期せぬエラーが発生しました。時間をおいて再度お試しください。';
 const NOT_CONFIGURED_ERROR = 'アプリの設定が未完了です。管理者にお問い合わせください。';
@@ -161,7 +161,6 @@ export default function AuthScreen() {
   const [mode, setMode] = useState(initialAuthMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -231,7 +230,7 @@ export default function AuthScreen() {
       if (mode === 'signin') {
         await signInWithEmail(email.trim(), password);
       } else if (mode === 'signup') {
-        const data = await signUpWithEmail(email.trim(), password, displayName.trim());
+        const data = await signUpWithEmail(email.trim(), password);
         // Supabase はメール確認有効時、既存メールへの signUp をエラーにせず
         // identities: [] の難読化された成功で返す（列挙攻撃対策の仕様）。
         // このとき確認メールは送られないので、「送りました」画面で永遠に
@@ -401,19 +400,7 @@ export default function AuthScreen() {
             </div>
           </>
         )}
-        {mode === 'signup' && (
-          <input
-            style={inp}
-            type="text"
-            placeholder="表示名（任意）"
-            aria-label="表示名（任意）"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            onKeyDown={blockEnterWhileComposing}
-            autoComplete="name"
-            maxLength={LIMITS.displayName}
-          />
-        )}
+        {/* 表示名の欄は置かない（アプリのどこにも出ない名前を、登録の最初に聞かない・2026-09-29）。 */}
         <input
           style={inp}
           type="email"
