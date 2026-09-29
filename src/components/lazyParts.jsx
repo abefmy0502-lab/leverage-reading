@@ -8,7 +8,8 @@
 // 手が空いたときに先読みしておく（タブや本の詳細を開いた瞬間に待たせない）。
 import { lazy, memo, Suspense } from 'react';
 import Spinner from './Spinner';
-import { MemoListSkeleton } from './Skeleton';
+import { MemoListSkeleton, SkeletonBlock } from './Skeleton';
+import { btnPrimaryOff } from '../styles/ui';
 import { isNative } from '../lib/iap';
 import { isDemo } from '../lib/supabase';
 
@@ -51,15 +52,40 @@ export const AuthCallback = withSuspense(loaders.authCallback, <Spinner />);
 // ロゴ長押しのお礼（隠し機能）。
 export const AuthorThankYou = withSuspense(loaders.authorThankYou, null);
 // AI の読書計画・解析などの Markdown 表示（本の詳細）。元が memo なので包みも memo のまま。
-export const MarkdownSections = memo(withSuspense(loaders.markdownSections, null));
+// 待つ間は文の行の骨組み 3 行（何も出さずに後から押し下げない）。
+const markdownFallback = (
+  <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+    <SkeletonBlock width="100%" height={16} />
+    <SkeletonBlock width="92%" height={16} />
+    <SkeletonBlock width="60%" height={16} />
+  </div>
+);
+export const MarkdownSections = memo(withSuspense(loaders.markdownSections, markdownFallback));
 
 // 本の追加・編集画面の各段階（読みたい／積読／読書中／読了）と、下に固定する保存ボタン。
-const phase = (name) => withSuspense(() => loaders.bookPhases().then((m) => ({ default: m[name] })), null);
+// 待つ間は欄の形の骨組み（小さな見出し 12 ＋ 入力欄 48 を 3 組・組の間 24＝Field と同じ）。
+const phaseFallback = (
+  <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+    {[0, 1, 2].map((i) => (
+      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <SkeletonBlock width={80} height={12} />
+        <SkeletonBlock width="100%" height={48} radius="var(--radius)" />
+      </div>
+    ))}
+  </div>
+);
+// 保存の欄は BookPhases の EditSaveBar と同じ形・同じ高さで、押せない主ボタンを置いておく。
+const saveBarFallback = (
+  <div style={{ flexShrink: 0, borderTop: '1px solid var(--separator)', background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
+    <button type="button" disabled aria-busy="true" style={btnPrimaryOff}>保存</button>
+  </div>
+);
+const phase = (name, fallback = phaseFallback) => withSuspense(() => loaders.bookPhases().then((m) => ({ default: m[name] })), fallback);
 export const WantPhase = phase('WantPhase');
 export const BeforePhase = phase('BeforePhase');
 export const ReadingPhase = phase('ReadingPhase');
 export const DonePhase = phase('DonePhase');
-export const EditSaveBar = phase('EditSaveBar');
+export const EditSaveBar = phase('EditSaveBar', saveBarFallback);
 // 保存ボタンの文言。BookPhases を読み終えていればその場で文字を返す。まだなら、
 // 読み終えたら同じ関数で文字を出す小さな部品を返す（EditSaveBar はボタンの中に {label} を置くだけなので、
 // 文字でも部品でも同じ見た目になる）。

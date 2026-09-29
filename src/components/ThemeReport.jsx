@@ -35,7 +35,7 @@ import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
 import ContextMenu from './ContextMenu';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput } from '../styles/ui';
-import { History, Trash2, RotateCw, BookmarkPlus, Ruler, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Copy } from 'lucide-react';
+import { History, Trash2, RotateCw, BookmarkPlus, Ruler, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Copy, BookOpen } from 'lucide-react';
 
 // 見た目は DESIGN.md のトークンのみ。
 // 親の .ai-page-body (flex 1, overflow hidden) にぴったり収める flex column。
@@ -592,7 +592,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                 // （iOS の Safari は word-break: auto-phrase に未対応のため）。
                 title={<><span style={{ whiteSpace: 'nowrap' }}>メモが貯まると、</span><span style={{ whiteSpace: 'nowrap' }}>テーマまとめが作れます</span></>}
                 description={<><span style={{ whiteSpace: 'nowrap' }}>まず本を開いて、</span><span style={{ whiteSpace: 'nowrap' }}>気づきを1行メモに残しましょう。</span></>}
-                actions={onGoBookshelf ? [{ label: '本を開く', onClick: onGoBookshelf }] : []}
+                actions={onGoBookshelf ? [{ label: 'すべての本へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoBookshelf, variant: 'secondary' }] : []}
               />
             ) : (
             <ThemePicker
@@ -685,7 +685,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                     label: 'もう一度試す',
                     ariaLabel: `テーマ「${activeTheme}」でもう一度作成`,
                     onClick: () => generate(activeTheme),
-                    variant: 'secondary',
+                    variant: 'primary',
                     icon: <RotateCw size={16} />,
                   }] : []}
                 />
@@ -918,10 +918,11 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
     const inner = (
       <>
         <span style={{ display: 'block', fontSize: 'var(--text-heading)', fontWeight: 600, lineHeight: 1.3, color, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
-        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginTop: 'var(--space-1)' }}>{k}{onOpenActions && n > 0 ? ' ›' : ''}</span>
+        <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', marginTop: 'var(--space-1)' }}>{k}{onOpenActions && n > 0 && k === '決めた行動' ? ' ›' : ''}</span>
       </>
     );
-    if (!onOpenActions || n <= 0) return <div style={base}>{inner}</div>;
+    // 押せるのは「決めた行動」だけ（行動タブの先頭に着く＝約束どおり）。完了・まだは数字だけ。
+    if (!onOpenActions || n <= 0 || k !== '決めた行動') return <div style={base}>{inner}</div>;
     return (
       <button
         type="button"

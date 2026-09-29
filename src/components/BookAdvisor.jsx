@@ -1420,7 +1420,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
               if (a) generateRecommendations(a.userMsg, a.sourceQuery);
               else resetToConcern();
             },
-            variant: 'secondary',
+            variant: 'primary',
             icon: <IcRetry size={16} />,
           }]}
         />

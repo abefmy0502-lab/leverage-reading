@@ -235,6 +235,7 @@ function MonthBars({ buckets, activeColor }) {
   return (
     <div
       style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', justifyContent: 'space-between', marginTop: 'var(--space-3)' }}
+      role="img"
       aria-label={`月別の推移: ${buckets.map((k) => `${k.month + 1}月 ${k.count} 件`).join(', ')}`}
     >
       {buckets.map((k, i) => {

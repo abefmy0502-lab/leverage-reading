@@ -2018,7 +2018,7 @@ function AuthedApp() {
       // 4 フィールドが埋まっていれば「話した内容を引き継ぎました」、そうでなければ控えめなトースト。
       const hasPlan = newBook.currentChallenge || newBook.hypothesis || newBook.bookReason;
       const msg = hasPlan
-        ? `『${rec.title}』を追加。AI 選書で話した内容を引き継ぎました。`
+        ? `『${rec.title}』を「読みたい」に追加しました。`
         : newBook.sourceQuery
           ? `『${rec.title}』を追加。読書計画シートで読み方を決めましょう。`
           : `『${rec.title}』を「読みたい」に追加しました。`;
