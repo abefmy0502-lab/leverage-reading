@@ -505,7 +505,8 @@ export default function ReadingRecord({
           cells={[
             { value: bookStats.doneTotal, label: '読んだ本', color: 'var(--text)', onClick: onShowBooks && bookStats.doneTotal > 0 ? () => onShowBooks('done') : undefined },
             // メモ統計の取得に失敗した時は 0 と偽装しない（「メモが消えた」ように見えるため）。
-            { value: memoStats?.failed ? '—' : memoTotal, label: '残したメモ', color: 'var(--text)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
+            // 「メモ」＝自分のメモ（カード式＋学び）の全件。ホーム・相談・初日クイックスタートの「メモ N 件」と同じ数・同じ言葉（2026-09-29）。
+            { value: memoStats?.failed ? '—' : memoTotal, label: 'メモ', color: 'var(--text)', onClick: onShowMemos && memoTotal > 0 ? onShowMemos : undefined },
             { value: bookStats.actionsDone, label: '実行した行動', color: 'var(--text)', onClick: onShowActions && bookStats.actionsDone > 0 ? onShowActions : undefined },
           ]}
         />

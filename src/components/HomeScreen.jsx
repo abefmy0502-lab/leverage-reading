@@ -7,7 +7,7 @@
 // 本 0 冊のときは「はじめる」カード 1 枚だけ。はじめの一歩（ActivationChecklist）は
 // 相談カードと同じ入口を二重に出すことになるためホームには置かない（ui-critic 指摘・SPEC §1）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 見た目は DESIGN.md のトークンのみ。
-import { Library, ChevronRight, PencilLine } from 'lucide-react';
+import { Library, ChevronRight, PencilLine, Plus } from 'lucide-react';
 import HomeConsult from './HomeConsult';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
@@ -55,8 +55,8 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
   // 読書中 0 冊: 見出しもカードも出さず、1 行だけ（SPEC §1 のエッジケース）。
   if (shown.length === 0) {
     return (
-      <button type="button" onClick={onAddBook} style={{ ...btnLink, alignSelf: 'flex-start', gap: 'var(--space-1)' }}>
-        読み始めた本を追加<ChevronRight size={18} aria-hidden="true" />
+      <button type="button" onClick={onAddBook} style={{ ...btnLink, alignSelf: 'flex-start', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+        <Plus size={18} aria-hidden="true" />本を追加
       </button>
     );
   }
@@ -88,11 +88,18 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
               </button>
             </div>
           ))}
-          {reading.length > shown.length && (
-            <button type="button" onClick={onSeeAllReading} style={{ ...btnLink, alignSelf: 'flex-start' }}>
-              ほか {reading.length - shown.length} 冊を見る
+          {/* 「本を追加」はいつもここに（ヘルプの「いま読んでいる本の『本を追加』」と同じ場所・2026-09-29）。
+              文字ボタンの左右 4 を打ち消して、文字の端をカードの端（16）にそろえる。 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 'var(--space-4)', margin: 'calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0' }}>
+            <button type="button" onClick={onAddBook} style={{ ...btnLink, gap: 'var(--space-1)' }}>
+              <Plus size={18} aria-hidden="true" />本を追加
             </button>
-          )}
+            {reading.length > shown.length && (
+              <button type="button" onClick={onSeeAllReading} style={btnLink}>
+                ほか {reading.length - shown.length} 冊を見る
+              </button>
+            )}
+          </div>
       </div>
     </section>
   );

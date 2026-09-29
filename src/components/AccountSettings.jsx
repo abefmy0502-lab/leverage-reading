@@ -56,6 +56,9 @@ import {
   unsubscribeNativePush,
 } from '../lib/nativePush';
 
+// トークンの数は 3 桁ごとに区切る（1,000 など・どの画面でも同じ書き方）。
+const fmtTokens = (n) => (n != null && Number.isFinite(Number(n)) ? Number(n).toLocaleString() : String(n ?? ''));
+
 // 下から上がる全画面のシート。上端だけステータスバーぶん空けて、後ろの画面が少し見える（iOS のシート）。
 const overlayStyle = {
   position: 'fixed',
@@ -364,7 +367,7 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
   return all;
 }
 
-export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpenAdmin, onOpenImport, focusDelete = false }) {
+export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpenAdmin, onOpenImport, onOpenHelp, focusDelete = false }) {
   const { user, signOut } = useAuth();
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
   const deleteRef = useRef(null);
@@ -869,7 +872,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   <ValueRow label="次回更新" value={formatPeriodEnd(subscription.currentPeriodEnd)} style={divider} />
                 )}
                 {tokensRemaining != null ? (
-                  <ValueRow label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
+                  <ValueRow label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`} style={divider} />
                 ) : tokensLoading ? (
                   <ValueRowSkeleton label={plan === 'trial' ? '無料期間の残り' : '今月の残り'} style={divider} />
                 ) : null}
@@ -930,14 +933,14 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               <>
                 <ValueRow label="プラン" value={planNameFor({ plan: 'free' })} />
                 {tokensRemaining != null ? (
-                  <ValueRow label="今月の残り" value={`${tokensRemaining} / ${tokenAllowance} トークン`} style={divider} />
+                  <ValueRow label="今月の残り" value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`} style={divider} />
                 ) : tokensLoading ? (
                   <ValueRowSkeleton label="今月の残り" style={divider} />
                 ) : null}
                 {lotRow}
                 <div style={{ ...blockStyle, ...divider }}>
                   <p style={noteStyle}>
-                    無料プランはずっと無料で、AI は相談だけ（<span style={{ whiteSpace: 'nowrap' }}>1 回 約 {TOKEN_COSTS.consult} トークン</span>）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
+                    無料プランはずっと無料で、AI は相談だけ（<span style={{ whiteSpace: 'nowrap' }}>1 回 約 {TOKEN_COSTS.consult} トークン</span>）。プランは<span style={{ whiteSpace: 'nowrap' }}>毎月 {PAID_TOKENS.toLocaleString()} トークン</span>で、<span style={{ whiteSpace: 'nowrap' }}>すべての AI 機能。</span>
                   </p>
                   <button
                     type="button"
@@ -1012,12 +1015,19 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
 
           {/* ── アプリ・サポート ── */}
           <Group label="アプリ・サポート">
+            {/* 使い方（ヘルプ）。ホーム・振り返りでは右上の ？ から開けるが、設定からも探せるように（2026-09-29）。 */}
+            {onOpenHelp && (
+              <button type="button" style={rowButtonStyle} onClick={onOpenHelp}>
+                <span style={{ ...rowTitleStyle, flex: 1 }}>ヘルプ・使い方</span>
+                <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </button>
+            )}
             {/* 通常は自動更新（autoApply）。困った時の復旧用に顧客語で控えめに置く。
                 書きかけが消える注意は押した後の確認ダイアログで伝える。 */}
             <button
               type="button"
               aria-label="読み込み直す"
-              style={updating ? rowButtonBusy : rowButtonStyle}
+              style={{ ...(updating ? rowButtonBusy : rowButtonStyle), ...(onOpenHelp ? divider : null) }}
               aria-busy={updating || undefined}
               disabled={updating}
               onClick={handleForceUpdate}

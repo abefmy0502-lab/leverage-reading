@@ -12,7 +12,7 @@ import { useFeedback, FEEDBACK_CATEGORIES, FEEDBACK_LIMITS } from '../hooks/useF
 import { useToast } from './Toast';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
 
 // 見た目は DESIGN.md のトークンのみ（シートは BottomSheet と同じ面・影・背景）。
 const overlayStyle = {
@@ -125,6 +125,7 @@ const footerStyle = {
 };
 
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
+const btnPrimaryOff = { ...uiBtnPrimaryOff, width: 'auto', flex: 1 };
 
 const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
 
@@ -134,7 +135,8 @@ const stripLeadingEmoji = (label) => String(label || '').replace(/^[\p{Extended_
 export default function FeedbackForm({ onClose }) {
   const { submitFeedback } = useFeedback();
   const toast = useToast();
-  const [category, setCategory] = useState(FEEDBACK_CATEGORIES[1].value); // default: 機能の追加要望
+  // カテゴリは最初は選ばない（既定で「要望」が付いたまま不具合の報告が届くのを防ぐ・2026-09-29）。選ぶまで送れない。
+  const [category, setCategory] = useState('');
   const [content, setContent] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -172,6 +174,10 @@ export default function FeedbackForm({ onClose }) {
   }, []);
 
   const submit = async () => {
+    if (!category) {
+      toast.error('カテゴリを選んでください。');
+      return;
+    }
     if (!content.trim()) {
       toast.error('内容を入力してください。');
       return;
@@ -301,8 +307,9 @@ export default function FeedbackForm({ onClose }) {
           <button
             type="button"
             onClick={submit}
-            disabled={busy || !content.trim()}
-            style={{ ...btnPrimary, opacity: busy || !content.trim() ? 0.6 : 1 }}
+            disabled={busy || !content.trim() || !category}
+            // 押せないときは薄くせず、面と文字の色で示す（DESIGN §5「押せないボタン」）。
+            style={busy || !content.trim() || !category ? btnPrimaryOff : btnPrimary}
             aria-label="フィードバックを送信"
           >
             {busy ? '送信中…' : '送信する'}

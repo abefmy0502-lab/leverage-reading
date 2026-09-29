@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff } from '../styles/ui';
 import { useToast } from './Toast';
+import { withPhraseBreaks } from './TightBubble';
 import { track } from '../lib/analytics';
 import { canOfferNotify, enableNotify, isNotifyOptInDone, markNotifyOptInDone } from '../lib/notifyOptIn';
 
@@ -74,11 +75,9 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
           <X size={20} aria-hidden="true" />
         </button>
       </div>
-      <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-        {/* 句読点ごとのまとまりで折り返す（語の途中で割らない） */}
-        {['多くても週に 1 回、', '前に残したメモを 1 件だけ', 'お届けします。', '設定からいつでもオフにできます。'].map((t) => (
-          <span key={t} style={{ display: 'inline-block' }}>{t}</span>
-        ))}
+      {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（語の途中で割らない） */}
+      <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        {withPhraseBreaks('多くても週に 1 回、前に残したメモを 1 件だけお届けします。設定からいつでもオフにできます。')}
       </p>
       <button type="button" onClick={enable} disabled={busy} style={{ ...(busy ? off : on), marginTop: 'var(--space-3)' }} aria-busy={busy || undefined}>
         {busy ? '設定しています…' : '通知を受け取る'}

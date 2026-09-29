@@ -16,6 +16,8 @@ const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
 const ImportSheet = lazy(() => import('./components/ImportSheet'));
+import MemoFab from './components/MemoFab';
+import { frequentMemoTags } from './lib/memoTags';
 const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
@@ -55,6 +57,8 @@ function ShelfChip({ active, onClick, children, ariaLabel }) {
     </button>
   );
 }
+// 無料プランの人に見せる、相談のサブタブ（AI 選書・テーマまとめ）の「プラン」の小さな文字（12/600/--text-2・面なし）。
+const planTabLabel = { display: 'block', fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.2 };
 // すべての本から開くシート（絞り込み・並び替え・状態・フォルダ・本を選ぶ）の共通スタイル。
 const sheetLabel = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' };
 const sheetChips = { display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginBottom: 'var(--space-4)' };
@@ -1944,6 +1948,7 @@ function AuthedApp() {
 
     // 既にあるメモの本文（同じ本の同じ文は足さない）
     let memosAdded = 0;
+    const createdMemoIds = []; // 「取り込みを取り消す」で消すのは、この取り込みで入れたメモだけ
     const ids = [...new Set(pending.map((p) => p.bookId))];
     const existing = new Set();
     // 1 回の問い合わせは 1,000 行までしか返らないので、ページを送って全部読む（読めなければ止める＝二重にしない）。
@@ -1973,18 +1978,21 @@ function AuthedApp() {
     for (let i = 0; i < rows.length; i += 200) {
       const chunk = rows.slice(i, i + 200);
       // eslint-disable-next-line no-await-in-loop
-      const { error } = await supabaseClient.from('book_memos').insert(chunk);
+      const { data: inserted, error } = await supabaseClient.from('book_memos').insert(chunk).select('id');
       if (error) throw error;
       memosAdded += chunk.length;
+      (inserted || []).forEach((r) => { if (r?.id) createdMemoIds.push(r.id); });
     }
     // メモを足した「読みたい・積読」の本は読了にする（本の詳細はメモを読書中・読了でしか出さないため）
     //   （いま作った本は取り込み元の状態のまま。もとから本棚にあった本だけ）
     const newIds = new Set(newBooks.map((b) => b.id));
     const withMemo = new Set(rows.map((r) => r.book_id).filter((id) => !newIds.has(id)));
+    const statusChanged = []; // 取り消すときに元の状態へ戻す
     for (const id of withMemo) {
       const bk = booksRef.current.find((b) => b.id === id);
       // 読了日が無いと「月別の読了」に出ないので、取り込み元の読了日（無ければ今日）を入れる。
       if (bk && (bk.status === 'want' || bk.status === 'before')) {
+        statusChanged.push({ id, status: bk.status, doneDate: bk.doneDate || '' });
         applyBookPatchQuiet(id, { status: 'done', doneDate: bk.doneDate || srcDoneDate.get(id) || todayLocal() });
       }
     }
@@ -1996,7 +2004,31 @@ function AuthedApp() {
     // 新しい本のレビューは「この本のまとめ」に入れたので、メモ（カード）とは分けて数えて伝える
     track('import_done', { source: result?.source || 'unknown', books: booksAdded, matched: booksMatched, memos: memosAdded, reviews: reviewsAdded });
     if (memosAdded + reviewsAdded > 0) markActivation('memo');
-    return { booksAdded, booksMatched, memosAdded, reviewsAdded };
+    return { booksAdded, booksMatched, memosAdded, reviewsAdded, createdBookIds: newBooks.map((b) => b.id), createdMemoIds, statusChanged };
+  };
+
+  // 📥 取り込みを取り消す（取り込みの完了画面から）: この取り込みで入れたものだけを消す。
+  //   新しく作った本は本ごと消す／もとからあった本は、足したメモだけ消して状態（読了にした分）を戻す。
+  const undoImport = async (outcome) => {
+    const memoIds = Array.isArray(outcome?.createdMemoIds) ? outcome.createdMemoIds : [];
+    const bookIds = Array.isArray(outcome?.createdBookIds) ? outcome.createdBookIds : [];
+    for (let i = 0; i < memoIds.length; i += 200) {
+      // eslint-disable-next-line no-await-in-loop
+      const { error } = await supabaseClient.from('book_memos').delete().in('id', memoIds.slice(i, i + 200));
+      if (error) throw error;
+    }
+    for (const id of bookIds) {
+      // eslint-disable-next-line no-await-in-loop
+      await deleteBook(id);
+    }
+    for (const c of outcome?.statusChanged || []) {
+      applyBookPatchQuiet(c.id, { status: c.status, doneDate: c.doneDate || '' });
+    }
+    invalidateKnowledgeCache();
+    appCache?.notifyMemosChanged?.();
+    refreshBooks();
+    track('import_undone', { books: bookIds.length, memos: memoIds.length });
+    toast.info('取り込みを取り消しました。');
   };
 
   const addFromAdvisor = async (rec, payloadOrQuery = '') => {
@@ -2344,7 +2376,7 @@ function AuthedApp() {
 
   // （撤去 2026-09-27）runAnalysis —「AIで本を解析する」。読書計画シートと役割が重なるため廃止。
   // 読書計画シート（作る・修正）はプランの機能（フリーミアム）。無料プランなら有料プランの画面を開く。
-  const { requirePlan } = usePaywall();
+  const { requirePlan, plan: paywallPlan } = usePaywall();
   // 読書計画シート（と、その材料の得たいこと・課題・仮説）だけを、編集画面を開いたまま保存する。
   // 本の最新の値に重ねて保存（ほかの欄の書きかけは保存しない）し、編集中の「未保存の変更」の基準も
   // シートの分だけ進める（閉じるときに「保存していない変更があります」と言わない）。
@@ -3106,13 +3138,18 @@ function AuthedApp() {
     <Suspense fallback={null}>
       <ImportSheet
         onImport={importLibrary}
+        onUndoImport={undoImport}
         onClose={() => setShowImport(false)}
-        onAsk={(question) => {
+        // 送らずに相談を開く（入力欄と相談例から自分で選んで送る＝勝手にトークンを使わない・2026-09-29）。
+        onAsk={() => {
           setShowImport(false);
-          setAskPreset({ question, nonce: Date.now() });
           setView('list');
           setAiSubTab('brain');
           setTab('ai');
+          // 相談の入力欄にカーソルを置く（開く動きのあと）。
+          setTimeout(() => {
+            try { document.querySelector('.ai-page textarea')?.focus(); } catch { /* 無くてもよい */ }
+          }, 400);
         }}
       />
     </Suspense>
@@ -3617,36 +3654,8 @@ function AuthedApp() {
         {/* Floating "+ memo" FAB — only for reading/done so we don't lure
             users into creating memos that the section above hides. */}
         {(current.status === "reading" || current.status === "done") && (
-          <button
-            type="button"
-            onClick={() => setQuickMemoOpen(true)}
-            style={{
-              // 本の詳細の主ボタン（1 画面 1 つ・DESIGN §0）。＋記号だけだと何が起きるか
-              // 分からないので「メモを書く」と文字で言う（SPEC §2）。
-              position: "fixed",
-              right: "var(--space-4)",
-              bottom: "calc(var(--tabbar-h) + var(--space-3) + env(safe-area-inset-bottom, 0px))",
-              minHeight: 48,
-              padding: "0 var(--space-4)",
-              borderRadius: "var(--radius)",
-              border: "none",
-              background: "var(--accent)",
-              color: "var(--accent-ink)",
-              fontSize: "var(--text-body)",
-              fontWeight: 600,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "var(--space-2)",
-              cursor: "pointer",
-              boxShadow: "var(--shadow-raised)",
-              // メモ編集(300)・写真拡大(400)等のオーバーレイより下に置く
-              // （600 だと全画面エディタの上に浮いてしまう）。
-              zIndex: 100,
-              fontFamily: "inherit",
-            }}
-          >
-            <PencilLine size={18} aria-hidden="true" />メモを書く
-          </button>
+          // 「この本のまとめ」を開いている間・入力欄に書いている間は隠す（保存ボタンに重ならない・MemoFab）。
+          <MemoFab scrollRef={detailScrollRef} onClick={() => setQuickMemoOpen(true)} />
         )}
 
         {quickMemoOpen && (current.status === "reading" || current.status === "done") && (
@@ -3661,6 +3670,8 @@ function AuthedApp() {
                   return nums.length ? Math.max(...nums) + 1 : '';
                 })()
               }
+              // よく使うタグ（この本のメモのタグ → 本棚のタグ）を「＋ ページ・写真」の中にチップで。
+              frequentTags={frequentMemoTags(currentMemoOps.memos, allTags)}
               onClose={() => setQuickMemoOpen(false)}
               onCreate={async (payload) => {
                 const result = await currentMemoOps.createMemo(payload);
@@ -3705,6 +3716,7 @@ function AuthedApp() {
             initial={null}
             defaultPageNumber={fullEditorPrefill.pageNumber ?? ''}
             defaultText={fullEditorPrefill.text || ''}
+            defaultTags={Array.isArray(fullEditorPrefill.tags) ? fullEditorPrefill.tags : []}
             allTags={allTags}
             onClose={() => setFullEditorPrefill(null)}
             onCreate={async (payload) => {
@@ -4131,6 +4143,7 @@ function AuthedApp() {
           <Suspense fallback={<OverlayFallback />}>
             <HomeQuickMemo
               book={homeMemoBook}
+              allTags={allTags}
               onClose={() => setHomeMemoBook(null)}
               onSaved={(result, payload) => {
                 haptic.success();
@@ -4271,6 +4284,8 @@ function AuthedApp() {
                   effectiveBookshelfView === 'grid'
                     ? { label: 'リストで表示', icon: <IcList size={16} aria-hidden="true" />, onClick: () => setBookshelfViewMode('list') }
                     : { label: '表紙で表示', icon: <IcGrid size={16} aria-hidden="true" />, onClick: () => setBookshelfViewMode('grid') },
+                  // ブクログ・Kindle の記録を本棚に取り込む（設定の奥だけだったので、本の一覧からも・2026-09-29）。
+                  { label: '取り込む', icon: <Upload size={16} aria-hidden="true" />, onClick: () => setShowImport(true) },
                   // 押し込まれた画面では全体ヘッダー（？）を出さないので、ヘルプはここから。
                   { label: 'ヘルプ', icon: <HelpCircle size={16} aria-hidden="true" />, onClick: openHelp },
                 ]}
@@ -4540,19 +4555,24 @@ function AuthedApp() {
                 type="button"
                 role="tab"
                 aria-selected={aiSubTab === 'advisor'}
+                aria-label={paywallPlan === 'free' ? 'AI 選書（プランの機能）' : undefined}
                 className={`sub-tab ${aiSubTab === 'advisor' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('advisor')}
               >
                 AI 選書
+                {/* 無料プランの人に、書き始める前から「プランの機能」と分かるように（色の面は付けない・2026-09-29）。 */}
+                {paywallPlan === 'free' && <span aria-hidden="true" style={planTabLabel}>プラン</span>}
               </button>
               <button
                 type="button"
                 role="tab"
                 aria-selected={aiSubTab === 'report'}
+                aria-label={paywallPlan === 'free' ? 'テーマまとめ（プランの機能）' : undefined}
                 className={`sub-tab ${aiSubTab === 'report' ? 'active' : ''}`}
                 onClick={() => setAiSubTab('report')}
               >
                 テーマまとめ
+                {paywallPlan === 'free' && <span aria-hidden="true" style={planTabLabel}>プラン</span>}
               </button>
             </div>
             )}
@@ -4690,6 +4710,7 @@ function AuthedApp() {
             isAdmin={isAdmin}
             onOpenAdmin={() => { setSettingsOpen(false); setAdminOpen(true); }}
             onOpenImport={() => { setSettingsOpen(false); setShowImport(true); }}
+            onOpenHelp={() => { setSettingsOpen(false); setHelpModalOpen(true); }}
           />
         </Suspense>
       )}

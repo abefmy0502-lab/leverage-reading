@@ -359,6 +359,9 @@ export function BookResultList({ results, onPick, getExisting }) {
   );
 }
 
+const skeletonInline = { display: 'inline-block', verticalAlign: 'middle' };
+// 和文の行の高さ（和文の書体の上下の幅）を本物の行とそろえるための、見えない全角スペース 1 字。
+const CJK_STRUT = <span style={{ visibility: 'hidden', marginInlineEnd: '-1em' }}>{'\u3000'}</span>;
 // 読み込み中: 結果の一覧と同じ形のスケルトン（「N 件」の行＋結果 1 行ぶん）。
 // 1 行だけにするのは、結果が 1 件のときに下の「手動で入力する」が
 // 押し下げられてから引き戻される（跳ねる）のを防ぐため（2026-09-29）。
@@ -366,7 +369,7 @@ export function BookResultSkeleton({ rows = 1 }) {
   return (
     <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'transparent' }}>
-        <SkeletonBlock width={40} height={12} radius="var(--radius-full)" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
+        <SkeletonBlock width={40} height={12} radius="var(--radius-full)" style={skeletonInline} />
       </p>
       <BookResultSkeletonRows rows={rows} />
     </div>
@@ -385,10 +388,11 @@ function BookResultSkeletonRows({ rows }) {
           }}
         >
           <SkeletonBlock width={44} height={62} radius={4} style={{ flexShrink: 0 }} />
-          <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <SkeletonBlock width="80%" height={16} radius="var(--radius-full)" />
-            <SkeletonBlock width="45%" height={12} radius="var(--radius-full)" />
-            <SkeletonBlock width="30%" height={12} radius="var(--radius-full)" />
+          {/* 文字の行は結果の行（ResultRow＝button の中なので行間は normal）と同じ大きさ・行間の箱に棒を置く（行の高さを本物とそろえる）。 */}
+          <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', lineHeight: 'normal' }}>
+            <span style={{ fontSize: 'var(--text-body)', lineHeight: 1.3 }}><SkeletonBlock width="80%" height={16} radius="var(--radius-full)" style={skeletonInline} />{CJK_STRUT}</span>
+            <span style={{ fontSize: 'var(--text-sub)' }}><SkeletonBlock width="45%" height={12} radius="var(--radius-full)" style={skeletonInline} />{CJK_STRUT}</span>
+            <span style={{ fontSize: 'var(--text-meta)' }}><SkeletonBlock width="30%" height={12} radius="var(--radius-full)" style={skeletonInline} />{CJK_STRUT}</span>
           </span>
         </div>
       ))}

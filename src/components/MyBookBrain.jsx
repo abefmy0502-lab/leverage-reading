@@ -1489,7 +1489,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? (memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
+          {historyLoaded && !busy && (isEmpty ? (memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !freeUsedUp && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
             <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-6) 0 0', lineHeight: 1.5 }}>
               AI の回答には誤りが含まれることがあります
             </p>
@@ -1542,7 +1542,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 : freeUsedUp ? `${nextResetLabelJa()}にまた相談できます`
                 : carry && !carry.used ? 'この相談の続きを書く' : '例：上司への報告がうまくいかない'}
               rows={1}
-              disabled={busy}
+              // 答えを書いている間も押せなくしない（disabled にすると入力欄からフォーカスが外れ、下のタブが
+              // 出てきて入力欄がもう一度動いていた・2026-09-29）。送るのは答えが終わってから（ask が busy で止める）。
               maxLength={LIMITS.aiQuestion}
               aria-label="相談したいこと"
             />
@@ -1551,6 +1552,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <button
                 type="button"
                 className="send-btn stop-btn"
+                onMouseDown={(e) => { if (document.activeElement === inputRef.current) e.preventDefault(); }}
                 onClick={stopStreaming}
                 disabled={aborting}
                 aria-label={aborting ? '中止しています' : '回答を中止'}
@@ -1562,6 +1564,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <button
                 type="button"
                 className="send-btn"
+                // 押しても入力欄からフォーカスを外さない（外れると下のタブが遅れて出てきて、入力欄が
+                // 「縮む → 押し上がる」の 2 回動いていた・2026-09-29。チャットと同じく入力欄はそのまま）。
+                onMouseDown={(e) => { if (document.activeElement === inputRef.current) e.preventDefault(); }}
                 onClick={() => ask()}
                 // 今月の上限に達したら送れない（押せない主ボタンの見た目＝--fill の面・DESIGN §5）。
                 disabled={!input.trim() || outOfTokens}
@@ -2166,7 +2171,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                     <>
                       {(c.t || c.p != null) && (
                         <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, ...(c.t ? { textIndent: '-0.5em' } : null) }}>
-                          {c.t ? `『${c.t}』` : ''}{c.p != null ? `${c.t ? ' ' : ''}p.${c.p}` : ''}
+                          {c.t ? `『${c.t}』` : ''}{c.p != null ? `p.${c.p}` : ''}
                         </p>
                       )}
                       {c.s === 'ok' ? (

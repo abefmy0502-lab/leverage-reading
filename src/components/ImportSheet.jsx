@@ -9,7 +9,7 @@ import { FileUp, BookOpen } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
-import { decodeImportBytes, parseImportText, summarizeImport, IMPORT_MAX_BYTES } from '../lib/importers';
+import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, IMPORT_MAX_BYTES } from '../lib/importers';
 import { track } from '../lib/analytics';
 
 // 日本語の折り返し: 文節で切る（auto-phrase）＋最後の行に語が 1 つだけ残らない（pretty）。
@@ -27,24 +27,32 @@ const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDi
 
 const SOURCE_LABEL = { booklog: 'ブクログ', kindle: 'Kindle' };
 
-export default function ImportSheet({ onImport, onClose, onAsk }) {
+export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) {
   const inputRef = useRef(null);
   const [step, setStep] = useState('pick'); // pick | preview | importing | done
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [outcome, setOutcome] = useState(null);
+  const [undoing, setUndoing] = useState(false);
 
   const pickFile = () => { setError(''); inputRef.current?.click(); };
 
+  // いくつかのファイルを一度に選べる（Kindle のノートブックは 1 冊 1 ファイルなので・2026-09-29）。
+  // 読めたファイルの本とメモを 1 つにまとめて確かめる（同じ本は 1 冊にまとめる）。
   const onFile = async (e) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files || []);
     e.target.value = ''; // 同じファイルを選び直せるように
-    if (!file) return;
-    if (file.size > IMPORT_MAX_BYTES) { setError('ファイルが大きすぎます（5MB まで）。'); return; }
+    if (!files.length) return;
+    if (files.some((f) => f.size > IMPORT_MAX_BYTES)) { setError('ファイルが大きすぎます（1 つ 5MB まで）。'); return; }
     try {
-      const text = decodeImportBytes(await file.arrayBuffer());
-      const r = parseImportText(file.name, text);
+      const parsed = [];
+      for (const file of files) {
+        // eslint-disable-next-line no-await-in-loop
+        const text = decodeImportBytes(await file.arrayBuffer());
+        parsed.push(parseImportText(file.name, text));
+      }
+      const r = mergeImportResults(parsed);
       if (!r.books.length) {
         // ファイルの種類は下の一覧に書いてあるので、ここでは繰り返さない。
         setError('読み取れる本がありませんでした。下のどれかのファイルを選んでください。');
@@ -56,6 +64,19 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
       track('import_previewed', { source: r.source, ...summarizeImport(r) });
     } catch {
       setError('ファイルを読み取れませんでした。形式を確かめて、もう一度お試しください。');
+    }
+  };
+
+  // 取り込みを取り消す: この取り込みで入れたものだけを消す（もとからあった本は、足したメモだけ消す）。
+  const undoImport = async () => {
+    if (!outcome || !onUndoImport || undoing) return;
+    setUndoing(true);
+    try {
+      await onUndoImport(outcome);
+      onClose?.();
+    } catch {
+      setUndoing(false);
+      setError('取り消せませんでした。通信環境を確認して、もう一度お試しください。');
     }
   };
 
@@ -185,6 +206,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
     const didParts = did.map((d, i) => (i === did.length - 1 ? d[1] : d[0]));
     content = (
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
+        {error && <ErrorMessage icon={null} title="取り消せませんでした" description={error} />}
         <p style={heading}>
           {any ? <>{headParts.join(KEEP_DOT)}を<wbr />取り込みました</>
             : outcome.booksAdded > 0 ? <>本{'\u00a0'}{outcome.booksAdded}{'\u00a0'}冊を<wbr />取り込みました</>
@@ -200,13 +222,24 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
       </div>
     );
     // 閉じる入口は 1 つだけ: 相談できるときは右上の「完了」、何も入らなかったときは下の「閉じる」。
-    footer = any && onAsk ? (
-      <button type="button" onClick={() => onAsk('取り込んだメモから、いまの私にいちばん役立ちそうな学びを教えて')} style={btnPrimary}>
+    // 「相談してみる」は送らずに相談を開く（入力欄と相談例から、自分で選んで送る＝勝手にトークンを使わない・2026-09-29）。
+    const canUndo = !!onUndoImport && ((outcome.createdBookIds?.length || 0) + (outcome.createdMemoIds?.length || 0) > 0);
+    const primary = any && onAsk ? (
+      <button type="button" onClick={() => onAsk()} disabled={undoing} style={undoing ? btnPrimaryOff : btnPrimary}>
         相談してみる
       </button>
     ) : (
-      <button type="button" onClick={onClose} style={btnPrimary}>閉じる</button>
+      <button type="button" onClick={onClose} disabled={undoing} style={undoing ? btnPrimaryOff : btnPrimary}>閉じる</button>
     );
+    footer = canUndo ? (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        {primary}
+        {/* 取り消しは脇役（文字ボタン）。消すのはこの取り込みで入れたものだけ。 */}
+        <button type="button" onClick={undoImport} disabled={undoing} aria-busy={undoing || undefined} style={{ ...btnLink, width: '100%', color: undoing ? 'var(--text-3)' : 'var(--error)' }}>
+          {undoing ? '取り消しています…' : '取り込みを取り消す'}
+        </button>
+      </div>
+    ) : primary;
   }
 
   return (
@@ -215,7 +248,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
       onClose={onClose}
       footer={footer}
       // 取り込み中は閉じない（途中で閉じるとシートだけ消えて画面が固まる）。
-      dismissible={step !== 'importing'}
+      dismissible={step !== 'importing' && !undoing}
       // 選ぶ・確かめる: 決定は下のボタンなので右上は「キャンセル」。完了画面: 相談できるときだけ右上「完了」。
       dismissLabel={step === 'done' ? ((outcome?.memosAdded || 0) + (outcome?.reviewsAdded || 0) > 0 && onAsk ? '完了' : null) : 'キャンセル'}
     >
@@ -223,6 +256,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
         ref={inputRef}
         type="file"
         accept=".csv,.txt,.html,.htm,text/csv,text/plain,text/html"
+        multiple
         onChange={onFile}
         style={{ display: 'none' }}
         aria-hidden="true"

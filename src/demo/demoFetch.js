@@ -4,6 +4,7 @@
 // 本番と同じ書式（【結論】…REFS_START/END）で答えるので、画面の流れを確かめられる。
 
 import { SEARCH_CATALOG } from './seed';
+import { questionGist } from '../lib/consultHelpers';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -25,7 +26,7 @@ const bigrams = (s) => {
   return out;
 };
 
-function brainAnswer(store, question, memoBlock = '') {
+function brainAnswer(store, question, memoBlock = '', aiMode = '') {
   const q = bigrams(question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));
   // 本番と同じく、AI に渡されたメモ一覧（相談相手で絞り込み済み）に載っている本だけを使う。
@@ -67,7 +68,10 @@ function brainAnswer(store, question, memoBlock = '') {
   const [, p2] = picked.map(label);
   // 選んだメモの本の数（学びログは本に数えない）。本が 1 冊だけなら「別々の本で」とは言わない（?demo=onebook）。
   const bookCount = new Set(picked.filter((m) => m.book_id).map((m) => m.book_id)).size;
-  const quotes = picked.map((m) => `- ${label(m).name} のメモ：「${m.text}」`).join('\n');
+  // &ai=fabricate: 2 つ目の引用を、メモに無い文にする（「根拠を見る」で見せないことの確認用・evidenceCheck.js）。
+  const quotes = picked.map((m, i) => `- ${label(m).name} のメモ：「${aiMode === 'fabricate' && i === 1 ? '他人の期待を満たすために生きてはいけない' : m.text}」`).join('\n');
+  // 一歩は、あとで行動の一覧だけを見ても分かる文にする（本番の指示文と同じ・「この件」と書かない）。
+  const subject = questionGist(question, 20) || 'いまの悩み';
   const refs = picked.map((m) => `- ${label(m).ref}`).join('\n');
 
   return [
@@ -87,7 +91,7 @@ function brainAnswer(store, question, memoBlock = '') {
       : 'このメモは「相手や状況を責める前に、自分の伝え方・決め方を一つ変える」ことを勧めています。'}いまの悩みも、全部を解決しようとせず、いちばん効く一点に絞ると動きやすくなります。`,
     '',
     '【明日からできる 1 つの行動】',
-    '明日の朝、始業前の 10 分で、この件について「やること」と「やらないこと」を 1 つずつ紙に書き出してみてください。',
+    `明日の朝、始業前の 10 分で、「${subject}」について「やること」と「やらないこと」を 1 つずつ紙に書き出してみてください。`,
     '',
     '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
     '',
@@ -212,7 +216,7 @@ function aiReply(store, payload, aiMode = '') {
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     const block = (userText.match(/MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '';
-    return brainAnswer(store, q[1], block);
+    return brainAnswer(store, q[1], block, aiMode);
   }
   if (userText.includes('のテーマまとめを、次のフォーマットで作成')) {
     const theme = (userText.match(/【テーマ】(.+)/) || [])[1] || '';

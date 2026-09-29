@@ -9,9 +9,9 @@ import { condenseMemo } from '../lib/ai';
 import { usePaywall } from '../state/PaywallContext';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, input as uiInput } from '../styles/ui';
 import { ensureHttps } from '../lib/url';
-import { BookOpen, Sparkles, Undo2, ImagePlus, ChevronLeft, X } from 'lucide-react';
+import { BookOpen, Sparkles, Undo2, ImagePlus, X } from 'lucide-react';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
@@ -45,17 +45,19 @@ const headerBar = {
   flexShrink: 0,
 };
 
-// アプリ標準の iOS の戻る（‹ ＋ 文字・--accent・高さ 44。すべての本の「‹ ホーム」と同じ形）。
+// 閉じるは「キャンセル」（メモを書くシート＝QuickMemoSheet と同じ言葉・DESIGN §5「シート・モーダルの『キャンセル』」:
+// --text-2・17/400。決定は下の「保存」なので、取り消しは脇役・2026-09-29）。
 const backBtn = {
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 'var(--space-1)',
   minHeight: 44,
-  padding: '0 var(--space-2) 0 0',
+  minWidth: 44,
+  padding: 0,
   background: 'none',
   border: 'none',
-  color: 'var(--accent)',
+  color: 'var(--text-2)',
   fontSize: 'var(--text-body)',
+  fontWeight: 400,
   fontFamily: 'inherit',
   flexShrink: 0,
 };
@@ -91,8 +93,10 @@ const ta = {
 };
 
 const btnPrimary = { ...uiBtnPrimary, width: 'auto', flex: 1 };
+const btnPrimaryOff = { ...uiBtnPrimaryOff, width: 'auto', flex: 1 };
 
 const btnGhost = { ...uiBtnGhost, width: 'auto', flex: 1 };
+const btnGhostOff = { ...uiBtnGhostOff, width: 'auto', flex: 1 };
 
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600・文字は本文色）。
 const btnRow = {
@@ -168,6 +172,7 @@ export default function BookMemoEditor({
   initial,
   defaultPageNumber = '',
   defaultText = '',
+  defaultTags = [],
   allTags = [],
   onClose,
   onCreate,
@@ -221,7 +226,7 @@ export default function BookMemoEditor({
     setText(condensedFrom);
     setCondensedFrom(null);
   };
-  const [tags, setTags] = useState(initial?.tags || []);
+  const [tags, setTags] = useState(initial?.tags || defaultTags || []);
   const [tagInput, setTagInput] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -426,7 +431,7 @@ export default function BookMemoEditor({
   // その中に置くと position: fixed が画面ではなく親基準になり、z-index も親の重なりに閉じ込め
   // られて、下のタブバーと「メモを書く」ボタンが保存ボタンの上に重なっていた。
   return createPortal(
-    <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true" aria-label={isEdit ? 'メモを編集' : 'メモを追加'}>
+    <div ref={(el) => { overlayRef.current = el; trapRef.current = el; }} style={overlay} role="dialog" aria-modal="true" aria-label={isEdit ? 'メモを編集' : 'メモを書く'}>
       <div style={headerBar}>
         <button
           type="button"
@@ -437,7 +442,7 @@ export default function BookMemoEditor({
             const dirty =
               text !== (initial?.text || defaultText || '')
               || !!photoFile
-              || JSON.stringify(tags) !== JSON.stringify(initial?.tags || []);
+              || JSON.stringify(tags) !== JSON.stringify(initial?.tags || defaultTags || []);
             if (dirty) {
               const ok = await confirmDialog({
                 title: '保存していない変更があります',
@@ -450,13 +455,15 @@ export default function BookMemoEditor({
             }
             onClose?.();
           }}
-          style={{ ...backBtn, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.4 : 1 }}
+          // 保存中は押せない（薄くせず、文字の色だけ --text-3・DESIGN §5「押せないボタン」）。
+          style={{ ...backBtn, cursor: busy ? 'default' : 'pointer', color: busy ? 'var(--text-3)' : backBtn.color }}
           aria-disabled={busy}
         >
-          <ChevronLeft size={22} aria-hidden="true" />戻る
+          キャンセル
         </button>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.3 }}>{isEdit ? 'メモを編集' : 'メモを追加'}</p>
+          {/* 見出しの言葉はメモを書くシートと同じ（新しいメモ＝「メモを書く」）。 */}
+          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.3 }}>{isEdit ? 'メモを編集' : 'メモを書く'}</p>
           <p
             style={{
               fontSize: 'var(--text-sub)',
@@ -501,7 +508,8 @@ export default function BookMemoEditor({
                 onClick={handleCondense}
                 disabled={condensing}
                 aria-label="メモを凝縮する"
-                style={{ ...btnRow, cursor: condensing ? 'default' : 'pointer', opacity: condensing ? 0.6 : 1 }}
+                // 凝縮中は薄くせず、枠と文字の色＋文言で示す（DESIGN §5「押せないボタン」・メモを書くシートと同じ）。
+                style={condensing ? { ...btnRow, border: '1px solid var(--separator)', color: 'var(--text-3)', cursor: 'default' } : btnRow}
               >
                 <Sparkles size={16} aria-hidden="true" />
                 {condensing ? '凝縮中…' : '凝縮'}
@@ -538,7 +546,8 @@ export default function BookMemoEditor({
         </div>
 
         <div>
-          <label style={fieldLabel}>写真（任意）</label>
+          {/* 「写真から書き起こす」（本文に文字を入れる）と区別して、写真そのものをメモに残すのは「写真を添える」。 */}
+          <label style={fieldLabel}>写真を添える（任意）</label>
           {!shownPreview && (
             <>
               <button
@@ -547,7 +556,7 @@ export default function BookMemoEditor({
                 style={btnRow}
               >
                 <ImagePlus size={16} aria-hidden="true" />
-                写真を追加
+                写真を選ぶ
               </button>
               <input
                 ref={fileInputRef}
@@ -670,7 +679,7 @@ export default function BookMemoEditor({
             type="button"
             onClick={() => save(true)}
             disabled={busy}
-            style={{ ...btnGhost, opacity: busy ? 0.6 : 1 }}
+            style={busy ? btnGhostOff : btnGhost}
           >
             {busy ? '保存中…' : '保存して次へ'}
           </button>
@@ -679,7 +688,7 @@ export default function BookMemoEditor({
           type="button"
           onClick={() => save(false)}
           disabled={busy}
-          style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}
+          style={busy ? btnPrimaryOff : btnPrimary}
         >
           {busy ? '保存中…' : '保存'}
         </button>

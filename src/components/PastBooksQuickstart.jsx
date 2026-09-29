@@ -4,7 +4,7 @@
 // 入れたばかりの人はメモ 0 件で相談しても根拠が無い（最大の壁）。すでに読んだ本と
 // 「覚えていること」を 5 分で入れてもらい、その場で複数の本をつなげた答えを返す。
 // 設計: company/feature-past-books-quickstart.md（2026-09-26 オーナー承認・おすすめ案）
-//   - 冊数: 3〜5 冊（3 冊で「次へ」が押せる）
+//   - 冊数: 1〜5 冊（1 冊から「次へ」が押せる・3 冊がおすすめ＝「あと N 冊でもっと良くなります」・2026-09-29）
 //   - 入口: 初回ガイド最後の主ボタン ＋ はじめの一歩 ＋ ホームの相談カード（メモ 0 件時）
 //   - 一言: 「思い出せない」でスキップ可（責めない）
 // DB 変更なし（books は status='done' で、一言は book_memos のカード式メモとして入る）。
@@ -13,7 +13,9 @@
 // 説明の補足文は置かない（§0-6）・選択はアクセント色の丸いチェック（iOS の選択リストの作法）。
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Search, SearchX, Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import NotifyOptInCard from './NotifyOptInCard';
+import { WORRY_EXAMPLES } from '../lib/consultHelpers';
+import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import { TOKEN_COSTS } from '../lib/tokens';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -26,14 +28,32 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { LIMITS, clamp } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inputStyle, card } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inputStyle, card, groupTitle } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import EmptyState from './EmptyState';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 
-const MIN_BOOKS = 3;
+const MIN_BOOKS = 1;
+const RECOMMENDED_BOOKS = 3; // これより少ないときは「あと N 冊でもっと良くなります」（押せなくはしない）
 const MAX_BOOKS = 5;
+
+// 検索欄が空のときに出す、よく読まれているビジネス書（AI を使わない固定の一覧・押すとそのまま選べる）。
+// 表紙は保存のあとに書名・著者から探す（App.jsx の resolveCoverInBackground）。
+const POPULAR_BOOKS = [
+  ['7つの習慣', 'スティーブン・R・コヴィー'],
+  ['人を動かす', 'D・カーネギー'],
+  ['嫌われる勇気', '岸見一郎・古賀史健'],
+  ['イシューからはじめよ', '安宅和人'],
+  ['エッセンシャル思考', 'グレッグ・マキューン'],
+  ['FACTFULNESS', 'ハンス・ロスリング'],
+  ['影響力の武器', 'ロバート・B・チャルディーニ'],
+  ['伝え方が9割', '佐々木圭一'],
+  ['1兆ドルコーチ', 'エリック・シュミット'],
+  ['数値化の鬼', '安藤広大'],
+  ['思考の整理学', '外山滋比古'],
+  ['夢をかなえるゾウ', '水野敬也'],
+].map(([title, author]) => ({ title, author, isbn: '', cover: '', manual: true }));
 const COVER_W = 36; // 一覧の表紙（高さは MiniCover が 1.42 倍で決める）
 
 // ---- 画面の骨組み ----------------------------------------------------------
@@ -98,25 +118,21 @@ const chipFace = {
   background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-meta)', whiteSpace: 'nowrap',
 };
 
-// 相談例（ホームの相談カードと同じ: --fill 面・枠なしの UI 文字）。
+// 相談例（ホームの相談カードと同じ: --fill 面・枠なしの UI 文字・全幅で縦に並べる）。
 const askChip = {
-  display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 48,
-  padding: 'var(--space-3) var(--space-3) var(--space-3) var(--space-4)', textAlign: 'left',
+  display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left',
   background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer',
-  fontFamily: 'inherit', fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5,
+  fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5,
 };
+// 選ぶためのチップ（DESIGN §5: 高さ 44・15px・余白 8/12・選択中は --accent-soft 面＋--accent 文字 600）。
+const pickChip = (on) => ({
+  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)',
+  borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.3, textAlign: 'left',
+  background: on ? 'var(--accent-soft)' : 'var(--fill)', color: on ? 'var(--accent)' : 'var(--text)',
+  fontSize: 'var(--text-sub)', fontWeight: on ? 600 : 400,
+});
 
 const bookKey = (b) => (b.isbn ? `isbn:${b.isbn}` : `t:${b.title}|${b.author || ''}`);
-
-// 入れた本から相談例を作る（AI を使わない＝原価ゼロ）。複数の本をつなげる問いを先に。
-function suggestQuestions(entries) {
-  const withMemo = entries.filter((e) => e.memo.trim());
-  const titles = (withMemo.length >= 2 ? withMemo : entries).map((e) => e.book.title);
-  const qs = [];
-  if (titles.length >= 2) qs.push(`『${titles[0]}』と『${titles[1]}』から、いまの仕事で意識できることは？`);
-  qs.push('最近、判断に迷うことがあります。私が読んだ本から、ヒントをください');
-  return qs;
-}
 
 function BookRow({ book, on, first, onToggle }) {
   return (
@@ -170,7 +186,10 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   const [searchError, setSearchError] = useState(false);
   const [picked, setPicked] = useState([]); // [{ book, memo }]
   const [idx, setIdx] = useState(0);
-  const [summary, setSummary] = useState({ books: [], memos: 0 });
+  const [summary, setSummary] = useState({ books: [], memos: 0, totalMemos: 0, totalBooks: 0 });
+  // できあがりの画面の「いま困っていること」（そのまま相談へ送る）
+  const [askText, setAskText] = useState('');
+  const askRef = useRef(null);
   const [saveProgress, setSaveProgress] = useState({ done: 0, total: 0 }); // 保存中の進み具合（冊）
   const memoRef = useRef(null);
   const searchRef = useRef(null);
@@ -219,8 +238,11 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
       return;
     }
     setPicked((arr) => [...arr, { book: b, memo: '' }]);
-    // 次の 1 冊をすぐ打てるように、入力欄を空にする（結果の一覧はそのまま残す）。
+    // 次の 1 冊をすぐ打てるように、入力欄と前の検索結果を消す（よく読まれている本・本棚の本の一覧に戻る）。
     setQuery('');
+    setResults(null);
+    setSearched('');
+    setSearchError(false);
   };
   const titleOnlyBook = searched
     ? { title: clamp(searched, LIMITS.bookTitle), author: '', isbn: '', cover: '', manual: true }
@@ -243,12 +265,14 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
     setSaveProgress({ done: 0, total: entries.length });
     const savedBooks = [];
     const memoRows = [];
+    let newBooks = 0;
     for (const e of entries) {
       try {
         // 既に本棚にある本は追加せず、その本に一言だけ足す（重複登録しない）。
         const existing = findDuplicateBook(books, e.book);
         const saved = existing || await onSaveBook?.(e.book);
         if (!saved?.id) continue;
+        if (!existing) newBooks += 1;
         savedBooks.push({ ...e.book, ...saved });
         const text = clamp(e.memo.trim(), LIMITS.memoText);
         if (text) memoRows.push({ user_id: user.id, book_id: saved.id, text, page_number: null, tags: [], photo_path: null });
@@ -273,7 +297,13 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
       }
     }
     track('quickstart_completed', { books: savedBooks.length, memos: memoCount });
-    setSummary({ books: savedBooks, memos: memoCount });
+    // 「メモ N 件」はホーム・相談と同じ数え方（自分のメモ＝カード式＋学びの全件）。数えられなければ今回の件数。
+    let totalMemos = memoCount;
+    try {
+      const { count, error } = await supabase.from('book_memos').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
+      if (!error && typeof count === 'number') totalMemos = Math.max(count, memoCount);
+    } catch { /* 今回の件数のまま */ }
+    setSummary({ books: savedBooks, memos: memoCount, totalMemos, totalBooks: books.length + newBooks });
     setStep('done');
   };
 
@@ -314,7 +344,11 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
         <>
           <div style={body}>
             <h1 style={title}>これまで読んで、<br />印象に残っている本は？</h1>
-            <p style={sub}>{MIN_BOOKS}〜{MAX_BOOKS} 冊えらんでください</p>
+            {/* 句のまとまりで折り返す（「はじめられ／ます」と割らない） */}
+            <p style={sub}>
+              <span style={{ display: 'inline-block' }}>{RECOMMENDED_BOOKS} 冊ほどがおすすめです。</span>
+              <span style={{ display: 'inline-block' }}>{MIN_BOOKS} 冊からでもはじめられます</span>
+            </p>
             {onImport && (
               <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-1)' }}>
                 ブクログ・Kindle の記録から取り込む
@@ -341,7 +375,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                   <button
                     type="button"
                     aria-label="入力を消す"
-                    onClick={() => { setQuery(''); searchRef.current?.focus(); }}
+                    onClick={() => { setQuery(''); setResults(null); setSearched(''); setSearchError(false); searchRef.current?.focus(); }}
                     style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer' }}
                   >
                     <X size={18} aria-hidden="true" />
@@ -415,6 +449,24 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                   </ul>
                 </section>
               )}
+
+              {/* 検索欄が空のとき: よく読まれている本（押すとそのまま選べる・AI は使わない） */}
+              {!searching && !results && !query.trim() && (
+                <section aria-labelledby="qs-popular" style={shelfBooks.length > 0 ? { marginTop: 'var(--space-6)' } : null}>
+                  <h2 id="qs-popular" style={sectionLabel}>よく読まれている本</h2>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                    {POPULAR_BOOKS.map((b) => {
+                      const on = isPicked(b);
+                      return (
+                        <button key={b.title} type="button" onClick={() => toggle(b)} aria-pressed={on} aria-label={`『${b.title}』${b.author}`} style={pickChip(on)}>
+                          {on && <Check size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
+                          {b.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
             </div>
           </div>
 
@@ -430,6 +482,12 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                   </button>
                 ))}
               </div>
+            )}
+            {/* 1 冊から進めるが、3 冊ほどあると本をまたいだ答えになる（押せなくはしない・ヒントだけ） */}
+            {picked.length > 0 && picked.length < RECOMMENDED_BOOKS && (
+              <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+                あと {RECOMMENDED_BOOKS - picked.length} 冊でもっと良くなります
+              </p>
             )}
             <button type="button" style={picked.length >= MIN_BOOKS ? btnPrimary : btnPrimaryOff}
               disabled={picked.length < MIN_BOOKS}
@@ -465,6 +523,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             </div>
 
             <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>この本で、いちばん<br />覚えていることは？</h1>
+            <p style={sub}>うろ覚え・一言で大丈夫です</p>
             <textarea
               ref={memoRef}
               value={current.memo}
@@ -537,7 +596,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             {summary.memos > 0 ? (
               <>
                 <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>あなたの相談相手が<br />できました</h1>
-                <p style={sub}>あなたの {summary.books.length} 冊・メモ {summary.memos} 件から答えます</p>
+                {/* ホームの相談カードと同じ数え方・同じ言葉（あなたの N 冊・メモ M 件） */}
+                <p style={{ ...sub, fontVariantNumeric: 'tabular-nums' }}>あなたの {summary.totalBooks || summary.books.length} 冊・メモ {summary.totalMemos || summary.memos} 件から答えます</p>
               </>
             ) : (
               <>
@@ -548,24 +608,50 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             )}
 
             {summary.memos > 0 && (
+              // 最初の相談は、本からの例ではなく「いま困っていること」をそのまま（相談は困りごとから始まる）。
               <section aria-labelledby="qs-ask" style={{ marginTop: 'var(--space-8)' }}>
                 <h2 id="qs-ask" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)' }}>
-                  相談してみる
+                  いま困っていること
                 </h2>
                 {freeMode && freeRemaining > 0 && (
                   <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)' }}>今月の残り {freeRemaining} トークン（相談 1 回 約 {TOKEN_COSTS.consult}）</p>
                 )}
+                <textarea
+                  ref={askRef}
+                  value={askText}
+                  onChange={(e) => setAskText(e.target.value)}
+                  rows={2}
+                  maxLength={LIMITS.aiQuestion}
+                  placeholder="例：上司への報告がうまくいかない"
+                  aria-labelledby="qs-ask"
+                  style={{ ...inputStyle, display: 'block', resize: 'none', lineHeight: 1.5 }}
+                />
+                <button
+                  type="button"
+                  style={{ ...btnPrimary, marginTop: 'var(--space-3)' }}
+                  onClick={() => {
+                    const q = askText.trim();
+                    // 空のまま押したら入力欄へ（主ボタンは薄くしない・ホームの相談カードと同じ）
+                    if (!q) { askRef.current?.focus(); return; }
+                    track('quickstart_first_consult', { example: false });
+                    onAsk?.(q);
+                  }}
+                >
+                  相談する
+                </button>
+                <p style={{ ...groupTitle, margin: 'var(--space-4) 0 var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {suggestQuestions(picked).map((q) => (
+                  {WORRY_EXAMPLES.slice(0, 2).map((q) => (
                     <button key={q} type="button" style={askChip}
-                      onClick={() => { track('quickstart_first_consult'); onAsk?.(q); }}>
-                      <span style={{ flex: 1, minWidth: 0 }}>{q}</span>
-                      <ChevronRight size={20} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-3)' }} />
+                      onClick={() => { track('quickstart_first_consult', { example: true }); onAsk?.(q); }}>
+                      {q}
                     </button>
                   ))}
                 </div>
               </section>
             )}
+            {/* 🔔 初日クイックスタートを終えた直後に 1 回だけ（行動に追加の直後と、先に来たほう）。主ボタンは「相談する」なので副ボタンで。 */}
+            {summary.memos > 0 && <NotifyOptInCard where="quickstart" primary={false} style={{ marginTop: 'var(--space-8)' }} />}
           </div>
           <div style={footer}>
             {/* 相談例がある時はそちらが主役なので、完了は副ボタン。

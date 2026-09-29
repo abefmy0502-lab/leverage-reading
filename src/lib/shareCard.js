@@ -699,12 +699,18 @@ function drawScrim(ctx, W, H, scrim, stops) {
 }
 
 function drawPhoto(ctx, o) {
-  const { W, H, format, theme, fonts } = o;
-  const L = PHOTO[format] || PHOTO.story;
+  const { W, H } = o;
   const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W, H, ...(o.view || {}) });
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(o.photo.source, place.x, place.y, place.w, place.h);
+  drawPhotoOverlay(ctx, o, place);
+}
 
+// 写真の上に重ねるもの（幕・一文・書名・ロゴ）。幕の濃さは、写真のこの置き方（place）の明るさで決める。
+// 写真を指で動かしている間は、これを 1 回だけ別の canvas に描いておき、写真の上に重ねるだけにする（drawPhotoDragFrame）。
+function drawPhotoOverlay(ctx, o, place) {
+  const { W, H, format, theme, fonts } = o;
+  const L = PHOTO[format] || PHOTO.story;
   const footerTop = L.footerBaseline - L.wordH * 1.5;
   const pos = o.textPos === 'top' || o.textPos === 'center' ? o.textPos : 'bottom';
   const maxBlockH = H * L.maxBlock;
@@ -730,15 +736,17 @@ function drawPhoto(ctx, o) {
     drawScrim(ctx, W, H, theme.scrim, [[footerTop - fade * 0.8, 0], [H, aFoot]]);
   }
 
+  // 影のぼかしは canvas の拡大・縮小（transform）に追従しないので、縮めて描くとき（shadowScale）は掛けて合わせる。
+  const sb = o.shadowScale || 1;
   ctx.save();
   ctx.shadowColor = theme.shadow;
-  ctx.shadowBlur = 18;
-  ctx.shadowOffsetY = 2;
+  ctx.shadowBlur = 18 * sb;
+  ctx.shadowOffsetY = 2 * sb;
   drawOverlay(ctx, fonts, o, L, lay, top, theme);
   ctx.restore();
   ctx.save();
   ctx.shadowColor = theme.shadow;
-  ctx.shadowBlur = 14;
+  ctx.shadowBlur = 14 * sb;
   drawFooter(ctx, { W, margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts, metaSize: L.metaSize - 2 });
   ctx.restore();
 }
@@ -808,6 +816,70 @@ export function drawShareCard(canvas, opts = {}) {
   if (style === 'photo') drawPhoto(ctx, o);
   else drawPoster(ctx, o);
   return { line: text, width: W, height: H };
+}
+
+// 🖐 写真を指で動かしている間の 1 コマ（2026-09-29・F8）。毎コマ全部を 1080 幅で描き直すと、
+// 幕の明るさの測り直し・影つきの文字で 1 コマ 30〜100ms かかり、指に遅れていた。動かしている間は:
+//   ① 画面に見える大きさ（幅 約 570）で描く（canvas の中身の大きさだけ変え、見た目の大きさは CSS のまま）
+//   ② 幕・一文・書名・ロゴは、動かし始めに 1 回だけ別の canvas に描いておき、写真の上に重ねるだけ
+//   ③ 写真も、動かし始めに必要な大きさへ縮めたものを使う
+// 幕の濃さは動かし始めの置き方で決めたまま（指を離したら drawShareCard で正しく描き直す）。
+// 書き出す画像は必ず drawShareCard（全部を 1080 幅で）から作る。
+// cache: 呼び出し側が持つ入れ物（{}）。同じ一文・形・地の間は中身を使い回す。
+// 戻り値: 描けたら true（写真でないとき・準備できないときは false＝呼び出し側で drawShareCard）。
+export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth = 570 } = {}) {
+  if (!canvas || !opts.photo || (opts.style && opts.style !== 'photo')) return false;
+  const { text } = clampLine(opts.line);
+  if (!text) return false;
+  const fmt = FORMATS[opts.format] ? opts.format : 'story';
+  const { w: W, h: H } = FORMATS[fmt];
+  const k = Math.min(1, Math.max(0.2, targetWidth / W));
+  const cw = Math.round(W * k);
+  const ch = Math.round(H * k);
+  const fonts = opts.fonts || fontStacks();
+  const key = JSON.stringify([text, fmt, opts.textPos, opts.title, opts.author, opts.page, opts.totalPages, opts.knownMaxPage, opts.seedKey, opts.photo.width, opts.photo.height, fonts.read, k]);
+  if (cache.key !== key || !cache.layer || cache.photoRef !== opts.photo) {
+    const theme = readShareTheme('photo', { tone: opts.cover?.tone, title: opts.title });
+    const o = {
+      ...opts, text, fonts, theme, style: 'photo', W, H, format: fmt,
+      seed: seedFrom(`${opts.seedKey || ''}|${text}`),
+      frac: tabPosition(opts.page, opts.totalPages, opts.knownMaxPage),
+      shadowScale: k,
+    };
+    const layer = makeCanvas(cw, ch);
+    const lctx = layer.getContext('2d');
+    if (!lctx) return false;
+    lctx.setTransform(k, 0, 0, k, 0, 0);
+    lctx.textAlign = 'left';
+    lctx.textBaseline = 'alphabetic';
+    const place0 = photoPlacement({ pw: opts.photo.width, ph: opts.photo.height, W, H, ...(opts.view || {}) });
+    drawPhotoOverlay(lctx, o, place0);
+    // 写真は、動かし始めの大きさの 2 倍まで縮めておく（拡大しても粗くなりすぎない・元より大きくはしない）。
+    const want = Math.max(cw, Math.round(place0.w * k * 2));
+    const sk = Math.min(1, want / opts.photo.width);
+    let small = opts.photo.source;
+    if (sk < 0.95) {
+      small = makeCanvas(opts.photo.width * sk, opts.photo.height * sk);
+      const sctx = small.getContext('2d');
+      if (sctx) {
+        sctx.imageSmoothingQuality = 'high';
+        sctx.drawImage(opts.photo.source, 0, 0, small.width, small.height);
+      } else {
+        small = opts.photo.source;
+      }
+    }
+    Object.assign(cache, { key, layer, small, photoRef: opts.photo });
+  }
+  if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return false;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cw, ch);
+  const place = photoPlacement({ pw: opts.photo.width, ph: opts.photo.height, W, H, ...(opts.view || {}) });
+  ctx.imageSmoothingQuality = 'medium';
+  ctx.drawImage(cache.small, place.x * k, place.y * k, place.w * k, place.h * k);
+  ctx.drawImage(cache.layer, 0, 0);
+  return true;
 }
 
 export function canvasToBlob(canvas) {

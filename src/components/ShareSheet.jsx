@@ -32,7 +32,7 @@ import { validateImageFile, MAX_IMAGE_BYTES } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
 import { SITE_URL } from '../lib/legalLinks';
 import {
-  drawShareCard, canvasToBlob, prepareCover, prepareFonts, prepareLogo, loadPhotoFile, readShareTheme,
+  drawShareCard, drawPhotoDragFrame, canvasToBlob, prepareCover, prepareFonts, prepareLogo, loadPhotoFile, readShareTheme,
 } from '../lib/shareCard';
 import {
   orderLineCandidates, buildShareText, shareFilename, FORMATS, panView, zoomView, clampLine,
@@ -207,29 +207,31 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
     ? JSON.stringify([chosen.id, chosen.text, chosen.pageNumber, effStyle, format, textPos, photo?.width, photo?.height, view, book?.title, book?.author, retry])
     : '';
 
-  // canvas に描く（同期）。失敗は ErrorMessage へ。
+  // 描く材料（書き出す 1 枚・動かしている間の 1 コマで共通）。
+  const cardOpts = () => ({
+    line: chosen.text,
+    page: Number.isFinite(chosen.pageNumber) ? chosen.pageNumber : null,
+    title: book?.title || '',
+    author: book?.author || '',
+    totalPages: book?.totalPages,
+    knownMaxPage,
+    seedKey: chosen.id,
+    cover: assets.cover,
+    fonts: assets.fonts,
+    logo: assets.logo,
+    style: effStyle,
+    format,
+    photo,
+    view: viewRef.current,
+    textPos,
+  });
+  // canvas に描く（同期・書き出す大きさで全部）。失敗は ErrorMessage へ。
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !chosen || !assets) return false;
     try {
       if (DEMO_SHARE === 'fail') throw new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。');
-      const r = drawShareCard(canvas, {
-        line: chosen.text,
-        page: Number.isFinite(chosen.pageNumber) ? chosen.pageNumber : null,
-        title: book?.title || '',
-        author: book?.author || '',
-        totalPages: book?.totalPages,
-        knownMaxPage,
-        seedKey: chosen.id,
-        cover: assets.cover,
-        fonts: assets.fonts,
-        logo: assets.logo,
-        style: effStyle,
-        format,
-        photo,
-        view: viewRef.current,
-        textPos,
-      });
+      const r = drawShareCard(canvas, cardOpts());
       setDims((d) => (d.w === r.width && d.h === r.height ? d : { w: r.width, h: r.height }));
       setStatus('ready');
       return true;
@@ -239,7 +241,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
       setStatus('error');
       return false;
     }
-  }, [chosen, assets, book?.title, book?.author, book?.totalPages, knownMaxPage, effStyle, format, photo, textPos]);
+  }, [chosen, assets, book?.title, book?.author, book?.totalPages, knownMaxPage, effStyle, format, photo, textPos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 描いたものを PNG にしておく（シェアを押した瞬間に共有シートを開けるように）。
   const scheduleBlob = useCallback((key) => {
@@ -273,14 +275,38 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
   const pointers = useRef(new Map());
   const gesture = useRef(null);
   const canPan = effStyle === 'photo' && !!photo;
+  // 動かしている間は、画面に見える大きさで写真＋重ねる層だけを描く（1 コマを軽く・F8）。指を離したら全部を描き直す。
+  const dragCache = useRef({});
   const redrawSoon = () => {
     cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => draw());
+    rafRef.current = requestAnimationFrame(() => {
+      const canvas = canvasRef.current;
+      if (!canvas || !chosen || !assets) return;
+      const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+      const targetWidth = Math.max(570, Math.round((canvas.clientWidth || 0) * dpr));
+      let ok = false;
+      try { ok = drawPhotoDragFrame(canvas, cardOpts(), dragCache.current, { targetWidth }); } catch { ok = false; }
+      if (!ok) draw();
+    });
+  };
+  // 指を離したとき: 置き方が変わっていれば drawKey が変わって描き直す。同じなら（動かして元の位置に戻した）ここで描き直す。
+  const latest = useRef({});
+  latest.current = { view, drawKey, draw };
+  const finishDrag = () => {
+    cancelAnimationFrame(rafRef.current);
+    const next = { ...viewRef.current };
+    const cur = latest.current;
+    if (JSON.stringify(next) === JSON.stringify(cur.view)) {
+      if (cur.draw()) scheduleBlob(cur.drawKey);
+    } else {
+      setView(next);
+    }
   };
   const dimsForPan = () => ({ pw: photo.width, ph: photo.height, W: FORMATS[format].w, H: FORMATS[format].h });
+  // 画面の 1px が画像の何 px か（動かしている間は canvas の中身が小さいので、書き出す大きさ＝形の幅で数える）。
   const cssToCard = () => {
     const c = canvasRef.current;
-    return c && c.clientWidth ? c.width / c.clientWidth : 1;
+    return c && c.clientWidth ? (FORMATS[format]?.w || c.width) / c.clientWidth : 1;
   };
   const onPointerDown = (e) => {
     if (!canPan) return;
@@ -312,7 +338,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
     if (pointers.current.size < 2) gesture.current = null;
     if (pointers.current.size === 0 && dragging) {
       setDragging(false);
-      setView({ ...viewRef.current });
+      finishDrag();
     }
   };
   // マウスのホイール・トラックパッドで拡大（ページはスクロールさせない）。
@@ -326,7 +352,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
       setDragging(true);
       redrawSoon();
       clearTimeout(t);
-      t = setTimeout(() => { setDragging(false); setView({ ...viewRef.current }); }, 160);
+      t = setTimeout(() => { setDragging(false); finishDrag(); }, 160);
     };
     c.addEventListener('wheel', onWheel, { passive: false });
     return () => { c.removeEventListener('wheel', onWheel); clearTimeout(t); };

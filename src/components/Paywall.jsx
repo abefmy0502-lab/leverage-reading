@@ -99,9 +99,10 @@ const showNative = isNative || preview.on;
 // 無料プランとプランの違い（2 行・DESIGN §0-6: 説明の文は置かない）。量（トークン）を強く、中身は補足で。
 // 「無料」だけの見出しにしない（7 日間無料と取り違えないよう「無料プラン（ずっと無料）」・GLOSSARY）。
 const PLAN_COMPARE = [
-  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS} トークン`, scope: '相談だけ', text: 'メモ・記録・振り返り・シェア' },
+  // 量の横に「相談なら何回か」を添える（トークンの数だけでは、どれだけ使えるか分からないため・2026-09-29）。
+  { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `相談だけ・約 ${Math.round(FREE_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, text: 'メモ・記録・振り返り・シェア' },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
-  { name: 'プラン', amount: `毎月 ${PAID_TOKENS} トークン`, scope: 'すべての AI', items: ['AI 選書', 'テーマまとめ', '読書計画シート', '写真から書き起こし'] },
+  { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `すべての AI・相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, items: ['AI 選書', 'テーマまとめ', '読書計画シート', '写真から書き起こし'] },
 ];
 // トークンの目安（1 行）。
 const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
@@ -488,6 +489,12 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               >
                 {ctaLabel}
               </button>
+              {/* 無料期間があるときは、ボタンのすぐ下で「期間中にやめれば払わない」を言う（ためらいを減らす・2026-09-29）。 */}
+              {trial && priceState === 'ready' && (
+                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
+                  無料期間中に解約すれば、料金はかかりません
+                </p>
+              )}
             </div>
 
             {/* 自動更新の条件（3.1.2 必須開示） */}

@@ -216,6 +216,36 @@ export function parseImportText(fileName, text) {
   return parseBooklogCsv(t);
 }
 
+// いくつかのファイルを一度に選んだとき（Kindle のノートブックは 1 冊 1 ファイル）: 1 つの結果にまとめる。
+//   同じ本（書名＋著者）は 1 冊にまとめ、同じ文のメモは 1 つだけ残す。取り込み元がそろっていればその名前、
+//   混ざっていれば 'mixed'（見出しに取り込み元を出さない）。上限（300 冊・2,000 件）はまとめたあとにも守る。
+export function mergeImportResults(results) {
+  const list = (Array.isArray(results) ? results : []).filter((r) => r && Array.isArray(r.books));
+  if (list.length === 1) return list[0];
+  const sources = [...new Set(list.map((r) => r.source).filter(Boolean))];
+  const byKey = new Map();
+  let memoCount = 0;
+  for (const r of list) {
+    for (const b of r.books) {
+      const key = `${String(b.title || '').trim()}\u0000${String(b.author || '').trim()}`;
+      if (!byKey.has(key)) {
+        if (byKey.size >= IMPORT_MAX_BOOKS) continue;
+        byKey.set(key, { ...b, memos: [] });
+      }
+      const book = byKey.get(key);
+      if (!book.review && b.review) book.review = b.review;
+      if (!book.isbn && b.isbn) book.isbn = b.isbn;
+      for (const m of b.memos || []) {
+        if (memoCount >= IMPORT_MAX_MEMOS) break;
+        if (book.memos.some((x) => x.text === m.text)) continue;
+        book.memos.push(m);
+        memoCount += 1;
+      }
+    }
+  }
+  return { source: sources.length === 1 ? sources[0] : 'mixed', books: [...byKey.values()] };
+}
+
 export function summarizeImport(result) {
   const books = result?.books || [];
   const memos = books.reduce((n, b) => n + (b.memos?.length || 0) + (b.review ? 1 : 0), 0);

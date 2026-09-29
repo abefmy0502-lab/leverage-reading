@@ -5,14 +5,16 @@
 // メモ一覧・キャッシュ・計測は詳細画面から書いた場合と同一。
 import { useBookMemos } from '../hooks/useBookMemos';
 import QuickMemoSheet from './QuickMemoSheet';
+import { frequentMemoTags } from '../lib/memoTags';
 
-export default function HomeQuickMemo({ book, onClose, onSaved, onOpenFullEditor }) {
+export default function HomeQuickMemo({ book, allTags = [], onClose, onSaved, onOpenFullEditor }) {
   const memoOps = useBookMemos(book.id);
   const nums = (memoOps.memos || []).map((m) => m.pageNumber).filter((n) => Number.isFinite(n));
   return (
     <QuickMemoSheet
       bookTitle={book.title}
       defaultPageNumber={nums.length ? Math.max(...nums) + 1 : ''}
+      frequentTags={frequentMemoTags(memoOps.memos, allTags)}
       onClose={onClose}
       onCreate={async (payload) => {
         const result = await memoOps.createMemo(payload);

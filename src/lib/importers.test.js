@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport } from './importers';
+import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport, mergeImportResults } from './importers';
 
 describe('parseCsv', () => {
   it('引用符・カンマ・改行入りのセル', () => {
@@ -67,5 +67,18 @@ describe('parseImportText / decode', () => {
   });
   it('件数のまとめ（レビューもメモとして数える）', () => {
     expect(summarizeImport({ books: [{ memos: [{}, {}], review: 'x' }, { memos: [], review: '' }] })).toEqual({ books: 2, memos: 3 });
+  });
+});
+
+describe('mergeImportResults', () => {
+  it('いくつかのファイル: 同じ本は 1 冊に・同じ文のメモは 1 つに・取り込み元が混ざれば mixed', () => {
+    const a = { source: 'kindle', books: [{ title: 'A', author: 'x', memos: [{ text: '一', page: 1 }, { text: '二', page: 2 }] }] };
+    const b = { source: 'kindle', books: [{ title: 'A', author: 'x', memos: [{ text: '二', page: 2 }, { text: '三', page: 3 }] }, { title: 'B', author: 'y', memos: [] }] };
+    const m = mergeImportResults([a, b]);
+    expect(m.source).toBe('kindle');
+    expect(m.books).toHaveLength(2);
+    expect(m.books[0].memos.map((x) => x.text)).toEqual(['一', '二', '三']);
+    expect(mergeImportResults([a, { source: 'booklog', books: [] }]).source).toBe('mixed');
+    expect(mergeImportResults([a])).toBe(a);
   });
 });

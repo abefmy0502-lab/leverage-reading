@@ -5,7 +5,7 @@
 // applies a transform. The visual style of the inner card is the caller's
 // responsibility (we don't paint a background here so we don't double up).
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSwipeToDelete } from '../hooks/useSwipeToDelete';
 import { useHaptic } from '../hooks/useHaptic';
 import { Trash2 } from 'lucide-react';
@@ -97,6 +97,8 @@ export default function SwipeableCard({
   );
   const haptic = useHaptic();
   const rootRef = useRef(null);
+  // 畳んでいる間は赤い引き出しの高さを固定する（中央の「削除」の文字が上へ流れて見えないように）。
+  const [drawerH, setDrawerH] = useState(null);
   const { offset, armed, isDeleting, bind } = useSwipeToDelete({
     threshold,
     maxSwipe: ACTION_WIDTH,
@@ -104,6 +106,7 @@ export default function SwipeableCard({
       haptic.medium();
       // 先に項目の高さを畳んでから消す（消えた瞬間に下のカードが跳ねない）。
       const card = rootRef.current;
+      if (card) setDrawerH(card.offsetHeight);
       const item = findListItem(card);
       const { done, restore, reset } = collapseItem(item);
       await done;
@@ -111,6 +114,7 @@ export default function SwipeableCard({
       requestAnimationFrame(() => { if (item?.isConnected && !(card?.isConnected && item.contains(card))) reset(); });
       // 取り消し（確認で「キャンセル」）・失敗でまだ画面に残っていれば、高さを戻す。
       window.setTimeout(() => {
+        if (card?.isConnected) setDrawerH(null);
         if (!item?.isConnected) return;
         if (card?.isConnected && item.contains(card)) restore();
         else reset();
@@ -149,7 +153,7 @@ export default function SwipeableCard({
           position: 'absolute',
           right: 0,
           top: 0,
-          bottom: 0,
+          ...(drawerH != null ? { height: drawerH } : { bottom: 0 }),
           width: ACTION_WIDTH,
           background: 'var(--error)',
           // 🩹 静止中は赤を描かない。カードの角丸（直書きの 14/16 等）と外枠の角丸が

@@ -1,6 +1,6 @@
 // メモを書くシート（SPEC §2「読みながら片手でサッと」）。
-// 最初に見えるのは本文だけ。ページ番号・写真から書き起こす・タグ（全画面の
-// BookMemoEditor へ引き継ぐ）は「＋ ページ・写真」で開く（SPEC §2）。
+// 最初に見えるのは本文だけ。ページ番号・写真から書き起こす・よく使うタグ（押して付ける）は
+// 「＋ ページ・写真」で開く（SPEC §2）。写真を添える・新しいタグは全画面（BookMemoEditor）へ引き継ぐ。
 // ページ番号は直前のメモ＋1 を既定値として覚えておく（開かなくても保存される）。
 // 見た目は DESIGN.md のトークンのみ。
 
@@ -10,6 +10,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 import { toMessage } from '../lib/errors';
 import { LIMITS } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
+import { Chip } from './formPrimitives';
 import { condenseMemo } from '../lib/ai';
 import { usePaywall } from '../state/PaywallContext';
 import { useToast } from './Toast';
@@ -153,12 +154,15 @@ export default function QuickMemoSheet({
   onClose,
   onCreate,
   onOpenFullEditor,
+  frequentTags = [], // よく使うタグ（「＋ ページ・写真」の中にチップで並べ、押して付ける・2026-09-29）
 }) {
   // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
   useBlockEdgeSwipe(true);
   ensureKeyframes();
   const [pageNumber, setPageNumber] = useState(defaultPageNumber !== '' ? String(defaultPageNumber) : '');
   const [text, setText] = useState('');
+  const [tags, setTags] = useState([]);
+  const toggleTag = (t) => setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   // ＋ ページ・写真（最初は閉じる＝本文だけを見せる）。
   const [moreOpen, setMoreOpen] = useState(false);
   // ページ番号を使うか: 「＋ ページ・写真」を開いて欄を見た（＝既定値を確かめた）か、自分で入れたときだけ保存する。
@@ -347,7 +351,7 @@ export default function QuickMemoSheet({
         pageNumber: Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 99999) : null,
         text: trimmed,
         photoFile: null,
-        tags: [],
+        tags,
       });
       animateClose(); // 保存後も滑って閉じる（出入りの所作を統一）
     } catch (e) {
@@ -363,6 +367,7 @@ export default function QuickMemoSheet({
     onOpenFullEditor?.({
       pageNumber: Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 99999) : null,
       text,
+      tags,
     });
     onClose?.();
   };
@@ -470,8 +475,10 @@ export default function QuickMemoSheet({
             >
               {moreOpen ? <Minus size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
               ページ・写真
-              {!moreOpen && pageUsed && pageNumber !== '' && (
-                <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>（p.{pageNumber}）</span>
+              {!moreOpen && ((pageUsed && pageNumber !== '') || tags.length > 0) && (
+                <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>
+                  （{[pageUsed && pageNumber !== '' ? `p.${pageNumber}` : '', ...tags.map((t) => `#${t}`)].filter(Boolean).join('・')}）
+                </span>
               )}
             </button>
             {moreOpen && (
@@ -505,9 +512,23 @@ export default function QuickMemoSheet({
                 />
               </div>
             )}
+            {/* よく使うタグ（選ぶためのチップ・押すと付く／もう一度で外す）。見出し→チップ 8・チップ同士 8（DESIGN §5）。 */}
+            {moreOpen && frequentTags.length > 0 && (
+              <div style={{ marginTop: 'var(--space-3)' }}>
+                <p id="quick-memo-tags" style={fieldLabel}>タグ</p>
+                <div role="group" aria-labelledby="quick-memo-tags" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                  {frequentTags.map((t) => (
+                    <Chip key={t} size="select" active={tags.includes(t)} aria-pressed={tags.includes(t)} onClick={() => toggleTag(t)}>
+                      #{t}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* 写真を添える・新しいタグを作るは全画面で（写真から書き起こすは、どちらでも同じボタン）。 */}
             {moreOpen && onOpenFullEditor && (
-              <button type="button" style={{ ...detailLink, marginTop: 0 }} onClick={handleDetailHandoff}>
-                タグもつける（全画面で書く）<ChevronRight size={16} aria-hidden="true" />
+              <button type="button" style={{ ...detailLink, marginTop: frequentTags.length > 0 ? 'var(--space-1)' : 0 }} onClick={handleDetailHandoff}>
+                写真を添える・新しいタグ（全画面で書く）<ChevronRight size={16} aria-hidden="true" />
               </button>
             )}
           </div>

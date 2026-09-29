@@ -1,36 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
-import { BookOpen, PencilLine, MessageCircle, Target, X, ChevronLeft } from 'lucide-react';
+import { BookOpen, MessageCircle, X, ChevronLeft } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
-// スライドは 約束（相談相手が育つ）→ メモ → 相談(核心) → 行動 の一本道。
-// 一番の価値「読むほど、自分だけの相談相手が育つ」（CLAUDE.md・2026-09-26 裁定）を
-// 3 枚目に置く。思い出しカード（旧「想起」）は手段なので 4 枚目で一言だけ触れる。
+// スライドは 2 枚だけ（2026-09-29・始めるまでのタップを減らす）:
+//   1. 約束 — 一番の価値「読むほど、自分だけの相談相手が育つ」（CLAUDE.md・2026-09-26 裁定）。
+//      メモ → 相談 → 行動 の流れを本文 1 文にまとめる（旧 2〜4 枚目の中身）。
+//   2. 最初の一歩 — 無料でできる始め方（これまで読んだ本から始める／いま読んでいる本／取り込む）。
+// 思い出しカード（旧「想起」）は手段なのでここでは触れない（振り返りで出会う）。
 // 文体注意: 引用符強調（"凝縮" 等）とダーシ（——）は翻訳調に見えるため使わない。
 // 本文は 2 行程度まで（DESIGN 原則 6: なくても伝わる補足は置かない）。
 const slides = [
   {
-    Icon: BookOpen,
-    title: '読むほど、自分だけの相談相手が育つ',
-    body: 'Orime は、あなたが読んだ本とメモを覚えておいて、困ったときの相談相手になる読書アプリです。',
-  },
-  {
-    Icon: PencilLine,
-    title: 'まず、一行を残す',
-    body: '心が動いた一行をメモするだけ。その一行が、相談の材料になります。',
-  },
-  {
     Icon: MessageCircle,
-    title: '困ったら、相談する',
-    body: 'あなたのメモを根拠に答えます。メモが増えるほど、答えはあなたらしくなります。',
+    title: '読むほど、自分だけの相談相手が育つ',
+    body: '心が動いた一行をメモしておくと、困ったときに、あなたのメモを根拠に明日からできる一歩まで答えます。',
   },
   {
-    Icon: Target,
-    title: '答えを、行動に変える',
-    body: '答えには、明日からできる一歩がつきます。そのまま行動に追加できます。',
+    Icon: BookOpen,
+    title: 'まずは、これまで読んだ本から',
+    body: '覚えていることを一言ずつ。5 分で、あなたの相談相手ができます。',
   },
 ];
 
@@ -302,7 +294,10 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             {slide.title}
           </h2>
           <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', margin: 0, wordBreak: 'auto-phrase', textWrap: 'pretty' }}>
-            {slide.body}
+            {/* 句読点ごとのまとまりで折り返す（「困った／ときに」のように語の途中で割らない） */}
+            {(slide.body.match(/[^、。]+[、。]?/g) || [slide.body]).map((part, i) => (
+              <span key={i} style={{ display: 'inline-block' }}>{part}</span>
+            ))}
           </p>
         </div>
 
