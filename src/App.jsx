@@ -1480,12 +1480,21 @@ function AuthedApp() {
   // 本の id（文字列）でも受ける（相談の答えの「根拠の本」は id を渡してくる）。
   // 本のオブジェクトでないもの・見つからない id は開かない（空の詳細画面から空の本が保存される事故の防止）。
   // focusMemoId: そのメモまで送って少し示す（振り返りのメモの検索から開いたとき・2026-09-29）。
+  // AI 選書で追加したときの「『書名』を「読みたい」に追加しました／開く」の知らせ（{ bookId, toastId }）。
+  // その本を開いたら（知らせの「開く」でも、カードの「追加済み・開く」でも）もう要らないので消す（2026-09-29）。
+  const advisorAddedToastRef = useRef(null);
+  const dismissToast = toast.dismiss;
   const openDetail = useCallback((b, focusMemoId) => {
     const book = typeof b === 'string' ? booksRef.current.find((x) => x.id === b) : b;
     if (!book || typeof book !== 'object' || !book.id) return;
+    const added = advisorAddedToastRef.current;
+    if (added && added.bookId === book.id) {
+      advisorAddedToastRef.current = null;
+      dismissToast(added.toastId, { byUser: true });
+    }
     setDetailFocusMemoId(typeof focusMemoId === 'string' ? focusMemoId : null);
     setCurrent(book); setEditPhaseOverride(null); setView("detail");
-  }, []);
+  }, [dismissToast]);
 
   useEffect(() => {
     if (!pendingMemoBookId) return;
@@ -2239,12 +2248,14 @@ function AuthedApp() {
       // 追加直後に「本棚で探し直す」断絶を無くす — トーストの「開く」から 1 タップでその本の詳細（読みたい）へ。
       // 以前は読書計画の編集（積読の画面）を開いていたが、状態が「読みたい」のまま積読の画面になり食い違った。
       // 詳細の左上は「‹ AI 選書」で、戻るとさっきのおすすめのまま（BookAdvisor が状態を覚えている・2026-09-29）。
-      toast.show({
+      const addedToastId = toast.show({
         type: 'success',
         message: msg,
         duration: 6000,
         action: { label: '開く', onClick: () => openDetail(saved) },
       });
+      // その本を開いたら消す（openDetail が見る・カードの「追加済み・開く」から開いても残らない）。
+      if (saved?.id) advisorAddedToastRef.current = { bookId: saved.id, toastId: addedToastId };
       // 表紙取得をバックグラウンドで実行 (await しない)。失敗しても UX に影響なし。
       resolveCoverInBackground(saved);
       // BookAdvisor が advisor_sessions の added_book_ids を更新する用に
@@ -3865,11 +3876,24 @@ function AuthedApp() {
                 >
                   {nextLabel[current.status]}
                 </button>
-                {/* 読みたい: 積読に積むと何ができるかを 1 行（読書計画シートは積読から作れる・2026-09-29）。 */}
+                {/* 読みたい: 読書計画シートは積読から作れる。1 行の説明の代わりに、押せば積読に積んで
+                    その場で作り始める文字ボタン（2026-09-29）。無料プランは状態を変える前に有料プランの画面を開く。
+                    得たいことがまだ無ければ、積読に積んだうえで読書計画の編集画面へ（runStrategyInPlace と同じ）。 */}
                 {current.status === 'want' && (
-                  <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
-                    積読に積むと、読書計画シートが作れます
-                  </p>
+                  <button
+                    type="button"
+                    disabled={!!planGen}
+                    onClick={() => {
+                      if (planGen) return;
+                      if (!requirePlan('読書計画シート')) return;
+                      const book = current;
+                      advanceStatus(book, 'before');
+                      runStrategyInPlace({ ...book, status: 'before' });
+                    }}
+                    style={{ ...btnLink, alignSelf: 'center' }}
+                  >
+                    読書計画シートを作る（積読に積みます）
+                  </button>
                 )}
                 {/* 読みたいだけ: 主ボタン「積読に積む」のすぐ下に文字ボタン（積読では「読書を開始する」と
                     行き先が同じで二重になるので出さない）。ワンタップで読書中にして、そのままメモを開く。 */}

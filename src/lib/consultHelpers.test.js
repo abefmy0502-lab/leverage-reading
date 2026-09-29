@@ -127,14 +127,18 @@ describe('初日クイックスタートの困りごと', () => {
     expect(worryForBook({ title: '７つの習慣 人格主義の回復' })).toBe(BOOK_WORRIES['7つの習慣']);
     expect(worryForBook({ title: 'factfulness' })).toBe(BOOK_WORRIES.FACTFULNESS);
   });
-  it('えらんだ本の困りごとを先に、足りない分はよくある困りごと', () => {
+  it('えらんだ本の困りごとを先に、次にえらんだ本の学びの問い、足りない分はよくある困りごと', () => {
     expect(quickstartWorries([{ title: '伝え方が9割' }, { title: '知らない本' }], 2))
-      .toEqual([BOOK_WORRIES['伝え方が9割'], WORRY_EXAMPLES[0]]);
+      .toEqual([BOOK_WORRIES['伝え方が9割'], '『知らない本』の学びで、明日から使えるものは？']);
+    expect(quickstartWorries([{ title: '伝え方が9割' }], 3))
+      .toEqual([BOOK_WORRIES['伝え方が9割'], '『伝え方が9割』の学びで、明日から使えるものは？', WORRY_EXAMPLES[0]]);
+    expect(quickstartWorries([], 2)).toEqual([WORRY_EXAMPLES[0], WORRY_EXAMPLES[1]]);
     expect(quickstartWorries([{ title: '1兆ドルコーチ' }, { title: '数値化の鬼' }, { title: '人を動かす' }], 2))
       .toEqual([BOOK_WORRIES['1兆ドルコーチ'], BOOK_WORRIES['数値化の鬼']]);
   });
   it('同じ文は重ねない', () => {
-    expect(quickstartWorries([{ title: 'エッセンシャル思考' }], 3)).toEqual([BOOK_WORRIES['エッセンシャル思考'], WORRY_EXAMPLES[0], WORRY_EXAMPLES[1]]);
+    expect(quickstartWorries([{ title: 'エッセンシャル思考' }], 3)).toEqual([BOOK_WORRIES['エッセンシャル思考'], '『エッセンシャル思考』の学びで、明日から使えるものは？', WORRY_EXAMPLES[0]]);
+    expect(quickstartWorries([{ title: 'エッセンシャル思考' }, { title: 'エッセンシャル思考' }], 4)).toHaveLength(4);
   });
 });
 

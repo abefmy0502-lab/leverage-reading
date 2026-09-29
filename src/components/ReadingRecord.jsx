@@ -229,15 +229,15 @@ function FragmentLike({ first, arrow, children }) {
   return first ? children : (<>{arrow}{children}</>);
 }
 
-// 月別バー（読了 or メモ）。
-function MonthBars({ buckets, activeColor }) {
+// 月別バー（読了 or メモ）。unit は読み上げの数え方（読了は「冊」・2026-09-29）。
+function MonthBars({ buckets, activeColor, unit = '冊' }) {
   const peak = buckets.reduce((m, k) => Math.max(m, k.count), 0);
   const lastIdx = buckets.length - 1;
   return (
     <div
       style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', justifyContent: 'space-between', marginTop: 'var(--space-3)' }}
       role="img"
-      aria-label={`月別の推移: ${buckets.map((k) => `${k.month + 1}月 ${k.count} 件`).join(', ')}`}
+      aria-label={`月別の推移: ${buckets.map((k) => `${k.month + 1}月 ${k.count} ${unit}`).join(', ')}`}
     >
       {buckets.map((k, i) => {
         const h = peak > 0 ? Math.max(BAR_MIN_H, Math.round((k.count / peak) * BAR_MAX_H)) : BAR_MIN_H;

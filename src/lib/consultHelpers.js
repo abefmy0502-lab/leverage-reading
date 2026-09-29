@@ -81,10 +81,19 @@ export function worryForBook(book) {
   return prefix ? prefix[1] : '';
 }
 
-// えらんだ本の困りごとを先に、足りない分はよくある困りごとで（同じ文は重ねない）。
+// えらんだ本の困りごとを先に、次に「『書名』の学びで、明日から使えるものは？」（困りごとの無い本から・
+// えらんだ本に結びつく問いを、よくある困りごとより先に出す・2026-09-29）、それでも足りない分はよくある困りごとで
+// （同じ文は重ねない）。
 export function quickstartWorries(books, count = 2) {
+  const list = (Array.isArray(books) ? books : []).filter((b) => b && String(b.title || '').trim());
+  const bookQuestion = (b) => `『${shortTitle(b.title)}』の学びで、明日から使えるものは？`;
   const out = [];
-  [...(Array.isArray(books) ? books : []).map(worryForBook), ...WORRY_EXAMPLES].forEach((w) => {
+  [
+    ...list.map(worryForBook),
+    ...list.filter((b) => !worryForBook(b)).map(bookQuestion),
+    ...list.filter((b) => worryForBook(b)).map(bookQuestion),
+    ...WORRY_EXAMPLES,
+  ].forEach((w) => {
     if (w && !out.includes(w) && out.length < count) out.push(w);
   });
   return out;

@@ -47,7 +47,7 @@ import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, card } from '../styles/
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
-import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS } from '../lib/tokens';
+import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
@@ -311,6 +311,20 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   // 下に固定の欄の請求額（「年額 ¥12,800」）。無料期間は同じ欄で言うので、比較の見出しでは繰り返さない。
   const billedShort = String(selected.price || '').split('（')[0].trim();
 
+  // 契約できたときの知らせ。7 日間無料で始まったら「いつまで・何トークン」を言う（2026-09-29）。
+  //   終わる日が分からないときは日付を省く。読める長さなので中央の ✓ を少し長めに出す。
+  const showPurchasedToast = (trialEnd, startedTrial) => {
+    if (!startedTrial) { toast.success('ご契約ありがとうございます。'); return; }
+    const until = trialEnd ? monthDayLabelJa(trialEnd) : '';
+    // 中央の ✓ は幅が狭いので、いつまで・何トークンは 2 行目に（括弧を外して、「トーク／ン」のように
+    // 語の途中で折り返さない長さにする・数と単位も離さない）。
+    const tokens = `${TRIAL_TOKENS}\u00a0トークン`;
+    const message = until
+      ? `7 日間無料がはじまりました\n${until}まで・${tokens}`
+      : `7 日間無料がはじまりました\n${tokens}`;
+    toast.show({ type: 'success', message, duration: 4000 });
+  };
+
   const handleSubscribe = async () => {
     if (pending) return;
     if (!isNative && isDemo) {
@@ -320,13 +334,14 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       try {
         const now = Date.now();
         const days = trial ? 7 : plan === 'monthly' ? 30 : 365;
+        const periodEnd = new Date(now + days * 86400000).toISOString();
         await supabase.from('subscriptions').upsert({
           user_id: user?.id, status: 'active', provider: 'demo',
           price_id: plan === 'monthly' ? 'orime_monthly' : 'orime_annual',
           period_type: trial ? 'trial' : 'normal',
-          current_period_end: new Date(now + days * 86400000).toISOString(),
+          current_period_end: periodEnd,
         }, { onConflict: 'user_id' });
-        toast.success('ご契約ありがとうございます。');
+        showPurchasedToast(trial ? periodEnd : null, !!trial);
         await onPurchased?.();
       } finally {
         setPending(null);
@@ -349,7 +364,9 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       // onPurchased=PaywallGate の refresh → useSubscription が RevenueCat の
       // ローカル権利を見て isActive=true → App が自動で Paywall を外す。
       track(EVENTS.CHECKOUT_COMPLETED, { plan });
-      toast.success('ご契約ありがとうございます。');
+      // 無料期間で始まったか: ストアの答え（periodType）を優先し、取れなければ画面に出した無料期間で判断。
+      const startedTrial = res?.periodType ? /TRIAL|INTRO/i.test(res.periodType) : !!trial;
+      showPurchasedToast(res?.expiresAt || null, startedTrial);
       await onPurchased?.();
       setPending(null);
     } catch (e) {

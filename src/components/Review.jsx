@@ -410,6 +410,12 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const { user } = useAuth();
   const resumedReview = useRef(reviewSessionFor(user?.id)).current;
   const toast = useToast();
+  // 「◯ 日後にまた出します」の知らせ。行動・記録へ切り替えたら（この画面が閉じたら）残さない（2026-09-29）。
+  const recallToastRef = useRef(null);
+  const dismissToast = toast.dismiss;
+  useEffect(() => () => {
+    if (recallToastRef.current) dismissToast(recallToastRef.current, { byUser: true });
+  }, [dismissToast]);
   const confirm = useConfirm();
   const haptic = useHaptic();
   // メモは読書中/読了の本にだけ付けられる。「＋ メモを追加」を出してよいのは
@@ -853,7 +859,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     const nextCount = recallPatch(memo.recallCount, mastered).recall_count;
     const days = dueGapDays(nextCount);
     // 「元に戻す」つきの知らせは toast.undo にそろえる（中立の Undo2 の印・DESIGN §5 トースト・2026-09-29）。
-    toast.undo({
+    if (recallToastRef.current) toast.dismiss(recallToastRef.current, { byUser: true });
+    recallToastRef.current = toast.undo({
       message: days <= 1 ? '明日また出します' : `${days} 日後にまた出します`,
       duration: 5000,
       destructive: false,

@@ -223,7 +223,14 @@ export async function purchasePlan(plan, userId) {
   try {
     const res = await Purchases.purchasePackage({ aPackage: pkg });
     const active = res?.customerInfo?.entitlements?.active || {};
-    return { ok: true, active: Object.keys(active).length > 0 };
+    // 無料期間で始まったか・いつまでか（「7 日間無料がはじまりました（M月D日まで）」の知らせ用・2026-09-29）。
+    const ent = Object.values(active)[0] || null;
+    return {
+      ok: true,
+      active: Object.keys(active).length > 0,
+      periodType: ent?.periodType ? String(ent.periodType) : '',
+      expiresAt: ent?.expirationDate || null,
+    };
   } catch (e) {
     // RevenueCat はキャンセルを userCancelled フラグ / 専用コード(文字列)で返す。
     // v13 の error.code は 'PURCHASE_CANCELLED_ERROR'（数値 '1' ではない）。

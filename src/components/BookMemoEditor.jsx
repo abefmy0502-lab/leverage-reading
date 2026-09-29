@@ -447,12 +447,24 @@ export default function BookMemoEditor({
             if (busy) return;
             // 下書きを打ち込んだ状態の「戻る」は無確認で捨てない（本文・写真・
             // タグのいずれかが初期値から変わっている時だけ確認を挟む）。
+            // ページ番号・写真を外したことも変更に数える（2026-09-29）。
+            const initialPage = initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '');
             const dirty =
               text !== (initial?.text || defaultText || '')
               || !!photoFile
+              || removePhotoFlag
+              || String(pageNumber ?? '').trim() !== initialPage.trim()
               || JSON.stringify(tags) !== JSON.stringify(initial?.tags || defaultTags || []);
             if (dirty) {
-              const ok = await confirmDialog({
+              // 保存済みのメモを直しているときは、捨てても元のメモは残る（「書いたことを消す」だと
+              // メモごと消えるように読める・2026-09-29）。
+              const ok = await confirmDialog(isEdit ? {
+                title: '保存していない変更があります',
+                message: 'メモは元のまま残ります',
+                confirmLabel: '直したところを捨てる',
+                cancelLabel: '編集を続ける',
+                danger: true,
+              } : {
                 title: '保存していない変更があります',
                 message: '消すと、書いたことは元に戻せません。',
                 confirmLabel: '書いたことを消す',
