@@ -7,7 +7,7 @@
 // Display is read-only here. Tapping a memo opens its book in the book detail
 // view, where the user can edit/delete via the existing BookMemoList flow.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -288,17 +288,19 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
 
   // 検索の結果はカードのどこを押しても本を開く（書名だけが押せる形だと、押せる場所が小さい・2026-09-29）。
   const tapOpens = openOnTap && !!book && !!onOpenBook;
+  // 本の詳細を開く描画は後回しにできる更新にして、押した形（lib/pressFeedback.js）を先に描く（遅い端末で押しても反応が無く見えた）。
+  const openBook = () => startTransition(() => onOpenBook(book, memo.id));
   const inner = (
     <div
       style={tapOpens ? { ...cardStyle, cursor: 'pointer' } : cardStyle}
-      onClick={tapOpens ? () => onOpenBook(book, memo.id) : undefined}
+      onClick={tapOpens ? openBook : undefined}
       // キーボード・スイッチ操作でも開けるように（Enter / Space・中のボタンで押したときは、そのボタンの動作だけ）。
       {...(tapOpens ? {
         role: 'button',
         tabIndex: 0,
         onKeyDown: (e) => {
           if (e.target !== e.currentTarget || e.nativeEvent.isComposing) return;
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenBook(book, memo.id); }
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBook(); }
         },
       } : null)}
       {...(onLongPress && !isSynth ? longPress.bind : {})}
@@ -918,6 +920,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const isSearching = search.trim() || tagFilter || kindFilter !== 'all';
   // 絞り込みのメニューは、検索欄に触れてから出す（開いた瞬間の画面を思い出しカードとメモだけにする）。
   const [searchActive, setSearchActive] = useState(() => !!freshPreset || !!resumedReview?.searchActive);
+  const filtersOpen = !!(searchActive || isSearching);
   // 開いている間に新しい言葉が来たとき（と、開いたときに入れた言葉の記録）。
   useEffect(() => {
     if (!searchPreset?.nonce || searchPreset.nonce === appliedSearchNonce) return;
@@ -1081,7 +1084,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
 
       {/* ===== 1. 全メモ検索（一番上・SPEC §4）===== 検索中は結果をすぐ下に出し、思い出しカードと月ごとのメモは隠す。 */}
       <section aria-label="メモを検索">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ position: 'relative' }}>
             <SearchIcon size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
             {/* type="search" だとブラウザ既定の青い × が出る（トークン外の色）。消すのは下の「クリア」に任せる。 */}
@@ -1101,9 +1104,19 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               style={{ ...uiInput, paddingLeft: 'calc(var(--space-8) + var(--space-2))' }}
             />
           </div>
-          {/* 絞り込みは検索欄に触れてから出す（開いた瞬間の画面を、思い出しカードとメモだけにする）。 */}
-          {(searchActive || isSearching) && (
-            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+          {/* 絞り込みは検索欄に触れてから出す（開いた瞬間の画面を、思い出しカードとメモだけにする）。
+              出し入れは高さを 200ms で広げる／畳む（一度に 52 押し下げて下の画面が跳ねていた・2026-09-29）。
+              畳んでいる間は visibility: hidden で押せない・読み上げない（畳み終わってから隠す）。 */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateRows: filtersOpen ? '1fr' : '0fr',
+              visibility: filtersOpen ? 'visible' : 'hidden',
+              transition: `grid-template-rows var(--duration-fast) var(--ease-out), visibility 0s linear ${filtersOpen ? '0s' : 'var(--duration-fast)'}`,
+            }}
+          >
+            <div style={{ minHeight: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', paddingTop: 'var(--space-2)' }}>
               {/* 絞り込みは端末のプルダウンではなく、メモ一覧の「ページ順 ▾」と同じ文字のメニュー（押すと ContextMenu）。 */}
               <button
                 type="button"
@@ -1143,7 +1156,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 {isSearching ? 'クリア' : '閉じる'}
               </button>
             </div>
-          )}
+            </div>
+          </div>
         </div>
         {isSearching && (filteredSearch.length === 0 ? (
           // 見つからないときの次の一歩: 検索を消す／相談で聞く（相談は入力欄に入れるだけで送らない・2026-09-29）。

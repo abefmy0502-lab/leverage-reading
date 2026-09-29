@@ -13,7 +13,7 @@
 // 取り消しは下のトーストの「元に戻す」（スクロールしていても見える）。
 // 見た目は DESIGN.md のトークンのみ。
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '../lib/limits';
 import { input as uiInput, btnLink, btnGhostOff, groupTitle as uiGroupTitle } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
@@ -443,13 +443,15 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       return [...list.filter((c) => c.key !== key), { key, a: cur ? cur.a : a, phase: 'restore', enter: !cur }];
     });
     timersRef.current.set(key, setTimeout(() => removeCompleting(key), fastMs() + 80));
-    onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a });
+    // 本の一覧まで描き直す保存は後回しにできる更新に（この行が戻る動きを先に描く・遅い端末で押しても反応が無く見えた）。
+    startTransition(() => { onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a }); });
   };
 
   const complete = (a) => {
     track(EVENTS.ACTION_COMPLETED);
     // 保存はすぐ始める（行の見た目だけ、その場にしばらく残す）。ハプティクスは applyActionToggle が一元発火。
-    onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a });
+    // 本の一覧まで描き直す更新は後回しにできる更新に（✓ と取り消し線を先に描く・遅い端末で押しても反応が無く見えた）。
+    startTransition(() => { onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a }); });
     const key = rowKeyOf(a);
     setReflection('');
     // 前に完了した行の欄は畳む（欄は同時に 1 つだけ）。

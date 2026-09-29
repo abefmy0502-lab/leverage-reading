@@ -10,6 +10,7 @@ import { AuthProvider } from './hooks/useAuth';
 import { initSentry } from './lib/sentry';
 import { initNative } from './lib/native';
 import { prefetchAppParts } from './components/lazyParts';
+import { installPressFeedback } from './lib/pressFeedback';
 
 export function mount(rootEl) {
   // Sentry はできるだけ早く初期化する — 後段で throw された時に拾えるようにするため。
@@ -19,6 +20,9 @@ export function mount(rootEl) {
   // ネイティブ (Capacitor / iOS) のみ StatusBar / Keyboard / SplashScreen を
   // 初期化する。Web / PWA では内部で即 return するので無害。
   initNative();
+
+  // 👆 指で押した瞬間に押した形を出す（:active が遅れる／付かない端末のため・lib/pressFeedback.js）。
+  installPressFeedback();
 
   ReactDOM.createRoot(rootEl).render(
     <React.StrictMode>

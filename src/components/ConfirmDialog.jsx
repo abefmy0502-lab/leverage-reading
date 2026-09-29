@@ -119,8 +119,9 @@ export function ConfirmProvider({ children }) {
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
       {pending && (
-        <div style={overlayStyle} onClick={() => finish(false)} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
-          <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
+        // 出るときは、ほかのダイアログと同じ .modal / .modal-backdrop（components.css）。
+        <div className="modal-backdrop" style={overlayStyle} onClick={() => finish(false)} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+          <div ref={trapRef} className="modal" style={cardStyle} onClick={(e) => e.stopPropagation()}>
             <h2 id="confirm-dialog-title" style={titleStyle}>{pending.options.title}</h2>
             {pending.options.message && <p style={messageStyle}>{pending.options.message}</p>}
             {/* ボタンの文字が長い（9 字以上）ときは横に並べると語の途中で折り返すので、縦に積む

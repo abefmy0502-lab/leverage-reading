@@ -14,7 +14,7 @@
  * Phase 2 (microinteractions — bottom of file):
  *   .icon-btn (ring-on-press)
  *   .list-item-enter / .list-item-stagger / .list-item-exit
- *   .modal / .modal-backdrop
+ *   .modal / .modal-backdrop（閉じるときは .modal-exit / .modal-backdrop-exit）
  *   .progress-bar / .progress-fill (shimmer)
  *   .skeleton (shimmer)
  *   .toast-enter / .toast-exit
@@ -59,10 +59,12 @@
     box-shadow var(--duration-fast) var(--ease-out);
   -webkit-tap-highlight-color: transparent;
 }
-.btn:active {
+.btn:active,
+.btn[data-pressed] {
   transform: scale(0.96);
 }
-.btn-primary:active {
+.btn-primary:active,
+.btn-primary[data-pressed] {
   filter: brightness(0.92);
 }
 
@@ -152,7 +154,8 @@
   transform: translateY(-2px) scale(1.01);
   box-shadow: var(--shadow-3);
 }
-.card-interactive:active {
+.card-interactive:active,
+.card-interactive[data-pressed] {
   transform: scale(0.98);
   box-shadow: var(--shadow-1);
   transition-duration: var(--duration-instant);
@@ -297,10 +300,12 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   opacity: 0.6;
   transform: scale(1);
 }
-.icon-btn:active {
+.icon-btn:active,
+.icon-btn[data-pressed] {
   transform: scale(0.85);
 }
-.icon-btn:active::before {
+.icon-btn:active::before,
+.icon-btn[data-pressed]::before {
   opacity: 1;
   transform: scale(1);
 }
@@ -371,6 +376,22 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 }
 .modal-backdrop {
   animation: lvg-backdrop-in var(--duration-base) var(--ease-out) both;
+}
+/* 閉じるときは入りの逆（少し縮んで薄れる）。JS は --duration-fast（200ms）待ってから外す。 */
+@keyframes lvg-modal-out {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+@keyframes lvg-backdrop-out {
+  to { opacity: 0; }
+}
+.modal-exit {
+  animation: lvg-modal-out var(--duration-fast) var(--ease-out) forwards;
+}
+.modal-backdrop-exit {
+  animation: lvg-backdrop-out var(--duration-fast) var(--ease-out) forwards;
 }
 
 /* ---- Progress bar (shimmering fill) ------------------------------------- */
@@ -914,7 +935,8 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   box-shadow: inset 0 0 0 1px var(--separator);
   transition: transform var(--duration-base) var(--ease-spring);
 }
-.book-cover-card:active .book-cover-image-wrap {
+.book-cover-card:active .book-cover-image-wrap,
+.book-cover-card[data-pressed] .book-cover-image-wrap {
   transform: scale(0.97);
   transition-duration: var(--duration-instant);
 }
