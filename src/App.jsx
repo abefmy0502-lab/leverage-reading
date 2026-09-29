@@ -607,6 +607,18 @@ function AuthedApp() {
     const id = ric ? ric(() => setLibraryRenderAll(true), { timeout: 400 }) : window.setTimeout(() => setLibraryRenderAll(true), 60);
     return () => { if (ric) window.cancelIdleCallback?.(id); else window.clearTimeout(id); };
   }, [tab, shelfMode, libraryRenderAll]);
+  // ⚡ ヘッダーの「？」「⚙️」で開く画面は、最初の画面を描き終えて手が空いたときに読み込んでおく
+  // （押してから読み込むと、初回だけシートが出るまで間が空いていた・2026-09-29）。1 回だけ。
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const warm = () => {
+      import('./components/HelpModal').catch(() => {});
+      import('./components/AccountSettings').catch(() => {});
+    };
+    const ric = window.requestIdleCallback;
+    const id = ric ? ric(warm, { timeout: 3000 }) : window.setTimeout(warm, 1500);
+    return () => { if (ric) window.cancelIdleCallback?.(id); else window.clearTimeout(id); };
+  }, []);
   // 🏠✍️ ホームの「メモ」で開くクイックメモの対象本（詳細画面に移らずホームの上に重ねる）。
   const [homeMemoBook, setHomeMemoBook] = useState(null);
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
@@ -865,6 +877,13 @@ function AuthedApp() {
     enabled: tab === 'books' && view === 'list' && shelfMode === 'library',
     getTarget: () => listScrollRef.current,
     onBack: () => leaveLibrary(),
+  });
+  // 相談の中の押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）でも、左端から右へ払うと
+  // 「‹ 相談」と同じく会話へ戻る（ブラウザの「戻る」と同じ知らせ・2026-09-29）。
+  useEdgeSwipeBack({
+    enabled: tab === 'ai' && aiSubTab === 'brain' && consultPushed && view === 'list',
+    getTarget: () => (typeof document !== 'undefined' ? document.querySelector('.ai-page') : null),
+    onBack: () => { window.dispatchEvent(new Event('orime:consult-back')); },
   });
   // Edge-swipe back: only listens while we're on a detail or edit view.
   // 画面（.detail-enter の箱）が指に付いてきて、離すと右へ送り出してから戻る。
@@ -3229,42 +3248,49 @@ function AuthedApp() {
       const updated = { ...book, actions: acts };
       mutateBookLocal(bookId, () => updated);
       syncActionSnapshots(updated);
+      // スワイプで消したときは、保存を待たずに「元に戻す」を出す（消えた瞬間に知らせる・2026-09-29）。
+      //   「元に戻す」は同じ本の直列チェーンに乗るので、この保存が終わってから動く。保存に失敗したら
+      //   知らせを下げて、元に戻す処理も何もしない（行は失敗の巻き戻しで戻っている）。
+      let deleteFailed = false;
+      let undoToastId = null;
+      if (undoable && removed) {
+        undoToastId = toast.undo({
+          message: '行動を削除しました',
+          destructive: true,
+          duration: 6000,
+          // 同じ本の直列チェーンに乗せて、消した位置に戻す（行は新しく作り直す＝id は付け直し）。
+          onUndo: () => enqueueBookMutation(bookId, async (e2) => {
+            if (deleteFailed) return;
+            const b2 = e2.latest || booksRef.current.find((b) => b.id === bookId);
+            if (!b2) return;
+            const acts2 = [...(b2.actions || [])];
+            // eslint-disable-next-line no-unused-vars
+            const { id: _oldId, ...restored } = removed;
+            acts2.splice(Math.min(idx, acts2.length), 0, restored);
+            const next = { ...b2, actions: acts2 };
+            mutateBookLocal(bookId, () => next);
+            syncActionSnapshots(next);
+            try {
+              const s2 = await saveBook(next);
+              e2.latest = s2 || next;
+              syncActionSnapshots(s2 || next);
+            } catch (err) {
+              mutateBookLocal(bookId, () => b2);
+              e2.latest = b2;
+              syncActionSnapshots(b2);
+              toast.error(toMessage(err, '行動を戻せませんでした。'));
+            }
+          }),
+        });
+      }
       try {
         const saved = await saveBook(updated);
         entry.latest = saved || updated;
         syncActionSnapshots(saved || updated);
-        if (undoable && removed) {
-          toast.undo({
-            message: '行動を削除しました',
-            destructive: true,
-            duration: 6000,
-            // 同じ本の直列チェーンに乗せて、消した位置に戻す（行は新しく作り直す＝id は付け直し）。
-            onUndo: () => enqueueBookMutation(bookId, async (e2) => {
-              const b2 = e2.latest || booksRef.current.find((b) => b.id === bookId);
-              if (!b2) return;
-              const acts2 = [...(b2.actions || [])];
-              // eslint-disable-next-line no-unused-vars
-              const { id: _oldId, ...restored } = removed;
-              acts2.splice(Math.min(idx, acts2.length), 0, restored);
-              const next = { ...b2, actions: acts2 };
-              mutateBookLocal(bookId, () => next);
-              syncActionSnapshots(next);
-              try {
-                const s2 = await saveBook(next);
-                e2.latest = s2 || next;
-                syncActionSnapshots(s2 || next);
-              } catch (err) {
-                mutateBookLocal(bookId, () => b2);
-                e2.latest = b2;
-                syncActionSnapshots(b2);
-                toast.error(toMessage(err, '行動を戻せませんでした。'));
-              }
-            }),
-          });
-        } else {
-          toast.success('行動を削除しました。');
-        }
+        if (!(undoable && removed)) toast.success('行動を削除しました。');
       } catch (error) {
+        deleteFailed = true;
+        if (undoToastId) toast.dismiss(undoToastId, { skipExpire: true });
         mutateBookLocal(bookId, () => book);
         entry.latest = book;
         syncActionSnapshots(book);
@@ -4906,6 +4932,8 @@ function AuthedApp() {
                 />
               </Suspense>
             ) : (
+              // 下に引いて読み込み直す（ホーム・すべての本と同じ・2026-09-29）。
+              <PullToRefresh onRefresh={async () => { await refreshBooks(); haptic.light(); }}>
               <ActionList
                 books={books}
                 showDoneNonce={actionShowDoneNonce}
@@ -4918,6 +4946,7 @@ function AuthedApp() {
                 onAddAction={() => setAddActionSheet({ step: 'pick', prefillText: '' })}
                 onGoConsult={() => { setView('list'); setAiSubTab('brain'); setTab('ai'); }}
               />
+              </PullToRefresh>
             )}
           </div>
         )}

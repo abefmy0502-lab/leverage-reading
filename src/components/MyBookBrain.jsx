@@ -2855,10 +2855,13 @@ function AnswerModeSheet({ value, onClose, onSelect }) {
   );
 }
 
+// 本ごとのメモ件数を、同じアプリの起動中は覚えておく（2 回目からは開いた瞬間に一覧を出す＝
+// 骨組みの短いシートが出てから高さが伸びる、をなくす・数え直しは裏で・2026-09-29）。
+const scopeCountsMemory = { uid: null, counts: null };
 function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
   const [mode, setMode] = useState(initial.length ? 'pick' : 'all');
   const [picked, setPicked] = useState(new Set(initial));
-  const [counts, setCounts] = useState(null); // Map<bookId, メモ件数>
+  const [counts, setCounts] = useState(() => (scopeCountsMemory.uid === userId ? scopeCountsMemory.counts : null)); // Map<bookId, メモ件数>
 
   // 本ごとのメモ件数（メモの無い本は根拠が無いので選べない）。
   useEffect(() => {
@@ -2873,6 +2876,7 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
       if (!alive) return;
       const m = new Map();
       (data || []).forEach((r) => { if (r.book_id) m.set(r.book_id, (m.get(r.book_id) || 0) + 1); });
+      if (data) { scopeCountsMemory.uid = userId; scopeCountsMemory.counts = m; }
       setCounts(m);
     })();
     return () => { alive = false; };
@@ -2928,10 +2932,11 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
         {mark(mode === 'all')}
       </button>
       <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{(countsLoading || pickable.length > 1) ? '本に絞る（複数選べます）' : '本に絞る'}</p>
-      {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。 */}
+      {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。行の数は、読書中・読了の本の数
+          （＝出てくる行のおよその数・最大 6）にして、シートの高さが数え終わってから伸びないようにする（2026-09-29）。 */}
       {countsLoading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {[0, 1, 2].map((i) => <SkeletonBlock key={i} height={56} radius="var(--radius)" />)}
+          {Array.from({ length: Math.min(6, Math.max(3, list.length)) }, (_, i) => <SkeletonBlock key={i} height={56} radius="var(--radius)" />)}
         </div>
       )}
       {/* 選べる本が 1 冊も無い: 行を並べず 1 行だけ（選べない行を並べても押せないので）。 */}

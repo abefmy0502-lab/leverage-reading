@@ -37,6 +37,7 @@ import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
 import ContextMenu from './ContextMenu';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput } from '../styles/ui';
+import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 import { History, Trash2, RotateCw, BookmarkPlus, Ruler, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Copy, BookOpen } from 'lucide-react';
 
 // 見た目は DESIGN.md のトークンのみ。
@@ -206,6 +207,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const tokensShort = canBuyTokens && tokensAvailable != null && tokensAvailable <= 0;
 
   const [view, setView] = useState('create'); // 'create' | 'history'
+  // 履歴では、左端から右へ払うと作る画面へ戻る（左上の ‹ と同じ・2026-09-29）。
+  useEdgeSwipeBack({ enabled: view === 'history', onBack: () => setView('create') });
   const [themes, setThemes] = useState([]);
   const [themesLoading, setThemesLoading] = useState(true);
   const [customTheme, setCustomTheme] = useState('');
