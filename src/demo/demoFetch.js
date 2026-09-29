@@ -64,14 +64,16 @@ function brainAnswer(store, question, memoBlock = '') {
     const page = m.page_number ? ` p.${m.page_number}` : '';
     return { ref: `📚 ${b.author}『${b.title}』${page}`, name: `『${b.title}』${page}` };
   };
-  const [p1, p2] = picked.map(label);
+  const [, p2] = picked.map(label);
+  // 選んだメモの本の数（学びログは本に数えない）。本が 1 冊だけなら「別々の本で」とは言わない（?demo=onebook）。
+  const bookCount = new Set(picked.filter((m) => m.book_id).map((m) => m.book_id)).size;
   const quotes = picked.map((m) => `- ${label(m).name} のメモ：「${m.text}」`).join('\n');
   const refs = picked.map((m) => `- ${label(m).ref}`).join('\n');
 
   return [
     '【結論】',
     p2
-      ? '相手を変えようとする前に、あなたの「伝え方」を一つだけ変えてみましょう。別々の本で残したメモが、どちらも「最初に決めてほしいことを言う」ことを勧めています。'
+      ? `相手を変えようとする前に、あなたの「伝え方」を一つだけ変えてみましょう。${bookCount >= 2 ? '別々の本で残したメモが' : '本のメモとあなたの学びが'}、どちらも「最初に決めてほしいことを言う」ことを勧めています。`
       : memos.every((m) => m.book_id === picked[0].book_id)
         ? `この本のメモから答えます。「${picked[0].text.slice(0, 40)}${picked[0].text.length > 40 ? '…' : ''}」を、いまの状況に当てはめてみましょう。`
         : `この件に関係するメモは 1 件だけでした。「${picked[0].text.slice(0, 40)}${picked[0].text.length > 40 ? '…' : ''}」を、いまの状況に当てはめてみましょう。`,
@@ -80,7 +82,9 @@ function brainAnswer(store, question, memoBlock = '') {
     quotes,
     '',
     '【あなたの状況に合わせた解釈】',
-    '別々の本で残したメモですが、どれも「相手や状況を責める前に、自分の伝え方・決め方を一つ変える」という点でつながっています。いまの悩みも、全部を解決しようとせず、いちばん効く一点に絞ると動きやすくなります。',
+    `${p2
+      ? `${bookCount >= 2 ? '別々の本で残したメモですが、どれも' : '本で読んだことと、自分で気づいたことが、どちらも'}「相手や状況を責める前に、自分の伝え方・決め方を一つ変える」という点でつながっています。`
+      : 'このメモは「相手や状況を責める前に、自分の伝え方・決め方を一つ変える」ことを勧めています。'}いまの悩みも、全部を解決しようとせず、いちばん効く一点に絞ると動きやすくなります。`,
     '',
     '【明日からできる 1 つの行動】',
     '明日の朝、始業前の 10 分で、この件について「やること」と「やらないこと」を 1 つずつ紙に書き出してみてください。',

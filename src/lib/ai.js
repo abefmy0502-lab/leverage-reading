@@ -1111,8 +1111,11 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
 
   // 📚 答え方「本ごとに」: 質問に近い本を最大 4 冊選び、本ごとにメモを分けて渡す。
   //   相談相手が 1 冊だけのとき・並べられる本が 2 冊に満たないときは、いつもの「まとめて」で答える。
+  // 本ごとにを頼まれたのに並べられなかったときの冊数（0 / 1）。画面の「まとめて答えました」の一行に使う。
+  let perbookBooks;
   if (mode === 'perbook' && scopeIds.length !== 1) {
     const picked = pickPerspectiveBooks(safeQuestion, all);
+    perbookBooks = picked.length;
     if (picked.length >= 2) {
       const used = picked.flatMap((b) => b.memos);
       const booksText = picked
@@ -1249,7 +1252,7 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
     personal: m.source_type === 'personal' || (!m.book && !m.book_id),
     card: !SYNTH_LABEL[m.source_type],
   }));
-  return { empty: false, userPrompt, userBlocks, stats, sources };
+  return { empty: false, userPrompt, userBlocks, stats, sources, perbookBooks };
 }
 
 // 🌱 答えの下に出す「使ったメモ」の一行（#3・2026-09-27）。AI が REFS に挙げた本・ページ・
@@ -1419,7 +1422,8 @@ export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
 // On abort streamClaude resolves normally with the partial text, so the
 // parsed result below reflects whatever was generated up to the stop.
 // mode: 'fused'（まとめて・既定）/ 'perbook'（本ごとに）。本ごとに並べられないときは 'fused' で答える
-// （返り値の mode が実際の答え方）。
+// （返り値の mode が実際の答え方・perbookBooks はそのとき並べられた冊数 0 / 1）。
+// onStage('generate', { mode }) でも、書き始める前に実際の答え方を知らせる。
 export async function streamMyBookBrain({ userId, question, onStage, onChunk, signal, bookIds, mode = 'fused' }) {
   const ctx = await buildBrainContext({ userId, question, onStage, bookIds, mode });
   if (ctx.empty) {
@@ -1427,7 +1431,8 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
     return ctx.payload;
   }
 
-  onStage?.('generate');
+  // 実際の答え方も渡す（本ごとにで送っても「まとめて」で答えるときは、書いている途中の形を最初から合わせる）。
+  onStage?.('generate', { mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks });
 
   let fullText = '';
   let streamMeta = null;
@@ -1464,7 +1469,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   const body = truncated
     ? `${parsed.body}\n\n※ 回答が長さの上限に達したため途中までです。質問を絞ると最後まで生成できます。`
     : parsed.body;
-  return { body, refs: parsed.refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(parsed.refs, ctx.sources), mode: ctx.mode || 'fused' };
+  return { body, refs: parsed.refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(parsed.refs, ctx.sources), mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks };
 }
 
 // ============================================================================

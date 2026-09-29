@@ -795,17 +795,29 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // ストリーミングで届いた最新の可視テキスト。abort 時に refs パースが
     // 走らなくても、ここに溜めた本文をそのまま確定できるよう保持する。
     let lastVisible = '';
+    // 実際の答え方（本ごとにで送っても、並べる本が足りなければ「まとめて」で答える）。
+    let liveMode = askMode;
     try {
-      const { body, refs, memoCount, evidence } = await streamMyBookBrain({
+      const { body, refs, memoCount, evidence, mode: usedMode, perbookBooks } = await streamMyBookBrain({
         userId: user.id,
         question: q,
         bookIds: askBookIds,
         mode: askMode,
         signal: controller.signal,
-        onStage: (s) => setStage(s),
+        onStage: (s, info) => {
+          setStage(s);
+          // 書き始める前に、書いている途中の形を実際の答え方に合わせる（本のカードから、いつもの形へ跳ねないように）。
+          //   本ごとにで送ったのに「まとめて」で答えるときは、その一行も書き始める前から出す。
+          if (s === 'generate' && info?.mode && info.mode !== liveMode) {
+            liveMode = info.mode;
+            const fallback = askMode === 'perbook' && liveMode !== 'perbook' ? (info.perbookBooks === 0 ? 'none' : 'one') : undefined;
+            setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...m, mode: liveMode, perbookFallback: fallback } : m)));
+          }
+        },
         onChunk: (visibleText) => {
           // 最初の delta が来た瞬間に stage を消して本文表示に切り替える。
-          setStage(null);
+          // 本ごとには、書いている間も最後のカードの下に「答えを書いています…」を残す（本のカードが順に増えるので、続きがあると分かるように）。
+          if (liveMode !== 'perbook') setStage(null);
           lastVisible = visibleText;
           setMessages((arr) => arr.map((m) =>
             m.id === streamingId
@@ -829,6 +841,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       // 1 文字も出る前に止めたときは、注記を重ねない（「中止しました」を 2 回出さない）。
       const assistantContent = wasAborted && finalBody !== STOPPED_EMPTY ? `${base}\n\n— ここで中止しました` : base;
       const persistRefs = wasAborted ? [] : (evidence ? [`${EVIDENCE_PREFIX}${evidence}`, ...(refs || [])] : refs);
+      // 本ごとにで送ったのに、並べる本が足りずに「まとめて」で答えた（答えの上に一行で知らせる）。
+      // chat_messages に置き場所が無いので、この画面の間だけ（履歴から開き直したときは出ない）。
+      const perbookFallback = askMode === 'perbook' && !!usedMode && usedMode !== 'perbook'
+        ? { perbookFallback: perbookBooks === 0 ? 'none' : 'one' }
+        : null;
       // 保存（履歴への insert）は「回答の表示」と切り離す。回答生成は成功して
       // いるのに保存だけ失敗した場合、画面の回答をエラー文言で消さない。
       try {
@@ -839,12 +856,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           .single();
         if (error) throw error;
         // 楽観的な streaming 行を、永続化された row で差し替える。
-        setMessages((arr) => arr.map((m) => (m.id === streamingId ? transformMessage(data) : m)));
+        setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...transformMessage(data), ...perbookFallback } : m)));
       } catch (saveErr) {
         // 表示は確定させたまま（streaming フラグだけ落とす）、保存失敗を控えめに知らせる。
         setMessages((arr) => arr.map((m) =>
           m.id === streamingId
-            ? { ...m, content: assistantContent, refs: persistRefs, streaming: false }
+            ? { ...m, content: assistantContent, refs: persistRefs, streaming: false, ...perbookFallback }
             : m
         ));
         console.warn('[brain] answer insert failed:', saveErr?.message || saveErr);
@@ -889,7 +906,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   ? e.message
                 : partial
                   ? `${partial}\n\n— 通信が中断されたため、回答はここまでです。`
-                  : '回答を生成できませんでした。少し時間をおいて再度お試しください。',
+                  // 下のボタン（もう一度）と同じ言葉を重ねない。
+                  : '答えを書けませんでした。少し時間をおいて、送り直してください。',
               refs: [],
               createdAt: new Date().toISOString(),
               // 通信エラー（ユーザーの中止ではない）はその場で再試行できるように
@@ -1125,7 +1143,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       >
         {view === 'chat' ? (
           <>
-            <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase' }}>
+            {/* 1 冊に絞ったとき（『書名』…）は 『 をぶら下げる。下の残りトークンの行には引き継がない。 */}
+            <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase', ...(scopeIds.length === 1 && scopeMemoCount != null ? { textIndent: '-0.5em' } : null) }}>
               {scopeIds.length > 0
                 ? (scopeMemoCount === 0
                   // メモが無いことは会話の場所で大きく伝えるので、上の行は相談相手の名前だけ（同じ文を 2 回出さない）。
@@ -1142,7 +1161,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 : (knowledgeTotal > 0 && ownMemoTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>メモ・学びなど</span> <span style={{ whiteSpace: 'nowrap' }}>{knowledgeTotal} 件</span>から答えます</> : '読んだ本のメモを根拠に答えます')}
               {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
               {tokensRemaining != null && (
-                <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+                <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                   {plan === 'trial' ? '無料期間' : '今月'}の残り <span style={{ whiteSpace: 'nowrap' }}>{tokensRemaining}{purchasedTokens > 0 ? <> ＋追加 {purchasedTokens}</> : null} トークン</span>
                 </span>
               )}
@@ -1327,7 +1346,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       type="button"
                       onClick={() => { if (!busy && !outOfTokens) ask(q); }}
                       disabled={busy || outOfTokens}
-                      style={busy || outOfTokens ? { ...chipStyle, color: 'var(--text-2)', opacity: 1, cursor: 'default' } : chipStyle}
+                      style={{ ...chipStyle, ...(busy || outOfTokens ? { color: 'var(--text-2)', opacity: 1, cursor: 'default' } : null), ...hangIndent(q) }}
                     >
                       {q}
                     </button>
@@ -1610,6 +1629,13 @@ function renderBoldInline(raw) {
   return parts.length ? parts : text;
 }
 
+// 『「（ で始まる段落は、かっこをぶら下げる（1 行目だけ左へ 0.5em 出して、文字の端を揃える・PerBookCard の見出しと同じ）。
+// 先頭の **（太字の印）は見えないので飛ばして判定する。
+const HANG_RE = /^(\*\*)?[『「（]/;
+function hangIndent(text) {
+  return HANG_RE.test(String(text || '').trimStart()) ? { textIndent: '-0.5em' } : null;
+}
+
 // 以前の答え（履歴）の末尾に付いていた内部向けの注記「（参照: 10/43 件、内訳: …）」。
 const REF_NOTE_RE = /^（参照:[^）]*）$/;
 
@@ -1623,7 +1649,7 @@ function PlainAnswer({ text }) {
         // 「・」で始まる行はぶら下げ（折り返した 2 行目を「・」の後ろの文字の頭に揃える）。
         const bullet = /^\s*・/.test(shown);
         return (
-          <p key={idx} style={{ margin: idx ? 'var(--space-2) 0 0' : 0, ...(bullet ? { paddingLeft: '1em', textIndent: '-1em' } : null) }}>
+          <p key={idx} style={{ margin: idx ? 'var(--space-2) 0 0' : 0, ...(bullet ? { paddingLeft: '1em', textIndent: '-1em' } : hangIndent(shown)) }}>
             {renderBoldInline(bullet ? shown.trimStart() : shown)}
           </p>
         );
@@ -1853,7 +1879,7 @@ function PerBookCard({ book, streaming, onAsk, askBusy }) {
       {book.view && (
         <div style={{ ...readText, marginTop: 'var(--space-3)' }}>
           {book.view.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
-            <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(l)}{!basis && i === arr.length - 1 && cursor}</p>
+            <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{!basis && i === arr.length - 1 && cursor}</p>
           ))}
         </div>
       )}
@@ -1941,6 +1967,9 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
     ? parsed
     : (live && !live.refs && !live.interp ? live : null);
   const cursor = <span className="streaming-cursor" aria-hidden="true" />;
+  const fallbackNote = !message.error && !message.notice && message.perbookFallback
+    ? (message.perbookFallback === 'none' ? '並べられる本がまだないので、' : '並べられる本が 1 冊だけなので、')
+    : '';
   const perBookTail = !isStreaming || !perBook ? null
     : perBook.action ? 'action' : perBook.compare ? 'compare' : perBook.books?.length ? 'book' : 'conclusion';
 
@@ -2030,7 +2059,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
         <div style={answerCard}>
           <div style={readText}>
             {perBook.conclusion.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
-              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(l)}{perBookTail === 'conclusion' && i === arr.length - 1 && cursor}</p>
+              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{perBookTail === 'conclusion' && i === arr.length - 1 && cursor}</p>
             ))}
           </div>
         </div>
@@ -2065,7 +2094,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                 <p style={subLabel}>共通点と違い</p>
                 <div style={readText}>
                   {perBook.compare.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
-                    <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(l)}{perBookTail === 'compare' && i === arr.length - 1 && cursor}</p>
+                    <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{perBookTail === 'compare' && i === arr.length - 1 && cursor}</p>
                   ))}
                 </div>
               </>
@@ -2074,6 +2103,14 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
             {!isStreaming && renderEvidence()}
             {!isStreaming && renderDetails(perBook)}
             {!isStreaming && renderNote(perBook)}
+          </div>
+        )}
+        {/* 書いている間は、最後のカードの下に「答えを書いています…」（本のカードが順に増えるので、続きがあると分かるように）。
+            中止を押したら（stage が消える）すぐに外す。親が role="log" aria-live なので live 領域は重ねない。 */}
+        {isStreaming && stage === 'generate' && (
+          <div className="ai-thinking" style={{ alignSelf: 'flex-start', marginTop: 'var(--space-3)' }}>
+            <span className="ai-thinking-dot" aria-hidden="true" />
+            <span>{STAGE_LABEL.generate}</span>
           </div>
         )}
         {time}
@@ -2089,6 +2126,13 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
       aria-busy={isStreaming || undefined}
       style={answerCard}
     >
+      {/* 本ごとにで送ったのに、並べる本が足りずに「まとめて」で答えたとき（SPEC §3）。書き始める前から出す。 */}
+      {fallbackNote && (
+        <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+          {/* 折り返すときは「、」のあとで（「まと／めて」と切らない）。 */}
+          {fallbackNote}<span style={{ whiteSpace: 'nowrap' }}>まとめて答えました</span>
+        </p>
+      )}
       {showStageBlock ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           {/* 親が role="log" aria-live なので、ここで二重に live 領域を作らない。 */}
@@ -2126,7 +2170,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
         </>
       ) : message.error ? (
         <>
-          <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{message.content}</p>
+          <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'auto-phrase' }}>{message.content}</p>
           {onRetry && (
             <button type="button" onClick={onRetry} style={{ ...rowBtn, marginTop: 'var(--space-3)' }}>
               <RotateCw size={16} aria-hidden="true" />もう一度
@@ -2138,7 +2182,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
           {/* 1. 結論（読む文章＝明朝 18・行間 1.6） */}
           <div style={readText}>
             {parsed.conclusion.split('\n').filter((l) => l.trim()).map((l, i) => (
-              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0 }}>{renderBoldInline(l)}</p>
+              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}</p>
             ))}
           </div>
           {/* 2. 明日からできる一歩（＋ 行動に追加）→ 使ったメモの一行 → 3. 根拠（畳む） */}
