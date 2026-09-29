@@ -71,7 +71,7 @@ const COVER_W = 60;
 const COVER_H = Math.round(COVER_W * 1.42); // MiniCover と同じ縦横比
 const COVER_RADIUS = 4; // DESIGN §4 の例外: 本の表紙は本の形として角丸 4
 
-export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFolders }) {
+export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen, allTags, allFolders }) {
   const fileInputRef = useRef(null);
   const { uploadCover } = useBookCover();
   const toast = useToast();
@@ -230,8 +230,9 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
         </div>
       </Field>
 
-      <button type="button" onClick={handleSaveClick} style={btnPrimary}>
-        {(form.status === 'reading' || form.status === 'done') ? '保存してメモを書く' : '保存'}
+      {/* 押した瞬間から「保存中…」（薄くしない・文言だけ変える＝DESIGN §5 押せないボタン）。 */}
+      <button type="button" onClick={handleSaveClick} aria-busy={saving || undefined} style={btnPrimary}>
+        {saving ? '保存中…' : (form.status === 'reading' || form.status === 'done') ? '保存してメモを書く' : '保存'}
       </button>
 
       {/* タグ・フォルダは任意なので、主ボタンより下に（最初の画面で「保存」が見えるように）。 */}
@@ -445,10 +446,10 @@ export function saveLabelFor(form, savedAsBefore) {
   const planReady = !!form?.investPurpose?.trim();
   return form?.status === 'before' && savedAsBefore && planReady ? '保存して読書を開始' : '保存';
 }
-export function EditSaveBar({ onSave, label = '保存' }) {
+export function EditSaveBar({ onSave, label = '保存', saving = false }) {
   return (
     <div style={{ flexShrink: 0, borderTop: '1px solid var(--separator)', background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
-      <button type="button" onClick={onSave} style={btnPrimary}>{label}</button>
+      <button type="button" onClick={onSave} aria-busy={saving || undefined} style={btnPrimary}>{label}</button>
     </div>
   );
 }

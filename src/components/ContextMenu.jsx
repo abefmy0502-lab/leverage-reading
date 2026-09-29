@@ -13,7 +13,7 @@ const backdrop = {
   zIndex: 'var(--z-popover)',
   // DESIGN §5「メニュー」: 背景は --backdrop だけ（ぼかさない）。
   background: 'var(--backdrop)',
-  animation: 'lvg-fade-in 150ms ease',
+  animation: 'lvg-fade-in var(--duration-fast) var(--ease-out)',
 };
 
 const panelBase = {
@@ -25,7 +25,7 @@ const panelBase = {
   boxShadow: 'var(--shadow-overlay)',
   overflow: 'hidden',
   fontFamily: 'var(--font-ui)',
-  animation: 'lvg-context-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
+  animation: 'lvg-context-pop var(--duration-fast) var(--ease-spring) both',
 };
 
 const KEYFRAME_ID = '__leverage-context-menu-keyframes';
@@ -60,9 +60,19 @@ const itemBase = {
   color: 'var(--text)',
 };
 
+// 開いた直後の背景のクリックは無視する（長押しで開いたとき、指を離した瞬間の合成クリックが
+// 背景に落ちてすぐ閉じるのを防ぐ・useLongPress 側の preventDefault と二重の守り・2026-09-29）。
+const OPEN_GRACE_MS = 350;
+
 export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
   ensureKeyframes();
   const [position, setPosition] = useState({ left: x, top: y });
+  const openedAtRef = useRef(typeof performance !== 'undefined' ? performance.now() : Date.now());
+  const onBackdropClick = () => {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - openedAtRef.current < OPEN_GRACE_MS) return;
+    onClose?.();
+  };
 
   useEffect(() => {
     const onKey = (e) => {
@@ -106,7 +116,7 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
 
   return (
     <>
-      <div style={backdrop} onClick={onClose} aria-hidden="true" />
+      <div style={backdrop} onClick={onBackdropClick} aria-hidden="true" />
       <div
         style={{ ...panelBase, left: position.left, top: position.top }}
         role="menu"

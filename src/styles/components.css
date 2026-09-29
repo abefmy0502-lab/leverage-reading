@@ -522,21 +522,40 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 .badge-swap-out { animation: lvg-badge-out var(--duration-fast) var(--ease-out) forwards; }
 .badge-swap-in  { animation: lvg-badge-in  var(--duration-base) var(--ease-spring) both; }
 
-/* ---- Detail enter (scale-pop) ------------------------------------------ */
+/* ---- Screen push / pop (iOS のナビゲーションと同じ向き) ------------------
+   押し込み（本の詳細・編集を開く）: 右から少し（24px）滑り込む。
+   戻る（一覧へ）: 左から少し滑り込む（押し込みの逆向き）。
+   どちらも --ease-out で約 250ms。拡大縮小・跳ね返り（spring）はしない（2026-09-29）。 */
 @keyframes lvg-detail-enter {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: translate3d(var(--space-6), 0, 0);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: none;
+  }
+}
+@keyframes lvg-screen-pop {
+  from {
+    opacity: 0;
+    transform: translate3d(calc(-1 * var(--space-6)), 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 .detail-enter {
   /* backwards: 終わった後に transform を残さない（残ると中の position:fixed なシートや全画面の編集が
      この箱に閉じ込められ、下のタブの裏に隠れる）。 */
-  animation: lvg-detail-enter var(--duration-base) var(--ease-spring) backwards;
+  animation: lvg-detail-enter calc(var(--duration-fast) + var(--duration-instant) / 2) var(--ease-out) backwards;
+}
+/* 一覧へ戻ったとき（App.jsx が戻った直後だけ付ける）。.lvg-page.tab-fade-in の opacity だけの
+   フェードより特異性を上げて勝たせる（transform は終わったら残らない＝sticky を壊さない）。 */
+.lvg-page.screen-pop,
+.screen-pop {
+  animation: lvg-screen-pop calc(var(--duration-fast) + var(--duration-instant) / 2) var(--ease-out) backwards;
 }
 
 /* prefers-reduced-motion is already handled globally in index.css — every

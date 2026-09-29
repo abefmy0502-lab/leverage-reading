@@ -733,13 +733,13 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                       type="button"
                       onClick={actionAdded ? (() => onOpenActions?.()) : handleAddNextStep}
                       disabled={actionBusy}
-                      aria-label={actionAdded ? '追加した行動を行動リストで見る' : '次の一歩を行動リストに追加'}
+                      aria-label={actionAdded ? '追加した行動を見る' : '次の一歩を行動に追加'}
                       style={actionAdded ? btnGhost : actionBusy ? uiBtnPrimaryOff : uiBtnPrimary}
                     >
                       {actionAdded ? (
-                        <><CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)' }} />追加済み・行動リストで見る<ChevronRight size={18} aria-hidden="true" /></>
+                        <><CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)' }} />行動に追加しました・見る<ChevronRight size={18} aria-hidden="true" /></>
                       ) : actionBusy ? '追加中…' : (
-                        <>この一歩を行動リストに入れる</>
+                        <>この一歩を行動に追加</>
                       )}
                     </button>
                   )}
@@ -810,20 +810,25 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             role="list"
             aria-label="メモから見つかったテーマ候補"
           >
-            {themes.map((t) => (
+            {themes.map((t) => {
+              // 押すと選ぶだけ（下の欄に入る）。作るのは「まとめる」を押したとき＝押しただけでトークンを使わない（2026-09-29）。
+              const selected = customTheme.trim() === t.theme;
+              return (
               <button
                 key={t.theme}
                 type="button"
-                onClick={() => onGenerate(t.theme)}
+                onClick={() => setCustomTheme(selected ? '' : t.theme)}
                 role="listitem"
-                aria-label={`テーマ「${t.theme}」（メモ ${t.count} 件）でテーマまとめを作成`}
+                aria-pressed={selected}
+                aria-label={`テーマ「${t.theme}」（メモ ${t.count} 件）を選ぶ`}
                 style={{
                   minHeight: 44,
                   padding: 'var(--space-2) var(--space-3)',
                   borderRadius: 'var(--radius)',
                   border: 'none',
-                  background: 'var(--fill)',
-                  color: 'var(--text)',
+                  background: selected ? 'var(--accent-soft)' : 'var(--fill)',
+                  color: selected ? 'var(--accent)' : 'var(--text)',
+                  fontWeight: selected ? 600 : 400,
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                   fontSize: 'var(--text-sub)',
@@ -834,11 +839,12 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
                 }}
               >
                 <span>{t.theme}</span>
-                <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
+                <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: selected ? 'var(--accent)' : 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
                   {t.count}
                 </span>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -846,7 +852,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
       {/* free-text theme */}
       <div>
         <label htmlFor="theme-custom" style={{ ...groupTitle, display: 'block' }}>
-          テーマを自分で入力
+          まとめるテーマ
         </label>
         <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
           <input
@@ -871,7 +877,7 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             disabled={!canGenerate}
             style={canGenerate ? btnPrimary : btnPrimaryOff}
           >
-            作成
+            まとめる
           </button>
         </div>
       </div>

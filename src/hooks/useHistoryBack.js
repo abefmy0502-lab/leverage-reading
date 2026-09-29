@@ -8,7 +8,42 @@
 // 一番上（depth 0）では何も積まないので、「戻る」は普通にアプリを離れる。
 // iOS（Capacitor）は戻るボタンが無いので、積むだけで害は無い。
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+
+// 🪟 画面の上に重ねて開くもの（設定・ヘルプ・本を追加・有料プランの画面など）の積み重ね（2026-09-29）。
+// 開いている間は useBackLayer(open, close) で 1 枚積む。App の useHistoryBack は枚数を深さに足し、
+// 「戻る」が来たら一番上の 1 枚だけを閉じる（アプリを離れない・下の画面は動かさない）。
+// 左端スワイプ（useEdgeSwipeBack）も、重ねたものが開いている間は下の画面を戻さない。
+let layers = [];
+const layerListeners = new Set();
+const notifyLayers = () => layerListeners.forEach((fn) => fn());
+const subscribeLayers = (fn) => { layerListeners.add(fn); return () => layerListeners.delete(fn); };
+const layerCount = () => layers.length;
+export const hasBackLayers = () => layers.length > 0;
+// 一番上の 1 枚（{ overBlock }）。overBlock: 自分の中のシート（BottomSheet）が「戻る」を止めていても、
+// 「戻る」でこの 1 枚を閉じてよい（書きかけの入力を持たないシート＝トークンの追加など）。
+export const topBackLayer = () => layers[layers.length - 1] || null;
+// 一番上の 1 枚を閉じる。閉じたら true（重ねたものが無ければ false）。
+export function closeTopBackLayer() {
+  const top = layers[layers.length - 1];
+  if (!top) return false;
+  try { top.closeRef.current?.(); } catch { /* ignore */ }
+  return true;
+}
+export function useBackLayerCount() {
+  return useSyncExternalStore(subscribeLayers, layerCount, () => 0);
+}
+export function useBackLayer(open, onClose, { overBlock = false } = {}) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (!open) return undefined;
+    const entry = { closeRef, overBlock };
+    layers = [...layers, entry];
+    notifyLayers();
+    return () => { layers = layers.filter((l) => l !== entry); notifyLayers(); };
+  }, [open, overBlock]);
+}
 
 const KEY = 'orimeDepth';
 const readDepth = (s) => (s && Number.isFinite(s[KEY]) ? s[KEY] : 0);

@@ -1,6 +1,8 @@
 // Detects a 500ms+ press without movement, then fires onLongPress with the
 // originating event (so callers can read clientX/Y for context-menu placement).
 // Cancels on touchmove > 8px (treated as a scroll attempt) or touchend.
+// After it fires, the touchend is preventDefault()-ed so the synthetic click
+// does not land on (and close) the menu that just opened.
 
 import { useCallback, useRef } from 'react';
 
@@ -67,11 +69,24 @@ export function useLongPress({ onLongPress, duration = DEFAULT_DURATION, onCance
     [cancel]
   );
 
+  // 長押しでメニューが開いたあと指を離したとき、その touchend から生まれる click（合成クリック）が
+  // 開いたばかりのメニューの背景に落ちて、すぐ閉じてしまっていた（2026-09-29）。
+  // 長押しが成立していたら touchend を preventDefault して click を出さない。
+  const end = useCallback(
+    (e) => {
+      if (triggeredRef.current) {
+        try { if (e?.cancelable) e.preventDefault(); } catch { /* ignore */ }
+      }
+      cancel(e);
+    },
+    [cancel]
+  );
+
   return {
     bind: {
       onTouchStart: start,
       onTouchMove: move,
-      onTouchEnd: cancel,
+      onTouchEnd: end,
       onTouchCancel: cancel,
       onContextMenu: (e) => e.preventDefault(),
     },

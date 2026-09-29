@@ -160,8 +160,13 @@ const ADVISOR_EXAMPLES = [
 // ヒアリングの最大ラウンド数。AI は途中で done を返せるが、上限で必ず締める。
 const MAX_INTERVIEW_ROUNDS = 3;
 
+// 🧭 画面を離れても、おすすめ・会話を覚えておく（アプリの起動中だけ・ログイン中の人ごと）。
+//   追加した本の詳細を開いて「‹ AI 選書」で戻ったとき、さっきのおすすめのまま戻れるように
+//   （相談の `session` と同じ考え方・2026-09-29）。読み込み中の状態は覚えない。
+const advisorMemory = { uid: null, state: null };
 
-export default function BookAdvisor({ onAddBook, sessionApi, books }) {
+
+export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
   const { requirePlan, canBuyTokens, openTokenSheet } = usePaywall();
@@ -192,20 +197,24 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   const advisorHaptic = useHaptic();
   const advisorToast = useToast();
   const advisorConfirm = useConfirm();
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [recommendations, setRecommendations] = useState(null);
-  const [chatHistory, setChatHistory] = useState([]);
+  // 前回この画面を離れたときの状態（同じ人のときだけ）。
+  const memo0 = useRef(advisorMemory.uid && advisorMemory.uid === (advisorUser?.id || null) ? advisorMemory.state : null).current || {};
+  const [messages, setMessages] = useState(() => memo0.messages || []);
+  const [input, setInput] = useState(() => memo0.input || "");
+  const [recommendations, setRecommendations] = useState(() => memo0.recommendations || null);
+  const [chatHistory, setChatHistory] = useState(() => memo0.chatHistory || []);
   // 直近の「ユーザーの課題」入力 — 本棚に追加した時に source_query として
   // 持ち回り、読書計画シートの投資目的にプレフィルする。
-  const [lastUserQuery, setLastUserQuery] = useState('');
+  const [lastUserQuery, setLastUserQuery] = useState(() => memo0.lastUserQuery || '');
   // 「📚 読みたいに追加」を押した本のタイトル set。
   // 連打防止 + UI 即時反映 (ボタンを「✅ 追加済み」表示に切替) の両方を担う。
   // 旧実装は addingTitle を「処理中の本」のロックに使い、AI 要約と DB
   // insert を await してから state を戻していたため、ボタンの反応に
   // 5〜15 秒かかっていた。新実装はクリック時 UI を即更新、すべての I/O は
   // .then() で fire-and-forget。失敗時のみ rollback。
-  const [addedTitles, setAddedTitles] = useState(() => new Set());
+  const [addedTitles, setAddedTitles] = useState(() => new Set(memo0.addedTitles || []));
+  // 「読みたいに追加」を押して、同じ本かを確かめている間の本（まだ追加していない＝「追加済み」にしない）。
+  const [checkingTitles, setCheckingTitles] = useState(() => new Set());
   // 「読みたいに追加」押下後に search の strict match 結果を確認させる
   // モーダル。{ rec, candidates } | null。確認後に proceedAdd(verifiedRec)
   // を呼んで実際の DB insert に進む。
@@ -214,24 +223,33 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   const [view, setView] = useState('chat');
   const [selectedSession, setSelectedSession] = useState(null);
   // 現在進行中のセッション ID。null なら次回送信時に createSession で新規作成。
-  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [currentSessionId, setCurrentSessionId] = useState(() => memo0.currentSessionId || null);
   // ── ガイド付きヒアリング（チップ選択ウィザード）の状態 ───────────────────
   // 旧来の「4 問を一括テキストで投げて自由記述で受ける」摩擦を解消するため、
   // 初回の相談内容から AI が質問セットを設計 → 1 問ずつ選択肢タップで答える。
-  const [concern, setConcern] = useState('');            // 初回の相談（課題）
-  const [interview, setInterview] = useState(null);      // [{q, options[]}] | null
-  const [interviewStep, setInterviewStep] = useState(0); // 現在の質問 index
-  const [interviewRound, setInterviewRound] = useState(1); // 現在のヒアリング周回（1..MAX）
-  const [interviewAnswers, setInterviewAnswers] = useState([]); // [{q, a}] 全周通算
+  const [concern, setConcern] = useState(() => memo0.concern || '');            // 初回の相談（課題）
+  const [interview, setInterview] = useState(() => memo0.interview || null);      // [{q, options[]}] | null
+  const [interviewStep, setInterviewStep] = useState(() => memo0.interviewStep || 0); // 現在の質問 index
+  const [interviewRound, setInterviewRound] = useState(() => memo0.interviewRound || 1); // 現在のヒアリング周回（1..MAX）
+  const [interviewAnswers, setInterviewAnswers] = useState(() => memo0.interviewAnswers || []); // [{q, a}] 全周通算
   const [interviewLoading, setInterviewLoading] = useState(false); // 質問生成中
-  const [otherMode, setOtherMode] = useState(false);     // 「その他」自由入力モード
-  const [otherText, setOtherText] = useState('');
-  const [multiSelected, setMultiSelected] = useState([]); // 複数選択質問の選択中の答え
+  const [otherMode, setOtherMode] = useState(() => !!memo0.otherMode);     // 「その他」自由入力モード
+  const [otherText, setOtherText] = useState(() => memo0.otherText || '');
+  const [multiSelected, setMultiSelected] = useState(() => memo0.multiSelected || []); // 複数選択質問の選択中の答え
   const [recoLoading, setRecoLoading] = useState(false); // 推薦生成中
   const [recoStream, setRecoStream] = useState(''); // 推薦生成中のライブ前置き文（体感速度）
-  const [recoError, setRecoError] = useState(null);
+  const [recoError, setRecoError] = useState(() => memo0.recoError || null);
   // 月の上限・プラン案内は「失敗」ではないので、再試行ボタンのない案内として出す（相談と同じ）。
-  const [recoNotice, setRecoNotice] = useState(false);
+  const [recoNotice, setRecoNotice] = useState(() => !!memo0.recoNotice);
+  // 画面を離れても戻れるように、いまの状態を覚えておく（上の advisorMemory）。
+  useEffect(() => {
+    advisorMemory.uid = advisorUser?.id || null;
+    advisorMemory.state = {
+      messages, input, recommendations, chatHistory, lastUserQuery, addedTitles: [...addedTitles],
+      currentSessionId, concern, interview, interviewStep, interviewRound, interviewAnswers,
+      otherMode, otherText, multiSelected, recoError, recoNotice,
+    };
+  }, [advisorUser?.id, messages, input, recommendations, chatHistory, lastUserQuery, addedTitles, currentSessionId, concern, interview, interviewStep, interviewRound, interviewAnswers, otherMode, otherText, multiSelected, recoError, recoNotice]);
   // Strict auto-scroll: only when a real append happens. Initial seed
   // message + any case where we would scroll from a zero baseline are
   // explicitly excluded so re-mounting the component (sub-tab switch)
@@ -931,8 +949,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // ---------------------------------------------------------------------------
   // 「📚 読みたいに追加」フロー
   //
-  //   1. handleClickAdd(rec): UI を即「✅ 追加済み」に切替 (< 5ms)、裏で
-  //      searchBooksAPIFlat を走らせる
+  //   1. handleClickAdd(rec): ボタンを即「確かめています…」に切替 (< 5ms)、裏で
+  //      searchBooksAPIFlat を走らせる（「追加済み」は実際に追加へ進んだときだけ・2026-09-29）
   //   2. strict match で絞り込んだ candidates が 1 件以上あれば確認モーダルへ
   //      → AdvisorAddConfirmModal で視覚確認 → 選んだ candidate の isbn /
   //      cover を rec に焼き込んで proceedAdd を呼ぶ
@@ -951,7 +969,20 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
     el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
   };
+  const clearChecking = (title) => setCheckingTitles((prev) => {
+    if (!prev.has(title)) return prev;
+    const next = new Set(prev);
+    next.delete(title);
+    return next;
+  });
   const proceedAdd = (verifiedRec) => {
+    // ここで初めて「追加済み」にする（確認でキャンセルした本は、押す前の見た目のまま）。
+    clearChecking(verifiedRec.title);
+    setAddedTitles((prev) => {
+      const next = new Set(prev);
+      next.add(verifiedRec.title);
+      return next;
+    });
     revealAddedRow(verifiedRec.title);
     // すべての I/O を Promise.resolve().then で次の tick へ。handler 同期維持。
     Promise.resolve().then(async () => {
@@ -999,11 +1030,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   };
 
   const handleClickAdd = (rec) => {
-    if (addedTitles.has(rec.title)) return;
+    if (addedTitles.has(rec.title) || checkingTitles.has(rec.title)) return;
     // 触覚で即時 ack (画面の見た目とは別経路で「タップ受付」を確実に伝える)。
     try { advisorHaptic.light(); } catch { /* non-critical */ }
-    // UI を即「✅ 追加済み」に切替 (連打防止 + 視覚 ack)。失敗時は rollback。
-    setAddedTitles((prev) => {
+    // UI を即「確かめています…」に切替 (連打防止 + 視覚 ack)。「追加済み」は proceedAdd で。
+    setCheckingTitles((prev) => {
       const next = new Set(prev);
       next.add(rec.title);
       return next;
@@ -1021,8 +1052,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
           proceedAdd(rec);
           return;
         }
-        // 1 件以上 → 視覚確認モーダルへ。AddedTitles はすでに反映済みだが、
-        // ユーザーがキャンセルしたら rollback する (handleConfirmCancel で対応)。
+        // 1 件以上 → 視覚確認モーダルへ。「追加済み」は確認して追加したときだけ（キャンセルなら元のまま）。
         setConfirmAdd({ rec, candidates: matched });
       } catch {
         // search 失敗時は直接追加へフォールバック
@@ -1049,12 +1079,23 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
     if (!confirmAdd) return;
     const { rec } = confirmAdd;
     setConfirmAdd(null);
-    // 「✅ 追加済み」を rollback (ユーザーが追加を取りやめたため)。
-    setAddedTitles((prev) => {
-      const next = new Set(prev);
-      next.delete(rec.title);
-      return next;
-    });
+    // まだ追加していないので、ボタンを押す前の「読みたいに追加」に戻すだけ。
+    clearChecking(rec.title);
+  };
+  // 候補に目当ての本が無いとき: 書名で探し直す／手動で入力する（App の本の追加へ渡す）。
+  const handleConfirmSearch = () => {
+    if (!confirmAdd) return;
+    const { rec } = confirmAdd;
+    setConfirmAdd(null);
+    clearChecking(rec.title);
+    onSearchBook?.(rec.title || '');
+  };
+  const handleConfirmManual = () => {
+    if (!confirmAdd) return;
+    const { rec } = confirmAdd;
+    setConfirmAdd(null);
+    clearChecking(rec.title);
+    onManualBook?.({ title: rec.title || '', author: rec.author || '' });
   };
 
   // 新メッセージ追加時に最下部へオートスクロール (LINE 挙動)。
@@ -1065,7 +1106,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
   // 推薦が出たときは、最下部ではなく推薦の先頭（前置き → 1 冊目のカードと「読みたいに追加」）へ。
   // 表紙の後追い（verifyAndEnrich）で items が差し替わっても、もう一度は動かさない（出た瞬間だけ）。
   const recoBlockRef = useRef(null);
-  const hadRecoRef = useRef(false);
+  const hadRecoRef = useRef(!!memo0.recommendations); // 戻ってきたときは位置を動かさない
   useEffect(() => {
     const has = !!recommendations;
     const appeared = has && !hadRecoRef.current;
@@ -1535,6 +1576,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
                     <p role="status" style={{ ...addedNote, color: 'var(--text-2)' }}>
                       <IcCheck size={16} aria-hidden="true" />本棚にあります
                     </p>
+                  ) : checkingTitles.has(rec.title) ? (
+                    // 同じ本かを確かめている間（確認で追加するまでは「追加済み」にしない）。薄くせず文言で示す。
+                    <button type="button" disabled aria-busy="true" style={{ ...uiBtnGhostOff, touchAction: 'manipulation' }}>
+                      確かめています…
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -1607,8 +1653,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             className="send-btn"
             onClick={() => startInterview(input)}
             disabled={!input.trim() || interviewLoading || tokensOut}
-            aria-label={interviewLoading ? '準備中' : '相談する'}
-            title={interviewLoading ? '準備中…' : '相談する'}
+            aria-label={interviewLoading ? '準備中' : '本を探す'}
+            title={interviewLoading ? '準備中…' : '本を探す'}
           >
             {interviewLoading ? (
               <span aria-hidden="true">…</span>
@@ -1626,6 +1672,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books }) {
             candidates={confirmAdd.candidates}
             onConfirm={handleConfirmCandidate}
             onCancel={handleConfirmCancel}
+            onSearchByTitle={onSearchBook ? handleConfirmSearch : undefined}
+            onManual={onManualBook ? handleConfirmManual : undefined}
           />
         </Suspense>
       )}

@@ -38,6 +38,25 @@ function withSuspense(load, fallback) {
   return LazyPart;
 }
 
+// 重ねて開く部品（シート・設定・ヘルプ・本を追加）を読み込んでいる間の待ち表示（2026-09-29）。
+// 何も出さない（null）と押しても反応が無いように感じ、Spinner を置くと画面の流れの中に出て下が跳ねる。
+// 本物と同じ背景（--backdrop）だけを先に重ねて「押せた」ことを伝える（本物が出たら入れ替わる）。
+export function OverlayFallback({ solid = false }) {
+  return (
+    <div
+      aria-busy="true"
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 'var(--z-popover)',
+        background: solid ? 'var(--bg)' : 'var(--backdrop)',
+        animation: 'lvg-fade-in var(--duration-fast) var(--ease-out) both',
+      }}
+    />
+  );
+}
+
 // 本の詳細のメモ一覧（＋メモカード・一文をシェア・シェア画像づくり）。待つ間は一覧と同じ骨組み。
 export const BookMemoList = withSuspense(loaders.bookMemoList, <MemoListSkeleton />);
 // 全画面のメモ編集（画面の上に重ねて開くので、待つ間は何も出さない）。
@@ -129,6 +148,15 @@ export function prefetchAppParts() {
     loaders.bookPhases,
     loaders.bookMemoEditor,
     loaders.bookSearchModal,
+    // 押したら重ねて開く部品（待つ間は何も出さない＝null なので、読めていないと押しても
+    // しばらく何も起きないように感じる・2026-09-29）。よく押す順に温めておく。
+    () => import('./HomeQuickMemo'),
+    () => import('./QuickMemoSheet'),
+    () => import('./AddBookModal'),
+    () => import('./ShareSheet'),
+    () => import('./AccountSettings'),
+    () => import('./TokenSheet'),
+    () => import('./Paywall'),
   ];
   const next = () => {
     const load = queue.shift();

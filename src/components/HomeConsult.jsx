@@ -15,6 +15,7 @@ import { useAppDataCache } from '../state/AppDataCache';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
 import { btnPrimary, card, input, groupTitle } from '../styles/ui';
+import { buildConsultExamples } from '../lib/consultHelpers';
 import { loadDefaultJapaneseParser } from 'budoux';
 
 // 相談例は文節（BudouX）の切れ目でだけ折り返す（「使え／る」「ヒ／ント」のように語の途中で割れないように）。
@@ -28,29 +29,8 @@ function withPhraseBreaks(text) {
   return phrases.flatMap((p, i) => (i === 0 ? [p] : [<wbr key={i} />, p]));
 }
 
-// 相談例（AI を使わない＝原価ゼロ）。いま読んでいる本があればそれを使う。
-// memoBookIds: メモのある本の id（null＝まだ分からない）。メモの無い本の名前は例に出さない。
-function examplesFor(books, memoBookIds) {
-  const ok = (b) => memoBookIds == null || memoBookIds.has(b.id);
-  const reading = books.find((b) => b.status === 'reading' && ok(b)) || books.find((b) => b.status === 'done' && ok(b))
-    || (memoBookIds ? books.find((b) => memoBookIds.has(b.id)) : null);
-  const out = [];
-  if (reading?.title) out.push(`『${reading.title}』の学びで、明日から使えるものは？`);
-  // 2 つ目は、よく付けているタグから（相談タブの例と同じ作り方）。タグが無いときだけ一般的な例。
-  // 1 つ目の本に付いているタグは避ける（2 つの例が同じ本に寄らないように）。
-  const firstTags = new Set((reading?.tags || []).map((t) => String(t || '').trim()));
-  const tagCount = new Map();
-  // タグもメモのある本からだけ数える（メモの無い本のタグで聞いても根拠が無い）。
-  books.filter(ok).forEach((b) => (Array.isArray(b.tags) ? b.tags : []).forEach((t) => {
-    const k = String(t || '').trim();
-    if (k && !firstTags.has(k)) tagCount.set(k, (tagCount.get(k) || 0) + 1);
-  }));
-  const topTag = [...tagCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  out.push(topTag
-    ? `「${topTag}」で迷ったとき、私のメモからヒントをください`
-    : '最近、判断に迷うことがあります。私が読んだ本から、ヒントをください');
-  return out;
-}
+// 相談例（AI を使わない＝原価ゼロ）は相談タブと同じ作り方（lib/consultHelpers.js）:
+//   前の相談の続き → 本の「現在の課題」→ メモのある本 → よくある困りごと。ここでは 2 つだけ。
 
 // countUnknown: 本の読み込みに失敗して冊数が分からないとき。0 冊扱いで隠さず、件数なしの 1 行で出す。
 export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnknown = false }) {
@@ -61,7 +41,11 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
   const [text, setText] = useState('');
   const bookCount = books.length;
   const [memoBookIds, setMemoBookIds] = useState(null);
-  const examples = useMemo(() => examplesFor(books, memoBookIds), [books, memoBookIds]);
+  const [lastQuestion, setLastQuestion] = useState(null); // 前の相談（「前に相談した「…」、その後どう進める？」）
+  const examples = useMemo(
+    () => buildConsultExamples({ books, memoBookIds, lastConsult: lastQuestion ? { question: lastQuestion } : null, count: 2 }).map((e) => e.text),
+    [books, memoBookIds, lastQuestion],
+  );
 
   // メモが動いたら（ホームのクイックメモ・本の詳細など）件数を取り直す。
   // 最初のメモを書いた直後に、案内から入力欄へ切り替わるように。
@@ -73,7 +57,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
     let alive = true;
     (async () => {
       try {
-        const [{ count, error }, idsRes] = await Promise.all([
+        const [{ count, error }, idsRes, lastRes] = await Promise.all([
           supabase
             .from('book_memos')
             .select('id', { count: 'exact', head: true })
@@ -86,9 +70,18 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
             .not('book_id', 'is', null)
             .order('created_at', { ascending: false })
             .limit(1000),
+          // 前の相談（新しい 1 件）。読めなければ例に出さないだけ。
+          Promise.resolve(supabase
+            .from('chat_messages')
+            .select('content')
+            .eq('user_id', user.id)
+            .eq('role', 'user')
+            .order('created_at', { ascending: false })
+            .limit(1)).catch(() => ({ data: null, error: true })),
         ]);
         if (alive && !error) setMemoCount(count || 0);
         if (alive && !idsRes.error) setMemoBookIds(new Set((idsRes.data || []).map((r) => r.book_id)));
+        if (alive && lastRes && !lastRes.error) setLastQuestion(lastRes.data?.[0]?.content || null);
       } catch { /* 件数が取れなくても入口自体は出す */ }
     })();
     return () => { alive = false; };

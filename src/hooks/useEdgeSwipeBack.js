@@ -2,9 +2,11 @@
 // register a "go back" gesture without wrapping the whole subtree.
 //
 // Activates only when the touch starts within `edgeWidth` of the left edge,
-// then tracks rightward drag. Release past `threshold` calls onBack.
+// then tracks rightward drag (the screen from getTarget() follows the finger).
+// Release past `threshold` slides the screen out and calls onBack.
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+import { hasBackLayers } from './useHistoryBack';
 
 // 書きかけの入力（メモのシート・全画面エディタ・下から出るシート）が開いている間は、
 // 左端スワイプで画面を戻さない（確認なしに下書きが消える事故の防止・2026-09-27）。
@@ -31,13 +33,43 @@ export function useBackBlocked() {
 
 const DEFAULT_EDGE_WIDTH = 24;
 const DEFAULT_THRESHOLD = 80;
-const MAX_VISIBLE_OFFSET = 200;
 
+const reducedMotion = () => {
+  try { return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true; } catch { return false; }
+};
+const cssVar = (name, fallback) => {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  } catch { return fallback; }
+};
+const ms = (v) => {
+  const n = parseFloat(v);
+  if (!Number.isFinite(n)) return 0;
+  return /ms$/.test(v) ? n : n * 1000;
+};
+// 戻った先の画面を、押し込みの逆向き（左から少し）で出す。動きを減らす設定では出さない。
+function playPop(el) {
+  if (!el?.animate || reducedMotion()) return;
+  try {
+    el.animate(
+      [{ opacity: 0, transform: `translate3d(-${cssVar('--space-6', '24px')}, 0, 0)` }, { opacity: 1, transform: 'none' }],
+      { duration: ms(cssVar('--duration-base', '300ms')) * 0.85, easing: cssVar('--ease-out', 'ease-out') },
+    );
+  } catch { /* ignore */ }
+}
+
+// iOS の「端から戻る」: 指に合わせて今の画面（getTarget が返す要素）を右へずらし、
+// 離したとき・閾値を越えていれば右へ送り出してから onBack、越えていなければ元の位置へ戻す（2026-09-29）。
+//   getTarget   : 動かす画面の要素を返す関数（無ければ従来どおり動かさずに判定だけ）
+//   beforeBack  : 戻ってよいか（未保存の確認など）。false なら元の位置へ戻す
 export function useEdgeSwipeBack({
   onBack,
   edgeWidth = DEFAULT_EDGE_WIDTH,
   threshold = DEFAULT_THRESHOLD,
   enabled = true,
+  getTarget,
+  beforeBack,
 } = {}) {
   const startXRef = useRef(null);
   const startYRef = useRef(null);
@@ -45,6 +77,10 @@ export function useEdgeSwipeBack({
   const offsetRef = useRef(0);
   const onBackRef = useRef(onBack);
   onBackRef.current = onBack;
+  const getTargetRef = useRef(getTarget);
+  getTargetRef.current = getTarget;
+  const beforeBackRef = useRef(beforeBack);
+  beforeBackRef.current = beforeBack;
 
   // 指の移動量は ref だけに持つ（state にすると指が動くたびにアプリ全体が描き直される）。
   const setOffsetState = useCallback((v) => {
@@ -53,17 +89,47 @@ export function useEdgeSwipeBack({
 
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return undefined;
+    let el = null;
+    let raf = 0;
+    let settling = false;
+
+    const paint = () => {
+      raf = 0;
+      if (!el) return;
+      const x = offsetRef.current;
+      el.style.transition = 'none';
+      el.style.transform = x > 0 ? `translate3d(${x}px, 0, 0)` : '';
+      el.style.boxShadow = x > 0 ? 'var(--shadow-overlay)' : '';
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(paint); };
+    const clearStyles = (node) => {
+      if (!node) return;
+      node.style.transition = '';
+      node.style.transform = '';
+      node.style.boxShadow = '';
+      node.style.willChange = '';
+    };
+    // 離したあとの動き（transition）。終わったら（または届かなくても一定時間で）done。
+    const animateTo = (node, x, done) => {
+      if (!node) { done?.(); return; }
+      const dur = reducedMotion() ? 0 : ms(cssVar('--duration-fast', '200ms'));
+      node.style.transition = `transform ${dur}ms ${cssVar('--ease-out', 'ease-out')}`;
+      node.style.transform = x > 0 ? `translate3d(${x}px, 0, 0)` : '';
+      window.setTimeout(() => done?.(), dur + 20);
+    };
 
     const handleStart = (e) => {
       const t = e.touches?.[0];
-      if (!t) return;
-      if (t.clientX > edgeWidth) {
+      if (!t || settling) return;
+      // 書きかけのシート・重ねて開いたもの（設定・ヘルプなど）がある間は、下の画面を戻さない。
+      if (t.clientX > edgeWidth || blockers > 0 || hasBackLayers()) {
         startXRef.current = null;
         return;
       }
       startXRef.current = t.clientX;
       startYRef.current = t.clientY;
       directionRef.current = null;
+      el = null;
       setOffsetState(0);
     };
 
@@ -77,24 +143,53 @@ export function useEdgeSwipeBack({
       if (directionRef.current === null) {
         if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
         directionRef.current = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
+        if (directionRef.current === 'horizontal') {
+          try { el = getTargetRef.current?.() || null; } catch { el = null; }
+          if (el) el.style.willChange = 'transform';
+        }
       }
       if (directionRef.current !== 'horizontal') return;
-      if (dx <= 0) {
-        setOffsetState(0);
-        return;
-      }
-      setOffsetState(Math.min(dx, MAX_VISIBLE_OFFSET));
+      setOffsetState(Math.max(0, dx));
+      schedule();
+    };
+
+    const reset = () => {
+      startXRef.current = null;
+      startYRef.current = null;
+      directionRef.current = null;
     };
 
     const handleEnd = () => {
       if (startXRef.current === null) return;
-      if (offsetRef.current >= threshold && blockers === 0) {
-        try { onBackRef.current?.(); } catch { /* ignore */ }
-      }
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      const node = el;
+      el = null;
+      const passed = directionRef.current === 'horizontal'
+        && offsetRef.current >= threshold && blockers === 0 && !hasBackLayers();
       setOffsetState(0);
-      startXRef.current = null;
-      startYRef.current = null;
-      directionRef.current = null;
+      reset();
+      if (!passed) {
+        animateTo(node, 0, () => clearStyles(node));
+        return;
+      }
+      settling = true;
+      (async () => {
+        let ok = true;
+        try { ok = beforeBackRef.current ? (await beforeBackRef.current()) !== false : true; } catch { ok = false; }
+        if (!ok) {
+          animateTo(node, 0, () => { clearStyles(node); settling = false; });
+          return;
+        }
+        const width = window.innerWidth || 390;
+        animateTo(node, width, async () => {
+          try { await onBackRef.current?.(); } catch { /* ignore */ }
+          // 同じ要素のまま中身だけ替わる画面（すべての本 → ホーム）は、位置を戻して左から出す。
+          requestAnimationFrame(() => {
+            if (node?.isConnected) { clearStyles(node); playPop(node); }
+            settling = false;
+          });
+        });
+      })();
     };
 
     window.addEventListener('touchstart', handleStart, { passive: true });
@@ -103,6 +198,8 @@ export function useEdgeSwipeBack({
     window.addEventListener('touchcancel', handleEnd, { passive: true });
 
     return () => {
+      if (raf) cancelAnimationFrame(raf);
+      if (el) clearStyles(el);
       window.removeEventListener('touchstart', handleStart);
       window.removeEventListener('touchmove', handleMove);
       window.removeEventListener('touchend', handleEnd);

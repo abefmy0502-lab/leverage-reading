@@ -23,7 +23,7 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import Spinner from './Spinner';
 import { SkeletonBlock } from './Skeleton';
-import { relativeJa, recallFraming, pickRecallMemo, recallPatch } from '../lib/recall';
+import { relativeJa, recallFraming, pickRecallMemo, recallPatch, dueGapDays } from '../lib/recall';
 import { shouldAskForReview, markReviewAsked, askReviewToast } from '../lib/reviewRequest';
 import { markActivation } from '../lib/activation';
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
@@ -43,7 +43,8 @@ const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display:
 const sectionTitle = { ...groupTitle, margin: '0 0 var(--space-2)' };
 // カード（ui.js card・内側 16）。
 const cardBase = { ...uiCard, padding: 'var(--space-4)' };
-const inp = { width: '100%', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'max(16px, var(--text-body))', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit', boxSizing: 'border-box' };
+// 絞り込みのメニューを開く文字ボタン（メモ一覧の「ページ順 ▾」と同じ: --accent・15/600・高さ 44）。
+const filterMenuBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, minWidth: 0, maxWidth: '45%', padding: '0 var(--space-1)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
 
@@ -235,7 +236,7 @@ function MemoPhoto({ path }) {
   );
 }
 
-function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeDelete, onLongPress, onOpenMenu }) {
+function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeDelete, onLongPress, onOpenMenu, openOnTap = false }) {
   const kind = memo.kind || (memo.sourceType === 'personal' ? 'personal' : memo.sourceType === 'summary' ? 'summary' : 'card');
   const meta = KIND_META[kind] || KIND_META.card;
   const isSynth = memo.synth === true;
@@ -276,7 +277,7 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   const bookButton = (inHeader) => (
     <button
       type="button"
-      onClick={() => book && onOpenBook?.(book)}
+      onClick={(e) => { e.stopPropagation(); if (book) onOpenBook?.(book); }}
       style={{ background: 'none', border: 'none', padding: 0, minHeight: 44, margin: inHeader ? 'calc(-1 * var(--space-3)) 0' : 'calc(-1 * var(--space-2)) 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', cursor: book ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', display: 'block', minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(inHeader ? { flex: 1 } : {}) }}
     >
       {book?.title || '（本のデータが見つかりません）'}
@@ -285,8 +286,14 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   );
   // 「続きを読む」がカードの最後なら、ボタンの下の余り（44 の押せる範囲の余白）をカードの内側余白に重ねる。
 
+  // 検索の結果はカードのどこを押しても本を開く（書名だけが押せる形だと、押せる場所が小さい・2026-09-29）。
+  const tapOpens = openOnTap && !!book && !!onOpenBook;
   const inner = (
-    <div style={cardStyle} {...(onLongPress && !isSynth ? longPress.bind : {})}>
+    <div
+      style={tapOpens ? { ...cardStyle, cursor: 'pointer' } : cardStyle}
+      onClick={tapOpens ? () => onOpenBook(book) : undefined}
+      {...(onLongPress && !isSynth ? longPress.bind : {})}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', flexWrap: bookInHeader ? 'nowrap' : 'wrap' }}>
         {bookInHeader ? bookButton(true) : (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -345,8 +352,8 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
                 : {}),
               ...(isLongText ? { cursor: 'pointer' } : {}),
             }}
-            // 長いときは本文そのものをタップして開閉できる（「続きを読む」と同じ）。
-            onClick={isLongText ? (e) => { e.stopPropagation(); setExpanded((v) => !v); } : undefined}
+            // 長いときは本文そのものをタップして開閉できる（「続きを読む」と同じ）。検索の結果は本文を押しても本を開く。
+            onClick={isLongText && !tapOpens ? (e) => { e.stopPropagation(); setExpanded((v) => !v); } : undefined}
           >
             {memo.text}
           </p>
@@ -701,6 +708,16 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     allNotes.forEach((m) => (m.tags || []).forEach((t) => s.add(t)));
     return [...s];
   }, [allNotes]);
+  // 絞り込みのメニューに出すタグ（使った回数の多い順に 7 つ＋いま選んでいるタグ）。
+  const menuTags = useMemo(() => {
+    const count = new Map();
+    allNotes.forEach((m) => (m.tags || []).forEach((t) => { if (!String(t).startsWith('@')) count.set(t, (count.get(t) || 0) + 1); }));
+    const top = [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 7).map(([t]) => t);
+    if (tagFilter && !top.includes(tagFilter)) top.push(tagFilter);
+    return top;
+  }, [allNotes, tagFilter]);
+  // 種類・タグの絞り込みのメニュー（{ kind: 'kind' | 'tag', x, y } | null）。
+  const [filterMenu, setFilterMenu] = useState(null);
 
   const filteredSearch = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -733,6 +750,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // 🧠 間隔反復のフィードバック（覚えた/もう一度）。実メモ行(synth:false)だけ
   // last_recalled_at/recall_count を更新し、次の間隔まで出す/翌日また出す を制御。
   // 書き込み後は次の一枚へ回す（reroll）。列未適用DBでは静かに no-op。
+  // 直前の「覚えた／まだ覚えていない」の DB 書き込み（取り消しはこれを待ってから戻す＝順番が逆転しない）。
+  const recallWriteRef = useRef(Promise.resolve());
   const recordRandomRecall = useCallback(async (memo, mastered) => {
     if (!memo) return;
     const patch = recallPatch(memo.recallCount, mastered);
@@ -757,13 +776,66 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       }
     }, 280);
     if (memo.synth) return; // DB 書き込みは実メモのみ
-    try {
-      await supabase
-        .from('book_memos')
-        .update(patch)
-        .eq('id', memo.id);
-    } catch { /* 列未適用・失敗は静かに無視 */ }
+    const write = recallWriteRef.current.then(async () => {
+      try {
+        await supabase
+          .from('book_memos')
+          .update(patch)
+          .eq('id', memo.id);
+      } catch { /* 列未適用・失敗は静かに無視 */ }
+    });
+    recallWriteRef.current = write;
+    await write;
   }, []);
+
+  // 「元に戻す」: 押す前の想起の記録（最後に思い出した日・覚えた回数）に戻し、同じカードをもう一度出す。
+  const undoRandomRecall = useCallback((memo, prev, prevSeed) => {
+    if (!memo) return;
+    if (recallApplyTimerRef.current) { clearTimeout(recallApplyTimerRef.current); recallApplyTimerRef.current = null; }
+    if (memo.synth) {
+      setSynthRecall((cur) => {
+        const next = { ...cur };
+        if (prev.synthEntry) next[memo.id] = prev.synthEntry; else delete next[memo.id];
+        saveSynthRecall(next);
+        return next;
+      });
+    } else {
+      setMemos((arr) => arr.map((m) => (m.id === memo.id
+        ? { ...m, lastRecalledAt: prev.lastRecalledAt, recallCount: prev.recallCount }
+        : m)));
+      recallWriteRef.current = recallWriteRef.current.then(async () => {
+        try {
+          await supabase
+            .from('book_memos')
+            .update({ last_recalled_at: prev.lastRecalledAt || null, recall_count: prev.recallCount || 0 })
+            .eq('id', memo.id);
+        } catch { /* 列未適用・失敗は静かに無視 */ }
+      });
+    }
+    setRandomSeed(prevSeed);
+  }, []);
+
+  // 覚えた／まだ覚えていない: 記録して次の 1 枚へ。次に出る日をトーストで伝え、「元に戻す」で取り消せる。
+  const answerRandomRecall = (memo, mastered) => {
+    if (!memo || flipping) return;
+    const prev = {
+      lastRecalledAt: memo.lastRecalledAt ?? null,
+      recallCount: memo.recallCount || 0,
+      synthEntry: memo.synth ? synthRecall[memo.id] || null : null,
+    };
+    const prevSeed = randomSeed;
+    recordRandomRecall(memo, mastered);
+    reroll();
+    const nextCount = recallPatch(memo.recallCount, mastered).recall_count;
+    const days = dueGapDays(nextCount);
+    toast.show({
+      type: 'info',
+      message: days <= 1 ? '明日また出します' : `${days} 日後にまた出します`,
+      duration: 5000,
+      action: { label: '元に戻す', onClick: () => undoRandomRecall(memo, prev, prevSeed) },
+    });
+    return true;
+  };
 
   const reroll = () => {
     haptic.light();
@@ -858,6 +930,26 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   return (
     <PullToRefresh onRefresh={handleRefresh}>
     <div style={wrap}>
+      {filterMenu && (
+        <ContextMenu
+          x={filterMenu.x}
+          y={filterMenu.y}
+          onClose={() => setFilterMenu(null)}
+          items={filterMenu.kind === 'kind'
+            ? [
+              { label: 'すべての種類', icon: kindFilter === 'all' ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setKindFilter('all') },
+              // 実際にある種類だけ（いま選んでいる種類は 0 件でも残す）。
+              ...Object.entries(KIND_META)
+                .filter(([k]) => (kindCounts[k] || 0) > 0 || kindFilter === k)
+                .map(([k, meta]) => ({ label: meta.label, icon: kindFilter === k ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setKindFilter(k) })),
+            ]
+            : [
+              { label: 'すべてのタグ', icon: !tagFilter ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setTagFilter('') },
+              // メニューが画面に収まるよう、よく使うタグ 7 つまで（ほかのタグは検索欄に入れても探せる）。
+              ...menuTags.map((t) => ({ label: `#${t}`, icon: tagFilter === t ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" />, onClick: () => setTagFilter(t) })),
+            ]}
+        />
+      )}
       {memoMenu && (
         <ContextMenu
           x={memoMenu.x}
@@ -955,35 +1047,31 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           {/* 絞り込みは検索欄に触れてから出す（開いた瞬間の画面を、思い出しカードとメモだけにする）。 */}
           {(searchActive || isSearching) && (
             <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-              <select
-                value={kindFilter}
-                onChange={(e) => setKindFilter(e.target.value)}
-                style={{ ...inp, flex: '1 1 0', minWidth: 0, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
-                aria-label="種類で絞り込み"
+              {/* 絞り込みは端末のプルダウンではなく、メモ一覧の「ページ順 ▾」と同じ文字のメニュー（押すと ContextMenu）。 */}
+              <button
+                type="button"
+                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFilterMenu({ kind: 'kind', x: r.left + 110, y: r.bottom + 4 }); }}
+                aria-haspopup="menu"
+                aria-label={`種類で絞り込む（いまは${kindFilter === 'all' ? 'すべての種類' : (KIND_META[kindFilter]?.label || '')}）`}
+                style={filterMenuBtn}
               >
-                <option value="all">全種類</option>
-                {/* 実際に存在する種類だけを出す（0件になる選択肢＝投資目的/仮説等の
-                    未生成カテゴリを並べない。現在選択中の種類は件数0でも残す）。 */}
-                {Object.entries(KIND_META)
-                  .filter(([k]) => (kindCounts[k] || 0) > 0 || kindFilter === k)
-                  .map(([k, meta]) => (
-                    <option key={k} value={k}>{meta.label}</option>
-                  ))}
-              </select>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kindFilter === 'all' ? 'すべての種類' : (KIND_META[kindFilter]?.label || 'すべての種類')}</span>
+                <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+              </button>
               {/* 本の状態での絞り込みは廃止（メモが付くのは読書中・読了の本だけで、選ぶ意味が薄い）。 */}
               {allTags.length > 0 && (
-                <select
-                  value={tagFilter}
-                  onChange={(e) => setTagFilter(e.target.value)}
-                  style={{ ...inp, flex: '1 1 0', minWidth: 0, width: 'auto', fontSize: 'max(16px, var(--text-sub))' }}
-                  aria-label="タグで絞り込み"
+                <button
+                  type="button"
+                  onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFilterMenu({ kind: 'tag', x: r.left + 110, y: r.bottom + 4 }); }}
+                  aria-haspopup="menu"
+                  aria-label={`タグで絞り込む（いまは${tagFilter ? `#${tagFilter}` : 'すべてのタグ'}）`}
+                  style={filterMenuBtn}
                 >
-                  <option value="">全タグ</option>
-                  {allTags.map((t) => (
-                    <option key={t} value={t}>#{t}</option>
-                  ))}
-                </select>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tagFilter ? `#${tagFilter}` : 'すべてのタグ'}</span>
+                  <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                </button>
               )}
+              <span style={{ flex: 1 }} />
               <button
                 type="button"
                 style={{ ...btnLink, flexShrink: 0, paddingRight: 0 }}
@@ -1015,6 +1103,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 onOpenBook={onOpenBook}
                 onSwipeDelete={handleSwipeDelete}
                 onLongPress={(payload) => setMemoMenu(payload)}
+                openOnTap
               />
             ))}
           </div>
@@ -1066,29 +1155,28 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   type="button"
                   disabled={flipping}
                   onClick={() => {
-                    if (flipping) return;
-                    recordRandomRecall(randomMemo, true);
-                    reroll();
+                    if (!answerRandomRecall(randomMemo, true)) return;
                     // ⭐️ 初めて「本物の想起に『覚えた』と応えた」直後 = 核心価値を
                     // 体感した感情のピークで、一度だけレビューを依頼する。実メモのみ
                     // （synth は自分の一行ではないため対象外）。実ストア URL 未設定時
-                    // は no-op（reviewRequest.js 参照）。
+                    // は no-op（reviewRequest.js 参照）。「◯日後にまた出します」の取り消しの間は出さない。
                     if (!randomMemo.synth && shouldAskForReview()) {
                       markReviewAsked();
-                      setTimeout(() => toast.show(askReviewToast()), 1200);
+                      setTimeout(() => toast.show(askReviewToast()), 5600);
                     }
                   }}
                   style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1 }}
                 >
                   <Check size={16} strokeWidth={2.5} aria-hidden="true" />覚えた
                 </button>
+                {/* 「もう一度」は「もう一度見る」と読めてしまうので、何が起きるか（明日また出る）が分かる名前に（2026-09-29）。 */}
                 <button
                   type="button"
                   disabled={flipping}
-                  onClick={() => { if (flipping) return; recordRandomRecall(randomMemo, false); reroll(); }}
+                  onClick={() => { answerRandomRecall(randomMemo, false); }}
                   style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1 }}
                 >
-                  もう一度
+                  まだ覚えていない
                 </button>
               </div>
             )}

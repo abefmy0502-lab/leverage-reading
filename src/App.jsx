@@ -8,7 +8,7 @@ import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
 import { loadDefaultJapaneseParser } from 'budoux';
 // ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
-import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou } from './components/lazyParts';
+import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou, OverlayFallback } from './components/lazyParts';
 import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
 import { STATUSES, getSt } from './lib/status';
 import { isStrictMatch } from './lib/bookMatch';
@@ -123,7 +123,7 @@ import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
 import { useLongPress } from './hooks/useLongPress';
 import { useEdgeSwipeBack, isBackBlocked, useBackBlocked } from './hooks/useEdgeSwipeBack';
-import { useHistoryBack } from './hooks/useHistoryBack';
+import { useHistoryBack, useBackLayer, useBackLayerCount, topBackLayer, closeTopBackLayer } from './hooks/useHistoryBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
 import { useSubscription } from './hooks/useSubscription';
 const Paywall = lazy(() => import('./components/Paywall'));
@@ -762,6 +762,13 @@ function AuthedApp() {
   const listScrollRef = useRef(null);
   const savedShelfScroll = useRef(0);
   const prevViewRef = useRef('list');
+  // 本の詳細・編集から一覧へ戻った直後だけ、一覧を左から出す（押し込みの逆向き・components.css の .screen-pop）。
+  // prevViewRef は描画のあとで更新されるので、描画中は「直前の画面」を指している。
+  // 付けたクラスは、その一覧が出ている間は外さない（外すと別の出方の動きが途中で始まり直す）。
+  const popTabRef = useRef(null);
+  if (view !== 'list' || (popTabRef.current && popTabRef.current !== tab)) popTabRef.current = null;
+  if (view === 'list' && prevViewRef.current !== 'list') popTabRef.current = tab;
+  const screenPop = view === 'list' && popTabRef.current === tab;
   // 編集フォームの「未保存変更」検知用ベースライン（編集に入った時点のスナップショット）。
   const editBaselineRef = useRef(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -788,17 +795,20 @@ function AuthedApp() {
     const rect = e.currentTarget.getBoundingClientRect();
     setDetailKebab({ x: rect.right - 8, y: rect.bottom + 4 });
   };
-  // 「すべての本」から左端スワイプでホームへ戻る（記録から開いたときは記録へ）。
+  // 「すべての本」から左端スワイプでホームへ戻る（記録から開いたときは記録へ）。画面は指に付いてくる。
   useEdgeSwipeBack({
     enabled: tab === 'books' && view === 'list' && shelfMode === 'library',
+    getTarget: () => listScrollRef.current,
     onBack: () => leaveLibrary(),
   });
   // Edge-swipe back: only listens while we're on a detail or edit view.
+  // 画面（.detail-enter の箱）が指に付いてきて、離すと右へ送り出してから戻る。
   useEdgeSwipeBack({
     enabled: view === 'detail' || view === 'edit',
-    onBack: async () => {
-      // 編集中の未保存変更は破棄前に確認（下部ナビと同じガード）。
-      if (view === 'edit' && !(await confirmDiscardEdit())) return;
+    getTarget: () => (typeof document !== 'undefined' ? document.querySelector('.detail-enter') : null),
+    // 編集中の未保存変更は破棄前に確認（下部ナビと同じガード）。やめたら画面は元の位置へ戻る。
+    beforeBack: async () => view !== 'edit' || (await confirmDiscardEdit()),
+    onBack: () => {
       if (view === 'edit' && current) { setEditPhaseOverride(null); setView('detail'); }
       else if (view === 'edit') leaveNewBookForm();
       else goList();
@@ -806,13 +816,19 @@ function AuthedApp() {
   });
   // ブラウザ / Android の「戻る」: 深い画面では ‹・左端スワイプと同じ 1 段戻る（一番上では普通に離れる）。
   // 書きかけのシートが開いている間は 1 段深い扱い（一番上の画面でも「戻る」でアプリを離れて下書きが消えないように）。
+  // 重ねて開いたもの（設定・ヘルプ・本を追加・有料プランの画面など＝useBackLayer）は 1 枚ごとに 1 段深く、
+  // 「戻る」は一番上の 1 枚だけを閉じる（2026-09-29）。
   const backBlocked = useBackBlocked();
+  const backLayers = useBackLayerCount();
   useHistoryBack({
     depth: (tab === 'books' && shelfMode === 'library' ? 1 : 0)
       + (view === 'detail' ? 1 : view === 'edit' ? (current ? 2 : 1) : 0)
       + (tab === 'ai' && aiSubTab === 'brain' && consultPushed && view === 'list' ? 1 : 0)
-      + (backBlocked ? 1 : 0),
+      + (backBlocked ? 1 : 0)
+      + backLayers,
     onBack: async () => {
+      const topLayer = topBackLayer();
+      if (topLayer && (topLayer.overBlock || !isBackBlocked())) { closeTopBackLayer(); return true; }
       if (isBackBlocked()) return false; // 書きかけのシートが開いている間は戻らない
       if (view === 'edit') {
         if (!(await confirmDiscardEdit())) return false;
@@ -826,6 +842,11 @@ function AuthedApp() {
     },
   });
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+  // 重ねて開くもの（「戻る」で一番上から閉じる・その間は左端スワイプで下の画面を戻さない）。
+  useBackLayer(settingsOpen, () => setSettingsOpen(false));
+  useBackLayer(adminOpen, () => setAdminOpen(false));
+  useBackLayer(helpModalOpen, () => setHelpModalOpen(false));
+  useBackLayer(addBookModalOpen, () => setAddBookModalOpen(false));
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
   const onboardingTriggeredRef = useRef(false);
@@ -1457,7 +1478,7 @@ function AuthedApp() {
     goList();
     if (fromSearch) setAddBookModalOpen(true);
   };
-  const newBookBackLabel = addFromSearchQuery !== null ? '検索' : (addOrigin === 'home' ? 'ホーム' : 'すべての本');
+  const newBookBackLabel = addFromSearchQuery !== null ? '検索' : (addOrigin === 'home' ? 'ホーム' : addOrigin === 'advisor' ? 'AI 選書' : 'すべての本');
 
   // 同じ本が既に本棚にあれば true を返す。ダイアログを出して「📖 既存の本を見る」
   // が押されたらその詳細へジャンプ。呼び出し側はこの戻り値が true なら追加処理
@@ -1479,6 +1500,9 @@ function AuthedApp() {
   };
 
   const savingRef = useRef(false);
+  // 押した瞬間から「保存中…」を出す（重複の確認・表紙の解決で待つ間も、押せたことが分かる・
+  // 薄くしない＝DESIGN §5「押せないボタン」）。
+  const [savingBook, setSavingBook] = useState(false);
   const handleSave = async () => {
     // 二重送信ガード。handleSave は表紙解決(findIsbnCandidates/resolveCover)+saveBook の
     // 複数 await を含むため、連打すると新規本が二重作成されうる。
@@ -1487,13 +1511,15 @@ function AuthedApp() {
       toast.error(fieldRequiredMessage('タイトル'));
       return;
     }
+    savingRef.current = true;
+    setSavingBook(true);
     // 新規追加 (current=null) の時のみ重複チェック。既存本の編集は同じ本を
     // 自分自身とマッチさせてしまうので除外。
     if (!current) {
-      const dup = await handleDuplicateGate({ isbn: form.isbn, title: form.title, author: form.author });
-      if (dup) return;
+      let dup = false;
+      try { dup = await handleDuplicateGate({ isbn: form.isbn, title: form.title, author: form.author }); } catch { dup = false; }
+      if (dup) { savingRef.current = false; setSavingBook(false); return; }
     }
-    savingRef.current = true;
     try {
       const normalizedTags = Array.from(
         new Set(
@@ -1654,6 +1680,7 @@ function AuthedApp() {
       }
     } finally {
       savingRef.current = false;
+      setSavingBook(false);
     }
   };
 
@@ -2033,20 +2060,16 @@ function AuthedApp() {
       const saved = await saveBook(newBook);
       // 📊 AI 選書経由の本追加（PII なし・via の enum だけ）。
       track('book_added', { via: 'advisor' });
-      // 4 フィールドが埋まっていれば「話した内容を引き継ぎました」、そうでなければ控えめなトースト。
-      const hasPlan = newBook.currentChallenge || newBook.hypothesis || newBook.bookReason;
-      const msg = hasPlan
-        ? `『${rec.title}』を「読みたい」に追加しました。`
-        : newBook.sourceQuery
-          ? `『${rec.title}』を追加。読書計画シートで読み方を決めましょう。`
-          : `『${rec.title}』を「読みたい」に追加しました。`;
-      // 追加直後に「本棚で探し直す」断絶を無くす — トーストから 1 タップで
-      // その本の読書計画（投資目的→戦略）へ直行できるようにする（time-to-value）。
+      // 「開く」の先は本の詳細（読みたい）なので、読書計画シートへ誘う文にはしない（押した先と食い違うため）。
+      const msg = `『${rec.title}』を「読みたい」に追加しました。`;
+      // 追加直後に「本棚で探し直す」断絶を無くす — トーストの「開く」から 1 タップでその本の詳細（読みたい）へ。
+      // 以前は読書計画の編集（積読の画面）を開いていたが、状態が「読みたい」のまま積読の画面になり食い違った。
+      // 詳細の左上は「‹ AI 選書」で、戻るとさっきのおすすめのまま（BookAdvisor が状態を覚えている・2026-09-29）。
       toast.show({
         type: 'success',
         message: msg,
         duration: 6000,
-        action: { label: '開く', onClick: () => openSetup(saved) },
+        action: { label: '開く', onClick: () => openDetail(saved) },
       });
       // 表紙取得をバックグラウンドで実行 (await しない)。失敗しても UX に影響なし。
       resolveCoverInBackground(saved);
@@ -2322,6 +2345,36 @@ function AuthedApp() {
   // （撤去 2026-09-27）runAnalysis —「AIで本を解析する」。読書計画シートと役割が重なるため廃止。
   // 読書計画シート（作る・修正）はプランの機能（フリーミアム）。無料プランなら有料プランの画面を開く。
   const { requirePlan } = usePaywall();
+  // 読書計画シート（と、その材料の得たいこと・課題・仮説）だけを、編集画面を開いたまま保存する。
+  // 本の最新の値に重ねて保存（ほかの欄の書きかけは保存しない）し、編集中の「未保存の変更」の基準も
+  // シートの分だけ進める（閉じるときに「保存していない変更があります」と言わない）。
+  const persistPlanSheet = (bookId, sheet, message) => {
+    const text = String(sheet || '');
+    if (!bookId || !text.trim()) return;
+    const f = formRef.current || {};
+    const patch = {
+      aiStrategy: text,
+      investPurpose: f.investPurpose || '',
+      currentChallenge: f.currentChallenge || '',
+      hypothesis: f.hypothesis || '',
+    };
+    enqueueBookMutation(bookId, async (entry) => {
+      const base = entry.latest || booksRef.current.find((b) => b.id === bookId);
+      if (!base) return;
+      const saved = await saveBook({ ...base, ...patch });
+      if (saved) entry.latest = saved;
+      setCurrent((c) => (c && c.id === bookId ? { ...c, ...patch } : c));
+      try {
+        if (editBaselineRef.current) {
+          const b = JSON.parse(editBaselineRef.current);
+          if (b && b.id === bookId) editBaselineRef.current = JSON.stringify({ ...b, ...patch });
+        }
+      } catch { /* 基準が読めなければそのまま */ }
+      toast.success(message);
+    }).catch((error) => {
+      toast.error(toMessage(error, '読書計画シートを保存できませんでした。下の「保存」でもう一度お試しください。'));
+    });
+  };
   const runStrategy = async () => {
     if (!requirePlan('読書計画シート')) return;
     setAiLoading(true);
@@ -2357,6 +2410,8 @@ function AuthedApp() {
       if (!String(sheet || '').trim()) throw new Error('読書計画シートを作れませんでした。少し時間をおいて、もう一度お試しください。');
       // Fresh generation invalidates any prior 修正リクエスト history.
       if (targetId) clearStrategyHistory(targetId);
+      // できたシートはすぐ保存する（「保存」を押し忘れて閉じるとシートが消えていた・2026-09-29）。
+      persistPlanSheet(targetId, sheet, '読書計画シートを保存しました');
     } catch (error) {
       // 失敗時は元の計画シートに戻す（クリアしたまま保存すると DB のシートが消える）。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prevStrategy } : f));
@@ -2382,6 +2437,7 @@ function AuthedApp() {
     // 失敗時は catch で prev に戻す。
     setForm((f) => ({ ...f, aiStrategy: '' }));
     let didStreamAny = false;
+    let lastText = '';
     try {
       await streamClaude({
         system: PROMPTS.setupSheetEdit.system,
@@ -2400,6 +2456,7 @@ function AuthedApp() {
         model: MODEL_SMART,
         onChunk: (fullText) => {
           didStreamAny = true;
+          lastText = fullText;
           setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: fullText } : f));
         },
       });
@@ -2410,7 +2467,8 @@ function AuthedApp() {
       }
       if (targetId) saveStrategyHistory(targetId, prev);
       setStrategyHistoryTick((t) => t + 1);
-      toast.success('✓ 読書計画シートを修正しました。');
+      // 直したシートもすぐ保存する（作ったときと同じ）。
+      persistPlanSheet(targetId, lastText, '読書計画シートを直して、保存しました');
     } catch (error) {
       // ストリーミング失敗時は元のシートを戻す (undo 履歴は触らない)。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prev } : f));
@@ -2866,7 +2924,8 @@ function AuthedApp() {
     }
   };
 
-  const deleteActionFromBook = async (bookId, actionIdx, { skipConfirm = false, target = null } = {}) => {
+  // undoable: スワイプで消したとき（確認なし）。下のトーストの「元に戻す」で同じ位置に戻せる。
+  const deleteActionFromBook = async (bookId, actionIdx, { skipConfirm = false, target = null, undoable = false } = {}) => {
     // ⋮ → 削除は誤タップし得る明示メニュー操作なので、規約どおり確認を挟む
     // （スワイプ削除＝ジェスチャー意図は確認なし + Undo、と役割分担）。
     // ActionEditModal 経由はモーダル側で確認済みなので skipConfirm で二重確認を避ける。
@@ -2890,7 +2949,7 @@ function AuthedApp() {
       const acts = [...(book.actions || [])];
       const idx = resolveActionIndex(acts, delTarget, actionIdx);
       if (idx < 0 || idx >= acts.length) return;
-      acts.splice(idx, 1);
+      const [removed] = acts.splice(idx, 1);
       const updated = { ...book, actions: acts };
       mutateBookLocal(bookId, () => updated);
       syncActionSnapshots(updated);
@@ -2898,7 +2957,36 @@ function AuthedApp() {
         const saved = await saveBook(updated);
         entry.latest = saved || updated;
         syncActionSnapshots(saved || updated);
-        toast.success('行動を削除しました。');
+        if (undoable && removed) {
+          toast.undo({
+            message: '行動を削除しました',
+            duration: 6000,
+            // 同じ本の直列チェーンに乗せて、消した位置に戻す（行は新しく作り直す＝id は付け直し）。
+            onUndo: () => enqueueBookMutation(bookId, async (e2) => {
+              const b2 = e2.latest || booksRef.current.find((b) => b.id === bookId);
+              if (!b2) return;
+              const acts2 = [...(b2.actions || [])];
+              // eslint-disable-next-line no-unused-vars
+              const { id: _oldId, ...restored } = removed;
+              acts2.splice(Math.min(idx, acts2.length), 0, restored);
+              const next = { ...b2, actions: acts2 };
+              mutateBookLocal(bookId, () => next);
+              syncActionSnapshots(next);
+              try {
+                const s2 = await saveBook(next);
+                e2.latest = s2 || next;
+                syncActionSnapshots(s2 || next);
+              } catch (err) {
+                mutateBookLocal(bookId, () => b2);
+                e2.latest = b2;
+                syncActionSnapshots(b2);
+                toast.error(toMessage(err, '行動を戻せませんでした。'));
+              }
+            }),
+          });
+        } else {
+          toast.success('行動を削除しました。');
+        }
       } catch (error) {
         mutateBookLocal(bookId, () => book);
         entry.latest = book;
@@ -3256,7 +3344,7 @@ function AuthedApp() {
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 20・間 0・見た目の左端 16・本文サイズ・--accent）。 */}
             <button onClick={goList} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
-              <ChevronLeft size={20} aria-hidden="true" />{tab === 'review' ? '振り返り' : tab === 'ai' ? '相談' : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
+              <ChevronLeft size={20} aria-hidden="true" />{tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : aiSubTab === 'report' ? 'テーマまとめ' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
               <button
@@ -3562,7 +3650,7 @@ function AuthedApp() {
         )}
 
         {quickMemoOpen && (current.status === "reading" || current.status === "done") && (
-          <Suspense fallback={<Spinner />}>
+          <Suspense fallback={<OverlayFallback />}>
             <QuickMemoSheet
               bookTitle={current.title}
               defaultPageNumber={
@@ -3633,7 +3721,7 @@ function AuthedApp() {
         )}
 
         {helpModalOpen && (
-          <Suspense fallback={<Spinner />}>
+          <Suspense fallback={<OverlayFallback />}>
             <HelpModal
               helpKey={getCurrentHelpKey()}
               onClose={() => setHelpModalOpen(false)}
@@ -3655,7 +3743,7 @@ function AuthedApp() {
         {importOverlay}
 
         {shareSheet && (
-          <Suspense fallback={null}>
+          <Suspense fallback={<OverlayFallback />}>
             <ShareSheet
               book={shareSheet.book}
               memos={shareSheet.book?.id === current.id ? currentMemoOps.memos : undefined}
@@ -3845,7 +3933,7 @@ function AuthedApp() {
                 )}
 
                 {(effectivePhase === "want" || !current) && (
-                  <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={addFromSearchQuery !== null ? undefined : () => setSearchOpen(true)} allTags={allTags} allFolders={folderNames} />
+                  <WantPhase form={form} setForm={setForm} onSave={handleSave} saving={savingBook} onSearchOpen={addFromSearchQuery !== null ? undefined : () => setSearchOpen(true)} allTags={allTags} allFolders={folderNames} />
                 )}
                 {effectivePhase === "before" && current && (
                   <BeforePhase
@@ -3876,7 +3964,7 @@ function AuthedApp() {
         </div>
 
         {hasSaveBar && (
-          <EditSaveBar onSave={handleSave} label={editPhaseNow === 'before' ? saveLabelFor(form, current?.status === 'before') : '保存'} />
+          <EditSaveBar onSave={handleSave} saving={savingBook} label={savingBook ? '保存中…' : editPhaseNow === 'before' ? saveLabelFor(form, current?.status === 'before') : '保存'} />
         )}
 
         <Modal open={searchOpen} ariaLabel="本を検索" onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}>
@@ -3889,7 +3977,7 @@ function AuthedApp() {
           />
         </Modal>
         {helpModalOpen && (
-          <Suspense fallback={<Spinner />}>
+          <Suspense fallback={<OverlayFallback />}>
             <HelpModal
               helpKey={getCurrentHelpKey()}
               onClose={() => setHelpModalOpen(false)}
@@ -4003,7 +4091,7 @@ function AuthedApp() {
           // 本棚スクロール中だけ位置を控える（本を開いて戻った時の復元用）。
           if (view === 'list' && tab === 'books') savedShelfScroll.current = e.currentTarget.scrollTop;
         }}
-        className={tab === 'books' ? 'lvg-page tab-fade-in' : 'lvg-page'}
+        className={tab === 'books' ? `lvg-page ${screenPop ? 'screen-pop' : 'tab-fade-in'}` : 'lvg-page'}
         style={{
           flex: 1,
           minHeight: 0,
@@ -4040,7 +4128,7 @@ function AuthedApp() {
           </PullToRefresh>
         )}
         {homeMemoBook && (
-          <Suspense fallback={null}>
+          <Suspense fallback={<OverlayFallback />}>
             <HomeQuickMemo
               book={homeMemoBook}
               onClose={() => setHomeMemoBook(null)}
@@ -4476,6 +4564,9 @@ function AuthedApp() {
                 <Suspense fallback={<Spinner />}>
                   <BookAdvisor
                     onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
+                    // 確認の候補に目当ての本が無いとき: 書名で探す（検索を開いて自動で探す）／手動で入力する。戻り先は「‹ AI 選書」。
+                    onSearchBook={(q) => { addStatusPresetRef.current = ''; setAddOrigin('advisor'); setAddFromSearchQuery(q || ''); setAddBookModalOpen(true); }}
+                    onManualBook={(seed) => { addStatusPresetRef.current = ''; setAddOrigin('advisor'); openManualFromAdd(seed); setAddFromSearchQuery(null); }}
                     sessionApi={advisorSessions}
                     books={books}
                   />
@@ -4581,7 +4672,7 @@ function AuthedApp() {
 
       {/* 📤 本棚の長押し →「一文をシェア」。本の詳細の同じ mount とは片方の画面しか return されない。 */}
       {shareSheet && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<OverlayFallback />}>
           <ShareSheet
             book={shareSheet.book}
             initialMemoId={shareSheet.initialMemoId || null}
@@ -4592,7 +4683,7 @@ function AuthedApp() {
       )}
 
       {settingsOpen && (
-        <Suspense fallback={<Spinner />}>
+        <Suspense fallback={<OverlayFallback />}>
           <AccountSettings
             onClose={() => setSettingsOpen(false)}
             onAfterDelete={() => setSettingsOpen(false)}
@@ -4605,7 +4696,7 @@ function AuthedApp() {
 
       {/* 🛰️ 運営ダッシュボード（管理者のみ。設定モーダルの「運営」から開く） */}
       {adminOpen && (
-        <Suspense fallback={<Spinner />}>
+        <Suspense fallback={<OverlayFallback />}>
           <AdminDashboard onClose={() => setAdminOpen(false)} />
         </Suspense>
       )}
@@ -4962,7 +5053,7 @@ function AuthedApp() {
       )}
 
       {addBookModalOpen && (
-        <Suspense fallback={<Spinner />}>
+        <Suspense fallback={<OverlayFallback />}>
           <AddBookModal
             onClose={() => setAddBookModalOpen(false)}
             onSelect={pickBookFromAdd}
@@ -4978,7 +5069,7 @@ function AuthedApp() {
       )}
 
       {helpModalOpen && (
-        <Suspense fallback={<Spinner />}>
+        <Suspense fallback={<OverlayFallback />}>
           <HelpModal
             helpKey={getCurrentHelpKey()}
             onClose={() => setHelpModalOpen(false)}
@@ -5253,7 +5344,7 @@ function WebAppOnlyGate() {
         </div>
       </div>
       {settingsOpen && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<OverlayFallback />}>
           <AccountSettings onClose={() => setSettingsOpen(false)} onAfterDelete={() => setSettingsOpen(false)} focusDelete />
         </Suspense>
       )}
@@ -5345,6 +5436,9 @@ function PaywallGate() {
   }, []);
   // 契約できたら閉じる（無料期間を含む）
   useEffect(() => { if (isActive) setPaywall(null); }, [isActive]);
+  // ブラウザ / Android の「戻る」は、重ねて開いた有料プランの画面・トークンの追加から閉じる（アプリを離れない）。
+  useBackLayer(!!paywall && !isActive, () => setPaywall(null));
+  useBackLayer(tokenSheetOpen && canBuyTokens, () => setTokenSheetOpen(false), { overBlock: true });
   const paywallCtx = useMemo(() => {
     const openPaywall = (reason = null, feature = '') => setPaywall({ reason, feature });
     return {
@@ -5453,7 +5547,7 @@ function PaywallGate() {
         </div>
       )}
       {tokenSheetOpen && canBuyTokens && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<OverlayFallback />}>
           <TokenSheet onClose={() => setTokenSheetOpen(false)} onPurchased={refreshTokens} />
         </Suspense>
       )}

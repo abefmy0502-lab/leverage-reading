@@ -18,10 +18,10 @@
 // 警告色の「表紙未取得」をやめ、表紙が無いときはアプリ共通の自動の表紙（MiniCover）を出す）。
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, X } from 'lucide-react';
+import { Check, PencilLine, Search, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { MiniCover } from './BookCards';
-import { btnPrimary, btnPrimaryOff, btnGhost, groupTitle } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, groupTitle } from '../styles/ui';
 
 const overlayStyle = {
   position: 'fixed',
@@ -122,7 +122,7 @@ const footerStyle = {
   background: 'var(--surface)',
 };
 
-export default function AdvisorAddConfirmModal({ original, candidates, onConfirm, onCancel }) {
+export default function AdvisorAddConfirmModal({ original, candidates, onConfirm, onCancel, onSearchByTitle, onManual }) {
   // index で選択を管理（ISBN が無い候補同士でも選択が壊れない / 確認ボタンが
   // 無効のまま固まらないようにする）。
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -185,9 +185,25 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
             })}
           </div>
 
-          <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-            ここに無いときは「キャンセル」して、「すべての本」の右上の ＋ から探してください。
-          </p>
+          {/* 候補に目当ての本が無いとき: その場から探し直す・手動で入れる（キャンセルして別の画面へ行かせない・2026-09-29）。 */}
+          {(onSearchByTitle || onManual) && (
+            <div>
+              <p style={{ ...groupTitle, margin: '0 0 var(--space-1)' }}>ここに無いとき</p>
+              {/* 文字ボタンの左右 4 を打ち消して、文字の端を本文にそろえる。 */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-4)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+                {onSearchByTitle && (
+                  <button type="button" onClick={onSearchByTitle} style={{ ...btnLink, gap: 'var(--space-1)' }}>
+                    <Search size={16} aria-hidden="true" />書名で探す
+                  </button>
+                )}
+                {onManual && (
+                  <button type="button" onClick={onManual} style={{ ...btnLink, gap: 'var(--space-1)' }}>
+                    <PencilLine size={16} aria-hidden="true" />手動で入力する
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={footerStyle}>

@@ -359,10 +359,22 @@ export function BookResultList({ results, onPick, getExisting }) {
   );
 }
 
-// 読み込み中: 結果の行と同じ形のスケルトン。
-export function BookResultSkeleton({ rows = 3 }) {
+// 読み込み中: 結果の一覧と同じ形のスケルトン（「N 件」の行＋結果 1 行ぶん）。
+// 1 行だけにするのは、結果が 1 件のときに下の「手動で入力する」が
+// 押し下げられてから引き戻される（跳ねる）のを防ぐため（2026-09-29）。
+export function BookResultSkeleton({ rows = 1 }) {
   return (
-    <div aria-hidden="true" style={listStyle}>
+    <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'transparent' }}>
+        <SkeletonBlock width={40} height={12} radius="var(--radius-full)" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
+      </p>
+      <BookResultSkeletonRows rows={rows} />
+    </div>
+  );
+}
+function BookResultSkeletonRows({ rows }) {
+  return (
+    <div style={listStyle}>
       {Array.from({ length: rows }, (_, i) => (
         <div
           key={i}

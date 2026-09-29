@@ -7,9 +7,13 @@
 //   - 達成率などの数字の演出はしない（反ゲーミフィケーション）。今週の完了数を 1 行だけ
 //   - 行動 0 件は「相談の答えや、メモから行動を作れます」＋相談へのボタン
 // 編集は「…」→ 編集（App の編集シート）、本の詳細へは「…」→ 本を開く（横の MoreHorizontal・DESIGN §5）。
+// 行を長押しでも同じメニュー（完了・編集・本を開く・削除）、左へスワイプで削除（確認なし・トーストの「元に戻す」）。
+// 完了にすると（2026-09-29）: その行が ✓ と取り消し線で 0.6 秒その場に残る → 同じ場所で「やってみて、どうでしたか？」
+// の小さな欄に変わる（一覧の上に差し込まない＝下の行が跳ねない）→ × か「残す」で畳んで消える。
+// 取り消しは下のトーストの「元に戻す」（スクロールしていても見える）。
 // 見た目は DESIGN.md のトークンのみ。
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '../lib/limits';
 import { input as uiInput, btnLink, btnGhostOff, groupTitle as uiGroupTitle } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
@@ -17,6 +21,9 @@ import { stripInlineMd } from '../lib/text';
 import { track, EVENTS } from '../lib/analytics';
 import EmptyState from './EmptyState';
 import ContextMenu from './ContextMenu';
+import SwipeableCard from './SwipeableCard';
+import { useToast } from './Toast';
+import { useLongPress } from '../hooks/useLongPress';
 import { MoreHorizontal, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
 
 const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
@@ -86,9 +93,201 @@ const byDeadline = (a, b) => {
   return (a.created_at || '').localeCompare(b.created_at || '');
 };
 
+
+// 完了した行を ✓ と取り消し線のまま、その場に残す時間。
+const CHECK_HOLD_MS = 600;
+
+const reducedMotion = () => {
+  try { return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true; } catch { return false; }
+};
+// 高さを動かす時間（--duration-fast）。動きを減らす設定では 0。
+function fastMs() {
+  if (typeof window === 'undefined' || reducedMotion()) return 0;
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--duration-fast').trim();
+    const n = parseFloat(v);
+    if (Number.isFinite(n)) return /ms$/.test(v) ? n : n * 1000;
+  } catch { /* ignore */ }
+  return 200;
+}
+const HEIGHT_EASE = 'var(--duration-fast) var(--ease-out)';
+
+const rowKeyOf = (a) => `${a.bookId}:${a.actionIdx}:${a.id || ''}`;
+const sameAction = (x, y) => x.bookId === y.bookId && (x.id && y.id ? x.id === y.id : x.actionIdx === y.actionIdx);
+
+// 一覧の 1 行（li）。中身が変わったら高さをなめらかに合わせ、collapsed で高さ 0 まで畳んでから onCollapsed。
+// 並びの間（gap = --space-3）も負の余白で打ち消すので、消えた瞬間に下の行が跳ねない。
+function MorphItem({ phaseKey, collapsed, first, onCollapsed, children }) {
+  const ref = useRef(null);
+  const lastH = useRef(null);
+  const onCollapsedRef = useRef(onCollapsed);
+  onCollapsedRef.current = onCollapsed;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const dur = fastMs();
+    const clear = () => {
+      el.style.height = '';
+      el.style.overflow = '';
+      el.style.transition = '';
+      el.style.opacity = '';
+      el.style.marginTop = '';
+      el.style.marginBottom = '';
+    };
+    if (collapsed) {
+      el.style.height = `${el.offsetHeight}px`;
+      el.style.overflow = 'hidden';
+      // eslint-disable-next-line no-unused-expressions
+      el.offsetHeight;
+      el.style.transition = `height ${HEIGHT_EASE}, opacity ${HEIGHT_EASE}, margin ${HEIGHT_EASE}`;
+      el.style.height = '0px';
+      el.style.opacity = '0';
+      if (first) el.style.marginBottom = 'calc(-1 * var(--space-3))';
+      else el.style.marginTop = 'calc(-1 * var(--space-3))';
+      const t = setTimeout(() => onCollapsedRef.current?.(), dur + 20);
+      return () => clearTimeout(t);
+    }
+    const prevH = lastH.current;
+    const newH = el.offsetHeight;
+    lastH.current = newH;
+    if (prevH == null || Math.abs(prevH - newH) < 2 || dur === 0) return undefined;
+    el.style.height = `${prevH}px`;
+    el.style.overflow = 'hidden';
+    // eslint-disable-next-line no-unused-expressions
+    el.offsetHeight;
+    el.style.transition = `height ${HEIGHT_EASE}`;
+    el.style.height = `${newH}px`;
+    const t = setTimeout(() => { clear(); lastH.current = el.offsetHeight; }, dur + 20);
+    return () => { clearTimeout(t); clear(); };
+  }, [phaseKey, collapsed, first]);
+  return <li ref={ref} style={{ listStyle: 'none' }}>{children}</li>;
+}
+
+// 行動 1 行の中身（完了チェック・本文・メタ・「…」）。長押しでメニュー。
+function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelete }) {
+  const longPress = useLongPress({
+    onLongPress: ({ clientX, clientY }) => onOpenMenu?.({ x: clientX, y: clientY, action: a }),
+  });
+  const shownDone = a.done || completing;
+  const n = daysUntil(a.deadline);
+  const overdue = !shownDone && n != null && n < 0;
+  // メタ行は [本・期限・優先・繰り返し・ページ]。警告色は期限の部分だけ（責めない）。
+  const meta = [];
+  let overdueLine = null;
+  if (a.bookTitle) meta.push(a.bookTitle);
+  if (a.deadline && !a.done) {
+    // 「今日」「明日」のグループでは見出しが期限を言っているので繰り返さない。
+    // それより先は曜日も付ける（「9/29」だけだと並びが分かりにくい）。
+    const d = parseDeadline(a.deadline);
+    const dow = Number.isNaN(d.getTime()) ? '' : `（${'日月火水木金土'[d.getDay()]}）`;
+    const isOver = n != null && n < 0;
+    const label = isOver ? `期限 ${fmtShort(a.deadline)}（過ぎています）`
+      : n === 0 || n === 1 ? null
+      : `期限 ${fmtShort(a.deadline)}${dow}`;
+    // 期限切れはメタ行の最後に独立した 1 行で出す（display:block・下の区切り「・」も付けない）。
+    if (label && !isOver) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap' }}>{label}</span>);
+    if (label && isOver) overdueLine = <span key="dl" style={{ display: 'block', whiteSpace: 'nowrap', color: overdue ? 'var(--warning)' : 'var(--text-3)' }}>{label}</span>;
+  }
+  if (a.priority === 'high') meta.push('優先');
+  if (a.recurrence) meta.push(a.recurrence === 'weekly' ? '毎週' : '毎月');
+  if (a.sourcePage) meta.push(`p.${a.sourcePage}`);
+  if (overdueLine) meta.push(overdueLine);
+
+  const inner = (
+    <div {...longPress.bind} style={card}>
+      {/* 完了チェック（この画面の最頻操作・押せる範囲 44）。本の詳細の行動と同じ丸。 */}
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={shownDone}
+        aria-label={shownDone ? `「${stripInlineMd(a.text)}」を未完了に戻す` : `「${stripInlineMd(a.text)}」を完了にする`}
+        onClick={() => onCheck?.(a)}
+        style={{ flexShrink: 0, width: 44, height: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+      >
+        {shownDone
+          ? <span key="on" className="check-pop" style={{ display: 'flex' }}><CheckCircle2 size={24} aria-hidden="true" style={{ color: 'var(--success)' }} /></span>
+          : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)' }} />}
+      </button>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'break-word' }}>
+          {stripInlineMd(a.text)}
+        </p>
+        {meta.length > 0 && (
+          <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
+            {meta.map((m, i) => <span key={i}>{i > 0 && !(overdueLine && m?.key === 'dl') && '・'}{m}</span>)}
+          </p>
+        )}
+        {a.done && a.reflection && (
+          <p style={{ margin: 'var(--space-2) 0 0', padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+            {a.reflection}
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        aria-label="この行動の操作"
+        onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onOpenMenu?.({ x: r.right - 8, y: r.bottom + 4, action: a }); }}
+        style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
+      >
+        <MoreHorizontal size={20} aria-hidden="true" />
+      </button>
+    </div>
+  );
+  if (!swipeable || !onSwipeDelete) return inner;
+  return <SwipeableCard onDelete={() => onSwipeDelete(a)}>{inner}</SwipeableCard>;
+}
+
+// 完了した行の、その場の「やってみて、どうでしたか？」（1 行・任意）。
+function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
+  return (
+    <section
+      aria-label="完了した行動のふりかえり"
+      style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', position: 'relative' }}
+    >
+      <button
+        type="button"
+        aria-label="閉じる"
+        onClick={onClose}
+        style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'grid', placeItems: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer' }}
+      >
+        <X size={18} aria-hidden="true" />
+      </button>
+      <p style={{ margin: 0, paddingRight: 'var(--space-8)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+        <CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0, marginTop: 2 }} />
+        <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>「{stripInlineMd(a.text)}」を完了しました</span>
+      </p>
+      <label htmlFor="act-reflection" style={{ display: 'block', margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+        やってみて、どうでしたか？
+      </label>
+      <input
+        id="act-reflection"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); onSave(); } }}
+        maxLength={LIMITS.memoText}
+        placeholder="例：先に話を聞いたら、早く終わった"
+        enterKeyHint="done"
+        style={uiInput}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!value.trim() || saving}
+          aria-busy={saving || undefined}
+          style={value.trim() && !saving ? rowBtn : rowBtnOff}
+        >
+          {saving ? '保存中…' : '残す'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // showDoneNonce: 記録の「実行した行動」から来たときに変わる。完了した行動を開いた状態で見せる。
 export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, showDoneNonce = null }) {
   const { allActions, stats } = useAllActions(books);
+  const toast = useToast();
   const [showDone, setShowDone] = useState(showDoneNonce != null);
   const doneSectionRef = useRef(null);
   useEffect(() => {
@@ -97,34 +296,77 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     const t = setTimeout(() => { try { doneSectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch { /* ignore */ } }, 80);
     return () => clearTimeout(t);
   }, [showDoneNonce]);
-  // 🔁 完了した直後の欄（ふりかえりの 1 行＋元に戻す）。閉じるか次を完了するまで上に出す。
-  //    入力は任意・画面を奪わない（旧「完了おめでとう」モーダルは毎回の手間で撤去済み）。
-  const [justDone, setJustDone] = useState(null); // { bookId, actionIdx, action }
+
+  // 🔁 完了にした直後の行（その場に残す）: [{ key, a, phase: 'check' | 'reflect' | 'collapse' }]
+  //    'check'   : ✓ と取り消し線（CHECK_HOLD_MS）
+  //    'reflect' : 同じ場所で「やってみて、どうでしたか？」（入力は任意・画面を奪わない）
+  //    'collapse': 高さを畳んで消す
+  const [completing, setCompleting] = useState([]);
   const [reflection, setReflection] = useState('');
   const [reflecting, setReflecting] = useState(false);
+  const timersRef = useRef(new Map());
+  const lastToastRef = useRef(null);
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => { timers.forEach((t) => clearTimeout(t)); timers.clear(); };
+  }, []);
+  const setPhase = useCallback((key, phase) => {
+    setCompleting((list) => list.map((c) => (c.key === key ? { ...c, phase } : c)));
+  }, []);
+  const removeCompleting = useCallback((key) => {
+    clearTimeout(timersRef.current.get(key));
+    timersRef.current.delete(key);
+    setCompleting((list) => list.filter((c) => c.key !== key));
+  }, []);
+
+  const undoComplete = (a) => {
+    removeCompleting(rowKeyOf(a));
+    onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a });
+  };
+
   const complete = (a) => {
     track(EVENTS.ACTION_COMPLETED);
-    onToggleAction?.(a.bookId, a.actionIdx, { silent: !!onReflect, target: a });
-    if (onReflect) { setJustDone({ bookId: a.bookId, actionIdx: a.actionIdx, action: a }); setReflection(''); }
+    // 保存はすぐ始める（行の見た目だけ、その場にしばらく残す）。ハプティクスは applyActionToggle が一元発火。
+    onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a });
+    const key = rowKeyOf(a);
+    setReflection('');
+    // 前に完了した行の欄は畳む（欄は同時に 1 つだけ）。
+    setCompleting((list) => [
+      ...list.filter((c) => c.key !== key).map((c) => (c.phase === 'collapse' ? c : { ...c, phase: 'collapse' })),
+      { key, a, phase: 'check' },
+    ]);
+    clearTimeout(timersRef.current.get(key));
+    timersRef.current.set(key, setTimeout(() => setPhase(key, onReflect ? 'reflect' : 'collapse'), CHECK_HOLD_MS));
+    // 取り消しは下のトーストで（スクロールしていても見える・トーストはタブの上に浮く）。
+    if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
+    lastToastRef.current = toast.success('行動を完了しました', {
+      duration: 6000,
+      action: { label: '元に戻す', onClick: () => undoComplete(a) },
+    });
   };
-  const undoJustDone = () => {
-    if (!justDone) return;
-    onToggleAction?.(justDone.bookId, justDone.actionIdx, { silent: true, target: justDone.action });
-    setJustDone(null);
-  };
-  const saveReflection = async () => {
-    if (!justDone || !reflection.trim() || reflecting) return;
+
+  const saveReflection = async (c) => {
+    if (!c || !reflection.trim() || reflecting) return;
     setReflecting(true);
-    const ok = await onReflect?.(justDone.bookId, justDone.actionIdx, { ...justDone.action, done: true }, reflection);
+    const ok = await onReflect?.(c.a.bookId, c.a.actionIdx, { ...c.a, done: true }, reflection);
     setReflecting(false);
-    if (ok) { setJustDone(null); setReflection(''); setShowSaved(true); }
+    if (ok) {
+      setReflection('');
+      setPhase(c.key, 'collapse');
+      toast.success('ふりかえりを残しました。次の相談で使います。');
+    }
   };
-  const [showSaved, setShowSaved] = useState(false);
-  useEffect(() => {
-    if (!showSaved) return undefined;
-    const t = setTimeout(() => setShowSaved(false), 4000);
-    return () => clearTimeout(t);
-  }, [showSaved]);
+
+  const onCheck = (a) => {
+    const key = rowKeyOf(a);
+    if (completing.some((c) => c.key === key)) { undoComplete(a); return; }
+    // 未完了→完了の瞬間だけ計測（PII なし）。
+    if (!a.done) { complete(a); return; }
+    onToggleAction?.(a.bookId, a.actionIdx);
+  };
+
+  const swipeDelete = (a) => onDeleteAction?.(a.bookId, a.actionIdx, { skipConfirm: true, target: a, undoable: true });
+
   const [menu, setMenu] = useState(null); // { x, y, action }
 
   const open = useMemo(() => allActions.filter((a) => !a.done).sort(byDeadline), [allActions]);
@@ -132,12 +374,19 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     () => allActions.filter((a) => a.done).sort((a, b) => (b.completedAt || b.created_at || '').localeCompare(a.completedAt || a.created_at || '')),
     [allActions],
   );
+  // 各グループの行: 未完了の行動 ＋ 完了にした直後でその場に残している行（同じ並び順で元の位置に）。
   const grouped = useMemo(() => {
     const m = new Map(GROUPS.map((g) => [g.key, []]));
     open.forEach((a) => m.get(groupOf(a)).push(a));
+    completing.forEach((c) => {
+      if (open.some((a) => sameAction(a, c.a))) return;
+      m.get(groupOf(c.a)).push(c.a);
+    });
+    m.forEach((list) => list.sort(byDeadline));
     return m;
-  }, [open]);
-  const overdueCount = grouped.get('overdue').length;
+  }, [open, completing]);
+  const overdueCount = open.filter((a) => groupOf(a) === 'overdue').length;
+  const doneShown = useMemo(() => done.filter((a) => !completing.some((c) => sameAction(a, c.a))), [done, completing]);
   // 「今週の予定」は見出しの「今週」と同じ定義（期限が今週＝月〜日）で数える。
   const weekLine = useMemo(() => {
     const dowLeft = daysLeftInWeek();
@@ -149,7 +398,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   const canAdd = !!onAddAction && (books || []).length > 0;
 
   // 行動 0 件: 作り方の案内だけ（相談が主な入口・SPEC §4 エッジケース）。
-  if (stats.total === 0) {
+  if (stats.total === 0 && completing.length === 0) {
     return (
       <div style={wrap}>
         <EmptyState
@@ -165,74 +414,38 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     );
   }
 
-  const renderRow = (a) => {
-    const key = `${a.bookId}:${a.actionIdx}:${a.id || ''}`;
-    const n = daysUntil(a.deadline);
-    const overdue = !a.done && n != null && n < 0;
-    // メタ行は [本・期限・優先・繰り返し・ページ]。警告色は期限の部分だけ（責めない）。
-    const meta = [];
-    let overdueLine = null;
-    if (a.bookTitle) meta.push(a.bookTitle);
-    if (a.deadline && !a.done) {
-      // 「今日」「明日」のグループでは見出しが期限を言っているので繰り返さない。
-      // それより先は曜日も付ける（「9/29」だけだと並びが分かりにくい）。
-      const d = parseDeadline(a.deadline);
-      const dow = Number.isNaN(d.getTime()) ? '' : `（${'日月火水木金土'[d.getDay()]}）`;
-      const label = overdue ? `期限 ${fmtShort(a.deadline)}（過ぎています）`
-        : n === 0 || n === 1 ? null
-        : `期限 ${fmtShort(a.deadline)}${dow}`;
-      // 期限切れは独立した 1 行に（行末に「・」が残らないよう、前の区切りも付けない）。
-      // 期限切れはメタ行の最後に独立した 1 行で出す（display:block・下の区切り「・」も付けない）。
-      if (label && !overdue) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap' }}>{label}</span>);
-      if (label && overdue) overdueLine = <span key="dl" style={{ display: 'block', whiteSpace: 'nowrap', color: 'var(--warning)' }}>{label}</span>;
-    }
-    if (a.priority === 'high') meta.push('優先');
-    if (a.recurrence) meta.push(a.recurrence === 'weekly' ? '毎週' : '毎月');
-    if (a.sourcePage) meta.push(`p.${a.sourcePage}`);
-    if (overdueLine) meta.push(overdueLine);
+  const renderItem = (a, i) => {
+    const key = rowKeyOf(a);
+    const c = completing.find((x) => x.key === key);
+    const phase = c?.phase || 'idle';
     return (
-      <li key={key} style={card}>
-        {/* 完了チェック（この画面の最頻操作・押せる範囲 44）。本の詳細の行動と同じ丸。 */}
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={a.done}
-          aria-label={a.done ? `「${stripInlineMd(a.text)}」を未完了に戻す` : `「${stripInlineMd(a.text)}」を完了にする`}
-          onClick={() => {
-            // 未完了→完了の瞬間だけ計測（PII なし）。ハプティクスは applyActionToggle が一元発火。
-            if (!a.done) { complete(a); return; }
-            onToggleAction?.(a.bookId, a.actionIdx);
-          }}
-          style={{ flexShrink: 0, width: 44, height: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-        >
-          {a.done
-            ? <span key="on" className="check-pop" style={{ display: 'flex' }}><CheckCircle2 size={24} aria-hidden="true" style={{ color: 'var(--success)' }} /></span>
-            : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)' }} />}
-        </button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: a.done ? 'var(--text-3)' : 'var(--text)', textDecoration: a.done ? 'line-through' : 'none', wordBreak: 'break-word' }}>
-            {stripInlineMd(a.text)}
-          </p>
-          {meta.length > 0 && (
-            <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
-              {meta.map((m, i) => <span key={i}>{i > 0 && !(overdue && m?.key === 'dl') && '・'}{m}</span>)}
-            </p>
-          )}
-          {a.done && a.reflection && (
-            <p style={{ margin: 'var(--space-2) 0 0', padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', borderRadius: 'var(--radius)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-              {a.reflection}
-            </p>
-          )}
-        </div>
-        <button
-          type="button"
-          aria-label="この行動の操作"
-          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 8, y: r.bottom + 4, action: a }); }}
-          style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 0 }}
-        >
-          <MoreHorizontal size={20} aria-hidden="true" />
-        </button>
-      </li>
+      <MorphItem
+        key={key}
+        phaseKey={phase === 'reflect' ? 'reflect' : 'row'}
+        collapsed={phase === 'collapse'}
+        first={i === 0}
+        onCollapsed={() => removeCompleting(key)}
+      >
+        {phase === 'reflect' ? (
+          <ReflectCard
+            a={c.a}
+            value={reflection}
+            onChange={setReflection}
+            saving={reflecting}
+            onSave={() => saveReflection(c)}
+            onClose={() => setPhase(key, 'collapse')}
+          />
+        ) : (
+          <ActionRow
+            a={c ? c.a : a}
+            completing={!!c}
+            swipeable={!c}
+            onCheck={onCheck}
+            onOpenMenu={setMenu}
+            onSwipeDelete={swipeDelete}
+          />
+        )}
+      </MorphItem>
     );
   };
 
@@ -254,59 +467,8 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         )}
       </div>
 
-      {justDone && (
-        <section
-          aria-label="完了した行動のふりかえり"
-          style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', position: 'relative' }}
-        >
-          <button
-            type="button"
-            aria-label="閉じる"
-            onClick={() => setJustDone(null)}
-            style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'grid', placeItems: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer' }}
-          >
-            <X size={18} aria-hidden="true" />
-          </button>
-          <p style={{ margin: 0, paddingRight: 'var(--space-8)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-            <CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0, marginTop: 2 }} />
-            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>「{stripInlineMd(justDone.action.text)}」を完了しました</span>
-          </p>
-          <label htmlFor="act-reflection" style={{ display: 'block', margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
-            やってみて、どうでしたか？
-          </label>
-          <input
-            id="act-reflection"
-            value={reflection}
-            onChange={(e) => setReflection(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); saveReflection(); } }}
-            maxLength={LIMITS.memoText}
-            placeholder="例：先に話を聞いたら、早く終わった"
-            enterKeyHint="done"
-            style={uiInput}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
-            <button
-              type="button"
-              onClick={saveReflection}
-              disabled={!reflection.trim() || reflecting}
-              style={reflection.trim() && !reflecting ? rowBtn : rowBtnOff}
-            >
-              {reflecting ? '保存中…' : '残す'}
-            </button>
-            <button type="button" onClick={undoJustDone} style={btnLink}>
-              元に戻す
-            </button>
-          </div>
-        </section>
-      )}
-      {showSaved && (
-        <p role="status" style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-          ふりかえりを残しました。次の相談で使います。
-        </p>
-      )}
-
       {/* ここに来るのは完了した行動があるときだけ（0 件は上の早期 return）。 */}
-      {open.length === 0 && done.length > 0 && (
+      {open.length === 0 && completing.length === 0 && done.length > 0 && (
         <EmptyState
           icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="やることはすべて完了しています"
@@ -325,7 +487,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
                 <h2 id={`act-${g.key}`} style={{ ...uiGroupTitle }}>{g.label}（{overdueCount}）</h2>
                 <button
                   type="button"
-                  onClick={() => { const a = items[0]; onEditAction(a.bookId, a.actionIdx, a); }}
+                  onClick={() => { const a = open.find((x) => groupOf(x) === 'overdue'); if (a) onEditAction(a.bookId, a.actionIdx, a); }}
                   style={{ ...btnLink, marginRight: 'calc(-1 * var(--space-1))' }}
                 >
                   期限を見直す
@@ -334,13 +496,13 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
             ) : (
               <h2 id={`act-${g.key}`} style={groupTitle}>{g.label}</h2>
             )}
-            <ul style={listStyle}>{items.map(renderRow)}</ul>
+            <ul style={listStyle}>{items.map(renderItem)}</ul>
           </section>
         );
       })}
 
       {/* 完了した行動は一覧の最後の 1 行から開く。 */}
-      {done.length > 0 && (
+      {doneShown.length > 0 && (
         <section ref={doneSectionRef} aria-label="完了した行動">
           <button
             type="button"
@@ -348,12 +510,12 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
             aria-expanded={showDone}
             style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', background: 'none', border: 'none', borderTop: '1px solid var(--separator)', padding: 'var(--space-2) 0 0', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
           >
-            <span style={uiGroupTitle}>完了した行動（{done.length}）</span>
+            <span style={uiGroupTitle}>完了した行動（{doneShown.length}）</span>
             {showDone
               ? <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />
               : <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)' }} />}
           </button>
-          {showDone && <ul style={{ ...listStyle, marginTop: 0 }}>{done.map(renderRow)}</ul>}
+          {showDone && <ul style={{ ...listStyle, marginTop: 0 }}>{doneShown.map(renderItem)}</ul>}
         </section>
       )}
 
@@ -363,6 +525,9 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
+            menu.action.done
+              ? { label: '未完了に戻す', icon: <Circle size={16} aria-hidden="true" />, onClick: () => onCheck(menu.action) }
+              : { label: '完了にする', icon: <CheckCircle2 size={16} aria-hidden="true" />, onClick: () => onCheck(menu.action) },
             ...(onEditAction ? [{ label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onEditAction(menu.action.bookId, menu.action.actionIdx, menu.action) }] : []),
             { label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => { const b = bookOf(menu.action); if (b) onOpenBook?.(b); } },
             { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => onDeleteAction?.(menu.action.bookId, menu.action.actionIdx) },

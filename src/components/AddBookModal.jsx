@@ -34,7 +34,10 @@ const overlayStyle = {
   fontFamily: 'var(--font-ui)',
   paddingTop: 'env(safe-area-inset-top, 0px)',
   paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+  // iOS の全画面モーダルと同じく下からせり上がる（閉じるときは下へ・2026-09-29）。
+  animation: 'leverage-sheet-up var(--duration-base) var(--ease-out) backwards',
 };
+const overlayClosingAnim = 'leverage-sheet-down var(--duration-fast) var(--ease-in-out) forwards';
 
 const headerStyle = {
   display: 'grid',
@@ -383,6 +386,25 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   const hasQuery = !!normalizeBookQuery(query);
   const isSearching = search.status === 'searching';
 
+  // 「キャンセル」は下へ滑らせてから閉じる（入りだけ動いて出が瞬間に消える、の非対称をなくす）。
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
+  const closeAnimated = () => {
+    if (closing) return;
+    setClosing(true);
+    let ms = 200;
+    try {
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) ms = 0;
+      else {
+        const v = getComputedStyle(document.documentElement).getPropertyValue('--duration-fast').trim();
+        const n = parseFloat(v);
+        if (Number.isFinite(n)) ms = /ms$/.test(v) ? n : n * 1000;
+      }
+    } catch { /* ignore */ }
+    closeTimerRef.current = setTimeout(() => onClose?.(), ms);
+  };
+
   // 開いたらすぐ打てるように検索欄へ（フォーカストラップが先頭のボタンへ当てた後に上書き）。
   useEffect(() => {
     try { inputRef.current?.focus(); } catch { /* ignore */ }
@@ -427,7 +449,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   const showManualLink = true;
 
   return (
-    <div ref={trapRef} style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="add-book-title">
+    <div ref={trapRef} style={closing ? { ...overlayStyle, animation: overlayClosingAnim } : overlayStyle} role="dialog" aria-modal="true" aria-labelledby="add-book-title">
       {scanning && (
         <BarcodeScanner onDetect={handleScanDetect} onClose={closeScanner} onTypeIsbn={focusQuery} />
       )}
@@ -437,7 +459,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
             検索中でも閉じられる（応答が返らなくても閉じ込めない。中断はフック側が行う）。 */}
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeAnimated}
           style={{
             justifySelf: 'start',
             minWidth: 44,
