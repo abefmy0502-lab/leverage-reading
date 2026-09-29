@@ -6,17 +6,13 @@ import { markActivation } from './lib/activation';
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
-import MarkdownSections from './components/MarkdownSections';
 import { loadDefaultJapaneseParser } from 'budoux';
-import AuthScreen from './components/auth/AuthScreen';
-import AuthCallback from './components/auth/AuthCallback';
-import BookMemoList from './components/BookMemoList';
-import BookSearchModal from './components/BookSearchModal';
+// ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
+import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections } from './components/lazyParts';
 import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
 import { STATUSES, getSt } from './lib/status';
 import { isStrictMatch } from './lib/bookMatch';
 const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
-import BookMemoEditor from './components/BookMemoEditor';
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
 const ImportSheet = lazy(() => import('./components/ImportSheet'));
@@ -79,7 +75,6 @@ const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
 const ThemeReport = lazy(() => import('./components/ThemeReport'));
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
-import ActionList from './components/ActionList';
 const ActionEditModal = lazy(() => import('./components/ActionEditModal'));
 // 📊 記録サブタブ（読了/メモ/行動の累計・月別推移・成果/定着のつながり・タグ分布）。
 // 開いた時だけロードする。
@@ -147,7 +142,7 @@ import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
 import { btnGhost, btnText, btnPrimary, btnPrimaryOff, btnLink, groupTitle } from './styles/ui';
-import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar, saveLabelFor } from './components/BookPhases';
+import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar, saveLabelFor } from './components/lazyParts';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';

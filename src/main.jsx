@@ -1,22 +1,8 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
+// 🚪 入口。ここはできるだけ小さく保つ（ここに静的 import を足すと、LP でもアプリでも毎回読まれる）。
+// LP・法的ページ（/lp, /legal/*, ?view=lp）はそのページだけを、それ以外はアプリ本体を読む。
+// 本体の起動は mainApp.jsx（Provider の並び・Sentry・ネイティブ初期化）、静的ページは mainStatic.jsx。
 import './index.css';
-import App from './App';
-import ErrorBoundary from './components/ErrorBoundary';
-import { ToastProvider } from './components/Toast';
-import { ConfirmProvider } from './components/ConfirmDialog';
-import { AppDataCacheProvider } from './state/AppDataCache';
-import { AuthProvider } from './hooks/useAuth';
-import { initSentry } from './lib/sentry';
-import { initNative } from './lib/native';
-
-// Sentry はモジュール評価の最上位で初期化する — 後段で throw された時に
-// 拾えるようにするため。DSN 未設定 / dev モードでは内部で no-op になる。
-initSentry();
-
-// ネイティブ (Capacitor / iOS) のみ StatusBar / Keyboard / SplashScreen を
-// 初期化する。Web / PWA では内部で即 return するので無害。
-initNative();
+import { staticPageRoute } from './lib/staticRoute';
 
 // 🔄 新しい版を公開した直後、開いたままの古い画面が「もう無い部品（assets/*.js）」を
 // 読みに行って画面が真っ白になるのを防ぐ。1 回だけ再読み込みして新しい版に切り替える
@@ -36,18 +22,11 @@ window.addEventListener('vite:preloadError', (event) => {
 // 端末の設定（ライト／ダーク）に自動で従う。問題が出たら、この 1 行を消せば明るい画面だけに戻る。
 document.documentElement.setAttribute('data-dark-ready', '');
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <AuthProvider>
-        <AppDataCacheProvider>
-          <ToastProvider>
-            <ConfirmProvider>
-              <App />
-            </ConfirmProvider>
-          </ToastProvider>
-        </AppDataCacheProvider>
-      </AuthProvider>
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+const rootEl = document.getElementById('root');
+const route = staticPageRoute();
+(route ? import('./mainStatic') : import('./mainApp'))
+  .then((m) => m.mount(rootEl, route))
+  .catch((err) => {
+    // 読み込みに失敗（通信・古い版）。vite:preloadError で再読み込みされないときのために記録だけ残す。
+    console.error('[orime] failed to start', err);
+  });

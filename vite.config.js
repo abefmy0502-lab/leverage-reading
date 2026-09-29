@@ -113,8 +113,14 @@ export default defineConfig({
           if (/[\\/]three[\\/]/.test(id)) return undefined;
           if (/[\\/]react(-dom)?[\\/]|[\\/]scheduler[\\/]/.test(id)) return 'vendor-react';
           if (id.includes('@supabase')) return 'vendor-supabase';
-          if (id.includes('lucide-react')) return 'vendor-icons';
-          return 'vendor';
+          // Capacitor の土台（LP とアプリの両方が使う小さな共通部分）だけを vendor にまとめる。
+          if (/[\\/]@capacitor[\\/](core|synapse)[\\/]/.test(id)) return 'vendor';
+          // それ以外（lucide のアイコン・QR コード＝LP 専用・budoux＝アプリ専用・Capacitor の
+          // 各プラグイン＝使うときに動的 import・@vercel/analytics＝LP 専用など）は、以前は
+          // vendor / vendor-icons にまとめていたため、あとから読む画面の分まで LP でもアプリでも
+          // 起動時に全部読まれていた（2026-09-29）。Rollup の import 境界どおりに、使う側の
+          // チャンクへ置かせる（アイコンは 1 つずつ別モジュールなので、使う画面と一緒に届く）。
+          return undefined;
         },
       },
     },
