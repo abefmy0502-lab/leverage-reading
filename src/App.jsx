@@ -59,8 +59,10 @@ function ShelfChip({ active, onClick, children, ariaLabel }) {
     </button>
   );
 }
-// 無料プランの人に見せる、相談のサブタブ（AI 選書・テーマまとめ）の「プラン」の小さな文字（12/600/--text-2・面なし）。
-const planTabLabel = { display: 'block', fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.2 };
+// 無料プランの人に見せる、相談のサブタブ（AI 選書・テーマまとめ）の「プラン」の小さな文字（12/400/--text-3・面なし）。
+// タブの名前より目立たせない（太さ 400・付随情報の色）。選んでいるタブ（--accent-soft の面）の上では
+// --text-3 が 4.5:1 に届かないので --text-2。
+const planTabLabel = (active) => ({ display: 'block', fontSize: 'var(--text-caption)', fontWeight: 400, color: active ? 'var(--text-2)' : 'var(--text-3)', lineHeight: 1.2 });
 // すべての本から開くシート（絞り込み・並び替え・状態・フォルダ・本を選ぶ）の共通スタイル。
 const sheetLabel = { fontSize: 'var(--text-caption)', fontWeight: 600, color: 'var(--text-2)', margin: '0 0 var(--space-1)' };
 const sheetChips = { display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)', marginBottom: 'var(--space-4)' };
@@ -4803,6 +4805,8 @@ function AuthedApp() {
                 onClick={() => setAiSubTab('brain')}
               >
                 相談
+                {/* 隣のタブに「プラン」の 2 行目があるときは、同じ高さの空きを取って 1 行目の位置をそろえる。 */}
+                {paywallPlan === 'free' && <span aria-hidden="true" style={{ ...planTabLabel(false), visibility: 'hidden' }}>プラン</span>}
               </button>
               <button
                 type="button"
@@ -4814,7 +4818,7 @@ function AuthedApp() {
               >
                 AI 選書
                 {/* 無料プランの人に、書き始める前から「プランの機能」と分かるように（色の面は付けない・2026-09-29）。 */}
-                {paywallPlan === 'free' && <span aria-hidden="true" style={planTabLabel}>プラン</span>}
+                {paywallPlan === 'free' && <span aria-hidden="true" style={planTabLabel(aiSubTab === 'advisor')}>プラン</span>}
               </button>
               <button
                 type="button"
@@ -4825,7 +4829,7 @@ function AuthedApp() {
                 onClick={() => setAiSubTab('report')}
               >
                 テーマまとめ
-                {paywallPlan === 'free' && <span aria-hidden="true" style={planTabLabel}>プラン</span>}
+                {paywallPlan === 'free' && <span aria-hidden="true" style={planTabLabel(aiSubTab === 'report')}>プラン</span>}
               </button>
             </div>
             )}

@@ -53,7 +53,7 @@
   /* 書体（2 つまで）: UI＝ゴシック / 読む文章＝明朝 */
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans",
     "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
-  --font-read: "Hiragino Mincho ProN", "YuMincho", "Yu Mincho", "Noto Serif JP", serif;
+  --font-read: "Hiragino Mincho ProN", "YuMincho", "Yu Mincho", "Noto Serif JP", "Noto Serif CJK JP", serif;
 
   /* 文字サイズ（rem＝iOS の文字サイズ設定に追従。17px = 1rem） */
   --text-title: calc(1rem * 28 / 17);

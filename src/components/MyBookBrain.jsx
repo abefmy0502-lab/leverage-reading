@@ -103,8 +103,14 @@ const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'va
 const answerCard = { ...cardStyle, wordBreak: 'break-word' };
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
+// 一歩の箱（--fill の面）の中の押せない「行動に追加」（DESIGN §5 押せないボタン）。薄くしない＝opacity 1 で
+// 全体の button:disabled{opacity:.4} を打ち消し、文字は --text-2（--fill の上では --text-3 が 4.5:1 に届かない・DESIGN §6）。
+const rowBtnOffOnFill = { color: 'var(--text-2)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' };
 // 畳む見出し（DESIGN §5: 高さ 48・17/600/--text・右端にシェブロン 20）。
 const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
+// 書いている間の「根拠を見る」（同じ場所・同じ形で見せ、押せないことは --text-3 で示す）。
+// 押したときの縮み（全体の button:active）もさせない。
+const evidencePending = { ...summaryStyle, width: '100%', marginTop: 'var(--space-3)', padding: 0, background: 'none', border: 'none', fontFamily: 'inherit', textAlign: 'left', color: 'var(--text-3)', cursor: 'default', opacity: 1, transform: 'none' };
 // 明日からできる一歩の箱（書いている途中の形と、でき上がりの形で同じ）。
 // 書いている途中の「明日からできる一歩」の本文の高さ（ふつうの一歩の 3 行ぶん）。骨組みと書いている途中の両方で使う。
 const STEP_SKELETON_LINES = 3;
@@ -1295,9 +1301,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
               {tokensRemaining != null && (
                 <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                  {plan === 'trial' ? '無料期間' : '今月'}の残り <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
+                  {/* 折り返すときは「・」のあとで（「無料期間の残り／110 トークン」と切らない）。かっこは重ねない。 */}
+                  <span style={{ whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
                   {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
-                  {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ whiteSpace: 'nowrap' }}>（相談 約 {consultsLeft(tokensRemaining + (purchasedTokens || 0), TOKEN_COSTS.consult)} 回）</span>}
+                  {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <>・<span style={{ whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(tokensRemaining + (purchasedTokens || 0), TOKEN_COSTS.consult)} 回</span></>}
                 </span>
               )}
               {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
@@ -1466,14 +1473,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             ) : ownMemoTotal === 0 && !memoStatsFailed ? (
               // メモ（カード式＋学び）0 件: 質問させる前に「これまで読んだ本から始める」（根拠が無いと空振りするため）。
               // 読書計画・まとめだけの人もここ（上の行の件数とは別に、メモの件数で決める・SPEC §3）。
-              <section style={cardStyle} aria-labelledby="brain-start-title">
-                <h2 id="brain-start-title" style={{ ...headingStyle, marginBottom: 'var(--space-4)' }}>まだメモがありません</h2>
-                {onQuickstart ? (
-                  <button type="button" onClick={onQuickstart} style={uiBtnPrimary}>これまで読んだ本から始める</button>
-                ) : onGoBookshelf ? (
-                  <button type="button" onClick={onGoBookshelf} style={uiBtnGhost}>本を開いてメモを書く</button>
-                ) : null}
-              </section>
+              // 空の画面は共通の EmptyState（DESIGN §5 空・エラー・読み込み）。主ボタンはこの 1 つ。
+              <EmptyState
+                icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
+                title="まだメモがありません"
+                actions={onQuickstart
+                  ? [{ label: 'これまで読んだ本から始める', variant: 'primary', onClick: onQuickstart }]
+                  : onGoBookshelf ? [{ label: '本を開いてメモを書く', variant: 'secondary', onClick: onGoBookshelf }] : []}
+              />
             ) : planOut ? (
               // 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 押せない相談例は出さず、案内カードを一番上に。
               <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} />
@@ -1645,7 +1652,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 ? (plan === 'trial'
                   ? (trialEndLabel ? `${trialEndLabel}から相談できます` : '無料期間のトークンは、ここまでです')
                   : `${nextResetLabelJa()}から相談できます`)
-                : freeUsedUp ? `${nextResetLabelJa()}にまた相談できます`
+                : freeUsedUp ? `${nextResetLabelJa()}から相談できます`
                 : carry && !carry.used ? 'この相談の続きを書く' : '例：上司への報告がうまくいかない'}
               rows={1}
               // 答えを書いている間も押せなくしない（disabled にすると入力欄からフォーカスが外れ、下のタブが
@@ -1882,7 +1889,8 @@ function hangIndent(text) {
 const REF_NOTE_RE = /^（参照:[^）]*）$/;
 
 // 見出し（【】）の無い回答（旧形式・エラー文など）はそのまま段落で。
-function PlainAnswer({ text }) {
+// gap: 段落の間（ふつうは 8。本ごとの視点を段落のまま見せるときは 1 冊ごとの区切りなので 16）。
+function PlainAnswer({ text, gap = 'var(--space-2)' }) {
   return (
     <>
       {(text || '').split('\n').filter((l) => l.trim() && !REF_NOTE_RE.test(l.trim())).map((line, idx) => {
@@ -1891,7 +1899,7 @@ function PlainAnswer({ text }) {
         // 「・」で始まる行はぶら下げ（折り返した 2 行目を「・」の後ろの文字の頭に揃える）。
         const bullet = /^\s*・/.test(shown);
         return (
-          <p key={idx} style={{ margin: idx ? 'var(--space-2) 0 0' : 0, ...(bullet ? { paddingLeft: '1em', textIndent: '-1em' } : hangIndent(shown)) }}>
+          <p key={idx} style={{ margin: idx ? `${gap} 0 0` : 0, ...(bullet ? { paddingLeft: '1em', textIndent: '-1em' } : hangIndent(shown)) }}>
             {renderBoldInline(bullet ? shown.trimStart() : shown)}
           </p>
         );
@@ -2166,6 +2174,30 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
   );
 }
 
+// 「✓ 行動に追加しました（期限は明日）見る」。狭い幅で折り返しても「見る」だけが次の行に落ちないよう、
+// 「（期限は明日）見る」をひとまとまり（nowrap）にする。「見る」は押せる範囲 44 のまま、上下の負の余白で行の高さを変えない。
+// ✓ は 2 行になっても 1 行目の高さの中央に置く。
+function ActionAddedNote({ onOpenActions }) {
+  return (
+    <p role="status" style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', minHeight: 44, boxSizing: 'border-box', paddingBlock: 'calc((44px - 1.5em) / 2)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, color: 'var(--success)' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
+        <Check size={16} aria-hidden="true" />
+      </span>
+      <span style={{ minWidth: 0 }}>
+        行動に追加しました
+        {/* かっこは詰める（palt）: 行頭に来ても左が空いて見えず、「）」と「見る」の間も空きすぎない。 */}
+        <span style={{ whiteSpace: 'nowrap' }}>
+          <span style={{ fontFeatureSettings: '"palt"' }}>（期限は明日）</span>
+          {/* 入った先（振り返り › 行動）をその場で見られる（2026-09-29）。左右 4 の内側余白が文字との間になる。 */}
+          {onOpenActions && (
+            <button type="button" onClick={onOpenActions} aria-label="追加した行動を見る" style={{ ...uiBtnLink, verticalAlign: 'middle', marginBlock: 'calc((1.5em - 44px) / 2)' }}>見る</button>
+          )}
+        </span>
+      </span>
+    </p>
+  );
+}
+
 function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
@@ -2286,19 +2318,15 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldInline(p.action)}{tail === 'action' && cursor}</p>
       {/* 書いている間は、押せない形で同じ場所に置く（書き終わったときに下が押し下がらないように） */}
       {isStreaming && (onAddAction || onAddActionPickBook) && (
-        <button type="button" disabled aria-hidden="true" tabIndex={-1} style={{ ...rowBtn, marginTop: 'var(--space-3)', color: 'var(--text-3)', borderColor: 'var(--separator)', cursor: 'default' }}>
+        <button type="button" disabled aria-hidden="true" tabIndex={-1} style={{ ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
           <Target size={16} aria-hidden="true" />行動に追加
         </button>
       )}
       {canShowAction && (
         actionAdded ? (
-          <p role="status" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
-            <Check size={16} aria-hidden="true" />行動に追加しました（期限は明日）
-            {/* 入った先（振り返り › 行動）をその場で見られる（2026-09-29） */}
-            {onOpenActions && <button type="button" onClick={onOpenActions} aria-label="追加した行動を見る" style={{ ...uiBtnLink, marginLeft: 'var(--space-1)' }}>見る</button>}
-          </p>
+          <ActionAddedNote onOpenActions={onOpenActions} />
         ) : (
-          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
+          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
             <Target size={16} aria-hidden="true" />行動に追加
           </button>
         )
@@ -2417,7 +2445,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
             <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本ごとの視点</h3>
             {perBook.booksLead && <p style={{ ...readText, margin: '0 0 var(--space-3)' }}>{renderBoldInline(perBook.booksLead)}</p>}
             {perBook.booksRaw ? (
-              <div style={answerCard}><div style={readText}><PlainAnswer text={perBook.booksRaw} /></div></div>
+              <div style={answerCard}><div style={readText}><PlainAnswer text={perBook.booksRaw} gap="var(--space-4)" /></div></div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {perBook.books.map((b, i) => {
@@ -2511,13 +2539,17 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{tail === 'conclusion' && i === arr.length - 1 && cursor}</p>
             ))}
           </div>
-          {/* 一歩がまだの間は、一歩の箱と同じ形（面・小さな見出し・2 行・押せない「行動に追加」）で待つ
+          {/* 一歩がまだの間は、一歩の箱と同じ形（面・1 行目に「答えを書いています…」・3 行・押せない「行動に追加」）で待つ
               （以前は 44 の「答えを書いています…」→ 約 130 の箱に変わって、下が 87px 跳ねていた・2026-09-29）。 */}
           {liveFused.action ? renderAction(liveFused, 'var(--space-4)') : (
             <div aria-hidden="true" style={{ marginTop: 'var(--space-4)', ...nextStepBox }}>
-              {/* 小さな見出し（subLabel: 12・行間 1.5・下 4）と同じ高さ */}
+              {/* 1 行目は点つきの「答えを書いています…」（SPEC §3・骨組みだけだと何を待っているか分からない）。
+                  高さは小さな見出し（subLabel: 12・行間 1.5・下 4）と同じにして、一歩が来たときに跳ねさせない。 */}
               <div style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-caption) * 1.5)', marginBottom: 'var(--space-1)' }}>
-                <SkeletonBlock width="40%" height={12} />
+                <span className="ai-thinking" style={{ paddingBlock: 0 }}>
+                  <span className="ai-thinking-dot" />
+                  <span>{STAGE_LABEL.generate}</span>
+                </span>
               </div>
               {/* 一歩はふつう 3 行（2 行だと、書き終わったときに「行動に追加」が一度上がってから下がっていた）。
                   書き始めてからも同じ 3 行ぶんを取っておく（renderAction の STEP_SKELETON_HEIGHT）。 */}
@@ -2527,17 +2559,18 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
                 </div>
               ))}
               {(onAddAction || onAddActionPickBook) && (
-                <button type="button" disabled tabIndex={-1} style={{ ...rowBtn, marginTop: 'var(--space-3)', color: 'var(--text-3)', borderColor: 'var(--separator)', cursor: 'default' }}>
+                <button type="button" disabled tabIndex={-1} style={{ ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
                   <Target size={16} aria-hidden="true" />行動に追加
                 </button>
               )}
             </div>
           )}
-          {/* 「根拠を見る」は書き終わってから出す場所を、見えないまま取っておく（書いている間に行が下へ押されて見えないように）。 */}
-          <div aria-hidden="true" style={{ ...summaryStyle, marginTop: 'var(--space-3)', visibility: 'hidden' }}>
+          {/* 「根拠を見る」は書いている間も同じ場所に見せ、書き終わるまで押せない（--text-3・aria-disabled・SPEC §3）。
+              見えない場所取りにすると、書き終わった瞬間に行が現れて目が跳ねていた。 */}
+          <button type="button" aria-disabled="true" tabIndex={-1} style={evidencePending}>
             <span>根拠を見る</span>
             <ChevronDown size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
-          </div>
+          </button>
         </>
       ) : isStreaming ? (
         <div style={{ ...readText, whiteSpace: 'pre-wrap' }}>
@@ -2591,13 +2624,10 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       {/* 旧形式（見出しなし）でも行動化できるように */}
       {!parsed && canShowAction && !message.error && (
         actionAdded ? (
-          <p role="status" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
-            <Check size={16} aria-hidden="true" />行動に追加しました（期限は明日）
-            {/* 入った先（振り返り › 行動）をその場で見られる（2026-09-29） */}
-            {onOpenActions && <button type="button" onClick={onOpenActions} aria-label="追加した行動を見る" style={{ ...uiBtnLink, marginLeft: 'var(--space-1)' }}>見る</button>}
-          </p>
+          <ActionAddedNote onOpenActions={onOpenActions} />
         ) : (
-          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)' }}>
+          // 答えのカード（--surface）の上なので、押せない間は副ボタンの押せない形（--separator の枠＋--text-3）。
+          <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
             <Target size={16} aria-hidden="true" />行動に追加
           </button>
         )

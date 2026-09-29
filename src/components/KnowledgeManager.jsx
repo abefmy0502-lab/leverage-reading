@@ -40,6 +40,7 @@ import {
   X,
   ChevronDown,
   PencilLine,
+  Check,
 } from 'lucide-react';
 import { MemoListSkeleton } from './Skeleton';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -53,7 +54,7 @@ import EmptyState from './EmptyState.jsx';
 import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink as uiBtnLink, input as uiInput } from '../styles/ui';
 import { useLongPress } from '../hooks/useLongPress';
 import { fetchAllRows } from '../lib/fetchAllRows';
 
@@ -80,19 +81,15 @@ const moreBtn = { position: 'absolute', top: 'var(--space-1)', right: 'var(--spa
 const btnPrimary = { ...uiBtnPrimary, width: 'auto' };
 const btnPrimaryOff = { ...uiBtnPrimaryOff, width: 'auto' };
 const btnGhost = { ...uiBtnGhost, width: 'auto' };
-// 絞り込み・並び順のメニュー。端末ごとに違う既定の矢印を消し（appearance: none）、左右対称の余白 16 ＋
-// 右端に同じシェブロンを重ねる（SelectMenu）。
-const selectStyle = { ...inp, width: '100%', minWidth: 0, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', padding: '0 calc(var(--space-4) + var(--space-6)) 0 var(--space-4)' };
-function SelectMenu({ value, onChange, label, children }) {
-  return (
-    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-      <select value={value} onChange={onChange} aria-label={label} style={selectStyle}>
-        {children}
-      </select>
-      <ChevronDown size={18} aria-hidden="true" style={{ position: 'absolute', right: 'var(--space-4)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-2)', pointerEvents: 'none' }} />
-    </div>
-  );
-}
+// 絞り込み・並び順は端末のプルダウン（select）ではなく、文字のメニュー（DESIGN §5 絞り込みのメニュー）:
+// btnLink と同じ文字（--accent・15/600・高さ 44）＋ ▾（16）を押すと ContextMenu。振り返りの「すべての種類 ▾」と同じ形。
+const filterMenuBtn = { ...uiBtnLink, gap: 'var(--space-1)', minWidth: 0, maxWidth: '50%', flexShrink: 1 };
+const menuCheck = (on) => (on ? <Check size={16} aria-hidden="true" /> : <span aria-hidden="true" style={{ display: 'inline-block', width: 16 }} />);
+const SORT_OPTIONS = [
+  { value: 'newest', label: '新しい順' },
+  { value: 'oldest', label: '古い順' },
+  { value: 'title', label: '本のタイトル順' },
+];
 
 // 種類の絞り込み（切り替えを 2 段重ねにしないよう、並び順と同じ 1 行のメニューにする・DESIGN §5）。
 const FILTER_OPTIONS = [
@@ -718,10 +715,25 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
 
   // Long-press menu state
   const [itemMenu, setItemMenu] = useState(null); // { x, y, item }
+  // 種類・並び順のメニュー（{ kind: 'kind' | 'sort', x, y }）
+  const [filterMenu, setFilterMenu] = useState(null);
+  const filterLabel = (FILTER_OPTIONS.find((o) => o.value === filterKind) || FILTER_OPTIONS[0]).label;
+  const sortLabel = (SORT_OPTIONS.find((o) => o.value === sortBy) || SORT_OPTIONS[0]).label;
 
   return (
     <PullToRefresh onRefresh={async () => { refresh(); }}>
     <div style={wrap}>
+      {filterMenu && (
+        <ContextMenu
+          x={filterMenu.x}
+          y={filterMenu.y}
+          onClose={() => setFilterMenu(null)}
+          items={(filterMenu.kind === 'kind' ? FILTER_OPTIONS : SORT_OPTIONS).map((o) => {
+            const on = filterMenu.kind === 'kind' ? filterKind === o.value : sortBy === o.value;
+            return { label: o.label, icon: menuCheck(on), onClick: () => (filterMenu.kind === 'kind' ? setFilterKind(o.value) : setSortBy(o.value)) };
+          })}
+        />
+      )}
       {itemMenu && (
         <ContextMenu
           x={itemMenu.x}
@@ -770,21 +782,36 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
             </button>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <SelectMenu value={filterKind} onChange={(e) => setFilterKind(e.target.value)} label="種類で絞り込む">
-            {FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </SelectMenu>
-          <SelectMenu value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="並び順">
-            <option value="newest">新しい順</option>
-            <option value="oldest">古い順</option>
-            <option value="title">本のタイトル順</option>
-          </SelectMenu>
+        {/* 種類・並び順（文字のメニュー）と件数を 1 行に。文字の左端は検索欄の端にそろえる（左右 4 の内側余白を打ち消す）。 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+          <button
+            type="button"
+            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFilterMenu({ kind: 'kind', x: r.left + 110, y: r.bottom + 4 }); }}
+            aria-haspopup="menu"
+            aria-label={`種類で絞り込む（いまは${filterLabel}）`}
+            style={{ ...filterMenuBtn, marginLeft: 'calc(-1 * var(--space-1))' }}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{filterLabel}</span>
+            <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFilterMenu({ kind: 'sort', x: r.left + 110, y: r.bottom + 4 }); }}
+            aria-haspopup="menu"
+            aria-label={`並び順（いまは${sortLabel}）`}
+            style={filterMenuBtn}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sortLabel}</span>
+            <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+          </button>
+          <span style={{ flex: 1 }} />
+          {/* 件数は同じ行の右端（13/--text-3・数字は等幅）。 */}
+          {!loading && items.length > 0 && (
+            <span style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+              {filtered.length === items.length ? `${items.length} 件` : `${items.length} 件中 ${filtered.length} 件`}
+            </span>
+          )}
         </div>
-        {!loading && items.length > 0 && (
-          <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
-            {filtered.length === items.length ? `${items.length} 件` : `${items.length} 件中 ${filtered.length} 件`}
-          </p>
-        )}
       </div>
       )}
 
