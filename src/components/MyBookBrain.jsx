@@ -2220,7 +2220,7 @@ function ScopeBar({ label, scoped, onOpen, onReset, disabled, mode = null, onOpe
         <BarChip name="答え方：" value={answerModeLabel(mode)} active={mode === 'perbook'} disabled={disabled} onClick={onOpenMode} />
       )}
       {scoped && !showMode && (
-        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnLink, margin: 'calc((var(--space-8) - 44px) / 2) 0', flexShrink: 0, whiteSpace: 'nowrap', ...(disabled ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}>
+        <button type="button" onClick={onReset} disabled={disabled} style={{ ...uiBtnLink, margin: 'calc((var(--space-8) - 44px) / 2) 0', marginRight: 'calc(-1 * var(--space-1))', flexShrink: 0, whiteSpace: 'nowrap', ...(disabled ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}>
           すべてに戻す
         </button>
       )}
