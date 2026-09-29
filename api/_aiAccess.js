@@ -74,6 +74,16 @@ export function fallbackCallsFor(tier, env = process.env) {
   return Math.max(0, Math.floor(allowanceFor(tier, env) / 10));
 }
 
+// 原価（トークン）で守れているときの回数の上限（reserve_ai_usage に渡す・暴走止めだけ）。
+// 使えるトークン（その月の分＋追加分）より先に回数が尽きないよう、1 回 ≥ 1 トークンとみなして
+// 「トークンの数」まで広げる（凝縮など 1 トークン前後の軽い機能を多く使う人・追加トークンを買った人を
+// 「今月のトークンは、ここまで」と誤って止めない）。分間のレート制限は別にある。
+export function meteredCallLimit(baseLimit, allowanceTokens) {
+  const base = Number.isFinite(baseLimit) && baseLimit > 0 ? Math.floor(baseLimit) : 120;
+  const tokens = Number.isFinite(allowanceTokens) && allowanceTokens > 0 ? Math.ceil(allowanceTokens) : 0;
+  return Math.max(base, tokens);
+}
+
 // 日本時間の 'YYYY-MM' / 'YYYY-MM-DD'。
 function jstParts(t) {
   const iso = new Date(t + 9 * 3600 * 1000).toISOString();

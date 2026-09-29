@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   TOKEN_LOT_DAYS, tokenPacks, packForProduct, activeLots, lotBalance, planLotConsumption,
   effectiveAllowance, overflowToCharge, tokenCreditFromEvent, isTokenPackEvent,
+  shouldSettleOverflow, resolveEventUserId, isTokenPackProductEvent, tokenRefundFromEvent,
 } from './_tokenLots.js';
 import { TOKEN_PACKS, TOKEN_LOT_DAYS as CLIENT_DAYS } from '../src/lib/tokens.js';
 
@@ -94,5 +95,68 @@ describe('webhook のイベント → 追加の記録', () => {
     expect(tokenCreditFromEvent({ ...base, app_user_id: '$RCAnonymousID:x' }, { env: {}, isUserId: (u) => !u.startsWith('$') })).toEqual({ skip: 'unresolvable_app_user_id' });
     expect(tokenCreditFromEvent({ ...base, transaction_id: '', original_transaction_id: '', id: '' }, { env: {} })).toEqual({ skip: 'no_transaction_id' });
     expect(isTokenPackEvent({ ...base, type: 'RENEWAL' }, {})).toBe(false);
+  });
+});
+
+describe('最後の 1 回のはみ出しの精算（追加分が無くても払ったことにする）', () => {
+  const base = { lotOk: true, balance: 0, charged: 0, reservedMjpy: 12000, allowanceTokens: 800, tokenMjpy: 300 };
+  it('追加分があれば必ず精算する', () => {
+    expect(shouldSettleOverflow({ ...base, balance: 300, totalAfterReserveMjpy: 1000, actualMjpy: 500 })).toBe(true);
+    expect(shouldSettleOverflow({ ...base, charged: 5, totalAfterReserveMjpy: 1000, actualMjpy: 500 })).toBe(true);
+  });
+  it('追加分が無くても、精算後に月の分（800）を超えたら精算する（あとで買った分から取られないように）', () => {
+    // 使った 790 トークン（237,000 mjpy）+ 予約 12,000 → 実額 7,500（25 トークン）→ 815 トークン
+    expect(shouldSettleOverflow({ ...base, totalAfterReserveMjpy: 237000 + 12000, actualMjpy: 7500 })).toBe(true);
+  });
+  it('月の分の内側なら呼ばない（ふだんの 1 回で余計な往復を増やさない）', () => {
+    expect(shouldSettleOverflow({ ...base, totalAfterReserveMjpy: 100000 + 12000, actualMjpy: 3000 })).toBe(false);
+    // 予約の最大額では超えるが、実額では超えない
+    expect(shouldSettleOverflow({ ...base, totalAfterReserveMjpy: 235000 + 12000, actualMjpy: 3000 })).toBe(false);
+  });
+  it('AI が答えていない・表が無い・合計が分からないときは呼ばない', () => {
+    expect(shouldSettleOverflow({ ...base, balance: 300, totalAfterReserveMjpy: 1, actualMjpy: null })).toBe(false);
+    expect(shouldSettleOverflow({ ...base, lotOk: false, balance: 300, totalAfterReserveMjpy: 1, actualMjpy: 1 })).toBe(false);
+    expect(shouldSettleOverflow({ ...base, totalAfterReserveMjpy: null, actualMjpy: 999999 })).toBe(false);
+  });
+  it('はみ出しを払ったことにすると、あとで買った 300 トークンはまるごと使える（SQL と同じ式）', () => {
+    // 790 → 最後の 1 回で 815。精算で charged=15（追加分は 0 なので差し引けない）
+    const charged = overflowToCharge({ usedTokens: 815, allowance: 800, charged: 0 });
+    expect(charged).toBe(15);
+    // 300 買ったあと: 使える合計 = 800 + 15 + 300、使った 815 → 残り 300
+    expect(effectiveAllowance(800, { charged, balance: 300 }) - 815).toBe(300);
+    // 次の 10 トークンは、追加分から 10 だけ（前のはみ出し 15 は取らない）
+    expect(overflowToCharge({ usedTokens: 825, allowance: 800, charged })).toBe(10);
+  });
+});
+
+describe('ユーザーの解決（匿名 ID のときも同じ顧客の user.id を使う）', () => {
+  const UID = '11111111-1111-4111-8111-111111111111';
+  const isUserId = (u) => /^[0-9a-f-]{36}$/.test(u);
+  it('app_user_id が匿名でも aliases / original_app_user_id から user.id を拾う', () => {
+    expect(resolveEventUserId({ app_user_id: '$RCAnonymousID:abc', aliases: ['$RCAnonymousID:abc', UID] }, isUserId)).toBe(UID);
+    expect(resolveEventUserId({ app_user_id: '$RCAnonymousID:abc', original_app_user_id: UID }, isUserId)).toBe(UID);
+    expect(resolveEventUserId({ app_user_id: '$RCAnonymousID:abc' }, isUserId)).toBe(null);
+  });
+  it('消耗型の購入も同じ（取りこぼすと買ったトークンが永久に届かない）', () => {
+    const ev = {
+      type: 'NON_RENEWING_PURCHASE', product_id: 'orime_tokens_300', app_user_id: '$RCAnonymousID:abc',
+      aliases: [UID], transaction_id: 'tx_9', purchased_at_ms: NOW,
+    };
+    expect(tokenCreditFromEvent(ev, { env: {}, isUserId }).credit.userId).toBe(UID);
+  });
+});
+
+describe('追加トークンの返金（CANCELLATION）', () => {
+  const UID = '11111111-1111-4111-8111-111111111111';
+  const refund = { type: 'CANCELLATION', product_id: 'orime_tokens_1000', app_user_id: UID, transaction_id: 'tx_5', expiration_at_ms: null };
+  it('追加トークンの商品のイベントは種類を問わず見分ける（契約の処理に流さない）', () => {
+    expect(isTokenPackProductEvent(refund, {})).toBe(true);
+    expect(isTokenPackEvent(refund, {})).toBe(false);
+    expect(isTokenPackProductEvent({ ...refund, product_id: 'orime_monthly' }, {})).toBe(false);
+  });
+  it('返金はそのロットの残りを取り消す', () => {
+    expect(tokenRefundFromEvent(refund, { env: {} })).toEqual({ revoke: { userId: UID, transactionId: 'tx_5' } });
+    expect(tokenRefundFromEvent({ ...refund, type: 'EXPIRATION' }, { env: {} })).toEqual({ skip: 'not_refund' });
+    expect(tokenRefundFromEvent({ ...refund, transaction_id: '' }, { env: {} })).toEqual({ skip: 'no_transaction_id' });
   });
 });

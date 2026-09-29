@@ -307,6 +307,12 @@ export async function restorePurchases(userId) {
   if (!(await ensureConfigured(userId))) {
     throw new Error('購入の復元を初期化できませんでした。');
   }
+  // ログイン（logIn）に失敗して匿名 ID のまま復元すると、RevenueCat が購入をその匿名 ID へ移し
+  // （TRANSFER）、webhook がこの人の subscriptions を canceled にしてしまう（払っているのに AI が止まる）。
+  // 購入と同じく、この人として紐付いていないときは復元しない。
+  if (userId && _loggedInAs !== userId) {
+    throw new Error('復元の準備ができませんでした。通信の良い場所で、もう一度お試しください。');
+  }
   const Purchases = await loadPurchases();
   const res = await Purchases.restorePurchases();
   const active = res?.customerInfo?.entitlements?.active || {};

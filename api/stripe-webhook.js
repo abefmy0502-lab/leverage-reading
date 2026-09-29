@@ -97,6 +97,10 @@ function subscriptionFields(sub) {
     // iOS の失効イベントが Web 課金中ユーザーの行を canceled で上書きして
     // ロックアウトする（実際に起きうる事故）。
     provider: 'stripe',
+    // 無料期間かどうか（api/claude.js のトークンの量と行が変わる）。書かないと、前に App Store の
+    // 7 日間無料を使った人の行に 'trial' が残り、Web で払っている人が 150 トークン（無料期間の量）に
+    // なってしまう。Stripe の 'trialing' だけ無料期間、ほかは有料。
+    period_type: sub?.status === 'trialing' ? 'trial' : 'normal',
   };
 }
 
@@ -115,10 +119,16 @@ async function upsertSubscriptionRow(supabase, row) {
       if (cur && cur.provider === 'revenuecat' && cur.status === 'active') return;
     } catch { /* 読めなければ従来どおり書く */ }
   }
-  let { error } = await supabase.from('subscriptions').upsert(row, { onConflict: 'user_id' });
-  if (error && 'canceled_at' in row && /canceled_at/i.test(error.message || '')) {
-    const { canceled_at: _omit, ...rest } = row;
-    ({ error } = await supabase.from('subscriptions').upsert(rest, { onConflict: 'user_id' }));
+  // 未適用の列（canceled_at: supabase_subscriptions_canceled_at.sql / period_type:
+  // supabase_admin_members_tasks.sql）は、エラーに名前が出た列だけ抜いて再試行する。
+  let cur = row;
+  let { error } = await supabase.from('subscriptions').upsert(cur, { onConflict: 'user_id' });
+  for (let i = 0; i < 2 && error; i += 1) {
+    const col = ['canceled_at', 'period_type'].find((c) => c in cur && new RegExp(c, 'i').test(error.message || ''));
+    if (!col) break;
+    const { [col]: _omit, ...rest } = cur;
+    cur = rest;
+    ({ error } = await supabase.from('subscriptions').upsert(cur, { onConflict: 'user_id' }));
   }
   if (error) throw error;
 }

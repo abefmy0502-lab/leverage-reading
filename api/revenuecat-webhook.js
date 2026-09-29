@@ -51,7 +51,7 @@
 //                                  絶対にクライアントへ露出しないこと）
 
 import { createClient } from '@supabase/supabase-js';
-import { isTokenPackEvent, tokenCreditFromEvent } from './_tokenLots.js';
+import { isTokenPackEvent, isTokenPackProductEvent, tokenCreditFromEvent, tokenRefundFromEvent } from './_tokenLots.js';
 import { timingSafeEqual } from 'node:crypto';
 
 // 共有シークレットを定数時間で比較する（タイミング攻撃でシークレットを 1 文字ずつ
@@ -210,6 +210,21 @@ export default async function handler(req, res) {
       });
       if (creditErr) throw creditErr; // 5xx → RevenueCat が再送（claim は catch で解放）
       return res.status(200).json({ received: true, credited: Number(credited) || 0 });
+    }
+    // 追加トークンの商品についての、購入以外のイベント（返金の CANCELLATION など）。
+    // subscriptions には絶対に流さない（expiration_at_ms の無い CANCELLATION は canceled に解決され、
+    // 契約中の人の行を上書きして AI を止めてしまう）。返金ならそのロットの残りを 0 にする（冪等）。
+    if (isTokenPackProductEvent(event)) {
+      const r = tokenRefundFromEvent(event, { isUserId: isResolvableUserId });
+      if (r.skip) return res.status(200).json({ received: true, skipped: r.skip });
+      const { error: revokeErr } = await supabase
+        .from('ai_token_lots')
+        .update({ tokens_left: 0 })
+        .eq('user_id', r.revoke.userId)
+        .eq('transaction_id', r.revoke.transactionId);
+      // 表が無い（未適用）なら何もしない。そのほかの失敗は 5xx で再送してもらう。
+      if (revokeErr && !/ai_token_lots|does not exist|schema cache/i.test(revokeErr.message || '')) throw revokeErr;
+      return res.status(200).json({ received: true, revoked: true });
     }
 
     // 🧪 SANDBOX イベント（TestFlight / 開発ビルドの課金）は既定でスキップする。

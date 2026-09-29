@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   decideAiAccess, decideFreeReservation, isFreePurpose,
   tokenJpy, tokenMjpy, tokensFromMjpy, freeTokens, trialTokens, paidTokens, allowanceFor, fallbackCallsFor,
-  periodKeyFor, reserveBudgetMjpy, remainingTokens,
+  periodKeyFor, reserveBudgetMjpy, remainingTokens, meteredCallLimit,
   jstMonthDayLabel, nextMonthFirstLabel, monthlyTokensMessage, trialTokensMessage, planRequiredMessage, limitMessageFor,
 } from './_aiAccess.js';
 import { monthlyBudgetJpy } from './_aiCost.js';
@@ -156,5 +156,19 @@ describe('案内の文', () => {
     expect(trialTokensMessage('2026-10-03T20:00:00Z', 800)).toBe('無料期間のトークンは、ここまでです。無料期間が終わる10⁠月⁠4⁠日から、毎月 800 トークン使えます。');
     expect(limitMessageFor('trial', { env: ENV, periodEnd: null })).toBe('無料期間のトークンは、ここまでです。無料期間が終わると、毎月 800 トークン使えます。');
     expect(planRequiredMessage()).toBe('この AI 機能は、プランでご利用いただけます。');
+  });
+});
+
+describe('原価で守れているときの回数の上限（meteredCallLimit）', () => {
+  it('使えるトークンより先に回数（既定 120）で止めない', () => {
+    // 有料 800 トークン: 凝縮（約 1 トークン）を多く使う人が 120 回で「今月のトークンは、ここまで」にならない
+    expect(meteredCallLimit(120, 800)).toBe(800);
+    // 追加トークンを買った人（800 + 1,000）
+    expect(meteredCallLimit(120, 1800)).toBe(1800);
+  });
+  it('無料（30）・無料期間（150）でも、少なくとも既定の回数', () => {
+    expect(meteredCallLimit(120, 30)).toBe(120);
+    expect(meteredCallLimit(120, 150)).toBe(150);
+    expect(meteredCallLimit(undefined, 0)).toBe(120);
   });
 });

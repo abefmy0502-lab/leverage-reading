@@ -75,6 +75,34 @@ export function overflowToCharge({ usedTokens, allowance, charged = 0 }) {
   return Math.max(0, Math.max(0, usedTokens - allowance) - Math.max(0, charged));
 }
 
+// 精算のあとに settle_token_overflow を呼ぶか（api/claude.js）。
+// 追加分がある人に加えて、追加分が無くても「その月の分を超えた（最後の 1 回のはみ出し）」ときも呼ぶ。
+// 呼ばないと、はみ出しが「払った」ことにならず、あとで買った追加分から差し引かれてしまう
+// （SQL の決まり「最後の 1 回のはみ出しは、あとで買った分から取らない」に反する）。
+//   totalAfterReserveMjpy: reserve_ai_cost が返した予約後の合計（分からなければ null）
+export function shouldSettleOverflow({
+  lotOk, balance = 0, charged = 0, totalAfterReserveMjpy, reservedMjpy = 0, actualMjpy, allowanceTokens, tokenMjpy = 300,
+}) {
+  if (actualMjpy == null || !lotOk) return false;
+  if (balance > 0 || charged > 0) return true;
+  const total = totalAfterReserveMjpy == null ? NaN : Number(totalAfterReserveMjpy);
+  if (!Number.isFinite(total) || !(tokenMjpy > 0)) return false;
+  const after = Math.max(0, total - Math.max(0, reservedMjpy) + Math.max(0, actualMjpy));
+  const usedTokens = after === 0 ? 0 : Math.ceil(after / tokenMjpy - 1e-9);
+  return usedTokens > allowanceTokens;
+}
+
+// webhook の app_user_id を Supabase の user.id に直す。app_user_id が匿名 ID（$RCAnonymousID）のときも、
+// 同じ RevenueCat の顧客にひも付いた ID（original_app_user_id / aliases）に user.id があればそれを使う
+// （消耗型は復元できないので、ここで取りこぼすと買ったトークンが永久に届かない）。
+export function resolveEventUserId(event, isUserId = () => true) {
+  const cands = [event?.app_user_id, event?.original_app_user_id, ...(Array.isArray(event?.aliases) ? event.aliases : [])];
+  for (const id of cands) {
+    if (typeof id === 'string' && id && isUserId(id)) return id;
+  }
+  return null;
+}
+
 // RevenueCat の webhook イベント → 追加の記録。
 //   戻り値 { credit: { userId, transactionId, productId, tokens, purchasedAt, environment } } | { skip: 理由 }
 //   二重に足さない鍵は transaction_id（ai_token_lots.transaction_id UNIQUE）。
@@ -87,8 +115,8 @@ export function tokenCreditFromEvent(event, { env = process.env, isUserId = () =
   if (!pack) return { skip: 'not_token_pack' };
   const sandbox = event.environment === 'SANDBOX';
   if (sandbox && env?.RC_SANDBOX_TOKENS === 'false') return { skip: 'sandbox' };
-  const userId = event.app_user_id;
-  if (!userId || !isUserId(userId)) return { skip: 'unresolvable_app_user_id' };
+  const userId = resolveEventUserId(event, isUserId);
+  if (!userId) return { skip: 'unresolvable_app_user_id' };
   const transactionId = String(event.transaction_id || event.original_transaction_id || event.id || '');
   if (!transactionId) return { skip: 'no_transaction_id' };
   const purchasedMs = Number(event.purchased_at_ms);
@@ -106,4 +134,23 @@ export function tokenCreditFromEvent(event, { env = process.env, isUserId = () =
 
 export function isTokenPackEvent(event, env = process.env) {
   return !!event && event.type === 'NON_RENEWING_PURCHASE' && !!packForProduct(event.product_id, env);
+}
+
+// 追加トークンの商品についてのイベントか（種類を問わない）。購入以外（返金の CANCELLATION など）も
+// subscriptions を触らせない: RevenueCat は消耗型の返金を CANCELLATION（expiration_at_ms なし）で送るので、
+// そのまま契約の処理に流すと、契約中の人の行が canceled に書き換わり AI が止まる。
+export function isTokenPackProductEvent(event, env = process.env) {
+  return !!event && typeof event === 'object' && !!packForProduct(event.product_id, env);
+}
+
+// 追加トークンの返金（CANCELLATION）→ そのロットの残りを 0 にする（使った分は取り戻さない）。
+//   戻り値 { revoke: { userId, transactionId } } | { skip: 理由 }
+export function tokenRefundFromEvent(event, { env = process.env, isUserId = () => true } = {}) {
+  if (!isTokenPackProductEvent(event, env)) return { skip: 'not_token_pack' };
+  if (event.type !== 'CANCELLATION') return { skip: 'not_refund' };
+  const userId = resolveEventUserId(event, isUserId);
+  if (!userId) return { skip: 'unresolvable_app_user_id' };
+  const transactionId = String(event.transaction_id || event.original_transaction_id || '');
+  if (!transactionId) return { skip: 'no_transaction_id' };
+  return { revoke: { userId, transactionId } };
 }

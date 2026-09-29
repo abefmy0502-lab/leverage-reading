@@ -2,10 +2,25 @@ import { createClient } from '@supabase/supabase-js';
 import { applyCors } from './_cors.js';
 import { estimateCost, costFromUsage, createUsageSniffer } from './_aiCost.js';
 import {
-  decideAiAccess, decideFreeReservation, periodKeyFor, reserveBudgetMjpy, allowanceFor,
+  decideAiAccess, decideFreeReservation, periodKeyFor, reserveBudgetMjpy, allowanceFor, meteredCallLimit,
   freeTokens, fallbackCallsFor, nextMonthFirstLabel, planRequiredMessage, limitMessageFor, tokenMjpy,
 } from './_aiAccess.js';
-import { lotBalance, effectiveAllowance } from './_tokenLots.js';
+import { lotBalance, effectiveAllowance, shouldSettleOverflow } from './_tokenLots.js';
+
+// 応答の前に、精算（adjust_ai_cost / settle_token_overflow）・回数の払い戻しを待つ上限。
+// Vercel の関数は応答を返したあと止められることがある（waitUntil なしの後処理は保証されない）ので、
+// fire-and-forget にすると、予約した最大額が戻らずトークンを多く取られる・追加分が差し引かれない、が起きうる。
+const SETTLE_WAIT_MS = 3000;
+async function flushPending(list) {
+  if (!list.length) return;
+  const ps = list.splice(0, list.length);
+  let timer;
+  await Promise.race([
+    Promise.allSettled(ps),
+    new Promise((r) => { timer = setTimeout(r, SETTLE_WAIT_MS); }),
+  ]);
+  clearTimeout(timer);
+}
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
@@ -414,7 +429,8 @@ async function reserveCost(userId, periodKey, amountMjpy, budgetMjpy) {
     }
     const v = typeof data === 'number' ? data : Number(Array.isArray(data) ? data[0] : data);
     if (!Number.isFinite(v)) return { metered: false, allowed: true };
-    return { metered: true, allowed: v !== -1 };
+    // total: 予約後のこの行の合計（mjpy）。精算のあと、その月の分を超えたかの判定に使う。
+    return { metered: true, allowed: v !== -1, total: v !== -1 ? v : null };
   } catch (e) {
     console.warn('[ai-cost] reserve threw (fallback to call limit):', e?.message);
     return { metered: false, allowed: true };
@@ -679,8 +695,9 @@ export default async function handler(req, res) {
     costMetered = costResult.metered;
     if (costMetered) {
       costReserved = est.total; costOutputPart = est.output;
-      // 原価で守れているので、回数は念のための上限だけ（凝縮など軽い機能で先に回数が尽きないように）。
-      if (freeCall || tier === 'trial') callLimit = AI_MONTHLY_CALL_LIMIT;
+      // 原価で守れているので、回数は念のための上限だけ（凝縮など軽い機能・追加トークンを買った人が、
+      // トークンが残っているのに回数で先に止まらないように。有料の 120 回も含めて使えるトークンの数まで広げる）。
+      callLimit = meteredCallLimit(AI_MONTHLY_CALL_LIMIT, allowance);
     } else {
       // 原価を数えられない DB: 回数で守る（トークン ÷ 10 回。有料は AI_FALLBACK_CALL_LIMIT）。
       callLimit = tier === 'paid'
@@ -691,14 +708,25 @@ export default async function handler(req, res) {
     }
   }
   // 精算: 実際の原価（mjpy）が分かったら差額を戻す。null＝AI が答えていない → 予約をまるごと戻す。
+  // 精算・払い戻しの Promise。応答の前に flush()（上限 SETTLE_WAIT_MS）で待つ。
+  const pending = [];
+  const track = (p) => { if (p) pending.push(p); return p; };
+  const flush = () => flushPending(pending);
   let costSettled = false;
   const settleCost = (actualMjpy) => {
     if (!costMetered || costSettled) return;
     costSettled = true;
     const adjusting = adjustCost(userId, periodKey, (actualMjpy == null ? 0 : actualMjpy) - costReserved);
-    // 追加分がある人は、その月の分を超えた分を追加分から差し引く（精算で原価が決まってから）。
-    if (actualMjpy != null && lotState.ok && (lotState.balance > 0 || lotState.charged > 0)) {
-      Promise.resolve(adjusting).then(() => settleTokenOverflow(userId, periodKey, allowanceFor(tier)));
+    // その月の分を超えた分を追加分から差し引く（精算で原価が決まってから）。追加分が無くても、
+    // 「最後の 1 回」のはみ出しを払ったことにしておく（あとで買った追加分から取らない）。
+    if (shouldSettleOverflow({
+      lotOk: lotState.ok, balance: lotState.balance, charged: lotState.charged,
+      totalAfterReserveMjpy: costResult.total, reservedMjpy: costReserved, actualMjpy,
+      allowanceTokens: allowanceFor(tier), tokenMjpy: tokenMjpy(),
+    })) {
+      track(Promise.resolve(adjusting).then(() => settleTokenOverflow(userId, periodKey, allowanceFor(tier))));
+    } else {
+      track(adjusting);
     }
   };
 
@@ -709,7 +737,8 @@ export default async function handler(req, res) {
     const fr = decideFreeReservation({ cost: costResult, usage });
     if (!fr.allow || !usage.allowed) {
       settleCost(null);
-      if (usage.reserved && usage.allowed) releaseMonthlyUsage(userId, periodKey);
+      if (usage.reserved && usage.allowed) track(releaseMonthlyUsage(userId, periodKey));
+      await flush();
       if (fr.errorCode === 'plan_required') {
         return res.status(402).json({ error: { message: planRequiredMessage() }, error_code: 'plan_required' });
       }
@@ -718,6 +747,7 @@ export default async function handler(req, res) {
   }
   if (!usage.allowed) {
     settleCost(null); // 回数の上限で止めたので、原価の予約も戻す
+    await flush();
     return limitResponse('monthly_limit_exceeded');
   }
   const usageReserved = usage.reserved;
@@ -870,8 +900,9 @@ export default async function handler(req, res) {
       if (fetchErr?.name === 'AbortError' || upstreamController.signal.aborted) {
         upstreamDone = true;
         // レスポンス到達前の切断 = upstream 課金は発生していない。予約分を払い戻す。
-        if (usageReserved && tier !== 'admin') releaseMonthlyUsage(userId, periodKey);
+        if (usageReserved && tier !== 'admin') track(releaseMonthlyUsage(userId, periodKey));
         settleCost(null);
+        await flush();
         try { res.end(); } catch { /* socket may already be closed */ }
         return;
       }
@@ -922,7 +953,6 @@ export default async function handler(req, res) {
           }
         } finally {
           upstreamDone = true; // どの経路でも以降の abort を抑止
-          try { res.end(); } catch { /* socket may already be closed */ }
           // 💴 精算。入力が分かれば入力は実額、出力は最後まで届いたら実額・途中で切れたら
           //    予約した出力の分（上振れ側）。何も分からなければ予約をそのまま残す。
           const u = sniffer.usage;
@@ -932,13 +962,15 @@ export default async function handler(req, res) {
           } else {
             settleCost(costReserved);
           }
+          // ストリームが開始 = 成功コールとして当月カウントを +1。
+          // 注: 途中で中断（クライアント切断）してもストリームは開始済みであり、
+          // upstream への課金コールは発生しているため、1 カウントは妥当。
+          // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
+          if (!usageReserved) track(incrementMonthlyUsage(userId, periodKey));
+          // 精算を終えてから応答を閉じる（閉じたあとの後処理は Vercel で止められることがある）。
+          await flush();
+          try { res.end(); } catch { /* socket may already be closed */ }
         }
-        // ストリームが開始 = 成功コールとして当月カウントを +1。
-        // fire-and-forget（失敗してもユーザー応答には影響させない）。
-        // 注: 途中で中断（クライアント切断）してもストリームは開始済みであり、
-        // upstream への課金コールは発生しているため、1 カウントは妥当。
-        // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
-        if (!usageReserved) incrementMonthlyUsage(userId, periodKey);
         return;
       }
     }
@@ -954,6 +986,7 @@ export default async function handler(req, res) {
       if (jsonErr?.name === 'AbortError' || upstreamController.signal.aborted) {
         upstreamDone = true;
         settleCost(costReserved); // 生成は進んでいたかもしれないので予約は残す（安全側）
+        await flush();
         try { res.end(); } catch { /* socket may already be closed */ }
         return;
       }
@@ -963,12 +996,13 @@ export default async function handler(req, res) {
     // 上流が 2xx の成功レスポンスの時だけ当月カウントを +1。失敗（4xx/5xx）は
     // 課金されないコールが多いので quota を消費させない。fire-and-forget。
     // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
-    if (response.ok && !usageReserved) incrementMonthlyUsage(userId, periodKey);
+    if (response.ok && !usageReserved) track(incrementMonthlyUsage(userId, periodKey));
     // reserve 済みで upstream が失敗した時は予約分を払い戻す（非 reserve 経路の
     // 「2xx のときだけ increment」と対称にする）。
-    if (!response.ok && usageReserved && tier !== 'admin') releaseMonthlyUsage(userId, periodKey);
-    // 💴 精算（成功は usage の実額・失敗は予約を戻す）
+    if (!response.ok && usageReserved && tier !== 'admin') track(releaseMonthlyUsage(userId, periodKey));
+    // 💴 精算（成功は usage の実額・失敗は予約を戻す）。応答の前に待つ。
     settleCost(response.ok ? (data?.usage ? costFromUsage(payload.model, data.usage) : costReserved) : null);
+    await flush();
     if (!response.ok) {
       // 上流（Anthropic）の生エラー JSON（英語の内部メッセージ・request-id 等）を
       // クライアントへ verbatim 転送しない — 内部構成のヒントになる上、postClaude が
@@ -987,8 +1021,9 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Claude API error:', error);
     // upstream に到達できずに失敗（ネットワーク等）。reserve 済みの予約分を払い戻す。
-    if (usageReserved && tier !== 'admin') releaseMonthlyUsage(userId, periodKey);
+    if (usageReserved && tier !== 'admin') track(releaseMonthlyUsage(userId, periodKey));
     settleCost(null);
+    await flush();
     return res.status(500).json({ error: { message: 'AI につながりませんでした。通信の状態を確かめて、もう一度お試しください。' } });
   }
 }
