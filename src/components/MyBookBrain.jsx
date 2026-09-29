@@ -435,7 +435,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [learningPreset?.nonce]);
   // 学びを書く画面を離れたら、入れておいたタグは忘れる（次にメニューから開いたときに残らないように）。
-  useEffect(() => { if (view !== 'learning') setLearningTags(null); }, [view]);
+  //   （学びを書く画面から出たときだけ。開いた直後の描画で消さないように、前の画面を覚えて比べる）
+  const prevViewRef = useRef(view);
+  useEffect(() => {
+    if (prevViewRef.current === 'learning' && view !== 'learning') setLearningTags(null);
+    prevViewRef.current = view;
+  }, [view]);
   const [busy, setBusy] = useState(false);
   // 🔔 はじめて「行動に追加」した答えの id（その下に、思い出しの通知の案内を 1 回だけ出す）
   const [optinAfterId, setOptinAfterId] = useState(null);
