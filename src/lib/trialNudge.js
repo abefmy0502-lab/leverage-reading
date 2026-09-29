@@ -151,3 +151,12 @@ export function trialCancelByTime(periodEnd) {
   const t = typeof periodEnd === 'number' ? periodEnd : Date.parse(periodEnd || '');
   return Number.isFinite(t) ? t - TRIAL_CANCEL_HOURS * 3600 * 1000 : null;
 }
+// 7 日間無料のトークンを使い切ったとき（ホームの相談カード・相談の入力欄の上）の小さな 1 行（2026-09-29）。
+//   「続けないときは 10月3日までに解約（無料プランに戻ります）」。日付だけ（「あと N 日」は出さない・オーナー判断）。
+//   日付は解約の期限＝終わる 24 時間前（日本時間の M月D日）。終わる日時が分からなければ空（出さない）。
+export function trialCancelShortLine(periodEnd) {
+  const t = trialCancelByTime(periodEnd);
+  if (t == null) return '';
+  const d = new Date(t + 9 * 3600 * 1000);
+  return `続けないときは ${d.getUTCMonth() + 1}月${d.getUTCDate()}日までに解約（無料プランに戻ります）`;
+}

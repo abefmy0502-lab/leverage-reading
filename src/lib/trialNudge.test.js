@@ -12,7 +12,21 @@ import {
   shortPriceLabel,
   trialCancelNote,
   trialCancelByTime,
+  trialCancelShortLine,
 } from './trialNudge';
+
+describe('trialCancelShortLine（7 日間無料のトークンを使い切ったときの解約の 1 行）', () => {
+  it('終わる 24 時間前の日付（日本時間）だけを出す', () => {
+    // 10月4日 10:00 JST に終わる → 10月3日 10:00 JST までに解約
+    expect(trialCancelShortLine('2026-10-04T01:00:00Z')).toBe('続けないときは 10月3日までに解約（無料プランに戻ります）');
+    // 10月4日 08:00 JST に終わる → 10月3日 08:00 JST（UTC では 10月2日 23:00）
+    expect(trialCancelShortLine('2026-10-03T23:00:00Z')).toBe('続けないときは 10月3日までに解約（無料プランに戻ります）');
+  });
+  it('終わる日が分からなければ空', () => {
+    expect(trialCancelShortLine('')).toBe('');
+    expect(trialCancelShortLine(null)).toBe('');
+  });
+});
 
 const base = { plan: 'free', memoCount: 10, done: false, freeUsedUp: false, empty: true };
 

@@ -30,7 +30,7 @@ import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
-import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel } from '../lib/trialNudge';
+import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction } from '../lib/consultHelpers';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
@@ -361,6 +361,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const outOfTokens = monthLimitHit || planOut;
   // 無料期間が終わる日（「◯月◯日から、毎月 800 トークン使えます」）。分からなければ空。
   const trialEndLabel = plan === 'trial' ? monthDayLabelJa(trialEndsAt) : '';
+  const trialCancelLine = plan === 'trial' ? trialCancelShortLine(trialEndsAt) : '';
   const [view, setView] = useState('chat'); // 'chat' | 'learning' | 'history' | 'knowledge'
   // 押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）のあいだは、親がサブタブを隠せるように知らせる
   // （見出しが 3 段に重ならないように）。離れるときは必ず false に戻す。
@@ -1553,7 +1554,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               />
             ) : planOut ? (
               // 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 押せない相談例は出さず、案内カードを一番上に。
-              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} onSearch={searchMemos} />
+              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} cancelLine={trialCancelLine} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} onSearch={searchMemos} />
             ) : freeUsedUp ? (
               // 🎁 無料プランで今月のトークンを使い切った（SPEC §3・2026-09-29）: プランの人と同じく、
               //   押しても答えられない相談例は出さず、案内カードを会話の場所のいちばん上に置く。
@@ -1638,9 +1639,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているのでボタンだけ。
               まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}
           {planOut && !busy && lastIsAssistant && !isEmpty && (
-            <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)' }}>
-              トークンを追加
-            </button>
+            <>
+              <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)' }}>
+                トークンを追加
+              </button>
+              {/* 7 日間無料: 続けないときの解約の期限を日付だけで（2026-09-29・「あと N 日」は出さない） */}
+              {trialCancelLine && <p style={trialCancelLineStyle}>{trialCancelLine}</p>}
+            </>
           )}
 
           {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
@@ -1860,7 +1865,9 @@ function CarryCard({ carry, onCancel }) {
 
 // 🪙➕ プランの人（有料・無料期間）がトークンを使い切って、まだ話していないときの案内カード。
 // 押せない相談例の代わりに、会話の場所の一番上に置く（SPEC §3）。
-function TokensOutCard({ plan, trialEndLabel, tokenAllowance, onAdd, onSearch = null }) {
+// 7 日間無料の「続けないときは M月D日までに解約（無料プランに戻ります）」の小さな 1 行（TokensOutCard・答えの下の「トークンを追加」の下）。
+const trialCancelLineStyle = { margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 };
+function TokensOutCard({ plan, trialEndLabel, cancelLine = '', tokenAllowance, onAdd, onSearch = null }) {
   const sub = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 };
   return (
     <section aria-label="トークンは、ここまで" style={cardStyle}>
@@ -1879,6 +1886,7 @@ function TokensOutCard({ plan, trialEndLabel, tokenAllowance, onAdd, onSearch = 
       <button type="button" onClick={onAdd} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
         トークンを追加
       </button>
+      {cancelLine && <p style={trialCancelLineStyle}>{cancelLine}</p>}
       {onSearch && <SearchMemosLink onClick={onSearch} />}
     </section>
   );

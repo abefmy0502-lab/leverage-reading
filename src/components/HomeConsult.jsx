@@ -22,6 +22,7 @@ import { useAllActions } from '../hooks/useAllActions';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, monthDayLabelJa } from '../lib/tokens';
+import { trialCancelShortLine } from '../lib/trialNudge';
 import { loadDefaultJapaneseParser } from 'budoux';
 import { SkeletonBlock } from './Skeleton';
 
@@ -173,6 +174,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, onSearchM
         <UsedUpNotice
           plan={plan}
           trialEndLabel={plan === 'trial' ? monthDayLabelJa(trialEndsAt) : ''}
+          cancelLine={plan === 'trial' ? trialCancelShortLine(trialEndsAt) : ''}
           onAction={canBuyTokens ? openTokenSheet : () => openPaywall('free_used')}
           actionLabel={canBuyTokens ? 'トークンを追加' : 'プランを見る'}
           onSearch={onSearchMemos ? () => { track('home_consult_search_memos', {}); onSearchMemos(memoSearchQuery(text.trim() || lastQuestion || '')); } : null}
@@ -232,7 +234,9 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, onSearchM
 //   無料プラン・有料: 「今月のトークンは、ここまでです（M月1日に戻ります）」
 //   7 日間無料: 「無料期間のトークンは、ここまでです（無料期間が終わる M月D日から、毎月 800 トークン使えます）」
 // onSearch: 「メモを検索して探す」（AI を使わずに、自分のメモから手がかりを探す・2026-09-29）。脇役の文字ボタン。
-function UsedUpNotice({ plan, trialEndLabel, onAction, actionLabel, onSearch }) {
+// cancelLine: 7 日間無料のときだけ「続けないときは M月D日までに解約（無料プランに戻ります）」の小さな 1 行
+//   （使い切ったあとに自動更新を知らずに続かないように・日付だけ＝「あと N 日」は出さない・2026-09-29）。
+function UsedUpNotice({ plan, trialEndLabel, cancelLine = '', onAction, actionLabel, onSearch }) {
   const nowrap = { whiteSpace: 'nowrap' };
   return (
     <>
@@ -243,6 +247,11 @@ function UsedUpNotice({ plan, trialEndLabel, onAction, actionLabel, onSearch }) 
           <>今月のトークンは、ここまでです（<span style={nowrap}>{nextResetLabelJa()}</span>に戻ります）</>
         )}
       </p>
+      {cancelLine && (
+        <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks(cancelLine)}
+        </p>
+      )}
       <button type="button" onClick={onAction} style={{ ...btnPrimary, marginTop: 'var(--space-3)' }}>
         {actionLabel}
       </button>
