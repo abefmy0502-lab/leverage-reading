@@ -1,0 +1,3 @@
+# テストは本番に送らない（api/ の .js はすべて Vercel の関数として数えられ、Hobby は 12 個まで）
+api/**/*.test.js
+**/*.test.js
