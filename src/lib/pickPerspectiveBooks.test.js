@@ -42,15 +42,28 @@ describe('pickPerspectiveBooks', () => {
     expect(out[1].related).toBe(0);
   });
 
-  it('カード式メモが 1 件も無い本・学びログ・読書準備だけの行は使わない', () => {
+  it('メモの無い本・学びログ・読書準備だけの行は使わない', () => {
     const pool = [
       memo(A, '評価は相手の課題'),
       memo(B, '評価を気にしない本にしたい', { source_type: 'invest_purpose' }),
-      memo(C, '評価のまとめ', { source_type: 'summary' }),
+      memo(D, '評価の AI 要約', { source_type: 'ai_summary' }),
       { book_id: null, book: null, source_type: 'personal', text: '評価が気になる日もある', tags: [] },
     ];
     const out = pickPerspectiveBooks('評価が気になる', pool);
     expect(out.map((b) => b.bookId)).toEqual(['a']);
+  });
+
+  it('「この本のまとめ」だけの本も並べる（まとめはメモ 1 件として数える）', () => {
+    const pool = [
+      memo(A, '評価は相手の課題'),
+      memo(C, '評価のまとめ', { source_type: 'summary' }),
+      memo(D, '名前を呼ぶ', { source_type: 'summary', created_at: '2026-05-01T00:00:00Z' }),
+      memo(E, '行動を数で決める'), memo(E, '数で振り返る'),
+    ];
+    const out = pickPerspectiveBooks('評価が気になる', pool);
+    expect(out.map((b) => b.bookId)).toEqual(['a', 'c', 'e']);
+    const all = pickPerspectiveBooks('評価が気になる', pool, { minBooks: 4 });
+    expect(all.map((b) => b.bookId)).toEqual(['a', 'c', 'e', 'd']);
   });
 
   it('まとめメモはカード式のある本の材料には入る', () => {

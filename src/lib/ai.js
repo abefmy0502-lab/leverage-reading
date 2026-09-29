@@ -1041,14 +1041,17 @@ export function pickPerspectiveBooks(question, pool, { maxBooks = PERBOOK_MAX_BO
     if (isCard) g.cards += 1;
     if (String(m.created_at || '') > g.latest) g.latest = String(m.created_at || '');
   }
-  const eligible = [...groups.values()].filter((g) => g.cards > 0 && String(g.title).trim());
+  // 「この本のまとめ」だけの本（読書メーターの感想の取り込みなど）も並べる。重みではまとめを 1 件として数える。
+  const hasSummary = (g) => g.rows.some((m) => m.source_type === 'summary');
+  groups.forEach((g) => { g.weight = g.cards + (hasSummary(g) ? 1 : 0); });
+  const eligible = [...groups.values()].filter((g) => (g.cards > 0 || hasSummary(g)) && String(g.title).trim());
   if (eligible.length === 0) return [];
   const related = pickRelatedMemos(question, eligible.flatMap((g) => g.rows), { max: 60, budget: Infinity });
   const rank = new Map(related.map((m, i) => [m, i]));
   eligible.forEach((g) => {
     g.related = g.rows.filter((m) => rank.has(m)).sort((a, b) => rank.get(a) - rank.get(b));
   });
-  const byWeight = (a, b) => b.cards - a.cards || b.latest.localeCompare(a.latest);
+  const byWeight = (a, b) => b.weight - a.weight || b.latest.localeCompare(a.latest);
   const hits = eligible.filter((g) => g.related.length > 0)
     .sort((a, b) => b.related.length - a.related.length || byWeight(a, b));
   const chosen = hits.slice(0, maxBooks);

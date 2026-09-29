@@ -28,7 +28,9 @@ import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
 import { savingsLabel } from '../lib/iap';
-import { FREE_TOKENS, PAID_TOKENS } from '../lib/tokenAmounts';
+import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS } from '../lib/tokenAmounts';
+// 無料期間（7 日間無料）の相談のおよその回数（相談 1 回 約 10 トークン＝lib/tokens.js の TOKEN_COSTS.consult。LP を軽くするため tokens.js は読まない）。
+const TRIAL_CONSULTS = Math.round(TRIAL_TOKENS / 10);
 import { normalizeTrialLabel, trialFirstPhrase, trialPeriodOf } from '../lib/trialNudge';
 import ConsultDemo from './ConsultDemo';
 import qrcode from 'qrcode-generator';
@@ -146,7 +148,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'これまでに読んだ本も使えますか？',
-    a: '使えます。読み終えた本を選んで、覚えている一行を書くだけで、その日から相談の材料になります。ブクログ・読書メーター・Kindle に残した記録（レビュー・感想・ハイライト）も、ファイルを選ぶだけで取り込めます。',
+    a: '使えます。読み終えた本を選んで、覚えている一行を書くだけで、その日から相談の材料になります。ブクログ・Kindle に残した記録（レビュー・読書メモ・ハイライト）は、ファイルを選ぶだけで取り込めます。読書メーターは、パソコンで保存したページから取り込めます（感想も入ります）。',
   },
   {
     q: '忙しくて、続けられるか不安です',
@@ -162,7 +164,7 @@ const FAQ_ITEMS = [
   },
   ...(TRIAL_NOTE ? [{
     q: '無料期間のあとは、自動で料金がかかりますか？',
-    a: `プランの無料期間（${TRIAL_NOTE}）が終わると、選んだプラン（月額か年額）で自動更新されます。無料期間が終わる 24 時間前までに App Store のサブスクリプション設定から解約すれば、料金はかかりません。無料期間は、初めて登録する方が対象です。無料プランは期間の決まりがなく、ずっと無料です。`,
+    a: `プランの無料期間（${TRIAL_NOTE}）は、AI を ${TRIAL_TOKENS} トークン（相談 約 ${TRIAL_CONSULTS} 回）まで使えます。無料期間が終わると、選んだプラン（月額か年額）で自動更新されます。無料期間が終わる 24 時間前までに App Store のサブスクリプション設定から解約すれば、料金はかかりません。無料期間は、初めて登録する方が対象です。無料プランは期間の決まりがなく、ずっと無料です。`,
   }] : []),
   {
     q: '解約すると、メモは消えますか？',
@@ -517,8 +519,8 @@ export default function Landing() {
             <div className="lp-grow-grid">
               <article className="lp-grow-item">
                 <h3 className="lp-h3">思い出しカード</h3>
-                <p>忘れかけた頃のメモが、1 枚ずつ戻ってきます。「覚えた」を押すと次は間隔を空け、「もう一度」なら翌日にまた出ます。思い出しの通知は多くても週に 1 回で、オフにもできます。</p>
-                <div className="lp-reveal"><Shot name="recall" alt="思い出しカードの画面。5 か月前に『イシューからはじめよ』p.88 に残したメモが表示され、「覚えた」「もう一度」を選べる" /></div>
+                <p>忘れかけた頃のメモが、1 枚ずつ戻ってきます。「覚えた」を押すと次は間隔を空け、「まだ覚えていない」なら翌日にまた出ます。思い出しの通知は多くても週に 1 回で、オフにもできます。</p>
+                <div className="lp-reveal"><Shot name="recall" alt="思い出しカードの画面。5 か月前に『イシューからはじめよ』p.88 に残したメモが表示され、「覚えた」「まだ覚えていない」を選べる" /></div>
               </article>
               <article className="lp-grow-item">
                 <h3 className="lp-h3">テーマまとめ</h3>
@@ -637,7 +639,7 @@ export default function Landing() {
               <div className="lp-plan">
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" />相談が毎月 {PAID_TOKENS} トークン（約 80 回）。足りない月は追加もできます</li>
+                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" />相談が毎月 {PAID_TOKENS} トークン（約 80 回）。{TRIAL_NOTE && <>無料期間中は <span style={{ whiteSpace: 'nowrap' }}>{TRIAL_TOKENS} トークン</span>（相談 約 {TRIAL_CONSULTS} 回）。</>}足りない月は追加もできます</li>
                   <li><Check size={16} strokeWidth={2.4} aria-hidden="true" />AI 選書・テーマまとめ・読書計画シート・写真からの書き起こし</li>
                 </ul>
                 <div className="lp-plan-rows">
