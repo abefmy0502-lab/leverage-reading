@@ -418,6 +418,8 @@ export default function QuickMemoSheet({
         role="dialog"
         aria-modal="true"
         aria-label="メモを書く"
+        // 閉じている途中の印（下の知らせの位置がシートの高さを避けたまま跳ねないように・Toast.jsx）。
+        data-closing={closing ? 'true' : undefined}
       >
         {/* ハンドル+ヘッダー = 掴んで下に振ると閉じる（iOS シートの標準所作） */}
         <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}>

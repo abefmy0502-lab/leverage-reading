@@ -519,7 +519,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }
     if (need !== cur) sp.style.height = need > 0 ? `${need}px` : '0px';
   }, []);
-  // 答えを待つ時間が長いとき（15 秒たっても 1 文字も来ない）に、静かな 1 行を出す（2026-09-29）。
+  // 答えを待つ時間が長いとき（8 秒たっても 1 文字も来ない）に、静かな 1 行を出す（2026-09-29・15 秒 → 8 秒）。
   const [slowWait, setSlowWait] = useState(false);
   const gotTextRef = useRef(false);
   // Auto-grow textarea: 60px min, 200px max, scrolls past 200.
@@ -783,10 +783,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const top = questionAlignTop(el);
     if (top != null && top > el.scrollTop + 1) el.scrollTop = top;
   }, [messages, busy, view]);
-  // 15 秒たっても 1 文字も来なければ、静かな 1 行（止めるボタンは入力欄の右にそのまま）。
+  // 8 秒たっても 1 文字も来なければ、静かな 1 行（止めるボタンは入力欄の右にそのまま）。
   useEffect(() => {
     if (!busy) { setSlowWait(false); return undefined; }
-    const t = setTimeout(() => { if (!gotTextRef.current) setSlowWait(true); }, 15000);
+    const t = setTimeout(() => { if (!gotTextRef.current) setSlowWait(true); }, 8000);
     return () => clearTimeout(t);
   }, [busy]);
   // 余白は描く前に測り直す（送った直後の送りより先に、上端まで送れる高さにしておく）。
@@ -2650,7 +2650,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
             <div className="ai-skeleton-line" style={{ width: '74%' }} />
             <div className="ai-skeleton-line" style={{ width: '62%' }} />
           </div>
-          {/* 15 秒たっても 1 文字も来ないとき（止めるのは入力欄の右のボタン）。形の下に足すので、骨組みは動かさない。 */}
+          {/* 8 秒たっても 1 文字も来ないとき（止めるのは入力欄の右のボタン）。形の下に足すので、骨組みは動かさない。 */}
           {slow && (
             <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
               時間がかかっています。もう少しお待ちください
