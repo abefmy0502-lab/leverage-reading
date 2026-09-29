@@ -259,8 +259,8 @@ function HomeLoadingSkeleton() {
       <SkeletonBlock height={432} radius="var(--radius)" style={{ border: '1px solid var(--separator)', boxSizing: 'border-box' }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
-        <SkeletonBlock height={90} radius="var(--radius)" />
-        <SkeletonBlock height={90} radius="var(--radius)" />
+        <SkeletonBlock height={90} radius="var(--radius)" style={{ border: '1px solid var(--separator)', boxSizing: 'border-box' }} />
+        <SkeletonBlock height={90} radius="var(--radius)" style={{ border: '1px solid var(--separator)', boxSizing: 'border-box' }} />
       </div>
       <SkeletonBlock height={56} radius="var(--radius)" />
     </div>
@@ -3845,7 +3845,7 @@ function AuthedApp() {
                 )}
 
                 {(effectivePhase === "want" || !current) && (
-                  <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={() => setSearchOpen(true)} allTags={allTags} allFolders={folderNames} />
+                  <WantPhase form={form} setForm={setForm} onSave={handleSave} onSearchOpen={addFromSearchQuery !== null ? undefined : () => setSearchOpen(true)} allTags={allTags} allFolders={folderNames} />
                 )}
                 {effectivePhase === "before" && current && (
                   <BeforePhase

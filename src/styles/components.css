@@ -823,8 +823,8 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
      align-items: start で各カードが行の最大高に伸びないようにする
      (1 つのカードが大きいと grid のデフォルトでは他も縦に伸びてしまう)。*/
   grid-template-columns: repeat(3, 1fr);
-  /* 横は 12、縦（行と行）は 24。左右の余白は親（var(--space-4)）に任せて見出しと左端をそろえる。 */
-  gap: var(--space-6) var(--space-3);
+  /* 横は 12、縦（行と行）は 32（書名 2 行ぶんの高さを取るので、段の中の空きより段の間を広く）。 */
+  gap: var(--space-8) var(--space-3);
   padding: 0 0 var(--space-6);
   align-items: start;
 }

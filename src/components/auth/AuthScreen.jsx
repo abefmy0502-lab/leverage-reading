@@ -384,7 +384,8 @@ export default function AuthScreen() {
           /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */
           <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-4)', textAlign: 'center' }}>
-            Orime は iPhone / iPad のアプリです。登録後はアプリからログインしてください。
+            Orime は iPhone / iPad のアプリです。<br />
+            登録後は、アプリからログインしてください。
           </p>
         )}
         {mode === 'signup' && (
@@ -480,7 +481,7 @@ export default function AuthScreen() {
         )}
         {/* サービス紹介は入力欄の上に積まず、下の文字リンクの並びに（何を押すかを迷わせない）。 */}
         {mode === 'signup' && !isNative && (
-          <a href="/lp" style={btnLink}>サービス紹介を見る</a>
+          <a href="/lp" style={{ ...btnLink, textDecoration: 'none' }}>サービス紹介を見る</a>
         )}
         {mode === 'signin' && (
           <>
