@@ -1106,8 +1106,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   ? e.message
                 : partial
                   ? `${partial}\n\n— 通信が中断されたため、回答はここまでです。`
-                  // 下のボタン（もう一度）と同じ言葉を重ねない。
-                  : '答えを書けませんでした。少し時間をおいて、送り直してください。',
+                  // 下のボタン（もう一度）と同じ言葉を重ねない。答えを書き始める前の失敗は、サーバーが
+                  // トークンを戻しているので、そのことも言う（streamClaude の notCharged・2026-09-29）。
+                  : `答えを書けませんでした。${e?.notCharged ? 'トークンは使っていません。' : ''}少し時間をおいて、送り直してください。`,
               refs: [],
               createdAt: new Date().toISOString(),
               // 通信エラー（ユーザーの中止ではない）はその場で再試行できるように

@@ -152,8 +152,9 @@ const stripLeadingEmoji = (label) => String(label || '').replace(/^[\p{Extended_
 export default function FeedbackForm({ onClose }) {
   const { submitFeedback } = useFeedback();
   const toast = useToast();
-  // カテゴリは最初は選ばない（既定で「要望」が付いたまま不具合の報告が届くのを防ぐ・2026-09-29）。選ぶまで送れない。
-  const [category, setCategory] = useState('');
+  // カテゴリは「その他」を選んだ状態で始める（「要望」が付いたまま不具合の報告が届くのを防ぎつつ、
+  // 選ばないと送れない＝理由の分からない押せないボタン、をなくす・2026-09-29）。
+  const [category, setCategory] = useState('other');
   const [content, setContent] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
