@@ -1523,7 +1523,7 @@ function TrialNudgeCard({ copy, onOpen, onDismiss }) {
       <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase', textWrap: 'pretty' }}>
         {/* 句読点ごとのまとまりで折り返す（「AI／選書」「を試せます。」のように語の途中で割れないように）。
             inline-block なので、文字を大きくして 1 行に収まらないまとまりだけは中で折り返す。 */}
-        {copy.body.split(/(?<=[、。])/).map((part, i) => (
+        {(copy.body.match(/[^、。]+[、。]?|[、。]/g) || []).map((part, i) => (
           <span key={i} style={{ display: 'inline-block' }}>{part}</span>
         ))}
       </p>

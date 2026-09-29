@@ -33,7 +33,14 @@ export default function ErrorMessage({
     <div className="error-message" role="alert">
       {icon && <div className="error-message-icon" aria-hidden="true">{icon}</div>}
       {title && <p className="error-message-title">{title}</p>}
-      {description && <p className="error-message-description">{description}</p>}
+      {description && (
+        <p className="error-message-description">
+          {/* 句読点ごとのまとまりで折り返す（iOS Safari は auto-phrase を知らないので「もう／一度」のように割れる）。 */}
+          {typeof description === 'string'
+            ? (description.match(/[^、。]+[、。]?|[、。]/g) || []).map((part, i) => <span key={i} style={{ display: 'inline-block' }}>{part}</span>)
+            : description}
+        </p>
+      )}
       {actions.length > 0 && (
         <div className="error-message-actions">
           {actions.map((a, i) => (
