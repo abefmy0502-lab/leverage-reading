@@ -278,7 +278,14 @@ export default function QuickMemoSheet({
         cancelLabel: '編集を続ける',
         danger: true,
       });
-      if (!ok) return false;
+      if (!ok) {
+        // 「編集を続ける」: 書いていた場所へすぐ戻れるように本文へフォーカスを戻す（キーボードも戻る）。
+        // 確認の画面が閉じてフォーカスを返し終えてから当てる。
+        setTimeout(() => {
+          try { textRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+        }, 0);
+        return false;
+      }
     }
     animateClose();
     return true;
