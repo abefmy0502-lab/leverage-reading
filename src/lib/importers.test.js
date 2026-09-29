@@ -221,6 +221,30 @@ describe('読書メーター', () => {
     expect(plan.rows.map((r) => [r.existing, r.memos, r.summary])).toEqual([[true, 1, false], [true, 1, false], [false, 2, true], [false, 0, false]]);
     expect(planImport(result, []).existingBooks).toBe(0);
   });
+  it('本棚の本に足すメモは、その本にもう同じ文があれば数えない（取り込みの book_id＋本文と同じ・2026-09-29）', () => {
+    const shelf = [
+      { id: 's1', title: '嫌われる勇気', author: '岸見一郎', leverageMemo: '' },
+      { id: 's2', title: 'エッセンシャル思考', author: 'グレッグ・マキューン' },
+    ];
+    const result = { source: 'kindle', books: [
+      { title: '嫌われる勇気', author: '岸見一郎', review: '課題を分ける', memos: [{ text: 'もうあるメモ' }, { text: ' 新しいメモ ' }, { text: '' }] },
+      { title: '新しい本', author: '著者', review: '', memos: [{ text: 'x' }] },
+      // 副題つき・同じ著者＝本棚の本。書いてあるメモは全部もうある
+      { title: 'エッセンシャル思考 最少の時間で成果を最大にする', author: 'グレッグ・マキューン', memos: [{ text: 'より少なく' }] },
+    ] };
+    const texts = new Map([['s1', new Set(['もうあるメモ', '課題を分ける'])], ['s2', new Set(['より少なく '])]]);
+    const plan = planImport(result, shelf, 300, texts);
+    expect(plan).toMatchObject({ newBooks: 1, existingBooks: 2, existingMemos: 1, memos: 2, matchedIds: ['s1', 's2'] });
+    expect(plan.rows.map((r) => [r.existing, r.memos])).toEqual([[true, 1], [false, 1], [true, 0]]);
+    // 本文が読めなかった（Map が無い）ときは全部数える
+    expect(planImport(result, shelf).existingMemos).toBe(1 + 2 + 1);
+    // 同じ本が 2 行あっても、同じ文は 1 回だけ数える
+    const twice = { source: 'mixed', books: [
+      { title: '嫌われる勇気', author: '岸見一郎', memos: [{ text: 'a' }] },
+      { title: '嫌われる勇気', author: '岸見 一郎', isbn: '', memos: [{ text: 'a' }, { text: 'b' }] },
+    ] };
+    expect(planImport(twice, shelf, 300, new Map()).existingMemos).toBe(2);
+  });
   it('新しい本は一度に 300 冊まで: 本棚の本は数えずに先に除き、残りの冊数を返す（ファイルを読むときは切らない）', () => {
     const rows = ['タイトル,著者'];
     for (let i = 0; i < 350; i += 1) rows.push(`本${i},著者${i}`);

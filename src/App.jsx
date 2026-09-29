@@ -2055,6 +2055,32 @@ function AuthedApp() {
     setTab('review');
   };
 
+  // 📥 取り込みの確かめる画面の数え方用: 本棚の本にもうあるメモの本文（本の id → 本文の Set・2026-09-29）。
+  //   取り込み（下の importLibrary）は book_id＋本文が同じメモを足さないので、確かめる画面でも数えない。
+  //   読めなければ null（確かめる画面は足すメモを全部数える＝今までどおり）。
+  const loadImportMemoTexts = async (bookIds) => {
+    const ids = [...new Set((bookIds || []).filter(Boolean))];
+    const map = new Map(ids.map((id) => [id, new Set()]));
+    if (!ids.length) return map;
+    try {
+      for (let i = 0; i < ids.length; i += 100) {
+        const chunk = ids.slice(i, i + 100);
+        for (let from = 0; ; from += 1000) {
+          // eslint-disable-next-line no-await-in-loop
+          const { data, error } = await supabaseClient.from('book_memos').select('book_id, text')
+            .in('book_id', chunk).order('id', { ascending: true }).range(from, from + 999);
+          if (error) throw error;
+          (data || []).forEach((m) => map.get(m.book_id)?.add((m.text || '').trim()));
+          if (!data || data.length < 1000) break;
+        }
+      }
+      return map;
+    } catch (e) {
+      console.warn('[import] memo texts load failed:', e?.message || e);
+      return null;
+    }
+  };
+
   // 📥 ほかのアプリ（ブクログ・読書メーター・Kindle）から取り込む（ImportSheet → ここで保存）。
   //   本: 本棚に同じ本があればそこに足す・無ければ追加（状態・評価・読了日・タグ・レビューはまとめへ）。
   //   メモ: 元の日付を残す（「いちばん古いのは ◯ か月前」や相談の歩みに効く）。同じ本の同じ文は足さない
@@ -3364,6 +3390,7 @@ function AuthedApp() {
         onImport={importLibrary}
         onUndoImport={undoImport}
         existingBooks={books}
+        loadMemoTexts={loadImportMemoTexts}
         onClose={() => setShowImport(false)}
         // メモも感想も無い新しい本に、初日クイックスタートの「一言」の段から一言を足す（2026-09-29）。
         onAddOneLine={(bare) => {

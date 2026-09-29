@@ -40,7 +40,9 @@ const IMPORT_STATUS_LABEL = { done: '読了', reading: '読書中', before: '積
 // existingBooks: いまの本棚（確かめる画面で「本棚にあります」と数え方を取り込みと揃えるため）。
 // onAddOneLine(books): 完了画面の「覚えている一言を足す（N 冊）」— メモも感想も無い新しい本に、
 //   初日クイックスタートの「一言」の段から一言を足す（App が PastBooksQuickstart を initialBooks で開く）。
-export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, onAddOneLine, existingBooks = [] }) {
+// loadMemoTexts(bookIds): 本棚の本にもうあるメモの本文（Map<id, Set<本文>>・読めなければ null）。確かめる画面で、
+//   同じ文のメモ（取り込みでも足さない）を数えないため（2026-09-29）。
+export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, onAddOneLine, existingBooks = [], loadMemoTexts = null }) {
   const inputRef = useRef(null);
   const [step, setStep] = useState('pick'); // pick | preview | importing | done
   const [error, setError] = useState('');
@@ -50,6 +52,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
   const [undoing, setUndoing] = useState(false);
   // 取り込みを始めたときの見込み（取り込み中は本棚が増えていくので、数え直すと「新しい本」が減って見える）。
   const [planSnap, setPlanSnap] = useState(null);
+  // 本棚の本にもうあるメモの本文（確かめる画面の「新しいメモ M 件」を取り込みと同じ数にする）。
+  const [memoTexts, setMemoTexts] = useState(null);
   const confirm = useConfirm();
 
   const pickFile = () => { setError(''); inputRef.current?.click(); };
@@ -82,6 +86,15 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         setError('読み取れる本がありませんでした。下のどれかのファイルを選んでください。');
         return;
       }
+      // 本棚にある本のメモの本文を先に読む（確かめる画面の数が、出てから減って見えないように）。
+      let texts = null;
+      if (loadMemoTexts) {
+        const ids = planImport(r, existingBooks).matchedIds;
+        if (ids.length) {
+          try { texts = await loadMemoTexts(ids); } catch { texts = null; }
+        }
+      }
+      setMemoTexts(texts);
       setError(''); // 前に選んだファイルの「取り込めませんでした」を残さない
       setResult(r);
       setStep('preview');
@@ -114,7 +127,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
   };
 
   // 本棚と突き合わせた見込み（本が多いファイルでも、描き直すたびに数え直さない）。
-  const livePlan = useMemo(() => (result ? planImport(result, existingBooks) : null), [result, existingBooks]);
+  const livePlan = useMemo(() => (result ? planImport(result, existingBooks, IMPORT_MAX_BOOKS, memoTexts) : null), [result, existingBooks, memoTexts]);
 
   const runImport = async () => {
     if (!result || !livePlan) return;
@@ -131,6 +144,10 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       setError('取り込みの途中で止まりました。通信環境を確認して、もう一度お試しください（取り込めた分は残っています。同じファイルをもう一度選んでも、同じメモは二重になりません）。');
       setPlanSnap(null); // 確かめる画面に戻ったら、いまの本棚で数え直す
       setStep('preview');
+      // 途中まで足したメモは、次の取り込みで足さない。数え直せるように本文を読み直す（読めなければ前のまま）。
+      if (loadMemoTexts && snap.matchedIds?.length) {
+        loadMemoTexts(snap.matchedIds).then((t) => { if (t) setMemoTexts(t); }).catch(() => {});
+      }
     }
   };
 
@@ -178,7 +195,9 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     //   本棚にある本には「メモとして足す」（レビュー・感想もメモ）、新しい本のレビュー・感想は「この本のまとめ」。
     //   まとめもメモ 1 件として数える（ホームの「メモ N 件」・完了画面と同じ数え方）。
     const plan = importing && planSnap ? planSnap : livePlan;
-    const shown = plan.rows.slice(0, 20);
+    // 一覧は新しい本を先に（最大 20 冊）。本棚にある本は 1 行にまとめる（「本棚にある本 N 冊（新しいメモ M 件を足す）」・2026-09-29）。
+    const newRows = plan.rows.filter((r) => !r.existing);
+    const shown = newRows.slice(0, 20);
     // 数と単位は離さない（改行しない空白）。改行してよいのは「ブクログ：」のあとと「（まとめ…）」の前だけ
     // （keep-all なので「・」の前後では切れない＝「・」で終わる行ができない）。
     const countParts = [
@@ -198,15 +217,13 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           {plan.memos > 0 && plan.summaries > 0 && plan.summaries < plan.memos && <><wbr />{`（まとめ\u00a0${plan.summaries}\u00a0件を含む）`}</>}
         </p>
         <ul style={{ ...list, gap: 0 }}>
-          {shown.map(({ book: b, existing, memos: n, summary }, i) => (
-            <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, padding: existing || IMPORT_STATUS_LABEL[b.status] ? 'var(--space-2) 0' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
+          {shown.map(({ book: b, memos: n, summary }, i) => (
+            <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, padding: IMPORT_STATUS_LABEL[b.status] ? 'var(--space-2) 0' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
               <BookOpen size={18} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-                {/* 本棚にある本は新しく作らず、その本にメモとして足す（取り込みと同じ決まり）。 */}
-                {existing && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>本棚にあります（メモとして足す）</span>}
                 {/* 新しい本は、どの状態で入るかを小さく（読了／読書中など・2026-09-29）。 */}
-                {!existing && IMPORT_STATUS_LABEL[b.status] && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{IMPORT_STATUS_LABEL[b.status]}</span>}
+                {IMPORT_STATUS_LABEL[b.status] && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{IMPORT_STATUS_LABEL[b.status]}</span>}
               </span>
               {n > 0 ? (
                 // まとめも入る本は「メモ n・まとめ」（各行を足すと見出しの「メモ M 件（まとめ K 件を含む）」になるように）。
@@ -219,10 +236,28 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
               ) : null}
             </li>
           ))}
+          {newRows.length > shown.length && (
+            <li style={{ display: 'flex', alignItems: 'center', minHeight: 44, borderTop: '1px solid var(--separator)' }}>
+              <span style={{ ...body, fontSize: 'var(--text-meta)' }}>ほか {fmt(newRows.length - shown.length)} 冊</span>
+            </li>
+          )}
+          {/* 本棚にある本は新しく作らず、その本にメモとして足す（取り込みと同じ決まり）。1 行にまとめる。
+              足すメモは、その本にもう同じ文があるものを除いた数（取り込みでも足さない）。 */}
+          {plan.existingBooks > 0 && (
+            <li style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-2) 0', borderTop: newRows.length ? '1px solid var(--separator)' : 'none' }}>
+              <BookOpen size={18} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                <span style={nowrap}>本棚にある本 {fmt(plan.existingBooks)} 冊</span>
+                <wbr />
+                <span style={{ color: 'var(--text-2)' }}>
+                  {plan.existingMemos > 0
+                    ? <>（<span style={nowrap}>新しいメモ {fmt(plan.existingMemos)} 件</span>を足す）</>
+                    : '（足す新しいメモはありません）'}
+                </span>
+              </span>
+            </li>
+          )}
         </ul>
-        {plan.rows.length > shown.length && (
-          <p style={{ ...body, fontSize: 'var(--text-meta)' }}>ほか {plan.rows.length - shown.length} 冊</p>
-        )}
         {/* 読書メーターの一覧はページに分かれている。棚の全冊数より少なければ、残りのページも選んでもらう（2026-09-29）。 */}
         {shortfall && (
           <p role="note" style={body}>
@@ -258,16 +293,23 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         ) : (
           <button type="button" onClick={runImport} style={btnPrimary}>取り込む</button>
         )}
-        <button
-          type="button"
-          onClick={pickFile}
-          disabled={importing}
-          aria-hidden={importing || undefined}
-          tabIndex={importing ? -1 : undefined}
-          style={{ ...btnLink, width: '100%', visibility: importing ? 'hidden' : 'visible' }}
-        >
-          別のファイルを選ぶ
-        </button>
+        {/* 50 冊以上の取り込み中は、「別のファイルを選ぶ」の場所に待ち時間の案内（閉じて途中で止めないように・2026-09-29）。 */}
+        {importing && (plan.books?.length || 0) >= 50 ? (
+          <p style={{ ...body, fontSize: 'var(--text-meta)', textAlign: 'center', minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            <span>1 分ほどかかることがあります。<wbr />画面を開いたままお待ちください</span>
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={pickFile}
+            disabled={importing}
+            aria-hidden={importing || undefined}
+            tabIndex={importing ? -1 : undefined}
+            style={{ ...btnLink, width: '100%', visibility: importing ? 'hidden' : 'visible' }}
+          >
+            別のファイルを選ぶ
+          </button>
+        )}
       </div>
     );
   } else if (step === 'done' && outcome) {

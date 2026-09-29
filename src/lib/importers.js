@@ -17,6 +17,7 @@
 // 画面は src/components/ImportSheet.jsx。保存は App 側（重複は既存の本に足す）。
 
 import { findImportDuplicate } from './checkDuplicate';
+import { LIMITS } from './limits';
 
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 // 一度に取り込める新しい本の数（本棚にもうある本は数えない）。ファイルを読むときには切らず、
@@ -565,12 +566,27 @@ export function mergeImportResults(results) {
 //   - 新しい本のレビュー・感想は「この本のまとめ」に入る＝メモ 1 件として数える（ホームの「メモ N 件」と同じ）
 //   - 新しい本は一度に IMPORT_MAX_BOOKS（300）冊まで。本棚にもうある本は数えずに先に除き、残りの新しい本を
 //     ファイルの順に 300 冊まで取り込む。超えた分（remainingBooks）は、取り込んだあと同じファイルをもう一度選ぶと取り込める。
-// 返り値: { rows: [{ book, existing }], books, fileBooks, remainingBooks, newBooks, existingBooks, memos, summaries }
+//   - 本棚の本に足すメモは、その本にもう同じ文のメモがあれば数えない（取り込みも book_id＋本文で足さない・2026-09-29）。
+//     existingMemoTexts: Map<本の id, Set<本文（前後の空白を除く）>>（App が本棚の本のメモを読んで渡す）。
+//     無い（読めなかった）本は、足すメモを全部数える。
+// 返り値: { rows: [{ book, existing, memos, summary, targetId }], books, fileBooks, remainingBooks, newBooks, existingBooks,
+//   existingMemos, memos, summaries }
 //   books は取り込みに渡す本（rows と同じ順）。fileBooks はファイルにある本の数。
-//   memos はまとめを含むメモの件数（すでに同じ文のメモがあるときは、取り込みで足されないので少し減ることがある）。
-export function planImport(result, shelf, maxNew = IMPORT_MAX_BOOKS) {
+//   memos はまとめを含むメモの件数。existingMemos はそのうち本棚の本に足す新しいメモの件数。
+//   matchedIds（本棚の本の id）は、App がメモの本文を読みにいく本（existingMemoTexts の鍵）。
+const memoKey = (text) => String(text || '').trim().slice(0, LIMITS.memoText || 2000);
+export function planImport(result, shelf, maxNew = IMPORT_MAX_BOOKS, existingMemoTexts = null) {
   const books = Array.isArray(result?.books) ? result.books : [];
-  const plan = { rows: [], books: [], fileBooks: books.length, remainingBooks: 0, newBooks: 0, existingBooks: 0, memos: 0, summaries: 0 };
+  const plan = { rows: [], books: [], fileBooks: books.length, remainingBooks: 0, newBooks: 0, existingBooks: 0, existingMemos: 0, memos: 0, summaries: 0, matchedIds: [] };
+  // 本棚の本ごとに、もうある本文＋この取り込みで足す本文（同じ本に 2 回足さない）。
+  const seen = new Map();
+  const seenFor = (id) => {
+    if (!seen.has(id)) {
+      const had = existingMemoTexts?.get?.(id);
+      seen.set(id, new Set(had ? [...had].map(memoKey) : []));
+    }
+    return seen.get(id);
+  };
   books.forEach((b) => {
     const isbn = String(b.isbn || '').replace(/[^0-9Xx]/g, '');
     const target = findImportDuplicate(shelf, { title: b.title, author: b.author, isbn });
@@ -578,9 +594,20 @@ export function planImport(result, shelf, maxNew = IMPORT_MAX_BOOKS) {
     const review = String(b.review || '').trim();
     if (target) {
       plan.existingBooks += 1;
-      const reviewAsMemo = review && review !== String(target.leverageMemo || '').trim() ? 1 : 0;
-      plan.memos += cards + reviewAsMemo;
-      plan.rows.push({ book: b, existing: true, memos: cards + reviewAsMemo, summary: false });
+      if (target.id != null && !plan.matchedIds.includes(target.id)) plan.matchedIds.push(target.id);
+      const texts = (b.memos || []).map((m) => m?.text);
+      if (review && review !== String(target.leverageMemo || '').trim()) texts.push(review);
+      const have = target.id != null ? seenFor(target.id) : new Set();
+      let fresh = 0;
+      texts.forEach((t) => {
+        const k = memoKey(t);
+        if (!k || have.has(k)) return;
+        have.add(k);
+        fresh += 1;
+      });
+      plan.memos += fresh;
+      plan.existingMemos += fresh;
+      plan.rows.push({ book: b, existing: true, memos: fresh, summary: false, targetId: target.id ?? null });
       plan.books.push(b);
     } else if (plan.newBooks >= maxNew) {
       plan.remainingBooks += 1;
