@@ -100,23 +100,23 @@ describe('planNameFor（設定の「プラン」の行）', () => {
 });
 
 describe('trialRenewalLine（無料期間のあと・設定の「プラン」の行の下）', () => {
-  it('product id から期間を読んで「◯月◯日から 年額 ¥12,800（税込）で自動更新」', () => {
+  it('product id から期間を読んで「その後 年額 ¥12,800（税込）で自動更新」（日付はプランの行にある）', () => {
     expect(planPeriodOf('orime_annual')).toBe('annual');
     expect(planPeriodOf('orime_monthly')).toBe('monthly');
     expect(planPeriodOf('price_1Mx2abc')).toBe('');
-    expect(trialRenewalLine({ priceId: 'orime_annual', trialEnd: '10月4日' })).toBe('10月4日から 年額 ¥12,800（税込）で自動更新');
-    expect(trialRenewalLine({ priceId: 'orime_monthly', trialEnd: '10月4日' })).toBe('10月4日から 月額 ¥1,480（税込）で自動更新');
+    expect(trialRenewalLine({ priceId: 'orime_annual', trialEnd: '10月4日' })).toBe('その後 年額 ¥12,800（税込）で自動更新');
+    expect(trialRenewalLine({ priceId: 'orime_monthly', trialEnd: '10月4日' })).toBe('その後 月額 ¥1,480（税込）で自動更新');
   });
 
   it('期間が分からなければ金額を出さず「プラン」・日付が分からなければ「無料期間のあと」', () => {
-    expect(trialRenewalLine({ priceId: '', trialEnd: '10月4日' })).toBe('10月4日から プラン（自動更新）');
+    expect(trialRenewalLine({ priceId: '', trialEnd: '10月4日' })).toBe('その後 プラン（自動更新）');
     expect(trialRenewalLine({ priceId: 'orime_annual' })).toBe('無料期間のあと 年額 ¥12,800（税込）で自動更新');
   });
 
   it('表示ラベルを差し替えても「月あたり…」を外して使う', () => {
     const labels = { annual: { price: '年額 ¥9,800（税込・月あたり約¥816）' }, monthly: { price: '月額 ¥980' } };
-    expect(trialRenewalLine({ priceId: 'orime_annual', trialEnd: '10月4日', labels })).toBe('10月4日から 年額 ¥9,800（税込）で自動更新');
-    expect(trialRenewalLine({ priceId: 'orime_monthly', trialEnd: '10月4日', labels })).toBe('10月4日から 月額 ¥980で自動更新');
+    expect(trialRenewalLine({ priceId: 'orime_annual', trialEnd: '10月4日', labels })).toBe('その後 年額 ¥9,800（税込）で自動更新');
+    expect(trialRenewalLine({ priceId: 'orime_monthly', trialEnd: '10月4日', labels })).toBe('その後 月額 ¥980で自動更新');
     expect(shortPriceLabel('月額 ¥1,480（税込）')).toBe('月額 ¥1,480（税込）');
   });
 });

@@ -256,7 +256,6 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
   const overdue = !shownDone && n != null && n < 0;
   // メタ行は [本・期限・優先・繰り返し・ページ]。警告色は期限の部分だけ（責めない）。
   const meta = [];
-  let overdueLine = null;
   if (a.bookTitle) meta.push(a.bookTitle);
   if (a.deadline && !a.done) {
     // 「今日」「明日」のグループでは見出しが期限を言っているので繰り返さない。
@@ -264,17 +263,17 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
     const d = parseDeadline(a.deadline);
     const dow = Number.isNaN(d.getTime()) ? '' : `（${'日月火水木金土'[d.getDay()]}）`;
     const isOver = n != null && n < 0;
-    const label = isOver ? `期限 ${fmtShort(a.deadline)}（過ぎています）`
+    // 期限を過ぎた行動は「期限を過ぎた行動（N）」の見出しの下にだけ並ぶので「（過ぎています）」は繰り返さない。
+    const label = isOver ? `期限 ${fmtShort(a.deadline)}`
       : n === 0 || n === 1 ? null
       : `期限 ${fmtShort(a.deadline)}${dow}`;
-    // 期限切れはメタ行の最後に独立した 1 行で出す（display:block・下の区切り「・」も付けない）。
-    if (label && !isOver) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap' }}>{label}</span>);
-    if (label && isOver) overdueLine = <span key="dl" style={{ display: 'block', whiteSpace: 'nowrap', color: overdue ? 'var(--warning)' : 'var(--text-3)' }}>{label}</span>;
+    // 期限切れも本と同じ 1 行に（「本・期限 9/26」・警告色は期限の部分だけ・2026-09-29）。
+    //   期限はまとまりで折り返す（nowrap）ので、長い書名のときだけ次の行に回る。
+    if (label) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap', ...(isOver ? { color: overdue ? 'var(--warning)' : 'var(--text-3)' } : null) }}>{label}</span>);
   }
   if (a.priority === 'high') meta.push('優先');
   if (a.recurrence) meta.push(a.recurrence === 'weekly' ? '毎週' : '毎月');
   if (a.sourcePage) meta.push(`p.${a.sourcePage}`);
-  if (overdueLine) meta.push(overdueLine);
 
   const inner = (
     <div {...longPress.bind} style={card}>
@@ -297,7 +296,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
         </p>
         {meta.length > 0 && (
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
-            {meta.map((m, i) => <span key={i}>{i > 0 && !(overdueLine && m?.key === 'dl') && '・'}{m}</span>)}
+            {/* 期限は前の「・」ごと 1 つの塊に（行末に「・」だけが残らないように） */}
+            {meta.map((m, i) => <span key={i} style={m?.key === 'dl' ? { whiteSpace: 'nowrap' } : undefined}>{i > 0 && '・'}{m}</span>)}
           </p>
         )}
         {a.done && a.reflection && (
@@ -350,8 +350,11 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
       >
         <X size={18} aria-hidden="true" />
       </button>
+      {/* ✓ と文は、行動の行の丸（押せる範囲 44・24 の印）と文の位置にそろえる（同じ場所で入れ替わって見えるように）。 */}
       <p style={{ margin: 0, paddingRight: 'var(--space-8)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-        <CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0, marginTop: 2 }} />
+        <span aria-hidden="true" style={{ flexShrink: 0, width: 44, height: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CheckCircle2 size={24} style={{ color: 'var(--success)' }} />
+        </span>
         {/* 「完了しました」は下の知らせ（元に戻す つき）の 1 か所だけで伝える。ここはどの行動かだけ（2026-09-29）。 */}
         <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{stripInlineMd(a.text)}</span>
       </p>
@@ -458,9 +461,12 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     // 取り消しは下のトーストで（スクロールしていても見える・トーストはタブの上に浮く）。
     if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
     showToastPad(true);
-    lastToastRef.current = toast.success('行動を完了しました', {
+    // 「元に戻す」つきは toast.undo にそろえる（中立の Undo2 の印・DESIGN §5 トースト・2026-09-29）。
+    lastToastRef.current = toast.undo({
+      message: '行動を完了しました',
       duration: TOAST_MS,
-      action: { label: '元に戻す', onClick: () => undoComplete(a) },
+      destructive: false,
+      onUndo: () => undoComplete(a),
     });
   };
 
@@ -531,11 +537,12 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         <EmptyState
           icon={<ListTodo size={32} strokeWidth={1.5} aria-hidden="true" />}
           title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>相談の答えや、</span><span style={{ display: 'inline-block' }}>メモから行動を作れます</span></>}
-          actions={onGoConsult
-            ? [{ label: '相談する', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: onGoConsult, variant: 'secondary' }]
-            : canAdd
-              ? [{ label: '行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction, variant: 'secondary' }]
-              : onGoToBooks ? [{ label: '本を追加する', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks, variant: 'secondary' }] : []}
+          // 相談へ（主な入口）＋ 自分で書く「行動を追加」（2026-09-29・相談しなくても行動を置ける）。
+          actions={[
+            ...(onGoConsult ? [{ label: '相談する', icon: <MessageCircle size={18} aria-hidden="true" />, onClick: onGoConsult, variant: 'secondary' }] : []),
+            ...(canAdd ? [{ label: '行動を追加', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddAction, variant: onGoConsult ? 'ghost' : 'secondary' }] : []),
+            ...(!onGoConsult && !canAdd && onGoToBooks ? [{ label: '本を追加する', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToBooks, variant: 'secondary' }] : []),
+          ]}
         />
       </div>
     );

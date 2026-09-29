@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { invalidateKnowledgeCache } from '../lib/ai';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
@@ -319,6 +319,8 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
         )}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
           {showRelative ? relativeJa(memo.createdAt) : fmtDate(memo.createdAt)}
+          {/* ページは日付と同じ行に（「5 か月前 · p.88」・別の行にすると本文との間が空く・2026-09-29） */}
+          {memo.pageNumber != null && !isPersonal && <> · p.{memo.pageNumber}</>}
           {/* 「…」（横・DESIGN §5）。押せる範囲 44 は保ち、行の高さは負の余白で増やさない。 */}
           {onOpenMenu && (
             <button
@@ -335,9 +337,6 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
       </div>
       {/* 本へのリンク (個人学び以外) */}
       {hasBookLink && !bookInHeader && bookButton(false)}
-      {memo.pageNumber != null && !isPersonal && (
-        <span style={{ display: 'inline-block', marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>p.{memo.pageNumber}</span>
-      )}
       {memo.text && (
         <>
           <p
@@ -424,8 +423,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // seed=0 固定だと pool が同じ限り毎回同じメモが出て「偶然の再会」にならない。
   // 初期値をランダムにして、開くたびに違う一枚が戻ってくるようにする
   // （「別のメモを見る」の setRandomSeed でさらに回せる）。
+  // お試しモード（開発専用）では最初の 1 枚を固定する（スクリーンショットを撮り直しても同じカード）。
   const [randomSeed, setRandomSeed] = useState(() => (
-    Number.isFinite(resumedReview?.randomSeed) ? resumedReview.randomSeed : Math.floor(Math.random() * 233280)
+    Number.isFinite(resumedReview?.randomSeed) ? resumedReview.randomSeed
+      : isDemo ? 0 : Math.floor(Math.random() * 233280)
   ));
   const [flipping, setFlipping] = useState(false);
   const flipTimerRef = useRef(null);
@@ -851,11 +852,12 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     reroll();
     const nextCount = recallPatch(memo.recallCount, mastered).recall_count;
     const days = dueGapDays(nextCount);
-    toast.show({
-      type: 'info',
+    // 「元に戻す」つきの知らせは toast.undo にそろえる（中立の Undo2 の印・DESIGN §5 トースト・2026-09-29）。
+    toast.undo({
       message: days <= 1 ? '明日また出します' : `${days} 日後にまた出します`,
       duration: 5000,
-      action: { label: '元に戻す', onClick: () => undoRandomRecall(memo, prev, prevSeed) },
+      destructive: false,
+      onUndo: () => undoRandomRecall(memo, prev, prevSeed),
     });
     return true;
   };
@@ -1271,7 +1273,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       <section>
         {/* 「メモを追加」（高さ 44）と並ぶので、行の下の余白は付けない（見出しの文字から一覧まで約 8〜12）。
             行の高さ 44 の上側の空き（約 12）ぶん引き上げ、思い出しカードから見出しの文字までを約 24 にそろえる。 */}
-        <div style={{ display: 'flex', justifyContent: allNotes.length > 1 ? 'space-between' : 'flex-start', alignItems: 'center', marginTop: 'calc(-1 * var(--space-3))' }}>
+        {/* 見出しが無い（メモ 1 件で「メモを追加」だけ）ときは引き上げない＝思い出しカードのボタンに寄って見えないように。 */}
+        <div style={{ display: 'flex', justifyContent: allNotes.length > 1 ? 'space-between' : 'flex-start', alignItems: 'center', marginTop: allNotes.length > 1 ? 'calc(-1 * var(--space-3))' : 0 }}>
           {allNotes.length > 1 && <h2 style={{ ...sectionTitle, margin: 0 }}>月ごとのメモ</h2>}
           {/* ＋メモを追加 — 旧・最上段の孤立ボタンをここへ（メモ一覧の傍が住処。
               付け先の本＝読書中/読了の本がある時だけ）。 */}

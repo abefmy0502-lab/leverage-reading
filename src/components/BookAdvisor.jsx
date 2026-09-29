@@ -83,7 +83,6 @@ const advisorOptionChip = {
   touchAction: 'manipulation',
 };
 // 「読みたいに追加」後の表示（押せない状態はボタンではなく文字で示す。相談の「行動に追加しました」と同じ）。
-const addedNote = { display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' };
 // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
 const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' };
 const advisorOptionChipSelected = { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
@@ -1463,9 +1462,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         </div>
       )}
       {recoError && !recoLoading && !recoNotice && (
+        // 失敗の文は 1 つの言い方にそろえる（題＋次にすること・内部の文言を見せない・2026-09-29）。
         <ErrorMessage
           icon={null}
-          description={recoError}
+          title="本を探せませんでした"
+          description="通信の状態を確かめて、もう一度お試しください。"
           actions={[{
             label: 'もう一度試す',
             // 同じ相談・同じ答えで送り直す（控えが無いときだけ最初から）。
@@ -1580,25 +1581,24 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                   </div>
                 )}
                 <div ref={(el) => { if (el) addRowRefs.current[rec.title] = el; else delete addRowRefs.current[rec.title]; }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
-                  {added ? (() => {
-                    // 追加した本を開ける（トーストの「開く」を見逃しても、ここから 1 タップで本の詳細へ）。
-                    const addedBook = onOpenBook ? findDuplicateBook(books || [], rec) : null;
-                    return addedBook ? (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onOpenBook(addedBook); }}
-                        aria-label={`『${rec.title}』は追加済みです。開く`}
-                        style={{ ...addedNote, background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', cursor: 'pointer', alignSelf: 'flex-start' }}>
-                        <IcCheck size={16} aria-hidden="true" />追加済み・開く ›
+                  {(added || findDuplicateBook(books || [], rec)) ? ((() => {
+                    // 追加した本・もう本棚にある本は、押す前の「読みたいに追加」と同じ箱（高さ 48・全幅）のまま
+                    // 「✓ 追加済み・開く」に替える（行の高さが変わらない・トーストを見逃してもここから本の詳細へ）。
+                    const shelfBook = onOpenBook ? findDuplicateBook(books || [], rec) : null;
+                    const label = added ? '追加済み' : '本棚にあります';
+                    const check = <IcCheck size={18} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0 }} />;
+                    return shelfBook ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onOpenBook(shelfBook); }}
+                        aria-label={`『${rec.title}』は${label === '追加済み' ? '追加済みです' : '本棚にあります'}。開く`}
+                        style={{ ...uiBtnGhost, touchAction: 'manipulation' }}>
+                        {check}{label}・開く
                       </button>
                     ) : (
-                      <p role="status" style={addedNote}>
-                        <IcCheck size={16} aria-hidden="true" />追加済み
+                      <p role="status" style={{ ...uiBtnGhostOff, margin: 0, cursor: 'default', color: 'var(--text-2)' }}>
+                        {check}{label}
                       </p>
                     );
-                  })() : findDuplicateBook(books || [], rec) ? (
-                    // すでに本棚にある本は追加させない（押すと重複の確認が出て戻るだけだった）
-                    <p role="status" style={{ ...addedNote, color: 'var(--text-2)' }}>
-                      <IcCheck size={16} aria-hidden="true" />本棚にあります
-                    </p>
+                  })()
                   ) : checkingTitles.has(rec.title) ? (
                     // 同じ本かを確かめている間（確認で追加するまでは「追加済み」にしない）。薄くせず文言で示す。
                     <button type="button" disabled aria-busy="true" style={{ ...uiBtnGhostOff, touchAction: 'manipulation' }}>

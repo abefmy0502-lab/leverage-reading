@@ -113,9 +113,12 @@ const CTA_SHORT = '無料ではじめる';
 const MONTHLY = 1480;
 const ANNUAL = 12800;
 const SAVE = savingsLabel(MONTHLY, ANNUAL);
-const PRICE_LINE = TRIAL_NOTE
-  ? `App Store から無料でダウンロード。無料プランはずっと無料。プランは${TRIAL_SENT}で、その後は月額 ¥1,480 または年額 ¥12,800（税込）。無料期間中に解約すれば料金はかかりません`
-  : 'App Store から無料でダウンロード。無料プランはずっと無料。プランは月額 ¥1,480 または年額 ¥12,800（税込）';
+// 最後のボタンの下の注記（2 行以内・2026-09-29）。金額と自動更新・解約の条件は料金の欄（lp-pricing）で言う。
+//   句ごとの塊（inline-block）で組み、「7 / 日間」のように語の途中で折り返さない。
+const PRICE_LINE = [
+  '無料プランは、ずっと無料。',
+  TRIAL_NOTE ? `プランは ${TRIAL_NOTE}・いつでも解約できます。` : 'プランは、いつでも解約できます。',
+];
 
 // 🗣 お客様の声。実在ユーザーの許可を得た本物の声だけを入れる（捏造・盛りは絶対 NG）。
 // 形式: { quote, who: '30代・営業', how: '部下との 1on1 の前に相談している' }。空なら節ごと出ない。
@@ -490,7 +493,7 @@ export default function Landing() {
                   <p>いつ何を読んだか、決めた行動をどこまでやれたか、前にどんな相談をしたかも踏まえて答えます。相談する本を、1 冊や数冊に絞ることもできます。</p>
                 </div>
                 <div className="lp-step-shot lp-reveal">
-                  <Shot name="sources" alt="相談の答えの下に「もとになった本」として『イシューからはじめよ』『1兆ドルコーチ』p.95『数値化の鬼』が並ぶ画面" />
+                  <Shot name="sources" ratio={[390, 844]} alt="相談の答えの下に「もとになった本」として『イシューからはじめよ』『1兆ドルコーチ』p.95『数値化の鬼』が並ぶ画面" />
                 </div>
               </li>
               <li className="lp-step">
@@ -500,7 +503,7 @@ export default function Landing() {
                   <p>答えに付く「明日からできる一歩」は、ボタン 1 つで行動リストに入ります。期限を過ぎたもの・今日・今週の順に並ぶので、やることを見失いません。</p>
                 </div>
                 <div className="lp-step-shot lp-reveal">
-                  <Shot name="action" alt="行動の画面。本から生まれた行動が、今週と来週以降に分かれて期限つきで並ぶ" />
+                  <Shot name="action" ratio={[390, 844]} alt="行動の画面。本から生まれた行動が、今週と来週以降に分かれて期限つきで並ぶ" />
                 </div>
               </li>
             </ol>
@@ -639,8 +642,9 @@ export default function Landing() {
               <div className="lp-plan">
                 <p className="lp-plan-name"><span>プラン{TRIAL_FIRST && <span className="lp-plan-trial">（{TRIAL_FIRST}）</span>}</span></p>
                 <ul className="lp-included" aria-label="プランに含まれるもの">
-                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" />相談が毎月 {PAID_TOKENS} トークン（約 80 回）。{TRIAL_NOTE && <>無料期間中は <span style={{ whiteSpace: 'nowrap' }}>{TRIAL_TOKENS} トークン</span>（相談 約 {TRIAL_CONSULTS} 回）。</>}足りない月は追加もできます</li>
-                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" />AI 選書・テーマまとめ・読書計画シート・写真からの書き起こし</li>
+                  {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む（文の途中で別の塊に割れないように） */}
+                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>相談が毎月 {PAID_TOKENS} トークン（約 80 回）。{TRIAL_NOTE && <>無料期間中は <span style={{ whiteSpace: 'nowrap' }}>{TRIAL_TOKENS} トークン</span>（相談 約 {TRIAL_CONSULTS} 回）。</>}足りない月は追加もできます</span></li>
+                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>AI 選書・テーマまとめ・読書計画シート・写真からの書き起こし</span></li>
                 </ul>
                 <div className="lp-plan-rows">
                   <div className="lp-plan-row">
@@ -699,7 +703,7 @@ export default function Landing() {
                 <StoreCta className="lp-btn lp-btn-large" loc="final">{CTA_LABEL}</StoreCta>
                 <StoreQr />
               </div>
-              <p className="lp-cta-note">{PRICE_LINE}。いつでも解約できます。</p>
+              <p className="lp-cta-note">{PRICE_LINE.map((t) => <span key={t}>{t}</span>)}</p>
             </div>
             <p className="lp-story">
               <span>Orime（オリメ）の名前は</span><span>「折り目」から。</span><span>大切なページの角を折るように、</span><span>心が動いた一行に</span><span>印をつけておけるアプリを</span><span>目指しています。</span>

@@ -498,7 +498,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。無料期間はプランごと・使える人にだけ。
                 <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-3)' }}>
                   {/* 無料期間に使える量も添える（「無料で何ができるか」が分かる・2026-09-29 オーナー裁定） */}
-                  {trial && <>{trialFirstPhrase(trial)}<span style={{ whiteSpace: 'nowrap' }}>（{TRIAL_TOKENS_NOTE}）</span></>}
+                  {/* かっこで包まず「・」で続ける（2026-09-29）。折り返すのは「無料・」の後だけ。 */}
+                  {trial && <><span style={{ whiteSpace: 'nowrap' }}>{trialFirstPhrase(trial)}・</span><span style={{ whiteSpace: 'nowrap' }}>{TRIAL_TOKENS_NOTE}</span></>}
                   <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {trial ? 'その後 ' : ''}{billedShort} で自動更新
                   </span>
