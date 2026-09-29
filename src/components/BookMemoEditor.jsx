@@ -454,8 +454,8 @@ export default function BookMemoEditor({
             if (dirty) {
               const ok = await confirmDialog({
                 title: '保存していない変更があります',
-                message: '破棄すると、この変更は失われます。',
-                confirmLabel: '破棄する',
+                message: '消すと、書いたことは元に戻せません。',
+                confirmLabel: '書いたことを消す',
                 cancelLabel: '編集を続ける',
                 danger: true,
               });

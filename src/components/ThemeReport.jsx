@@ -732,19 +732,22 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                   {extractCore(reportText) && <CoreCard line={extractCore(reportText)} />}
                   <MarkdownSections text={stripCoreSection(reportText)} />
                   {/* 次の一歩を 1 タップで行動リストへ（この画面の主ボタン）。「次の一歩」のカードのすぐ下に置く */}
-                  {nextStep && (
+                  {/* 追加したあとは相談と同じ形: 「行動に追加しました（期限は明日）」＋ 見る（2026-09-29）。 */}
+                  {nextStep && actionAdded && (
+                    <p role="status" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-1)', minHeight: 44, margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
+                      <CheckCircle2 size={16} aria-hidden="true" />行動に追加しました（期限は明日）
+                      {onOpenActions && <button type="button" onClick={() => onOpenActions()} aria-label="追加した行動を見る" style={{ ...uiBtnLink, marginLeft: 'var(--space-1)' }}>見る</button>}
+                    </p>
+                  )}
+                  {nextStep && !actionAdded && (
                     <button
                       type="button"
-                      onClick={actionAdded ? (() => onOpenActions?.()) : handleAddNextStep}
+                      onClick={handleAddNextStep}
                       disabled={actionBusy}
                       // 名前は見えている文字のまま（aria-label で別の言葉にしない・2026-09-29）
-                      style={actionAdded ? btnGhost : actionBusy ? uiBtnPrimaryOff : uiBtnPrimary}
+                      style={actionBusy ? uiBtnPrimaryOff : uiBtnPrimary}
                     >
-                      {actionAdded ? (
-                        <><CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)' }} />行動に追加しました・見る<ChevronRight size={18} aria-hidden="true" /></>
-                      ) : actionBusy ? '追加中…' : (
-                        <>この一歩を行動に追加</>
-                      )}
+                      {actionBusy ? '追加中…' : 'この一歩を行動に追加'}
                     </button>
                   )}
                   {truncated && (

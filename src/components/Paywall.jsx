@@ -41,7 +41,7 @@ import { toMessage } from '../lib/errors';
 import { APP_STORE_URL, isAppStoreLive } from '../lib/appStore';
 import { exportMemosAsMarkdown } from '../lib/exportData';
 import { track, EVENTS } from '../lib/analytics';
-import { demoScenario, supabase, isSupabaseConfigured } from '../lib/supabase';
+import { demoScenario, isDemo, supabase, isSupabaseConfigured } from '../lib/supabase';
 import { MiniCover } from './BookCards';
 import { btnPrimary, btnPrimaryOff, btnLink, groupTitle, card } from '../styles/ui';
 import ErrorMessage from './ErrorMessage';
@@ -313,8 +313,28 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
 
   const handleSubscribe = async () => {
     if (pending) return;
+    if (!isNative && isDemo) {
+      // お試しモード（開発専用）: 実際の購入は呼ばず、契約できたことにして先へ進める
+      // （トークンの購入と同じ・「購入できません」の知らせが主ボタンに重なっていた・2026-09-29）。
+      setPending(plan);
+      try {
+        const now = Date.now();
+        const days = trial ? 7 : plan === 'monthly' ? 30 : 365;
+        await supabase.from('subscriptions').upsert({
+          user_id: user?.id, status: 'active', provider: 'demo',
+          price_id: plan === 'monthly' ? 'orime_monthly' : 'orime_annual',
+          period_type: trial ? 'trial' : 'normal',
+          current_period_end: new Date(now + days * 86400000).toISOString(),
+        }, { onConflict: 'user_id' });
+        toast.success('ご契約ありがとうございます。');
+        await onPurchased?.();
+      } finally {
+        setPending(null);
+      }
+      return;
+    }
     if (!isNative) {
-      // 表示プレビュー（開発専用）: 実際の購入は呼ばない。
+      // 表示プレビュー: 実際の購入は呼ばない。
       toast.info('プレビューでは購入できません。');
       return;
     }

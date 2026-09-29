@@ -167,7 +167,7 @@ const MAX_INTERVIEW_ROUNDS = 3;
 const advisorMemory = { uid: null, state: null };
 
 
-export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook }) {
+export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
   const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens } = usePaywall();
@@ -1221,7 +1221,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       {/* 入力欄の「いまの課題を書いてください」と同じ問い（課題から本を選ぶ・2026-09-29） */}
       {showStartHeading && <h2 style={headingStyle}>いま、どんなことに困っていますか</h2>}
 
-      {/* Example chips — タップで textarea に流し込む（送信はしない）。 */}
+      {/* Example chips — タップでそのまま送る（相談の相談例と同じ・2026-09-29）。
+          無料プランで有料プランの画面が開いたときは、入力欄に残す。 */}
       {showConcernInput && !showErrorState && (
         <div className="example-chips" style={{ marginTop: showStartHeading ? 'var(--space-6)' : 'var(--space-2)' }}>
           <p className="example-chips-label">たとえば</p>
@@ -1230,7 +1231,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               type="button"
               key={ex}
               className="example-chip"
-              onClick={() => setInput(ex)}
+              onClick={() => { setInput(ex); startInterview(ex); }}
             >
               {ex}
             </button>
@@ -1579,11 +1580,21 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                   </div>
                 )}
                 <div ref={(el) => { if (el) addRowRefs.current[rec.title] = el; else delete addRowRefs.current[rec.title]; }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
-                  {added ? (
-                    <p role="status" style={addedNote}>
-                      <IcCheck size={16} aria-hidden="true" />追加済み
-                    </p>
-                  ) : findDuplicateBook(books || [], rec) ? (
+                  {added ? (() => {
+                    // 追加した本を開ける（トーストの「開く」を見逃しても、ここから 1 タップで本の詳細へ）。
+                    const addedBook = onOpenBook ? findDuplicateBook(books || [], rec) : null;
+                    return addedBook ? (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onOpenBook(addedBook); }}
+                        aria-label={`『${rec.title}』は追加済みです。開く`}
+                        style={{ ...addedNote, background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                        <IcCheck size={16} aria-hidden="true" />追加済み・開く ›
+                      </button>
+                    ) : (
+                      <p role="status" style={addedNote}>
+                        <IcCheck size={16} aria-hidden="true" />追加済み
+                      </p>
+                    );
+                  })() : findDuplicateBook(books || [], rec) ? (
                     // すでに本棚にある本は追加させない（押すと重複の確認が出て戻るだけだった）
                     <p role="status" style={{ ...addedNote, color: 'var(--text-2)' }}>
                       <IcCheck size={16} aria-hidden="true" />本棚にあります

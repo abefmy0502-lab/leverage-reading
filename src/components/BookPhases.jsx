@@ -76,6 +76,8 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
   const { uploadCover } = useBookCover();
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
+  // 状態のチップが自動で入れた読書開始日か（自分で入れた日付・もともとの日付は、読みたい／積読へ戻しても消さない）。
+  const autoStartRef = useRef(false);
 
   const onPickCover = async (e) => {
     const file = e.target.files?.[0];
@@ -215,11 +217,18 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
                 title={s.def}
                 onClick={() => {
                   const today = todayLocal();
+                  // 日付は選んだ状態から決め直す（読了→読書中に戻したら読了日を消す・読みたい／積読に戻したら
+                  // チップが入れた開始日を消す）。
+                  const started = s.v === 'reading' || s.v === 'done';
+                  // 更新関数の外で決める（StrictMode で更新関数が 2 回呼ばれても印がずれないように）。
+                  let startDate = form.startDate;
+                  if (started && !form.startDate) { startDate = today; autoStartRef.current = true; }
+                  else if (!started && autoStartRef.current) { startDate = ''; autoStartRef.current = false; }
                   setForm((f) => ({
                     ...f,
                     status: s.v,
-                    startDate: (s.v === 'reading' || s.v === 'done') && !f.startDate ? today : f.startDate,
-                    doneDate: s.v === 'done' && !f.doneDate ? today : f.doneDate,
+                    startDate,
+                    doneDate: s.v === 'done' ? (f.doneDate || today) : '',
                   }));
                 }}
               >

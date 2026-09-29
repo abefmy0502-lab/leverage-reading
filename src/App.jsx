@@ -784,6 +784,8 @@ function AuthedApp() {
   // The "+" button opens this first; from here the user picks the
   // search path (default) or jumps to manual entry.
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
+  // 検索結果の「追加済み」から開いた本の id（詳細の ‹・戻るで検索結果へ戻すため）。
+  const [detailFromSearchId, setDetailFromSearchId] = useState(null);
   // 新しく本を追加するフォームの「‹ 戻り先」。openAdd を押した場所（'home' / 'library'）と、
   // 検索（AddBookModal）から来たときの検索語（null＝検索を通っていない）。
   const [addOrigin, setAddOrigin] = useState('library');
@@ -867,7 +869,7 @@ function AuthedApp() {
     onBack: () => {
       if (view === 'edit' && current) { setEditPhaseOverride(null); setView('detail'); }
       else if (view === 'edit') leaveNewBookForm();
-      else goList();
+      else leaveDetail();
     },
   });
   // ブラウザ / Android の「戻る」: 深い画面では ‹・左端スワイプと同じ 1 段戻る（一番上では普通に離れる）。
@@ -896,7 +898,7 @@ function AuthedApp() {
         if (current) { setEditPhaseOverride(null); setView('detail'); } else leaveNewBookForm();
         return true;
       }
-      if (view === 'detail') { goList(); return true; }
+      if (view === 'detail') { leaveDetail(); return true; }
       if (tab === 'ai' && consultPushed) { window.dispatchEvent(new Event('orime:consult-back')); return true; }
       if (tab === 'books' && shelfMode === 'library') { leaveLibrary(); return true; }
       return true;
@@ -1539,7 +1541,14 @@ function AuthedApp() {
   // quickMemoOpen / fullEditorPrefill もリセットする — edge-swipe back や BottomNav
   // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
   // 開いた別の本の詳細でシートが勝手に開いてしまう。
-  const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); };
+  const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setDetailFromSearchId(null); setJustMadePlanId(null); };
+  // 本の詳細から 1 段戻る: 検索結果の「追加済み」から開いた本なら、さっきの検索結果へ戻す（2026-09-29）。
+  const leaveDetail = () => {
+    const toSearch = !!detailFromSearchId && current?.id === detailFromSearchId;
+    goList();
+    if (toSearch) setAddBookModalOpen(true);
+  };
+  const detailBackToSearch = !!detailFromSearchId && current?.id === detailFromSearchId;
   // 新しく本を追加するフォームから 1 段戻る: 検索から来たら検索へ（さっきの言葉のまま）、それ以外は一覧へ。
   const leaveNewBookForm = () => {
     const fromSearch = addFromSearchQuery !== null;
@@ -2547,6 +2556,8 @@ function AuthedApp() {
   // （もう一度「作る」を押させない・2026-09-29）。進み具合はボタンの場所に出す（planGen）。
   // 得たいことが無ければ書かないと作れないので、従来どおり編集画面（openSetup）へ。
   const [planGen, setPlanGen] = useState(null); // { bookId, text } 作っている間だけ
+  // その場で作り終えた本の id。できたシートを開いたまま見せる（作ったのに畳まれて見えない、をなくす）。
+  const [justMadePlanId, setJustMadePlanId] = useState(null);
   const runStrategyInPlace = async (book) => {
     if (!book?.id || planGen) return;
     const src = buildFormFromBook(book); // 得たいことが空なら AI 選書の入力で埋まる（編集画面と同じ）
@@ -2565,6 +2576,7 @@ function AuthedApp() {
       };
       // 保存を待たずに詳細へ出す（ボタンに戻ってから「できています」に変わる、のちらつきを出さない）。
       setCurrent((c) => (c && c.id === bookId ? { ...c, ...fields, aiStrategy: sheet } : c));
+      setJustMadePlanId(bookId);
       persistPlanSheet(bookId, sheet, '読書計画シートを保存しました', fields);
     } catch (error) {
       if (error?.monthlyLimit) toast.info(error.message);
@@ -3394,7 +3406,17 @@ function AuthedApp() {
                   </div>
                 );
               }
-              // 完了済み: 控えめな完了表示 + 編集導線
+              // 完了済み: 控えめな完了表示 + 編集導線。
+              // いま作ったばかりでシートを開いて見せているときは「できています」は言わない（見ればわかる）。
+              if (justMadePlanId === current.id) {
+                return (
+                  <div style={{ marginTop: 'var(--space-3)' }}>
+                    <button type="button" onClick={() => openSetup(current)} style={{ ...btnText, fontSize: 'var(--text-sub)' }}>
+                      読書計画シートを編集する
+                    </button>
+                  </div>
+                );
+              }
               return (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
                   <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0 }}>
@@ -3479,7 +3501,8 @@ function AuthedApp() {
           <section style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {planItems.map((p) => <Card key={p.label} label={p.label} text={p.text} style={{ marginTop: 0 }} />)}
           {current.aiStrategy && (
-            <details style={{ ...detailsStyle, marginTop: 0 }}>
+            // その場で作り終えた直後は開いたまま（key を変えて、開いた状態で置き直す）。
+            <details key={justMadePlanId === current.id ? 'plan-made' : 'plan'} open={justMadePlanId === current.id || undefined} style={{ ...detailsStyle, marginTop: 0 }}>
               <summary style={summaryStyle}>
                 読書計画シート
                 <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
@@ -3538,8 +3561,8 @@ function AuthedApp() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 20・間 0・見た目の左端 16・本文サイズ・--accent）。 */}
-            <button onClick={goList} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
-              <ChevronLeft size={20} aria-hidden="true" />{tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : aiSubTab === 'report' ? 'テーマまとめ' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
+            <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
+              <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : aiSubTab === 'report' ? 'テーマまとめ' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
               <button
@@ -3776,6 +3799,12 @@ function AuthedApp() {
                 >
                   {nextLabel[current.status]}
                 </button>
+                {/* 読みたい: 積読に積むと何ができるかを 1 行（読書計画シートは積読から作れる・2026-09-29）。 */}
+                {current.status === 'want' && (
+                  <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
+                    積読に積むと、読書計画シートが作れます
+                  </p>
+                )}
                 {/* 読みたいだけ: 主ボタン「積読に積む」のすぐ下に文字ボタン（積読では「読書を開始する」と
                     行き先が同じで二重になるので出さない）。ワンタップで読書中にして、そのままメモを開く。 */}
                 {current.status === 'want' && (
@@ -4651,7 +4680,9 @@ function AuthedApp() {
             </div>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<ReviewNoteFallback />}>
-                <Review books={books} onOpenBook={(b, memoId) => { openDetail(b, memoId); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }} />
+                <Review books={books} onOpenBook={(b, memoId) => { openDetail(b, memoId); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
+                  // メモ検索で見つからなかった言葉を、相談の入力欄に入れて開く（送らない・2026-09-29）。
+                  onAskConsult={(q) => { setAskPreset({ question: q, nonce: Date.now(), draft: true }); setView('list'); setAiSubTab('brain'); setTab('ai'); }} />
               </Suspense>
             ) : booksLoadError && rawBooks.length === 0 ? (
               // 本（行動も本に入っている）を読み込めなかったときは、「行動 0 件」「読んだ本 0」を出さない。
@@ -4758,6 +4789,7 @@ function AuthedApp() {
                     onManualBook={(seed) => { addStatusPresetRef.current = ''; setAddOrigin('advisor'); openManualFromAdd(seed); setAddFromSearchQuery(null); }}
                     sessionApi={advisorSessions}
                     books={books}
+                    onOpenBook={(b) => openDetail(b)}
                   />
                 </Suspense>
               ) : aiSubTab === 'report' ? (
@@ -5252,9 +5284,12 @@ function AuthedApp() {
             onManual={openManualFromAdd}
             initialQuery={addFromSearchQuery || ''}
             existingBooks={books}
-            onOpenExisting={(existing) => {
+            onOpenExisting={(existing, query) => {
               setAddBookModalOpen(false);
+              // 詳細の ‹ 検索・「戻る」で、さっきの言葉の検索結果へ戻れるように覚えておく。
+              if (typeof query === 'string') setAddFromSearchQuery(query);
               openDetail(existing);
+              setDetailFromSearchId(existing.id);
             }}
           />
         </Suspense>

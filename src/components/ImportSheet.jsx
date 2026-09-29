@@ -44,6 +44,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [outcome, setOutcome] = useState(null);
   const [undoing, setUndoing] = useState(false);
+  // 取り込みを始めたときの見込み（取り込み中は本棚が増えていくので、数え直すと「新しい本」が減って見える）。
+  const [planSnap, setPlanSnap] = useState(null);
   const confirm = useConfirm();
 
   const pickFile = () => { setError(''); inputRef.current?.click(); };
@@ -101,6 +103,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
 
   const runImport = async () => {
     if (!result) return;
+    setPlanSnap(planImport(result, existingBooks));
     setStep('importing');
     setProgress({ done: 0, total: result.books.length });
     try {
@@ -109,6 +112,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       setStep('done');
     } catch {
       setError('取り込みの途中で止まりました。通信環境を確認して、もう一度お試しください（取り込めた分は残っています。同じファイルをもう一度選んでも、同じメモは二重になりません）。');
+      setPlanSnap(null); // 確かめる画面に戻ったら、いまの本棚で数え直す
       setStep('preview');
     }
   };
@@ -156,7 +160,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     // 本棚と突き合わせて、取り込みと同じ決まりで数える（lib/importers.js の planImport・2026-09-29）:
     //   本棚にある本には「メモとして足す」（レビュー・感想もメモ）、新しい本のレビュー・感想は「この本のまとめ」。
     //   まとめもメモ 1 件として数える（ホームの「メモ N 件」・完了画面と同じ数え方）。
-    const plan = planImport(result, existingBooks);
+    const plan = importing && planSnap ? planSnap : planImport(result, existingBooks);
     const shown = plan.rows.slice(0, 20);
     // 数と単位は離さない（改行しない空白）。改行してよいのは「ブクログ：」のあとと「（まとめ…）」の前だけ
     // （keep-all なので「・」の前後では切れない＝「・」で終わる行ができない）。
@@ -246,17 +250,6 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       memos > 0 ? `メモ\u00a0${memos}\u00a0件` : '',
     ].filter(Boolean);
     const summaryNote = memos > 0 && reviews > 0 ? <><wbr />{`（まとめ\u00a0${reviews}\u00a0件を含む）`}</> : null;
-    // したことを 1 文に（例「本 2 冊を追加・1 冊にメモを足しました。」）。最後だけ「〜ました」。
-    // 数と単位は改行しない空白でつなぐ。「この本のまとめ」はかぎかっこの中で切らない（nowrap）。
-    const matome = <span style={nowrap}>「この本のまとめ」</span>;
-    // 読書メーターでは「感想」と呼ぶ（ブクログは「レビュー」）。
-    const reviewWord = result?.source === 'bookmeter' ? '感想' : 'レビュー';
-    const did = any ? [
-      outcome.booksAdded > 0 ? [`本 ${outcome.booksAdded} 冊を追加`, `本 ${outcome.booksAdded} 冊を追加しました`] : null,
-      outcome.booksMatched > 0 ? [`${outcome.booksMatched} 冊にメモを足し`, `${outcome.booksMatched} 冊にメモを足しました`] : null,
-      reviews > 0 ? [<>{reviewWord}を{matome}に入れ</>, <>{reviewWord}を{matome}に<span style={nowrap}>入れました</span></>] : null,
-    ].filter(Boolean) : [];
-    const didParts = did.map((d, i) => (i === did.length - 1 ? d[1] : d[0]));
     content = (
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
         {error && <ErrorMessage icon={null} title="取り消せませんでした" description={error} />}
@@ -265,13 +258,15 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           {headParts.length > 0 ? <>{headParts.join(KEEP_DOT)}{summaryNote}を<wbr />取り込みました</>
             : <>新しく取り込むものは<wbr />ありませんでした</>}
         </p>
+        {/* したことは見出しの 1 行だけ（同じ数を言い直す 2 行目は置かない・2026-09-29）。 */}
+        {!any && (
         <p style={body}>
-          {didParts.length > 0 && <>{didParts.map((p, i) => <span key={i}>{i > 0 ? '・' : ''}{p}</span>)}。</>}
-          {!any && outcome.booksAdded > 0 && '本棚に並べました。読みながらメモを残すと、相談の根拠になります。'}
-          {!any && outcome.booksAdded > 0 && outcome.booksMatched > 0 && `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。`}
+          {outcome.booksAdded > 0 && '本棚に並べました。読みながらメモを残すと、相談の根拠になります。'}
+          {outcome.booksAdded > 0 && outcome.booksMatched > 0 && `ほかの ${outcome.booksMatched} 冊は、すでに本棚にあります。`}
           {/* 「です。」だけが次の行に残らないよう、最後の句はまとめて折り返す。 */}
-          {!any && outcome.booksAdded === 0 && <>このファイルの本とメモは、<span style={nowrap}>すでに取り込み済みです。</span></>}
+          {outcome.booksAdded === 0 && <>このファイルの本とメモは、<span style={nowrap}>すでに取り込み済みです。</span></>}
         </p>
+        )}
       </div>
     );
     // 閉じる入口は 1 つだけ: 相談できるときは右上の「完了」、何も入らなかったときは下の「閉じる」。

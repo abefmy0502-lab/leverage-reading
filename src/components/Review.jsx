@@ -407,7 +407,7 @@ const rememberReview = (userId, patch) => {
   Object.assign(reviewSession, patch);
 };
 
-export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf }) {
+export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf, onAskConsult }) {
   const { user } = useAuth();
   const resumedReview = useRef(reviewSessionFor(user?.id)).current;
   const toast = useToast();
@@ -1115,9 +1115,16 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           )}
         </div>
         {isSearching && (filteredSearch.length === 0 ? (
+          // 見つからないときの次の一歩: 検索を消す／相談で聞く（相談は入力欄に入れるだけで送らない・2026-09-29）。
           <EmptyState
             icon={<SearchIcon size={32} strokeWidth={1.5} aria-hidden="true" />}
             title="このキーワードに関連するメモはまだありません"
+            actions={[
+              { label: '検索を消す', onClick: () => { setSearch(''); setTagFilter(''); setKindFilter('all'); }, variant: 'secondary' },
+              ...(onAskConsult && search.trim()
+                ? [{ label: '相談で聞く', onClick: () => onAskConsult(`「${search.trim()}」について、読んだ本から何が言える？`), variant: 'secondary' }]
+                : []),
+            ]}
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>

@@ -1029,6 +1029,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (!consumePreset('ask', askPreset.nonce)) return;
     setView('chat');
     if (Array.isArray(askPreset.bookIds)) setScopeIds(askPreset.bookIds);
+    // 下書きだけ（振り返りのメモ検索で見つからなかった言葉など）: 送らずに入力欄へ入れる（勝手にトークンを使わない）。
+    if (askPreset.draft) { setInput(askPreset.question); return; }
     // ホームの相談例「前に相談した「…」、その後どう進める？」なら、その相談と答えを文脈として渡す。
     const cont = lastConsult ? buildConsultExamples({ lastConsult, count: 1 })[0] : null;
     const prior = cont && cont.kind === 'continue' && cont.text === askPreset.question ? { prior: lastConsult } : {};
@@ -2600,7 +2602,8 @@ function ScopeBar({ label, scoped, onOpen, onReset, disabled, mode = null, onOpe
   );
 }
 
-// 📚 答え方のシート（まとめて / 本ごとに）。選んだらその場で効く＝右上は「完了」・下の決定ボタンは無し。
+// 📚 答え方のシート（まとめて / 本ごとに）。行を押すと選んで閉じる＝右上は何も変えずに閉じる「キャンセル」
+// （相談相手のシート・ほかのシートと同じ閉じ方・2026-09-29）。下の決定ボタンは無し。
 // 行の形は相談相手のシートと同じ（選んだ行は右端のチェックだけ）。
 function AnswerModeSheet({ value, onClose, onSelect }) {
   const rowStyle = {
@@ -2609,7 +2612,7 @@ function AnswerModeSheet({ value, onClose, onSelect }) {
     border: '1px solid var(--separator)', background: 'var(--surface)',
   };
   return (
-    <BottomSheet title="答え方" onClose={onClose}>
+    <BottomSheet title="答え方" onClose={onClose} dismissLabel="キャンセル">
       <div role="radiogroup" aria-label="答え方" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingBottom: 'var(--space-2)' }}>
         {ANSWER_MODES.map((m) => {
           const on = value === m.id;

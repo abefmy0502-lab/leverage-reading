@@ -526,7 +526,8 @@ export default function ReadingRecord({
       </section>
 
       <section style={card}>
-        <h3 style={cardTitle}>月別の読了</h3>
+        {/* 直近 6 か月だけなので、見出しで範囲を言う（それより前の読了は数に入らない・2026-09-29）。 */}
+        <h3 style={cardTitle}>月別の読了（直近 6 か月）</h3>
         <MonthBars buckets={doneBuckets} activeColor="var(--accent)" />
       </section>
     </div>

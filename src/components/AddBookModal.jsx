@@ -439,7 +439,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   const handlePick = (book, opts = {}) => {
     // 既に本棚にある本は追加せず、その本を開く。
     if (opts.isExisting && opts.existing) {
-      onOpenExisting?.(opts.existing);
+      onOpenExisting?.(opts.existing, query);
       return;
     }
     onSelect?.(book, query);

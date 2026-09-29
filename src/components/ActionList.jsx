@@ -433,9 +433,10 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       // （中央の ✓ と下のバーが同時に 2 つ出ていた・2026-09-29）。
       if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
       showToastPad(true);
+      // 取り消すのは「完了」（ふりかえりを消すのではない）ので、何が戻るかを文言で言う（2026-09-29）。
       lastToastRef.current = toast.success('ふりかえりを残しました。次の相談で使います。', {
         duration: TOAST_MS,
-        action: { label: '元に戻す', onClick: () => undoComplete(c.a) },
+        action: { label: '完了を取り消す', onClick: () => undoComplete(c.a) },
       });
     }
   };

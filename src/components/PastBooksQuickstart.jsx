@@ -234,17 +234,18 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
     // 本棚の本に一言を足しているとき（取り込みのあと）: 消えるのは書いた一言だけ。
     if (seeded) {
       return confirm({
-        title: '書いたことを破棄しますか？',
+        title: '書いたことを消しますか？',
         message: '本は本棚に入っています。書いた一言だけが消えます。',
-        confirmLabel: '破棄する',
+        confirmLabel: '書いたことを消す',
         cancelLabel: '続ける',
         danger: true,
       });
     }
     return confirm({
-      title: wrote ? '選んだ本と書いたことを破棄しますか？' : '選んだ本を破棄しますか？',
+      // 「破棄」は硬いので、何が消えるかをそのまま言う（2026-09-29）。
+      title: wrote ? '選んだ本と書いたことを消しますか？' : '選んだ本を消しますか？',
       message: `選んだ ${picked.length} 冊は、まだ本棚に入っていません。`,
-      confirmLabel: '破棄する',
+      confirmLabel: wrote ? '書いたことを消す' : '選んだ本を消す',
       cancelLabel: '続ける',
       danger: true,
     });

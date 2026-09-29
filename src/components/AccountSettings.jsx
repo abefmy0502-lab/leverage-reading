@@ -941,12 +941,19 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {/* 管理ボタンを出せない契約状態では、探させずにその場で連絡導線を置く
                     （旧: 「画面下部のお問い合わせから」と下端リンクを自力で
                     探させる行き止まりだった）。一覧の行として置く（枠のボタンにしない）。 */}
+                {/* Web で見ている App Store の契約: App Store のサブスクリプション画面を開ける行（iPhone なら App Store が開く・2026-09-29）。 */}
+                {!isNative && !subscription?.stripeCustomerId && (
+                  <button type="button" onClick={() => openManageSubscriptions()} style={{ ...rowButtonStyle, ...divider }}>
+                    <span style={{ ...rowTitleStyle, flex: 1 }}>サブスクリプションを管理</span>
+                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  </button>
+                )}
                 {!isNative && !subscription?.stripeCustomerId && (
                   <a
-                    href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更の相談')}`}
+                    href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('解約・プラン変更について')}`}
                     style={{ ...rowButtonStyle, ...divider, textDecoration: 'none', boxSizing: 'border-box' }}
                   >
-                    <span style={{ ...rowTitleStyle, flex: 1 }}>解約・変更の相談</span>
+                    <span style={{ ...rowTitleStyle, flex: 1 }}>解約・変更について問い合わせる</span>
                     <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </a>
                 )}

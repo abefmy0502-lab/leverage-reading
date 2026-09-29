@@ -92,6 +92,20 @@ const swatchBtn = {
   borderRadius: 'var(--radius-full)',
   flexShrink: 0,
 };
+// 名前つきの地の見本（丸の下に 12 の名前・押せる範囲は 44 以上）。
+const swatchLabeledBtn = {
+  ...swatchBtn,
+  width: 'auto',
+  minWidth: 44,
+  height: 'auto',
+  minHeight: 44,
+  flexDirection: 'column',
+  gap: 'var(--space-1)',
+  padding: 'var(--space-1)',
+  borderRadius: 'var(--radius)',
+  fontFamily: 'inherit',
+};
+const swatchLabel = (on) => ({ fontSize: 'var(--text-meta)', lineHeight: 1.2, fontWeight: on ? 600 : 400, color: on ? 'var(--text)' : 'var(--text-2)', whiteSpace: 'nowrap' });
 const ring = (on) => (on ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)' : 'inset 0 0 0 1px var(--border)');
 const swatchDot = (bg, on) => ({ width: 28, height: 28, borderRadius: 'var(--radius-full)', background: bg, boxShadow: ring(on) });
 // 透明の見本・プレビューの地（暗い市松＝白い文字が見える。画像には入らない）。
@@ -528,12 +542,14 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
                 : <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />}
               {photo ? '写真' : '写真を選ぶ'}
             </button>
+            {/* 丸だけでは何の地か分からないので、下に小さく名前を出す（2026-09-29）。 */}
             {['paper', 'night', 'cover', 'sticker'].map((v) => (
-              <button key={v} type="button" role="radio" aria-checked={effStyle === v} aria-label={STYLE_LABELS[v]} title={STYLE_LABELS[v]} onClick={() => setStyle(v)} style={swatchBtn}>
+              <button key={v} type="button" role="radio" aria-checked={effStyle === v} onClick={() => setStyle(v)} style={swatchLabeledBtn}>
                 {v === 'cover' && !assets?.cover
                   // 表紙を読み込むまでは、表紙の色が分からないので骨組みの丸（代用の色を一瞬出さない）。
                   ? <SkeletonBlock width={28} height={28} radius="var(--radius-full)" style={{ boxShadow: ring(effStyle === v) }} />
                   : <span aria-hidden="true" style={swatchDot(v === 'sticker' ? checker(8) : swatchColor(v), effStyle === v)} />}
+                <span style={swatchLabel(effStyle === v)}>{STYLE_LABELS[v]}</span>
               </button>
             ))}
           </div>
