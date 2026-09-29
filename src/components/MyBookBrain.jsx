@@ -420,6 +420,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // learningOpen state は廃止 — view === 'learning' で表現する。
   const [memoStats, setMemoStats] = useState({ cards: 0, summaries: 0, personal: 0 });
   const [memoStatsLoaded, setMemoStatsLoaded] = useState(false);
+  // メモの件数を数えられなかった（通信断など）。0 件と取り違えて「まだメモがありません」を出さない。
+  const [memoStatsFailed, setMemoStatsFailed] = useState(false);
   const [statsTick, setStatsTick] = useState(0);
   const messagesEndRef = useRef(null);
   // ストリーミング中の AbortController。送信ごとに作り直し、「中止」ボタンで
@@ -600,6 +602,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         if (isFilled(b.ai_strategy)) n += 1;
         return sum + n;
       }, 0);
+      if (cardsRes.error || personalRes.error) {
+        setMemoStatsFailed(true);
+        return;
+      }
+      setMemoStatsFailed(false);
       setMemoStats({
         cards: cardsRes.count || 0,
         personal: personalRes.count || 0,
@@ -607,6 +614,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       });
      } catch (e) {
       console.warn('memo stats fetch error:', e?.message || e);
+      if (!cancelled) setMemoStatsFailed(true);
      } finally {
       // 数え終わるまで空の画面（相談例 / 初日の入口）を出さない（出してから入れ替わるちらつきの防止）。
       if (!cancelled) setMemoStatsLoaded(true);
@@ -1030,7 +1038,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const ownMemoTotal = memoStats.cards + memoStats.personal;
   // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
   // 数え終わるまでは出しておく（メモのある大多数の人で、読み込み後にチップが増えて跳ねないように）。
-  const modeApplies = scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0);
+  const modeApplies = scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0 || memoStatsFailed);
   // 🌱 相談相手が育ってきました（lib/trialNudge.js・2026-09-28）: 無料プランで自分のメモが 10 件たまったら、
   //    会話の場所のいちばん上に 1 回だけ、7 日間無料（使えないと分かれば「プランを見る」）をすすめる。
   //    閉じる・押すで二度と出さない。お試しモードでは ?demo=freegrown のときだけ出す（ほかの撮影を変えない）。
@@ -1286,7 +1294,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   すべての本に相談する
                 </button>
               </section>
-            ) : ownMemoTotal === 0 ? (
+            ) : ownMemoTotal === 0 && !memoStatsFailed ? (
               // メモ（カード式＋学び）0 件: 質問させる前に「これまで読んだ本から始める」（根拠が無いと空振りするため）。
               // 読書計画・まとめだけの人もここ（上の行の件数とは別に、メモの件数で決める・SPEC §3）。
               <section style={cardStyle} aria-labelledby="brain-start-title">
@@ -1403,7 +1411,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? (memoStatsLoaded && ownMemoTotal > 0 && !planOut && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
+          {historyLoaded && !busy && (isEmpty ? (memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
             <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-6) 0 0', lineHeight: 1.5 }}>
               AI の回答には誤りが含まれることがあります
             </p>

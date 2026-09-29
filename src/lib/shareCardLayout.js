@@ -310,7 +310,9 @@ export function buildShareText({ title, line, siteUrl }) {
 export function shareFilename({ format = 'story', style = 'paper', now = new Date() } = {}) {
   const pad = (n) => String(n).padStart(2, '0');
   const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
-  return `orime-${format}-${style}-${stamp}.png`;
+  // 透明（ステッカー）は形の名前も sticker なので、同じ語を 2 回並べない。
+  const kind = format === style ? format : `${format}-${style}`;
+  return `orime-${kind}-${stamp}.png`;
 }
 
 // ---------------------------------------------------------------- 表紙の色

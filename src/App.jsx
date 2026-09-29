@@ -122,7 +122,7 @@ import ContextMenu from './components/ContextMenu';
 import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
 import { useLongPress } from './hooks/useLongPress';
-import { useEdgeSwipeBack, isBackBlocked } from './hooks/useEdgeSwipeBack';
+import { useEdgeSwipeBack, isBackBlocked, useBackBlocked } from './hooks/useEdgeSwipeBack';
 import { useHistoryBack } from './hooks/useHistoryBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
 import { useSubscription } from './hooks/useSubscription';
@@ -798,10 +798,13 @@ function AuthedApp() {
     },
   });
   // ブラウザ / Android の「戻る」: 深い画面では ‹・左端スワイプと同じ 1 段戻る（一番上では普通に離れる）。
+  // 書きかけのシートが開いている間は 1 段深い扱い（一番上の画面でも「戻る」でアプリを離れて下書きが消えないように）。
+  const backBlocked = useBackBlocked();
   useHistoryBack({
     depth: (tab === 'books' && shelfMode === 'library' ? 1 : 0)
       + (view === 'detail' ? 1 : view === 'edit' ? (current ? 2 : 1) : 0)
-      + (tab === 'ai' && aiSubTab === 'brain' && consultPushed && view === 'list' ? 1 : 0),
+      + (tab === 'ai' && aiSubTab === 'brain' && consultPushed && view === 'list' ? 1 : 0)
+      + (backBlocked ? 1 : 0),
     onBack: async () => {
       if (isBackBlocked()) return false; // 書きかけのシートが開いている間は戻らない
       if (view === 'edit') {
@@ -4360,6 +4363,15 @@ function AuthedApp() {
               <Suspense fallback={<Spinner />}>
                 <Review books={books} onOpenBook={(b) => { openDetail(b); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }} />
               </Suspense>
+            ) : booksLoadError && rawBooks.length === 0 ? (
+              // 本（行動も本に入っている）を読み込めなかったときは、「行動 0 件」「読んだ本 0」を出さない。
+              <div style={{ padding: 'var(--space-4)' }}>
+                <ErrorMessage
+                  title="本を読み込めませんでした"
+                  description="通信環境を確認して、もう一度お試しください。"
+                  actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
+                />
+              </div>
             ) : reviewSubTab === 'record' ? (
               <Suspense fallback={<Spinner />}>
                 <ReadingRecord

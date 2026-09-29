@@ -4,21 +4,30 @@
 // Activates only when the touch starts within `edgeWidth` of the left edge,
 // then tracks rightward drag. Release past `threshold` calls onBack.
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 
 // 書きかけの入力（メモのシート・全画面エディタ・下から出るシート）が開いている間は、
 // 左端スワイプで画面を戻さない（確認なしに下書きが消える事故の防止・2026-09-27）。
 // 開いている部品が useBlockEdgeSwipe(true) で数を足し、閉じたら戻す。
 let blockers = 0;
+const listeners = new Set();
+const notify = () => listeners.forEach((fn) => fn());
 export function useBlockEdgeSwipe(active = true) {
   useEffect(() => {
     if (!active) return undefined;
     blockers += 1;
-    return () => { blockers = Math.max(0, blockers - 1); };
+    notify();
+    return () => { blockers = Math.max(0, blockers - 1); notify(); };
   }, [active]);
 }
 // ブラウザの「戻る」（useHistoryBack）も同じ条件で止める。
 export const isBackBlocked = () => blockers > 0;
+// シートが開いているかを画面の深さに足すための購読（一番上の画面でも履歴を 1 つ積み、
+// 「戻る」でアプリごと離れて書きかけが消えないようにする・2026-09-29）。
+const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
+export function useBackBlocked() {
+  return useSyncExternalStore(subscribe, isBackBlocked, () => false);
+}
 
 const DEFAULT_EDGE_WIDTH = 24;
 const DEFAULT_THRESHOLD = 80;

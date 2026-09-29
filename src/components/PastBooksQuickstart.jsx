@@ -20,6 +20,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { searchBooks } from '../lib/bookSearch';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { invalidateKnowledgeCache } from '../lib/ai';
@@ -173,6 +174,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   const [saveProgress, setSaveProgress] = useState({ done: 0, total: 0 }); // 保存中の進み具合（冊）
   const memoRef = useRef(null);
   const searchRef = useRef(null);
+  // 選んだ本・書いた一言がまだ保存されていない間は、ブラウザの「戻る」でアプリごと離れて消えないようにする。
+  useBlockEdgeSwipe(picked.length > 0 && (step === 'pick' || step === 'memo' || step === 'saving'));
 
   useEffect(() => { track('quickstart_started'); }, []);
   useEffect(() => { if (step === 'memo') memoRef.current?.focus(); }, [step, idx]);

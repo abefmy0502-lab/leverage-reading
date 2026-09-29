@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom';
 import { LIMITS } from '../lib/limits';
 import { useConfirm } from './ConfirmDialog';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { ArrowUp, Minus, ArrowDown, X } from 'lucide-react';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, groupTitle, input as uiInput } from '../styles/ui';
 
@@ -143,6 +144,8 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
   useEffect(() => { busyRef.current = busy; }, [busy]);
   const confirm = useConfirm();
   const trapRef = useFocusTrap(true);
+  // 開いている間は左端スワイプ・ブラウザの「戻る」で画面ごと離れない（書きかけの行動を失わない）。
+  useBlockEdgeSwipe(true);
 
   useEffect(() => {
     // IME 変換中の Esc（変換キャンセル）でモーダルごと閉じて下書きを失わない

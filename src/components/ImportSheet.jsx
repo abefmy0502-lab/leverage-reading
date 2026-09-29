@@ -50,6 +50,7 @@ export default function ImportSheet({ onImport, onClose, onAsk }) {
         setError('読み取れる本がありませんでした。下のどれかのファイルを選んでください。');
         return;
       }
+      setError(''); // 前に選んだファイルの「取り込めませんでした」を残さない
       setResult(r);
       setStep('preview');
       track('import_previewed', { source: r.source, ...summarizeImport(r) });
