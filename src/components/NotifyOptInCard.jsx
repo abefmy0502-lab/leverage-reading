@@ -77,7 +77,7 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
       </div>
       {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（語の途中で割らない） */}
       <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-        {withPhraseBreaks('多くても週に 1 回、前に残したメモを 1 件だけお届けします。設定からいつでもオフにできます。')}
+        {withPhraseBreaks('多くても週に 1\u00a0回、前に残したメモを 1\u00a0件だけお届けします。設定からいつでもオフにできます。')}
       </p>
       <button type="button" onClick={enable} disabled={busy} style={{ ...(busy ? off : on), marginTop: 'var(--space-3)' }} aria-busy={busy || undefined}>
         {busy ? '設定しています…' : '通知を受け取る'}

@@ -3,6 +3,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
 import { BookOpen, MessageCircle, X, ChevronLeft } from 'lucide-react';
 import { btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
+import { withPhraseBreaks } from './TightBubble';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
@@ -22,7 +23,7 @@ const slides = [
   {
     Icon: BookOpen,
     title: 'まずは、これまで読んだ本から',
-    body: '覚えていることを一言ずつ。5 分で、あなたの相談相手ができます。',
+    body: '覚えていることを一言ずつ。5\u00a0分で、あなたの相談相手ができます。',
   },
 ];
 
@@ -293,11 +294,9 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           >
             {slide.title}
           </h2>
-          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', margin: 0, wordBreak: 'auto-phrase', textWrap: 'pretty' }}>
-            {/* 句読点ごとのまとまりで折り返す（「困った／ときに」のように語の途中で割らない） */}
-            {(slide.body.match(/[^、。]+[、。]?/g) || [slide.body]).map((part, i) => (
-              <span key={i} style={{ display: 'inline-block' }}>{part}</span>
-            ))}
+          {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（「困った／ときに」のように語の途中で割らない・iOS の Safari は auto-phrase を知らない） */}
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
+            {withPhraseBreaks(slide.body)}
           </p>
         </div>
 

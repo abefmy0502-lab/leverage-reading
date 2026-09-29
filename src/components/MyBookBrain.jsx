@@ -870,7 +870,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const grown = wasAborted ? 0 : await growthPromise;
       const persistRefs = wasAborted ? [] : [
         ...(evidence ? [`${EVIDENCE_PREFIX}${evidence}`] : []),
-        ...(grown > 0 && memoCount > 0 ? [`${GROWTH_PREFIX}前の相談から メモ +${grown} 件`] : []),
+        // 関係するメモが無かった答え（トークンを返した）には、積み重ねの一行を付けない（効いていないので）
+        ...(grown > 0 && memoCount > 0 && !tokenRefund ? [`${GROWTH_PREFIX}前の相談から メモ +${grown} 件`] : []),
         ...(Array.isArray(quoteRefs) ? quoteRefs : []),
         ...(tokenRefund ? [`${REFUND_PREFIX}${REFUND_NOTE}`] : []),
         ...(refs || []),
@@ -2096,7 +2097,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   // 関係するメモが無くてトークンを返したとき（答えの下に 13/--text-2 の一行）
   const refundNote = allRefs.some((r) => String(r).startsWith(REFUND_PREFIX)) ? REFUND_NOTE : '';
   const renderRefund = () => (refundNote && !isStreaming ? (
-    <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{refundNote}</p>
+    <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(refundNote)}</p>
   ) : null);
   const nBooks = refBookCount(refsList);
   // 📚 本ごとの答え。書いている途中も同じ形で見せる（出来上がりで形が跳ねないように）。

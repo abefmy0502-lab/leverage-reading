@@ -177,13 +177,16 @@ export function parseKindleClippings(text) {
 }
 
 // ── Kindle アプリのノートブック（HTML エクスポート）────────────────────
-const decodeEntities = (s) => String(s || '')
-  .replace(/<br\s*\/?>/gi, '\n')
-  .replace(/<[^>]+>/g, '')
+// 文字参照だけを戻す（属性の値＝読書メーターの data-modal の JSON にも使う）。&amp; は最後に。
+const decodeHtmlEntities = (s) => String(s || '')
   .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
   .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
-  .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+  .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(Number(n)); } catch { return ''; } })
+  .replace(/&#x([0-9a-f]+);/gi, (_, n) => { try { return String.fromCodePoint(parseInt(n, 16)); } catch { return ''; } })
   .replace(/&amp;/g, '&');
+const decodeEntities = (s) => decodeHtmlEntities(String(s || '')
+  .replace(/<br\s*\/?>/gi, '\n')
+  .replace(/<[^>]+>/g, ''));
 
 export function parseKindleNotebookHtml(html) {
   const s = String(html || '');
