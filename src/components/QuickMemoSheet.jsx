@@ -267,8 +267,9 @@ export default function QuickMemoSheet({
   // 破棄され AI コストだけ消費する。busy と同格のガードにする。
   // 書きかけの本文がある時は、backdrop/Esc/下スワイプのどこから閉じても
   // 一度だけ確認を挟む（誤タップ 1 回で下書きが消える事故を防ぐ）。
+  // 閉じ始めたら true、閉じなかったら（保存中・「編集を続ける」）false を返す（「戻る」の積み直しに使う）。
   const requestClose = async () => {
-    if (busy || condensing) return;
+    if (busy || condensing) return false;
     if (text.trim()) {
       const ok = await confirmDialog({
         title: '保存していない変更があります',
@@ -277,17 +278,19 @@ export default function QuickMemoSheet({
         cancelLabel: '編集を続ける',
         danger: true,
       });
-      if (!ok) return;
+      if (!ok) return false;
     }
     animateClose();
+    return true;
   };
 
-  // 書きかけ（本文あり・保存中・凝縮中）の間は、左端スワイプ・ブラウザの「戻る」で画面を戻さない
-  // （確認なしに下書きが消えないように）。空のときは止めず、「戻る」でこのシートだけを閉じる
-  // （空のシートで「戻る」が効かないと閉じ方が分からない・2026-09-29）。深さはどちらでも 1 段で変わらない。
-  const dirty = !!text.trim() || busy || condensing;
-  useBlockEdgeSwipe(dirty);
-  useBackLayer(!dirty, () => requestClose());
+  // 開いている間は左端スワイプで画面を戻さない。ブラウザ / Android の「戻る」はこのシートだけを閉じる
+  // （空ならそのまま・書きかけがあれば確認・2026-09-29）。
+  // 書きかけがあれば背景を押したときと同じ「保存していない変更があります」を出す（requestClose）。
+  // overBlock: 自分の useBlockEdgeSwipe があっても「戻る」をこのシートに渡す。
+  // requestClose が false（保存中・「編集を続ける」）を返したら、App は履歴を積み直してその場に留まる。
+  useBlockEdgeSwipe(true);
+  useBackLayer(true, () => requestClose(), { overBlock: true });
 
   // 下スワイプで閉じる（iOS のシート標準所作。ハンドル/ヘッダー起点のみ —
   // 本文 textarea のスクロール/選択とは競合させない）。

@@ -131,9 +131,13 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
     rawMemosRef.current = seeded;
   }
   useEffect(() => {
-    const seeded = isUsableBookId ? (cache.getMemos(bookId) || []) : [];
+    const cached = isUsableBookId ? cache.getMemos(bookId) : null;
+    const seeded = cached || [];
     rawMemosRef.current = seeded;
     setRawMemos(seeded);
+    // キャッシュが無い本に切り替わったら、取得が終わるまで「読み込み中」（空の一覧を一瞬出してから
+    // メモで押し下げると画面が跳ねる・2026-09-29）。
+    if (isUsableBookId && !cached) setLoading(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
 

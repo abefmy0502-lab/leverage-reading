@@ -18,6 +18,7 @@ import { track } from '../lib/analytics';
 import { btnPrimary, card, input, groupTitle } from '../styles/ui';
 import { buildConsultExamples, countSummaryMemos } from '../lib/consultHelpers';
 import { loadDefaultJapaneseParser } from 'budoux';
+import { SkeletonBlock } from './Skeleton';
 
 // 相談例は文節（BudouX）の切れ目でだけ折り返す（「使え／る」「ヒ／ント」のように語の途中で割れないように）。
 // iOS の Safari は word-break: auto-phrase を知らないので、keep-all＋<wbr> で切れ目を渡す（App.jsx の書名と同じ）。
@@ -48,10 +49,23 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
   const memoCount = cardCount == null ? null : cardCount + summaryCount;
   const [memoBookIds, setMemoBookIds] = useState(null);
   const [lastQuestion, setLastQuestion] = useState(null); // 前の相談（「前に相談した「…」、その後どう進める？」）
-  const examples = useMemo(
+  // 相談例は、材料（メモのある本・前の相談）がそろってから 1 回だけ出す（2026-09-29）。
+  // 以前は読み込み後 1 秒ほどで前の相談が届いて例が入れ替わり、1 つ目の例が 77px ずれていた。
+  // そろうまでは同じ高さの形（Skeleton）。待つのは最大 600ms（遅い回線でも待たせすぎない）。
+  // 一度出した例は、この画面を開いている間は変えない（押そうとした例が動かないように）。
+  const [examplesReady, setExamplesReady] = useState(() => !user || !isSupabaseConfigured || bookCount === 0);
+  useEffect(() => {
+    if (examplesReady) return undefined;
+    const t = setTimeout(() => setExamplesReady(true), 600);
+    return () => clearTimeout(t);
+  }, [examplesReady]);
+  const frozenExamples = useRef(null);
+  const liveExamples = useMemo(
     () => buildConsultExamples({ books, memoBookIds, lastConsult: lastQuestion ? { question: lastQuestion } : null, count: 2 }).map((e) => e.text),
     [books, memoBookIds, lastQuestion],
   );
+  if (examplesReady && !frozenExamples.current) frozenExamples.current = liveExamples;
+  const examples = frozenExamples.current || [];
 
   // メモが動いたら（ホームのクイックメモ・本の詳細など）件数を取り直す。
   // 最初のメモを書いた直後に、案内から入力欄へ切り替わるように。
@@ -89,6 +103,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
         if (alive && !idsRes.error) setMemoBookIds(new Set((idsRes.data || []).map((r) => r.book_id)));
         if (alive && lastRes && !lastRes.error) setLastQuestion(lastRes.data?.[0]?.content || null);
       } catch { /* 件数が取れなくても入口自体は出す */ }
+      if (alive) setExamplesReady(true);
     })();
     return () => { alive = false; };
   }, [user?.id, bookCount, memoTick]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -148,7 +163,11 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
           <p style={{ ...groupTitle, margin: 'var(--space-4) 0 var(--space-2)' }}>たとえば</p>
           {/* 相談例はチップ（--fill 面・枠なし）。入力欄（枠あり）と見分けがつくように。 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            {examples.map((q) => (
+            {!examplesReady && [0, 1].map((i) => (
+              // 相談例のチップと同じ高さ（2 行＋上下 12）の形。そろったら本物に 1 回だけ入れ替わる。
+              <SkeletonBlock key={`sk-${i}`} height={69} radius="var(--radius)" />
+            ))}
+            {examplesReady && examples.map((q) => (
               <button
                 key={q}
                 type="button"

@@ -105,6 +105,8 @@ const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)',
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
 // 畳む見出し（DESIGN §5: 高さ 48・17/600/--text・右端にシェブロン 20）。
 const summaryStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' };
+// 明日からできる一歩の箱（書いている途中の形と、でき上がりの形で同じ）。
+const nextStepBox = { background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' };
 // 根拠の中の小さな見出し（DESIGN §5 groupTitle: 12/600/--text-2）。
 const subLabel = { ...groupTitle, margin: '0 0 var(--space-1)' };
 // 根拠の本文（参照したメモ・解釈）も答えの一部＝読む文章（明朝 18・行間 1.6・DESIGN §2/§7）。
@@ -451,6 +453,29 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // chat-scroll を直接掴んで scrollHeight ベースのオートスクロールを使う
   // (messagesEndRef.scrollIntoView だと document も巻き込んで動くため)。
   const chatScrollRef = useRef(null);
+  // 答えを書き終えたら、最後の答えの「明日からできる一歩」の箱が会話の欄（入力欄の上）に見えるところまで
+  // だけ送る。答えの頭（role=article の上端）が欄の上から出ていくほどは送らない（2026-09-29）。
+  const revealNextStep = useCallback(() => {
+    if (typeof window === 'undefined' || typeof requestAnimationFrame !== 'function') return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const sc = chatScrollRef.current;
+      if (!sc) return;
+      const boxes = sc.querySelectorAll('[data-next-step]');
+      const el = boxes[boxes.length - 1];
+      if (!el) return;
+      const view = sc.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      const overflow = box.bottom - view.bottom + 16; // 箱の下に 16 の余白
+      if (overflow <= 0) return;
+      const article = el.closest('[role="article"]') || el;
+      const room = article.getBoundingClientRect().top - view.top; // 答えの頭が欄の上端に来るまで
+      const delta = Math.min(overflow, Math.max(0, room));
+      if (delta <= 0) return;
+      let reduce = false;
+      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+      sc.scrollBy({ top: delta, behavior: reduce ? 'auto' : 'smooth' });
+    }));
+  }, []);
   // Auto-grow textarea: 60px min, 200px max, scrolls past 200.
   const inputRef = useRef(null);
   // 描く前に高さを合わせる（useEffect だと、送ったあとに「消えた文字の高さのまま 1 回描く → 縮む」で
@@ -917,6 +942,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       }
       // 新しい AI 回答が来たら resolution prompt を再表示できるよう dismiss を解除
       setPromptDismissed(false);
+      // 書き終わったら、一歩の箱が入力欄の上に見えるところまでだけ送る（答えの頭は画面の外へ出さない）。
+      if (!wasAborted) revealNextStep();
     } catch (e) {
       // abort はエラーではない (streamMyBookBrain は正常 resolve するため通常
       // ここには来ないが、念のため abort 由来の例外はトーストしない)。
@@ -2134,7 +2161,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
 
   // 明日からできる一歩（＋ 行動に追加）
   const renderAction = (p, marginTop) => (p.action ? (
-    <div style={{ marginTop, background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
+    <div data-next-step="" style={{ marginTop, ...nextStepBox }}>
       <p style={subLabel}>{p.actionLabel}</p>
       <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap' }}>{renderBoldInline(p.action)}{tail === 'action' && cursor}</p>
       {/* 書いている間は、押せない形で同じ場所に置く（書き終わったときに下が押し下がらないように） */}
@@ -2355,15 +2382,27 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
               <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{tail === 'conclusion' && i === arr.length - 1 && cursor}</p>
             ))}
           </div>
+          {/* 一歩がまだの間は、一歩の箱と同じ形（面・小さな見出し・2 行・押せない「行動に追加」）で待つ
+              （以前は 44 の「答えを書いています…」→ 約 130 の箱に変わって、下が 87px 跳ねていた・2026-09-29）。 */}
           {liveFused.action ? renderAction(liveFused, 'var(--space-4)') : (
-            <div className="ai-thinking" style={{ marginTop: 'var(--space-4)', minHeight: 44 }}>
-              <span className="ai-thinking-dot" aria-hidden="true" />
-              <span>{STAGE_LABEL.generate}</span>
+            <div aria-hidden="true" style={{ marginTop: 'var(--space-4)', ...nextStepBox }}>
+              <SkeletonBlock width="40%" height={12} style={{ margin: 'var(--space-1) 0 var(--space-2)' }} />
+              {['92%', '64%'].map((w) => (
+                <div key={w} style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-read) * 1.6)' }}>
+                  <SkeletonBlock width={w} height={14} />
+                </div>
+              ))}
+              {(onAddAction || onAddActionPickBook) && (
+                <button type="button" disabled tabIndex={-1} style={{ ...rowBtn, marginTop: 'var(--space-3)', color: 'var(--text-3)', borderColor: 'var(--separator)', cursor: 'default' }}>
+                  <Target size={16} aria-hidden="true" />行動に追加
+                </button>
+              )}
             </div>
           )}
-          <div aria-hidden="true" style={{ ...summaryStyle, marginTop: 'var(--space-3)', color: 'var(--text-3)', cursor: 'default' }}>
+          {/* 「根拠を見る」は書き終わってから出す場所を、見えないまま取っておく（書いている間に行が下へ押されて見えないように）。 */}
+          <div aria-hidden="true" style={{ ...summaryStyle, marginTop: 'var(--space-3)', visibility: 'hidden' }}>
             <span>根拠を見る</span>
-            <ChevronDown size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            <ChevronDown size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
           </div>
         </>
       ) : isStreaming ? (

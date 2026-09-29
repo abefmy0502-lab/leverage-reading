@@ -23,6 +23,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
+import { useBackLayer } from '../hooks/useHistoryBack';
+import { useConfirm } from './ConfirmDialog';
 import { searchBooks } from '../lib/bookSearch';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { invalidateKnowledgeCache } from '../lib/ai';
@@ -125,12 +127,14 @@ const askChip = {
   background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer',
   fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5,
 };
-// 選ぶためのチップ（DESIGN §5: 高さ 44・15px・余白 8/12・選択中は --accent-soft 面＋--accent 文字 600）。
+// 選ぶためのチップ（DESIGN §5: 高さ 44・15px・余白 8/12・選択中は --accent-soft 面＋--accent 文字＋✓）。
+// 選んでも幅を変えない（2026-09-29）: 太さは変えず（400）、先頭のアイコンの場所はいつも取っておく
+// （選ぶ前は ＋・選んだら ✓ に入れ替わるだけ）。以前は選ぶと ✓ と太字で幅が伸び、うしろのチップが次の行へ押し出されていた。
 const pickChip = (on) => ({
-  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)',
+  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3) var(--space-2) var(--space-2)',
   borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.3, textAlign: 'left',
   background: on ? 'var(--accent-soft)' : 'var(--fill)', color: on ? 'var(--accent)' : 'var(--text)',
-  fontSize: 'var(--text-sub)', fontWeight: on ? 600 : 400,
+  fontSize: 'var(--text-sub)', fontWeight: 400,
 });
 
 const bookKey = (b) => (b.isbn ? `isbn:${b.isbn}` : `t:${b.title}|${b.author || ''}`);
@@ -196,6 +200,30 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   const searchRef = useRef(null);
   // 選んだ本・書いた一言がまだ保存されていない間は、ブラウザの「戻る」でアプリごと離れて消えないようにする。
   useBlockEdgeSwipe(picked.length > 0 && (step === 'pick' || step === 'memo' || step === 'saving'));
+  // ブラウザ / Android の「戻る」は、左上の ‹ と同じ 1 段だけ戻る（重ねた画面として 1 枚積む・2026-09-29）。
+  //   一言を書く → 前の本（1 冊目なら本をえらぶへ）／本をえらぶ → 閉じる（選んだ本があれば確かめてから）／
+  //   保存中 → 動かない／できあがり → 閉じる。false を返すと App は履歴を積み直してその場に留まる。
+  const confirm = useConfirm();
+  const back = async () => {
+    if (step === 'saving') return false;
+    if (step === 'memo') {
+      if (idx > 0) setIdx(idx - 1); else setStep('pick');
+      return true;
+    }
+    if (step === 'pick' && picked.length > 0) {
+      const ok = await confirm({
+        title: '選んだ本を破棄しますか？',
+        message: `選んだ ${picked.length} 冊は、まだ本棚に入っていません。`,
+        confirmLabel: '破棄する',
+        cancelLabel: '続ける',
+        danger: true,
+      });
+      if (!ok) return false;
+    }
+    onClose?.();
+    return true;
+  };
+  useBackLayer(true, back, { overBlock: true });
 
   useEffect(() => { track('quickstart_started'); }, []);
   useEffect(() => { if (step === 'memo') memoRef.current?.focus(); }, [step, idx]);
@@ -461,7 +489,9 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                       const on = isPicked(b);
                       return (
                         <button key={b.title} type="button" onClick={() => toggle(b)} aria-pressed={on} aria-label={`『${b.title}』${b.author}`} style={pickChip(on)}>
-                          {on && <Check size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
+                          {on
+                            ? <Check size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                            : <Plus size={16} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />}
                           {b.title}
                         </button>
                       );

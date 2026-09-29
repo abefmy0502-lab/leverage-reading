@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
 import { BookOpen, MessageCircle, X, ChevronLeft } from 'lucide-react';
@@ -174,6 +174,36 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
     track('signup_source', { ch: key });
   };
   const trapRef = useFocusTrap(true);
+  // 2 枚目はボタンが増えてカードが高くなる。一瞬で伸びないよう、高さと中身を --duration-fast（200ms）で
+  // なめらかに変える（2026-09-29）。動きを減らす設定の人には動かさない。値はトークンから読む。
+  const heightRef = useRef(null);
+  const stepRef = useRef(step);
+  useLayoutEffect(() => {
+    const el = trapRef.current;
+    if (!el) return;
+    const prev = heightRef.current;
+    const next = el.getBoundingClientRect().height;
+    heightRef.current = next;
+    const changed = stepRef.current !== step;
+    stepRef.current = step;
+    if (!changed || prev == null || Math.abs(prev - next) < 1 || typeof el.animate !== 'function') return;
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+    if (reduce) return;
+    let duration = 200;
+    let easing = 'ease-out';
+    try {
+      const cs = getComputedStyle(document.documentElement);
+      duration = parseFloat(cs.getPropertyValue('--duration-fast')) || duration;
+      easing = cs.getPropertyValue('--ease-out').trim() || easing;
+    } catch { /* 既定のまま */ }
+    try {
+      el.animate([{ height: `${prev}px`, overflow: 'hidden' }, { height: `${next}px`, overflow: 'hidden' }], { duration, easing });
+      Array.from(el.children).forEach((c) => {
+        if (c.tagName !== 'BUTTON') c.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
+      });
+    } catch { /* 動かせない環境はそのまま */ }
+  });
   const goPrev = () => setStep((s) => Math.max(0, s - 1));
   const goNext = () => setStep((s) => Math.min(slides.length - 1, s + 1));
   const touchStart = useRef(null);

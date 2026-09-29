@@ -14,6 +14,8 @@ import { STATUSES, getSt } from './lib/status';
 import { isStrictMatch } from './lib/bookMatch';
 const BookAdvisor = lazy(() => import('./components/BookAdvisor'));
 const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
+// すべての本を開いた最初の描画で出す冊数（残りは手が空いたときに足す）。
+const LIBRARY_FIRST = 12;
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
 const ImportSheet = lazy(() => import('./components/ImportSheet'));
 import MemoFab from './components/MemoFab';
@@ -127,7 +129,7 @@ import PullToRefresh from './components/PullToRefresh';
 import { useHaptic } from './hooks/useHaptic';
 import { useLongPress } from './hooks/useLongPress';
 import { useEdgeSwipeBack, isBackBlocked, useBackBlocked } from './hooks/useEdgeSwipeBack';
-import { useHistoryBack, useBackLayer, useBackLayerCount, topBackLayer, closeTopBackLayer } from './hooks/useHistoryBack';
+import { useHistoryBack, useBackLayer, useBackLayerCount, topBackLayer } from './hooks/useHistoryBack';
 import { useKeyboardOpen } from './hooks/useKeyboardOpen';
 import { useSubscription } from './hooks/useSubscription';
 const Paywall = lazy(() => import('./components/Paywall'));
@@ -248,6 +250,20 @@ function Modal({ open, onClose, children, ariaLabel }) {
 }
 
 
+
+// 振り返り › メモを開いた直後（画面の部品を読み込む間）の形。Review の読み込み中と同じ形・同じ余白なので、
+// 読み込みが終わって Review 自身の形に替わっても跳ねない（くるくるだと一瞬なにも無く見えた・2026-09-29）。
+function ReviewNoteFallback() {
+  return (
+    <div style={{ padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      <div role="status" aria-busy="true" aria-label="メモを読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <SkeletonBlock height={20} width="40%" radius="var(--radius)" />
+        <SkeletonBlock height={180} radius="var(--radius)" />
+        <SkeletonBlock height={120} radius="var(--radius)" />
+      </div>
+    </div>
+  );
+}
 
 // 起動直後（ログイン確認・課金の確認待ち）の読み込み表示。ホームの形（相談カード・見出し・
 // いま読んでいる本 2 冊・すべての本の行）のスケルトン（DESIGN §5「読み込みは Skeleton」）。
@@ -575,6 +591,16 @@ function AuthedApp() {
   const [shelfMode, setShelfMode] = useState(() => (isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('shelf') === 'library' ? 'library' : 'home'));
   // 「すべての本」をどこから開いたか。'record'＝振り返りの記録（「‹ 記録」で記録へ戻す）/ null＝ホーム。
   const [libraryFrom, setLibraryFrom] = useState(null);
+  // ⚡ すべての本を開いた最初の 1 枚は、上の LIBRARY_FIRST 冊だけ描く。残りは手が空いたときに足す
+  // （冊数が多いと開くまでに間が空いていた・2026-09-29）。ホームに戻ったらまた最初から。
+  const [libraryRenderAll, setLibraryRenderAll] = useState(false);
+  useEffect(() => {
+    if (!(tab === 'books' && shelfMode === 'library')) { setLibraryRenderAll(false); return undefined; }
+    if (libraryRenderAll || typeof window === 'undefined') return undefined;
+    const ric = window.requestIdleCallback;
+    const id = ric ? ric(() => setLibraryRenderAll(true), { timeout: 400 }) : window.setTimeout(() => setLibraryRenderAll(true), 60);
+    return () => { if (ric) window.cancelIdleCallback?.(id); else window.clearTimeout(id); };
+  }, [tab, shelfMode, libraryRenderAll]);
   // 🏠✍️ ホームの「メモ」で開くクイックメモの対象本（詳細画面に移らずホームの上に重ねる）。
   const [homeMemoBook, setHomeMemoBook] = useState(null);
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
@@ -847,7 +873,12 @@ function AuthedApp() {
       + backLayers,
     onBack: async () => {
       const topLayer = topBackLayer();
-      if (topLayer && (topLayer.overBlock || !isBackBlocked())) { closeTopBackLayer(); return true; }
+      if (topLayer && (topLayer.overBlock || !isBackBlocked())) {
+        // 閉じる処理が false を返したら（書きかけのメモで「編集を続ける」等）その場に留まる＝履歴を積み直す。
+        let res;
+        try { res = await topLayer.closeRef?.current?.(); } catch { res = undefined; }
+        return res !== false;
+      }
       if (isBackBlocked()) return false; // 書きかけのシートが開いている間は戻らない
       if (view === 'edit') {
         if (!(await confirmDiscardEdit())) return false;
@@ -1512,8 +1543,8 @@ function AuthedApp() {
     const statusLabel = STATUS_LABEL[existing.status] || '本棚';
     if (allowAdd) {
       const openIt = await confirm({
-        title: 'この本はもう本棚にあります。開きますか？',
-        message: `『${existing.title}』（${statusLabel}）。開くと、いま入力した内容は保存されません。`,
+        title: 'この本はもう本棚にあります',
+        message: `『${existing.title}』（${statusLabel}）を開きますか？開くと、いま入力した内容は保存されません。`,
         confirmLabel: '開く',
         cancelLabel: 'それでも追加',
       });
@@ -4451,7 +4482,7 @@ function AuthedApp() {
                 )
               ) : effectiveBookshelfView === 'grid' ? (
                 <div className="bookshelf-grid">
-                  {filtered.map((b) => (
+                  {(libraryRenderAll ? filtered : filtered.slice(0, LIBRARY_FIRST)).map((b) => (
                     <BookCoverCard
                       key={b.id}
                       book={b}
@@ -4465,7 +4496,7 @@ function AuthedApp() {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}>
-                  {filtered.map((b, i) => (
+                  {(libraryRenderAll ? filtered : filtered.slice(0, LIBRARY_FIRST)).map((b, i) => (
                     <SwipeableBookCard
                       key={b.id}
                       book={b}
@@ -4520,7 +4551,7 @@ function AuthedApp() {
               </button>
             </div>
             {reviewSubTab === 'note' ? (
-              <Suspense fallback={<Spinner />}>
+              <Suspense fallback={<ReviewNoteFallback />}>
                 <Review books={books} onOpenBook={(b, memoId) => { openDetail(b, memoId); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }} />
               </Suspense>
             ) : booksLoadError && rawBooks.length === 0 ? (

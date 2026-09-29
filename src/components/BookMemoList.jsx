@@ -501,7 +501,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
       {/* この本のまとめ（旧「まとめ」タブ）。一覧の下に 1 か所だけ・普段は畳む。
           畳む見出しは DESIGN §5: 高さ 48・右端にシェブロン（開くと回る）・list-style なし。 */}
-      {summarySection && (
+      {/* 読み込み中は出さない（メモの一覧が入ったときに、まとめが下へ押し下げられて跳ねないように）。 */}
+      {summarySection && !loading && (
         <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
           <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>
             この本のまとめ

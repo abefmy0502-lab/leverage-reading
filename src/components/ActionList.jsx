@@ -95,7 +95,11 @@ const byDeadline = (a, b) => {
 
 
 // 完了した行を ✓ と取り消し線のまま、その場に残す時間。
-const CHECK_HOLD_MS = 600;
+// 押してから次の形（ふりかえりの欄・畳む）への動きが 0.5 秒以内に終わる長さにする
+// （押した直後の動きは「ずれ」に数えない・0.6 秒待ってから動くと下の行が勝手に跳ねて見えた・2026-09-29）。
+const CHECK_HOLD_MS = 250;
+// 知らせ（下のバー）が出ている間、一覧の下に足す余白。最後の行がバーに隠れず、スクロールで出せる。
+const TOAST_MS = 6000;
 
 const reducedMotion = () => {
   try { return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true; } catch { return false; }
@@ -310,9 +314,19 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     const timers = timersRef.current;
     return () => { timers.forEach((t) => clearTimeout(t)); timers.clear(); };
   }, []);
+  // shown: 畳むときに中身を差し替えない（ふりかえりの欄のまま畳む。行に戻してから畳むと一瞬跳ねた）。
   const setPhase = useCallback((key, phase) => {
-    setCompleting((list) => list.map((c) => (c.key === key ? { ...c, phase } : c)));
+    setCompleting((list) => list.map((c) => (c.key === key ? { ...c, phase, shown: phase === 'collapse' ? (c.shown || c.phase) : phase } : c)));
   }, []);
+  // 下の知らせが出ている間だけ、一覧の下に余白を足す（最後の行のチェックが知らせに隠れない）。
+  const [toastPad, setToastPad] = useState(false);
+  const toastPadTimerRef = useRef(null);
+  const showToastPad = useCallback((on) => {
+    clearTimeout(toastPadTimerRef.current);
+    setToastPad(on);
+    if (on) toastPadTimerRef.current = setTimeout(() => setToastPad(false), TOAST_MS);
+  }, []);
+  useEffect(() => () => clearTimeout(toastPadTimerRef.current), []);
   const removeCompleting = useCallback((key) => {
     clearTimeout(timersRef.current.get(key));
     timersRef.current.delete(key);
@@ -320,6 +334,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   }, []);
 
   const undoComplete = (a) => {
+    showToastPad(false);
     removeCompleting(rowKeyOf(a));
     onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a });
   };
@@ -332,15 +347,16 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     setReflection('');
     // 前に完了した行の欄は畳む（欄は同時に 1 つだけ）。
     setCompleting((list) => [
-      ...list.filter((c) => c.key !== key).map((c) => (c.phase === 'collapse' ? c : { ...c, phase: 'collapse' })),
+      ...list.filter((c) => c.key !== key).map((c) => (c.phase === 'collapse' ? c : { ...c, phase: 'collapse', shown: c.phase })),
       { key, a, phase: 'check' },
     ]);
     clearTimeout(timersRef.current.get(key));
     timersRef.current.set(key, setTimeout(() => setPhase(key, onReflect ? 'reflect' : 'collapse'), CHECK_HOLD_MS));
     // 取り消しは下のトーストで（スクロールしていても見える・トーストはタブの上に浮く）。
     if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
+    showToastPad(true);
     lastToastRef.current = toast.success('行動を完了しました', {
-      duration: 6000,
+      duration: TOAST_MS,
       action: { label: '元に戻す', onClick: () => undoComplete(a) },
     });
   };
@@ -356,8 +372,9 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       // 知らせは 1 つだけ: 下の「行動を完了しました／元に戻す」を、この文に差し替える
       // （中央の ✓ と下のバーが同時に 2 つ出ていた・2026-09-29）。
       if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
+      showToastPad(true);
       lastToastRef.current = toast.success('ふりかえりを残しました。次の相談で使います。', {
-        duration: 6000,
+        duration: TOAST_MS,
         action: { label: '元に戻す', onClick: () => undoComplete(c.a) },
       });
     }
@@ -424,15 +441,17 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     const key = rowKeyOf(a);
     const c = completing.find((x) => x.key === key);
     const phase = c?.phase || 'idle';
+    // 畳んでいる間は、畳む前の中身のまま（ふりかえりの欄なら欄のまま）。
+    const showReflect = phase === 'reflect' || (phase === 'collapse' && c?.shown === 'reflect');
     return (
       <MorphItem
         key={key}
-        phaseKey={phase === 'reflect' ? 'reflect' : 'row'}
+        phaseKey={showReflect ? 'reflect' : 'row'}
         collapsed={phase === 'collapse'}
         first={i === 0}
         onCollapsed={() => removeCompleting(key)}
       >
-        {phase === 'reflect' ? (
+        {showReflect ? (
           <ReflectCard
             a={c.a}
             value={reflection}
@@ -458,7 +477,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   const listStyle = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
   return (
-    <div style={wrap}>
+    <div style={toastPad ? { ...wrap, paddingBottom: 'var(--space-16)' } : wrap}>
       {/* 上: 今週の完了数 1 行（数字の演出はしない）＋ 追加。完了一覧は最後の 1 行から。 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
         <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>

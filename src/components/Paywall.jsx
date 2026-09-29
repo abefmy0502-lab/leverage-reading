@@ -501,7 +501,8 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               {/* 無料期間があるときは、ボタンのすぐ下で「期間中にやめれば払わない」を言う（ためらいを減らす・2026-09-29）。 */}
               {trial && priceState === 'ready' && (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
-                  無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。
+                  {/* 「料金はか／かりません」のように語の途中で折り返さない（読点のあとで折る）。 */}
+                  <span style={{ whiteSpace: 'nowrap' }}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={{ whiteSpace: 'nowrap' }}>料金はかかりません。</span>
                 </p>
               )}
             </div>
