@@ -36,3 +36,6 @@ ui-shots/
 /*.tmp.mjs
 /*-tmp.py
 /.*-tmp.py
+
+# 採点エージェントの一時スクリプト（リポジトリ直下の .xxx.mjs）
+/.*.mjs
