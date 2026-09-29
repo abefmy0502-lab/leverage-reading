@@ -16,7 +16,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, groupTitle, input as uiInput } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, groupTitle, fieldNote, input as uiInput } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
 import KnowledgeManager from './KnowledgeManager';
@@ -94,6 +94,9 @@ const wrap = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, 
 const viewScroll = { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-2) var(--space-4) var(--space-6)' };
 // ── 相談画面の部品（DESIGN.md のトークンのみ） ──
 // 左右の余白は 16。右端のアイコン（押せる範囲 44）は負の余白で外へ出し、見た目の右端を 16 に揃える。
+// 答えが返らなかったときの題と説明（ErrorMessage で出す・2026-09-29）。
+const ANSWER_FAILED_TITLE = '答えを書けませんでした';
+const ANSWER_FAILED_DESC = '少し時間をおいて、送り直してください。';
 const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, paddingTop: 'var(--space-1)', paddingBottom: 'var(--space-1)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)' }; // 押し込まれた画面で paddingTop だけ上書きするので、個別の指定で書く（padding と混ぜない＝React の警告）
 const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 };
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
@@ -291,7 +294,7 @@ function LearningInline({ onSaved }) {
             </div>
 
             <div>
-              <label htmlFor="learning-tag" style={label}>タグ（任意）</label>
+              <label htmlFor="learning-tag" style={label}>タグ<span style={fieldNote}>（任意）</span></label>
               {tags.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
                   {tags.map((t, i) => (
@@ -1098,8 +1101,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   ? e.message
                 : partial
                   ? `${partial}\n\n— 通信が中断されたため、回答はここまでです。`
-                  // 下のボタン（もう一度）と同じ言葉を重ねない。
-                  : '答えを書けませんでした。少し時間をおいて、送り直してください。',
+                  // 下のボタン（もう一度）と同じ言葉を重ねない。題と説明に分けて ErrorMessage で出す（ChatMessage）。
+                  : `${ANSWER_FAILED_TITLE}。${ANSWER_FAILED_DESC}`,
               refs: [],
               createdAt: new Date().toISOString(),
               // 通信エラー（ユーザーの中止ではない）はその場で再試行できるように
@@ -1342,13 +1345,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     <div style={wrap}>
       {/* 上部は 1 行だけ（SPEC §3: 二重タブをやめる）。会話のときは「何を根拠に答えるか」＋
           履歴（時計）＋その他（…）。会話以外の画面では「‹ 相談」で戻る。 */}
-      {/* 残りのトークンの行で上部が 2 行になるので、下に線を引いて「下に潜っている」ことを示す */}
       {/* 会話・一覧を下へ送ったときも、上部の行との境目に線を引く（iOS のナビゲーションバーと同じ）。
           押し込まれた画面では親が全体の見出しを隠すので、この行が画面の最上部になる（ノッチを避ける）。 */}
       <div
         style={{
           ...topRow,
-          ...((view === 'chat' && tokensRemaining != null) || scrolled ? { borderBottom: '1px solid var(--separator)' } : null),
+          // 線は中身を下へ送ったときだけ（一番上では出さない・SPEC §3）。線の太さぶんはいつも取って高さを変えない（2026-09-29）。
+          borderBottom: `1px solid ${scrolled ? 'var(--separator)' : 'transparent'}`,
+          transition: 'border-color var(--duration-fast) var(--ease-out)',
           ...(isPushed && onPushedViewChange ? { paddingTop: 'max(var(--space-1), env(safe-area-inset-top, 0px))', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))' } : null),
         }}
       >
@@ -1475,7 +1479,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {historyLoaded && historyError && (
               <ErrorMessage
                 title="過去の相談を読み込めませんでした"
-                description="通信の状態を確かめて、もう一度お試しください。"
+                // 下のボタン（もう一度）と同じ言葉を重ねない。
+                description="通信の状態を確かめてください。"
                 actions={[{ label: 'もう一度', variant: 'primary', onClick: () => { setHistoryError(false); setHistoryLoaded(false); fetchHistory(); } }]}
               />
             )}
@@ -2483,16 +2488,17 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
                   ) : (
                     <>
                       {(c.t || c.p != null || c.u) && (
-                        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, ...(c.t ? { textIndent: '-0.5em' } : null) }}>
+                        // 書名・メモは文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・2026-09-29）。
+                        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere', ...(c.t ? { textIndent: '-0.5em' } : null) }}>
                           {/* 学び（本の無いメモ）は書名の代わりに「自分の学び（M月D日）」（2026-09-29） */}
-                          {c.t ? `『${c.t}』` : c.u ? `自分の学び${learningDateLabel(c.d)}` : ''}{c.p != null ? `p.${c.p}` : ''}
+                          {withPhraseBreaks(c.t ? `『${c.t}』` : c.u ? `自分の学び${learningDateLabel(c.d)}` : '')}{c.p != null ? <span style={{ whiteSpace: 'nowrap' }}>p.{c.p}</span> : ''}
                         </p>
                       )}
                       {c.s === 'ok' ? (
-                        <p style={{ ...subText, margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap' }}>{c.x}</p>
+                        <p style={{ ...subText, margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(c.x)}</p>
                       ) : (
-                        <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                          メモと一致しない引用だったので、表示していません
+                        <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                          {withPhraseBreaks('メモと一致しない引用だったので、表示していません')}
                         </p>
                       )}
                     </>
@@ -2715,7 +2721,15 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
             </>
           )}
         </>
+      ) : message.error && message.content === `${ANSWER_FAILED_TITLE}。${ANSWER_FAILED_DESC}` ? (
+        // 答えが 1 文字も返らなかった失敗は、ほかの画面と同じ ErrorMessage（題＋説明＋「もう一度」・DESIGN §5）。
+        <ErrorMessage
+          title={ANSWER_FAILED_TITLE}
+          description={ANSWER_FAILED_DESC}
+          actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }] : []}
+        />
       ) : message.error ? (
+        // 途中まで書けていた答え（通信が中断）は、書けたところを残して「もう一度」を添える。
         <>
           <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(message.content)}</p>
           {onRetry && (
