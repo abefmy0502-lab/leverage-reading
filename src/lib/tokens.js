@@ -12,10 +12,9 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 
-export const AI_TOKEN_JPY = 0.3;
-export const FREE_TOKENS = 30;
-export const TRIAL_TOKENS = 150;
-export const PAID_TOKENS = 800;
+import { AI_TOKEN_JPY, FREE_TOKENS, TRIAL_TOKENS, PAID_TOKENS } from './tokenAmounts';
+
+export { AI_TOKEN_JPY, FREE_TOKENS, TRIAL_TOKENS, PAID_TOKENS };
 
 // 1 回あたりの目安（表示だけ。実際は材料の長さで前後する）。api/_aiCost.js の単価と、ふつうの大きさの
 // 入出力から出して、切りのよい数に丸めた（2026-09-27）。

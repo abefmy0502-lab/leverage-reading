@@ -103,7 +103,8 @@ UI 文言・トースト・ヘルプ・LP・プロンプト出力で使う名前
 │   ├── styles/
 │   │   ├── tokens.css                  # ⭐ Phase 1: デザイントークン唯一の真実（color / type / space / radius / shadow / motion）+ ダークモード
 │   │   └── components.css              # .btn / .card / .input ユーティリティ（Phase 1 のオプトイン）
-│   ├── main.jsx                        # ProvidersChain (ErrorBoundary > Auth > Cache > Toast > Confirm > App)。ログイン状態は AuthProvider（hooks/useAuth.js）の 1 か所だけが持つ
+│   ├── main.jsx                        # 入口だけ（道を決めて読み込む）: /lp・/legal/* は mainStatic.jsx、それ以外は mainApp.jsx（lib/staticRoute.js・App.jsx の useLpRoute と揃える）
+│   ├── mainApp.jsx                     # ProvidersChain (ErrorBoundary > Auth > Cache > Toast > Confirm > App)。ログイン状態は AuthProvider（hooks/useAuth.js）の 1 か所だけが持つ
 │   ├── components/
 │   │   ├── auth/                       # AuthScreen, AuthCallback
 │   │   ├── BookMemoList.jsx            # メモ一覧 + カード/まとめタブ

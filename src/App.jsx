@@ -8,7 +8,7 @@ import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
 import { loadDefaultJapaneseParser } from 'budoux';
 // ⚡ 最初の画面に要らない重い部品は、使うときに読む（Suspense 付きの薄い包み・components/lazyParts.jsx）。
-import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections } from './components/lazyParts';
+import { AuthScreen, AuthCallback, BookMemoList, BookSearchModal, BookMemoEditor, ActionList, MarkdownSections, AuthorThankYou } from './components/lazyParts';
 import { BookCoverCard, SwipeableBookCard, MiniCover, StatusLabel } from './components/BookCards';
 import { STATUSES, getSt } from './lib/status';
 import { isStrictMatch } from './lib/bookMatch';
@@ -110,7 +110,6 @@ import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import { useFocusTrap } from './hooks/useFocusTrap';
 import HomeScreen from './components/HomeScreen';
-import AuthorThankYou from './components/AuthorThankYou';
 import { initServiceWorker } from './lib/swUpdate';
 import { ensurePushSubscription } from './lib/push';
 import { isNative } from './lib/iap';
@@ -738,6 +737,14 @@ function AuthedApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [recentlyDoneId, setRecentlyDoneId] = useState(null);
   const recentlyDoneTimerRef = useRef(null);
+  // 本ごとの「ステータスを元に戻す」トーストの id。同じ本のステータスがまた変わった・本を消したときに
+  // 古いトーストを閉じる（古い「元に戻す」で別の段階へ巻き戻したり、消した本を保存しようとしてエラーになるのを防ぐ）。
+  const statusUndoToastRef = useRef(new Map());
+  const dismissStatusUndo = (bookId) => {
+    const id = statusUndoToastRef.current.get(bookId);
+    if (id) toast.dismiss(id);
+    statusUndoToastRef.current.delete(bookId);
+  };
   // 本詳細のスクロール可能コンテナへの ref。フェーズ遷移 (status 変化) の
   // たびにスクロールトップへ戻すために使う — 旧実装は前フェーズの最下部
   // (例: 読書前で「読書を開始する」ボタン直前) のままだったため、新フェーズ
@@ -1600,6 +1607,7 @@ function AuthedApp() {
       if (isSetupCompletion) {
         setEditPhaseOverride(null);
         setView('detail');
+        dismissStatusUndo(next.id);
         toast.success('📚 読書を開始しました！');
       } else if (wasNew) {
         setView('detail');
@@ -1717,6 +1725,7 @@ function AuthedApp() {
       toast.error('本のデータを取得できませんでした。削除を中止します。');
       return;
     }
+    dismissStatusUndo(book.id);
     const deletionPromise = deleteBook(book.id).catch((error) => {
       toast.error(toMessage(error, '削除に失敗しました。'));
       throw error;
@@ -2151,6 +2160,11 @@ function AuthedApp() {
 
     const labels = { want: '読みたい', before: '積読', reading: '読書中', done: '読了' };
     const revert = async () => {
+      statusUndoToastRef.current.delete(book.id);
+      // その後に本が消された／ステータスが別の操作でさらに変わったときは戻さない
+      // （古い取り消しで別の段階へ巻き戻したり、消した本を保存しようとしない）。
+      const now = booksRef.current.find((b) => b.id === book.id);
+      if (!now || now.status !== newStatus) return;
       // Undo も直列化チェーンに乗せ、実行時点の最新行に rebase して status 系
       // フィールドだけを prev に戻す。クリック時スナップショット（fresh）での
       // 全行保存は、Undo トースト表示中（5〜6.5 秒）の行動トグルや繰り返し
@@ -2183,17 +2197,19 @@ function AuthedApp() {
       recentlyDoneTimerRef.current = setTimeout(() => setRecentlyDoneId(null), 8000);
       // 控えめに祝う（紙吹雪・「1 冊読了！」・出典の確かでない名言はやめた・反ゲーミフィケーション／作り話にしない）。
       try { haptic.success(); } catch { /* non-critical */ }
-      toast.show({
+      dismissStatusUndo(book.id);
+      statusUndoToastRef.current.set(book.id, toast.show({
         type: 'success',
         message: `『${book.title}』を読了にしました。心に残ったことを 1 行メモしておくと、あとで相談に生きます。`,
         duration: 6500,
         action: { label: '元に戻す', onClick: revert },
-      });
+      }));
     } else {
-      toast.undo({
+      dismissStatusUndo(book.id);
+      statusUndoToastRef.current.set(book.id, toast.undo({
         message: `「${labels[newStatus] || newStatus}」に変更しました。`,
         onUndo: revert,
-      });
+      }));
     }
   };
 

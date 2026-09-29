@@ -24,7 +24,13 @@ document.documentElement.setAttribute('data-dark-ready', '');
 
 const rootEl = document.getElementById('root');
 const route = staticPageRoute();
-(route ? import('./mainStatic') : import('./mainApp'))
+// ⚠️ 2 つの import() はオブジェクトの別々の値にしておく。三項演算子や if/else にすると、圧縮で 1 つの
+// 呼び出しにまとめられ、Vite の先読みがアプリ本体の部品まで読んでしまう（LP が重くなる）。
+const ENTRIES = {
+  static: () => import('./mainStatic'),
+  app: () => import('./mainApp'),
+};
+ENTRIES[route ? 'static' : 'app']()
   .then((m) => m.mount(rootEl, route))
   .catch((err) => {
     // 読み込みに失敗（通信・古い版）。vite:preloadError で再読み込みされないときのために記録だけ残す。

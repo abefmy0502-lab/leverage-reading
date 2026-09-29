@@ -86,6 +86,13 @@ function smartAppBanner() {
 
 export default defineConfig({
   plugins: [react(), stampServiceWorkerVersion(), siteUrlInHtml(), smartAppBanner()],
+  resolve: {
+    alias: [
+      // ⚡ Realtime は使っていないので、supabase-js が起動時に作る RealtimeClient を空の部品に替える
+      // （realtime-js + phoenix ≈ 14KB gzip を全員の起動時から外す）。Realtime を使い始めるときはこの行を消す。
+      { find: /^@supabase\/realtime-js$/, replacement: path.resolve('src/lib/realtimeStub.js') },
+    ],
+  },
   define: {
     __BUILD_COMMIT__: JSON.stringify(BUILD_COMMIT),
     __BUILD_DATE__: JSON.stringify(BUILD_DATE),

@@ -28,7 +28,7 @@ import { BUILD_LABEL } from '../lib/buildInfo';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { isAppStoreLive } from '../lib/appStore';
 import { savingsLabel } from '../lib/iap';
-import { FREE_TOKENS, PAID_TOKENS } from '../lib/tokens';
+import { FREE_TOKENS, PAID_TOKENS } from '../lib/tokenAmounts';
 import { normalizeTrialLabel, trialFirstPhrase, trialPeriodOf } from '../lib/trialNudge';
 import ConsultDemo from './ConsultDemo';
 import qrcode from 'qrcode-generator';

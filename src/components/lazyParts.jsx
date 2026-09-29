@@ -20,6 +20,7 @@ const loaders = {
   authScreen: () => import('./auth/AuthScreen'),
   authCallback: () => import('./auth/AuthCallback'),
   markdownSections: () => import('./MarkdownSections'),
+  authorThankYou: () => import('./AuthorThankYou'),
   bookPhases: () => import('./BookPhases').then((m) => { bookPhasesMod = m; return m; }),
 };
 let bookPhasesMod = null;
@@ -47,6 +48,8 @@ export const ActionList = withSuspense(loaders.actionList, <Spinner />);
 // ログイン画面・ログインのリンクから戻ったとき（ログイン済みの人には要らない）。
 export const AuthScreen = withSuspense(loaders.authScreen, null);
 export const AuthCallback = withSuspense(loaders.authCallback, <Spinner />);
+// ロゴ長押しのお礼（隠し機能）。
+export const AuthorThankYou = withSuspense(loaders.authorThankYou, null);
 // AI の読書計画・解析などの Markdown 表示（本の詳細）。元が memo なので包みも memo のまま。
 export const MarkdownSections = memo(withSuspense(loaders.markdownSections, null));
 
