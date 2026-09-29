@@ -128,6 +128,18 @@ const isMetaRef = (r) => {
   return s.startsWith(EVIDENCE_PREFIX) || s.startsWith(GROWTH_PREFIX) || s.startsWith(QUOTE_PREFIX) || s.startsWith(REFUND_PREFIX);
 };
 
+// 関係するメモが無かった答え（トークンを返した答え・返金の回数の上限を超えたときは決まり文句で見分ける）。
+// この答えには「別の角度で答えて」「行動に追加」を出さず、「本を追加」「学びを書く」へ案内する（2026-09-29）。
+// 決まり文句は api/_aiAccess.js の NO_INFO_RE と同じ。
+const NO_INFO_TEXT_RE = /情報[がは]\s*まだ\s*(?:ありません|ない)|該当するメモ[がは]\s*(?:ありません|ない|見つかりません)/;
+function isNoInfoAnswer(m) {
+  if (!m || m.role !== 'assistant' || m.streaming || m.error || m.notice) return false;
+  const refs = Array.isArray(m.refs) ? m.refs : [];
+  if (refs.some((r) => String(r).startsWith(REFUND_PREFIX))) return true;
+  if (refs.some((r) => !isMetaRef(r))) return false; // 本を挙げている答えは、ふつうの答え
+  return NO_INFO_TEXT_RE.test(String(m.content || '').slice(0, 200));
+}
+
 const CATEGORIES = ['会話', '経験', '観察', '気づき', 'その他'];
 
 function fmtDate(iso) {
@@ -317,7 +329,7 @@ function LearningInline({ onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, askPreset, scopePreset, onPushedViewChange }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, askPreset, scopePreset, onPushedViewChange }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -755,8 +767,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       qs.push('この本から、今週やる一歩を1つ提案して');
       return qs.slice(0, 3).map((text) => ({ text, kind: 'book' }));
     }
-    return buildConsultExamples({ books, memoBookIds, lastConsult, count: 3 });
-  }, [books, scopeIds, memoBookIds, lastConsult]);
+    // メモの件数は下の ownMemoTotal と同じ数え方（ここより後で定義しているので、ここで数える）。
+    const memoCount = memoStatsLoaded ? memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0) : null;
+    return buildConsultExamples({ books, memoBookIds, lastConsult, count: 3, memoCount });
+  }, [books, scopeIds, memoBookIds, lastConsult, memoStatsLoaded, memoStats]);
 
   const ask = async (questionText, opts = {}) => {
     if (!user) {
@@ -1243,8 +1257,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               {tokensRemaining != null && (
                 <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
                   {plan === 'trial' ? '無料期間' : '今月'}の残り <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
-                  {/* 無料プランは「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29） */}
-                  {freeMode && tokensRemaining > 0 && <span style={{ whiteSpace: 'nowrap' }}>（相談 約 {consultsLeft(tokensRemaining, TOKEN_COSTS.consult)} 回）</span>}
+                  {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
+                  {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ whiteSpace: 'nowrap' }}>（相談 約 {consultsLeft(tokensRemaining + (purchasedTokens || 0), TOKEN_COSTS.consult)} 回）</span>}
                 </span>
               )}
               {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
@@ -1516,7 +1530,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
               {/* 無料のトークンを使い切ったら、できない操作を出さない */}
               {/* 失敗した答えには吹き出しの「もう一度」があるので、ここでは出さない */}
-              {!freeUsedUp && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error && (
+              {/* 関係するメモが無かった答えは、角度を変えても答えられないので「本を追加」「学びを書く」へ（2026-09-29） */}
+              {isNoInfoAnswer(visibleMessages[visibleMessages.length - 1]) ? (
+                <>
+                  {onAddBook && (
+                    <button type="button" onClick={onAddBook} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>本を追加</button>
+                  )}
+                  <button type="button" onClick={() => setView('learning')} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>学びを書く</button>
+                </>
+              ) : !freeUsedUp && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error && (
                 <button type="button" onClick={regenerate} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
                   {visibleMessages[visibleMessages.length - 1]?.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて'}
                   {/* 無料プランはトークンが少ないので、押す前に使う量を添える（相談 1 回分・2026-09-29） */}
@@ -2082,7 +2104,8 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   const actionForList = actionLine ? standaloneAction(actionLine, question, LIMITS.actionText) : '';
   // 参照メモから本を特定できれば直接その本へ。特定できない一般回答は本選択シートへ。
   const actionBookId = actionLine && onAddAction ? resolveActionBookId((message.refs || []).filter((r) => !isMetaRef(r)), books) : null;
-  const canShowAction = !!actionLine && (!!actionBookId || !!onAddActionPickBook);
+  // 関係するメモが無かった答えの一歩（「次に読む本で…」など）は行動にしない（下に「本を追加」「学びを書く」を出す）。
+  const canShowAction = !!actionLine && (!!actionBookId || !!onAddActionPickBook) && !isNoInfoAnswer(message);
   const handleAddAction = async () => {
     if (!actionLine || actionBusy) return;
     if (actionBookId && onAddAction) {
@@ -2131,7 +2154,25 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   const quoteChecks = decodeQuoteRefs(allRefs);
   const refChecks = quoteChecks.filter((c) => c.k === 'r');
   const basisCheckFor = (title) => quoteChecks.find((c) => c.k === 'b' && c.t === title) || null;
-  const refsList = allRefs.filter((r) => !isMetaRef(r));
+  // 「もとになった本」から、引用がすべてメモと一致しなかった本を外す（作った引用の本を根拠として並べない・2026-09-29）。
+  //   一致しない引用が 1 つでもあり、同じ本に一致した引用も要約の行も無い本だけを外す。
+  const failedTitles = (() => {
+    const byTitle = new Map();
+    quoteChecks.forEach((c) => {
+      const t = String(c.t || '').trim();
+      if (!t) return;
+      if (!byTitle.has(t)) byTitle.set(t, []);
+      byTitle.get(t).push(c.s);
+    });
+    return [...byTitle].filter(([, ss]) => ss.every((x) => x === 'ng')).map(([t]) => t);
+  })();
+  const refsList = allRefs.filter((r) => {
+    if (isMetaRef(r)) return false;
+    if (failedTitles.length === 0) return true;
+    const m = String(r).match(/『([^』]+)』/);
+    const t = m ? m[1].trim() : '';
+    return !t || !failedTitles.some((f) => f === t || f.includes(t) || t.includes(f));
+  });
   // 関係するメモが無くてトークンを返したとき（答えの下に 13/--text-2 の一行）
   const refundNote = allRefs.some((r) => String(r).startsWith(REFUND_PREFIX)) ? REFUND_NOTE : '';
   const renderRefund = () => (refundNote && !isStreaming ? (

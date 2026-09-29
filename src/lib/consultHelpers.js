@@ -177,8 +177,11 @@ function challengeQuestion(challenge) {
 // books: アプリの本（camelCase の currentChallenge / status / title / updatedAt）
 // memoBookIds: メモのある本の id（Set・null＝まだ分からない）
 // lastConsult: { question } 前の相談（無ければ null）
+// memoCount: 自分のメモの件数（null＝まだ分からない）。10 件未満の間は、よく読まれている本（BOOK_WORRIES）を
+//   本棚に入れていれば、その本の困りごとを 2 番目に出す（メモが少ないうちは「本の学び」より答えやすい・2026-09-29）。
 // 返り値: [{ text, kind: 'continue' | 'challenge' | 'book' | 'worry' }]
-export function buildConsultExamples({ books = [], memoBookIds = null, lastConsult = null, count = 3 } = {}) {
+export const FEW_MEMOS = 10;
+export function buildConsultExamples({ books = [], memoBookIds = null, lastConsult = null, count = 3, memoCount = null } = {}) {
   const out = [];
   const push = (text, kind) => {
     if (text && !out.some((e) => e.text === text) && out.length < count) out.push({ text, kind });
@@ -198,6 +201,16 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
     || list.find((b) => b.status === 'done' && hasMemo(b))
     || (memoBookIds ? list.find((b) => hasMemo(b)) : null);
   if (recent?.title) push(`『${recent.title}』の学びで、明日から使えるものは？`, 'book');
+
+  // メモが少ない間: えらんだ（本棚に入れた）よく読まれている本の困りごとを 2 番目に。
+  if (Number.isFinite(memoCount) && memoCount < FEW_MEMOS) {
+    const byRecent = [...list].sort((a, b) => String(b.updatedAt || b.updated_at || '').localeCompare(String(a.updatedAt || a.updated_at || '')));
+    const worry = byRecent.filter(hasMemo).map(worryForBook).find(Boolean) || byRecent.map(worryForBook).find(Boolean);
+    if (worry && !out.some((e) => e.text === worry)) {
+      out.splice(Math.min(1, out.length), 0, { text: worry, kind: 'worry' });
+      if (out.length > count) out.length = count;
+    }
+  }
 
   WORRY_EXAMPLES.forEach((w) => push(w, 'worry'));
   return out;

@@ -61,8 +61,8 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
   }, [examplesReady]);
   const frozenExamples = useRef(null);
   const liveExamples = useMemo(
-    () => buildConsultExamples({ books, memoBookIds, lastConsult: lastQuestion ? { question: lastQuestion } : null, count: 2 }).map((e) => e.text),
-    [books, memoBookIds, lastQuestion],
+    () => buildConsultExamples({ books, memoBookIds, lastConsult: lastQuestion ? { question: lastQuestion } : null, count: 2, memoCount }).map((e) => e.text),
+    [books, memoBookIds, lastQuestion, memoCount],
   );
   if (examplesReady && !frozenExamples.current) frozenExamples.current = liveExamples;
   const examples = frozenExamples.current || [];

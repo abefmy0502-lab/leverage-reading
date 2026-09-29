@@ -421,9 +421,21 @@ function bookmeterPageStatus(s, fileName) {
   return bookmeterStatusHint(title) || bookmeterStatusHint(fileName);
 }
 
+// ページの上に出ている棚の冊数（.content__count。「1,234」「1234冊」など）。読めなければ 0。
+// 一覧はページに分かれている（1 ページ 20〜40 冊）ので、保存したページの冊数より多ければ「残りのページも」と伝える。
+export function bookmeterPageTotal(html) {
+  // 数は div の中の span などに入っていることもあるので、最初の閉じタグまでを見る（タグの種類を問わない）。
+  const m0 = String(html || '').match(/class=["'][^"']*\bcontent__count\b[^"']*["'][^>]*>([\s\S]{0,200}?)<\/[a-z]+>/i);
+  const raw = decodeEntities(m0 ? m0[1] : '');
+  const m = raw.replace(/[,，\s]/g, '').match(/\d+/);
+  const n = m ? Number(m[0]) : 0;
+  return Number.isFinite(n) && n > 0 && n < 1000000 ? n : 0;
+}
+
 export function parseBookmeterHtml(html, fileName = '') {
   const s = String(html || '');
   const pageStatus = bookmeterPageStatus(s, fileName);
+  const total = bookmeterPageTotal(s);
   const parts = s.split(/<li\b[^>]*class=["'][^"']*\bgroup__book\b[^"']*["'][^>]*>/i).slice(1);
   const books = [];
   for (const block of parts) {
@@ -460,7 +472,17 @@ export function parseBookmeterHtml(html, fileName = '') {
     const b = bookmeterBook(Object.fromEntries(Object.entries(rec).map(([k, v]) => [normKey(k), v])), pageStatus || (rec.date ? 'done' : ''));
     if (b) books.push(b);
   }
-  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_BOOKS) };
+  // total: 棚の全冊数（ページの上の数・読めたときだけ）。shelf: どの棚のページか（'done' など・分からなければ ''）。
+  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_BOOKS), ...(total ? { total, shelf: pageStatus || '' } : null) };
+}
+
+// 棚の全冊数と、選んだファイルで読めた冊数（読書メーターの保存したページのとき・2026-09-29）。
+// 全冊数が読めた冊数より多い＝保存していないページがある。{ total, found, shelf } か null。
+export function importShortfall(result) {
+  const total = Number(result?.total) || 0;
+  const found = Array.isArray(result?.books) ? result.books.length : 0;
+  if (!total || total <= found) return null;
+  return { total, found, shelf: result.shelf || '' };
 }
 
 // ── 入口: ファイル名と中身から形式を当てる ─────────────────────────────
@@ -510,7 +532,16 @@ export function mergeImportResults(results) {
       }
     }
   }
-  return { source: sources.length === 1 ? sources[0] : 'mixed', books: [...new Set(byKey.values())] };
+  // 読書メーターの棚の全冊数: 同じ棚のページどうしは同じ数なので棚ごとに 1 つ、棚が違えば足す。
+  const totals = new Map();
+  list.forEach((r) => { if (r.total > 0) totals.set(r.shelf || '', Math.max(totals.get(r.shelf || '') || 0, r.total)); });
+  const total = [...totals.values()].reduce((n, v) => n + v, 0);
+  const shelf = totals.size === 1 ? [...totals.keys()][0] : '';
+  return {
+    source: sources.length === 1 ? sources[0] : 'mixed',
+    books: [...new Set(byKey.values())],
+    ...(total ? { total, shelf } : null),
+  };
 }
 
 export function summarizeImport(result) {

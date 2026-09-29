@@ -35,7 +35,19 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '') {
     const b = books.get(m.book_id);
     return b ? memoBlock.includes(`本: ${b.title}`) : memoBlock.includes("自分の学び");
   };
-  const memos = store.table('book_memos').filter((m) => (m.text || '').trim() && inBlock(m));
+  // 「この本のまとめ」（books.leverage_memo）も本番と同じく材料にする（読書メーターの感想だけを取り込んだ人の相談の確認用）。
+  //   引用はまとめの最初の 1 行（長ければ 60 字）＝まとめの本文の一部なので、根拠の照合（evidenceCheck.js）も通る。
+  const summaries = store.table('books')
+    .filter((b) => String(b.leverage_memo || '').trim())
+    .map((b) => ({
+      id: `summary-${b.id}`,
+      book_id: b.id,
+      source_type: 'summary',
+      text: String(b.leverage_memo).trim().split('\n')[0].slice(0, 60),
+      page_number: null,
+      created_at: b.updated_at || b.created_at,
+    }));
+  const memos = [...store.table('book_memos'), ...summaries].filter((m) => (m.text || '').trim() && inBlock(m));
   if (!memos.length) {
     return 'まだメモが 1 件も保存されていません。本を読んでメモを書くと、ここがあなただけの相談相手になります。';
   }

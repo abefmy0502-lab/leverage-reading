@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport, mergeImportResults, asinToIsbn13, bookmeterStatusHint, parseBookmeterCsv, parseBookmeterJson, parseBookmeterHtml, looksLikeBookmeterCsv } from './importers';
+import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport, mergeImportResults, asinToIsbn13, bookmeterStatusHint, parseBookmeterCsv, parseBookmeterJson, parseBookmeterHtml, looksLikeBookmeterCsv, bookmeterPageTotal, importShortfall } from './importers';
 
 const fixture = (name) => readFileSync(new URL(`../../scripts/fixtures/${name}`, import.meta.url), 'utf-8');
 
@@ -180,6 +180,24 @@ describe('読書メーター', () => {
     // data-modal が無い本: 表紙の alt と Amazon のリンクから
     expect(r.books[2]).toMatchObject({ title: '完訳 7つの習慣 人格主義の回復', asin: 'B07K6VY5T8', isbn: '', doneDate: '2025-08-15' });
     expect(summarizeImport(r)).toEqual({ books: 3, memos: 1 });
+  });
+  it('棚の全冊数（.content__count）を読み、保存したページより多ければ残りがあると分かる', () => {
+    expect(bookmeterPageTotal('<div class="content__count">1,234</div>')).toBe(1234);
+    expect(bookmeterPageTotal('<div class="content__count"><span>56</span>冊</div>')).toBe(56);
+    expect(bookmeterPageTotal('<div class="x">3</div>')).toBe(0);
+    const fx = parseImportText('読書メーター.html', fixture('bookmeter-read.html'));
+    expect(fx).toMatchObject({ total: 3, shelf: 'done' });
+    expect(importShortfall(fx)).toBeNull(); // 全部のページがそろっている
+    const page = (n) => `<!-- saved from url=(0050)https://bookmeter.com/users/1/books/read -->
+      <div class="content__count">${n}</div>
+      <li class="group__book"><img alt="本A" class="cover__image" src="x"><ul class="detail__authors"><li><a>著者</a></li></ul></li>`;
+    const one = parseBookmeterHtml(page(45));
+    expect(importShortfall(one)).toEqual({ total: 45, found: 1, shelf: 'done' });
+    // 同じ棚のページを 2 つ選んだら、全冊数は足さない
+    const two = parseBookmeterHtml(page(45).replace('本A', '本B'));
+    expect(importShortfall(mergeImportResults([one, two]))).toEqual({ total: 45, found: 2, shelf: 'done' });
+    // 全冊数が読めないファイル（ブクログなど）は null
+    expect(importShortfall({ source: 'booklog', books: [] })).toBeNull();
   });
   it('棚はページの保存元 URL で決める（ほかの棚へのリンクには引っぱられない）', () => {
     const page = (url) => `<!-- saved from url=(0050)${url} --><a href="/users/1/books/read">読んだ本</a>`

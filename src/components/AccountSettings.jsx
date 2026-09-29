@@ -879,7 +879,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                 {lotRow}
                 {canBuyTokens && (
                   // 設定を閉じてからシートを開く（設定の上に重ねるとシートが設定の下に隠れる・z-index 880 > 700）。
-                  <button type="button" onClick={() => { onClose?.(); openTokenSheet(); }} style={{ ...rowButtonStyle, ...divider }}>
+                  // シートを閉じたとき・「戻る」で設定に戻る（from: 'settings'・App の PaywallGate）。
+                  <button type="button" onClick={() => { onClose?.(); openTokenSheet({ from: 'settings' }); }} style={{ ...rowButtonStyle, ...divider }}>
                     <span style={{ ...rowTitleStyle, flex: 1 }}>トークンを追加</span>
                     <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>

@@ -292,6 +292,15 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
     <div
       style={tapOpens ? { ...cardStyle, cursor: 'pointer' } : cardStyle}
       onClick={tapOpens ? () => onOpenBook(book, memo.id) : undefined}
+      // キーボード・スイッチ操作でも開けるように（Enter / Space・中のボタンで押したときは、そのボタンの動作だけ）。
+      {...(tapOpens ? {
+        role: 'button',
+        tabIndex: 0,
+        onKeyDown: (e) => {
+          if (e.target !== e.currentTarget || e.nativeEvent.isComposing) return;
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenBook(book, memo.id); }
+        },
+      } : null)}
       {...(onLongPress && !isSynth ? longPress.bind : {})}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', flexWrap: bookInHeader ? 'nowrap' : 'wrap' }}>

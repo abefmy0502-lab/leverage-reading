@@ -121,9 +121,12 @@ const sameAction = (x, y) => x.bookId === y.bookId && (x.id && y.id ? x.id === y
 
 // 一覧の 1 行（li）。中身が変わったら高さをなめらかに合わせ、collapsed で高さ 0 まで畳んでから onCollapsed。
 // 並びの間（gap = --space-3）も負の余白で打ち消すので、消えた瞬間に下の行が跳ねない。
-function MorphItem({ phaseKey, collapsed, first, onCollapsed, children }) {
+// entering: 畳んで消えた行を「元に戻す」で戻すとき、高さ 0 から広げて出す（畳んだ動きの逆・2026-09-29）。
+function MorphItem({ phaseKey, collapsed, first, entering = false, onCollapsed, children }) {
   const ref = useRef(null);
   const lastH = useRef(null);
+  const enterRef = useRef(entering);
+  const wasCollapsed = useRef(false);
   const onCollapsedRef = useRef(onCollapsed);
   onCollapsedRef.current = onCollapsed;
   useLayoutEffect(() => {
@@ -139,6 +142,7 @@ function MorphItem({ phaseKey, collapsed, first, onCollapsed, children }) {
       el.style.marginBottom = '';
     };
     if (collapsed) {
+      wasCollapsed.current = true;
       el.style.height = `${el.offsetHeight}px`;
       el.style.overflow = 'hidden';
       // eslint-disable-next-line no-unused-expressions
@@ -150,6 +154,38 @@ function MorphItem({ phaseKey, collapsed, first, onCollapsed, children }) {
       else el.style.marginTop = 'calc(-1 * var(--space-3))';
       const t = setTimeout(() => onCollapsedRef.current?.(), dur + 20);
       return () => clearTimeout(t);
+    }
+    // 畳んでいる途中（または畳み終えて出し直した行）を「元に戻す」: いまの高さ（出し直しは 0）から本来の高さへ広げる。
+    // 目印（enterRef / wasCollapsed）は広げ終わってから下ろす（開発中の StrictMode は effect を 2 回走らせるので、
+    // 1 回目で下ろすと 2 回目で広げる動きが消える）。
+    if (wasCollapsed.current || enterRef.current) {
+      const fromZero = enterRef.current;
+      const cs = getComputedStyle(el);
+      const from = { h: fromZero ? 0 : el.getBoundingClientRect().height, op: fromZero ? '0' : cs.opacity, mt: cs.marginTop, mb: cs.marginBottom };
+      clear();
+      const natural = el.offsetHeight;
+      lastH.current = natural;
+      const done = () => { enterRef.current = false; wasCollapsed.current = false; };
+      if (dur === 0) { done(); return undefined; }
+      el.style.height = `${from.h}px`;
+      el.style.overflow = 'hidden';
+      el.style.opacity = from.op;
+      if (fromZero) {
+        if (first) el.style.marginBottom = 'calc(-1 * var(--space-3))';
+        else el.style.marginTop = 'calc(-1 * var(--space-3))';
+      } else {
+        el.style.marginTop = from.mt;
+        el.style.marginBottom = from.mb;
+      }
+      // eslint-disable-next-line no-unused-expressions
+      el.offsetHeight;
+      el.style.transition = `height ${HEIGHT_EASE}, opacity ${HEIGHT_EASE}, margin ${HEIGHT_EASE}`;
+      el.style.height = `${natural}px`;
+      el.style.opacity = '1';
+      el.style.marginTop = '';
+      el.style.marginBottom = '';
+      const t = setTimeout(() => { done(); clear(); lastH.current = el.offsetHeight; }, dur + 20);
+      return () => { clearTimeout(t); clear(); };
     }
     const prevH = lastH.current;
     const newH = el.offsetHeight;
@@ -243,10 +279,25 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
 
 // 完了した行の、その場の「やってみて、どうでしたか？」（1 行・任意）。
 function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
+  const ref = useRef(null);
+  // 欄が開いたら、下の知らせ（元に戻す）とタブバーに隠れない所まで寄せる（2026-09-29）。
+  //   高さが広がり終わってから（その前は、下の余白がまだ足りずに最後まで寄せられない）。
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try { ref.current?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+    }, fastMs() + 40);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <section
+      ref={ref}
       aria-label="完了した行動のふりかえり"
-      style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', position: 'relative' }}
+      style={{
+        background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', position: 'relative',
+        // 下の知らせ（高さ約 56）＋タブバー＋セーフエリアの上に止める。
+        scrollMarginBottom: 'calc(var(--tabbar-h) + var(--space-16) + var(--space-4) + env(safe-area-inset-bottom, 0px))',
+        scrollMarginTop: 'var(--space-4)',
+      }}
     >
       <button
         type="button"
@@ -333,9 +384,17 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     setCompleting((list) => list.filter((c) => c.key !== key));
   }, []);
 
+  // 元に戻す: 行をその場で未完了の形に戻す。畳みかけ・畳み終えた行は、畳んだ動きの逆で広げて戻す
+  //   （'restore' の間は行を残し、広げ終わったら外す＝そのあとは一覧の未完了の行としてそのまま続く・2026-09-29）。
   const undoComplete = (a) => {
     showToastPad(false);
-    removeCompleting(rowKeyOf(a));
+    const key = rowKeyOf(a);
+    clearTimeout(timersRef.current.get(key));
+    setCompleting((list) => {
+      const cur = list.find((c) => c.key === key);
+      return [...list.filter((c) => c.key !== key), { key, a: cur ? cur.a : a, phase: 'restore', enter: !cur }];
+    });
+    timersRef.current.set(key, setTimeout(() => removeCompleting(key), fastMs() + 80));
     onToggleAction?.(a.bookId, a.actionIdx, { silent: true, target: a });
   };
 
@@ -382,7 +441,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
 
   const onCheck = (a) => {
     const key = rowKeyOf(a);
-    if (completing.some((c) => c.key === key)) { undoComplete(a); return; }
+    if (completing.some((c) => c.key === key && c.phase !== 'restore')) { undoComplete(a); return; }
     // 未完了→完了の瞬間だけ計測（PII なし）。
     if (!a.done) { complete(a); return; }
     onToggleAction?.(a.bookId, a.actionIdx);
@@ -441,6 +500,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     const key = rowKeyOf(a);
     const c = completing.find((x) => x.key === key);
     const phase = c?.phase || 'idle';
+    const restoring = phase === 'restore';
     // 畳んでいる間は、畳む前の中身のまま（ふりかえりの欄なら欄のまま）。
     const showReflect = phase === 'reflect' || (phase === 'collapse' && c?.shown === 'reflect');
     return (
@@ -448,6 +508,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         key={key}
         phaseKey={showReflect ? 'reflect' : 'row'}
         collapsed={phase === 'collapse'}
+        entering={!!c?.enter}
         first={i === 0}
         onCollapsed={() => removeCompleting(key)}
       >
@@ -463,8 +524,8 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
         ) : (
           <ActionRow
             a={c ? c.a : a}
-            completing={!!c}
-            swipeable={!c}
+            completing={!!c && !restoring}
+            swipeable={!c || restoring}
             onCheck={onCheck}
             onOpenMenu={setMenu}
             onSwipeDelete={swipeDelete}

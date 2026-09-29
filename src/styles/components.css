@@ -1327,6 +1327,9 @@ body.keyboard-open .bottom-nav {
   height: 1em;
   vertical-align: -0.15em;
   margin-left: 2px;
+  /* 送り幅は 0（左 2 ＋ 幅 2 − 右 4）。行の最後に来ても折り返して 1 行増やさない
+     （書き終わって消えた瞬間に下の「行動に追加」が 1 行分跳ねないように・2026-09-29） */
+  margin-right: -4px;
   background: currentColor;
   border-radius: 1px;
   animation: lvg-streaming-blink 1s steps(2, end) infinite;

@@ -27,6 +27,9 @@ export function AppDataCacheProvider({ children }) {
   const memoStoreRef = useRef(new Map());
   const photoStoreRef = useRef(new Map()); // path -> { url, fetchedAt, promise? }
   const memoSubsRef = useRef(new Map()); // bookId -> Set<callback>
+  // 本ごとの「最後に分かったメモの件数」（読み込み中の形をその件数に合わせる・2026-09-29）。
+  // メモの一覧を捨てても残す（開き直したときの形に使う）。キャッシュを通さずにメモが増えたら捨てる。
+  const memoCountRef = useRef(new Map()); // bookId -> number
 
   // ===== memo cache =====
   const getMemos = useCallback((bookId) => {
@@ -50,6 +53,7 @@ export function AppDataCacheProvider({ children }) {
   // まとめて取り込んだ（ImportSheet）など、キャッシュを通さずにメモが増えたときに呼ぶ。
   const notifyMemosChanged = useCallback(() => {
     memoStoreRef.current.clear(); // 本ごとのメモは次に開いたときに読み直す
+    memoCountRef.current.clear(); // 件数も分からなくなる（取り込みで増えた本を「0 件」の形で待たない）
     invalidateKnowledgeCache();
     notifyAnyMemo();
   }, []);
@@ -62,6 +66,7 @@ export function AppDataCacheProvider({ children }) {
   const setMemos = useCallback((bookId, memos) => {
     if (!bookId) return;
     memoStoreRef.current.set(bookId, memos);
+    if (Array.isArray(memos)) memoCountRef.current.set(bookId, memos.length);
     notifyMemos(bookId, memos);
     notifyAnyMemo();
     // メモが動いたら AI の知識キャッシュ（gatherKnowledge）を無効化 —
@@ -74,6 +79,7 @@ export function AppDataCacheProvider({ children }) {
     const current = memoStoreRef.current.get(bookId) || [];
     const next = fn(current);
     memoStoreRef.current.set(bookId, next);
+    if (Array.isArray(next)) memoCountRef.current.set(bookId, next.length);
     notifyMemos(bookId, next);
     notifyAnyMemo();
     invalidateKnowledgeCache();
@@ -106,6 +112,16 @@ export function AppDataCacheProvider({ children }) {
       set.delete(cb);
       if (set.size === 0) memoSubsRef.current.delete(bookId);
     };
+  }, []);
+
+  // 最後に分かったメモの件数（分からなければ null）。新しく登録した本は 0 を入れておく（App の handleSave）。
+  const getMemoCountHint = useCallback((bookId) => {
+    if (!bookId) return null;
+    const n = memoCountRef.current.get(bookId);
+    return Number.isFinite(n) ? n : null;
+  }, []);
+  const setMemoCountHint = useCallback((bookId, n) => {
+    if (bookId && Number.isFinite(n)) memoCountRef.current.set(bookId, n);
   }, []);
 
   const clearMemos = useCallback((bookId) => {
@@ -229,6 +245,7 @@ export function AppDataCacheProvider({ children }) {
 
   const clearAll = useCallback(() => {
     memoStoreRef.current.clear();
+    memoCountRef.current.clear();
     photoStoreRef.current.clear();
     memoSubsRef.current.clear();
   }, []);
@@ -247,6 +264,8 @@ export function AppDataCacheProvider({ children }) {
     () => ({
       getMemos,
       setMemos,
+      getMemoCountHint,
+      setMemoCountHint,
       patchMemos,
       subscribeMemos,
       subscribeAnyMemo,
@@ -262,6 +281,8 @@ export function AppDataCacheProvider({ children }) {
     [
       getMemos,
       setMemos,
+      getMemoCountHint,
+      setMemoCountHint,
       patchMemos,
       subscribeMemos,
       subscribeAnyMemo,

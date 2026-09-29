@@ -468,6 +468,9 @@ function Shell({ children }) {
 }
 
 /* ========== MAIN APP ========== */
+// 設定から開いた「トークンを追加」を閉じたら、設定に戻る（PaywallGate → AuthedApp・2026-09-29）。
+const OPEN_SETTINGS_EVENT = 'orime:open-settings';
+
 function AuthedApp() {
   const { signOut, user } = useAuth();
   const appCache = useAppDataCache();
@@ -894,6 +897,11 @@ function AuthedApp() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   // 重ねて開くもの（「戻る」で一番上から閉じる・その間は左端スワイプで下の画面を戻さない）。
   useBackLayer(settingsOpen, () => setSettingsOpen(false));
+  useEffect(() => {
+    const reopen = () => setSettingsOpen(true);
+    window.addEventListener(OPEN_SETTINGS_EVENT, reopen);
+    return () => window.removeEventListener(OPEN_SETTINGS_EVENT, reopen);
+  }, []);
   useBackLayer(adminOpen, () => setAdminOpen(false));
   useBackLayer(helpModalOpen, () => setHelpModalOpen(false));
   useBackLayer(addBookModalOpen, () => setAddBookModalOpen(false));
@@ -1684,6 +1692,8 @@ function AuthedApp() {
       // saveBook は未接続時に throw せず null を返すので、saved が truthy の時だけ計測する
       // （未保存の payload を「追加した」と数えない）。
       if (saved && wasNew) {
+        // 登録したばかりの本にメモは無い: 本の詳細のメモ欄を、読み込み中から「0 件」の形で出す（跳ねないように）。
+        if (saved.id) appCache?.setMemoCountHint?.(saved.id, 0);
         const via = next.addedVia === 'manual' ? 'manual'
           : next.addedVia === 'search' ? 'search'
           : 'manual';
@@ -4679,6 +4689,7 @@ function AuthedApp() {
                     onAddActionPickBook={(text) => setAddActionSheet({ step: 'pick', prefillText: text })}
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
                     onQuickstart={() => setShowQuickstart(true)}
+                    onAddBook={() => openAdd()}
                     askPreset={askPreset}
                     scopePreset={scopePreset}
                     onPushedViewChange={setConsultPushed}
@@ -5511,6 +5522,14 @@ function PaywallGate() {
   // 買い足せるのはプランの人（有料・7 日間無料）だけ。
   const canBuyTokens = plan === 'paid' || plan === 'trial';
   const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
+  // どこから開いたか（'settings' なら、閉じたとき・「戻る」で設定に戻す）。
+  const tokenSheetFromRef = useRef(null);
+  const closeTokenSheet = useCallback(() => {
+    setTokenSheetOpen(false);
+    const from = tokenSheetFromRef.current;
+    tokenSheetFromRef.current = null;
+    if (from === 'settings') window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT));
+  }, []);
 
   // アプリの上に重ねて開く有料プランの画面（{ reason, feature }）。いつでも × / 「あとで」で閉じられる。
   //   reason: 'free_used'（今月の無料のトークンを使い切った）/ 'feature'（プランで使える機能）/
@@ -5529,7 +5548,7 @@ function PaywallGate() {
   useEffect(() => { if (isActive) setPaywall(null); }, [isActive]);
   // ブラウザ / Android の「戻る」は、重ねて開いた有料プランの画面・トークンの追加から閉じる（アプリを離れない）。
   useBackLayer(!!paywall && !isActive, () => setPaywall(null));
-  useBackLayer(tokenSheetOpen && canBuyTokens, () => setTokenSheetOpen(false), { overBlock: true });
+  useBackLayer(tokenSheetOpen && canBuyTokens, closeTokenSheet, { overBlock: true });
   const paywallCtx = useMemo(() => {
     const openPaywall = (reason = null, feature = '') => setPaywall({ reason, feature });
     return {
@@ -5545,7 +5564,12 @@ function PaywallGate() {
       canBuyTokens,
       // 前にプランを契約していた（いまは無料プラン）。無料期間はもう使えないので、すすめる文を変える（lib/trialNudge.js）。
       hadPlan: freeMode && !!subscription?.status && subscription.status !== 'active',
-      openTokenSheet: () => { if (canBuyTokens) setTokenSheetOpen(true); },
+      // opts.from === 'settings': 設定から開いた（閉じたら設定に戻す）。onClick にそのまま渡されたときの event は無視する。
+      openTokenSheet: (opts) => {
+        if (!canBuyTokens) return;
+        tokenSheetFromRef.current = opts && opts.from === 'settings' ? 'settings' : null;
+        setTokenSheetOpen(true);
+      },
       refreshTokens,
       // 旧名（お試しの頃の呼び方）。無料プランの残りのトークン。
       freeRemaining: freeMode ? tokensRemaining : null,
@@ -5639,7 +5663,7 @@ function PaywallGate() {
       )}
       {tokenSheetOpen && canBuyTokens && (
         <Suspense fallback={<OverlayFallback />}>
-          <TokenSheet onClose={() => setTokenSheetOpen(false)} onPurchased={refreshTokens} />
+          <TokenSheet onClose={closeTokenSheet} onPurchased={refreshTokens} />
         </Suspense>
       )}
     </PaywallContext.Provider>

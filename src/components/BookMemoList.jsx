@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBookMemos } from '../hooks/useBookMemos';
+import { useAppDataCache } from '../state/AppDataCache';
 import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
 import { useConfirm } from './ConfirmDialog';
@@ -200,6 +201,13 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     deleteMemo,
     restoreMemoFromSnapshot,
   } = useBookMemos(bookId, { sortBy });
+  // 読み込み中の形は、最後に分かったメモの件数に合わせる（登録したばかりの本＝0 件なら「一行を残しましょう」の高さ）。
+  //   分からない（null）ときは 3 件分。読み込み中は件数・並び替えの行、「この本に相談する」、「この本のまとめ」も
+  //   見えない形で場所を取っておく（読み込み後に下が押し下げられて跳ねないように・2026-09-29）。
+  const cache = useAppDataCache();
+  const countHint = useMemo(() => cache?.getMemoCountHint?.(bookId) ?? null, [cache, bookId]);
+  const waiting = loading && memos.length === 0;
+  const hidden = { visibility: 'hidden' };
 
   const rootRef = useRef(null);
 
@@ -417,9 +425,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {/* 並べ替え・絞り込みは、並べ替える対象（メモ）ができてから出す。
           0 件の画面で最初に見えるのが「ページ順/新しい順/引用のみ」だと、
           書き始めのボタンがその下に埋もれる。 */}
-      {memos.length > 0 && (
+      {(memos.length > 0 || (waiting && countHint > 0)) && (
         // 行の高さ 44 は押せる範囲のため。見た目では見出しとカードに寄せる（グループ内は詰める）。
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-2)) 0' }}>
+        <div aria-hidden={waiting || undefined} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', margin: 'calc(-1 * var(--space-2)) 0', ...(waiting ? hidden : null) }}>
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
             {quoteOnly ? `ページ番号つき ${visibleMemos.length} 件` : `${memos.length} 件`}
           </span>
@@ -435,7 +443,13 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         </div>
       )}
 
-      {loading && memos.length === 0 && <MemoListSkeleton rows={3} />}
+      {waiting && countHint !== 0 && <MemoListSkeleton rows={countHint == null ? 3 : Math.min(countHint, 5)} />}
+      {/* 0 件と分かっている本: 読み込み後に出る空の案内と同じ高さで待つ（見えない形） */}
+      {waiting && countHint === 0 && (
+        <div className="empty-state--flush-bottom" aria-hidden="true" style={hidden}>
+          <EmptyState icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />} title="心が動いた一行を残しましょう" />
+        </div>
+      )}
 
       {/* 読み込みに失敗したときは、空（「一行を残しましょう」）と見せずにやり直しを出す。 */}
       {!loading && memos.length === 0 && loadError && (
@@ -498,10 +512,15 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
       {/* 「この本に相談する」などはメモが 1 件以上あるときだけ（材料が無いと相談しても答えられない）。 */}
       {memos.length > 0 && afterList}
+      {waiting && countHint > 0 && afterList && <div aria-hidden="true" style={hidden}>{afterList}</div>}
 
       {/* この本のまとめ（旧「まとめ」タブ）。一覧の下に 1 か所だけ・普段は畳む。
           畳む見出しは DESIGN §5: 高さ 48・右端にシェブロン（開くと回る）・list-style なし。 */}
-      {/* 読み込み中は出さない（メモの一覧が入ったときに、まとめが下へ押し下げられて跳ねないように）。 */}
+      {/* 読み込み中は同じ高さの見えない形で場所を取る（メモの一覧が入ったときに、まとめが下へ押し下げられて見えないように・
+          読み込み後に 48 の見出しが足されて下が跳ねないように）。 */}
+      {summarySection && loading && (
+        <div aria-hidden="true" style={{ ...hidden, minHeight: 48, border: '1px solid var(--separator)', borderRadius: 'var(--radius)' }} />
+      )}
       {summarySection && !loading && (
         <details style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' }}>
           <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', minHeight: 48, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', cursor: 'pointer', listStyle: 'none' }}>

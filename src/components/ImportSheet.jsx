@@ -10,7 +10,7 @@ import BottomSheet from './BottomSheet';
 import { useConfirm } from './ConfirmDialog';
 import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
-import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, IMPORT_MAX_BYTES } from '../lib/importers';
+import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, importShortfall, IMPORT_MAX_BYTES } from '../lib/importers';
 import { track } from '../lib/analytics';
 
 // 日本語の折り返し: 文節で切る（auto-phrase）＋最後の行に語が 1 つだけ残らない（pretty）。
@@ -27,6 +27,8 @@ const howTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--t
 const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
 const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター', kindle: 'Kindle' };
+// 読書メーターの棚の名前（保存したページの棚。残りのページの案内に使う）。
+const SHELF_LABEL = { done: '読んだ本', reading: '読んでる本', before: '積読本', want: '読みたい本' };
 
 export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) {
   const inputRef = useRef(null);
@@ -54,7 +56,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
         const text = decodeImportBytes(await file.arrayBuffer());
         parsed.push(parseImportText(file.name, text));
       }
-      const r = mergeImportResults(parsed);
+      const r = { ...mergeImportResults(parsed), fileCount: files.length };
       if (!r.books.length) {
         // ファイルの種類は下の一覧に書いてあるので、ここでは繰り返さない。
         setError('読み取れる本がありませんでした。下のどれかのファイルを選んでください。');
@@ -121,7 +123,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
           <li>
             {/* 読書メーターには公式の書き出しが無いので、パソコンで保存したページ（.html）を選ぶ。書き出しツールの CSV もそのまま読める（ヘルプ）。 */}
             <p style={howTitle}>読書メーター</p>
-            <p style={body}>パソコンで「読んだ本」を「リスト」表示にして、ページを保存（.html）して選びます。感想も取り込みます。</p>
+            <p style={body}>パソコンで「読んだ本」を「リスト」表示にして、ページを保存（.html）して選びます。感想も取り込みます。ページが分かれているときは、全部のページを保存してまとめて選べます。</p>
           </li>
           <li>
             <p style={howTitle}>Kindle アプリ</p>
@@ -154,6 +156,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
     // （keep-all なので「・」の前後では切れない＝「・」で終わる行ができない）。
     const countParts = [`本 ${sum.books} 冊`, memoCount > 0 ? `メモ ${memoCount} 件` : '', reviewCount > 0 ? `まとめ ${reviewCount} 件` : ''].filter(Boolean);
     const source = SOURCE_LABEL[result.source];
+    const shortfall = importShortfall(result);
+    const files = result.fileCount || 1;
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
@@ -178,6 +182,12 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
         </ul>
         {result.books.length > shown.length && (
           <p style={{ ...body, fontSize: 'var(--text-meta)' }}>ほか {result.books.length - shown.length} 冊</p>
+        )}
+        {/* 読書メーターの一覧はページに分かれている。棚の全冊数より少なければ、残りのページも選んでもらう（2026-09-29）。 */}
+        {shortfall && (
+          <p role="note" style={body}>
+            {SHELF_LABEL[shortfall.shelf] || '本棚の本'}は<span style={nowrap}>全 {shortfall.total} 冊</span>です。{files > 1 ? '選んだファイル' : 'このファイル'}には <span style={nowrap}>{shortfall.found} 冊</span>。残りのページも保存して選んでください。
+          </p>
         )}
         {/* 「同じ本には足す・同じメモは二重にならない」はヘルプ（bookList の取り込み）だけに書く（説明の補足文を置かない・DESIGN §0-6）。 */}
         {result.source === 'kindle' && (

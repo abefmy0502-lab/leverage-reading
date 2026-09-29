@@ -10,15 +10,16 @@ import { MoreHorizontal, Share, Target, X } from 'lucide-react';
 const cardWrap = {
   position: 'relative',
   background: 'var(--surface)',
-  border: '1px solid var(--separator)',
+  // 枠は幅・線・色に分けて書く（border の一括指定と borderColor を混ぜると、強調を外したときに
+  // 色だけが消えて黒い枠が残る・2026-09-29）。色はカードごとに必ず入れる（下の cardInner）。
+  borderWidth: 1,
+  borderStyle: 'solid',
   borderRadius: 'var(--radius)',
   padding: 'var(--space-4)',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-2)',
-  // 大量メモ時、画面外カードのレイアウト/ペイントをスキップ（未対応環境は無視）。
-  contentVisibility: 'auto',
-  containIntrinsicSize: 'auto 140px',
+  // content-visibility: auto は使わない（最初の描画で仮の高さ 140 から本来の高さへ縮んで、一覧が跳ねていた・2026-09-29）。
 };
 
 // ページ番号と日付は「従」— 1 行にまとめた控えめなラベル（「p.33 · 9/20」）で本文を主役に保つ。
@@ -191,7 +192,8 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
         ...cardWrap,
         ...(onEdit ? { cursor: 'pointer' } : {}),
         // highlight === 'focus': 振り返りの検索などから開いた「このメモ」を少しのあいだ栗色で示す。
-        ...(highlight === 'focus' ? { background: 'var(--accent-soft)', borderColor: 'var(--accent)' } : {}),
+        borderColor: highlight === 'focus' ? 'var(--accent)' : 'var(--separator)',
+        ...(highlight === 'focus' ? { background: 'var(--accent-soft)' } : {}),
         transition: 'background-color var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out)',
       }}
       className={highlight && highlight !== 'focus' ? 'just-added' : undefined}

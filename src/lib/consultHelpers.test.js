@@ -28,6 +28,14 @@ describe('buildConsultExamples', () => {
     const ex = buildConsultExamples({ books: [{ id: 'x', title: 'X', status: 'done', tags: ['読書術'] }] });
     expect(ex.map((e) => e.text).join()).not.toContain('迷ったとき');
   });
+  it('メモが 10 件未満なら、本棚のよく読まれている本の困りごとを 2 番目に', () => {
+    const shelf = [...books, { id: 'd', title: '嫌われる勇気', status: 'done', updatedAt: '2026-09-25' }];
+    const ex = buildConsultExamples({ books: shelf, memoBookIds: new Set(['a', 'd']), lastConsult: { question: '部下に任せた仕事がいつも遅れる' }, memoCount: 3 });
+    expect(ex.map((e) => e.kind)).toEqual(['continue', 'worry', 'challenge']);
+    expect(ex[1].text).toBe('人の目が気になって、言いたいことが言えません');
+    const many = buildConsultExamples({ books: shelf, memoBookIds: new Set(['a', 'd']), memoCount: 10 });
+    expect(many.map((e) => e.text)).not.toContain('人の目が気になって、言いたいことが言えません');
+  });
   it('長い相談は短くまとめる', () => {
     const ex = buildConsultExamples({ lastConsult: { question: '新しいプロジェクトのメンバーがなかなか自分から動いてくれず、毎回こちらから声をかけています。' } });
     expect(ex[0].text).toBe('前に相談した「新しいプロジェクトのメンバーがなか…」、その後どう進める？');
