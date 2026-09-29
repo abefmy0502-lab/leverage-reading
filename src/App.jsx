@@ -608,6 +608,8 @@ function AuthedApp() {
   const [homeMemoBook, setHomeMemoBook] = useState(null);
   // 📚 初日クイックスタート（これまで読んだ本で相談相手をつくる）の表示。
   const [showQuickstart, setShowQuickstart] = useState(false);
+  // 取り込みの完了画面から開くとき: 一言を足す本（本棚に入っている本・一言の段から始める）。ふだんは null。
+  const [quickstartSeed, setQuickstartSeed] = useState(null);
   const [showImport, setShowImport] = useState(false); // 📥 ほかのアプリから取り込む
   // クイックスタートをメモ 0 件で終えたとき「メモを書く」→ 本が読み込まれたらその本を開いてメモのシートを出す。
   const [pendingMemoBookId, setPendingMemoBookId] = useState(null);
@@ -1984,6 +1986,7 @@ function AuthedApp() {
     let booksMatched = 0;
     const pending = []; // { bookId, memos }
     const newBooks = [];
+    const noReviewIds = new Set(); // 感想・レビューの無い新しい本（メモも無ければ「覚えている一言を足す」の候補）
     const srcDoneDate = new Map(); // もとからあった本 → 取り込み元の読了日
     for (let i = 0; i < items.length; i += 1) {
       const b = items[i];
@@ -2015,7 +2018,7 @@ function AuthedApp() {
             leverageMemo: b.review || '',
             addedVia: isbn ? 'search' : 'manual',
           });
-          if (target) { booksAdded += 1; newBooks.push(target); if (b.review) reviewsAdded += 1; }
+          if (target) { booksAdded += 1; newBooks.push(target); if (b.review) reviewsAdded += 1; else noReviewIds.add(target.id); }
         } catch (e) {
           console.warn('[import] book save failed:', e?.message || e);
           target = null;
@@ -2083,7 +2086,10 @@ function AuthedApp() {
     // 新しい本のレビューは「この本のまとめ」に入れたので、メモ（カード）とは分けて数えて伝える
     track('import_done', { source: result?.source || 'unknown', books: booksAdded, matched: booksMatched, memos: memosAdded, reviews: reviewsAdded });
     if (memosAdded + reviewsAdded > 0) markActivation('memo');
-    return { booksAdded, booksMatched, memosAdded, reviewsAdded, createdBookIds: newBooks.map((b) => b.id), createdMemoIds, statusChanged };
+    // メモも「この本のまとめ」も無い新しい本（完了画面の「覚えている一言を足す（N 冊）」で一言を足せる）。
+    const withRows = new Set(rows.map((r) => r.book_id));
+    const bareBooks = newBooks.filter((bk) => noReviewIds.has(bk.id) && !withRows.has(bk.id));
+    return { booksAdded, booksMatched, memosAdded, reviewsAdded, createdBookIds: newBooks.map((b) => b.id), createdMemoIds, statusChanged, bareBooks };
   };
 
   // 📥 取り込みを取り消す（取り込みの完了画面から）: この取り込みで入れたものだけを消す。
@@ -3255,6 +3261,12 @@ function AuthedApp() {
         onUndoImport={undoImport}
         existingBooks={books}
         onClose={() => setShowImport(false)}
+        // メモも感想も無い新しい本に、初日クイックスタートの「一言」の段から一言を足す（2026-09-29）。
+        onAddOneLine={(bare) => {
+          setShowImport(false);
+          setQuickstartSeed(bare);
+          setShowQuickstart(true);
+        }}
         // 送らずに相談を開く（入力欄と相談例から自分で選んで送る＝勝手にトークンを使わない・2026-09-29）。
         onAsk={() => {
           setShowImport(false);
@@ -3272,23 +3284,26 @@ function AuthedApp() {
   const quickstartOverlay = showQuickstart ? (
     <Suspense fallback={null}>
       <PastBooksQuickstart
-        onImport={() => { setShowQuickstart(false); setShowImport(true); }}
+        onImport={() => { setShowQuickstart(false); setQuickstartSeed(null); setShowImport(true); }}
         books={books}
+        initialBooks={quickstartSeed}
         onSaveBook={saveQuickstartBook}
         // 一言を書いた本が「読みたい・積読」のままだと、本の詳細にメモが出ない → 読了にする
         onMarkRead={(bookId) => applyBookPatchQuiet(bookId, { status: 'done' })}
         onMemosAdded={() => appCache?.notifyMemosChanged?.()}
         onAsk={(question) => {
           setShowQuickstart(false);
+          setQuickstartSeed(null);
           refreshBooks();
           setAskPreset({ question, nonce: Date.now() });
           setView('list');
           setAiSubTab('brain');
           setTab('ai');
         }}
-        onClose={() => { setShowQuickstart(false); refreshBooks(); }}
+        onClose={() => { setShowQuickstart(false); setQuickstartSeed(null); refreshBooks(); }}
         onWriteMemo={(bookId) => {
           setShowQuickstart(false);
+          setQuickstartSeed(null);
           setPendingMemoBookId(bookId);
           refreshBooks();
         }}

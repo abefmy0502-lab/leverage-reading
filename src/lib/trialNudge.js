@@ -1,3 +1,5 @@
+import { PLAN_LABELS } from './billing';
+
 // 🌱 7 日間無料をすすめる「ちょうどいいとき」（2026-09-28 オーナー裁定）。
 //
 // Orime には「無料」が 2 つある:
@@ -114,11 +116,37 @@ export function planNameFor({ plan, priceId = '', trialEnd = '' }) {
   return '利用中';
 }
 
-// 無料期間の人に、終わったあとどうなるか（設定の「プラン」の行の下・2026-09-28）。
-//   「10月4日から 年額プラン（自動更新）」／期間が分からなければ「10月4日から プラン（自動更新）」。
-//   終わる日が分からなければ「無料期間のあと プラン（自動更新）」。
-export function trialRenewalLine({ priceId = '', trialEnd = '' } = {}) {
+// 無料期間の人に、終わったあとどうなるか（設定の「プラン」の行の下・2026-09-28 → 2026-09-29 に金額を入れた）。
+//   「10月4日から 年額 ¥12,800（税込）で自動更新」（金額は billing.js の表示ラベル・「月あたり…」は外す）。
+//   月額か年額か分からなければ「10月4日から プラン（自動更新）」（金額を当て推量で出さない）。
+//   終わる日が分からなければ「無料期間のあと 年額 ¥12,800（税込）で自動更新」。
+//   labels: テスト用の差し替え（既定は PLAN_LABELS）。
+export function shortPriceLabel(label = '') {
+  // 「年額 ¥12,800（税込・月あたり約¥1,066）」→「年額 ¥12,800（税込）」。括弧が無ければそのまま。
+  const s = String(label || '').trim();
+  const i = s.indexOf('（税込');
+  if (i < 0) return s;
+  const j = s.indexOf('）', i);
+  return j < 0 ? s : `${s.slice(0, i)}（税込）${s.slice(j + 1)}`.trim();
+}
+export function trialRenewalLine({ priceId = '', trialEnd = '', labels = PLAN_LABELS } = {}) {
   const period = planPeriodOf(priceId);
-  const name = period === 'annual' ? '年額プラン' : period === 'monthly' ? '月額プラン' : 'プラン';
-  return `${trialEnd ? `${trialEnd}から` : '無料期間のあと'} ${name}（自動更新）`;
+  const when = trialEnd ? `${trialEnd}から` : '無料期間のあと';
+  const price = period ? shortPriceLabel(labels?.[period]?.price) : '';
+  if (!price) return `${when} プラン（自動更新）`;
+  return `${when} ${price}で自動更新`;
+}
+
+// 無料期間のうちに解約すれば料金はかからない、を日付つきで（設定の「プラン・お支払い」・無料期間のときだけ）。
+//   App Store は「終わる 24 時間前まで」に解約しないと更新される。cancelBy は終わる 24 時間前の日付（「10月3日」）。
+export const TRIAL_CANCEL_HOURS = 24;
+export function trialCancelNote(cancelBy = '') {
+  return cancelBy
+    ? `${cancelBy}（終わる ${TRIAL_CANCEL_HOURS} 時間前）までに解約すれば、料金はかかりません`
+    : `無料期間が終わる ${TRIAL_CANCEL_HOURS} 時間前までに解約すれば、料金はかかりません`;
+}
+// 解約の期限（終わる 24 時間前）の時刻。終わる日時が分からなければ null。
+export function trialCancelByTime(periodEnd) {
+  const t = typeof periodEnd === 'number' ? periodEnd : Date.parse(periodEnd || '');
+  return Number.isFinite(t) ? t - TRIAL_CANCEL_HOURS * 3600 * 1000 : null;
 }

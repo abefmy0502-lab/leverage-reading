@@ -17,6 +17,9 @@ import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
 import { btnPrimary, card, input, groupTitle } from '../styles/ui';
 import { buildConsultExamples, countSummaryMemos } from '../lib/consultHelpers';
+import { usePaywall } from '../state/PaywallContext';
+import { nextResetLabelJa } from '../lib/freeTrial';
+import { PAID_TOKENS, monthDayLabelJa } from '../lib/tokens';
 import { loadDefaultJapaneseParser } from 'budoux';
 import { SkeletonBlock } from './Skeleton';
 
@@ -38,6 +41,10 @@ function withPhraseBreaks(text) {
 export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnknown = false }) {
   const { user } = useAuth();
   const cache = useAppDataCache();
+  // 🪙 トークンを使い切っていたら、書いても送れない。入力欄の代わりに「いつ戻るか」とボタンを出す
+  //   （書いた相談が相談タブで黙って消えないように・SPEC §1）。
+  const { plan, freeMode, trialEndsAt, tokensAvailable, canBuyTokens, openTokenSheet, openPaywall } = usePaywall();
+  const tokensUsedUp = (freeMode || canBuyTokens) && tokensAvailable != null && tokensAvailable <= 0;
   const inputRef = useRef(null);
   const [cardCount, setCardCount] = useState(null);
   const [text, setText] = useState('');
@@ -141,7 +148,16 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
         </button>
       )}
 
-      {hasMemos && (
+      {hasMemos && tokensUsedUp && (
+        <UsedUpNotice
+          plan={plan}
+          trialEndLabel={plan === 'trial' ? monthDayLabelJa(trialEndsAt) : ''}
+          onAction={canBuyTokens ? openTokenSheet : () => openPaywall('free_used')}
+          actionLabel={canBuyTokens ? 'トークンを追加' : 'プランを見る'}
+        />
+      )}
+
+      {hasMemos && !tokensUsedUp && (
         <>
           <textarea
             ref={inputRef}
@@ -187,5 +203,26 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
         </>
       )}
     </section>
+  );
+}
+
+// トークンを使い切ったときの 1 行＋ボタン（相談タブの「ここまで」の案内と同じ言い方）。
+//   無料プラン・有料: 「今月のトークンは、ここまでです（M月1日に戻ります）」
+//   7 日間無料: 「無料期間のトークンは、ここまでです（無料期間が終わる M月D日から、毎月 800 トークン使えます）」
+function UsedUpNotice({ plan, trialEndLabel, onAction, actionLabel }) {
+  const nowrap = { whiteSpace: 'nowrap' };
+  return (
+    <>
+      <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5 }}>
+        {plan === 'trial' ? (
+          <>無料期間のトークンは、ここまでです{trialEndLabel && <>（無料期間が終わる<span style={nowrap}>{trialEndLabel}</span>から、<span style={nowrap}>毎月 {PAID_TOKENS} トークン</span>使えます）</>}</>
+        ) : (
+          <>今月のトークンは、ここまでです（<span style={nowrap}>{nextResetLabelJa()}</span>に戻ります）</>
+        )}
+      </p>
+      <button type="button" onClick={onAction} style={{ ...btnPrimary, marginTop: 'var(--space-3)' }}>
+        {actionLabel}
+      </button>
+    </>
   );
 }

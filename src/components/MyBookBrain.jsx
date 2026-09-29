@@ -31,7 +31,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
 
@@ -760,8 +760,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const picked = (books || []).filter((b) => scopeIds.includes(b.id));
       const first = picked[0];
       if (first?.title) {
-        qs.push(`『${first.title}』の学びで、明日から使えるものは？`);
-        qs.push(`『${first.title}』でいちばん大事なことを、私のメモから教えて`);
+        // 副題まで入った書名（読書メーターなど）は短くする（lib/consultHelpers.js の shortTitle）。
+        const t = shortTitle(first.title);
+        qs.push(`『${t}』の学びで、明日から使えるものは？`);
+        qs.push(`『${t}』でいちばん大事なことを、私のメモから教えて`);
       }
       if (picked.length > 1) qs.push('選んだ本に共通する考え方は？');
       qs.push('この本から、今週やる一歩を1つ提案して');
@@ -783,6 +785,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }
     const q = (questionText ?? input).trim();
     if (!q || busy) return;
+    // ホームや相談例から渡された相談は、送れないときも入力欄に残す（黙って消えないように）。
+    if ((freeUsedUp || outOfTokens) && questionText != null) setInput(q);
     // 無料プランで今月のトークンを使い切っていたら、送らずに有料プランの画面を開く（入力は残す）。
     if (freeUsedUp) { openPaywall('free_used'); return; }
     // プランのトークンを使い切っていたら送らない（入力は残す。案内とトークンの追加は会話の下に出ている）。
@@ -2025,6 +2029,17 @@ function refText(r) {
 // 参照 1 件を 2 行に: 1 行目『書名』（長ければ …）、2 行目 著者・ページ（付随情報）。
 function RefLines({ r }) {
   const t = tidyQuotes(refText(r));
+  // 学びの参照「自分の学び (2026-08-15 / 仕事)」は、根拠の表示と同じ「自分の学び（8月15日）」に（カテゴリは 2 行目）。
+  const lm = t.match(/^自分の学び\s*[（(]\s*(\d{4}-\d{2}-\d{2})?\s*(?:[/／]\s*([^)）]*))?[)）]/);
+  if (lm) {
+    const cat = String(lm[2] || '').trim();
+    return (
+      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{`自分の学び${learningDateLabel(lm[1])}`}</span>
+        {cat && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontWeight: 400 }}>{cat}</span>}
+      </span>
+    );
+  }
   const m = t.match(/^(.*?)(『[^』]+』)(.*)$/);
   const title = m ? m[2] : t;
   const meta = m ? [m[1], m[3]].map((x) => x.trim()).filter(Boolean) : [];

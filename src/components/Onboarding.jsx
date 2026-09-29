@@ -352,8 +352,9 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               {/* 閉じるのは右上の × だけ（同じ操作を 2 か所に出さない・DESIGN §5）。
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <button type="button" style={btnLink} onClick={startImport}>
-                  ブクログ・読書メーター・Kindle から取り込む
+                <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startImport}>
+                  {/* 語の途中（「読書メー／ター」）で折り返さない: 語はまとめて、折り返すのは「・」「から」の後だけ。 */}
+                  <span style={{ minWidth: 0 }}><span style={{ whiteSpace: 'nowrap' }}>ブクログ・</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>読書メーター・</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>Kindle から</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>取り込む</span></span>
                 </button>
               </div>
             </div>

@@ -32,11 +32,12 @@ import { useSubscription } from '../hooks/useSubscription';
 import { openBillingPortal } from '../lib/billing';
 import { isNative, openManageSubscriptions } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
-import { planNameFor, trialRenewalLine } from '../lib/trialNudge';
+import { planNameFor, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
+import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import {
   isPushSupported,
@@ -866,8 +867,9 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                       <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>
                         {planNameFor({ plan, priceId: subscription?.priceId, trialEnd: formatPeriodEnd(subscription?.currentPeriodEnd) || '' })}
                       </span>
-                      <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                        {trialRenewalLine({ priceId: subscription?.priceId, trialEnd: formatPeriodEnd(subscription?.currentPeriodEnd) || '' })}
+                      {/* 語の途中（「自／動更新」）で折り返さない（文節の切れ目だけ）。 */}
+                      <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                        {withPhraseBreaks(trialRenewalLine({ priceId: subscription?.priceId, trialEnd: formatPeriodEnd(subscription?.currentPeriodEnd) || '' }))}
                       </span>
                     </span>
                   </div>
@@ -901,6 +903,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   {/* 管理ボタンを出せる状態かどうかで説明文を出し分ける。
                       出せない（Web で stripeCustomerId 未同期 / 付与契約 等）のに
                       「こちらから」と書くと、ボタンが無いのに導線を匂わせて分かりにくいため。 */}
+                  {/* 7 日間無料のときだけ、いつまでに解約すれば料金がかからないかを日付で（App Store は終わる 24 時間前まで）。 */}
+                  {plan === 'trial' && (
+                    <p style={{ ...noteStyle, color: 'var(--text)', marginBottom: 'var(--space-2)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                      {withPhraseBreaks(trialCancelNote(dateLabelJa(trialCancelByTime(subscription?.currentPeriodEnd)) || ''))}
+                    </p>
+                  )}
                   <p style={noteStyle}>
                     {isNative
                       ? '解約・プラン変更は App Store のサブスク設定から。いつでも解約でき、データは保持されます。'

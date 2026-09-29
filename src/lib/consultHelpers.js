@@ -7,7 +7,7 @@
 //     4. よくある困りごと（LP の「試しに、相談してみる」と同じ形）
 //   「「タグ」で迷ったとき、私のメモからヒントをください」の型は不自然なので 2026-09-29 にやめた。
 // - standaloneAction: 答えの一歩を行動リストに入れるとき、あとで一覧で読んでも分かる文にする
-//     （「この件」「それ」で始まる一歩には、相談の要約を頭に付ける）。
+//     （「この件」「それ」で始まる一歩には、相談の要約を頭に付ける。頭の「明日の朝、」「今日は」は外す）。
 // - questionGist: 相談の要約。「前に相談した「X」…」の続きの相談は X を要約し、かっこの中では切らない
 //     （かっこは必ず閉じる・2026-09-29）。
 //
@@ -174,6 +174,34 @@ function challengeQuestion(challenge) {
   return `${clipped}。どう考えればいい？`;
 }
 
+// 📕 相談例に出す短い書名（2026-09-29）。読書メーターなどから取り込んだ本は副題まで書名に入っている
+//   （「嫌われる勇気―自己啓発の源流「アドラー」の教え」）ので、長い書名は最初の区切り（空白・「：」「―」など）までにする。
+//   - 短い書名（12 文字まで）はそのまま
+//   - 英単語どうしの空白では切らない（「LIFE SHIFT」）
+//   - 「完訳」「新版」などの頭だけにならないよう、次のまとまりまでつなぐ（「完訳 7つの習慣」）
+const SHORT_TITLE_MAX = 12;
+const TITLE_SEPS = new Set([' ', '\u3000', '：', ':', '―', '—', '─', '〜', '～']);
+const EDITION_HEADS = new Set(['完訳', '新版', '新装版', '改訂版', '増補版', '決定版', '文庫版', '超訳', '図解', 'マンガ', 'まんが']);
+const isAsciiLetter = (ch) => /[A-Za-z]/.test(ch || '');
+export function shortTitle(title) {
+  const t = oneLine(title);
+  if (t.length <= SHORT_TITLE_MAX) return t;
+  const cuts = [];
+  for (let i = 1; i < t.length - 1; i += 1) {
+    const ch = t[i];
+    if (!TITLE_SEPS.has(ch)) continue;
+    // 英単語どうしの空白（「LIFE SHIFT」）では切らない。
+    if ((ch === ' ' || ch === '\u3000') && isAsciiLetter(t[i - 1]) && isAsciiLetter(t[i + 1])) continue;
+    cuts.push(i);
+  }
+  for (const i of cuts) {
+    const head = t.slice(0, i).replace(/[\s：:―—─〜～]+$/, '');
+    if (head.length < 2 || EDITION_HEADS.has(head)) continue;
+    return head;
+  }
+  return t;
+}
+
 // books: アプリの本（camelCase の currentChallenge / status / title / updatedAt）
 // memoBookIds: メモのある本の id（Set・null＝まだ分からない）
 // lastConsult: { question } 前の相談（無ければ null）
@@ -200,7 +228,7 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   const recent = list.find((b) => b.status === 'reading' && hasMemo(b))
     || list.find((b) => b.status === 'done' && hasMemo(b))
     || (memoBookIds ? list.find((b) => hasMemo(b)) : null);
-  if (recent?.title) push(`『${recent.title}』の学びで、明日から使えるものは？`, 'book');
+  if (recent?.title) push(`『${shortTitle(recent.title)}』の学びで、明日から使えるものは？`, 'book');
 
   // メモが少ない間: えらんだ（本棚に入れた）よく読まれている本の困りごとを 2 番目に。
   if (Number.isFinite(memoCount) && memoCount < FEW_MEMOS) {
@@ -225,9 +253,42 @@ export function needsSubject(action) {
   return !!t && (DEMONSTRATIVE_START.test(t) || VAGUE_REF.test(t));
 }
 
-// 行動リストに入れる文。単独で分かる文ならそのまま、そうでなければ「〈相談の要約〉：」を頭に付ける。
-export function standaloneAction(action, question, max = 500) {
+// 読む日で意味が変わる言葉（「明日の朝、」「今日は」）で始まる一歩は、その頭だけを外す（2026-09-29）。
+//   相談の答えから入れた行動は期限＝明日なので、一覧で「明日の朝、…」が明日以降に読まれてもずれないように。
+//   控えめに外す: 外したあとが「の」「まで」「から」などで始まる（「明日までに」「明日の朝の会議」）ときや、
+//   残りが短すぎるときは、次に短い頭を試し、どれも合わなければそのまま。
+const DAY_WORDS = ['明日', '今日'];
+const DAY_PARTS = ['の午前中', 'の午後', 'の夕方', 'の朝', 'の夜'];
+// 長い頭から試す（「明日の朝に」→「明日の朝」→「明日の」→「明日」）。
+const RELATIVE_DAY_LEADS = DAY_WORDS.flatMap((d) => [
+  ...DAY_PARTS.flatMap((p) => [`${d}${p}に`, `${d}${p}は`, `${d}${p}`]),
+  `${d}中に`, `${d}は`, `${d}の`,
+]).sort((a, b) => b.length - a.length);
+const LEAD_REST_NG = /^(の|に|まで|から|中|以降|以内|じゅう|と|や|も)/;
+const SEP = /^[、，,\s]+/;
+export function stripRelativeDayLead(action) {
   const t = oneLine(action);
+  const tryRest = (rest) => (rest.length >= 4 && !LEAD_REST_NG.test(rest) ? rest : null);
+  for (const lead of RELATIVE_DAY_LEADS) {
+    if (!t.startsWith(lead)) continue;
+    const ok = tryRest(t.slice(lead.length).replace(SEP, ''));
+    if (ok) return ok;
+  }
+  // 「明日」「今日」だけの頭は、すぐ後に区切り（「明日、」）があるときだけ外す（「明日香さん」を崩さない）。
+  for (const d of DAY_WORDS) {
+    if (!t.startsWith(d)) continue;
+    const after = t.slice(d.length);
+    if (!SEP.test(after)) continue;
+    const ok = tryRest(after.replace(SEP, ''));
+    if (ok) return ok;
+  }
+  return t;
+}
+
+// 行動リストに入れる文。単独で分かる文ならそのまま、そうでなければ「〈相談の要約〉：」を頭に付ける。
+//   頭の「明日の朝、」「今日は」は外す（上の stripRelativeDayLead）。
+export function standaloneAction(action, question, max = 500) {
+  const t = stripRelativeDayLead(action);
   if (!t || !needsSubject(t)) return t.slice(0, max);
   const gist = questionGist(question, 20);
   if (!gist) return t.slice(0, max);

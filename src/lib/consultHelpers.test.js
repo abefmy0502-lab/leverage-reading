@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildConsultExamples, standaloneAction, questionGist, needsSubject, WORRY_EXAMPLES } from './consultHelpers';
+import { buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES } from './consultHelpers';
 
 const books = [
   { id: 'a', title: '1兆ドルコーチ', status: 'reading', updatedAt: '2026-09-20' },
@@ -44,7 +44,21 @@ describe('buildConsultExamples', () => {
 
 describe('standaloneAction', () => {
   it('単独で分かる一歩はそのまま', () => {
-    expect(standaloneAction('明日の朝、1on1 の最初の 5 分を近況の話にする', '部下が報告をくれない')).toBe('明日の朝、1on1 の最初の 5 分を近況の話にする');
+    expect(standaloneAction('始業前の 10 分で、1on1 の最初の 5 分を近況の話にする', '部下が報告をくれない')).toBe('始業前の 10 分で、1on1 の最初の 5 分を近況の話にする');
+  });
+  it('頭の「明日の朝、」「今日は」は外す（期限はアプリが付ける）', () => {
+    expect(standaloneAction('明日の朝、1on1 の最初の 5 分を近況の話にする', '部下が報告をくれない')).toBe('1on1 の最初の 5 分を近況の話にする');
+    expect(standaloneAction('明日、部下に進み具合を 1 つだけ聞く', 'x')).toBe('部下に進み具合を 1 つだけ聞く');
+    expect(standaloneAction('明日の午前中に、企画の要点を 3 行で書く', 'x')).toBe('企画の要点を 3 行で書く');
+    expect(standaloneAction('今日は帰る前に、机の上の書類を 1 つ片づける', 'x')).toBe('帰る前に、机の上の書類を 1 つ片づける');
+    expect(standaloneAction('今日の会議で、最初に結論を話す', 'x')).toBe('会議で、最初に結論を話す');
+  });
+  it('外すと意味が崩れるときは外さない', () => {
+    expect(stripRelativeDayLead('明日までに資料を見直す')).toBe('明日までに資料を見直す');
+    expect(stripRelativeDayLead('明日の朝の会議で結論から話す')).toBe('朝の会議で結論から話す');
+    expect(stripRelativeDayLead('今日から毎朝 5 分、日記を書く')).toBe('今日から毎朝 5 分、日記を書く');
+    expect(stripRelativeDayLead('明日やる')).toBe('明日やる');
+    expect(stripRelativeDayLead('明日香さんに相談する')).toBe('明日香さんに相談する');
   });
   it('「それ」で始まる一歩には相談の要約を付ける', () => {
     expect(standaloneAction('それを紙に 1 行で書き出す', '部下が報告をくれなくて困っています')).toBe('部下が報告をくれなくて困っています：それを紙に 1 行で書き出す');
@@ -152,5 +166,30 @@ describe('トークンの見せ方', () => {
     expect(consultsLeft(20, 10)).toBe(2);
     expect(consultsLeft(5, 10)).toBe(1);
     expect(consultsLeft(0, 10)).toBe(0);
+  });
+});
+
+import { shortTitle } from './consultHelpers';
+describe('shortTitle（相談例に出す短い書名）', () => {
+  it('短い書名はそのまま', () => {
+    expect(shortTitle('嫌われる勇気')).toBe('嫌われる勇気');
+    expect(shortTitle('LIFE SHIFT')).toBe('LIFE SHIFT');
+  });
+  it('読書メーターの副題つきの書名は最初の区切りまで', () => {
+    expect(shortTitle('嫌われる勇気―自己啓発の源流「アドラー」の教え')).toBe('嫌われる勇気');
+    expect(shortTitle('イシューからはじめよ ― 知的生産の「シンプルな本質」')).toBe('イシューからはじめよ');
+    expect(shortTitle('エッセンシャル思考：最少の時間で成果を最大にする')).toBe('エッセンシャル思考');
+    expect(shortTitle('FACTFULNESS(ファクトフルネス) 10の思い込みを乗り越え、データを基に世界を正しく見る習慣')).toBe('FACTFULNESS(ファクトフルネス)');
+  });
+  it('英単語どうしの空白や「完訳」などの頭では切らない', () => {
+    expect(shortTitle('LIFE SHIFT 100年時代の人生戦略')).toBe('LIFE SHIFT');
+    expect(shortTitle('完訳 7つの習慣 人格主義の回復')).toBe('完訳 7つの習慣');
+  });
+  it('区切りが無ければそのまま', () => {
+    expect(shortTitle('人生がときめく片づけの魔法ときめきの本')).toBe('人生がときめく片づけの魔法ときめきの本');
+  });
+  it('相談例の書名に使う', () => {
+    const ex = buildConsultExamples({ books: [{ id: 'k', title: '嫌われる勇気―自己啓発の源流「アドラー」の教え', status: 'done' }], memoBookIds: new Set(['k']), count: 1 });
+    expect(ex[0].text).toBe('『嫌われる勇気』の学びで、明日から使えるものは？');
   });
 });

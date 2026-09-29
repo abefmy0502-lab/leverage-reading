@@ -178,18 +178,24 @@ function ResultsSkeleton() {
 
 // 押せない主ボタン。薄くすると「あと N 冊」が読めなくなるので、面と文字の色で押せないことを示す。
 
-export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
+// initialBooks: 取り込みの完了画面の「覚えている一言を足す（N 冊）」から開くときの本（もう本棚にある本・最大 MAX_BOOKS 冊）。
+//   渡されたら「本をえらぶ」を飛ばして、一言を書く段から始める（2026-09-29）。
+export default function PastBooksQuickstart({ books = [], initialBooks = null, onSaveBook, onAsk, onClose, onWriteMemo, onImport, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
   const toast = useToast();
   const { freeMode, freeRemaining } = usePaywall();
   const trapRef = useFocusTrap(true);
-  const [step, setStep] = useState('pick'); // 'pick' | 'memo' | 'saving' | 'done'
+  // 本棚の本から始める（取り込みのあと）: 一言の段から。onShelf＝保存しなくても本棚にある本。
+  const seeded = Array.isArray(initialBooks) && initialBooks.length > 0;
+  const [step, setStep] = useState(seeded ? 'memo' : 'pick'); // 'pick' | 'memo' | 'saving' | 'done'
   const [query, setQuery] = useState('');
   const [searched, setSearched] = useState(''); // 結果を出している検索語
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState(null); // null=未検索
   const [searchError, setSearchError] = useState(false);
-  const [picked, setPicked] = useState([]); // [{ book, memo }]
+  const [picked, setPicked] = useState(() => (seeded
+    ? initialBooks.slice(0, MAX_BOOKS).map((b) => ({ book: b, memo: '', onShelf: true }))
+    : [])); // [{ book, memo, onShelf? }]
   const [idx, setIdx] = useState(0);
   const [summary, setSummary] = useState({ books: [], memos: 0, totalMemos: 0, totalBooks: 0 });
   // できあがりの画面の「いま困っていること」（そのまま相談へ送る）
@@ -199,7 +205,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   const memoRef = useRef(null);
   const searchRef = useRef(null);
   // 選んだ本・書いた一言がまだ保存されていない間は、ブラウザの「戻る」でアプリごと離れて消えないようにする。
-  useBlockEdgeSwipe(picked.length > 0 && (step === 'pick' || step === 'memo' || step === 'saving'));
+  useBlockEdgeSwipe((seeded ? picked.some((p) => p.memo.trim()) : picked.length > 0) && (step === 'pick' || step === 'memo' || step === 'saving'));
   // ブラウザ / Android の「戻る」は、左上の ‹ と同じ 1 段だけ戻る（重ねた画面として 1 枚積む・2026-09-29）。
   //   一言を書く → 前の本（1 冊目なら本をえらぶへ）／本をえらぶ → 閉じる（選んだ本があれば確かめてから）／
   //   保存中 → 動かない／できあがり → 閉じる。false を返すと App は履歴を積み直してその場に留まる。
@@ -207,7 +213,14 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   const back = async () => {
     if (step === 'saving') return false;
     if (step === 'memo') {
-      if (idx > 0) setIdx(idx - 1); else setStep('pick');
+      if (idx > 0) { setIdx(idx - 1); return true; }
+      // 取り込みのあとから開いたときは「本をえらぶ」に戻らず閉じる（本はもう本棚にある）。
+      if (seeded) {
+        if (picked.some((p) => p.memo.trim()) && !(await confirmDiscard())) return false;
+        onClose?.();
+        return true;
+      }
+      setStep('pick');
       return true;
     }
     if (step === 'pick' && picked.length > 0 && !(await confirmDiscard())) return false;
@@ -218,6 +231,16 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   // 選んだ本・書いた一言は保存するまで本棚に入っていないので、閉じる前に確かめる（‹ / 戻る / × で同じ・2026-09-29）。
   const confirmDiscard = () => {
     const wrote = picked.some((p) => p.memo.trim());
+    // 本棚の本に一言を足しているとき（取り込みのあと）: 消えるのは書いた一言だけ。
+    if (seeded) {
+      return confirm({
+        title: '書いたことを破棄しますか？',
+        message: '本は本棚に入っています。書いた一言だけが消えます。',
+        confirmLabel: '破棄する',
+        cancelLabel: '続ける',
+        danger: true,
+      });
+    }
     return confirm({
       title: wrote ? '選んだ本と書いたことを破棄しますか？' : '選んだ本を破棄しますか？',
       message: `選んだ ${picked.length} 冊は、まだ本棚に入っていません。`,
@@ -229,7 +252,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   // 右上の ×: 選んだ本（と書いた一言）が残っていれば確かめてから閉じる。保存中は閉じない。
   const closeAll = async () => {
     if (step === 'saving') return;
-    if ((step === 'pick' || step === 'memo') && picked.length > 0 && !(await confirmDiscard())) return;
+    const needsConfirm = seeded ? picked.some((p) => p.memo.trim()) : picked.length > 0;
+    if ((step === 'pick' || step === 'memo') && needsConfirm && !(await confirmDiscard())) return;
     onClose?.();
   };
 
@@ -306,7 +330,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
     for (const e of entries) {
       try {
         // 既に本棚にある本は追加せず、その本に一言だけ足す（重複登録しない）。
-        const existing = findDuplicateBook(books, e.book);
+        const existing = findDuplicateBook(books, e.book) || (e.onShelf && e.book?.id ? e.book : null);
         const saved = existing || await onSaveBook?.(e.book);
         if (!saved?.id) continue;
         if (!existing) newBooks += 1;
@@ -352,7 +376,7 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
   const header = (
     <div style={headerRow}>
       {step === 'memo' ? (
-        <button type="button" aria-label="戻る" onClick={() => (idx > 0 ? setIdx(idx - 1) : setStep('pick'))} style={iconBtn}>
+        <button type="button" aria-label="戻る" onClick={back} style={iconBtn}>
           <ChevronLeft size={28} aria-hidden="true" />
         </button>
       ) : <span style={{ width: 44 }} aria-hidden="true" />}
@@ -391,7 +415,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             </p>
             {onImport && (
               <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-1)' }}>
-                ブクログ・読書メーター・Kindle から取り込む
+                {/* 語の途中（「読書メー／ター」）で折り返さない: 語はまとめて、折り返すのは「・」「から」の後だけ。 */}
+                <span style={{ minWidth: 0 }}><span style={{ whiteSpace: 'nowrap' }}>ブクログ・</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>読書メーター・</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>Kindle から</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>取り込む</span></span>
               </button>
             )}
 
@@ -641,7 +666,8 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
             ) : (
               <>
                 {/* メモが無いと相談の根拠が無いので「相談相手ができた」とは言わない（正直に）。 */}
-                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{summary.books.length} 冊を本棚に入れました</h1>
+                {/* 取り込みのあとから開いた本は、もう本棚にある（「入れました」とは言わない）。 */}
+                <h1 style={{ ...title, marginTop: 'var(--space-6)' }}>{seeded ? '一言は、あとからでも足せます' : `${summary.books.length} 冊を本棚に入れました`}</h1>
                 <p style={sub}>まだメモがありません</p>
               </>
             )}

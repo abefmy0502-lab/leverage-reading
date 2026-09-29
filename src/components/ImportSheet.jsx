@@ -26,12 +26,17 @@ const KEEP_DOT = '\u2060・\u2060';
 const howTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0 };
 const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
+// 初日クイックスタートで一度に一言を書ける冊数（PastBooksQuickstart の MAX_BOOKS と同じ）。
+const QUICKSTART_MAX_BOOKS = 5;
+
 const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター', kindle: 'Kindle' };
 // 読書メーターの棚の名前（保存したページの棚。残りのページの案内に使う）。
 const SHELF_LABEL = { done: '読んだ本', reading: '読んでる本', before: '積読本', want: '読みたい本' };
 
 // existingBooks: いまの本棚（確かめる画面で「本棚にあります」と数え方を取り込みと揃えるため）。
-export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, existingBooks = [] }) {
+// onAddOneLine(books): 完了画面の「覚えている一言を足す（N 冊）」— メモも感想も無い新しい本に、
+//   初日クイックスタートの「一言」の段から一言を足す（App が PastBooksQuickstart を initialBooks で開く）。
+export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, onAddOneLine, existingBooks = [] }) {
   const inputRef = useRef(null);
   const [step, setStep] = useState('pick'); // pick | preview | importing | done
   const [error, setError] = useState('');
@@ -179,8 +184,9 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, ex
                 {existing && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>本棚にあります（メモとして足す）</span>}
               </span>
               {n > 0 ? (
+                // まとめも入る本は「メモ n・まとめ」（各行を足すと見出しの「メモ M 件（まとめ K 件を含む）」になるように）。
                 <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>
-                  メモ {n}
+                  メモ {n}{summary ? '・まとめ' : ''}
                 </span>
               ) : summary ? (
                 // メモが無く、レビュー・感想だけの新しい本（読書メーターに多い）は「まとめ」と出す（見出しの「まとめ N 件を含む」と対応）。
@@ -195,7 +201,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, ex
         {/* 読書メーターの一覧はページに分かれている。棚の全冊数より少なければ、残りのページも選んでもらう（2026-09-29）。 */}
         {shortfall && (
           <p role="note" style={body}>
-            {SHELF_LABEL[shortfall.shelf] || '本棚の本'}は<span style={nowrap}>全 {shortfall.total} 冊</span>です。{files > 1 ? '選んだファイル' : 'このファイル'}には <span style={nowrap}>{shortfall.found} 冊</span>。残りのページも保存して選んでください。
+            {SHELF_LABEL[shortfall.shelf] || '本棚の本'}は<span style={nowrap}>全 {shortfall.total} 冊</span>です。{files > 1 ? '保存したページ' : 'このファイル'}には <span style={nowrap}>{shortfall.found} 冊</span>。残りのページも保存して選んでください。
           </p>
         )}
         {/* 「同じ本には足す・同じメモは二重にならない」はヘルプ（bookList の取り込み）だけに書く（説明の補足文を置かない・DESIGN §0-6）。 */}
@@ -279,13 +285,27 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, ex
     ) : (
       <button type="button" onClick={onClose} disabled={undoing} style={undoing ? btnPrimaryOff : btnPrimary}>閉じる</button>
     );
+    // メモも「この本のまとめ」も無い新しい本は、相談の根拠にならない。一言を足す入口を文字ボタンで（2026-09-29）。
+    //   一度に開くのは初日クイックスタートと同じ最大 5 冊（数はボタンに出す冊数と同じ）。
+    const bare = (Array.isArray(outcome.bareBooks) ? outcome.bareBooks : []).slice(0, QUICKSTART_MAX_BOOKS);
+    const addOneLine = bare.length > 0 && onAddOneLine ? (
+      <button type="button" onClick={() => { track('import_add_one_line', { books: bare.length }); onAddOneLine(bare); }} disabled={undoing} style={{ ...btnLink, width: '100%' }}>
+        覚えている一言を足す（{bare.length}&nbsp;冊）
+      </button>
+    ) : null;
     footer = canUndo ? (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {primary}
+        {addOneLine}
         {/* 取り消しは脇役（文字ボタン）。消すのはこの取り込みで入れたものだけ。 */}
         <button type="button" onClick={undoImport} disabled={undoing} aria-busy={undoing || undefined} style={{ ...btnLink, width: '100%', color: undoing ? 'var(--text-3)' : 'var(--error)' }}>
           {undoing ? '取り消しています…' : '取り込みを取り消す'}
         </button>
+      </div>
+    ) : addOneLine ? (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        {primary}
+        {addOneLine}
       </div>
     ) : primary;
   }

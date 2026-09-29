@@ -196,6 +196,15 @@ describe('読書メーター', () => {
     // 同じ棚のページを 2 つ選んだら、全冊数は足さない
     const two = parseBookmeterHtml(page(45).replace('本A', '本B'));
     expect(importShortfall(mergeImportResults([one, two]))).toEqual({ total: 45, found: 2, shelf: 'done' });
+    // 別のファイル（Kindle など全冊数の無い結果）の本は、棚の冊数に数えない
+    const kindle = { source: 'kindle', books: Array.from({ length: 50 }, (_, i) => ({ title: `K${i}`, author: 'k', memos: [{ text: `m${i}` }] })) };
+    const withKindle = mergeImportResults([one, kindle]);
+    expect(withKindle.books).toHaveLength(51);
+    expect(withKindle.found).toBe(1);
+    expect(importShortfall(withKindle)).toEqual({ total: 45, found: 1, shelf: 'done' });
+    // 同じ本が棚のページと別のファイルの両方にあっても 1 冊
+    const dup = { source: 'kindle', books: [{ title: '本A', author: '著者', memos: [{ text: 'x' }] }] };
+    expect(mergeImportResults([one, dup]).found).toBe(1);
     // 全冊数が読めないファイル（ブクログなど）は null
     expect(importShortfall({ source: 'booklog', books: [] })).toBeNull();
   });

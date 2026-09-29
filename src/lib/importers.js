@@ -480,9 +480,11 @@ export function parseBookmeterHtml(html, fileName = '') {
 
 // 棚の全冊数と、選んだファイルで読めた冊数（読書メーターの保存したページのとき・2026-09-29）。
 // 全冊数が読めた冊数より多い＝保存していないページがある。{ total, found, shelf } か null。
+//   いくつかのファイルをまとめた結果は found（全冊数のある読書メーターのページから読めた冊数）を使う
+//   （Kindle など別のファイルの本を足して「足りている」ように見せない・mergeImportResults）。
 export function importShortfall(result) {
   const total = Number(result?.total) || 0;
-  const found = Array.isArray(result?.books) ? result.books.length : 0;
+  const found = Number.isFinite(result?.found) ? result.found : (Array.isArray(result?.books) ? result.books.length : 0);
   if (!total || total <= found) return null;
   return { total, found, shelf: result.shelf || '' };
 }
@@ -511,7 +513,10 @@ export function mergeImportResults(results) {
   // 同じ本: ISBN（または ASIN）が同じ、または書名＋著者が同じ（著者の書き方が違っても ISBN で 1 冊に）。
   const byId = new Map();
   let memoCount = 0;
+  // 全冊数（total）のある結果＝読書メーターの棚のページから読めた本（同じ本は 1 冊）。
+  const shelfBooks = new Set();
   for (const r of list) {
+    const fromShelf = Number(r.total) > 0;
     for (const b of r.books) {
       const key = `${String(b.title || '').trim()}\u0000${String(b.author || '').trim()}`;
       const id = b.isbn || b.asin || '';
@@ -522,6 +527,7 @@ export function mergeImportResults(results) {
         byKey.set(key, book);
       }
       if (id && !byId.has(id)) byId.set(id, book);
+      if (fromShelf) shelfBooks.add(book);
       if (!book.review && b.review) book.review = b.review;
       if (!book.isbn && b.isbn) book.isbn = b.isbn;
       if (!book.asin && b.asin) book.asin = b.asin;
@@ -542,7 +548,8 @@ export function mergeImportResults(results) {
   return {
     source: sources.length === 1 ? sources[0] : 'mixed',
     books: [...new Set(byKey.values())],
-    ...(total ? { total, shelf } : null),
+    // found: 棚の全冊数と比べる冊数（読書メーターのページから読めた本だけ）。
+    ...(total ? { total, shelf, found: shelfBooks.size } : null),
   };
 }
 
