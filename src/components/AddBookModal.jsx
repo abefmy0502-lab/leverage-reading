@@ -370,8 +370,9 @@ function BarcodeScanner({ onDetect, onClose, onTypeIsbn }) {
 // 本を追加
 // ---------------------------------------------------------------------------
 
-export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting }) {
-  const [query, setQuery] = useState('');
+export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting, initialQuery = '' }) {
+  // 本の追加フォームの「‹ 検索」で戻ってきたときは、さっきの言葉と結果をそのまま出す。
+  const [query, setQuery] = useState(initialQuery);
   const [scanning, setScanning] = useState(false);
   const inputRef = useRef(null);
   const search = useBookQuerySearch();
@@ -385,10 +386,13 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
   // 開いたらすぐ打てるように検索欄へ（フォーカストラップが先頭のボタンへ当てた後に上書き）。
   useEffect(() => {
     try { inputRef.current?.focus(); } catch { /* ignore */ }
+    if (normalizeBookQuery(initialQuery)) search.run(initialQuery);
+    // 開いたときに 1 回だけ（initialQuery は開き直すまで変わらない）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const runSearch = (q = query) => search.run(q);
-  const openManual = () => onManual(manualSeedFromQuery(query));
+  const openManual = () => onManual(manualSeedFromQuery(query), query);
 
   // 📷 読み取った ISBN を検索欄に入れて、そのまま検索。
   // BarcodeScanner の effect 依存に入るため参照を安定させる（不安定だと親の再レンダーの
@@ -416,7 +420,7 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
       onOpenExisting?.(opts.existing);
       return;
     }
-    onSelect?.(book);
+    onSelect?.(book, query);
   };
 
   // 手動入力の入口は、どの状態でも下の文字ボタン 1 か所だけ。
