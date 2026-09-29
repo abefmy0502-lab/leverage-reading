@@ -144,6 +144,8 @@ export const fieldNote = {
   fontWeight: 400,
   color: 'var(--text-2)',
   letterSpacing: 0,
+  // 「（」の左の空きを詰める（見出しと離れて見えない）。
+  fontFeatureSettings: '"palt"',
 };
 
 // 共通カード面。

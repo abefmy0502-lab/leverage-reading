@@ -290,6 +290,14 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
   const pointers = useRef(new Map());
   const gesture = useRef(null);
   const canPan = effStyle === 'photo' && !!photo;
+  // 動かし方の一言は、写真を選んだ直後に 3 秒だけ出して消す（画像の文字・ロゴに重ね続けない・2026-09-29）。
+  const [panHint, setPanHint] = useState(false);
+  useEffect(() => {
+    if (!canPan) { setPanHint(false); return undefined; }
+    setPanHint(true);
+    const t = setTimeout(() => setPanHint(false), 3000);
+    return () => clearTimeout(t);
+  }, [canPan, photo]);
   // 動かしている間は、画面に見える大きさで写真＋重ねる層だけを描く（1 コマを軽く・F8）。指を離したら全部を描き直す。
   const dragCache = useRef({});
   const redrawSoon = () => {
@@ -513,11 +521,13 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
                   <SkeletonBlock width="100%" height="100%" radius="var(--radius)" />
                 </div>
               )}
-              {/* 写真の動かし方は、プレビューの下に 1 行足さず、写真の上（下端）に重ねる（下の部品を押し下げない・
+              {/* 写真の動かし方は、プレビューの下に 1 行足さず、写真の上に重ねる（下の部品を押し下げない・
                   写真の上でも読めるよう濃い面＝--photo-backdrop・指の操作は通す・2026-09-29）。 */}
               {canPan && status === 'ready' && (
-                <p style={{ position: 'absolute', left: '50%', bottom: 'var(--space-2)', transform: 'translateX(-50%)', margin: 0, padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--photo-backdrop)', color: 'var(--on-cover)', fontSize: 'var(--text-meta)', lineHeight: 1.4, whiteSpace: 'nowrap', pointerEvents: 'none' }}>
-                  指で動かす・2 本の指で拡大
+                // 縦長（ストーリー）のプレビューは幅が狭いので、はみ出さず「・」のあとで 2 行に折る。
+                // 置く場所は一文の反対側（一文が上なら下・それ以外は上）。消えるときは薄れて消える。
+                <p aria-hidden={!panHint || undefined} style={{ position: 'absolute', left: '50%', ...(textPos === 'top' ? { bottom: 'var(--space-2)' } : { top: 'var(--space-2)' }), opacity: panHint ? 1 : 0, transition: 'opacity var(--duration-base) var(--ease-out)', transform: 'translateX(-50%)', width: 'max-content', maxWidth: 'calc(100% - 2 * var(--space-2))', boxSizing: 'border-box', margin: 0, padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--photo-backdrop)', color: 'var(--on-cover)', fontSize: 'var(--text-meta)', lineHeight: 1.4, textAlign: 'center', wordBreak: 'keep-all', pointerEvents: 'none' }}>
+                  <span style={{ display: 'inline-block' }}>指で動かす・</span><span style={{ display: 'inline-block' }}>2 本の指で拡大</span>
                 </p>
               )}
             </div>

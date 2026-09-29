@@ -120,7 +120,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
     if (!show) onAutoRetry?.(book);
   }, [show, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const height = Math.round(width * 1.42); // 一般的な書籍の縦横比
-  const showTitle = width >= 48 && longestPhraseLength(book.title) * 12 <= width - 8;
+  const showTitle = width >= 48 && longestPhraseLength(book.title) * 12 <= width - 8 - 2; // 2: 字幅の端数で行からはみ出さない余裕
   return (
     // 表紙は「本の形」（DESIGN §4 の例外: 角丸 4）。影は使わず、極細の枠で面と分ける（暗い画面でも成立）。
     <div style={{ position: 'relative', width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, boxShadow: 'inset 0 0 0 1px var(--separator)' }}>
