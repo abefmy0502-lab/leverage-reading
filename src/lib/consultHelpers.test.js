@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, recentReflectedAction, memoSearchQuery, answerStepToAction } from './consultHelpers';
+import { buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, stripScenePrefix, recentReflectedAction, memoSearchQuery, answerStepToAction } from './consultHelpers';
 
 describe('答えの一歩を行動の形に（answerStepToAction・2026-09-29）', () => {
   it('す で終わる動詞は「〜す」', () => {
@@ -58,6 +58,27 @@ describe('やってみた行動の次（相談例の 1 つ目・2026-09-29）', 
     expect(actionGist('上司への報告：毎朝「結論・理由・次の一歩」を三行で送る')).toMatch(/^毎朝「結論・理由・次の一歩」/);
     expect(actionGist('会議の前に目的を1行で書いて、参加する全員に前日までに共有する。')).toMatch(/…$/);
     expect(actionGist('短い行動。')).toBe('短い行動');
+  });
+  it('行動の短い形: 頭の「「…」の場面で、」を外し、全体のかっこは外す（2026-09-29）', () => {
+    expect(actionGist('「上司への報告」の場面で、結論から先に一言で伝える')).toBe('結論から先に一言で伝える');
+    expect(actionGist('「結論から話す」')).toBe('結論から話す');
+    expect(actionGist('「上司への報告」の場面で、この件を試す')).toMatch(/^「上司への報告」/);
+  });
+  it('やってみた例は「「…」」と二重のかっこにしない（中のかっこは『』に）', () => {
+    const now = Date.parse('2026-09-29T12:00:00Z');
+    const actions = [{ done: true, text: '「上司への報告」の場面で、『伝え方』のメモ「結論から」を試す', reflection: 'よかった', completedAt: '2026-09-28T12:00:00Z' }];
+    const [first] = buildConsultExamples({ books: [], actions, now });
+    expect(first.kind).toBe('acted');
+    expect(first.text).not.toMatch(/「「|」」/);
+    expect(first.text.startsWith('やってみた「『伝え方』のメモ『結論から')).toBe(true);
+    const plain = buildConsultExamples({ books: [], actions: [{ ...actions[0], text: '「毎朝3行で報告する」' }], now })[0];
+    expect(plain.text).toBe('やってみた「毎朝3行で報告する」、次はどうする？');
+  });
+  it('stripScenePrefix: 長い一歩だけ場面の頭を外す', () => {
+    const long = '「上司への報告」の場面で、『伝え方の本』のメモ「結論から話す」を 1 回だけ試し、どうだったかを 1 行メモに残す';
+    expect(stripScenePrefix(long)).toBe('『伝え方の本』のメモ「結論から話す」を 1 回だけ試し、どうだったかを 1 行メモに残す');
+    expect(stripScenePrefix('会議の場面で、結論から話す')).toBe('会議の場面で、結論から話す');
+    expect(stripScenePrefix('次の1on1で、部下に近況を聞いてから本題に入る。最初の5分は聞き役に回ってみる')).toMatch(/^次の1on1で/);
   });
 });
 

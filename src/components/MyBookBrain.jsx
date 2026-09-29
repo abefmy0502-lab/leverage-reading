@@ -32,7 +32,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix } from '../lib/consultHelpers';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
 
@@ -438,7 +438,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     d.setDate(d.getDate() + 1);
     const tomorrow = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     //   「残してください」→「残す」・「確認してください」→「確認する」（lib/consultHelpers.js の answerStepToAction）。
-    const plain = answerStepToAction(text);
+    //   長い一歩の頭の「「上司への報告」の場面で、」は外す（行動の一覧で 2〜3 行に伸びて、肝心の一歩が埋もれる・2026-09-29）。
+    const plain = stripScenePrefix(answerStepToAction(text));
     // 追加できたことは答えの中の「行動に追加しました」で伝える（同じ文をトーストで重ねない）。
     return onAddAction(bookId, { text: plain, sourceMemoId: null, sourcePage: null, deadline: tomorrow });
   }, [onAddAction]);

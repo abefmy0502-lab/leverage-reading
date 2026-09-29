@@ -214,11 +214,43 @@ export function shortTitle(title) {
 
 // 🎯 行動の短い形（相談例の「やってみた「…」」）。相談の答えから入れた行動は頭に「〈相談の要約〉：」が
 //   付いている（standaloneAction）ので、そのあとの一歩だけにする。最初の 1 文・かっこは閉じる（questionGist と同じ）。
+//   頭の「「上司への報告」の場面で、」も外す（相談例では場面より一歩を見せたい・2026-09-29）。
+//   全体が「…」でくくられた形は外側のかっこを外す（例の文で「「…」」と二重にならないように）。
 export function actionGist(text, n = 22) {
   let t = oneLine(text);
   const i = t.indexOf('：');
   if (i > 0 && i <= 22 && t.length - i - 1 >= 4) t = t.slice(i + 1).trim();
-  return questionGist(t, n);
+  t = stripScenePrefix(t, { minLength: 0 });
+  const g = questionGist(t, n);
+  return unwrapWholeQuote(g);
+}
+
+// 「「…」の場面で、」「〈場面〉の場面で、」の頭（相談の答えの一歩によくある形）を外す（2026-09-29）。
+//   minLength: 文全体がこの長さを超えるときだけ外す（行動リストでは短い文の場面は残す）。
+//   外したあとが短すぎる（12 文字未満）・「この」「それ」などで始まって単独で分からないときはそのまま。
+const SCENE_PREFIX = /^(「[^「」]{1,40}」|[^「」、，,。\s]{1,20})の場面で[、，,\s]*/;
+export function stripScenePrefix(text, { minLength = 40 } = {}) {
+  const t = oneLine(text);
+  if (t.length <= minLength) return t;
+  const m = t.match(SCENE_PREFIX);
+  if (!m) return t;
+  const rest = t.slice(m[0].length).trim();
+  if (rest.length < 12 || needsSubject(rest)) return t;
+  return rest;
+}
+
+// 全体が 1 組の「…」でくくられていれば、外側のかっこを外す（中にさらに「」があるときは外さない）。
+function unwrapWholeQuote(t) {
+  if (t.length >= 3 && t.startsWith('「') && t.endsWith('」')) {
+    const inner = t.slice(1, -1);
+    if (!/[「」]/.test(inner)) return inner;
+  }
+  return t;
+}
+
+// 「」の中に入れる文の中の「」を『』に（かぎかっこの入れ子・「「…」」と二重に見えないように）。
+function nestQuotes(t) {
+  return String(t || '').replace(/「/g, '『').replace(/」/g, '』');
 }
 
 const REFLECTED_DAYS = 7;
@@ -254,7 +286,7 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   // やってみた行動の次（読んで → 行動して → また相談する、の輪をつなぐ）。
   const acted = recentReflectedAction(actions, now);
   const actedGist = acted ? actionGist(acted.text) : '';
-  if (actedGist) push(`やってみた「${actedGist}」、次はどうする？`, 'acted');
+  if (actedGist) push(`やってみた「${nestQuotes(actedGist)}」、次はどうする？`, 'acted');
   const gist = lastConsult?.question ? questionGist(lastConsult.question, 18) : '';
   if (gist) push(`前に相談した「${gist}」、その後どう進める？`, 'continue');
 

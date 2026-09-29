@@ -1633,7 +1633,10 @@ function AuthedApp() {
         message: `『${existing.title}』（${statusLabel}）を開きますか？開くと、いま入力した内容は保存されません。`,
         confirmLabel: '開く',
         cancelLabel: 'それでも追加',
+        // 外側のタップ / Esc は「やめる」＝追加もせず、入力フォームに戻る（2026-09-29）。
+        dismissValue: null,
       });
+      if (openIt === null) return true;
       if (openIt) { openDetail(existing); return true; }
       return false;
     }
