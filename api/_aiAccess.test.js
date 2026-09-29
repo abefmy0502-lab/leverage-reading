@@ -172,3 +172,96 @@ describe('原価で守れているときの回数の上限（meteredCallLimit）
     expect(meteredCallLimit(undefined, 0)).toBe(120);
   });
 });
+
+// 🙏 関係するメモが無かった相談の払い戻し（2026-09-29）
+import {
+  isNoInfoConsultAnswer, noInfoRefundEligible, noInfoRefundLimit, noInfoRefundMaxTokens, refundPeriodKey, consultAnswerBody,
+} from './_aiAccess.js';
+
+const NO_INFO = `【結論】
+あなたの読書記録には、このトピックに関する情報がまだありません。
+
+【明日からできる 1 つの行動】
+今週末に書店で、資産運用の入門書を 1 冊手に取って目次を読む。
+
+REFS_START
+REFS_END`;
+
+const REAL = `【結論】
+部下の話を最後まで聞いてから、自分の考えを伝えるのが近道です。
+
+【参照した本のメモ】
+- 『人を動かす』(p.45) より: 相手の関心に目を向ける
+- 『嫌われる勇気』(p.120) より: 課題の分離
+
+【あなたの状況に合わせた解釈】
+2 冊のメモを合わせると、まず相手の課題を尊重することが出発点です。
+
+【明日からできる 1 つの行動】
+明日の 1on1 の最初の 5 分で、部下に近況を聞く。
+
+REFS_START
+- 📚 カーネギー『人を動かす』p.45
+- 📚 岸見一郎『嫌われる勇気』p.120
+REFS_END`;
+
+describe('isNoInfoConsultAnswer（関係するメモが無い答えそのものか）', () => {
+  it('決まり文句が【結論】にある短い答え → true', () => {
+    expect(isNoInfoConsultAnswer(NO_INFO)).toBe(true);
+  });
+  it('【結論】の見出しが無くても、先頭 200 字に決まり文句があれば → true', () => {
+    expect(isNoInfoConsultAnswer('あなたの読書記録には、このトピックに関する情報がまだありません。投資の本を読むと役立つかもしれません。')).toBe(true);
+  });
+  it('本ごとの答え方・共通ルールの「該当するメモがない」も拾う', () => {
+    expect(isNoInfoConsultAnswer('【結論】\n今回の悩みに該当するメモはありません。\n\n【明日からできる 1 つの行動】\n関係する本を 1 冊選ぶ。')).toBe(true);
+  });
+  it('ふつうの答え（メモを根拠にしている）→ false', () => {
+    expect(isNoInfoConsultAnswer(REAL)).toBe(false);
+  });
+  it('決まり文句が【結論】の外（根拠の途中）にあるだけ → false', () => {
+    const t = REAL.replace('2 冊のメモを合わせると', 'お金の話は情報がまだありませんが、2 冊のメモを合わせると');
+    expect(isNoInfoConsultAnswer(t)).toBe(false);
+  });
+  it('結論に決まり文句があっても、400 字以上でメモを根拠に挙げている（部分的な答え）→ false', () => {
+    const t = REAL.replace('部下の話を最後まで聞いてから、自分の考えを伝えるのが近道です。', '評価面談についての情報はまだありませんが、次のメモが参考になります。')
+      .replace('【あなたの状況に合わせた解釈】', `【あなたの状況に合わせた解釈】\n${'補足の説明です。'.repeat(30)}`);
+    expect(consultAnswerBody(t).length).toBeGreaterThanOrEqual(400);
+    expect(isNoInfoConsultAnswer(t)).toBe(false);
+  });
+  it('決まり文句つきでも 900 字を超える長い答え → false（中身のある答えを無料にしない）', () => {
+    const t = `【結論】\nこのトピックに関する情報がまだありません。\n\n${'一般的な説明が続きます。'.repeat(80)}`;
+    expect(isNoInfoConsultAnswer(t)).toBe(false);
+  });
+  it('空・文字列でない → false', () => {
+    expect(isNoInfoConsultAnswer('')).toBe(false);
+    expect(isNoInfoConsultAnswer(null)).toBe(false);
+  });
+});
+
+describe('noInfoRefundEligible（払い戻しの対象か）', () => {
+  const base = { tier: 'paid', purpose: 'consult', text: NO_INFO, complete: true, actualMjpy: 3000, env: ENV };
+  it('有料・無料期間・無料の相談で、最後まで届いた決まり文句の答え → true', () => {
+    expect(noInfoRefundEligible(base)).toBe(true);
+    expect(noInfoRefundEligible({ ...base, tier: 'trial' })).toBe(true);
+    expect(noInfoRefundEligible({ ...base, tier: 'free' })).toBe(true);
+  });
+  it('管理者・相談以外・途中で切れた・原価が分からない → false', () => {
+    expect(noInfoRefundEligible({ ...base, tier: 'admin' })).toBe(false);
+    expect(noInfoRefundEligible({ ...base, purpose: undefined })).toBe(false);
+    expect(noInfoRefundEligible({ ...base, purpose: 'theme' })).toBe(false);
+    expect(noInfoRefundEligible({ ...base, complete: false })).toBe(false);
+    expect(noInfoRefundEligible({ ...base, actualMjpy: null })).toBe(false);
+  });
+  it('1 回の原価が上限（既定 30 トークン）を超える → false', () => {
+    expect(noInfoRefundMaxTokens(ENV)).toBe(30);
+    expect(noInfoRefundEligible({ ...base, actualMjpy: 30 * 300 })).toBe(true);
+    expect(noInfoRefundEligible({ ...base, actualMjpy: 30 * 300 + 1 })).toBe(false);
+  });
+  it('AI_NO_INFO_REFUND_LIMIT=0 で払い戻しをやめる', () => {
+    expect(noInfoRefundLimit(ENV)).toBe(10);
+    expect(noInfoRefundEligible({ ...base, env: { AI_NO_INFO_REFUND_LIMIT: '0' } })).toBe(false);
+  });
+  it('回数は日本時間の月ごとの refund- 行で数える', () => {
+    expect(refundPeriodKey('2026-09')).toBe('refund-2026-09');
+  });
+});

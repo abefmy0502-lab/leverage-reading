@@ -67,11 +67,17 @@ export function estimateCost(model, { textChars = 0, images = 0, maxTokens = 0 }
   return { total: toMjpy(usd), output: toMjpy((maxTokens * p.out) / 1e6) };
 }
 
+// 答えの文を覚えておく上限（字）。相談の「関係するメモが無い」判定（api/_aiAccess.js の
+// isNoInfoConsultAnswer）に使うだけなので、答えの長さの上限（900 字）＋ REFS が入れば足りる。
+export const ANSWER_CAPTURE_CHARS = 6000;
+
 // SSE（ストリーム）を流しながら usage を拾う。chunk は Buffer / Uint8Array / 文字列。
+// あわせて答えの文（先頭 ANSWER_CAPTURE_CHARS 字）・全体の長さ・停止理由・message_stop の有無も拾う（answer）。
 export function createUsageSniffer() {
   let buf = '';
   const decoder = new TextDecoder();
   const usage = { seenStart: false, seenDelta: false };
+  const answer = { text: '', length: 0, truncated: false, stopReason: null, stopped: false };
   const onLine = (line) => {
     if (!line.startsWith('data:')) return;
     const raw = line.slice(5).trim();
@@ -86,6 +92,17 @@ export function createUsageSniffer() {
       if (Number.isFinite(ev.usage.output_tokens)) usage.output_tokens = ev.usage.output_tokens;
       usage.seenDelta = true;
     }
+    if (ev?.type === 'message_delta' && ev.delta?.stop_reason) {
+      answer.stopReason = ev.delta.stop_reason;
+    } else if (ev?.type === 'message_stop') {
+      answer.stopped = true;
+    } else if (ev?.type === 'content_block_delta' && ev.delta?.type === 'text_delta' && typeof ev.delta.text === 'string') {
+      answer.length += ev.delta.text.length;
+      if (answer.text.length < ANSWER_CAPTURE_CHARS) {
+        answer.text += ev.delta.text.slice(0, ANSWER_CAPTURE_CHARS - answer.text.length);
+      }
+      if (answer.length > ANSWER_CAPTURE_CHARS) answer.truncated = true;
+    }
   };
   return {
     push(chunk) {
@@ -99,5 +116,6 @@ export function createUsageSniffer() {
       if (buf.length > 1_000_000) buf = ''; // 異常に長い 1 行は捨てる
     },
     usage,
+    answer,
   };
 }

@@ -1,16 +1,28 @@
-// 🔔 想起プッシュ通知 — 配信 Cron（Vercel Cron から叩く想定）。
+// 🔔 想起プッシュ通知＋🎯 行動の期限の通知 — 配信 Cron（Vercel Cron から叩く想定）。
 //
 // 役割:
 //   1. service_role で push_subscriptions（enabled=true）を全件取得
-//   2. ユーザーごとに「忘れた頃のあなたのメモ」を 1 件選定（src/lib/recall の思想）
-//   3. web-push でその端末へ通知を送信（タイトル「💭 N か月前のあなたのメモ」/ 本文=抜粋）
+//   2. 思い出しの通知: ユーザーごとに「忘れた頃のあなたのメモ」を 1 件選定（src/lib/recall の思想）
+//      → 送信（タイトル「💭 N か月前のあなたのメモ」/ 本文=抜粋）→ last_sent_at を更新（多重送信ガード）
+//   3. 🎯 行動の期限の通知（2026-09-29 オーナー裁定）: その端末のローカルの「今日」が期限で、まだ完了していない
+//      行動があれば、朝に 1 回だけ知らせる（複数あれば 1 通にまとめる:「今日が期限の行動が 2 件あります」
+//      ／本文「〈1 件目〉 ほか」）。タップで 振り返り → 行動（/?tab=review&sub=action）。
+//      1 日 1 回のガードは last_sent_at とは別の列 last_deadline_sent_on（supabase_push_deadline.sql）。
+//      列が無い DB では期限の通知だけ送らない（思い出しの通知はそのまま・fail-safe）。
 //   4. 失効した購読（410 Gone / 404）は push_subscriptions から DELETE
-//   5. last_sent_at を更新（多重送信ガード）
+//
+// いつ送るか（Cron は毎日・vercel.json。2026-09-29 に週 1 → 毎日）:
+//   - 端末のローカル時刻（tz_offset_min）が朝〜夜（EARLIEST_LOCAL_HOUR 〜 LATEST_LOCAL_HOUR 時）のときだけ。
+//     Vercel の無料プラン（Hobby）の Cron は 1 日 1 回・時刻は ±1 時間なので、日本時間 8 時台（UTC 23 時）に 1 回走らせる。
+//   - env PUSH_CRON_HOURLY='true'（Cron を 1 時間ごとに走らせられるプランのとき）なら、
+//     さらに preferred_hour（既定 8 時）を過ぎてから送る。
 //
 // 思想ガード（CLAUDE.md / 設計書 §4）:
-//   - 低頻度（Cron は週1想定）・完全オプトイン・1タップで該当メモへ。
-//   - メモ 3 件未満 / 14 日以上前のメモが無いユーザーには送らない（空通知防止）。
-//   - last_sent_at で「直近に送ったユーザーはスキップ」= Cron 多重発火でも二重送信しない。
+//   - 低頻度・完全オプトイン・1タップで該当メモ／行動へ。思い出しの通知は多くても週に 1 回
+//     （Cron は毎日でも、last_sent_at から RECALL_RESEND_GUARD_MS（6.5 日）たつまで送らない）。
+//     行動の通知は期限の日の朝に 1 回だけ（期限の行動が無い日は何も送らない）。
+//   - メモ 3 件未満 / 14 日以上前のメモが無いユーザーには思い出しの通知を送らない（空通知防止）。
+//   - frequency='off' の端末には、どちらも送らない。
 //
 // ───────────────────────────────────────────────────────────────────
 // ★★★ 元帥がやる環境作業（このコードだけでは動かない）★★★
@@ -301,8 +313,113 @@ function getServiceSupabase() {
   return serviceClient;
 }
 
-// 直近 N 日以内に送ったユーザーはスキップ（多重送信ガード）。
-const RESEND_GUARD_DAYS = 5;
+// 思い出しの通知: 直近 6.5 日以内に送った端末はスキップ（多重送信ガード・多くても週に 1 回）。
+// Cron が毎日でも週 1 回になり、Hobby の Cron の時刻の揺れ（±1 時間）でも 7 日目には送れる。
+export const RECALL_RESEND_GUARD_MS = 6.5 * 86400000;
+
+// ── 🎯 行動の期限の通知（純粋関数・テストあり）──────────────────────
+export const DEADLINE_URL = '/?tab=review&sub=action'; // 振り返り → 行動
+export const DEADLINE_TAG = 'orime-action-deadline'; // Web: 思い出しの通知（orime-recall）を上書きしない
+export const EARLIEST_LOCAL_HOUR = 5; // これより早い時刻には送らない
+export const LATEST_LOCAL_HOUR = 21; // これより遅い時刻には送らない（夜中に鳴らさない）
+const DEFAULT_TZ_OFFSET_MIN = 540; // JST
+const DEFAULT_PREFERRED_HOUR = 8;
+
+// 端末のローカルの日付（'YYYY-MM-DD'）と時。tz_offset_min は端末の -getTimezoneOffset()（JST=+540）。
+export function localClock(nowMs, tzOffsetMin) {
+  const off = Number.isFinite(Number(tzOffsetMin)) && tzOffsetMin !== null && Math.abs(Number(tzOffsetMin)) <= 14 * 60
+    ? Number(tzOffsetMin)
+    : DEFAULT_TZ_OFFSET_MIN;
+  const d = new Date(nowMs + off * 60000);
+  return { date: d.toISOString().slice(0, 10), hour: d.getUTCHours() };
+}
+
+// この Cron の実行で、この端末に送ってよい時刻か。
+//   hourly=false（毎日 1 回の Cron）: EARLIEST〜LATEST の間なら送る（preferred_hour は見ない＝1 日 1 回の実行時刻に合わせる）
+//   hourly=true（1 時間ごとの Cron）: さらに preferred_hour を過ぎてから
+export function sendWindowOpen({ localHour, preferredHour, hourly = false } = {}) {
+  if (!Number.isFinite(localHour)) return false;
+  if (localHour < EARLIEST_LOCAL_HOUR || localHour > LATEST_LOCAL_HOUR) return false;
+  if (!hourly) return true;
+  const ph = Number.isInteger(preferredHour) && preferredHour >= 0 && preferredHour <= 23 ? preferredHour : DEFAULT_PREFERRED_HOUR;
+  return localHour >= ph;
+}
+
+// 思い出しの通知を送ってよいか（last_sent_at から 6.5 日）。パースできなければ送る側（従来どおり fail-open）。
+export function recallDue(lastSentAt, nowMs) {
+  if (!lastSentAt) return true;
+  const t = Date.parse(lastSentAt);
+  if (Number.isNaN(t)) return true;
+  return t <= nowMs - RECALL_RESEND_GUARD_MS;
+}
+
+// 今日（この端末のローカル日付）もう期限の通知を送ったか。
+export function deadlineAlreadySent(lastDeadlineSentOn, localDate) {
+  if (!lastDeadlineSentOn) return false;
+  return String(lastDeadlineSentOn).slice(0, 10) >= localDate;
+}
+
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+// その日が期限で、まだ完了していない行動（繰り返しの次回分＝scheduled_for が先のものは除く）。
+// 並びは 優先度（高→低）→ 作った順。
+export function pickDeadlineActions(actions, { localDate, now = Date.now() } = {}) {
+  if (!Array.isArray(actions) || !localDate) return [];
+  return actions
+    .filter((a) => a && !a.done && typeof a.text === 'string' && a.text.trim()
+      && a.deadline && String(a.deadline).slice(0, 10) === localDate
+      && !(a.scheduled_for && Date.parse(a.scheduled_for) > now))
+    .sort((a, b) => ((PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1))
+      || String(a.created_at || '').localeCompare(String(b.created_at || ''))
+      || String(a.id || '').localeCompare(String(b.id || '')));
+}
+
+// 通知の文。1 件: 「🎯 今日が期限の行動があります」／〈行動〉。
+// 2 件以上: 「🎯 今日が期限の行動が N 件あります」／〈1 件目〉 ほか。
+export function deadlineMessage(actions) {
+  const n = Array.isArray(actions) ? actions.length : 0;
+  if (n === 0) return null;
+  const first = memoExcerpt(actions[0].text, n > 1 ? 80 : 110);
+  return n === 1
+    ? { title: '🎯 今日が期限の行動があります', body: first }
+    : { title: `🎯 今日が期限の行動が ${n} 件あります`, body: `${first} ほか` };
+}
+
+// 'YYYY-MM-DD' の翌日。
+function nextDate(ymd) {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// 期限の通知の候補になるユーザーの、今日が期限の行動をまとめて読む（user_id を 100 件ずつ）。
+// priority / scheduled_for / created_at が無い DB では基本列だけで読み直す。読めなければ空（fail-safe）。
+async function fetchDeadlineActions(supabase, userIds, minDate, maxDate) {
+  const byUser = new Map();
+  if (!userIds.length) return byUser;
+  const until = nextDate(maxDate);
+  const run = (cols, ids) => supabase.from('actions').select(cols)
+    .in('user_id', ids).eq('done', false)
+    .gte('deadline', minDate).lt('deadline', until)
+    .limit(5000)
+    .then((r) => r, (e) => ({ data: null, error: e || true }));
+  for (let i = 0; i < userIds.length; i += 100) {
+    const ids = userIds.slice(i, i + 100);
+    // eslint-disable-next-line no-await-in-loop
+    let r = await run('id, user_id, text, deadline, done, priority, scheduled_for, created_at', ids);
+    // eslint-disable-next-line no-await-in-loop
+    if (r.error) r = await run('id, user_id, text, deadline, done', ids);
+    if (r.error || !Array.isArray(r.data)) {
+      console.warn('[push-cron] deadline actions fetch failed (skipped):', r.error?.message || r.error);
+      continue;
+    }
+    for (const a of r.data) {
+      const list = byUser.get(a.user_id) || [];
+      list.push(a);
+      byUser.set(a.user_id, list);
+    }
+  }
+  return byUser;
+}
 // メモがこの件数未満のユーザーには送らない（コールドスタート配慮・空通知防止）。
 const MIN_NOTES_TO_SEND = 3;
 
@@ -459,42 +576,42 @@ export default async function handler(req, res) {
 
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
-  // 多重送信ガードの境界は数値(ms)で比較する。last_sent_at は Postgres timestamptz で
-  // "+00:00" 表記やマイクロ秒を含みうるため、ISO 文字列の辞書順比較は不正確になる。
-  const resendCutoffMs = now - RESEND_GUARD_DAYS * 86400000;
+  const hourly = String(process.env.PUSH_CRON_HOURLY || '').toLowerCase() === 'true';
 
-  let subs = [];
-  try {
-    // 注意: push_subscriptions には preferred_hour / tz_offset_min 列も存在するが、
-    // MVP の配信ロジックは「Cron が叩かれたタイミングで一括送信」であり、時刻
-    // ターゲティングを行わないため、これらは意図的に SELECT しない（取得しても
-    // 使わないと「設定したのに反映されない」誤解を生むため）。将来、ユーザー
-    // ごとの希望時刻に寄せた配信（tz_offset_min でローカル時刻を求め
-    // preferred_hour 近傍でのみ送る）を実装する際に SELECT へ追加する。
-    const { data, error } = await supabase
-      .from('push_subscriptions')
-      .select('id, user_id, endpoint, p256dh, auth, frequency, last_sent_at, enabled, platform, apns_token')
-      .eq('enabled', true)
-      // 公平性: 最後に送ってから長い人を先に処理する（null=未送信を最優先）。
-      // 実行時間上限で末尾が打ち切られても、毎回同じ人が飢餓しないようにする。
-      .order('last_sent_at', { ascending: true, nullsFirst: true });
-    if (error) throw error;
-    subs = data || [];
-  } catch (e) {
-    // platform/apns_token 列が未適用の DB では上の SELECT が error になるため、
-    // 基本列のみで再取得する（supabase_push_native.sql 未適用でも web 送信は動く）。
+  // 列が足りない DB でも動くよう、段階的に読み直す。
+  //   last_deadline_sent_on（supabase_push_deadline.sql）が無い → 期限の通知だけ送らない
+  //   platform / apns_token（supabase_push_native.sql）が無い → web だけ
+  const BASE_COLS = 'id, user_id, endpoint, p256dh, auth, frequency, last_sent_at, enabled';
+  const ATTEMPTS = [
+    { cols: `${BASE_COLS}, preferred_hour, tz_offset_min, platform, apns_token, last_deadline_sent_on`, deadline: true, native: true },
+    { cols: `${BASE_COLS}, preferred_hour, tz_offset_min, platform, apns_token`, deadline: false, native: true },
+    { cols: `${BASE_COLS}, preferred_hour, tz_offset_min`, deadline: false, native: false },
+    { cols: BASE_COLS, deadline: false, native: false },
+  ];
+  let subs = null;
+  let deadlineGuardAvailable = false;
+  for (const at of ATTEMPTS) {
     try {
-      const { data, error: e2 } = await supabase
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await supabase
         .from('push_subscriptions')
-        .select('id, user_id, endpoint, p256dh, auth, frequency, last_sent_at, enabled')
+        .select(at.cols)
         .eq('enabled', true)
+        // 公平性: 最後に送ってから長い人を先に処理する（null=未送信を最優先）。
+        // 実行時間上限で末尾が打ち切られても、毎回同じ人が飢餓しないようにする。
         .order('last_sent_at', { ascending: true, nullsFirst: true });
-      if (e2) throw e2;
-      subs = (data || []).map((s) => ({ ...s, platform: 'web', apns_token: null }));
-    } catch {
-      // テーブル自体が未適用なら graceful に no-op。
-      return res.status(200).json({ ok: true, skipped: 'subscriptions-unavailable', sent: 0 });
-    }
+      if (error) throw error;
+      subs = (data || []).map((x) => (at.native ? x : { ...x, platform: 'web', apns_token: null }));
+      deadlineGuardAvailable = at.deadline;
+      break;
+    } catch { /* 次の列の組み合わせで読み直す */ }
+  }
+  if (subs === null) {
+    // テーブル自体が未適用なら graceful に no-op。
+    return res.status(200).json({ ok: true, skipped: 'subscriptions-unavailable', sent: 0 });
+  }
+  if (!deadlineGuardAvailable) {
+    console.warn('[push-cron] push_subscriptions.last_deadline_sent_on is missing — action deadline pushes are disabled (run supabase_push_deadline.sql).');
   }
 
   // 同じ iPhone（同じ APNs トークン）に複数アカウントの行が残っている場合は、updated_at が
@@ -524,10 +641,45 @@ export default async function handler(req, res) {
     subs = subs.filter((x) => !drop.has(x.id));
   }
 
+  const isIosSub = (sub) => sub.platform === 'ios';
+  // 送信経路が準備できていて、宛先の形が正しい端末か。
+  const routable = (sub) => {
+    if (sub.frequency === 'off') return false; // 通知をオフにした端末には、どちらも送らない
+    const ios = isIosSub(sub);
+    // 送信経路の準備状況で早期スキップ（片方だけ設定済みでも他方は動く）。
+    if (ios && !apnsReady) return false;
+    if (!ios && !webReady) return false;
+    // APNs トークンの形式検証（クライアントが書ける値を :path に載せる前に）。
+    if (ios) return isValidApnsToken(sub.apns_token);
+    // SSRF ガード: endpoint はクライアントが RLS upsert で自由に書ける。
+    // service_role の cron が任意 URL に POST するのを防ぐため、既知の
+    // プッシュサービスのホストにのみ送る（169.254.169.254 等への悪用を封じる）。
+    return isAllowedPushEndpoint(sub.endpoint);
+  };
+  // 端末ごとのローカル時刻と、この実行で送ってよい時刻か。
+  const clockOf = new Map();
+  for (const sub of subs) {
+    const c = localClock(now, sub.tz_offset_min);
+    clockOf.set(sub.id, { ...c, open: sendWindowOpen({ localHour: c.hour, preferredHour: sub.preferred_hour, hourly }) });
+  }
+
+  // 🎯 今日が期限の行動を、候補のユーザーの分だけまとめて読む。
+  let deadlineByUser = new Map();
+  if (deadlineGuardAvailable) {
+    const cands = subs.filter((sub) => routable(sub) && clockOf.get(sub.id).open
+      && !deadlineAlreadySent(sub.last_deadline_sent_on, clockOf.get(sub.id).date));
+    if (cands.length > 0) {
+      const dates = cands.map((sub) => clockOf.get(sub.id).date).sort();
+      const userIds = [...new Set(cands.map((sub) => sub.user_id))];
+      deadlineByUser = await fetchDeadlineActions(supabase, userIds, dates[0], dates[dates.length - 1]);
+    }
+  }
+
   // ユーザーごとにノートを一度だけ集めてキャッシュ（同一ユーザーが複数端末を持つ場合）。
   const notesCache = new Map();
   const expiredSubIds = [];
   let sent = 0;
+  let deadlineSent = 0;
   let skipped = 0;
 
   // 1 件ずつ完全直列で処理すると、購読者数が数百〜数千に増えたとき
@@ -553,97 +705,121 @@ export default async function handler(req, res) {
     }
   };
 
-  const isIosSub = (sub) => sub.platform === 'ios';
-
-  const processSub = async (sub) => {
-    try {
-      if (sub.frequency === 'off') return 'skipped';
-      const ios = isIosSub(sub);
-      // 送信経路の準備状況で早期スキップ（片方だけ設定済みでも他方は動く）。
-      if (ios && !apnsReady) return 'skipped';
-      if (!ios && !webReady) return 'skipped';
-      if (ios) {
-        // APNs トークンの形式検証（クライアントが書ける値を :path に載せる前に）。
-        if (!isValidApnsToken(sub.apns_token)) return 'skipped';
-      } else {
-        // SSRF ガード: endpoint はクライアントが RLS upsert で自由に書ける。
-        // service_role の cron が任意 URL に POST するのを防ぐため、既知の
-        // プッシュサービスのホストにのみ送る（169.254.169.254 等への悪用を封じる）。
-        if (!isAllowedPushEndpoint(sub.endpoint)) return 'skipped';
-      }
-      // 多重送信ガード: 直近 RESEND_GUARD_DAYS 日以内に送っていればスキップ。
-      // 数値比較（パース失敗時は未送信扱いで送る側に倒す = fail-open）。
-      if (sub.last_sent_at) {
-        const lastMs = Date.parse(sub.last_sent_at);
-        if (!Number.isNaN(lastMs) && lastMs > resendCutoffMs) return 'skipped';
-      }
-
-      let notes = notesCache.get(sub.user_id);
-      if (!notes) {
-        notes = await gatherUserNotes(supabase, sub.user_id, now);
-        notesCache.set(sub.user_id, notes);
-      }
-      if (notes.length < MIN_NOTES_TO_SEND) return 'skipped';
-
-      // seed は user_id + 当日でばらけさせる（端末間で同じメモ・日替わりで別メモ）。
-      const seed = (hashStr(sub.user_id) + Math.floor(now / 86400000)) >>> 0;
-      const memo = pickRecallMemo(notes, { now, seed });
-      if (!memo) return 'skipped';
-
-      const title = `💭 ${recallFraming(memo.createdAt, now)}`;
-      const body = memoExcerpt(memo.text);
-      const url = `/?recall=${encodeURIComponent(memo.id)}`;
-
-      // ── ネイティブ(iOS/APNs)経路 ─────────────────────────────
-      if (ios) {
-        const jwt = makeApnsJwt(apnsCfg);
-        const apnsPayload = {
-          aps: { alert: { title, body }, sound: 'default' },
-          url,
-          recall: String(memo.id),
-        };
-        const { status, reason } = await sendApns(apnsCfg, jwt, sub.apns_token, apnsPayload);
-        if (status === 200) {
-          await afterSend(sub, memo);
-          return 'sent';
-        }
-        // 削除は「トークンが恒久的に無効」= 410 / Unregistered のみ。
-        // ⚠️ BadDeviceToken(400) や DeviceTokenNotForTopic(400) は env 誤設定
-        // (APNS_PRODUCTION の本番/sandbox 取り違え・APNS_BUNDLE_ID 誤り) でも返る。
-        // これを削除条件に含めると、設定ミス時に全 iOS 購読が 1 回の cron で消える
-        // (ユーザーは再許可・再登録が必要=非可逆)。恒久失効の 410/Unregistered だけを
-        // 削除し、それ以外は行を保持してログのみ(設定を直せば次回から復旧する)。
-        if (status === 410 || reason === 'Unregistered') {
-          expiredSubIds.push(sub.id);
-        } else {
-          console.warn('[push-cron] apns send failed (kept):', status, reason);
-        }
-        return 'skipped';
-      }
-
-      // ── Web(VAPID)経路（既存）─────────────────────────────────
-      const payload = JSON.stringify({ title, body, url, tag: 'orime-recall' });
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payload,
-        );
-        await afterSend(sub, memo);
-        return 'sent';
-      } catch (sendErr) {
-        const status = sendErr && (sendErr.statusCode || sendErr.status);
-        if (status === 404 || status === 410) {
-          // 失効した購読 → 削除対象に積む。
-          expiredSubIds.push(sub.id);
-        } else {
-          console.warn('[push-cron] send failed (kept):', status, sendErr?.message);
-        }
-        return 'skipped';
-      }
-    } catch (loopErr) {
-      console.warn('[push-cron] loop error (skipped):', loopErr?.message);
-      return 'skipped';
+  // 1 通送る（web / iOS）。戻り値 'sent' | 'expired'（恒久失効＝行を消す）| 'failed'（行は残す）。
+  const deliver = async (sub, { title, body, url, tag, extra = {} }) => {
+    // ── ネイティブ(iOS/APNs)経路 ─────────────────────────────
+    if (isIosSub(sub)) {
+      const jwt = makeApnsJwt(apnsCfg);
+      const apnsPayload = {
+        aps: { alert: { title, body }, sound: 'default', 'thread-id': tag },
+        url,
+        ...extra,
+      };
+      const { status, reason } = await sendApns(apnsCfg, jwt, sub.apns_token, apnsPayload);
+      if (status === 200) return 'sent';
+      // 削除は「トークンが恒久的に無効」= 410 / Unregistered のみ。
+      // ⚠️ BadDeviceToken(400) や DeviceTokenNotForTopic(400) は env 誤設定
+      // (APNS_PRODUCTION の本番/sandbox 取り違え・APNS_BUNDLE_ID 誤り) でも返る。
+      // これを削除条件に含めると、設定ミス時に全 iOS 購読が 1 回の cron で消える
+      // (ユーザーは再許可・再登録が必要=非可逆)。恒久失効の 410/Unregistered だけを
+      // 削除し、それ以外は行を保持してログのみ(設定を直せば次回から復旧する)。
+      if (status === 410 || reason === 'Unregistered') return 'expired';
+      console.warn('[push-cron] apns send failed (kept):', status, reason);
+      return 'failed';
     }
+    // ── Web(VAPID)経路 ─────────────────────────────────
+    const payload = JSON.stringify({ title, body, url, tag });
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payload,
+      );
+      return 'sent';
+    } catch (sendErr) {
+      const status = sendErr && (sendErr.statusCode || sendErr.status);
+      if (status === 404 || status === 410) return 'expired'; // 失効した購読 → 削除対象
+      console.warn('[push-cron] send failed (kept):', status, sendErr?.message);
+      return 'failed';
+    }
+  };
+
+  // 💭 思い出しの通知（多くても週に 1 回）。
+  const sendRecall = async (sub) => {
+    // 多重送信ガード: 直近 6.5 日以内に送っていればスキップ（数値比較・パース失敗は送る側）。
+    if (!recallDue(sub.last_sent_at, now)) return 'skipped';
+
+    let notes = notesCache.get(sub.user_id);
+    if (!notes) {
+      notes = await gatherUserNotes(supabase, sub.user_id, now);
+      notesCache.set(sub.user_id, notes);
+    }
+    if (notes.length < MIN_NOTES_TO_SEND) return 'skipped';
+
+    // seed は user_id + 当日でばらけさせる（端末間で同じメモ・日替わりで別メモ）。
+    const seed = (hashStr(sub.user_id) + Math.floor(now / 86400000)) >>> 0;
+    const memo = pickRecallMemo(notes, { now, seed });
+    if (!memo) return 'skipped';
+
+    const r = await deliver(sub, {
+      title: `💭 ${recallFraming(memo.createdAt, now)}`,
+      body: memoExcerpt(memo.text),
+      url: `/?recall=${encodeURIComponent(memo.id)}`,
+      tag: 'orime-recall',
+      extra: { recall: String(memo.id) },
+    });
+    if (r === 'sent') await afterSend(sub, memo);
+    return r;
+  };
+
+  // 🎯 行動の期限の通知（期限の日の朝に 1 回だけ・複数は 1 通にまとめる）。
+  const sendDeadline = async (sub) => {
+    if (!deadlineGuardAvailable) return 'skipped';
+    const { date } = clockOf.get(sub.id);
+    if (deadlineAlreadySent(sub.last_deadline_sent_on, date)) return 'skipped';
+    const due = pickDeadlineActions(deadlineByUser.get(sub.user_id) || [], { localDate: date, now });
+    const msg = deadlineMessage(due);
+    if (!msg) return 'skipped';
+    // 送る前に「今日の分」を取る（同時に走った Cron・再実行でも二重に送らない）。取れなければ送らない。
+    const { data: claimed, error: claimErr } = await supabase
+      .from('push_subscriptions')
+      .update({ last_deadline_sent_on: date })
+      .eq('id', sub.id)
+      .or(`last_deadline_sent_on.is.null,last_deadline_sent_on.lt.${date}`)
+      .select('id');
+    if (claimErr || !Array.isArray(claimed) || claimed.length === 0) return 'skipped';
+    const r = await deliver(sub, { ...msg, url: DEADLINE_URL, tag: DEADLINE_TAG, extra: { kind: 'action_deadline' } });
+    if (r === 'failed') {
+      // 一時的な失敗は「今日の分」を戻す（1 時間ごとの Cron なら次の実行で送り直せる）。
+      try {
+        await supabase.from('push_subscriptions')
+          .update({ last_deadline_sent_on: sub.last_deadline_sent_on ?? null })
+          .eq('id', sub.id);
+      } catch { /* 戻せなくても、今日はもう送らないだけ */ }
+    }
+    return r;
+  };
+
+  // 戻り値 { recall, deadline }（'sent' | 'skipped' | 'expired' | 'failed'）。片方の失敗・スキップで
+  // もう片方を止めない（思い出しの通知を送った日も、期限の通知は送る。逆も同じ）。
+  const processSub = async (sub) => {
+    const out = { recall: 'skipped', deadline: 'skipped' };
+    if (!routable(sub) || !clockOf.get(sub.id)?.open) return out;
+    try {
+      out.recall = await sendRecall(sub);
+    } catch (e) {
+      console.warn('[push-cron] recall error (skipped):', e?.message);
+    }
+    if (out.recall === 'expired') {
+      expiredSubIds.push(sub.id);
+      return out;
+    }
+    try {
+      out.deadline = await sendDeadline(sub);
+    } catch (e) {
+      console.warn('[push-cron] deadline error (skipped):', e?.message);
+    }
+    if (out.deadline === 'expired') expiredSubIds.push(sub.id);
+    return out;
   };
 
   for (let i = 0; i < subs.length; i += PUSH_BATCH_SIZE) {
@@ -651,8 +827,9 @@ export default async function handler(req, res) {
     // eslint-disable-next-line no-await-in-loop
     const results = await Promise.all(batch.map(processSub));
     for (const r of results) {
-      if (r === 'sent') sent += 1;
-      else skipped += 1;
+      if (r.recall === 'sent') sent += 1;
+      if (r.deadline === 'sent') deadlineSent += 1;
+      if (r.recall !== 'sent' && r.deadline !== 'sent') skipped += 1;
     }
   }
 
@@ -672,6 +849,7 @@ export default async function handler(req, res) {
     ok: true,
     subscriptions: subs.length,
     sent,
+    deadline_sent: deadlineSent,
     skipped,
     expired: expiredSubIds.length,
   });

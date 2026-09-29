@@ -1,7 +1,7 @@
 {
   "regions": ["hnd1"],
   "crons": [
-    { "path": "/api/push-cron", "schedule": "0 23 * * 1" },
+    { "path": "/api/push-cron", "schedule": "0 23 * * *" },
     { "path": "/api/keepalive", "schedule": "0 18 * * *" }
   ],
   "functions": {

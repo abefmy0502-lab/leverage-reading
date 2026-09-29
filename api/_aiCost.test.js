@@ -51,3 +51,20 @@ describe('createUsageSniffer', () => {
     expect(s.usage.output_tokens).toBe(42);
   });
 });
+
+describe('createUsageSniffer の answer（相談の払い戻しの判定用）', () => {
+  it('text_delta を集め、停止理由と message_stop を拾う', () => {
+    const s = createUsageSniffer();
+    const ev = (o) => `event: x\ndata: ${JSON.stringify(o)}\n\n`;
+    s.push(ev({ type: 'message_start', message: { usage: { input_tokens: 10, output_tokens: 1 } } }));
+    s.push(ev({ type: 'content_block_delta', delta: { type: 'text_delta', text: '【結論】\n情報が' } }));
+    s.push(ev({ type: 'content_block_delta', delta: { type: 'text_delta', text: 'まだありません' } }));
+    s.push(ev({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 20 } }));
+    s.push(ev({ type: 'message_stop' }));
+    expect(s.answer.text).toBe('【結論】\n情報がまだありません');
+    expect(s.answer.stopReason).toBe('end_turn');
+    expect(s.answer.stopped).toBe(true);
+    expect(s.answer.truncated).toBe(false);
+    expect(s.usage.output_tokens).toBe(20);
+  });
+});

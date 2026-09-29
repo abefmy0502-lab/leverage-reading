@@ -184,3 +184,88 @@ export function limitMessageFor(tier, { periodEnd, env = process.env, now = Date
   if (tier === 'trial') return trialTokensMessage(periodEnd, paidTokens(env));
   return monthlyTokensMessage(allowanceFor(tier, env), now);
 }
+
+// ───────────────────────────────────────────────────────────────────
+// 🙏 関係するメモが無かった相談は、トークンを返す（2026-09-29 オーナー裁定）。
+//
+// 相談の指示文（src/lib/ai.js の BRAIN_SYSTEM）は、関係するメモが無いとき
+// 「あなたの読書記録には、このトピックに関する情報がまだありません」と答え、読むとよい本へ橋渡しする。
+// この答えは「あなたのメモから答える」という約束を果たしていないので、使ったトークンを返す
+// （無料・7 日間無料・有料のどれも。管理者はもともと数えない）。
+//
+// 悪用されないための決まり（どれか 1 つでも外れたら返さない）:
+//   - purpose が 'consult'（相談・本ごとの答え方も）で、答えが最後まで届いた（stop_reason='end_turn'）
+//   - 決まり文句が【結論】の中（【結論】が無ければ答えの先頭 200 字）にある
+//   - 答え（REFS を除く）が 900 字以下で、かつ「400 字未満」か「メモを根拠に挙げていない」
+//     （REFS に項目が無い・『書名』より／根拠：／◆『書名』の行が無い）
+//   - この 1 回の原価が AI_NO_INFO_REFUND_MAX_TOKENS（既定 30 トークン≈¥9・ふつうの相談は約 10）以下
+//     （改ざんしたアプリが自前の指示文と大きな材料で「決まり文句つきの答え」を作らせても、返す額に上限がある）
+//   - 返すのは 1 人・1 か月（日本時間）に AI_NO_INFO_REFUND_LIMIT 回まで（既定 10・0 でやめる）。
+//     数えるのは ai_usage の period_month='refund-YYYY-MM' 行（reserve_ai_usage を流用・新しい SQL 不要）。
+//     数えられない（RPC が無い・障害）ときは返さない（fail-closed＝払い戻しの青天井を作らない）。
+// ───────────────────────────────────────────────────────────────────
+
+// 決まり文句（まとめて: 「情報がまだありません」／本ごとに・共通ルール: 「該当するメモがない」）。
+export const NO_INFO_RE = /情報[がは]\s*まだ\s*(?:ありません|ない)|該当するメモ[がは]\s*(?:ありません|ない|見つかりません)/;
+export const NO_INFO_HEAD_CHARS = 200;
+export const NO_INFO_SHORT_CHARS = 400;
+export const NO_INFO_MAX_CHARS = 900;
+
+// REFS_START…REFS_END を除いた本文。
+export function consultAnswerBody(text) {
+  if (typeof text !== 'string') return '';
+  const i = text.indexOf('REFS_START');
+  return (i >= 0 ? text.slice(0, i) : text).trim();
+}
+
+// REFS の項目の数（「- なし」などの空の項目は数えない）。
+function refsEntryCount(text) {
+  const m = typeof text === 'string' ? text.match(/REFS_START([\s\S]*?)(?:REFS_END|$)/) : null;
+  if (!m) return 0;
+  return m[1].split('\n').filter((l) => /^\s*[-・*]\s*\S/.test(l)
+    && !/^\s*[-・*]\s*[（(]?\s*(?:なし|ありません|該当(?:する)?(?:メモは?)?(?:なし|ありません))/.test(l)).length;
+}
+
+// 答えがメモを根拠に挙げているか（REFS の項目・『書名』より の行・本ごとの ◆ と 根拠：）。
+function citesMemos(body, text) {
+  if (refsEntryCount(text) > 0) return true;
+  if (/^\s*根拠\s*[：:]/m.test(body)) return true;
+  if (/^\s*◆\s*『/m.test(body)) return true;
+  if (/^\s*[-・*]\s*『[^』\n]+』[^\n]*より/m.test(body)) return true;
+  return false;
+}
+
+// 相談の答えが「関係するメモが無い」答えそのものか。
+export function isNoInfoConsultAnswer(text) {
+  const body = consultAnswerBody(text);
+  if (!body || body.length > NO_INFO_MAX_CHARS) return false;
+  const concl = body.match(/【結論】\s*([\s\S]*?)(?=【|$)/);
+  const head = (concl ? concl[1] : body).slice(0, NO_INFO_HEAD_CHARS);
+  if (!NO_INFO_RE.test(head)) return false;
+  if (body.length < NO_INFO_SHORT_CHARS) return true;
+  return !citesMemos(body, text);
+}
+
+// 1 か月に返す回数の上限（0 で払い戻しをやめる）。
+export function noInfoRefundLimit(env = process.env) {
+  return Math.max(0, Math.floor(num(env.AI_NO_INFO_REFUND_LIMIT, 10)));
+}
+// 1 回で返すトークンの上限（これを超える原価の答えは返さない）。
+export function noInfoRefundMaxTokens(env = process.env) {
+  return Math.max(0, Math.floor(num(env.AI_NO_INFO_REFUND_MAX_TOKENS, 30)));
+}
+// 払い戻しの回数を数える行（日本時間の月）。
+export function refundPeriodKey(monthKey) {
+  return `refund-${monthKey}`;
+}
+
+// この 1 回が払い戻しの対象か（回数の上限は別に DB で数える）。
+//   complete: 答えが最後まで届いた（stop_reason='end_turn'）
+//   actualMjpy: この 1 回の実際の原価（usage から）。分からなければ返さない
+export function noInfoRefundEligible({ tier, purpose, text, complete, actualMjpy, env = process.env } = {}) {
+  if (tier === 'admin' || purpose !== 'consult' || !complete) return false;
+  if (!(noInfoRefundLimit(env) > 0)) return false;
+  if (actualMjpy == null || !Number.isFinite(Number(actualMjpy))) return false;
+  if (tokensFromMjpy(actualMjpy, env) > noInfoRefundMaxTokens(env)) return false;
+  return isNoInfoConsultAnswer(text);
+}

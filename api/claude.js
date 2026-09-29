@@ -4,6 +4,7 @@ import { estimateCost, costFromUsage, createUsageSniffer } from './_aiCost.js';
 import {
   decideAiAccess, decideFreeReservation, periodKeyFor, reserveBudgetMjpy, allowanceFor, meteredCallLimit,
   freeTokens, fallbackCallsFor, nextMonthFirstLabel, planRequiredMessage, limitMessageFor, tokenMjpy,
+  tokensFromMjpy, noInfoRefundEligible, noInfoRefundLimit, refundPeriodKey,
 } from './_aiAccess.js';
 import { lotBalance, effectiveAllowance, shouldSettleOverflow } from './_tokenLots.js';
 
@@ -484,6 +485,38 @@ async function adjustCost(userId, periodKey, deltaMjpy) {
   }
 }
 
+// 🙏 関係するメモが無かった相談の払い戻し（api/_aiAccess.js の noInfoRefundEligible）の回数を 1 回分とる。
+// ai_usage の 'refund-YYYY-MM' 行を reserve_ai_usage で数える（上限 AI_NO_INFO_REFUND_LIMIT・原子的）。
+// 数えられない（service_role 未設定・RPC 未適用・障害）ときは false＝返さない（fail-closed）。
+async function claimNoInfoRefund(userId, monthKey) {
+  const supabase = getServiceSupabase();
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase.rpc('reserve_ai_usage', {
+      p_user_id: userId,
+      p_period_month: refundPeriodKey(monthKey),
+      p_limit: noInfoRefundLimit(),
+    });
+    if (error) {
+      console.warn('[ai-refund] claim failed (no refund):', error.message);
+      return false;
+    }
+    const n = typeof data === 'number' ? data : (Array.isArray(data) ? data[0] : null);
+    return typeof n === 'number' && n > 0;
+  } catch (e) {
+    console.warn('[ai-refund] claim threw (no refund):', e?.message);
+    return false;
+  }
+}
+
+// 払い戻したことをアプリに知らせる印。
+//   ストリーム: 答えの最後（message_stop のあと）に SSE の 1 フレーム
+//     event: orime_token_refund / data: {"type":"orime_token_refund","reason":"no_info","tokens":N}
+//     （見出しはもう送ってあるので、ヘッダーでは知らせられない。streamClaude.js は知らない type を読み飛ばす）
+//   ストリームでない: レスポンスヘッダー X-Orime-Token-Refund: no_info と、JSON の orime_token_refund
+export const REFUND_HEADER = 'X-Orime-Token-Refund';
+export const REFUND_SSE_TYPE = 'orime_token_refund';
+
 // 原価を数えられない DB（supabase_ai_cost.sql 未適用）での、1 か月の回数の上限。
 // 相談 1 回 ≈ ¥3（Haiku 4.5・2026-09-27）、重い機能（テーマまとめ等）でも ¥5 前後なので、
 // 上限 ¥243 を超えにくい回数にしておく。
@@ -713,13 +746,15 @@ export default async function handler(req, res) {
   const track = (p) => { if (p) pending.push(p); return p; };
   const flush = () => flushPending(pending);
   let costSettled = false;
-  const settleCost = (actualMjpy) => {
+  // refund=true: 関係するメモが無かった相談の払い戻し。予約をまるごと戻し（この 1 回は 0 円として数える）、
+  // 追加分（買い足したトークン）からも差し引かない（settle_token_overflow を呼ばない）。
+  const settleCost = (actualMjpy, { refund = false } = {}) => {
     if (!costMetered || costSettled) return;
     costSettled = true;
-    const adjusting = adjustCost(userId, periodKey, (actualMjpy == null ? 0 : actualMjpy) - costReserved);
+    const adjusting = adjustCost(userId, periodKey, (actualMjpy == null || refund ? 0 : actualMjpy) - costReserved);
     // その月の分を超えた分を追加分から差し引く（精算で原価が決まってから）。追加分が無くても、
     // 「最後の 1 回」のはみ出しを払ったことにしておく（あとで買った追加分から取らない）。
-    if (shouldSettleOverflow({
+    if (!refund && shouldSettleOverflow({
       lotOk: lotState.ok, balance: lotState.balance, charged: lotState.charged,
       totalAfterReserveMjpy: costResult.total, reservedMjpy: costReserved, actualMjpy,
       allowanceTokens: allowanceFor(tier), tokenMjpy: tokenMjpy(),
@@ -751,6 +786,18 @@ export default async function handler(req, res) {
     return limitResponse('monthly_limit_exceeded');
   }
   const usageReserved = usage.reserved;
+
+  // 🙏 関係するメモが無かった相談なら、この 1 回のトークン（と回数）を返す。
+  //   返したら { tokens } を返す（アプリへの印に使う）。返さないときは null。
+  //   原価（予約）は settleCost(…, { refund: true }) で 0 円に戻し、回数は予約済みなら release・
+  //   未予約（旧 DB）なら成功後の +1 をしない（呼び出し側が countCall=false にする）。
+  const tryNoInfoRefund = async ({ text, complete, actualMjpy }) => {
+    if (!noInfoRefundEligible({ tier, purpose: req.body?.purpose, text, complete, actualMjpy })) return null;
+    if (!(await claimNoInfoRefund(userId, monthKey))) return null;
+    settleCost(actualMjpy, { refund: true });
+    if (usageReserved) track(releaseMonthlyUsage(userId, periodKey));
+    return { tokens: tokensFromMjpy(actualMjpy) };
+  };
 
   try {
     const body = req.body || {};
@@ -929,7 +976,8 @@ export default async function handler(req, res) {
         if (typeof res.flushHeaders === 'function') res.flushHeaders();
 
         const reader = response.body.getReader();
-        const sniffer = createUsageSniffer(); // 流しながら usage（トークン数）を拾う
+        const sniffer = createUsageSniffer(); // 流しながら usage（トークン数）・答えの文を拾う
+        let streamOk = false; // 最後まで読み切った（中断・中継エラーなし）
         try {
           while (true) {
             // eslint-disable-next-line no-await-in-loop
@@ -942,6 +990,7 @@ export default async function handler(req, res) {
           }
           // 正常に message_stop まで読み切った。以後の遅延 'close' で abort
           // しないようフラグを立てる（二重 abort / 余計な例外を避ける）。
+          streamOk = !upstreamController.signal.aborted;
           upstreamDone = true;
         } catch (streamErr) {
           // クライアント切断由来の abort（AbortError）は正常なユーザー操作。
@@ -956,17 +1005,36 @@ export default async function handler(req, res) {
           // 💴 精算。入力が分かれば入力は実額、出力は最後まで届いたら実額・途中で切れたら
           //    予約した出力の分（上振れ側）。何も分からなければ予約をそのまま残す。
           const u = sniffer.usage;
-          if (u.seenStart) {
-            const inputOnly = costFromUsage(payload.model, { ...u, output_tokens: 0 });
-            settleCost(u.seenDelta ? costFromUsage(payload.model, u) : inputOnly + costOutputPart);
-          } else {
-            settleCost(costReserved);
+          // 🙏 関係するメモが無かった相談（最後まで届いたときだけ）→ 払い戻して、答えの最後に印を 1 フレーム。
+          let refund = null;
+          if (streamOk && u.seenStart && u.seenDelta && tier !== 'admin' && body.purpose === 'consult') {
+            const a = sniffer.answer;
+            try {
+              refund = await tryNoInfoRefund({
+                text: a.truncated ? '' : a.text,
+                complete: a.stopped && a.stopReason === 'end_turn',
+                actualMjpy: costFromUsage(payload.model, u),
+              });
+            } catch { refund = null; }
+            if (refund) {
+              try {
+                res.write(`event: ${REFUND_SSE_TYPE}\ndata: ${JSON.stringify({ type: REFUND_SSE_TYPE, reason: 'no_info', tokens: refund.tokens })}\n\n`);
+              } catch { /* socket may already be closed */ }
+            }
+          }
+          if (!refund) {
+            if (u.seenStart) {
+              const inputOnly = costFromUsage(payload.model, { ...u, output_tokens: 0 });
+              settleCost(u.seenDelta ? costFromUsage(payload.model, u) : inputOnly + costOutputPart);
+            } else {
+              settleCost(costReserved);
+            }
           }
           // ストリームが開始 = 成功コールとして当月カウントを +1。
           // 注: 途中で中断（クライアント切断）してもストリームは開始済みであり、
           // upstream への課金コールは発生しているため、1 カウントは妥当。
-          // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
-          if (!usageReserved) track(incrementMonthlyUsage(userId, periodKey));
+          // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。払い戻したときも数えない。
+          if (!usageReserved && !refund) track(incrementMonthlyUsage(userId, periodKey));
           // 精算を終えてから応答を閉じる（閉じたあとの後処理は Vercel で止められることがある）。
           await flush();
           try { res.end(); } catch { /* socket may already be closed */ }
@@ -993,10 +1061,24 @@ export default async function handler(req, res) {
       throw jsonErr;
     }
     upstreamDone = true; // 正常完了。以降の遅延 'close' で abort しない。
+    // 🙏 関係するメモが無かった相談 → 払い戻し（精算・回数の返却は tryNoInfoRefund の中）。
+    let refund = null;
+    if (response.ok && tier !== 'admin' && body.purpose === 'consult' && data?.usage) {
+      const text = Array.isArray(data.content)
+        ? data.content.filter((c) => c?.type === 'text' && typeof c.text === 'string').map((c) => c.text).join('')
+        : '';
+      try {
+        refund = await tryNoInfoRefund({
+          text,
+          complete: data.stop_reason === 'end_turn',
+          actualMjpy: costFromUsage(payload.model, data.usage),
+        });
+      } catch { refund = null; }
+    }
     // 上流が 2xx の成功レスポンスの時だけ当月カウントを +1。失敗（4xx/5xx）は
     // 課金されないコールが多いので quota を消費させない。fire-and-forget。
-    // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。
-    if (response.ok && !usageReserved) track(incrementMonthlyUsage(userId, periodKey));
+    // reserve 済み（原子的 RPC が加算済み）の時は二重加算しない。払い戻したときも数えない。
+    if (response.ok && !usageReserved && !refund) track(incrementMonthlyUsage(userId, periodKey));
     // reserve 済みで upstream が失敗した時は予約分を払い戻す（非 reserve 経路の
     // 「2xx のときだけ increment」と対称にする）。
     if (!response.ok && usageReserved && tier !== 'admin') track(releaseMonthlyUsage(userId, periodKey));
@@ -1016,6 +1098,11 @@ export default async function handler(req, res) {
             ? 'AI サービスが一時的に不安定です。少し時間をおいて再試行してください。'
             : 'AI リクエストに失敗しました。時間をおいて再試行してください。';
       return res.status(response.status).json({ error: { message } });
+    }
+    if (refund) {
+      res.setHeader(REFUND_HEADER, 'no_info');
+      res.setHeader('Access-Control-Expose-Headers', REFUND_HEADER); // iOS アプリ（別オリジン）からも読めるように
+      return res.status(response.status).json({ ...data, orime_token_refund: { reason: 'no_info', tokens: refund.tokens } });
     }
     return res.status(response.status).json(data);
   } catch (error) {
