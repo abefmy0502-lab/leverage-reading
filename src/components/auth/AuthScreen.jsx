@@ -68,14 +68,17 @@ const NETWORK_ERROR = 'サーバーに接続できませんでした。通信環
 const RATE_LIMIT_ERROR = 'リクエストが多すぎます。しばらく経ってから再度お試しください。';
 const UNEXPECTED_ERROR = '予期せぬエラーが発生しました。時間をおいて再度お試しください。';
 const NOT_CONFIGURED_ERROR = 'アプリの設定が未完了です。管理者にお問い合わせください。';
+// サーバー（Supabase）が止まっている・壊れている（5xx・一時停止）。入力を直しても解決しない。
+const SERVER_DOWN_ERROR = 'サーバーが応答していません。サービスが一時停止している可能性があります。時間をおいて再度お試しください。';
 const SYSTEM_ERRORS = new Set([NETWORK_ERROR, RATE_LIMIT_ERROR, UNEXPECTED_ERROR, NOT_CONFIGURED_ERROR]);
 const ERROR_ID = 'auth-error';
+const isSystemError = (e) => !!e && (SYSTEM_ERRORS.has(e) || e.startsWith(UNEXPECTED_ERROR) || e.startsWith(SERVER_DOWN_ERROR));
 
 // エラーの表示: 通信・サーバーの失敗は ErrorMessage（1 文目を見出し・残りを説明）、
 // 入力の誤りは入力欄の下の小さな --error の文（入力欄の aria-describedby で結ぶ）。
 function AuthError({ error }) {
   if (!error) return null;
-  if (SYSTEM_ERRORS.has(error)) {
+  if (isSystemError(error)) {
     const i = error.indexOf('。');
     const title = i >= 0 ? error.slice(0, i) : error;
     const description = i >= 0 ? error.slice(i + 1).trim() : '';
@@ -123,9 +126,22 @@ function humanizeError(err) {
   if (msg.includes('not configured')) {
     return NOT_CONFIGURED_ERROR;
   }
+  // サーバー側の停止・障害（Supabase の自動一時停止は 5xx や独自の 540 を返すことがある）。
+  const status = Number(err?.status) || 0;
+  if (status >= 500 || msg.includes('paused') || msg.includes('upstream') || msg.includes('service unavailable')) {
+    return `${SERVER_DOWN_ERROR}${diagCode(err)}`;
+  }
   // 未マッチのエラーは生の Supabase メッセージ（英語の技術文字列・内部 ID など）を
   // そのまま表示せず、安全な汎用文へ倒す（CLAUDE.md セキュリティ方針）。
-  return UNEXPECTED_ERROR;
+  // 原因を問い合わせで特定できるよう、状態番号と種類の名前（英数字だけ）を末尾に添える。
+  return `${UNEXPECTED_ERROR}${diagCode(err)}`;
+}
+
+// 問い合わせ用の手がかり（例: 「（コード: 500 unexpected_failure）」）。本文・内部 ID は出さない。
+function diagCode(err) {
+  const clean = (v) => String(v || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 40);
+  const parts = [clean(err?.status), clean(err?.code) || clean(err?.name)].filter(Boolean);
+  return parts.length ? `（コード: ${parts.join(' ')}）` : '';
 }
 
 // LP の「始める」CTA は /?auth=signup で着地する。初見の購入希望者を
@@ -269,7 +285,7 @@ export default function AuthScreen() {
   };
 
   // 入力の誤り（通信・サーバーの失敗以外）のときだけ、入力欄とエラー文を結ぶ。
-  const fieldError = !!error && !SYSTEM_ERRORS.has(error);
+  const fieldError = !!error && !isSystemError(error);
 
   // ログイン画面では見出しを出さない（主ボタン「ログイン」と重複するため）。新規登録・リセットだけ出す。
   const title = mode === 'signup' ? '新規登録' : mode === 'reset' ? 'パスワードリセット' : '';
