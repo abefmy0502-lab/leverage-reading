@@ -370,7 +370,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
       await onPurchased?.();
       setPending(null);
     } catch (e) {
-      toast.error(toMessage(e, '購入手続きを開始できませんでした。少し時間をおいて再試行してください。'));
+      toast.error(toMessage(e, '購入手続きを開始できませんでした。少し時間をおいて、やり直してください。'));
       setPending(null);
     }
   };

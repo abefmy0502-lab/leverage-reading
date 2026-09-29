@@ -180,7 +180,7 @@ export default async function handler(req, res) {
   const rl = checkRateLimit(user.id);
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter));
-    return res.status(429).json({ error: 'リクエストが多すぎます。少し時間をおいて再試行してください。' });
+    return res.status(429).json({ error: 'リクエストが多すぎます。少し時間をおいて、やり直してください。' });
   }
 
   const origin = getOrigin(req);

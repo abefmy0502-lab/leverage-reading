@@ -73,7 +73,7 @@ async function postClaude(payload, signal) {
       if ((data?.error_code === 'monthly_limit_exceeded' || data?.error_code === 'monthly_budget_exceeded') && data?.error?.message) {
         return data.error.message;
       }
-      return 'リクエストが多すぎます。少し時間をおいて再試行してください。';
+      return 'リクエストが多すぎます。少し時間をおいて、やり直してください。';
     }
     if (data?.error?.message) return `エラー: ${data.error.message}`;
     if (typeof data?.error === 'string') return `エラー: ${data.error}`;

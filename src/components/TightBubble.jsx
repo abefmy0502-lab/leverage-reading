@@ -37,6 +37,21 @@ export function withPhraseBreaks(text) {
   return out;
 }
 
+// いちばん長い文節の字数（その文節が 1 行に収まるかを見積もる・MiniCover の書名など）。
+export function longestPhraseLength(text) {
+  const src = String(text ?? '');
+  if (!src) return 0;
+  let p;
+  try { p = getParser(); } catch { return src.length; }
+  let max = 0;
+  src.split('\n').forEach((line) => {
+    let phrases;
+    try { phrases = line ? p.parse(line) : []; } catch { phrases = [line]; }
+    phrases.forEach((ph) => { max = Math.max(max, [...ph].length); });
+  });
+  return max;
+}
+
 // 吹き出しの中の文字（テキストノード）の行の箱から、左端と右端を出す。
 function textExtent(el) {
   if (typeof document === 'undefined' || typeof document.createRange !== 'function') return null;

@@ -1257,6 +1257,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 続きの相談を持ってきたときは、空の画面（相談例）を出さない（会話はその相談から始まる）。
   const isEmpty = visibleMessages.length === 0 && !carry;
   const lastIsAssistant = visibleMessages.length > 0 && visibleMessages[visibleMessages.length - 1].role === 'assistant';
+  // 最後の答えの下の文字ボタンの行（別の角度で答えて・新しい相談をはじめる）を出しているか。
+  const answerRowShown = lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user');
 
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
   const historyGroups = useMemo(() => {
@@ -1628,8 +1630,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   onActionAdded={() => setOptinAfterId((cur) => cur || m.id)}
                   onOpenActions={onOpenActions}
                 />
-                {/* 🔔 はじめて「行動に追加」した直後に 1 回だけ、思い出しの通知の案内（lib/notifyOptIn.js） */}
-                {optinAfterId === m.id && <NotifyOptInCard where="action" />}
+                {/* 🔔 はじめて「行動に追加」した直後に 1 回だけ、思い出しの通知の案内（lib/notifyOptIn.js）。
+                    最後の答えのときは、答えの下の文字ボタンの行（別の角度で答えて…）の後ろに出す（答えと操作を離さない・2026-09-29） */}
+                {optinAfterId === m.id && !(answerRowShown && i === visibleMessages.length - 1) && <NotifyOptInCard where="action" />}
               </Fragment>
             ))}
           </div>
@@ -1647,7 +1650,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             </button>
           )}
 
-          {lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user') && (
+          {answerRowShown && (
             // 答えのカード → 文字ボタンの文字まで約 20（8 ＋ 押せる範囲 44 の上の空き）。文字の左端は余白 16 に揃える。
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
               {/* 無料のトークンを使い切ったら、できない操作を出さない */}
@@ -1672,6 +1675,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 新しい相談をはじめる
               </button>
             </div>
+          )}
+          {answerRowShown && optinAfterId && optinAfterId === visibleMessages[visibleMessages.length - 1]?.id && (
+            <NotifyOptInCard where="action" style={{ marginTop: 'var(--space-6)' }} />
           )}
           <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
