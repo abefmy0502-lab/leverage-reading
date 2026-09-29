@@ -39,3 +39,4 @@ ui-shots/
 
 # 採点エージェントの一時スクリプト（リポジトリ直下の .xxx.mjs）
 /.*.mjs
+/.claude/worktrees/
