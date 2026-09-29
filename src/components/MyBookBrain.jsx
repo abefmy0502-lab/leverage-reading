@@ -2284,8 +2284,15 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
 // 「（期限は明日）見る」をひとまとまり（nowrap）にする。「見る」は押せる範囲 44 のまま、上下の負の余白で行の高さを変えない。
 // ✓ は 2 行になっても 1 行目の高さの中央に置く。
 function ActionAddedNote({ onOpenActions }) {
+  // 出たら、画面の外（下）に隠れないよう最小限だけ送って見せる（キーボードや下の欄に隠れていた・2026-09-29）。
+  const ref = useRef(null);
+  useEffect(() => {
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+    try { ref.current?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+  }, []);
   return (
-    <p role="status" style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', minHeight: 44, boxSizing: 'border-box', paddingBlock: 'calc((44px - 1.5em) / 2)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, color: 'var(--success)' }}>
+    <p ref={ref} role="status" style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', minHeight: 44, boxSizing: 'border-box', paddingBlock: 'calc((44px - 1.5em) / 2)', margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, color: 'var(--success)' }}>
       <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
         <Check size={16} aria-hidden="true" />
       </span>

@@ -466,6 +466,44 @@ function Shell({ children }) {
   );
 }
 
+/* ========== 押し込まれた画面の上部の 1 行 ========== */
+// 本の詳細・編集の「‹ 戻り先」の行。スクロールの箱の外（上）に置いて、下へ送っても行が残るようにする
+// （iOS のナビゲーションバーと同じ・相談の topRow と同じ形）。一番上では線を出さず、中身を下へ送ったら
+// 下に --separator の線（線の太さぶんはいつも取って高さを変えない・DESIGN §5「画面上部の 1 行」・2026-09-29）。
+function PushedTopBar({ scrollRef, children }) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const el = scrollRef?.current;
+    if (!el) return undefined;
+    const onScroll = () => {
+      const v = el.scrollTop > 0;
+      setScrolled((p) => (p === v ? p : v));
+    };
+    onScroll();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [scrollRef]);
+  return (
+    <div
+      className="detail-enter"
+      style={{
+        flexShrink: 0,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 'var(--space-2)',
+        // ノッチはこの行が吸収する（すべての本の「‹ ホーム」の行と同じ）。
+        padding: 'max(env(safe-area-inset-top, 0px), var(--space-2)) var(--space-4) 0',
+        background: 'var(--bg)',
+        borderBottom: `1px solid ${scrolled ? 'var(--separator)' : 'transparent'}`,
+        transition: 'border-color var(--duration-fast) var(--ease-out)',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 /* ========== MAIN APP ========== */
 // 設定から開いた「トークンを追加」を閉じたら、設定に戻る（PaywallGate → AuthedApp・2026-09-29）。
 const OPEN_SETTINGS_EVENT = 'orime:open-settings';
@@ -813,6 +851,8 @@ function AuthedApp() {
   // (例: 読書前で「読書を開始する」ボタン直前) のままだったため、新フェーズ
   // で画面が下から始まる症状があった。
   const detailScrollRef = useRef(null);
+  // 本の編集・追加の画面のスクロールの箱（上部の行の線を出すため）。
+  const editScrollRef = useRef(null);
   // 本棚のスクロール位置を本詳細から戻った時に復元する（「迷子にならない」動線）。
   // listScrollRef = 本棚スクロール要素 / savedShelfScroll = 離脱直前の scrollTop /
   // prevViewRef = 直前の view（detail/edit から list に戻った時だけ復元）。
@@ -3636,20 +3676,8 @@ function AuthedApp() {
 
     return (
       <Shell>
-        <div
-          ref={detailScrollRef}
-          className="detail-enter"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            overscrollBehaviorY: 'contain',
-            WebkitOverflowScrolling: 'touch',
-            padding: 'var(--space-2) var(--space-4) calc(var(--space-16) + var(--space-12))', // 下は「メモを書く」ボタンに隠れない分（112）
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {/* 「‹ 戻り先」の行はスクロールの箱の外（下へ送っても残る・PushedTopBar）。 */}
+        <PushedTopBar scrollRef={detailScrollRef}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 20・間 0・見た目の左端 16・本文サイズ・--accent）。 */}
             <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
@@ -3686,7 +3714,20 @@ function AuthedApp() {
                 <MoreHorizontal size={22} aria-hidden="true" />
               </button>
             </div>
-          </div>
+        </PushedTopBar>
+        <div
+          ref={detailScrollRef}
+          className="detail-enter"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            overscrollBehaviorY: 'contain',
+            WebkitOverflowScrolling: 'touch',
+            padding: '0 var(--space-4) calc(var(--space-16) + var(--space-12))', // 下は「メモを書く」ボタンに隠れない分（112）
+          }}
+        >
 
           {/* Book header */}
           <div style={{ display: "flex", gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
@@ -4176,19 +4217,8 @@ function AuthedApp() {
     const hasSaveBar = !!current && editPhaseNow !== 'want';
     return (
       <Shell>
-        <div
-          className="detail-enter"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            WebkitOverflowScrolling: 'touch',
-            // 上は本の詳細・すべての本と同じ 8（新しく追加するときも戻るの行の位置をそろえる）。下は固定の保存があれば 24。
-            padding: `var(--space-2) var(--space-4) ${hasSaveBar ? 'var(--space-6)' : 'var(--space-16)'}`,
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {/* 「‹ 戻り先」の行はスクロールの箱の外（本の詳細と同じ PushedTopBar）。 */}
+        <PushedTopBar scrollRef={editScrollRef}>
             <button
               onClick={async () => {
                 if (!(await confirmDiscardEdit())) return;
@@ -4212,7 +4242,20 @@ function AuthedApp() {
             >
               <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
             </button>
-          </div>
+        </PushedTopBar>
+        <div
+          ref={editScrollRef}
+          className="detail-enter"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            // 上は戻るの行（PushedTopBar）の下から。下は固定の保存があれば 24。
+            padding: `0 var(--space-4) ${hasSaveBar ? 'var(--space-6)' : 'var(--space-16)'}`,
+          }}
+        >
 
           {/* どの Phase を描画するかを effectivePhase で決める。通常は
               form.status と一致するが、editPhaseOverride が立っている時
@@ -4275,7 +4318,7 @@ function AuthedApp() {
         </div>
 
         {hasSaveBar && (
-          <EditSaveBar onSave={handleSave} saving={savingBook} label={savingBook ? '保存中…' : editPhaseNow === 'before' ? saveLabelFor(form, current?.status === 'before') : '保存'} />
+          <EditSaveBar onSave={handleSave} saving={savingBook} disabled={!!aiLoading} label={savingBook ? '保存中…' : editPhaseNow === 'before' ? saveLabelFor(form, current?.status === 'before') : '保存'} />
         )}
 
         <Modal open={searchOpen} ariaLabel="本を検索" onClose={() => { setSearchOpen(false); setSearchInitialQuery(''); setSearchInitialAuthor(''); setSearchInitialIsbn(''); }}>

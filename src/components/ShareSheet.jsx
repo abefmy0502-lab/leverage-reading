@@ -63,7 +63,7 @@ const session = { style: 'paper', format: 'story', textPos: 'bottom' };
 
 // プレビューの高さ（シートが 1 画面に収まるように・形が変わっても高さは同じ）。
 // 下の「どの一文にする？」の候補が最初の画面で見えるよう、少し低く（2026-09-29: 40vh/340 → 34vh/300）。
-const PREVIEW_H = 'min(34vh, 300px)';
+const PREVIEW_H = 'min(30vh, 264px)';
 
 // 形の切り替えは、振り返り・相談のサブタブ（.sub-tab）と同じ見た目（選択中は --accent-soft の面）。
 const segBtn = (on) => ({
@@ -513,6 +513,13 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
                   <SkeletonBlock width="100%" height="100%" radius="var(--radius)" />
                 </div>
               )}
+              {/* 写真の動かし方は、プレビューの下に 1 行足さず、写真の上（下端）に重ねる（下の部品を押し下げない・
+                  写真の上でも読めるよう濃い面＝--photo-backdrop・指の操作は通す・2026-09-29）。 */}
+              {canPan && status === 'ready' && (
+                <p style={{ position: 'absolute', left: '50%', bottom: 'var(--space-2)', transform: 'translateX(-50%)', margin: 0, padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--photo-backdrop)', color: 'var(--on-cover)', fontSize: 'var(--text-meta)', lineHeight: 1.4, whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                  指で動かす・2 本の指で拡大
+                </p>
+              )}
             </div>
             {/* 失敗の案内はプレビューと同じ高さの場所に出す（地を変えて描き直せたときに、下の部品が上下に動かない）。 */}
             {status === 'error' && (
@@ -524,9 +531,6 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
                   actions={[{ label: 'もう一度', onClick: () => { setStatus('loading'); setRetry((n) => n + 1); } }]}
                 />
               </div>
-            )}
-            {canPan && (
-              <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>指で動かす・2 本の指で拡大</p>
             )}
           </div>
 

@@ -15,7 +15,7 @@ import {
   Search as IcSearch, Map as IcMap, ImagePlus as IcImagePlus,
   Target as IcTarget, ChevronDown as IcChevron, X as IcX,
 } from 'lucide-react';
-import { btnPrimary, btnGhost, btnGhostOff, btnText, btnLink, groupTitle, fieldNote } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnText, btnLink, groupTitle, fieldNote } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import { LIMITS } from '../lib/limits';
 import { useBookCover } from '../hooks/useBookCover';
@@ -505,10 +505,11 @@ export function saveLabelFor(form, savedAsBefore) {
   const planReady = !!form?.investPurpose?.trim();
   return form?.status === 'before' && savedAsBefore && planReady ? '保存して読書を開始' : '保存';
 }
-export function EditSaveBar({ onSave, label = '保存', saving = false }) {
+// disabled: 読書計画シートを作っている間など、保存するとシートが途中で切れるとき（押せない主ボタン＝薄くしない・2026-09-29）。
+export function EditSaveBar({ onSave, label = '保存', saving = false, disabled = false }) {
   return (
     <div style={{ flexShrink: 0, borderTop: '1px solid var(--separator)', background: 'var(--bg)', padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))' }}>
-      <button type="button" onClick={onSave} aria-busy={saving || undefined} style={btnPrimary}>{label}</button>
+      <button type="button" onClick={onSave} disabled={disabled} aria-busy={saving || undefined} style={disabled ? btnPrimaryOff : btnPrimary}>{label}</button>
     </div>
   );
 }
@@ -613,7 +614,8 @@ function ActionsEditor({ form, setForm, title, placeholder }) {
                 <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...dateInp(a.deadline), fontWeight: 400, letterSpacing: 'normal' }} aria-label={`行動 ${i + 1} の期限`} />
               </label>
             </div>
-            <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, padding: 0, marginRight: 'calc(-1 * var(--space-3))', display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {/* 押せる範囲 44 のまま、負の余白で × の見た目の右端をカードの余白 16 にそろえる（2026-09-29）。 */}
               <IcX size={18} aria-hidden="true" />
             </button>
           </div>
