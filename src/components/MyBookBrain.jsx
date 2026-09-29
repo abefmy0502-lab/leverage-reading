@@ -117,10 +117,13 @@ const ta = { ...uiInput, display: 'block', resize: 'none', minHeight: 160, fontF
 
 // 🌿 答えの下の「前の相談から メモ +N 件」（2026-09-29）。refs の先頭側に目印つきで残す（表を増やさずに履歴にも残す）。
 const GROWTH_PREFIX = '🌿 ';
+// 🪙 関係するメモが無かったので、サーバーがトークンを返した（streamClaude の orime_token_refund）。答えの下に一行。
+const REFUND_PREFIX = '🪙 ';
+const REFUND_NOTE = '関係するメモが無かったので、トークンは使っていません';
 // refs のうち、AI が挙げた本（📚 📖 💡）ではない、画面用の目印つきの行（使ったメモ・前の相談から・引用の照合）。
 const isMetaRef = (r) => {
   const s = String(r || '');
-  return s.startsWith(EVIDENCE_PREFIX) || s.startsWith(GROWTH_PREFIX) || s.startsWith(QUOTE_PREFIX);
+  return s.startsWith(EVIDENCE_PREFIX) || s.startsWith(GROWTH_PREFIX) || s.startsWith(QUOTE_PREFIX) || s.startsWith(REFUND_PREFIX);
 };
 
 const CATEGORIES = ['会話', '経験', '観察', '気づき', 'その他'];
@@ -820,7 +823,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 実際の答え方（本ごとにで送っても、並べる本が足りなければ「まとめて」で答える）。
     let liveMode = askMode;
     try {
-      const { body, refs, memoCount, evidence, quoteRefs, mode: usedMode, perbookBooks } = await streamMyBookBrain({
+      const { body, refs, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks } = await streamMyBookBrain({
         userId: user.id,
         question: q,
         bookIds: askBookIds,
@@ -869,6 +872,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         ...(evidence ? [`${EVIDENCE_PREFIX}${evidence}`] : []),
         ...(grown > 0 && memoCount > 0 ? [`${GROWTH_PREFIX}前の相談から メモ +${grown} 件`] : []),
         ...(Array.isArray(quoteRefs) ? quoteRefs : []),
+        ...(tokenRefund ? [`${REFUND_PREFIX}${REFUND_NOTE}`] : []),
         ...(refs || []),
       ];
       // 本ごとにで送ったのに、並べる本が足りずに「まとめて」で答えた（答えの上に一行で知らせる）。
@@ -2089,6 +2093,11 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   const refChecks = quoteChecks.filter((c) => c.k === 'r');
   const basisCheckFor = (title) => quoteChecks.find((c) => c.k === 'b' && c.t === title) || null;
   const refsList = allRefs.filter((r) => !isMetaRef(r));
+  // 関係するメモが無くてトークンを返したとき（答えの下に 13/--text-2 の一行）
+  const refundNote = allRefs.some((r) => String(r).startsWith(REFUND_PREFIX)) ? REFUND_NOTE : '';
+  const renderRefund = () => (refundNote && !isStreaming ? (
+    <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{refundNote}</p>
+  ) : null);
   const nBooks = refBookCount(refsList);
   // 📚 本ごとの答え。書いている途中も同じ形で見せる（出来上がりで形が跳ねないように）。
   //   ただし「本ごとに」で送っても、並べる本が足りずに「まとめて」で答えたとき（参照・解釈の節がある）は、いつもの形。
@@ -2229,7 +2238,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
   if (perBook) {
     const lastBook = (perBook.books || []).length - 1;
     const hasBooks = (perBook.books || []).length > 0 || !!perBook.booksRaw || !!perBook.booksLead;
-    const showFoot = !!(perBook.compare || perBook.action || (!isStreaming && (evidence || refsList.length > 0 || perBook.note)));
+    const showFoot = !!(perBook.compare || perBook.action || (!isStreaming && (evidence || refsList.length > 0 || perBook.note || refundNote)));
     return (
       // 本ごとの答えは、結論のカード → 本のカード（1 冊 1 枚）→ 共通点と違い・一歩・根拠のカード。
       // 外側は枠を付けない（カードの中にカードを入れない）。
@@ -2282,6 +2291,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
             {!isStreaming && renderEvidence()}
             {!isStreaming && renderDetails(perBook)}
             {!isStreaming && renderNote(perBook)}
+            {renderRefund()}
           </div>
         )}
         {/* 書いている間は、最後のカードの下に「答えを書いています…」（本のカードが順に増えるので、続きがあると分かるように）。
@@ -2392,6 +2402,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
       ) : (
         <div style={readText}><PlainAnswer text={message.content} /></div>
       )}
+      {renderRefund()}
       {/* 旧形式（見出しなし）でも行動化できるように */}
       {!parsed && canShowAction && !message.error && (
         actionAdded ? (

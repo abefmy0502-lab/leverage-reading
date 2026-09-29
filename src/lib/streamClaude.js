@@ -7,7 +7,9 @@
 //
 // onChunk(fullText, delta) fires for every content_block_delta the server
 // emits. onDone(finalText, meta) fires once when the stream completes —
-// meta = { stopReason, aborted }。stopReason は Anthropic の message_delta から
+// meta = { stopReason, aborted, refund }。refund は相談で「関係するメモが無い」と答えたとき、
+// サーバーがトークンを返した知らせ（message_stop のあとの独自の枠 orime_token_refund・
+// { reason: 'no_info', tokens }。無ければ null）。stopReason は Anthropic の message_delta から
 // 捕捉した停止理由（'end_turn' | 'max_tokens' | 'refusal' | null）。呼び出し側は
 // 'max_tokens'（出力上限で途中切れ）を検知して「保存しない/注記を出す」等の
 // 判断ができる（従来は切り詰めが完全に無音だった）。onError receives any
@@ -94,6 +96,7 @@ export async function streamClaude({
   let fullText = '';
   let stopReason = null;
   let sawStop = false; // message_stop が届いたか（届かずに切れた＝通信が途中で切れた）
+  let refund = null; // サーバーがトークンを返した知らせ（orime_token_refund・相談で関係するメモが無かったとき）
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -182,6 +185,9 @@ export async function streamClaude({
           try { onChunk?.(fullText, delta); } catch { /* swallow render errors */ }
         } else if (event.type === 'message_stop') {
           sawStop = true;
+        } else if (event.type === 'orime_token_refund') {
+          // message_stop のあとに届く。答えは変えず、知らせだけを onDone に渡す。
+          refund = { reason: String(event.reason || ''), tokens: Number(event.tokens) || 0 };
         } else if (event.type === 'message_delta' && event.delta?.stop_reason) {
           // 停止理由（end_turn / max_tokens / refusal 等）を捕捉して onDone で通知。
           stopReason = event.delta.stop_reason;
@@ -204,13 +210,13 @@ export async function streamClaude({
       throw new Error('AI が今回の内容への回答を控えました。表現を変えて再度お試しください。');
     }
     notifyAiUsed();
-    onDone?.(fullText, { stopReason, aborted: false });
+    onDone?.(fullText, { stopReason, aborted: false, refund });
     return fullText;
   } catch (e) {
     // User-initiated abort: not an error. Keep the partial text, fire onDone
     // (so the same completion path runs), and resolve with what we have.
     if (isAbortError(e, signal)) {
-      try { onDone?.(fullText, { stopReason, aborted: true }); } catch { /* swallow */ }
+      try { onDone?.(fullText, { stopReason, aborted: true, refund }); } catch { /* swallow */ }
       return fullText;
     }
     if (onError) {

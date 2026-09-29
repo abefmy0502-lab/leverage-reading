@@ -1493,7 +1493,9 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
     : parsed.body;
   let quoteRefs = [];
   try { quoteRefs = verifyAnswerQuotes(parsed.body, ctx.sources); } catch { /* 確かめられなければ付けない（古い答えと同じ見せ方） */ }
-  return { body, refs: parsed.refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(parsed.refs, ctx.sources), quoteRefs, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks };
+  // 関係するメモが無いと答えたときは、サーバーがトークンを返している（streamClaude の meta.refund）。
+  const tokenRefund = streamMeta?.refund && streamMeta.refund.reason ? streamMeta.refund : null;
+  return { body, refs: parsed.refs, ...ctx.stats, truncated, evidence: evidenceFromRefs(parsed.refs, ctx.sources), quoteRefs, tokenRefund, mode: ctx.mode || 'fused', perbookBooks: ctx.perbookBooks };
 }
 
 // ============================================================================

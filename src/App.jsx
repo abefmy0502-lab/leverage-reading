@@ -630,6 +630,19 @@ function AuthedApp() {
     if (typeof window === 'undefined') return;
     let sp;
     try { sp = new URLSearchParams(window.location.search); } catch { return; }
+    // 行動の期限の通知 → /?tab=review&sub=action で振り返り → 行動を開く。
+    if (sp.get('tab') === 'review') {
+      const sub = sp.get('sub');
+      setTab('review');
+      setView('list');
+      if (sub === 'action' || sub === 'note' || sub === 'record') setReviewSubTab(sub);
+      try {
+        sp.delete('tab'); sp.delete('sub');
+        const qs = sp.toString();
+        window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+      } catch { /* ignore */ }
+      return;
+    }
     const memoId = sp.get('recall');
     if (!memoId) return;
     // 本を直接開くのは books 読込後（下の resolver）。ここでは対象を控えるだけ。

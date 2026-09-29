@@ -102,7 +102,7 @@ const PLAN_COMPARE = [
   // 量の横に「相談なら何回か」を添える（トークンの数だけでは、どれだけ使えるか分からないため・2026-09-29）。
   { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `相談だけ・約 ${Math.round(FREE_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, text: 'メモ・記録・振り返り・シェア' },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
-  { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `すべての AI・相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, items: ['AI 選書', 'テーマまとめ', '読書計画シート', '写真から書き起こし'] },
+  { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, lead: 'すべての AI：', items: ['AI 選書', 'テーマまとめ', '読書計画シート', '写真から書き起こし'] },
 ];
 // トークンの目安（1 行）。
 const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
@@ -119,9 +119,11 @@ function PlanCompare({ onlyPlan = false, trial = '' }) {
           <p style={{ ...groupTitle, margin: 0 }}>{row.name}{row.name === 'プラン' && trial ? `（${trialFirstPhrase(trial)}）` : ''}</p>
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
             <span style={{ whiteSpace: 'nowrap' }}>{row.amount}</span>
-            <span style={{ fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)' }}>（{row.scope}）</span>
+            {/* かっこの中は途中で折り返さない（「相談な／ら」のように割れないよう、まとまりで次の行へ）。 */}
+            <span style={{ fontSize: 'var(--text-sub)', fontWeight: 400, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>（{row.scope}）</span>
           </p>
           <p style={{ ...metaText, marginTop: 'var(--space-1)' }}>
+            {row.lead && <span style={{ whiteSpace: 'nowrap' }}>{row.lead}</span>}
             {row.items
               ? row.items.map((f, j) => <span key={f}>{j > 0 && '・'}<span style={{ whiteSpace: 'nowrap' }}>{f}</span></span>)
               : row.text}

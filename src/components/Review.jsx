@@ -1053,7 +1053,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFilterMenu({ kind: 'kind', x: r.left + 110, y: r.bottom + 4 }); }}
                 aria-haspopup="menu"
                 aria-label={`種類で絞り込む（いまは${kindFilter === 'all' ? 'すべての種類' : (KIND_META[kindFilter]?.label || '')}）`}
-                style={filterMenuBtn}
+                // 文字の左端を検索欄の端（16）にそろえる（左右 4 の内側余白を打ち消す）。
+                style={{ ...filterMenuBtn, marginLeft: 'calc(-1 * var(--space-1))' }}
               >
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kindFilter === 'all' ? 'すべての種類' : (KIND_META[kindFilter]?.label || 'すべての種類')}</span>
                 <ChevronDown size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
@@ -1174,7 +1175,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   type="button"
                   disabled={flipping}
                   onClick={() => { answerRandomRecall(randomMemo, false); }}
-                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1 }}
+                  // 1 行に収める（2 つのボタンを同じ高さに・語の途中で折り返さない）。
+                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1, padding: '0 var(--space-3)', whiteSpace: 'nowrap' }}
                 >
                   まだ覚えていない
                 </button>

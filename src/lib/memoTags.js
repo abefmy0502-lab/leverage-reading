@@ -1,7 +1,7 @@
 // 🏷 メモを書くシートに並べる「よく使うタグ」（2026-09-29）。
 // その本のメモに付けたタグを多い順に、足りなければ本棚の本のタグで埋める（重複なし・max 件まで）。
 // 「@」で始まるもの（学びの分類）は出さない。
-export function frequentMemoTags(memos = [], fallbackTags = [], max = 8) {
+export function frequentMemoTags(memos = [], fallbackTags = [], max = 6) {
   const count = new Map();
   for (const m of Array.isArray(memos) ? memos : []) {
     for (const t of Array.isArray(m?.tags) ? m.tags : []) {

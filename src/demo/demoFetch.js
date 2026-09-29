@@ -257,7 +257,8 @@ function aiReply(store, payload, aiMode = '') {
 }
 
 // stallAt: その文字数まで書いたところで長く止まる（書いている途中の画面を撮る &ai=stall 用）。
-function sseResponse(text, stopReason = 'end_turn', stallAt = -1) {
+// extra: message_stop のあとに送る独自の枠（相談のトークンを返した知らせ orime_token_refund など）。
+function sseResponse(text, stopReason = 'end_turn', stallAt = -1, extra = null) {
   const enc = new TextEncoder();
   const chunks = stallAt > 0
     ? [...(text.slice(0, stallAt).match(/[\s\S]{1,14}/g) || []), null, ...(text.slice(stallAt).match(/[\s\S]{1,14}/g) || [])]
@@ -275,6 +276,7 @@ function sseResponse(text, stopReason = 'end_turn', stallAt = -1) {
       }
       send({ type: 'message_delta', delta: { stop_reason: stopReason } });
       send({ type: 'message_stop' });
+      if (extra) controller.enqueue(enc.encode(`event: ${extra.type}\ndata: ${JSON.stringify(extra)}\n\n`));
       controller.close();
     },
   });
@@ -363,7 +365,13 @@ export function installDemoFetch(store) {
         }
       }
       await new Promise((r) => setTimeout(r, 500));
-      const full = aiReply(store, payload, aiMode);
+      // &ai=noinfo: 関係するメモが無いと答え、トークンを返す（本番の api/claude.js と同じく message_stop のあとに
+      //   orime_token_refund の枠を送る・相談の答えの下の「トークンは使っていません」の確認用）。
+      const noInfo = aiMode === 'noinfo' && payload.purpose === 'consult';
+      if (noInfo) { row.calls -= 1; row.cost_mjpy = Math.max(0, (row.cost_mjpy || 0) - 2760); }
+      const full = noInfo
+        ? ['【結論】', 'あなたの読書記録には、このトピックに関する情報がまだありません。', '', '【明日からできる 1 つの行動】', '次に読む本で、このテーマについて心が動いた一行を 1 つメモに残す。'].join('\n')
+        : aiReply(store, payload, aiMode);
       const cut = aiMode === 'cut';
       // 途中切れ: 本文の前半だけ返す（文の途中で切れる）。
       const text = cut ? full.slice(0, Math.max(40, Math.floor(full.length * 0.6))) : full;
@@ -374,7 +382,7 @@ export function installDemoFetch(store) {
           const v = text.indexOf('\n視点：');
           stallAt = v > 0 ? v + 40 : Math.floor(text.length * 0.3);
         }
-        return sseResponse(text, stopReason, stallAt);
+        return sseResponse(text, stopReason, stallAt, noInfo ? { type: 'orime_token_refund', reason: 'no_info', tokens: 9 } : null);
       }
       return json({ content: [{ type: 'text', text }], stop_reason: stopReason });
     }

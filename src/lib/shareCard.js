@@ -854,8 +854,8 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
     lctx.textBaseline = 'alphabetic';
     const place0 = photoPlacement({ pw: opts.photo.width, ph: opts.photo.height, W, H, ...(opts.view || {}) });
     drawPhotoOverlay(lctx, o, place0);
-    // 写真は、動かし始めの大きさの 2 倍まで縮めておく（拡大しても粗くなりすぎない・元より大きくはしない）。
-    const want = Math.max(cw, Math.round(place0.w * k * 2));
+    // 写真は、動かし始めの大きさの 1.5 倍まで縮めておく（拡大しても粗くなりすぎない・元より大きくはしない）。
+    const want = Math.max(cw, Math.round(place0.w * k * 1.5));
     const sk = Math.min(1, want / opts.photo.width);
     let small = opts.photo.source;
     if (sk < 0.95) {
@@ -876,7 +876,7 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, cw, ch);
   const place = photoPlacement({ pw: opts.photo.width, ph: opts.photo.height, W, H, ...(opts.view || {}) });
-  ctx.imageSmoothingQuality = 'medium';
+  ctx.imageSmoothingQuality = 'low'; // 動いている間は速さを優先（離したら 'high' で描き直す）
   ctx.drawImage(cache.small, place.x * k, place.y * k, place.w * k, place.h * k);
   ctx.drawImage(cache.layer, 0, 0);
   return true;
