@@ -41,11 +41,14 @@ const summaryTextarea = {
 
 // まとめの保存は副ボタン（詳細画面の主ボタンは「メモを書く」1 つ・DESIGN §0）。
 // 保存中は薄くせず btnGhostOff（DESIGN §5「押せないボタン」）。
-const summarySaveBtn = (saving) => (saving ? btnGhostOff : btnGhost);
+const summarySaveBtn = (off) => (off ? btnGhostOff : btnGhost);
 
 
 function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSummary }) {
   const [text, setText] = useState(summaryText || '');
+  // 保存してある内容（変えていないときは「保存」を押せない見た目にする・2026-09-29）。
+  const [savedText, setSavedText] = useState(summaryText || '');
+  const dirty = text !== savedText;
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -89,7 +92,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
     } catch (e) {
       // プランの案内（402）は有料プランの画面が開くので、ここには出さない。
       if (!(e?.notice && /^この AI 機能は/.test(e.message))) {
-        setErrorMsg(toMessage(e, 'まとめの生成に失敗しました。'));
+        setErrorMsg(toMessage(e, '通信の状態を確かめて、もう一度お試しください。'));
         setErrorKind('generate');
       }
     } finally {
@@ -101,6 +104,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   // so unsaved typing is preserved when toggling tabs.
   useEffect(() => {
     setText(summaryText || '');
+    setSavedText(summaryText || '');
     setErrorMsg('');
     setSavedFlash(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,18 +115,19 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   }, []);
 
   const handleSave = async () => {
-    if (saving || !onSaveSummary) return;
+    if (saving || !onSaveSummary || !dirty) return;
     setSaving(true);
     setErrorMsg('');
     try {
       await onSaveSummary(text);
+      setSavedText(text);
       haptic.success();
       setSavedFlash(true);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => setSavedFlash(false), 1000);
     } catch (e) {
       console.error('summary save error', e);
-      setErrorMsg(toMessage(e, 'まとめメモの保存に失敗しました。'));
+      setErrorMsg(toMessage(e, '通信の状態を確かめて、もう一度お試しください。'));
       setErrorKind('save');
     } finally {
       setSaving(false);
@@ -132,7 +137,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   const label = saving ? '保存中…' : savedFlash ? '保存しました ✓' : '保存';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+    // 文字ボタン・入力欄・保存の間は 12（DESIGN §1 グループ内のボタン同士）。
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {/* 説明の補足文は置かない（DESIGN §0-6）。入力欄の案内文とこの文字ボタンで伝わる。 */}
       {canGenerate && (
         <button
@@ -159,7 +165,9 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
         maxLength={LIMITS.summaryMemo}
       />
       {errorMsg && (
+        // 題（何が起きたか）＋説明（どうすればいいか）。アイコンは付けない（DESIGN §5）。
         <ErrorMessage
+          title={errorKind === 'generate' ? 'まとめを作れませんでした' : 'まとめを保存できませんでした'}
           description={errorMsg}
           actions={[{ label: 'もう一度', onClick: errorKind === 'generate' ? handleGenerate : handleSave }]}
         />
@@ -167,8 +175,9 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
       <button
         type="button"
         onClick={handleSave}
-        disabled={saving}
-        style={summarySaveBtn(saving)}
+        // 変えていないときは押せない見た目（薄くせず btnGhostOff・DESIGN §5「押せないボタン」）。
+        disabled={saving || !dirty}
+        style={summarySaveBtn(saving || !dirty)}
       >
         {label}
       </button>
@@ -455,7 +464,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {waiting && countHint !== 0 && <MemoListSkeleton rows={countHint == null ? 3 : Math.min(countHint, 5)} />}
       {/* 0 件と分かっている本: 読み込み後に出る空の案内と同じ高さで待つ（見えない形） */}
       {waiting && countHint === 0 && (
-        <div className="empty-state--flush-bottom" aria-hidden="true" style={hidden}>
+        <div aria-hidden="true" style={hidden}>
           <EmptyState icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />} title="心が動いた一行を残しましょう" />
         </div>
       )}
@@ -471,13 +480,11 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
 
       {!loading && memos.length === 0 && !loadError && (
         // 入口は画面右下の「メモを書く」1 つ（ここに同じボタンを置かない・SPEC §2）。
-        // 下の余白は次のまとまりとの間（24）に任せる（上下の余白の偏りをなくす）。
-        <div className="empty-state--flush-bottom">
-          <EmptyState
-            icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
-            title="心が動いた一行を残しましょう"
-          />
-        </div>
+        // 空の案内は上下にゆとりを持たせる（EmptyState の上下 24＋次のまとまりとの間 24＝下 48・DESIGN §1 の空状態）。
+        <EmptyState
+          icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
+          title="心が動いた一行を残しましょう"
+        />
       )}
 
       {!loading && memos.length > 0 && quoteOnly && visibleMemos.length === 0 && (

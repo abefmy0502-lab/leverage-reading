@@ -41,7 +41,7 @@ const offStyle = { border: '1px solid var(--separator)', color: 'var(--text-3)',
 export default function PhotoToTextButton({ onText, disabled = false, style }) {
   const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
-  // 読み取りに失敗したときの案内（シートの中に出す）。写真は持っておき「もう一度試す」で同じ写真を送り直す。
+  // 読み取りに失敗したときの案内（シートの中に出す）。写真は持っておき「もう一度」で同じ写真を送り直す。
   const [failure, setFailure] = useState(null);
   // 読み取り中・失敗したときに、送った写真を小さく見せる（何を読んでいるのか・何をもう一度送るのか分かるように）。
   // 読み取り中と失敗は同じ場所（ボタンの下の 1 行）に出し、写真の位置を動かさない。
@@ -102,9 +102,9 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
     } catch (e2) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。
       if (e2?.notice) { setThumbFile(null); if (!/^この AI 機能は/.test(e2.message)) toast.info(e2.message); return; }
-      // 理由のあとに次の一歩を 1 文（理由の文がすでに「お試しください」で終わるときは重ねない）。
+      // 理由のあとに次の一歩を短く（理由の文がすでに「お試しください」を含むときは重ねない・2026-09-29 に文を短く）。
       const reason = toMessage(e2, '');
-      const message = /お試しください/.test(reason) ? reason : `${reason} 少し待って、もう一度お試しください。`.trim();
+      const message = /お試しください/.test(reason) ? reason : `${reason}もう一度お試しください。`;
       setFailure({ title: '写真を読み取れませんでした', message, retry: true });
     } finally {
       setLoading(false);
@@ -134,25 +134,25 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
       />
       {(loading || failure) && (
         // 並べ方（グリッド／折り返す横並び）どちらでも、ボタンの下の 1 行ぶんを使う。
-        // 読み取り中（写真＋「写真を読み取っています」）と失敗（写真＋理由＋もう一度）は同じ場所・同じ写真の位置。
-        <div style={{ gridColumn: '1 / -1', flexBasis: '100%', marginTop: 'var(--space-2)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+        // 読み取り中は写真の右に「写真を読み取っています」。失敗は写真の下に全幅の案内（説明を狭い幅に押し込まない・2026-09-29）。
+        // どちらも写真は同じ場所（左上）。
+        <div style={{ gridColumn: '1 / -1', flexBasis: '100%', marginTop: 'var(--space-2)', display: 'flex', flexDirection: loading ? 'row' : 'column', alignItems: loading ? 'flex-start' : 'stretch', gap: loading ? 'var(--space-3)' : 'var(--space-2)' }}>
           {thumbUrl && (
-            <img src={thumbUrl} alt={loading ? '読み取っている写真' : '読み取れなかった写真'} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)', flexShrink: 0 }} />
+            <img src={thumbUrl} alt={loading ? '読み取っている写真' : '読み取れなかった写真'} style={{ width: 'var(--space-12)', height: 'var(--space-12)', objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--separator)', flexShrink: 0 }} />
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
           {loading ? (
-            <div className="ai-thinking" role="status" style={{ minHeight: 48 }}>
+            <div className="ai-thinking" role="status" style={{ minHeight: 'var(--space-12)' }}>
               <span className="ai-thinking-dot" aria-hidden="true" />
               <span>写真を読み取っています</span>
             </div>
           ) : (
           <ErrorMessage
-            icon={null}
             title={failure.title}
             description={failure.message}
             actions={[
               failure.retry && lastFileRef.current
-                ? { label: 'もう一度試す', onClick: () => run(lastFileRef.current), variant: 'secondary', icon: <RotateCw size={16} /> }
+                ? { label: 'もう一度', onClick: () => run(lastFileRef.current), variant: 'secondary', icon: <RotateCw size={16} /> }
                 : { label: '写真を選び直す', onClick: pick, variant: 'secondary' },
             ]}
           />

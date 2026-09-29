@@ -36,7 +36,9 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
           文字ボタンの上下の余り（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
       {onImport ? (
         <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
-          <button type="button" onClick={onImport} style={textRow}>ブクログ・読書メーター・Kindle から取り込む</button>
+          {/* 1 行に収まる短い名前（「読書メー／ター」「取り／込む」のように語の途中で割れていた・2026-09-29）。
+              どのアプリから取り込めるかは、開いたシートの題名の下で言う。設定の「ほかのアプリから取り込む」と同じ名前。 */}
+          <button type="button" onClick={onImport} style={textRow}>ほかのアプリから取り込む</button>
         </div>
       ) : onAdvisor ? (
         <div style={{ display: 'flex', justifyContent: 'center', margin: 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
@@ -105,6 +107,25 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
   );
 }
 
+// 読み込み中のホームの形（相談カード／いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔／すべての本 ›）。
+// 起動直後の読み込み（App.jsx の HomeLoadingSkeleton）と、本の読み込み中（下の HomeScreen）で同じものを使う（2026-09-29）。
+// カードの形はどれも本物と同じ枠 --separator（明るい画面で背景に溶けないように）。
+const skeletonCard = { border: '1px solid var(--separator)', boxSizing: 'border-box' };
+export function HomeBlocksSkeleton() {
+  return (
+    <>
+      {/* 相談カードと同じ高さ（実測 約 432）。 */}
+      <SkeletonBlock height={432} radius="var(--radius)" style={skeletonCard} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
+        <SkeletonBlock height={90} radius="var(--radius)" style={skeletonCard} />
+        <SkeletonBlock height={90} radius="var(--radius)" style={skeletonCard} />
+      </div>
+      <SkeletonBlock height={56} radius="var(--radius)" style={skeletonCard} />
+    </>
+  );
+}
+
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
   onAsk, onQuickstart, onAddBook, onAdvisor, onImport,
@@ -116,16 +137,8 @@ export default function HomeScreen({
 
       {loading && books.length === 0 ? (
         // 読み込み中は形だけ（既存ユーザーに新規用の「はじめる」カードを一瞬見せない）。
-        <div aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-          {/* 実際の 3 ブロック（相談カード／いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔／すべての本 ›）と同じ形・間隔。 */}
-          {/* 相談カードと同じ高さ（実測 約 432）・同じ枠 --separator。 */}
-          <SkeletonBlock height={432} radius="var(--radius)" style={{ border: '1px solid var(--separator)', boxSizing: 'border-box' }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <SkeletonBlock width="50%" height={26} radius="var(--radius)" />
-            <SkeletonBlock height={90} radius="var(--radius)" />
-            <SkeletonBlock height={90} radius="var(--radius)" />
-          </div>
-          <SkeletonBlock height={56} radius="var(--radius)" />
+        <div role="status" aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          <HomeBlocksSkeleton />
         </div>
       ) : loadError && books.length === 0 ? (
         // 読み込みに失敗したときに、既存ユーザーへ初回用の「はじめましょう」を見せない。

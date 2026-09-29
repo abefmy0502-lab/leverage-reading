@@ -192,16 +192,18 @@
    インライン style の入力欄にもまとめて効かせる。インラインの border 色に勝つよう border-color だけ !important。
    チェックボックス・ラジオ・ボタン類には効かせない。枠の無い入力欄（全画面の本文など）で輪を出したくないときは
    className="no-focus-ring" を付ける。 */
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="color"]):not([type="image"]):not(.no-focus-ring):focus,
-textarea:not(.no-focus-ring):focus,
-select:not(.no-focus-ring):focus {
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="color"]):not([type="image"]):not(.no-focus-ring)):focus,
+:where(textarea:not(.no-focus-ring)):focus,
+:where(select:not(.no-focus-ring)):focus {
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 3px var(--accent-soft);
   outline: none;
   transition: border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
 }
-/* 入れ直しが要る欄（aria-invalid）は、入力中も枠を --error のまま（欄へ戻したときに栗色で上書きしない・2026-09-29）。 */
+/* 入れ直しが要る欄（aria-invalid）は、入力中も枠を --error のまま（欄へ戻したときに栗色で上書きしない・2026-09-29）。
+   上の入力中の枠は :where() で詳細度を :focus 1 つぶんまで下げてあるので、ここ（属性＋要素）が必ず勝つ
+   （以前は :not() を 10 個重ねた詳細度に負けて、書名の欄が栗色の枠のまま「書名を入れてください」と出ていた）。 */
 input[aria-invalid="true"]:not(.no-focus-ring),
 textarea[aria-invalid="true"]:not(.no-focus-ring) {
   border-color: var(--error) !important;
@@ -723,6 +725,12 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   padding: var(--space-4);
   border-radius: var(--radius);
   margin: 0; /* 周りとの間は置く側の gap に任せる */
+}
+/* 決まった高さの場所（一文をシェアのプレビューの枠など）に出すとき: 高さいっぱいの面にして、中身は上下の真ん中に。 */
+.error-message--fill {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .error-message-icon {
   line-height: 1;

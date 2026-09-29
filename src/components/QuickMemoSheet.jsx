@@ -15,7 +15,7 @@ import { condenseMemo } from '../lib/ai';
 import { usePaywall } from '../state/PaywallContext';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
-import { Sparkles, Undo2, Plus, Minus, ChevronRight } from 'lucide-react';
+import { Sparkles, Undo2, Plus, Minus, ChevronRight, X } from 'lucide-react';
 import { btnPrimary, btnPrimaryOff, btnLink, groupTitle } from '../styles/ui';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { useBackLayer } from '../hooks/useHistoryBack';
@@ -274,7 +274,7 @@ export default function QuickMemoSheet({
       const ok = await confirmDialog({
         title: '保存していない変更があります',
         message: '破棄すると、この変更は失われます。',
-        confirmLabel: '破棄する',
+        confirmLabel: '書いたことを消す',
         cancelLabel: '編集を続ける',
         danger: true,
       });
@@ -486,13 +486,13 @@ export default function QuickMemoSheet({
               ページ・写真
               {!moreOpen && ((pageUsed && pageNumber !== '') || tags.length > 0) && (
                 <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>
-                  （{[pageUsed && pageNumber !== '' ? `p.${pageNumber}` : '', ...tags.map((t) => `#${t}`)].filter(Boolean).join('・')}）
+                  （{[pageUsed && pageNumber !== '' ? `p.${pageNumber}` : '', ...tags].filter(Boolean).join('・')}）
                 </span>
               )}
             </button>
             {moreOpen && (
-              // ページ番号（112）と「写真から書き起こす」（残りの幅いっぱい）を 1 行に。
-              <div style={{ display: 'grid', gridTemplateColumns: '112px 1fr', columnGap: 'var(--space-3)', alignItems: 'end' }}>
+              // ページ番号（7 × 16 = 112・5 桁が入る幅）と「写真から書き起こす」（残りの幅いっぱい）を 1 行に。
+              <div style={{ display: 'grid', gridTemplateColumns: 'calc(7 * var(--space-4)) 1fr', columnGap: 'var(--space-3)', alignItems: 'end' }}>
                 <div>
                   <label htmlFor="quick-memo-page" style={fieldLabel}>ページ番号</label>
                   <input
@@ -521,16 +521,23 @@ export default function QuickMemoSheet({
                 />
               </div>
             )}
-            {/* よく使うタグ（選ぶためのチップ・押すと付く／もう一度で外す）。見出し→チップ 8・チップ同士 8（DESIGN §5）。 */}
+            {/* よく使うタグ（選ぶためのチップ・押すと付く／もう一度で外す）。見出し→チップ 8・チップ同士 8（DESIGN §5）。
+                ページ・写真の行とは別のまとまりなので間は 24（DESIGN §1 グループの間）。
+                表記は本の編集画面のタグ（TagInput）と同じ: 付ける前は「＋ タグ」、付けたら「タグ ×」（# は付けない）。 */}
             {moreOpen && frequentTags.length > 0 && (
-              <div style={{ marginTop: 'var(--space-3)' }}>
+              <div style={{ marginTop: 'var(--space-6)' }}>
                 <p id="quick-memo-tags" style={fieldLabel}>タグ</p>
                 <div role="group" aria-labelledby="quick-memo-tags" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-                  {frequentTags.map((t) => (
-                    <Chip key={t} size="select" active={tags.includes(t)} aria-pressed={tags.includes(t)} onClick={() => toggleTag(t)}>
-                      #{t}
-                    </Chip>
-                  ))}
+                  {frequentTags.map((t) => {
+                    const on = tags.includes(t);
+                    return (
+                      <Chip key={t} size="select" active={on} aria-pressed={on} aria-label={on ? `「${t}」を外す` : `「${t}」を付ける`} onClick={() => toggleTag(t)}>
+                        {!on && <Plus size={14} aria-hidden="true" />}
+                        {t}
+                        {on && <X size={14} aria-hidden="true" />}
+                      </Chip>
+                    );
+                  })}
                 </div>
               </div>
             )}

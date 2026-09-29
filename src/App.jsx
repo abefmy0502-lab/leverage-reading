@@ -27,7 +27,7 @@ import {
   SearchX as IcSearchX, Brain as IcBrain,
   LayoutGrid as IcGrid, List as IcList,
   Lightbulb as IcBulb,
-  BookOpen as IcBook, Map as IcMap, RefreshCw as IcRefresh, WifiOff as IcWifiOff, Bot as IcBot,
+  BookOpen as IcBook, Map as IcMap, RefreshCw as IcRefresh, Bot as IcBot,
   CheckCircle2 as IcCheck,
   SlidersHorizontal as IcFilter, ArrowUpDown as IcSort, Star as IcStar, Folder as IcFolder, X as IcX,
 } from 'lucide-react';
@@ -115,7 +115,7 @@ import Spinner from './components/Spinner';
 import EmptyState from './components/EmptyState';
 import ErrorMessage from './components/ErrorMessage';
 import { useFocusTrap } from './hooks/useFocusTrap';
-import HomeScreen from './components/HomeScreen';
+import HomeScreen, { HomeBlocksSkeleton } from './components/HomeScreen';
 import { initServiceWorker } from './lib/swUpdate';
 import { ensurePushSubscription } from './lib/push';
 import { isNative } from './lib/iap';
@@ -275,14 +275,8 @@ function HomeLoadingSkeleton() {
       aria-label="読み込み中"
       style={{ flex: 1, padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}
     >
-      {/* 相談カードと同じ高さ（実測 約 432）・同じ枠 --separator。 */}
-      <SkeletonBlock height={432} radius="var(--radius)" style={{ border: '1px solid var(--separator)', boxSizing: 'border-box' }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
-        <SkeletonBlock height={90} radius="var(--radius)" style={{ border: '1px solid var(--separator)', boxSizing: 'border-box' }} />
-        <SkeletonBlock height={90} radius="var(--radius)" style={{ border: '1px solid var(--separator)', boxSizing: 'border-box' }} />
-      </div>
-      <SkeletonBlock height={56} radius="var(--radius)" />
+      {/* 中身はホームの読み込み中と同じもの（HomeScreen.jsx の HomeBlocksSkeleton・2026-09-29 に 1 つにまとめた）。 */}
+      <HomeBlocksSkeleton />
     </div>
   );
 }
@@ -3160,6 +3154,21 @@ function AuthedApp() {
     });
   };
 
+  // 画面を下へ送ったら、上の行（ロゴ・ヘルプ・設定）の下に --separator の線を出す（iOS のナビバーと同じ・DESIGN §5「画面上部の 1 行」）。
+  // 一番上にいる間は線を出さない（ページと上の行を一体に見せる）。スクロールの箱は key={tab} で作り直されるので、タブ・画面ごとに付け直す。
+  const [pageScrolled, setPageScrolled] = useState(false);
+  useEffect(() => {
+    const el = listScrollRef.current;
+    setPageScrolled(!!el && el.scrollTop > 0);
+    if (!el) return undefined;
+    const onPageScroll = () => {
+      const v = el.scrollTop > 0;
+      setPageScrolled((p) => (p === v ? p : v));
+    };
+    el.addEventListener('scroll', onPageScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onPageScroll);
+  }, [tab, view, shelfMode]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = books.filter((b) => {
@@ -3829,9 +3838,10 @@ function AuthedApp() {
                 行動が主役であるべき画面の佇まいを崩す（本田哲学）。 */}
             {/* 購入導線: Amazon + 楽天ブックスの両方を出す（統一）。want/before は
                 買う導線を主役に全幅ボタン、reading/done は控えめな横並びリンク。 */}
-            {/* 購入リンクは、まだ買っていない可能性が高い 読みたい・積読 だけ画面に出す。
-                読書中・読了は「⋯ → この本を買う」のシート（開示文ごと）へ（2026-09-26 オーナー判断）。 */}
-            {(current.status === 'want' || current.status === 'before') && (
+            {/* 購入リンクは、まだ買っていない可能性が高い 読みたい だけ画面に出す。
+                積読（定義: 手元にある本）・読書中・読了は「⋯ → この本を買う」のシート（開示文ごと）へ
+                （2026-09-26 オーナー判断・積読は 2026-09-29 に「⋯」へ寄せた＝手元にある本に買うボタンを大きく出さない）。 */}
+            {current.status === 'want' && (
               <BookStoreLinks book={current} variant="cta" buy />
             )}
             {/* 編集 / 共有 / 削除 は上部 ⋯ kebab に集約。下部の「← 本棚に戻る」は左上の戻ると
@@ -4002,7 +4012,7 @@ function AuthedApp() {
               { label: '表紙を取り直す', icon: <IcRefresh size={16} aria-hidden="true" />, onClick: () => refreshCoverFor(current) },
               { label: '表紙を手動でアップロード', icon: <Upload size={16} aria-hidden="true" />, onClick: () => triggerManualCoverUpload(current) },
               ...(current.cover ? [{ label: '表紙を削除', icon: <ImageOff size={16} aria-hidden="true" />, onClick: () => removeCoverFor(current) }] : []),
-              ...((current.status === 'reading' || current.status === 'done')
+              ...(current.status !== 'want'
                 ? [{ label: 'この本を買う', icon: <ShoppingBag size={16} aria-hidden="true" />, onClick: () => setStoreSheetOpen(true) }]
                 : []),
               // 読書中・読了は「この本の一文」を画像でシェア。読みたい・積読は書名とお店のリンクの文を共有。
@@ -4226,15 +4236,18 @@ function AuthedApp() {
    <header
      style={{
        flexShrink: 0,
-       padding: "max(env(safe-area-inset-top, 4px), 4px) 16px 4px",
+       padding: "max(env(safe-area-inset-top, 4px), 4px) var(--space-4) var(--space-1)",
        minHeight: 44,
        display: "flex",
        justifyContent: "space-between",
        alignItems: "center",
-       gap: 8,
+       gap: 'var(--space-2)',
        /* ページ（クリーム）と同色にして上部を一体化（iOS ナビバー流儀）。
           白いカードが下で浮く構図になる。 */
        background: "var(--bg)",
+       // 中身を下へ送ったときだけ下に線（一番上では出さない）。線の太さぶんは常に取って高さを変えない。
+       borderBottom: `1px solid ${pageScrolled ? 'var(--separator)' : 'transparent'}`,
+       transition: 'border-color var(--duration-fast) var(--ease-out)',
      }}
    >
     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
@@ -4437,8 +4450,11 @@ function AuthedApp() {
                   {libraryFrom === 'record' && statusFilter !== 'all' && STATUS_LABEL[statusFilter] ? STATUS_LABEL[statusFilter] : 'すべての本'}
                 </h1>
                 {/* 読み込み中・読み込めなかったときに「0 冊」と見せない（本があるまま更新中なら出す）。 */}
+                {/* 検索中は「すべての本 0 冊」と見せない（本が無いように読める）。何冊の中から何冊見つかったかを出す（2026-09-29）。 */}
                 {!((booksLoading || booksLoadError) && rawBooks.length === 0) && (
-                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{filtered.length} 冊</span>
+                  <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
+                    {search.trim() ? `${rawBooks.length} 冊中 ${filtered.length} 冊` : `${filtered.length} 冊`}
+                  </span>
                 )}
               </div>
               {(librarySearchOpen || search) && (
@@ -5363,8 +5379,8 @@ function AppShell() {
     return (
       <Shell>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-6) var(--space-4)' }}>
+          {/* ErrorMessage はアイコンを付けない（面と題・説明だけ・DESIGN §5）。 */}
           <ErrorMessage
-            icon={<IcWifiOff size={28} aria-hidden="true" />}
             title="読み込みに時間がかかっています"
             description="通信状況をご確認のうえ、もう一度お試しください。"
             actions={[

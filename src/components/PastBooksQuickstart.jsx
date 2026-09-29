@@ -409,15 +409,16 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
         <>
           <div style={body}>
             <h1 style={title}>これまで読んで、<br />印象に残っている本は？</h1>
-            {/* 句のまとまりで折り返す（「はじめられ／ます」と割らない） */}
+            {/* 1 文にまとめる（SPEC §1-1）。句のまとまりで折り返す（「はじめられ／ます」と割らない） */}
             <p style={sub}>
-              <span style={{ display: 'inline-block' }}>{RECOMMENDED_BOOKS} 冊ほどがおすすめです。</span>
-              <span style={{ display: 'inline-block' }}>{MIN_BOOKS} 冊からでもはじめられます</span>
+              <span style={{ display: 'inline-block' }}>{RECOMMENDED_BOOKS}&nbsp;冊ほどがおすすめです</span>
+              {/* 「（」の左の空き（全角の半分）を打ち消す＝行の頭に来ても上の行と文字の頭がそろう（書体の palt に頼らない） */}
+              <span style={{ display: 'inline-block', marginLeft: '-0.5em' }}>（{MIN_BOOKS}&nbsp;冊からはじめられます）</span>
             </p>
             {onImport && (
               <button type="button" onClick={onImport} style={{ ...btnLink, padding: 0, marginTop: 'var(--space-1)' }}>
-                {/* 語の途中（「読書メー／ター」）で折り返さない: 語はまとめて、折り返すのは「・」「から」の後だけ。 */}
-                <span style={{ minWidth: 0 }}><span style={{ whiteSpace: 'nowrap' }}>ブクログ・</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>読書メーター・</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>Kindle から</span><wbr /><span style={{ whiteSpace: 'nowrap' }}>取り込む</span></span>
+                {/* ホーム・初回ガイド・設定と同じ短い名前（語の途中で割れない・2026-09-29） */}
+                ほかのアプリから取り込む
               </button>
             )}
 
@@ -479,7 +480,6 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                 <EmptyState
                   icon={<SearchX size={32} aria-hidden="true" />}
                   title="見つかりませんでした"
-                  description="書名だけでも追加できます"
                   actions={[{
                     label: titlePicked ? '追加しました' : '書名だけで追加',
                     ariaLabel: titlePicked ? `「${searched}」を外す` : `「${searched}」を書名だけで追加`,
@@ -500,7 +500,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   <button type="button" onClick={() => toggle(titleOnlyBook)} aria-pressed={!!titlePicked}
                     style={{ ...btnLink, padding: 'var(--space-3) 0', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', justifyContent: 'flex-start', textAlign: 'left', maxWidth: '100%' }}>
                     {titlePicked ? <Check size={20} aria-hidden="true" style={{ flexShrink: 0 }} /> : <Plus size={20} aria-hidden="true" style={{ flexShrink: 0 }} />}
-                    <span style={{ ...oneLine, minWidth: 0 }}>「{searched}」を書名だけで追加</span>
+                    {/* 「 の左の空き（全角の半分）を打ち消し、＋ から文字までをほかの文字ボタンと同じ 8 に（書体の palt に頼らない）。 */}
+                    <span style={{ ...oneLine, minWidth: 0, marginLeft: '-0.5em' }}>「{searched}」を書名だけで追加</span>
                   </button>
                 </>
               )}
@@ -680,7 +681,11 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
                   いま困っていること
                 </h2>
                 {freeMode && freeRemaining > 0 && (
-                  <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)' }}>今月の残り {fmtTokens(freeRemaining)} トークン（相談 約 {consultsLeft(freeRemaining, TOKEN_COSTS.consult)} 回）</p>
+                  // 相談の上部の行と同じ言い方（かっこを付けず「・」でつなぐ・折り返すのは「・」のあとだけ・2026-09-29）。
+                  <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)', fontVariantNumeric: 'tabular-nums' }}>
+                    <span style={{ whiteSpace: 'nowrap' }}>今月の残り {fmtTokens(freeRemaining)} トークン・</span><wbr />
+                    <span style={{ whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(freeRemaining, TOKEN_COSTS.consult)} 回</span>
+                  </p>
                 )}
                 <textarea
                   ref={askRef}

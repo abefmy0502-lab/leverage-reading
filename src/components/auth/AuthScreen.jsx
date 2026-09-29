@@ -345,9 +345,14 @@ export default function AuthScreen() {
         <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 72, height: 72, borderRadius: 'var(--radius-app-icon)', display: 'block' }} />
         <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', letterSpacing: '0.02em' }}>Orime</span>
       </h1>
-      <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-6)', textAlign: 'center' }}>
-        読むほど、自分だけの相談相手が育つ
-      </p>
+      {/* タグラインはログインの画面だけ（新規登録は題名「新規登録」と入力欄に集中させる・2026-09-29）。 */}
+      {mode === 'signin' ? (
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: '0 0 var(--space-6)', textAlign: 'center' }}>
+          読むほど、自分だけの相談相手が育つ
+        </p>
+      ) : (
+        <div style={{ height: 'var(--space-3)' }} aria-hidden="true" />
+      )}
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 400 }}>
         {title && (
           <h2 style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-4)', textAlign: 'center' }}>{title}</h2>
@@ -379,14 +384,6 @@ export default function AuthScreen() {
               <span style={{ flex: 1, height: 1, background: 'var(--separator)' }} />
             </div>
           </>
-        )}
-        {mode === 'signup' && !isNative && (
-          /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
-             「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。 */
-          <p style={{ ...jpWrap, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-4)', textAlign: 'center' }}>
-            Orime は iPhone / iPad のアプリです。<br />
-            登録後は、アプリからログインしてください。
-          </p>
         )}
         {mode === 'signup' && (
           <input
@@ -472,16 +469,20 @@ export default function AuthScreen() {
         >
           {submitLabel}
         </button>
+        {mode === 'signup' && !isNative && (
+          /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
+             「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。
+             入力欄の上に中央揃えで積まず、登録ボタンのすぐ下に補足の大きさ（13/--text-2）で（2026-09-29）。 */
+          <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-3) 0 0' }}>
+            Orime は iPhone / iPad のアプリです。登録後は、アプリからログインしてください。
+          </p>
+        )}
       </form>
       <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 0, width: '100%', maxWidth: 400, alignItems: 'center' }}>
         {mode !== 'signin' && (
           <button type="button" onClick={() => switchMode('signin')} style={btnLink}>
             ログインに戻る
           </button>
-        )}
-        {/* サービス紹介は入力欄の上に積まず、下の文字リンクの並びに（何を押すかを迷わせない）。 */}
-        {mode === 'signup' && !isNative && (
-          <a href="/lp" style={{ ...btnLink, textDecoration: 'none' }}>サービス紹介を見る</a>
         )}
         {mode === 'signin' && (
           <>
@@ -491,6 +492,10 @@ export default function AuthScreen() {
             <button type="button" onClick={() => switchMode('reset')} style={btnLink}>
               パスワードをお忘れの方
             </button>
+            {/* サービス紹介はログインの画面だけ（新規登録は「ログインに戻る」1 つにして、押すものを減らす・2026-09-29）。 */}
+            {!isNative && (
+              <a href="/lp" style={{ ...btnLink, textDecoration: 'none' }}>サービス紹介を見る</a>
+            )}
           </>
         )}
       </div>
