@@ -132,7 +132,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
       </button>
       )}
 
-      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', marginBottom: 'var(--space-6)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: COVER_W }}>
           {form.cover ? (
             <>

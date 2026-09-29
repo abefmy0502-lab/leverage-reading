@@ -95,7 +95,7 @@ const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', 
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 // 相談例＝チップ（--fill 面・枠なし。入力欄と見分けがつくように。ホームと同じ）。
-const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'auto-phrase', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
+const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
 // 答え＝読むカード（全幅）。ユーザーの相談は右寄せの --fill 吹き出し。
 const answerCard = { ...cardStyle, wordBreak: 'break-word' };
 const readText = { fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)' };
@@ -1348,7 +1348,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                       disabled={busy || outOfTokens}
                       style={{ ...chipStyle, ...(busy || outOfTokens ? { color: 'var(--text-2)', opacity: 1, cursor: 'default' } : null), ...hangIndent(q) }}
                     >
-                      {q}
+                      {withPhraseBreaks(q)}
                     </button>
                   ))}
                 </div>
@@ -2108,7 +2108,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
         {/* 書いている間は、最後のカードの下に「答えを書いています…」（本のカードが順に増えるので、続きがあると分かるように）。
             中止を押したら（stage が消える）すぐに外す。親が role="log" aria-live なので live 領域は重ねない。 */}
         {isStreaming && stage === 'generate' && (
-          <div className="ai-thinking" style={{ alignSelf: 'flex-start', marginTop: 'var(--space-3)' }}>
+          <div className="ai-thinking" style={{ alignSelf: 'stretch', marginTop: 'var(--space-3)', position: 'sticky', bottom: 0, background: 'var(--bg)', paddingBlock: 'var(--space-2)' }}>
             <span className="ai-thinking-dot" aria-hidden="true" />
             <span>{STAGE_LABEL.generate}</span>
           </div>
@@ -2170,7 +2170,7 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
         </>
       ) : message.error ? (
         <>
-          <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'auto-phrase' }}>{message.content}</p>
+          <p style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(message.content)}</p>
           {onRetry && (
             <button type="button" onClick={onRetry} style={{ ...rowBtn, marginTop: 'var(--space-3)' }}>
               <RotateCw size={16} aria-hidden="true" />もう一度
