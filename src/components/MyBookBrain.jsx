@@ -11,6 +11,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { markActivation } from '../lib/activation';
 import { supabase, isSupabaseConfigured, isDemo, demoScenario } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { useAllActions } from '../hooks/useAllActions';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
@@ -31,7 +32,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery } from '../lib/consultHelpers';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
 
@@ -131,10 +132,13 @@ const GROWTH_PREFIX = '🌿 ';
 // 🪙 関係するメモが無かったので、サーバーがトークンを返した（streamClaude の orime_token_refund）。答えの下に一行。
 const REFUND_PREFIX = '🪙 ';
 const REFUND_NOTE = '関係するメモが無かったので、トークンは使っていません';
+// 🎯 相談の材料（あなたの歩み）に入れた「最近完了した行動」の件数（2026-09-29）。「根拠を見る」の中に
+//   「踏まえたこと: 完了した行動 N 件」と一行。refs に目印つきで残す（履歴から開いても出る）。
+const ACTED_PREFIX = '🎯 ';
 // refs のうち、AI が挙げた本（📚 📖 💡）ではない、画面用の目印つきの行（使ったメモ・前の相談から・引用の照合）。
 const isMetaRef = (r) => {
   const s = String(r || '');
-  return s.startsWith(EVIDENCE_PREFIX) || s.startsWith(GROWTH_PREFIX) || s.startsWith(QUOTE_PREFIX) || s.startsWith(REFUND_PREFIX);
+  return s.startsWith(EVIDENCE_PREFIX) || s.startsWith(GROWTH_PREFIX) || s.startsWith(QUOTE_PREFIX) || s.startsWith(REFUND_PREFIX) || s.startsWith(ACTED_PREFIX);
 };
 
 // 関係するメモが無かった答え（トークンを返した答え・返金の回数の上限を超えたときは決まり文句で見分ける）。
@@ -338,7 +342,7 @@ function LearningInline({ onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -790,6 +794,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }
     return null;
   }, [messages]);
+  // 行動（本に入っている）。相談例の「やってみた「…」、次はどうする？」に使う。
+  const { allActions } = useAllActions(books);
+  // 🔎 トークンを使い切ったとき: 書きかけの相談（無ければいちばん新しい相談）の言葉で、振り返り › メモを検索して開く。
+  const searchMemos = onSearchMemos ? () => {
+    const lastAsked = [...messages].reverse().find((m) => m.role === 'user' && !/^(err|streaming|bg-wait)-/.test(String(m.id)));
+    const q = input.trim() || lastAsked?.content || '';
+    track('brain_search_memos', { typed: !!input.trim() });
+    onSearchMemos(memoSearchQuery(q));
+  } : null;
   const examples = useMemo(() => {
     if (scopeIds.length > 0) {
       const qs = [];
@@ -807,8 +820,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }
     // メモの件数は下の ownMemoTotal と同じ数え方（ここより後で定義しているので、ここで数える）。
     const memoCount = memoStatsLoaded ? memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0) : null;
-    return buildConsultExamples({ books, memoBookIds, lastConsult, count: 3, memoCount });
-  }, [books, scopeIds, memoBookIds, lastConsult, memoStatsLoaded, memoStats]);
+    // この 7 日でふりかえりを書いて完了した行動があれば、1 つ目の例を「やってみた「…」、次はどうする？」に。
+    return buildConsultExamples({ books, memoBookIds, lastConsult, count: 3, memoCount, actions: allActions });
+  }, [books, scopeIds, memoBookIds, lastConsult, memoStatsLoaded, memoStats, allActions]);
 
   const ask = async (questionText, opts = {}) => {
     if (!user) {
@@ -912,7 +926,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 実際の答え方（本ごとにで送っても、並べる本が足りなければ「まとめて」で答える）。
     let liveMode = askMode;
     try {
-      const { body, refs, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks } = await streamMyBookBrain({
+      const { body, refs, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks, completedActions } = await streamMyBookBrain({
         userId: user.id,
         question: q,
         bookIds: askBookIds,
@@ -964,6 +978,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         ...(grown > 0 && memoCount > 0 && !tokenRefund ? [`${GROWTH_PREFIX}前の相談から メモ +${grown} 件`] : []),
         ...(Array.isArray(quoteRefs) ? quoteRefs : []),
         ...(tokenRefund ? [`${REFUND_PREFIX}${REFUND_NOTE}`] : []),
+        ...(completedActions > 0 && !tokenRefund ? [`${ACTED_PREFIX}${completedActions}`] : []),
         ...(refs || []),
       ];
       // 本ごとにで送ったのに、並べる本が足りずに「まとめて」で答えた（答えの上に一行で知らせる）。
@@ -1483,11 +1498,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               />
             ) : planOut ? (
               // 🪙➕ プランの人がトークンを使い切った（SPEC §3）: 押せない相談例は出さず、案内カードを一番上に。
-              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} />
+              <TokensOutCard plan={plan} trialEndLabel={trialEndLabel} tokenAllowance={tokenAllowance} onAdd={openTokenSheet} onSearch={searchMemos} />
             ) : freeUsedUp ? (
               // 🎁 無料プランで今月のトークンを使い切った（SPEC §3・2026-09-29）: プランの人と同じく、
               //   押しても答えられない相談例は出さず、案内カードを会話の場所のいちばん上に置く。
-              <FreeUsedCard tokenAllowance={tokenAllowance} onOpen={() => openPaywall('free_used')} />
+              <FreeUsedCard tokenAllowance={tokenAllowance} onOpen={() => openPaywall('free_used')} onSearch={searchMemos} />
             ) : (
               <section aria-labelledby="brain-empty-title">
                 {showNudge && (
@@ -1563,7 +1578,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
               （読み終えるまで画面を奪わない） */}
           {freeUsedUp && !busy && lastIsAssistant && !isEmpty && (
-            <FreeUsedCard tokenAllowance={tokenAllowance} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)' }} />
+            <FreeUsedCard tokenAllowance={tokenAllowance} onOpen={() => openPaywall('free_used')} onSearch={searchMemos} style={{ marginTop: 'var(--space-6)' }} />
           )}
           {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているのでボタンだけ。
               まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}
@@ -1732,7 +1747,8 @@ function TrialNudgeCard({ copy, onOpen, onDismiss }) {
 }
 
 // 🎁 無料プランで今月のトークンを使い切ったときの案内カード（会話の場所のいちばん上・答えの下で共通）。
-function FreeUsedCard({ tokenAllowance, onOpen, style = null }) {
+// onSearch: 「メモを検索して探す」（AI を使わずに、自分のメモから手がかりを探す・2026-09-29）。主ボタンの下の文字ボタン。
+function FreeUsedCard({ tokenAllowance, onOpen, onSearch = null, style = null }) {
   return (
     <section aria-label="今月のトークンは、ここまで" style={{ ...cardStyle, ...style }}>
       <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 }}>
@@ -1744,6 +1760,7 @@ function FreeUsedCard({ tokenAllowance, onOpen, style = null }) {
       <button type="button" onClick={onOpen} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
         プランを見る
       </button>
+      {onSearch && <SearchMemosLink onClick={onSearch} />}
     </section>
   );
 }
@@ -1786,7 +1803,7 @@ function CarryCard({ carry, onCancel }) {
 
 // 🪙➕ プランの人（有料・無料期間）がトークンを使い切って、まだ話していないときの案内カード。
 // 押せない相談例の代わりに、会話の場所の一番上に置く（SPEC §3）。
-function TokensOutCard({ plan, trialEndLabel, tokenAllowance, onAdd }) {
+function TokensOutCard({ plan, trialEndLabel, tokenAllowance, onAdd, onSearch = null }) {
   const sub = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 };
   return (
     <section aria-label="トークンは、ここまで" style={cardStyle}>
@@ -1805,7 +1822,17 @@ function TokensOutCard({ plan, trialEndLabel, tokenAllowance, onAdd }) {
       <button type="button" onClick={onAdd} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
         トークンを追加
       </button>
+      {onSearch && <SearchMemosLink onClick={onSearch} />}
     </section>
+  );
+}
+
+// 🔎 トークンを使い切ったときの脇役の文字ボタン（振り返り › メモを、相談の言葉を入れて開く）。
+function SearchMemosLink({ onClick }) {
+  return (
+    <button type="button" onClick={onClick} style={{ ...uiBtnLink, width: '100%', marginTop: 'var(--space-2)' }}>
+      メモを検索して探す
+    </button>
   );
 }
 
@@ -2259,6 +2286,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   const evidence = (allRefs.find((r) => String(r).startsWith(EVIDENCE_PREFIX)) || '').slice(EVIDENCE_PREFIX.length);
   // 「前の相談から メモ +N 件」（積み重ねが効いていることを事実で・点数やバッジにしない）
   const growth = (allRefs.find((r) => String(r).startsWith(GROWTH_PREFIX)) || '').slice(GROWTH_PREFIX.length);
+  // 相談の材料に入れた「最近完了した行動」の件数（0＝行を出さない）
+  const actedCount = Math.max(0, parseInt((allRefs.find((r) => String(r).startsWith(ACTED_PREFIX)) || '').slice(ACTED_PREFIX.length), 10) || 0);
   // 引用を実際のメモと突き合わせた結果（無い＝古い答え。そのときは AI の文のまま見せる）
   const quoteChecks = decodeQuoteRefs(allRefs);
   const refChecks = quoteChecks.filter((c) => c.k === 'r');
@@ -2348,7 +2377,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
     </div>
   ) : null);
   // 根拠（参照したメモ・解釈・もとになった本）は畳む
-  const renderDetails = (p) => ((p.refs || p.interp || refsList.length > 0) ? (
+  const renderDetails = (p) => ((p.refs || p.interp || refsList.length > 0 || actedCount > 0) ? (
     <details style={{ marginTop: 'var(--space-3)' }}>
       <summary style={summaryStyle}>
         <span>根拠を見る{nBooks > 0 && !evidence ? `（${nBooks} 冊のメモ）` : ''}</span>
@@ -2419,6 +2448,12 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               })}
             </ul>
           </div>
+        )}
+        {/* 答えが踏まえた歩み（事実だけの一行・2026-09-29）。 */}
+        {actedCount > 0 && (
+          <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+            踏まえたこと: <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>完了した行動 {actedCount} 件</span>
+          </p>
         )}
       </div>
     </details>

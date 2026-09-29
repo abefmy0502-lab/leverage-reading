@@ -4,13 +4,13 @@
 // 流れ: ファイルを選ぶ → 見つかった本とメモを確かめる → 取り込む → 相談してみる。
 // 読み取りは端末の中だけ（AI も外部送信も使わない）。保存は App の onImport（重複は既存の本に足す）。
 // 見た目は DESIGN.md のトークンのみ。主ボタンは各段で 1 つ。
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FileUp, BookOpen } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { useConfirm } from './ConfirmDialog';
 import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
-import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, importShortfall, planImport, IMPORT_MAX_BYTES } from '../lib/importers';
+import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, importShortfall, planImport, IMPORT_MAX_BYTES, IMPORT_MAX_BOOKS } from '../lib/importers';
 import { track } from '../lib/analytics';
 
 // 日本語の折り返し: 文節で切る（auto-phrase）＋最後の行に語が 1 つだけ残らない（pretty）。
@@ -28,6 +28,8 @@ const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDi
 
 // 初日クイックスタートで一度に一言を書ける冊数（PastBooksQuickstart の MAX_BOOKS と同じ）。
 const QUICKSTART_MAX_BOOKS = 5;
+// 冊数は 3 桁ごとに区切る（1,000）。
+const fmt = (n) => Number(n || 0).toLocaleString('ja-JP');
 
 const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター', kindle: 'Kindle' };
 // 読書メーターの棚の名前（保存したページの棚。残りのページの案内に使う）。
@@ -59,13 +61,21 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     if (files.some((f) => f.size > IMPORT_MAX_BYTES)) { setError('ファイルが大きすぎます（1 つ 5MB まで）。'); return; }
     try {
       const parsed = [];
+      // 本が 1 冊も読めなかったファイルの名前（確かめる画面に 1 行で出す＝どれが入らなかったか分かるように・2026-09-29）。
+      const unreadFiles = [];
       for (const file of files) {
-        // eslint-disable-next-line no-await-in-loop
-        const text = decodeImportBytes(await file.arrayBuffer());
-        parsed.push(parseImportText(file.name, text));
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const text = decodeImportBytes(await file.arrayBuffer());
+          const one = parseImportText(file.name, text);
+          if (one?.books?.length) parsed.push(one);
+          else unreadFiles.push(file.name);
+        } catch {
+          unreadFiles.push(file.name);
+        }
       }
-      const r = { ...mergeImportResults(parsed), fileCount: files.length };
-      if (!r.books.length) {
+      const r = { ...mergeImportResults(parsed), fileCount: files.length, unreadFiles };
+      if (!r.books?.length) {
         // ファイルの種類は下の一覧に書いてあるので、ここでは繰り返さない。
         setError('読み取れる本がありませんでした。下のどれかのファイルを選んでください。');
         return;
@@ -101,13 +111,18 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     }
   };
 
+  // 本棚と突き合わせた見込み（本が多いファイルでも、描き直すたびに数え直さない）。
+  const livePlan = useMemo(() => (result ? planImport(result, existingBooks) : null), [result, existingBooks]);
+
   const runImport = async () => {
-    if (!result) return;
-    setPlanSnap(planImport(result, existingBooks));
+    if (!result || !livePlan) return;
+    const snap = livePlan;
+    setPlanSnap(snap);
     setStep('importing');
-    setProgress({ done: 0, total: result.books.length });
+    setProgress({ done: 0, total: snap.books.length });
     try {
-      const o = await onImport(result, (done, total) => setProgress({ done, total }));
+      // 取り込むのは、本棚にある本と、新しい本 300 冊まで（残りは同じファイルをもう一度選ぶと取り込める）。
+      const o = await onImport({ ...result, books: snap.books }, (done, total) => setProgress({ done, total }));
       setOutcome(o);
       setStep('done');
     } catch {
@@ -160,7 +175,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     // 本棚と突き合わせて、取り込みと同じ決まりで数える（lib/importers.js の planImport・2026-09-29）:
     //   本棚にある本には「メモとして足す」（レビュー・感想もメモ）、新しい本のレビュー・感想は「この本のまとめ」。
     //   まとめもメモ 1 件として数える（ホームの「メモ N 件」・完了画面と同じ数え方）。
-    const plan = importing && planSnap ? planSnap : planImport(result, existingBooks);
+    const plan = importing && planSnap ? planSnap : livePlan;
     const shown = plan.rows.slice(0, 20);
     // 数と単位は離さない（改行しない空白）。改行してよいのは「ブクログ：」のあとと「（まとめ…）」の前だけ
     // （keep-all なので「・」の前後では切れない＝「・」で終わる行ができない）。
@@ -171,6 +186,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     const source = SOURCE_LABEL[result.source];
     const shortfall = importShortfall(result);
     const files = result.fileCount || 1;
+    const unread = Array.isArray(result.unreadFiles) ? result.unreadFiles : [];
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
@@ -207,6 +223,16 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           <p role="note" style={body}>
             {SHELF_LABEL[shortfall.shelf] || '本棚の本'}は<span style={nowrap}>全 {shortfall.total} 冊</span>です。{files > 1 ? '保存したページ' : 'このファイル'}には <span style={nowrap}>{shortfall.found} 冊</span>。残りのページも保存して選んでください。
           </p>
+        )}
+        {/* 新しい本は一度に 300 冊まで（本棚にある本は数えない）。残りは取り込んだあと同じファイルをもう一度選ぶ（2026-09-29）。 */}
+        {plan.remainingBooks > 0 && (
+          <p role="note" style={body}>
+            {files - unread.length > 1 ? '選んだファイル' : 'ファイル'}には<span style={nowrap}> {fmt(plan.fileBooks)} 冊</span>あります。一度に取り込めるのは<span style={nowrap}> {fmt(IMPORT_MAX_BOOKS)} 冊</span>まで。取り込んだあと同じファイルをもう一度選ぶと、<span style={nowrap}>残りの {fmt(plan.remainingBooks)} 冊を</span>取り込めます。
+          </p>
+        )}
+        {/* 本が 1 冊も読めなかったファイル（いくつか選んだうちの 1 つが別の形式など）。 */}
+        {unread.length > 0 && (
+          <p role="note" style={{ ...body, overflowWrap: 'anywhere' }}>読み取れなかったファイル: {unread.join('、')}</p>
         )}
         {/* 「同じ本には足す・同じメモは二重にならない」はヘルプ（bookList の取り込み）だけに書く（説明の補足文を置かない・DESIGN §0-6）。 */}
         {result.source === 'kindle' && (
@@ -254,6 +280,9 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     const headLead = summaryNote ? headParts.join(KEEP_DOT) : headParts.slice(0, -1).map((part) => part + KEEP_DOT).join('');
     const headTail = `${summaryNote || headParts[headParts.length - 1] || ''}を`;
     const nothingNew = headParts.length === 0;
+    // 取り込まずに残した新しい本（一度に 300 冊まで）と、読書メーターの保存していないページの本（2026-09-29）。
+    const remaining = planSnap?.remainingBooks || 0;
+    const doneShortfall = result ? importShortfall(result) : null;
     content = (
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
         {error && <ErrorMessage icon={null} title="取り消せませんでした" description={error} />}
@@ -270,6 +299,12 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
           {/* 「です。」だけが次の行に残らないよう、最後の句はまとめて折り返す。 */}
           {nothingNew && <>このファイルの本とメモは、<span style={nowrap}>すでに取り込み済みです。</span></>}
         </p>
+        )}
+        {remaining > 0 && (
+          <p style={body}>残りの<span style={nowrap}> {fmt(remaining)} 冊</span>は、同じファイルをもう一度選ぶと取り込めます。</p>
+        )}
+        {doneShortfall && (
+          <p style={body}>読書メーターの残り<span style={nowrap}> {fmt(doneShortfall.total - doneShortfall.found)} 冊</span>は、残りのページを保存して取り込めます。</p>
         )}
       </div>
     );
@@ -295,11 +330,19 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       primary = <button type="button" onClick={pickAnother} disabled={undoing} style={primaryStyle}>別のファイルを選ぶ</button>;
     }
     // 相談してみるが主のときだけ、一言を足すは脇役の文字ボタンで下に。
-    const addOneLine = any && onAsk && canAddOneLine ? (
+    const addOneLineLink = any && onAsk && canAddOneLine ? (
       <button type="button" onClick={addOneLineClick} disabled={undoing} style={{ ...btnLink, width: '100%' }}>
         覚えている一言を足す（{bare.length}&nbsp;冊）
       </button>
     ) : null;
+    // 残した本があるときは、同じファイルを選び直す入口（主ボタンが「別のファイルを選ぶ」のときと、
+    // 一言を足すの文字ボタンがあるときは出さない＝下のボタンは多くても 3 つ）。
+    const pickAgainLink = remaining > 0 && !addOneLineLink && ((any && onAsk) || canAddOneLine) ? (
+      <button type="button" onClick={pickAnother} disabled={undoing} style={{ ...btnLink, width: '100%' }}>
+        同じファイルをもう一度選ぶ（残り&nbsp;{fmt(remaining)}&nbsp;冊）
+      </button>
+    ) : null;
+    const addOneLine = addOneLineLink || pickAgainLink ? <>{addOneLineLink}{pickAgainLink}</> : null;
     footer = canUndo ? (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {primary}

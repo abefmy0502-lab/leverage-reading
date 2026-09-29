@@ -1,6 +1,7 @@
 // 💬 相談の小さな決まりごと（AI を使わない・画面の文を組み立てるだけ）。
 //
 // - buildConsultExamples: 相談例（ホームの相談カード・相談の空の画面で共通）。
+//     0. この 7 日で、ふりかえりを書いて完了した行動（「やってみた「…」、次はどうする？」・2026-09-29）
 //     1. 前の相談の続き（「前に相談した「…」、その後どう進める？」）
 //     2. 本の「現在の課題」（読書準備でユーザーが書いた言葉＝いちばん本人の悩みに近い）
 //     3. メモのある本から（『書名』の学びで、明日から使えるものは？）
@@ -202,18 +203,49 @@ export function shortTitle(title) {
   return t;
 }
 
+// 🎯 行動の短い形（相談例の「やってみた「…」」）。相談の答えから入れた行動は頭に「〈相談の要約〉：」が
+//   付いている（standaloneAction）ので、そのあとの一歩だけにする。最初の 1 文・かっこは閉じる（questionGist と同じ）。
+export function actionGist(text, n = 22) {
+  let t = oneLine(text);
+  const i = t.indexOf('：');
+  if (i > 0 && i <= 22 && t.length - i - 1 >= 4) t = t.slice(i + 1).trim();
+  return questionGist(t, n);
+}
+
+const REFLECTED_DAYS = 7;
+// この 7 日で、ふりかえり（やってみてどうだったか）を書いて完了した行動のうち、いちばん新しいもの。無ければ null。
+//   actions: useAllActions の allActions など（done / completedAt / reflection / text）。
+export function recentReflectedAction(actions, now = Date.now()) {
+  const since = now - REFLECTED_DAYS * 86400000;
+  let best = null;
+  let bestAt = -Infinity;
+  (Array.isArray(actions) ? actions : []).forEach((a) => {
+    if (!a?.done || !oneLine(a.reflection) || !oneLine(a.text)) return;
+    const at = Date.parse(a.completedAt || a.completed_at || '');
+    if (!Number.isFinite(at) || at < since || at > now + 86400000) return;
+    if (at > bestAt) { best = a; bestAt = at; }
+  });
+  return best;
+}
+
 // books: アプリの本（camelCase の currentChallenge / status / title / updatedAt）
 // memoBookIds: メモのある本の id（Set・null＝まだ分からない）
 // lastConsult: { question } 前の相談（無ければ null）
 // memoCount: 自分のメモの件数（null＝まだ分からない）。10 件未満の間は、よく読まれている本（BOOK_WORRIES）を
 //   本棚に入れていれば、その本の困りごとを 2 番目に出す（メモが少ないうちは「本の学び」より答えやすい・2026-09-29）。
-// 返り値: [{ text, kind: 'continue' | 'challenge' | 'book' | 'worry' }]
+// actions: 行動（useAllActions の allActions）。この 7 日でふりかえりを書いて完了した行動があれば、1 つ目の例にする。
+// now: 今の時刻（テスト用）
+// 返り値: [{ text, kind: 'acted' | 'continue' | 'challenge' | 'book' | 'worry' }]
 export const FEW_MEMOS = 10;
-export function buildConsultExamples({ books = [], memoBookIds = null, lastConsult = null, count = 3, memoCount = null } = {}) {
+export function buildConsultExamples({ books = [], memoBookIds = null, lastConsult = null, count = 3, memoCount = null, actions = null, now = Date.now() } = {}) {
   const out = [];
   const push = (text, kind) => {
     if (text && !out.some((e) => e.text === text) && out.length < count) out.push({ text, kind });
   };
+  // やってみた行動の次（読んで → 行動して → また相談する、の輪をつなぐ）。
+  const acted = recentReflectedAction(actions, now);
+  const actedGist = acted ? actionGist(acted.text) : '';
+  if (actedGist) push(`やってみた「${actedGist}」、次はどうする？`, 'acted');
   const gist = lastConsult?.question ? questionGist(lastConsult.question, 18) : '';
   if (gist) push(`前に相談した「${gist}」、その後どう進める？`, 'continue');
 
@@ -293,4 +325,21 @@ export function standaloneAction(action, question, max = 500) {
   const gist = questionGist(question, 20);
   if (!gist) return t.slice(0, max);
   return `${gist}：${t}`.slice(0, max);
+}
+
+// 🔎 トークンを使い切ったときの「メモを検索して探す」（2026-09-29）: 相談の文から、振り返りのメモ検索に入れる言葉を作る。
+//   漢字・カタカナ・英数字のまとまり（2 文字以上）を、出てきた順に 3 つまで（空白で区切る＝どれかを含むメモを探す）。
+//   ひらがなだけの相談など、言葉を取り出せないときは、相談の最初の 1 文をそのまま（20 文字まで）。
+const SEARCH_STOP = new Set(['自分', '方法', '場合', '感じ', '最近', '毎回', '今日', '明日', '相談', '本当']);
+export function memoSearchQuery(question, max = 3) {
+  const t = unwrapContinue(oneLine(question));
+  if (!t) return '';
+  const words = [];
+  (t.match(/[一-鿿々]+|[゠-ヿ]+|[A-Za-z0-9]+/g) || []).forEach((w) => {
+    const k = w.replace(/^[ー・]+/, '').replace(/・+$/, '');
+    if (k.length < 2 || SEARCH_STOP.has(k) || words.includes(k) || words.length >= max) return;
+    words.push(k);
+  });
+  if (words.length) return words.join(' ');
+  return firstSentence(t).replace(/[。．.]+$/, '').slice(0, 20);
 }

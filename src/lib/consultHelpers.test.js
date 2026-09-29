@@ -1,5 +1,43 @@
 import { describe, it, expect } from 'vitest';
-import { buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES } from './consultHelpers';
+import { buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, recentReflectedAction, memoSearchQuery } from './consultHelpers';
+
+describe('やってみた行動の次（相談例の 1 つ目・2026-09-29）', () => {
+  const now = Date.parse('2026-09-29T12:00:00+09:00');
+  const day = 86400000;
+  const acts = [
+    { text: '部下への報告：週に1回、結論から話す場をつくる', done: true, completedAt: new Date(now - 2 * day).toISOString(), reflection: '話が早く終わった' },
+    { text: '古い行動', done: true, completedAt: new Date(now - 10 * day).toISOString(), reflection: '前のふりかえり' },
+    { text: 'ふりかえりの無い行動', done: true, completedAt: new Date(now - day).toISOString(), reflection: '' },
+    { text: 'まだの行動', done: false, reflection: 'x' },
+  ];
+  it('この 7 日でふりかえりを書いて完了した行動を 1 つ目に', () => {
+    const ex = buildConsultExamples({ books: [], actions: acts, now, lastConsult: { question: '部下が報告をくれない' }, count: 3 });
+    expect(ex[0]).toEqual({ text: 'やってみた「週に1回、結論から話す場をつくる」、次はどうする？', kind: 'acted' });
+    expect(ex[1].kind).toBe('continue');
+  });
+  it('7 日より前・ふりかえりが無い・まだの行動は使わない', () => {
+    expect(recentReflectedAction(acts.slice(1), now)).toBeNull();
+    const ex = buildConsultExamples({ books: [], actions: acts.slice(1), now, count: 2 });
+    expect(ex.some((e) => e.kind === 'acted')).toBe(false);
+  });
+  it('行動の短い形: 相談の要約の頭を外し、長ければ切ってかっこを閉じる', () => {
+    expect(actionGist('上司への報告：毎朝「結論・理由・次の一歩」を三行で送る')).toMatch(/^毎朝「結論・理由・次の一歩」/);
+    expect(actionGist('会議の前に目的を1行で書いて、参加する全員に前日までに共有する。')).toMatch(/…$/);
+    expect(actionGist('短い行動。')).toBe('短い行動');
+  });
+});
+
+describe('memoSearchQuery（トークンを使い切ったときのメモ検索の言葉）', () => {
+  it('漢字・カタカナ・英数字のまとまりを 3 つまで', () => {
+    expect(memoSearchQuery('上司への報告がうまくいかない')).toBe('上司 報告');
+    expect(memoSearchQuery('チームのメンバーが1on1で本音を話してくれません')).toBe('チーム メンバー 1on1');
+  });
+  it('相談例の続きはかっこの中から・言葉が無ければ最初の 1 文', () => {
+    expect(memoSearchQuery('前に相談した「部下が報告をくれない」、その後どう進める？')).toBe('部下 報告');
+    expect(memoSearchQuery('どうしたらいいかわからない。')).toBe('どうしたらいいかわからない');
+    expect(memoSearchQuery('')).toBe('');
+  });
+});
 
 const books = [
   { id: 'a', title: '1兆ドルコーチ', status: 'reading', updatedAt: '2026-09-20' },

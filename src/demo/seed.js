@@ -292,6 +292,12 @@ export function buildSeed(scenario) {
     });
   });
 
+  // ?demo=acted: 2 日前に完了した行動に、ふりかえりが書いてある人（相談例の「やってみた「…」、次はどうする？」の確認用）。
+  if (scenario === 'acted') {
+    const a = db.actions.find((x) => x.done);
+    if (a) { a.reflection = '結論から話したら、報告が 5 分で終わった'; a.completed_at = iso(2); a.updated_at = iso(2); }
+  }
+
   // ?demo=overdue: 期限を過ぎた行動が 3 件と、今日が期限の行動が 1 件ある人（行動タブの確認用）。
   if (scenario === 'overdue') {
     [['上司への報告を、結論から 3 行で送る', -3], ['週次の振り返りを 15 分だけやる', -2], ['読んだ本を 1 冊、同僚にすすめる', -1], ['朝いちばんに今日の一番大事な仕事を書く', 0]]

@@ -19,7 +19,12 @@
 import { findDuplicateBook } from './checkDuplicate';
 
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+// 一度に取り込める新しい本の数（本棚にもうある本は数えない）。ファイルを読むときには切らず、
+// 確かめる画面（planImport）で本棚の本を除いてから、新しい本をここまでにする（2026-09-29）。
+// 残りは、取り込んだあと同じファイルをもう一度選ぶと取り込める（取り込んだ本は本棚の本になるので）。
 export const IMPORT_MAX_BOOKS = 300;
+// ファイルから読む本の上限（端末のメモリと速さを守るための安全弁。ふつうの本棚はここまで届かない）。
+export const IMPORT_MAX_PARSE_BOOKS = 5000;
 export const IMPORT_MAX_MEMOS = 2000;
 
 // ── 文字コード ─────────────────────────────────────────────────────────
@@ -136,7 +141,7 @@ export function parseBooklogCsv(text) {
       memos,
     });
   }
-  return { source: 'booklog', books: books.slice(0, IMPORT_MAX_BOOKS) };
+  return { source: 'booklog', books: books.slice(0, IMPORT_MAX_PARSE_BOOKS) };
 }
 
 // ── Kindle: My Clippings.txt ─────────────────────────────────────────
@@ -180,7 +185,7 @@ export function parseKindleClippings(text) {
     count += 1;
     if (count >= IMPORT_MAX_MEMOS) break;
   }
-  return { source: 'kindle', books: [...byKey.values()].slice(0, IMPORT_MAX_BOOKS) };
+  return { source: 'kindle', books: [...byKey.values()].slice(0, IMPORT_MAX_PARSE_BOOKS) };
 }
 
 // ── Kindle アプリのノートブック（HTML エクスポート）────────────────────
@@ -360,7 +365,7 @@ export function parseBookmeterCsv(text, fileName = '') {
       if (b) books.push(b);
     }
   }
-  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_BOOKS) };
+  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_PARSE_BOOKS) };
 }
 
 // JSON（書き出しツール）: 配列、または { books: [...] }。入れ子は「review.text」のように平らにする。
@@ -381,14 +386,14 @@ export function parseBookmeterJson(text, fileName = '') {
     }
     return out;
   };
-  for (const item of list.slice(0, IMPORT_MAX_BOOKS * 2)) {
+  for (const item of list.slice(0, IMPORT_MAX_PARSE_BOOKS * 2)) {
     if (!item || typeof item !== 'object') continue;
     const rec = flat(item, '', {});
     if (Array.isArray(rec.authors)) rec.authors = rec.authors.join('、');
     const b = bookmeterBook(rec, hint);
     if (b) books.push(b);
   }
-  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_BOOKS) };
+  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_PARSE_BOOKS) };
 }
 
 // 保存したページ（.html）
@@ -475,7 +480,7 @@ export function parseBookmeterHtml(html, fileName = '') {
     if (b) books.push(b);
   }
   // total: 棚の全冊数（ページの上の数・読めたときだけ）。shelf: どの棚のページか（'done' など・分からなければ ''）。
-  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_BOOKS), ...(total ? { total, shelf: pageStatus || '' } : null) };
+  return { source: 'bookmeter', books: dedupeBooks(books).slice(0, IMPORT_MAX_PARSE_BOOKS), ...(total ? { total, shelf: pageStatus || '' } : null) };
 }
 
 // 棚の全冊数と、選んだファイルで読めた冊数（読書メーターの保存したページのとき・2026-09-29）。
@@ -504,7 +509,8 @@ export function parseImportText(fileName, text) {
 
 // いくつかのファイルを一度に選んだとき（Kindle のノートブックは 1 冊 1 ファイル）: 1 つの結果にまとめる。
 //   同じ本（書名＋著者）は 1 冊にまとめ、同じ文のメモは 1 つだけ残す。取り込み元がそろっていればその名前、
-//   混ざっていれば 'mixed'（見出しに取り込み元を出さない）。上限（300 冊・2,000 件）はまとめたあとにも守る。
+//   混ざっていれば 'mixed'（見出しに取り込み元を出さない）。読む上限（5,000 冊・メモ 2,000 件）はまとめたあとにも守る
+//   （一度に取り込む 300 冊は planImport で本棚の本を除いてから決める）。
 export function mergeImportResults(results) {
   const list = (Array.isArray(results) ? results : []).filter((r) => r && Array.isArray(r.books));
   if (list.length === 1) return list[0];
@@ -522,7 +528,7 @@ export function mergeImportResults(results) {
       const id = b.isbn || b.asin || '';
       let book = byKey.get(key) || (id ? byId.get(id) : null);
       if (!book) {
-        if (byKey.size >= IMPORT_MAX_BOOKS) continue;
+        if (byKey.size >= IMPORT_MAX_PARSE_BOOKS) continue;
         book = { ...b, memos: [] };
         byKey.set(key, book);
       }
@@ -557,11 +563,14 @@ export function mergeImportResults(results) {
 //   - 同じ本（findDuplicateBook: ISBN、または書名＋著者）が本棚にあれば、その本にメモとして足す（レビュー・感想もメモに。
 //     ただし本棚の本の「この本のまとめ」と同じ文なら足さない）
 //   - 新しい本のレビュー・感想は「この本のまとめ」に入る＝メモ 1 件として数える（ホームの「メモ N 件」と同じ）
-// 返り値: { rows: [{ book, existing }], newBooks, existingBooks, memos, summaries }
+//   - 新しい本は一度に IMPORT_MAX_BOOKS（300）冊まで。本棚にもうある本は数えずに先に除き、残りの新しい本を
+//     ファイルの順に 300 冊まで取り込む。超えた分（remainingBooks）は、取り込んだあと同じファイルをもう一度選ぶと取り込める。
+// 返り値: { rows: [{ book, existing }], books, fileBooks, remainingBooks, newBooks, existingBooks, memos, summaries }
+//   books は取り込みに渡す本（rows と同じ順）。fileBooks はファイルにある本の数。
 //   memos はまとめを含むメモの件数（すでに同じ文のメモがあるときは、取り込みで足されないので少し減ることがある）。
-export function planImport(result, shelf) {
+export function planImport(result, shelf, maxNew = IMPORT_MAX_BOOKS) {
   const books = Array.isArray(result?.books) ? result.books : [];
-  const plan = { rows: [], newBooks: 0, existingBooks: 0, memos: 0, summaries: 0 };
+  const plan = { rows: [], books: [], fileBooks: books.length, remainingBooks: 0, newBooks: 0, existingBooks: 0, memos: 0, summaries: 0 };
   books.forEach((b) => {
     const isbn = String(b.isbn || '').replace(/[^0-9Xx]/g, '');
     const target = findDuplicateBook(shelf, { title: b.title, author: b.author, isbn });
@@ -572,11 +581,15 @@ export function planImport(result, shelf) {
       const reviewAsMemo = review && review !== String(target.leverageMemo || '').trim() ? 1 : 0;
       plan.memos += cards + reviewAsMemo;
       plan.rows.push({ book: b, existing: true, memos: cards + reviewAsMemo, summary: false });
+      plan.books.push(b);
+    } else if (plan.newBooks >= maxNew) {
+      plan.remainingBooks += 1;
     } else {
       plan.newBooks += 1;
       plan.memos += cards + (review ? 1 : 0);
       plan.summaries += review ? 1 : 0;
       plan.rows.push({ book: b, existing: false, memos: cards, summary: !!review });
+      plan.books.push(b);
     }
   });
   return plan;

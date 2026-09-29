@@ -129,7 +129,7 @@ export function HomeBlocksSkeleton() {
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
   onAsk, onQuickstart, onAddBook, onAdvisor, onImport,
-  onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading,
+  onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading, onSearchMemos,
 }) {
   return (
     <div style={{ padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
@@ -145,7 +145,7 @@ export default function HomeScreen({
         // 相談（ホームの主役）は冊数が分からなくても出し、その下に読み込めなかったことを出す。
         // 主ボタンは「相談する」1 つにしたいので、やり直しは副ボタン。
         <>
-          <HomeConsult books={books} onAsk={onAsk} countUnknown />
+          <HomeConsult books={books} onAsk={onAsk} onSearchMemos={onSearchMemos} countUnknown />
           <ErrorMessage
             title="本を読み込めませんでした"
             description="通信環境を確認して、もう一度お試しください。"
@@ -156,7 +156,7 @@ export default function HomeScreen({
         <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
       ) : (
         <>
-          <HomeConsult books={books} onAsk={onAsk} onQuickstart={onQuickstart} />
+          <HomeConsult books={books} onAsk={onAsk} onQuickstart={onQuickstart} onSearchMemos={onSearchMemos} />
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} />
           <button
             type="button"

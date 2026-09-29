@@ -584,6 +584,8 @@ function AuthedApp() {
   const [actionShowDoneNonce, setActionShowDoneNonce] = useState(null);
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
+  // 🔎 トークンを使い切った相談から「メモを検索して探す」: 振り返り › メモの検索欄に入れる言葉（2026-09-29）。
+  const [memoSearchPreset, setMemoSearchPreset] = useState(null); // { query, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
   // 🏠 ホームタブ（tab キー 'books'）の中の画面: 'home'＝ホーム / 'library'＝すべての本（SPEC §1）。
@@ -2030,6 +2032,16 @@ function AuthedApp() {
       resolveCoverInBackground(saved);
     }
     return saved;
+  };
+
+  // 🔎 振り返り › メモを、検索欄に言葉を入れて開く（トークンを使い切った相談の「メモを検索して探す」・2026-09-29）。
+  //   AI を使わずに、自分のメモから手がかりを探せるように。検索欄は画面のいちばん上なので先頭から見せる。
+  const openMemoSearch = (query) => {
+    setMemoSearchPreset({ query: String(query || '').slice(0, 100), nonce: Date.now() });
+    savedTabScroll.current[scrollKeyFor('review', 'note')] = 0;
+    setView('list');
+    setReviewSubTab('note');
+    setTab('review');
   };
 
   // 📥 ほかのアプリ（ブクログ・読書メーター・Kindle）から取り込む（ImportSheet → ここで保存）。
@@ -4402,6 +4414,7 @@ function AuthedApp() {
               onWriteMemo={(b) => setHomeMemoBook(b)}
               onOpenLibrary={() => setShelfMode('library')}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
+              onSearchMemos={openMemoSearch}
             />
           </PullToRefresh>
         )}
@@ -4757,7 +4770,8 @@ function AuthedApp() {
               <Suspense fallback={<ReviewNoteFallback />}>
                 <Review books={books} onOpenBook={(b, memoId) => { openDetail(b, memoId); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
                   // メモ検索で見つからなかった言葉を、相談の入力欄に入れて開く（送らない・2026-09-29）。
-                  onAskConsult={(q) => { setAskPreset({ question: q, nonce: Date.now(), draft: true }); setView('list'); setAiSubTab('brain'); setTab('ai'); }} />
+                  onAskConsult={(q) => { setAskPreset({ question: q, nonce: Date.now(), draft: true }); setView('list'); setAiSubTab('brain'); setTab('ai'); }}
+                  searchPreset={memoSearchPreset} />
               </Suspense>
             ) : booksLoadError && rawBooks.length === 0 ? (
               // 本（行動も本に入っている）を読み込めなかったときは、「行動 0 件」「読んだ本 0」を出さない。
@@ -4891,6 +4905,7 @@ function AuthedApp() {
                     onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
                     askPreset={askPreset}
                     scopePreset={scopePreset}
+                    onSearchMemos={openMemoSearch}
                     onPushedViewChange={setConsultPushed}
                   />
                 </Suspense>

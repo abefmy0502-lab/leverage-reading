@@ -34,6 +34,7 @@ import { isNative, openManageSubscriptions } from '../lib/iap';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { PAID_TOKENS, TOKEN_COSTS } from '../lib/tokens';
+import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput } from '../styles/ui';
 import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
@@ -274,11 +275,19 @@ function SettingRow({ title, desc, extra, control, style }) {
 }
 
 // 値を右に出すだけの行（状態・次回更新など）。
-function ValueRow({ label, value, style }) {
+// sub: 値の下に小さく 1 行（無料プランの「M月1日に 30 トークンに戻ります」など）。
+function ValueRow({ label, value, sub = null, style }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...style }}>
-      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>{label}</span>
-      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right' }}>{value}</span>
+      <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)', flexShrink: 0 }}>{label}</span>
+      {sub ? (
+        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, textAlign: 'right' }}>
+          <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)' }}>{value}</span>
+          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{sub}</span>
+        </span>
+      ) : (
+        <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', textAlign: 'right' }}>{value}</span>
+      )}
     </div>
   );
 }
@@ -962,7 +971,13 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               <>
                 <ValueRow label="プラン" value={planNameFor({ plan: 'free' })} />
                 {tokensRemaining != null ? (
-                  <ValueRow label="今月の残り" value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`} style={divider} />
+                  // いつ戻るかも一緒に（使い切った人が「いつまた相談できるか」を設定でも分かるように・2026-09-29）。
+                  <ValueRow
+                    label="今月の残り"
+                    value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`}
+                    sub={<><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}
+                    style={divider}
+                  />
                 ) : tokensLoading ? (
                   <ValueRowSkeleton label="今月の残り" style={divider} />
                 ) : null}

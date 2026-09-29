@@ -406,9 +406,15 @@ const rememberReview = (userId, patch) => {
   Object.assign(reviewSession, patch);
 };
 
-export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf, onAskConsult }) {
+// 🔎 ほかの画面から「この言葉でメモを探す」で開いたときの言葉（{ query, nonce }・App が渡す）。
+// 同じ nonce は 1 回だけ入れる（本を開いて戻ってきたときに、消した言葉が戻らないように）。
+let appliedSearchNonce = null;
+
+export default function Review({ books = [], onOpenBook, onAddAction, onAddNote, onGoToShelf, onAskConsult, searchPreset = null }) {
   const { user } = useAuth();
   const resumedReview = useRef(reviewSessionFor(user?.id)).current;
+  // まだ入れていない検索の言葉（開いた瞬間から検索の結果を出す＝思い出しカードが一瞬見えないように）。
+  const freshPreset = useRef(searchPreset?.nonce && searchPreset.nonce !== appliedSearchNonce ? searchPreset : null).current;
   const toast = useToast();
   const confirm = useConfirm();
   const haptic = useHaptic();
@@ -434,8 +440,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // 「覚えた/もう一度」のローカル反映をフリップ折り返しへ遅延させるタイマー。
   const recallApplyTimerRef = useRef(null);
   const [expanded, setExpanded] = useState(() => new Set());
-  const [search, setSearch] = useState(() => resumedReview?.search || '');
-  const [tagFilter, setTagFilter] = useState(() => resumedReview?.tagFilter || '');
+  const [search, setSearch] = useState(() => (freshPreset ? String(freshPreset.query || '') : resumedReview?.search || ''));
+  const [tagFilter, setTagFilter] = useState(() => (freshPreset ? '' : resumedReview?.tagFilter || ''));
   // 想起カードから「→行動にする」したメモ id（直後のボタン表示を ✓ に切替）。
   const [actionAddedId, setActionAddedId] = useState(null);
   const [addingAction, setAddingAction] = useState(false);
@@ -654,7 +660,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   }, [memos, books, synthRecall]);
 
   // 知識タイプ別のフィルタ (横断検索セクション用)。
-  const [kindFilter, setKindFilter] = useState(() => resumedReview?.kindFilter || 'all');
+  const [kindFilter, setKindFilter] = useState(() => (freshPreset ? 'all' : resumedReview?.kindFilter || 'all'));
   // 件数チップ → 横断検索フィルタ連動時に、結果セクションへスクロールさせる先。
 
   // 種類別の件数 — 上部のサマリーチップに表示。
@@ -746,17 +752,24 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const filteredSearch = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q && !tagFilter && kindFilter === 'all') return [];
-    return allNotes.filter((m) => {
-      if (kindFilter !== 'all' && m.kind !== kindFilter) return false;
+    // 空白で区切った言葉は「どれかを含む」メモを探し、多く含むメモから並べる（2026-09-29。相談で
+    // トークンを使い切ったときの「メモを検索して探す」が、相談の言葉を空白区切りで入れてくる）。
+    const terms = q ? [...new Set(q.split(/[\s　]+/).filter(Boolean))] : [];
+    const hitsOf = (m) => {
+      if (!terms.length) return 1;
       const book = booksById.get(m.bookId);
-      if (tagFilter && !m.tags?.includes(tagFilter)) return false;
-      if (!q) return true;
-      const title = (book?.title || '').toLowerCase();
-      const author = (book?.author || '').toLowerCase();
-      const text = (m.text || '').toLowerCase();
-      const tagHit = (m.tags || []).some((t) => t.toLowerCase().includes(q));
-      return title.includes(q) || author.includes(q) || text.includes(q) || tagHit;
+      const hay = [book?.title, book?.author, m.text, ...(m.tags || [])].map((v) => String(v || '').toLowerCase());
+      return terms.filter((t) => hay.some((h) => h.includes(t))).length;
+    };
+    const scored = [];
+    allNotes.forEach((m, i) => {
+      if (kindFilter !== 'all' && m.kind !== kindFilter) return;
+      if (tagFilter && !m.tags?.includes(tagFilter)) return;
+      const hits = hitsOf(m);
+      if (hits > 0) scored.push({ m, hits, i });
     });
+    if (terms.length > 1) scored.sort((a, b) => b.hits - a.hits || a.i - b.i);
+    return scored.map((x) => x.m);
   }, [allNotes, booksById, search, tagFilter, kindFilter]);
 
   const memosByMonth = useMemo(() => {
@@ -897,7 +910,16 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
 
   const isSearching = search.trim() || tagFilter || kindFilter !== 'all';
   // 絞り込みのメニューは、検索欄に触れてから出す（開いた瞬間の画面を思い出しカードとメモだけにする）。
-  const [searchActive, setSearchActive] = useState(() => !!resumedReview?.searchActive);
+  const [searchActive, setSearchActive] = useState(() => !!freshPreset || !!resumedReview?.searchActive);
+  // 開いている間に新しい言葉が来たとき（と、開いたときに入れた言葉の記録）。
+  useEffect(() => {
+    if (!searchPreset?.nonce || searchPreset.nonce === appliedSearchNonce) return;
+    appliedSearchNonce = searchPreset.nonce;
+    setSearch(String(searchPreset.query || ''));
+    setTagFilter('');
+    setKindFilter('all');
+    setSearchActive(true);
+  }, [searchPreset?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     rememberReview(user?.id, { search, tagFilter, kindFilter, randomSeed, searchActive });
   }, [user?.id, search, tagFilter, kindFilter, randomSeed, searchActive]);

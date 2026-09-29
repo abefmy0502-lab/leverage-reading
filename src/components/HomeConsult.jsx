@@ -6,7 +6,8 @@
 // 「あなたが読んだ N 冊・メモ N 件から答えます」で、積み重ね＝相談の質を毎回伝える。
 //   - 本 0 冊: 出さない（ホームの「はじめる」カードが案内する）
 //   - 本を読み込めなかった（countUnknown）: 冊数が分からないので「あなたの本から答えます」で出す
-//   - メモ 0 件（カード式・学び・この本のまとめのどれも無い）: 入力欄の代わりに「これまで読んだ本から始める」
+//   - メモ 0 件（カード式・学び・この本のまとめのどれも無い）: 上の 1 行は「本 N 冊・メモはまだありません」、
+//     入力欄の代わりに「これまで読んだ本から始める」
 //     （初日クイックスタート・SPEC §1）
 // 見た目は DESIGN.md のトークンのみ（主ボタン＝相談する の 1 つだけ）。
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -15,8 +16,9 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
-import { btnPrimary, card, input, groupTitle } from '../styles/ui';
-import { buildConsultExamples, countSummaryMemos } from '../lib/consultHelpers';
+import { btnPrimary, btnLink, card, input, groupTitle } from '../styles/ui';
+import { buildConsultExamples, countSummaryMemos, memoSearchQuery } from '../lib/consultHelpers';
+import { useAllActions } from '../hooks/useAllActions';
 import { usePaywall } from '../state/PaywallContext';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, monthDayLabelJa } from '../lib/tokens';
@@ -38,7 +40,8 @@ function withPhraseBreaks(text) {
 //   前の相談の続き → 本の「現在の課題」→ メモのある本 → よくある困りごと。ここでは 2 つだけ。
 
 // countUnknown: 本の読み込みに失敗して冊数が分からないとき。0 冊扱いで隠さず、件数なしの 1 行で出す。
-export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnknown = false }) {
+// onSearchMemos(query): トークンを使い切ったときの「メモを検索して探す」（振り返り › メモを、言葉を入れて開く）。
+export default function HomeConsult({ books = [], onAsk, onQuickstart, onSearchMemos, countUnknown = false }) {
   const { user } = useAuth();
   const cache = useAppDataCache();
   // 🪙 トークンを使い切っていたら、書いても送れない。入力欄の代わりに「いつ戻るか」とボタンを出す
@@ -77,9 +80,11 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
     return () => clearTimeout(t);
   }, [examplesReady]);
   const frozenExamples = useRef(null);
+  // 行動（本に入っている）。この 7 日でふりかえりを書いて完了した行動があれば、1 つ目の例を「やってみた「…」、次はどうする？」に。
+  const { allActions } = useAllActions(books);
   const liveExamples = useMemo(
-    () => buildConsultExamples({ books, memoBookIds, lastConsult: lastQuestion ? { question: lastQuestion } : null, count: 2, memoCount }).map((e) => e.text),
-    [books, memoBookIds, lastQuestion, memoCount],
+    () => buildConsultExamples({ books, memoBookIds, lastConsult: lastQuestion ? { question: lastQuestion } : null, count: 2, memoCount, actions: allActions }).map((e) => e.text),
+    [books, memoBookIds, lastQuestion, memoCount, allActions],
   );
   if (examplesReady && !frozenExamples.current) frozenExamples.current = liveExamples;
   const examples = frozenExamples.current || [];
@@ -152,7 +157,10 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
           ? 'あなたの本から答えます'
           : !countSettled
             ? <span aria-hidden="true" style={{ visibility: 'hidden' }}>あなたの {bookCount} 冊から答えます</span>
-            : <>あなたの {bookCount} 冊{memoCount > 0 && <>・メモ {memoCount} 件</>}から答えます</>}
+            : memoCount === 0
+              // メモがまだ無いうちは「から答えます」と言わない（答えの根拠になるのはメモ・2026-09-29）。
+              ? <>本 {bookCount} 冊・メモはまだありません</>
+              : <>あなたの {bookCount} 冊{memoCount > 0 && <>・メモ {memoCount} 件</>}から答えます</>}
       </p>
 
       {!hasMemos && onQuickstart && (
@@ -167,6 +175,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
           trialEndLabel={plan === 'trial' ? monthDayLabelJa(trialEndsAt) : ''}
           onAction={canBuyTokens ? openTokenSheet : () => openPaywall('free_used')}
           actionLabel={canBuyTokens ? 'トークンを追加' : 'プランを見る'}
+          onSearch={onSearchMemos ? () => { track('home_consult_search_memos', {}); onSearchMemos(memoSearchQuery(text.trim() || lastQuestion || '')); } : null}
         />
       )}
 
@@ -222,7 +231,8 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, countUnkn
 // トークンを使い切ったときの 1 行＋ボタン（相談タブの「ここまで」の案内と同じ言い方）。
 //   無料プラン・有料: 「今月のトークンは、ここまでです（M月1日に戻ります）」
 //   7 日間無料: 「無料期間のトークンは、ここまでです（無料期間が終わる M月D日から、毎月 800 トークン使えます）」
-function UsedUpNotice({ plan, trialEndLabel, onAction, actionLabel }) {
+// onSearch: 「メモを検索して探す」（AI を使わずに、自分のメモから手がかりを探す・2026-09-29）。脇役の文字ボタン。
+function UsedUpNotice({ plan, trialEndLabel, onAction, actionLabel, onSearch }) {
   const nowrap = { whiteSpace: 'nowrap' };
   return (
     <>
@@ -236,6 +246,11 @@ function UsedUpNotice({ plan, trialEndLabel, onAction, actionLabel }) {
       <button type="button" onClick={onAction} style={{ ...btnPrimary, marginTop: 'var(--space-3)' }}>
         {actionLabel}
       </button>
+      {onSearch && (
+        <button type="button" onClick={onSearch} style={{ ...btnLink, width: '100%', marginTop: 'var(--space-2)' }}>
+          メモを検索して探す
+        </button>
+      )}
     </>
   );
 }

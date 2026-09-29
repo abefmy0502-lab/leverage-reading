@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport, mergeImportResults, asinToIsbn13, bookmeterStatusHint, parseBookmeterCsv, parseBookmeterJson, parseBookmeterHtml, looksLikeBookmeterCsv, bookmeterPageTotal, importShortfall, planImport } from './importers';
+import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport, mergeImportResults, asinToIsbn13, bookmeterStatusHint, parseBookmeterCsv, parseBookmeterJson, parseBookmeterHtml, looksLikeBookmeterCsv, bookmeterPageTotal, importShortfall, planImport, IMPORT_MAX_PARSE_BOOKS } from './importers';
 
 const fixture = (name) => readFileSync(new URL(`../../scripts/fixtures/${name}`, import.meta.url), 'utf-8');
 
@@ -220,6 +220,31 @@ describe('読書メーター', () => {
     expect(plan).toMatchObject({ newBooks: 2, existingBooks: 2, memos: 1 + 1 + 3, summaries: 1 });
     expect(plan.rows.map((r) => [r.existing, r.memos, r.summary])).toEqual([[true, 1, false], [true, 1, false], [false, 2, true], [false, 0, false]]);
     expect(planImport(result, []).existingBooks).toBe(0);
+  });
+  it('新しい本は一度に 300 冊まで: 本棚の本は数えずに先に除き、残りの冊数を返す（ファイルを読むときは切らない）', () => {
+    const rows = ['タイトル,著者'];
+    for (let i = 0; i < 350; i += 1) rows.push(`本${i},著者${i}`);
+    const result = parseBooklogCsv(rows.join('\n'));
+    expect(result.books).toHaveLength(350);
+    const first = planImport(result, []);
+    expect(first).toMatchObject({ fileBooks: 350, newBooks: 300, existingBooks: 0, remainingBooks: 50 });
+    expect(first.books).toHaveLength(300);
+    expect(first.books[299].title).toBe('本299');
+    // 取り込んだあと同じファイルをもう一度: 300 冊は本棚の本になり、残りの 50 冊が新しい本
+    const shelf = first.books.map((b, i) => ({ id: `s${i}`, title: b.title, author: b.author }));
+    const second = planImport(result, shelf);
+    expect(second).toMatchObject({ fileBooks: 350, newBooks: 50, existingBooks: 300, remainingBooks: 0 });
+    expect(second.books).toHaveLength(350);
+    // 本棚にある本が先頭に並んでいても、新しい本の 300 冊には数えない
+    const mixed = planImport(result, shelf.slice(0, 100));
+    expect(mixed).toMatchObject({ existingBooks: 100, newBooks: 250, remainingBooks: 0 });
+    // ファイルから読む本は 5,000 冊まで（端末のメモリを守る安全弁）
+    const big = ['タイトル,著者'];
+    for (let i = 0; i < IMPORT_MAX_PARSE_BOOKS + 10; i += 1) big.push(`B${i},x`);
+    expect(parseBooklogCsv(big.join('\n')).books).toHaveLength(IMPORT_MAX_PARSE_BOOKS);
+    // いくつかのファイルをまとめても 300 冊で切らない
+    const merged = mergeImportResults([result, { source: 'kindle', books: [{ title: 'K', author: 'k', memos: [] }] }]);
+    expect(merged.books).toHaveLength(351);
   });
   it('棚はページの保存元 URL で決める（ほかの棚へのリンクには引っぱられない）', () => {
     const page = (url) => `<!-- saved from url=(0050)${url} --><a href="/users/1/books/read">読んだ本</a>`
