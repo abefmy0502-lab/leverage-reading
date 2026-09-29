@@ -108,8 +108,12 @@ export function Field({ label, sub, children }) {
 // App.jsx の ShelfChip と同じ形。選択中は --accent-soft 面＋--accent 文字、
 // それ以外は --fill 面＋--text 文字（アクセントは選択中だけ）。
 // stretch: 横一列を等分する選択肢（本の状態など）で使う。
+// size="select": DESIGN §5「選ぶためのチップ」＝押すことが主目的の選択肢（本の状態・タグ・フォルダ）。
+//   見た目も高さ 44・15px・余白 8/12（負の余白で押せる範囲を重ねない）。選択中は 600（2026-09-29）。
 const CHIP_HEIGHT = 32;
-export function Chip({ active = false, stretch = false, onClick, children, ...rest }) {
+const SELECT_CHIP_HEIGHT = 44;
+export function Chip({ active = false, stretch = false, size, onClick, children, ...rest }) {
+  const select = size === 'select';
   return (
     <button
       type="button"
@@ -124,8 +128,10 @@ export function Chip({ active = false, stretch = false, onClick, children, ...re
       <span
         style={{
           display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1)",
-          height: CHIP_HEIGHT, padding: "0 var(--space-3)", width: stretch ? "100%" : "auto",
-          borderRadius: "var(--radius)", fontSize: "var(--text-meta)", fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
+          height: select ? SELECT_CHIP_HEIGHT : CHIP_HEIGHT,
+          padding: select ? (stretch ? "0 var(--space-2)" : "var(--space-2) var(--space-3)") : "0 var(--space-3)",
+          width: stretch ? "100%" : "auto",
+          borderRadius: "var(--radius)", fontSize: select ? "var(--text-sub)" : "var(--text-meta)", fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
           background: active ? "var(--accent-soft)" : "var(--fill)",
           color: active ? "var(--accent)" : "var(--text)",
         }}
@@ -136,9 +142,9 @@ export function Chip({ active = false, stretch = false, onClick, children, ...re
   );
 }
 
-// チップの並び。行間は 44 の押せる範囲が作るので、横の間隔だけ付ける。
-// 上は 44 の押せる範囲の余りぶん少し詰める（見出し・入力欄との間を他の欄とそろえる）。
-const chipRow = { display: "flex", flexWrap: "wrap", columnGap: "var(--space-2)", marginTop: "calc(-1 * var(--space-1))", marginBottom: "var(--space-1)" };
+// 選ぶためのチップ（44）の並び。行の間・チップ同士の間は 8、
+// 見出し→チップは Field の 8、チップ→入力欄は 12。
+const chipRow = { display: "flex", flexWrap: "wrap", marginTop: 0, rowGap: "var(--space-2)", columnGap: "var(--space-2)", marginBottom: "var(--space-3)" };
 
 // ── タグ入力（過去タグのサジェスト付き） ────────────────────────────
 // 付けたもの＝選択中のチップ（タップで外す）、候補＝＋付きのチップ（タップで付ける）。
@@ -152,7 +158,7 @@ export function TagInput({ tags, onChange, allTags, placeholder = "タグを追�
       {tags.length > 0 && (
         <div style={chipRow}>
           {tags.map((t, i) => (
-            <Chip key={t} active onClick={() => onChange(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`}>
+            <Chip key={t} size="select" active onClick={() => onChange(tags.filter((_, j) => j !== i))} aria-label={`「${t}」を削除`}>
               {t}
               <X size={14} aria-hidden="true" />
             </Chip>
@@ -162,7 +168,7 @@ export function TagInput({ tags, onChange, allTags, placeholder = "タグを追�
       {suggestions.length > 0 && (
         <div style={chipRow}>
           {suggestions.map((t) => (
-            <Chip key={t} onClick={() => add(t)} aria-label={`「${t}」を追加`}>
+            <Chip key={t} size="select" onClick={() => add(t)} aria-label={`「${t}」を追加`}>
               <Plus size={14} aria-hidden="true" />
               {t}
             </Chip>

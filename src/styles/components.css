@@ -201,6 +201,15 @@ select:not(.no-focus-ring):focus {
   transition: border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
 }
+/* 入れ直しが要る欄（aria-invalid）は、入力中も枠を --error のまま（欄へ戻したときに栗色で上書きしない・2026-09-29）。 */
+input[aria-invalid="true"]:not(.no-focus-ring),
+textarea[aria-invalid="true"]:not(.no-focus-ring) {
+  border-color: var(--error) !important;
+}
+input[aria-invalid="true"]:not(.no-focus-ring):focus,
+textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
+  box-shadow: 0 0 0 3px var(--error-soft);
+}
 .input:disabled,
 .textarea:disabled {
   opacity: 0.6;

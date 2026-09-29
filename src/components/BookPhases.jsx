@@ -7,7 +7,7 @@
 //
 // ⚠️ 挙動は抽出前と不変。識別子名・props も不変（App.jsx 側の呼び出しはそのまま）。
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { todayLocal } from '../lib/dates';
 import { ensureHttps } from '../lib/url';
 import { toMessage } from '../lib/errors';
@@ -112,6 +112,7 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
   // 書名が空で「保存」を押したとき: ボタンは薄くせず（白文字が読めなくなる）、書名の欄へ戻して 1 行で知らせる。
   const titleRef = useRef(null);
   const [titleMissing, setTitleMissing] = useState(false);
+  const titleErrId = useId();
   const handleSaveClick = () => {
     if (!canSave) {
       setTitleMissing(true);
@@ -183,8 +184,8 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
           />
         </div>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <input ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} placeholder="書名（必須）" aria-label="書名（必須）" aria-invalid={titleMissing || undefined} style={inp} maxLength={LIMITS.bookTitle} />
-          {titleMissing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入れてください</p>}
+          <input ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} placeholder="書名（必須）" aria-label="書名（必須）" aria-invalid={titleMissing || undefined} aria-describedby={titleMissing ? titleErrId : undefined} style={titleMissing ? { ...inp, borderColor: 'var(--error)' } : inp} maxLength={LIMITS.bookTitle} />
+          {titleMissing && <p id={titleErrId} role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入れてください</p>}
           <input value={form.author || ""} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者" aria-label="著者" style={inp} maxLength={LIMITS.bookAuthor} />
         </div>
       </div>
@@ -195,14 +196,15 @@ export function WantPhase({ form, setForm, onSave, onSearchOpen, allTags, allFol
           読書中/読了で保存 → 保存後すぐ本詳細のメモ欄が開く（メモだけ残したい
           人の入口摩擦を無くす）。保存ボタンの文言（保存してメモを書く）がそれを伝える。 */}
       <Field label="この本の状態">
-        {/* チップの見た目は 32・押せる範囲は 44。上下の余り（6 ずつ）を行の外側で相殺し、
-            見出し→チップ 8・チップ→保存 24 にそろえる（すべての本のチップ行と同じやり方）。 */}
-        <div role="radiogroup" style={{ display: 'flex', columnGap: 'var(--space-2)', margin: 'calc((32px - 44px) / 2) 0' }}>
+        {/* DESIGN §5「選ぶためのチップ」: 見た目も 44・15px。負の余白は使わない（見出し→チップ 8・チップ→保存 24）。
+            390pt 幅でも 4 つが 1 行に収まるよう、横一列の等分チップは左右の余白を 8 にする。 */}
+        <div role="radiogroup" aria-label="この本の状態" style={{ display: 'flex', columnGap: 'var(--space-2)' }}>
           {ADD_STATUSES.map((s) => {
             const active = (form.status || 'want') === s.v;
             return (
               <Chip
                 key={s.v}
+                size="select"
                 stretch
                 active={active}
                 role="radio"
@@ -335,7 +337,7 @@ export function BeforePhase({
         style={planReady && !aiLoading ? btnGhost : btnGhostOff}
       >
         <IcMap size={16} aria-hidden="true" />
-        {aiLoading ? "作成中…" : (form.aiStrategy ? "読書計画シートを作り直す" : "読書計画シートを作成")}
+        {aiLoading ? "作成中…" : (form.aiStrategy ? "読書計画シートを作り直す" : "読書計画シートを作る")}
       </button>
       {/* 作成中は点だけにしない（DESIGN §5）。ボタンの「作成中…」＋シートの形のスケルトン。 */}
       {aiLoading && !form.aiStrategy && (
