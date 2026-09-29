@@ -309,7 +309,8 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
       </button>
       <p style={{ margin: 0, paddingRight: 'var(--space-8)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
         <CheckCircle2 size={18} aria-hidden="true" style={{ color: 'var(--success)', flexShrink: 0, marginTop: 2 }} />
-        <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>「{stripInlineMd(a.text)}」を完了しました</span>
+        {/* 「完了しました」は下の知らせ（元に戻す つき）の 1 か所だけで伝える。ここはどの行動かだけ（2026-09-29）。 */}
+        <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{stripInlineMd(a.text)}</span>
       </p>
       <label htmlFor="act-reflection" style={{ display: 'block', margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
         やってみて、どうでしたか？

@@ -110,7 +110,8 @@ export default function TokenSheet({ onClose, onPurchased }) {
         // eslint-disable-next-line no-await-in-loop
         if (await onPurchased?.()) { arrived = true; break; }
       }
-      toast.success(arrived ? `${pack.tokens.toLocaleString()} トークンを追加しました。` : '購入しました。反映まで少しお待ちください。');
+      // 買ったことの確かめなので、一瞬（中央の ✓ の既定 1.15 秒）ではなく、ふつうの知らせと同じくらい出す（2026-09-29）。
+      toast.success(arrived ? `${pack.tokens.toLocaleString()} トークンを追加しました。` : '購入しました。反映まで少しお待ちください。', { duration: 3500 });
       onClose?.();
     } catch (e) {
       toast.error(toMessage(e, '購入できませんでした。少し時間をおいて、もう一度お試しください。'));

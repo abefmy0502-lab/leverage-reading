@@ -597,6 +597,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
     setItems((arr) => arr.filter((x) => x.id !== item.id));
 
     toast.undo({
+      destructive: true,
       message: snapshot.photo_path
         ? '削除しました\n※写真は元に戻せません'
         : '削除しました',
@@ -656,6 +657,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
     setItems((arr) => arr.filter((x) => x.id !== item.id));
 
     toast.undo({
+      destructive: true,
       message: `${meta.label}を消しました`,
       onUndo: async () => {
         try {

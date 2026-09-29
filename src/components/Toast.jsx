@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Check, Trash2, AlertTriangle, Info, X } from 'lucide-react';
+import { Check, Trash2, Undo2, AlertTriangle, Info, X } from 'lucide-react';
 
 const ToastContext = createContext({
   show: () => '',
@@ -16,7 +16,10 @@ const palette = {
   // トーストは画面と反転した色（明るい画面では濃い面・暗い画面では明るい面）。
   info: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Info },
   error: { bg: 'var(--error)', fg: 'var(--accent-ink)', Icon: AlertTriangle },
-  undo: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Trash2 },
+  // 「元に戻す」つきの知らせ。印はふつう中立の ↶（状態の変更など）で、削除のときだけゴミ箱（2026-09-29）。
+  //   以前はいつもゴミ箱で、「読書中に変更しました」まで消したように見えていた。
+  undo: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Undo2 },
+  undoDelete: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Trash2 },
   // ボタン付きの成功（下のバーで出す）。印は成功と同じ ✓。
   done: { bg: 'var(--text)', fg: 'var(--bg)', Icon: Check },
 };
@@ -92,7 +95,7 @@ const stripLeadingEmoji = (m) => String(m || '').replace(/^[←-⯿\u{1F000}-\u{
 
 // 下部バー（error / undo / info）。success はここには来ない。
 function ToastItem({ toast, onDismiss, onAction }) {
-  const p = palette[toast.type] || palette.info;
+  const p = (toast.type === 'undo' && toast.destructive ? palette.undoDelete : palette[toast.type]) || palette.info;
   const Icon = p.Icon;
   return (
     <div
@@ -138,10 +141,11 @@ function ToastHud({ toast }) {
   const message = stripLeadingEmoji(toast.message);
   return (
     <div
-      className="toast-hud"
+      className={toast.duration > 1150 ? 'toast-hud toast-hud-long' : 'toast-hud'}
       role="status"
       aria-live="polite"
       style={{
+        '--hud-dur': `${toast.duration}ms`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -240,6 +244,7 @@ export function ToastProvider({ children }) {
         type,
         message: opts.message,
         action: opts.action || null,
+        destructive: !!opts.destructive,
         onExpire: opts.onExpire,
         duration,
       };
@@ -273,12 +278,14 @@ export function ToastProvider({ children }) {
     success: (message, opts = {}) => show({ ...opts, type: 'success', message }),
     error: (message, opts = {}) => show({ ...opts, type: 'error', message }),
     info: (message, opts = {}) => show({ ...opts, type: 'info', message }),
-    undo: ({ message, onUndo, onExpire, duration = 5000 }) =>
+    // destructive: 削除の取り消しならゴミ箱の印。省くと文面（「削除」「消しました」）から決める。
+    undo: ({ message, onUndo, onExpire, duration = 5000, destructive }) =>
       show({
         type: 'undo',
         message,
         duration,
         onExpire,
+        destructive: typeof destructive === 'boolean' ? destructive : /削除|消しました/.test(String(message || '')),
         action: { label: '元に戻す', onClick: onUndo },
       }),
     dismiss,

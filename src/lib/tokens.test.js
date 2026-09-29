@@ -68,3 +68,15 @@ describe('1 回の目安（TOKEN_COSTS）は、ふつうの大きさの実際の
     expect(ratio).toBeLessThan(1.6);
   });
 });
+
+describe('runCostLine（AI 選書・テーマまとめのボタンのそば）', () => {
+  it('1 回の目安と残りを 1 行で', async () => {
+    const { runCostLine } = await import('./tokens.js');
+    expect(runCostLine({ plan: 'paid', remaining: 742, cost: 25 })).toBe('1 回 約 25 トークン・今月の残り 742 トークン');
+    expect(runCostLine({ plan: 'trial', remaining: 1200, purchased: 300, cost: 6 })).toBe('1 回 約 6 トークン・無料期間の残り 1,200 ＋追加 300 トークン');
+  });
+  it('残りが分からなければ出さない', async () => {
+    const { runCostLine } = await import('./tokens.js');
+    expect(runCostLine({ plan: 'paid', remaining: null, cost: 25 })).toBe('');
+  });
+});

@@ -10,7 +10,7 @@ import BottomSheet from './BottomSheet';
 import { useConfirm } from './ConfirmDialog';
 import ErrorMessage from './ErrorMessage';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
-import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, importShortfall, IMPORT_MAX_BYTES } from '../lib/importers';
+import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, importShortfall, planImport, IMPORT_MAX_BYTES } from '../lib/importers';
 import { track } from '../lib/analytics';
 
 // 日本語の折り返し: 文節で切る（auto-phrase）＋最後の行に語が 1 つだけ残らない（pretty）。
@@ -30,7 +30,8 @@ const SOURCE_LABEL = { booklog: 'ブクログ', bookmeter: '読書メーター',
 // 読書メーターの棚の名前（保存したページの棚。残りのページの案内に使う）。
 const SHELF_LABEL = { done: '読んだ本', reading: '読んでる本', before: '積読本', want: '読みたい本' };
 
-export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) {
+// existingBooks: いまの本棚（確かめる画面で「本棚にあります」と数え方を取り込みと揃えるため）。
+export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, existingBooks = [] }) {
   const inputRef = useRef(null);
   const [step, setStep] = useState('pick'); // pick | preview | importing | done
   const [error, setError] = useState('');
@@ -107,7 +108,6 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
     }
   };
 
-  const sum = result ? summarizeImport(result) : null;
 
   let content;
   let footer = null;
@@ -148,13 +148,17 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
   } else if ((step === 'preview' || step === 'importing') && result) {
     // 取り込み中も同じ中身を出したまま、下のボタンだけ「取り込んでいます」にする（シートの高さを変えない）。
     const importing = step === 'importing';
-    const shown = result.books.slice(0, 20);
-    // 件数は完了画面と同じ分け方（メモ＝カードのメモ・まとめ＝レビュー）。完了画面と数字がずれないように。
-    const memoCount = result.books.reduce((n, b) => n + (b.memos?.length || 0), 0);
-    const reviewCount = result.books.filter((b) => b.review).length;
-    // 数と単位は離さない（改行しない空白）。改行してよいのは「ブクログ：」のあとだけ
+    // 本棚と突き合わせて、取り込みと同じ決まりで数える（lib/importers.js の planImport・2026-09-29）:
+    //   本棚にある本には「メモとして足す」（レビュー・感想もメモ）、新しい本のレビュー・感想は「この本のまとめ」。
+    //   まとめもメモ 1 件として数える（ホームの「メモ N 件」・完了画面と同じ数え方）。
+    const plan = planImport(result, existingBooks);
+    const shown = plan.rows.slice(0, 20);
+    // 数と単位は離さない（改行しない空白）。改行してよいのは「ブクログ：」のあとと「（まとめ…）」の前だけ
     // （keep-all なので「・」の前後では切れない＝「・」で終わる行ができない）。
-    const countParts = [`本 ${sum.books} 冊`, memoCount > 0 ? `メモ ${memoCount} 件` : '', reviewCount > 0 ? `まとめ ${reviewCount} 件` : ''].filter(Boolean);
+    const countParts = [
+      plan.newBooks > 0 ? `新しい本\u00a0${plan.newBooks}\u00a0冊` : `本棚の本\u00a0${plan.existingBooks}\u00a0冊`,
+      plan.memos > 0 ? `メモ\u00a0${plan.memos}\u00a0件` : '',
+    ].filter(Boolean);
     const source = SOURCE_LABEL[result.source];
     const shortfall = importShortfall(result);
     const files = result.fileCount || 1;
@@ -163,25 +167,30 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
         <p style={heading}>
           {source ? <>{source}：<wbr /></> : null}{countParts.join(KEEP_DOT)}
+          {plan.memos > 0 && plan.summaries > 0 && <><wbr />{`（まとめ\u00a0${plan.summaries}\u00a0件を含む）`}</>}
         </p>
         <ul style={{ ...list, gap: 0 }}>
-          {shown.map((b, i) => (
-            <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
+          {shown.map(({ book: b, existing, memos: n, summary }, i) => (
+            <li key={`${b.title}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44, padding: existing ? 'var(--space-2) 0' : 0, borderTop: i ? '1px solid var(--separator)' : 'none' }}>
               <BookOpen size={18} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-              <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-              {(b.memos?.length || 0) > 0 ? (
+              <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                {/* 本棚にある本は新しく作らず、その本にメモとして足す（取り込みと同じ決まり）。 */}
+                {existing && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>本棚にあります（メモとして足す）</span>}
+              </span>
+              {n > 0 ? (
                 <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>
-                  メモ {b.memos.length}
+                  メモ {n}
                 </span>
-              ) : b.review ? (
-                // メモが無く、レビュー・感想だけの本（読書メーターに多い）は「まとめ」と出す（見出しの「まとめ N 件」と対応）。
+              ) : summary ? (
+                // メモが無く、レビュー・感想だけの新しい本（読書メーターに多い）は「まとめ」と出す（見出しの「まとめ N 件を含む」と対応）。
                 <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>まとめ</span>
               ) : null}
             </li>
           ))}
         </ul>
-        {result.books.length > shown.length && (
-          <p style={{ ...body, fontSize: 'var(--text-meta)' }}>ほか {result.books.length - shown.length} 冊</p>
+        {plan.rows.length > shown.length && (
+          <p style={{ ...body, fontSize: 'var(--text-meta)' }}>ほか {plan.rows.length - shown.length} 冊</p>
         )}
         {/* 読書メーターの一覧はページに分かれている。棚の全冊数より少なければ、残りのページも選んでもらう（2026-09-29）。 */}
         {shortfall && (
@@ -221,12 +230,16 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
       </div>
     );
   } else if (step === 'done' && outcome) {
-    // メモ＝カードのメモ。新しい本のレビューは「この本のまとめ」に入るので別に数える（件数を水増ししない）。
-    const memos = outcome.memosAdded || 0;
+    // 数え方は確かめる画面・ホームの「メモ N 件」と同じ: 新しい本のレビュー・感想（「この本のまとめ」）もメモ 1 件（2026-09-29）。
     const reviews = outcome.reviewsAdded || 0;
-    const any = memos + reviews > 0;
-    // 数と「件」は離さない（改行を許さない空白）。改行してよいのは「〜を」のあとだけ（<wbr>）。
-    const headParts = [memos > 0 ? `メモ\u00a0${memos}\u00a0件` : '', reviews > 0 ? `まとめ\u00a0${reviews}\u00a0件` : ''].filter(Boolean);
+    const memos = (outcome.memosAdded || 0) + reviews;
+    const any = memos > 0;
+    // 数と「件」は離さない（改行を許さない空白）。改行してよいのは「（まとめ…）」の前と「〜を」のあとだけ（<wbr>）。
+    const headParts = [
+      outcome.booksAdded > 0 ? `新しい本\u00a0${outcome.booksAdded}\u00a0冊` : '',
+      memos > 0 ? `メモ\u00a0${memos}\u00a0件` : '',
+    ].filter(Boolean);
+    const summaryNote = memos > 0 && reviews > 0 ? <><wbr />{`（まとめ\u00a0${reviews}\u00a0件を含む）`}</> : null;
     // したことを 1 文に（例「本 2 冊を追加・1 冊にメモを足しました。」）。最後だけ「〜ました」。
     // 数と単位は改行しない空白でつなぐ。「この本のまとめ」はかぎかっこの中で切らない（nowrap）。
     const matome = <span style={nowrap}>「この本のまとめ」</span>;
@@ -242,10 +255,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport }) 
       <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 0 }}>
         {error && <ErrorMessage icon={null} title="取り消せませんでした" description={error} />}
         <p style={heading}>
-          {/* まとめだけ（読書メーターの感想など）のときは本の冊数も添える（「まとめ 3 件」だけだと何が入ったか分からない）。 */}
-          {any && memos === 0 && outcome.booksAdded > 0 ? <>{`本\u00a0${outcome.booksAdded}\u00a0冊`}{KEEP_DOT}{headParts.join(KEEP_DOT)}を<wbr />取り込みました</>
-            : any ? <>{headParts.join(KEEP_DOT)}を<wbr />取り込みました</>
-            : outcome.booksAdded > 0 ? <>本{'\u00a0'}{outcome.booksAdded}{'\u00a0'}冊を<wbr />取り込みました</>
+          {/* 確かめる画面と同じ形「新しい本 N 冊・メモ M 件（まとめ K 件を含む）」。 */}
+          {headParts.length > 0 ? <>{headParts.join(KEEP_DOT)}{summaryNote}を<wbr />取り込みました</>
             : <>新しく取り込むものは<wbr />ありませんでした</>}
         </p>
         <p style={body}>

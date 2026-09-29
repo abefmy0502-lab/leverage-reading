@@ -227,7 +227,11 @@ function aiReply(store, payload, aiMode = '') {
   if (perBook) return aiMode === 'broken' ? perBookBrokenAnswer(perBook[1]) : perBookAnswer(perBook[1]);
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
-    const block = (userText.match(/MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '';
+    // 本番は質問に近いメモを RELATED_MEMOS に分けて渡す（MEMOS からは外す）ので、両方を材料にする。
+    const block = [
+      (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
+      (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '',
+    ].filter(Boolean).join('\n\n');
     return brainAnswer(store, q[1], block, aiMode);
   }
   if (userText.includes('のテーマまとめを、次のフォーマットで作成')) {

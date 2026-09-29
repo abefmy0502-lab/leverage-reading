@@ -329,7 +329,7 @@ function LearningInline({ onSaved }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, askPreset, scopePreset, onPushedViewChange }) {
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -1505,6 +1505,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   onAskBook={askAboutBook}
                   askBusy={busy}
                   onActionAdded={() => setOptinAfterId((cur) => cur || m.id)}
+                  onOpenActions={onOpenActions}
                 />
                 {/* 🔔 はじめて「行動に追加」した直後に 1 回だけ、思い出しの通知の案内（lib/notifyOptIn.js） */}
                 {optinAfterId === m.id && <NotifyOptInCard where="action" />}
@@ -2010,6 +2011,12 @@ function resolveRefBookId(ref, books) {
   return partial ? partial.id : null;
 }
 
+// 学びの記録日（'YYYY-MM-DD'）→「（9月29日）」。分からなければ空。
+function learningDateLabel(d) {
+  const m = String(d || '').match(/^\d{4}-(\d{2})-(\d{2})/);
+  return m ? `（${Number(m[1])}月${Number(m[2])}日）` : '';
+}
+
 // 参照の先頭の絵文字（📚 📖 💡）は外す（DESIGN §3: 絵文字をアイコン代わりにしない）。
 function refText(r) {
   return String(r || '').replace(/^[^\p{L}\p{N}『「(（]+/u, '').trim();
@@ -2089,7 +2096,7 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
   );
 }
 
-function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null }) {
+function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -2213,8 +2220,10 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
       )}
       {canShowAction && (
         actionAdded ? (
-          <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
+          <p role="status" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
             <Check size={16} aria-hidden="true" />行動に追加しました（期限は明日）
+            {/* 入った先（振り返り › 行動）をその場で見られる（2026-09-29） */}
+            {onOpenActions && <button type="button" onClick={onOpenActions} aria-label="追加した行動を見る" style={{ ...uiBtnLink, marginLeft: 'var(--space-1)' }}>見る</button>}
           </p>
         ) : (
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
@@ -2258,9 +2267,10 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
                     <div style={subText}><PlainAnswer text={c.l} /></div>
                   ) : (
                     <>
-                      {(c.t || c.p != null) && (
+                      {(c.t || c.p != null || c.u) && (
                         <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, ...(c.t ? { textIndent: '-0.5em' } : null) }}>
-                          {c.t ? `『${c.t}』` : ''}{c.p != null ? `p.${c.p}` : ''}
+                          {/* 学び（本の無いメモ）は書名の代わりに「自分の学び（M月D日）」（2026-09-29） */}
+                          {c.t ? `『${c.t}』` : c.u ? `自分の学び${learningDateLabel(c.d)}` : ''}{c.p != null ? `p.${c.p}` : ''}
                         </p>
                       )}
                       {c.s === 'ok' ? (
@@ -2498,8 +2508,10 @@ function ChatMessage({ message, onOpenBook, stage, books, onAddAction, onAddActi
       {/* 旧形式（見出しなし）でも行動化できるように */}
       {!parsed && canShowAction && !message.error && (
         actionAdded ? (
-          <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
+          <p role="status" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-1)', minHeight: 44, margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--success)' }}>
             <Check size={16} aria-hidden="true" />行動に追加しました（期限は明日）
+            {/* 入った先（振り返り › 行動）をその場で見られる（2026-09-29） */}
+            {onOpenActions && <button type="button" onClick={onOpenActions} aria-label="追加した行動を見る" style={{ ...uiBtnLink, marginLeft: 'var(--space-1)' }}>見る</button>}
           </p>
         ) : (
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)' }}>

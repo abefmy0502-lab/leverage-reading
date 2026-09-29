@@ -19,6 +19,7 @@ import { toMessage } from '../lib/errors';
 import { stripInlineMd } from '../lib/text';
 import { LIMITS } from '../lib/limits';
 import { usePaywall } from '../state/PaywallContext';
+import { TOKEN_COSTS, runCostLine } from '../lib/tokens';
 import {
   listThemes,
   streamThemeReport,
@@ -195,7 +196,9 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   const confirm = useConfirm();
   const haptic = useHaptic();
   // テーマまとめはプランの機能（フリーミアム）。無料プランなら作る前に有料プランの画面を開く。
-  const { requirePlan, canBuyTokens, openTokenSheet } = usePaywall();
+  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens } = usePaywall();
+  // 「まとめる」のそばに 1 回の目安と残り（相談と同じ言い方・無料プランはプランの機能なので出さない・2026-09-29）。
+  const costLine = freeMode ? '' : runCostLine({ plan, remaining: tokensRemaining, purchased: purchasedTokens, cost: TOKEN_COSTS.themeReport });
 
   const [view, setView] = useState('create'); // 'create' | 'history'
   const [themes, setThemes] = useState([]);
@@ -465,7 +468,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
         } : prev));
         haptic.success();
         try { onActionAdded?.(); } catch { /* ignore */ }
-        toast.success('行動に追加しました（期限は明日）。');
+        // 知らせは出さない（2026-09-29）: ボタンがその場で「行動に追加しました・見る」に変わるので足りる（相談と同じ）。
       } else {
         toast.error('追加できませんでした。少し時間をおいて再度お試しください。');
       }
@@ -603,6 +606,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
               onGenerate={generate}
               historyCount={historyAvailable ? history.length : null}
               onOpenHistory={() => setView('history')}
+              costLine={costLine}
             />
             )
           ) : (
@@ -733,7 +737,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                       type="button"
                       onClick={actionAdded ? (() => onOpenActions?.()) : handleAddNextStep}
                       disabled={actionBusy}
-                      aria-label={actionAdded ? '追加した行動を見る' : '次の一歩を行動に追加'}
+                      // 名前は見えている文字のまま（aria-label で別の言葉にしない・2026-09-29）
                       style={actionAdded ? btnGhost : actionBusy ? uiBtnPrimaryOff : uiBtnPrimary}
                     >
                       {actionAdded ? (
@@ -769,7 +773,7 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
   );
 }
 
-function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGenerate, historyCount, onOpenHistory }) {
+function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGenerate, historyCount, onOpenHistory, costLine = '' }) {
   const canGenerate = customTheme.trim().length > 0;
   const submitCustom = () => {
     if (canGenerate) onGenerate(customTheme.trim());
@@ -880,6 +884,11 @@ function ThemePicker({ themes, themesLoading, customTheme, setCustomTheme, onGen
             まとめる
           </button>
         </div>
+        {costLine && (
+          <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>
+            {costLine}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -933,7 +942,7 @@ function ActionMirror({ stats, memoTotal, onOpenActions }) {
       <button
         type="button"
         onClick={() => onOpenActions()}
-        aria-label={`${k}の行動を行動タブで見る`}
+        aria-label="決めた行動を振り返りの行動で見る"
         style={{ ...base, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44 }}
       >
         {inner}

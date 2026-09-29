@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport, mergeImportResults, asinToIsbn13, bookmeterStatusHint, parseBookmeterCsv, parseBookmeterJson, parseBookmeterHtml, looksLikeBookmeterCsv, bookmeterPageTotal, importShortfall } from './importers';
+import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport, mergeImportResults, asinToIsbn13, bookmeterStatusHint, parseBookmeterCsv, parseBookmeterJson, parseBookmeterHtml, looksLikeBookmeterCsv, bookmeterPageTotal, importShortfall, planImport } from './importers';
 
 const fixture = (name) => readFileSync(new URL(`../../scripts/fixtures/${name}`, import.meta.url), 'utf-8');
 
@@ -198,6 +198,19 @@ describe('読書メーター', () => {
     expect(importShortfall(mergeImportResults([one, two]))).toEqual({ total: 45, found: 2, shelf: 'done' });
     // 全冊数が読めないファイル（ブクログなど）は null
     expect(importShortfall({ source: 'booklog', books: [] })).toBeNull();
+  });
+  it('確かめる画面の数え方は取り込みと同じ（本棚の本にはメモとして足す・新しい本の感想はまとめ＝メモ 1 件）', () => {
+    const shelf = [{ id: 's1', title: '嫌われる勇気', author: '岸見一郎', isbn: '9784478025819', leverageMemo: '前に書いたまとめ' }];
+    const result = { source: 'bookmeter', books: [
+      { title: '嫌われる勇気', author: '岸見 一郎', isbn: '4478025819', review: '課題を分ける', memos: [] }, // ISBN-10 でも同じ本
+      { title: '嫌われる勇気', author: '岸見一郎', isbn: '', review: '前に書いたまとめ', memos: [{ text: 'a' }] }, // 同じ文のまとめは足さない
+      { title: '新しい本', author: '著者', review: 'よかった', memos: [{ text: 'x' }, { text: 'y' }] },
+      { title: '感想なし', author: '著者', review: '', memos: [] },
+    ] };
+    const plan = planImport(result, shelf);
+    expect(plan).toMatchObject({ newBooks: 2, existingBooks: 2, memos: 1 + 1 + 3, summaries: 1 });
+    expect(plan.rows.map((r) => [r.existing, r.memos, r.summary])).toEqual([[true, 1, false], [true, 1, false], [false, 2, true], [false, 0, false]]);
+    expect(planImport(result, []).existingBooks).toBe(0);
   });
   it('棚はページの保存元 URL で決める（ほかの棚へのリンクには引っぱられない）', () => {
     const page = (url) => `<!-- saved from url=(0050)${url} --><a href="/users/1/books/read">読んだ本</a>`

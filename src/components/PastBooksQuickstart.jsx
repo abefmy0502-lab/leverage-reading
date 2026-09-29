@@ -210,20 +210,28 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
       if (idx > 0) setIdx(idx - 1); else setStep('pick');
       return true;
     }
-    if (step === 'pick' && picked.length > 0) {
-      const ok = await confirm({
-        title: '選んだ本を破棄しますか？',
-        message: `選んだ ${picked.length} 冊は、まだ本棚に入っていません。`,
-        confirmLabel: '破棄する',
-        cancelLabel: '続ける',
-        danger: true,
-      });
-      if (!ok) return false;
-    }
+    if (step === 'pick' && picked.length > 0 && !(await confirmDiscard())) return false;
     onClose?.();
     return true;
   };
   useBackLayer(true, back, { overBlock: true });
+  // 選んだ本・書いた一言は保存するまで本棚に入っていないので、閉じる前に確かめる（‹ / 戻る / × で同じ・2026-09-29）。
+  const confirmDiscard = () => {
+    const wrote = picked.some((p) => p.memo.trim());
+    return confirm({
+      title: wrote ? '選んだ本と書いたことを破棄しますか？' : '選んだ本を破棄しますか？',
+      message: `選んだ ${picked.length} 冊は、まだ本棚に入っていません。`,
+      confirmLabel: '破棄する',
+      cancelLabel: '続ける',
+      danger: true,
+    });
+  };
+  // 右上の ×: 選んだ本（と書いた一言）が残っていれば確かめてから閉じる。保存中は閉じない。
+  const closeAll = async () => {
+    if (step === 'saving') return;
+    if ((step === 'pick' || step === 'memo') && picked.length > 0 && !(await confirmDiscard())) return;
+    onClose?.();
+  };
 
   useEffect(() => { track('quickstart_started'); }, []);
   useEffect(() => { if (step === 'memo') memoRef.current?.focus(); }, [step, idx]);
@@ -337,7 +345,9 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
     setStep('done');
   };
 
-  const stepLabel = step === 'pick' ? '1 / 3' : step === 'memo' ? '2 / 3' : step === 'done' ? '3 / 3' : '';
+  // 進み具合は 1 か所だけ（2026-09-29）: 一言を書く段階で、何冊目かを題名の下に出す（1 冊だけのときは出さない）。
+  // 以前は「2 / 3」（段階）と本文の「1 冊目 / 2 冊」が二重に出ていて、どちらが何の数かわかりにくかった。
+  const stepLabel = step === 'memo' && picked.length > 1 ? `${idx + 1} 冊目 / ${picked.length} 冊` : '';
 
   const header = (
     <div style={headerRow}>
@@ -348,14 +358,14 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
       ) : <span style={{ width: 44 }} aria-hidden="true" />}
       {/* 題名で「相談相手をつくっている」ことを 3 ステップの間ずっと見せる（補足文ではなく題名で伝える）。 */}
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.3 }}>
-        {/* 3/3 は見出しが「できました」を言うので、題名は出さない（同じ言葉を二度言わない）。 */}
+        {/* できあがりは見出しが「できました」を言うので、題名は出さない（同じ言葉を二度言わない）。 */}
         {step !== 'done' && <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談相手をつくる</span>}
         {stepLabel && (
           <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{stepLabel}</span>
         )}
       </span>
       {/* 保存中は閉じられない。薄くせず（opacity）文字色で示す（DESIGN §5「押せないボタン」）。 */}
-      <button type="button" aria-label="閉じる" onClick={onClose} disabled={step === 'saving'}
+      <button type="button" aria-label="閉じる" onClick={closeAll} disabled={step === 'saving'}
         style={{ ...iconBtn, opacity: 1, color: step === 'saving' ? 'var(--text-3)' : 'var(--text)', cursor: step === 'saving' ? 'default' : 'pointer' }}>
         <X size={24} aria-hidden="true" />
       </button>
@@ -548,9 +558,6 @@ export default function PastBooksQuickstart({ books = [], onSaveBook, onAsk, onC
                     {current.book.author}
                   </p>
                 )}
-                <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>
-                  {idx + 1} 冊目 / {picked.length} 冊
-                </p>
               </div>
             </div>
 

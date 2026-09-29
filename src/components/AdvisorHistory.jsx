@@ -20,7 +20,7 @@ import Spinner from './Spinner';
 import BookStoreLinks from './BookStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText } from '../styles/ui';
-import { displayUserText, concernOf, interviewPairsOf } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -313,9 +313,10 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
     return (lastUser?.content || lastUser?.text || '').toString();
   }, [messages]);
   const lastUserQuery = useMemo(() => concernOf(lastUserRaw), [lastUserRaw]);
-  const lastChallenge = useMemo(
-    () => interviewPairsOf(lastUserRaw).map((p) => p.a).join('／').slice(0, 400),
-    [lastUserRaw],
+  // 読書準備の分け方は AI 選書の画面と同じ（課題＝相談＋1 問目・得たいこと＝理想の状態の答え・lib/advisorText.js）。
+  const setupFields = useMemo(
+    () => advisorSetupFields(lastUserQuery, interviewPairsOf(lastUserRaw)),
+    [lastUserQuery, lastUserRaw],
   );
 
   const recKey = (rec) => {
@@ -338,9 +339,9 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
     Promise.resolve().then(async () => {
       try {
         const saved = await onAddBook(rec, {
-          sourceQuery: lastUserQuery,
-          investPurpose: lastUserQuery || '',
-          currentChallenge: lastChallenge,
+          sourceQuery: setupFields.purpose.slice(0, 400),
+          investPurpose: setupFields.purpose.slice(0, 400),
+          currentChallenge: setupFields.challenge.slice(0, 400),
           hypothesis: String(rec.core || '').slice(0, 300),
           bookReason: rec.why || '',
         });

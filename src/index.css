@@ -66,6 +66,18 @@ svg.lucide {
   100% { opacity: 0; transform: scale(0.98); }
 }
 .toast-hud { animation: toast-hud-life 1.15s cubic-bezier(0.2, 0.9, 0.3, 1) forwards; }
+/* 長めに出す ✓（toast.success(..., { duration }) で 1.15 秒より長いとき・購入の確かめなど）。
+   出方は同じ速さのまま、消えるのだけ --hud-dur の終わりに合わせる（2026-09-29）。 */
+@keyframes toast-hud-in {
+  0%   { opacity: 0; transform: scale(0.86); }
+  60%  { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes toast-hud-out { to { opacity: 0; transform: scale(0.98); } }
+.toast-hud.toast-hud-long {
+  animation: toast-hud-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) both, toast-hud-out 0.2s ease-in forwards;
+  animation-delay: 0s, calc(var(--hud-dur, 1150ms) - 200ms);
+}
 @keyframes toast-hud-check-pop {
   0%   { transform: scale(0.4); opacity: 0; }
   60%  { transform: scale(1.12); opacity: 1; }

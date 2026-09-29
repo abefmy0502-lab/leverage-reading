@@ -90,10 +90,12 @@ function readNativePreview() {
   if (!['paywall', 'free', 'freeused', 'freegrown'].includes(demoScenario) || typeof window === 'undefined') return { on: false, trial: '', price: '' };
   const sp = new URLSearchParams(window.location.search);
   // &price=loading / fail で、ストア価格の読み込み中・失敗の表示を確かめられる。
-  // freegrown（相談の「相談相手が育ってきました」→ ここ）は、相談の案内（MyBookBrain）と同じく
-  // 「7 日間無料を使える人」を既定にする（案内は 7 日間無料をすすめるのに、開くと無いのを防ぐ）。&trial=off で使えない人。
+  // 無料プランの人が開く 3 つ（①無料のトークンを使い切った＝freeused ②プランの機能を押した＝free
+  // ③メモが 10 件たまった＝freegrown）は、GLOSSARY どおり 7 日間無料をすすめる場面なので、
+  // 「7 日間無料を使える人」を既定にする（本番はストアの無料期間と本人の資格で決まる・2026-09-29 に ①② も）。
+  // &trial=off で使えない人（年額／月額で始める）。paywall（契約なしの一般のプレビュー）は従来どおり無し。
   const t = sp.get('trial');
-  const trial = t === 'off' ? '' : normalizeTrialLabel(t || (demoScenario === 'freegrown' ? '7日間無料' : ''));
+  const trial = t === 'off' ? '' : normalizeTrialLabel(t || (demoScenario === 'paywall' ? '' : '7日間無料'));
   return { on: sp.get('native') === '1', trial, price: sp.get('price') || '' };
 }
 const preview = readNativePreview();
@@ -584,7 +586,10 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
           </div>
         )}
 
-        {/* 脇役: メモの書き出し・アカウント切替（・Web のみサービス紹介） */}
+        {/* 脇役: メモの書き出し・アカウント切替（・Web のみサービス紹介）。
+            アプリの上に重ねて開いた（× で閉じられる）ときは出さない（2026-09-29）: 機能を押して開いた画面に
+            ログイン中のメール・退会まで並ぶと唐突で、閉じればアプリの設定に同じものがある。閉じられない画面（ゲート）でだけ出す。 */}
+        {!onClose && (
         <div
           style={{
             marginTop: 'var(--space-8)',
@@ -624,6 +629,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
             </div>
           </div>
         </div>
+        )}
       </div>
       {settingsOpen && (
         <Suspense fallback={null}>

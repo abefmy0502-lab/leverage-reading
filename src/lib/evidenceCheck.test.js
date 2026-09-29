@@ -8,7 +8,7 @@ const sources = [
   { title: 'イシューからはじめよ', page: 25, text: '答えを出す前に「本当に答えるべき問い（イシュー）」かを確かめる。', personal: false },
   { title: 'イシューからはじめよ', page: 88, text: '分析の前にストーリーラインと絵コンテを作る。', personal: false },
   { title: '嫌われる勇気', page: null, text: '人の評価が気になったら「これは誰の課題？」と自分に聞く', personal: false },
-  { title: '', page: null, text: '先輩との会話で「相手の関心軸を聞く」が刺さった', personal: true },
+  { title: '', page: null, text: '先輩との会話で「相手の関心軸を聞く」が刺さった', personal: true, created_at: '2026-01-05T09:00:00Z' },
 ];
 
 describe('normalizeForMatch', () => {
@@ -81,6 +81,9 @@ describe('verifyRefLine', () => {
   it('学びは学びの中から探す', () => {
     const v = verifyRefLine('- 自分の学び (2026-01-05) より: 「相手の関心軸を聞く」', sources);
     expect(v.status).toBe('ok');
+    // 見出し「自分の学び（1月5日）」のための印と記録日
+    expect(v).toMatchObject({ personal: true, date: '2026-01-05' });
+    expect(verifyRefLine('- 『嫌われる勇気』より: 「これは誰の課題？」', sources).personal).toBe(false);
   });
 });
 

@@ -119,11 +119,15 @@ function paraphraseOf(line) {
 }
 
 // 1 行（参照したメモの 1 項目）を確かめる。
-//   { title, page, status: 'ok' | 'ng' | 'none', memo: 見せるメモの文 | '', line: AI の行（要約のまま見せるとき） }
+//   { title, page, status: 'ok' | 'ng' | 'none', memo: 見せるメモの文 | '', line: AI の行（要約のまま見せるとき）,
+//     personal: 学び（本の無いメモ）の行か, date: 一致した学びの記録日 'YYYY-MM-DD' | '' }
+//   学びは書名が無いので、画面では「自分の学び（M月D日）」を見出しにする（2026-09-29）。
 export function verifyRefLine(rawLine, sources) {
   const line = String(rawLine || '').replace(/^\s*(?:[-*・•]|\d+[.)．])\s*/, '').trim();
   const title = titleOf(line);
   const page = pageOf(line);
+  const personalLine = !title && /自分の学び|学びログ|あなたの学び/.test(line);
+  const withPersonal = (r, m) => ({ ...r, personal: !!(m?.personal || personalLine), date: m?.personal && m.created_at ? String(m.created_at).slice(0, 10) : '' });
   const cands = candidatesFor(line, sources || []);
   const quotes = extractQuotes(line);
   if (quotes.length > 0) {
@@ -134,9 +138,9 @@ export function verifyRefLine(rawLine, sources) {
       return !!hit;
     });
     if (allOk && matched) {
-      return { title: title || matched.title || '', page: page ?? matched.page ?? null, status: 'ok', memo: clip(matched.text, MEMO_SHOW_MAX), line: '' };
+      return withPersonal({ title: title || matched.title || '', page: page ?? matched.page ?? null, status: 'ok', memo: clip(matched.text, MEMO_SHOW_MAX), line: '' }, matched);
     }
-    return { title, page, status: 'ng', memo: '', line: '' };
+    return withPersonal({ title, page, status: 'ng', memo: '', line: '' }, null);
   }
   // 引用の無い要約: 十分に重なるメモ（60% 以上）→ そのメモ。無ければ、ページまで同じメモが 1 件だけならそのメモ。
   const para = paraphraseOf(line);
@@ -147,15 +151,15 @@ export function verifyRefLine(rawLine, sources) {
     if (r > bestScore) { bestScore = r; best = s; }
   });
   if (best && bestScore >= 0.6 && normalizeForMatch(para).length >= 6) {
-    return { title: title || best.title || '', page: page ?? best.page ?? null, status: 'ok', memo: clip(best.text, MEMO_SHOW_MAX), line: '' };
+    return withPersonal({ title: title || best.title || '', page: page ?? best.page ?? null, status: 'ok', memo: clip(best.text, MEMO_SHOW_MAX), line: '' }, best);
   }
   if (page != null) {
     const byPage = cands.filter((s) => Number(s.page) === page);
     if (byPage.length === 1) {
-      return { title: title || byPage[0].title || '', page, status: 'ok', memo: clip(byPage[0].text, MEMO_SHOW_MAX), line: '' };
+      return withPersonal({ title: title || byPage[0].title || '', page, status: 'ok', memo: clip(byPage[0].text, MEMO_SHOW_MAX), line: '' }, byPage[0]);
     }
   }
-  return { title, page, status: 'none', memo: '', line: clip(line, LINE_SHOW_MAX) };
+  return withPersonal({ title, page, status: 'none', memo: '', line: clip(line, LINE_SHOW_MAX) }, null);
 }
 
 // 答えの本文から、見出し（【…】）ごとの節を取り出す。
@@ -188,7 +192,8 @@ export function verifyAnswerQuotes(body, sources) {
         // 「（原則 2〜3 冊…）」のような注記の行は飛ばす
         if (/^[（(].*[)）]$/.test(l)) return;
         const v = verifyRefLine(l, sources);
-        out.push({ k: 'r', t: v.title, p: v.page, s: v.status, x: v.memo, l: v.line });
+        // u: 学びの行（書名が無い）・d: 一致した学びの記録日（見出し「自分の学び（M月D日）」用）
+        out.push({ k: 'r', t: v.title, p: v.page, s: v.status, x: v.memo, l: v.line, ...(v.personal ? { u: 1 } : null), ...(v.date ? { d: v.date } : null) });
       });
     } else if (/本ごと/.test(name)) {
       let cur = null;

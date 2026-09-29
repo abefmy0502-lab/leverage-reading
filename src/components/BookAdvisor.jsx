@@ -30,6 +30,7 @@ import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT, getRakutenLink, RAKUTEN_LINK_REL } from '../lib/rakutenLink';
 import { getAmazonLink, handleAmazonClick, AMAZON_LINK_REL } from '../lib/amazonLink';
 import { nextResetLabelJa } from '../lib/freeTrial';
+import { TOKEN_COSTS, runCostLine } from '../lib/tokens';
 import { groupTitle, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnLink as uiBtnLink, input as uiInput, card as uiCard } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
@@ -38,7 +39,7 @@ import { useConfirm } from './ConfirmDialog';
 import MarkdownSections from './MarkdownSections';
 import Spinner from './Spinner';
 import ErrorMessage from './ErrorMessage';
-import { displayUserText, concernOf, interviewPairsOf } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 
@@ -169,7 +170,9 @@ const advisorMemory = { uid: null, state: null };
 export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
-  const { requirePlan, canBuyTokens, openTokenSheet } = usePaywall();
+  const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens } = usePaywall();
+  // 送るボタンのそばに 1 回の目安と残り（相談と同じ言い方・無料プランはプランの機能なので出さない・2026-09-29）。
+  const costLine = freeMode ? '' : runCostLine({ plan, remaining: tokensRemaining, purchased: purchasedTokens, cost: TOKEN_COSTS.advisor });
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
   const activeControllerRef = useRef(null);
   const unmountedRef = useRef(false);
@@ -911,7 +914,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     );
     const recsList = Array.isArray(s.recommended_books) ? s.recommended_books : [];
     setRecommendations(recsList.length > 0 ? { items: recsList, before: '', after: '' } : null);
-    // 直近の user 発話を lastUserQuery として復元 → 「読みたいに追加」時の sourceQuery に使う
+    // 直近の user 発話を lastUserQuery として復元 → 「読みたいに追加」時の課題（と得たいことの分け方）に使う
     //   （保存は AI 向けのテンプレートなので、本人の相談だけを取り出す。ヒアリングの答えも
     //    この会話のものに入れ替える＝前の会話の答えが「現在の課題」に混ざらないように）
     const lastUser = [...histMessages].reverse().find((m) => m.role === 'user');
@@ -989,17 +992,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     Promise.resolve().then(async () => {
       // 読書準備の 4 項目は、AI を呼ばずに手元の材料から埋める（2026-09-27・原価の節約）。
       //   以前は追加のたびに会話を AI で要約していた（本人は AI を頼んでいない＝見えない原価）。
-      //   得たいこと＝最初の相談 / 課題＝ヒアリングで答えたこと / 仮説＝推薦の「核心」/
-      //   理由＝推薦の「なぜ」。どれも本人がその場で見た言葉なので、ずれない。
-      const challenge = interviewAnswers
-        .map((x) => clamp(sanitizeForPrompt(String(x?.a || '')), 120).trim())
-        .filter(Boolean)
-        .join('／');
+      //   課題＝最初の相談＋ヒアリングの 1 問目 / 得たいこと＝理想の状態の答え（2026-09-29・lib/advisorText.js）/
+      //   仮説＝推薦の「核心」/ 理由＝推薦の「なぜ」。どれも本人がその場で見た言葉なので、ずれない。
+      const setup = advisorSetupFields(
+        lastUserQuery,
+        interviewAnswers.map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 120) })),
+      );
       try {
+        // sourceQuery は「得たいこと」へのプレフィル・「AI 選書で入力した内容に戻す」の元（App.jsx buildFormFromBook /
+        // BookPhases）なので、得たいことと同じ値にする（相談＝課題が得たいことへ戻らないように）。
         const saved = await onAddBook(verifiedRec, {
-          sourceQuery: lastUserQuery,
-          investPurpose: lastUserQuery || '',
-          currentChallenge: clamp(challenge, 400),
+          sourceQuery: clamp(setup.purpose, 400),
+          investPurpose: clamp(setup.purpose, 400),
+          currentChallenge: clamp(setup.challenge, 400),
           hypothesis: clamp(String(verifiedRec.core || ''), 300),
           bookReason: clamp(String(verifiedRec.why || ''), 400),
         });
@@ -1213,7 +1218,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       </div>
       {/* Scroll 領域: 見出し / 例チップ / メッセージ / 推薦カード をまとめる */}
       <div ref={chatScrollRef} onScroll={onChatScroll} className="chat-scroll" style={{ padding: 'var(--space-2) var(--space-4) var(--space-4)' }}>
-      {showStartHeading && <h2 style={headingStyle}>どんな本を探していますか</h2>}
+      {/* 入力欄の「いまの課題を書いてください」と同じ問い（課題から本を選ぶ・2026-09-29） */}
+      {showStartHeading && <h2 style={headingStyle}>いま、どんなことに困っていますか</h2>}
 
       {/* Example chips — タップで textarea に流し込む（送信はしない）。 */}
       {showConcernInput && !showErrorState && (
@@ -1636,7 +1642,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         const tokensOut = !!(recoError && recoNotice && /^(今月のトークン|無料期間のトークン)/.test(recoError));
         const monthOut = tokensOut && /^今月のトークン/.test(recoError);
         return (
-        <div className="ai-input-area">
+        // 1 回の目安と残りは、入力欄と送るボタンの下の行に（折り返して全幅）。
+        <div className="ai-input-area" style={costLine && !tokensOut ? { flexWrap: 'wrap' } : undefined}>
           <textarea
             ref={inputRef}
             value={input}
@@ -1668,6 +1675,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               <IcSend size={20} strokeWidth={2.25} aria-hidden="true" />
             )}
           </button>
+          {costLine && !tokensOut && (
+            <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>
+              {costLine}
+            </p>
+          )}
         </div>
         );
       })()}

@@ -233,6 +233,11 @@ export default function BookMemoEditor({
   const [existingPhotoPath, setExistingPhotoPath] = useState(initial?.photoPath || null);
   const [removePhotoFlag, setRemovePhotoFlag] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 「保存して次へ」のあと少しのあいだ、ボタンの文字を「保存しました」にする。
+  //   続けて書くときは下の知らせ（トースト）を出さない＝入力欄（タグ）に重ならない・2026-09-29。
+  const [justSaved, setJustSaved] = useState(false);
+  const justSavedTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(justSavedTimerRef.current), []);
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
   const overlayRef = useRef(null);
@@ -372,10 +377,13 @@ export default function BookMemoEditor({
           text: payload.text,
           photoFile: payload.photoFile,
           tags: payload.tags,
-        });
+        }, { quiet: !!continueAfter });
       }
       if (continueAfter && !isEdit) {
         resetForNext(payload.pageNumber);
+        setJustSaved(true);
+        clearTimeout(justSavedTimerRef.current);
+        justSavedTimerRef.current = setTimeout(() => setJustSaved(false), 1800);
       } else {
         onClose?.();
       }
@@ -681,7 +689,7 @@ export default function BookMemoEditor({
             disabled={busy}
             style={busy ? btnGhostOff : btnGhost}
           >
-            {busy ? '保存中…' : '保存して次へ'}
+            <span aria-live="polite">{busy ? '保存中…' : justSaved ? '保存しました' : '保存して次へ'}</span>
           </button>
         )}
         <button

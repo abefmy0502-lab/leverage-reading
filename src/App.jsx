@@ -146,7 +146,7 @@ import { PaywallContext, usePaywall } from './state/PaywallContext';
 import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
-import { btnGhost, btnText, btnPrimary, btnPrimaryOff, btnLink, groupTitle } from './styles/ui';
+import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, groupTitle } from './styles/ui';
 import { WantPhase, BeforePhase, ReadingPhase, DonePhase, EditSaveBar, saveLabelFor } from './components/lazyParts';
 import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
@@ -625,6 +625,9 @@ function AuthedApp() {
       if (t === 'books') { setShelfMode('home'); setLibraryFrom(null); }
       return;
     }
+    // 記録から開いた「すべての本」は振り返りの中の寄り道（下のタブも振り返りが選択中＝navTab）。
+    // そこで振り返りを押したら、行動ではなく元の記録へ戻す（‹ 記録 と同じ・2026-09-29）。
+    if (t === 'review' && tab === 'books' && libraryFrom === 'record') { leaveLibrary(); return; }
     // 記録から開いた「すべての本」は寄り道なので、別のタブへ移ったらホームに戻しておく。
     if (tab === 'books' && libraryFrom) { setShelfMode('home'); setLibraryFrom(null); }
     if (t === 'review') { setActionShowDoneNonce(null); setReviewSubTab('action'); }
@@ -635,6 +638,9 @@ function AuthedApp() {
   const openLibraryFromRecord = () => {
     navigateTab('books'); goList(); setShelfMode('library'); setLibraryFrom('record');
   };
+  // 下のタブで選択中に見せるタブ。記録から開いた「すべての本」（と、そこから開いた本）は振り返りの中の
+  // 寄り道なので、ホームではなく振り返りを選択中にする（戻る先の「‹ 記録」と合わせる・2026-09-29）。
+  const navTab = tab === 'books' && libraryFrom === 'record' ? 'review' : tab;
   // 「すべての本」から戻る: 記録から来たなら 振り返り → 記録 へ、それ以外はホームへ。
   const leaveLibrary = () => {
     if (libraryFrom === 'record') {
@@ -1875,6 +1881,7 @@ function AuthedApp() {
     // photo_path ごと完全復元される（旧「※写真は復元できません」は誤案内だった）。
     toast.undo({
       message: `『${book.title}』を削除しました。`,
+      destructive: true,
       // 取り消されずに閉じたら、写真ファイルも消す（取り消し中は写真ごと戻せるよう残しておく）
       onExpire: removePhotos,
       onUndo: async () => {
@@ -2356,6 +2363,7 @@ function AuthedApp() {
       dismissStatusUndo(book.id);
       statusUndoToastRef.current.set(book.id, toast.undo({
         message: `「${labels[newStatus] || newStatus}」に変更しました。`,
+        destructive: false, // 状態の変更は消していないので、ゴミ箱ではなく中立の ↶
         onUndo: revert,
       }));
     }
@@ -2452,10 +2460,11 @@ function AuthedApp() {
   // 読書計画シート（と、その材料の得たいこと・課題・仮説）だけを、編集画面を開いたまま保存する。
   // 本の最新の値に重ねて保存（ほかの欄の書きかけは保存しない）し、編集中の「未保存の変更」の基準も
   // シートの分だけ進める（閉じるときに「保存していない変更があります」と言わない）。
-  const persistPlanSheet = (bookId, sheet, message) => {
+  const persistPlanSheet = (bookId, sheet, message, fields = null) => {
     const text = String(sheet || '');
     if (!bookId || !text.trim()) return;
-    const f = formRef.current || {};
+    // 本の詳細からその場で作ったとき（runStrategyInPlace）は、編集中のフォームではなく、その本の欄を使う。
+    const f = fields || formRef.current || {};
     const patch = {
       aiStrategy: text,
       investPurpose: f.investPurpose || '',
@@ -2479,6 +2488,25 @@ function AuthedApp() {
       toast.error(toMessage(error, '読書計画シートを保存できませんでした。下の「保存」でもう一度お試しください。'));
     });
   };
+  // 読書計画シートを AI で書く（編集画面の「作る」と、本の詳細の「読書計画シートを作る」で共通）。
+  const streamSetupSheet = (src, onChunk) => streamClaude({
+    system: PROMPTS.setupSheet.system,
+    cacheSystem: true,
+    messages: [{
+      role: 'user',
+      content: PROMPTS.setupSheet.user({
+        title: clamp(sanitizeForPrompt(src.title || ''), LIMITS.bookTitle),
+        author: clamp(sanitizeForPrompt(src.author || ''), LIMITS.bookAuthor),
+        analysis: clamp(sanitizeForPrompt(src.aiAnalysis || ''), LIMITS.memoText),
+        purpose: clamp(sanitizeForPrompt(src.investPurpose || ''), LIMITS.memoText),
+        topTags: allTags.slice(0, 3),
+      }),
+    }],
+    // 読書計画シートは「各節 3 行・900 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
+    max_tokens: 1600,
+    model: MODEL_SMART,
+    onChunk,
+  });
   const runStrategy = async () => {
     if (!requirePlan('読書計画シート')) return;
     setAiLoading(true);
@@ -2486,29 +2514,12 @@ function AuthedApp() {
     const prevStrategy = form?.aiStrategy || '';
     setForm((f) => ({ ...f, aiStrategy: '' }));
     try {
-      const sheet = await streamClaude({
-        system: PROMPTS.setupSheet.system,
-        cacheSystem: true,
-        messages: [{
-          role: 'user',
-          content: PROMPTS.setupSheet.user({
-            title: clamp(sanitizeForPrompt(form.title || ''), LIMITS.bookTitle),
-            author: clamp(sanitizeForPrompt(form.author || ''), LIMITS.bookAuthor),
-            analysis: clamp(sanitizeForPrompt(form.aiAnalysis || ''), LIMITS.memoText),
-            purpose: clamp(sanitizeForPrompt(form.investPurpose || ''), LIMITS.memoText),
-            topTags: allTags.slice(0, 3),
-          }),
-        }],
-        // 読書計画シートは「各節 3 行・900 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
-        max_tokens: 1600,
-        model: MODEL_SMART,
-        onChunk: (fullText) => {
-          // 関連書籍カードのパース (= 「読みたい」ボタン押下可能) は
-          // streaming 中は BeforePhase 側で aiLoading を見て無効化している。
-          // MarkdownSections は 1 chunk ごとに再 render する形になるが、
-          // テキスト量は 2KB 以下で十分軽い。
-          setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: fullText } : f));
-        },
+      const sheet = await streamSetupSheet(form, (fullText) => {
+        // 関連書籍カードのパース (= 「読みたい」ボタン押下可能) は
+        // streaming 中は BeforePhase 側で aiLoading を見て無効化している。
+        // MarkdownSections は 1 chunk ごとに再 render する形になるが、
+        // テキスト量は 2KB 以下で十分軽い。
+        setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: fullText } : f));
       });
       // 何も返らなかったときは、前のシートを消さずに戻す（空のまま保存すると DB のシートが消える）。
       if (!String(sheet || '').trim()) throw new Error('読書計画シートを作れませんでした。少し時間をおいて、もう一度お試しください。');
@@ -2524,6 +2535,36 @@ function AuthedApp() {
       else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートを作れませんでした。'));
     } finally {
       setAiLoading(false);
+    }
+  };
+  // 本の詳細（積読）の「読書計画シートを作る」: 得たいことがあれば、編集画面へ行かずにその場で作る
+  // （もう一度「作る」を押させない・2026-09-29）。進み具合はボタンの場所に出す（planGen）。
+  // 得たいことが無ければ書かないと作れないので、従来どおり編集画面（openSetup）へ。
+  const [planGen, setPlanGen] = useState(null); // { bookId, text } 作っている間だけ
+  const runStrategyInPlace = async (book) => {
+    if (!book?.id || planGen) return;
+    const src = buildFormFromBook(book); // 得たいことが空なら AI 選書の入力で埋まる（編集画面と同じ）
+    if (!(src.investPurpose || '').trim()) { openSetup(book); return; }
+    if (!requirePlan('読書計画シート')) return; // 無料プラン: 有料プランの画面を開く
+    const bookId = book.id;
+    setPlanGen({ bookId, text: '' });
+    try {
+      const sheet = await streamSetupSheet(src, (fullText) => setPlanGen((g) => (g && g.bookId === bookId ? { ...g, text: fullText } : g)));
+      if (!String(sheet || '').trim()) throw new Error('読書計画シートを作れませんでした。少し時間をおいて、もう一度お試しください。');
+      clearStrategyHistory(bookId);
+      const fields = {
+        investPurpose: src.investPurpose || '',
+        currentChallenge: src.currentChallenge || '',
+        hypothesis: src.hypothesis || '',
+      };
+      // 保存を待たずに詳細へ出す（ボタンに戻ってから「できています」に変わる、のちらつきを出さない）。
+      setCurrent((c) => (c && c.id === bookId ? { ...c, ...fields, aiStrategy: sheet } : c));
+      persistPlanSheet(bookId, sheet, '読書計画シートを保存しました', fields);
+    } catch (error) {
+      if (error?.monthlyLimit) toast.info(error.message);
+      else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートを作れませんでした。'));
+    } finally {
+      setPlanGen(null);
     }
   };
 
@@ -3064,6 +3105,7 @@ function AuthedApp() {
         if (undoable && removed) {
           toast.undo({
             message: '行動を削除しました',
+            destructive: true,
             duration: 6000,
             // 同じ本の直列チェーンに乗せて、消した位置に戻す（行は新しく作り直す＝id は付け直し）。
             onUndo: () => enqueueBookMutation(bookId, async (e2) => {
@@ -3211,6 +3253,7 @@ function AuthedApp() {
       <ImportSheet
         onImport={importLibrary}
         onUndoImport={undoImport}
+        existingBooks={books}
         onClose={() => setShowImport(false)}
         // 送らずに相談を開く（入力欄と相談例から自分で選んで送る＝勝手にトークンを使わない・2026-09-29）。
         onAsk={() => {
@@ -3304,10 +3347,36 @@ function AuthedApp() {
               if (isIncomplete || !(current.aiStrategy || '').trim()) {
                 // 見出しとボタンが同じことを言っていたので、副ボタン 1 つだけ（主ボタンは下の「読書を開始する」）。
                 // 課題・仮説のカードがあれば、その下 12 に置く（SPEC §2）。
+                // 得たいことがあれば押すとその場で作る（runStrategyInPlace・2026-09-29）。作っている間は
+                // ボタンが「作成中…」になり、その下にシートの形の骨組み → 書かれていくシートを出す。
+                const genHere = planGen && planGen.bookId === current.id;
                 return (
-                  <button type="button" onClick={() => openSetup(current)} style={{ ...btnGhost, marginTop: hasPlanFold ? 'var(--space-3)' : 'var(--space-6)' }}>
-                    読書計画シートを作る
-                  </button>
+                  <div style={{ marginTop: hasPlanFold ? 'var(--space-3)' : 'var(--space-6)' }}>
+                    <button type="button" onClick={() => runStrategyInPlace(current)} disabled={!!planGen}
+                      aria-busy={genHere || undefined} style={planGen ? btnGhostOff : btnGhost}>
+                      {genHere ? '作成中…' : '読書計画シートを作る'}
+                    </button>
+                    {genHere && (
+                      <div role="status" aria-live="polite" aria-label="読書計画シートを作っています" style={{ marginTop: 'var(--space-3)' }}>
+                        {!planGen.text ? (
+                          <div className="ai-skeleton" aria-hidden="true">
+                            <div className="ai-skeleton-line" style={{ width: '90%' }} />
+                            <div className="ai-skeleton-line" style={{ width: '76%' }} />
+                            <div className="ai-skeleton-line" style={{ width: '58%' }} />
+                          </div>
+                        ) : (
+                          <div aria-hidden="true">
+                            <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>
+                              読書計画シート
+                              <span className="streaming-cursor" style={{ marginLeft: 'var(--space-1)' }} />
+                            </p>
+                            {/* 書いている途中は関連書籍の「読みたい」ボタンを出さない（BeforePhase と同じ） */}
+                            <MarkdownSections flat text={planGen.text} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               }
               // 完了済み: 控えめな完了表示 + 編集導線
@@ -3794,10 +3863,11 @@ function AuthedApp() {
             defaultTags={Array.isArray(fullEditorPrefill.tags) ? fullEditorPrefill.tags : []}
             allTags={allTags}
             onClose={() => setFullEditorPrefill(null)}
-            onCreate={async (payload) => {
+            onCreate={async (payload, opts = {}) => {
               await currentMemoOps.createMemo(payload);
               haptic.success();
-              toast.success('メモを保存しました。');
+              // 「保存して次へ」は書く画面の「保存しました」で伝える（知らせが入力欄に重ならない）
+              if (!opts.quiet) toast.success('メモを保存しました。');
             }}
             onUpdate={async (memoId, payload) => {
               await currentMemoOps.updateMemo(memoId, payload);
@@ -3945,7 +4015,7 @@ function AuthedApp() {
           </Suspense>
         )}
 
-        <BottomNav tab={tab} setTab={(t) => { navigateTab(t); goList(); }} hidden={keyboardOpen} />
+        <BottomNav tab={navTab} setTab={(t) => { navigateTab(t); goList(); }} hidden={keyboardOpen} />
       </Shell>
     );
   }
@@ -4087,7 +4157,7 @@ function AuthedApp() {
         {quickstartOverlay}
         {importOverlay}
         <BottomNav
-          tab={tab}
+          tab={navTab}
           setTab={async (t) => {
             // 編集中に未保存の変更があれば、移動前に確認（誤タップでの消失防止）。
             if (!(await confirmDiscardEdit())) return;
@@ -4317,7 +4387,11 @@ function AuthedApp() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
-                <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>すべての本</h1>
+                {/* 記録の「読んだ本」など、状態を決めて記録から開いたときは、その状態を見出しに（「読了 6 冊」）。
+                    「すべての本 6 冊」と言いながら読了だけを並べていた食い違いを直す（2026-09-29）。 */}
+                <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                  {libraryFrom === 'record' && statusFilter !== 'all' && STATUS_LABEL[statusFilter] ? STATUS_LABEL[statusFilter] : 'すべての本'}
+                </h1>
                 {/* 読み込み中・読み込めなかったときに「0 冊」と見せない（本があるまま更新中なら出す）。 */}
                 {!((booksLoading || booksLoadError) && rawBooks.length === 0) && (
                   <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>{filtered.length} 冊</span>
@@ -4690,6 +4764,7 @@ function AuthedApp() {
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
                     onQuickstart={() => setShowQuickstart(true)}
                     onAddBook={() => openAdd()}
+                    onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
                     askPreset={askPreset}
                     scopePreset={scopePreset}
                     onPushedViewChange={setConsultPushed}
@@ -5190,7 +5265,7 @@ function AuthedApp() {
 
       <UpdateBanner safe={safeForUpdate} />
 
-      <BottomNav tab={tab} setTab={(t) => { navigateTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
+      <BottomNav tab={navTab} setTab={(t) => { navigateTab(t); if (view !== "list") goList(); }} hidden={keyboardOpen} />
     </Shell>
   );
 }

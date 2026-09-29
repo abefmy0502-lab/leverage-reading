@@ -134,3 +134,14 @@ export function monthDayLabelJa(time) {
   const d = new Date(t + 9 * 3600 * 1000);
   return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
 }
+
+// 🪙 AI 選書・テーマまとめの実行ボタンのそばに出す 1 行（相談の上部の行と同じ言い方・2026-09-29）。
+//   「1 回 約 25 トークン・今月の残り 742 トークン」（無料期間は「無料期間の残り」・追加分は「＋追加 N」）。
+//   残りが分からない（管理者・読めない）ときは空（出さない）。
+export function runCostLine({ plan, remaining, purchased = 0, cost }) {
+  if (remaining == null || !Number.isFinite(Number(remaining))) return '';
+  const fmt = (n) => (Number(n) || 0).toLocaleString('ja-JP');
+  const extra = Number(purchased) > 0 ? ` ＋追加 ${fmt(purchased)}` : '';
+  const left = `${plan === 'trial' ? '無料期間' : '今月'}の残り ${fmt(remaining)}${extra} トークン`;
+  return cost ? `1 回 約 ${fmt(cost)} トークン・${left}` : left;
+}

@@ -18,7 +18,7 @@
 import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { SUPPORT_EMAIL } from '../lib/contact';
 import { LIMITS } from '../lib/limits';
 import { useAuth } from '../hooks/useAuth';
@@ -367,6 +367,9 @@ async function listAllUserPhotos(userId, bucket = 'book-memo-photos') {
   return all;
 }
 
+// 🧪 お試しモードの通知のオン・オフ（設定を閉じて開き直しても残す・再読み込みで初期化）。
+let demoPushOn = false;
+
 export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpenAdmin, onOpenImport, onOpenHelp, focusDelete = false }) {
   const { user, signOut } = useAuth();
   // 有料プランの画面の「アカウントを削除」から開いたときは、削除の欄まで送る。
@@ -436,17 +439,20 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   // ネイティブ(iOS/APNs)と Web(VAPID)で「準備済み/対応済み」の意味が異なる。
   //   - Web:      VAPID 公開鍵の有無 + SW/PushManager/standalone 条件
   //   - ネイティブ: Capacitor プラグインで APNs 登録できるか（VAPID 不要）
-  const pushConfigured = isNative ? isNativePushCapable : isPushConfigured();
-  const pushSupported = isNative ? isNativePushCapable : isPushSupported();
+  // 🧪 お試しモード（開発専用）では、鍵が無くても通知の欄を出し、スイッチは端末の中の状態だけを切り替える
+  //   （「設定からオフにできる」を確かめられるように・2026-09-29）。
+  const pushConfigured = isDemo || (isNative ? isNativePushCapable : isPushConfigured());
+  const pushSupported = isDemo || (isNative ? isNativePushCapable : isPushSupported());
   // A2HS 案内は Web(ブラウザ)のみ。ネイティブ(Capacitor WKWebView)では isIOS()=true /
   // isStandalonePWA()=false になり「ホーム画面に追加」を誤って促してしまうため !isNative で封じる。
-  const pushNeedsA2HS = !isNative && isPushConfigured() && isIOS() && !isStandalonePWA(); // iOS ブラウザタブ内
-  const [pushOn, setPushOn] = useState(false);
+  const pushNeedsA2HS = !isDemo && !isNative && isPushConfigured() && isIOS() && !isStandalonePWA(); // iOS ブラウザタブ内
+  const [pushOn, setPushOn] = useState(() => (isDemo ? demoPushOn : false));
   const [pushBusy, setPushBusy] = useState(false);
   const [pushDenied, setPushDenied] = useState(false);
 
   useEffect(() => {
     let alive = true;
+    if (isDemo) return undefined; // お試しモードは端末の中の状態（demoPushOn）だけ
     (async () => {
       try {
         if (isNative) {
@@ -468,6 +474,12 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     if (pushBusy) return;
     setPushBusy(true);
     try {
+      if (isDemo) {
+        demoPushOn = !pushOn;
+        setPushOn(demoPushOn);
+        if (demoPushOn) toast.success('通知をオンにしました'); else toast.info('通知をオフにしました。');
+        return;
+      }
       if (pushOn) {
         // OFF にする — 購読解除 + DB 行削除。失敗しても静かに。
         if (isNative) await unsubscribeNativePush(); else await unsubscribeFromPush();

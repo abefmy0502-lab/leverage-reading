@@ -16,6 +16,8 @@
 //   （読書メーターは asin / pages / reviewAt も付く。無ければ App 側は空として扱う）
 // 画面は src/components/ImportSheet.jsx。保存は App 側（重複は既存の本に足す）。
 
+import { findDuplicateBook } from './checkDuplicate';
+
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 export const IMPORT_MAX_BOOKS = 300;
 export const IMPORT_MAX_MEMOS = 2000;
@@ -542,6 +544,35 @@ export function mergeImportResults(results) {
     books: [...new Set(byKey.values())],
     ...(total ? { total, shelf } : null),
   };
+}
+
+// 確かめる画面の数え方（2026-09-29）。取り込み（App の importLibrary）と同じ決まりで本棚と突き合わせる:
+//   - 同じ本（findDuplicateBook: ISBN、または書名＋著者）が本棚にあれば、その本にメモとして足す（レビュー・感想もメモに。
+//     ただし本棚の本の「この本のまとめ」と同じ文なら足さない）
+//   - 新しい本のレビュー・感想は「この本のまとめ」に入る＝メモ 1 件として数える（ホームの「メモ N 件」と同じ）
+// 返り値: { rows: [{ book, existing }], newBooks, existingBooks, memos, summaries }
+//   memos はまとめを含むメモの件数（すでに同じ文のメモがあるときは、取り込みで足されないので少し減ることがある）。
+export function planImport(result, shelf) {
+  const books = Array.isArray(result?.books) ? result.books : [];
+  const plan = { rows: [], newBooks: 0, existingBooks: 0, memos: 0, summaries: 0 };
+  books.forEach((b) => {
+    const isbn = String(b.isbn || '').replace(/[^0-9Xx]/g, '');
+    const target = findDuplicateBook(shelf, { title: b.title, author: b.author, isbn });
+    const cards = b.memos?.length || 0;
+    const review = String(b.review || '').trim();
+    if (target) {
+      plan.existingBooks += 1;
+      const reviewAsMemo = review && review !== String(target.leverageMemo || '').trim() ? 1 : 0;
+      plan.memos += cards + reviewAsMemo;
+      plan.rows.push({ book: b, existing: true, memos: cards + reviewAsMemo, summary: false });
+    } else {
+      plan.newBooks += 1;
+      plan.memos += cards + (review ? 1 : 0);
+      plan.summaries += review ? 1 : 0;
+      plan.rows.push({ book: b, existing: false, memos: cards, summary: !!review });
+    }
+  });
+  return plan;
 }
 
 export function summarizeImport(result) {

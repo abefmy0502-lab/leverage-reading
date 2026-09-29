@@ -303,9 +303,18 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     setEditingMemo(null);
   };
 
-  const handleCreate = async (payload) => {
+  // opts.quiet: 「保存して次へ」で書き続けるとき。知らせ（トースト）は出さない（全画面の入力欄に重なるので、
+  //   書く画面の「保存しました」で伝える・2026-09-29）。
+  const handleCreate = async (payload, opts = {}) => {
     const result = await createMemo(payload);
     haptic.success();
+    if (opts.quiet) {
+      if (result?.id) {
+        setJustAddedId(result.id);
+        setTimeout(() => setJustAddedId((cur) => (cur === result.id ? null : cur)), 1600);
+      }
+      return result;
+    }
     // 🎯 保存直後に「行動にする」を 1 タップで提案し、キャプチャと行動を溶接する
     //    （読む→行動の最大リークを塞ぐ）。本文のあるメモかつ onMakeAction がある時だけ。
     const actionText = (result?.text ?? payload?.text ?? '').trim();
