@@ -90,19 +90,19 @@ export function useFocusTrap(active = true) {
     prevFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
-    // 2. モーダル内の最初のフォーカス可能要素（無ければコンテナ）へ移動。
+    // 2. モーダルのコンテナ自身（tabindex=-1）へ移動する（2026-10-01 ui-critic）。
+    //   以前は最初の部品（シートの「キャンセル」など）に当てていたため、指で開いただけでも
+    //   その部品に輪が出ていた。読み上げはダイアログの名前から始まり、Tab で最初の部品へ進む
+    //   （Shift+Tab は最後の部品へ回る＝handleKeyDown）。
     //   描き終えた次のフレームで（開く動きの途中で focus すると、ブラウザが要素を見せようとして
     //   シートが一瞬ずれることがあった・2026-09-30）。中の欄がもう自分で focus していれば動かさない。
     const raf = requestAnimationFrame(() => {
       const active = document.activeElement;
       if (active && active !== document.body && container.contains(active)) return;
-      const focusable = getFocusable(container);
-      const target = focusable[0] || container;
-      // コンテナ自身にフォーカスを当てる場合は tabindex を補う。
-      if (target === container && !container.hasAttribute('tabindex')) {
-        container.setAttribute('tabindex', '-1');
-      }
-      try { target.focus({ preventScroll: true }); } catch { /* ignore */ }
+      if (!container.hasAttribute('tabindex')) container.setAttribute('tabindex', '-1');
+      // コンテナの輪は出さない（中の部品に移れば、部品のほうの輪が出る）。
+      if (!container.style.outline) container.style.outline = 'none';
+      try { container.focus({ preventScroll: true }); } catch { /* ignore */ }
     });
 
     // 3. Tab をトラップ（capture で他ハンドラより先に境界判定）。
