@@ -512,6 +512,8 @@ export function selectThreadTurns(messages, { max = 3, before = null, carry = nu
 export const FOLLOWUP_MORE = 'もっと具体的に';
 export const FOLLOWUP_IF_FAIL = 'うまくいかなかったら？';
 export const FOLLOWUP_OTHER_BOOKS = 'ほかの本ではどう言ってる？';
+// チップの見た目は短く（送るのは上の文のまま・入力欄の上の 1 行で読めるように・2026-09-30 ui-critic）。
+export const FOLLOWUP_OTHER_BOOKS_LABEL = 'ほかの本では？';
 // lastAsked: いま送った相談の文。同じチップは出さない（続けて同じ聞き方を並べない・2026-09-30）。
 export function followupChips({ booksWithMemos = 0, lastAsked = '' } = {}) {
   const sent = String(lastAsked || '').trim();
@@ -583,10 +585,12 @@ export function nextStepChips({ replies = [], hasAction = false, booksWithMemos 
   const sent = String(lastAsked || '').trim();
   const reply = (Array.isArray(replies) ? replies : []).slice(0, ASK_REPLY_MAX).map((r) => ({ label: r, send: r, kind: 'reply' }));
   const decide = { label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' };
-  const follow = (q) => ({ label: q, send: q, kind: 'followup' });
+  // label＝チップに出す文・send＝送る文（「ほかの本では？」と出して「ほかの本ではどう言ってる？」を送る）。
+  const follow = (q, label = q) => ({ label, send: q, kind: 'followup' });
+  const followOf = (q) => follow(q, q === FOLLOWUP_OTHER_BOOKS ? FOLLOWUP_OTHER_BOOKS_LABEL : q);
   let list;
-  if (hasAction) list = followupChips({ booksWithMemos }).map(follow);
+  if (hasAction) list = followupChips({ booksWithMemos }).map((q) => followOf(q));
   else if (reply.length > 0) list = [...reply, decide];
-  else list = [decide, follow(FOLLOWUP_MORE), ...(booksWithMemos >= 2 ? [follow(FOLLOWUP_OTHER_BOOKS)] : [])];
+  else list = [decide, followOf(FOLLOWUP_MORE), ...(booksWithMemos >= 2 ? [followOf(FOLLOWUP_OTHER_BOOKS)] : [])];
   return list.filter((c) => c.send !== sent);
 }

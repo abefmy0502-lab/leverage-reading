@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { threadBlock, retrievalQuery, THREAD_MAX_TURNS, turnHint } from './ai';
 import {
   selectThreadTurns, isCompletedAnswer, followupChips, FOLLOWUP_OTHER_BOOKS,
-  parseAskSection, wantsAction, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL,
+  parseAskSection, wantsAction, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, FOLLOWUP_OTHER_BOOKS_LABEL,
 } from './consultHelpers';
 
 const ANSWER = [
@@ -253,11 +253,21 @@ describe('nextStepChips（答えのあとの次のチップ）', () => {
   });
   it('行動を決めた答えのあとは、これまでの深掘りのチップ', () => {
     expect(nextStepChips({ hasAction: true, booksWithMemos: 1 }).map((x) => x.label)).toEqual([FOLLOWUP_MORE, FOLLOWUP_IF_FAIL]);
-    expect(nextStepChips({ hasAction: true, booksWithMemos: 2 }).map((x) => x.label)).toContain(FOLLOWUP_OTHER_BOOKS);
+    expect(nextStepChips({ hasAction: true, booksWithMemos: 2 }).map((x) => x.send)).toContain(FOLLOWUP_OTHER_BOOKS);
   });
   it('行動も候補も無い答えのあとは「行動を決める」が先頭', () => {
     expect(nextStepChips({ hasAction: false, booksWithMemos: 1 }).map((x) => x.label)).toEqual([DECIDE_CHIP, FOLLOWUP_MORE]);
-    expect(nextStepChips({ hasAction: false, booksWithMemos: 2 }).map((x) => x.label)).toEqual([DECIDE_CHIP, FOLLOWUP_MORE, FOLLOWUP_OTHER_BOOKS]);
+    expect(nextStepChips({ hasAction: false, booksWithMemos: 2 }).map((x) => x.label)).toEqual([DECIDE_CHIP, FOLLOWUP_MORE, FOLLOWUP_OTHER_BOOKS_LABEL]);
+  });
+  it('「ほかの本では？」と短く出して、送るのは「ほかの本ではどう言ってる？」（見た目と送る文を分ける）', () => {
+    for (const hasAction of [true, false]) {
+      const c = nextStepChips({ hasAction, booksWithMemos: 3 }).find((x) => x.send === FOLLOWUP_OTHER_BOOKS);
+      expect(c).toEqual({ label: 'ほかの本では？', send: 'ほかの本ではどう言ってる？', kind: 'followup' });
+    }
+    // ほかのチップは見た目と送る文が同じ（label が添字などに化けない）
+    nextStepChips({ hasAction: true, booksWithMemos: 3 }).filter((x) => x.send !== FOLLOWUP_OTHER_BOOKS).forEach((x) => expect(x.label).toBe(x.send));
+    // いま送った文と同じなら出さない（見た目ではなく送る文で比べる）
+    expect(nextStepChips({ hasAction: true, booksWithMemos: 3, lastAsked: FOLLOWUP_OTHER_BOOKS }).map((x) => x.send)).not.toContain(FOLLOWUP_OTHER_BOOKS);
   });
   it('いま送った文と同じチップは出さない（「行動を決める」を続けて出さない）', () => {
     expect(nextStepChips({ hasAction: false, lastAsked: DECIDE_REQUEST }).map((x) => x.kind)).not.toContain('decide');
