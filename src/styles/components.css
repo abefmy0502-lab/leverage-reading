@@ -665,6 +665,7 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   margin: 0 auto var(--space-3);
   max-width: 300px;
 }
+.empty-state-actions:last-child { margin-bottom: 0; }
 .empty-state-tip {
   /* 面は付けない（押せない補足文に色の面を敷くと、押せるものに見える・DESIGN §5）。 */
   font-size: var(--text-sub);

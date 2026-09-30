@@ -4350,9 +4350,9 @@ function AuthedApp() {
               isMemoPhase
                 ? { label: '一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => setShareSheet({ book: current }) }
                 : { label: '共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => shareBook(current) },
-              { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
-              // ヘルプは上の行に単独のボタンで置かず、この「…」の最後に（2026-09-30）。
+              // ヘルプは上の行に単独のボタンで置かず、この「…」の中（削除の直前・削除はいつも最後）に（2026-09-30）。
               { label: 'ヘルプ', icon: <HelpCircle size={16} aria-hidden="true" />, onClick: openHelp },
+              { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
             ]}
           />
         )}

@@ -1304,7 +1304,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                       setTimeout(() => toast.show(askReviewToast()), 5600);
                     }
                   }}
-                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1 }}
+                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1, minWidth: 0, padding: '0 var(--space-3)' }}
                 >
                   <Check size={16} strokeWidth={2.5} aria-hidden="true" />覚えた
                 </button>
@@ -1314,7 +1314,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   disabled={flipping}
                   onClick={() => { answerRandomRecall(randomMemo, false); }}
                   // 1 行に収める（2 つのボタンを同じ高さに・語の途中で折り返さない）。
-                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1, padding: '0 var(--space-3)', whiteSpace: 'nowrap' }}
+                  style={{ ...(flipping ? uiBtnGhostOff : uiBtnGhost), width: 'auto', flex: 1, minWidth: 0, padding: '0 var(--space-3)', whiteSpace: 'nowrap' }}
                 >
                   まだ覚えていない
                 </button>

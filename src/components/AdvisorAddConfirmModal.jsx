@@ -92,9 +92,10 @@ const bodyStyle = {
 };
 
 const recBoxStyle = {
-  background: 'var(--fill)',
+  background: 'var(--surface)',
+  border: '1px solid var(--separator)',
   borderRadius: 'var(--radius)',
-  padding: 'var(--space-3) var(--space-4)',
+  padding: 'var(--space-4)',
 };
 
 // 候補（選んでいるものだけ栗色の枠と淡い面・右にチェック）。
@@ -192,7 +193,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
                     {(c.publisher || c.pubYear) && (
                       <p style={metaText}>{[c.publisher, c.pubYear].filter(Boolean).join(' · ')}</p>
                     )}
-                    {c.isbn && <p style={{ ...metaText, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>ISBN {c.isbn}</p>}
+                    {c.isbn && <p style={{ ...metaText, fontVariantNumeric: 'tabular-nums' }}>ISBN {c.isbn}</p>}
                   </div>
                   {isSelected && <Check size={20} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />}
                 </button>

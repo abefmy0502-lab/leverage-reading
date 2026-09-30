@@ -15,10 +15,10 @@
 //   className    — 追加のクラス（例: error-message--fill＝置いた場所の高さいっぱいに広げ、中身を上下の真ん中に）
 //                  variant: 'primary' | 'secondary' | 'ghost' (default secondary)
 
-// 主ボタンはアプリ共通の 48/17（ui.js の btnPrimary と同じ）。副・文字ボタンは控えめな 44/15。
+// 主・副ボタンはアプリ共通の 48/17（ui.js の btnPrimary / btnGhost と同じ・2026-09-30）。文字ボタンは控えめな 44/15。
 const variantClass = {
   primary: 'btn btn-primary',
-  secondary: 'btn btn-secondary btn-sm',
+  secondary: 'btn btn-secondary',
   ghost: 'btn btn-ghost btn-sm',
 };
 
