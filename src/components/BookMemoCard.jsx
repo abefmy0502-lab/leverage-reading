@@ -151,12 +151,12 @@ export default function BookMemoCard({ memo, highlight, onEdit, onSwipeDelete, o
       style={{
         ...cardWrap,
         ...(onEdit ? { cursor: 'pointer' } : {}),
-        // highlight === 'focus': 振り返りの検索などから開いた「このメモ」を少しのあいだ栗色で示す。
-        borderColor: highlight === 'focus' ? 'var(--accent)' : 'var(--separator)',
-        ...(highlight === 'focus' ? { background: 'var(--accent-soft)' } : {}),
+        // highlight === 'focus': 振り返り・すべての本の検索から開いた「このメモ」を、淡い面で一度だけ示す
+        //   （.just-added-card・枠は栗色にしない＝アクセントは押せる場所だけ・DESIGN §3-2・2026-09-30）。
+        borderColor: 'var(--separator)',
         transition: 'background-color var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out)',
       }}
-      className={highlight && highlight !== 'focus' ? 'just-added' : undefined}
+      className={highlight === 'focus' ? 'just-added-card' : highlight ? 'just-added' : undefined}
       role="article"
       aria-label={cardAria}
       data-memo-id={memo.id}

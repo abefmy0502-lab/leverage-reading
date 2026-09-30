@@ -208,3 +208,12 @@ describe('メモのタグだけで見つかったとき', () => {
     expect(hit.tag).toBe(null);
   });
 });
+
+describe('一節の上の行（ページと書いた日）', () => {
+  it('メモで見つかったときは書いた日も返す（画面は「p.64 · 5/27」）', () => {
+    const idx = buildLibraryIndex([{ id: 'e', title: 'X' }], [{ id: 'm', book_id: 'e', text: '断る余地', created_at: '2026-05-27T10:00:00Z' }]);
+    const hit = searchLibrary(idx, '断る').results[0].hit;
+    expect(hit.createdAt).toBe('2026-05-27T10:00:00Z');
+    expect(hit.page).toBe(null);
+  });
+});

@@ -5224,9 +5224,7 @@ function AuthedApp() {
               </button>
             </div>
             )}
-            {/* 独自名のサブタブを初対面でも分かるよう、役割を動詞で先頭に置いて注釈する。
-                3 つの違い（選ぶ/聞く/しぼる）を一目で言語化できるようにする。 */}
-            {/* サブタブの下に説明文は置かない（各画面の見出しで伝わる・DESIGN §0-6）。 */}
+            {/* サブタブ（相談｜AI 選書）の下に説明文は置かない（各画面の見出しで伝わる・DESIGN §0-6）。 */}
             <div className="ai-page-body">
               {aiSubTab === 'advisor' ? (
                 <Suspense fallback={<TabPanelSkeleton />}>

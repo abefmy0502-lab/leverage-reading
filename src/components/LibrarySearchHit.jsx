@@ -6,6 +6,7 @@ import { ChevronRight, MessageCircle } from 'lucide-react';
 import { MiniCover, StatusLabel } from './BookCards';
 import { btnLink, groupTitle } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
+import { fmtDateJa } from '../lib/dates';
 
 // 見つかった言葉の印（DESIGN §5「検索の一致の印」）: アクセントを面に 22% 混ぜた面＋太さ 600（色だけに頼らない）。
 // --accent-soft は暗い画面でカードの面とほぼ同じで見えなかった（2026-09-30 ui-critic）。
@@ -19,7 +20,8 @@ const markStyle = {
 
 export function hitLabel(hit) {
   if (!hit) return '';
-  if (hit.kind === 'memo') return Number.isFinite(hit.page) ? `p.${hit.page}` : 'メモ';
+  // メモはページと書いた日（「p.64 · 5/27」・ページの無いメモは「5/27」＝本の詳細のメモと同じ書き方・2026-09-30）
+  if (hit.kind === 'memo') return [Number.isFinite(hit.page) ? `p.${hit.page}` : '', fmtDateJa(hit.createdAt)].filter(Boolean).join(' · ') || 'メモ';
   return hit.label || '';
 }
 
