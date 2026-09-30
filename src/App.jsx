@@ -179,7 +179,7 @@ import {
 import { useBookMemos } from './hooks/useBookMemos';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
-import { LibrarySearchResults, ConsultSearchLink } from './components/LibrarySearchHit';
+import { LibrarySearchResults, ConsultSearchLink, LibrarySearchHitSkeleton } from './components/LibrarySearchHit';
 import { consultQuestionFor } from './lib/librarySearch';
 // 重い画面の切り替え（すべての本を開く）は後回しにできる更新にして、押した形を先に描く（lib/pressFeedback.js と組）。
 import { startTransition } from 'react';
@@ -4858,7 +4858,8 @@ function AuthedApp() {
                 {/* 検索中は「すべての本 0 冊」と見せない（本が無いように読める）。何冊の中から何冊見つかったかを出す（2026-09-29）。 */}
                 {!((booksLoading || booksLoadError) && rawBooks.length === 0) && (
                   <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
-                    {libraryQuery ? `${rawBooks.length} 冊中 ${filtered.length} 冊` : `${filtered.length} 冊`}
+                    {/* メモを読んでいる間で、まだ何も見つかっていないときは「0 冊」と言い切らない（2026-09-30） */}
+                    {libraryQuery ? (librarySearch.memoStatus === 'loading' && filtered.length === 0 ? `${rawBooks.length} 冊中` : `${rawBooks.length} 冊中 ${filtered.length} 冊`) : `${filtered.length} 冊`}
                   </span>
                 )}
               </div>
@@ -5001,8 +5002,8 @@ function AuthedApp() {
                   actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
                 />
               ) : filtered.length === 0 && libraryQuery && librarySearch.memoStatus === 'loading' ? (
-                // メモを読み終えるまでは「該当する本がありません」と言わない（本の行の形で待つ）。
-                <BookListSkeleton rows={3} />
+                // メモを読み終えるまでは「該当する本がありません」と言わない（メモで見つかった本の行と同じ形・高さで待つ）。
+                <LibrarySearchHitSkeleton rows={3} />
               ) : filtered.length === 0 ? (
                 rawBooks.length === 0 ? (
                   <EmptyState

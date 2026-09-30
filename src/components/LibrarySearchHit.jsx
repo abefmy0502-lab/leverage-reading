@@ -7,6 +7,7 @@ import { MiniCover, StatusLabel } from './BookCards';
 import { btnLink, groupTitle } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 import { fmtDateJa } from '../lib/dates';
+import { SkeletonBlock } from './Skeleton';
 
 // 見つかった言葉の印（DESIGN §5「検索の一致の印」）: アクセントを面に 22% 混ぜた面＋太さ 600（色だけに頼らない）。
 // --accent-soft は暗い画面でカードの面とほぼ同じで見えなかった（2026-09-30 ui-critic）。
@@ -94,6 +95,34 @@ const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAuto
 });
 
 export default LibrarySearchHit;
+
+// メモで見つかった本の行と同じ高さ・同じ枠の待ち表示（メモを読んでいる間・何も見つかっていないとき・2026-09-30 ui-critic）。
+//   本の行（表紙 44×62・書名 17・状態 13）→ 書名の列にそろえて 13 の 1 行（p.N · 日付）→ 15（行間 1.6）の 2 行。
+export function LibrarySearchHitSkeleton({ rows = 3 }) {
+  const line = (h, w, style) => (
+    <span style={{ display: 'flex', alignItems: 'center', height: h, ...style }}><SkeletonBlock width={w} height={12} /></span>
+  );
+  return (
+    <div role="status" aria-label="メモの中を探しています" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }}>
+          <span style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+            <SkeletonBlock width={44} height={62} radius={4} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, display: 'block' }}>
+              {line('calc(var(--text-body) * 1.5)', '60%')}
+              {line('calc(var(--text-meta) * 1.5)', '45%', { marginTop: 'var(--space-1)' })}
+            </span>
+          </span>
+          <span style={{ display: 'block', marginTop: 'var(--space-2)', paddingLeft: 'calc(44px + var(--space-3))' }}>
+            {line('calc(var(--text-meta) * 1.5)', 64)}
+            {line('calc(var(--text-sub) * 1.6)', '92%')}
+            {line('calc(var(--text-sub) * 1.6)', '70%')}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // 検索の結果の一覧。書名・著者・タグで見つかった本 → メモなどで見つかった本 の 2 つのまとまり
 // （見出しは、両方があるとき・メモで見つかった本があるときだけ）。いちばん下に文字ボタン「相談で探す」。
