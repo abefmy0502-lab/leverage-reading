@@ -53,11 +53,13 @@ const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--
 // relativeJa / recallFraming は src/lib/recall.js に切り出して
 // サーバー（api/push-cron.js の想起通知）と文言を共有している。
 
+// 本の詳細のメモと同じ「9/28」。今年でなければ年も（「2025/9/28」・2026-09-30）。
 function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  const md = `${d.getMonth() + 1}/${d.getDate()}`;
+  return d.getFullYear() === new Date().getFullYear() ? md : `${d.getFullYear()}/${md}`;
 }
 
 function monthKey(iso) {
@@ -325,9 +327,13 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
         </div>
         )}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
-          {showRelative ? relativeJa(memo.createdAt) : fmtDate(memo.createdAt)}
-          {/* ページは日付と同じ行に（「5 か月前 · p.88」・別の行にすると本文との間が空く・2026-09-29） */}
-          {memo.pageNumber != null && !isPersonal && <> · p.{memo.pageNumber}</>}
+          {/* ページは日付と同じ行に（「5 か月前 · p.88」・別の行にすると本文との間が空く・2026-09-29）。
+              日付のときは本の詳細のメモと同じ並び（「p.95 · 9/28」・2026-09-30）。 */}
+          {showRelative ? (
+            <>{relativeJa(memo.createdAt)}{memo.pageNumber != null && !isPersonal && <> · p.{memo.pageNumber}</>}</>
+          ) : (
+            <>{memo.pageNumber != null && !isPersonal && <>p.{memo.pageNumber} · </>}{fmtDate(memo.createdAt)}</>
+          )}
           {/* 「…」（横・DESIGN §5）。押せる範囲 44 は保ち、行の高さは負の余白で増やさない。 */}
           {onOpenMenu && (
             <button
