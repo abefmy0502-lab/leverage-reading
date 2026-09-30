@@ -163,8 +163,7 @@ function ToastHud({ toast }) {
   return (
     <div
       className={toast.duration > 1150 ? 'toast-hud toast-hud-long' : 'toast-hud'}
-      role="status"
-      aria-live="polite"
+      // 読み上げは外側の入れ物（いつもある live region）に任せる（入れ子で 2 回読まれていた・2026-09-30）。
       style={{
         '--hud-dur': `${toast.duration}ms`,
         display: 'flex',
@@ -335,7 +334,7 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* 中央 ✓ HUD（成功） */}
-      <div style={hudContainerStyle} aria-live="polite">
+      <div style={hudContainerStyle} role="status" aria-live="polite">
         {hudToasts.slice(-1).map((toast) => (
           <ToastHud key={toast.id} toast={toast} />
         ))}

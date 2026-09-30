@@ -753,7 +753,8 @@ export default function ThemeReport({ onActionAdded, onOpenActions, onGoBookshel
                 </div>
               ) : (
                 // 完成後は「核心」を先頭のカードで示し、残り(原則/次の一歩)を下に。
-                <div aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                // ここは live region にしない（中の「行動に追加しました」の role="status" と二重に読まれていた・2026-09-30）。
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                   {extractCore(reportText) && <CoreCard line={extractCore(reportText)} />}
                   <MarkdownSections text={stripCoreSection(reportText)} />
                   {/* 次の一歩を 1 タップで行動リストへ（この画面の主ボタン）。「次の一歩」のカードのすぐ下に置く */}
