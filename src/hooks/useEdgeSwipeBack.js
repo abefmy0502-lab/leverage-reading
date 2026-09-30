@@ -90,8 +90,17 @@ export function useEdgeSwipeBack({
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return undefined;
     let el = null;
+    // 画面の外に固定で浮いているボタン（本の詳細の「メモを書く」＝data-fab）も画面と一緒に動かす
+    // （画面だけが右へ流れて、ボタンが元の場所に取り残されていた・2026-09-30）。
+    let fab = null;
     let raf = 0;
     let settling = false;
+    const findFab = (node) => {
+      try {
+        const f = document.querySelector('[data-fab]');
+        return f && !(node && node.contains(f)) ? f : null;
+      } catch { return null; }
+    };
 
     const paint = () => {
       raf = 0;
@@ -100,6 +109,10 @@ export function useEdgeSwipeBack({
       el.style.transition = 'none';
       el.style.transform = x > 0 ? `translate3d(${x}px, 0, 0)` : '';
       el.style.boxShadow = x > 0 ? 'var(--shadow-overlay)' : '';
+      if (fab) {
+        fab.style.transition = 'none';
+        fab.style.transform = x > 0 ? `translate3d(${x}px, 0, 0)` : '';
+      }
     };
     const schedule = () => { if (!raf) raf = requestAnimationFrame(paint); };
     const clearStyles = (node) => {
@@ -110,11 +123,14 @@ export function useEdgeSwipeBack({
       node.style.willChange = '';
     };
     // 離したあとの動き（transition）。終わったら（または届かなくても一定時間で）done。
-    const animateTo = (node, x, done) => {
+    const animateTo = (node, x, done, companion = null) => {
       if (!node) { done?.(); return; }
       const dur = reducedMotion() ? 0 : ms(cssVar('--duration-fast', '200ms'));
-      node.style.transition = `transform ${dur}ms ${cssVar('--ease-out', 'ease-out')}`;
-      node.style.transform = x > 0 ? `translate3d(${x}px, 0, 0)` : '';
+      [node, companion].forEach((n) => {
+        if (!n) return;
+        n.style.transition = `transform ${dur}ms ${cssVar('--ease-out', 'ease-out')}`;
+        n.style.transform = x > 0 ? `translate3d(${x}px, 0, 0)` : '';
+      });
       window.setTimeout(() => done?.(), dur + 20);
     };
 
@@ -146,6 +162,8 @@ export function useEdgeSwipeBack({
         if (directionRef.current === 'horizontal') {
           try { el = getTargetRef.current?.() || null; } catch { el = null; }
           if (el) el.style.willChange = 'transform';
+          fab = el ? findFab(el) : null;
+          if (fab) fab.style.willChange = 'transform';
         }
       }
       if (directionRef.current !== 'horizontal') return;
@@ -163,13 +181,15 @@ export function useEdgeSwipeBack({
       if (startXRef.current === null) return;
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
       const node = el;
+      const companion = fab;
       el = null;
+      fab = null;
       const passed = directionRef.current === 'horizontal'
         && offsetRef.current >= threshold && blockers === 0 && !hasBackLayers();
       setOffsetState(0);
       reset();
       if (!passed) {
-        animateTo(node, 0, () => clearStyles(node));
+        animateTo(node, 0, () => { clearStyles(node); clearStyles(companion); }, companion);
         return;
       }
       settling = true;
@@ -177,7 +197,7 @@ export function useEdgeSwipeBack({
         let ok = true;
         try { ok = beforeBackRef.current ? (await beforeBackRef.current()) !== false : true; } catch { ok = false; }
         if (!ok) {
-          animateTo(node, 0, () => { clearStyles(node); settling = false; });
+          animateTo(node, 0, () => { clearStyles(node); clearStyles(companion); settling = false; }, companion);
           return;
         }
         const width = window.innerWidth || 390;
@@ -186,9 +206,10 @@ export function useEdgeSwipeBack({
           // 同じ要素のまま中身だけ替わる画面（すべての本 → ホーム）は、位置を戻して左から出す。
           requestAnimationFrame(() => {
             if (node?.isConnected) { clearStyles(node); playPop(node); }
+            if (companion?.isConnected) clearStyles(companion);
             settling = false;
           });
-        });
+        }, companion);
       })();
     };
 
@@ -200,6 +221,7 @@ export function useEdgeSwipeBack({
     return () => {
       if (raf) cancelAnimationFrame(raf);
       if (el) clearStyles(el);
+      if (fab) clearStyles(fab);
       window.removeEventListener('touchstart', handleStart);
       window.removeEventListener('touchmove', handleMove);
       window.removeEventListener('touchend', handleEnd);
