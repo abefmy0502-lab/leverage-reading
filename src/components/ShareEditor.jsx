@@ -75,6 +75,9 @@ const DEMO_EDIT = import.meta.env.DEV && import.meta.env.VITE_DEMO === 'true' &&
 const TAP_MS = 320;
 const MOVE_PX = 6;
 
+// 描けなかったときの案内（この画面に地の選択は無い＝戻って選んでもらう）。
+const EDIT_ERROR = '「完了」で戻って紙・夜を選ぶか、もう一度お試しください。';
+
 export default function ShareEditor({
   getOpts, drawKey, ready, format, ground, canPan, photo, view, onView,
   items = [], hidden = [], onToggleItem, phrase, onPhrase, onClose,
@@ -110,14 +113,16 @@ export default function ShareEditor({
     const canvas = canvasRef.current;
     if (!canvas || !ready || DEMO_EDIT === 'editslow') return;
     try {
-      if (DEMO_EDIT === 'editfail') throw new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。');
+      if (DEMO_EDIT === 'editfail') throw new Error(EDIT_ERROR);
       const opts = getOpts();
       const r = drawShareCard(canvas, opts);
       setSize((s) => (s.w === r.width && s.h === r.height ? s : { w: r.width, h: r.height }));
       setBox(opts.phrase ? measurePhraseBox(opts, { W: r.width, H: r.height }) : null);
       setStatus('ready');
     } catch (e) {
-      setError(toMessage(e, '紙・夜など、ほかの色を選ぶか、もう一度お試しください。'));
+      // 編集画面には地の選択が無いので、シートの案内（「紙・夜など…を選ぶ」）は「完了」で戻る案内に置き換える。
+      const msg = toMessage(e, EDIT_ERROR);
+      setError(msg.startsWith('紙・夜など') ? EDIT_ERROR : msg);
       setStatus('error');
     }
   }, [getOpts, ready]);
