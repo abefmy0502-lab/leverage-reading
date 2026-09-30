@@ -281,7 +281,10 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
               ‹ {getHelp(startKey).title}
             </button>
           )}
-          <h2 id="help-modal-title" style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, minWidth: 0 }}>{entry ? `${entry.title}のヘルプ` : 'ヘルプ'}</h2>
+          <h2 id="help-modal-title" style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, minWidth: 0 }}>
+            {/* 切り替えたあとは左に戻り先が並ぶので、あふれないよう画面の名前だけ */}
+            {entry ? (key !== startKey ? entry.title : `${entry.title}のヘルプ`) : 'ヘルプ'}
+          </h2>
           <button type="button" style={closeBtnStyle} onClick={requestClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
