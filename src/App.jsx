@@ -4859,7 +4859,7 @@ function AuthedApp() {
                 {!((booksLoading || booksLoadError) && rawBooks.length === 0) && (
                   <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
                     {/* メモを読んでいる間で、まだ何も見つかっていないときは「0 冊」と言い切らない（2026-09-30） */}
-                    {libraryQuery ? (librarySearch.memoStatus === 'loading' && filtered.length === 0 ? `${rawBooks.length} 冊中` : `${rawBooks.length} 冊中 ${filtered.length} 冊`) : `${filtered.length} 冊`}
+                    {libraryQuery ? (librarySearch.memoStatus === 'loading' && filtered.length === 0 ? `${rawBooks.length} 冊中 …` : `${rawBooks.length} 冊中 ${filtered.length} 冊`) : `${filtered.length} 冊`}
                   </span>
                 )}
               </div>

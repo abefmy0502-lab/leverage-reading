@@ -33,7 +33,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, LOOKUP_APPLY_CHIP } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
@@ -1855,7 +1855,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
-          {historyLoaded && !busy && (isEmpty ? (memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !freeUsedUp && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
+          {historyLoaded && !busy && (isEmpty ? (!input.trim() && memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !freeUsedUp && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
             <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-6) 0 0', lineHeight: 1.5, ...(isEmpty ? null : { marginLeft: ANSWER_COLUMN }) }}>
               AI の回答には誤りが含まれることがあります
             </p>
@@ -1962,7 +1962,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 : lastAsksBack ? '質問に答える・続けて聞く'
                 // 関係するメモが無かった答えのあとは、続きの例ではなく新しい相談の例（2026-09-30 ui-critic）。
                 // 本を探す問いの答えのあとは、見つかったメモをいまに活かす問いの例（本を探す問いは続きの材料に入れないので threadActive に頼らない）。
-                : lastLookup && !isNoInfoAnswer(lastVisible) ? `続けて聞く：${LOOKUP_APPLY_CHIP}`
+                : lastLookup && !isNoInfoAnswer(lastVisible) ? '続けて聞く・ほかの言葉で探す'
                 : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く：乗り気でないときは？' : '例：上司への報告がうまくいかない'}
               rows={1}
               // 答えを書いている間も押せなくしない（disabled にすると入力欄からフォーカスが外れ、下のタブが
