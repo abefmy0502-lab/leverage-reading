@@ -233,7 +233,9 @@ export function matchRanges(text, compiled) {
 
 // 約 40 字の一節と、印を付ける所。[{ text, match }]（先頭・末尾を切ったら「…」を付ける）。
 // 見つかった言葉の文の頭から始める（文の頭が遠いときは、言葉の少し前から）。
-export function buildSnippet(text, compiled, { chars = SNIPPET_CHARS, lead = 10, sentenceReach = 24 } = {}) {
+// 一節は 2 行（約 40 字）で切れて見えるので、言葉が 2 行目の後ろに押し出されないよう、
+// 文の頭へ戻るのは 12 字まで・言葉の前は 8 字までにする（2026-09-30 ui-critic）。
+export function buildSnippet(text, compiled, { chars = SNIPPET_CHARS, lead = 8, sentenceReach = 12 } = {}) {
   const src = String(text || '');
   const ranges = matchRanges(src, compiled);
   const anchor = ranges.length ? ranges[0][0] : 0;

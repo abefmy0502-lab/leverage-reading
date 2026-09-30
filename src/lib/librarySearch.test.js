@@ -146,11 +146,18 @@ describe('本を探す', () => {
 });
 
 describe('一節', () => {
-  it('見つかった言葉の文の頭から、約 40 字', () => {
+  it('文の頭が 12 字以内なら文の頭から、約 40 字', () => {
+    const seg = buildSnippet('前の文。予備の時間（バッファ）を最初から入れておく。', compileTerms([normalizeSearch('バッファ')]));
+    expect(text(seg)).toBe('…予備の時間（バッファ）を最初から入れておく。');
+    expect(marked(seg)).toEqual(['バッファ']);
+  });
+  it('文の頭が遠ければ言葉の 8 字前から（2 行で切れても言葉が見える）', () => {
     const [ct] = compileTerms(['断る']);
     const seg = buildSnippet(MEMOS[0].text, [ct]);
     const t = text(seg);
-    expect(t.startsWith('…「確認して返事します」')).toBe(true);
+    expect(t).toBe('…一度持ち帰ると、断る余地が生まれる。');
+    // 言葉は一節の前から 20 字以内（2 行＝約 36 字の中）
+    expect(t.indexOf('断る')).toBeLessThanOrEqual(20);
     expect([...t.replace(/…/g, '')].length).toBeLessThanOrEqual(SNIPPET_CHARS);
   });
   it('長い文は言葉の少し前から始め、前後を「…」で切る', () => {
