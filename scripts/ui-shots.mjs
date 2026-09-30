@@ -41,9 +41,9 @@ const EDIT_TITLE_ONLY_LOGO = editSwitchesOff(['書名', 'Orime のロゴ']);
 const EDIT_TOP = { eval: `document.querySelectorAll('${EDIT} *').forEach((el) => { el.scrollTop = 0; })` };
 const EDIT_BLUR = { eval: '(() => { if (document.activeElement) document.activeElement.blur(); })()' };
 const EDIT_PHRASE = [{ css: `${EDIT} button:has-text("言葉を入れる")` }, { fill: [`${EDIT} input[type=text]`, '問いの質が、答えの質を決める。'] }, { wait: 1200 }];
-// 言葉を指で下へ動かす（上から 30% → 52%）。
-const EDIT_PHRASE_DRAG = { eval: `(() => { const st = document.querySelector('${EDIT} canvas').parentElement; const r = st.getBoundingClientRect(); const x = r.left + r.width / 2; const y0 = r.top + r.height * 0.3; const ev = (type, y) => st.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); ev('pointerdown', y0); for (let i = 1; i <= 10; i += 1) ev('pointermove', y0 + (r.height * 0.22 * i) / 10); ev('pointerup', y0 + r.height * 0.22); })()` };
-const EDIT_PHRASE_GROW = editWheel({ deltaY: -30, ctrlKey: true }, 0.52);
+// 言葉を指で上へ動かす（上から 24% → 12%）。
+const EDIT_PHRASE_DRAG = { eval: `(() => { const st = document.querySelector('${EDIT} canvas').parentElement; const r = st.getBoundingClientRect(); const x = r.left + r.width / 2; const y0 = r.top + r.height * 0.24; const ev = (type, y) => st.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); ev('pointerdown', y0); for (let i = 1; i <= 10; i += 1) ev('pointermove', y0 - (r.height * 0.12 * i) / 10); ev('pointerup', y0 - r.height * 0.12); })()` };
+const EDIT_PHRASE_GROW = editWheel({ deltaY: -30, ctrlKey: true }, 0.14);
 
 // 画面の定義: url（お試しモードのシナリオ）と、そこに至る操作。
 const SCREENS = [
@@ -348,8 +348,8 @@ const SCREENS = [
     const pick = { eval: `(() => { const b = [...document.querySelectorAll('[aria-label="画像を編集"] [role=radiogroup][aria-label="言葉の形"] [role=radio]')].find((x) => x.textContent.includes('${label}')); if (b) b.click(); })()` };
     return [
       // 手書き風は Google Fonts を読み込めてから出る（遅い通信を待つ）。
-      { name: `share-edit-phrase-${key}-photo`, url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 9000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
-      { name: `share-edit-phrase-${key}-paper`, url: '/', steps: [...SHARE_PAPER, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 9000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
+      { name: `share-edit-phrase-${key}-photo`, url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 20000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
+      { name: `share-edit-phrase-${key}-paper`, url: '/', steps: [...SHARE_PAPER, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 20000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
     ];
   }),
   { name: 'share-edit-phrase-band-story', url: '/', steps: [...SHARE_CAMERA, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, { css: `${EDIT} [role=radio]:has-text("白抜きの帯")` }, { wait: 1200 }, EDIT_BLUR, EDIT_TOP] },
