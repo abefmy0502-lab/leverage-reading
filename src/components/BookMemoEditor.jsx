@@ -13,6 +13,7 @@ import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost 
 import { ensureHttps } from '../lib/url';
 import { BookOpen, Sparkles, Undo2, ImagePlus, X } from 'lucide-react';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
+import { useBackLayer } from '../hooks/useHistoryBack';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -180,6 +181,10 @@ export default function BookMemoEditor({
 }) {
   // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
   useBlockEdgeSwipe(true);
+  // ブラウザ / Android の「戻る」もこの画面だけを閉じる（書きかけがあれば「キャンセル」と同じ確認・2026-09-30）。
+  // overBlock: 自分の useBlockEdgeSwipe があっても「戻る」をこの画面に渡す（QuickMemoSheet と同じ）。
+  const requestCloseRef = useRef(null);
+  useBackLayer(true, () => requestCloseRef.current?.(), { overBlock: true });
   const isEdit = Boolean(initial?.id);
   const [pageNumber, setPageNumber] = useState(
     initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '')
@@ -435,6 +440,48 @@ export default function BookMemoEditor({
     return parts.join(' ');
   })();
 
+  // 閉じる（「キャンセル」・「戻る」で共通）。書きかけがあれば確かめる。閉じたら true、留まったら false。
+  const requestClose = async () => {
+    if (busy) return false;
+    // 下書きを打ち込んだ状態の「戻る」は無確認で捨てない（本文・写真・
+    // タグのいずれかが初期値から変わっている時だけ確認を挟む）。
+    // ページ番号・写真を外したことも変更に数える（2026-09-29）。
+    const initialPage = initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '');
+    const dirty =
+      text !== (initial?.text || defaultText || '')
+      || !!photoFile
+      || removePhotoFlag
+      || String(pageNumber ?? '').trim() !== initialPage.trim()
+      || JSON.stringify(tags) !== JSON.stringify(initial?.tags || defaultTags || []);
+    if (dirty) {
+      // 保存済みのメモを直しているときは、捨てても元のメモは残る（「書いたことを消す」だと
+      // メモごと消えるように読める・2026-09-29）。
+      const ok = await confirmDialog(isEdit ? {
+        title: '保存していない変更があります',
+        message: 'メモは元のまま残ります',
+        confirmLabel: '直したところを捨てる',
+        cancelLabel: '編集を続ける',
+        danger: true,
+      } : {
+        title: '書きかけのメモがあります',
+        message: '消すと、元に戻せません。',
+        confirmLabel: '書いたことを消す',
+        cancelLabel: '編集を続ける',
+        danger: true,
+      });
+      if (!ok) {
+        // 「編集を続ける」: 本文にカーソルを戻す（確認の画面が閉じてフォーカスを返し終えてから）。
+        setTimeout(() => {
+          try { bodyRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+        }, 0);
+        return false;
+      }
+    }
+    onClose?.();
+    return true;
+  };
+  requestCloseRef.current = requestClose;
+
   // body 直下へ portal で描く。本の詳細の .detail-enter は入場アニメの transform が残るため、
   // その中に置くと position: fixed が画面ではなく親基準になり、z-index も親の重なりに閉じ込め
   // られて、下のタブバーと「メモを書く」ボタンが保存ボタンの上に重なっていた。
@@ -443,38 +490,7 @@ export default function BookMemoEditor({
       <div style={headerBar}>
         <button
           type="button"
-          onClick={async () => {
-            if (busy) return;
-            // 下書きを打ち込んだ状態の「戻る」は無確認で捨てない（本文・写真・
-            // タグのいずれかが初期値から変わっている時だけ確認を挟む）。
-            // ページ番号・写真を外したことも変更に数える（2026-09-29）。
-            const initialPage = initial?.pageNumber != null ? String(initial.pageNumber) : (defaultPageNumber !== '' ? String(defaultPageNumber) : '');
-            const dirty =
-              text !== (initial?.text || defaultText || '')
-              || !!photoFile
-              || removePhotoFlag
-              || String(pageNumber ?? '').trim() !== initialPage.trim()
-              || JSON.stringify(tags) !== JSON.stringify(initial?.tags || defaultTags || []);
-            if (dirty) {
-              // 保存済みのメモを直しているときは、捨てても元のメモは残る（「書いたことを消す」だと
-              // メモごと消えるように読める・2026-09-29）。
-              const ok = await confirmDialog(isEdit ? {
-                title: '保存していない変更があります',
-                message: 'メモは元のまま残ります',
-                confirmLabel: '直したところを捨てる',
-                cancelLabel: '編集を続ける',
-                danger: true,
-              } : {
-                title: '書きかけのメモがあります',
-                message: '消すと、元に戻せません。',
-                confirmLabel: '書いたことを消す',
-                cancelLabel: '編集を続ける',
-                danger: true,
-              });
-              if (!ok) return;
-            }
-            onClose?.();
-          }}
+          onClick={() => { requestClose(); }}
           // 保存中は押せない（薄くせず、文字の色だけ --text-3・DESIGN §5「押せないボタン」）。
           style={{ ...backBtn, cursor: busy ? 'default' : 'pointer', color: busy ? 'var(--text-3)' : backBtn.color }}
           aria-disabled={busy}

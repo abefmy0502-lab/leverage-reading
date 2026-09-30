@@ -5,7 +5,7 @@ import { useAppDataCache } from '../state/AppDataCache';
 import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
 import SwipeableCard from './SwipeableCard';
-import { MoreHorizontal, Share, Target, X } from 'lucide-react';
+import { MoreHorizontal, X } from 'lucide-react';
 
 const cardWrap = {
   position: 'relative',
@@ -58,48 +58,21 @@ const kebabBtn = {
   lineHeight: 1,
 };
 
-// ⚠️ このメニューと写真拡大モーダルは createPortal で body 直下に出す。
+// ⚠️ 写真拡大モーダルは createPortal で body 直下に出す。
 // カードは SwipeableCard の transform + overflow:hidden 配下にあり、
-// カード内に描くと (a) メニューが短いカードでクリップされ「削除」に届かない
-// (b) position:fixed が transform を containing block として全画面にならない。
-const menuStyle = {
-  position: 'fixed',
-  background: 'var(--surface)',
-  border: '1px solid var(--separator)',
-  borderRadius: 'var(--radius)',
-  boxShadow: 'var(--shadow-overlay)',
-  zIndex: 300,
-  display: 'flex',
-  flexDirection: 'column',
-  minWidth: 110,
-  overflow: 'hidden',
-};
-
-const menuItem = {
-  background: 'none',
-  border: 'none',
-  padding: 'var(--space-3) var(--space-4)',
-  minHeight: 44,
-  fontSize: 'var(--text-body)',
-  textAlign: 'left',
-  fontFamily: 'inherit',
-  cursor: 'pointer',
-  color: 'var(--text)',
-  WebkitTapHighlightColor: 'transparent',
-};
+// カード内に描くと position:fixed が transform を containing block として全画面にならない。
+// 「…」のメニューは長押しと同じ ContextMenu（BookMemoList が出す）。
 
 // 日付の書き方はアプリ全体で 1 つ（今年は「9/20」、違う年は「2025/9/20」）。
 const formatDate = (iso) => fmtDateJa(iso);
 
-export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare, onDelete, onMakeAction, onSwipeDelete, onLongPress }) {
+export default function BookMemoCard({ memo, highlight, onEdit, onSwipeDelete, onLongPress }) {
   const cache = useAppDataCache();
   // Synchronous cache hit → render the image immediately on first paint.
   const initialUrl = memo.photoPath ? cache.getCachedPhotoUrl(memo.photoPath) : null;
   const [photoUrl, setPhotoUrl] = useState(initialUrl);
   const [photoLoaded, setPhotoLoaded] = useState(false);
   const [zoom, setZoom] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // fixed 座標（portal 用）
 
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, memo }),
@@ -133,19 +106,6 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
     };
   }, [memo.photoPath, cache]);
 
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-    const close = () => setMenuOpen(false);
-    window.addEventListener('click', close);
-    // portal + position:fixed のメニューはスクロールに追従しない。開いたまま
-    // スクロールするとカードから切り離されて浮くため、スクロールで閉じる
-    // （内側スクロールコンテナのイベントは bubble しないので capture で拾う）。
-    window.addEventListener('scroll', close, { capture: true, passive: true });
-    return () => {
-      window.removeEventListener('click', close);
-      window.removeEventListener('scroll', close, { capture: true });
-    };
-  }, [menuOpen]);
 
   // 写真拡大モーダルは背景タップで閉じるが、キーボード利用者向けに Esc でも
   // 閉じられるようにする（モーダルの基本作法・a11y）。
@@ -205,14 +165,11 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
     >
       <button
         type="button"
+        // 長押しと同じメニュー（ContextMenu・アイコンつき・BookMemoList の memoMenu）を「…」の下に開く（2026-09-30）。
         onClick={(e) => {
           e.stopPropagation();
           const rect = e.currentTarget.getBoundingClientRect();
-          setMenuPos({
-            top: Math.min(rect.bottom + 2, (window.innerHeight || 800) - 240),
-            right: Math.max(8, (window.innerWidth || 400) - rect.right),
-          });
-          setMenuOpen((v) => !v);
+          onLongPress?.({ x: rect.right - 8, y: rect.bottom + 4, memo });
         }}
         className="icon-btn"
         style={{ ...kebabBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -220,78 +177,6 @@ export default function BookMemoCard({ memo, highlight, onEdit, onCopy, onShare,
       >
         <MoreHorizontal size={20} strokeWidth={1.75} aria-hidden="true" />
       </button>
-      {menuOpen && createPortal(
-        <div
-          style={{ ...menuStyle, top: menuPos.top, right: menuPos.right }}
-          onClick={(e) => e.stopPropagation()}
-          // portal でも React ツリー上は SwipeableCard / useLongPress の子のまま
-          // なので、合成 touch イベントが背後のスワイプ削除・長押しに届く。遮断する。
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            style={menuItem}
-            onClick={() => {
-              setMenuOpen(false);
-              onEdit?.(memo);
-            }}
-          >
-            編集
-          </button>
-          {onCopy && (
-            <button
-              type="button"
-              style={menuItem}
-              onClick={() => {
-                setMenuOpen(false);
-                onCopy(memo);
-              }}
-            >
-              コピー
-            </button>
-          )}
-          {onMakeAction && (memo.text || '').trim() && (
-            <button
-              type="button"
-              style={menuItem}
-              onClick={() => {
-                setMenuOpen(false);
-                onMakeAction(memo);
-              }}
-            >
-              <Target size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-1)' }} />
-              行動に追加
-            </button>
-          )}
-          {onShare && (memo.text || '').trim() && (
-            <button
-              type="button"
-              style={menuItem}
-              onClick={() => {
-                setMenuOpen(false);
-                onShare(memo);
-              }}
-            >
-              <Share size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-1)' }} />
-              この一文をシェア
-            </button>
-          )}
-          <button
-            type="button"
-            style={{ ...menuItem, color: 'var(--error)' }}
-            onClick={() => {
-              setMenuOpen(false);
-              onDelete?.(memo);
-            }}
-          >
-            削除
-          </button>
-        </div>,
-        document.body,
-      )}
 
       {/* ページ番号と日付を 1 行に（「p.33 · 9/20」）。 */}
       <p style={metaLine} aria-hidden="true">

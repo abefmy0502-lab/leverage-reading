@@ -523,11 +523,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             memo={m}
             highlight={m.id === focusedId ? 'focus' : m.id === justAddedId}
             onEdit={openEdit}
-            onCopy={handleCopy}
-            onShare={handleShare}
-            onMakeAction={onMakeAction ? handleMakeAction : undefined}
-            onDelete={handleDelete}
             onSwipeDelete={handleSwipeDelete}
+            // 長押しと「…」で同じメニュー（編集・コピー・行動に追加・この一文をシェア・削除・2026-09-30）。
             onLongPress={(payload) => setMemoMenu(payload)}
           />
         ))}
