@@ -1730,7 +1730,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               //   押しても答えられない相談例は出さず、案内カードを会話の場所のいちばん上に置く。
               <FreeUsedCard tokenAllowance={tokenAllowance} onOpen={() => openPaywall('free_used')} onSearch={searchMemos} />
             ) : (
-              <section aria-labelledby="brain-empty-title">
+              <section aria-labelledby={input.trim() ? undefined : 'brain-empty-title'}>
                 {showNudge && (
                   <TrialNudgeCard
                     copy={trialNudgeCopy({ memoCount: ownMemoTotal, offer: trialOffer })}
@@ -1738,9 +1738,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     onDismiss={() => closeNudge('dismiss')}
                   />
                 )}
-                <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
-                {/* 入力欄に書いている間は相談例を出さない（深掘りのチップと同じ決まり・下書きを入れて開いたときに主役を入力欄に・2026-09-30）。 */}
+                {/* 入力欄に書いている間は見出しも相談例も出さない（深掘りのチップと同じ決まり・下書きを入れて開いたとき＝
+                    「相談で探す」は困りごとの相談ではないので、主役を入力欄に・2026-09-30）。 */}
                 {!input.trim() && <>
+                <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {examples.map(({ text: q, kind }) => (
