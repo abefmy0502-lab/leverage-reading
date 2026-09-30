@@ -110,7 +110,8 @@ export function LibrarySearchResults({ books, hits, renderBookRow, onOpen, onAut
   );
   const showHeads = fromMemo.length > 0;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+    // 見出しがあるときは、上の状態のチップの行（下 16）から見出しまでを 24 に（グループの間・DESIGN §1）。
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', marginTop: showHeads ? 'var(--space-2)' : 0 }}>
       {meta.length > 0 && group(showHeads ? '書名・著者・タグ' : null, meta, 0)}
       {fromMemo.length > 0 && group('メモから', fromMemo, meta.length)}
       {(memoStatus === 'loading' || memoStatus === 'error' || onConsult) && (
