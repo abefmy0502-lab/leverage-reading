@@ -7,7 +7,8 @@
 //   - monthRecord        … 今月の記録（読了の冊数・メモ・実行した行動）
 //   - orderQuoteCandidates / swapQuote / swapQuoteLabel … 重ねる一文（新しい順・1 タップで次へ）
 //   - splitStatValue     … 「9月28日」の数字を大きく、単位を小さく描くための分け方
-//   - recordFrame / placeRecordBlock … 4:5・9:16 の、SNS で切られない範囲（安全な枠）と置き方
+//   - recordFrame / placeRecordBlock / recordBlockPlan … 4:5・9:16 の、SNS で切られない範囲（安全な枠）と置き方・組み
+//   - shareItemsFor / applyShareItems / readHiddenItems … 表示する項目（出す・隠す・前の選択を覚える）
 //   - buildRecordShareText … 共有の文（画像に入れたものだけ）
 //
 // 入れるのは、画面で本人が見ている情報だけ（書名・著者・日付・件数・一文）。名前・メール・タグは入れない。
@@ -98,10 +99,10 @@ export function bookRecord(book, memos = [], now = new Date()) {
   const memoCount = (Array.isArray(memos) ? memos : []).filter((m) => hasText(m) || m?.photoPath).length + (hasSummary(b) ? 1 : 0);
   const actionsDone = (Array.isArray(b.actions) ? b.actions : []).filter((a) => a && a.done).length;
   const stats = [];
-  if (done && parseLocalDate(b.doneDate)) stats.push({ label: '読み終えた日', value: fmtMonthDay(b.doneDate, now) });
-  else if (!done && parseLocalDate(b.startDate)) stats.push({ label: '読みはじめ', value: fmtMonthDay(b.startDate, now) });
-  if (memoCount > 0) stats.push({ label: 'メモ', value: `${memoCount}件` });
-  if (actionsDone > 0) stats.push({ label: '実行した行動', value: `${actionsDone}件` });
+  if (done && parseLocalDate(b.doneDate)) stats.push({ key: 'date', label: '読み終えた日', value: fmtMonthDay(b.doneDate, now) });
+  else if (!done && parseLocalDate(b.startDate)) stats.push({ key: 'date', label: '読みはじめ', value: fmtMonthDay(b.startDate, now) });
+  if (memoCount > 0) stats.push({ key: 'memos', label: 'メモ', value: `${memoCount}件` });
+  if (actionsDone > 0) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
   return {
     kicker: done ? '読了' : '読書中',
     title: String(b.title || '').trim() || '無題',
@@ -127,9 +128,9 @@ export function monthRecord(books, monthMemos = [], now = new Date()) {
     }
   }
   const stats = [];
-  if (finished.length) stats.push({ label: '読了', value: `${finished.length}冊` });
-  if (memoCount) stats.push({ label: 'メモ', value: `${memoCount}件` });
-  if (actionsDone) stats.push({ label: '実行した行動', value: `${actionsDone}件` });
+  if (finished.length) stats.push({ key: 'books', label: '読了', value: `${finished.length}冊` });
+  if (memoCount) stats.push({ key: 'memos', label: 'メモ', value: `${memoCount}件` });
+  if (actionsDone) stats.push({ key: 'actions', label: '実行した行動', value: `${actionsDone}件` });
   const titles = finished.slice(0, 2).map((b) => `『${String(b.title || '').trim()}』`).join('');
   const more = finished.length > 2 ? ` ほか ${finished.length - 2} 冊` : '';
   return {
@@ -236,8 +237,9 @@ export function recordFrame(format = 'post') {
 // 記録のまとまり（高さ blockH）を、下のロゴの上に置く。文字の塊は安全な枠の中に入れる。
 // 入らないとき fits=false（呼び出し側が一文を外して組み直す）。
 // 空いた上の範囲（coverArea）には、写真でない地のとき表紙を置く。
-export function placeRecordBlock(frame, blockH) {
-  const bottom = frame.footerTop - frame.gap;
+// hasFooter=false（ロゴも今日の日付も隠した）ときは、ロゴの場所まで下ろす（下に空きを残さない・2026-10-01）。
+export function placeRecordBlock(frame, blockH, { hasFooter = true } = {}) {
+  const bottom = hasFooter ? frame.footerTop - frame.gap : frame.footerBaseline;
   const top = bottom - blockH;
   const fits = top >= frame.safeTop;
   return {
@@ -248,16 +250,78 @@ export function placeRecordBlock(frame, blockH) {
   };
 }
 
-// 記録のまとまりの、一文を除いた高さ（見出し・書名・著者・線・数字）。shareCard.js の layoutRecord と同じ数え方。
-// 一文はこの残りに入るときだけ入れる（入らなければ外す）ので、これが安全な枠に入れば書名と数字は必ず見える。
-export function recordBaseHeight(frame, { titleLines = 1, hasKicker = true, hasSub = true, statsCount = 3 } = {}) {
-  const kickerH = hasKicker ? Math.round(frame.kickerSize * 1.35) + 10 : 0;
-  const titleH = Math.max(1, Math.min(2, titleLines)) * Math.round(frame.titleSize * 1.3);
-  const subH = hasSub ? 6 + Math.round(frame.subSize * 1.45) : 0;
+// 写真でない地の記録で、上の空きに置く表紙（今月は 4 冊まで重ねる）の場所と大きさ。
+// 書名だけを出すとき（titleOnly）は、表紙を書名のすぐ上・左の余白にそろえて置く＝表紙と書名で 1 つのまとまりに見える
+// （上の真ん中に浮かせると、書名だけが下に取り残されて意図しない空きに見えた・2026-10-01 ui-critic）。
+// 空きが狭い（220 以下）・表紙が無いときは null。戻り値: { x0, y0, w, h, step }
+export function recordCoverPlacement(frame, place, { count = 1, titleOnly = false } = {}) {
+  const areaH = place.coverArea.bottom - place.coverArea.top;
+  if (!count || areaH <= 220) return null;
+  const h = Math.round(Math.min(areaH * 0.86, titleOnly ? 440 : (count > 1 ? 400 : 520)));
+  const w = Math.round(h / 1.45);
+  const step = count > 1 ? Math.round(w * 0.62) : 0;
+  const total = w + step * (count - 1);
+  if (titleOnly) return { x0: frame.margin, y0: place.top - frame.gap - h, w, h, step };
+  return {
+    x0: frame.margin + Math.max(0, (frame.W - frame.margin * 2 - total) / 2),
+    y0: place.coverArea.top + (areaH - h) / 2,
+    w, h, step,
+  };
+}
+
+// 書名の大きさの倍率。数字を全部隠したとき（「書名だけ」など）は、書名を主役にして大きく（1.25 倍・3 行まで）
+// ＝隠した場所がぽっかり空いて見えないように（2026-10-01）。
+export function recordTitleScale({ statsCount = 0 } = {}) {
+  return statsCount > 0 ? 1 : 1.25;
+}
+export function recordTitleMaxLines({ statsCount = 0 } = {}) {
+  return statsCount > 0 ? 2 : 3;
+}
+
+// 記録のまとまりの組み（上から 一文 → 見出し → 書名 → 著者 → 線 → 数字）。隠した項目は場所を取らない。
+// 間（一文の下・見出しの下 10・著者の上 6・線の上下）は、上と下の両方に何かあるときだけ入れる。
+// shareCard.js の drawRecordBlock はこの top / height のとおりに描く（テストで高さを確かめられるように純粋関数）。
+// 戻り値: { elements: [{ kind, top, height }], height, titleScale, titleLH }
+export function recordBlockPlan(frame, {
+  hasKicker = false, titleLines = 0, hasSub = false, statsCount = 0, quoteLines = 0, quoteLineHeight = 0,
+} = {}) {
+  const titleScale = recordTitleScale({ statsCount });
+  const titleLH = Math.round(frame.titleSize * titleScale * 1.3);
   const labelH = Math.round(frame.statLabelSize * 1.3);
   const ruleGap = Math.round(frame.statLabelSize * 1.1);
-  const statsH = statsCount > 0 ? ruleGap * 2 + labelH + 10 + frame.statValueSize : 0;
-  return kickerH + titleH + subH + statsH;
+  const parts = [];
+  if (quoteLines > 0) parts.push({ kind: 'quote', height: quoteLines * quoteLineHeight, gapAfter: Math.round(frame.quoteSizes[0] * 0.95) });
+  if (hasKicker) parts.push({ kind: 'kicker', height: Math.round(frame.kickerSize * 1.35), gapAfter: 10 });
+  if (titleLines > 0) parts.push({ kind: 'title', height: Math.min(recordTitleMaxLines({ statsCount }), titleLines) * titleLH, gapAfter: 0 });
+  if (hasSub) parts.push({ kind: 'sub', height: Math.round(frame.subSize * 1.45), gapBefore: 6, gapAfter: 0 });
+  if (statsCount > 0) {
+    parts.push({ kind: 'rule', height: 0, gapBefore: ruleGap, gapAfter: ruleGap });
+    parts.push({ kind: 'stats', height: labelH + 10 + frame.statValueSize, gapAfter: 0 });
+  }
+  const elements = [];
+  let y = 0;
+  parts.forEach((p, i) => {
+    // 線は、上に何かあるときだけ引く（数字だけなら線は要らない）。
+    if (p.kind === 'rule' && i === 0) return;
+    if (elements.length) {
+      const prev = parts[parts.indexOf(elements[elements.length - 1].part)];
+      y += Math.max(prev.gapAfter || 0, p.gapBefore || 0);
+    }
+    elements.push({ kind: p.kind, top: y, height: p.height, part: p });
+    y += p.height;
+  });
+  return {
+    elements: elements.map(({ part, ...e }) => e), // eslint-disable-line no-unused-vars
+    height: y,
+    titleScale,
+    titleLH,
+  };
+}
+
+// 記録のまとまりの、一文を除いた高さ（見出し・書名・著者・線・数字）。
+// 一文はこの残りに入るときだけ入れる（入らなければ外す）ので、これが安全な枠に入れば書名と数字は必ず見える。
+export function recordBaseHeight(frame, { titleLines = 1, hasKicker = true, hasSub = true, statsCount = 3 } = {}) {
+  return recordBlockPlan(frame, { titleLines, hasKicker, hasSub, statsCount }).height;
 }
 
 // 数字の列: 3 つまでを等分に並べる（左そろえ）。
@@ -267,13 +331,92 @@ export function statColumns(frame, count) {
   return Array.from({ length: n }, (_, i) => ({ x: frame.margin + width * i, width }));
 }
 
+// ---------------------------------------------------------------- 表示する項目（2026-10-01）
+//
+// オーナー要望「人によって読み始めのタイミングを書かなくても良かったり、著者は不要だったり、
+// タイトルだけが良かったりするだろうから調整できるようにしたい」。画像に入れる項目ごとに出す・隠すを選ぶ。
+// 覚えるのは「隠した項目」の名前だけ（新しい項目が増えても最初は出る）。端末の中（localStorage）に。
+// ロゴも隠せる（押しつけのロゴは共有をためらわせる・既定は出す）。
+
+export const SHARE_ITEM_KEYS = ['status', 'title', 'author', 'date', 'books', 'memos', 'actions', 'quote', 'stamp', 'logo'];
+export const SHARE_ITEMS_STORAGE_KEY = 'orime.share.hiddenItems';
+
+const STAT_ITEM_LABEL = { books: '読了の冊数', memos: 'メモの数', actions: '実行した行動' };
+
+// いまの 1 枚で選べる項目（中身のある項目だけ・上から画像の順）。戻り値: [{ key, label }]
+//   記録: 状態（今月は年）・書名（今月は「9月の読書」）・著者（今月は読み終えた本）・数字それぞれ・一文・今日の日付・ロゴ
+//   一文: 書名・著者・ロゴ（一文は主役なので隠せない）
+export function shareItemsFor({ record = null, variant = 'record', hasQuote = false, hasAuthor = false } = {}) {
+  const out = [];
+  const book = !!record?.titleIsBook;
+  if (variant === 'record' && record) {
+    if (record.kicker) out.push({ key: 'status', label: book ? '状態' : '年' });
+    if (record.title) out.push({ key: 'title', label: book ? '書名' : `「${record.title}」` });
+    if (record.sub) out.push({ key: 'author', label: book ? '著者' : '読み終えた本' });
+    for (const st of record.stats || []) {
+      if (st?.key) out.push({ key: st.key, label: st.key === 'date' ? st.label : (STAT_ITEM_LABEL[st.key] || st.label) });
+    }
+    if (hasQuote) out.push({ key: 'quote', label: '一文' });
+    out.push({ key: 'stamp', label: '今日の日付' });
+  } else {
+    out.push({ key: 'title', label: '書名' });
+    if (hasAuthor) out.push({ key: 'author', label: '著者' });
+  }
+  out.push({ key: 'logo', label: 'Orime のロゴ' });
+  return out;
+}
+
+const hiddenSet = (hidden) => new Set(Array.isArray(hidden) || hidden instanceof Set ? [...hidden] : []);
+
+// 隠した項目を記録に当てる（隠した見出し・書名・著者は空に、数字は外す）。
+export function applyShareItems(record, hidden) {
+  if (!record) return record;
+  const h = hiddenSet(hidden);
+  return {
+    ...record,
+    kicker: h.has('status') ? '' : record.kicker,
+    title: h.has('title') ? '' : record.title,
+    sub: h.has('author') ? '' : record.sub,
+    stats: (record.stats || []).filter((st) => !h.has(st.key)),
+  };
+}
+
+// 描く側が見るフラグ（記録以外の項目）。
+export function shareVisibility(hidden) {
+  const h = hiddenSet(hidden);
+  return { title: !h.has('title'), author: !h.has('author'), quote: !h.has('quote'), stamp: !h.has('stamp'), logo: !h.has('logo') };
+}
+
+// 前に選んだ「隠した項目」を読む（読めない・壊れている・private ブラウズ＝何も隠さない）。
+export function readHiddenItems(storage) {
+  try {
+    const raw = storage?.getItem(SHARE_ITEMS_STORAGE_KEY);
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list.filter((k) => SHARE_ITEM_KEYS.includes(k)) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeHiddenItems(storage, hidden) {
+  try {
+    const list = [...hiddenSet(hidden)].filter((k) => SHARE_ITEM_KEYS.includes(k));
+    storage?.setItem(SHARE_ITEMS_STORAGE_KEY, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------- 共有の文
 
 // 画像に入れたものだけ（記録の見出し・書名・一文）＋ #Orime ＋ URL。
 export function buildRecordShareText({ record, quote = '', siteUrl = '' }) {
   const parts = [];
-  if (record) {
-    parts.push(record.titleIsBook ? `${record.kicker}『${record.title}』` : record.title);
+  // 書名を隠した（表示する項目）ときは文にも入れない（画像に入れたものだけ）。
+  if (record && record.title) {
+    parts.push(record.titleIsBook ? `${record.kicker || ''}『${record.title}』` : record.title);
   }
   const q = String(quote || '').trim();
   if (q) parts.push(q);

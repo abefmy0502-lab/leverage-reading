@@ -5,8 +5,9 @@
 //   写真（photo）  … 自分の写真を枠いっぱいに敷き、白い文字（Strava の写真の上の白い文字のように）
 //   紙 / 夜 / 表紙の色（paper / night / cover）… 雑誌の引用ページのような組版＋小さな表紙
 //   透明（sticker）… 地の無い白い文字（ストーリーの自分の写真の上に貼る用）
-// 下には Orime のロゴ（public/logo-lockup.png から、本の印と文字を切り出して横に並べる。
-// 暗い地・写真・透明では白に変え、i の点の橙だけ残す）とサイトの URL。
+// 下には Orime のロゴだけ（public/logo-lockup.png から、本の印と文字を切り出して横に並べる。
+// 暗い地・写真・透明では白に変え、i の点の橙だけ残す）。サイトの URL は画像に入れない
+// （2026-10-01 オーナー裁定「orime.vercel.app の文字は確実に不要。ロゴのみでOK」・URL は共有の文にだけ）。
 // 2 つの印（Strava の橙のルートにあたる「読んだ跡」）:
 //   傍線 … 一文の最後の行の下に、橙の手描きの線。メモごとに形が決まっている（メモの id と本文から種を作る）
 //   付箋 … 表紙（写真・透明では白い線の本の印）の右の小口から橙の付箋がはみ出す。
@@ -22,12 +23,13 @@ import {
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, underlineStroke, tabPosition,
 } from './shareCardLayout';
-import { RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBaseHeight } from './shareOverlay';
+import {
+  RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
+  applyShareItems, shareVisibility, recordCoverPlacement,
+} from './shareOverlay';
+import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
 import { paletteFor } from './coverPalette';
 import { apiUrl } from './apiUrl';
-import { SITE_URL } from './legalLinks';
-
-export const SITE_LABEL = SITE_URL.replace(/^https?:\/\//, '');
 
 // ---------------------------------------------------------------- トークン・書体
 
@@ -469,7 +471,7 @@ function drawBookIcon(ctx, { x, y, w, h, frac, seed, line, accent }) {
   ctx.restore();
 }
 
-function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts }) {
+function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts, showText = true }) {
   const r = Math.round(w * 0.035); // 本の形（DESIGN §4 の例外・角丸 4 相当）
   ctx.save();
   ctx.shadowColor = theme.shadow;
@@ -491,7 +493,7 @@ function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts }) {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
   } else {
-    // 代用表紙（アプリの表紙が無い本と同じ色の組・書名入り）。
+    // 代用表紙（アプリの表紙が無い本と同じ色の組・書名入り。書名を隠したときは色だけ）。
     const [a, b] = paletteFor(title).map(resolveVar);
     const g = ctx.createLinearGradient(x, y, x + w, y + h);
     g.addColorStop(0, a || '#7d4a2e');
@@ -500,6 +502,7 @@ function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts }) {
     ctx.fillRect(x, y, w, h);
     const size = Math.round(w * 0.13);
     const font = `600 ${size}px ${fonts.read}`;
+    if (!showText) { ctx.restore(); return; }
     ctx.font = font;
     setSpacing(ctx, 0, size);
     ctx.fillStyle = cssVar('--on-cover') || '#ffffff';
@@ -528,14 +531,16 @@ function drawCover(ctx, { x, y, w, h, cover, title, theme, fonts }) {
 function layoutBookLines(ctx, fonts, { title, author, page, width, titleFont, titleSize, metaSize }) {
   ctx.font = titleFont;
   setSpacing(ctx, 0.02, titleSize);
-  let titleLines = wrapBalanced(`『${title || '無題'}』`, width, measurer(ctx, titleFont, 0.02));
+  // title が null のときは書名を隠す（表示する項目・2026-10-01）。
+  let titleLines = title === null ? [] : wrapBalanced(`『${title || '無題'}』`, width, measurer(ctx, titleFont, 0.02));
   if (titleLines.length > 2) titleLines = [titleLines[0], ellipsize(ctx, `${titleLines[1]}${titleLines.slice(2).join('')}`, width)];
   const titleLH = Math.round(titleSize * 1.4);
   const authorText = String(author || '').trim();
   const pageText = Number.isFinite(page) && page > 0 ? `p.${page}` : '';
   const metaLH = Math.round(metaSize * 1.5);
   const hasMeta = !!(authorText || pageText);
-  return { titleLines, titleLH, authorText, pageText, metaLH, height: titleLines.length * titleLH + (hasMeta ? 10 + metaLH : 0) };
+  const gap = titleLines.length && hasMeta ? 10 : 0;
+  return { titleLines, titleLH, authorText, pageText, metaLH, height: titleLines.length * titleLH + (hasMeta ? gap + metaLH : 0) };
 }
 
 function drawBookLines(ctx, fonts, bl, { x, top, width, titleFont, titleSize, metaSize, ink, ink2, ink3 }) {
@@ -548,7 +553,7 @@ function drawBookLines(ctx, fonts, bl, { x, top, width, titleFont, titleSize, me
     cy += bl.titleLH;
   });
   if (bl.authorText || bl.pageText) {
-    cy += 10;
+    if (bl.titleLines.length) cy += 10;
     ctx.font = `400 ${metaSize}px ${fonts.ui}`;
     setSpacing(ctx, 0.02, metaSize);
     let mx = x;
@@ -565,15 +570,9 @@ function drawBookLines(ctx, fonts, bl, { x, top, width, titleFont, titleSize, me
   }
 }
 
-function drawFooter(ctx, { W, margin, baseline, wordH, logo, theme, fonts, metaSize, showUrl = true }) {
+// ロゴだけ（URL は入れない・2026-10-01）。
+function drawFooter(ctx, { margin, baseline, wordH, logo, theme, fonts }) {
   drawLogo(ctx, logo, theme.logo, { x: margin, baseline, wordH, fonts, ink: theme.ink });
-  if (!showUrl) return;
-  ctx.font = `400 ${metaSize}px ${fonts.ui}`;
-  setSpacing(ctx, 0.02, metaSize);
-  ctx.fillStyle = theme.ink3;
-  ctx.textAlign = 'right';
-  ctx.fillText(SITE_LABEL, W - margin, baseline);
-  ctx.textAlign = 'left';
 }
 
 // ---------------------------------------------------------------- 紙・夜・表紙の色
@@ -605,8 +604,10 @@ function drawPoster(ctx, o) {
   const mark = quoteMark(ctx, fonts, L.markInk);
   const markGap = Math.round(L.sizes[0] * 0.55);
   const coverH = Math.round(L.coverW * 1.45);
-  const bookGap = Math.round(L.sizes[0] * 1.15); // 傍線の下から本の行まで
-  const fixedH = L.markInk + markGap + bookGap + coverH;
+  // 書名も著者も隠したときは、本の行（表紙＋書名）ごと出さない。
+  const showBook = o.showTitle !== false || o.showAuthor !== false;
+  const bookGap = showBook ? Math.round(L.sizes[0] * 1.15) : 0; // 傍線の下から本の行まで
+  const fixedH = L.markInk + markGap + bookGap + (showBook ? coverH : 0);
   const fit = layoutQuote(ctx, fonts, text, { maxWidth: contentW, maxHeight: (L.bottom - L.top) - fixedH, sizes: L.sizes, lineHeight: 1.62 });
   const quoteH = fit.lines.length * fit.lineHeight;
   // 目で見た中心（数学の中心より少し上）に置く。
@@ -617,18 +618,27 @@ function drawPoster(ctx, o) {
   drawQuoteLines(ctx, fonts, fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
   y += quoteH + bookGap;
 
+  if (showBook) drawPosterBook(ctx, o, L, { left, y, coverH, theme, fonts });
+  if (o.showLogo !== false) drawFooter(ctx, { margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts });
+}
+
+function drawPosterBook(ctx, o, L, { left, y, coverH, theme, fonts }) {
+  const { W } = o;
   // 付箋（ページがあるときだけ）→ 表紙の順に描く（付箋が本に挟まって見える）。
   const tabOut = o.frac != null
     ? drawTab(ctx, { rightX: left + L.coverW, y, h: coverH, w: L.coverW, frac: o.frac, seed: o.seed, color: theme.accent })
     : 0;
-  drawCover(ctx, { x: left, y, w: L.coverW, h: coverH, cover: o.cover, title: o.title, theme, fonts });
+  drawCover(ctx, { x: left, y, w: L.coverW, h: coverH, cover: o.cover, title: o.title, theme, fonts, showText: o.showTitle !== false });
   const colX = left + L.coverW + tabOut + 36;
   const colW = W - L.margin - colX;
   const titleFont = `600 ${L.titleSize}px ${fonts.read}`;
-  const bl = layoutBookLines(ctx, fonts, { title: o.title, author: o.author, page: o.page, width: colW, titleFont, titleSize: L.titleSize, metaSize: L.metaSize });
+  const bl = layoutBookLines(ctx, fonts, bookLineOpts(o, { width: colW, titleFont, titleSize: L.titleSize, metaSize: L.metaSize }));
   drawBookLines(ctx, fonts, bl, { x: colX, top: y + (coverH - bl.height) / 2, width: colW, titleFont, titleSize: L.titleSize, metaSize: L.metaSize, ink: theme.ink, ink2: theme.ink2, ink3: theme.ink3 });
+}
 
-  drawFooter(ctx, { W, margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts, metaSize: L.metaSize - 2 });
+// 表示する項目に合わせた書名・著者（隠した書名は null・隠した著者は空）。
+function bookLineOpts(o, rest) {
+  return { title: o.showTitle === false ? null : o.title, author: o.showAuthor === false ? '' : o.author, page: o.showAuthor === false ? null : o.page, ...rest };
 }
 
 // ---------------------------------------------------------------- 写真
@@ -651,11 +661,14 @@ function layoutOverlay(ctx, fonts, o, L, maxBlockH) {
   const iconW = Math.round(iconH * 0.7);
   const iconOut = Math.max(12, iconW * 0.24);
   const textX = iconW + iconOut + 28;
-  const bl = layoutBookLines(ctx, fonts, { title: o.title, author: o.author, page: o.page, width: contentW - textX, titleFont, titleSize: L.titleSize, metaSize: L.metaSize });
-  const fixedH = L.markInk + markGap + bookGap + bl.height;
+  const showBook = o.showTitle !== false || o.showAuthor !== false;
+  const bl = layoutBookLines(ctx, fonts, bookLineOpts(o, { width: contentW - textX, titleFont, titleSize: L.titleSize, metaSize: L.metaSize }));
+  const gapBook = showBook ? bookGap : 0;
+  const bookH = showBook ? Math.max(iconH, bl.height) : 0;
+  const fixedH = L.markInk + markGap + gapBook + bookH;
   const fit = layoutQuote(ctx, fonts, o.text, { maxWidth: contentW, maxHeight: maxBlockH - fixedH, sizes: L.sizes, lineHeight: 1.55 });
   const quoteH = fit.lines.length * fit.lineHeight;
-  return { mark, markGap, bookGap, titleFont, bl, fit, quoteH, height: fixedH + Math.max(0, iconH - bl.height) + quoteH, contentW, iconH, iconW, textX };
+  return { mark, markGap, bookGap: gapBook, showBook, titleFont, bl, fit, quoteH, height: fixedH + quoteH, contentW, iconH, iconW, textX };
 }
 
 function drawOverlay(ctx, fonts, o, L, lay, top, theme) {
@@ -665,6 +678,7 @@ function drawOverlay(ctx, fonts, o, L, lay, top, theme) {
   y += L.markInk + lay.markGap;
   drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
   y += lay.quoteH + lay.bookGap;
+  if (!lay.showBook) return;
   const rowH = Math.max(lay.iconH, lay.bl.height);
   drawBookIcon(ctx, { x: left, y: y + (rowH - lay.iconH) / 2, w: lay.iconW, h: lay.iconH, frac: o.frac, seed: o.seed, line: theme.ink, accent: theme.accent });
   drawBookLines(ctx, fonts, lay.bl, { x: left + lay.textX, top: y + (rowH - lay.bl.height) / 2, width: lay.contentW - lay.textX, titleFont: lay.titleFont, titleSize: L.titleSize, metaSize: L.metaSize, ink: theme.ink, ink2: theme.ink2, ink3: theme.ink2 });
@@ -748,7 +762,7 @@ function drawPhotoOverlay(ctx, o, place) {
   ctx.save();
   ctx.shadowColor = theme.shadow;
   ctx.shadowBlur = 14 * sb;
-  drawFooter(ctx, { W, margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts, metaSize: L.metaSize - 2 });
+  if (o.showLogo !== false) drawFooter(ctx, { margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts });
   ctx.restore();
 }
 
@@ -760,11 +774,21 @@ function stickerSize(ctx, o) {
   const lay = layoutOverlay(ctx, o.fonts, { ...o, W: 1080 }, L, 1500);
   const pad = 72;
   const logoGap = 56;
-  return { L, lay, pad, logoGap, w: 1080, h: Math.round(pad + lay.height + logoGap + L.wordH * 1.3 + pad) };
+  const footH = o.showLogo !== false ? logoGap + L.wordH * 1.3 : 0;
+  const top = stickerPhraseTop(ctx, o);
+  return { L, lay, pad, logoGap, top, w: 1080, h: Math.round(top + pad + lay.height + footH + pad) };
+}
+
+// 透明の言葉の場所: 言葉があれば、その高さ＋56 を記録・一文の上に足す（言葉は記録に重ねない）。
+function stickerPhraseTop(ctx, o) {
+  if (!o.phrase) return 0;
+  const lay = layoutPhraseOn(ctx, { ...o, style: 'sticker' }, 1080, 1920);
+  return stickerPhraseReserve(lay?.h || 0);
 }
 
 function drawSticker(ctx, o, size) {
-  const { L, lay, pad, logoGap } = size;
+  const { L, lay, logoGap } = size;
+  const pad = size.pad + size.top;
   ctx.clearRect(0, 0, size.w, size.h);
   ctx.save();
   ctx.shadowColor = o.theme.shadow;
@@ -772,8 +796,8 @@ function drawSticker(ctx, o, size) {
   ctx.shadowOffsetY = 3;
   drawOverlay(ctx, o.fonts, { ...o, W: 1080 }, L, lay, pad, o.theme);
   const baseline = pad + lay.height + logoGap + L.wordH;
-  // ロゴ＋URL（ほかの地と同じ・SPEC §2-1）。
-  drawFooter(ctx, { W: 1080, margin: L.margin, baseline, wordH: L.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts, metaSize: L.metaSize - 2 });
+  // ロゴだけ（ほかの地と同じ・SPEC §2-1）。
+  if (o.showLogo !== false) drawFooter(ctx, { margin: L.margin, baseline, wordH: L.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts });
   ctx.restore();
 }
 
@@ -793,14 +817,17 @@ function drawSticker(ctx, o, size) {
 function layoutRecord(ctx, fonts, o, F) {
   const rec = o.record || { kicker: '', title: '', stats: [] };
   const contentW = F.W - F.margin * 2;
-  const kickerH = rec.kicker ? Math.round(F.kickerSize * 1.35) : 0;
-  const titleFont = `600 ${F.titleSize}px ${fonts.read}`;
+  const stats = (rec.stats || []).slice(0, 3);
+  // 数字を全部隠したときは書名を主役に（大きく・3 行まで）。
+  const titleScale = recordTitleScale({ statsCount: stats.length });
+  const titleSize = Math.round(F.titleSize * titleScale);
+  const titleFont = `600 ${titleSize}px ${fonts.read}`;
   ctx.font = titleFont;
-  setSpacing(ctx, 0.01, F.titleSize);
-  const tText = rec.titleIsBook ? `『${rec.title || '無題'}』` : String(rec.title || '');
-  let titleLines = wrapBalanced(tText, contentW, measurer(ctx, titleFont, 0.01));
-  if (titleLines.length > 2) titleLines = [titleLines[0], ellipsize(ctx, titleLines.slice(1).join(''), contentW)];
-  const titleLH = Math.round(F.titleSize * 1.3);
+  setSpacing(ctx, 0.01, titleSize);
+  const tText = rec.title ? (rec.titleIsBook ? `『${rec.title}』` : String(rec.title)) : '';
+  let titleLines = tText ? wrapBalanced(tText, contentW, measurer(ctx, titleFont, 0.01)) : [];
+  const maxLines = recordTitleMaxLines({ statsCount: stats.length });
+  if (titleLines.length > maxLines) titleLines = [...titleLines.slice(0, maxLines - 1), ellipsize(ctx, titleLines.slice(maxLines - 1).join(''), contentW)];
   const subFont = `400 ${F.subSize}px ${fonts.ui}`;
   let sub = '';
   if (rec.sub) {
@@ -809,23 +836,25 @@ function layoutRecord(ctx, fonts, o, F) {
     sub = ellipsize(ctx, String(rec.sub), contentW);
   }
   const subLH = Math.round(F.subSize * 1.45);
-  const stats = (rec.stats || []).slice(0, 3);
   const labelH = Math.round(F.statLabelSize * 1.3);
-  const statsH = stats.length ? labelH + 10 + F.statValueSize : 0;
-  const ruleGap = Math.round(F.statLabelSize * 1.1);
-  const baseH = recordBaseHeight(F, { titleLines: titleLines.length, hasKicker: !!kickerH, hasSub: !!sub, statsCount: stats.length });
+  const parts = { hasKicker: !!rec.kicker, titleLines: titleLines.length, hasSub: !!sub, statsCount: stats.length };
+  const base = recordBlockPlan(F, parts);
+  const bottom = placeRecordBlock(F, 0, { hasFooter: o.hasFooter !== false }).bottom;
   let fit = null;
-  const quoteGapBelow = Math.round(F.quoteSizes[0] * 0.95);
+  // 書名も数字も隠したときは、一文を主役に（大きく・4 行まで）。
+  const heroQuote = titleLines.length === 0 && stats.length === 0;
+  const sizes = heroQuote ? F.quoteSizes.map((n) => Math.round(n * 1.3)) : F.quoteSizes;
+  const quoteGapBelow = base.height > 0 ? Math.round(F.quoteSizes[0] * 0.95) : 0;
   if (o.text) {
-    const room = (F.footerTop - F.gap - F.safeTop) - baseH - quoteGapBelow;
-    const cap = Math.min(room, F.quoteSizes[0] * 1.55 * 3);
-    if (cap > F.quoteSizes[F.quoteSizes.length - 1] * 1.55) {
-      const f = layoutQuote(ctx, fonts, o.text, { maxWidth: contentW, maxHeight: cap, sizes: F.quoteSizes, lineHeight: 1.55 });
+    const room = (bottom - F.safeTop) - base.height - quoteGapBelow;
+    const cap = Math.min(room, sizes[0] * 1.55 * (heroQuote ? 4 : 3));
+    if (cap > sizes[sizes.length - 1] * 1.55) {
+      const f = layoutQuote(ctx, fonts, o.text, { maxWidth: contentW, maxHeight: cap, sizes, lineHeight: 1.55 });
       if (f && f.lines.length && f.lines.length * f.lineHeight <= cap + 0.5) fit = f;
     }
   }
-  const quoteH = fit ? fit.lines.length * fit.lineHeight + quoteGapBelow : 0;
-  return { rec, kickerH, titleLines, titleLH, titleFont, sub, subFont, subLH, stats, labelH, statsH, ruleGap, contentW, fit, quoteGapBelow, height: baseH + quoteH };
+  const plan = fit ? recordBlockPlan(F, { ...parts, quoteLines: fit.lines.length, quoteLineHeight: fit.lineHeight }) : base;
+  return { rec, titleLines, titleLH: plan.titleLH, titleFont, titleSize, sub, subFont, subLH, stats, labelH, contentW, fit, plan, height: plan.height };
 }
 
 function drawStat(ctx, fonts, F, stat, col, top, lay, theme) {
@@ -852,91 +881,73 @@ function drawStat(ctx, fonts, F, stat, col, top, lay, theme) {
   });
 }
 
+// recordBlockPlan の組みのとおりに描く（隠した項目は組みに無い＝場所を取らない）。
 function drawRecordBlock(ctx, fonts, o, F, lay, top, theme) {
   const left = F.margin;
-  let y = top;
-  if (lay.fit) {
-    drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
-    y += lay.fit.lines.length * lay.fit.lineHeight + lay.quoteGapBelow;
-  }
-  if (lay.kickerH) {
-    // 見出しの前に橙の点（ロゴの i の点と同じ色・Strava の橙にあたる印）。
-    const r = Math.round(F.kickerSize * 0.2);
-    ctx.save();
-    ctx.shadowColor = 'transparent';
-    ctx.fillStyle = theme.accent;
-    ctx.beginPath();
-    ctx.arc(left + r, y + lay.kickerH * 0.52, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    ctx.font = `600 ${F.kickerSize}px ${fonts.ui}`;
-    setSpacing(ctx, 0.08, F.kickerSize);
-    ctx.fillStyle = theme.ink2;
-    ctx.fillText(lay.rec.kicker, left + r * 2 + 14, y + lay.kickerH * 0.78);
-    y += lay.kickerH + 10;
-  }
-  ctx.fillStyle = theme.ink;
-  lay.titleLines.forEach((ln) => {
-    ctx.font = lay.titleFont;
-    setSpacing(ctx, 0.01, F.titleSize);
-    ctx.fillText(ln, left - inkLeftOffset(ctx, ln), y + lay.titleLH * 0.8);
-    y += lay.titleLH;
-  });
-  if (lay.sub) {
-    y += 6;
-    ctx.font = lay.subFont;
-    setSpacing(ctx, 0.02, F.subSize);
-    ctx.fillStyle = theme.ink2;
-    ctx.fillText(lay.sub, left, y + lay.subLH * 0.76);
-    y += lay.subLH;
-  }
-  if (lay.stats.length) {
-    y += lay.ruleGap;
-    ctx.save();
-    ctx.globalAlpha = 0.32;
-    ctx.fillStyle = theme.ink;
-    ctx.fillRect(left, y - 1, lay.contentW, 2);
-    ctx.restore();
-    y += lay.ruleGap;
-    const cols = statColumns(F, lay.stats.length);
-    lay.stats.forEach((s, i) => drawStat(ctx, fonts, F, s, cols[i], y, lay, theme));
+  for (const el of lay.plan.elements) {
+    const y = top + el.top;
+    if (el.kind === 'quote') {
+      drawQuoteLines(ctx, fonts, lay.fit, left, y, theme.ink, { seed: o.seed, color: theme.accent });
+    } else if (el.kind === 'kicker') {
+      // 見出しの前に橙の点（ロゴの i の点と同じ色・Strava の橙にあたる印）。
+      const r = Math.round(F.kickerSize * 0.2);
+      ctx.save();
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = theme.accent;
+      ctx.beginPath();
+      ctx.arc(left + r, y + el.height * 0.52, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.font = `600 ${F.kickerSize}px ${fonts.ui}`;
+      setSpacing(ctx, 0.08, F.kickerSize);
+      ctx.fillStyle = theme.ink2;
+      ctx.fillText(lay.rec.kicker, left + r * 2 + 14, y + el.height * 0.78);
+    } else if (el.kind === 'title') {
+      ctx.fillStyle = theme.ink;
+      lay.titleLines.forEach((ln, i) => {
+        ctx.font = lay.titleFont;
+        setSpacing(ctx, 0.01, lay.titleSize);
+        ctx.fillText(ln, left - inkLeftOffset(ctx, ln), y + i * lay.titleLH + lay.titleLH * 0.8);
+      });
+    } else if (el.kind === 'sub') {
+      ctx.font = lay.subFont;
+      setSpacing(ctx, 0.02, F.subSize);
+      ctx.fillStyle = theme.ink2;
+      ctx.fillText(lay.sub, left, y + lay.subLH * 0.76);
+    } else if (el.kind === 'rule') {
+      ctx.save();
+      ctx.globalAlpha = 0.32;
+      ctx.fillStyle = theme.ink;
+      ctx.fillRect(left, y - 1, lay.contentW, 2);
+      ctx.restore();
+    } else if (el.kind === 'stats') {
+      const cols = statColumns(F, lay.stats.length);
+      lay.stats.forEach((st, i) => drawStat(ctx, fonts, F, st, cols[i], y, lay, theme));
+    }
   }
 }
 
-// ロゴ（左）と、右に URL・日付（「orime.vercel.app  2026.9.30」＝見た人がアプリへたどり着ける・2026-09-30）。
-// 入らなければ URL だけ小さくする（ロゴと重ねない）。どれも安全な枠（余白 F.margin・基線 F.footerBaseline）の中。
-function drawRecordFooter(ctx, { F, baseline, logo, theme, fonts, stamp }) {
-  const logoW = drawLogo(ctx, logo, theme.logo, { x: F.margin, baseline, wordH: F.wordH, fonts, ink: theme.ink });
-  const right = F.W - F.margin;
-  const room = right - (F.margin + logoW + 40);
-  let x = right;
+// ロゴ（左）と、右に今日の日付（2026.10.1）。URL は入れない（2026-10-01 オーナー裁定「ロゴのみでOK」）。
+// どちらも「表示する項目」で隠せる。どれも安全な枠（余白 F.margin・基線 F.footerBaseline）の中。
+function drawRecordFooter(ctx, { F, baseline, logo, theme, fonts, stamp, showLogo = true }) {
+  if (showLogo) drawLogo(ctx, logo, theme.logo, { x: F.margin, baseline, wordH: F.wordH, fonts, ink: theme.ink });
+  if (!stamp) return;
   ctx.textAlign = 'right';
   ctx.fillStyle = theme.ink2;
-  if (stamp) {
-    ctx.font = `400 ${F.metaSize}px ${fonts.ui}`;
-    setSpacing(ctx, 0.04, F.metaSize);
-    ctx.fillText(stamp, x, baseline);
-    x -= ctx.measureText(stamp).width + Math.round(F.metaSize * 0.9);
-  }
-  let size = F.metaSize;
-  ctx.font = `400 ${size}px ${fonts.ui}`;
-  setSpacing(ctx, 0.02, size);
-  while (size > 24 && ctx.measureText(SITE_LABEL).width > room - (right - x)) {
-    size -= 2;
-    ctx.font = `400 ${size}px ${fonts.ui}`;
-    setSpacing(ctx, 0.02, size);
-  }
-  if (ctx.measureText(SITE_LABEL).width <= room - (right - x)) ctx.fillText(SITE_LABEL, x, baseline);
+  ctx.font = `400 ${F.metaSize}px ${fonts.ui}`;
+  setSpacing(ctx, 0.04, F.metaSize);
+  ctx.fillText(stamp, F.W - F.margin, baseline);
   ctx.textAlign = 'left';
 }
 
 // 一文が入らなければ一文を外して組み直す（書名と数字は必ず見せる）。
 function fitRecord(ctx, o, F) {
   let lay = layoutRecord(ctx, o.fonts, o, F);
-  let place = placeRecordBlock(F, lay.height);
+  const opt = { hasFooter: o.hasFooter !== false };
+  let place = placeRecordBlock(F, lay.height, opt);
   if (!place.fits && lay.fit) {
     lay = layoutRecord(ctx, o.fonts, { ...o, text: '' }, F);
-    place = placeRecordBlock(F, lay.height);
+    place = placeRecordBlock(F, lay.height, opt);
   }
   return { lay, place };
 }
@@ -944,6 +955,8 @@ function fitRecord(ctx, o, F) {
 function drawRecordOverlay(ctx, o, place) {
   const F = recordFrame(o.format);
   const { lay, place: at } = fitRecord(ctx, o, F);
+  // 何も重ねない（全部の項目を隠した）ときは幕も掛けない（写真そのまま）。
+  if (lay.height <= 0 && o.hasFooter === false) return;
   // 幕: 文字の後ろ（まとまりの上端からロゴまで）の明るさで濃さを決め、上端より手前で届かせる。
   const a = scrimAlpha(bandLuminance(o.photo, place, F.W, F.H, at.top, F.footerBaseline + 8));
   const fade = F.H * 0.22;
@@ -954,7 +967,7 @@ function drawRecordOverlay(ctx, o, place) {
   ctx.shadowBlur = 18 * sb;
   ctx.shadowOffsetY = 2 * sb;
   drawRecordBlock(ctx, o.fonts, o, F, lay, at.top, o.theme);
-  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme: o.theme, fonts: o.fonts, stamp: o.stamp });
+  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme: o.theme, fonts: o.fonts, stamp: o.stamp, showLogo: o.showLogo !== false });
   ctx.restore();
 }
 
@@ -979,21 +992,20 @@ function drawRecordPoster(ctx, o) {
     ctx.fillRect(0, 0, F.W, F.H);
   }
   const { lay, place } = fitRecord(ctx, o, F);
-  const covers = (o.covers && o.covers.length ? o.covers : (o.record?.titleIsBook ? [{ cover: o.cover, title: o.title }] : [])).slice(0, 4);
-  const areaH = place.coverArea.bottom - place.coverArea.top;
-  if (covers.length && areaH > 220) {
-    const h = Math.min(areaH * 0.86, covers.length > 1 ? 400 : 520);
-    const w = Math.round(h / 1.45);
-    const step = covers.length > 1 ? Math.round(w * 0.62) : 0;
-    const total = w + step * (covers.length - 1);
-    const x0 = F.margin + Math.max(0, (F.W - F.margin * 2 - total) / 2);
-    const y0 = place.coverArea.top + (areaH - h) / 2;
+  // 言葉を入れたときは、上の空きは言葉が主役（表紙と重ねない）。
+  const covers = o.phrase && phraseDisplayText(o.phrase)
+    ? []
+    : (o.covers && o.covers.length ? o.covers : (o.record?.titleIsBook ? [{ cover: o.cover, title: o.title }] : [])).slice(0, 4);
+  const titleOnly = lay.plan.elements.length === 1 && lay.plan.elements[0].kind === 'title';
+  const at = recordCoverPlacement(F, place, { count: covers.length, titleOnly });
+  if (at) {
+    const { x0, y0, w, h, step } = at;
     covers.forEach((c, i) => {
-      drawCover(ctx, { x: x0 + step * i, y: y0 + (covers.length > 1 ? (i % 2) * h * 0.04 : 0), w, h, cover: c.cover, title: c.title, theme, fonts: o.fonts });
+      drawCover(ctx, { x: x0 + step * i, y: y0 + (covers.length > 1 ? (i % 2) * h * 0.04 : 0), w, h, cover: c.cover, title: c.title, theme, fonts: o.fonts, showText: o.showTitle !== false });
     });
   }
   drawRecordBlock(ctx, o.fonts, o, F, lay, place.top, theme);
-  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme, fonts: o.fonts, stamp: o.stamp });
+  drawRecordFooter(ctx, { F, baseline: F.footerBaseline, logo: o.logo, theme, fonts: o.fonts, stamp: o.stamp, showLogo: o.showLogo !== false });
 }
 
 // 透明（ステッカー）の記録: 文字の塊とロゴだけ。高さは中身に合わせる。
@@ -1002,28 +1014,199 @@ function recordStickerSize(ctx, o) {
   const lay = layoutRecord(ctx, o.fonts, o, F);
   const pad = 72;
   const logoGap = 64;
-  return { F, lay, pad, logoGap, w: 1080, h: Math.round(pad + lay.height + logoGap + F.wordH * 1.3 + pad) };
+  const footH = o.hasFooter !== false ? logoGap + F.wordH * 1.3 : 0;
+  const top = stickerPhraseTop(ctx, o);
+  return { F, lay, pad, logoGap, top, w: 1080, h: top + Math.max(pad * 2 + 120, Math.round(pad + lay.height + footH + pad)) };
 }
 
 function drawRecordSticker(ctx, o, size) {
-  const { F, lay, pad, logoGap } = size;
+  const { F, lay, logoGap } = size;
+  const pad = size.pad + size.top;
   ctx.clearRect(0, 0, size.w, size.h);
   ctx.save();
   ctx.shadowColor = o.theme.shadow;
   ctx.shadowBlur = 24;
   ctx.shadowOffsetY = 3;
   drawRecordBlock(ctx, o.fonts, o, F, lay, pad, o.theme);
-  drawRecordFooter(ctx, { F, baseline: pad + lay.height + logoGap + F.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts, stamp: o.stamp });
+  drawRecordFooter(ctx, { F, baseline: pad + lay.height + (lay.height > 0 ? logoGap : 0) + F.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts, stamp: o.stamp, showLogo: o.showLogo !== false });
   ctx.restore();
 }
 
+// ---------------------------------------------------------------- 言葉の層（2026-10-01）
+//
+// 自分で入れる言葉（sharePhrase.js）を、いちばん上に描く。形は 4 つ:
+//   明朝の引用 … 明朝 400・「」で包む・最後の行の下に橙の手描きの傍線（メモの一文と同じ印）
+//   太いゴシック … UI の書体 700（Strava の太い文字のように）
+//   手書き風 … Klee One（Google Fonts・読み込めたときだけ選べる。読み込めなければこの形は出さない）
+//   白抜きの帯 … 半透明の帯の上に文字（写真の上は明るい帯に墨の文字）
+// 文字の色は自動（写真・夜・表紙の色・透明＝白・紙＝墨）で、白い文字には影、墨の文字を暗い地に置いたときは白い光。
+
+export const HAND_FONT_FAMILY = '"Klee One"';
+const HAND_FONT_CSS = 'https://fonts.googleapis.com/css2?family=Klee+One:wght@600&display=swap';
+let handSheetPromise = null;
+
+// Google Fonts の CSS を 1 回だけ読み込む（読み込めたら true・失敗なら false。遅い通信では待ち続ける）。
+function loadHandSheet() {
+  if (!handSheetPromise) {
+    handSheetPromise = new Promise((resolve) => {
+      try {
+        const found = document.querySelector('link[data-share-hand-font]');
+        if (found) { resolve(!!found.sheet); return; }
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = HAND_FONT_CSS;
+        link.setAttribute('data-share-hand-font', '');
+        link.onload = () => resolve(true);
+        link.onerror = () => { handSheetPromise = null; resolve(false); }; // 次に開いたときにもう一度
+        document.head.appendChild(link);
+      } catch {
+        resolve(false);
+      }
+    });
+  }
+  return handSheetPromise;
+}
+
+// 手書き風の書体が、その言葉の字の分まで使えるようになるまで待つ（待つ時間の上限なし）。
+export function whenHandFontReady(sample = '') {
+  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve(false);
+  return loadHandSheet().then(async (ok) => {
+    if (!ok) return false;
+    try {
+      const text = `${sample}「」あいうえお読書`.slice(0, 200);
+      const faces = await document.fonts.load(`600 64px ${HAND_FONT_FAMILY}`, text);
+      return Array.isArray(faces) && faces.length > 0 && document.fonts.check(`600 64px ${HAND_FONT_FAMILY}`, text);
+    } catch {
+      return false;
+    }
+  });
+}
+
+// 手書き風の書体を読み込む（timeoutMs で諦める＝そのときは手書き風を出さない。読み込めたらあとから出せる）。
+// 戻り値: true（使える）/ false（使えない）。
+export function prepareHandFont(sample = '', { timeoutMs = 8000 } = {}) {
+  return Promise.race([whenHandFontReady(sample), new Promise((r) => setTimeout(() => r(false), timeoutMs))]);
+}
+
+function phraseFont(style, fonts, size) {
+  if (style === 'bold') return `700 ${size}px ${fonts.ui}`;
+  if (style === 'hand') return `600 ${size}px ${HAND_FONT_FAMILY}, ${fonts.read}`;
+  if (style === 'band') return `600 ${size}px ${fonts.ui}`;
+  return `400 ${size}px ${fonts.read}`;
+}
+
+// 画像（W×H）の上の言葉の組み（描く前に位置と大きさを知りたいとき＝編集画面の指で動かす箱にも使う）。
+export function layoutPhraseOn(ctx, o, W, H) {
+  if (!o?.phrase || !ctx) return null;
+  const style = o.phrase.style || 'mincho';
+  const fonts = o.fonts || fontStacks();
+  const { spacing } = phraseMetrics(style);
+  return phraseLayout(o.phrase, {
+    W,
+    H,
+    format: o.format,
+    sticker: o.style === 'sticker',
+    measureAt: (size) => {
+      const m = measurer(ctx, phraseFont(style, fonts, size), spacing);
+      const trail = Math.round(spacing * size * 10) / 10;
+      const memo = new Map(); // 行の組み方をいくつも比べるので、同じ文字列の幅は覚えておく
+      return (s) => {
+        if (!s) return 0;
+        if (!memo.has(s)) memo.set(s, Math.max(0, m(s) - trail));
+        return memo.get(s);
+      };
+    },
+  });
+}
+
+function drawPhrase(ctx, o, W, H) {
+  const lay = layoutPhraseOn(ctx, o, W, H);
+  if (!lay) return null;
+  const fonts = o.fonts || fontStacks();
+  const { spacing } = phraseMetrics(lay.style);
+  const colors = phraseColors({ ground: o.style, style: lay.style, invert: !!o.phrase.invert });
+  const light = cssVar('--share-photo-ink') || '#ffffff';
+  const dark = cssVar('--share-paper-ink') || '#2b2825';
+  const ink = colors.ink === 'light' ? light : dark;
+  const sb = o.shadowScale || 1;
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  if (colors.band) {
+    ctx.fillStyle = colors.band === 'light' ? (cssVar('--share-band-light') || 'rgba(244,239,230,0.92)') : (cssVar('--share-band-dark') || 'rgba(43,40,37,0.86)');
+    roundRectPath(ctx, lay.x0, lay.y0, lay.w, lay.h, Math.max(4, Math.round(lay.size * 0.16)));
+    ctx.fill();
+  }
+  if (!colors.band && colors.ink === 'light' && o.style === 'photo' && o.photo) {
+    // 写真の上の白い文字: 言葉の高さの帯に、画面の幅いっぱいの上下になだらかな幕を敷く
+    // （楕円だと明るい空の上で黒いしみに見えた・2026-10-01 ui-critic）。濃さは写真の明るさから・最大 0.55。
+    const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W, H, ...(o.view || {}) });
+    const a = Math.min(0.55, scrimAlpha(bandLuminance(o.photo, place, W, H, lay.y0, lay.y0 + lay.h)) * 0.8);
+    const scrim = o.theme?.scrim || cssVar('--share-photo-scrim') || '14, 12, 10';
+    const fade = lay.size * 1.5;
+    drawScrim(ctx, W, H, scrim, [[lay.y0 - fade, 0], [lay.y0, a], [lay.y0 + lay.h, a], [lay.y0 + lay.h + fade, 0]]);
+  }
+  const font = phraseFont(lay.style, fonts, lay.size);
+  ctx.font = font;
+  setSpacing(ctx, spacing, lay.size);
+  const trail = Math.round(spacing * lay.size * 10) / 10;
+  const lineW = (l) => Math.max(0, ctx.measureText(l).width - trail);
+  const baselineOf = (i) => lay.y0 + lay.padY + i * lay.lineHeight + (lay.lineHeight - lay.size) / 2 + lay.size * 0.88;
+  if (lay.style === 'mincho' && lay.lines.length && !o.quoteShown) {
+    // 最後の行の下に橙の手描きの傍線（文字の後ろ・影なし）。メモの一文も出ているときは付けない
+    // （傍線は「メモの一文」の印・1 枚に 2 本の傍線を並べない・2026-10-01）。
+    const last = lay.lines[lay.lines.length - 1];
+    const w = lineW(last);
+    const x0 = lay.cx - w / 2;
+    drawUnderline(ctx, { x0, x1: x0 + w, y: baselineOf(lay.lines.length - 1) + lay.size * 0.24, weight: Math.max(6, lay.size * 0.18), seed: seedFrom(`phrase|${lay.text}`), color: o.theme?.accent || cssVar('--share-accent') || '#df8e17' });
+    ctx.font = font;
+    setSpacing(ctx, spacing, lay.size);
+  }
+  if (!colors.band) {
+    if (colors.ink === 'light') {
+      ctx.shadowColor = o.theme?.shadow || cssVar('--share-photo-shadow') || 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 18 * sb;
+      ctx.shadowOffsetY = 2 * sb;
+    } else if (o.style !== 'paper') {
+      ctx.shadowColor = cssVar('--share-phrase-glow') || 'rgba(255,255,255,0.6)';
+      ctx.shadowBlur = 16 * sb;
+    }
+  }
+  ctx.fillStyle = ink;
+  lay.lines.forEach((l, i) => {
+    ctx.fillText(l, lay.cx - lineW(l) / 2, baselineOf(i));
+  });
+  ctx.restore();
+  return lay;
+}
+
 // ---------------------------------------------------------------- 本体
+
+// 表示する項目（隠した項目）を描く材料に当てる。記録は applyShareItems で見出し・書名・著者・数字を外し、
+// 一文・今日の日付・ロゴはフラグで。一文の見せ方は書名・著者・ロゴだけ。
+function visibleOpts(opts, layout, text) {
+  const vis = shareVisibility(opts.hidden);
+  const isRecord = layout === 'record';
+  const stamp = isRecord && vis.stamp ? (opts.stamp || '') : '';
+  return {
+    ...opts,
+    record: isRecord ? applyShareItems(opts.record, opts.hidden) : opts.record,
+    text: isRecord && !vis.quote ? '' : text,
+    stamp,
+    showLogo: vis.logo,
+    showTitle: vis.title,
+    showAuthor: vis.author,
+    hasFooter: vis.logo || !!stamp,
+  };
+}
 
 // canvas に描く（同期）。canvas の大きさもここで決める。
 // opts: { line, page, title, author, cover, style, format, photo, view, textPos, fonts, logo,
 //         seedKey（傍線の種＝メモの id）, totalPages / knownMaxPage（付箋の高さ）,
 //         layout（'quote'＝一文が主役 / 'record'＝記録が主役）, record（shareOverlay の bookRecord / monthRecord）,
-//         stamp（右下の日付）, covers（今月の表紙の並び [{ cover, title }]） }
+//         stamp（右下の日付）, covers（今月の表紙の並び [{ cover, title }]）,
+//         hidden（表示する項目で隠した項目の名前の配列・shareOverlay の SHARE_ITEM_KEYS）,
+//         phrase（自由に入れる言葉の層 { text, style, x, y, scale, invert }・sharePhrase.js） }
 // 戻り値: { line, width, height }（line は実際に画像に入れた文＝共有の文にも同じものを使う）
 export function drawShareCard(canvas, opts = {}) {
   const layout = opts.layout === 'record' ? 'record' : 'quote';
@@ -1036,7 +1219,7 @@ export function drawShareCard(canvas, opts = {}) {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。');
   const base = {
-    ...opts, text, fonts, theme, style,
+    ...visibleOpts(opts, layout, text), fonts, theme, style,
     seed: seedFrom(`${opts.seedKey || ''}|${text}`),
     frac: tabPosition(opts.page, opts.totalPages, opts.knownMaxPage),
   };
@@ -1048,7 +1231,8 @@ export function drawShareCard(canvas, opts = {}) {
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       drawRecordSticker(ctx, base, size);
-      return { line: size.lay.fit ? text : '', width: size.w, height: size.h };
+      drawPhrase(ctx, { ...base, quoteShown: !!size.lay.fit }, size.w, size.h);
+      return { line: size.lay.fit ? base.text : '', width: size.w, height: size.h };
     }
     const F = recordFrame(opts.format);
     if (canvas.width !== F.W || canvas.height !== F.H) { canvas.width = F.W; canvas.height = F.H; }
@@ -1060,7 +1244,8 @@ export function drawShareCard(canvas, opts = {}) {
     else drawRecordPoster(ctx, o);
     // 実際に一文を入れたか（入らなければ外している）を返す＝共有の文も画像と同じにする。
     const { lay } = fitRecord(ctx, o, F);
-    return { line: lay.fit ? text : '', width: F.W, height: F.H };
+    drawPhrase(ctx, { ...o, quoteShown: !!lay.fit }, F.W, F.H);
+    return { line: lay.fit ? o.text : '', width: F.W, height: F.H };
   }
 
   if (style === 'sticker') {
@@ -1070,6 +1255,7 @@ export function drawShareCard(canvas, opts = {}) {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     drawSticker(ctx, base, size);
+    drawPhrase(ctx, { ...base, quoteShown: true }, size.w, size.h);
     return { line: text, width: size.w, height: size.h };
   }
 
@@ -1081,6 +1267,7 @@ export function drawShareCard(canvas, opts = {}) {
   const o = { ...base, W, H, format: FORMATS[opts.format] ? opts.format : 'story' };
   if (style === 'photo') drawPhoto(ctx, o);
   else drawPoster(ctx, o);
+  drawPhrase(ctx, { ...o, quoteShown: true }, W, H);
   return { line: text, width: W, height: H };
 }
 
@@ -1104,11 +1291,11 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
   const cw = Math.round(W * k);
   const ch = Math.round(H * k);
   const fonts = opts.fonts || fontStacks();
-  const key = JSON.stringify([text, fmt, opts.textPos, opts.title, opts.author, opts.page, opts.totalPages, opts.knownMaxPage, opts.seedKey, opts.photo.width, opts.photo.height, fonts.read, k, opts.layout, opts.record, opts.stamp]);
+  const key = JSON.stringify([text, fmt, opts.textPos, opts.title, opts.author, opts.page, opts.totalPages, opts.knownMaxPage, opts.seedKey, opts.photo.width, opts.photo.height, fonts.read, k, opts.layout, opts.record, opts.stamp, opts.hidden, opts.phrase]);
   if (cache.key !== key || !cache.layer || cache.photoRef !== opts.photo) {
     const theme = readShareTheme('photo', { tone: opts.cover?.tone, title: opts.title });
     const o = {
-      ...opts, text, fonts, theme, style: 'photo', W, H, format: fmt,
+      ...visibleOpts(opts, isRecord ? 'record' : 'quote', text), fonts, theme, style: 'photo', W, H, format: fmt,
       seed: seedFrom(`${opts.seedKey || ''}|${text}`),
       frac: tabPosition(opts.page, opts.totalPages, opts.knownMaxPage),
       shadowScale: k,
@@ -1122,6 +1309,7 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
     const place0 = photoPlacement({ pw: opts.photo.width, ph: opts.photo.height, W, H, ...(opts.view || {}) });
     if (isRecord) drawRecordOverlay(lctx, o, place0);
     else drawPhotoOverlay(lctx, o, place0);
+    drawPhrase(lctx, { ...o, quoteShown: isRecord ? !!fitRecord(lctx, o, recordFrame(fmt)).lay.fit : true }, W, H);
     // 写真は、動かし始めの大きさの 1.5 倍まで縮めておく（拡大しても粗くなりすぎない・元より大きくはしない）。
     const want = Math.max(cw, Math.round(place0.w * k * 1.5));
     const sk = Math.min(1, want / opts.photo.width);
@@ -1148,6 +1336,49 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
   ctx.drawImage(cache.small, place.x * k, place.y * k, place.w * k, place.h * k);
   ctx.drawImage(cache.layer, 0, 0);
   return true;
+}
+
+// ✍️ 言葉を指で動かしている・大きさを変えている間の 1 コマ（2026-10-01）。
+// 言葉の下の 1 枚（写真・記録・ロゴ）は動かし始めに 1 回だけ画面の大きさで描いておき、毎コマ言葉だけを重ねる。
+// cache: 呼び出し側が動かし始めに新しく渡す入れ物（{}）。戻り値: 描けたら true。
+export function drawPhraseDragFrame(canvas, opts = {}, cache = {}, { targetWidth = 570 } = {}) {
+  if (!canvas || !opts.phrase) return false;
+  if (!cache.base) {
+    const full = makeCanvas(1, 1);
+    const r = drawShareCard(full, { ...opts, phrase: null });
+    const k = Math.min(1, Math.max(0.2, targetWidth / r.width));
+    const base = makeCanvas(r.width * k, r.height * k);
+    const bctx = base.getContext('2d');
+    if (!bctx) return false;
+    bctx.imageSmoothingQuality = 'high';
+    bctx.drawImage(full, 0, 0, base.width, base.height);
+    let style = opts.style || 'paper';
+    if (style === 'photo' && !opts.photo) style = 'night';
+    const theme = readShareTheme(style, { tone: opts.cover?.tone, title: opts.title });
+    Object.assign(cache, { base, k, W: r.width, H: r.height, style, theme, quoteShown: !!r.line });
+  }
+  const { base, k, W, H } = cache;
+  if (canvas.width !== base.width || canvas.height !== base.height) { canvas.width = base.width; canvas.height = base.height; }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return false;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(base, 0, 0);
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  drawPhrase(ctx, { ...opts, quoteShown: cache.quoteShown, fonts: opts.fonts || fontStacks(), style: cache.style, theme: cache.theme, shadowScale: k, format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return true;
+}
+
+// 言葉の箱の位置（画像の座標）。編集画面が、指で掴める範囲を画像に重ねるのに使う。
+export function measurePhraseBox(opts = {}, { W, H }) {
+  if (!opts.phrase) return null;
+  const c = makeCanvas(1, 1);
+  const ctx = c.getContext('2d');
+  if (!ctx) return null;
+  let style = opts.style || 'paper';
+  if (style === 'photo' && !opts.photo) style = 'night';
+  return layoutPhraseOn(ctx, { ...opts, style, fonts: opts.fonts || fontStacks(), format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
 }
 
 export function canvasToBlob(canvas) {

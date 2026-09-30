@@ -9,7 +9,7 @@
 //   3. 表紙が取れた候補だけをグリッド表示。タップで book を更新
 //   4. 該当無しなら「📷 自分でアップロードする」ボタンへ誘導
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Image as ImageIcon, Check, Camera, X } from 'lucide-react';
 import { findIsbnCandidatesWithMetadata } from '../lib/bookSearch';
@@ -82,6 +82,7 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState([]); // [{isbn, title, author, coverUrl}]
   const trapRef = useFocusTrap(true);
+  const titleId = useId(); // ♿ ダイアログの名前＝見出し（読み上げで名前が無いまま開かない）
 
   // 小型端末（〜480px）では 1 カラムに段組（320px 幅でも表紙が潰れないように）。
   // 表示の段組のみ — 選択ロジックには影響しない。
@@ -146,11 +147,11 @@ export default function CoverFixModal({ book, onClose, onPick, onManualUpload })
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onClose}>
+    <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={onClose}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 16, color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
-            <ImageIcon size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />正しい表紙を選択
+          <h2 id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>
+            <ImageIcon size={15} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-2)' }} />正しい表紙を選択
           </h2>
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>

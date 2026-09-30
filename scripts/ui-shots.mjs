@@ -26,6 +26,27 @@ const outDir = join('ui-shots', label);
 
 const nav = (name) => `nav button[aria-label="${name}"]`;
 
+// 写真で共有の編集画面（2026-10-01）の操作。
+const EDIT = '[role=dialog][aria-label="画像を編集"]';
+const SHARE_CAMERA = [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }];
+const SHARE_PAPER = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }];
+// 撮った写真のシートで、背景を紙に（手書き風の書体は、本の詳細から開くと中継の通信が詰まって撮影の間に読み込めないことがあるため）。
+const SHARE_CAMERA_PAPER = [...SHARE_CAMERA, { css: '[role=dialog] button:has-text("写真以外")' }, { css: '[role=menuitem]:has-text("紙")' }, { wait: 1500 }];
+const SHARE_EDIT = [{ css: '[role=dialog] button:text-is("編集")' }, { wait: 1500 }];
+// 画像の上の (0.5, fy) でホイール（ctrlKey＝トラックパッドでつまむのと同じ）。
+const editWheel = (opts, fy = 0.3) => ({ eval: `(() => { const st = document.querySelector('${EDIT} canvas').parentElement; const r = st.getBoundingClientRect(); st.dispatchEvent(new WheelEvent('wheel', { ...${JSON.stringify(opts)}, clientX: r.left + r.width / 2, clientY: r.top + r.height * ${fy}, bubbles: true, cancelable: true })); })()` });
+const EDIT_ZOOM = editWheel({ deltaY: -40, ctrlKey: true });
+const EDIT_PAN = editWheel({ deltaX: 70, deltaY: 110 });
+const editSwitchesOff = (keep) => ({ eval: `(() => { const keep = ${JSON.stringify(keep)}; document.querySelectorAll('${EDIT} [role=switch]').forEach((b) => { if (!keep.includes(b.getAttribute('aria-label')) && b.getAttribute('aria-checked') === 'true') b.click(); }); })()` });
+const EDIT_TITLE_ONLY = editSwitchesOff(['書名']);
+const EDIT_TITLE_ONLY_LOGO = editSwitchesOff(['書名', 'Orime のロゴ']);
+const EDIT_TOP = { eval: `document.querySelectorAll('${EDIT} *').forEach((el) => { el.scrollTop = 0; })` };
+const EDIT_BLUR = { eval: '(() => { if (document.activeElement) document.activeElement.blur(); })()' };
+const EDIT_PHRASE = [{ css: `${EDIT} button:has-text("言葉を入れる")` }, { fill: [`${EDIT} input[type=text]`, '問いの質が、答えの質を決める。'] }, { wait: 1200 }];
+// 言葉を指で上へ動かす（上から 24% → 12%）。
+const EDIT_PHRASE_DRAG = { eval: `(() => { const st = document.querySelector('${EDIT} canvas').parentElement; const r = st.getBoundingClientRect(); const x = r.left + r.width / 2; const y0 = r.top + r.height * 0.24; const ev = (type, y) => st.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); ev('pointerdown', y0); for (let i = 1; i <= 10; i += 1) ev('pointermove', y0 - (r.height * 0.12 * i) / 10); ev('pointerup', y0 - r.height * 0.12); })()` };
+const EDIT_PHRASE_GROW = editWheel({ deltaY: -30, ctrlKey: true }, 0.14);
+
 // 画面の定義: url（お試しモードのシナリオ）と、そこに至る操作。
 const SCREENS = [
   { name: 'home', url: '/' },
@@ -311,6 +332,45 @@ const SCREENS = [
   { name: 'share-photo-paper', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=dialog] button:has-text("写真以外")' }, { css: '[role=menuitem]:has-text("紙")' }, { wait: 1500 }] },
   { name: 'share-record-paper', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }] },
   { name: 'share-done-prompt', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { css: 'button:text-is("読了にする")' }, { wait: 7500 }, { scrollBottom: true }] },
+  // ── 写真で共有の編集画面（2026-10-01・オーナー要望: 大きな画像で編集・URL を外す・表示する項目・言葉を入れる）。
+  //    編集画面は [role=dialog][aria-label="画像を編集"]。写真の拡大・移動はトラックパッドと同じホイールの知らせで動かす
+  //    （ctrl＋ホイール＝つまんで拡大・ホイール＝動かす）。言葉の形は「言葉の形」の radiogroup から選ぶ。
+  { name: 'share-edit-open', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT] },
+  { name: 'share-edit-photo-zoomed', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, EDIT_ZOOM, EDIT_ZOOM, EDIT_PAN, { wait: 800 }] },
+  { name: 'share-edit-photo-zoomed-story', url: '/', steps: [...SHARE_CAMERA, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, EDIT_ZOOM, EDIT_PAN, { wait: 800 }] },
+  { name: 'share-edit-items', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, { scrollBottom: true }] },
+  { name: 'share-edit-title-only', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, EDIT_TITLE_ONLY, { wait: 1200 }, EDIT_TOP] },
+  { name: 'share-edit-title-only-items', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, EDIT_TITLE_ONLY, { wait: 1200 }, { scrollBottom: true }] },
+  { name: 'share-edit-title-only-paper-story', url: '/', steps: [...SHARE_PAPER, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, EDIT_TITLE_ONLY_LOGO, { wait: 1200 }, EDIT_TOP] },
+  // 編集を終えてシートに戻ったとき（書名だけの 1 枚がそのまま共有される）
+  { name: 'share-edit-title-only-sheet', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, EDIT_TITLE_ONLY, { wait: 1000 }, { css: `${EDIT} button:text-is("完了")` }, { wait: 2000 }] },
+  { name: 'share-edit-text-input', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE] },
+  ...['明朝の引用', '太いゴシック', '手書き風', '白抜きの帯'].flatMap((label, i) => {
+    const key = ['mincho', 'bold', 'hand', 'band'][i];
+    const pick = { eval: `(() => { const b = [...document.querySelectorAll('[aria-label="画像を編集"] [role=radiogroup][aria-label="言葉の形"] [role=radio]')].find((x) => x.textContent.includes('${label}')); if (b) b.click(); })()` };
+    return [
+      // 手書き風は Google Fonts を読み込めてから出る（遅い通信を待つ）。
+      { name: `share-edit-phrase-${key}-photo`, url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, key === 'hand' ? { waitFor: `${EDIT} [role=radiogroup][aria-label="言葉の形"] [role=radio]:has-text("手書き風")`, timeout: 90000 } : { wait: 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
+      { name: `share-edit-phrase-${key}-paper`, url: '/', steps: [...(key === 'hand' ? SHARE_CAMERA_PAPER : SHARE_PAPER), ...SHARE_EDIT, ...EDIT_PHRASE, key === 'hand' ? { waitFor: `${EDIT} [role=radiogroup][aria-label="言葉の形"] [role=radio]:has-text("手書き風")`, timeout: 90000 } : { wait: 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
+    ];
+  }),
+  { name: 'share-edit-phrase-band-story', url: '/', steps: [...SHARE_CAMERA, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, { css: `${EDIT} [role=radio]:has-text("白抜きの帯")` }, { wait: 1200 }, EDIT_BLUR, EDIT_TOP] },
+  { name: 'share-edit-phrase-mincho-story-paper', url: '/', steps: [...SHARE_PAPER, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, EDIT_TOP] },
+  // 言葉を動かして大きくした（編集画面の指の操作と同じ・ctrl＋ホイールを言葉の上で）
+  { name: 'share-edit-phrase-moved', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { css: `${EDIT} [role=radio]:has-text("太いゴシック")` }, { wait: 1200 }, EDIT_PHRASE_DRAG, { wait: 600 }, EDIT_PHRASE_GROW, { wait: 1200 }, EDIT_TOP] },
+  // シートに戻ったとき（言葉の入った 1 枚）
+  { name: 'share-edit-phrase-sheet', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { css: `${EDIT} button:text-is("完了")` }, { wait: 2000 }] },
+  // 読み込み中・描けなかったとき（シートと編集画面）と、透明（ステッカー）の編集画面（2026-10-01 ui-critic）。
+  { name: 'share-photo-loading', url: '/?share=slow', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 1500 }] },
+  { name: 'share-photo-error', url: '/?share=fail', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }] },
+  { name: 'share-edit-loading', url: '/?share=editslow', steps: [...SHARE_CAMERA, ...SHARE_EDIT] },
+  { name: 'share-edit-error', url: '/?share=editfail', steps: [...SHARE_CAMERA, ...SHARE_EDIT] },
+  { name: 'share-edit-sticker', url: '/', steps: [...SHARE_PAPER, { css: '[role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }, ...SHARE_EDIT] },
+  { name: 'share-edit-sticker-phrase', url: '/', steps: [...SHARE_PAPER, { css: '[role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, { css: `${EDIT} [role=radio]:has-text("白抜きの帯")` }, { wait: 1200 }, EDIT_BLUR, EDIT_TOP] },
+  // 言葉と一文の両方を出す（言葉を入れると一文は隠れる→一文をオンに戻す＝言葉に傍線を付けない）
+  { name: 'share-edit-phrase-with-quote', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { css: `${EDIT} [role=switch][aria-label="一文"]` }, { wait: 1500 }, EDIT_TOP] },
+  // 編集画面で下の「表示する項目」まで送っても、画像が上に残る
+  { name: 'share-edit-items-sticky', url: '/', steps: [...SHARE_CAMERA, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, { scrollBottom: true }, { wait: 600 }] },
   { name: 'feedback-form', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button[aria-label="フィードバックを送る"]' }] },
   // ── ヘルプ（2026-09-30）: 画面ごとのヘルプ。?helpkey= は開発中だけ効く（ほかの画面のヘルプを直に開く）。
   { name: 'help-home', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }] },
@@ -346,15 +406,23 @@ const SCREENS = [
   { name: 'memo-editor-next-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { fill: ['textarea#memo-body', '頼まれごとはその場で引き受けず、一度持ち帰ってから数字で判断する。'] }, { css: 'button:has-text("保存して次へ")', settle: 1200 }] },
 ];
 
+// UI_SHOTS_PROXY=1 で、外への通信（Google Fonts＝共有の「手書き風」の書体など）を HTTPS_PROXY 経由にする
+// （クラウドの作業環境向け・証明書は中継のものなので確かめない）。ふだんは未設定のまま。
+function proxyOptions() {
+  if (!process.env.UI_SHOTS_PROXY || !process.env.HTTPS_PROXY) return {};
+  const u = new URL(process.env.HTTPS_PROXY);
+  return { proxy: { server: `${u.protocol}//${u.host}`, username: decodeURIComponent(u.username), password: decodeURIComponent(u.password), bypass: 'localhost,127.0.0.1' } };
+}
+
 function browserOptions() {
-  if (process.env.PW_EXE) return { executablePath: process.env.PW_EXE };
-  if (existsSync('/opt/pw-browsers/chromium')) return { executablePath: '/opt/pw-browsers/chromium' };
-  return { channel: 'chrome' };
+  if (process.env.PW_EXE) return { executablePath: process.env.PW_EXE, ...proxyOptions() };
+  if (existsSync('/opt/pw-browsers/chromium')) return { executablePath: '/opt/pw-browsers/chromium', ...proxyOptions() };
+  return { channel: 'chrome', ...proxyOptions() };
 }
 
 async function run(step, page) {
   if (step.wait) return page.waitForTimeout(step.wait);
-  if (step.waitFor) return page.locator(step.waitFor).first().waitFor({ state: 'visible', timeout: 20000 });
+  if (step.waitFor) return page.locator(step.waitFor).first().waitFor({ state: 'visible', timeout: step.timeout || 20000 });
   if (step.role) await page.getByRole('button', { name: step.role }).first().click();
   if (step.css) await page.locator(step.css).first().click();
   if (step.scrollTo) await page.locator(step.scrollTo).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
@@ -388,6 +456,7 @@ for (const scheme of ['light', 'dark']) {
     const ctx = await browser.newContext({
       viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
       locale: 'ja-JP', colorScheme: scheme,
+      ...(process.env.UI_SHOTS_PROXY ? { ignoreHTTPSErrors: true } : {}),
     });
     const page = await ctx.newPage();
     const errors = [];
