@@ -34,6 +34,7 @@ import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix } from '../lib/consultHelpers';
+import { tomorrowLocal } from '../lib/dates';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
 
@@ -489,9 +490,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (!onAddAction || !bookId || !text) return false;
     // 相談の「明日からできる…」なので期限は明日を既定にする（期限なしだと一覧の最後に沈む）。
     // 「〜してみてください」の呼びかけは、行動リストの言い切りの形に直す。
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    const tomorrow = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const tomorrow = tomorrowLocal();
     //   「残してください」→「残す」・「確認してください」→「確認する」（lib/consultHelpers.js の answerStepToAction）。
     //   長い一歩の頭の「「上司への報告」の場面で、」は外す（行動の一覧で 2〜3 行に伸びて、肝心の一歩が埋もれる・2026-09-29）。
     const plain = stripScenePrefix(answerStepToAction(text));
@@ -2350,7 +2349,10 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
 // 「✓ 行動に追加しました（期限は明日）見る」。狭い幅で折り返しても「見る」だけが次の行に落ちないよう、
 // 「（期限は明日）見る」をひとまとまり（nowrap）にする。「見る」は押せる範囲 44 のまま、上下の負の余白で行の高さを変えない。
 // ✓ は 2 行になっても 1 行目の高さの中央に置く。
-function ActionAddedNote({ onOpenActions }) {
+// deadline: null = 明日（既定）。本を選んで追加するときに期限を変えたら、その期限（'' = 期限なし・2026-09-30）。
+function ActionAddedNote({ onOpenActions, deadline = null }) {
+  const deadlineText = deadline == null ? '（期限は明日）'
+    : deadline ? `（期限は${Number(deadline.slice(5, 7))}月${Number(deadline.slice(8, 10))}日）` : '';
   // 出たら、画面の外（下）に隠れないよう最小限だけ送って見せる（キーボードや下の欄に隠れていた・2026-09-29）。
   const ref = useRef(null);
   useEffect(() => {
@@ -2367,7 +2369,7 @@ function ActionAddedNote({ onOpenActions }) {
         行動に追加しました
         {/* かっこは詰める（palt）: 行頭に来ても左が空いて見えず、「）」と「見る」の間も空きすぎない。 */}
         <span style={{ whiteSpace: 'nowrap' }}>
-          <span style={{ fontFeatureSettings: '"palt"' }}>（期限は明日）</span>
+          {deadlineText && <span style={{ fontFeatureSettings: '"palt"' }}>{deadlineText}</span>}
           {/* 入った先（振り返り › 行動）をその場で見られる（2026-09-29）。左右 4 の内側余白が文字との間になる。 */}
           {onOpenActions && (
             <button type="button" onClick={onOpenActions} aria-label="追加した行動を見る" style={{ ...uiBtnLink, verticalAlign: 'middle', marginBlock: 'calc((1.5em - 44px) / 2)' }}>見る</button>
@@ -2386,6 +2388,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
 
   // 🧠→🎯 回答の「明日からできる一歩」を、紐づく本の行動リストへ 1 タップ追加。
   const [actionAdded, setActionAdded] = useState(false);
+  // 本を選んで追加したとき、期限を変えていたらその期限（'' = 期限なし）。null = 明日のまま。
+  const [addedDeadline, setAddedDeadline] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
   const canAct = !isUser && !isStreaming && !message.error && (!!onAddAction || !!onAddActionPickBook);
   const actionLine = canAct ? extractActionLine(message.content) : '';
@@ -2403,8 +2407,15 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       setActionBusy(false);
       if (ok) { setActionAdded(true); onActionAdded?.(); }
     } else if (onAddActionPickBook) {
-      // 本を特定できない → 本選択シートで行動文をプレフィル（確定は本を選んだ時点）。
-      onAddActionPickBook(actionForList);
+      // 本を特定できない（いちばんの根拠が自分の学びなど）→ 本選択シートで行動文をプレフィル（確定は本を選んだ時点）。
+      // 本を選んで追加できたら、答えの中を「行動に追加しました（期限は明日）見る」に変える（二重に足さない・2026-09-30）。
+      // シートの上には、この答えの根拠になった本を先に並べる。
+      const evidenceBookIds = [...new Set((message.refs || []).filter((r) => !isMetaRef(r)).map((r) => resolveRefBookId(r, books)).filter(Boolean))];
+      onAddActionPickBook(stripScenePrefix(answerStepToAction(actionForList)), (deadline) => {
+        setAddedDeadline(deadline === tomorrowLocal() ? null : (deadline ?? null));
+        setActionAdded(true);
+        onActionAdded?.();
+      }, { evidenceBookIds });
     }
   };
 
@@ -2506,7 +2517,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       )}
       {canShowAction && (
         actionAdded ? (
-          <ActionAddedNote onOpenActions={onOpenActions} />
+          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} />
         ) : (
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
             <Target size={16} aria-hidden="true" />行動に追加
@@ -2821,7 +2832,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       {/* 旧形式（見出しなし）でも行動化できるように */}
       {!parsed && canShowAction && !message.error && (
         actionAdded ? (
-          <ActionAddedNote onOpenActions={onOpenActions} />
+          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} />
         ) : (
           // 答えのカード（--surface）の上なので、押せない間は副ボタンの押せない形（--separator の枠＋--text-3）。
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>

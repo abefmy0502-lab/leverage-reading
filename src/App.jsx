@@ -146,7 +146,7 @@ import { periodKeyFor, fetchUsedMjpy, fetchLotBalance, remainingTokens, allowanc
 // 🪙➕ トークンを追加（買い足し）のシート
 const TokenSheet = lazy(() => import('./components/TokenSheet'));
 import { PaywallContext, usePaywall } from './state/PaywallContext';
-import { todayLocal, fmtDateJa, isScheduledLater } from './lib/dates';
+import { todayLocal, tomorrowLocal, fmtDateJa, isScheduledLater } from './lib/dates';
 // 🧩 #9 App.jsx 分割: 本フォーム共通プリミティブと Phase エディタは別ファイルへ抽出。
 import { Stars, inp, btnS } from './components/formPrimitives';
 import { btnGhost, btnGhostOff, btnText, btnPrimary, btnPrimaryOff, btnLink, groupTitle } from './styles/ui';
@@ -3202,7 +3202,7 @@ function AuthedApp() {
         mutateBookLocal(bookId, () => next);
         syncActionSnapshots(next);
       });
-      toast.success('🎯 行動を追加しました。');
+      if (!payload.quiet) toast.success('🎯 行動を追加しました。');
       return true;
     } catch (error) {
       toast.error(toMessage(error, '行動の追加に失敗しました。'));
@@ -5075,7 +5075,8 @@ function AuthedApp() {
                     books={books}
                     onAddAction={addActionFromMemo}
                     onBooksMutated={refreshBooks}
-                    onAddActionPickBook={(text) => setAddActionSheet({ step: 'pick', prefillText: text })}
+                    // 相談の答えから（いちばんの根拠が自分の学びで本が決まらない）: 期限は明日で入れ、追加できたら答えに知らせる。
+                    onAddActionPickBook={(text, onDone, opts) => setAddActionSheet({ step: 'pick', prefillText: text, from: 'consult', onDone: typeof onDone === 'function' ? onDone : null, evidenceIds: opts?.evidenceBookIds || [] })}
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
                     onQuickstart={() => setShowQuickstart(true)}
                     onAddBook={() => openAdd()}
@@ -5288,34 +5289,59 @@ function AuthedApp() {
           ① どの本の行動かを選ぶ（読書中→読了→積読→読みたい順）。
           prefillText があれば ② の入力欄に初期表示する（本を解決できなかった
           AI 回答の「明日の一歩」を、本を選んで行動化できるようにする）。 */}
-      {addActionSheet?.step === 'pick' && (
-        <BottomSheet title="どの本の行動にしますか？" onClose={() => setAddActionSheet(null)} dismissLabel="キャンセル">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            {[...books]
-              .sort((a, b) => {
-                const rank = { reading: 0, done: 1, before: 2, want: 3 };
-                const ra = rank[a.status] ?? 4;
-                const rb = rank[b.status] ?? 4;
-                if (ra !== rb) return ra - rb;
-                return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
-              })
-              .map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => setAddActionSheet({ step: 'edit', bookId: b.id, prefillText: addActionSheet.prefillText || '' })}
-                  style={{ ...sheetOption(false), minHeight: 56 }}
-                >
-                  <MiniCover book={b} width={28} />
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
-                    <span style={{ display: 'block', fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>{STATUS_LABEL[b.status] || b.status}</span>
-                  </span>
-                </button>
-              ))}
-          </div>
-        </BottomSheet>
-      )}
+      {addActionSheet?.step === 'pick' && (() => {
+        const rank = { reading: 0, done: 1, before: 2, want: 3 };
+        const sorted = [...books].sort((a, b) => {
+          const ra = rank[a.status] ?? 4;
+          const rb = rank[b.status] ?? 4;
+          if (ra !== rb) return ra - rb;
+          return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
+        });
+        // 相談の答えから来たら、その答えの根拠になった本を先に「この答えの根拠」としてまとめる（2026-09-30）。
+        const evidenceIds = addActionSheet.evidenceIds || [];
+        const evidence = evidenceIds.map((id) => books.find((b) => b.id === id)).filter(Boolean);
+        const rest = evidence.length ? sorted.filter((b) => !evidenceIds.includes(b.id)) : sorted;
+        const pick = (b) => setAddActionSheet({ ...addActionSheet, step: 'edit', bookId: b.id, prefillText: addActionSheet.prefillText || '' });
+        const row = (b) => (
+          <button
+            key={b.id}
+            type="button"
+            onClick={() => pick(b)}
+            style={{ ...sheetOption(false), minHeight: 56 }}
+          >
+            <MiniCover book={b} width={28} />
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+              <span style={{ display: 'block', fontSize: 'var(--text-caption)', color: 'var(--text-2)' }}>{STATUS_LABEL[b.status] || b.status}</span>
+            </span>
+          </button>
+        );
+        const list = { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' };
+        return (
+          <BottomSheet title="どの本の行動にしますか？" onClose={() => setAddActionSheet(null)} dismissLabel="キャンセル">
+            {/* 何を行動にするのか（相談の答えの一歩・2 行まで）。 */}
+            {addActionSheet.prefillText && (
+              <p style={{ margin: '0 0 var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                {addActionSheet.prefillText}
+              </p>
+            )}
+            {evidence.length > 0 ? (
+              <>
+                <p style={{ ...groupTitle, margin: '0 0 var(--space-2)' }}>この答えの根拠</p>
+                <div style={list}>{evidence.map(row)}</div>
+                {rest.length > 0 && (
+                  <>
+                    <p style={{ ...groupTitle, margin: 'var(--space-6) 0 var(--space-2)' }}>ほかの本</p>
+                    <div style={list}>{rest.map(row)}</div>
+                  </>
+                )}
+              </>
+            ) : (
+              <div style={list}>{rest.map(row)}</div>
+            )}
+          </BottomSheet>
+        );
+      })()}
 
       {/* 🎯 行動タブ「＋追加」: ② 行動の内容を入力（ActionEditModal を create モードで再利用）。
           prefillText があれば行動文を初期表示（AI 回答からの行動化フォールバック）。 */}
@@ -5323,11 +5349,19 @@ function AuthedApp() {
         <Suspense fallback={<Spinner />}>
           <ActionEditModal
             mode="create"
-            action={addActionSheet.prefillText ? { text: addActionSheet.prefillText } : null}
+            // 相談の答えから来たときは、ほかの「行動に追加」と同じく期限は明日で入れておく（2026-09-30）。
+            action={addActionSheet.prefillText
+              ? { text: addActionSheet.prefillText, ...(addActionSheet.from === 'consult' ? { deadline: tomorrowLocal() } : null) }
+              : null}
             onClose={() => setAddActionSheet(null)}
             onSave={async (patch) => {
-              const ok = await createActionForBook(addActionSheet.bookId, patch);
-              if (ok) setAddActionSheet(null);
+              // 相談から: 追加できたことは答えの中の「行動に追加しました（期限は明日）見る」で伝える（知らせを重ねない）。
+              const fromConsult = addActionSheet.from === 'consult';
+              const ok = await createActionForBook(addActionSheet.bookId, { ...patch, quiet: fromConsult });
+              if (ok) {
+                addActionSheet.onDone?.(patch?.deadline ?? '');
+                setAddActionSheet(null);
+              }
             }}
           />
         </Suspense>

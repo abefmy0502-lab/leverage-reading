@@ -10,6 +10,13 @@ export function toLocalYmd(d = new Date()) {
 
 export const todayLocal = () => toLocalYmd(new Date());
 
+// 明日（端末の日付）。相談の答えから入れる行動の既定の期限。
+export function tomorrowLocal() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return toLocalYmd(d);
+}
+
 // 'YYYY-MM-DD'（または ISO）を画面用に。今年なら「9/29」、違う年なら「2025/9/29」。
 export function fmtDateJa(value) {
   if (!value) return '';
