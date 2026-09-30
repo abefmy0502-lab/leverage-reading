@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { HELP_CONTENT, HELP_FAQ, HELP_SCREEN_ORDER, getHelp } from './helpContent';
 
 // ヘルプは「10 秒で分かる」長さに保つ（2026-09-30 オーナー要望「ヘルプの説明が長すぎてわかりにくい」）。
-// 字数は太字の ** を除いて数える（空白は数える）。
+// 字数は太字の ** を除いて数える（空白は数える）。手順は 17pt・行は 15pt で、幅 460 の中の 1 行に収まる字数
+// （手順 14 字・行 18 字・2026-09-30 ui-critic: 16px の外側の余白で幅が狭まり、25/40 字では折り返していた）。
 const visible = (s) => [...String(s).replace(/\*\*/g, '')].length;
 const boldCount = (s) => (String(s).match(/\*\*/g) || []).length / 2;
 // 行の頭の「 は約物の空きで 1 文字目が右へ下がって見える（2026-09-30 ui-critic）。行・手順・要約を「で始めない。
@@ -21,7 +22,7 @@ function checkTopic(t, where) {
   expect(t.lines.length, `${where}「${t.title}」は 1〜3 行`).toBeGreaterThanOrEqual(1);
   expect(t.lines.length, `${where}「${t.title}」は 1〜3 行`).toBeLessThanOrEqual(3);
   for (const line of t.lines) {
-    expect(visible(line), `${where}「${line}」は 40 字まで`).toBeLessThanOrEqual(40);
+    expect(visible(line), `${where}「${line}」は 18 字まで`).toBeLessThanOrEqual(18);
     expect(startsWithBracket(line), `${where}「${line}」は「で始めない`).toBe(false);
     expect(boldCount(line) % 1, `${where}「${line}」の ** が閉じていない`).toBe(0);
     expect(boldCount(line), `${where}「${line}」の太字は 1 か所まで`).toBeLessThanOrEqual(1);
@@ -49,7 +50,7 @@ describe('HELP_CONTENT', () => {
       expect(e.quickSteps).toHaveLength(3);
       expect(startsWithBracket(e.summary), `summary は「で始めない`).toBe(false);
       for (const s of e.quickSteps) {
-        expect(visible(s), `quickStep「${s}」は 25 字まで`).toBeLessThanOrEqual(25);
+        expect(visible(s), `quickStep「${s}」は 14 字まで`).toBeLessThanOrEqual(14);
         expect(startsWithBracket(s), `quickStep「${s}」は「で始めない`).toBe(false);
         expect(boldCount(s) % 1).toBe(0);
       }
