@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, stripScenePrefix, recentReflectedAction, memoSearchQuery, answerStepToAction } from './consultHelpers';
+import { memoExampleForBook, buildConsultExamples, standaloneAction, stripRelativeDayLead, questionGist, needsSubject, WORRY_EXAMPLES, actionGist, stripScenePrefix, recentReflectedAction, memoSearchQuery, answerStepToAction } from './consultHelpers';
 
 describe('答えの一歩を行動の形に（answerStepToAction・2026-09-29）', () => {
   it('す で終わる動詞は「〜す」', () => {
@@ -299,5 +299,16 @@ describe('shortTitle（相談例に出す短い書名）', () => {
   it('相談例の書名に使う', () => {
     const ex = buildConsultExamples({ books: [{ id: 'k', title: '嫌われる勇気―自己啓発の源流「アドラー」の教え', status: 'done' }], memoBookIds: new Set(['k']), count: 1 });
     expect(ex[0].text).toBe('『嫌われる勇気』の学びで、明日から使えるものは？');
+  });
+});
+
+describe('memoExampleForBook', () => {
+  it('よく読まれている本はその本の一言、副題つきでも先頭が一致すれば同じ', () => {
+    expect(memoExampleForBook({ title: 'エッセンシャル思考' })).toBe('やらないことを決めるのが、一番大事な仕事');
+    expect(memoExampleForBook({ title: '7つの習慣 人格主義の回復' })).toMatch(/重要なこと/);
+  });
+  it('知らない本は空', () => {
+    expect(memoExampleForBook({ title: 'だれも知らない本' })).toBe('');
+    expect(memoExampleForBook(null)).toBe('');
   });
 });

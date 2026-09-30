@@ -82,6 +82,32 @@ export function worryForBook(book) {
   return prefix ? prefix[1] : '';
 }
 
+// 🖊 これまで読んだ本から始める: 「いちばん覚えていることは？」の欄の例（よく読まれている本だけ・2026-09-30）。
+//   その本で覚えていそうな一言。無い本は空（画面は「覚えている一言（うろ覚えでOK）」）。
+export const BOOK_MEMO_EXAMPLES = {
+  '7つの習慣': '緊急ではないけれど重要なことに時間を使う',
+  '人を動かす': '人は議論に負けても、考えを変えない',
+  '嫌われる勇気': '他人の課題には踏み込まない',
+  'イシューからはじめよ': '答えを出す前に、本当に答えるべき問いを見極める',
+  'エッセンシャル思考': 'やらないことを決めるのが、一番大事な仕事',
+  'FACTFULNESS': '思い込みより、データで世界を見る',
+  '影響力の武器': '人は先に何かをもらうと、お返しをしたくなる',
+  '伝え方が9割': 'お願いは、相手のメリットから伝える',
+  '1兆ドルコーチ': 'チームが第一。信頼がすべての土台',
+  '数値化の鬼': '行動の量を数字で決めてから動く',
+  '思考の整理学': '考えは一晩寝かせると整理される',
+  '夢をかなえるゾウ': '小さな行動を毎日続けることから変わる',
+};
+const MEMO_EXAMPLE_BY_TITLE = Object.entries(BOOK_MEMO_EXAMPLES).map(([t, w]) => [titleKey(t), w]);
+export function memoExampleForBook(book) {
+  const key = titleKey(book?.title);
+  if (!key) return '';
+  const exact = MEMO_EXAMPLE_BY_TITLE.find(([k]) => k === key);
+  if (exact) return exact[1];
+  const prefix = MEMO_EXAMPLE_BY_TITLE.find(([k]) => key.startsWith(k));
+  return prefix ? prefix[1] : '';
+}
+
 // えらんだ本の困りごとを先に、次に「『書名』の学びで、明日から使えるものは？」（困りごとの無い本から・
 // えらんだ本に結びつく問いを、よくある困りごとより先に出す・2026-09-29）、それでも足りない分はよくある困りごとで
 // （同じ文は重ねない）。

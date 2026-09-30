@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import NotifyOptInCard from './NotifyOptInCard';
-import { quickstartWorries, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
+import { quickstartWorries, memoExampleForBook, countSummaryMemos, fmtTokens, consultsLeft } from '../lib/consultHelpers';
 import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import { TOKEN_COSTS } from '../lib/tokens';
@@ -596,7 +596,9 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, o
               onChange={(e) => setMemo(e.target.value)}
               rows={4}
               maxLength={LIMITS.memoText}
-              placeholder="例：やらないことを決めるのが、一番大事な仕事"
+              // 例は本ごと（よく読まれている本はその本の一言・無い本は決まった一言・2026-09-30）。
+              //   ほかの本を読んだ人に「やらないことを決める…」の例を出すと、書くことを迷わせていた。
+              placeholder={memoExampleForBook(current.book) ? `例：${memoExampleForBook(current.book)}` : '覚えている一言（うろ覚えでOK）'}
               aria-label={`『${current.book.title}』でいちばん覚えていること`}
               style={{
                 ...inputStyle, display: 'block', marginTop: 'var(--space-4)', resize: 'none', minHeight: 128,
