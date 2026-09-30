@@ -16,7 +16,7 @@
 //   （読書メーターは asin / pages / reviewAt も付く。無ければ App 側は空として扱う）
 // 画面は src/components/ImportSheet.jsx。保存は App 側（重複は既存の本に足す）。
 
-import { findImportDuplicate } from './checkDuplicate';
+import { findImportDuplicate, importTitleBucket } from './checkDuplicate';
 import { LIMITS } from './limits';
 
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
@@ -509,7 +509,8 @@ export function parseImportText(fileName, text) {
 }
 
 // いくつかのファイルを一度に選んだとき（Kindle のノートブックは 1 冊 1 ファイル）: 1 つの結果にまとめる。
-//   同じ本（書名＋著者）は 1 冊にまとめ、同じ文のメモは 1 つだけ残す。取り込み元がそろっていればその名前、
+//   同じ本（ISBN・書名＋著者・本棚と同じゆるい判定＝副題や訳者、「完訳」などの版の違い）は 1 冊にまとめ（書名は長いほう）、
+//   同じ文のメモは 1 つだけ残す。取り込み元がそろっていればその名前、
 //   混ざっていれば 'mixed'（見出しに取り込み元を出さない）。読む上限（5,000 冊・メモ 2,000 件）はまとめたあとにも守る
 //   （一度に取り込む 300 冊は planImport で本棚の本を除いてから決める）。
 export function mergeImportResults(results) {
@@ -519,6 +520,10 @@ export function mergeImportResults(results) {
   const byKey = new Map();
   // 同じ本: ISBN（または ASIN）が同じ、または書名＋著者が同じ（著者の書き方が違っても ISBN で 1 冊に）。
   const byId = new Map();
+  // それでも見つからなければ、本棚と突き合わせるときと同じゆるい判定（findImportDuplicate: 副題・訳者・
+  //   「完訳」などの版の違い）で、もうまとめた本から探す（2026-09-30）。候補は書名の頭 2 文字で絞る（5,000 冊でも速く）。
+  const buckets = new Map();
+  let bookCount = 0;
   let memoCount = 0;
   // 全冊数（total）のある結果＝読書メーターの棚のページから読めた本（同じ本は 1 冊）。
   const shelfBooks = new Set();
@@ -529,8 +534,20 @@ export function mergeImportResults(results) {
       const id = b.isbn || b.asin || '';
       let book = byKey.get(key) || (id ? byId.get(id) : null);
       if (!book) {
-        if (byKey.size >= IMPORT_MAX_PARSE_BOOKS) continue;
-        book = { ...b, memos: [] };
+        const bucket = importTitleBucket(b.title);
+        const near = findImportDuplicate(buckets.get(bucket) || [], { title: b.title, author: b.author, isbn: b.isbn });
+        if (near) {
+          book = near;
+          // 書名は長いほう（副題つき）を残す。
+          if (String(b.title || '').trim().length > String(book.title || '').trim().length) book.title = b.title;
+          if (!book.author && b.author) book.author = b.author;
+        } else {
+          if (bookCount >= IMPORT_MAX_PARSE_BOOKS) continue;
+          book = { ...b, memos: [] };
+          bookCount += 1;
+          if (!buckets.has(bucket)) buckets.set(bucket, []);
+          buckets.get(bucket).push(book);
+        }
         byKey.set(key, book);
       }
       if (id && !byId.has(id)) byId.set(id, book);

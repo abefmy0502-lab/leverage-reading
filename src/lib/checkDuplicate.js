@@ -93,6 +93,7 @@ export function findDuplicateBook(books, candidate) {
 //     1. 著者がどちらにもあり、正規化して片方がもう片方を含む（カンマ等で区切った名前どうしでも可）
 //     2. 短いほうの書名が長いほうの書名の頭にあり、そのすぐあとが 空白・「:」「：」「―」「-」「(」「（」（または同じ書名）
 //   ただし続きが巻数（「上」「2」「第3巻」など）なら別の本（シリーズの別の巻）とみなす。
+//   書名の頭の「完訳」「新訳」「新版」「改訂版」「決定版」などは外して比べる（stripEditionPrefix・2026-09-30）。
 //   手で追加するとき（AddBookModal など）は使わない（副題違いの別の本を黙って足さないため）。
 const TITLE_SEP = new Set([' ', ':', '：', '―', '—', '-', '(', '（']);
 const VOLUME_REST = /^[\s:：―—\-(（]*(\d|[上中下]\s*$|[上中下][巻)）]|第\s*\d|vol)/i;
@@ -110,9 +111,21 @@ function authorsLooselyMatch(a, b) {
   const nb = authorNames(b);
   return na.some((x) => nb.some((y) => x.includes(y) || y.includes(x)));
 }
+// 書名の頭の版の違い（「完訳 7つの習慣」↔「7つの習慣」・「【新版】…」）は同じ本とみなす（2026-09-30）。
+//   頭にあるときだけ外す（書名の途中の「新版」は残す）。外したあとが 2 文字未満なら外さない。
+const EDITION_PREFIX = /^(?:[【\[(（〔]?\s*(?:完訳|新訳|新版|改訂新版|増補改訂版|改訂版|増補版|決定版)\s*[】\])）〕]?[\s:：・]*)+/;
+export function stripEditionPrefix(raw) {
+  const t = normalizeText(raw);
+  const rest = t.replace(EDITION_PREFIX, '').trim();
+  return rest.length >= 2 ? rest : t;
+}
+// 取り込みで同じ本の候補を絞る鍵（版の頭を外した書名の最初の 2 文字）。titlesLooselyMatch で同じ本になる 2 冊は必ず同じ鍵。
+export function importTitleBucket(raw) {
+  return stripEditionPrefix(raw).slice(0, 2);
+}
 function titlesLooselyMatch(a, b) {
-  const ta = normalizeText(a);
-  const tb = normalizeText(b);
+  const ta = stripEditionPrefix(a);
+  const tb = stripEditionPrefix(b);
   if (!ta || !tb) return false;
   const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
   if (short.length < 2) return false;

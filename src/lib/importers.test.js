@@ -84,6 +84,19 @@ describe('mergeImportResults', () => {
     expect(mergeImportResults([a, { source: 'booklog', books: [] }]).source).toBe('mixed');
     expect(mergeImportResults([a])).toBe(a);
   });
+  it('副題・訳者・「完訳」の違いでも同じ本は 1 冊に（書名は長いほう・2026-09-30）', () => {
+    const kindle = { source: 'kindle', books: [{ title: '7つの習慣', author: 'スティーブン・R・コヴィー', memos: [{ text: '主体性', page: 1 }] }] };
+    const booklog = { source: 'booklog', books: [
+      { title: '完訳 7つの習慣 人格主義の回復', author: 'スティーブン・R・コヴィー, フランクリン・コヴィー・ジャパン', memos: [{ text: '主体性', page: 1 }, { text: '終わりを思い描く', page: 2 }] },
+      { title: '7つの習慣 2', author: 'コヴィー', memos: [] },
+      { title: 'エッセンシャル思考', author: '別の人', memos: [] },
+    ] };
+    const bookmeter = { source: 'bookmeter', books: [{ title: 'エッセンシャル思考 最少の時間で成果を最大にする', author: 'グレッグ・マキューン', memos: [] }] };
+    const m = mergeImportResults([kindle, booklog, bookmeter]);
+    const titles = m.books.map((b) => b.title);
+    expect(titles).toEqual(['完訳 7つの習慣 人格主義の回復', '7つの習慣 2', 'エッセンシャル思考', 'エッセンシャル思考 最少の時間で成果を最大にする']);
+    expect(m.books[0].memos.map((x) => x.text)).toEqual(['主体性', '終わりを思い描く']);
+  });
 });
 
 describe('読書メーター', () => {
