@@ -467,6 +467,9 @@ function Shell({ children }) {
   );
 }
 
+// 本の詳細・編集の「上の行＋中身」の箱（左端スワイプで一緒に動かす・2026-09-30）。
+const swipeScreenStyle = { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg)' };
+
 /* ========== 押し込まれた画面の上部の 1 行 ========== */
 // 本の詳細・編集の「‹ 戻り先」の行。スクロールの箱の外（上）に置いて、下へ送っても行が残るようにする
 // （iOS のナビゲーションバーと同じ・相談の topRow と同じ形）。一番上では線を出さず、中身を下へ送ったら
@@ -933,10 +936,11 @@ function AuthedApp() {
     onBack: () => { window.dispatchEvent(new Event('orime:consult-back')); },
   });
   // Edge-swipe back: only listens while we're on a detail or edit view.
-  // 画面（.detail-enter の箱）が指に付いてきて、離すと右へ送り出してから戻る。
+  // 画面（上の行＋中身の箱＝data-swipe-target）が指に付いてきて、離すと右へ送り出してから戻る。
   useEdgeSwipeBack({
     enabled: view === 'detail' || view === 'edit',
-    getTarget: () => (typeof document !== 'undefined' ? document.querySelector('.detail-enter') : null),
+    // 上の行（PushedTopBar）と中身をまとめた箱を動かす（.detail-enter は上の行にも付いていて、行だけが動いていた・2026-09-30）。
+    getTarget: () => (typeof document !== 'undefined' ? document.querySelector('[data-swipe-target]') : null),
     // 編集中の未保存変更は破棄前に確認（下部ナビと同じガード）。やめたら画面は元の位置へ戻る。
     beforeBack: async () => view !== 'edit' || (await confirmDiscardEdit()),
     onBack: () => {
@@ -3764,6 +3768,8 @@ function AuthedApp() {
 
     return (
       <Shell>
+        {/* 左端スワイプで指に付いてくる画面＝上の行と中身をまとめた箱（getTarget が返す・2026-09-30）。 */}
+        <div data-swipe-target="" style={swipeScreenStyle}>
         {/* 「‹ 戻り先」の行はスクロールの箱の外（下へ送っても残る・PushedTopBar）。 */}
         <PushedTopBar scrollRef={detailScrollRef}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
@@ -4107,6 +4113,7 @@ function AuthedApp() {
                 二重なので撤去（左端スワイプでも戻れる）。 */}
           </div>
         </div>
+        </div>
 
         {/* Floating "+ memo" FAB — only for reading/done so we don't lure
             users into creating memos that the section above hides. */}
@@ -4341,6 +4348,8 @@ function AuthedApp() {
     const hasSaveBar = !!current && editPhaseNow !== 'want';
     return (
       <Shell>
+        {/* 左端スワイプで指に付いてくる画面＝上の行と中身をまとめた箱（getTarget が返す・2026-09-30）。 */}
+        <div data-swipe-target="" style={swipeScreenStyle}>
         {/* 「‹ 戻り先」の行はスクロールの箱の外（本の詳細と同じ PushedTopBar）。 */}
         <PushedTopBar scrollRef={editScrollRef}>
             <button
@@ -4449,6 +4458,7 @@ function AuthedApp() {
               </>
             );
           })()}
+        </div>
         </div>
 
         {hasSaveBar && (
