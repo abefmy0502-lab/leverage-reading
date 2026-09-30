@@ -3904,7 +3904,8 @@ function AuthedApp() {
           {current.tags?.length > 0 && (
             <div style={{ display: "flex", alignItems: 'center', flexWrap: "wrap", columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginTop: 'var(--space-3)', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>
               <IcTag size={14} strokeWidth={1.75} aria-label="タグ" style={{ flexShrink: 0, marginRight: 'calc(-1 * var(--space-2))' }} />
-              {current.tags.map((t, i) => (<span key={i}>#{t}</span>))}
+              {/* 「#」は付けない（タグの印があるので二重になる・メモを書くシートのタグと同じ表記・2026-09-30）。 */}
+              {current.tags.map((t, i) => (<span key={i}>{t}</span>))}
             </div>
           )}
 
