@@ -5,7 +5,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export function useSwipeToDelete({ onDelete, threshold = 80, maxSwipe = 200 } = {}) {
+// immediate: 指を離した瞬間に onDelete を呼ぶ（滑り出す動きは呼ぶ側が受け持つ・SwipeableCard）。
+//   「元に戻す」の知らせが、カードが消え終わるのを待たずに指を離したときに出る（2026-09-30）。
+export function useSwipeToDelete({ onDelete, threshold = 80, maxSwipe = 200, immediate = false } = {}) {
   const [offset, setOffset] = useState(0);
   const [armed, setArmed] = useState(false); // whether release will trigger delete
   const [isDeleting, setIsDeleting] = useState(false);
@@ -55,7 +57,20 @@ export function useSwipeToDelete({ onDelete, threshold = 80, maxSwipe = 200 } = 
   );
 
   const onTouchEnd = useCallback(() => {
-    if (offsetRef.current >= threshold) {
+    if (offsetRef.current >= threshold && immediate) {
+      setIsDeleting(true);
+      Promise.resolve()
+        .then(() => onDelete?.())
+        .catch(() => { /* ignore */ })
+        .finally(() => {
+          // 取り消し・失敗でカードがまだ残っていれば、元の位置へ戻す。
+          setTimeout(() => {
+            if (!mountedRef.current) return;
+            setIsDeleting(false);
+            setOffsetState(0);
+          }, 400);
+        });
+    } else if (offsetRef.current >= threshold) {
       setIsDeleting(true);
       // Slide fully off-screen then notify
       setOffsetState(maxSwipe);
@@ -76,7 +91,7 @@ export function useSwipeToDelete({ onDelete, threshold = 80, maxSwipe = 200 } = 
     startXRef.current = null;
     startYRef.current = null;
     directionRef.current = null;
-  }, [threshold, maxSwipe, onDelete, setOffsetState]);
+  }, [threshold, maxSwipe, onDelete, setOffsetState, immediate]);
 
   const onTouchCancel = useCallback(() => {
     setOffsetState(0);
