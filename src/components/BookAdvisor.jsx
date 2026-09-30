@@ -1488,7 +1488,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               if (a) generateRecommendations(a.userMsg, a.sourceQuery);
               else resetToConcern();
             },
-            variant: 'primary',
+            // ほかの画面の「もう一度」（メモの読み込みの失敗など）と同じ副ボタン（2026-09-30）。
+            variant: 'secondary',
             // ErrorMessage の「もう一度」はアイコンを付けない（ほかの画面と同じ・DESIGN §5・2026-09-30）。
           }]}
         />
