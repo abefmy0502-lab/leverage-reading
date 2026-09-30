@@ -1,54 +1,20 @@
-// 📖 統一ヘルプモーダル
+// 📖 ヘルプ（画面ごと）
 //
-// 旧版は「現在の helpKey に紐づく静的コンテンツ」を出すだけだったが、本版は
-// 困った時の駆け込み寺として以下を 1 画面に集約する:
-//   1. 📖 この画面のヘルプ   — 既存 helpContent.js の steps / sections を踏襲（いまの画面を先に・2026-09-29）
-//   2. 💡 よくある質問       — タップで確定回答を開く（AI は使わない）
-//
-// 既存 helpContent.js / helpKey ルーティングは破壊しない。新層を上に重ねる
-// だけ。`helpKey` を内部 state にすることで、4. の切替が onClose せずに完結。
+// 2026-09-30 に「10 秒で分かる」形へ作り直した（オーナー要望「ヘルプの説明が長すぎてわかりにくい」）:
+//   1. 画面の名前 ＋ 何のための画面かの 1 文（summary）
+//   2. まずはこれだけ — 3 つの手順（quickSteps）
+//   3. くわしく — 項目の一覧（topics）。ふだんは畳んで、押すと 1〜3 行が開く（details）。一覧そのものが目次
+//   4. よくある質問（HELP_FAQ）— 同じ畳む一覧。答えは決まっているので AI は使わない
+//   5. ほかの画面の使い方 — 押すと、閉じずにその画面のヘルプへ切り替える（プラン・お支払いなど画面から開けないものも）
+// 文言は src/lib/helpContent.js（**語** は太字）。見た目は DESIGN §5「ヘルプ」。
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { getHelp } from '../lib/helpContent';
+import { getHelp, HELP_FAQ, HELP_SCREEN_ORDER } from '../lib/helpContent';
+import { btnLink, card, groupTitle } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 
-// よくある質問 — 答えは決まっているので AI を走らせず、あらかじめ用意した
-// 確定回答をその場で開いて見せる（原価ゼロ・即答・幻覚なし）。
-const FAQ_LIST = [
-  {
-    q: '本の表紙が出ない時は？',
-    a: '表紙は書名・著者・ISBN から自動で探します。見つからない時は、本詳細の ⋯ メニュー →「🖼 手動でアップロード」で写真を設定できます。「表紙を取り直す」で再取得も試せます。',
-  },
-  {
-    q: '読書計画シートって何？',
-    a: '読む前に「この本から得たいこと・今の課題・仮説」を整理し、重点的に読む章や読み方を AI が提案する機能です。本の詳細（積読）の「読書計画シートを作る」から作れます（任意）。',
-  },
-  {
-    q: 'メモを編集・削除したい',
-    a: 'メモカードをタップすると編集できます。削除はカードを左スワイプ、または右上の「…」から。削除しても Undo（取り消し）が5秒間出るので、うっかり消しても戻せます。',
-  },
-  {
-    q: '行動を完了にする方法',
-    a: '🔄 振り返り →「🎯 行動」タブ、または本詳細の行動リストで、チェックをタップすると完了になります。やることは期限の近い順に並びます。',
-  },
-  {
-    q: '相談の答えの精度を上げるには？',
-    a: '相談は「あなたのメモ」を根拠に答えます。気づき・ページ番号・タグを添えたメモを多く残すほど、回答が具体的で的確になります。',
-  },
-  {
-    q: '過去の AI 選書を見たい',
-    a: '💬 相談 →「🔍 AI 選書」の 🕒 履歴ボタンから、過去の相談・推薦・追加した本を見返せます。「💬 続きから」で会話を再開もできます。',
-  },
-  {
-    q: '本の状態を変えたい',
-    a: '本詳細で、今の状態に応じて次へ進めます（読みたい → 積読 → 読書中 → 読了）。読書中・読了にすると、その本にメモを残せるようになります。',
-  },
-];
-
-// モバイルでは画面いっぱいに近づけるため余白を最小化、デスクトップは
-// 控えめに余白。padding はインライン min() で簡易レスポンシブ。
 const overlayStyle = {
   position: 'fixed',
   inset: 0,
@@ -59,12 +25,12 @@ const overlayStyle = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: 'min(var(--space-4), 2vw)',
-  fontFamily: "var(--font-app)",
+  fontFamily: 'var(--font-app)',
   boxSizing: 'border-box',
 };
 
 const cardStyle = {
-  background: 'var(--c-card)',
+  background: 'var(--surface)',
   borderRadius: 'var(--radius)',
   width: '100%',
   maxWidth: 'min(460px, 100vw - 16px)',
@@ -80,19 +46,16 @@ const headerStyle = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
-  padding: 'calc(var(--space-3) + env(safe-area-inset-top, 0px)) var(--space-4) var(--space-3)',
-  borderBottom: '1px solid var(--c-hairline)',
+  padding: 'var(--space-2) var(--space-2) var(--space-2) var(--space-4)',
+  borderBottom: '1px solid var(--separator)',
   background: 'var(--surface)',
-  flexShrink: 0,           // ★ 必須: body content が大きくても header が潰れない
-  position: 'relative',
-  zIndex: 1,
+  flexShrink: 0, // 中身が長くても見出しの行が潰れない
 };
 
 const closeBtnStyle = {
   background: 'none',
   border: 'none',
-  fontSize: 'var(--text-heading)',
-  color: 'var(--c-brand)',
+  color: 'var(--text-2)',
   cursor: 'pointer',
   width: 44,
   height: 44,
@@ -102,17 +65,14 @@ const closeBtnStyle = {
   fontFamily: 'inherit',
   padding: 0,
   borderRadius: 'var(--radius-full)',
+  flexShrink: 0,
 };
 
 const bodyStyle = {
   padding: 'var(--space-4) var(--space-4) var(--space-6)',
   overflowY: 'auto',
   overflowX: 'hidden',
-  // flex 子要素を「正しくスクロールさせる」3 点セット:
-  //   - flexGrow 1 / flexShrink 1 で残り高さを使い切る
-  //   - minHeight 0 で content の intrinsic 高さを超えてシュリンクできる
-  // 旧コードは `flex: 1` (= 1 1 0%) だけで minHeight が無く、content が
-  // 大きい時に header が押し上げられて AI Q&A が上に被る現象が出ていた
+  // flex の子を正しくスクロールさせる 3 点（残りの高さを使い切る・中身より縮められる）
   flexGrow: 1,
   flexShrink: 1,
   minHeight: 0,
@@ -120,179 +80,180 @@ const bodyStyle = {
   WebkitOverflowScrolling: 'touch',
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-6)',
+  gap: 'var(--space-6)', // グループの間は 24（DESIGN §1）
   boxSizing: 'border-box',
 };
 
-const sectionTitleStyle = {
+const screenTitleStyle = {
+  fontSize: 'var(--text-heading)',
+  fontWeight: 600,
+  color: 'var(--text)',
+  lineHeight: 1.3,
+  margin: 0,
+};
+const summaryStyle = {
+  fontSize: 'var(--text-body)',
+  color: 'var(--text)',
+  lineHeight: 1.5,
+  margin: 'var(--space-2) 0 0',
+};
+const groupTitleStyle = { ...groupTitle, margin: '0 0 var(--space-2)' };
+const strongStyle = { fontWeight: 600, color: 'var(--text)' };
+
+// まずはこれだけ（3 つの手順）: カード 1 枚に番号つきで。
+const stepsCardStyle = {
+  ...card,
+  listStyle: 'none',
+  margin: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--space-3)',
+};
+const stepRowStyle = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 'var(--space-3)',
+  fontSize: 'var(--text-body)',
+  lineHeight: 1.5,
+  color: 'var(--text)',
+};
+const stepNumberStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 24,
+  height: 24,
+  marginTop: 1, // 1 行目の文字の高さ（17 × 1.5）の真ん中にそろえる
+  borderRadius: 'var(--radius-full)',
+  flexShrink: 0,
+  background: 'var(--accent)',
+  color: 'var(--accent-ink)',
   fontSize: 'var(--text-meta)',
   fontWeight: 600,
-  color: 'var(--c-ink)',
-  margin: '0 0 var(--space-2)',
+  lineHeight: 1,
 };
 
-// よくある質問（FAQ）アコーディオンのスタイル。答えは確定なので AI は使わない。
-const faqItemStyle = {
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 'var(--radius)',
+// 畳む一覧（項目・よくある質問・ほかの画面）: カード 1 枚の中に行を区切り線で並べる（iOS の設定の一覧と同じ）。
+const listCardStyle = {
   background: 'var(--surface)',
+  border: '1px solid var(--separator)',
+  borderRadius: 'var(--radius)',
   overflow: 'hidden',
 };
-const faqQuestionStyle = {
+const rowDivider = { borderTop: '1px solid var(--separator)' };
+const topicSummaryStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  width: '100%',
-  textAlign: 'left',
-  padding: 'var(--space-3) var(--space-4)',
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: 'var(--text-sub)',
-  fontWeight: 600,
-  color: 'var(--c-ink)',
+  gap: 'var(--space-2)',
   minHeight: 48,
-  lineHeight: 1.5,
+  padding: 'var(--space-2) var(--space-3) var(--space-2) var(--space-4)',
+  boxSizing: 'border-box',
+  fontSize: 'var(--text-body)',
+  lineHeight: 1.4,
+  color: 'var(--text)',
+  cursor: 'pointer',
+  listStyle: 'none',
 };
-const faqAnswerStyle = {
+const topicLinesStyle = {
+  listStyle: 'none',
   margin: 0,
   padding: '0 var(--space-4) var(--space-4)',
-  fontSize: 'var(--text-sub)',
-  lineHeight: 1.8,
-  color: 'var(--c-ink-soft)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--space-2)',
 };
-
-const onboardingLinkStyle = {
-  display: 'block',
-  margin: '0',
-  padding: 'var(--space-3)',
-  background: 'var(--c-soft)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 'var(--radius)',
-  fontSize: 'var(--text-meta)',
-  color: 'var(--c-brand)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
+const topicLineStyle = {
+  display: 'flex',
+  gap: 'var(--space-1)',
+  alignItems: 'baseline',
+  fontSize: 'var(--text-sub)',
+  lineHeight: 1.6,
+  color: 'var(--text-2)',
+};
+const lineMarkStyle = { color: 'var(--text-3)', flexShrink: 0 };
+const navRowStyle = {
+  ...topicSummaryStyle,
   width: '100%',
+  background: 'none',
+  border: 'none',
+  fontFamily: 'inherit',
   textAlign: 'left',
 };
 
 const footerStyle = {
   padding: 'var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid var(--c-hairline)',
+  borderTop: '1px solid var(--separator)',
   fontSize: 'var(--text-caption)',
-  color: 'var(--c-ink-2)',
+  fontWeight: 400,
+  color: 'var(--text-3)',
   textAlign: 'center',
   background: 'var(--surface)',
-  flexShrink: 0,           // ★ header と同様、潰れないように固定
-  position: 'relative',
-  zIndex: 1,
+  flexShrink: 0,
 };
 
-// === 統一カードレイアウト用スタイル ===
-// すべての helpKey で同じ「番号付きカード」見た目になるよう steps と
-// sections の両方を共通の renderCardSteps で描画する。
-
-const stepSubtitle = { fontSize: 'var(--text-sub)', color: 'var(--c-ink-2)', lineHeight: 1.7, margin: '0 0 var(--space-3)', wordBreak: 'keep-all', overflowWrap: 'break-word' };
-const stepCard = {
-  background: 'var(--surface)',
-  border: '1px solid var(--c-hairline)',
-  borderRadius: 'var(--radius)',
-  padding: 'var(--space-4)',
-  marginBottom: 'var(--space-3)',
-  boxShadow: 'none',
-  // 文節の切れ目（withPhraseBreaks の <wbr>）でだけ折り返す。長い英数字だけは端で折る（2026-09-30）。
-  wordBreak: 'keep-all',
-  overflowWrap: 'break-word',
-  // 画面の外のカードは描くのを後回しにする（長いヘルプを開いたときの初回の描画を軽く・2026-09-30）。
-  contentVisibility: 'auto',
-  containIntrinsicSize: 'auto 160px',
-  width: '100%',
-  maxWidth: '100%',
-  boxSizing: 'border-box',
-  overflow: 'hidden',
-};
-const stepNumber = {
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  width: 24, height: 24, borderRadius: 'var(--radius-full)', flexShrink: 0,
-  background: 'var(--c-brand)', color: 'var(--accent-ink)',
-  fontSize: 'var(--text-meta)', fontWeight: 700, lineHeight: 1, marginRight: 'var(--space-2)',
-};
-const stepTitle = {
-  fontSize: 'var(--text-body)',
-  fontWeight: 600,
-  color: 'var(--c-ink)',
-  margin: 0,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-1)',
-  wordBreak: 'keep-all',
-};
-const stepBody = { fontSize: 'var(--text-sub)', color: 'var(--c-ink-soft)', lineHeight: 1.8, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-line', wordBreak: 'keep-all' };
-const stepBulletList = { listStyle: 'none', padding: 0, margin: 'var(--space-2) 0 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' };
-const stepBullet = { fontSize: 'var(--text-sub)', color: 'var(--c-ink-soft)', lineHeight: 1.7, wordBreak: 'keep-all', display: 'flex', gap: 'var(--space-1)', alignItems: 'baseline' };
-const stepBulletMark = { color: 'var(--c-brand)', flexShrink: 0 };
-const stepFooter = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.7, margin: 'var(--space-2) 0 0', fontStyle: 'italic', wordBreak: 'keep-all' };
-const tipBox = {
-  marginTop: 'var(--space-2)',
-  padding: 'var(--space-3) var(--space-4)',
-  background: 'var(--fill)',
-  border: '1px solid var(--separator)',
-  borderRadius: 'var(--radius)',
-  fontSize: 'var(--text-sub)',
-  color: 'var(--c-brand)',
-  lineHeight: 1.8,
-};
-
-// 数字絵文字に変換 (1〜10)。それ以上は数字をそのまま返す。
-// 番号はブランド色の丸バッジで描く（stepNumber スタイル）。以前の青い
-// keycap 絵文字（1️⃣2️⃣…）はアプリの茶系の世界観から浮いていた。
-function numberFor(step, index) {
-  if (step.number) return step.number;
-  return String(index + 1);
-}
-
-// 文節の切れ目で折り返す（BudouX の <wbr>＋keep-all）。「3 ヶ月」「読書計画シート」なども 1 文節として割らない
-// （以前は keep-all だけで折り返せる所が無く、overflow-wrap: anywhere で語の途中で割れていた・2026-09-30）。
+// 文節の切れ目で折り返す（BudouX の <wbr>＋keep-all）。
 function phrased(text) {
-  if (text == null || typeof text !== 'string') return text; // React node なら素通し
+  if (text == null || typeof text !== 'string') return text;
   return withPhraseBreaks(text);
 }
 
-// steps と sections を 1 つの shape に正規化 (heading→title, body→description, items→bullets)。
-// 結果は { number, title, body, bullets, footer } の配列。
-function normalizeSteps(entry) {
-  if (!entry) return [];
-  if (Array.isArray(entry.steps) && entry.steps.length > 0) {
-    return entry.steps.map((s, i) => ({
-      number: numberFor(s, i),
-      title: s.title || '',
-      body: s.body || s.description || '',
-      bullets: Array.isArray(s.bullets) ? s.bullets : [],
-      footer: s.footer || '',
-    }));
-  }
-  if (Array.isArray(entry.sections) && entry.sections.length > 0) {
-    return entry.sections.map((s, i) => ({
-      number: numberFor({}, i),
-      title: s.heading || '',
-      body: s.body || '',
-      bullets: Array.isArray(s.items) ? s.items : [],
-      footer: '',
-    }));
-  }
-  return [];
+// **語** を太字に（1 行に 1 か所まで・helpContent.test.js）。ほかは文節で折り返すだけ。
+function rich(text) {
+  if (typeof text !== 'string') return text;
+  return text.split(/\*\*(.+?)\*\*/).map((part, i) => {
+    if (!part) return null;
+    return i % 2 === 1
+      ? <strong key={i} style={strongStyle}>{phrased(part)}</strong>
+      : <Fragment key={i}>{phrased(part)}</Fragment>;
+  });
+}
+
+// 押すと開く項目の一覧。一覧そのものが目次になる（見出しだけ並べ、中身は 1〜3 行）。
+function TopicList({ items }) {
+  return (
+    <div style={listCardStyle}>
+      {items.map((t, i) => (
+        <details key={t.title} style={i ? rowDivider : undefined}>
+          <summary style={topicSummaryStyle}>
+            <span>{phrased(t.title)}</span>
+            <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+          </summary>
+          <ul style={topicLinesStyle}>
+            {t.lines.map((line) => (
+              <li key={line} style={topicLineStyle}>
+                <span aria-hidden="true" style={lineMarkStyle}>・</span>
+                <span>{rich(line)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+// 開発中だけ: ?helpkey=billing のように、ほかの画面のヘルプを直に開く（スクショ用・本番では消える）。
+function devHelpKey() {
+  if (!import.meta.env.DEV) return null;
+  try { return new URLSearchParams(window.location.search).get('helpkey'); } catch { return null; }
 }
 
 export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
-  const entry = getHelp(helpKey);
-
-  const [openFaq, setOpenFaq] = useState(-1); // 開いている FAQ の index（-1=全て閉）
+  const [startKey] = useState(() => (devHelpKey() && getHelp(devHelpKey()) ? devHelpKey() : helpKey));
+  const [key, setKey] = useState(startKey);
+  const entry = getHelp(key);
   const trapRef = useFocusTrap(true);
+  const bodyRef = useRef(null);
 
-  // 開くときは .modal / .modal-backdrop（ほかのダイアログと同じ）、閉じるときは逆の動き（200ms）を見せてから外す
-  // （以前は出も入りも一瞬で、ほかの画面と所作が揃っていなかった・2026-09-29）。動きを減らす設定ではすぐ閉じる。
+  // ほかの画面のヘルプへ切り替える（閉じずに・いちばん上から読めるように送る）。
+  const showKey = useCallback((k) => {
+    setKey(k);
+    requestAnimationFrame(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; });
+  }, []);
+
+  // 開くときは .modal / .modal-backdrop（ほかのダイアログと同じ）、閉じるときは逆の動き（200ms）を見せてから外す。
+  // 動きを減らす設定ではすぐ閉じる。
   const [closing, setClosing] = useState(false);
   const closeTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(closeTimerRef.current), []);
@@ -307,102 +268,97 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
 
   useEffect(() => {
     const onKey = (e) => {
-      // IME 変換中の Esc はガード（変換キャンセルで質問下書きを失わない）。
       if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) requestClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [requestClose]);
 
+  const otherScreens = HELP_SCREEN_ORDER.filter((k) => k !== key && getHelp(k));
+
   return (
-    <div className={closing ? 'modal-backdrop-exit' : 'modal-backdrop'} style={overlayStyle} role="dialog" aria-modal="true" onClick={requestClose}>
+    <div className={closing ? 'modal-backdrop-exit' : 'modal-backdrop'} style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="help-modal-title" onClick={requestClose}>
       <div ref={trapRef} className={closing ? 'modal-exit' : 'modal'} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--c-ink)', margin: 0, fontWeight: 600, flex: 1 }}>📖 ヘルプ</h2>
+          <h2 id="help-modal-title" style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>ヘルプ</h2>
           <button type="button" style={closeBtnStyle} onClick={requestClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
-        <div className="lvg-help-body" style={bodyStyle}>
-          {/* ===== 1. この画面のヘルプ（いま困っている画面の説明を先に・2026-09-29） ===== */}
-          <section>
-            <h3 style={sectionTitleStyle}>📖 {entry?.title || 'この画面のヘルプ'}</h3>
-            {entry ? (
-              <>
-                {entry.description && <p style={stepSubtitle}>{phrased(entry.description)}</p>}
-                {normalizeSteps(entry).map((s, i) => (
-                  <section key={i} style={stepCard}>
-                    <h4 style={stepTitle}>
-                      <span style={stepNumber} aria-hidden="true">{s.number}</span>
-                      <span>{phrased(s.title)}</span>
-                    </h4>
-                    {s.body && <p style={stepBody}>{phrased(s.body)}</p>}
-                    {s.bullets.length > 0 && (
-                      <ul style={stepBulletList}>
-                        {s.bullets.map((b, j) => (
-                          <li key={j} style={stepBullet}>
-                            <span aria-hidden="true" style={stepBulletMark}>・</span>
-                            <span>{phrased(b)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {s.footer && <p style={stepFooter}>{phrased(s.footer)}</p>}
-                  </section>
-                ))}
-                {entry.tip && (
-                  <div style={tipBox}>
-                    💡 <strong>コツ:</strong> {entry.tip}
-                  </div>
-                )}
-              </>
-            ) : (
-              <p style={{ fontSize: 'var(--text-meta)', color: 'var(--c-ink-2)', margin: 0, lineHeight: 1.8 }}>
-                この画面のヘルプはまだ用意されていません。下の「よくある質問」をご覧ください。
-              </p>
-            )}
-          </section>
-
-          {/* ===== 2. よくある質問（確定回答・タップで開く。答えは決まっているので AI は使わない） ===== */}
-          <section>
-            <h3 style={sectionTitleStyle}>💡 よくある質問</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              {FAQ_LIST.map((item, i) => {
-                const open = openFaq === i;
-                return (
-                  <div key={item.q} style={faqItemStyle}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenFaq(open ? -1 : i)}
-                      style={faqQuestionStyle}
-                      aria-expanded={open}
-                    >
-                      <span style={{ wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{phrased(item.q)}</span>
-                      <span
-                        aria-hidden="true"
-                        style={{ color: 'var(--c-brand)', flexShrink: 0, marginLeft: 'var(--space-2)', transition: 'transform .15s ease', transform: open ? 'rotate(180deg)' : 'none' }}
-                      >⌄</span>
-                    </button>
-                    {open && <p style={{ ...faqAnswerStyle, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{phrased(item.a)}</p>}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {onShowOnboarding && (
+        {/* key を変えると、開いていた項目を畳んだ状態で描き直す */}
+        <div key={key} ref={bodyRef} className="lvg-help-body" style={bodyStyle}>
+          {key !== startKey && getHelp(startKey) && (
             <button
               type="button"
-              style={onboardingLinkStyle}
-              onClick={() => onShowOnboarding()}
+              onClick={() => showKey(startKey)}
+              style={{ ...btnLink, alignSelf: 'flex-start', margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-1))' }}
             >
-              📖 アプリ全体の使い方を最初から見る →
+              ‹ {getHelp(startKey).title}のヘルプに戻る
+            </button>
+          )}
+
+          {entry ? (
+            <>
+              <section>
+                <h3 style={screenTitleStyle}>{entry.title}</h3>
+                {entry.summary && <p style={summaryStyle}>{rich(entry.summary)}</p>}
+              </section>
+
+              {entry.quickSteps?.length > 0 && (
+                <section aria-labelledby="help-quick">
+                  <h4 id="help-quick" style={groupTitleStyle}>まずはこれだけ</h4>
+                  <ol style={stepsCardStyle}>
+                    {entry.quickSteps.map((s, i) => (
+                      <li key={s} style={stepRowStyle}>
+                        <span style={stepNumberStyle} aria-hidden="true">{i + 1}</span>
+                        <span>{rich(s)}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
+
+              {entry.topics?.length > 0 && (
+                <section aria-labelledby="help-topics">
+                  <h4 id="help-topics" style={groupTitleStyle}>くわしく（押すと開きます）</h4>
+                  <TopicList items={entry.topics} />
+                </section>
+              )}
+            </>
+          ) : (
+            <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.6 }}>
+              この画面のヘルプはまだありません。下の「よくある質問」をご覧ください。
+            </p>
+          )}
+
+          <section aria-labelledby="help-faq">
+            <h4 id="help-faq" style={groupTitleStyle}>よくある質問</h4>
+            <TopicList items={HELP_FAQ} />
+          </section>
+
+          {otherScreens.length > 0 && (
+            <section aria-labelledby="help-others">
+              <h4 id="help-others" style={groupTitleStyle}>ほかの画面の使い方</h4>
+              <div style={listCardStyle}>
+                {otherScreens.map((k, i) => (
+                  <button key={k} type="button" onClick={() => showKey(k)} style={i ? { ...navRowStyle, ...rowDivider } : navRowStyle}>
+                    <span>{getHelp(k).title}</span>
+                    <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {onShowOnboarding && (
+            <button type="button" style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={() => onShowOnboarding()}>
+              初回ガイドをもう一度見る
             </button>
           )}
         </div>
 
         {entry?.lastUpdated && (
           <div style={footerStyle}>
-            このヘルプは {entry.lastUpdated} に更新されました
+            {entry.lastUpdated} 更新
           </div>
         )}
       </div>
