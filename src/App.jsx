@@ -156,6 +156,8 @@ import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
 import { loadNavState, saveNavState } from './lib/navState';
 import { consultCanLeave } from './lib/consultBack';
+import { actionGist } from './lib/consultHelpers';
+import { withPhraseBreaks } from './components/TightBubble';
 import {
   BookOpen,
   Home,
@@ -5374,10 +5376,11 @@ function AuthedApp() {
         const list = { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' };
         return (
           <BottomSheet title="どの本の行動にしますか？" onClose={() => setAddActionSheet(null)} dismissLabel="キャンセル">
-            {/* 何を行動にするのか（相談の答えの一歩・2 行まで）。 */}
+            {/* 何を行動にするのか（相談の答えの一歩・2 行まで）。行動の短い形（actionGist）＝頭の「〈相談〉：」を外し、
+                「メモに残した「長い…」」のような決まり文句だけにならないよう引用の頭を見せる（相談例と同じ・2026-09-30）。 */}
             {addActionSheet.prefillText && (
               <p style={{ margin: '0 0 var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                {addActionSheet.prefillText}
+                {withPhraseBreaks(actionGist(addActionSheet.prefillText, 44))}
               </p>
             )}
             {evidence.length > 0 ? (

@@ -146,6 +146,26 @@ function unclosed(text) {
   return stack;
 }
 
+// かっこの手前がこの形で終わるとき（中身の無い決まり文句）は、かっこの中を要約に使う（2026-09-30）。
+const STOCK_BEFORE_QUOTE = /(に残した|に書いた|に書き残した|で読んだ|の)$/;
+// t の open 番目の開きかっこの中身の頭を、同じかっこでくくって返す（全体 n 文字まで・入らない分は「…」）。
+function innerQuoteGist(t, open, n) {
+  const openCh = t[open];
+  const closeCh = OPEN[openCh];
+  let depth = 0;
+  let end = t.length;
+  for (let i = open; i < t.length; i += 1) {
+    if (t[i] === openCh) depth += 1;
+    else if (t[i] === closeCh) { depth -= 1; if (depth === 0) { end = i; break; } }
+  }
+  const inner = t.slice(open + 1, end).trim();
+  if (inner.length <= n - 2) return `${openCh}${inner}${closeCh}${end < t.length - 1 ? '…' : ''}`;
+  let head = inner.slice(0, Math.max(1, n - 3)).replace(/[、，,。\s]+$/, '');
+  const need = unclosed(head).length;
+  if (need) head = head.slice(0, Math.max(1, n - 3 - need));
+  return `${openCh}${head}…${unclosed(head).reverse().join('')}${closeCh}`;
+}
+
 // 相談の文の要約（最初の 1 文・末尾の句読点を外して n 文字まで）。
 //   - 相談例の「前に相談した「X」、その後どう進める？」なら X を要約する（「前に相談した「前に相談した…」」にしない）
 //   - かっこ（「」『』（））の中では切らない。切るとかっこが開いたままになるときは、かっこの手前で切る
@@ -166,6 +186,9 @@ export function questionGist(question, n = 20) {
   }
   if (stack.length) {
     const before = cut.slice(0, stack[0]).replace(/[、，,\s]+$/, '');
+    // かっこの手前が決まり文句（「メモに残した」「〇〇の」）だけなら、手前で切ると中身が何も残らない
+    //   （「メモに残した…」）。かっこの中の頭を取り出して「〈中の頭〉…」にする（2026-09-30）。
+    if (STOCK_BEFORE_QUOTE.test(before)) return innerQuoteGist(t, stack[0], n);
     cut = before.length >= 4 ? before : cut;
   }
   cut = cut.replace(/[、，,\s]+$/, '');
