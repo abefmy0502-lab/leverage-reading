@@ -29,7 +29,8 @@ export default function MemoLinks({ links, onOpen, onDismiss = null, variant = '
 
   if (variant === 'compact') {
     const first = links[0];
-    const page = Number.isFinite(first.hit?.page) ? ` p.${first.hit.page}` : '';
+    // ページの前後は半角の空き（「『書名』 p.64 でも」・ページが無ければ「『書名』でも」・2026-10-01 ui-critic）
+    const page = Number.isFinite(first.hit?.page) ? ` p.${first.hit.page} ` : '';
     return (
       <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', background: 'var(--fill)', borderRadius: 'var(--radius)', paddingLeft: 'var(--space-3)', ...style }}>
         <button
