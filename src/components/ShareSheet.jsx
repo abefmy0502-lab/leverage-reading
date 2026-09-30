@@ -25,9 +25,10 @@
 //   onClose
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Shuffle, CalendarDays } from 'lucide-react';
+import { ImagePlus, Shuffle, CalendarDays, ChevronDown, Check, Camera } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
+import ContextMenu from './ContextMenu';
 import { SkeletonBlock } from './Skeleton';
 import { MiniCover } from './BookCards';
 import { useToast } from './Toast';
@@ -56,6 +57,7 @@ const FORMAT_OPTIONS = [
 ];
 const VARIANT_LABELS = { record: '記録', quote: '一文' };
 const STYLE_LABELS = { photo: '写真', paper: '紙', night: '夜', cover: '表紙の色', sticker: '透明' };
+const BG_OPTIONS = ['paper', 'night', 'cover', 'sticker'];
 
 // 🧪 開発専用（お試しモード）: &share=slow で画像を作っている途中、&share=fail で作れなかったときの表示を撮る。
 // 本番は import.meta.env.DEV=false で常に null。
@@ -71,30 +73,33 @@ const PREVIEW_H = 'min(28vh, 248px)';
 // 見せ方の見本の高さ（幅は形に合わせる）。
 const THUMB_H = 64;
 
-// 形の切り替えは、振り返り・相談のサブタブ（.sub-tab）と同じ見た目（選択中は --accent-soft の面）。
+// 選んでいる状態は中立の見た目（DESIGN §3-1 の --fill＝選択中の面・--text の輪）。栗色は主ボタンと文字ボタンだけに
+// 残し、「共有する」がいちばん目立つようにする（2026-09-30 ui-critic）。
+const SELECTED_RING = '0 0 0 2px var(--surface), 0 0 0 4px var(--text)';
+// 形の切り替え（投稿／ストーリー）。太さは 600 のまま変えない（選ぶたびに幅が変わって跳ねない）。
 const segBtn = (on) => ({
   minHeight: 44,
-  padding: '0 var(--space-2)',
+  padding: '0 var(--space-3)',
   border: 'none',
   borderRadius: 'var(--radius)',
-  background: on ? 'var(--accent-soft)' : 'transparent',
-  color: on ? 'var(--accent)' : 'var(--text-2)',
+  background: on ? 'var(--fill)' : 'transparent',
+  color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
-  fontWeight: on ? 600 : 400,
+  fontWeight: 600,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
 });
-// 地の見本（押せる範囲 44・見た目は 28 の円＝「形そのもの」DESIGN §4 の例外）。
+// 地の見本（幅 64 でそろえる＝名前の長さで間が変わらない・見た目は 28 の円＝「形そのもの」DESIGN §4 の例外）。
 const swatchLabeledBtn = {
   display: 'inline-flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
   gap: 'var(--space-1)',
-  minWidth: 44,
+  width: 64,
   minHeight: 44,
-  padding: 'var(--space-1)',
+  padding: 'var(--space-1) 0',
   border: 'none',
   background: 'transparent',
   cursor: 'pointer',
@@ -103,20 +108,20 @@ const swatchLabeledBtn = {
   flexShrink: 0,
 };
 const swatchLabel = (on) => ({ fontSize: 'var(--text-meta)', lineHeight: 1.2, fontWeight: on ? 600 : 400, color: on ? 'var(--text)' : 'var(--text-2)', whiteSpace: 'nowrap' });
-const ring = (on) => (on ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)' : 'inset 0 0 0 1px var(--border)');
+const ring = (on) => (on ? SELECTED_RING : 'inset 0 0 0 1px var(--border)');
 const swatchDot = (bg, on) => ({ width: 28, height: 28, borderRadius: 'var(--radius-full)', background: bg, boxShadow: ring(on) });
 // 透明の見本・プレビューの地（暗い市松＝白い文字が見える。画像には入らない）。
 const checker = (size) => `repeating-conic-gradient(var(--share-sticker-backdrop-a) 0% 25%, var(--share-sticker-backdrop-b) 0% 50%) 50% / ${size}px ${size}px`;
-// 「写真」のチップ（押すとすぐ写真を選べる）。
-const photoChip = (on) => ({
+// 「写真を選ぶ」のチップ（写真が無いときだけ出る・押すとすぐ写真を選べる＝操作のチップ DESIGN §5）。
+const photoChip = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
   minHeight: 44,
   padding: '0 var(--space-3) 0 var(--space-2)',
   borderRadius: 'var(--radius)',
-  border: on ? '1px solid var(--accent)' : '1px solid transparent',
-  background: on ? 'var(--accent-soft)' : 'var(--fill)',
+  border: 'none',
+  background: 'var(--fill)',
   color: 'var(--text)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
@@ -125,8 +130,9 @@ const photoChip = (on) => ({
   whiteSpace: 'nowrap',
   flexShrink: 0,
   marginRight: 'var(--space-2)',
-});
-// 「どの本？」のチップ（選ぶためのチップ 44・DESIGN §5）。
+};
+// 「どの本？」のチップ（選ぶためのチップ 44）。選んでいる本は --fill の面＋--border の枠＋--text。
+// 太さは変えない（横に送る列の幅が跳ねない）。
 const subjectChip = (on) => ({
   display: 'inline-flex',
   alignItems: 'center',
@@ -136,16 +142,16 @@ const subjectChip = (on) => ({
   maxWidth: 200,
   padding: 'var(--space-1) var(--space-3) var(--space-1) var(--space-1)',
   borderRadius: 'var(--radius)',
-  border: on ? '1px solid var(--accent)' : '1px solid transparent',
-  background: on ? 'var(--accent-soft)' : 'var(--fill)',
-  color: on ? 'var(--accent)' : 'var(--text)',
+  border: on ? '1px solid var(--border)' : '1px solid var(--separator)',
+  background: on ? 'var(--fill)' : 'transparent',
+  color: on ? 'var(--text)' : 'var(--text-2)',
   fontFamily: 'inherit',
   fontSize: 'var(--text-sub)',
-  fontWeight: on ? 600 : 400,
+  fontWeight: 400,
   cursor: 'pointer',
   scrollSnapAlign: 'start',
 });
-// 見せ方の見本（押せる範囲は見本＋名前・選んでいるものは --accent の輪）。
+// 見せ方の見本（押せる範囲は見本＋名前・選んでいるものは --text の輪）。
 const thumbBtn = {
   display: 'inline-flex',
   flexDirection: 'column',
@@ -346,7 +352,10 @@ export default function ShareSheet({
     return () => { alive = false; };
   }, [coverKey, memos?.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const effStyle = style === 'photo' && !photo ? 'paper' : style;
+  // 表紙の色は、表紙のある 1 冊（今月なら読み終えた本があるとき）だけ。本が無い今月の 1 枚では意味が無いので出さない。
+  const coverAllowed = !isMonth || (record.finishedBooks || []).length > 0;
+  const effStyle = (style === 'photo' && !photo) || (style === 'cover' && !coverAllowed) ? 'paper' : style;
+  const [bgMenu, setBgMenu] = useState(null); // 写真のときの「写真以外 ▾」のメニューの位置
   const lineText = chosen ? quoteText(chosen.text, variant) : '';
   const ready0 = !!assets && !memosLoading && !photoLoading;
   const drawKey = ready0
@@ -624,7 +633,7 @@ export default function ShareSheet({
   );
 
   return (
-    <BottomSheet title="画像で共有" onClose={onClose} footer={footer} dismissLabel="キャンセル">
+    <BottomSheet title={photo ? '写真で共有' : '画像で共有'} onClose={onClose} footer={footer} dismissLabel="キャンセル">
       <input ref={fileRef} type="file" accept="image/*" onChange={onPhotoPicked} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -717,8 +726,8 @@ export default function ShareSheet({
         </div>
 
         {/* 見せ方（記録／一文の見本）と形（投稿 4:5／ストーリー 9:16） */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-          {variants.length > 1 ? (
+        <div style={{ display: 'flex', alignItems: variants.length > 1 ? 'flex-start' : 'center', justifyContent: variants.length > 1 ? 'space-between' : 'flex-start', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          {variants.length > 1 && (
             <div role="radiogroup" aria-label="見せ方" style={{ display: 'inline-flex', gap: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }}>
               {variants.map((v) => {
                 const on = v === variant;
@@ -736,9 +745,10 @@ export default function ShareSheet({
                 );
               })}
             </div>
-          ) : <span />}
+          )}
           {effStyle !== 'sticker' && (
-            <div role="radiogroup" aria-label="画像の形" style={{ display: 'inline-flex', gap: 'var(--space-1)' }}>
+            // 見本（64＋上下の余白 8）と同じ高さの中で上下の中央に（見本の名前の行に引っぱられない）。
+            <div role="radiogroup" aria-label="画像の形" style={{ display: 'inline-flex', gap: 'var(--space-1)', ...(variants.length > 1 ? { height: THUMB_H + 8, alignItems: 'center' } : {}) }}>
               {FORMAT_OPTIONS.map((o) => (
                 <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={segBtn(format === o.v)}>
                   {o.label}
@@ -748,34 +758,57 @@ export default function ShareSheet({
           )}
         </div>
 
-        {/* 地（写真・紙・夜・表紙の色・透明） */}
-        <div role="radiogroup" aria-label="地" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={effStyle === 'photo'}
-            aria-label={photo ? (effStyle === 'photo' ? '写真を選び直す' : '写真') : '写真を選ぶ'}
-            onClick={() => { if (!photo || effStyle === 'photo') openPicker(); else setStyle('photo'); }}
-            style={photoChip(effStyle === 'photo')}
-          >
-            {photo?.thumb
-              ? <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: 'var(--radius-full)', background: `center / cover no-repeat url(${photo.thumb})`, flexShrink: 0 }} />
-              : <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />}
-            {photo ? '写真' : '写真を選ぶ'}
-          </button>
-          {['paper', 'night', 'cover', 'sticker'].map((v) => (
-            // 「透明（ステッカー用）」は 390 幅の 1 行に収まらないので、見える名前は「透明」のまま、
-            // 読み上げと長押しの名前で用途まで言う（2026-09-29）。
-            <button key={v} type="button" role="radio" aria-checked={effStyle === v} onClick={() => setStyle(v)} style={swatchLabeledBtn}
-              aria-label={v === 'sticker' ? '透明（ステッカー用）' : undefined} title={v === 'sticker' ? '透明（ステッカー用）' : undefined}>
-              {v === 'cover' && !assets?.cover
-                // 表紙を読み込むまでは、表紙の色が分からないので骨組みの丸（代用の色を一瞬出さない）。
-                ? <SkeletonBlock width={28} height={28} radius="var(--radius-full)" style={{ boxShadow: ring(effStyle === v) }} />
-                : <span aria-hidden="true" style={swatchDot(v === 'sticker' ? checker(8) : swatchColor(v), effStyle === v)} />}
-              <span style={swatchLabel(effStyle === v)}>{STYLE_LABELS[v]}</span>
+        {/* 地。写真があるときは選ぶものを減らす: 行を出さず「写真以外 ▾」のメニュー 1 つ（紙・夜・表紙の色・透明・写真を選び直す）。
+            写真が無いときは「写真を選ぶ」＋紙・夜・表紙の色・透明の見本（2026-09-30 ui-critic）。 */}
+        {photo ? (
+          <div style={{ display: 'flex', justifyContent: 'flex-start', paddingBottom: 'var(--space-2)' }}>
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={!!bgMenu}
+              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.left + 120, y: r.top - 8 }); }}
+              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}
+            >
+              {effStyle === 'photo' ? '写真以外' : `地：${STYLE_LABELS[effStyle]}`}
+              <ChevronDown size={16} aria-hidden="true" />
             </button>
-          ))}
-        </div>
+            {bgMenu && (
+              <ContextMenu
+                x={bgMenu.x}
+                y={bgMenu.y}
+                onClose={() => setBgMenu(null)}
+                items={[
+                  ...(effStyle !== 'photo' ? [{ label: '写真に戻す', icon: <Camera size={16} aria-hidden="true" />, onClick: () => setStyle('photo') }] : []),
+                  ...BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed).map((v) => ({
+                    label: v === 'sticker' ? '透明（ステッカー用）' : STYLE_LABELS[v],
+                    icon: effStyle === v ? <Check size={16} aria-hidden="true" /> : <span style={{ width: 16 }} aria-hidden="true" />,
+                    onClick: () => setStyle(v),
+                  })),
+                  { label: '写真を選び直す', icon: <ImagePlus size={16} aria-hidden="true" />, onClick: openPicker },
+                ]}
+              />
+            )}
+          </div>
+        ) : (
+          <div role="radiogroup" aria-label="地" style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
+            <button type="button" onClick={openPicker} style={photoChip}>
+              <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
+              写真を選ぶ
+            </button>
+            {BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed).map((v) => (
+              // 「透明（ステッカー用）」は 390 幅の 1 行に収まらないので、見える名前は「透明」のまま、
+              // 読み上げと長押しの名前で用途まで言う（2026-09-29）。
+              <button key={v} type="button" role="radio" aria-checked={effStyle === v} onClick={() => setStyle(v)} style={swatchLabeledBtn}
+                aria-label={v === 'sticker' ? '透明（ステッカー用）' : undefined} title={v === 'sticker' ? '透明（ステッカー用）' : undefined}>
+                {v === 'cover' && !assets?.cover
+                  // 表紙を読み込むまでは、表紙の色が分からないので骨組みの丸（代用の色を一瞬出さない）。
+                  ? <SkeletonBlock width={28} height={28} radius="var(--radius-full)" style={{ boxShadow: ring(effStyle === v) }} />
+                  : <span aria-hidden="true" style={swatchDot(v === 'sticker' ? checker(8) : swatchColor(v), effStyle === v)} />}
+                <span style={swatchLabel(effStyle === v)}>{STYLE_LABELS[v]}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </BottomSheet>
   );
