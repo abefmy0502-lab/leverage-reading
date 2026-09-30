@@ -599,8 +599,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       });
       toast.undo({
         message: snapshot.photoPath
-          ? 'メモを削除しました\n※写真は復元できません'
-          : 'メモを削除しました',
+          ? 'メモを削除しました。\n写真は元に戻せません。'
+          : 'メモを削除しました。',
         onUndo: async () => {
           try {
             await promise.catch(() => {});

@@ -1162,7 +1162,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 try {
                   await sessionApi?.deleteSession?.(sid);
                   advisorHaptic.medium();
-                  advisorToast.success('履歴を削除しました');
+                  advisorToast.success('履歴を削除しました。');
                 } catch (e) {
                   advisorToast.error(toMessage(e, '履歴の削除に失敗しました。'));
                 }

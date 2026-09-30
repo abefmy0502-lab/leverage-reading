@@ -3302,7 +3302,7 @@ function AuthedApp() {
       let undoToastId = null;
       if (undoable && removed) {
         undoToastId = toast.undo({
-          message: '行動を削除しました',
+          message: '行動を削除しました。',
           destructive: true,
           duration: 6000,
           // 同じ本の直列チェーンに乗せて、消した位置に戻す（行は新しく作り直す＝id は付け直し）。

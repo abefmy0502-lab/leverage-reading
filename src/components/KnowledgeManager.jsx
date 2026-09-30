@@ -596,8 +596,8 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
     toast.undo({
       destructive: true,
       message: snapshot.photo_path
-        ? '削除しました\n※写真は元に戻せません'
-        : '削除しました',
+        ? '削除しました。\n写真は元に戻せません。'
+        : '削除しました。',
       onUndo: async () => {
         try {
           await promise.catch(() => {});
