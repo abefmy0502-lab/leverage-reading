@@ -611,7 +611,7 @@ function ActionsEditor({ form, setForm, title, placeholder }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}>
         {actions.map((a, i) => (
           // カードは DESIGN §5 のカード（--surface＋枠）。--fill だと暗い画面で中の入力欄がカードより暗くなる。
-          <div key={i} style={{ background: "var(--surface)", border: "1px solid var(--separator)", borderRadius: "var(--radius)", padding: "var(--space-3) var(--space-4)", display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
+          <div key={i} style={{ background: "var(--surface)", border: "1px solid var(--separator)", borderRadius: "var(--radius)", padding: "var(--space-4)", display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               {/* 長い行動も全文見えるように 2 行の入力欄（1 行の欄だと途中で切れて見えなかった）。 */}
               <textarea rows={2} value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? placeholder : `行動 ${i + 1}`} style={{ ...ta, minHeight: 48 }} maxLength={LIMITS.actionText} aria-label={`行動 ${i + 1}`} />
@@ -620,8 +620,8 @@ function ActionsEditor({ form, setForm, title, placeholder }) {
                 <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...dateInp(a.deadline), fontWeight: 400, letterSpacing: 'normal' }} aria-label={`行動 ${i + 1} の期限`} />
               </label>
             </div>
-            <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, padding: 0, marginRight: 'calc(-1 * var(--space-3))', display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              {/* 押せる範囲 44 のまま、負の余白で × の見た目の右端をカードの余白 16 にそろえる（2026-09-29）。 */}
+            <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, padding: 0, marginRight: 'calc(-1 * var(--space-4))', display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {/* 押せる範囲 44 のまま、負の余白で × をカードの右の余白に寄せる（2026-09-29・2026-10-01 に内側の余白を上下左右 16 にそろえて -16）。 */}
               <IcX size={18} aria-hidden="true" />
             </button>
           </div>
