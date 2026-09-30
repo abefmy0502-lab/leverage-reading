@@ -406,6 +406,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       danger: true,
     });
     if (ok) learningDirtyRef.current = false;
+    else {
+      // 「編集を続ける」: 本文の欄にカーソルを戻す（ダイアログを閉じたあと・画面は動かさない・2026-09-30）。
+      setTimeout(() => {
+        try { document.getElementById('learning-text')?.focus({ preventScroll: true }); } catch { /* ignore */ }
+      }, 0);
+    }
     return !!ok;
   }, [confirm]);
   // App の左端スワイプ・ブラウザの戻るは、戻る前にここで確かめる（lib/consultBack.js）。
