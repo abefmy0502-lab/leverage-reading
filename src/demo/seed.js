@@ -262,9 +262,11 @@ export function buildSeed(scenario) {
 
   // ?demo=recalldone: 思い出しカードを今日の分まで答え終えた人（すべてのメモを昨日「覚えた」・次に出るのは 2 日後）。
   //   本のまとめ・AI まとめ（端末の中で数える派生のメモ）も出さない＝思い出しカードの「ここまで」の確認用。
-  if (scenario === 'recalldone') {
+  // ?demo=recalllast: 同じだが、思い出しカードが 1 枚だけ残っている人（最後の 1 枚を答えたときの確認用）。
+  if (scenario === 'recalldone' || scenario === 'recalllast') {
     db.book_memos.forEach((m) => { m.recall_count = Math.max(1, m.recall_count || 0); m.last_recalled_at = iso(1); });
     db.books.forEach((b) => { b.ai_summary = ''; b.roi_summary = ''; b.leverage_memo = ''; });
+    if (scenario === 'recalllast' && db.book_memos[0]) db.book_memos[0].last_recalled_at = iso(30);
   }
 
   // ?demo=onebook: メモ（カード式）がある本が 1 冊だけの人（答え方「本ごとに」で並べる本が 2 冊に満たず、

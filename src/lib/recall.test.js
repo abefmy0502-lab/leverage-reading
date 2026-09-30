@@ -18,6 +18,7 @@ import {
   nextDueAt,
   nextDueLabel,
   applyLocalRecall,
+  pickExtraMemo,
 } from './recall.js';
 
 const DAY = 86400000;
@@ -240,5 +241,24 @@ describe('applyLocalRecall（端末に残した記録を重ねる）', () => {
     const got = applyLocalRecall({ ...note, createdAt: iso(3 * DAY) }, { at: iso(0), count: 1 });
     expect(pickRecallMemo([got], { now: NOW })).toBeNull();
     expect(pickFallbackMemo([got], { now: NOW })).toBeNull();
+  });
+});
+
+describe('pickExtraMemo（ここまでのあとの「別のメモを見る」）', () => {
+  const recent = (id) => ({ id, text: id, createdAt: iso(100 * DAY), lastRecalledAt: iso(3600 * 1000), recallCount: 2 });
+  const older = (id) => ({ id, text: id, createdAt: iso(100 * DAY), lastRecalledAt: iso(5 * DAY), recallCount: 4 });
+  it('最近思い出したメモは、ほかにあれば避ける', () => {
+    const notes = [recent('a'), older('b'), recent('c')];
+    for (let seed = 0; seed < 6; seed += 1) expect(pickExtraMemo(notes, { now: NOW, seed }).id).toBe('b');
+  });
+  it('すべて最近なら、どれでも（seed で順に回る）', () => {
+    const notes = [recent('a'), recent('b')];
+    expect(pickExtraMemo(notes, { now: NOW, seed: 0 }).id).toBe('a');
+    expect(pickExtraMemo(notes, { now: NOW, seed: 1 }).id).toBe('b');
+    expect(pickExtraMemo(notes, { now: NOW, seed: 2 }).id).toBe('a');
+  });
+  it('本文の無いメモしか無ければ null', () => {
+    expect(pickExtraMemo([{ id: 'x', text: '', createdAt: iso(DAY) }], { now: NOW })).toBeNull();
+    expect(pickExtraMemo([], { now: NOW })).toBeNull();
   });
 });

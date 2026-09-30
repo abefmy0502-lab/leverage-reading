@@ -174,6 +174,10 @@ const SCREENS = [
   { name: 'review-memo-noresult', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { fill: ['input[placeholder="メモを検索"]', 'zzzz'] }] },
   // 思い出しカードを今日の分まで答え終えた人（「今日の思い出しカードは、ここまでです」・2026-10-01）
   { name: 'review-memo-recall-done', url: '/?demo=recalldone', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }] },
+  // 「ここまでです」の下の「別のメモを見る」（答えのボタンは出さない）。
+  { name: 'review-memo-recall-extra', url: '/?demo=recalldone', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'section button:text-is("別のメモを見る")' }] },
+  // 最後の 1 枚に「覚えた」: 知らせは「覚えました」だけ・次に出る日はカードの中だけ。
+  { name: 'review-memo-recall-last', url: '/?demo=recalllast', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button:has-text("覚えた")', settle: 1200 }] },
   // 行動の編集（期限の日付の欄が画面の幅に収まるか・2026-10-01）
   { name: 'action-edit', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { wait: 400 }] },
   { name: 'review-memo-menu', url: '/',steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"]' }] },

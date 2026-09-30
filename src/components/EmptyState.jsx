@@ -12,6 +12,8 @@
 //   actions      — array of { label, onClick, variant?, icon? }
 //                  variant: 'primary' (default) | 'secondary' | 'ghost'
 //   tip          — optional ヒント line (rendered with accent-soft bg)
+//   titleAs      — 見出しの要素（既定 'h2'。セクションの中に置くときは 'h3' など・2026-10-01）
+//   role         — 既定 'status'（出たときに読み上げる）。null で読み上げない（トーストと重なるときなど）
 //
 // Note: nothing about this is animated by JS — the floating icon is a
 // CSS keyframe and respects prefers-reduced-motion via the global rule.
@@ -22,11 +24,11 @@ const variantClass = {
   ghost: 'btn btn-ghost',
 };
 
-export default function EmptyState({ icon, title, description, actions = [], tip }) {
+export default function EmptyState({ icon, title, description, actions = [], tip, titleAs: TitleTag = 'h2', role = 'status' }) {
   return (
-    <div className="empty-state" role="status">
+    <div className="empty-state" role={role || undefined}>
       {icon && <div className="empty-state-icon" aria-hidden="true">{icon}</div>}
-      {title && <h2 className="empty-state-title">{title}</h2>}
+      {title && <TitleTag className="empty-state-title">{title}</TitleTag>}
       {description && (
         <p className="empty-state-description">{description}</p>
       )}

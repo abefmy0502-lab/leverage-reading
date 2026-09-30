@@ -23,7 +23,7 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import Spinner from './Spinner';
 import { SkeletonBlock } from './Skeleton';
-import { relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, nextDueAt, nextDueLabel, applyLocalRecall, recallPatch, dueGapDays } from '../lib/recall';
+import { relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, pickExtraMemo, nextDueAt, nextDueLabel, applyLocalRecall, recallPatch, dueGapDays } from '../lib/recall';
 import { loadRecallLocal, saveRecallLocal } from '../lib/recallLocal';
 import { shouldAskForReview, markReviewAsked, askReviewToast } from '../lib/reviewRequest';
 import { markActivation } from '../lib/activation';
@@ -728,6 +728,18 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     [randomMemo, allNotes],
   );
   const recallDone = !randomMemo && allNotes.length > 0;
+  // 「ここまでです」の下の「別のメモを見る」で出す 1 枚（null＝見ていない）。答えのボタンは出さない。
+  // 最近思い出したメモはできるだけ避ける（recall.js の pickExtraMemo）。
+  const [extraSeed, setExtraSeed] = useState(null);
+  const extraMemo = useMemo(
+    () => (recallDone && extraSeed != null ? pickExtraMemo(allNotes, { seed: extraSeed }) : null),
+    [recallDone, extraSeed, allNotes],
+  );
+  // 今日出すメモがまた出てきたら（元に戻す・新しいメモ）、「別のメモを見る」の状態は終える。
+  useEffect(() => { if (randomMemo) setExtraSeed(null); }, [randomMemo]);
+  // 最後の 1 枚を答えたら、フリップのあとで「ここまでです」に目を移す（読み上げはトーストと重ねない）。
+  const recallDoneRef = useRef(null);
+  const recallDoneFocusTimerRef = useRef(null);
 
   // 活性化「想起を体験」ステップ — タブを開いただけ（偽陽性）ではなく、自分のメモが
   // 実際に想起カードとして1枚戻ってきたときに初めて完了にする（= aha の本体）。
@@ -897,14 +909,29 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       localEntry: localRecall[memo.id] || null,
     };
     const prevSeed = randomSeed;
+    const patch = recallPatch(memo.recallCount, mastered);
+    // この 1 枚で今日の分が終わるか（答えたあとに出すメモが残らない）。
+    const after = allNotes.map((n) => (n.id === memo.id
+      ? { ...n, lastRecalledAt: patch.last_recalled_at, recallCount: patch.recall_count }
+      : n));
+    const isLast = !pickRecallMemo(after) && !pickFallbackMemo(after);
     recordRandomRecall(memo, mastered);
     reroll();
-    const nextCount = recallPatch(memo.recallCount, mastered).recall_count;
-    const days = dueGapDays(nextCount);
+    const days = dueGapDays(patch.recall_count);
+    if (isLast) {
+      if (recallDoneFocusTimerRef.current) clearTimeout(recallDoneFocusTimerRef.current);
+      recallDoneFocusTimerRef.current = setTimeout(() => {
+        try { recallDoneRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+      }, 650);
+    }
     // 「元に戻す」つきの知らせは toast.undo にそろえる（中立の Undo2 の印・DESIGN §5 トースト・2026-09-29）。
+    // 最後の 1 枚は、次に出る日を「ここまでです」のカードだけに書く（知らせのこのメモの日と、カードの
+    // いちばん早い日が食い違って見えないように・2026-10-01）。
     if (recallToastRef.current) toast.dismiss(recallToastRef.current, { byUser: true });
     recallToastRef.current = toast.undo({
-      message: days <= 1 ? '明日また出します' : `${days} 日後にまた出します`,
+      message: isLast
+        ? (mastered ? '覚えました' : '記録しました')
+        : days <= 1 ? '明日また出します' : `${days} 日後にまた出します`,
       duration: 5000,
       destructive: false,
       onUndo: () => undoRandomRecall(memo, prev, prevSeed),
@@ -934,6 +961,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
     if (flipEndTimerRef.current) clearTimeout(flipEndTimerRef.current);
     if (recallApplyTimerRef.current) clearTimeout(recallApplyTimerRef.current);
+    if (recallDoneFocusTimerRef.current) clearTimeout(recallDoneFocusTimerRef.current);
   }, []);
 
   const toggleMonth = (key) => {
@@ -1274,15 +1302,38 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           >
             {/* 今日出すメモが残っていない（すべて次の間隔を待っている）: 最後の 1 枚を答えたら、同じフリップの
                 折り返しでカードの代わりにこの 1 枚（空状態の形・カードと同じ枠）。次に出る日だけを添える（2026-10-01）。 */}
-            {!randomMemo ? (
-              <div className="recall-done" style={cardBase}>
-                <EmptyState
-                  icon={<Check size={28} aria-hidden="true" />}
-                  title={<><span style={{ display: 'inline-block' }}>今日の思い出しカードは、</span><span style={{ display: 'inline-block' }}>ここまでです</span></>}
-                  description={recallNextLabel || undefined}
+            {!randomMemo ? (extraMemo ? (
+              // 「別のメモを見る」: 答えのボタンは出さない（今日の分はもう終わっている）。
+              <>
+                <ReviewMemoCard
+                  memo={extraMemo}
+                  book={booksById.get(extraMemo.bookId)}
+                  onOpenBook={onOpenBook}
+                  onSwipeDelete={handleSwipeDelete}
+                  onLongPress={setMemoMenu}
+                  onOpenMenu={setMemoMenu}
+                  showRelative
                 />
-              </div>
-            ) : (<>
+                <button type="button" onClick={() => { haptic.light(); setExtraSeed((s) => (s ?? 0) + 1); }} style={{ ...btnLink, paddingLeft: 0, margin: 'var(--space-1) 0 calc(-1 * var(--space-3))' }}>
+                  別のメモを見る
+                </button>
+              </>
+            ) : (
+              <>
+                <div ref={recallDoneRef} tabIndex={-1} className="recall-done" style={{ ...cardBase, outline: 'none' }}>
+                  <EmptyState
+                    role={null}
+                    titleAs="h3"
+                    icon={<Check size={20} aria-hidden="true" />}
+                    title={<><span style={{ display: 'inline-block' }}>今日の思い出しカードは、</span><span style={{ display: 'inline-block' }}>ここまでです</span></>}
+                    description={recallNextLabel || undefined}
+                  />
+                </div>
+                <button type="button" onClick={() => { haptic.light(); setExtraSeed(0); }} style={{ ...btnLink, paddingLeft: 0, margin: 'var(--space-1) 0 calc(-1 * var(--space-3))' }}>
+                  別のメモを見る
+                </button>
+              </>
+            )) : (<>
             <ReviewMemoCard
               memo={randomMemo}
               book={booksById.get(randomMemo.bookId)}

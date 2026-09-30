@@ -190,6 +190,24 @@ export function pickFallbackMemo(notes, { now = Date.now(), minAgeDays = 14, see
   return pool[idx] || pool[0];
 }
 
+// 「今日の思い出しカードは、ここまでです」の下の「別のメモを見る」で出す 1 枚（答えのボタンは出さない）。
+// できるだけ、最近（withinDays 日以内に）思い出したメモは避ける。すべて最近なら、どれでも。
+// seed を 1 つずつ進めると、同じ候補の中を順に回る。候補が無ければ null。
+export function pickExtraMemo(notes, { now = Date.now(), seed = 0, withinDays = 1 } = {}) {
+  if (!Array.isArray(notes)) return null;
+  const all = notes.filter(isRecallable);
+  if (all.length === 0) return null;
+  const cutoff = now - withinDays * 86400000;
+  const notRecent = all.filter((n) => {
+    const t = n.lastRecalledAt ? new Date(n.lastRecalledAt).getTime() : NaN;
+    return Number.isNaN(t) || t < cutoff;
+  });
+  const pool = (notRecent.length ? notRecent : all).slice()
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  const i = ((Math.floor(seed) % pool.length) + pool.length) % pool.length;
+  return pool[i];
+}
+
 // 次に思い出しカードが出る時刻（ms）。いま due なメモがあれば now 以下の値ではなく、
 // まだ来ていないうちでいちばん早い時刻を返す。無ければ null。
 export function nextDueAt(notes, { now = Date.now(), minAgeDays = 14 } = {}) {

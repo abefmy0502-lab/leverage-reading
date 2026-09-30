@@ -650,7 +650,10 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 .empty-state--flush-bottom .empty-state { padding-top: var(--space-2); padding-bottom: 0; }
 /* 思い出しカードの「ここまでです」（Review.jsx）: カードの枠の中に置くので、内側の余白はカードの 16 に任せる
    （思い出しカード＋ボタンの行とほぼ同じ高さ＝最後の 1 枚を答えても下が跳ねない・2026-10-01）。 */
-.recall-done .empty-state { padding: var(--space-2) 0; }
+.recall-done .empty-state { padding: var(--space-4) 0; }
+/* 静かに（ui-critic 2026-10-01）: 見出しは本文の大きさ、印は押せる範囲と同じ 44（44 のトークンは無い）。 */
+.recall-done .empty-state-title { font-size: var(--text-body); }
+.recall-done .empty-state-icon { width: 44px; height: 44px; margin-bottom: var(--space-3); }
 .empty-state-description {
   /* DESIGN §2: 補足 15・--text-2。 */
   font-size: var(--text-sub);
