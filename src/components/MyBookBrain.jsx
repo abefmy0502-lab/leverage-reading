@@ -472,7 +472,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 同じアプリの起動中に戻ってきたら、前の会話と相談相手をそのまま出す（上の session）。
   const resumed = useRef(sessionFor(user?.id)).current;
   const [messages, setMessages] = useState(() => (resumed
-    ? resumed.messages.filter((m) => !m.streaming && !/^(streaming|bg-wait)-/.test(String(m.id)))
+    ? resumed.messages
+      .filter((m) => !m.streaming && !/^(streaming|bg-wait)-/.test(String(m.id)))
+      // メモの答えを探している途中で離れたときは「もう一度」を出す（探す処理は画面と一緒に終わっている）
+      .map((m) => (m.memoAnswer?.status === 'loading' ? { ...m, memoAnswer: { ...m.memoAnswer, status: 'error' } } : m))
     : []));
   useEffect(() => { rememberSession(user?.id, { messages }); }, [messages, user?.id]);
   // 過去の相談の「この相談の続きを聞く」（2026-09-29）: 持ってきた前の相談を会話のいちばん上に出し、
