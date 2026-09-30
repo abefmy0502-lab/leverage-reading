@@ -24,7 +24,7 @@ const closeBtn = {
 export default function MemoLinks({ links, onOpen, onDismiss = null, variant = 'card', style = null }) {
   if (!Array.isArray(links) || links.length === 0) return null;
   const rows = links.map((l, i) => (
-    <LibrarySearchHit key={l.key} inline divider={i > 0} showStatus={false} showRating={false} result={{ book: l.book, hit: l.hit }} onOpen={onOpen} />
+    <LibrarySearchHit key={l.key} inline divider={i > 0} showStatus={false} showRating={false} size="small" result={{ book: l.book, hit: l.hit }} onOpen={onOpen} />
   ));
 
   if (variant === 'compact') {

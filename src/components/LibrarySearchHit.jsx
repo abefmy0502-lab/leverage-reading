@@ -42,7 +42,9 @@ export function SnippetText({ segments }) {
 //   （カードの中にカードを入れない・DESIGN §5）。組み立て（表紙 44・書名・p.N · 日付・一節）は同じ。
 // divider=false: inline のときも行の上の線を引かない（見出しのすぐ下の 1 行目・本と本がつながるの「つながるメモ」）。
 // showRating=false: 評価の星を出さない（つながるメモ・メモが答える相談の行＝本の情報より一節が主役）。
-const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAutoRetry, showStatus = true, inline = false, divider = true, showRating = true }) {
+const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAutoRetry, showStatus = true, inline = false, divider = true, showRating = true, size = 'regular' }) {
+  // size='small': 入れ子の行（メモのカードの中のつながるメモ）。表紙 32・書名 15/600（親のメモより弱く・2026-10-01 ui-critic）。
+  const cover = size === 'small' ? 32 : 44;
   const { book, hit } = result;
   const label = hitLabel(hit);
   return (
@@ -58,9 +60,9 @@ const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAuto
     >
       {/* 上の行は、すべての本のリストの行（SwipeableBookCard）と同じ組み立て。 */}
       <span style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-        <MiniCover book={book} width={44} onAutoRetry={onAutoRetry} />
+        <MiniCover book={book} width={cover} onAutoRetry={onAutoRetry} />
         <span style={{ flex: 1, minWidth: 0, display: 'block' }}>
-          <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</span>
+          <span style={{ display: 'block', fontSize: size === 'small' ? 'var(--text-sub)' : 'var(--text-body)', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)', minWidth: 0 }}>
             {showStatus && <StatusLabel status={book.status} />}
             {/* 評価はすべての本のリストの行と同じ（状態 → 評価 · 著者・2026-09-30 ui-critic） */}
@@ -73,7 +75,7 @@ const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAuto
       </span>
       {hit && (
         // 一節は書名の列（表紙 44＋間 12）にそろえる。ページ・欄の名前は 13/--text-3、一節は読む文章（明朝）で 2 行まで。
-        <span style={{ display: 'block', marginTop: 'var(--space-2)', paddingLeft: 'calc(44px + var(--space-3))' }}>
+        <span style={{ display: 'block', marginTop: 'var(--space-2)', paddingLeft: `calc(${cover}px + var(--space-3))` }}>
           {(label || hit.tag) && (
             <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>
               {label}
