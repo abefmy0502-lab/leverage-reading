@@ -174,6 +174,9 @@ function unclosed(text) {
 
 // かっこの手前がこの形で終わるとき（中身の無い決まり文句）は、かっこの中を要約に使う（2026-09-30）。
 const STOCK_BEFORE_QUOTE = /(に残した|に書いた|に書き残した|で読んだ|の)$/;
+// 末尾の「…」「‥」「...」（要約の「…」と重ねないため）。
+const ELLIPSIS_END = /(…|‥|\.{2,})+$/;
+
 // t の open 番目の開きかっこの中身の頭を、同じかっこでくくって返す（全体 n 文字まで・入らない分は「…」）。
 function innerQuoteGist(t, open, n) {
   const openCh = t[open];
@@ -185,8 +188,9 @@ function innerQuoteGist(t, open, n) {
     else if (t[i] === closeCh) { depth -= 1; if (depth === 0) { end = i; break; } }
   }
   const inner = t.slice(open + 1, end).trim();
-  if (inner.length <= n - 2) return `${openCh}${inner}${closeCh}${end < t.length - 1 ? '…' : ''}`;
-  let head = inner.slice(0, Math.max(1, n - 3)).replace(/[、，,。\s]+$/, '');
+  // かっこの中がもう「…」で終わっていれば、後ろに「…」を重ねない（「「X…」…」にしない・2026-09-30）。
+  if (inner.length <= n - 2) return `${openCh}${inner}${closeCh}${end < t.length - 1 && !ELLIPSIS_END.test(inner) ? '…' : ''}`;
+  let head = inner.slice(0, Math.max(1, n - 3)).replace(/[、，,。\s]+$/, '').replace(ELLIPSIS_END, '');
   const need = unclosed(head).length;
   if (need) head = head.slice(0, Math.max(1, n - 3 - need));
   return `${openCh}${head}…${unclosed(head).reverse().join('')}${closeCh}`;
@@ -217,7 +221,8 @@ export function questionGist(question, n = 20) {
     if (STOCK_BEFORE_QUOTE.test(before)) return innerQuoteGist(t, stack[0], n);
     cut = before.length >= 4 ? before : cut;
   }
-  cut = cut.replace(/[、，,\s]+$/, '');
+  // 切り口がもう「…」「...」で終わっていれば外してから「…」を 1 つだけ付ける（「……」にしない・2026-09-30）。
+  cut = cut.replace(/[、，,\s]+$/, '').replace(ELLIPSIS_END, '');
   // 補う閉じかっこの分だけ短くして、全体を n 文字に収める。
   const need = unclosed(cut).length;
   if (need) cut = cut.slice(0, Math.max(1, n - 1 - need));
