@@ -1135,6 +1135,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           <ShareSheet
             book={shareTarget.book}
             initialMemoId={shareTarget.memoId}
+            from="memo"
             onClose={() => setShareTarget(null)}
           />
         </Suspense>

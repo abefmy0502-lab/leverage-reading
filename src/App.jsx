@@ -170,6 +170,7 @@ import {
   ShoppingBag,
   Upload,
   Share,
+  Camera,
   Trash2,
   RotateCcw,
   Brain,
@@ -930,8 +931,63 @@ function AuthedApp() {
   const [editMenu, setEditMenu] = useState(null);
   // 読書中・読了の本の購入リンクは「⋯ → この本を買う」のシートへ（2026-09-26 オーナー判断）。
   const [storeSheetOpen, setStoreSheetOpen] = useState(false);
-  // 📤 一文をシェアのシート: { book, initialMemoId? }（本の詳細・メモの「…」・本棚の長押しから）。
+  // 📷 画像で共有のシート（SPEC §2-1）: { book?, initialMemoId?, photoFile?, fromHome?, from }。
+  //   カメラの入口（ホームの上の行・本の詳細の上の行・読了した直後）は、撮った写真を持って開く。
+  //   メモの「…」→「この一文をシェア」・本の「…」／本棚の長押し →「画像で共有」は写真なしで開く。
   const [shareSheet, setShareSheet] = useState(null);
+  // 読了にした直後だけ、その本の下に「読了を写真で共有」を 1 つ出す（押した指の下に現れないよう少し待つ・本を離れたら消す）。
+  const [justDoneId, setJustDoneId] = useState(null);
+  const justDoneTimerRef = useRef(null);
+  // 📷 カメラを直接開く（input の capture。iOS はカメラ・パソコンはファイルを選ぶ画面）。
+  // 押した瞬間に（await を挟まずに）開く必要があるので、隠した input を 1 つだけ置いて使い回す。
+  // 写真はこの端末の中だけで使う（アップロードしない）。撮るのをやめたら（input の cancel）、写真なしのシートを開く
+  // （「写真を選ぶ」でアルバムから選べる・紙や夜でも共有できる・SPEC §2-1）。
+  const shareCameraRef = useRef(null);
+  const shareCameraTargetRef = useRef(null);
+  const openShareCamera = (target) => {
+    shareCameraTargetRef.current = target;
+    const el = shareCameraRef.current;
+    if (!el) { setShareSheet({ ...target }); return; }
+    try { el.value = ''; el.click(); } catch { setShareSheet({ ...target }); }
+  };
+  const onShareCameraPicked = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    // 入口が分からないとき（撮影の画面から戻る間に画面が変わった等）は、いまの画面から決める。
+    const t = shareCameraTargetRef.current
+      || (view === 'detail' && current ? { book: current, from: 'detail' } : { fromHome: true, from: 'home' });
+    shareCameraTargetRef.current = null;
+    setShareSheet({ ...t, photoFile: file });
+  };
+  const onShareCameraCanceledRef = useRef(null);
+  onShareCameraCanceledRef.current = () => {
+    const t = shareCameraTargetRef.current
+      || (view === 'detail' && current ? { book: current, from: 'detail' } : { fromHome: true, from: 'home' });
+    shareCameraTargetRef.current = null;
+    setShareSheet({ ...t, cameraCanceled: true });
+  };
+  // cancel は React の onCancel では input に付かないので、要素に直接付ける（入口ごとに input が付け替わっても 1 つだけ）。
+  const shareCameraRefCb = useCallback((el) => {
+    const onCancel = () => onShareCameraCanceledRef.current?.();
+    const prev = shareCameraRef.current;
+    if (prev && prev.__orimeCancel) prev.removeEventListener('cancel', prev.__orimeCancel);
+    shareCameraRef.current = el;
+    if (el) { el.__orimeCancel = onCancel; el.addEventListener('cancel', onCancel); }
+  }, []);
+  const shareCameraInput = (
+    <input
+      ref={shareCameraRefCb}
+      data-share-camera=""
+      type="file"
+      accept="image/*"
+      capture="environment"
+      onChange={onShareCameraPicked}
+      style={{ display: 'none' }}
+      aria-hidden="true"
+      tabIndex={-1}
+    />
+  );
   const openDetailKebab = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setDetailKebab({ x: rect.right - 8, y: rect.bottom + 4 });
@@ -1717,7 +1773,7 @@ function AuthedApp() {
   // quickMemoOpen / fullEditorPrefill もリセットする — edge-swipe back や BottomNav
   // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
   // 開いた別の本の詳細でシートが勝手に開いてしまう。
-  const goList = () => { setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setDetailFromSearchId(null); setJustMadePlanId(null); };
+  const goList = () => { setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setDetailFromSearchId(null); setJustMadePlanId(null); };
   // 本の詳細から 1 段戻る: 検索結果の「追加済み」から開いた本なら、さっきの検索結果へ戻す（2026-09-29）。
   const leaveDetail = () => {
     const toSearch = !!detailFromSearchId && current?.id === detailFromSearchId;
@@ -2544,6 +2600,9 @@ function AuthedApp() {
       recentlyDoneTimerRef.current = setTimeout(() => setRecentlyDoneId(null), 8000);
       // 控えめに祝う（紙吹雪・「1 冊読了！」・出典の確かでない名言はやめた・反ゲーミフィケーション／作り話にしない）。
       try { haptic.success(); } catch { /* non-critical */ }
+      // 「読了を写真で共有」は、押した「読了にする」の場所に 0.4 秒おいてから出す（押し間違えない）。
+      clearTimeout(justDoneTimerRef.current);
+      justDoneTimerRef.current = setTimeout(() => setJustDoneId(book.id), 400);
       dismissStatusUndo(book.id);
       statusUndoToastRef.current.set(book.id, toast.show({
         type: 'success',
@@ -3801,16 +3860,17 @@ function AuthedApp() {
               <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : aiSubTab === 'report' ? 'テーマまとめ' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
-              {/* 📤 この本の一文をシェア（読書中・読了で、本文のあるメモがあるときだけ・SPEC §2-1）。 */}
-              {isMemoPhase && (currentMemoOps.memos || []).some((m) => (m.text || '').trim()) && (
+              {/* 📷 写真で共有（読書中・読了・SPEC §2-1）: ホームと同じ文字つき（アイコンだけだと「写真から書き起こす」と
+                  見分けにくい）。押すとすぐカメラ。読了にした直後は下の「読了を写真で共有」があるので出さない（入口を二重にしない）。 */}
+              {isMemoPhase && justDoneId !== current.id && (
                 <button
                   type="button"
-                  onClick={() => setShareSheet({ book: current })}
-                  style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
-                  aria-label="この本の一文をシェア"
-                  title="一文をシェア"
+                  onClick={() => openShareCamera({ book: current, from: 'detail' })}
+                  aria-label="写真で共有"
+                  style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
                 >
-                  <Share size={20} strokeWidth={1.75} aria-hidden="true" />
+                  <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
+                  写真で共有
                 </button>
               )}
               {/* ⋯ kebab — 編集 / 共有 / 削除 / ヘルプ を集約。下部の 3 ボタン廃止。 */}
@@ -3999,6 +4059,18 @@ function AuthedApp() {
 
           {/* Action buttons */}
           <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-6)', marginTop: 'var(--space-8)' }}>
+            {/* 📷 読了にした直後だけ（控えめな副ボタン 1 つ・本を離れたら消える・SPEC §2-1）。 */}
+            {current.status === 'done' && justDoneId === current.id && (
+              <button
+                type="button"
+                className="list-item-enter"
+                onClick={() => { setJustDoneId(null); openShareCamera({ book: current, from: 'done' }); }}
+                style={{ ...btnGhost, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
+              >
+                <Camera size={20} aria-hidden="true" />
+                読了を写真で共有
+              </button>
+            )}
             {nextStatus[current.status] && (
               // ボタンと補足文は 1 つのまとまり（8）。購入リンクとは 24 離す（DESIGN §1）。
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
@@ -4246,14 +4318,16 @@ function AuthedApp() {
         {shareSheet && (
           <Suspense fallback={<OverlayFallback />}>
             <ShareSheet
-              book={shareSheet.book}
+              book={shareSheet.book?.id === current.id ? current : shareSheet.book}
               memos={shareSheet.book?.id === current.id ? currentMemoOps.memos : undefined}
               initialMemoId={shareSheet.initialMemoId || null}
-              onWriteMemo={() => { setShareSheet(null); setQuickMemoOpen(true); }}
+              initialPhotoFile={shareSheet.photoFile || null}
+              from={shareSheet.from || (shareSheet.initialMemoId ? 'memo' : 'menu')}
               onClose={() => setShareSheet(null)}
             />
           </Suspense>
         )}
+        {shareCameraInput}
         {storeSheetOpen && (
           <BottomSheet title="この本を買う" onClose={() => setStoreSheetOpen(false)}>
             <BookStoreLinks book={current} variant="cta" buy />
@@ -4305,9 +4379,9 @@ function AuthedApp() {
               ...(current.status !== 'want'
                 ? [{ label: 'この本を買う', icon: <ShoppingBag size={16} aria-hidden="true" />, onClick: () => setStoreSheetOpen(true) }]
                 : []),
-              // 読書中・読了は「この本の一文」を画像でシェア。読みたい・積読は書名とお店のリンクの文を共有。
+              // 読書中・読了は画像で共有（写真なしで開く・シートの中で写真も選べる）。読みたい・積読は書名とお店のリンクの文を共有。
               isMemoPhase
-                ? { label: '一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => setShareSheet({ book: current }) }
+                ? { label: '画像で共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => setShareSheet({ book: current, from: 'menu' }) }
                 : { label: '共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => shareBook(current) },
               // ヘルプは上の行に単独のボタンで置かず、この「…」の中（削除の直前・削除はいつも最後）に（2026-09-30）。
               { label: 'ヘルプ', icon: <HelpCircle size={16} aria-hidden="true" />, onClick: openHelp },
@@ -4587,6 +4661,19 @@ function AuthedApp() {
     </div>
     {/* 右端は左のロゴの補正と対称に（アイコンの見た目の右余白を 16 に）。 */}
     <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
+      {/* 📷 写真で共有（ホームだけ・2026-09-30 オーナー裁定: 共有は前面に出す主要な機能）。
+          押すとすぐカメラ（パソコンは写真を選ぶ画面）。撮ったら、いま読んでいる本の記録を重ねたシートが開く。 */}
+      {tab === 'books' && (
+        <button
+          type="button"
+          onClick={() => openShareCamera({ fromHome: true, from: 'home' })}
+          aria-label="写真で共有"
+          style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
+        >
+          <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
+          写真で共有
+        </button>
+      )}
       <button
         onClick={openHelp}
         style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
@@ -5215,12 +5302,12 @@ function AuthedApp() {
               icon: <IcRefresh size={16} aria-hidden="true" />,
               onClick: () => refreshCoverFor(bookContextMenu.book),
             },
-            // 読書中・読了は「この本の一文」を画像でシェア（メモはシートが読み込む）。読みたい・積読は文を共有。
+            // 読書中・読了は画像で共有（メモはシートが読み込む）。読みたい・積読は文を共有。
             (bookContextMenu.book.status === 'reading' || bookContextMenu.book.status === 'done')
               ? {
-                  label: '一文をシェア',
+                  label: '画像で共有',
                   icon: <Share size={16} aria-hidden="true" />,
-                  onClick: () => setShareSheet({ book: bookContextMenu.book }),
+                  onClick: () => setShareSheet({ book: bookContextMenu.book, from: 'menu' }),
                 }
               : {
                   label: '共有',
@@ -5237,17 +5324,21 @@ function AuthedApp() {
         />
       )}
 
-      {/* 📤 本棚の長押し →「一文をシェア」。本の詳細の同じ mount とは片方の画面しか return されない。 */}
+      {/* 📷 ホームの「写真で共有」・本棚の長押し →「画像で共有」。本の詳細の同じ mount とは片方の画面しか return されない。
+          ホームから開いたときは「どの本？」を切り替えられる（今月・読書中・読了の本）。 */}
       {shareSheet && (
         <Suspense fallback={<OverlayFallback />}>
           <ShareSheet
-            book={shareSheet.book}
+            book={shareSheet.book || null}
+            books={shareSheet.fromHome ? books : undefined}
             initialMemoId={shareSheet.initialMemoId || null}
-            onWriteMemo={() => { const b = shareSheet.book; setShareSheet(null); openDetail(b); }}
+            initialPhotoFile={shareSheet.photoFile || null}
+            from={shareSheet.from || 'menu'}
             onClose={() => setShareSheet(null)}
           />
         </Suspense>
       )}
+      {shareCameraInput}
 
       {settingsOpen && (
         <Suspense fallback={<OverlayFallback />}>
