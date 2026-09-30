@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { threadBlock, retrievalQuery, THREAD_MAX_TURNS } from './ai';
-import { selectThreadTurns, isCompletedAnswer, followupChips, FOLLOWUP_OTHER_BOOKS } from './consultHelpers';
+import { threadBlock, retrievalQuery, THREAD_MAX_TURNS, turnHint } from './ai';
+import {
+  selectThreadTurns, isCompletedAnswer, followupChips, FOLLOWUP_OTHER_BOOKS,
+  parseAskSection, wantsAction, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL,
+} from './consultHelpers';
 
 const ANSWER = [
   '【結論】',
@@ -137,5 +140,123 @@ describe('followupChips（深掘りのチップ）', () => {
   });
   it('いま送った文と同じチップは出さない', () => {
     expect(followupChips({ booksWithMemos: 3, lastAsked: 'もっと具体的に' })).toEqual(['うまくいかなかったら？', FOLLOWUP_OTHER_BOOKS]);
+  });
+});
+
+// 🎯 行動は会話で決める（2026-09-30）
+const ASK_ANSWER = [
+  '【結論】',
+  '報告は、相手が話しやすい形を先に決めると届きやすくなります。',
+  '',
+  '【参照した本のメモ】',
+  '- 『1兆ドルコーチ』より: 信頼は小さな約束から',
+  '',
+  '【あなたの状況に合わせた解釈】',
+  '解釈の文。',
+  '',
+  '【あなたに聞きたいこと】',
+  '報告が遅れるのは、どんな場面が多いですか？',
+  '・会議の前',
+  '・急ぎの仕事のとき',
+  '・悪い知らせのとき',
+  '',
+  'REFS_START',
+  '- 📚 『1兆ドルコーチ』',
+  'REFS_END',
+].join('\n');
+
+describe('parseAskSection（【あなたに聞きたいこと】の問いと候補）', () => {
+  it('問い 1 文と「・」の候補に分ける', () => {
+    const p = parseAskSection('報告が遅れるのは、どんな場面が多いですか？\n・会議の前\n・急ぎの仕事のとき\n・悪い知らせのとき');
+    expect(p.question).toBe('報告が遅れるのは、どんな場面が多いですか？');
+    expect(p.replies).toEqual(['会議の前', '急ぎの仕事のとき', '悪い知らせのとき']);
+    expect(p.rest).toBe('');
+  });
+  it('- ・ → 1. などの印・かっこ・句点を外し、重複・長すぎる候補は除き、3 つまで', () => {
+    const p = parseAskSection('どんなときですか？\n\n- 「会議の前」\n→ 会議の前\n1. 夜。\n・' + 'あ'.repeat(30) + '\n・朝\n・昼');
+    expect(p.replies).toEqual(['会議の前', '夜', '朝']);
+  });
+  it('候補の後ろの段落（お試しの注記など）は rest に', () => {
+    const p = parseAskSection('どんなとき？\n・朝\n\n（お試しモードの応答です）');
+    expect(p.replies).toEqual(['朝']);
+    expect(p.rest).toBe('（お試しモードの応答です）');
+  });
+  it('書いている途中（候補がまだ）は問いだけ', () => {
+    expect(parseAskSection('報告が遅れるのは、ど')).toEqual({ question: '報告が遅れるのは、ど', replies: [], rest: '' });
+  });
+  it('空なら空', () => {
+    expect(parseAskSection('')).toEqual({ question: '', replies: [], rest: '' });
+  });
+});
+
+describe('wantsAction（自分の言葉で行動を求めたか）', () => {
+  it('行動を求める言葉', () => {
+    expect(wantsAction(DECIDE_REQUEST)).toBe(true);
+    expect(wantsAction('じゃあ何をすればいい？')).toBe(true);
+    expect(wantsAction('どうしたらいいですか')).toBe(true);
+    expect(wantsAction('やることを決めたい')).toBe(true);
+  });
+  it('返事や深掘りは行動を求めていない', () => {
+    expect(wantsAction('会議の前')).toBe(false);
+    expect(wantsAction('もっと具体的に')).toBe(false);
+    expect(wantsAction('うまくいかなかったら？')).toBe(false);
+    expect(wantsAction('')).toBe(false);
+  });
+});
+
+describe('turnHint（この回の答え方の念押し）', () => {
+  it('最初の答えは、行動を求める言葉があっても状況を 1 つ聞く', () => {
+    const h = turnHint({ followUp: false, question: '何をすればいい？' });
+    expect(h.decide).toBe(false);
+    expect(h.text).toContain('最初の答え');
+    expect(h.text).toContain('【あなたに聞きたいこと】');
+    expect(h.text).not.toContain('ACTION_REQUEST');
+  });
+  it('続きで行動を求めたら ACTION_REQUEST（問いを書かず行動を 1 つ）', () => {
+    const h = turnHint({ followUp: true, question: DECIDE_REQUEST });
+    expect(h.decide).toBe(true);
+    expect(h.text).toContain('ACTION_REQUEST');
+    expect(h.text).toContain('【明日からできる 1 つの行動】');
+  });
+  it('続きの返事は、行動を決めずに一歩深く', () => {
+    const h = turnHint({ followUp: true, question: '会議の前' });
+    expect(h.decide).toBe(false);
+    expect(h.text).toContain('会話の続き');
+    expect(h.text).toContain('行動はまだ決めない');
+  });
+});
+
+describe('threadBlock に、行動を決めなかった答えの問いを渡す', () => {
+  it('答えの問い（候補は外す）を入れ、一歩が無ければ一歩の行は無い', () => {
+    const b = threadBlock([{ question: '部下が報告をくれない', answer: ASK_ANSWER }]);
+    expect(b).toContain('答えの問い: 報告が遅れるのは、どんな場面が多いですか？');
+    expect(b).not.toContain('会議の前');
+    expect(b).not.toContain('答えの一歩');
+    expect(b).toContain('たいていその返事');
+  });
+  it('一歩のある答えには問いの行を足さない（前の形の答えも同じ）', () => {
+    const b = threadBlock([{ question: 'Q', answer: ANSWER }]);
+    expect(b).not.toContain('答えの問い:');
+  });
+});
+
+describe('nextStepChips（答えのあとの次のチップ）', () => {
+  it('問いの候補があれば、候補（返事）→「行動を決める」だけ', () => {
+    const c = nextStepChips({ replies: ['会議の前', '急ぎの仕事のとき'], hasAction: false, booksWithMemos: 3 });
+    expect(c.map((x) => x.label)).toEqual(['会議の前', '急ぎの仕事のとき', DECIDE_CHIP]);
+    expect(c[0]).toEqual({ label: '会議の前', send: '会議の前', kind: 'reply' });
+    expect(c[2]).toEqual({ label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' });
+  });
+  it('行動を決めた答えのあとは、これまでの深掘りのチップ', () => {
+    expect(nextStepChips({ hasAction: true, booksWithMemos: 1 }).map((x) => x.label)).toEqual([FOLLOWUP_MORE, FOLLOWUP_IF_FAIL]);
+    expect(nextStepChips({ hasAction: true, booksWithMemos: 2 }).map((x) => x.label)).toContain(FOLLOWUP_OTHER_BOOKS);
+  });
+  it('行動も候補も無い答えのあとは「行動を決める」が先頭', () => {
+    expect(nextStepChips({ hasAction: false, booksWithMemos: 1 }).map((x) => x.label)).toEqual([DECIDE_CHIP, FOLLOWUP_MORE]);
+    expect(nextStepChips({ hasAction: false, booksWithMemos: 2 }).map((x) => x.label)).toEqual([DECIDE_CHIP, FOLLOWUP_MORE, FOLLOWUP_OTHER_BOOKS]);
+  });
+  it('いま送った文と同じチップは出さない（「行動を決める」を続けて出さない）', () => {
+    expect(nextStepChips({ hasAction: false, lastAsked: DECIDE_REQUEST }).map((x) => x.kind)).not.toContain('decide');
+    expect(nextStepChips({ replies: ['朝', '夜'], lastAsked: '朝' }).map((x) => x.label)).toEqual(['夜', DECIDE_CHIP]);
   });
 });

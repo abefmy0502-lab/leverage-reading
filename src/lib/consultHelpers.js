@@ -13,6 +13,8 @@
 //     （かっこは必ず閉じる・2026-09-29）。
 //
 // - selectThreadTurns: 深掘りの会話（2026-09-30）で、次の相談に文脈として渡す「これまでのやりとり」を選ぶ。
+// - parseAskSection / nextStepChips / wantsAction: 行動は会話で決める（2026-09-30）。最初の答えの
+//     【あなたに聞きたいこと】の問いと候補、入力欄の上のチップ（返事・「行動を決める」）、行動を求める言葉。
 //
 // ⚠️ src では正規表現の後読み（lookbehind）を使わない。
 
@@ -514,4 +516,75 @@ export const FOLLOWUP_OTHER_BOOKS = 'ほかの本ではどう言ってる？';
 export function followupChips({ booksWithMemos = 0, lastAsked = '' } = {}) {
   const sent = String(lastAsked || '').trim();
   return [FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, ...(booksWithMemos >= 2 ? [FOLLOWUP_OTHER_BOOKS] : [])].filter((q) => q !== sent);
+}
+
+// 🎯 行動は会話で決める（2026-09-30 オーナー要望「最初から勝手に行動を決めるのではなく、会話を進めていって行動を決めたい」）。
+//   最初の答えは行動を決めず、【あなたに聞きたいこと】で状況を 1 つ聞く（問い 1 文＋答えの候補 2〜3 行「・会議の前」）。
+//   候補は入力欄の上の返事のチップになる。行動は「行動を決める」のチップ（または自分の言葉）で頼んだときだけ。
+export const ASK_REPLY_MAX = 3;
+export const ASK_REPLY_CHARS = 24; // 候補は 20 字以内と頼む。少しの超えは許し、長すぎる行はチップにしない
+export const DECIDE_CHIP = '行動を決める';
+export const DECIDE_REQUEST = 'ここまでの話から、私がやる行動を 1 つ決めたい';
+// 候補の行の頭の印（指示は「・」。- * • → や「1.」も受ける）。
+const ASK_REPLY_RE = /^\s*(?:[・•\-*→＞>]|[0-9０-９]+\s*[.．)）、])\s*(.+?)\s*$/;
+// 【あなたに聞きたいこと】の中身 → { question, replies, rest }。
+//   question: 候補の前の文（1 段落）/ replies: 候補（印を外す・かっこを外す・重複と長すぎる行は除く・最大 3）
+//   rest: 候補の後ろに続く段落（お試しモードの注記など）。書いている途中（候補がまだ）でも question だけ返す。
+export function parseAskSection(text) {
+  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  const q = [];
+  const replies = [];
+  const rest = [];
+  let phase = 'question';
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (phase === 'question') {
+      if (!line) { if (q.length) phase = 'replies'; continue; }
+      const m = line.match(ASK_REPLY_RE);
+      if (m && q.length) { phase = 'replies'; replies.push(m[1]); continue; }
+      q.push(line.replace(/^[\s:：]+/, ''));
+      continue;
+    }
+    if (phase === 'replies') {
+      if (!line) { if (replies.length) phase = 'rest'; continue; }
+      const m = line.match(ASK_REPLY_RE);
+      if (m) { replies.push(m[1]); continue; }
+      phase = 'rest';
+      rest.push(line);
+      continue;
+    }
+    if (line) rest.push(line);
+  }
+  const seen = new Set();
+  const clean = replies
+    .map((r) => r.replace(/\*\*/g, '').replace(/^[「『"]+|[」』"]+$/g, '').replace(/[。．]$/, '').trim())
+    .filter((r) => r && r.length <= ASK_REPLY_CHARS && !seen.has(r) && seen.add(r))
+    .slice(0, ASK_REPLY_MAX);
+  return { question: q.join('\n').replace(/\*\*/g, '').trim(), replies: clean, rest: rest.join('\n') };
+}
+
+// ユーザーが自分の言葉で行動を求めたか（「何をすれば」「どうしたら」「行動」「決めたい」など）。
+//   相談の続き（会話・前の相談があるとき）で当たれば、AI に「今回は行動を 1 つ決める」と念を押す（ai.js の turnHint）。
+//   書いている途中の形（行動の箱／問いの箱）を先に決めるのにも使う。
+const WANTS_ACTION_RE = /(?:何|なに)を(?:すれば|したら|すべき|やれば|やったら)|どう(?:したら|すれば|すべき)|行動|決めたい|やることを/;
+export function wantsAction(text) {
+  return WANTS_ACTION_RE.test(String(text || ''));
+}
+
+// 答えのあとの「次に」のチップ（入力欄の上の 1 行・押すとすぐ送る）。{ label, send, kind } の配列。
+//   - 答えに問いの候補があれば: 候補（返事）→「行動を決める」（候補の答えを待っている間はほかの聞き方を並べない）
+//   - 行動を決めた答え: もっと具体的に・うまくいかなかったら？（・ほかの本では）
+//   - 行動も候補も無い答え（問いだけ・心に残るもの など）: 「行動を決める」→ もっと具体的に（・ほかの本では）
+//   いま送った文と同じチップは出さない（「行動を決める」で答えが行動にならなかったとき、同じチップを繰り返さない）。
+//   「別の角度で答えて」は画面の側で行の最後に足す。
+export function nextStepChips({ replies = [], hasAction = false, booksWithMemos = 0, lastAsked = '' } = {}) {
+  const sent = String(lastAsked || '').trim();
+  const reply = (Array.isArray(replies) ? replies : []).slice(0, ASK_REPLY_MAX).map((r) => ({ label: r, send: r, kind: 'reply' }));
+  const decide = { label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' };
+  const follow = (q) => ({ label: q, send: q, kind: 'followup' });
+  let list;
+  if (hasAction) list = followupChips({ booksWithMemos }).map(follow);
+  else if (reply.length > 0) list = [...reply, decide];
+  else list = [decide, follow(FOLLOWUP_MORE), ...(booksWithMemos >= 2 ? [follow(FOLLOWUP_OTHER_BOOKS)] : [])];
+  return list.filter((c) => c.send !== sent);
 }
