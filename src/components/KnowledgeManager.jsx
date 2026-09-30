@@ -17,7 +17,7 @@
 //   personal — DB delete; Undo re-INSERTs
 //   summary  — clear (set leverage_memo = ''); Undo restores previous text
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
@@ -138,6 +138,7 @@ const KIND_META = {
 // ============================================================================
 function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
   const trapRef = useFocusTrap(true); // ♿ Tab をダイアログ内に閉じ込める
+  const titleId = useId(); // ♿ ダイアログの名前＝見出し
   const [text, setText] = useState(initialText || '');
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -177,11 +178,12 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
       onClick={onClose}
       role="dialog"
       aria-modal="true"
+      aria-labelledby={titleId}
     >
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-overlay)', width: 'min(440px, 100%)', maxHeight: 'min(85vh, 85dvh)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-1) var(--space-4) var(--space-1) var(--space-1)', borderBottom: '1px solid var(--separator)' }}>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', width: 44, height: 44, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
-          <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', fontWeight: 600, margin: 0, flex: 1, minWidth: 0, lineHeight: 1.3 }}>{title}</p>
+          <p id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', fontWeight: 600, margin: 0, flex: 1, minWidth: 0, lineHeight: 1.3 }}>{title}</p>
         </div>
         <div style={{ padding: 'var(--space-4)', flex: 1, overflowY: 'auto' }}>
           <textarea

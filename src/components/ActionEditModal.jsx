@@ -8,7 +8,7 @@
 // onSave({ text, priority, deadline, recurrence, reflection }) を呼ぶと
 // App.jsx 側で saveBook 経由で永続化する (useBooks に処理を集約)。
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LIMITS } from '../lib/limits';
 import { useConfirm } from './ConfirmDialog';
@@ -173,6 +173,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
   useEffect(() => { busyRef.current = busy; }, [busy]);
   const confirm = useConfirm();
   const trapRef = useFocusTrap(true);
+  const titleId = useId(); // ♿ ダイアログの名前＝見出し（読み上げで名前が無いまま開かない）
   // 開いている間は左端スワイプ・ブラウザの「戻る」で画面ごと離れない（書きかけの行動を失わない）。
   useBlockEdgeSwipe(true);
 
@@ -225,10 +226,10 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div style={overlayStyle} role="dialog" aria-modal="true" onClick={() => { if (!busy) onClose?.(); }}>
+    <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={() => { if (!busy) onClose?.(); }}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{isCreate ? '行動を追加' : step ? `期限を見直す（${step.index}/${step.total}）` : '行動を編集'}</h2>
+          <h2 id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{isCreate ? '行動を追加' : step ? `期限を見直す（${step.index}/${step.total}）` : '行動を編集'}</h2>
           {/* やめる・キャンセルは右上の × 1 か所（下の行は 削除＋保存 だけ・2026-10-01 ui-critic）。 */}
           <button type="button" style={closeBtn} onClick={() => { if (!busy) onClose?.(); }} aria-label={reviewing ? '見直しをやめる' : '閉じる'}><X size={20} aria-hidden="true" /></button>
         </div>

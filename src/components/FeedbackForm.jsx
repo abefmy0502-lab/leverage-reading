@@ -5,7 +5,7 @@
 // is anonymous-ish: name + email are optional; user_id ties back via RLS so
 // only the submitter (and admins via service_role) can read it later.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { Check } from 'lucide-react';
 import { useFeedback, FEEDBACK_CATEGORIES, FEEDBACK_LIMITS } from '../hooks/useFeedback';
@@ -162,6 +162,7 @@ export default function FeedbackForm({ onClose }) {
   const [focusedCat, setFocusedCat] = useState(''); // キーボードで触れている選択肢（輪を出す）
   const sheetRef = useRef(null);
   const trapRef = useFocusTrap(true); // ♿ Tab をフォーム内に閉じ込める
+  const titleId = useId(); // ♿ ダイアログの名前＝見出し
   // 開いたらすぐ書けるように、本文の欄にカーソルを置く（描き終えた次のフレーム・画面は動かさない・2026-09-30）。
   const contentRef = useRef(null);
   useEffect(() => {
@@ -227,6 +228,7 @@ export default function FeedbackForm({ onClose }) {
       style={overlayStyle}
       role="dialog"
       aria-modal="true"
+      aria-labelledby={titleId}
       onClick={(e) => {
         // 親（設定モーダル）の overlay onClick まで bubbling すると両方一緒に閉じる。
         e.stopPropagation();
@@ -239,7 +241,7 @@ export default function FeedbackForm({ onClose }) {
           <div className="lvg-sheet-handle" aria-hidden="true" />
         </div>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600 }}>フィードバック・要望</h2>
+          <h2 id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600 }}>フィードバック・要望</h2>
           {/* 閉じるのは右上の「キャンセル」だけ（下は「送信する」1 つ・同じ操作を 2 か所に出さない）。送信中は場所を残して隠す。 */}
           <button
             type="button"

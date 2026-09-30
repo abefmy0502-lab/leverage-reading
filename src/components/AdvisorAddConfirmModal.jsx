@@ -16,7 +16,7 @@
 
 // 見た目はトークンと ui.js の部品だけ（2026-09-27: 絵文字・点線の仮表紙・等幅 9px の ISBN・
 // 警告色の「表紙未取得」をやめ、表紙が無いときはアプリ共通の自動の表紙（MiniCover）を出す）。
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, PencilLine, Search, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -132,6 +132,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
   const [selectedIdx, setSelectedIdx] = useState(0);
   const selected = candidates[selectedIdx] || null;
   const trapRef = useFocusTrap(true);
+  const titleId = useId(); // ♿ ダイアログの名前＝見出し（読み上げで名前が無いまま開かない）
   // 下の「キャンセル」を外したので、Web のキーボードの Esc でも閉じる（2026-09-30）。
   const cancelRef = useRef(onCancel);
   cancelRef.current = onCancel;
@@ -147,10 +148,10 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div style={overlayStyle} role="dialog" aria-modal="true" onClick={onCancel}>
+    <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={onCancel}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>
+          <h2 id={titleId} style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>
             追加する本を確認
           </h2>
           <button type="button" style={closeBtnStyle} onClick={onCancel} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
