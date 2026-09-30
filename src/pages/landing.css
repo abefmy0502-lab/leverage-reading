@@ -193,12 +193,14 @@ body.lp-active {
 .lp-hero-stage { position: relative; padding: var(--space-12) 0; }
 /* 写真の型（3D を使わないとき）は上の余白を取らない（ボタンと写真の間が空きすぎないように） */
 .lp-hero-stage:not(.is-3d) { padding-top: 0; }
+/* 上は舞台の余白よりさらに 48 広げる（手前に傾いた上のカードの角が、キャンバスの上端で切れていた・2026-09-30）。
+   3D は写真の中心にそろえて描く（Hero3D の resize）ので、広げても本体の位置は変わらない。 */
 .lp-hero-canvas {
   position: absolute;
-  top: 0;
+  top: calc(-1 * var(--space-12));
   left: 50%;
   width: 100vw;
-  height: 100%;
+  height: calc(100% + var(--space-12));
   transform: translateX(-50%);
   pointer-events: none;
   opacity: 0;

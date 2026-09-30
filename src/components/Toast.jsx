@@ -111,6 +111,31 @@ const actionBtnStyle = {
   flexShrink: 0,
 };
 
+// 約物の空きを詰める（書体の palt に頼らない＝どの書体でも同じ幅・2026-09-30）。
+//   閉じ括弧・句読点（」』）。、）は後ろの半分の空きを、文頭の開き括弧（「『（）は前の半分の空きを除く
+//   （行頭の開き括弧の墨を左端にそろえる・DESIGN §5-1 と同じ考え）。
+const PUNCT_CLOSE = '」』）。、';
+const PUNCT_OPEN = '「『（';
+const tightStyle = { close: { marginRight: '-0.5em' }, open: { marginLeft: '-0.5em' } };
+function tightenPunct(nodes) {
+  const list = Array.isArray(nodes) ? nodes : [nodes];
+  let first = true;
+  const out = [];
+  list.forEach((node, ni) => {
+    if (typeof node !== 'string') { out.push(node); return; }
+    let buf = '';
+    Array.from(node).forEach((ch, ci) => {
+      const kind = PUNCT_CLOSE.includes(ch) ? 'close' : (first && ci === 0 && PUNCT_OPEN.includes(ch) ? 'open' : null);
+      if (!kind) { buf += ch; return; }
+      if (buf) { out.push(buf); buf = ''; }
+      out.push(<span key={`p${ni}-${ci}`} style={tightStyle[kind]}>{ch}</span>);
+    });
+    if (buf) out.push(buf);
+    if (node) first = false;
+  });
+  return out;
+}
+
 const stripLeadingEmoji = (m) => String(m || '').replace(/^[←-⯿\u{1F000}-\u{1FAFF}️‍\s]+/u, '');
 
 // 下部バー（error / undo / info）。success はここには来ない。
@@ -127,7 +152,8 @@ function ToastItem({ toast, onDismiss, onAction }) {
       {Icon && <Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
       {/* 左のアイコンがあるので、文の先頭の絵文字は外す（DESIGN §3-2・中央の ✓ と同じ）。 */}
       {/* 折り返すときは文節の切れ目で（「保存しまし／た。」と切らない・TightBubble と同じ BudouX）。 */}
-      <span style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-line', wordBreak: 'keep-all', overflowWrap: 'anywhere', padding: 'var(--space-2) 0' }}>{withPhraseBreaks(stripLeadingEmoji(toast.message))}</span>
+      {/* 約物（」。、の後ろ・文頭の「の前）の空きを詰める（ボタンと並ぶ短い知らせが 390 幅で 1 行に収まるように・2026-09-30）。 */}
+      <span style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-line', wordBreak: 'keep-all', overflowWrap: 'anywhere', padding: 'var(--space-2) 0' }}>{tightenPunct(withPhraseBreaks(stripLeadingEmoji(toast.message)))}</span>
       {toast.action && (
         <button type="button" style={actionBtnStyle} onClick={() => onAction(toast)}>
           {toast.action.label}
@@ -135,7 +161,9 @@ function ToastItem({ toast, onDismiss, onAction }) {
       )}
       <button
         type="button"
-        style={closeBtnStyle}
+        // ボタンと並ぶときは、× の押せる範囲（44）の内側の空きがあるので間（8）を詰める
+        // （ボタンの枠と × の間は見た目 13 のまま・文の幅を 8 広げる・2026-09-30）。
+        style={toast.action ? { ...closeBtnStyle, marginLeft: 'calc(-1 * var(--space-2))' } : closeBtnStyle}
         onClick={() => onDismiss(toast.id, { byUser: true })}
         aria-label="閉じる"
       >

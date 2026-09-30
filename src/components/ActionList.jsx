@@ -353,12 +353,13 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
         <X size={18} aria-hidden="true" />
       </button>
       {/* ✓ と文は、行動の行の丸（押せる範囲 44・24 の印）と文の位置にそろえる（同じ場所で入れ替わって見えるように）。 */}
-      <p style={{ margin: 0, paddingRight: 'var(--space-8)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+      {/* 文は完了した行と同じ形（17・--text-3・取り消し線）＝行がそのまま入れ替わって見える（2026-09-30）。 */}
+      <p style={{ margin: 0, paddingRight: 'var(--space-8)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text-3)', lineHeight: 1.5 }}>
         <span aria-hidden="true" style={{ flexShrink: 0, width: 44, height: 44, margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <CheckCircle2 size={24} style={{ color: 'var(--success)' }} />
         </span>
         {/* 「完了しました」は下の知らせ（元に戻す つき）の 1 か所だけで伝える。ここはどの行動かだけ（2026-09-29）。 */}
-        <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{stripInlineMd(a.text)}</span>
+        <span className="text-pretty" style={{ minWidth: 0, overflowWrap: 'anywhere', textDecoration: 'line-through' }}>{stripInlineMd(a.text)}</span>
       </p>
       <label htmlFor="act-reflection" style={{ display: 'block', margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
         やってみて、どうでしたか？

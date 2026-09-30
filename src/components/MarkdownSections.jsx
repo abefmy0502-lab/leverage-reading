@@ -14,6 +14,7 @@ import {
   AMAZON_LINK_REL,
 } from '../lib/amazonLink';
 import { groupTitle } from '../styles/ui';
+import { withPhraseBreaks } from './TightBubble';
 
 // minWidth:0 が肝。flex column の子は既定 min-width:auto なので、中に幅広な
 // 要素（Markdown 表など）があると縮まずページ全体を横にはみ出させる（横スクロール）。
@@ -52,6 +53,8 @@ const paraStyle = {
   whiteSpace: 'pre-wrap',
   // 長い英語タイトル/URL でカードが横にはみ出して「横幅が合わない」現象を防ぐ。
   overflowWrap: 'anywhere',
+  // 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all。iOS の Safari は auto-phrase を知らない・2026-09-30）。
+  wordBreak: 'keep-all',
 };
 const listStyle = {
   fontFamily: 'var(--font-read)',
@@ -63,6 +66,7 @@ const listStyle = {
   paddingLeft: 0,
   listStyleType: 'none',
   overflowWrap: 'anywhere',
+  wordBreak: 'keep-all',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-2)',
@@ -147,13 +151,15 @@ function renderInline(text) {
   const re = /\*\*([^*]+)\*\*/g;
   let m;
   let i = 0;
+  // 文は文節の切れ目に <wbr> を入れる（段落・箇条書きの keep-all と組で、語の途中で折り返さない・2026-09-30）。
+  const phrased = (str, key) => <span key={key}>{withPhraseBreaks(str)}</span>;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > cursor) parts.push(text.slice(cursor, m.index));
-    parts.push(<strong key={`b-${i}`} style={{ color: 'var(--text)', fontWeight: 600 }}>{m[1]}</strong>);
+    if (m.index > cursor) parts.push(phrased(text.slice(cursor, m.index), `t-${i}`));
+    parts.push(<strong key={`b-${i}`} style={{ color: 'var(--text)', fontWeight: 600 }}>{withPhraseBreaks(m[1])}</strong>);
     cursor = m.index + m[0].length;
     i += 1;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
+  if (cursor < text.length) parts.push(phrased(text.slice(cursor), 'tail'));
   return parts.length ? parts : text;
 }
 

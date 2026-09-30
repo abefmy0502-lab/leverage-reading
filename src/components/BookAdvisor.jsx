@@ -1488,7 +1488,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               else resetToConcern();
             },
             variant: 'primary',
-            icon: <IcRetry size={16} />,
+            // ErrorMessage の「もう一度」はアイコンを付けない（ほかの画面と同じ・DESIGN §5・2026-09-30）。
           }]}
         />
       )}
