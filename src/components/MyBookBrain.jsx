@@ -110,8 +110,9 @@ const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 
 // 入力欄の上に固定で置くので折り返さず横に送る（行は 1 本＝会話の場所を削りすぎない・2026-09-30）。
 // 🎯「行動を決める」は行の右端に固定（返事の候補が多くて横に送っても、いつも見える・2026-09-30）。ほかのチップはその左で横に送る。
 const followupRow = { display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, borderTop: '1px solid var(--separator)' };
-// 右端は 16 だけ薄れさせる（固定の「行動を決める」の手前で切れたチップが、横に送れる合図に見えるように）。マスクは不透明度だけを使う。
-const followupFade = 'linear-gradient(to right, var(--text) calc(100% - var(--space-4)), transparent)';
+// 右端は 24 だけ薄れさせる（固定の「行動を決める」の手前で切れたチップが、横に送れる合図に見えるように・16 では切れ目に見えた＝ui-critic）。
+// マスクは不透明度だけを使う。
+const followupFade = 'linear-gradient(to right, var(--text) calc(100% - var(--space-6)), transparent)';
 const followupScroller = { display: 'flex', gap: 'var(--space-2)', flex: 1, minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' };
 const followupScrollerFaded = { ...followupScroller, maskImage: followupFade, WebkitMaskImage: followupFade };
 const followupChip = { flexShrink: 0, minHeight: 44, padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'nowrap' };
