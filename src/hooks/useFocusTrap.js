@@ -91,18 +91,25 @@ export function useFocusTrap(active = true) {
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     // 2. モーダル内の最初のフォーカス可能要素（無ければコンテナ）へ移動。
-    const focusable = getFocusable(container);
-    const target = focusable[0] || container;
-    // コンテナ自身にフォーカスを当てる場合は tabindex を補う。
-    if (target === container && !container.hasAttribute('tabindex')) {
-      container.setAttribute('tabindex', '-1');
-    }
-    try { target.focus(); } catch { /* ignore */ }
+    //   描き終えた次のフレームで（開く動きの途中で focus すると、ブラウザが要素を見せようとして
+    //   シートが一瞬ずれることがあった・2026-09-30）。中の欄がもう自分で focus していれば動かさない。
+    const raf = requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body && container.contains(active)) return;
+      const focusable = getFocusable(container);
+      const target = focusable[0] || container;
+      // コンテナ自身にフォーカスを当てる場合は tabindex を補う。
+      if (target === container && !container.hasAttribute('tabindex')) {
+        container.setAttribute('tabindex', '-1');
+      }
+      try { target.focus({ preventScroll: true }); } catch { /* ignore */ }
+    });
 
     // 3. Tab をトラップ（capture で他ハンドラより先に境界判定）。
     document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
+      cancelAnimationFrame(raf);
       document.removeEventListener('keydown', handleKeyDown, true);
       // 4. 元の要素へ復帰（まだ DOM にあり、focus 可能なときのみ）。
       const prev = prevFocusRef.current;

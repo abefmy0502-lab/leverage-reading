@@ -3004,10 +3004,11 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply }) {
       </button>
       <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{(countsLoading || pickable.length > 1) ? '本に絞る（複数選べます）' : '本に絞る'}</p>
       {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。行の数は、読書中・読了の本の数
-          （＝出てくる行のおよその数・最大 6）にして、シートの高さが数え終わってから伸びないようにする（2026-09-29）。 */}
+          （＝出てくる行のおよその数・最大 6）にして、シートの高さが数え終わってから伸びないようにする（2026-09-29）。
+          形の高さは本の行と同じ 72（表紙・書名・メモの件数の 2 行・2026-09-30）。 */}
       {countsLoading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {Array.from({ length: Math.min(6, Math.max(3, list.length)) }, (_, i) => <SkeletonBlock key={i} height={56} radius="var(--radius)" />)}
+          {Array.from({ length: Math.min(6, Math.max(3, list.length)) }, (_, i) => <SkeletonBlock key={i} height={72} radius="var(--radius)" />)}
         </div>
       )}
       {/* 選べる本が 1 冊も無い: 行を並べず 1 行だけ（選べない行を並べても押せないので）。 */}
