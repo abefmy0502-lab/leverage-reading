@@ -2350,7 +2350,7 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
 }
 
 // 「✓ 行動に追加しました（期限は明日）見る」。狭い幅で折り返しても「見る」だけが次の行に落ちないよう、
-// 「（期限は明日）見る」をひとまとまり（nowrap）にする。「見る」は押せる範囲 44 のまま、上下の負の余白で行の高さを変えない。
+// 「（期限は明日）見る」をひとまとまり（nowrap）にする。「見る」は押せる範囲 44×44（幅も 44・2026-09-30）のまま、上下の負の余白で行の高さを変えない。
 // ✓ は 2 行になっても 1 行目の高さの中央に置く。
 // deadline: null = 明日（既定）。本を選んで追加するときに期限を変えたら、その期限（'' = 期限なし・2026-09-30）。
 // focus: 追加した行動（{ bookId, text }）。「見る」で行動の一覧のその行まで送る（2026-09-30）。
@@ -2376,7 +2376,7 @@ function ActionAddedNote({ onOpenActions, deadline = null, focus = null }) {
           {deadlineText && <span style={{ fontFeatureSettings: '"palt"' }}>{deadlineText}</span>}
           {/* 入った先（振り返り › 行動）をその場で見られる（2026-09-29）。左右 4 の内側余白が文字との間になる。 */}
           {onOpenActions && (
-            <button type="button" onClick={() => onOpenActions(focus)} aria-label="追加した行動を見る" style={{ ...uiBtnLink, verticalAlign: 'middle', marginBlock: 'calc((1.5em - 44px) / 2)' }}>見る</button>
+            <button type="button" onClick={() => onOpenActions(focus)} aria-label="追加した行動を見る" style={{ ...uiBtnLink, minWidth: 44, justifyContent: 'center', verticalAlign: 'middle', marginBlock: 'calc((1.5em - 44px) / 2)' }}>見る</button>
           )}
         </span>
       </span>
