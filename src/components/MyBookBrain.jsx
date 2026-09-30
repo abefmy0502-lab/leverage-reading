@@ -2039,6 +2039,19 @@ function tidyQuotes(text) {
 }
 
 // **bold** の軽量インラインパーサ。
+// 文節の切れ目でだけ折り返す版（明日からできる一歩など・keep-all と一緒に使う・2026-09-30）。
+// 数と単位の間の空き（「1 回」「1 行」）では折り返さない（「を 1／回だけ」と割れていた）。
+const keepNumberUnit = (t) => String(t ?? '').replace(/(\d) (?=[回件冊行つ日週分秒時年人度個枚ページか])/g, '$1\u00a0');
+function renderBoldPhrased(raw) {
+  const parts = renderBoldInline(raw);
+  const list = Array.isArray(parts) ? parts : [parts];
+  return list.map((part, i) => {
+    if (typeof part === 'string') return <span key={`p${i}`}>{withPhraseBreaks(keepNumberUnit(part))}</span>;
+    if (part && part.type === 'strong') return <strong key={`p${i}`} style={part.props.style}>{withPhraseBreaks(keepNumberUnit(part.props.children))}</strong>;
+    return part;
+  });
+}
+
 function renderBoldInline(raw) {
   const text = tidyQuotes(raw);
   const parts = [];
@@ -2514,7 +2527,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       <p style={subLabel}>{p.actionLabel}</p>
       {/* 書いている間は、書き始める前の形（3 行）と同じ高さを取っておく（一歩の 1 行目が出た瞬間に
           箱が 2 行ぶん縮み、書き進むとまた伸びて「行動に追加」が上下していた・2026-09-29）。 */}
-      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldInline(p.action)}{tail === 'action' && cursor}</p>
+      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.action)}{tail === 'action' && cursor}</p>
       {/* 書いている間は、押せない形で同じ場所に置く（書き終わったときに下が押し下がらないように） */}
       {isStreaming && (onAddAction || onAddActionPickBook) && (
         <button type="button" disabled aria-hidden="true" tabIndex={-1} style={{ ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>

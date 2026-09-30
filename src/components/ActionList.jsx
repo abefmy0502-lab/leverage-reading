@@ -20,6 +20,7 @@ import { useAllActions } from '../hooks/useAllActions';
 import { stripInlineMd } from '../lib/text';
 import { track, EVENTS } from '../lib/analytics';
 import EmptyState from './EmptyState';
+import { withPhraseBreaks } from './TightBubble';
 import ContextMenu from './ContextMenu';
 import SwipeableCard from './SwipeableCard';
 import { useToast } from './Toast';
@@ -253,6 +254,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
     onLongPress: ({ clientX, clientY }) => onOpenMenu?.({ x: clientX, y: clientY, action: a }),
   });
   const shownDone = a.done || completing;
+  // 行動の文は文節の切れ目でだけ折り返す（keep-all と一緒に・2026-09-30）。文が変わったときだけ区切り直す。
+  const phrasedText = useMemo(() => withPhraseBreaks(stripInlineMd(a.text)), [a.text]);
   const n = daysUntil(a.deadline);
   const overdue = !shownDone && n != null && n < 0;
   // メタ行は [本・期限・優先・繰り返し・ページ]。警告色は期限の部分だけ（責めない）。
@@ -293,8 +296,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
           : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)' }} />}
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'break-word' }}>
-          {stripInlineMd(a.text)}
+        <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>
+          {phrasedText}
         </p>
         {meta.length > 0 && (
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
@@ -360,7 +363,7 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
           <CheckCircle2 size={24} style={{ color: 'var(--success)' }} />
         </span>
         {/* 「完了しました」は下の知らせ（元に戻す つき）の 1 か所だけで伝える。ここはどの行動かだけ（2026-09-29）。 */}
-        <span className="text-pretty" style={{ minWidth: 0, overflowWrap: 'anywhere', textDecoration: 'line-through' }}>{stripInlineMd(a.text)}</span>
+        <span className="text-pretty" style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'break-word', textDecoration: 'line-through' }}>{withPhraseBreaks(stripInlineMd(a.text))}</span>
       </p>
       <label htmlFor="act-reflection" style={{ display: 'block', margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
         やってみて、どうでしたか？

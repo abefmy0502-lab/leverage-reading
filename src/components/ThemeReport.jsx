@@ -32,6 +32,7 @@ import {
 } from '../lib/ai';
 import MarkdownSections from './MarkdownSections';
 import EmptyState from './EmptyState';
+import { withPhraseBreaks } from './TightBubble';
 import ErrorMessage from './ErrorMessage';
 import PullToRefresh from './PullToRefresh';
 import { SkeletonBlock } from './Skeleton';
@@ -980,8 +981,9 @@ function CoreCard({ line }) {
   return (
     <div style={card}>
       <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: '0 0 var(--space-2)', lineHeight: 1.4 }}>核心</h3>
-      <p style={{ ...readText, fontWeight: 400, margin: 0, overflowWrap: 'anywhere' }}>
-        {line}
+      {/* 文節の切れ目でだけ折り返す（「核心」の 1 行を語の途中で割らない・2026-09-30）。 */}
+      <p style={{ ...readText, fontWeight: 400, margin: 0, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>
+        {typeof line === 'string' ? withPhraseBreaks(line) : line}
       </p>
     </div>
   );
