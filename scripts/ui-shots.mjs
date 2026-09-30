@@ -218,13 +218,13 @@ const SCREENS = [
   // 長さの上限で途中まで（&ai=cut・本文は残し、下に 1 行の案内）
   { name: 'report-truncated', url: '/?ai=cut', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { css: 'button:text-is("まとめる")' }, { wait: 5000 }, { scrollBottom: true }] },
   // ── 一文をシェア（2026-09-27・SPEC §2-1）
-  { name: 'share-line', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1500 }] },
-  { name: 'share-line-post', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1200 }, { css: '[role=radio]:has-text("投稿")' }, { wait: 1500 }] },
-  { name: 'share-line-night', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1200 }, { css: '[role=radiogroup][aria-label="地"] [role=radio]:has-text("夜")' }, { wait: 1500 }] },
+  { name: 'share-line', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1500 }] },
+  { name: 'share-line-story', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1200 }, { css: '[role=radio]:has-text("ストーリー")' }, { wait: 1500 }] },
+  { name: 'share-line-night', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1200 }, { css: '[role=radiogroup][aria-label="地"] [role=radio]:has-text("夜")' }, { wait: 1500 }] },
   { name: 'share-line-from-memo', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label$="のメニュー"]' }, { css: 'button:has-text("この一文をシェア")' }, { wait: 1500 }] },
-  { name: 'share-line-photo', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1200 }, { upload: ['[role=dialog] input[type=file]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 1500 }] },
-  { name: 'share-line-sticker', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1200 }, { css: '[role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }] },
-  { name: 'share-finished-nomemo', url: '/?demo=nomemo', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("一文をシェア")' }, { wait: 1200 }] },
+  { name: 'share-line-photo', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1200 }, { upload: ['[role=dialog] input[type=file]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 1500 }] },
+  { name: 'share-line-sticker', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1200 }, { css: '[role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }] },
+  { name: 'share-finished-nomemo', url: '/?demo=nomemo', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1200 }] },
   // ── 相談・シェア・トークンの状態（4 回目の採点で追加）。&load=chat（過去の相談だけ遅い）/ &writefail=表 / &share=slow|fail / ?demo=trialout
   { name: 'consult-loading', url: '/?load=slow', steps: [{ css: nav('相談') }] },
   { name: 'consult-answer-added', url: '/', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }, { css: '[aria-label="相談への答え"] button:has-text("行動に追加")' }, { wait: 800 }, { eval: () => { const el = [...document.querySelectorAll('[role=status]')].find((n) => n.textContent.includes('行動に追加しました')); if (el) el.scrollIntoView({ block: 'center' }); } }, { wait: 300 }] },
@@ -256,8 +256,8 @@ const SCREENS = [
   { name: 'notify-optin', url: '/?notify=1', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy]) summary' }, { css: '[aria-label="相談への答え"] button:has-text("行動に追加")' }, { wait: 800 }, { scrollBottom: true }] },
   // 関係するメモが無い答え（&ai=noinfo）→ 答えの下に「関係するメモが無かったので、トークンは使っていません」
   { name: 'consult-refund', url: '/?ai=noinfo', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '確定申告のやり方を教えて'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy]) summary, [aria-label="相談への答え"]:not([aria-busy]) p' }, { wait: 800 }] },
-  { name: 'share-line-loading', url: '/?share=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 800 }] },
-  { name: 'share-line-error', url: '/?share=fail', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="この本の一文をシェア"]' }, { wait: 1500 }] },
+  { name: 'share-line-loading', url: '/?share=slow', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 800 }] },
+  { name: 'share-line-error', url: '/?share=fail', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1500 }] },
   // ── 使いやすさの手直し（2026-09-29・b2）: AI 選書の確認・振り返りの思い出しの取り消し・絞り込みのメニュー・テーマを選ぶ・無料プランの「プラン」・設定のヘルプ・フィードバック
   // 2 冊目（時間術大全）はお試しのカタログに版が 2 つあるので、同じ本かを確かめる画面が出る。
   { name: 'advisor-confirm', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 7000 }, { css: 'button:has-text("読みたいに追加") >> nth=1' }, { wait: 3000 }] },
@@ -267,6 +267,18 @@ const SCREENS = [
   { name: 'free-advisor-tab', url: '/?demo=free', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }] },
   { name: 'settings-support', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
   { name: 'home-reading-add', url: '/', steps: [{ scrollTo: 'button:has-text("本を追加")' }] },
+  // ── 写真で共有（2026-09-30・Strava のように写真の上に記録を重ねる）。カメラの入口は隠した input[data-share-camera] に
+  //    見本の写真（scripts/fixtures/share-photo.jpg）を渡して撮る（ブラウザではカメラを開けないため）。
+  { name: 'home-empty', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }] },
+  { name: 'share-photo-home', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
+  { name: 'share-photo-story', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 2000 }] },
+  { name: 'share-photo-swap', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=dialog] button:has-text("別の一文")' }, { wait: 2000 }] },
+  { name: 'share-photo-quote', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=radiogroup][aria-label="見せ方"] [role=radio]:has-text("一文")' }, { wait: 2000 }] },
+  { name: 'share-photo-month', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=radiogroup][aria-label="どの本を共有するか"] [role=radio]:has-text("今月")' }, { wait: 2500 }] },
+  { name: 'share-photo-empty', url: '/?demo=new', steps: [{ css: 'button[aria-label="閉じる"]' }, { css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
+  { name: 'share-photo-detail', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
+  { name: 'share-record-paper', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }] },
+  { name: 'share-done-prompt', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { css: 'button:text-is("読了にする")' }, { wait: 7500 }, { scrollBottom: true }] },
   { name: 'feedback-form', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button[aria-label="フィードバックを送る"]' }] },
 ];
 

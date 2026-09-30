@@ -133,7 +133,7 @@ export function monthRecord(books, monthMemos = [], now = new Date()) {
   const titles = finished.slice(0, 2).map((b) => `『${String(b.title || '').trim()}』`).join('');
   const more = finished.length > 2 ? ` ほか ${finished.length - 2} 冊` : '';
   return {
-    kicker: `${now.getFullYear()}年${now.getMonth() + 1}月`,
+    kicker: String(now.getFullYear()),
     title: `${now.getMonth() + 1}月の読書`,
     titleIsBook: false,
     sub: finished.length ? `${titles}${more}` : (stats.length ? '' : '読書の記録をはじめました'),
@@ -222,13 +222,13 @@ export function recordFrame(format = 'post') {
   return {
     format: key, W, H, ...f,
     footerTop: f.footerBaseline - Math.round(f.wordH * 1.5),
-    kickerSize: r(32),
-    titleSize: r(66),
-    subSize: r(34),
-    statLabelSize: r(30),
-    statValueSize: r(78),
-    statUnitSize: r(34),
-    quoteSizes: [r(52), r(48), r(44), r(40), r(36)],
+    kickerSize: r(34),
+    titleSize: r(76),
+    subSize: r(38),
+    statLabelSize: r(32),
+    statValueSize: r(96),
+    statUnitSize: r(38),
+    quoteSizes: [r(54), r(50), r(46), r(42), r(38)],
     metaSize: r(32),
   };
 }

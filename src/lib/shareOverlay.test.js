@@ -88,7 +88,7 @@ describe('monthRecord（今月の数字）', () => {
   it('今月読み終えた冊数・今月のメモ・今月に実行した行動', () => {
     const r = monthRecord(books, memos, NOW);
     expect(r.title).toBe('9月の読書');
-    expect(r.kicker).toBe('2026年9月');
+    expect(r.kicker).toBe('2026');
     expect(r.stats).toEqual([
       { label: '読了', value: '3冊' },
       { label: 'メモ', value: '1件' },
