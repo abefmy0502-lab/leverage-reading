@@ -272,8 +272,8 @@ button:disabled:active {
   line-break: strict;
   overflow-wrap: anywhere;
 }
-.lvg-help-body p,
-.lvg-help-body li {
+/* 箇条（li）には付けない: 18 字までの短い行を pretty が早めに折って 2 行にしてしまう（2026-09-30 ui-critic）。 */
+.lvg-help-body p {
   text-wrap: pretty;
 }
 .lvg-help-body h2,

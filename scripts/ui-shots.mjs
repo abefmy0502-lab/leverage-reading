@@ -278,6 +278,20 @@ const SCREENS = [
   { name: 'settings-support', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
   { name: 'home-reading-add', url: '/', steps: [{ scrollTo: 'button:has-text("本を追加")' }] },
   { name: 'feedback-form', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button[aria-label="フィードバックを送る"]' }] },
+  // ── ヘルプ（2026-09-30）: 画面ごとのヘルプ。?helpkey= は開発中だけ効く（ほかの画面のヘルプを直に開く）。
+  { name: 'help-home', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }] },
+  { name: 'help-home-bottom', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { scrollBottom: true }] },
+  { name: 'help-home-topic', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { css: '[role=dialog] details summary' }] },
+  { name: 'help-book-reading', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }] },
+  { name: 'help-consult', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="この画面のヘルプを開く"]' }] },
+  { name: 'help-consult-bottom', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="この画面のヘルプを開く"]' }, { scrollBottom: true }] },
+  { name: 'help-action', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label="この画面のヘルプを開く"]' }] },
+  { name: 'help-billing', url: '/?helpkey=billing', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }] },
+  // 「ほかの画面の使い方」から切り替えた形（上に「‹ ホームのヘルプに戻る」）
+  { name: 'help-switch', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { css: '[role=dialog] button:has-text("プラン・お支払い")' }] },
+  // 読書中の本 → プラン・お支払い（上の行に「‹ 読書中の本」と画面の名前が並んでもあふれない）
+  { name: 'help-switch-reading', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }, { css: '[role=dialog] button:has-text("プラン・お支払い")' }] },
+  { name: 'help-book-reading-topic', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }, { css: '[role=dialog] details summary' }] },
 ];
 
 function browserOptions() {
