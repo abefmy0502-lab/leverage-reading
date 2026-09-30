@@ -186,11 +186,13 @@ export function buildLibraryIndex(books = [], memos = []) {
       const v = String(b[key] || '');
       if (v.trim()) texts.push({ kind: 'prep', label, text: v, norm: normalizeSearch(v) });
     }
+    const rawTags = (b.tags || []).filter((t) => typeof t === 'string' && t.trim());
     return {
       book: b,
       title: normalizeSearch(b.title || ''),
       author: normalizeSearch(b.author || ''),
-      tags: (b.tags || []).map((t) => normalizeSearch(t || '')).filter(Boolean),
+      tags: rawTags.map((t) => normalizeSearch(t)),
+      rawTags,
       texts,
     };
   });
@@ -290,6 +292,8 @@ export function searchLibrary(index, query) {
     let score = 0;
     let meta = false;
     const metaTerms = new Set();
+    // どこで見つかったか（書名・著者・タグ）。一覧の行でその部分に印を付ける（2026-09-30）。
+    const fields = { title: false, author: false, tag: null };
     compiled.forEach((ct, ti) => {
       let best = 0;
       const exactOrStem = (hay, w) => {
@@ -304,6 +308,12 @@ export function searchLibrary(index, query) {
       if (inTitle || inAuthor || inTags) {
         meta = true;
         metaTerms.add(ti);
+      }
+      if (inTitle) fields.title = true;
+      if (inAuthor) fields.author = true;
+      if (inTags && !fields.tag) {
+        const k = entry.tags.findIndex((t) => { const m = matchTerm(t, ct); return m && m.kind !== 'partial'; });
+        if (k >= 0) fields.tag = entry.rawTags[k];
       }
       for (const tx of entry.texts) {
         const m = matchTerm(tx.norm, ct) || (tx.tagNorm && matchTerm(tx.tagNorm, ct));
@@ -354,10 +364,28 @@ export function searchLibrary(index, query) {
         };
       }
     }
-    results.push({ book: entry.book, meta, matched, score, hit, order });
+    results.push({ book: entry.book, meta, matched, score, hit, order, fields });
   });
   results.sort((a, b) => (Number(b.meta) - Number(a.meta)) || (b.matched - a.matched) || (b.score - a.score) || (a.order - b.order));
   return { terms, results };
+}
+
+// 書名・著者・タグの中の、見つかった言葉の印（切れ端＝うろ覚えの一致は書名では数えないので、印も付けない）。
+//   [{ text, match }]（文字列まるごと・切らない）。当たらなければ null。
+export function highlightSegments(text, query) {
+  const src = String(text || '');
+  const compiled = compileTerms(splitQuery(query)).map((ct) => ({ ...ct, bigrams: [] }));
+  const ranges = matchRanges(src, compiled);
+  if (!src || ranges.length === 0) return null;
+  const out = [];
+  let pos = 0;
+  ranges.forEach(([a, b]) => {
+    if (a > pos) out.push({ text: src.slice(pos, a), match: false });
+    out.push({ text: src.slice(a, b), match: true });
+    pos = b;
+  });
+  if (pos < src.length) out.push({ text: src.slice(pos), match: false });
+  return out;
 }
 
 // 相談で探すときの問い（送らずに入力欄に入れる）。長い言葉は 40 字で切る。

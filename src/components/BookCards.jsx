@@ -12,6 +12,7 @@ import { isCoverLikeSize } from '../lib/bookCover';
 import { ChevronRight } from 'lucide-react';
 import SwipeableCard from './SwipeableCard';
 import { Stars } from './formPrimitives';
+import { searchMarkStyle } from '../styles/searchMark';
 import { getSt } from '../lib/status';
 import { withPhraseBreaks, longestPhraseLength } from './TightBubble';
 
@@ -163,8 +164,15 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
   );
 }
 
+// 検索の一致の印つきの文字（[{ text, match }]・無ければそのまま）。
+function Marked({ segments, text }) {
+  if (!Array.isArray(segments)) return text;
+  return segments.map((s, i) => (s.match ? <mark key={i} style={searchMarkStyle}>{s.text}</mark> : <span key={i}>{s.text}</span>));
+}
+
 // Swipeable + long-pressable book row used on the bookshelf list.
-export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry, showStatus = true }) {
+// highlight: すべての本の検索で書名・著者・タグで見つかったとき、その部分に印（{ title, author: 印の配列 | null, tag: タグ | null }・2026-09-30）。
+export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, isJustDone, onOpen, onSwipeDelete, onLongPress, onAutoRetry, showStatus = true, highlight = null }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onLongPress?.({ x: clientX, y: clientY, book }),
   });
@@ -205,15 +213,21 @@ export const SwipeableBookCard = memo(function SwipeableBookCard({ book, index, 
           {/* 表紙は共通の MiniCover（読込フェード・失敗検知・代用表紙つき・角丸 4）。 */}
           <MiniCover book={book} width={44} onAutoRetry={onAutoRetry} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.title}</div>
+            <div style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Marked segments={highlight?.title} text={book.title} /></div>
             {/* 状態 → 評価 · 著者 を 1 行に（行を短く）。長さが変わる著者を最後に置き、
                 省略されても区切りの位置が本ごとにずれないようにする。状態は押せないラベル＝面なし。 */}
             <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginTop: 'var(--space-1)', minWidth: 0 }}>
               {showStatus && <StatusLabel status={book.status} />}
               {book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size={12} /></span>}
               {book.author && (showStatus || book.rating > 0) && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
-              {book.author && <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: "var(--text-2)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.author}</span>}
+              {book.author && <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: "var(--text-2)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Marked segments={highlight?.author} text={book.author} /></span>}
             </div>
+            {/* タグで見つかったときだけ、そのタグを 1 行（行の中にタグを並べないので、見つかった理由が分かるように）。 */}
+            {highlight?.tag && (
+              <div style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <mark style={{ ...searchMarkStyle, color: 'var(--text-2)' }}>#{highlight.tag}</mark>
+              </div>
+            )}
           </div>
           <ChevronRight size={18} strokeWidth={1.75} color="var(--text-3)" aria-hidden="true" />
         </div>

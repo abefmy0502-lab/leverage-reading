@@ -180,7 +180,7 @@ import { useBookMemos } from './hooks/useBookMemos';
 // 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
 import { useLibrarySearch } from './hooks/useLibrarySearch';
 import { LibrarySearchResults, ConsultSearchLink, LibrarySearchHitSkeleton } from './components/LibrarySearchHit';
-import { consultQuestionFor } from './lib/librarySearch';
+import { consultQuestionFor, highlightSegments } from './lib/librarySearch';
 // 重い画面の切り替え（すべての本を開く）は後回しにできる更新にして、押した形を先に描く（lib/pressFeedback.js と組）。
 import { startTransition } from 'react';
 
@@ -5049,11 +5049,20 @@ function AuthedApp() {
                   memoStatus={librarySearch.memoStatus}
                   onRetry={librarySearch.retry}
                   onConsult={() => openConsultSearch(libraryQuery)}
-                  renderBookRow={(b, i) => (
+                  renderBookRow={(b, i) => {
+                    // 書名・著者・タグで見つかった部分に印（タグはほかで見つからなかったときだけ 1 行・2026-09-30）
+                    const f = libraryHits.get(b.id)?.fields || {};
+                    const highlight = {
+                      title: f.title ? highlightSegments(b.title, libraryQuery) : null,
+                      author: f.author ? highlightSegments(b.author, libraryQuery) : null,
+                      tag: !f.title && !f.author ? f.tag || null : null,
+                    };
+                    return (
                     <SwipeableBookCard
                       key={b.id}
                       book={b}
                       index={i}
+                      highlight={highlight}
                       isJustDone={recentlyDoneId === b.id}
                       onOpen={openDetail}
                       onSwipeDelete={swipeDeleteBook}
@@ -5061,7 +5070,8 @@ function AuthedApp() {
                       onAutoRetry={triggerCoverAutoRetry}
                       showStatus={statusFilter === 'all'}
                     />
-                  )}
+                    );
+                  }}
                 />
               ) : effectiveBookshelfView === 'grid' ? (
                 <div className="bookshelf-grid">

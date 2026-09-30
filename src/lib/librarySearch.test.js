@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeSearch, normalizeWithMap, splitQuery, stemOf, compileTerms, matchTerm,
-  buildLibraryIndex, buildSnippet, searchLibrary, consultQuestionFor, SNIPPET_CHARS,
+  buildLibraryIndex, buildSnippet, searchLibrary, consultQuestionFor, highlightSegments, SNIPPET_CHARS,
 } from './librarySearch';
 
 const text = (segments) => segments.map((s) => s.text).join('');
@@ -215,5 +215,21 @@ describe('一節の上の行（ページと書いた日）', () => {
     const hit = searchLibrary(idx, '断る').results[0].hit;
     expect(hit.createdAt).toBe('2026-05-27T10:00:00Z');
     expect(hit.page).toBe(null);
+  });
+});
+
+describe('書名・著者・タグのどこで見つかったか（行の印）', () => {
+  it('fields に書名・著者・タグ（元の文字）を返す', () => {
+    expect(searchLibrary(index, '断る').results[0].fields).toEqual({ title: true, author: false, tag: null });
+    expect(searchLibrary(index, '安宅').results[0].fields).toMatchObject({ title: false, author: true });
+    expect(searchLibrary(index, 'マネジメント').results[0].fields).toMatchObject({ tag: 'マネジメント' });
+  });
+  it('highlightSegments は文字列まるごとに印（カタカナ・全角もそのままの字で）', () => {
+    expect(highlightSegments('エッセンシャル思考', 'しこう')).toBe(null);
+    expect(highlightSegments('エッセンシャル思考', 'えっせんしゃる')).toEqual([{ text: 'エッセンシャル', match: true }, { text: '思考', match: false }]);
+    expect(highlightSegments('1兆ドルコーチ', 'コーチ')).toEqual([{ text: '1兆ドル', match: false }, { text: 'コーチ', match: true }]);
+  });
+  it('うろ覚えの切れ端では書名に印を付けない', () => {
+    expect(highlightSegments('予定を詰めすぎない', '予定を詰め込まない')).toBe(null);
   });
 });
