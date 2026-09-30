@@ -413,6 +413,13 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   const [reflecting, setReflecting] = useState(false);
   const timersRef = useRef(new Map());
   const lastToastRef = useRef(null);
+  // ふりかえりを残したあとの知らせ（「完了を取り消す」つき）。振り返りのタブを離れたら消す
+  // （ほかの画面で「完了を取り消す」を押しても、何が戻ったか見えない・2026-09-30）。
+  const reflectToastRef = useRef(null);
+  useEffect(() => () => {
+    if (reflectToastRef.current) toast.dismiss?.(reflectToastRef.current, { skipExpire: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     const timers = timersRef.current;
     return () => { timers.forEach((t) => clearTimeout(t)); timers.clear(); };
@@ -477,11 +484,14 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       // 知らせは 1 つだけ: 下の「行動を完了しました／元に戻す」を、この文に差し替える
       // （中央の ✓ と下のバーが同時に 2 つ出ていた・2026-09-29）。
       if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
-      // 取り消すのは「完了」（ふりかえりを消すのではない）ので、何が戻るかを文言で言う（2026-09-29）。
-      lastToastRef.current = toast.success('ふりかえりを残しました', {
+      // 取り消すのは「完了」（ふりかえりを消すのではない）ので、何が戻るかはボタンの文言で言う（2026-09-29）。
+      // 文は「残しました」だけ（ふりかえりの欄の「残す」を押した直後なので何をかは分かる・「完了を取り消す」と
+      // 並んで 390 幅で 1 行に収まる・2026-09-30）。
+      lastToastRef.current = toast.success('残しました', {
         duration: TOAST_MS,
         action: { label: '完了を取り消す', onClick: () => undoComplete(c.a) },
       });
+      reflectToastRef.current = lastToastRef.current;
     }
   };
 
