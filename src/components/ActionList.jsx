@@ -26,7 +26,8 @@ import { useToast } from './Toast';
 import { useLongPress } from '../hooks/useLongPress';
 import { MoreHorizontal, BookOpen, Trash2, Pencil, CheckCircle2, Circle, ListTodo, Plus, MessageCircle, ChevronDown, ChevronRight, X } from 'lucide-react';
 
-const wrap = { padding: 'var(--space-3) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
+// 余白は辺ごとに書く（padding の一括指定と paddingBottom を混ぜると、描き直しで下の余白が戻らないことがある・2026-09-30）。
+const wrap = { paddingTop: 'var(--space-3)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
 const groupTitle = { ...uiGroupTitle, margin: '0 0 var(--space-2)' };
 const card = { position: 'relative', background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4) var(--space-12) var(--space-4) var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' };
 const rowBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 };
@@ -536,7 +537,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   // 行動 0 件: 作り方の案内だけ（相談が主な入口・SPEC §4 エッジケース）。
   if (stats.total === 0 && completing.length === 0) {
     return (
-      <div style={wrap}>
+      <div style={{ ...wrap, paddingBottom: 'var(--space-8)' }}>
         <EmptyState
           icon={<ListTodo size={32} strokeWidth={1.5} aria-hidden="true" />}
           title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>相談の答えや、</span><span style={{ display: 'inline-block' }}>メモから行動を作れます</span></>}
@@ -593,7 +594,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   const listStyle = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
   return (
-    <div style={toastPad ? { ...wrap, paddingBottom: 'var(--space-16)' } : wrap}>
+    <div style={{ ...wrap, paddingBottom: toastPad ? 'var(--space-16)' : 'var(--space-8)' }}>
       {/* 上: 今週の完了数 1 行（数字の演出はしない）＋ 追加。完了一覧は最後の 1 行から。 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
         <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
