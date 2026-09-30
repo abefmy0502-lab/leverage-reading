@@ -2765,7 +2765,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
           </div>
           {/* 一歩がまだの間は、一歩の箱と同じ形（面・1 行目に「答えを書いています…」・3 行・押せない「行動に追加」）で待つ
               （以前は 44 の「答えを書いています…」→ 約 130 の箱に変わって、下が 87px 跳ねていた・2026-09-29）。 */}
-          {liveFused.action ? renderAction(liveFused, 'var(--space-4)') : (
+          {/* 結論を書いている間は、その下に一歩の形も「根拠を見る」も出さない（結論が伸びるたびに下の箱が押し下げられて
+              揺れていた・2026-09-30）。結論を書き終えてから一歩の形を出す（新しいものは下に足されるだけ＝読んでいる行は動かない）。 */}
+          {tail === 'conclusion' ? null : liveFused.action ? renderAction(liveFused, 'var(--space-4)') : (
             <div aria-hidden="true" style={{ marginTop: 'var(--space-4)', ...nextStepBox }}>
               {/* 1 行目は点つきの「答えを書いています…」（SPEC §3・骨組みだけだと何を待っているか分からない）。
                   高さは小さな見出し（subLabel: 12・行間 1.5・下 4）と同じにして、一歩が来たときに跳ねさせない。 */}
@@ -2791,10 +2793,12 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
           )}
           {/* 「根拠を見る」は書いている間も同じ場所に見せ、書き終わるまで押せない（--text-3・aria-disabled・SPEC §3）。
               見えない場所取りにすると、書き終わった瞬間に行が現れて目が跳ねていた。 */}
-          <button type="button" aria-disabled="true" tabIndex={-1} style={evidencePending}>
-            <span>根拠を見る</span>
-            <ChevronDown size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
-          </button>
+          {tail !== 'conclusion' && (
+            <button type="button" aria-disabled="true" tabIndex={-1} style={evidencePending}>
+              <span>根拠を見る</span>
+              <ChevronDown size={20} aria-hidden="true" style={{ flexShrink: 0 }} />
+            </button>
+          )}
         </>
       ) : isStreaming ? (
         <div style={{ ...readText, whiteSpace: 'pre-wrap' }}>
