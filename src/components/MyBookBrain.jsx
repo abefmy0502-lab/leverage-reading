@@ -120,6 +120,8 @@ const followupScrollerFaded = { ...followupScroller, maskImage: followupFade, We
 const followupScrollerToEdge = { ...followupScroller, marginRight: 'calc(-1 * var(--space-4))', paddingRight: 'var(--space-4)' };
 const followupChip = { flexShrink: 0, minHeight: 44, padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'nowrap' };
 const decideChip = { ...followupChip, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' };
+// 返事の候補の行（折り返す・間 8 は縦横とも）。
+const followupRowWrap = { ...followupRow, flexWrap: 'wrap', rowGap: 'var(--space-2)' };
 const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
 // 答え＝読むカード（全幅）。ユーザーの相談は右寄せの --fill 吹き出し。
 const answerCard = { ...cardStyle, wordBreak: 'break-word' };
@@ -1864,32 +1866,45 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
           {/* 💬 深掘りのチップ（2026-09-30・SPEC §3）: 答えを書き終えたら、入力欄の上に続きの聞き方を 2〜3 つ。押すとすぐ送る。 */}
           {(followups.length > 0 || regenLabel) && (
-            <div role="group" aria-label="続けて聞く" style={followupRow}>
-              {(followups.some((c) => c.kind !== 'decide') || regenLabel) && (
-                <div className="followup-chips" style={followups.some((c) => c.kind === 'decide') ? followupScrollerFaded : followupScrollerToEdge}>
-                  {followups.filter((c) => c.kind !== 'decide').map((c, i) => (
-                    // 返事（候補）・深掘りの聞き方はそのまま送る。
-                    <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
-                      {c.label}
-                    </button>
-                  ))}
-                  {regenLabel && (
-                    <button type="button" onClick={regenerate} style={followupChip}>
-                      {regenLabel}
-                      {/* 無料プランはトークンが少ないので、押す前に使う量を添える（相談 1 回分・2026-09-29） */}
-                      {freeMode && <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>（約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン）</span>}
-                    </button>
-                  )}
-                </div>
-              )}
-              {/* 🎯「行動を決める」は決まった頼み方（DECIDE_REQUEST）で送る。行動の印（Target）つきで、行の右端に固定。 */}
-              {followups.filter((c) => c.kind === 'decide').map((c) => (
-                <button key="decide" type="button" onClick={() => { track('brain_followup', { kind: 'decide' }); ask(c.send); }} style={decideChip}>
-                  <Target size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
-                  {c.label}
-                </button>
-              ))}
-            </div>
+            followups.some((c) => c.kind === 'reply') ? (
+              // 返事の候補のときは折り返す（横に送ると 2 つ目の候補から切れて読めなかった・2026-09-30 ui-critic）。
+              // 候補 → 「行動を決める」の順・薄れも横送りも無し（このとき「別の角度で答えて」は出さない）。
+              <div role="group" aria-label="続けて聞く" style={followupRowWrap}>
+                {followups.map((c, i) => (
+                  <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={c.kind === 'decide' ? decideChip : followupChip}>
+                    {c.kind === 'decide' && <Target size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div role="group" aria-label="続けて聞く" style={followupRow}>
+                {(followups.some((c) => c.kind !== 'decide') || regenLabel) && (
+                  <div className="followup-chips" style={followups.some((c) => c.kind === 'decide') ? followupScrollerFaded : followupScrollerToEdge}>
+                    {followups.filter((c) => c.kind !== 'decide').map((c, i) => (
+                      // 返事（候補）・深掘りの聞き方はそのまま送る。
+                      <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
+                        {c.label}
+                      </button>
+                    ))}
+                    {regenLabel && (
+                      <button type="button" onClick={regenerate} style={followupChip}>
+                        {regenLabel}
+                        {/* 無料プランはトークンが少ないので、押す前に使う量を添える（相談 1 回分・2026-09-29） */}
+                        {freeMode && <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>（約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン）</span>}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* 🎯「行動を決める」は決まった頼み方（DECIDE_REQUEST）で送る。行動の印（Target）つきで、行の右端に固定。 */}
+                {followups.filter((c) => c.kind === 'decide').map((c) => (
+                  <button key="decide" type="button" onClick={() => { track('brain_followup', { kind: 'decide' }); ask(c.send); }} style={decideChip}>
+                    <Target size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            )
           )}
           {/* 相談相手は入力欄のすぐ上（SPEC §3）。 */}
           <ScopeBar
