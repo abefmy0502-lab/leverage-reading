@@ -290,6 +290,7 @@ describe('本を探す問い（すべての本の「相談で探す」）', () =
     expect(h.decide).toBe(false);
     expect(h.text).toContain('BOOK_LOOKUP');
     expect(h.text).toContain('【あなたに聞きたいこと】も【明日からできる 1 つの行動】も書かない');
+    expect(h.text).toContain('根拠に挙げた本はすべて【結論】に書く');
     expect(h.text).not.toContain('最初の答え。');
   });
   it('会話の続きで聞いても同じ（行動を求める言葉より先）', () => {
