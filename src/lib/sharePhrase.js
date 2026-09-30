@@ -5,7 +5,7 @@
 // canvas も DOM も触らない純粋関数だけ（テストで確かめられるように）。描くのは shareCard.js の drawPhrase。
 //   - cleanPhrase       … 入れた言葉を整える（空白・改行・80 字まで）
 //   - newPhrase         … 最初の置き方（上のほうの中央・明朝の引用）
-//   - phraseFrame       … 言葉を置いてよい範囲（SNS で切られない安全な枠＝記録と同じ recordFrame）
+//   - phraseFrame       … 言葉を置いてよい範囲（SNS で切られない安全な枠＝記録と同じ recordFrame・透明は記録の上の言葉の場所だけ）
 //   - phraseLayout      … 大きさ・改行（文節の切れ目で）・箱の位置。枠に入らなければ小さくし、はみ出さない場所に寄せる
 //   - phraseColors      … 文字の色（写真・夜・表紙の色・透明は白、紙は墨。1 タップで入れ替え）
 
@@ -48,10 +48,23 @@ export function newPhrase(text = '') {
   return { text: cleanPhrase(text), style: 'mincho', x: 0.5, y: 0.24, scale: 1, invert: false };
 }
 
+// 透明（ステッカー）: 言葉は記録・一文の上に、言葉の高さの場所を取って置く（重ねない・2026-10-01 ui-critic）。
+// 言葉の場所と記録の間は 56。記録の塊は「上の余白 72＋言葉の高さ＋56」から始まる。
+export const STICKER_PAD = 72;
+export const PHRASE_STICKER_GAP = 56;
+// 透明のとき、言葉のために上に足す高さ（言葉が無ければ 0）。
+export function stickerPhraseReserve(phraseH) {
+  return phraseH > 0 ? Math.ceil(phraseH) + PHRASE_STICKER_GAP : 0;
+}
+
 // 言葉を置いてよい範囲（画像の座標）。投稿・ストーリーは記録と同じ安全な枠（ストーリーは上下 270・投稿は左右 80）。
-// 透明（高さが中身で変わる）は四方 72。
-export function phraseFrame({ W = 1080, H = 1350, format = 'post', sticker = false } = {}) {
-  if (sticker || (format !== 'post' && format !== 'story')) {
+// 透明は左右 72・上 72 から言葉の高さ（phraseH）まで＝記録の塊には入らない（phraseH が無ければ下 72 まで）。
+export function phraseFrame({ W = 1080, H = 1350, format = 'post', sticker = false, phraseH = 0 } = {}) {
+  if (sticker) {
+    const top = STICKER_PAD;
+    return { left: STICKER_PAD, right: W - STICKER_PAD, top, bottom: phraseH > 0 ? top + phraseH : Math.max(top * 2, H - STICKER_PAD) };
+  }
+  if (format !== 'post' && format !== 'story') {
     return { left: 72, right: W - 72, top: 72, bottom: Math.max(144, H - 72) };
   }
   const f = recordFrame(format);
@@ -115,7 +128,8 @@ export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', stic
   if (!text || typeof measureAt !== 'function') return null;
   const style = PHRASE_STYLES.includes(phrase.style) ? phrase.style : 'mincho';
   const m = phraseMetrics(style);
-  const frame = phraseFrame({ W, H, format, sticker });
+  // 透明は高さが中身で決まるので、大きさは幅だけで決め（高さは 1600 まで）、決まった高さをそのまま言葉の場所にする。
+  let frame = phraseFrame({ W, H: sticker ? STICKER_PAD * 2 + 1600 * (W / 1080) : H, format, sticker });
   const frameW = frame.right - frame.left;
   const frameH = frame.bottom - frame.top;
   const k = W / 1080;
@@ -144,6 +158,7 @@ export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', stic
     const textW = Math.max(...lines.map((l) => measure(l)), 0);
     out = { ...rest, lines, w: Math.ceil(textW + rest.padX * 2) };
   }
+  if (sticker) frame = phraseFrame({ W, format, sticker, phraseH: out.h });
   const want = { cx: (Number.isFinite(phrase.x) ? phrase.x : 0.5) * W, cy: (Number.isFinite(phrase.y) ? phrase.y : 0.24) * H };
   const { cx, cy } = clampPhraseCenter({ ...want, w: out.w, h: out.h }, frame);
   return { ...out, cx, cy, x0: cx - out.w / 2, y0: cy - out.h / 2, frame };

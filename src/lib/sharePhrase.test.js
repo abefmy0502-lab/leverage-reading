@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import {
   cleanPhrase, newPhrase, phraseFrame, clampPhraseCenter, phraseDisplayText, phraseLayout, phrasePositionFrom,
   phraseColors, phraseCanInvert, clampScale, PHRASE_MAX, PHRASE_STYLES, PHRASE_SCALE_MAX, PHRASE_SCALE_MIN,
+  stickerPhraseReserve, STICKER_PAD, PHRASE_STICKER_GAP,
 } from './sharePhrase.js';
 import { recordFrame } from './shareOverlay.js';
 
@@ -108,10 +109,28 @@ describe('大きさ・改行・箱', () => {
     expect(mincho.underlineH).toBeGreaterThan(0);
     expect(mincho.h).toBe(mincho.lineHeight + mincho.underlineH);
   });
-  it('透明（高さが中身で変わる）でも四方の余白の中', () => {
-    const lay = phraseLayout({ text: 'やってみる', style: 'mincho', x: 0, y: 1 }, { W: 1080, H: 900, sticker: true, measureAt });
-    inside(lay);
-    expect(lay.frame).toEqual({ left: 72, right: 1008, top: 72, bottom: 828 });
+  it('透明: 言葉は上の言葉の場所だけ（記録・一文の塊に重ならない）', () => {
+    for (const style of PHRASE_STYLES) {
+      for (const scale of [PHRASE_SCALE_MIN, 1, PHRASE_SCALE_MAX]) {
+        for (const [x, y] of [[0, 0], [1, 1], [0.5, 0.5], [0, 0.98]]) {
+          const lay = phraseLayout({ text: '問いの質が、答えの質を決める。', style, scale, x, y }, { W: 1080, H: 900, sticker: true, measureAt });
+          inside(lay);
+          // 言葉の場所＝上 72 から言葉の高さまで。置き方に関係なく、その場所の真ん中
+          expect(lay.frame).toEqual({ left: 72, right: 1008, top: 72, bottom: 72 + lay.h });
+          expect(lay.cy).toBe(72 + lay.h / 2);
+          // 記録の塊はその下（言葉の高さ＋56）から始まる＝言葉の箱の下より下
+          const recordTop = STICKER_PAD + stickerPhraseReserve(lay.h);
+          expect(lay.y0 + lay.h).toBeLessThanOrEqual(recordTop - PHRASE_STICKER_GAP + 0.5);
+        }
+      }
+    }
+    // 画像の高さが変わっても（記録の中身が変わっても）言葉の大きさは同じ
+    const a = phraseLayout({ text: 'やってみる', style: 'bold' }, { W: 1080, H: 400, sticker: true, measureAt });
+    const b = phraseLayout({ text: 'やってみる', style: 'bold' }, { W: 1080, H: 2000, sticker: true, measureAt });
+    expect(a.size).toBe(b.size);
+    expect(phraseFrame({ sticker: true, W: 1080, H: 900, phraseH: 120 })).toEqual({ left: 72, right: 1008, top: 72, bottom: 192 });
+    expect(stickerPhraseReserve(0)).toBe(0);
+    expect(stickerPhraseReserve(120)).toBe(120 + PHRASE_STICKER_GAP);
   });
   it('置き方（0〜1）へ戻すときも枠の中', () => {
     const lay = phraseLayout({ text: 'やってみる', style: 'bold' }, { ...FORMATS.story, format: 'story', measureAt });

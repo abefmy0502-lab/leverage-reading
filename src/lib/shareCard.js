@@ -27,7 +27,7 @@ import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
   applyShareItems, shareVisibility, recordCoverPlacement,
 } from './shareOverlay';
-import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText } from './sharePhrase';
+import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText, stickerPhraseReserve } from './sharePhrase';
 import { paletteFor } from './coverPalette';
 import { apiUrl } from './apiUrl';
 
@@ -775,11 +775,20 @@ function stickerSize(ctx, o) {
   const pad = 72;
   const logoGap = 56;
   const footH = o.showLogo !== false ? logoGap + L.wordH * 1.3 : 0;
-  return { L, lay, pad, logoGap, w: 1080, h: Math.round(pad + lay.height + footH + pad) };
+  const top = stickerPhraseTop(ctx, o);
+  return { L, lay, pad, logoGap, top, w: 1080, h: Math.round(top + pad + lay.height + footH + pad) };
+}
+
+// 透明の言葉の場所: 言葉があれば、その高さ＋56 を記録・一文の上に足す（言葉は記録に重ねない）。
+function stickerPhraseTop(ctx, o) {
+  if (!o.phrase) return 0;
+  const lay = layoutPhraseOn(ctx, { ...o, style: 'sticker' }, 1080, 1920);
+  return stickerPhraseReserve(lay?.h || 0);
 }
 
 function drawSticker(ctx, o, size) {
-  const { L, lay, pad, logoGap } = size;
+  const { L, lay, logoGap } = size;
+  const pad = size.pad + size.top;
   ctx.clearRect(0, 0, size.w, size.h);
   ctx.save();
   ctx.shadowColor = o.theme.shadow;
@@ -1006,11 +1015,13 @@ function recordStickerSize(ctx, o) {
   const pad = 72;
   const logoGap = 64;
   const footH = o.hasFooter !== false ? logoGap + F.wordH * 1.3 : 0;
-  return { F, lay, pad, logoGap, w: 1080, h: Math.max(pad * 2 + 120, Math.round(pad + lay.height + footH + pad)) };
+  const top = stickerPhraseTop(ctx, o);
+  return { F, lay, pad, logoGap, top, w: 1080, h: top + Math.max(pad * 2 + 120, Math.round(pad + lay.height + footH + pad)) };
 }
 
 function drawRecordSticker(ctx, o, size) {
-  const { F, lay, pad, logoGap } = size;
+  const { F, lay, logoGap } = size;
+  const pad = size.pad + size.top;
   ctx.clearRect(0, 0, size.w, size.h);
   ctx.save();
   ctx.shadowColor = o.theme.shadow;
