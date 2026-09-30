@@ -88,9 +88,12 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, onSearchM
   // 行動（本に入っている）。この 7 日でふりかえりを書いて完了した行動があれば、1 つ目の例を「やってみた「…」、次はどうする？」に。
   const { allActions } = useAllActions(books);
   const liveExamples = useMemo(
-    () => buildConsultExamples({ books, memoBookIds, lastConsult: lastQuestion ? { question: lastQuestion } : null, count: 2, memoCount, actions: allActions }).map((e) => e.text),
-    [books, memoBookIds, lastQuestion, memoCount, allActions],
+    () => buildConsultExamples({ books, memoBookIds, lastConsult: lastQuestion ? { question: lastQuestion } : null, count: 2, memoCount, actions: allActions, freeUsedUp: freeMemoMode }).map((e) => e.text),
+    [books, memoBookIds, lastQuestion, memoCount, allActions, freeMemoMode],
   );
+  // 無料のトークンを使い切った／戻ったときは作り直す（メモが答える相談では「前に相談した…」を出さない）。
+  const frozenModeRef = useRef(freeMemoMode);
+  if (frozenModeRef.current !== freeMemoMode) { frozenModeRef.current = freeMemoMode; frozenExamples.current = null; }
   if (examplesReady && !frozenExamples.current) frozenExamples.current = liveExamples;
   const examples = frozenExamples.current || [];
 

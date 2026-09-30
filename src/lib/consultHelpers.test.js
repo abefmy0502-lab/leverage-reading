@@ -317,3 +317,13 @@ describe('memoExampleForBook', () => {
     expect(memoExampleForBook(null)).toBe('');
   });
 });
+
+describe('buildConsultExamples: メモが答える相談（2026-10-01 ui-critic）', () => {
+  it('無料のトークンを使い切ったら「前に相談した…その後どう進める？」を出さない', () => {
+    const base = { books: [], lastConsult: { question: '部下が報告をくれない' }, count: 3 };
+    expect(buildConsultExamples(base).some((e) => e.kind === 'continue')).toBe(true);
+    const ex = buildConsultExamples({ ...base, freeUsedUp: true });
+    expect(ex.some((e) => e.kind === 'continue')).toBe(false);
+    expect(ex.length).toBeGreaterThan(0);
+  });
+});

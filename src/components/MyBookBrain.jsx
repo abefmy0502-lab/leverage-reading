@@ -982,8 +982,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // メモの件数は下の ownMemoTotal と同じ数え方（ここより後で定義しているので、ここで数える）。
     const memoCount = memoStatsLoaded ? memoStats.cards + memoStats.personal + (memoStats.summaryBooks || 0) : null;
     // この 7 日でふりかえりを書いて完了した行動があれば、1 つ目の例を「やってみた「…」、次はどうする？」に。
-    return buildConsultExamples({ books, memoBookIds, lastConsult, count: 3, memoCount, actions: allActions });
-  }, [books, scopeIds, memoBookIds, lastConsult, memoStatsLoaded, memoStats, allActions]);
+    return buildConsultExamples({ books, memoBookIds, lastConsult, count: 3, memoCount, actions: allActions, freeUsedUp });
+  }, [books, scopeIds, memoBookIds, lastConsult, memoStatsLoaded, memoStats, allActions, freeUsedUp]);
 
   // 💬 メモが答える相談（2026-10-01・lib/memoAnswer.js）: 画面の上だけに相談と答えを置き、自分のメモから一節を選ぶ。
   //   AI は使わない（/api/claude を呼ばない・トークンを使わない）。答えは id の行（memoAnswer）を入れ替える。

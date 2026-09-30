@@ -334,9 +334,11 @@ export function recentReflectedAction(actions, now = Date.now()) {
 //   本棚に入れていれば、その本の困りごとを 2 番目に出す（メモが少ないうちは「本の学び」より答えやすい・2026-09-29）。
 // actions: 行動（useAllActions の allActions）。この 7 日でふりかえりを書いて完了した行動があれば、1 つ目の例にする。
 // now: 今の時刻（テスト用）
+// freeUsedUp: 無料プランで今月のトークンを使い切った（メモが答える相談＝前の相談の続きとしては答えられないので
+//   「前に相談した「…」、その後どう進める？」を出さない・2026-10-01 ui-critic）
 // 返り値: [{ text, kind: 'acted' | 'continue' | 'challenge' | 'book' | 'worry' }]
 export const FEW_MEMOS = 10;
-export function buildConsultExamples({ books = [], memoBookIds = null, lastConsult = null, count = 3, memoCount = null, actions = null, now = Date.now() } = {}) {
+export function buildConsultExamples({ books = [], memoBookIds = null, lastConsult = null, count = 3, memoCount = null, actions = null, now = Date.now(), freeUsedUp = false } = {}) {
   const out = [];
   const push = (text, kind) => {
     if (text && !out.some((e) => e.text === text) && out.length < count) out.push({ text, kind });
@@ -345,7 +347,7 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   const acted = recentReflectedAction(actions, now);
   const actedGist = acted ? actionGist(acted.text) : '';
   if (actedGist) push(`やってみた「${nestQuotes(actedGist)}」、次はどうする？`, 'acted');
-  const gist = lastConsult?.question ? questionGist(lastConsult.question, 18) : '';
+  const gist = lastConsult?.question && !freeUsedUp ? questionGist(lastConsult.question, 18) : '';
   if (gist) push(`前に相談した「${gist}」、その後どう進める？`, 'continue');
 
   const list = Array.isArray(books) ? books : [];
