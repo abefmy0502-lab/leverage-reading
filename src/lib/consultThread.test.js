@@ -135,4 +135,7 @@ describe('followupChips（深掘りのチップ）', () => {
     expect(followupChips({ booksWithMemos: 3 })).toContain(FOLLOWUP_OTHER_BOOKS);
     expect(followupChips()).toHaveLength(2);
   });
+  it('いま送った文と同じチップは出さない', () => {
+    expect(followupChips({ booksWithMemos: 3, lastAsked: 'もっと具体的に' })).toEqual(['うまくいかなかったら？', FOLLOWUP_OTHER_BOOKS]);
+  });
 });

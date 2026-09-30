@@ -1380,10 +1380,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const ids = new Set(memoBookIds || []);
     return (books || []).filter((b) => (ids.has(b.id) || hasSummaryMemo(b)) && (scopeIds.length === 0 || scopeIds.includes(b.id))).length;
   }, [books, memoBookIds, scopeIds]);
-  const showFollowups = !busy && !outOfTokens && !freeUsedUp && !input.trim()
+  // 「次に聞く」は入力欄の上のこの 1 行にまとめる（2026-09-30 ui-critic: 答えの下の「別の角度で答えて」と 2 か所に割れていた）。
+  const chipRowBase = !busy && !outOfTokens && !freeUsedUp && !input.trim()
     && visibleMessages.length >= 2 && visibleMessages[visibleMessages.length - 2]?.role === 'user'
-    && isCompletedAnswer(lastVisible) && !isNoInfoAnswer(lastVisible);
-  const followups = showFollowups ? followupChips({ booksWithMemos }) : [];
+    && lastVisible?.role === 'assistant' && !lastVisible.streaming && !lastVisible.error && !lastVisible.notice && !isNoInfoAnswer(lastVisible);
+  const showFollowups = chipRowBase && isCompletedAnswer(lastVisible);
+  // いま送った文と同じチップは出さない（「もっと具体的に」のあとにまた「もっと具体的に」を並べない）。
+  const lastAsked = visibleMessages[visibleMessages.length - 2]?.content || '';
+  const followups = showFollowups ? followupChips({ booksWithMemos, lastAsked }) : [];
+  // 同じ相談にもう一度答える（別の角度で／止めた・途中までの答えは「もう一度答えて」）。チップの行の最後に置く。
+  const regenLabel = !chipRowBase ? '' : lastVisible.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて';
 
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
   const historyGroups = useMemo(() => {
@@ -1812,14 +1818,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   )}
                   <button type="button" onClick={() => setView('learning')} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>学びを書く</button>
                 </>
-              ) : !freeUsedUp && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error && (
-                <button type="button" onClick={regenerate} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
-                  {visibleMessages[visibleMessages.length - 1]?.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて'}
-                  {/* 無料プランはトークンが少ないので、押す前に使う量を添える（相談 1 回分・2026-09-29） */}
-                  {freeMode && <span style={{ fontWeight: 400, color: 'var(--text-2)' }}>（約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン）</span>}
-                </button>
-              )}
-              {/* 文字ボタンは 1 種類（DESIGN §5）。脇役は並び順（2 番目）で控えめにする。 */}
+              ) : null}
+              {/* 「別の角度で答えて」は入力欄の上のチップの行へ（2026-09-30）。ここは会話を区切る操作だけ。 */}
               <button type="button" onClick={handleResolveAndClear} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
                 新しい相談をはじめる
               </button>
@@ -1841,13 +1841,20 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           </div>{/* /chat-scroll */}
 
           {/* 💬 深掘りのチップ（2026-09-30・SPEC §3）: 答えを書き終えたら、入力欄の上に続きの聞き方を 2〜3 つ。押すとすぐ送る。 */}
-          {followups.length > 0 && (
+          {(followups.length > 0 || regenLabel) && (
             <div role="group" aria-label="続けて聞く" className="followup-chips" style={followupRow}>
               {followups.map((q) => (
                 <button key={q} type="button" onClick={() => { track('brain_followup', { chip: followups.indexOf(q) }); ask(q); }} style={followupChip}>
                   {q}
                 </button>
               ))}
+              {regenLabel && (
+                <button type="button" onClick={regenerate} style={followupChip}>
+                  {regenLabel}
+                  {/* 無料プランはトークンが少ないので、押す前に使う量を添える（相談 1 回分・2026-09-29） */}
+                  {freeMode && <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>（約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン）</span>}
+                </button>
+              )}
             </div>
           )}
           {/* 相談相手は入力欄のすぐ上（SPEC §3）。 */}

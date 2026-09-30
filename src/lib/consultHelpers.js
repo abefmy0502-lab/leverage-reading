@@ -510,6 +510,8 @@ export function selectThreadTurns(messages, { max = 3, before = null, carry = nu
 export const FOLLOWUP_MORE = 'もっと具体的に';
 export const FOLLOWUP_IF_FAIL = 'うまくいかなかったら？';
 export const FOLLOWUP_OTHER_BOOKS = 'ほかの本ではどう言ってる？';
-export function followupChips({ booksWithMemos = 0 } = {}) {
-  return [FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, ...(booksWithMemos >= 2 ? [FOLLOWUP_OTHER_BOOKS] : [])];
+// lastAsked: いま送った相談の文。同じチップは出さない（続けて同じ聞き方を並べない・2026-09-30）。
+export function followupChips({ booksWithMemos = 0, lastAsked = '' } = {}) {
+  const sent = String(lastAsked || '').trim();
+  return [FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, ...(booksWithMemos >= 2 ? [FOLLOWUP_OTHER_BOOKS] : [])].filter((q) => q !== sent);
 }
