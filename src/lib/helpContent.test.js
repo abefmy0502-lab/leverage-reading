@@ -12,6 +12,14 @@ const checkBoldLength = (s, where) => {
   for (const b of bolds(s)) expect([...b].length, `${where}「${b}」は太字 12 字まで`).toBeLessThanOrEqual(12);
 };
 // 行の頭の「 は約物の空きで 1 文字目が右へ下がって見える（2026-09-30 ui-critic）。行・手順・要約を「で始めない。
+// 行の終わりは「です・ます」か名詞にそろえる（2026-09-30 ui-critic）。る・す・う で終わる言い切り（「戻せる」「使う」）は不可。
+// ただし太字のボタン名で終わる行（「気に入らなければ**元に戻す**」「… →**取り込む**」）は画面の名前なのでよい。
+const endsPlain = (s) => {
+  const str = String(s);
+  if (/\*\*$/.test(str)) return false;
+  const t = str.replace(/\*\*/g, '');
+  return /[るすう]$/.test(t) && !/(ます|です)$/.test(t);
+};
 const startsWithBracket = (s) => /^[「『（]/.test(String(s).replace(/\*\*/g, ''));
 
 // App.jsx の getCurrentHelpKey が返すキー（画面から開けるもの）。
@@ -30,6 +38,7 @@ function checkTopic(t, where) {
     expect(visible(line), `${where}「${line}」は 18 字まで`).toBeLessThanOrEqual(18);
     expect(startsWithBracket(line), `${where}「${line}」は「で始めない`).toBe(false);
     checkBoldLength(line, where);
+    expect(endsPlain(line), `${where}「${line}」は です・ます か名詞で終える`).toBe(false);
     expect(boldCount(line) % 1, `${where}「${line}」の ** が閉じていない`).toBe(0);
     expect(boldCount(line), `${where}「${line}」の太字は 1 か所まで`).toBeLessThanOrEqual(1);
   }
