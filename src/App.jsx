@@ -3839,14 +3839,6 @@ function AuthedApp() {
               <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : aiSubTab === 'report' ? 'テーマまとめ' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
-              <button
-                onClick={openHelp}
-                style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
-                aria-label="この画面のヘルプを見る"
-                title="ヘルプ"
-              >
-                <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
-              </button>
               {/* 📤 この本の一文をシェア（読書中・読了で、本文のあるメモがあるときだけ・SPEC §2-1）。 */}
               {isMemoPhase && (currentMemoOps.memos || []).some((m) => (m.text || '').trim()) && (
                 <button
@@ -3859,7 +3851,7 @@ function AuthedApp() {
                   <Share size={20} strokeWidth={1.75} aria-hidden="true" />
                 </button>
               )}
-              {/* ⋯ kebab — 編集 / 共有 / 削除 を集約。下部の 3 ボタン廃止。 */}
+              {/* ⋯ kebab — 編集 / 共有 / 削除 / ヘルプ を集約。下部の 3 ボタン廃止。 */}
               <button
                 onClick={openDetailKebab}
                 style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
@@ -4354,6 +4346,8 @@ function AuthedApp() {
                 ? { label: '一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => setShareSheet({ book: current }) }
                 : { label: '共有', icon: <Share size={16} aria-hidden="true" />, onClick: () => shareBook(current) },
               { label: '削除', icon: <Trash2 size={16} aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
+              // ヘルプは上の行に単独のボタンで置かず、この「…」の最後に（2026-09-30）。
+              { label: 'ヘルプ', icon: <HelpCircle size={16} aria-hidden="true" />, onClick: openHelp },
             ]}
           />
         )}
