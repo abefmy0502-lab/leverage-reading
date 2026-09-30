@@ -7,7 +7,7 @@
 // Display is read-only here. Tapping a memo opens its book in the book detail
 // view, where the user can edit/delete via the existing BookMemoList flow.
 
-import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -452,6 +452,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const recallApplyTimerRef = useRef(null);
   const [expanded, setExpanded] = useState(() => new Set());
   const [search, setSearch] = useState(() => (freshPreset ? String(freshPreset.query || '') : resumedReview?.search || ''));
+  // 絞り込み・結果の描画は一歩遅れの値で（打っている間は入力欄を先に描き、結果はあとから・CPU が遅い端末でも文字が詰まらない・2026-09-30）。
+  const deferredSearch = useDeferredValue(search);
   const [tagFilter, setTagFilter] = useState(() => (freshPreset ? '' : resumedReview?.tagFilter || ''));
   // 想起カードから「→行動にする」したメモ id（直後のボタン表示を ✓ に切替）。
   const [actionAddedId, setActionAddedId] = useState(null);
@@ -761,7 +763,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   const [filterMenu, setFilterMenu] = useState(null);
 
   const filteredSearch = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     if (!q && !tagFilter && kindFilter === 'all') return [];
     // 空白で区切った言葉は「どれかを含む」メモを探し、多く含むメモから並べる（2026-09-29。相談で
     // トークンを使い切ったときの「メモを検索して探す」が、相談の言葉を空白区切りで入れてくる）。
@@ -781,7 +783,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     });
     if (terms.length > 1) scored.sort((a, b) => b.hits - a.hits || a.i - b.i);
     return scored.map((x) => x.m);
-  }, [allNotes, booksById, search, tagFilter, kindFilter]);
+  }, [allNotes, booksById, deferredSearch, tagFilter, kindFilter]);
 
   const memosByMonth = useMemo(() => {
     const groups = new Map();
@@ -921,6 +923,42 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   };
 
   const isSearching = search.trim() || tagFilter || kindFilter !== 'all';
+  // 結果の側（一覧・0 件・思い出しカードとの切り替え）は一歩遅れの値で決める（入力欄の「クリア」などは今の値）。
+  const showingResults = !!(deferredSearch.trim() || tagFilter || kindFilter !== 'all');
+  // 結果の一覧は、一歩遅れの値が変わったときだけ作り直す（打つたびに全部のカードを描き直さない）。
+  const searchResults = useMemo(() => {
+    if (!showingResults) return null;
+    const q = deferredSearch.trim();
+    if (filteredSearch.length === 0) {
+      // 見つからないときの次の一歩は「相談で聞く」だけ（相談は入力欄に入れるだけで送らない）。検索を消すのは
+      // 右上の「クリア」1 か所（同じ操作を 2 か所に出さない・2026-09-29）。
+      return (
+        <EmptyState
+          icon={<SearchIcon size={32} strokeWidth={1.5} aria-hidden="true" />}
+          title="このキーワードに関連するメモはまだありません"
+          actions={onAskConsult && q
+            ? [{ label: '相談で聞く', onClick: () => onAskConsult(`「${q}」について、読んだ本から何が言える？`), variant: 'secondary' }]
+            : []}
+        />
+      );
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+        <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{filteredSearch.length} 件</p>
+        {filteredSearch.map((m) => (
+          <ReviewMemoCard
+            key={m.id}
+            memo={m}
+            book={booksById.get(m.bookId)}
+            onOpenBook={onOpenBook}
+            onSwipeDelete={handleSwipeDelete}
+            onLongPress={setMemoMenu}
+            openOnTap
+          />
+        ))}
+      </div>
+    );
+  }, [showingResults, deferredSearch, filteredSearch, booksById, onOpenBook, handleSwipeDelete, onAskConsult]);
   // 絞り込みのメニューは、検索欄に触れてから出す（開いた瞬間の画面を思い出しカードとメモだけにする）。
   const [searchActive, setSearchActive] = useState(() => !!freshPreset || !!resumedReview?.searchActive);
   const filtersOpen = !!(searchActive || isSearching);
@@ -1166,35 +1204,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             </div>
           </div>
         </div>
-        {isSearching && (filteredSearch.length === 0 ? (
-          // 見つからないときの次の一歩は「相談で聞く」だけ（相談は入力欄に入れるだけで送らない）。検索を消すのは
-          // 右上の「クリア」1 か所（同じ操作を 2 か所に出さない・2026-09-29）。
-          <EmptyState
-            icon={<SearchIcon size={32} strokeWidth={1.5} aria-hidden="true" />}
-            title="このキーワードに関連するメモはまだありません"
-            actions={onAskConsult && search.trim()
-              ? [{ label: '相談で聞く', onClick: () => onAskConsult(`「${search.trim()}」について、読んだ本から何が言える？`), variant: 'secondary' }]
-              : []}
-          />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
-            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', margin: 0 }}>{filteredSearch.length} 件</p>
-            {filteredSearch.map((m) => (
-              <ReviewMemoCard
-                key={m.id}
-                memo={m}
-                book={booksById.get(m.bookId)}
-                onOpenBook={onOpenBook}
-                onSwipeDelete={handleSwipeDelete}
-                onLongPress={(payload) => setMemoMenu(payload)}
-                openOnTap
-              />
-            ))}
-          </div>
-        ))}
+        {searchResults}
       </section>
 
-      {!isSearching && (<>
+      {!showingResults && (<>
       {/* ===== 2. 今日の振り返り (random) ===== */}
       <section>
         {/* 思い出しカード（SPEC §4: メモの一番上に小さく）。見出しは小さなラベルだけ。
