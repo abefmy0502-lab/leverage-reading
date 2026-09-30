@@ -348,8 +348,8 @@ const SCREENS = [
     const pick = { eval: `(() => { const b = [...document.querySelectorAll('[aria-label="画像を編集"] [role=radiogroup][aria-label="言葉の形"] [role=radio]')].find((x) => x.textContent.includes('${label}')); if (b) b.click(); })()` };
     return [
       // 手書き風は Google Fonts を読み込めてから出る（遅い通信を待つ）。
-      { name: `share-edit-phrase-${key}-photo`, url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 20000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
-      { name: `share-edit-phrase-${key}-paper`, url: '/', steps: [...SHARE_PAPER, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 20000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
+      { name: `share-edit-phrase-${key}-photo`, url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 60000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
+      { name: `share-edit-phrase-${key}-paper`, url: '/', steps: [...SHARE_PAPER, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 60000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
     ];
   }),
   { name: 'share-edit-phrase-band-story', url: '/', steps: [...SHARE_CAMERA, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, { css: `${EDIT} [role=radio]:has-text("白抜きの帯")` }, { wait: 1200 }, EDIT_BLUR, EDIT_TOP] },
