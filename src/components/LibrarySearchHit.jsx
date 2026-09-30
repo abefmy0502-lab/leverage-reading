@@ -7,9 +7,10 @@ import { MiniCover, StatusLabel } from './BookCards';
 import { btnLink, groupTitle } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 
-// 見つかった言葉の印（DESIGN §5「検索の一致の印」）: 選択中と同じ淡い面＋太さ 600（色だけに頼らない）。
+// 見つかった言葉の印（DESIGN §5「検索の一致の印」）: アクセントを面に 22% 混ぜた面＋太さ 600（色だけに頼らない）。
+// --accent-soft は暗い画面でカードの面とほぼ同じで見えなかった（2026-09-30 ui-critic）。
 const markStyle = {
-  background: 'var(--accent-soft)',
+  background: 'color-mix(in srgb, var(--accent) 22%, var(--surface))',
   color: 'var(--text)',
   fontWeight: 600,
   padding: 0,
