@@ -2,7 +2,8 @@
 // (taps close) plus a small floating panel positioned near (x, y) but clamped
 // to the viewport.
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef } from 'react';
+import { withPhraseBreaks } from './TightBubble';
 
 const PANEL_WIDTH = 220;
 const PANEL_MARGIN = 16;
@@ -67,6 +68,7 @@ const OPEN_GRACE_MS = 350;
 export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
   ensureKeyframes();
   const [position, setPosition] = useState({ left: x, top: y });
+  const panelRef = useRef(null);
   const openedAtRef = useRef(typeof performance !== 'undefined' ? performance.now() : Date.now());
   const onBackdropClick = () => {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -83,11 +85,14 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  useEffect(() => {
+  // 位置は描く前に決める（useLayoutEffect）。useEffect だと、押した所に一度出てから画面の中へ跳ねる 1 フレームが見えていた。
+  // 高さは実際のパネルを測る（2 行になる項目があっても下にはみ出さない・2026-09-30）。
+  useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const estHeight = items.length * 50 + 12;
+    const measured = panelRef.current ? panelRef.current.offsetHeight : 0;
+    const estHeight = measured > 0 ? measured : items.length * 50 + 12;
     let left = x - PANEL_WIDTH / 2;
     let top = y + 12;
     if (left < PANEL_MARGIN) left = PANEL_MARGIN;
@@ -100,7 +105,6 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
   // 閉じたら、開く前にフォーカスがあった所（「…」のボタンなど）へ戻す（2026-09-29）。
   //   ただし閉じる間に別の画面（確認・編集）がフォーカスを取っていたら、そちらを優先する。
   const itemRefs = useRef([]);
-  const panelRef = useRef(null);
   useEffect(() => {
     const prev = typeof document !== 'undefined' ? document.activeElement : null;
     const t = setTimeout(() => { try { itemRefs.current[0]?.focus(); } catch { /* ignore */ } }, 0);
@@ -153,7 +157,8 @@ export default function ContextMenu({ x = 0, y = 0, items = [], onClose }) {
               }}
             >
               {it.icon && <span style={{ display: 'inline-flex', width: 20, justifyContent: 'center' }}>{it.icon}</span>}
-              <span style={{ flex: 1 }}>{it.label}</span>
+              {/* 2 行になるときは文節の切れ目で（「読書計画シートを編／集」と割らない・2026-09-30）。 */}
+              <span style={{ flex: 1, minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{typeof it.label === 'string' ? withPhraseBreaks(it.label) : it.label}</span>
             </button>
           );
         })}
