@@ -880,7 +880,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setOtherMode(false);
     setOtherText('');
     setMultiSelected([]);
-    setInput('');
+    // 最初の相談の言葉は入力欄に残す（条件を少し変えて探し直せる・書き直しにしない・2026-09-30）。
+    setInput(concern || lastUserQuery || '');
   };
 
   // 新規セッション開始: 既存会話は DB に残し、フロント state だけクリア。
@@ -1003,7 +1004,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       // 読書準備の 4 項目は、AI を呼ばずに手元の材料から埋める（2026-09-27・原価の節約）。
       //   以前は追加のたびに会話を AI で要約していた（本人は AI を頼んでいない＝見えない原価）。
       //   課題＝最初の相談＋ヒアリングの 1 問目 / 得たいこと＝理想の状態の答え（2026-09-29・lib/advisorText.js）/
-      //   仮説＝推薦の「核心」/ 理由＝推薦の「なぜ」。どれも本人がその場で見た言葉なので、ずれない。
+      //   理由＝推薦の「なぜ」＋「この本の核心: …」。どれも本人がその場で見た言葉なので、ずれない。
+      //   仮説は空のまま（推薦の核心は AI の言葉で、本人の仮説ではない＝読む前に自分で書く欄・2026-09-30）。
       const setup = advisorSetupFields(
         lastUserQuery,
         interviewAnswers.map((x) => ({ q: x?.q, a: clamp(sanitizeForPrompt(String(x?.a || '')), 120) })),
@@ -1015,8 +1017,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           sourceQuery: clamp(setup.purpose, 400),
           investPurpose: clamp(setup.purpose, 400),
           currentChallenge: clamp(setup.challenge, 400),
-          hypothesis: clamp(String(verifiedRec.core || ''), 300),
-          bookReason: clamp(String(verifiedRec.why || ''), 400),
+          hypothesis: '',
+          bookReason: clamp([String(verifiedRec.why || '').trim(), verifiedRec.core ? `この本の核心: ${String(verifiedRec.core).trim()}` : ''].filter(Boolean).join('\n'), 400),
         });
         // onAddBook (addFromAdvisor) は失敗を内部 catch で握りつぶし null を
         // 返す（throw しない）。falsy を失敗として扱わないと rollback が
