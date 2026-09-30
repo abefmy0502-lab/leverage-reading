@@ -129,3 +129,13 @@ describe('stripQuotes', () => {
     expect(stripQuotes('p.25「作った引用」')).toBe('p.25');
   });
 });
+
+describe('一致したメモの id・本・記録日（本を探す問いの答えの行）', () => {
+  it('カード式のメモに一致したら i / b / c を残す', async () => {
+    const { verifyAnswerQuotes, decodeQuoteRefs } = await import('./evidenceCheck');
+    const sources = [{ title: 'エッセンシャル思考', page: 64, text: '頼まれごとに即答しない。一度持ち帰ると、断る余地が生まれる。', card: true, id: 'm-64', book_id: 'b-e', created_at: '2026-05-27T10:00:00Z' }];
+    const body = '【結論】\n『エッセンシャル思考』に書いていました。\n\n【参照した本のメモ】\n- 『エッセンシャル思考』p.64 のメモ：「断る余地が生まれる」';
+    const [c] = decodeQuoteRefs(verifyAnswerQuotes(body, sources));
+    expect(c).toMatchObject({ k: 'r', s: 'ok', i: 'm-64', b: 'b-e', c: '2026-05-27', p: 64 });
+  });
+});

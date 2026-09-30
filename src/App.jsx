@@ -5241,7 +5241,8 @@ function AuthedApp() {
               ) : (
                 <Suspense fallback={<TabPanelSkeleton />}>
                   <MyBookBrain
-                    onOpenBook={(b) => { openDetail(b); }}
+                    // 本を探す問いの答えのメモの行は、その本のそのメモまで開く（2026-09-30）。
+                    onOpenBook={(b, memoId) => { openDetail(b, memoId); }}
                     books={books}
                     onAddAction={addActionFromMemo}
                     onBooksMutated={refreshBooks}

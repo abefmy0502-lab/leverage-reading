@@ -582,6 +582,19 @@ export function isBookLookup(text) {
   return BOOK_LOOKUP_RE.test(String(text || ''));
 }
 
+// 本を探す問いの、探している言葉（「『断る』みたいなことを書いた本はどれ？」→「断る」）。
+//   『』があればその中、無ければ探す言い回しを外した残り（30 字まで）。取れなければ ''。
+export function lookupTerm(text) {
+  const s = String(text || '').trim();
+  const m = s.match(/『([^』]{1,60})』/);
+  if (m) return m[1].trim();
+  const rest = s
+    .replace(/(?:みたいな|のような|ような)?(?:こと)?(?:を|が)?(?:書いた|書いていた|読んだ)?(?:のは)?(?:本はどれ|どの本|なんの本|何の本)[^。]*$/, '')
+    .replace(/[「」『』？?。、\s]+/g, ' ')
+    .trim();
+  return [...rest].slice(0, 30).join('');
+}
+
 // 答えのあとの「次に」のチップ（入力欄の上の 1 行・押すとすぐ送る）。{ label, send, kind } の配列。
 //   - 答えに問いの候補があれば: 候補（返事）→「行動を決める」（候補の答えを待っている間はほかの聞き方を並べない）
 //   - 行動を決めた答え: もっと具体的に・うまくいかなかったら？（・ほかの本では）

@@ -1403,6 +1403,8 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
           created_at: m.created_at || null,
           personal: false,
           card: !SYNTH_LABEL[m.source_type],
+          id: m.id || null,
+          book_id: m.book_id || m.book?.id || null,
           text: m.text || '', // 引用の照合用（evidenceCheck.js・画面には一致したものだけ出す）
         })),
       };
@@ -1509,6 +1511,9 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
     created_at: m.created_at || null,
     personal: m.source_type === 'personal' || (!m.book && !m.book_id),
     card: !SYNTH_LABEL[m.source_type],
+    // 本を探す問いの答えで、一致したメモの行を押すとその本のそのメモを開く（2026-09-30）
+    id: m.id || null,
+    book_id: m.book_id || m.book?.id || null,
     text: m.text || '', // 引用の照合用（evidenceCheck.js・画面には一致したものだけ出す）
   }));
   return {

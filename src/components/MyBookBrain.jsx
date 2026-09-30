@@ -33,7 +33,9 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm } from '../lib/consultHelpers';
+import LibrarySearchHit from './LibrarySearchHit';
+import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
@@ -2696,6 +2698,20 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
     const t = m ? m[1].trim() : '';
     return !t || !failedTitles.some((f) => f === t || f.includes(t) || t.includes(f));
   });
+  // 🔎 本を探す問い（「『…』みたいなことを書いた本はどれ？」・2026-09-30）: 照合で一致したメモを、結論のすぐ下に
+  //   開いたまま並べる（すべての本の検索のメモの行と同じ組み立て・押すとその本のそのメモ）。「根拠を見る」は出さない。
+  const isLookup = message.expect === 'lookup' || isBookLookup(question);
+  const lookupRows = isLookup && parsed ? (() => {
+    const compiled = compileTerms(splitQuery(lookupTerm(question)));
+    const seen = new Set();
+    return refChecks.filter((c) => c.s === 'ok' && !c.u && c.x).map((c, i) => {
+      const book = (c.b && (books || []).find((b) => b.id === c.b)) || bookForRef(`『${c.t}』`, books) || { id: null, title: c.t || '', author: '' };
+      const key = c.i || `${book.id || c.t}-${c.p ?? ''}-${i}`;
+      if (seen.has(key)) return null;
+      seen.add(key);
+      return { key, book, hit: { kind: 'memo', memoId: c.i || undefined, page: Number.isFinite(c.p) ? c.p : null, createdAt: c.c || null, segments: buildSnippet(c.x, compiled) } };
+    }).filter(Boolean);
+  })() : [];
   // 関係するメモが無くてトークンを返したとき（答えの下に 13/--text-2 の一行）
   const refundNote = allRefs.some((r) => String(r).startsWith(REFUND_PREFIX)) ? REFUND_NOTE : '';
   const renderRefund = () => (refundNote && !isStreaming ? (
@@ -2988,7 +3004,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       aria-busy={isStreaming || undefined}
     >
     {/* 💬 相手のアイコン（左）＋名前の行（13/--text-2）＋答えのカード（LINE の相手の吹き出しと同じ並び・2026-09-30） */}
-    <PartnerRow partner={partner} onOpenList={openPartnerList}>
+    // 本を探す問いは、見つかった本を並べる答えなので、ひとりの著者の名前にしない（「N 冊の本」・本ごとにの結論と同じ）。
+    <PartnerRow partner={isLookup ? perbookSummaryPartner(partner) : partner} onOpenList={openPartnerList}>
     <div style={answerCard}>
       {/* 本ごとにで送ったのに、並べる本が足りずに「まとめて」で答えたとき（SPEC §3）。書き始める前から出す。 */}
       {fallbackNote && (
@@ -3102,11 +3119,21 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}</p>
             ))}
           </div>
+          {/* 本を探す問い: 見つかったメモの行を結論のすぐ下に開いて並べる（「根拠を見る」の代わり）。 */}
+          {lookupRows.length > 0 && (
+            <div style={{ marginTop: 'var(--space-3)' }} role="list" aria-label="見つかったメモ">
+              {lookupRows.map((r) => (
+                <div role="listitem" key={r.key}>
+                  <LibrarySearchHit inline showStatus={false} result={{ book: r.book, hit: r.hit }} onOpen={(b, id) => { if (b?.id && onOpenBook) onOpenBook(b, id); }} />
+                </div>
+              ))}
+            </div>
+          )}
           {/* 2. 明日からできる一歩（＋ 行動に追加）か、あなたに聞きたいこと → 使ったメモの一行 → 3. 根拠（畳む） */}
           {renderAction(parsed, 'var(--space-4)')}
           {renderAsk(parsed, 'var(--space-4)')}
           {renderEvidence()}
-          {renderDetails(parsed)}
+          {lookupRows.length === 0 && renderDetails(parsed)}
           {renderNote(parsed)}
         </>
       ) : (

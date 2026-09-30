@@ -127,7 +127,15 @@ export function verifyRefLine(rawLine, sources) {
   const title = titleOf(line);
   const page = pageOf(line);
   const personalLine = !title && /自分の学び|学びログ|あなたの学び/.test(line);
-  const withPersonal = (r, m) => ({ ...r, personal: !!(m?.personal || personalLine), date: m?.personal && m.created_at ? String(m.created_at).slice(0, 10) : '' });
+  const withPersonal = (r, m) => ({
+    ...r,
+    personal: !!(m?.personal || personalLine),
+    date: m?.personal && m.created_at ? String(m.created_at).slice(0, 10) : '',
+    // 一致したメモそのもの（本を探す問いの答えで、押すとそのメモを開く・日付を出す・2026-09-30）
+    memoId: m?.card && m.id ? String(m.id) : '',
+    bookId: m?.book_id ? String(m.book_id) : '',
+    createdAt: m?.created_at ? String(m.created_at).slice(0, 10) : '',
+  });
   const cands = candidatesFor(line, sources || []);
   const quotes = extractQuotes(line);
   if (quotes.length > 0) {
@@ -193,7 +201,8 @@ export function verifyAnswerQuotes(body, sources) {
         if (/^[（(].*[)）]$/.test(l)) return;
         const v = verifyRefLine(l, sources);
         // u: 学びの行（書名が無い）・d: 一致した学びの記録日（見出し「自分の学び（M月D日）」用）
-        out.push({ k: 'r', t: v.title, p: v.page, s: v.status, x: v.memo, l: v.line, ...(v.personal ? { u: 1 } : null), ...(v.date ? { d: v.date } : null) });
+        // i: 一致したカード式のメモの id・b: その本の id・c: そのメモの記録日（本を探す問いの答えの行・2026-09-30）
+        out.push({ k: 'r', t: v.title, p: v.page, s: v.status, x: v.memo, l: v.line, ...(v.personal ? { u: 1 } : null), ...(v.date ? { d: v.date } : null), ...(v.memoId ? { i: v.memoId } : null), ...(v.bookId ? { b: v.bookId } : null), ...(v.createdAt ? { c: v.createdAt } : null) });
       });
     } else if (/本ごと/.test(name)) {
       let cur = null;

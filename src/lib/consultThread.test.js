@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { threadBlock, retrievalQuery, THREAD_MAX_TURNS, turnHint } from './ai';
 import {
   selectThreadTurns, isCompletedAnswer, followupChips, FOLLOWUP_OTHER_BOOKS,
-  parseAskSection, wantsAction, isBookLookup, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, FOLLOWUP_OTHER_BOOKS_LABEL,
+  parseAskSection, wantsAction, isBookLookup, lookupTerm, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, FOLLOWUP_OTHER_BOOKS_LABEL,
 } from './consultHelpers';
 
 const ANSWER = [
@@ -296,5 +296,13 @@ describe('本を探す問い（すべての本の「相談で探す」）', () =
     const h = turnHint({ followUp: true, question: 'どうしたらいいか書いた本はどれ？' });
     expect(h.lookup).toBe(true);
     expect(h.decide).toBe(false);
+  });
+});
+
+describe('lookupTerm（本を探す問いの探している言葉）', () => {
+  it('『』の中、無ければ探す言い回しを外した残り', () => {
+    expect(lookupTerm('『断る』みたいなことを書いた本はどれ？')).toBe('断る');
+    expect(lookupTerm('雑談から始めるって書いたのはどの本？')).toBe('雑談から始めるって');
+    expect(lookupTerm('どの本？')).toBe('');
   });
 });

@@ -39,7 +39,9 @@ export function SnippetText({ segments }) {
   );
 }
 
-const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAutoRetry, showStatus = true }) {
+// inline: 相談の答えの中（本を探す問い）に並べる形。答えのカードの中なので面と枠は付けず、行の上に --separator の線だけ
+//   （カードの中にカードを入れない・DESIGN §5）。組み立て（表紙 44・書名・p.N · 日付・一節）は同じ。
+const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAutoRetry, showStatus = true, inline = false }) {
   const { book, hit } = result;
   const label = hitLabel(hit);
   return (
@@ -47,9 +49,10 @@ const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAuto
       type="button"
       onClick={() => onOpen?.(book, hit?.kind === 'memo' ? hit.memoId : undefined)}
       style={{
-        display: 'block', width: '100%', textAlign: 'left', fontFamily: 'inherit',
-        background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
-        padding: 'var(--space-3) var(--space-4)', cursor: 'pointer', color: 'var(--text)',
+        display: 'block', width: '100%', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: 'var(--text)',
+        ...(inline
+          ? { background: 'none', border: 'none', borderTop: '1px solid var(--separator)', borderRadius: 0, padding: 'var(--space-3) 0' }
+          : { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }),
       }}
     >
       {/* 上の行は、すべての本のリストの行（SwipeableBookCard）と同じ組み立て。 */}
