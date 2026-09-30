@@ -14,7 +14,7 @@
 // Esc はこの画面だけを閉じる（シートまで届かせない）。
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { Type, Contrast, X } from 'lucide-react';
 import ErrorMessage from './ErrorMessage';
 import ToggleSwitch from './ToggleSwitch';
@@ -44,6 +44,8 @@ const STYLE_FONT = {
 const styleChip = (on) => ({
   display: 'inline-flex',
   alignItems: 'center',
+  justifyContent: 'center',
+  width: '100%',
   minHeight: 44,
   padding: '0 var(--space-3)',
   borderRadius: 'var(--radius)',
@@ -363,10 +365,12 @@ export default function ShareEditor({
   useEffect(() => () => cancelAnimationFrame(g.current.raf), []);
 
   // ---- 言葉の欄
+  // iOS はタップの処理の中で focus しないとキーボードを開かない（setTimeout の後では開かない）。
+  // flushSync で入力欄をその場で描いてから、同じタップの中で focus する。
   const addPhrase = () => {
-    onPhrase(newPhrase(''));
+    flushSync(() => onPhrase(newPhrase('')));
+    try { inputRef.current?.focus(); } catch { /* ignore */ }
     haptic.light();
-    setTimeout(() => { try { inputRef.current?.focus(); } catch { /* ignore */ } }, 50);
   };
   const setPhraseField = (patch) => onPhrase({ ...(phrase || newPhrase('')), ...patch });
   // キーボードで言葉を動かす（矢印＝1%・Shift＝5%）・大きさ（＋／−）。
@@ -389,11 +393,18 @@ export default function ShareEditor({
 
   const aspect = `${size.w} / ${size.h}`;
   const touchable = canPan || hasPhrase;
+  // 指の操作で何が動くかを分けて書く（言葉の上＝言葉、ほか＝写真）。2 回タップで元に戻すことも。
   const hint = canPan && hasPhrase
-    ? '言葉と写真は指で動かせます・2 本の指で大きさ'
-    : canPan ? '指で動かす・2 本の指で拡大・2 回タップで元に戻す'
-      : hasPhrase ? '言葉は指で動かせます・2 本の指で大きさ' : '';
+    ? ['言葉の上をドラッグで言葉を、ほかは写真を動かします', '2 本の指で大きさ・2 回タップで元に戻す']
+    : canPan ? ['ドラッグで写真を動かす・2 本の指で拡大', '2 回タップで元の位置に戻す']
+      : hasPhrase ? ['ドラッグで言葉を動かす・2 本の指で大きさ', '2 回タップで元の大きさに戻す'] : null;
   const styles = PHRASE_STYLES.filter((s) => s !== 'hand' || handOk);
+  // 色の入れ替えは意味のあるときだけ: 帯（明るい帯↔暗い帯）と、写真の上の文字（白↔黒）。
+  // 紙の上の墨の文字・夜や表紙の色の上の白い文字は入れ替えると読めないので出さない。
+  const pStyle = phrase?.style || 'mincho';
+  const swapLabel = !phrase ? null
+    : pStyle === 'band' ? (phrase.invert ? '帯を暗くする' : '帯を明るくする')
+      : ground === 'photo' ? (phrase.invert ? '文字を白にする' : '文字を黒にする') : null;
   const boxVisible = !!box && (showBox || inputFocused);
 
   return createPortal(
@@ -402,11 +413,11 @@ export default function ShareEditor({
       role="dialog"
       aria-modal="true"
       aria-label="画像を編集"
-      style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-overlay)', background: 'var(--bg)', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)', animation: 'leverage-fade-in .15s ease' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-overlay)', background: 'var(--bg)', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)', animation: 'leverage-fade-in var(--duration-fast) var(--ease-out)' }}
     >
       {/* 上の 1 行: 題名と「完了」（変えたことはその場で効く＝閉じるだけ） */}
       <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)', borderBottom: '1px solid var(--separator)', flexShrink: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr 64px', alignItems: 'center', minHeight: 44, padding: '0 var(--space-4)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'var(--space-16) 1fr var(--space-16)', alignItems: 'center', minHeight: 44, padding: '0 var(--space-4)' }}>
           <span aria-hidden="true" />
           <h2 style={{ margin: 0, textAlign: 'center', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>画像を編集</h2>
           <button type="button" onClick={onClose} style={{ justifySelf: 'end', minHeight: 44, minWidth: 44, padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'inherit', fontSize: 'var(--text-body)', fontWeight: 600, cursor: 'pointer' }}>
@@ -417,7 +428,9 @@ export default function ShareEditor({
 
       <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
         <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: 'calc(var(--space-8) + env(safe-area-inset-bottom, 0px))' }}>
-          {/* 大きな画像（画面の幅いっぱい・形の比のまま） */}
+          {/* 大きな画像（画面の幅いっぱい・形の比のまま）。下の欄を送っても上に残る（sticky）＝スイッチを
+              切り替えたり言葉を打ったりしながら画像が見える。高さは画面の 48%（入力中は 30%）まで。 */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg)', paddingBottom: 'var(--space-2)' }}>
           <div
             ref={stageRef}
             onPointerDown={onPointerDown}
@@ -425,7 +438,7 @@ export default function ShareEditor({
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
             style={{
-              position: 'relative', width: '100%', aspectRatio: aspect,
+              position: 'relative', width: `min(100%, calc(${inputFocused ? 30 : 48}dvh * ${size.w} / ${size.h}))`, margin: '0 auto', aspectRatio: aspect,
               background: ground === 'sticker' ? checker(16) : 'var(--fill)',
               touchAction: touchable ? 'none' : 'auto', userSelect: 'none', WebkitUserSelect: 'none',
               cursor: touchable ? 'grab' : 'default', overflow: 'hidden',
@@ -438,7 +451,7 @@ export default function ShareEditor({
               style={{ display: 'block', width: '100%', height: '100%', visibility: status === 'ready' ? 'visible' : 'hidden' }}
             />
             {status === 'loading' && (
-              <div style={{ position: 'absolute', inset: 0 }} aria-busy="true" aria-label="画像を作っています">
+              <div role="status" style={{ position: 'absolute', inset: 0 }} aria-busy="true" aria-label="画像を作っています">
                 <SkeletonBlock width="100%" height="100%" radius="0" />
               </div>
             )}
@@ -480,9 +493,10 @@ export default function ShareEditor({
           </div>
           {hint && (
             <p style={{ margin: 0, padding: 'var(--space-2) var(--space-4) 0', textAlign: 'center', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' }}>
-              {hint}
+              {hint.map((h) => <span key={h} style={{ display: 'block' }}>{h}</span>)}
             </p>
           )}
+          </div>
 
           {/* 言葉 */}
           <section aria-labelledby="share-edit-phrase" style={{ padding: 'var(--space-6) var(--space-4) 0' }}>
@@ -510,7 +524,7 @@ export default function ShareEditor({
                   onBlur={() => setInputFocused(false)}
                   style={inputStyle}
                 />
-                <div role="radiogroup" aria-label="言葉の形" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                <div role="radiogroup" aria-label="言葉の形" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
                   {styles.map((s) => {
                     const on = (phrase.style || 'mincho') === s;
                     return (
@@ -519,7 +533,7 @@ export default function ShareEditor({
                       </button>
                     );
                   })}
-                  {handOk === null && <SkeletonBlock width={96} height={44} radius="var(--radius)" />}
+                  {handOk === null && <SkeletonBlock width="100%" height={44} radius="var(--radius)" />}
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 44 }}>
                   <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', flexShrink: 0 }}>大きさ</span>
@@ -534,11 +548,13 @@ export default function ShareEditor({
                     style={{ flex: 1, minHeight: 44, accentColor: 'var(--accent)' }}
                   />
                 </label>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginLeft: 'calc(-1 * var(--space-1))', marginRight: 'calc(-1 * var(--space-1))' }}>
-                  <button type="button" onClick={() => { setPhraseField({ invert: !phrase.invert }); haptic.light(); }} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <Contrast size={18} aria-hidden="true" />
-                    色を入れ替える
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: swapLabel ? 'space-between' : 'flex-end', marginLeft: 'calc(-1 * var(--space-1))', marginRight: 'calc(-1 * var(--space-1))' }}>
+                  {swapLabel && (
+                    <button type="button" onClick={() => { setPhraseField({ invert: !phrase.invert }); haptic.light(); }} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                      <Contrast size={18} aria-hidden="true" />
+                      {swapLabel}
+                    </button>
+                  )}
                   <button type="button" onClick={() => { onPhrase(null); haptic.light(); }} style={{ ...btnLink, color: 'var(--error)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                     <X size={18} aria-hidden="true" />
                     言葉を外す

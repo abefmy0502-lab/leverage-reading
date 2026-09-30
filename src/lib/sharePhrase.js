@@ -155,13 +155,16 @@ export function phrasePositionFrom({ cx, cy }, layout, { W, H }) {
   return { x: Math.round((c.cx / W) * 10000) / 10000, y: Math.round((c.cy / H) * 10000) / 10000 };
 }
 
-// 文字の色（自動）: 写真・夜・表紙の色・透明＝白い文字、紙＝墨の文字。invert で入れ替える。
-// 帯は、文字と反対の色の帯（白い文字なら暗い帯、墨の文字なら明るい帯）。
+// 文字の色（自動）: 写真・夜・表紙の色・透明＝白い文字、紙＝墨の文字。
+// 白抜きの帯（band）は、どの地でも暗い帯に白い文字（白抜き）。
+// invert（「文字を黒にする」「帯を明るくする」）が効くのは、写真の上の文字と帯だけ
+// （紙の墨・夜や表紙の色の白を入れ替えると読めないので、画面にも入れ替えを出さない）。
 // 戻り値: { ink: 'light' | 'dark', band: 'light' | 'dark' | null }
+export function phraseCanInvert({ ground = 'photo', style = 'mincho' } = {}) {
+  return style === 'band' || ground === 'photo';
+}
 export function phraseColors({ ground = 'photo', style = 'mincho', invert = false } = {}) {
-  const darkGround = ground !== 'paper';
-  let light = darkGround;
-  if (style === 'band') light = !darkGround; // 帯は地と反対の明るさの帯に、地の明るさの文字（写真の上に白い帯＋墨の文字）
-  if (invert) light = !light;
+  let light = style === 'band' ? true : ground !== 'paper';
+  if (invert && phraseCanInvert({ ground, style })) light = !light;
   return { ink: light ? 'light' : 'dark', band: style === 'band' ? (light ? 'dark' : 'light') : null };
 }

@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   cleanPhrase, newPhrase, phraseFrame, clampPhraseCenter, phraseDisplayText, phraseLayout, phrasePositionFrom,
-  phraseColors, clampScale, PHRASE_MAX, PHRASE_STYLES, PHRASE_SCALE_MAX, PHRASE_SCALE_MIN,
+  phraseColors, phraseCanInvert, clampScale, PHRASE_MAX, PHRASE_STYLES, PHRASE_SCALE_MAX, PHRASE_SCALE_MIN,
 } from './sharePhrase.js';
 import { recordFrame } from './shareOverlay.js';
 
@@ -131,9 +131,16 @@ describe('文字の色（自動・1 タップで入れ替え）', () => {
     expect(phraseColors({ ground: 'paper' }).ink).toBe('dark');
     expect(phraseColors({ ground: 'photo', invert: true }).ink).toBe('dark');
   });
-  it('帯は文字と反対の明るさ（写真の上は白い帯に墨の文字）', () => {
-    expect(phraseColors({ ground: 'photo', style: 'band' })).toEqual({ ink: 'dark', band: 'light' });
+  it('白抜きの帯はどの地でも暗い帯に白い文字・入れ替えで明るい帯に墨の文字', () => {
+    expect(phraseColors({ ground: 'photo', style: 'band' })).toEqual({ ink: 'light', band: 'dark' });
     expect(phraseColors({ ground: 'paper', style: 'band' })).toEqual({ ink: 'light', band: 'dark' });
-    expect(phraseColors({ ground: 'photo', style: 'band', invert: true })).toEqual({ ink: 'light', band: 'dark' });
+    expect(phraseColors({ ground: 'photo', style: 'band', invert: true })).toEqual({ ink: 'dark', band: 'light' });
+  });
+  it('入れ替えが効くのは写真の上の文字と帯だけ（紙・夜では読めなくなるので効かない）', () => {
+    expect(phraseCanInvert({ ground: 'photo', style: 'bold' })).toBe(true);
+    expect(phraseCanInvert({ ground: 'paper', style: 'bold' })).toBe(false);
+    expect(phraseCanInvert({ ground: 'night', style: 'band' })).toBe(true);
+    expect(phraseColors({ ground: 'paper', style: 'mincho', invert: true }).ink).toBe('dark');
+    expect(phraseColors({ ground: 'night', style: 'mincho', invert: true }).ink).toBe('light');
   });
 });
