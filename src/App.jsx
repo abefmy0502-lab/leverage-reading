@@ -6049,7 +6049,7 @@ function PaywallGate() {
       )}
       {tokenSheetOpen && canBuyTokens && (
         <Suspense fallback={<OverlayFallback />}>
-          <TokenSheet onClose={closeTokenSheet} onPurchased={refreshTokens} />
+          <TokenSheet plan={plan} onClose={closeTokenSheet} onPurchased={refreshTokens} />
         </Suspense>
       )}
     </PaywallContext.Provider>

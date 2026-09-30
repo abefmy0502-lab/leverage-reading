@@ -45,10 +45,13 @@ const preview = (() => {
 const showNative = isNative || preview.on;
 
 // onPurchased: 買えたあとに残りを取り直す（増えたら true を返す）。
-export default function TokenSheet({ onClose, onPurchased }) {
+// plan: 'paid' | 'trial'。7 日間無料の人は、まず小さい方（300）を選んでおく（無料期間のあとに毎月 800 が来るので、
+//   大きい方を既定にしない・2026-09-30）。有料の人は従来どおり大きい方。
+export default function TokenSheet({ plan, onClose, onPurchased }) {
+  const isTrial = plan === 'trial';
   const { user } = useAuth();
   const toast = useToast();
-  const [selected, setSelected] = useState(TOKEN_PACKS[TOKEN_PACKS.length - 1]?.id);
+  const [selected, setSelected] = useState(() => (isTrial ? TOKEN_PACKS[0] : TOKEN_PACKS[TOKEN_PACKS.length - 1])?.id);
   // 🧪 お試しモードのアプリ版の見た目（&native=1）では、ストアの値の代わりに既定の表示を「取れた価格」とみなす。
   const [prices, setPrices] = useState(() => (
     preview.on && !isNative ? Object.fromEntries(TOKEN_PACKS.map((p) => [p.id, p.fallbackPrice])) : {}
@@ -199,7 +202,10 @@ export default function TokenSheet({ onClose, onPurchased }) {
         })}
       </div>
       <p style={{ ...meta, margin: 'var(--space-3) 0 0' }}>
-        購入から {TOKEN_LOT_DAYS} 日有効。その月のトークンを使い切ってから使われます。お支払いは App Store を通じて行われます。
+        {isTrial
+          ? `購入から ${TOKEN_LOT_DAYS} 日有効。無料期間のトークンを使い切ったあとに使われます。プランをやめても、期限まで相談に使えます。`
+          : `購入から ${TOKEN_LOT_DAYS} 日有効。その月のトークンを使い切ってから使われます。プランをやめても、期限まで相談に使えます。`}
+        お支払いは App Store を通じて行われます。
       </p>
     </BottomSheet>
   );

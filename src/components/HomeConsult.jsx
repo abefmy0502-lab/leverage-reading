@@ -16,7 +16,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { LIMITS } from '../lib/limits';
 import { track } from '../lib/analytics';
-import { btnPrimary, btnLink, card, input, groupTitle } from '../styles/ui';
+import { btnPrimary, btnGhost, btnLink, card, input, groupTitle } from '../styles/ui';
 import { buildConsultExamples, countSummaryMemos, memoSearchQuery } from '../lib/consultHelpers';
 import { useAllActions } from '../hooks/useAllActions';
 import { usePaywall } from '../state/PaywallContext';
@@ -252,7 +252,8 @@ function UsedUpNotice({ plan, trialEndLabel, cancelLine = '', onAction, actionLa
           {withPhraseBreaks(cancelLine)}
         </p>
       )}
-      <button type="button" onClick={onAction} style={{ ...btnPrimary, marginTop: 'var(--space-3)' }}>
+      {/* 7 日間無料は、まもなく毎月のトークンが来るので「トークンを追加」を強くすすめない（枠線のボタン・2026-09-30） */}
+      <button type="button" onClick={onAction} style={{ ...(plan === 'trial' ? btnGhost : btnPrimary), marginTop: 'var(--space-3)' }}>
         {actionLabel}
       </button>
       {onSearch && (

@@ -1666,7 +1666,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}
           {planOut && !busy && lastIsAssistant && !isEmpty && (
             <>
-              <button type="button" onClick={openTokenSheet} style={{ ...uiBtnPrimary, marginTop: 'var(--space-4)' }}>
+              {/* 7 日間無料は枠線のボタン（まもなく毎月のトークンが来るので強くすすめない・2026-09-30） */}
+              <button type="button" onClick={openTokenSheet} style={{ ...(plan === 'trial' ? uiBtnGhost : uiBtnPrimary), marginTop: 'var(--space-4)' }}>
                 トークンを追加
               </button>
               {/* 7 日間無料: 続けないときの解約の期限を日付だけで（2026-09-29・「あと N 日」は出さない） */}
@@ -1913,7 +1914,7 @@ function TokensOutCard({ plan, trialEndLabel, cancelLine = '', tokenAllowance, o
           無料期間が終わる<span style={{ whiteSpace: 'nowrap' }}>{trialEndLabel}</span>から、<span style={{ whiteSpace: 'nowrap' }}>毎月 {fmtTokens(PAID_TOKENS)} トークン使えます。</span>
         </p>
       ) : null}
-      <button type="button" onClick={onAdd} style={{ ...uiBtnPrimary, marginTop: 'var(--space-3)' }}>
+      <button type="button" onClick={onAdd} style={{ ...(plan === 'trial' ? uiBtnGhost : uiBtnPrimary), marginTop: 'var(--space-3)' }}>
         トークンを追加
       </button>
       {cancelLine && <p style={trialCancelLineStyle}>{withPhraseBreaks(cancelLine)}</p>}
