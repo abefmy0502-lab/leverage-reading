@@ -539,7 +539,8 @@ export default function ShareSheet({
   };
 
   const aspect = `${dims.w} / ${dims.h}`;
-  const swapLabel = swapQuoteLabel(qi, candidates.length, variant === 'record');
+  // 記録で一文を隠した（表示する項目）ときは「別の一文」を出さない（替えても画像が変わらない）。
+  const swapLabel = variant === 'record' && hidden.includes('quote') ? null : swapQuoteLabel(qi, candidates.length, variant === 'record');
   const thumbAspect = effStyle === 'sticker' ? 1 : FORMATS[format].w / FORMATS[format].h;
   const thumbW = Math.round(THUMB_H * thumbAspect);
   const subjectName = isMonth ? `${now.getMonth() + 1}月の読書` : `『${subjectBook?.title || ''}』`;

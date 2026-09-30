@@ -211,6 +211,18 @@ export default function ShareEditor({
     st.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: Date.now() });
     if (st.pointers.size === 1) {
       startMode(toCard(e.clientX, e.clientY));
+    } else if (st.pointers.size === 2 && !st.mode) {
+      // 1 本目が何も無い場所でも、2 本の指の間が言葉の上なら言葉の大きさを変える。
+      const [a, b] = [...st.pointers.values()];
+      const mid = toCard((a.x + b.x) / 2, (a.y + b.y) / 2);
+      if (latest.current.phrase && hitPhrase(mid)) {
+        st.mode = 'phrase';
+        st.livePhrase = { ...latest.current.phrase };
+        st.cache = {};
+        setShowBox(true);
+        st.pinch = { d: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), scale: st.livePhrase.scale || 1 };
+        st.moved = true;
+      }
     } else if (st.pointers.size === 2 && st.mode) {
       const [a, b] = [...st.pointers.values()];
       st.pinch = {
@@ -336,6 +348,17 @@ export default function ShareEditor({
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => { el.removeEventListener('wheel', onWheel); clearTimeout(t); };
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // iOS の Safari・アプリの中の画面は、2 本の指で画面ごと拡大しようとする（gesturestart）。画像の上では止める
+  // （touch-action: none と二重に守る）。
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return undefined;
+    const stop = (e) => e.preventDefault();
+    el.addEventListener('gesturestart', stop, { passive: false });
+    el.addEventListener('gesturechange', stop, { passive: false });
+    return () => { el.removeEventListener('gesturestart', stop); el.removeEventListener('gesturechange', stop); };
+  }, []);
 
   useEffect(() => () => cancelAnimationFrame(g.current.raf), []);
 
