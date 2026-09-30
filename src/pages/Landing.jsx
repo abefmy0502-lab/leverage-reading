@@ -500,7 +500,7 @@ export default function Landing() {
                 <div className="lp-step-text">
                   <p className="lp-step-num" aria-hidden="true">3</p>
                   <h3 className="lp-h3">答えを、今週やることに</h3>
-                  <p>答えに付く「明日からできる一歩」は、ボタン 1 つで行動リストに入ります。期限を過ぎたもの・今日・今週の順に並ぶので、やることを見失いません。</p>
+                  <p>話しながら、やることを一緒に決めます。決めた「明日からできる一歩」は、ボタン 1 つで行動リストに入ります。期限を過ぎたもの・今日・今週の順に並ぶので、やることを見失いません。</p>
                 </div>
                 <div className="lp-step-shot lp-reveal">
                   <Shot name="action" ratio={[390, 844]} alt="行動の画面。本から生まれた行動が、今週と来週以降に分かれて期限つきで並ぶ" />

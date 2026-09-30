@@ -1,6 +1,8 @@
 // 💬 LP「試しに、相談してみる」— ダウンロード前に一番の価値（相談）を体験してもらう欄。
 //
-// 悩みを 1 つ選ぶと、アプリの相談と同じ形（結論 → 明日からできる一歩 → 根拠）で答えが返る。
+// 悩みを 1 つ選ぶと、結論 → 明日からできる一歩 → 根拠 の形で答えが返る。
+// （アプリでは 2026-09-30 から、一歩は会話で状況を聞いてから一緒に決める。この欄は 1 回で見せる短い例なので、
+//   一歩の見出しを「話しながら決める一歩」にして、アプリでは会話で決めることを示す）
 // 答えは AI を呼ばない固定の例。根拠はお試しモードのサンプルのメモ（src/demo/seed.js）に
 // 実在するものだけを使う（架空の本・架空のメモを書かない）。その旨は欄の下に明記する。
 //
@@ -204,7 +206,7 @@ export default function ConsultDemo({ cta, onEvent = () => {} }) {
                 {phase === 'done' && (
                   <div className="lp-demo-after">
                     <div className="lp-demo-step">
-                      <p className="lp-demo-step-label">明日からできる一歩</p>
+                      <p className="lp-demo-step-label">話しながら決める一歩</p>
                       <p>{s.step}</p>
                       <button type="button" className={`lp-demo-add${added ? ' is-added' : ''}`} onClick={() => { if (!added) onEvent('demo_add', { i: active }); setAdded(true); }} aria-pressed={added}>
                         {added ? <Check size={16} aria-hidden="true" /> : <Target size={16} aria-hidden="true" />}
