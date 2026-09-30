@@ -21,6 +21,7 @@ import BookStoreLinks from './BookStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText } from '../styles/ui';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
+import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -282,6 +283,9 @@ function RecField({ label, text }) {
 export function AdvisorSessionDetail({ session, books, onResume, onNewSession, onClose, onAddBook, onBookAdded }) {
   const messages = useMemo(() => Array.isArray(session?.messages) ? session.messages : [], [session]);
   const recs = useMemo(() => Array.isArray(session?.recommended_books) ? session.recommended_books : [], [session]);
+  // AI の文の書名は、実在を確かめたカードの本（_verify==='ok'）と本棚の本だけ残す（会話中と同じ・lib/advisorProse.js）。
+  //   確かめた結果を持たない古い会話は、本棚の本以外の書名を出さない（「この会話を続ける」で確かめ直せる）。
+  const proseLists = useMemo(() => proseTitleLists(recs, books), [recs, books]);
 
   // 既に本棚にある本 (タイトル+著者の正規化キー or ISBN/ASIN で重複判定)
   const addedKeySet = useMemo(() => {
@@ -383,7 +387,7 @@ export function AdvisorSessionDetail({ session, books, onResume, onNewSession, o
             const raw = (m.content ?? m.text ?? '').toString();
             // assistant メッセージは RECOMMENDATIONS の JSON を剥がして
             // プロセだけにする (永続化フォーマットの都合で生 JSON が混じっているため)
-            const text = isUser ? displayUserText(raw) : stripRecommendations(raw);
+            const text = isUser ? displayUserText(raw) : filterProseTitles(stripRecommendations(raw), proseLists);
             if (!text) return null; // JSON だけのメッセージは非表示
             return isUser ? (
               // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。

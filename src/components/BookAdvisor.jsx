@@ -43,6 +43,7 @@ import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { displayUserText, concernOf, interviewPairsOf, advisorSetupFields } from '../lib/advisorText';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
+import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 import { useEdgeSwipeBack } from '../hooks/useEdgeSwipeBack';
 
 const AdvisorHistoryList = lazy(() => import('./AdvisorHistory').then((m) => ({ default: m.AdvisorHistoryList })));
@@ -237,6 +238,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   });
   // 現在進行中のセッション ID。null なら次回送信時に createSession で新規作成。
   const [currentSessionId, setCurrentSessionId] = useState(() => memo0.currentSessionId || null);
+  // 検証が終わった時点の会話 ID（非同期の後で読むので ref でも持つ）。
+  const sessionIdRef = useRef(currentSessionId);
+  useEffect(() => { sessionIdRef.current = currentSessionId; }, [currentSessionId]);
   // ── ガイド付きヒアリング（チップ選択ウィザード）の状態 ───────────────────
   // 旧来の「4 問を一括テキストで投げて自由記述で受ける」摩擦を解消するため、
   // 初回の相談内容から AI が質問セットを設計 → 1 問ずつ選択肢タップで答える。
@@ -513,11 +517,16 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   };
 
   // 🔎 推薦の実在検証＋表紙先読み（並列・非ブロッキング）。
-  //   - 目的1（ハルシネーション対策）: 楽天総合検索/NDL/Google のどれかで実在を
-  //     同定できない本（exists===false＝サーバーが全ソース 0 件と応答）を「疑わしい」
-  //     とみなす。実在が確認できた本が 3 冊以上あれば疑わしい本は表示から落とし、
-  //     予備（6〜7冊目）で埋める。3 冊未満なら落とさず警告バッジ付きで残す
-  //     （実在本を誤って落とさないための安全策。ネットワーク不明 exists===null も罰しない）。
+  //   - 目的1（ハルシネーション対策）: 楽天総合検索/NDL/Google で書名（と著者）が
+  //     はっきり一致する本が見つかったかを 1 冊ずつ確かめ、_verify に残す:
+  //       'ok'      実在を確かめた（exists===true）
+  //       'unknown' 確かめられなかった（exists===null＝通信失敗・時間切れ・検索元が使えない）
+  //       'suspect' 実在しない疑い（exists===false＝検索元は答えたが一致する本が無い）
+  //     実在が確認できた本が 3 冊以上あれば疑わしい本は表示から落とし、予備（6〜7冊目）で埋める。
+  //     3 冊未満なら落とさず警告バッジ付きで残す（実在本を誤って落とさないための安全策）。
+  //   - 本文（前置き・読む順番・補足）の書名は、ここで 'ok' になったカードの本と本棚の本だけを
+  //     許可する（lib/advisorProse.js の filterProseTitles・描画のときに毎回かける・2026-09-30）。
+  //     検証が終わるまで（checked=false）は読む順番を出さない（架空の書名を一瞬でも見せない）。
   //   - 目的2（体感速度＝質）: 実在本の表紙をここで先読みしてカードに載せる。
   //     追加時に別途解決していた表紙が、カード表示中に埋まる。
   //   実装ノート（レビューボード監査で是正済みの2点）:
@@ -528,12 +537,13 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   //     （約1req/秒制限）へ同時多発し大半が 429、検証品質がむしろ落ちていた。
   //     1冊ずつ逐次＋250ms スタガに変更（非ブロッキングなので体感への影響なし。
   //     coverAutoRetry の 1req/秒ペーシングと同じ流儀）。
+  //   返り値: 表示に使うカード（_verify つき）。古い世代・離脱済みなら null。
   const verifyAndEnrich = async (pool, gen) => {
-    if (!Array.isArray(pool) || pool.length === 0) return;
+    if (!Array.isArray(pool) || pool.length === 0) return null;
     const stale = () => unmountedRef.current || verifyGenRef.current !== gen;
     const results = [];
     for (const rec of pool) {
-      if (stale()) return; // 再生成/離脱済み — 外部APIをこれ以上叩かない
+      if (stale()) return null; // 再生成/離脱済み — 外部APIをこれ以上叩かない
       let v = { exists: null };
       try {
         // eslint-disable-next-line no-await-in-loop
@@ -554,49 +564,41 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           if (await checkImageExists(u)) { cover = u; break; }
         }
       }
-      results.push({ ...rec, cover, isbn: v.isbn || rec.isbn || '', _suspect: v.exists === false });
+      const verify = v.exists === true ? 'ok' : v.exists === false ? 'suspect' : 'unknown';
+      // 古い保存形式の _suspect は持ち越さない（_verify だけを見る）。
+      const { _suspect: _oldSuspect, ...base } = rec;
+      results.push({ ...base, cover, isbn: v.isbn || rec.isbn || '', _verify: verify });
       // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => { setTimeout(r, 250); });
     }
-    if (stale()) return;
-    const solid = results.filter((r) => !r._suspect);   // 実在確認 or 不明（罰しない）
-    const suspects = results.filter((r) => r._suspect);  // 実在しない疑い（全ソース0件）
+    if (stale()) return null;
+    const solid = results.filter((r) => r._verify !== 'suspect');   // 実在確認 or 不明（罰しない）
+    const suspects = results.filter((r) => r._verify === 'suspect'); // 実在しない疑い
     // ハルシネーション（実在の著者＋架空の書名）は原則カードに出さない。
-    // api/cover のタイトル照合ガードで「架空タイトルに実在ISBNが紐づき実在扱い」の
-    // 穴は塞ぎ済みで _suspect の精度は高い。ただし solid が 3 冊未満（検証 API が
-    // 不調な日）は suspects を落とすとカードが 1〜2 枚に痩せるため、⚠️警告バッジ
-    // 付きで残して枚数を維持する（正直に「確認できていない」を見せる方を選ぶ）。
+    // ただし solid が 3 冊未満（検証 API が不調な日）は suspects を落とすとカードが
+    // 1〜2 枚に痩せるため、⚠️警告バッジ付きで残して枚数を維持する（正直に「確認できていない」を見せる方を選ぶ）。
     const items = (solid.length >= 3 ? solid : [...solid, ...suspects]).slice(0, 5);
-    // 🧹 カードから落とした架空疑いの本は、本文（読む順番・まとめ）からも消す。
-    // 旧: 検証はカードだけを差し替え、本文には『実在しない書名』が残り続けて
-    // いた（実例: 『御用聞きから提案営業へ』が読む順番に居座った）。
-    // プロンプト側でも「JSON に入れていない書名を本文に出すな」と縛ったが、
-    // 表示側でも二重に防衛する。行単位で落とし、番号リストは振り直す。
-    const kept = new Set(items.map((r) => r.title));
-    const dropped = results.filter((r) => r._suspect && !kept.has(r.title) && r.title);
-    const scrubProse = (text) => {
-      if (!text || dropped.length === 0) return text;
-      const lines = text
-        .split('\n')
-        .filter((ln) => !dropped.some((d) => ln.includes(d.title)));
-      // 連続する番号リスト（1. 2. …）を振り直す（行削除で 1,2,4 と飛ぶのを防ぐ）。
-      // 空行はリストの継続とみなし、見出し等の実文が来たら採番をリセットする。
-      let n = 0;
-      return lines
-        .map((ln) => {
-          if (/^\s*\d+\.\s/.test(ln)) {
-            n += 1;
-            return ln.replace(/^(\s*)\d+\./, `$1${n}.`);
-          }
-          if (ln.trim() !== '') n = 0;
-          return ln;
-        })
-        .join('\n');
-    };
-    setRecommendations((prev) => (prev
-      ? { ...prev, items, before: scrubProse(prev.before), after: scrubProse(prev.after) }
-      : prev));
+    setRecommendations((prev) => (prev ? { ...prev, items, checked: true } : prev));
+    return items;
   };
+
+  // 検証が終わったカード（_verify つき）を、この会話の履歴にも残す（履歴の中身・再開でも本文の書名を絞れるように）。
+  const persistVerified = (sessionId, items) => {
+    if (!items || !sessionId || !sessionApi?.available) return;
+    Promise.resolve(sessionApi.updateSession(sessionId, { recommended_books: items })).catch(() => { /* 永続化失敗は UX を壊さない */ });
+  };
+
+  // 検証を（やり直して）走らせ、終わったら履歴にも残す。画面に戻ったとき・会話の再開で使う。
+  const startVerify = (pool, sessionId) => {
+    verifyGenRef.current += 1;
+    verifyAndEnrich(pool, verifyGenRef.current).then((items) => persistVerified(sessionId, items)).catch(() => {});
+  };
+  // 検証の途中で画面を離れて戻ってきたら、検証をやり直す（離れると検証は止まるので、読む順番が出ないままにしない）。
+  useEffect(() => {
+    const r = recommendations;
+    if (r && r.checked === false && Array.isArray(r.pool) && r.pool.length > 0) startVerify(r.pool, sessionIdRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 推薦生成 — ヒアリング完了後（または fallback の直接相談）に bookAdvisor を
   // 1 回ストリーム。userMsg は AI へ渡す本文、sourceQuery は本棚追加時の
@@ -706,6 +708,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
     const { recs, prose } = parseAdvisorResponse(finalText);
     let nextRecs = null;
+    let verifyDone = null;
     if (recs) {
       // 提案された本は「全部」表示する。以前は findIsbnCandidates で実在確認できた
       // 本だけに絞っていたが、Google Books 429 / NDL 照合の厳格さで「実在する本でも
@@ -722,6 +725,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         items: finalList,
         before: prose?.before || '',
         after: prose?.after || '',
+        // 検証に使う候補（予備を含む）と、検証が終わったか（終わるまで読む順番を出さない）。
+        pool: verifyPool,
+        checked: false,
       });
       setLastUserQuery(concernOf(sourceQuery || safeMsg));
       nextRecs = finalList;
@@ -729,7 +735,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       //    体感は落ちない。検証結果で「実在しない本」を除外/警告し、実在本には
       //    表紙を後追いで載せる（カードの質と信頼が上がる）。
       verifyGenRef.current += 1;
-      verifyAndEnrich(verifyPool, verifyGenRef.current);
+      verifyDone = verifyAndEnrich(verifyPool, verifyGenRef.current);
     } else {
       // 推薦 JSON が取れなかった → 本文（マーカー/壊れた JSON は除去済み）を提示。
       // 空になった（=JSON だけで打ち切られた等）場合は案内文を出し、袋小路を防ぐ。
@@ -750,13 +756,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     // setCurrentSessionId が no-op になり、戻ってきた UI が別の新規セッションを
     // 作って履歴に半端な重複が増えるため。
     if (sessionApi?.available && !unmountedRef.current) {
+      let sid = currentSessionId;
       try {
         if (!currentSessionId) {
           const created = await sessionApi.createSession({
             messages: nextHistory,
             recommendedBooks: nextRecs || [],
           });
-          if (created?.id) setCurrentSessionId(created.id);
+          if (created?.id) { sid = created.id; setCurrentSessionId(created.id); }
         } else {
           const patch = { messages: nextHistory };
           if (nextRecs) patch.recommended_books = nextRecs;
@@ -765,6 +772,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       } catch {
         // 永続化失敗は UX を壊さない
       }
+      // 実在の検証が終わったら、確かめた結果つきのカードで履歴を上書きする。
+      if (verifyDone) verifyDone.then((items) => persistVerified(sid, items)).catch(() => {});
     }
   };
 
@@ -924,7 +933,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         .filter((m) => m.text), // 剥がして空になった吹き出しは出さない
     );
     const recsList = Array.isArray(s.recommended_books) ? s.recommended_books : [];
-    setRecommendations(recsList.length > 0 ? { items: recsList, before: '', after: '' } : null);
+    // 実在の検証の結果（_verify）を持たない古い会話は、開いたときに確かめ直す（本文の書名もそれで絞る）。
+    const needsCheck = recsList.length > 0 && recsList.some((r) => !r?._verify);
+    setRecommendations(recsList.length > 0 ? { items: recsList, before: '', after: '', pool: recsList, checked: !needsCheck } : null);
+    if (needsCheck) startVerify(recsList, s.id);
+    else verifyGenRef.current += 1; // 前の会話の検証が後から結果を上書きしないように
     // 直近の user 発話を lastUserQuery として復元 → 「読みたいに追加」時の課題（と得たいことの分け方）に使う
     //   （保存は AI 向けのテンプレートなので、本人の相談だけを取り出す。ヒアリングの答えも
     //    この会話のものに入れ替える＝前の会話の答えが「現在の課題」に混ざらないように）
@@ -938,6 +951,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     setConcern('');
     setView('chat');
   };
+
+  // 本文の書名の許可リスト（実在を確かめたカードの本＋本棚の本だけ・lib/advisorProse.js・2026-09-30）。
+  //   前置き・読む順番・補足・会話の再開で出す AI の文・生成中のライブの前置きのすべてにかける。
+  const proseLists = proseTitleLists(recommendations?.items, books);
+  const cleanProseTitles = (text) => filterProseTitles(text, proseLists);
 
   const isEmpty = messages.length === 0 && !recommendations;
   // ガイド付きヒアリングのいずれかが動いている = 相談入力フェーズではない。
@@ -1447,7 +1465,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             // 生成中の前置き文をライブ表示（動く文字＝進行が見える）。カードは完了時に出る。
             // 完成後の前置きと同じ見た目（15/--text-2）にして、出来上がった瞬間に文字が跳ねないようにする。
             <p style={{ ...introText, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>
-              {recoStream}
+              {cleanProseTitles(recoStream)}
               <span className="streaming-cursor" aria-hidden="true" />
             </p>
           ) : (
@@ -1518,10 +1536,12 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           <div key={i} style={{ ...cardStyle, ...readText, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {body}
           </div>
-        ) : (
+        ) : (() => {
           // 完成した AI の文章は Markdown（見出し・箇条書き）として描画（生の ## を出さない）。
-          <MarkdownSections key={i} text={m.text} />
-        );
+          // 書名は確かめた本・本棚の本だけ残す（消して空になったら、もう一度送る案内に替える）。
+          const shown = cleanProseTitles(m.text);
+          return <MarkdownSections key={i} text={shown || 'ご提案に確かめられない本が含まれていたため、表示を控えました。お手数ですが、もう一度送ってください。'} />;
+        })();
       })}
 
       {/* Recommendations — 1 冊 1 カード（理由つき） */}
@@ -1538,7 +1558,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             </p>
           )}
           {recommendations.before && (() => {
-            const intro = introTextOf(recommendations.before);
+            const intro = introTextOf(cleanProseTitles(recommendations.before));
             return intro ? <p style={introText}>{intro}</p> : null;
           })()}
           {recommendations.items.map((rec, i) => {
@@ -1568,7 +1588,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 {/* 実在を確認できなかった本（AI が実在しない書名を挙げた疑い）。
                     削除はせず注意喚起に留める（実在するのに検証を取りこぼした本を
                     誤って葬らないため）。 */}
-                {rec._suspect && (
+                {rec._verify === 'suspect' && (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-soft)', borderRadius: 'var(--radius)' }}>
                     <IcAlert size={16} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
                     <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>
@@ -1645,8 +1665,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           })}
         </div>
           {/* 「## 📋 読む順番」等は Markdown（表・見出し・箇条書き）として描画。励ましだけの「まとめ」は出さない。 */}
-          {(() => {
-            const after = dropSummarySection(recommendations.after);
+          {/* 書名は実在を確かめたカードの本・本棚の本だけ（検証が終わるまでは出さない＝架空の書名を一瞬でも見せない）。 */}
+          {recommendations.checked !== false && (() => {
+            const after = cleanProseTitles(dropSummarySection(recommendations.after));
             return after ? <MarkdownSections text={after} /> : null;
           })()}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
