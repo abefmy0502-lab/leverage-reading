@@ -10,11 +10,26 @@
 //     NDL 書影 → openBD → Amazon の順に server-side で実在検証して採用する。
 //     Google Books は鍵があれば補助に使う（GOOGLE_BOOKS_API_KEY、任意）。
 //
-// 入力（GET）: title, author, isbn（最低 title か isbn）
-// 出力: { cover, isbn }（cover が '' なら未発見）。認証なし・公開書誌の読み取り専用。
+// 入力（GET）: title, author, isbn（最低 title か isbn）、verify=1（AI 選書の実在の判定・任意）
+// 出力: { cover, isbn, candidates }（cover が '' なら未発見）。認証なし・公開書誌の読み取り専用。
+//   verify=1 のときは加えて { verified: true|false|null, match }（判定は _bookVerify.js・2026-09-30）。
 
 import https from 'node:https';
 import { applyCors } from './_cors.js';
+import { findStrongMatch, strongTitleMatch, authorMatches } from './_bookVerify.js';
+
+// 🔎 実在の判定（?verify=1）のための「検索元が返した本」の記録。表紙探しの流れの途中で
+//    楽天・NDL・Google が返した本（書名・著者・ISBN）を控え、最後に _bookVerify.js で
+//    「書名がはっきり一致し、著者も一致する本」があるかを見る。answered は、正常に答えた検索元
+//    （0 件でも答えたら入る）。どれも答えなかったら「確かめられなかった」（verified: null）。
+function newEvidence() {
+  return { items: [], answered: new Set(), ran: {} };
+}
+function ndlCreators(chunk) {
+  return (chunk.match(/<dc:creator[^>]*>([^<]*)<\/dc:creator>/gi) || [])
+    .map((c) => c.replace(/<[^>]+>/g, '').trim())
+    .filter(Boolean);
+}
 
 function clean(s) {
   return (s || '').toString().trim().slice(0, 300);
@@ -130,15 +145,19 @@ function ndlTitleMatches(rawItemTitle, wantCoreNorm) {
 //   ⚠️ fail-open: NDL に無い / 取得不可 / 障害のときは true（＝従来通り信用）を返し、
 //      ISBN が NDL 未収録の正当な本を誤って弾かない（退行防止）。明確に別書名の
 //      item しか返らなかった時だけ false。
-async function isbnTitleMatches(isbn, title) {
+async function isbnTitleMatches(isbn, title, ev) {
   const cleaned = cleanIsbn(isbn);
   if (!cleaned) return true;
   const want = normTitle(coreTitle(title));
   if (!want) return true; // タイトル未指定は検証しない（従来挙動）
   try {
     const xml = await ndlFetch([`isbn=${encodeURIComponent(cleaned)}`, 'cnt=5']);
+    if (ev && ndlFetch._lastStatus === 200) ev.answered.add('ndl');
     if (!xml || !/<item[\s>]/i.test(xml)) return true; // 判定不能 → 信用（fail-open）
     const items = xml.split(/<item[\s>]/i).slice(1);
+    if (ev) {
+      for (const chunk of items) ev.items.push({ title: itemTitle(chunk), authors: ndlCreators(chunk), isbn: cleaned, src: 'ndl' });
+    }
     if (items.length === 0) return true;
     // どれか一つでも書名が一致すれば OK。全て明確に別書名なら誤 ISBN とみなす。
     return items.some((chunk) => ndlTitleMatches(itemTitle(chunk), want));
@@ -156,9 +175,10 @@ async function isbnTitleMatches(isbn, title) {
 //   採用順位: ①タイトル一致＋著者一致 → ②タイトルのみ一致（著者照合は表記揺れで
 //   落ちることがあるため保険）。タイトル不一致の ISBN は絶対に採らない
 //   （＝「誤った表紙」より「表紙なし（手動アップロードへ）」を選ぶ）。
-async function ndlIsbns(title, author, sink) {
+async function ndlIsbns(title, author, sink, ev) {
   const t = coreTitle(title);
   if (!t) return [];
+  if (ev) ev.ran.ndlTitle = true;
   const wantCoreNorm = normTitle(t);
   const wantAuthor = normPerson(author);
   try {
@@ -171,13 +191,20 @@ async function ndlIsbns(title, author, sink) {
     p1.push('cnt=20');
     let xml = await ndlFetch(p1);
     if (sink) sink.http = ndlFetch._lastStatus ?? null;
+    if (ev && ndlFetch._lastStatus === 200) ev.answered.add('ndl');
     if (!xml || !/<item[\s>]/i.test(xml)) {
       xml = await ndlFetch([`title=${encodeURIComponent(t)}`, 'cnt=20']);
       if (sink) sink.http2 = ndlFetch._lastStatus ?? null;
+      if (ev && ndlFetch._lastStatus === 200) ev.answered.add('ndl');
     }
     if (!xml) return [];
 
     const items = xml.split(/<item[\s>]/i).slice(1);
+    if (ev) {
+      for (const chunk of items) {
+        ev.items.push({ title: itemTitle(chunk), authors: ndlCreators(chunk), isbn: extractIsbns(chunk, 1)[0] || '', src: 'ndl' });
+      }
+    }
     if (sink) { sink.raw = items.length; sink.tmatch = 0; }
     const both = [];       // タイトル一致＋著者一致（最優先）
     const titleOnly = [];  // タイトルのみ一致（著者照合が落ちた時の保険）
@@ -255,19 +282,32 @@ function gTitleMatch(v, coreNorm) {
   return t.includes(coreNorm) || coreNorm.includes(t);
 }
 
-async function googleCover(title, author, isbn, sink) {
+async function googleCover(title, author, isbn, sink, ev) {
   const want = normPerson(author);
   const core = coreTitle(title);
   const coreNorm = normTitle(core);
+  // 実在の判定用に、Google が返した本（書名＋副題・著者・ISBN・表紙）を控える。
+  const fetchVolumes = async (q, max) => {
+    const vols = await googleFetchVolumes(q, max);
+    if (ev) {
+      if (googleFetchVolumes._lastStatus === 200) ev.answered.add('google');
+      for (const v of vols) {
+        const f = gVolFields(v);
+        ev.items.push({ title: [v.title, v.subtitle].filter(Boolean).join(' '), authors: v.authors || [], isbn: f.isbn, cover: f.cover, src: 'google' });
+      }
+    }
+    return vols;
+  };
+  if (ev && !isbn) ev.ran.googleTitle = true;
 
   if (isbn) {
-    const items = await googleFetchVolumes(`isbn:${cleanIsbn(isbn)}`);
+    const items = await fetchVolumes(`isbn:${cleanIsbn(isbn)}`);
     if (sink) { sink.http = googleFetchVolumes._lastStatus ?? null; sink.raw = items.length; }
     for (const v of items) { const f = gVolFields(v); if (f.cover) return f; }
     return { cover: '', isbn: '' };
   }
   if (!author) {
-    const items = await googleFetchVolumes(core);
+    const items = await fetchVolumes(core);
     if (sink) { sink.http = googleFetchVolumes._lastStatus ?? null; sink.raw = items.length; }
     for (const v of items) { const f = gVolFields(v); if (f.cover) return f; }
     return { cover: '', isbn: '' };
@@ -292,7 +332,7 @@ async function googleCover(title, author, isbn, sink) {
   if (sink) { sink.raw = 0; sink.http = null; }
   for (const plan of plans) {
     // eslint-disable-next-line no-await-in-loop
-    const items = await googleFetchVolumes(plan.q, plan.max);
+    const items = await fetchVolumes(plan.q, plan.max);
     if (sink) { sink.http = googleFetchVolumes._lastStatus ?? sink.http; sink.raw += items.length; }
     const ok = (v) => gAuthorMatch(v, want) && (!plan.needTitle || gTitleMatch(v, coreNorm));
     // ① 一致＋表紙あり
@@ -353,10 +393,11 @@ function rakutenUpscale(url) {
 // NDL と同じ照合規律: ISBN 直引き以外は「タイトル一致必須」＋「著者一致を優先」。
 // 兄弟本（同著者・別書名）のカバーは絶対に採らない。
 // 返り値 { cover, isbn }（見つからなければ両方 ''）。
-async function rakutenCover(title, author, isbn) {
+async function rakutenCover(title, author, isbn, ev) {
   const appId = (process.env.RAKUTEN_APPLICATION_ID || '').trim();
   const accessKey = (process.env.RAKUTEN_ACCESS_KEY || '').trim();
   if (!appId || !accessKey) return { cover: '', isbn: '' };
+  if (ev && !cleanIsbn(isbn)) ev.ran.rakutenTitle = true;
   const referer = (process.env.RAKUTEN_APP_URL || '').trim();
   const d = { ref: !!referer, tmatch: 0, tries: [] };
 
@@ -387,6 +428,13 @@ async function rakutenCover(title, author, isbn) {
         .map((raw) => (raw && raw.Item ? raw.Item : raw))
         .filter((it) => it && typeof it === 'object');
       t.raw = items.length;
+      if (ev) {
+        ev.answered.add('rakuten');
+        for (const it of items) {
+          const f = fields(it);
+          ev.items.push({ title: f.title, authors: f.author ? [f.author] : [], isbn: f.isbn, cover: f.cover, src: 'rakuten' });
+        }
+      }
       t.sample = items.slice(0, 3).map((it) => ({ t: (it.title || '').toString().slice(0, 20), c: !!(it.largeImageUrl || it.mediumImageUrl) }));
       d.tries.push(t);
       return items;
@@ -601,6 +649,14 @@ export default async function handler(req, res) {
 
   let cover = '';
   let isbn = isbnIn;
+  // 🔎 ?verify=1（AI 選書の実在の判定）: 検索元が返した本を控え、最後に「書名がはっきり一致し、
+  //    著者も一致する本」があるかを返す（verified: true / false / null）。表紙探しの流れは同じだが、
+  //    書影の server-side 検証（1 冊で最大 6 回の画像取得）は省く（クライアントが candidates を <img> で確かめる・速さ優先）。
+  const verifyMode = req.query?.verify === '1' && !!title;
+  const ev = verifyMode ? newEvidence() : null;
+  const coverFor = verifyMode ? async () => '' : coverFromIsbn;
+  // verify のときは、はっきり一致する本が見つかった時点で次の検索元を引かない（速さ優先）。
+  const settled = () => verifyMode && !!findStrongMatch(ev.items, title, author);
 
   // 🔎 軽量診断（常時オン・安全）: どのソースが何を返したかを記録する。追加の
   //    外部フェッチは行わず（通常フローの結果を控えるだけ）、内部 URL・API キー・
@@ -621,9 +677,9 @@ export default async function handler(req, res) {
     //    不一致なら誤 ISBN とみなして破棄し、②③ のタイトル検索で引き直す
     //    （＝「誤った表紙」より、正しい表紙 or 表紙なし。アプリの既存方針）。
     if (isbn) {
-      const trust = await isbnTitleMatches(isbn, title);
+      const trust = await isbnTitleMatches(isbn, title, ev);
       if (trust) {
-        cover = await coverFromIsbn(isbn);
+        cover = await coverFor(isbn);
       } else {
         isbn = ''; // 誤 ISBN を破棄 → 以降のタイトル検索で正しい ISBN を引き直す
       }
@@ -633,8 +689,8 @@ export default async function handler(req, res) {
     //    ISBN 直引き→無ければタイトル検索。表紙 URL は CSP 許可済みの
     //    thumbnail.image.rakuten.co.jp を直接返せる（クライアントが最終検証）。
     //    env（RAKUTEN_APPLICATION_ID / ACCESS_KEY）未設定なら静かにスキップ。
-    if (!cover) {
-      const rk = await rakutenCover(title, author, isbn);
+    if (!cover && !settled()) {
+      const rk = await rakutenCover(title, author, isbn, ev);
       diag.src.rakuten = { cover: !!rk.cover, isbn: rk.isbn || null, ...(rk._d || {}) };
       if (rk.cover) {
         cover = rk.cover;
@@ -642,39 +698,71 @@ export default async function handler(req, res) {
       } else if (rk.isbn && !isbn) {
         // 楽天が本を同定できたが書影なし → 正しい ISBN として他ソースを試す。
         isbn = rk.isbn;
-        cover = await coverFromIsbn(rk.isbn);
+        cover = await coverFor(rk.isbn);
       }
     }
 
     // ③ NDL OpenSearch（キー不要・和書に強い）で ISBN を引く。
     //    ※ サーバーからの書影 fetch は 403 で弾かれることがあるので、表紙が
     //      検証できなくても「正しい ISBN」は必ず確保する（後段でクライアントに渡す）。
-    if (!cover) {
+    if (!cover && !settled()) {
       const ndlSink = {};
-      const isbns = await ndlIsbns(title, author, ndlSink);
+      const isbns = await ndlIsbns(title, author, ndlSink, ev);
       diag.src.ndl = { isbnCount: isbns.length, first: isbns[0] || null, ...ndlSink };
       for (const cand of isbns) {
         if (!isbn) isbn = cand; // 最初に見つかった ISBN を確保
         // eslint-disable-next-line no-await-in-loop
-        const u = await coverFromIsbn(cand);
+        const u = await coverFor(cand);
         if (u) { cover = u; isbn = cand; break; }
       }
     }
 
     // ④ それでもダメなら Google Books（鍵があれば有効・補助）。
-    if (!cover) {
+    if (!cover && !settled()) {
       const gSink = {};
-      const g = await googleCover(title, author, isbn, gSink);
+      const g = await googleCover(title, author, isbn, gSink, ev);
       diag.src.google = { cover: !!g.cover, isbn: g.isbn || null, ...gSink };
       if (g.cover) { cover = g.cover; if (!isbn) isbn = g.isbn; }
       else if (g.isbn && !isbn) {
         isbn = g.isbn;
-        cover = await coverFromIsbn(g.isbn);
+        cover = await coverFor(g.isbn);
       }
     }
   } catch (e) {
     diag.err = String((e && e.message) || e).slice(0, 120);
     console.warn('[api/cover] failed:', e && e.message);
+  }
+
+  // 🔎 実在の判定（?verify=1）。表紙探しの流れが早く終わって（楽天がゆるい照合で表紙を返した等）
+  //    書名の検索をしていない検索元があれば、NDL → 楽天 → Google の順に書名で引き直してから判定する。
+  //    「ISBN が 1 つでも取れたら実在」はやめた（架空の書名でも、頭が似た別の本の ISBN が取れてしまうため）。
+  let verified;
+  let match = null;
+  if (verifyMode) {
+    try {
+      match = findStrongMatch(ev.items, title, author);
+      if (!match && !ev.ran.ndlTitle) { await ndlIsbns(title, author, null, ev); match = findStrongMatch(ev.items, title, author); }
+      if (!match && !ev.ran.rakutenTitle) { await rakutenCover(title, author, '', ev); match = findStrongMatch(ev.items, title, author); }
+      if (!match && !ev.ran.googleTitle) { await googleCover(title, author, '', null, ev); match = findStrongMatch(ev.items, title, author); }
+    } catch (e) {
+      console.warn('[api/cover] verify failed:', e && e.message);
+    }
+    if (match) {
+      verified = true;
+      // 返す ISBN・表紙は「一致した本」のものにする（ゆるい照合で掴んだ別の本の表紙を出さない）。
+      const strongIsbns = new Set(ev.items
+        .filter((it) => it.isbn && strongTitleMatch(title, it.title) && (!author || authorMatches(author, it.authors)))
+        .map((it) => it.isbn));
+      if (!isbn || !strongIsbns.has(isbn)) {
+        isbn = match.isbn || '';
+        cover = match.cover || '';
+      }
+    } else {
+      // 検索元のどれかが答えたのに一致する本が無い＝実在しない疑い。どれも答えなかった＝確かめられなかった。
+      verified = ev.answered.size > 0 ? false : null;
+      isbn = '';
+      cover = '';
+    }
   }
 
   // 🔑 重要: server-side で書影 fetch が 403 されても、解決済み ISBN から
@@ -685,7 +773,10 @@ export default async function handler(req, res) {
   // ⚠️ 失敗（ISBN すら引けなかった空っぽ応答）を長期キャッシュすると、一度
   //    こけた本が CDN に 7 日間張り付いてしまう。成功（ISBN が取れた）時だけ
   //    長期キャッシュし、空っぽは短く（次回すぐ再試行できるように）する。
-  if (isbn) {
+  if (verifyMode && verified !== true) {
+    // 実在しない疑いは少しだけ（10 分）、確かめられなかった（検索元の不調）は覚えない＝次にすぐ確かめ直せる。
+    res.setHeader('Cache-Control', verified === false ? 'public, max-age=0, s-maxage=600' : 'no-store');
+  } else if (isbn) {
     res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800');
   } else {
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60');
@@ -693,6 +784,10 @@ export default async function handler(req, res) {
   // 🛡 診断情報は既存の debug ゲートと同じ条件でのみ返す（未認証エンドポイントで
   //    構成情報＝楽天キー設定有無・版マーカー・外部 API のエラー断片を常時公開しない）。
   const out = { cover: cover || '', isbn: isbn || '', candidates };
+  if (verifyMode) {
+    out.verified = verified;
+    out.match = match ? { title: String(match.title || '').slice(0, 200), src: match.src } : null;
+  }
   if (process.env.ALLOW_COVER_DEBUG === 'true') out._diag = diag;
   return res.status(200).json(out);
 }

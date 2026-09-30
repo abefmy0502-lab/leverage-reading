@@ -66,29 +66,38 @@ export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
   }
 };
 
-// 📖 実在検証: サーバーの表紙リゾルバ（/api/cover）が、この (title, author) を
-//   楽天総合検索・NDL・Google のいずれかで「実在する本」として同定できたかを返す。
-//   AI 選書のハルシネーション（実在する著者＋存在しない書名）を検出する用途。
+// 📖 実在検証: サーバーの表紙リゾルバ（/api/cover?verify=1）に、この (title, author) の本が
+//   楽天・NDL・Google のどれかに「書名がはっきり一致し、著者も一致する本」として在るかを聞く。
+//   AI 選書のハルシネーション（実在する著者＋存在しない書名・本物に似た頭の架空の書名）を検出する用途。
 //   返り値:
-//     { exists: true,  isbn, cover, candidates }  実在（どれかのソースが ISBN を返した）
-//     { exists: false }                            サーバーは応答したが全ソース 0 件
-//     { exists: null }                             判定不能（ネットワーク/レート制限）
-//   ⚠️ exists:null（通信失敗）は「実在しない」とは扱わない。過去に実在検証で
-//     429/CORS の誤検知が多発し実在本まで落とした反省から、不明は罰しない。
+//     { exists: true,  isbn, cover, candidates }  実在（一致した本の ISBN・表紙の候補）
+//     { exists: false }                            検索元は答えたが、一致する本が無い（実在しない疑い）
+//     { exists: null }                             確かめられなかった（通信失敗・レート制限・検索元がどれも使えない）
+//   ⚠️ exists:null（確かめられなかった）は「実在しない」とは扱わないが、「実在する」とも扱わない
+//     （AI 選書では「確認できませんでした」と出し、本文の書名の許可にも使わない・2026-09-30）。
+//   ⚠️ 2026-09-30 まで: 「ISBN が 1 つでも取れたら実在」だった。表紙探しの照合はゆるく、AI が付けた ISBN も
+//     信用していたので、架空の書名が実在扱いになっていた（例『BtoB営業を成功させるSPIN営業術』）。
+//     判定はサーバー（api/_bookVerify.js）で、書名の強い一致＋著者の一致を見るようにした。
 export const verifyBookExists = async ({ title, author, isbn } = {}) => {
   const params = new URLSearchParams();
   if (title) params.set('title', title);
   if (author) params.set('author', author);
   if (isbn) params.set('isbn', isbn);
-  params.set('cv', '6');
   if ([...params.keys()].length === 0) return { exists: false };
+  params.set('verify', '1');
+  params.set('cv', '7');
   try {
     const r = await fetch(apiUrl(`/api/cover?${params.toString()}`));
     if (!r.ok) return { exists: null };
     const d = await r.json();
     if (!d) return { exists: null };
+    // 判定を返さない古いサーバー: ISBN があっても実在とはみなさない（確かめられなかった扱い）。
+    const exists = Object.prototype.hasOwnProperty.call(d, 'verified')
+      ? (d.verified === true ? true : d.verified === false ? false : null)
+      : (d.isbn ? null : false);
+    if (exists !== true) return { exists };
     return {
-      exists: !!d.isbn,
+      exists: true,
       isbn: d.isbn || '',
       cover: d.cover || '',
       candidates: Array.isArray(d.candidates) ? d.candidates : [],
