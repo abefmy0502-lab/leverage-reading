@@ -2672,7 +2672,14 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   // 明日からできる一歩（＋ 行動に追加）
   const renderAction = (p, marginTop) => (p.action ? (
     <div data-next-step="" style={{ marginTop, ...nextStepBox }}>
-      <p style={subLabel}>{p.actionLabel}</p>
+      {/* 行動の箱だけ 🎯 の印（Target）を見出しの頭に（問いの箱・「心に残るもの」には付けない＝行動と見分ける・2026-09-30 ui-critic）。 */}
+      {isActionAnswer(p) ? (
+        <p style={{ ...subLabel, display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+          <Target size={16} aria-hidden="true" style={{ flexShrink: 0 }} />{p.actionLabel}
+        </p>
+      ) : (
+        <p style={subLabel}>{p.actionLabel}</p>
+      )}
       {/* 書いている間は、書き始める前の形（3 行）と同じ高さを取っておく（一歩の 1 行目が出た瞬間に
           箱が 2 行ぶん縮み、書き進むとまた伸びて「行動に追加」が上下していた・2026-09-29）。 */}
       <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.action), ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.action)}{tail === 'action' && cursor}</p>
