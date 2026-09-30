@@ -293,9 +293,24 @@ function aiReply(store, payload, aiMode = '') {
   ].join('\n');
 }
 
+// 本物の fetch と同じく、止める合図（AbortSignal）で待ちをやめて AbortError にする（2026-09-30）。
+//   お試しモードで「止める」・画面を離れたときに、裏で答えが流れ続けないように。
+const abortError = () => {
+  try { return new DOMException('The operation was aborted.', 'AbortError'); } catch { const e = new Error('The operation was aborted.'); e.name = 'AbortError'; return e; }
+};
+function wait(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(abortError()); return; }
+    const t = setTimeout(() => { signal?.removeEventListener?.('abort', onAbort); resolve(); }, ms);
+    function onAbort() { clearTimeout(t); reject(abortError()); }
+    signal?.addEventListener?.('abort', onAbort, { once: true });
+  });
+}
+
 // stallAt: その文字数まで書いたところで長く止まる（書いている途中の画面を撮る &ai=stall 用）。
 // extra: message_stop のあとに送る独自の枠（相談のトークンを返した知らせ orime_token_refund など）。
-function sseResponse(text, stopReason = 'end_turn', stallAt = -1, extra = null) {
+// signal: 止める合図。来たら流すのをやめてストリームをエラーにする（本物と同じ）。
+function sseResponse(text, stopReason = 'end_turn', stallAt = -1, extra = null, signal = null) {
   const enc = new TextEncoder();
   const chunks = stallAt > 0
     ? [...(text.slice(0, stallAt).match(/[\s\S]{1,14}/g) || []), null, ...(text.slice(stallAt).match(/[\s\S]{1,14}/g) || [])]
@@ -304,12 +319,18 @@ function sseResponse(text, stopReason = 'end_turn', stallAt = -1, extra = null) 
     async start(controller) {
       const send = (obj) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
       send({ type: 'message_start' });
-      for (const c of chunks) {
-        // eslint-disable-next-line no-await-in-loop
-        if (c === null) { await new Promise((r) => setTimeout(r, 60000)); continue; }
-        send({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: c } });
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((r) => setTimeout(r, 18));
+      try {
+        for (const c of chunks) {
+          // eslint-disable-next-line no-await-in-loop
+          if (c === null) { await wait(60000, signal); continue; }
+          if (signal?.aborted) throw abortError();
+          send({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: c } });
+          // eslint-disable-next-line no-await-in-loop
+          await wait(18, signal);
+        }
+      } catch (e) {
+        try { controller.error(e); } catch { /* ignore */ }
+        return;
       }
       send({ type: 'message_delta', delta: { stop_reason: stopReason } });
       send({ type: 'message_stop' });
@@ -340,7 +361,9 @@ export function installDemoFetch(store) {
   const realFetch = window.fetch.bind(window);
   window.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : input?.url || '';
+    const signal = init?.signal || (typeof input === 'object' ? input?.signal : null) || null;
     if (url.includes('/api/claude')) {
+      if (signal?.aborted) throw abortError();
       let payload = {};
       try { payload = JSON.parse(init.body || '{}'); } catch { /* ignore */ }
       // &ai=fail: AI がエラーを返す（エラー表示の確認用）/ &ai=slow: 答えがなかなか返らない（読み込み中の確認用）
@@ -349,10 +372,10 @@ export function installDemoFetch(store) {
       //   （書いている途中の形の確認用）/ &ai=broken: 本ごとの答えの ◆ の形が崩れる（段落で見せる確認用）。
       const aiMode = new URLSearchParams(window.location.search).get('ai');
       if (aiMode === 'fail') {
-        await new Promise((r) => setTimeout(r, 400));
+        await wait(400, signal);
         return json({ error: { message: 'サーバーで問題が起きました。' } }, 500);
       }
-      if (aiMode === 'slow') await new Promise((r) => setTimeout(r, 60000));
+      if (aiMode === 'slow') await wait(60000, signal);
       // 本番（api/claude.js・api/_aiAccess.js）と同じ決まりをまねる:
       //   契約なし＝無料プラン: 相談（purpose 'consult'）だけ・毎月 30 トークン（'free-YYYY-MM'）。ほかは 402 plan_required
       //   無料期間: 150 トークン（'trial-終わる日'）/ 有料: 毎月 800 トークン（'YYYY-MM'）→ 使い切ったら 429
@@ -401,7 +424,7 @@ export function installDemoFetch(store) {
           need -= take;
         }
       }
-      await new Promise((r) => setTimeout(r, 500));
+      await wait(500, signal);
       // &ai=noinfo: 関係するメモが無いと答え、トークンを返す（本番の api/claude.js と同じく message_stop のあとに
       //   orime_token_refund の枠を送る・相談の答えの下の「トークンは使っていません」の確認用）。
       const noInfo = aiMode === 'noinfo' && payload.purpose === 'consult';
@@ -419,7 +442,7 @@ export function installDemoFetch(store) {
           const v = text.indexOf('\n視点：');
           stallAt = v > 0 ? v + 40 : Math.floor(text.length * 0.3);
         }
-        return sseResponse(text, stopReason, stallAt, noInfo ? { type: 'orime_token_refund', reason: 'no_info', tokens: 9 } : null);
+        return sseResponse(text, stopReason, stallAt, noInfo ? { type: 'orime_token_refund', reason: 'no_info', tokens: 9 } : null, signal);
       }
       return json({ content: [{ type: 'text', text }], stop_reason: stopReason });
     }
