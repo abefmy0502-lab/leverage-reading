@@ -23,6 +23,9 @@ const nowrap = { whiteSpace: 'nowrap' };
 // 見出しの数の区切り。keep-all でも「・」のあとは改行できてしまうので、前後を単語結合子（U+2060）で
 // つなぐ（「本 3 冊・」で終わる行を作らない）。改行は <wbr> を置いた所だけ。
 const KEEP_DOT = '\u2060・\u2060';
+// <wbr> のあとに来る開き括弧は、行の頭に来たとき全角の左の空きで字下げして見えるので、半角の幅に詰める（halt・2026-09-30）。
+const halt = { fontFeatureSettings: '"halt"' };
+const haltOpen = (str) => (typeof str === 'string' && str.startsWith('（') ? <><span style={halt}>（</span>{str.slice(1)}</> : str);
 const howTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0 };
 const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
@@ -214,7 +217,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
         <p style={heading}>
           {source ? <>{source}：<wbr /></> : null}{countParts.join(KEEP_DOT)}
-          {plan.memos > 0 && plan.summaries > 0 && plan.summaries < plan.memos && <><wbr />{`（まとめ\u00a0${plan.summaries}\u00a0件を含む）`}</>}
+          {plan.memos > 0 && plan.summaries > 0 && plan.summaries < plan.memos && <><wbr />{haltOpen(`（まとめ\u00a0${plan.summaries}\u00a0件を含む）`)}</>}
         </p>
         <ul style={{ ...list, gap: 0 }}>
           {shown.map(({ book: b, memos: n, summary }, i) => (
@@ -251,8 +254,8 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
                 <wbr />
                 <span style={{ color: 'var(--text-2)' }}>
                   {plan.existingMemos > 0
-                    ? <>（<span style={nowrap}>新しいメモ {fmt(plan.existingMemos)} 件</span>を足す）</>
-                    : '（足す新しいメモはありません）'}
+                    ? <><span style={halt}>（</span><span style={nowrap}>新しいメモ {fmt(plan.existingMemos)} 件</span>を足す）</>
+                    : haltOpen('（足す新しいメモはありません）')}
                 </span>
               </span>
             </li>
@@ -336,7 +339,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         {error && <ErrorMessage icon={null} title="取り消せませんでした" description={error} />}
         <p style={heading}>
           {/* 確かめる画面と同じ形「新しい本 N 冊・メモ M 件（まとめ K 件を含む）」。 */}
-          {!nothingNew ? <>{headLead}{summaryNote ? <wbr /> : null}<span style={nowrap}>{headTail}</span><wbr />取り込みました</>
+          {!nothingNew ? <>{headLead}{summaryNote ? <wbr /> : null}<span style={nowrap}>{haltOpen(headTail)}</span><wbr />取り込みました</>
             : <>新しく取り込むものは<wbr />ありませんでした</>}
         </p>
         {/* したことは見出しの 1 行だけ（同じ数を言い直す 2 行目は置かない・2026-09-29）。

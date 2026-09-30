@@ -3,8 +3,9 @@
 // 「この本のまとめ」を開いている間・本の詳細の入力欄に書いている間は隠す（2026-09-29）。
 // 浮いたボタンが、まとめの「保存」やキーボードの上の入力欄に重なって押せなくなるのを防ぐ。
 // 入力欄から離れたときは少し待ってから戻す（「保存」を押した指の下にボタンが現れて、押し間違えないように）。
+// 下まで送って「読了にする」など（data-fab-avoid の印）がボタンの高さに来ている間も隠す（重なって押せない・2026-09-30）。
 // 見た目は DESIGN.md のトークンのみ（主ボタンの塗り・--shadow-raised）。
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PencilLine } from 'lucide-react';
 
 const fabStyle = {
@@ -31,8 +32,48 @@ const fabStyle = {
 };
 
 // scrollRef: 本の詳細のスクロールする枠（この中の畳む見出し・入力欄を見る）。
-export default function MemoFab({ scrollRef, onClick }) {
+// avoidKey: 避けるボタン（data-fab-avoid）が入れ替わる印（本の状態）。変わったら見張り直す。
+export default function MemoFab({ scrollRef, onClick, avoidKey }) {
   const [hidden, setHidden] = useState(false);
+  const [overlap, setOverlap] = useState(false);
+  const btnRef = useRef(null);
+  // 隠れている間は測れないので、最後に測ったボタンの上下を覚えておく。
+  const bandRef = useRef(null);
+
+  // 「読了にする」などがボタンの高さ（上下 8 の余裕）に入っている間は隠す。
+  useEffect(() => {
+    const root = scrollRef?.current;
+    setOverlap(false);
+    if (!root || typeof IntersectionObserver === 'undefined' || typeof window === 'undefined') return undefined;
+    const targets = Array.from(root.querySelectorAll('[data-fab-avoid]'));
+    if (targets.length === 0) return undefined;
+    let io = null;
+    const inside = new Set();
+    const build = () => {
+      if (io) io.disconnect();
+      inside.clear();
+      const r = btnRef.current?.getBoundingClientRect();
+      if (r && r.height > 0) bandRef.current = { top: r.top, bottom: r.bottom };
+      const band = bandRef.current;
+      if (!band) return;
+      const vh = window.innerHeight;
+      const gap = 8;
+      const top = Math.max(0, Math.round(band.top - gap));
+      const bottom = Math.max(0, Math.round(vh - band.bottom - gap));
+      io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) inside.add(e.target); else inside.delete(e.target); });
+        setOverlap(inside.size > 0);
+      }, { root: null, rootMargin: `-${top}px 0px -${bottom}px 0px`, threshold: 0 });
+      targets.forEach((t) => io.observe(t));
+    };
+    build();
+    window.addEventListener('resize', build);
+    return () => {
+      window.removeEventListener('resize', build);
+      if (io) io.disconnect();
+    };
+  }, [scrollRef, avoidKey]);
+
   useEffect(() => {
     const root = scrollRef?.current;
     if (!root) return undefined;
@@ -62,8 +103,17 @@ export default function MemoFab({ scrollRef, onClick }) {
   }, [scrollRef]);
   if (hidden) return null;
   return (
-    // data-fab: 下の知らせ（Toast）が、このボタンの上に浮かぶための目印。
-    <button type="button" data-fab="" onClick={onClick} style={fabStyle}>
+    // data-fab: 下の知らせ（Toast）が、このボタンの上に浮かぶための目印（隠れている間は付けない）。
+    // 重なりで隠す間も場所は残して測れるようにする（visibility: hidden＝押せない・読み上げない）。
+    <button
+      ref={btnRef}
+      type="button"
+      data-fab={overlap ? undefined : ''}
+      aria-hidden={overlap || undefined}
+      tabIndex={overlap ? -1 : undefined}
+      onClick={onClick}
+      style={overlap ? { ...fabStyle, visibility: 'hidden' } : fabStyle}
+    >
       <PencilLine size={18} aria-hidden="true" />メモを書く
     </button>
   );

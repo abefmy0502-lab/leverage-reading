@@ -15,7 +15,7 @@ import { extractTextFromImage } from '../lib/ai';
 import { toMessage } from '../lib/errors';
 import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
-import { ScanText, RotateCw } from 'lucide-react';
+import { ScanText } from 'lucide-react';
 import { usePaywall } from '../state/PaywallContext';
 import ErrorMessage from './ErrorMessage';
 
@@ -152,7 +152,7 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
             description={failure.message}
             actions={[
               failure.retry && lastFileRef.current
-                ? { label: 'もう一度', onClick: () => run(lastFileRef.current), variant: 'secondary', icon: <RotateCw size={16} /> }
+                ? { label: 'もう一度', onClick: () => run(lastFileRef.current), variant: 'secondary' }
                 : { label: '写真を選び直す', onClick: pick, variant: 'secondary' },
             ]}
           />

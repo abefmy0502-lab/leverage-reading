@@ -1172,6 +1172,16 @@ function AuthedApp() {
   // edge-swipe back の全経路で同じ挙動にする（一部だけ確認が出るのは不整合）。
   const confirmDiscardEdit = async () => {
     if (!isEditDirty()) return true;
+    // 本棚にある本を直しているときは、保存済みのメモと同じ言い方（本は元のまま残る・「直したところを捨てる」・2026-09-30）。
+    if (current) {
+      return confirm({
+        title: '保存していない変更があります',
+        message: '本の情報は元のまま残ります。',
+        confirmLabel: '直したところを捨てる',
+        cancelLabel: '編集を続ける',
+        danger: true,
+      });
+    }
     return confirm({
       title: '保存していない変更があります',
       message: '破棄すると、この変更は失われます。',
@@ -3687,7 +3697,8 @@ function AuthedApp() {
                 {planItems.map((p) => (
                   <div key={p.label}>
                     <p style={subLabelStyle}>{p.label}</p>
-                    <p style={{ fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{p.text}</p>
+                    {/* 自分で書いた文（得たいこと・課題・仮説）は読む文章＝明朝 18・行間 1.6（メモ本文と同じ・DESIGN §2・2026-09-30） */}
+                    <p style={{ fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', color: 'var(--text)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{p.text}</p>
                   </div>
                 ))}
                 {current.aiStrategy && (
@@ -4006,6 +4017,8 @@ function AuthedApp() {
                   // 読書中は右下の「メモを書く」が主ボタン（1 画面 1 つ・DESIGN §0）なので、
                   // 「読了にする」は副ボタンに下げる。読みたい・積読では従来どおり主ボタン。
                   style={{ ...(isMemoPhase ? btnGhost : btnS), width: "100%" }}
+                  // 右下の「メモを書く」は、このボタンの高さに来ている間は隠れる（重ならない・MemoFab・2026-09-30）。
+                  data-fab-avoid=""
                 >
                   {nextLabel[current.status]}
                 </button>
@@ -4098,7 +4111,7 @@ function AuthedApp() {
             users into creating memos that the section above hides. */}
         {(current.status === "reading" || current.status === "done") && (
           // 「この本のまとめ」を開いている間・入力欄に書いている間は隠す（保存ボタンに重ならない・MemoFab）。
-          <MemoFab scrollRef={detailScrollRef} onClick={() => setQuickMemoOpen(true)} />
+          <MemoFab scrollRef={detailScrollRef} avoidKey={current.status} onClick={() => setQuickMemoOpen(true)} />
         )}
 
         {quickMemoOpen && (current.status === "reading" || current.status === "done") && (
