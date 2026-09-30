@@ -136,6 +136,14 @@ export function partnerFromScope({ scopeIds = [], books = [], memoBookIds = null
   return make(chosen, false);
 }
 
+// 本ごとにの結論のカード（2026-09-30 ui-critic）: 数冊を並べてくらべた答えなので、ひとりの著者の名前にしない。
+// 数冊なら「N 冊の本」（表紙を並べた丸のまま）。1 冊・自分の学び・あなたの本棚はそのまま。
+export function perbookSummaryPartner(partner) {
+  if (!partner || partner.kind !== 'group' || partner.shelf || partner.books.length === 0) return partner;
+  const n = partner.books.length;
+  return { ...partner, label: partner.self ? `${n} 冊の本と${SELF_LABEL}` : `${n} 冊の本` };
+}
+
 // 答え 1 つの相手。書き終えていて根拠が取れれば根拠から、そうでなければ相談相手から。
 //   useScope: 書いている途中・失敗・案内・関係するメモが無かった答え（特定の本を見せない）
 //   voice: 語り口の答え（{ title, author }）なら、その本（本棚に無ければ書名と著者だけ）を「著者名（本の語り口で・AI）」で。

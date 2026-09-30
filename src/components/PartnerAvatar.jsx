@@ -140,7 +140,7 @@ export function PartnerBooksSheet({ partner, title = 'この答えのもとに�
             <>
               <MiniCover book={b} width={32} />
               <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: '-0.5em' }}>『{b.title}』</span>
+                <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>『{b.title}』</span>
                 {b.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{b.author}</span>}
               </span>
               {onOpenBook && b.id && <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}

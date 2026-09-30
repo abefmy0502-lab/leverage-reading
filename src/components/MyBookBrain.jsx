@@ -53,7 +53,7 @@ const consumePreset = (kind, nonce) => {
 
 import BottomSheet from './BottomSheet';
 import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_SMALL } from './PartnerAvatar';
-import { consultPartner, partnerFromScope, bookForRef, withVoice, decodeVoice, encodeVoice, VOICE_PREFIX } from '../lib/consultPartner';
+import { consultPartner, partnerFromScope, bookForRef, withVoice, decodeVoice, encodeVoice, perbookSummaryPartner, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
 
 // 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
@@ -2794,7 +2794,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       <div role="article" aria-label="相談への答え" aria-busy={isStreaming || undefined} style={{ display: 'flex', flexDirection: 'column', wordBreak: 'break-word' }}>
         {/* 結論のカードには、並べた本たちのアイコン（数冊）。本のカードには、それぞれの本の表紙と「著者『書名』」。
             見出し・共通点と違いのカードは、アイコンの列の分だけ下げて左端をそろえる（PartnerRow の空き）。 */}
-        <PartnerRow partner={partner} onOpenList={openPartnerList}>
+        <PartnerRow partner={perbookSummaryPartner(partner)} onOpenList={openPartnerList}>
           <div style={answerCard}>
             <div style={readText}>
               {perBook.conclusion.split('\n').filter((l) => l.trim()).map((l, i, arr) => (

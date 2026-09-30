@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { consultPartner, partnerFromRefs, partnerFromScope, shelfBooks, bookPartnerLabel, SHELF_LABEL, SELF_LABEL } from './consultPartner';
+import { consultPartner, partnerFromRefs, partnerFromScope, shelfBooks, bookPartnerLabel, perbookSummaryPartner, SHELF_LABEL, SELF_LABEL } from './consultPartner';
 import { QUOTE_PREFIX } from './evidenceCheck';
 
 const BOOKS = [
@@ -82,5 +82,13 @@ describe('consultPartner（相談相手のアイコン・2026-09-30）', () => {
     expect(p.kind).toBe('group');
     expect(p.books).toEqual([]);
     expect(shelfBooks([], null)).toEqual([]);
+  });
+
+  it('本ごとにの結論は、ひとりの著者の名前にせず「N 冊の本」', () => {
+    const p = consultPartner({ refs: ['📚 安宅和人『イシューからはじめよ』', '📚 エリック・シュミット『1兆ドルコーチ』', '📚 安藤広大『数値化の鬼』'], books: BOOKS });
+    expect(perbookSummaryPartner(p).label).toBe('3 冊の本');
+    expect(perbookSummaryPartner(p).kind).toBe('group');
+    const shelf = partnerFromScope({ scopeIds: [], books: BOOKS });
+    expect(perbookSummaryPartner(shelf).label).toBe(SHELF_LABEL);
   });
 });
