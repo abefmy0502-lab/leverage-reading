@@ -111,7 +111,11 @@ const PLAN_COMPARE = [
   { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, lead: 'すべての AI：', items: ['AI 選書', 'テーマまとめ', '読書計画シート', '写真から書き起こし'] },
 ];
 // 7 日間無料で使えるトークン（期間まるごと・2026-09-29 オーナー裁定で下の固定の欄に出す）。
-const TRIAL_TOKENS_NOTE = `${TRIAL_TOKENS.toLocaleString('ja-JP')} トークン・相談 約 ${Math.round(TRIAL_TOKENS / TOKEN_COSTS.consult).toLocaleString('ja-JP')} 回`;
+// 折り返してよいのは「・」の後だけ（「150 トークン」「相談 約 15 回」は割らない・2026-09-30）。
+const TRIAL_TOKENS_PARTS = [
+  `${TRIAL_TOKENS.toLocaleString('ja-JP')} トークン・`,
+  `相談 約 ${Math.round(TRIAL_TOKENS / TOKEN_COSTS.consult).toLocaleString('ja-JP')} 回`,
+];
 // トークンの目安（1 行）。
 const TOKEN_EXAMPLE = `相談 1 回 約 ${TOKEN_COSTS.consult}・AI 選書 約 ${TOKEN_COSTS.advisor} トークン`;
 
@@ -535,8 +539,11 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。無料期間はプランごと・使える人にだけ。
                 <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-3)' }}>
                   {/* 無料期間に使える量も添える（「無料で何ができるか」が分かる・2026-09-29 オーナー裁定） */}
-                  {/* かっこで包まず「・」で続ける（2026-09-29）。折り返すのは「無料・」の後だけ。 */}
-                  {trial && <><span style={{ whiteSpace: 'nowrap' }}>{trialFirstPhrase(trial)}・</span><span style={{ whiteSpace: 'nowrap' }}>{TRIAL_TOKENS_NOTE}</span></>}
+                  {/* かっこで包まず「・」で続ける（2026-09-29）。折り返すのは「・」の後だけ（1 行目を「…無料・150 トークン・」まで使い、
+                      「最初の 7 日間は無料・」だけの短い 1 行目にしない・2026-09-30）。 */}
+                  {trial && [`${trialFirstPhrase(trial)}・`, ...TRIAL_TOKENS_PARTS].map((part) => (
+                    <span key={part} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+                  ))}
                   <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {trial ? 'その後 ' : ''}{billedShort} で自動更新
                   </span>
