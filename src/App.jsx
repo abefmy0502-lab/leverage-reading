@@ -5027,6 +5027,8 @@ function AuthedApp() {
                   <EmptyState
                     icon={<IcSearchX size={32} aria-hidden="true" />}
                     title="該当する本がありません"
+                    // 検索のときは、メモの中まで探したことを言う（書名だけを探したと思われないように・2026-09-30）。
+                    description={libraryQuery ? '書名・著者・メモの中を探しました' : undefined}
                     actions={[
                       {
                         // 検索語だけで絞っているときは「検索をクリア」、状態・フォルダ等もあれば「条件をクリア」。
