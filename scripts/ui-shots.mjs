@@ -281,6 +281,8 @@ const SCREENS = [
   { name: 'share-camera-canceled', url: '/', steps: [{ css: 'h1' }, { eval: () => document.querySelector('input[data-share-camera]').dispatchEvent(new Event('cancel')) }, { wait: 2500 }] },
   // 写真のときの「写真以外 ▾」のメニュー（紙・夜・表紙の色・透明・写真を選び直す）
   { name: 'share-photo-bgmenu', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=dialog] button:has-text("写真以外")' }, { wait: 600 }] },
+  // 写真があるときに「写真以外 ▾」で紙を選んだ → ボタンは「背景：紙 ▾」
+  { name: 'share-photo-paper', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=dialog] button:has-text("写真以外")' }, { css: '[role=menuitem]:has-text("紙")' }, { wait: 1500 }] },
   { name: 'share-record-paper', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }] },
   { name: 'share-done-prompt', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { css: 'button:text-is("読了にする")' }, { wait: 7500 }, { scrollBottom: true }] },
   { name: 'feedback-form', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { css: 'button[aria-label="フィードバックを送る"]' }] },
