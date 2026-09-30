@@ -111,16 +111,23 @@ export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', stic
     const padY = Math.round(size * m.padY);
     const maxWidth = Math.max(size * 2, frameW - padX * 2);
     const measure = measureAt(size);
-    const lines = balanceLines(text, maxWidth, measure);
+    const lines = wrapBalanced(text, maxWidth, measure);
     const lineHeight = Math.round(size * m.lineHeight);
     const textW = Math.max(...lines.map((l) => measure(l)), 0);
     const underlineH = m.underline ? Math.round(size * m.underline) : 0;
     const w = Math.ceil(textW + padX * 2);
     const h = Math.ceil(lines.length * lineHeight + padY * 2 + underlineH);
-    out = { text, lines, size, lineHeight, w, h, padX, padY, underlineH, style };
+    out = { text, lines, size, lineHeight, w, h, padX, padY, underlineH, style, maxWidth, measure };
     const fits = w <= frameW + 0.5 && h <= frameH + 0.5 && lines.every((l) => measure(l) <= maxWidth + 0.5);
     if (fits || size <= 28) break;
     size = Math.max(28, Math.round(size * 0.92));
+  }
+  // 大きさが決まってから、行の長さをそろえる（同じ行数のまま狭める＝箱は小さくなるだけなので枠に入ったまま）。
+  {
+    const { maxWidth, measure, ...rest } = out;
+    const lines = balanceLines(text, maxWidth, measure);
+    const textW = Math.max(...lines.map((l) => measure(l)), 0);
+    out = { ...rest, lines, w: Math.ceil(textW + rest.padX * 2) };
   }
   const want = { cx: (Number.isFinite(phrase.x) ? phrase.x : 0.5) * W, cy: (Number.isFinite(phrase.y) ? phrase.y : 0.24) * H };
   const { cx, cy } = clampPhraseCenter({ ...want, w: out.w, h: out.h }, frame);

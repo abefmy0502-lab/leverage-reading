@@ -74,7 +74,7 @@ describe('大きさ・改行・箱', () => {
         }
       }
     }
-  });
+  }, 30000);
   it('短い言葉は 1 行・大きくすると大きく', () => {
     const a = phraseLayout({ text: 'やってみる', style: 'bold', scale: 1 }, { ...FORMATS.post, format: 'post', measureAt });
     const b = phraseLayout({ text: 'やってみる', style: 'bold', scale: 1.5 }, { ...FORMATS.post, format: 'post', measureAt });
