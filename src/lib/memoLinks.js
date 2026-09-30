@@ -14,6 +14,8 @@
 //
 // 1,000 件を超えるメモでも速いように、索引（切れ端 → そのメモの重み）は一度だけ作って覚える（WeakMap）。
 
+import { normalizeSearch, matchRanges, buildSnippet } from './librarySearch';
+
 // ---- 決まり（テストで確かめる） ---------------------------------------------
 
 // コサインの下限。デモのメモ（30 件）では、別々の話のいちばん近い組が 0.18（「チーム」が同じだけ＝下の言葉のまとまりの
@@ -224,4 +226,53 @@ export function linkSimilarity(a, b, index = null) {
   const idx = index || buildLinkIndex([{ id: 'a', book_id: 'x', text: a }, { id: 'b', book_id: 'y', text: b }]);
   const idf = idfOf(idx.df, idx.n, null);
   return cosine(weigh(bigramCounts(a), idf), weigh(bigramCounts(b), idf));
+}
+
+// ---- 一節の印 ---------------------------------------------------------------
+
+// 漢字・カタカナの語（印を広げる単位）。
+const WORD_CHAR = /[一-鿿々〆ヶァ-ヿー]/u;
+const MATCH_SHARE_MAX = 0.5; // 印が一節の半分を超えたら、いちばん長い 1 つだけにする
+
+// 共有する切れ端から、つながるメモの一節の印を付ける所（元の文の位置 [s, e)・2026-10-01 ui-critic）。
+//   - 続けて共有する 3 文字以上、または漢字・カタカナを含む 2 文字に印（「から」だけの印は付けない）
+//   - 印は、前後に続く漢字・カタカナの語の端まで広げる（「令ではなく」→「命令ではなく」・語の途中から始めない）
+export function linkHighlightRanges(text, shared) {
+  const src = String(text || '');
+  const compiled = [...new Set((shared || []).map((g) => normalizeSearch(g)))].map((term) => ({ term, stem: null, bigrams: [] }));
+  const ranges = matchRanges(src, compiled)
+    .filter(([a, b]) => {
+      const part = src.slice(a, b);
+      return [...part].length >= 3 || /[^ぁ-ゟ]/u.test(part);
+    })
+    .map(([a, b]) => {
+      let s = a;
+      let e = b;
+      while (s > 0 && WORD_CHAR.test(src[s - 1]) && WORD_CHAR.test(src[s])) s -= 1;
+      while (e < src.length && WORD_CHAR.test(src[e]) && WORD_CHAR.test(src[e - 1])) e += 1;
+      return [s, e];
+    })
+    .sort((x, y) => x[0] - y[0]);
+  const merged = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+    else merged.push([...r]);
+  }
+  return merged;
+}
+
+// つながるメモの一節（[{ text, match }]）。印の文字が一節の半分を超えたら、いちばん長い印だけにする
+// （ほとんど全部に印が付いて、どこが同じか分からなくならないように）。
+export function linkSegments(text, shared) {
+  const ranges = linkHighlightRanges(text, shared);
+  const seg = buildSnippet(text, [], { ranges });
+  const visible = seg.filter((s) => s.text !== '…');
+  const total = visible.reduce((n, s) => n + [...s.text].length, 0);
+  const marked = visible.filter((s) => s.match).reduce((n, s) => n + [...s.text].length, 0);
+  if (ranges.length > 1 && total > 0 && marked / total > MATCH_SHARE_MAX) {
+    const longest = ranges.reduce((best, r) => (r[1] - r[0] > best[1] - best[0] ? r : best));
+    return buildSnippet(text, [], { ranges: [longest] });
+  }
+  return seg;
 }

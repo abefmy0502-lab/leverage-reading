@@ -1,8 +1,40 @@
 import { describe, it, expect } from 'vitest';
 import {
   bigramCounts, buildLinkIndex, findLinkedMemos, linkIndexFor, sharedRuns, normalizeLinkText,
+  linkHighlightRanges, linkSegments,
   LINK_MIN_SCORE, LINK_MAX,
 } from './memoLinks';
+
+describe('つながるメモの一節の印（2026-10-01 ui-critic）', () => {
+  const marked = (seg) => seg.filter((s) => s.match).map((s) => s.text);
+  it('印は語の途中から始めず、漢字・カタカナの語の端まで広げる', () => {
+    const text = '人に動いてもらうには、命令ではなく質問で聞く。';
+    // 「令で」「質問」だけを共有していても、印は「命令」「質問」の頭から
+    const ranges = linkHighlightRanges(text, ['令で', '質問']);
+    const parts = ranges.map(([a, b]) => text.slice(a, b));
+    expect(parts).toContain('命令で');
+    expect(parts).toContain('質問');
+    // カタカナの語も端まで
+    const t2 = 'よいマネージャーは答えを与えない。';
+    const p2 = linkHighlightRanges(t2, ['ネー', 'ージ']).map(([a, b]) => t2.slice(a, b));
+    expect(p2).toEqual(['マネージャー']);
+  });
+  it('「から」のようなひらがな 2 文字だけの印は付けない', () => {
+    expect(linkHighlightRanges('結論から話す', ['から'])).toEqual([]);
+  });
+  it('印が一節の半分を超えたら、いちばん長い印だけにする', () => {
+    const text = '報告は結論から先に話す。';
+    const seg = linkSegments(text, ['報告', '結論', 'から', '先に', 'に話', '話す']);
+    const m = marked(seg);
+    expect(m).toHaveLength(1);
+    const total = seg.map((s) => s.text).join('').length;
+    expect(m[0].length).toBeLessThan(total);
+  });
+  it('半分以下なら、印はそのまま', () => {
+    const text = '人に動いてもらうには、命令ではなく質問で。どうすればうまくいくと思うかを聞く。';
+    expect(marked(linkSegments(text, ['命令', '質問'])).length).toBe(2);
+  });
+});
 
 let seq = 0;
 const memo = (bookId, text, extra = {}) => ({ id: `m${(seq += 1)}`, book_id: bookId, text, page_number: null, created_at: '2026-09-01T00:00:00Z', ...extra });

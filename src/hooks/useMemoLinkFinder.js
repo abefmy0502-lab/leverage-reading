@@ -4,18 +4,8 @@
 import { useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { useAllMemoRows } from './useAllMemoRows';
-import { linkIndexFor, findLinkedMemos } from '../lib/memoLinks';
-import { buildSnippet, normalizeSearch, matchRanges } from '../lib/librarySearch';
-
-// 共有する切れ端から、一節の印を付ける所（続けて共有する 3 文字以上、または漢字・カタカナを含む 2 文字）。
-function linkSegments(text, shared) {
-  const compiled = [...new Set(shared.map((g) => normalizeSearch(g)))].map((term) => ({ term, stem: null, bigrams: [] }));
-  const ranges = matchRanges(text, compiled).filter(([a, b]) => {
-    const part = String(text).slice(a, b);
-    return [...part].length >= 3 || /[^ぁ-ゟ]/u.test(part);
-  });
-  return buildSnippet(text, compiled, { ranges });
-}
+// 一節の印（語の端まで広げる・半分を超えたらいちばん長い印だけ）は lib/memoLinks.js の linkSegments。
+import { linkIndexFor, findLinkedMemos, linkSegments } from '../lib/memoLinks';
 
 // 返り値: find({ text, bookId, memoId }) → [{ book, hit, score }]（LibrarySearchHit にそのまま渡せる形）/ ready
 export function useMemoLinkFinder({ books, enabled = true }) {
