@@ -64,7 +64,7 @@ export default function MemoLinks({ links, onOpen, onDismiss = null, variant = '
         {/* 1 行目は見出し（13/--text-2）と右端の ×（押せる範囲 44・見た目をカードの余白 16 の角にそろえる）。 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, marginRight: 'calc(-1 * var(--space-3))' }}>
           <Link2 size={16} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
-          <h3 style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5 }}>{SAVED_LINKS_TITLE}</h3>
+          <h3 style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(SAVED_LINKS_TITLE)}</h3>
           {onDismiss && (
             <button type="button" onClick={onDismiss} aria-label="閉じる" style={closeBtn}>
               <X size={18} aria-hidden="true" />
