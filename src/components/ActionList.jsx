@@ -99,7 +99,7 @@ const byDeadline = (a, b) => {
 // 押してから次の形（ふりかえりの欄・畳む）への動きが 0.5 秒以内に終わる長さにする
 // （押した直後の動きは「ずれ」に数えない・0.6 秒待ってから動くと下の行が勝手に跳ねて見えた・2026-09-29）。
 const CHECK_HOLD_MS = 250;
-// 知らせ（下のバー）が出ている間、一覧の下に足す余白。最後の行がバーに隠れず、スクロールで出せる。
+// 知らせ（下のバー）を出しておく時間。
 const TOAST_MS = 6000;
 
 const reducedMotion = () => {
@@ -419,15 +419,6 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   const setPhase = useCallback((key, phase) => {
     setCompleting((list) => list.map((c) => (c.key === key ? { ...c, phase, shown: phase === 'collapse' ? (c.shown || c.phase) : phase } : c)));
   }, []);
-  // 下の知らせが出ている間だけ、一覧の下に余白を足す（最後の行のチェックが知らせに隠れない）。
-  const [toastPad, setToastPad] = useState(false);
-  const toastPadTimerRef = useRef(null);
-  const showToastPad = useCallback((on) => {
-    clearTimeout(toastPadTimerRef.current);
-    setToastPad(on);
-    if (on) toastPadTimerRef.current = setTimeout(() => setToastPad(false), TOAST_MS);
-  }, []);
-  useEffect(() => () => clearTimeout(toastPadTimerRef.current), []);
   const removeCompleting = useCallback((key) => {
     clearTimeout(timersRef.current.get(key));
     timersRef.current.delete(key);
@@ -437,7 +428,6 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   // 元に戻す: 行をその場で未完了の形に戻す。畳みかけ・畳み終えた行は、畳んだ動きの逆で広げて戻す
   //   （'restore' の間は行を残し、広げ終わったら外す＝そのあとは一覧の未完了の行としてそのまま続く・2026-09-29）。
   const undoComplete = (a) => {
-    showToastPad(false);
     const key = rowKeyOf(a);
     clearTimeout(timersRef.current.get(key));
     setCompleting((list) => {
@@ -465,7 +455,6 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     timersRef.current.set(key, setTimeout(() => setPhase(key, onReflect ? 'reflect' : 'collapse'), CHECK_HOLD_MS));
     // 取り消しは下のトーストで（スクロールしていても見える・トーストはタブの上に浮く）。
     if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
-    showToastPad(true);
     // 「元に戻す」つきは toast.undo にそろえる（中立の Undo2 の印・DESIGN §5 トースト・2026-09-29）。
     lastToastRef.current = toast.undo({
       message: '行動を完了しました',
@@ -486,7 +475,6 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       // 知らせは 1 つだけ: 下の「行動を完了しました／元に戻す」を、この文に差し替える
       // （中央の ✓ と下のバーが同時に 2 つ出ていた・2026-09-29）。
       if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
-      showToastPad(true);
       // 取り消すのは「完了」（ふりかえりを消すのではない）ので、何が戻るかを文言で言う（2026-09-29）。
       lastToastRef.current = toast.success('ふりかえりを残しました', {
         duration: TOAST_MS,
@@ -595,7 +583,9 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   const listStyle = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' };
 
   return (
-    <div style={{ ...wrap, paddingBottom: toastPad ? 'var(--space-16)' : 'var(--space-8)' }}>
+    // 一覧の下の余白はいつも 64（最後の行のチェックが下の知らせに隠れない。知らせが消えるたびに余白を縮めると
+    // 中身が下がって見えた・2026-09-30）。
+    <div style={{ ...wrap, paddingBottom: 'var(--space-16)' }}>
       {/* 上: 今週の完了数 1 行（数字の演出はしない）＋ 追加。完了一覧は最後の 1 行から。 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
         <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
