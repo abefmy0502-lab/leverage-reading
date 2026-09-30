@@ -17,6 +17,9 @@ import BookMemoEditor from './BookMemoEditor';
 import ShareSheet from './ShareSheet';
 import { BookOpen, PencilLine, Clock, Quote, Pencil, Copy, Share, Trash2, Sparkles, Target, ChevronDown, Check } from 'lucide-react';
 import { btnGhost, btnGhostOff, btnLink } from '../styles/ui';
+import MemoLinks from './MemoLinks';
+import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
+import { requestOpenMemo } from '../lib/openMemo';
 
 // SPEC §2（2026-09-26）: 「カード｜まとめ」の切替タブと、二段の並び替え・引用チップ・
 // 点線の「新しいメモ」は撤去。メモはカード式が基本で、並び順は小さなメニュー 1 つ。
@@ -188,7 +191,10 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 // afterList: メモ一覧のすぐ下（「この本のまとめ」の上）に置く要素（本の詳細の「この本に相談する」・SPEC §2 の並び）。
 // onShareMemo(memo): 「この一文をシェア」を親（本の詳細）の一文シェアのシートで開く。無ければこの一覧の中で開く。
 // editFocusedMemo: focusMemoId のメモまで送ったあと、そのメモの編集を開く（振り返りの月ごとのメモを押したとき・2026-09-30）。
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo }) {
+// books: 本棚の本（本と本がつながる＝ほかの本の書名・表紙に使う）。
+// savedMemo: いま保存したメモ { id, bookId, text, nonce }（メモを書くシート・全画面の入力で保存したとき・App が渡す）。
+//   ほかの本で似たことを書いていれば、一覧の上に「似たことを、ほかの本でも書いています」を 1 枚（次に保存するか、本を離れるまで）。
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   const [quoteOnly, setQuoteOnly] = useState(false);
@@ -257,6 +263,31 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       }
     };
   }, [focusMemoId, memos, loading, quoteOnly, editFocusedMemo]);
+
+  // 🔗 本と本がつながる（2026-10-01・SPEC §2）: 開いたメモ（検索などから示した・「続きを読む」で開いた）のカードの中と、
+  //   いま保存したメモ（一覧の上の 1 枚）に、ほかの本で似たことを書いたメモを出す。使い始めたときにだけ自分のメモを全部読む。
+  const [openLinkIds, setOpenLinkIds] = useState(() => new Set());
+  useEffect(() => { setOpenLinkIds(new Set()); }, [bookId]);
+  useEffect(() => {
+    if (focusedId) setOpenLinkIds((prev) => (prev.has(focusedId) ? prev : new Set(prev).add(focusedId)));
+  }, [focusedId]);
+  const onExpandChange = (memo, expanded) => setOpenLinkIds((prev) => {
+    const next = new Set(prev);
+    if (expanded) next.add(memo.id); else next.delete(memo.id);
+    return next;
+  });
+  const [localSaved, setLocalSaved] = useState(null);
+  const [dismissedSaved, setDismissedSaved] = useState(null);
+  const saved = (() => {
+    const s = [savedMemo, localSaved].filter((x) => x && x.bookId === bookId && x.id).sort((a, b) => (b.nonce || 0) - (a.nonce || 0))[0] || null;
+    return s && s.nonce !== dismissedSaved ? s : null;
+  })();
+  const { find: findLinks } = useMemoLinkFinder({ books, enabled: !!saved || openLinkIds.size > 0 });
+  const savedLinks = useMemo(() => (saved ? findLinks({ text: saved.text, bookId, memoId: saved.id }) : []), [saved, findLinks, bookId]);
+  const linksFor = (m) => (openLinkIds.has(m.id) ? findLinks({ text: m.text, bookId, memoId: m.id }) : null);
+  const openLink = (book, memoId) => {
+    if (book?.id) requestOpenMemo(book.id, memoId);
+  };
 
   const allTags = useMemo(() => {
     const s = new Set();
@@ -336,6 +367,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const handleCreate = async (payload, opts = {}) => {
     const result = await createMemo(payload);
     haptic.success();
+    if (result?.id) setLocalSaved({ id: result.id, bookId, text: result.text ?? payload?.text ?? '', nonce: Date.now() });
     if (opts.quiet) {
       if (result?.id) {
         setJustAddedId(result.id);
@@ -518,6 +550,11 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         />
       )}
 
+      {/* 🔗 いま保存したメモと似たことを、ほかの本でも書いていたら（一覧のいちばん上・× で閉じる・次に保存するまで） */}
+      {savedLinks.length > 0 && visibleMemos.length > 0 && (
+        <MemoLinks variant="saved" links={savedLinks} onOpen={openLink} onDismiss={() => setDismissedSaved(saved.nonce)} />
+      )}
+
       {visibleMemos.length > 0 && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {visibleMemos.map((m) => (
@@ -529,6 +566,9 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
             onSwipeDelete={handleSwipeDelete}
             // 長押しと「…」で同じメニュー（編集・コピー・行動に追加・この一文をシェア・削除・2026-09-30）。
             onLongPress={(payload) => setMemoMenu(payload)}
+            links={linksFor(m)}
+            onExpandChange={onExpandChange}
+            onOpenLink={openLink}
           />
         ))}
       </div>
@@ -604,6 +644,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {editorOpen && (
         <BookMemoEditor
           bookTitle={bookTitle}
+          bookId={bookId}
+          books={books}
           initial={editingMemo}
           defaultPageNumber={
             !editingMemo && Number.isFinite(lastPageNumber) ? lastPageNumber + 1 : ''

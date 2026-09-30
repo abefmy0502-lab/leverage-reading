@@ -36,7 +36,9 @@ export function SnippetText({ segments }) {
 
 // inline: 相談の答えの中（本を探す問い）に並べる形。答えのカードの中なので面と枠は付けず、行の上に --separator の線だけ
 //   （カードの中にカードを入れない・DESIGN §5）。組み立て（表紙 44・書名・p.N · 日付・一節）は同じ。
-const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAutoRetry, showStatus = true, inline = false }) {
+// divider=false: inline のときも行の上の線を引かない（見出しのすぐ下の 1 行目・本と本がつながるの「つながるメモ」）。
+// showRating=false: 評価の星を出さない（つながるメモ・メモが答える相談の行＝本の情報より一節が主役）。
+const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAutoRetry, showStatus = true, inline = false, divider = true, showRating = true }) {
   const { book, hit } = result;
   const label = hitLabel(hit);
   return (
@@ -46,7 +48,7 @@ const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAuto
       style={{
         display: 'block', width: '100%', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: 'var(--text)',
         ...(inline
-          ? { background: 'none', border: 'none', borderTop: '1px solid var(--separator)', borderRadius: 0, padding: 'var(--space-3) 0' }
+          ? { background: 'none', border: 'none', borderTop: divider ? '1px solid var(--separator)' : 'none', borderRadius: 0, padding: 'var(--space-3) 0' }
           : { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' }),
       }}
     >
@@ -58,8 +60,8 @@ const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAuto
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)', minWidth: 0 }}>
             {showStatus && <StatusLabel status={book.status} />}
             {/* 評価はすべての本のリストの行と同じ（状態 → 評価 · 著者・2026-09-30 ui-critic） */}
-            {book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size={12} /></span>}
-            {book.author && (showStatus || book.rating > 0) && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
+            {showRating && book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size={12} /></span>}
+            {book.author && (showStatus || (showRating && book.rating > 0)) && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
             {book.author && <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: 'var(--text-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</span>}
           </span>
         </span>

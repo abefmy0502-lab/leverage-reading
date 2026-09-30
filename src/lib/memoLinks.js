@@ -16,8 +16,8 @@
 
 // ---- 決まり（テストで確かめる） ---------------------------------------------
 
-// コサインの下限。デモのメモ（30 件）では、別々の話のいちばん近い組が 0.12・同じ考えを書いた組が 0.2〜0.35
-// だったので、その間の 0.2 にした（見逃す側に寄せる・下の 2 つの決まりと合わせて使う）。
+// コサインの下限。デモのメモ（30 件）では、別々の話のいちばん近い組が 0.18（「チーム」が同じだけ＝下の言葉のまとまりの
+// 決まりで外れる）・その次が 0.14、同じ考えを書いた組が 0.23〜0.48 だったので 0.2 にした（見逃す側に寄せる・下の決まりと合わせて使う）。
 export const LINK_MIN_SCORE = 0.2;
 export const LINK_MIN_SHARED = 3; // ひらがなだけでない、共有する切れ端の数の下限
 // 共有する言葉のまとまり（続けて共有する切れ端の並び）が 2 つ以上あるか、6 文字以上続けて同じか。
@@ -65,7 +65,7 @@ const kindWeight = (g) => (isKanaBigram(g) ? KANA_WEIGHT : 1);
 // ---- 索引 -----------------------------------------------------------------
 
 // memos: [{ id, book_id|bookId, text, page_number|pageNumber, created_at|createdAt }]（本に結びつかないメモ＝学びは外す）
-// 返り値: { docs: [{ memo, bookId, vec: Map<切れ端, 重み> }], idf: Map, postings: Map<切れ端, [[docIdx, 重み]]>, n }
+// 返り値: { docs: [{ memo, bookId, counts, vec }], df: Map<切れ端, 件数>, postings: Map<切れ端, [[docIdx, 重み]]>, n }
 export function buildLinkIndex(memos = []) {
   const docs = [];
   for (const m of memos || []) {
@@ -77,34 +77,47 @@ export function buildLinkIndex(memos = []) {
   const n = docs.length;
   const df = new Map();
   for (const d of docs) for (const g of d.counts.keys()) df.set(g, (df.get(g) || 0) + 1);
-  const idf = new Map();
-  for (const [g, c] of df) idf.set(g, Math.log(1 + n / c));
+  const idf = idfOf(df, n, null);
   const postings = new Map();
   docs.forEach((d, i) => {
-    d.vec = weigh(d.counts, idf, n);
+    d.vec = weigh(d.counts, idf);
     for (const [g, w] of d.vec) {
       if (!postings.has(g)) postings.set(g, []);
       postings.get(g).push([i, w]);
     }
-    delete d.counts;
   });
-  return { docs, idf, postings, n };
+  return { docs, df, postings, n };
+}
+
+// idf（多くのメモに出る切れ端ほど軽い）。self: そのメモ自身を索引から除いたものとして数える（保存した・開いたメモは
+// 索引に入っているので、自分の言葉を「2 件に出る言葉」と数えて軽くしない）。まだ誰も書いていない切れ端は 1 件だけと同じ。
+function idfOf(df, n, self) {
+  const nn = self ? Math.max(1, n - 1) : n;
+  return (g) => {
+    const c = Math.max(1, (df.get(g) || 0) - (self && self.counts.has(g) ? 1 : 0));
+    return Math.log(1 + nn / c);
+  };
 }
 
 // 回数 → 重み（(1 + log 回数) × idf × 種類の重み）→ 長さ 1 にそろえる。
-// 索引に無い切れ端（まだ誰も書いていない言葉）は、1 件だけに出る言葉と同じ重みにする。
-function weigh(counts, idf, n) {
-  const unseen = Math.log(1 + Math.max(1, n));
+function weigh(counts, idf) {
   const vec = new Map();
   let sq = 0;
   for (const [g, c] of counts) {
-    const w = (1 + Math.log(c)) * (idf.get(g) ?? unseen) * kindWeight(g);
+    const w = (1 + Math.log(c)) * idf(g) * kindWeight(g);
     vec.set(g, w);
     sq += w * w;
   }
   const norm = Math.sqrt(sq) || 1;
   for (const [g, w] of vec) vec.set(g, w / norm);
   return vec;
+}
+
+function cosine(a, b) {
+  let s = 0;
+  const [small, big] = a.size <= b.size ? [a, b] : [b, a];
+  for (const [g, w] of small) { const v = big.get(g); if (v) s += w * v; }
+  return s;
 }
 
 // 同じ memos の配列から作った索引は覚えておく（開くたび・保存するたびに作り直さない）。
@@ -120,41 +133,47 @@ export function linkIndexFor(memos) {
 
 // text: いま保存した・開いたメモの文 / bookId: その本（同じ本のメモは出さない）/ memoId: そのメモ（自分自身は出さない）
 // 返り値: [{ memo, bookId, score, shared: [切れ端…] }]（似ている順・1 冊 1 件・多くて k 件）
+// 速さ: 索引（切れ端 → メモ）で当たりのあるメモだけを粗く数え、候補だけを「そのメモを除いた索引」の重みで数え直す。
 export function findLinkedMemos(index, { text, bookId = null, memoId = null, k = LINK_MAX, minScore = LINK_MIN_SCORE, minShared = LINK_MIN_SHARED } = {}) {
   if (!index || !index.n || [...String(text || '').replace(/\s+/gu, '')].length < MIN_LINK_CHARS) return [];
-  const q = weigh(bigramCounts(text), index.idf, index.n);
-  const scores = new Float64Array(index.n);
+  const self = memoId != null ? index.docs.find((d) => String(d.memo?.id) === String(memoId)) || null : null;
+  const idf = idfOf(index.df, index.n, self);
+  const q = weigh(bigramCounts(text), idf);
+  const coarse = new Float64Array(index.n);
   const strong = new Uint16Array(index.n);
   for (const [g, wq] of q) {
     const list = index.postings.get(g);
     if (!list) continue;
     const kana = isKanaBigram(g);
     for (const [i, wd] of list) {
-      scores[i] += wq * wd;
+      coarse[i] += wq * wd;
       if (!kana) strong[i] += 1;
     }
   }
   const cands = [];
   for (let i = 0; i < index.n; i += 1) {
-    if (scores[i] < minScore || strong[i] < minShared) continue;
+    // 粗い数え方は自分を含む索引の重みなので、少し広めに拾ってから数え直す
+    if (coarse[i] < minScore * 0.6 || strong[i] < minShared) continue;
     const d = index.docs[i];
+    if (d === self) continue;
     if (bookId != null && String(d.bookId) === String(bookId)) continue;
     if (memoId != null && String(d.memo?.id) === String(memoId)) continue;
-    cands.push({ i, score: scores[i] });
+    const vec = self ? weigh(d.counts, idf) : d.vec;
+    const score = self ? cosine(q, vec) : coarse[i];
+    if (score >= minScore) cands.push({ d, vec, score });
   }
   cands.sort((a, b) => b.score - a.score);
   const out = [];
   const seenBooks = new Set();
   const qSegs = segmentsOf(text);
   for (const c of cands) {
-    const d = index.docs[c.i];
-    const key = String(d.bookId);
+    const key = String(c.d.bookId);
     if (seenBooks.has(key)) continue;
-    const shared = [...q.keys()].filter((g) => d.vec.has(g));
-    const { runs, phrase } = sharedRuns(qSegs, d.vec);
+    const { runs, phrase } = sharedRuns(qSegs, c.vec);
     if (runs < LINK_MIN_RUNS && phrase < LINK_LONG_RUN) continue;
     seenBooks.add(key);
-    out.push({ memo: d.memo, bookId: d.bookId, score: Math.round(c.score * 1000) / 1000, shared });
+    const shared = [...q.keys()].filter((g) => c.vec.has(g));
+    out.push({ memo: c.d.memo, bookId: c.d.bookId, score: Math.round(c.score * 1000) / 1000, shared });
     if (out.length >= k) break;
   }
   return out;
@@ -195,9 +214,6 @@ export function sharedRuns(qSegs, vec) {
 // 2 つの文の似ている度合い（テスト・調整用）。index が無ければ 2 つだけで数える。
 export function linkSimilarity(a, b, index = null) {
   const idx = index || buildLinkIndex([{ id: 'a', book_id: 'x', text: a }, { id: 'b', book_id: 'y', text: b }]);
-  const va = weigh(bigramCounts(a), idx.idf, idx.n);
-  const vb = weigh(bigramCounts(b), idx.idf, idx.n);
-  let s = 0;
-  for (const [g, w] of va) if (vb.has(g)) s += w * vb.get(g);
-  return s;
+  const idf = idfOf(idx.df, idx.n, null);
+  return cosine(weigh(bigramCounts(a), idf), weigh(bigramCounts(b), idf));
 }

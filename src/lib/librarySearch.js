@@ -237,9 +237,10 @@ export function matchRanges(text, compiled) {
 // 見つかった言葉の文の頭から始める（文の頭が遠いときは、言葉の少し前から）。
 // 一節は 2 行（約 40 字）で切れて見えるので、言葉が 2 行目の後ろに押し出されないよう、
 // 文の頭へ戻るのは 12 字まで・言葉の前は 8 字までにする（2026-09-30 ui-critic）。
-export function buildSnippet(text, compiled, { chars = SNIPPET_CHARS, lead = 8, sentenceReach = 12 } = {}) {
+// ranges: 印を付ける所を先に決めてあるとき（本と本がつながるの「共有する言葉」・lib/memoLinks.js）。
+export function buildSnippet(text, compiled, { chars = SNIPPET_CHARS, lead = 8, sentenceReach = 12, ranges: given = null } = {}) {
   const src = String(text || '');
-  const ranges = matchRanges(src, compiled);
+  const ranges = given || matchRanges(src, compiled);
   const anchor = ranges.length ? ranges[0][0] : 0;
   const before = src.slice(0, anchor);
   const sentStart = Math.max(before.lastIndexOf('。'), before.lastIndexOf('\n'), before.lastIndexOf('！'), before.lastIndexOf('？'), before.lastIndexOf('!'), before.lastIndexOf('?')) + 1;

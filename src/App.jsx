@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import { useBooks } from './hooks/useBooks';
 import { sanitizeForPrompt, invalidateKnowledgeCache } from './lib/ai';
 import { markActivation } from './lib/activation';
+import { OPEN_MEMO_EVENT } from './lib/openMemo';
 import { useAppDataCache } from './state/AppDataCache';
 import { streamClaude } from './lib/streamClaude';
 import { PROMPTS } from './lib/prompts';
@@ -1073,6 +1074,8 @@ function AuthedApp() {
   useBackLayer(addBookModalOpen, () => setAddBookModalOpen(false));
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
+  // 🔗 本の詳細でいま保存したメモ（本と本がつながる・一覧の上に「似たことを、ほかの本でも書いています」・2026-10-01）。
+  const [detailSavedMemo, setDetailSavedMemo] = useState(null); // { id, bookId, text, nonce }
   const onboardingTriggeredRef = useRef(false);
   // Setup-sheet edit history visibility — bumps to force re-read of the
   // localStorage-backed flag when we mutate it.
@@ -1673,6 +1676,15 @@ function AuthedApp() {
     setDetailEditMemoId(typeof focusMemoId === 'string' && opts?.edit ? focusMemoId : null);
     setCurrent(book); setEditPhaseOverride(null); setView("detail");
   }, [dismissToast]);
+  // 🔗 つながるメモ・メモが答える相談の行を押したとき（lib/openMemo.js）: その本を開いて、そのメモまで送って示す。
+  useEffect(() => {
+    const onOpenMemo = (e) => {
+      const { bookId, memoId } = e.detail || {};
+      if (bookId) openDetail(bookId, memoId || undefined);
+    };
+    window.addEventListener(OPEN_MEMO_EVENT, onOpenMemo);
+    return () => window.removeEventListener(OPEN_MEMO_EVENT, onOpenMemo);
+  }, [openDetail]);
 
   useEffect(() => {
     if (!pendingMemoBookId) return;
@@ -3957,6 +3969,8 @@ function AuthedApp() {
                   editFocusedMemo={!!detailEditMemoId && detailEditMemoId === detailFocusMemoId}
                   onEditFocusedOpened={() => setDetailEditMemoId(null)}
                   onWriteMemo={() => setQuickMemoOpen(true)}
+                  books={books}
+                  savedMemo={detailSavedMemo}
                   afterList={
                     // 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。
                     <button
@@ -4234,6 +4248,8 @@ function AuthedApp() {
                 const result = await currentMemoOps.createMemo(payload);
                 // 保存確定の手応え（カード式エディタ経由と体験を揃える）。
                 haptic.success();
+                // 🔗 ほかの本で似たことを書いていたら、メモの一覧の上に出す（BookMemoList の savedMemo）。
+                if (result?.id && current?.id) setDetailSavedMemo({ id: result.id, bookId: current.id, text: result.text ?? payload?.text ?? '', nonce: Date.now() });
                 // 🎯 保存直後に「行動にする」を 1 タップで提案（カード式と同じ動線）。
                 // クイックメモは最頻の書き込み経路なので、ここが出ないと大多数の
                 // メモが「保存して終わり」になる。
@@ -4275,6 +4291,8 @@ function AuthedApp() {
         {fullEditorPrefill && (
           <BookMemoEditor
             bookTitle={current.title}
+            bookId={current.id}
+            books={books}
             initial={null}
             defaultPageNumber={fullEditorPrefill.pageNumber ?? ''}
             defaultText={fullEditorPrefill.text || ''}
@@ -4282,10 +4300,13 @@ function AuthedApp() {
             allTags={allTags}
             onClose={() => setFullEditorPrefill(null)}
             onCreate={async (payload, opts = {}) => {
-              await currentMemoOps.createMemo(payload);
+              const result = await currentMemoOps.createMemo(payload);
               haptic.success();
+              // 🔗 ほかの本で似たことを書いていたら、閉じたあとのメモの一覧の上に出す（「保存して次へ」は書く画面の 1 行でも）。
+              if (result?.id) setDetailSavedMemo({ id: result.id, bookId: current.id, text: result.text ?? payload?.text ?? '', nonce: Date.now() });
               // 「保存して次へ」は書く画面の「保存しました」で伝える（知らせが入力欄に重ならない）
               if (!opts.quiet) toast.success('メモを保存しました。');
+              return result;
             }}
             onUpdate={async (memoId, payload) => {
               await currentMemoOps.updateMemo(memoId, payload);

@@ -6,6 +6,7 @@ import { ensureHttps } from '../lib/url';
 import { useLongPress } from '../hooks/useLongPress';
 import SwipeableCard from './SwipeableCard';
 import { MoreHorizontal, X } from 'lucide-react';
+import MemoLinks from './MemoLinks';
 
 const cardWrap = {
   position: 'relative',
@@ -66,7 +67,10 @@ const kebabBtn = {
 // 日付の書き方はアプリ全体で 1 つ（今年は「9/20」、違う年は「2025/9/20」）。
 const formatDate = (iso) => fmtDateJa(iso);
 
-export default function BookMemoCard({ memo, highlight, onEdit, onSwipeDelete, onLongPress }) {
+// links: 本と本がつながる（ほかの本で似たことを書いたメモ・MemoLinks）。開いた（検索から示した・「続きを読む」）ときだけ親が渡す。
+// onExpandChange(memo, expanded): 「続きを読む」で開いた・閉じたことを親に知らせる（開いたメモのつながるメモを探す）。
+// onOpenLink(book, memoId): つながるメモの行を押したとき。
+export default function BookMemoCard({ memo, highlight, onEdit, onSwipeDelete, onLongPress, links = null, onExpandChange = null, onOpenLink = null }) {
   const cache = useAppDataCache();
   // Synchronous cache hit → render the image immediately on first paint.
   const initialUrl = memo.photoPath ? cache.getCachedPhotoUrl(memo.photoPath) : null;
@@ -251,7 +255,7 @@ export default function BookMemoCard({ memo, highlight, onEdit, onSwipeDelete, o
           {isLongBody && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); onExpandChange?.(memo, !expanded); }}
               style={{ alignSelf: 'flex-start', minHeight: 44, padding: 0, margin: 'calc(-1 * var(--space-2)) 0', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
             >
               {expanded ? '閉じる' : '続きを読む'}
@@ -269,6 +273,11 @@ export default function BookMemoCard({ memo, highlight, onEdit, onSwipeDelete, o
             <span key={t} style={tagLabel} aria-hidden="true">#{t}</span>
           ))}
         </div>
+      )}
+
+      {/* 🔗 つながるメモ（ほかの本で似たことを書いたメモ・見つかったときだけ）。カードの押す・長押しには届かせない。 */}
+      {links && links.length > 0 && onOpenLink && (
+        <MemoLinks links={links} onOpen={onOpenLink} style={{ marginTop: 'var(--space-1)' }} />
       )}
 
       {zoom && photoUrl && createPortal(

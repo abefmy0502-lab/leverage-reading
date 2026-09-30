@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useAppDataCache } from '../state/AppDataCache';
@@ -14,6 +14,9 @@ import { ensureHttps } from '../lib/url';
 import { BookOpen, Sparkles, Undo2, ImagePlus, X } from 'lucide-react';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { useBackLayer } from '../hooks/useHistoryBack';
+import MemoLinks from './MemoLinks';
+import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
+import { requestOpenMemo } from '../lib/openMemo';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -168,8 +171,12 @@ function blockEnter(e) {
   }
 }
 
+// bookId / books: 本と本がつながる（ほかの本で似たことを書いたメモ・2026-10-01）に使う。無ければ出さない。
+//   保存済みのメモを開いたとき＝いちばん下に「つながるメモ」、「保存して次へ」のあと＝いちばん上に 1 行（次に保存するまで）。
 export default function BookMemoEditor({
   bookTitle,
+  bookId = null,
+  books = [],
   initial,
   defaultPageNumber = '',
   defaultText = '',
@@ -244,6 +251,17 @@ export default function BookMemoEditor({
   const justSavedTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(justSavedTimerRef.current), []);
   const [errorMsg, setErrorMsg] = useState('');
+  // 🔗 「保存して次へ」で保存したメモ（{ id, text }）。つながるメモを 1 行で出す（× で閉じる・次に保存したら入れ替わる）。
+  const [lastSaved, setLastSaved] = useState(null);
+  const { find: findLinks } = useMemoLinkFinder({ books, enabled: !!bookId && (isEdit || !!lastSaved) });
+  const editLinks = useMemo(
+    () => (bookId && isEdit && initial?.text ? findLinks({ text: initial.text, bookId, memoId: initial.id }) : []),
+    [bookId, isEdit, initial, findLinks],
+  );
+  const savedLinks = useMemo(
+    () => (bookId && lastSaved ? findLinks({ text: lastSaved.text, bookId, memoId: lastSaved.id }) : []),
+    [bookId, lastSaved, findLinks],
+  );
   const fileInputRef = useRef(null);
   const overlayRef = useRef(null);
   // ♿ 全画面エディタも Tab を内部に閉じ込める（背景の本詳細へ抜けない）。
@@ -377,12 +395,13 @@ export default function BookMemoEditor({
       if (isEdit) {
         await onUpdate(initial.id, payload);
       } else {
-        await onCreate({
+        const created = await onCreate({
           pageNumber: payload.pageNumber,
           text: payload.text,
           photoFile: payload.photoFile,
           tags: payload.tags,
         }, { quiet: !!continueAfter });
+        if (continueAfter) setLastSaved({ id: created?.id ?? null, text: payload.text });
       }
       if (continueAfter && !isEdit) {
         resetForNext(payload.pageNumber);
@@ -481,6 +500,11 @@ export default function BookMemoEditor({
     return true;
   };
   requestCloseRef.current = requestClose;
+  // つながるメモを押したら、書く画面を閉じて（書きかけがあれば確かめて）その本のそのメモを開く。
+  const openLinked = async (book, memoId) => {
+    if (!book?.id) return;
+    if (await requestClose()) requestOpenMemo(book.id, memoId);
+  };
 
   // body 直下へ portal で描く。本の詳細の .detail-enter は入場アニメの transform が残るため、
   // その中に置くと position: fixed が画面ではなく親基準になり、z-index も親の重なりに閉じ込め
@@ -520,6 +544,10 @@ export default function BookMemoEditor({
       </div>
 
       <div style={body}>
+        {/* 🔗 「保存して次へ」のあと: いま保存したメモと似たことを、ほかの本でも書いていたら 1 行だけ（書き続けるのを邪魔しない） */}
+        {!isEdit && savedLinks.length > 0 && (
+          <MemoLinks variant="compact" links={savedLinks} onOpen={openLinked} onDismiss={() => setLastSaved(null)} />
+        )}
         <div>
           <label htmlFor="memo-body" style={fieldLabel}>メモ本文</label>
           <textarea
@@ -707,6 +735,9 @@ export default function BookMemoEditor({
         {errorMsg && (
           <p role="alert" style={{ color: 'var(--error)', fontSize: 'var(--text-meta)', lineHeight: 1.5, margin: 0 }}>{errorMsg}</p>
         )}
+
+        {/* 🔗 保存済みのメモを開いたとき: いちばん下に「つながるメモ」（ほかの本で似たことを書いたメモ・見つかったときだけ） */}
+        {isEdit && editLinks.length > 0 && <MemoLinks links={editLinks} onOpen={openLinked} />}
       </div>
 
       <div style={footer}>

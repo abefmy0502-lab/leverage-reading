@@ -326,6 +326,16 @@ const SCREENS = [
   // 読書中の本 → プラン・お支払い（上の行に「‹ 読書中の本」と画面の名前が並んでもあふれない）
   { name: 'help-switch-reading', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }, { css: '[role=dialog] button:has-text("プラン・お支払い")' }] },
   { name: 'help-book-reading-topic', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }, { css: '[role=dialog] details summary' }] },
+  // ── メモが答える相談（2026-10-01）: 無料プランで今月のトークンを使い切ったあと、送った相談にメモの一節で答える（AI なし）。
+  { name: 'free-used-memo-answer', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '頼まれごとを断れなくて、仕事を抱えすぎてしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }] },
+  { name: 'free-used-memo-answer-bottom', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '頼まれごとを断れなくて、仕事を抱えすぎてしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }, { scrollBottom: true }] },
+  { name: 'free-used-memo-noresult', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', 'スキーがうまくなりたい'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }] },
+  { name: 'free-used-home', url: '/?demo=freeused' },
+  // ── 本と本がつながる（2026-10-01）: 保存したメモ・開いたメモに、ほかの本で似たことを書いたメモ（AI なし）。
+  { name: 'memo-saved-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { fill: ['textarea[aria-label="メモ本文"]', '頼まれごとはその場で引き受けず、一度持ち帰ってから数字で判断する。'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1800 }] },
+  { name: 'memo-open-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'p:has-text("命令ではなく質問で")' }, { wait: 800 }, { scrollBottom: true }] },
+  { name: 'memo-focus-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '命令'] }, { wait: 800 }, { css: 'button:has-text("命令ではなく") >> nth=0', settle: 1600 }] },
+  { name: 'memo-editor-next-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { fill: ['textarea#memo-body', '頼まれごとはその場で引き受けず、一度持ち帰ってから数字で判断する。'] }, { css: 'button:has-text("保存して次へ")', settle: 1200 }] },
 ];
 
 function browserOptions() {
