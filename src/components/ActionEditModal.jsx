@@ -89,7 +89,8 @@ const labelStyle = { ...groupTitle, display: 'flex', alignItems: 'center', gap: 
 const inpStyle = { ...uiInput, outline: 'none' };
 const taStyle = { ...inpStyle, resize: 'none', minHeight: 96, lineHeight: 1.6 };
 
-// 優先度の選択（高さ 44・選んでいるものだけ栗色の枠と淡い面）。
+// 優先度の選択（高さ 44）。期限の「明日」「来週」と同じ操作のチップの形（--fill・枠なし・選んでいるものは
+// --accent-soft＋--accent/600・DESIGN §5・2026-10-01 ui-critic）。
 const chipBtn = (active) => ({
   flex: 1,
   display: 'inline-flex',
@@ -98,9 +99,9 @@ const chipBtn = (active) => ({
   gap: 'var(--space-1)',
   padding: 'var(--space-2) var(--space-3)',
   borderRadius: 'var(--radius)',
-  border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
-  background: active ? 'var(--accent-soft)' : 'var(--surface)',
-  color: 'var(--text)',
+  border: 'none',
+  background: active ? 'var(--accent-soft)' : 'var(--fill)',
+  color: active ? 'var(--accent)' : 'var(--text)',
   fontSize: 'var(--text-sub)',
   fontWeight: active ? 600 : 400,
   cursor: 'pointer',
@@ -227,7 +228,8 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{isCreate ? '行動を追加' : step ? `期限を見直す（${step.index}/${step.total}）` : '行動を編集'}</h2>
-          <button type="button" style={closeBtn} onClick={() => { if (!busy) onClose?.(); }} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
+          {/* やめる・キャンセルは右上の × 1 か所（下の行は 削除＋保存 だけ・2026-10-01 ui-critic）。 */}
+          <button type="button" style={closeBtn} onClick={() => { if (!busy) onClose?.(); }} aria-label={reviewing ? '見直しをやめる' : '閉じる'}><X size={20} aria-hidden="true" /></button>
         </div>
 
         <div style={bodyStyle}>
@@ -342,18 +344,9 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
           )}
           <button
             type="button"
-            onClick={onClose}
-            disabled={busy}
-            style={{ ...(busy ? btnGhostOff : btnGhost), flex: 1, width: 'auto', whiteSpace: 'nowrap' }}
-          >
-            {/* 見直しの途中は短く（3 つ並んでも語の途中で折り返さない・2026-09-30）。 */}
-            {reviewing ? 'やめる' : 'キャンセル'}
-          </button>
-          <button
-            type="button"
             onClick={handleSave}
             disabled={busy || !text.trim()}
-            style={{ ...(busy || !text.trim() ? btnPrimaryOff : btnPrimary), flex: 1.4, width: 'auto', whiteSpace: 'nowrap' }}
+            style={{ ...(busy || !text.trim() ? btnPrimaryOff : btnPrimary), flex: 1, width: 'auto', whiteSpace: 'nowrap' }}
           >
             {busy ? '保存中…' : (isCreate ? '追加' : hasNext ? '次へ' : '保存')}
           </button>

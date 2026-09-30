@@ -180,6 +180,8 @@ const SCREENS = [
   { name: 'review-memo-recall-last', url: '/?demo=recalllast', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button:has-text("覚えた")', settle: 1200 }] },
   // 行動の編集（期限の日付の欄が画面の幅に収まるか・2026-10-01）
   { name: 'action-edit', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label$="」の操作"]' }, { css: 'button:has-text("編集")' }, { wait: 400 }] },
+  // 期限を見直す（期限を過ぎた行動を 1 つずつ・やめるのは右上の ×）
+  { name: 'action-review-deadline', url: '/?demo=overdue', steps: [{ css: nav('振り返り') }, { css: 'button:has-text("期限を見直す")' }, { wait: 400 }] },
   { name: 'review-memo-menu', url: '/',steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"]' }] },
   { name: 'review-record-empty', url: '/?demo=nomemo', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
   { name: 'settings-bottom', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollBottom: true }] },
