@@ -14,7 +14,7 @@ import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import { useToast } from './Toast';
 import { useAuth } from '../hooks/useAuth';
-import { TOKEN_PACKS, TOKEN_LOT_DAYS } from '../lib/tokens';
+import { TOKEN_PACKS, TOKEN_LOT_DAYS, PAID_TOKENS, monthDayLabelJa } from '../lib/tokens';
 import { isNative, getTokenPackPrices, purchaseTokenPack } from '../lib/iap';
 import { isDemo, supabase } from '../lib/supabase';
 import { toMessage } from '../lib/errors';
@@ -44,14 +44,26 @@ const preview = (() => {
 })();
 const showNative = isNative || preview.on;
 
+// 次の月の 1 日（日本時間の 0 時）と、それまでの日数（有料の人のトークンが戻る日）。
+const RESET_SOON_DAYS = 7;
+function nextMonthReset(now = Date.now()) {
+  const d = new Date(now + 9 * 3600 * 1000);
+  const first = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - 9 * 3600 * 1000;
+  return { at: first, days: Math.ceil((first - now) / 86400000) };
+}
+
 // onPurchased: 買えたあとに残りを取り直す（増えたら true を返す）。
 // plan: 'paid' | 'trial'。7 日間無料の人は、まず小さい方（300）を選んでおく（無料期間のあとに毎月 800 が来るので、
 //   大きい方を既定にしない・2026-09-30）。有料の人は従来どおり大きい方。
 export default function TokenSheet({ plan, onClose, onPurchased }) {
   const isTrial = plan === 'trial';
+  // 有料の人: 来月 1 日に毎月の分が戻る。戻る日まで 7 日以内なら小さい方（300）を選んでおく
+  //   （すぐ 800 に戻るのに 1,000 を既定にしない・2026-09-30）。
+  const reset = !isTrial ? nextMonthReset() : null;
+  const resetSoon = !!reset && reset.days <= RESET_SOON_DAYS;
   const { user } = useAuth();
   const toast = useToast();
-  const [selected, setSelected] = useState(() => (isTrial ? TOKEN_PACKS[0] : TOKEN_PACKS[TOKEN_PACKS.length - 1])?.id);
+  const [selected, setSelected] = useState(() => (isTrial || resetSoon ? TOKEN_PACKS[0] : TOKEN_PACKS[TOKEN_PACKS.length - 1])?.id);
   // 🧪 お試しモードのアプリ版の見た目（&native=1）では、ストアの値の代わりに既定の表示を「取れた価格」とみなす。
   const [prices, setPrices] = useState(() => (
     preview.on && !isNative ? Object.fromEntries(TOKEN_PACKS.map((p) => [p.id, p.fallbackPrice])) : {}
@@ -153,6 +165,13 @@ export default function TokenSheet({ plan, onClose, onPurchased }) {
             actions={[{ label: 'もう一度', onClick: () => { if (isNative) setPriceTry((n) => n + 1); } }]}
           />
         </div>
+      )}
+      {/* 戻る日が近いときは、選ぶ前にその日を 1 行（データだけ・2026-09-30）。 */}
+      {resetSoon && (
+        <p style={{ ...meta, margin: '0 0 var(--space-3)' }}>
+          <span style={{ whiteSpace: 'nowrap' }}>{monthDayLabelJa(reset.at)}に</span>
+          <span style={{ whiteSpace: 'nowrap' }}> {PAID_TOKENS.toLocaleString()} トークンに戻ります</span>
+        </p>
       )}
       <div role="radiogroup" aria-label="追加するトークン" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {TOKEN_PACKS.map((p) => {
