@@ -355,7 +355,13 @@ async function run(step, page) {
   if (step.role) await page.getByRole('button', { name: step.role }).first().click();
   if (step.css) await page.locator(step.css).first().click();
   if (step.scrollTo) await page.locator(step.scrollTo).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
-  if (step.scrollBottom) await page.evaluate(() => document.querySelectorAll('*').forEach((el) => { if (el.scrollHeight > el.clientHeight + 10) el.scrollTop = el.scrollHeight; }));
+  // 送るのは本当に送れる箱だけ（overflow-y が auto / scroll）。2 行で止めた一節（-webkit-line-clamp の overflow: hidden）まで
+  // 送ると、写真では文の途中から見えていた（2026-10-01 ui-critic）。
+  if (step.scrollBottom) await page.evaluate(() => document.querySelectorAll('*').forEach((el) => {
+    if (el.scrollHeight <= el.clientHeight + 10) return;
+    const oy = getComputedStyle(el).overflowY;
+    if (oy === 'auto' || oy === 'scroll' || el === document.scrollingElement) el.scrollTop = el.scrollHeight;
+  }));
   if (step.fill) await page.locator(step.fill[0]).first().fill(step.fill[1]);
   if (step.eval) await page.evaluate(step.eval);
   if (step.upload) await page.locator(step.upload[0]).first().setInputFiles(step.upload[1]);
