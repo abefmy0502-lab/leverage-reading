@@ -25,7 +25,7 @@ const overlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 'min(var(--space-4), 2vw)',
+  padding: 'var(--space-4)', // 画面の左右の余白 16（DESIGN §1）
   fontFamily: 'var(--font-app)',
   boxSizing: 'border-box',
 };
@@ -34,7 +34,7 @@ const cardStyle = {
   background: 'var(--surface)',
   borderRadius: 'var(--radius)',
   width: '100%',
-  maxWidth: 'min(460px, 100vw - 16px)',
+  maxWidth: 460, // 読む 1 行を 26 字ほどに止める（iPad・Web）
   maxHeight: 'min(85vh, 85dvh)',
   display: 'flex',
   flexDirection: 'column',
@@ -117,7 +117,6 @@ const stepNumberStyle = {
   justifyContent: 'center',
   width: 24,
   height: 24,
-  marginTop: 1, // 1 行目の文字の高さ（17 × 1.5）の真ん中にそろえる
   borderRadius: 'var(--radius-full)',
   flexShrink: 0,
   background: 'var(--accent)',
