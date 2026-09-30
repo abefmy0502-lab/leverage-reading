@@ -1870,7 +1870,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     onRetry={() => runMemoAnswerInto(m.id, m.memoAnswer.question || precedingQuestion(visibleMessages, i), m.scopeIds || [])}
                     onPlan={() => { track('brain_memo_answer_plan', {}); openPaywall('free_used'); }}
                     showPlan={freeMode && m.id === firstMemoAnswerId}
-                    onAddMemo={onQuickstart || null}
+                    // メモが 0 件の人だけ初日クイックスタートへ。メモのある人は AI の「関係するメモが無かった答え」と同じ「本を追加」。
+                    onAddMemo={ownMemoTotal === 0 && !memoStatsFailed ? (onQuickstart || null) : null}
+                    onAddBook={onAddBook || null}
                     onWriteLearning={() => setView('learning')}
                   />
                 ) : (

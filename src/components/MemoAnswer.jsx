@@ -80,8 +80,10 @@ function Skeleton() {
 
 // message.memoAnswer: { status: 'loading' | 'ready' | 'error', groups, searched }
 // onOpen(book, memoId) / onOpenLearning() / onRetry() / onPlan()（有料プランの画面）/ showPlan: プランの一行を出すか（会話で 1 回だけ）
-// onAddMemo: 見つからないときの「これまで読んだ本からメモを足す」／onWriteLearning: 「学びを書く」
-export default function MemoAnswer({ message, onOpen, onOpenLearning, onRetry, onPlan, showPlan = false, onAddMemo = null, onWriteLearning = null, column = 0 }) {
+// 見つからないとき（AI の「関係するメモが無かった答え」と同じ並び・2026-10-01 ui-critic）:
+//   onAddMemo: メモが 0 件の人だけ「これまで読んだ本からメモを足す」（初日クイックスタート）／ほかの人は onAddBook「本を追加」
+//   onWriteLearning: 「学びを書く」
+export default function MemoAnswer({ message, onOpen, onOpenLearning, onRetry, onPlan, showPlan = false, onAddMemo = null, onAddBook = null, onWriteLearning = null, column = 0 }) {
   const a = message.memoAnswer || { status: 'loading' };
   if (a.status === 'error') {
     return (
@@ -121,9 +123,11 @@ export default function MemoAnswer({ message, onOpen, onOpenLearning, onRetry, o
             <>
               <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(MEMO_ANSWER_EMPTY)}</p>
               <p style={{ ...meta, marginTop: 'var(--space-1)' }}>メモ {a.searched || 0} 件から探しました</p>
-              {(onAddMemo || onWriteLearning) && (
+              {(onAddMemo || onAddBook || onWriteLearning) && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-4)', marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }}>
-                  {onAddMemo && <button type="button" onClick={onAddMemo} style={btnLink}>これまで読んだ本からメモを足す</button>}
+                  {onAddMemo
+                    ? <button type="button" onClick={onAddMemo} style={btnLink}>これまで読んだ本からメモを足す</button>
+                    : onAddBook && <button type="button" onClick={onAddBook} style={btnLink}>本を追加</button>}
                   {onWriteLearning && <button type="button" onClick={onWriteLearning} style={btnLink}>学びを書く</button>}
                 </div>
               )}
