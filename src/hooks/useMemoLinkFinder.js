@@ -23,9 +23,13 @@ export function useMemoLinkFinder({ books, enabled = true }) {
   const { rows, status } = useAllMemoRows({ userId: user?.id, books, active: enabled && !!user?.id });
   const index = useMemo(() => (enabled && status === 'ready' ? linkIndexFor(rows) : null), [enabled, status, rows]);
   const bookById = useMemo(() => new Map((books || []).map((b) => [String(b.id), b])), [books]);
+  // 同じメモを描き直すたびに探し直さない（索引が変わったら覚え直す）。
+  const memo = useMemo(() => new Map(), [index, bookById]); // eslint-disable-line react-hooks/exhaustive-deps
   const find = useCallback(({ text, bookId, memoId = null } = {}) => {
     if (!index || !text) return [];
-    return findLinkedMemos(index, { text, bookId, memoId })
+    const key = `${bookId}|${memoId}|${text}`;
+    if (memo.has(key)) return memo.get(key);
+    const out = findLinkedMemos(index, { text, bookId, memoId })
       .map((l) => {
         const book = bookById.get(String(l.bookId));
         if (!book) return null;
@@ -44,6 +48,8 @@ export function useMemoLinkFinder({ books, enabled = true }) {
         };
       })
       .filter(Boolean);
-  }, [index, bookById]);
+    memo.set(key, out);
+    return out;
+  }, [index, bookById, memo]);
   return { find, ready: !!index };
 }

@@ -338,6 +338,8 @@ const SCREENS = [
   { name: 'memo-saved-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { fill: ['textarea[aria-label="メモ本文"]', '頼まれごとはその場で引き受けず、一度持ち帰ってから数字で判断する。'] }, { css: '[role=dialog] button:text-is("保存")' }, { wait: 1800 }] },
   { name: 'memo-open-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'p:has-text("命令ではなく質問で")' }, { wait: 800 }, { scrollBottom: true }] },
   { name: 'memo-focus-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '命令'] }, { wait: 800 }, { css: 'button:has-text("命令ではなく") >> nth=0', settle: 1600 }] },
+  // つながるメモの行を押す → その本のそのメモを開いて示す（開いた先のカードにも逆向きのつながるメモ）
+  { name: 'memo-link-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '命令'] }, { wait: 800 }, { css: 'button:has-text("命令ではなく") >> nth=0', settle: 1600 }, { css: 'section[aria-label="つながるメモ"] button', settle: 1600 }] },
   { name: 'memo-editor-next-link', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { css: 'button:has-text("全画面で書く")' }, { fill: ['textarea#memo-body', '頼まれごとはその場で引き受けず、一度持ち帰ってから数字で判断する。'] }, { css: 'button:has-text("保存して次へ")', settle: 1200 }] },
 ];
 

@@ -27,6 +27,7 @@ export const LINK_LONG_RUN = 6;
 export const LINK_MAX = 2; // 出すのは多くて 2 件
 export const KANA_WEIGHT = 0.35; // ひらがなだけの切れ端の重み
 export const MIN_LINK_CHARS = 8; // これより短いメモは比べない（「なるほど」など）
+const RESCORE_MAX = 40; // 候補を数え直す上限（粗い点の高い順）
 
 // どの本にも出てくる言葉（漢字 2 文字）。助詞と同じく数えない。
 const STOP_BIGRAMS = new Set([
@@ -150,7 +151,7 @@ export function findLinkedMemos(index, { text, bookId = null, memoId = null, k =
       if (!kana) strong[i] += 1;
     }
   }
-  const cands = [];
+  const rough = [];
   for (let i = 0; i < index.n; i += 1) {
     // 粗い数え方は自分を含む索引の重みなので、少し広めに拾ってから数え直す
     if (coarse[i] < minScore * 0.6 || strong[i] < minShared) continue;
@@ -158,6 +159,13 @@ export function findLinkedMemos(index, { text, bookId = null, memoId = null, k =
     if (d === self) continue;
     if (bookId != null && String(d.bookId) === String(bookId)) continue;
     if (memoId != null && String(d.memo?.id) === String(memoId)) continue;
+    rough.push(i);
+  }
+  // 数え直すのは粗い点の高い順に RESCORE_MAX 件まで（メモが何千件あっても 1 回の手間を一定に）
+  rough.sort((a, b) => coarse[b] - coarse[a]);
+  const cands = [];
+  for (const i of rough.slice(0, RESCORE_MAX)) {
+    const d = index.docs[i];
     const vec = self ? weigh(d.counts, idf) : d.vec;
     const score = self ? cosine(q, vec) : coarse[i];
     if (score >= minScore) cands.push({ d, vec, score });

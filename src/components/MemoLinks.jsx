@@ -14,7 +14,7 @@ export const CARD_LINKS_TITLE = 'つながるメモ';
 
 // カードの押す・長押し・スワイプに届かせない（中の行を押したら、そのメモを開くだけ）。
 const stop = (e) => e.stopPropagation();
-const guard = { onClick: stop, onTouchStart: stop, onMouseDown: stop, onPointerDown: stop };
+const guard = { onClick: stop, onTouchStart: stop, onMouseDown: stop };
 
 const closeBtn = {
   width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
