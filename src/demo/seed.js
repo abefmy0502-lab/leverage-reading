@@ -260,6 +260,13 @@ export function buildSeed(scenario) {
     });
   });
 
+  // ?demo=recalldone: 思い出しカードを今日の分まで答え終えた人（すべてのメモを昨日「覚えた」・次に出るのは 2 日後）。
+  //   本のまとめ・AI まとめ（端末の中で数える派生のメモ）も出さない＝思い出しカードの「ここまで」の確認用。
+  if (scenario === 'recalldone') {
+    db.book_memos.forEach((m) => { m.recall_count = Math.max(1, m.recall_count || 0); m.last_recalled_at = iso(1); });
+    db.books.forEach((b) => { b.ai_summary = ''; b.roi_summary = ''; b.leverage_memo = ''; });
+  }
+
   // ?demo=onebook: メモ（カード式）がある本が 1 冊だけの人（答え方「本ごとに」で並べる本が 2 冊に満たず、
   //   「まとめて」で答える流れの確認用・ai.js の pickPerspectiveBooks）。学び（personal）は残す。
   if (scenario === 'onebook') {

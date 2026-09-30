@@ -23,7 +23,8 @@ import PullToRefresh from './PullToRefresh';
 import EmptyState from './EmptyState';
 import Spinner from './Spinner';
 import { SkeletonBlock } from './Skeleton';
-import { relativeJa, recallFraming, pickRecallMemo, recallPatch, dueGapDays } from '../lib/recall';
+import { relativeJa, recallFraming, pickRecallMemo, pickFallbackMemo, nextDueAt, nextDueLabel, applyLocalRecall, recallPatch, dueGapDays } from '../lib/recall';
+import { loadRecallLocal, saveRecallLocal } from '../lib/recallLocal';
 import { shouldAskForReview, markReviewAsked, askReviewToast } from '../lib/reviewRequest';
 import { markActivation } from '../lib/activation';
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush, isIOS, isStandalonePWA } from '../lib/push';
@@ -166,28 +167,9 @@ function buildSyntheticNotes(books) {
   return out;
 }
 
-// 🧠 派生ノート (synth) の想起履歴は DB 行を持たないため端末ローカルに記録する。
-// これが無いと synth ノートは「覚えた」を押しても永遠に due のままで、overdue
-// スコアが毎日積み上がり、実メモを押しのけて想起プールを占拠してしまう。
-// 形式: { [synthId]: { at: ISO, count: number } }。500 件で古い順に間引く。
-const SYNTH_RECALL_KEY = 'orime-synth-recall-v1';
-function loadSynthRecall() {
-  try {
-    const raw = localStorage.getItem(SYNTH_RECALL_KEY);
-    const map = raw ? JSON.parse(raw) : {};
-    return map && typeof map === 'object' ? map : {};
-  } catch { return {}; }
-}
-function saveSynthRecall(map) {
-  try {
-    const keys = Object.keys(map);
-    if (keys.length > 500) {
-      keys.sort((a, b) => String(map[a]?.at || '').localeCompare(String(map[b]?.at || '')));
-      for (const k of keys.slice(0, keys.length - 500)) delete map[k];
-    }
-    localStorage.setItem(SYNTH_RECALL_KEY, JSON.stringify(map));
-  } catch { /* プライベートブラウズ等は諦める（次回も due に出るだけ） */ }
-}
+// 🧠 想起履歴の端末ローカル記録は lib/recallLocal.js（派生ノートは常に・実メモは DB 書き込みが
+// 失敗したときだけ）。派生ノートは DB 行を持たないので、これが無いと「覚えた」を押しても永遠に
+// due のままで、overdue スコアが毎日積み上がり、実メモを押しのけて想起プールを占拠してしまう。
 
 function pickCategory(tags) {
   if (!Array.isArray(tags)) return null;
@@ -680,20 +662,24 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   //   - books の各フィールド: 投資目的 / 課題 / 仮説 / AI まとめ / 投資の効果 / レバレッジメモ
   //   - actions.reflection: 行動の振り返り
   // タイムライン・検索・ランダム想起のすべてがこの allNotes を使う。
-  // synth ノートの想起履歴（端末ローカル）。「覚えた/もう一度」で更新される。
-  const [synthRecall, setSynthRecall] = useState(loadSynthRecall);
+  // 端末ローカルの想起履歴（派生ノートは常に・実メモは DB に書けなかったときだけ・lib/recallLocal.js）。
+  // DB の値より新しいときだけ重ねる（recall.js の applyLocalRecall）。
+  const [localRecall, setLocalRecall] = useState(loadRecallLocal);
+  const updateLocalRecall = useCallback((id, entry) => {
+    setLocalRecall((cur) => {
+      const next = { ...cur };
+      if (entry) next[id] = entry; else delete next[id];
+      saveRecallLocal(next);
+      return next;
+    });
+  }, []);
 
   const allNotes = useMemo(() => {
-    const synth = buildSyntheticNotes(books).map((n) => {
-      const rec = synthRecall[n.id];
-      return rec && rec.at
-        ? { ...n, lastRecalledAt: rec.at, recallCount: rec.count || 0 }
-        : n;
-    });
-    const merged = [...memos, ...synth];
+    const withLocal = (n) => applyLocalRecall(n, localRecall[n.id]);
+    const merged = [...memos.map(withLocal), ...buildSyntheticNotes(books).map(withLocal)];
     merged.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     return merged;
-  }, [memos, books, synthRecall]);
+  }, [memos, books, localRecall]);
 
   // 知識タイプ別のフィルタ (横断検索セクション用)。
   const [kindFilter, setKindFilter] = useState(() => (freshPreset ? 'all' : resumedReview?.kindFilter || 'all'));
@@ -730,11 +716,18 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     // 熟成メモがまだ無い新規ユーザーは従来のランダム1枚にフォールバック（空にしない）。
     const aged = pickRecallMemo(allNotes, { seed: randomSeed });
     if (aged) return aged;
-    // 熟成メモが無い新規ユーザーのフォールバック。useMemo 内なので純粋に保つ
-    // （Math.random は再計算のたびに値が変わり memo 化が壊れる）。seed から決定的に。
-    const idx = Math.abs(Math.floor((randomSeed * 9301 + 49297) % 233280)) % allNotes.length;
-    return allNotes[idx] || allNotes[0];
+    // 熟成メモが無い新規ユーザーのフォールバック（一度も思い出していない若いメモだけ）。
+    // 「覚えた／まだ覚えていない」と答えて次の間隔を待っているメモは出さない
+    // （以前は全メモから選んでいて、覚えたメモに何度も「覚えた？」と聞いていた・2026-10-01）。
+    // useMemo 内なので純粋に保つ（seed から決定的に）。
+    return pickFallbackMemo(allNotes, { seed: randomSeed });
   }, [allNotes, randomSeed]);
+  // 今日出すメモが残っていない（すべて次の間隔を待っている）→「今日の思い出しカードは、ここまでです」。
+  const recallNextLabel = useMemo(
+    () => (randomMemo || allNotes.length === 0 ? '' : nextDueLabel(nextDueAt(allNotes))),
+    [randomMemo, allNotes],
+  );
+  const recallDone = !randomMemo && allNotes.length > 0;
 
   // 活性化「想起を体験」ステップ — タブを開いただけ（偽陽性）ではなく、自分のメモが
   // 実際に想起カードとして1枚戻ってきたときに初めて完了にする（= aha の本体）。
@@ -834,14 +827,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     // 替わる（二重スワップ）。更新自体は必要 — しないと allNotes 上は依然 due の
     // ままで、直後の reroll で同じ 1 枚が再選出されうる。
     if (recallApplyTimerRef.current) clearTimeout(recallApplyTimerRef.current);
+    const localEntry = { at: patch.last_recalled_at, count: patch.recall_count };
     recallApplyTimerRef.current = setTimeout(() => {
       if (memo.synth) {
-        // 派生ノートは DB 行が無いので端末ローカルに記録（上の SYNTH_RECALL_KEY）。
-        setSynthRecall((prev) => {
-          const next = { ...prev, [memo.id]: { at: patch.last_recalled_at, count: patch.recall_count } };
-          saveSynthRecall(next);
-          return next;
-        });
+        // 派生ノートは DB 行が無いので端末ローカルに記録（lib/recallLocal.js）。
+        updateLocalRecall(memo.id, localEntry);
       } else {
         setMemos((arr) => arr.map((m) => (m.id === memo.id
           ? { ...m, lastRecalledAt: patch.last_recalled_at, recallCount: patch.recall_count }
@@ -850,51 +840,61 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     }, 280);
     if (memo.synth) return; // DB 書き込みは実メモのみ
     const write = recallWriteRef.current.then(async () => {
+      // 失敗（列が無い＝supabase_recall_memory.sql 未適用・通信断など）は端末に残す。
+      // 以前は { error } を見ておらず、再読み込みすると「覚えた」が消えて同じメモがまた出ていた（2026-10-01）。
+      let failed = false;
       try {
-        await supabase
+        const { error } = await supabase
           .from('book_memos')
           .update(patch)
           .eq('id', memo.id);
-      } catch { /* 列未適用・失敗は静かに無視 */ }
+        if (error) {
+          failed = true;
+          if (!isSchemaError(error)) console.warn('recall write failed:', error);
+        }
+      } catch (e) {
+        failed = true;
+        console.warn('recall write failed:', e);
+      }
+      if (failed) updateLocalRecall(memo.id, localEntry);
     });
     recallWriteRef.current = write;
     await write;
-  }, []);
+  }, [updateLocalRecall]);
 
   // 「元に戻す」: 押す前の想起の記録（最後に思い出した日・覚えた回数）に戻し、同じカードをもう一度出す。
   const undoRandomRecall = useCallback((memo, prev, prevSeed) => {
     if (!memo) return;
     if (recallApplyTimerRef.current) { clearTimeout(recallApplyTimerRef.current); recallApplyTimerRef.current = null; }
-    if (memo.synth) {
-      setSynthRecall((cur) => {
-        const next = { ...cur };
-        if (prev.synthEntry) next[memo.id] = prev.synthEntry; else delete next[memo.id];
-        saveSynthRecall(next);
-        return next;
-      });
-    } else {
+    // 端末ローカルの記録も押す前に戻す（派生ノート・DB に書けなかった実メモ）。
+    updateLocalRecall(memo.id, prev.localEntry);
+    if (!memo.synth) {
       setMemos((arr) => arr.map((m) => (m.id === memo.id
-        ? { ...m, lastRecalledAt: prev.lastRecalledAt, recallCount: prev.recallCount }
+        ? { ...m, lastRecalledAt: prev.dbLastRecalledAt, recallCount: prev.dbRecallCount }
         : m)));
       recallWriteRef.current = recallWriteRef.current.then(async () => {
+        // 直前の書き込みが失敗して端末に残した記録も、書き込みが終わってから戻す（順番が逆転しない）。
+        updateLocalRecall(memo.id, prev.localEntry);
         try {
           await supabase
             .from('book_memos')
-            .update({ last_recalled_at: prev.lastRecalledAt || null, recall_count: prev.recallCount || 0 })
+            .update({ last_recalled_at: prev.dbLastRecalledAt || null, recall_count: prev.dbRecallCount || 0 })
             .eq('id', memo.id);
         } catch { /* 列未適用・失敗は静かに無視 */ }
       });
     }
     setRandomSeed(prevSeed);
-  }, []);
+  }, [updateLocalRecall]);
 
   // 覚えた／まだ覚えていない: 記録して次の 1 枚へ。次に出る日をトーストで伝え、「元に戻す」で取り消せる。
   const answerRandomRecall = (memo, mastered) => {
     if (!memo || flipping) return;
+    // 押す前の記録。DB の値（端末の記録を重ねる前）と端末の記録を別々に持ち、それぞれに戻す。
+    const dbRow = memo.synth ? null : memos.find((m) => m.id === memo.id);
     const prev = {
-      lastRecalledAt: memo.lastRecalledAt ?? null,
-      recallCount: memo.recallCount || 0,
-      synthEntry: memo.synth ? synthRecall[memo.id] || null : null,
+      dbLastRecalledAt: dbRow ? dbRow.lastRecalledAt ?? null : null,
+      dbRecallCount: dbRow ? dbRow.recallCount || 0 : 0,
+      localEntry: localRecall[memo.id] || null,
     };
     const prevSeed = randomSeed;
     recordRandomRecall(memo, mastered);
@@ -1261,7 +1261,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             読ませる説明ノイズになっていた。ヘッダー＋「N日前のあなたのメモ」ラベルで
             意味は伝わる（1画面1メッセージ）。 */}
         {/* 「◯ヶ月前のあなたのメモ」はカード右上の「◯ヶ月前」と同じなので出さない（重複をなくす）。 */}
-        {randomMemo && (
+        {(randomMemo || recallDone) && (
           <div
             style={{
               // preserve-3d / backfaceVisibility はフリップ中だけ。安静時に残すと
@@ -1272,6 +1272,17 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               backfaceVisibility: flipping ? 'hidden' : undefined,
             }}
           >
+            {/* 今日出すメモが残っていない（すべて次の間隔を待っている）: 最後の 1 枚を答えたら、同じフリップの
+                折り返しでカードの代わりにこの 1 枚（空状態の形・カードと同じ枠）。次に出る日だけを添える（2026-10-01）。 */}
+            {!randomMemo ? (
+              <div className="recall-done" style={cardBase}>
+                <EmptyState
+                  icon={<Check size={28} aria-hidden="true" />}
+                  title={<><span style={{ display: 'inline-block' }}>今日の思い出しカードは、</span><span style={{ display: 'inline-block' }}>ここまでです</span></>}
+                  description={recallNextLabel || undefined}
+                />
+              </div>
+            ) : (<>
             <ReviewMemoCard
               memo={randomMemo}
               book={booksById.get(randomMemo.bookId)}
@@ -1328,6 +1339,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                 行動に追加しました
               </div>
             )}
+            </>)}
           </div>
         )}
         {/* 🔔 aha 直後の通知 opt-in（初回・1枚戻ってきた時だけ・未許可時のみ） */}

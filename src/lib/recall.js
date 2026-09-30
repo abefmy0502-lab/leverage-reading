@@ -82,6 +82,23 @@ function isCondensedSource(sourceType) {
   return sourceType === 'summary' || sourceType === 'personal';
 }
 
+// 本文が空・作成日が読めないメモは想起の対象外（null）。
+function isRecallable(n) {
+  if (!n || !n.text || !String(n.text).trim()) return false;
+  return !Number.isNaN(new Date(n.createdAt).getTime());
+}
+
+// このメモが想起してよくなる時刻（ms）。対象外のメモは null。
+//   - 未想起（lastRecalledAt が無い・読めない）: 作成から minAgeDays 日後
+//   - 想起済: 前回想起から dueGapDays(recallCount) 日後
+export function noteDueAt(n, { minAgeDays = 14 } = {}) {
+  if (!isRecallable(n)) return null;
+  const created = new Date(n.createdAt).getTime();
+  const lastRecalled = n.lastRecalledAt ? new Date(n.lastRecalledAt).getTime() : null;
+  if (lastRecalled == null || Number.isNaN(lastRecalled)) return created + minAgeDays * 86400000;
+  return lastRecalled + dueGapDays(n.recallCount || 0) * 86400000;
+}
+
 // 「忘れた頃に戻ってくる」想起メモを 1 件選ぶ純関数（間隔反復モデル）。
 //
 // notes: [{ id, text, createdAt, lastRecalledAt?, recallCount?, sourceType? }] の配列。
@@ -103,24 +120,14 @@ function isCondensedSource(sourceType) {
 // 候補がゼロなら null（呼び出し側で「出さない / 送らない」判断）。
 export function pickRecallMemo(notes, { now = Date.now(), minAgeDays = 14, seed = 0 } = {}) {
   if (!Array.isArray(notes) || notes.length === 0) return null;
-  const minAgeMs = minAgeDays * 86400000;
 
   // due 判定 + スコア付け。overdue 日数をスコアの基軸（1 日 = 1 点）にし、
   // 定着度・凝縮度は「日数換算の小さなボーナス」で足す（overdue が主・他は微調整）。
   const candidates = [];
   for (const n of notes) {
-    if (!n || !n.text || !String(n.text).trim()) continue;
-    const created = new Date(n.createdAt).getTime();
-    if (Number.isNaN(created)) continue;
-
+    const dueTime = noteDueAt(n, { minAgeDays });
+    if (dueTime == null) continue;
     const count = n.recallCount || 0;
-    const lastRecalled = n.lastRecalledAt ? new Date(n.lastRecalledAt).getTime() : null;
-
-    // このメモが想起可能になる時刻。
-    const dueTime =
-      lastRecalled == null || Number.isNaN(lastRecalled)
-        ? created + minAgeMs // 未想起: 作成から minAgeDays
-        : lastRecalled + dueGapDays(count) * 86400000; // 想起済: 間隔スケジュール
 
     if (now < dueTime) continue; // まだ間隔が来ていない → 除外
 
@@ -155,4 +162,67 @@ export function recallPatch(currentCount, mastered) {
     last_recalled_at: new Date().toISOString(),
     recall_count: mastered ? (currentCount || 0) + 1 : 0,
   };
+}
+
+// ── due なメモが無いときの控え（2026-10-01）───────────────────────────
+//
+// pickRecallMemo が null（今日出すべきメモが無い）のときに、思い出しカードへ出してよい 1 枚。
+// 出してよいのは「一度も思い出していない、まだ若い（作成から minAgeDays 日未満）メモ」だけ。
+//   - 始めたばかりの人（若いメモしか無い）でもカードが空にならないように残す控え。
+//   - 「覚えた／まだ覚えていない」と答えて次の間隔を待っているメモは、決して出さない
+//     （以前は全メモから選んでいたため、覚えたと答えたメモが何度も「覚えた？」と戻ってきた）。
+// 候補が無ければ null（呼び出し側は「今日の思い出しカードは、ここまでです」を出す）。
+export function pickFallbackMemo(notes, { now = Date.now(), minAgeDays = 14, seed = 0 } = {}) {
+  if (!Array.isArray(notes) || notes.length === 0) return null;
+  const pool = [];
+  for (const n of notes) {
+    const dueTime = noteDueAt(n, { minAgeDays });
+    if (dueTime == null) continue;
+    const recalled = !!n.lastRecalledAt && !Number.isNaN(new Date(n.lastRecalledAt).getTime());
+    // 思い出し済みで、まだ間隔が来ていないメモは出さない（due なら pickRecallMemo が拾う）。
+    if (recalled && now < dueTime) continue;
+    pool.push(n);
+  }
+  if (pool.length === 0) return null;
+  // 並びに頼らず決定的に（同じ seed なら同じ 1 枚）。
+  pool.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  const idx = Math.abs(Math.floor((seed * 9301 + 49297) % 233280)) % pool.length;
+  return pool[idx] || pool[0];
+}
+
+// 次に思い出しカードが出る時刻（ms）。いま due なメモがあれば now 以下の値ではなく、
+// まだ来ていないうちでいちばん早い時刻を返す。無ければ null。
+export function nextDueAt(notes, { now = Date.now(), minAgeDays = 14 } = {}) {
+  if (!Array.isArray(notes)) return null;
+  let min = null;
+  for (const n of notes) {
+    const t = noteDueAt(n, { minAgeDays });
+    if (t == null || t <= now) continue;
+    if (min == null || t < min) min = t;
+  }
+  return min;
+}
+
+// 「次は ◯月◯日に出します」の文（端末の日付）。今日なら「次は今日、あとで出します」、
+// 明日なら「次は明日出します」。null なら空文字。
+export function nextDueLabel(ts, now = Date.now()) {
+  if (ts == null || !Number.isFinite(ts)) return '';
+  const d = new Date(ts);
+  const startOf = (t) => { const x = new Date(t); x.setHours(0, 0, 0, 0); return x.getTime(); };
+  const days = Math.round((startOf(ts) - startOf(now)) / 86400000);
+  if (days <= 0) return '次は今日、あとで出します';
+  if (days === 1) return '次は明日出します';
+  return `次は ${d.getMonth() + 1}月${d.getDate()}日に出します`;
+}
+
+// 端末に残した想起の記録（{ at: ISO, count }）を、DB から読んだメモに重ねる。
+// DB の値より新しいときだけ使う（別の端末で DB に新しく書かれていれば、そちらが正）。
+// DB に列が無い・書き込みに失敗した環境で、「覚えた」が再読み込みで消えないようにするため。
+export function applyLocalRecall(note, entry) {
+  if (!note || !entry || !entry.at) return note;
+  const localT = new Date(entry.at).getTime();
+  if (Number.isNaN(localT)) return note;
+  const dbT = note.lastRecalledAt ? new Date(note.lastRecalledAt).getTime() : null;
+  if (dbT != null && !Number.isNaN(dbT) && dbT >= localT) return note;
+  return { ...note, lastRecalledAt: entry.at, recallCount: Number.isFinite(entry.count) ? entry.count : 0 };
 }

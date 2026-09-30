@@ -648,6 +648,9 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 /* 説明文が無いときは、見出しの下の余白を残さない。 */
 .empty-state-title:last-child { margin-bottom: 0; }
 .empty-state--flush-bottom .empty-state { padding-top: var(--space-2); padding-bottom: 0; }
+/* 思い出しカードの「ここまでです」（Review.jsx）: カードの枠の中に置くので、内側の余白はカードの 16 に任せる
+   （思い出しカード＋ボタンの行とほぼ同じ高さ＝最後の 1 枚を答えても下が跳ねない・2026-10-01）。 */
+.recall-done .empty-state { padding: var(--space-2) 0; }
 .empty-state-description {
   /* DESIGN §2: 補足 15・--text-2。 */
   font-size: var(--text-sub);

@@ -13,6 +13,11 @@ import {
   dueGapDays,
   pickRecallMemo,
   recallPatch,
+  noteDueAt,
+  pickFallbackMemo,
+  nextDueAt,
+  nextDueLabel,
+  applyLocalRecall,
 } from './recall.js';
 
 const DAY = 86400000;
@@ -146,5 +151,94 @@ describe('recallPatch', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-04T12:00:00.000Z'));
     expect(recallPatch(0, true).last_recalled_at).toBe('2026-07-04T12:00:00.000Z');
+  });
+});
+
+// 🐛 2026-10-01「覚えたと登録しても、何回も覚えたか？聞かれる」の回帰テスト。
+describe('pickFallbackMemo（due なメモが無いときの控え）', () => {
+  const young = (id, daysAgo) => ({ id, text: `若い${id}`, createdAt: iso(daysAgo * DAY) });
+  const mastered = (id, recalledDaysAgo, count = 1) => ({
+    id, text: `覚えた${id}`, createdAt: iso(200 * DAY), lastRecalledAt: iso(recalledDaysAgo * DAY), recallCount: count,
+  });
+
+  it('覚えたばかり（次の間隔が来ていない）メモは出さない', () => {
+    const notes = [mastered('a', 0), mastered('b', 1), mastered('c', 2, 3)];
+    expect(pickRecallMemo(notes, { now: NOW })).toBeNull();
+    expect(pickFallbackMemo(notes, { now: NOW })).toBeNull();
+    for (let seed = 0; seed < 20; seed += 1) {
+      expect(pickFallbackMemo(notes, { now: NOW, seed })).toBeNull();
+    }
+  });
+  it('「まだ覚えていない」（count=0・今日答えた）も翌日までは出さない', () => {
+    const notes = [{ ...mastered('a', 0), recallCount: 0 }];
+    expect(pickFallbackMemo(notes, { now: NOW })).toBeNull();
+  });
+  it('始めたばかりの人（一度も思い出していない若いメモだけ）には控えを出す', () => {
+    const notes = [young('y1', 2), young('y2', 5)];
+    expect(pickRecallMemo(notes, { now: NOW })).toBeNull();
+    const got = pickFallbackMemo(notes, { now: NOW });
+    expect(['y1', 'y2']).toContain(got.id);
+  });
+  it('覚えたメモと若いメモが混ざっても、選ぶのは若いメモだけ', () => {
+    const notes = [mastered('a', 0), mastered('b', 1), young('y', 3)];
+    for (let seed = 0; seed < 20; seed += 1) {
+      expect(pickFallbackMemo(notes, { now: NOW, seed }).id).toBe('y');
+    }
+  });
+  it('本文が空のメモは出さない', () => {
+    expect(pickFallbackMemo([{ id: 'e', text: '  ', createdAt: iso(DAY) }], { now: NOW })).toBeNull();
+  });
+});
+
+describe('nextDueAt / nextDueLabel（「今日の思い出しカードは、ここまでです」）', () => {
+  it('何も残っていないとき、いちばん早く来る時刻を返す', () => {
+    const a = { id: 'a', text: 'a', createdAt: iso(100 * DAY), lastRecalledAt: iso(1 * DAY), recallCount: 1 }; // 3 日後 → あと 2 日
+    const b = { id: 'b', text: 'b', createdAt: iso(100 * DAY), lastRecalledAt: iso(1 * DAY), recallCount: 2 }; // 7 日後 → あと 6 日
+    expect(pickRecallMemo([a, b], { now: NOW })).toBeNull();
+    expect(pickFallbackMemo([a, b], { now: NOW })).toBeNull();
+    expect(nextDueAt([a, b], { now: NOW })).toBe(NOW + 2 * DAY);
+  });
+  it('もう due なメモは数えない・メモが無ければ null', () => {
+    const due = { id: 'd', text: 'd', createdAt: iso(100 * DAY), lastRecalledAt: iso(10 * DAY), recallCount: 1 };
+    expect(nextDueAt([due], { now: NOW })).toBeNull();
+    expect(nextDueAt([], { now: NOW })).toBeNull();
+  });
+  it('未想起の若いメモは作成から 14 日後', () => {
+    const y = { id: 'y', text: 'y', createdAt: iso(3 * DAY) };
+    expect(noteDueAt(y)).toBe(NOW + 11 * DAY);
+  });
+  it('文: 今日／明日／◯月◯日', () => {
+    const base = new Date(2026, 8, 30, 9, 0, 0).getTime(); // 端末の 9/30 9:00
+    expect(nextDueLabel(base + 3 * 3600 * 1000, base)).toBe('次は今日、あとで出します');
+    expect(nextDueLabel(base + DAY, base)).toBe('次は明日出します');
+    expect(nextDueLabel(base + 2 * DAY, base)).toBe('次は 10月2日に出します');
+    expect(nextDueLabel(null, base)).toBe('');
+  });
+});
+
+describe('applyLocalRecall（端末に残した記録を重ねる）', () => {
+  const note = { id: 'm', text: 't', createdAt: iso(100 * DAY), lastRecalledAt: null, recallCount: 0 };
+  it('DB に記録が無ければ端末の記録を使う', () => {
+    const got = applyLocalRecall(note, { at: iso(DAY), count: 2 });
+    expect(got.lastRecalledAt).toBe(iso(DAY));
+    expect(got.recallCount).toBe(2);
+  });
+  it('端末の記録が新しければ端末を使う', () => {
+    const got = applyLocalRecall({ ...note, lastRecalledAt: iso(10 * DAY), recallCount: 1 }, { at: iso(DAY), count: 2 });
+    expect(got.lastRecalledAt).toBe(iso(DAY));
+    expect(got.recallCount).toBe(2);
+  });
+  it('DB の記録が新しければ DB のまま', () => {
+    const db = { ...note, lastRecalledAt: iso(DAY), recallCount: 3 };
+    expect(applyLocalRecall(db, { at: iso(5 * DAY), count: 1 })).toBe(db);
+  });
+  it('記録が無い・壊れているときはそのまま', () => {
+    expect(applyLocalRecall(note, null)).toBe(note);
+    expect(applyLocalRecall(note, { at: 'x', count: 1 })).toBe(note);
+  });
+  it('重ねた結果、覚えたメモは控えにも出ない', () => {
+    const got = applyLocalRecall({ ...note, createdAt: iso(3 * DAY) }, { at: iso(0), count: 1 });
+    expect(pickRecallMemo([got], { now: NOW })).toBeNull();
+    expect(pickFallbackMemo([got], { now: NOW })).toBeNull();
   });
 });

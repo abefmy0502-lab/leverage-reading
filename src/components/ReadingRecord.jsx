@@ -24,6 +24,8 @@ import { SkeletonBlock } from './Skeleton';
 import { track, EVENTS } from '../lib/analytics';
 import { BarChart3, BookOpen, ChevronRight } from 'lucide-react';
 import { countSummaryMemos } from '../lib/consultHelpers';
+import { applyLocalRecall } from '../lib/recall';
+import { loadRecallLocal } from '../lib/recallLocal';
 
 /* ---------- 日付ユーティリティ（ローカル基準・UTC ずれ防止） ---------- */
 
@@ -446,10 +448,13 @@ export default function ReadingRecord({
       let mastered = 0;
       const createdDates = [];
       const byBook = {};
+      // 思い出しカードの記録のうち DB に書けなかった分（端末に残したもの・lib/recallLocal.js）も数える。
+      const localRecall = loadRecallLocal();
       for (const r of rows) {
         if (r.created_at) createdDates.push(r.created_at);
-        if (r.last_recalled_at) recalled += 1;
-        if ((r.recall_count || 0) > 0) mastered += 1;
+        const rec = applyLocalRecall({ lastRecalledAt: r.last_recalled_at ?? null, recallCount: r.recall_count || 0 }, localRecall[r.id]);
+        if (rec.lastRecalledAt) recalled += 1;
+        if ((rec.recallCount || 0) > 0) mastered += 1;
         if (r.book_id) byBook[r.book_id] = (byBook[r.book_id] || 0) + 1;
       }
       setMemoStats({ total: rows.length, createdDates, recalled, mastered, byBook, recallSupported });
