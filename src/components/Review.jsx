@@ -1076,15 +1076,20 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           y={memoMenu.y}
           onClose={() => setMemoMenu(null)}
           items={[
+            // 並びは本の詳細のメモの「…」とそろえる: 編集 → コピー → 行動に追加 → この一文をシェア → 本を開く → 削除（2026-09-30）。
+            // 本に付いたふつうのメモは、ここから編集も開ける（その本のそのメモを編集で開く・2026-09-30）。
+            ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.kind || 'card') === 'card' && memoMenu.memo?.sourceType !== 'personal' && memoMenu.memo?.sourceType !== 'summary'
+              ? [{ label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id, { edit: true }) }]
+              : []),
+            // 本の詳細のメモの「…」と同じく、コピー・この一文をシェアもここから（2026-09-30）。
+            ...((memoMenu.memo?.text || '').trim()
+              ? [{ label: 'コピー', icon: <Copy size={16} aria-hidden="true" />, onClick: () => copyMemo(memoMenu.memo) }]
+              : []),
             // 🎯 読む→メモる→行動する、の変換点をどの一覧（タイムライン /
             // 検索結果）からでも 1 タップに。ランダム想起カード限定だった
             // handleMemoToAction を長押しメニューにも露出する。
             ...(memoMenu.book && onAddAction
               ? [{ label: '行動に追加', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMemoToAction(memoMenu.memo) }]
-              : []),
-            // 本の詳細のメモの「…」と同じく、コピー・この一文をシェアもここから（2026-09-30）。
-            ...((memoMenu.memo?.text || '').trim()
-              ? [{ label: 'コピー', icon: <Copy size={16} aria-hidden="true" />, onClick: () => copyMemo(memoMenu.memo) }]
               : []),
             ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.text || '').trim()
               ? [{ label: 'この一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => { haptic.light(); setShareTarget({ book: memoMenu.book, memoId: memoMenu.memo.id }); } }]
@@ -1092,10 +1097,6 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             // 思い出しカードの「…」だけ: 別の 1 枚へ（SPEC §4: 覚えた／もう一度 ＋ …）。
             ...(memoMenu.recall
               ? [{ label: '別のメモを見る', icon: <Shuffle size={16} aria-hidden="true" />, onClick: () => { if (!flipping) reroll(); } }]
-              : []),
-            // 本に付いたふつうのメモは、ここから編集も開ける（その本のそのメモを編集で開く・2026-09-30）。
-            ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.kind || 'card') === 'card' && memoMenu.memo?.sourceType !== 'personal' && memoMenu.memo?.sourceType !== 'summary'
-              ? [{ label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id, { edit: true }) }]
               : []),
             ...(memoMenu.book
               ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id) }]
