@@ -212,6 +212,7 @@ function makeId() {
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const [barPos, setBarPos] = useState(BOTTOM_PLAIN);
+  const [barHold, setBarHold] = useState(false);
   const timersRef = useRef(new Map());
   const toastsRef = useRef([]);
 
@@ -269,7 +270,13 @@ export function ToastProvider({ children }) {
         onExpire: opts.onExpire,
         duration,
       };
-      if (type !== 'success') setBarPos(barBottom());
+      if (type !== 'success') {
+        // 位置は次のフレームで決め直す（保存してすぐシートを閉じる所作では、知らせを出した瞬間はまだシートが開いて
+        // キーボードも出ている＝下端に出て、閉じたあとタブの上へ跳ねていた・2026-09-30）。決まるまでの 1 フレームは透明。
+        setBarPos(barBottom());
+        setBarHold(true);
+        requestAnimationFrame(() => { setBarPos(barBottom()); setBarHold(false); });
+      }
       setToasts((arr) => [...arr, toast]);
       if (duration > 0) {
         const t = setTimeout(() => {
@@ -344,7 +351,7 @@ export function ToastProvider({ children }) {
       {(() => {
         const barHasError = barToasts.some((t) => t.type === 'error');
         return (
-          <div style={{ ...containerStyle, transform: `translate(-50%, calc(-1 * (${barPos})))`, transition: barAnim ? 'transform var(--duration-fast) var(--ease-out)' : 'none' }} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
+          <div style={{ ...containerStyle, transform: `translate(-50%, calc(-1 * (${barPos})))`, opacity: barHold ? 0 : 1, transition: barAnim ? 'transform var(--duration-fast) var(--ease-out)' : 'none' }} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
             {barToasts.map((toast) => (
               <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onAction={handleAction} />
             ))}
