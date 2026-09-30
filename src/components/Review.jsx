@@ -934,6 +934,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         : days <= 1 ? '明日また出します' : `${days} 日後にまた出します`,
       duration: 5000,
       destructive: false,
+      // 「覚えました」は完了の知らせなので ✓ の印（↶ だと戻したように見える・DESIGN §5 トースト）。
+      success: isLast && mastered,
       onUndo: () => undoRandomRecall(memo, prev, prevSeed),
     });
     return true;
@@ -1314,9 +1316,15 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   onOpenMenu={setMemoMenu}
                   showRelative
                 />
-                <button type="button" onClick={() => { haptic.light(); setExtraSeed((s) => (s ?? 0) + 1); }} style={{ ...btnLink, paddingLeft: 0, margin: 'var(--space-1) 0 calc(-1 * var(--space-3))' }}>
-                  別のメモを見る
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', margin: 'var(--space-1) 0 calc(-1 * var(--space-3))' }}>
+                  <button type="button" onClick={() => { haptic.light(); setExtraSeed((s) => (s ?? 0) + 1); }} style={{ ...btnLink, paddingLeft: 0 }}>
+                    別のメモを見る
+                  </button>
+                  {/* 今日の分は終わっていることと、次に出る日を残す（2026-10-01 ui-critic）。 */}
+                  {recallNextLabel && (
+                    <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'right' }}>{recallNextLabel}</span>
+                  )}
+                </div>
               </>
             ) : (
               <>
