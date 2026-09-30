@@ -61,7 +61,10 @@ function toHttps(u) {
 //    のようにカタカナ語の中に普通に出るため、含めると "シュガ" 等に誤切断され
 //    検索が壊れる）。区切りは空白・コロン・縦棒・波ダッシュ・各種ダッシュのみ。
 function coreTitle(t) {
-  return clean(t).split(/[\s　:：|｜〜~－—–]/)[0] || clean(t);
+  const s = clean(t);
+  // 英語などの書名は語と語の間が空白なので、空白では切らない（"The Lean Startup" を "The" にしない）。
+  if (/^[\x20-\x7E]+$/.test(s)) return s.split(/\s*[:|~—–]\s*|\s+-\s+/)[0].trim() || s;
+  return s.split(/[\s　:：|｜〜~－—–]/)[0] || s;
 }
 function isbn13to10(isbn13) {
   const s = cleanIsbn(isbn13);
@@ -897,3 +900,5 @@ export default async function handler(req, res) {
   if (process.env.ALLOW_COVER_DEBUG === 'true') out._diag = diag;
   return res.status(200).json(out);
 }
+
+export { coreTitle };
