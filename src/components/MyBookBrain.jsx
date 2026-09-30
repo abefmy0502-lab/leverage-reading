@@ -1081,7 +1081,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 🗣 著者の語り口で答えるか（書き始める前に分かる・onStage の voice）。
     let liveVoice = null;
     try {
-      const { body, refs, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks, completedActions, voice: usedVoice } = await streamMyBookBrain({
+      const { body, refs, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks, completedActions, voice: usedVoice, decide: usedDecide } = await streamMyBookBrain({
         userId: user.id,
         question: q,
         bookIds: askBookIds,
@@ -1171,6 +1171,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         ));
         console.warn('[brain] answer insert failed:', saveErr?.message || saveErr);
         toast.error('回答は表示できましたが、履歴への保存に失敗しました。');
+      }
+      // 🎯 行動を決める回（2026-09-30 ui-critic）: 書き終えたら「明日からできる一歩」の箱（「行動に追加」まで）が
+      //   見えるところまで、会話の欄だけを最小限送る（相談の吹き出しを上端にそろえたままだと、ボタンが画面の下に隠れていた）。
+      if (!wasAborted && (typeof usedDecide === 'boolean' ? usedDecide : expectAction)) {
+        setTimeout(() => revealLastNextStep(chatScrollRef.current), 120);
       }
       // AI 応答を正常に得て確定できた時のみ計測 (中止/中断パスは除外、PII なし)。
       if (!wasAborted) {
@@ -2127,6 +2132,23 @@ function prefersReducedMotion() {
 // 相談が長すぎて答えが画面の下に隠れてしまうとき（欄の 4 割以上）・直前が相談でないとき（別の角度で答える）は、
 // 答えの先頭に合わせる。送れる範囲に収める。答えが無ければ null。
 // 送った直後で答えの吹き出しがまだ無いときは、その相談の吹き出し（前の答えに合わせて 2 段で動かさない）。
+// 会話の欄の中で、いちばん新しい「明日からできる一歩」の箱（[data-next-step]）が欄の下に隠れていたら、
+// 欄だけを送って見せる（scrollIntoView の block: 'nearest' と同じ動き・ページ全体は動かさない）。
+function revealLastNextStep(el) {
+  if (!el) return;
+  const boxes = el.querySelectorAll('[data-next-step]');
+  const box = boxes[boxes.length - 1];
+  if (!box) return;
+  const r = box.getBoundingClientRect();
+  const c = el.getBoundingClientRect();
+  const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
+  let delta = 0;
+  if (r.bottom + gap > c.bottom) delta = r.bottom + gap - c.bottom;
+  if (r.top - delta < c.top) delta = r.top - c.top - gap; // 箱が欄より高いときは上端を見せる
+  if (Math.abs(delta) < 1) return;
+  el.scrollTo({ top: el.scrollTop + delta, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
+
 function alignTarget(el) {
   const answers = el.querySelectorAll('[aria-label="相談への答え"]');
   const last = answers[answers.length - 1];
