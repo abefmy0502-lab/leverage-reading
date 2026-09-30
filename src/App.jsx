@@ -635,6 +635,8 @@ function AuthedApp() {
   const [consultPushed, setConsultPushed] = useState(false);
   // 📊 記録の「実行した行動」から行動を開いたとき、完了した行動を開いて見せる（押した時刻で毎回区別）。
   const [actionShowDoneNonce, setActionShowDoneNonce] = useState(null);
+  // 相談の「行動に追加しました 見る」から来たときに光らせる行動（{ bookId, text, nonce }）。
+  const [actionFocus, setActionFocus] = useState(null);
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
   // 🔎 トークンを使い切った相談から「メモを検索して探す」: 振り返り › メモの検索欄に入れる言葉（2026-09-29）。
@@ -3196,7 +3198,8 @@ function AuthedApp() {
         // saveBook し、いま追加した行動が差分 DELETE で消える。
         syncActionSnapshots(next);
       });
-      return true;
+      // 追加した行動の目印（相談の「見る」で行動の一覧のその行まで送る・2026-09-30）。真偽としても使える。
+      return { bookId, text: newAction.text };
     } catch (error) {
       toast.error(toMessage(error, '行動の追加に失敗しました。'));
       return false;
@@ -5046,6 +5049,7 @@ function AuthedApp() {
               <ActionList
                 books={books}
                 showDoneNonce={actionShowDoneNonce}
+                focusAction={actionFocus}
                 onToggleAction={toggleAction}
                 onReflect={saveActionReflection}
                 onDeleteAction={deleteActionFromBook}
@@ -5137,7 +5141,8 @@ function AuthedApp() {
                     onGoBookshelf={() => { setView('list'); setTab('books'); }}
                     onQuickstart={() => setShowQuickstart(true)}
                     onAddBook={() => openAdd()}
-                    onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
+                    // 追加した行動（{ bookId, text }）があれば、行動の一覧でその行まで送って光らせる（2026-09-30）。
+                    onOpenActions={(focus) => { setActionFocus(focus && focus.bookId ? { ...focus, nonce: Date.now() } : null); setReviewSubTab('action'); setTab('review'); }}
                     askPreset={askPreset}
                     scopePreset={scopePreset}
                     learningPreset={learningPreset}
@@ -5417,7 +5422,7 @@ function AuthedApp() {
               const fromConsult = addActionSheet.from === 'consult';
               const ok = await createActionForBook(addActionSheet.bookId, { ...patch, quiet: fromConsult });
               if (ok) {
-                addActionSheet.onDone?.(patch?.deadline ?? '');
+                addActionSheet.onDone?.(patch?.deadline ?? '', { bookId: addActionSheet.bookId, text: String(patch?.text || '').trim().slice(0, LIMITS.actionText || 500) });
                 setAddActionSheet(null);
               }
             }}

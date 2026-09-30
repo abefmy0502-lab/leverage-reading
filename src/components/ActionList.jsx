@@ -248,7 +248,7 @@ function GroupSection({ collapsing = false, entering = false, children, ...rest 
 }
 
 // 行動 1 行の中身（完了チェック・本文・メタ・「…」）。長押しでメニュー。
-function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelete }) {
+function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelete, highlight = false }) {
   const longPress = useLongPress({
     onLongPress: ({ clientX, clientY }) => onOpenMenu?.({ x: clientX, y: clientY, action: a }),
   });
@@ -277,7 +277,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
   if (a.sourcePage) meta.push(`p.${a.sourcePage}`);
 
   const inner = (
-    <div {...longPress.bind} style={card}>
+    // highlight: 相談の答えから追加して「見る」で来たとき、その行を一度だけ淡く光らせる（2026-09-30）。
+    <div {...longPress.bind} style={card} data-action-key={rowKeyOf(a)} className={highlight ? 'just-added-card' : undefined}>
       {/* 完了チェック（この画面の最頻操作・押せる範囲 44）。本の詳細の行動と同じ丸。 */}
       <button
         type="button"
@@ -390,7 +391,8 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose }) {
 }
 
 // showDoneNonce: 記録の「実行した行動」から来たときに変わる。完了した行動を開いた状態で見せる。
-export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, showDoneNonce = null }) {
+// focusAction: 相談の答えから追加した行動の「見る」で来たとき（{ bookId, text, nonce }）。その行まで送って淡く光らせる。
+export default function ActionList({ books, onToggleAction, onReflect, onDeleteAction, onEditAction, onOpenBook, onGoToBooks, onAddAction, onGoConsult, showDoneNonce = null, focusAction = null }) {
   const { allActions, stats } = useAllActions(books);
   const toast = useToast();
   const [showDone, setShowDone] = useState(showDoneNonce != null);
@@ -496,6 +498,26 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
   const [menu, setMenu] = useState(null); // { x, y, action }
 
   const open = useMemo(() => allActions.filter((a) => !a.done).sort(byDeadline), [allActions]);
+  // 「見る」で来た行動を探して、画面の中ほどまで送り、一度だけ光らせる（本が読み直されて行が現れるまで待つ・2026-09-30）。
+  const [highlightKey, setHighlightKey] = useState(null);
+  const focusedNonceRef = useRef(null);
+  useEffect(() => {
+    if (!focusAction?.nonce || focusedNonceRef.current === focusAction.nonce) return undefined;
+    const want = String(focusAction.text || '').trim();
+    const match = [...open].reverse().find((a) => a.bookId === focusAction.bookId && String(a.text || '').trim() === want);
+    if (!match) return undefined;
+    focusedNonceRef.current = focusAction.nonce;
+    const key = rowKeyOf(match);
+    setHighlightKey(key);
+    const t1 = setTimeout(() => {
+      try {
+        const el = document.querySelector(`[data-action-key="${CSS.escape(key)}"]`);
+        el?.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+      } catch { /* ignore */ }
+    }, 120);
+    const t2 = setTimeout(() => setHighlightKey((k) => (k === key ? null : k)), 1800);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [focusAction, open]);
   const done = useMemo(
     () => allActions.filter((a) => a.done).sort((a, b) => (b.completedAt || b.created_at || '').localeCompare(a.completedAt || a.created_at || '')),
     [allActions],
@@ -574,6 +596,7 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
             onCheck={onCheck}
             onOpenMenu={setMenu}
             onSwipeDelete={swipeDelete}
+            highlight={!c && highlightKey === rowKeyOf(a)}
           />
         )}
       </MorphItem>

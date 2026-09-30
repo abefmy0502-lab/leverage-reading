@@ -524,6 +524,14 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
 .just-added {
   animation: lvg-just-added 1500ms var(--ease-out) forwards;
 }
+/* カード（--surface の面）用: 光ったあと面の色に戻る（透明にすると背景が透けて見えた・2026-09-30）。 */
+@keyframes lvg-just-added-card {
+  0%, 30% { background-color: var(--accent-soft); }
+  100% { background-color: var(--surface); }
+}
+.just-added-card {
+  animation: lvg-just-added-card 1500ms var(--ease-out) forwards;
+}
 
 /* ---- Pull-to-refresh success flash ------------------------------------- */
 @keyframes lvg-refresh-flash {

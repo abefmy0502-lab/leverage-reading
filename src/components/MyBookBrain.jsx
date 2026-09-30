@@ -2359,7 +2359,8 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
 // 「（期限は明日）見る」をひとまとまり（nowrap）にする。「見る」は押せる範囲 44 のまま、上下の負の余白で行の高さを変えない。
 // ✓ は 2 行になっても 1 行目の高さの中央に置く。
 // deadline: null = 明日（既定）。本を選んで追加するときに期限を変えたら、その期限（'' = 期限なし・2026-09-30）。
-function ActionAddedNote({ onOpenActions, deadline = null }) {
+// focus: 追加した行動（{ bookId, text }）。「見る」で行動の一覧のその行まで送る（2026-09-30）。
+function ActionAddedNote({ onOpenActions, deadline = null, focus = null }) {
   const deadlineText = deadline == null ? '（期限は明日）'
     : deadline ? `（期限は${Number(deadline.slice(5, 7))}月${Number(deadline.slice(8, 10))}日）` : '';
   // 出たら、画面の外（下）に隠れないよう最小限だけ送って見せる（キーボードや下の欄に隠れていた・2026-09-29）。
@@ -2381,7 +2382,7 @@ function ActionAddedNote({ onOpenActions, deadline = null }) {
           {deadlineText && <span style={{ fontFeatureSettings: '"palt"' }}>{deadlineText}</span>}
           {/* 入った先（振り返り › 行動）をその場で見られる（2026-09-29）。左右 4 の内側余白が文字との間になる。 */}
           {onOpenActions && (
-            <button type="button" onClick={onOpenActions} aria-label="追加した行動を見る" style={{ ...uiBtnLink, verticalAlign: 'middle', marginBlock: 'calc((1.5em - 44px) / 2)' }}>見る</button>
+            <button type="button" onClick={() => onOpenActions(focus)} aria-label="追加した行動を見る" style={{ ...uiBtnLink, verticalAlign: 'middle', marginBlock: 'calc((1.5em - 44px) / 2)' }}>見る</button>
           )}
         </span>
       </span>
@@ -2399,6 +2400,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   const [actionAdded, setActionAdded] = useState(false);
   // 本を選んで追加したとき、期限を変えていたらその期限（'' = 期限なし）。null = 明日のまま。
   const [addedDeadline, setAddedDeadline] = useState(null);
+  // 追加した行動の目印（{ bookId, text }・「見る」でその行へ）。
+  const [addedFocus, setAddedFocus] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
   const canAct = !isUser && !isStreaming && !message.error && (!!onAddAction || !!onAddActionPickBook);
   const actionLine = canAct ? extractActionLine(message.content) : '';
@@ -2414,14 +2417,15 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       setActionBusy(true);
       const ok = await onAddAction(actionBookId, actionForList);
       setActionBusy(false);
-      if (ok) { setActionAdded(true); onActionAdded?.(); }
+      if (ok) { setAddedFocus(typeof ok === 'object' ? ok : null); setActionAdded(true); onActionAdded?.(); }
     } else if (onAddActionPickBook) {
       // 本を特定できない（いちばんの根拠が自分の学びなど）→ 本選択シートで行動文をプレフィル（確定は本を選んだ時点）。
       // 本を選んで追加できたら、答えの中を「行動に追加しました（期限は明日）見る」に変える（二重に足さない・2026-09-30）。
       // シートの上には、この答えの根拠になった本を先に並べる。
       const evidenceBookIds = [...new Set((message.refs || []).filter((r) => !isMetaRef(r)).map((r) => resolveRefBookId(r, books)).filter(Boolean))];
-      onAddActionPickBook(stripScenePrefix(answerStepToAction(actionForList)), (deadline) => {
+      onAddActionPickBook(stripScenePrefix(answerStepToAction(actionForList)), (deadline, focus) => {
         setAddedDeadline(deadline === tomorrowLocal() ? null : (deadline ?? null));
+        setAddedFocus(focus && typeof focus === 'object' ? focus : null);
         setActionAdded(true);
         onActionAdded?.();
       }, { evidenceBookIds });
@@ -2526,7 +2530,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       )}
       {canShowAction && (
         actionAdded ? (
-          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} />
+          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} focus={addedFocus} />
         ) : (
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? rowBtnOffOnFill : null) }}>
             <Target size={16} aria-hidden="true" />行動に追加
@@ -2850,7 +2854,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       {/* 旧形式（見出しなし）でも行動化できるように */}
       {!parsed && canShowAction && !message.error && (
         actionAdded ? (
-          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} />
+          <ActionAddedNote onOpenActions={onOpenActions} deadline={addedDeadline} focus={addedFocus} />
         ) : (
           // 答えのカード（--surface）の上なので、押せない間は副ボタンの押せない形（--separator の枠＋--text-3）。
           <button type="button" onClick={handleAddAction} disabled={actionBusy} style={{ ...rowBtn, marginTop: 'var(--space-3)', ...(actionBusy ? { color: 'var(--text-3)', borderColor: 'var(--separator)', opacity: 1, cursor: 'default' } : null) }}>
