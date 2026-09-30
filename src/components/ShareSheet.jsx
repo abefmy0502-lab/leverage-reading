@@ -25,7 +25,7 @@
 //   onClose
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Shuffle, CalendarDays, ChevronDown, Check, Camera } from 'lucide-react';
+import { ImagePlus, Shuffle, CalendarDays, ChevronDown, Check } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import ContextMenu from './ContextMenu';
@@ -90,7 +90,7 @@ const segBtn = (on) => ({
   cursor: 'pointer',
   whiteSpace: 'nowrap',
 });
-// 地の見本（幅 64 でそろえる＝名前の長さで間が変わらない・見た目は 28 の円＝「形そのもの」DESIGN §4 の例外）。
+// 背景の見本（幅 64 でそろえる＝名前の長さで間が変わらない・見た目は 28 の円＝「形そのもの」DESIGN §4 の例外）。
 const swatchLabeledBtn = {
   display: 'inline-flex',
   flexDirection: 'column',
@@ -713,10 +713,12 @@ export default function ShareSheet({
           )}
           {/* 別の一文（1 タップで次のメモへ・記録では外すこともできる） */}
           {swapLabel && status !== 'error' && (
+            // 画像を作っている間は押せない（違う一文の画像のまま共有しない）。薄くせず色だけ変える（DESIGN §5 押せないボタン）。
             <button
               type="button"
+              disabled={status !== 'ready'}
               onClick={() => { setQuoteIndex(swapQuote(qi, candidates.length, variant === 'record')); haptic.light(); }}
-              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}
+              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
             >
               <Shuffle size={18} aria-hidden="true" />
               {swapLabel}
@@ -768,7 +770,7 @@ export default function ShareSheet({
               onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBgMenu({ x: r.left + 120, y: r.top - 8 }); }}
               style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}
             >
-              {effStyle === 'photo' ? '写真以外' : `地：${STYLE_LABELS[effStyle]}`}
+              {effStyle === 'photo' ? '写真以外' : `背景：${STYLE_LABELS[effStyle]}`}
               <ChevronDown size={16} aria-hidden="true" />
             </button>
             {bgMenu && (
@@ -777,19 +779,20 @@ export default function ShareSheet({
                 y={bgMenu.y}
                 onClose={() => setBgMenu(null)}
                 items={[
-                  ...(effStyle !== 'photo' ? [{ label: '写真に戻す', icon: <Camera size={16} aria-hidden="true" />, onClick: () => setStyle('photo') }] : []),
+                  // 印は ✓ だけ（選んでいる行）。ほかの行は同じ幅の空き（DESIGN §5 絞り込みのメニュー）。
+                  { label: STYLE_LABELS.photo, icon: effStyle === 'photo' ? <Check size={16} aria-hidden="true" /> : <span style={{ width: 16 }} aria-hidden="true" />, onClick: () => setStyle('photo') },
                   ...BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed).map((v) => ({
                     label: STYLE_LABELS[v],
                     icon: effStyle === v ? <Check size={16} aria-hidden="true" /> : <span style={{ width: 16 }} aria-hidden="true" />,
                     onClick: () => setStyle(v),
                   })),
-                  { label: '写真を選び直す', icon: <ImagePlus size={16} aria-hidden="true" />, onClick: openPicker },
+                  { label: '写真を選び直す', icon: <span style={{ width: 16 }} aria-hidden="true" />, onClick: openPicker },
                 ]}
               />
             )}
           </div>
         ) : (
-          <div role="radiogroup" aria-label="地" style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
+          <div role="radiogroup" aria-label="背景" style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
             {/* 390 幅で見本 4 つと 1 行に収まるよう、見える名前は「写真」（読み上げは「写真を選ぶ」）。 */}
             <button type="button" onClick={openPicker} aria-label="写真を選ぶ" title="写真を選ぶ" style={photoChip}>
               <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
