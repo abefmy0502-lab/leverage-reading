@@ -3594,6 +3594,8 @@ function AuthedApp() {
       current.investPurpose && { label: 'この本から得たいこと', text: current.investPurpose },
       current.currentChallenge && { label: '現在の課題', text: current.currentChallenge },
       current.hypothesis && { label: '仮説', text: current.hypothesis },
+      // 読みたい本は、AI 選書で選んだ理由も見せる（編集の画面にしか無く、なぜ追加したか分からなくなっていた・2026-09-30）。
+      current.status === 'want' && current.bookReason && { label: 'AI の選書理由', text: current.bookReason },
     ].filter(Boolean);
     const hasPlanFold = planItems.length > 0 || !!current.aiStrategy;
     // 読書中・読了の画面の下で、直前が「行動」「一番の収穫」なら 24、畳む見出しが続くなら 12。

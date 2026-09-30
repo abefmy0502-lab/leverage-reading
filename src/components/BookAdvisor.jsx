@@ -1267,8 +1267,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           <div className="ai-thinking">
             <span className="ai-thinking-dot" aria-hidden="true" />
             <span>
-              {/* 待っている間の文は、いま何をしているかを 1 つだけ言う（質問を作る／本を選ぶ・2026-09-29） */}
-              追加で聞くことを考えています…
+              {/* 待っている間の文は、いま何をしているかを 1 つだけ言う（質問を作る／本を選ぶ・2026-09-29）。
+                  最初の質問はまだ何も聞いていないので「追加で」とは言わない（2026-09-30）。 */}
+              {interviewAnswers.length > 0 ? '追加で聞くことを考えています…' : 'あなたに聞くことを考えています…'}
             </span>
           </div>
           <div className="ai-skeleton" aria-label="質問を準備中" style={{ marginTop: 'var(--space-2)' }}>
