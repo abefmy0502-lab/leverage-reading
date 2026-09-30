@@ -1672,7 +1672,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         const monthOut = tokensOut && /^今月のトークン/.test(recoError);
         return (
         // 1 回の目安と残りは、入力欄と送るボタンの下の行に（折り返して全幅）。
-        <div className="ai-input-area" style={costLine && !tokensOut ? { flexWrap: 'wrap' } : undefined}>
+        // 無料プランは、書く前に「プランの機能」だと分かるように 1 行（書いて送ってから断らない・2026-09-30）。
+        //   7 日間無料はここではすすめない（押したときの有料プランの画面で案内する＝GLOSSARY）。
+        <div className="ai-input-area" style={(costLine && !tokensOut) || freeMode ? { flexWrap: 'wrap' } : undefined}>
           <textarea
             ref={inputRef}
             value={input}
@@ -1707,6 +1709,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           {costLine && !tokensOut && (
             <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>
               {costLine}
+            </p>
+          )}
+          {freeMode && (
+            <p style={{ flexBasis: '100%', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+              AI 選書はプランの機能です
             </p>
           )}
         </div>
