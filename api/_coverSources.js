@@ -126,18 +126,30 @@ export function imageDimensions(buf) {
 }
 
 const GB_CONTENT_RE = /books\.google\.[a-z.]+\/books\/content/i;
+// 無い本を 404 / 1×1 / 「noimage」の URL で返す配信元は、形（縦横比）を問わない。
+const SHAPE_FREE_HOSTS_RE = /(^|\.)(thumbnail\.image\.rakuten\.co\.jp|cover\.openbd\.jp|ssl-images-amazon\.com|media-amazon\.com|covers\.openlibrary\.org|archive\.org|supabase\.co|supabase\.in)$/i;
+
+// 縦/横の下限。src/lib/bookCover.js の coverMinRatio と同じ（変えたら両方・src/lib/bookCover.test.js が比べる）。
+export function coverMinRatio(url) {
+  const u = String(url || '');
+  if (GB_CONTENT_RE.test(u)) return 1.35;
+  let host = '';
+  try { host = new URL(u).hostname; } catch { /* '' */ }
+  if (SHAPE_FREE_HOSTS_RE.test(host)) return 0;
+  return 1.05;
+}
 
 // 「本の表紙らしい画像か」。端末の checkImageExists（src/lib/bookCover.js の isCoverLikeSize）と同じ基準。
 //   - 1×1・43 バイトの GIF（Amazon の「無い」）/ 50px 未満 → 偽
 //   - Google の ISBN 直リンクは、無い本に 128×170 前後（縦/横 1.33）の「No cover」を返す → 1.35 未満は偽
-//   - ほかは横長のロゴ等だけ弾く（1.05 未満）。正方形寄りの本（ムック・絵本）を弾かない
+//   - 楽天・openBD・Amazon・Open Library・自分の Supabase は形を問わない（正方形寄りの本も通す）
+//   - ほか（NDL など）は横長のロゴだけ弾く（1.05 未満）
 //   - 縦横が読めない画像は 2KB 以上なら本物とみなす
 export function looksLikeCover({ url = '', bytes = 0, w = 0, h = 0 } = {}) {
   if (bytes > 0 && bytes < 200) return false;
   if (w > 0 && h > 0) {
     if (w < 50 || h < 50) return false;
-    const minRatio = GB_CONTENT_RE.test(url) ? 1.35 : 1.05;
-    return h / w >= minRatio;
+    return h / w >= coverMinRatio(url);
   }
   return bytes >= 2000;
 }

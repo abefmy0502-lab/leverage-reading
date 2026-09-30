@@ -90,14 +90,10 @@ const ReadingRecord = lazy(() => import('./components/ReadingRecord'));
 import BottomSheet from './components/BottomSheet';
 const AddBookModal = lazy(() => import('./components/AddBookModal'));
 import { useBookCover } from './hooks/useBookCover';
-import {
-  searchBooksFlat as searchBooksAPIFlat,
-  findIsbnCandidates,
-  findCoverFromGoogleBooks,
-} from './lib/bookSearch';
-import { getCoverCandidates, resolveCoverFromCandidates, fullyResolveCover, tryCoverForIsbn, checkImageExists, resolveCoverViaServer } from './lib/bookCover';
+import { searchBooksFlat as searchBooksAPIFlat } from './lib/bookSearch';
+import { tryCoverForIsbn } from './lib/bookCover';
 import { backfillCovers } from './lib/backfillCovers';
-import { enqueueCoverRetry } from './lib/coverAutoRetry';
+import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
 import { findDuplicateBook, findImportDuplicate, STATUS_LABEL, isUniqueViolation } from './lib/checkDuplicate';
 import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrategyHistory } from './lib/strategyHistory';
@@ -1249,23 +1245,38 @@ function AuthedApp() {
   // セッション内 1 回 / 1 秒 1 冊 のレート制御は coverAutoRetry 側で。
   // 解決成功時は saveBook 経由で永続化されるので、useBooks の cache が
   // 自動更新されカードが再レンダリングして表紙が表示される。
+  // opts.brokenCover: 読めなかった保存済みの表紙 URL（BookCards の onError / 1×1 検知）。
+  //   これだけは新しい表紙で差し替えてよい（以前は表紙が空の本しか直さず、壊れた URL の本は
+  //   ずっとグラデーションのままだった）。
+  // opts.fallback: 保存した直後でまだ books に載っていない本（resolveCoverInBackground から）。
   const triggerCoverAutoRetry = useCallback(
-    (book) => {
+    (book, opts = {}) => {
       enqueueCoverRetry({
         book,
+        brokenCover: opts.brokenCover || '',
         // 表紙リトライの保存も本ごとの保存チェーンに乗せる。チェーン外の saveBook は
         // 進行中の行動トグル等と DB レベルで並走し、actions 差分同期が in-flight の
         // 新規行動を DELETE する窓がある。チェーン内で最新へ rebase し表紙だけ差し替える。
         saveBook: (patch) => enqueueBookMutation(patch.id, async (entry) => {
           const latest = entry.latest || booksRef.current.find((b) => b.id === patch.id);
-          if (!latest) return;
-          if (latest.cover || latest.coverIsbn === 'manual' || latest.coverIsbn === 'removed') return;
+          if (!canReplaceCover(latest, patch.brokenCover)) return;
           const next = { ...latest, cover: patch.cover, coverIsbn: patch.coverIsbn };
+          // 本に ISBN が無く、書名から分かったら一緒に保存する（次からは ISBN で直接探せる・
+          // Amazon のリンクも商品ページへ）。同じ ISBN の本が既に本棚にあれば ISBN は付けない。
+          if (!latest.isbn && patch.isbn) next.isbn = patch.isbn;
           entry.latest = next;
-          await saveBook(next);
+          try {
+            await saveBook(next);
+          } catch (e) {
+            if (next.isbn === latest.isbn || !isUniqueViolation(e)) throw e;
+            const withoutIsbn = { ...next, isbn: latest.isbn || '' };
+            entry.latest = withoutIsbn;
+            await saveBook(withoutIsbn);
+          }
         }),
         // 保存直前に最新の本へ rebase させる（stale 保存によるユーザー編集の巻き戻し防止）。
-        getBook: (id) => booksRef.current.find((b) => b.id === id) || null,
+        getBook: (id) => booksRef.current.find((b) => b.id === id)
+          || (opts.fallback && opts.fallback.id === id ? opts.fallback : null),
       });
     },
     // enqueueBookMutation は安定した ref（actionToggleChainsRef）しか触らないため、
@@ -1326,9 +1337,10 @@ function AuthedApp() {
     //   「ユーザーが見て選んだ表紙」と「DB に保存される表紙」が必ず一致する
     //   (旧来は b.cover をシードした上で更に async で別 ISBN の表紙に
     //    上書きしていたため、検索結果と保存結果がズレる事故が起きていた)。
-    const candidates = getCoverCandidates(b?.isbn);
+    // ⚠️ 確かめていない候補 URL（NDL の書影など）は入れない。以前は candidates[0] を入れており、
+    //    その本に NDL の書影が無いと壊れた URL のまま保存され、表紙が付かなかった（2026-09-30）。
     const visibleCover = b?.cover || '';
-    const seedCover = visibleCover || candidates[0] || '';
+    const seedCover = visibleCover;
     const seeded = {
       ...emptyBook(),
       ...(addStatusPresetRef.current ? { status: addStatusPresetRef.current } : {}),
@@ -1354,10 +1366,10 @@ function AuthedApp() {
     }
     (async () => {
       try {
-        const altIsbns = await findIsbnCandidates(b.title, b.author);
-        const ordered = [b?.isbn, ...altIsbns].filter(Boolean);
-        if (ordered.length === 0) return;
-        const { isbn: resolvedIsbn, url: resolvedUrl } = await resolveCoverFromCandidates(ordered);
+        // サーバー（楽天・NDL・openBD）→ 端末の順で探す（すべての入口で同じ・coverAutoRetry）。
+        const r = await resolveCoverForBook({ title: b.title, author: b.author, isbn: b.isbn });
+        const resolvedUrl = r.url;
+        const resolvedIsbn = r.coverIsbn;
         if (resolvedUrl) {
           setForm((f) => (
             f && f.id === seeded.id
@@ -1460,38 +1472,18 @@ function AuthedApp() {
       let coverUrl = '';
       let coverIsbn = '';
 
-      // ── ステップ -1（最優先）: サーバーサイドリゾルバ /api/cover ─────────
-      // 端末の Google 429 / NDL CORS を回避。和書の取得率が大幅に上がる。
+      let learnedIsbn = '';
+      // ── ステップ 1: サーバー（楽天・NDL・openBD・Google）→ 端末の Google → ISBN の候補 ─────
+      //    自動の再取得と同じ順番（coverAutoRetry.resolveCoverForBook）。本の ISBN の表紙が先。
+      //    「見つからない」を覚えていても、ここではいつも探す。
       try {
-        const sv = await resolveCoverViaServer({ title: book.title, author: book.author, isbn: book.isbn });
-        if (sv?.url && await checkImageExists(sv.url)) { coverUrl = sv.url; coverIsbn = sv.isbn || book.isbn || ''; }
-      } catch { /* 次の手段へ */ }
-
-      // ── ステップ 0 ─────────────────────────────────────────────────
-      // Google Books の imageLinks.thumbnail（ISBN 直引き → タイトル+著者）。
-      if (!coverUrl) try {
-        const gb = await findCoverFromGoogleBooks({
-          title: book.title,
-          author: book.author,
-          isbn: book.isbn,
-        });
-        if (gb) {
-          coverUrl = gb;
-          coverIsbn = book.isbn || '';
-        }
-      } catch { /* 次の手段へ */ }
-
-      // ── ステップ 1: ISBN ベースの multi-source リゾルバ（openBD / Amazon / GB content）
-      if (!coverUrl) {
-        const r = await fullyResolveCover(
-          { title: book.title, author: book.author, isbn: book.isbn },
-          findIsbnCandidates,
-        );
+        const r = await resolveCoverForBook(book);
         if (r.url) {
           coverUrl = r.url;
-          coverIsbn = r.isbn || '';
+          coverIsbn = r.coverIsbn || '';
+          learnedIsbn = r.isbn || '';
         }
-      }
+      } catch { /* 次の手段へ */ }
 
       // ── ステップ 2: 最後の手段として通常検索のヒットの cover。
       // ⚠️ タイトル一致を必須にする。以前は「表紙を持つ先頭ヒット」を無条件採用
@@ -1526,11 +1518,21 @@ function AuthedApp() {
       await enqueueBookMutation(book.id, async (entry) => {
         const base = entry.latest || booksRef.current.find((b) => b.id === book.id) || book;
         const updated = { ...base, cover: coverUrl, coverIsbn };
-        const saved = await saveBook(updated);
+        // 本に ISBN が無く、書名から分かったら一緒に保存（同じ ISBN の本があれば付けない）。
+        if (!base.isbn && learnedIsbn) updated.isbn = learnedIsbn;
+        let saved;
+        try {
+          saved = await saveBook(updated);
+        } catch (e) {
+          if (updated.isbn === base.isbn || !isUniqueViolation(e)) throw e;
+          updated.isbn = base.isbn || '';
+          saved = await saveBook(updated);
+        }
         if (saved) entry.latest = saved;
         const next = saved || updated;
         setCurrent((c) => (c && c.id === next.id ? next : c));
       });
+      clearCoverNotFound(book);
       toast.dismiss?.(busyToastId);
       toast.success('表紙を更新しました。');
     } catch (e) {
@@ -1795,7 +1797,7 @@ function AuthedApp() {
         )
       );
 
-      // 表紙未確定の本については、ここで必ず resolveCoverFromCandidates
+      // 表紙未確定の本については、ここで必ず resolveCoverForBook（サーバー → 端末）
       // を通す。検索結果から渡ってきた未検証の URL や、async resolve が
       // 完了する前にユーザーが保存したケースを救済する。
       // 'manual' は手動アップロード済み / 'removed' はユーザーが意図的に
@@ -1809,18 +1811,20 @@ function AuthedApp() {
         // 保存失敗と誤認して離脱するため、その場でフィードバックを出す。
         resolvingToastId = toast.show({ type: 'info', message: '💾 保存しています…', duration: 30000 });
         try {
-          const altIsbns = await findIsbnCandidates(form.title, form.author);
-          const ordered = [form.isbn, ...altIsbns].filter(Boolean);
-          if (ordered.length > 0) {
-            const r = await resolveCoverFromCandidates(ordered);
-            if (r.url) {
-              resolvedCover = r.url;
-              resolvedCoverIsbn = r.isbn || '';
-            } else {
-              // 取れなかった場合は明示的に null。NDL サムネ等の壊れた
-              // URL が永続化されないようにする。
-              resolvedCover = '';
-              resolvedCoverIsbn = '';
+          // サーバー（楽天・NDL・openBD）→ 端末の順で探す（以前は端末だけで、NDL の CORS・
+          // Google の 429 で取りこぼしていた）。保存を長く待たせないよう 8 秒で打ち切り、
+          // 間に合わなければ保存のあと裏で探す（resolveCoverInBackground）。
+          const r = await Promise.race([
+            resolveCoverForBook({ title: form.title, author: form.author, isbn: form.isbn }),
+            new Promise((res) => { setTimeout(() => res({ url: '', outcome: 'transient' }), 8000); }),
+          ]);
+          if (r.url) {
+            resolvedCover = r.url;
+            resolvedCoverIsbn = r.coverIsbn || '';
+          } else {
+            resolvedCover = '';
+            resolvedCoverIsbn = '';
+            if (r.outcome === 'not_found') {
               toast.show({
                 type: 'info',
                 message: '表紙が見つかりませんでした。写真をアップロードできます。',
@@ -1881,6 +1885,8 @@ function AuthedApp() {
         saved = await saveBook(payload);
       }
       const next = saved || payload;
+      // 保存の前に表紙が間に合わなかった（時間切れ・通信の失敗）本は、裏で探し続ける。
+      if (saved && !saved.cover) resolveCoverInBackground(saved);
       const wasNew = !current; // 新規追加 (current=null) かどうか
       // 📊 本追加の計測（DB 保存が確定した新規追加時のみ・経路は addedVia の enum だけ）。
       // saveBook は未接続時に throw せず null を返すので、saved が truthy の時だけ計測する
@@ -2435,58 +2441,11 @@ function AuthedApp() {
   // coverAutoRetry が BookCard 描画時にも同じ処理を回すので、ここで失敗
   // しても次の機会に再試行される。
   const resolveCoverInBackground = (saved) => {
-    if (!saved || !saved.id || saved.cover || saved.coverIsbn === 'manual') return;
+    if (!saved || !saved.id || saved.cover || saved.coverIsbn === 'manual' || saved.coverIsbn === 'removed') return;
     if (!saved.title && !saved.isbn) return;
-    (async () => {
-      try {
-        let url = '';
-        let coverIsbn = '';
-        // ⓪ サーバーサイドリゾルバ（/api/cover）を最優先。端末の Google 429 /
-        //    NDL CORS を回避でき、和書の取得率が大きく上がる。検証してから採用。
-        try {
-          const sv = await resolveCoverViaServer({ title: saved.title, author: saved.author, isbn: saved.isbn });
-          if (sv?.url && await checkImageExists(sv.url)) { url = sv.url; coverIsbn = sv.isbn || saved.isbn || ''; }
-        } catch { /* 次へ */ }
-        // ① Google Books サムネ。ただし Google の「No cover」プレースホルダ
-        //    (128×170 等) を掴むことがあるので、実在＋表紙比率を checkImageExists
-        //    で検証してから採用する（ダメなら ②の NDL/openBD 等へ落とす）。
-        if (!url) try {
-          const gb = await findCoverFromGoogleBooks({
-            title: saved.title,
-            author: saved.author,
-            isbn: saved.isbn,
-          });
-          if (gb && await checkImageExists(gb)) { url = gb; coverIsbn = saved.isbn || ''; }
-        } catch { /* 次へ */ }
-        // ② ISBN ベース multi-source（NDL / openBD / Open Library / Google / Amazon）
-        if (!url) {
-          const r = await fullyResolveCover(
-            { title: saved.title, author: saved.author, isbn: saved.isbn },
-            findIsbnCandidates,
-          );
-          if (r.url) { url = r.url; coverIsbn = r.isbn || ''; }
-        }
-        if (url) {
-          // 解決に数秒かかる間にユーザーが編集している可能性があるため、
-          // 本ごとの保存チェーン（enqueueBookMutation）に乗せ、実行時点の最新
-          // （entry.latest > booksRef）に rebase してから表紙だけ差し替えて保存する。
-          // チェーン外で saveBook すると、進行中の行動トグル等と DB レベルで並走し、
-          // actions の差分同期が「保存直後の新規行動」を DELETE してしまう窓があった。
-          // 削除済み・手動アップ済み・既に表紙ありなら触らない。
-          await enqueueBookMutation(saved.id, async (entry) => {
-            const latest = entry.latest || booksRef.current.find((b) => b.id === saved.id);
-            if (latest && !latest.cover && latest.coverIsbn !== 'manual' && latest.coverIsbn !== 'removed') {
-              const next = { ...latest, cover: url, coverIsbn };
-              entry.latest = next;
-              await saveBook(next);
-            }
-          });
-        }
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('[bg-cover] failed:', saved.title, e?.message || e);
-      }
-    })();
+    // 本棚の自動の再取得と同じ 1 本のキューに積む（1 冊ずつ順番に・負のキャッシュ・ISBN も保存）。
+    // 以前はここで直接解決していて、取り込み 20 冊を同時に走らせて 429 の嵐になっていた。
+    triggerCoverAutoRetry(saved, { fallback: saved });
   };
 
 // Status transitions — optimistic UI with undo toast.
@@ -4694,6 +4653,7 @@ function AuthedApp() {
               onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
               onSearchMemos={openMemoSearch}
+              onCoverRetry={triggerCoverAutoRetry}
             />
           </PullToRefresh>
         )}

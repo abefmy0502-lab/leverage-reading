@@ -8,6 +8,7 @@ import { memo, useState, useEffect } from 'react';
 import { useLongPress } from '../hooks/useLongPress';
 import { paletteFor } from '../lib/coverPalette';
 import { ensureHttps } from '../lib/url';
+import { isCoverLikeSize } from '../lib/bookCover';
 import { ChevronRight } from 'lucide-react';
 import SwipeableCard from './SwipeableCard';
 import { Stars } from './formPrimitives';
@@ -40,10 +41,11 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
   const [loaded, setLoaded] = useState(false);
   useEffect(() => { setBroken(false); setLoaded(false); }, [book.id, book.cover]);
   const showPlaceholder = !book.cover || broken;
-  // 表紙が出ない本はバックグラウンドで再解決をキューイング。
-  // セッション内で 1 回だけ走るので、ここから fire-and-forget で OK。
+  // 表紙が出ない本はバックグラウンドで再解決をキューイング（coverAutoRetry が 1 冊ずつ・
+  // 「見つからない」は 7 日おく）。保存済みの URL が読めなかったときは、その URL を
+  // brokenCover として渡す（それだけは差し替えてよい）。
   useEffect(() => {
-    if (showPlaceholder) onAutoRetry?.(book);
+    if (showPlaceholder) onAutoRetry?.(book, broken && book.cover ? { brokenCover: book.cover } : undefined);
   }, [showPlaceholder, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <button
@@ -79,17 +81,14 @@ export const BookCoverCard = memo(function BookCoverCard({ book, isJustDone, onO
               if (el && el.complete && el.naturalWidth > 1 && !loaded) setLoaded(true);
             }}
             onError={() => setBroken(true)}
-            // 1×1 transparent placeholder + Google Books の "No cover"
-            // プレースホルダー (128×170 PNG、h/w 1.33) を実画像と区別する。
-            // 通常の本の表紙は h/w 1.4-1.6 なので 1.35 を閾値にする (bookCover.js
-            // checkImageExists と同じ基準)。
+            // 1×1 の透明画像・Google Books の "No cover"（128×170・縦/横 1.33）を実画像と区別する。
+            // 判定は確認（checkImageExists）と同じ isCoverLikeSize（配信元ごと）。以前はここだけ
+            // 全配信元に 1.35 を課していて、確認を通って保存された正方形寄りの表紙（楽天の
+            // _ex=420x420・ムック・自分で撮った写真）が本棚ではずっとグラデーションのままだった。
             onLoad={(e) => {
               const t = e?.target;
               if (!t) return;
-              const w = t.naturalWidth || 0;
-              const h = t.naturalHeight || 0;
-              if (w <= 1 || h <= 1) { setBroken(true); return; }
-              if (w >= 50 && h / w < 1.35) { setBroken(true); return; }
+              if (!isCoverLikeSize(book.cover, t.naturalWidth || 0, t.naturalHeight || 0)) { setBroken(true); return; }
               setLoaded(true);
             }}
           />
@@ -117,7 +116,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
   useEffect(() => { setBroken(false); setLoaded(false); }, [book.id, book.cover]);
   const show = !!book.cover && !broken;
   useEffect(() => {
-    if (!show) onAutoRetry?.(book);
+    if (!show) onAutoRetry?.(book, broken && book.cover ? { brokenCover: book.cover } : undefined);
   }, [show, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const height = Math.round(width * 1.42); // 一般的な書籍の縦横比
   const showTitle = width >= 48 && longestPhraseLength(book.title) * 12 <= width - 8 - 2; // 2: 字幅の端数で行からはみ出さない余裕
@@ -154,7 +153,7 @@ export function MiniCover({ book, width = 44, radius = 4, onAutoRetry }) {
           onLoad={(e) => {
             const t = e?.target;
             if (!t) return;
-            if ((t.naturalWidth || 0) <= 1 || (t.naturalHeight || 0) <= 1) { setBroken(true); return; }
+            if (!isCoverLikeSize(book.cover, t.naturalWidth || 0, t.naturalHeight || 0)) { setBroken(true); return; }
             setLoaded(true);
           }}
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 1 : 0, transition: 'opacity .25s ease' }}

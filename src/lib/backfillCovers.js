@@ -1,131 +1,119 @@
-// 🔄 Cover backfill v3 — 既存 DB に残った「壊れた cover URL」も
-// 対象に含めて新リゾルバで再解決する。
+// 🔄 Cover backfill v5 — 起動時に、表紙が無いまま保存されている本を探し直す。
 //
-// v2 までの問題: cover IS NULL の行しか触っておらず、過去に NDL の
-// 「No image」placeholder URL や Google Books の動的 URL が cover 列
-// に保存されてしまった本 (例: レバレッジ・リーディング ISBN 4492042695)
-// は永久に再解決されないままだった。
+// v4 までの問題（2026-09-30 に作り直し）:
+//   - 1 回だけ（端末ごとのフラグ）しか走らず、そのとき取れなかった本はずっと表紙なし
+//   - 端末だけで探していた（NDL の CORS・Google の 429 で取りこぼす）。サーバーは楽天・NDL で
+//     正しく答えられるのに使っていなかった
+//   - 探せなかったとき NDL の書影 URL を「壊れた印」とみなして消していた。いまは NDL の書影は
+//     サーバーが確かめて返す正しい表紙なので、新しい端末でログインすると正しい表紙が消えていた
 //
-// v3 の対象:
-//   - cover IS NULL
-//   - cover が NDL サムネ URL (ndlsearch.ndl.go.jp/thumbnail を含む)
-//   - cover が Google Books の動的 URL (books.google.com/books/content を含む)
-//   - cover_isbn IS NULL (新システム未適用)
-//   ただし cover_isbn = 'manual' (手動アップロード済み) は除外。
-//
-// 解決失敗時は cover を null にリセットして手動アップロード待ちに。
-// 壊れた URL を残しても再解決のループが永遠に止まらないため。
+// v5:
+//   - 対象は「表紙が空」の本だけ（cover が null / ''）。手動アップロード（'manual'）・
+//     意図的に消した本（'removed'）は触らない。今ある表紙は消さない（壊れた URL は
+//     本棚に表示したときに coverAutoRetry が差し替える）
+//   - 探し方は本棚の自動の再取得と同じ resolveCoverForBook（サーバー → 端末）
+//   - 取れた表紙と、本に ISBN が無ければ分かった ISBN も保存する（同じ ISBN の本があれば ISBN は付けない）
+//   - 「見つからない」は 7 日おく（coverAutoRetry の負のキャッシュ）。通信の失敗は覚えない
+//   - 1 日 1 回まで。通信の失敗があった回は、次の起動でまた走る
+//   - 1 冊ずつ順番に（外部へ一度に投げない）
 
-import { resolveCoverFromCandidates } from './bookCover';
-import { findIsbnCandidates } from './bookSearch';
+import { resolveCoverForBook, createNegativeCache } from './coverAutoRetry';
 
-// v4: タイトル類似度フィルタを導入した findIsbnCandidates で再解決させる。
-// 旧 v3 で「タイトル似てるだけの違う本」の表紙を採用してしまったケースを
-// 修正するため、もう一度全本を走らせる。
-const FLAG_KEY = 'cover-backfill-v4-done';
+const LAST_RUN_KEY = 'cover-backfill-v5-at';
+const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const BATCH_LIMIT = 50;
+const PACE_MS = 800;
+
+function defaultStorage() {
+  try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }
+}
+
+const isSchemaError = (err) => /cover_isbn|column/i.test(String(err?.message || ''));
+const isUniqueErr = (err) => err?.code === '23505' || /duplicate key|unique/i.test(String(err?.message || ''));
+
+// 表紙（と ISBN）を保存する。列が無い DB・同じ ISBN の本がある DB でも落ちない。
+async function saveCover(supabase, row, { url, coverIsbn, isbn }) {
+  let payload = { cover: url, cover_isbn: coverIsbn || null };
+  if (isbn && !row.isbn) payload = { ...payload, isbn };
+  let res = await supabase.from('books').update(payload).eq('id', row.id);
+  if (res.error && payload.isbn && isUniqueErr(res.error)) {
+    payload = { cover: url, cover_isbn: coverIsbn || null };
+    res = await supabase.from('books').update(payload).eq('id', row.id);
+  }
+  if (res.error && isSchemaError(res.error)) {
+    const min = { cover: url };
+    if (payload.isbn) min.isbn = payload.isbn;
+    res = await supabase.from('books').update(min).eq('id', row.id);
+    if (res.error && min.isbn && isUniqueErr(res.error)) {
+      res = await supabase.from('books').update({ cover: url }).eq('id', row.id);
+    }
+  }
+  return !res.error;
+}
 
 // 戻り値: DB の行を実際に書き換えたら true。呼び出し側（App.jsx）はこれが
-// true のときだけ refreshBooks する — no-op（既に実行済みフラグ等）でも毎回
-// 全 books を再フェッチしていた無駄な二重取得をやめる。
-export async function backfillCovers(supabase, userId) {
+// true のときだけ refreshBooks する。
+export async function backfillCovers(supabase, userId, {
+  resolve = resolveCoverForBook,
+  storage = defaultStorage(),
+  negativeCache = createNegativeCache({ storage }),
+  now = () => Date.now(),
+  paceMs = PACE_MS,
+} = {}) {
   if (!supabase || !userId) return false;
   try {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem(FLAG_KEY)) return false;
-  } catch { /* ignore */ }
+    const last = Number(storage?.getItem(LAST_RUN_KEY) || 0);
+    if (last && now() - last < RUN_INTERVAL_MS) return false;
+  } catch { /* 読めなければ走る */ }
 
+  let data;
   try {
-    const { data, error } = await supabase
+    const q = await supabase
       .from('books')
       .select('id, title, author, isbn, cover, cover_isbn')
       .eq('user_id', userId)
-      .or(
-        [
-          'cover.is.null',
-          'cover.eq.',
-          'cover.like.%ndlsearch.ndl.go.jp/thumbnail%',
-          'cover.like.%books.google.com/books/content%',
-          'cover_isbn.is.null',
-        ].join(','),
-      )
+      .or('cover.is.null,cover.eq.')
       .limit(BATCH_LIMIT);
-    if (error) {
-      console.warn('[backfillCovers v3] fetch failed:', error?.message || error);
+    if (q.error) {
+      console.warn('[backfillCovers v5] fetch failed:', q.error?.message || q.error);
       return false;
     }
-    if (!data || data.length === 0) {
-      try { localStorage.setItem(FLAG_KEY, String(Date.now())); } catch { /* ignore */ }
-      return false;
-    }
-
-    let resolved = 0;
-    let cleared = 0;
-    for (const row of data) {
-      try {
-        // 手動アップロード済み / ユーザーが意図的に表紙を削除した本（'removed'）は
-        // 絶対に触らない（新端末ログインで削除した表紙が復活してしまう）。
-        if (row.cover_isbn === 'manual' || row.cover_isbn === 'removed') continue;
-
-        // 「確実に壊れている」と言えるのは NDL の No image プレースホルダのみ。
-        // Google Books の動的 URL は実際には表示できていることが多く、
-        // 解決失敗（ネット瞬断・429 等の一時要因）を理由に null 化すると
-        // 「新端末でログインしたら表紙が消えた」事故になる。失敗時に消して
-        // よいのは既知プレースホルダだけ。生きている可能性のある URL は残す
-        // （本当に壊れていれば BookCard の onError → 自動リトライが拾う）。
-        const isKnownPlaceholder = !!row.cover && row.cover.includes('ndlsearch.ndl.go.jp/thumbnail');
-
-        const altIsbns = await findIsbnCandidates(row.title, row.author);
-        const ordered = [row.isbn, ...altIsbns].filter(Boolean);
-
-        // ISBN 候補ゼロの本はリゾルバに渡しても結果は出ない。
-        if (ordered.length === 0) {
-          if (isKnownPlaceholder) {
-            // eslint-disable-next-line no-await-in-loop
-            const res = await supabase.from('books').update({ cover: null }).eq('id', row.id);
-            if (!res.error) cleared += 1;
-          }
-          continue;
-        }
-
-        // eslint-disable-next-line no-await-in-loop
-        const { isbn, url } = await resolveCoverFromCandidates(ordered);
-
-        if (url) {
-          // 解決成功 → cover + cover_isbn を更新。schema-error fallback。
-          const fullPayload = { cover: url, cover_isbn: isbn || null };
-          const minPayload = { cover: url };
-          // eslint-disable-next-line no-await-in-loop
-          let res = await supabase.from('books').update(fullPayload).eq('id', row.id);
-          if (res.error && /cover_isbn|column/.test(String(res.error?.message || ''))) {
-            // eslint-disable-next-line no-await-in-loop
-            res = await supabase.from('books').update(minPayload).eq('id', row.id);
-          }
-          if (!res.error) {
-            resolved += 1;
-          }
-        } else if (isKnownPlaceholder) {
-          // 解決失敗 + 既知プレースホルダ URL → null にリセットして
-          // 手動アップロード待ちに。次回起動の再ループ防止にもなる。
-          const fullPayload = { cover: null, cover_isbn: null };
-          // eslint-disable-next-line no-await-in-loop
-          let res = await supabase.from('books').update(fullPayload).eq('id', row.id);
-          if (res.error && /cover_isbn|column/.test(String(res.error?.message || ''))) {
-            // eslint-disable-next-line no-await-in-loop
-            res = await supabase.from('books').update({ cover: null }).eq('id', row.id);
-          }
-          if (!res.error) {
-            cleared += 1;
-          }
-        }
-      } catch (e) {
-        console.warn('[backfillCovers v3] book failed:', row?.title, e?.message || e);
-      }
-    }
-
-    try { localStorage.setItem(FLAG_KEY, String(Date.now())); } catch { /* ignore */ }
-    return resolved + cleared > 0;
+    data = q.data || [];
   } catch (e) {
-    console.warn('[backfillCovers v3] error:', e?.message || e);
+    console.warn('[backfillCovers v5] error:', e?.message || e);
     return false;
   }
+
+  let resolved = 0;
+  let transient = 0;
+  for (const row of data) {
+    try {
+      if (row.cover) continue;
+      if (row.cover_isbn === 'manual' || row.cover_isbn === 'removed') continue;
+      if (!row.isbn && !(row.title && row.title.trim())) continue;
+      const book = { id: row.id, title: row.title || '', author: row.author || '', isbn: row.isbn || '' };
+      if (negativeCache.has(book)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const r = await resolve(book);
+      if (r?.url) {
+        // eslint-disable-next-line no-await-in-loop
+        if (await saveCover(supabase, row, r)) resolved += 1;
+      } else if (r?.outcome === 'not_found') {
+        negativeCache.add(book);
+      } else {
+        transient += 1;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      if (paceMs > 0) await new Promise((res) => { setTimeout(res, paceMs); });
+    } catch (e) {
+      transient += 1;
+      console.warn('[backfillCovers v5] book failed:', row?.title, e?.message || e);
+    }
+  }
+
+  // 通信の失敗が無かった回だけ「今日は済んだ」と覚える（失敗があれば次の起動でまた探す）。
+  if (transient === 0) {
+    try { storage?.setItem(LAST_RUN_KEY, String(now())); } catch { /* ignore */ }
+  }
+  return resolved > 0;
 }

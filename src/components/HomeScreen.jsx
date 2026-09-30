@@ -49,7 +49,7 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
   );
 }
 
-function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading }) {
+function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading, onCoverRetry }) {
   const reading = books
     .filter((b) => b.status === 'reading')
     .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
@@ -74,7 +74,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
                 aria-label={`『${b.title}』を開く`}
                 style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
               >
-                <MiniCover book={b} width={40} />
+                <MiniCover book={b} width={40} onAutoRetry={onCoverRetry} />
                 <span style={{ minWidth: 0 }}>
                   <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{b.title}</span>
                   {b.author && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.author}</span>}
@@ -129,7 +129,7 @@ export function HomeBlocksSkeleton() {
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
   onAsk, onQuickstart, onAddBook, onAdvisor, onImport,
-  onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading, onSearchMemos,
+  onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading, onSearchMemos, onCoverRetry,
 }) {
   return (
     <div style={{ padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
@@ -157,7 +157,7 @@ export default function HomeScreen({
       ) : (
         <>
           <HomeConsult books={books} onAsk={onAsk} onQuickstart={onQuickstart} onSearchMemos={onSearchMemos} />
-          <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} />
+          <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} />
           <button
             type="button"
             onClick={onOpenLibrary}

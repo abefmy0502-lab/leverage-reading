@@ -325,7 +325,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 - `X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`
 - `Permissions-Policy: camera=(self), microphone=(), geolocation=()`
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-- `Content-Security-Policy`: `default-src 'self'` ベースでホワイトリスト制（Supabase / Anthropic / Google Books / openBD / NDL / Amazon 画像 / 楽天ブックス画像(`thumbnail.image.rakuten.co.jp`, img-src のみ) を許可。楽天 API 本体はサーバー(`api/cover.js` の表紙リゾルバ)経由なので connect-src 不要）
+- `Content-Security-Policy`: `default-src 'self'` ベースでホワイトリスト制（Supabase / Anthropic / Google Books / openBD / NDL / Amazon 画像（images-na・images-fe・m.media-amazon）/ 楽天ブックス画像(`thumbnail.image.rakuten.co.jp`, img-src のみ) / Open Library の表紙の転送先 `*.archive.org`（img-src のみ・2026-09-30）を許可。表紙の配信元を足したら `img-src` と `api/_coverImageUrl.js` の許可リストの両方に。楽天 API 本体はサーバー(`api/cover.js` の表紙リゾルバ)経由なので connect-src 不要）
 
 ## 環境変数 (本番)
 
@@ -381,7 +381,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `VITE_SITE_URL` | (任意・推奨) 🏷 本番サイトの URL（本番は `https://orime.vercel.app`（2026-09-26 決定・無料）。将来独自ドメインに移るときはここを差し替える・末尾スラッシュなし）。アプリ内の利用規約・プライバシーポリシーのリンク（`src/lib/legalLinks.js`・ネイティブは Safari で開く絶対 URL）と、`index.html` の共有用 URL（og:url / og:image。`vite.config.js` の `siteUrlInHtml` がビルド時に差し替え）に使う。未設定なら `https://orime.vercel.app`（2026-09-26 に Vercel で取得済み・旧 `leverage-reading.vercel.app` も同じ本番に向いたまま）。独自ドメインに移るときに設定する（あわせて Supabase Auth の Redirect URLs・`RAKUTEN_APP_URL`・`APP_ORIGIN` も新ドメインに） |
 | `VITE_SUPPORT_EMAIL` | (任意・推奨) 🏷 問い合わせ先メール（`src/lib/contact.js`。設定・エラー画面・特商法などに表示）。未設定なら `orime.support@gmail.com`（2026-09-26 に用意）。独自ドメインのメールに移るときに設定する |
 | `VITE_AMAZON_TAG` | (任意・推奨) 🏷 Amazon アソシエイトのトラッキング ID（`src/lib/amazonLink.js`・Amazon のリンクの URL に出る）。アソシエイト・セントラル →「トラッキング ID の管理」で Orime 名の ID を追加して設定。未設定なら旧 ID |
-| `ALLOW_COVER_DEBUG` | (任意) `'true'` で `api/cover.js` の `?debug=1` 診断出力を本番でも許可。既定は無効（内部情報の露出防止）。通常は未設定のまま |
+| `ALLOW_COVER_DEBUG` | (任意) `'true'` で `api/cover.js` の `?debug=1` 診断出力を本番でも許可。既定は無効（内部情報の露出防止）。通常は未設定のまま。**表紙の取得元の状態は、これを入れなくても `/api/cover?health=1` で見られる**（下の「運用 — 表紙が取れないとき」） |
 
 ## デプロイフロー
 
@@ -389,6 +389,15 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 2. `npm run build` でエラーチェック
 3. `git add -A && git commit -m "..." && git push origin main`
 4. Vercel が `main` ブランチを自動でデプロイ
+
+## 運用 — 表紙が取れないとき
+
+流れと原因の一覧は `docs/cover-pipeline.md`。本番の取得元の状態は **https://orime.vercel.app/api/cover?health=1** を開いて出た JSON を貼ってもらう（2026-09-30〜・`api/cover.js` の `coverHealth`）。
+
+- 中身は **真偽と HTTP の番号だけ**: `rakutenConfigured`（楽天の 2 つの鍵）/ `rakutenRefererSet`（`RAKUTEN_APP_URL`）/ `googleKeySet`（`GOOGLE_BOOKS_API_KEY`）と、決まった本（ISBN 9784862760852）での各取得元の `status` と `found`（`rakuten` / `ndlSearch` / `ndlTitleToIsbn` / `openbd` / `google` / `ndlThumb` / `openbdImage` / `amazon` / `amazonMedia` / `googleContent` / `openLibrary`）。鍵・利用者の情報・内部の URL は出さない。ほかの `/api/cover` と同じ IP ごとの回数制限・結果は 5 分キャッシュ
+- 読み方: `rakuten.status` 403 → `RAKUTEN_APP_URL` と楽天の「許可された Web サイト」が合っていない／400 → 鍵が違う。`google.status` 429 → `GOOGLE_BOOKS_API_KEY` を入れる。`ndlThumb`・`amazon` の 403・0 はサーバーの IP が弾かれているだけ（端末の `<img>` は読めるので `candidates` で表紙は付く）
+- 1 冊だけ確かめるときは `https://orime.vercel.app/api/cover?title=書名&author=著者`（`{cover, isbn, candidates}`）
+- **アプリ側の直し（表紙の確かめ方・起動時の探し直し・壊れた表紙の差し替え）は iOS アプリの出し直しで届く**（アプリの中の画面はアプリに入っている版。`/api/*` だけは Vercel の公開ですぐ変わる）
 
 ## 運用 — フィードバック確認
 

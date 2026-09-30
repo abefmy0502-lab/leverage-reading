@@ -24,46 +24,59 @@ export const normalizeIsbn = (isbn) => {
 };
 
 // 🛰️ サーバーサイドの表紙リゾルバ（/api/cover）に問い合わせる第一経路。
-// サーバーは「タイトル+著者 → 正しい ISBN」の解決が得意（NDL OpenSearch は
+// サーバーは「タイトル+著者 → 正しい ISBN」の解決が得意（楽天・NDL OpenSearch は
 // データセンター IP でも 429/CORS にならない）。ただし書影画像そのものの
 // fetch はサーバーだと 403 で弾かれることがあるため、サーバーは候補 URL の
 // リスト（candidates）も返す。ここでブラウザの <img> ロードで実在検証する
 // （ブラウザは Referer/UA を付けるので 403 にならず、CSP も許可済み）。
-// 返り値 { url, isbn } または null（失敗・未発見）。
-export const resolveCoverViaServer = async ({ title, author, isbn } = {}) => {
+//
+// 戻り値 { status, url, isbn }:
+//   status 'found'     … 表紙が見つかった（url）
+//          'isbn_only' … 本（isbn）は分かったが、端末で読める表紙が無かった
+//          'not_found' … サーバーは答えたが、本も表紙も見つからなかった
+//          'error'     … 通信の失敗・時間切れ・5xx・429（「見つからない」とは扱わない）
+//   skipUrl: 読めなかった（壊れた）表紙の URL。同じものを返さない。
+const SERVER_TIMEOUT_MS = 15000;
+export const resolveCoverViaServerDetailed = async ({ title, author, isbn } = {}, { skipUrl = '' } = {}) => {
   const params = new URLSearchParams();
   if (title) params.set('title', title);
   if (author) params.set('author', author);
   if (isbn) params.set('isbn', isbn);
-  if ([...params.keys()].length === 0) return null;
+  if ([...params.keys()].length === 0) return { status: 'not_found', url: '', isbn: '' };
   // 🧹 キャッシュ毒抜き: リゾルバのロジックを変えたら必ずこの番号を上げる。
   //    壊れていた時期に CDN へ張り付いた空っぽ応答（s-maxage 最長 7 日）を
   //    新しい URL で確実に回避するため。
   //    v5: 兄弟本誤マッチ根治（NDL タイトル照合必須）＋楽天ブックスソース追加。
   //    v6: 共著の著者クエリを先頭著者に修正（連結文字列だと NDL/Google が 0 件で
   //        表紙が取れなかった。例: 楠木建・杉浦泰）。旧応答（空）を CDN から無効化。
-  params.set('cv', '6');
+  //    v7: 候補の並び・ISBN-10 の古い本・副題まで一致を先に・CORS を「*」に（2026-09-30）。
+  params.set('cv', '7');
+  let d;
   try {
-    const r = await fetch(apiUrl(`/api/cover?${params.toString()}`));
-    if (!r.ok) return null;
-    const d = await r.json();
-    if (!d) return null;
-    const resolvedIsbn = d.isbn || isbn || '';
-    // ① サーバーが server-side 検証を通した cover があれば、それを最優先で
-    //    ブラウザ側でも一応検証して採用（速い）。
-    if (d.cover && (await checkImageExists(d.cover))) {
-      return { url: d.cover, isbn: resolvedIsbn };
-    }
-    // ② サーバーが返した候補 URL を順にブラウザ側で実在検証（403 回避の本命）。
-    const candidates = Array.isArray(d.candidates) ? d.candidates : [];
-    for (const u of candidates) {
-      // eslint-disable-next-line no-await-in-loop
-      if (await checkImageExists(u)) return { url: u, isbn: resolvedIsbn };
-    }
-    return null;
+    const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(SERVER_TIMEOUT_MS) : undefined;
+    const r = await fetch(apiUrl(`/api/cover?${params.toString()}`), signal ? { signal } : undefined);
+    if (!r.ok) return { status: 'error', url: '', isbn: '' };
+    d = await r.json();
   } catch {
-    return null;
+    return { status: 'error', url: '', isbn: '' };
   }
+  if (!d || typeof d !== 'object') return { status: 'error', url: '', isbn: '' };
+  const resolvedIsbn = normalizeIsbn(d.isbn || '');
+  // ① サーバーの cover（楽天など・サーバーで確かめ済み）→ ② ISBN から作った候補。
+  //   どちらも端末の <img> で確かめる。候補は同時に読み、並び順でいちばん前の本物を採る。
+  const skip = skipUrl ? String(skipUrl) : '';
+  const list = [d.cover, ...(Array.isArray(d.candidates) ? d.candidates : [])]
+    .filter((u) => typeof u === 'string' && u && u !== skip);
+  const url = await firstLoadableImage(list);
+  if (url) return { status: 'found', url, isbn: resolvedIsbn || normalizeIsbn(isbn) };
+  if (resolvedIsbn) return { status: 'isbn_only', url: '', isbn: resolvedIsbn };
+  return { status: 'not_found', url: '', isbn: '' };
+};
+
+// 旧来の呼び方（{ url, isbn } または null）。
+export const resolveCoverViaServer = async (book = {}) => {
+  const r = await resolveCoverViaServerDetailed(book);
+  return r.status === 'found' ? { url: r.url, isbn: r.isbn } : null;
 };
 
 // 📖 実在検証: サーバーの表紙リゾルバ（/api/cover?verify=1）に、この (title, author) の本が
@@ -121,99 +134,103 @@ export const isbn13to10 = (isbn13) => {
 };
 
 /**
- * 表紙 URL の候補を優先順で返す。
- * - 1: Google Books (日本書籍 + 洋書のカバー率が一番高い。安定稼働)
- * - 2: Amazon ISBN-10 パターン (978 prefix のみ。openBD が落ちている間の保険)
- * - 3: openBD (2026-05 から `cover.openbd.jp` が CloudFront 404 を返すように
- *      なったため一時的に最下位へ。復旧したら自動で再活用される)
- *
- * 候補リストは「保存に直接使える URL」と「resolveCoverUrl で実在検証を
- * 通すための URL」を兼ねる。
+ * 表紙 URL の候補を「当たりやすい順」に返す（鍵不要）。
+ * api/_coverSources.js の coverCandidatesFor と同じ並び（変えたら両方）。
+ *   ① NDL 書影 — 和書に強い・無い本は 404
+ *   ② openBD — 無い本は 404
+ *   ③④ Amazon（ISBN-10・978 のみ）— 無い本は 1×1 の GIF（isCoverLikeSize が弾く）
+ *   ⑤ Google の ISBN 直リンク — 無い本は「No cover」(128×170 前後・縦横比 1.35 で弾く)
+ *   ⑥ Open Library — 無い本は 404。archive.org へ転送される（CSP img-src に *.archive.org）
+ * checkImageExists が <img> ロードで実在検証するので、存在しない本のダミー画像が
+ * cover に保存されることはない。
  */
 export const getCoverCandidates = (isbn) => {
-  const i13 = normalizeIsbn(isbn);
+  let i13 = normalizeIsbn(isbn).toUpperCase();
+  if (i13.length === 10) i13 = isbn10to13(i13) || '';
+  if (!/^\d{13}$/.test(i13)) return [];
   const i10 = isbn13to10(i13);
-  const list = [];
-  // 並び順 = 「鍵不要・レート制限なし・和書カバー率が高い」順。各 URL は
-  // checkImageExists が <img> ロードで実在検証する（1×1 / 平たいプレースホルダーは
-  // 弾く）ので、存在しない本のダミー画像が cover に保存されることはない。
-  //
-  // ① NDL（国立国会図書館）書影 — 和書のカバー率が非常に高く、鍵不要・無制限。
-  //    登録の無い本は 404 か 1×1 を返すので checkImageExists が安全に弾く。
-  if (i13) {
-    list.push(`https://ndlsearch.ndl.go.jp/thumbnail/${i13}.jpg`);
-  }
-  // ② openBD — 和書書影の定番（一時的に CloudFront 404 を返す時期があったが、
-  //    生きていれば高品質。死んでいても checkImageExists が弾くだけで無害）。
-  if (i13) {
-    list.push(`https://cover.openbd.jp/${i13}.jpg`);
-  }
-  // ③ Open Library — 鍵不要・無制限。?default=false で未登録時は 404（誤検出防止）。
-  if (i13) {
-    list.push(`https://covers.openlibrary.org/b/isbn/${i13}-L.jpg?default=false`);
-  }
-  // ④ Google Books コンテンツ URL（無料だが匿名はレート制限 429 になりやすい）。
-  if (i13) {
-    list.push(`https://books.google.com/books/content?vid=ISBN${i13}&printsec=frontcover&img=1&zoom=1`);
-  }
-  // ⑤⑥ Amazon の書影 CDN（ISBN-10 ベース。新旧ホスト両方を試す）。
+  const list = [
+    `https://ndlsearch.ndl.go.jp/thumbnail/${i13}.jpg`,
+    `https://cover.openbd.jp/${i13}.jpg`,
+  ];
   if (i10) {
-    list.push(`https://m.media-amazon.com/images/P/${i10}.09._SCLZZZZZZZ_.jpg`);
     list.push(`https://images-na.ssl-images-amazon.com/images/P/${i10}.09.LZZZZZZZ.jpg`);
+    list.push(`https://m.media-amazon.com/images/P/${i10}.09._SCLZZZZZZZ_.jpg`);
   }
+  list.push(`https://books.google.com/books/content?vid=ISBN${i13}&printsec=frontcover&img=1&zoom=1`);
+  list.push(`https://covers.openlibrary.org/b/isbn/${i13}-L.jpg?default=false`);
   return list;
 };
 
-// 画像が「実体として存在するか」をブラウザでロードして確認する。
-// 単純な 1×1 placeholder だけでなく、「No image」ロゴ画像 (NDL / Google Books が
-// 返す数十〜180 px の正方形・横長画像) も弾くため、以下 3 段階で判定する:
-//   1. 画像が読めない                  → 偽
-//   2. naturalWidth < 50              → 偽 (placeholder 規模)
-//   3. 縦横比ゲート（ソース別）        → 偽
-//      - books.google.com/books/content の ISBN 直リンクだけは、未登録本に
-//        128×170 の「No cover」プレースホルダー (h/w=1.328) を返すため
-//        厳しめの 1.35 を要求（本の表紙はほぼ 1.4-1.6）
-//      - それ以外のソース（NDL / openBD / 楽天 / Amazon / GB thumbnail）は
-//        「存在しない本」を 404 / 1×1 で返すのでプレースホルダーの心配が無く、
-//        1.05 の緩いゲートにする。以前は全ソースに 1.35 を課しており、正方形
-//        寄りの実在する表紙（絵本・ムック・一部単行本）を誤って弾いて
-//        「表紙が取れない」の一因になっていた
+// ISBN-10 → ISBN-13（検査数字つき）。形が違えば null。
+export const isbn10to13 = (isbn10) => {
+  const s = normalizeIsbn(isbn10).toUpperCase();
+  if (!/^\d{9}[\dX]$/.test(s)) return null;
+  const core = `978${s.slice(0, 9)}`;
+  let sum = 0;
+  for (let i = 0; i < 12; i += 1) sum += parseInt(core[i], 10) * (i % 2 === 0 ? 1 : 3);
+  return core + String((10 - (sum % 10)) % 10);
+};
+
+// 「本の表紙らしい大きさ・形か」（読み込めた画像の縦横で判定）。確認（checkImageExists）と
+// 表示（BookCards の onLoad）と サーバー（api/_coverSources.js の looksLikeCover）で同じ基準にする。
+//   - 50px 未満（1×1 の透明画像・Amazon の 43 バイトの GIF）→ 偽
+//   - Google の ISBN 直リンク（books.google.*/books/content）は、無い本に 128×170 前後（縦/横 1.33）の
+//     「No cover」を返すので 1.35 未満は偽
+//   - 無い本を 404 / 1×1 / 「noimage」の URL で返す配信元（楽天・openBD・Amazon・Open Library・
+//     自分でアップロードした表紙）は形を問わない（正方形寄りのムック・絵本・写真も通す）
+//   - それ以外（NDL など）は横長のロゴだけ弾く（1.05 未満は偽）
+//   以前は本棚のグリッドだけ全配信元に 1.35 を課していて、確認を通って保存された表紙
+//   （正方形寄りの本・自分で撮った写真）が本棚ではずっとグラデーションのままだった。
+const GB_CONTENT_RE = /books\.google\.[a-z.]+\/books\/content/i;
+const SHAPE_FREE_HOSTS_RE = /(^|\.)(thumbnail\.image\.rakuten\.co\.jp|cover\.openbd\.jp|ssl-images-amazon\.com|media-amazon\.com|covers\.openlibrary\.org|archive\.org|supabase\.co|supabase\.in)$/i;
+const hostOf = (url) => {
+  try { return new URL(url).hostname; } catch { return ''; }
+};
+export const coverMinRatio = (url) => {
+  const u = String(url || '');
+  if (GB_CONTENT_RE.test(u)) return 1.35;
+  if (SHAPE_FREE_HOSTS_RE.test(hostOf(u))) return 0;
+  return 1.05;
+};
+export const isCoverLikeSize = (url, w, h) => {
+  if (!(w >= 50) || !(h >= 50)) return false;
+  return h / w >= coverMinRatio(url);
+};
+
+// 画像が「実体として存在するか」をブラウザでロードして確認する（isCoverLikeSize で形も見る）。
 // crossOrigin は付けない (CORS 未対応の openBD/Amazon が読めなくなる。
 // naturalWidth/Height はクロスオリジン画像でも取得可)。
-const GB_CONTENT_RE = /books\.google\.[a-z.]+\/books\/content/i;
-export const checkImageExists = (url) =>
+export const checkImageExists = (url, { timeoutMs = 6000 } = {}) =>
   new Promise((resolve) => {
-    if (!url) { resolve(false); return; }
+    if (!url || typeof Image === 'undefined') { resolve(false); return; }
     let settled = false;
     const settle = (v) => { if (!settled) { settled = true; resolve(v); } };
     const img = new Image();
-    img.onload = () => {
-      const w = img.naturalWidth;
-      const h = img.naturalHeight;
-      if (w < 50 || h < 50) { settle(false); return; }      // 1×1 / 小さい placeholder
-      const minRatio = GB_CONTENT_RE.test(url) ? 1.35 : 1.05;
-      if (h / w < minRatio) { settle(false); return; }       // 平たい = プレースホルダー / 横長ロゴ
-      settle(true);
-    };
+    img.onload = () => settle(isCoverLikeSize(url, img.naturalWidth, img.naturalHeight));
     img.onerror = () => settle(false);
     img.src = url;
-    // モバイル回線で実在する表紙を時間切れで取りこぼさないよう 5 秒に延長。
-    setTimeout(() => settle(false), 5000);
+    // モバイル回線で実在する表紙を時間切れで取りこぼさないよう長めに。
+    setTimeout(() => settle(false), timeoutMs);
   });
+
+// 候補を同時に読み、並び順でいちばん前の「本物」を返す（無ければ ''）。
+// 以前は 1 枚 5 秒を順番に待ち、候補 6 枚で最大 30 秒かかっていた。
+export const firstLoadableImage = async (urls, { check = checkImageExists } = {}) => {
+  const list = [...new Set((urls || []).filter(Boolean))];
+  const pending = list.map((u) => Promise.resolve().then(() => check(u)).catch(() => false));
+  for (let i = 0; i < list.length; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await pending[i]) return list[i];
+  }
+  return '';
+};
 
 /**
  * 1 つの ISBN について openBD と Amazon を順に試す。最初に通った URL を返す。
  * resolveCoverUrl の単 ISBN 版エイリアス兼、複数候補ループの構成要素。
  */
-export const tryCoverForIsbn = async (isbn) => {
-  const candidates = getCoverCandidates(isbn);
-  for (const url of candidates) {
-    // eslint-disable-next-line no-await-in-loop
-    const ok = await checkImageExists(url);
-    if (ok) return url;
-  }
-  return null;
-};
+export const tryCoverForIsbn = async (isbn) => (await firstLoadableImage(getCoverCandidates(isbn))) || null;
 
 const MAX_ISBNS_TO_TRY = 5;
 
@@ -244,15 +261,7 @@ export const resolveCoverFromCandidates = async (isbnList) => {
  * 候補を順に当たり、最初に通ったものを採用する (no-store / no-cors の
  * 影響を避けるため fetch ではなく `<img>` ロードで判定)。
  */
-export const resolveCoverUrl = async (isbn) => {
-  const candidates = getCoverCandidates(isbn);
-  for (const url of candidates) {
-    // eslint-disable-next-line no-await-in-loop
-    const ok = await checkImageExists(url);
-    if (ok) return url;
-  }
-  return null;
-};
+export const resolveCoverUrl = async (isbn) => (await firstLoadableImage(getCoverCandidates(isbn))) || null;
 
 /**
  * 完全な表紙解決パイプライン。「本の追加時」「再取得ボタン」「backfill」

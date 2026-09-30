@@ -688,6 +688,7 @@ export function pickSuggestions(results, limit = 3) {
 const ISBN_CAND_CACHE_KEY = (title, author) =>
   `isbn-candidates:${(title || '').trim()}|${(author || '').trim()}`;
 const ISBN_CAND_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const ISBN_CAND_EMPTY_TTL_MS = 24 * 60 * 60 * 1000; // 本当に 0 件だったときだけ・1 日
 
 // ============================================================
 // タイトル/著者の類似度判定 — タイトルが似ているだけの「全く別の本」
@@ -790,10 +791,11 @@ const isSameBook = (candidate, original) => {
 
 // NDL OpenSearch — 日本書籍に強い。XML レスポンスから書誌メタデータ
 // (isbn / title / author) をまとめて抽出する。
-async function findCandidateBooksFromNDL(title, author) {
+// 戻り値 { ok, items }。ok=false は「失敗」（CORS・429・通信断）で、「0 件」とは区別する。
+async function ndlCandidateBooks(title, author) {
   const t = (title || '').trim();
   const a = (author || '').trim();
-  if (!t && !a) return [];
+  if (!t && !a) return { ok: true, items: [] };
   const params = [];
   if (t) params.push(`title=${encodeURIComponent(t)}`);
   const qa = firstAuthorForQuery(a); // 共著は先頭著者で絞る
@@ -802,10 +804,10 @@ async function findCandidateBooksFromNDL(title, author) {
   const url = `https://ndlsearch.ndl.go.jp/api/opensearch?${params.join('&')}`;
   try {
     const r = await fetch(url);
-    if (!r.ok) return [];
+    if (!r.ok) return { ok: false, items: [] };
     const xml = await r.text();
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
-    if (doc.getElementsByTagName('parsererror').length > 0) return [];
+    if (doc.getElementsByTagName('parsererror').length > 0) return { ok: false, items: [] };
     const items = Array.from(doc.getElementsByTagName('item'));
     const out = [];
     for (const item of items) {
@@ -815,18 +817,21 @@ async function findCandidateBooksFromNDL(title, author) {
       const authorText = authorFromNdl(item);
       out.push({ isbn, title: titleText, author: authorText });
     }
-    return out;
+    return { ok: true, items: out };
   } catch (e) {
     console.warn('[findCandidateBooksFromNDL] failed:', e?.message || e);
-    return [];
+    return { ok: false, items: [] };
   }
+}
+async function findCandidateBooksFromNDL(title, author) {
+  return (await ndlCandidateBooks(title, author)).items;
 }
 
 // Google Books — 洋書 / NDL に無い和書のフォールバック。
-async function findCandidateBooksFromGoogleBooks(title, author) {
+async function googleCandidateBooks(title, author) {
   const t = (title || '').trim();
   const a = (author || '').trim();
-  if (!t && !a) return [];
+  if (!t && !a) return { ok: true, items: [] };
   const parts = [];
   if (t) parts.push(`intitle:${encodeURIComponent(t)}`);
   const qa = firstAuthorForQuery(a); // 共著は先頭著者で絞る
@@ -834,7 +839,7 @@ async function findCandidateBooksFromGoogleBooks(title, author) {
   const url = `https://www.googleapis.com/books/v1/volumes?q=${parts.join('+')}&maxResults=10&country=JP`;
   try {
     const r = await fetch(url);
-    if (!r.ok) return [];
+    if (!r.ok) return { ok: false, items: [] };
     const d = await r.json();
     const out = [];
     for (const item of d.items || []) {
@@ -850,11 +855,14 @@ async function findCandidateBooksFromGoogleBooks(title, author) {
         }
       }
     }
-    return out;
+    return { ok: true, items: out };
   } catch (e) {
     console.warn('[findCandidateBooksFromGoogleBooks] failed:', e?.message || e);
-    return [];
+    return { ok: false, items: [] };
   }
+}
+async function findCandidateBooksFromGoogleBooks(title, author) {
+  return (await googleCandidateBooks(title, author)).items;
 }
 
 /**
@@ -981,15 +989,22 @@ export async function findIsbnCandidatesFromGoogleBooks(title, author) {
  * 「タイトルが似ているだけの全く別の本」の ISBN は除外される。
  */
 export async function findIsbnCandidatesWithMetadata(title, author) {
+  return (await collectIsbnCandidates(title, author)).filtered;
+}
+
+// 戻り値 { filtered, hadError }。hadError = NDL か Google のどちらかが「失敗」した
+// （0 件と断定できない → 空の結果をキャッシュしてはいけない）。
+async function collectIsbnCandidates(title, author) {
   const t = (title || '').trim();
   const a = (author || '').trim();
-  if (!t && !a) return [];
+  if (!t && !a) return { filtered: [], hadError: false };
   const [ndlR, googleR] = await Promise.allSettled([
-    findCandidateBooksFromNDL(t, a),
-    findCandidateBooksFromGoogleBooks(t, a),
+    ndlCandidateBooks(t, a),
+    googleCandidateBooks(t, a),
   ]);
-  const ndl = ndlR.status === 'fulfilled' ? ndlR.value : [];
-  const google = googleR.status === 'fulfilled' ? googleR.value : [];
+  const ndl = ndlR.status === 'fulfilled' ? ndlR.value.items : [];
+  const google = googleR.status === 'fulfilled' ? googleR.value.items : [];
+  const hadError = !(ndlR.status === 'fulfilled' && ndlR.value.ok) || !(googleR.status === 'fulfilled' && googleR.value.ok);
   const allCandidates = [...ndl, ...google];
 
   // タイトル + 著者でフィルタ。NDL を優先 (先頭) し、同 ISBN は重複排除。
@@ -1007,7 +1022,7 @@ export async function findIsbnCandidatesWithMetadata(title, author) {
     }
   }
 
-  return filtered;
+  return { filtered, hadError };
 }
 
 // 統合: 厳格マッチ後の ISBN だけを返す (旧 API、後方互換用)。
@@ -1020,29 +1035,36 @@ export async function findIsbnCandidates(title, author) {
   // v4: 副題付きタイトルの類似度判定を緩和（核タイトル＋副題＝同一書誌）。
   // v5: 共著の著者クエリを先頭著者に修正（連結文字列だと NDL/Google が 0 件で
   //     ISBN が取れず空配列がキャッシュされていた）。旧キャッシュを捨てて再解決。
-  const cacheKey = `${ISBN_CAND_CACHE_KEY(t, a)}:v5`;
+  // v6: 失敗（CORS・429・通信断）を「0 件」として 7 日キャッシュしていた（取り込み 20 冊を
+  //     同時に解決して Google が 429 → 20 冊とも 7 日間 ISBN なし）。失敗は覚えず、本当に 0 件の
+  //     ときだけ 1 日覚える。旧キャッシュ（v5 の空）は捨てる（2026-09-30）。
+  const cacheKey = `${ISBN_CAND_CACHE_KEY(t, a)}:v6`;
   try {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && Date.now() - parsed.t < ISBN_CAND_TTL_MS && Array.isArray(parsed.v)) {
+        const ttl = typeof parsed?.ttl === 'number' ? parsed.ttl : ISBN_CAND_TTL_MS;
+        if (parsed && Date.now() - parsed.t < ttl && Array.isArray(parsed.v)) {
           return parsed.v;
         }
       }
     }
   } catch { /* ignore */ }
 
-  const filtered = await findIsbnCandidatesWithMetadata(t, a);
+  const { filtered, hadError } = await collectIsbnCandidates(t, a);
   // 誤マッチを最小化するため候補を最大 3 件に制限。多すぎると tryCoverForIsbn
   // のループで「タイトルが似ているだけの違う本」の表紙を採用するリスクが上がる。
   const isbns = filtered.map((c) => c.isbn).slice(0, 3);
 
-  try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: isbns }));
-    }
-  } catch { /* ignore */ }
+  const ttl = isbns.length > 0 ? ISBN_CAND_TTL_MS : (hadError ? 0 : ISBN_CAND_EMPTY_TTL_MS);
+  if (ttl > 0) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: isbns, ttl }));
+      }
+    } catch { /* ignore */ }
+  }
   return isbns;
 }
 

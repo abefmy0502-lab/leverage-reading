@@ -106,7 +106,12 @@ describe('imageDimensions / looksLikeCover', () => {
     expect(looksLikeCover({ url: 'https://ndlsearch.ndl.go.jp/thumbnail/x.jpg', bytes: 2500, w: 90, h: 128 })).toBe(true);
   });
   it('横長のロゴは弾く', () => {
-    expect(looksLikeCover({ url: 'https://cover.openbd.jp/x.jpg', bytes: 5000, w: 300, h: 100 })).toBe(false);
+    expect(looksLikeCover({ url: 'https://ndlsearch.ndl.go.jp/thumbnail/x.jpg', bytes: 5000, w: 300, h: 100 })).toBe(false);
+  });
+  it('楽天・openBD・自分でアップロードした表紙は正方形でも通す（無い本は 404・noimage で返すため）', () => {
+    expect(looksLikeCover({ url: 'https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/x.jpg?_ex=420x420', bytes: 20000, w: 420, h: 420 })).toBe(true);
+    expect(looksLikeCover({ url: 'https://abcd.supabase.co/storage/v1/object/public/book-covers/u/x.jpg', bytes: 20000, w: 800, h: 600 })).toBe(true);
+    expect(looksLikeCover({ url: 'https://cover.openbd.jp/x.jpg', bytes: 8000, w: 300, h: 300 })).toBe(true);
   });
 });
 
