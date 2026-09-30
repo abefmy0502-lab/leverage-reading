@@ -27,7 +27,7 @@ import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
   applyShareItems, shareVisibility,
 } from './shareOverlay';
-import { phraseLayout, phraseMetrics, phraseColors } from './sharePhrase';
+import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText } from './sharePhrase';
 import { paletteFor } from './coverPalette';
 import { apiUrl } from './apiUrl';
 
@@ -983,7 +983,10 @@ function drawRecordPoster(ctx, o) {
     ctx.fillRect(0, 0, F.W, F.H);
   }
   const { lay, place } = fitRecord(ctx, o, F);
-  const covers = (o.covers && o.covers.length ? o.covers : (o.record?.titleIsBook ? [{ cover: o.cover, title: o.title }] : [])).slice(0, 4);
+  // 言葉を入れたときは、上の空きは言葉が主役（表紙と重ねない）。
+  const covers = o.phrase && phraseDisplayText(o.phrase)
+    ? []
+    : (o.covers && o.covers.length ? o.covers : (o.record?.titleIsBook ? [{ cover: o.cover, title: o.title }] : [])).slice(0, 4);
   const areaH = place.coverArea.bottom - place.coverArea.top;
   if (covers.length && areaH > 220) {
     const h = Math.min(areaH * 0.86, covers.length > 1 ? 400 : 520);
