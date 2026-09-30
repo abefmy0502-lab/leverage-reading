@@ -1,0 +1,114 @@
+// 💬 相談相手のアイコン（2026-09-30・オーナー要望「誰と会話しているのか分かるように。LINE で相手のアイコンが出るように」）。
+// 答えがどの本のメモから来たかを、LINE の相手のアイコンと名前の行のように見せるための「相手」を決める（AI を使わない・純粋な関数）。
+//
+//   { kind: 'book' | 'group' | 'self', books: [{ id, title, author, cover }], self: boolean, shelf: boolean, label }
+//     - book  : 1 冊の本から（アイコン＝その本の表紙・名前＝「著者『書名』」・著者が無ければ「『書名』」）
+//     - group : 数冊の本から（アイコン＝表紙を最大 4 つ並べた丸・名前＝「安宅和人 ほか 2 人」／「3 冊の本」）
+//               shelf: true は「すべての本」に相談しているとき（名前＝「あなたの本棚」）
+//     - self  : 自分の学び（本に結びつかない学びログ）だけから（アイコン＝電球・名前＝「自分の学び」）
+//
+// 書き終えた答えは、その答えの根拠（refs の 📚 📖 💡 の行）から決める。引用がどれもメモと一致しなかった本は外す
+// （evidenceCheck.js の結果・「もとになった本」と同じ）。根拠が取れない答え（書いている途中・失敗・関係するメモが
+// 無かった答え・古い答え）は、相談相手（すべての本／1 冊／選んだ数冊）から決める。
+//
+// ⚠️ 著者本人のふりはしない（BRAIN_SYSTEM ルール 8）。ここで見せるのは「どの本のメモから答えたか」だけ。
+
+import { decodeQuoteRefs, QUOTE_PREFIX } from './evidenceCheck';
+import { shortTitle } from './consultHelpers';
+
+export const SHELF_LABEL = 'あなたの本棚';
+export const SELF_LABEL = '自分の学び';
+export const GROUP_TILES = 4;
+
+// 画面用の目印つきの行（使ったメモ・前の相談から・引用の照合・トークン・踏まえた行動）。AI が挙げた根拠ではない。
+const META_PREFIXES = ['🌱 ', '🌿 ', QUOTE_PREFIX, '🪙 ', '🎯 '];
+const isMeta = (r) => META_PREFIXES.some((p) => String(r || '').startsWith(p));
+
+const pick = (b) => ({ id: b.id, title: String(b.title || ''), author: String(b.author || '').trim(), cover: b.cover || null });
+
+// 参照の 1 行（📚 著者『書名』p.12）から本を探す（完全一致 → 部分一致）。MyBookBrain の resolveRefBookId と同じ決まり。
+export function bookForRef(ref, books) {
+  const tm = String(ref || '').match(/『([^』]+)』/);
+  const title = tm ? tm[1].trim() : '';
+  if (!title || !Array.isArray(books)) return null;
+  return books.find((b) => String(b.title || '').trim() === title)
+    || books.find((b) => String(b.title || '').trim() && title.includes(String(b.title).trim()))
+    || null;
+}
+
+// 本 1 冊の名前の行「著者『書名』」（書名は副題を外して短く）。
+export function bookPartnerLabel(book) {
+  const t = shortTitle(book?.title || '') || String(book?.title || '');
+  const a = String(book?.author || '').trim().split(/[,、，]/)[0].trim();
+  return a ? `${a}『${t}』` : `『${t}』`;
+}
+
+function groupLabel(books, self) {
+  if (self) return books.length === 1 ? `${bookPartnerLabel(books[0])}と${SELF_LABEL}` : `${books.length} 冊の本と${SELF_LABEL}`;
+  const authors = [...new Set(books.map((b) => String(b.author || '').trim().split(/[,、，]/)[0].trim()).filter(Boolean))];
+  return authors.length >= 2 ? `${authors[0]} ほか ${authors.length - 1} 人` : `${books.length} 冊の本`;
+}
+
+function make(books, self, { shelf = false } = {}) {
+  if (books.length === 0 && self) return { kind: 'self', books: [], self: true, shelf: false, label: SELF_LABEL };
+  if (books.length === 1 && !self && !shelf) return { kind: 'book', books, self: false, shelf: false, label: bookPartnerLabel(books[0]) };
+  return { kind: 'group', books, self: !!self, shelf, label: shelf ? SHELF_LABEL : groupLabel(books, self) };
+}
+
+// 答えの根拠（refs）から。根拠の本も学びも取れなければ null（→ 相談相手から決める）。
+export function partnerFromRefs(refs, books) {
+  const list = Array.isArray(refs) ? refs : [];
+  // 引用がどれもメモと一致しなかった本（作った引用の本）は、相手として見せない。
+  const byTitle = new Map();
+  decodeQuoteRefs(list).forEach((c) => {
+    const t = String(c.t || '').trim();
+    if (!t) return;
+    if (!byTitle.has(t)) byTitle.set(t, []);
+    byTitle.get(t).push(c.s);
+  });
+  const failed = [...byTitle].filter(([, ss]) => ss.every((s) => s === 'ng')).map(([t]) => t);
+  const found = [];
+  let self = false;
+  list.forEach((r) => {
+    if (isMeta(r)) return;
+    const s = String(r).trim();
+    if (s.startsWith('💡') || /^[^『]*自分の学び/.test(s)) { self = true; return; }
+    const b = bookForRef(s, books);
+    if (!b || found.some((x) => x.id === b.id)) return;
+    const t = String(b.title || '').trim();
+    if (failed.some((f) => f === t || f.includes(t) || t.includes(f))) return;
+    found.push(pick(b));
+  });
+  if (found.length === 0 && !self) return null;
+  return make(found, self);
+}
+
+// 「すべての本」のときに並べる表紙: メモのある本（memoBookIds・無ければ全部）を、表紙のある本 → 新しい順で最大 4 冊。
+export function shelfBooks(books, memoBookIds = null, max = GROUP_TILES) {
+  const ids = memoBookIds instanceof Set ? memoBookIds : Array.isArray(memoBookIds) ? new Set(memoBookIds) : null;
+  const pool = (Array.isArray(books) ? books : []).filter((b) => b && b.id && String(b.title || '').trim() && (!ids || ids.has(b.id)));
+  const when = (b) => String(b.updated_at || b.created_at || '');
+  return [...pool]
+    .sort((a, b) => (Number(!!b.cover) - Number(!!a.cover)) || when(b).localeCompare(when(a)))
+    .slice(0, max)
+    .map(pick);
+}
+
+// 相談相手（scopeIds: [] = すべての本 / [id] = 1 冊 / [id, …] = 選んだ数冊）から。
+export function partnerFromScope({ scopeIds = [], books = [], memoBookIds = null } = {}) {
+  const ids = Array.isArray(scopeIds) ? scopeIds.filter(Boolean) : [];
+  if (ids.length === 0) return make(shelfBooks(books, memoBookIds), false, { shelf: true });
+  const chosen = ids.map((id) => (books || []).find((b) => b.id === id)).filter(Boolean).map(pick);
+  if (chosen.length === 0) return make([], false, { shelf: true });
+  return make(chosen, false);
+}
+
+// 答え 1 つの相手。書き終えていて根拠が取れれば根拠から、そうでなければ相談相手から。
+//   useScope: 書いている途中・失敗・案内・関係するメモが無かった答え（特定の本を見せない）
+export function consultPartner({ refs = [], scopeIds = [], books = [], memoBookIds = null, useScope = false } = {}) {
+  if (!useScope) {
+    const p = partnerFromRefs(refs, books);
+    if (p) return p;
+  }
+  return partnerFromScope({ scopeIds, books, memoBookIds });
+}

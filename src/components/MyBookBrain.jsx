@@ -52,6 +52,8 @@ const consumePreset = (kind, nonce) => {
 };
 
 import BottomSheet from './BottomSheet';
+import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE_SMALL } from './PartnerAvatar';
+import { consultPartner, partnerFromScope, bookForRef } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
 
 // 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
@@ -620,7 +622,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const ids = new Set(hist.map((m) => m.id));
       // 画面の上だけで持っている「相談相手：〇〇」の札は、読み直しても消さない。
       const labels = new Map(prev.filter((m) => m.scopeLabel).map((m) => [m.id, m.scopeLabel]));
-      const merged = labels.size ? hist.map((m) => (labels.has(m.id) ? { ...m, scopeLabel: labels.get(m.id) } : m)) : hist;
+      // 答えを送ったときの相談相手（アイコン用・画面の上だけで持つ）も消さない。
+      const scopes = new Map(prev.filter((m) => Array.isArray(m.scopeIds)).map((m) => [m.id, m.scopeIds]));
+      const merged = (labels.size || scopes.size)
+        ? hist.map((m) => ({ ...m, ...(labels.has(m.id) ? { scopeLabel: labels.get(m.id) } : null), ...(scopes.has(m.id) ? { scopeIds: scopes.get(m.id) } : null) }))
+        : hist;
       return [...merged, ...prev.filter((m) => !ids.has(m.id))];
     });
     setHistoryLoaded(true);
@@ -1035,6 +1041,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         refs: [],
         createdAt: new Date().toISOString(),
         streaming: true,
+        scopeIds: askBookIds, // 相談相手のアイコン（書いている間・失敗・関係するメモが無かった答えは相談相手から）
         mode: askMode, // 本ごとには、書いている途中から本のカードの形で見せる（出来上がりで形が跳ねないように）
       },
     ]);
@@ -1117,7 +1124,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           .single();
         if (error) throw error;
         // 楽観的な streaming 行を、永続化された row で差し替える。
-        setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...transformMessage(data), ...perbookFallback } : m)));
+        setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...transformMessage(data), ...perbookFallback, scopeIds: askBookIds } : m)));
       } catch (saveErr) {
         // 表示は確定させたまま（streaming フラグだけ落とす）、保存失敗を控えめに知らせる。
         setMessages((arr) => arr.map((m) =>
@@ -1172,6 +1179,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   : `${ANSWER_FAILED_TITLE}。${e?.notCharged ? 'トークンは使っていません。' : ''}${ANSWER_FAILED_DESC}`,
               refs: [],
               createdAt: new Date().toISOString(),
+              scopeIds: askBookIds,
               // 通信エラー（ユーザーの中止ではない）はその場で再試行できるように
               // フラグを立てる。行き止まりで打ち直しを強いると看板機能で最悪の離脱に。
               error: !controller.signal.aborted && !e?.paywall && !e?.monthlyLimit,
@@ -1402,6 +1410,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     track('trial_nudge', { action, offer: trialOffer ? 'trial' : 'plan' });
   };
   const [moreMenu, setMoreMenu] = useState(null); // { x, y }
+  // 💬 数冊の本から答えたときの「相手」の一覧（名前の行・アイコンを押したとき）。
+  const [partnerSheet, setPartnerSheet] = useState(null);
+  // いまの相談相手のアイコン（上部の行・送る前から誰に相談するか分かるように）。
+  const scopePartner = useMemo(() => partnerFromScope({ scopeIds, books, memoBookIds }), [scopeIds, books, memoBookIds]);
   const [historyMenu, setHistoryMenu] = useState(null); // 過去の相談の「…」{ x, y }
   const viewTitle = { learning: '学びを書く', history: '過去の相談', knowledge: '根拠にできる情報' }[view];
   // 中身を下へ送ったか（上部の行の下に線を出す）。画面を切り替えたら戻す。
@@ -1438,6 +1450,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       >
         {view === 'chat' ? (
           <>
+            {/* 💬 いまの相談相手のアイコン（24・1 行目の高さの中央・2026-09-30）。飾りなので読み上げない（文は右の 1 行）。 */}
+            <PartnerAvatar partner={scopePartner} size={AVATAR_SIZE_SMALL} style={{ alignSelf: 'flex-start', marginTop: 'calc((var(--text-sub) * 1.5 - 24px) / 2)', marginRight: 'var(--space-1)' }} />
             {/* 1 冊に絞ったとき（『書名』…）は 『 をぶら下げる。下の残りトークンの行には引き継がない。 */}
             <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase', ...(scopeIds.length === 1 && scopeMemoCount != null ? { textIndent: '-0.5em' } : null) }}>
               {/* 件数が分かるまでは、同じ 1 行ぶんの高さに文の形の SkeletonBlock（何もない空きにしない・読み上げない。
@@ -1523,6 +1537,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           ]}
         />
       )}
+      {partnerSheet && (
+        <PartnerBooksSheet partner={partnerSheet} onClose={() => setPartnerSheet(null)} onOpenBook={onOpenBook} />
+      )}
       {historyMenu && (
         <ContextMenu
           x={historyMenu.x}
@@ -1580,7 +1597,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               return (
                 <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                   {g.map((m) => (
-                    <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} />
+                    <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} />
                   ))}
                   {/* この相談の続きを聞く: 答えのカードのすぐ下（文字ボタン・文字の端を余白 16 にそろえる）。 */}
                   {canContinue && (
@@ -1717,6 +1734,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   askBusy={busy}
                   onActionAdded={() => setOptinAfterId((cur) => cur || m.id)}
                   onOpenActions={onOpenActions}
+                  memoBookIds={memoBookIds}
+                  onShowPartner={setPartnerSheet}
                 />
                 {/* 🔔 はじめて「行動に追加」した直後に 1 回だけ、思い出しの通知の案内（lib/notifyOptIn.js）。
                     最後の答えのときは、答えの下の文字ボタンの行（別の角度で答えて…）の後ろに出す（答えと操作を離さない・2026-09-29） */}
@@ -2355,7 +2374,7 @@ function renderNoticeText(text) {
   return parts.map((p, i) => (/^\d{1,2}月\d{1,2}日$/.test(p) ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{p}</span> : p));
 }
 
-// 📚 本ごとの答えの 1 冊分（DESIGN §5 カード）。見出し『書名』17/600 → 著者 13/--text-2 →
+// 📚 本ごとの答えの 1 冊分（DESIGN §5 カード）。書名と著者はカードの上の名前の行（PartnerRow・表紙のアイコンつき）→
 // 視点（読む文章＝明朝 18）→ 根拠 13/--text-2（p.N「メモの一節」）→ 文字ボタン「この本にくわしく聞く」。
 function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
   const cursor = streaming ? <span className="streaming-cursor" aria-hidden="true" /> : null;
@@ -2365,20 +2384,16 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
   const basis = basisNg ? stripQuotes(basisRaw) : basisRaw;
   return (
     <article aria-label={`『${book.title}』の視点`} style={cardStyle}>
-      {/* 『 はぶら下げる（1 行目だけ。折り返した行はカードの余白 16 に揃う）。 */}
-      <h4 style={{ margin: 0, textIndent: '-0.5em', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'auto-phrase' }}>『{book.title}』</h4>
-      {book.author && (
-        <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{book.author}</p>
-      )}
+      {/* 書名と著者は、カードの上の名前の行（「著者『書名』」・表紙のアイコンつき・PartnerRow）に出す（2026-09-30）。 */}
       {book.view && (
-        <div style={{ ...readText, marginTop: 'var(--space-3)' }}>
+        <div style={readText}>
           {book.view.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
             <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{!basis && i === arr.length - 1 && cursor}</p>
           ))}
         </div>
       )}
       {(basis || basisNg) && (
-        <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+        <p style={{ margin: book.view ? 'var(--space-2) 0 0' : 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
           {basis}{basisNg && <>{basis ? '　' : ''}メモと一致しない引用だったので、表示していません</>}{cursor}
         </p>
       )}
@@ -2433,7 +2448,7 @@ function ActionAddedNote({ onOpenActions, deadline = null, focus = null }) {
   );
 }
 
-function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null }) {
+function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAction, onAddActionPickBook, onRetry, onWriteLearning, showTime = false, question = '', onAskBook = null, askBusy = false, onActionAdded = null, onOpenActions = null, memoBookIds = null, onShowPartner = null }) {
   const isUser = message.role === 'user';
   const isStreaming = !!message.streaming;
   const hasBody = typeof message.content === 'string' && message.content.length > 0;
@@ -2501,6 +2516,19 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   }
 
   const parsed = !isStreaming && !message.error && !message.notice ? parseAnswer(message.content) : null;
+  // 💬 相談相手のアイコン（2026-09-30・lib/consultPartner.js）: 書き終えた答えは根拠の本から、書いている途中・失敗・
+  //   案内・関係するメモが無かった答えは相談相手（送ったときのすべての本／1 冊／選んだ数冊）から。
+  const partner = consultPartner({
+    refs: message.refs,
+    scopeIds: message.scopeIds || [],
+    books,
+    memoBookIds,
+    useScope: isStreaming || !!message.error || !!message.notice || isNoInfoAnswer(message),
+  });
+  // 数冊の本から答えたときは、名前（アイコン）を押すと本の一覧（「あなたの本棚」は全部の本なので一覧にしない）。
+  const openPartnerList = onShowPartner && partner.kind === 'group' && !partner.shelf && partner.books.length > 0
+    ? () => onShowPartner(partner)
+    : null;
   // 🌱 「使ったメモ」の一行は refs の先頭に目印付きで保存している（表を増やさずに履歴にも残す）。
   const allRefs = Array.isArray(message.refs) ? message.refs : [];
   const evidence = (allRefs.find((r) => String(r).startsWith(EVIDENCE_PREFIX)) || '').slice(EVIDENCE_PREFIX.length);
@@ -2689,11 +2717,13 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   if (!isStreaming && !message.notice && message.error && typeof message.content === 'string' && message.content.startsWith(`${ANSWER_FAILED_TITLE}。`)) {
     return (
       <div role="article" aria-label="相談への答え">
-        <ErrorMessage
-          title={ANSWER_FAILED_TITLE}
-          description={message.content.slice(ANSWER_FAILED_TITLE.length + 1) || ANSWER_FAILED_DESC}
-          actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }] : []}
-        />
+        <PartnerRow partner={partner}>
+          <ErrorMessage
+            title={ANSWER_FAILED_TITLE}
+            description={message.content.slice(ANSWER_FAILED_TITLE.length + 1) || ANSWER_FAILED_DESC}
+            actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }] : []}
+          />
+        </PartnerRow>
       </div>
     );
   }
@@ -2706,32 +2736,44 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       // 本ごとの答えは、結論のカード → 本のカード（1 冊 1 枚）→ 共通点と違い・一歩・根拠のカード。
       // 外側は枠を付けない（カードの中にカードを入れない）。
       <div role="article" aria-label="相談への答え" aria-busy={isStreaming || undefined} style={{ display: 'flex', flexDirection: 'column', wordBreak: 'break-word' }}>
-        <div style={answerCard}>
-          <div style={readText}>
-            {perBook.conclusion.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
-              <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{perBookTail === 'conclusion' && i === arr.length - 1 && cursor}</p>
-            ))}
+        {/* 結論のカードには、並べた本たちのアイコン（数冊）。本のカードには、それぞれの本の表紙と「著者『書名』」。
+            見出し・共通点と違いのカードは、アイコンの列の分だけ下げて左端をそろえる（PartnerRow の空き）。 */}
+        <PartnerRow partner={partner} onOpenList={openPartnerList}>
+          <div style={answerCard}>
+            <div style={readText}>
+              {perBook.conclusion.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
+                <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}{perBookTail === 'conclusion' && i === arr.length - 1 && cursor}</p>
+              ))}
+            </div>
           </div>
-        </div>
+        </PartnerRow>
         {hasBooks && (
           <section aria-label="本ごとの視点" style={{ marginTop: 'var(--space-6)' }}>
-            <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本ごとの視点</h3>
-            {perBook.booksLead && <p style={{ ...readText, margin: '0 0 var(--space-3)' }}>{renderBoldInline(perBook.booksLead)}</p>}
+            <PartnerRow partner={null}>
+              <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>本ごとの視点</h3>
+              {perBook.booksLead && <p style={{ ...readText, margin: '0 0 var(--space-3)' }}>{renderBoldInline(perBook.booksLead)}</p>}
+            </PartnerRow>
             {perBook.booksRaw ? (
-              <div style={answerCard}><div style={readText}><PlainAnswer text={perBook.booksRaw} gap="var(--space-4)" /></div></div>
+              <PartnerRow partner={null}>
+                <div style={answerCard}><div style={readText}><PlainAnswer text={perBook.booksRaw} gap="var(--space-4)" /></div></div>
+              </PartnerRow>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {perBook.books.map((b, i) => {
-                  const bookId = !isStreaming && onAskBook && b.title ? resolveRefBookId(`『${b.title}』`, books) : null;
+                  const shelfBook = b.title ? bookForRef(`『${b.title}』`, books) : null;
+                  const bookId = !isStreaming && onAskBook && shelfBook ? shelfBook.id : null;
+                  // 本のアイコンと名前（本棚の本と合えばその表紙・著者。合わなければ答えの書名と著者だけ）。
+                  const bookPartner = consultPartner({ refs: [`📚 『${shelfBook ? shelfBook.title : b.title}』`], scopeIds: [], books: shelfBook ? [shelfBook] : [{ id: `perbook-${i}`, title: b.title, author: b.author, cover: null }] });
                   return (
-                    <PerBookCard
-                      key={i}
-                      book={b}
-                      basisCheck={isStreaming ? null : basisCheckFor(b.title)}
-                      streaming={perBookTail === 'book' && i === lastBook}
-                      onAsk={bookId ? () => onAskBook(bookId, b.title, question) : null}
-                      askBusy={askBusy}
-                    />
+                    <PartnerRow key={i} partner={bookPartner} nameAs="h4">
+                      <PerBookCard
+                        book={b}
+                        basisCheck={isStreaming ? null : basisCheckFor(b.title)}
+                        streaming={perBookTail === 'book' && i === lastBook}
+                        onAsk={bookId ? () => onAskBook(bookId, b.title, question) : null}
+                        askBusy={askBusy}
+                      />
+                    </PartnerRow>
                   );
                 })}
               </div>
@@ -2739,7 +2781,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
           </section>
         )}
         {showFoot && (
-          <div style={{ ...answerCard, marginTop: 'var(--space-6)' }}>
+          <PartnerRow partner={null} style={{ marginTop: 'var(--space-6)' }}>
+          <div style={answerCard}>
             {perBook.compare && (
               <>
                 <p style={subLabel}>共通点と違い</p>
@@ -2756,6 +2799,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
             {!isStreaming && renderNote(perBook)}
             {renderRefund()}
           </div>
+          </PartnerRow>
         )}
         {/* 書いている間は、最後のカードの下に「答えを書いています…」（本のカードが順に増えるので、続きがあると分かるように）。
             中止を押したら（stage が消える）すぐに外す。親が role="log" aria-live なので live 領域は重ねない。 */}
@@ -2776,8 +2820,10 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       aria-label="相談への答え"
       // ストリーミング中は aria-busy=true。完了時にまとまった本文として読まれるようにする。
       aria-busy={isStreaming || undefined}
-      style={answerCard}
     >
+    {/* 💬 相手のアイコン（左）＋名前の行（13/--text-2）＋答えのカード（LINE の相手の吹き出しと同じ並び・2026-09-30） */}
+    <PartnerRow partner={partner} onOpenList={openPartnerList}>
+    <div style={answerCard}>
       {/* 本ごとにで送ったのに、並べる本が足りずに「まとめて」で答えたとき（SPEC §3）。書き始める前から出す。 */}
       {fallbackNote && (
         <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
@@ -2911,6 +2957,8 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
         )
       )}
       {time}
+    </div>
+    </PartnerRow>
     </div>
   );
 }
