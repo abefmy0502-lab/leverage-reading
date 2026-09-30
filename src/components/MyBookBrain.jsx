@@ -2300,12 +2300,6 @@ function RefLines({ r }) {
   );
 }
 
-function refBookCount(refs) {
-  const titles = new Set();
-  (refs || []).forEach((r) => { const m = String(r).match(/『([^』]+)』/); if (m) titles.add(m[1].trim()); });
-  return titles.size;
-}
-
 // 案内文の「10月1日」を途中で改行させない。
 function renderNoticeText(text) {
   const parts = String(text || '').split(/(\d{1,2}月\d{1,2}日)/);
@@ -2493,7 +2487,6 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   const renderRefund = () => (refundNote && !isStreaming ? (
     <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(refundNote)}</p>
   ) : null);
-  const nBooks = refBookCount(refsList);
   // 📚 本ごとの答え。書いている途中も同じ形で見せる（出来上がりで形が跳ねないように）。
   //   ただし「本ごとに」で送っても、並べる本が足りずに「まとめて」で答えたとき（参照・解釈の節がある）は、いつもの形。
   const liveAny = isStreaming && hasBody ? parseAnswer(message.content) : null;
@@ -2557,7 +2550,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   const renderDetails = (p) => ((p.refs || p.interp || refsList.length > 0 || actedCount > 0) ? (
     <details style={{ marginTop: 'var(--space-3)' }}>
       <summary style={summaryStyle}>
-        <span>根拠を見る{nBooks > 0 && !evidence ? `（${nBooks} 冊のメモ）` : ''}</span>
+        {/* 見出しは書いたばかりの答えと過去の相談で同じ「根拠を見る」だけ（過去の相談にだけ「（N 冊のメモ）」が付いて
+            食い違っていた・2026-09-30）。何冊かは中の「もとになった本」で分かる。 */}
+        <span>根拠を見る</span>
         <ChevronDown size={20} aria-hidden="true" className="fold-chevron" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </summary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-1)' }}>
