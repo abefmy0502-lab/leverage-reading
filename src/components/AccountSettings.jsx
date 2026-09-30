@@ -926,7 +926,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   <ValueRow
                     label={plan === 'trial' ? '無料期間の残り' : '今月の残り'}
                     value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`}
-                    sub={plan === 'trial' ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}
+                    // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（戻るものが無い・2026-09-30）。
+                    sub={plan === 'trial' || tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}
                     style={divider}
                   />
                 ) : tokensLoading ? (
@@ -1014,7 +1015,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
                   <ValueRow
                     label="今月の残り"
                     value={`${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン`}
-                    sub={<><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}
+                    // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（2026-09-30）。
+                    sub={tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}
                     style={divider}
                   />
                 ) : tokensLoading ? (
