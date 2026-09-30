@@ -27,6 +27,7 @@ import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
   applyShareItems, shareVisibility,
 } from './shareOverlay';
+import { phraseLayout, phraseMetrics, phraseColors } from './sharePhrase';
 import { paletteFor } from './coverPalette';
 import { apiUrl } from './apiUrl';
 
@@ -1021,6 +1022,133 @@ function drawRecordSticker(ctx, o, size) {
   ctx.restore();
 }
 
+// ---------------------------------------------------------------- 言葉の層（2026-10-01）
+//
+// 自分で入れる言葉（sharePhrase.js）を、いちばん上に描く。形は 4 つ:
+//   明朝の引用 … 明朝 400・「」で包む・最後の行の下に橙の手描きの傍線（メモの一文と同じ印）
+//   太いゴシック … UI の書体 700（Strava の太い文字のように）
+//   手書き風 … Klee One（Google Fonts・読み込めたときだけ選べる。読み込めなければこの形は出さない）
+//   白抜きの帯 … 半透明の帯の上に文字（写真の上は明るい帯に墨の文字）
+// 文字の色は自動（写真・夜・表紙の色・透明＝白・紙＝墨）で、白い文字には影、墨の文字を暗い地に置いたときは白い光。
+
+export const HAND_FONT_FAMILY = '"Klee One"';
+const HAND_FONT_CSS = 'https://fonts.googleapis.com/css2?family=Klee+One:wght@600&display=swap';
+let handFontPromise = null;
+
+// 手書き風の書体を読み込む（1 回だけ・6 秒で諦める）。描く前に、その言葉の字の分まで読み込めたかを確かめる。
+// 戻り値: true（使える）/ false（使えない＝手書き風は出さない）。
+export function prepareHandFont(sample = '') {
+  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve(false);
+  if (!handFontPromise) {
+    handFontPromise = new Promise((resolve) => {
+      try {
+        if (!document.querySelector('link[data-share-hand-font]')) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = HAND_FONT_CSS;
+          link.setAttribute('data-share-hand-font', '');
+          link.onload = () => resolve(true);
+          link.onerror = () => resolve(false);
+          document.head.appendChild(link);
+          setTimeout(() => resolve(false), 6000);
+        } else {
+          resolve(true);
+        }
+      } catch {
+        resolve(false);
+      }
+    });
+  }
+  return handFontPromise.then(async (ok) => {
+    if (!ok) return false;
+    try {
+      const text = `${sample}「」あいうえお読書`.slice(0, 200);
+      const timeout = new Promise((r) => setTimeout(() => r(null), 6000));
+      const faces = await Promise.race([document.fonts.load(`600 64px ${HAND_FONT_FAMILY}`, text), timeout]);
+      return Array.isArray(faces) && faces.length > 0 && document.fonts.check(`600 64px ${HAND_FONT_FAMILY}`, text);
+    } catch {
+      return false;
+    }
+  });
+}
+
+function phraseFont(style, fonts, size) {
+  if (style === 'bold') return `700 ${size}px ${fonts.ui}`;
+  if (style === 'hand') return `600 ${size}px ${HAND_FONT_FAMILY}, ${fonts.read}`;
+  if (style === 'band') return `600 ${size}px ${fonts.ui}`;
+  return `400 ${size}px ${fonts.read}`;
+}
+
+// 画像（W×H）の上の言葉の組み（描く前に位置と大きさを知りたいとき＝編集画面の指で動かす箱にも使う）。
+export function layoutPhraseOn(ctx, o, W, H) {
+  if (!o?.phrase || !ctx) return null;
+  const style = o.phrase.style || 'mincho';
+  const fonts = o.fonts || fontStacks();
+  const { spacing } = phraseMetrics(style);
+  return phraseLayout(o.phrase, {
+    W,
+    H,
+    format: o.format,
+    sticker: o.style === 'sticker',
+    measureAt: (size) => {
+      const m = measurer(ctx, phraseFont(style, fonts, size), spacing);
+      const trail = Math.round(spacing * size * 10) / 10;
+      return (s) => (s ? Math.max(0, m(s) - trail) : 0);
+    },
+  });
+}
+
+function drawPhrase(ctx, o, W, H) {
+  const lay = layoutPhraseOn(ctx, o, W, H);
+  if (!lay) return null;
+  const fonts = o.fonts || fontStacks();
+  const { spacing } = phraseMetrics(lay.style);
+  const colors = phraseColors({ ground: o.style, style: lay.style, invert: !!o.phrase.invert });
+  const light = cssVar('--share-photo-ink') || '#ffffff';
+  const dark = cssVar('--share-paper-ink') || '#2b2825';
+  const ink = colors.ink === 'light' ? light : dark;
+  const sb = o.shadowScale || 1;
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  if (colors.band) {
+    ctx.fillStyle = colors.band === 'light' ? (cssVar('--share-band-light') || 'rgba(244,239,230,0.92)') : (cssVar('--share-band-dark') || 'rgba(43,40,37,0.86)');
+    roundRectPath(ctx, lay.x0, lay.y0, lay.w, lay.h, Math.max(4, Math.round(lay.size * 0.16)));
+    ctx.fill();
+  }
+  const font = phraseFont(lay.style, fonts, lay.size);
+  ctx.font = font;
+  setSpacing(ctx, spacing, lay.size);
+  const trail = Math.round(spacing * lay.size * 10) / 10;
+  const lineW = (l) => Math.max(0, ctx.measureText(l).width - trail);
+  const baselineOf = (i) => lay.y0 + lay.padY + i * lay.lineHeight + (lay.lineHeight - lay.size) / 2 + lay.size * 0.88;
+  if (lay.style === 'mincho' && lay.lines.length) {
+    // 最後の行の下に橙の手描きの傍線（文字の後ろ・影なし）。
+    const last = lay.lines[lay.lines.length - 1];
+    const w = lineW(last);
+    const x0 = lay.cx - w / 2;
+    drawUnderline(ctx, { x0, x1: x0 + w, y: baselineOf(lay.lines.length - 1) + lay.size * 0.24, weight: Math.max(6, lay.size * 0.18), seed: seedFrom(`phrase|${lay.text}`), color: o.theme?.accent || cssVar('--share-accent') || '#df8e17' });
+    ctx.font = font;
+    setSpacing(ctx, spacing, lay.size);
+  }
+  if (!colors.band) {
+    if (colors.ink === 'light') {
+      ctx.shadowColor = o.theme?.shadow || cssVar('--share-photo-shadow') || 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 18 * sb;
+      ctx.shadowOffsetY = 2 * sb;
+    } else if (o.style !== 'paper') {
+      ctx.shadowColor = cssVar('--share-phrase-glow') || 'rgba(255,255,255,0.6)';
+      ctx.shadowBlur = 16 * sb;
+    }
+  }
+  ctx.fillStyle = ink;
+  lay.lines.forEach((l, i) => {
+    ctx.fillText(l, lay.cx - lineW(l) / 2, baselineOf(i));
+  });
+  ctx.restore();
+  return lay;
+}
+
 // ---------------------------------------------------------------- 本体
 
 // 表示する項目（隠した項目）を描く材料に当てる。記録は applyShareItems で見出し・書名・著者・数字を外し、
@@ -1072,6 +1200,7 @@ export function drawShareCard(canvas, opts = {}) {
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       drawRecordSticker(ctx, base, size);
+      drawPhrase(ctx, base, size.w, size.h);
       return { line: size.lay.fit ? base.text : '', width: size.w, height: size.h };
     }
     const F = recordFrame(opts.format);
@@ -1082,6 +1211,7 @@ export function drawShareCard(canvas, opts = {}) {
     const o = { ...base, W: F.W, H: F.H, format: F.format };
     if (style === 'photo') drawRecordPhoto(ctx, o);
     else drawRecordPoster(ctx, o);
+    drawPhrase(ctx, o, F.W, F.H);
     // 実際に一文を入れたか（入らなければ外している）を返す＝共有の文も画像と同じにする。
     const { lay } = fitRecord(ctx, o, F);
     return { line: lay.fit ? o.text : '', width: F.W, height: F.H };
@@ -1094,6 +1224,7 @@ export function drawShareCard(canvas, opts = {}) {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     drawSticker(ctx, base, size);
+    drawPhrase(ctx, base, size.w, size.h);
     return { line: text, width: size.w, height: size.h };
   }
 
@@ -1105,6 +1236,7 @@ export function drawShareCard(canvas, opts = {}) {
   const o = { ...base, W, H, format: FORMATS[opts.format] ? opts.format : 'story' };
   if (style === 'photo') drawPhoto(ctx, o);
   else drawPoster(ctx, o);
+  drawPhrase(ctx, o, W, H);
   return { line: text, width: W, height: H };
 }
 
@@ -1146,6 +1278,7 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
     const place0 = photoPlacement({ pw: opts.photo.width, ph: opts.photo.height, W, H, ...(opts.view || {}) });
     if (isRecord) drawRecordOverlay(lctx, o, place0);
     else drawPhotoOverlay(lctx, o, place0);
+    drawPhrase(lctx, o, W, H);
     // 写真は、動かし始めの大きさの 1.5 倍まで縮めておく（拡大しても粗くなりすぎない・元より大きくはしない）。
     const want = Math.max(cw, Math.round(place0.w * k * 1.5));
     const sk = Math.min(1, want / opts.photo.width);
@@ -1172,6 +1305,49 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
   ctx.drawImage(cache.small, place.x * k, place.y * k, place.w * k, place.h * k);
   ctx.drawImage(cache.layer, 0, 0);
   return true;
+}
+
+// ✍️ 言葉を指で動かしている・大きさを変えている間の 1 コマ（2026-10-01）。
+// 言葉の下の 1 枚（写真・記録・ロゴ）は動かし始めに 1 回だけ画面の大きさで描いておき、毎コマ言葉だけを重ねる。
+// cache: 呼び出し側が動かし始めに新しく渡す入れ物（{}）。戻り値: 描けたら true。
+export function drawPhraseDragFrame(canvas, opts = {}, cache = {}, { targetWidth = 570 } = {}) {
+  if (!canvas || !opts.phrase) return false;
+  if (!cache.base) {
+    const full = makeCanvas(1, 1);
+    const r = drawShareCard(full, { ...opts, phrase: null });
+    const k = Math.min(1, Math.max(0.2, targetWidth / r.width));
+    const base = makeCanvas(r.width * k, r.height * k);
+    const bctx = base.getContext('2d');
+    if (!bctx) return false;
+    bctx.imageSmoothingQuality = 'high';
+    bctx.drawImage(full, 0, 0, base.width, base.height);
+    let style = opts.style || 'paper';
+    if (style === 'photo' && !opts.photo) style = 'night';
+    const theme = readShareTheme(style, { tone: opts.cover?.tone, title: opts.title });
+    Object.assign(cache, { base, k, W: r.width, H: r.height, style, theme });
+  }
+  const { base, k, W, H } = cache;
+  if (canvas.width !== base.width || canvas.height !== base.height) { canvas.width = base.width; canvas.height = base.height; }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return false;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(base, 0, 0);
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  drawPhrase(ctx, { ...opts, fonts: opts.fonts || fontStacks(), style: cache.style, theme: cache.theme, shadowScale: k, format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return true;
+}
+
+// 言葉の箱の位置（画像の座標）。編集画面が、指で掴める範囲を画像に重ねるのに使う。
+export function measurePhraseBox(opts = {}, { W, H }) {
+  if (!opts.phrase) return null;
+  const c = makeCanvas(1, 1);
+  const ctx = c.getContext('2d');
+  if (!ctx) return null;
+  let style = opts.style || 'paper';
+  if (style === 'photo' && !opts.photo) style = 'night';
+  return layoutPhraseOn(ctx, { ...opts, style, fonts: opts.fonts || fontStacks(), format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
 }
 
 export function canvasToBlob(canvas) {

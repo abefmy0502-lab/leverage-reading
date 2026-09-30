@@ -114,6 +114,11 @@
   --share-photo-shadow: rgba(0, 0, 0, 0.35);
   --share-photo-scrim: 14, 12, 10;
   --share-sticker-shadow: rgba(0, 0, 0, 0.55);
+  /* 自分で入れる言葉の層（2026-10-01）: 白抜きの帯の地（明るい帯＝紙の色・暗い帯＝紙の墨）と、
+     写真の上に墨の文字を置いたときの白い光（影の代わり） */
+  --share-band-light: rgba(244, 239, 230, 0.92);
+  --share-band-dark: rgba(43, 40, 37, 0.86);
+  --share-phrase-glow: rgba(255, 255, 255, 0.6);
   /* 透明のステッカーの見本の地（白い文字が見える暗い市松）。画像には入らない */
   --share-sticker-backdrop-a: #2b2926;
   --share-sticker-backdrop-b: #3a3733;
