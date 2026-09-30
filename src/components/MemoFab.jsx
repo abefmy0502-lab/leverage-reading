@@ -3,17 +3,32 @@
 // 「この本のまとめ」を開いている間・本の詳細の入力欄に書いている間は隠す（2026-09-29）。
 // 浮いたボタンが、まとめの「保存」やキーボードの上の入力欄に重なって押せなくなるのを防ぐ。
 // 入力欄から離れたときは少し待ってから戻す（「保存」を押した指の下にボタンが現れて、押し間違えないように）。
-// 下まで送って「読了にする」など（data-fab-avoid の印）がボタンの高さに来ている間も隠す（重なって押せない・2026-09-30）。
-// 見た目は DESIGN.md のトークンのみ（主ボタンの塗り・--shadow-raised）。
+// 画面の中のボタン（「読了にする」など）と重ならないように隠すことはしない（2026-09-30）。
+// 本の詳細の下の余白（FAB_CLEARANCE）で、いちばん下のボタンもこのボタンの上まで送れるようにしてある。
+// 見た目は DESIGN.md のトークンのみ（主ボタンの塗り・--shadow-raised・高さ --fab-h）。
 import { useEffect, useRef, useState } from 'react';
 import { PencilLine } from 'lucide-react';
+
+// 出た・消えたを下の知らせ（Toast）に伝える（知らせがこのボタンの上へすぐ動く・2026-09-30）。
+export const FAB_EVENT = 'orime:fab';
+function announce() {
+  if (typeof window === 'undefined') return;
+  // DOM が入れ替わってから知らせる（外れた直後のボタンを測らない）。
+  const fire = () => { try { window.dispatchEvent(new Event(FAB_EVENT)); } catch { /* ignore */ } };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fire);
+  else fire();
+}
+
+// 本の詳細のスクロールする枠の下の余白: ボタンの高さ＋タブとの間（12）＋ゆとり（16）＋セーフエリア。
+// いちばん下のボタンを、いつでもこのボタンの上まで送れる（2026-09-30）。
+export const FAB_CLEARANCE = 'calc(var(--fab-h) + var(--space-3) + var(--space-4) + env(safe-area-inset-bottom, 0px))';
 
 const fabStyle = {
   // ＋記号だけだと何が起きるか分からないので「メモを書く」と文字で言う（SPEC §2）。
   position: 'fixed',
   right: 'var(--space-4)',
   bottom: 'calc(var(--tabbar-h) + var(--space-3) + env(safe-area-inset-bottom, 0px))',
-  minHeight: 48,
+  minHeight: 'var(--fab-h)',
   padding: '0 var(--space-4)',
   borderRadius: 'var(--radius)',
   border: 'none',
@@ -32,47 +47,9 @@ const fabStyle = {
 };
 
 // scrollRef: 本の詳細のスクロールする枠（この中の畳む見出し・入力欄を見る）。
-// avoidKey: 避けるボタン（data-fab-avoid）が入れ替わる印（本の状態）。変わったら見張り直す。
-export default function MemoFab({ scrollRef, onClick, avoidKey }) {
+export default function MemoFab({ scrollRef, onClick }) {
   const [hidden, setHidden] = useState(false);
-  const [overlap, setOverlap] = useState(false);
-  const btnRef = useRef(null);
-  // 隠れている間は測れないので、最後に測ったボタンの上下を覚えておく。
-  const bandRef = useRef(null);
-
-  // 「読了にする」などがボタンの高さ（上下 8 の余裕）に入っている間は隠す。
-  useEffect(() => {
-    const root = scrollRef?.current;
-    setOverlap(false);
-    if (!root || typeof IntersectionObserver === 'undefined' || typeof window === 'undefined') return undefined;
-    const targets = Array.from(root.querySelectorAll('[data-fab-avoid]'));
-    if (targets.length === 0) return undefined;
-    let io = null;
-    const inside = new Set();
-    const build = () => {
-      if (io) io.disconnect();
-      inside.clear();
-      const r = btnRef.current?.getBoundingClientRect();
-      if (r && r.height > 0) bandRef.current = { top: r.top, bottom: r.bottom };
-      const band = bandRef.current;
-      if (!band) return;
-      const vh = window.innerHeight;
-      const gap = 8;
-      const top = Math.max(0, Math.round(band.top - gap));
-      const bottom = Math.max(0, Math.round(vh - band.bottom - gap));
-      io = new IntersectionObserver((entries) => {
-        entries.forEach((e) => { if (e.isIntersecting) inside.add(e.target); else inside.delete(e.target); });
-        setOverlap(inside.size > 0);
-      }, { root: null, rootMargin: `-${top}px 0px -${bottom}px 0px`, threshold: 0 });
-      targets.forEach((t) => io.observe(t));
-    };
-    build();
-    window.addEventListener('resize', build);
-    return () => {
-      window.removeEventListener('resize', build);
-      if (io) io.disconnect();
-    };
-  }, [scrollRef, avoidKey]);
+  const shownRef = useRef(null);
 
   useEffect(() => {
     const root = scrollRef?.current;
@@ -101,18 +78,23 @@ export default function MemoFab({ scrollRef, onClick, avoidKey }) {
       root.removeEventListener('focusout', later);
     };
   }, [scrollRef]);
+
+  // 見える・隠れるが変わったら、下の知らせに伝える（外れるときも）。
+  const visible = !hidden;
+  useEffect(() => {
+    if (shownRef.current !== visible) { shownRef.current = visible; announce(); }
+  }, [visible]);
+  useEffect(() => () => announce(), []);
+
   if (hidden) return null;
   return (
-    // data-fab: 下の知らせ（Toast）が、このボタンの上に浮かぶための目印（隠れている間は付けない）。
-    // 重なりで隠す間も場所は残して測れるようにする（visibility: hidden＝押せない・読み上げない）。
+    // data-fab: 下の知らせ（Toast）が、このボタンの上に浮かぶための目印。
+    // 左端スワイプで戻るとき、画面と一緒に動かす目印にもなる（useEdgeSwipeBack）。
     <button
-      ref={btnRef}
       type="button"
-      data-fab={overlap ? undefined : ''}
-      aria-hidden={overlap || undefined}
-      tabIndex={overlap ? -1 : undefined}
+      data-fab=""
       onClick={onClick}
-      style={overlap ? { ...fabStyle, visibility: 'hidden' } : fabStyle}
+      style={fabStyle}
     >
       <PencilLine size={18} aria-hidden="true" />メモを書く
     </button>

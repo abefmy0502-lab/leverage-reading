@@ -188,7 +188,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 // afterList: メモ一覧のすぐ下（「この本のまとめ」の上）に置く要素（本の詳細の「この本に相談する」・SPEC §2 の並び）。
 // onShareMemo(memo): 「この一文をシェア」を親（本の詳細）の一文シェアのシートで開く。無ければこの一覧の中で開く。
 // editFocusedMemo: focusMemoId のメモまで送ったあと、そのメモの編集を開く（振り返りの月ごとのメモを押したとき・2026-09-30）。
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened }) {
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   const [quoteOnly, setQuoteOnly] = useState(false);
@@ -218,6 +218,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const countHint = useMemo(() => cache?.getMemoCountHint?.(bookId) ?? null, [cache, bookId]);
   const waiting = loading && memos.length === 0;
   const hidden = { visibility: 'hidden' };
+  // 空の案内の「メモを書く」（右下のボタンと同じメモを書くシートを開く・2026-09-30）。
+  const emptyActions = onWriteMemo ? [{ label: 'メモを書く', variant: 'primary', onClick: onWriteMemo }] : [];
 
   const rootRef = useRef(null);
 
@@ -484,7 +486,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       {/* 0 件と分かっている本: 読み込み後に出る空の案内と同じ高さで待つ（見えない形） */}
       {waiting && countHint === 0 && (
         <div aria-hidden="true" style={hidden}>
-          <EmptyState icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />} title="心が動いた一行を残しましょう" />
+          <EmptyState icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />} title="心が動いた一行を残しましょう" actions={emptyActions} />
         </div>
       )}
 
@@ -498,11 +500,12 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       )}
 
       {!loading && memos.length === 0 && !loadError && (
-        // 入口は画面右下の「メモを書く」1 つ（ここに同じボタンを置かない・SPEC §2）。
+        // メモが 0 件の間は、入口はここの「メモを書く」1 つ（右下の浮いたボタンは出さない・SPEC §2・2026-09-30）。
         // 空の案内は上下にゆとりを持たせる（EmptyState の上下 24＋次のまとまりとの間 24＝下 48・DESIGN §1 の空状態）。
         <EmptyState
           icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="心が動いた一行を残しましょう"
+          actions={emptyActions}
         />
       )}
 

@@ -18,7 +18,7 @@ const QuickMemoSheet = lazy(() => import('./components/QuickMemoSheet'));
 const LIBRARY_FIRST = 12;
 const PastBooksQuickstart = lazy(() => import('./components/PastBooksQuickstart'));
 const ImportSheet = lazy(() => import('./components/ImportSheet'));
-import MemoFab from './components/MemoFab';
+import MemoFab, { FAB_CLEARANCE } from './components/MemoFab';
 import { frequentMemoTags } from './lib/memoTags';
 const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
@@ -1039,6 +1039,10 @@ function AuthedApp() {
   // Memo ops for the currently-open book (FAB / quick sheet / full editor handoff).
   // Always called so hook order stays stable; isUsableBookId guards inside the hook.
   const currentMemoOps = useBookMemos(current?.id, { sortBy: 'page' });
+  // この本のメモが 0 件と分かっている（読み込み済み、または前回 0 件だった）。右下の「メモを書く」は出さず、
+  // 一覧の場所の空の案内の「メモを書く」を入口にする（SPEC §2・2026-09-30）。
+  const detailMemoEmpty = !!current?.id && (currentMemoOps.memos || []).length === 0 && !currentMemoOps.error
+    && (!currentMemoOps.loading || appCache?.getMemoCountHint?.(current.id) === 0);
 
   // Books are now committed to DB on delete (no soft-delete state to filter).
   const books = rawBooks;
@@ -3876,7 +3880,8 @@ function AuthedApp() {
             overflowX: 'hidden',
             overscrollBehaviorY: 'contain',
             WebkitOverflowScrolling: 'touch',
-            padding: '0 var(--space-4) calc(var(--space-16) + var(--space-12))', // 下は「メモを書く」ボタンに隠れない分（112）
+            // 下は右下の「メモを書く」の上まで、いちばん下のボタンを送れる分（ボタンの高さ＋12＋16＋セーフエリア・2026-09-30）。
+            padding: `0 var(--space-4) ${FAB_CLEARANCE}`,
           }}
         >
 
@@ -3934,6 +3939,7 @@ function AuthedApp() {
                   focusMemoId={detailFocusMemoId}
                   editFocusedMemo={!!detailEditMemoId && detailEditMemoId === detailFocusMemoId}
                   onEditFocusedOpened={() => setDetailEditMemoId(null)}
+                  onWriteMemo={() => setQuickMemoOpen(true)}
                   afterList={
                     // 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。
                     <button
@@ -4081,8 +4087,6 @@ function AuthedApp() {
                   // 読書中は右下の「メモを書く」が主ボタン（1 画面 1 つ・DESIGN §0）なので、
                   // 「読了にする」は副ボタンに下げる。読みたい・積読では従来どおり主ボタン。
                   style={{ ...(isMemoPhase ? btnGhost : btnS), width: "100%" }}
-                  // 右下の「メモを書く」は、このボタンの高さに来ている間は隠れる（重ならない・MemoFab・2026-09-30）。
-                  data-fab-avoid=""
                 >
                   {nextLabel[current.status]}
                 </button>
@@ -4175,9 +4179,10 @@ function AuthedApp() {
 
         {/* Floating "+ memo" FAB — only for reading/done so we don't lure
             users into creating memos that the section above hides. */}
-        {(current.status === "reading" || current.status === "done") && (
+        {/* メモが 0 件の本は、一覧の場所の空の案内の「メモを書く」が入口（右下には出さない・SPEC §2・2026-09-30）。 */}
+        {(current.status === "reading" || current.status === "done") && !detailMemoEmpty && (
           // 「この本のまとめ」を開いている間・入力欄に書いている間は隠す（保存ボタンに重ならない・MemoFab）。
-          <MemoFab scrollRef={detailScrollRef} avoidKey={current.status} onClick={() => setQuickMemoOpen(true)} />
+          <MemoFab scrollRef={detailScrollRef} onClick={() => setQuickMemoOpen(true)} />
         )}
 
         {quickMemoOpen && (current.status === "reading" || current.status === "done") && (

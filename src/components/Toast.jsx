@@ -367,8 +367,11 @@ export function ToastProvider({ children }) {
   useEffect(() => {
     if (!hasBar) { setBarAnim(false); return undefined; }
     const raf = requestAnimationFrame(() => setBarAnim(true));
-    const id = setInterval(() => setBarPos((cur) => { const next = barBottom(); return next === cur ? cur : next; }), 200);
-    return () => { cancelAnimationFrame(raf); clearInterval(id); };
+    const recheck = () => setBarPos((cur) => { const next = barBottom(); return next === cur ? cur : next; });
+    const id = setInterval(recheck, 200);
+    // 右下の「メモを書く」が出た・消えたときは、待たずにすぐ位置を見直す（MemoFab が知らせる・2026-09-30）。
+    window.addEventListener('orime:fab', recheck);
+    return () => { cancelAnimationFrame(raf); clearInterval(id); window.removeEventListener('orime:fab', recheck); };
   }, [hasBar]);
 
   return (
