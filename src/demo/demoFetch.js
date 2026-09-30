@@ -150,8 +150,9 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
     return [
       '【結論】',
       situation
-        ? `「${situation}」の場面に絞って、${gist(picked[0].text)}を 1 回だけ試してみましょう。`
-        : `ここまでの話から、${gist(picked[0].text)}を 1 回だけ試してみましょう。`,
+        // 結論は短く（行動を決める回は、一歩の箱が主役）。
+        ? `「${situation}」の場面に絞って、メモの一節を 1 回だけ試しましょう。`
+        : 'ここまでの話から、メモの一節を 1 回だけ試しましょう。',
       '',
       '【参照した本のメモ】',
       quotes,
