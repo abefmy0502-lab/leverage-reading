@@ -7,7 +7,7 @@
 // Display is read-only here. Tapping a memo opens its book in the book detail
 // view, where the user can edit/delete via the existing BookMemoList flow.
 
-import { startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, startTransition, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -32,9 +32,11 @@ import { isNative } from '../lib/iap';
 import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink, groupTitle, card as uiCard, input as uiInput } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
-  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight, MoreHorizontal, Pencil,
+  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Copy, Share,
 } from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
+// 一文をシェアのシート（メモの「…」から・押したときだけ読む）。
+const ShareSheet = lazy(() => import('./ShareSheet'));
 import { useConfirm } from './ConfirmDialog';
 
 // 見た目は DESIGN.md のトークンのみ（2026-09-26・SPEC §4 でメモのサブタブを整理）。
@@ -429,11 +431,26 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   }, [dismissToast]);
   const confirm = useConfirm();
   const haptic = useHaptic();
+  // メモの本文をコピー（ページがあれば「(p.N)」を添える・本の詳細と同じ）。
+  const copyMemo = async (memo) => {
+    const body = (memo?.text || '').trim();
+    if (!body) return;
+    const text = Number.isFinite(memo.pageNumber) ? `${body} (p.${memo.pageNumber})` : body;
+    try {
+      await navigator.clipboard.writeText(text);
+      haptic.light();
+      toast.success('コピーしました。');
+    } catch {
+      toast.error('コピーできませんでした。');
+    }
+  };
   // メモは読書中/読了の本にだけ付けられる。「＋ メモを追加」を出してよいのは
   // 付け先の本がある時だけ（無ければ本棚で本を追加/開始するのが先）。
   const hasMemoableBooks = (books || []).some((b) => b.status === 'reading' || b.status === 'done');
   const [memos, setMemos] = useState([]);
   const [memoMenu, setMemoMenu] = useState(null);
+  // 一文をシェア（{ book, memoId }）。
+  const [shareTarget, setShareTarget] = useState(null);
   const [loading, setLoading] = useState(true);
   // 取得失敗（通信断など）。空状態と区別して「読み込みに失敗」+再試行を出す。
   const [fetchFailed, setFetchFailed] = useState(false);
@@ -1063,6 +1080,13 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             ...(memoMenu.book && onAddAction
               ? [{ label: '行動に追加', icon: <Target size={16} aria-hidden="true" />, onClick: () => handleMemoToAction(memoMenu.memo) }]
               : []),
+            // 本の詳細のメモの「…」と同じく、コピー・この一文をシェアもここから（2026-09-30）。
+            ...((memoMenu.memo?.text || '').trim()
+              ? [{ label: 'コピー', icon: <Copy size={16} aria-hidden="true" />, onClick: () => copyMemo(memoMenu.memo) }]
+              : []),
+            ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.text || '').trim()
+              ? [{ label: 'この一文をシェア', icon: <Share size={16} aria-hidden="true" />, onClick: () => { haptic.light(); setShareTarget({ book: memoMenu.book, memoId: memoMenu.memo.id }); } }]
+              : []),
             // 思い出しカードの「…」だけ: 別の 1 枚へ（SPEC §4: 覚えた／もう一度 ＋ …）。
             ...(memoMenu.recall
               ? [{ label: '別のメモを見る', icon: <Shuffle size={16} aria-hidden="true" />, onClick: () => { if (!flipping) reroll(); } }]
@@ -1096,6 +1120,15 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             }]),
           ]}
         />
+      )}
+      {shareTarget && (
+        <Suspense fallback={null}>
+          <ShareSheet
+            book={shareTarget.book}
+            initialMemoId={shareTarget.memoId}
+            onClose={() => setShareTarget(null)}
+          />
+        </Suspense>
       )}
 
       {/* ⚠️ メモ取得だけ失敗し、本由来の派生ノート（まとめ/収穫等）だけで画面が

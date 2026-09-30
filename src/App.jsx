@@ -2969,6 +2969,20 @@ function AuthedApp() {
   // null なら非表示。{ bookId, actionIdx, action } をセット。
   // ActionEditModal を開いている対象 — { bookId, actionIdx, action }
   const [editingAction, setEditingAction] = useState(null);
+  // 「期限を見直す」: 残りの期限を過ぎた行動を順に開く（その間に完了・削除されたものは飛ばす）。無ければ閉じる。
+  const openNextReviewAction = (cur) => {
+    const rest = [...(cur?.queue || [])];
+    while (rest.length) {
+      const next = rest.shift();
+      const acts = booksRef.current.find((b) => b.id === next.bookId)?.actions || [];
+      const idx = resolveActionIndex(acts, next, next.actionIdx);
+      if (idx >= 0 && idx < acts.length && !acts[idx].done) {
+        setEditingAction({ bookId: next.bookId, actionIdx: idx, action: { ...next, ...acts[idx] }, queue: rest, total: cur.total });
+        return;
+      }
+    }
+    setEditingAction(null);
+  };
   // 🎯 行動タブの「＋追加」フロー — null | 'pick'（本選択シート） | { bookId }（入力モーダル）
   const [addActionSheet, setAddActionSheet] = useState(null);
   // 💭 ノート（振り返り）タブの「＋メモを追加」フロー — null | 'pick'（本選択シート）。
@@ -5324,19 +5338,10 @@ function AuthedApp() {
               }
             });
             if (outcome === 'failed') return;
-            // 「期限を見直す」: 残りの期限を過ぎた行動を順に開く（その間に完了・削除されたものは飛ばす）。
-            const rest = [...(editingAction.queue || [])];
-            while (rest.length) {
-              const next = rest.shift();
-              const acts = booksRef.current.find((b) => b.id === next.bookId)?.actions || [];
-              const idx = resolveActionIndex(acts, next, next.actionIdx);
-              if (idx >= 0 && idx < acts.length && !acts[idx].done) {
-                setEditingAction({ bookId: next.bookId, actionIdx: idx, action: { ...next, ...acts[idx] }, queue: rest, total: editingAction.total });
-                return;
-              }
-            }
-            setEditingAction(null);
+            openNextReviewAction(editingAction);
           }}
+          // 「期限を見直す」の途中で、この行動は変えずに次へ（2026-09-30）。
+          onSkip={() => openNextReviewAction(editingAction)}
           onDelete={async () => {
             const { bookId, actionIdx, action } = editingAction;
             setEditingAction(null);

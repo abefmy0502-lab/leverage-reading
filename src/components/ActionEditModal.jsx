@@ -15,7 +15,8 @@ import { useConfirm } from './ConfirmDialog';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { ArrowUp, Minus, ArrowDown, X } from 'lucide-react';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, groupTitle, input as uiInput } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, groupTitle, input as uiInput } from '../styles/ui';
+import { toLocalYmd } from '../lib/dates';
 
 const overlayStyle = {
   position: 'fixed',
@@ -116,6 +117,26 @@ const footerStyle = {
   background: 'var(--surface)',
 };
 
+// 期限をすぐ決める操作のチップ（DESIGN §5「操作のチップ」: --fill・枠なし・高さ 44・15/--text・選んでいる日は --accent-soft＋--accent/600）。
+const quickChip = (active) => ({
+  minHeight: 44,
+  padding: 'var(--space-2) var(--space-3)',
+  borderRadius: 'var(--radius)',
+  border: 'none',
+  background: active ? 'var(--accent-soft)' : 'var(--fill)',
+  color: active ? 'var(--accent)' : 'var(--text)',
+  fontSize: 'var(--text-sub)',
+  fontWeight: active ? 600 : 400,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+  flexShrink: 0,
+});
+const daysFromToday = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return toLocalYmd(d); };
+const QUICK_DEADLINES = [
+  { label: '明日', days: 1 },
+  { label: '来週', days: 7 },
+];
+
 const PRIORITIES = [
   { v: 'high',   label: (<><ArrowUp size={16} aria-hidden="true" />高</>) },
   { v: 'medium', label: (<><Minus size={16} aria-hidden="true" />中</>) },
@@ -133,8 +154,12 @@ const RECURRENCES = [
 // 振り返りは書けない）。保存 payload の形は両モードで同一。
 // step: 「期限を見直す」で期限を過ぎた行動を順に開くとき { index, total }（見出しを「期限を見直す（2/5）」、
 //   あとがあれば保存ボタンを「保存して次へ」に・2026-09-30）。
-export default function ActionEditModal({ action, onSave, onClose, onDelete, mode = 'edit', step = null }) {
+// onSkip: 「期限を見直す」の途中で、この行動は変えずに次へ（step があるときだけ出す・2026-09-30）。
+export default function ActionEditModal({ action, onSave, onClose, onDelete, onSkip, mode = 'edit', step = null }) {
   const isCreate = mode === 'create';
+  // 「期限を見直す」の途中（期限を決め直すのが目的なので、期限の欄にカーソルを置き、ボタンは短い言葉に）。
+  const reviewing = !!step;
+  const hasNext = !!(step && step.index < step.total);
   const [text, setText] = useState(action?.text || '');
   const [deadline, setDeadline] = useState(action?.deadline || '');
   const [priority, setPriority] = useState(action?.priority || 'medium');
@@ -217,7 +242,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
               rows={3}
               style={taStyle}
               maxLength={LIMITS.actionText || 500}
-              autoFocus
+              autoFocus={!reviewing}
             />
           </div>
 
@@ -229,7 +254,29 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
               style={inpStyle}
+              autoFocus={reviewing}
             />
+            {/* よく使う期限は 1 回で（2026-09-30）。見直しの途中は、同じ行の右に「この行動は飛ばす」。 */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+              {QUICK_DEADLINES.map((q) => {
+                const v = daysFromToday(q.days);
+                return (
+                  <button key={q.label} type="button" aria-pressed={deadline === v} onClick={() => setDeadline(v)} style={quickChip(deadline === v)}>
+                    {q.label}
+                  </button>
+                );
+              })}
+              {reviewing && onSkip && (
+                <button
+                  type="button"
+                  onClick={() => { if (!busy) onSkip(); }}
+                  disabled={busy}
+                  style={{ ...btnLink, marginLeft: 'auto', marginRight: 'calc(-1 * var(--space-1))', color: busy ? 'var(--text-3)' : btnLink.color, opacity: 1 }}
+                >
+                  この行動は飛ばす
+                </button>
+              )}
+            </div>
           </div>
 
           <div>
@@ -263,7 +310,8 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
             </select>
           </div>
 
-          {!isCreate && (
+          {/* ふりかえりは、やり終えた行動だけ（まだの行動に「やってみてどうだったか」は書けない・2026-09-30）。 */}
+          {!isCreate && action?.done && (
             <div>
               <label style={labelStyle} htmlFor="ae-ref">ふりかえり（任意）</label>
               <textarea
@@ -287,7 +335,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
             onClick={handleDelete}
             disabled={busy}
             // 削除は文字色だけ赤の副ボタン（押せないときは薄くせず文字色で示す）。
-            style={{ ...(busy ? btnGhostOff : btnGhost), width: 'auto', flexShrink: 0, color: busy ? 'var(--text-3)' : 'var(--error)' }}
+            style={{ ...(busy ? btnGhostOff : btnGhost), width: 'auto', flexShrink: 0, whiteSpace: 'nowrap', color: busy ? 'var(--text-3)' : 'var(--error)' }}
           >
             削除
           </button>
@@ -296,17 +344,18 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
             type="button"
             onClick={onClose}
             disabled={busy}
-            style={{ ...(busy ? btnGhostOff : btnGhost), flex: 1, width: 'auto' }}
+            style={{ ...(busy ? btnGhostOff : btnGhost), flex: 1, width: 'auto', whiteSpace: 'nowrap' }}
           >
-            キャンセル
+            {/* 見直しの途中は短く（3 つ並んでも語の途中で折り返さない・2026-09-30）。 */}
+            {reviewing ? 'やめる' : 'キャンセル'}
           </button>
           <button
             type="button"
             onClick={handleSave}
             disabled={busy || !text.trim()}
-            style={{ ...(busy || !text.trim() ? btnPrimaryOff : btnPrimary), flex: 1.4, width: 'auto' }}
+            style={{ ...(busy || !text.trim() ? btnPrimaryOff : btnPrimary), flex: 1.4, width: 'auto', whiteSpace: 'nowrap' }}
           >
-            {busy ? '保存中…' : (isCreate ? '追加' : step && step.index < step.total ? '保存して次へ' : '保存')}
+            {busy ? '保存中…' : (isCreate ? '追加' : hasNext ? '次へ' : '保存')}
           </button>
         </div>
       </div>
