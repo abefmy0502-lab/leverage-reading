@@ -1923,7 +1923,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
           {answerRowShown && (
             // 答えのカード → 文字ボタンの文字まで約 20（8 ＋ 押せる範囲 44 の上の空き）。文字の左端は余白 16 に揃える。
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)', marginLeft: ANSWER_COLUMN }}>
+            // メモの答えの下に「AI に答えてもらう（プラン）」が出ているときは、別のまとまりとして 24 離す（2026-10-01 ui-critic）。
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: lastIsMemoAnswer && freeMode && visibleMessages[visibleMessages.length - 1]?.id === firstMemoAnswerId ? 'var(--space-6)' : 'var(--space-2)', marginLeft: ANSWER_COLUMN }}>
               {/* 無料のトークンを使い切ったら、できない操作を出さない */}
               {/* 失敗した答えには吹き出しの「もう一度」があるので、ここでは出さない */}
               {/* 関係するメモが無かった答えは、角度を変えても答えられないので「本を追加」「学びを書く」へ（2026-09-29） */}
