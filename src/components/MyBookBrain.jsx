@@ -1654,13 +1654,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   {g.map((m) => (
                     <ChatMessage key={m.id} message={m} showTime onOpenBook={onOpenBook} books={books} onAddAction={handleAnswerToAction} onAddActionPickBook={onAddActionPickBook} onRetry={busy ? null : regenerate} question={g[0].role === 'user' ? g[0].content : ''} onAskBook={askAboutBook} askBusy={busy} memoBookIds={memoBookIds} onShowPartner={setPartnerSheet} />
                   ))}
-                  {/* この相談の続きを聞く: 答えのカードのすぐ下（文字ボタン・文字の端を余白 16 にそろえる）。 */}
+                  {/* この相談の続きを聞く: 答えのカードのすぐ下（文字ボタン・文字の端を吹き出しの列＝アイコン 32＋間 8 にそろえる・2026-09-30 ui-critic）。 */}
                   {canContinue && (
                     <button
                       type="button"
                       onClick={() => continueFrom(g)}
                       disabled={busy}
-                      style={{ ...uiBtnLink, alignSelf: 'flex-start', margin: 'calc(-1 * var(--space-2)) 0 0 calc(-1 * var(--space-1))', ...(busy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
+                      style={{ ...uiBtnLink, alignSelf: 'flex-start', margin: `calc(-1 * var(--space-2)) 0 0 calc(${ANSWER_COLUMN} - var(--space-1))`, ...(busy ? { color: 'var(--text-3)', opacity: 1, cursor: 'default' } : null) }}
                     >
                       この相談の続きを聞く
                     </button>
