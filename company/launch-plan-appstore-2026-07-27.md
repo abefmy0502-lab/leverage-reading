@@ -135,8 +135,9 @@ Xcode 側の一度きり設定：
 3. General → Deployment Info → **iPhone のみにチェック**（iPad を外す＝iPad スクショ不要・QA 範囲半減。iPad ユーザーは互換モードで利用可）
 4. App Icons：`public/icons/icon-1024-appstore.png`（アルファ除去済み・本日生成）を AppIcon にセット
 5. Info.plist：カメラ（バーコードスキャン）と写真ライブラリの利用目的文言が入っているか確認 —
-   `NSCameraUsageDescription`＝「本のバーコードを読み取って本を追加するために使用します」
-   `NSPhotoLibraryUsageDescription`＝「読書メモに写真を添付するために使用します」
+   `NSCameraUsageDescription`＝「本のバーコードを読み取るときと、写真に読書の記録を重ねて共有するときに使用します」（2026-09-30: 写真で共有＝ホームのカメラ）
+   `NSPhotoLibraryUsageDescription`＝「読書メモに写真を添付するときと、写真に読書の記録を重ねて共有するときに使用します」
+   （画像を写真に保存するなら `NSPhotoLibraryAddUsageDescription`＝「共有用の画像を写真に保存するために使用します」も。iOS の共有シートの「画像を保存」で使われる）
    （**未設定だと該当機能に触れた瞬間クラッシュ＝2.1 リジェクト**）
 
 ### 3.2 バージョニング
