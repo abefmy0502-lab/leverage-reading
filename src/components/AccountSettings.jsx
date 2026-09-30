@@ -593,9 +593,10 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     setExporting(true);
     try {
       const summary = await exportUserDataAsCSV(user.id);
-      const total = summary.reduce((acc, s) => acc + (s.count || 0), 0);
+      // 知らせは「行」ではなく本とメモの数で（何が入ったかが分かる・2026-09-30）。
+      const countOf = (table) => summary.find((s) => s.table === table)?.count || 0;
       track(EVENTS.EXPORT_USED, { kind: 'csv' }); // 成功確定後のみ（fire-and-forget）
-      toast.success(`CSV を 1 つのファイルにまとめてダウンロードしました（計 ${total} 行）。`);
+      toast.success(`本 ${countOf('books')} 冊・メモ ${countOf('book_memos')} 件を書き出しました`);
     } catch (e) {
       toast.error(toMessage(e, 'エクスポートに失敗しました。'));
     } finally {
