@@ -16,12 +16,12 @@
 
 // 見た目はトークンと ui.js の部品だけ（2026-09-27: 絵文字・点線の仮表紙・等幅 9px の ISBN・
 // 警告色の「表紙未取得」をやめ、表紙が無いときはアプリ共通の自動の表紙（MiniCover）を出す）。
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, PencilLine, Search, X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { MiniCover } from './BookCards';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, groupTitle } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnLink, groupTitle } from '../styles/ui';
 
 const overlayStyle = {
   position: 'fixed',
@@ -55,7 +55,8 @@ const headerStyle = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
-  padding: 'var(--space-2) var(--space-2) var(--space-2) var(--space-4)',
+  // 左右 16（画面の左右の余白と同じ）。× は押せる範囲 44 の内側の空きの分だけ右へ出す（見た目の右端を 16 にそろえる・2026-09-30）。
+  padding: 'var(--space-2) var(--space-4)',
   borderBottom: '1px solid var(--separator)',
   background: 'var(--surface)',
 };
@@ -73,6 +74,8 @@ const closeBtnStyle = {
   fontFamily: 'inherit',
   padding: 0,
   borderRadius: 'var(--radius)',
+  marginRight: 'calc(-1 * var(--space-3))',
+  flexShrink: 0,
 };
 
 const bodyStyle = {
@@ -128,6 +131,18 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
   const [selectedIdx, setSelectedIdx] = useState(0);
   const selected = candidates[selectedIdx] || null;
   const trapRef = useFocusTrap(true);
+  // 下の「キャンセル」を外したので、Web のキーボードの Esc でも閉じる（2026-09-30）。
+  const cancelRef = useRef(onCancel);
+  cancelRef.current = onCancel;
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.isComposing || e.defaultPrevented) return;
+      e.preventDefault();
+      cancelRef.current?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   if (typeof document === 'undefined') return null;
 
   return createPortal(
@@ -207,14 +222,12 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
         </div>
 
         <div style={footerStyle}>
-          <button type="button" onClick={onCancel} style={{ ...btnGhost, flex: 1, width: 'auto' }}>
-            キャンセル
-          </button>
+          {/* やめるのは右上の × と外側のタップ・Esc（下に「キャンセル」を並べない・2026-09-30）。 */}
           <button
             type="button"
             disabled={!selected}
             onClick={() => onConfirm(selected)}
-            style={{ ...(selected ? btnPrimary : btnPrimaryOff), flex: 1, width: 'auto' }}
+            style={{ ...(selected ? btnPrimary : btnPrimaryOff), width: '100%' }}
           >
             この本を追加
           </button>
