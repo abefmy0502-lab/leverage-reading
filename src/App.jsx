@@ -467,6 +467,13 @@ function Shell({ children }) {
   );
 }
 
+// メモを書くシートの保存のあとの知らせ: シートは onCreate が終わってから閉じ始める（data-closing）ので、
+// 次のフレームまで待ってから出す（知らせが開いたシートを避けて画面の下端に出て、すぐタブの上へ跳ねないように・2026-09-30）。
+const afterSheetCloses = (fn) => {
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => fn());
+  else fn();
+};
+
 // 本の詳細・編集の「上の行＋中身」の箱（左端スワイプで一緒に動かす・2026-09-30）。
 const swipeScreenStyle = { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg)' };
 
@@ -4145,6 +4152,9 @@ function AuthedApp() {
                 // クイックメモは最頻の書き込み経路なので、ここが出ないと大多数の
                 // メモが「保存して終わり」になる。
                 const actionText = (result?.text ?? payload?.text ?? '').trim();
+                // 知らせはシートが「閉じている途中」になってから出す（onCreate のあとでシートが閉じ始めるので、
+                // すぐ出すと開いたシートの上＝画面の下端に出てからタブの上へ 160px 跳ねていた・2026-09-30）。
+                afterSheetCloses(() => {
                 if (actionText && current?.id) {
                   toast.show({
                     type: 'success',
@@ -4166,6 +4176,7 @@ function AuthedApp() {
                 } else {
                   toast.success('メモを保存しました。');
                 }
+                });
               }}
               onOpenFullEditor={(prefill) => {
                 setQuickMemoOpen(false);
@@ -4641,6 +4652,8 @@ function AuthedApp() {
                 haptic.success();
                 const b = homeMemoBook;
                 const actionText = (result?.text ?? payload?.text ?? '').trim();
+                // シートが閉じ始めてから知らせを出す（本の詳細のメモを書くと同じ・2026-09-30）。
+                afterSheetCloses(() => {
                 if (actionText && b?.id) {
                   toast.show({
                     type: 'success',
@@ -4662,6 +4675,7 @@ function AuthedApp() {
                 } else {
                   toast.success('メモを保存しました。');
                 }
+                });
               }}
               onOpenFullEditor={(prefill) => {
                 const b = homeMemoBook;
