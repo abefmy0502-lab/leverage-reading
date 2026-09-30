@@ -4125,11 +4125,12 @@ function AuthedApp() {
                     >
                       読書計画シートを作る（積読に積みます）
                     </button>
-                    {/* 1 回の目安と残り（AI 選書・テーマまとめと同じ言い方・無料プランはプランの機能なので出さない）。 */}
+                    {/* 1 回の目安と残り（AI 選書・テーマまとめと同じ言い方・無料プランはプランの機能なので出さない）。
+                        上の「読書計画シートを作る」の補足なので、ボタンにくっつける（間 0）。次のボタンとは 12 離す（2026-09-30）。 */}
                     {!paywallFree && (() => {
                       const line = runCostLine({ plan: paywallPlan, remaining: paywallTokens, purchased: paywallPurchased, cost: TOKEN_COSTS.setupSheet });
                       return line ? (
-                        <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.5 }}>{line}</p>
+                        <p style={{ margin: 'calc(-1 * var(--space-2)) 0 calc(var(--space-3) - var(--space-2))', fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.5 }}>{line}</p>
                       ) : null;
                     })()}
                   </>
