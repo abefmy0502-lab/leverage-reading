@@ -1874,7 +1874,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             mode={modeApplies ? answerMode : null}
             onOpenMode={() => setModeSheetOpen(true)}
             // 深掘りのチップを出しているときは、区切り線はチップの上に 1 本だけ（入力欄のまとまりにチップを入れる）。
-            noBorder={followups.length > 0}
+            noBorder={followups.length > 0 || !!regenLabel}
           />
           {modeSheetOpen && (
             <AnswerModeSheet
@@ -2441,7 +2441,7 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null, showT
       {/* 書名と著者は、カードの上の名前の行（「著者『書名』」・表紙のアイコンつき・PartnerRow）に出す（2026-09-30）。
           語り口の答えは名前の行が「著者名（本の語り口で・AI）」なので、書名をカードの 1 行目に（『 はぶら下げる）。 */}
       {showTitle && book.title && (
-        <p style={{ margin: '0 0 var(--space-2)', textIndent: '-0.5em', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'auto-phrase' }}>『{book.title}』</p>
+        <p style={{ margin: '0 0 var(--space-2)', textIndent: '-0.5em', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>『{withPhraseBreaks(book.title)}』</p>
       )}
       {book.view && (
         <div style={readText}>
@@ -2652,7 +2652,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       <p style={subLabel}>{p.actionLabel}</p>
       {/* 書いている間は、書き始める前の形（3 行）と同じ高さを取っておく（一歩の 1 行目が出た瞬間に
           箱が 2 行ぶん縮み、書き進むとまた伸びて「行動に追加」が上下していた・2026-09-29）。 */}
-      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.action)}{tail === 'action' && cursor}</p>
+      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.action), ...(isStreaming ? { minHeight: STEP_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.action)}{tail === 'action' && cursor}</p>
       {/* 書いている間は、押せない形で同じ場所に置く（書き終わったときに下が押し下がらないように） */}
       {isStreaming && (onAddAction || onAddActionPickBook) && (
         <button type="button" disabled aria-hidden="true" tabIndex={-1} style={{ ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
@@ -3009,12 +3009,13 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
           {renderEvidence()}
           {renderDetails(parsed)}
           {renderNote(parsed)}
-          {renderVoiceLine()}
         </>
       ) : (
         <div style={readText}><PlainAnswer text={message.content} /></div>
       )}
       {renderRefund()}
+      {/* 語り口の一行はカードのいちばん最後（本ごとにと同じ順） */}
+      {parsed && renderVoiceLine()}
       {/* 旧形式（見出しなし）でも行動化できるように */}
       {!parsed && canShowAction && !message.error && (
         actionAdded ? (
