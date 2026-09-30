@@ -32,7 +32,7 @@ import { isNative } from '../lib/iap';
 import { btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnText as uiBtnText, btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink, groupTitle, card as uiCard, input as uiInput } from '../styles/ui';
 import {
   Shuffle, CalendarDays, Search as SearchIcon, RotateCw, MessageSquareQuote,
-  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight, MoreHorizontal,
+  StickyNote, BookOpen, Lightbulb, BarChart3, AlertTriangle, FlaskConical, Bot, Gem, FileText, Trash2, Target, Check, Plus, ChevronDown, ChevronRight, MoreHorizontal, Pencil,
 } from 'lucide-react';
 import { track, EVENTS } from '../lib/analytics';
 import { useConfirm } from './ConfirmDialog';
@@ -236,7 +236,9 @@ function MemoPhoto({ path }) {
   );
 }
 
-function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeDelete, onLongPress, onOpenMenu, openOnTap = false }) {
+// tapToEdit: カードを押すと、その本のそのメモを編集で開く（月ごとのメモ・本の詳細のメモと同じ所作・2026-09-30）。
+//   本に付いたふつうのメモだけ（学び・まとめなどは本を開く／何もしない）。
+function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeDelete, onLongPress, onOpenMenu, openOnTap = false, tapToEdit = false }) {
   const kind = memo.kind || (memo.sourceType === 'personal' ? 'personal' : memo.sourceType === 'summary' ? 'summary' : 'card');
   const meta = KIND_META[kind] || KIND_META.card;
   const isSynth = memo.synth === true;
@@ -287,9 +289,10 @@ function ReviewMemoCard({ memo, book, onOpenBook, showRelative = false, onSwipeD
   // 「続きを読む」がカードの最後なら、ボタンの下の余り（44 の押せる範囲の余白）をカードの内側余白に重ねる。
 
   // 検索の結果はカードのどこを押しても本を開く（書名だけが押せる形だと、押せる場所が小さい・2026-09-29）。
-  const tapOpens = openOnTap && !!book && !!onOpenBook;
+  const canEdit = tapToEdit && !!book && !!onOpenBook && kind === 'card' && !isSynth;
+  const tapOpens = (openOnTap || canEdit) && !!book && !!onOpenBook;
   // 本の詳細を開く描画は後回しにできる更新にして、押した形（lib/pressFeedback.js）を先に描く（遅い端末で押しても反応が無く見えた）。
-  const openBook = () => startTransition(() => onOpenBook(book, memo.id));
+  const openBook = () => startTransition(() => onOpenBook(book, memo.id, canEdit ? { edit: true } : undefined));
   const inner = (
     <div
       style={tapOpens ? { ...cardStyle, cursor: 'pointer' } : cardStyle}
@@ -1026,6 +1029,10 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             ...(memoMenu.recall
               ? [{ label: '別のメモを見る', icon: <Shuffle size={16} aria-hidden="true" />, onClick: () => { if (!flipping) reroll(); } }]
               : []),
+            // 本に付いたふつうのメモは、ここから編集も開ける（その本のそのメモを編集で開く・2026-09-30）。
+            ...(memoMenu.book && !memoMenu.memo?.synth && (memoMenu.memo?.kind || 'card') === 'card' && memoMenu.memo?.sourceType !== 'personal' && memoMenu.memo?.sourceType !== 'summary'
+              ? [{ label: '編集', icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id, { edit: true }) }]
+              : []),
             ...(memoMenu.book
               ? [{ label: '本を開く', icon: <BookOpen size={16} aria-hidden="true" />, onClick: () => onOpenBook?.(memoMenu.book, memoMenu.memo?.id) }]
               : []),
@@ -1372,6 +1379,9 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                         onOpenBook={onOpenBook}
                         onSwipeDelete={handleSwipeDelete}
                         onLongPress={(payload) => setMemoMenu(payload)}
+                        // ほかのメモのカードと同じ「…」と、押して編集（2026-09-30）。
+                        onOpenMenu={(payload) => setMemoMenu(payload)}
+                        tapToEdit
                       />
                     ))}
                   </div>

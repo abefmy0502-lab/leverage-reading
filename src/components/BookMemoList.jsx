@@ -187,7 +187,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 
 // afterList: メモ一覧のすぐ下（「この本のまとめ」の上）に置く要素（本の詳細の「この本に相談する」・SPEC §2 の並び）。
 // onShareMemo(memo): 「この一文をシェア」を親（本の詳細）の一文シェアのシートで開く。無ければこの一覧の中で開く。
-export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null }) {
+// editFocusedMemo: focusMemoId のメモまで送ったあと、そのメモの編集を開く（振り返りの月ごとのメモを押したとき・2026-09-30）。
+export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   const [quoteOnly, setQuoteOnly] = useState(false);
@@ -234,10 +235,13 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
     const id = focusMemoId;
     let scrolled = false;
+    const target = editFocusedMemo ? memos.find((m) => m.id === id) : null;
     const scrollTimer = setTimeout(() => {
       scrolled = true;
       const el = rootRef.current?.querySelector(`[data-memo-id="${typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id)}"]`);
       el?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      // 押して開いたメモは、そのまま編集を開く（閉じると、そのメモの位置に戻っている）。
+      if (target) { openEditRef.current?.(target); onEditFocusedOpenedRef.current?.(); }
     }, 60);
     const glowTimer = setTimeout(() => setFocusedId((cur) => (cur === id ? null : cur)), 2400);
     // 送る前に片付けられたとき（StrictMode の二度呼び・quoteOnly の解除による再実行・アンマウント）は、
@@ -250,7 +254,7 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         focusDoneRef.current = null;
       }
     };
-  }, [focusMemoId, memos, loading, quoteOnly]);
+  }, [focusMemoId, memos, loading, quoteOnly, editFocusedMemo]);
 
   const allTags = useMemo(() => {
     const s = new Set();
@@ -315,6 +319,11 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     setEditingMemo(memo);
     setEditorOpen(true);
   };
+  const openEditRef = useRef(openEdit);
+  openEditRef.current = openEdit;
+  // 一度開いたら親に知らせる（戻ってきて一覧を作り直したときに、もう一度開かないように）。
+  const onEditFocusedOpenedRef = useRef(onEditFocusedOpened);
+  onEditFocusedOpenedRef.current = onEditFocusedOpened;
   const closeEditor = () => {
     setEditorOpen(false);
     setEditingMemo(null);

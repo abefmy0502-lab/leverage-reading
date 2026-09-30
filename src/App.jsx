@@ -890,6 +890,8 @@ function AuthedApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 本の詳細を開いたときに示すメモ（openDetail の 2 つ目の引数）。
   const [detailFocusMemoId, setDetailFocusMemoId] = useState(null);
+  // 振り返りの月ごとのメモを押したとき: そのメモまで送ってから編集を開く（2026-09-30）。
+  const [detailEditMemoId, setDetailEditMemoId] = useState(null);
   // 🛰️ 運営ダッシュボード（管理者のみ）。isAdmin は起動時に1回だけ判定。
   const [adminOpen, setAdminOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -1556,7 +1558,7 @@ function AuthedApp() {
   // その本を開いたら（知らせの「開く」でも、カードの「追加済み・開く」でも）もう要らないので消す（2026-09-29）。
   const advisorAddedToastRef = useRef(null);
   const dismissToast = toast.dismiss;
-  const openDetail = useCallback((b, focusMemoId) => {
+  const openDetail = useCallback((b, focusMemoId, opts) => {
     const book = typeof b === 'string' ? booksRef.current.find((x) => x.id === b) : b;
     if (!book || typeof book !== 'object' || !book.id) return;
     const added = advisorAddedToastRef.current;
@@ -1565,6 +1567,7 @@ function AuthedApp() {
       dismissToast(added.toastId, { byUser: true });
     }
     setDetailFocusMemoId(typeof focusMemoId === 'string' ? focusMemoId : null);
+    setDetailEditMemoId(typeof focusMemoId === 'string' && opts?.edit ? focusMemoId : null);
     setCurrent(book); setEditPhaseOverride(null); setView("detail");
   }, [dismissToast]);
 
@@ -3852,6 +3855,8 @@ function AuthedApp() {
                   onMakeAction={addActionFromMemo}
                   onShareMemo={(memo) => setShareSheet({ book: current, initialMemoId: memo.id })}
                   focusMemoId={detailFocusMemoId}
+                  editFocusedMemo={!!detailEditMemoId && detailEditMemoId === detailFocusMemoId}
+                  onEditFocusedOpened={() => setDetailEditMemoId(null)}
                   afterList={
                     // 💬 この本だけを相談相手にする（相談相手の絞り込み・2026-09-26）。
                     <button
@@ -4941,7 +4946,7 @@ function AuthedApp() {
             </div>
             {reviewSubTab === 'note' ? (
               <Suspense fallback={<ReviewNoteFallback />}>
-                <Review books={books} onOpenBook={(b, memoId) => { openDetail(b, memoId); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
+                <Review books={books} onOpenBook={(b, memoId, opts) => { openDetail(b, memoId, opts); }} onAddAction={addActionFromMemo} onAddNote={() => setAddNoteSheet('pick')} onGoToShelf={() => { navigateTab('books'); goList(); setShelfMode('library'); }}
                   // メモ検索で見つからなかった言葉を、相談の入力欄に入れて開く（送らない・2026-09-29）。
                   onAskConsult={(q) => { setAskPreset({ question: q, nonce: Date.now(), draft: true }); setView('list'); setAiSubTab('brain'); setTab('ai'); }}
                   searchPreset={memoSearchPreset} />
