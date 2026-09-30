@@ -33,7 +33,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, LOOKUP_APPLY_CHIP } from '../lib/consultHelpers';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
@@ -1400,12 +1400,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   行動を決めた答えのあとは、これまでの深掘りのチップ。次にすることは入力欄の上のこの 1 行だけ（lib/consultHelpers.js）。
   const lastParsed = showFollowups ? parseAnswer(lastVisible.content) : null;
   const lastAsksBack = !!lastParsed?.question;
+  // 🔎 最後の相談が本を探す問いなら、そのあとのチップは「いまにどう活かす？」「ほかにも書いてた？」だけ（2026-09-30）。
+  const lastLookup = showFollowups && isBookLookup(lastAsked);
+  const lookupFound = lastLookup
+    ? decodeQuoteRefs(lastVisible.refs || []).filter((c) => c.k === 'r' && c.s === 'ok').length || (lastVisible.refs || []).filter((r) => !isMetaRef(r)).length
+    : 0;
   const followups = showFollowups
-    ? nextStepChips({ replies: lastParsed?.replies || [], hasAction: lastParsed ? isActionAnswer(lastParsed) : !!extractActionLine(lastVisible.content), booksWithMemos, lastAsked })
+    ? nextStepChips({ replies: lastParsed?.replies || [], hasAction: lastParsed ? isActionAnswer(lastParsed) : !!extractActionLine(lastVisible.content), booksWithMemos, lastAsked, lookup: lastLookup, term: lastLookup ? lookupTerm(lastAsked) : '', found: lookupFound })
     : [];
   // 同じ相談にもう一度答える（別の角度で／止めた・途中までの答えは「もう一度答えて」）。チップの行の最後に置く。
   // 問いに答えている間（返事の候補がある）は出さない＝チップは「候補＋行動を決める」だけ（2026-09-30 ui-critic）。
-  const regenLabel = !chipRowBase || followups.some((c) => c.kind === 'reply') ? '' : lastVisible.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて';
+  const regenLabel = !chipRowBase || isBookLookup(lastAsked) || followups.some((c) => c.kind === 'reply') ? '' : lastVisible.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて';
 
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
   const historyGroups = useMemo(() => {
@@ -1955,7 +1960,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 // AI が状況を聞き返しているときは、答えを書くか続けて聞く（候補のチップのほかに自分の言葉でも）。
                 : lastAsksBack ? '質問に答える・続けて聞く'
                 // 関係するメモが無かった答えのあとは、続きの例ではなく新しい相談の例（2026-09-30 ui-critic）。
-                : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く：乗り気でないときは？' : '例：上司への報告がうまくいかない'}
+                : threadActive && !isNoInfoAnswer(lastVisible) ? (isBookLookup(lastAsked) ? `続けて聞く：${LOOKUP_APPLY_CHIP}` : '続けて聞く：乗り気でないときは？') : '例：上司への報告がうまくいかない'}
               rows={1}
               // 答えを書いている間も押せなくしない（disabled にすると入力欄からフォーカスが外れ、下のタブが
               // 出てきて入力欄がもう一度動いていた・2026-09-29）。送るのは答えが終わってから（ask が busy で止める）。

@@ -503,6 +503,9 @@ export function selectThreadTurns(messages, { max = 3, before = null, carry = nu
     if (before && m.createdAt && m.createdAt >= before) return;
     const a = list[i + 1];
     if (!isCompletedAnswer(a)) return;
+    // 本を探す問いの答え（本とメモの一節の一覧）は、続きの相談の文脈に入れない。
+    //   次の「いまにどう活かす？」はふつうの最初の相談として答える（状況を 1 つ聞く・2026-09-30）。
+    if (isBookLookup(m.content)) return;
     turns.push({ question: String(m.content), answer: String(a.content).trim() });
   });
   return max > 0 ? turns.slice(-max) : [];
@@ -601,8 +604,22 @@ export function lookupTerm(text) {
 //   - 行動も候補も無い答え（問いだけ・心に残るもの など）: 「行動を決める」→ もっと具体的に（・ほかの本では）
 //   いま送った文と同じチップは出さない（「行動を決める」で答えが行動にならなかったとき、同じチップを繰り返さない）。
 //   「別の角度で答えて」は画面の側で行の最後に足す。
-export function nextStepChips({ replies = [], hasAction = false, booksWithMemos = 0, lastAsked = '' } = {}) {
+// 🔎 本を探す問い（isBookLookup）の答えのあと（2026-09-30 ui-critic）: 行動・深掘り・別の角度のチップは出さず、
+//   「いまにどう活かす？」（ふつうの最初の相談として送る＝いつもどおり問い返す）と、本が見つかったときだけ
+//   「ほかにも書いてた？」。どちらの送る文も本を探す問いには当たらない（続けて送っても lookup にならない）。
+export const LOOKUP_APPLY_CHIP = 'いまにどう活かす？';
+export const LOOKUP_MORE_CHIP = 'ほかにも書いてた？';
+export function lookupChips({ term = '', found = 0 } = {}) {
+  const t = String(term || '').trim();
+  const subject = t ? `『${t}』について書いたメモ` : 'このメモ';
+  const list = [{ label: LOOKUP_APPLY_CHIP, send: `${subject}を、いまの自分にどう活かせる？`, kind: 'lookup' }];
+  if (found > 0) list.push({ label: LOOKUP_MORE_CHIP, send: t ? `『${t}』に近いことを、ほかのメモにも書いていたら教えて` : 'これに近いことを、ほかのメモにも書いていたら教えて', kind: 'lookup' });
+  return list;
+}
+
+export function nextStepChips({ replies = [], hasAction = false, booksWithMemos = 0, lastAsked = '', lookup = false, term = '', found = 0 } = {}) {
   const sent = String(lastAsked || '').trim();
+  if (lookup) return lookupChips({ term, found }).filter((c) => c.send !== sent);
   const reply = (Array.isArray(replies) ? replies : []).slice(0, ASK_REPLY_MAX).map((r) => ({ label: r, send: r, kind: 'reply' }));
   const decide = { label: DECIDE_CHIP, send: DECIDE_REQUEST, kind: 'decide' };
   // label＝チップに出す文・send＝送る文（「ほかの本では？」と出して「ほかの本ではどう言ってる？」を送る）。

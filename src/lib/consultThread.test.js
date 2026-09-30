@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { threadBlock, retrievalQuery, THREAD_MAX_TURNS, turnHint } from './ai';
 import {
   selectThreadTurns, isCompletedAnswer, followupChips, FOLLOWUP_OTHER_BOOKS,
-  parseAskSection, wantsAction, isBookLookup, lookupTerm, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, FOLLOWUP_OTHER_BOOKS_LABEL,
+  parseAskSection, wantsAction, isBookLookup, lookupTerm, selectThreadTurns, LOOKUP_APPLY_CHIP, LOOKUP_MORE_CHIP, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, FOLLOWUP_OTHER_BOOKS_LABEL,
 } from './consultHelpers';
 
 const ANSWER = [
@@ -305,5 +305,29 @@ describe('lookupTerm（本を探す問いの探している言葉）', () => {
     expect(lookupTerm('『断る』みたいなことを書いた本はどれ？')).toBe('断る');
     expect(lookupTerm('雑談から始めるって書いたのはどの本？')).toBe('雑談から始めるって');
     expect(lookupTerm('どの本？')).toBe('');
+  });
+});
+
+describe('本を探す問いの答えのあとのチップ', () => {
+  const Q = '『断る』みたいなことを書いた本はどれ？';
+  it('行動・深掘り・ほかの本では を出さず、「いまにどう活かす？」「ほかにも書いてた？」', () => {
+    const c = nextStepChips({ lookup: true, term: '断る', found: 2, booksWithMemos: 5, lastAsked: Q });
+    expect(c.map((x) => x.label)).toEqual([LOOKUP_APPLY_CHIP, LOOKUP_MORE_CHIP]);
+    expect(c[0].send).toBe('『断る』について書いたメモを、いまの自分にどう活かせる？');
+    expect(c[1].send).toBe('『断る』に近いことを、ほかのメモにも書いていたら教えて');
+    expect(c.some((x) => x.kind === 'decide' || x.kind === 'followup')).toBe(false);
+  });
+  it('本が見つからなかったら「ほかにも書いてた？」は出さない', () => {
+    expect(nextStepChips({ lookup: true, term: '断る', found: 0 }).map((x) => x.label)).toEqual([LOOKUP_APPLY_CHIP]);
+  });
+  it('チップで送る文は、本を探す問いに当たらない（続けて同じ形にならない）', () => {
+    nextStepChips({ lookup: true, term: '断る', found: 1 }).forEach((x) => expect(isBookLookup(x.send)).toBe(false));
+  });
+  it('本を探す問いの答えは続きの文脈に入れない（次の相談は最初の答えとして問い返す）', () => {
+    const msgs = [
+      { id: 'u1', role: 'user', content: Q },
+      { id: 'a1', role: 'assistant', content: '【結論】\n『エッセンシャル思考』に書いていました。\n\n【参照した本のメモ】\n- 『エッセンシャル思考』p.64' },
+    ];
+    expect(selectThreadTurns(msgs)).toEqual([]);
   });
 });
