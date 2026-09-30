@@ -5,6 +5,8 @@ import {
   pickShareSubject, subjectChoices, bookRecord, monthRecord, splitStatValue,
   orderQuoteCandidates, quoteText, swapQuote, swapQuoteLabel, availableVariants, defaultVariant,
   recordFrame, placeRecordBlock, statColumns, buildRecordShareText, recordBaseHeight, fmtMonthDay, fmtStamp, RECORD_QUOTE_MAX,
+  recordBlockPlan, recordTitleScale, shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
+  SHARE_ITEMS_STORAGE_KEY,
 } from './shareOverlay.js';
 
 const NOW = new Date(2026, 8, 30, 10, 0, 0); // 2026-09-30
@@ -62,15 +64,15 @@ describe('bookRecord（本 1 冊の数字）', () => {
     expect(r.title).toBe('イシューからはじめよ');
     expect(r.sub).toBe('安宅和人');
     expect(r.stats).toEqual([
-      { label: '読み終えた日', value: '9月28日' },
-      { label: 'メモ', value: '3件' },
-      { label: '実行した行動', value: '2件' },
+      { key: 'date', label: '読み終えた日', value: '9月28日' },
+      { key: 'memos', label: 'メモ', value: '3件' },
+      { key: 'actions', label: '実行した行動', value: '2件' },
     ]);
   });
   it('読書中: 読みはじめの日。0 の数字は出さない', () => {
     const r = bookRecord({ title: 'X', status: 'reading', startDate: '2026-09-21' }, [], NOW);
     expect(r.kicker).toBe('読書中');
-    expect(r.stats).toEqual([{ label: '読みはじめ', value: '9月21日' }]);
+    expect(r.stats).toEqual([{ key: 'date', label: '読みはじめ', value: '9月21日' }]);
   });
   it('去年の日付は年も入れる', () => {
     expect(fmtMonthDay('2025-12-31', NOW)).toBe('2025年12月31日');
@@ -90,9 +92,9 @@ describe('monthRecord（今月の数字）', () => {
     expect(r.title).toBe('9月の読書');
     expect(r.kicker).toBe('2026');
     expect(r.stats).toEqual([
-      { label: '読了', value: '3冊' },
-      { label: 'メモ', value: '1件' },
-      { label: '実行した行動', value: '1件' },
+      { key: 'books', label: '読了', value: '3冊' },
+      { key: 'memos', label: 'メモ', value: '1件' },
+      { key: 'actions', label: '実行した行動', value: '1件' },
     ]);
     // 読み終えた新しい順に 2 冊＋ほか
     expect(r.sub).toBe('『C』『B』 ほか 1 冊');
@@ -213,5 +215,115 @@ describe('共有の文', () => {
   });
   it('日付の刻印', () => {
     expect(fmtStamp(NOW)).toBe('2026.9.30');
+  });
+});
+
+describe('表示する項目（2026-10-01）', () => {
+  const book = { title: 'イシューからはじめよ', author: '安宅和人', status: 'reading', startDate: '2026-09-21', actions: [{ done: true }] };
+  const rec = bookRecord(book, [{ text: 'a' }], NOW);
+
+  it('選べる項目は中身のあるものだけ・画像の上から順（記録）', () => {
+    const items = shareItemsFor({ record: rec, variant: 'record', hasQuote: true });
+    expect(items.map((i) => i.key)).toEqual(['status', 'title', 'author', 'date', 'memos', 'actions', 'quote', 'stamp', 'logo']);
+    expect(items.find((i) => i.key === 'date').label).toBe('読みはじめ');
+    expect(items.find((i) => i.key === 'memos').label).toBe('メモの数');
+    // 著者の無い本・一文の無い本は、その項目を出さない
+    const bare = bookRecord({ title: 'X', status: 'reading' }, [], NOW);
+    expect(shareItemsFor({ record: bare, variant: 'record', hasQuote: false }).map((i) => i.key)).toEqual(['status', 'title', 'stamp', 'logo']);
+  });
+  it('今月の記録は名前が変わる（年・「9月の読書」・読了の冊数）', () => {
+    const m = monthRecord([{ id: 'a', title: 'A', status: 'done', doneDate: '2026-09-03' }], [], NOW);
+    const items = shareItemsFor({ record: m, variant: 'record' });
+    expect(items.map((i) => i.label)).toEqual(['年', '「9月の読書」', '読み終えた本', '読了の冊数', '今日の日付', 'Orime のロゴ']);
+  });
+  it('一文の見せ方は書名・著者・ロゴだけ（一文は主役なので隠せない）', () => {
+    expect(shareItemsFor({ variant: 'quote', hasAuthor: true }).map((i) => i.key)).toEqual(['title', 'author', 'logo']);
+    expect(shareItemsFor({ variant: 'quote', hasAuthor: false }).map((i) => i.key)).toEqual(['title', 'logo']);
+  });
+  it('隠した項目は記録から外れる（数字は項目ごと）', () => {
+    const r = applyShareItems(rec, ['status', 'author', 'date']);
+    expect(r.kicker).toBe('');
+    expect(r.sub).toBe('');
+    expect(r.title).toBe('イシューからはじめよ');
+    expect(r.stats.map((s) => s.key)).toEqual(['memos', 'actions']);
+    expect(shareVisibility(['logo', 'stamp'])).toEqual({ title: true, author: true, quote: true, stamp: false, logo: false });
+    // 書名を隠したら共有の文にも入れない
+    expect(buildRecordShareText({ record: applyShareItems(rec, ['title']) })).toBe('#Orime');
+  });
+  it('前の選択を覚える（壊れた値・知らない名前・読めない保存先でも落ちない）', () => {
+    const mem = new Map();
+    const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v) };
+    expect(readHiddenItems(storage)).toEqual([]);
+    expect(writeHiddenItems(storage, ['author', 'nope', 'date'])).toBe(true);
+    expect(readHiddenItems(storage)).toEqual(['author', 'date']);
+    mem.set(SHARE_ITEMS_STORAGE_KEY, '{broken');
+    expect(readHiddenItems(storage)).toEqual([]);
+    const throwing = { getItem: () => { throw new Error('private'); }, setItem: () => { throw new Error('quota'); } };
+    expect(readHiddenItems(throwing)).toEqual([]);
+    expect(writeHiddenItems(throwing, ['logo'])).toBe(false);
+    expect(readHiddenItems(null)).toEqual([]);
+  });
+});
+
+describe('隠した項目に合わせた組み（高さ・安全な枠）', () => {
+  const kinds = (p) => p.elements.map((e) => e.kind);
+
+  it('全部あるとき: 一文 → 見出し → 書名 → 著者 → 線 → 数字', () => {
+    const f = recordFrame('story');
+    const p = recordBlockPlan(f, { hasKicker: true, titleLines: 2, hasSub: true, statsCount: 3, quoteLines: 2, quoteLineHeight: 80 });
+    expect(kinds(p)).toEqual(['quote', 'kicker', 'title', 'sub', 'rule', 'stats']);
+    // 要素は重ならず、上から順に並ぶ
+    p.elements.reduce((prevBottom, e) => { expect(e.top).toBeGreaterThanOrEqual(prevBottom); return e.top + e.height; }, 0);
+    const last = p.elements[p.elements.length - 1];
+    expect(p.height).toBe(last.top + last.height);
+  });
+  it('一文を除いた高さは、これまでの数え方と同じ', () => {
+    const f = recordFrame('post');
+    const kickerH = Math.round(f.kickerSize * 1.35) + 10;
+    const titleH = 2 * Math.round(f.titleSize * 1.3);
+    const subH = 6 + Math.round(f.subSize * 1.45);
+    const statsH = Math.round(f.statLabelSize * 1.1) * 2 + Math.round(f.statLabelSize * 1.3) + 10 + f.statValueSize;
+    expect(recordBaseHeight(f, { titleLines: 2, hasKicker: true, hasSub: true, statsCount: 3 })).toBe(kickerH + titleH + subH + statsH);
+  });
+  it('書名だけ: 書名が主役（1.25 倍・3 行まで）で、隠した項目の場所は残らない', () => {
+    for (const fmt of ['post', 'story']) {
+      const f = recordFrame(fmt);
+      const p = recordBlockPlan(f, { titleLines: 1 });
+      expect(kinds(p)).toEqual(['title']);
+      expect(p.titleScale).toBe(recordTitleScale({ statsCount: 0 }));
+      expect(p.titleScale).toBeGreaterThan(1);
+      expect(p.height).toBe(Math.round(f.titleSize * 1.25 * 1.3));
+      expect(recordBlockPlan(f, { titleLines: 5 }).height).toBe(3 * p.titleLH);
+      // ロゴと日付を隠したら、ロゴの場所まで下ろす。どちらでも安全な枠の中。
+      for (const hasFooter of [true, false]) {
+        const at = placeRecordBlock(f, recordBlockPlan(f, { titleLines: 3 }).height, { hasFooter });
+        expect(at.fits).toBe(true);
+        expect(at.top).toBeGreaterThanOrEqual(f.safeTop);
+        expect(at.bottom).toBeLessThanOrEqual(f.safeBottom);
+      }
+      expect(placeRecordBlock(f, 100, { hasFooter: false }).bottom).toBeGreaterThan(placeRecordBlock(f, 100).bottom);
+    }
+  });
+  it('数字だけなら線を引かない・見出しだけなら後ろの間を足さない', () => {
+    const f = recordFrame('story');
+    const onlyStats = recordBlockPlan(f, { statsCount: 2 });
+    expect(kinds(onlyStats)).toEqual(['stats']);
+    expect(onlyStats.elements[0].top).toBe(0);
+    const onlyKicker = recordBlockPlan(f, { hasKicker: true });
+    expect(onlyKicker.height).toBe(Math.round(f.kickerSize * 1.35));
+    expect(recordBlockPlan(f, {}).height).toBe(0);
+  });
+  it('どの組み合わせでも（一文なしで）安全な枠に入る', () => {
+    for (const fmt of ['post', 'story']) {
+      const f = recordFrame(fmt);
+      for (let mask = 0; mask < 16; mask += 1) {
+        const opt = { hasKicker: !!(mask & 1), titleLines: mask & 2 ? 3 : 0, hasSub: !!(mask & 4), statsCount: mask & 8 ? 3 : 0 };
+        for (const hasFooter of [true, false]) {
+          const at = placeRecordBlock(f, recordBlockPlan(f, opt).height, { hasFooter });
+          expect(at.fits, `${fmt} ${JSON.stringify(opt)} footer=${hasFooter}`).toBe(true);
+          expect(at.bottom).toBeLessThanOrEqual(f.safeBottom);
+        }
+      }
+    }
   });
 });
