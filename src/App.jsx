@@ -870,6 +870,14 @@ function AuthedApp() {
   // 本ごとの「ステータスを元に戻す」トーストの id。同じ本のステータスがまた変わった・本を消したときに
   // 古いトーストを閉じる（古い「元に戻す」で別の段階へ巻き戻したり、消した本を保存しようとしてエラーになるのを防ぐ）。
   const statusUndoToastRef = useRef(new Map());
+  // 「積読に積んで、読書計画シートを作っています」の知らせ（{ bookId, id }）。シートを保存したら下げる（2026-09-30）。
+  const planProgressToastRef = useRef(null);
+  const dismissPlanProgress = (bookId) => {
+    const cur = planProgressToastRef.current;
+    if (!cur || cur.bookId !== bookId) return;
+    planProgressToastRef.current = null;
+    toast.dismiss(cur.id, { skipExpire: true });
+  };
   const dismissStatusUndo = (bookId) => {
     const id = statusUndoToastRef.current.get(bookId);
     if (id) toast.dismiss(id);
@@ -2580,7 +2588,10 @@ function AuthedApp() {
     } else if (opts.message) {
       // 状態の変更はついで（読書計画シートを作るために積読に積んだ等）。「元に戻す」は出さず、何をしているかだけ。
       dismissStatusUndo(book.id);
-      toast.show({ type: 'info', message: opts.message });
+      const id = toast.show({ type: 'info', message: opts.message });
+      // 「…読書計画シートを作っています」は、シートを保存した（または作れなかった）ときに下げる
+      // （保存の ✓ と「作っています」が同時に出ていた・2026-09-30）。
+      if (opts.progress) planProgressToastRef.current = { bookId: book.id, id };
     } else {
       dismissStatusUndo(book.id);
       statusUndoToastRef.current.set(book.id, toast.undo({
@@ -2705,8 +2716,10 @@ function AuthedApp() {
           if (b && b.id === bookId) editBaselineRef.current = JSON.stringify({ ...b, ...patch });
         }
       } catch { /* 基準が読めなければそのまま */ }
+      dismissPlanProgress(bookId);
       toast.success(message);
     }).catch((error) => {
+      dismissPlanProgress(bookId);
       toast.error(toMessage(error, '読書計画シートを保存できませんでした。下の「保存」でもう一度お試しください。'));
     });
   };
@@ -2786,6 +2799,7 @@ function AuthedApp() {
       setJustMadePlanId(bookId);
       persistPlanSheet(bookId, sheet, '読書計画シートを保存しました', fields);
     } catch (error) {
+      dismissPlanProgress(bookId);
       if (error?.monthlyLimit) toast.info(error.message);
       else if (!error?.paywall) toast.error(toMessage(error, '読書計画シートを作れませんでした。'));
     } finally {
@@ -4106,6 +4120,7 @@ function AuthedApp() {
                           message: hasPurpose
                             ? '積読に積んで、読書計画シートを作っています'
                             : '積読に積みました。得たいことを書くと、読書計画シートを作れます',
+                          progress: hasPurpose,
                         });
                         runStrategyInPlace({ ...book, status: 'before' });
                       }}
