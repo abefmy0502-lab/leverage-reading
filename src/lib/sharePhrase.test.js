@@ -94,6 +94,12 @@ describe('大きさ・改行・箱', () => {
     const w = lay.lines.map((l) => Array.from(l).length);
     expect(Math.min(...w) / Math.max(...w)).toBeGreaterThan(0.6);
   });
+  it('読点の後ろで改行できるなら、そこで改行する', () => {
+    const lay = phraseLayout({ text: '問いの質が、答えの質を決める。', style: 'bold', scale: 1.2 }, { ...FORMATS.post, format: 'post', measureAt });
+    expect(lay.lines).toEqual(['問いの質が、', '答えの質を決める。']);
+    const m = phraseLayout({ text: '問いの質が、答えの質を決める。', style: 'mincho', scale: 1.4 }, { ...FORMATS.post, format: 'post', measureAt });
+    expect(m.lines).toEqual(['「問いの質が、', '答えの質を決める。」']);
+  });
   it('帯は文字の周りに余白、明朝の引用は傍線のぶん下に余白', () => {
     const band = phraseLayout({ text: '読む', style: 'band' }, { ...FORMATS.post, format: 'post', measureAt });
     expect(band.padX).toBeGreaterThan(0);

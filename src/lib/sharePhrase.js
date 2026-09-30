@@ -89,6 +89,21 @@ export function balanceLines(text, maxWidth, measure) {
     const lines = wrapBalanced(text, mid, measure);
     if (lines.length <= base.length && lines.every((l) => measure(l) <= mid + 0.5)) { best = lines; hi = mid; } else { lo = mid; }
   }
+  // 読点・句点の後ろで改行できるなら、そちらを選ぶ（「答えの／質を決める。」より「問いの質が、／答えの質を決める。」）。
+  // 同じ行数で、いちばん長い行がそろえた幅の 1.2 倍までに収まるときだけ。
+  if (!text.includes('\n')) {
+    const clauses = text.match(/[^、。！？!?]+[、。！？!?」』）)]*|[、。！？!?」』）)]+/gu) || [];
+    if (clauses.length > 1) {
+      const limit = Math.min(maxWidth, Math.max(...best.map((l) => measure(l))) * 1.2);
+      const lines = [];
+      let cur = '';
+      for (const c of clauses) {
+        if (cur && measure(cur + c) > limit) { lines.push(cur); cur = c; } else { cur += c; }
+      }
+      if (cur) lines.push(cur);
+      if (lines.length === best.length && lines.every((l) => measure(l) <= limit + 0.5)) return lines;
+    }
+  }
   return best;
 }
 
