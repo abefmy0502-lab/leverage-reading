@@ -1503,7 +1503,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const headCountPending = scopeIds.length > 0 ? scopeCountPending : (!!user && isSupabaseConfigured && !memoStatsLoaded);
   // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
   // 数え終わるまでは出しておく（メモのある大多数の人で、読み込み後にチップが増えて跳ねないように）。
-  const modeApplies = scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0 || memoStatsFailed);
+  // メモが答える相談（無料のトークンを使い切った）では答え方は効かないので出さない（2026-10-01 ui-critic）。
+  const modeApplies = !freeUsedUp && scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0 || memoStatsFailed);
   // 🌱 相談相手が育ってきました（lib/trialNudge.js・2026-09-28）: 無料プランで自分のメモが 10 件たまったら、
   //    会話の場所のいちばん上に 1 回だけ、7 日間無料（使えないと分かれば「プランを見る」）をすすめる。
   //    閉じる・押すで二度と出さない。お試しモードでは ?demo=freegrown のときだけ出す（ほかの撮影を変えない）。
