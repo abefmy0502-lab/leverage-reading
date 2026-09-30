@@ -647,32 +647,34 @@ export default function ShareSheet({
               />
             </div>
           )}
-          {/* 別の一文（1 タップで次のメモへ・記録では外すこともできる）と「編集」（大きな画像で直す） */}
-          {status !== 'error' && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-              {swapLabel && (
-                // 画像を作っている間は押せない（違う一文の画像のまま共有しない）。薄くせず色だけ変える（DESIGN §5 押せないボタン）。
-                <button
-                  type="button"
-                  disabled={status !== 'ready'}
-                  onClick={() => { setQuoteIndex(swapQuote(qi, candidates.length, variant === 'record')); haptic.light(); }}
-                  style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
-                >
-                  <Shuffle size={18} aria-hidden="true" />
-                  {swapLabel}
-                </button>
-              )}
+          {/* 別の一文（1 タップで次のメモへ・記録では外すこともできる）と「編集」（大きな画像で直す）。
+              描けなかった間も場所は残して見えなくする（描き直せたときに下の部品が上下に動かない・見えない間は押せず読み上げない）。 */}
+          <div
+            aria-hidden={status === 'error' || undefined}
+            style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-4)', flexWrap: 'wrap', visibility: status === 'error' ? 'hidden' : 'visible' }}
+          >
+            {swapLabel && (
+              // 画像を作っている間は押せない（違う一文の画像のまま共有しない）。薄くせず色だけ変える（DESIGN §5 押せないボタン）。
               <button
                 type="button"
                 disabled={status !== 'ready'}
-                onClick={openEditor}
+                onClick={() => { setQuoteIndex(swapQuote(qi, candidates.length, variant === 'record')); haptic.light(); }}
                 style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
               >
-                <SlidersHorizontal size={18} aria-hidden="true" />
-                編集
+                <Shuffle size={18} aria-hidden="true" />
+                {swapLabel}
               </button>
-            </div>
-          )}
+            )}
+            <button
+              type="button"
+              disabled={status !== 'ready'}
+              onClick={openEditor}
+              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
+            >
+              <SlidersHorizontal size={18} aria-hidden="true" />
+              編集
+            </button>
+          </div>
         </div>
 
         {/* 見せ方（記録／一文の見本）と形（投稿 4:5／ストーリー 9:16） */}
