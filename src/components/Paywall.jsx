@@ -250,13 +250,20 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     let alive = true;
     (async () => {
       try {
-        const { data } = await supabase
-          .from('books')
-          .select('id, title, author, cover')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .limit(4);
-        if (alive) setMyBooks(data || []);
+        // 並べるのはメモのある本だけ（カード式のメモか「この本のまとめ」がある本・2026-09-30）。
+        //   「育ってきた相談相手」の中身＝メモを書いた本。読みたいだけの本の表紙は並べない。
+        const [{ data: memoRows }, { data: bookRows }] = await Promise.all([
+          supabase.from('book_memos').select('book_id').eq('user_id', user.id)
+            .order('created_at', { ascending: false }).limit(500),
+          supabase.from('books').select('id, title, author, cover, leverage_memo').eq('user_id', user.id)
+            .order('updated_at', { ascending: false }).limit(200),
+        ]);
+        const withMemo = new Set((memoRows || []).map((r) => r.book_id).filter(Boolean));
+        const picked = (bookRows || [])
+          .filter((b) => withMemo.has(b.id) || String(b.leverage_memo || '').trim())
+          .slice(0, 4)
+          .map(({ leverage_memo: _lm, ...b }) => b);
+        if (alive) setMyBooks(picked);
       } catch { /* 表紙が無くても画面は出す */ }
     })();
     return () => { alive = false; };
