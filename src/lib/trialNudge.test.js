@@ -64,7 +64,7 @@ describe('trialNudgeCopy', () => {
     const c = trialNudgeCopy({ memoCount: 12, offer: '7 日間無料' });
     expect(c.kind).toBe('trial');
     expect(c.title).toBe('相談相手が育ってきました');
-    expect(c.body).toBe('メモがたまってきました。7 日間無料で、AI 選書・テーマまとめなど、すべての AI を試せます。');
+    expect(c.body).toBe('メモがたまってきました。7 日間無料で、AI 選書・読書計画シートなど、すべての AI を試せます。');
     // 件数は入れない（相談の上部の「メモ・学びなど N 件」と食い違わないように）
     expect(c.body).not.toMatch(/件/);
     expect(c.cta).toBe('7 日間無料で試す');
@@ -74,7 +74,7 @@ describe('trialNudgeCopy', () => {
     const c = trialNudgeCopy({ memoCount: 10, offer: '' });
     expect(c.kind).toBe('plan');
     expect(c.body).not.toMatch(/無料/);
-    expect(c.body).toBe('メモがたまってきました。AI 選書・テーマまとめなど、すべての AI を使えるプランがあります。');
+    expect(c.body).toBe('メモがたまってきました。AI 選書・読書計画シートなど、すべての AI を使えるプランがあります。');
     expect(c.cta).toBe('プランを見る');
   });
 });

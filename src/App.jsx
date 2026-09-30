@@ -59,7 +59,7 @@ function ShelfChip({ active, onClick, children, ariaLabel }) {
     </button>
   );
 }
-// 無料プランの人に見せる、相談のサブタブ（AI 選書・テーマまとめ）の「プラン」の小さな文字（12/400/--text-3・面なし）。
+// 無料プランの人に見せる、相談のサブタブ（AI 選書）の「プラン」の小さな文字（12/400/--text-3・面なし）。
 // タブの名前より目立たせない（太さ 400・付随情報の色）。選んでいるタブ（--accent-soft の面）の上では
 // --text-3 が 4.5:1 に届かないので --text-2。
 const planTabLabel = (active) => ({ display: 'block', fontSize: 'var(--text-caption)', fontWeight: 400, color: active ? 'var(--text-2)' : 'var(--text-3)', lineHeight: 1.2 });
@@ -81,7 +81,6 @@ const bookshelfIconBtn = {
 const HelpModal = lazy(() => import('./components/HelpModal'));
 const Review = lazy(() => import('./components/Review'));
 const MyBookBrain = lazy(() => import('./components/MyBookBrain'));
-const ThemeReport = lazy(() => import('./components/ThemeReport'));
 import { useAdvisorSessions } from './hooks/useAdvisorSessions';
 const ActionEditModal = lazy(() => import('./components/ActionEditModal'));
 // 📊 記録サブタブ（読了/メモ/行動の累計・月別推移・成果/定着のつながり・タグ分布）。
@@ -625,7 +624,8 @@ function AuthedApp() {
   // 相談タブ（aiSubTab）は 60 分以内の再起動なら直前のサブタブへ戻す（下）。
   const [reviewSubTab, setReviewSubTab] = useState('action');
   const [aiSubTab, setAiSubTab] = useState(() => (
-    ['advisor', 'brain', 'report'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
+    // テーマまとめ（'report'）は 2026-09-30 に廃止。前に開いていた人は相談から（下の一覧に無いので 'brain'）。
+    ['advisor', 'brain'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
   ));
   // 相談の中で押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）を開いている間は、
   // サブタブの行を隠す（押し込まれた画面は「‹ 相談」の 1 行だけ・切り替えを 2 段にしない）。
@@ -641,8 +641,6 @@ function AuthedApp() {
   const [memoSearchPreset, setMemoSearchPreset] = useState(null); // { query, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
   const [scopePreset, setScopePreset] = useState(null); // { bookIds, nonce } | null
-  // 📐→🧠 テーマまとめの「学びを書く」: 相談の「学びを書く」をテーマのタグ入りで開く（2026-09-29）。
-  const [learningPreset, setLearningPreset] = useState(null); // { tags, nonce } | null
   // 🏠 ホームタブ（tab キー 'books'）の中の画面: 'home'＝ホーム / 'library'＝すべての本（SPEC §1）。
   // お試しモードだけ ?shelf=library で「すべての本」から開ける（読み込み中・失敗の表示の確認用）。
   const [shelfMode, setShelfMode] = useState(() => (isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('shelf') === 'library' ? 'library' : 'home'));
@@ -1356,7 +1354,7 @@ function AuthedApp() {
       if (status === 'done') return 'bookDetailDone';
     }
     if (tab === 'review') return reviewSubTab === 'action' ? 'actionList' : 'review';
-    if (tab === 'ai') return aiSubTab === 'brain' ? 'myBookBrain' : aiSubTab === 'report' ? 'themeReport' : 'aiAdvisor';
+    if (tab === 'ai') return aiSubTab === 'brain' ? 'myBookBrain' : 'aiAdvisor';
     return 'bookList';
   };
 
@@ -3857,7 +3855,7 @@ function AuthedApp() {
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 20・間 0・見た目の左端 16・本文サイズ・--accent）。 */}
             <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
-              <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : aiSubTab === 'report' ? 'テーマまとめ' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
+              <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
               {/* 📷 写真で共有（読書中・読了・SPEC §2-1）: ホームと同じ文字つき（アイコンだけだと「写真から書き起こす」と
@@ -4159,7 +4157,7 @@ function AuthedApp() {
                     >
                       読書計画シートを作る（積読に積みます）
                     </button>
-                    {/* 1 回の目安と残り（AI 選書・テーマまとめと同じ言い方・無料プランはプランの機能なので出さない）。
+                    {/* 1 回の目安と残り（AI 選書と同じ言い方・無料プランはプランの機能なので出さない）。
                         上の「読書計画シートを作る」の補足なので、ボタンにくっつける（間 0）。次のボタンとは 12 離す（2026-09-30）。 */}
                     {!paywallFree && (() => {
                       const line = runCostLine({ plan: paywallPlan, remaining: paywallTokens, purchased: paywallPurchased, cost: TOKEN_COSTS.setupSheet });
@@ -5189,17 +5187,6 @@ function AuthedApp() {
                 {/* 無料プランの人に、書き始める前から「プランの機能」と分かるように（色の面は付けない・2026-09-29）。 */}
                 {paywallPlan === 'free' && <span aria-hidden="true" style={planTabLabel(aiSubTab === 'advisor')}>プラン</span>}
               </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={aiSubTab === 'report'}
-                aria-label={paywallPlan === 'free' ? 'テーマまとめ（プランの機能）' : undefined}
-                className={`sub-tab ${aiSubTab === 'report' ? 'active' : ''}`}
-                onClick={() => setAiSubTab('report')}
-              >
-                テーマまとめ
-                {paywallPlan === 'free' && <span aria-hidden="true" style={planTabLabel(aiSubTab === 'report')}>プラン</span>}
-              </button>
             </div>
             )}
             {/* 独自名のサブタブを初対面でも分かるよう、役割を動詞で先頭に置いて注釈する。
@@ -5218,15 +5205,6 @@ function AuthedApp() {
                     onOpenBook={(b) => openDetail(b)}
                   />
                 </Suspense>
-              ) : aiSubTab === 'report' ? (
-                <Suspense fallback={<TabPanelSkeleton />}>
-                  <ThemeReport
-                    onActionAdded={() => { try { refreshBooks(); } catch { /* ignore */ } }}
-                    onOpenActions={() => { setReviewSubTab('action'); setTab('review'); }}
-                    onGoBookshelf={() => { setView('list'); setTab('books'); }}
-                    onWriteLearning={(theme) => { setLearningPreset({ tags: theme ? [theme] : [], nonce: Date.now() }); setAiSubTab('brain'); }}
-                  />
-                </Suspense>
               ) : (
                 <Suspense fallback={<TabPanelSkeleton />}>
                   <MyBookBrain
@@ -5243,7 +5221,6 @@ function AuthedApp() {
                     onOpenActions={(focus) => { setActionFocus(focus && focus.bookId ? { ...focus, nonce: Date.now() } : null); setReviewSubTab('action'); setTab('review'); }}
                     askPreset={askPreset}
                     scopePreset={scopePreset}
-                    learningPreset={learningPreset}
                     onSearchMemos={openMemoSearch}
                     onPushedViewChange={setConsultPushed}
                   />
@@ -6124,7 +6101,7 @@ function PaywallGate() {
     if (loading || !adminChecked) return;
     refreshTokens();
   }, [loading, adminChecked, refreshTokens]);
-  // どの機能で AI を使っても（相談・写真の書き起こし・テーマまとめ…）残りを取り直す。
+  // どの機能で AI を使っても（相談・写真の書き起こし・AI 選書…）残りを取り直す。
   useEffect(() => {
     const onUsed = () => { refreshTokens(); };
     window.addEventListener(AI_USED_EVENT, onUsed);

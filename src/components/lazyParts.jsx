@@ -57,7 +57,7 @@ export function OverlayFallback({ solid = false }) {
   );
 }
 
-// タブの中身（振り返りの行動・記録／相談・AI 選書・テーマまとめ）を読み込んでいる間の形（2026-09-29）。
+// タブの中身（振り返りの行動・記録／相談・AI 選書）を読み込んでいる間の形（2026-09-29）。
 // スピナーだけの画面にしない（DESIGN §5「空・エラー・読み込み」）: 見出しの行＋カード 3 枚（枠 --separator）。
 export function TabPanelSkeleton() {
   return (

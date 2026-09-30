@@ -2,7 +2,7 @@
 //
 // 目的はひとつ: App Store からダウンロードしてもらうこと（主 CTA は全部同じ行動）。
 // 流れ: ヒーロー（一番の価値＝相談の答えの実画面）→ 課題 → 使い方 3 ステップ
-// （残す→相談する→行動にする）→ メモを育てる仕組み（思い出しカード・テーマまとめ）
+// （残す→相談する→行動にする）→ メモを育てる仕組み（思い出しカード）
 // → 読む前と読み終えた本にも → 記録アプリとの違い → 料金（年額をおすすめ）→ FAQ → 最終 CTA。
 //
 // 見た目はアプリと同じトークン（src/styles/tokens.css）で書く。色はニュートラル＋
@@ -163,7 +163,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '料金はいくらですか？',
-    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談だけ、毎月 ${FREE_TOKENS} トークン（相談 約 3 回）です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・テーマまとめ・読書計画シート・写真からの書き起こしも使えます。${TRIAL_NOTE ? `プランは${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
+    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談だけ、毎月 ${FREE_TOKENS} トークン（相談 約 3 回）です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・読書計画シート・写真からの書き起こしも使えます。${TRIAL_NOTE ? `プランは${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
   },
   ...(TRIAL_NOTE ? [{
     q: '無料期間のあとは、自動で料金がかかりますか？',
@@ -525,11 +525,6 @@ export default function Landing() {
                 <p>忘れかけた頃のメモが、1 枚ずつ戻ってきます。「覚えた」を押すと次は間隔を空け、「まだ覚えていない」なら翌日にまた出ます。思い出しの通知は多くても週に 1 回で、オフにもできます。</p>
                 <div className="lp-reveal"><Shot name="recall" alt="思い出しカードの画面。5 か月前に『イシューからはじめよ』p.88 に残したメモが表示され、「覚えた」「まだ覚えていない」を選べる" /></div>
               </article>
-              <article className="lp-grow-item">
-                <h3 className="lp-h3">テーマまとめ</h3>
-                <p>「マネジメント」などのテーマを選ぶと、何冊ものメモを「核心」「繰り返す原則」「次の一歩」にまとめます。次の一歩は、そのまま行動リストに入れられます。</p>
-                <div className="lp-reveal"><Shot name="theme" alt="テーマまとめの画面。マネジメントについて本 3 冊のメモから、核心の一文、繰り返す原則 3 つ、次の一歩がまとめられている" /></div>
-              </article>
             </div>
           </div>
         </section>
@@ -644,7 +639,7 @@ export default function Landing() {
                 <ul className="lp-included" aria-label="プランに含まれるもの">
                   {/* li は flex（印と文を横に並べる）なので、文は 1 つの span に包む（文の途中で別の塊に割れないように） */}
                   <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>相談が毎月 <span style={{ whiteSpace: 'nowrap' }}>{PAID_TOKENS} トークン（約 80 回）</span>。{TRIAL_NOTE && <>無料期間中は <span style={{ whiteSpace: 'nowrap' }}>{TRIAL_TOKENS} トークン</span><span style={{ whiteSpace: 'nowrap' }}>（相談 約 {TRIAL_CONSULTS} 回）</span>。</>}足りない月は追加もできます</span></li>
-                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>AI 選書・テーマまとめ・読書計画シート・写真からの書き起こし</span></li>
+                  <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>AI 選書・読書計画シート・写真からの書き起こし</span></li>
                 </ul>
                 <div className="lp-plan-rows">
                   <div className="lp-plan-row">

@@ -59,7 +59,6 @@ const SCREENS = [
   { name: 'advisor', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }] },
   { name: 'consult-learning', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("学びを書く")' }] },
   { name: 'consult-knowledge', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("根拠にできる情報")' }] },
-  { name: 'report', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }] },
   { name: 'review', url: '/', steps: [{ css: nav('振り返り') }] },
   { name: 'review-action', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("行動")' }] },
   { name: 'review-action-bottom', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("行動")' }, { scrollBottom: true }] },
@@ -75,8 +74,6 @@ const SCREENS = [
   { name: 'paywall-bottom', url: '/?demo=paywall&native=1', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }, { scrollBottom: true }] },
   { name: 'webgate', url: '/?demo=webgate' },
   // 2026-09-27 追加: 生成後・状態別・編集・取り込み
-  { name: 'report-result', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { css: 'button:text-is("まとめる")' }, { wait: 5000 }] },
-  { name: 'report-result-bottom', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { css: 'button:text-is("まとめる")' }, { wait: 5000 }, { scrollBottom: true }] },
   { name: 'advisor-interview', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
   { name: 'advisor-reco', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 7000 }] },
   { name: 'advisor-reco-bottom', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 7000 }, { scrollBottom: true }] },
@@ -91,7 +88,10 @@ const SCREENS = [
   { name: 'home-nomemo', url: '/?demo=nomemo' },
   { name: 'home-loading', url: '/?load=slow' },
   { name: 'home-focus', url: '/', steps: [{ css: 'textarea[aria-label="相談したいこと"]' }] },
-  { name: 'library-noresult', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label="本を検索（書名・著者・タグ）"]', 'zzzz'] }] },
+  { name: 'library-noresult', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'zzzz'] }, { wait: 800 }] },
+  // メモの言葉で本を探す（「こんなことを書いたの、なんの本だったかな？」・2026-09-30）
+  { name: 'library-memo-search', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '断る'] }, { wait: 800 }] },
+  { name: 'library-memo-search-multi', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'チーム'] }, { wait: 800 }] },
   { name: 'add-book-notfound', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', 'zzzzqqqqxxxx'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
   { name: 'onboarding-last', url: '/?demo=new', steps: [{ role: '次へ' }] },
   { name: 'quickstart-results', url: '/?demo=new', steps: [{ role: '次へ' }, { css: '[role=dialog] button:has-text("これまで読んだ本から始める")' }, { fill: ['input[aria-label="書名や著者名で探す"]', 'ファクト'] }, { css: '[role=dialog] button:has-text("検索")' }, { wait: 1500 }] },
@@ -166,9 +166,6 @@ const SCREENS = [
   { name: 'advisor-limit', url: '/?demo=limit', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }] },
   { name: 'advisor-added', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 7000 }, { css: 'button:has-text("読みたいに追加")' }, { waitFor: 'button:has-text("追加済み・開く")' }, { wait: 1500 }] },
   // トークンが 1 回分に足りない人: 「まとめる」は押せない形で、上限の案内カード＋「トークンを追加」が先に出る（テーマを選ぶだけ）
-  { name: 'report-limit', url: '/?demo=limit', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }] },
-  { name: 'report-added', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { css: 'button:text-is("まとめる")' }, { wait: 5000 }, { css: 'button:has-text("この一歩を行動に追加")' }, { wait: 1500 }] },
-  { name: 'report-more', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { css: 'button:text-is("まとめる")' }, { wait: 5000 }, { css: 'button[aria-label="その他の操作"]' }] },
   // ── 状態（3 回目の採点で追加）
   { name: 'home-error', url: '/?dbfail=books' },
   { name: 'home-write-memo-discard', url: '/', steps: [{ css: 'button[aria-label$="にメモを書く"]' }, { fill: ['textarea[aria-label="メモ本文"]', '書きかけのメモ'] }, { css: 'button:has-text("キャンセル")' }] },
@@ -201,15 +198,13 @@ const SCREENS = [
   { name: 'paywall-trial', url: '/?demo=paywall&native=1&trial=7日間無料', steps: [{ eval: "window.dispatchEvent(new CustomEvent('orime:paywall', { detail: { reason: null } }))" }] },
   { name: 'paywall-free-covers', url: '/?demo=freeused&native=1', steps: [{ css: nav('相談') }, { css: 'button:has-text("プランを見る")' }] },
   { name: 'webgate-confirmed', url: '/?demo=webgate', steps: [{ eval: "sessionStorage.setItem('orime-email-confirmed', 'true')" }, { reload: true }] },
-  { name: 'report-empty', url: '/?demo=nomemo', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }] },
-  { name: 'report-generating', url: '/?ai=slow', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { css: 'button:text-is("まとめる")' }, { wait: 1500 }] },
   // ── フリーミアム（2026-09-27）: 無料プラン・トークン・プランの機能
   { name: 'free-home', url: '/?demo=free' },
   { name: 'free-consult', url: '/?demo=free', steps: [{ css: nav('相談') }] },
   { name: 'free-consult-used', url: '/?demo=freeused', steps: [{ css: nav('相談') }] },
   { name: 'free-consult-answer', url: '/?demo=free', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }] },
   { name: 'free-feature-gate', url: '/?demo=free', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }] },
-  { name: 'paywall-feature', url: '/?demo=free&native=1', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { css: 'button:text-is("まとめる")' }] },
+  { name: 'paywall-feature', url: '/?demo=free&native=1', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }] },
   { name: 'free-new-home', url: '/?demo=freenew', steps: [{ css: 'button[aria-label="閉じる"]' }] },
   { name: 'trial-consult', url: '/?demo=trial', steps: [{ css: nav('相談') }] },
   // ── 7 日間無料をすすめる「ちょうどいいとき」（2026-09-28・lib/trialNudge.js）
@@ -224,9 +219,7 @@ const SCREENS = [
   { name: 'tokens-sheet', url: '/?demo=limit', steps: [{ css: nav('相談') }, { css: 'button:has-text("トークンを追加")' }] },
   { name: 'consult-tokens-extra', url: '/?demo=tokens', steps: [{ css: nav('相談') }] },
   { name: 'settings-tokens', url: '/?demo=tokens', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'section[aria-label="プラン・お支払い"]' }] },
-  { name: 'report-error', url: '/?ai=fail', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { css: 'button:text-is("まとめる")' }, { wait: 2500 }] },
   // 長さの上限で途中まで（&ai=cut・本文は残し、下に 1 行の案内）
-  { name: 'report-truncated', url: '/?ai=cut', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'button[aria-label^="テーマ「"]' }, { css: 'button:text-is("まとめる")' }, { wait: 5000 }, { scrollBottom: true }] },
   // ── 一文をシェア（2026-09-27・SPEC §2-1）
   { name: 'share-line', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1500 }] },
   { name: 'share-line-story', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 1200 }, { css: '[role=radio]:has-text("ストーリー")' }, { wait: 1500 }] },
@@ -273,7 +266,6 @@ const SCREENS = [
   { name: 'advisor-confirm', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }, { fill: ['textarea[aria-label="AI 選書への相談内容"]', '仕事が回らず、いつも時間が足りません'] }, { css: 'button[aria-label="本を探す"]' }, { wait: 3000 }, { css: 'button:has-text("時間が足りない")' }, { wait: 1200 }, { css: 'button:has-text("大事な仕事に集中できる")' }, { wait: 7000 }, { css: 'button:has-text("読みたいに追加") >> nth=1' }, { wait: 3000 }] },
   { name: 'review-recall-answered', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button:has-text("まだ覚えていない")' }, { wait: 500 }] },
   { name: 'review-filter-menu', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'input[placeholder="メモを検索"]' }, { css: 'button[aria-label^="種類で絞り込む"]' }] },
-  { name: 'report-picked', url: '/', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("テーマまとめ")' }, { css: 'section[aria-labelledby="theme-detected"] button' }] },
   { name: 'free-advisor-tab', url: '/?demo=free', steps: [{ css: nav('相談') }, { css: 'button[role=tab]:has-text("AI 選書")' }] },
   { name: 'settings-support', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'button:has-text("ヘルプ・使い方")' }] },
   { name: 'home-reading-add', url: '/', steps: [{ scrollTo: 'button:has-text("本を追加")' }] },

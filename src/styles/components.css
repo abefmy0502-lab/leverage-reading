@@ -1264,7 +1264,7 @@ body.keyboard-open .ai-input-area {
   transition: background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }
-/* 切り替えは文字だけ（iOS の切り替えと同じ・3 等分の列に「テーマまとめ」を余白つきで収める）。
+/* 切り替えは文字だけ（iOS の切り替えと同じ・等分の列に名前を余白つきで収める）。
    320px 幅（iPhone SE 初代など）では左右の余白と間隔を詰める。 */
 @media (max-width: 359px) {
   .sub-tabs { gap: var(--space-1); padding-left: var(--space-2); padding-right: var(--space-2); }

@@ -48,7 +48,6 @@ describe('1 回の目安（TOKEN_COSTS）は、ふつうの大きさの実際の
   const cases = [
     ['consult', H, { input_tokens: 11500, cache_read_input_tokens: 1800, output_tokens: 800 }],
     ['consultPerBook', H, { input_tokens: 12500, cache_read_input_tokens: 2200, output_tokens: 1300 }],
-    ['themeReport', H, { input_tokens: 7000, cache_read_input_tokens: 800, output_tokens: 600 }],
     ['setupSheet', H, { input_tokens: 3500, output_tokens: 1300 }],
     ['photoToText', H, { input_tokens: 2000, cache_read_input_tokens: 300, output_tokens: 350 }],
     ['cardsToSummary', H, { input_tokens: 2500, cache_read_input_tokens: 300, output_tokens: 500 }],
@@ -69,7 +68,7 @@ describe('1 回の目安（TOKEN_COSTS）は、ふつうの大きさの実際の
   });
 });
 
-describe('runCostLine（AI 選書・テーマまとめのボタンのそば）', () => {
+describe('runCostLine（AI 選書・読書計画シートのボタンのそば）', () => {
   it('1 回の目安と残りを 1 行で', async () => {
     const { runCostLine } = await import('./tokens.js');
     expect(runCostLine({ plan: 'paid', remaining: 742, cost: 25 })).toBe('1 回 約 25 トークン・今月の残り 742 トークン');

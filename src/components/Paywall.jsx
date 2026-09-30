@@ -108,7 +108,7 @@ const PLAN_COMPARE = [
   // 量の横に「相談なら何回か」を添える（トークンの数だけでは、どれだけ使えるか分からないため・2026-09-29）。
   { name: '無料プラン（ずっと無料）', amount: `毎月 ${FREE_TOKENS.toLocaleString()} トークン`, scope: `相談だけ・約 ${Math.round(FREE_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, text: 'メモ・記録・振り返り・シェア' },
   // 機能名は語の途中で折り返さない（「写真から書き起こし」が割れないよう、名前ごとに nowrap で並べる）。
-  { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, lead: 'すべての AI：', items: ['AI 選書', 'テーマまとめ', '読書計画シート', '写真から書き起こし'] },
+  { name: 'プラン', amount: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, scope: `相談なら 約 ${Math.round(PAID_TOKENS / TOKEN_COSTS.consult).toLocaleString()} 回`, lead: 'すべての AI：', items: ['AI 選書', '読書計画シート', '写真から書き起こし'] },
 ];
 // 7 日間無料で使えるトークン（期間まるごと・2026-09-29 オーナー裁定で下の固定の欄に出す）。
 // 折り返してよいのは「・」の後だけ（「150 トークン」「相談 約 15 回」は割らない・2026-09-30）。

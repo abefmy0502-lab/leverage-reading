@@ -24,7 +24,7 @@ export const EXPORT_TABLES = [
   // 「あなたのデータはいつでも書き出せる」の約束を守る: 退会時に削除される
   // データは全てエクスポート対象に含める。未適用 DB は per-table soft-fail が
   // skipped 扱いにするので互換。
-  'theme_reports',      // 📐 レバレッジメモ（テーマまとめ）履歴
+  'theme_reports',      // 📐 テーマまとめの履歴（機能は 2026-09-30 に廃止・過去のまとめは書き出しに残す）
   'advisor_sessions',   // 🕒 AI 選書の会話履歴
   'book_collections',   // 🗂 本棚フォルダの割当
 ];

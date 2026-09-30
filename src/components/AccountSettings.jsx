@@ -632,7 +632,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = await confirm({
       title: 'データを初期化しますか？',
       message:
-        '本・メモ・写真・行動・相談の履歴・タグ・テーマまとめなど、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
+        '本・メモ・写真・行動・相談の履歴・タグなど、あなたのデータをすべて消去して、まっさらな状態に戻します。\n\nアカウント（ログイン）は残ります。この操作は取り消せません。',
       confirmLabel: '初期化する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -703,7 +703,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     const ok = await confirm({
       title: '本当にすべて削除しますか？',
       message:
-        '本・メモ・写真・行動・相談の履歴・タグ・テーマまとめ・AI 選書の履歴など、すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
+        '本・メモ・写真・行動・相談の履歴・タグ・AI 選書の履歴など、すべてのデータが完全に削除されます。\n\nログイン情報の完全削除は管理者の最終確認後（通常 7 日以内）に実行されます。この操作は取り消せません。',
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       danger: true,
@@ -764,7 +764,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       await deleteOwn('book_memos');        // カード式メモ（個人メモ含む）
       await deleteOwn('book_tags');         // タグ（user_id 列あり）
       await deleteOwn('actions');           // 行動リスト
-      await deleteOwn('theme_reports');     // 📊 テーマレポート履歴
+      await deleteOwn('theme_reports');     // 📊 テーマまとめの履歴（機能は 2026-09-30 に廃止・過去の行は消す）
       await deleteOwn('advisor_sessions');  // 🕒 AI 選書の会話履歴
       await deleteOwn('push_subscriptions');// 🔔 想起プッシュ購読
       await deleteOwn('books');             // 親（残った子に CASCADE）

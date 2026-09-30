@@ -349,37 +349,6 @@ function perBookBrokenAnswer(block, decide = false) {
   ].join('\n');
 }
 
-// テーマまとめ（本番と同じ「核心 / 繰り返す原則 / 次の一歩」の形）を、渡されたメモから組み立てる。
-function themeAnswer(store, theme, memoBlock) {
-  const books = new Map(store.table('books').map((b) => [b.id, b]));
-  const short = (t) => {
-    const s = (t || '').split(/[。\n]/)[0].trim();
-    const open = (s.match(/「/g) || []).length;
-    const close = (s.match(/」/g) || []).length;
-    return close > open ? `「${s}` : s;
-  };
-  const picked = [];
-  const seen = new Set();
-  for (const m of store.table('book_memos')) {
-    const b = books.get(m.book_id);
-    if (!b || !(m.text || '').trim() || !memoBlock.includes(`本: ${b.title}`) || seen.has(b.id)) continue;
-    seen.add(b.id);
-    picked.push({ text: short(m.text), title: b.title });
-    if (picked.length === 3) break;
-  }
-  if (!picked.length) return `## 🧭 核心\n「${theme}」のメモがまだありません。\n\n## 🎯 次の一歩\n次に読む本で、「${theme}」について心が動いた一行を 1 つ残す。`;
-  return [
-    '## 🧭 核心',
-    `${picked[0].text}。`,
-    '',
-    '## 🔑 繰り返す原則',
-    ...picked.map((p, i) => `${i + 1}. ${p.text} — 『${p.title}』`),
-    '',
-    '## 🎯 次の一歩',
-    `次の打ち合わせで、「${picked[0].text}」を 1 回だけ試す。終わったら、相手の反応を一行メモに残す。`,
-  ].join('\n');
-}
-
 function aiReply(store, payload, aiMode = '') {
   const last = [...(payload.messages || [])].reverse().find((m) => m.role === 'user');
   const userText = textOf(last?.content);
@@ -395,11 +364,6 @@ function aiReply(store, payload, aiMode = '') {
       (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '',
     ].filter(Boolean).join('\n\n');
     return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide);
-  }
-  if (userText.includes('のテーマまとめを、次のフォーマットで作成')) {
-    const theme = (userText.match(/【テーマ】(.+)/) || [])[1] || '';
-    const block = (userText.match(/MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '';
-    return themeAnswer(store, theme.trim(), block);
   }
   const system = textOf(payload.system);
   // AI 選書: ヒアリング（1 周だけ質問を出し、2 周目で締める）と、おすすめ（本番と同じ JSON ブロック）

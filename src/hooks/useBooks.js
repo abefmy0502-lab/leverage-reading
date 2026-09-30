@@ -106,7 +106,7 @@ export function useBooks() {
   const fetchGenRef = useRef(0);
   // 🧷 行動の「この端末が知っている id」（本ごと）。読み込み・保存に成功した時点のものだけを入れる。
   //   保存のときは、この中で今回の一覧に無いものだけを消す（ほかの端末で足した行動や、
-  //   テーマまとめから直接足した行動を、知らないまま消さない・2026-09-27）。
+  //   以前テーマまとめ（2026-09-30 廃止）から直接足した行動なども、知らないまま消さない・2026-09-27）。
   const knownActionIdsRef = useRef(new Map());
   const rememberActionIds = (book) => {
     if (!book?.id) return;

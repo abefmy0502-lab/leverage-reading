@@ -26,7 +26,7 @@ async function flushPending(list) {
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 10;
 const MAX_TOKENS_DEFAULT = 4096;
-const MAX_TOKENS_HARD_CAP = 4096; // アプリの最大要求（テーマまとめ等）と同じ。改造クライアントでの出力青天井を防ぐ
+const MAX_TOKENS_HARD_CAP = 4096; // アプリの最大要求（AI 選書の 3000 など）より少し上。改造クライアントでの出力青天井を防ぐ
 
 // リクエスト body の上限バイト数。vision（写真→AI 書き起こし / 表紙）は
 // クライアントで長辺 1568px JPEG に縮小済み（src/lib/image.js）なので、正規利用
@@ -518,7 +518,7 @@ export const REFUND_HEADER = 'X-Orime-Token-Refund';
 export const REFUND_SSE_TYPE = 'orime_token_refund';
 
 // 原価を数えられない DB（supabase_ai_cost.sql 未適用）での、1 か月の回数の上限。
-// 相談 1 回 ≈ ¥3（Haiku 4.5・2026-09-27）、重い機能（テーマまとめ等）でも ¥5 前後なので、
+// 相談 1 回 ≈ ¥3（Haiku 4.5・2026-09-27）、重い機能（読書計画シート等）でも ¥5 前後なので、
 // 上限 ¥243 を超えにくい回数にしておく。
 const AI_FALLBACK_CALL_LIMIT = (() => {
   const raw = Number(process.env.AI_FALLBACK_CALL_LIMIT);

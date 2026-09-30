@@ -25,7 +25,7 @@ const startsWithBracket = (s) => /^[「『（]/.test(String(s).replace(/\*\*/g, 
 // App.jsx の getCurrentHelpKey が返すキー（画面から開けるもの）。
 const APP_KEYS = [
   'bookList', 'bookDetailWant', 'bookDetailBefore', 'bookDetailReading', 'bookDetailDone',
-  'memoEditor', 'actionList', 'review', 'myBookBrain', 'themeReport', 'aiAdvisor',
+  'memoEditor', 'actionList', 'review', 'myBookBrain', 'aiAdvisor',
 ];
 
 function checkTopic(t, where) {
@@ -48,6 +48,9 @@ describe('HELP_CONTENT', () => {
   it('画面から開くキーがすべてある', () => {
     for (const k of APP_KEYS) expect(getHelp(k), k).not.toBeNull();
     expect(getHelp('nope')).toBeNull();
+    // テーマまとめは 2026-09-30 に廃止（ほかの画面の一覧にも出さない）。
+    expect(getHelp('themeReport')).toBeNull();
+    expect(HELP_SCREEN_ORDER).not.toContain('themeReport');
   });
 
   for (const [key, e] of Object.entries(HELP_CONTENT)) {

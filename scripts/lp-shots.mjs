@@ -10,7 +10,7 @@
 //   2. npm run lp:shots                       → 全部
 //      npm run lp:shots -- answer recall      → 絞って撮る
 // 撮る画面: answer（相談の答え・ヒーロー）/ sources（根拠の本）/ memo（メモを書くシート）/
-//           action（行動）/ recall（思い出しカード）/ theme（テーマまとめ）
+//           action（行動）/ recall（思い出しカード）
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
@@ -73,12 +73,6 @@ const SHOTS = {
       await p.locator('button[aria-haspopup="menu"]').first().click(); await p.waitForTimeout(400);
       await p.locator('[role="menuitem"]:has-text("別のメモを見る"), button:has-text("別のメモを見る")').first().click(); await p.waitForTimeout(900);
     }
-  },
-  theme: async (p) => {
-    await p.locator(nav('相談')).click(); await p.waitForTimeout(800);
-    await p.locator('button[role=tab]:has-text("テーマまとめ")').click(); await p.waitForTimeout(800);
-    await p.locator('button[aria-label^="テーマ「マネジメント」"]').first().click();
-    await p.waitForTimeout(8000); await hideDemoNote(p);
   },
 };
 // メモのシートは下半分だけを切り出す（背後のぼかしたホームを見せない）。値は @2x の px。
