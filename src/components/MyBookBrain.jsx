@@ -115,6 +115,9 @@ const followupRow = { display: 'flex', alignItems: 'flex-start', gap: 'var(--spa
 const followupFade = 'linear-gradient(to right, var(--text) calc(100% - var(--space-6)), transparent)';
 const followupScroller = { display: 'flex', gap: 'var(--space-2)', flex: 1, minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' };
 const followupScrollerFaded = { ...followupScroller, maskImage: followupFade, WebkitMaskImage: followupFade };
+// 固定の「行動を決める」が無いときは、横に送る行を画面の端まで伸ばす（行の余白 16 で平らに切れて見えないように・
+// 端で切れたチップが続きの合図になる。送り終わりの右にも 16 の余白＝iOS の横スクロールと同じ・2026-09-30 ui-critic）。
+const followupScrollerToEdge = { ...followupScroller, marginRight: 'calc(-1 * var(--space-4))', paddingRight: 'var(--space-4)' };
 const followupChip = { flexShrink: 0, minHeight: 44, padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'nowrap' };
 const decideChip = { ...followupChip, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' };
 const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
@@ -1851,7 +1854,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {(followups.length > 0 || regenLabel) && (
             <div role="group" aria-label="続けて聞く" style={followupRow}>
               {(followups.some((c) => c.kind !== 'decide') || regenLabel) && (
-                <div className="followup-chips" style={followups.some((c) => c.kind === 'decide') ? followupScrollerFaded : followupScroller}>
+                <div className="followup-chips" style={followups.some((c) => c.kind === 'decide') ? followupScrollerFaded : followupScrollerToEdge}>
                   {followups.filter((c) => c.kind !== 'decide').map((c, i) => (
                     // 返事（候補）・深掘りの聞き方はそのまま送る。
                     <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
