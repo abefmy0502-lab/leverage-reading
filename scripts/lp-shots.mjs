@@ -10,7 +10,7 @@
 //   2. npm run lp:shots                       → 全部
 //      npm run lp:shots -- answer recall      → 絞って撮る
 // 撮る画面: answer（相談の答え・ヒーロー）/ sources（根拠の本）/ memo（メモを書くシート）/
-//           action（行動）/ recall（思い出しカード）
+//           action（行動）/ recall（思い出しカード）/ search（メモの言葉で本を探す）
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
@@ -73,6 +73,13 @@ const SHOTS = {
       await p.locator('button[aria-haspopup="menu"]').first().click(); await p.waitForTimeout(400);
       await p.locator('[role="menuitem"]:has-text("別のメモを見る"), button:has-text("別のメモを見る")').first().click(); await p.waitForTimeout(900);
     }
+  },
+  // メモの言葉で本を探す（すべての本の検索・2026-09-30）
+  search: async (p) => {
+    await p.locator('button:has-text("すべての本")').first().click(); await p.waitForTimeout(800);
+    await p.locator('button[aria-label="本を検索"]').click(); await p.waitForTimeout(300);
+    await p.locator('input[aria-label^="本を検索（"]').fill('チーム'); await p.waitForTimeout(1200);
+    await p.locator('input[aria-label^="本を検索（"]').blur();
   },
 };
 // メモのシートは下半分だけを切り出す（背後のぼかしたホームを見せない）。値は @2x の px。

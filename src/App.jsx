@@ -181,6 +181,10 @@ import {
   Tag as IcTag,
 } from 'lucide-react';
 import { useBookMemos } from './hooks/useBookMemos';
+// 🔎 すべての本の検索（書名・著者・タグ＋メモの言葉・2026-09-30）
+import { useLibrarySearch } from './hooks/useLibrarySearch';
+import { LibrarySearchResults, ConsultSearchLink } from './components/LibrarySearchHit';
+import { consultQuestionFor } from './lib/librarySearch';
 // 重い画面の切り替え（すべての本を開く）は後回しにできる更新にして、押した形を先に描く（lib/pressFeedback.js と組）。
 import { startTransition } from 'react';
 
@@ -707,6 +711,11 @@ function AuthedApp() {
   // 下のタブで選択中に見せるタブ。記録から開いた「すべての本」（と、そこから開いた本）は振り返りの中の
   // 寄り道なので、ホームではなく振り返りを選択中にする（戻る先の「‹ 記録」と合わせる・2026-09-29）。
   const navTab = tab === 'books' && libraryFrom === 'record' ? 'review' : tab;
+  // 🔎 すべての本の検索から「相談で探す」: 相談を開いて入力欄に問いを入れるだけ（送らない＝トークンは送ったときだけ・2026-09-30）。
+  const openConsultSearch = (q) => {
+    setAskPreset({ question: consultQuestionFor(q), nonce: Date.now(), draft: true });
+    setView('list'); setAiSubTab('brain'); setTab('ai');
+  };
   // 「すべての本」から戻る: 記録から来たなら 振り返り → 記録 へ、それ以外はホームへ。
   const leaveLibrary = () => {
     if (libraryFrom === 'record') {
@@ -3459,8 +3468,12 @@ function AuthedApp() {
     return () => el.removeEventListener('scroll', onPageScroll);
   }, [tab, view, shelfMode]);
 
+  // 🔎 検索の言葉で見つかった本（書名・著者・タグ＋メモ・この本のまとめ・読書準備の言葉）。
+  // 並びは見つかった順（書名・著者 → メモ）。メモは検索を始めたときに読む（lib/librarySearch.js・2026-09-30）。
+  const librarySearch = useLibrarySearch({ userId: user?.id, books, query: search, active: tab === 'books' && shelfMode === 'library' });
+  const libraryHits = librarySearch.hits;
+  const libraryQuery = librarySearch.query;
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     const list = books.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
       if (folderFilter && !((b.collections || []).includes(folderFilter))) return false;
@@ -3469,12 +3482,10 @@ function AuthedApp() {
         const bt = (b.tags || []).map((t) => (t || '').toLowerCase());
         if (!tagFilter.some((t) => bt.includes(t.toLowerCase()))) return false;
       }
-      if (!q) return true;
-      const title = (b.title || '').toLowerCase();
-      const author = (b.author || '').toLowerCase();
-      const tagsHit = (b.tags || []).some((t) => (t || '').toLowerCase().includes(q));
-      return title.includes(q) || author.includes(q) || tagsHit;
+      return !libraryHits || libraryHits.has(b.id);
     });
+    // 検索中は見つかった順（並び替えの設定より、言葉が合う本を先に）。
+    if (libraryHits) return list.sort((a, b) => libraryHits.get(a.id).rank - libraryHits.get(b.id).rank);
 
     const titleKey = (b) => (b.title || '').toLowerCase();
     const created = (b) => b.created_at || b.startDate || '';
@@ -3491,7 +3502,7 @@ function AuthedApp() {
       sorted.sort((a, b) => updated(b).localeCompare(updated(a)));
     }
     return sorted;
-  }, [books, statusFilter, search, sortBy, minRating, tagFilter, folderFilter]);
+  }, [books, statusFilter, libraryHits, sortBy, minRating, tagFilter, folderFilter]);
 
   // 絞り込みシート用: 本に付いた全タグ（出現頻度の高い順、最大 24 個）。
   const availableTags = useMemo(() => {
@@ -3512,7 +3523,6 @@ function AuthedApp() {
 
   // 状態チップの件数は、ほかの絞り込み（評価・タグ・フォルダ・検索）を効かせた数（並ぶ本の数と合わせる）。
   const chipStats = useMemo(() => {
-    const q = search.trim().toLowerCase();
     const base = books.filter((b) => {
       if (folderFilter && !((b.collections || []).includes(folderFilter))) return false;
       if (minRating > 0 && (b.rating || 0) < minRating) return false;
@@ -3520,14 +3530,12 @@ function AuthedApp() {
         const bt = (b.tags || []).map((t) => (t || '').toLowerCase());
         if (!tagFilter.some((t) => bt.includes(t.toLowerCase()))) return false;
       }
-      if (!q) return true;
-      return (b.title || '').toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q)
-        || (b.tags || []).some((t) => (t || '').toLowerCase().includes(q));
+      return !libraryHits || libraryHits.has(b.id);
     });
     const out = { total: base.length };
     base.forEach((b) => { out[b.status] = (out[b.status] || 0) + 1; });
     return out;
-  }, [books, search, minRating, tagFilter, folderFilter]);
+  }, [books, libraryHits, minRating, tagFilter, folderFilter]);
   const stats = useMemo(() => ({ total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length }), [books]);
   const actionCount = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.text?.trim()).length, 0), [books]);
   const actionDone = useMemo(() => books.reduce((s, b) => s + (b.actions || []).filter((a) => a.done).length, 0), [books]);
@@ -4854,7 +4862,7 @@ function AuthedApp() {
                 {/* 検索中は「すべての本 0 冊」と見せない（本が無いように読める）。何冊の中から何冊見つかったかを出す（2026-09-29）。 */}
                 {!((booksLoading || booksLoadError) && rawBooks.length === 0) && (
                   <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
-                    {search.trim() ? `${rawBooks.length} 冊中 ${filtered.length} 冊` : `${filtered.length} 冊`}
+                    {libraryQuery ? `${rawBooks.length} 冊中 ${filtered.length} 冊` : `${filtered.length} 冊`}
                   </span>
                 )}
               </div>
@@ -4867,8 +4875,9 @@ function AuthedApp() {
                     inputMode="search"
                     enterKeyHint="search"
                     maxLength={100}
-                    aria-label="本を検索（書名・著者・タグ）"
-                    placeholder="書名・著者・タグ"
+                    aria-label="本を検索（書名・著者・タグ・メモの言葉）"
+                    // メモ（この本のまとめ・読書準備も）に書いた言葉からも本を探せる（2026-09-30）。
+                    placeholder="書名・著者・メモの言葉で探す"
                     value={search}
                     autoFocus={librarySearchOpen && !search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -4912,7 +4921,7 @@ function AuthedApp() {
                   （statusFilter＝activeFilterCount とも連動）。同じチップの再タップで解除。
                   本が少ないうちはノイズなので 4 冊未満では出さない。 */}
               {/* 検索で 0 件のときはチップ行を出さない（下の「該当する本がありません」だけにする）。 */}
-              {(books.length >= 4 || folderFilter || minRating > 0 || tagFilter.length > 0) && !(filtered.length === 0 && search.trim() && rawBooks.length > 0) && (
+              {(books.length >= 4 || folderFilter || minRating > 0 || tagFilter.length > 0) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0) && (
                 <div
                   style={{
                     display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 'var(--space-4)',
@@ -4995,6 +5004,9 @@ function AuthedApp() {
                   description="通信環境を確認して、もう一度お試しください。"
                   actions={[{ label: 'もう一度', onClick: () => refreshBooks(), variant: 'primary' }]}
                 />
+              ) : filtered.length === 0 && libraryQuery && librarySearch.memoStatus === 'loading' ? (
+                // メモを読み終えるまでは「該当する本がありません」と言わない（本の行の形で待つ）。
+                <BookListSkeleton rows={3} />
               ) : filtered.length === 0 ? (
                 rawBooks.length === 0 ? (
                   <EmptyState
@@ -5023,8 +5035,35 @@ function AuthedApp() {
                         variant: 'primary',
                       },
                     ]}
+                    // 見つからないときは、相談で探す（入力欄に問いを入れるだけ・送らない・2026-09-30）。
+                    tip={libraryQuery ? <ConsultSearchLink center onClick={() => openConsultSearch(libraryQuery)} /> : undefined}
                   />
                 )
+              ) : libraryQuery && libraryHits ? (
+                // 🔎 検索中は行の一覧（メモで見つかった本は、その一節を添える・lib/librarySearch.js）。
+                <LibrarySearchResults
+                  books={filtered}
+                  hits={libraryHits}
+                  onOpen={(b, memoId) => openDetail(b, memoId)}
+                  onAutoRetry={triggerCoverAutoRetry}
+                  showStatus={statusFilter === 'all'}
+                  memoStatus={librarySearch.memoStatus}
+                  onRetry={librarySearch.retry}
+                  onConsult={() => openConsultSearch(libraryQuery)}
+                  renderBookRow={(b, i) => (
+                    <SwipeableBookCard
+                      key={b.id}
+                      book={b}
+                      index={i}
+                      isJustDone={recentlyDoneId === b.id}
+                      onOpen={openDetail}
+                      onSwipeDelete={swipeDeleteBook}
+                      onLongPress={handleBookLongPress}
+                      onAutoRetry={triggerCoverAutoRetry}
+                      showStatus={statusFilter === 'all'}
+                    />
+                  )}
+                />
               ) : effectiveBookshelfView === 'grid' ? (
                 <div className="bookshelf-grid">
                   {(libraryRenderAll ? filtered : filtered.slice(0, LIBRARY_FIRST)).map((b) => (
