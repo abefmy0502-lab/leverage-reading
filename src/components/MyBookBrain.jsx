@@ -168,24 +168,8 @@ const CATEGORIES = ['会話', '経験', '観察', '気づき', 'その他'];
 
 // 答えの吹き出しの列の左端（相手のアイコン 32 ＋ 間 8）。答えの下の文字ボタン・注記もこの列にそろえる（2026-09-30）。
 const ANSWER_COLUMN = `calc(${AVATAR_SIZE}px + var(--space-2))`;
-// 🗣 著者の語り口の答えを初めて見たときの一行（閉じたら二度と出さない・端末に覚える・2026-09-30）。
-const VOICE_NOTE_KEY = 'orime-author-voice-note-v1';
-const VOICE_NOTE_TEXT = '著者本人ではなく、AI が本とあなたのメモをもとに語り口をまねています';
-// 語り口の答えの最後にいつも出す一行（13/--text-3）。
+// 語り口の答えの最後にいつも出す一行（13/--text-3）。名前の行の「（本の語り口で・AI）」と合わせて、閉じられる案内は置かない（2026-09-30 オーナー判断）。
 const VOICE_FOOT_TEXT = 'AI が本とあなたのメモから語り口をまねた答えです';
-const isVoiceNoteDone = () => { try { return localStorage.getItem(VOICE_NOTE_KEY) === '1'; } catch { return false; } };
-const markVoiceNoteDone = () => { try { localStorage.setItem(VOICE_NOTE_KEY, '1'); } catch { /* 覚えられなくても閉じる */ } };
-// 答えのアイコンの列（32）＋間（8）だけ下げて、名前の行と左端をそろえる一行（13/--text-2・右に閉じる ×）。
-function VoiceNote({ onDismiss }) {
-  return (
-    <div role="note" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-      <p style={{ flex: 1, minWidth: 0, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(VOICE_NOTE_TEXT)}</p>
-      <button type="button" onClick={onDismiss} aria-label="閉じる" style={{ ...iconBtn, color: 'var(--text-3)', marginRight: 'calc(-1 * var(--space-3))', marginBlock: 'calc((1.5em - 44px) / 2)' }}>
-        <X size={16} aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -1366,15 +1350,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const lastIsAssistant = visibleMessages.length > 0 && visibleMessages[visibleMessages.length - 1].role === 'assistant';
   // 最後の答えの下の文字ボタンの行（別の角度で答えて・新しい相談をはじめる）を出しているか。
   const answerRowShown = lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user');
-  // 🗣 著者の語り口の答えを初めて見たときの一行（いちばん新しい語り口の答えの上に 1 か所だけ）。
-  const [voiceNoteDone, setVoiceNoteDone] = useState(isVoiceNoteDone);
-  const lastVoicedId = useMemo(() => {
-    for (let i = visibleMessages.length - 1; i >= 0; i -= 1) {
-      const m = visibleMessages[i];
-      if (m.role === 'assistant' && !m.error && !m.notice && (m.voice || decodeVoice(m.refs))) return m.id;
-    }
-    return null;
-  }, [visibleMessages]);
   // 💬 深掘りの会話（2026-09-30）: 書き終えた答えがある会話＝次の相談はその続き（入力欄のプレースホルダーを変える）。
   const threadActive = selectThreadTurns(visibleMessages, { max: 1, carry }).length > 0;
   // 深掘りのチップ（入力欄の上）: 最後の答えを書き終えたときだけ（書いている間・失敗・案内・関係するメモが無かった答え・
@@ -1763,11 +1738,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             )}
             {visibleMessages.map((m, i) => (
               <Fragment key={m.id}>
-                {/* はじめての語り口の答えは、案内の一行と答えを 1 つのまとまりに（間 8・相談の吹き出しとは離す）。 */}
+                {/* 1 つのやりとりの入れ物（送ったあと相談の吹き出しを上端にそろえる alignTarget が data-turn で探す）。 */}
                 <div data-turn="" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {!voiceNoteDone && m.id === lastVoicedId && (
-                  <VoiceNote onDismiss={() => { markVoiceNoteDone(); setVoiceNoteDone(true); track('brain_voice_note', { action: 'dismiss' }); }} />
-                )}
                 <ChatMessage
                   message={m}
                   onOpenBook={onOpenBook}
