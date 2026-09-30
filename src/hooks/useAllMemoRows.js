@@ -77,6 +77,11 @@ function mergeWithCache(rows, books, cache, version) {
 let memoVersion = 0;
 const NO_ROWS = [];
 
+// フックの外（相談を送ったとき）で、読んだメモを控えで上書きした一覧が欲しいとき。
+export function withCachedMemos(rows, books, cache) {
+  return mergeWithCache(rows || NO_ROWS, books, cache, memoVersion);
+}
+
 // active: 使い始めたら true（それまでは読まない）。books: 本（控えの上書きに使う）。
 // 返り値: { rows（控えで上書きしたメモ・読む前は控えの分だけ）, status: 'idle'|'loading'|'ready'|'error', retry }
 export function useAllMemoRows({ userId, books, active = true }) {

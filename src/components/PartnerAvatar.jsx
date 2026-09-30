@@ -6,7 +6,7 @@
 // アイコンは飾り（aria-hidden）。名前の行が文字として読まれる。
 
 import { useState } from 'react';
-import { Lightbulb, Library, ChevronRight } from 'lucide-react';
+import { Lightbulb, Library, ChevronRight, NotebookText } from 'lucide-react';
 import { paletteFor } from '../lib/coverPalette';
 import { ensureHttps } from '../lib/url';
 import { GROUP_TILES } from '../lib/consultPartner';
@@ -38,10 +38,12 @@ function CoverTile({ book }) {
   );
 }
 
-function SelfTile({ size }) {
+// icon 'memo': メモが答える相談（AI を使わない答え・2026-10-01）＝ --fill の丸にノート（著者の語り口や AI の相手に見せない）。
+function SelfTile({ size, icon = null }) {
+  const Icon = icon === 'memo' ? NotebookText : Lightbulb;
   return (
     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: 'var(--fill)', color: 'var(--text-2)' }}>
-      <Lightbulb size={Math.round(size * 0.55)} strokeWidth={1.75} aria-hidden="true" />
+      <Icon size={Math.round(size * 0.55)} strokeWidth={1.75} aria-hidden="true" />
     </span>
   );
 }
@@ -55,7 +57,7 @@ export default function PartnerAvatar({ partner, size = AVATAR_SIZE, style = nul
     background: 'var(--fill)', ...style,
   };
   if (!partner) return <span aria-hidden="true" style={{ ...base, background: 'none' }} />;
-  if (partner.kind === 'self') return <span aria-hidden="true" style={base}><SelfTile size={size} /><Ring /></span>;
+  if (partner.kind === 'self') return <span aria-hidden="true" style={base}><SelfTile size={size} icon={partner.icon} /><Ring /></span>;
   if (partner.kind === 'book') return <span aria-hidden="true" style={base}><CoverTile book={partner.books[0]} /><Ring /></span>;
   const tiles = [...partner.books.slice(0, GROUP_TILES).map((b) => ({ b })), ...(partner.self ? [{ self: true }] : [])].slice(0, GROUP_TILES);
   if (tiles.length === 0) {

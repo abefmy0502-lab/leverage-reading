@@ -10,7 +10,7 @@
 // - 見つけ方は lib/librarySearch.js と同じ（正規化・送りがなを外した形・4 文字以上の言葉は 2 文字の切れ端の 6 割）
 // - 並び: 多くのメモに出る言葉ほど軽く数え（IDF）、当たった言葉の重みの合計で並べる。
 //   本ごとにまとめて多くて 3 冊・1 冊から 1〜2 件
-import { normalizeSearch, compileTerms, matchTerm, buildSnippet, PREP_FIELDS } from './librarySearch';
+import { normalizeSearch, compileTerms, matchTerm, matchRanges, buildSnippet, PREP_FIELDS } from './librarySearch';
 
 export const MEMO_ANSWER_MAX_BOOKS = 3;
 export const MEMO_ANSWER_PER_BOOK = 2;
@@ -123,6 +123,7 @@ export function countSearchedMemos(corpus) {
 
 const KIND_WEIGHT = { memo: 1, learning: 1, summary: 0.85, prep: 0.7 };
 const TAG_WEIGHT = 0.6;
+const GROUP_MIN_SHARE = 0.4;
 // 半分を超える文に出る言葉だけで当たった文は出さない（「仕事」だけで全部のメモが並ばないように）。
 // 探す文が少ない（本に絞った相談など）ときは、この決まりを使わない。
 const COMMON_SHARE = 0.5;
@@ -179,9 +180,10 @@ export function answerFromMemos({ question, books = [], memos = [], scopeIds = [
     if (!groups.has(key)) groups.set(key, { bookId: s.e.bookId, book: s.e.bookId == null ? null : bookById.get(key) || null, items: [] });
     groups.get(key).items.push(s);
   }
-  const ranked = [...groups.values()].map((g) => ({ ...g, score: g.items[0].score + 0.25 * (g.items[1]?.score || 0) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, maxBooks);
+  const all = [...groups.values()].map((g) => ({ ...g, score: g.items[0].score + 0.25 * (g.items[1]?.score || 0) }))
+    .sort((a, b) => b.score - a.score);
+  // いちばん近い本の 4 割に届かない本は出さない（「仕事」だけが同じ弱い一節で並びを水増ししない）。
+  const ranked = all.filter((g) => g.score >= (all[0]?.score || 0) * GROUP_MIN_SHARE).slice(0, maxBooks);
   return {
     terms: extracted.map((t) => t.raw),
     searched,
@@ -200,14 +202,34 @@ export function answerFromMemos({ question, books = [], memos = [], scopeIds = [
           label: s.e.label || null,
           text: s.e.text,
           score: Math.round(s.score * 100) / 100,
-          segments: buildSnippet(s.e.text, snippetTerms(s.hitTerms)),
+          segments: buildSnippet(s.e.text, [], { ranges: snippetRanges(s.e.text, s.hitTerms) }),
         })),
       };
     }),
   };
 }
 
-// 一節の印に使う言葉（動詞は漢字 1 文字＝その字に印）。
-function snippetTerms(hitTerms) {
-  return hitTerms.map((t) => (t.kind === 'verb' ? { term: t.term, stem: null, bigrams: [] } : t.ct));
+// 一節の印を付ける所（元の文の位置 [s, e)）。言葉は librarySearch と同じ見つけ方、
+// 動詞は漢字＋すぐ後ろの送りがな 2 文字まで（「頼まれ」「断る」＝漢字 1 文字だけに印を付けない）。
+function snippetRanges(text, hitTerms) {
+  const src = String(text || '');
+  const words = hitTerms.filter((t) => t.kind === 'word').map((t) => t.ct);
+  const ranges = words.length ? matchRanges(src, words) : [];
+  for (const t of hitTerms) {
+    if (t.kind !== 'verb') continue;
+    // 助詞（を・が・は…）の手前で止める（「答えを」ではなく「答え」）
+    const re = new RegExp(`(^|[^${KANJI}])(${t.term}(?:(?![をがはにでとのもや])[ぁ-ゟ]){1,2})`, 'gu');
+    for (const m of src.matchAll(re)) {
+      const start = m.index + m[1].length;
+      ranges.push([start, start + m[2].length]);
+    }
+  }
+  ranges.sort((x, y) => x[0] - y[0] || y[1] - x[1]);
+  const merged = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+    else merged.push([...r]);
+  }
+  return merged;
 }

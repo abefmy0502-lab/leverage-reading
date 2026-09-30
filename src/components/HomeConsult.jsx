@@ -49,6 +49,10 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, onSearchM
   //   （書いた相談が相談タブで黙って消えないように・SPEC §1）。
   const { plan, freeMode, trialEndsAt, tokensAvailable, canBuyTokens, openTokenSheet, openPaywall } = usePaywall();
   const tokensUsedUp = (freeMode || canBuyTokens) && tokensAvailable != null && tokensAvailable <= 0;
+  // 💬 無料プランで使い切ったら、相談はメモから探して答える（メモが答える相談・AI なし・2026-10-01）。
+  //   入力欄はそのまま出し、送ると相談タブでメモの一節を返す（行き止まりにしない）。プランの人は今までどおり。
+  const freeMemoMode = freeMode && tokensUsedUp;
+  const blocked = tokensUsedUp && !freeMemoMode;
   const inputRef = useRef(null);
   const bookCount = books.length;
   const [cardCount, setCardCount] = useState(null);
@@ -161,7 +165,13 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, onSearchM
             : memoCount === 0
               // メモがまだ無いうちは「から答えます」と言わない（答えの根拠になるのはメモ・2026-09-29）。
               ? <>本 {bookCount} 冊・メモはまだありません</>
-              : <>あなたの {bookCount} 冊{memoCount > 0 && <>・メモ {memoCount} 件</>}から答えます</>}
+              : <>あなたの {bookCount} 冊{memoCount > 0 && <>・メモ {memoCount} 件</>}{freeMemoMode ? 'から探します' : 'から答えます'}</>}
+        {/* 無料のトークンを使い切った: いつ AI の相談に戻るかを 1 行（メモから探すことは上の行と入力欄の例で伝わる） */}
+        {freeMemoMode && countSettled && memoCount !== 0 && (
+          <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+            トークンは <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>に戻ります
+          </span>
+        )}
       </p>
 
       {!hasMemos && onQuickstart && (
@@ -170,7 +180,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, onSearchM
         </button>
       )}
 
-      {hasMemos && tokensUsedUp && (
+      {hasMemos && blocked && (
         <UsedUpNotice
           plan={plan}
           trialEndLabel={plan === 'trial' ? monthDayLabelJa(trialEndsAt) : ''}
@@ -181,7 +191,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, onSearchM
         />
       )}
 
-      {hasMemos && !tokensUsedUp && (
+      {hasMemos && !blocked && (
         <>
           <textarea
             ref={inputRef}
@@ -189,7 +199,7 @@ export default function HomeConsult({ books = [], onAsk, onQuickstart, onSearchM
             onChange={(e) => setText(e.target.value)}
             rows={2}
             maxLength={LIMITS.aiQuestion}
-            placeholder="例：上司への報告がうまくいかない"
+            placeholder={freeMemoMode ? '困りごと（メモから探します）' : '例：上司への報告がうまくいかない'}
             aria-label="相談したいこと"
             style={{ ...input, resize: 'none', lineHeight: 1.5, display: 'block' }}
           />

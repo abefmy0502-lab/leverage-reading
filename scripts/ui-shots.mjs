@@ -327,8 +327,11 @@ const SCREENS = [
   { name: 'help-switch-reading', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }, { css: '[role=dialog] button:has-text("プラン・お支払い")' }] },
   { name: 'help-book-reading-topic', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }, { css: '[role=dialog] details summary' }] },
   // ── メモが答える相談（2026-10-01）: 無料プランで今月のトークンを使い切ったあと、送った相談にメモの一節で答える（AI なし）。
-  { name: 'free-used-memo-answer', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '頼まれごとを断れなくて、仕事を抱えすぎてしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }] },
-  { name: 'free-used-memo-answer-bottom', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '頼まれごとを断れなくて、仕事を抱えすぎてしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }, { scrollBottom: true }] },
+  { name: 'free-used-memo-answer', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下に質問で考えてもらいたいが、つい答えを言ってしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }] },
+  { name: 'free-used-memo-answer-bottom', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下に質問で考えてもらいたいが、つい答えを言ってしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }, { scrollBottom: true }] },
+  // 学び（本に結びつかないメモ）と本のメモの両方で答える／ホームの相談カードから送る（相談タブでメモの答え）
+  { name: 'free-used-memo-answer-learning', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '上司への報告がうまくいかない'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }] },
+  { name: 'free-used-home-send', url: '/?demo=freeused', steps: [{ fill: ['textarea[aria-label="相談したいこと"]', '頼まれごとを断れなくて、仕事を抱えすぎてしまう'] }, { css: 'button:text-is("相談する")' }, { wait: 2000 }] },
   { name: 'free-used-memo-noresult', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', 'スキーがうまくなりたい'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }] },
   { name: 'free-used-home', url: '/?demo=freeused' },
   // ── 本と本がつながる（2026-10-01）: 保存したメモ・開いたメモに、ほかの本で似たことを書いたメモ（AI なし）。
