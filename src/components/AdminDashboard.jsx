@@ -23,6 +23,7 @@ import { opsAdvise } from '../lib/ai';
 import { C, btnPrimary, btnGhost } from '../styles/ui';
 import Spinner from './Spinner';
 import TodayCard from './admin/TodayCard';
+import { DATE_HINT } from '../lib/dateHint';
 import {
   evaluateRules, SALES_MILESTONES, SHIP_CHECKLIST, MIN_N, weekStartISO, monthlyMilestoneNeed,
 } from '../lib/playbook';
@@ -577,7 +578,7 @@ export default function AdminDashboard({ onClose }) {
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>締切（任意）</label>
-                      <input type="date" value={gDeadline} onChange={(e) => setGDeadline(e.target.value)} style={inp} />
+                      <input type="date" value={gDeadline} data-empty={gDeadline ? undefined : DATE_HINT} onChange={(e) => setGDeadline(e.target.value)} style={inp} />
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -873,7 +874,7 @@ export default function AdminDashboard({ onClose }) {
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 150 }}>
                   <label style={{ fontSize: 11, color: C.ink2, fontWeight: 600 }}>配信日</label>
-                  <input type="date" value={launchDate} onChange={(e) => setLaunchDate(e.target.value)} style={inp} />
+                  <input type="date" value={launchDate} data-empty={launchDate ? undefined : DATE_HINT} onChange={(e) => setLaunchDate(e.target.value)} style={inp} />
                 </div>
                 <button type="button" onClick={goLive} style={{ ...btnPrimary, width: 'auto', minHeight: 44 }}>配信中モードに切替</button>
               </div>

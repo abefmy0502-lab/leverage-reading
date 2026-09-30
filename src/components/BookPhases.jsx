@@ -21,6 +21,7 @@ import { LIMITS } from '../lib/limits';
 import { useBookCover } from '../hooks/useBookCover';
 import { useToast } from './Toast';
 import MarkdownSections from './MarkdownSections';
+import { DATE_HINT } from '../lib/dateHint';
 import {
   Field, SectionHeader, Stars, TagInput, Chip,
   inp, ta,
@@ -334,7 +335,7 @@ export function BeforePhase({
   return (
     <div>
       <Field label="読書開始日">
-        <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
+        <input type="date" value={form.startDate || ""} data-empty={form.startDate ? undefined : DATE_HINT} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
       </Field>
 
       {/* ⚠️ 得たいこと〜読書計画シートは AI にゲートしない。AI を使わない / 月次上限 /
@@ -532,7 +533,7 @@ export function ReadingPhase({ form, setForm, onSave, onSaveSummary, onMakeActio
           読書計画シートは本の詳細にあるので、ここに二重に置かない（SPEC §2）。
           並びは読了と同じ: 日付 → 行動 → タグ・フォルダ →（下に固定の）保存。 */}
       <Field label="読書開始日">
-        <input type="date" value={form.startDate || ""} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
+        <input type="date" value={form.startDate || ""} data-empty={form.startDate ? undefined : DATE_HINT} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={dateInp(form.startDate)} />
       </Field>
 
       <ActionsEditor form={form} setForm={setForm} title="この本から決めた行動" placeholder="例：明日の朝、学んだ手法を1つ試す" />
@@ -552,7 +553,7 @@ export function DonePhase({ form, setForm, onSave, allTags, allFolders }) {
   return (
     <div>
       <Field label="読書完了日">
-        <input type="date" value={form.doneDate || ""} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={dateInp(form.doneDate)} />
+        <input type="date" value={form.doneDate || ""} data-empty={form.doneDate ? undefined : DATE_HINT} onChange={(e) => setForm({ ...form, doneDate: e.target.value })} style={dateInp(form.doneDate)} />
       </Field>
 
       <Field label="評価（読んでよかった度）">
@@ -617,7 +618,7 @@ function ActionsEditor({ form, setForm, title, placeholder }) {
               <textarea rows={2} value={a.text} onChange={(e) => updateAction(i, "text", e.target.value)} placeholder={i === 0 ? placeholder : `行動 ${i + 1}`} style={{ ...ta, minHeight: 48 }} maxLength={LIMITS.actionText} aria-label={`行動 ${i + 1}`} />
               <label style={{ ...groupTitle, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
                 期限
-                <input type="date" value={a.deadline || ""} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...dateInp(a.deadline), fontWeight: 400, letterSpacing: 'normal' }} aria-label={`行動 ${i + 1} の期限`} />
+                <input type="date" value={a.deadline || ""} data-empty={a.deadline ? undefined : DATE_HINT} onChange={(e) => updateAction(i, "deadline", e.target.value)} style={{ ...dateInp(a.deadline), fontWeight: 400, letterSpacing: 'normal' }} aria-label={`行動 ${i + 1} の期限`} />
               </label>
             </div>
             <button type="button" onClick={() => removeAction(i)} aria-label={`行動 ${i + 1} を削除`} style={{ background: "none", border: "none", color: 'var(--error)', cursor: "pointer", minWidth: 44, minHeight: 48, padding: 0, marginRight: 'calc(-1 * var(--space-4))', display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

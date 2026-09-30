@@ -198,6 +198,20 @@ input[type="datetime-local"]::-webkit-date-and-time-value {
   text-align: left;
   margin: 0;
 }
+/* 空の日付の欄（iOS の WKWebView / Safari だけ）: 端末の見た目を外すと、空の欄は枠だけの何も書いていない
+   箱になる（「mm/dd/yyyy」のような目印が無い）。空のとき（data-empty に案内の文・lib/dateHint.js）は
+   欄の中に薄い文字で「日付を選ぶ」を出す。iOS の日付の欄は ::before を描く。ほかのブラウザは自分の
+   目印（mm/dd/yyyy）を出すので、iOS だけに絞る（-webkit-touch-callout は iOS の WebKit だけが持つ）。
+   枠・高さ 48 はインラインの input のまま（2026-10-01）。 */
+@supports (-webkit-touch-callout: none) {
+  input[type="date"][data-empty]::before,
+  input[type="time"][data-empty]::before,
+  input[type="datetime-local"][data-empty]::before {
+    content: attr(data-empty);
+    color: var(--text-3);
+    pointer-events: none;
+  }
+}
 
 /* ----- iOS-feel button / link press feedback ------------------------------ */
 button,

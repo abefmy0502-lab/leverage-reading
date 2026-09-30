@@ -17,6 +17,7 @@ import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { ArrowUp, Minus, ArrowDown, X } from 'lucide-react';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, groupTitle, input as uiInput } from '../styles/ui';
 import { toLocalYmd } from '../lib/dates';
+import { DATE_HINT } from '../lib/dateHint';
 
 const overlayStyle = {
   position: 'fixed',
@@ -254,6 +255,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
               id="ae-deadline"
               type="date"
               value={deadline}
+              data-empty={deadline ? undefined : DATE_HINT}
               onChange={(e) => setDeadline(e.target.value)}
               style={inpStyle}
               autoFocus={reviewing}
