@@ -143,6 +143,7 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x; };
   // 結論には書名・引用のかぎかっこを入れない（出典は「根拠を見る」の中・SPEC §3・本番の BRAIN_SYSTEM と同じ）。
   const gist = (t) => clip(t).replace(/[「」『』]/g, '').replace(/[。．.]+$/, '');
+  const short16 = (t) => { const x = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．.、]/)[0].trim(); return x.length > 16 ? `${x.slice(0, 16)}…` : x; };
   // 🎯 行動を決める回（会話の続きで行動を求めた・本番の ACTION_REQUEST）: 会話で聞いた状況（返事）を使って行動を 1 つ。
   if (decide) {
     const situation = (thread && thread.replies[thread.replies.length - 1]) || '';
@@ -162,8 +163,9 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       '',
       '【明日からできる 1 つの行動】',
       situation
-        ? `「${subject}」について、${whenOf(situation)}、メモに残した「${gist(picked[0].text)}」を 1 回だけ試し、どうだったかを 1 行メモに残す。`
-        : `「${subject}」の次の場面を 1 つ選び、メモに残した「${gist(picked[0].text)}」を 1 回だけ試し、どうだったかを 1 行メモに残す。`,
+        // 行動の文は短く（行動の一覧で 2〜3 行に収まる長さ）。メモの一節は 16 字まで。
+        ? `「${subject}」について、${whenOf(situation)}メモの「${short16(picked[0].text)}」を 1 回だけ試す。`
+        : `「${subject}」の次の場面で、メモの「${short16(picked[0].text)}」を 1 回だけ試す。`,
       '',
       '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
       '',
