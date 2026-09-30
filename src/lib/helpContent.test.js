@@ -65,6 +65,12 @@ describe('HELP_CONTENT', () => {
     });
   }
 
+  it('相談の項目は 8 つまで・最初は「相談を育てる」（積み重ね＝相談の質を先に伝える）', () => {
+    const topics = HELP_CONTENT.myBookBrain.topics;
+    expect(topics.length).toBeLessThanOrEqual(8);
+    expect(topics[0].title).toBe('相談を育てる');
+  });
+
   it('使わない言い方（GLOSSARY）が出てこない', () => {
     const all = JSON.stringify([HELP_CONTENT, HELP_FAQ]);
     for (const ng of ['マイ読書脳', '読書前', 'レバレッジメモ', 'テーマレポート', '想起', 'アクション', 'タスク', 'クレジット', '無料トライアル', 'お試し', 'セットアップシート']) {
