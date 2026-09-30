@@ -5,6 +5,8 @@ import { HELP_CONTENT, HELP_FAQ, HELP_SCREEN_ORDER, getHelp } from './helpConten
 // 字数は太字の ** を除いて数える（空白は数える）。
 const visible = (s) => [...String(s).replace(/\*\*/g, '')].length;
 const boldCount = (s) => (String(s).match(/\*\*/g) || []).length / 2;
+// 行の頭の「 は約物の空きで 1 文字目が右へ下がって見える（2026-09-30 ui-critic）。行・手順・要約を「で始めない。
+const startsWithBracket = (s) => /^[「『（]/.test(String(s).replace(/\*\*/g, ''));
 
 // App.jsx の getCurrentHelpKey が返すキー（画面から開けるもの）。
 const APP_KEYS = [
@@ -20,6 +22,7 @@ function checkTopic(t, where) {
   expect(t.lines.length, `${where}「${t.title}」は 1〜3 行`).toBeLessThanOrEqual(3);
   for (const line of t.lines) {
     expect(visible(line), `${where}「${line}」は 40 字まで`).toBeLessThanOrEqual(40);
+    expect(startsWithBracket(line), `${where}「${line}」は「で始めない`).toBe(false);
     expect(boldCount(line) % 1, `${where}「${line}」の ** が閉じていない`).toBe(0);
     expect(boldCount(line), `${where}「${line}」の太字は 1 か所まで`).toBeLessThanOrEqual(1);
   }
@@ -44,8 +47,10 @@ describe('HELP_CONTENT', () => {
 
       expect(Array.isArray(e.quickSteps)).toBe(true);
       expect(e.quickSteps).toHaveLength(3);
+      expect(startsWithBracket(e.summary), `summary は「で始めない`).toBe(false);
       for (const s of e.quickSteps) {
         expect(visible(s), `quickStep「${s}」は 25 字まで`).toBeLessThanOrEqual(25);
+        expect(startsWithBracket(s), `quickStep「${s}」は「で始めない`).toBe(false);
         expect(boldCount(s) % 1).toBe(0);
       }
 
