@@ -577,7 +577,7 @@ export default function BookMemoEditor({
             onChange={(e) => setPageNumber(e.target.value)}
             onKeyDown={blockEnter}
             placeholder="78"
-            style={{ ...inp, width: 140, textAlign: 'center' }}
+            style={{ ...inp, width: 140 }}
           />
         </div>
 
