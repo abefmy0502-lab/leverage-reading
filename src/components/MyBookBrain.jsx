@@ -1961,7 +1961,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 // AI が状況を聞き返しているときは、答えを書くか続けて聞く（候補のチップのほかに自分の言葉でも）。
                 : lastAsksBack ? '質問に答える・続けて聞く'
                 // 関係するメモが無かった答えのあとは、続きの例ではなく新しい相談の例（2026-09-30 ui-critic）。
-                : threadActive && !isNoInfoAnswer(lastVisible) ? (isBookLookup(lastAsked) ? `続けて聞く：${LOOKUP_APPLY_CHIP}` : '続けて聞く：乗り気でないときは？') : '例：上司への報告がうまくいかない'}
+                // 本を探す問いの答えのあとは、見つかったメモをいまに活かす問いの例（本を探す問いは続きの材料に入れないので threadActive に頼らない）。
+                : lastLookup && !isNoInfoAnswer(lastVisible) ? `続けて聞く：${LOOKUP_APPLY_CHIP}`
+                : threadActive && !isNoInfoAnswer(lastVisible) ? '続けて聞く：乗り気でないときは？' : '例：上司への報告がうまくいかない'}
               rows={1}
               // 答えを書いている間も押せなくしない（disabled にすると入力欄からフォーカスが外れ、下のタブが
               // 出てきて入力欄がもう一度動いていた・2026-09-29）。送るのは答えが終わってから（ask が busy で止める）。
@@ -3010,7 +3012,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       aria-busy={isStreaming || undefined}
     >
     {/* 💬 相手のアイコン（左）＋名前の行（13/--text-2）＋答えのカード（LINE の相手の吹き出しと同じ並び・2026-09-30） */}
-    // 本を探す問いは、見つかった本を並べる答えなので、ひとりの著者の名前にしない（「N 冊の本」・本ごとにの結論と同じ）。
+    {/* 本を探す問いは、見つかった本を並べる答えなので、ひとりの著者の名前にしない（「N 冊の本」・本ごとにの結論と同じ）。 */}
     <PartnerRow partner={isLookup ? perbookSummaryPartner(partner) : partner} onOpenList={openPartnerList}>
     <div style={answerCard}>
       {/* 本ごとにで送ったのに、並べる本が足りずに「まとめて」で答えたとき（SPEC §3）。書き始める前から出す。 */}
