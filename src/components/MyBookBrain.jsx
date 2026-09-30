@@ -145,6 +145,9 @@ const nextStepBox = { background: 'var(--fill)', borderRadius: 'var(--radius)', 
 const ASK_SKELETON_LINES = 2;
 const ASK_SKELETON_HEIGHT = `calc(var(--text-read) * 1.6 * ${ASK_SKELETON_LINES})`;
 const ASK_LABEL = 'あなたに聞きたいこと';
+// --fill の面（一歩・問いの箱）の上の骨組みは --separator の棒（ふつうの骨組みの色は --fill と同じ明るさで、暗い画面で見えなかった・
+// 2026-09-30 ui-critic）。光の流れは --separator ↔ --fill で残す。
+const skeletonOnFill = { background: 'linear-gradient(90deg, var(--separator) 0%, var(--fill) 50%, var(--separator) 100%)', backgroundSize: '200% 100%' };
 // 行動を決めた答えか（「心に残るもの」は行動ではない）。「行動を決める」のチップを出すかの判断に使う。
 const isActionAnswer = (p) => !!(p && p.action) && !/心に残る/.test(p.actionLabel || '');
 // 根拠の中の小さな見出し（DESIGN §5 groupTitle: 12/600/--text-2）。
@@ -3036,7 +3039,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               {/* 最初の答え・続きの返事は問いの箱（2 行・ボタンなし）、行動を決める回は行動の箱（3 行＋押せない「行動に追加」）で待つ。 */}
               {(expectAction ? ['92%', '84%', '56%'].slice(0, STEP_SKELETON_LINES) : ['88%', '52%'].slice(0, ASK_SKELETON_LINES)).map((w) => (
                 <div key={w} style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-read) * 1.6)' }}>
-                  <SkeletonBlock width={w} height={14} />
+                  <SkeletonBlock width={w} height={14} style={skeletonOnFill} />
                 </div>
               ))}
               {expectAction && (onAddAction || onAddActionPickBook) && (
