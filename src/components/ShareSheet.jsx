@@ -175,6 +175,17 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
   const candidates = useMemo(() => orderLineCandidates(memos, initialMemoId), [memos, initialMemoId]);
   const [memoId, setMemoId] = useState(initialMemoId);
   const chosen = candidates.find((m) => m.id === memoId) || candidates[0] || null;
+  // 選んだ一文のカードが横に流す欄の端で切れていたら、見える位置まで送る（右端の半分見えのカードを押しても
+  // 切れたままだった・2026-09-30）。見えていれば動かさない（inline: 'nearest'）。
+  const pickRowRef = useRef(null);
+  useEffect(() => {
+    const row = pickRowRef.current;
+    const el = row?.querySelector('[aria-checked="true"]');
+    if (!el) return;
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
+    try { el.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+  }, [chosen?.id]);
   const knownMaxPage = useMemo(
     () => (memos || []).reduce((mx, m) => (Number.isFinite(m.pageNumber) ? Math.max(mx, m.pageNumber) : mx), 0),
     [memos],
@@ -602,6 +613,7 @@ export default function ShareSheet({ book, memos: memosProp, initialMemoId = nul
             <section aria-labelledby="share-pick-title" style={{ paddingBottom: 'var(--space-4)' }}>
               <h4 id="share-pick-title" style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>どの一文にする？</h4>
               <div
+                ref={pickRowRef}
                 role="radiogroup"
                 aria-labelledby="share-pick-title"
                 // 横に流す欄は縦も切り取るので、選んだ枠・影が下で欠けないよう上下に 4。
