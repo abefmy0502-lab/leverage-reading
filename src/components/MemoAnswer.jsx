@@ -60,20 +60,47 @@ function LearningHit({ hit, onClick, first }) {
   );
 }
 
+// 読み込み中の形は答えと同じ組み立て・同じ高さ（差し替わるときに跳ねない）:
+// 見出し 2 行 → 行ごとに 線・表紙 44×62＋書名/著者、書名の列にそろえて p.N と一節 2 行 → 「メモ N 件から探しました」。
+const LINE_SUB = 'calc(var(--text-sub) * 1.5)';
+const LINE_READ = 'calc(var(--text-sub) * 1.6)';
+const LINE_META = 'calc(var(--text-meta) * 1.5)';
+
+// 1 行分の高さの箱の中に、文字の高さの棒を置く（行の高さは本物の行と同じ）。
+function Bar({ width, line, size }) {
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', height: line }}>
+      <SkeletonBlock width={width} height={size} />
+    </span>
+  );
+}
+
 function Skeleton() {
   return (
-    <div role="status" aria-label="メモの中を探しています" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <SkeletonBlock width="72%" height={14} />
-      {[0, 1].map((i) => (
-        <div key={i} style={{ display: 'flex', gap: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--separator)' }}>
-          <SkeletonBlock width={44} height={62} radius={4} style={{ flexShrink: 0 }} />
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <SkeletonBlock width="55%" height={14} />
-            <SkeletonBlock width="92%" height={12} />
-            <SkeletonBlock width="70%" height={12} />
+    <div role="status" aria-label="メモの中を探しています">
+      <Bar width="52%" line={LINE_SUB} size="var(--text-sub)" />
+      <Bar width="40%" line={LINE_SUB} size="var(--text-sub)" />
+      <div style={{ marginTop: 'var(--space-3)' }}>
+        {[0, 1].map((i) => (
+          <div key={i} style={{ borderTop: '1px solid var(--separator)', padding: 'var(--space-3) 0' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+              <SkeletonBlock width={44} height={62} radius={4} style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                <Bar width="58%" line="calc(var(--text-body) * 1.4)" size="var(--text-body)" />
+                <Bar width="36%" line={LINE_META} size="var(--text-meta)" />
+              </div>
+            </div>
+            <div style={{ paddingLeft: COL, marginTop: 'var(--space-2)' }}>
+              <Bar width="28%" line={LINE_META} size="var(--text-meta)" />
+              <Bar width="94%" line={LINE_READ} size="var(--text-sub)" />
+              <Bar width="72%" line={LINE_READ} size="var(--text-sub)" />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      <div style={{ marginTop: 'var(--space-3)' }}>
+        <Bar width="42%" line={LINE_META} size="var(--text-meta)" />
+      </div>
     </div>
   );
 }

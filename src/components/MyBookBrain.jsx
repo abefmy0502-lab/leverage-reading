@@ -1452,7 +1452,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const isEmpty = visibleMessages.length === 0 && !carry;
   const lastIsAssistant = visibleMessages.length > 0 && visibleMessages[visibleMessages.length - 1].role === 'assistant';
   // 最後の答えの下の文字ボタンの行（別の角度で答えて・新しい相談をはじめる）を出しているか。
-  const answerRowShown = lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user');
+  // メモが答える相談の読み込み中は出さない（答えより先に次の操作が並ばないように）。
+  const answerRowShown = lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user')
+    && visibleMessages.at(-1)?.memoAnswer?.status !== 'loading';
   // 💬 深掘りの会話（2026-09-30）: 書き終えた答えがある会話＝次の相談はその続き（入力欄のプレースホルダーを変える）。
   const threadActive = selectThreadTurns(visibleMessages, { max: 1, carry }).length > 0;
   // 深掘りのチップ（入力欄の上）: 最後の答えを書き終えたときだけ（書いている間・失敗・案内・関係するメモが無かった答え・
