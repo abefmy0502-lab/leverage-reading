@@ -92,7 +92,8 @@ const summaryStyle = {
   margin: 0,
 };
 const groupTitleStyle = { ...groupTitle, margin: '0 0 var(--space-2)' };
-const strongStyle = { fontWeight: 600, color: 'var(--text)' };
+// 太字の語は途中で折り返さない（語が 2 行に割れると読めない・12 字まで＝helpContent.test.js）。
+const strongStyle = { fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap' };
 
 // まずはこれだけ（3 つの手順）: カード 1 枚に番号つきで。
 const stepsCardStyle = {

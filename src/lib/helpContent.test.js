@@ -6,6 +6,11 @@ import { HELP_CONTENT, HELP_FAQ, HELP_SCREEN_ORDER, getHelp } from './helpConten
 // （手順 14 字・行 18 字・2026-09-30 ui-critic: 16px の外側の余白で幅が狭まり、25/40 字では折り返していた）。
 const visible = (s) => [...String(s).replace(/\*\*/g, '')].length;
 const boldCount = (s) => (String(s).match(/\*\*/g) || []).length / 2;
+// 太字の語（HelpModal は折り返さずに 1 まとまりで出す）
+const bolds = (s) => [...String(s).matchAll(/\*\*(.+?)\*\*/g)].map((m) => m[1]);
+const checkBoldLength = (s, where) => {
+  for (const b of bolds(s)) expect([...b].length, `${where}「${b}」は太字 12 字まで`).toBeLessThanOrEqual(12);
+};
 // 行の頭の「 は約物の空きで 1 文字目が右へ下がって見える（2026-09-30 ui-critic）。行・手順・要約を「で始めない。
 const startsWithBracket = (s) => /^[「『（]/.test(String(s).replace(/\*\*/g, ''));
 
@@ -24,6 +29,7 @@ function checkTopic(t, where) {
   for (const line of t.lines) {
     expect(visible(line), `${where}「${line}」は 18 字まで`).toBeLessThanOrEqual(18);
     expect(startsWithBracket(line), `${where}「${line}」は「で始めない`).toBe(false);
+    checkBoldLength(line, where);
     expect(boldCount(line) % 1, `${where}「${line}」の ** が閉じていない`).toBe(0);
     expect(boldCount(line), `${where}「${line}」の太字は 1 か所まで`).toBeLessThanOrEqual(1);
   }
@@ -49,9 +55,11 @@ describe('HELP_CONTENT', () => {
       expect(Array.isArray(e.quickSteps)).toBe(true);
       expect(e.quickSteps).toHaveLength(3);
       expect(startsWithBracket(e.summary), `summary は「で始めない`).toBe(false);
+      checkBoldLength(e.summary, `${key}.summary`);
       for (const s of e.quickSteps) {
         expect(visible(s), `quickStep「${s}」は 14 字まで`).toBeLessThanOrEqual(14);
         expect(startsWithBracket(s), `quickStep「${s}」は「で始めない`).toBe(false);
+        checkBoldLength(s, `${key}.quickSteps`);
         expect(boldCount(s) % 1).toBe(0);
       }
 
