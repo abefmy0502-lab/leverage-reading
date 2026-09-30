@@ -129,7 +129,6 @@ const photoChip = {
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   flexShrink: 0,
-  marginRight: 'var(--space-2)',
 };
 // 「どの本？」のチップ（選ぶためのチップ 44）。選んでいる本は --fill の面＋--border の枠＋--text。
 // 太さは変えない（横に送る列の幅が跳ねない）。
@@ -780,7 +779,7 @@ export default function ShareSheet({
                 items={[
                   ...(effStyle !== 'photo' ? [{ label: '写真に戻す', icon: <Camera size={16} aria-hidden="true" />, onClick: () => setStyle('photo') }] : []),
                   ...BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed).map((v) => ({
-                    label: v === 'sticker' ? '透明（ステッカー用）' : STYLE_LABELS[v],
+                    label: STYLE_LABELS[v],
                     icon: effStyle === v ? <Check size={16} aria-hidden="true" /> : <span style={{ width: 16 }} aria-hidden="true" />,
                     onClick: () => setStyle(v),
                   })),
@@ -791,9 +790,10 @@ export default function ShareSheet({
           </div>
         ) : (
           <div role="radiogroup" aria-label="地" style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-2)' }}>
-            <button type="button" onClick={openPicker} style={photoChip}>
+            {/* 390 幅で見本 4 つと 1 行に収まるよう、見える名前は「写真」（読み上げは「写真を選ぶ」）。 */}
+            <button type="button" onClick={openPicker} aria-label="写真を選ぶ" title="写真を選ぶ" style={photoChip}>
               <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-              写真を選ぶ
+              写真
             </button>
             {BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed).map((v) => (
               // 「透明（ステッカー用）」は 390 幅の 1 行に収まらないので、見える名前は「透明」のまま、
