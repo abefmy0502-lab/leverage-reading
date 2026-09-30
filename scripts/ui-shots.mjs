@@ -279,6 +279,9 @@ const SCREENS = [
   { name: 'help-billing', url: '/?helpkey=billing', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }] },
   // 「ほかの画面の使い方」から切り替えた形（上に「‹ ホームのヘルプに戻る」）
   { name: 'help-switch', url: '/', steps: [{ css: 'button[aria-label="この画面のヘルプを開く"]' }, { css: '[role=dialog] button:has-text("プラン・お支払い")' }] },
+  // 読書中の本 → プラン・お支払い（上の行に「‹ 読書中の本」と画面の名前が並んでもあふれない）
+  { name: 'help-switch-reading', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }, { css: '[role=dialog] button:has-text("プラン・お支払い")' }] },
+  { name: 'help-book-reading-topic', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("ヘルプ")' }, { css: '[role=dialog] details summary' }] },
 ];
 
 function browserOptions() {
