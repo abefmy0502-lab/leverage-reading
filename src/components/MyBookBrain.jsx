@@ -164,7 +164,9 @@ function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  // 過去の相談の日時は「M月D日 HH:mm」（ほかの画面の日付と同じ書き方・今年でなければ年を前に・2026-09-30）。
+  const year = d.getFullYear() !== new Date().getFullYear() ? `${d.getFullYear()}年` : '';
+  return `${year}${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function transformMessage(row) {
@@ -1410,10 +1412,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <>
             {/* 1 冊に絞ったとき（『書名』…）は 『 をぶら下げる。下の残りトークンの行には引き継がない。 */}
             <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase', ...(scopeIds.length === 1 && scopeMemoCount != null ? { textIndent: '-0.5em' } : null) }}>
-              {/* 件数が分かるまでは、同じ 1 行ぶんの高さだけ空けておく（文字は見せない・読み上げない。
-                  「読んだ本のメモを根拠に答えます」→「あなたのメモ N 件から答えます」と入れ替わって見えていた・HomeConsult と同じ） */}
+              {/* 件数が分かるまでは、同じ 1 行ぶんの高さに文の形の SkeletonBlock（何もない空きにしない・読み上げない。
+                  「読んだ本のメモを根拠に答えます」→「あなたのメモ N 件から答えます」と入れ替わって見えていた・2026-09-30） */}
               {headCountPending
-                ? <span aria-hidden="true" style={{ visibility: 'hidden' }}>{scopeIds.length > 0 ? '選んだ本のメモから答えます' : 'あなたのメモ 0 件から答えます'}</span>
+                ? <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-sub) * 1.5)' }}><SkeletonBlock width="62%" height={14} /></span>
                 : scopeIds.length > 0
                 ? (scopeMemoCount === 0
                   // メモが無いことは会話の場所で大きく伝えるので、上の行は相談相手の名前だけ（同じ文を 2 回出さない）。
@@ -1431,10 +1433,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
               {tokensRemaining != null && (
                 <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                  {/* 折り返すときは「・」のあとで（「無料期間の残り／110 トークン」と切らない）。かっこは重ねない。 */}
+                  {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
                   <span style={{ whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
                   {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
-                  {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <>・<span style={{ whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(tokensRemaining + (purchasedTokens || 0), TOKEN_COSTS.consult)} 回</span></>}
+                  {/* 回数は次の行に置く（「・」でつなぐと 390 幅で途中から折り返して、どこで切れるかが毎回変わる・2026-09-30）。 */}
+                  {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(tokensRemaining + (purchasedTokens || 0), TOKEN_COSTS.consult)} 回</span>}
                 </span>
               )}
               {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
@@ -2568,7 +2571,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
                         </p>
                       )}
                       {c.s === 'ok' ? (
-                        <p style={{ ...subText, margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(c.x)}</p>
+                        // 引いたメモの本文はそのまま流す（文節の区切りで止めると、長い一節の右端がぎざぎざに空く・2026-09-30）。
+                        // 文節で折り返すのは上の書名の行だけ。
+                        <p style={{ ...subText, margin: 'var(--space-1) 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{c.x}</p>
                       ) : (
                         <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                           {withPhraseBreaks('メモと一致しない引用だったので、表示していません')}
@@ -2624,6 +2629,20 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
     </details>
   ) : null);
   const renderNote = (p) => (p.note ? <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>{p.note}</p> : null);
+
+  // 答えが 1 文字も返らなかった失敗は、答えのカードに入れず ErrorMessage だけを置く
+  // （カードの中に --error-soft の面を重ねない・DESIGN §5「カードの中にカードを入れない」・2026-09-30）。
+  if (!isStreaming && !message.notice && message.error && typeof message.content === 'string' && message.content.startsWith(`${ANSWER_FAILED_TITLE}。`)) {
+    return (
+      <div role="article" aria-label="相談への答え">
+        <ErrorMessage
+          title={ANSWER_FAILED_TITLE}
+          description={message.content.slice(ANSWER_FAILED_TITLE.length + 1) || ANSWER_FAILED_DESC}
+          actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }] : []}
+        />
+      </div>
+    );
+  }
 
   if (perBook) {
     const lastBook = (perBook.books || []).length - 1;
@@ -2794,13 +2813,6 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
             </>
           )}
         </>
-      ) : message.error && typeof message.content === 'string' && message.content.startsWith(`${ANSWER_FAILED_TITLE}。`) ? (
-        // 答えが 1 文字も返らなかった失敗は、ほかの画面と同じ ErrorMessage（題＋説明＋「もう一度」・DESIGN §5）。
-        <ErrorMessage
-          title={ANSWER_FAILED_TITLE}
-          description={message.content.slice(ANSWER_FAILED_TITLE.length + 1) || ANSWER_FAILED_DESC}
-          actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }] : []}
-        />
       ) : message.error ? (
         // 途中まで書けていた答え（通信が中断）は、書けたところを残して「もう一度」を添える。
         <>
