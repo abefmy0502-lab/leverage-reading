@@ -10,7 +10,10 @@
 //   見せ方                           … 記録／一文（小さな見本を並べる）
 //   形                               … 投稿 4:5 ／ ストーリー 9:16（どちらも SNS で切られない範囲に文字を置く）
 //   地                               … 写真（撮り直す・選ぶ）／紙／夜／表紙の色／透明（ステッカー）
-// 画像に入るのは、本人が画面で見ている情報だけ（書名・著者・日付・件数・一文・Orime のロゴ）。
+// 大きくして直したいとき（2026-10-01）: プレビューを押す／「編集」→ 全画面の編集画面（ShareEditor.jsx）。
+//   写真を指で動かす・拡大、自分の言葉を入れる（形 4 つ・指で動かす・大きさ）、表示する項目のスイッチ。
+//   表示する項目（隠した項目）は端末に覚えて次の共有でも使う。言葉は覚えない（その 1 枚だけ）。
+// 画像に入るのは、本人が画面で見ている情報だけ（書名・著者・日付・件数・一文・入れた言葉・Orime のロゴ）。
 // 写真は端末の中だけで描く（どこにも送らない・アップロードしない）。
 // 選んだ地・形は、アプリを開いている間だけ覚える（写真そのものは覚えない）。
 //
@@ -25,10 +28,11 @@
 //   onClose
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Shuffle, CalendarDays, ChevronDown, Check } from 'lucide-react';
+import { ImagePlus, Shuffle, CalendarDays, ChevronDown, Check, SlidersHorizontal } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import ContextMenu from './ContextMenu';
+import ShareEditor from './ShareEditor';
 import { SkeletonBlock } from './Skeleton';
 import { MiniCover } from './BookCards';
 import { useToast } from './Toast';
@@ -41,13 +45,15 @@ import { validateImageFile, MAX_IMAGE_BYTES } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
 import { SITE_URL } from '../lib/legalLinks';
 import {
-  drawShareCard, drawPhotoDragFrame, canvasToBlob, prepareCover, prepareFonts, prepareLogo, loadPhotoFile, readShareTheme,
+  drawShareCard, canvasToBlob, prepareCover, prepareFonts, prepareLogo, loadPhotoFile, readShareTheme,
 } from '../lib/shareCard';
-import { buildShareText, shareFilename, FORMATS, panView, zoomView } from '../lib/shareCardLayout';
+import { buildShareText, shareFilename, FORMATS } from '../lib/shareCardLayout';
 import {
   pickShareSubject, subjectChoices, bookRecord, monthRecord, orderQuoteCandidates, quoteText,
   swapQuote, swapQuoteLabel, availableVariants, buildRecordShareText, fmtStamp,
+  shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
 } from '../lib/shareOverlay';
+import { phraseDisplayText } from '../lib/sharePhrase';
 import { shareImage, saveImage } from '../lib/shareImage';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
 
@@ -67,6 +73,11 @@ const DEMO_SHARE = import.meta.env.DEV && import.meta.env.VITE_DEMO === 'true' &
 
 // アプリを開いている間だけ覚える（写真そのものは覚えない）。
 const session = { style: 'paper', format: 'post' };
+
+// 表示する項目（隠した項目）は端末に覚える（private ブラウズ・保存できない端末では毎回すべて出す）。
+function safeStorage() {
+  try { return typeof window !== 'undefined' ? window.localStorage : null; } catch { return null; }
+}
 
 // プレビューの高さ（シートが 1 画面に収まるように・形が変わっても高さは同じ）。
 const PREVIEW_H = 'min(28vh, 248px)';
@@ -278,7 +289,15 @@ export default function ShareSheet({
   const [photo, setPhoto] = useState(null); // { source, width, height, thumb }
   const [photoLoading, setPhotoLoading] = useState(!!initialPhotoFile);
   const [view, setView] = useState({ panX: 0, panY: 0, zoom: 1 });
-  const viewRef = useRef(view);
+  // 表示する項目で隠した項目（前の選択を覚えておく）・自分で入れる言葉・編集画面。
+  const [hidden, setHiddenState] = useState(() => readHiddenItems(safeStorage()));
+  const toggleItem = (key) => setHiddenState((h) => {
+    const next = h.includes(key) ? h.filter((k) => k !== key) : [...h, key];
+    writeHiddenItems(safeStorage(), next);
+    return next;
+  });
+  const [phrase, setPhrase] = useState(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [assets, setAssets] = useState(null); // { cover, covers, fonts, logo }
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [error, setError] = useState('');
@@ -286,12 +305,10 @@ export default function ShareSheet({
   const [dims, setDims] = useState(FORMATS.post);
   const [card, setCard] = useState(null); // { blob, key, line }
   const [busy, setBusy] = useState(false);
-  const [dragging, setDragging] = useState(false); // 写真を動かしている間（画像が古いのでシェアは押せない）
   const canvasRef = useRef(null);
   const fileRef = useRef(null);
   const keyRef = useRef('');
   const blobTimer = useRef(null);
-  const rafRef = useRef(0);
   const drawnLineRef = useRef('');
 
   // ---- 写真を読む（撮った写真・選んだ写真）。端末の中だけで縮めて使う。
@@ -312,9 +329,7 @@ export default function ShareSheet({
         thumb = t.toDataURL('image/jpeg', 0.7);
       } catch { /* 見本の小さな写真が作れなくても使える */ }
       setPhoto({ ...p, thumb, id: Date.now() });
-      const v = { panX: 0, panY: 0, zoom: 1 };
-      viewRef.current = v;
-      setView(v);
+      setView({ panX: 0, panY: 0, zoom: 1 });
       setStyle('photo');
       return true;
     } catch (e2) {
@@ -358,7 +373,7 @@ export default function ShareSheet({
   const lineText = chosen ? quoteText(chosen.text, variant) : '';
   const ready0 = !!assets && !memosLoading && !photoLoading;
   const drawKey = ready0
-    ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver])
+    ? JSON.stringify([variant, subjectKey, chosen?.id, lineText, chosen?.pageNumber, effStyle, format, photo?.id, view, record.kicker, record.title, record.sub, record.stats, lineBook?.title, lineBook?.author, retry, assets.ver, hidden, phrase])
     : '';
 
   // 描く材料（書き出す 1 枚・動かしている間の 1 コマ・見本で共通）。
@@ -383,8 +398,10 @@ export default function ShareSheet({
       style: effStyle,
       format,
       photo,
-      view: viewRef.current,
+      view,
       textPos: 'bottom',
+      hidden,
+      phrase: phrase && phraseDisplayText(phrase) ? phrase : null,
     };
   };
   // canvas に描く（同期・書き出す大きさで全部）。失敗は ErrorMessage へ。
@@ -426,19 +443,20 @@ export default function ShareSheet({
     }, 180);
   }, []);
 
+  // 編集画面を開いている間は、編集画面だけが描く（閉じたら描き直して PNG にする）。
   useEffect(() => {
     if (!drawKey) { setStatus('loading'); return; }
-    viewRef.current = view;
+    if (editorOpen) return;
     if (draw()) scheduleBlob(drawKey);
-  }, [drawKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [drawKey, editorOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => () => { clearTimeout(blobTimer.current); cancelAnimationFrame(rafRef.current); }, []);
+  useEffect(() => () => { clearTimeout(blobTimer.current); }, []);
 
   // ---- 見せ方の見本（記録／一文）。本物の画像を小さく描く（描き終えてから少し待って・指を動かしている間は描かない）。
   const thumbRefs = useRef({});
   const thumbKey = drawKey ? JSON.stringify([drawKey, variants]) : '';
   useEffect(() => {
-    if (!thumbKey || variants.length < 2 || dragging || status !== 'ready') return undefined;
+    if (!thumbKey || variants.length < 2 || editorOpen || status !== 'ready') return undefined;
     const t = setTimeout(() => {
       variants.forEach((v) => {
         const tc = thumbRefs.current[v];
@@ -460,102 +478,13 @@ export default function ShareSheet({
       });
     }, 260);
     return () => clearTimeout(t);
-  }, [thumbKey, dragging, status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [thumbKey, editorOpen, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- 写真を指で動かす・拡大する（写真のときだけ）
-  const pointers = useRef(new Map());
-  const gesture = useRef(null);
+  // ---- 編集画面（写真を動かす・拡大／言葉／表示する項目）。写真を動かせるのは写真の地のときだけ。
   const canPan = effStyle === 'photo' && !!photo;
-  // 動かし方の一言は、写真を選んだ直後に 3 秒だけ出して消す（画像の文字・ロゴに重ね続けない・2026-09-29）。
-  const [panHint, setPanHint] = useState(false);
-  useEffect(() => {
-    if (!canPan) { setPanHint(false); return undefined; }
-    setPanHint(true);
-    const t = setTimeout(() => setPanHint(false), 3000);
-    return () => clearTimeout(t);
-  }, [canPan, photo]);
-  // 動かしている間は、画面に見える大きさで写真＋重ねる層だけを描く（1 コマを軽く・F8）。指を離したら全部を描き直す。
-  const dragCache = useRef({});
-  const redrawSoon = () => {
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      const canvas = canvasRef.current;
-      if (!canvas || !ready0) return;
-      const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1;
-      const targetWidth = Math.max(570, Math.round((canvas.clientWidth || 0) * dpr));
-      let ok = false;
-      try { ok = drawPhotoDragFrame(canvas, cardOpts(), dragCache.current, { targetWidth }); } catch { ok = false; }
-      if (!ok) draw();
-    });
-  };
-  // 指を離したとき: 置き方が変わっていれば drawKey が変わって描き直す。同じなら（動かして元の位置に戻した）ここで描き直す。
-  const latest = useRef({});
-  latest.current = { view, drawKey, draw };
-  const finishDrag = () => {
-    cancelAnimationFrame(rafRef.current);
-    const next = { ...viewRef.current };
-    const cur = latest.current;
-    if (JSON.stringify(next) === JSON.stringify(cur.view)) {
-      if (cur.draw()) scheduleBlob(cur.drawKey);
-    } else {
-      setView(next);
-    }
-  };
-  const dimsForPan = () => ({ pw: photo.width, ph: photo.height, W: FORMATS[format].w, H: FORMATS[format].h });
-  // 画面の 1px が画像の何 px か（動かしている間は canvas の中身が小さいので、書き出す大きさ＝形の幅で数える）。
-  const cssToCard = () => {
-    const c = canvasRef.current;
-    return c && c.clientWidth ? (FORMATS[format]?.w || c.width) / c.clientWidth : 1;
-  };
-  const onPointerDown = (e) => {
-    if (!canPan) return;
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()];
-      gesture.current = { pinch: Math.hypot(a.x - b.x, a.y - b.y), zoom: viewRef.current.zoom || 1 };
-    }
-  };
-  const onPointerMove = (e) => {
-    if (!canPan || !pointers.current.has(e.pointerId)) return;
-    const prev = pointers.current.get(e.pointerId);
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (!dragging) setDragging(true);
-    if (pointers.current.size >= 2 && gesture.current) {
-      const [a, b] = [...pointers.current.values()];
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      const target = (gesture.current.zoom * d) / Math.max(1, gesture.current.pinch);
-      viewRef.current = zoomView(viewRef.current, target / (viewRef.current.zoom || 1));
-    } else {
-      const k = cssToCard();
-      viewRef.current = panView(viewRef.current, (e.clientX - prev.x) * k, (e.clientY - prev.y) * k, dimsForPan());
-    }
-    redrawSoon();
-  };
-  const onPointerUp = (e) => {
-    pointers.current.delete(e.pointerId);
-    if (pointers.current.size < 2) gesture.current = null;
-    if (pointers.current.size === 0 && dragging) {
-      setDragging(false);
-      finishDrag();
-    }
-  };
-  // マウスのホイール・トラックパッドで拡大（ページはスクロールさせない）。
-  useEffect(() => {
-    const c = canvasRef.current;
-    if (!c || !canPan) return undefined;
-    let t = null;
-    const onWheel = (e) => {
-      e.preventDefault();
-      viewRef.current = zoomView(viewRef.current, Math.exp(-e.deltaY * 0.002));
-      setDragging(true);
-      redrawSoon();
-      clearTimeout(t);
-      t = setTimeout(() => { setDragging(false); finishDrag(); }, 160);
-    };
-    c.addEventListener('wheel', onWheel, { passive: false });
-    return () => { c.removeEventListener('wheel', onWheel); clearTimeout(t); };
-  }, [canPan, draw]); // eslint-disable-line react-hooks/exhaustive-deps
+  const items = shareItemsFor({ record, variant, hasQuote: !!chosen && variant === 'record', hasAuthor: !!String(lineBook?.author || '').trim() });
+  const getEditorOpts = useCallback(() => cardOpts(), [drawKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openEditor = () => { if (status === 'ready') { haptic.light(); setEditorOpen(true); } };
 
   // ---- 写真を選ぶ（シートの中では、撮る・アルバムから選ぶ の両方を選べる＝capture を付けない）
   const openPicker = () => { try { fileRef.current?.click(); } catch { /* ignore */ } };
@@ -566,7 +495,7 @@ export default function ShareSheet({
     if (await readPhoto(file)) haptic.light();
   };
 
-  const ready = status === 'ready' && !!card && card.key === drawKey && !busy && !dragging;
+  const ready = status === 'ready' && !!card && card.key === drawKey && !busy && !editorOpen;
   const filename = shareFilename({ format: effStyle === 'sticker' ? 'sticker' : format, style: effStyle });
   const trackProps = (via) => ({ kind: variant === 'record' ? 'record' : 'line', style: effStyle, format: effStyle === 'sticker' ? 'sticker' : format, via, subject: isMonth ? 'month' : 'book', from });
 
@@ -576,9 +505,10 @@ export default function ShareSheet({
     setBusy(true);
     try {
       // 共有の文は、画像に入れたものと同じ。await を挟まずに共有シートを開く。
+      // 隠した項目（書名など）は文にも入れない。
       const text = variant === 'record'
-        ? buildRecordShareText({ record, quote: card.line, siteUrl: SITE_URL })
-        : buildShareText({ title: lineBook?.title, line: card.line, siteUrl: SITE_URL });
+        ? buildRecordShareText({ record: applyShareItems(record, hidden), quote: card.line, siteUrl: SITE_URL })
+        : buildShareText({ title: shareVisibility(hidden).title ? lineBook?.title : '', line: card.line, siteUrl: SITE_URL });
       const result = await shareImage({ blob: card.blob, filename, text });
       if (result !== 'cancelled') track(EVENTS.SHARE_CARD, trackProps(result));
       if (result === 'saved') toast.info('この端末では共有できないため、画像を保存しました。');
@@ -663,43 +593,33 @@ export default function ShareSheet({
           </div>
         )}
 
-        {/* プレビュー＝外に出る画像そのもの（写真のときは指で動かせる） */}
+        {/* プレビュー＝外に出る画像そのもの。押すと大きな画像の編集画面（写真を動かす・言葉・表示する項目） */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)' }}>
-          <div
+          <button
+            type="button"
+            onClick={openEditor}
+            aria-label={`${subjectName}の画像（${VARIANT_LABELS[variant]}・${STYLE_LABELS[effStyle]}${effStyle === 'sticker' ? '' : `・${FORMAT_OPTIONS.find((o) => o.v === format)?.aria}`}）を大きくして編集`}
+            aria-disabled={status !== 'ready' || undefined}
             style={{
               display: status === 'error' ? 'none' : 'block',
               position: 'relative', height: PREVIEW_H, aspectRatio: aspect, maxWidth: '100%',
+              padding: 0, border: 'none', font: 'inherit',
               borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'inset 0 0 0 1px var(--separator)',
               background: effStyle === 'sticker' ? checker(16) : 'var(--fill)',
+              cursor: status === 'ready' ? 'zoom-in' : 'default',
             }}
           >
             <canvas
               ref={canvasRef}
-              role="img"
-              aria-label={`${subjectName}の画像（${VARIANT_LABELS[variant]}・${STYLE_LABELS[effStyle]}${effStyle === 'sticker' ? '' : `・${FORMAT_OPTIONS.find((o) => o.v === format)?.aria}`}）`}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-              style={{
-                display: 'block', width: '100%', height: '100%',
-                visibility: status === 'ready' ? 'visible' : 'hidden',
-                touchAction: canPan ? 'none' : 'auto',
-                cursor: canPan ? 'grab' : 'default',
-              }}
+              aria-hidden="true"
+              style={{ display: 'block', width: '100%', height: '100%', visibility: status === 'ready' ? 'visible' : 'hidden' }}
             />
             {status === 'loading' && (
-              <div style={{ position: 'absolute', inset: 0 }} aria-busy="true" aria-label="画像を作っています">
+              <span style={{ position: 'absolute', inset: 0, display: 'block' }} aria-busy="true" aria-label="画像を作っています">
                 <SkeletonBlock width="100%" height="100%" radius="var(--radius)" />
-              </div>
+              </span>
             )}
-            {/* 写真の動かし方は、写真の上の一番上に 3 秒だけ重ねる（記録・一文は下にあるので重ならない）。 */}
-            {canPan && status === 'ready' && (
-              <p aria-hidden={!panHint || undefined} style={{ position: 'absolute', left: '50%', top: 'var(--space-2)', opacity: panHint ? 1 : 0, transition: 'opacity var(--duration-base) var(--ease-out)', transform: 'translateX(-50%)', width: 'max-content', maxWidth: 'calc(100% - 2 * var(--space-2))', boxSizing: 'border-box', margin: 0, padding: 'var(--space-1) var(--space-2)', borderRadius: 'var(--radius)', background: 'var(--photo-backdrop)', color: 'var(--on-cover)', fontSize: 'var(--text-meta)', lineHeight: 1.4, textAlign: 'center', wordBreak: 'keep-all', pointerEvents: 'none' }}>
-                <span style={{ display: 'inline-block' }}>指で動かす・</span><span style={{ display: 'inline-block' }}>2 本の指で拡大</span>
-              </p>
-            )}
-          </div>
+          </button>
           {/* 失敗の案内はプレビューと同じ高さの場所に出す（地を変えて描き直せたときに、下の部品が上下に動かない）。 */}
           {status === 'error' && (
             <div style={{ alignSelf: 'stretch', minHeight: PREVIEW_H, display: 'grid' }}>
@@ -711,18 +631,31 @@ export default function ShareSheet({
               />
             </div>
           )}
-          {/* 別の一文（1 タップで次のメモへ・記録では外すこともできる） */}
-          {swapLabel && status !== 'error' && (
-            // 画像を作っている間は押せない（違う一文の画像のまま共有しない）。薄くせず色だけ変える（DESIGN §5 押せないボタン）。
-            <button
-              type="button"
-              disabled={status !== 'ready'}
-              onClick={() => { setQuoteIndex(swapQuote(qi, candidates.length, variant === 'record')); haptic.light(); }}
-              style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
-            >
-              <Shuffle size={18} aria-hidden="true" />
-              {swapLabel}
-            </button>
+          {/* 別の一文（1 タップで次のメモへ・記録では外すこともできる）と「編集」（大きな画像で直す） */}
+          {status !== 'error' && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+              {swapLabel && (
+                // 画像を作っている間は押せない（違う一文の画像のまま共有しない）。薄くせず色だけ変える（DESIGN §5 押せないボタン）。
+                <button
+                  type="button"
+                  disabled={status !== 'ready'}
+                  onClick={() => { setQuoteIndex(swapQuote(qi, candidates.length, variant === 'record')); haptic.light(); }}
+                  style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
+                >
+                  <Shuffle size={18} aria-hidden="true" />
+                  {swapLabel}
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={status !== 'ready'}
+                onClick={openEditor}
+                style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', color: status === 'ready' ? 'var(--accent)' : 'var(--text-3)', opacity: 1, cursor: status === 'ready' ? 'pointer' : 'default' }}
+              >
+                <SlidersHorizontal size={18} aria-hidden="true" />
+                編集
+              </button>
+            </div>
           )}
         </div>
 
@@ -813,6 +746,29 @@ export default function ShareSheet({
           </div>
         )}
       </div>
+      {editorOpen && (
+        <ShareEditor
+          getOpts={getEditorOpts}
+          drawKey={drawKey}
+          ready={ready0 && !!drawKey}
+          format={format}
+          ground={effStyle}
+          canPan={canPan}
+          photo={photo}
+          view={view}
+          onView={setView}
+          items={items}
+          hidden={hidden}
+          onToggleItem={toggleItem}
+          phrase={phrase}
+          onPhrase={setPhrase}
+          onClose={() => {
+            // 中身の無い言葉は捨てる（入れかけでやめた）。
+            if (phrase && !phraseDisplayText(phrase)) setPhrase(null);
+            setEditorOpen(false);
+          }}
+        />
+      )}
     </BottomSheet>
   );
 }

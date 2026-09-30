@@ -9,7 +9,7 @@
 //   - phraseLayout      … 大きさ・改行（文節の切れ目で）・箱の位置。枠に入らなければ小さくし、はみ出さない場所に寄せる
 //   - phraseColors      … 文字の色（写真・夜・表紙の色・透明は白、紙は墨。1 タップで入れ替え）
 
-import { wrapBalanced } from './shareCardLayout';
+import { wrapBalanced, segmentPhrases } from './shareCardLayout';
 import { recordFrame } from './shareOverlay';
 
 export const PHRASE_MAX = 80;
@@ -43,9 +43,9 @@ export function cleanPhrase(text) {
 
 export const clampScale = (v) => Math.min(PHRASE_SCALE_MAX, Math.max(PHRASE_SCALE_MIN, Number(v) || 1));
 
-// 最初の置き方: 横は中央、縦は上から 30%（記録・一文は下にあるので重ならない）。
+// 最初の置き方: 横は中央、縦は上から 24%（記録・一文は下にあるので重ならない）。
 export function newPhrase(text = '') {
-  return { text: cleanPhrase(text), style: 'mincho', x: 0.5, y: 0.3, scale: 1, invert: false };
+  return { text: cleanPhrase(text), style: 'mincho', x: 0.5, y: 0.24, scale: 1, invert: false };
 }
 
 // 言葉を置いてよい範囲（画像の座標）。投稿・ストーリーは記録と同じ安全な枠（ストーリーは上下 270・投稿は左右 80）。
@@ -74,6 +74,24 @@ export function phraseDisplayText(phrase) {
   return t;
 }
 
+// 中央にそろえる言葉は、行の長さもそろえる（CSS の text-wrap: balance と同じ考え）:
+// 同じ行数のまま入るいちばん狭い幅で組み直す（「問いの質が、答えの質を／決める。」→「問いの質が、／答えの質を決める。」）。
+export function balanceLines(text, maxWidth, measure) {
+  const base = wrapBalanced(text, maxWidth, measure);
+  if (base.length < 2) return base;
+  // 文節（改行してよいまとまり）が 1 行に入らないほど狭めない（語の途中で割らない）。
+  const longest = Math.max(0, ...segmentPhrases(text).map((p) => measure(p.trim())));
+  let lo = Math.max(maxWidth * 0.3, Math.min(maxWidth, longest));
+  let hi = maxWidth;
+  let best = base;
+  for (let i = 0; i < 10; i += 1) {
+    const mid = (lo + hi) / 2;
+    const lines = wrapBalanced(text, mid, measure);
+    if (lines.length <= base.length && lines.every((l) => measure(l) <= mid + 0.5)) { best = lines; hi = mid; } else { lo = mid; }
+  }
+  return best;
+}
+
 // 大きさ・改行・箱。measureAt(size) は「その大きさの文字の幅を返す関数」を返す（canvas の measureText・テストでは字数×大きさ）。
 // 戻り値: { text, lines, size, lineHeight, w, h, cx, cy, x0, y0, padX, padY, underlineH, style } （画像の座標・箱は余白と傍線を含む）
 // 箱が枠に入らないときは、入るまで小さくする（文字の大きさの下限 28）。
@@ -93,7 +111,7 @@ export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', stic
     const padY = Math.round(size * m.padY);
     const maxWidth = Math.max(size * 2, frameW - padX * 2);
     const measure = measureAt(size);
-    const lines = wrapBalanced(text, maxWidth, measure);
+    const lines = balanceLines(text, maxWidth, measure);
     const lineHeight = Math.round(size * m.lineHeight);
     const textW = Math.max(...lines.map((l) => measure(l)), 0);
     const underlineH = m.underline ? Math.round(size * m.underline) : 0;
@@ -104,7 +122,7 @@ export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', stic
     if (fits || size <= 28) break;
     size = Math.max(28, Math.round(size * 0.92));
   }
-  const want = { cx: (Number.isFinite(phrase.x) ? phrase.x : 0.5) * W, cy: (Number.isFinite(phrase.y) ? phrase.y : 0.3) * H };
+  const want = { cx: (Number.isFinite(phrase.x) ? phrase.x : 0.5) * W, cy: (Number.isFinite(phrase.y) ? phrase.y : 0.24) * H };
   const { cx, cy } = clampPhraseCenter({ ...want, w: out.w, h: out.h }, frame);
   return { ...out, cx, cy, x0: cx - out.w / 2, y0: cy - out.h / 2, frame };
 }

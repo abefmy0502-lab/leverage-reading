@@ -1093,7 +1093,12 @@ export function layoutPhraseOn(ctx, o, W, H) {
     measureAt: (size) => {
       const m = measurer(ctx, phraseFont(style, fonts, size), spacing);
       const trail = Math.round(spacing * size * 10) / 10;
-      return (s) => (s ? Math.max(0, m(s) - trail) : 0);
+      const memo = new Map(); // 行の組み方をいくつも比べるので、同じ文字列の幅は覚えておく
+      return (s) => {
+        if (!s) return 0;
+        if (!memo.has(s)) memo.set(s, Math.max(0, m(s) - trail));
+        return memo.get(s);
+      };
     },
   });
 }

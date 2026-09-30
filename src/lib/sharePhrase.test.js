@@ -24,7 +24,7 @@ describe('言葉を整える', () => {
     expect(phraseDisplayText({ text: '   ', style: 'mincho' })).toBe('');
   });
   it('最初は上のほうの中央・明朝の引用・倍率 1', () => {
-    expect(newPhrase('やってみる')).toEqual({ text: 'やってみる', style: 'mincho', x: 0.5, y: 0.3, scale: 1, invert: false });
+    expect(newPhrase('やってみる')).toEqual({ text: 'やってみる', style: 'mincho', x: 0.5, y: 0.24, scale: 1, invert: false });
     expect(clampScale(9)).toBe(PHRASE_SCALE_MAX);
     expect(clampScale(0.1)).toBe(PHRASE_SCALE_MIN);
   });
@@ -87,6 +87,12 @@ describe('大きさ・改行・箱', () => {
     expect(lay.lines.join('')).toBe('問いを見極めてから答えを出すことにした');
     // 「見極め／て」のように助詞の前では割らない
     for (const l of lay.lines) expect(/^[てをがにはのへとでもからまで]/.test(l)).toBe(false);
+  });
+  it('中央にそろえる言葉は行の長さもそろえる（最後の行だけ短くしない）', () => {
+    const lay = phraseLayout({ text: '問いの質が、答えの質を決める。', style: 'mincho', scale: 1.4 }, { ...FORMATS.post, format: 'post', measureAt });
+    expect(lay.lines.length).toBe(2);
+    const w = lay.lines.map((l) => Array.from(l).length);
+    expect(Math.min(...w) / Math.max(...w)).toBeGreaterThan(0.6);
   });
   it('帯は文字の周りに余白、明朝の引用は傍線のぶん下に余白', () => {
     const band = phraseLayout({ text: '読む', style: 'band' }, { ...FORMATS.post, format: 'post', measureAt });
