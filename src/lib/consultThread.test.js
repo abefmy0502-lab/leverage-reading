@@ -176,6 +176,10 @@ describe('parseAskSection（【あなたに聞きたいこと】の問いと候�
     const p = parseAskSection('どんなときですか？\n\n- 「会議の前」\n→ 会議の前\n1. 夜。\n・' + 'あ'.repeat(30) + '\n・朝\n・昼');
     expect(p.replies).toEqual(['会議の前', '夜', '朝']);
   });
+  it('12 字までの候補はチップにし、13 字からは外す（入力欄の上の行で読める長さ）', () => {
+    const p = parseAskSection('どんなとき？\n・' + 'あ'.repeat(12) + '\n・' + 'い'.repeat(13));
+    expect(p.replies).toEqual(['あ'.repeat(12)]);
+  });
   it('候補の後ろの段落（お試しの注記など）は rest に', () => {
     const p = parseAskSection('どんなとき？\n・朝\n\n（お試しモードの応答です）');
     expect(p.replies).toEqual(['朝']);

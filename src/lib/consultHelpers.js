@@ -522,7 +522,9 @@ export function followupChips({ booksWithMemos = 0, lastAsked = '' } = {}) {
 //   最初の答えは行動を決めず、【あなたに聞きたいこと】で状況を 1 つ聞く（問い 1 文＋答えの候補 2〜3 行「・会議の前」）。
 //   候補は入力欄の上の返事のチップになる。行動は「行動を決める」のチップ（または自分の言葉）で頼んだときだけ。
 export const ASK_REPLY_MAX = 3;
-export const ASK_REPLY_CHARS = 24; // 候補は 20 字以内と頼む。少しの超えは許し、長すぎる行はチップにしない
+// 候補は 10 字以内と頼む。少しの超えは許し、12 字を超える行はチップにしない（入力欄の上の行で「行動を決める」の横に
+//   読める長さ＝約 215pt・15px で 11 字ほど・2026-09-30 ui-critic）。
+export const ASK_REPLY_CHARS = 12;
 export const DECIDE_CHIP = '行動を決める';
 export const DECIDE_REQUEST = 'ここまでの話から、私がやる行動を 1 つ決めたい';
 // 候補の行の頭の印（指示は「・」。- * • → や「1.」も受ける）。
