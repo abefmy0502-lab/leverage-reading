@@ -30,6 +30,17 @@ function ndlCreators(chunk) {
     .map((c) => c.replace(/<[^>]+>/g, '').trim())
     .filter(Boolean);
 }
+import {
+  BROWSER_HEADERS,
+  HEALTH_ISBN,
+  coverCandidatesFor,
+  createCooldown,
+  extractIsbnsFromXml,
+  firstRealImage,
+  openbdCover,
+  probeImage,
+  toIsbn13,
+} from './_coverSources.js';
 
 function clean(s) {
   return (s || '').toString().trim().slice(0, 300);
@@ -96,18 +107,9 @@ function firstAuthor(author) {
   return first || a;
 }
 
-// XML から ISBN-13 を上位順に抽出（DOMParser 不要・regex）。
+// XML から ISBN を上位順に抽出して 13 桁にそろえる（NDL の古い本は ISBN-10 だけ・_coverSources.js）。
 function extractIsbns(xml, limit = 5) {
-  const found = [];
-  const seen = new Set();
-  const re = /97[89][\d-]{10,17}/g;
-  let m;
-  while ((m = re.exec(xml)) !== null) {
-    const isbn = cleanIsbn(m[0]);
-    if (isbn.length === 13 && !seen.has(isbn)) { seen.add(isbn); found.push(isbn); }
-    if (found.length >= limit) break;
-  }
-  return found;
+  return extractIsbnsFromXml(xml, limit);
 }
 
 // 外部 1 回あたりの待ち時間の上限。1 つの取得元が固まっても、表紙の解決全体が
@@ -253,14 +255,21 @@ function gAuthorMatch(v, wantAuthor) {
     return n && (n.includes(wantAuthor) || wantAuthor.includes(n));
   });
 }
+// 429/403 のあとはしばらく Google を叩かない（鍵なし 5 分・鍵あり 1 分）。1 回の解決で最大 3 回
+// 叩いて 3 回とも待つのをやめ、共有 IP の枠をさらに削らない。
+const googleCooldown = createCooldown();
 async function googleFetchVolumes(q, max = 10) {
-  const key = process.env.GOOGLE_BOOKS_API_KEY ? `&key=${process.env.GOOGLE_BOOKS_API_KEY}` : '';
+  const hasKey = !!process.env.GOOGLE_BOOKS_API_KEY;
+  const key = hasKey ? `&key=${process.env.GOOGLE_BOOKS_API_KEY}` : '';
+  if (googleCooldown.blocked()) { googleFetchVolumes._lastStatus = 0; googleFetchVolumes._cooldown = true; return []; }
+  googleFetchVolumes._cooldown = false;
   try {
     const r = await fetch(
       `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=${max}&country=JP${key}`,
       { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
     );
     googleFetchVolumes._lastStatus = r.status;
+    googleCooldown.hit(r.status, { hasKey });
     if (!r.ok) return [];
     const d = await r.json();
     return (d.items || []).map((it) => it.volumeInfo || {});
@@ -331,6 +340,7 @@ async function googleCover(title, author, isbn, sink, ev) {
   let isbnOnly = '';
   if (sink) { sink.raw = 0; sink.http = null; }
   for (const plan of plans) {
+    if (googleCooldown.blocked()) break; // 429/403 のあとは残りのクエリも投げない
     // eslint-disable-next-line no-await-in-loop
     const items = await fetchVolumes(plan.q, plan.max);
     if (sink) { sink.http = googleFetchVolumes._lastStatus ?? sink.http; sink.raw += items.length; }
@@ -401,8 +411,10 @@ async function rakutenCover(title, author, isbn, ev) {
   const referer = (process.env.RAKUTEN_APP_URL || '').trim();
   const d = { ref: !!referer, tmatch: 0, tries: [] };
 
+  // 楽天は表紙の無い本に「noimage」の画像を返す → 表紙なしとして扱う。
+  const realImage = (u) => (u && !/noimage/i.test(String(u)) ? u : '');
   const fields = (it) => ({
-    cover: rakutenUpscale(it.largeImageUrl || it.mediumImageUrl || ''),
+    cover: rakutenUpscale(realImage(it.largeImageUrl) || realImage(it.mediumImageUrl) || ''),
     isbn: cleanIsbn(it.isbn),
     title: (it.title || '').toString(),
     author: (it.author || '').toString(),
@@ -446,7 +458,7 @@ async function rakutenCover(title, author, isbn, ev) {
   };
 
   // ── ISBN 直引き（BooksBook/Search・書籍限定で正確）─────────────────
-  const iq = cleanIsbn(isbn);
+  const iq = toIsbn13(isbn) || cleanIsbn(isbn); // 楽天の isbn= は 13 桁で引く
   if (iq) {
     const items = await run('BooksBook/Search', { isbn: iq }, 'isbn');
     for (const it of items) { const f = fields(it); if (f.cover) return { cover: f.cover, isbn: f.isbn || iq, _d: d }; }
@@ -479,61 +491,27 @@ async function rakutenCover(title, author, isbn, ev) {
   return { ...(titleOnly || { cover: '', isbn: '' }), _d: d };
 }
 
-// 一部の書影 CDN（NDL / Amazon）はデータセンター IP からの素の fetch を
-// 403 で弾く（ブラウザの UA / Referer が無いため）。ブラウザ相当のヘッダを
-// 付けると通ることが多い。
-const BROWSER_HEADERS = {
-  'User-Agent':
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
-  Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-  'Accept-Language': 'ja,en;q=0.8',
-  Referer: 'https://ndlsearch.ndl.go.jp/',
-};
-
-// 画像の実在＋「表紙らしさ」を server-side で検証（1×1 / No-image を弾く）。
-// ※ これは best-effort。403 等で検証できなくても、呼び出し側は ISBN から
-//   構築した URL をクライアントに返し、ブラウザ側で最終検証する。
+// 画像の実在＋「表紙らしさ」を server-side で確かめる（_coverSources.js の probeImage）。
+//   縦横を読んで 1×1・43 バイトの GIF（Amazon の「無い」）・Google の「No cover」・横長ロゴを弾く。
+//   以前は「4KB 未満は偽物」の 1 本だけで、小さな本物のサムネを弾き、Google の No cover は通していた。
+// ※ best-effort。NDL・Amazon はデータセンターの IP を 403 で弾くことがあるので、確かめられなくても
+//   呼び出し側は ISBN から作った候補 URL を返し、端末の <img> が最後に確かめる。
 async function imageIsReal(url) {
-  if (!url) return false;
-  try {
-    const r = await fetch(url, { method: 'GET', headers: BROWSER_HEADERS, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!r.ok) return false;
-    const ct = r.headers.get('content-type') || '';
-    if (!/^image\//i.test(ct)) return false;
-    // content-length は欠落することがあるので実バイト数で判定する。
-    // NDL の 1×1 / "No image" placeholder は数百バイト → 4KB 未満を弾く。
-    const buf = await r.arrayBuffer();
-    if (buf.byteLength < 4096) return false;
-    return true;
-  } catch {
-    return false;
-  }
+  return (await probeImage(url)).ok;
 }
 
-// ISBN から表紙 URL の候補を優先順で構築（クライアントが <img> で実在検証する）。
-// 鍵不要・和書カバー率の高い順。
-function coverCandidatesFor(isbn) {
-  const i13 = cleanIsbn(isbn);
-  const i10 = isbn13to10(i13);
-  return [
-    i13 && `https://ndlsearch.ndl.go.jp/thumbnail/${i13}.jpg`,
-    i13 && `https://cover.openbd.jp/${i13}.jpg`,
-    i13 && `https://covers.openlibrary.org/b/isbn/${i13}-L.jpg?default=false`,
-    // Google Books の ISBN 直リンク（未登録本はプレースホルダーを返すため、
-    // クライアント側 checkImageExists の縦横比ゲートで検証してから採用される）。
-    i13 && `https://books.google.com/books/content?vid=ISBN${i13}&printsec=frontcover&img=1&zoom=1`,
-    i10 && `https://m.media-amazon.com/images/P/${i10}.09._SCLZZZZZZZ_.jpg`,
-    i10 && `https://images-na.ssl-images-amazon.com/images/P/${i10}.09.LZZZZZZZ.jpg`,
-  ].filter(Boolean);
-}
-
-// ISBN から各ソースの表紙を順に server-side 検証採用（best-effort）。
-async function coverFromIsbn(isbn) {
-  for (const u of coverCandidatesFor(isbn)) {
-    // eslint-disable-next-line no-await-in-loop
-    if (await imageIsReal(u)) return u;
-  }
-  return '';
+// ISBN から各ソースの表紙を server-side で確かめて採用する（best-effort）。
+//   候補は **同時に** 確かめ、並び順でいちばん前の本物を採る（以前は 1 枚 4 秒を順番に待ち、
+//   6 URL × ISBN 5 件で関数の時間切れ＝何も返せないことがあった）。
+//   openBD の API（summary.cover）も同時に引き、あれば候補の先頭に置く（sink[ISBN13] に残す）。
+async function coverFromIsbn(isbn, sink) {
+  const i13 = toIsbn13(isbn);
+  if (!i13) return '';
+  const base = coverCandidatesFor(i13);
+  const [ob, first] = await Promise.all([openbdCover(i13), firstRealImage(base)]);
+  if (sink && ob.cover) sink[i13] = ob.cover;
+  if (ob.cover && !base.includes(ob.cover) && (await imageIsReal(ob.cover))) return ob.cover;
+  return first.url || '';
 }
 
 // 未認証・公開エンドポイントのため userId が無い。呼び出し元 IP をキーにした
@@ -573,9 +551,103 @@ function clientKey(req) {
   return ip.trim();
 }
 
+// 1 回の解決の持ち時間（これを過ぎたら次の取得元へ進まない）。vercel.json の maxDuration より十分短く。
+const COVER_BUDGET_MS = 9000;
+
+// 🩺 /api/cover?health=1 の中身。設定は真偽だけ・各取得元は HTTP の番号と「見つかったか」だけ。
+//    決まった本（HEALTH_ISBN・公開の書誌）で確かめる。外部へ 10 回ほど出るので 5 分覚えておく。
+const HEALTH_TTL_MS = 5 * 60 * 1000;
+let healthCache = null;
+async function coverHealth() {
+  if (healthCache && Date.now() - healthCache.at < HEALTH_TTL_MS) return healthCache.data;
+  const started = Date.now();
+  const i13 = HEALTH_ISBN;
+  const i10 = isbn13to10(i13);
+  const rakutenConfigured = !!((process.env.RAKUTEN_APPLICATION_ID || '').trim() && (process.env.RAKUTEN_ACCESS_KEY || '').trim());
+  const img = async (url) => {
+    const r = await probeImage(url);
+    return { status: r.status, found: r.ok };
+  };
+  // NDL: ISBN で引けるか → その書名だけで引き直して同じ ISBN が出るか（書名 → ISBN の経路）。
+  const ndl = async () => {
+    const out = { ndlSearch: { status: 0, found: false }, ndlTitleToIsbn: { status: 0, found: false } };
+    let xml = '';
+    try { xml = await ndlFetch([`isbn=${i13}`, 'cnt=5']); out.ndlSearch.status = ndlFetch._lastStatus ?? 0; } catch { /* 0 のまま */ }
+    out.ndlSearch.found = extractIsbns(xml, 10).includes(i13);
+    const first = xml.split(/<item[\s>]/i)[1];
+    const t = first ? coreTitle(itemTitle(first)) : '';
+    if (t) {
+      try {
+        const xml2 = await ndlFetch([`title=${encodeURIComponent(t)}`, 'cnt=20']);
+        out.ndlTitleToIsbn.status = ndlFetch._lastStatus ?? 0;
+        out.ndlTitleToIsbn.found = extractIsbns(xml2, 50).includes(i13);
+      } catch { /* 0 のまま */ }
+    }
+    return out;
+  };
+  const google = async () => {
+    const items = await googleFetchVolumes(`isbn:${i13}`, 1);
+    return {
+      status: googleFetchVolumes._lastStatus ?? 0,
+      found: items.some((v) => !!(v.imageLinks && (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail))),
+      cooldown: !!googleFetchVolumes._cooldown,
+    };
+  };
+  const rakuten = async () => {
+    if (!rakutenConfigured) return { skipped: true, status: 0, found: false };
+    const rk = await rakutenCover('', '', i13);
+    const tries = (rk._d && rk._d.tries) || [];
+    return { skipped: false, status: Number((tries[0] && tries[0].http) || 0), found: !!rk.cover };
+  };
+  const openbd = async () => {
+    const r = await openbdCover(i13);
+    return { status: r.status, found: !!r.cover };
+  };
+  const [ndlR, rakutenR, googleR, openbdR, ndlThumb, openbdImage, amazon, amazonMedia, googleContent, openLibrary] = await Promise.all([
+    ndl(),
+    rakuten().catch(() => ({ skipped: false, status: 0, found: false })),
+    google().catch(() => ({ status: 0, found: false, cooldown: false })),
+    openbd(),
+    img(`https://ndlsearch.ndl.go.jp/thumbnail/${i13}.jpg`),
+    img(`https://cover.openbd.jp/${i13}.jpg`),
+    img(`https://images-na.ssl-images-amazon.com/images/P/${i10}.09.LZZZZZZZ.jpg`),
+    img(`https://m.media-amazon.com/images/P/${i10}.09._SCLZZZZZZZ_.jpg`),
+    img(`https://books.google.com/books/content?vid=ISBN${i13}&printsec=frontcover&img=1&zoom=1`),
+    img(`https://covers.openlibrary.org/b/isbn/${i13}-L.jpg?default=false`),
+  ]);
+  const data = {
+    v: 'cover-health-2026-09-30',
+    rakutenConfigured,
+    rakutenRefererSet: !!(process.env.RAKUTEN_APP_URL || '').trim(),
+    googleKeySet: !!(process.env.GOOGLE_BOOKS_API_KEY || '').trim(),
+    isbn: i13,
+    sources: {
+      rakuten: rakutenR,
+      ndlSearch: ndlR.ndlSearch,
+      ndlTitleToIsbn: ndlR.ndlTitleToIsbn,
+      openbd: openbdR,
+      google: googleR,
+      ndlThumb,
+      openbdImage,
+      amazon,
+      amazonMedia,
+      googleContent,
+      openLibrary,
+    },
+    elapsedMs: Date.now() - started,
+  };
+  healthCache = { at: Date.now(), data };
+  return data;
+}
+
 export default async function handler(req, res) {
   // iOS アプリ（capacitor://localhost）からの呼び出しを許可。
   if (applyCors(req, res, 'GET, OPTIONS')) return undefined;
+  // 📕 中身は公開の書誌だけ（Cookie・認証なし）なので、CORS は全員に「*」を返す。
+  //   オリジンごとに変えると、Web で CDN にキャッシュされた「CORS なし」の応答が iOS アプリ
+  //   （capacitor://localhost）にも返り、アプリでは表紙の解決が失敗する（api/cover-image.js と同じ理由）。
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (typeof res.removeHeader === 'function') res.removeHeader('Vary');
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
@@ -585,6 +657,14 @@ export default async function handler(req, res) {
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter));
     return res.status(429).json({ error: 'Too Many Requests', retry_after: rl.retryAfter });
+  }
+
+  // 🩺 本番の診断: /api/cover?health=1 → 設定の有無（真偽だけ）と、決まった本 1 冊で各取得元が
+  //    返した HTTP の番号・見つかったか。鍵・利用者の情報・内部の URL は出さない。5 分キャッシュ。
+  if (req.query?.health) {
+    const data = await coverHealth();
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
+    return res.status(200).json(data);
   }
 
   const title = clean(req.query?.title);
@@ -649,12 +729,17 @@ export default async function handler(req, res) {
 
   let cover = '';
   let isbn = isbnIn;
+  // ⏱ 全体の持ち時間。過ぎたら次の取得元へは進まず、分かった ISBN と候補だけ返す
+  //    （端末の <img> が候補を確かめる）。関数の時間切れ（504）で何も返せないのを防ぐ。
+  const deadline = Date.now() + COVER_BUDGET_MS;
+  const hasTime = () => Date.now() < deadline;
+  const openbdSink = {};
   // 🔎 ?verify=1（AI 選書の実在の判定）: 検索元が返した本を控え、最後に「書名がはっきり一致し、
   //    著者も一致する本」があるかを返す（verified: true / false / null）。表紙探しの流れは同じだが、
   //    書影の server-side 検証（1 冊で最大 6 回の画像取得）は省く（クライアントが candidates を <img> で確かめる・速さ優先）。
   const verifyMode = req.query?.verify === '1' && !!title;
   const ev = verifyMode ? newEvidence() : null;
-  const coverFor = verifyMode ? async () => '' : coverFromIsbn;
+  const coverFor = verifyMode ? async () => '' : (i) => coverFromIsbn(i, openbdSink);
   // verify のときは、はっきり一致する本が見つかった時点で次の検索元を引かない（速さ優先）。
   const settled = () => verifyMode && !!findStrongMatch(ev.items, title, author);
 
@@ -689,7 +774,7 @@ export default async function handler(req, res) {
     //    ISBN 直引き→無ければタイトル検索。表紙 URL は CSP 許可済みの
     //    thumbnail.image.rakuten.co.jp を直接返せる（クライアントが最終検証）。
     //    env（RAKUTEN_APPLICATION_ID / ACCESS_KEY）未設定なら静かにスキップ。
-    if (!cover && !settled()) {
+    if (!cover && !settled() && hasTime()) {
       const rk = await rakutenCover(title, author, isbn, ev);
       diag.src.rakuten = { cover: !!rk.cover, isbn: rk.isbn || null, ...(rk._d || {}) };
       if (rk.cover) {
@@ -705,12 +790,13 @@ export default async function handler(req, res) {
     // ③ NDL OpenSearch（キー不要・和書に強い）で ISBN を引く。
     //    ※ サーバーからの書影 fetch は 403 で弾かれることがあるので、表紙が
     //      検証できなくても「正しい ISBN」は必ず確保する（後段でクライアントに渡す）。
-    if (!cover && !settled()) {
+    if (!cover && !settled() && hasTime()) {
       const ndlSink = {};
       const isbns = await ndlIsbns(title, author, ndlSink, ev);
       diag.src.ndl = { isbnCount: isbns.length, first: isbns[0] || null, ...ndlSink };
-      for (const cand of isbns) {
+      for (const cand of isbns.slice(0, 3)) {
         if (!isbn) isbn = cand; // 最初に見つかった ISBN を確保
+        if (!hasTime()) break;
         // eslint-disable-next-line no-await-in-loop
         const u = await coverFor(cand);
         if (u) { cover = u; isbn = cand; break; }
@@ -718,14 +804,14 @@ export default async function handler(req, res) {
     }
 
     // ④ それでもダメなら Google Books（鍵があれば有効・補助）。
-    if (!cover && !settled()) {
+    if (!cover && !settled() && hasTime()) {
       const gSink = {};
       const g = await googleCover(title, author, isbn, gSink, ev);
       diag.src.google = { cover: !!g.cover, isbn: g.isbn || null, ...gSink };
       if (g.cover) { cover = g.cover; if (!isbn) isbn = g.isbn; }
       else if (g.isbn && !isbn) {
         isbn = g.isbn;
-        cover = await coverFor(g.isbn);
+        if (hasTime()) cover = await coverFor(g.isbn);
       }
     }
   } catch (e) {
@@ -768,7 +854,9 @@ export default async function handler(req, res) {
   // 🔑 重要: server-side で書影 fetch が 403 されても、解決済み ISBN から
   //    候補 URL を構築してクライアントに返す。ブラウザは Referer/UA を付けて
   //    読みに行くので 403 にならず、CSP も許可済み。client が <img> で最終検証する。
-  const candidates = isbn ? coverCandidatesFor(isbn) : [];
+  // 返す ISBN は 13 桁にそろえる（NDL の古い本の ISBN-10 も）。
+  isbn = toIsbn13(isbn) || isbn;
+  const candidates = isbn ? coverCandidatesFor(isbn, { openbd: openbdSink[isbn] || '' }) : [];
 
   // ⚠️ 失敗（ISBN すら引けなかった空っぽ応答）を長期キャッシュすると、一度
   //    こけた本が CDN に 7 日間張り付いてしまう。成功（ISBN が取れた）時だけ
