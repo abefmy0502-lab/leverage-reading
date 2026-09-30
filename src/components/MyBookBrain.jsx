@@ -1764,7 +1764,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {visibleMessages.map((m, i) => (
               <Fragment key={m.id}>
                 {/* はじめての語り口の答えは、案内の一行と答えを 1 つのまとまりに（間 8・相談の吹き出しとは離す）。 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                <div data-turn="" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {!voiceNoteDone && m.id === lastVoicedId && (
                   <VoiceNote onDismiss={() => { markVoiceNoteDone(); setVoiceNoteDone(true); track('brain_voice_note', { action: 'dismiss' }); }} />
                 )}
@@ -2117,9 +2117,12 @@ function alignTarget(el) {
   const lastQ = questions[questions.length - 1];
   if (lastQ && (!last || !(lastQ.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING))) return lastQ;
   if (!last) return null;
-  const q = last.previousElementSibling;
-  const isQ = q && q.getAttribute('aria-label') === 'あなたの相談';
-  return isQ && q.offsetHeight < el.clientHeight * 0.4 ? q : last;
+  // 答えは 1 つずつ data-turn の入れ物に入っている（語り口の一行と答えをまとめる・2026-09-30）。
+  // 直前の入れ物の中の相談の吹き出しを探し、答えに合わせるときは入れ物ごと（上の一行を半分に切らない）。
+  const turn = last.closest('[data-turn]');
+  const q = turn?.previousElementSibling?.querySelector('[aria-label="あなたの相談"]') || null;
+  const isQ = !!q;
+  return isQ && q.offsetHeight < el.clientHeight * 0.4 ? q : (turn || last);
 }
 
 function questionAlignTop(el) {
