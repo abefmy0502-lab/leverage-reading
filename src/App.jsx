@@ -2969,7 +2969,9 @@ function AuthedApp() {
   // null なら非表示。{ bookId, actionIdx, action } をセット。
   // ActionEditModal を開いている対象 — { bookId, actionIdx, action }
   const [editingAction, setEditingAction] = useState(null);
-  // 「期限を見直す」: 残りの期限を過ぎた行動を順に開く（その間に完了・削除されたものは飛ばす）。無ければ閉じる。
+  // 「期限を見直す」: 残りの期限を過ぎた行動を順に開く（その間に完了・削除されたものは飛ばす）。無ければ閉じて、
+  // 見直しの間に保存した件数を知らせる（finishReview）。
+  // session: { saves: Promise<'saved'|'failed'|'gone'>[] }＝見直しの間の保存（保存は裏で進め、次をすぐ開く・2026-09-30）。
   const openNextReviewAction = (cur) => {
     const rest = [...(cur?.queue || [])];
     while (rest.length) {
@@ -2977,11 +2979,23 @@ function AuthedApp() {
       const acts = booksRef.current.find((b) => b.id === next.bookId)?.actions || [];
       const idx = resolveActionIndex(acts, next, next.actionIdx);
       if (idx >= 0 && idx < acts.length && !acts[idx].done) {
-        setEditingAction({ bookId: next.bookId, actionIdx: idx, action: { ...next, ...acts[idx] }, queue: rest, total: cur.total });
+        setEditingAction({ bookId: next.bookId, actionIdx: idx, action: { ...next, ...acts[idx] }, queue: rest, total: cur.total, session: cur.session || null });
         return;
       }
     }
     setEditingAction(null);
+    finishReview(cur);
+  };
+  // 見直しを終えた（最後まで進んだ・「やめる」）: 裏の保存がすべて終わってから、保存できた件数を 1 回だけ知らせる。
+  //   失敗したものは、その場で失敗の知らせを出して元に戻してある。
+  const finishReview = async (cur) => {
+    const saves = cur?.session?.saves;
+    if (!saves?.length) return;
+    cur.session.saves = [];
+    const results = await Promise.all(saves);
+    const n = results.filter((r) => r === 'saved').length;
+    if (n > 1) toast.success(`${n} 件の期限を更新しました`);
+    else if (n === 1) toast.success('行動を更新しました。');
   };
   // 🎯 行動タブの「＋追加」フロー — null | 'pick'（本選択シート） | { bookId }（入力モーダル）
   const [addActionSheet, setAddActionSheet] = useState(null);
@@ -5070,7 +5084,7 @@ function AuthedApp() {
                 onToggleAction={toggleAction}
                 onReflect={saveActionReflection}
                 onDeleteAction={deleteActionFromBook}
-                onEditAction={(bookId, actionIdx, action, opts) => setEditingAction({ bookId, actionIdx, action, queue: opts?.queue || null, total: opts?.total || 0 })}
+                onEditAction={(bookId, actionIdx, action, opts) => setEditingAction({ bookId, actionIdx, action, queue: opts?.queue || null, total: opts?.total || 0, session: (opts?.total || 0) > 1 ? { saves: [] } : null })}
                 onOpenBook={(b) => { openDetail(b); }}
                 onGoToBooks={() => setTab("books")}
                 onAddAction={() => setAddActionSheet({ step: 'pick', prefillText: '' })}
@@ -5299,9 +5313,13 @@ function AuthedApp() {
           key={editingAction.action?.id || `${editingAction.bookId}:${editingAction.actionIdx}`}
           action={editingAction.action}
           step={editingAction.total > 1 ? { index: editingAction.total - (editingAction.queue?.length || 0), total: editingAction.total } : null}
-          onClose={() => setEditingAction(null)}
+          onClose={() => { const cur = editingAction; setEditingAction(null); finishReview(cur); }}
           onSave={async (patch) => {
-            const { bookId, actionIdx, action: openedAction } = editingAction;
+            const cur = editingAction;
+            const { bookId, actionIdx, action: openedAction } = cur;
+            // 「期限を見直す」の途中（session あり）は、保存を待たずに次の行動をすぐ開く。保存は裏で進め、
+            // 失敗したらその行動を元に戻して知らせる。件数の知らせは最後にまとめて 1 回（finishReview・2026-09-30）。
+            const reviewing = !!cur.session;
             // トグル/削除と同じ本ごとの直列化チェーンに乗せる（並行 saveBook との
             // 競合で編集内容が stale 上書きで失われるのを防ぐ）。
             // ⚠️ 対象の身元は「モーダルを開いた時点の action」を使う。保存時に
@@ -5315,7 +5333,7 @@ function AuthedApp() {
             // 保存失敗時に入力が全損する）。onSave は throw せず正常 resolve するので、
             // ActionEditModal 側は finally で busy を解除して開いたまま待機できる。
             let outcome = 'gone';
-            await enqueueBookMutation(bookId, async (entry) => {
+            const run = enqueueBookMutation(bookId, async (entry) => {
               const book = entry.latest || booksRef.current.find((b) => b.id === bookId);
               if (!book) return;
               const acts = [...(book.actions || [])];
@@ -5330,8 +5348,8 @@ function AuthedApp() {
                 entry.latest = saved || updated;
                 syncActionSnapshots(saved || updated);
                 outcome = 'saved';
-                // 「期限を見直す」の途中は、知らせを出さずに次の行動を開く（最後の 1 件で知らせる）。
-                if (!editingAction.queue?.length) toast.success('🎯 行動を更新しました。');
+                // 「期限を見直す」の途中は、ここでは知らせない（最後に件数をまとめて知らせる）。
+                if (!reviewing) toast.success('🎯 行動を更新しました。');
               } catch (error) {
                 mutateBookLocal(bookId, () => book);
                 entry.latest = book;
@@ -5340,14 +5358,21 @@ function AuthedApp() {
                 toast.error(toMessage(error, '更新に失敗しました'));
               }
             });
+            if (reviewing) {
+              cur.session.saves.push(Promise.resolve(run).then(() => outcome, () => 'failed'));
+              openNextReviewAction(cur);
+              return;
+            }
+            await run;
             if (outcome === 'failed') return;
-            openNextReviewAction(editingAction);
+            openNextReviewAction(cur);
           }}
           // 「期限を見直す」の途中で、この行動は変えずに次へ（2026-09-30）。
           onSkip={() => openNextReviewAction(editingAction)}
           onDelete={async () => {
             const { bookId, actionIdx, action } = editingAction;
             setEditingAction(null);
+            finishReview(editingAction);
             // モーダル側で確認済み → 二重確認を避ける。開いたときの行動を身元にする（並びがずれても別の行動を消さない）。
             await deleteActionFromBook(bookId, actionIdx, { skipConfirm: true, target: action });
           }}
