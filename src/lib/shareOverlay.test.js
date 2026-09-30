@@ -6,7 +6,7 @@ import {
   orderQuoteCandidates, quoteText, swapQuote, swapQuoteLabel, availableVariants, defaultVariant,
   recordFrame, placeRecordBlock, statColumns, buildRecordShareText, recordBaseHeight, fmtMonthDay, fmtStamp, RECORD_QUOTE_MAX,
   recordBlockPlan, recordTitleScale, shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
-  SHARE_ITEMS_STORAGE_KEY,
+  SHARE_ITEMS_STORAGE_KEY, recordCoverPlacement,
 } from './shareOverlay.js';
 
 const NOW = new Date(2026, 8, 30, 10, 0, 0); // 2026-09-30
@@ -325,5 +325,27 @@ describe('隠した項目に合わせた組み（高さ・安全な枠）', () =
         }
       }
     }
+  });
+});
+
+describe('表紙の置き方（写真でない地の記録）', () => {
+  it('書名だけのときは、表紙を書名のすぐ上・左の余白にそろえる', () => {
+    for (const fmt of ['post', 'story']) {
+      const f = recordFrame(fmt);
+      const place = placeRecordBlock(f, recordBlockPlan(f, { titleLines: 1 }).height);
+      const at = recordCoverPlacement(f, place, { count: 1, titleOnly: true });
+      expect(at.x0).toBe(f.margin);
+      expect(at.y0 + at.h).toBe(place.top - f.gap);
+      expect(at.y0).toBeGreaterThanOrEqual(f.safeTop);
+    }
+  });
+  it('ふだんは上の空きの真ん中・空きが狭ければ出さない', () => {
+    const f = recordFrame('story');
+    const place = placeRecordBlock(f, 500);
+    const at = recordCoverPlacement(f, place, { count: 1 });
+    expect(at.y0).toBeGreaterThan(place.coverArea.top);
+    expect(at.y0 + at.h).toBeLessThan(place.coverArea.bottom);
+    expect(recordCoverPlacement(f, placeRecordBlock(f, f.H), { count: 1 })).toBeNull();
+    expect(recordCoverPlacement(f, place, { count: 0 })).toBeNull();
   });
 });

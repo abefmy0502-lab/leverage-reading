@@ -290,13 +290,28 @@ export default function ShareSheet({
   const [photoLoading, setPhotoLoading] = useState(!!initialPhotoFile);
   const [view, setView] = useState({ panX: 0, panY: 0, zoom: 1 });
   // 表示する項目で隠した項目（前の選択を覚えておく）・自分で入れる言葉・編集画面。
-  const [hidden, setHiddenState] = useState(() => readHiddenItems(safeStorage()));
-  const toggleItem = (key) => setHiddenState((h) => {
-    const next = h.includes(key) ? h.filter((k) => k !== key) : [...h, key];
-    writeHiddenItems(safeStorage(), next);
-    return next;
-  });
-  const [phrase, setPhrase] = useState(null);
+  const [savedHidden, setHiddenState] = useState(() => readHiddenItems(safeStorage()));
+  // 言葉を入れたら、この 1 枚だけメモの一文を隠す（1 枚に「引用」を 2 つ並べない・2026-10-01 オーナー判断）。
+  // 端末には覚えない。「表示する項目」の一文をオンにすれば戻る。
+  const [phraseHidesQuote, setPhraseHidesQuote] = useState(false);
+  const hidden = useMemo(
+    () => (phraseHidesQuote && !savedHidden.includes('quote') ? [...savedHidden, 'quote'] : savedHidden),
+    [savedHidden, phraseHidesQuote],
+  );
+  const toggleItem = (key) => {
+    if (key === 'quote' && phraseHidesQuote) { setPhraseHidesQuote(false); return; }
+    setHiddenState((h) => {
+      const next = h.includes(key) ? h.filter((k) => k !== key) : [...h, key];
+      writeHiddenItems(safeStorage(), next);
+      return next;
+    });
+  };
+  const [phrase, setPhraseState] = useState(null);
+  const setPhrase = (next) => {
+    if (!phrase && next) setPhraseHidesQuote(true);
+    if (!next) setPhraseHidesQuote(false);
+    setPhraseState(next);
+  };
   const [editorOpen, setEditorOpen] = useState(false);
   const [assets, setAssets] = useState(null); // { cover, covers, fonts, logo }
   const [status, setStatus] = useState('loading'); // loading | ready | error

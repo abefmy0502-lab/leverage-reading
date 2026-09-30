@@ -250,6 +250,25 @@ export function placeRecordBlock(frame, blockH, { hasFooter = true } = {}) {
   };
 }
 
+// 写真でない地の記録で、上の空きに置く表紙（今月は 4 冊まで重ねる）の場所と大きさ。
+// 書名だけを出すとき（titleOnly）は、表紙を書名のすぐ上・左の余白にそろえて置く＝表紙と書名で 1 つのまとまりに見える
+// （上の真ん中に浮かせると、書名だけが下に取り残されて意図しない空きに見えた・2026-10-01 ui-critic）。
+// 空きが狭い（220 以下）・表紙が無いときは null。戻り値: { x0, y0, w, h, step }
+export function recordCoverPlacement(frame, place, { count = 1, titleOnly = false } = {}) {
+  const areaH = place.coverArea.bottom - place.coverArea.top;
+  if (!count || areaH <= 220) return null;
+  const h = Math.round(Math.min(areaH * 0.86, titleOnly ? 440 : (count > 1 ? 400 : 520)));
+  const w = Math.round(h / 1.45);
+  const step = count > 1 ? Math.round(w * 0.62) : 0;
+  const total = w + step * (count - 1);
+  if (titleOnly) return { x0: frame.margin, y0: place.top - frame.gap - h, w, h, step };
+  return {
+    x0: frame.margin + Math.max(0, (frame.W - frame.margin * 2 - total) / 2),
+    y0: place.coverArea.top + (areaH - h) / 2,
+    w, h, step,
+  };
+}
+
 // 書名の大きさの倍率。数字を全部隠したとき（「書名だけ」など）は、書名を主役にして大きく（1.25 倍・3 行まで）
 // ＝隠した場所がぽっかり空いて見えないように（2026-10-01）。
 export function recordTitleScale({ statsCount = 0 } = {}) {

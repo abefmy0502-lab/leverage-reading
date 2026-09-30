@@ -25,7 +25,7 @@ import {
 } from './shareCardLayout';
 import {
   RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBlockPlan, recordTitleScale, recordTitleMaxLines,
-  applyShareItems, shareVisibility,
+  applyShareItems, shareVisibility, recordCoverPlacement,
 } from './shareOverlay';
 import { phraseLayout, phraseMetrics, phraseColors, phraseDisplayText } from './sharePhrase';
 import { paletteFor } from './coverPalette';
@@ -987,14 +987,10 @@ function drawRecordPoster(ctx, o) {
   const covers = o.phrase && phraseDisplayText(o.phrase)
     ? []
     : (o.covers && o.covers.length ? o.covers : (o.record?.titleIsBook ? [{ cover: o.cover, title: o.title }] : [])).slice(0, 4);
-  const areaH = place.coverArea.bottom - place.coverArea.top;
-  if (covers.length && areaH > 220) {
-    const h = Math.min(areaH * 0.86, covers.length > 1 ? 400 : 520);
-    const w = Math.round(h / 1.45);
-    const step = covers.length > 1 ? Math.round(w * 0.62) : 0;
-    const total = w + step * (covers.length - 1);
-    const x0 = F.margin + Math.max(0, (F.W - F.margin * 2 - total) / 2);
-    const y0 = place.coverArea.top + (areaH - h) / 2;
+  const titleOnly = lay.plan.elements.length === 1 && lay.plan.elements[0].kind === 'title';
+  const at = recordCoverPlacement(F, place, { count: covers.length, titleOnly });
+  if (at) {
+    const { x0, y0, w, h, step } = at;
     covers.forEach((c, i) => {
       drawCover(ctx, { x: x0 + step * i, y: y0 + (covers.length > 1 ? (i % 2) * h * 0.04 : 0), w, h, cover: c.cover, title: c.title, theme, fonts: o.fonts, showText: o.showTitle !== false });
     });
@@ -1131,25 +1127,13 @@ function drawPhrase(ctx, o, W, H) {
     ctx.fill();
   }
   if (!colors.band && colors.ink === 'light' && o.style === 'photo' && o.photo) {
-    // 写真の上の白い文字: 文字の後ろだけ、写真の明るさに合わせたやわらかい幕（楕円のぼかし）を敷く
-    // （明るい空の上でも読める・記録の幕と同じ scrimAlpha）。
+    // 写真の上の白い文字: 言葉の高さの帯に、画面の幅いっぱいの上下になだらかな幕を敷く
+    // （楕円だと明るい空の上で黒いしみに見えた・2026-10-01 ui-critic）。濃さは写真の明るさから・最大 0.55。
     const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W, H, ...(o.view || {}) });
-    const a = scrimAlpha(bandLuminance(o.photo, place, W, H, lay.y0, lay.y0 + lay.h));
+    const a = Math.min(0.55, scrimAlpha(bandLuminance(o.photo, place, W, H, lay.y0, lay.y0 + lay.h)) * 0.8);
     const scrim = o.theme?.scrim || cssVar('--share-photo-scrim') || '14, 12, 10';
-    const rx = lay.w / 2 + lay.size * 1.2;
-    const ry = lay.h / 2 + lay.size * 1.1;
-    ctx.save();
-    ctx.translate(lay.cx, lay.cy);
-    ctx.scale(1, ry / rx);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    g.addColorStop(0, `rgba(${scrim}, ${Math.min(0.7, a * 0.9)})`);
-    g.addColorStop(0.6, `rgba(${scrim}, ${Math.min(0.55, a * 0.6)})`);
-    g.addColorStop(1, `rgba(${scrim}, 0)`);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, rx, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    const fade = lay.size * 1.5;
+    drawScrim(ctx, W, H, scrim, [[lay.y0 - fade, 0], [lay.y0, a], [lay.y0 + lay.h, a], [lay.y0 + lay.h + fade, 0]]);
   }
   const font = phraseFont(lay.style, fonts, lay.size);
   ctx.font = font;
@@ -1157,8 +1141,9 @@ function drawPhrase(ctx, o, W, H) {
   const trail = Math.round(spacing * lay.size * 10) / 10;
   const lineW = (l) => Math.max(0, ctx.measureText(l).width - trail);
   const baselineOf = (i) => lay.y0 + lay.padY + i * lay.lineHeight + (lay.lineHeight - lay.size) / 2 + lay.size * 0.88;
-  if (lay.style === 'mincho' && lay.lines.length) {
-    // 最後の行の下に橙の手描きの傍線（文字の後ろ・影なし）。
+  if (lay.style === 'mincho' && lay.lines.length && !o.quoteShown) {
+    // 最後の行の下に橙の手描きの傍線（文字の後ろ・影なし）。メモの一文も出ているときは付けない
+    // （傍線は「メモの一文」の印・1 枚に 2 本の傍線を並べない・2026-10-01）。
     const last = lay.lines[lay.lines.length - 1];
     const w = lineW(last);
     const x0 = lay.cx - w / 2;
@@ -1235,7 +1220,7 @@ export function drawShareCard(canvas, opts = {}) {
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       drawRecordSticker(ctx, base, size);
-      drawPhrase(ctx, base, size.w, size.h);
+      drawPhrase(ctx, { ...base, quoteShown: !!size.lay.fit }, size.w, size.h);
       return { line: size.lay.fit ? base.text : '', width: size.w, height: size.h };
     }
     const F = recordFrame(opts.format);
@@ -1246,9 +1231,9 @@ export function drawShareCard(canvas, opts = {}) {
     const o = { ...base, W: F.W, H: F.H, format: F.format };
     if (style === 'photo') drawRecordPhoto(ctx, o);
     else drawRecordPoster(ctx, o);
-    drawPhrase(ctx, o, F.W, F.H);
     // 実際に一文を入れたか（入らなければ外している）を返す＝共有の文も画像と同じにする。
     const { lay } = fitRecord(ctx, o, F);
+    drawPhrase(ctx, { ...o, quoteShown: !!lay.fit }, F.W, F.H);
     return { line: lay.fit ? o.text : '', width: F.W, height: F.H };
   }
 
@@ -1259,7 +1244,7 @@ export function drawShareCard(canvas, opts = {}) {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     drawSticker(ctx, base, size);
-    drawPhrase(ctx, base, size.w, size.h);
+    drawPhrase(ctx, { ...base, quoteShown: true }, size.w, size.h);
     return { line: text, width: size.w, height: size.h };
   }
 
@@ -1271,7 +1256,7 @@ export function drawShareCard(canvas, opts = {}) {
   const o = { ...base, W, H, format: FORMATS[opts.format] ? opts.format : 'story' };
   if (style === 'photo') drawPhoto(ctx, o);
   else drawPoster(ctx, o);
-  drawPhrase(ctx, o, W, H);
+  drawPhrase(ctx, { ...o, quoteShown: true }, W, H);
   return { line: text, width: W, height: H };
 }
 
@@ -1313,7 +1298,7 @@ export function drawPhotoDragFrame(canvas, opts = {}, cache = {}, { targetWidth 
     const place0 = photoPlacement({ pw: opts.photo.width, ph: opts.photo.height, W, H, ...(opts.view || {}) });
     if (isRecord) drawRecordOverlay(lctx, o, place0);
     else drawPhotoOverlay(lctx, o, place0);
-    drawPhrase(lctx, o, W, H);
+    drawPhrase(lctx, { ...o, quoteShown: isRecord ? !!fitRecord(lctx, o, recordFrame(fmt)).lay.fit : true }, W, H);
     // 写真は、動かし始めの大きさの 1.5 倍まで縮めておく（拡大しても粗くなりすぎない・元より大きくはしない）。
     const want = Math.max(cw, Math.round(place0.w * k * 1.5));
     const sk = Math.min(1, want / opts.photo.width);
@@ -1359,7 +1344,7 @@ export function drawPhraseDragFrame(canvas, opts = {}, cache = {}, { targetWidth
     let style = opts.style || 'paper';
     if (style === 'photo' && !opts.photo) style = 'night';
     const theme = readShareTheme(style, { tone: opts.cover?.tone, title: opts.title });
-    Object.assign(cache, { base, k, W: r.width, H: r.height, style, theme });
+    Object.assign(cache, { base, k, W: r.width, H: r.height, style, theme, quoteShown: !!r.line });
   }
   const { base, k, W, H } = cache;
   if (canvas.width !== base.width || canvas.height !== base.height) { canvas.width = base.width; canvas.height = base.height; }
@@ -1369,7 +1354,7 @@ export function drawPhraseDragFrame(canvas, opts = {}, cache = {}, { targetWidth
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(base, 0, 0);
   ctx.setTransform(k, 0, 0, k, 0, 0);
-  drawPhrase(ctx, { ...opts, fonts: opts.fonts || fontStacks(), style: cache.style, theme: cache.theme, shadowScale: k, format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
+  drawPhrase(ctx, { ...opts, quoteShown: cache.quoteShown, fonts: opts.fonts || fontStacks(), style: cache.style, theme: cache.theme, shadowScale: k, format: FORMATS[opts.format] ? opts.format : 'story' }, W, H);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   return true;
 }
