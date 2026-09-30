@@ -1033,43 +1033,49 @@ function drawRecordSticker(ctx, o, size) {
 
 export const HAND_FONT_FAMILY = '"Klee One"';
 const HAND_FONT_CSS = 'https://fonts.googleapis.com/css2?family=Klee+One:wght@600&display=swap';
-let handFontPromise = null;
+let handSheetPromise = null;
 
-// 手書き風の書体を読み込む（1 回だけ・6 秒で諦める）。描く前に、その言葉の字の分まで読み込めたかを確かめる。
-// 戻り値: true（使える）/ false（使えない＝手書き風は出さない）。
-export function prepareHandFont(sample = '') {
-  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve(false);
-  if (!handFontPromise) {
-    handFontPromise = new Promise((resolve) => {
+// Google Fonts の CSS を 1 回だけ読み込む（読み込めたら true・失敗なら false。遅い通信では待ち続ける）。
+function loadHandSheet() {
+  if (!handSheetPromise) {
+    handSheetPromise = new Promise((resolve) => {
       try {
-        if (!document.querySelector('link[data-share-hand-font]')) {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = HAND_FONT_CSS;
-          link.setAttribute('data-share-hand-font', '');
-          link.onload = () => resolve(true);
-          link.onerror = () => resolve(false);
-          document.head.appendChild(link);
-          setTimeout(() => resolve(false), 6000);
-        } else {
-          resolve(true);
-        }
+        const found = document.querySelector('link[data-share-hand-font]');
+        if (found) { resolve(!!found.sheet); return; }
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = HAND_FONT_CSS;
+        link.setAttribute('data-share-hand-font', '');
+        link.onload = () => resolve(true);
+        link.onerror = () => { handSheetPromise = null; resolve(false); }; // 次に開いたときにもう一度
+        document.head.appendChild(link);
       } catch {
         resolve(false);
       }
     });
   }
-  return handFontPromise.then(async (ok) => {
+  return handSheetPromise;
+}
+
+// 手書き風の書体が、その言葉の字の分まで使えるようになるまで待つ（待つ時間の上限なし）。
+export function whenHandFontReady(sample = '') {
+  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve(false);
+  return loadHandSheet().then(async (ok) => {
     if (!ok) return false;
     try {
       const text = `${sample}「」あいうえお読書`.slice(0, 200);
-      const timeout = new Promise((r) => setTimeout(() => r(null), 6000));
-      const faces = await Promise.race([document.fonts.load(`600 64px ${HAND_FONT_FAMILY}`, text), timeout]);
+      const faces = await document.fonts.load(`600 64px ${HAND_FONT_FAMILY}`, text);
       return Array.isArray(faces) && faces.length > 0 && document.fonts.check(`600 64px ${HAND_FONT_FAMILY}`, text);
     } catch {
       return false;
     }
   });
+}
+
+// 手書き風の書体を読み込む（timeoutMs で諦める＝そのときは手書き風を出さない。読み込めたらあとから出せる）。
+// 戻り値: true（使える）/ false（使えない）。
+export function prepareHandFont(sample = '', { timeoutMs = 8000 } = {}) {
+  return Promise.race([whenHandFontReady(sample), new Promise((r) => setTimeout(() => r(false), timeoutMs))]);
 }
 
 function phraseFont(style, fonts, size) {

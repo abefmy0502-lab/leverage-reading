@@ -24,7 +24,7 @@ import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { useHaptic } from '../hooks/useHaptic';
 import { toMessage } from '../lib/errors';
 import {
-  drawShareCard, drawPhotoDragFrame, drawPhraseDragFrame, measurePhraseBox, prepareHandFont, HAND_FONT_FAMILY,
+  drawShareCard, drawPhotoDragFrame, drawPhraseDragFrame, measurePhraseBox, prepareHandFont, whenHandFontReady, HAND_FONT_FAMILY,
 } from '../lib/shareCard';
 import { panView, FORMATS } from '../lib/shareCardLayout';
 import {
@@ -124,6 +124,8 @@ export default function ShareEditor({
       if (!alive) return;
       setHandOk(!!ok);
       if (ok && phrase?.style === 'hand') fullDraw();
+      // 遅い通信で間に合わなかったときは、読み込めた時点で手書き風を出す。
+      if (!ok) whenHandFontReady(phrase?.text || '').then((late) => { if (alive && late) setHandOk(true); });
     });
     return () => { alive = false; };
   }, [hasPhrase]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -132,7 +134,7 @@ export default function ShareEditor({
     if (phrase?.style !== 'hand' || !handOk) return undefined;
     let alive = true;
     const t = setTimeout(() => {
-      prepareHandFont(phrase.text).then(() => { if (alive) fullDraw(); });
+      whenHandFontReady(phrase.text).then(() => { if (alive) fullDraw(); });
     }, 200);
     return () => { alive = false; clearTimeout(t); };
   }, [phrase?.text, phrase?.style, handOk]); // eslint-disable-line react-hooks/exhaustive-deps
