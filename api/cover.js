@@ -139,6 +139,18 @@ function ndlTitleMatches(rawItemTitle, wantCoreNorm) {
   return t.includes(wantCoreNorm) || wantCoreNorm.includes(t);
 }
 
+// 書名の一致の強さ: 2 = 副題まで含めた書名が一致 / 1 = 核タイトル（最初の空白まで）だけ一致 / 0 = 不一致。
+//   例: 『プレイングマネジャー 「残業ゼロ」の仕事術』は核が「プレイングマネジャー」とありふれていて、
+//   同じ核の別の本（兄弟本）も 1 で一致する。副題まで一致する項目（2）を先に採る（「」・空白は normTitle が落とす）。
+//   書名が核だけのとき（副題なし）は 1 と 2 が同じになり、従来どおり著者一致が先。
+function titleTier(rawItemTitle, coreNorm, fullNorm) {
+  const t = normTitle(rawItemTitle);
+  if (!t || !coreNorm) return 0;
+  if (!(t.includes(coreNorm) || coreNorm.includes(t))) return 0;
+  if (fullNorm && (t.includes(fullNorm) || (fullNorm.includes(t) && t.length > coreNorm.length))) return 2;
+  return 1;
+}
+
 // この ISBN が本当にそのタイトルの本かを NDL で検証する（誤 ISBN ガード）。
 //   背景: 「ISBN が分かっている本はその ISBN で表紙を直接取る」ファストパスは、
 //   ISBN が別の本のもの（例: AI 選書の架空タイトルに無関係な実在本の ISBN が
@@ -182,6 +194,7 @@ async function ndlIsbns(title, author, sink, ev) {
   if (!t) return [];
   if (ev) ev.ran.ndlTitle = true;
   const wantCoreNorm = normTitle(t);
+  const wantFullNorm = normTitle(title);
   const wantAuthor = normPerson(author);
   try {
     // title(+creator) で広めに引く。creator 併用は表記揺れで空振りしやすいので、
@@ -208,13 +221,14 @@ async function ndlIsbns(title, author, sink, ev) {
       }
     }
     if (sink) { sink.raw = items.length; sink.tmatch = 0; }
-    const both = [];       // タイトル一致＋著者一致（最優先）
-    const titleOnly = [];  // タイトルのみ一致（著者照合が落ちた時の保険）
+    // 並び: 副題まで一致＋著者一致 → 副題まで一致 → 核だけ一致＋著者一致 → 核だけ一致。
+    const buckets = { both2: [], title2: [], both1: [], title1: [] };
     const seen = new Set();
     for (const chunk of items) {
       // タイトル一致は必須。ここで兄弟本（別書名・同著者）を弾く。
       if (!ndlTitleMatches(itemTitle(chunk), wantCoreNorm)) continue;
       if (sink) sink.tmatch += 1;
+      const tier = titleTier(itemTitle(chunk), wantCoreNorm, wantFullNorm) >= 2 ? 2 : 1;
       const creators = (chunk.match(/<dc:creator[^>]*>([^<]*)<\/dc:creator>/gi) || [])
         .map((c) => normPerson(c.replace(/<[^>]+>/g, '')));
       const authorOk = !wantAuthor
@@ -222,10 +236,10 @@ async function ndlIsbns(title, author, sink, ev) {
       for (const isbn of extractIsbns(chunk, 3)) {
         if (seen.has(isbn)) continue;
         seen.add(isbn);
-        (authorOk ? both : titleOnly).push(isbn);
+        buckets[`${authorOk ? 'both' : 'title'}${tier}`].push(isbn);
       }
     }
-    return [...both, ...titleOnly].slice(0, 5);
+    return [...buckets.both2, ...buckets.title2, ...buckets.both1, ...buckets.title1].slice(0, 5);
   } catch (e) {
     if (sink) sink.err = String((e && e.message) || e).slice(0, 60);
     return [];
@@ -472,23 +486,27 @@ async function rakutenCover(title, author, isbn, ev) {
   const t = coreTitle(title);
   if (!t) return { cover: '', isbn: '', _d: d };
   const wantCoreNorm = normTitle(t);
+  const wantFullNorm = normTitle(title);
   const wantAuthor = normPerson(author);
   const kw = [t, firstAuthor(author)].filter(Boolean).join(' ');
   const items = await run('BooksTotal/Search', { keyword: kw }, 'kw');
 
-  let titleOnly = null;
+  // いちばん強い一致を採る: 副題まで一致＋著者 > 副題まで一致 > 核だけ一致＋著者 > 核だけ一致（titleTier）。
+  //   表紙の無い項目も数える: 目当ての本（副題まで一致）に表紙が無いとき、核だけ一致する兄弟本の
+  //   表紙で代用しない（ISBN だけ返し、ほかの取得元がその ISBN で表紙を探す）。
+  let best = null;
+  let bestScore = 0;
   for (const it of items) {
     const f = fields(it);
-    if (!f.cover) continue;
-    const tn = normTitle(f.title);
-    if (!tn || !(tn.includes(wantCoreNorm) || wantCoreNorm.includes(tn))) continue;
+    const tier = titleTier(f.title, wantCoreNorm, wantFullNorm);
+    if (!tier) continue;
     d.tmatch += 1;
     const an = normPerson(f.author);
     const authorOk = !wantAuthor || (an && (an.includes(wantAuthor) || wantAuthor.includes(an)));
-    if (authorOk) return { cover: f.cover, isbn: f.isbn, _d: d };
-    if (!titleOnly) titleOnly = { cover: f.cover, isbn: f.isbn };
+    const score = tier * 2 + (authorOk ? 1 : 0) + (f.cover ? 0.5 : 0); // 同じ強さなら表紙のある方
+    if (score > bestScore) { best = { cover: f.cover, isbn: f.isbn }; bestScore = score; }
   }
-  return { ...(titleOnly || { cover: '', isbn: '' }), _d: d };
+  return { ...(best || { cover: '', isbn: '' }), _d: d };
 }
 
 // 画像の実在＋「表紙らしさ」を server-side で確かめる（_coverSources.js の probeImage）。

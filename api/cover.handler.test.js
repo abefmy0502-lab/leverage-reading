@@ -230,3 +230,75 @@ describe('/api/cover の解決', () => {
     expect(res.headers['cache-control']).toContain('s-maxage=60'); // 見つからない応答は長く残さない
   });
 });
+
+// 12 桁に検査数字を付けて正しい ISBN-13 にする（テスト用の架空の番号）。
+function isbn13(twelve) {
+  let sum = 0;
+  for (let i = 0; i < 12; i += 1) sum += Number(twelve[i]) * (i % 2 === 0 ? 1 : 3);
+  return twelve + String((10 - (sum % 10)) % 10);
+}
+
+describe('ありふれた核タイトル『プレイングマネジャー 「残業ゼロ」の仕事術』（小室淑恵）', () => {
+  const TITLE = 'プレイングマネジャー 「残業ゼロ」の仕事術';
+  const AUTHOR = '小室淑恵';
+  const OTHER = isbn13('978400000001'); // 別の著者の『プレイングマネジャーの教科書』
+  const SIBLING = isbn13('978400000002'); // 同じ著者の別の本（核だけ一致）
+  const TARGET = isbn13('978447810000'); // この本
+
+  it('NDL: 副題まで一致して著者も合う項目の ISBN を先に採る（兄弟本・別の著者の本ではなく）', async () => {
+    routes = [
+      [/opensearch\?title=/, (url) => {
+        // 核タイトル＋先頭著者で引いている
+        expect(decodeURIComponent(url)).toContain('title=プレイングマネジャー&creator=小室淑恵');
+        return resp({
+          type: 'application/xml',
+          body: `<rss>
+            <item><title>プレイングマネジャーの教科書</title><dc:creator>山田, 太郎</dc:creator><dc:identifier xsi:type="dcndl:ISBN">${OTHER}</dc:identifier></item>
+            <item><title>プレイングマネジャー 入門</title><dc:creator>小室, 淑恵</dc:creator><dc:identifier xsi:type="dcndl:ISBN">${SIBLING}</dc:identifier></item>
+            <item><title>プレイングマネジャー「残業ゼロ」の仕事術</title><dc:creator>小室, 淑恵</dc:creator><dc:identifier xsi:type="dcndl:ISBN">${TARGET}</dc:identifier></item>
+          </rss>`,
+        });
+      }],
+      [/googleapis\.com/, () => resp({ status: 429, body: '{}' })],
+    ];
+    const handler = await loadHandler();
+    const res = mockRes();
+    await handler(req({ title: TITLE, author: AUTHOR }), res);
+    expect(res.body.isbn).toBe(TARGET);
+    expect(res.body.candidates[0]).toBe(`https://ndlsearch.ndl.go.jp/thumbnail/${TARGET}.jpg`);
+  });
+
+  const rakutenItems = (targetImage) => JSON.stringify({
+    Items: [
+      { Item: { title: 'プレイングマネジャー 入門', author: '小室淑恵', isbn: SIBLING, largeImageUrl: `https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/${SIBLING}.jpg?_ex=200x200` } },
+      { Item: { title: 'プレイングマネジャー「残業ゼロ」の仕事術', author: '小室淑恵', isbn: TARGET, largeImageUrl: targetImage } },
+    ],
+  });
+
+  it('楽天: 先に出てくる兄弟本ではなく、副題まで一致する本の表紙を採る（Referer 付き）', async () => {
+    vi.stubEnv('RAKUTEN_APPLICATION_ID', 'app');
+    vi.stubEnv('RAKUTEN_ACCESS_KEY', 'pk_x');
+    vi.stubEnv('RAKUTEN_APP_URL', 'https://orime.vercel.app');
+    rakutenReply = { status: 200, body: rakutenItems(`https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/${TARGET}.jpg?_ex=200x200`) };
+    routes = [[/googleapis\.com/, () => resp({ status: 429, body: '{}' })]];
+    const handler = await loadHandler();
+    const res = mockRes();
+    await handler(req({ title: TITLE, author: AUTHOR }), res);
+    expect(res.body.isbn).toBe(TARGET);
+    expect(res.body.cover).toBe(`https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/${TARGET}.jpg?_ex=420x420`);
+    expect(rakutenCalls.at(-1).headers.Referer).toBe('https://orime.vercel.app');
+  });
+
+  it('楽天の noimage は表紙にしない・兄弟本の表紙で代用せず、目当ての本の ISBN でほかの取得元を探す', async () => {
+    vi.stubEnv('RAKUTEN_APPLICATION_ID', 'app');
+    vi.stubEnv('RAKUTEN_ACCESS_KEY', 'pk_x');
+    rakutenReply = { status: 200, body: rakutenItems('https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/noimage_01.gif?_ex=200x200') };
+    routes = [[/googleapis\.com/, () => resp({ status: 429, body: '{}' })]];
+    const handler = await loadHandler();
+    const res = mockRes();
+    await handler(req({ title: TITLE, author: AUTHOR }), res);
+    expect(res.body.cover).toBe('');
+    expect(res.body.isbn).toBe(TARGET);
+    expect(res.body.candidates[0]).toBe(`https://ndlsearch.ndl.go.jp/thumbnail/${TARGET}.jpg`);
+  });
+});
