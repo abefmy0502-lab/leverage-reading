@@ -281,6 +281,19 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Web のキーボードの Esc で閉じる（アプリの上に重ねて開いたときだけ・2026-09-30）。購入の手続き中・上に設定を
+  // 開いている間・ほかのダイアログが上にあるときは閉じない（そちらが Esc を受ける）。
+  useEffect(() => {
+    if (!onClose) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.isComposing || e.defaultPrevented) return;
+      if (pending || settingsOpen) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"], [role="alertdialog"]')) return;
+      onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, pending, settingsOpen]);
   // 表示ラベル: ネイティブ=App 既定 → ストア価格で上書き / Web=billing.js（env で上書き可）。
   const [labels, setLabels] = useState(() => (
     showNative
