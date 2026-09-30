@@ -53,7 +53,7 @@ const consumePreset = (kind, nonce) => {
 
 import BottomSheet from './BottomSheet';
 import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE_SMALL } from './PartnerAvatar';
-import { consultPartner, partnerFromScope, bookForRef } from '../lib/consultPartner';
+import { consultPartner, partnerFromScope, bookForRef, withVoice, decodeVoice, encodeVoice, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
 
 // 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
@@ -149,7 +149,7 @@ const ACTED_PREFIX = '🎯 ';
 // refs のうち、AI が挙げた本（📚 📖 💡）ではない、画面用の目印つきの行（使ったメモ・前の相談から・引用の照合）。
 const isMetaRef = (r) => {
   const s = String(r || '');
-  return s.startsWith(EVIDENCE_PREFIX) || s.startsWith(GROWTH_PREFIX) || s.startsWith(QUOTE_PREFIX) || s.startsWith(REFUND_PREFIX) || s.startsWith(ACTED_PREFIX);
+  return s.startsWith(EVIDENCE_PREFIX) || s.startsWith(GROWTH_PREFIX) || s.startsWith(QUOTE_PREFIX) || s.startsWith(REFUND_PREFIX) || s.startsWith(ACTED_PREFIX) || s.startsWith(VOICE_PREFIX);
 };
 
 // 関係するメモが無かった答え（トークンを返した答え・返金の回数の上限を超えたときは決まり文句で見分ける）。
@@ -165,6 +165,23 @@ function isNoInfoAnswer(m) {
 }
 
 const CATEGORIES = ['会話', '経験', '観察', '気づき', 'その他'];
+
+// 🗣 著者の語り口の答えを初めて見たときの一行（閉じたら二度と出さない・端末に覚える・2026-09-30）。
+const VOICE_NOTE_KEY = 'orime-author-voice-note-v1';
+const VOICE_NOTE_TEXT = '著者本人ではなく、AI が本とあなたのメモをもとに語り口をまねています';
+const isVoiceNoteDone = () => { try { return localStorage.getItem(VOICE_NOTE_KEY) === '1'; } catch { return false; } };
+const markVoiceNoteDone = () => { try { localStorage.setItem(VOICE_NOTE_KEY, '1'); } catch { /* 覚えられなくても閉じる */ } };
+// 答えのアイコンの列（32）＋間（8）だけ下げて、名前の行と左端をそろえる一行（13/--text-2・右に閉じる ×）。
+function VoiceNote({ onDismiss }) {
+  return (
+    <div role="note" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(32px + var(--space-2))', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+      <p style={{ flex: 1, minWidth: 0, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(VOICE_NOTE_TEXT)}</p>
+      <button type="button" onClick={onDismiss} aria-label="閉じる" style={{ ...iconBtn, color: 'var(--text-3)', marginRight: 'calc(-1 * var(--space-3))', marginBlock: 'calc((1.5em - 44px) / 2)' }}>
+        <X size={16} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -1052,8 +1069,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     let lastVisible = '';
     // 実際の答え方（本ごとにで送っても、並べる本が足りなければ「まとめて」で答える）。
     let liveMode = askMode;
+    // 🗣 著者の語り口で答えるか（書き始める前に分かる・onStage の voice）。
+    let liveVoice = null;
     try {
-      const { body, refs, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks, completedActions } = await streamMyBookBrain({
+      const { body, refs, memoCount, evidence, quoteRefs, tokenRefund, mode: usedMode, perbookBooks, completedActions, voice: usedVoice } = await streamMyBookBrain({
         userId: user.id,
         question: q,
         bookIds: askBookIds,
@@ -1063,6 +1082,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         signal: controller.signal,
         onStage: (s, info) => {
           setStage(s);
+          if (s === 'generate' && info?.voice) {
+            liveVoice = info.voice;
+            setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...m, voice: liveVoice } : m)));
+          }
           // 書き始める前に、書いている途中の形を実際の答え方に合わせる（本のカードから、いつもの形へ跳ねないように）。
           //   本ごとにで送ったのに「まとめて」で答えるときは、その一行も書き始める前から出す。
           if (s === 'generate' && info?.mode && info.mode !== liveMode) {
@@ -1107,6 +1130,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         ...(Array.isArray(quoteRefs) ? quoteRefs : []),
         ...(tokenRefund ? [`${REFUND_PREFIX}${REFUND_NOTE}`] : []),
         ...(completedActions > 0 && !tokenRefund ? [`${ACTED_PREFIX}${completedActions}`] : []),
+        // 著者の語り口で書いた答えの印（名前の行の「（本の語り口で・AI）」・過去の相談にも残す）。
+        ...(encodeVoice(usedVoice || liveVoice) ? [encodeVoice(usedVoice || liveVoice)] : []),
         ...(refs || []),
       ];
       // 本ごとにで送ったのに、並べる本が足りずに「まとめて」で答えた（答えの上に一行で知らせる）。
@@ -1337,6 +1362,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const lastIsAssistant = visibleMessages.length > 0 && visibleMessages[visibleMessages.length - 1].role === 'assistant';
   // 最後の答えの下の文字ボタンの行（別の角度で答えて・新しい相談をはじめる）を出しているか。
   const answerRowShown = lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user');
+  // 🗣 著者の語り口の答えを初めて見たときの一行（いちばん新しい語り口の答えの上に 1 か所だけ）。
+  const [voiceNoteDone, setVoiceNoteDone] = useState(isVoiceNoteDone);
+  const lastVoicedId = useMemo(() => {
+    for (let i = visibleMessages.length - 1; i >= 0; i -= 1) {
+      const m = visibleMessages[i];
+      if (m.role === 'assistant' && !m.error && !m.notice && (m.voice || decodeVoice(m.refs))) return m.id;
+    }
+    return null;
+  }, [visibleMessages]);
   // 💬 深掘りの会話（2026-09-30）: 書き終えた答えがある会話＝次の相談はその続き（入力欄のプレースホルダーを変える）。
   const threadActive = selectThreadTurns(visibleMessages, { max: 1, carry }).length > 0;
   // 深掘りのチップ（入力欄の上）: 最後の答えを書き終えたときだけ（書いている間・失敗・案内・関係するメモが無かった答え・
@@ -1719,6 +1753,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             )}
             {visibleMessages.map((m, i) => (
               <Fragment key={m.id}>
+                {!voiceNoteDone && m.id === lastVoicedId && (
+                  <VoiceNote onDismiss={() => { markVoiceNoteDone(); setVoiceNoteDone(true); track('brain_voice_note', { action: 'dismiss' }); }} />
+                )}
                 <ChatMessage
                   message={m}
                   onOpenBook={onOpenBook}
@@ -2376,7 +2413,7 @@ function renderNoticeText(text) {
 
 // 📚 本ごとの答えの 1 冊分（DESIGN §5 カード）。書名と著者はカードの上の名前の行（PartnerRow・表紙のアイコンつき）→
 // 視点（読む文章＝明朝 18）→ 根拠 13/--text-2（p.N「メモの一節」）→ 文字ボタン「この本にくわしく聞く」。
-function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
+function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null, showTitle = false }) {
   const cursor = streaming ? <span className="streaming-cursor" aria-hidden="true" /> : null;
   // 根拠の引用がメモと一致しなかったとき（evidenceCheck.js）は、引用を外してページだけ残し、その旨を書く。
   const basisNg = basisCheck?.s === 'ng';
@@ -2384,7 +2421,11 @@ function PerBookCard({ book, streaming, onAsk, askBusy, basisCheck = null }) {
   const basis = basisNg ? stripQuotes(basisRaw) : basisRaw;
   return (
     <article aria-label={`『${book.title}』の視点`} style={cardStyle}>
-      {/* 書名と著者は、カードの上の名前の行（「著者『書名』」・表紙のアイコンつき・PartnerRow）に出す（2026-09-30）。 */}
+      {/* 書名と著者は、カードの上の名前の行（「著者『書名』」・表紙のアイコンつき・PartnerRow）に出す（2026-09-30）。
+          語り口の答えは名前の行が「著者名（本の語り口で・AI）」なので、書名をカードの 1 行目に（『 はぶら下げる）。 */}
+      {showTitle && book.title && (
+        <p style={{ margin: '0 0 var(--space-2)', textIndent: '-0.5em', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, wordBreak: 'auto-phrase' }}>『{book.title}』</p>
+      )}
       {book.view && (
         <div style={readText}>
           {book.view.split('\n').filter((l) => l.trim()).map((l, i, arr) => (
@@ -2518,12 +2559,15 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   const parsed = !isStreaming && !message.error && !message.notice ? parseAnswer(message.content) : null;
   // 💬 相談相手のアイコン（2026-09-30・lib/consultPartner.js）: 書き終えた答えは根拠の本から、書いている途中・失敗・
   //   案内・関係するメモが無かった答えは相談相手（送ったときのすべての本／1 冊／選んだ数冊）から。
+  // 🗣 著者の語り口で書いた答え（2026-09-30）: 名前を「著者名（本の語り口で・AI）」に。本ごとには本のカードごと。
+  const voice = message.error || message.notice ? null : (message.voice || decodeVoice(message.refs));
   const partner = consultPartner({
     refs: message.refs,
     scopeIds: message.scopeIds || [],
     books,
     memoBookIds,
     useScope: isStreaming || !!message.error || !!message.notice || isNoInfoAnswer(message),
+    voice: voice && !voice.perbook ? voice : null,
   });
   // 数冊の本から答えたときは、名前（アイコン）を押すと本の一覧（「あなたの本棚」は全部の本なので一覧にしない）。
   const openPartnerList = onShowPartner && partner.kind === 'group' && !partner.shelf && partner.books.length > 0
@@ -2763,10 +2807,13 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
                   const shelfBook = b.title ? bookForRef(`『${b.title}』`, books) : null;
                   const bookId = !isStreaming && onAskBook && shelfBook ? shelfBook.id : null;
                   // 本のアイコンと名前（本棚の本と合えばその表紙・著者。合わなければ答えの書名と著者だけ）。
-                  const bookPartner = consultPartner({ refs: [`📚 『${shelfBook ? shelfBook.title : b.title}』`], scopeIds: [], books: shelfBook ? [shelfBook] : [{ id: `perbook-${i}`, title: b.title, author: b.author, cover: null }] });
+                  const plainPartner = consultPartner({ refs: [`📚 『${shelfBook ? shelfBook.title : b.title}』`], scopeIds: [], books: shelfBook ? [shelfBook] : [{ id: `perbook-${i}`, title: b.title, author: b.author, cover: null }] });
+                  // 語り口の答えは「著者名（本の語り口で・AI）」＋カードの中に『書名』。それより前の答えは「著者『書名』」。
+                  const bookPartner = voice?.perbook ? withVoice(plainPartner) : plainPartner;
                   return (
                     <PartnerRow key={i} partner={bookPartner} nameAs="h4">
                       <PerBookCard
+                        showTitle={!!voice?.perbook}
                         book={b}
                         basisCheck={isStreaming ? null : basisCheckFor(b.title)}
                         streaming={perBookTail === 'book' && i === lastBook}

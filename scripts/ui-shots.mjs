@@ -127,6 +127,8 @@ const SCREENS = [
   { name: 'consult-followup', url: '/', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="続けて聞く"] button' }, { css: '[aria-label="続けて聞く"] button:has-text("もっと具体的に")' }, { waitFor: '[aria-label="続けて聞く"] button' }] },
   // 相談相手のアイコン（2026-09-30）: 数冊の本から答えた答えの名前の行（「安宅和人 ほか 2 人」）を押すと、もとになった本の一覧。
   { name: 'consult-partner-group', url: '/', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy]) button[aria-haspopup="dialog"]' }, { css: '[aria-label="相談への答え"] button[aria-haspopup="dialog"]' }] },
+  // 著者の語り口（2026-09-30）: 1 冊に絞った相談の答え（名前の行「著者名（本の語り口で・AI）」と、はじめての一行の案内）。
+  { name: 'consult-voice', url: '/', steps: [{ css: nav('相談') }, { css: 'button:has-text("相談相手：")' }, { css: '[role=dialog] button[aria-pressed]:has-text("イシューからはじめよ")' }, { css: '[role=dialog] button:has-text("この本に相談する")' }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { waitFor: '[aria-label="相談への答え"]:not([aria-busy]) summary' }, { eval: () => { document.querySelector('.chat-scroll').scrollTop = 0; } }] },
   { name: 'consult-history-list', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="過去の相談を見る"]' }] },
   { name: 'consult-history-empty', url: '/?demo=nomemo', steps: [{ css: nav('相談') }, { css: 'button[aria-label="過去の相談を見る"]' }] },
   { name: 'consult-history-error', url: '/?db=fail', steps: [{ css: nav('相談') }, { css: 'button[aria-label="過去の相談を見る"]' }, { wait: 1200 }] },

@@ -11,7 +11,8 @@
 // （evidenceCheck.js の結果・「もとになった本」と同じ）。根拠が取れない答え（書いている途中・失敗・関係するメモが
 // 無かった答え・古い答え）は、相談相手（すべての本／1 冊／選んだ数冊）から決める。
 //
-// ⚠️ 著者本人のふりはしない（BRAIN_SYSTEM ルール 8）。ここで見せるのは「どの本のメモから答えたか」だけ。
+// 🗣 著者の語り口（2026-09-30 オーナー裁定）で書いた答え（voice）は、名前を「著者名」＋「（本の語り口で・AI）」にする
+//   （著者本人ではなく AI が語り口をまねていることを、名前の行でいつも見せる）。
 
 import { decodeQuoteRefs, QUOTE_PREFIX } from './evidenceCheck';
 import { shortTitle } from './consultHelpers';
@@ -21,7 +22,9 @@ export const SELF_LABEL = '自分の学び';
 export const GROUP_TILES = 4;
 
 // 画面用の目印つきの行（使ったメモ・前の相談から・引用の照合・トークン・踏まえた行動）。AI が挙げた根拠ではない。
-const META_PREFIXES = ['🌱 ', '🌿 ', QUOTE_PREFIX, '🪙 ', '🎯 '];
+export const VOICE_PREFIX = '🗣 ';
+const META_PREFIXES = ['🌱 ', '🌿 ', QUOTE_PREFIX, '🪙 ', '🎯 ', VOICE_PREFIX];
+export const VOICE_SUFFIX = '（本の語り口で・AI）';
 const isMeta = (r) => META_PREFIXES.some((p) => String(r || '').startsWith(p));
 
 const pick = (b) => ({ id: b.id, title: String(b.title || ''), author: String(b.author || '').trim(), cover: b.cover || null });
@@ -41,6 +44,36 @@ export function bookPartnerLabel(book) {
   const t = shortTitle(book?.title || '') || String(book?.title || '');
   const a = String(book?.author || '').trim().split(/[,、，]/)[0].trim();
   return a ? `${a}『${t}』` : `『${t}』`;
+}
+
+// 語り口の答えの名前（著者名・著者が無ければ『書名』）。後ろに VOICE_SUFFIX を添えて見せる。
+export function voiceLabel(book) {
+  const a = String(book?.author || '').trim().split(/[,、，]/)[0].trim();
+  return a || `『${shortTitle(book?.title || '') || String(book?.title || '')}』`;
+}
+
+// 本 1 冊の相手を、語り口の答えの名前にする。
+export function withVoice(partner) {
+  if (!partner || partner.kind !== 'book') return partner;
+  return { ...partner, voice: true, label: voiceLabel(partner.books[0]), suffix: VOICE_SUFFIX };
+}
+
+// refs に残した語り口の印（VOICE_PREFIX＋JSON: まとめて＝{ t: 書名, a: 著者 }／本ごとに＝{ p: 1 }）。無ければ null。
+export function decodeVoice(refs) {
+  const r = (Array.isArray(refs) ? refs : []).find((x) => String(x || '').startsWith(VOICE_PREFIX));
+  if (!r) return null;
+  try {
+    const o = JSON.parse(String(r).slice(VOICE_PREFIX.length));
+    if (o && o.p) return { perbook: true };
+    if (o && typeof o.t === 'string' && o.t.trim()) return { title: o.t.trim(), author: typeof o.a === 'string' ? o.a.trim() : '' };
+  } catch { /* 読めない印は無いものとして扱う */ }
+  return null;
+}
+export function encodeVoice(voice) {
+  if (!voice) return null;
+  if (voice.perbook) return `${VOICE_PREFIX}${JSON.stringify({ p: 1 })}`;
+  if (!voice.title) return null;
+  return `${VOICE_PREFIX}${JSON.stringify({ t: String(voice.title).slice(0, 80), a: String(voice.author || '').slice(0, 60) })}`;
 }
 
 function groupLabel(books, self) {
@@ -105,7 +138,12 @@ export function partnerFromScope({ scopeIds = [], books = [], memoBookIds = null
 
 // 答え 1 つの相手。書き終えていて根拠が取れれば根拠から、そうでなければ相談相手から。
 //   useScope: 書いている途中・失敗・案内・関係するメモが無かった答え（特定の本を見せない）
-export function consultPartner({ refs = [], scopeIds = [], books = [], memoBookIds = null, useScope = false } = {}) {
+//   voice: 語り口の答え（{ title, author }）なら、その本（本棚に無ければ書名と著者だけ）を「著者名（本の語り口で・AI）」で。
+export function consultPartner({ refs = [], scopeIds = [], books = [], memoBookIds = null, useScope = false, voice = null } = {}) {
+  if (voice && voice.title) {
+    const b = bookForRef(`『${voice.title}』`, books);
+    return withVoice(make([b ? pick(b) : { id: null, title: voice.title, author: voice.author || '', cover: null }], false));
+  }
   if (!useScope) {
     const p = partnerFromRefs(refs, books);
     if (p) return p;

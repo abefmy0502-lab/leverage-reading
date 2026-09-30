@@ -42,7 +42,14 @@ function parseThread(userText) {
   };
 }
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null) {
+// 著者の語り口（2026-09-30）: 質問の後ろの VOICE（今回の語り口）から書名・著者を読む。
+function parseVoice(userText) {
+  const block = (userText.match(/===== VOICE_START =====\n([\s\S]*?)\n===== VOICE_END =====/) || [])[1];
+  if (!block) return null;
+  return { title: ((block.match(/書名: 『([^』]*)』/) || [])[1] || '').trim(), author: ((block.match(/著者: (.+)/) || [])[1] || '').trim() };
+}
+
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null) {
   // 深掘りの短い質問（「もっと具体的に」）でも、直前の相談の話題でメモを選ぶ（本番の retrievalQuery と同じ考え方）。
   const q = bigrams(thread ? `${question} ${thread.lastQuestion}` : question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));
@@ -119,8 +126,8 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       otherBooks
         ? `ほかの本のメモから見ると、${gist(picked[0].text)}という考えも使えます。前の答えと合わせて、2 つ目の手にしましょう。`
         : ifFail
-          ? `うまくいかなかったときは、やり方を変えるより先に、${gist(picked[0].text)}という考えに立ち戻りましょう。`
-          : `前の答えを一歩具体的にすると、${gist(picked[0].text)}を、次の 1 回の場面に決めて試すことです。`,
+          ? `${voice ? '私なら、' : ''}うまくいかなかったときは、やり方を変えるより先に、${gist(picked[0].text)}という考えに立ち戻ります。`
+          : `${voice ? '私の考え方で言えば、' : ''}前の答えを一歩具体的にすると、${gist(picked[0].text)}を、次の 1 回の場面に決めて試すことです。`,
       '',
       '【参照した本のメモ】',
       quotes,
@@ -136,6 +143,28 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
         : `「${subject}」の次の場面を 1 つ選び、メモに残した「${gist(picked[0].text)}」をどの一言で伝えるかを 1 行書いてから臨んでください。`,
       '',
       '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
+      '',
+      'REFS_START',
+      refs,
+      'REFS_END',
+    ].join('\n');
+  }
+  if (voice && !p2) {
+    // 1 冊の本から答えるときは、その著者の語り口で（本番の BRAIN_SYSTEM ルール 8・中身はメモの言葉だけ）。
+    return [
+      '【結論】',
+      `私の考え方で言えば、${gist(picked[0].text)}。まずはそこから始めてみてください。`,
+      '',
+      '【参照した本のメモ】',
+      quotes,
+      '',
+      '【あなたの状況に合わせた解釈】',
+      `あなたが残した「${clip(picked[0].text)}」は、私がいちばん大事にしている考え方に近いところです。いまの悩みでは、どこに当てはまるかを 1 つだけ決めると動きやすくなります。`,
+      '',
+      '【明日からできる 1 つの行動】',
+      `「${subject}」の場面で、メモに残した「${gist(picked[0].text)}」を 1 回だけ試し、どうだったかを 1 行メモに残す。`,
+      '',
+      '（お試しモードの応答です。本番では AI が本とあなたのメモをもとに、著者の語り口をまねて答えます）',
       '',
       'REFS_START',
       refs,
@@ -290,7 +319,7 @@ function aiReply(store, payload, aiMode = '') {
       (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
       (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '',
     ].filter(Boolean).join('\n\n');
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText));
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText));
   }
   if (userText.includes('のテーマまとめを、次のフォーマットで作成')) {
     const theme = (userText.match(/【テーマ】(.+)/) || [])[1] || '';

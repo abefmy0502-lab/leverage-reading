@@ -98,7 +98,13 @@ export function PartnerName({ partner, onOpenList = null, as: Tag = 'p' }) {
       </Tag>
     );
   }
-  return <Tag style={line}><span style={text}>{partner.label}</span></Tag>;
+  // 語り口の答え（2026-09-30）: 「著者名」は長ければ … で省き、「（本の語り口で・AI）」はいつも見せる（切らない）。
+  return (
+    <Tag style={line}>
+      <span style={text}>{partner.label}</span>
+      {partner.suffix && <span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>{partner.suffix}</span>}
+    </Tag>
+  );
 }
 
 // アイコン（左）＋ 名前の行と中身（右）。partner が null のときは同じ幅の空き（列をそろえる）。
