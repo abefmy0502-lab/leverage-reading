@@ -907,6 +907,8 @@ function AuthedApp() {
   // すべての本: 検索欄の開閉と「…」メニュー（並び替え・絞り込み・表示）。
   const [librarySearchOpen, setLibrarySearchOpen] = useState(false);
   const [libraryMenu, setLibraryMenu] = useState(null);
+  // 本の追加・編集の画面の右上「…」のメニュー（ヘルプ・2026-09-30）
+  const [editMenu, setEditMenu] = useState(null);
   // 読書中・読了の本の購入リンクは「⋯ → この本を買う」のシートへ（2026-09-26 オーナー判断）。
   const [storeSheetOpen, setStoreSheetOpen] = useState(false);
   // 📤 一文をシェアのシート: { book, initialMemoId? }（本の詳細・メモの「…」・本棚の長押しから）。
@@ -4342,15 +4344,25 @@ function AuthedApp() {
                 if (chars.length === 0) return '戻る';
                 return chars.length <= 10 ? chars.join('') : `${chars.slice(0, 10).join('')}…`;
               })() : newBookBackLabel}</button>
+            {/* 右端は「…」（すべての本・本の詳細と同じ形）。中はヘルプ（？の丸を単独で置かない・2026-09-30）。 */}
             <button
-              onClick={openHelp}
+              type="button"
+              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setEditMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
               style={{ width: 44, height: 44, marginRight: 'calc(-1 * var(--space-3))', display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
-              aria-label="この画面のヘルプを見る"
-              title="ヘルプ"
+              aria-label="その他の操作"
+              title="その他"
             >
-              <HelpCircle size={20} strokeWidth={1.75} aria-hidden="true" />
+              <MoreHorizontal size={22} aria-hidden="true" />
             </button>
         </PushedTopBar>
+        {editMenu && (
+          <ContextMenu
+            x={editMenu.x}
+            y={editMenu.y}
+            onClose={() => setEditMenu(null)}
+            items={[{ label: 'ヘルプ', icon: <HelpCircle size={16} aria-hidden="true" />, onClick: openHelp }]}
+          />
+        )}
         <div
           ref={editScrollRef}
           className="detail-enter"
@@ -6154,7 +6166,8 @@ function useLpRoute() {
 
 export default function App() {
   const [authCallbackActive, setAuthCallbackActive] = useState(hashHasAuthParams);
-  const [showSplash, setShowSplash] = useState(true);
+  // 飾りのスプラッシュは Web だけ（iOS アプリは端末の起動画面が同じ役目・2026-09-30）。
+  const [showSplash, setShowSplash] = useState(!isNative);
   const exitAuthCallback = useCallback(() => setAuthCallbackActive(false), []);
   const lpRoute = useLpRoute();
 

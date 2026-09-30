@@ -8,6 +8,7 @@ import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnLink a
 import { isNative } from '../../lib/iap';
 import { MailCheck, Check } from 'lucide-react';
 import ErrorMessage from '../ErrorMessage';
+import { withPhraseBreaks } from '../TightBubble';
 
 // ボタン正典（styles/ui.js）に統一。初対面画面のボタンだけ radius/weight が
 // 微妙に別物だと第一印象で「寄せ集め感」が出るため。
@@ -357,7 +358,7 @@ export default function AuthScreen() {
       {/* アプリアイコン＋文字のワードマークをページ見出し(h1)として提供（暗い画面でも読める）。 */}
       <h1 style={{ margin: '0 0 var(--space-3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
         {/* アプリアイコン画像は iOS のアイコン形状（DESIGN §4 の例外＝中身の形）。 */}
-        <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 72, height: 72, borderRadius: 'var(--radius-app-icon)', display: 'block' }} />
+        <img src="/icons/icon-192.png" alt="" width={72} height={72} style={{ width: 'var(--app-icon-size)', height: 'var(--app-icon-size)', borderRadius: 'var(--radius-app-icon)', display: 'block' }} />
         <span style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', letterSpacing: '0.02em' }}>Orime</span>
       </h1>
       {/* タグラインはログインの画面だけ（新規登録は題名「新規登録」と入力欄に集中させる・2026-09-29）。 */}
@@ -440,7 +441,8 @@ export default function AuthScreen() {
             {/* ラベルの中はチェックボックスと「同意します」の文だけ（行の高さ 44）。
                 リンクを同じ行に置くと、リンクの近くを押しただけでチェックが切り替わるため、
                 リンクは下の行に文字ボタンとして分ける。 */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, cursor: 'pointer' }}>
+            {/* 同意の文は操作の対象そのものなので、補足の 13/--text-2 ではなく 15/--text（2026-09-30）。 */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, cursor: 'pointer' }}>
               <span style={{ position: 'relative', width: checkboxSize, height: checkboxSize, flexShrink: 0 }}>
                 <input
                   type="checkbox"
@@ -454,7 +456,7 @@ export default function AuthScreen() {
                   {agreed && <Check size={16} strokeWidth={3} />}
                 </span>
               </span>
-              <span>利用規約とプライバシーポリシーに同意します</span>
+              <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('利用規約とプライバシーポリシーに同意します')}</span>
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', paddingLeft: `calc(${checkboxSize} + var(--space-2))` }}>
               <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={legalLink}>利用規約</a>
@@ -476,8 +478,9 @@ export default function AuthScreen() {
           /* App-only 配信方針: Web で登録しても利用はアプリから。登録前に伝えて
              「登録したのに使えない」という期待外れ（最悪の初回体験）を防ぐ。
              入力欄の上に中央揃えで積まず、登録ボタンのすぐ下に補足の大きさ（13/--text-2）で（2026-09-29）。 */
-          <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-3) 0 0' }}>
-            Orime は iPhone / iPad のアプリです。登録後は、アプリからログインしてください。
+          <p style={{ ...jpWrap, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-3) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+            {/* 文節の切れ目でだけ折り返す（「ログイン／してください」の途中で割らない・2026-09-30）。 */}
+            {withPhraseBreaks('Orime は iPhone / iPad のアプリです。登録後は、アプリからログインしてください。')}
           </p>
         )}
       </form>

@@ -1,5 +1,7 @@
 // One-second splash on cold start. Decoration only — no localStorage,
 // no network, no auth dependency. Just a brand moment then fades out.
+// Web だけ。iOS アプリは端末の起動画面（LaunchScreen）が同じ役目なので出さない
+// （起動画面のあとにもう 1 秒アイコンを見せて待たせない・App.jsx の showSplash・2026-09-30）。
 //
 // Mounted by <App> at the very top of the tree, above ProvidersChain results,
 // so it appears even before Auth state resolves.
@@ -62,6 +64,8 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
       }}
       role="presentation"
       aria-hidden="true"
+      // 撮影スクリプト（scripts/ui-shots.mjs）が消えるのを待つための印
+      data-splash=""
     >
       {/* アイコンと名前だけ（飾りの名言・旧タグラインは撤去・DESIGN §0）。 */}
       <div
@@ -77,11 +81,12 @@ export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
         <img
           src="/icons/icon-192.png"
           alt=""
-          width={88}
-          height={88}
+          width={72}
+          height={72}
           loading="eager"
           fetchpriority="high"
-          style={{ width: 88, height: 88, borderRadius: 20, display: 'block' }}
+          // ログイン画面のアイコンと同じ大きさ・形（--app-icon-size / --radius-app-icon・DESIGN §4）
+          style={{ width: 'var(--app-icon-size)', height: 'var(--app-icon-size)', borderRadius: 'var(--radius-app-icon)', display: 'block' }}
         />
         <p style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, letterSpacing: '0.02em' }}>
           Orime

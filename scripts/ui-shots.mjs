@@ -303,6 +303,8 @@ for (const scheme of ['light', 'dark']) {
     try {
       await page.goto(BASE + s.url, { waitUntil: 'networkidle' });
       await page.waitForTimeout(1200);
+      // 起動のスプラッシュ（Web だけ・約 1 秒）が消えるまで待つ（固定の待ち時間だけだと遅い端末で重なって写る）。
+      await page.locator('[data-splash]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
       for (const step of s.steps || []) await run(step, page);
       const file = join(outDir, `${s.name}-${scheme}.png`);
       await page.screenshot({ path: file });
