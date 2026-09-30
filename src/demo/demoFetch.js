@@ -26,8 +26,25 @@ const bigrams = (s) => {
   return out;
 };
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '') {
-  const q = bigrams(question);
+// 深掘りの会話（2026-09-30）: 質問の前の THREAD（これまでのやりとり）から、直前の相談・結論・根拠にした本を読む。
+function parseThread(userText) {
+  const block = (userText.match(/===== THREAD_START =====\n([\s\S]*?)\n===== THREAD_END =====/) || [])[1];
+  if (!block) return null;
+  const all = (re) => [...block.matchAll(re)].map((m) => m[1].trim());
+  const questions = all(/相談: (.+)/g);
+  const conclusions = all(/答えの結論: (.+)/g);
+  const cited = (all(/根拠にした本: (.+)/g).slice(-1)[0] || '').match(/『[^』]+』/g) || [];
+  return {
+    turns: questions.length,
+    lastQuestion: questions[questions.length - 1] || '',
+    lastConclusion: conclusions[conclusions.length - 1] || '',
+    citedTitles: cited.map((t) => t.slice(1, -1)),
+  };
+}
+
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null) {
+  // 深掘りの短い質問（「もっと具体的に」）でも、直前の相談の話題でメモを選ぶ（本番の retrievalQuery と同じ考え方）。
+  const q = bigrams(thread ? `${question} ${thread.lastQuestion}` : question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));
   // 本番と同じく、AI に渡されたメモ一覧（相談相手で絞り込み済み）に載っている本だけを使う。
   const inBlock = (m) => {
@@ -63,7 +80,11 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '') {
   // 本番の回答ルール（必ず複数の本を横断）に合わせ、異なる本から 1 件ずつ選ぶ。
   const picked = [];
   const seen = new Set();
-  for (const m of scored) {
+  // 「ほかの本ではどう言ってる？」: 前の答えの根拠にした本は後回しにする（ほかに本が無ければ使う）。
+  const otherBooks = thread && /ほかの本/.test(question) && thread.citedTitles.length > 0;
+  const citedIds = new Set(otherBooks ? store.table('books').filter((b) => thread.citedTitles.includes(b.title)).map((b) => b.id) : []);
+  const ordered = otherBooks ? [...scored.filter((m) => !citedIds.has(m.book_id)), ...scored.filter((m) => citedIds.has(m.book_id))] : scored;
+  for (const m of ordered) {
     const key = m.book_id || '__personal';
     if (seen.has(key)) continue;
     seen.add(key);
@@ -83,13 +104,44 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '') {
   // &ai=fabricate: 2 つ目の引用を、メモに無い文にする（「根拠を見る」で見せないことの確認用・evidenceCheck.js）。
   const quotes = picked.map((m, i) => `- ${label(m).name} のメモ：「${aiMode === 'fabricate' && i === 1 ? '他人の期待を満たすために生きてはいけない' : m.text}」`).join('\n');
   // 一歩は、あとで行動の一覧だけを見ても分かる文にする（本番の指示文と同じ・「この件」と書かない）。
-  const subject = questionGist(question, 20) || 'いまの悩み';
+  const subject = questionGist(thread ? thread.lastQuestion : question, 20) || 'いまの悩み';
   const refs = picked.map((m) => `- ${label(m).ref}`).join('\n');
 
   // 結論・解釈は、引いたメモに書いてあることだけで組み立てる（メモに無い主張を足さない・2026-09-29）。
   const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x; };
   // 結論には書名・引用のかぎかっこを入れない（出典は「根拠を見る」の中・SPEC §3・本番の BRAIN_SYSTEM と同じ）。
   const gist = (t) => clip(t).replace(/[「」『』]/g, '').replace(/[。．.]+$/, '');
+  if (thread) {
+    // 深掘りの答え（本番の BRAIN_SYSTEM ルール 9 と同じく、同じ形で一歩深く・メモの言葉だけで）。
+    const ifFail = /うまくいかなかったら/.test(question);
+    return [
+      '【結論】',
+      otherBooks
+        ? `ほかの本のメモから見ると、${gist(picked[0].text)}という考えも使えます。前の答えと合わせて、2 つ目の手にしましょう。`
+        : ifFail
+          ? `うまくいかなかったときは、やり方を変えるより先に、${gist(picked[0].text)}という考えに立ち戻りましょう。`
+          : `前の答えを一歩具体的にすると、${gist(picked[0].text)}を、次の 1 回の場面に決めて試すことです。`,
+      '',
+      '【参照した本のメモ】',
+      quotes,
+      '',
+      '【あなたの状況に合わせた解釈】',
+      p2
+        ? `前の答えで決めたことを変えずに、${p1.name}の「${clip(picked[0].text)}」を具体的な場面に置き、足りなければ${p2.name}の「${clip(picked[1].text)}」で補います。`
+        : `前の答えで決めたことを変えずに、「${clip(picked[0].text)}」を具体的な場面に置きます。`,
+      '',
+      '【明日からできる 1 つの行動】',
+      ifFail
+        ? `「${subject}」でうまくいかなかったら、メモに残した「${gist(picked[0].text)}」を読み返し、次の 1 回で変えることを 1 つだけ決めて 1 行メモに残してください。`
+        : `「${subject}」の次の場面を 1 つ選び、メモに残した「${gist(picked[0].text)}」をどの一言で伝えるかを 1 行書いてから臨んでください。`,
+      '',
+      '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
+      '',
+      'REFS_START',
+      refs,
+      'REFS_END',
+    ].join('\n');
+  }
   return [
     '【結論】',
     p2
@@ -238,7 +290,7 @@ function aiReply(store, payload, aiMode = '') {
       (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
       (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '',
     ].filter(Boolean).join('\n\n');
-    return brainAnswer(store, q[1], block, aiMode);
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText));
   }
   if (userText.includes('のテーマまとめを、次のフォーマットで作成')) {
     const theme = (userText.match(/【テーマ】(.+)/) || [])[1] || '';

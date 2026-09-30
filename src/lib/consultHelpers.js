@@ -12,6 +12,8 @@
 // - questionGist: 相談の要約。「前に相談した「X」…」の続きの相談は X を要約し、かっこの中では切らない
 //     （かっこは必ず閉じる・2026-09-29）。
 //
+// - selectThreadTurns: 深掘りの会話（2026-09-30）で、次の相談に文脈として渡す「これまでのやりとり」を選ぶ。
+//
 // ⚠️ src では正規表現の後読み（lookbehind）を使わない。
 
 // よくある困りごと（相談の形・LP の ConsultDemo と同じ言い方）
@@ -472,4 +474,42 @@ export function answerStepToAction(text) {
   if (!m) return t;
   const head = t.slice(0, t.length - m[0].length);
   return `${head}${isSuruHead(head) ? 'する' : 'す'}`;
+}
+
+// 💬 深掘りの会話（2026-09-30）: いま見えている会話（「新しい相談をはじめる」より後）から、
+// 答えを書き終えたやりとり [{ question, answer }]（古い順）を、新しいものから max 組まで選ぶ。
+//   - 失敗・案内（上限など）・書いている途中・中止・通信の中断で途中までの答えは入れない
+//   - before（ISO 時刻）: その時刻以降の相談は入れない（「別の角度で答えて」＝同じ相談を答え直すとき）
+//   - carry: 過去の相談の「この相談の続きを聞く」で持ってきた相談。もう送った（used）あとは会話の始まりとして入れる
+//     （まだ送っていない間は、次の相談に prior として渡すのでここには入れない）
+const THREAD_TEMP_ID = /^(err|streaming|bg-wait)-/;
+const THREAD_STOPPED = '回答を中止しました。';
+const THREAD_CUT_NOTE = /\n— (?:ここで中止しました|通信が中断された)/;
+export function isCompletedAnswer(a) {
+  if (!a || a.role !== 'assistant' || a.streaming || a.error || a.notice) return false;
+  const text = String(a.content || '').trim();
+  return !!text && text !== THREAD_STOPPED && !THREAD_CUT_NOTE.test(text);
+}
+export function selectThreadTurns(messages, { max = 3, before = null, carry = null } = {}) {
+  const list = Array.isArray(messages) ? messages : [];
+  const turns = [];
+  if (carry && carry.used && String(carry.question || '').trim() && String(carry.answer || '').trim()) {
+    turns.push({ question: String(carry.question), answer: String(carry.answer) });
+  }
+  list.forEach((m, i) => {
+    if (!m || m.role !== 'user' || THREAD_TEMP_ID.test(String(m.id)) || !String(m.content || '').trim()) return;
+    if (before && m.createdAt && m.createdAt >= before) return;
+    const a = list[i + 1];
+    if (!isCompletedAnswer(a)) return;
+    turns.push({ question: String(m.content), answer: String(a.content).trim() });
+  });
+  return max > 0 ? turns.slice(-max) : [];
+}
+
+// 深掘りのチップ（答えのあと・入力欄の上）。「ほかの本では…」は相談相手にメモのある本が 2 冊以上のときだけ。
+export const FOLLOWUP_MORE = 'もっと具体的に';
+export const FOLLOWUP_IF_FAIL = 'うまくいかなかったら？';
+export const FOLLOWUP_OTHER_BOOKS = 'ほかの本ではどう言ってる？';
+export function followupChips({ booksWithMemos = 0 } = {}) {
+  return [FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, ...(booksWithMemos >= 2 ? [FOLLOWUP_OTHER_BOOKS] : [])];
 }

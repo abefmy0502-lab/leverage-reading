@@ -33,7 +33,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, followupChips } from '../lib/consultHelpers';
 import { tomorrowLocal } from '../lib/dates';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
@@ -104,6 +104,10 @@ const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', 
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 // 相談例＝チップ（--fill 面・枠なし。入力欄と見分けがつくように。ホームと同じ）。
+// 深掘りのチップ（入力欄の上の 1 行・DESIGN §5 操作のチップ＝高さ 44・15/--text・--fill・枠なし）。
+// 入力欄の上に固定で置くので折り返さず横に送る（行は 1 本＝会話の場所を削りすぎない・2026-09-30）。
+const followupRow = { display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', borderTop: '1px solid var(--separator)' };
+const followupChip = { flexShrink: 0, minHeight: 44, padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'nowrap' };
 const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
 // 答え＝読むカード（全幅）。ユーザーの相談は右寄せの --fill 吹き出し。
 const answerCard = { ...cardStyle, wordBreak: 'break-word' };
@@ -957,6 +961,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 続きの相談（2026-09-29）: 相談例の「前に相談した…」か、過去の相談から持ってきた前の相談（まだ使っていないもの）。
     const askPrior = opts.prior || (carry && !carry.used ? carry : null);
     if (askPrior && carry && askPrior.id === carry.id) setCarry((c) => (c ? { ...c, used: true } : c));
+    // 💬 深掘りの会話（2026-09-30）: いま見えている会話に書き終えた答えがあれば、その続きとして聞く。
+    //   直近 3 組まで（前の相談 prior と合わせて 3 組・ai.js が古いものから落とす）。「新しい相談をはじめる」で切れる。
+    //   「別の角度で答えて」（opts.questionAt）は、答え直す相談とその後を入れない。
+    const askThread = selectThreadTurns(visibleMessages, { max: 3, before: opts.questionAt || null, carry: askPrior ? null : carry });
     // この相談より前の、いちばん新しい相談の時刻（「前の相談から メモ +N 件」に使う）。
     const before = opts.questionAt || '9999';
     let prevAskAt = null;
@@ -1044,6 +1052,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         bookIds: askBookIds,
         mode: askMode,
         prior: askPrior ? { question: askPrior.question, answer: askPrior.answer, at: askPrior.at } : null,
+        thread: askThread.length > 0 ? askThread : null,
         signal: controller.signal,
         onStage: (s, info) => {
           setStage(s);
@@ -1320,6 +1329,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const lastIsAssistant = visibleMessages.length > 0 && visibleMessages[visibleMessages.length - 1].role === 'assistant';
   // 最後の答えの下の文字ボタンの行（別の角度で答えて・新しい相談をはじめる）を出しているか。
   const answerRowShown = lastIsAssistant && !busy && visibleMessages.some((m) => m.role === 'user');
+  // 💬 深掘りの会話（2026-09-30）: 書き終えた答えがある会話＝次の相談はその続き（入力欄のプレースホルダーを変える）。
+  const threadActive = selectThreadTurns(visibleMessages, { max: 1, carry }).length > 0;
+  // 深掘りのチップ（入力欄の上）: 最後の答えを書き終えたときだけ（書いている間・失敗・案内・関係するメモが無かった答え・
+  // トークンを使い切ったとき・入力欄に書いている間は出さない）。
+  const lastVisible = visibleMessages[visibleMessages.length - 1];
+  const booksWithMemos = useMemo(() => {
+    const ids = new Set(memoBookIds || []);
+    return (books || []).filter((b) => (ids.has(b.id) || hasSummaryMemo(b)) && (scopeIds.length === 0 || scopeIds.includes(b.id))).length;
+  }, [books, memoBookIds, scopeIds]);
+  const showFollowups = !busy && !outOfTokens && !freeUsedUp && !input.trim()
+    && visibleMessages.length >= 2 && visibleMessages[visibleMessages.length - 2]?.role === 'user'
+    && isCompletedAnswer(lastVisible) && !isNoInfoAnswer(lastVisible);
+  const followups = showFollowups ? followupChips({ booksWithMemos }) : [];
 
   // 過去の相談: 相談（user）とそれに続く答えを 1 組にして、新しい組から並べる。
   const historyGroups = useMemo(() => {
@@ -1762,6 +1784,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           <div ref={spacerRef} aria-hidden="true" style={{ height: 0, flexShrink: 0 }} />
           </div>{/* /chat-scroll */}
 
+          {/* 💬 深掘りのチップ（2026-09-30・SPEC §3）: 答えを書き終えたら、入力欄の上に続きの聞き方を 2〜3 つ。押すとすぐ送る。 */}
+          {followups.length > 0 && (
+            <div role="group" aria-label="続けて聞く" className="followup-chips" style={followupRow}>
+              {followups.map((q) => (
+                <button key={q} type="button" onClick={() => { track('brain_followup', { chip: followups.indexOf(q) }); ask(q); }} style={followupChip}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
           {/* 相談相手は入力欄のすぐ上（SPEC §3）。 */}
           <ScopeBar
             label={scopeLabelFor(scopeIds, books)}
@@ -1771,6 +1803,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             disabled={busy}
             mode={modeApplies ? answerMode : null}
             onOpenMode={() => setModeSheetOpen(true)}
+            // 深掘りのチップを出しているときは、区切り線はチップの上に 1 本だけ（入力欄のまとまりにチップを入れる）。
+            noBorder={followups.length > 0}
           />
           {modeSheetOpen && (
             <AnswerModeSheet
@@ -1806,7 +1840,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   ? (trialEndLabel ? `${trialEndLabel}から相談できます` : '無料期間のトークンは、ここまでです')
                   : `${nextResetLabelJa()}から相談できます`)
                 : freeUsedUp ? `${nextResetLabelJa()}から相談できます`
-                : carry && !carry.used ? 'この相談の続きを書く' : '例：上司への報告がうまくいかない'}
+                : carry && !carry.used ? 'この相談の続きを書く'
+                // 390 幅の入力欄に 1 行で収まる長さ（「例：上司への報告がうまくいかない」と同じ 16 字）。
+                : threadActive ? '続けて聞く：乗り気でないときは？' : '例：上司への報告がうまくいかない'}
               rows={1}
               // 答えを書いている間も押せなくしない（disabled にすると入力欄からフォーカスが外れ、下のタブが
               // 出てきて入力欄がもう一度動いていた・2026-09-29）。送るのは答えが終わってから（ask が busy で止める）。
@@ -2922,11 +2958,11 @@ function BarChip({ name, value, active, disabled, onClick }) {
 // 相談相手 ＋ 答え方（2026-09-27）。答え方は相談相手が 1 冊のときは出さない（mode=null・並べる本が無い）。
 // 1 行に収めるため、「すべてに戻す」は答え方のチップが無いとき（1 冊に絞ったとき）だけ。
 // 数冊に絞ったときは相談相手のシートの「すべての本」から戻す。
-function ScopeBar({ label, scoped, onOpen, onReset, disabled, mode = null, onOpenMode }) {
+function ScopeBar({ label, scoped, onOpen, onReset, disabled, mode = null, onOpenMode, noBorder = false }) {
   const showMode = mode != null && !!onOpenMode;
   return (
     // 「すべてに戻す」を出すときは折り返さず、長い書名のチップの方を縮めて（… で省略）1 行に収める。
-    <div style={{ display: 'flex', flexWrap: scoped && !showMode ? 'nowrap' : 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: '1px solid var(--separator)' }}>
+    <div style={{ display: 'flex', flexWrap: scoped && !showMode ? 'nowrap' : 'wrap', alignItems: 'center', columnGap: 'var(--space-2)', rowGap: 'var(--space-3)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, minWidth: 0, borderTop: noBorder ? 'none' : '1px solid var(--separator)' }}>
       <BarChip name="相談相手：" value={label} active={scoped} disabled={disabled} onClick={onOpen} />
       {showMode && (
         <BarChip name="答え方：" value={answerModeLabel(mode)} active={mode === 'perbook'} disabled={disabled} onClick={onOpenMode} />

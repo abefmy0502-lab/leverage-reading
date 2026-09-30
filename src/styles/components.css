@@ -1090,6 +1090,11 @@ textarea[aria-invalid="true"]:not(.no-focus-ring):focus {
   padding: var(--space-3) var(--space-4);
 }
 
+/* 相談の深掘りのチップ（入力欄の上の 1 行・横に送る）。スクロールバーは出さない（2026-09-30）。 */
+.followup-chips::-webkit-scrollbar {
+  display: none;
+}
+
 .ai-section-header {
   padding: var(--space-3) var(--space-4) var(--space-2);
 }
