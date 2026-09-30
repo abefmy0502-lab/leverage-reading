@@ -9,6 +9,8 @@ import { btnLink, groupTitle } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 import { fmtDateJa } from '../lib/dates';
 import { SkeletonBlock } from './Skeleton';
+// 印と地の文の境目で折り返してよいか（前の切れの最後が開き括弧なら折り返さない・lib/librarySearch.test.js）。
+import { canBreakAfter } from '../lib/librarySearch';
 
 // 見つかった言葉の印（DESIGN §5「検索の一致の印」・styles/searchMark.js）。
 import { searchMarkStyle as markStyle } from '../styles/searchMark';
@@ -22,11 +24,13 @@ export function hitLabel(hit) {
 
 // 文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・DESIGN §5）。印と地の文の境目でも折り返せる。
 export function SnippetText({ segments }) {
+  const list = segments || [];
   return (
     <>
-      {(segments || []).map((s, i) => (
+      {list.map((s, i) => (
         <span key={i}>
-          {i > 0 && <wbr />}
+          {/* 開き括弧のすぐ後ろでは折り返さない（「「」だけが行末に残らないように・2026-10-01 ui-critic） */}
+          {i > 0 && canBreakAfter(list[i - 1].text) && <wbr />}
           {s.match ? <mark style={markStyle}>{s.text}</mark> : withPhraseBreaks(s.text)}
         </span>
       ))}

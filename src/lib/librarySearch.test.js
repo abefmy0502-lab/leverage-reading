@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeSearch, normalizeWithMap, splitQuery, stemOf, compileTerms, matchTerm,
-  buildLibraryIndex, buildSnippet, searchLibrary, consultQuestionFor, highlightSegments, SNIPPET_CHARS,
+  buildLibraryIndex, buildSnippet, searchLibrary, consultQuestionFor, highlightSegments, SNIPPET_CHARS, canBreakAfter,
 } from './librarySearch';
 
 const text = (segments) => segments.map((s) => s.text).join('');
@@ -231,5 +231,24 @@ describe('書名・著者・タグのどこで見つかったか（行の印）'
   });
   it('うろ覚えの切れ端では書名に印を付けない', () => {
     expect(highlightSegments('予定を詰めすぎない', '予定を詰め込まない')).toBe(null);
+  });
+});
+
+describe('開き括弧を行末に残さない（2026-10-01 ui-critic）', () => {
+  const join = (seg) => seg.map((s) => s.text).join('');
+  it('一節の終わりが開き括弧なら落として「…」にする', () => {
+    const seg = buildSnippet('頼まれごとに即答しない「確認して返事します」と言う。', compileTerms([normalizeSearch('即答')]), { chars: 12 });
+    expect(join(seg)).toBe('頼まれごとに即答しない…');
+  });
+  it('終わりの空白と開き括弧が続いても落とす', () => {
+    const seg = buildSnippet('結論から話す 「決めてほしいこと」から話す。', compileTerms([normalizeSearch('結論')]), { chars: 8 });
+    expect(join(seg)).toBe('結論から話す…');
+  });
+  it('前の切れが開き括弧で終わるときは、その後ろで折り返さない', () => {
+    expect(canBreakAfter('と一度「')).toBe(false);
+    expect(canBreakAfter('『')).toBe(false);
+    expect(canBreakAfter('（')).toBe(false);
+    expect(canBreakAfter('と一度')).toBe(true);
+    expect(canBreakAfter('」')).toBe(true);
   });
 });

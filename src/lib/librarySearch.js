@@ -237,6 +237,13 @@ export function matchRanges(text, compiled) {
 // 見つかった言葉の文の頭から始める（文の頭が遠いときは、言葉の少し前から）。
 // 一節は 2 行（約 40 字）で切れて見えるので、言葉が 2 行目の後ろに押し出されないよう、
 // 文の頭へ戻るのは 12 字まで・言葉の前は 8 字までにする（2026-09-30 ui-critic）。
+const OPEN_TAIL = /[「『（(【〈《“\s]/u;
+const OPEN_END = /[「『（(【〈《“]$/u;
+// 一節の切れ（印・地の文）の境目で折り返してよいか。前の切れが開き括弧で終わるなら折り返さない（括弧と中身を離さない）。
+export function canBreakAfter(prevText) {
+  return !OPEN_END.test(String(prevText || ''));
+}
+
 // ranges: 印を付ける所を先に決めてあるとき（本と本がつながるの「共有する言葉」・lib/memoLinks.js）。
 export function buildSnippet(text, compiled, { chars = SNIPPET_CHARS, lead = 8, sentenceReach = 12, ranges: given = null } = {}) {
   const src = String(text || '');
@@ -246,9 +253,9 @@ export function buildSnippet(text, compiled, { chars = SNIPPET_CHARS, lead = 8, 
   const sentStart = Math.max(before.lastIndexOf('。'), before.lastIndexOf('\n'), before.lastIndexOf('！'), before.lastIndexOf('？'), before.lastIndexOf('!'), before.lastIndexOf('?')) + 1;
   let s = anchor - sentStart <= sentenceReach ? sentStart : Math.max(0, anchor - lead);
   let e = Math.min(src.length, s + chars);
-  // 前後の空白・改行は落とす
+  // 前後の空白・改行は落とす。終わりの開き括弧も落とす（「…と一度「…」のように括弧だけが残らないように・2026-10-01 ui-critic）
   while (s < e && /\s/u.test(src[s])) s += 1;
-  while (e > s && /\s/u.test(src[e - 1])) e -= 1;
+  while (e > s && OPEN_TAIL.test(src[e - 1])) e -= 1;
   // サロゲートペアの途中で切らない
   if (s > 0 && /[\udc00-\udfff]/.test(src[s])) s -= 1;
   if (e < src.length && /[\udc00-\udfff]/.test(src[e])) e += 1;
