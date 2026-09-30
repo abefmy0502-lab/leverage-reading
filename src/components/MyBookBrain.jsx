@@ -14,6 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAllActions } from '../hooks/useAllActions';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
+import { setConsultBackGuard } from '../lib/consultBack';
 import { toMessage } from '../lib/errors';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, groupTitle, fieldNote, input as uiInput } from '../styles/ui';
@@ -182,16 +183,28 @@ function transformMessage(row) {
 // していたが、iOS Safari で上端が見切れる + 下に元画面が透ける問題が
 // あった。タブ画面なのでモーダルにする必然性も薄く、インライン展開に
 // 変更。
-function LearningInline({ onSaved, initialTags = null }) {
+// onDirtyChange: 書きかけ（本文かタグがある）かどうかを親に知らせる（「‹ 相談」・戻るで黙って消さない・2026-09-30）。
+function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
   const { user } = useAuth();
   const toast = useToast();
   const [text, setText] = useState('');
+  const textRef = useRef(null);
+  // 開いたらすぐ書けるように、本文の欄にカーソルを置く（描き終えた次のフレームで・画面は動かさない）。
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => { try { textRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } });
+    return () => cancelAnimationFrame(raf);
+  }, []);
   // ＋ 分類・タグ（最初は閉じる＝本文と保存だけを見せる。QuickMemoSheet の「＋ 詳しく」と同じ）。
   const [moreOpen, setMoreOpen] = useState(() => !!initialTags?.length);
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState(() => (Array.isArray(initialTags) ? initialTags.filter(Boolean) : []));
   const [busy, setBusy] = useState(false);
+  const dirty = text.trim().length > 0 || tagInput.trim().length > 0;
+  const dirtyCbRef = useRef(onDirtyChange);
+  useEffect(() => { dirtyCbRef.current = onDirtyChange; });
+  useEffect(() => { dirtyCbRef.current?.(dirty); }, [dirty]);
+  useEffect(() => () => { dirtyCbRef.current?.(false); }, []);
 
   const addTag = () => {
     const t = tagInput.trim();
@@ -226,6 +239,7 @@ function LearningInline({ onSaved, initialTags = null }) {
       if (error) throw error;
       invalidateKnowledgeCache(); // 直後の相談でこの学びを使えるように
       toast.success('学びを記録しました。');
+      dirtyCbRef.current?.(false);
       onSaved?.();
     } catch (e) {
       toast.error(toMessage(e, '保存に失敗しました。'));
@@ -250,6 +264,7 @@ function LearningInline({ onSaved, initialTags = null }) {
         <label htmlFor="learning-text" style={label}>学んだこと</label>
         <textarea
           id="learning-text"
+          ref={textRef}
           data-font-lg=""
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -373,12 +388,34 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const isPushed = view !== 'chat';
   useEffect(() => { pushedCbRef.current?.(isPushed); }, [isPushed]);
   useEffect(() => () => { pushedCbRef.current?.(false); }, []);
+  // 学びを書く画面の書きかけ（LearningInline が知らせる）。離れる前に「編集を続ける／書いたことを消す」を確かめる
+  // （「‹ 相談」・ブラウザの戻る・左端スワイプのどれでも黙って消さない・2026-09-30）。
+  const learningDirtyRef = useRef(false);
+  const viewRef = useRef(view);
+  useEffect(() => { viewRef.current = view; }, [view]);
+  const leaveLearning = useCallback(async () => {
+    if (viewRef.current !== 'learning' || !learningDirtyRef.current) return true;
+    const ok = await confirm({
+      title: '書きかけの学びがあります',
+      message: '消すと、元に戻せません。',
+      confirmLabel: '書いたことを消す',
+      cancelLabel: '編集を続ける',
+      danger: true,
+    });
+    if (ok) learningDirtyRef.current = false;
+    return !!ok;
+  }, [confirm]);
+  // App の左端スワイプ・ブラウザの戻るは、戻る前にここで確かめる（lib/consultBack.js）。
+  useEffect(() => setConsultBackGuard(leaveLearning), [leaveLearning]);
+  const backToChat = useCallback(async () => {
+    if (await leaveLearning()) setView('chat');
+  }, [leaveLearning]);
   // ブラウザ / Android の「戻る」（App の useHistoryBack）は「‹ 相談」と同じく会話へ戻す。
   useEffect(() => {
-    const onBack = () => setView('chat');
+    const onBack = () => { backToChat(); };
     window.addEventListener('orime:consult-back', onBack);
     return () => window.removeEventListener('orime:consult-back', onBack);
-  }, []);
+  }, [backToChat]);
   // 同じアプリの起動中に戻ってきたら、前の会話と相談相手をそのまま出す（上の session）。
   const resumed = useRef(sessionFor(user?.id)).current;
   const [messages, setMessages] = useState(() => (resumed
@@ -1421,7 +1458,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             {/* iOS のナビゲーションバーの形: 左に戻る・中央に題名・右は同じ幅の空き。 */}
             <div style={{ width: 96, flexShrink: 0 }}>
               {/* シェブロンの見た目の左端を余白 16 に揃える（アイコンの内側の空きの分だけ左へ戻す）。 */}
-              <button type="button" onClick={() => setView('chat')} style={{ ...uiBtnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3 }}>
+              <button type="button" onClick={backToChat} style={{ ...uiBtnText, fontSize: 'var(--text-body)', fontWeight: 400, padding: 'var(--space-2) 0', marginLeft: 'calc(-1 * var(--space-2))', gap: 0, lineHeight: 1.3 }}>
                 <ChevronLeft size={20} aria-hidden="true" />相談
               </button>
             </div>
@@ -1473,6 +1510,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         <div style={viewScroll} onScroll={onBodyScroll}>
           <LearningInline
             initialTags={learningTags}
+            onDirtyChange={(d) => { learningDirtyRef.current = d; }}
             onCancel={() => setView('chat')}
             onSaved={() => { setView('chat'); setStatsTick((t) => t + 1); }}
           />

@@ -155,6 +155,7 @@ import { getAmazonLink } from './lib/amazonLink';
 import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
 import { loadNavState, saveNavState } from './lib/navState';
+import { consultCanLeave } from './lib/consultBack';
 import {
   BookOpen,
   Home,
@@ -923,6 +924,8 @@ function AuthedApp() {
   useEdgeSwipeBack({
     enabled: tab === 'ai' && aiSubTab === 'brain' && consultPushed && view === 'list',
     getTarget: () => (typeof document !== 'undefined' ? document.querySelector('.ai-page') : null),
+    // 学びを書く画面に書きかけがあれば、戻る前に「編集を続ける／書いたことを消す」（2026-09-30）。
+    beforeBack: () => consultCanLeave(),
     onBack: () => { window.dispatchEvent(new Event('orime:consult-back')); },
   });
   // Edge-swipe back: only listens while we're on a detail or edit view.
@@ -965,7 +968,11 @@ function AuthedApp() {
         return true;
       }
       if (view === 'detail') { leaveDetail(); return true; }
-      if (tab === 'ai' && consultPushed) { window.dispatchEvent(new Event('orime:consult-back')); return true; }
+      if (tab === 'ai' && consultPushed) {
+        if (!(await consultCanLeave())) return false; // 書きかけの学びで「編集を続ける」
+        window.dispatchEvent(new Event('orime:consult-back'));
+        return true;
+      }
       if (tab === 'books' && shelfMode === 'library') { leaveLibrary(); return true; }
       return true;
     },
