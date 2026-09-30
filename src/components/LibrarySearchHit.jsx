@@ -4,6 +4,7 @@
 import { memo } from 'react';
 import { ChevronRight, MessageCircle } from 'lucide-react';
 import { MiniCover, StatusLabel } from './BookCards';
+import { Stars } from './formPrimitives';
 import { btnLink, groupTitle } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 import { fmtDateJa } from '../lib/dates';
@@ -56,7 +57,9 @@ const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAuto
           <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)', minWidth: 0 }}>
             {showStatus && <StatusLabel status={book.status} />}
-            {book.author && showStatus && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
+            {/* 評価はすべての本のリストの行と同じ（状態 → 評価 · 著者・2026-09-30 ui-critic） */}
+            {book.rating > 0 && <span style={{ flexShrink: 0, display: 'inline-flex' }}><Stars r={book.rating} size={12} /></span>}
+            {book.author && (showStatus || book.rating > 0) && <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', flexShrink: 0 }}>·</span>}
             {book.author && <span style={{ flex: 1, fontSize: 'var(--text-meta)', color: 'var(--text-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</span>}
           </span>
         </span>
