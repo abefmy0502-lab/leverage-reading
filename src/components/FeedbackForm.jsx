@@ -162,6 +162,14 @@ export default function FeedbackForm({ onClose }) {
   const [focusedCat, setFocusedCat] = useState(''); // キーボードで触れている選択肢（輪を出す）
   const sheetRef = useRef(null);
   const trapRef = useFocusTrap(true); // ♿ Tab をフォーム内に閉じ込める
+  // 開いたらすぐ書けるように、本文の欄にカーソルを置く（描き終えた次のフレーム・画面は動かさない・2026-09-30）。
+  const contentRef = useRef(null);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      try { contentRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // Close on ESC for desktop users.
   useEffect(() => {
@@ -284,6 +292,7 @@ export default function FeedbackForm({ onClose }) {
               内容<span style={reqStyle}>（必須）</span>
             </label>
             <textarea
+              ref={contentRef}
               id="feedback-content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -349,7 +358,6 @@ export default function FeedbackForm({ onClose }) {
             disabled={busy || !content.trim() || !category}
             // 押せないときは薄くせず、面と文字の色で示す（DESIGN §5「押せないボタン」）。
             style={busy || !content.trim() || !category ? btnPrimaryOff : btnPrimary}
-            aria-label="フィードバックを送信"
           >
             {busy ? '送信中…' : '送信する'}
           </button>

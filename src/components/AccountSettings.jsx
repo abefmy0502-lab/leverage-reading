@@ -494,9 +494,8 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     return () => { alive = false; };
   }, []);
 
-  // オンにしたときの知らせ（いつ届くかをその場で言う・読める長さで出す・2026-09-29）。
-  // 中央の ✓ は幅が狭いので、句の切れ目で改行する（「朝／8 時」「週／に」で割れないように・数と単位も離さない）。
-  const PUSH_ON_MESSAGE = 'オンにしました。\n期限の日は朝\u00a08\u00a0時ごろ、\n思い出しは多くても\n週に\u00a01\u00a0回届きます';
+  // オンにしたときの知らせは短く（いつ届くかはスイッチの行の説明に書いてある＝同じことを 2 回言わない・2026-09-30）。
+  const PUSH_ON_MESSAGE = '通知をオンにしました';
   const handleTogglePush = async () => {
     if (pushBusy) return;
     setPushBusy(true);
@@ -504,7 +503,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
       if (isDemo) {
         demoPushOn = !pushOn;
         setPushOn(demoPushOn);
-        if (demoPushOn) toast.success(PUSH_ON_MESSAGE, { duration: 3500 }); else toast.info('通知をオフにしました。');
+        if (demoPushOn) toast.success(PUSH_ON_MESSAGE); else toast.info('通知をオフにしました。');
         return;
       }
       if (pushOn) {
@@ -520,7 +519,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
         if (res.ok) {
           setPushOn(true);
           track(EVENTS.PUSH_ENABLED); // ON 成功時のみ（props なし・fire-and-forget）
-          toast.success(PUSH_ON_MESSAGE, { duration: 3500 });
+          toast.success(PUSH_ON_MESSAGE);
         } else if (res.reason === 'denied') {
           setPushDenied(true);
           toast.error('通知が許可されていません。端末の設定からオンにできます。');
@@ -1141,7 +1140,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
               </div>
               <button
                 type="button"
-                aria-label="データを初期化する"
+                // 読み上げの名前は見えている文字と同じ（aria-label で別の名前にしない・2026-09-30）。
                 style={resetting ? btnGhostOff : btnDestructiveGhost}
                 aria-busy={resetting || undefined}
                 disabled={resetting}

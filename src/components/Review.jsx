@@ -513,7 +513,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         : await subscribeToPush({ frequency: 'weekly' });
       if (res?.ok) {
         try { haptic.success(); } catch { /* non-critical */ }
-        toast.success('通知をオンにしました。忘れた頃にそっとお届けします。');
+        toast.success('通知をオンにしました');
         dismissPushOptIn();
       } else if (res?.reason === 'denied') {
         toast.info('通知は端末の設定でブロックされています。設定から許可できます。');

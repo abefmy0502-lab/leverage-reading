@@ -53,7 +53,7 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
     try {
       const res = await enableNotify();
       if (res?.ok) {
-        toast.success('通知をオンにしました。');
+        toast.success('通知をオンにしました');
         close('enabled');
       } else if (res?.reason === 'denied') {
         toast.info('通知は端末の設定でオフになっています。設定からオンにできます。');
