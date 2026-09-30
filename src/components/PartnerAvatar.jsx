@@ -52,9 +52,9 @@ const Ring = () => <span style={{ position: 'absolute', inset: 0, borderRadius: 
 export default function PartnerAvatar({ partner, size = AVATAR_SIZE, style = null }) {
   const base = {
     position: 'relative', display: 'block', width: size, height: size, flexShrink: 0, borderRadius: 999, overflow: 'hidden',
-    background: 'var(--fill)', boxShadow: 'inset 0 0 0 1px var(--separator)', ...style,
+    background: 'var(--fill)', ...style,
   };
-  if (!partner) return <span aria-hidden="true" style={{ ...base, background: 'none', boxShadow: 'none' }} />;
+  if (!partner) return <span aria-hidden="true" style={{ ...base, background: 'none' }} />;
   if (partner.kind === 'self') return <span aria-hidden="true" style={base}><SelfTile size={size} /><Ring /></span>;
   if (partner.kind === 'book') return <span aria-hidden="true" style={base}><CoverTile book={partner.books[0]} /><Ring /></span>;
   const tiles = [...partner.books.slice(0, GROUP_TILES).map((b) => ({ b })), ...(partner.self ? [{ self: true }] : [])].slice(0, GROUP_TILES);

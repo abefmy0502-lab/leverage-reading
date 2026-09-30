@@ -940,7 +940,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         qs.push(`『${t}』でいちばん大事なことを、私のメモから教えて`);
       }
       if (picked.length > 1) qs.push('選んだ本に共通する考え方は？');
-      qs.push('この本から、今週やる一歩を1つ提案して');
+      qs.push('この本から、今週やる一歩を 1 つ提案して');
       return qs.slice(0, 3).map((text) => ({ text, kind: 'book' }));
     }
     // メモの件数は下の ownMemoTotal と同じ数え方（ここより後で定義しているので、ここで数える）。
@@ -2743,11 +2743,14 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       </div>
     </details>
   ) : null);
-  // 🗣 語り口の答えには、いつも答えの最後に一行（はじめての案内は閉じられるので、それだけに頼らない・2026-09-30）。
+  // 🗣 語り口の答えには、いつも答えの最後に一行（名前の行と、この最後の一行でいつも分かる・2026-09-30）。
   const renderVoiceLine = () => (voice && !isStreaming ? (
     <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(VOICE_FOOT_TEXT)}</p>
   ) : null);
-  const renderNote = (p) => (p.note ? <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>{p.note}</p> : null);
+  // 注記は段落ごとに分け、先頭の「（」をぶら下げ・文節で折り返す（DESIGN・SPEC §3）。
+  const renderNote = (p) => (p.note ? p.note.split(/\n+/).map((l) => l.trim()).filter(Boolean).map((line, i) => (
+    <p key={i} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere', ...hangIndent(line) }}>{withPhraseBreaks(line)}</p>
+  )) : null);
 
   // 答えが 1 文字も返らなかった失敗は、答えのカードに入れず ErrorMessage だけを置く
   // （カードの中に --error-soft の面を重ねない・DESIGN §5「カードの中にカードを入れない」・2026-09-30）。
