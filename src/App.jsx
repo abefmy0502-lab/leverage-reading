@@ -113,6 +113,7 @@ import { track } from './lib/analytics';
 const AccountSettings = lazy(() => import('./components/AccountSettings'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import SplashScreen from './components/SplashScreen';
+import { markAppReady } from './lib/appReady';
 import Spinner from './components/Spinner';
 import { TabPanelSkeleton } from './components/lazyParts';
 import EmptyState from './components/EmptyState';
@@ -1222,6 +1223,8 @@ function AuthedApp() {
   // The completion flag is the single source of truth — the book count is
   // intentionally NOT part of the predicate, so users who clear data or
   // re-install only see it again if they explicitly reset via the help button.
+  // 本を読み込んだら、Web の飾りのスプラッシュをすぐ消す（決まった 1 秒を待たせない・2026-09-30）。
+  useEffect(() => { if (!booksLoading) markAppReady(); }, [booksLoading]);
   useEffect(() => {
     if (booksLoading) return;
     if (onboardingTriggeredRef.current) return;
@@ -5782,6 +5785,9 @@ function AppShell() {
       },
     });
   }, []);
+
+  // ログインの画面・紹介ページ・読み込みの失敗を出すときも、Web の飾りのスプラッシュをすぐ消す。
+  useEffect(() => { if (!loading && !user) markAppReady(); }, [loading, user]);
 
   if (loading) {
     return (

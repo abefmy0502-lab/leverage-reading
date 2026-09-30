@@ -1,12 +1,15 @@
-// One-second splash on cold start. Decoration only — no localStorage,
+// Splash on cold start. Decoration only — no localStorage,
 // no network, no auth dependency. Just a brand moment then fades out.
+// 出しておくのは最短 400ms。最初の画面の用意ができたら（lib/appReady の知らせ）すぐ消える。
+// 用意が遅くても 1 秒で消す（それより長く飾りで待たせない・2026-09-30）。
 // Web だけ。iOS アプリは端末の起動画面（LaunchScreen）が同じ役目なので出さない
 // （起動画面のあとにもう 1 秒アイコンを見せて待たせない・App.jsx の showSplash・2026-09-30）。
 //
 // Mounted by <App> at the very top of the tree, above ProvidersChain results,
 // so it appears even before Auth state resolves.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { APP_READY_EVENT, isAppReady } from '../lib/appReady';
 
 const KEYFRAMES_ID = '__leverage-splash-keyframes';
 function ensureKeyframes() {
@@ -32,18 +35,40 @@ function ensureKeyframes() {
   document.head.appendChild(s);
 }
 
-export default function SplashScreen({ onDismiss, durationMs = 1000 }) {
+const FADE_MS = 220;
+
+export default function SplashScreen({ onDismiss, minMs = 400, maxMs = 1000 }) {
   ensureKeyframes();
   const [fading, setFading] = useState(false);
+  // 親が描き直すたびに onDismiss が新しくなっても、時間を数え直さない（数え直すと消えるのが遅れていた）。
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
 
   useEffect(() => {
-    const fadeTimer = setTimeout(() => setFading(true), durationMs - 220);
-    const dismissTimer = setTimeout(() => onDismiss?.(), durationMs);
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(dismissTimer);
+    const start = Date.now();
+    const timers = [];
+    let leaving = false;
+    // 消え始める（薄れて FADE_MS 後に外す）。
+    const leave = () => {
+      if (leaving) return;
+      leaving = true;
+      setFading(true);
+      timers.push(setTimeout(() => dismissRef.current?.(), FADE_MS));
     };
-  }, [onDismiss, durationMs]);
+    // 用意ができた: 最短の時間が過ぎていればすぐ、まだなら過ぎたときに。
+    const onReady = () => {
+      const wait = Math.max(0, minMs - (Date.now() - start));
+      if (wait === 0) leave(); else timers.push(setTimeout(leave, wait));
+    };
+    if (isAppReady()) onReady();
+    else window.addEventListener(APP_READY_EVENT, onReady, { once: true });
+    // 用意が遅いときも、ここで消し始める（1 秒で外れる）。
+    timers.push(setTimeout(leave, Math.max(minMs, maxMs - FADE_MS)));
+    return () => {
+      window.removeEventListener(APP_READY_EVENT, onReady);
+      timers.forEach(clearTimeout);
+    };
+  }, [minMs, maxMs]);
 
   return (
     <div
