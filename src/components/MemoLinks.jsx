@@ -2,14 +2,14 @@
 // ほかの本で似たことを書いたメモを 1〜2 件。行はすべての本の検索のメモの行（LibrarySearchHit の inline）と同じ組み立て
 // （表紙 44・書名・「p.64 · 5/27」・明朝 15 の一節・共有する言葉に印）。押すとその本のそのメモを開く。
 //   variant 'card':    メモのカード・メモの編集の画面の中（上に --separator の線・小さな見出し「つながるメモ」）
-//   variant 'saved':   保存したあと、本の詳細のメモの一覧の上に 1 枚（カードの面・「似たことを、ほかの本でも書いています」・×）
+//   variant 'saved':   保存したあと、本の詳細のメモの一覧の上に 1 枚（カードの面・「いま書いたメモと似たことを、ほかの本でも」・×）
 //   variant 'compact': 「保存して次へ」のあと、書く画面のいちばん上に 1 行（書き続けるのを邪魔しない・×）
 import { ChevronRight, Link2, X } from 'lucide-react';
 import LibrarySearchHit from './LibrarySearchHit';
 import { withPhraseBreaks } from './TightBubble';
 import { groupTitle } from '../styles/ui';
 
-export const SAVED_LINKS_TITLE = '似たことを、ほかの本でも書いています';
+export const SAVED_LINKS_TITLE = 'いま書いたメモと似たことを、ほかの本でも';
 export const CARD_LINKS_TITLE = 'つながるメモ';
 
 // カードの押す・長押し・スワイプに届かせない（中の行を押したら、そのメモを開くだけ）。
