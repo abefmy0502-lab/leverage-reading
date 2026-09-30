@@ -631,7 +631,12 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
                 <h2 id={`act-${g.key}`} style={{ ...uiGroupTitle }}>{g.label}（{overdueCount}）</h2>
                 <button
                   type="button"
-                  onClick={() => { const a = open.find((x) => groupOf(x) === 'overdue'); if (a) onEditAction(a.bookId, a.actionIdx, a); }}
+                  onClick={() => {
+                    // 期限を過ぎた行動を古い順に 1 つずつ開く（保存したら次・キャンセルで終わる・2026-09-30）。
+                    const list = open.filter((x) => groupOf(x) === 'overdue');
+                    const a = list[0];
+                    if (a) onEditAction(a.bookId, a.actionIdx, a, { queue: list.slice(1), total: list.length });
+                  }}
                   style={{ ...btnLink, marginRight: 'calc(-1 * var(--space-1))' }}
                 >
                   期限を見直す

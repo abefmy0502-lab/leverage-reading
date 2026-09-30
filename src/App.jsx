@@ -4983,7 +4983,7 @@ function AuthedApp() {
                 onToggleAction={toggleAction}
                 onReflect={saveActionReflection}
                 onDeleteAction={deleteActionFromBook}
-                onEditAction={(bookId, actionIdx, action) => setEditingAction({ bookId, actionIdx, action })}
+                onEditAction={(bookId, actionIdx, action, opts) => setEditingAction({ bookId, actionIdx, action, queue: opts?.queue || null, total: opts?.total || 0 })}
                 onOpenBook={(b) => { openDetail(b); }}
                 onGoToBooks={() => setTab("books")}
                 onAddAction={() => setAddActionSheet({ step: 'pick', prefillText: '' })}
@@ -5206,7 +5206,10 @@ function AuthedApp() {
       {editingAction && (
         <Suspense fallback={<Spinner />}>
         <ActionEditModal
+          // 「期限を見直す」で次の行動を開くときは作り直す（入力欄を次の行動の値にする）。
+          key={editingAction.action?.id || `${editingAction.bookId}:${editingAction.actionIdx}`}
           action={editingAction.action}
+          step={editingAction.total > 1 ? { index: editingAction.total - (editingAction.queue?.length || 0), total: editingAction.total } : null}
           onClose={() => setEditingAction(null)}
           onSave={async (patch) => {
             const { bookId, actionIdx, action: openedAction } = editingAction;
@@ -5238,7 +5241,8 @@ function AuthedApp() {
                 entry.latest = saved || updated;
                 syncActionSnapshots(saved || updated);
                 outcome = 'saved';
-                toast.success('🎯 行動を更新しました。');
+                // 「期限を見直す」の途中は、知らせを出さずに次の行動を開く（最後の 1 件で知らせる）。
+                if (!editingAction.queue?.length) toast.success('🎯 行動を更新しました。');
               } catch (error) {
                 mutateBookLocal(bookId, () => book);
                 entry.latest = book;
@@ -5247,7 +5251,19 @@ function AuthedApp() {
                 toast.error(toMessage(error, '更新に失敗しました'));
               }
             });
-            if (outcome !== 'failed') setEditingAction(null);
+            if (outcome === 'failed') return;
+            // 「期限を見直す」: 残りの期限を過ぎた行動を順に開く（その間に完了・削除されたものは飛ばす）。
+            const rest = [...(editingAction.queue || [])];
+            while (rest.length) {
+              const next = rest.shift();
+              const acts = booksRef.current.find((b) => b.id === next.bookId)?.actions || [];
+              const idx = resolveActionIndex(acts, next, next.actionIdx);
+              if (idx >= 0 && idx < acts.length && !acts[idx].done) {
+                setEditingAction({ bookId: next.bookId, actionIdx: idx, action: { ...next, ...acts[idx] }, queue: rest, total: editingAction.total });
+                return;
+              }
+            }
+            setEditingAction(null);
           }}
           onDelete={async () => {
             const { bookId, actionIdx, action } = editingAction;

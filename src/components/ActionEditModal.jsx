@@ -131,7 +131,9 @@ const RECURRENCES = [
 // mode: 'edit'（既定・従来挙動） | 'create'（行動タブの「＋行動を追加」用）。
 // create では削除ボタンと「振り返り」欄を出さない（まだやっていない行動に
 // 振り返りは書けない）。保存 payload の形は両モードで同一。
-export default function ActionEditModal({ action, onSave, onClose, onDelete, mode = 'edit' }) {
+// step: 「期限を見直す」で期限を過ぎた行動を順に開くとき { index, total }（見出しを「期限を見直す（2/5）」、
+//   あとがあれば保存ボタンを「保存して次へ」に・2026-09-30）。
+export default function ActionEditModal({ action, onSave, onClose, onDelete, mode = 'edit', step = null }) {
   const isCreate = mode === 'create';
   const [text, setText] = useState(action?.text || '');
   const [deadline, setDeadline] = useState(action?.deadline || '');
@@ -199,7 +201,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
     <div style={overlayStyle} role="dialog" aria-modal="true" onClick={() => { if (!busy) onClose?.(); }}>
       <div ref={trapRef} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{isCreate ? '行動を追加' : '行動を編集'}</h2>
+          <h2 style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{isCreate ? '行動を追加' : step ? `期限を見直す（${step.index}/${step.total}）` : '行動を編集'}</h2>
           <button type="button" style={closeBtn} onClick={() => { if (!busy) onClose?.(); }} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
@@ -304,7 +306,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, mod
             disabled={busy || !text.trim()}
             style={{ ...(busy || !text.trim() ? btnPrimaryOff : btnPrimary), flex: 1.4, width: 'auto' }}
           >
-            {busy ? '保存中…' : (isCreate ? '追加' : '保存')}
+            {busy ? '保存中…' : (isCreate ? '追加' : step && step.index < step.total ? '保存して次へ' : '保存')}
           </button>
         </div>
       </div>
