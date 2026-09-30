@@ -74,7 +74,7 @@ function parseVoice(userText) {
   return { title: ((block.match(/書名: 『([^』]*)』/) || [])[1] || '').trim(), author: ((block.match(/著者: (.+)/) || [])[1] || '').trim() };
 }
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false) {
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false, lookup = false) {
   // 深掘りの短い質問（「もっと具体的に」）でも、直前の相談の話題でメモを選ぶ（本番の retrievalQuery と同じ考え方）。
   const q = bigrams(thread ? `${question} ${thread.lastQuestion}` : question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));
@@ -144,6 +144,23 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   // 結論には書名・引用のかぎかっこを入れない（出典は「根拠を見る」の中・SPEC §3・本番の BRAIN_SYSTEM と同じ）。
   const gist = (t) => clip(t).replace(/[「」『』]/g, '').replace(/[。．.]+$/, '');
   const short16 = (t) => { const x = String(t || '').replace(/\s+/g, ' ').replace(/[「」『』]/g, '').split(/[。．.、]/)[0].trim(); return x.length > 16 ? `${x.slice(0, 16)}…` : x; };
+  // 🔎 本を探す問い（本番の BOOK_LOOKUP・「…を書いた本はどれ？」）: 本とメモの一節だけ。問いも行動も書かない。
+  if (lookup) {
+    const names = [...new Set(picked.filter((m) => m.book_id).slice(0, 2).map((m) => `『${books.get(m.book_id).title}』`))];
+    return [
+      '【結論】',
+      names.length ? `${names.join('と')}のメモに書いていました。` : 'あなたの読書記録には、このトピックに関する情報がまだありません',
+      '',
+      '【参照した本のメモ】',
+      quotes,
+      '',
+      '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
+      '',
+      'REFS_START',
+      refs,
+      'REFS_END',
+    ].join('\n');
+  }
   // 🎯 行動を決める回（会話の続きで行動を求めた・本番の ACTION_REQUEST）: 会話で聞いた状況（返事）を使って行動を 1 つ。
   if (decide) {
     const situation = (thread && thread.replies[thread.replies.length - 1]) || '';
@@ -363,7 +380,7 @@ function aiReply(store, payload, aiMode = '') {
       (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
       (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '',
     ].filter(Boolean).join('\n\n');
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide);
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide, userText.includes('===== BOOK_LOOKUP ====='));
   }
   const system = textOf(payload.system);
   // AI 選書: ヒアリング（1 周だけ質問を出し、2 周目で締める）と、おすすめ（本番と同じ JSON ブロック）

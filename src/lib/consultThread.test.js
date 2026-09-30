@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { threadBlock, retrievalQuery, THREAD_MAX_TURNS, turnHint } from './ai';
 import {
   selectThreadTurns, isCompletedAnswer, followupChips, FOLLOWUP_OTHER_BOOKS,
-  parseAskSection, wantsAction, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, FOLLOWUP_OTHER_BOOKS_LABEL,
+  parseAskSection, wantsAction, isBookLookup, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, FOLLOWUP_OTHER_BOOKS_LABEL,
 } from './consultHelpers';
 
 const ANSWER = [
@@ -272,5 +272,29 @@ describe('nextStepChips（答えのあとの次のチップ）', () => {
   it('いま送った文と同じチップは出さない（「行動を決める」を続けて出さない）', () => {
     expect(nextStepChips({ hasAction: false, lastAsked: DECIDE_REQUEST }).map((x) => x.kind)).not.toContain('decide');
     expect(nextStepChips({ replies: ['朝', '夜'], lastAsked: '朝' }).map((x) => x.label)).toEqual(['夜', DECIDE_CHIP]);
+  });
+});
+
+describe('本を探す問い（すべての本の「相談で探す」）', () => {
+  it('「本はどれ」「どの本」「なんの本」「何の本」を見分ける', () => {
+    expect(isBookLookup('『断る』みたいなことを書いた本はどれ？')).toBe(true);
+    expect(isBookLookup('どの本に書いてあった？')).toBe(true);
+    expect(isBookLookup('あれはなんの本だったかな')).toBe(true);
+    expect(isBookLookup('何の本で読んだっけ')).toBe(true);
+    expect(isBookLookup('部下が報告をくれなくて困っています')).toBe(false);
+    expect(isBookLookup('本を読む時間がない')).toBe(false);
+  });
+  it('最初の答えでも問い返さず・行動も出さない（BOOK_LOOKUP）', () => {
+    const h = turnHint({ followUp: false, question: '『断る』みたいなことを書いた本はどれ？' });
+    expect(h.lookup).toBe(true);
+    expect(h.decide).toBe(false);
+    expect(h.text).toContain('BOOK_LOOKUP');
+    expect(h.text).toContain('【あなたに聞きたいこと】も【明日からできる 1 つの行動】も書かない');
+    expect(h.text).not.toContain('最初の答え。');
+  });
+  it('会話の続きで聞いても同じ（行動を求める言葉より先）', () => {
+    const h = turnHint({ followUp: true, question: 'どうしたらいいか書いた本はどれ？' });
+    expect(h.lookup).toBe(true);
+    expect(h.decide).toBe(false);
   });
 });

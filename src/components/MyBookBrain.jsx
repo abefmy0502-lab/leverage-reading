@@ -33,7 +33,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup } from '../lib/consultHelpers';
 import { tomorrowLocal } from '../lib/dates';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
@@ -1004,7 +1004,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const askThread = selectThreadTurns(visibleMessages, { max: 3, before: opts.questionAt || null, carry: askPrior ? null : carry });
     // 🎯 行動は会話で決める（2026-09-30）: 会話の続きで行動を求めた回だけ、答えの最後が行動になる（ai.js の turnHint と同じ判断）。
     //   書いている途中の形（行動の箱／問いの箱）を先に決める。書き始める前にサーバー側の判断（onStage の decide）で合わせ直す。
-    const expectAction = (askThread.length > 0 || !!askPrior) && wantsAction(q);
+    const expectAction = (askThread.length > 0 || !!askPrior) && wantsAction(q) && !isBookLookup(q);
     // この相談より前の、いちばん新しい相談の時刻（「前の相談から メモ +N 件」に使う）。
     const before = opts.questionAt || '9999';
     let prevAskAt = null;
@@ -1077,7 +1077,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         streaming: true,
         scopeIds: askBookIds, // 相談相手のアイコン（書いている間・失敗・関係するメモが無かった答えは相談相手から）
         mode: askMode, // 本ごとには、書いている途中から本のカードの形で見せる（出来上がりで形が跳ねないように）
-        expect: expectAction ? 'action' : 'ask',
+        // 本を探す問い（「…を書いた本はどれ？」）は問いも行動も無い答えなので、下に箱の形を取らない（2026-09-30）。
+        expect: isBookLookup(q) ? 'lookup' : expectAction ? 'action' : 'ask',
       },
     ]);
     setStage('search');
@@ -1264,7 +1265,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setView('chat');
     if (Array.isArray(askPreset.bookIds)) setScopeIds(askPreset.bookIds);
     // 下書きだけ（振り返りのメモ検索で見つからなかった言葉など）: 送らずに入力欄へ入れる（勝手にトークンを使わない）。
-    if (askPreset.draft) { setInput(askPreset.question); return; }
+    // 下書き（すべての本の「相談で探す」・振り返りの「相談で聞く」）は入力欄に入れてカーソルを置く（送らない＝トークンは送ったときだけ）。
+    if (askPreset.draft) {
+      setInput(askPreset.question);
+      setTimeout(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } }, 80);
+      return;
+    }
     // ホームの相談例「前に相談した「…」、その後どう進める？」なら、その相談と答えを文脈として渡す。
     const cont = lastConsult ? buildConsultExamples({ lastConsult, count: 1 })[0] : null;
     const prior = cont && cont.kind === 'continue' && cont.text === askPreset.question ? { prior: lastConsult } : {};
@@ -1742,6 +1748,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   />
                 )}
                 <h2 id="brain-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-6)' }}>困っていることを、相談してください</h2>
+                {/* 入力欄に書いている間は相談例を出さない（深掘りのチップと同じ決まり・下書きを入れて開いたときに主役を入力欄に・2026-09-30）。 */}
+                {!input.trim() && <>
                 <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>たとえば</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                   {examples.map(({ text: q, kind }) => (
@@ -1757,6 +1765,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     </button>
                   ))}
                 </div>
+                </>}
               </section>
             )
           )}
@@ -3035,7 +3044,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               （以前は 44 の「答えを書いています…」→ 約 130 の箱に変わって、下が 87px 跳ねていた・2026-09-29）。 */}
           {/* 結論を書いている間は、その下に一歩の形も「根拠を見る」も出さない（結論が伸びるたびに下の箱が押し下げられて
               揺れていた・2026-09-30）。結論を書き終えてから一歩の形を出す（新しいものは下に足されるだけ＝読んでいる行は動かない）。 */}
-          {tail === 'conclusion' ? null : liveFused.action ? renderAction(liveFused, 'var(--space-4)') : liveFused.question ? renderAsk(liveFused, 'var(--space-4)') : (
+          {tail === 'conclusion' || (message.expect === 'lookup' && !liveFused.action && !liveFused.question) ? null : liveFused.action ? renderAction(liveFused, 'var(--space-4)') : liveFused.question ? renderAsk(liveFused, 'var(--space-4)') : (
             <div aria-hidden="true" style={{ marginTop: 'var(--space-4)', ...nextStepBox }}>
               {/* 1 行目は点つきの「答えを書いています…」（SPEC §3・骨組みだけだと何を待っているか分からない）。
                   高さは小さな見出し（subLabel: 12・行間 1.5・下 4）と同じにして、一歩が来たときに跳ねさせない。 */}

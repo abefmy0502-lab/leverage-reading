@@ -9,7 +9,7 @@ import { MODEL_SMART, MODEL_FAST } from './models';
 import { apiUrl } from './apiUrl';
 import { fetchAllRows } from './fetchAllRows';
 import { verifyAnswerQuotes, decodeQuoteRefs } from './evidenceCheck';
-import { parseAskSection, wantsAction } from './consultHelpers';
+import { parseAskSection, wantsAction, isBookLookup } from './consultHelpers';
 
 const DEFAULT_MODEL = MODEL_SMART;
 const DEFAULT_MAX_TOKENS = 1024;
@@ -379,6 +379,10 @@ ${CONSULT_SECURITY_RULES}
      （「この件」「それ」「その問題」など、相談を指す言葉で始めない・使わない）。
      行動の文に『明日』『今日』『今週』など読む日で意味が変わる言葉を入れない（期限はアプリが付ける）。時間は『始業前の 10 分』のように書く。
    - 小説・物語・感想など行動がそぐわない問いでは、問いも行動も課さず【心に残るもの】（心に残る一節・味わいの気づき）で締めてよい。
+   - 例外（本を探す問い）: 「〜を書いた本はどれ？」「どの本だったか」「なんの本」のように、ユーザーが自分のメモの在りかを探しているときは、
+     最初の答えでも問い返さない。【結論】に当てはまる本（『書名』・複数あれば並べる。このときだけ【結論】に書名を入れてよい）を書き、
+     【参照した本のメモ】にその本のメモの一節（ページがあれば p.N）を示すだけ。【あなたに聞きたいこと】も【明日からできる 1 つの行動】も書かない。
+     ルール 4 の横断は求めない（当てはまる本が 1 冊ならその 1 冊）。当てはまるメモが無ければルール 3 のとおり。質問の後ろに BOOK_LOOKUP があるときはこれ。
 6. ユーザーの状況に寄り添う — メモの傾向・職種・課題を踏まえて、
    一般人向けではなく「このユーザー向け」の回答にする。
 7. 歩みを踏まえる（成長を知っている相談相手として）— GROWTH（これまでの歩み）と、メモ・読書準備
@@ -1022,7 +1026,16 @@ export function threadBlock(turns) {
 //   followUp: 会話の続き（THREAD か前の相談がある）/ question: 今回の質問（行動を求める言葉があるか＝wantsAction）
 //   返り値 { text, decide }。decide＝この回は行動を決める（max_tokens も大きい方にする）。
 //   最初の答えは、行動を求める言葉があっても先に状況を 1 つ聞く（BRAIN_SYSTEM ルール 5）。
+//   本を探す問い（isBookLookup）は例外: 最初でも続きでも、問い返さず・行動も出さず、本とメモの一節だけ（lookup: true）。
 export function turnHint({ followUp = false, question = '' } = {}) {
+  if (isBookLookup(question)) {
+    return {
+      decide: false,
+      lookup: true,
+      text: '\n===== BOOK_LOOKUP =====\n（ユーザーは、自分がメモに書いたことが どの本だったかを探している。【結論】に当てはまる本（『書名』）を挙げ、' +
+        '【参照した本のメモ】にそのメモの一節を示すだけ。【あなたに聞きたいこと】も【明日からできる 1 つの行動】も書かないこと）\n',
+    };
+  }
   if (followUp && wantsAction(question)) {
     return {
       decide: true,

@@ -92,3 +92,14 @@ describe('parseAnswer（あなたに聞きたいこと）', () => {
     expect(p.note).toBe('（お試しモードの応答です）');
   });
 });
+
+describe('本を探す問いの答え（問いも行動も無い）', () => {
+  it('結論と参照だけでも組み立てる（問い・行動は空）', () => {
+    const a = parseAnswer(['【結論】', '『エッセンシャル思考』のメモに書いていました。', '', '【参照した本のメモ】', '- 『エッセンシャル思考』p.64 のメモ：「断る余地が生まれる」'].join('\n'));
+    expect(a.conclusion).toBe('『エッセンシャル思考』のメモに書いていました。');
+    expect(a.refs).toContain('断る余地');
+    expect(a.question).toBe('');
+    expect(a.replies).toEqual([]);
+    expect(a.action).toBe('');
+  });
+});

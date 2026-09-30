@@ -575,6 +575,13 @@ export function wantsAction(text) {
   return WANTS_ACTION_RE.test(String(text || ''));
 }
 
+// 「『…』みたいなことを書いた本はどれ？」のような、本を探す問いか（2026-09-30）。すべての本の検索の「相談で探す」が入れる問い。
+//   本を探しているだけなので、最初の答えでも問い返さず・行動も出さず、当てはまる本とメモの一節だけを返す（ai.js の turnHint・BRAIN_SYSTEM ルール 5）。
+const BOOK_LOOKUP_RE = /本はどれ|どの本|なんの本|何の本/;
+export function isBookLookup(text) {
+  return BOOK_LOOKUP_RE.test(String(text || ''));
+}
+
 // 答えのあとの「次に」のチップ（入力欄の上の 1 行・押すとすぐ送る）。{ label, send, kind } の配列。
 //   - 答えに問いの候補があれば: 候補（返事）→「行動を決める」（候補の答えを待っている間はほかの聞き方を並べない）
 //   - 行動を決めた答え: もっと具体的に・うまくいかなかったら？（・ほかの本では）
