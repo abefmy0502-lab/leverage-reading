@@ -970,6 +970,8 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             onOpenBook={onOpenBook}
             onSwipeDelete={handleSwipeDelete}
             onLongPress={setMemoMenu}
+            // 検索の結果にも、ほかのメモのカードと同じ「…」（長押しと同じメニュー・2026-09-30）。
+            onOpenMenu={setMemoMenu}
             openOnTap
           />
         ))}
