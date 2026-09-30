@@ -175,15 +175,12 @@ const navRowStyle = {
   textAlign: 'left',
 };
 
-const footerStyle = {
-  padding: 'var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom, 0px))',
-  borderTop: '1px solid var(--separator)',
-  fontSize: 'var(--text-caption)',
+// 更新日は中身のいちばん下に 1 行（下に固定の欄にしない・読む場所を狭めない）。日付なので 13/400/--text-3。
+const updatedStyle = {
+  fontSize: 'var(--text-meta)',
   fontWeight: 400,
   color: 'var(--text-3)',
-  textAlign: 'center',
-  background: 'var(--surface)',
-  flexShrink: 0,
+  margin: 0,
 };
 
 // 文節の切れ目で折り返す（BudouX の <wbr>＋keep-all）。
@@ -347,13 +344,9 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
               初回ガイドをもう一度見る
             </button>
           )}
-        </div>
 
-        {entry?.lastUpdated && (
-          <div style={footerStyle}>
-            {entry.lastUpdated} 更新
-          </div>
-        )}
+          {entry?.lastUpdated && <p style={updatedStyle}>{entry.lastUpdated} 更新</p>}
+        </div>
       </div>
     </div>
   );
