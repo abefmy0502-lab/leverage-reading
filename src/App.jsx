@@ -4781,7 +4781,8 @@ function AuthedApp() {
                   <button
                     type="button"
                     onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setLibraryMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
-                    aria-label={activeFilterCount > 0 ? `並び替え・絞り込み・表示（絞り込み ${activeFilterCount} 件）` : '並び替え・絞り込み・表示'}
+                    // 読み上げは中身をすべて言う（取り込む・ヘルプもこの中・2026-09-30）。
+                    aria-label={activeFilterCount > 0 ? `並び替え・絞り込み・表示・取り込む・ヘルプ（絞り込み ${activeFilterCount} 件）` : '並び替え・絞り込み・表示・取り込む・ヘルプ'}
                     style={{ ...bookshelfIconBtn, position: 'relative' }}
                   >
                     <MoreHorizontal size={22} aria-hidden="true" />
