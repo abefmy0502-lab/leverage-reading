@@ -849,9 +849,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     prevBusyRef.current = busy;
     if (!wasBusy || busy || view !== 'chat') return;
     setTimeout(() => {
+      // 行動を決める回は、相談の吹き出しを揃え直す代わりに、一歩の箱（行動に追加まで）を見せる
+      // （揃え直しのなめらかな送りが、見せる送りを打ち消していた・2026-09-30 ui-critic）。
+      const reveal = revealStepRef.current;
+      revealStepRef.current = false;
       if (userScrolledRef.current) return;
       const el = chatScrollRef.current;
       if (!el) return;
+      if (reveal) { revealLastNextStep(el); return; }
       const top = questionAlignTop(el);
       if (top == null || Math.abs(top - el.scrollTop) < 2) return;
       el.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
@@ -878,12 +883,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 余白は描く前に測り直す（送った直後の送りより先に、上端まで送れる高さにしておく）。
   useLayoutEffect(() => {
     if (view === 'chat') sizeSpacer();
-    // 書き終えた（busy が戻り、入力欄の上のチップも出た）描画のあとで、一歩の箱を見せる。
-    if (view === 'chat' && !busy && revealStepRef.current) {
-      revealStepRef.current = false;
-      const el = chatScrollRef.current;
-      requestAnimationFrame(() => revealLastNextStep(el));
-    }
   }, [messages, busy, view, sizeSpacer]);
   // 答えの中を開いた（根拠を見る）・欄の高さが変わった（キーボード）ときも測り直す。
   useEffect(() => {
@@ -1183,7 +1182,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       }
       // 🎯 行動を決める回（2026-09-30 ui-critic）: 書き終えたら「明日からできる一歩」の箱（「行動に追加」まで）が
       //   見えるところまで、会話の欄だけを最小限送る（相談の吹き出しを上端にそろえたままだと、ボタンが画面の下に隠れていた）。
-      //   送るのは、書き終えて入力欄の上のチップが出たあとの描画（欄の高さが決まってから）＝下の useLayoutEffect。
+      //   送るのは、書き終えて入力欄の上のチップが出たあと（欄の高さが決まってから）＝答えが出来上がったときの effect。
       if (!wasAborted && (typeof usedDecide === 'boolean' ? usedDecide : expectAction)) revealStepRef.current = true;
       // AI 応答を正常に得て確定できた時のみ計測 (中止/中断パスは除外、PII なし)。
       if (!wasAborted) {
