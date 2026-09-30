@@ -1127,6 +1127,27 @@ function drawPhrase(ctx, o, W, H) {
     roundRectPath(ctx, lay.x0, lay.y0, lay.w, lay.h, Math.max(4, Math.round(lay.size * 0.16)));
     ctx.fill();
   }
+  if (!colors.band && colors.ink === 'light' && o.style === 'photo' && o.photo) {
+    // 写真の上の白い文字: 文字の後ろだけ、写真の明るさに合わせたやわらかい幕（楕円のぼかし）を敷く
+    // （明るい空の上でも読める・記録の幕と同じ scrimAlpha）。
+    const place = photoPlacement({ pw: o.photo.width, ph: o.photo.height, W, H, ...(o.view || {}) });
+    const a = scrimAlpha(bandLuminance(o.photo, place, W, H, lay.y0, lay.y0 + lay.h));
+    const scrim = o.theme?.scrim || cssVar('--share-photo-scrim') || '14, 12, 10';
+    const rx = lay.w / 2 + lay.size * 1.2;
+    const ry = lay.h / 2 + lay.size * 1.1;
+    ctx.save();
+    ctx.translate(lay.cx, lay.cy);
+    ctx.scale(1, ry / rx);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    g.addColorStop(0, `rgba(${scrim}, ${Math.min(0.7, a * 0.9)})`);
+    g.addColorStop(0.6, `rgba(${scrim}, ${Math.min(0.55, a * 0.6)})`);
+    g.addColorStop(1, `rgba(${scrim}, 0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, rx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
   const font = phraseFont(lay.style, fonts, lay.size);
   ctx.font = font;
   setSpacing(ctx, spacing, lay.size);
