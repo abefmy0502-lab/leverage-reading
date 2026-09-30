@@ -5,7 +5,8 @@
 //   2. まずはこれだけ — 3 つの手順（quickSteps）
 //   3. くわしく — 項目の一覧（topics）。ふだんは畳んで、押すと 1〜3 行が開く（details）。一覧そのものが目次
 //   4. よくある質問（HELP_FAQ）— 同じ畳む一覧。答えは決まっているので AI は使わない
-//   5. ほかの画面の使い方 — 押すと、閉じずにその画面のヘルプへ切り替える（プラン・お支払いなど画面から開けないものも）
+//   5. ほかの画面の使い方 — 押すと、閉じずにその画面のヘルプへ切り替える（プラン・お支払いなど画面から開けないものも）。
+//      切り替えたあとは上の行の左に「‹ もとの画面」
 // 文言は src/lib/helpContent.js（**語** は太字）。見た目は DESIGN §5「ヘルプ」。
 
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
@@ -273,22 +274,22 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
     <div className={closing ? 'modal-backdrop-exit' : 'modal-backdrop'} style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="help-modal-title" onClick={requestClose}>
       <div ref={trapRef} className={closing ? 'modal-exit' : 'modal'} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 id="help-modal-title" style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{entry ? `${entry.title}のヘルプ` : 'ヘルプ'}</h2>
+          {/* ほかの画面のヘルプへ移ったときだけ、上の行の左に戻り先（スクロールしても消えない） */}
+          {key !== startKey && getHelp(startKey) && (
+            <button
+              type="button"
+              onClick={() => showKey(startKey)}
+              style={{ ...btnLink, flexShrink: 0, marginLeft: 'calc(-1 * var(--space-1))' }}
+            >
+              ‹ {getHelp(startKey).title}
+            </button>
+          )}
+          <h2 id="help-modal-title" style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1, minWidth: 0 }}>{entry ? `${entry.title}のヘルプ` : 'ヘルプ'}</h2>
           <button type="button" style={closeBtnStyle} onClick={requestClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
         {/* key を変えると、開いていた項目を畳んだ状態で描き直す */}
         <div key={key} ref={bodyRef} className="lvg-help-body" style={bodyStyle}>
-          {key !== startKey && getHelp(startKey) && (
-            <button
-              type="button"
-              onClick={() => showKey(startKey)}
-              style={{ ...btnLink, alignSelf: 'flex-start', margin: 'calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-1))' }}
-            >
-              ‹ {getHelp(startKey).title}のヘルプに戻る
-            </button>
-          )}
-
           {entry ? (
             <>
               <section>
