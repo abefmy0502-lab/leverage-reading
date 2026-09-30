@@ -2159,7 +2159,8 @@ function prefersReducedMotion() {
 // 答えの先頭に合わせる。送れる範囲に収める。答えが無ければ null。
 // 送った直後で答えの吹き出しがまだ無いときは、その相談の吹き出し（前の答えに合わせて 2 段で動かさない）。
 // 会話の欄の中で、いちばん新しい「明日からできる一歩」の箱（[data-next-step]）が欄の下に隠れていたら、
-// 欄だけを送って見せる（scrollIntoView の block: 'nearest' と同じ動き・ページ全体は動かさない）。
+// 欄だけを送って見せる（ページ全体は動かさない）。答えの名前の行から箱まで収まるなら名前の行を上端に、
+// 収まらなければ scrollIntoView の block: 'nearest' と同じ最小限の送り。
 function revealLastNextStep(el) {
   if (!el) return;
   const boxes = el.querySelectorAll('[data-next-step]');
@@ -2168,8 +2169,18 @@ function revealLastNextStep(el) {
   const r = box.getBoundingClientRect();
   const c = el.getBoundingClientRect();
   const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
-  let delta = 0;
-  if (r.bottom + gap > c.bottom) delta = r.bottom + gap - c.bottom;
+  if (r.bottom + gap <= c.bottom) return; // もう見えている
+  // 答えの入れ物（data-turn＝名前の行から）の上端に揃えても箱が収まるなら、そこへ送る
+  // （最小限の送りだと名前の行が文字の途中で切れて見えた・2026-09-30 ui-critic）。
+  const turn = box.closest('[data-turn]');
+  if (turn) {
+    const toTurn = turn.getBoundingClientRect().top - c.top - gap;
+    if (toTurn > 0 && r.bottom - toTurn + gap <= c.bottom) {
+      el.scrollTo({ top: el.scrollTop + toTurn, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+      return;
+    }
+  }
+  let delta = r.bottom + gap - c.bottom;
   if (r.top - delta < c.top) delta = r.top - c.top - gap; // 箱が欄より高いときは上端を見せる
   if (Math.abs(delta) < 1) return;
   el.scrollTo({ top: el.scrollTop + delta, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
