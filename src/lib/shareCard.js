@@ -5,8 +5,9 @@
 //   写真（photo）  … 自分の写真を枠いっぱいに敷き、白い文字（Strava の写真の上の白い文字のように）
 //   紙 / 夜 / 表紙の色（paper / night / cover）… 雑誌の引用ページのような組版＋小さな表紙
 //   透明（sticker）… 地の無い白い文字（ストーリーの自分の写真の上に貼る用）
-// 下には Orime のロゴ（public/logo-lockup.png から、本の印と文字を切り出して横に並べる。
-// 暗い地・写真・透明では白に変え、i の点の橙だけ残す）とサイトの URL。
+// 下には Orime のロゴだけ（public/logo-lockup.png から、本の印と文字を切り出して横に並べる。
+// 暗い地・写真・透明では白に変え、i の点の橙だけ残す）。サイトの URL は画像に入れない
+// （2026-10-01 オーナー裁定「orime.vercel.app の文字は確実に不要。ロゴのみでOK」・URL は共有の文にだけ）。
 // 2 つの印（Strava の橙のルートにあたる「読んだ跡」）:
 //   傍線 … 一文の最後の行の下に、橙の手描きの線。メモごとに形が決まっている（メモの id と本文から種を作る）
 //   付箋 … 表紙（写真・透明では白い線の本の印）の右の小口から橙の付箋がはみ出す。
@@ -25,9 +26,6 @@ import {
 import { RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBaseHeight } from './shareOverlay';
 import { paletteFor } from './coverPalette';
 import { apiUrl } from './apiUrl';
-import { SITE_URL } from './legalLinks';
-
-export const SITE_LABEL = SITE_URL.replace(/^https?:\/\//, '');
 
 // ---------------------------------------------------------------- トークン・書体
 
@@ -565,15 +563,9 @@ function drawBookLines(ctx, fonts, bl, { x, top, width, titleFont, titleSize, me
   }
 }
 
-function drawFooter(ctx, { W, margin, baseline, wordH, logo, theme, fonts, metaSize, showUrl = true }) {
+// ロゴだけ（URL は入れない・2026-10-01）。
+function drawFooter(ctx, { margin, baseline, wordH, logo, theme, fonts }) {
   drawLogo(ctx, logo, theme.logo, { x: margin, baseline, wordH, fonts, ink: theme.ink });
-  if (!showUrl) return;
-  ctx.font = `400 ${metaSize}px ${fonts.ui}`;
-  setSpacing(ctx, 0.02, metaSize);
-  ctx.fillStyle = theme.ink3;
-  ctx.textAlign = 'right';
-  ctx.fillText(SITE_LABEL, W - margin, baseline);
-  ctx.textAlign = 'left';
 }
 
 // ---------------------------------------------------------------- 紙・夜・表紙の色
@@ -628,7 +620,7 @@ function drawPoster(ctx, o) {
   const bl = layoutBookLines(ctx, fonts, { title: o.title, author: o.author, page: o.page, width: colW, titleFont, titleSize: L.titleSize, metaSize: L.metaSize });
   drawBookLines(ctx, fonts, bl, { x: colX, top: y + (coverH - bl.height) / 2, width: colW, titleFont, titleSize: L.titleSize, metaSize: L.metaSize, ink: theme.ink, ink2: theme.ink2, ink3: theme.ink3 });
 
-  drawFooter(ctx, { W, margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts, metaSize: L.metaSize - 2 });
+  drawFooter(ctx, { margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts });
 }
 
 // ---------------------------------------------------------------- 写真
@@ -748,7 +740,7 @@ function drawPhotoOverlay(ctx, o, place) {
   ctx.save();
   ctx.shadowColor = theme.shadow;
   ctx.shadowBlur = 14 * sb;
-  drawFooter(ctx, { W, margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts, metaSize: L.metaSize - 2 });
+  drawFooter(ctx, { margin: L.margin, baseline: L.footerBaseline, wordH: L.wordH, logo: o.logo, theme, fonts });
   ctx.restore();
 }
 
@@ -772,8 +764,8 @@ function drawSticker(ctx, o, size) {
   ctx.shadowOffsetY = 3;
   drawOverlay(ctx, o.fonts, { ...o, W: 1080 }, L, lay, pad, o.theme);
   const baseline = pad + lay.height + logoGap + L.wordH;
-  // ロゴ＋URL（ほかの地と同じ・SPEC §2-1）。
-  drawFooter(ctx, { W: 1080, margin: L.margin, baseline, wordH: L.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts, metaSize: L.metaSize - 2 });
+  // ロゴだけ（ほかの地と同じ・SPEC §2-1）。
+  drawFooter(ctx, { margin: L.margin, baseline, wordH: L.wordH, logo: o.logo, theme: { ...o.theme, logo: 'white' }, fonts: o.fonts });
   ctx.restore();
 }
 
@@ -903,30 +895,16 @@ function drawRecordBlock(ctx, fonts, o, F, lay, top, theme) {
   }
 }
 
-// ロゴ（左）と、右に URL・日付（「orime.vercel.app  2026.9.30」＝見た人がアプリへたどり着ける・2026-09-30）。
-// 入らなければ URL だけ小さくする（ロゴと重ねない）。どれも安全な枠（余白 F.margin・基線 F.footerBaseline）の中。
+// ロゴ（左）と、右に今日の日付（2026.10.1）。URL は入れない（2026-10-01 オーナー裁定「ロゴのみでOK」）。
+// どれも安全な枠（余白 F.margin・基線 F.footerBaseline）の中。
 function drawRecordFooter(ctx, { F, baseline, logo, theme, fonts, stamp }) {
-  const logoW = drawLogo(ctx, logo, theme.logo, { x: F.margin, baseline, wordH: F.wordH, fonts, ink: theme.ink });
-  const right = F.W - F.margin;
-  const room = right - (F.margin + logoW + 40);
-  let x = right;
+  drawLogo(ctx, logo, theme.logo, { x: F.margin, baseline, wordH: F.wordH, fonts, ink: theme.ink });
+  if (!stamp) return;
   ctx.textAlign = 'right';
   ctx.fillStyle = theme.ink2;
-  if (stamp) {
-    ctx.font = `400 ${F.metaSize}px ${fonts.ui}`;
-    setSpacing(ctx, 0.04, F.metaSize);
-    ctx.fillText(stamp, x, baseline);
-    x -= ctx.measureText(stamp).width + Math.round(F.metaSize * 0.9);
-  }
-  let size = F.metaSize;
-  ctx.font = `400 ${size}px ${fonts.ui}`;
-  setSpacing(ctx, 0.02, size);
-  while (size > 24 && ctx.measureText(SITE_LABEL).width > room - (right - x)) {
-    size -= 2;
-    ctx.font = `400 ${size}px ${fonts.ui}`;
-    setSpacing(ctx, 0.02, size);
-  }
-  if (ctx.measureText(SITE_LABEL).width <= room - (right - x)) ctx.fillText(SITE_LABEL, x, baseline);
+  ctx.font = `400 ${F.metaSize}px ${fonts.ui}`;
+  setSpacing(ctx, 0.04, F.metaSize);
+  ctx.fillText(stamp, F.W - F.margin, baseline);
   ctx.textAlign = 'left';
 }
 
