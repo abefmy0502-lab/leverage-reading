@@ -135,10 +135,10 @@ export default function MemoAnswer({ message, onOpen, onOpenLearning, onRetry, o
           )}
         </div>
       </PartnerRow>
-      {/* AI ならまとめられること（プラン）を静かに 1 回だけ。押すと有料プランの画面（無料のトークンを使い切ったとき＝GLOSSARY の ①）。 */}
+      {/* プランの案内は文字ボタン 1 つだけを静かに 1 回（説明の文は置かない＝DESIGN 原則 6・2026-10-01 ui-critic）。
+          押すと有料プランの画面（無料のトークンを使い切ったとき＝GLOSSARY の ①）。 */}
       {showPlan && found && (
-        <div style={{ marginLeft: column, marginTop: 'var(--space-2)' }}>
-          <p style={{ ...meta, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('AI なら、メモから結論と次の一歩をまとめます')}</p>
+        <div style={{ marginLeft: column, marginTop: 'var(--space-1)' }}>
           <button type="button" onClick={onPlan} style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>AI に答えてもらう（プラン）</button>
         </div>
       )}
