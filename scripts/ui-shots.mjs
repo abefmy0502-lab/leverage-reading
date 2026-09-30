@@ -93,7 +93,7 @@ const SCREENS = [
   { name: 'library-memo-search', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '断る'] }, { wait: 800 }] },
   { name: 'library-memo-search-multi', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'チーム'] }, { wait: 800 }] },
   // 一節を押す → その本の詳細で、そのメモまで送って示す
-  { name: 'library-memo-search-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '断る'] }, { wait: 800 }, { css: 'button:has-text("断る余地")' }, { wait: 1200 }] },
+  { name: 'library-memo-search-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '断る'] }, { wait: 800 }, { css: 'button:has-text("断る余地")', settle: 500 }] },
   // メモを読んでいる間（書名で見つかった本を先に・下に「メモの中を探しています…」）／読めなかったとき
   { name: 'library-memo-search-loading', url: '/?load=memosearch', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'チーズ'] }, { wait: 800 }] },
   { name: 'library-memo-search-loading-empty', url: '/?load=memosearch', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '断る'] }, { wait: 800 }] },
@@ -335,7 +335,8 @@ async function run(step, page) {
   if (step.eval) await page.evaluate(step.eval);
   if (step.upload) await page.locator(step.upload[0]).first().setInputFiles(step.upload[1]);
   if (step.reload) await page.reload({ waitUntil: 'networkidle' });
-  await page.waitForTimeout(900);
+  // settle: この操作のあとの待ち（既定 900ms）。開いたメモの光（.just-added-card・1.5 秒で薄れる）を写すときは短く。
+  await page.waitForTimeout(step.settle ?? 900);
 }
 
 const targets = only.length ? SCREENS.filter((s) => only.includes(s.name)) : SCREENS;
