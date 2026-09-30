@@ -30,6 +30,8 @@ const nav = (name) => `nav button[aria-label="${name}"]`;
 const EDIT = '[role=dialog][aria-label="画像を編集"]';
 const SHARE_CAMERA = [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }];
 const SHARE_PAPER = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: 'button:has-text("画像で共有")' }, { wait: 2000 }];
+// 撮った写真のシートで、背景を紙に（手書き風の書体は、本の詳細から開くと中継の通信が詰まって撮影の間に読み込めないことがあるため）。
+const SHARE_CAMERA_PAPER = [...SHARE_CAMERA, { css: '[role=dialog] button:has-text("写真以外")' }, { css: '[role=menuitem]:has-text("紙")' }, { wait: 1500 }];
 const SHARE_EDIT = [{ css: '[role=dialog] button:text-is("編集")' }, { wait: 1500 }];
 // 画像の上の (0.5, fy) でホイール（ctrlKey＝トラックパッドでつまむのと同じ）。
 const editWheel = (opts, fy = 0.3) => ({ eval: `(() => { const st = document.querySelector('${EDIT} canvas').parentElement; const r = st.getBoundingClientRect(); st.dispatchEvent(new WheelEvent('wheel', { ...${JSON.stringify(opts)}, clientX: r.left + r.width / 2, clientY: r.top + r.height * ${fy}, bubbles: true, cancelable: true })); })()` });
@@ -348,8 +350,8 @@ const SCREENS = [
     const pick = { eval: `(() => { const b = [...document.querySelectorAll('[aria-label="画像を編集"] [role=radiogroup][aria-label="言葉の形"] [role=radio]')].find((x) => x.textContent.includes('${label}')); if (b) b.click(); })()` };
     return [
       // 手書き風は Google Fonts を読み込めてから出る（遅い通信を待つ）。
-      { name: `share-edit-phrase-${key}-photo`, url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 60000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
-      { name: `share-edit-phrase-${key}-paper`, url: '/', steps: [...SHARE_PAPER, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: key === 'hand' ? 60000 : 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
+      { name: `share-edit-phrase-${key}-photo`, url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, key === 'hand' ? { waitFor: `${EDIT} [role=radiogroup][aria-label="言葉の形"] [role=radio]:has-text("手書き風")`, timeout: 90000 } : { wait: 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
+      { name: `share-edit-phrase-${key}-paper`, url: '/', steps: [...(key === 'hand' ? SHARE_CAMERA_PAPER : SHARE_PAPER), ...SHARE_EDIT, ...EDIT_PHRASE, key === 'hand' ? { waitFor: `${EDIT} [role=radiogroup][aria-label="言葉の形"] [role=radio]:has-text("手書き風")`, timeout: 90000 } : { wait: 600 }, pick, { wait: 1500 }, EDIT_BLUR, EDIT_TOP] },
     ];
   }),
   { name: 'share-edit-phrase-band-story', url: '/', steps: [...SHARE_CAMERA, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, { css: `${EDIT} [role=radio]:has-text("白抜きの帯")` }, { wait: 1200 }, EDIT_BLUR, EDIT_TOP] },
@@ -391,7 +393,7 @@ function browserOptions() {
 
 async function run(step, page) {
   if (step.wait) return page.waitForTimeout(step.wait);
-  if (step.waitFor) return page.locator(step.waitFor).first().waitFor({ state: 'visible', timeout: 20000 });
+  if (step.waitFor) return page.locator(step.waitFor).first().waitFor({ state: 'visible', timeout: step.timeout || 20000 });
   if (step.role) await page.getByRole('button', { name: step.role }).first().click();
   if (step.css) await page.locator(step.css).first().click();
   if (step.scrollTo) await page.locator(step.scrollTo).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
