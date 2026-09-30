@@ -280,7 +280,8 @@ function aiReply(store, payload, aiMode = '') {
     return [
       '## 👋 はじめに', 'お話を伺って、時間の使い方と任せ方の両方に効く本を選びました。', '',
       '## 📚 おすすめの本', '', 'RECOMMENDATIONS_START', JSON.stringify(recs, null, 2), 'RECOMMENDATIONS_END', '',
-      '## 📋 読む順番のおすすめ', '1. 大事なことに集中する — 集中できる時間をつくる', '2. 時間術大全 — 毎日の 1 つを決める', '3. プロフェッショナルマネジャー — 結果から逆算して任せる', '',
+      // 4 行目は JSON に無い架空の書名（本番で起きた漏れの再現・2026-09-30）。画面では lib/advisorProse.js が消し、番号も 1〜3 のまま。
+      '## 📋 読む順番のおすすめ', '1. 『大事なことに集中する』 — 集中できる時間をつくる', '2. 『チームを動かす最強の時間術 ハイライト実践編』 — 仕上げに', '3. 『時間術大全』 — 毎日の 1 つを決める', '4. 『プロフェッショナルマネジャー』 — 結果から逆算して任せる', '',
       '## 💬 まとめ', '一冊ずつ、明日できる一歩に変えていきましょう。',
     ].join('\n');
   }
@@ -448,7 +449,18 @@ export function installDemoFetch(store) {
     }
     if (url.includes('/api/cover')) {
       // 見本の本の一覧にある本は「実在する」と答える（AI 選書の実在確認で全部が疑わしく見えないように）。
-      const title = (() => { try { return new URL(url, window.location.origin).searchParams.get('title') || ''; } catch { return ''; } })();
+      const params = (() => { try { return new URL(url, window.location.origin).searchParams; } catch { return new URLSearchParams(); } })();
+      const title = params.get('title') || '';
+      // 実在の判定（?verify=1）は本番と同じく書名がまるごと同じ本だけを「実在」にする（2026-09-30）。
+      if (params.get('verify') === '1') {
+        // &verify=down: 検索元がどれも答えない（「確認できませんでした」の確認用）。
+        const mode = new URLSearchParams(window.location.search).get('verify');
+        if (mode === 'down') return json({ cover: '', isbn: '', candidates: [], verified: null }, 200);
+        // &verify=mixed: 1 冊目だけ確かめられない（カードごとの「確認できませんでした」の確認用）。
+        if (mode === 'mixed' && title === '大事なことに集中する') return json({ cover: '', isbn: '', candidates: [], verified: null }, 200);
+        const exact = title && SEARCH_CATALOG.find(([t]) => t === title);
+        return json(exact ? { cover: null, isbn: exact[2], candidates: [], verified: true } : { cover: '', isbn: '', candidates: [], verified: false });
+      }
       const hit = title && SEARCH_CATALOG.find(([t]) => t === title || t.includes(title) || title.includes(t));
       return json(hit ? { cover: null, isbn: hit[2] } : { cover: null });
     }
