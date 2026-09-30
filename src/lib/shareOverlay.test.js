@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import {
   pickShareSubject, subjectChoices, bookRecord, monthRecord, splitStatValue,
   orderQuoteCandidates, quoteText, swapQuote, swapQuoteLabel, availableVariants, defaultVariant,
-  recordFrame, placeRecordBlock, statColumns, buildRecordShareText, fmtMonthDay, fmtStamp, RECORD_QUOTE_MAX,
+  recordFrame, placeRecordBlock, statColumns, buildRecordShareText, recordBaseHeight, fmtMonthDay, fmtStamp, RECORD_QUOTE_MAX,
 } from './shareOverlay.js';
 
 const NOW = new Date(2026, 8, 30, 10, 0, 0); // 2026-09-30
@@ -62,7 +62,7 @@ describe('bookRecord（本 1 冊の数字）', () => {
     expect(r.title).toBe('イシューからはじめよ');
     expect(r.sub).toBe('安宅和人');
     expect(r.stats).toEqual([
-      { label: '読了', value: '9月28日' },
+      { label: '読み終えた日', value: '9月28日' },
       { label: 'メモ', value: '3件' },
       { label: '実行した行動', value: '2件' },
     ]);
@@ -177,6 +177,20 @@ describe('安全な枠（4:5 と 9:16 で SNS に切られない）', () => {
       const tooTall = placeRecordBlock(f, f.H);
       expect(tooTall.fits).toBe(false);
       expect(tooTall.top).toBe(f.safeTop);
+    }
+  });
+  it('大きくした数字（120）でも、書名 2 行・著者・数字 3 つは安全な枠に入る（一文はその残りにだけ入れる）', () => {
+    for (const fmt of ['post', 'story']) {
+      const f = recordFrame(fmt);
+      expect(f.statValueSize).toBeGreaterThanOrEqual(fmt === 'story' ? 120 : 110);
+      expect(f.kickerSize).toBeGreaterThanOrEqual(34);
+      expect(f.metaSize).toBeGreaterThanOrEqual(34);
+      const h = recordBaseHeight(f, { titleLines: 2, hasKicker: true, hasSub: true, statsCount: 3 });
+      const at = placeRecordBlock(f, h);
+      expect(at.fits).toBe(true);
+      // 一文の 1 行分（いちばん小さい大きさ）の余りもある
+      const withQuote = placeRecordBlock(f, h + Math.round(f.quoteSizes[f.quoteSizes.length - 1] * 1.55) + Math.round(f.quoteSizes[0] * 0.95));
+      expect(withQuote.fits).toBe(true);
     }
   });
   it('数字の列は余白の内側で等分', () => {

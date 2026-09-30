@@ -98,7 +98,7 @@ export function bookRecord(book, memos = [], now = new Date()) {
   const memoCount = (Array.isArray(memos) ? memos : []).filter((m) => hasText(m) || m?.photoPath).length + (hasSummary(b) ? 1 : 0);
   const actionsDone = (Array.isArray(b.actions) ? b.actions : []).filter((a) => a && a.done).length;
   const stats = [];
-  if (done && parseLocalDate(b.doneDate)) stats.push({ label: '読了', value: fmtMonthDay(b.doneDate, now) });
+  if (done && parseLocalDate(b.doneDate)) stats.push({ label: '読み終えた日', value: fmtMonthDay(b.doneDate, now) });
   else if (!done && parseLocalDate(b.startDate)) stats.push({ label: '読みはじめ', value: fmtMonthDay(b.startDate, now) });
   if (memoCount > 0) stats.push({ label: 'メモ', value: `${memoCount}件` });
   if (actionsDone > 0) stats.push({ label: '実行した行動', value: `${actionsDone}件` });
@@ -222,14 +222,14 @@ export function recordFrame(format = 'post') {
   return {
     format: key, W, H, ...f,
     footerTop: f.footerBaseline - Math.round(f.wordH * 1.5),
-    kickerSize: r(34),
+    kickerSize: r(38),
     titleSize: r(76),
     subSize: r(38),
-    statLabelSize: r(32),
-    statValueSize: r(96),
-    statUnitSize: r(38),
+    statLabelSize: r(38),
+    statValueSize: r(120),
+    statUnitSize: r(44),
     quoteSizes: [r(54), r(50), r(46), r(42), r(38)],
-    metaSize: r(32),
+    metaSize: r(38),
   };
 }
 
@@ -246,6 +246,18 @@ export function placeRecordBlock(frame, blockH) {
     fits,
     coverArea: { top: frame.safeTop, bottom: Math.max(frame.safeTop, top - frame.gap) },
   };
+}
+
+// 記録のまとまりの、一文を除いた高さ（見出し・書名・著者・線・数字）。shareCard.js の layoutRecord と同じ数え方。
+// 一文はこの残りに入るときだけ入れる（入らなければ外す）ので、これが安全な枠に入れば書名と数字は必ず見える。
+export function recordBaseHeight(frame, { titleLines = 1, hasKicker = true, hasSub = true, statsCount = 3 } = {}) {
+  const kickerH = hasKicker ? Math.round(frame.kickerSize * 1.35) + 10 : 0;
+  const titleH = Math.max(1, Math.min(2, titleLines)) * Math.round(frame.titleSize * 1.3);
+  const subH = hasSub ? 6 + Math.round(frame.subSize * 1.45) : 0;
+  const labelH = Math.round(frame.statLabelSize * 1.3);
+  const ruleGap = Math.round(frame.statLabelSize * 1.1);
+  const statsH = statsCount > 0 ? ruleGap * 2 + labelH + 10 + frame.statValueSize : 0;
+  return kickerH + titleH + subH + statsH;
 }
 
 // 数字の列: 3 つまでを等分に並べる（左そろえ）。

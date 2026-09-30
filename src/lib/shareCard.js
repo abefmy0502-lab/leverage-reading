@@ -22,7 +22,7 @@ import {
   photoPlacement, scrimAlpha, brightLuminance, coverProxyPath,
   seedFrom, underlineStroke, tabPosition,
 } from './shareCardLayout';
-import { RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue } from './shareOverlay';
+import { RECORD_QUOTE_MAX, recordFrame, placeRecordBlock, statColumns, splitStatValue, recordBaseHeight } from './shareOverlay';
 import { paletteFor } from './coverPalette';
 import { apiUrl } from './apiUrl';
 import { SITE_URL } from './legalLinks';
@@ -813,7 +813,7 @@ function layoutRecord(ctx, fonts, o, F) {
   const labelH = Math.round(F.statLabelSize * 1.3);
   const statsH = stats.length ? labelH + 10 + F.statValueSize : 0;
   const ruleGap = Math.round(F.statLabelSize * 1.1);
-  const baseH = kickerH + (kickerH ? 10 : 0) + titleLines.length * titleLH + (sub ? 6 + subLH : 0) + (statsH ? ruleGap * 2 + statsH : 0);
+  const baseH = recordBaseHeight(F, { titleLines: titleLines.length, hasKicker: !!kickerH, hasSub: !!sub, statsCount: stats.length });
   let fit = null;
   const quoteGapBelow = Math.round(F.quoteSizes[0] * 0.95);
   if (o.text) {
@@ -903,15 +903,30 @@ function drawRecordBlock(ctx, fonts, o, F, lay, top, theme) {
   }
 }
 
-// ロゴ（左）と日付（右）。
+// ロゴ（左）と、右に URL・日付（「orime.vercel.app  2026.9.30」＝見た人がアプリへたどり着ける・2026-09-30）。
+// 入らなければ URL だけ小さくする（ロゴと重ねない）。どれも安全な枠（余白 F.margin・基線 F.footerBaseline）の中。
 function drawRecordFooter(ctx, { F, baseline, logo, theme, fonts, stamp }) {
-  drawLogo(ctx, logo, theme.logo, { x: F.margin, baseline, wordH: F.wordH, fonts, ink: theme.ink });
-  if (!stamp) return;
-  ctx.font = `400 ${F.metaSize}px ${fonts.ui}`;
-  setSpacing(ctx, 0.04, F.metaSize);
-  ctx.fillStyle = theme.ink2;
+  const logoW = drawLogo(ctx, logo, theme.logo, { x: F.margin, baseline, wordH: F.wordH, fonts, ink: theme.ink });
+  const right = F.W - F.margin;
+  const room = right - (F.margin + logoW + 40);
+  let x = right;
   ctx.textAlign = 'right';
-  ctx.fillText(stamp, F.W - F.margin, baseline);
+  ctx.fillStyle = theme.ink2;
+  if (stamp) {
+    ctx.font = `400 ${F.metaSize}px ${fonts.ui}`;
+    setSpacing(ctx, 0.04, F.metaSize);
+    ctx.fillText(stamp, x, baseline);
+    x -= ctx.measureText(stamp).width + Math.round(F.metaSize * 0.9);
+  }
+  let size = F.metaSize;
+  ctx.font = `400 ${size}px ${fonts.ui}`;
+  setSpacing(ctx, 0.02, size);
+  while (size > 24 && ctx.measureText(SITE_LABEL).width > room - (right - x)) {
+    size -= 2;
+    ctx.font = `400 ${size}px ${fonts.ui}`;
+    setSpacing(ctx, 0.02, size);
+  }
+  if (ctx.measureText(SITE_LABEL).width <= room - (right - x)) ctx.fillText(SITE_LABEL, x, baseline);
   ctx.textAlign = 'left';
 }
 
