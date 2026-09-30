@@ -124,10 +124,15 @@ export function ConfirmProvider({ children }) {
     if (!pending) return undefined;
     const onKey = (e) => {
       // IME 変換中の Escape は「変換キャンセル」であってダイアログを閉じる意図ではない。
-      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) finish(pending.dismissValue);
+      if (e.key !== 'Escape' || e.isComposing || e.nativeEvent?.isComposing) return;
+      // いちばん先（capture）で受けて止める: 下のシート・設定・モーダルの Esc まで届いて、
+      // 確かめるダイアログと一緒に閉じていた（2026-09-30）。
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      finish(pending.dismissValue);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [pending, finish]);
 
   return (
