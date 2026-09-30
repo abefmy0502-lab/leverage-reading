@@ -140,7 +140,10 @@ const stripLeadingEmoji = (m) => String(m || '').replace(/^[←-⯿\u{1F000}-\u{
 
 // 下部バー（error / undo / info）。success はここには来ない。
 function ToastItem({ toast, onDismiss, onAction }) {
-  const p = (toast.type === 'undo' && toast.destructive ? palette.undoDelete : palette[toast.type]) || palette.info;
+  // 完了など「やり終えた」知らせの取り消し（success）は ✓（「行動を完了しました」に ↶ が付いて、戻したように見えていた・2026-09-30）。
+  const p = (toast.type === 'undo' && toast.destructive ? palette.undoDelete
+    : toast.type === 'undo' && toast.success ? palette.done
+    : palette[toast.type]) || palette.info;
   const Icon = p.Icon;
   return (
     <div
@@ -295,6 +298,7 @@ export function ToastProvider({ children }) {
         message: opts.message,
         action: opts.action || null,
         destructive: !!opts.destructive,
+        success: !!opts.success,
         onExpire: opts.onExpire,
         duration,
       };
@@ -338,13 +342,15 @@ export function ToastProvider({ children }) {
     error: (message, opts = {}) => show({ ...opts, type: 'error', message }),
     info: (message, opts = {}) => show({ ...opts, type: 'info', message }),
     // destructive: 削除の取り消しならゴミ箱の印。省くと文面（「削除」「消しました」）から決める。
-    undo: ({ message, onUndo, onExpire, duration = 5000, destructive }) =>
+    // success: 完了の取り消し（「行動を完了しました」）なら ✓ の印（2026-09-30）。
+    undo: ({ message, onUndo, onExpire, duration = 5000, destructive, success }) =>
       show({
         type: 'undo',
         message,
         duration,
         onExpire,
         destructive: typeof destructive === 'boolean' ? destructive : /削除|消しました/.test(String(message || '')),
+        success: !!success,
         action: { label: '元に戻す', onClick: onUndo },
       }),
     dismiss,

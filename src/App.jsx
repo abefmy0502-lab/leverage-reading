@@ -3302,11 +3302,12 @@ function AuthedApp() {
     // 完了は一瞬で一覧から消えるので、取り消せるようにする（押し間違いの救済）。
     // silent: 行動タブは自分の欄（ふりかえり＋元に戻す）を出すので、案内を重ねない。
     if (!target.done && !opts.silent) {
-      // 「元に戻す」つきは toast.undo にそろえる（中立の Undo2 の印・DESIGN §5 トースト・2026-09-29）。
+      // 「元に戻す」つきは toast.undo にそろえる（完了なので印は ✓・DESIGN §5 トースト・2026-09-30）。
       toast.undo({
         message: '行動を完了しました',
         duration: 5000,
         destructive: false,
+        success: true, // 印は ✓（完了の知らせ・2026-09-30）
         onUndo: () => { applyActionToggle(bookId, actionIdx, { target }); },
       });
     }

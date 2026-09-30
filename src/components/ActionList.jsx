@@ -464,11 +464,12 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     timersRef.current.set(key, setTimeout(() => setPhase(key, onReflect ? 'reflect' : 'collapse'), CHECK_HOLD_MS));
     // 取り消しは下のトーストで（スクロールしていても見える・トーストはタブの上に浮く）。
     if (lastToastRef.current) toast.dismiss?.(lastToastRef.current, { skipExpire: true });
-    // 「元に戻す」つきは toast.undo にそろえる（中立の Undo2 の印・DESIGN §5 トースト・2026-09-29）。
+    // 「元に戻す」つきは toast.undo にそろえる（完了なので印は ✓・DESIGN §5 トースト・2026-09-30）。
     lastToastRef.current = toast.undo({
       message: '行動を完了しました',
       duration: TOAST_MS,
       destructive: false,
+      success: true, // 印は ✓（完了の知らせ・2026-09-30）
       onUndo: () => undoComplete(a),
     });
   };
