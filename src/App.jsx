@@ -940,7 +940,8 @@ function AuthedApp() {
   const justDoneTimerRef = useRef(null);
   // 📷 カメラを直接開く（input の capture。iOS はカメラ・パソコンはファイルを選ぶ画面）。
   // 押した瞬間に（await を挟まずに）開く必要があるので、隠した input を 1 つだけ置いて使い回す。
-  // 写真はこの端末の中だけで使う（アップロードしない）。撮るのをやめたら何も開かない。
+  // 写真はこの端末の中だけで使う（アップロードしない）。撮るのをやめたら（input の cancel）、写真なしのシートを開く
+  // （「写真を選ぶ」でアルバムから選べる・紙や夜でも共有できる・SPEC §2-1）。
   const shareCameraRef = useRef(null);
   const shareCameraTargetRef = useRef(null);
   const openShareCamera = (target) => {
@@ -959,9 +960,24 @@ function AuthedApp() {
     shareCameraTargetRef.current = null;
     setShareSheet({ ...t, photoFile: file });
   };
+  const onShareCameraCanceledRef = useRef(null);
+  onShareCameraCanceledRef.current = () => {
+    const t = shareCameraTargetRef.current
+      || (view === 'detail' && current ? { book: current, from: 'detail' } : { fromHome: true, from: 'home' });
+    shareCameraTargetRef.current = null;
+    setShareSheet({ ...t, cameraCanceled: true });
+  };
+  // cancel は React の onCancel では input に付かないので、要素に直接付ける（入口ごとに input が付け替わっても 1 つだけ）。
+  const shareCameraRefCb = useCallback((el) => {
+    const onCancel = () => onShareCameraCanceledRef.current?.();
+    const prev = shareCameraRef.current;
+    if (prev && prev.__orimeCancel) prev.removeEventListener('cancel', prev.__orimeCancel);
+    shareCameraRef.current = el;
+    if (el) { el.__orimeCancel = onCancel; el.addEventListener('cancel', onCancel); }
+  }, []);
   const shareCameraInput = (
     <input
-      ref={shareCameraRef}
+      ref={shareCameraRefCb}
       data-share-camera=""
       type="file"
       accept="image/*"
@@ -3844,16 +3860,17 @@ function AuthedApp() {
               <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : aiSubTab === 'report' ? 'テーマまとめ' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
-              {/* 📷 写真で共有（読書中・読了・SPEC §2-1）: 押すとすぐカメラ。撮った写真にこの本の記録を重ねる。 */}
-              {isMemoPhase && (
+              {/* 📷 写真で共有（読書中・読了・SPEC §2-1）: ホームと同じ文字つき（アイコンだけだと「写真から書き起こす」と
+                  見分けにくい）。押すとすぐカメラ。読了にした直後は下の「読了を写真で共有」があるので出さない（入口を二重にしない）。 */}
+              {isMemoPhase && justDoneId !== current.id && (
                 <button
                   type="button"
                   onClick={() => openShareCamera({ book: current, from: 'detail' })}
-                  style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: 999, color: "var(--text-2)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
                   aria-label="写真で共有"
-                  title="写真で共有"
+                  style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
                 >
                   <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
+                  写真で共有
                 </button>
               )}
               {/* ⋯ kebab — 編集 / 共有 / 削除 / ヘルプ を集約。下部の 3 ボタン廃止。 */}
