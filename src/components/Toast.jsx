@@ -32,8 +32,12 @@ const BOTTOM_PLAIN = 'calc(var(--space-4) + env(safe-area-inset-bottom, 0px))';
 // 閉じている途中のシート（data-closing・QuickMemoSheet / 設定）は、もう無いものとして扱う
 // （閉じ終わってから位置が 110px ほど跳ねていた・2026-09-29）。
 const OPEN_DIALOG = '[role="dialog"][aria-modal="true"]:not([data-closing])';
+const CLOSING_DIALOG = '[role="dialog"][aria-modal="true"][data-closing]';
 function hasBottomBar() {
   if (typeof document === 'undefined') return false;
+  // 閉じている途中のシートがあれば、閉じ終わるとキーボードも下りてタブが戻る。はじめからタブの上に出す
+  // （キーボードが下りたあとに下端からタブの上へ跳ねていた・2026-09-30）。
+  if (!document.querySelector(OPEN_DIALOG) && document.querySelector(CLOSING_DIALOG)) return true;
   if (document.body?.classList.contains('keyboard-open')) return false;
   return !!document.querySelector(`.bottom-nav:not(.is-hidden), ${OPEN_DIALOG}`);
 }
@@ -50,11 +54,11 @@ function barBottom() {
   return BOTTOM_WITH_BAR;
 }
 
+// 高さの位置は bottom ではなく transform で動かす（bottom を動かすと毎フレーム配置し直しになり、カクついていた・2026-09-30）。
 const containerStyle = {
   position: 'fixed',
   left: '50%',
-  bottom: BOTTOM_PLAIN,
-  transform: 'translateX(-50%)',
+  bottom: 0,
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-2)',
@@ -341,7 +345,7 @@ export function ToastProvider({ children }) {
       {(() => {
         const barHasError = barToasts.some((t) => t.type === 'error');
         return (
-          <div style={{ ...containerStyle, bottom: barPos, transition: barAnim ? 'bottom var(--duration-fast) var(--ease-out)' : 'none' }} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
+          <div style={{ ...containerStyle, transform: `translate(-50%, calc(-1 * (${barPos})))`, transition: barAnim ? 'transform var(--duration-fast) var(--ease-out)' : 'none' }} aria-live={barHasError ? 'assertive' : 'polite'} role={barHasError ? 'alert' : 'status'}>
             {barToasts.map((toast) => (
               <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onAction={handleAction} />
             ))}

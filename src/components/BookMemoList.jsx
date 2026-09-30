@@ -338,7 +338,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
     if (onMakeAction && actionText && result?.id) {
       toast.show({
         type: 'success',
-        message: 'メモを保存しました。',
+        // 「行動に追加」のボタンと並ぶので短く（390 幅で 2 行に折れていた・2026-09-30）。
+        message: '保存しました。',
         duration: 6000,
         action: {
           label: '行動に追加',
