@@ -33,7 +33,7 @@ import { nextResetLabelJa } from '../lib/freeTrial';
 import { PAID_TOKENS, TOKEN_COSTS, monthDayLabelJa } from '../lib/tokens';
 import { shouldShowTrialNudge, trialNudgeCopy, isTrialNudgeDone, markTrialNudgeDone, normalizeTrialLabel, trialCancelShortLine } from '../lib/trialNudge';
 import { getIntroOffer } from '../lib/iap';
-import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, followupChips } from '../lib/consultHelpers';
+import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction } from '../lib/consultHelpers';
 import { tomorrowLocal } from '../lib/dates';
 import { QUOTE_PREFIX, decodeQuoteRefs, stripQuotes } from '../lib/evidenceCheck';
 import NotifyOptInCard from './NotifyOptInCard';
@@ -108,8 +108,14 @@ const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 
 // 相談例＝チップ（--fill 面・枠なし。入力欄と見分けがつくように。ホームと同じ）。
 // 深掘りのチップ（入力欄の上の 1 行・DESIGN §5 操作のチップ＝高さ 44・15/--text・--fill・枠なし）。
 // 入力欄の上に固定で置くので折り返さず横に送る（行は 1 本＝会話の場所を削りすぎない・2026-09-30）。
-const followupRow = { display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', borderTop: '1px solid var(--separator)' };
+// 🎯「行動を決める」は行の右端に固定（返事の候補が多くて横に送っても、いつも見える・2026-09-30）。ほかのチップはその左で横に送る。
+const followupRow = { display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0, borderTop: '1px solid var(--separator)' };
+// 右端は 16 だけ薄れさせる（固定の「行動を決める」の手前で切れたチップが、横に送れる合図に見えるように）。マスクは不透明度だけを使う。
+const followupFade = 'linear-gradient(to right, var(--text) calc(100% - var(--space-4)), transparent)';
+const followupScroller = { display: 'flex', gap: 'var(--space-2)', flex: 1, minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' };
+const followupScrollerFaded = { ...followupScroller, maskImage: followupFade, WebkitMaskImage: followupFade };
 const followupChip = { flexShrink: 0, minHeight: 44, padding: 'var(--space-2) var(--space-3)', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'nowrap' };
+const decideChip = { ...followupChip, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' };
 const chipStyle = { display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left', wordBreak: 'keep-all', overflowWrap: 'anywhere', background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5 };
 // 答え＝読むカード（全幅）。ユーザーの相談は右寄せの --fill 吹き出し。
 const answerCard = { ...cardStyle, wordBreak: 'break-word' };
@@ -128,6 +134,12 @@ const evidencePending = { ...summaryStyle, width: '100%', marginTop: 'var(--spac
 const STEP_SKELETON_LINES = 3;
 const STEP_SKELETON_HEIGHT = `calc(var(--text-read) * 1.6 * ${STEP_SKELETON_LINES})`;
 const nextStepBox = { background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' };
+// 🎯 あなたに聞きたいこと（2026-09-30）: 問いはふつう 1〜2 行。書いている間は 2 行ぶんを取っておく（行動の箱と同じ考え方）。
+const ASK_SKELETON_LINES = 2;
+const ASK_SKELETON_HEIGHT = `calc(var(--text-read) * 1.6 * ${ASK_SKELETON_LINES})`;
+const ASK_LABEL = 'あなたに聞きたいこと';
+// 行動を決めた答えか（「心に残るもの」は行動ではない）。「行動を決める」のチップを出すかの判断に使う。
+const isActionAnswer = (p) => !!(p && p.action) && !/心に残る/.test(p.actionLabel || '');
 // 根拠の中の小さな見出し（DESIGN §5 groupTitle: 12/600/--text-2）。
 const subLabel = { ...groupTitle, margin: '0 0 var(--space-1)' };
 // 根拠の本文（参照したメモ・解釈）も答えの一部＝読む文章（明朝 18・行間 1.6・DESIGN §2/§7）。
@@ -940,7 +952,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         qs.push(`『${t}』でいちばん大事なことを、私のメモから教えて`);
       }
       if (picked.length > 1) qs.push('選んだ本に共通する考え方は？');
-      qs.push('この本から、今週やる一歩を 1 つ提案して');
+      // 行動は会話で決める（2026-09-30）ので、最初から「一歩を提案して」とは頼まない例にする。
+      qs.push('この本の考え方を、いまの仕事に当てはめたい');
       return qs.slice(0, 3).map((text) => ({ text, kind: 'book' }));
     }
     // メモの件数は下の ownMemoTotal と同じ数え方（ここより後で定義しているので、ここで数える）。
@@ -976,6 +989,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     //   直近 3 組まで（前の相談 prior と合わせて 3 組・ai.js が古いものから落とす）。「新しい相談をはじめる」で切れる。
     //   「別の角度で答えて」（opts.questionAt）は、答え直す相談とその後を入れない。
     const askThread = selectThreadTurns(visibleMessages, { max: 3, before: opts.questionAt || null, carry: askPrior ? null : carry });
+    // 🎯 行動は会話で決める（2026-09-30）: 会話の続きで行動を求めた回だけ、答えの最後が行動になる（ai.js の turnHint と同じ判断）。
+    //   書いている途中の形（行動の箱／問いの箱）を先に決める。書き始める前にサーバー側の判断（onStage の decide）で合わせ直す。
+    const expectAction = (askThread.length > 0 || !!askPrior) && wantsAction(q);
     // この相談より前の、いちばん新しい相談の時刻（「前の相談から メモ +N 件」に使う）。
     const before = opts.questionAt || '9999';
     let prevAskAt = null;
@@ -1048,6 +1064,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         streaming: true,
         scopeIds: askBookIds, // 相談相手のアイコン（書いている間・失敗・関係するメモが無かった答えは相談相手から）
         mode: askMode, // 本ごとには、書いている途中から本のカードの形で見せる（出来上がりで形が跳ねないように）
+        expect: expectAction ? 'action' : 'ask',
       },
     ]);
     setStage('search');
@@ -1070,6 +1087,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         signal: controller.signal,
         onStage: (s, info) => {
           setStage(s);
+          if (s === 'generate' && info && typeof info.decide === 'boolean' && info.decide !== expectAction) {
+            setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...m, expect: info.decide ? 'action' : 'ask' } : m)));
+          }
           if (s === 'generate' && info?.voice) {
             liveVoice = info.voice;
             setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...m, voice: liveVoice } : m)));
@@ -1366,7 +1386,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const showFollowups = chipRowBase && isCompletedAnswer(lastVisible);
   // いま送った文と同じチップは出さない（「もっと具体的に」のあとにまた「もっと具体的に」を並べない）。
   const lastAsked = visibleMessages[visibleMessages.length - 2]?.content || '';
-  const followups = showFollowups ? followupChips({ booksWithMemos, lastAsked }) : [];
+  // 🎯 行動は会話で決める（2026-09-30）: 最後の答えが問いで終わっていれば、その候補（返事）→「行動を決める」。
+  //   行動を決めた答えのあとは、これまでの深掘りのチップ。次にすることは入力欄の上のこの 1 行だけ（lib/consultHelpers.js）。
+  const lastParsed = showFollowups ? parseAnswer(lastVisible.content) : null;
+  const lastAsksBack = !!lastParsed?.question;
+  const followups = showFollowups
+    ? nextStepChips({ replies: lastParsed?.replies || [], hasAction: lastParsed ? isActionAnswer(lastParsed) : !!extractActionLine(lastVisible.content), booksWithMemos, lastAsked })
+    : [];
   // 同じ相談にもう一度答える（別の角度で／止めた・途中までの答えは「もう一度答えて」）。チップの行の最後に置く。
   const regenLabel = !chipRowBase ? '' : lastVisible.content === STOPPED_EMPTY ? 'もう一度答えて' : '別の角度で答えて';
 
@@ -1821,19 +1847,31 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
 
           {/* 💬 深掘りのチップ（2026-09-30・SPEC §3）: 答えを書き終えたら、入力欄の上に続きの聞き方を 2〜3 つ。押すとすぐ送る。 */}
           {(followups.length > 0 || regenLabel) && (
-            <div role="group" aria-label="続けて聞く" className="followup-chips" style={followupRow}>
-              {followups.map((q) => (
-                <button key={q} type="button" onClick={() => { track('brain_followup', { chip: followups.indexOf(q) }); ask(q); }} style={followupChip}>
-                  {q}
+            <div role="group" aria-label="続けて聞く" style={followupRow}>
+              {(followups.some((c) => c.kind !== 'decide') || regenLabel) && (
+                <div className="followup-chips" style={followups.some((c) => c.kind === 'decide') ? followupScrollerFaded : followupScroller}>
+                  {followups.filter((c) => c.kind !== 'decide').map((c, i) => (
+                    // 返事（候補）・深掘りの聞き方はそのまま送る。
+                    <button key={`${c.kind}-${c.label}`} type="button" onClick={() => { track('brain_followup', { chip: i, kind: c.kind }); ask(c.send); }} style={followupChip}>
+                      {c.label}
+                    </button>
+                  ))}
+                  {regenLabel && (
+                    <button type="button" onClick={regenerate} style={followupChip}>
+                      {regenLabel}
+                      {/* 無料プランはトークンが少ないので、押す前に使う量を添える（相談 1 回分・2026-09-29） */}
+                      {freeMode && <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>（約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン）</span>}
+                    </button>
+                  )}
+                </div>
+              )}
+              {/* 🎯「行動を決める」は決まった頼み方（DECIDE_REQUEST）で送る。行動の印（Target）つきで、行の右端に固定。 */}
+              {followups.filter((c) => c.kind === 'decide').map((c) => (
+                <button key="decide" type="button" onClick={() => { track('brain_followup', { kind: 'decide' }); ask(c.send); }} style={decideChip}>
+                  <Target size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                  {c.label}
                 </button>
               ))}
-              {regenLabel && (
-                <button type="button" onClick={regenerate} style={followupChip}>
-                  {regenLabel}
-                  {/* 無料プランはトークンが少ないので、押す前に使う量を添える（相談 1 回分・2026-09-29） */}
-                  {freeMode && <span style={{ color: 'var(--text-2)', fontSize: 'var(--text-meta)' }}>（約 {answerMode === 'perbook' && modeApplies ? TOKEN_COSTS.consultPerBook : TOKEN_COSTS.consult} トークン）</span>}
-                </button>
-              )}
             </div>
           )}
           {/* 相談相手は入力欄のすぐ上（SPEC §3）。 */}
@@ -1884,6 +1922,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 : freeUsedUp ? `${nextResetLabelJa()}から相談できます`
                 : carry && !carry.used ? 'この相談の続きを書く'
                 // 390 幅の入力欄に 1 行で収まる長さ（「例：上司への報告がうまくいかない」と同じ 16 字）。
+                // AI が状況を聞き返しているときは、答えを書くか続けて聞く（候補のチップのほかに自分の言葉でも）。
+                : lastAsksBack ? '質問に答える・続けて聞く'
                 : threadActive ? '続けて聞く：乗り気でないときは？' : '例：上司への報告がうまくいかない'}
               rows={1}
               // 答えを書いている間も押せなくしない（disabled にすると入力欄からフォーカスが外れ、下のタブが
@@ -2180,8 +2220,10 @@ function PlainAnswer({ text, gap = 'var(--space-2)' }) {
   );
 }
 
-// 回答（【結論】【参照した本のメモ】【あなたの状況に合わせた解釈】【明日からできる 1 つの行動】）を
-// 「結論 → 明日の一歩 → 根拠（畳む）」の順に組み替える（SPEC §3: 結論と一歩を先に）。
+// 回答（【結論】【参照した本のメモ】【あなたの状況に合わせた解釈】【あなたに聞きたいこと】か【明日からできる 1 つの行動】）を
+// 「結論 → 聞きたいこと／明日の一歩 → 根拠（畳む）」の順に組み替える（SPEC §3: 結論と、次にすることを先に）。
+// 🎯 行動は会話で決める（2026-09-30）: 最初の答えは【あなたに聞きたいこと】（問い 1 文＋候補「・…」）で終わる。
+//   question＝問い（カードに出す）・replies＝候補（入力欄の上の返事のチップ）。前の形の答え（一歩つき）はこれまでどおり action。
 // 見出しが 1 つも取れなければ null（→ PlainAnswer）。
 export function parseAnswer(text) {
   const src = String(text || '');
@@ -2208,6 +2250,7 @@ export function parseAnswer(text) {
         : /(共通点|違い)/.test(name) ? 'compare'
         : /参照/.test(name) ? 'refs'
         : /解釈/.test(name) ? 'interp'
+        : /聞きたい/.test(name) ? 'ask'
         : /(明日|行動|一歩|心に残る)/.test(name) ? 'action'
         : 'other';
       // 小説など行動がそぐわない問いでは見出しが「心に残るもの」になる（prompts の規約）。
@@ -2223,6 +2266,8 @@ export function parseAnswer(text) {
   if (!conclusion) return null;
   // 一歩は最初の段落だけ。後ろに続く補足（お試しモードの注記など）は note へ。
   const [actionHead, ...actionRest] = join('action').replace(/^[\s:：・\-*>]+/, '').split(/\n\s*\n/);
+  // 🎯 【あなたに聞きたいこと】の問いと候補（候補の後ろの段落＝お試しの注記などは note へ）
+  const ask = sections.ask ? parseAskSection(join('ask')) : null;
   // 📚 答え方「本ごとに」（【本ごとの視点】があるときだけ books を返す。無ければ null＝いつもの答え）
   const bookViews = sections.books ? parseBookViews(join('books')) : null;
   return {
@@ -2231,7 +2276,9 @@ export function parseAnswer(text) {
     interp: join('interp'),
     action: (actionHead || '').trim(),
     actionLabel,
-    note: [...actionRest.map((t) => t.trim()).filter(Boolean), ...notes].join('\n'),
+    question: ask ? ask.question : '',
+    replies: ask ? ask.replies : [],
+    note: [...actionRest.map((t) => t.trim()).filter(Boolean), ...(ask && ask.rest ? [ask.rest] : []), ...notes].join('\n'),
     books: bookViews ? bookViews.books : null,
     // ◆ の形が崩れて本を 1 冊も取り出せなかったときは、その節をそのまま段落で見せる（捨てない）
     booksRaw: bookViews && bookViews.books.length === 0 ? join('books') : '',
@@ -2609,13 +2656,15 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   const liveFused = !perBook && liveAny && !Array.isArray(liveAny.books) ? liveAny : null;
   // 見出しは来たが結論の文がまだ無い間は、書き始める前と同じ形（点＋骨組み）で待つ。
   const waitingHead = isStreaming && hasBody && !liveAny && /^\s*【/.test(message.content);
-  const fusedTail = !liveFused ? null : liveFused.action ? 'action' : (liveFused.refs || liveFused.interp) ? 'middle' : 'conclusion';
+  const fusedTail = !liveFused ? null : liveFused.action ? 'action' : liveFused.question ? 'ask' : (liveFused.refs || liveFused.interp) ? 'middle' : 'conclusion';
+  // 書いている途中は、最後が行動の箱か問いの箱かを先に決めて待つ（行動を決める回だけ行動の箱・message.expect）。
+  const expectAction = message.expect === 'action';
   const cursor = <span className="streaming-cursor" aria-hidden="true" />;
   const fallbackNote = !message.error && !message.notice && message.perbookFallback
     ? (message.perbookFallback === 'none' ? '並べられる本がまだないので、' : '並べられる本が 1 冊だけなので、')
     : '';
   const perBookTail = !isStreaming || !perBook ? null
-    : perBook.action ? 'action' : perBook.compare ? 'compare' : perBook.books?.length ? 'book' : 'conclusion';
+    : perBook.action ? 'action' : perBook.question ? 'ask' : perBook.compare ? 'compare' : perBook.books?.length ? 'book' : 'conclusion';
   const tail = perBookTail || fusedTail;
 
   // 明日からできる一歩（＋ 行動に追加）
@@ -2640,6 +2689,14 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
           </button>
         )
       )}
+    </div>
+  ) : null);
+  // 🎯 あなたに聞きたいこと（行動を決めない回の締め・2026-09-30）。候補はカードに並べず、入力欄の上の返事のチップだけ
+  //   （次にすることは 1 か所）。行動の箱と同じ面・同じ場所（結論のすぐ下）。
+  const renderAsk = (p, marginTop) => (p.question ? (
+    <div style={{ marginTop, ...nextStepBox }}>
+      <p style={subLabel}>{ASK_LABEL}</p>
+      <p style={{ ...readText, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'break-word', ...hangIndent(p.question), ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{renderBoldPhrased(p.question)}{tail === 'ask' && cursor}</p>
     </div>
   ) : null);
   // 積み重ねが効いていることを、事実だけで一行（盛らない・渡したメモと一致したものだけ）
@@ -2771,7 +2828,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
   if (perBook) {
     const lastBook = (perBook.books || []).length - 1;
     const hasBooks = (perBook.books || []).length > 0 || !!perBook.booksRaw || !!perBook.booksLead;
-    const showFoot = !!(perBook.compare || perBook.action || (!isStreaming && (evidence || refsList.length > 0 || perBook.note || refundNote)));
+    const showFoot = !!(perBook.compare || perBook.action || perBook.question || (!isStreaming && (evidence || refsList.length > 0 || perBook.note || refundNote)));
     return (
       // 本ごとの答えは、結論のカード → 本のカード（1 冊 1 枚）→ 共通点と違い・一歩・根拠のカード。
       // 外側は枠を付けない（カードの中にカードを入れない）。
@@ -2837,6 +2894,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               </>
             )}
             {renderAction(perBook, perBook.compare ? 'var(--space-4)' : 0)}
+            {renderAsk(perBook, perBook.compare || perBook.action ? 'var(--space-4)' : 0)}
             {!isStreaming && renderEvidence()}
             {!isStreaming && renderDetails(perBook)}
             {!isStreaming && renderNote(perBook)}
@@ -2906,7 +2964,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               （以前は 44 の「答えを書いています…」→ 約 130 の箱に変わって、下が 87px 跳ねていた・2026-09-29）。 */}
           {/* 結論を書いている間は、その下に一歩の形も「根拠を見る」も出さない（結論が伸びるたびに下の箱が押し下げられて
               揺れていた・2026-09-30）。結論を書き終えてから一歩の形を出す（新しいものは下に足されるだけ＝読んでいる行は動かない）。 */}
-          {tail === 'conclusion' ? null : liveFused.action ? renderAction(liveFused, 'var(--space-4)') : (
+          {tail === 'conclusion' ? null : liveFused.action ? renderAction(liveFused, 'var(--space-4)') : liveFused.question ? renderAsk(liveFused, 'var(--space-4)') : (
             <div aria-hidden="true" style={{ marginTop: 'var(--space-4)', ...nextStepBox }}>
               {/* 1 行目は点つきの「答えを書いています…」（SPEC §3・骨組みだけだと何を待っているか分からない）。
                   高さは小さな見出し（subLabel: 12・行間 1.5・下 4）と同じにして、一歩が来たときに跳ねさせない。 */}
@@ -2918,12 +2976,13 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               </div>
               {/* 一歩はふつう 3 行（2 行だと、書き終わったときに「行動に追加」が一度上がってから下がっていた）。
                   書き始めてからも同じ 3 行ぶんを取っておく（renderAction の STEP_SKELETON_HEIGHT）。 */}
-              {['92%', '84%', '56%'].slice(0, STEP_SKELETON_LINES).map((w) => (
+              {/* 最初の答え・続きの返事は問いの箱（2 行・ボタンなし）、行動を決める回は行動の箱（3 行＋押せない「行動に追加」）で待つ。 */}
+              {(expectAction ? ['92%', '84%', '56%'].slice(0, STEP_SKELETON_LINES) : ['88%', '52%'].slice(0, ASK_SKELETON_LINES)).map((w) => (
                 <div key={w} style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-read) * 1.6)' }}>
                   <SkeletonBlock width={w} height={14} />
                 </div>
               ))}
-              {(onAddAction || onAddActionPickBook) && (
+              {expectAction && (onAddAction || onAddActionPickBook) && (
                 <button type="button" disabled tabIndex={-1} style={{ ...rowBtn, ...rowBtnOffOnFill, marginTop: 'var(--space-3)' }}>
                   <Target size={16} aria-hidden="true" />行動に追加
                 </button>
@@ -2979,8 +3038,9 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
               <p key={i} style={{ margin: i ? 'var(--space-2) 0 0' : 0, ...hangIndent(l) }}>{renderBoldInline(l)}</p>
             ))}
           </div>
-          {/* 2. 明日からできる一歩（＋ 行動に追加）→ 使ったメモの一行 → 3. 根拠（畳む） */}
+          {/* 2. 明日からできる一歩（＋ 行動に追加）か、あなたに聞きたいこと → 使ったメモの一行 → 3. 根拠（畳む） */}
           {renderAction(parsed, 'var(--space-4)')}
+          {renderAsk(parsed, 'var(--space-4)')}
           {renderEvidence()}
           {renderDetails(parsed)}
           {renderNote(parsed)}

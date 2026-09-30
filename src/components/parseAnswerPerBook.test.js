@@ -79,3 +79,19 @@ describe('parseBookViews', () => {
     expect(parseBookViews(null).books).toEqual([]);
   });
 });
+
+describe('parseAnswer（本ごとに・あなたに聞きたいこと）', () => {
+  it('【共通点と違い】のあとの問いと候補を読む', () => {
+    const p = parseAnswer([
+      '【結論】', 'x', '',
+      '【本ごとの視点】', '◆『A』｜著者A', '視点：v', '根拠：p.3「q」', '',
+      '【共通点と違い】', 'c', '',
+      '【あなたに聞きたいこと】', '焦りを強く感じるのは、どんなときですか？', '・数字を見たとき', '・人と比べたとき',
+    ].join('\n'));
+    expect(p.books).toHaveLength(1);
+    expect(p.compare).toBe('c');
+    expect(p.question).toBe('焦りを強く感じるのは、どんなときですか？');
+    expect(p.replies).toEqual(['数字を見たとき', '人と比べたとき']);
+    expect(p.action).toBe('');
+  });
+});

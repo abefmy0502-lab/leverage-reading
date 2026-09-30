@@ -43,3 +43,52 @@ describe('parseAnswer', () => {
     expect(parseAnswer('回答を生成できませんでした。')).toBeNull();
   });
 });
+
+// 🎯 行動は会話で決める（2026-09-30）: 最初の答えは【あなたに聞きたいこと】で終わる。
+describe('parseAnswer（あなたに聞きたいこと）', () => {
+  const ask = [
+    '【結論】',
+    '結論です。',
+    '',
+    '【参照した本のメモ】',
+    '- 『A』のメモ：「一」',
+    '',
+    '【あなたの状況に合わせた解釈】',
+    '解釈です。',
+    '',
+    '【あなたに聞きたいこと】',
+    '報告が遅れるのは、どんな場面が多いですか？',
+    '・会議の前',
+    '・急ぎの仕事のとき',
+    '',
+    '（お試しモードの応答です）',
+  ].join('\n');
+  it('問いと候補に分け、行動は無い', () => {
+    const p = parseAnswer(ask);
+    expect(p.question).toBe('報告が遅れるのは、どんな場面が多いですか？');
+    expect(p.replies).toEqual(['会議の前', '急ぎの仕事のとき']);
+    expect(p.action).toBe('');
+    expect(p.interp).toBe('解釈です。');
+  });
+  it('候補の後ろの段落は note へ（問いにも候補にも混ぜない）', () => {
+    expect(parseAnswer(ask).note).toBe('（お試しモードの応答です）');
+  });
+  it('書いている途中（候補がまだ）は問いだけ', () => {
+    const p = parseAnswer('【結論】\nx\n\n【あなたに聞きたいこと】\n報告が遅れるのは');
+    expect(p.question).toBe('報告が遅れるのは');
+    expect(p.replies).toEqual([]);
+  });
+  it('前の形の答え（一歩つき）は question が空で action のまま（行動に追加を出せる）', () => {
+    const p = parseAnswer('【結論】\nx\n\n【明日からできる 1 つの行動】\n始業前の 10 分で書き出す。');
+    expect(p.question).toBe('');
+    expect(p.replies).toEqual([]);
+    expect(p.action).toBe('始業前の 10 分で書き出す。');
+  });
+  it('問いも行動も無い答え（続きの返事への答え）も読める。「— 」の注記は note へ', () => {
+    const p = parseAnswer('【結論】\nx\n\n【あなたの状況に合わせた解釈】\ny\n\n— （お試しモードの応答です）');
+    expect(p.question).toBe('');
+    expect(p.action).toBe('');
+    expect(p.interp).toBe('y');
+    expect(p.note).toBe('（お試しモードの応答です）');
+  });
+});

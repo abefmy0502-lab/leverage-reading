@@ -34,13 +34,38 @@ function parseThread(userText) {
   const questions = all(/相談: (.+)/g);
   const conclusions = all(/答えの結論: (.+)/g);
   const cited = (all(/根拠にした本: (.+)/g).slice(-1)[0] || '').match(/『[^』]+』/g) || [];
+  // 🎯 行動は会話で決める（2026-09-30）: 各やりとりが「答えの問い」で終わっていたか。問いのあとの相談＝返事（状況）。
+  const turns = block.split(/\n(?=\d+\. 相談: )/).map((t) => ({
+    q: ((t.match(/相談: (.+)/) || [])[1] || '').trim(),
+    asked: /答えの問い: /.test(t),
+  }));
+  const replies = turns.filter((t, i) => i > 0 && turns[i - 1].asked).map((t) => t.q);
   return {
     turns: questions.length,
+    firstQuestion: questions[0] || '',
     lastQuestion: questions[questions.length - 1] || '',
     lastConclusion: conclusions[conclusions.length - 1] || '',
+    lastAsked: turns.length > 0 && turns[turns.length - 1].asked,
+    replies,
     citedTitles: cited.map((t) => t.slice(1, -1)),
   };
 }
+
+// 最初の答えの【あなたに聞きたいこと】（本番は AI が相談とメモから作る。お試しは相談の言葉で選ぶ）。
+function askFor(question) {
+  const q = String(question || '');
+  if (/報告|連絡|相談してくれ/.test(q)) return ['報告が遅れるのは、どんな場面が多いですか？', ['会議の前', '急ぎの仕事のとき', '悪い知らせのとき']];
+  if (/焦|成果|評価|数字/.test(q)) return ['焦りを強く感じるのは、どんなときですか？', ['数字を見たとき', '人と比べたとき', '締め切りの前']];
+  if (/任せ|部下|チーム/.test(q)) return ['任せた仕事は、どこで止まりがちですか？', ['始める前', '途中の相談', '仕上げの前']];
+  if (/会議|意見|発言/.test(q)) return ['意見を言いにくいのは、どんな会議ですか？', ['人数が多い会議', '上の人がいる会議', '急に振られたとき']];
+  return ['いちばん困るのは、どんな場面ですか？', ['仕事の場面', '人と話すとき', 'ひとりで考えるとき']];
+}
+const askSection = (question) => {
+  const [ask, replies] = askFor(question);
+  return ['【あなたに聞きたいこと】', ask, ...replies.map((r) => `・${r}`)];
+};
+// 返事（「会議の前」）→「会議の前に」（行動の文の中で使う）。
+const whenOf = (reply) => (/[にでは]$/.test(reply) ? reply : `${reply}に`);
 
 // 著者の語り口（2026-09-30）: 質問の後ろの VOICE（今回の語り口）から書名・著者を読む。
 function parseVoice(userText) {
@@ -49,7 +74,7 @@ function parseVoice(userText) {
   return { title: ((block.match(/書名: 『([^』]*)』/) || [])[1] || '').trim(), author: ((block.match(/著者: (.+)/) || [])[1] || '').trim() };
 }
 
-function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null) {
+function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null, voice = null, decide = false) {
   // 深掘りの短い質問（「もっと具体的に」）でも、直前の相談の話題でメモを選ぶ（本番の retrievalQuery と同じ考え方）。
   const q = bigrams(thread ? `${question} ${thread.lastQuestion}` : question);
   const books = new Map(store.table('books').map((b) => [b.id, b]));
@@ -111,15 +136,67 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
   // &ai=fabricate: 2 つ目の引用を、メモに無い文にする（「根拠を見る」で見せないことの確認用・evidenceCheck.js）。
   const quotes = picked.map((m, i) => `- ${label(m).name} のメモ：「${aiMode === 'fabricate' && i === 1 ? '他人の期待を満たすために生きてはいけない' : m.text}」`).join('\n');
   // 一歩は、あとで行動の一覧だけを見ても分かる文にする（本番の指示文と同じ・「この件」と書かない）。
-  const subject = questionGist(thread ? thread.lastQuestion : question, 20) || 'いまの悩み';
+  const subject = questionGist(thread ? (thread.firstQuestion || thread.lastQuestion) : question, 20) || 'いまの悩み';
   const refs = picked.map((m) => `- ${label(m).ref}`).join('\n');
 
   // 結論・解釈は、引いたメモに書いてあることだけで組み立てる（メモに無い主張を足さない・2026-09-29）。
   const clip = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x; };
   // 結論には書名・引用のかぎかっこを入れない（出典は「根拠を見る」の中・SPEC §3・本番の BRAIN_SYSTEM と同じ）。
   const gist = (t) => clip(t).replace(/[「」『』]/g, '').replace(/[。．.]+$/, '');
+  // 🎯 行動を決める回（会話の続きで行動を求めた・本番の ACTION_REQUEST）: 会話で聞いた状況（返事）を使って行動を 1 つ。
+  if (decide) {
+    const situation = (thread && thread.replies[thread.replies.length - 1]) || '';
+    return [
+      '【結論】',
+      situation
+        ? `「${situation}」の場面に絞って、${gist(picked[0].text)}を 1 回だけ試してみましょう。`
+        : `ここまでの話から、${gist(picked[0].text)}を 1 回だけ試してみましょう。`,
+      '',
+      '【参照した本のメモ】',
+      quotes,
+      '',
+      '【あなたの状況に合わせた解釈】',
+      situation
+        ? `「${situation}」と聞いて、場面を 1 つに絞れました。${p1.name}の「${clip(picked[0].text)}」を、その場面だけで試すのがいちばん小さな一歩です。`
+        : `${p1.name}の「${clip(picked[0].text)}」を、次の 1 回だけで試すのがいちばん小さな一歩です。`,
+      '',
+      '【明日からできる 1 つの行動】',
+      situation
+        ? `「${subject}」について、${whenOf(situation)}、メモに残した「${gist(picked[0].text)}」を 1 回だけ試し、どうだったかを 1 行メモに残す。`
+        : `「${subject}」の次の場面を 1 つ選び、メモに残した「${gist(picked[0].text)}」を 1 回だけ試し、どうだったかを 1 行メモに残す。`,
+      '',
+      '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
+      '',
+      'REFS_START',
+      refs,
+      'REFS_END',
+    ].join('\n');
+  }
+  // 返事（前の答えの問いへの答え）: その状況に合わせて一歩深く。行動はまだ決めない（本番の BRAIN_SYSTEM ルール 9）。
+  if (thread && thread.lastAsked) {
+    const reply = String(question || '').trim().slice(0, 20);
+    return [
+      '【結論】',
+      `${voice ? '私なら、' : ''}「${reply}」の場面なら、${gist(picked[0].text)}という考えが効きそうです。`,
+      '',
+      '【参照した本のメモ】',
+      quotes,
+      '',
+      '【あなたの状況に合わせた解釈】',
+      p2
+        ? `「${reply}」の場面では、${p1.name}の「${clip(picked[0].text)}」を先に置き、${p2.name}の「${clip(picked[1].text)}」で相手が話しやすい形を整えると、動きやすくなります。`
+        : `「${reply}」の場面では、「${clip(picked[0].text)}」を先に置くと、相手が話しやすくなります。`,
+      '',
+      // 最後の節（問い・行動）が無い答えの注記は「— 」で始める（画面は答えの下の注記として出す＝根拠の中に混ぜない）。
+      '— （お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
+      '',
+      'REFS_START',
+      refs,
+      'REFS_END',
+    ].join('\n');
+  }
   if (thread) {
-    // 深掘りの答え（本番の BRAIN_SYSTEM ルール 9 と同じく、同じ形で一歩深く・メモの言葉だけで）。
+    // 深掘りの答え（本番の BRAIN_SYSTEM ルール 9 と同じく、一歩深く・メモの言葉だけで・行動は求められたときだけ）。
     const ifFail = /うまくいかなかったら/.test(question);
     return [
       '【結論】',
@@ -137,12 +214,7 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
         ? `前の答えで決めたことを変えずに、${p1.name}の「${clip(picked[0].text)}」を具体的な場面に置き、足りなければ${p2.name}の「${clip(picked[1].text)}」で補います。`
         : `前の答えで決めたことを変えずに、「${clip(picked[0].text)}」を具体的な場面に置きます。`,
       '',
-      '【明日からできる 1 つの行動】',
-      ifFail
-        ? `「${subject}」でうまくいかなかったら、メモに残した「${gist(picked[0].text)}」を読み返し、次の 1 回で変えることを 1 つだけ決めて 1 行メモに残してください。`
-        : `「${subject}」の次の場面を 1 つ選び、メモに残した「${gist(picked[0].text)}」をどの一言で伝えるかを 1 行書いてから臨んでください。`,
-      '',
-      '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
+      '— （お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
       '',
       'REFS_START',
       refs,
@@ -159,10 +231,9 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
       quotes,
       '',
       '【あなたの状況に合わせた解釈】',
-      `あなたが残した「${clip(picked[0].text)}」は、私がいちばん大事にしている考え方に近いところです。いまの悩みでは、どこに当てはまるかを 1 つだけ決めると動きやすくなります。`,
+      `あなたが残した「${clip(picked[0].text)}」は、私がいちばん大事にしている考え方に近いところです。`,
       '',
-      '【明日からできる 1 つの行動】',
-      `「${subject}」の場面で、メモに残した「${gist(picked[0].text)}」を 1 回だけ試し、どうだったかを 1 行メモに残す。`,
+      ...askSection(question),
       '',
       '（お試しモードの応答です。本番では AI が本とあなたのメモをもとに、著者の語り口をまねて答えます）',
       '',
@@ -184,13 +255,11 @@ function brainAnswer(store, question, memoBlock = '', aiMode = '', thread = null
     '',
     '【あなたの状況に合わせた解釈】',
     p2
-      ? `${bookCount >= 2 ? '別々の本で残したメモです。' : '本で読んだことと、自分で気づいたことです。'}まず${p1.name}の「${clip(picked[0].text)}」を試し、足りなければ${p2.name}の「${clip(picked[1].text)}」を次の手にする、という順で使えます。全部を一度に変えず、1 つずつ試すと動きやすくなります。`
+      ? `${bookCount >= 2 ? '別々の本で残したメモです。' : '本で読んだことと、自分で気づいたことです。'}まず${p1.name}の「${clip(picked[0].text)}」、足りなければ${p2.name}の「${clip(picked[1].text)}」という順で使えます。`
       : `「${clip(picked[0].text)}」を、いまの悩みのどこに当てはめられるかを 1 つだけ決めると、動きやすくなります。`,
     '',
-    '【明日からできる 1 つの行動】',
-    // 一歩は、選んだメモに書いてあることから作る（決まった文にしない・2026-09-29）。
-    // 書名は入れない（行動は本に付けて保存される・行動の一覧で読んでも分かる文に）。
-    `「${subject}」の場面で、メモに残した「${gist(picked[0].text)}」を 1 回だけ試し、どうだったかを 1 行メモに残してください。`,
+    // 🎯 最初の答えは行動を決めず、状況を 1 つ聞く（本番の BRAIN_SYSTEM ルール 5・2026-09-30）。
+    ...askSection(question),
     '',
     '（お試しモードの応答です。本番では AI があなたのメモ全体を読んで答えます）',
     '',
@@ -211,7 +280,10 @@ const PERBOOK_VIEWS = {
   '1兆ドルコーチ': '『1兆ドルコーチ』の視点では、ひとりで抱えるより、問いで考えを引き出してくれる相手を持つことが近道です。チームで勝つための判断を先に置くと、焦りが個人の問題でなくなります。',
 };
 
-function perBookAnswer(block) {
+// decide: 行動を決める回（会話の続きで行動を求めた）だけ行動を 1 つ。それ以外は【あなたに聞きたいこと】で締める（2026-09-30）。
+const PERBOOK_ASK = ['【あなたに聞きたいこと】', '焦りを強く感じるのは、どんなときですか？', '・数字を見たとき', '・人と比べたとき', '・締め切りの前'];
+const PERBOOK_ACTION = ['【明日からできる 1 つの行動】', '始業前の 10 分で、次の商談を 1 つだけ選び、「この商談で相手に何を貢献できるか」を 1 行書いてから臨む。'];
+function perBookAnswer(block, decide = false) {
   const books = [];
   let cur = null;
   block.split('\n').forEach((line) => {
@@ -242,8 +314,7 @@ function perBookAnswer(block) {
     '【共通点と違い】',
     `${views.length} 冊とも「自分で変えられることに力を集める」点で重なります。違うのは入り口で、何を手放すか、誰の課題かを分けるか、相手とどう向き合うかが分かれます。`,
     '',
-    '【明日からできる 1 つの行動】',
-    '始業前の 10 分で、次の商談を 1 つだけ選び、「この商談で相手に何を貢献できるか」を 1 行書いてから臨んでください。',
+    ...(decide ? PERBOOK_ACTION : PERBOOK_ASK),
     '',
     '（お試しモードの応答です。本番では AI があなたのメモを本ごとに読んで答えます）',
     '',
@@ -255,7 +326,7 @@ function perBookAnswer(block) {
 
 // &ai=broken: 「本ごとに」の答えの ◆ の形が崩れた答え（◆ も「視点：」も無い）。
 //   画面は【本ごとの視点】の節をそのまま段落で見せる（SPEC §3・parseAnswer の booksRaw）。
-function perBookBrokenAnswer(block) {
+function perBookBrokenAnswer(block, decide = false) {
   const titles = [...block.matchAll(/^◆『([^』]*)』/gm)].map((m) => m[1]).slice(0, 3);
   const views = titles.map((t) => (PERBOOK_VIEWS[t] || `『${t}』では、メモに残したことを、いまの悩みに当てはめて考えます。`));
   return [
@@ -267,8 +338,7 @@ function perBookBrokenAnswer(block) {
     '【共通点と違い】',
     `${views.length} 冊とも「自分で変えられることに力を集める」点で重なります。`,
     '',
-    '【明日からできる 1 つの行動】',
-    '始業前の 10 分で、次の商談を 1 つだけ選び、「この商談で相手に何を貢献できるか」を 1 行書いてから臨んでください。',
+    ...(decide ? PERBOOK_ACTION : PERBOOK_ASK),
     '',
     'REFS_START',
     ...titles.map((t) => `- 📚 『${t}』`),
@@ -311,7 +381,9 @@ function aiReply(store, payload, aiMode = '') {
   const last = [...(payload.messages || [])].reverse().find((m) => m.role === 'user');
   const userText = textOf(last?.content);
   const perBook = userText.match(/PERSPECTIVE_BOOKS_START =====\n([\s\S]*?)\n===== PERSPECTIVE_BOOKS_END/);
-  if (perBook) return aiMode === 'broken' ? perBookBrokenAnswer(perBook[1]) : perBookAnswer(perBook[1]);
+  // 行動を決める回は、本番と同じくアプリが質問の後ろに ACTION_REQUEST を付ける（ai.js の turnHint）。
+  const decide = userText.includes('===== ACTION_REQUEST =====');
+  if (perBook) return aiMode === 'broken' ? perBookBrokenAnswer(perBook[1], decide) : perBookAnswer(perBook[1], decide);
   const q = userText.match(/QUESTION_START =====\n([\s\S]*?)\n=====/);
   if (q) {
     // 本番は質問に近いメモを RELATED_MEMOS に分けて渡す（MEMOS からは外す）ので、両方を材料にする。
@@ -319,7 +391,7 @@ function aiReply(store, payload, aiMode = '') {
       (userText.match(/===== MEMOS_START =====\n([\s\S]*?)\n===== MEMOS_END/) || [])[1] || '',
       (userText.match(/RELATED_MEMOS_START =====\n([\s\S]*?)\n===== RELATED_MEMOS_END/) || [])[1] || '',
     ].filter(Boolean).join('\n\n');
-    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText));
+    return brainAnswer(store, q[1], block, aiMode, parseThread(userText), parseVoice(userText), decide);
   }
   if (userText.includes('のテーマまとめを、次のフォーマットで作成')) {
     const theme = (userText.match(/【テーマ】(.+)/) || [])[1] || '';
@@ -512,7 +584,7 @@ export function installDemoFetch(store) {
       const noInfo = aiMode === 'noinfo' && payload.purpose === 'consult';
       if (noInfo) { row.calls -= 1; row.cost_mjpy = Math.max(0, (row.cost_mjpy || 0) - 2760); }
       const full = noInfo
-        ? ['【結論】', 'あなたの読書記録には、このトピックに関する情報がまだありません。', '', '【明日からできる 1 つの行動】', '次に読む本で、このテーマについて心が動いた一行を 1 つメモに残す。'].join('\n')
+        ? ['【結論】', 'あなたの読書記録には、このトピックに関する情報がまだありません。このテーマの本を読んだら、心が動いた一行をメモに残すと、ここで答えられるようになります。'].join('\n')
         : aiReply(store, payload, aiMode);
       const cut = aiMode === 'cut';
       // 途中切れ: 本文の前半だけ返す（文の途中で切れる）。
