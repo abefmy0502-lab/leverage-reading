@@ -131,8 +131,17 @@ class Query {
     const qs = new URLSearchParams(window.location.search);
     // 本とメモの読み出しだけ遅らせる（課金・ログインの確認まで遅らせると、その待ち画面で止まってしまう）。
     // &load=chat: 過去の相談（chat_messages）の読み出しだけ遅らせる（相談の読み込み中の表示の確認用）。
+    // &load=memosearch / &dbfail=memosearch: すべての本の検索がメモを読む 1 回だけ遅らせる／失敗させる
+    //   （「メモの中を探しています…」「メモの中は探せませんでした」の確認用・hooks/useLibrarySearch.js の select）。
+    const memoSearch = this.op === 'select' && this.table === 'book_memos' && /page_number, tags, created_at/.test(String(this.selectStr || ''));
+    if (memoSearch && qs.get('dbfail') === 'memosearch') {
+      return new Promise((r) => setTimeout(r, 300))
+        .then(() => ({ data: null, error: { message: 'network error', code: 'demo' }, count: null }))
+        .then(resolve, reject);
+    }
     const slow = this.op === 'select' && ((qs.get('load') === 'slow' && ['books', 'book_memos'].includes(this.table))
-      || (qs.get('load') === 'chat' && this.table === 'chat_messages'));
+      || (qs.get('load') === 'chat' && this.table === 'chat_messages')
+      || (qs.get('load') === 'memosearch' && memoSearch));
     // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
     if (['insert', 'upsert', 'update'].includes(this.op) && (qs.get('writefail') || '').split(',').includes(this.table)) {
       return new Promise((r) => setTimeout(r, 300))

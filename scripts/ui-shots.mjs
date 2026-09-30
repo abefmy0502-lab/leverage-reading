@@ -94,6 +94,16 @@ const SCREENS = [
   { name: 'library-memo-search-multi', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'チーム'] }, { wait: 800 }] },
   // 一節を押す → その本の詳細で、そのメモまで送って示す
   { name: 'library-memo-search-open', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '断る'] }, { wait: 800 }, { css: 'button:has-text("断る余地")' }, { wait: 1200 }] },
+  // メモを読んでいる間（書名で見つかった本を先に・下に「メモの中を探しています…」）／読めなかったとき
+  { name: 'library-memo-search-loading', url: '/?load=memosearch', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'チーズ'] }, { wait: 800 }] },
+  { name: 'library-memo-search-loading-empty', url: '/?load=memosearch', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '断る'] }, { wait: 800 }] },
+  { name: 'library-memo-search-error', url: '/?dbfail=memosearch', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'イシュー'] }, { wait: 1200 }] },
+  // 書名で見つかった本とメモで見つかった本の両方（見出し 2 つ）
+  { name: 'library-memo-search-both', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '人'] }, { wait: 800 }] },
+  // 無料プランで「相談で探す」（下書きだけ・送らない）
+  { name: 'library-consult-search-free', url: '/?demo=free', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '雑談から始める'] }, { wait: 800 }, { css: 'button:has-text("相談で探す")' }, { wait: 1200 }] },
+  // 本を探す問いの答え（問い返さず・行動も出さない）
+  { name: 'library-consult-search-answer', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '雑談から始める'] }, { wait: 800 }, { css: 'button:has-text("相談で探す")' }, { wait: 1200 }, { css: 'button[aria-label="送信"]' }, { wait: 6000 }] },
   // 見つからない →「相談で探す」: 相談の入力欄に問いが入る（送らない）
   { name: 'library-consult-search', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '雑談から始める'] }, { wait: 800 }, { css: 'button:has-text("相談で探す")' }, { wait: 1200 }] },
   { name: 'add-book-notfound', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を追加"]' }, { fill: ['#add-book-query', 'zzzzqqqqxxxx'] }, { css: 'button:has-text("検索")' }, { wait: 1500 }] },
