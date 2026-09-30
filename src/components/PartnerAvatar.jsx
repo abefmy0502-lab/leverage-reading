@@ -46,14 +46,17 @@ function SelfTile({ size }) {
   );
 }
 
+// 内枠（1px の --separator）。表紙の画像が丸の内側を覆うので、いちばん上に重ねて縁を見せる（暗い画面でも縁が分かる）。
+const Ring = () => <span style={{ position: 'absolute', inset: 0, borderRadius: 999, boxShadow: 'inset 0 0 0 1px var(--separator)', pointerEvents: 'none' }} />;
+
 export default function PartnerAvatar({ partner, size = AVATAR_SIZE, style = null }) {
   const base = {
     position: 'relative', display: 'block', width: size, height: size, flexShrink: 0, borderRadius: 999, overflow: 'hidden',
     background: 'var(--fill)', boxShadow: 'inset 0 0 0 1px var(--separator)', ...style,
   };
   if (!partner) return <span aria-hidden="true" style={{ ...base, background: 'none', boxShadow: 'none' }} />;
-  if (partner.kind === 'self') return <span aria-hidden="true" style={base}><SelfTile size={size} /></span>;
-  if (partner.kind === 'book') return <span aria-hidden="true" style={base}><CoverTile book={partner.books[0]} /></span>;
+  if (partner.kind === 'self') return <span aria-hidden="true" style={base}><SelfTile size={size} /><Ring /></span>;
+  if (partner.kind === 'book') return <span aria-hidden="true" style={base}><CoverTile book={partner.books[0]} /><Ring /></span>;
   const tiles = [...partner.books.slice(0, GROUP_TILES).map((b) => ({ b })), ...(partner.self ? [{ self: true }] : [])].slice(0, GROUP_TILES);
   if (tiles.length === 0) {
     return (
@@ -74,6 +77,7 @@ export default function PartnerAvatar({ partner, size = AVATAR_SIZE, style = nul
           {t.self ? <SelfTile size={size / 2} /> : <CoverTile book={t.b} />}
         </span>
       ))}
+      <Ring />
     </span>
   );
 }
@@ -135,28 +139,30 @@ export function PartnerBooksSheet({ partner, title = 'この答えのもとに�
   return (
     <BottomSheet title={title} onClose={onClose}>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {partner.books.map((b) => {
+        {partner.books.map((b, i) => {
           const inner = (
             <>
               <MiniCover book={b} width={32} />
               <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>『{b.title}』</span>
+                <span style={{ fontSize: 'var(--text-body)', fontWeight: 600, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: '-0.5em' }}>『{b.title}』</span>
                 {b.author && <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{b.author}</span>}
               </span>
               {onOpenBook && b.id && <ChevronRight size={16} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
             </>
           );
+          // いちばん下の行には区切り線を引かない（下に何も無い）。
+          const rowStyle = i === partner.books.length - 1 && !partner.self ? { ...row, borderBottom: 'none' } : row;
           return (
             <li key={b.id || b.title}>
               {onOpenBook && b.id
-                ? <button type="button" style={row} onClick={() => { onClose?.(); onOpenBook(b.id); }}>{inner}</button>
-                : <div style={row}>{inner}</div>}
+                ? <button type="button" style={rowStyle} onClick={() => { onClose?.(); onOpenBook(b.id); }}>{inner}</button>
+                : <div style={rowStyle}>{inner}</div>}
             </li>
           );
         })}
         {partner.self && (
           <li>
-            <div style={row}>
+            <div style={{ ...row, borderBottom: 'none' }}>
               <span style={{ width: 32, height: 32, borderRadius: 999, overflow: 'hidden', flexShrink: 0 }}><SelfTile size={32} /></span>
               <span style={{ fontSize: 'var(--text-body)', fontWeight: 600 }}>自分の学び</span>
             </div>
