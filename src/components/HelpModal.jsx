@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getHelp } from '../lib/helpContent';
+import { withPhraseBreaks } from './TightBubble';
 
 // よくある質問 — 答えは決まっているので AI を走らせず、あらかじめ用意した
 // 確定回答をその場で開いて見せる（原価ゼロ・即答・幻覚なし）。
@@ -193,7 +194,7 @@ const footerStyle = {
 // すべての helpKey で同じ「番号付きカード」見た目になるよう steps と
 // sections の両方を共通の renderCardSteps で描画する。
 
-const stepSubtitle = { fontSize: 'var(--text-sub)', color: 'var(--c-ink-2)', lineHeight: 1.7, margin: '0 0 var(--space-3)' };
+const stepSubtitle = { fontSize: 'var(--text-sub)', color: 'var(--c-ink-2)', lineHeight: 1.7, margin: '0 0 var(--space-3)', wordBreak: 'keep-all', overflowWrap: 'break-word' };
 const stepCard = {
   background: 'var(--surface)',
   border: '1px solid var(--c-hairline)',
@@ -201,8 +202,12 @@ const stepCard = {
   padding: 'var(--space-4)',
   marginBottom: 'var(--space-3)',
   boxShadow: 'none',
+  // 文節の切れ目（withPhraseBreaks の <wbr>）でだけ折り返す。長い英数字だけは端で折る（2026-09-30）。
   wordBreak: 'keep-all',
-  overflowWrap: 'anywhere',
+  overflowWrap: 'break-word',
+  // 画面の外のカードは描くのを後回しにする（長いヘルプを開いたときの初回の描画を軽く・2026-09-30）。
+  contentVisibility: 'auto',
+  containIntrinsicSize: 'auto 160px',
   width: '100%',
   maxWidth: '100%',
   boxSizing: 'border-box',
@@ -248,31 +253,11 @@ function numberFor(step, index) {
   return String(index + 1);
 }
 
-// 改行されたくない語を自動 nowrap 化 — `word-break: keep-all` は CSS 仕様上
-// 数字↔CJK の境目 (例: 「3ヶ月前」の 3 と ヶ の間) では効かないため、
-// JSX レベルで <span class="nowrap"> で囲む必要がある。
-// ここに追加するパターン:
-//   - 数字 + 単位 (ヶ月前 / 週間 / 日 / 年 / 冊 / 時間 / メモ / カード …)
-//   - 半年前 / 半年 などの慣用句
-//   - ブランド/専門語 (AI 読書計画 / マイ読書脳 / カード式メモ / 投資の効果 …)
-const NOWRAP_RE = /(\d+(?:ヶ月前|ヶ月|週間|日前|日|年前|年|冊|時間|分|メモ|カード|位))|(半年前|半年)|(読書計画シート|AI 読書計画|AI 選書|AI まとめ|マイ読書脳|カード式メモ|まとめメモ|投資の効果|投資対効果|テーマまとめ|学びログ)/g;
-
-function wrapNowrap(text) {
-  if (text == null) return text;
-  if (typeof text !== 'string') return text; // React node なら素通し
-  const parts = [];
-  let lastIndex = 0;
-  // 正規表現は state-ful なので毎呼び出しでリセット
-  NOWRAP_RE.lastIndex = 0;
-  let m;
-  let key = 0;
-  while ((m = NOWRAP_RE.exec(text)) !== null) {
-    if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
-    parts.push(<span key={`nw-${key++}`} className="nowrap">{m[0]}</span>);
-    lastIndex = NOWRAP_RE.lastIndex;
-  }
-  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
-  return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : parts;
+// 文節の切れ目で折り返す（BudouX の <wbr>＋keep-all）。「3 ヶ月」「読書計画シート」なども 1 文節として割らない
+// （以前は keep-all だけで折り返せる所が無く、overflow-wrap: anywhere で語の途中で割れていた・2026-09-30）。
+function phrased(text) {
+  if (text == null || typeof text !== 'string') return text; // React node なら素通し
+  return withPhraseBreaks(text);
 }
 
 // steps と sections を 1 つの shape に正規化 (heading→title, body→description, items→bullets)。
@@ -343,25 +328,25 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
             <h3 style={sectionTitleStyle}>📖 {entry?.title || 'この画面のヘルプ'}</h3>
             {entry ? (
               <>
-                {entry.description && <p style={stepSubtitle}>{entry.description}</p>}
+                {entry.description && <p style={stepSubtitle}>{phrased(entry.description)}</p>}
                 {normalizeSteps(entry).map((s, i) => (
                   <section key={i} style={stepCard}>
                     <h4 style={stepTitle}>
                       <span style={stepNumber} aria-hidden="true">{s.number}</span>
-                      <span>{wrapNowrap(s.title)}</span>
+                      <span>{phrased(s.title)}</span>
                     </h4>
-                    {s.body && <p style={stepBody}>{wrapNowrap(s.body)}</p>}
+                    {s.body && <p style={stepBody}>{phrased(s.body)}</p>}
                     {s.bullets.length > 0 && (
                       <ul style={stepBulletList}>
                         {s.bullets.map((b, j) => (
                           <li key={j} style={stepBullet}>
                             <span aria-hidden="true" style={stepBulletMark}>・</span>
-                            <span>{wrapNowrap(b)}</span>
+                            <span>{phrased(b)}</span>
                           </li>
                         ))}
                       </ul>
                     )}
-                    {s.footer && <p style={stepFooter}>{wrapNowrap(s.footer)}</p>}
+                    {s.footer && <p style={stepFooter}>{phrased(s.footer)}</p>}
                   </section>
                 ))}
                 {entry.tip && (
@@ -391,13 +376,13 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
                       style={faqQuestionStyle}
                       aria-expanded={open}
                     >
-                      <span>{item.q}</span>
+                      <span style={{ wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{phrased(item.q)}</span>
                       <span
                         aria-hidden="true"
                         style={{ color: 'var(--c-brand)', flexShrink: 0, marginLeft: 'var(--space-2)', transition: 'transform .15s ease', transform: open ? 'rotate(180deg)' : 'none' }}
                       >⌄</span>
                     </button>
-                    {open && <p style={faqAnswerStyle}>{item.a}</p>}
+                    {open && <p style={{ ...faqAnswerStyle, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>{phrased(item.a)}</p>}
                   </div>
                 );
               })}
