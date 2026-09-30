@@ -572,11 +572,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       await new Promise((r) => { setTimeout(r, 250); });
     }
     if (stale()) return null;
-    const solid = results.filter((r) => r._verify !== 'suspect');   // 実在確認 or 不明（罰しない）
-    const suspects = results.filter((r) => r._verify === 'suspect'); // 実在しない疑い
+    // 並びは「実在を確かめた本」→「確かめられなかった本」→「実在しない疑いの本」（同じ組の中は AI の順のまま）。
+    const verified = results.filter((r) => r._verify === 'ok');       // 実在を確かめた
+    const unknown = results.filter((r) => r._verify === 'unknown');   // 確かめられなかった（罰しないが、確かめた扱いにもしない）
+    const suspects = results.filter((r) => r._verify === 'suspect');  // 実在しない疑い
     // ハルシネーション（実在の著者＋架空の書名）は原則カードに出さない。
-    // ただし solid が 3 冊未満（検証 API が不調な日）は suspects を落とすとカードが
+    // ただし疑い以外が 3 冊未満（検証 API が不調な日）は suspects を落とすとカードが
     // 1〜2 枚に痩せるため、⚠️警告バッジ付きで残して枚数を維持する（正直に「確認できていない」を見せる方を選ぶ）。
+    const solid = [...verified, ...unknown];
     const items = (solid.length >= 3 ? solid : [...solid, ...suspects]).slice(0, 5);
     setRecommendations((prev) => (prev ? { ...prev, items, checked: true } : prev));
     return items;
@@ -955,6 +958,10 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   // 本文の書名の許可リスト（実在を確かめたカードの本＋本棚の本だけ・lib/advisorProse.js・2026-09-30）。
   //   前置き・読む順番・補足・会話の再開で出す AI の文・生成中のライブの前置きのすべてにかける。
   const proseLists = proseTitleLists(recommendations?.items, books);
+  // 検証が終わって、どの本も確かめられなかった（検索元が使えなかった）＝カードの下に 1 行の注意だけを出す
+  //   （同じ「確認できませんでした」をカードごとに並べない）。
+  const recoItems = Array.isArray(recommendations?.items) ? recommendations.items : [];
+  const allUnverifiable = recommendations?.checked !== false && recoItems.length > 0 && recoItems.every((r) => r?._verify === 'unknown');
   const cleanProseTitles = (text) => filterProseTitles(text, proseLists);
 
   const isEmpty = messages.length === 0 && !recommendations;
@@ -1588,6 +1595,16 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 {/* 実在を確認できなかった本（AI が実在しない書名を挙げた疑い）。
                     削除はせず注意喚起に留める（実在するのに検証を取りこぼした本を
                     誤って葬らないため）。 */}
+                {/* 実在を確かめられなかった本（通信失敗・検索元が使えない）。疑いではないので短い 1 行。
+                    すべての本が確かめられなかったときは、カードの下の 1 行の注意にまとめる。 */}
+                {rec._verify === 'unknown' && !allUnverifiable && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-soft)', borderRadius: 'var(--radius)' }}>
+                    <IcAlert size={16} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
+                    <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>
+                      確認できませんでした
+                    </p>
+                  </div>
+                )}
                 {rec._verify === 'suspect' && (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-soft)', borderRadius: 'var(--radius)' }}>
                     <IcAlert size={16} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
@@ -1663,6 +1680,11 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
               </div>
             );
           })}
+          {allUnverifiable && (
+            <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>
+              本の実在を確かめられませんでした。購入前に書名を確かめてください
+            </p>
+          )}
         </div>
           {/* 「## 📋 読む順番」等は Markdown（表・見出し・箇条書き）として描画。励ましだけの「まとめ」は出さない。 */}
           {/* 書名は実在を確かめたカードの本・本棚の本だけ（検証が終わるまでは出さない＝架空の書名を一瞬でも見せない）。 */}

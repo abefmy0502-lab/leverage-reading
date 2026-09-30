@@ -13,6 +13,7 @@ import {
   Trash2,
   MessageSquare,
   Plus,
+  TriangleAlert,
 } from 'lucide-react';
 import EmptyState from './EmptyState.jsx';
 import MarkdownSections from './MarkdownSections';
@@ -219,6 +220,15 @@ function RecommendationCard({ book, isAdded, isAdding, onAdd }) {
       </p>
       {book.author && (
         <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-1) 0 0' }}>{book.author}</p>
+      )}
+      {/* 実在の検証の結果（会話中のカードと同じ文言・2026-09-30）。確かめた本と、結果を持たない古い会話には出さない。 */}
+      {(book._verify === 'unknown' || book._verify === 'suspect') && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--warning-soft)', borderRadius: 'var(--radius)' }}>
+          <TriangleAlert size={16} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
+          <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>
+            {book._verify === 'unknown' ? '確認できませんでした' : 'この本は書誌情報が見つかりませんでした。書名・著者が正しいか、実在する本かご確認ください。'}
+          </p>
+        </div>
       )}
 
       {book.why && (
