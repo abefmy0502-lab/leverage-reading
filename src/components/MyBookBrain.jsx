@@ -137,7 +137,8 @@ const evidencePending = { ...summaryStyle, width: '100%', marginTop: 'var(--spac
 // 書いている途中の「明日からできる一歩」の本文の高さ（ふつうの一歩の 3 行ぶん）。骨組みと書いている途中の両方で使う。
 const STEP_SKELETON_LINES = 3;
 const STEP_SKELETON_HEIGHT = `calc(var(--text-read) * 1.6 * ${STEP_SKELETON_LINES})`;
-const nextStepBox = { background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4)' };
+// 内側は上下左右 12（カードの内側 16 の中にもう一段 16 を取ると、一歩の文が 1 行 10 字ほどで折り返して短すぎた・2026-09-30 ui-critic）。
+const nextStepBox = { background: 'var(--fill)', borderRadius: 'var(--radius)', padding: 'var(--space-3)' };
 // 🎯 あなたに聞きたいこと（2026-09-30）: 問いはふつう 1〜2 行。書いている間は 2 行ぶんを取っておく（行動の箱と同じ考え方）。
 const ASK_SKELETON_LINES = 2;
 const ASK_SKELETON_HEIGHT = `calc(var(--text-read) * 1.6 * ${ASK_SKELETON_LINES})`;
