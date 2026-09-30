@@ -52,7 +52,7 @@ const consumePreset = (kind, nonce) => {
 };
 
 import BottomSheet from './BottomSheet';
-import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE_SMALL } from './PartnerAvatar';
+import PartnerAvatar, { PartnerRow, PartnerBooksSheet, AVATAR_SIZE, AVATAR_SIZE_SMALL } from './PartnerAvatar';
 import { consultPartner, partnerFromScope, bookForRef, withVoice, decodeVoice, encodeVoice, VOICE_PREFIX } from '../lib/consultPartner';
 import { fetchAllRows } from '../lib/fetchAllRows';
 
@@ -166,6 +166,8 @@ function isNoInfoAnswer(m) {
 
 const CATEGORIES = ['会話', '経験', '観察', '気づき', 'その他'];
 
+// 答えの吹き出しの列の左端（相手のアイコン 32 ＋ 間 8）。答えの下の文字ボタン・注記もこの列にそろえる（2026-09-30）。
+const ANSWER_COLUMN = `calc(${AVATAR_SIZE}px + var(--space-2))`;
 // 🗣 著者の語り口の答えを初めて見たときの一行（閉じたら二度と出さない・端末に覚える・2026-09-30）。
 const VOICE_NOTE_KEY = 'orime-author-voice-note-v1';
 const VOICE_NOTE_TEXT = '著者本人ではなく、AI が本とあなたのメモをもとに語り口をまねています';
@@ -174,7 +176,7 @@ const markVoiceNoteDone = () => { try { localStorage.setItem(VOICE_NOTE_KEY, '1'
 // 答えのアイコンの列（32）＋間（8）だけ下げて、名前の行と左端をそろえる一行（13/--text-2・右に閉じる ×）。
 function VoiceNote({ onDismiss }) {
   return (
-    <div role="note" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'calc(32px + var(--space-2))', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+    <div role="note" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
       <p style={{ flex: 1, minWidth: 0, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(VOICE_NOTE_TEXT)}</p>
       <button type="button" onClick={onDismiss} aria-label="閉じる" style={{ ...iconBtn, color: 'var(--text-3)', marginRight: 'calc(-1 * var(--space-3))', marginBlock: 'calc((1.5em - 44px) / 2)' }}>
         <X size={16} aria-hidden="true" />
@@ -1759,6 +1761,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             )}
             {visibleMessages.map((m, i) => (
               <Fragment key={m.id}>
+                {/* はじめての語り口の答えは、案内の一行と答えを 1 つのまとまりに（間 8・相談の吹き出しとは離す）。 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {!voiceNoteDone && m.id === lastVoicedId && (
                   <VoiceNote onDismiss={() => { markVoiceNoteDone(); setVoiceNoteDone(true); track('brain_voice_note', { action: 'dismiss' }); }} />
                 )}
@@ -1780,6 +1784,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   memoBookIds={memoBookIds}
                   onShowPartner={setPartnerSheet}
                 />
+                </div>
                 {/* 🔔 はじめて「行動に追加」した直後に 1 回だけ、思い出しの通知の案内（lib/notifyOptIn.js）。
                     最後の答えのときは、答えの下の文字ボタンの行（別の角度で答えて…）の後ろに出す（答えと操作を離さない・2026-09-29） */}
                 {optinAfterId === m.id && !(answerRowShown && i === visibleMessages.length - 1) && <NotifyOptInCard where="action" />}
@@ -1790,24 +1795,24 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
               （読み終えるまで画面を奪わない） */}
           {freeUsedUp && !busy && lastIsAssistant && !isEmpty && (
-            <FreeUsedCard tokenAllowance={tokenAllowance} onOpen={() => openPaywall('free_used')} onSearch={searchMemos} style={{ marginTop: 'var(--space-6)' }} />
+            <FreeUsedCard tokenAllowance={tokenAllowance} onOpen={() => openPaywall('free_used')} onSearch={searchMemos} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
           {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているのでボタンだけ。
               まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}
           {planOut && !busy && lastIsAssistant && !isEmpty && (
             <>
               {/* 7 日間無料は枠線のボタン（まもなく毎月のトークンが来るので強くすすめない・2026-09-30） */}
-              <button type="button" onClick={openTokenSheet} style={{ ...(plan === 'trial' ? uiBtnGhost : uiBtnPrimary), marginTop: 'var(--space-4)' }}>
+              <button type="button" onClick={openTokenSheet} style={{ ...(plan === 'trial' ? uiBtnGhost : uiBtnPrimary), marginTop: 'var(--space-4)', marginLeft: ANSWER_COLUMN, width: `calc(100% - ${AVATAR_SIZE}px - var(--space-2))` }}>
                 トークンを追加
               </button>
               {/* 7 日間無料: 続けないときの解約の期限を日付だけで（2026-09-29・「あと N 日」は出さない） */}
-              {trialCancelLine && <p style={trialCancelLineStyle}>{withPhraseBreaks(trialCancelLine)}</p>}
+              {trialCancelLine && <p style={{ ...trialCancelLineStyle, marginLeft: ANSWER_COLUMN }}>{withPhraseBreaks(trialCancelLine)}</p>}
             </>
           )}
 
           {answerRowShown && (
             // 答えのカード → 文字ボタンの文字まで約 20（8 ＋ 押せる範囲 44 の上の空き）。文字の左端は余白 16 に揃える。
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: 'var(--space-2)', marginLeft: ANSWER_COLUMN }}>
               {/* 無料のトークンを使い切ったら、できない操作を出さない */}
               {/* 失敗した答えには吹き出しの「もう一度」があるので、ここでは出さない */}
               {/* 関係するメモが無かった答えは、角度を変えても答えられないので「本を追加」「学びを書く」へ（2026-09-29） */}
@@ -1826,13 +1831,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             </div>
           )}
           {answerRowShown && optinAfterId && optinAfterId === visibleMessages[visibleMessages.length - 1]?.id && (
-            <NotifyOptInCard where="action" style={{ marginTop: 'var(--space-6)' }} />
+            <NotifyOptInCard where="action" style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
           <div ref={messagesEndRef} />
           {/* AI 免責注記（App Store 審査ガイドライン対応 + 誠実な期待値設定）。固定表示にすると
               会話の面積を削るので、会話の流れの最後（空の画面・答えの下）に置く。 */}
           {historyLoaded && !busy && (isEmpty ? (memoStatsLoaded && (ownMemoTotal > 0 || memoStatsFailed) && !planOut && !freeUsedUp && !(scopeIds.length > 0 && scopeMemoCount === 0)) : (lastIsAssistant && !visibleMessages[visibleMessages.length - 1]?.notice && !visibleMessages[visibleMessages.length - 1]?.error)) && (
-            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-6) 0 0', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-3)', margin: 'var(--space-6) 0 0', lineHeight: 1.5, ...(isEmpty ? null : { marginLeft: ANSWER_COLUMN }) }}>
               AI の回答には誤りが含まれることがあります
             </p>
           )}
