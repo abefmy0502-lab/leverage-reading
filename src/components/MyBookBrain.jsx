@@ -171,6 +171,8 @@ const ANSWER_COLUMN = `calc(${AVATAR_SIZE}px + var(--space-2))`;
 // 🗣 著者の語り口の答えを初めて見たときの一行（閉じたら二度と出さない・端末に覚える・2026-09-30）。
 const VOICE_NOTE_KEY = 'orime-author-voice-note-v1';
 const VOICE_NOTE_TEXT = '著者本人ではなく、AI が本とあなたのメモをもとに語り口をまねています';
+// 語り口の答えの最後にいつも出す一行（13/--text-3）。
+const VOICE_FOOT_TEXT = 'AI が本とあなたのメモから語り口をまねた答えです';
 const isVoiceNoteDone = () => { try { return localStorage.getItem(VOICE_NOTE_KEY) === '1'; } catch { return false; } };
 const markVoiceNoteDone = () => { try { localStorage.setItem(VOICE_NOTE_KEY, '1'); } catch { /* 覚えられなくても閉じる */ } };
 // 答えのアイコンの列（32）＋間（8）だけ下げて、名前の行と左端をそろえる一行（13/--text-2・右に閉じる ×）。
@@ -2766,6 +2768,10 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
       </div>
     </details>
   ) : null);
+  // 🗣 語り口の答えには、いつも答えの最後に一行（はじめての案内は閉じられるので、それだけに頼らない・2026-09-30）。
+  const renderVoiceLine = () => (voice && !isStreaming ? (
+    <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(VOICE_FOOT_TEXT)}</p>
+  ) : null);
   const renderNote = (p) => (p.note ? <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', whiteSpace: 'pre-wrap' }}>{p.note}</p> : null);
 
   // 答えが 1 文字も返らなかった失敗は、答えのカードに入れず ErrorMessage だけを置く
@@ -2857,6 +2863,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
             {!isStreaming && renderDetails(perBook)}
             {!isStreaming && renderNote(perBook)}
             {renderRefund()}
+            {renderVoiceLine()}
           </div>
           </PartnerRow>
         )}
@@ -2999,6 +3006,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, onAddAct
           {renderEvidence()}
           {renderDetails(parsed)}
           {renderNote(parsed)}
+          {renderVoiceLine()}
         </>
       ) : (
         <div style={readText}><PlainAnswer text={message.content} /></div>
