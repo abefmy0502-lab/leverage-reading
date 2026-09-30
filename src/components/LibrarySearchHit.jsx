@@ -65,7 +65,13 @@ const LibrarySearchHit = memo(function LibrarySearchHit({ result, onOpen, onAuto
       {hit && (
         // 一節は書名の列（表紙 44＋間 12）にそろえる。ページ・欄の名前は 13/--text-3、一節は読む文章（明朝）で 2 行まで。
         <span style={{ display: 'block', marginTop: 'var(--space-2)', paddingLeft: 'calc(44px + var(--space-3))' }}>
-          {label && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>{label}</span>}
+          {(label || hit.tag) && (
+            <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>
+              {label}
+              {/* メモのタグだけで見つかったときは、そのタグに印（本文に言葉が無くても理由が分かる・2026-09-30） */}
+              {hit.tag && <>{label ? ' · ' : ''}<mark style={{ ...markStyle, color: 'var(--text-2)' }}>#{hit.tag}</mark></>}
+            </span>
+          )}
           <span
             style={{
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',

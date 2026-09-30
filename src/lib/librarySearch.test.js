@@ -176,3 +176,28 @@ describe('相談で探す', () => {
     expect(consultQuestionFor('あ'.repeat(50))).toBe(`『${'あ'.repeat(40)}…』みたいなことを書いた本はどれ？`);
   });
 });
+
+describe('メモのタグだけで見つかったとき', () => {
+  it('一節の上にそのタグを出す（本文に言葉が無くても理由が分かる）', () => {
+    const idx = buildLibraryIndex(
+      [{ id: 'e', title: 'エッセンシャル思考' }],
+      [{ id: 'm', book_id: 'e', page_number: 18, text: '「全部やる」はできない。', tags: ['仕事術'] }],
+    );
+    const r = searchLibrary(idx, '仕事術');
+    expect(r.results.map((x) => x.book.id)).toEqual(['e']);
+    expect(r.results[0].hit).toMatchObject({ kind: 'memo', memoId: 'm', page: 18, tag: '仕事術' });
+    expect(text(r.results[0].hit.segments)).toBe('「全部やる」はできない。');
+  });
+  it('本文で見つかった文があれば、そちらを先に（タグは出さない）', () => {
+    const idx = buildLibraryIndex(
+      [{ id: 'e', title: 'X' }],
+      [
+        { id: 'a', book_id: 'e', text: '別のこと', tags: ['仕事術'] },
+        { id: 'b', book_id: 'e', text: '仕事術の基本を学ぶ' },
+      ],
+    );
+    const hit = searchLibrary(idx, '仕事術').results[0].hit;
+    expect(hit.memoId).toBe('b');
+    expect(hit.tag).toBe(null);
+  });
+});

@@ -173,6 +173,7 @@ export function buildLibraryIndex(books = [], memos = []) {
       page: Number.isFinite(m.page_number ?? m.pageNumber) ? (m.page_number ?? m.pageNumber) : null,
       text,
       norm: normalizeSearch(text),
+      tags,
       tagNorm: tags.length ? normalizeSearch(tags.join(' ')) : '',
       createdAt: m.created_at || m.createdAt || '',
     });
@@ -275,7 +276,8 @@ export function buildSnippet(text, compiled, { chars = SNIPPET_CHARS, lead = 10,
 // 返り値: { terms, results: [{ book, meta, matched, score, hit }] }（見つかった本だけ・並べ替え済み）
 //   meta:    書名・著者・タグで見つかった（先に並べる・一節は出さない）
 //   matched: 見つかった言葉の数（切れ端・語尾を外した形も 1 と数える）
-//   hit:     メモなどで見つかったときの一節 { kind: 'memo'|'summary'|'prep', memoId, page, label, segments } | null
+//   hit:     メモなどで見つかったときの一節 { kind: 'memo'|'summary'|'prep', memoId, page, tag, label, segments } | null
+//            tag: メモのタグだけで見つかったとき、そのタグ（画面は「p.18 · #仕事術」とタグに印を付ける）
 export function searchLibrary(index, query) {
   const terms = splitQuery(query);
   if (!terms.length) return { terms, results: [] };
@@ -314,23 +316,36 @@ export function searchLibrary(index, query) {
     if (rest.length) {
       let bestTx = null;
       let bestKey = null;
+      let bestTag = null;
       for (const tx of entry.texts) {
         let n = 0;
         let w = 0;
+        let inText = 0;
+        let tagHit = null;
         for (const ct of rest) {
-          const m = matchTerm(tx.norm, ct);
-          if (m) { n += 1; w += m.weight; }
+          // 本文で見つからなくても、メモのタグで見つかれば数える（上の本の絞り込みと同じ決まり）
+          const m = matchTerm(tx.norm, ct) || (tx.tagNorm && matchTerm(tx.tagNorm, ct));
+          if (!m) continue;
+          n += 1;
+          w += m.weight;
+          if (matchTerm(tx.norm, ct)) inText += 1;
+          else if (!tagHit) tagHit = (tx.tags || []).find((t) => matchTerm(normalizeSearch(t), ct)) || null;
         }
         if (!n) continue;
-        const key = [n, w, -TEXT_ORDER[tx.kind]];
-        const better = !bestKey || key[0] > bestKey[0] || (key[0] === bestKey[0] && (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])));
-        if (better) { bestTx = tx; bestKey = key; }
+        // 同じ数なら本文で見つかった文を先に（タグだけの文は理由が一節に出ないため）
+        const key = [n, inText, w, -TEXT_ORDER[tx.kind]];
+        let better = !bestKey;
+        for (let i = 0; !better && i < key.length; i += 1) {
+          if (key[i] !== bestKey[i]) { better = key[i] > bestKey[i]; break; }
+        }
+        if (better) { bestTx = tx; bestKey = key; bestTag = inText ? null : tagHit; }
       }
       if (bestTx) {
         hit = {
           kind: bestTx.kind,
           memoId: bestTx.kind === 'memo' ? bestTx.id : null,
           page: bestTx.kind === 'memo' ? bestTx.page : null,
+          tag: bestTag,
           label: bestTx.kind === 'memo' ? null : bestTx.label,
           segments: buildSnippet(bestTx.text, rest),
         };
