@@ -67,6 +67,11 @@ const rowStyle = (last) => ({
   borderBottom: last ? 'none' : '1px solid var(--separator)',
 });
 
+// 🧪 開発専用（お試しモード）: &share=editslow で編集画面の読み込み中、&share=editfail で描けなかったときを撮る。
+const DEMO_EDIT = import.meta.env.DEV && import.meta.env.VITE_DEMO === 'true' && typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search).get('share')
+  : null;
+
 const TAP_MS = 320;
 const MOVE_PX = 6;
 
@@ -103,8 +108,9 @@ export default function ShareEditor({
   // ---- 全部を 1080 幅で描く（共有する画像と同じ）
   const fullDraw = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !ready) return;
+    if (!canvas || !ready || DEMO_EDIT === 'editslow') return;
     try {
+      if (DEMO_EDIT === 'editfail') throw new Error('紙・夜など、ほかの色を選ぶか、もう一度お試しください。');
       const opts = getOpts();
       const r = drawShareCard(canvas, opts);
       setSize((s) => (s.w === r.width && s.h === r.height ? s : { w: r.width, h: r.height }));
