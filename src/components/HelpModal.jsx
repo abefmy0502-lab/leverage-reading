@@ -1,7 +1,7 @@
 // 📖 ヘルプ（画面ごと）
 //
 // 2026-09-30 に「10 秒で分かる」形へ作り直した（オーナー要望「ヘルプの説明が長すぎてわかりにくい」）:
-//   1. 画面の名前 ＋ 何のための画面かの 1 文（summary）
+//   1. 上の行に「◯◯のヘルプ」、中身の先頭に何のための画面かの 1 文（summary）
 //   2. まずはこれだけ — 3 つの手順（quickSteps）
 //   3. くわしく — 項目の一覧（topics）。ふだんは畳んで、押すと 1〜3 行が開く（details）。一覧そのものが目次
 //   4. よくある質問（HELP_FAQ）— 同じ畳む一覧。答えは決まっているので AI は使わない
@@ -84,18 +84,11 @@ const bodyStyle = {
   boxSizing: 'border-box',
 };
 
-const screenTitleStyle = {
-  fontSize: 'var(--text-heading)',
-  fontWeight: 600,
-  color: 'var(--text)',
-  lineHeight: 1.3,
-  margin: 0,
-};
 const summaryStyle = {
   fontSize: 'var(--text-body)',
   color: 'var(--text)',
   lineHeight: 1.5,
-  margin: 'var(--space-2) 0 0',
+  margin: 0,
 };
 const groupTitleStyle = { ...groupTitle, margin: '0 0 var(--space-2)' };
 const strongStyle = { fontWeight: 600, color: 'var(--text)' };
@@ -280,7 +273,7 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
     <div className={closing ? 'modal-backdrop-exit' : 'modal-backdrop'} style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="help-modal-title" onClick={requestClose}>
       <div ref={trapRef} className={closing ? 'modal-exit' : 'modal'} style={cardStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h2 id="help-modal-title" style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>ヘルプ</h2>
+          <h2 id="help-modal-title" style={{ fontSize: 'var(--text-body)', color: 'var(--text)', margin: 0, fontWeight: 600, flex: 1 }}>{entry ? `${entry.title}のヘルプ` : 'ヘルプ'}</h2>
           <button type="button" style={closeBtnStyle} onClick={requestClose} aria-label="閉じる"><X size={20} aria-hidden="true" /></button>
         </div>
 
@@ -299,7 +292,6 @@ export default function HelpModal({ helpKey, onClose, onShowOnboarding }) {
           {entry ? (
             <>
               <section>
-                <h3 style={screenTitleStyle}>{entry.title}</h3>
                 {entry.summary && <p style={summaryStyle}>{rich(entry.summary)}</p>}
               </section>
 
