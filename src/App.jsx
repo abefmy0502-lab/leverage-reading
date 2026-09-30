@@ -1074,7 +1074,7 @@ function AuthedApp() {
   useBackLayer(addBookModalOpen, () => setAddBookModalOpen(false));
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
   const [fullEditorPrefill, setFullEditorPrefill] = useState(null); // { pageNumber, text }
-  // 🔗 本の詳細でいま保存したメモ（本と本がつながる・一覧の上に「いま書いたメモと似たことを、ほかの本でも」・2026-10-01）。
+  // 🔗 本の詳細でいま保存したメモ（本と本がつながる・一覧の上に「いま書いたメモと似たメモ」・2026-10-01）。
   const [detailSavedMemo, setDetailSavedMemo] = useState(null); // { id, bookId, text, nonce }
   const onboardingTriggeredRef = useRef(false);
   // Setup-sheet edit history visibility — bumps to force re-read of the

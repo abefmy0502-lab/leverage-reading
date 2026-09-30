@@ -193,7 +193,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 // editFocusedMemo: focusMemoId のメモまで送ったあと、そのメモの編集を開く（振り返りの月ごとのメモを押したとき・2026-09-30）。
 // books: 本棚の本（本と本がつながる＝ほかの本の書名・表紙に使う）。
 // savedMemo: いま保存したメモ { id, bookId, text, nonce }（メモを書くシート・全画面の入力で保存したとき・App が渡す）。
-//   ほかの本で似たことを書いていれば、一覧の上に「いま書いたメモと似たことを、ほかの本でも」を 1 枚（次に保存するか、本を離れるまで）。
+//   ほかの本で似たことを書いていれば、一覧の上に「いま書いたメモと似たメモ」を 1 枚（次に保存するか、本を離れるまで）。
 export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null }) {
   const [sortBy, setSortBy] = useState('page');
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null

@@ -2,19 +2,22 @@
 // ほかの本で似たことを書いたメモを 1〜2 件。行はすべての本の検索のメモの行（LibrarySearchHit の inline）と同じ組み立て
 // （表紙 44・書名・「p.64 · 5/27」・明朝 15 の一節・共有する言葉に印）。押すとその本のそのメモを開く。
 //   variant 'card':    メモのカード・メモの編集の画面の中（上に --separator の線・小さな見出し「つながるメモ」）
-//   variant 'saved':   保存したあと、本の詳細のメモの一覧の上に 1 枚（カードの面・「いま書いたメモと似たことを、ほかの本でも」・×）
+//   variant 'saved':   保存したあと、本の詳細のメモの一覧の上に 1 枚（カードの面・「いま書いたメモと似たメモ」・×）
 //   variant 'compact': 「保存して次へ」のあと、書く画面のいちばん上に 1 行（書き続けるのを邪魔しない・×）
 import { ChevronRight, Link2, X } from 'lucide-react';
 import LibrarySearchHit from './LibrarySearchHit';
 import { withPhraseBreaks } from './TightBubble';
 import { groupTitle } from '../styles/ui';
 
-export const SAVED_LINKS_TITLE = 'いま書いたメモと似たことを、ほかの本でも';
+export const SAVED_LINKS_TITLE = 'いま書いたメモと似たメモ';
 export const CARD_LINKS_TITLE = 'つながるメモ';
 
 // カードの押す・長押し・スワイプに届かせない（中の行を押したら、そのメモを開くだけ）。
 const stop = (e) => e.stopPropagation();
 const guard = { onClick: stop, onTouchStart: stop, onMouseDown: stop };
+
+// 保存したあとの見出しの 1 行の高さ（13 × 1.5）。
+const HEAD_LINE = 'calc(var(--text-meta) * 1.5)';
 
 const closeBtn = {
   width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -61,12 +64,15 @@ export default function MemoLinks({ links, onOpen, onDismiss = null, variant = '
         className="list-item-enter"
         style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)', ...style }}
       >
-        {/* 1 行目は見出し（13/--text-2）と右端の ×（押せる範囲 44・見た目をカードの余白 16 の角にそろえる）。 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minHeight: 44, marginRight: 'calc(-1 * var(--space-3))' }}>
-          <Link2 size={16} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--text-2)' }} />
+        {/* 1 行目は見出し（13/--text-2・上に 8）と右端の ×（押せる範囲 44 のまま、負の余白で見出しの行の高さの中心と
+            カードの右の余白 16 の角にそろえる）。 */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', paddingTop: 'var(--space-2)', marginRight: 'calc(-1 * var(--space-3))' }}>
+          <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: HEAD_LINE, flexShrink: 0, color: 'var(--text-2)' }}>
+            <Link2 size={16} />
+          </span>
           <h3 style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-meta)', fontWeight: 400, color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(SAVED_LINKS_TITLE)}</h3>
           {onDismiss && (
-            <button type="button" onClick={onDismiss} aria-label="閉じる" style={closeBtn}>
+            <button type="button" onClick={onDismiss} aria-label="閉じる" style={{ ...closeBtn, marginTop: `calc((${HEAD_LINE} - 44px) / 2)` }}>
               <X size={18} aria-hidden="true" />
             </button>
           )}
