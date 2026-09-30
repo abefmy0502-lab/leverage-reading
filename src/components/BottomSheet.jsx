@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
+import { closeDelayMs } from '../lib/motion';
 
 const backdrop = {
   position: 'fixed',
@@ -48,8 +49,11 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
   const [closing, setClosing] = useState(false);
   const animateClose = () => {
     if (closing || !dismissible) return;
+    // 動きを減らす設定では待たずに閉じる（2026-09-30）。
+    const wait = closeDelayMs(220);
+    if (!wait) { onClose?.(); return; }
     setClosing(true);
-    setTimeout(() => onClose?.(), 220);
+    setTimeout(() => onClose?.(), wait);
   };
 
   useEffect(() => {

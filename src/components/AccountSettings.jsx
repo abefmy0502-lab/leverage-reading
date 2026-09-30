@@ -40,6 +40,7 @@ import { ChevronRight, Download as IcDownload, RefreshCw as IcRefresh } from 'lu
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
+import { closeDelayMs } from '../lib/motion';
 import {
   isPushSupported,
   isPushConfigured,
@@ -398,8 +399,11 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   useEffect(() => () => clearTimeout(closeTimerRef.current), []);
   const animateClose = () => {
     if (closing) return;
+    // 動きを減らす設定では待たずに閉じる（透明の背景が残って下の画面を押せない時間を作らない・2026-09-30）。
+    const wait = closeDelayMs(220); // アニメの長さと同じ
+    if (!wait) { onClose?.(); return; }
     setClosing(true);
-    closeTimerRef.current = setTimeout(() => onClose?.(), 220); // アニメの長さと同じ
+    closeTimerRef.current = setTimeout(() => onClose?.(), wait);
   };
   const [exporting, setExporting] = useState(false);
   const [exportingMd, setExportingMd] = useState(false);

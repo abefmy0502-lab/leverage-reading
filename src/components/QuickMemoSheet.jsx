@@ -19,6 +19,7 @@ import { Sparkles, Undo2, Plus, Minus, ChevronRight, X } from 'lucide-react';
 import { btnPrimary, btnPrimaryOff, btnLink, groupTitle } from '../styles/ui';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { useBackLayer } from '../hooks/useHistoryBack';
+import { closeDelayMs } from '../lib/motion';
 
 const KEYFRAMES_ID = '__leverage-sheet-keyframes';
 function ensureKeyframes() {
@@ -267,8 +268,11 @@ export default function QuickMemoSheet({
   // 出だけ瞬間消滅すると往復の所作が非対称で安っぽい）。
   const animateClose = () => {
     if (closing) return;
+    // 動きを減らす設定では待たずに閉じる（2026-09-30）。
+    const wait = closeDelayMs(220); // アニメ長と一致
+    if (!wait) { onClose?.(); return; }
     setClosing(true);
-    setTimeout(() => onClose?.(), 220); // アニメ長と一致
+    setTimeout(() => onClose?.(), wait);
   };
 
   // 保存中(busy)は閉じない。保存途中で閉じると onCreate の成否フィードバック
