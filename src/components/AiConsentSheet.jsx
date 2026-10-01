@@ -161,7 +161,7 @@ export function AiConsentGate() {
     if (busy) return;
     setBusy(true);
     const ok = await withdrawAiConsent();
-    if (ok) toast.success('同意を取り消しました。次に AI を使うときに、もう一度確かめます。');
+    if (ok) toast.success('同意を取り消しました');
     else toast.error('取り消せませんでした。通信の状態を確かめて、もう一度お試しください。');
     finish(false);
   };
