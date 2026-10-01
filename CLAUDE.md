@@ -17,7 +17,7 @@
 
 - **フロント**: React 18 + Vite 6
 - **バックエンド**: Supabase (PostgreSQL + Auth + Storage)
-- **AI**: Anthropic Claude API（`api/claude.js` 経由のサーバーサイド中継）。モデルは AI 選書の推薦だけ Sonnet 5・ほかはすべて Haiku 4.5（2026-09-27・`src/lib/models.js`）
+- **AI**: 用途（purpose）ごとに会社とモデルを選ぶ中継（`api/claude.js` → `api/_aiRouting.js` / `api/_providers.js`・`docs/ai-routing.md`・2026-10-01 オーナー要望「バランスよく使ってコストを下げたい」）。相談は Claude Haiku 4.5 固定（オーナー裁定・無料プランも）・AI 選書の推薦は Claude Sonnet 5.5・読書計画シート／ヒアリング／運営の参謀は OpenAI gpt-5-mini（2026-12-11 に終了→自動で Haiku へ）・凝縮／まとめ／写真から書き起こしは Google gemini-3.1-flash-lite。答える前の失敗は Claude で 1 回やり直す。鍵が無ければ全部 Claude。OpenAI / Google の応答は Anthropic の SSE・JSON の形に変換するのでアプリ側は変えない
 - **ホスティング**: Vercel
 - **コア機能**: 本管理（4 ステータス）、カード/まとめ 2 モードメモ（写真・タグ・ページ番号・📷 写真から AI 書き起こし）、🔄 振り返りタブ（ランダム想起 + タイムライン + 横断検索）、🎯 行動リスト（本横断 + 完了率 + 期限管理）、🧠 マイ読書脳（自分のメモを根拠にする AI Q&A + 本以外の学びログ）、🤖 AI 選書アドバイザー、📤 一文をシェア（心に残った一文を 1 枚の画像に・写真/紙/夜/表紙の色/透明・メモごとの橙の傍線と付箋・`ShareSheet.jsx` / `lib/shareCard.js`。外部の表紙は許可リストつきの中継 `api/cover-image.js` 経由。SPEC §2-1）、PWA インストール
 
@@ -336,6 +336,9 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `SUPABASE_ANON_KEY` | サーバー用 |
 | `SUPABASE_SERVICE_ROLE_KEY` | サーバー専用 service_role キー (`api/claude.js` の AI 利用量メータリング書込 / Stripe・RevenueCat webhook の subscriptions 書込)。RLS バイパス。**クライアント露出厳禁** |
 | `ANTHROPIC_API_KEY` | Claude API キー |
+| `OPENAI_API_KEY` | (任意) OpenAI の API キー（サーバー専用・クライアント露出厳禁）。無ければ OpenAI の用途も Claude。データ共有の設定はオフのまま（サーバーは `store: false` を送る） |
+| `GEMINI_API_KEY` | (任意) Gemini API のキー（サーバー専用）。請求先を設定した Google Cloud プロジェクトのキーだけ（無料枠は学習に使われるので使わない）。無ければ Claude |
+| `AI_ROUTE_<用途>` | (任意) 用途ごとの行き先 `会社:モデル`（例 `AI_ROUTE_SETUP_SHEET=gemini:gemini-3.1-flash-lite`）。用途: CONSULT / BOOK_ADVISOR（この 2 つは anthropic: だけ）/ ADVISOR_INTERVIEW / SETUP_SHEET / SETUP_SHEET_EDIT / OPS_ADVISE / CONDENSE / CARDS_TO_SUMMARY / OCR。モデルは `api/_aiCost.js` の PRICES にあるものだけ。`AI_ROUTING=off` で全部 Claude。ほか `AI_OPENAI_REASONING_EFFORT` / `AI_PROVIDER_FIRST_OUTPUT_MS`（既定 20000）/ `AI_PROVIDER_TIMEOUT_MS`（既定 45000） |
 | `AI_MONTHLY_CALL_LIMIT` | (任意) AI 月次コール上限。未設定なら既定 120。ローンチ後に実データで調整するための env スイッチ |
 | `AI_TOKEN_JPY` | (任意) 🪙 **1 トークン＝AI の原価いくら（円）**（既定 0.3・2026-09-27 オーナー裁定）。AI の上限は画面・案内とも「トークン」で見せる。サーバーは円（1/1000 円＝mjpy）で数え（`supabase_ai_cost.sql`）、使ったトークン＝ceil(原価の円 ÷ `AI_TOKEN_JPY`)。計算は `api/_aiAccess.js`、画面の写しは `src/lib/tokens.js`（既定を変えたら両方・`src/lib/tokens.test.js` が一致を確かめる）。**「最後の 1 回」**: 使ったトークン（切り上げ）が上限未満なら、この 1 回の見積もりで上限を超えても始められる（`reserveBudgetMjpy`＝RPC に「(上限−1) トークン分＋この 1 回の見積もり」を渡す・はみ出しは最大 1 回分） |
 | `AI_FREE_TOKENS` | (任意) 🎁 **無料プラン（契約なし）の毎月のトークン**（既定 30＝相談 約 3 回・日本時間の月）。フリーミアム（2026-09-27）: 契約が無くてもアプリはすべて使え、AI は 💬 相談（`purpose: 'consult'`・本ごとの答え方も同じ）だけ。ほかの AI 機能は 402 `plan_required`（判定は `api/_aiAccess.js` の `decideAiAccess`）。`ai_usage` の `period_month='free-YYYY-MM'` 行で数える（`reserve_ai_cost` を流用・新しい SQL 不要）。モデルは Haiku 固定・1 回の大きさも小さく（`FREE_MAX_TEXT_CHARS` / `FREE_MAX_TOKENS`）。この枠だけは fail-closed（原価の RPC が無ければ回数＝トークン ÷ 10 回で数え、それも数えられなければ使わせない）。使い切ると 402 `free_limit_reached`（アプリは有料プランの画面を重ねて開く）。`0` で無料の AI をやめる。旧 `AI_FREE_CALL_LIMIT`・`AI_FREE_WINDOW_HOURS`（登録から 72 時間のお試し）は 2026-09-27 に廃止 |
@@ -346,7 +349,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 | `AI_NO_INFO_REFUND_MAX_TOKENS` | (任意) 🙏 払い戻す 1 回の原価の上限（トークン・既定 30≈¥9。ふつうの相談は約 10）。これを超える答えは払い戻さない（改ざんしたアプリが自前の指示文と大きな材料で決まり文句つきの答えを作らせても、1 か月の損は 上限回数 × これ まで） |
 | `RC_SANDBOX_TOKENS` | (任意) `'false'` でサンドボックス（TestFlight・App 審査）の追加トークンの購入を記録しない。既定は**記録する**（審査官が買ったトークンが届かないと 3.1.1 等で却下になるため。`ai_token_lots.environment='sandbox'` で見分けられる・subscriptions の顧客指標は汚さない）。サブスクの SANDBOX は従来どおり `RC_ALLOW_SANDBOX` で決める |
 | `AI_MONTHLY_BUDGET_JPY` | (任意) 💴 有料会員 1 人・1 か月の AI 原価の上限（円）を**直接**決める上書き。入れたときは `AI_PAID_TOKENS` より優先（トークン＝円 ÷ `AI_TOKEN_JPY`）。未設定なら `AI_PAID_TOKENS`（800 × ¥0.3 ＝ ¥240）。天井の式（`api/_aiCost.js` の `monthlyBudgetJpy`）: `AI_PLAN_PRICE_JPY`（既定 1480）÷1.1×(1−`AI_STORE_FEE_RATE`（既定 0.15＝日本の小規模事業者 10%＋App 内課金の決済 5%））−`AI_TARGET_NET_JPY`（既定 900）＝**¥243**。原価は `AI_USD_JPY`（既定 160）と `AI_API_TAX_RATE`（既定 0.10）で円にする。`AI_TRIAL_BUDGET_JPY` も同じく入れたときだけ `AI_TRIAL_TOKENS` より優先（無料期間の円の上限）。`AI_FALLBACK_CALL_LIMIT`（既定 45）は `supabase_ai_cost.sql` 未適用時の有料の回数の上限 |
-| `AI_CONSULT_MODEL` | (任意) 💬 相談（`purpose: 'consult'` の呼び出し）だけに使うモデル。未設定ならアプリの指定（2026-09-27 から Haiku 4.5・1 回 約 ¥3＝約 10 トークン＝800 トークンで月 80 回前後）。`claude-sonnet-5` にすると相談だけ品質を上げられる（1 回 約 ¥6〜8＝約 20〜25 トークン＝月 35 回前後）。無料プランの相談は常に Haiku（この差し替えは効かない）。サーバー側で差し替えるので**アプリの出し直し不要**・すぐ戻せる。許可は `claude-sonnet-5` / `claude-haiku-4-5` / `claude-sonnet-4-6` のみ（`api/claude.js` の `pickModel`） |
+| `AI_CONSULT_MODEL` | (任意) 💬 相談（`purpose: 'consult'` の呼び出し）だけに使うモデル。未設定ならアプリの指定（2026-09-27 から Haiku 4.5・1 回 約 ¥3＝約 10 トークン＝800 トークンで月 80 回前後）。`claude-sonnet-5` にすると相談だけ品質を上げられる（1 回 約 ¥6〜8＝約 20〜25 トークン＝月 35 回前後）。無料プランの相談は常に Haiku（この差し替えは効かない）。サーバー側で差し替えるので**アプリの出し直し不要**・すぐ戻せる。許可は `claude-sonnet-5-5` / `claude-sonnet-5` / `claude-haiku-4-5` / `claude-sonnet-4-6` のみ（Claude だけ）（`api/claude.js` の `pickModel`） |
 | `AI_TRIAL_CALL_LIMIT` | (任意) 🎁 無料期間（`period_type` `'trial'`/`'intro'`）の回数の上限。**`supabase_ai_cost.sql` 未適用で原価を数えられないときだけ**使う（原価を数えられるときは `AI_TRIAL_TOKENS` で守る）。既定 15（＝150 トークン ÷ 10・2026-09-27 に 40 → 15）。`'normal'`/`null`（有料）は `AI_MONTHLY_CALL_LIMIT` / `AI_FALLBACK_CALL_LIMIT`。`period_type` 列（`supabase_admin_members_tasks.sql`）が未適用なら schema-error fallback で有料扱い（無害） |
 | `STRIPE_SECRET_KEY` | サーバー専用 Stripe シークレットキー (`api/stripe-*.js`)。**クライアント露出厳禁** |
 | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名シークレット (`whsec_...`、`api/stripe-webhook.js`) |
