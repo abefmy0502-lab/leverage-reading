@@ -32,19 +32,21 @@ export const AI_FEATURES = [
   {
     id: 'consult',
     name: '相談',
-    sends: '質問と、関係するメモ・読書準備・あなたの歩み',
+    // 量は lib/ai.js の CONSULT_TOTAL_CHARS（メモと読書準備で約 9,000 字・質問に近いものから）と合わせる。
+    // 件数は字数で決まる（MAX_MEMOS 80 件＋質問に近いメモ最大 12 件の中から、合わせて約 9,000 字まで）ので、字数で言う。
+    sends: '質問と、メモ・読書準備（関係するものから約 9,000 字まで）・行動と過去の相談',
     purposes: ['consult'],
   },
   {
     id: 'advisor',
     name: 'AI 選書',
-    sends: '相談の内容と、読んだ本・メモの一部',
+    sends: '探したいことと答え、読んだ本・メモの一部',
     purposes: ['book_advisor', 'advisor_interview'],
   },
   {
     id: 'setup_sheet',
     name: '読書計画シート',
-    sends: '書名・著者・得たいこと・タグ・直したい点',
+    sends: '書名・著者・得たいこと・タグ・シートへの直しの指示',
     purposes: ['setup_sheet', 'setup_sheet_edit'],
   },
   {

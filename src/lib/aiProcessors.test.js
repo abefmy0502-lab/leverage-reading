@@ -1,5 +1,7 @@
 // 🤝 同意のシートの「送り先」が、サーバーの振り分け（api/_aiRouting.js）と同じかを確かめる。
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ROUTES, PURPOSES } from '../../api/_aiRouting.js';
 import {
   AI_FEATURES, AI_PURPOSE_PROVIDER, AI_PROVIDER_NAMES, AI_CONSENT_EXEMPT_PURPOSES, AI_FALLBACK_PROVIDER,
@@ -46,7 +48,14 @@ describe('送り先は api/_aiRouting.js の既定と同じ', () => {
     expect(CONSENT_SIGNATURES[AI_CONSENT_VERSION], `AI_CONSENT_VERSION ${AI_CONSENT_VERSION} の組み合わせを CONSENT_SIGNATURES に足す`).toBe(processorSignature());
   });
 
-  it('送るものの説明は短く（シートで 1 行に収まる・390 幅で 13pt）', () => {
-    for (const f of AI_FEATURES) expect([...f.sends].length, f.name).toBeLessThanOrEqual(22);
+  it('送るものの説明は短く（シートで 2 行まで・390 幅で 13pt は 1 行 約 22 字）', () => {
+    for (const f of AI_FEATURES) expect([...f.sends].length, f.name).toBeLessThanOrEqual(44);
+  });
+
+  it('相談の量の説明は lib/ai.js の上限（約 9,000 字）と同じ', () => {
+    const src = readFileSync(join(__dirname, 'ai.js'), 'utf8');
+    const total = Number((src.match(/const CONSULT_TOTAL_CHARS = (\d+)/) || [])[1]);
+    expect(total).toBeGreaterThan(0);
+    expect(featureForPurpose('consult').sends).toContain(`約 ${total.toLocaleString('en-US')} 字`);
   });
 });
