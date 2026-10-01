@@ -13,7 +13,7 @@
 // 取り消しは下のトーストの「元に戻す」（スクロールしていても見える）。
 // 見た目は DESIGN.md のトークンのみ。
 
-import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '../lib/limits';
 import { input as uiInput, btnLink, btnGhostOff, groupTitle as uiGroupTitle } from '../styles/ui';
 import { useAllActions } from '../hooks/useAllActions';
@@ -299,23 +299,25 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
           : <Circle size={24} aria-hidden="true" style={{ color: 'var(--border)' }} />}
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>
+        {/* overflowWrap は anywhere（break-word だと、文字を大きくしたときに行より長い文節がカードを画面の外まで押し広げた・2026-10-01）。
+            折り返しは今までどおり文節の切れ目で、1 つの文節が行に収まらないときだけ中で折る。 */}
+        <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {phrasedText}
         </p>
         {(a.bookTitle || meta.length > 0) && (
-          // 書名の列は minmax(0, max-content)＝縮めても行の幅（min-content）を押し広げない（flex だと書名の全幅がカードを広げた）。
-          <p style={{ margin: 'var(--space-1) 0 0', display: 'grid', gridTemplateColumns: a.bookTitle && meta.length > 0 ? 'minmax(0, max-content) auto' : 'minmax(0, 1fr)', justifyContent: 'start', alignItems: 'baseline', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
-            {/* 書名の後ろの「・」は書名の中に入れる（書名を … で切ったときに「…　・期限」と離れた「・」が残らない・2026-10-01 ui-critic）。 */}
+          // 1 行の flex（baseline）: 書名だけが縮んで … になり、「・」と期限などはいつも出す（flex: none）。
+          // contain: inline-size＝書名の全幅（nowrap）が行の最小幅としてカードを押し広げない（flex の min-content 対策・2026-10-01 ui-critic）。
+          //   いちばん大きな文字で期限などだけで行を超えるときは、カードの外へはみ出さず右端で切る（overflow: hidden）。
+          <p style={{ margin: 'var(--space-1) 0 0', display: 'flex', alignItems: 'baseline', minWidth: 0, contain: 'inline-size', overflow: 'hidden', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
             {a.bookTitle && (
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.bookTitle}{meta.length > 0 && '・'}</span>
+              <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.bookTitle}</span>
             )}
-            {meta.length > 0 && (
-              // 期限などの列は縮めない（min-width を 0 にすると書名と半分ずつ縮み、期限がはみ出した）。縮めるのは書名だけ。
-              <span>
-                {/* 各項目は前の「・」ごと 1 つの塊に（行末に「・」だけが残らないように） */}
-                {meta.map((m, i) => <span key={i} style={{ whiteSpace: 'nowrap' }}>{i > 0 && '・'}{m}</span>)}
-              </span>
-            )}
+            {meta.map((m, i) => (
+              <Fragment key={i}>
+                {(i > 0 || a.bookTitle) && <span aria-hidden="true" style={{ flex: 'none' }}>・</span>}
+                <span style={{ flex: 'none', whiteSpace: 'nowrap' }}>{m}</span>
+              </Fragment>
+            ))}
           </p>
         )}
         {a.done && a.reflection && (
