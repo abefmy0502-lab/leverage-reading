@@ -481,6 +481,10 @@ const afterSheetCloses = (fn) => {
 const swipeScreenStyle = { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg)' };
 
 /* ========== 押し込まれた画面の上部の 1 行 ========== */
+// 「‹ 戻り先」のシェブロンの見た目の左端を、画面の余白 16 にそろえる左の負の余白（2026-10-01 ui-critic: 約 14.7 だった）。
+// lucide の ChevronLeft（20）は線の左端が箱の左から 20×8/24 ≈ 6.67 のところにあるので、行の内側 16 から 6.67 戻す＝
+// var(--space-2) − var(--space-1)/3。ボタンの押せる範囲（44）は変えない。
+const BACK_CHEVRON_PULL = 'calc(var(--space-1) / 3 - var(--space-2))';
 // 本の詳細・編集の「‹ 戻り先」の行。スクロールの箱の外（上）に置いて、下へ送っても行が残るようにする
 // （iOS のナビゲーションバーと同じ・相談の topRow と同じ形）。一番上では線を出さず、中身を下へ送ったら
 // 下に --separator の線（線の太さぶんはいつも取って高さを変えない・DESIGN §5「画面上部の 1 行」・2026-09-29）。
@@ -3889,7 +3893,7 @@ function AuthedApp() {
         <PushedTopBar scrollRef={detailScrollRef}>
             {/* iOS ナビ風: 指が最初に探す左上の戻るは、背景に沈まない重みで。 */}
             {/* 戻るは「すべての本」の ‹ ホーム と同じ形（ChevronLeft 20・間 0・見た目の左端 16・本文サイズ・--accent）。 */}
-            <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
+            <button onClick={leaveDetail} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}>
               <ChevronLeft size={20} aria-hidden="true" />{detailBackToSearch ? '検索' : tab === 'review' ? '振り返り' : tab === 'ai' ? (aiSubTab === 'advisor' ? 'AI 選書' : '相談') : shelfMode === 'library' ? 'すべての本' : 'ホーム'}
             </button>
             <div style={{ display: "flex", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
@@ -4502,7 +4506,7 @@ function AuthedApp() {
                 else leaveNewBookForm();
               }}
               // 詳細画面・すべての本の戻ると同じ形（ChevronLeft 20・間 0・見た目の左端 16）。
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
               aria-label={current ? 'この本に戻る' : undefined}
             >{/* iOS の作法: 戻るは戻り先の画面の名前。編集からはいつも本の詳細へ戻るので「この本」
                 （書名は下の見出しにあるので、上の行で繰り返さない・2026-10-01 オーナー裁定・SPEC §2）。 */}
@@ -4851,7 +4855,7 @@ function AuthedApp() {
                   type="button"
                   onClick={leaveLibrary}
                   // シェブロンの見た目の左端を余白 16 に（相談の ‹ 相談 と同じ形・DESIGN §5「画面上部の 1 行」）。
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: BACK_CHEVRON_PULL, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
                 >
                   <ChevronLeft size={20} aria-hidden="true" />{libraryFrom === 'record' ? '記録' : 'ホーム'}
                 </button>
