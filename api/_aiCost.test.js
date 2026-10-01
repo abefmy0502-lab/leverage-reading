@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { monthlyBudgetJpy, costFromUsage, estimateCost, createUsageSniffer, priceFor, hasPrice, PRICES } from './_aiCost.js';
+import { monthlyBudgetJpy, costFromUsage, estimateCost, createUsageSniffer, priceFor, hasPrice, PRICES, cacheSegments } from './_aiCost.js';
 
 describe('monthlyBudgetJpy', () => {
   it('¥1,480・手数料 15%・消費税 10%・手取り ¥900 → 約 ¥243', () => {
@@ -127,5 +127,54 @@ describe('createUsageSniffer: message_delta の入力の数（OpenAI / Google �
     s.push(ev({ type: 'message_delta', usage: { output_tokens: 42 } }));
     expect(s.usage).toMatchObject({ input_tokens: 120, output_tokens: 42 });
     expect(s.meta.model).toBe(null);
+  });
+});
+
+// 💴 キャッシュの読み出し・書き込み（5 分 / 1 時間）の単価（2026-10-01・docs/ai-routing.md §7）。
+describe('キャッシュの単価と、見積もりの分け方', () => {
+  it('Haiku: 読み出し 0.1 倍・5 分の書き込み 1.25 倍・1 時間の書き込み 2 倍', () => {
+    const base = costFromUsage('claude-haiku-4-5', { input_tokens: 100000 });
+    // 1/1000 円の切り上げの差（±2）は許す
+    const near = (v, want) => expect(Math.abs(v - want)).toBeLessThanOrEqual(2);
+    near(costFromUsage('claude-haiku-4-5', { cache_read_input_tokens: 100000 }), base / 10);
+    near(costFromUsage('claude-haiku-4-5', { cache_creation_input_tokens: 100000 }), base * 1.25);
+    near(costFromUsage('claude-haiku-4-5', {
+      cache_creation_input_tokens: 100000, cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 100000 },
+    }), base * 2);
+  });
+  it('書き込みの内訳が 5 分と 1 時間に分かれていれば、それぞれの単価で足す', () => {
+    const mixed = costFromUsage('claude-haiku-4-5', {
+      cache_creation_input_tokens: 9000, cache_creation: { ephemeral_5m_input_tokens: 4000, ephemeral_1h_input_tokens: 5000 },
+    });
+    const a = costFromUsage('claude-haiku-4-5', { cache_creation_input_tokens: 4000 });
+    const b = costFromUsage('claude-haiku-4-5', { cache_creation_input_tokens: 5000, cache_creation: { ephemeral_1h_input_tokens: 5000 } });
+    expect(Math.abs(mixed - (a + b))).toBeLessThanOrEqual(2);
+  });
+  it('ほかの会社には書き込みの割増が無い（1 時間でも入力と同じ）', () => {
+    expect(PRICES['gemini-3.1-flash-lite'].cw1h).toBe(PRICES['gemini-3.1-flash-lite'].in);
+    expect(PRICES['gpt-5-mini'].cw1h).toBe(PRICES['gpt-5-mini'].in);
+  });
+  it('cacheSegments: 指示文（1 時間）→ メモ一覧（5 分）→ 後ろ（印なし）の文字数', () => {
+    const body = {
+      system: [{ type: 'text', text: 'あ'.repeat(100), cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: [
+        { type: 'text', text: 'い'.repeat(50), cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: 'う'.repeat(30) },
+      ] }],
+    };
+    expect(cacheSegments(body, { systemTtl: '1h' })).toEqual({ w1h: 100, w5m: 50 });
+    expect(cacheSegments(body, { systemTtl: '5m' })).toEqual({ w1h: 0, w5m: 150 });
+    expect(cacheSegments({ system: 'x', messages: [{ role: 'user', content: 'y' }] })).toEqual({ w1h: 0, w5m: 0 });
+  });
+  it('estimateCost: 印より後ろはふつうの入力の単価（全部を書き込みで数えるより小さい）・実際の 1 回は見積もりの内側', () => {
+    const args = { textChars: 15000, maxTokens: 1200 };
+    const legacy = estimateCost('claude-haiku-4-5', args);
+    const none = estimateCost('claude-haiku-4-5', { ...args, segments: { w1h: 0, w5m: 0 } });
+    const consult = estimateCost('claude-haiku-4-5', { ...args, segments: { w1h: 5600, w5m: 5000 } });
+    expect(none.total).toBeLessThan(legacy.total);
+    expect(consult.total).toBeGreaterThan(none.total); // 1 時間の書き込みは高い（上振れ側）
+    expect(consult.output).toBe(legacy.output);
+    const actual = costFromUsage('claude-haiku-4-5', { cache_read_input_tokens: 5600, cache_creation_input_tokens: 5000, input_tokens: 4400, output_tokens: 600 });
+    expect(actual).toBeLessThan(consult.total);
   });
 });
