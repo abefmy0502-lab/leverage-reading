@@ -72,6 +72,13 @@ export function pickShareSubject(books) {
   return { kind: 'month' };
 }
 
+// 今月に読み終えた本があるか（振り返り › 記録から「写真で共有」を押したとき、「今月」を選んでおくかどうか・2026-10-01）。
+// 読了が 0 冊の「今月」の 1 枚は中身が薄いので、そのときは pickShareSubject（いま読んでいる本）に任せる。
+export function hasFinishedThisMonth(books, now = new Date()) {
+  return (Array.isArray(books) ? books : [])
+    .some((b) => b && b.status === 'done' && sameMonth(parseLocalDate(b.doneDate), now));
+}
+
 // シートの「どの本？」の並び: 今月 → 読書中（新しい順）→ 読了（新しい順）。多すぎると選べないので max 冊まで。
 // 選んでいる本が範囲の外なら、今月の次に入れて見えるようにする。
 export function subjectChoices(books, { selectedId = null, max = 8 } = {}) {

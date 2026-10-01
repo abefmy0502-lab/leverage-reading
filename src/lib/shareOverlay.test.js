@@ -2,7 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  pickShareSubject, subjectChoices, bookRecord, monthRecord, splitStatValue,
+  pickShareSubject, subjectChoices, bookRecord, monthRecord, splitStatValue, hasFinishedThisMonth,
   orderQuoteCandidates, quoteText, swapQuote, swapQuoteLabel, availableVariants, defaultVariant,
   recordFrame, placeRecordBlock, statColumns, buildRecordShareText, recordBaseHeight, fmtMonthDay, fmtStamp, RECORD_QUOTE_MAX,
   recordBlockPlan, recordTitleScale, shareItemsFor, applyShareItems, shareVisibility, readHiddenItems, writeHiddenItems,
@@ -347,5 +347,20 @@ describe('表紙の置き方（写真でない地の記録）', () => {
     expect(at.y0 + at.h).toBeLessThan(place.coverArea.bottom);
     expect(recordCoverPlacement(f, placeRecordBlock(f, f.H), { count: 1 })).toBeNull();
     expect(recordCoverPlacement(f, place, { count: 0 })).toBeNull();
+  });
+});
+
+describe('hasFinishedThisMonth（振り返り › 記録から開いたときに「今月」を選んでおくか）', () => {
+  const now = new Date(2026, 9, 1); // 2026-10-01
+  it('今月に読了した本があれば true', () => {
+    expect(hasFinishedThisMonth([{ id: 'a', status: 'done', doneDate: '2026-10-01' }], now)).toBe(true);
+  });
+  it('先月の読了・読書中だけなら false（いま読んでいる本に任せる）', () => {
+    expect(hasFinishedThisMonth([
+      { id: 'a', status: 'done', doneDate: '2026-09-30' },
+      { id: 'b', status: 'reading' },
+    ], now)).toBe(false);
+    expect(hasFinishedThisMonth([], now)).toBe(false);
+    expect(hasFinishedThisMonth(null, now)).toBe(false);
   });
 });

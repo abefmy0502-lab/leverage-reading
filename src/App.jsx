@@ -97,6 +97,7 @@ import { saveStrategyHistory, popStrategyHistory, hasStrategyHistory, clearStrat
 const CoverFixModal = lazy(() => import('./components/CoverFixModal'));
 // 📤 一文をシェア（この本の一文を 1 枚の画像に・SPEC §2-1）
 const ShareSheet = lazy(() => import('./components/ShareSheet'));
+import { hasFinishedThisMonth } from './lib/shareOverlay';
 const Landing = lazy(() => import('./pages/Landing'));
 const TermsPage = lazy(() => import('./legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./legal/PrivacyPage'));
@@ -4713,13 +4714,14 @@ function AuthedApp() {
     <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
       {/* 📷 写真で共有（2026-09-30 オーナー裁定: 共有は前面に出す主要な機能。2026-10-01「振り返りでも相談でも表示があってもいい」で
           ホーム・振り返り・相談の 3 つのタブで同じ場所・同じ形に）。押すとすぐカメラ（パソコンは写真を選ぶ画面）。
-          撮ったら、いま読んでいる本の記録を重ねたシートが開く（振り返り › 記録から開いたときだけ「今月」を選んでおく）。 */}
+          撮ったら、いま読んでいる本の記録を重ねたシートが開く（振り返り › 記録から開いて今月の読了があるときだけ「今月」を選んでおく）。 */}
       <button
         type="button"
         onClick={() => openShareCamera({
           fromHome: true,
           from: tab === 'review' ? 'review' : tab === 'ai' ? 'consult' : 'home',
-          ...(tab === 'review' && reviewSubTab === 'record' ? { initialSubject: { kind: 'month' } } : {}),
+          // 振り返り › 記録からは、今月に読み終えた本があるときだけ「今月」を選んでおく（無ければいま読んでいる本・2026-10-01）。
+          ...(tab === 'review' && reviewSubTab === 'record' && hasFinishedThisMonth(books) ? { initialSubject: { kind: 'month' } } : {}),
         })}
         aria-label="写真で共有"
         // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは文字に合わせて 1.3em（ふだん 22 前後）。
