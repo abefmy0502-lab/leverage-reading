@@ -254,3 +254,120 @@ describe('関係するメモが無かった相談の払い戻し', () => {
     expect(log).not.toContain('rpc:settle_token_overflow');
   });
 });
+
+// 🧭 用途ごとの行き先（2026-10-01・api/_aiRouting.js / api/_providers.js）。本物の API は呼ばない。
+describe('用途ごとに会社とモデルを選ぶ（失敗したら Claude で 1 回だけやり直す）', () => {
+  let cost;
+  beforeAll(async () => { cost = await import('./_aiCost.js'); });
+  beforeEach(() => { process.env.OPENAI_API_KEY = 'sk-test'; process.env.GEMINI_API_KEY = 'g-test'; });
+  afterEach(() => { delete process.env.OPENAI_API_KEY; delete process.env.GEMINI_API_KEY; });
+
+  const openAiSse = (text) => [
+    { model: 'gpt-5-mini-2025-08-07', choices: [{ delta: { content: text } }] },
+    { model: 'gpt-5-mini-2025-08-07', choices: [{ delta: {}, finish_reason: 'stop' }] },
+    { model: 'gpt-5-mini-2025-08-07', choices: [], usage: { prompt_tokens: 3500, completion_tokens: 1300 } },
+  ].map((f) => `data: ${JSON.stringify(f)}\n\n`).join('') + 'data: [DONE]\n\n';
+  const anthropicJson = () => new Response(JSON.stringify({ content: [{ type: 'text', text: 'claude' }], stop_reason: 'end_turn', usage: { input_tokens: 3000, output_tokens: 400 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+  const sheetReq = (extra = {}) => req({ messages: [{ role: 'user', content: '読書計画シート' }], max_tokens: 1600, model: 'claude-haiku-4-5', purpose: 'setup_sheet', ...extra });
+
+  it('読書計画シート（ストリーム）→ OpenAI。アプリには Anthropic の形の SSE、原価は gpt-5-mini の単価で精算', async () => {
+    const fetchMock = vi.fn(async () => new Response(openAiSse('## 🎯 読み方の戦略'), { status: 200, headers: { 'content-type': 'text/event-stream' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const res = mockRes();
+    await handler(sheetReq({ stream: true }), res);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.openai.com/v1/chat/completions');
+    const out = written(res);
+    expect(out).toContain('"type":"text_delta","text":"## 🎯 読み方の戦略"');
+    expect(out).toContain('"type":"message_stop"');
+    expect(db.costTotal).toBe(cost.costFromUsage('gpt-5-mini', { input_tokens: 3500, output_tokens: 1300 }));
+    expect(log.indexOf('rpc:adjust_ai_cost')).toBeLessThan(log.indexOf('respond'));
+  });
+
+  it('予約は、やり直しの Claude の見積もりも見込んで高いほう', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(openAiSse('x'), { status: 200, headers: { 'content-type': 'text/event-stream' } })));
+    await handler(sheetReq({ stream: true }), mockRes());
+    const est = cost.estimateCost('claude-haiku-4-5', { textChars: '読書計画シート'.length, images: 0, maxTokens: 1600 });
+    expect(db.rpcArgs.reserve_ai_cost.p_amount).toBe(est.total);
+  });
+
+  it('OpenAI が 500 → Claude（Haiku）でやり直す。ログに中身は書かない', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchMock = vi.fn(async (url) => (String(url).includes('openai')
+      ? new Response('{"error":{"message":"boom"}}', { status: 500 })
+      : anthropicJson()));
+    vi.stubGlobal('fetch', fetchMock);
+    const res = mockRes();
+    await handler(sheetReq(), res);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toBe('https://api.anthropic.com/v1/messages');
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).model).toBe('claude-haiku-4-5');
+    expect(res.statusCode).toBe(200);
+    expect(res.body.content[0].text).toBe('claude');
+    expect(db.costTotal).toBe(cost.costFromUsage('claude-haiku-4-5', { input_tokens: 3000, output_tokens: 400 }));
+    const logged = warn.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(logged).toContain('openai:gpt-5-mini failed (status 500)');
+    expect(logged).not.toContain('読書計画シート');
+    expect(logged).not.toContain('boom');
+    warn.mockRestore();
+  });
+
+  it('鍵が無ければ、はじめから Claude（OpenAI は呼ばない）', async () => {
+    delete process.env.OPENAI_API_KEY;
+    const fetchMock = vi.fn(async () => anthropicJson());
+    vi.stubGlobal('fetch', fetchMock);
+    await handler(sheetReq(), mockRes());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.anthropic.com/v1/messages');
+  });
+
+  it('写真の書き起こし（ストリームでない）→ Gemini。答えは Anthropic の JSON', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: '書き起こした一節' }] }, finishReason: 'STOP' }],
+      usageMetadata: { promptTokenCount: 2000, candidatesTokenCount: 350 },
+      modelVersion: 'gemini-3.1-flash-lite',
+    }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const res = mockRes();
+    await handler(req({
+      model: 'claude-haiku-4-5', purpose: 'ocr', max_tokens: 1024,
+      messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJD' } }, { type: 'text', text: '書き起こして' }] }],
+    }), res);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent');
+    expect(res.body).toMatchObject({ content: [{ type: 'text', text: '書き起こした一節' }], stop_reason: 'end_turn' });
+    expect(db.costTotal).toBe(cost.costFromUsage('gemini-3.1-flash-lite', { input_tokens: 2000, output_tokens: 350 }));
+  });
+
+  it('相談は鍵があっても Claude だけ', async () => {
+    const fetchMock = vi.fn(async () => anthropicJson());
+    vi.stubGlobal('fetch', fetchMock);
+    await handler(consultReq(), mockRes());
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.anthropic.com/v1/messages');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe('claude-haiku-4-5');
+  });
+
+  it('AI 選書の推薦は Claude Sonnet 5.5（考えない設定は between_tools）', async () => {
+    const fetchMock = vi.fn(async () => anthropicJson());
+    vi.stubGlobal('fetch', fetchMock);
+    await handler(req({ messages: [{ role: 'user', content: '営業の本' }], max_tokens: 3000, model: 'claude-sonnet-5', purpose: 'book_advisor' }), mockRes());
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.anthropic.com/v1/messages');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ model: 'claude-sonnet-5-5', thinking: { type: 'between_tools' } });
+  });
+
+  it('用途が無い（出し直す前のアプリ）は、アプリが指定した Claude のまま', async () => {
+    const fetchMock = vi.fn(async () => anthropicJson());
+    vi.stubGlobal('fetch', fetchMock);
+    await handler(req({ messages: [{ role: 'user', content: 'x' }], max_tokens: 500, model: 'claude-sonnet-5' }), mockRes());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ model: 'claude-sonnet-5', thinking: { type: 'disabled' } });
+  });
+
+  it('無料プランは相談以外を今までどおり 402（用途を付けても）', async () => {
+    db.sub = null;
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const res = mockRes();
+    await handler(sheetReq(), res);
+    expect(res.statusCode).toBe(402);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
