@@ -382,7 +382,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   const tokensLoading = tokensRemaining == null && tokenAllowance != null && !tokenWaitOver;
   const [billingBusy, setBillingBusy] = useState(false);
 
-  // 🤝 AI へのデータ送信（同意・lib/aiConsent.js）。「同意済み（10月1日）」／「未同意」。読み込むまでは undefined。
+  // 🤝 AI へのデータ送信（同意・lib/aiConsent.js）。「10月1日に同意」／「まだ同意していません」。読み込むまでは undefined。
   const [aiConsent, setAiConsent] = useState(undefined);
   useEffect(() => {
     let alive = true;
@@ -392,7 +392,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
     return () => { alive = false; window.removeEventListener(AI_CONSENT_CHANGED_EVENT, load); };
   }, []);
   const aiConsentLabel = aiConsent === undefined ? null
-    : isAiConsentCurrent(aiConsent) ? `同意済み（${dateLabelJa(aiConsent.at) || ''}）` : '未同意';
+    : isAiConsentCurrent(aiConsent) ? (dateLabelJa(aiConsent.at) ? `${dateLabelJa(aiConsent.at)}に同意` : '同意しています') : 'まだ同意していません';
 
   // 📊 利用状況の記録（製品改善のためのファーストパーティ計測）。既定 ON。
   //   analyticsOn=true なら記録する（= オプトアウトしていない）。オフ操作で
@@ -1046,7 +1046,7 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             >
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ ...rowTitleStyle, display: 'block' }}>AI へのデータ送信</span>
-                <span style={{ ...rowDescStyle, display: 'block', ...(aiConsentLabel ? {} : { visibility: 'hidden' }) }}>{aiConsentLabel || '未同意'}</span>
+                <span style={{ ...rowDescStyle, display: 'block', ...(aiConsentLabel ? {} : { visibility: 'hidden' }) }}>{aiConsentLabel || 'まだ同意していません'}</span>
               </span>
               <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>
