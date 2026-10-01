@@ -86,7 +86,10 @@ export default function AiConsentSheet({ purpose = null, mode = 'ask', record = 
   const consented = isAiConsentCurrent(record);
   const feature = featureForPurpose(purpose);
   const manage = mode === 'manage';
-  const lead = `${feature && !manage ? feature.name : 'AI の機能'}を使うと、次の内容を AI の会社に送ります。`;
+  // 同意は機能ごとではなく AI の機能すべてに効くので、「〈機能〉など」と範囲を言う（2026-10-01 ui-critic）。
+  const lead = feature && !manage
+    ? `${feature.name}など AI の機能を使うと、次の内容を外部の AI サービスに送ります。`
+    : 'AI の機能を使うと、次の内容を外部の AI サービスに送ります。';
 
   const footer = manage && consented ? (
     <button type="button" style={withdrawStyle} onClick={onWithdraw} disabled={busy} aria-busy={busy || undefined}>
