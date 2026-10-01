@@ -1857,8 +1857,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <EmptyState
                 icon={<PencilLine size={32} strokeWidth={1.5} aria-hidden="true" />}
                 title="まだメモがありません"
+                // 本がもう本棚にあるときは、ホームのはじめの一歩と同じ「読んだ本に一言ずつ残す」（することを言う・2026-10-01）。
+                // 本 0 冊のときは「これまで読んだ本から始める」のまま（開くのはどちらも初日クイックスタート）。
                 actions={onQuickstart
-                  ? [{ label: 'これまで読んだ本から始める', variant: 'primary', onClick: onQuickstart }]
+                  ? [{ label: books.length > 0 ? '読んだ本に一言ずつ残す' : 'これまで読んだ本から始める', variant: 'primary', onClick: onQuickstart }]
                   : onGoBookshelf ? [{ label: '本を開いてメモを書く', variant: 'secondary', onClick: onGoBookshelf }] : []}
               />
             ) : planOut ? (
