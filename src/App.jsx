@@ -4495,13 +4495,10 @@ function AuthedApp() {
               }}
               // 詳細画面・すべての本の戻ると同じ形（ChevronLeft 20・間 0・見た目の左端 16）。
               style={{ display: 'inline-flex', alignItems: 'center', gap: 0, minHeight: 44, padding: '0 var(--space-2) 0 0', marginLeft: 'calc(-1 * var(--space-2))', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-body)', fontFamily: 'inherit', cursor: 'pointer' }}
-              aria-label={current ? `${current.title || 'この本'}に戻る` : undefined}
-            >{/* iOS の作法: 戻る先の画面名（＝書名）。長い書名は 10 字＋「…」に縮める（SPEC §2）。 */}
-              <ChevronLeft size={20} aria-hidden="true" />{current ? (() => {
-                const chars = Array.from((current.title || '').trim());
-                if (chars.length === 0) return '戻る';
-                return chars.length <= 10 ? chars.join('') : `${chars.slice(0, 10).join('')}…`;
-              })() : newBookBackLabel}</button>
+              aria-label={current ? 'この本に戻る' : undefined}
+            >{/* iOS の作法: 戻るは戻り先の画面の名前。編集からはいつも本の詳細へ戻るので「この本」
+                （書名は下の見出しにあるので、上の行で繰り返さない・2026-10-01 オーナー裁定・SPEC §2）。 */}
+              <ChevronLeft size={20} aria-hidden="true" />{current ? 'この本' : newBookBackLabel}</button>
             {/* 右端は「…」（すべての本・本の詳細と同じ形）。中はヘルプ（？の丸を単独で置かない・2026-09-30）。 */}
             <button
               type="button"
