@@ -87,7 +87,8 @@ import BottomSheet from './components/BottomSheet';
 const AddBookModal = lazy(() => import('./components/AddBookModal'));
 import { useBookCover } from './hooks/useBookCover';
 import { searchBooksFlat as searchBooksAPIFlat } from './lib/bookSearch';
-import { tryCoverForIsbn } from './lib/bookCover';
+import { tryCoverForIsbn, verifyBookExists } from './lib/bookCover';
+import { verifyPlanRelatedBooks } from './lib/planRelatedBooks';
 import { backfillCovers } from './lib/backfillCovers';
 import { enqueueCoverRetry, resolveCoverForBook, canReplaceCover, clearCoverNotFound } from './lib/coverAutoRetry';
 import { MODEL_SMART } from './lib/models';
@@ -2783,6 +2784,11 @@ function AuthedApp() {
     purpose: 'setup_sheet', // サーバーが用途ごとに安いモデルへ（docs/ai-routing.md・失敗したら Claude）
     onChunk,
   });
+  // 読書計画シートの「関連書籍」を書誌で確かめ、見つからない本を消す（安いモデルで作るため・lib/planRelatedBooks.js）。
+  // 確かめている間は「読みたい」ボタンを出さない（aiLoading / planGen のまま）。
+  const checkPlanBooks = async (sheet) => {
+    try { return (await verifyPlanRelatedBooks(sheet, verifyBookExists)).sheet; } catch { return sheet; }
+  };
   const runStrategy = async () => {
     if (!requirePlan('読書計画シート')) return;
     setAiLoading(true);
@@ -2799,10 +2805,12 @@ function AuthedApp() {
       });
       // 何も返らなかったときは、前のシートを消さずに戻す（空のまま保存すると DB のシートが消える）。
       if (!String(sheet || '').trim()) throw new Error('読書計画シートを作れませんでした。少し時間をおいて、もう一度お試しください。');
+      const checked = await checkPlanBooks(sheet);
+      if (checked !== sheet) setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: checked } : f));
       // Fresh generation invalidates any prior 修正リクエスト history.
       if (targetId) clearStrategyHistory(targetId);
       // できたシートはすぐ保存する（「保存」を押し忘れて閉じるとシートが消えていた・2026-09-29）。
-      persistPlanSheet(targetId, sheet, '読書計画シートを保存しました');
+      persistPlanSheet(targetId, checked, '読書計画シートを保存しました');
     } catch (error) {
       // 失敗時は元の計画シートに戻す（クリアしたまま保存すると DB のシートが消える）。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prevStrategy } : f));
@@ -2827,8 +2835,9 @@ function AuthedApp() {
     const bookId = book.id;
     setPlanGen({ bookId, text: '' });
     try {
-      const sheet = await streamSetupSheet(src, (fullText) => setPlanGen((g) => (g && g.bookId === bookId ? { ...g, text: fullText } : g)));
-      if (!String(sheet || '').trim()) throw new Error('読書計画シートを作れませんでした。少し時間をおいて、もう一度お試しください。');
+      const raw = await streamSetupSheet(src, (fullText) => setPlanGen((g) => (g && g.bookId === bookId ? { ...g, text: fullText } : g)));
+      if (!String(raw || '').trim()) throw new Error('読書計画シートを作れませんでした。少し時間をおいて、もう一度お試しください。');
+      const sheet = await checkPlanBooks(raw);
       clearStrategyHistory(bookId);
       const fields = {
         investPurpose: src.investPurpose || '',
@@ -2893,8 +2902,10 @@ function AuthedApp() {
       }
       if (targetId) saveStrategyHistory(targetId, prev);
       setStrategyHistoryTick((t) => t + 1);
-      // 直したシートもすぐ保存する（作ったときと同じ）。
-      persistPlanSheet(targetId, lastText, '読書計画シートを直して、保存しました');
+      // 直したシートもすぐ保存する（作ったときと同じ）。関連書籍は作ったときと同じく確かめる。
+      const checked = await checkPlanBooks(lastText);
+      if (checked !== lastText) setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: checked } : f));
+      persistPlanSheet(targetId, checked, '読書計画シートを直して、保存しました');
     } catch (error) {
       // ストリーミング失敗時は元のシートを戻す (undo 履歴は触らない)。
       setForm((f) => (f && f.id === targetId ? { ...f, aiStrategy: prev } : f));

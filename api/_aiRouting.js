@@ -29,9 +29,12 @@ const FLASH_LITE = 'gemini-3.1-flash-lite';
 export const ROUTES = {
   consult: { primary: `anthropic:${H}`, claude: H, claudeOnly: true },
   book_advisor: { primary: 'anthropic:claude-sonnet-5-5', claude: 'claude-sonnet-5', claudeOnly: true },
-  advisor_interview: { primary: `openai:${GPT_MINI}`, claude: H },
-  setup_sheet: { primary: `openai:${GPT_MINI}`, claude: H },
-  setup_sheet_edit: { primary: `openai:${GPT_MINI}`, claude: H },
+  // 2026-10-01（2 回目）: AI 選書の聞き返し・読書計画シートは Gemini Flash-Lite に（gpt-5-mini は 12/11 で終わるので、
+  // いまから長く使える行き先にそろえる・いちばん安い）。読書計画シートの「関連書籍」は、アプリが書誌で実在を
+  // 確かめ、見つからない本を消してから保存する（lib/planRelatedBooks.js）。戻すときは AI_ROUTE_SETUP_SHEET=openai:gpt-5-mini など。
+  advisor_interview: { primary: `gemini:${FLASH_LITE}`, claude: H },
+  setup_sheet: { primary: `gemini:${FLASH_LITE}`, claude: H },
+  setup_sheet_edit: { primary: `gemini:${FLASH_LITE}`, claude: H },
   ops_advise: { primary: `openai:${GPT_MINI}`, claude: H },
   condense: { primary: `gemini:${FLASH_LITE}`, claude: H },
   cards_to_summary: { primary: `gemini:${FLASH_LITE}`, claude: H },
@@ -43,6 +46,11 @@ export const PURPOSES = Object.keys(ROUTES);
 // 日本時間の 12/11 0 時から止める。
 export const RETIRES_AT = {
   'gpt-5-mini': '2026-12-10T15:00:00Z',
+};
+// 提供が終わったモデルの代わり（その会社の鍵があり、代わりも終わっていなければ。無ければ Claude）。
+// gpt-5-mini の後継は OpenAI の推奨では gpt-5.4-mini だが、単価が Haiku とほぼ同じなので Gemini Flash-Lite へ。
+export const RETIRE_SUCCESSOR = {
+  'gpt-5-mini': `gemini:${FLASH_LITE}`,
 };
 
 // Anthropic で使ってよいモデル（api/claude.js の許可リストと同じ）。
@@ -91,7 +99,7 @@ export function isRetired(model, now = Date.now()) {
 //   freeModel: 無料プランのモデル
 // 戻り値: { provider, model, claudeModel, purpose, reason }
 //   claudeModel … provider が Claude 以外のとき、失敗したら 1 回だけ切り替える Claude のモデル
-//   reason … 'route' | 'legacy' | 'free' | 'off' | 'no_key' | 'retired'（ログ用・内容は含めない）
+//   reason … 'route' | 'legacy' | 'free' | 'off' | 'no_key' | 'retired' | 'successor'（ログ用・内容は含めない）
 export function resolveRoute({ purpose, requestedModel, free = false, freeModel = H, env = process.env, now = Date.now() } = {}) {
   const fallbackModel = ANTHROPIC_MODELS.has(requestedModel) ? requestedModel : H;
   const claude = (model, reason, p = null) => ({ provider: 'anthropic', model, claudeModel: model, purpose: p, reason });
@@ -123,7 +131,13 @@ export function resolveRoute({ purpose, requestedModel, free = false, freeModel 
     }
   }
   if (target.provider === 'anthropic') return claude(target.model, 'route', purpose);
+  if (isRetired(target.model, now)) {
+    const next = parseRouteSpec(RETIRE_SUCCESSOR[target.model]);
+    if (!next || next.provider === 'anthropic' || isRetired(next.model, now) || !keyFor(next.provider, env)) {
+      return claude(next?.provider === 'anthropic' ? next.model : route.claude, 'retired', purpose);
+    }
+    return { provider: next.provider, model: next.model, claudeModel: route.claude, purpose, reason: 'successor' };
+  }
   if (!keyFor(target.provider, env)) return claude(route.claude, 'no_key', purpose);
-  if (isRetired(target.model, now)) return claude(route.claude, 'retired', purpose);
   return { provider: target.provider, model: target.model, claudeModel: route.claude, purpose, reason: 'route' };
 }

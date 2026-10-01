@@ -14,13 +14,11 @@ describe('用途ごとの行き先（既定）', () => {
   it('AI 選書の推薦は Claude Sonnet 5.5（失敗したら Sonnet 5）', () => {
     expect(r('book_advisor')).toMatchObject({ provider: 'anthropic', model: 'claude-sonnet-5-5' });
   });
-  it('ヒアリング・読書計画シート・運営の相談は gpt-5-mini、失敗したら Haiku', () => {
-    for (const p of ['advisor_interview', 'setup_sheet', 'setup_sheet_edit', 'ops_advise']) {
-      expect(r(p)).toMatchObject({ provider: 'openai', model: 'gpt-5-mini', claudeModel: 'claude-haiku-4-5' });
-    }
+  it('運営の相談は gpt-5-mini、失敗したら Haiku', () => {
+    expect(r('ops_advise')).toMatchObject({ provider: 'openai', model: 'gpt-5-mini', claudeModel: 'claude-haiku-4-5' });
   });
-  it('凝縮・まとめ・写真の書き起こしは gemini-3.1-flash-lite、失敗したら Haiku', () => {
-    for (const p of ['condense', 'cards_to_summary', 'ocr']) {
+  it('凝縮・まとめ・写真の書き起こし・AI 選書の聞き返し・読書計画シートは gemini-3.1-flash-lite、失敗したら Haiku（2026-10-01）', () => {
+    for (const p of ['condense', 'cards_to_summary', 'ocr', 'advisor_interview', 'setup_sheet', 'setup_sheet_edit']) {
       expect(r(p)).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', claudeModel: 'claude-haiku-4-5' });
     }
   });
@@ -48,7 +46,11 @@ describe('鍵・提供終了・緊急スイッチ', () => {
   it('gpt-5-mini は 2026-12-11（日本時間）から呼ばずに Claude', () => {
     expect(isRetired('gpt-5-mini', Date.parse('2026-12-10T14:59:00Z'))).toBe(false);
     expect(isRetired('gpt-5-mini', Date.parse('2026-12-10T15:00:00Z'))).toBe(true);
-    expect(r('setup_sheet', KEYS, { now: Date.parse('2026-12-11T00:00:00Z') })).toMatchObject({ provider: 'anthropic', reason: 'retired' });
+    // 終わったあとは後継（Gemini Flash-Lite）へ。Gemini の鍵が無ければ Claude。
+    const after = Date.parse('2026-12-11T00:00:00Z');
+    expect(r('ops_advise', KEYS, { now: after })).toMatchObject({ provider: 'gemini', model: 'gemini-3.1-flash-lite', claudeModel: 'claude-haiku-4-5', reason: 'successor' });
+    expect(r('ops_advise', { ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o' }, { now: after })).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5', reason: 'retired' });
+    expect(r('setup_sheet', { ...KEYS, AI_ROUTE_SETUP_SHEET: 'openai:gpt-5-mini' }, { now: after })).toMatchObject({ provider: 'gemini', reason: 'successor' });
     expect(isRetired('gemini-3.1-flash-lite', Date.parse('2030-01-01'))).toBe(false);
   });
   it('AI_ROUTING=off で、すべて今までの Claude', () => {

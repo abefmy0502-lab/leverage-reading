@@ -259,8 +259,9 @@ describe('関係するメモが無かった相談の払い戻し', () => {
 describe('用途ごとに会社とモデルを選ぶ（失敗したら Claude で 1 回だけやり直す）', () => {
   let cost;
   beforeAll(async () => { cost = await import('./_aiCost.js'); });
-  beforeEach(() => { process.env.OPENAI_API_KEY = 'sk-test'; process.env.GEMINI_API_KEY = 'g-test'; });
-  afterEach(() => { delete process.env.OPENAI_API_KEY; delete process.env.GEMINI_API_KEY; });
+  // 読書計画シートは 2026-10-01 から Gemini が既定。ここでは OpenAI の経路を確かめるため env で OpenAI に向ける。
+  beforeEach(() => { process.env.OPENAI_API_KEY = 'sk-test'; process.env.GEMINI_API_KEY = 'g-test'; process.env.AI_ROUTE_SETUP_SHEET = 'openai:gpt-5-mini'; });
+  afterEach(() => { delete process.env.OPENAI_API_KEY; delete process.env.GEMINI_API_KEY; delete process.env.AI_ROUTE_SETUP_SHEET; });
 
   const openAiSse = (text) => [
     { model: 'gpt-5-mini-2025-08-07', choices: [{ delta: { content: text } }] },
