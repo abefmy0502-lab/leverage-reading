@@ -277,6 +277,11 @@ export function buildSeed(scenario) {
     db.book_memos = db.book_memos.filter((m) => m.book_id == null || m.book_id === keep);
   }
 
+  // ?demo=noreading: 本もメモもあるが、いま読んでいる本が 0 冊の人（ホームの「いま読んでいる本」の欄が「＋ 本を追加」の 1 行だけになる確認用・2026-10-01）。
+  if (scenario === 'noreading') {
+    db.books.forEach((b) => { if (b.status === 'reading') b.status = 'before'; });
+  }
+
   // ?demo=longmemo: 『1兆ドルコーチ』の先頭（ページ順で最初）に長いメモが 1 件ある人（メモカードの長文の確認用）。
   if (scenario === 'longmemo') {
     const bi = BOOKS.findIndex(([t]) => t === '1兆ドルコーチ');

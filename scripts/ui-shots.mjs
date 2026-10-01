@@ -107,6 +107,8 @@ const SCREENS = [
   // ── 状態（空・読み込み中・エラー・上限など）。お試しモードの切り替え:
   //    ?demo=new / nomemo / overdue / limit / free / freeused / freenew / freegrown / trial / paywall、&ai=slow|fail|cut、&load=slow、&save=slow、&db=fail、&price=loading|fail
   { name: 'home-nomemo', url: '/?demo=nomemo' },
+  // いま読んでいる本が 0 冊（「＋ 本を追加」の 1 行だけ・2026-10-01）
+  { name: 'home-noreading', url: '/?demo=noreading' },
   { name: 'home-loading', url: '/?load=slow' },
   { name: 'library-noresult', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'zzzz'] }, { wait: 800 }] },
   // メモの言葉で本を探す（「こんなことを書いたの、なんの本だったかな？」・2026-09-30）
@@ -332,6 +334,8 @@ const SCREENS = [
   { name: 'review-large-text', url: '/', steps: [{ css: nav('振り返り') }, { eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 500 }] },
   // いちばん大きな文字（アクセシビリティの最大に近い 40）でも上の行が 1 行（「写真で共有」は --text-bar-max の 20 で止まる）。
   { name: 'review-xxl-text', url: '/', steps: [{ css: nav('振り返り') }, { eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 500 }] },
+  // 振り返り › 行動 から押したとき（いま読んでいる本）
+  { name: 'share-photo-review-action', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
   { name: 'share-photo-consult', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
   { name: 'share-camera-canceled-consult', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="写真で共有"]' }, { eval: () => document.querySelector('input[data-share-camera]').dispatchEvent(new Event('cancel')) }, { wait: 2500 }] },
   // 写真のときの「写真以外 ▾」のメニュー（紙・夜・表紙の色・透明・写真を選び直す）
