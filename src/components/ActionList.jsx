@@ -248,6 +248,8 @@ function GroupSection({ collapsing = false, entering = false, children, ...rest 
   );
 }
 
+const nowrap = { whiteSpace: 'nowrap' };
+
 // 行動 1 行の中身（完了チェック・本文・メタ・「…」）。長押しでメニュー。
 function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelete, highlight = false }) {
   const longPress = useLongPress({
@@ -259,8 +261,9 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
   const n = daysUntil(a.deadline);
   const overdue = !shownDone && n != null && n < 0;
   // メタ行は [本・期限・優先・繰り返し・ページ]。警告色は期限の部分だけ（責めない）。
+  // 書名はメタ行の先頭に 1 行で（長い書名は … で切る・文字を大きくしても 2 行に折れない・2026-10-01 ui-critic）。
+  // 残り（期限・優先・繰り返し・ページ）はその右に（幅の 7 割まで・足りなければ項目の切れ目で折り返す）。
   const meta = [];
-  if (a.bookTitle) meta.push(a.bookTitle);
   if (a.deadline && !a.done) {
     // 「今日」「明日」のグループでは見出しが期限を言っているので繰り返さない。
     // それより先は曜日も付ける（「9/29」だけだと並びが分かりにくい）。
@@ -272,7 +275,7 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
       : n === 0 || n === 1 ? null
       : `期限 ${fmtShort(a.deadline)}${dow}`;
     // 期限切れも本と同じ 1 行に（「本・期限 9/26」・警告色は期限の部分だけ・2026-09-29）。
-    //   期限はまとまりで折り返す（nowrap）ので、長い書名のときだけ次の行に回る。
+    //   期限はまとまりで折り返さない（nowrap）。書名は … で 1 行に切る（下のメタ行）。
     if (label) meta.push(<span key="dl" style={{ whiteSpace: 'nowrap', ...(isOver ? { color: overdue ? 'var(--warning)' : 'var(--text-3)' } : null) }}>{label}</span>);
   }
   if (a.priority === 'high') meta.push('優先');
@@ -299,10 +302,18 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
         <p className="text-pretty" style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: shownDone ? 'var(--text-3)' : 'var(--text)', textDecoration: shownDone ? 'line-through' : 'none', transition: `color ${HEIGHT_EASE}`, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>
           {phrasedText}
         </p>
-        {meta.length > 0 && (
-          <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
-            {/* 期限は前の「・」ごと 1 つの塊に（行末に「・」だけが残らないように） */}
-            {meta.map((m, i) => <span key={i} style={m?.key === 'dl' ? { whiteSpace: 'nowrap' } : undefined}>{i > 0 && '・'}{m}</span>)}
+        {(a.bookTitle || meta.length > 0) && (
+          // 書名の列は minmax(0, max-content)＝縮めても行の幅（min-content）を押し広げない（flex だと書名の全幅がカードを広げた）。
+          <p style={{ margin: 'var(--space-1) 0 0', display: 'grid', gridTemplateColumns: a.bookTitle && meta.length > 0 ? 'minmax(0, max-content) auto' : 'minmax(0, 1fr)', justifyContent: 'start', alignItems: 'baseline', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+            {a.bookTitle && (
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.bookTitle}</span>
+            )}
+            {meta.length > 0 && (
+              <span style={{ minWidth: 0 }}>
+                {/* 各項目は前の「・」ごと 1 つの塊に（行末に「・」だけが残らないように） */}
+                {meta.map((m, i) => <span key={i} style={{ whiteSpace: 'nowrap' }}>{(i > 0 || a.bookTitle) && '・'}{m}</span>)}
+              </span>
+            )}
           </p>
         )}
         {a.done && a.reflection && (
@@ -626,9 +637,10 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
       {/* 上: 今週の完了数 1 行（数字の演出はしない）＋ 追加。完了一覧は最後の 1 行から。 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
         <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+          {/* 「3 件」の数字と「件」を離さない（文字を大きくしたときに「0／件を完了」と割れていた・2026-10-01 ui-critic）。 */}
           {weekLine.total > 0
-            ? `今週が期限の行動 ${weekLine.total} 件のうち ${weekLine.completed} 件を完了`
-            : `やること ${open.length} 件`}
+            ? <>今週が期限の行動 <span style={nowrap}>{weekLine.total} 件</span>のうち <span style={nowrap}>{weekLine.completed} 件</span>を完了</>
+            : <>やること <span style={nowrap}>{open.length} 件</span></>}
         </p>
         {canAdd && (
           <button type="button" onClick={onAddAction} style={rowBtn}>
