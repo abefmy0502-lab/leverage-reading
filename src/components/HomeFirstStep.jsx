@@ -84,8 +84,10 @@ export default function HomeFirstStep({ bookCount = 0, onQuickstart }) {
       <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5 }}>
         本 {bookCount} 冊・メモはまだありません
       </p>
+      {/* 本はもう本棚にあるので「これまで読んだ本から始める」ではなく、することを言う（2026-10-01 ui-critic・オーナー承認・SPEC §1）。
+          開くのは同じ初日クイックスタート（題「相談相手をつくる」）。 */}
       <button type="button" onClick={onQuickstart} style={btnPrimary}>
-        これまで読んだ本から始める
+        読んだ本に一言ずつ残す
       </button>
     </section>
   );
