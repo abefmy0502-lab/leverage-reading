@@ -4788,6 +4788,8 @@ function AuthedApp() {
               onAdvisor={() => { setAiSubTab('advisor'); setTab('ai'); }}
               onOpenBook={(b) => openDetail(b)}
               onWriteMemo={(b) => setHomeMemoBook(b)}
+              // 読書中が 0 冊のときの候補（積読）の「読み始める」: 本を開かずにその場で読書中へ（楽観的に変えて、失敗したら戻す）。
+              onStartReading={(b) => { haptic.light(); setBookStatusQuiet(b, 'reading'); }}
               onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
               onCoverRetry={triggerCoverAutoRetry}

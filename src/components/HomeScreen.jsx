@@ -9,7 +9,7 @@
 // （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
-import { Library, ChevronRight, PencilLine, Plus } from 'lucide-react';
+import { Library, ChevronRight, PencilLine, Plus, BookOpen } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
@@ -51,46 +51,68 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport }) {
   );
 }
 
-function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading, onCoverRetry }) {
-  const reading = books
-    .filter((b) => b.status === 'reading')
-    .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
-  const shown = reading.slice(0, 3);
-  // 読書中 0 冊: 見出しもカードも出さず、1 行だけ（SPEC §1 のエッジケース）。
-  if (shown.length === 0) {
-    return (
-      <button type="button" onClick={onAddBook} style={{ ...btnLink, alignSelf: 'flex-start', gap: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
-        <Plus size={18} aria-hidden="true" />本を追加
+// いま読んでいる本の 1 行（表紙・書名・2 行目・右に副ボタン 1 つ）。読書中の本と、読書中が 0 冊のときの候補で共通。
+function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action }) {
+  return (
+    <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+      <button
+        type="button"
+        onClick={() => onOpenBook(b)}
+        aria-label={`『${b.title}』を開く`}
+        style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
+      >
+        <MiniCover book={b} width={40} onAutoRetry={onCoverRetry} />
+        <span style={{ minWidth: 0 }}>
+          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{b.title}</span>
+          {sub && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
+        </span>
       </button>
-    );
-  }
+      {action}
+    </div>
+  );
+}
+
+const byUpdated = (a, b) => (b.updated_at || '').localeCompare(a.updated_at || '');
+const byDone = (a, b) => (b.doneDate || '').localeCompare(a.doneDate || '') || byUpdated(a, b);
+
+function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook, onSeeAllReading, onCoverRetry }) {
+  const reading = books.filter((b) => b.status === 'reading').sort(byUpdated);
+  const shown = reading.slice(0, 3);
+  // 読書中 0 冊（2026-10-01 ui-critic・オーナー承認・SPEC §1）: 見出しは残し、次に読む候補を最大 3 冊。
+  //   積読（新しく触った順）→ 無ければ最近読み終えた本。積読は「読み始める」（読書中へ・その場で変わる）、読了は「メモを書く」。
+  //   2 行目は「積読 · 著者」の形で、読書中ではないことを示す（すべての本の行と同じ）。候補も無ければ 1 行だけ。
+  const stacked = shown.length === 0 ? books.filter((b) => b.status === 'before').sort(byUpdated).slice(0, 3) : [];
+  const finished = shown.length === 0 && stacked.length === 0 ? books.filter((b) => b.status === 'done').sort(byDone).slice(0, 3) : [];
+  const candidates = stacked.length ? stacked : finished;
+  const subOf = (b, label) => (label ? [label, b.author].filter(Boolean).join(' · ') : b.author);
+  const memoBtn = (b) => (
+    <button type="button" onClick={() => onWriteMemo(b)} aria-label={`『${b.title}』にメモを書く`} style={btnRow}>
+      <PencilLine size={16} aria-hidden="true" />メモを書く
+    </button>
+  );
   return (
     <section aria-labelledby="home-reading-title">
       <h2 id="home-reading-title" style={sectionTitle}>いま読んでいる本</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {shown.map((b) => (
-            <div key={b.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-              <button
-                type="button"
-                onClick={() => onOpenBook(b)}
-                aria-label={`『${b.title}』を開く`}
-                style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}
-              >
-                <MiniCover book={b} width={40} onAutoRetry={onCoverRetry} />
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{b.title}</span>
-                  {b.author && <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', marginTop: 'var(--space-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.author}</span>}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onWriteMemo(b)}
-                aria-label={`『${b.title}』にメモを書く`}
-                style={btnRow}
-              >
-                <PencilLine size={16} aria-hidden="true" />メモを書く
-              </button>
-            </div>
+            <BookRow key={b.id} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} />
+          ))}
+          {shown.length === 0 && candidates.length === 0 && (
+            <p style={{ margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>読書中の本はありません</p>
+          )}
+          {candidates.map((b) => (
+            <BookRow
+              key={b.id}
+              book={b}
+              sub={subOf(b, b.status === 'before' ? '積読' : '読了')}
+              onOpenBook={onOpenBook}
+              onCoverRetry={onCoverRetry}
+              action={b.status === 'before' && onStartReading ? (
+                <button type="button" onClick={() => onStartReading(b)} aria-label={`『${b.title}』を読み始める`} style={btnRow}>
+                  <BookOpen size={16} aria-hidden="true" />読み始める
+                </button>
+              ) : memoBtn(b)}
+            />
           ))}
           {/* 「本を追加」はいつもここに（ヘルプの「いま読んでいる本の『本を追加』」と同じ場所・2026-09-29）。
               文字ボタンの左右 4 を打ち消して、文字の端をカードの端（16）にそろえる。 */}
@@ -133,7 +155,7 @@ export function HomeBlocksSkeleton() {
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
   onQuickstart, onAddBook, onAdvisor, onImport,
-  onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading, onCoverRetry,
+  onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry,
 }) {
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
   const memoState = useHomeMemoState(books);
@@ -163,7 +185,7 @@ export default function HomeScreen({
       ) : (
         <>
           {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} />}
-          <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} />
+          <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} />
           <button
             type="button"
             onClick={onOpenLibrary}
