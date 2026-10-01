@@ -74,7 +74,7 @@ export function AiConsentDetails({ first = null }) {
         ))}
       </ul>
       <p style={noteStyle}>
-        {withPhraseBreaks(`つながらないときは ${AI_PROVIDER_NAMES[AI_FALLBACK_PROVIDER]} が代わりに答えます。どの会社も、API の規約により、送った内容を AI${NB}の学習に使いません。`)}
+        {withPhraseBreaks(`ほかの会社で答えられないときは、${AI_PROVIDER_NAMES[AI_FALLBACK_PROVIDER]}${NB}が代わりに答えます。どの会社も、契約により、送った内容を AI${NB}の学習に使いません。`)}
       </p>
       <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={linkStyle}>
         プライバシーポリシー
