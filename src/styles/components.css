@@ -1275,6 +1275,19 @@ body.keyboard-open .ai-input-area {
 @media (max-width: 359px) {
   .sub-tabs { gap: var(--space-1); padding-left: var(--space-2); padding-right: var(--space-2); }
 }
+/* 名前の幅のサブタブ＋右端にその画面の操作（相談｜AI 選書 の行・2026-10-01 ui-critic）。
+   タブは文字の幅（左右 16）で左に寄せ、右端の操作（44×44 のアイコン）は見た目の右端を余白 16 にそろえる。 */
+.sub-tabs--fit { align-items: center; }
+.sub-tabs__list { display: flex; gap: var(--space-2); flex-shrink: 0; }
+.sub-tabs--fit .sub-tab { flex: 0 0 auto; padding: var(--space-2) var(--space-4); }
+.sub-tabs__actions {
+  margin-left: auto;
+  margin-right: calc(-1 * var(--space-3));
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+}
 .sub-tab:hover { background: var(--color-bg-hover); }
 .sub-tab.active {
   background: var(--accent-soft);

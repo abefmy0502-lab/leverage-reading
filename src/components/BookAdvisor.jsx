@@ -3,6 +3,7 @@
 // 切り出した自己完結コンポーネント。props: onAddBook / sessionApi / books。
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowUp as IcSend,
   Check as IcCheck,
@@ -171,7 +172,8 @@ const MAX_INTERVIEW_ROUNDS = 3;
 const advisorMemory = { uid: null, state: null };
 
 
-export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook }) {
+// barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。履歴・新規のアイコンはそこへ出す（🕒 だけの行を作らない・2026-10-01 ui-critic）。
+export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null }) {
   // 🎁 AI 選書はプランの機能（フリーミアム・2026-09-27）。無料プランの人が送ったら、有料プランの画面を
   //    重ねて開く（入力は残す・画面はそのまま見せる）。サーバーも 402 plan_required で止める。
   const { requirePlan, canBuyTokens, openTokenSheet, plan, freeMode, tokensRemaining, purchasedTokens } = usePaywall();
@@ -1229,38 +1231,47 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     );
   }
 
+  // 上の操作（履歴・新規）。App のサブタブの行の右端へ出す（barSlot）。
+  const barButtons = (
+    <>
+    {sessionApi?.available && (
+      <button
+        type="button"
+        onClick={() => setView('history')}
+        aria-label="履歴を見る"
+        title="履歴"
+        style={iconBtn}
+      >
+        <IcHistory size={22} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+    )}
+    {/* 推薦が出ている間は、やり直しの入口を下の「別の条件で探す」1 つにする（同じ操作を 2 か所に出さない）。 */}
+    {messages.length > 0 && !recommendations && (
+      <button
+        type="button"
+        onClick={startNewSession}
+        aria-label="新しい会話を始める"
+        title="新規"
+        style={iconBtn}
+      >
+        <IcNewChat size={22} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+    )}
+    </>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      {/* 上の行（相談と同じ形・同じ高さ）: 右に履歴・新規のアイコンボタン。見出しはその下（スクロール領域の先頭）に置き、
-          相談 ⇄ AI 選書 を切り替えても見出しの位置が動かないようにする。 */}
-      <div style={{ ...topRow, ...(scrolled ? { borderBottom: '1px solid var(--separator)' } : null) }}>
+      {/* 履歴・新規のアイコンは App のサブタブ（相談｜AI 選書）の行の右端へ（相談の 🕒・… と同じ場所・2026-10-01 ui-critic）。
+          barSlot が無いとき（単体で使うとき）だけ、自前の上の行に出す。 */}
+      {barSlot ? createPortal(barButtons, barSlot) : (
+        <div style={{ ...topRow, ...(scrolled ? { borderBottom: '1px solid var(--separator)' } : null) }}>
           <div style={{ flex: 1, minWidth: 0 }} />
-          {sessionApi?.available && (
-            <button
-              type="button"
-              onClick={() => setView('history')}
-              aria-label="履歴を見る"
-              title="履歴"
-              style={iconBtn}
-            >
-              <IcHistory size={22} strokeWidth={1.75} aria-hidden="true" />
-            </button>
-          )}
-          {/* 推薦が出ている間は、やり直しの入口を下の「別の条件で探す」1 つにする（同じ操作を 2 か所に出さない）。 */}
-          {messages.length > 0 && !recommendations && (
-            <button
-              type="button"
-              onClick={startNewSession}
-              aria-label="新しい会話を始める"
-              title="新規"
-              style={iconBtn}
-            >
-              <IcNewChat size={22} strokeWidth={1.75} aria-hidden="true" />
-            </button>
-          )}
-      </div>
+          {barButtons}
+        </div>
+      )}
       {/* Scroll 領域: 見出し / 例チップ / メッセージ / 推薦カード をまとめる */}
-      <div ref={chatScrollRef} onScroll={onChatScroll} className="chat-scroll" style={{ padding: 'var(--space-2) var(--space-4) var(--space-4)' }}>
+      <div ref={chatScrollRef} onScroll={onChatScroll} className="chat-scroll" style={{ padding: `${barSlot ? 'var(--space-6)' : 'var(--space-2)'} var(--space-4) var(--space-4)` }}>
       {/* 入力欄の「いまの課題を書いてください」と同じ問い（課題から本を選ぶ・2026-09-29） */}
       {showStartHeading && <h2 style={headingStyle}>いま、どんなことに困っていますか</h2>}
 

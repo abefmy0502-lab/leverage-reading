@@ -647,6 +647,8 @@ function AuthedApp() {
   const [actionFocus, setActionFocus] = useState(null);
   // 🏠→🧠 本棚ホームの「相談する」から渡す質問。MyBookBrain が履歴読込後に 1 回送る。
   const [askPreset, setAskPreset] = useState(null); // { question, nonce } | null
+  // 相談タブのサブタブ（相談｜AI 選書）の行の右端。相談の 🕒・…／AI 選書の履歴・新規はここへ portal で出す（2026-10-01 ui-critic）。
+  const [aiBarSlot, setAiBarSlot] = useState(null);
   // 🔎 トークンを使い切った相談から「メモを検索して探す」: 振り返り › メモの検索欄に入れる言葉（2026-09-29）。
   const [memoSearchPreset, setMemoSearchPreset] = useState(null); // { query, nonce } | null
   // 📖→🧠 本詳細の「この本に相談する」: 相談相手をその本に絞ってマイ読書脳を開く。
@@ -5253,8 +5255,11 @@ function AuthedApp() {
 
         {tab === "ai" && (
           <div key={`tab-${tab}`} className="tab-content ai-page">
+            {/* サブタブは名前の幅（相談｜AI 選書）で左に寄せ、同じ行の右端にその画面の操作（相談の 🕒・…／AI 選書の履歴・新規）。
+                上の操作を「サブタブ／アイコンの行／件数の行」と 3 段に積まない（2026-10-01 ui-critic・DESIGN §5）。 */}
             {!(aiSubTab === 'brain' && consultPushed) && (
-            <div className="sub-tabs" role="tablist" aria-label="相談のサブタブ" style={{ flexShrink: 0 }}>
+            <div className="sub-tabs sub-tabs--fit" style={{ flexShrink: 0 }}>
+            <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list">
               <button
                 type="button"
                 role="tab"
@@ -5277,6 +5282,8 @@ function AuthedApp() {
                 AI 選書
               </button>
             </div>
+            <div ref={setAiBarSlot} className="sub-tabs__actions" />
+            </div>
             )}
             {/* サブタブ（相談｜AI 選書）の下に説明文は置かない（各画面の見出しで伝わる・DESIGN §0-6）。 */}
             <div className="ai-page-body">
@@ -5290,6 +5297,7 @@ function AuthedApp() {
                     sessionApi={advisorSessions}
                     books={books}
                     onOpenBook={(b) => openDetail(b)}
+                    barSlot={aiBarSlot}
                   />
                 </Suspense>
               ) : (
@@ -5311,6 +5319,7 @@ function AuthedApp() {
                     scopePreset={scopePreset}
                     onSearchMemos={openMemoSearch}
                     onPushedViewChange={setConsultPushed}
+                    barSlot={aiBarSlot}
                   />
                 </Suspense>
               )}

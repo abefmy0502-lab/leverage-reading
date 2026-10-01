@@ -8,6 +8,7 @@
 // are written for personal learnings and surface in the Review tab too.
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { markActivation } from '../lib/activation';
 import { supabase, isSupabaseConfigured, isDemo, demoScenario } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -403,7 +404,8 @@ function LearningInline({ onSaved, onDirtyChange, initialTags = null }) {
 // ============================================================================
 // Main MyBookBrain component
 // ============================================================================
-export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos }) {
+// barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。会話の 🕒・… はそこへ出す（上の操作を 3 段に積まない・2026-10-01 ui-critic）。
+export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBooksMutated, onAddActionPickBook, onGoBookshelf, onQuickstart, onAddBook, onOpenActions, askPreset, scopePreset, onPushedViewChange, onSearchMemos, barSlot = null }) {
   const { user } = useAuth();
   // ⚡ タブを開いた瞬間に知識スキャン（gatherKnowledge）を裏で開始 — 最初の質問時には
   // キャッシュ済みで、RAG 構築の待ち時間（数百ms〜数秒）が消える。
@@ -1619,12 +1621,72 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (top > 0 && el) el.scrollTop = top;
   }, []);
 
+  // 会話の上の操作（過去の相談・その他）。App のサブタブの行の右端へ出す（barSlot）。
+  const barButtons = (
+    <>
+      <button type="button" style={iconBtn} onClick={() => setView('history')} aria-label="過去の相談を見る" title="過去の相談">
+        <History size={22} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        style={{ ...iconBtn, marginRight: 'calc(-1 * var(--space-3))' }}
+        onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMoreMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
+        aria-label="その他の操作"
+        title="その他"
+      >
+        <MoreHorizontal size={22} aria-hidden="true" />
+      </button>
+    </>
+  );
+  // 「あなたのメモ N 件から答えます」＋残りのトークン。会話の先頭の 1 行（スクロールで一緒に流れる・2026-10-01）。
+  const statusLine = (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', marginBottom: isEmpty ? 'var(--space-6)' : 'var(--space-4)' }}>
+      {/* 💬 いまの相談相手のアイコン（24・1 行目の高さの中央・2026-09-30）。飾りなので読み上げない（文は右の 1 行）。 */}
+      <PartnerAvatar partner={scopePartner} size={AVATAR_SIZE_SMALL} style={{ alignSelf: 'flex-start', marginTop: 'calc((var(--text-sub) * 1.5 - 24px) / 2)', marginRight: 'var(--space-1)' }} />
+      {/* 1 冊に絞ったとき（『書名』…）は 『 をぶら下げる。下の残りトークンの行には引き継がない。 */}
+      <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase', ...(scopeIds.length === 1 && scopeMemoCount != null ? { textIndent: '-0.5em' } : null) }}>
+        {/* 件数が分かるまでは、同じ 1 行ぶんの高さに文の形の SkeletonBlock（何もない空きにしない・読み上げない。
+            「読んだ本のメモを根拠に答えます」→「あなたのメモ N 件から答えます」と入れ替わって見えていた・2026-09-30） */}
+        {headCountPending
+          ? <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-sub) * 1.5)' }}><SkeletonBlock width="62%" height={14} /></span>
+          : scopeIds.length > 0
+          ? (scopeMemoCount === 0
+            // メモが無いことは会話の場所で大きく伝えるので、上の行は相談相手の名前だけ（同じ文を 2 回出さない）。
+            ? (scopeIds.length === 1
+              ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』に相談します</>
+              : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>に相談します</>)
+            : scopeMemoCount != null
+            ? (scopeIds.length === 1
+              ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerb}</>
+              : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerb}</>)
+            : `選んだ本のメモ${answerVerb}`)
+          // 件数は「メモ N 件」＝自分のメモ（カード式＋学び＋この本のまとめ）。ホームの相談カード・初日クイックスタート・
+          // 振り返りの記録と同じ数え方・同じ言葉（2026-09-29）。0 件のときは件数を出さない（下の「まだメモがありません」と食い違わないように）。
+          : (ownMemoTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>あなたのメモ {ownMemoTotal} 件</span>{answerVerb}</> : '読んだ本のメモを根拠に答えます')}
+        {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
+        {tokensRemaining != null && (
+          <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
+            {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
+            <span style={{ whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
+            {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
+            {/* 回数は次の行に置く（「・」でつなぐと 390 幅で途中から折り返して、どこで切れるかが毎回変わる・2026-09-30）。 */}
+            {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(tokensRemaining + (purchasedTokens || 0), TOKEN_COSTS.consult)} 回</span>}
+          </span>
+        )}
+        {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
+      </p>
+    </div>
+  );
+
   return (
     <div style={wrap}>
-      {/* 上部は 1 行だけ（SPEC §3: 二重タブをやめる）。会話のときは「何を根拠に答えるか」＋
-          履歴（時計）＋その他（…）。会話以外の画面では「‹ 相談」で戻る。 */}
-      {/* 会話・一覧を下へ送ったときも、上部の行との境目に線を引く（iOS のナビゲーションバーと同じ）。
-          押し込まれた画面では親が全体の見出しを隠すので、この行が画面の最上部になる（ノッチを避ける）。 */}
+      {/* 上の操作は 1 行だけ（SPEC §3）。会話のときは、履歴（時計）とその他（…）を App のサブタブ（相談｜AI 選書）の行の右端に出し
+          （barSlot・2026-10-01 ui-critic: サブタブ／🕒…の行／件数の行と 3 段に積まない）、「何を根拠に答えるか」の 1 行は会話の先頭へ。
+          会話以外の押し込まれた画面では「‹ 相談」で戻る行（押し込まれた画面では親が全体の見出しを隠すので、この行が画面の最上部＝ノッチを避ける）。 */}
+      {view === 'chat' && (barSlot ? createPortal(barButtons, barSlot) : (
+        <div style={{ ...topRow, justifyContent: 'flex-end' }}>{barButtons}</div>
+      ))}
+      {view !== 'chat' && (
       <div
         style={{
           ...topRow,
@@ -1634,57 +1696,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           ...(isPushed && onPushedViewChange ? { paddingTop: 'max(var(--space-1), env(safe-area-inset-top, 0px))', minHeight: 'calc(52px + env(safe-area-inset-top, 0px))' } : null),
         }}
       >
-        {view === 'chat' ? (
-          <>
-            {/* 💬 いまの相談相手のアイコン（24・1 行目の高さの中央・2026-09-30）。飾りなので読み上げない（文は右の 1 行）。 */}
-            <PartnerAvatar partner={scopePartner} size={AVATAR_SIZE_SMALL} style={{ alignSelf: 'flex-start', marginTop: 'calc((var(--text-sub) * 1.5 - 24px) / 2)', marginRight: 'var(--space-1)' }} />
-            {/* 1 冊に絞ったとき（『書名』…）は 『 をぶら下げる。下の残りトークンの行には引き継がない。 */}
-            <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'auto-phrase', ...(scopeIds.length === 1 && scopeMemoCount != null ? { textIndent: '-0.5em' } : null) }}>
-              {/* 件数が分かるまでは、同じ 1 行ぶんの高さに文の形の SkeletonBlock（何もない空きにしない・読み上げない。
-                  「読んだ本のメモを根拠に答えます」→「あなたのメモ N 件から答えます」と入れ替わって見えていた・2026-09-30） */}
-              {headCountPending
-                ? <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', height: 'calc(var(--text-sub) * 1.5)' }}><SkeletonBlock width="62%" height={14} /></span>
-                : scopeIds.length > 0
-                ? (scopeMemoCount === 0
-                  // メモが無いことは会話の場所で大きく伝えるので、上の行は相談相手の名前だけ（同じ文を 2 回出さない）。
-                  ? (scopeIds.length === 1
-                    ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』に相談します</>
-                    : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>に相談します</>)
-                  : scopeMemoCount != null
-                  ? (scopeIds.length === 1
-                    ? <>『{(books.find((b) => b.id === scopeIds[0]) || {}).title || 'この本'}』の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerb}</>
-                    : <>選んだ <span style={{ whiteSpace: 'nowrap' }}>{scopeIds.length} 冊</span>の<span style={{ whiteSpace: 'nowrap' }}>メモ {scopeMemoCount} 件</span>{answerVerb}</>)
-                  : `選んだ本のメモ${answerVerb}`)
-                // 件数は「メモ N 件」＝自分のメモ（カード式＋学び＋この本のまとめ）。ホームの相談カード・初日クイックスタート・
-                // 振り返りの記録と同じ数え方・同じ言葉（2026-09-29）。0 件のときは件数を出さない（下の「まだメモがありません」と食い違わないように）。
-                : (ownMemoTotal > 0 ? <><span style={{ whiteSpace: 'nowrap' }}>あなたのメモ {ownMemoTotal} 件</span>{answerVerb}</> : '読んだ本のメモを根拠に答えます')}
-              {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。 */}
-              {tokensRemaining != null && (
-                <span style={{ display: 'block', textIndent: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-                  {/* 「無料期間の残り／110 トークン」と切らない（1 つのまとまり）。かっこは重ねない。 */}
-                  <span style={{ whiteSpace: 'nowrap' }}>{plan === 'trial' ? '無料期間' : '今月'}の残り {fmtTokens(tokensRemaining)}{purchasedTokens > 0 ? <> ＋追加 {fmtTokens(purchasedTokens)}</> : null} トークン</span>
-                  {/* 無料プラン・7 日間無料は「あと何回相談できるか」を添える（トークンだけでは量が分からない・2026-09-29）。追加分も数に入れる。 */}
-                  {/* 回数は次の行に置く（「・」でつなぐと 390 幅で途中から折り返して、どこで切れるかが毎回変わる・2026-09-30）。 */}
-                  {(freeMode || plan === 'trial') && tokensRemaining + (purchasedTokens || 0) > 0 && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>相談 約 {consultsLeft(tokensRemaining + (purchasedTokens || 0), TOKEN_COSTS.consult)} 回</span>}
-                </span>
-              )}
-              {/* 上限に達したときの「◯月1日から」は、答えの吹き出しと入力欄に出す（同じ日付を 3 回並べない）。 */}
-            </p>
-            <button type="button" style={iconBtn} onClick={() => setView('history')} aria-label="過去の相談を見る" title="過去の相談">
-              <History size={22} strokeWidth={1.75} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              style={{ ...iconBtn, marginRight: 'calc(-1 * var(--space-3))' }}
-              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMoreMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
-              aria-label="その他の操作"
-              title="その他"
-            >
-              <MoreHorizontal size={22} aria-hidden="true" />
-            </button>
-          </>
-        ) : (
-          <>
+        <>
             {/* iOS のナビゲーションバーの形: 左に戻る・中央に題名・右は同じ幅の空き。 */}
             <div style={{ width: 96, flexShrink: 0 }}>
               {/* シェブロンの見た目の左端を余白 16 に揃える（アイコンの内側の空きの分だけ左へ戻す）。 */}
@@ -1709,9 +1721,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             ) : (
               <div style={{ width: 96, flexShrink: 0 }} aria-hidden="true" />
             )}
-          </>
-        )}
+        </>
       </div>
+      )}
       {moreMenu && (
         <ContextMenu
           x={moreMenu.x}
@@ -1817,14 +1829,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             ref={chatScrollRef}
             className="chat-scroll"
             onScroll={onBodyScroll}
-            // 上部の行の下は、空の画面で 24・会話があるときは 16。
-            style={{ padding: `${isEmpty ? 'var(--space-6)' : 'var(--space-4)'} var(--space-4) var(--space-4)` }}
+            // サブタブの行の下 12 に「あなたのメモ N 件から答えます」の 1 行（その下は空の画面で 24・会話があるときは 16）。
+            style={{ padding: 'var(--space-3) var(--space-4) var(--space-4)' }}
             role="log"
             aria-live="polite"
             aria-relevant="additions text"
             aria-label="相談の会話"
             aria-busy={busy}
           >
+          {statusLine}
           {isEmpty && historyLoaded && memoStatsLoaded && (
             scopeIds.length > 0 && scopeMemoCount === 0 ? (
               // 相談相手に絞った本にメモが無い（SPEC §3）: 空振りさせず、すべての本へ戻す道だけを出す。
