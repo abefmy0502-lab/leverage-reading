@@ -64,8 +64,8 @@ function buildPayload({ system, messages, model, max_tokens, temperature, cacheS
     messages: messages || [],
     stream: true,
   };
-  // 用途（'consult' など）。サーバーが用途ごとのモデルを env で差し替えるための目印
-  // （AI_CONSULT_MODEL。アプリを出し直さずに安いモデルへ切り替えられる）。
+  // 用途（'consult' / 'book_advisor' / 'setup_sheet' など）。サーバー（api/_aiRouting.js）が用途ごとに
+  // 答える会社とモデルを決める目印（env で差し替えられる＝アプリを出し直さずに切り替えられる）。
   if (purpose) payload.purpose = purpose;
   if (system) payload.system = cacheSystem ? cachedSystemBlock(system) : system;
   // ⚠️ temperature は payload に含めない。sonnet-5 / haiku-4-5 世代は sampling

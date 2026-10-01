@@ -2780,6 +2780,7 @@ function AuthedApp() {
     // 読書計画シートは「各節 3 行・900 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
     max_tokens: 1600,
     model: MODEL_SMART,
+    purpose: 'setup_sheet', // サーバーが用途ごとに安いモデルへ（docs/ai-routing.md・失敗したら Claude）
     onChunk,
   });
   const runStrategy = async () => {
@@ -2878,6 +2879,7 @@ function AuthedApp() {
         // 読書計画シートは「各節 3 行・900 字以内」（prompts.setupSheet）。2048 → 1600（2026-09-27）
         max_tokens: 1600,
         model: MODEL_SMART,
+        purpose: 'setup_sheet_edit',
         onChunk: (fullText) => {
           didStreamAny = true;
           lastText = fullText;

@@ -486,7 +486,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         // ヒアリング質問は「定型 JSON（質問文＋選択肢）」の生成で、Haiku 4.5 で十分な
         // 品質が出る領域（事実想起や横断推論を伴わない）。コスト削減のため FAST に。
         // ※ 最終的な「本の推薦」は捏造リスク＆横断推論があるため別関数で SMART 維持。
-        { max_tokens: 700, cacheSystem: true, model: MODEL_FAST },
+        // purpose: サーバーが用途ごとに安いモデルへ送る（docs/ai-routing.md・失敗したら Claude）。
+        { max_tokens: 700, cacheSystem: true, model: MODEL_FAST, purpose: 'advisor_interview' },
       );
     } catch {
       return null;
@@ -669,6 +670,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         max_tokens: 3000,
         // 推薦は実在の本を挙げるので Sonnet 5 に残す（models.js の MODEL_ADVISOR・2026-09-27）
         model: MODEL_ADVISOR,
+        // 推薦は Claude だけ（サーバーの api/_aiRouting.js が Claude Sonnet 5.5 へ・ほかの会社には送らない）
+        purpose: 'book_advisor',
         signal: controller.signal,
         // チャンク受信のたびに (1) 無通信ウォッチドッグを再武装し、(2) 生成中の
         // 前置き文（「👋 はじめに」の共感コメント）をライブ表示する。死んだスケルトン

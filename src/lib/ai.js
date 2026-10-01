@@ -126,7 +126,8 @@ export async function callClaude(systemOrMessages, userOrOptions, options) {
     messages,
   };
   if (system) payload.system = opts.cacheSystem ? cachedSystem(system) : system;
-  if (opts.purpose) payload.purpose = opts.purpose; // 用途（サーバーが AI_CONSULT_MODEL で差し替える目印）
+  // 用途（'consult' / 'ocr' / 'condense' など）。サーバー（api/_aiRouting.js）が用途ごとに答える会社とモデルを決める目印。
+  if (opts.purpose) payload.purpose = opts.purpose;
   // ⚠️ temperature は送らない。claude-sonnet-5 / haiku-4-5 世代（Opus 4.7 以降と
   // 同系）は sampling params（temperature / top_p / top_k）を受け付けず 400 を返す
   // （「`temperature` is deprecated for this model.」）。呼び出し側は opts.temperature
@@ -197,7 +198,8 @@ export async function extractTextFromImage({ base64, mediaType = 'image/jpeg' })
       ],
     },
   ];
-  const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, cacheSystem: true, model: MODEL_FAST });
+  // purpose 'ocr': サーバーが写真の書き起こしに向いた安いモデルへ送る（docs/ai-routing.md・失敗したら Claude）。
+  const result = await callClaude(messages, { system: OCR_SYSTEM, max_tokens: 1024, cacheSystem: true, model: MODEL_FAST, purpose: 'ocr' });
   if (typeof result !== 'string') throw new Error('読み取りに失敗しました。');
   // postClaude は失敗時にも文字列（既知のエラー文言）を返すので throw に変換し、
   // 呼び出し側が toMessage で humanize できるようにする。判定は isClaudeErrorString
@@ -1608,7 +1610,7 @@ export async function condenseMemo({ text }) {
     result = await callClaude(
       PROMPTS.condense.system,
       PROMPTS.condense.user({ text: src }),
-      { max_tokens: 320, cacheSystem: true, model: MODEL_FAST },
+      { max_tokens: 320, cacheSystem: true, model: MODEL_FAST, purpose: 'condense' },
     );
   } catch (e) {
     console.warn('[condense] claude failed:', e?.message);
@@ -1646,7 +1648,7 @@ export async function summarizeCards({ title, cards }) {
     result = await callClaude(
       PROMPTS.cardsToSummary.system,
       PROMPTS.cardsToSummary.user({ title, cards: src }),
-      { max_tokens: 700, cacheSystem: true, model: MODEL_FAST },
+      { max_tokens: 700, cacheSystem: true, model: MODEL_FAST, purpose: 'cards_to_summary' },
     );
   } catch (e) {
     console.warn('[summarizeCards] claude failed:', e?.message);
@@ -1684,7 +1686,7 @@ export async function opsAdvise({ messages = [], stateLine = '' } = {}) {
   const system = PROMPTS.opsAdvisor.system({ today: todayISO(), stateLine: clamp(String(stateLine || ''), 800) });
   let result;
   try {
-    result = await callClaude(history, { system, max_tokens: 2048 });
+    result = await callClaude(history, { system, max_tokens: 2048, purpose: 'ops_advise' });
   } catch (e) {
     console.warn('[opsAdvise] claude failed:', e?.message);
     return null;
