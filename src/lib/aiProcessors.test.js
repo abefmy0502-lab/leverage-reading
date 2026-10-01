@@ -11,7 +11,7 @@ import {
 // 版ごとの「会社と用途の組み合わせ」。送り先を変えたら、AI_CONSENT_VERSION を上げてここに足す
 // （同意した人にも、次に AI を使うときにもう一度確かめるため）。
 const CONSENT_SIGNATURES = {
-  1: 'advisor_interview:openai,book_advisor:anthropic,cards_to_summary:gemini,condense:gemini,consult:anthropic,ocr:gemini,setup_sheet:openai,setup_sheet_edit:openai|fallback:anthropic',
+  1: 'advisor_interview:gemini,book_advisor:anthropic,cards_to_summary:gemini,condense:gemini,consult:anthropic,ocr:gemini,setup_sheet:gemini,setup_sheet_edit:gemini|fallback:anthropic',
 };
 
 describe('送り先は api/_aiRouting.js の既定と同じ', () => {
@@ -37,8 +37,8 @@ describe('送り先は api/_aiRouting.js の既定と同じ', () => {
 
   it('画面に出す会社名', () => {
     expect(providersFor(featureForPurpose('consult'))).toEqual(['Anthropic']);
-    expect(providersFor(featureForPurpose('advisor_interview'))).toEqual(['Anthropic', 'OpenAI']);
-    expect(providersFor(featureForPurpose('setup_sheet_edit'))).toEqual(['OpenAI']);
+    expect(providersFor(featureForPurpose('advisor_interview'))).toEqual(['Anthropic', 'Google']);
+    expect(providersFor(featureForPurpose('setup_sheet_edit'))).toEqual(['Google']);
     expect(providersFor(featureForPurpose('ocr'))).toEqual(['Google']);
     expect(featureForPurpose('ops_advise')).toBe(null);
     expect(Object.keys(AI_PROVIDER_NAMES).sort()).toEqual(['anthropic', 'gemini', 'openai']);

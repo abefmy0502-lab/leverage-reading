@@ -11,6 +11,8 @@
 //   4. プライバシーポリシー第 7 条（src/legal/PrivacyPage.jsx・legal/privacy.md）も合わせる
 
 // 同意の版。送り先（会社と用途の組み合わせ）が変わったら上げる。
+// 版 1 = AI 選書の聞き返し・読書計画シートも Google（2026-10-01 の 2 回目の振り分け・api/_aiRouting.js）。
+// （OpenAI に送っていた振り分けのときの版はアプリに出していないので、1 のまま書き直した。）
 export const AI_CONSENT_VERSION = 1;
 
 // 会社（api/_aiRouting.js の provider）→ 画面に出す名前。
@@ -67,9 +69,9 @@ export const AI_FEATURES = [
 export const AI_PURPOSE_PROVIDER = {
   consult: 'anthropic',
   book_advisor: 'anthropic',
-  advisor_interview: 'openai',
-  setup_sheet: 'openai',
-  setup_sheet_edit: 'openai',
+  advisor_interview: 'gemini',
+  setup_sheet: 'gemini',
+  setup_sheet_edit: 'gemini',
   condense: 'gemini',
   cards_to_summary: 'gemini',
   ocr: 'gemini',

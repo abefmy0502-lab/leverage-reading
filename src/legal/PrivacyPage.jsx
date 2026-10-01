@@ -1,6 +1,6 @@
 // 📜 プライバシーポリシー — /legal/privacy
 //
-// 本格版。委託先 (Supabase / Vercel / Anthropic / OpenAI / Google / Apple / RevenueCat) と
+// 本格版。委託先 (Supabase / Vercel / Anthropic / Google / OpenAI(運営の分析だけ) / Apple / RevenueCat) と
 // 国外移転を明示。AI 機能ごとの送り先は docs/ai-routing.md（api/_aiRouting.js）と合わせる。決済は App 内課金 (IAP) + RevenueCat (購読状態管理) に整合。
 // 商用化前に弁護士の正式レビューを推奨。
 
@@ -98,8 +98,8 @@ export default function PrivacyPage() {
         <li><strong>Supabase, Inc.(米国):</strong> データベースおよび認証基盤の提供</li>
         <li><strong>Vercel, Inc.(米国):</strong> ホスティングサービスの提供、紹介用 Web ページの閲覧状況の集計(Vercel Web Analytics)</li>
         <li><strong>Anthropic, PBC(米国):</strong> AI 機能(相談、AI 選書の推薦)の提供</li>
-        <li><strong>OpenAI(米国):</strong> AI 機能(読書計画シート、AI 選書の質問づくり)の提供</li>
-        <li><strong>Google LLC(米国):</strong> AI 機能(メモの凝縮、メモからまとめ、写真から書き起こし)の提供(Gemini API)</li>
+        <li><strong>OpenAI(米国):</strong> 運営者だけが使う運営の分析の補助(集計した数字だけを送り、利用者のメモ・質問・写真などは送りません)</li>
+        <li><strong>Google LLC(米国):</strong> AI 機能(読書計画シート、AI 選書の質問づくり、メモの凝縮、メモからまとめ、写真から書き起こし)の提供(Gemini API)</li>
         <li><strong>Apple Inc.(米国):</strong> App Store でのアプリ内課金・決済処理(iOS アプリ)</li>
         <li><strong>RevenueCat, Inc.(米国):</strong> 購読状態(課金ステータス・トランザクション識別子等)の管理</li>
       </ul>
@@ -125,8 +125,8 @@ export default function PrivacyPage() {
         <li>本サービスは、AI 機能を使ったときに限り、その機能に必要な情報を、次の AI 事業者の API に送信して答えを作ります。
           <ul>
             <li><strong>相談:</strong> 質問と、答えの根拠にするメモ・本の情報(書名・著者・評価・読書計画シートの内容等)・行動の記録・これまでの相談 → Anthropic(Claude)</li>
-            <li><strong>AI 選書:</strong> 相談内容と質問への回答・本棚の傾向(読んだ本・評価) → おすすめの本は Anthropic(Claude)、途中の質問づくりは OpenAI</li>
-            <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うタグ・今のシートと直したい点 → OpenAI</li>
+            <li><strong>AI 選書:</strong> 相談内容と質問への回答・本棚の傾向(読んだ本・評価) → おすすめの本は Anthropic(Claude)、途中の質問づくりは Google(Gemini)</li>
+            <li><strong>読書計画シート(作る・直す):</strong> 書名・著者・この本から得たいこと・よく使うタグ・今のシートと直したい点 → Google(Gemini)</li>
             <li><strong>メモの凝縮・メモからまとめ:</strong> そのメモの本文(まとめは書名とその本のメモ) → Google(Gemini)</li>
             <li><strong>写真から書き起こし:</strong> 撮った本のページの写真 → Google(Gemini)。写真を AI 事業者に送るのは、この機能だけです。</li>
           </ul>

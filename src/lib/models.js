@@ -15,8 +15,8 @@
 //    api/claude.js の ALLOWED_MODELS（サーバー側の許可リスト）と、原価の単価表
 //    api/_aiCost.js の PRICES も更新すること（無い単価は高めに数えて上限が早く来る）。
 // 🧭 2026-10-01〜: アプリは呼び出しごとに用途（purpose）も送り、どの会社のどのモデルで答えるかは
-//    サーバー（api/_aiRouting.js・docs/ai-routing.md）が決める。相談と AI 選書は Claude、読書計画シート・
-//    ヒアリング・運営の相談は OpenAI、凝縮・まとめ・写真の書き起こしは Google Gemini（失敗したら Claude）。
+//    サーバー（api/_aiRouting.js・docs/ai-routing.md）が決める。相談と AI 選書の推薦は Claude、読書計画シート・
+//    ヒアリング・凝縮・まとめ・写真の書き起こしは Google Gemini、運営の相談だけ OpenAI（失敗したら Claude）。
 //    ここの定数は「用途を知らないサーバー」と「Claude に戻すとき」に使う Claude のモデル。
 // 2026-09-27 オーナー裁定: AI 選書（推薦）だけ Sonnet 5、ほかはすべて Haiku 4.5（原価を約半分に・
 // 同じ上限で相談できる回数を約 2 倍に）。MODEL_SMART は「品質が効く機能」の名前のまま Haiku を指す。
