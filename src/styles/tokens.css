@@ -63,6 +63,9 @@
   --text-sub: calc(1rem * 15 / 17);
   --text-meta: calc(1rem * 13 / 17);
   --text-caption: calc(1rem * 12 / 17); /* これより小さい文字は使わない */
+  /* 画面上部の 1 行（タブの上の行）の文字ボタンの上限。文字サイズの設定を最大にしても、ロゴ・写真で共有・？・⚙️ が
+     390 幅の 1 行に収まるように（2026-10-01 ui-critic）。使い方: min(var(--text-sub), var(--text-bar-max)) */
+  --text-bar-max: 20px;
   /* LP（紹介ページ）専用の見出し。画面幅で伸びる。アプリの画面では使わない（DESIGN §2）。
      タブレット以上の値は下の @media (min-width: 768px) で上書きする */
   --text-display: clamp(34px, 9vw, 56px);   /* LP の h1 */

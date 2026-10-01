@@ -4681,7 +4681,7 @@ function AuthedApp() {
        transition: 'border-color var(--duration-fast) var(--ease-out)',
      }}
    >
-    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', minWidth: 0, flex: 1 }}>
       <button
         type="button"
         {...logoLongPress.bind}
@@ -4689,8 +4689,8 @@ function AuthedApp() {
         style={{
           lineHeight: 0,
           // 押せる範囲 44×44（DESIGN §6）。見た目の左端は余白 16 に揃えるため左へ 8 戻す。
-          padding: 8,
-          margin: '0 0 0 -8px',
+          padding: 'var(--space-2)',
+          margin: '0 0 0 calc(-1 * var(--space-2))',
           background: "none",
           border: "none",
           cursor: "pointer",
@@ -4722,9 +4722,10 @@ function AuthedApp() {
           ...(tab === 'review' && reviewSubTab === 'record' ? { initialSubject: { kind: 'month' } } : {}),
         })}
         aria-label="写真で共有"
-        style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
+        // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは文字に合わせて 1.3em（ふだん 22 前後）。
+        style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
       >
-        <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
+        <Camera size="1.3em" strokeWidth={1.75} aria-hidden="true" />
         写真で共有
       </button>
       <button
