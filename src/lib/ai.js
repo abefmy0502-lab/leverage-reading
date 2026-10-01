@@ -10,6 +10,7 @@ import { apiUrl } from './apiUrl';
 import { fetchAllRows } from './fetchAllRows';
 import { verifyAnswerQuotes, decodeQuoteRefs } from './evidenceCheck';
 import { parseAskSection, wantsAction, isBookLookup } from './consultHelpers';
+import { checkAiConsentForSend, AI_CONSENT_HEADER, AI_CONSENT_DECLINED_TEXT } from './aiConsent';
 
 const DEFAULT_MODEL = MODEL_SMART;
 const DEFAULT_MAX_TOKENS = 1024;
@@ -40,7 +41,14 @@ async function getAccessToken() {
 async function postClaude(payload, signal) {
   const accessToken = await getAccessToken();
   const headers = { 'Content-Type': 'application/json' };
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+    // 🤝 送る直前の関所（App Review 5.1.2(i)・lib/aiConsent.js）: 同意が無ければシートを出し、やめたら送らない。
+    //    ログインしていないときはサーバーが 401 で断る（AI には何も届かない）ので、ここでは聞かない。
+    const consent = await checkAiConsentForSend(payload?.purpose);
+    if (!consent.ok) return AI_CONSENT_DECLINED_TEXT;
+    if (consent.version) headers[AI_CONSENT_HEADER] = String(consent.version);
+  }
 
   let res;
   try {
@@ -148,7 +156,8 @@ export default callClaude;
 //   '今月のトークンは、ここまでです…' / '無料期間のトークンは…'（api/claude.js の 429・402 free_limit_reached）
 //   'この AI 機能は、プランで…'（402 plan_required）・旧文言（'今月の AI の利用上限…' 'AI 機能のご利用…' 'お試しの相談…'）
 // 上限・プランの案内（エラーではなく案内として見せる文）。AI_NOTICE_RE で見分ける。
-export const AI_NOTICE_RE = /^(今月のトークン|無料期間のトークン|この AI 機能は|今月の AI|AI 機能のご利用|お試しの相談)/;
+//   'AI への送信をやめました。'（同意のシートで「今はやめる」・lib/aiConsent.js。送っていない）
+export const AI_NOTICE_RE = /^(今月のトークン|無料期間のトークン|この AI 機能は|今月の AI|AI 機能のご利用|お試しの相談|AI への送信をやめました)/;
 export function isAiNoticeString(s) {
   return typeof s === 'string' && AI_NOTICE_RE.test(s);
 }

@@ -342,10 +342,14 @@ const SCREENS = [
   { name: 'ai-consent-ocr', url: '/?consent=none', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("メモを書く")' }, { css: 'button:has-text("ページ・写真")' }, { upload: ['[role=dialog] input[type=file][accept="image/*"]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 800 }] },
   // 「今はやめる」で閉じたあと（送らない・入力欄に相談が残る）
   { name: 'ai-consent-declined', url: '/?consent=none', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }, { css: '[role=dialog] button:has-text("今はやめる")' }, { wait: 600 }] },
+  // 「同意して使う」のあと（そのまま相談が送られて答えが出る）
+  { name: 'ai-consent-agreed', url: '/?consent=none', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下が報告をくれなくて困っています'] }, { css: 'button[aria-label="送信"]' }, { wait: 800 }, { css: '[role=dialog] button:has-text("同意して使う")' }, { wait: 6000 }] },
   // 設定の「AI へのデータ送信」（同意済み／未同意）と、押して開くシート（同意済みなら「同意を取り消す」）
   { name: 'settings-ai-consent', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }] },
   { name: 'settings-ai-consent-none', url: '/?consent=none', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }] },
   { name: 'settings-ai-consent-sheet', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }] },
+  // 取り消したあと（行が「未同意」に・知らせ）
+  { name: 'settings-ai-consent-withdrawn', url: '/', steps: [{ css: 'button[aria-label="アカウント設定を開く"]' }, { scrollTo: 'h3:has-text("プライバシー")' }, { css: 'button:has-text("AI へのデータ送信")' }, { wait: 600 }, { css: '[role=dialog] button:has-text("同意を取り消す")' }, { wait: 400 }] },
   { name: 'share-edit-photo-zoomed', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, EDIT_ZOOM, EDIT_ZOOM, EDIT_PAN, { wait: 800 }] },
   { name: 'share-edit-photo-zoomed-story', url: '/', steps: [...SHARE_CAMERA, { css: '[role=radio][aria-label="ストーリー（9:16）"]' }, { wait: 1500 }, ...SHARE_EDIT, EDIT_ZOOM, EDIT_PAN, { wait: 800 }] },
   { name: 'share-edit-items', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, { scrollBottom: true }] },

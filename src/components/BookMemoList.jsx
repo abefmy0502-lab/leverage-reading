@@ -6,6 +6,7 @@ import { useHaptic } from '../hooks/useHaptic';
 import { useConfirm } from './ConfirmDialog';
 import { toMessage } from '../lib/errors';
 import { summarizeCards } from '../lib/ai';
+import { ensureAiConsent } from '../lib/aiConsent';
 import { usePaywall } from '../state/PaywallContext';
 import { MemoListSkeleton } from './Skeleton';
 import EmptyState from './EmptyState';
@@ -73,6 +74,8 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
   const handleGenerate = async () => {
     if (generating || !canGenerate) return;
     if (!requirePlan('メモからのまとめ作成')) return;
+    // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）。やめたら何も変えない。
+    if (!(await ensureAiConsent('cards_to_summary'))) return;
     if (text.trim()) {
       const ok = await confirm({
         title: 'まとめを生成しますか？',

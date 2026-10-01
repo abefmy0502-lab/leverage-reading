@@ -17,6 +17,7 @@ import { useConfirm } from './ConfirmDialog';
 import { setConsultBackGuard } from '../lib/consultBack';
 import { toMessage } from '../lib/errors';
 import { streamMyBookBrain, prewarmKnowledge, invalidateKnowledgeCache, EVIDENCE_PREFIX } from '../lib/ai';
+import { ensureAiConsent } from '../lib/aiConsent';
 import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnText as uiBtnText, btnLink as uiBtnLink, groupTitle, fieldNote, input as uiInput } from '../styles/ui';
 import { track, EVENTS } from '../lib/analytics';
 import { LIMITS } from '../lib/limits';
@@ -1081,6 +1082,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (isBookLookup(q) && !opts.skipUserInsert && await lookupFromMemos(q, opts)) return;
     // プランのトークンを使い切っていたら送らない（入力は残す。案内とトークンの追加は会話の下に出ている）。
     if (outOfTokens) return;
+    // 🤝 はじめて AI に送るときは、送る内容と送り先を見せて同意をもらう（lib/aiConsent.js）。
+    //   「今はやめる」なら送らない（相談は入力欄に残す＝ホーム・相談例から来た相談も消えない）。
+    if (!(await ensureAiConsent('consult'))) { setInput(q); return; }
     const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
     const askScopeLabel = scopeLabelFor(askBookIds, books);
     const askMode = opts.mode || (askBookIds.length === 1 ? 'fused' : answerMode);

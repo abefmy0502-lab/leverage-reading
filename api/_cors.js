@@ -18,7 +18,8 @@ export function applyCors(req, res, methods = 'GET, POST, OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', methods);
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    // X-Orime-Ai-Consent: AI に送る前の同意の版（src/lib/aiConsent.js・api/claude.js が記録にだけ使う）。
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Orime-Ai-Consent');
     res.setHeader('Access-Control-Max-Age', '86400');
   }
   if (req.method === 'OPTIONS') {

@@ -15,6 +15,7 @@
 //   - ?demo=trial : 7 日間無料の途中 / ?demo=limit : 今月の 800 トークンを使い切った
 //   - ?demo=tokens : 今月の分を使い切り、追加トークンが残っている（「トークンを追加」はその場で足す）
 //   - ?demo=webgate : ブラウザの一般利用者に出す「アプリでご利用ください」の確認用
+//   - &consent=none : AI に送る内容にまだ同意していない（はじめて AI を使う操作で同意のシートが出る・どのシナリオにも付けられる）
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
 // supabase-js のうち、このアプリが実際に使う範囲だけを再現する
@@ -23,6 +24,7 @@
 
 import { buildSeed, DEMO_USER_ID } from './seed';
 import { installDemoFetch } from './demoFetch';
+import { AI_CONSENT_VERSION } from '../lib/aiProcessors';
 
 const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
@@ -294,7 +296,11 @@ export function createDemoClient() {
   const demoUser = {
     id: DEMO_USER_ID, aud: 'authenticated', role: 'authenticated',
     email: 'demo@example.com',
-    user_metadata: { display_name: scenario === 'new' ? '' : 'さとう' },
+    // AI に送る前の同意（lib/aiConsent.js）。既定は同意済み。&consent=none でまだ同意していない人（シートが出る）。
+    user_metadata: {
+      display_name: scenario === 'new' ? '' : 'さとう',
+      ai_consent: params.get('consent') === 'none' ? null : { version: AI_CONSENT_VERSION, at: '2026-10-01T00:00:00.000Z' },
+    },
     app_metadata: { provider: 'email' },
     // ?demo=freenew: 登録したばかりの人。
     created_at: new Date(Date.now() - (scenario === 'freenew' ? 600000 : 200 * 86400000)).toISOString(),

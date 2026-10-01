@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { callClaude, sanitizeForPrompt, gatherAdvisorContext, prewarmAdvisorContext, isAiNoticeString } from '../lib/ai';
 import { streamClaude } from '../lib/streamClaude';
+import { ensureAiConsent } from '../lib/aiConsent';
 import { PROMPTS } from '../lib/prompts';
 import { MODEL_FAST, MODEL_ADVISOR } from '../lib/models';
 import { LIMITS, clamp } from '../lib/limits';
@@ -688,7 +689,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
         },
       });
     } catch (e) {
-      const expected = !!(e?.monthlyLimit || e?.paywall);
+      const expected = !!(e?.monthlyLimit || e?.paywall || e?.consentDeclined);
       setRecoNotice(expected);
       setRecoError(expected ? e.message : toMessage(e, '通信エラーが発生しました。もう一度お試しください。'));
       setChatHistory(historyBefore); // 答えの無い相談を履歴に残さない（送り直しで二重にならないように）
@@ -791,6 +792,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     const c = clamp(sanitizeForPrompt(rawConcern || ''), LIMITS.aiQuestion);
     if (!c) return;
     if (!requirePlan('AI 選書')) return; // 無料プラン: 有料プランの画面を開く（入力は残す）
+    // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）。やめたら送らない（入力は残す）。
+    if (!(await ensureAiConsent('advisor_interview'))) return;
     // ヒアリング開始と同時に読書傾向コンテキストを裏で先読み（推薦時の待ちを隠す）。
     // マウント時の prewarm から時間が経ち TTL 切れの場合の再ウォーム。
     prewarmAdvisorContext(advisorUser?.id);

@@ -590,6 +590,13 @@ function getBearerToken(req) {
   return token || null;
 }
 
+// アプリが付ける同意の版（X-Orime-Ai-Consent・src/lib/aiConsent.js）。読めなければ null。記録にだけ使う。
+export function consentVersionFrom(req) {
+  const raw = req?.headers?.['x-orime-ai-consent'];
+  const v = Number(Array.isArray(raw) ? raw[0] : raw);
+  return Number.isInteger(v) && v > 0 && v < 1000 ? v : null;
+}
+
 export default async function handler(req, res) {
   // iOS アプリ（capacitor://localhost）からの呼び出しを許可（プリフライト込み）。
   if (applyCors(req, res, 'POST, OPTIONS')) return undefined;
@@ -663,6 +670,11 @@ export default async function handler(req, res) {
   const route = resolveRoute({
     purpose: req.body?.purpose, requestedModel: pickModel(req.body), free: freeCall, freeModel: FREE_MODEL,
   });
+  // 🤝 AI に送る前の同意（App Review 5.1.2(i)）はアプリの側で確かめる（src/lib/aiConsent.js）。ここでは止めない（記録だけ）。
+  //    用途を送る新しいアプリなのに同意の版が無い＝アプリの関所をすり抜けた呼び出し。数を見るための 1 行（中身・利用者は書かない）。
+  if (req.body?.purpose && req.body.purpose !== 'ops_advise' && !consentVersionFrom(req)) {
+    console.info(`[ai-consent] no consent header (purpose ${String(req.body.purpose).slice(0, 32)})`);
+  }
   // どの行で数えるか（無料 'free-YYYY-MM'・無料期間 'trial-YYYY-MM-DD'・有料 'YYYY-MM'）。
   const periodKey = periodKeyFor(tier, { monthKey, periodEnd: ent.periodEnd });
   // 使い切ったときの返事（無料は 402＝有料プランの画面を開く。無料期間・有料は 429＝案内だけ）。

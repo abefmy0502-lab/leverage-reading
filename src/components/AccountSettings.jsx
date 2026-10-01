@@ -42,6 +42,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { track, EVENTS, isAnalyticsOptedOut, setAnalyticsOptOut } from '../lib/analytics';
 import { closeDelayMs } from '../lib/motion';
 import ToggleSwitch from './ToggleSwitch';
+import { readAiConsent, requestAiConsent, isAiConsentCurrent, AI_CONSENT_CHANGED_EVENT } from '../lib/aiConsent';
 import {
   isPushSupported,
   isPushConfigured,
@@ -380,6 +381,18 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
   }, []);
   const tokensLoading = tokensRemaining == null && tokenAllowance != null && !tokenWaitOver;
   const [billingBusy, setBillingBusy] = useState(false);
+
+  // 🤝 AI へのデータ送信（同意・lib/aiConsent.js）。「同意済み（10月1日）」／「未同意」。読み込むまでは undefined。
+  const [aiConsent, setAiConsent] = useState(undefined);
+  useEffect(() => {
+    let alive = true;
+    const load = () => { readAiConsent().then((r) => { if (alive) setAiConsent(r); }, () => { if (alive) setAiConsent(null); }); };
+    load();
+    window.addEventListener(AI_CONSENT_CHANGED_EVENT, load);
+    return () => { alive = false; window.removeEventListener(AI_CONSENT_CHANGED_EVENT, load); };
+  }, []);
+  const aiConsentLabel = aiConsent === undefined ? null
+    : isAiConsentCurrent(aiConsent) ? `同意済み（${dateLabelJa(aiConsent.at) || ''}）` : '未同意';
 
   // 📊 利用状況の記録（製品改善のためのファーストパーティ計測）。既定 ON。
   //   analyticsOn=true なら記録する（= オプトアウトしていない）。オフ操作で
@@ -1022,9 +1035,23 @@ export default function AccountSettings({ onClose, onAfterDelete, isAdmin, onOpe
             </button>
           </Group>
 
-          {/* ── プライバシー: 利用状況の記録（製品改善のためのファーストパーティ計測） ── */}
-          <Group label="プライバシー" ariaLabel="利用状況の記録">
+          {/* ── プライバシー: AI へのデータ送信（同意・App Review 5.1.2(i)）と、利用状況の記録（ファーストパーティ計測） ── */}
+          <Group label="プライバシー">
+            {/* 押すと同意のシート（送るもの・送り先）。同意済みなら「同意を取り消す」、まだなら「同意する」。 */}
+            <button
+              type="button"
+              style={rowButtonStyle}
+              onClick={() => { requestAiConsent({ mode: 'manage' }); }}
+              aria-label={`AI へのデータ送信（${aiConsentLabel || '確かめています'}）`}
+            >
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ ...rowTitleStyle, display: 'block' }}>AI へのデータ送信</span>
+                <span style={{ ...rowDescStyle, display: 'block', ...(aiConsentLabel ? {} : { visibility: 'hidden' }) }}>{aiConsentLabel || '未同意'}</span>
+              </span>
+              <ChevronRight size={20} aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+            </button>
             <SettingRow
+              style={divider}
               title="利用状況の記録"
               desc="機能名と回数だけ。外部には送りません。"
               control={(

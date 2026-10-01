@@ -26,6 +26,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { isPaywallError, requestPaywall, paywallReasonFor, notifyAiUsed } from './freeTrial';
 import { MODEL_SMART } from './models';
 import { apiUrl } from './apiUrl';
+import { checkAiConsentForSend, aiConsentDeclinedError, AI_CONSENT_HEADER } from './aiConsent';
 
 const DEFAULT_MODEL = MODEL_SMART;
 const DEFAULT_MAX_TOKENS = 2048;
@@ -102,12 +103,16 @@ export async function streamClaude({
     if (!accessToken) {
       throw new Error('AI機能を使うにはログインが必要です。');
     }
+    // 🤝 送る直前の関所（App Review 5.1.2(i)・lib/aiConsent.js）: 同意が無ければシートを出し、やめたら送らない。
+    const consent = await checkAiConsentForSend(purpose);
+    if (!consent.ok) throw aiConsentDeclinedError();
 
     const res = await fetch(apiUrl('/api/claude'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
+        ...(consent.version ? { [AI_CONSENT_HEADER]: String(consent.version) } : {}),
       },
       body: JSON.stringify(buildPayload({ system, messages, model, max_tokens, temperature, cacheSystem, purpose })),
       signal,
@@ -227,7 +232,7 @@ export async function streamClaude({
     }
     if (onError) {
       try { onError(e); } catch { /* swallow */ }
-    } else if (!e?.monthlyLimit && !e?.paywall) {
+    } else if (!e?.monthlyLimit && !e?.paywall && !e?.consentDeclined) {
       // Surface in console so silent stalls don't go unnoticed in dev.
       // 月の上限・プラン案内は想定内の結果なのでエラーとして出さない。
       // eslint-disable-next-line no-console

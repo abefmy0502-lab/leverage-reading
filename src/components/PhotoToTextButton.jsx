@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { validateImageFile } from '../lib/limits';
 import { downscaleImageForVision } from '../lib/image';
 import { extractTextFromImage } from '../lib/ai';
+import { ensureAiConsent } from '../lib/aiConsent';
 import { toMessage } from '../lib/errors';
 import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
@@ -82,6 +83,9 @@ export default function PhotoToTextButton({ onText, disabled = false, style }) {
 
   const run = async (file) => {
     if (!file || loading) return;
+    // 🤝 はじめて AI に送るときは、送る内容（この写真だけ）と送り先を見せて同意をもらう（lib/aiConsent.js）。
+    //   写真を選んだあと・送る前に聞く（撮る前に聞くと、iPhone で写真の画面が開けなくなることがある）。やめたら何も送らない。
+    if (!(await ensureAiConsent('ocr'))) { lastFileRef.current = null; return; }
     setFailure(null);
     setThumbFile(file);
     setLoading(true);

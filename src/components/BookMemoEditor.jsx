@@ -6,6 +6,7 @@ import { toMessage } from '../lib/errors';
 import { LIMITS, validateImageFile } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
+import { ensureAiConsent } from '../lib/aiConsent';
 import { usePaywall } from '../state/PaywallContext';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
@@ -213,6 +214,8 @@ export default function BookMemoEditor({
       toast.info('もう少し長いメモで凝縮が活きます。');
       return;
     }
+    // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）。やめたら何も変えない。
+    if (!(await ensureAiConsent('condense'))) return;
     setCondensing(true);
     try {
       const out = await condenseMemo({ text: src });

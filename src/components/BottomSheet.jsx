@@ -37,7 +37,9 @@ const sheetWrap = {
 
 // dismissLabel=null で右上の閉じるボタンを出さない。dismissible=false のあいだは
 // 背景タップ・Esc・下スワイプ・ハンドルでも閉じない（取り込み中など、途中で閉じると困るとき）。
-export default function BottomSheet({ title, onClose, children, footer, dismissLabel = '完了', dismissible = true }) {
+// layer='dialog': ほかのシート・設定の上に重ねる（AI に送る前の同意のシート＝メモを書くシート・設定の上から開く・2026-10-01）。
+export default function BottomSheet({ title, onClose, children, footer, dismissLabel = '完了', dismissible = true, layer = null }) {
+  const onTop = layer === 'dialog';
   // 開いている間は左端スワイプで画面を戻さない（書きかけが確認なしに消えないように）
   useBlockEdgeSwipe(true);
   const sheetRef = useRef(null);
@@ -95,7 +97,7 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
   return (
     <>
       <div
-        style={{ ...backdrop, ...(closing ? { opacity: 0, transition: 'opacity .18s ease' } : {}) }}
+        style={{ ...backdrop, ...(onTop ? { zIndex: 'var(--z-dialog)' } : {}), ...(closing ? { opacity: 0, transition: 'opacity .18s ease' } : {}) }}
         onClick={animateClose}
         aria-hidden="true"
       />
@@ -103,6 +105,7 @@ export default function BottomSheet({ title, onClose, children, footer, dismissL
         ref={(el) => { sheetRef.current = el; trapRef.current = el; }}
         style={{
           ...sheetWrap,
+          ...(onTop ? { zIndex: 'calc(var(--z-dialog) + 1)' } : {}),
           // 下の安全域は 1 回だけ: 決定ボタンの欄（footer）があればそちらが持つ。
           paddingBottom: footer ? 0 : 'env(safe-area-inset-bottom, 0px)',
           animation: closing

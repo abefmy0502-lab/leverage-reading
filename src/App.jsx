@@ -136,6 +136,8 @@ import { toMessage, fieldRequiredMessage, isSchemaError } from './lib/errors';
 import { LIMITS, clamp } from './lib/limits';
 import { ensureHttps } from './lib/url';
 import { PAYWALL_EVENT, AI_USED_EVENT } from './lib/freeTrial';
+import { AiConsentGate } from './components/AiConsentSheet';
+import { ensureAiConsent } from './lib/aiConsent';
 import { periodKeyFor, fetchUsedMjpy, fetchLotBalance, remainingTokens, allowanceFor as allowanceForPlan, runCostLine, TOKEN_COSTS } from './lib/tokens';
 // 🪙➕ トークンを追加（買い足し）のシート
 const TokenSheet = lazy(() => import('./components/TokenSheet'));
@@ -2791,6 +2793,8 @@ function AuthedApp() {
   };
   const runStrategy = async () => {
     if (!requirePlan('読書計画シート')) return;
+    // 🤝 はじめて AI に送るときは、送る内容と送り先を見せて同意をもらう（lib/aiConsent.js）。やめたら何も変えずに戻る。
+    if (!(await ensureAiConsent('setup_sheet'))) return;
     setAiLoading(true);
     const targetId = form?.id;
     const prevStrategy = form?.aiStrategy || '';
@@ -2832,6 +2836,7 @@ function AuthedApp() {
     const src = buildFormFromBook(book); // 得たいことが空なら AI 選書の入力で埋まる（編集画面と同じ）
     if (!(src.investPurpose || '').trim()) { openSetup(book); return; }
     if (!requirePlan('読書計画シート')) return; // 無料プラン: 有料プランの画面を開く
+    if (!(await ensureAiConsent('setup_sheet'))) return; // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）
     const bookId = book.id;
     setPlanGen({ bookId, text: '' });
     try {
@@ -2864,6 +2869,7 @@ function AuthedApp() {
     if (!form?.aiStrategy?.trim()) return;
     if (!instruction?.trim()) return;
     if (!requirePlan('読書計画シート')) return;
+    if (!(await ensureAiConsent('setup_sheet_edit'))) return; // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）
     const prev = form.aiStrategy;
     const targetId = form?.id;
     setAiLoading(true);
@@ -4169,13 +4175,15 @@ function AuthedApp() {
                     <button
                       type="button"
                       disabled={!!planGen}
-                      onClick={() => {
+                      onClick={async () => {
                         if (planGen) return;
                         if (!requirePlan('読書計画シート')) return;
                         const book = current;
                         // 状態の変更はついでなので「元に戻す」は出さず、いま何をしているかを言う（2026-09-29）。
                         //   得たいことがまだ無い本は、積読に積んで編集画面へ（runStrategyInPlace → openSetup）。
                         const hasPurpose = !!(buildFormFromBook(book).investPurpose || '').trim();
+                        // 🤝 その場で AI に送るときは、状態を変える前に同意を確かめる（やめたら読みたいのまま・lib/aiConsent.js）。
+                        if (hasPurpose && !(await ensureAiConsent('setup_sheet'))) return;
                         advanceStatus(book, 'before', {
                           message: hasPurpose
                             ? '積読に積んで、読書計画シートを作っています'
@@ -6316,6 +6324,8 @@ function PaywallGate() {
   return (
     <PaywallContext.Provider value={paywallCtx}>
       <AuthedApp />
+      {/* 🤝 AI に送る前の同意のシート（はじめて AI を使う操作のとき・lib/aiConsent.js）。 */}
+      <AiConsentGate />
       {paywall && !isActive && (
         // アプリの上に重ねる（閉じればアプリに戻る＝書きかけも消えない）。
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
