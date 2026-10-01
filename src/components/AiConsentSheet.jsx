@@ -19,6 +19,8 @@ import {
 } from '../lib/aiConsent';
 
 // 文は文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・DESIGN §5）。
+// 「AI」と「の」の間は折り返さない空き（\u00a0）。BudouX が「AI の」を分けて「AI / の会社」で割れていた（2026-10-01 ui-critic）。
+const NB = '\u00a0';
 const leadStyle = { margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all' };
 const metaStyle = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 };
 const listStyle = { ...card, listStyle: 'none', margin: 'var(--space-4) 0 0', padding: '0 var(--space-4)' };
@@ -72,7 +74,7 @@ export function AiConsentDetails({ first = null }) {
         ))}
       </ul>
       <p style={noteStyle}>
-        {withPhraseBreaks(`つながらないときは ${AI_PROVIDER_NAMES[AI_FALLBACK_PROVIDER]} が代わりに答えます。どの会社も、API の規約により、送った内容を AI の学習に使いません。`)}
+        {withPhraseBreaks(`つながらないときは ${AI_PROVIDER_NAMES[AI_FALLBACK_PROVIDER]} が代わりに答えます。どの会社も、API の規約により、送った内容を AI${NB}の学習に使いません。`)}
       </p>
       <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={linkStyle}>
         プライバシーポリシー
@@ -88,8 +90,8 @@ export default function AiConsentSheet({ purpose = null, mode = 'ask', record = 
   const manage = mode === 'manage';
   // 同意は機能ごとではなく AI の機能すべてに効くので、「〈機能〉など」と範囲を言う（2026-10-01 ui-critic）。
   const lead = feature && !manage
-    ? `${feature.name}など AI の機能を使うと、次の内容を外部の AI サービスに送ります。`
-    : 'AI の機能を使うと、次の内容を外部の AI サービスに送ります。';
+    ? `${feature.name.replace(/ /g, NB)}など AI${NB}の機能を使うと、次の内容を外部の AI${NB}サービスに送ります。`
+    : `AI${NB}の機能を使うと、次の内容を外部の AI${NB}サービスに送ります。`;
 
   const footer = manage && consented ? (
     <button type="button" style={withdrawStyle} onClick={onWithdraw} disabled={busy} aria-busy={busy || undefined}>
