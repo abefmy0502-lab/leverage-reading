@@ -305,13 +305,14 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
         {(a.bookTitle || meta.length > 0) && (
           // 書名の列は minmax(0, max-content)＝縮めても行の幅（min-content）を押し広げない（flex だと書名の全幅がカードを広げた）。
           <p style={{ margin: 'var(--space-1) 0 0', display: 'grid', gridTemplateColumns: a.bookTitle && meta.length > 0 ? 'minmax(0, max-content) auto' : 'minmax(0, 1fr)', justifyContent: 'start', alignItems: 'baseline', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
+            {/* 書名の後ろの「・」は書名の中に入れる（書名を … で切ったときに「…　・期限」と離れた「・」が残らない・2026-10-01 ui-critic）。 */}
             {a.bookTitle && (
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.bookTitle}</span>
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.bookTitle}{meta.length > 0 && '・'}</span>
             )}
             {meta.length > 0 && (
               <span style={{ minWidth: 0 }}>
                 {/* 各項目は前の「・」ごと 1 つの塊に（行末に「・」だけが残らないように） */}
-                {meta.map((m, i) => <span key={i} style={{ whiteSpace: 'nowrap' }}>{(i > 0 || a.bookTitle) && '・'}{m}</span>)}
+                {meta.map((m, i) => <span key={i} style={{ whiteSpace: 'nowrap' }}>{i > 0 && '・'}{m}</span>)}
               </span>
             )}
           </p>
@@ -635,16 +636,17 @@ export default function ActionList({ books, onToggleAction, onReflect, onDeleteA
     // 中身が下がって見えた・2026-09-30）。
     <div style={{ ...wrap, paddingBottom: 'var(--space-16)' }}>
       {/* 上: 今週の完了数 1 行（数字の演出はしない）＋ 追加。完了一覧は最後の 1 行から。 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
-        <p style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
-          {/* 「3 件」の数字と「件」を離さない（文字を大きくしたときに「0／件を完了」と割れていた・2026-10-01 ui-critic）。 */}
+      {/* 文字を大きくして 1 行の文が「追加」の横に収まらないときは、「追加」を次の行へ（flex-wrap・文の幅の下限 12em）。
+          文は短く 2 つのまとまりに（「今週の期限 3 件」「完了 0 件」・語の途中で割らない・2026-10-01 ui-critic）。 */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+        <p style={{ margin: 0, flex: '1 1 12em', minWidth: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5 }}>
           {weekLine.total > 0
-            ? <>今週が期限の行動 <span style={nowrap}>{weekLine.total} 件</span>のうち <span style={nowrap}>{weekLine.completed} 件</span>を完了</>
-            : <>やること <span style={nowrap}>{open.length} 件</span></>}
+            ? <><span style={nowrap}>今週の期限 {weekLine.total} 件</span>・<span style={nowrap}>完了 {weekLine.completed} 件</span></>
+            : <span style={nowrap}>やること {open.length} 件</span>}
         </p>
         {canAdd && (
           <button type="button" onClick={onAddAction} style={rowBtn}>
-            <Plus size={16} aria-hidden="true" />追加
+            <Plus size="1em" aria-hidden="true" />追加
           </button>
         )}
       </div>
