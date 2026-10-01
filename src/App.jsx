@@ -274,8 +274,8 @@ function ReviewNoteFallback() {
   );
 }
 
-// 起動直後（ログイン確認・課金の確認待ち）の読み込み表示。ホームの形（相談カード・見出し・
-// いま読んでいる本 2 冊・すべての本の行）のスケルトン（DESIGN §5「読み込みは Skeleton」）。
+// 起動直後（ログイン確認・課金の確認待ち）の読み込み表示。ホームの形（題「ホーム」・見出し・
+// いま読んでいる本 2 冊・本を追加の行・すべての本の行）のスケルトン（DESIGN §5「読み込みは Skeleton」）。
 // グループの間は 24、いま読んでいる本（見出し＋2 冊）の中は一覧と同じ 12（DESIGN §1）。
 function HomeLoadingSkeleton() {
   return (
@@ -284,6 +284,8 @@ function HomeLoadingSkeleton() {
       aria-label="読み込み中"
       style={{ flex: 1, padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}
     >
+      {/* 題「ホーム」の行（28/700・行間 1.3＝高さ 36）。本物と同じ高さで、読み込み後に中身が下へずれない。 */}
+      <SkeletonBlock width={96} height={36} radius="var(--radius)" />
       {/* 中身はホームの読み込み中と同じもの（HomeScreen.jsx の HomeBlocksSkeleton・2026-09-29 に 1 つにまとめた）。 */}
       <HomeBlocksSkeleton />
     </div>

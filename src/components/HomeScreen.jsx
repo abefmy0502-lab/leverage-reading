@@ -109,7 +109,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
   );
 }
 
-// 読み込み中のホームの形（いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔／すべての本 ›）。
+// 読み込み中のホームの形（いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔＋「＋ 本を追加」の 44 の行／すべての本 ›）。
 // 起動直後の読み込み（App.jsx の HomeLoadingSkeleton）と、本の読み込み中（下の HomeScreen）で同じものを使う（2026-09-29）。
 // カードの形はどれも本物と同じ枠 --separator（明るい画面で背景に溶けないように）。
 const skeletonCard = { border: '1px solid var(--separator)', boxSizing: 'border-box' };
@@ -120,6 +120,10 @@ export function HomeBlocksSkeleton() {
         <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
         <SkeletonBlock height={90} radius="var(--radius)" style={skeletonCard} />
         <SkeletonBlock height={90} radius="var(--radius)" style={skeletonCard} />
+        {/* 「＋ 本を追加」の文字ボタン（高さ 44・上は本物と同じく 4 詰める）。形は文字の幅だけ。 */}
+        <div style={{ height: 44, marginTop: 'calc(-1 * var(--space-1))', display: 'flex', alignItems: 'center' }}>
+          <SkeletonBlock width={96} height={20} radius="var(--radius)" />
+        </div>
       </div>
       <SkeletonBlock height={56} radius="var(--radius)" style={skeletonCard} />
     </>
