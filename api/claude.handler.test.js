@@ -287,7 +287,8 @@ describe('用途ごとに会社とモデルを選ぶ（失敗したら Claude �
   it('予約は、やり直しの Claude の見積もりも見込んで高いほう', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(openAiSse('x'), { status: 200, headers: { 'content-type': 'text/event-stream' } })));
     await handler(sheetReq({ stream: true }), mockRes());
-    const est = cost.estimateCost('claude-haiku-4-5', { textChars: '読書計画シート'.length, images: 0, maxTokens: 1600 });
+    // キャッシュの印が無い文字は、ふつうの入力の単価で見積もる（2026-10-01）
+    const est = cost.estimateCost('claude-haiku-4-5', { textChars: '読書計画シート'.length, images: 0, maxTokens: 1600, segments: { w1h: 0, w5m: 0 } });
     expect(db.rpcArgs.reserve_ai_cost.p_amount).toBe(est.total);
   });
 
@@ -369,5 +370,74 @@ describe('用途ごとに会社とモデルを選ぶ（失敗したら Claude �
     await handler(sheetReq(), res);
     expect(res.statusCode).toBe(402);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+// 💴 相談のプロンプトキャッシュ（2026-10-01・docs/ai-routing.md §7）。
+describe('相談のキャッシュ（指示文は 1 時間・メモ一覧は 5 分）と、その原価', () => {
+  let cost;
+  beforeAll(async () => { cost = await import('./_aiCost.js'); });
+  afterEach(() => { delete process.env.AI_CONSULT_SYSTEM_TTL; });
+  const SYSTEM = '指示文'.repeat(1500);
+  const MEMOS = 'メモ一覧'.repeat(1200);
+  const TAIL = '質問と歩み'.repeat(200);
+  const cachedConsult = (extra = {}) => req({
+    purpose: 'consult', max_tokens: 1200,
+    system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: [
+      { type: 'text', text: MEMOS, cache_control: { type: 'ephemeral', ttl: '1h' } }, // メッセージの印の ttl は中継が外す（5 分）
+      { type: 'text', text: TAIL },
+    ] }],
+    ...extra,
+  });
+  const usage = {
+    input_tokens: 1000, cache_creation_input_tokens: 9000, cache_read_input_tokens: 0, output_tokens: 500,
+    cache_creation: { ephemeral_5m_input_tokens: 4000, ephemeral_1h_input_tokens: 5000 },
+  };
+  const stubJson = (u = usage) => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: '【結論】\n答え' }], stop_reason: 'end_turn', usage: u, model: 'claude-haiku-4-5' }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  };
+
+  it('相談の指示文の印は 1 時間・メモ一覧の印は 5 分（ttl を外す）で送る', async () => {
+    const fetchMock = stubJson();
+    await handler(cachedConsult(), mockRes());
+    const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(sent.system[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
+    expect(sent.messages[0].content[0].cache_control).toEqual({ type: 'ephemeral' });
+    expect(sent.messages[0].content[1].cache_control).toBeUndefined();
+  });
+
+  it('AI_CONSULT_SYSTEM_TTL=5m なら今までどおり 5 分', async () => {
+    process.env.AI_CONSULT_SYSTEM_TTL = '5m';
+    const fetchMock = stubJson();
+    await handler(cachedConsult(), mockRes());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).system[0].cache_control).toEqual({ type: 'ephemeral' });
+  });
+
+  it('相談以外（用途なし）の指示文は 5 分のまま', async () => {
+    const fetchMock = stubJson();
+    await handler(cachedConsult({ purpose: undefined, model: 'claude-haiku-4-5' }), mockRes());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).system[0].cache_control).toEqual({ type: 'ephemeral' });
+  });
+
+  it('予約: 指示文は 1 時間の書き込み・メモ一覧は 5 分の書き込み・後ろはふつうの入力の単価（全部を書き込みで数えない）', async () => {
+    stubJson();
+    await handler(cachedConsult(), mockRes());
+    const textChars = SYSTEM.length + MEMOS.length + TAIL.length;
+    const est = cost.estimateCost('claude-haiku-4-5', { textChars, images: 0, maxTokens: 1200, segments: { w1h: SYSTEM.length, w5m: MEMOS.length } });
+    expect(db.rpcArgs.reserve_ai_cost.p_amount).toBe(est.total);
+    const legacy = cost.estimateCost('claude-haiku-4-5', { textChars, images: 0, maxTokens: 1200 });
+    expect(est.total).not.toBe(legacy.total);
+  });
+
+  it('精算: 1 時間・5 分の書き込みと読み出しを、それぞれの単価で数える', async () => {
+    stubJson();
+    await handler(cachedConsult(), mockRes());
+    expect(db.costTotal).toBe(cost.costFromUsage('claude-haiku-4-5', usage));
+    // 続きの相談（頭は読み出し＝0.1 倍）は、最初の 1 回よりずっと安い
+    const warm = { input_tokens: 1000, cache_creation_input_tokens: 0, cache_read_input_tokens: 9000, output_tokens: 500 };
+    expect(cost.costFromUsage('claude-haiku-4-5', warm)).toBeLessThan(cost.costFromUsage('claude-haiku-4-5', usage) / 2);
   });
 });

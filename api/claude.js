@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { applyCors } from './_cors.js';
-import { estimateCost, costFromUsage, createUsageSniffer } from './_aiCost.js';
+import { estimateCost, costFromUsage, createUsageSniffer, cacheSegments } from './_aiCost.js';
 import {
   decideAiAccess, decideFreeReservation, periodKeyFor, reserveBudgetMjpy, allowanceFor, meteredCallLimit,
   freeTokens, fallbackCallsFor, nextMonthFirstLabel, planRequiredMessage, limitMessageFor, tokenMjpy,
@@ -574,6 +574,14 @@ function sanitizeCachedSystemBlocks(blocks) {
   return out;
 }
 
+// 💬 相談の指示文（BRAIN_SYSTEM / PERBOOK_SYSTEM・全員で同じ文）のキャッシュの長さ（2026-10-01）。
+//   全員の相談が同じ指示文を読むので、1 時間にしておくと、誰かが 1 時間以内に相談していれば読み出し（0.1 倍）で済む
+//   （5 分だと、相談の間が 5 分あくたびに書き込み 1.25 倍）。書き込みは 2 倍なので、1 時間に 2 回以上の相談で得になる。
+//   AI_CONSULT_SYSTEM_TTL=5m で今までどおり 5 分。相談のときだけ・Claude（Anthropic）だけ。docs/ai-routing.md §7。
+export function consultSystemTtl(env = process.env) {
+  return String(env.AI_CONSULT_SYSTEM_TTL || '').trim().toLowerCase() === '5m' ? '5m' : '1h';
+}
+
 function getBearerToken(req) {
   const raw = req.headers?.authorization || req.headers?.Authorization || '';
   if (typeof raw !== 'string') return null;
@@ -713,7 +721,9 @@ export default async function handler(req, res) {
       ? b.messages.reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter((c) => c?.type === 'image').length : 0), 0)
       : 0;
     // Claude 以外で答える用途は、失敗して Claude でやり直すときの原価も見込んで、高いほうで予約する（上振れ側）。
-    const estArgs = { textChars: countTextChars(b), images, maxTokens: estMax };
+    // キャッシュの印より後ろの文字はふつうの入力の単価で数える（印より前は書き込みの単価＝上振れ側・cacheSegments）。
+    const segments = cacheSegments(b, { systemTtl: b.purpose === 'consult' ? consultSystemTtl() : '5m' });
+    const estArgs = { textChars: countTextChars(b), images, maxTokens: estMax, segments };
     const est = [route.model, route.claudeModel].map((m) => estimateCost(m, estArgs))
       .reduce((a, e) => ({ total: Math.max(a.total, e.total), output: Math.max(a.output, e.output) }), { total: 0, output: 0 });
     // 追加トークン（買い足し）があれば、その月の分＋追加分まで使える（使う順は その月 → 追加分）。
@@ -827,7 +837,14 @@ export default async function handler(req, res) {
       // （strict にエラーを返すと将来のクライアント側バグで AI が丸ごと止まる
       // リスクがあるため、ここは fail-open）。
       const blocks = sanitizeCachedSystemBlocks(body.system);
-      if (blocks) payload.system = blocks;
+      if (blocks) {
+        // 相談の指示文は全員で同じ → 1 時間のキャッシュ（consultSystemTtl）。messages の印は 5 分のまま
+        // （1 時間の印は 5 分の印より前に置く決まり＝system は messages より前なので守られる）。
+        if (body.purpose === 'consult' && consultSystemTtl() === '1h') {
+          for (const blk of blocks) if (blk.cache_control) blk.cache_control = { type: 'ephemeral', ttl: '1h' };
+        }
+        payload.system = blocks;
+      }
     }
     if (Array.isArray(body.messages)) {
       // 上限超過時は「最新」を残す（slice(0,N) は最古を残し、直前のユーザー発言を
@@ -1001,6 +1018,11 @@ export default async function handler(req, res) {
                 res.write(`event: ${REFUND_SSE_TYPE}\ndata: ${JSON.stringify({ type: REFUND_SSE_TYPE, reason: 'no_info', tokens: refund.tokens })}\n\n`);
               } catch { /* socket may already be closed */ }
             }
+          }
+          // 相談のキャッシュが効いているかを、数だけログに残す（中身は書かない・docs/ai-routing.md §7 の確かめ方）。
+          if (body.purpose === 'consult' && u.seenStart) {
+            const cc = u.cache_creation && typeof u.cache_creation === 'object' ? u.cache_creation : {};
+            console.info(`[ai-cache] consult in=${u.input_tokens ?? '-'} cw5m=${cc.ephemeral_5m_input_tokens ?? u.cache_creation_input_tokens ?? '-'} cw1h=${cc.ephemeral_1h_input_tokens ?? 0} cr=${u.cache_read_input_tokens ?? '-'} out=${u.output_tokens ?? '-'}`);
           }
           if (!refund) {
             if (u.seenStart) {
