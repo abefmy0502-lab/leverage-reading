@@ -432,7 +432,8 @@ function BottomNav({ tab, setTab, hidden = false }) {
             }}
           >
             <Icon size={24} strokeWidth={active ? 2.2 : 1.7} aria-hidden="true" />
-            <span style={{ fontSize: "var(--text-caption)", letterSpacing: "0.02em", fontWeight: active ? 600 : 400 }}>{t.label}</span>
+            {/* 文字サイズの設定を大きくしても、上の行と同じ上限（--text-bar-max）で止める（下のタブが太って本文を隠さない・2026-10-01 ui-critic）。 */}
+            <span style={{ fontSize: 'min(var(--text-caption), var(--text-bar-max))', letterSpacing: "0.02em", fontWeight: active ? 600 : 400 }}>{t.label}</span>
             {/* iOS タブバーはアクセントバーを使わず、アイコン/ラベルの色で示す。 */}
           </button>
         );
