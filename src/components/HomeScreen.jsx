@@ -88,7 +88,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
                 aria-label={`『${b.title}』にメモを書く`}
                 style={btnRow}
               >
-                <PencilLine size={16} aria-hidden="true" />メモ
+                <PencilLine size={16} aria-hidden="true" />メモを書く
               </button>
             </div>
           ))}
