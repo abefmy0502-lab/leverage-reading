@@ -109,7 +109,8 @@ export default function AiConsentSheet({ purpose = null, mode = 'ask', record = 
 
   return (
     <BottomSheet
-      title="AI に送る内容について"
+      // 設定から開いたときは設定の行と同じ名前（何の設定かが分かるように・2026-10-01 ui-critic）。
+      title={manage ? 'AI へのデータ送信' : 'AI に送る内容について'}
       onClose={onDecline}
       footer={footer}
       // 同意済みの確認（設定から）は右上の「完了」で閉じる。聞くときは下の「今はやめる」1 つ（閉じる入口を 2 つにしない）。
