@@ -1003,6 +1003,46 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     setMessages((arr) => arr.map((m) => (m.id === answerId ? { ...m, memoAnswer: { ...result, question: q } } : m)));
     track('brain_memo_answer', { ok: result.status === 'ready', books: result.groups?.length || 0 });
   };
+  // 🔎 本を探す問い（「『…』みたいなことを書いた本はどれ？」）は、まず端末の中で自分のメモから探す（2026-10-01・原価を下げる）。
+  //   見つかれば、メモが答える相談と同じ形（本とメモの一節・押すとそのメモ）で答える＝AI を呼ばない・トークンを使わない。
+  //   見つからなければ false を返し、今までどおり AI が探す（言い回しの違うメモも探せる）。
+  //   答えのあとのチップは AI の答えと同じ「いまにどう活かす？」「ほかにも書いてた？」（AI に聞く）。
+  const lookupBusyRef = useRef(false);
+  const lookupFromMemos = async (q, opts = {}) => {
+    if (lookupBusyRef.current || !user?.id) return false;
+    lookupBusyRef.current = true;
+    try {
+      const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
+      const result = await runMemoAnswer({
+        question: lookupTerm(q) || q,
+        books,
+        scopeIds: askBookIds,
+        loadMemos: async () => {
+          const r = await loadAllMemoRows(user.id);
+          return r.rows ? { rows: withCachedMemos(r.rows, books, cache), error: null } : r;
+        },
+      });
+      if (result.status !== 'ready' || !(result.groups?.length > 0)) return false;
+      const ts = Date.now();
+      const at = new Date().toISOString();
+      setInput('');
+      userScrolledRef.current = false;
+      reserveRef.current = true;
+      rememberSession(user?.id, { reserve: true });
+      alignNextRef.current = true;
+      setMessages((arr) => [
+        ...arr,
+        { id: `memo-q-${ts}`, role: 'user', content: q, refs: [], createdAt: at, local: true, scopeLabel: scopeLabelFor(askBookIds, books) },
+        { id: `memo-a-${ts}`, role: 'assistant', content: '', refs: [], createdAt: at, local: true, scopeIds: askBookIds, memoAnswer: { ...result, question: q, lookup: true } },
+      ]);
+      track('brain_lookup_local', { books: result.groups.length });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      lookupBusyRef.current = false;
+    }
+  };
   const askFromMemos = (q, opts = {}) => {
     const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
     const ts = Date.now();
@@ -1037,6 +1077,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 💬 無料プランで今月のトークンを使い切っていたら、AI を使わずに自分のメモの一節で答える（メモが答える相談・2026-10-01）。
     //   /api/claude は呼ばない（トークンを使わない）。有料プランの画面は開かない（答えの下に静かに 1 回だけ案内）。
     if (freeUsedUp) { askFromMemos(q, opts); return; }
+    // 🔎 本を探す問いは、まず自分のメモから探す（AI なし）。見つからなければ下の AI へ（lookupFromMemos）。
+    if (isBookLookup(q) && !opts.skipUserInsert && await lookupFromMemos(q, opts)) return;
     // プランのトークンを使い切っていたら送らない（入力は残す。案内とトークンの追加は会話の下に出ている）。
     if (outOfTokens) return;
     const askBookIds = Array.isArray(opts.bookIds) ? opts.bookIds : scopeIds;
@@ -1465,10 +1507,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     return (books || []).filter((b) => (ids.has(b.id) || hasSummaryMemo(b)) && (scopeIds.length === 0 || scopeIds.includes(b.id))).length;
   }, [books, memoBookIds, scopeIds]);
   // 「次に聞く」は入力欄の上のこの 1 行にまとめる（2026-09-30 ui-critic: 答えの下の「別の角度で答えて」と 2 か所に割れていた）。
+  // 本を探す問いに自分のメモから答えた（AI なし・lookupFromMemos）あとも、AI の答えと同じチップを出す。
+  const lastLocalLookup = !!(lastVisible?.memoAnswer?.lookup && lastVisible.memoAnswer.status === 'ready');
   const chipRowBase = !busy && !outOfTokens && !freeUsedUp && !input.trim()
     && visibleMessages.length >= 2 && visibleMessages[visibleMessages.length - 2]?.role === 'user'
-    && lastVisible?.role === 'assistant' && !lastVisible.streaming && !lastVisible.error && !lastVisible.notice && !lastVisible.memoAnswer && !isNoInfoAnswer(lastVisible);
-  const showFollowups = chipRowBase && isCompletedAnswer(lastVisible);
+    && lastVisible?.role === 'assistant' && !lastVisible.streaming && !lastVisible.error && !lastVisible.notice && (!lastVisible.memoAnswer || lastLocalLookup) && !isNoInfoAnswer(lastVisible);
+  const showFollowups = chipRowBase && (lastLocalLookup || isCompletedAnswer(lastVisible));
   // いま送った文と同じチップは出さない（「もっと具体的に」のあとにまた「もっと具体的に」を並べない）。
   const lastAsked = visibleMessages[visibleMessages.length - 2]?.content || '';
   // 🎯 行動は会話で決める（2026-09-30）: 最後の答えが問いで終わっていれば、その候補（返事）→「行動を決める」。
@@ -1478,7 +1522,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🔎 最後の相談が本を探す問いなら、そのあとのチップは「いまにどう活かす？」「ほかにも書いてた？」だけ（2026-09-30）。
   const lastLookup = showFollowups && isBookLookup(lastAsked);
   const lookupFound = lastLookup
-    ? decodeQuoteRefs(lastVisible.refs || []).filter((c) => c.k === 'r' && c.s === 'ok').length || (lastVisible.refs || []).filter((r) => !isMetaRef(r)).length
+    ? (lastLocalLookup ? lastVisible.memoAnswer.groups.length : decodeQuoteRefs(lastVisible.refs || []).filter((c) => c.k === 'r' && c.s === 'ok').length || (lastVisible.refs || []).filter((r) => !isMetaRef(r)).length)
     : 0;
   const followups = showFollowups
     ? nextStepChips({ replies: lastParsed?.replies || [], hasAction: lastParsed ? isActionAnswer(lastParsed) : !!extractActionLine(lastVisible.content), booksWithMemos, lastAsked, lookup: lastLookup, term: lastLookup ? lookupTerm(lastAsked) : '', found: lookupFound })

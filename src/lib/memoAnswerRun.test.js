@@ -54,6 +54,35 @@ describe('メモが答える相談は AI を呼ばない（トークンを使わ
     }
   });
 
+  it('本を探す問い（「『…』みたいなことを書いた本はどれ？」）は、探す言葉でメモから本と一節を返す（AI なし・2026-10-01）', async () => {
+    const { lookupTerm } = await import('./consultHelpers');
+    const q = '『部下に任せる』みたいなことを書いた本はどれ？';
+    const loadMemos = vi.fn(async () => ({ rows: [
+      { id: 'm1', book_id: 'b1', text: '部下に任せるときは、終わった状態を先に決める。', page_number: 64, created_at: '2026-05-27' },
+      { id: 'm2', book_id: 'b2', text: '朝の時間を使って本を読む。', created_at: '2026-06-01' },
+    ], error: null }));
+    const r = await runMemoAnswer({ question: lookupTerm(q) || q, books: [{ id: 'b1', title: 'マネジャーの教科書' }, { id: 'b2', title: '朝の本' }], loadMemos });
+    expect(r.status).toBe('ready');
+    expect(r.groups.map((g) => g.bookId)).toEqual(['b1']);
+    expect(r.groups[0].hits[0]).toMatchObject({ memoId: 'm1', page: 64 });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(ai.streamMyBookBrain).not.toHaveBeenCalled();
+    expect(sc.streamClaude).not.toHaveBeenCalled();
+  });
+
+  it('相談の画面は、本を探す問いをまずメモから探し、見つからないときだけ AI へ', () => {
+    const src = readFileSync(join(here, '../components/MyBookBrain.jsx'), 'utf8');
+    const ask = src.slice(src.indexOf('const ask = async'));
+    const local = ask.indexOf('isBookLookup(q) && !opts.skipUserInsert && await lookupFromMemos(q, opts)) return;');
+    const stream = ask.indexOf('await streamMyBookBrain(');
+    expect(local).toBeGreaterThan(-1);
+    expect(stream).toBeGreaterThan(local);
+    // 探すのは runMemoAnswer（AI の入口ではない）
+    const fn = src.slice(src.indexOf('const lookupFromMemos = async'), src.indexOf('const askFromMemos = '));
+    expect(fn).toContain('runMemoAnswer(');
+    expect(fn).not.toMatch(/streamMyBookBrain|streamClaude|callClaude/);
+  });
+
   it('相談の画面は、無料のトークンを使い切ったら AI より先にメモの答えへ分ける', () => {
     const src = readFileSync(join(here, '../components/MyBookBrain.jsx'), 'utf8');
     const ask = src.slice(src.indexOf('const ask = async'));
