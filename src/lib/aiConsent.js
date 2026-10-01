@@ -213,3 +213,49 @@ export async function checkAiConsentForSend(purpose) {
   if (!ok) return { ok: false, version: null };
   return { ok: true, version: await currentAiConsentVersion() };
 }
+
+// シートの 1 回分の答え方（components/AiConsentSheet.jsx の AiConsentGate が使う）。
+// 「同意して使う」でアカウントへの保存を待っている間・取り消しを保存している間は、「今はやめる」・背景・Esc・
+// 端末の戻るを受け付けない（以前は待っている間に「今はやめる」を押すと、操作はやめたのに同意だけ残った・2026-10-01）。
+// 答えは 1 回だけ返す。
+//   resolve(ok)   … requestAiConsent に答える
+//   onBusy(bool)  … 画面の「保存しています…」の切り替え
+//   onDone()      … シートを閉じる
+export function createConsentResponder({ resolve, onBusy = () => {}, onDone = () => {}, grant = grantAiConsent, withdraw = withdrawAiConsent }) {
+  let busy = false;
+  let done = false;
+  const finish = (ok) => {
+    if (done) return false;
+    done = true;
+    busy = false;
+    onBusy(false);
+    onDone();
+    resolve(!!ok);
+    return true;
+  };
+  return {
+    isBusy: () => busy,
+    isDone: () => done,
+    decline() {
+      if (busy || done) return false;
+      return finish(false);
+    },
+    async agree() {
+      if (busy || done) return false;
+      busy = true;
+      onBusy(true);
+      try { await grant(); } catch { /* 端末とこの起動中には残っている（grantAiConsent） */ }
+      return finish(true);
+    },
+    // 戻り値: 取り消せたか（true / false）。受け付けなかったときは null。
+    async withdraw() {
+      if (busy || done) return null;
+      busy = true;
+      onBusy(true);
+      let ok = false;
+      try { ok = await withdraw(); } catch { ok = false; }
+      finish(false);
+      return ok;
+    },
+  };
+}

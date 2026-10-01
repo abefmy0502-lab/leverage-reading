@@ -14,7 +14,7 @@ vi.mock('./supabase', () => ({
 import {
   normalizeAiConsent, isAiConsentCurrent, needsAiConsent, resolveAiConsent, makeAiConsentRecord,
   isConsentExemptPurpose, ensureAiConsent, requestAiConsent, grantAiConsent, withdrawAiConsent, readAiConsent,
-  checkAiConsentForSend, AI_CONSENT_REQUEST_EVENT, AI_CONSENT_VERSION, __resetAiConsentForTest,
+  checkAiConsentForSend, AI_CONSENT_REQUEST_EVENT, AI_CONSENT_VERSION, __resetAiConsentForTest, createConsentResponder,
 } from './aiConsent';
 
 const V1 = { version: 1, at: '2026-10-01T00:00:00.000Z' };
@@ -151,5 +151,55 @@ describe('シートで聞く・同意する・取り消す', () => {
     const seen = answerWith(false);
     expect(await ensureAiConsent('ops_advise')).toBe(true);
     expect(seen).toEqual([]);
+  });
+});
+
+describe('シートの答え方（createConsentResponder）', () => {
+  const deferred = () => { let r; const p = new Promise((res) => { r = res; }); return { p, r }; };
+
+  it('保存を待っている間は「今はやめる」を受け付けず、同意して使う＝true を 1 回だけ返す', async () => {
+    const save = deferred();
+    const resolve = vi.fn();
+    const busy = [];
+    const done = vi.fn();
+    const r = createConsentResponder({ resolve, onBusy: (b) => busy.push(b), onDone: done, grant: () => save.p });
+    const agreeing = r.agree();
+    expect(r.isBusy()).toBe(true);
+    // 待っている間に「今はやめる」（背景・Esc・戻るも同じ）→ 断る（やめたのに同意だけ残る、を起こさない）
+    expect(r.decline()).toBe(false);
+    expect(resolve).not.toHaveBeenCalled();
+    expect(await r.withdraw()).toBe(null);
+    save.r();
+    await agreeing;
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith(true);
+    expect(busy).toEqual([true, false]);
+    expect(done).toHaveBeenCalledTimes(1);
+    // 答えたあとは何も受け付けない
+    expect(r.decline()).toBe(false);
+    expect(await r.agree()).toBe(false);
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it('待っていないときの「今はやめる」は false を返し、同意を保存しない', async () => {
+    const grant = vi.fn();
+    const resolve = vi.fn();
+    const r = createConsentResponder({ resolve, grant });
+    expect(r.decline()).toBe(true);
+    expect(resolve).toHaveBeenCalledWith(false);
+    expect(await r.agree()).toBe(false);
+    expect(grant).not.toHaveBeenCalled();
+  });
+
+  it('取り消しを保存している間も「今はやめる」を受け付けない・結果を返す', async () => {
+    const save = deferred();
+    const resolve = vi.fn();
+    const r = createConsentResponder({ resolve, withdraw: () => save.p });
+    const w = r.withdraw();
+    expect(r.decline()).toBe(false);
+    save.r(true);
+    expect(await w).toBe(true);
+    expect(resolve).toHaveBeenCalledWith(false);
+    expect(resolve).toHaveBeenCalledTimes(1);
   });
 });

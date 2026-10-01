@@ -11,11 +11,11 @@ import BottomSheet from './BottomSheet';
 import { withPhraseBreaks } from './TightBubble';
 import { useToast } from './Toast';
 import { useBackLayer } from '../hooks/useHistoryBack';
-import { btnPrimary, btnGhost, btnLink, card } from '../styles/ui';
+import { btnPrimary, btnGhost, btnGhostOff, btnLink, card } from '../styles/ui';
 import { PRIVACY_URL } from '../lib/legalLinks';
 import { AI_FEATURES, AI_PROVIDER_NAMES, AI_FALLBACK_PROVIDER, providersFor, featureForPurpose } from '../lib/aiProcessors';
 import {
-  AI_CONSENT_REQUEST_EVENT, readAiConsent, grantAiConsent, withdrawAiConsent, isAiConsentCurrent,
+  AI_CONSENT_REQUEST_EVENT, readAiConsent, isAiConsentCurrent, createConsentResponder,
 } from '../lib/aiConsent';
 
 // 文は文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・DESIGN §5）。
@@ -109,7 +109,8 @@ export default function AiConsentSheet({ purpose = null, mode = 'ask', record = 
     </button>
   ) : (
     <div style={footerRow}>
-      <button type="button" style={{ ...btnGhost, flex: 1 }} onClick={onDecline}>今はやめる</button>
+      {/* 保存を待っている間は押せない（押すと操作はやめたのに同意だけ残っていた・2026-10-01）。 */}
+      <button type="button" style={{ ...(busy ? btnGhostOff : btnGhost), flex: 1 }} onClick={onDecline} disabled={busy}>今はやめる</button>
       {/* 処理中も薄くしない（DESIGN §5 押せないボタン）。全体の button:disabled{opacity:.4} を打ち消して文言で示す。 */}
       <button type="button" style={{ ...btnPrimary, flex: 1, opacity: 1 }} onClick={onAgree} disabled={busy} aria-busy={busy || undefined}>
         {busy ? '同意しています…' : manage ? '同意する' : '同意して使う'}
@@ -123,6 +124,8 @@ export default function AiConsentSheet({ purpose = null, mode = 'ask', record = 
       title={manage ? 'AI へのデータ送信' : 'AI に送る内容について'}
       onClose={onDecline}
       footer={footer}
+      // 保存を待っている間は、背景・下へ振る・右上でも閉じない（DESIGN §5 シート）。
+      dismissible={!busy}
       // 同意済みの確認（設定から）は右上の「完了」で閉じる。聞くときは下の「今はやめる」1 つ（閉じる入口を 2 つにしない）。
       dismissLabel={manage && consented ? '完了' : null}
       layer="dialog"
@@ -141,12 +144,19 @@ export function AiConsentGate() {
   const toast = useToast();
   const [req, setReq] = useState(null); // { purpose, mode, resolve, record }
   const [busy, setBusy] = useState(false);
+  // いま開いているシートの答え方（lib/aiConsent.js の createConsentResponder・保存を待つ間は「今はやめる」を受け付けない）。
+  const responderRef = useRef(null);
 
   useEffect(() => {
     const onReq = (e) => {
       const d = e?.detail;
       if (!d || typeof d.resolve !== 'function') return;
       d.handled = true;
+      responderRef.current = createConsentResponder({
+        resolve: d.resolve,
+        onBusy: setBusy,
+        onDone: () => { responderRef.current = null; setReq(null); },
+      });
       setReq({ purpose: d.purpose || null, mode: d.mode || 'ask', resolve: d.resolve, record: null });
       // 設定から開いたときは、いまの同意（日付）を出す。
       if (d.mode === 'manage') {
@@ -157,30 +167,15 @@ export function AiConsentGate() {
     return () => window.removeEventListener(AI_CONSENT_REQUEST_EVENT, onReq);
   }, []);
 
-  const reqRef = useRef(null);
-  reqRef.current = req;
-  const finish = useCallback((ok) => {
-    const r = reqRef.current;
-    reqRef.current = null;
-    setReq(null);
-    setBusy(false);
-    if (r) r.resolve(ok);
-  }, []);
-  const decline = useCallback(() => finish(false), [finish]);
-
-  const agree = async () => {
-    if (busy) return;
-    setBusy(true);
-    await grantAiConsent();
-    finish(true);
-  };
+  // 「今はやめる」・背景・Esc・端末の戻る。保存を待っている間は何もしない（responder が断る）。
+  const decline = useCallback(() => { responderRef.current?.decline(); }, []);
+  const agree = () => { responderRef.current?.agree(); };
   const withdraw = async () => {
-    if (busy) return;
-    setBusy(true);
-    const ok = await withdrawAiConsent();
-    if (ok) toast.success('同意を取り消しました。');
-    else toast.error('取り消せませんでした。通信の状態を確かめて、もう一度お試しください。');
-    finish(false);
+    const r = responderRef.current;
+    if (!r) return;
+    const ok = await r.withdraw();
+    if (ok === true) toast.success('同意を取り消しました。');
+    else if (ok === false) toast.error('取り消せませんでした。通信の状態を確かめて、もう一度お試しください。');
   };
 
   const open = !!req;
