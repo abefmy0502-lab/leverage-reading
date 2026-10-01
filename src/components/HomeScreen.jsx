@@ -10,7 +10,7 @@
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
 import { Library, ChevronRight, PencilLine, Plus } from 'lucide-react';
-import HomeFirstStep from './HomeFirstStep';
+import HomeFirstStep, { useHomeMemoState } from './HomeFirstStep';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
@@ -131,6 +131,8 @@ export default function HomeScreen({
   onQuickstart, onAddBook, onAdvisor, onImport,
   onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading, onCoverRetry,
 }) {
+  // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
+  const memoState = useHomeMemoState(books);
   return (
     <div style={{ padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>ホーム</h1>
@@ -150,9 +152,13 @@ export default function HomeScreen({
         />
       ) : books.length === 0 ? (
         <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
+      ) : !memoState.known ? (
+        <div role="status" aria-busy="true" aria-label="読み込み中" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          <HomeBlocksSkeleton />
+        </div>
       ) : (
         <>
-          <HomeFirstStep books={books} onQuickstart={onQuickstart} />
+          {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} />
           <button
             type="button"
