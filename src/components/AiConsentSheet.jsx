@@ -94,14 +94,15 @@ export default function AiConsentSheet({ purpose = null, mode = 'ask', record = 
     : `AI${NB}の機能を使うと、次の内容を外部の AI${NB}サービスに送ります。`;
 
   const footer = manage && consented ? (
-    <button type="button" style={withdrawStyle} onClick={onWithdraw} disabled={busy} aria-busy={busy || undefined}>
-      同意を取り消す
+    <button type="button" style={{ ...withdrawStyle, opacity: 1 }} onClick={onWithdraw} disabled={busy} aria-busy={busy || undefined}>
+      {busy ? '取り消しています…' : '同意を取り消す'}
     </button>
   ) : (
     <div style={footerRow}>
       <button type="button" style={{ ...btnGhost, flex: 1 }} onClick={onDecline}>今はやめる</button>
-      <button type="button" style={{ ...btnPrimary, flex: 1 }} onClick={onAgree} disabled={busy} aria-busy={busy || undefined}>
-        {manage ? '同意する' : '同意して使う'}
+      {/* 処理中も薄くしない（DESIGN §5 押せないボタン）。全体の button:disabled{opacity:.4} を打ち消して文言で示す。 */}
+      <button type="button" style={{ ...btnPrimary, flex: 1, opacity: 1 }} onClick={onAgree} disabled={busy} aria-busy={busy || undefined}>
+        {busy ? '同意しています…' : manage ? '同意する' : '同意して使う'}
       </button>
     </div>
   );
