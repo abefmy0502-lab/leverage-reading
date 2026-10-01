@@ -53,7 +53,8 @@
 | `VITE_REVENUECAT_IOS_KEY` | RevenueCat Apple 公開キー（**必須**・未設定だと課金導線が出ない） |
 | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | クライアント |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | サーバー(API) |
-| `ANTHROPIC_API_KEY` | AI |
+| `ANTHROPIC_API_KEY` | AI（相談・AI 選書の推薦・ほかが失敗したときの代わり。**必須**） |
+| `OPENAI_API_KEY` / `GEMINI_API_KEY`（任意） | AI の安い行き先（`docs/ai-routing.md`）。無ければ全部 Claude。Gemini は請求先を設定したプロジェクトのキーだけ |
 | `GOOGLE_BOOKS_API_KEY` | 表紙解決（サーバー） |
 | `VITE_SENTRY_DSN`（任意） | クラッシュ計測 |
 
@@ -86,6 +87,21 @@ Xcode で:
 | 購入履歴 | 課金管理（Apple/RevenueCat） | はい |
 | ユーザーコンテンツ → その他のユーザーコンテンツ（メモ・写真） | アプリ機能（読書メモ・写真の保存/表示。**収集する・ユーザーに紐付く・トラッキング不使用**） | はい |
 | 診断 → クラッシュデータ / パフォーマンス | アプリ品質（**Sentry**＝第三者） | いいえ（PII 無効化前提） |
+
+### 6-1. AI の送り先が 3 社になった（2026-10-01・`docs/ai-routing.md`）
+
+AI 機能ごとに、Anthropic（相談・AI 選書の推薦）／OpenAI（読書計画シート・AI 選書の質問づくり）／Google の Gemini API（凝縮・まとめ・**写真から書き起こし**）に送る。App Privacy の入力で変えるところ:
+
+| データ種別 | 変えること | 理由 |
+|---|---|---|
+| ユーザーコンテンツ → **写真またはビデオ** | **新しく「収集する」にする**（用途: App の機能・ユーザーに紐付く: はい・トラッキング: いいえ） | 写真から書き起こしで、撮った写真を Google に送る。Google・OpenAI は不正利用の監視のため一定期間保存することがあり、Apple の「収集」（その場の処理に必要な時間より長く、自分や委託先が見られる形で端末の外に送る）に当たる。メモの写真は Supabase にも保存している |
+| ユーザーコンテンツ → その他のユーザーコンテンツ | そのまま（メモ・質問・相談内容）。用途は App の機能 | 送り先の会社が増えても、データの種類と用途は変わらない |
+| トラッキング | 「いいえ」のまま | AI 事業者は当方の代わりに処理する委託先（広告・データブローカーではない）。ユーザー ID・メールは送らない |
+
+- App Privacy は「どの会社に送るか」を書く欄が無い。会社名はプライバシーポリシー（`/legal/privacy` 第5条・第7条）に書いた
+- ⚠️ **審査ガイドライン 5.1.2(i)**（2025-11 改訂）: 個人データを**第三者の AI と共有する前に、はっきり知らせて明示の許可を取る**こと（[App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)・[2025-11 の更新のお知らせ](https://developer.apple.com/news/?id=ey6d8onl)）。今のアプリには、AI を初めて使う前の同意の画面が無い（Anthropic だけのときから同じ）。**審査の前に**、最初の AI 機能の前に 1 回だけ「メモ・質問・（書き起こしでは）写真を、答えを作るために Anthropic / OpenAI / Google に送ります（学習には使われません）」と出して「同意して使う」を押してもらう画面を足すのが安全。審査メモ（§7）にも「AI に送る前に同意を取っている」と書けるようにする
+- Review Notes に足す一文（同意の画面を足したあと）:
+  > AI 機能は、ユーザーの同意のあと、機能に必要な内容だけを Anthropic・OpenAI・Google の API に送ります（各社の API の規約で学習には使われません）。写真を送るのは「写真から書き起こし」だけです。
 
 ## 7. App 審査情報（⬜）
 
