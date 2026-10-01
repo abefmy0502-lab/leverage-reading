@@ -305,6 +305,7 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 - [ ] **CSP**: 新しい外部ドメインへの `connect-src` / `img-src` 接続が必要なら `vercel.json` の CSP を更新
 - [ ] **RLS**: 新しい Supabase テーブルには Row Level Security と適切なポリシーを設定（SQL マイグレーションファイルに含める）
 - [ ] **エラーメッセージ**: スタックトレースや内部 ID を露出させない（`toMessage()` 経由で humanize）
+- [ ] **AI に送る前の同意**: 新しい AI 機能は入口で `ensureAiConsent('<purpose>')`・`src/lib/aiProcessors.js` に送るものと送り先を足す（`api/_aiRouting.js` とテストで一致を確かめる）。送り先を変えたら `AI_CONSENT_VERSION` を上げる
 
 ### Supabase ダッシュボード設定（商用化時に確認）
 - [ ] **Email confirmation**: Authentication → Settings → "Enable email confirmations" を ON
@@ -325,6 +326,10 @@ want(読みたい) → before(積読) → reading(読書中) → done(読了)
 - `Permissions-Policy: camera=(self), microphone=(), geolocation=()`
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
 - `Content-Security-Policy`: `default-src 'self'` ベースでホワイトリスト制（Supabase / Anthropic / Google Books / openBD / NDL / Amazon 画像（images-na・images-fe・m.media-amazon）/ 楽天ブックス画像(`thumbnail.image.rakuten.co.jp`, img-src のみ) / Open Library の表紙の転送先 `*.archive.org`（img-src のみ・2026-09-30）を許可。表紙の配信元を足したら `img-src` と `api/_coverImageUrl.js` の許可リストの両方に。楽天 API 本体はサーバー(`api/cover.js` の表紙リゾルバ)経由なので connect-src 不要）
+
+### AI に送る前の同意（App Review 5.1.2(i)・2026-10-01）
+
+はじめて AI を使う操作のときに「AI に送る内容について」（`AiConsentSheet.jsx`）。関所は各機能の入口の `ensureAiConsent(purpose)` と送る直前（`postClaude`・`streamClaude`）。新しい AI の呼び出しは必ず `purpose` を付け、入口で `ensureAiConsent` を呼ぶ（`src/lib/aiConsentGate.test.js`）。送り先は `src/lib/aiProcessors.js`＝`api/_aiRouting.js` と同じ（テスト）。同意は `user_metadata.ai_consent`（端末にも写す）。取り消しは 設定 → プライバシー →「AI へのデータ送信」。サーバーは止めない（`X-Orime-Ai-Consent` を記録だけ）。AI を使わない機能（メモが答える相談・検索・つながるメモ・写真で共有・本はどれ？をメモで見つけたとき）は聞かない。審査に出す前に、審査用アカウントの同意を取り消しておく（`company/app-store-submission.md` §6-1）。お試しモードは `&consent=none`（未同意）・`&consent=slow`（保存を 8 秒待つ）
 
 ## 環境変数 (本番)
 
