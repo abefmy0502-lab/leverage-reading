@@ -310,7 +310,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.bookTitle}{meta.length > 0 && '・'}</span>
             )}
             {meta.length > 0 && (
-              <span style={{ minWidth: 0 }}>
+              // 期限などの列は縮めない（min-width を 0 にすると書名と半分ずつ縮み、期限がはみ出した）。縮めるのは書名だけ。
+              <span>
                 {/* 各項目は前の「・」ごと 1 つの塊に（行末に「・」だけが残らないように） */}
                 {meta.map((m, i) => <span key={i} style={{ whiteSpace: 'nowrap' }}>{i > 0 && '・'}{m}</span>)}
               </span>
