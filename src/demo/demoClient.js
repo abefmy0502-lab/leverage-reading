@@ -16,6 +16,7 @@
 //   - ?demo=tokens : 今月の分を使い切り、追加トークンが残っている（「トークンを追加」はその場で足す）
 //   - ?demo=webgate : ブラウザの一般利用者に出す「アプリでご利用ください」の確認用
 //   - &consent=none : AI に送る内容にまだ同意していない（はじめて AI を使う操作で同意のシートが出る・どのシナリオにも付けられる）
+//     &consent=none&consent=slow で、同意・取り消しの保存が 8 秒かかる（処理中のボタンの確認用）
 // データはメモリ上だけ。再読み込みで初期状態に戻る。
 //
 // supabase-js のうち、このアプリが実際に使う範囲だけを再現する
@@ -341,6 +342,10 @@ export function createDemoClient() {
       signUp: async ({ email }) => signIn(email),
       signOut: async () => { store.session = null; setTimeout(() => emit('SIGNED_OUT'), 0); return { error: null }; },
       updateUser: async (attrs) => {
+        // &consent=slow（&consent=none と一緒に使う）: アカウントへの同意の保存がなかなか終わらない（「同意しています…」の確認用）。
+        if (params.getAll('consent').includes('slow') && attrs?.data && 'ai_consent' in attrs.data) {
+          await new Promise((r) => { setTimeout(r, 8000); });
+        }
         if (store.session) {
           store.session.user = {
             ...store.session.user,
