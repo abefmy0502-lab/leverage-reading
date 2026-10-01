@@ -342,7 +342,7 @@ export function createDemoClient() {
       signUp: async ({ email }) => signIn(email),
       signOut: async () => { store.session = null; setTimeout(() => emit('SIGNED_OUT'), 0); return { error: null }; },
       updateUser: async (attrs) => {
-        // &consent=slow（&consent=none と一緒に使う）: アカウントへの同意の保存がなかなか終わらない（「同意しています…」の確認用）。
+        // &consent=slow（&consent=none と一緒に使う）: アカウントへの同意の保存がなかなか終わらない（「保存しています…」の確認用）。
         if (params.getAll('consent').includes('slow') && attrs?.data && 'ai_consent' in attrs.data) {
           await new Promise((r) => { setTimeout(r, 8000); });
         }

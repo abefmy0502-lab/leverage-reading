@@ -113,7 +113,7 @@ export default function AiConsentSheet({ purpose = null, mode = 'ask', record = 
       <button type="button" style={{ ...(busy ? btnGhostOff : btnGhost), flex: 1 }} onClick={onDecline} disabled={busy}>今はやめる</button>
       {/* 処理中も薄くしない（DESIGN §5 押せないボタン）。全体の button:disabled{opacity:.4} を打ち消して文言で示す。 */}
       <button type="button" style={{ ...btnPrimary, flex: 1, opacity: 1 }} onClick={onAgree} disabled={busy} aria-busy={busy || undefined}>
-        {busy ? '同意しています…' : manage ? '同意する' : '同意して使う'}
+        {busy ? '保存しています…' : manage ? '同意する' : '同意して使う'}
       </button>
     </div>
   );
