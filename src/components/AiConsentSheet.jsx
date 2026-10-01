@@ -24,12 +24,13 @@ const NB = '\u00a0';
 const leadStyle = { margin: 0, fontSize: 'var(--text-body)', color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all' };
 const metaStyle = { margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 };
 const listStyle = { ...card, listStyle: 'none', margin: 'var(--space-4) 0 0', padding: '0 var(--space-4)' };
-const rowStyle = { padding: 'var(--space-3) 0' };
+// 行の上下は 8（送るものが 2 行になる行があっても、機能名の長い一文が 3 行になっても、390×844 でプライバシーポリシーまで見えるように・2026-10-01）。
+const rowStyle = { padding: 'var(--space-2) 0' };
 const rowHead = { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-3)' };
 const nameStyle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5 };
 const providerStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, whiteSpace: 'nowrap', flexShrink: 0 };
 // 送るものは 13（シートの高さに収めて、プライバシーポリシーまでスクロールせずに見えるように）。
-const sendsStyle = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 };
+const sendsStyle = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' };
 const noteStyle = { margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all' };
 const linkStyle = {
   ...btnLink,
@@ -55,6 +56,15 @@ function dateLabel(iso) {
 }
 export { dateLabel as aiConsentDateLabel };
 
+// 送るものの文。文節で折り返し、量のまとまり（「（約 9,000 字まで）」）は途中で割らない（2026-10-01）。
+function sendsText(text) {
+  return String(text).split(/(（約 [\d,]+ 字まで）)/).map((part, i) => (
+    i % 2 === 1
+      ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+      : <span key={i}>{withPhraseBreaks(part)}</span>
+  ));
+}
+
 // 送るものと送り先の一覧（機能ごとに 1 行）。first: いま使おうとしている機能の id（先頭に出す）。
 export function AiConsentDetails({ first = null }) {
   const features = first
@@ -69,7 +79,7 @@ export function AiConsentDetails({ first = null }) {
               <span style={nameStyle}>{f.name}</span>
               <span style={providerStyle}>{providersFor(f).join('・')}</span>
             </div>
-            <p style={sendsStyle}>{f.sends}</p>
+            <p style={sendsStyle}>{sendsText(f.sends)}</p>
           </li>
         ))}
       </ul>
