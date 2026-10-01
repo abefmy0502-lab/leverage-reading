@@ -128,3 +128,34 @@ describe('buildGrowthBlock: この会話のやりとりは「過去の相談」�
     expect(skipped.length).toBeLessThan(base.length);
   });
 });
+
+// 📏 相談 1 回の中身の内訳（ブロックごとのトークンの概算と原価）。AI_COST_REPORT=1 のときだけ表を出す。
+//   AI_COST_REPORT=1 npx vitest run src/lib/consultCache.test.js --silent=false
+//   トークンは概算（日本語 1 字 ≈ 1・半角 ≈ 0.3）。本当の数は本番の [ai-cache] のログ（api/claude.js）で見る。
+describe('相談 1 回の内訳（お試しモードのデータ）', () => {
+  it('ブロックごとのトークンと、最初・続きの原価', async () => {
+    const { costFromUsage } = await import('../../api/_aiCost.js');
+    const tok = (s) => { let n = 0; for (const ch of String(s)) n += ch.charCodeAt(0) < 128 ? 0.3 : 1; return Math.round(n); };
+    const first = await consult({ question: '部下に仕事を任せるのが苦手で、つい自分でやってしまう' });
+    const follow = await consult({ question: '資料づくり', thread: [{ question: '部下に仕事を任せるのが苦手', answer: '【結論】\n終わりの形を決める。\n\n【あなたに聞きたいこと】\nどんな仕事？' }] });
+    const parts = (p) => [['system', tok(p.system), 'sys'], ...p.messages[0].content.map((b) => [b.text.match(/=====\s([A-Z_]+)_START/)?.[1] || 'other', tok(b.text), b.cache_control ? 'core' : 'tail'])];
+    const yenOf = (p, { sys, core }, out = 550) => {
+      const u = { input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 0 }, output_tokens: out };
+      for (const [, t, kind] of parts(p)) {
+        const st = kind === 'sys' ? sys : kind === 'core' ? core : 'in';
+        if (st === 'r') u.cache_read_input_tokens += t;
+        else if (st === 'w5') { u.cache_creation_input_tokens += t; u.cache_creation.ephemeral_5m_input_tokens += t; }
+        else if (st === 'w1h') { u.cache_creation_input_tokens += t; u.cache_creation.ephemeral_1h_input_tokens += t; }
+        else u.input_tokens += t;
+      }
+      return costFromUsage('claude-haiku-4-5', u) / 1000;
+    };
+    const firstWarm = yenOf(first, { sys: 'r', core: 'w5' });
+    const followWarm = yenOf(follow, { sys: 'r', core: 'r' });
+    expect(followWarm).toBeLessThan(firstWarm);
+    if (!process.env.AI_COST_REPORT) return;
+    console.log('最初の相談:', parts(first).map(([n, t, k]) => `${n}${k === 'tail' ? '' : `(${k})`} ${t}`).join(' / '));
+    console.log('続きの相談:', parts(follow).map(([n, t, k]) => `${n}${k === 'tail' ? '' : `(${k})`} ${t}`).join(' / '));
+    console.log(`原価: 最初 ¥${firstWarm.toFixed(2)}（指示文が冷えていれば ¥${yenOf(first, { sys: 'w1h', core: 'w5' }).toFixed(2)}）・続き ¥${followWarm.toFixed(2)}`);
+  });
+});
