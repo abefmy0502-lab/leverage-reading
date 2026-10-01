@@ -98,9 +98,9 @@ export default function AiConsentSheet({ purpose = null, mode = 'ask', record = 
   const consented = isAiConsentCurrent(record);
   const feature = featureForPurpose(purpose);
   const manage = mode === 'manage';
-  // 同意は機能ごとではなく AI の機能すべてに効くので、「〈機能〉など」と範囲を言う（2026-10-01 ui-critic）。
+  // 同意は機能ごとではなく AI の機能すべてに効くので、「〈機能〉などの AI 機能で」と範囲を言う（2026-10-01 ui-critic）。
   const lead = feature && !manage
-    ? `${feature.name.replace(/ /g, NB)}など AI${NB}の機能を使うと、次の内容を外部の AI${NB}サービスに送ります。`
+    ? `${feature.name.replace(/ /g, NB)}などの AI${NB}機能で、次の内容を外部の AI${NB}サービスに送ります。`
     : `AI${NB}の機能を使うと、次の内容を外部の AI${NB}サービスに送ります。`;
 
   const footer = manage && consented ? (
