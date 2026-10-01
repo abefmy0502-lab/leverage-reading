@@ -111,7 +111,7 @@ export default function PrivacyPage() {
       <h2>第6条(国外への個人データの移転)</h2>
       <p>
         前条に定める委託に伴い、ユーザーの個人データは、Supabase, Inc.、Vercel, Inc.、
-        Anthropic, PBC、OpenAI、Google LLC、Apple Inc.、RevenueCat, Inc. 等、
+        Anthropic, PBC、Google LLC、Apple Inc.、RevenueCat, Inc. 等、
         米国その他の国外に所在する委託先に移転されます。
         米国その他の国における個人情報保護制度は、日本と異なる場合があります。
         委託先の個人情報保護に関する制度については、以下をご参照ください。
@@ -133,12 +133,12 @@ export default function PrivacyPage() {
         </li>
         <li>ある AI 事業者が一時的に使えないときは、答えを返すため、同じ内容を Anthropic(Claude)に送ることがあります。</li>
         <li>AI 機能をはじめて使うときに、送信する情報と送信先をアプリ内で示し、同意をいただいてから送信します。同意しない場合、その AI 機能の情報は送信しません(AI を使わない機能はそのまま使えます)。同意は、アプリの設定(プライバシー →「AI へのデータ送信」)からいつでも取り消せます。取り消したあとは、次に AI 機能を使うときに改めて確認します。送信先を変更する場合も、改めて同意をいただきます。</li>
-        <li>送信したデータは、各社の API の規約により、AI モデルの学習には使われません。Anthropic は API 経由のデータを学習に使いません。OpenAI は API のデータを既定で学習に使わず、当方はデータを共有する設定を有効にしていません。Google は有料の Gemini API に送られたデータを製品の改善に使わず、当方は有料の API だけを使います。各社は不正利用の監視等のため、送信されたデータを一定期間保存することがあります(OpenAI は最長 30 日)。</li>
+        <li>送信したデータは、各社の API の規約により、AI モデルの学習には使われません。Anthropic は API 経由のデータを学習に使いません。Google は有料の Gemini API に送られたデータを製品の改善に使わず、当方は有料の API だけを使います。各社は不正利用の監視等のため、送信されたデータを一定期間保存することがあります。</li>
+        <li>ユーザーのメモ・質問・写真などを OpenAI に送信することはありません。OpenAI は、運営者だけが使う運営の分析の補助(第5条)に、集計した数字だけを送ります(OpenAI は API のデータを既定で学習に使わず、当方はデータを共有する設定を有効にしていません)。</li>
         <li>送信される情報には、ユーザー個人を直接特定する情報(氏名、メールアドレス、住所等)は含めない設計としています。</li>
         <li>詳細は各社の方針をご参照ください:
           <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic Privacy Policy</a>、
-          <a href="https://openai.com/enterprise-privacy/" target="_blank" rel="noopener noreferrer">OpenAI Enterprise privacy</a>、
-          <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">Gemini API 追加利用規約</a>。</li>
+          <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">Gemini API 追加利用規約</a>(運営の分析の補助は <a href="https://openai.com/enterprise-privacy/" target="_blank" rel="noopener noreferrer">OpenAI Enterprise privacy</a>)。</li>
       </ol>
 
       <h2>第8条(安全管理措置)</h2>
