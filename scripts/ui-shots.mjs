@@ -109,6 +109,8 @@ const SCREENS = [
   { name: 'home-nomemo', url: '/?demo=nomemo' },
   // いま読んでいる本が 0 冊（「＋ 本を追加」の 1 行だけ・2026-10-01）
   { name: 'home-noreading', url: '/?demo=noreading' },
+  { name: 'home-noreading-done', url: '/?demo=noreadingdone' },
+  { name: 'home-noreading-none', url: '/?demo=noreadingnone' },
   { name: 'home-loading', url: '/?load=slow' },
   { name: 'library-noresult', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'zzzz'] }, { wait: 800 }] },
   // メモの言葉で本を探す（「こんなことを書いたの、なんの本だったかな？」・2026-09-30）

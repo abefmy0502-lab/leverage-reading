@@ -281,6 +281,14 @@ export function buildSeed(scenario) {
   if (scenario === 'noreading') {
     db.books.forEach((b) => { if (b.status === 'reading') b.status = 'before'; });
   }
+  // ?demo=noreadingdone: 読書中も積読も無い人（「最近読み終えた本」の確認用）。
+  // ?demo=noreadingnone: 読みたいの本しか無い人（「いま読んでいる本」＋「読書中の本はありません」の確認用）。
+  if (scenario === 'noreadingdone') {
+    db.books.forEach((b) => { if (b.status === 'reading' || b.status === 'before') b.status = 'want'; });
+  }
+  if (scenario === 'noreadingnone') {
+    db.books.forEach((b) => { b.status = 'want'; });
+  }
 
   // ?demo=longmemo: 『1兆ドルコーチ』の先頭（ページ順で最初）に長いメモが 1 件ある人（メモカードの長文の確認用）。
   if (scenario === 'longmemo') {

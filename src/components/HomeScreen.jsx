@@ -78,13 +78,14 @@ const byDone = (a, b) => (b.doneDate || '').localeCompare(a.doneDate || '') || b
 function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook, onSeeAllReading, onCoverRetry }) {
   const reading = books.filter((b) => b.status === 'reading').sort(byUpdated);
   const shown = reading.slice(0, 3);
-  // 読書中 0 冊（2026-10-01 ui-critic・オーナー承認・SPEC §1）: 見出しは残し、次に読む候補を最大 3 冊。
-  //   積読（新しく触った順）→ 無ければ最近読み終えた本。積読は「読み始める」（読書中へ・その場で変わる）、読了は「メモを書く」。
-  //   2 行目は「積読 · 著者」の形で、読書中ではないことを示す（すべての本の行と同じ）。候補も無ければ 1 行だけ。
+  // 読書中 0 冊（2026-10-01 ui-critic・オーナー承認・SPEC §1）: 次に読む候補を最大 3 冊。見出しで何の一覧かを言う
+  //   （積読＝「次に読む本」・読了＝「最近読み終えた本」）ので、2 行目は著者だけ（「積読 ·」を重ねない）。
+  //   積読（新しく触った順）は「読み始める」（読書中へ・その場で変わる）、読了は「メモを書く」。
+  //   候補も無ければ（読みたいの本だけなど）、見出し「いま読んでいる本」＋「読書中の本はありません」の 1 行。
   const stacked = shown.length === 0 ? books.filter((b) => b.status === 'before').sort(byUpdated).slice(0, 3) : [];
   const finished = shown.length === 0 && stacked.length === 0 ? books.filter((b) => b.status === 'done').sort(byDone).slice(0, 3) : [];
   const candidates = stacked.length ? stacked : finished;
-  const subOf = (b, label) => (label ? [label, b.author].filter(Boolean).join(' · ') : b.author);
+  const heading = stacked.length ? '次に読む本' : finished.length ? '最近読み終えた本' : 'いま読んでいる本';
   const memoBtn = (b) => (
     <button type="button" onClick={() => onWriteMemo(b)} aria-label={`『${b.title}』にメモを書く`} style={btnRow}>
       <PencilLine size={16} aria-hidden="true" />メモを書く
@@ -92,7 +93,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
   );
   return (
     <section aria-labelledby="home-reading-title">
-      <h2 id="home-reading-title" style={sectionTitle}>いま読んでいる本</h2>
+      <h2 id="home-reading-title" style={sectionTitle}>{heading}</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {shown.map((b) => (
             <BookRow key={b.id} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} />
@@ -104,7 +105,7 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
             <BookRow
               key={b.id}
               book={b}
-              sub={subOf(b, b.status === 'before' ? '積読' : '読了')}
+              sub={b.author}
               onOpenBook={onOpenBook}
               onCoverRetry={onCoverRetry}
               action={b.status === 'before' && onStartReading ? (
