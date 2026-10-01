@@ -7,6 +7,8 @@ import {
   tokensFromMjpy, noInfoRefundEligible, noInfoRefundLimit, refundPeriodKey,
 } from './_aiAccess.js';
 import { lotBalance, effectiveAllowance, shouldSettleOverflow } from './_tokenLots.js';
+import { resolveRoute } from './_aiRouting.js';
+import { openRoute, ProviderError } from './_providers.js';
 
 // 応答の前に、精算（adjust_ai_cost / settle_token_overflow）・回数の払い戻しを待つ上限。
 // Vercel の関数は応答を返したあと止められることがある（waitUntil なしの後処理は保証されない）ので、
@@ -62,32 +64,19 @@ function countTextChars(body) {
 // 前後。汎用 LLM プロキシ悪用で巨大配列を投げられるのを防ぐ安全側の上限。
 const MAX_MESSAGES = 60;
 
-// 許可する Anthropic モデルの allowlist。クライアントは現状 1 モデルしか
-// 使わない（src/lib/ai.js / streamClaude.js の DEFAULT_MODEL）。中継 API が
-// body.model を verbatim で upstream に流すと、改ざんしたクライアントが Opus 等
-// の高単価モデルを指定して原価を吊り上げられる（KGI ガードの穴）。allowlist 外
-// は既定モデルに矯正する（拒否ではなく安全側に倒す＝正規利用を妨げない）。
-// コスト最適化の 2 層ルーティング（src/lib/models.js と一致させる）:
-//   2026-09-27 から: AI 選書の推薦だけ claude-sonnet-5（MODEL_ADVISOR）、ほかは claude-haiku-4-5。
+// 許可する Anthropic モデルの allowlist。中継 API が body.model を verbatim で upstream に流すと、
+// 改ざんしたクライアントが Opus 等の高単価モデルを指定して原価を吊り上げられる（KGI ガードの穴）。
+// allowlist 外は既定モデルに矯正する（拒否ではなく安全側に倒す＝正規利用を妨げない）。
+//   用途（body.purpose）があるときは、どの会社のどのモデルで答えるかを api/_aiRouting.js が決める
+//   （2026-10-01〜・相談と AI 選書は Claude、ほかは OpenAI / Google の安いモデル・失敗したら Claude）。
+//   用途が無い呼び出し（出し直す前の iOS アプリ）は、今までどおりアプリが指定した Claude（この許可リストで矯正）。
 //   旧 claude-sonnet-4-6 も後方互換で許可（未デプロイのクライアントからの要求を弾かない）。
-//   許可外は DEFAULT_MODEL に矯正（拒否ではなく安全側）。
-const ALLOWED_MODELS = new Set(['claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
+//   指定のモデルが 404 のときのやり直し先は api/_providers.js（claude-sonnet-5-5 → claude-sonnet-5、ほか → claude-sonnet-4-6）。
+const ALLOWED_MODELS = new Set(['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6']);
 // 指定なし・許可外はいちばん安い Haiku に寄せる（原価の安全側）。
 const DEFAULT_MODEL = 'claude-haiku-4-5';
-// 💬 相談（purpose: 'consult'）だけに使うモデル。env で差し替えられる（アプリの出し直し不要）。
-//   未設定なら、アプリが指定したモデル（2026-09-27 から Haiku 4.5）のまま。品質を上げたいときに
-//   'claude-sonnet-5' にすると、1 回あたりの原価が約 2 倍・相談できる回数は約半分になる。
-const CONSULT_MODEL_OVERRIDE = ['claude-sonnet-5', 'claude-haiku-4-5', 'claude-sonnet-4-6'].includes(process.env.AI_CONSULT_MODEL)
-  ? process.env.AI_CONSULT_MODEL
-  : null;
-const pickModel = (b) => {
-  if (b?.purpose === 'consult' && CONSULT_MODEL_OVERRIDE) return CONSULT_MODEL_OVERRIDE;
-  return ALLOWED_MODELS.has(b?.model) ? b.model : DEFAULT_MODEL;
-};
-// 実績のある既知モデル。指定モデルが upstream に 404（model not found）で拒否された
-// 時のフォールバック先。過去に廃止スナップショット ID の指定で全 AI が停止した事故が
-// あったため、新モデル ID がアカウント未対応でも AI を止めないための保険。
-const FALLBACK_MODEL = 'claude-sonnet-4-6';
+// 💬 相談だけの差し替え（AI_CONSULT_MODEL・Claude だけ）は api/_aiRouting.js の resolveRoute が読む。
+const pickModel = (b) => (ALLOWED_MODELS.has(b?.model) ? b.model : DEFAULT_MODEL);
 
 // ───────────────────────────────────────────────────────────────────
 // 🤖 月次 AI 利用量メータリング（KGI 原価ガード）
@@ -661,6 +650,11 @@ export default async function handler(req, res) {
   }
   const tier = access.tier; // 'admin' | 'paid' | 'trial' | 'free'
   const freeCall = tier === 'free';
+  // 🧭 どの会社のどのモデルで答えるか（api/_aiRouting.js）。無料プランの相談は、いちばん安い Claude に固定
+  //    （AI_CONSULT_MODEL の差し替えも効かせない）。Claude 以外が答える前に失敗したら route.claudeModel で 1 回だけやり直す。
+  const route = resolveRoute({
+    purpose: req.body?.purpose, requestedModel: pickModel(req.body), free: freeCall, freeModel: FREE_MODEL,
+  });
   // どの行で数えるか（無料 'free-YYYY-MM'・無料期間 'trial-YYYY-MM-DD'・有料 'YYYY-MM'）。
   const periodKey = periodKeyFor(tier, { monthKey, periodEnd: ent.periodEnd });
   // 使い切ったときの返事（無料は 402＝有料プランの画面を開く。無料期間・有料は 429＝案内だけ）。
@@ -711,7 +705,6 @@ export default async function handler(req, res) {
   let callLimit = ent.limit;
   if (tier !== 'admin') {
     const b = req.body || {};
-    const estModel = freeCall ? FREE_MODEL : pickModel(b);
     const estMax = Math.min(
       Number.isFinite(b.max_tokens) ? Math.max(1, Math.floor(b.max_tokens)) : MAX_TOKENS_DEFAULT,
       freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP,
@@ -719,7 +712,10 @@ export default async function handler(req, res) {
     const images = Array.isArray(b.messages)
       ? b.messages.reduce((n, m) => n + (Array.isArray(m?.content) ? m.content.filter((c) => c?.type === 'image').length : 0), 0)
       : 0;
-    const est = estimateCost(estModel, { textChars: countTextChars(b), images, maxTokens: estMax });
+    // Claude 以外で答える用途は、失敗して Claude でやり直すときの原価も見込んで、高いほうで予約する（上振れ側）。
+    const estArgs = { textChars: countTextChars(b), images, maxTokens: estMax };
+    const est = [route.model, route.claudeModel].map((m) => estimateCost(m, estArgs))
+      .reduce((a, e) => ({ total: Math.max(a.total, e.total), output: Math.max(a.output, e.output) }), { total: 0, output: 0 });
     // 追加トークン（買い足し）があれば、その月の分＋追加分まで使える（使う順は その月 → 追加分）。
     lotState = await getLotState(userId, periodKey);
     const allowance = lotState.ok ? effectiveAllowance(allowanceFor(tier), lotState) : allowanceFor(tier);
@@ -808,9 +804,6 @@ export default async function handler(req, res) {
     const maxTokens = Math.min(requestedTokens, freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP);
     const wantsStream = body.stream === true;
 
-    // モデルを allowlist で矯正（高単価モデルへの差し替え悪用を封じる）。
-    // 無料プランの相談は、いちばん安いモデルに固定する（AI_CONSULT_MODEL の差し替えも効かせない）。
-    const model = freeCall ? FREE_MODEL : pickModel(body);
 
     // ★ 想定キーだけを allowlist で再構築する（client body の丸ごと転送をやめる）。
     // これまでは `{ ...body }` で tools / tool_choice / metadata / stop_sequences /
@@ -819,14 +812,8 @@ export default async function handler(req, res) {
     // app が実際に使うのは system / messages / max_tokens / model / stream のみ
     // （src/lib/streamClaude.js / ai.js）。temperature は下記の理由で転送しない。
     // それ以外は破棄する。
-    const payload = { model, max_tokens: maxTokens };
-    // ⚠️ claude-sonnet-5 は `thinking` 省略時に adaptive thinking が既定 ON
-    // （sonnet-4-6 以前は省略 = OFF）。thinking トークンは max_tokens（総出力上限）
-    // から消費されるため、本アプリの小さめの max_tokens（320〜4096）では本文が
-    // 途中で切れ、かつ出力単価で課金だけ増える。旧世代と同じ挙動（thinking なし）
-    // をサーバー側で明示して、切り詰め・コスト増・応答遅延を防ぐ。
-    // （disabled は Sonnet 5 で合法。haiku-4-5 / sonnet-4-6 は省略 = OFF なので不要）
-    if (model === 'claude-sonnet-5') payload.thinking = { type: 'disabled' };
+    // モデルと thinking は行き先（route）ごとに api/_providers.js が付ける（claude-sonnet-5 / 5-5 は考えない設定を明示）。
+    const payload = { max_tokens: maxTokens };
     if (wantsStream) payload.stream = true;
     if (typeof body.system === 'string') {
       payload.system = body.system;
@@ -913,33 +900,24 @@ export default async function handler(req, res) {
     try { req.on?.('close', abortUpstream); } catch { /* no-op */ }
     try { res.on?.('close', abortUpstream); } catch { /* no-op */ }
 
-    const anthropicFetch = () => fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(payload),
-      signal: upstreamController.signal,
-    });
+    // 入力の見積もり（OpenAI / Google のストリームは最後にしか入力の数が分からないので、途中で切れたときの精算に使う）。
+    const estInputTokens = Math.ceil(countTextChars(body) * 1.2) + 600;
 
     let response;
+    let servedModel = route.model; // 実際に答えたモデル（原価はこの単価で数える）
     try {
-      response = await anthropicFetch();
-      // 🛡️ モデル未提供フォールバック: 指定モデルが 404（model not found）で拒否
-      // されたら、実績のある FALLBACK_MODEL で 1 回だけ再試行する。ストリーム開始前
-      // （response.ok 判定より前）なので安全に差し替えられる。これで新モデル ID が
-      // アカウント未対応でも全 AI 停止を回避する（過去の同種事故の恒久対策）。
-      if (response && response.status === 404 && payload.model !== FALLBACK_MODEL) {
-        console.warn('[claude] model not found, falling back:', payload.model, '→', FALLBACK_MODEL);
-        // 404 の本文は読まないので閉じておく（接続を握ったままにしない）
-        try { await response.body?.cancel(); } catch { /* no-op */ }
-        payload.model = FALLBACK_MODEL;
-        // sonnet-4-6 は thinking 省略 = OFF（既定）。sonnet-5 向けに付けた明示
-        // disabled は 4.6 では非対応の可能性があるため外す（挙動は同じ OFF）。
-        delete payload.thinking;
-        response = await anthropicFetch();
+      try {
+        ({ response, model: servedModel } = await openRoute({
+          provider: route.provider, model: route.model, base: payload, signal: upstreamController.signal, estimatedInputTokens: estInputTokens,
+        }));
+      } catch (routeErr) {
+        // 🧭 Claude 以外が答える前に失敗した（鍵・429・5xx・時間切れ・安全の止めで空）→ その用途の Claude で 1 回だけやり直す。
+        //    ログは会社・モデル・番号・理由だけ（中身は書かない）。
+        if (!(routeErr instanceof ProviderError) || upstreamController.signal.aborted) throw routeErr;
+        console.warn(`[ai-route] ${route.provider}:${route.model} failed (${routeErr.reason}${routeErr.status ? ` ${routeErr.status}` : ''}) → anthropic:${route.claudeModel}`);
+        ({ response, model: servedModel } = await openRoute({
+          provider: 'anthropic', model: route.claudeModel, base: payload, signal: upstreamController.signal,
+        }));
       }
     } catch (fetchErr) {
       // クライアントが接続前/接続待ち中に切断 → AbortError。これは正常な
@@ -955,6 +933,8 @@ export default async function handler(req, res) {
       }
       throw fetchErr;
     }
+    // 原価を数えるモデル名: 応答に入っている名前（日付つきの版・別名の行き先）を優先。
+    const costModel = (reported) => (typeof reported === 'string' && reported ? reported : servedModel);
 
     // Streaming pass-through: forward Anthropic's SSE body verbatim to the
     // browser so the first token reaches the client without buffering the
@@ -1013,7 +993,7 @@ export default async function handler(req, res) {
               refund = await tryNoInfoRefund({
                 text: a.truncated ? '' : a.text,
                 complete: a.stopped && a.stopReason === 'end_turn',
-                actualMjpy: costFromUsage(payload.model, u),
+                actualMjpy: costFromUsage(costModel(sniffer.meta.model), u),
               });
             } catch { refund = null; }
             if (refund) {
@@ -1024,8 +1004,9 @@ export default async function handler(req, res) {
           }
           if (!refund) {
             if (u.seenStart) {
-              const inputOnly = costFromUsage(payload.model, { ...u, output_tokens: 0 });
-              settleCost(u.seenDelta ? costFromUsage(payload.model, u) : inputOnly + costOutputPart);
+              const cm = costModel(sniffer.meta.model);
+              const inputOnly = costFromUsage(cm, { ...u, output_tokens: 0 });
+              settleCost(u.seenDelta ? costFromUsage(cm, u) : inputOnly + costOutputPart);
             } else {
               settleCost(costReserved);
             }
@@ -1071,7 +1052,7 @@ export default async function handler(req, res) {
         refund = await tryNoInfoRefund({
           text,
           complete: data.stop_reason === 'end_turn',
-          actualMjpy: costFromUsage(payload.model, data.usage),
+          actualMjpy: costFromUsage(costModel(data?.model), data.usage),
         });
       } catch { refund = null; }
     }
@@ -1083,7 +1064,7 @@ export default async function handler(req, res) {
     // 「2xx のときだけ increment」と対称にする）。
     if (!response.ok && usageReserved && tier !== 'admin') track(releaseMonthlyUsage(userId, periodKey));
     // 💴 精算（成功は usage の実額・失敗は予約を戻す）。応答の前に待つ。
-    settleCost(response.ok ? (data?.usage ? costFromUsage(payload.model, data.usage) : costReserved) : null);
+    settleCost(response.ok ? (data?.usage ? costFromUsage(costModel(data?.model), data.usage) : costReserved) : null);
     await flush();
     if (!response.ok) {
       // 上流（Anthropic）の生エラー JSON（英語の内部メッセージ・request-id 等）を

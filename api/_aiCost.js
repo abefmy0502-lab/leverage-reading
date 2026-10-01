@@ -21,15 +21,44 @@ const num = (v, d) => {
   return Number.isFinite(n) ? n : d;
 };
 
-// Anthropic の価格（USD / 100 万トークン）。2026-09-27 に公式の価格表で確認。
-// in=入力, cw=キャッシュ書き込み（5 分）, cr=キャッシュ読み出し, out=出力
+// 価格（USD / 100 万トークン）。in=入力, cw=キャッシュ書き込み（5 分）, cr=キャッシュ読み出し, out=出力。
+// 出典は docs/ai-routing.md（2026-10-01 に各社の公式で確認）。
+//   Anthropic: Sonnet 5 / 5.5 は $2 / $10（5.5 は 5 と同じ価格）、Haiku 4.5 は $1 / $5。
+//   OpenAI: gpt-5-mini は $0.25 / $2（キャッシュ $0.025）。2026-12-11 に提供終了（後継 gpt-5.4-mini は $0.75 / $4.50）。
+//     OpenAI と Google にはキャッシュ書き込みの割増が無いので cw = in。推論（reasoning）のトークンは出力として数える。
+//   Google: gemini-3.1-flash-lite は $0.25 / $1.50（画像の入力も同じ単価・キャッシュ $0.025）。考える分のトークンも出力。
 export const PRICES = {
+  'claude-sonnet-5-5': { in: 2, cw: 2.5, cr: 0.2, out: 10 },
   'claude-sonnet-5': { in: 2, cw: 2.5, cr: 0.2, out: 10 },
   'claude-sonnet-4-6': { in: 3, cw: 3.75, cr: 0.3, out: 15 },
   'claude-haiku-4-5': { in: 1, cw: 1.25, cr: 0.1, out: 5 },
+  'gpt-5-mini': { in: 0.25, cw: 0.25, cr: 0.025, out: 2 },
+  'gpt-5.4-mini': { in: 0.75, cw: 0.75, cr: 0.075, out: 4.5 },
+  'gemini-3.1-flash-lite': { in: 0.25, cw: 0.25, cr: 0.025, out: 1.5 },
 };
 // 表に無いモデルは、表の中でいちばん高い値で数える（安全側）。
-const FALLBACK_PRICE = { in: 3, cw: 3.75, cr: 0.3, out: 15 };
+const FALLBACK_PRICE = Object.values(PRICES).reduce((m, p) => ({
+  in: Math.max(m.in, p.in), cw: Math.max(m.cw, p.cw), cr: Math.max(m.cr, p.cr), out: Math.max(m.out, p.out),
+}), { in: 0, cw: 0, cr: 0, out: 0 });
+
+// モデル名 → 単価。日付つきの版（'claude-haiku-4-5-20251001' / 'gpt-5-mini-2025-08-07' など、応答に入ってくる名前）は
+// いちばん長く一致する表の名前で数える。分からない名前は表でいちばん高い単価（安全側）。
+export function hasPrice(model) {
+  return typeof model === 'string' && !!matchPriceKey(model);
+}
+function matchPriceKey(model) {
+  if (typeof model !== 'string' || !model) return null;
+  if (PRICES[model]) return model;
+  let best = null;
+  for (const key of Object.keys(PRICES)) {
+    if (model.startsWith(`${key}-`) && (!best || key.length > best.length)) best = key;
+  }
+  return best;
+}
+export function priceFor(model) {
+  const key = matchPriceKey(model);
+  return key ? PRICES[key] : FALLBACK_PRICE;
+}
 
 // 円換算（保守的に円安寄り）と、Anthropic の請求にかかる消費税。
 export const USD_JPY = num(process.env.AI_USD_JPY, 160);
@@ -46,9 +75,9 @@ export function monthlyBudgetJpy(env = process.env) {
 
 const toMjpy = (usd) => Math.ceil(usd * USD_JPY * (1 + API_TAX_RATE) * 1000);
 
-// 実際に使ったトークン数（Anthropic の usage）から原価を出す。
+// 実際に使ったトークン数（Anthropic の形の usage。OpenAI / Google の usage は api/_providers.js がこの形に直す）から原価を出す。
 export function costFromUsage(model, usage = {}) {
-  const p = PRICES[model] || FALLBACK_PRICE;
+  const p = priceFor(model);
   const usd = (
     (num(usage.input_tokens, 0) * p.in)
     + (num(usage.cache_creation_input_tokens, 0) * p.cw)
@@ -61,7 +90,7 @@ export function costFromUsage(model, usage = {}) {
 // 呼ぶ前の見積もり（上振れ側）。入力は文字数 × 1.2 トークン（日本語）＋画像 1 枚 1,600
 // トークン＋前置き 600 トークンを、キャッシュ書き込みの単価で。出力は max_tokens を全部使う前提。
 export function estimateCost(model, { textChars = 0, images = 0, maxTokens = 0 } = {}) {
-  const p = PRICES[model] || FALLBACK_PRICE;
+  const p = priceFor(model);
   const inTok = Math.ceil(textChars * 1.2) + (images * 1600) + 600;
   const usd = ((inTok * p.cw) + (maxTokens * p.out)) / 1e6;
   return { total: toMjpy(usd), output: toMjpy((maxTokens * p.out) / 1e6) };
@@ -77,6 +106,8 @@ export function createUsageSniffer() {
   let buf = '';
   const decoder = new TextDecoder();
   const usage = { seenStart: false, seenDelta: false };
+  // 応答に入っているモデル名（message_start の message.model）。原価はこの名前で数える（別名が別の版に変わっても単価がずれない）。
+  const meta = { model: null };
   const answer = { text: '', length: 0, truncated: false, stopReason: null, stopped: false };
   const onLine = (line) => {
     if (!line.startsWith('data:')) return;
@@ -84,12 +115,17 @@ export function createUsageSniffer() {
     if (!raw || raw[0] !== '{') return;
     let ev;
     try { ev = JSON.parse(raw); } catch { return; }
+    if (ev?.type === 'message_start' && typeof ev.message?.model === 'string') meta.model = ev.message.model;
     if (ev?.type === 'message_start' && ev.message?.usage) {
       Object.assign(usage, ev.message.usage);
       usage.seenStart = true;
     } else if (ev?.type === 'message_delta' && ev.usage) {
-      // message_delta の usage は累計（output_tokens）
+      // message_delta の usage は累計（output_tokens）。入力の数が入っていれば、それも最終の値として使う
+      // （OpenAI / Google の答えは最後にしか入力の数が分からないので、api/_providers.js がここに入れる）。
       if (Number.isFinite(ev.usage.output_tokens)) usage.output_tokens = ev.usage.output_tokens;
+      for (const k of ['input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens']) {
+        if (Number.isFinite(ev.usage[k])) usage[k] = ev.usage[k];
+      }
       usage.seenDelta = true;
     }
     if (ev?.type === 'message_delta' && ev.delta?.stop_reason) {
@@ -117,5 +153,6 @@ export function createUsageSniffer() {
     },
     usage,
     answer,
+    meta,
   };
 }
