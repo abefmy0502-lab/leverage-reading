@@ -19,12 +19,12 @@
 //
 // props:
 //   book            … 開いた本 { id, title, author, cover, totalPages, status, doneDate, startDate, actions, leverageMemo }
-//   books           … 本棚の本（ホームから開いたとき＝「どの本？」の切り替えと今月の数字に使う）
+//   books           … 本棚の本（上の行の「写真で共有」から開いたとき＝「どの本？」の切り替えと今月の数字に使う）
 //   memos           … book のメモ（無ければこのシートで読み込む）
 //   initialMemoId   … 先に選んでおくメモ（メモの「…」→「この一文をシェア」）
 //   initialPhotoFile… カメラで撮った写真（ホーム・本の詳細・読了の入口）
 //   initialSubject  … { kind: 'book', bookId } | { kind: 'month' }（省略時は book、無ければ pickShareSubject）
-//   from            … 計測用の入口の名前（home / detail / done / memo / menu）
+//   from            … 計測用の入口の名前（home / review / consult / detail / done / memo / menu）
 //   onClose
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

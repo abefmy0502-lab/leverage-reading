@@ -7,7 +7,7 @@
 //
 // 文節での折り返し: iOS の Safari は word-break: auto-phrase を知らないので、
 // BudouX で文節の切れ目に <wbr> を入れ、word-break: keep-all で切れ目でだけ折り返す
-// （App.jsx の書名・HomeConsult の相談例と同じ）。1 文節が行より長いときだけ中で折る。
+// （App.jsx の書名・相談の相談例と同じ）。1 文節が行より長いときだけ中で折る。
 
 import { useLayoutEffect, useRef } from 'react';
 import { loadDefaultJapaneseParser } from 'budoux';

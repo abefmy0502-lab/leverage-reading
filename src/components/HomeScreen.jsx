@@ -1,14 +1,16 @@
 // 🏠 ホーム（下のタブ「ホーム」。コード上の tab キーは 'books' のまま）。
 //
-// SPEC.md §1 の構成そのもの。置くのは 3 ブロックだけ:
-//   1. 困ったときは、相談する（HomeConsult）← 主役・主ボタンはこれ 1 つ
+// SPEC.md §1 の構成そのもの。置くのは次のブロックだけ:
+//   1. はじめの一歩（HomeFirstStep・本はあるがメモ 0 件のときだけ）→ 初日クイックスタート
 //   2. いま読んでいる本（最大 3 冊・各本に「メモを書く」＝ 1 タップでクイックメモ）
 //   3. すべての本（N 冊）› → ライブラリ画面（検索・絞り込み・並び替えはそちらへ）
-// 本 0 冊のときは「はじめる」カード 1 枚だけ。はじめの一歩（ActivationChecklist）は
-// 相談カードと同じ入口を二重に出すことになるためホームには置かない（ui-critic 指摘・SPEC §1）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
+// 本 0 冊のときは「はじめる」カード 1 枚だけ。
+// 相談カード（旧 HomeConsult.jsx）は 2026-10-01 オーナー裁定「ホームには相談チャット不要」で外した
+// （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
+// 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
 import { Library, ChevronRight, PencilLine, Plus } from 'lucide-react';
-import HomeConsult from './HomeConsult';
+import HomeFirstStep from './HomeFirstStep';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
@@ -107,15 +109,13 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onAddBook, onSeeAllReading
   );
 }
 
-// 読み込み中のホームの形（相談カード／いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔／すべての本 ›）。
+// 読み込み中のホームの形（いま読んでいる本＝見出し＋行カード 2 枚を 12 間隔／すべての本 ›）。
 // 起動直後の読み込み（App.jsx の HomeLoadingSkeleton）と、本の読み込み中（下の HomeScreen）で同じものを使う（2026-09-29）。
 // カードの形はどれも本物と同じ枠 --separator（明るい画面で背景に溶けないように）。
 const skeletonCard = { border: '1px solid var(--separator)', boxSizing: 'border-box' };
 export function HomeBlocksSkeleton() {
   return (
     <>
-      {/* 相談カードと同じ高さ（実測 約 432）。 */}
-      <SkeletonBlock height={432} radius="var(--radius)" style={skeletonCard} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <SkeletonBlock width="40%" height={26} radius="var(--radius)" />
         <SkeletonBlock height={90} radius="var(--radius)" style={skeletonCard} />
@@ -128,8 +128,8 @@ export function HomeBlocksSkeleton() {
 
 export default function HomeScreen({
   books = [], loading = false, loadError = null, onRetry,
-  onAsk, onQuickstart, onAddBook, onAdvisor, onImport,
-  onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading, onSearchMemos, onCoverRetry,
+  onQuickstart, onAddBook, onAdvisor, onImport,
+  onOpenBook, onWriteMemo, onOpenLibrary, onSeeAllReading, onCoverRetry,
 }) {
   return (
     <div style={{ padding: 'var(--space-2) var(--space-4) var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
@@ -142,21 +142,17 @@ export default function HomeScreen({
         </div>
       ) : loadError && books.length === 0 ? (
         // 読み込みに失敗したときに、既存ユーザーへ初回用の「はじめましょう」を見せない。
-        // 相談（ホームの主役）は冊数が分からなくても出し、その下に読み込めなかったことを出す。
-        // 主ボタンは「相談する」1 つにしたいので、やり直しは副ボタン。
-        <>
-          <HomeConsult books={books} onAsk={onAsk} onSearchMemos={onSearchMemos} countUnknown />
-          <ErrorMessage
-            title="本を読み込めませんでした"
-            description="通信環境を確認して、もう一度お試しください。"
-            actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'secondary' }] : []}
-          />
-        </>
+        // この画面の主役は「もう一度」（相談カードを外したので主ボタンに・2026-10-01）。
+        <ErrorMessage
+          title="本を読み込めませんでした"
+          description="通信環境を確認して、もう一度お試しください。"
+          actions={onRetry ? [{ label: 'もう一度', onClick: onRetry, variant: 'primary' }] : []}
+        />
       ) : books.length === 0 ? (
         <StartCard onQuickstart={onQuickstart} onAddBook={onAddBook} onAdvisor={onAdvisor} onImport={onImport} />
       ) : (
         <>
-          <HomeConsult books={books} onAsk={onAsk} onQuickstart={onQuickstart} onSearchMemos={onSearchMemos} />
+          <HomeFirstStep books={books} onQuickstart={onQuickstart} />
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} />
           <button
             type="button"

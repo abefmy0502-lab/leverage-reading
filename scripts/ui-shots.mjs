@@ -108,7 +108,6 @@ const SCREENS = [
   //    ?demo=new / nomemo / overdue / limit / free / freeused / freenew / freegrown / trial / paywall、&ai=slow|fail|cut、&load=slow、&save=slow、&db=fail、&price=loading|fail
   { name: 'home-nomemo', url: '/?demo=nomemo' },
   { name: 'home-loading', url: '/?load=slow' },
-  { name: 'home-focus', url: '/', steps: [{ css: 'textarea[aria-label="相談したいこと"]' }] },
   { name: 'library-noresult', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', 'zzzz'] }, { wait: 800 }] },
   // メモの言葉で本を探す（「こんなことを書いたの、なんの本だったかな？」・2026-09-30）
   { name: 'library-memo-search', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: 'button[aria-label="本を検索"]' }, { fill: ['input[aria-label^="本を検索（"]', '断る'] }, { wait: 800 }] },
@@ -326,6 +325,13 @@ const SCREENS = [
   { name: 'share-photo-detail', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
   // カメラをやめた（input の cancel）→ 写真なしのシート（「写真を選ぶ」からアルバムへ）
   { name: 'share-camera-canceled', url: '/', steps: [{ css: 'h1' }, { eval: () => document.querySelector('input[data-share-camera]').dispatchEvent(new Event('cancel')) }, { wait: 2500 }] },
+  // 振り返り・相談の上の行の「写真で共有」（ホームと同じ場所・2026-10-01）。振り返り › 記録から開くと「今月」を選んでおく。
+  { name: 'share-photo-review-record', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
+  { name: 'share-photo-review-memo', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
+  // 文字を大きくしたとき（iOS の「文字サイズ」最大＝本文 23 前後）でも、上の行（ロゴ・写真で共有・？・⚙️）が 1 行に収まるか。
+  { name: 'review-large-text', url: '/', steps: [{ css: nav('振り返り') }, { eval: () => { document.documentElement.style.fontSize = '23px'; } }, { wait: 500 }] },
+  { name: 'share-photo-consult', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="写真で共有"]' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2500 }] },
+  { name: 'share-camera-canceled-consult', url: '/', steps: [{ css: nav('相談') }, { css: 'button[aria-label="写真で共有"]' }, { eval: () => document.querySelector('input[data-share-camera]').dispatchEvent(new Event('cancel')) }, { wait: 2500 }] },
   // 写真のときの「写真以外 ▾」のメニュー（紙・夜・表紙の色・透明・写真を選び直す）
   { name: 'share-photo-bgmenu', url: '/', steps: [{ css: 'h1' }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }, { css: '[role=dialog] button:has-text("写真以外")' }, { wait: 600 }] },
   // 写真があるときに「写真以外 ▾」で紙を選んだ → ボタンは「背景：紙 ▾」
@@ -417,7 +423,6 @@ const SCREENS = [
   { name: 'free-used-memo-answer-bottom', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下に質問で考えてもらいたいが、つい答えを言ってしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }, { scrollBottom: true }] },
   // 学び（本に結びつかないメモ）と本のメモの両方で答える／ホームの相談カードから送る（相談タブでメモの答え）
   { name: 'free-used-memo-answer-learning', url: '/?demo=freeused', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '上司への報告がうまくいかない'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }] },
-  { name: 'free-used-home-send', url: '/?demo=freeused', steps: [{ fill: ['textarea[aria-label="相談したいこと"]', '頼まれごとを断れなくて、仕事を抱えすぎてしまう'] }, { css: 'button:text-is("相談する")' }, { wait: 2000 }] },
   // メモを読んでいる間（&load=memosearch＝自分のメモを全部読む 1 回だけ遅い）／読めなかったとき（&dbfail=memosearch）
   { name: 'free-used-memo-loading', url: '/?demo=freeused&load=memosearch', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下に質問で考えてもらいたいが、つい答えを言ってしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 600 }] },
   { name: 'free-used-memo-error', url: '/?demo=freeused&dbfail=memosearch', steps: [{ css: nav('相談') }, { fill: ['textarea[aria-label="相談したいこと"]', '部下に質問で考えてもらいたいが、つい答えを言ってしまう'] }, { css: 'button[aria-label="送信"]' }, { wait: 1500 }] },

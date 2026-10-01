@@ -942,8 +942,9 @@ function AuthedApp() {
   const [editMenu, setEditMenu] = useState(null);
   // 読書中・読了の本の購入リンクは「⋯ → この本を買う」のシートへ（2026-09-26 オーナー判断）。
   const [storeSheetOpen, setStoreSheetOpen] = useState(false);
-  // 📷 画像で共有のシート（SPEC §2-1）: { book?, initialMemoId?, photoFile?, fromHome?, from }。
-  //   カメラの入口（ホームの上の行・本の詳細の上の行・読了した直後）は、撮った写真を持って開く。
+  // 📷 画像で共有のシート（SPEC §2-1）: { book?, initialMemoId?, photoFile?, fromHome?, initialSubject?, from }。
+  //   fromHome＝上の行（ホーム・振り返り・相談のタブ）の入口＝本棚の本を渡して「どの本？」を選べるように。
+  //   カメラの入口（タブの上の行・本の詳細の上の行・読了した直後）は、撮った写真を持って開く。
   //   メモの「…」→「この一文をシェア」・本の「…」／本棚の長押し →「画像で共有」は写真なしで開く。
   const [shareSheet, setShareSheet] = useState(null);
   // 読了にした直後だけ、その本の下に「読了を写真で共有」を 1 つ出す（押した指の下に現れないよう少し待つ・本を離れたら消す）。
@@ -4706,19 +4707,22 @@ function AuthedApp() {
     </div>
     {/* 右端は左のロゴの補正と対称に（アイコンの見た目の右余白を 16 に）。 */}
     <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginRight: 'calc(-1 * var(--space-3))' }}>
-      {/* 📷 写真で共有（ホームだけ・2026-09-30 オーナー裁定: 共有は前面に出す主要な機能）。
-          押すとすぐカメラ（パソコンは写真を選ぶ画面）。撮ったら、いま読んでいる本の記録を重ねたシートが開く。 */}
-      {tab === 'books' && (
-        <button
-          type="button"
-          onClick={() => openShareCamera({ fromHome: true, from: 'home' })}
-          aria-label="写真で共有"
-          style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)' }}
-        >
-          <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
-          写真で共有
-        </button>
-      )}
+      {/* 📷 写真で共有（2026-09-30 オーナー裁定: 共有は前面に出す主要な機能。2026-10-01「振り返りでも相談でも表示があってもいい」で
+          ホーム・振り返り・相談の 3 つのタブで同じ場所・同じ形に）。押すとすぐカメラ（パソコンは写真を選ぶ画面）。
+          撮ったら、いま読んでいる本の記録を重ねたシートが開く（振り返り › 記録から開いたときだけ「今月」を選んでおく）。 */}
+      <button
+        type="button"
+        onClick={() => openShareCamera({
+          fromHome: true,
+          from: tab === 'review' ? 'review' : tab === 'ai' ? 'consult' : 'home',
+          ...(tab === 'review' && reviewSubTab === 'record' ? { initialSubject: { kind: 'month' } } : {}),
+        })}
+        aria-label="写真で共有"
+        style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
+      >
+        <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
+        写真で共有
+      </button>
       <button
         onClick={openHelp}
         style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "50%", color: "var(--text-2)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
@@ -4771,11 +4775,6 @@ function AuthedApp() {
               loading={booksLoading}
               loadError={booksLoadError}
               onRetry={() => refreshBooks()}
-              onAsk={(question) => {
-                setAskPreset({ question, nonce: Date.now() });
-                setAiSubTab('brain');
-                setTab('ai');
-              }}
               onQuickstart={() => setShowQuickstart(true)}
               onImport={() => setShowImport(true)}
               onAddBook={() => openAdd('reading')}
@@ -4784,7 +4783,6 @@ function AuthedApp() {
               onWriteMemo={(b) => setHomeMemoBook(b)}
               onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
-              onSearchMemos={openMemoSearch}
               onCoverRetry={triggerCoverAutoRetry}
             />
           </PullToRefresh>
@@ -5012,7 +5010,7 @@ function AuthedApp() {
                   })}
                 </div>
               )}
-              {/* ホームに移した: 相談カード・はじめの一歩・いま読んでいる本（HomeScreen.jsx）。
+              {/* ホームに移した: はじめの一歩・いま読んでいる本（HomeScreen.jsx・相談カードは 2026-10-01 に外した）。
                   思い出しカードは「振り返り」へ（SPEC §1）。ここは本の一覧だけに集中する。 */}
               {booksLoading && rawBooks.length === 0 ? (
                 <>
@@ -5396,6 +5394,7 @@ function AuthedApp() {
           <ShareSheet
             book={shareSheet.book || null}
             books={shareSheet.fromHome ? books : undefined}
+            initialSubject={shareSheet.initialSubject || undefined}
             initialMemoId={shareSheet.initialMemoId || null}
             initialPhotoFile={shareSheet.photoFile || null}
             from={shareSheet.from || 'menu'}
