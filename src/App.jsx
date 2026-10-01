@@ -4724,10 +4724,10 @@ function AuthedApp() {
           ...(tab === 'review' && reviewSubTab === 'record' && hasFinishedThisMonth(books) ? { initialSubject: { kind: 'month' } } : {}),
         })}
         aria-label="写真で共有"
-        // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは文字に合わせて 1.3em（ふだん 22 前後）。
+        // 文字は 15 から設定に合わせて大きくなるが、20 で止める（--text-bar-max・1 行に収める）。アイコンは右の ？・⚙️ と同じ 22。
         style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', padding: '0 var(--space-2)', whiteSpace: 'nowrap' }}
       >
-        <Camera size="1.3em" strokeWidth={1.75} aria-hidden="true" />
+        <Camera size={22} strokeWidth={1.75} aria-hidden="true" />
         写真で共有
       </button>
       <button
