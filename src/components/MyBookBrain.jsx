@@ -1629,7 +1629,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       </button>
       <button
         type="button"
-        style={{ ...iconBtn, marginRight: 'calc(-1 * var(--space-3))' }}
+        // 右端の補正は置き場（App の .sub-tabs__actions）が持つので、ここでは付けない（二重に引くと ？・⚙️ より右へずれた）。
+        style={iconBtn}
         onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMoreMenu({ x: r.right - 8, y: r.bottom + 4 }); }}
         aria-label="その他の操作"
         title="その他"
