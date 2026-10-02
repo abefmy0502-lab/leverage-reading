@@ -483,7 +483,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <div className="lp-narrow lp-sec-head">
               <h2 className="lp-h2" id="lp-compare">
-                <span>記録でも、</span><span>一般論でもなく。</span>
+                <span>記録するだけでも、</span><span>広く答えるだけでもなく。</span>
               </h2>
               <p className="lp-wbr"><Phrases>読書の記録も、AI に聞くことも、それぞれに得意なことがあります。Orime が受け持つのは、あなたの読書から答えることです。</Phrases></p>
             </div>
