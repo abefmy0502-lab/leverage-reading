@@ -9,6 +9,9 @@
 //   2. AI_CONSENT_VERSION を 1 つ上げる（同意した人にも、次に AI を使うときにもう一度確かめる）
 //   3. aiProcessors.test.js の CONSENT_SIGNATURES に新しい版を足す
 //   4. プライバシーポリシー第 7 条（src/legal/PrivacyPage.jsx・legal/privacy.md）も合わせる
+//
+// 🧭 Jev（TypeSafe AI の判断のモデル・2026-10-02）は、アプリの VITE_AI_JEV=on のときだけ送り先に加わる（buildAiProcessors）。
+//   Jev の用途（memo_relevance / intent / memo_filing）は api/_aiRouting.js の JEV_ROUTES と同じ（テストで確かめる）。
 
 // 🧭 Jev（TypeSafe AI の判断のモデル・2026-10-02・docs/jev-plan.md）をアプリで使うか。
 //   VITE_AI_JEV=on のときだけ、送り先に TypeSafe AI を足し、同意の版を 2 にする（止めている間は、使っていない会社のために
