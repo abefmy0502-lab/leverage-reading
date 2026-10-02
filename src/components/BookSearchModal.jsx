@@ -351,7 +351,7 @@ export function BookResultList({ results, onPick, getExisting, query = '' }) {
   return (
     <section aria-label="検索結果" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>
-        {results.length} 件{hint ? `・${hint}` : ''}
+        {results.length} 冊
       </p>
       <ul className="list-item-stagger" style={listStyle}>
         {visible.map((b, i) => (
@@ -373,9 +373,10 @@ export function BookResultList({ results, onPick, getExisting, query = '' }) {
           さらに表示
         </button>
       )}
-      {remaining === 0 && results.length > MAX_DISPLAY && (
+      {/* 絞り込みの案内は、一覧を最後まで見たあとだけ（件数の行には足さない・2026-10-02 ui-critic）。 */}
+      {remaining === 0 && (hint || results.length > MAX_DISPLAY) && (
         <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'center' }}>
-          語を足すと絞り込めます
+          著者名も入れると絞り込めます
         </p>
       )}
     </section>
@@ -385,7 +386,7 @@ export function BookResultList({ results, onPick, getExisting, query = '' }) {
 const skeletonInline = { display: 'inline-block', verticalAlign: 'middle' };
 // 和文の行の高さ（和文の書体の上下の幅）を本物の行とそろえるための、見えない全角スペース 1 字。
 const CJK_STRUT = <span style={{ visibility: 'hidden', marginInlineEnd: '-1em' }}>{'\u3000'}</span>;
-// 読み込み中: 結果の一覧と同じ形のスケルトン（「N 件」の行＋結果 1 行ぶん）。
+// 読み込み中: 結果の一覧と同じ形のスケルトン（「N 冊」の行＋結果 1 行ぶん）。
 // 1 行だけにするのは、結果が 1 件のときに下の「手動で入力する」が
 // 押し下げられてから引き戻される（跳ねる）のを防ぐため（2026-09-29）。
 export function BookResultSkeleton({ rows = 1 }) {
