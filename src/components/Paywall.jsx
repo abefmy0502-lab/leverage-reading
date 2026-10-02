@@ -35,7 +35,7 @@
 //   &founding=on（ストアの初回価格＋期間中）/ store（ストアの初回価格だけ）/ env（期間中だけ）で創業メンバー価格を確かめる。
 //   プレビュー中は実際の購入・復元（RevenueCat）を一切呼ばない（isNative のときだけ呼ぶ）。
 
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Check, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -194,10 +194,11 @@ const stickyFooter = {
   padding: 'var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px))',
   background: 'var(--bg)',
   borderTop: '1px solid var(--separator)',
-  // 大きな文字（Dynamic Type）でも画面の半分までにとどめ、中身を隠し切らない（はみ出す分は欄の中で送る・2026-10-02）。
-  maxHeight: '50dvh',
-  overflowY: 'auto',
 };
+// 大きな文字で下の欄が画面の 4 割を超えるとき（compactFooter）は、欄に請求額の行と主ボタンだけを残し、
+// 文字の大きさを上限で止める（主ボタンがいつも全部見える・欄の中にスクロールを作らない・2026-10-02 ui-critic）。
+const COMPACT_TEXT = 'min(var(--text-body), calc(var(--text-bar-max) + var(--space-1)))';
+const COMPACT_RATIO = 0.4;
 // 下に固定の欄の文の塊。ふだんは塊ごとに次の行へ送り（語の途中で割らない）、大きな文字で 1 行に入らないときだけ塊の中で折り返す
 // （nowrap だと画面の外へはみ出していた・2026-10-02）。
 const chunk = { display: 'inline-block', maxWidth: '100%' };
@@ -334,6 +335,32 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 下に固定の欄が大きな文字で画面の 4 割を超えたら、欄を請求額の行と主ボタンだけにする（ResizeObserver で測る）。
+  //   戻すのは根の文字の大きさが小さくなったときだけ（欄が縮んだことで行き来しないように）。
+  const footerRef = useRef(null);
+  const [compactFooter, setCompactFooter] = useState(false);
+  const compactAtRef = useRef(0);
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el || typeof window === 'undefined') return undefined;
+    const rootSize = () => parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+    const check = () => {
+      if (!compactFooter) {
+        if (el.offsetHeight > window.innerHeight * COMPACT_RATIO) {
+          compactAtRef.current = rootSize();
+          setCompactFooter(true);
+        }
+      } else if (rootSize() < compactAtRef.current) {
+        setCompactFooter(false);
+      }
+    };
+    check();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
+    ro?.observe(el);
+    ro?.observe(document.body);
+    window.addEventListener('resize', check);
+    return () => { ro?.disconnect(); window.removeEventListener('resize', check); };
+  }, [compactFooter]);
   // 創業メンバー価格の期間か（LP と同じ env・開くたびに読む＝終わる日を過ぎたら出ない）。
   const [founding] = useState(() => readFoundingOffer());
   // Web のキーボードの Esc で閉じる（アプリの上に重ねて開いたときだけ・2026-09-30）。購入の手続き中・上に設定を
@@ -498,6 +525,21 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
     }
   };
 
+  // 下に固定の欄の上の 1 行（無料期間の量／創業メンバー価格の呼び名と終わる日）と、ボタンの下の注記。
+  //   ふだんは欄の中、大きな文字のとき（compactFooter）はスクロールする中身へ（同じ中身を 1 か所で作る）。
+  // かっこで包まず「・」で続ける（2026-09-29）。折り返すのは「・」の後だけ（2026-09-30）。
+  const leadLine = trial
+    ? [`${trialFirstPhrase(trial)}・`, ...TRIAL_TOKENS_PARTS].map((part) => <span key={part} style={chunk}>{part}</span>)
+    : (selected.intro && plan === 'annual' && foundingNamed)
+      ? <span style={{ display: 'block' }}>{FOUNDING_NAME}（{noBreak(founding.endLabel)}まで）</span>
+      : null;
+  // 無料期間: 期間中にやめれば払わない（2026-09-29）／先払いの初回価格: いつ・何の分を払うか（2026-10-02）。
+  const noteBelow = trial
+    ? <><span style={chunk}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={chunk}>料金はかかりません。</span></>
+    : selected.intro?.upfront
+      ? <><span style={chunk}>{selected.intro.priceString} は、</span><span style={chunk}>始めるときに {selected.intro.span || '1 年'}分をまとめてお支払いします。</span></>
+      : null;
+
   const ctaLabel = pending
     ? '購入手続き中…'
     : planCtaLabel({ ...selected, trial });
@@ -618,23 +660,22 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               </p>
             )}
 
+            {/* 大きな文字のとき（compactFooter）: 無料期間・創業メンバー価格の 1 行と、ボタンの下の注記は、スクロールする中身（欄のすぐ上）へ。 */}
+            {compactFooter && priceState === 'ready' && (leadLine || noteBelow) && (
+              <div style={{ marginTop: 'var(--space-4)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                {leadLine && <p style={{ margin: 0 }}>{leadLine}</p>}
+                {noteBelow && <p style={{ margin: leadLine ? 'var(--space-2) 0 0' : 0, fontSize: 'var(--text-meta)' }}>{noteBelow}</p>}
+              </div>
+            )}
+
             {/* 請求額の行＋主ボタンは画面の下に固定（DESIGN §5「下に固定の保存」と同じ形）。
                 スクロールしても、押すボタンと実際に請求される金額がいつも一緒に見える（審査 3.1.2）。 */}
-            <div style={stickyFooter}>
+            <div ref={footerRef} style={stickyFooter}>
               {priceState === 'ready' && (
                 // 実際に請求される金額を、無料期間より弱くしない（3.1.2）。無料期間はプランごと・使える人にだけ。
                 <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 var(--space-3)' }}>
-                  {/* 無料期間に使える量も添える（「無料で何ができるか」が分かる・2026-09-29 オーナー裁定） */}
-                  {/* かっこで包まず「・」で続ける（2026-09-29）。折り返すのは「・」の後だけ（1 行目を「…無料・150 トークン・」まで使い、
-                      「最初の 7 日間は無料・」だけの短い 1 行目にしない・2026-09-30）。 */}
-                  {trial && [`${trialFirstPhrase(trial)}・`, ...TRIAL_TOKENS_PARTS].map((part) => (
-                    <span key={part} style={chunk}>{part}</span>
-                  ))}
-                  {/* 創業メンバー価格（年額を選んでいるとき）: 呼び名と終わる日を小さく 1 行（金額は次の行で強く）。 */}
-                  {!trial && selected.intro && plan === 'annual' && foundingNamed && (
-                    <span style={{ display: 'block' }}>{FOUNDING_NAME}（{noBreak(founding.endLabel)}まで）</span>
-                  )}
-                  <span style={{ display: 'block', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
+                  {!compactFooter && leadLine}
+                  <span style={{ display: 'block', fontSize: compactFooter ? COMPACT_TEXT : 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>
                     {billedLineParts({ ...selected, trial }).map((part) => (
                       <span key={part} style={chunk}>{part}</span>
                     ))}
@@ -653,21 +694,19 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                 onClick={handleSubscribe}
                 disabled={!!pending || priceState !== 'ready'}
                 // 価格を読み込むまでは押せない見た目（薄くしない・DESIGN §5）。購入手続き中は塗りのまま文言で示す。
-                style={{ ...(priceState !== 'ready' ? btnPrimaryOff : btnPrimary), cursor: pending || priceState !== 'ready' ? 'default' : 'pointer', opacity: 1 }}
+                style={{
+                  ...(priceState !== 'ready' ? btnPrimaryOff : btnPrimary),
+                  ...(compactFooter ? { fontSize: COMPACT_TEXT, height: 'auto', minHeight: 48, paddingTop: 'var(--space-2)', paddingBottom: 'var(--space-2)' } : null),
+                  cursor: pending || priceState !== 'ready' ? 'default' : 'pointer',
+                  opacity: 1,
+                }}
               >
                 {ctaLabel}
               </button>
-              {/* 無料期間があるときは、ボタンのすぐ下で「期間中にやめれば払わない」を言う（ためらいを減らす・2026-09-29）。 */}
-              {trial && priceState === 'ready' && (
+              {/* ボタンのすぐ下の注記（無料期間の解約・先払いの 1 年分）。大きな文字のときは上の中身へ移す。 */}
+              {!compactFooter && priceState === 'ready' && noteBelow && (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
-                  {/* 「料金はか／かりません」のように語の途中で折り返さない（読点のあとで折る）。 */}
-                  <span style={chunk}>無料期間が終わる 24 時間前までに解約すれば、</span><span style={chunk}>料金はかかりません。</span>
-                </p>
-              )}
-              {/* 先払いの初回価格: いつ・何の分を払うかをボタンのすぐ下で（「¥9,800 は、始めるときに 1 年分をまとめてお支払いします。」） */}
-              {!trial && selected.intro?.upfront && priceState === 'ready' && (
-                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-2) 0 0', textAlign: 'center' }}>
-                  <span style={chunk}>{selected.intro.priceString} は、</span><span style={chunk}>始めるときに {selected.intro.span || '1 年'}分をまとめてお支払いします。</span>
+                  {noteBelow}
                 </p>
               )}
             </div>
