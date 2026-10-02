@@ -138,6 +138,9 @@ describe('/api/cover?health=1', () => {
     for (const secret of ['SECRET-APP-ID-123', 'pk_SECRETACCESSKEY', 'AIzaSECRETGOOGLE']) expect(text).not.toContain(secret);
     // 設定の値は真偽だけ
     for (const k of ['rakutenConfigured', 'rakutenRefererSet', 'googleKeySet']) expect(typeof b[k]).toBe('boolean');
+    // 本の検索の確かめ（2026-10-02）: 楽天の HTTP の番号と真偽だけ
+    expect(b.search).toMatchObject({ skipped: false, status: 403, top3: false });
+    expect(typeof b.search.found).toBe('boolean');
     expect(res.headers['cache-control']).toContain('s-maxage=300');
   });
 
@@ -300,5 +303,51 @@ describe('ありふれた核タイトル『プレイングマネジャー 「残
     expect(res.body.cover).toBe('');
     expect(res.body.isbn).toBe(TARGET);
     expect(res.body.candidates[0]).toBe(`https://ndlsearch.ndl.go.jp/thumbnail/${TARGET}.jpg`);
+  });
+});
+
+describe('/api/cover?search=（本の検索・2026-10-02）', () => {
+  const RAKUTEN = { Items: [
+    { Item: { title: '人は話し方が9割', author: '永松茂久', isbn: '9784799108642', largeImageUrl: 'https://thumbnail.image.rakuten.co.jp/a.jpg?_ex=200x200', reviewCount: 800 } },
+    { Item: { title: '考え方', subTitle: '人生・仕事の結果が変わる', author: '稲盛和夫', publisherName: '大和書房', salesDate: '2017年04月', isbn: '9784479795735', largeImageUrl: 'https://thumbnail.image.rakuten.co.jp/b.jpg?_ex=200x200', reviewCount: 160 } },
+  ] };
+  it('楽天（売上順・Referer つき）で探し、書名が合う本を先に・表紙つきで返す', async () => {
+    vi.stubEnv('RAKUTEN_APPLICATION_ID', 'app');
+    vi.stubEnv('RAKUTEN_ACCESS_KEY', 'pk_x');
+    vi.stubEnv('RAKUTEN_APP_URL', 'https://orime.vercel.app');
+    rakutenReply = { status: 200, body: JSON.stringify(RAKUTEN) };
+    routes = [[/ndlsearch/, () => resp({ type: 'application/xml', body: '<rss></rss>' })]];
+    const handler = await loadHandler();
+    const res = mockRes();
+    await handler(req({ search: '考え方' }), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.results[0]).toMatchObject({ title: '考え方', author: '稲盛和夫', isbn: '9784479795735' });
+    expect(res.body.results[0].cover).toBe('https://thumbnail.image.rakuten.co.jp/b.jpg?_ex=420x420');
+    expect(rakutenCalls[0].path).toContain('BooksBook/Search');
+    expect(rakutenCalls[0].path).toContain('sort=sales');
+    expect(rakutenCalls[0].headers.Referer).toBe('https://orime.vercel.app');
+    expect(res.headers['cache-control']).toContain('s-maxage=3600');
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+    // 同じ語は覚えておく（楽天を叩き直さない）
+    const n = rakutenCalls.length;
+    await handler(req({ search: '考え方' }), mockRes());
+    expect(rakutenCalls.length).toBe(n);
+  });
+  it('すべての取得元が失敗したら 502・覚えない（端末は自分の検索へ）', async () => {
+    vi.stubEnv('RAKUTEN_APPLICATION_ID', 'app');
+    vi.stubEnv('RAKUTEN_ACCESS_KEY', 'pk_x');
+    rakutenReply = { status: 429, body: '' };
+    routes = [[/ndlsearch/, () => resp({ status: 503 })]];
+    const handler = await loadHandler();
+    const res = mockRes();
+    await handler(req({ search: 'だめな日' }), res);
+    expect(res.statusCode).toBe(502);
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+  it('空の語は 400', async () => {
+    const handler = await loadHandler();
+    const res = mockRes();
+    await handler(req({ search: '  ' }), res);
+    expect(res.statusCode).toBe(400);
   });
 });

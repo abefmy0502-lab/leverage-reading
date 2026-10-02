@@ -11,12 +11,14 @@
 //     Google Books は鍵があれば補助に使う（GOOGLE_BOOKS_API_KEY、任意）。
 //
 // 入力（GET）: title, author, isbn（最低 title か isbn）、verify=1（AI 選書の実在の判定・任意）
+//   search=…（本の検索・2026-10-02・_bookSearch.js）/ health=1（取得元の診断）
 // 出力: { cover, isbn, candidates }（cover が '' なら未発見）。認証なし・公開書誌の読み取り専用。
 //   verify=1 のときは加えて { verified: true|false|null, match }（判定は _bookVerify.js・2026-09-30）。
 
-import https from 'node:https';
 import { applyCors } from './_cors.js';
 import { findStrongMatch, strongTitleMatch, authorMatches } from './_bookVerify.js';
+import { rakutenGet, rakutenUpscale } from './_rakuten.js';
+import { searchBooksServer, cachedSearch, rememberSearch, normalizeSearchQuery } from './_bookSearch.js';
 
 // 🔎 実在の判定（?verify=1）のための「検索元が返した本」の記録。表紙探しの流れの途中で
 //    楽天・NDL・Google が返した本（書名・著者・ISBN）を控え、最後に _bookVerify.js で
@@ -380,41 +382,7 @@ async function googleCover(title, author, isbn, sink, ev) {
 // env 未設定なら静かにスキップ（fail-safe・従来ソースのみで動く）。
 // 画像 URL は thumbnail.image.rakuten.co.jp（vercel.json の CSP img-src 許可済み）。
 // ─────────────────────────────────────────────────────────────────────────
-function rakutenGet(urlStr, referer) {
-  return new Promise((resolve, reject) => {
-    let u;
-    try { u = new URL(urlStr); } catch (e) { reject(e); return; }
-    const headers = { Accept: 'application/json' };
-    // Vercel の fetch(undici) は Referer を禁止ヘッダーとして剥がすため、
-    // Node https で直接送る（楽天の新 API は Referer 無しだと 403）。
-    if (referer) { headers.Referer = referer; headers.Origin = referer; }
-    const req = https.request(
-      { hostname: u.hostname, path: `${u.pathname}${u.search}`, method: 'GET', headers },
-      (res) => {
-        let data = '';
-        res.setEncoding('utf8');
-        res.on('data', (c) => {
-          data += c;
-          if (data.length > 1_000_000) {
-            data = data.slice(0, 1_000_000);
-            resolve({ status: res.statusCode || 200, body: data });
-            req.destroy();
-          }
-        });
-        res.on('end', () => resolve({ status: res.statusCode || 0, body: data }));
-      },
-    );
-    req.on('error', reject);
-    req.setTimeout(FETCH_TIMEOUT_MS, () => req.destroy(new Error('timeout')));
-    req.end();
-  });
-}
-
-// 楽天のサムネ URL の _ex サイズ指定を拡大（既定は 120x120 程度で粗い）。
-function rakutenUpscale(url) {
-  if (!url) return '';
-  return toHttps(String(url)).replace(/_ex=\d+x\d+/, '_ex=420x420');
-}
+// 楽天の呼び出し（鍵・Referer・Node の https）は _rakuten.js（本の検索 _bookSearch.js と共有）。
 
 // タイトル(+著者) または ISBN から楽天ブックスで表紙を引く。
 // NDL と同じ照合規律: ISBN 直引き以外は「タイトル一致必須」＋「著者一致を優先」。
@@ -578,6 +546,9 @@ const COVER_BUDGET_MS = 9000;
 // 🩺 /api/cover?health=1 の中身。設定は真偽だけ・各取得元は HTTP の番号と「見つかったか」だけ。
 //    決まった本（HEALTH_ISBN・公開の書誌）で確かめる。外部へ 10 回ほど出るので 5 分覚えておく。
 const HEALTH_TTL_MS = 5 * 60 * 1000;
+// 本の検索の確かめに使う語と本（稲盛和夫『考え方』大和書房 2017・公開の書誌）。
+const HEALTH_SEARCH_QUERY = '考え方';
+const HEALTH_SEARCH_ISBN = '9784479795735';
 let healthCache = null;
 async function coverHealth() {
   if (healthCache && Date.now() - healthCache.at < HEALTH_TTL_MS) return healthCache.data;
@@ -636,8 +607,22 @@ async function coverHealth() {
     img(`https://books.google.com/books/content?vid=ISBN${i13}&printsec=frontcover&img=1&zoom=1`),
     img(`https://covers.openlibrary.org/b/isbn/${i13}-L.jpg?default=false`),
   ]);
+  // 🔎 本の検索（?search=）: 決まった語「考え方」で楽天の売上順の検索が答えるか・稲盛和夫『考え方』が
+  //    上位 3 冊に入るか（真偽と HTTP の番号だけ）。楽天は続けて呼ぶと 429 になりやすいので、上の確認のあとに。
+  let search = { skipped: true, status: 0, found: false, top3: false };
+  try {
+    const sr = await searchBooksServer(HEALTH_SEARCH_QUERY, { budgetMs: 6000 });
+    const top3 = sr.results.slice(0, 3).some((b) => b.isbn === HEALTH_SEARCH_ISBN);
+    search = {
+      skipped: sr.sources.rakuten === 'off',
+      status: Number(sr.statuses?.rakuten || 0),
+      found: sr.results.length > 0,
+      top3,
+      sources: sr.sources,
+    };
+  } catch { /* 既定のまま */ }
   const data = {
-    v: 'cover-health-2026-09-30',
+    v: 'cover-health-2026-10-02',
     rakutenConfigured,
     rakutenRefererSet: !!(process.env.RAKUTEN_APP_URL || '').trim(),
     googleKeySet: !!(process.env.GOOGLE_BOOKS_API_KEY || '').trim(),
@@ -655,6 +640,7 @@ async function coverHealth() {
       googleContent,
       openLibrary,
     },
+    search,
     elapsedMs: Date.now() - started,
   };
   healthCache = { at: Date.now(), data };
@@ -686,6 +672,33 @@ export default async function handler(req, res) {
     const data = await coverHealth();
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
     return res.status(200).json(data);
+  }
+
+  // 🔎 本の検索: /api/cover?search=考え方 → { results: [{ title, subtitle, author, publisher, pubdate, pubYear,
+  //    isbn, cover, sales, review, source }] }（よく読まれている・書名がよく合う順・最大 30 冊）。
+  //    楽天（売上順）→ Google（鍵があれば）→ NDL（少ないときだけ）。流れは docs/book-search.md。
+  //    すべての取得元が失敗したら 502（端末は自分の検索に切り替える）。新しい関数を増やさないためここに置く。
+  if (req.query?.search !== undefined) {
+    const q = normalizeSearchQuery(Array.isArray(req.query.search) ? req.query.search[0] : req.query.search);
+    if (!q) return res.status(400).json({ error: 'search required' });
+    let data = cachedSearch(q);
+    if (!data) {
+      try {
+        data = await searchBooksServer(q);
+      } catch (e) {
+        console.warn('[api/cover] search failed:', e && e.message);
+        data = { ok: false, results: [] };
+      }
+      rememberSearch(q, data);
+    }
+    if (!data.ok) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(502).json({ error: 'unavailable', results: [] });
+    }
+    res.setHeader('Cache-Control', data.results.length
+      ? 'public, max-age=300, s-maxage=3600'
+      : 'public, max-age=0, s-maxage=300');
+    return res.status(200).json({ results: data.results });
   }
 
   const title = clean(req.query?.title);
