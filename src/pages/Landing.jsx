@@ -139,6 +139,11 @@ const CTA_LABEL = '無料プランで始める';
 
 const MONTHLY = 1480;
 const ANNUAL = 12800;
+// 金額の文字は数から作る（¥9,800 と同じく 1 か所・2026-10-02 ui-critic）。金額の真実は App Store。
+const yen = (n) => `¥${n.toLocaleString('ja-JP')}`;
+const MONTHLY_TEXT = yen(MONTHLY);
+const ANNUAL_TEXT = yen(ANNUAL);
+const PER_MONTH_TEXT = yen(Math.floor(ANNUAL / 12));
 const SAVE = savingsLabel(MONTHLY, ANNUAL);
 // 最後のボタンの下の注記（2 行以内・2026-09-29）。金額と自動更新・解約の条件は料金の欄（lp-pricing）で言う。
 //   句ごとの塊（inline-block）で組み、「7 / 日間」のように語の途中で折り返さない。
@@ -197,11 +202,11 @@ const FAQ_ITEMS = [
   },
   {
     q: '料金はいくらですか？',
-    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談が毎月 ${FREE_TOKENS} トークン（相談 約 3 回）、写真から書き起こしが毎月 ${FREE_OCR_PER_MONTH} 回です。プラン（月額 ¥1,480、または年額 ¥12,800・月あたり約 ¥1,066）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・読書計画シートも使えます。${OFFER.active ? `${END}までは、年額プランの 1 年目が ${FOUNDING_PRICE}（税込）です（創業メンバー価格）。` : ''}${TRIAL_NOTE ? `${TRIAL_WHO}は${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
+    a: `無料プラン（ずっと無料）で、メモ・記録・振り返り・シェアが使えます。AI は相談が毎月 ${FREE_TOKENS} トークン（相談 約 3 回）、写真から書き起こしが毎月 ${FREE_OCR_PER_MONTH} 回です。プラン（月額 ${MONTHLY_TEXT}、または年額 ${ANNUAL_TEXT}・月あたり約 ${PER_MONTH_TEXT}）にすると、相談が毎月 ${PAID_TOKENS} トークン（約 80 回）になり、AI 選書・読書計画シートも使えます。${OFFER.active ? `${END}までは、年額プランの 1 年目が ${FOUNDING_PRICE}（税込）です（創業メンバー価格）。` : ''}${TRIAL_NOTE ? `${TRIAL_WHO}は${TRIAL_SENT}です（初めての方だけ）。` : ''}お支払いは App Store（Apple ID）です。`,
   },
   ...(OFFER.active ? [{
     q: `${FOUNDING_NAME}とは何ですか？`,
-    a: `${END}（日本時間）までにプランを始めた方は、月額・年額どちらでも（7 日間無料で始めた方も）創業メンバーです。開発者への直接の窓口と、次に作る機能への投票をご用意しています。人数の上限はありません。年額プランなら、1 年目は ${FOUNDING_PRICE}（税込）を始めるときにまとめてお支払いいただき、2 年目からは年額 ¥12,800（税込）で自動更新されます。この価格は App Store の初回特典なので、同じ Apple ID でプランの初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。`,
+    a: `${END}（日本時間）までにプランを始めた方は、月額・年額どちらでも（7 日間無料で始めた方も）創業メンバーです。開発者への直接の窓口と、次に作る機能への投票をご用意しています。人数の上限はありません。年額プランなら、1 年目は ${FOUNDING_PRICE}（税込）を始めるときにまとめてお支払いいただき、2 年目からは年額 ${ANNUAL_TEXT}（税込）で自動更新されます。この価格は App Store の初回特典なので、同じ Apple ID でプランの初回特典（月額プランの 7 日間無料など）を使ったことがない方が対象です。`,
   }] : []),
   ...(TRIAL_NOTE ? [{
     q: '無料期間のあとは、自動で料金がかかりますか？',
@@ -605,14 +610,14 @@ export default function Landing() {
                 <p className="lp-offer-when"><span className="lp-nb">{OFFER.endLabel}</span>（日本時間）まで</p>
                 <h2 className="lp-h2" id="lp-offer-title">{FOUNDING_NAME}</h2>
                 <p className="lp-wbr">
-                  <Phrases>{`${OFFER.endLabel}までにプランを始めた方は、月額・年額どちらでも創業メンバーです。年額プランなら、1 年目が ${FOUNDING_PRICE}（税込）です。2 年目からは年額 ¥12,800（税込）で自動更新されます。`}</Phrases>
+                  <Phrases>{`${OFFER.endLabel}までにプランを始めた方は、月額・年額どちらでも創業メンバーです。年額プランなら、1 年目が ${FOUNDING_PRICE}（税込）です。2 年目からは年額 ${ANNUAL_TEXT}（税込）で自動更新されます。`}</Phrases>
                 </p>
                 <p className="lp-wbr"><Phrases>Orime は、阿部文哉がひとりで作っています。最初に使ってくださる方の声で、次の形を決めたいと思っています。</Phrases></p>
               </div>
               <div className="lp-offer-card">
                 <p className="lp-offer-label">年額プラン</p>
                 <p className="lp-offer-price">{OFFER.priceLabel}<span>（税込）</span></p>
-                <p className="lp-offer-after">2 年目から 年額 ¥12,800（税込）</p>
+                <p className="lp-offer-after">2 年目から 年額 {ANNUAL_TEXT}（税込）</p>
                 <p className="lp-offer-label lp-offer-label-perks">創業メンバーの特典（月額・年額どちらでも）</p>
                 <ul className="lp-included" aria-label="創業メンバーの特典">
                   <li><Check size={16} strokeWidth={2.4} aria-hidden="true" /><span>開発者への直接の窓口（いただいた要望を優先して読みます）</span></li>
@@ -664,18 +669,18 @@ export default function Landing() {
                         <p className="lp-plan-price">{OFFER.priceLabel}<span>（税込）</span></p>
                         {/* 条件は金額のすぐ下に（誰の・いつの価格か・景表法・2026-10-02 ui-critic）。その次の行に 2 年目からの自動更新。 */}
                         <p className="lp-plan-cond"><span className="lp-nb">{OFFER.endLabel}</span>までに始めた方の 1 年目（初回特典を使ったことがない Apple ID）</p>
-                        <p className="lp-plan-sub">2 年目から 年額 ¥12,800（税込）で自動更新</p>
+                        <p className="lp-plan-sub">2 年目から 年額 {ANNUAL_TEXT}（税込）で自動更新</p>
                       </>
                     ) : (
                       <>
-                        <p className="lp-plan-price">¥12,800<span>/ 年（税込）</span></p>
-                        <p className="lp-plan-sub">月あたり約 ¥1,066。{SAVE}。</p>
+                        <p className="lp-plan-price">{ANNUAL_TEXT}<span>/ 年（税込）</span></p>
+                        <p className="lp-plan-sub">月あたり約 {PER_MONTH_TEXT}。{SAVE}。</p>
                       </>
                     )}
                   </div>
                   <div className="lp-plan-row">
                     <p className="lp-plan-label">月額プラン</p>
-                    <p className="lp-plan-price">¥1,480<span>/ 月（税込）</span></p>
+                    <p className="lp-plan-price">{MONTHLY_TEXT}<span>/ 月（税込）</span></p>
                     <p className="lp-plan-sub">{OFFER.active && TRIAL_FIRST ? `${TRIAL_FIRST}。` : '1 か月ずつ続けられます。'}</p>
                   </div>
                 </div>
@@ -685,10 +690,10 @@ export default function Landing() {
               <StoreCta className="lp-btn lp-btn-large" loc="pricing">{CTA_LABEL}</StoreCta>
               <p className="lp-cta-note lp-wbr">
                 <Phrases>{`アプリは無料でダウンロードできます。${OFFER.active
-                  ? `${FOUNDING_NAME}の年額プランは、1 年目の ${FOUNDING_PRICE}（税込）を始めるときにまとめてお支払いいただき、2 年目から年額 ¥12,800（税込）で自動更新されます。${TRIAL_NOTE ? `月額プランは${TRIAL_SENT}で、そのあと月額 ¥1,480（税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。` : '月額プランは月額 ¥1,480（税込）で自動更新されます。'}`
+                  ? `${FOUNDING_NAME}の年額プランは、1 年目の ${FOUNDING_PRICE}（税込）を始めるときにまとめてお支払いいただき、2 年目から年額 ${ANNUAL_TEXT}（税込）で自動更新されます。${TRIAL_NOTE ? `月額プランは${TRIAL_SENT}で、そのあと月額 {MONTHLY_TEXT}（税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。` : '月額プランは月額 ${MONTHLY_TEXT}（税込）で自動更新されます。'}`
                   : TRIAL_NOTE
-                    ? `プランは${TRIAL_SENT}で、そのあと選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。`
-                    : 'プランは、選んだプラン（月額 ¥1,480 または年額 ¥12,800・税込）で自動更新されます。'}`}</Phrases>
+                    ? `プランは${TRIAL_SENT}で、そのあと選んだプラン（月額 ${MONTHLY_TEXT} または年額 ${ANNUAL_TEXT}・税込）で自動更新されます。無料期間が終わる 24 時間前までに解約すれば、料金はかかりません。`
+                    : `プランは、選んだプラン（月額 ${MONTHLY_TEXT} または年額 ${ANNUAL_TEXT}・税込）で自動更新されます。`}`}</Phrases>
                 <br />
                 <Phrases>お支払いは App Store（Apple ID）です。解約はいつでもでき、違約金はありません。解約しても無料プランで使え、メモは残ります。</Phrases>
               </p>

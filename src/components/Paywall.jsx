@@ -752,7 +752,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
                   <p style={{ ...billedAmount, margin: 'var(--space-1) 0 0' }}><PriceText text={labels[id].price} /></p>
                   {/* Web では本人が初回特典を使えるか分からないので、「初めての方」と条件を添える（金額の真実は App Store）。 */}
                   {id === 'annual' && founding.active && (
-                    <p style={{ ...planNote, margin: 'var(--space-1) 0 0' }}>{noBreak(founding.endLabel)}までに始めると {founding.priceLabel}（税込・初めての方）</p>
+                    <p style={{ ...planNote, margin: 'var(--space-1) 0 0' }}>{noBreak(founding.endLabel)}までに始めると <span style={chunk}>{founding.priceLabel}</span><span style={chunk}>（税込・初めての方）</span></p>
                   )}
                 </div>
               ))}
