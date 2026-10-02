@@ -5,7 +5,8 @@
 // - 画面はお試しモード（サンプルのメモ）で撮った実際のアプリ（npm run lp:shots の flow-*）。動画は使わない（軽さ）。
 // - 画面に入ったら 1 回だけ自動で進む（1 枚 3.75 秒・最後で止まる）。画面から外れたら止め、戻ったら続きから。
 // - 動きを減らす設定では自動で進めない（最初の 1 枚を出し、手順を押すと切り替わる）。止める／もう一度見るボタンあり
-//   （5 秒を超えて動くものは止められること・WCAG 2.2.2）。
+//   （5 秒を超えて動くものは止められること・WCAG 2.2.2）。ボタンは進み具合の行の右端（動いている間も見える）。
+//   説明の読み上げ（aria-live）は手順を押したあとだけ。
 // - 記録: 画面に入った（flow_view・1 回）／手順を押した（flow_step）／もう一度見た（flow_replay）。
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Shot from './LpShot';
@@ -88,7 +89,10 @@ export default function LpFlow({ onEvent = () => {} }) {
   }, [running, step]);
 
   // 手順を押したら、その枚に切り替えて自動では進めない。
+  // 読み上げ（aria-live）は、手順を押したあとだけ（自動で進む間に 3.75 秒ごとに読み上げない・2026-10-02 ui-critic）。
+  const [announce, setAnnounce] = useState(false);
   const pick = useCallback((i) => {
+    setAnnounce(true);
     setStep(i);
     setPlaying(false);
     setFinished(true);
@@ -102,8 +106,18 @@ export default function LpFlow({ onEvent = () => {} }) {
   };
   const pause = () => { setPlaying(false); setFinished(true); };
 
+  // 止める／もう一度見る／次へ は、進み具合の行の右端（動いている間も見える場所・2026-10-02 ui-critic）。
+  let control = null;
+  if (playing) control = <button type="button" className="lp-textbtn" onClick={pause}>止める</button>;
+  else if (still) {
+    control = step < FLOW_STEPS.length - 1
+      ? <button type="button" className="lp-textbtn" onClick={() => pick(step + 1)}>次へ</button>
+      : <button type="button" className="lp-textbtn" onClick={() => pick(0)}>最初から</button>;
+  } else if (finished) control = <button type="button" className="lp-textbtn" onClick={replay}>もう一度見る</button>;
+
   return (
     <div className={`lp-flow${running ? ' is-playing' : ''}`} ref={rootRef}>
+      <div className="lp-flow-progress">
       <ol className="lp-flow-steps" aria-label="相談の流れ">
         {FLOW_STEPS.map((s, i) => {
           const state = i < step ? 'is-done' : i === step ? 'is-active' : '';
@@ -121,8 +135,10 @@ export default function LpFlow({ onEvent = () => {} }) {
           );
         })}
       </ol>
+        <div className="lp-flow-controls">{control}</div>
+      </div>
       <div className="lp-flow-main">
-        <p className="lp-flow-caption" aria-live="polite">
+        <p className="lp-flow-caption" aria-live={announce ? 'polite' : undefined}>
           <span className="lp-flow-caption-title">{step + 1}. {FLOW_STEPS[step].title}</span>
           <span className="lp-flow-caption-body">{FLOW_STEPS[step].body}</span>
         </p>
@@ -132,16 +148,6 @@ export default function LpFlow({ onEvent = () => {} }) {
               <Shot name={s.name} alt={s.alt} hidden={i !== step} />
             </div>
           ))}
-        </div>
-        <div className="lp-flow-controls">
-          {running && <button type="button" className="lp-textbtn" onClick={pause}>止める</button>}
-          {!running && finished && !still && <button type="button" className="lp-textbtn" onClick={replay}>もう一度見る</button>}
-          {!running && still && step < FLOW_STEPS.length - 1 && (
-            <button type="button" className="lp-textbtn" onClick={() => pick(step + 1)}>次へ</button>
-          )}
-          {!running && still && step === FLOW_STEPS.length - 1 && (
-            <button type="button" className="lp-textbtn" onClick={() => pick(0)}>最初から</button>
-          )}
         </div>
       </div>
     </div>

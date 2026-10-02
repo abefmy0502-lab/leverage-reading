@@ -325,7 +325,10 @@ body.lp-active {
 .lp-flow-stage { display: grid; margin-top: var(--space-4); }
 .lp-flow-frame { grid-area: 1 / 1; opacity: 0; transition: opacity 400ms ease; }
 .lp-flow-frame.is-on { opacity: 1; }
-.lp-flow-controls { display: flex; justify-content: center; min-height: 44px; margin-top: var(--space-3); }
+/* 進み具合の行: 手順（4 つの線と番号）＋右端に「止める」などの文字ボタン（いつも同じ場所・高さ 44 を取っておく） */
+.lp-flow-progress { display: flex; align-items: flex-start; gap: var(--space-2); }
+.lp-flow-progress .lp-flow-steps { flex: 1; min-width: 0; }
+.lp-flow-controls { display: flex; justify-content: flex-end; flex-shrink: 0; min-width: 5.5em; min-height: 44px; margin-right: calc(-1 * var(--space-3)); }
 .lp-shot-note { margin-top: var(--space-4) !important; color: var(--text-2); font-size: var(--text-meta); text-align: center; }
 
 /* ③ 比較表（ブクログ・ChatGPT・Orime）。Orime の列は色ではなく、文字の濃さと面で示す（アクセントは押せるものだけ） */
@@ -574,6 +577,9 @@ body.lp-active {
     padding: var(--space-3) 0 var(--space-4);
   }
   .lp-flow-bar { grid-column: 1 / -1; }
+  /* 広い画面: 手順は縦の一覧。ボタンは一覧の下（左にそろえる） */
+  .lp-flow-progress { flex-direction: column; align-items: stretch; }
+  .lp-flow-controls { justify-content: flex-start; margin-right: 0; margin-left: calc(-1 * var(--space-3)); }
   .lp-flow-num, .lp-flow-title { font-size: var(--text-body); line-height: 1.5; }
   .lp-flow-title { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; font-weight: 600; word-break: auto-phrase; }
   .lp-flow-main { width: 300px; }
