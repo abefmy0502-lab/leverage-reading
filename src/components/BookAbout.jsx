@@ -94,7 +94,10 @@ function Description({ text, clamp }) {
   );
 }
 
-/** 読み込み中の骨組み（見出し＋紹介文 3 行・本物と同じ高さ）。 */
+/**
+ * 読み込み中の骨組み。目次の無いカード（見出し＋紹介文 3 行＋「続きを読む」の行＋添え書きの行）と同じ高さ
+ * （約 208）。目次のある本は、読み込み後に目次の行（48＋12）のぶんだけ伸びる（はじめて開いたときだけ・2 回目からは控えから即座に）。
+ */
 export function BookAboutSkeleton({ style }) {
   const line = { height: 'calc(var(--text-read) * 1.6)', display: 'flex', alignItems: 'center' };
   return (
@@ -104,6 +107,14 @@ export function BookAboutSkeleton({ style }) {
         <div style={line}><SkeletonBlock width="94%" height={14} radius="var(--radius-full)" /></div>
         <div style={line}><SkeletonBlock width="86%" height={14} radius="var(--radius-full)" /></div>
         <div style={line}><SkeletonBlock width="58%" height={14} radius="var(--radius-full)" /></div>
+        {/* 「続きを読む」の行（高さ 44・下の余り 8 を詰めるのも本物と同じ） */}
+        <div style={{ height: 44, display: 'flex', alignItems: 'center', marginBottom: 'calc(-1 * var(--space-2))' }}>
+          <SkeletonBlock width={72} height={14} radius="var(--radius-full)" />
+        </div>
+        {/* 添え書きの行（13・行間 1.5） */}
+        <div style={{ height: 'calc(var(--text-meta) * 1.5)', marginTop: 'var(--space-2)', display: 'flex', alignItems: 'center' }}>
+          <SkeletonBlock width="62%" height={12} radius="var(--radius-full)" />
+        </div>
       </div>
     </section>
   );
