@@ -7,7 +7,7 @@
 // 流れ（オーナー承認の構成）:
 //   ① ヒーロー（見出し＋相談の答えの実画面）
 //   ② 悩み → あなたのメモの一節 → 聞き返し → 一歩を決める（実画面 4 枚・約 15 秒・LpFlow.jsx）
-//   ③ 比較表（ブクログ＝記録／ChatGPT＝一般論／Orime＝あなたの読書から答える。事実だけ・けなさない）
+//   ③ 比較表（ブクログ＝記録／ChatGPT＝広い知識から答える／Orime＝あなたの読書から答える。事実だけ・けなさない）
 //   ④ 写真で共有の見本（アプリが描いた実際の画像）
 //   ⑤ 「メモは、AI の学習に使われません。」（と、データの約束）
 //   （創業メンバー価格・期間中だけ）→ 料金 → よくある質問 → ⑥ 最後のボタン「無料プランで始める」
@@ -155,7 +155,8 @@ const TESTIMONIALS = [];
 // 事実だけ・けなさない。それぞれの得意なことを並べる（他社にない機能を「無い」とは書かない）。
 const COMPARE_COLS = [
   { name: 'ブクログ', key: '記録' },
-  { name: 'ChatGPT', key: '一般論' },
+  // ChatGPT の見出しは「広い知識から答える」（「一般論」はけなして聞こえる・事実だけ・2026-10-02 コーディネーター裁定）。
+  { name: 'ChatGPT', key: '広い知識から答える' },
   { name: 'Orime', key: 'あなたの読書から答える', us: true },
 ];
 const COMPARE_ROWS = [
@@ -494,7 +495,7 @@ export default function Landing() {
                   {COMPARE_COLS.map((c) => (
                     <th scope="col" key={c.name} className={c.us ? 'is-us' : undefined}>
                       <span className="lp-cmp-name">{c.name}</span>
-                      <span className="lp-cmp-key">{c.key}</span>
+                      <span className="lp-cmp-key lp-wbr"><Phrases>{c.key}</Phrases></span>
                     </th>
                   ))}
                 </tr>
@@ -504,7 +505,7 @@ export default function Landing() {
                   <tr key={r.label}>
                     <th scope="row">{r.label}</th>
                     {r.cells.map((t, i) => (
-                      <td key={COMPARE_COLS[i].name} className={COMPARE_COLS[i].us ? 'is-us' : undefined} data-col={COMPARE_COLS[i].name}>{t}</td>
+                      <td key={COMPARE_COLS[i].name} className={COMPARE_COLS[i].us ? 'is-us' : undefined} data-col={COMPARE_COLS[i].name}><span className="lp-wbr"><Phrases>{t}</Phrases></span></td>
                     ))}
                   </tr>
                 ))}

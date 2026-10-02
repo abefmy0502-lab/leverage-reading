@@ -13,7 +13,7 @@
 //
 // 設計方針（DESIGN.md / brand-messaging.md 準拠）:
 //   - 静か・誠実・控えめ（Apple メモ級）。煽らない・断定しない。絵文字は使わない（lucide の線アイコン）。
-//   - 一番の価値「読むほど、自分だけの相談相手が育つ」を見出しに、相談＝主役・行動＝柱を 3 行で示す。
+//   - 見出しは LP と同じポジショニング「読んだ本が、あなたの相談相手になる」（2026-10-02）。
 //   - 塗りの主ボタンは 1 つ（選んだプランで始める）。プランは選択式（年額が既定）。
 //   - 価格の実数はストア（iap.js の getStoreLabels）/ env ラベル（billing.js の PLAN_LABELS）が真実。
 //   - 解約自由・データ保持の安心コピーは規約文の中に 1 回だけ。
@@ -61,7 +61,7 @@ import { FREE_TOKENS, PAID_TOKENS, TRIAL_TOKENS, TOKEN_COSTS, monthDayLabelJa } 
 import { FREE_OCR_PER_MONTH } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { normalizeTrialLabel, trialFirstPhrase } from '../lib/trialNudge';
-import { introOfferOf, introPriceLabel, billedLineParts, planCtaLabel, trialPlanOf, renewalSentence, webRenewalSentence } from '../lib/planOffers';
+import { introOfferOf, introPriceLabel, billedLineParts, planCtaLabel, trialPlanOf, renewalSentence, webRenewalSentence, withTax } from '../lib/planOffers';
 import { readFoundingOffer, devFoundingParam, noBreak, FOUNDING_NAME, FOUNDING_PRICE_YEN, FOUNDING_PRICE_TEXT } from '../lib/foundingOffer';
 
 // 未契約でもアカウントを削除できるように（App Store 審査 5.1.1(v)）。設定の削除欄をそのまま使う。
@@ -91,7 +91,8 @@ function PriceText({ text }) {
   const { main, perMonth } = splitPriceLabel(text);
   return (
     <>
-      <span style={{ display: 'block' }}>{main}</span>
+      {/* 円の金額には「（税込）」（ストアの値には付いていないので、月額・年額・1 年目の行をそろえる・2026-10-02） */}
+      <span style={{ display: 'block' }}>{withTax(main)}</span>
       {perMonth && (
         <span style={planNote}>{perMonth}</span>
       )}
@@ -265,7 +266,7 @@ function PlanOption({ label, selected, onSelect, placeholder = false, tag = '', 
             有料の初回価格（創業メンバー価格）は「1 年目 ¥9,800」を強く、「2 年目から ¥12,800」を補足に。 */}
         {label.intro ? (
           <>
-            <span style={billedAmount}>{label.intro.head}</span>
+            <span style={billedAmount}>{withTax(label.intro.head)}</span>
             {label.intro.after && <span style={planNote}>{label.intro.after}</span>}
           </>
         ) : (
@@ -537,7 +538,7 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
               ? <>写真から書き起こしを、<br />もっと使いませんか</>
               : fromFeature
                 ? <>{feature || 'この機能'}は、<br />プランで使えます</>
-                : <>読むほど、<br />自分だけの相談相手が育つ</>}
+                : <>読んだ本が、<br />あなたの相談相手になる</>}
         </h1>
         {fromFreeOcr && (
           // 無料プランの今月の分（月 10 回）を使い切ったことと、戻る日（日本時間の来月 1 日）。
