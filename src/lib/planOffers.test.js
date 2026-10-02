@@ -81,9 +81,10 @@ describe('buildStoreLabels（有料プランの画面の価格）', () => {
     expect(trialPlanOf(l)).toBe('monthly');
     // 年額のどの文字にも 7 日間無料が出ない
     expect(JSON.stringify(l.annual)).not.toMatch(/無料/);
-    expect(billedLine(l.annual)).toBe('1 年目 ¥9,800、2 年目から 年額 ¥12,800 で自動更新');
+    expect(billedLine(l.annual)).toBe('1 年目 ¥9,800（税込）、2 年目から 年額 ¥12,800（税込）で自動更新');
+    expect(billedLineParts(l.annual)).toEqual(['1 年目 ¥9,800（税込）、', '2 年目から 年額 ¥12,800（税込）', 'で自動更新']);
     expect(planCtaLabel(l.annual)).toBe('年額プランで始める');
-    expect(billedLine(l.monthly)).toBe('その後 月額 ¥1,480 で自動更新');
+    expect(billedLine(l.monthly)).toBe('その後 月額 ¥1,480（税込）で自動更新');
     expect(planCtaLabel(l.monthly)).toBe('7 日間無料で試す');
   });
 
@@ -93,7 +94,7 @@ describe('buildStoreLabels（有料プランの画面の価格）', () => {
     expect(l.annual.trial).toBe('');
     expect(l.monthly.trial).toBe('');
     expect(l.annual.save).toBe('月額プランより 27% お得');
-    expect(billedLine(l.annual)).toBe('年額 ¥12,800 で自動更新');
+    expect(billedLine(l.annual)).toBe('年額 ¥12,800（税込）で自動更新');
     expect(trialPlanOf(l)).toBe('');
   });
 

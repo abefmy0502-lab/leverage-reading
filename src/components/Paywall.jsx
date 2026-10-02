@@ -580,16 +580,20 @@ export default function Paywall({ onPurchased, reason = null, feature = '', onCl
           id="paywall-title"
           style={{ fontSize: 'var(--text-title)', fontWeight: 700, lineHeight: 1.3, margin: 'var(--space-2) 0 0' }}
         >
-          {fromFree
-            ? <>この相談相手と、<br />もっと話しませんか</>
+          {/* 文節ごとの塊（LP の h1 と同じ）。<br> で決め打ちせず、入らないときは塊ごとに次の行へ
+              （大きな文字で「読んだ本／が、」と割れていた・2026-10-02 ui-critic）。 */}
+          {(fromFree
+            ? ['この', '相談相手と、', 'もっと', '話しませんか']
             : fromFreeOcr
-              ? <>写真から書き起こしを、<br />もっと使いませんか</>
+              ? ['写真から', '書き起こしを、', 'もっと', '使いませんか']
               : fromFeature
-                ? <>{feature || 'この機能'}は、<br />プランで使えます</>
-                : <>読んだ本が、<br />あなたの相談相手になる</>}
+                ? [`${feature || 'この機能'}は、`, 'プランで', '使えます']
+                // 大きな文字でも 1 つの塊が 1 行に入るよう、短い文節に分ける（「読んだ本／が、」と割れない）。
+                : ['読んだ', '本が、', 'あなたの', '相談相手に', 'なる']
+          ).map((phrase) => <span key={phrase} style={chunk}>{phrase}</span>)}
         </h1>
         {fromFreeOcr && (
-          // 無料プランの今月の分（月 10 回）を使い切ったことと、戻る日（日本時間の来月 1 日）。
+          // 無料プランの今月の分（毎月 10 回）を使い切ったことと、戻る日（日本時間の来月 1 日）。
           <p style={{ ...metaText, fontSize: 'var(--text-sub)', marginTop: 'var(--space-2)' }}>
             <span style={{ whiteSpace: 'nowrap' }}>今月の {FREE_OCR_PER_MONTH} 回を使い切りました。</span>
             <span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に戻ります。</span>
